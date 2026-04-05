@@ -4355,6 +4355,38 @@ fn write_source_port_next_agent_note(
 
 fn render_source_port_next_agent_note(frontier: &FrontierContext, task: &TaskPackage) -> String {
     let closed_frontier = frontier.status == "complete";
+    let recovery_summary = match (
+        task.recovery_mode,
+        task.recovery_step,
+        task.stalled_repetition_count,
+        task.pivot_reason.as_deref(),
+    ) {
+        (Some(mode), Some(step), Some(repetitions), Some(reason)) => Some(format!(
+            "Recovery mode `{}` / step `{}` after {} repeated stalled cycles: {}",
+            mode.as_str(),
+            step.as_str(),
+            repetitions,
+            reason
+        )),
+        (Some(mode), Some(step), _, Some(reason)) => Some(format!(
+            "Recovery mode `{}` / step `{}`: {}",
+            mode.as_str(),
+            step.as_str(),
+            reason
+        )),
+        (Some(mode), Some(step), Some(repetitions), None) => Some(format!(
+            "Recovery mode `{}` / step `{}` after {} repeated stalled cycles.",
+            mode.as_str(),
+            step.as_str(),
+            repetitions
+        )),
+        (Some(mode), Some(step), None, None) => Some(format!(
+            "Recovery mode `{}` / step `{}`.",
+            mode.as_str(),
+            step.as_str()
+        )),
+        _ => None,
+    };
     let release_gate_failure = task
         .evidence
         .iter()
@@ -4366,12 +4398,16 @@ fn render_source_port_next_agent_note(frontier: &FrontierContext, task: &TaskPac
         .find(|item| item.label == "release-gate-focus")
         .map(|item| item.detail.as_str());
     let exact_next_moves = if closed_frontier {
-        let mut moves = vec![format!(
+        let mut moves = Vec::new();
+        if let Some(summary) = recovery_summary.as_ref() {
+            moves.push(summary.clone());
+        }
+        moves.push(format!(
             "Do not reopen TAS-frontier work; continue through delegated lane `{}`.",
             task.delegated_goal
                 .map(AutonomyGoal::slug)
                 .unwrap_or("source-port-frontier")
-        )];
+        ));
         if let Some(target) = task.delegated_target.as_deref() {
             moves.push(format!(
                 "Target `{target}` for the next concrete source-port step."
@@ -4439,7 +4475,7 @@ status: {status}
         updated_at = autonomy_timestamp(),
         status = frontier.status,
         what_changed = if closed_frontier {
-            format!(
+            let delegated_lane = format!(
                 "The TAS frontier is closed through frame {}; the next loop is delegated to {}{}.",
                 frontier.authoritative_clean_through,
                 task.delegated_goal
@@ -4449,7 +4485,11 @@ status: {status}
                     .as_deref()
                     .map(|target| format!(" ({target})"))
                     .unwrap_or_default()
-            )
+            );
+            recovery_summary
+                .as_ref()
+                .map(|summary| format!("{delegated_lane} {summary}"))
+                .unwrap_or(delegated_lane)
         } else {
             format!(
                 "The active TAS frontier remains `{}` at frame {}.",
@@ -5754,6 +5794,11 @@ mod tests {
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 3, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
+        let frontier = task
+            .frontier_context
+            .as_ref()
+            .expect("frontier context should exist");
+        let rendered_note = render_source_port_next_agent_note(frontier, &task);
 
         assert_eq!(
             task.recovery_mode,
@@ -5768,6 +5813,16 @@ mod tests {
             cycle
                 .progress_fingerprint
                 .contains("recovery:refresh_evidence")
+        );
+        assert!(
+            rendered_note.contains(
+                "Recovery mode `stalled_fingerprint` / step `refresh_evidence` after 3 repeated stalled cycles"
+            ),
+            "recovery note should surface the stalled recovery context"
+        );
+        assert!(
+            rendered_note.contains("narrow the next run to release-gate evidence refresh instead of another broad lane replay"),
+            "recovery note should surface the stalled recovery pivot reason"
         );
     }
 
