@@ -13,6 +13,24 @@ pub(crate) struct FgPlaneCustomWriteSub1596 {
     pub(crate) data_longword: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FlagpoleScoreboardCursorSubC254 {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+    pub(crate) remaining_cols_in_row: i16,
+    pub(crate) row_width: i16,
+    pub(crate) remaining_rows: i16,
+    pub(crate) row_start_col: u16,
+    pub(crate) budget: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FlagpoleScoreboardStepSubC254 {
+    pub(crate) entry: FgUpdateQueueCustomEntrySub1596,
+    pub(crate) next_cursor: FlagpoleScoreboardCursorSubC254,
+    pub(crate) finished: bool,
+}
+
 pub(crate) const SUB_28FC_SLOT_COUNT: usize = 6;
 pub(crate) const SUB_28FC_SLOT_STRIDE_BYTES: usize = 0x52;
 const SPRITE_TABLE_ADDR_SUB_B52: u32 = 0xFFFF_0000;
@@ -499,6 +517,64 @@ pub(crate) fn drain_fg_update_queue_custom_sub_1596(
         });
     }
     writes
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn flagpole_scoreboard_step_sub_C254(
+    grid: &terrain::BlockGrid,
+    cursor: FlagpoleScoreboardCursorSubC254,
+) -> FlagpoleScoreboardStepSubC254 {
+    // ASM sub_C254 (kid.asm:15821): emit one `FGPlane_UpdateQueueCustom`
+    // entry for `(d0,d1)`, choosing the tile pair from `unk_C2EA`,
+    // `unk_C2C2`, or one of the four `unk_C2CA` collision variants, then
+    // advance `d0/d1/$44/$46/$48/$4A` and reduce the per-frame budget in `d7`.
+    const EMPTY_LONGWORDS: [u32; 2] = [0x4409_4409, 0x4409_4409];
+    const COLLISION_LONGWORDS: [[u32; 2]; 4] = [
+        [0x4409_4411, 0x4412_440D],
+        [0x440E_4409, 0x440F_4410],
+        [0x440A_440B, 0x440C_440D],
+        [0x4413_4414, 0x4415_4416],
+    ];
+    const BLOCK_LONGWORDS: [u32; 2] = [0x4417_4418, 0x4419_441A];
+
+    let vram_word_address = ((cursor.row & 0x000F) << 8) | ((cursor.col & 0x001F) << 2);
+    let cell = grid.cell_at(cursor.col, cursor.row);
+
+    let (longwords, budget_delta) = if cell.has_block {
+        (BLOCK_LONGWORDS, 6)
+    } else {
+        match cell.collision {
+            terrain::CollisionKind::Empty | terrain::CollisionKind::HiddenBlock => {
+                (EMPTY_LONGWORDS, 2)
+            }
+            terrain::CollisionKind::SlopeUp => (COLLISION_LONGWORDS[0], 6),
+            terrain::CollisionKind::SlopeDown => (COLLISION_LONGWORDS[1], 6),
+            terrain::CollisionKind::Solid => (COLLISION_LONGWORDS[2], 6),
+            terrain::CollisionKind::Spikes => (COLLISION_LONGWORDS[3], 6),
+        }
+    };
+
+    let mut next_cursor = cursor;
+    next_cursor.budget -= budget_delta;
+    next_cursor.col = next_cursor.col.wrapping_add(1);
+    next_cursor.remaining_cols_in_row -= 1;
+    if next_cursor.remaining_cols_in_row < 0 {
+        next_cursor.col = next_cursor.row_start_col;
+        next_cursor.remaining_cols_in_row = next_cursor.row_width;
+        next_cursor.row = next_cursor.row.wrapping_add(1);
+        next_cursor.remaining_rows -= 1;
+    }
+
+    FlagpoleScoreboardStepSubC254 {
+        entry: FgUpdateQueueCustomEntrySub1596 {
+            vram_word_address,
+            first_longword: longwords[0],
+            second_longword: longwords[1],
+        },
+        finished: next_cursor.budget < 0,
+        next_cursor,
+    }
 }
 
 #[allow(non_snake_case)]

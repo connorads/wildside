@@ -19,15 +19,17 @@ use crate::helmets::{
     red_stealth_swing_anchor_sub_868E, skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
-    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FullscreenPaletteFadeSub73D0,
-    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, SpriteFrameStateSubB52, apply_pending_palette_fade_sub_14C0,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    FlagpoleScoreboardStepSubC254, FullscreenPaletteFadeSub73D0, SUB_28FC_SLOT_COUNT,
+    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
+    SpriteFrameStateSubB52, apply_pending_palette_fade_sub_14C0,
     blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
     compile_block_debris_sprites_sub_2A4C, drain_fg_update_queue_custom_sub_1596,
-    fade_palette_span_sub_1C85E, initialise_fullscreen_palette_fade_sub_73D0,
-    initialise_scratch_queue_sub_28FC, initialise_sprite_frame_state_sub_B52,
-    scratch_debris_pieces_sub_292E, spawn_block_debris_sub_292E,
-    step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
+    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    initialise_fullscreen_palette_fade_sub_73D0, initialise_scratch_queue_sub_28FC,
+    initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
+    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
+    swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -411,6 +413,128 @@ fn sub_bd0a_leaves_the_existing_layout_untouched_while_the_timer_is_frozen() {
         hud_timer_sprite_layout_sub_BD0A(seeded, true, true, 0x0130, 0x0180, 0x0100, 0x0120),
         seeded,
         "ASM sub_BD0A should return immediately from loc_BD38 when `$FFFFFB4B` is set, preserving the last seeded sprite layout",
+    );
+}
+
+#[test]
+fn sub_c254_uses_the_block_tile_pair_and_advances_within_the_row() {
+    let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+    grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0xE1, 0x00));
+
+    let step = flagpole_scoreboard_step_sub_C254(
+        &grid,
+        FlagpoleScoreboardCursorSubC254 {
+            col: 1,
+            row: 2,
+            remaining_cols_in_row: 3,
+            row_width: 3,
+            remaining_rows: 5,
+            row_start_col: 1,
+            budget: 12,
+        },
+    );
+
+    assert_eq!(
+        step,
+        FlagpoleScoreboardStepSubC254 {
+            entry: FgUpdateQueueCustomEntrySub1596 {
+                vram_word_address: 0x0204,
+                first_longword: 0x4417_4418,
+                second_longword: 0x4419_441A,
+            },
+            next_cursor: FlagpoleScoreboardCursorSubC254 {
+                col: 2,
+                row: 2,
+                remaining_cols_in_row: 2,
+                row_width: 3,
+                remaining_rows: 5,
+                row_start_col: 1,
+                budget: 6,
+            },
+            finished: false,
+        },
+        "ASM sub_C254 should encode `(row&$F)<<8 | (col&$1F)<<2`, select `unk_C2EA` for bit-15 block tiles, subtract 6 from `d7`, and advance to the next column",
+    );
+}
+
+#[test]
+fn sub_c254_uses_the_empty_tile_pair_for_non_bit14_cells() {
+    let grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+
+    let step = flagpole_scoreboard_step_sub_C254(
+        &grid,
+        FlagpoleScoreboardCursorSubC254 {
+            col: 3,
+            row: 1,
+            remaining_cols_in_row: 1,
+            row_width: 4,
+            remaining_rows: 3,
+            row_start_col: 3,
+            budget: 8,
+        },
+    );
+
+    assert_eq!(
+        step,
+        FlagpoleScoreboardStepSubC254 {
+            entry: FgUpdateQueueCustomEntrySub1596 {
+                vram_word_address: 0x010C,
+                first_longword: 0x4409_4409,
+                second_longword: 0x4409_4409,
+            },
+            next_cursor: FlagpoleScoreboardCursorSubC254 {
+                col: 4,
+                row: 1,
+                remaining_cols_in_row: 0,
+                row_width: 4,
+                remaining_rows: 3,
+                row_start_col: 3,
+                budget: 6,
+            },
+            finished: false,
+        },
+        "ASM sub_C254 should take `unk_C2C2` and only subtract 2 from `d7` when the sampled tile is neither a block nor a bit-14 collision tile",
+    );
+}
+
+#[test]
+fn sub_c254_uses_the_collision_table_and_wraps_to_the_next_row() {
+    let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+    grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x70, 0x00));
+
+    let step = flagpole_scoreboard_step_sub_C254(
+        &grid,
+        FlagpoleScoreboardCursorSubC254 {
+            col: 2,
+            row: 1,
+            remaining_cols_in_row: 0,
+            row_width: 5,
+            remaining_rows: 2,
+            row_start_col: 7,
+            budget: 4,
+        },
+    );
+
+    assert_eq!(
+        step,
+        FlagpoleScoreboardStepSubC254 {
+            entry: FgUpdateQueueCustomEntrySub1596 {
+                vram_word_address: 0x0108,
+                first_longword: 0x4413_4414,
+                second_longword: 0x4415_4416,
+            },
+            next_cursor: FlagpoleScoreboardCursorSubC254 {
+                col: 7,
+                row: 2,
+                remaining_cols_in_row: 5,
+                row_width: 5,
+                remaining_rows: 1,
+                row_start_col: 7,
+                budget: -2,
+            },
+            finished: true,
+        },
+        "ASM sub_C254 should use the final `unk_C2CA` pair for `$7000` spike tiles, then wrap to `$4A(a5)` / next row when `$44(a5)` underflows and report a negative post-step budget",
     );
 }
 
