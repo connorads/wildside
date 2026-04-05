@@ -93,6 +93,19 @@ pub(crate) fn gfx_object_predecessor_index_sub_FF6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_unlink_loc_100E(
+    next_indices: &mut [Option<usize>],
+    predecessor_index: usize,
+    target_index: usize,
+) {
+    // ASM loc_100E (kid.asm:1932): after loc_FFE finds the predecessor in
+    // `a4`, copy the target's `0(a3)` next link over `0(a4)` to unlink `a3`
+    // before the later sentinel restart and priority-ordered reinsertion.
+    next_indices[predecessor_index] = next_indices[target_index];
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn allocate_object_and_gfx_links_sub_E02(
     object_slot_address: u32,
     gfx_slot_address: u32,

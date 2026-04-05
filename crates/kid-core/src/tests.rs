@@ -145,6 +145,24 @@ fn gfx_object_predecessor_index_sub_ff6_returns_none_when_loc_1004_walks_to_a_nu
 }
 
 #[test]
+fn gfx_object_unlink_loc_100e_splices_the_target_successor_over_the_predecessor_link() {
+    let mut next_indices = [
+        Some(1), // sentinel -> first live node
+        Some(3), // predecessor -> target
+        None,
+        Some(2), // target -> successor
+    ];
+
+    gfx_object_unlink_loc_100E(&mut next_indices, 1, 3);
+
+    assert_eq!(
+        next_indices,
+        [Some(1), Some(2), None, Some(2)],
+        "ASM loc_100E should write the target's `0(a3)` link back through the predecessor's `0(a4)` slot, leaving the detached target unchanged until the later reinsertion",
+    );
+}
+
+#[test]
 fn crawl_wall_escape_sub_81b4_snaps_right_when_left_is_solid_and_right_is_open() {
     let grid = crawl_escape_test_grid(true, false);
 
