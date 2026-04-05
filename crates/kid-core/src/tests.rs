@@ -6435,6 +6435,79 @@ fn resolve_transform_overlap_sub_7b30_pushes_left_from_the_right_boundary() {
     );
 }
 
+#[test]
+fn pending_form_change_sub_7acc_applies_the_transform_after_clearing_space() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(8, 8, &[(1, 4, 0x60, 0x00)]));
+    runtime.progression.pending_form = Some(PlayerForm::IronKnight);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 28 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let entered_death = runtime.handle_pending_form_change_sub_7acc(&mut slice);
+
+    assert!(
+        !entered_death,
+        "sub_7ACC should hand successful probes to Kid_Transform rather than Death"
+    );
+    assert_eq!(runtime.progression.current_form, PlayerForm::IronKnight);
+    assert_eq!(slice.player.x_pos, 39 << 16);
+    assert!(
+        runtime.progression.form_change_flash_frames > 0,
+        "the successful sub_7ACC path should still enter Kid_Transform's flash coroutine",
+    );
+}
+
+#[test]
+fn pending_form_change_sub_7acc_drops_blocked_kid_transform_without_killing_him() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(
+        8,
+        8,
+        &[(1, 4, 0x60, 0x00), (2, 4, 0x60, 0x00)],
+    ));
+    runtime.progression.pending_form = Some(PlayerForm::IronKnight);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 28 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let entered_death = runtime.handle_pending_form_change_sub_7acc(&mut slice);
+
+    assert!(
+        !entered_death,
+        "Kid should just lose the queued helmet when sub_7B30 cannot clear enough room"
+    );
+    assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
+    assert_eq!(runtime.progression.pending_form, None);
+    assert_eq!(runtime.progression.form_change_flash_frames, 0);
+    assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
+}
+
+#[test]
+fn pending_form_change_sub_7acc_kills_blocked_helmeted_forms() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(8, 8, &[(2, 4, 0x60, 0x00)]));
+    runtime.progression.current_form = PlayerForm::Cyclone;
+    runtime.progression.number_hitpoints = PlayerForm::Cyclone.max_hitpoints();
+    runtime.progression.pending_form = Some(PlayerForm::Juggernaut);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 10 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let entered_death = runtime.handle_pending_form_change_sub_7acc(&mut slice);
+
+    assert!(
+        entered_death,
+        "sub_7ACC should branch to Death when a helmeted player cannot fit the new transform"
+    );
+    assert_eq!(runtime.progression.pending_form, None);
+    assert_eq!(runtime.progression.number_hitpoints, 0);
+    assert!(matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::DeathWindup { .. }
+    ));
+}
+
 // -----------------------------------------------------------------------
 // MiniHoppingSkull hopper behaviour
 // -----------------------------------------------------------------------

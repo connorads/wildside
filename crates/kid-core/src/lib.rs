@@ -1181,6 +1181,42 @@ impl NativeRuntime {
         }
     }
 
+    fn handle_pending_form_change_sub_7acc(&mut self, slice: &mut OpeningSliceState) -> bool {
+        let Some(target_form) = self.progression.pending_form else {
+            return false;
+        };
+
+        // ASM sub_7ACC (kid.asm:8178): when `Check_Helmet_Change` is set, try
+        // sub_7B30's space-clear using the target helmet hitbox. If it fails,
+        // Kid drops the queued helmet, while any already-helmeted form dies.
+        if let Some(aligned_x) = self
+            .block_grid
+            .as_ref()
+            .and_then(|_| self.resolve_transform_overlap_sub_7b30(slice, target_form))
+        {
+            slice.player.x_pos = (aligned_x as u32) << 16;
+            self.resolve_pending_form_change();
+            self.apply_form_width_overlap_fixup(slice);
+            return false;
+        }
+
+        if self.block_grid.is_none() {
+            self.resolve_pending_form_change();
+            self.apply_form_width_overlap_fixup(slice);
+            return false;
+        }
+
+        self.progression.pending_form = None;
+        if self.progression.current_form == PlayerForm::TheKid {
+            return false;
+        }
+
+        self.progression.number_hitpoints = 0;
+        self.opening_slice = Some(*slice);
+        self.begin_death_windup();
+        true
+    }
+
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
         if !self.step_lifecycle(input) {
             self.demo_transform_active = false;
@@ -1630,12 +1666,8 @@ impl NativeRuntime {
 
         self.process_block_effects(&mut slice);
         self.collect_floating_items(&mut slice);
-        if self.progression.pending_form.is_some() {
-            // Oracle demo 0x1B enters Kid_Transform on the same frame that the
-            // floating Cyclone prize is touched, so the traced helmet id and the
-            // 2px wall-separation push are already visible at frame end.
-            self.resolve_pending_form_change();
-            self.apply_form_width_overlap_fixup(&mut slice);
+        if self.handle_pending_form_change_sub_7acc(&mut slice) {
+            return;
         }
         if self.resolve_frame_hazards(
             &mut slice,
