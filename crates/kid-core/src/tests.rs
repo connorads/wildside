@@ -6583,6 +6583,34 @@ fn transform_overlap_column_blocked_sub_7bea_scans_upward_for_bit_14_tiles() {
 }
 
 #[test]
+fn juggernaut_wall_scan_sub_96e8_uses_the_right_facing_probe_window() {
+    let grid = grid_with_cells(8, 8, &[(2, 3, 0x60, 0x00), (3, 3, 0x70, 0x00)]);
+
+    assert!(
+        terrain::juggernaut_wall_scan_sub_96E8(&grid, 43, 79, Direction::Right),
+        "ASM sub_96E8 should scan `x_pos-$0B .. x_pos+$04` and `y_pos-$1F .. y_pos-$10`, counting only `$6000` solid tiles",
+    );
+    assert!(
+        !terrain::juggernaut_wall_scan_sub_96E8(&grid, 59, 79, Direction::Right),
+        "ASM sub_96E8 should ignore spikes and miss solids outside the right-facing rectangle",
+    );
+}
+
+#[test]
+fn juggernaut_wall_scan_sub_96e8_mirrors_the_x_window_when_facing_left() {
+    let grid = grid_with_cells(8, 8, &[(4, 3, 0x60, 0x00)]);
+
+    assert!(
+        terrain::juggernaut_wall_scan_sub_96E8(&grid, 53, 79, Direction::Left),
+        "ASM sub_96E8 should swap the `$0B/$04` X extents when `x_direction(a3)` is set",
+    );
+    assert!(
+        !terrain::juggernaut_wall_scan_sub_96E8(&grid, 53, 79, Direction::Right),
+        "the mirrored solid should stay outside the clear-x-direction scan window",
+    );
+}
+
+#[test]
 fn resolve_transform_overlap_sub_7b30_pushes_right_from_a_left_wall() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_cells(8, 8, &[(1, 4, 0x60, 0x00)]));

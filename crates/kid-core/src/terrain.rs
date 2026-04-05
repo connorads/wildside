@@ -212,6 +212,45 @@ pub struct HorizontalCollisionScan {
     pub lead_column_blocked: bool,
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn juggernaut_wall_scan_sub_96E8(
+    grid: &BlockGrid,
+    x_px: i32,
+    y_px: i32,
+    facing: crate::physics::Direction,
+) -> bool {
+    // ASM sub_96E8 (kid.asm:11231): scan the 16x16 tile rectangle bounded by
+    // `y_pos-$1F .. y_pos-$10` and the facing-dependent X span
+    // (`x_pos-$0B .. x_pos+$04` for clear x-direction, mirrored for set
+    // x-direction). Return true on the first tile whose collision bits equal
+    // `$6000`; slopes/spikes do not count.
+    let row_start = (y_px - 0x1F) >> 4;
+    let row_end = (y_px - 0x10) >> 4;
+    let (left_px, right_px) = match facing {
+        crate::physics::Direction::Right => (x_px - 0x0B, x_px + 0x04),
+        crate::physics::Direction::Left => (x_px - 0x04, x_px + 0x0B),
+    };
+    let col_start = left_px >> 4;
+    let col_end = right_px >> 4;
+
+    for row in row_start..=row_end {
+        if row < 0 {
+            continue;
+        }
+        for col in col_start..=col_end {
+            if col < 0 {
+                continue;
+            }
+            if grid.cell_at(col as u16, row as u16).collision == CollisionKind::Solid {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 impl BlockGrid {
     /// Parse from raw Level_Layout RAM dump (big-endian, 2 bytes per cell,
     /// row-major order). `width_cells` and `height_cells` come from
