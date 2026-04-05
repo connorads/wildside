@@ -2744,6 +2744,12 @@ impl OpeningSliceState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DownHoldAlignmentSub7A10 {
+    pub(crate) x_pos: u32,
+    pub(crate) blocked: bool,
+}
+
 pub(crate) fn update_level_one_slope_ground_velocity(
     x_vel: i32,
     facing: Direction,
@@ -2924,4 +2930,54 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         canonical_vel
     };
     (next_x_vel, next_facing)
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn align_player_for_down_hold_sub_7A10(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+    level_width_pixels: u16,
+) -> DownHoldAlignmentSub7A10 {
+    let original_x_px = (x_pos >> 16) as i32;
+    let foot_y_px = (y_pos >> 16) as i32;
+    let mut aligned_x_px = original_x_px;
+    let half_width = 14i32;
+    let level_width_px = i32::from(level_width_pixels);
+    let occupied = |center_x_px: i32, x_offset_px: i32| {
+        !matches!(
+            terrain::probe_relative_collision_sub_B55C(
+                grid,
+                center_x_px,
+                foot_y_px,
+                x_offset_px,
+                0,
+            ),
+            terrain::CollisionKind::Empty
+        )
+    };
+
+    if original_x_px - half_width < 0 || occupied(original_x_px, -half_width) {
+        aligned_x_px = ((original_x_px - half_width) & !0xF) + 0x10 + half_width;
+        if aligned_x_px + half_width >= level_width_px || occupied(aligned_x_px, half_width) {
+            return DownHoldAlignmentSub7A10 {
+                x_pos: (original_x_px.max(0) as u32) << 16,
+                blocked: true,
+            };
+        }
+    } else if original_x_px + half_width >= level_width_px || occupied(original_x_px, half_width) {
+        let adjust = ((original_x_px + half_width) & 0xF) + 1;
+        aligned_x_px -= adjust;
+        if aligned_x_px - half_width < 0 || occupied(aligned_x_px, -half_width) {
+            return DownHoldAlignmentSub7A10 {
+                x_pos: (original_x_px.max(0) as u32) << 16,
+                blocked: true,
+            };
+        }
+    }
+
+    DownHoldAlignmentSub7A10 {
+        x_pos: (aligned_x_px.max(0) as u32) << 16,
+        blocked: false,
+    }
 }

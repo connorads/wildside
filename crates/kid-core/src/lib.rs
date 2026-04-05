@@ -1490,6 +1490,23 @@ impl NativeRuntime {
             self.y_look_offset = (self.y_look_offset - 8).max(0);
         }
 
+        if input.down
+            && slice.player.on_ground
+            && !matches!(
+                self.progression.current_form,
+                PlayerForm::Micromax | PlayerForm::Juggernaut
+            )
+            && let Some(grid) = self.block_grid.as_ref()
+        {
+            let down_hold_alignment = movement::align_player_for_down_hold_sub_7A10(
+                grid,
+                slice.player.x_pos,
+                slice.player.y_pos,
+                slice.level_bounds.width_pixels,
+            );
+            slice.player.x_pos = down_hold_alignment.x_pos;
+        }
+
         // Berzerker charge: break Smash blocks on wall contact
         if self.helmet.berzerker_charging {
             self.berzerker_break_wall_block(&slice);

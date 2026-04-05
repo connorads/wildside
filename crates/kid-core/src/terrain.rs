@@ -954,6 +954,27 @@ pub fn probe_iron_knight_climb_resume_wall(
     }
 }
 
+/// Mirror the single-cell relative lookup in `sub_B55C`.
+///
+/// The ROM adds `d7` to `x_pos(a3)` and `d6` to `y_pos(a3)`, converts those
+/// pixel coordinates into a block-row pointer plus cell offset, and returns the
+/// raw collision nibble for exactly that cell.
+#[allow(non_snake_case)]
+pub fn probe_relative_collision_sub_B55C(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    x_offset_px: i32,
+    y_offset_px: i32,
+) -> CollisionKind {
+    let sample_x = center_x_px + x_offset_px;
+    let sample_y = foot_y_px + y_offset_px;
+    if sample_x < 0 || sample_y < 0 {
+        return CollisionKind::Empty;
+    }
+    probe_at(grid, sample_x, sample_y).cell.collision
+}
+
 /// Probe only the player's exact top edge against a side wall.
 ///
 /// This is intentionally narrower than `probe_wall`: it is used to keep the

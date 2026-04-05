@@ -30236,6 +30236,54 @@ fn process_block_effects_teleporter_no_op_without_block_list() {
     );
 }
 
+#[test]
+fn align_player_for_down_hold_sub_7a10_shifts_right_when_left_probe_is_blocked() {
+    let grid = grid_with_cells(8, 8, &[(1, 4, 0x60, 0)]);
+
+    let alignment = align_player_for_down_hold_sub_7A10(&grid, 32 << 16, 64 << 16, 128);
+
+    assert_eq!(
+        alignment,
+        DownHoldAlignmentSub7A10 {
+            x_pos: 46 << 16,
+            blocked: false,
+        },
+        "ASM sub_7A10 should snap Kid right to the next safe 14px clearance when the left probe cell is occupied",
+    );
+}
+
+#[test]
+fn align_player_for_down_hold_sub_7a10_shifts_left_when_right_probe_is_blocked() {
+    let grid = grid_with_cells(8, 8, &[(2, 4, 0x60, 0)]);
+
+    let alignment = align_player_for_down_hold_sub_7A10(&grid, 32 << 16, 64 << 16, 128);
+
+    assert_eq!(
+        alignment,
+        DownHoldAlignmentSub7A10 {
+            x_pos: 17 << 16,
+            blocked: false,
+        },
+        "ASM sub_7A10 should snap Kid left by the low nibble plus one when the right probe cell is occupied",
+    );
+}
+
+#[test]
+fn align_player_for_down_hold_sub_7a10_restores_integer_x_when_both_sides_are_blocked() {
+    let grid = grid_with_cells(8, 8, &[(1, 4, 0x60, 0), (3, 4, 0x60, 0)]);
+
+    let alignment = align_player_for_down_hold_sub_7A10(&grid, (32 << 16) | 0x8000, 64 << 16, 128);
+
+    assert_eq!(
+        alignment,
+        DownHoldAlignmentSub7A10 {
+            x_pos: 32 << 16,
+            blocked: true,
+        },
+        "ASM sub_7A10 should restore the original integer X when neither side can provide the required 14px clearance",
+    );
+}
+
 // --- Shooter blocks: multi-direction and cell-change pruning ---
 
 #[test]
