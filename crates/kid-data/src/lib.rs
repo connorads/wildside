@@ -476,6 +476,19 @@ pub struct ZeroLongwordVramWritePlanSubC346 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NibbleMaskAnimationFrameSubC378 {
+    pub pattern_index: u16,
+    pub longwords: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NibbleMaskAnimationSubC378 {
+    pub read_vram_byte_address: u16,
+    pub write_vram_byte_address: u16,
+    pub frames: Vec<NibbleMaskAnimationFrameSubC378>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaneLineUploadSub1CDA8 {
     pub source_word_offset: usize,
     pub vram_byte_address: u16,
@@ -2445,6 +2458,42 @@ pub fn nibble_mask_longwords_sub_C3DA(
     apply_row_nibble_mask_sub_C3F6(&mut bytes, base_nibble_offset.wrapping_add(0x04), row_count)?;
     apply_row_nibble_mask_sub_C3F6(&mut bytes, base_nibble_offset.wrapping_add(0x20), row_count)?;
     be_bytes_to_longwords_sub_C3DA(&bytes)
+}
+
+#[allow(non_snake_case)]
+pub fn nibble_mask_animation_sub_C378(
+    source_longwords: &[u32],
+) -> Result<NibbleMaskAnimationSubC378> {
+    // ASM sub_C378 (kid.asm:15989): read exactly `$400` longwords from VRAM
+    // `$F000` into `Decompression_Buffer`, then for 16 passes hibernate two
+    // frames, apply sub_C3DA with `d0=0..15`, and stream the full buffer back
+    // to the same VRAM address.
+    const LONGWORD_COUNT: usize = 0x0400;
+    const PASS_COUNT: usize = 0x0010;
+    const ROW_COUNT: u16 = 0x0080;
+
+    let source_longwords = source_longwords.get(..LONGWORD_COUNT).ok_or_else(|| {
+        anyhow!(
+            "sub_C378 needs {LONGWORD_COUNT:#06X} source longwords from VRAM `$F000` but only received {:#06X}",
+            source_longwords.len()
+        )
+    })?;
+
+    let mut current = source_longwords.to_vec();
+    let mut frames = Vec::with_capacity(PASS_COUNT);
+    for pattern_index in 0..PASS_COUNT {
+        current = nibble_mask_longwords_sub_C3DA(&current, pattern_index as u16, ROW_COUNT)?;
+        frames.push(NibbleMaskAnimationFrameSubC378 {
+            pattern_index: pattern_index as u16,
+            longwords: current.clone(),
+        });
+    }
+
+    Ok(NibbleMaskAnimationSubC378 {
+        read_vram_byte_address: 0xF000,
+        write_vram_byte_address: 0xF000,
+        frames,
+    })
 }
 
 #[allow(non_snake_case)]
@@ -6967,6 +7016,67 @@ AddrTbl_LevelNames:   ;1A842
         assert!(
             error.to_string().contains("needs byte index 0x0FFC"),
             "the error should describe the exact final byte touched by sub_C3F6's `$20`-byte row stride",
+        );
+    }
+
+    #[test]
+    fn nibble_mask_animation_sub_c378_replays_16_cumulative_mask_passes_back_to_vram_f000() {
+        let animation = nibble_mask_animation_sub_C378(&vec![0xFFFF_FFFF; 0x0400])
+            .expect("ASM sub_C378 should accept the full `$400`-longword VRAM readback span");
+
+        assert_eq!(animation.read_vram_byte_address, 0xF000);
+        assert_eq!(animation.write_vram_byte_address, 0xF000);
+        assert_eq!(animation.frames.len(), 16);
+        assert_eq!(animation.frames[0].pattern_index, 0);
+        assert_eq!(animation.frames[15].pattern_index, 15);
+        assert!(
+            animation
+                .frames
+                .iter()
+                .all(|frame| frame.longwords.len() == 0x0400),
+            "ASM sub_C378 should upload the full `$400` longwords after every masked pass",
+        );
+
+        let first_frame_bytes = longwords_to_be_bytes(&animation.frames[0].longwords);
+        assert_eq!(first_frame_bytes[0x0000], 0x0F);
+        assert_eq!(first_frame_bytes[0x0002], 0x0F);
+        assert_eq!(first_frame_bytes[0x0010], 0x0F);
+
+        let second_frame_bytes = longwords_to_be_bytes(&animation.frames[1].longwords);
+        assert_eq!(
+            second_frame_bytes[0x0000], 0x0F,
+            "ASM sub_C378 should keep the first pass's masked stripe when the next sub_C3DA pattern runs",
+        );
+        assert_eq!(second_frame_bytes[0x0009], 0x0F);
+        assert_eq!(second_frame_bytes[0x000B], 0x0F);
+        assert_eq!(second_frame_bytes[0x0019], 0x0F);
+
+        let last_frame_bytes = longwords_to_be_bytes(
+            &animation
+                .frames
+                .last()
+                .expect("ASM sub_C378 should emit all 16 masked upload frames")
+                .longwords,
+        );
+        assert_eq!(last_frame_bytes[0x000C], 0x00);
+        assert_eq!(last_frame_bytes[0x000E], 0x00);
+        assert_eq!(last_frame_bytes[0x001C], 0x00);
+        assert_eq!(
+            last_frame_bytes[0x0FFC], 0x00,
+            "ASM sub_C378's final pass should still reach the last byte touched by sub_C3F6 on row 127 after the earlier complementary nibble pass has already cleared the other half",
+        );
+    }
+
+    #[test]
+    fn nibble_mask_animation_sub_c378_rejects_short_vram_snapshots() {
+        let error = nibble_mask_animation_sub_C378(&vec![0; 0x03FF])
+            .expect_err("ASM sub_C378 should require the full `$400`-longword VRAM snapshot");
+
+        assert!(
+            error
+                .to_string()
+                .contains("sub_C378 needs 0x0400 source longwords"),
+            "the error should describe the exact VRAM readback span consumed before the 16 masked uploads begin",
         );
     }
 
