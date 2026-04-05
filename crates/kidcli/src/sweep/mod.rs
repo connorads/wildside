@@ -3421,6 +3421,158 @@ mod tests {
     }
 
     #[test]
+    fn release_gate_focus_summary_marks_exact_pair_on_other_levels() {
+        let focuses = vec![ReleaseGateFieldFocus {
+            target: "1p-accurate".into(),
+            step_name: "gameplay_compare:pause_resume_level1".into(),
+            checkpoint: Some("level_settle@719".into()),
+            field: "game_mode".into(),
+            native_value: Some("0x0008".into()),
+            oracle_value: Some("0x000c".into()),
+            scenario_level_id: Some("0x00".into()),
+        }];
+        let field_summary = vec![SweepHistoryFieldEntry {
+            field: "game_mode".into(),
+            total_diffs: 13,
+            levels: 12,
+            level_ids: vec![
+                "0x00".into(),
+                "0x09".into(),
+                "0x32".into(),
+                "0x33".into(),
+                "0x45".into(),
+                "0x48".into(),
+                "0x50".into(),
+                "0x54".into(),
+                "0x57".into(),
+                "0x61".into(),
+                "0x62".into(),
+                "0x63".into(),
+            ],
+            checkpoints: vec!["idle_tail".into(), "level_settle".into()],
+            checkpoint_counts: vec![
+                SweepHistoryCheckpointCount {
+                    checkpoint: "idle_tail".into(),
+                    diffs: 12,
+                },
+                SweepHistoryCheckpointCount {
+                    checkpoint: "level_settle".into(),
+                    diffs: 1,
+                },
+            ],
+            divergence_summary: DivergenceSummary {
+                authoritative: 0,
+                advisory: 0,
+                accumulation: 0,
+                rng: 0,
+                oracle_limitation: 13,
+            },
+        }];
+        let results = vec![
+            0x09, 0x32, 0x33, 0x45, 0x48, 0x50, 0x54, 0x57, 0x61, 0x62, 0x63,
+        ]
+        .into_iter()
+        .map(|level_id| LevelSweepResult {
+            level_id,
+            slug: format!("idle_level_{level_id:02x}"),
+            tier: SweepTier::State,
+            passed: true,
+            state_diffs: vec![StateDiff {
+                checkpoint: "idle_tail".into(),
+                field: "game_mode".into(),
+                native_value: "0x0008".into(),
+                oracle_value: "0x000c".into(),
+                category: DivergenceCategory::OracleLimitation,
+            }],
+            mae: None,
+            pixel_mismatches: None,
+            diff_images: Vec::new(),
+            error: None,
+            divergence_summary: DivergenceSummary {
+                authoritative: 0,
+                advisory: 0,
+                accumulation: 0,
+                rng: 0,
+                oracle_limitation: 1,
+            },
+        })
+        .collect::<Vec<_>>();
+
+        assert_eq!(
+            summarise_release_gate_focuses(&results, &field_summary, &focuses),
+            vec![ReleaseGateFocusSummary {
+                target: "1p-accurate".into(),
+                step_name: "gameplay_compare:pause_resume_level1".into(),
+                checkpoint: Some("level_settle@719".into()),
+                field: "game_mode".into(),
+                native_value: Some("0x0008".into()),
+                oracle_value: Some("0x000c".into()),
+                scenario_level_id: Some("0x00".into()),
+                matched_in_state_sweep: true,
+                scenario_level_matched_in_state_sweep: Some(true),
+                checkpoint_matched_in_state_sweep: Some(false),
+                checkpoint_family_matched_in_state_sweep: Some(true),
+                exact_value_pair_matched_in_state_sweep: Some(true),
+                exact_value_pair_levels: Some(11),
+                exact_value_pair_level_ids: vec![
+                    "0x09".into(),
+                    "0x32".into(),
+                    "0x33".into(),
+                    "0x45".into(),
+                    "0x48".into(),
+                    "0x50".into(),
+                    "0x54".into(),
+                    "0x57".into(),
+                    "0x61".into(),
+                    "0x62".into(),
+                    "0x63".into(),
+                ],
+                exact_value_pair_scenario_level_matched_in_state_sweep: Some(false),
+                exact_value_pair_checkpoint_matched_in_state_sweep: Some(false),
+                exact_value_pair_checkpoint_family_matched_in_state_sweep: Some(false),
+                total_diffs: Some(13),
+                levels: Some(12),
+                level_ids: vec![
+                    "0x00".into(),
+                    "0x09".into(),
+                    "0x32".into(),
+                    "0x33".into(),
+                    "0x45".into(),
+                    "0x48".into(),
+                    "0x50".into(),
+                    "0x54".into(),
+                    "0x57".into(),
+                    "0x61".into(),
+                    "0x62".into(),
+                    "0x63".into(),
+                ],
+                matched_checkpoints: vec![
+                    SweepHistoryCheckpointCount {
+                        checkpoint: "idle_tail".into(),
+                        diffs: 12,
+                    },
+                    SweepHistoryCheckpointCount {
+                        checkpoint: "level_settle".into(),
+                        diffs: 1,
+                    },
+                ],
+                exact_value_pair_checkpoints: vec![SweepHistoryCheckpointCount {
+                    checkpoint: "idle_tail".into(),
+                    diffs: 11,
+                }],
+                divergence_summary: DivergenceSummary {
+                    authoritative: 0,
+                    advisory: 0,
+                    accumulation: 0,
+                    rng: 0,
+                    oracle_limitation: 13,
+                },
+                summary: "1p-accurate failing field game_mode=13 diffs across 12 levels for pause_resume_level1 @ level_settle@719 [oracle_limitations=13] [0x00, 0x09, 0x32, 0x33, 0x45, +7 more] [includes scenario level 0x00] [excludes checkpoint level_settle@719] [includes checkpoint family level_settle] checkpoints=[idle_tail=12, level_settle=1] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x0008->0x000c seen on levels [0x09, 0x32, 0x33, 0x45, 0x48, +6 more] checkpoints=[idle_tail=11]; excludes scenario level 0x00; excludes checkpoint level_settle@719; excludes checkpoint family level_settle]".into(),
+            }]
+        );
+    }
+
+    #[test]
     fn high_frame_mae_is_not_oracle_limitation_only() {
         let result = LevelSweepResult {
             level_id: 0x45,

@@ -4656,6 +4656,58 @@ mod tests {
     }
 
     #[test]
+    fn release_gate_signal_preserves_exact_pair_checkpoint_miss_context() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1775366549",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "gameplay_compare:pause_resume_level1",
+                  "status": "failed",
+                  "detail": "gameplay state level_settle@719 diverged in game mode (native 0008, oracle 000C)"
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("gate report should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775366423","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":191,"accumulation":0,"rng":0,"oracle_limitation":668},"report_path":"/tmp/sweep-report.json","field_summary":[{"field":"game_mode","total_diffs":13,"levels":12,"level_ids":["0x00","0x09","0x32","0x33","0x45","0x48","0x50","0x54","0x57","0x61","0x62","0x63"],"checkpoints":["idle_tail","level_settle"],"checkpoint_counts":[{"checkpoint":"idle_tail","diffs":12},{"checkpoint":"level_settle","diffs":1}],"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":13}}],"release_gate_focus":[{"field":"game_mode","summary":"1p-accurate failing field game_mode=13 diffs across 12 levels for pause_resume_level1 @ level_settle@719 [oracle_limitations=13] [0x00, 0x09, 0x32, 0x33, 0x45, +7 more] [includes scenario level 0x00] [excludes checkpoint level_settle@719] [includes checkpoint family level_settle] checkpoints=[idle_tail=12, level_settle=1] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x0008->0x000c seen on levels [0x09, 0x32, 0x33, 0x45, 0x48, +6 more] checkpoints=[idle_tail=11]; excludes scenario level 0x00; excludes checkpoint level_settle@719; excludes checkpoint family level_settle]"}]}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+        assert!(!outcome.ok);
+        assert!(
+            outcome
+                .detail
+                .contains("gameplay_compare:pause_resume_level1"),
+            "signal should still include the failed gameplay step"
+        );
+        assert!(
+            outcome.detail.contains("excludes scenario level 0x00"),
+            "signal should preserve the exact-pair scenario-level miss from release_gate_focus"
+        );
+        assert!(
+            outcome
+                .detail
+                .contains("excludes checkpoint family level_settle"),
+            "signal should preserve the exact-pair checkpoint-family miss from release_gate_focus"
+        );
+    }
+
+    #[test]
     fn state_sweep_signal_reports_advisory_and_oracle_limitation_counts() {
         let temp_dir = TempDir::new().expect("temp dir should exist");
         let metrics_dir = temp_dir.path().join(".cache/metrics");
