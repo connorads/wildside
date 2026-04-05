@@ -1636,7 +1636,8 @@ impl OpeningSliceState {
         self.player.jump_buffer_frames = 0;
         self.player.ledge_snap_cooldown = LEDGE_SNAP_PULLUP_FRAMES;
         self.terrain.floor_y_pos = floor_y_fp;
-        self.terrain.floor_terrain_type = TerrainType::from_block_type(probe.cell.block_type);
+        self.terrain.floor_terrain_type =
+            grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);
         true
     }
 
@@ -2616,7 +2617,7 @@ impl OpeningSliceState {
                         self.player.y_velocity = -incoming_y_velocity;
                         self.player.on_spikes = false;
                         self.terrain.floor_terrain_type =
-                            TerrainType::from_block_type(probe.cell.block_type);
+                            grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);
                         self.rubber_block_hit = Some((probe.cell_x, probe.cell_y));
                         self.player.wall_cling_direction = None;
                         return None;
@@ -2644,7 +2645,7 @@ impl OpeningSliceState {
                     }
                     self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
                     self.terrain.floor_terrain_type =
-                        TerrainType::from_block_type(probe.cell.block_type);
+                        grounded_surface_type_sub_8600(grid, x_px, y_px, collision_hw);
                     if should_apply_slope_recontact {
                         return match probe.cell.collision {
                             terrain::CollisionKind::SlopeDown => {
@@ -2994,6 +2995,54 @@ pub(crate) fn align_player_for_down_hold_sub_7A10(
         x_pos: (aligned_x_px.max(0) as u32) << 16,
         blocked: false,
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn grounded_surface_type_sub_8600(
+    grid: &terrain::BlockGrid,
+    player_x_px: i32,
+    player_y_px: i32,
+    half_width_px: i32,
+) -> TerrainType {
+    // ASM sub_8600 (kid.asm:9445): scan the foot row under Kid's full width,
+    // count solid/spike support cells, then promote ice only on a strict
+    // majority while rubber wins ties.
+    let min_x_px = (player_x_px - half_width_px).max(0);
+    let max_x_px = (player_x_px + half_width_px).clamp(0, grid.width_pixels().saturating_sub(1));
+    let start_col = (min_x_px / 16).max(0) as u16;
+    let end_col = (max_x_px / 16).max(0) as u16;
+    let row = ((player_y_px + 1).max(0) / 16) as u16;
+
+    let mut solid_count = 0u16;
+    let mut ice_count = 0u16;
+    let mut rubber_count = 0u16;
+
+    for col in start_col..=end_col {
+        let cell = grid.cell_at(col, row);
+        if matches!(
+            cell.collision,
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+        ) {
+            solid_count = solid_count.saturating_add(1);
+        }
+        if cell.has_block {
+            match cell.block_type {
+                terrain::BlockType::Ice => ice_count = ice_count.saturating_add(1),
+                terrain::BlockType::Rubber => rubber_count = rubber_count.saturating_add(1),
+                _ => {}
+            }
+        }
+    }
+
+    let mut terrain_type = TerrainType::Normal;
+    if ice_count.saturating_mul(2) > solid_count {
+        terrain_type = TerrainType::Ice;
+    }
+    if solid_count != 0 && rubber_count.saturating_mul(2) >= solid_count {
+        terrain_type = TerrainType::Rubber;
+    }
+    terrain_type
 }
 
 #[allow(non_snake_case)]

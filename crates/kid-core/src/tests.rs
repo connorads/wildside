@@ -14632,6 +14632,39 @@ fn leaving_ground_resets_terrain_type_to_normal() {
     assert_eq!(slice.terrain.floor_terrain_type, TerrainType::Normal);
 }
 
+#[test]
+fn grounded_surface_type_sub_8600_requires_a_strict_ice_majority() {
+    let grid = grid_with_cells(
+        6,
+        6,
+        &[(0, 4, 0x60, 0x00), (1, 4, 0xE2, 0x01), (2, 4, 0xE2, 0x01)],
+    );
+
+    assert_eq!(
+        grounded_surface_type_sub_8600(&grid, 24, 63, 16),
+        TerrainType::Ice,
+        "ASM sub_8600 should promote ice only when the scanned solid span has a strict ice majority",
+    );
+
+    let tie_grid = grid_with_cells(6, 6, &[(0, 4, 0x60, 0x00), (1, 4, 0xE2, 0x01)]);
+    assert_eq!(
+        grounded_surface_type_sub_8600(&tie_grid, 16, 63, 8),
+        TerrainType::Normal,
+        "ASM sub_8600 should leave the terrain at normal on an ice tie because `add.w d2,d2` must be strictly greater than the solid count",
+    );
+}
+
+#[test]
+fn grounded_surface_type_sub_8600_promotes_rubber_on_ties() {
+    let grid = grid_with_cells(6, 6, &[(0, 4, 0x60, 0x00), (1, 4, 0xE6, 0x01)]);
+
+    assert_eq!(
+        grounded_surface_type_sub_8600(&grid, 16, 63, 8),
+        TerrainType::Rubber,
+        "ASM sub_8600 should let rubber win ties because loc_8680 uses `blt` before writing terrain type 2",
+    );
+}
+
 // --- Platform collision ---
 
 fn make_test_platform(x: u16, y: u16, h_variant: u8, v_variant: u8) -> ActivePlatform {
