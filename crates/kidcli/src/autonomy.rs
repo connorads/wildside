@@ -1242,7 +1242,7 @@ fn evaluate_source_port_frontier_cycle(
                     summary,
                 )
             } else {
-                let task = source_port_frontier_sweep_task(frontier, &note);
+                let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
                 let summary = format!(
                     "TAS frontier {} is closed through frame {}; no actionable case-queue and all sub_ labels covered, so source-port pivots to sweep parity hardening.",
                     frontier.slug, frontier.authoritative_clean_through
@@ -1320,7 +1320,7 @@ fn evaluate_source_port_frontier_cycle(
                         ..backlog_task
                     };
                 } else {
-                    let sweep_task = source_port_frontier_sweep_task(frontier, &note);
+                    let sweep_task = source_port_frontier_sweep_task(repo_root, frontier, &note);
                     task_package = TaskPackage {
                         generated_at: autonomy_timestamp(),
                         cycle,
@@ -1607,10 +1607,52 @@ fn source_port_frontier_case_queue_task(
 }
 
 fn source_port_frontier_sweep_task(
+    repo_root: &Path,
     frontier: &ActiveFrontierState,
     note: &NextAgentNoteDirective,
 ) -> TaskPackage {
     let delegation_reason = "the TAS frontier is closed and no actionable reduced case is available, so the next repo-local lane is sweep parity hardening".to_owned();
+    let release_gate_latest = latest_release_gate_failure_detail(repo_root, "1p-accurate");
+    let release_gate_focus = release_gate_focus_evidence(repo_root, "1p-accurate");
+    let mut evidence = vec![
+        EvidenceItem {
+            label: "active-frontier".to_owned(),
+            status: frontier.status.clone(),
+            detail: format!(
+                "{} clean through frame {}",
+                frontier.slug, frontier.authoritative_clean_through
+            ),
+            artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+        },
+        EvidenceItem {
+            label: "delegated-lane".to_owned(),
+            status: "sweep-parity".to_owned(),
+            detail: delegation_reason.clone(),
+            artefact_path: Some(PathBuf::from(SOURCE_PORT_RESEARCH_MAP_PATH)),
+        },
+        EvidenceItem {
+            label: "next-agent-note".to_owned(),
+            status: note.status.as_str().to_owned(),
+            detail: note.detail.clone(),
+            artefact_path: Some(note.path.clone()),
+        },
+    ];
+    if let Some((detail, artefact_path)) = &release_gate_latest {
+        evidence.push(EvidenceItem {
+            label: "release-gate-failure".to_owned(),
+            status: "failed".to_owned(),
+            detail: detail.clone(),
+            artefact_path: Some(artefact_path.clone()),
+        });
+    }
+    if let Some((detail, artefact_path)) = &release_gate_focus {
+        evidence.push(EvidenceItem {
+            label: "release-gate-focus".to_owned(),
+            status: "correlated".to_owned(),
+            detail: detail.clone(),
+            artefact_path: Some(artefact_path.clone()),
+        });
+    }
     TaskPackage {
         capability: CapabilityId::SourcePortFrontierTask,
         title: "Advance source-port via sweep parity hardening".to_owned(),
@@ -1628,7 +1670,8 @@ fn source_port_frontier_sweep_task(
             SOURCE_PORT_RELEASE_GATE_PATH.to_owned(),
         ],
         implementation_targets: vec![
-            "crates/kidcli/src/sweep.rs".to_owned(),
+            "crates/kidcli/src/autonomy.rs".to_owned(),
+            "crates/kidcli/src/sweep/release_gate.rs".to_owned(),
             "docs/source-port/methodology.md".to_owned(),
             SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
         ],
@@ -1638,33 +1681,13 @@ fn source_port_frontier_sweep_task(
             "mise run release-gate".to_owned(),
         ],
         done_criteria: vec![
+            "Refresh the persisted release-gate evidence in the sweep lane so the next-agent note cites the latest failure and state-sweep correlation."
+                .to_owned(),
             "Advance sweep parity, release-gate hardening, or another explicit verification lane with new evidence."
                 .to_owned(),
             "Do not reopen TAS-frontier work unless a new authoritative frontier appears.".to_owned(),
         ],
-        evidence: vec![
-            EvidenceItem {
-                label: "active-frontier".to_owned(),
-                status: frontier.status.clone(),
-                detail: format!(
-                    "{} clean through frame {}",
-                    frontier.slug, frontier.authoritative_clean_through
-                ),
-                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
-            },
-            EvidenceItem {
-                label: "delegated-lane".to_owned(),
-                status: "sweep-parity".to_owned(),
-                detail: delegation_reason.clone(),
-                artefact_path: Some(PathBuf::from(SOURCE_PORT_RESEARCH_MAP_PATH)),
-            },
-            EvidenceItem {
-                label: "next-agent-note".to_owned(),
-                status: note.status.as_str().to_owned(),
-                detail: note.detail.clone(),
-                artefact_path: Some(note.path.clone()),
-            },
-        ],
+        evidence,
         frontier_context: Some(FrontierContext {
             slug: frontier.slug.clone(),
             recording: frontier.recording.clone(),
@@ -3284,51 +3307,18 @@ fn correlate_release_gate_failure_with_state_sweep(
 ) -> Option<String> {
     let failed_focus = extract_release_gate_failed_focus("1p-accurate", release_gate_detail)?;
     let failed_field = extract_release_gate_failed_field(release_gate_detail)?;
-    let history_path = repo_root.join(".cache/metrics/sweep-history.jsonl");
-    let contents = fs::read_to_string(&history_path).ok()?;
-    let latest = contents.lines().rev().find_map(|line| {
-        let parsed = serde_json::from_str::<serde_json::Value>(line).ok()?;
-        if parsed
-            .get("tier")
-            .and_then(serde_json::Value::as_str)
-            .is_some_and(|tier| tier == "state")
-        {
-            Some(parsed)
-        } else {
-            None
-        }
-    })?;
-    let report_path = latest
-        .get("report_path")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("unknown");
-    if let Some(release_gate_focus_summary) = latest
-        .get("release_gate_focus")
-        .and_then(serde_json::Value::as_array)
-        .and_then(|entries| {
-            entries
-                .iter()
-                .find(|entry| release_gate_focus_entry_matches(entry, &failed_focus))
-                .or_else(|| {
-                    entries.iter().find(|entry| {
-                        entry
-                            .get("field")
-                            .and_then(serde_json::Value::as_str)
-                            .is_some_and(|field| field == failed_field)
-                    })
-                })
-                .and_then(|entry| {
-                    entry
-                        .get("summary")
-                        .and_then(serde_json::Value::as_str)
-                        .map(str::to_owned)
-                })
-        })
+    if let Some((release_gate_focus_summary, report_path)) =
+        latest_state_sweep_focus_summary(repo_root, &failed_focus, &failed_field)
     {
         return Some(format!(
             "latest state sweep reports: {release_gate_focus_summary} (report={report_path})"
         ));
     }
+    let latest = latest_state_sweep_history_entry(repo_root)?;
+    let report_path = latest
+        .get("report_path")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
     let field_entry = latest
         .get("field_summary")
         .and_then(serde_json::Value::as_array)
@@ -3352,6 +3342,97 @@ fn correlate_release_gate_failure_with_state_sweep(
     Some(format!(
         "latest state sweep classifies `{failed_field}` as {categories} across {levels} levels ({total_diffs} diffs, report={report_path})"
     ))
+}
+
+fn latest_state_sweep_history_entry(repo_root: &Path) -> Option<serde_json::Value> {
+    let history_path = repo_root.join(".cache/metrics/sweep-history.jsonl");
+    let contents = fs::read_to_string(&history_path).ok()?;
+    contents.lines().rev().find_map(|line| {
+        let parsed = serde_json::from_str::<serde_json::Value>(line).ok()?;
+        if parsed
+            .get("tier")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|tier| tier == "state")
+        {
+            Some(parsed)
+        } else {
+            None
+        }
+    })
+}
+
+fn latest_state_sweep_focus_summary(
+    repo_root: &Path,
+    failed_focus: &ReleaseGateFocusLookup,
+    failed_field: &str,
+) -> Option<(String, String)> {
+    let latest = latest_state_sweep_history_entry(repo_root)?;
+    let report_path = latest
+        .get("report_path")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown")
+        .to_owned();
+    let summary = latest
+        .get("release_gate_focus")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|entries| {
+            entries
+                .iter()
+                .find(|entry| release_gate_focus_entry_matches(entry, failed_focus))
+                .or_else(|| {
+                    entries.iter().find(|entry| {
+                        entry
+                            .get("field")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|field| field == failed_field)
+                    })
+                })
+                .and_then(|entry| {
+                    entry
+                        .get("summary")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_owned)
+                })
+        })?;
+    Some((summary, report_path))
+}
+
+fn latest_release_gate_failure_detail(repo_root: &Path, target: &str) -> Option<(String, PathBuf)> {
+    let latest_path = repo_root
+        .join(".cache/release-gate")
+        .join(target)
+        .join("latest.json");
+    let contents = fs::read_to_string(&latest_path).ok()?;
+    let report = serde_json::from_str::<serde_json::Value>(&contents).ok()?;
+    if report
+        .get("passed")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        return None;
+    }
+    let failed_step = report
+        .get("steps")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|steps| {
+            steps.iter().find(|step| {
+                step.get("status")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|status| status == "failed")
+            })
+        })?;
+    let name = failed_step.get("name")?.as_str()?;
+    let detail = failed_step.get("detail")?.as_str()?;
+    Some((format!("{name}: {detail}"), latest_path))
+}
+
+fn release_gate_focus_evidence(repo_root: &Path, target: &str) -> Option<(String, PathBuf)> {
+    let (detail, _) = latest_release_gate_failure_detail(repo_root, target)?;
+    let failed_focus = extract_release_gate_failed_focus(target, &detail)?;
+    let failed_field = extract_release_gate_failed_field(&detail)?;
+    let (summary, report_path) =
+        latest_state_sweep_focus_summary(repo_root, &failed_focus, &failed_field)?;
+    Some((summary, PathBuf::from(report_path)))
 }
 
 fn extract_release_gate_failed_field(detail: &str) -> Option<String> {
@@ -4203,6 +4284,16 @@ fn write_source_port_next_agent_note(
 
 fn render_source_port_next_agent_note(frontier: &FrontierContext, task: &TaskPackage) -> String {
     let closed_frontier = frontier.status == "complete";
+    let release_gate_failure = task
+        .evidence
+        .iter()
+        .find(|item| item.label == "release-gate-failure")
+        .map(|item| item.detail.as_str());
+    let release_gate_focus = task
+        .evidence
+        .iter()
+        .find(|item| item.label == "release-gate-focus")
+        .map(|item| item.detail.as_str());
     let exact_next_moves = if closed_frontier {
         let mut moves = vec![format!(
             "Do not reopen TAS-frontier work; continue through delegated lane `{}`.",
@@ -4228,6 +4319,23 @@ fn render_source_port_next_agent_note(frontier: &FrontierContext, task: &TaskPac
     } else {
         frontier.verification_commands.clone()
     };
+    let strongest_evidence = {
+        let mut evidence = vec![format!(
+            "Hypothesis: {}: {}",
+            frontier.current_hypothesis.name, frontier.current_hypothesis.reason
+        )];
+        if let Some(detail) = release_gate_failure {
+            evidence.push(format!("Release-gate failure: {detail}"));
+        }
+        if let Some(detail) = release_gate_focus {
+            evidence.push(format!("Latest state-sweep correlation: {detail}"));
+        }
+        evidence
+            .iter()
+            .map(|step| format!("- {step}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
     format!(
         "\
 ---
@@ -4245,7 +4353,7 @@ status: {status}
 - Current blocker: {blocker}
 
 # Strongest Evidence
-- Hypothesis: {hypothesis}: {reason}
+{strongest_evidence}
 
 # Exact Next Moves
 {exact_next_moves}
@@ -4281,8 +4389,7 @@ status: {status}
         area = frontier.area,
         clean_through = frontier.authoritative_clean_through,
         blocker = frontier.current_blocker,
-        hypothesis = frontier.current_hypothesis.name,
-        reason = frontier.current_hypothesis.reason,
+        strongest_evidence = strongest_evidence,
         exact_next_moves = exact_next_moves
             .iter()
             .map(|step| format!("- {step}"))
@@ -4347,7 +4454,8 @@ mod tests {
         SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, build_case_queue_snapshot, detect_blocker,
         evaluate_capabilities, evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
         fingerprint_for_capabilities, latest_release_gate_signal, latest_state_sweep_signal,
-        load_source_port_frontier_state, select_next_task, source_port_next_agent_note,
+        load_source_port_frontier_state, render_source_port_next_agent_note, select_next_task,
+        source_port_next_agent_note,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -5259,6 +5367,88 @@ mod tests {
             cycle.progress_fingerprint
         );
         assert!(!task_package.generated_at.is_empty());
+    }
+
+    #[test]
+    fn source_port_frontier_sweep_task_carries_release_gate_evidence_into_note() {
+        let temp_dir = source_port_repo();
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port"))
+            .expect("docs dir should exist");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"{
+  "timestamp": "1775368044",
+  "target": "1p-accurate",
+  "passed": false,
+  "steps": [
+    {
+      "name": "gameplay_compare:pause_resume_level1",
+      "status": "failed",
+      "detail": "gameplay state level_settle@719 diverged in game mode (native 0008, oracle 000C)"
+    }
+  ]
+}
+"#,
+        )
+        .expect("release gate latest should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775367006","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":191,"accumulation":0,"rng":0,"oracle_limitation":668},"report_path":"/tmp/sweep-report.json","field_summary":[{"field":"game_mode","total_diffs":13,"levels":12,"level_ids":["0x00","0x09","0x32","0x33","0x45","0x48","0x50","0x54","0x57","0x61","0x62","0x63"],"checkpoints":["idle_tail","level_settle"],"checkpoint_counts":[{"checkpoint":"idle_tail","diffs":12},{"checkpoint":"level_settle","diffs":1}],"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":13}}],"release_gate_focus":[{"target":"1p-accurate","step_name":"gameplay_compare:pause_resume_level1","checkpoint":"level_settle@719","field":"game_mode","native_value":"0x0008","oracle_value":"0x000c","summary":"1p-accurate failing field game_mode=13 diffs across 12 levels for pause_resume_level1 @ level_settle@719 [oracle_limitations=13] [0x00, 0x09, 0x32, 0x33, 0x45, +7 more] [includes scenario level 0x00] [excludes checkpoint level_settle@719] [includes checkpoint family level_settle] checkpoints=[idle_tail=12, level_settle=1] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x0008->0x000c seen on levels [0x09, 0x32, 0x33, 0x45, 0x48, +6 more] checkpoints=[idle_tail=11]; excludes scenario level 0x00; excludes checkpoint level_settle@719; excludes checkpoint family level_settle]"}]}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+        let frontier = task
+            .frontier_context
+            .as_ref()
+            .expect("frontier context should exist");
+        let rendered_note = render_source_port_next_agent_note(frontier, &task);
+
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "release-gate-failure"
+                    && item.detail.contains("gameplay_compare:pause_resume_level1")),
+            "task should carry the live release-gate failure detail"
+        );
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "release-gate-focus"
+                    && item.detail.contains("exact pair 0x0008->0x000c")),
+            "task should carry the correlated state-sweep focus summary"
+        );
+        assert!(
+            rendered_note.contains("Release-gate failure: gameplay_compare:pause_resume_level1"),
+            "next-agent note should surface the live gate failure"
+        );
+        assert!(
+            rendered_note.contains("Latest state-sweep correlation: 1p-accurate failing field game_mode=13 diffs across 12 levels"),
+            "next-agent note should surface the persisted sweep correlation"
+        );
     }
 
     #[test]
