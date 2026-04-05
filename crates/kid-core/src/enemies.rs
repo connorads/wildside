@@ -2547,7 +2547,9 @@ pub(crate) fn step_hopper(
         }
         let mut jx = hc.jump_x_speed;
         let mut jy = hc.jump_y_speed;
-        // Mini_Hopping_Skull.asm lines 191-194: enemy_level ≥ 1 (HP > 1) boosts hop.
+        // ASM Mini_Hopping_Skull.asm loc_3EBFC/loc_3ED36/loc_3EE7C/loc_3EFB6:
+        // enemy_level >= 1 (HP > 1) adds `$4000` to X speed and `$10000` extra
+        // upward Y speed for either facing.
         if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) && enemy.hit_points > 1 {
             jx += 0x4000;
             jy -= 0x1_0000;
@@ -2573,6 +2575,8 @@ pub(crate) fn step_hopper(
         moving_right,
     );
     if wall.hit {
+        // ASM Mini_Hopping_Skull.asm loc_3F1AA flips x_direction and negates
+        // the live X velocity; it does not reset to the base hop speed.
         reverse_enemy_direction(enemy);
         let wall_fp = (wall.wall_x_px as u32) << 16;
         let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
@@ -2583,7 +2587,7 @@ pub(crate) fn step_hopper(
         } else if enemy.x_pos < wall_fp + edge_fp {
             enemy.x_pos = wall_fp + edge_fp;
         }
-        enemy.x_velocity = horizontal_velocity(enemy.facing, hc.jump_x_speed);
+        enemy.x_velocity = -enemy.x_velocity;
     }
 
     let floor = terrain::probe_floor(grid, cx, cy);
@@ -4960,6 +4964,69 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
 mod tests {
     use super::*;
 
+    fn mini_hopping_skull_test_enemy() -> ActiveEnemy {
+        ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            enemy_level: 0,
+            family: EnemyFamily::MiniHoppingSkull,
+            x_pos: 32 << 16,
+            y_pos: 32 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            target_x_velocity: 0,
+            target_y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            hit_points: 1,
+            grounded_frames: 0,
+            damage_flash_frames: 0,
+            palette_variant: 0,
+            wait_timer: 0,
+            dragon_phase: DragonFlyingState::None,
+            dragon_phase_frames: 0,
+            dragon_script_variant: 0,
+            dragon_script_cmd: 0,
+            dragon_anchor_y: 0,
+            dragon_descent_index: 0,
+            dragon_descent_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            wall_pinned: false,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
+            boss_head_index: BOSS_HEAD_NONE,
+            scorpion_tracking_lock: false,
+            flight_double_acceleration: false,
+            flight_double_terminal_speed: false,
+            walk_speed_override: 0,
+            crab_frozen: false,
+            shared_walker_state: 0,
+            shared_walker_patrol_timer: 0,
+            shared_walker_patrol_short_next: false,
+            shared_walker_debug_branch: None,
+            shared_walker_dx_to_kid_px: None,
+            shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+        }
+    }
+
+    fn mini_hopping_skull_test_grid() -> terrain::BlockGrid {
+        let data = vec![0u8; 8 * 4 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
+        for col in 0..8 {
+            grid.set_cell_at(col, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+        }
+        grid
+    }
+
     #[test]
     fn tank_spawn_faces_toward_player_per_loc_3b2e4() {
         assert_eq!(
@@ -5019,6 +5086,46 @@ mod tests {
             }
         );
         assert_eq!(layout.secondary, None);
+    }
+
+    #[test]
+    fn mini_hopping_skull_hp_tier_boost_matches_loc_3ebfc() {
+        let grid = mini_hopping_skull_test_grid();
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.hit_points = 2;
+
+        step_hopper(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.x_velocity, 0x0001_C000,
+            "ASM Mini_Hopping_Skull.asm loc_3EBFC adds `$4000` to the base `$18000` hop speed for levelled skulls"
+        );
+        assert_eq!(
+            enemy.y_velocity, -0x0004_6E00,
+            "ASM Mini_Hopping_Skull.asm loc_3EBFC applies the extra `$10000` upward boost before the shared `$1200` gravity tick"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_wall_bounce_preserves_boosted_speed_per_loc_3f1aa() {
+        let mut grid = mini_hopping_skull_test_grid();
+        grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.on_ground = false;
+        enemy.facing = Direction::Right;
+        enemy.x_pos = 23 << 16;
+        enemy.y_pos = 24 << 16;
+        enemy.x_velocity = 0x0001_C000;
+        enemy.y_velocity = 0;
+
+        step_hopper(&mut enemy, Some(&grid), None);
+
+        assert_eq!(enemy.facing, Direction::Left);
+        assert_eq!(
+            enemy.x_velocity, -0x0001_C000,
+            "ASM Mini_Hopping_Skull.asm loc_3F1AA negates the live X velocity, so wall hits must preserve boosted magnitude"
+        );
     }
 }
 
