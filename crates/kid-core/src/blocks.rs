@@ -1,6 +1,19 @@
 use super::*;
 use crate::combat::CollisionRectSub1F52;
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeBlockHeadbuttWorkerLoc1002E {
+    pub(crate) sound_effect_label: &'static str,
+    pub(crate) allocation_spec: u16,
+    pub(crate) object_handler_addr: u32,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) layout_word_addr: u32,
+    pub(crate) gfx_x_pos: u16,
+    pub(crate) gfx_y_pos: u16,
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
@@ -148,6 +161,29 @@ impl NativeRuntime {
     // PrizeDiamond_Init starts moving on the frame after object creation, so a
     // newly spawned native floating item should be active immediately.
     pub(crate) const PRIZE_ITEM_INITIAL_DORMANT_FRAMES: u16 = 0;
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_block_headbutt_worker_loc_1002E(
+        block_col: u16,
+        block_row: u16,
+        layout_word_addr: u32,
+    ) -> PrizeBlockHeadbuttWorkerLoc1002E {
+        // ASM loc_1002E (kid.asm:21317): preserve `d0`, play `sfx_Block_hit`,
+        // allocate object/gfx slots via `sub_E02`, install `sub_1007A`, copy
+        // `d1/d2/d3` into `$44/$46/$48(a0)`, and seed the gfx object's pixel
+        // position by shifting the caller's block coordinates left by four.
+        PrizeBlockHeadbuttWorkerLoc1002E {
+            sound_effect_label: "sfx_Block_hit",
+            allocation_spec: 0x2001,
+            object_handler_addr: 0x0001_007A,
+            block_col,
+            block_row,
+            layout_word_addr,
+            gfx_x_pos: block_col << 4,
+            gfx_y_pos: block_row << 4,
+        }
+    }
 
     fn floating_item_lifetime(content: terrain::PrizeContent) -> u16 {
         match content {

@@ -6344,6 +6344,35 @@ fn prize_block_lifecycle_spawns_item_only_after_bounce_completion() {
 }
 
 #[test]
+fn prize_block_headbutt_worker_loc_1002e_preserves_layout_pointer_and_converts_cell_coords_to_pixels()
+ {
+    let result = NativeRuntime::prize_block_headbutt_worker_loc_1002E(0x0012, 0x0007, 0x00FF_E90A);
+
+    assert_eq!(
+        result.sound_effect_label, "sfx_Block_hit",
+        "ASM loc_1002E should call `j_PlaySound` with `sfx_Block_hit` before allocating the temporary worker",
+    );
+    assert_eq!(
+        result.allocation_spec, 0x2001,
+        "ASM loc_1002E should pass `#$2001` into `sub_E02` for the prize-block headbutt worker",
+    );
+    assert_eq!(
+        result.object_handler_addr, 0x0001_007A,
+        "ASM loc_1002E should install `sub_1007A` into `4(a0)` for the spawned worker object",
+    );
+    assert_eq!(
+        (result.block_col, result.block_row, result.layout_word_addr),
+        (0x0012, 0x0007, 0x00FF_E90A),
+        "ASM loc_1002E should copy `d1/d2/d3` straight into `$44/$46/$48(a0)` without rewriting them",
+    );
+    assert_eq!(
+        (result.gfx_x_pos, result.gfx_y_pos),
+        (0x0120, 0x0070),
+        "ASM loc_1002E should shift the block column and row left by four before storing the gfx object's `$1A/$1E` pixel positions",
+    );
+}
+
+#[test]
 fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
     let mut grid = grid_with_blocks();
 
