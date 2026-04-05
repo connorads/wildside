@@ -181,6 +181,25 @@ fn gfx_object_insertion_predecessor_index_loc_101c_skips_equal_priorities_before
 }
 
 #[test]
+fn gfx_object_insert_loc_102e_splices_the_target_before_the_old_successor() {
+    let mut next_indices = [
+        Some(1), // sentinel -> first live node
+        Some(2), // predecessor -> old successor
+        Some(4), // old successor -> tail
+        None,
+        None,
+    ];
+
+    gfx_object_insert_loc_102E(&mut next_indices, 1, 3);
+
+    assert_eq!(
+        next_indices,
+        [Some(1), Some(3), Some(4), Some(2), None],
+        "ASM loc_102E should copy the predecessor's old `0(a4)` link into `0(a3)` and then repoint `0(a4)` at the reinserted node",
+    );
+}
+
+#[test]
 fn crawl_wall_escape_sub_81b4_snaps_right_when_left_is_solid_and_right_is_open() {
     let grid = crawl_escape_test_grid(true, false);
 

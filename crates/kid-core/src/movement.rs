@@ -128,6 +128,20 @@ pub(crate) fn gfx_object_insertion_predecessor_index_loc_101C(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_insert_loc_102E(
+    next_indices: &mut [Option<usize>],
+    predecessor_index: usize,
+    target_index: usize,
+) {
+    // ASM loc_102E (kid.asm:1946): copy the predecessor's current `0(a4)`
+    // link into the target's `0(a3)` slot, then store `a3` back into `0(a4)`
+    // so reinsertion splices the detached node ahead of the old successor.
+    next_indices[target_index] = next_indices[predecessor_index];
+    next_indices[predecessor_index] = Some(target_index);
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn allocate_object_and_gfx_links_sub_E02(
     object_slot_address: u32,
     gfx_slot_address: u32,
