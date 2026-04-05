@@ -2450,16 +2450,28 @@ impl OpeningSliceState {
             if !deferred_prize_ceiling_cell
                 && probe.cell.collision == terrain::CollisionKind::HiddenBlock
             {
-                // Change collision from HiddenBlock(2) to Solid(6),
-                // preserving the block type and skin.
-                let block_flag: u8 = if probe.cell.has_block { 0x80 } else { 0 };
-                let block_type_bits = probe.cell.block_type as u8 & 0x0F;
-                let new_hi = block_flag | 0x60 | block_type_bits; // Solid(6) collision
-                grid.set_cell_at(
-                    probe.cell_x,
-                    probe.cell_y,
-                    terrain::Cell::from_be_bytes(new_hi, probe.cell.skin),
-                );
+                let layout_addr = ((u32::from(probe.cell_y) * u32::from(grid.width_cells))
+                    + u32::from(probe.cell_x))
+                    * 2;
+                let revealed_cell = block_list
+                    .and_then(|bl| bl.hidden_block_by_layout_addr_sub_E37A(layout_addr as u16))
+                    .and_then(|entry| {
+                        // ASM sub_E3C6 derives the revealed cell from the
+                        // hidden-block metadata record rather than trusting the
+                        // placeholder HiddenBlock cell still in Level_Layout.
+                        block_list.and_then(|bl| bl.hidden_block_reveal_sub_E3C6(entry))
+                    })
+                    .map(|reveal| reveal.cell)
+                    .unwrap_or_else(|| {
+                        // Fallback for native-only fixtures that do not carry a
+                        // full ROM Block List entry: preserve the existing block
+                        // type/skin and only flip the collision to Solid.
+                        let block_flag: u8 = if probe.cell.has_block { 0x80 } else { 0 };
+                        let block_type_bits = probe.cell.block_type as u8 & 0x0F;
+                        let new_hi = block_flag | 0x60 | block_type_bits;
+                        terrain::Cell::from_be_bytes(new_hi, probe.cell.skin)
+                    });
+                grid.set_cell_at(probe.cell_x, probe.cell_y, revealed_cell);
 
                 // If the hidden block contains a prize, dispatch it
                 if probe.cell.has_block && probe.cell.block_type == terrain::BlockType::Prize {

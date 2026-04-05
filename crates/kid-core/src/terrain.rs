@@ -535,6 +535,12 @@ pub struct HiddenBlockEntry {
     pub block_setting: u8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockRevealSubE3C6 {
+    pub(crate) cell: Cell,
+    pub(crate) sprite_mapping: u16,
+}
+
 impl BlockList {
     /// Parse prize block entries from the raw Block List RAM dump.
     ///
@@ -702,6 +708,53 @@ impl BlockList {
             .binary_search_by_key(&layout_addr, |entry| entry.layout_addr)
             .ok()
             .and_then(|index| self.hidden_blocks.get(index))
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn hidden_block_reveal_sub_E3C6(
+        &self,
+        entry: &HiddenBlockEntry,
+    ) -> Option<HiddenBlockRevealSubE3C6> {
+        // ASM sub_E3C6 (kid.asm:17870) maps hidden-block metadata from `a4`
+        // into the revealed Level_Layout cell word `d2` and sprite mapping
+        // `d3`. Type 1 reuses the matching 8-byte prize entry from
+        // `$FFFFF8D4`; the other reveal types come from `unk_E412/unk_E414`.
+        if entry.block_type == 1 {
+            let prize = self
+                .prize_blocks
+                .iter()
+                .find(|prize| prize.layout_addr == entry.layout_addr)?;
+            let (base_cell, sprite_mapping) = if prize.disguised {
+                (0xE101u16, 0x1058u16)
+            } else {
+                (0xE102u16, 0x1060u16)
+            };
+            let cell_word = base_cell.wrapping_add(u16::from(entry.block_setting));
+            return Some(HiddenBlockRevealSubE3C6 {
+                cell: Cell::from_be_bytes((cell_word >> 8) as u8, cell_word as u8),
+                sprite_mapping,
+            });
+        }
+
+        let (base_cell, sprite_mapping) = match entry.block_type {
+            0x00 => (0xE001u16, 0x1058u16),
+            0x02 => (0xE203u16, 0x1074u16),
+            0x04 => (0xE407u16, 0x107Cu16),
+            0x05 => (0xE50Bu16, 0x1084u16),
+            0x06 => (0xE60Cu16, 0x1098u16),
+            0x07 => (0xE710u16, 0x109Cu16),
+            0x09 => (0xE919u16, 0x10A0u16),
+            0x0A => (0xEA1Cu16, 0x10E4u16),
+            0x0B => (0xEB2Cu16, 0x10A4u16),
+            0x0C => (0xEC2Du16, 0x1084u16),
+            _ => return None,
+        };
+        let cell_word = base_cell.wrapping_add(u16::from(entry.block_setting));
+        Some(HiddenBlockRevealSubE3C6 {
+            cell: Cell::from_be_bytes((cell_word >> 8) as u8, cell_word as u8),
+            sprite_mapping,
+        })
     }
 }
 
@@ -2119,6 +2172,100 @@ mod tests {
         assert!(
             bl.hidden_block_by_layout_addr_sub_E37A(0x0020).is_none(),
             "ASM sub_E37A should leave `a4` unresolved when no hidden-block entry matches the layout address",
+        );
+    }
+
+    #[test]
+    fn hidden_block_reveal_sub_e3c6_uses_prize_disguise_flag_from_matching_layout_addr() {
+        let bl = BlockList {
+            prize_blocks: vec![
+                PrizeBlockEntry {
+                    layout_addr: 0x0012,
+                    col: 3,
+                    row: 1,
+                    content: PrizeContent::Diamond,
+                    disguised: false,
+                },
+                PrizeBlockEntry {
+                    layout_addr: 0x0018,
+                    col: 4,
+                    row: 1,
+                    content: PrizeContent::Cyclone,
+                    disguised: true,
+                },
+            ],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+
+        let visible_prize = bl
+            .hidden_block_reveal_sub_E3C6(&HiddenBlockEntry {
+                layout_addr: 0x0012,
+                col: 3,
+                row: 1,
+                block_type: 0x01,
+                block_setting: 0x03,
+            })
+            .expect("ASM sub_E3C6 should reveal visible prize tiles from the prize list");
+        assert_eq!(visible_prize.cell, Cell::from_be_bytes(0xE1, 0x05));
+        assert_eq!(visible_prize.sprite_mapping, 0x1060);
+
+        let disguised_prize = bl
+            .hidden_block_reveal_sub_E3C6(&HiddenBlockEntry {
+                layout_addr: 0x0018,
+                col: 4,
+                row: 1,
+                block_type: 0x01,
+                block_setting: 0x04,
+            })
+            .expect("ASM sub_E3C6 should pick the disguised prize tile set when the prize entry is flagged negative");
+        assert_eq!(disguised_prize.cell, Cell::from_be_bytes(0xE1, 0x05));
+        assert_eq!(disguised_prize.sprite_mapping, 0x1058);
+    }
+
+    #[test]
+    fn hidden_block_reveal_sub_e3c6_maps_non_prize_types_from_rom_table() {
+        let bl = BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+
+        let reveal = bl
+            .hidden_block_reveal_sub_E3C6(&HiddenBlockEntry {
+                layout_addr: 0x0048,
+                col: 9,
+                row: 3,
+                block_type: 0x0A,
+                block_setting: 0x02,
+            })
+            .expect("ASM sub_E3C6 should map block type $0A through `unk_E412/unk_E414`");
+
+        assert_eq!(reveal.cell, Cell::from_be_bytes(0xEA, 0x1E));
+        assert_eq!(reveal.sprite_mapping, 0x10E4);
+    }
+
+    #[test]
+    fn hidden_block_reveal_sub_e3c6_requires_matching_prize_entry_for_type_1() {
+        let bl = BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+
+        assert!(
+            bl.hidden_block_reveal_sub_E3C6(&HiddenBlockEntry {
+                layout_addr: 0x0020,
+                col: 4,
+                row: 1,
+                block_type: 0x01,
+                block_setting: 0x00,
+            })
+            .is_none(),
+            "ASM sub_E3C6 walks the prize list for type 1, so a hidden prize without a matching layout entry should not resolve",
         );
     }
 

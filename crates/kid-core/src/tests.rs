@@ -6740,6 +6740,56 @@ fn hidden_block_reveals_on_headbutt() {
 }
 
 #[test]
+fn hidden_block_headbutt_prefers_block_list_reveal_mapping_sub_e3c6() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let w = 6u16;
+    let h = 5u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+        let offset = (row * usize::from(w) + col) * 2;
+        data[offset] = hi;
+        data[offset + 1] = lo;
+    };
+    // Placeholder hidden cell: collision=HiddenBlock, has_block=1, block_type=0.
+    set_cell(&mut data, 2, 2, 0xA0, 0x00);
+    for col in 0..6 {
+        set_cell(&mut data, col, 3, 0x60, 0x01);
+    }
+    runtime.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+    runtime.block_list = Some(terrain::BlockList {
+        prize_blocks: vec![],
+        ghost_blocks: vec![],
+        teleporters: vec![],
+        hidden_blocks: vec![terrain::HiddenBlockEntry {
+            layout_addr: 0x001C,
+            col: 2,
+            row: 2,
+            block_type: 0x0A,
+            block_setting: 0x02,
+        }],
+    });
+    start_level(&mut runtime);
+
+    if let Some(ref mut slice) = runtime.opening_slice {
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 80 << 16;
+        slice.player.y_velocity = -0x0002_0000;
+        slice.player.on_ground = false;
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+    }
+
+    runtime.step_frame(FrameInput::default());
+
+    let cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
+    assert_eq!(
+        cell,
+        terrain::Cell::from_be_bytes(0xEA, 0x1E),
+        "ASM sub_E3C6 should reveal the ROM-mapped tile from the hidden-block metadata instead of preserving the placeholder cell"
+    );
+}
+
+#[test]
 fn fifty_diamonds_grants_extra_life() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
