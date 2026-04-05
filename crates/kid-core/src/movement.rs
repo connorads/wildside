@@ -108,6 +108,18 @@ pub(crate) struct HiddenBlockRevealWorkerSubE0F8 {
     pub(crate) sprite_mapping: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockRevealWorkerSubE1D4 {
+    pub(crate) revealed_layout_byte: u8,
+    pub(crate) allocation_spec: u16,
+    pub(crate) object_handler_addr: u32,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) layout_word_addr: u32,
+    pub(crate) sprite_mapping: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_jump_window_sub_DFB0(
@@ -147,6 +159,28 @@ pub(crate) fn hidden_block_reveal_worker_sub_E0F8(
     HiddenBlockRevealWorkerSubE0F8 {
         allocation_spec: 0x2001,
         object_handler_addr: 0x0000_E304,
+        block_col,
+        block_row,
+        layout_word_addr,
+        sprite_mapping,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_reveal_worker_sub_E1D4(
+    block_col: u16,
+    block_row: u16,
+    layout_word_addr: u32,
+    sprite_mapping: u16,
+) -> HiddenBlockRevealWorkerSubE1D4 {
+    // ASM sub_E1D4 (kid.asm:17619): write `#$60` into `(a2)`, allocate a
+    // `$2001` object slot, install `loc_E282`, then copy the caller's block
+    // column/row plus layout pointer and sprite mapping into `$44/$46/$48/$4C/$4E`.
+    HiddenBlockRevealWorkerSubE1D4 {
+        revealed_layout_byte: 0x60,
+        allocation_spec: 0x2001,
+        object_handler_addr: 0x0000_E282,
         block_col,
         block_row,
         layout_word_addr,

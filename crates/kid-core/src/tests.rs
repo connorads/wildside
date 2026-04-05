@@ -9046,6 +9046,25 @@ fn hidden_block_reveal_worker_sub_e0f8_seeds_the_loc_e304_burst_worker() {
 }
 
 #[test]
+fn hidden_block_reveal_worker_sub_e1d4_reveals_the_layout_byte_and_seeds_loc_e282() {
+    let worker = hidden_block_reveal_worker_sub_E1D4(0x0002, 0x0003, 0x00FF_4A48, 0x1114);
+
+    assert_eq!(
+        worker,
+        HiddenBlockRevealWorkerSubE1D4 {
+            revealed_layout_byte: 0x60,
+            allocation_spec: 0x2001,
+            object_handler_addr: 0x0000_E282,
+            block_col: 0x0002,
+            block_row: 0x0003,
+            layout_word_addr: 0x00FF_4A48,
+            sprite_mapping: 0x1114,
+        },
+        "ASM sub_E1D4 should write `#$60` into `(a2)`, allocate a `$2001` worker, install `loc_E282`, and copy `$44/$46/$48/$4C/$4E` from `d0/d6/a2/d2/d3`",
+    );
+}
+
+#[test]
 fn hide_end_sequence_credits_glyphs_sub_1d7e6_clears_all_six_display_flags() {
     let mut display_enabled = [true, false, true, true, false, true];
 
