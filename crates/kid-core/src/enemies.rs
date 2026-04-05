@@ -107,7 +107,8 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         // Driller: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
         EnemyFamily::Driller => (2, 0x0000_8000, 0x0000_8000),
         // Tank: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
-        // ASM: Tank.asm lines 52-64, Tank_Shooting.asm lines 53-65.
+        // ASM Tank.asm loc_3B36A/loc_3B372: HP 2 gets one `$8000` add,
+        // HP 3 gets two, HP 4+ gets three.
         EnemyFamily::Tank => (2, 0x0000_8000, 0x0000_8000),
         // Fire Demon: HP = enemy_level + 3 (min 3). Base speed $8000, step $8000.
         EnemyFamily::FireDemon => (3, 0x0000_8000, 0x0000_8000),
@@ -4939,7 +4940,8 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
         EnemyFamily::Hand => Direction::Right,
         // Drips always start facing right (Drip.asm init)
         EnemyFamily::Drips => Direction::Right,
-        // ASM Dragon.asm loc_3CD70: face TOWARD the player at spawn.
+        // ASM Dragon.asm loc_3CD70 and Tank.asm loc_3B2E4: face TOWARD the
+        // player at spawn.
         // `move.w x_pos(a4),d4; cmp.w x_pos(a3),d4; blt.s loc_3CD82; st x_direction(a3)`
         // x_direction=0 → LEFT (default VRAM orientation), x_direction=$FF → RIGHT (flipped).
         // kid.x >= dragon.x → st x_direction → $FF → faces RIGHT (toward kid on the right).
@@ -4951,6 +4953,72 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
                 Direction::Right
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tank_spawn_faces_toward_player_per_loc_3b2e4() {
+        assert_eq!(
+            spawn_facing(EnemyFamily::Tank, 100 << 16, 80 << 16),
+            Direction::Left
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Tank, 100 << 16, 100 << 16),
+            Direction::Right
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Tank, 100 << 16, 120 << 16),
+            Direction::Right
+        );
+    }
+
+    #[test]
+    fn tank_hp_and_walk_speed_follow_loc_3b36a_and_loc_3b372() {
+        // ASM Tank.asm loc_3B36A/loc_3B372: enemy_level is copied to d7, then
+        // addq.w #2,d7 produces HP 2/3/4. The walk-speed longword receives one,
+        // two, or three `$8000` increments at those tiers.
+        let hp2 = spawn_hit_points(EnemyFamily::Tank, 0);
+        let hp3 = spawn_hit_points(EnemyFamily::Tank, 1);
+        let hp4 = spawn_hit_points(EnemyFamily::Tank, 2);
+
+        assert_eq!(hp2, 2);
+        assert_eq!(hp3, 3);
+        assert_eq!(hp4, 4);
+
+        assert_eq!(pacer_walk_speed(EnemyFamily::Tank, hp2), 0x0000_8000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Tank, hp3), 0x0001_0000);
+        assert_eq!(pacer_walk_speed(EnemyFamily::Tank, hp4), 0x0001_8000);
+    }
+
+    #[test]
+    fn tank_child_layout_matches_init_offsets_from_loc_3b372() {
+        // ASM Tank.asm loc_3B372 copies the parent x/y into the child sprite,
+        // then `subi.w #8,$1E(a1)` lifts the child 8px above the body.
+        let layout = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+            family: EnemyFamily::Tank,
+            parent_x_pos: 0x0120,
+            parent_y_pos: 0x0088,
+            parent_x_direction: 0xFF,
+            child_y_offset: 8,
+            robot_parent_state: 0,
+            robot_child_mapping: 0,
+            child_x_direction: 0,
+        });
+
+        assert_eq!(
+            layout.primary,
+            SharedEnemyAttachmentChildSub3BF72 {
+                x_pos: 0x0120,
+                y_pos: 0x0080,
+                x_velocity: 0,
+                x_direction: Some(0xFF),
+            }
+        );
+        assert_eq!(layout.secondary, None);
     }
 }
 
