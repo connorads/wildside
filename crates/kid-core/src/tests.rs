@@ -8713,6 +8713,16 @@ fn dragon_flyer_descent_fire_uses_live_horizontal_velocity_and_downward_arc() {
         3 << 16,
         "ASM loc_348A0 stores +3px/frame downward in the projectile"
     );
+    // ASM loc_34BAC: x_pos += $FFF6 (-10px), negated if facing right → +10px
+    let expected_x = (100 + 10) << 16;
+    assert_eq!(
+        projectiles[0].x_pos, expected_x as u32,
+        "ASM loc_34BAC: fire X offset +10px when facing right"
+    );
+    assert!(
+        projectiles[0].terrain_kill,
+        "ASM: fire dies on terrain contact, not frame timer"
+    );
     assert_eq!(
         enemy.dragon_descent_index, 4,
         "spawn-fire advances immediately"
@@ -8720,6 +8730,9 @@ fn dragon_flyer_descent_fire_uses_live_horizontal_velocity_and_downward_arc() {
 }
 
 #[test]
+/// ASM loc_3D02A: walking dragon breath is a stationary animated hitbox
+/// at ±28px from the dragon's mouth. No velocity — stru_3CCC8 plays for
+/// 68 frames (8+10+10+10+10+10+10) then $18(a3) signals completion.
 fn dragon_walking_fires_breath_in_facing_direction() {
     let mut enemy = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 200 << 16, 2);
     enemy.on_ground = true;
@@ -8728,11 +8741,21 @@ fn dragon_walking_fires_breath_in_facing_direction() {
     let mut projectiles = Vec::new();
     step_dragon_walking(&mut enemy, None, &mut projectiles, None);
     assert_eq!(projectiles.len(), 1);
-    assert!(
-        projectiles[0].x_velocity > 0,
-        "breath fires in facing direction (right)"
+    assert_eq!(
+        projectiles[0].x_velocity, 0,
+        "ASM loc_3D02A: breath is stationary (no velocity)"
     );
-    assert_eq!(projectiles[0].y_velocity, 0, "breath is horizontal");
+    assert_eq!(projectiles[0].y_velocity, 0, "breath is stationary");
+    // Breath offset: +28px when facing right
+    let expected_x = (100 + DRAGON_WALKING_BREATH_OFFSET_PX) << 16;
+    assert_eq!(
+        projectiles[0].x_pos, expected_x as u32,
+        "breath placed at dragon mouth (+28px right)"
+    );
+    assert_eq!(
+        projectiles[0].lifetime, DRAGON_WALKING_BREATH_LIFETIME,
+        "breath lasts for animation duration (68 frames)"
+    );
     assert_eq!(enemy.wait_timer, DRAGON_WALKING_BREATH_RESET);
     assert_eq!(
         enemy.dragon_script_cmd, 1,
@@ -8741,6 +8764,7 @@ fn dragon_walking_fires_breath_in_facing_direction() {
 }
 
 #[test]
+/// ASM loc_3D02A: breath at -28px when facing left, still stationary.
 fn dragon_walking_fires_breath_left_when_facing_left() {
     let mut enemy = test_enemy(EnemyFamily::DragonWalking, 100 << 16, 200 << 16, 2);
     enemy.on_ground = true;
@@ -8749,9 +8773,14 @@ fn dragon_walking_fires_breath_left_when_facing_left() {
     let mut projectiles = Vec::new();
     step_dragon_walking(&mut enemy, None, &mut projectiles, None);
     assert_eq!(projectiles.len(), 1);
-    assert!(
-        projectiles[0].x_velocity < 0,
-        "breath fires left when facing left"
+    assert_eq!(
+        projectiles[0].x_velocity, 0,
+        "ASM loc_3D02A: breath is stationary (no velocity)"
+    );
+    let expected_x = (100 - DRAGON_WALKING_BREATH_OFFSET_PX) << 16;
+    assert_eq!(
+        projectiles[0].x_pos, expected_x as u32,
+        "breath placed at dragon mouth (-28px left)"
     );
 }
 

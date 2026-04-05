@@ -2199,21 +2199,31 @@ fn step_dragon_descent(
                 return; // Consume one frame.
             }
             DragonDiveAction::SpawnFire => {
-                // Spawn fire-breath projectile during descent. ASM $E19F.
+                // Spawn fire-breath projectile during descent.
+                // ASM loc_34BAC: x_pos += $FFF6 (-10px, negated if facing right),
+                // y_pos += $A (+10px), x_vel from dragon, y_vel = 3<<16.
+                // No frame-based lifetime — dies off-screen ($19) or on terrain.
                 if let Some(projs) = projectiles {
+                    let x_offset: i32 = match enemy.facing {
+                        Direction::Right => 10,
+                        Direction::Left => -10,
+                    };
                     projs.push(EnemyProjectile {
-                        x_pos: enemy.x_pos,
+                        x_pos: (enemy.x_pos as i64 + ((i64::from(x_offset)) << 16)) as u32,
                         y_pos: (enemy.y_pos as i64 + (10 << 16)) as u32,
                         // ASM Dragon_Flying loc_348A0: copy the dragon's live
                         // x_vel into the projectile and force y_vel to +3px/frame.
                         x_velocity: enemy.x_velocity,
                         y_velocity: 3 << 16,
-                        lifetime: DRAGON_WALKING_BREATH_LIFETIME,
+                        // ASM: no lifetime timer; projectile persists until off-screen
+                        // or terrain contact. Use large lifetime + terrain_kill.
+                        lifetime: 600,
                         gravity: 0,
                         friendly: false,
                         homing_accel: 0,
                         speed_cap: 0,
                         wall_bounce: false,
+                        terrain_kill: true,
                         ..Default::default()
                     });
                 }
@@ -3705,7 +3715,9 @@ pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile
 // From ASM Dragon.asm: initial cooldown $12C (300f, line 95), reset after breath $1F4 (500f, line 194).
 pub(crate) const DRAGON_WALKING_BREATH_INITIAL: u16 = 300;
 pub(crate) const DRAGON_WALKING_BREATH_RESET: u16 = 500;
-pub(crate) const DRAGON_WALKING_BREATH_SPEED: i32 = 0x3_0000;
+/// ASM loc_3D02A: breath is a stationary GfxObject, not a travelling projectile.
+/// Animation stru_3CCC8 lasts 68 frames (8+10+10+10+10+10+10), after which
+/// $18(a3) signals completion. No velocity is applied in the ROM.
 pub(crate) const DRAGON_WALKING_BREATH_LIFETIME: u16 = 68;
 pub(crate) const DRAGON_WALKING_BREATH_HOLD_FRAMES: u16 = 68;
 pub(crate) const DRAGON_WALKING_RECOVER_FRAMES: u16 = 0;
@@ -4084,10 +4096,9 @@ pub(crate) fn step_dragon_walking(
     if enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK && enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
         if enemy.wait_timer == 0 {
-            let x_vel = match enemy.facing {
-                Direction::Right => DRAGON_WALKING_BREATH_SPEED,
-                Direction::Left => -DRAGON_WALKING_BREATH_SPEED,
-            };
+            // ASM loc_3D02A: breath is a stationary animated hitbox at
+            // the dragon's mouth (±28px). No velocity — the GfxObject
+            // stays in place for the animation duration (stru_3CCC8, 68f).
             let x_offset = match enemy.facing {
                 Direction::Right => DRAGON_WALKING_BREATH_OFFSET_PX,
                 Direction::Left => -DRAGON_WALKING_BREATH_OFFSET_PX,
@@ -4095,7 +4106,7 @@ pub(crate) fn step_dragon_walking(
             projectiles.push(EnemyProjectile {
                 x_pos: (enemy.x_pos as i64 + ((i64::from(x_offset)) << 16)) as u32,
                 y_pos: enemy.y_pos,
-                x_velocity: x_vel,
+                x_velocity: 0,
                 y_velocity: 0,
                 lifetime: DRAGON_WALKING_BREATH_LIFETIME,
                 gravity: 0,
