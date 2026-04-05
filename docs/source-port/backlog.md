@@ -157,7 +157,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 134 | [x] | P1 | infra | Package reduced semantic cases as the default autonomous work queue | `cargo run -p kidcli -- autonomous-loop --goal case-queue` now ranks reduced case bundles, prefers recording-backed authoritative failures, surfaces untriaged recordings, and only marks hybrid-gated cases as patchable |
 | 135 | [ ] | P1 | render | Level 1 background graphics do not match the original game | Capture Level 1 native/oracle frames and compare background layers |
 | 136 | [ ] | P1 | block | Diamonds and helmets emerging from bricks use incorrect graphics | Hit prize blocks, confirm prize emergence art matches oracle |
-| 137 | [ ] | P1 | player | Kid walks backwards while climbing slopes | Traverse uphill slopes, confirm facing and movement match oracle |
+| 137 | [ ] | P1 | player | Kid walks backwards while climbing slopes | Playability. Negative baseline captured: recording slug `issue-137` (`.cache/recordings/issue-137/`) and frame captures `.cache/debug/issue-137/`. The recorded run idled from boot through title into demo and never traversed a slope, so the report is still not reproduced. Next: `cargo run --release -p kidcli -- play-native --warp-level 00 --settled --record issue-137-slope`, `cargo run -p kidcli -- verify-recording --slug issue-137-slope`, `cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`. |
 | 138 | [ ] | P1 | player | Enemy contact appears to apply double damage because invulnerability is too short | Take consecutive hits, confirm post-hit invulnerability timing matches oracle |
 | 139 | [ ] | P1 | render | Bouncy blocks still render like spikes | Compare rubber block tiles and state art against oracle frames |
 | 140 | [ ] | P1 | render | Prize blocks use wrong graphics and animations | Compare prize-block idle and hit states against oracle frames |
@@ -258,6 +258,19 @@ still fails at `pre_death@1279` (`hp` native `0`, oracle `1`), so the remaining 
 late jump/run-up X parity and downstream death trigger, not the old grounded jump regression.
 
 New evidence (2026-03-27, follow-up): `kidcli probe-native-gameplay --scenario death-respawn-level1
+
+### 137 — Kid walks backwards while climbing slopes (OPEN)
+Evidence source: native recording slug `issue-137`, frame captures `.cache/debug/issue-137/level_00_frame_00000.png`, `.cache/debug/issue-137/level_00_frame_00060.png`, and `.cache/debug/issue-137/level_00_frame_00120.png`.
+Native repro: not yet reproduced. The captured bundle idled from boot through title into demo (`.cache/recordings/issue-137/transcript.txt`), so it never exercised uphill traversal and cannot confirm or dismiss the reported slope-facing bug.
+Oracle repro: unknown. `cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1` passes, so the baseline boot/title/Level 1 shell is not the issue.
+Minimum gate: `1p-playable`.
+
+Classification: playability. `cargo run -p kidcli -- verify-recording --slug issue-137` preserved the trace (`trace_match: true`) but diverged from oracle state/frame output because the idle recording rolled into demo playback instead of a focused slope case, so keep this as a negative baseline rather than canonical repro evidence.
+
+Next verification commands:
+- `cargo run --release -p kidcli -- play-native --warp-level 00 --settled --record issue-137-slope`
+- `cargo run -p kidcli -- verify-recording --slug issue-137-slope`
+- `cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1`
 --trace-physics --frame-start 939 --frame-end 941` now exposes the exact sub-step drift. Native is
 still clean through frame `938`, but frame `939` already drops the slope run-up `post_h x_vel`
 from `0x00010000` to `0x0000C000` while oracle keeps the same run-up window alive long enough for
