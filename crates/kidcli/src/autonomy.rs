@@ -1285,91 +1285,94 @@ fn evaluate_source_port_frontier_cycle(
                 summary,
             )
         } else {
-            if let Some(issue) = select_open_backlog_issue(repo_root)? {
-                let task = source_port_frontier_backlog_issue_task(frontier, &note, &issue);
+            // No case-queue work. Priority: code-producing work first
+            // (sub_ labels, proactive verification), then evidence-only
+            // backlog issues, then sweep-parity.
+            let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
+            if !uncovered.is_empty() {
+                let batch_size = (routines_per_task as usize).min(uncovered.len());
+                let batch = &uncovered[..batch_size];
+                let first_label = &batch[0].1;
+                let task = source_port_frontier_gameplay_backlog_task(
+                    frontier,
+                    &note,
+                    batch,
+                    uncovered.len(),
+                );
                 let summary = format!(
-                    "TAS frontier {} is closed through frame {}; no reduced case or recording is ready, so source-port pivots to backlog issue #{} ({}).",
-                    frontier.slug, frontier.authoritative_clean_through, issue.id, issue.summary
+                    "TAS frontier {} is closed through frame {}; no actionable case-queue, delegated to gameplay-backlog ({} uncovered sub_ labels, batch of {}, first: {}).",
+                    frontier.slug,
+                    frontier.authoritative_clean_through,
+                    uncovered.len(),
+                    batch_size,
+                    first_label
                 );
                 (
                     task,
-                    None,
-                    Some(issue.id.clone()),
-                    Some(format!("backlog-issue:{}", issue.id)),
+                    Some(AutonomyGoal::GameplayBacklog),
+                    Some(first_label.clone()),
+                    Some(format!("gameplay-backlog:{}", first_label)),
                     summary,
                 )
             } else {
-                // No actionable case-queue or backlog evidence task: delegate to
-                // gameplay-backlog (ASM coverage) instead of sweep-parity so the
-                // loop still produces game code.
-                let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
-                if !uncovered.is_empty() {
-                    let batch_size = (routines_per_task as usize).min(uncovered.len());
-                    let batch = &uncovered[..batch_size];
-                    let first_label = &batch[0].1;
-                    let task = source_port_frontier_gameplay_backlog_task(
-                        frontier,
-                        &note,
-                        batch,
-                        uncovered.len(),
-                    );
+                // No uncovered sub_ labels. Try proactive verification
+                // (loc_ coverage, enemy audits, mutation testing) —
+                // these produce code, unlike evidence-only backlog issues.
+                let pv_report =
+                    evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
+                if let Some(pv_task) = pv_report.task_package {
+                    let target = pv_task.progress_fingerprint.clone();
                     let summary = format!(
-                        "TAS frontier {} is closed through frame {}; no actionable case-queue, delegated to gameplay-backlog ({} uncovered sub_ labels, batch of {}, first: {}).",
+                        "TAS frontier {} closed; delegated to proactive-verification ({}).",
+                        frontier.slug, target
+                    );
+                    (
+                        TaskPackage {
+                            capability: CapabilityId::SourcePortFrontierTask,
+                            delegated_goal: Some(AutonomyGoal::ProactiveVerification),
+                            delegated_target: Some(target.clone()),
+                            delegation_reason: Some(
+                                "all sub_ labels covered; proactive verification has work"
+                                    .to_owned(),
+                            ),
+                            ..pv_task
+                        },
+                        Some(AutonomyGoal::ProactiveVerification),
+                        Some(target.clone()),
+                        Some(target),
+                        summary,
+                    )
+                } else if let Some(issue) = select_open_backlog_issue(repo_root)? {
+                    // All code-producing strategies exhausted; fall back
+                    // to evidence-capture backlog issues.
+                    let task = source_port_frontier_backlog_issue_task(frontier, &note, &issue);
+                    let summary = format!(
+                        "TAS frontier {} is closed through frame {}; proactive verification exhausted, pivoting to backlog issue #{} ({}).",
                         frontier.slug,
                         frontier.authoritative_clean_through,
-                        uncovered.len(),
-                        batch_size,
-                        first_label
+                        issue.id,
+                        issue.summary
                     );
                     (
                         task,
-                        Some(AutonomyGoal::GameplayBacklog),
-                        Some(first_label.clone()),
-                        Some(format!("gameplay-backlog:{}", first_label)),
+                        None,
+                        Some(issue.id.clone()),
+                        Some(format!("backlog-issue:{}", issue.id)),
                         summary,
                     )
                 } else {
-                    // No uncovered sub_ labels. Try proactive verification
-                    // (loc_ coverage, enemy audits, mutation testing) before
-                    // falling through to sweep-parity.
-                    let pv_report =
-                        evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
-                    if let Some(pv_task) = pv_report.task_package {
-                        let target = pv_task.progress_fingerprint.clone();
-                        let summary = format!(
-                            "TAS frontier {} closed; delegated to proactive-verification ({}).",
-                            frontier.slug, target
-                        );
-                        (
-                            TaskPackage {
-                                capability: CapabilityId::SourcePortFrontierTask,
-                                delegated_goal: Some(AutonomyGoal::ProactiveVerification),
-                                delegated_target: Some(target.clone()),
-                                delegation_reason: Some(
-                                    "all sub_ labels covered; proactive verification has work"
-                                        .to_owned(),
-                                ),
-                                ..pv_task
-                            },
-                            Some(AutonomyGoal::ProactiveVerification),
-                            Some(target.clone()),
-                            Some(target),
-                            summary,
-                        )
-                    } else {
-                        let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
-                        let summary = format!(
-                            "TAS frontier {} is closed through frame {}; all proactive verification strategies exhausted, so source-port pivots to sweep parity hardening.",
-                            frontier.slug, frontier.authoritative_clean_through
-                        );
-                        (
-                            task,
-                            Some(AutonomyGoal::SweepParity),
-                            Some("state-sweep".to_owned()),
-                            Some("state-sweep".to_owned()),
-                            summary,
-                        )
-                    }
+                    let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
+                    let summary = format!(
+                        "TAS frontier {} is closed through frame {}; all proactive verification strategies and backlog issues exhausted, so source-port pivots to sweep parity hardening.",
+                        frontier.slug, frontier.authoritative_clean_through
+                    );
+                    (
+                        task,
+                        Some(AutonomyGoal::SweepParity),
+                        Some("state-sweep".to_owned()),
+                        Some("state-sweep".to_owned()),
+                        summary,
+                    )
                 }
             }
         }
