@@ -427,6 +427,13 @@ pub(crate) struct SoundDriverBeginWriteSubE143A {
     pub(crate) waits_for_bus_grant: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverWriteCommandSubE1482 {
+    pub(crate) queued_bytes: [u8; 2],
+    pub(crate) next_write_index: u8,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -519,6 +526,21 @@ pub(crate) fn sound_driver_begin_write_sub_E143A(
         interrupt_mask: 0x0700,
         requests_z80_bus: true,
         waits_for_bus_grant: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_sub_E1482(
+    write_index: u8,
+    command_byte: u8,
+) -> SoundDriverWriteCommandSubE1482 {
+    // ASM sub_E1482 (kid.asm:49675): write the leading `FF`, advance the
+    // 6-bit ring index, then fall through into the shared byte writer so the
+    // command byte lands immediately afterwards and the head byte commits.
+    SoundDriverWriteCommandSubE1482 {
+        queued_bytes: [0xFF, command_byte],
+        next_write_index: write_index.wrapping_add(2) & 0x3F,
     }
 }
 

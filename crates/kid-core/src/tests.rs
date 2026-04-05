@@ -871,6 +871,20 @@ fn sound_driver_begin_write_sub_e143a_requests_the_bus_and_reads_the_ring_head()
     );
 }
 
+#[test]
+fn sound_driver_write_command_sub_e1482_queues_ff_prefix_and_wraps_the_head_byte() {
+    let write = sound_driver_write_command_sub_E1482(0x3F, 0x10);
+
+    assert_eq!(
+        write,
+        SoundDriverWriteCommandSubE1482 {
+            queued_bytes: [0xFF, 0x10],
+            next_write_index: 0x01,
+        },
+        "ASM sub_E1482 should write `FF`, fall through into the shared tail write for the command byte, and commit the final ring head as `(old + 2) & $3F`",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }
