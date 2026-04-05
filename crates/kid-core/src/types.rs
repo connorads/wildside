@@ -595,6 +595,7 @@ pub(crate) struct HelmetState {
     pub(crate) juggernaut_skull_delay_frames: u8,
     pub(crate) iron_knight_climbing: bool,
     pub(crate) iron_knight_climb_accel: i16,
+    pub(crate) iron_knight_climb_pose_accum: u16,
     pub(crate) berzerker_charge_accum: u8,
     pub(crate) berzerker_charging: bool,
     pub(crate) micromax_stuck: bool,

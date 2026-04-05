@@ -964,7 +964,7 @@ impl NativeRuntime {
         }
 
         Some(format!(
-            "helmet={:#06x}/skycutter_on_board={}/skycutter_flipboard={}/cyclone_flying={}/cyclone_y_accel={}/iron_knight_climbing={}/iron_knight_climb_accel={}/micromax_stuck={}/pending_stomp_bounce={}/form_flash={}",
+            "helmet={:#06x}/skycutter_on_board={}/skycutter_flipboard={}/cyclone_flying={}/cyclone_y_accel={}/iron_knight_climbing={}/iron_knight_climb_accel={}/iron_knight_climb_pose={}/micromax_stuck={}/pending_stomp_bounce={}/form_flash={}",
             self.progression.current_form.helmet_id(),
             u8::from(self.helmet.skycutter_on_board),
             self.helmet.skycutter_flipboard,
@@ -972,6 +972,7 @@ impl NativeRuntime {
             self.helmet.cyclone_y_accel,
             u8::from(self.helmet.iron_knight_climbing),
             self.helmet.iron_knight_climb_accel,
+            self.helmet.iron_knight_climb_pose_accum,
             u8::from(self.helmet.micromax_stuck),
             u8::from(self.pending_stomp_bounce.is_some()),
             self.progression.form_change_flash_frames,

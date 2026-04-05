@@ -154,6 +154,13 @@ pub(crate) struct SkycutterVisualStepSub98F2 {
     pub(crate) board_y_offset_px: i16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IronKnightClimbVisualSubA3BC {
+    pub(crate) pose_accum: u16,
+    pub(crate) sprite_mapping: &'static str,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn skycutter_visual_step_sub_98F2(
@@ -248,6 +255,36 @@ pub(crate) fn skycutter_visual_step_sub_98F2(
         board_priority_word,
         board_y_offset_px: if state.on_board { -0x1A } else { 0 },
         state,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn iron_knight_climb_visual_sub_A3BC(
+    pose_accum: u16,
+    y_velocity: i32,
+) -> IronKnightClimbVisualSubA3BC {
+    // ASM sub_A3BC (kid.asm:12694): add `(y_vel << 3) >> 16` into the running
+    // climb pose accumulator `d3`, wrap the upper/lower limits across the
+    // 0..$BF cycle, then bucket `d3 >> 2` through `unk_A3F0/off_A420`.
+    let next = i32::from(pose_accum) + (y_velocity >> 13);
+    let pose_accum = if next < 0 {
+        0x00BF
+    } else if next >= 0x00BF {
+        0
+    } else {
+        next as u16
+    };
+
+    let sprite_mapping = match pose_accum >> 2 {
+        0..=15 => "LnkTo_unk_C209E-Data_Index",
+        16..=31 => "LnkTo_unk_C1E18-Data_Index",
+        _ => "LnkTo_unk_C1B92-Data_Index",
+    };
+
+    IronKnightClimbVisualSubA3BC {
+        pose_accum,
+        sprite_mapping,
     }
 }
 
@@ -610,6 +647,7 @@ impl NativeRuntime {
         if self.progression.current_form != PlayerForm::IronKnight {
             self.helmet.iron_knight_climbing = false;
             self.helmet.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climb_pose_accum = 0;
             return IronKnightClimbStep::None;
         }
 
@@ -645,6 +683,7 @@ impl NativeRuntime {
             if probe.hit {
                 self.helmet.iron_knight_climbing = true;
                 self.helmet.iron_knight_climb_accel = 0;
+                self.helmet.iron_knight_climb_pose_accum = 0;
                 slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
                 slice.player.x_velocity = 0;
                 slice.player.on_ground = false;
@@ -664,6 +703,7 @@ impl NativeRuntime {
         if slice.player.on_ground {
             self.helmet.iron_knight_climbing = false;
             self.helmet.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climb_pose_accum = 0;
             return IronKnightClimbStep::None;
         }
 
@@ -672,6 +712,7 @@ impl NativeRuntime {
         if b_pressed {
             self.helmet.iron_knight_climbing = false;
             self.helmet.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climb_pose_accum = 0;
             // Jump away from wall
             let jump_height =
                 physics::JUMP_HEIGHTS[usize::from(PlayerForm::IronKnight.helmet_id())];
@@ -688,6 +729,7 @@ impl NativeRuntime {
         if let Some(direction) = release_direction {
             self.helmet.iron_knight_climbing = false;
             self.helmet.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climb_pose_accum = 0;
             slice.player.facing = direction;
             return IronKnightClimbStep::ExitHibernate;
         }
@@ -708,6 +750,7 @@ impl NativeRuntime {
                 // Wall gone, fall off
                 self.helmet.iron_knight_climbing = false;
                 self.helmet.iron_knight_climb_accel = 0;
+                self.helmet.iron_knight_climb_pose_accum = 0;
                 return IronKnightClimbStep::None;
             }
         }
@@ -742,6 +785,11 @@ impl NativeRuntime {
             .player
             .y_velocity
             .clamp(IRON_KNIGHT_MAX_CLIMB_VEL, IRON_KNIGHT_MAX_FALL_VEL);
+        self.helmet.iron_knight_climb_pose_accum = iron_knight_climb_visual_sub_A3BC(
+            self.helmet.iron_knight_climb_pose_accum,
+            slice.player.y_velocity,
+        )
+        .pose_accum;
 
         // Zero horizontal velocity while climbing
         slice.player.x_velocity = 0;

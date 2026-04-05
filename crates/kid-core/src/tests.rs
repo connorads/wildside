@@ -10,10 +10,10 @@ use crate::boot::{
 };
 use crate::combat::*;
 use crate::helmets::{
-    JuggernautCompanionStateSub975C, JuggernautCompanionStepSub975C,
+    IronKnightClimbVisualSubA3BC, JuggernautCompanionStateSub975C, JuggernautCompanionStepSub975C,
     JuggernautCompanionVisualSub975C, SkycutterVisualStateSub98F2,
-    juggernaut_companion_step_sub_975C, red_stealth_swing_anchor_sub_868E,
-    skycutter_visual_step_sub_98F2,
+    iron_knight_climb_visual_sub_A3BC, juggernaut_companion_step_sub_975C,
+    red_stealth_swing_anchor_sub_868E, skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FullscreenPaletteFadeSub73D0,
@@ -18442,6 +18442,45 @@ fn iron_knight_resume_climb_uses_rom_wall_lookup() {
     assert_eq!(
         slice.player.y_velocity,
         IRON_KNIGHT_ATTACH_Y_VEL + i32::from(IRON_KNIGHT_SLIDE_DRIFT)
+    );
+}
+
+#[test]
+fn iron_knight_climb_visual_sub_a3bc_wraps_negative_motion_to_top_pose() {
+    let visual = iron_knight_climb_visual_sub_A3BC(4, -0x8_0000);
+
+    assert_eq!(
+        visual,
+        IronKnightClimbVisualSubA3BC {
+            pose_accum: 0x00BF,
+            sprite_mapping: "LnkTo_unk_C1B92-Data_Index",
+        },
+        "ASM sub_A3BC should wrap negative accumulator motion to `$BF` and use the top climb pose",
+    );
+}
+
+#[test]
+fn iron_knight_resume_climb_updates_sub_a3bc_pose_accumulator() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::IronKnight;
+    rt.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+    rt.block_grid = Some(grid_with_wall(5, 0, 20, 10));
+    rt.helmet.iron_knight_climbing = true;
+    rt.helmet.iron_knight_climb_accel = 0;
+    rt.helmet.iron_knight_climb_pose_accum = 0x40;
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 152 << 16;
+    slice.player.y_pos = 80 << 16;
+    slice.player.facing = Direction::Right;
+    slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
+
+    rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+    let expected = iron_knight_climb_visual_sub_A3BC(0x40, slice.player.y_velocity).pose_accum;
+
+    assert_eq!(
+        rt.helmet.iron_knight_climb_pose_accum, expected,
+        "ASM sub_A3BC should derive the persisted climb pose from the post-resume `y_vel(a3)` value",
     );
 }
 
