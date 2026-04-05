@@ -620,6 +620,8 @@ pub(crate) struct HelmetState {
     pub(crate) cyclone_y_accel: i16,
     pub(crate) red_stealth_sword_timer: u8,
     pub(crate) eyeclops_beam_active: bool,
+    pub(crate) eyeclops_beam_counter: u16,
+    pub(crate) eyeclops_beam_hard: bool,
     pub(crate) maniaxe_axe_active: bool,
     pub(crate) maniaxe_turnaround: u8,
     pub(crate) juggernaut_skull_delay_frames: u8,

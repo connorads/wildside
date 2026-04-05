@@ -21061,6 +21061,14 @@ fn eyeclops_c_press_fires_beam_right() {
     rt.step_eyeclops_beam(&slice, input);
 
     assert!(rt.helmet.eyeclops_beam_active);
+    assert_eq!(
+        rt.helmet.eyeclops_beam_counter, 1,
+        "ASM sub_E49A seeds `$FFFFFAB8` with `#1` for the normal Eyeclops beam"
+    );
+    assert!(
+        !rt.helmet.eyeclops_beam_hard,
+        "the normal C-press path should keep the hard-beam bit clear"
+    );
     assert_eq!(rt.projectiles.len(), 1);
     let beam = &rt.projectiles[0];
     assert!(beam.friendly, "beam should be player-friendly");
@@ -21136,6 +21144,8 @@ fn eyeclops_beam_clears_when_projectile_expires() {
     let mut rt = NativeRuntime::new(manifest());
     rt.progression.current_form = PlayerForm::Eyeclops;
     rt.helmet.eyeclops_beam_active = true;
+    rt.helmet.eyeclops_beam_counter = 0x8001;
+    rt.helmet.eyeclops_beam_hard = true;
     // Projectile with 0 lifetime = expired
     rt.projectiles.push(EnemyProjectile {
         x_pos: 100 << 16,
@@ -21157,6 +21167,11 @@ fn eyeclops_beam_clears_when_projectile_expires() {
     assert!(
         !rt.helmet.eyeclops_beam_active,
         "beam flag should clear when all projectiles expire"
+    );
+    assert_eq!(rt.helmet.eyeclops_beam_counter, 0);
+    assert!(
+        !rt.helmet.eyeclops_beam_hard,
+        "ASM sub_E49A clears the beam state word when the coroutine ends"
     );
 }
 
@@ -21188,6 +21203,8 @@ fn eyeclops_non_eyeclops_form_clears_state() {
     let mut rt = NativeRuntime::new(manifest());
     rt.progression.current_form = PlayerForm::TheKid;
     rt.helmet.eyeclops_beam_active = true;
+    rt.helmet.eyeclops_beam_counter = 0x8001;
+    rt.helmet.eyeclops_beam_hard = true;
     let slice = combat_slice();
 
     rt.step_eyeclops_beam(&slice, FrameInput::default());
@@ -21196,6 +21213,8 @@ fn eyeclops_non_eyeclops_form_clears_state() {
         !rt.helmet.eyeclops_beam_active,
         "non-Eyeclops form should clear beam state"
     );
+    assert_eq!(rt.helmet.eyeclops_beam_counter, 0);
+    assert!(!rt.helmet.eyeclops_beam_hard);
 }
 
 #[test]
@@ -21219,6 +21238,33 @@ fn eyeclops_c_held_does_not_fire() {
         rt.projectiles.is_empty(),
         "held C (not rising edge) should not fire"
     );
+}
+
+#[test]
+fn eyeclops_hard_beam_sub_e49a_consumes_two_diamonds() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    rt.progression.diamond_count = 2;
+    let slice = combat_slice();
+    let input = FrameInput {
+        b: true,
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_eyeclops_beam(&slice, input);
+
+    assert!(rt.helmet.eyeclops_beam_active);
+    assert_eq!(
+        rt.helmet.eyeclops_beam_counter, 0x8001,
+        "ASM sub_E49A seeds `$FFFFFAB8` with `$8001` for the hard beam path"
+    );
+    assert!(rt.helmet.eyeclops_beam_hard);
+    assert_eq!(
+        rt.progression.diamond_count, 0,
+        "ASM sub_E49A spends two diamonds when the hard beam starts"
+    );
+    assert_eq!(rt.projectiles.len(), 1);
 }
 
 // --- Juggernaut skull shot tests ---

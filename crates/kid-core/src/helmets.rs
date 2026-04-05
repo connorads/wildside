@@ -732,10 +732,13 @@ impl NativeRuntime {
                 }
             }
             PlayerForm::Eyeclops => {
-                self.helmet.eyeclops_beam_active = self
-                    .projectiles
-                    .iter()
-                    .any(|projectile| projectile.friendly && projectile.lifetime > 0);
+                self.helmet.eyeclops_beam_active = self.projectiles.iter().any(|projectile| {
+                    projectile.friendly && projectile.lifetime > 0 && projectile.gravity == 0
+                });
+                if !self.helmet.eyeclops_beam_active {
+                    self.helmet.eyeclops_beam_counter = 0;
+                    self.helmet.eyeclops_beam_hard = false;
+                }
             }
             _ => {}
         }
@@ -1326,27 +1329,31 @@ impl NativeRuntime {
     pub(crate) fn step_eyeclops_beam(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Eyeclops {
             self.helmet.eyeclops_beam_active = false;
+            self.helmet.eyeclops_beam_counter = 0;
+            self.helmet.eyeclops_beam_hard = false;
             return;
         }
 
-        // Check if beam expired
-        if self.helmet.eyeclops_beam_active && !self.projectiles.iter().any(|p| p.lifetime > 0) {
+        let beam_still_live = self
+            .projectiles
+            .iter()
+            .any(|p| p.friendly && p.lifetime > 0 && p.gravity == 0);
+        if self.helmet.eyeclops_beam_active && !beam_still_live {
             self.helmet.eyeclops_beam_active = false;
+            self.helmet.eyeclops_beam_counter = 0;
+            self.helmet.eyeclops_beam_hard = false;
         }
 
-        // C rising edge fires beam (one at a time)
-        let c_pressed = input.c && !self.prior_input.c;
-        if c_pressed && !self.helmet.eyeclops_beam_active {
-            self.helmet.eyeclops_beam_active = true;
-            let dir = if slice.player.facing == Direction::Right {
-                1
-            } else {
-                -1
-            };
-            self.projectiles.push(EnemyProjectile {
+        let fire_beam = |runtime: &mut NativeRuntime, direction: i32| {
+            runtime.projectiles.push(EnemyProjectile {
+                // ASM sub_E49A latches the current x_direction in `$FFFFFABE`
+                // and grows the beam from Kid's live coordinates on each wake.
+                // Native still models the gameplay effect as one horizontal
+                // friendly projectile, but it now mirrors the same beam-state
+                // counter in `eyeclops_beam_counter`.
                 x_pos: slice.player.x_pos,
                 y_pos: (slice.player.y_pos as i64 - (8 << 16)) as u32,
-                x_velocity: EYECLOPS_BEAM_SPEED * dir,
+                x_velocity: EYECLOPS_BEAM_SPEED * direction,
                 y_velocity: 0,
                 lifetime: EYECLOPS_BEAM_LIFETIME,
                 friendly: true,
@@ -1356,6 +1363,36 @@ impl NativeRuntime {
                 wall_bounce: false,
                 ..Default::default()
             });
+        };
+        let direction = if slice.player.facing == Direction::Right {
+            1
+        } else {
+            -1
+        };
+        let hard_beam_requested = input.b && input.c;
+        if hard_beam_requested
+            && !self.helmet.eyeclops_beam_active
+            && self.progression.diamond_count >= 2
+        {
+            // ASM sub_E49A seeds `$FFFFFAB8` with `$8001` for the hard beam and
+            // immediately spends two diamonds before the beam object renders.
+            self.progression.diamond_count -= 2;
+            self.helmet.eyeclops_beam_active = true;
+            self.helmet.eyeclops_beam_counter = 0x8001;
+            self.helmet.eyeclops_beam_hard = true;
+            fire_beam(self, direction);
+            return;
+        }
+
+        // C rising edge fires beam (one at a time)
+        let c_pressed = input.c && !self.prior_input.c;
+        if c_pressed && !self.helmet.eyeclops_beam_active {
+            self.helmet.eyeclops_beam_active = true;
+            self.helmet.eyeclops_beam_counter = 1;
+            self.helmet.eyeclops_beam_hard = false;
+            fire_beam(self, direction);
+        } else if self.helmet.eyeclops_beam_active {
+            self.helmet.eyeclops_beam_counter = self.helmet.eyeclops_beam_counter.wrapping_add(1);
         }
     }
 
