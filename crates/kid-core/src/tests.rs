@@ -6512,6 +6512,17 @@ fn prize_block_wobble_y_deltas_sub_1007a_match_the_loc_100da_bounce_script() {
 }
 
 #[test]
+fn deleted_tile_wobble_y_deltas_loc_10236_use_six_hibernated_rise_frames() {
+    let deltas = NativeRuntime::deleted_tile_wobble_y_deltas_loc_10200();
+
+    assert_eq!(
+        &deltas[6..12],
+        &[2, 2, 2, 2, 2, 2],
+        "ASM loc_10236 should spend six hibernated frames on `addq.w #2,y_pos(a3)` because `moveq #5,d1` feeds an inclusive `dbf` loop",
+    );
+}
+
+#[test]
 fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
     let mut grid = grid_with_blocks();
 

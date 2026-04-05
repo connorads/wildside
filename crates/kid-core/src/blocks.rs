@@ -234,6 +234,15 @@ impl NativeRuntime {
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn deleted_tile_wobble_y_deltas_loc_10200() -> &'static [i16; 31] {
+        // ASM loc_10236 (kid.asm:21493): after the opening six-frame
+        // `loc_10228` rise, `moveq #5,d1` drives an inclusive `dbf` loop of
+        // six `addq.w #2,y_pos(a3)` hibernate steps for the deleted tile.
+        &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
+    }
+
     fn floating_item_lifetime(content: terrain::PrizeContent) -> u16 {
         match content {
             terrain::PrizeContent::Diamond => Self::PRIZE_DIAMOND_LIFETIME_FRAMES,
