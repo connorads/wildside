@@ -461,6 +461,20 @@ pub struct DecompressionBufferRowsUploadSub1CD88 {
     pub rows: [[u16; 64]; 28],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ZeroLongwordVramWriteSubC346 {
+    pub vram_byte_address: u16,
+    pub vdp_control_longword: u32,
+    pub data_longword: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZeroLongwordVramWritePlanSubC346 {
+    pub column_index: u16,
+    pub base_vram_word_address: u16,
+    pub writes: Vec<ZeroLongwordVramWriteSubC346>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaneLineUploadSub1CDA8 {
     pub source_word_offset: usize,
@@ -2372,6 +2386,39 @@ pub fn decompression_buffer_rows_upload_sub_1CD88(
     });
 
     Ok(DecompressionBufferRowsUploadSub1CD88 { rows })
+}
+
+#[allow(non_snake_case)]
+pub fn zero_longword_vram_write_plan_sub_C346(
+    column_index: u16,
+    base_vram_word_address: u16,
+    row_count: u16,
+) -> ZeroLongwordVramWritePlanSubC346 {
+    // ASM sub_C346 (kid.asm:15963): convert the caller's VRAM word address
+    // into a byte address via `lsl.w #3` then `lsl.w #2`, fold in the 4-byte
+    // column selector from `d0`, and for each row programme the VDP control
+    // longword before writing one zero longword and advancing `$20` bytes.
+    let mut vram_byte_address = base_vram_word_address
+        .wrapping_shl(3)
+        .wrapping_add(column_index)
+        .wrapping_shl(2);
+    let writes = (0..usize::from(row_count))
+        .map(|_| {
+            let write = ZeroLongwordVramWriteSubC346 {
+                vram_byte_address,
+                vdp_control_longword: vdp_write_control_longword(vram_byte_address),
+                data_longword: 0,
+            };
+            vram_byte_address = vram_byte_address.wrapping_add(0x0020);
+            write
+        })
+        .collect();
+
+    ZeroLongwordVramWritePlanSubC346 {
+        column_index,
+        base_vram_word_address,
+        writes,
+    }
 }
 
 fn vdp_write_control_longword(vram_byte_address: u16) -> u32 {
@@ -6729,6 +6776,53 @@ AddrTbl_LevelNames:   ;1A842
                 .to_string()
                 .contains("sub_1CD88 needs 0x0460 decoded words"),
             "the error should describe the exact decoded-word requirement",
+        );
+    }
+
+    #[test]
+    fn zero_longword_vram_write_plan_sub_c346_builds_a_column_of_zero_writes_with_20_byte_row_stride()
+     {
+        let plan = zero_longword_vram_write_plan_sub_C346(3, 0x02FB, 3);
+
+        assert_eq!(plan.column_index, 3);
+        assert_eq!(plan.base_vram_word_address, 0x02FB);
+        assert_eq!(plan.writes.len(), 3);
+        assert_eq!(
+            plan.writes[0],
+            ZeroLongwordVramWriteSubC346 {
+                vram_byte_address: 0x5F6C,
+                vdp_control_longword: 0x5F6C_0001,
+                data_longword: 0,
+            },
+            "ASM sub_C346 should turn `d1=$02FB, d0=3` into VRAM byte `$5F6C` and queue a zero longword there",
+        );
+        assert_eq!(
+            plan.writes[1].vram_byte_address, 0x5F8C,
+            "ASM sub_C346 should advance the target by `$20` bytes per DBF row",
+        );
+        assert_eq!(
+            plan.writes[2].vdp_control_longword, 0x5FAC_0001,
+            "ASM sub_C346 should rebuild the VDP write control longword for each successive row",
+        );
+        assert!(
+            plan.writes.iter().all(|write| write.data_longword == 0),
+            "ASM sub_C346 should write `move.l #0,(a6)` on every iteration",
+        );
+    }
+
+    #[test]
+    fn zero_longword_vram_write_plan_sub_c346_preserves_the_high_vram_bank_bits_in_the_control_word()
+     {
+        let plan = zero_longword_vram_write_plan_sub_C346(0, 0x0625, 2);
+
+        assert_eq!(plan.writes[0].vram_byte_address, 0xC4A0);
+        assert_eq!(
+            plan.writes[0].vdp_control_longword, 0x44A0_0003,
+            "ASM sub_C346 should mask the byte address to 14 bits for the high control word and rotate the original bank bits into the low word",
+        );
+        assert_eq!(
+            plan.writes[1].vdp_control_longword, 0x44C0_0003,
+            "ASM sub_C346 should keep the same bank bits while stepping down the next `$20`-byte row",
         );
     }
 
