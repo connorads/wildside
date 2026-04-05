@@ -1,5 +1,22 @@
 use super::*;
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u32) {
+    // ASM sub_868E (kid.asm:9522): the spawned sword worker copies Kid's
+    // position, subtracts 10px from Y, then offsets X by 28px toward the
+    // active facing. Native `Direction::Right` mirrors the clear x-direction
+    // player pose used by the existing Red Stealth combat path.
+    let x_offset_px = if player.facing == Direction::Right {
+        RED_STEALTH_REACH_X
+    } else {
+        -RED_STEALTH_REACH_X
+    };
+    let x_px = ((player.x_pos >> 16) as i32 + x_offset_px).max(0) as u32;
+    let y_px = ((player.y_pos >> 16) as i32 + RED_STEALTH_OFFSET_Y).max(0) as u32;
+    (x_px << 16, y_px << 16)
+}
+
 /// Diamond Power type active for the current activation.
 /// ASM: DiamondPower_Init_Index (kid.asm:44375) maps form+tier to power type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -610,14 +627,9 @@ impl NativeRuntime {
             return;
         }
 
-        let px = (slice.player.x_pos >> 16) as i32;
-        let py = (slice.player.y_pos >> 16) as i32;
-        let sword_x = if slice.player.facing == Direction::Right {
-            px + RED_STEALTH_REACH_X
-        } else {
-            px - RED_STEALTH_REACH_X
-        };
-        let sword_y = py + RED_STEALTH_OFFSET_Y;
+        let (sword_x_fp, sword_y_fp) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        let sword_x = (sword_x_fp >> 16) as i32;
+        let sword_y = (sword_y_fp >> 16) as i32;
 
         let mut kill_indices = Vec::new();
         for (i, enemy) in self.active_enemies.iter_mut().enumerate() {

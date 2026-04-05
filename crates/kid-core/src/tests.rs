@@ -9,6 +9,7 @@ use crate::boot::{
     vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
+use crate::helmets::red_stealth_swing_anchor_sub_868E;
 use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FullscreenPaletteFadeSub73D0,
     SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
@@ -19313,6 +19314,25 @@ fn red_stealth_c_press_starts_sword_swing() {
     rt.step_red_stealth_sword(input);
 
     assert!(rt.helmet.red_stealth_sword_timer > 0);
+}
+
+#[test]
+fn red_stealth_swing_anchor_sub_868e_offsets_the_spawn_from_kid() {
+    let mut slice = combat_slice();
+    slice.player.facing = Direction::Right;
+
+    assert_eq!(
+        red_stealth_swing_anchor_sub_868E(&slice.player),
+        (0x009C_0000, 0x00F6_0000),
+        "ASM sub_868E should place the sword worker 28px ahead of Kid and 10px above his feet when native facing is right",
+    );
+
+    slice.player.facing = Direction::Left;
+    assert_eq!(
+        red_stealth_swing_anchor_sub_868E(&slice.player),
+        (0x0064_0000, 0x00F6_0000),
+        "ASM sub_868E should mirror the 28px X offset when the native facing flips left",
+    );
 }
 
 #[test]
