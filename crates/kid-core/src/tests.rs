@@ -753,6 +753,21 @@ fn start_z80_guard_sub_924_clears_zero_depth_and_restarts_z80() {
     );
 }
 
+#[test]
+fn sound_driver_write_sub_e1330_queues_ff_05_and_preserves_a0_d0() {
+    let write = sound_driver_write_sub_E1330(0x7B);
+
+    assert_eq!(
+        write,
+        SoundDriverWriteSubE1330 {
+            queued_bytes: [0xFF, 0x05, 0x7B],
+            preserves_a0: true,
+            preserves_d0: true,
+        },
+        "ASM sub_E1330 should thunk to sub_E1546, preserve `a0`/`d0`, and queue `FF 05 <sound-id>` into the GEMS ring",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }

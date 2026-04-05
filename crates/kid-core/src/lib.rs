@@ -368,6 +368,26 @@ pub struct NativeRuntime {
     last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverWriteSubE1330 {
+    pub(crate) queued_bytes: [u8; 3],
+    pub(crate) preserves_a0: bool,
+    pub(crate) preserves_d0: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
+    // ASM sub_E1330 -> sub_E1546 -> sub_E1552 (kid.asm:49481, 49806):
+    // preserve `a0`/`d0`, then queue `FF 05 <sound-id>` into the GEMS ring.
+    SoundDriverWriteSubE1330 {
+        queued_bytes: [0xFF, 0x05, sound_id],
+        preserves_a0: true,
+        preserves_d0: true,
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 struct PendingStompBounce {
     anchor_x_pos: u32,
