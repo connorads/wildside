@@ -1921,6 +1921,33 @@ pub fn helmet_pose_palette_load_sub_8106(helmet_id: u16) -> Option<SymbolicPalet
 }
 
 #[allow(non_snake_case)]
+pub fn helmet_accent_palette_load_sub_813C(helmet_id: u16) -> Option<SymbolicPaletteLoadSub1B2A4> {
+    // ASM sub_813C (kid.asm:8895): index `off_8162` by `Current_Helmet` and
+    // copy 3 words from the selected palette into Palette_Buffer+$7A.
+    const PALETTES: [&str; 10] = [
+        "Pal_A1C72",
+        "Pal_A1D02",
+        "Pal_A1E34",
+        "Pal_A1DBC",
+        "Pal_A1DF8",
+        "Pal_A1E70",
+        "Pal_A1EAC",
+        "Pal_A1D80",
+        "Pal_A1CA2",
+        "Pal_A1D44",
+    ];
+
+    PALETTES
+        .get(usize::from(helmet_id))
+        .copied()
+        .map(|palette_label| SymbolicPaletteLoadSub1B2A4 {
+            destination_word_offset: 0x003D,
+            palette_label,
+            word_count: 0x0003,
+        })
+}
+
+#[allow(non_snake_case)]
 pub fn option_menu_palette_load_sub_1C896() -> SymbolicPaletteLoadSub1B2A4 {
     // ASM sub_1C896 (kid.asm:31542): copy 0x40 words from `Pal_1C97C`
     // straight into `Palette_Buffer` starting at word offset 0.
@@ -5951,6 +5978,40 @@ AddrTbl_LevelNames:   ;1A842
             helmet_pose_palette_load_sub_8106(10),
             None,
             "native should reject out-of-range helmet indices instead of inventing a palette past ASM off_8128",
+        );
+    }
+
+    #[test]
+    fn helmet_accent_palette_load_sub_813c_maps_each_helmet_to_the_3_word_overlay() {
+        let expected = [
+            "Pal_A1C72",
+            "Pal_A1D02",
+            "Pal_A1E34",
+            "Pal_A1DBC",
+            "Pal_A1DF8",
+            "Pal_A1E70",
+            "Pal_A1EAC",
+            "Pal_A1D80",
+            "Pal_A1CA2",
+            "Pal_A1D44",
+        ];
+
+        for (helmet_id, palette_label) in expected.into_iter().enumerate() {
+            assert_eq!(
+                helmet_accent_palette_load_sub_813C(helmet_id as u16),
+                Some(SymbolicPaletteLoadSub1B2A4 {
+                    destination_word_offset: 0x003D,
+                    palette_label,
+                    word_count: 0x0003,
+                }),
+                "ASM sub_813C should copy the 3-word helmet accent palette {palette_label} into Palette_Buffer+$7A for helmet index {helmet_id}",
+            );
+        }
+
+        assert_eq!(
+            helmet_accent_palette_load_sub_813C(10),
+            None,
+            "native should reject out-of-range helmet indices instead of inventing a palette past ASM off_8162",
         );
     }
 
