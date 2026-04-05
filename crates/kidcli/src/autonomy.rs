@@ -3301,6 +3301,29 @@ fn correlate_release_gate_failure_with_state_sweep(
         .get("report_path")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("unknown");
+    if let Some(release_gate_focus_summary) = latest
+        .get("release_gate_focus")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|entries| {
+            entries.iter().find_map(|entry| {
+                entry
+                    .get("field")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|field| field == failed_field)
+                    .then(|| {
+                        entry
+                            .get("summary")
+                            .and_then(serde_json::Value::as_str)
+                            .map(str::to_owned)
+                    })
+                    .flatten()
+            })
+        })
+    {
+        return Some(format!(
+            "latest state sweep reports: {release_gate_focus_summary} (report={report_path})"
+        ));
+    }
     let field_entry = latest
         .get("field_summary")
         .and_then(serde_json::Value::as_array)
@@ -4607,7 +4630,7 @@ mod tests {
         .expect("gate report should write");
         fs::write(
             metrics_dir.join("sweep-history.jsonl"),
-            r#"{"timestamp":"1775168490","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":320,"accumulation":0,"rng":0,"oracle_limitation":648},"report_path":"/tmp/sweep-report.json","field_summary":[{"field":"game_mode","total_diffs":15,"levels":15,"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":15}}]}
+            r#"{"timestamp":"1775168490","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":320,"accumulation":0,"rng":0,"oracle_limitation":648},"report_path":"/tmp/sweep-report.json","field_summary":[{"field":"game_mode","total_diffs":15,"levels":15,"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":15}}],"release_gate_focus":[{"field":"game_mode","summary":"1p-accurate failing field game_mode=15 diffs across 15 levels for boot_title_start_level1 @ title@360 [oracle_limitations=15] [includes scenario level 0x00] [excludes checkpoint title@360] [excludes checkpoint family title] checkpoints=[idle_tail=15] (field-level coverage only; exact pair evidence lives in release_gate_focus, and the release-gate scenario still needs its own proof) [exact pair 0x000c->0x002c unseen in state sweep; exact-level and checkpoint correlation absent]"}]}
 "#,
         )
         .expect("sweep history should write");
@@ -4623,8 +4646,8 @@ mod tests {
         assert!(
             outcome
                 .detail
-                .contains("latest state sweep classifies `game_mode` as oracle_limitations=15"),
-            "signal should correlate the failed field with the latest sweep classes"
+                .contains("latest state sweep reports: 1p-accurate failing field game_mode=15 diffs across 15 levels"),
+            "signal should prefer the richer release-gate focus summary when it is present"
         );
         assert!(
             outcome.detail.contains("report=/tmp/sweep-report.json"),
