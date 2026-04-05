@@ -73,6 +73,26 @@ pub(crate) struct ObjectGfxLinksSubE02 {
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_predecessor_index_sub_FF6(
+    next_indices: &[Option<usize>],
+    target_index: usize,
+) -> Option<usize> {
+    // ASM loc_1004 (kid.asm:1925): when the current `0(a4)` link is neither
+    // null nor the target `a3`, load that next pointer into `a4` and branch
+    // back to `loc_FFE`; if the walk reaches a null link first, `beq.s
+    // loc_1038` returns without unlinking anything.
+    let mut cursor_index = 0usize;
+    loop {
+        let next_index = next_indices[cursor_index]?;
+        if next_index == target_index {
+            return Some(cursor_index);
+        }
+        cursor_index = next_index;
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn allocate_object_and_gfx_links_sub_E02(
     object_slot_address: u32,
     gfx_slot_address: u32,

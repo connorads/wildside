@@ -129,6 +129,22 @@ fn initialise_sprite_frame_state_sub_b52_resets_the_shared_sprite_cursors() {
 }
 
 #[test]
+fn gfx_object_predecessor_index_sub_ff6_returns_none_when_loc_1004_walks_to_a_null_link() {
+    let next_indices = [
+        Some(1), // sentinel -> first live node
+        Some(2), // first live node -> second live node
+        None,    // loc_1004 hits the null tail before finding target 3
+        None,
+    ];
+
+    assert_eq!(
+        gfx_object_predecessor_index_sub_FF6(&next_indices, 3),
+        None,
+        "ASM loc_1004 should keep following `0(a4)` until it either sees `a3` or reaches a null link, and the null-link path should return without unlinking",
+    );
+}
+
+#[test]
 fn crawl_wall_escape_sub_81b4_snaps_right_when_left_is_solid_and_right_is_open() {
     let grid = crawl_escape_test_grid(true, false);
 
