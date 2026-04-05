@@ -853,6 +853,24 @@ fn sound_driver_reset_sub_e1416_asserts_reset_then_restarts_the_bus() {
     );
 }
 
+#[test]
+fn sound_driver_begin_write_sub_e143a_requests_the_bus_and_reads_the_ring_head() {
+    let begin = sound_driver_begin_write_sub_E143A(0x2A);
+
+    assert_eq!(
+        begin,
+        SoundDriverBeginWriteSubE143A {
+            command_head_address: 0xA00036,
+            ring_buffer_address: 0xA01A40,
+            write_index: 0x2A,
+            interrupt_mask: 0x0700,
+            requests_z80_bus: true,
+            waits_for_bus_grant: true,
+        },
+        "ASM sub_E143A should raise SR to `$0700`, request `$A11100=$0100`, wait for bit 0 to clear, then return the current write head from `$A00036` with ring base `$A01A40`",
+    );
+}
+
 fn shooter_point_sub_219c(x_px: i16, y_px: i16) -> ShooterPointSub219C {
     ShooterPointSub219C { x_px, y_px }
 }

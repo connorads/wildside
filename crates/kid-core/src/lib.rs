@@ -416,6 +416,17 @@ pub(crate) struct SoundDriverResetSubE1416 {
     pub(crate) releases_z80_reset: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverBeginWriteSubE143A {
+    pub(crate) command_head_address: u32,
+    pub(crate) ring_buffer_address: u32,
+    pub(crate) write_index: u8,
+    pub(crate) interrupt_mask: u16,
+    pub(crate) requests_z80_bus: bool,
+    pub(crate) waits_for_bus_grant: bool,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -490,6 +501,24 @@ pub(crate) fn sound_driver_reset_sub_E1416() -> SoundDriverResetSubE1416 {
         reset_assert_delay_iterations: 15,
         restarts_z80_bus: true,
         releases_z80_reset: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_begin_write_sub_E143A(
+    command_head_byte: u8,
+) -> SoundDriverBeginWriteSubE143A {
+    // ASM sub_E143A (kid.asm:49642): raise the interrupt mask to `$0700`,
+    // request the Z80 bus, spin until bit 0 clears, then expose the command
+    // head byte from `$A00036` plus the shared GEMS ring base at `$A01A40`.
+    SoundDriverBeginWriteSubE143A {
+        command_head_address: 0xA00036,
+        ring_buffer_address: 0xA01A40,
+        write_index: command_head_byte,
+        interrupt_mask: 0x0700,
+        requests_z80_bus: true,
+        waits_for_bus_grant: true,
     }
 }
 
