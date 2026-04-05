@@ -13101,7 +13101,11 @@ fn sphere_deflects_up_slope_by_swapping_and_negating_velocities() {
     // ASM: swap and negate both velocities
     assert_eq!(enemy.y_velocity, -old_x_vel, "SlopeUp: y_vel = -old_x_vel");
     assert_eq!(enemy.x_velocity, -old_y_vel, "SlopeUp: x_vel = -old_y_vel");
-    assert_eq!(enemy.facing, Direction::Left, "SlopeUp flips facing");
+    assert_eq!(
+        enemy.facing,
+        Direction::Right,
+        "ASM Sphere.asm loc_36012 only rewrites x_vel/y_vel, so slope-up contact must preserve x_direction"
+    );
 }
 
 // ASM Sphere.asm loc_36032: slope-down swaps velocities without negation.
@@ -13180,7 +13184,11 @@ fn sphere_deflects_down_slope_by_swapping_velocities() {
     // ASM: swap without negation
     assert_eq!(enemy.y_velocity, old_x_vel, "SlopeDown: y_vel = old_x_vel");
     assert_eq!(enemy.x_velocity, old_y_vel, "SlopeDown: x_vel = old_y_vel");
-    assert_eq!(enemy.facing, Direction::Left, "SlopeDown flips facing");
+    assert_eq!(
+        enemy.facing,
+        Direction::Right,
+        "ASM Sphere.asm loc_36032 only rewrites x_vel/y_vel, so slope-down contact must preserve x_direction"
+    );
 }
 
 // ASM Fireball.asm loc_32D06/loc_32D46: same swap logic as Sphere.

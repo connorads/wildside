@@ -1907,7 +1907,10 @@ pub(crate) fn step_bouncer_with_rng(
         );
         if wall.hit {
             enemy.x_velocity = -enemy.x_velocity;
-            if !matches!(enemy.family, EnemyFamily::Fireball) {
+            if !matches!(enemy.family, EnemyFamily::Fireball | EnemyFamily::Sphere) {
+                // ASM Sphere.asm loc_36148 negates `x_vel(a3)` and immediately
+                // resumes the loop. The sphere family never flips x_direction on
+                // wall contact, so keep facing unchanged here.
                 enemy.facing = opposite_direction(enemy.facing);
             }
         }
@@ -1919,19 +1922,39 @@ pub(crate) fn step_bouncer_with_rng(
             // Fireball.asm loc_32D06/loc_32D46, Big_Hopping_Skull.asm loc_36706/loc_36720).
             // Slopes take precedence over floor bounce.
             if floor.cell.collision == terrain::CollisionKind::SlopeUp {
-                // ASM: swap velocities, negate both
                 let old_x = enemy.x_velocity;
                 let old_y = enemy.y_velocity;
-                enemy.y_velocity = -old_x;
-                enemy.x_velocity = -old_y;
-                enemy.facing = opposite_direction(enemy.facing);
+                if matches!(enemy.family, EnemyFamily::Sphere) {
+                    // ASM Sphere.asm loc_3614E mirrors Enemy06_Sphere_SlopeUp:
+                    // negate both source velocities, back the object out by one
+                    // frame along that vector, then swap into x/y velocity.
+                    enemy.x_pos = (enemy.x_pos as i64 - i64::from(old_x)).max(0) as u32;
+                    enemy.y_pos = (enemy.y_pos as i64 - i64::from(old_y)).max(0) as u32;
+                    enemy.y_velocity = -old_x;
+                    enemy.x_velocity = -old_y;
+                } else {
+                    // ASM: swap velocities, negate both
+                    enemy.y_velocity = -old_x;
+                    enemy.x_velocity = -old_y;
+                    enemy.facing = opposite_direction(enemy.facing);
+                }
             } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
-                // ASM: swap velocities without negation
                 let old_x = enemy.x_velocity;
                 let old_y = enemy.y_velocity;
-                enemy.y_velocity = old_x;
-                enemy.x_velocity = old_y;
-                enemy.facing = opposite_direction(enemy.facing);
+                if matches!(enemy.family, EnemyFamily::Sphere) {
+                    // ASM Sphere.asm loc_36164 mirrors Enemy06_Sphere_SlopeDown:
+                    // back out by the pre-collision motion, then swap the live
+                    // x/y velocities without changing facing.
+                    enemy.x_pos = (enemy.x_pos as i64 - i64::from(old_x)).max(0) as u32;
+                    enemy.y_pos = (enemy.y_pos as i64 - i64::from(old_y)).max(0) as u32;
+                    enemy.y_velocity = old_x;
+                    enemy.x_velocity = old_y;
+                } else {
+                    // ASM: swap velocities without negation
+                    enemy.y_velocity = old_x;
+                    enemy.x_velocity = old_y;
+                    enemy.facing = opposite_direction(enemy.facing);
+                }
             } else {
                 // Regular floor bounce
                 if matches!(enemy.family, EnemyFamily::Fireball) {
@@ -5070,6 +5093,16 @@ mod tests {
         }
     }
 
+    fn sphere_test_enemy() -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Sphere,
+            hit_points: 1,
+            facing: Direction::Right,
+            x_velocity: 0x0001_0000,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
     fn ninja_test_enemy() -> ActiveEnemy {
         ActiveEnemy {
             family: EnemyFamily::Ninja,
@@ -5284,6 +5317,89 @@ mod tests {
             "ASM Fireball.asm loc_32C60/loc_32C86 dispatches the wall-collision handler, and Enemy19_Fireball_BounceWall only negates x_vel without touching x_direction"
         );
         assert_eq!(enemy.x_velocity, -0x0001_8000);
+    }
+
+    #[test]
+    fn sphere_wall_bounce_keeps_facing_per_loc_36148() {
+        let mut grid = mini_hopping_skull_test_grid();
+        grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let mut enemy = sphere_test_enemy();
+        enemy.on_ground = false;
+        enemy.facing = Direction::Right;
+        enemy.x_pos = 23 << 16;
+        enemy.y_pos = 24 << 16;
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Sphere.asm loc_36148 only negates `x_vel(a3)`, so wall hits must not rewrite x_direction"
+        );
+        assert_eq!(enemy.x_velocity, -0x0001_0000);
+    }
+
+    #[test]
+    fn sphere_slope_up_backs_out_motion_per_loc_3614e() {
+        let data = vec![0u8; 10 * 10 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 10, 10);
+        grid.set_cell_at(5, 5, terrain::Cell::from_be_bytes(0x40, 0x00));
+
+        let mut enemy = sphere_test_enemy();
+        enemy.facing = Direction::Right;
+        enemy.x_pos = (5 * 16 + 8) << 16;
+        enemy.y_pos = 85 << 16;
+        enemy.x_velocity = 0x0002_0000;
+        enemy.y_velocity = 0x0002_0000;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_pos,
+            (5 * 16 + 8) << 16,
+            "ASM Sphere.asm loc_3614E subtracts the pre-collision x motion before swapping velocities"
+        );
+        assert_eq!(
+            enemy.y_pos,
+            85 << 16,
+            "ASM Sphere.asm loc_3614E also subtracts the pre-collision y motion after gravity is applied"
+        );
+        assert_eq!(enemy.x_velocity, -(0x0002_0000 + SPHERE_GRAVITY));
+        assert_eq!(enemy.y_velocity, -0x0002_0000);
+        assert_eq!(enemy.facing, Direction::Right);
+    }
+
+    #[test]
+    fn sphere_slope_down_backs_out_motion_per_loc_36164() {
+        let data = vec![0u8; 10 * 10 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 10, 10);
+        grid.set_cell_at(5, 5, terrain::Cell::from_be_bytes(0x50, 0x00));
+
+        let mut enemy = sphere_test_enemy();
+        enemy.facing = Direction::Right;
+        enemy.x_pos = (5 * 16 + 8) << 16;
+        enemy.y_pos = 89 << 16;
+        enemy.x_velocity = 0x0002_0000;
+        enemy.y_velocity = 0x0001_0000;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_pos,
+            (5 * 16 + 8) << 16,
+            "ASM Sphere.asm loc_36164 backs the sphere out by the original x motion before keeping the swapped vector"
+        );
+        assert_eq!(
+            enemy.y_pos,
+            89 << 16,
+            "ASM Sphere.asm loc_36164 also backs out the gravity-adjusted y step before resuming"
+        );
+        assert_eq!(enemy.x_velocity, 0x0001_0000 + SPHERE_GRAVITY);
+        assert_eq!(enemy.y_velocity, 0x0002_0000);
+        assert_eq!(enemy.facing, Direction::Right);
     }
 
     #[test]
