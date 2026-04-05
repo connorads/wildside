@@ -34,6 +34,7 @@ const SOURCE_PORT_RECORDINGS_CACHE_PATH: &str = ".cache/recordings";
 const SOURCE_PORT_RESEARCH_MAP_PATH: &str = "docs/source-port/research-map.md";
 const SOURCE_PORT_ROADMAP_PATH: &str = "docs/source-port/roadmap.md";
 const SOURCE_PORT_WHOLE_GAME_INDEX_PATH: &str = "docs/source-port/whole-game-index.md";
+const SOURCE_PORT_BACKLOG_PATH: &str = "docs/source-port/backlog.md";
 const SOURCE_PORT_RELEASE_GATE_PATH: &str = ".cache/release-gate/1p-accurate/latest.json";
 const SOURCE_PORT_FRONTIER_NOTE_REQUIREMENT_SUMMARY: &str = "Before exiting, replace the next-agent note with frontmatter for the active slug plus the required handoff sections.";
 const SOURCE_PORT_FRONTIER_NOTE_REQUIRED_SECTIONS: [&str; 6] = [
@@ -418,6 +419,22 @@ struct RecordingQueueCandidate {
     frame_count: usize,
     has_transcript: bool,
     has_notes: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BacklogIssueFocus {
+    Playability,
+    VisualParity,
+}
+
+#[derive(Debug, Clone)]
+struct BacklogIssueCandidate {
+    id: String,
+    priority: String,
+    system: String,
+    summary: String,
+    status: String,
+    focus: BacklogIssueFocus,
 }
 
 #[derive(Debug, Clone)]
@@ -1252,47 +1269,63 @@ fn evaluate_source_port_frontier_cycle(
                 summary,
             )
         } else {
-            // No actionable case-queue: delegate to gameplay-backlog (ASM coverage)
-            // instead of sweep-parity, to keep the loop producing game code.
-            let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
-            if !uncovered.is_empty() {
-                let batch_size = (routines_per_task as usize).min(uncovered.len());
-                let batch = &uncovered[..batch_size];
-                let first_label = &batch[0].1;
-                let task = source_port_frontier_gameplay_backlog_task(
-                    frontier,
-                    &note,
-                    batch,
-                    uncovered.len(),
-                );
+            if let Some(issue) = select_open_backlog_issue(repo_root)? {
+                let task = source_port_frontier_backlog_issue_task(frontier, &note, &issue);
                 let summary = format!(
-                    "TAS frontier {} is closed through frame {}; no actionable case-queue, delegated to gameplay-backlog ({} uncovered sub_ labels, batch of {}, first: {}).",
-                    frontier.slug,
-                    frontier.authoritative_clean_through,
-                    uncovered.len(),
-                    batch_size,
-                    first_label
+                    "TAS frontier {} is closed through frame {}; no reduced case or recording is ready, so source-port pivots to backlog issue #{} ({}).",
+                    frontier.slug, frontier.authoritative_clean_through, issue.id, issue.summary
                 );
                 (
                     task,
-                    Some(AutonomyGoal::GameplayBacklog),
-                    Some(first_label.clone()),
-                    Some(format!("gameplay-backlog:{}", first_label)),
+                    None,
+                    Some(issue.id.clone()),
+                    Some(format!("backlog-issue:{}", issue.id)),
                     summary,
                 )
             } else {
-                let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
-                let summary = format!(
-                    "TAS frontier {} is closed through frame {}; no actionable case-queue and all sub_ labels covered, so source-port pivots to sweep parity hardening.",
-                    frontier.slug, frontier.authoritative_clean_through
-                );
-                (
-                    task,
-                    Some(AutonomyGoal::SweepParity),
-                    Some("state-sweep".to_owned()),
-                    Some("state-sweep".to_owned()),
-                    summary,
-                )
+                // No actionable case-queue or backlog evidence task: delegate to
+                // gameplay-backlog (ASM coverage) instead of sweep-parity so the
+                // loop still produces game code.
+                let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
+                if !uncovered.is_empty() {
+                    let batch_size = (routines_per_task as usize).min(uncovered.len());
+                    let batch = &uncovered[..batch_size];
+                    let first_label = &batch[0].1;
+                    let task = source_port_frontier_gameplay_backlog_task(
+                        frontier,
+                        &note,
+                        batch,
+                        uncovered.len(),
+                    );
+                    let summary = format!(
+                        "TAS frontier {} is closed through frame {}; no actionable case-queue, delegated to gameplay-backlog ({} uncovered sub_ labels, batch of {}, first: {}).",
+                        frontier.slug,
+                        frontier.authoritative_clean_through,
+                        uncovered.len(),
+                        batch_size,
+                        first_label
+                    );
+                    (
+                        task,
+                        Some(AutonomyGoal::GameplayBacklog),
+                        Some(first_label.clone()),
+                        Some(format!("gameplay-backlog:{}", first_label)),
+                        summary,
+                    )
+                } else {
+                    let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
+                    let summary = format!(
+                        "TAS frontier {} is closed through frame {}; no actionable case-queue, backlog evidence task, or uncovered sub_ labels remain, so source-port pivots to sweep parity hardening.",
+                        frontier.slug, frontier.authoritative_clean_through
+                    );
+                    (
+                        task,
+                        Some(AutonomyGoal::SweepParity),
+                        Some("state-sweep".to_owned()),
+                        Some("state-sweep".to_owned()),
+                        summary,
+                    )
+                }
             }
         }
     } else {
@@ -2308,6 +2341,7 @@ fn collect_uncovered_sub_labels(
 
     let map: CovMap =
         serde_yaml::from_str(&content).with_context(|| "failed to parse asm-coverage.yaml")?;
+    let backlog_issues = load_open_backlog_issues(repo_root).unwrap_or_default();
 
     let mut uncovered: Vec<(String, String, String, usize, Option<String>)> = Vec::new();
     for (subsystem, sub) in &map.subsystems {
@@ -2324,7 +2358,7 @@ fn collect_uncovered_sub_labels(
         }
     }
 
-    // Sort: high priority first, then medium, then unranked
+    // Sort: explicit priority first, then open backlog signals, then subsystem/name.
     uncovered.sort_by(|a, b| {
         fn priority_rank(p: &Option<String>) -> u8 {
             match p.as_deref() {
@@ -2334,8 +2368,24 @@ fn collect_uncovered_sub_labels(
                 _ => 3,
             }
         }
+        fn subsystem_signal_rank(subsystem: &str, issues: &[BacklogIssueCandidate]) -> u8 {
+            let has_enemy_signal = issues.iter().any(|issue| issue.system == "enemy");
+            let has_core_signal = issues.iter().any(|issue| {
+                matches!(
+                    issue.system.as_str(),
+                    "player" | "block" | "render" | "level" | "camera" | "form" | "menu"
+                )
+            });
+            let matches_backlog_signal = (subsystem.starts_with("enemy_") && has_enemy_signal)
+                || (subsystem == "kid_main" && has_core_signal);
+            if matches_backlog_signal { 0 } else { 1 }
+        }
         priority_rank(&a.4)
             .cmp(&priority_rank(&b.4))
+            .then_with(|| {
+                subsystem_signal_rank(&a.0, &backlog_issues)
+                    .cmp(&subsystem_signal_rank(&b.0, &backlog_issues))
+            })
             .then_with(|| a.0.cmp(&b.0))
             .then_with(|| a.1.cmp(&b.1))
     });
@@ -2947,6 +2997,201 @@ fn source_port_frontier_recording_task(
         stalled_repetition_count: None,
         pivot_reason: None,
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
+        next_agent_note: Some(note.clone()),
+        target_routines: None,
+    }
+}
+
+fn classify_backlog_issue_focus(system: &str, summary: &str) -> BacklogIssueFocus {
+    let system = system.to_ascii_lowercase();
+    let summary = summary.to_ascii_lowercase();
+    if matches!(system.as_str(), "render" | "menu")
+        || summary.contains("graphic")
+        || summary.contains("animation")
+        || summary.contains("sprite")
+        || summary.contains("background")
+        || summary.contains("render")
+        || summary.contains("intro")
+    {
+        BacklogIssueFocus::VisualParity
+    } else {
+        BacklogIssueFocus::Playability
+    }
+}
+
+fn load_open_backlog_issues(repo_root: &Path) -> Result<Vec<BacklogIssueCandidate>> {
+    let backlog_path = repo_root.join(SOURCE_PORT_BACKLOG_PATH);
+    let contents = match fs::read_to_string(&backlog_path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(error)
+                .with_context(|| format!("failed to read {}", backlog_path.display()));
+        }
+    };
+    let mut items = Vec::new();
+    for line in contents.lines() {
+        if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
+            continue;
+        }
+        let columns = line
+            .split('|')
+            .map(str::trim)
+            .filter(|column| !column.is_empty())
+            .collect::<Vec<_>>();
+        if columns.len() < 5 {
+            continue;
+        }
+        let status = columns[1];
+        let priority = columns[2];
+        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2") {
+            continue;
+        }
+        let system = columns[3].to_owned();
+        let summary = columns[4].to_owned();
+        items.push(BacklogIssueCandidate {
+            id: columns[0].to_owned(),
+            priority: priority.to_owned(),
+            focus: classify_backlog_issue_focus(&system, &summary),
+            system,
+            summary,
+            status: status.to_owned(),
+        });
+    }
+    Ok(items)
+}
+
+fn select_open_backlog_issue(repo_root: &Path) -> Result<Option<BacklogIssueCandidate>> {
+    let mut items = load_open_backlog_issues(repo_root)?;
+    items.sort_by(|left, right| {
+        fn priority_rank(priority: &str) -> u8 {
+            match priority {
+                "P0" => 0,
+                "P1" => 1,
+                "P2" => 2,
+                _ => 3,
+            }
+        }
+        fn focus_rank(focus: BacklogIssueFocus) -> u8 {
+            match focus {
+                BacklogIssueFocus::Playability => 0,
+                BacklogIssueFocus::VisualParity => 1,
+            }
+        }
+        priority_rank(&left.priority)
+            .cmp(&priority_rank(&right.priority))
+            .then_with(|| focus_rank(left.focus).cmp(&focus_rank(right.focus)))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    Ok(items.into_iter().next())
+}
+
+fn source_port_frontier_backlog_issue_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+    issue: &BacklogIssueCandidate,
+) -> TaskPackage {
+    let issue_slug = format!("issue-{}", issue.id);
+    let focus_label = match issue.focus {
+        BacklogIssueFocus::Playability => "playability",
+        BacklogIssueFocus::VisualParity => "visual-parity",
+    };
+    let level_hint = if issue.summary.to_ascii_lowercase().contains("2nd level") {
+        "01"
+    } else {
+        "00"
+    };
+    TaskPackage {
+        capability: CapabilityId::SourcePortFrontierTask,
+        title: format!(
+            "Capture canonical evidence for backlog issue #{} ({})",
+            issue.id, focus_label
+        ),
+        summary: format!(
+            "{} is authoritative-clean through frame {}; capture a reproducible {} bundle for backlog issue #{}: {}.",
+            frontier.recording,
+            frontier.authoritative_clean_through,
+            focus_label,
+            issue.id,
+            issue.summary
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            SOURCE_PORT_BACKLOG_PATH.to_owned(),
+            SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+        ],
+        implementation_targets: vec![SOURCE_PORT_BACKLOG_PATH.to_owned()],
+        commands: vec![
+            format!("cargo run -p kidcli -- play-native --record {}", issue_slug),
+            format!("cargo run -p kidcli -- verify-recording --slug {}", issue_slug),
+            format!(
+                "cargo run -p kidcli -- capture-frames --level {} --frames 0,60,120 --output .cache/debug/{}/",
+                level_hint, issue_slug
+            ),
+            "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+                .to_owned(),
+        ],
+        done_criteria: vec![
+            format!(
+                "Backlog issue #{} cites a recording slug or explicit frame-capture artefact path.",
+                issue.id
+            ),
+            "The repro is classified as playability or visual-parity with concrete next verification commands.".to_owned(),
+            "If no repro is found, the backlog item records that negative result explicitly instead of staying a vague report.".to_owned(),
+        ],
+        evidence: vec![
+            EvidenceItem {
+                label: "active-frontier".to_owned(),
+                status: frontier.status.clone(),
+                detail: format!(
+                    "{} clean through frame {}",
+                    frontier.slug, frontier.authoritative_clean_through
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "backlog-issue".to_owned(),
+                status: issue.status.clone(),
+                detail: format!(
+                    "#{} {} {} {}: {}",
+                    issue.id, issue.priority, focus_label, issue.system, issue.summary
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_BACKLOG_PATH)),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: Some(FrontierContext {
+            slug: frontier.slug.clone(),
+            recording: frontier.recording.clone(),
+            scenario: frontier.scenario.clone(),
+            area: frontier.area.clone(),
+            status: frontier.status.clone(),
+            frontier_frame: frontier.frontier_frame,
+            authoritative_clean_through: frontier.authoritative_clean_through,
+            current_blocker: frontier.current_blocker.clone(),
+            current_hypothesis: frontier.current_hypothesis.clone(),
+            rejected_hypotheses: frontier.rejected_hypotheses.clone(),
+            required_next_evidence: frontier.required_next_evidence.clone(),
+            verification_commands: frontier.verification_commands.clone(),
+        }),
+        case_queue_context: None,
+        delegated_goal: None,
+        delegated_target: Some(issue.id.clone()),
+        delegation_reason: Some(
+            "the TAS frontier is already closed and there is no reduced case or untriaged recording, so the next highest-value move is to turn a top open backlog report into canonical evidence".to_owned(),
+        ),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: Some(AutonomyGoal::GameplayBacklog),
         next_agent_note: Some(note.clone()),
         target_routines: None,
     }
@@ -5377,6 +5622,16 @@ mod tests {
         }
     }
 
+    fn write_backlog(repo_root: &Path, rows: &str) {
+        fs::write(
+            repo_root.join(super::SOURCE_PORT_BACKLOG_PATH),
+            format!(
+                "| # | Status | Pri | System | Summary | Verify |\n|-----|--------|-----|--------|---------|--------|\n{rows}"
+            ),
+        )
+        .expect("backlog should write");
+    }
+
     fn write_source_port_frontier(repo_root: &Path, include_task_package: bool, status: &str) {
         let task_package = if include_task_package {
             r#",
@@ -6128,6 +6383,29 @@ mod tests {
                 .any(|command| command.contains("case derive --recording-slug level1-tree-break"))
         );
         assert!(cycle.progress_fingerprint.contains("case-queue"));
+    }
+
+    #[test]
+    fn source_port_frontier_delegates_to_backlog_issue_before_asm_fallback() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_backlog(
+            temp_dir.path(),
+            "| 146 | [ ] | P0 | level | Dying in Level 2 can leave the game stuck on the level-loading screen | verify |\n",
+        );
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.delegated_target.as_deref(), Some("146"));
+        assert!(task.title.contains("backlog issue #146"));
+        assert!(
+            task.commands
+                .iter()
+                .any(|command| command.contains("play-native --record issue-146"))
+        );
+        assert!(cycle.progress_fingerprint.contains("backlog-issue:146"));
     }
 
     #[test]

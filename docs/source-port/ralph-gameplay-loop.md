@@ -1,26 +1,26 @@
 # Gameplay Loop
 
 ## Bootstrap
-1. Run `kidcli asm-coverage --uncovered` to see what's not covered
-2. Read `docs/source-port/asm-coverage.yaml` — pick the highest-priority uncovered routine
-3. If no priority annotations exist, pick the first uncovered sub_ in the highest-gap subsystem
+1. Read `docs/source-port/backlog.md` and pick the highest-priority open `1p-playable` or `visual-parity` issue that does not yet have canonical evidence.
+2. Check `.cache/recordings/` and `.cache/cases/` for an existing recording slug or reduced case tied to that issue.
+3. If no evidence exists, capture it first with `play-native --record <slug>` and, for visual issues, `capture-frames`.
+4. Only when no open evidence-driven issue is ready should you run `kidcli asm-coverage --uncovered` and use `docs/source-port/asm-coverage.yaml` as the fallback queue.
 
 ## Work
-4. Read the ASM routine (50-100 lines around the label in kid.asm or code/*.asm)
-5. Compare to native implementation (or confirm it's missing)
-6. Write a test citing the ASM label — see it fail
-7. Implement — see it pass
-8. `mise run verify-slice-fast` as regression gate
+5. Turn the chosen issue into a reproducible artefact: recording slug, reduced case, oracle compare window, or named frame-capture checkpoint.
+6. Read the ASM routine that owns the confirmed behaviour before patching.
+7. Write the narrowest failing regression that proves the bug.
+8. Implement the fix and re-run the minimum gate named by the backlog item.
+9. Always finish with `mise run verify-slice-fast`; add `mise run verify-1p-playable` or frame/oracle checks when the issue requires them.
 
 ## Commit
-9. Update coverage: `kidcli asm-coverage --update`
-10. Commit (MUST touch crates/kid-core/src/ or crates/kid-data/src/)
-11. Commit message MUST cite ASM label
-12. If the task package lists multiple routines, go back to step 1 for the next one
+10. Update `docs/source-port/backlog.md` with the new evidence handle, gate, and next verification commands.
+11. If ASM-backed code changed, refresh citations with `kidcli asm-coverage --update`.
+12. Commit only after the chosen gate is green and the backlog entry explains the new evidence.
 
 ## Rules
-- Every commit modifies game source code. No exceptions.
-- No handoff notes. The coverage map + git log is the state.
-- Sweep is a gate, not the work. Never "harden" sweep.
-- If stuck after reading ASM + oracle, mark routine `blocked` with reason, move to next.
-- **Commit gate**: if you finish your turn with uncommitted tracked changes, the session has failed. Always `git commit` after verify-slice-fast passes.
+- Backlog truth beats raw ASM coverage. Do not skip an open player-visible issue just because another subsystem has more uncited labels.
+- TAS closure is replay evidence, not completion.
+- Visual issues are not done without frame-backed evidence.
+- If a report cannot be reproduced, record that explicitly in the backlog instead of leaving it vague.
+- Use ASM coverage as a discovery aid and fallback queue, not the lead selector.

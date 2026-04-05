@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
+const BACKLOG_PATH: &str = "docs/source-port/backlog.md";
+
 /// Label types extracted from the disassembly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -407,6 +409,34 @@ fn apply_annotations(map: CoverageMap, overlay: &AnnotationOverlay) -> CoverageM
     }
 }
 
+fn load_open_backlog_signal_counts(repo_root: &Path) -> BTreeMap<String, usize> {
+    let path = repo_root.join(BACKLOG_PATH);
+    let Ok(contents) = fs::read_to_string(&path) else {
+        return BTreeMap::new();
+    };
+    let mut counts = BTreeMap::new();
+    for line in contents.lines() {
+        if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
+            continue;
+        }
+        let columns = line
+            .split('|')
+            .map(str::trim)
+            .filter(|column| !column.is_empty())
+            .collect::<Vec<_>>();
+        if columns.len() < 5 {
+            continue;
+        }
+        let status = columns[1];
+        let priority = columns[2];
+        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2") {
+            continue;
+        }
+        *counts.entry(columns[3].to_owned()).or_insert(0) += 1;
+    }
+    counts
+}
+
 // ── Public entry point ─────────────────────────────────────────────────
 
 pub(crate) fn run_asm_coverage(
@@ -488,6 +518,18 @@ pub(crate) fn run_asm_coverage(
         "loc_ labels: {}/{} cited ({:.1}%)",
         map.summary.loc_cited, map.summary.total_loc_labels, map.summary.loc_coverage_pct
     );
+    println!(
+        "interpretation: label citation tracks recovered/discussed ASM, not player-visible fidelity"
+    );
+    let backlog_signals = load_open_backlog_signal_counts(repo_root);
+    if !backlog_signals.is_empty() {
+        let summary = backlog_signals
+            .iter()
+            .map(|(system, count)| format!("{system}={count}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!("open backlog signals: {summary}");
+    }
     println!();
 
     // Per-subsystem breakdown

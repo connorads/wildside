@@ -20,7 +20,8 @@ pub(crate) struct ProjectStatusReport {
     headline_passed: bool,
     secondary_gates: Vec<GateSignal>,
     tas_frontier: TasFrontierStatus,
-    top_open_items: Vec<BacklogItem>,
+    top_open_playability_items: Vec<BacklogItem>,
+    top_open_visual_items: Vec<BacklogItem>,
     warnings: Vec<String>,
 }
 
@@ -48,6 +49,12 @@ struct BacklogItem {
     priority: String,
     system: String,
     summary: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BacklogFocus {
+    Playability,
+    VisualParity,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -82,7 +89,8 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
     let playable_gate = load_gate_signal(repo_root, "1p-playable");
     let accurate_gate = load_gate_signal(repo_root, "1p-accurate");
     let tas_frontier = load_tas_frontier(repo_root)?;
-    let top_open_items = load_top_open_items(repo_root, 5)?;
+    let top_open_playability_items = load_top_open_items(repo_root, 5, BacklogFocus::Playability)?;
+    let top_open_visual_items = load_top_open_items(repo_root, 5, BacklogFocus::VisualParity)?;
 
     let mut warnings = Vec::new();
     if !playable_gate.passed {
@@ -115,7 +123,8 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
         headline_passed: playable_gate.passed,
         secondary_gates: vec![accurate_gate],
         tas_frontier,
-        top_open_items,
+        top_open_playability_items,
+        top_open_visual_items,
         warnings,
     })
 }
@@ -215,7 +224,28 @@ fn extract_frontmatter_slug(contents: &str) -> Option<String> {
     None
 }
 
-fn load_top_open_items(repo_root: &Path, limit: usize) -> Result<Vec<BacklogItem>> {
+fn classify_backlog_focus(system: &str, summary: &str) -> BacklogFocus {
+    let system = system.to_ascii_lowercase();
+    let summary = summary.to_ascii_lowercase();
+    if matches!(system.as_str(), "render" | "menu")
+        || summary.contains("graphic")
+        || summary.contains("animation")
+        || summary.contains("sprite")
+        || summary.contains("background")
+        || summary.contains("render")
+        || summary.contains("intro")
+    {
+        BacklogFocus::VisualParity
+    } else {
+        BacklogFocus::Playability
+    }
+}
+
+fn load_top_open_items(
+    repo_root: &Path,
+    limit: usize,
+    focus: BacklogFocus,
+) -> Result<Vec<BacklogItem>> {
     let path = repo_root.join(BACKLOG_PATH);
     let contents = fs::read_to_string(&path)
         .with_context(|| format!("failed to read backlog {}", path.display()))?;
@@ -234,19 +264,38 @@ fn load_top_open_items(repo_root: &Path, limit: usize) -> Result<Vec<BacklogItem
         }
         let status = columns[1];
         let priority = columns[2];
-        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1") {
+        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2") {
+            continue;
+        }
+        let system = columns[3];
+        let summary = columns[4];
+        if classify_backlog_focus(system, summary) != focus {
             continue;
         }
         items.push(BacklogItem {
             id: columns[0].to_owned(),
             priority: priority.to_owned(),
-            system: columns[3].to_owned(),
-            summary: columns[4].to_owned(),
+            system: system.to_owned(),
+            summary: summary.to_owned(),
         });
         if items.len() >= limit {
-            break;
+            continue;
         }
     }
+    items.sort_by(|left, right| {
+        fn priority_rank(priority: &str) -> u8 {
+            match priority {
+                "P0" => 0,
+                "P1" => 1,
+                "P2" => 2,
+                _ => 3,
+            }
+        }
+        priority_rank(&left.priority)
+            .cmp(&priority_rank(&right.priority))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    items.truncate(limit);
     Ok(items)
 }
 
@@ -282,11 +331,22 @@ fn print_project_status(report: &ProjectStatusReport) {
     );
     println!("    - handoff note: {}", report.tas_frontier.note_status);
     println!("    - summary: {}", report.tas_frontier.summary);
-    println!("  top open risks:");
-    if report.top_open_items.is_empty() {
+    println!("  top open playability risks:");
+    if report.top_open_playability_items.is_empty() {
         println!("    - none");
     } else {
-        for item in &report.top_open_items {
+        for item in &report.top_open_playability_items {
+            println!(
+                "    - #{} {} {}: {}",
+                item.id, item.priority, item.system, item.summary
+            );
+        }
+    }
+    println!("  top open visual risks:");
+    if report.top_open_visual_items.is_empty() {
+        println!("    - none");
+    } else {
+        for item in &report.top_open_visual_items {
             println!(
                 "    - #{} {} {}: {}",
                 item.id, item.priority, item.system, item.summary
@@ -306,7 +366,8 @@ fn print_project_status(report: &ProjectStatusReport) {
 #[cfg(test)]
 mod tests {
     use super::{
-        ProjectStatusFormat, build_project_status_report, load_top_open_items, run_project_status,
+        BacklogFocus, ProjectStatusFormat, build_project_status_report, load_top_open_items,
+        run_project_status,
     };
     use std::fs;
     use tempfile::TempDir;
@@ -324,14 +385,22 @@ mod tests {
 | 002 | [ ] | P2 | foo | low priority | no |
 | 003 | [~] | P1 | player | important risk | no |
 | 004 | [ ] | P0 | camera | urgent bug | no |
+| 005 | [ ] | P1 | render | wrong intro graphics | no |
 ",
         )
         .expect("backlog");
 
-        let items = load_top_open_items(temp_dir.path(), 5).expect("items");
-        assert_eq!(items.len(), 2);
-        assert_eq!(items[0].id, "003");
-        assert_eq!(items[1].id, "004");
+        let items =
+            load_top_open_items(temp_dir.path(), 5, BacklogFocus::Playability).expect("items");
+        assert_eq!(items.len(), 3);
+        assert_eq!(items[0].id, "004");
+        assert_eq!(items[1].id, "003");
+        assert_eq!(items[2].id, "002");
+
+        let visual_items =
+            load_top_open_items(temp_dir.path(), 5, BacklogFocus::VisualParity).expect("items");
+        assert_eq!(visual_items.len(), 1);
+        assert_eq!(visual_items[0].id, "005");
     }
 
     #[test]
@@ -366,7 +435,7 @@ mod tests {
         assert_eq!(report.headline_gate, "1p-playable");
         assert!(!report.headline_passed);
         assert_eq!(report.secondary_gates[0].name, "1p-accurate");
-        assert_eq!(report.top_open_items.len(), 1);
+        assert_eq!(report.top_open_playability_items.len(), 1);
         assert!(
             report
                 .warnings
@@ -402,6 +471,8 @@ mod tests {
             "\
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 122 | [ ] | P1 | render | level intro graphics wrong | verify |
+| 123 | [ ] | P1 | player | core playability bug | verify |
 ",
         )
         .expect("backlog");
