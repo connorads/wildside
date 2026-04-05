@@ -275,6 +275,12 @@ pub struct PaletteWordOverlaySub1C820 {
     pub words: [u16; 5],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PaletteWordOverlaySub80BC {
+    pub destination_word_offset: u16,
+    pub words: [u16; 12],
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EndingSequencePaletteLoadSub1C820 {
     pub base_loads: [SymbolicPaletteBuffer2Load; 2],
@@ -1845,6 +1851,16 @@ pub fn ending_sequence_palette_load_sub_1C820(
                 words: [0x0040, 0x00A0, 0xE004, 0x00EE, 0x0EEE],
             })
         },
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn damage_flash_palette_clear_sub_80BC() -> PaletteWordOverlaySub80BC {
+    // ASM sub_80BC (kid.asm:8817): fill 12 words at Palette_Buffer+$62 with
+    // `$0FFF`.
+    PaletteWordOverlaySub80BC {
+        destination_word_offset: 0x0031,
+        words: [0x0FFF; 12],
     }
 }
 
@@ -5799,6 +5815,18 @@ AddrTbl_LevelNames:   ;1A842
                 words: [0x0040, 0x00A0, 0xE004, 0x00EE, 0x0EEE],
             }),
             "ASM sub_1C820 should rewind Palette_Buffer by seven words and stamp the five hard-coded variant colours when d1 is non-zero",
+        );
+    }
+
+    #[test]
+    fn damage_flash_palette_clear_sub_80bc_fills_twelve_words_with_fff_at_palette_buffer_62() {
+        assert_eq!(
+            damage_flash_palette_clear_sub_80BC(),
+            PaletteWordOverlaySub80BC {
+                destination_word_offset: 0x0031,
+                words: [0x0FFF; 12],
+            },
+            "ASM sub_80BC should fill 12 words at Palette_Buffer+$62 with `$0FFF` before the damage flash restores the helmet palette",
         );
     }
 
