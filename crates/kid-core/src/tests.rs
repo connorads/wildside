@@ -33775,6 +33775,32 @@ fn process_block_effects_sub_1149c_queues_empty_support_workers() {
 }
 
 #[test]
+fn shooter_support_spawn_loc_11496_returns_without_marking_the_struck_cell() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut grid = grid_with_shooter_blocks(&[(5, 4, 0x02)]);
+    grid.set_cell_at(6, 3, terrain::Cell::from_be_bytes(0x60, 0));
+    rt.set_block_grid(grid);
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.shooter_block_hit = Some((5, 4));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 4),
+        terrain::Cell::from_be_bytes(0xE9, 0x02),
+        "ASM loc_11496 is the immediate epilogue after the `bne.s` at loc_1146E, so the support-worker path must return before the struck shooter gets `or.b #$F,(a1)`"
+    );
+    assert!(
+        rt.block_state
+            .shooter_headbutt_workers
+            .iter()
+            .all(|worker| worker.kind == ShooterHeadbuttWorkerKind::Support),
+        "ASM loc_11496 should restore registers and return without leaving any struck-cell `sub_114C0` worker behind"
+    );
+}
+
+#[test]
 fn iron_knight_smash_block_uses_sub_10eda_upward_offset() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::InGame;
