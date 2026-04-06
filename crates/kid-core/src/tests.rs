@@ -8198,6 +8198,23 @@ fn prize_10000_points_init_loc_10ae0_caches_parent_positions_and_resets_d3() {
 }
 
 #[test]
+fn prize_10000_points_clear_slots_loc_10afa_zeroes_all_five_worker_longwords() {
+    let cleared = prize_10000_points_clear_slots_loc_10AFA([
+        0x1111_1111,
+        0x2222_2222,
+        0x3333_3333,
+        0x4444_4444,
+        0x5555_5555,
+    ]);
+
+    assert_eq!(
+        cleared,
+        [0, 0, 0, 0, 0],
+        "ASM loc_10AFA should clear exactly the five longwords seeded by `moveq #4,d0` before the worker scan continues",
+    );
+}
+
+#[test]
 fn lives_capped_at_nine() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

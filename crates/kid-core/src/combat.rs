@@ -26,6 +26,16 @@ pub(crate) fn prize_10000_points_init_loc_10AE0(
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn prize_10000_points_clear_slots_loc_10AFA(mut worker_slots: [u32; 5]) -> [u32; 5] {
+    // ASM loc_10AFA (kid.asm:22393): `moveq #4,d0` enters a `clr.l (a0)+;
+    // dbf d0,loc_10AFA` loop, so exactly five longwords at `$44(a5)` are
+    // zeroed before the later prize-number worker scan starts.
+    worker_slots.fill(0);
+    worker_slots
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum QueuedSoundEffect {
     MiniHoppingSkullScream,
