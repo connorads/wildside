@@ -40294,3 +40294,92 @@ fn loc_126de_creates_hidden_block_entry() {
         "ASM loc_126DE: block type preserved"
     );
 }
+
+#[test]
+fn loc_126f2_reads_x_pos_for_block_type_16() {
+    // ASM loc_126F2 (kid.asm:24980-24984): entry for block type 16.
+    //   move.w (a1)+,d1    ; read x_pos
+    //   bpl.s  loc_126F8   ; continue if >= 0
+    //   rts               ; return if negative (end of layout)
+    let sentinel = crate::level::block_type_16_read_x_pos_loc_126f2(&[0x8000]);
+    assert!(
+        sentinel.is_none(),
+        "ASM loc_126F2: negative x_pos should return None"
+    );
+    let valid = crate::level::block_type_16_read_x_pos_loc_126f2(&[0x002A, 0x0006])
+        .expect("ASM loc_126F2: valid entry should parse");
+    assert_eq!(valid.x_pos, 0x002A, "ASM loc_126F2: should read x_pos = 42");
+    assert_eq!(
+        valid.bytes_consumed, 1,
+        "ASM loc_126F2: should consume 1 word"
+    );
+}
+
+#[test]
+fn loc_126f8_computes_cell_address_for_type_16() {
+    // ASM loc_126F8 (kid.asm:24987-24996): parse coordinates for block type 16.
+    //   move.w (a1)+,d2       ; y_row
+    //   move.w d2,d3
+    //   add.w d3,d3           ; d3 = y_row * 2
+    // ASM loc_126FE (kid.asm:24992-24996):
+    //   lea ($FFFF4A04).l,a2; row pointer table
+    //   move.w (a2,d3.w),a4 ; a4 = row_start[y_row]
+    //   add.w d1,a4
+    //   add.w d1,a4           ; a4 = row_start + 2*x_pos
+    let row_table: Vec<u16> = vec![0xB000, 0xB040, 0xB080];
+    let result = crate::level::block_type_16_parse_coords_loc_126f8(
+        &[0x0002], // y_row=2
+        &row_table,
+        0x0018, // x_pos=24
+    )
+    .expect("ASM loc_126F8: valid entry should parse");
+    assert_eq!(result.y_row, 0x0002, "ASM loc_126F8: y_row should be 2");
+    assert_eq!(
+        result.cell_addr, 0x00B0B0,
+        "ASM loc_126F8: cell_addr = row_table[y] + 2*x = 0xB080 + 0x30 = 0xB0B0"
+    );
+}
+
+#[test]
+fn loc_126fe_reads_count_and_stride() {
+    // ASM loc_126FE (kid.asm:24997-25000): reads count and stride flag.
+    //   move.w (a1)+,d3    ; read count
+    //   subq.w #1,d3       ; d3 = count - 1 (for dbf loop)
+    //   tst.w (a1)+        ; stride flag: 0 = horizontal, non-zero = row-by-row
+    //   bne.s  loc_12730   ; branch to row-by-row handler if stride != 0
+    let horizontal = crate::level::block_type_16_read_count_stride_loc_126fe(&[5, 0])
+        .expect("ASM loc_126FE: horizontal fill should parse");
+    assert_eq!(horizontal.count, 5, "ASM loc_126FE: count should be 5");
+    assert!(
+        !horizontal.is_row_by_row,
+        "ASM loc_126FE: stride=0 means horizontal fill"
+    );
+    let row_by_row = crate::level::block_type_16_read_count_stride_loc_126fe(&[3, 1])
+        .expect("ASM loc_126FE: row-by-row fill should parse");
+    assert_eq!(row_by_row.count, 3, "ASM loc_126FE: count should be 3");
+    assert!(
+        row_by_row.is_row_by_row,
+        "ASM loc_126FE: stride!=0 means row-by-row fill"
+    );
+}
+
+#[test]
+fn loc_12714_property_lookup_uses_byte_1274e_table() {
+    // ASM loc_12714 (kid.asm:25002-25008): property byte lookup.
+    //   move.w (a1)+,d5                    ; read property index
+    //   move.b byte_1274E(pc,d5.w),d5      ; lookup in byte_1274E table
+    // ASM byte_1274E (kid.asm:25029-25032): dc.b 0, 5, 4, 6
+    let result_0 = crate::level::block_type_16_property_lookup_loc_12714(0);
+    assert_eq!(result_0.tile_index, 0, "ASM byte_1274E[0] = 0");
+    let result_1 = crate::level::block_type_16_property_lookup_loc_12714(1);
+    assert_eq!(result_1.tile_index, 5, "ASM byte_1274E[1] = 5");
+    let result_2 = crate::level::block_type_16_property_lookup_loc_12714(2);
+    assert_eq!(result_2.tile_index, 4, "ASM byte_1274E[2] = 4");
+    let result_3 = crate::level::block_type_16_property_lookup_loc_12714(3);
+    assert_eq!(result_3.tile_index, 6, "ASM byte_1274E[3] = 6");
+    let result_oob = crate::level::block_type_16_property_lookup_loc_12714(4);
+    assert_eq!(
+        result_oob.tile_index, 0,
+        "ASM byte_1274E: out-of-bounds index returns 0"
+    );
+}

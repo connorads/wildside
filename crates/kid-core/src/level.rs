@@ -2054,6 +2054,131 @@ pub(crate) fn block_type_11_hidden_entry_loc_126de(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType16ReadXPosLoc126F2 {
+    pub(crate) x_pos: u16,
+    pub(crate) bytes_consumed: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_16_read_x_pos_loc_126f2(
+    layout_words: &[u16],
+) -> Option<BlockType16ReadXPosLoc126F2> {
+    // ASM loc_126F2 (kid.asm:24980-24984): entry point for block type 16.
+    //   move.w (a1)+,d1    ; read x_pos
+    //   bpl.s  loc_126F8   ; if >= 0, continue
+    //   rts                ; else return (end of layout)
+    // Block type 16 dispatches here from AddrTbl_BlockTypes entry 16.
+    if layout_words.is_empty() {
+        return None;
+    }
+    let x_pos = layout_words[0];
+    if x_pos & 0x8000 != 0 {
+        None
+    } else {
+        Some(BlockType16ReadXPosLoc126F2 {
+            x_pos,
+            bytes_consumed: 1,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType16ParseCoordsLoc126F8 {
+    pub(crate) cell_addr: u32,
+    pub(crate) y_row: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_16_parse_coords_loc_126f8(
+    layout_words: &[u16],
+    row_pointer_table: &[u16],
+    x_pos: u16,
+) -> Option<BlockType16ParseCoordsLoc126F8> {
+    // ASM loc_126F8 (kid.asm:24987-24996): coordinate parsing for block type 16.
+    //   move.w (a1)+,d2       ; read Y row coordinate
+    //   move.w d2,d3
+    //   add.w d3,d3           ; d3 = Y * 2 (row table index)
+    // ASM loc_126FE (kid.asm:24992-24996):
+    //   lea ($FFFF4A04).l,a2  ; Level_Layout row pointer table
+    //   move.w (a2,d3.w),a4   ; a4 = row_start_addr for Y
+    //   add.w d1,a4
+    //   add.w d1,a4           ; a4 = row_start + 2*X (cell address)
+    if layout_words.is_empty() {
+        return None;
+    }
+    let y_row = layout_words[0];
+    let y_idx = usize::from(y_row) * 2;
+    if y_idx >= row_pointer_table.len() * 2 {
+        return None;
+    }
+    let row_start = u32::from(row_pointer_table[y_idx / 2]);
+    let cell_addr = row_start.wrapping_add(u32::from(x_pos) * 2);
+    Some(BlockType16ParseCoordsLoc126F8 { cell_addr, y_row })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType16SetupLoc126FE {
+    pub(crate) count: u16,
+    pub(crate) is_row_by_row: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_16_read_count_stride_loc_126fe(
+    layout_words: &[u16],
+) -> Option<BlockType16SetupLoc126FE> {
+    // ASM loc_126FE (kid.asm:24997-25000): reads count and stride flag.
+    //   move.w (a1)+,d3      ; read count
+    //   subq.w #1,d3         ; d3 = count - 1 (for dbf loop)
+    //   tst.w (a1)+          ; stride flag: 0 = horizontal, non-zero = row-by-row
+    //   bne.s loc_12730      ; branch to row-by-row handler if stride != 0
+    if layout_words.len() < 2 {
+        return None;
+    }
+    let count = layout_words[0];
+    let stride = layout_words[1];
+    Some(BlockType16SetupLoc126FE {
+        count,
+        is_row_by_row: stride != 0,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType16PropertyLookupLoc12714 {
+    pub(crate) tile_index: u8,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_16_property_lookup_loc_12714(
+    property_word: u16,
+) -> BlockType16PropertyLookupLoc12714 {
+    // ASM loc_12714 (kid.asm:25002-25012): horizontal fill for block type 16.
+    //   move.w (a1)+,d5                    ; read property index from layout
+    //   move.b byte_1274E(pc,d5.w),d5      ; lookup in byte_1274E table
+    //   lsl.b  #4,d5                       ; shift left by 4
+    //   bsr.s  sub_12752                   ; handle special codes $40/$50
+    //   addq.b #1,d5                       ; increment tile index
+    //   bsr.w  sub_127A8                   ; write tile
+    //   move.b d5,(a4)                     ; write to cell (low byte of tile)
+    // ASM byte_1274E (kid.asm:25029-25032): property lookup table.
+    //   dc.b 0, 5, 4, 6
+    // Only the low byte of property_word is used as table index.
+    const BYTE_1274E: [u8; 4] = [0, 5, 4, 6];
+    let idx = (property_word as u8) as usize;
+    let tile_base = if idx < BYTE_1274E.len() {
+        BYTE_1274E[idx]
+    } else {
+        0
+    };
+    BlockType16PropertyLookupLoc12714 {
+        tile_index: tile_base,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
