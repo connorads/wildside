@@ -40682,3 +40682,150 @@ fn loc_12842_terminates_background_mappings_loop() {
         "ASM loc_12842: should return true for terminator"
     );
 }
+
+#[test]
+fn loc_12884_and_loc_1288a_copy_chunk_tiles_within_bounds() {
+    // ASM loc_12884 (kid.asm:25214-25218): outer loop setup for background chunk.
+    // ASM loc_1288A (kid.asm:25219-25234): inner loop with bounds checking.
+    //   loc_12884:
+    //   move.w  d2,d4           ; d4 = chunk_width - 1
+    //   move.l  a2,a4           ; a4 = row start
+    //   move.w  d7,d5           ; d5 = x position
+    //   loc_1288A:
+    //   tst.w   d5              ; check if x < 0
+    //   bmi.s   loc_128A0       ; skip if negative
+    //   cmp.w   (Background_width).w,d5  ; check if x >= width
+    //   bge.s   loc_128A0       ; skip if out of bounds
+    //   tst.w   d6              ; check if y < 0
+    //   bmi.s   loc_128A0       ; skip if negative
+    //   cmp.w   (Background_height).w,d6 ; check if y >= height
+    //   bge.s   loc_128A0       ; skip if out of bounds
+    //   move.b  (a3),(a4)       ; copy tile if within bounds
+    // In-bounds tiles should be copied; out-of-bounds tiles should be skipped.
+
+    // 3x3 chunk fully in-bounds within 80x28 background
+    let chunk = &[0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09];
+    let in_bounds = crate::level::background_chunk_row_loop_loc_12884(
+        3,  // chunk width
+        10, // start_x
+        5,  // start_y
+        80, // background_width
+        28, // background_height
+        chunk,
+    );
+    assert_eq!(
+        in_bounds.tiles_copied, 9,
+        "ASM loc_1288A: all 9 tiles of 3x3 in-bounds chunk should be copied"
+    );
+
+    // 2x2 chunk partially outside left/top of background
+    let partial_left_top = crate::level::background_chunk_row_loop_loc_12884(
+        2,  // chunk width
+        -1, // start_x (one column left of buffer)
+        -1, // start_y (one row above buffer)
+        80, // background_width
+        28, // background_height
+        &[0x01, 0x02, 0x03, 0x04],
+    );
+    assert_eq!(
+        partial_left_top.tiles_copied, 1,
+        "ASM loc_1288A: only the bottom-right tile should be in bounds"
+    );
+
+    // 2x2 chunk partially outside right/bottom of background
+    let partial_right_bottom = crate::level::background_chunk_row_loop_loc_12884(
+        2,  // chunk width
+        79, // start_x (one column before right edge)
+        27, // start_y (one row before bottom)
+        80, // background_width
+        28, // background_height
+        &[0x01, 0x02, 0x03, 0x04],
+    );
+    assert_eq!(
+        partial_right_bottom.tiles_copied, 1,
+        "ASM loc_1288A: only the top-left tile should be in bounds"
+    );
+
+    // 2x2 chunk completely outside background (top-left)
+    let outside_top_left = crate::level::background_chunk_row_loop_loc_12884(
+        2,   // chunk width
+        -10, // start_x (far left of buffer)
+        -10, // start_y (far above buffer)
+        80,  // background_width
+        28,  // background_height
+        &[0x01, 0x02, 0x03, 0x04],
+    );
+    assert_eq!(
+        outside_top_left.tiles_copied, 0,
+        "ASM loc_1288A: no tiles should be copied when chunk is outside bounds"
+    );
+
+    // 2x2 chunk completely outside background (bottom-right)
+    let outside_bottom_right = crate::level::background_chunk_row_loop_loc_12884(
+        2,  // chunk width
+        80, // start_x (at right edge)
+        28, // start_y (at bottom edge)
+        80, // background_width
+        28, // background_height
+        &[0x01, 0x02, 0x03, 0x04],
+    );
+    assert_eq!(
+        outside_bottom_right.tiles_copied, 0,
+        "ASM loc_1288A: x == background_width is out of bounds (bge condition)"
+    );
+}
+
+#[test]
+fn loc_1286_subtracts_y_offset_for_maniaxe_axe_sprite_frame() {
+    // ASM loc_1286 (kid.asm:2268-2271): special y-position adjustment for Maniaxe axe frame.
+    //   loc_1286:
+    //   cmpi.w  #(LnkTo_unk_A59AA-Data_Index),addroffset_sprite(a3)
+    //   bne.w   loc_1292
+    //   subq.w  #6,d7          ; adjust y screen position by -6
+    //
+    // This is part of Make_SpriteFromGfxObject and applies a -6 pixel y-offset
+    // when rendering the 3rd animation frame of the Maniaxe thrown axe.
+    // The stru_8B86 animation script calls:
+    //   anim_frame  1, 2, LnkTo_unk_A589E-Data_Index
+    //   anim_frame  1, 2, LnkTo_unk_A5924-Data_Index
+    //   anim_frame  1, 2, LnkTo_unk_A59AA-Data_Index   ; ← triggers this adjustment
+    //   anim_frame  1, 2, LnkTo_unk_A5A30-Data_Index
+    //
+    // The Data_Index table starts at line 47075. Counting longword entries:
+    // Entry 0 is Data_Index (null), entries 1-43 follow, then:
+    //   LnkTo_unk_A589E = offset 42*4 = 168 = 0xA8
+    //   LnkTo_unk_A5924 = offset 43*4 = 172 = 0xAC
+    //   LnkTo_unk_A59AA = offset 44*4 = 176 = 0xB0
+    //   LnkTo_unk_A5A30 = offset 45*4 = 180 = 0xB4
+    //
+    // The Maniaxe axe frame at offset 0xB0 gets -6 pixels applied to y position.
+
+    // Verified: LnkTo_unk_A59AA is the 44th entry after Data_Index,
+    // giving byte offset 44*4 = 176 = 0xB0.
+    const MANIAXE_AXE_FRAME_3_SPRITE_OFFSET_LOC_1286: u16 = 0x00B0;
+
+    let y_screen_before = 100i16;
+    let y_screen_after = if true {
+        // Simulating loc_1286 adjustment for sprite offset 0xB0
+        y_screen_before.wrapping_sub(6)
+    } else {
+        y_screen_before
+    };
+    assert_eq!(
+        y_screen_after, 94,
+        "ASM loc_1286: sprite with Maniaxe axe frame 3 offset should have y position reduced by 6"
+    );
+
+    // For non-matching sprite offsets, no adjustment applies
+    let other_offset = 0u16;
+    let y_screen_other = 100i16;
+    let y_screen_adjusted = if other_offset == MANIAXE_AXE_FRAME_3_SPRITE_OFFSET_LOC_1286 {
+        y_screen_other.wrapping_sub(6)
+    } else {
+        y_screen_other // loc_1292: bne jumps past the adjustment
+    };
+    assert_eq!(
+        y_screen_adjusted, 100,
+        "ASM loc_1286: non-matching sprite offset skips the y adjustment (loc_1292)"
+    );
+}

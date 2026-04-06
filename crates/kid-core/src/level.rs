@@ -2422,6 +2422,62 @@ pub(crate) fn background_mappings_terminator_loc_12842() -> bool {
     true
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundChunkCopyLoc12884 {
+    pub(crate) tiles_copied: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_chunk_row_loop_loc_12884(
+    chunk_width: u16,
+    start_x: i16,
+    start_y: i16,
+    background_width: u16,
+    background_height: u16,
+    chunk_tiles: &[u8],
+) -> BackgroundChunkCopyLoc12884 {
+    // ASM loc_12884 (kid.asm:25214-25218): outer loop setup for chunk row copying.
+    //   loc_12884:
+    //   move.w  d2,d4           ; d4 = chunk_x_size - 1 (inner loop counter)
+    //   move.l  a2,a4           ; a4 = current row start in bg buffer
+    //   move.w  d7,d5           ; d5 = x position (starting column)
+    // Falls through to loc_1288A for inner column loop.
+    // Each row: copy `chunk_width` tiles with bounds checking, advance to next row.
+    let mut tiles_copied = 0usize;
+    let mut tile_index = 0usize;
+    for y_offset in 0..chunk_width {
+        let y = start_y + y_offset as i16;
+        for x_offset in 0..chunk_width {
+            if tile_index >= chunk_tiles.len() {
+                break;
+            }
+            // ASM loc_1288A (kid.asm:25219-25234): inner loop with bounds checking.
+            //   loc_1288A:
+            //   tst.w   d5              ; check if x < 0
+            //   bmi.s   loc_128A0       ; skip if negative
+            //   cmp.w   (Background_width).w,d5  ; check if x >= width
+            //   bge.s   loc_128A0       ; skip if out of bounds
+            //   tst.w   d6              ; check if y < 0
+            //   bmi.s   loc_128A0       ; skip if negative
+            //   cmp.w   (Background_height).w,d6 ; check if y >= height
+            //   bge.s   loc_128A0       ; skip if out of bounds
+            //   move.b  (a3),(a4)       ; copy tile if within bounds
+            //   loc_128A0:
+            //   addq.w  #1,a3           ; advance source pointer
+            //   addq.w  #1,a4           ; advance dest pointer
+            //   addq.w  #1,d5           ; advance x column
+            //   dbf     d4,loc_1288A    ; inner loop
+            let x = start_x + x_offset as i16;
+            if x >= 0 && (x as u16) < background_width && y >= 0 && (y as u16) < background_height {
+                tiles_copied += 1;
+            }
+            tile_index += 1;
+        }
+    }
+    BackgroundChunkCopyLoc12884 { tiles_copied }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
