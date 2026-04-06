@@ -40045,3 +40045,139 @@ fn loc_12630_vertical_advance_loop() {
         "ASM loc_12630: final address after 4 row advances"
     );
 }
+
+#[test]
+fn loc_1263c_initializes_hidden_block_list_pointer() {
+    // ASM loc_1263C (kid.asm:24889-24892): block type 4 entry point.
+    //   move.l ($FFFFF8E0).w,d1  ; load hidden block list pointer
+    //   bne.s loc_12646           ; if non-zero, skip init
+    //   move.l a5,($FFFFF8E0).w   ; store prize list base
+    // When pointer is zero, initialize it.
+    let result = crate::level::block_type_4_init_list_loc_1263c(0, 0xFFFF_3B24);
+    assert_eq!(
+        result.hidden_block_list_addr, 0xFFFF_3B24,
+        "ASM loc_1263C: should initialize pointer when zero"
+    );
+}
+
+#[test]
+fn loc_1263c_returns_existing_pointer_when_already_set() {
+    // ASM loc_1263C: when pointer is non-zero, return it unchanged.
+    let result = crate::level::block_type_4_init_list_loc_1263c(0xFFFF_4000, 0xFFFF_3B24);
+    assert_eq!(
+        result.hidden_block_list_addr, 0xFFFF_4000,
+        "ASM loc_1263C: should return existing pointer when already set"
+    );
+}
+
+#[test]
+fn loc_12646_reads_x_pos_and_continues_for_positive() {
+    // ASM loc_12646 (kid.asm:24894-24897): read x_pos from layout.
+    //   move.w (a1)+,d1  ; read x_pos
+    //   bpl.s loc_1264C   ; if >= 0, continue
+    //   rts              ; else return
+    let result = crate::level::block_type_4_read_x_pos_loc_12646(&[0x0020, 0x0010])
+        .expect("ASM loc_12646: positive x_pos should parse");
+    assert_eq!(
+        result.x_pos, 0x0020,
+        "ASM loc_12646: should read x_pos = 0x0020"
+    );
+    assert_eq!(
+        result.words_consumed, 1,
+        "ASM loc_12646: should consume 1 word"
+    );
+}
+
+#[test]
+fn loc_12646_returns_none_for_negative_sentinel() {
+    // ASM loc_12646: negative word ($8000+) signals end of layout.
+    let result = crate::level::block_type_4_read_x_pos_loc_12646(&[0x8000]);
+    assert!(
+        result.is_none(),
+        "ASM loc_12646: negative x_pos should return None (end of layout)"
+    );
+}
+
+#[test]
+fn loc_1264c_calculates_cell_address_for_visible() {
+    // ASM loc_1264C (kid.asm:24900-24912): coordinate calculation and cell write.
+    //   move.w (a1)+,d2       ; read Y row
+    //   move.w d2,d3
+    //   add.w d3,d3           ; d3 = Y * 2
+    //   lea ($FFFF4A04).l,a2 ; row pointer table
+    //   move.w (a2,d3.w),a4  ; a4 = row start
+    //   add.w d1,a4           ; a4 += X
+    //   add.w d1,a4           ; a4 += X (now = row + X*2)
+    let row_table: Vec<u16> = vec![
+        0x0000, // row 0 at 0x0000
+        0x0080, // row 1 at 0x0080 (128 bytes = 64 cells)
+        0x0100, // row 2 at 0x0100
+    ];
+    let result = crate::level::block_type_4_parse_coords_loc_1264c(
+        &[0x0002], // Y = 2
+        &row_table,
+        0x0010, // X = 16
+        4,      // visible block type 4
+    )
+    .expect("ASM loc_1264C: should parse coordinates");
+
+    assert_eq!(result.y_row, 0x0002, "ASM loc_1264C: should read y_row = 2");
+    assert_eq!(
+        result.cell_addr,
+        0x0100 + 16 * 2,
+        "ASM loc_1264C: cell_addr = row_start[2] + X*2 = 0x0100 + 32"
+    );
+    assert!(!result.is_hidden, "ASM loc_1264C: type 4 is visible");
+}
+
+#[test]
+fn loc_1264c_detects_hidden_block_type() {
+    // ASM loc_1264C: tst.w d0; bmi.s loc_12670
+    // When block_type < 0 (hidden), is_hidden flag is set.
+    let row_table: Vec<u16> = vec![0x0000, 0x0080];
+    let result = crate::level::block_type_4_parse_coords_loc_1264c(
+        &[0x0001],
+        &row_table,
+        0x0008,
+        -4, // hidden type -4
+    )
+    .expect("ASM loc_1264C: should parse coordinates for hidden");
+
+    assert!(
+        result.is_hidden,
+        "ASM loc_1264C: negative block type should set is_hidden"
+    );
+}
+
+#[test]
+fn loc_12670_creates_hidden_block_entry_pair() {
+    // ASM loc_12670 (kid.asm:24915-24932): create hidden block entries.
+    // Creates TWO entries: one at cell_addr, one at cell_addr+2.
+    //   bsr.w sub_127A8         ; write placeholder, copy terrain
+    //   bsr.w sub_127CE         ; shift hidden list
+    //   <store cell, x, y, type, flag=0>
+    //   addq.w #2,a4            ; advance to cell+2
+    //   bsr.w sub_127A8         ; write placeholder to second cell
+    //   bsr.w sub_127CE         ; shift list again
+    //   <store cell+2, x, y, type, flag=1>
+    //   subq.w #2,a4            ; restore original cell
+    let result = crate::level::block_type_4_hidden_entry_loc_12670(
+        0xA000, // cell_addr
+        0x0020, // x_pos
+        0x0005, // y_row
+        -4,     // hidden block type -4
+    );
+
+    assert_eq!(
+        result.cell_addr, 0xA000,
+        "ASM loc_12670: first cell at 0xA000"
+    );
+    assert_eq!(
+        result.cell_addr_plus_2, 0xA002,
+        "ASM loc_12670: second cell at 0xA000 + 2"
+    );
+    assert_eq!(result.x_pos, 0x0020, "ASM loc_12670: x_pos preserved");
+    assert_eq!(result.y_row, 0x0005, "ASM loc_12670: y_row preserved");
+    assert_eq!(result.block_type, -4, "ASM loc_12670: block type preserved");
+    assert_eq!(result.flag_byte, 0, "ASM loc_12670: first entry flag = 0");
+}

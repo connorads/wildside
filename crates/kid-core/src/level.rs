@@ -1764,6 +1764,166 @@ pub(crate) fn block_type_1012_vertical_place_loc_12600(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType4InitListLoc1263C {
+    pub(crate) hidden_block_list_addr: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_4_init_list_loc_1263c(
+    existing_list_addr: u32,
+    prize_list_addr: u32,
+) -> BlockType4InitListLoc1263C {
+    // ASM loc_1263C (kid.asm:24889-24892): block type 4 entry point.
+    // Checks/initializes hidden block list pointer:
+    //   move.l ($FFFFF8E0).w,d1  ; load existing hidden block list pointer
+    //   bne.s loc_12646          ; if non-zero, skip init
+    //   move.l a5,($FFFFF8E0).w  ; store prize list base address
+    // The $FFFFF8E0 variable holds a pointer to the hidden block list for type 4.
+    // This parallels $FFFFF8DA for block type 3 but uses a separate variable.
+    // After init (or check), falls through to loc_12646.
+    if existing_list_addr != 0 {
+        BlockType4InitListLoc1263C {
+            hidden_block_list_addr: existing_list_addr,
+        }
+    } else {
+        BlockType4InitListLoc1263C {
+            hidden_block_list_addr: prize_list_addr,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType4ReadXPosLoc12646 {
+    pub(crate) x_pos: u16,
+    pub(crate) words_consumed: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_4_read_x_pos_loc_12646(
+    layout_words: &[u16],
+) -> Option<BlockType4ReadXPosLoc12646> {
+    // ASM loc_12646 (kid.asm:24894-24897): read next x_pos from block layout.
+    //   move.w (a1)+,d1  ; read x_pos into d1
+    //   bpl.s loc_1264C   ; if >= 0, continue processing
+    //   rts              ; else return (end of layout)
+    // This is the loop entry for processing block type 4 entries.
+    // Negative x_pos ($8000+) signals end of the layout list.
+    if layout_words.is_empty() {
+        return None;
+    }
+    let x_pos = layout_words[0];
+    if x_pos & 0x8000 != 0 {
+        None
+    } else {
+        Some(BlockType4ReadXPosLoc12646 {
+            x_pos,
+            words_consumed: 1,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType4ParseCoordsLoc1264C {
+    pub(crate) cell_addr: u32,
+    pub(crate) y_row: u16,
+    pub(crate) is_hidden: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_4_parse_coords_loc_1264c(
+    layout_words: &[u16],
+    row_pointer_table: &[u16],
+    x_pos: u16,
+    block_type: i16,
+) -> Option<BlockType4ParseCoordsLoc1264C> {
+    // ASM loc_1264C (kid.asm:24900-24912): coordinate setup and cell placement for block type 4.
+    //   move.w (a1)+,d2       ; read Y row
+    //   move.w d2,d3
+    //   add.w d3,d3           ; d3 = Y * 2 (row table index)
+    //   lea ($FFFF4A04).l,a2 ; Level_Layout row pointer table
+    //   move.w (a2,d3.w),a4  ; a4 = row pointer for Y
+    //   add.w d1,a4           ; a4 += X
+    //   add.w d1,a4           ; a4 += X (now a4 = row + X*2)
+    //   tst.w d0              ; test block_type
+    //   bmi.s loc_12670       ; if < 0 (hidden), branch to hidden case
+    //   move.w #$E407,(a4)    ; write tile $E407 to cell
+    //   move.w #$E408,2(a4)   ; write tile $E408 to cell+2
+    //   bra.s loc_1269C       ; continue to metadata storage
+    //
+    // For visible (non-hidden) blocks, writes two consecutive tiles.
+    // Block types 4 and 5 are special hidden block types (negative type values).
+    if layout_words.is_empty() {
+        return None;
+    }
+    let y_row = layout_words[0];
+
+    let y_idx = usize::from(y_row) * 2;
+    if y_idx >= row_pointer_table.len() * 2 {
+        return None;
+    }
+    let row_start = u32::from(row_pointer_table[y_idx / 2]);
+    let cell_addr = row_start.wrapping_add(u32::from(x_pos) * 2);
+
+    Some(BlockType4ParseCoordsLoc1264C {
+        cell_addr,
+        y_row,
+        is_hidden: block_type < 0,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType4HiddenEntryLoc12670 {
+    pub(crate) cell_addr: u32,
+    pub(crate) cell_addr_plus_2: u32,
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+    pub(crate) block_type: i16,
+    pub(crate) flag_byte: u8,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_4_hidden_entry_loc_12670(
+    cell_addr: u32,
+    x_pos: u16,
+    y_row: u16,
+    block_type: i16,
+) -> BlockType4HiddenEntryLoc12670 {
+    // ASM loc_12670 (kid.asm:24915-24932): create hidden block entry for block type 4.
+    // Called when block_type < 0 (hidden block). Creates entry in hidden block list.
+    //   bsr.w sub_127A8         ; write $20 placeholder to cell, copy terrain byte
+    //   bsr.w sub_127CE         ; shift hidden block list to make room
+    //   move.w a4,(a2)+        ; store cell_addr
+    //   move.w d1,(a2)+        ; store x_pos
+    //   move.w d2,(a2)+        ; store y_row
+    //   move.b d0,(a2)+        ; store block_type (as byte)
+    //   clr.b (a2)+            ; clear flag byte
+    //   addq.w #2,a4           ; advance cell address by 2
+    //   bsr.w sub_127A8         ; write $20 to second cell
+    //   bsr.w sub_127CE         ; shift list again
+    //   move.w a4,(a2)+        ; store cell_addr+2
+    //   move.w d1,(a2)+        ; store x_pos again
+    //   move.w d2,(a2)+        ; store y_row again
+    //   move.b d0,(a2)+        ; store block_type again
+    //   move.b #1,(a2)+        ; store flag byte = 1
+    //   subq.w #2,a4           ; restore original cell address
+    //
+    // Creates TWO hidden block entries: one for the left tile, one for the right tile.
+    // The flag byte distinguishes left (0) from right (1) tile in the pair.
+    BlockType4HiddenEntryLoc12670 {
+        cell_addr,
+        cell_addr_plus_2: cell_addr.wrapping_add(2),
+        x_pos,
+        y_row,
+        block_type,
+        flag_byte: 0,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
