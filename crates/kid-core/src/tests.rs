@@ -26041,6 +26041,135 @@ fn loc_1233e_reads_layout_entry_and_returns_on_terminator() {
 }
 
 #[test]
+fn loc_1234_sets_high_priority_bit_for_priority_1() {
+    // ASM loc_1234 (kid.asm:2230-2231): sets the high-priority bit $8000
+    // when sprite priority conditions are met. The priority byte $10(a3)
+    // determines sprite rendering priority:
+    // - 0: low priority (no bit set)
+    // - 1: high priority (set $8000 unconditionally)
+    // - 2+: conditional priority (set $8000 only if hw flag $F896 is set)
+    assert_eq!(
+        crate::NativeRuntime::sprite_priority_bit_loc_1234(0, false),
+        0x0000,
+        "ASM loc_1234: priority 0 should not set high-priority bit",
+    );
+    assert_eq!(
+        crate::NativeRuntime::sprite_priority_bit_loc_1234(0, true),
+        0x0000,
+        "ASM loc_1234: priority 0 ignores hardware flag",
+    );
+    assert_eq!(
+        crate::NativeRuntime::sprite_priority_bit_loc_1234(1, false),
+        0x8000,
+        "ASM loc_1234: priority 1 sets high-priority bit unconditionally",
+    );
+    assert_eq!(
+        crate::NativeRuntime::sprite_priority_bit_loc_1234(1, true),
+        0x8000,
+        "ASM loc_1234: priority 1 sets high-priority bit regardless of hw flag",
+    );
+    assert_eq!(
+        crate::NativeRuntime::sprite_priority_bit_loc_1234(2, false),
+        0x0000,
+        "ASM loc_1234: priority 2 without hw flag does not set bit",
+    );
+    assert_eq!(
+        crate::NativeRuntime::sprite_priority_bit_loc_1234(2, true),
+        0x8000,
+        "ASM loc_1234: priority 2 with hw flag sets high-priority bit",
+    );
+    assert_eq!(
+        crate::NativeRuntime::sprite_priority_bit_loc_1234(3, true),
+        0x8000,
+        "ASM loc_1234: priority 3+ with hw flag sets high-priority bit",
+    );
+}
+
+#[test]
+fn loc_1238_computes_sprite_tile_id_from_art_data_and_vram_offset() {
+    // ASM loc_1238 (kid.asm:2233-2247): adds sprite and VRAM offsets to the
+    // base tile ID. When $12(a3) is zero, adds `(a4)+` (sprite art data word)
+    // and `vram_tile(a3)` to form the final tile ID. When $12(a3) is non-zero,
+    // uses a hardware offset table instead.
+    assert_eq!(
+        crate::NativeRuntime::sprite_tile_id_loc_1238(0x1000, 0x0050, 0x0675, false),
+        0x16C5,
+        "ASM loc_1238: base $1000 + sprite_offset $0050 + vram_tile $0675 = $16C5",
+    );
+    assert_eq!(
+        crate::NativeRuntime::sprite_tile_id_loc_1238(0x0000, 0x0001, 0x1000, false),
+        0x1001,
+        "ASM loc_1238: should wrap at 16-bit boundary for overflow",
+    );
+    assert_eq!(
+        crate::NativeRuntime::sprite_tile_id_loc_1238(0xFFFF, 0x0001, 0x0002, false),
+        0x0002,
+        "ASM loc_1238: should wrap at 16-bit boundary: $FFFF + $0001 + $0002 = $0002",
+    );
+    assert_eq!(
+        crate::NativeRuntime::sprite_tile_id_loc_1238(0x1000, 0xFFFF, 0, true),
+        0x1000,
+        "ASM loc_1238: hardware offset path adds only vram_tile, ignoring sprite_offset_word",
+    );
+    assert_eq!(
+        crate::NativeRuntime::sprite_tile_id_loc_1238(0x1000, 0, 0x0675, true),
+        0x1675,
+        "ASM loc_1238: hardware offset path adds vram_tile to base: $1000 + $0675 = $1675",
+    );
+}
+
+#[test]
+fn loc_12372_uses_default_rubber_cell_for_type_7_with_zero_terrain_byte() {
+    // ASM loc_12372 (kid.asm:24513-24527): block type 7 handler for horizontal
+    // placement. When block_type is non-negative and terrain_byte is zero,
+    // returns the default rubber block cell $E60C.
+    assert_eq!(
+        crate::level::block_type_7_cell_value_loc_12372(0, 0).cell_word,
+        0xE60C,
+        "ASM loc_12372 should return $E60C for type 0 (non-negative) with terrain byte 0",
+    );
+    assert_eq!(
+        crate::level::block_type_7_cell_value_loc_12372(6, 0).cell_word,
+        0xE60C,
+        "ASM loc_12372 should return $E60C for any non-negative block type with terrain byte 0",
+    );
+}
+
+#[test]
+fn loc_12372_uses_alternate_cell_for_type_7_with_nonzero_terrain_byte() {
+    // ASM loc_12372 (kid.asm:24516-24523): when terrain_byte is non-zero,
+    // the Move.B (a3),D5 instruction loads a non-zero value, triggering the
+    // branch to loc_12380 which seeds D5 with $E60E.
+    assert_eq!(
+        crate::level::block_type_7_cell_value_loc_12372(0, 1).cell_word,
+        0xE60E,
+        "ASM loc_12372 should return $E60E when terrain byte is non-zero",
+    );
+    assert_eq!(
+        crate::level::block_type_7_cell_value_loc_12372(0, 0xFF).cell_word,
+        0xE60E,
+        "ASM loc_12372 should return $E60E for any non-zero terrain byte",
+    );
+}
+
+#[test]
+fn loc_12372_returns_zero_for_hidden_block_types() {
+    // ASM loc_12372 (kid.asm:24514-24515): when d0 (block type) is negative,
+    // the BMI.S loc_12388 branch skips cell writing and calls hidden-block
+    // subroutines instead. The caller should use loc_12388 for hidden blocks.
+    assert_eq!(
+        crate::level::block_type_7_cell_value_loc_12372(-1, 0).cell_word,
+        0,
+        "ASM loc_12372: hidden block type -1 should return 0 (caller uses loc_12388)",
+    );
+    assert_eq!(
+        crate::level::block_type_7_cell_value_loc_12372(-128, 1).cell_word,
+        0,
+        "ASM loc_12372: hidden block type -128 should return 0 regardless of terrain byte",
+    );
+}
+
+#[test]
 fn loc_11d46_copies_exactly_a2_longwords_and_ors_each_with_the_prepared_mask() {
     let source_longwords = (0..0xA4).map(|value| value as u32).collect::<Vec<_>>();
     let copied = crate::level::copy_block_mappings_loc_11D46(&source_longwords, 0x8000_8000);

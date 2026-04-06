@@ -2373,6 +2373,67 @@ impl NativeRuntime {
             .contains(&x_screen_px)
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn sprite_priority_bit_loc_1234(
+        priority_byte: u8,
+        high_priority_hw_flag: bool,
+    ) -> u16 {
+        // ASM loc_1234 (kid.asm:2230-2231): sets the high-priority bit $8000
+        // when sprite priority conditions are met. The priority field $10(a3)
+        // controls how the tile ID is modified:
+        //   cmpi.b #1,priority(a3)   ; priority field: $10(a3)
+        //   bcs.s loc_1238           ; branch if priority < 1 (priority = 0)
+        //   beq.s loc_1234           ; branch if priority == 1, set bit
+        //   tst.b ($FFFFF896).w      ; check high-priority hardware flag
+        //   beq.s loc_1238           ; skip if flag is 0
+        // loc_1234:
+        //   ori.w #$8000,d0          ; set high-priority bit
+        // loc_1238:
+        // Priority byte semantics:
+        // - 0: low priority (no bit)
+        // - 1: high priority (set bit unconditionally)
+        // - 2+: conditional priority (set bit only if hw flag is set)
+        match priority_byte {
+            0 => 0,
+            1 => 0x8000,
+            _ if high_priority_hw_flag => 0x8000,
+            _ => 0,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn sprite_tile_id_loc_1238(
+        base_tile_id: u16,
+        sprite_offset_word: u16,
+        vram_tile: u16,
+        use_hardware_offset: bool,
+    ) -> u16 {
+        // ASM loc_1238 (kid.asm:2233-2238): computes the final sprite tile ID by
+        // adding offsets based on the object's $12(a3) field. When $12(a3) is
+        // non-zero, the routine uses a hardware address instead of sprite data:
+        // loc_1238:
+        //   tst.b $12(a3)
+        //   bne.s loc_1246
+        //   add.w (a4)+,d0           ; add from sprite art data
+        //   add.w vram_tile(a3),d0   ; add vram_tile field
+        //   bra.s loc_124A
+        // loc_1246:
+        //   add.w ($FFFFF83C).w,d0   ; add from hardware offset table
+        // loc_124A:
+        // When use_hardware_offset is false, adds sprite_offset_word + vram_tile.
+        // When true, the hardware offset path adds only vram_tile (the $F83C
+        // lookup is handled separately in the calling context).
+        if use_hardware_offset {
+            base_tile_id.wrapping_add(vram_tile)
+        } else {
+            base_tile_id
+                .wrapping_add(sprite_offset_word)
+                .wrapping_add(vram_tile)
+        }
+    }
+
     fn death_sprite_still_visible(player: PlayerState, camera: CameraState) -> bool {
         let sprite_vertical_extent_px = Self::sprite_vertical_extent_loc_11EA(
             true,

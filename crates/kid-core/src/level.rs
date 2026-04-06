@@ -516,6 +516,45 @@ pub(crate) fn block_place_row_by_row_advance_loc_12332(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType7CellResultLoc12372 {
+    pub(crate) cell_word: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_7_cell_value_loc_12372(
+    block_type: i16,
+    terrain_byte: u8,
+) -> BlockType7CellResultLoc12372 {
+    // ASM loc_12372 (kid.asm:24513-24527): block type 7 handler for horizontal
+    // placement. After loc_1233C saved a3 (level-terrain data pointer) and
+    // loc_12346 set up cell pointers, this runs when stride flag is 0:
+    //   tst.w d0                  ; test block type (negative for hidden)
+    //   bmi.s loc_12388           ; branch if hidden block
+    //   move.b (a3),d5            ; load byte from level-terrain data
+    //   bne.s loc_12380
+    //   move.w #$E60C,d5          ; default rubber cell
+    //   bra.s loc_12384
+    // loc_12380:
+    //   move.w #$E60E,d5          ; alternate cell
+    // loc_12384:
+    //   move.w d5,(a4)            ; write to Level_Layout
+    // When block_type is non-negative, this returns $E60C if terrain_byte is 0,
+    // or $E60E if terrain_byte is non-zero. These are the same cells used by
+    // loc_123A4 for row-by-row placement with horizontal stride advance.
+    // For negative block types (hidden blocks), the caller should use loc_12388
+    // which calls sub_127A8/sub_127CE to queue hidden-block entries instead.
+    if block_type < 0 {
+        // Hidden block path - caller should use loc_12388
+        BlockType7CellResultLoc12372 { cell_word: 0 }
+    } else if terrain_byte == 0 {
+        BlockType7CellResultLoc12372 { cell_word: 0xE60C }
+    } else {
+        BlockType7CellResultLoc12372 { cell_word: 0xE60E }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutEntryLoc1233E {
     pub(crate) x_pos: u16,
 }
