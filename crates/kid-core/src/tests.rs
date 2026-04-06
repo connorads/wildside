@@ -25667,6 +25667,18 @@ fn loc_11cb6_allows_null_prize_lists_and_traps_once_the_custom_queue_base_is_rea
 }
 
 #[test]
+fn loc_11cca_allows_null_hidden_block_lists_and_rejects_a_16_byte_overflow() {
+    assert!(
+        crate::level::hidden_block_list_guard_loc_11CCA(0, 0x0004),
+        "ASM loc_11CCA should fall through to `loc_11CE0` when `($FFFFF8DA).w` is zero, so an empty hidden-block list must skip the queue-capacity guard"
+    );
+    assert!(
+        !crate::level::hidden_block_list_guard_loc_11CCA(0xFFFF_43AC, 1),
+        "ASM loc_11CCA multiplies `($FFFFF8D8).w` by `$10` before the `cmpi.w #$43BC,d0`, so a single 16-byte entry ending at `$43BC` must branch to `loc_11D0A`"
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),
