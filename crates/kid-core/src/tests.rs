@@ -33630,6 +33630,40 @@ fn rubber_block_contact_loc_10e0a_writes_the_high_pair_base_plus_one_before_the_
 }
 
 #[test]
+fn metal_block_push_right_delete_gate_loc_11358_deletes_at_the_right_boundary_before_sampling_right()
+ {
+    assert!(
+        NativeRuntime::metal_block_push_right_delete_gate_loc_11358(
+            7,
+            8,
+            terrain::Cell::from_be_bytes(0x60, 0x05),
+        ),
+        "ASM loc_11358 should delete immediately when `cmp.w Level_width_blocks-1,d1` reaches the last column, without relying on the sampled right neighbour",
+    );
+}
+
+#[test]
+fn metal_block_push_right_delete_gate_loc_11358_continues_only_while_the_right_neighbour_is_solid()
+{
+    assert!(
+        !NativeRuntime::metal_block_push_right_delete_gate_loc_11358(
+            3,
+            8,
+            terrain::Cell::from_be_bytes(0x60, 0x00),
+        ),
+        "ASM loc_11358 should loop back to `loc_112E2` when the sampled right neighbour masks to `$6000`",
+    );
+    assert!(
+        NativeRuntime::metal_block_push_right_delete_gate_loc_11358(
+            3,
+            8,
+            terrain::Cell::from_be_bytes(0x00, 0x00),
+        ),
+        "ASM loc_11358 should fall through to the shared restore-and-delete tail once the sampled right neighbour is not solid",
+    );
+}
+
+#[test]
 fn process_block_effects_smash_creates_destroy_effect() {
     let mut rt = NativeRuntime::new(manifest());
     let mut slice = OpeningSliceState::new(default_bounds());

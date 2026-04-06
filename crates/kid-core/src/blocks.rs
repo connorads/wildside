@@ -2133,6 +2133,22 @@ impl NativeRuntime {
         (cell_x << 4, cell_y << 4)
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn metal_block_push_right_delete_gate_loc_11358(
+        source_col: u16,
+        level_width_blocks: u16,
+        right_neighbour: terrain::Cell,
+    ) -> bool {
+        // ASM loc_11334 -> loc_11358 (kid.asm:23275-23284): after the
+        // 4-substep rightward wake reaches its neighbour check, the worker
+        // deletes immediately once `d1 >= Level_width_blocks-1`. Otherwise it
+        // probes the cell one column further right and only loops back to
+        // `loc_112E2` when the neighbour's masked collision nibble is `$6000`.
+        source_col.saturating_add(1) >= level_width_blocks
+            || right_neighbour.collision != terrain::CollisionKind::Solid
+    }
+
     pub(crate) fn step_visual_effects(&mut self) {
         self.step_rubber_block_animations_sub_10de4();
         let level_height_pixels = i64::from(self.level_bounds(self.current_level).height_pixels);
