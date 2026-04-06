@@ -57,6 +57,13 @@ pub(crate) struct PrizeClockFallGateLoc107B0 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
+    pub(crate) next_refcount: u8,
+    pub(crate) should_play_stop_sound: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
     -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
     2, 2, 2, 2,
@@ -113,6 +120,22 @@ impl NativeRuntime {
             stays_active: !hit_level_bottom && !collided_with_player,
             hit_level_bottom,
             collided_with_player,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_clock_sound_cleanup_loc_107E0(
+        active_clock_prize_sounds: u8,
+    ) -> PrizeClockSoundCleanupLoc107E0 {
+        // ASM loc_107E0 (kid.asm:22028-22033): once the clock exits its fall
+        // loop, decrement the shared `$FFFFFB55` refcount and play
+        // `sfx_Clock_prize` through `PlaySound2` only when that decremented
+        // count reaches zero.
+        let next_refcount = active_clock_prize_sounds.wrapping_sub(1);
+        PrizeClockSoundCleanupLoc107E0 {
+            next_refcount,
+            should_play_stop_sound: next_refcount == 0,
         }
     }
 

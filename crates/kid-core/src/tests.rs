@@ -1,6 +1,7 @@
 use super::*;
 use crate::blocks::{
-    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundRefcountLoc10792,
+    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
+    PrizeClockSoundRefcountLoc10792,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -7752,6 +7753,26 @@ fn prize_clock_fall_gate_loc_107b0_deletes_on_bottom_or_collection() {
             collided_with_player: true,
         },
         "ASM loc_107B0 should stop looping once `collision_type(a3)` becomes non-zero from player contact",
+    );
+}
+
+#[test]
+fn prize_clock_sound_cleanup_loc_107e0_only_stops_the_last_loop() {
+    assert_eq!(
+        NativeRuntime::prize_clock_sound_cleanup_loc_107E0(1),
+        PrizeClockSoundCleanupLoc107E0 {
+            next_refcount: 0,
+            should_play_stop_sound: true,
+        },
+        "ASM loc_107E0 should play `sfx_Clock_prize` through `PlaySound2` only when the decremented shared refcount reaches zero",
+    );
+    assert_eq!(
+        NativeRuntime::prize_clock_sound_cleanup_loc_107E0(4),
+        PrizeClockSoundCleanupLoc107E0 {
+            next_refcount: 3,
+            should_play_stop_sound: false,
+        },
+        "ASM loc_107E0 should skip the stop sound while another live clock prize still owns the shared loop",
     );
 }
 
