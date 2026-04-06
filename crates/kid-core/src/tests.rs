@@ -32933,6 +32933,35 @@ fn floating_item_removed_when_lifetime_expires() {
 }
 
 #[test]
+fn floating_item_loc_10396_keeps_the_frame_0xc8_countdown_alive() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: 0x00C9,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items.len(),
+        1,
+        "ASM loc_10396 only branches to delete once `subq.w #1,d3` reaches zero; the `$00C8` frame stays alive for the late animation swap",
+    );
+    assert_eq!(
+        rt.floating_items[0].remaining, 0x00C8,
+        "ASM loc_10396 reaches the `cmpi.w #$C8,d3` animation threshold one frame before deletion becomes possible",
+    );
+}
+
+#[test]
 fn floating_item_collected_flag_causes_removal() {
     let mut rt = NativeRuntime::new(manifest());
     rt.floating_items.push(FloatingItem {
