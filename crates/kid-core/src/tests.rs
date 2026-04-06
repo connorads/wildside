@@ -25780,6 +25780,176 @@ fn loc_11d42_only_enables_the_block_priority_mask_when_f896_is_non_zero() {
 }
 
 #[test]
+fn loc_122b8_looks_up_base_cell_from_word_122c6_table() {
+    // ASM loc_122B8 (kid.asm:24405-24408): doubles the block type index with
+    // `add.w d1,d1` and loads `d5` from `word_122C6(pc,d1.w)`. The table at
+    // kid.asm:24415-24425 provides base cell values for block types that
+    // dispatch through AddrTbl_BlockTypes to loc_122B8 (types 0, 2, 3, 6, 8, 10).
+    // Note: AddrTbl_BlockTypes dispatches other types to different handlers:
+    //   type 1 → loc_123DC, type 4 → loc_124A6, type 5 → loc_1263C,
+    //   type 7 → loc_1233C, type 9 → loc_1253A, etc.
+    // The routine loads whatever word_122C6[double_type] contains into d5,
+    // which may be 0 (a valid cell value meaning air/placeholder).
+    assert_eq!(
+        crate::level::block_type_base_cell_loc_122B8(0),
+        0xE001,
+        "ASM loc_122B8 loads $E001 for block type 0 from word_122C6[0]",
+    );
+    assert_eq!(
+        crate::level::block_type_base_cell_loc_122B8(1),
+        0x0000,
+        "ASM loc_122B8 loads word_122C6[2]=$0000 for type 1, though type 1 dispatches to loc_123DC",
+    );
+    assert_eq!(
+        crate::level::block_type_base_cell_loc_122B8(2),
+        0xE203,
+        "ASM loc_122B8 loads $E203 for block type 2 from word_122C6[4]",
+    );
+    assert_eq!(
+        crate::level::block_type_base_cell_loc_122B8(3),
+        0x0000,
+        "ASM loc_122B8 loads word_122C6[6]=$0000 for block type 3",
+    );
+    assert_eq!(
+        crate::level::block_type_base_cell_loc_122B8(6),
+        0xE60C,
+        "ASM loc_122B8 loads $E60C for block type 6 from word_122C6[12]",
+    );
+}
+
+#[test]
+fn loc_122c0_returns_none_for_end_marker_and_some_for_continue() {
+    // ASM loc_122C0 (kid.asm:24410-24413): reads `move.w (a1)+,d1` from the
+    // block-layout stream, branches to `loc_122DA` for processing if `bpl.s`,
+    // or returns from the handler if the word has bit 15 set ($8000+).
+    // The end-of-layout sentinel is the negative word $FFFF (or any $8000+),
+    // signaling the block-type handler to stop processing.
+    assert_eq!(
+        crate::level::block_layout_parse_entry_loc_122C0(0x0012),
+        Some(crate::level::BlockLayoutEntryLoc122C0 { x_pos: 0x0012 }),
+        "ASM loc_122C0 should branch to loc_122DA when word is positive (bit 15 clear)",
+    );
+    assert_eq!(
+        crate::level::block_layout_parse_entry_loc_122C0(0x7FFF),
+        Some(crate::level::BlockLayoutEntryLoc122C0 { x_pos: 0x7FFF }),
+        "ASM loc_122C0 should accept the maximum positive word $7FFF as a valid X position",
+    );
+    assert_eq!(
+        crate::level::block_layout_parse_entry_loc_122C0(0x8000),
+        None,
+        "ASM loc_122C0 should return from the handler when word has bit 15 set ($8000+)",
+    );
+    assert_eq!(
+        crate::level::block_layout_parse_entry_loc_122C0(0xFFFF),
+        None,
+        "ASM loc_122C0 should return from the handler when word is the $FFFF end-of-layout sentinel",
+    );
+}
+
+#[test]
+fn loc_122da_reads_y_count_and_stride_words() {
+    // ASM loc_122DA (kid.asm:24428-24439): after loc_122C0 read X into `d1`,
+    // reads Y row coordinate, count, and stride flag from `(a1)+`:
+    //   move.w (a1)+,d2   ; Y row
+    //   move.w (a1)+,d3   ; count
+    //   subq.w #1,d3      ; for dbf loop
+    //   tst.w (a1)+       ; stride: 0=horizontal, non-zero=row-by-row
+    //   bne.s loc_12318   ; branch to row-by-row handler if stride
+    assert_eq!(
+        crate::level::block_layout_read_coords_loc_122DA(&[0x000A, 0x0003, 0x0000]),
+        Some((
+            crate::level::BlockLayoutSetupLoc122DA {
+                y_row: 10,
+                count: 3,
+                stride: false
+            },
+            3
+        )),
+        "ASM loc_122DA should parse Y=10, count=3, stride=0 for horizontal placement",
+    );
+    assert_eq!(
+        crate::level::block_layout_read_coords_loc_122DA(&[0x0005, 0x0001, 0x0001]),
+        Some((
+            crate::level::BlockLayoutSetupLoc122DA {
+                y_row: 5,
+                count: 1,
+                stride: true
+            },
+            3
+        )),
+        "ASM loc_122DA should parse Y=5, count=1, stride=1 for row-by-row placement",
+    );
+    assert_eq!(
+        crate::level::block_layout_read_coords_loc_122DA(&[0x0000, 0x0001, 0xFFFF]),
+        Some((
+            crate::level::BlockLayoutSetupLoc122DA {
+                y_row: 0,
+                count: 1,
+                stride: true
+            },
+            3
+        )),
+        "ASM loc_122DA should treat any non-zero stride word as row-by-row",
+    );
+    assert_eq!(
+        crate::level::block_layout_read_coords_loc_122DA(&[0x000A]),
+        None,
+        "ASM loc_122DA requires at least 3 words after X position: Y, count, stride",
+    );
+}
+
+#[test]
+fn loc_122f6_writes_cells_horizontally_at_stride_zero() {
+    // ASM loc_122F6 (kid.asm:24441-24460): horizontal cell writer for block
+    // types using the word_122C6 base-cell lookup. When `(a1)+` yields 0 (no
+    // row-by-row stride), writes cells at `a4`, `a4+2`, ..., `a4+(count-1)*2`
+    // before looping back to loc_122C0 for the next entry.
+    //   tst.w d0
+    //   bmi.s loc_122FE      ; hidden-block case (negative block type)
+    //   move.w d5,(a4)       ; write cell word to Level_Layout
+    //   bra.s loc_12310
+    // loc_12310:
+    //   addq.w #2,a4         ; advance address
+    //   dbf d3,loc_122F6     ; loop count times
+    //   bra.s loc_122C0      ; continue to next layout entry
+    let results = crate::level::block_place_cells_loc_122F6(
+        0x1234, // cell_addr
+        0xE50B, // cell_word (Metal block base)
+        3,      // count
+        false,  // stride=0 (horizontal placement)
+    );
+    assert_eq!(
+        results.len(),
+        3,
+        "ASM loc_122F6 should write `d3+1` cells when stride is zero",
+    );
+    assert_eq!(
+        results[0],
+        crate::level::BlockPlaceResultLoc122F6 {
+            cell_addr: 0x1234,
+            cell_word: 0xE50B
+        },
+        "ASM loc_122F6 should write cell_word at the initial address",
+    );
+    assert_eq!(
+        results[1],
+        crate::level::BlockPlaceResultLoc122F6 {
+            cell_addr: 0x1236,
+            cell_word: 0xE50B
+        },
+        "ASM loc_122F6 should advance address by 2 between cells",
+    );
+    assert_eq!(
+        results[2],
+        crate::level::BlockPlaceResultLoc122F6 {
+            cell_addr: 0x1238,
+            cell_word: 0xE50B
+        },
+        "ASM loc_122F6 should write the same cell_word for all cells in a horizontal run",
+    );
+}
+
+#[test]
 fn loc_11d46_copies_exactly_a2_longwords_and_ors_each_with_the_prepared_mask() {
     let source_longwords = (0..0xA4).map(|value| value as u32).collect::<Vec<_>>();
     let copied = crate::level::copy_block_mappings_loc_11D46(&source_longwords, 0x8000_8000);

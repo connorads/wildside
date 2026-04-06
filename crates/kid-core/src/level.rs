@@ -21,6 +21,24 @@ pub(crate) struct HiddenBlockCopySetupLoc11C96 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutEntryLoc122C0 {
+    pub(crate) x_pos: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutSetupLoc122DA {
+    pub(crate) y_row: u16,
+    pub(crate) count: u16,
+    pub(crate) stride: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockPlaceResultLoc122F6 {
+    pub(crate) cell_addr: u32,
+    pub(crate) cell_word: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLoadPointersLoc11D0C {
     pub(crate) theme_mappings_addr: u32,
     pub(crate) enemy_layout_addr: u32,
@@ -310,6 +328,133 @@ pub(crate) fn block_layout_dispatch_words_loc_11C7E(block_layout_words: &[u16]) 
         .copied()
         .take_while(|&word| word != 0xFFFF)
         .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_base_cell_loc_122B8(block_type: u16) -> u16 {
+    // ASM loc_122B8 (kid.asm:24405-24408): dispatches block types that are
+    // routed through AddrTbl_BlockTypes to this handler. The routine:
+    //   move.w d0,d1
+    //   add.w d1,d1         ; double block type for byte offset into word table
+    //   move.w word_122C6(pc,d1.w),d5
+    // The `word_122C6` table (kid.asm:24415-24425) contains base cell values
+    // indexed by block type. Each word entry in the table corresponds to one
+    // block type, so the ASM doubles the type for byte addressing.
+    // Block types 0, 2, 3, 6, 8, 10 dispatch to loc_122B8 from AddrTbl_BlockTypes.
+    // Other types (1, 4, 5, 7, 9, etc.) dispatch to different handlers.
+    // Note: table entries may be 0, which is a valid cell value (air/placeholder).
+    const WORD_122C6: [u16; 10] = [
+        0xE001, // type 0 → Smash block base cell
+        0x0000, // type 1 (dispatches to loc_123DC, but table has $0000 placeholder)
+        0xE203, // type 2 → Ice block base cell
+        0x0000, // type 3 (dispatches to loc_122B8, returns $0000)
+        0x0000, // type 4 (dispatches to loc_124A6)
+        0xE50B, // type 5 (dispatches to loc_1263C)
+        0xE60C, // type 6 → Rubber block base cell
+        0xE710, // type 7 (dispatches to loc_1233C)
+        0x0000, // type 8 (dispatches to loc_122B8, returns $0000)
+        0xE919, // type 9 (dispatches to loc_1253A)
+    ];
+    let idx = usize::from(block_type);
+    if idx < WORD_122C6.len() {
+        WORD_122C6[idx]
+    } else {
+        0x0000
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_parse_entry_loc_122C0(
+    layout_word: u16,
+) -> Option<BlockLayoutEntryLoc122C0> {
+    // ASM loc_122C0 (kid.asm:24410-24413): reads the next block-layout word from
+    // `(a1)+` into `d1` and branches to `loc_122DA` for processing if the word
+    // is positive (bit 15 clear). Returns from the block handler if the word is
+    // negative (bit 15 set = $8000+), which signals end-of-layout.
+    //   move.w (a1)+,d1
+    //   bpl.s loc_122DA
+    //   rts
+    if layout_word & 0x8000 != 0 {
+        None
+    } else {
+        Some(BlockLayoutEntryLoc122C0 { x_pos: layout_word })
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_read_coords_loc_122DA(
+    layout_words: &[u16],
+) -> Option<(BlockLayoutSetupLoc122DA, usize)> {
+    // ASM loc_122DA (kid.asm:24428-24439): block placement coordinate parser.
+    // Called after loc_122C0 read an X position into `d1`. This routine reads:
+    //   move.w (a1)+,d2       ; Y row coordinate
+    //   move.w d2,d3
+    //   add.w d3,d3          ; d3 = Y * 2 (row table index)
+    //   lea ($FFFF4A04).l,a2 ; Level_Layout row pointer table
+    //   move.w (a2,d3.w),a4 ; a4 = row_start_addr for Y
+    //   add.w d1,a4
+    //   add.w d1,a4          ; a4 = row_start + 2*X (cell address in Level_Layout)
+    //   move.w (a1)+,d3      ; count (number of cells to place)
+    //   subq.w #1,d3         ; d3 = count - 1 (for dbf loop)
+    //   tst.w (a1)+          ; stride flag: 0 = horizontal, non-zero = row-by-row
+    //   bne.s loc_12318      ; branch to row-by-row handler if stride != 0
+    // Returns (setup, bytes_consumed) or None if layout exhausted.
+    if layout_words.len() < 3 {
+        return None;
+    }
+    let y_row = layout_words[0];
+    let count = layout_words[1];
+    let stride = layout_words[2] != 0;
+    Some((
+        BlockLayoutSetupLoc122DA {
+            y_row,
+            count,
+            stride,
+        },
+        3, // consumed 3 words: Y, count, stride
+    ))
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_place_cells_loc_122F6(
+    cell_addr: u32,
+    cell_word: u16,
+    count: u16,
+    stride: bool,
+) -> Vec<BlockPlaceResultLoc122F6> {
+    // ASM loc_122F6 (kid.asm:24441-24460): writes `d5` (the base cell value from
+    // loc_122B8) to `Level_Layout[a4]` for each position in a horizontal run.
+    // When `d0` is negative (special block marker), calls sub_127A8/sub_127CE
+    // to queue a hidden-block entry before writing.
+    //   tst.w d0
+    //   bmi.s loc_122FE
+    //   move.w d5,(a4)       ; write cell word directly
+    //   bra.s loc_12310
+    // loc_122FE:               ; hidden-block case
+    //   bsr.w sub_127A8
+    //   bsr.w sub_127CE
+    //   ...
+    // loc_12310:
+    //   addq.w #2,a4         ; advance to next cell (horizontal stride)
+    //   dbf d3,loc_122F6     ; loop for count cells
+    //   bra.s loc_122C0      ; continue to next layout entry
+    // When `stride` is false (word at `(a1)+` was 0), writes cells horizontally
+    // at `cell_addr`, `cell_addr + 2`, ..., incrementing address by 2 per cell.
+    // The returned addresses match the layout positions for horizontal placement.
+    if stride {
+        Vec::new()
+    } else {
+        (0..count)
+            .map(|i| BlockPlaceResultLoc122F6 {
+                cell_addr: cell_addr + u32::from(i) * 2,
+                cell_word,
+            })
+            .collect()
+    }
 }
 
 #[allow(non_snake_case)]
