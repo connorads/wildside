@@ -164,6 +164,15 @@ pub(crate) struct Prize10DiamondsWorkerInitLoc10988 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10DiamondsWorkerStepLoc109C0 {
+    pub(crate) next_camera_relative_x_pos: i32,
+    pub(crate) next_camera_relative_y_pos: i32,
+    pub(crate) next_x_pos: u16,
+    pub(crate) next_y_pos: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -536,6 +545,32 @@ impl NativeRuntime {
             camera_relative_y_pos,
             x_velocity: (0x0126_0000_i32.wrapping_sub(camera_relative_x_pos)) >> 5,
             y_velocity: (0x0030_0000_i32.wrapping_sub(camera_relative_y_pos)) >> 5,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_10_diamonds_worker_step_loc_109C0(
+        camera_relative_x_pos: i32,
+        camera_relative_y_pos: i32,
+        x_velocity: i32,
+        y_velocity: i32,
+        camera_x_integer: u16,
+        camera_y_integer: u16,
+    ) -> Prize10DiamondsWorkerStepLoc109C0 {
+        // ASM loc_109C0 (kid.asm:22243-22256): advance `$3E/$42` by `$26/$2A`,
+        // then rewrite `$1A/$1E` from the updated integer words plus the
+        // camera's integer position. The low 16-bit sub-pixel fraction stays
+        // only in the cached camera-relative words.
+        let next_camera_relative_x_pos = camera_relative_x_pos.wrapping_add(x_velocity);
+        let next_camera_relative_y_pos = camera_relative_y_pos.wrapping_add(y_velocity);
+        Prize10DiamondsWorkerStepLoc109C0 {
+            next_camera_relative_x_pos,
+            next_camera_relative_y_pos,
+            next_x_pos: (((next_camera_relative_x_pos >> 16) as i16)
+                .wrapping_add(camera_x_integer as i16)) as u16,
+            next_y_pos: (((next_camera_relative_y_pos >> 16) as i16)
+                .wrapping_add(camera_y_integer as i16)) as u16,
         }
     }
 

@@ -4,8 +4,9 @@ use crate::blocks::{
     OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8,
     Prize10DiamondsSpawnLoc108EE, Prize10DiamondsWorkerCountdownGateLoc10984,
     Prize10DiamondsWorkerInitLoc10988, Prize10DiamondsWorkerScanStartLoc10960,
-    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
-    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    Prize10DiamondsWorkerStepLoc109C0, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
+    PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
+    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -8052,6 +8053,27 @@ fn prize_10_diamonds_worker_init_loc_10988_seeds_camera_relative_arc_toward_targ
             y_velocity: 0x0000_8000,
         },
         "ASM loc_10988 should subtract the camera from `$1A/$1E`, then aim the worker toward `#$1260000,#$300000` with an arithmetic `>> 5` velocity seed",
+    );
+}
+
+#[test]
+fn prize_10_diamonds_worker_step_loc_109c0_advances_cached_offsets_and_world_words() {
+    assert_eq!(
+        NativeRuntime::prize_10_diamonds_worker_step_loc_109C0(
+            0x0106_8000,
+            0x0020_4000,
+            0x0001_0000,
+            0x0000_8000,
+            0x0010,
+            0x0020,
+        ),
+        Prize10DiamondsWorkerStepLoc109C0 {
+            next_camera_relative_x_pos: 0x0107_8000,
+            next_camera_relative_y_pos: 0x0020_C000,
+            next_x_pos: 0x0117,
+            next_y_pos: 0x0040,
+        },
+        "ASM loc_109C0 should keep the updated FP16.16 offset in `$3E/$42` but rewrite `$1A/$1E` from only the new high words plus the camera integers",
     );
 }
 
