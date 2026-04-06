@@ -1208,6 +1208,10 @@ impl NativeRuntime {
     }
 
     pub(crate) fn demo_level_id(use_demo_2: bool) -> LevelId {
+        // ASM Load_DemoPlay `not.b ($FFFFFBC8).w; beq.w loc_119B6` keeps `d7`
+        // at Knights Isle for demo 1 and overwrites it with Skydragon Castle 1
+        // for demo 2 before the shared `loc_119B6` tail stores
+        // `(Current_LevelID).w`.
         LevelId(if use_demo_2 {
             demo::DEMO_2_LEVEL
         } else {

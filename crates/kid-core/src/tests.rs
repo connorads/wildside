@@ -25470,6 +25470,20 @@ fn demo_plays_correct_level_and_alternates() {
 }
 
 #[test]
+fn loc_119b6_selects_the_expected_demo_level_for_each_recording() {
+    assert_eq!(
+        NativeRuntime::demo_level_id(false),
+        LevelId(demo::DEMO_1_LEVEL),
+        "ASM loc_119B6 should keep demo 1 on Knights Isle when the `beq.w` branch is taken"
+    );
+    assert_eq!(
+        NativeRuntime::demo_level_id(true),
+        LevelId(demo::DEMO_2_LEVEL),
+        "ASM Load_DemoPlay should overwrite `d7` before loc_119B6 so demo 2 boots Skydragon Castle 1"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {
