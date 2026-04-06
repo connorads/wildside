@@ -37,15 +37,15 @@ use crate::level::{
     FlagpoleScoreboardStepSubC254, FullscreenPaletteFadeSub73D0, LinkedObjectSlotInit,
     SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
     ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
-    apply_pending_palette_fade_sub_14C0, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, compile_block_debris_sprites_sub_2A4C,
-    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
-    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    compile_block_debris_sprites_sub_2A4C, drain_fg_update_queue_custom_sub_1596,
+    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
     spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
-    swap_forest_background_palette_entries_sub_129AE,
+    swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -25544,6 +25544,24 @@ fn loc_11b28_fills_the_following_row_buffer_with_zero_collision_words() {
         empty_collision_row_loc_11B28(4),
         vec![0x0000, 0x0000, 0x0000, 0x0000],
         "ASM loc_11B28 should clear `d1` and write one zero collision word per `Level_width_blocks` column"
+    );
+}
+
+#[test]
+fn loc_11b40_emits_one_terrain_layout_pointer_per_block_row() {
+    assert_eq!(
+        terrain_layout_row_pointers_loc_11B40(3, 0x001E),
+        vec![0x52C2, 0x52E0, 0x52FE],
+        "ASM loc_11B40 should write `Level_terrain_layout`, then advance `a4` by `Level_width_blocks` after each emitted row pointer"
+    );
+}
+
+#[test]
+fn loc_11b40_derives_background_dimensions_from_tile_counts() {
+    assert_eq!(
+        background_dimensions_loc_11B40(0x00F0, 0x0070),
+        (0x005A, 0x0031),
+        "ASM loc_11B40's shared tail should derive `Background_width=(Level_width_tiles>>2)+$1E` and `Background_height=(Level_height_tiles>>2)+$15`"
     );
 }
 

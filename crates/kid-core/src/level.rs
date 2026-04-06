@@ -45,6 +45,7 @@ const HILLS_OF_THE_WARRIOR_1_LEVEL_ID_LOC_11AE4: u8 = 0x08;
 const LEVEL_LAYOUT_ROW_POINTER_BASE_SMALL_LOC_11AE4: u32 = 0xFFFF_9E32;
 const LEVEL_LAYOUT_ROW_POINTER_BASE_LARGE_LOC_11AEA: u32 = 0xFFFF_DD02;
 const LEVEL_LAYOUT_RAM_BASE_LOC_11AFE: u16 = 0xA652;
+const LEVEL_TERRAIN_LAYOUT_RAM_BASE_LOC_11B40: u16 = 0x52C2;
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -206,6 +207,40 @@ pub(crate) fn empty_collision_row_loc_11B28(level_width_blocks: u16) -> Vec<u16>
     // `Level_width_blocks-1`, clears `d1`, then writes exactly one zero word
     // per block column into the next row buffer at `a3`.
     vec![0; usize::from(level_width_blocks)]
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn terrain_layout_row_pointers_loc_11B40(
+    level_height_blocks: u16,
+    level_width_blocks: u16,
+) -> Vec<u16> {
+    // ASM loc_11B40 (kid.asm:23724-23727) seeds `a4` with
+    // `Level_terrain_layout`, then emits one row-start pointer word per block
+    // row into `$FFFF4BB8+`. Because terrain entries are one byte each, the
+    // loop advances `a4` by `Level_width_blocks`, not `Level_width_tiles`.
+    let mut row_pointer = LEVEL_TERRAIN_LAYOUT_RAM_BASE_LOC_11B40;
+    let mut row_pointers = Vec::with_capacity(usize::from(level_height_blocks));
+    for _ in 0..level_height_blocks {
+        row_pointers.push(row_pointer);
+        row_pointer = row_pointer.wrapping_add(level_width_blocks);
+    }
+    row_pointers
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_dimensions_loc_11B40(
+    level_width_tiles: u16,
+    level_height_tiles: u16,
+) -> (u16, u16) {
+    // ASM loc_11B40's shared tail (kid.asm:23728-23736) derives
+    // `Background_width` as `(Level_width_tiles >> 2) + $1E` and
+    // `Background_height` as `(Level_height_tiles >> 2) + $15`.
+    (
+        (level_width_tiles >> 2).wrapping_add(0x001E),
+        (level_height_tiles >> 2).wrapping_add(0x0015),
+    )
 }
 
 #[allow(non_snake_case)]
