@@ -25617,6 +25617,24 @@ fn loc_11c7e_stops_dispatching_block_layout_words_at_the_ffff_sentinel() {
 }
 
 #[test]
+fn loc_11c96_only_seeds_the_hidden_block_copy_state_when_entries_exist() {
+    assert_eq!(
+        crate::level::hidden_block_copy_setup_loc_11C96(0, 0xFFFF_3B24),
+        None,
+        "ASM loc_11C96 should branch straight to `loc_11CB2` when `($FFFFF8EA).w` is zero, so no copy state should be prepared"
+    );
+    assert_eq!(
+        crate::level::hidden_block_copy_setup_loc_11C96(3, 0xFFFF_3B24),
+        Some(crate::level::HiddenBlockCopySetupLoc11C96 {
+            dbf_counter: 2,
+            copied_list_addr: 0xFFFF_3B24,
+            temp_list_addr: 0xFFFF_0280,
+        }),
+        "ASM loc_11C96 should convert the hidden-block count into `d0=count-1`, store `a5` in `($FFFFF8EC).w`, and reload `a4` from the temp list base before `loc_11CA8` runs"
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),

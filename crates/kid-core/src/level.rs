@@ -14,6 +14,13 @@ pub(crate) struct FgPlaneCustomWriteSub1596 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockCopySetupLoc11C96 {
+    pub(crate) dbf_counter: u16,
+    pub(crate) copied_list_addr: u32,
+    pub(crate) temp_list_addr: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FlagpoleScoreboardCursorSubC254 {
     pub(crate) col: u16,
     pub(crate) row: u16,
@@ -296,6 +303,27 @@ pub(crate) fn block_layout_dispatch_words_loc_11C7E(block_layout_words: &[u16]) 
         .copied()
         .take_while(|&word| word != 0xFFFF)
         .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_copy_setup_loc_11C96(
+    hidden_block_count: u16,
+    copied_list_addr: u32,
+) -> Option<HiddenBlockCopySetupLoc11C96> {
+    // ASM loc_11C96 (kid.asm:23851-23856) branches to `loc_11CB2` when the
+    // hidden-block count at `($FFFFF8EA).w` is zero; otherwise it seeds
+    // `d0=count-1`, points `($FFFFF8EC).w` at the final block-list address in
+    // `a5`, and reloads `a4` with the temp-list base `$FFFF0280`.
+    if hidden_block_count == 0 {
+        None
+    } else {
+        Some(HiddenBlockCopySetupLoc11C96 {
+            dbf_counter: hidden_block_count - 1,
+            copied_list_addr,
+            temp_list_addr: 0xFFFF_0280,
+        })
+    }
 }
 
 #[allow(non_snake_case)]
