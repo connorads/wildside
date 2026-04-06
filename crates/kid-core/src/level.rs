@@ -788,6 +788,14 @@ pub(crate) struct BackgroundFollowupArtDecompressLoc11EF2 {
     pub(crate) art_source: BackgroundFollowupArtSourceLoc11EC4,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelCameraBootstrapLoc11F48 {
+    pub(crate) vram_fill_word: u16,
+    pub(crate) vram_fill_count: u16,
+    pub(crate) camera_x_pos: u32,
+    pub(crate) camera_y_pos: u32,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -940,6 +948,32 @@ pub(crate) fn prepare_foreground_art_decompress_loc_11E60(
     ForegroundArtDecompressLoc11E60 {
         tile_base: 0x1780,
         permutation: selected_permutation,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn initialise_camera_bootstrap_loc_11F48(
+    player_start_x_pos: u16,
+    player_start_y_pos: u16,
+) -> LevelCameraBootstrapLoc11F48 {
+    const CAMERA_X_SCREEN_WIDTH_LOC_11F48: u16 = 0x0140;
+    const CAMERA_Y_SCREEN_HEIGHT_LOC_11F48: u16 = 0x00E0;
+
+    // ASM loc_11F48 (kid.asm:24129): after clearing `$E000..$EFFF` in VRAM by
+    // writing `$0780` exactly `$800` times, the bootstrap floors each player
+    // start coordinate to a full screen and stores it as 16.16 camera space by
+    // moving the rounded word into the upper half of the longword.
+    let camera_x_px =
+        (player_start_x_pos / CAMERA_X_SCREEN_WIDTH_LOC_11F48) * CAMERA_X_SCREEN_WIDTH_LOC_11F48;
+    let camera_y_px =
+        (player_start_y_pos / CAMERA_Y_SCREEN_HEIGHT_LOC_11F48) * CAMERA_Y_SCREEN_HEIGHT_LOC_11F48;
+
+    LevelCameraBootstrapLoc11F48 {
+        vram_fill_word: 0x0780,
+        vram_fill_count: 0x0800,
+        camera_x_pos: u32::from(camera_x_px) << 16,
+        camera_y_pos: u32::from(camera_y_px) << 16,
     }
 }
 

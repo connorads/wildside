@@ -40,22 +40,24 @@ use crate::level::{
     FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
     ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
     ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
-    LateBackgroundPaletteOverrideLoc11E06, LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT,
-    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
-    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
-    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
-    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
+    LateBackgroundPaletteOverrideLoc11E06, LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit,
+    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
+    ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
+    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
+    classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
     drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
     fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
-    initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
-    initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
-    initialise_sprite_frame_state_sub_B52, prepare_followup_background_art_decompress_loc_11EF2,
+    initialise_camera_bootstrap_loc_11F48, initialise_evanesc_object_slots_sub_EABC,
+    initialise_fullscreen_palette_fade_sub_73D0, initialise_scratch_queue_sub_28FC,
+    initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
+    prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
     select_background_art_permutation_loc_11E96, select_foreground_art_permutation_loc_11E48,
@@ -26031,6 +26033,20 @@ fn loc_11ef2_preserves_the_selected_followup_background_art_into_the_shared_deco
             art_source: BackgroundFollowupArtSourceLoc11EC4::CaveAlt,
         },
         "ASM loc_11EF2 should also leave the earlier `loc_11EC4` CaveAlt selection intact when the weather branches fall through"
+    );
+}
+
+#[test]
+fn loc_11f48_clears_the_hud_vram_span_and_floors_camera_to_screen_boundaries() {
+    assert_eq!(
+        initialise_camera_bootstrap_loc_11F48(0x03A1, 0x02D7),
+        LevelCameraBootstrapLoc11F48 {
+            vram_fill_word: 0x0780,
+            vram_fill_count: 0x0800,
+            camera_x_pos: 0x0280_0000,
+            camera_y_pos: 0x02A0_0000,
+        },
+        "ASM loc_11F48 should write `$0780` through the `$7FF` `dbf` loop, then floor `PlayerStart_X/Y_pos` to `$140/$E0` screen boundaries before swapping them into 16.16 camera coordinates"
     );
 }
 
