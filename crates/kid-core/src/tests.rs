@@ -33353,6 +33353,39 @@ fn floating_item_loc_103b2_uses_the_grace_probe_row_before_stopping() {
     );
 }
 
+#[test]
+fn floating_item_loc_103da_zeroes_velocity_when_the_fall_branch_is_blocked() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut grid = grid_with_blocks();
+    grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0xE0, 0x01));
+    grid.set_cell_at(2, 3, terrain::Cell::from_be_bytes(0xE0, 0x01));
+    rt.set_block_grid(grid);
+    let blocked_y = i64::from(32 << 16);
+    rt.floating_items.push(FloatingItem {
+        x_pos: (2 * 16 + 8) << 16,
+        y_pos: blocked_y,
+        y_velocity: 0x2710,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 2,
+        level_row: 2,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items[0].y_velocity, 0,
+        "ASM loc_103DA should replace the blocked fall delta with zero before the shared tail continues",
+    );
+    assert_eq!(
+        rt.floating_items[0].y_pos, blocked_y,
+        "ASM loc_103DA should leave the floating item on the same pixel row when the blocked branch skips `loc_103DE`",
+    );
+}
+
 // --- Projectile subsystem mutation tests ---
 
 fn make_projectile(x: u16, y: u16) -> EnemyProjectile {

@@ -1336,6 +1336,9 @@ impl NativeRuntime {
                     f.level_row = f.level_row.saturating_add(1);
                 }
             } else {
+                // ASM loc_103DA (kid.asm:21645): `moveq #0,d1` feeds the
+                // shared tail at `loc_10404`, so blocked floating prizes
+                // cancel the pending vertical delta for this frame.
                 f.y_velocity = 0;
             }
         }
