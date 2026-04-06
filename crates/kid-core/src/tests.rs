@@ -33426,6 +33426,36 @@ fn floating_maniaxe_loc_1066a_stays_alive_while_above_level_bottom_and_uncollect
     );
 }
 
+#[test]
+fn floating_micromax_loc_106b4_stays_alive_while_above_level_bottom_and_uncollected() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: (10 * 16 + 8) << 16,
+        y_pos: i64::from(256 << 16),
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 10,
+        level_row: 16,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Micromax,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items.len(),
+        1,
+        "ASM loc_106B4 should keep looping while Micromax stays above `Level_height_pixels` and `collision_type(a3)` remains zero",
+    );
+    assert_eq!(
+        rt.floating_items[0].remaining,
+        NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES - 1,
+        "ASM loc_106B4 still advances the shared helmet countdown on each hibernated frame before the shared delete exit",
+    );
+}
+
 // --- Visual effects: countdown and retention ---
 
 #[test]
