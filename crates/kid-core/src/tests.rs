@@ -55,9 +55,10 @@ use crate::level::{
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, prepare_foreground_art_decompress_loc_11E60,
     scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
-    select_foreground_art_permutation_loc_11E48, select_foreground_art_permutation_loc_11E54,
-    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
-    swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
+    select_background_art_permutation_loc_11E96, select_foreground_art_permutation_loc_11E48,
+    select_foreground_art_permutation_loc_11E54, spawn_block_debris_sub_292E,
+    step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
+    terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -25886,6 +25887,26 @@ fn loc_11e8a_only_overrides_the_existing_background_permutation_for_forest() {
         ),
         BackgroundArtPermutationLoc11E8A::Identity,
         "ASM loc_11E8A should fall through to `loc_11E96` without disturbing the earlier identity permutation when the Forest compare fails"
+    );
+}
+
+#[test]
+fn loc_11e96_only_overrides_the_existing_background_permutation_for_mountain() {
+    assert_eq!(
+        select_background_art_permutation_loc_11E96(
+            0x0007,
+            BackgroundArtPermutationLoc11E8A::Forest
+        ),
+        BackgroundArtPermutationLoc11E8A::Mountain,
+        "ASM loc_11E96 should replace the current permutation with `Palette_Permutation_BGMountain` when `Background_theme == Mountain`"
+    );
+    assert_eq!(
+        select_background_art_permutation_loc_11E96(
+            0x0005,
+            BackgroundArtPermutationLoc11E8A::Forest
+        ),
+        BackgroundArtPermutationLoc11E8A::Forest,
+        "ASM loc_11E96 should fall through to `loc_11EA2` without disturbing the earlier Forest permutation when the Mountain compare fails"
     );
 }
 

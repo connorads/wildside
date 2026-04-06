@@ -759,6 +759,7 @@ pub(crate) enum ForegroundArtPermutationLoc11E48 {
 pub(crate) enum BackgroundArtPermutationLoc11E8A {
     Identity,
     Forest,
+    Mountain,
 }
 
 #[allow(non_snake_case)]
@@ -810,6 +811,25 @@ pub(crate) fn select_background_art_permutation_loc_11E8A(
     // overrides that selection with `Palette_Permutation_BGForest`.
     if background_theme == BACKGROUND_THEME_FOREST_LOC_11E8A {
         BackgroundArtPermutationLoc11E8A::Forest
+    } else {
+        selected_permutation
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn select_background_art_permutation_loc_11E96(
+    background_theme: u16,
+    selected_permutation: BackgroundArtPermutationLoc11E8A,
+) -> BackgroundArtPermutationLoc11E8A {
+    const BACKGROUND_THEME_MOUNTAIN_LOC_11E96: u16 = 0x0007;
+
+    // ASM loc_11E96 (kid.asm:24074): after the earlier Forest compare may
+    // already have swapped `a3` to `Palette_Permutation_BGForest`, only
+    // `Background_theme == Mountain` replaces the current selection with
+    // `Palette_Permutation_BGMountain`.
+    if background_theme == BACKGROUND_THEME_MOUNTAIN_LOC_11E96 {
+        BackgroundArtPermutationLoc11E8A::Mountain
     } else {
         selected_permutation
     }
