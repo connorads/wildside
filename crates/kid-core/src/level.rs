@@ -244,6 +244,17 @@ pub(crate) fn decompress_chunk_attempts_loc_11C10(status_words: &[u16]) -> usize
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn level_layout_cell_loc_11C36(terrain_byte: u8, theme_collision_index: &[u8]) -> u16 {
+    // ASM loc_11C36 (kid.asm:23818-23822) reads one terrain byte through `d2`,
+    // loads the matching theme-collision nibble through `d3`, shifts that
+    // nibble into the high-byte collision field with `lsl.b #4,d3`, then
+    // writes `[d3, d2]` into successive `Level_Layout` bytes.
+    let collision_byte = theme_collision_index[usize::from(terrain_byte)] << 4;
+    u16::from_be_bytes([collision_byte, terrain_byte])
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_dimensions_loc_11B40(
     level_width_tiles: u16,
     level_height_tiles: u16,

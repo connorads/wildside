@@ -25576,6 +25576,18 @@ fn loc_11c10_reports_all_attempts_when_decompress_never_succeeds() {
 }
 
 #[test]
+fn loc_11c36_packs_the_theme_collision_nibble_into_the_high_byte() {
+    let mut theme_collision_index = vec![0; 256];
+    theme_collision_index[0x34] = 0x06;
+
+    assert_eq!(
+        crate::level::level_layout_cell_loc_11C36(0x34, &theme_collision_index),
+        0x6034,
+        "ASM loc_11C36 should shift the looked-up collision nibble into the high byte and preserve the terrain byte in the low byte"
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),
