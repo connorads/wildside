@@ -44,10 +44,11 @@ use crate::level::{
     ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
     apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
     apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
-    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
+    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
+    classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
     drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
@@ -25962,6 +25963,39 @@ fn loc_11ec4_only_prepares_the_mountain_followup_background_decompress() {
         prepare_mountain_background_art_loc_11EC4(0x0005),
         None,
         "ASM loc_11EC4 should fall through to `loc_11EFA` without a second background decompress when `Background_theme` is not Mountain"
+    );
+}
+
+#[test]
+fn loc_11eea_switches_mountain_background_art_to_lightning_for_storm_weather() {
+    let baseline = BackgroundFollowupArtDecompressLoc11EC4 {
+        tile_base: 0xFCA0,
+        permutation: BackgroundFollowupArtPermutationLoc11EC4::Identity,
+        art_source: BackgroundFollowupArtSourceLoc11EC4::CaveAlt,
+    };
+
+    assert_eq!(
+        apply_mountain_weather_override_loc_11EEA(0x0000, baseline),
+        baseline,
+        "ASM loc_11EEA should leave the `loc_11EC4` CaveAlt selection intact when the weather compare falls through"
+    );
+    assert_eq!(
+        apply_mountain_weather_override_loc_11EEA(0x0002, baseline),
+        BackgroundFollowupArtDecompressLoc11EC4 {
+            tile_base: 0xFCA0,
+            permutation: BackgroundFollowupArtPermutationLoc11EC4::BgMountain,
+            art_source: BackgroundFollowupArtSourceLoc11EC4::MountainLightning,
+        },
+        "ASM loc_11EEA should replace `ThemeArtBack_CaveAlt` with `ThemeArtBack_MountainLightning` and switch to `Palette_Permutation_BGMountain` when `Level_Special_Effects == WeatherID_Storm`"
+    );
+    assert_eq!(
+        apply_mountain_weather_override_loc_11EEA(0x0003, baseline),
+        BackgroundFollowupArtDecompressLoc11EC4 {
+            tile_base: 0xFCA0,
+            permutation: BackgroundFollowupArtPermutationLoc11EC4::BgMountain,
+            art_source: BackgroundFollowupArtSourceLoc11EC4::MountainLightning,
+        },
+        "ASM loc_11EEA should take the same lightning-art override when `Level_Special_Effects == WeatherID_Storm_and_Hail`"
     );
 }
 

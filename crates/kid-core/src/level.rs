@@ -765,11 +765,13 @@ pub(crate) enum BackgroundArtPermutationLoc11E8A {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BackgroundFollowupArtSourceLoc11EC4 {
     CaveAlt,
+    MountainLightning,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BackgroundFollowupArtPermutationLoc11EC4 {
     Identity,
+    BgMountain,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -869,6 +871,33 @@ pub(crate) fn prepare_mountain_background_art_loc_11EC4(
             art_source: BackgroundFollowupArtSourceLoc11EC4::CaveAlt,
         },
     )
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn apply_mountain_weather_override_loc_11EEA(
+    level_special_effects: u16,
+    selected_decompress: BackgroundFollowupArtDecompressLoc11EC4,
+) -> BackgroundFollowupArtDecompressLoc11EC4 {
+    const WEATHER_ID_STORM_LOC_11EEA: u16 = 0x0002;
+    const WEATHER_ID_STORM_AND_HAIL_LOC_11EEA: u16 = 0x0003;
+
+    // ASM loc_11EEA (kid.asm:24100): after the Mountain-only setup at
+    // `loc_11EC4`, storm and storm+hail replace `ThemeArtBack_CaveAlt` with
+    // `ThemeArtBack_MountainLightning` and swap the permutation to
+    // `Palette_Permutation_BGMountain`; all other weather falls through.
+    if matches!(
+        level_special_effects,
+        WEATHER_ID_STORM_LOC_11EEA | WEATHER_ID_STORM_AND_HAIL_LOC_11EEA
+    ) {
+        BackgroundFollowupArtDecompressLoc11EC4 {
+            tile_base: selected_decompress.tile_base,
+            permutation: BackgroundFollowupArtPermutationLoc11EC4::BgMountain,
+            art_source: BackgroundFollowupArtSourceLoc11EC4::MountainLightning,
+        }
+    } else {
+        selected_decompress
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
