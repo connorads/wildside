@@ -1141,6 +1141,20 @@ impl NativeRuntime {
         source_col.checked_sub(1).map(|col| (col, source_row))
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn ice_block_bullet_target_cell_open_loc_11052(cell: terrain::Cell) -> bool {
+        // ASM loc_11052 (kid.asm:22963): `btst #6,(a0)` rejects the target
+        // cell whenever the high collision bit is set, which covers slope,
+        // solid, and spike terrain but still allows Empty and HiddenBlock.
+        !matches!(
+            cell.collision,
+            terrain::CollisionKind::SlopeUp
+                | terrain::CollisionKind::SlopeDown
+                | terrain::CollisionKind::Solid
+                | terrain::CollisionKind::Spikes
+        )
+    }
+
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // Trigger: if the player is on ground, check the floor cell
         if slice.player.on_ground

@@ -33735,6 +33735,39 @@ fn ice_block_bullet_target_cell_sub_11006_loc_1104a_rejects_the_left_boundary() 
     );
 }
 
+#[test]
+fn ice_block_bullet_target_cell_open_loc_11052_accepts_empty_and_hidden_block_cells() {
+    assert!(
+        NativeRuntime::ice_block_bullet_target_cell_open_loc_11052(terrain::Cell::from_be_bytes(
+            0x00, 0x00
+        )),
+        "ASM loc_11052 should keep firing through Empty cells because `btst #6,(a0)` sees a clear collision high bit",
+    );
+    assert!(
+        NativeRuntime::ice_block_bullet_target_cell_open_loc_11052(terrain::Cell::from_be_bytes(
+            0x20, 0x00
+        )),
+        "ASM loc_11052 should also allow HiddenBlock terrain because collision kind 2 leaves bit 6 clear",
+    );
+}
+
+#[test]
+fn ice_block_bullet_target_cell_open_loc_11052_rejects_cells_with_the_collision_high_bit_set() {
+    for (hi, label) in [
+        (0x40, "SlopeUp"),
+        (0x50, "SlopeDown"),
+        (0x60, "Solid"),
+        (0x70, "Spikes"),
+    ] {
+        assert!(
+            !NativeRuntime::ice_block_bullet_target_cell_open_loc_11052(
+                terrain::Cell::from_be_bytes(hi, 0x00)
+            ),
+            "ASM loc_11052 should reject {label} terrain because `btst #6,(a0)` branches to `loc_11080` whenever the collision high bit is set",
+        );
+    }
+}
+
 // --- Shooter blocks: multi-direction and cell-change pruning ---
 
 #[test]
