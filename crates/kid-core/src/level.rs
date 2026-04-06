@@ -717,6 +717,21 @@ pub(crate) fn apply_background_palette_override_loc_11E04(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn apply_background_palette_override_loc_11E12(
+    selected_theme_palette: u16,
+    alternative_alien_palette: u16,
+    override_kind: LateBackgroundPaletteOverrideLoc11E06,
+) -> u16 {
+    // ASM loc_11E12 (kid.asm:24026): the taken `$1A/$1B` branch replaces `a1`
+    // with `Pal_12D54(pc)` immediately before the shared copy at `loc_11E16`.
+    match override_kind {
+        LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette => alternative_alien_palette,
+        LateBackgroundPaletteOverrideLoc11E06::None => selected_theme_palette,
+    }
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point

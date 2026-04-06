@@ -39,11 +39,12 @@ use crate::level::{
     LateBackgroundPaletteOverrideLoc11E06, LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT,
     ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
     ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
-    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
-    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
+    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
+    apply_foreground_palette_override_loc_11DAC, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
+    classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06, compile_block_debris_sprites_sub_2A4C,
     copy_foreground_palette_loc_11DB0, drain_fg_update_queue_custom_sub_1596,
     empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
@@ -26039,6 +26040,28 @@ fn loc_11e06_routes_only_map_ids_1a_and_1b_into_the_late_alien_palette_branch() 
         classify_late_background_palette_override_loc_11E06(0x19),
         LateBackgroundPaletteOverrideLoc11E06::None,
         "ASM loc_11E06 should let unrelated neighbouring map IDs fall straight through to `loc_11E16`"
+    );
+}
+
+#[test]
+fn loc_11e12_selects_the_alternative_alien_background_palette_only_on_the_taken_branch() {
+    assert_eq!(
+        apply_background_palette_override_loc_11E12(
+            0x0456,
+            0x0789,
+            LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette,
+        ),
+        0x0789,
+        "ASM loc_11E12 should replace `a1` with `Pal_12D54` when `loc_11E06` branches here"
+    );
+    assert_eq!(
+        apply_background_palette_override_loc_11E12(
+            0x0456,
+            0x0789,
+            LateBackgroundPaletteOverrideLoc11E06::None,
+        ),
+        0x0456,
+        "ASM loc_11E12 should leave the already selected palette intact on the `loc_11E16` fallthrough path"
     );
 }
 
