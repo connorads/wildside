@@ -36,6 +36,11 @@ pub(crate) const LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME: usize =
 // title-card lineage on the hidden bootstrap for 342 local frames so slot-2
 // stays hidden at frame 200 and only the title shell appears on frame 504.
 pub(crate) const LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES: usize = 342;
+// ASM loc_1AE2E only owns the later `Game_Mode=$000C` write; oracle-backed
+// gameplay captures show the hidden title-card bootstrap starts exposing the
+// settled gameplay slice nine local frames earlier once live movement input is
+// already being held.
+pub(crate) const LEVEL_ENTRY_TITLE_ACTIVE_INPUT_HANDOFF_FRAMES: usize = 333;
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

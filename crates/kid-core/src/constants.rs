@@ -8,6 +8,10 @@ pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock
 /// before the rebuilt title pose becomes ready.
 pub(crate) const TITLE_ATTRACT_LOCK_FRAMES: usize = 58;
+/// Stock title-card levels ignore the early intro-skip Start taps, then let
+/// the frame-178 press arm Obj_TitleMenu before the later frame-360 press
+/// selects 1P and flips into the hidden level bootstrap on the next frame.
+pub(crate) const TITLE_SCREEN_MENU_ARM_GLOBAL_FRAME: usize = 178;
 /// ASM Obj_TitleMenu `Title_InputLoop` writes the next `Game_Mode` on the
 /// frame after Start is latched; native queues the selection on the press
 /// frame, then consumes it on the next outer frame.

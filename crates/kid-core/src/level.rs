@@ -4292,8 +4292,13 @@ impl NativeRuntime {
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {
         self.current_level = level_id;
         self.level_start_frame = None;
+        let level_has_title_card = self.level_has_title_card(level_id);
         let uses_load_ingame_bootstrap = matches!(self.boot_state, BootState::TitleScreen { .. })
-            && (!self.title_screen_ready() || self.title_screen_uses_intro_return_hidden_shell);
+            && if level_has_title_card {
+                !self.title_screen_ready()
+            } else {
+                self.title_screen_uses_intro_return_hidden_shell
+            };
         let starts_on_first_mode_8_frame = matches!(
             self.boot_state,
             BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
@@ -5272,6 +5277,12 @@ impl NativeRuntime {
             .levels
             .iter()
             .find(|level| level.level_id == level_id.0)
+    }
+
+    pub(crate) fn level_has_title_card(&self, level_id: LevelId) -> bool {
+        self.level_record(level_id)
+            .and_then(|level| level.title_card.as_ref())
+            .is_some()
     }
 
     pub(crate) fn resource_level_record(

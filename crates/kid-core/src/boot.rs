@@ -1033,10 +1033,14 @@ impl NativeRuntime {
             self.frame_index
         };
         self.title_menu_arm_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
-            // ASM Obj_TitleMenu `loc_1BAEA` is already interactive on the
-            // early cold-boot title route; the later frame-360 arm is only
-            // for the fully rebuilt idle title shell.
-            self.frame_index
+            if self.level_has_title_card(self.current_level) {
+                TITLE_SCREEN_MENU_ARM_GLOBAL_FRAME
+            } else {
+                // Title-card-less test manifests use the shorter hidden title
+                // shell, so Obj_TitleMenu can accept the immediate early-start
+                // hand-off once `sub_1C246 -> loc_1C250` reaches title.
+                self.frame_index
+            }
         } else {
             self.frame_index
                 .saturating_add(TITLE_TO_LEVEL_FRAMES.saturating_sub(1))
@@ -1940,6 +1944,13 @@ impl NativeRuntime {
                             if intro_sequence_1_uses_early_title_restore {
                                 self.enter_title_screen_from_intro_return(true);
                                 self.next_demo_uses_start_skip_intro_return_camera_wrap = true;
+                            } else if self.level_has_title_card(self.current_level) {
+                                // ASM sub_1C246 -> loc_1C250 still returns the
+                                // stock title-card levels to the slower hidden
+                                // title rebuild before Obj_TitleMenu accepts
+                                // the later frame-360 / frame-460 Start taps.
+                                self.enter_title_screen_from_intro_return(false);
+                                self.next_demo_uses_start_skip_intro_return_camera_wrap = true;
                             } else {
                                 // ASM sub_1C246 -> loc_1C250 jumps to
                                 // Load_TitleScreen on the cold-boot Start-skip
@@ -2390,6 +2401,8 @@ impl NativeRuntime {
                 load_ingame_bootstrap_started,
             } => {
                 let mut enter_gameplay = false;
+                let gameplay_input_active =
+                    input.left || input.right || input.a || input.b || input.c;
                 let title_card_bootstrap_active = (!*uses_load_ingame_bootstrap
                     || !*load_ingame_bootstrap_started)
                     && !self.starting_level_title_workers.is_empty();
@@ -2415,7 +2428,12 @@ impl NativeRuntime {
                 let handoff_ready = if *uses_load_ingame_bootstrap {
                     *elapsed_frames >= EARLY_START_LOAD_INGAME_HANDOFF_FRAMES
                 } else if title_card_bootstrap_active {
-                    *elapsed_frames > crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 1
+                    let active_input_handoff = gameplay_input_active
+                        && *elapsed_frames
+                            > crate::movement::LEVEL_ENTRY_TITLE_ACTIVE_INPUT_HANDOFF_FRAMES;
+                    active_input_handoff
+                        || *elapsed_frames
+                            > crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 1
                 } else {
                     *elapsed_frames > 0
                 };
@@ -2427,18 +2445,29 @@ impl NativeRuntime {
                     // hidden bootstrap far longer than the synthetic no-card
                     // path, so only release the queued Start edge once that
                     // title shell has finished its hidden pre-roll.
-                    enter_gameplay = *start_latched || start_pressed;
+                    enter_gameplay = if title_card_bootstrap_active {
+                        gameplay_input_active
+                    } else {
+                        *start_latched || start_pressed
+                    };
                     *start_latched = false;
                 }
                 *elapsed_frames = elapsed_frames.saturating_add(1);
                 if enter_gameplay {
-                    let clear_title_workers = *uses_load_ingame_bootstrap;
-                    // ASM loc_1AE2E jumps to loc_6E2 after writing
-                    // `Game_Mode=$000C`, and loc_6E2 immediately rebuilds the
-                    // level via Load_InGame instead of carrying the hidden
-                    // title-card bootstrap slice into live gameplay.
-                    self.reset_current_level_runtime_state_for_respawn();
-                    if clear_title_workers {
+                    if *uses_load_ingame_bootstrap {
+                        // ASM loc_1AE2E -> loc_6E2 reloads the early
+                        // no-title-card bootstrap through Load_InGame, so the
+                        // hidden carry window must collapse back to the fresh
+                        // settled respawn slice before live gameplay begins.
+                        self.reset_current_level_runtime_state_for_respawn();
+                        self.starting_level_title_workers.clear();
+                    } else if title_card_bootstrap_active {
+                        // ASM loc_1AE2E only gates the later visible
+                        // `Game_Mode=$000C` write on the title-card path; the
+                        // hidden mode-$0008 shell has already been ticking the
+                        // real gameplay/object slice underneath. Keep that
+                        // progressed slice and just discard the title workers
+                        // once gameplay input makes the live state visible.
                         self.starting_level_title_workers.clear();
                     }
                     self.boot_state = BootState::InGame;

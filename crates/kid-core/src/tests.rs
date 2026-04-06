@@ -4339,6 +4339,32 @@ fn pause_resume_level1_keeps_oracle_hitpoints_through_frame_472() {
 }
 
 #[test]
+fn pause_resume_level1_generated_runtime_matches_oracle_level_settle_on_frame_719() {
+    let mut runtime = cached_generated_runtime();
+    let mut frame_719 = None;
+
+    for frame in 0..=719 {
+        let trace = runtime.step_frame(pause_resume_level1_script_input(frame));
+        if frame == 719 {
+            frame_719 = Some(trace);
+        }
+    }
+
+    let frame_719 = frame_719.expect("frame 719 should be captured");
+    // ASM loc_1AE2E only gates the visible `Game_Mode=$000C` write before
+    // jumping back through loc_6E2. Oracle-backed pause_resume_level1 traces
+    // show the generated title-card route has already exposed the live Level 1
+    // gameplay slice by frame 719, including the opening dragon hit.
+    assert_eq!(frame_719.game_mode, GameMode::InGame);
+    assert_eq!(frame_719.number_hitpoints, 1);
+    assert_eq!(frame_719.camera_x_pos, 0x0045_0000);
+    assert_eq!(frame_719.camera_y_pos, 0x0073_0000);
+    assert_eq!(frame_719.kid_x_pos, Some(0x00EF_0000));
+    assert_eq!(frame_719.kid_y_pos, Some(0x010F_0000));
+    assert_eq!(frame_719.character_movement, Some(0x0002));
+}
+
+#[test]
 fn timing_regression_level_one_opening_fatal_hit_enters_death_windup() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
