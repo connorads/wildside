@@ -25484,6 +25484,24 @@ fn loc_119b6_selects_the_expected_demo_level_for_each_recording() {
 }
 
 #[test]
+fn loc_11ae4_keeps_hills_of_the_warrior_1_on_the_small_row_pointer_buffer() {
+    assert_eq!(
+        crate::level::level_layout_row_pointer_base_loc_11AE4(LevelId(0x08), 0x01F4),
+        0xFFFF_9E32,
+        "ASM loc_11AE4 should override the wide-layout default for Hills of the Warrior 1 and keep `a3=$FFFF9E32`"
+    );
+}
+
+#[test]
+fn loc_11ae4_keeps_300_block_layouts_on_the_small_row_pointer_buffer() {
+    assert_eq!(
+        crate::level::level_layout_row_pointer_base_loc_11AE4(LevelId(0x00), 0x012C),
+        0xFFFF_9E32,
+        "ASM loc_11AE4 should still take the small-buffer path when `cmpi.w #$12C,(Level_width_blocks).w` is equal"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {

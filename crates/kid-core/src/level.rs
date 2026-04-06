@@ -41,6 +41,9 @@ const EVANESCENT_OBJECT_SLOT_COUNT_SUB_EABC: usize = 40;
 const SHOOTER_OBJECT_RAM_ADDR_SUB_F06A: u32 = 0xFFFF_E7F2;
 const SHOOTER_OBJECT_SLOT_STRIDE_SUB_F06A: u16 = 0x000E;
 const SHOOTER_OBJECT_SLOT_COUNT_SUB_F06A: usize = 20;
+const HILLS_OF_THE_WARRIOR_1_LEVEL_ID_LOC_11AE4: u8 = 0x08;
+const LEVEL_LAYOUT_ROW_POINTER_BASE_SMALL_LOC_11AE4: u32 = 0xFFFF_9E32;
+const LEVEL_LAYOUT_ROW_POINTER_BASE_LARGE_LOC_11AEA: u32 = 0xFFFF_DD02;
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -138,6 +141,20 @@ const SUB_292E_X_VELOCITIES: [[i16; SUB_292E_PIECE_COUNT]; 4] = [
 const SUB_2A4C_GRAVITY_STEP_FP: i32 = 0x0000_36B0;
 const SUB_2A4C_SPRITE_TILE_WORD: u16 = 0x8228;
 const SUB_2A4C_SPRITE_COORD_BIAS: i16 = 0x0080;
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn level_layout_row_pointer_base_loc_11AE4(level_id: LevelId, width_blocks: u16) -> u32 {
+    // ASM Load_InGame (kid.asm:23679-23688) seeds `a3` with `$FFFFDD02`, but
+    // branches to `loc_11AE4` for Hills of the Warrior 1 or any layout whose
+    // width is not greater than `$12C` blocks; `loc_11AEA` is the shared tail
+    // that consumes the selected row-pointer base.
+    if level_id.0 == HILLS_OF_THE_WARRIOR_1_LEVEL_ID_LOC_11AE4 || width_blocks <= 0x012C {
+        LEVEL_LAYOUT_ROW_POINTER_BASE_SMALL_LOC_11AE4
+    } else {
+        LEVEL_LAYOUT_ROW_POINTER_BASE_LARGE_LOC_11AEA
+    }
+}
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
