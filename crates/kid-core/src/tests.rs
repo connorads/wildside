@@ -18585,6 +18585,33 @@ fn shooter_headbutt_center_worker_sub_114c0_ignores_support_cell_changes() {
 }
 
 #[test]
+fn shooter_center_worker_loc_11474_queues_the_struck_cell_worker_for_top_row_shooters() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_shooter_blocks(&[(5, 0, 0x02)]));
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.shooter_block_hit = Some((5, 0));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(5, 0),
+        terrain::Cell::from_be_bytes(0xEF, 0x02),
+        "ASM loc_11474 is the `tst.w d2; beq.s loc_11474` top-row path, so the struck shooter should be marked deleted-solid immediately"
+    );
+    assert_eq!(
+        rt.block_state.shooter_headbutt_workers,
+        vec![ShooterHeadbuttWorker {
+            col: 5,
+            row: 0,
+            age: 0,
+            kind: ShooterHeadbuttWorkerKind::Center,
+        }],
+        "ASM loc_11474 should queue only the struck-cell `sub_114C0` worker when the shooter has no row above it"
+    );
+}
+
+#[test]
 fn next_level_id_advances_logical_level_ids_not_resource_map_order() {
     let mut manifest = manifest_with_levels(4);
     manifest.map_order = vec![0x4A, 0x4B, 0x2D, 0x2E];
