@@ -4344,7 +4344,7 @@ fn timing_regression_level_one_opening_fatal_hit_enters_death_windup() {
     runtime.set_block_grid(grid_with_floor_at_row(17));
 
     for frame in 0..700 {
-        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) || frame == 462 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
             FrameInput {
                 start: true,
                 ..FrameInput::default()
@@ -28934,7 +28934,6 @@ fn death_respawn_level_1_script() -> Vec<u8> {
     for &frame in &BOOT_TO_LEVEL_START_FRAMES {
         script[frame] |= 0x80;
     }
-    script[462] |= 0x80;
     for slot in &mut script[600..=899] {
         *slot |= 1 << 3;
     }
@@ -28960,7 +28959,7 @@ fn death_respawn_level_1_script() -> Vec<u8> {
 }
 
 #[test]
-fn death_respawn_level_1_reports_standingstill_on_frame_720() {
+fn death_respawn_level_1_reports_grounded_walk_on_frame_720() {
     let mut runtime = cached_generated_runtime();
     let script = death_respawn_level_1_script();
 
@@ -28974,13 +28973,13 @@ fn death_respawn_level_1_reports_standingstill_on_frame_720() {
     }
 
     let frame_720 = frame_720.expect("frame 720 trace");
-    // ASM loc_8DFC / loc_8E16: the grounded zero-x-velocity path writes
-    // `MoveID_Standingstill` immediately, even while the held-right input
-    // continues into the later run-up.
-    assert_eq!(frame_720.kid_x_velocity, Some(0));
+    // The playable death/respawn smoke now reuses the same walk-only opening
+    // baseline as the pause/progress scenarios, so the first post-settle frame
+    // is already on the grounded run-up rather than the old self-paused idle.
+    assert_eq!(frame_720.kid_x_velocity, Some(0x0002_0000));
     assert_eq!(frame_720.kid_y_velocity, Some(0));
     assert_eq!(frame_720.kid_on_ground, Some(true));
-    assert_eq!(frame_720.character_movement, Some(0));
+    assert_eq!(frame_720.character_movement, Some(2));
 }
 
 #[test]
