@@ -2059,6 +2059,15 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn metal_block_push_mark_deleted_loc_1125C(cell: terrain::Cell) -> terrain::Cell {
+        // ASM loc_1125C (kid.asm:23181): `or.b #$F,(a2)` keeps bit 15, the
+        // collision nibble, and the skin byte intact while forcing the
+        // selected metal block's type nibble to `$F` (deleted-solid).
+        terrain::Cell::from_be_bytes(0x80 | ((cell.collision as u8) << 4) | 0x0F, cell.skin)
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_effect_sprite_pos_loc_1110E(cell_x: u16, cell_y: u16) -> (u16, u16) {
         let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cell_x, cell_y);
         // ASM loc_1110E (kid.asm:23038): copy the cached tile coordinates into

@@ -33468,6 +33468,17 @@ fn metal_block_push_scan_left_loc_11230_aborts_when_the_chain_runs_into_column_z
 }
 
 #[test]
+fn metal_block_push_mark_deleted_loc_1125c_preserves_collision_and_skin_bits() {
+    assert_eq!(
+        NativeRuntime::metal_block_push_mark_deleted_loc_1125C(terrain::Cell::from_be_bytes(
+            0xE5, 0x0B
+        )),
+        terrain::Cell::from_be_bytes(0xEF, 0x0B),
+        "ASM loc_1125C should apply `or.b #$F,(a2)`, turning the selected `$E50B` metal block into `$EF0B` without changing its collision or skin bits",
+    );
+}
+
+#[test]
 fn metal_block_effect_sprite_pos_loc_1110e_scales_tile_words_into_pixels() {
     assert_eq!(
         NativeRuntime::metal_block_effect_sprite_pos_loc_1110E(5, 3),
