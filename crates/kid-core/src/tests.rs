@@ -33456,6 +33456,30 @@ fn floating_micromax_loc_106b4_stays_alive_while_above_level_bottom_and_uncollec
     );
 }
 
+#[test]
+fn floating_micromax_loc_106cc_deletes_the_collected_helmet_on_the_next_step() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 132 << 16,
+        y_pos: 148 << 16,
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 8,
+        level_row: 9,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Micromax,
+        collected: true,
+    });
+
+    rt.step_visual_effects();
+
+    assert!(
+        rt.floating_items.is_empty(),
+        "ASM loc_106CC should jump straight to `Delete_CurrentObject` once Micromax's `collision_type(a3)` becomes non-zero",
+    );
+}
+
 // --- Visual effects: countdown and retention ---
 
 #[test]
