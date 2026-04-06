@@ -38,14 +38,15 @@ use crate::level::{
     FlagpoleScoreboardStepSubC254, ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
     LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
     ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_pending_palette_fade_sub_14C0,
-    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
-    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
-    classify_foreground_palette_override_loc_11D8E, compile_block_debris_sprites_sub_2A4C,
-    copy_foreground_palette_loc_11DB0, drain_fg_update_queue_custom_sub_1596,
-    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
+    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
+    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
+    compile_block_debris_sprites_sub_2A4C, copy_foreground_palette_loc_11DB0,
+    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
+    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
@@ -25999,6 +26000,26 @@ fn loc_11df8_routes_the_shared_background_palette_followup_checks() {
         classify_background_palette_followup_loc_11DF8(0x19),
         BackgroundPaletteFollowupLoc11DF8::None,
         "ASM loc_11DF8 should leave unrelated map IDs on the plain background palette path"
+    );
+}
+
+#[test]
+fn loc_11e04_preserves_the_selected_background_palette_on_the_removed_special_path() {
+    assert_eq!(
+        apply_background_palette_override_loc_11E04(
+            0x0456,
+            BackgroundPaletteFollowupLoc11DF8::RemovedSpecialPaletteNoop,
+        ),
+        0x0456,
+        "ASM loc_11E04 should preserve the already selected background palette because the `Pal_12D44` load was replaced with `nop`"
+    );
+    assert_eq!(
+        apply_background_palette_override_loc_11E04(
+            0x0789,
+            BackgroundPaletteFollowupLoc11DF8::None
+        ),
+        0x0789,
+        "ASM loc_11E04 should leave the same palette intact on the ordinary fallthrough as well"
     );
 }
 

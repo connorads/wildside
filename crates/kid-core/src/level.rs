@@ -681,6 +681,23 @@ pub(crate) fn classify_background_palette_followup_loc_11DF8(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn apply_background_palette_override_loc_11E04(
+    selected_theme_palette: u16,
+    override_kind: BackgroundPaletteFollowupLoc11DF8,
+) -> u16 {
+    // ASM loc_11E04 (kid.asm:24011): the taken `$1C/$30` branch reaches a
+    // removed `lea Pal_12D44(pc),a1` command that the ROM replaced with `nop`,
+    // so both the explicit no-op path and the ordinary fallthrough preserve
+    // the already selected background palette.
+    match override_kind {
+        BackgroundPaletteFollowupLoc11DF8::None
+        | BackgroundPaletteFollowupLoc11DF8::RemovedSpecialPaletteNoop
+        | BackgroundPaletteFollowupLoc11DF8::LateAlternativePalette => selected_theme_palette,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point
     // `Addr_NextSpriteSlot` at `Sprite_Table`, and reset the dynamic-art
