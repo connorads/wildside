@@ -21,6 +21,13 @@ pub(crate) struct HiddenBlockCopySetupLoc11C96 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelLoadPointersLoc11D0C {
+    pub(crate) theme_mappings_addr: u32,
+    pub(crate) enemy_layout_addr: u32,
+    pub(crate) enemy_layout_header_addr: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FlagpoleScoreboardCursorSubC254 {
     pub(crate) col: u16,
     pub(crate) row: u16,
@@ -388,6 +395,33 @@ pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     // `$A`, adds that span to the low word of the pointer, and branches to
     // `loc_11D0A` once the result reaches `FGPlane_UpdateQueueCustom = $43BC`.
     fg_queue_guard_low_word_loc_11_cb6(fg_plane_custom_write_addr, fg_plane_custom_write_count * 10)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn level_load_pointers_loc_11D0C(
+    theme_mapping_index: &[u32],
+    theme_mapping_table_offset_bytes: u16,
+    enemy_layout_rom_addr: u32,
+    enemy_layout_header_words: &[u32],
+) -> LevelLoadPointersLoc11D0C {
+    // ASM loc_11D0C (kid.asm:23908-23916) reloads `a1` from
+    // `LnkTo_ThemeMappings_Index`, reads one longword through `(a1,d7.w)` into
+    // `Addr_ThemeMappings`, then reloads `a1` from `(a0)+` and uses
+    // `move.l (a1)+,(Addr_EnemyLayout).w` followed by `move.l a1,(Addr_EnemyLayoutHeader).w`.
+    assert!(
+        theme_mapping_table_offset_bytes & 3 == 0,
+        "theme mapping offset must stay aligned to the ROM's longword table",
+    );
+    let theme_mapping_index_entry = usize::from(theme_mapping_table_offset_bytes >> 2);
+    let enemy_layout_addr = *enemy_layout_header_words
+        .first()
+        .expect("enemy layout header must contain the leading longword");
+    LevelLoadPointersLoc11D0C {
+        theme_mappings_addr: theme_mapping_index[theme_mapping_index_entry],
+        enemy_layout_addr,
+        enemy_layout_header_addr: enemy_layout_rom_addr.wrapping_add(4),
+    }
 }
 
 #[allow(non_snake_case)]

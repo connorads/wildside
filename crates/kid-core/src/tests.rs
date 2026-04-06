@@ -25691,6 +25691,24 @@ fn loc_11ce0_allows_null_custom_write_lists_and_rejects_a_10_byte_overflow() {
 }
 
 #[test]
+fn loc_11d0c_selects_the_theme_mapping_entry_and_splits_the_enemy_layout_pointer() {
+    assert_eq!(
+        crate::level::level_load_pointers_loc_11D0C(
+            &[0x0010_0000, 0x0020_0000, 0x0030_0000],
+            0x0008,
+            0x0004_2000,
+            &[0xFFFF_F8F6, 0x1234_5678],
+        ),
+        crate::level::LevelLoadPointersLoc11D0C {
+            theme_mappings_addr: 0x0030_0000,
+            enemy_layout_addr: 0xFFFF_F8F6,
+            enemy_layout_header_addr: 0x0004_2004,
+        },
+        "ASM loc_11D0C should read `LnkTo_ThemeMappings_Index[d7.w]`, then store the first enemy-layout longword in `Addr_EnemyLayout` while advancing the header pointer by four bytes into `Addr_EnemyLayoutHeader`",
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),
