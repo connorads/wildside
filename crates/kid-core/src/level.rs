@@ -435,6 +435,25 @@ pub(crate) fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn copy_block_mappings_loc_11D46(source_longwords: &[u32], or_mask: u32) -> Vec<u32> {
+    // ASM loc_11D42/loc_11D46 (kid.asm:23923-23928) seeds `d0` with `$A1`, so
+    // `dbf d0,loc_11D46` copies exactly `$A2` longwords from `(a1)+` to
+    // `Block_Mappings`, OR-ing each longword with the mask prepared in `d1`.
+    const BLOCK_MAPPING_LONGWORD_COUNT_LOC_11D46: usize = 0xA2;
+    assert!(
+        source_longwords.len() >= BLOCK_MAPPING_LONGWORD_COUNT_LOC_11D46,
+        "block mapping copy needs at least 162 source longwords",
+    );
+    source_longwords
+        .iter()
+        .copied()
+        .take(BLOCK_MAPPING_LONGWORD_COUNT_LOC_11D46)
+        .map(|longword| longword | or_mask)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_dimensions_loc_11B40(
     level_width_tiles: u16,
     level_height_tiles: u16,

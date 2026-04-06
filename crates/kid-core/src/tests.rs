@@ -25723,6 +25723,31 @@ fn loc_11d42_only_enables_the_block_priority_mask_when_f896_is_non_zero() {
 }
 
 #[test]
+fn loc_11d46_copies_exactly_a2_longwords_and_ors_each_with_the_prepared_mask() {
+    let source_longwords = (0..0xA4).map(|value| value as u32).collect::<Vec<_>>();
+    let copied = crate::level::copy_block_mappings_loc_11D46(&source_longwords, 0x8000_8000);
+
+    assert_eq!(
+        copied.len(),
+        0xA2,
+        "ASM loc_11D46 seeds `d0` with `$A1`, so `dbf d0,loc_11D46` must copy exactly `$A2` longwords into `Block_Mappings`",
+    );
+    assert_eq!(
+        copied[0], 0x8000_8000,
+        "ASM loc_11D46 should OR the prepared `d1` mask into the first copied longword before writing `(a2)+`",
+    );
+    assert_eq!(
+        copied[0xA1], 0x8000_80A1,
+        "ASM loc_11D46 should still apply the same OR mask on the final DBF iteration",
+    );
+    assert_eq!(
+        copied.last().copied(),
+        Some(0x8000_80A1),
+        "ASM loc_11D46 must stop after the `$A2`nd longword rather than consuming trailing data from the source table",
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),
