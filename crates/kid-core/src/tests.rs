@@ -1,7 +1,7 @@
 use super::*;
 use crate::blocks::{
-    OneTimePrizeInitLoc10856, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
-    PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
+    OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A, PrizeClockCountdownLoc10796,
+    PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
     PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
@@ -7830,6 +7830,19 @@ fn one_time_prize_init_loc_10856_clears_the_table_on_first_collection() {
             entries: [0; 0x28],
         },
         "ASM loc_10856 should treat a negative header as the first one-time prize and clear all 40 packed prize entries before scanning",
+    );
+}
+
+#[test]
+fn one_time_prize_scan_start_loc_1086a_skips_the_header_and_scans_40_entries() {
+    assert_eq!(
+        NativeRuntime::one_time_prize_scan_start_loc_1086A(0x4A72),
+        OneTimePrizeScanStartLoc1086A {
+            remaining_entry_checks: 0x27,
+            prize_layout_addr: 0x4A72,
+            entry_byte_offset_from_table_base: 2,
+        },
+        "ASM loc_1086A should reset the DBF counter to `#$27`, copy `$4A(a5)` into `d1`, and start scanning at `2(a0)` after the header word",
     );
 }
 

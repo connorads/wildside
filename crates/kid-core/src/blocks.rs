@@ -82,6 +82,14 @@ pub(crate) struct OneTimePrizeInitLoc10856 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OneTimePrizeScanStartLoc1086A {
+    pub(crate) remaining_entry_checks: u16,
+    pub(crate) prize_layout_addr: u16,
+    pub(crate) entry_byte_offset_from_table_base: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -219,6 +227,21 @@ impl NativeRuntime {
                 next_write_index: header_word as u16,
                 entries,
             }
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn one_time_prize_scan_start_loc_1086A(
+        prize_layout_addr: u16,
+    ) -> OneTimePrizeScanStartLoc1086A {
+        // ASM loc_1086A (kid.asm:22092): reset `d0` to `#$27`, copy the
+        // current block's layout address from `$4A(a5)` into `d1`, and start
+        // scanning at `2(a0)` so the header word is skipped.
+        OneTimePrizeScanStartLoc1086A {
+            remaining_entry_checks: 0x27,
+            prize_layout_addr,
+            entry_byte_offset_from_table_base: 2,
         }
     }
 
