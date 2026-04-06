@@ -38,9 +38,10 @@ use crate::level::{
     SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
     ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
-    compile_block_debris_sprites_sub_2A4C, drain_fg_update_queue_custom_sub_1596,
-    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
+    build_palette_fade_curve_sub_14C0, compile_block_debris_sprites_sub_2A4C,
+    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
+    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
@@ -25562,6 +25563,15 @@ fn loc_11b40_derives_background_dimensions_from_tile_counts() {
         background_dimensions_loc_11B40(0x00F0, 0x0070),
         (0x005A, 0x0031),
         "ASM loc_11B40's shared tail should derive `Background_width=(Level_width_tiles>>2)+$1E` and `Background_height=(Level_height_tiles>>2)+$15`"
+    );
+}
+
+#[test]
+fn loc_11b7a_emits_one_background_row_pointer_per_background_row() {
+    assert_eq!(
+        background_row_pointers_loc_11B7A(3, 0x005A),
+        vec![0x87B2, 0x880C, 0x8866],
+        "ASM loc_11B7A should write the `$FFFF87B2` row base, then advance `a1` by `Background_width` after each emitted pointer"
     );
 }
 

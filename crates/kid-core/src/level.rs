@@ -46,6 +46,7 @@ const LEVEL_LAYOUT_ROW_POINTER_BASE_SMALL_LOC_11AE4: u32 = 0xFFFF_9E32;
 const LEVEL_LAYOUT_ROW_POINTER_BASE_LARGE_LOC_11AEA: u32 = 0xFFFF_DD02;
 const LEVEL_LAYOUT_RAM_BASE_LOC_11AFE: u16 = 0xA652;
 const LEVEL_TERRAIN_LAYOUT_RAM_BASE_LOC_11B40: u16 = 0x52C2;
+const BACKGROUND_ROW_POINTER_BASE_LOC_11B7A: u16 = 0x87B2;
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -241,6 +242,25 @@ pub(crate) fn background_dimensions_loc_11B40(
         (level_width_tiles >> 2).wrapping_add(0x001E),
         (level_height_tiles >> 2).wrapping_add(0x0015),
     )
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_row_pointers_loc_11B7A(
+    background_height: u16,
+    background_width: u16,
+) -> Vec<u16> {
+    // ASM loc_11B7A (kid.asm:23742-23745) seeds `a1` with `$FFFF87B2`, then
+    // emits one row-start pointer word per background row into `$FFFF4D5C+`.
+    // The loop advances `a1` by `Background_width`, preserving the ROM's
+    // 16-bit low-word pointer arithmetic.
+    let mut row_pointer = BACKGROUND_ROW_POINTER_BASE_LOC_11B7A;
+    let mut row_pointers = Vec::with_capacity(usize::from(background_height));
+    for _ in 0..background_height {
+        row_pointers.push(row_pointer);
+        row_pointer = row_pointer.wrapping_add(background_width);
+    }
+    row_pointers
 }
 
 #[allow(non_snake_case)]
