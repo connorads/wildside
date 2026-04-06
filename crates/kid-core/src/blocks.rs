@@ -235,6 +235,14 @@ pub(crate) struct LiftBlockFallStepLoc1141E {
     pub(crate) should_repeat_loop: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterLeftSupportProbeLoc11448 {
+    pub(crate) should_probe_support: bool,
+    pub(crate) support_col: Option<u16>,
+    pub(crate) next_block_col_for_right_probe: u16,
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
@@ -730,6 +738,24 @@ impl NativeRuntime {
             should_hibernate_one_frame: true,
             should_delete_current_object: loop_counter == 0,
             should_repeat_loop: loop_counter != 0,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_left_support_probe_loc_11448(
+        block_col: u16,
+        left_support_is_empty: bool,
+    ) -> ShooterLeftSupportProbeLoc11448 {
+        // ASM loc_11448 (kid.asm:23374-23381): `subq.w #1,d1` first, so the
+        // left probe is skipped entirely on the leftmost column. Otherwise
+        // `tst.w -2(a1)` gates the `sub_1149C` call, and the shared `loc_11458`
+        // tail leaves `d1` at `original + 1` for the later right-hand check.
+        let should_probe_support = block_col > 0 && left_support_is_empty;
+        ShooterLeftSupportProbeLoc11448 {
+            should_probe_support,
+            support_col: should_probe_support.then(|| block_col - 1),
+            next_block_col_for_right_probe: block_col.wrapping_add(1),
         }
     }
 

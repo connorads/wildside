@@ -7,7 +7,7 @@ use crate::blocks::{
     Prize10DiamondsWorkerInitLoc10988, Prize10DiamondsWorkerScanStartLoc10960,
     Prize10DiamondsWorkerStepLoc109C0, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
     PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
-    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838, ShooterLeftSupportProbeLoc11448,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -35286,6 +35286,42 @@ fn lift_block_fall_step_loc_1141e_descends_1px_for_sixteen_frames_then_deletes()
             should_repeat_loop: false,
         }),
         "ASM loc_1141E starts from `move.w #$F,d0`, so the worker only reaches `Delete_CurrentObject` after sixteen 1px descent steps",
+    );
+}
+
+#[test]
+fn shooter_left_support_probe_loc_11448_skips_column_zero_and_only_targets_empty_left_cells() {
+    let left_edge = NativeRuntime::shooter_left_support_probe_loc_11448(0, true);
+    assert_eq!(
+        left_edge,
+        ShooterLeftSupportProbeLoc11448 {
+            should_probe_support: false,
+            support_col: None,
+            next_block_col_for_right_probe: 1,
+        },
+        "ASM loc_11448 does `subq.w #1,d1; bmi.s loc_11458`, so the left neighbour probe is skipped entirely for the leftmost shooter column",
+    );
+
+    let occupied_left = NativeRuntime::shooter_left_support_probe_loc_11448(5, false);
+    assert_eq!(
+        occupied_left,
+        ShooterLeftSupportProbeLoc11448 {
+            should_probe_support: false,
+            support_col: None,
+            next_block_col_for_right_probe: 6,
+        },
+        "ASM loc_11448 should skip `sub_1149C` when `tst.w -2(a1)` sees a non-empty left support cell",
+    );
+
+    let empty_left = NativeRuntime::shooter_left_support_probe_loc_11448(5, true);
+    assert_eq!(
+        empty_left,
+        ShooterLeftSupportProbeLoc11448 {
+            should_probe_support: true,
+            support_col: Some(4),
+            next_block_col_for_right_probe: 6,
+        },
+        "ASM loc_11448 should call `sub_1149C` for the left support cell, then restore the shared `d1` state so `loc_11458` can continue with the right-hand probe",
     );
 }
 
