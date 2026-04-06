@@ -912,9 +912,11 @@ impl NativeRuntime {
             let x_px = (item.x_pos >> 16) as u16;
             let y_px = ((item.y_pos >> 16) as u16).saturating_sub(8);
             removed_effects.push(BlockDestroyEffect {
-                // ASM sub_10CEC deletes the older helmet owner, then sub_10D3E
-                // spawns a transient animation at the deleted helmet's x_pos
-                // and y_pos-8.
+                // ASM loc_10CF4 (kid.asm:22624) loops through the linked
+                // object list until it finds an existing helmet prize in the
+                // `$6C..$8C` object-meta range, then sub_10CEC deletes that
+                // older owner before sub_10D3E spawns a transient animation
+                // at the deleted helmet's x_pos and y_pos-8.
                 x_px,
                 y_px,
                 remaining: 8,

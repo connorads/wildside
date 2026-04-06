@@ -33098,7 +33098,7 @@ fn deferred_ankh_ceiling_clear_uses_sub_10c78_lifetime() {
 }
 
 #[test]
-fn deferred_helmet_ceiling_clear_replaces_existing_helmet_via_sub_10cec() {
+fn deferred_helmet_ceiling_clear_replaces_existing_helmet_via_loc_10cf4_scan() {
     let mut rt = NativeRuntime::new(manifest());
     rt.set_block_grid(grid_with_blocks());
     rt.floating_items.push(FloatingItem {
@@ -33141,7 +33141,7 @@ fn deferred_helmet_ceiling_clear_replaces_existing_helmet_via_sub_10cec() {
     assert_eq!(
         rt.floating_items.len(),
         2,
-        "sub_10CEC should delete only the older helmet before spawning the new one"
+        "ASM loc_10CF4 should keep scanning until it finds the older helmet owner, deleting only that helmet before the new one spawns"
     );
     assert!(
         rt.floating_items
@@ -33165,7 +33165,7 @@ fn deferred_helmet_ceiling_clear_replaces_existing_helmet_via_sub_10cec() {
         rt.block_destroy_effects
             .iter()
             .any(|effect| effect.x_px == 0x0070 && effect.y_px == 0x0078),
-        "ASM sub_10CEC/sub_10D3E deletes the old helmet and spawns a transient effect at x, y-8"
+        "ASM loc_10CF4 should hand sub_10CEC the matched helmet slot so the follow-on effect spawns at the deleted helmet's x, y-8"
     );
 }
 
