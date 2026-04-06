@@ -796,6 +796,17 @@ pub(crate) struct LevelCameraBootstrapLoc11F48 {
     pub(crate) camera_y_pos: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PostLoadObjectRoutineLoc11F96 {
+    RotatePaletteLavaWater {
+        object_slot_seed: u16,
+    },
+    IslandPaletteCycle {
+        object_slot_seed: u16,
+        object_routine_addr: u32,
+    },
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -974,6 +985,37 @@ pub(crate) fn initialise_camera_bootstrap_loc_11F48(
         vram_fill_count: 0x0800,
         camera_x_pos: u32::from(camera_x_px) << 16,
         camera_y_pos: u32::from(camera_y_px) << 16,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn classify_post_load_object_routine_loc_11F96(
+    foreground_theme: u16,
+    background_theme: u16,
+) -> Option<PostLoadObjectRoutineLoc11F96> {
+    const FOREGROUND_THEME_CAVE_LOC_11F96: u16 = 0x0008;
+    const BACKGROUND_THEME_ISLAND_LOC_11FB0: u16 = 0x0004;
+    const ROTATE_PALETTE_OBJECT_SLOT_SEED_LOC_11F96: u16 = 0xA000;
+    const ISLAND_OBJECT_SLOT_SEED_LOC_11FB0: u16 = 0x0000;
+    const ISLAND_OBJECT_ROUTINE_ADDR_LOC_11FB0: u32 = 0x0001_202A;
+
+    // ASM loc_11F96 (kid.asm:24154): when the earlier Mountain compare at
+    // `loc_11F86` falls through, Cave foregrounds allocate the same `$A000`
+    // palette-rotation object. The shared tail then checks `Background_theme`
+    // for Island and, if matched, allocates slot `0` and seeds `4(a0)` with
+    // `loc_1202A`.
+    if foreground_theme == FOREGROUND_THEME_CAVE_LOC_11F96 {
+        Some(PostLoadObjectRoutineLoc11F96::RotatePaletteLavaWater {
+            object_slot_seed: ROTATE_PALETTE_OBJECT_SLOT_SEED_LOC_11F96,
+        })
+    } else if background_theme == BACKGROUND_THEME_ISLAND_LOC_11FB0 {
+        Some(PostLoadObjectRoutineLoc11F96::IslandPaletteCycle {
+            object_slot_seed: ISLAND_OBJECT_SLOT_SEED_LOC_11FB0,
+            object_routine_addr: ISLAND_OBJECT_ROUTINE_ADDR_LOC_11FB0,
+        })
+    } else {
+        None
     }
 }
 

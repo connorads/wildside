@@ -41,16 +41,17 @@ use crate::level::{
     ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
     ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
     LateBackgroundPaletteOverrideLoc11E06, LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit,
-    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
-    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
-    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
-    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
-    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
-    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
-    classify_foreground_palette_override_loc_11D8E,
-    classify_late_background_palette_override_loc_11E06, compile_block_debris_sprites_sub_2A4C,
+    PostLoadObjectRoutineLoc11F96, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
+    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
+    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
+    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
+    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
+    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
+    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
+    classify_late_background_palette_override_loc_11E06,
+    classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
     drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
     fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
@@ -26047,6 +26048,30 @@ fn loc_11f48_clears_the_hud_vram_span_and_floors_camera_to_screen_boundaries() {
             camera_y_pos: 0x02A0_0000,
         },
         "ASM loc_11F48 should write `$0780` through the `$7FF` `dbf` loop, then floor `PlayerStart_X/Y_pos` to `$140/$E0` screen boundaries before swapping them into 16.16 camera coordinates"
+    );
+}
+
+#[test]
+fn loc_11f96_allocates_the_palette_rotator_for_cave_and_the_island_worker_otherwise() {
+    assert_eq!(
+        classify_post_load_object_routine_loc_11F96(0x0008, 0x0005),
+        Some(PostLoadObjectRoutineLoc11F96::RotatePaletteLavaWater {
+            object_slot_seed: 0xA000,
+        }),
+        "ASM loc_11F96 should allocate the same `$A000` `RotatePalette_Lava_Water` object when the earlier Mountain compare has already fallen through and `Foreground_theme == Cave`"
+    );
+    assert_eq!(
+        classify_post_load_object_routine_loc_11F96(0x0006, 0x0004),
+        Some(PostLoadObjectRoutineLoc11F96::IslandPaletteCycle {
+            object_slot_seed: 0x0000,
+            object_routine_addr: 0x0001_202A,
+        }),
+        "ASM loc_11F96 should continue into the shared Island background branch and seed slot `0` with `loc_1202A` when the Cave compare also falls through"
+    );
+    assert_eq!(
+        classify_post_load_object_routine_loc_11F96(0x0006, 0x0005),
+        None,
+        "ASM loc_11F96 should fall through to `loc_11FC8` without allocating either helper object when neither the Cave foreground nor Island background checks match"
     );
 }
 
