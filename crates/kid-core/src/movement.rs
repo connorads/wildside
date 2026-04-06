@@ -109,6 +109,18 @@ pub(crate) fn clear_owner_gfx_backref_loc_1078(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_delete_predecessor_index_loc_10B6(
+    next_indices: &[Option<usize>],
+    target_index: usize,
+) -> Option<usize> {
+    // ASM loc_10B6 (kid.asm:2029): after the owner back-reference cleanup,
+    // reset `a0` to `(Addr_FirstGfxObjectSlot).w` so the shared `loc_10BA`
+    // walk starts from the sentinel head before unlinking `a3`.
+    gfx_object_predecessor_index_sub_FF6(next_indices, target_index)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_predecessor_index_sub_FF6(
     next_indices: &[Option<usize>],
     target_index: usize,

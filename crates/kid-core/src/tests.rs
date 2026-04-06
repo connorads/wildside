@@ -154,6 +154,22 @@ fn gfx_object_predecessor_index_sub_ff6_returns_none_when_loc_1004_walks_to_a_nu
 }
 
 #[test]
+fn gfx_object_delete_predecessor_index_loc_10b6_restarts_the_walk_from_the_sentinel_head() {
+    let next_indices = [
+        Some(1), // sentinel -> first live node
+        Some(2), // first live node -> second live node
+        Some(3), // second live node -> target
+        None,
+    ];
+
+    assert_eq!(
+        gfx_object_delete_predecessor_index_loc_10B6(&next_indices, 3),
+        Some(2),
+        "ASM loc_10B6 should reload `Addr_FirstGfxObjectSlot` before `loc_10BA`, so the delete walk still finds the predecessor even when the caller was just mutating owner back-references",
+    );
+}
+
+#[test]
 fn clear_owner_gfx_backref_loc_1078_ignores_odd_owner_pointers() {
     let links = clear_owner_gfx_backref_loc_1078(0x00FF_8001, [0x10, 0x20, 0x30], 0x20);
 
