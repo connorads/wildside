@@ -78,6 +78,7 @@ pub(crate) enum GfxObjectSpecialSlotLoc10C6 {
     Kid,
     KidProjectile,
     UnknownF86A,
+    UnknownF86E,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -162,6 +163,10 @@ pub(crate) fn gfx_object_delete_loc_10C6(
         // 3 decrements once more to zero here and clears the `$FFFFF86A`
         // singleton pointer before the shared `loc_1106` tail.
         3 => GfxObjectSpecialSlotLoc10C6::UnknownF86A,
+        // ASM loc_10FE (kid.asm:2068): after the shared `subq.w #1,d0`, kind
+        // 4 decrements once more to zero here and clears the `$FFFFF86E`
+        // singleton pointer before the shared `loc_1106` tail.
+        4 => GfxObjectSpecialSlotLoc10C6::UnknownF86E,
         _ => GfxObjectSpecialSlotLoc10C6::None,
     };
 

@@ -207,6 +207,15 @@ fn gfx_object_delete_loc_10f4_routes_object_kind_3_to_the_fffff86a_singleton_slo
 }
 
 #[test]
+fn gfx_object_delete_loc_10fe_routes_object_kind_4_to_the_fffff86e_singleton_slot() {
+    assert_eq!(
+        gfx_object_delete_loc_10C6(None, Some(7), 5, 4, 3).special_slot,
+        GfxObjectSpecialSlotLoc10C6::UnknownF86E,
+        "ASM loc_10FE should take object kind 4 through the extra decrement-to-zero branch and clear the `$FFFFF86E` singleton rather than the earlier Kid, KidProjectile, or `$FFFFF86A` slots",
+    );
+}
+
+#[test]
 fn clear_owner_gfx_backref_loc_1078_ignores_odd_owner_pointers() {
     let links = clear_owner_gfx_backref_loc_1078(0x00FF_8001, [0x10, 0x20, 0x30], 0x20);
 
