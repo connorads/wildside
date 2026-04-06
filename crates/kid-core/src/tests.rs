@@ -33509,6 +33509,35 @@ fn metal_block_push_step_left_loc_112fe_reaches_the_neighbour_check_when_d3_hits
 }
 
 #[test]
+fn metal_block_push_left_delete_gate_loc_11328_deletes_at_column_zero_before_sampling_left() {
+    assert!(
+        NativeRuntime::metal_block_push_left_delete_gate_loc_11328(
+            0,
+            terrain::Cell::from_be_bytes(0x60, 0x05),
+        ),
+        "ASM loc_11328 should delete immediately when `tst.w d1; ble.s loc_11328` sees the worker already at column zero, without relying on the sampled left neighbour",
+    );
+}
+
+#[test]
+fn metal_block_push_left_delete_gate_loc_11328_continues_only_while_the_left_neighbour_is_solid() {
+    assert!(
+        !NativeRuntime::metal_block_push_left_delete_gate_loc_11328(
+            3,
+            terrain::Cell::from_be_bytes(0x60, 0x00),
+        ),
+        "ASM loc_11328 should loop back to `loc_112E2` when the sampled left neighbour masks to `$6000`, regardless of its block skin",
+    );
+    assert!(
+        NativeRuntime::metal_block_push_left_delete_gate_loc_11328(
+            3,
+            terrain::Cell::from_be_bytes(0x00, 0x00),
+        ),
+        "ASM loc_11328 should fall through to the shared restore-and-delete tail once the sampled left neighbour is not solid",
+    );
+}
+
+#[test]
 fn metal_block_effect_sprite_pos_loc_1110e_scales_tile_words_into_pixels() {
     assert_eq!(
         NativeRuntime::metal_block_effect_sprite_pos_loc_1110E(5, 3),

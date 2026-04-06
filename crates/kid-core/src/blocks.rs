@@ -2110,6 +2110,21 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn metal_block_push_left_delete_gate_loc_11328(
+        source_col: u16,
+        left_neighbour: terrain::Cell,
+    ) -> bool {
+        // ASM loc_1130C -> loc_11328 (kid.asm:23244-23274): after the
+        // 4-substep leftward wake reaches its neighbour check, the worker
+        // deletes immediately when `d1 <= 0`. Otherwise it probes the cell one
+        // column further left and only loops back to `loc_112E2` when
+        // `andi.w #$7000,(a1)` equals `$6000`, i.e. the neighbour collision
+        // nibble is Solid. Any non-solid neighbour falls through loc_11328.
+        source_col == 0 || left_neighbour.collision != terrain::CollisionKind::Solid
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_effect_sprite_pos_loc_1110E(cell_x: u16, cell_y: u16) -> (u16, u16) {
         let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cell_x, cell_y);
         // ASM loc_1110E (kid.asm:23038): copy the cached tile coordinates into
