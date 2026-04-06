@@ -1664,6 +1664,17 @@ impl NativeRuntime {
             BootState::StartingLevel { elapsed_frames, .. } => self
                 .title_menu_cursor_player_state()
                 .filter(|_| self.early_start_title_menu_cursor_pose_carry_active())
+                .or_else(|| {
+                    self.early_start_title_menu_cursor_pose_carry_active()
+                        .then(|| {
+                            let y_pos = if self.two_player {
+                                0x003A_0000
+                            } else {
+                                0x0030_0000
+                            };
+                            PlayerState::title_menu_cursor_pose(y_pos)
+                        })
+                })
                 .or_else(|| self.early_start_level_one_hidden_bootstrap_player_state())
                 .or_else(|| self.early_start_load_ingame_player_state())
                 .or_else(|| {

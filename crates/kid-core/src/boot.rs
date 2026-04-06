@@ -1033,7 +1033,10 @@ impl NativeRuntime {
             self.frame_index
         };
         self.title_menu_arm_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
-            TITLE_SCREEN_MENU_ARM_GLOBAL_FRAME
+            // ASM Obj_TitleMenu `loc_1BAEA` is already interactive on the
+            // early cold-boot title route; the later frame-360 arm is only
+            // for the fully rebuilt idle title shell.
+            self.frame_index
         } else {
             self.frame_index
                 .saturating_add(TITLE_TO_LEVEL_FRAMES.saturating_sub(1))
@@ -1934,10 +1937,25 @@ impl NativeRuntime {
                         } else {
                             let intro_sequence_1_uses_early_title_restore = *segment == 0
                                 && self.timeout_restart_intro_sequence_1_uses_early_title_restore;
-                            self.enter_title_screen_from_intro_return(
-                                intro_sequence_1_uses_early_title_restore,
-                            );
-                            self.next_demo_uses_start_skip_intro_return_camera_wrap = true;
+                            if intro_sequence_1_uses_early_title_restore {
+                                self.enter_title_screen_from_intro_return(true);
+                                self.next_demo_uses_start_skip_intro_return_camera_wrap = true;
+                            } else {
+                                // ASM sub_1C246 -> loc_1C250 jumps to
+                                // Load_TitleScreen on the cold-boot Start-skip
+                                // path, but oracle exposes the rebuilt title
+                                // cursor only after the short 58-frame hidden
+                                // shell, not the longer demo intro-return
+                                // settle window.
+                                self.enter_title_screen();
+                                self.title_screen_uses_intro_return_hidden_shell = true;
+                                self.title_screen_ready_frame =
+                                    self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+                                self.title_menu_arm_frame =
+                                    self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+                                self.title_menu_active = true;
+                                self.title_menu_cursor_pending = true;
+                            }
                         }
                         return;
                     }
@@ -2174,7 +2192,10 @@ impl NativeRuntime {
                         self.begin_demo_play(self.demo_toggle);
                     }
                 }
-                if self.title_menu_cursor_pending && !just_activated_title_menu {
+                if self.title_menu_cursor_pending
+                    && !just_activated_title_menu
+                    && self.frame_index >= self.title_menu_arm_frame
+                {
                     self.title_menu_cursor_pending = false;
                 }
                 self.title_screen_elapsed_frames += 1;
@@ -2265,7 +2286,10 @@ impl NativeRuntime {
                         self.begin_demo_play(self.demo_toggle);
                     }
                 }
-                if self.title_menu_cursor_pending && !just_activated_title_menu {
+                if self.title_menu_cursor_pending
+                    && !just_activated_title_menu
+                    && self.frame_index >= self.title_menu_arm_frame
+                {
                     self.title_menu_cursor_pending = false;
                 }
                 self.title_screen_elapsed_frames += 1;

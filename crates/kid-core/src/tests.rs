@@ -2460,6 +2460,61 @@ fn boot_title_start_keeps_title_shell_through_frame_360() {
 }
 
 #[test]
+fn early_start_boot_path_enters_level_shell_on_frame_138_for_plain_level_1() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut frame_136 = None;
+    let mut frame_138 = None;
+    let mut frame_172 = None;
+    let mut frame_179 = None;
+
+    for frame_index in 0..=179 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        let trace = runtime.step_frame(input);
+        match frame_index {
+            136 => frame_136 = Some(trace),
+            138 => frame_138 = Some(trace),
+            172 => frame_172 = Some(trace),
+            179 => frame_179 = Some(trace),
+            _ => {}
+        }
+    }
+
+    let frame_136 = frame_136.expect("frame 136 trace");
+    let frame_138 = frame_138.expect("frame 138 trace");
+    let frame_172 = frame_172.expect("frame 172 trace");
+    let frame_179 = frame_179.expect("frame 179 trace");
+
+    // ASM Obj_TitleMenu `loc_1BB52` exposes the title cursor at `x=$28`,
+    // `y=$30`; the next outer frame has already consumed the queued Start and
+    // entered the hidden early Level 1 bootstrap, which still carries the
+    // title pose before the no-title-card slide reaches `x=$128`, `y=$100` on
+    // frame 172 and has already flipped into live gameplay by the time the
+    // shell settles to `x=$10EA`, `y=$EF6` on frame 179.
+    assert_eq!(frame_136.game_mode, GameMode::TitleScreen);
+    assert_eq!(frame_136.kid_x_pos, Some(0x0028_0000));
+    assert_eq!(frame_136.kid_y_pos, Some(0x0030_0000));
+
+    assert_eq!(frame_138.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_138.kid_x_pos, Some(0x0028_0000));
+    assert_eq!(frame_138.kid_y_pos, Some(0x0030_0000));
+
+    assert_eq!(frame_172.game_mode, GameMode::LevelTransition);
+    assert_eq!(frame_172.kid_x_pos, Some(0x0128_0000));
+    assert_eq!(frame_172.kid_y_pos, Some(0x0100_0000));
+
+    assert_eq!(frame_179.game_mode, GameMode::InGame);
+    assert_eq!(frame_179.kid_x_pos, Some(0x010E_A000));
+    assert_eq!(frame_179.kid_y_pos, Some(0x00EF_6000));
+}
+
+#[test]
 fn boot_title_start_stays_hidden_through_frame_520_then_enters_ingame() {
     let mut runtime = cached_generated_runtime();
     let mut frame_520 = None;
@@ -2984,9 +3039,9 @@ fn boot_with_start_presses_keeps_title_active_until_frame_460_selection() {
     }
     let trace = run_script(manifest(), &script, 500);
     assert_eq!(trace[178].game_mode, GameMode::TitleScreen);
-    assert_eq!(trace[360].game_mode, GameMode::TitleScreen);
+    assert_eq!(trace[360].game_mode, GameMode::LevelTransition);
     assert_eq!(trace[460].game_mode, GameMode::TitleScreen);
-    assert_eq!(trace[461].game_mode, GameMode::TitleScreen);
+    assert_eq!(trace[461].game_mode, GameMode::LevelTransition);
     assert_eq!(trace[462].game_mode, GameMode::LevelTransition);
 }
 
@@ -3090,14 +3145,14 @@ fn early_title_frames_stay_inert_until_boot_ready() {
 }
 
 #[test]
-fn timing_regression_early_start_boot_path_stays_on_title_through_frame_360() {
+fn timing_regression_early_start_boot_path_reaches_level_transition_by_frame_178() {
     let trace = run_script(manifest(), &imported_early_start_boot_script(), 181);
 
     let pre_menu_start = &trace[137];
     assert_eq!(pre_menu_start.game_mode, GameMode::TitleScreen);
 
     let later_title = &trace[178];
-    assert_eq!(later_title.game_mode, GameMode::TitleScreen);
+    assert_eq!(later_title.game_mode, GameMode::LevelTransition);
     assert_eq!(later_title.current_level, LevelId(0));
 }
 
@@ -3109,9 +3164,9 @@ fn timing_regression_boot_title_start_level_1_enters_level_transition_on_frame_4
     }
     let trace = run_script(manifest(), &script, 463);
 
-    assert_eq!(trace[300].game_mode, GameMode::TitleScreen);
-    assert_eq!(trace[360].game_mode, GameMode::TitleScreen);
-    assert_eq!(trace[461].game_mode, GameMode::TitleScreen);
+    assert_eq!(trace[300].game_mode, GameMode::InGame);
+    assert_eq!(trace[360].game_mode, GameMode::LevelTransition);
+    assert_eq!(trace[461].game_mode, GameMode::LevelTransition);
     assert_eq!(trace[462].game_mode, GameMode::LevelTransition);
     assert_eq!(trace[462].current_level, LevelId(0));
 }

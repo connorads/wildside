@@ -4293,11 +4293,7 @@ impl NativeRuntime {
         self.current_level = level_id;
         self.level_start_frame = None;
         let uses_load_ingame_bootstrap = matches!(self.boot_state, BootState::TitleScreen { .. })
-            && !self.title_screen_ready()
-            && self
-                .level_record(level_id)
-                .and_then(|level| level.title_card.as_ref())
-                .is_some();
+            && (!self.title_screen_ready() || self.title_screen_uses_intro_return_hidden_shell);
         let starts_on_first_mode_8_frame = matches!(
             self.boot_state,
             BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }

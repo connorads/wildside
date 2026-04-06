@@ -8,9 +8,10 @@ pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock
 /// before the rebuilt title pose becomes ready.
 pub(crate) const TITLE_ATTRACT_LOCK_FRAMES: usize = 58;
-/// Once Obj_TitleMenu has exposed the interactive menu, Start still takes one
-/// extra hibernation frame before `Title_InputLoop` flips into mode `$0008`.
-pub(crate) const TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES: usize = 1;
+/// ASM Obj_TitleMenu `Title_InputLoop` writes the next `Game_Mode` on the
+/// frame after Start is latched; native queues the selection on the press
+/// frame, then consumes it on the next outer frame.
+pub(crate) const TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES: usize = 0;
 /// ASM Load_IntroSequence6 `loc_1BAB0` seeds `d0=$B8` then `dbf d0,loc_1BAB4`,
 /// so the mode-$28 timeout-restart title rebuild hibernates for 185 frames
 /// before `loc_1BAEA` even seeds the shared `$280` title idle loop.
@@ -220,9 +221,6 @@ pub(crate) const TIMEOUT_RESTART_TITLE_PLAYER_HIDDEN_FRAMES: usize = 149;
 // while power-on TAS recordings can enter title earlier and remain inert until
 // frame 287.
 pub(crate) const TITLE_SCREEN_READY_GLOBAL_FRAME: usize = 287;
-/// Cold-boot intro-skip traces keep the title shell in Obj_TitleMenu's first
-/// inert `$280` DBF loop until the later Start press on global frame 360.
-pub(crate) const TITLE_SCREEN_MENU_ARM_GLOBAL_FRAME: usize = 360;
 // Early intro-skip traces do not make the title pose visible immediately on
 // entry. The title rebuild still needs 150 local frames before Kid appears,
 // even when the absolute boot-ready frame has already nearly been reached.
