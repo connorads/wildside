@@ -33386,6 +33386,50 @@ fn floating_item_loc_103da_zeroes_velocity_when_the_fall_branch_is_blocked() {
     );
 }
 
+#[test]
+fn floating_item_loc_10402_updates_the_row_baseline_once_per_16px_boundary_crossing() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut grid = grid_with_blocks();
+    grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0, 0));
+    grid.set_cell_at(2, 3, terrain::Cell::from_be_bytes(0, 0));
+    rt.set_block_grid(grid);
+    rt.floating_items.push(FloatingItem {
+        x_pos: (2 * 16 + 8) << 16,
+        y_pos: i64::from(47 << 16),
+        y_velocity: 0xF000,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 2,
+        level_row: 2,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items[0].level_row, 3,
+        "ASM loc_10402 should advance the tracked level row once the falling item crosses into the next snapped 16px band",
+    );
+    assert!(
+        !rt.floating_items[0].first_row_grace,
+        "ASM loc_10402 should clear the one-row grace bit once the new aligned row is copied into the running baseline",
+    );
+
+    let y_after_crossing = rt.floating_items[0].y_pos;
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items[0].level_row, 3,
+        "ASM loc_10402 should keep the updated row baseline in `d0`, so later frames inside the same 16px band do not advance `level_row` again",
+    );
+    assert!(
+        rt.floating_items[0].y_pos > y_after_crossing,
+        "the follow-up frame should still fall inside the same open row without spuriously re-advancing the tracked row",
+    );
+}
+
 // --- Projectile subsystem mutation tests ---
 
 fn make_projectile(x: u16, y: u16) -> EnemyProjectile {

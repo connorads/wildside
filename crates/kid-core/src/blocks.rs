@@ -1332,6 +1332,9 @@ impl NativeRuntime {
                 f.y_pos += i64::from(f.y_velocity);
                 let new_aligned_y = ((f.y_pos >> 16) as i32) & !0xF;
                 if new_aligned_y != previous_aligned_y {
+                    // ASM loc_10402 (kid.asm:21663): once the snapped 16px row
+                    // changes, copy the new aligned Y into `d0` so later
+                    // frames compare against the updated row baseline.
                     f.first_row_grace = false;
                     f.level_row = f.level_row.saturating_add(1);
                 }
