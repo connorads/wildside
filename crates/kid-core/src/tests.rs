@@ -8157,6 +8157,32 @@ fn prize_content_ankh_grants_extra_life() {
 }
 
 #[test]
+fn prize_content_10000_points_loc_10ac2_arms_the_hundred_k_trip_timer_once() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.current_level = LevelId(4);
+    runtime.progression.score = 90_000;
+
+    runtime.apply_prize_content(terrain::PrizeContent::Points10000);
+
+    assert_eq!(
+        runtime.progression.score, 100_000,
+        "ASM loc_10AC2 only runs after Prize10000Points_Init stores the post-add score back to `(Score).w`",
+    );
+    assert_eq!(
+        runtime.hundred_k_trip_timer, 0x003C,
+        "ASM loc_10AC2 should arm `$FFFFFB4C` to `#$3C` only when level 4 crosses the 100000-point gate with the timer clear",
+    );
+
+    runtime.apply_prize_content(terrain::PrizeContent::Points10000);
+
+    assert_eq!(
+        runtime.hundred_k_trip_timer, 0x003C,
+        "ASM loc_10AC2 should leave the running `$FFFFFB4C` countdown untouched on later 10000-point prizes",
+    );
+}
+
+#[test]
 fn lives_capped_at_nine() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

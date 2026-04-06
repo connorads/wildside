@@ -1,5 +1,8 @@
 use super::*;
 
+const HUNDRED_K_TRIP_START_LEVEL_ID: LevelId = LevelId(4);
+const HUNDRED_K_TRIP_ARM_FRAMES_LOC_10AC2: u16 = 0x003C;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum QueuedSoundEffect {
     MiniHoppingSkullScream,
@@ -1944,6 +1947,24 @@ impl NativeRuntime {
         for _ in old_lives..new_lives {
             self.add_life();
         }
+        self.arm_hundred_k_trip_timer_loc_10_ac2();
+    }
+
+    fn arm_hundred_k_trip_timer_loc_10_ac2(&mut self) {
+        // ASM loc_10AC2 (kid.asm:22375): once Prize10000Points_Init has
+        // written the new score, arm `$FFFFFB4C` for 60 frames only when the
+        // score is at least `100000`, the current level is
+        // `HundredKTripStart_LevelID`, and the timer is still zero.
+        if self.progression.score < 100_000 {
+            return;
+        }
+        if self.current_level != HUNDRED_K_TRIP_START_LEVEL_ID {
+            return;
+        }
+        if self.hundred_k_trip_timer != 0 {
+            return;
+        }
+        self.hundred_k_trip_timer = HUNDRED_K_TRIP_ARM_FRAMES_LOC_10AC2;
     }
 
     /// Increment diamond count (capped at 99 per ASM). Awards extra life at 50/100.

@@ -1288,6 +1288,7 @@ impl NativeRuntime {
         self.level_damage_taken = false;
         self.level_prize_collected = false;
         self.clocks_collected = 0;
+        self.hundred_k_trip_timer = 0;
         self.y_look_offset = 0;
     }
 
@@ -1318,6 +1319,7 @@ impl NativeRuntime {
         self.level_damage_taken = false;
         self.level_prize_collected = false;
         self.clocks_collected = 0;
+        self.hundred_k_trip_timer = 0;
         self.y_look_offset = 0;
         self.paused = false;
         self.pause_toggle_pending = false;
@@ -2344,6 +2346,7 @@ impl NativeRuntime {
         self.level_timer = LevelTimer::new();
         self.level_prize_collected = false;
         self.clocks_collected = 0;
+        self.hundred_k_trip_timer = 0;
         self.paused = false;
         self.pause_toggle_pending = false;
     }

@@ -151,6 +151,9 @@ pub struct NativeRuntime {
     level_prize_collected: bool,
     /// Number of clock pickups collected during current level (for completion time calc).
     clocks_collected: u16,
+    /// ASM Prize10000Points_Init loc_10AC2 / main-loop loc_7452 share the
+    /// `$FFFFFB4C` countdown that starts the Hundred K Trip event in level 4.
+    hundred_k_trip_timer: u16,
     /// Title screen phase timer: counts down to demo playback in both the
     /// pre-menu attract phase and the interactive title menu. The interactive
     /// loop resets this on Up/Down navigation, matching the ASM.
@@ -749,6 +752,7 @@ impl NativeRuntime {
             just_received_damage: false,
             level_prize_collected: false,
             clocks_collected: 0,
+            hundred_k_trip_timer: 0,
             title_idle_frames: 0,
             title_screen_elapsed_frames: 0,
             title_screen_uses_intro_return_hidden_shell: false,
