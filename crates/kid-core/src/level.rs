@@ -790,6 +790,26 @@ pub(crate) fn select_foreground_art_permutation_loc_11E54(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ForegroundArtDecompressLoc11E60 {
+    pub(crate) tile_base: u16,
+    pub(crate) permutation: ForegroundArtPermutationLoc11E48,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn prepare_foreground_art_decompress_loc_11E60(
+    selected_permutation: ForegroundArtPermutationLoc11E48,
+) -> ForegroundArtDecompressLoc11E60 {
+    // ASM loc_11E60 (kid.asm:24056): once the earlier City/Forest/Mountain
+    // compares have finished mutating `a3`, the shared continuation calls
+    // `DecompressToRAM` with that same permutation and VRAM base `$1780`.
+    ForegroundArtDecompressLoc11E60 {
+        tile_base: 0x1780,
+        permutation: selected_permutation,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
