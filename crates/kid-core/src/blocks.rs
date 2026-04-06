@@ -200,6 +200,14 @@ pub(crate) const EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A: [i16; 4] = 
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const EVANESCENT_BLOCK_REVEAL_ASCENT_Y_DELTAS_LOC_11188: [i16; 4] = [-2, -2, -2, -2];
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct MetalBlockPushWakeStep {
+    pub(crate) x_pos: u16,
+    pub(crate) substep_counter: u16,
+    pub(crate) reached_neighbour_check: bool,
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
@@ -2064,6 +2072,23 @@ impl NativeRuntime {
         // collision nibble, and the skin byte intact while forcing the
         // selected metal block's type nibble to `$F` (deleted-solid).
         terrain::Cell::from_be_bytes(0x80 | ((cell.collision as u8) << 4) | 0x0F, cell.skin)
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn metal_block_push_step_right_loc_112E2(
+        x_pos: u16,
+        substep_counter: u16,
+    ) -> MetalBlockPushWakeStep {
+        let substep_counter = substep_counter.saturating_add(1);
+        // ASM loc_112E2 (kid.asm:23224): after each 1-frame hibernate, the
+        // right-moving branch adds 4 px to `x_pos(a3)`, increments `d3`, and
+        // hands off to `loc_11334` once `d3 == 4`.
+        MetalBlockPushWakeStep {
+            x_pos: x_pos.saturating_add(4),
+            substep_counter,
+            reached_neighbour_check: substep_counter == 4,
+        }
     }
 
     #[allow(non_snake_case)]
