@@ -379,6 +379,19 @@ pub(crate) fn hidden_block_list_guard_loc_11CCA(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
+    fg_plane_custom_write_addr: u32,
+    fg_plane_custom_write_count: u16,
+) -> bool {
+    // ASM loc_11CE0 (kid.asm:23886-23892) skips the guard when
+    // `($FFFFF8E0).w` is zero; otherwise it multiplies `($FFFFF8DE).w` by
+    // `$A`, adds that span to the low word of the pointer, and branches to
+    // `loc_11D0A` once the result reaches `FGPlane_UpdateQueueCustom = $43BC`.
+    fg_queue_guard_low_word_loc_11_cb6(fg_plane_custom_write_addr, fg_plane_custom_write_count * 10)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_dimensions_loc_11B40(
     level_width_tiles: u16,
     level_height_tiles: u16,

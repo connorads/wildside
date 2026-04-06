@@ -25679,6 +25679,18 @@ fn loc_11cca_allows_null_hidden_block_lists_and_rejects_a_16_byte_overflow() {
 }
 
 #[test]
+fn loc_11ce0_allows_null_custom_write_lists_and_rejects_a_10_byte_overflow() {
+    assert!(
+        crate::level::fg_plane_custom_write_guard_loc_11CE0(0, 0x0007),
+        "ASM loc_11CE0 should fall through to `loc_11CF6` when `($FFFFF8E0).w` is zero, so an empty FGPlane_UpdateQueueCustom list must skip the queue-capacity guard"
+    );
+    assert!(
+        !crate::level::fg_plane_custom_write_guard_loc_11CE0(0xFFFF_43B2, 1),
+        "ASM loc_11CE0 multiplies `($FFFFF8DE).w` by `$A` before the `cmpi.w #$43BC,d0`, so a single 10-byte custom-write entry ending at `$43BC` must branch to `loc_11D0A`"
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),
