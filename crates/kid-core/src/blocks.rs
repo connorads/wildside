@@ -1015,7 +1015,8 @@ impl NativeRuntime {
                 });
         }
 
-        // ASM sub_10DE4 writes the `base+1` frame immediately before the first
+        // ASM loc_10E0A (kid.asm:22733): `addq.w #1,d0; bsr.w sub_11530`
+        // writes the `base+1` rubber frame immediately before the first
         // hibernate, so the contact frame already shows the jiggled rubber.
         self.write_rubber_block_skin_for_sub_10de4(col, row, base_skin, 1);
     }

@@ -33345,6 +33345,25 @@ fn rubber_block_base_skin_for_sub_10de4_loc_10e06_keeps_the_low_animation_pair_f
 }
 
 #[test]
+fn rubber_block_contact_loc_10e0a_writes_the_high_pair_base_plus_one_before_the_first_hibernate() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut grid = grid_with_floor_at_row(10);
+    grid.set_cell_at(7, 4, terrain::Cell::from_be_bytes(0xE6, 0x0E));
+    rt.set_block_grid(grid);
+
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.rubber_block_hit = Some((7, 4));
+
+    rt.process_block_effects(&mut slice);
+
+    assert_eq!(
+        rt.block_grid().expect("block grid").cell_at(7, 4).skin,
+        0x0F,
+        "ASM loc_10E0A should increment the selected rubber base frame before the first `sub_11530` write, so the contact frame for the high pair is `$E60F` rather than `$E60E`",
+    );
+}
+
+#[test]
 fn process_block_effects_smash_creates_destroy_effect() {
     let mut rt = NativeRuntime::new(manifest());
     let mut slice = OpeningSliceState::new(default_bounds());
