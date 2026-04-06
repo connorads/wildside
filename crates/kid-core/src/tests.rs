@@ -39913,3 +39913,135 @@ fn loc_125c8_horizontal_place_writes_tiles() {
         "ASM loc_125C8: should advance by 2*count = 6"
     );
 }
+
+#[test]
+fn loc_12600_vertical_place_advances_by_row_stride() {
+    // ASM loc_12600 (kid.asm:24856-24886): vertical (row-by-row) placement.
+    // Unlike horizontal (loc_125C8), this advances by Level_width_tiles per cell.
+    //   add.w (Level_width_tiles).w,a4  ; advance by row, not +2
+    let result = crate::level::block_type_1012_vertical_place_loc_12600(
+        0xA000,
+        3,
+        &[0x0005, 0x0006, 0x0007],
+        10,     // type 10
+        0x0010, // x_pos
+        0x0002, // y_row
+        64,     // level_width_tiles
+    );
+    assert_eq!(result.tiles.len(), 3, "ASM loc_12600: should place 3 tiles");
+    // type 10: each property + $EA1C
+    assert_eq!(
+        result.tiles[0],
+        (0xA000, 0xEA21),
+        "ASM loc_12600: first tile = 0x05 + 0xEA1C = 0xEA21"
+    );
+    assert_eq!(
+        result.tiles[1],
+        (0xA080, 0xEA22),
+        "ASM loc_12600: second tile = 0xA000 + 64*2 = 0xA080, value = 0x06 + 0xEA1C"
+    );
+    assert_eq!(
+        result.tiles[2],
+        (0xA100, 0xEA23),
+        "ASM loc_12600: third tile = 0xA080 + 64*2 = 0xA100, value = 0x07 + 0xEA1C"
+    );
+    assert_eq!(
+        result.next_addr, 0xA180,
+        "ASM loc_12630: should advance by row_stride*count = 128*3 = 384 = 0x180"
+    );
+}
+
+#[test]
+fn loc_12618_type_10_tile_adjustment() {
+    // ASM loc_12618 (kid.asm:24869-24871): type 10 adjustment in vertical loop.
+    // Same computation as loc_125E0: subtract $15E4 from tile.
+    // property 0x00CE -> low byte 0xCE -> 0xCE + 0xEA1C = 0xEAEA
+    let result = crate::level::block_type_1012_tile_value_loc_125c8(0x00CE, 10);
+    assert!(
+        !result.is_hidden,
+        "ASM loc_12618: type 10 should not be hidden"
+    );
+    assert_eq!(
+        result.tile_word, 0xEAEA,
+        "ASM loc_12618: type 10 tile = low_byte + $EA1C = 0xCE + 0xEA1C = 0xEAEA"
+    );
+}
+
+#[test]
+fn loc_1261e_hidden_block_entry_vertical() {
+    // ASM loc_1261E (kid.asm:24874-24881): hidden block entry in vertical loop.
+    // Same as loc_125E6: queue hidden block for later activation.
+    let result = crate::level::block_type_1012_vertical_place_loc_12600(
+        0xB000,
+        2,
+        &[0x0042, 0x0017],
+        -1,     // negative block_type = hidden
+        0x0020, // x_pos
+        0x0005, // y_row
+        64,     // level_width_tiles
+    );
+    // Hidden blocks don't write tiles to level layout
+    assert!(
+        result.tiles.is_empty(),
+        "ASM loc_1261E: hidden blocks should not place tiles"
+    );
+    // Hidden blocks queue entries
+    assert_eq!(
+        result.hidden_entries.len(),
+        2,
+        "ASM loc_1261E: should queue 2 hidden entries"
+    );
+    assert_eq!(result.hidden_entries[0].cell_addr, 0xB000);
+    assert_eq!(result.hidden_entries[0].x_pos, 0x0020);
+    assert_eq!(result.hidden_entries[0].y_row, 0x0005);
+    assert_eq!(result.hidden_entries[0].block_type, -1);
+    assert_eq!(result.hidden_entries[0].property_byte, 0x0042);
+    // Second entry is one row down
+    assert_eq!(
+        result.hidden_entries[1].cell_addr, 0xB080,
+        "ASM loc_12630: second entry = 0xB000 + 64*2"
+    );
+}
+
+#[test]
+fn loc_12630_vertical_advance_loop() {
+    // ASM loc_12630 (kid.asm:24883-24886): vertical advance and loop back.
+    //   add.w (Level_width_tiles).w,a4
+    //   dbf d3,loc_12600
+    // Test with different row stride.
+    let result = crate::level::block_type_1012_vertical_place_loc_12600(
+        0xC000,
+        4,
+        &[0x0010, 0x0020, 0x0030, 0x0040],
+        12,     // type 12
+        0x0008, // x_pos
+        0x0001, // y_row
+        80,     // level_width_tiles = 80
+    );
+    let row_stride = 80 * 2; // 160 = 0xA0
+    assert_eq!(result.tiles.len(), 4, "ASM loc_12630: should place 4 tiles");
+    assert_eq!(
+        result.tiles[0].0, 0xC000,
+        "ASM loc_12630: first tile at initial cell"
+    );
+    assert_eq!(
+        result.tiles[1].0,
+        0xC000 + row_stride,
+        "ASM loc_12630: second tile = +1 row"
+    );
+    assert_eq!(
+        result.tiles[2].0,
+        0xC000 + row_stride * 2,
+        "ASM loc_12630: third tile = +2 rows"
+    );
+    assert_eq!(
+        result.tiles[3].0,
+        0xC000 + row_stride * 3,
+        "ASM loc_12630: fourth tile = +3 rows"
+    );
+    assert_eq!(
+        result.next_addr,
+        0xC000 + row_stride * 4,
+        "ASM loc_12630: final address after 4 row advances"
+    );
+}

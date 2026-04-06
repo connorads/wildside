@@ -1675,6 +1675,95 @@ pub(crate) fn block_type_1012_horizontal_place_loc_125c8(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockType1012VerticalPlaceLoc12600 {
+    pub(crate) tiles: Vec<(u32, u16)>,
+    pub(crate) hidden_entries: Vec<BlockType1012HiddenEntryLoc1261E>,
+    pub(crate) next_addr: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1012HiddenEntryLoc1261E {
+    pub(crate) cell_addr: u32,
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+    pub(crate) block_type: i16,
+    pub(crate) property_byte: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1012_vertical_place_loc_12600(
+    cell_addr: u32,
+    count: u16,
+    property_words: &[u16],
+    block_type: i16,
+    x_pos: u16,
+    y_row: u16,
+    level_width_tiles: u16,
+) -> BlockType1012VerticalPlaceLoc12600 {
+    // ASM loc_12600 (kid.asm:24856-24886): vertical (row-by-row) placement loop.
+    // This is the counterpart to loc_125C8 horizontal placement.
+    // When the stride flag is non-zero, placement proceeds downward by row:
+    //   move.w (a1)+,d5       ; read property word
+    //   tst.w d0              ; check block_type
+    //   bmi.s loc_1261E       ; if < 0, hidden block case (same as loc_125E6)
+    // ASM loc_12618 (kid.asm:24869-24871): type 10 adjustment.
+    //   moveq #0,d6
+    //   move.b d5,d6
+    //   move.w d6,(a4)        ; write to cell
+    //   cmpi.w #$C,d0
+    //   bne.s loc_12618       ; if not 12, branch to type 10 path
+    //   addi.w #-$13D3,(a4)   ; type 12: subtract $13D3
+    //   bra.s loc_12630
+    // ASM loc_12618 (kid.asm:24869-24871):
+    //   addi.w #-$15E4,(a4)   ; type 10: subtract $15E4 (same as loc_125E0)
+    //   bra.s loc_12630
+    // ASM loc_1261E (kid.asm:24874-24881): hidden block entry.
+    // Same as loc_125E6: queue hidden block for later activation.
+    //   bsr.w sub_127A8
+    //   bsr.w sub_127CE
+    //   move.w a4,(a2)+
+    //   move.w d1,(a2)+
+    //   move.w d2,(a2)+
+    //   move.b d0,(a2)+
+    //   move.b d5,(a2)+
+    // ASM loc_12630 (kid.asm:24883-24886): vertical advance and loop.
+    //   add.w (Level_width_tiles).w,a4  ; advance by one row (not +2 like horizontal)
+    //   dbf d3,loc_12600      ; loop for count-1 times
+    //   bra.w loc_125A6       ; done, continue to next entry
+    let iterations = usize::from(count);
+    let row_stride = u32::from(level_width_tiles) * 2;
+    let mut tiles = Vec::with_capacity(iterations);
+    let mut hidden_entries = Vec::new();
+    let mut addr = cell_addr;
+
+    for &property_word in property_words.iter().take(iterations) {
+        let result = block_type_1012_tile_value_loc_125c8(property_word, block_type);
+        if result.is_hidden {
+            // ASM loc_1261E: queue hidden block entry
+            hidden_entries.push(BlockType1012HiddenEntryLoc1261E {
+                cell_addr: addr,
+                x_pos,
+                y_row,
+                block_type,
+                property_byte: property_word,
+            });
+        } else {
+            // ASM loc_12618: write tile with type-specific adjustment
+            tiles.push((addr, result.tile_word));
+        }
+        // ASM loc_12630: advance by row stride, not by 2
+        addr = addr.wrapping_add(row_stride);
+    }
+
+    BlockType1012VerticalPlaceLoc12600 {
+        tiles,
+        hidden_entries,
+        next_addr: addr,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
