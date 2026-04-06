@@ -1,9 +1,9 @@
 use super::*;
 use crate::blocks::{
     OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A,
-    OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, PrizeClockCountdownLoc10796,
-    PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
-    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8,
+    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
+    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -7914,6 +7914,17 @@ fn one_time_prize_store_loc_1089a_writes_at_the_old_header_slot_then_wraps_the_n
             }),
         },
         "ASM loc_1089A should write the new prize into the current header slot and only then wrap the header back to zero at `$28`",
+    );
+}
+
+#[test]
+fn prize_10_diamonds_init_loc_108e8_clears_all_ten_worker_slots() {
+    assert_eq!(
+        NativeRuntime::prize_10_diamonds_init_loc_108E8(),
+        Prize10DiamondsInitLoc108E8 {
+            cleared_worker_slots: [0; 10],
+        },
+        "ASM loc_108E8 should clear exactly ten longwords at `$44(a5)` before the burst loop starts",
     );
 }
 

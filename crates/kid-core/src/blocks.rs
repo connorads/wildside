@@ -115,6 +115,12 @@ pub(crate) struct OneTimePrizeStoreLoc1089A {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10DiamondsInitLoc108E8 {
+    pub(crate) cleared_worker_slots: [u32; 10],
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -336,6 +342,18 @@ impl NativeRuntime {
         OneTimePrizeStoreLoc1089A {
             next_write_index,
             entries: next_entries,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_10_diamonds_init_loc_108E8() -> Prize10DiamondsInitLoc108E8 {
+        // ASM Prize10Diamonds_Init -> loc_108E8 (kid.asm:22170-22173): set
+        // `a0 = $44(a5)`, seed `d0 = #9`, then `clr.l (a0)+` under DBF to
+        // clear exactly ten longword worker slots before the per-frame loop
+        // resumes at `loc_108EE`.
+        Prize10DiamondsInitLoc108E8 {
+            cleared_worker_slots: [0; 10],
         }
     }
 
