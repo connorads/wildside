@@ -25576,6 +25576,29 @@ fn loc_11b7a_emits_one_background_row_pointer_per_background_row() {
 }
 
 #[test]
+fn loc_11b92_leaves_positive_foreground_theme_bytes_untouched() {
+    assert_eq!(
+        crate::level::decode_foreground_theme_flags_loc_11B92(0x48),
+        (0x0048, false, false),
+        "ASM loc_11B92 only runs after `bpl.s loc_11B9A` fails, so a positive byte should keep its full theme value and leave the murder wall disabled"
+    );
+}
+
+#[test]
+fn loc_11b92_enables_and_optionally_reverses_the_murder_wall_for_negative_theme_bytes() {
+    assert_eq!(
+        crate::level::decode_foreground_theme_flags_loc_11B92(0x88),
+        (0x0008, true, false),
+        "ASM loc_11B92 should mask the foreground theme down to `$3F` and enable a forward murder wall once bit 7 sends execution down the negative-byte path"
+    );
+    assert_eq!(
+        crate::level::decode_foreground_theme_flags_loc_11B92(0xC8),
+        (0x0008, true, true),
+        "ASM loc_11B92 should additionally set the reversed flag when bit 6 is present on the same negative foreground-theme byte"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {

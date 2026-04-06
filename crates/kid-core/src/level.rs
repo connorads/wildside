@@ -264,6 +264,26 @@ pub(crate) fn background_row_pointers_loc_11B7A(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decode_foreground_theme_flags_loc_11B92(
+    raw_foreground_theme_flags: u8,
+) -> (u16, bool, bool) {
+    // ASM loc_11B92 (kid.asm:23753-23755) only enters the murder-wall path
+    // after `bpl.s loc_11B9A` fails, so the sign bit gates the flag decode.
+    // Bit 6 only means "reversed" once the sign bit already enabled the wall;
+    // otherwise the positive byte flows through to `Foreground_theme` intact.
+    if raw_foreground_theme_flags & 0x80 == 0 {
+        return (u16::from(raw_foreground_theme_flags), false, false);
+    }
+
+    (
+        u16::from(raw_foreground_theme_flags & 0x3F),
+        true,
+        raw_foreground_theme_flags & 0x40 != 0,
+    )
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point
