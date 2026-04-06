@@ -25502,6 +25502,15 @@ fn loc_11ae4_keeps_300_block_layouts_on_the_small_row_pointer_buffer() {
 }
 
 #[test]
+fn loc_11aea_switches_non_hills_layouts_wider_than_300_blocks_to_the_large_buffer() {
+    assert_eq!(
+        crate::level::level_layout_row_pointer_base_loc_11AE4(LevelId(0x00), 0x012D),
+        0xFFFF_DD02,
+        "ASM loc_11AEA should keep the initial `a3=$FFFFDD02` once `bgt.s loc_11AEA` sees a non-Hills layout wider than $12C blocks"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {
