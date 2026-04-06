@@ -152,7 +152,9 @@ pub(crate) fn gfx_object_delete_loc_10C6(
     // push `a3` onto `(Addr_NextFreeGfxObjectSlot).w`, decrement
     // `Number_GfxObjects`, then fan out on `8(a3)` so kinds 1/2/3 clear the
     // Kid / KidProjectile / `$FFFFF86A` singleton pointer before the shared
-    // `loc_1106` tail.
+    // `loc_1106` tail. ASM loc_1114 (kid.asm:2082) is the predecessor relink:
+    // `move.l 4(a3),4(a0)` copies the target's successor over the predecessor's
+    // next link before the free-list push and singleton cleanup continue.
     let special_slot = match object_kind_word {
         1 => GfxObjectSpecialSlotLoc10C6::Kid,
         // ASM loc_10EA (kid.asm:2054): after the shared `subq.w #1,d0`,

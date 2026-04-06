@@ -189,6 +189,17 @@ fn gfx_object_delete_loc_10c6_splices_the_target_into_the_free_list_and_routes_k
 }
 
 #[test]
+fn gfx_object_delete_loc_1114_copies_the_targets_successor_over_the_predecessor_link() {
+    let result = gfx_object_delete_loc_10C6(Some(4), Some(7), 5, 0, 3);
+
+    assert_eq!(
+        result.predecessor_next_index,
+        Some(4),
+        "ASM loc_1114 should execute `move.l 4(a3),4(a0)`, so the predecessor keeps the target's successor link before the delete path pushes `a3` onto the free list",
+    );
+}
+
+#[test]
 fn gfx_object_delete_loc_10ea_routes_object_kind_2_to_the_kid_projectile_singleton_slot() {
     assert_eq!(
         gfx_object_delete_loc_10C6(None, Some(7), 5, 2, 3).special_slot,
