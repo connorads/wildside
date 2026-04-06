@@ -781,6 +781,13 @@ pub(crate) struct BackgroundFollowupArtDecompressLoc11EC4 {
     pub(crate) art_source: BackgroundFollowupArtSourceLoc11EC4,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundFollowupArtDecompressLoc11EF2 {
+    pub(crate) tile_base: u16,
+    pub(crate) permutation: BackgroundFollowupArtPermutationLoc11EC4,
+    pub(crate) art_source: BackgroundFollowupArtSourceLoc11EC4,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -897,6 +904,22 @@ pub(crate) fn apply_mountain_weather_override_loc_11EEA(
         }
     } else {
         selected_decompress
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn prepare_followup_background_art_decompress_loc_11EF2(
+    selected_decompress: BackgroundFollowupArtDecompressLoc11EC4,
+) -> BackgroundFollowupArtDecompressLoc11EF2 {
+    // ASM loc_11EF2 (kid.asm:24104): the shared Mountain follow-up tail
+    // reloads `d0` with `$FCA0` and immediately calls `DecompressToRAM`,
+    // preserving whichever art source and permutation `loc_11EC4/loc_11EEA`
+    // left in `a0/a3`.
+    BackgroundFollowupArtDecompressLoc11EF2 {
+        tile_base: 0xFCA0,
+        permutation: selected_decompress.permutation,
+        art_source: selected_decompress.art_source,
     }
 }
 

@@ -34,33 +34,34 @@ use crate::helmets::{
 };
 use crate::level::{
     BackgroundArtPermutationLoc11E8A, BackgroundFollowupArtDecompressLoc11EC4,
-    BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
-    BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
-    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
-    FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
-    ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
-    FullscreenPaletteFadeSub73D0, LateBackgroundPaletteOverrideLoc11E06, LinkedObjectSlotInit,
-    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
-    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
-    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
-    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
-    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
-    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
-    classify_foreground_palette_override_loc_11D8E,
+    BackgroundFollowupArtDecompressLoc11EF2, BackgroundFollowupArtPermutationLoc11EC4,
+    BackgroundFollowupArtSourceLoc11EC4, BackgroundPaletteFollowupLoc11DF8,
+    BackgroundPaletteOverrideLoc11DF4, FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
+    FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
+    ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
+    ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
+    LateBackgroundPaletteOverrideLoc11E06, LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT,
+    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
+    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
+    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
+    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
+    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
+    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
     drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
     fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
-    initialise_sprite_frame_state_sub_B52, prepare_foreground_art_decompress_loc_11E60,
-    prepare_mountain_background_art_loc_11EC4, scratch_debris_pieces_sub_292E,
-    select_background_art_permutation_loc_11E8A, select_background_art_permutation_loc_11E96,
-    select_foreground_art_permutation_loc_11E48, select_foreground_art_permutation_loc_11E54,
-    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
-    swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
+    initialise_sprite_frame_state_sub_B52, prepare_followup_background_art_decompress_loc_11EF2,
+    prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
+    scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
+    select_background_art_permutation_loc_11E96, select_foreground_art_permutation_loc_11E48,
+    select_foreground_art_permutation_loc_11E54, spawn_block_debris_sub_292E,
+    step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
+    terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -25996,6 +25997,40 @@ fn loc_11eea_switches_mountain_background_art_to_lightning_for_storm_weather() {
             art_source: BackgroundFollowupArtSourceLoc11EC4::MountainLightning,
         },
         "ASM loc_11EEA should take the same lightning-art override when `Level_Special_Effects == WeatherID_Storm_and_Hail`"
+    );
+}
+
+#[test]
+fn loc_11ef2_preserves_the_selected_followup_background_art_into_the_shared_decompress_tail() {
+    let lightning_override = BackgroundFollowupArtDecompressLoc11EC4 {
+        tile_base: 0xFCA0,
+        permutation: BackgroundFollowupArtPermutationLoc11EC4::BgMountain,
+        art_source: BackgroundFollowupArtSourceLoc11EC4::MountainLightning,
+    };
+
+    assert_eq!(
+        prepare_followup_background_art_decompress_loc_11EF2(lightning_override),
+        BackgroundFollowupArtDecompressLoc11EF2 {
+            tile_base: 0xFCA0,
+            permutation: BackgroundFollowupArtPermutationLoc11EC4::BgMountain,
+            art_source: BackgroundFollowupArtSourceLoc11EC4::MountainLightning,
+        },
+        "ASM loc_11EF2 should preserve the lightning-art override from `loc_11EEA` while reloading `d0` with the shared `$FCA0` RAM-decompress base"
+    );
+    assert_eq!(
+        prepare_followup_background_art_decompress_loc_11EF2(
+            BackgroundFollowupArtDecompressLoc11EC4 {
+                tile_base: 0xFCA0,
+                permutation: BackgroundFollowupArtPermutationLoc11EC4::Identity,
+                art_source: BackgroundFollowupArtSourceLoc11EC4::CaveAlt,
+            }
+        ),
+        BackgroundFollowupArtDecompressLoc11EF2 {
+            tile_base: 0xFCA0,
+            permutation: BackgroundFollowupArtPermutationLoc11EC4::Identity,
+            art_source: BackgroundFollowupArtSourceLoc11EC4::CaveAlt,
+        },
+        "ASM loc_11EF2 should also leave the earlier `loc_11EC4` CaveAlt selection intact when the weather branches fall through"
     );
 }
 
