@@ -754,6 +754,13 @@ pub(crate) enum ForegroundArtPermutationLoc11E48 {
     Mountain,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundArtPermutationLoc11E8A {
+    Identity,
+    Forest,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -785,6 +792,24 @@ pub(crate) fn select_foreground_art_permutation_loc_11E54(
     // `Palette_Permutation_FGMountain` when `Foreground_theme == Mountain`.
     if foreground_theme == FOREGROUND_THEME_MOUNTAIN_LOC_11E54 {
         ForegroundArtPermutationLoc11E48::Mountain
+    } else {
+        selected_permutation
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn select_background_art_permutation_loc_11E8A(
+    background_theme: u16,
+    selected_permutation: BackgroundArtPermutationLoc11E8A,
+) -> BackgroundArtPermutationLoc11E8A {
+    const BACKGROUND_THEME_FOREST_LOC_11E8A: u16 = 0x0009;
+
+    // ASM loc_11E8A (kid.asm:24069): after the shared setup seeds `a3` with
+    // `Palette_Permutation_Identity`, only `Background_theme == Forest`
+    // overrides that selection with `Palette_Permutation_BGForest`.
+    if background_theme == BACKGROUND_THEME_FOREST_LOC_11E8A {
+        BackgroundArtPermutationLoc11E8A::Forest
     } else {
         selected_permutation
     }
