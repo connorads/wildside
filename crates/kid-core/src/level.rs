@@ -1228,6 +1228,77 @@ pub(crate) fn block_type_3_hidden_block_entry_loc_124e8(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockType3HorizontalFillLoc12516 {
+    pub(crate) cell_addrs: Vec<u32>,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_3_horizontal_fill_loc_12516(
+    cell_addr: u32,
+    count: u16,
+) -> BlockType3HorizontalFillLoc12516 {
+    // ASM loc_12516 (kid.asm:24740-24743): horizontal tile fill for hidden blocks.
+    // Entered when stride field (offset 6 in entry) is 0 and priority is non-zero.
+    //   move.w #$E304,(a4)    ; write $E304 tile at cell address
+    //   addq.w #2,a4          ; advance to next horizontal cell
+    //   dbf d3,loc_12516     ; loop for count-1 iterations
+    // The dbf executes count times (counter starts at count-1, stops at -1).
+    // Each iteration writes $E304 and advances by +2 cells.
+    let iterations = usize::from(count);
+    let cell_addrs: Vec<u32> = (0..iterations)
+        .map(|i| cell_addr.wrapping_add((i as u32) * 2))
+        .collect();
+    BlockType3HorizontalFillLoc12516 { cell_addrs }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType3AdvanceEntryLoc12520 {
+    pub(crate) next_entry_offset: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_3_advance_entry_loc_12520() -> BlockType3AdvanceEntryLoc12520 {
+    // ASM loc_12520 (kid.asm:24745-24747): advance to next hidden block entry.
+    // After filling (or skipping fill when priority is non-zero), advance:
+    //   lea $10(a1),a1       ; move to next 16-byte hidden block entry
+    //   bra.s loc_124AA      ; continue parsing entries
+    // This is a control-flow label marking the end of hidden-block processing
+    // for one entry; the actual work is just advancing the pointer by $10 bytes.
+    BlockType3AdvanceEntryLoc12520 {
+        next_entry_offset: 0x10,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockType3VerticalFillLoc12526 {
+    pub(crate) cell_addrs: Vec<u32>,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_3_vertical_fill_loc_12526(
+    cell_addr: u32,
+    count: u16,
+    level_width_tiles: u16,
+) -> BlockType3VerticalFillLoc12526 {
+    // ASM loc_12526 (kid.asm:24750-24753): vertical tile fill for hidden blocks.
+    // Entered when stride field (offset 6 in entry) is non-zero and priority is non-zero.
+    //   move.w #$E304,(a4)                  ; write $E304 tile at cell address
+    //   add.w (Level_width_tiles).w,a4      ; advance by one row (level width)
+    //   dbf d3,loc_12526                    ; loop for count-1 iterations
+    // The dbf executes count times. Each iteration writes $E304 and advances
+    // by level_width_tiles cells (one full row down).
+    let iterations = usize::from(count);
+    let row_stride = u32::from(level_width_tiles);
+    let cell_addrs: Vec<u32> = (0..iterations)
+        .map(|i| cell_addr.wrapping_add((i as u32) * row_stride))
+        .collect();
+    BlockType3VerticalFillLoc12526 { cell_addrs }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(

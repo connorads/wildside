@@ -39508,3 +39508,69 @@ fn loc_124e8_builds_complete_hidden_block_entry() {
     assert_eq!(result.byte5, 0x03);
     assert_eq!(result.byte7, 0x00);
 }
+
+#[test]
+fn loc_12516_fills_horizontal_cells_with_e304_tile() {
+    // ASM loc_12516 (kid.asm:24740-24743): horizontal fill for hidden blocks.
+    // The dbf counter d3 was seeded as count-1, so count=3 means 3 iterations.
+    // Each iteration writes $E304 to cell address, then advances by +2.
+    //   move.w #$E304,(a4)    ; write tile
+    //   addq.w #2,a4         ; advance horizontally
+    //   dbf d3,loc_12516    ; loop
+    let result = crate::level::block_type_3_horizontal_fill_loc_12516(0xA000, 3);
+    assert_eq!(
+        result.cell_addrs,
+        vec![0xA000, 0xA002, 0xA004],
+        "ASM loc_12516: count=3 should write 3 cells at +0, +2, +4 offsets"
+    );
+}
+
+#[test]
+fn loc_12516_single_iteration_writes_one_cell() {
+    // When count=1, dd counter started at 0, dbf executes once.
+    let result = crate::level::block_type_3_horizontal_fill_loc_12516(0xB000, 1);
+    assert_eq!(
+        result.cell_addrs,
+        vec![0xB000],
+        "ASM loc_12516: count=1 should write exactly one cell"
+    );
+}
+
+#[test]
+fn loc_12520_advances_to_next_hidden_block_entry() {
+    // ASM loc_12520 (kid.asm:24745-24747): entry advancement after tile fill.
+    //   lea $10(a1),a1      ; advance by 16 bytes (size of one hidden block entry)
+    //   bra.s loc_124AA      ; return to entry parsing loop
+    let result = crate::level::block_type_3_advance_entry_loc_12520();
+    assert_eq!(
+        result.next_entry_offset, 0x10,
+        "ASM loc_12520: should advance by 16 bytes (size of hidden block entry)"
+    );
+}
+
+#[test]
+fn loc_12526_fills_vertical_cells_with_e304_tile() {
+    // ASM loc_12526 (kid.asm:24750-24753): vertical fill for hidden blocks.
+    // When stride field is non-zero, fill proceeds by row instead of column.
+    //   move.w #$E304,(a4)                 ; write tile
+    //   add.w (Level_width_tiles).w,a4    ; advance by one full row
+    //   dbf d3,loc_12526                   ; loop
+    // With level_width_tiles=64 and count=3, cells are at +0, +64, +128 cells.
+    let result = crate::level::block_type_3_vertical_fill_loc_12526(0xC000, 3, 64);
+    assert_eq!(
+        result.cell_addrs,
+        vec![0xC000, 0xC040, 0xC080],
+        "ASM loc_12526: level_width=64, count=3 should write at +0, +64, +128 cells"
+    );
+}
+
+#[test]
+fn loc_12526_single_iteration_writes_one_cell() {
+    // When count=1, dbf executes once, writing one cell.
+    let result = crate::level::block_type_3_vertical_fill_loc_12526(0xD000, 1, 80);
+    assert_eq!(
+        result.cell_addrs,
+        vec![0xD000],
+        "ASM loc_12526: count=1 should write exactly one cell"
+    );
+}
