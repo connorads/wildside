@@ -25511,6 +25511,15 @@ fn loc_11aea_switches_non_hills_layouts_wider_than_300_blocks_to_the_large_buffe
 }
 
 #[test]
+fn loc_11afe_emits_one_level_layout_pointer_per_block_row() {
+    assert_eq!(
+        crate::level::level_layout_row_pointers_loc_11AFE(3, 0x0020),
+        vec![0xA652, 0xA672, 0xA692],
+        "ASM loc_11AFE should write `Level_Layout`, then advance `a2` by `Level_width_tiles` after each emitted row pointer"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {

@@ -44,6 +44,7 @@ const SHOOTER_OBJECT_SLOT_COUNT_SUB_F06A: usize = 20;
 const HILLS_OF_THE_WARRIOR_1_LEVEL_ID_LOC_11AE4: u8 = 0x08;
 const LEVEL_LAYOUT_ROW_POINTER_BASE_SMALL_LOC_11AE4: u32 = 0xFFFF_9E32;
 const LEVEL_LAYOUT_ROW_POINTER_BASE_LARGE_LOC_11AEA: u32 = 0xFFFF_DD02;
+const LEVEL_LAYOUT_RAM_BASE_LOC_11AFE: u16 = 0xA652;
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -154,6 +155,25 @@ pub(crate) fn level_layout_row_pointer_base_loc_11AE4(level_id: LevelId, width_b
     } else {
         LEVEL_LAYOUT_ROW_POINTER_BASE_LARGE_LOC_11AEA
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn level_layout_row_pointers_loc_11AFE(
+    level_height_blocks: u16,
+    level_width_tiles: u16,
+) -> Vec<u16> {
+    // ASM loc_11AFE (kid.asm:23696-23699) seeds `a2` with `Level_Layout`, then
+    // emits one row-start pointer word per block row into `$FFFF4A04+`.
+    // Because the ROM uses `move.w a2,(a1)+` and `add.w Level_width_tiles,a2`,
+    // preserve the low-word RAM arithmetic rather than widening to a host index.
+    let mut row_pointer = LEVEL_LAYOUT_RAM_BASE_LOC_11AFE;
+    let mut row_pointers = Vec::with_capacity(usize::from(level_height_blocks));
+    for _ in 0..level_height_blocks {
+        row_pointers.push(row_pointer);
+        row_pointer = row_pointer.wrapping_add(level_width_tiles);
+    }
+    row_pointers
 }
 
 #[allow(non_snake_case)]
