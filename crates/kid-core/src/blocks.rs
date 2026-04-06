@@ -1359,5 +1359,10 @@ impl NativeRuntime {
             e.remaining = e.remaining.saturating_sub(1);
         }
         self.enemy_death_effects.retain(|e| e.remaining > 0);
+
+        // ASM loc_10434 (kid.asm:21683) is the `bra.s loc_10434` padding trap
+        // immediately after the `OneTimePrize_CheckCollected` function chunk.
+        // Native falls back to ordinary Rust control flow here and deliberately
+        // does not model the unreachable self-loop.
     }
 }

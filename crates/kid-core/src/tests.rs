@@ -33471,6 +33471,18 @@ fn floating_item_loc_10430_deletes_items_once_they_reach_level_height() {
     );
 }
 
+#[test]
+fn floating_item_step_returns_past_the_unreachable_loc_10434_padding_loop() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.step_visual_effects();
+
+    assert!(rt.floating_items.is_empty());
+    assert!(
+        rt.block_bounces.is_empty() && rt.block_destroy_effects.is_empty(),
+        "ASM loc_10434 is only the unreachable self-loop padding after `OneTimePrize_CheckCollected`, so native `step_visual_effects` should return to the caller instead of emulating that trap",
+    );
+}
+
 // --- Projectile subsystem mutation tests ---
 
 fn make_projectile(x: u16, y: u16) -> EnemyProjectile {
