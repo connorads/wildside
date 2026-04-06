@@ -851,6 +851,16 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn evanescent_block_reveal_alt_branch_iterations_loc_11196() -> u16 {
+        // ASM loc_11196 (kid.asm:23090): when `$4C(a5)` is non-zero, the
+        // alternate branch reloads `d0` with `#3` immediately before
+        // `loc_11198`, so the inclusive `dbf` loop still runs four hibernated
+        // frames before the later rebound.
+        4
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn evanescent_block_reveal_descent_y_deltas_loc_1117A() -> &'static [i16; 4] {
         // ASM loc_1117A (kid.asm:23077): when `$4C(a5)` is zero, `moveq #3,d0`
         // drives an inclusive `dbf` loop, so the worker spends four hibernated

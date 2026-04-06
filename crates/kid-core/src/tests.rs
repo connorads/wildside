@@ -6835,6 +6835,16 @@ fn deleted_tile_wobble_y_deltas_loc_1026e_use_five_hibernated_rise_frames() {
 }
 
 #[test]
+fn evanescent_block_reveal_alt_branch_iterations_loc_11196_use_four_inclusive_dbf_steps() {
+    let iterations = NativeRuntime::evanescent_block_reveal_alt_branch_iterations_loc_11196();
+
+    assert_eq!(
+        iterations, 4,
+        "ASM loc_11196 should reload `d0` with `#3`, so the following inclusive `dbf` loop still executes four hibernated frames",
+    );
+}
+
+#[test]
 fn evanescent_block_reveal_descent_y_deltas_loc_1117a_use_four_hibernated_fall_frames() {
     let deltas = NativeRuntime::evanescent_block_reveal_descent_y_deltas_loc_1117A();
 
