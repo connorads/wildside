@@ -121,6 +121,26 @@ pub(crate) struct Prize10DiamondsInitLoc108E8 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10DiamondsSpawnLoc108EE {
+    pub(crate) should_hibernate_one_frame: bool,
+    pub(crate) should_scan_workers: bool,
+    pub(crate) should_spawn_worker: bool,
+    pub(crate) burst_table_index: Option<u8>,
+    pub(crate) allocation_spec: Option<u32>,
+    pub(crate) sound_effect_label: Option<&'static str>,
+    pub(crate) priority: Option<u8>,
+    pub(crate) display_enabled: Option<bool>,
+    pub(crate) animation_script_label: Option<&'static str>,
+    pub(crate) x_pos: Option<u16>,
+    pub(crate) y_pos: Option<u16>,
+    pub(crate) x_velocity: Option<i32>,
+    pub(crate) y_velocity: Option<i32>,
+    pub(crate) is_moved: Option<bool>,
+    pub(crate) lifetime_frames: Option<u16>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -354,6 +374,97 @@ impl NativeRuntime {
         // resumes at `loc_108EE`.
         Prize10DiamondsInitLoc108E8 {
             cleared_worker_slots: [0; 10],
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_10_diamonds_spawn_loc_108EE(
+        frame_index: u16,
+        spawn_x_pos: u16,
+        spawn_y_pos: u16,
+    ) -> Prize10DiamondsSpawnLoc108EE {
+        // ASM loc_108EE (kid.asm:22174-22207): hibernate one frame, and for
+        // the first `$1E` frames use `byte_108AC` to decide whether this
+        // frame allocates a burst worker. Non-negative entries become an
+        // index into `unk_10A52`, the worker copies the cached owner
+        // position, plays `sfx_Diamond_prize`, starts with timer `$78`, and
+        // seeds FP16.16 velocity as `(word << 16) >> 3`.
+        const BURST_FRAME_TABLE: [i8; 0x1E] = [
+            0, 1, 2, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, 4, 5, 6, 7, 8, 9,
+        ];
+        const BURST_VELOCITIES: [(i16, i16); 10] = [
+            (-20, -36),
+            (-20, -27),
+            (-20, -18),
+            (-20, -9),
+            (6, -36),
+            (-4, -28),
+            (16, -28),
+            (-4, -16),
+            (16, -16),
+            (6, -8),
+        ];
+
+        let Some(&burst_table_index) = BURST_FRAME_TABLE.get(usize::from(frame_index)) else {
+            return Prize10DiamondsSpawnLoc108EE {
+                should_hibernate_one_frame: true,
+                should_scan_workers: true,
+                should_spawn_worker: false,
+                burst_table_index: None,
+                allocation_spec: None,
+                sound_effect_label: None,
+                priority: None,
+                display_enabled: None,
+                animation_script_label: None,
+                x_pos: None,
+                y_pos: None,
+                x_velocity: None,
+                y_velocity: None,
+                is_moved: None,
+                lifetime_frames: None,
+            };
+        };
+
+        if burst_table_index < 0 {
+            return Prize10DiamondsSpawnLoc108EE {
+                should_hibernate_one_frame: true,
+                should_scan_workers: true,
+                should_spawn_worker: false,
+                burst_table_index: None,
+                allocation_spec: None,
+                sound_effect_label: None,
+                priority: None,
+                display_enabled: None,
+                animation_script_label: None,
+                x_pos: None,
+                y_pos: None,
+                x_velocity: None,
+                y_velocity: None,
+                is_moved: None,
+                lifetime_frames: None,
+            };
+        }
+
+        let burst_table_index = burst_table_index as u8;
+        let (x_velocity_word, y_velocity_word) = BURST_VELOCITIES[usize::from(burst_table_index)];
+        Prize10DiamondsSpawnLoc108EE {
+            should_hibernate_one_frame: true,
+            should_scan_workers: true,
+            should_spawn_worker: true,
+            burst_table_index: Some(burst_table_index),
+            allocation_spec: Some(0x00FE_0000),
+            sound_effect_label: Some("sfx_Diamond_prize"),
+            priority: Some(1),
+            display_enabled: Some(true),
+            animation_script_label: Some("LnkTo_unk_E1046-Data_Index"),
+            x_pos: Some(spawn_x_pos),
+            y_pos: Some(spawn_y_pos),
+            x_velocity: Some(i32::from(x_velocity_word) << 13),
+            y_velocity: Some(i32::from(y_velocity_word) << 13),
+            is_moved: Some(true),
+            lifetime_frames: Some(0x0078),
         }
     }
 

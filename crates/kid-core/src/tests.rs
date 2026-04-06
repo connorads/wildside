@@ -2,8 +2,9 @@ use super::*;
 use crate::blocks::{
     OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A,
     OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8,
-    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
-    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    Prize10DiamondsSpawnLoc108EE, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
+    PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
+    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -7925,6 +7926,81 @@ fn prize_10_diamonds_init_loc_108e8_clears_all_ten_worker_slots() {
             cleared_worker_slots: [0; 10],
         },
         "ASM loc_108E8 should clear exactly ten longwords at `$44(a5)` before the burst loop starts",
+    );
+}
+
+#[test]
+fn prize_10_diamonds_spawn_loc_108ee_spawns_the_first_worker_with_table_velocity() {
+    assert_eq!(
+        NativeRuntime::prize_10_diamonds_spawn_loc_108EE(0, 0x1234, 0x5678),
+        Prize10DiamondsSpawnLoc108EE {
+            should_hibernate_one_frame: true,
+            should_scan_workers: true,
+            should_spawn_worker: true,
+            burst_table_index: Some(0),
+            allocation_spec: Some(0x00FE_0000),
+            sound_effect_label: Some("sfx_Diamond_prize"),
+            priority: Some(1),
+            display_enabled: Some(true),
+            animation_script_label: Some("LnkTo_unk_E1046-Data_Index"),
+            x_pos: Some(0x1234),
+            y_pos: Some(0x5678),
+            x_velocity: Some(-163_840),
+            y_velocity: Some(-294_912),
+            is_moved: Some(true),
+            lifetime_frames: Some(0x0078),
+        },
+        "ASM loc_108EE should spawn frame 0 using `byte_108AC[0]`, copy the cached owner position, and derive FP16.16 velocity from `unk_10A52[0]`",
+    );
+}
+
+#[test]
+fn prize_10_diamonds_spawn_loc_108ee_skips_sparse_frames_and_scans_workers_only() {
+    assert_eq!(
+        NativeRuntime::prize_10_diamonds_spawn_loc_108EE(4, 0x1234, 0x5678),
+        Prize10DiamondsSpawnLoc108EE {
+            should_hibernate_one_frame: true,
+            should_scan_workers: true,
+            should_spawn_worker: false,
+            burst_table_index: None,
+            allocation_spec: None,
+            sound_effect_label: None,
+            priority: None,
+            display_enabled: None,
+            animation_script_label: None,
+            x_pos: None,
+            y_pos: None,
+            x_velocity: None,
+            y_velocity: None,
+            is_moved: None,
+            lifetime_frames: None,
+        },
+        "ASM loc_108EE should branch straight to the worker scan when `byte_108AC[d3]` is negative",
+    );
+}
+
+#[test]
+fn prize_10_diamonds_spawn_loc_108ee_stops_spawning_after_thirty_frames() {
+    assert_eq!(
+        NativeRuntime::prize_10_diamonds_spawn_loc_108EE(0x001E, 0x1234, 0x5678),
+        Prize10DiamondsSpawnLoc108EE {
+            should_hibernate_one_frame: true,
+            should_scan_workers: true,
+            should_spawn_worker: false,
+            burst_table_index: None,
+            allocation_spec: None,
+            sound_effect_label: None,
+            priority: None,
+            display_enabled: None,
+            animation_script_label: None,
+            x_pos: None,
+            y_pos: None,
+            x_velocity: None,
+            y_velocity: None,
+            is_moved: None,
+            lifetime_frames: None,
+        },
+        "ASM loc_108EE should stop consulting `byte_108AC` once `d3` reaches `$1E` and fall through to the worker scan only",
     );
 }
 
