@@ -773,6 +773,24 @@ pub(crate) fn select_foreground_art_permutation_loc_11E48(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn select_foreground_art_permutation_loc_11E54(
+    foreground_theme: u16,
+    selected_permutation: ForegroundArtPermutationLoc11E48,
+) -> ForegroundArtPermutationLoc11E48 {
+    const FOREGROUND_THEME_MOUNTAIN_LOC_11E54: u16 = 0x0007;
+
+    // ASM loc_11E54 (kid.asm:24051): after the earlier City/Forest checks have
+    // already selected `a3`, this compare only replaces that permutation with
+    // `Palette_Permutation_FGMountain` when `Foreground_theme == Mountain`.
+    if foreground_theme == FOREGROUND_THEME_MOUNTAIN_LOC_11E54 {
+        ForegroundArtPermutationLoc11E48::Mountain
+    } else {
+        selected_permutation
+    }
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point

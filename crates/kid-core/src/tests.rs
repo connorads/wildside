@@ -53,9 +53,9 @@ use crate::level::{
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
-    select_foreground_art_permutation_loc_11E48, spawn_block_debris_sub_292E,
-    step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
-    terrain_layout_row_pointers_loc_11B40,
+    select_foreground_art_permutation_loc_11E48, select_foreground_art_permutation_loc_11E54,
+    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
+    swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -25829,6 +25829,23 @@ fn loc_11e48_only_overrides_the_existing_foreground_permutation_for_forest() {
         select_foreground_art_permutation_loc_11E48(0x000A, ForegroundArtPermutationLoc11E48::City),
         ForegroundArtPermutationLoc11E48::City,
         "ASM loc_11E48 should fall through to `loc_11E54` without disturbing the earlier City permutation when the Forest compare fails"
+    );
+}
+
+#[test]
+fn loc_11e54_only_overrides_the_existing_foreground_permutation_for_mountain() {
+    assert_eq!(
+        select_foreground_art_permutation_loc_11E54(0x0007, ForegroundArtPermutationLoc11E48::City),
+        ForegroundArtPermutationLoc11E48::Mountain,
+        "ASM loc_11E54 should replace the current permutation with `Palette_Permutation_FGMountain` when `Foreground_theme == Mountain`"
+    );
+    assert_eq!(
+        select_foreground_art_permutation_loc_11E54(
+            0x0009,
+            ForegroundArtPermutationLoc11E48::Forest
+        ),
+        ForegroundArtPermutationLoc11E48::Forest,
+        "ASM loc_11E54 should fall through to `loc_11E60` without disturbing the earlier Forest permutation when the Mountain compare fails"
     );
 }
 
