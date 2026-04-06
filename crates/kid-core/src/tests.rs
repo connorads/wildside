@@ -33436,6 +33436,38 @@ fn metal_block_push_scan_right_loc_11208_aborts_on_in_bounds_solid_non_metal() {
 }
 
 #[test]
+fn metal_block_push_scan_left_loc_11230_stops_on_the_last_contiguous_metal_block() {
+    let row = [
+        terrain::Cell::from_be_bytes(0x00, 0x00),
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+    ];
+
+    assert_eq!(
+        NativeRuntime::metal_block_push_scan_left_loc_11230(&row, 3),
+        Some(1),
+        "ASM loc_11230 should keep retreating across contiguous solid metal blocks and, via `loc_1125A`, select the last matching block before the first non-solid cell",
+    );
+}
+
+#[test]
+fn metal_block_push_scan_left_loc_11230_aborts_when_the_chain_runs_into_column_zero() {
+    let row = [
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+    ];
+
+    assert_eq!(
+        NativeRuntime::metal_block_push_scan_left_loc_11230(&row, 3),
+        None,
+        "ASM loc_11230 should jump to `loc_11296` once the contiguous metal run reaches column zero, because the left scan refuses to sample past the level edge",
+    );
+}
+
+#[test]
 fn metal_block_effect_sprite_pos_loc_1110e_scales_tile_words_into_pixels() {
     assert_eq!(
         NativeRuntime::metal_block_effect_sprite_pos_loc_1110E(5, 3),
