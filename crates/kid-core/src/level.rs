@@ -829,6 +829,133 @@ pub(crate) fn block_type_1_cell_value_loc_12408(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1RowByRowValueLoc12454 {
+    pub(crate) cell_addr: u32,
+    pub(crate) property_word: u16,
+    pub(crate) block_type: i16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1_row_by_row_read_property_loc_12454(
+    cell_addr: u32,
+    property_word: u16,
+    block_type: i16,
+) -> BlockType1RowByRowValueLoc12454 {
+    // ASM loc_12454 (kid.asm:24643-24651): row-by-row placement entry for block type 1.
+    // After stride word was non-zero at loc_123EC, this reads property word:
+    //   move.w (a1)+,d5      ; load property word
+    //   bsr.w nullsub_1      ; no-op
+    //   tst.w d0             ; test block_type
+    //   bmi.s loc_1246E      ; branch to hidden block handler if negative
+    //   tst.w d5             ; test property word
+    //   bmi.s loc_12468      ; branch to $E101 cell if bit 15 set
+    //   move.w #$E102,(a4)   ; write $E102 (visible prize)
+    //   bra.s loc_12480      ; continue to finalization
+    // Dispatch based on block_type and property_word flags.
+    BlockType1RowByRowValueLoc12454 {
+        cell_addr,
+        property_word,
+        block_type,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1DisguisedLoc12468 {
+    pub(crate) cell_addr: u32,
+    pub(crate) cell_word: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1_row_by_row_disguised_cell_loc_12468(
+    cell_addr: u32,
+) -> BlockType1DisguisedLoc12468 {
+    // ASM loc_12468 (kid.asm:24654-24656): write $E101 cell for row-by-row
+    // placement with disguised/hidden property flag:
+    //   move.w #$E101,(a4)   ; write disguised prize tile
+    //   bra.s loc_12480      ; continue to finalization
+    // Called when property_word has bit 15 set and block_type is non-negative.
+    // The $E101 tile is a disguised prize block with the high bit set.
+    BlockType1DisguisedLoc12468 {
+        cell_addr,
+        cell_word: 0xE101,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1HiddenLoc1246E {
+    pub(crate) cell_addr: u32,
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+    pub(crate) block_type: i16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1_row_by_row_hidden_loc_1246E(
+    cell_addr: u32,
+    x_pos: u16,
+    y_row: u16,
+    hidden_block_type: i16,
+) -> BlockType1HiddenLoc1246E {
+    // ASM loc_1246E (kid.asm:24659-24666): hidden block handling for row-by-row.
+    // Called when block_type is negative (hidden block detected):
+    //   bsr.w sub_127A8      ; allocate hidden-block entry
+    //   bsr.w sub_127CE      ; set up hidden-block data
+    //   move.w a4,(a2)+      ; store cell address
+    //   move.w d1,(a2)+      ; store X position
+    //   move.w d2,(a2)+      ; store Y row
+    //   move.b d0,(a2)+      ; store block_type (negative byte)
+    //   clr.b (a2)+          ; zero padding byte
+    // After this, falls through to loc_12480 to finalize the placement.
+    // The hidden-block list entry is 8 bytes: cell_addr(2) + x(2) + y(2) + type(1) + pad(1).
+    BlockType1HiddenLoc1246E {
+        cell_addr,
+        x_pos,
+        y_row,
+        block_type: hidden_block_type,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1FinalizeLoc12480 {
+    pub(crate) next_cell_addr: u32,
+    pub(crate) next_list_index: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1_row_by_row_finalize_loc_12480(
+    cell_addr: u32,
+    list_index: u16,
+    level_width_tiles: u16,
+) -> BlockType1FinalizeLoc12480 {
+    // ASM loc_12480 (kid.asm:24668-24679): finalize row-by-row placement.
+    // After writing cell (or queuing hidden block), update the block list:
+    //   move.l ($FFFFF8D4).w,a5    ; load block list base
+    //   move.w ($FFFFF8D2).w,d6    ; load block list count
+    //   lsl.w #3,d6              ; count * 8 (8 bytes per entry)
+    //   add.w d6,a5              ; a5 = base + count*8
+    //   move.w a4,(a5)+          ; store cell address
+    //   move.w d1,(a5)+          ; store X position
+    //   move.w d2,(a5)+          ; store Y row
+    //   move.w d5,(a5)+          ; store property word
+    //   addq.w #1,($FFFFF8D2).w  ; increment block list count
+    //   add.w (Level_width_tiles).w,a4  ; advance cell to next row
+    //   dbf d3,loc_12454         ; loop for remaining rows
+    //   bra.w loc_123E6          ; continue layout processing
+    // This both records the placement in the block/hidden list and advances
+    // the cell address by one full row for the next iteration.
+    let next_cell_addr = cell_addr.wrapping_add(u32::from(level_width_tiles) * 2);
+    let next_list_index = list_index.wrapping_add(1);
+    BlockType1FinalizeLoc12480 {
+        next_cell_addr,
+        next_list_index,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_copy_setup_loc_11C96(

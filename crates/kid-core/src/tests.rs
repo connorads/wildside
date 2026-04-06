@@ -39251,3 +39251,99 @@ fn loc_124_08_determines_prize_block_cell_value() {
         "ASM loc_12408: hidden block type should use $E101",
     );
 }
+
+#[test]
+fn loc_12454_reads_property_word_for_row_by_row() {
+    // ASM loc_12454 (kid.asm:24643-24651): row-by-row entry reads property word
+    // and dispatches based on block_type and property flags:
+    //   move.w (a1)+,d5       ; load property word
+    //   bsr.w nullsub_1       ; no-op
+    //   tst.w d0              ; test block_type
+    //   bmi.s loc_1246E       ; hidden if negative
+    //   tst.w d5              ; test property word
+    //   bmi.s loc_12468       ; disguised if bit 15 set
+    //   move.w #$E102,(a4)    ; visible prize
+    // This function captures the dispatch parameters; callers handle the branches.
+    let result = crate::level::block_type_1_row_by_row_read_property_loc_12454(
+        0xA000, // cell address
+        0x0000, // property word (no flags)
+        1,      // block type (positive = non-hidden)
+    );
+    assert_eq!(result.cell_addr, 0xA000);
+    assert_eq!(result.property_word, 0x0000);
+    assert_eq!(result.block_type, 1);
+}
+
+#[test]
+fn loc_12468_writes_disguised_prize_cell() {
+    // ASM loc_12468 (kid.asm:24654-24656): writes $E101 cell for row-by-row placement
+    // when property word has bit 15 set (disguised prize block):
+    //   move.w #$E101,(a4)    ; write disguised prize tile
+    //   bra.s loc_12480       ; continue to finalization
+    // The $E101 tile has bit 15 set, marking it as disguised/hidden in the level.
+    let result = crate::level::block_type_1_row_by_row_disguised_cell_loc_12468(0xA042);
+    assert_eq!(
+        result.cell_addr, 0xA042,
+        "ASM loc_12468 should preserve cell address",
+    );
+    assert_eq!(
+        result.cell_word, 0xE101,
+        "ASM loc_12468: disguised prize should use $E101 tile",
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn loc_1246E_queues_hidden_block_for_row_by_row() {
+    // ASM loc_1246E (kid.asm:24659-24666): hidden block handling for row-by-row placement.
+    // When block_type is negative (hidden block), this queues an entry:
+    //   bsr.w sub_127A8       ; allocate hidden-block entry
+    //   bsr.w sub_127CE       ; set up hidden-block data
+    //   move.w a4,(a2)+       ; store cell address
+    //   move.w d1,(a2)+       ; store X position
+    //   move.w d2,(a2)+       ; store Y row
+    //   move.b d0,(a2)+       ; store block_type (negative byte)
+    //   clr.b (a2)+           ; zero padding
+    // The entry is 8 bytes: cell_addr(2) + x(2) + y(2) + type(1) + pad(1).
+    let result = crate::level::block_type_1_row_by_row_hidden_loc_1246E(
+        0xA042, // cell address
+        0x0010, // X position
+        0x0005, // Y row
+        -1,     // hidden block type
+    );
+    assert_eq!(result.cell_addr, 0xA042);
+    assert_eq!(result.x_pos, 0x0010);
+    assert_eq!(result.y_row, 0x0005);
+    assert_eq!(result.block_type, -1);
+}
+
+#[test]
+fn loc_12480_finalizes_row_by_row_and_advances() {
+    // ASM loc_12480 (kid.asm:24668-24679): finalize row-by-row placement.
+    // Updates block list and advances cell address for next row:
+    //   move.l ($FFFFF8D4).w,a5       ; load block list base
+    //   move.w ($FFFFF8D2).w,d6       ; load count
+    //   lsl.w #3,d6                  ; count * 8
+    //   add.w d6,a5                  ; point to next entry slot
+    //   move.w a4,(a5)+              ; store cell address
+    //   move.w d1,(a5)+              ; store X position
+    //   move.w d2,(a5)+              ; store Y row
+    //   move.w d5,(a5)+              ; store property word
+    //   addq.w #1,($FFFFF8D2).w       ; increment count
+    //   add.w (Level_width_tiles).w,a4 ; advance cell by one row
+    //   dbf d3,loc_12454              ; loop remaining rows
+    // After this, cell_addr advances by level_width_tiles * 2 bytes.
+    let result = crate::level::block_type_1_row_by_row_finalize_loc_12480(
+        0xA000, // cell address
+        5,      // list index (0 = first entry)
+        64,     // level width in tiles
+    );
+    assert_eq!(
+        result.next_cell_addr, 0xA080,
+        "ASM loc_12480: cell advances by level_width_tiles * 2 = 64 * 2 = 128 = 0x80",
+    );
+    assert_eq!(
+        result.next_list_index, 6,
+        "ASM loc_12480: list index increments by 1",
+    );
+}
