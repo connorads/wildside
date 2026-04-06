@@ -40829,3 +40829,112 @@ fn loc_1286_subtracts_y_offset_for_maniaxe_axe_sprite_frame() {
         "ASM loc_1286: non-matching sprite offset skips the y adjustment (loc_1292)"
     );
 }
+
+#[test]
+fn loc_12910_loads_mountain_background_tileset() {
+    // ASM loc_12910 (kid.asm:25274-25291): Mountain theme background tileset load.
+    //   move.w  #$2780,d0           ; pattern VRAM offset
+    //   move.l  (a3)+,a0            ; load first art pointer
+    //   lea     ($FFFF87B2).w,a1    ; dest: VRAM buffer 1
+    //   bsr.w   EniDec
+    //   move.l  (a3)+,a0            ; load second art pointer
+    //   lea     ($FFFF8EB2).w,a1    ; dest: VRAM buffer 2
+    //   bsr.w   EniDec
+    //   move.l  (a3)+,a0            ; load third art pointer
+    //   lea     ($FFFF95B2).w,a1    ; dest: VRAM buffer 3
+    //   bsr.w   EniDec
+    //   cmpi.w  #2,(Level_Special_Effects).w
+    //   beq.s   loc_1294A           ; hail path for storm
+    //   cmpi.w  #3,(Level_Special_Effects).w
+    //   beq.s   loc_1294A           ; hail path for storm+hail
+    //   move.w  #$7E5,d0           ; non-storm 4th pattern
+    //   move.l  (a3)+,a0
+    //   bra.s   loc_12952
+
+    // Clear weather: no hail overlay needed
+    let result_clear = crate::level::background_mountain_tileset_loc_12910(0);
+    assert_eq!(
+        result_clear.pattern_vram_offset, 0x2780,
+        "ASM loc_12910: should use pattern $2780 for mountain bg"
+    );
+    assert_eq!(
+        result_clear.vram_buffer1_addr, 0xFFFF_87B2,
+        "ASM loc_12910: should target VRAM buffer 1 at $FFFF87B2"
+    );
+    assert_eq!(
+        result_clear.vram_buffer2_addr, 0xFFFF_8EB2,
+        "ASM loc_12910: should target VRAM buffer 2 at $FFFF8EB2"
+    );
+    assert_eq!(
+        result_clear.vram_buffer3_addr, 0xFFFF_95B2,
+        "ASM loc_12910: should target VRAM buffer 3 at $FFFF95B2"
+    );
+    assert!(
+        !result_clear.needs_hail_overlay_at_1294_a,
+        "ASM loc_12910: clear weather should not need hail overlay (falls through to $7E5 load)"
+    );
+
+    // Storm weather: hail overlay needed
+    let result_storm = crate::level::background_mountain_tileset_loc_12910(2);
+    assert!(
+        result_storm.needs_hail_overlay_at_1294_a,
+        "ASM loc_12910: storm (Level_Special_Effects=2) should set hail overlay flag"
+    );
+
+    // Storm+hail: hail overlay needed
+    let result_storm_hail = crate::level::background_mountain_tileset_loc_12910(3);
+    assert!(
+        result_storm_hail.needs_hail_overlay_at_1294_a,
+        "ASM loc_12910: storm+hail (Level_Special_Effects=3) should set hail overlay flag"
+    );
+}
+
+#[test]
+fn loc_1294_a_loads_hail_overlay_pattern() {
+    // ASM loc_1294A (kid.asm:25294-25296): Hail overlay for stormy mountain.
+    //   loc_1294A:	; hailstorm
+    //   move.w  #$27E5,d0           ; hail pattern VRAM offset
+    //   move.l  4(a3),a0           ; skip pointer, load from offset +4
+    // Falls through to loc_12952.
+
+    let result = crate::level::background_hail_overlay_loc_1294A();
+    assert_eq!(
+        result.pattern_vram_offset, 0x27E5,
+        "ASM loc_1294A: should use hail pattern offset $27E5 (not $7E5)"
+    );
+    assert_eq!(
+        result.vram_buffer4_addr, 0xFFFF_98F2,
+        "ASM loc_1294A: should target VRAM buffer 4 at $FFFF98F2 (via loc_12952)"
+    );
+}
+
+#[test]
+fn loc_12952_loads_final_pattern_to_vram() {
+    // ASM loc_12952 (kid.asm:25298-25301): Final pattern decompress.
+    //   lea     ($FFFF98F2).w,a1    ; dest: VRAM buffer 4
+    //   bsr.w   EniDec              ; decompress
+    //   move.l  (sp)+,a0            ; restore return address
+    //   rts
+
+    // Non-storm path: pattern $7E5 passed from loc_12910
+    let result_clear = crate::level::background_final_pattern_loc_12952(0x07E5);
+    assert_eq!(
+        result_clear.pattern_vram_offset, 0x07E5,
+        "ASM loc_12952: should preserve non-storm pattern offset $7E5"
+    );
+    assert_eq!(
+        result_clear.vram_buffer4_addr, 0xFFFF_98F2,
+        "ASM loc_12952: should target VRAM buffer 4 at $FFFF98F2"
+    );
+
+    // Storm path: pattern $27E5 passed from loc_1294A
+    let result_storm = crate::level::background_final_pattern_loc_12952(0x27E5);
+    assert_eq!(
+        result_storm.pattern_vram_offset, 0x27E5,
+        "ASM loc_12952: should preserve storm pattern offset $27E5"
+    );
+    assert_eq!(
+        result_storm.vram_buffer4_addr, 0xFFFF_98F2,
+        "ASM loc_12952: should target VRAM buffer 4 at $FFFF98F2 for both paths"
+    );
+}

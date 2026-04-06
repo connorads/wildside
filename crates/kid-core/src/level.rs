@@ -2478,6 +2478,106 @@ pub(crate) fn background_chunk_row_loop_loc_12884(
     BackgroundChunkCopyLoc12884 { tiles_copied }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundMountainLoadLoc12910 {
+    pub(crate) pattern_vram_offset: u16,
+    pub(crate) vram_buffer1_addr: u32,
+    pub(crate) vram_buffer2_addr: u32,
+    pub(crate) vram_buffer3_addr: u32,
+    pub(crate) needs_hail_overlay_at_1294_a: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundHailOverlayLoc1294A {
+    pub(crate) pattern_vram_offset: u16,
+    pub(crate) vram_buffer4_addr: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundFinalPatternLoc12952 {
+    pub(crate) pattern_vram_offset: u16,
+    pub(crate) vram_buffer4_addr: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_mountain_tileset_loc_12910(
+    level_special_effects: u16,
+) -> BackgroundMountainLoadLoc12910 {
+    // ASM loc_12910 (kid.asm:25274-25291): Mountain theme background tileset load.
+    //   loc_12910:	; mountain
+    //   move.w  #$2780,d0           ; pattern VRAM offset for mountain bg
+    //   move.l  (a3)+,a0            ; load first art pointer
+    //   lea     ($FFFF87B2).w,a1    ; dest: VRAM buffer 1 ($87B2)
+    //   bsr.w   EniDec              ; decompress
+    //   move.l  (a3)+,a0            ; load second art pointer
+    //   lea     ($FFFF8EB2).w,a1    ; dest: VRAM buffer 2 ($8EB2)
+    //   bsr.w   EniDec              ; decompress
+    //   move.l  (a3)+,a0            ; load third art pointer
+    //   lea     ($FFFF95B2).w,a1    ; dest: VRAM buffer 3 ($95B2)
+    //   bsr.w   EniDec              ; decompress
+    //   cmpi.w  #2,(Level_Special_Effects).w  ; stormy weather?
+    //   beq.s   loc_1294A           ; hail overlay path
+    //   cmpi.w  #3,(Level_Special_Effects).w  ; storm + hail?
+    //   beq.s   loc_1294A           ; hail overlay path
+    //   move.w  #$7E5,d0           ; non-storm 4th pattern
+    //   move.l  (a3)+,a0            ; load 4th art pointer
+    //   bra.s   loc_12952           ; final load
+    const BACKGROUND_THEME_MOUNTAIN_PATTERN_LOC_12910: u16 = 0x2780;
+    const VRAM_BUFFER_1_ADDR: u32 = 0xFFFF_87B2;
+    const VRAM_BUFFER_2_ADDR: u32 = 0xFFFF_8EB2;
+    const VRAM_BUFFER_3_ADDR: u32 = 0xFFFF_95B2;
+    const WEATHER_ID_STORM_LOC_12910: u16 = 0x0002;
+    const WEATHER_ID_STORM_AND_HAIL_LOC_12910: u16 = 0x0003;
+
+    let needs_hail_overlay = level_special_effects == WEATHER_ID_STORM_LOC_12910
+        || level_special_effects == WEATHER_ID_STORM_AND_HAIL_LOC_12910;
+
+    BackgroundMountainLoadLoc12910 {
+        pattern_vram_offset: BACKGROUND_THEME_MOUNTAIN_PATTERN_LOC_12910,
+        vram_buffer1_addr: VRAM_BUFFER_1_ADDR,
+        vram_buffer2_addr: VRAM_BUFFER_2_ADDR,
+        vram_buffer3_addr: VRAM_BUFFER_3_ADDR,
+        needs_hail_overlay_at_1294_a: needs_hail_overlay,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_hail_overlay_loc_1294A() -> BackgroundHailOverlayLoc1294A {
+    // ASM loc_1294A (kid.asm:25294-25296): Hail overlay pattern for stormy weather.
+    //   loc_1294A:	; hailstorm
+    //   move.w  #$27E5,d0           ; hail pattern offset
+    //   move.l  4(a3),a0           ; load art from offset +4 (skip one pointer)
+    // Falls through to loc_12952 for final decompress.
+    const HAIL_PATTERN_VRAM_OFFSET_LOC_1294A: u16 = 0x27E5;
+    const VRAM_BUFFER_4_ADDR: u32 = 0xFFFF_98F2;
+
+    BackgroundHailOverlayLoc1294A {
+        pattern_vram_offset: HAIL_PATTERN_VRAM_OFFSET_LOC_1294A,
+        vram_buffer4_addr: VRAM_BUFFER_4_ADDR,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_final_pattern_loc_12952(
+    pattern_vram_offset: u16,
+) -> BackgroundFinalPatternLoc12952 {
+    // ASM loc_12952 (kid.asm:25298-25301): Final pattern decompress for mountain bg.
+    //   loc_12952:
+    //   lea     ($FFFF98F2).w,a1    ; dest: VRAM buffer 4 ($98F2)
+    //   bsr.w   EniDec              ; decompress final pattern
+    //   move.l  (sp)+,a0            ; restore return address
+    //   rts                         ; return
+    const VRAM_BUFFER_4_ADDR: u32 = 0xFFFF_98F2;
+
+    BackgroundFinalPatternLoc12952 {
+        pattern_vram_offset,
+        vram_buffer4_addr: VRAM_BUFFER_4_ADDR,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
