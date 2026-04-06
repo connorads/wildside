@@ -827,6 +827,16 @@ pub(crate) struct IslandPaletteCyclePrimaryBandLoc12098 {
     pub(crate) dma_length_bytes: Option<u16>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IslandPaletteCycleMidBandLoc12110 {
+    pub(crate) next_countdown: u16,
+    pub(crate) next_phase: u16,
+    pub(crate) uploaded_frame_index: Option<u16>,
+    pub(crate) dma_source_offset: Option<u32>,
+    pub(crate) vram_word_address: Option<u16>,
+    pub(crate) dma_length_bytes: Option<u16>,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -1119,6 +1129,39 @@ pub(crate) fn step_island_palette_cycle_primary_band_loc_12098(
         dma_source_offset: Some(0x0002),
         vram_word_address: Some(0xF600),
         dma_length_bytes: Some(0x00C0),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn step_island_palette_cycle_mid_band_loc_12110(
+    countdown_46: u16,
+    phase_d2: u16,
+) -> IslandPaletteCycleMidBandLoc12110 {
+    // ASM loc_12110 (kid.asm:24279): decrement `$46(a5)` after the shared
+    // hibernate/`loc_12098` path. A non-zero result falls through to
+    // `loc_12188`; zero uses the current `d2` as the frame-table index,
+    // advances `d2` with `addq.w #1` + `andi.w #3`, uploads `off_1220E[d4] +
+    // $C2` to VRAM `$F6C0`, and reloads `$46(a5)` with `#9`.
+    let decremented = countdown_46.wrapping_sub(1);
+    if decremented != 0 {
+        return IslandPaletteCycleMidBandLoc12110 {
+            next_countdown: decremented,
+            next_phase: phase_d2 & 3,
+            uploaded_frame_index: None,
+            dma_source_offset: None,
+            vram_word_address: None,
+            dma_length_bytes: None,
+        };
+    }
+
+    IslandPaletteCycleMidBandLoc12110 {
+        next_countdown: 9,
+        next_phase: phase_d2.wrapping_add(1) & 3,
+        uploaded_frame_index: Some(phase_d2 & 3),
+        dma_source_offset: Some(0x00C2),
+        vram_word_address: Some(0xF6C0),
+        dma_length_bytes: Some(0x00A0),
     }
 }
 
