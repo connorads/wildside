@@ -33372,6 +33372,30 @@ fn floating_berzerker_loc_10620_stays_alive_while_above_level_bottom_and_uncolle
     );
 }
 
+#[test]
+fn floating_berzerker_loc_10638_deletes_the_collected_helmet_on_the_next_step() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 116 << 16,
+        y_pos: 132 << 16,
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 7,
+        level_row: 8,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Berzerker,
+        collected: true,
+    });
+
+    rt.step_visual_effects();
+
+    assert!(
+        rt.floating_items.is_empty(),
+        "ASM loc_10638 should jump straight to `Delete_CurrentObject` once Berzerker's `collision_type(a3)` becomes non-zero",
+    );
+}
+
 // --- Visual effects: countdown and retention ---
 
 #[test]
