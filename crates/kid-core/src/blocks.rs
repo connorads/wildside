@@ -1354,6 +1354,10 @@ impl NativeRuntime {
             // ASM loc_10430 (kid.asm:21678): after the shared tail at
             // `loc_10404`, delete the prize object once `y_pos(a3)` reaches
             // or exceeds `Level_height_pixels`.
+            // ASM loc_1047C (kid.asm:21709) is Skycutter's matching delete
+            // exit: once the per-frame loop sees either a non-zero
+            // `collision_type(a3)` or the bottom-of-level compare, control
+            // jumps straight to `Delete_CurrentObject`.
             let above_level_bottom = integer_y < level_height_pixels;
             (f.spawn_delay > 0 || f.remaining > 0) && !f.collected && above_level_bottom
         });

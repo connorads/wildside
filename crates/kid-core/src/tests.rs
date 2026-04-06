@@ -33014,6 +33014,30 @@ fn floating_item_collected_flag_causes_removal() {
     );
 }
 
+#[test]
+fn floating_skycutter_loc_1047c_deletes_the_collected_helmet_on_the_next_step() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Skycutter,
+        collected: true,
+    });
+
+    rt.step_visual_effects();
+
+    assert!(
+        rt.floating_items.is_empty(),
+        "ASM loc_1047C should jump straight to `Delete_CurrentObject` once Skycutter's `collision_type(a3)` becomes non-zero",
+    );
+}
+
 // --- Visual effects: countdown and retention ---
 
 #[test]
