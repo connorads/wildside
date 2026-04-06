@@ -284,6 +284,32 @@ pub(crate) fn decode_foreground_theme_flags_loc_11B92(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decode_background_theme_flags_loc_11B9A(
+    raw_background_theme_flags: u8,
+    background_width: u16,
+) -> (u16, u16, bool, u16) {
+    // ASM loc_11B9A (kid.asm:23757-23775) stores the upper nibble in
+    // `Level_Special_Effects`, the lower nibble in `Background_theme`, then
+    // tests `(1<<Hills)|(1<<Desert)|(1<<Mountain)|(1<<Forest)` to select the
+    // enigma background format and force `Background_width=$40`.
+    let level_special_effects = u16::from(raw_background_theme_flags >> 4);
+    let background_theme = u16::from(raw_background_theme_flags & 0x0F);
+    let uses_enigma_format = matches!(background_theme, 3 | 5 | 7 | 9);
+    let decoded_background_width = if uses_enigma_format {
+        0x0040
+    } else {
+        background_width
+    };
+    (
+        level_special_effects,
+        background_theme,
+        uses_enigma_format,
+        decoded_background_width,
+    )
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point

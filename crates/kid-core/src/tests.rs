@@ -25599,6 +25599,24 @@ fn loc_11b92_enables_and_optionally_reverses_the_murder_wall_for_negative_theme_
 }
 
 #[test]
+fn loc_11b9a_extracts_weather_and_forces_enigma_backgrounds_to_width_40() {
+    assert_eq!(
+        crate::level::decode_background_theme_flags_loc_11B9A(0x23, 0x005A),
+        (0x0002, 0x0003, true, 0x0040),
+        "ASM loc_11B9A should decode the upper nibble into `Level_Special_Effects`, keep the lower nibble as `Background_theme`, and clamp Hills/Desert/Mountain/Forest backgrounds to width `$40`"
+    );
+}
+
+#[test]
+fn loc_11b9a_leaves_non_enigma_background_widths_unchanged() {
+    assert_eq!(
+        crate::level::decode_background_theme_flags_loc_11B9A(0x18, 0x005A),
+        (0x0001, 0x0008, false, 0x005A),
+        "ASM loc_11B9A should leave non-Hills/Desert/Mountain/Forest backgrounds in piece format and preserve the previously derived background width"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {
