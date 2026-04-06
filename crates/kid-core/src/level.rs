@@ -837,6 +837,16 @@ pub(crate) struct IslandPaletteCycleMidBandLoc12110 {
     pub(crate) dma_length_bytes: Option<u16>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IslandPaletteCycleLowerBandLoc12188 {
+    pub(crate) next_countdown: u16,
+    pub(crate) next_phase: u16,
+    pub(crate) uploaded_frame_index: Option<u16>,
+    pub(crate) dma_source_offset: Option<u32>,
+    pub(crate) vram_word_address: Option<u16>,
+    pub(crate) dma_length_bytes: Option<u16>,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -1162,6 +1172,43 @@ pub(crate) fn step_island_palette_cycle_mid_band_loc_12110(
         dma_source_offset: Some(0x00C2),
         vram_word_address: Some(0xF6C0),
         dma_length_bytes: Some(0x00A0),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn step_island_palette_cycle_lower_band_loc_12188(
+    countdown_48: u16,
+    phase_d1: u16,
+) -> IslandPaletteCycleLowerBandLoc12188 {
+    const COUNTDOWN_TABLE_LOC_121A6: [u16; 6] = [0x0019, 0x001E, 0x001E, 0x0014, 0x000F, 0x000A];
+
+    // ASM loc_12188 (kid.asm:24311): decrement `$48(a5)` and branch back to
+    // `loc_12098` while the result stays non-zero. Once it hits zero, copy the
+    // current `d1` into `d4`, advance `d1` with `addq.w #1` and the
+    // `cmpi.w #5`/`moveq #0` wrap, reload `$48(a5)` from `unk_12226[d4]`, then
+    // DMA `off_1220E[d4] + $162` to VRAM `$F760`.
+    let decremented = countdown_48.wrapping_sub(1);
+    if decremented != 0 {
+        return IslandPaletteCycleLowerBandLoc12188 {
+            next_countdown: decremented,
+            next_phase: phase_d1,
+            uploaded_frame_index: None,
+            dma_source_offset: None,
+            vram_word_address: None,
+            dma_length_bytes: None,
+        };
+    }
+
+    let frame_index = usize::from(phase_d1);
+    let next_phase = if phase_d1 >= 5 { 0 } else { phase_d1 + 1 };
+    IslandPaletteCycleLowerBandLoc12188 {
+        next_countdown: COUNTDOWN_TABLE_LOC_121A6[frame_index],
+        next_phase,
+        uploaded_frame_index: Some(phase_d1),
+        dma_source_offset: Some(0x0162),
+        vram_word_address: Some(0xF760),
+        dma_length_bytes: Some(0x0180),
     }
 }
 
