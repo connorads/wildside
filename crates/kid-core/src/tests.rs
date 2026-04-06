@@ -1,7 +1,8 @@
 use super::*;
 use crate::blocks::{
-    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
-    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    OneTimePrizeInitLoc10856, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
+    PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
+    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -7814,6 +7815,21 @@ fn prize_continue_delete_loc_10838_plays_sound_6a_then_deletes() {
             should_delete_current_object: true,
         },
         "ASM loc_10838 should preserve `d0`, call `j_PlaySound` with `#$6A`, then jump straight to `Delete_CurrentObject`",
+    );
+}
+
+#[test]
+fn one_time_prize_init_loc_10856_clears_the_table_on_first_collection() {
+    let entries = core::array::from_fn(|index| 0xDEAD_0000_u32.wrapping_add(index as u32));
+
+    assert_eq!(
+        NativeRuntime::one_time_prize_init_loc_10856(-1, entries),
+        OneTimePrizeInitLoc10856 {
+            was_first_prize_initialisation: true,
+            next_write_index: 0,
+            entries: [0; 0x28],
+        },
+        "ASM loc_10856 should treat a negative header as the first one-time prize and clear all 40 packed prize entries before scanning",
     );
 }
 

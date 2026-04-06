@@ -74,6 +74,14 @@ pub(crate) struct PrizeContinueDeleteLoc10838 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OneTimePrizeInitLoc10856 {
+    pub(crate) was_first_prize_initialisation: bool,
+    pub(crate) next_write_index: u16,
+    pub(crate) entries: [u32; 0x28],
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -186,6 +194,31 @@ impl NativeRuntime {
             sound_effect_id: 0x6A,
             preserves_d0_across_sound_call: true,
             should_delete_current_object: true,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn one_time_prize_init_loc_10856(
+        header_word: i16,
+        entries: [u32; 0x28],
+    ) -> OneTimePrizeInitLoc10856 {
+        // ASM loc_10856 (kid.asm:22080): if `(a0)` is negative, this is the
+        // first one-time prize collected for the current player. Clear the
+        // header and all forty packed `(layout_addr, level_id)` longwords
+        // before the later scan restarts at loc_1086A.
+        if header_word < 0 {
+            OneTimePrizeInitLoc10856 {
+                was_first_prize_initialisation: true,
+                next_write_index: 0,
+                entries: [0; 0x28],
+            }
+        } else {
+            OneTimePrizeInitLoc10856 {
+                was_first_prize_initialisation: false,
+                next_write_index: header_word as u16,
+                entries,
+            }
         }
     }
 
