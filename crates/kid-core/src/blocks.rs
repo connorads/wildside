@@ -1052,6 +1052,8 @@ impl NativeRuntime {
     fn offset_block_destroy_effect_origin(direction: u16, x_px: u16, y_px: u16) -> (u16, u16) {
         match direction {
             Self::BLOCK_DESTROY_DIRECTION_RIGHT => (x_px.saturating_add(4), y_px),
+            // ASM loc_10F1A (kid.asm:22825): `subq.w #4,y_pos(a3)` nudges the
+            // smash effect 4 px upward when `d6 == 2`.
             Self::BLOCK_DESTROY_DIRECTION_ABOVE => (x_px, y_px.saturating_sub(4)),
             Self::BLOCK_DESTROY_DIRECTION_LEFT => (x_px.saturating_sub(4), y_px),
             _ => (x_px, y_px.saturating_add(4)),
