@@ -32,6 +32,20 @@ pub(crate) fn decode_gfx_animation_dispatch_loc_1158(
 }
 
 #[allow(dead_code)]
+pub(crate) fn should_stop_gfx_animation_loc_1166(
+    timer: u16,
+    script: &[u8],
+    script_offset: usize,
+) -> Option<bool> {
+    let next_opcode = *script.get(script_offset)?;
+
+    // ASM loc_1166 (kid.asm:2133) only reaches loc_1182 when the decremented
+    // timer equals 1 and the next script byte is 0. Any other state restores
+    // a2 and returns with animation still running.
+    Some(timer == 1 && next_opcode == 0)
+}
+
+#[allow(dead_code)]
 pub(crate) fn advance_gfx_animation_sub_1194(
     script: &[u8],
     script_offset: usize,
@@ -135,6 +149,37 @@ mod tests {
         assert!(
             decode_gfx_animation_dispatch_loc_1158(&[0x03], 0).is_none(),
             "ASM loc_1158 only has three handlers in off_1176: loc_1182, sub_1194, and sub_11AC"
+        );
+    }
+
+    #[test]
+    fn loc_1166_only_stops_animation_on_timer_one_with_stop_opcode() {
+        assert_eq!(
+            should_stop_gfx_animation_loc_1166(1, &[0x00], 0),
+            Some(true),
+            "ASM loc_1166 only branches to loc_1182 when `animation_timer(a3)` is 1 and `(a2)` is 0"
+        );
+    }
+
+    #[test]
+    fn loc_1166_keeps_animation_running_for_non_terminal_timer_or_opcode() {
+        assert_eq!(
+            should_stop_gfx_animation_loc_1166(2, &[0x00], 0),
+            Some(false),
+            "ASM loc_1166 returns through loc_1172 while the decremented timer is not yet 1"
+        );
+        assert_eq!(
+            should_stop_gfx_animation_loc_1166(1, &[0x01], 0),
+            Some(false),
+            "ASM loc_1166 also returns through loc_1172 when the next opcode is non-zero"
+        );
+    }
+
+    #[test]
+    fn loc_1166_requires_a_script_byte_to_probe_the_stop_opcode() {
+        assert!(
+            should_stop_gfx_animation_loc_1166(1, &[], 0).is_none(),
+            "ASM loc_1166 tests `(a2)`, so the native helper should reject a missing script byte"
         );
     }
 
