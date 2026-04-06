@@ -344,7 +344,7 @@ impl NativeRuntime {
             return MOVE_STANDINGSTILL;
         }
 
-        if self.helmet.iron_knight_climbing || player.wall_cling_direction.is_some() {
+        if self.helmet.iron_knight_climbing {
             return MOVE_WALL_CLIMBING;
         }
         if !player.on_ground || player.just_jumped {
@@ -359,10 +359,10 @@ impl NativeRuntime {
         if player.x_velocity == 0 {
             return MOVE_STANDINGSTILL;
         }
+        let half_width = self.progression.current_form.half_width();
+        let x_px = (player.x_pos >> 16) as i32;
+        let y_px = (player.y_pos >> 16) as i32;
         let on_slope = self.block_grid.as_ref().is_some_and(|grid| {
-            let x_px = (player.x_pos >> 16) as i32;
-            let y_px = (player.y_pos >> 16) as i32;
-            let half_width = self.progression.current_form.half_width();
             let left_probe = terrain::probe_floor(grid, x_px - half_width, y_px);
             let center_probe = terrain::probe_floor(grid, x_px, y_px);
             let right_probe = terrain::probe_floor(grid, x_px + half_width, y_px);
@@ -382,12 +382,15 @@ impl NativeRuntime {
             let slope_release = self
                 .last_kid_frame_grounded_release_probe
                 .is_some_and(|probe| probe.on_ground_before && probe.release_triggered);
+            let was_grounded_before_step = self
+                .last_kid_frame_grounded_release_probe
+                .is_some_and(|probe| probe.on_ground_before);
             // ASM loc_9D22 writes MoveID 6 through the seam frame where the
             // slope still carries Kid but sub_B43A has not yet found new flat
             // support. Once the grounded-release probe reacquires solid
             // support, the same left-edge-only slope contact reverts to the
             // plain walking path at loc_8BF0.
-            core_slope || (edge_slope && slope_release)
+            was_grounded_before_step && (core_slope || (edge_slope && slope_release))
         });
         if on_slope && (self.trace_input.left || self.trace_input.right || player.x_velocity != 0) {
             return MOVE_UPHILL_DOWNHILL;

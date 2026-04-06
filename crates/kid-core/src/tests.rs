@@ -29012,6 +29012,54 @@ fn death_respawn_level_1_keeps_loc_9d22_uphill_state_on_frame_1003() {
 }
 
 #[test]
+fn death_respawn_level_1_returns_to_plain_walk_on_frame_1044() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1044 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_045) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_044 {
+            frame_1044 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_1044 = frame_1044.expect("frame 1044 trace");
+    // ASM loc_9D22 only keeps MoveID 6 while the slope state actively mirrors
+    // `y_vel` from `x_vel`; once the Level 1 run-up settles back onto flat
+    // support, loc_8BF0 resumes plain walking even if the hitbox still
+    // overlaps a neighbouring slope cell.
+    assert_eq!(frame_1044.kid_on_ground, Some(true));
+    assert_eq!(frame_1044.kid_y_velocity, Some(0));
+    assert_eq!(frame_1044.character_movement, Some(2));
+}
+
+#[test]
+fn death_respawn_level_1_falling_pre_death_frame_1680_stays_jump_not_wall_climb() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1680 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_681) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_680 {
+            frame_1680 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_1680 = frame_1680.expect("frame 1680 trace");
+    // ASM loc_A28A writes MoveID_Wall_Climbing only while the wall-cling state
+    // is still latched to real wall support. By the late pre-death fall on
+    // Level 1, Kid is already in the airborne jump path rather than a live
+    // wall-climb pose.
+    assert_eq!(frame_1680.kid_on_ground, Some(false));
+    assert_eq!(frame_1680.kid_y_velocity, Some(0x0001_6000));
+    assert_eq!(frame_1680.character_movement, Some(3));
+}
+
+#[test]
 #[ignore] // values were never correct on main — need oracle re-derivation
 fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
     let mut runtime = cached_generated_runtime();
