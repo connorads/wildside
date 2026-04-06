@@ -314,7 +314,8 @@ impl NativeRuntime {
         // add `#$1388` to `d1`, advance `y_pos(a3)`, snap the integer row with
         // `andi.w #$FFF0,d2`, and only when that snapped row differs from `d0`
         // clear bit `$10` in `d3` and advance `a2` by `Level_width_tiles`
-        // before the shared tail stores the new aligned row back into `d0`.
+        // before the shared tail at loc_10C74 stores the new aligned row back
+        // into `d0`.
         let next_y_velocity = y_velocity.saturating_add(0x1388);
         let next_y_pos = y_pos.saturating_add(i64::from(next_y_velocity));
         let integer_y = (next_y_pos >> 16) as i32;

@@ -7847,8 +7847,7 @@ fn prize_clock_fall_gate_loc_107b0_deletes_on_bottom_or_collection() {
 }
 
 #[test]
-fn floating_prize_fall_step_loc_10c50_advances_one_tile_row_only_after_crossing_a_snapped_16px_boundary()
- {
+fn floating_prize_fall_step_loc_10c74_keeps_d0_in_sync_with_the_latest_snapped_row() {
     assert_eq!(
         NativeRuntime::floating_prize_fall_step_loc_10C50(
             0x0030,
@@ -7867,7 +7866,7 @@ fn floating_prize_fall_step_loc_10c50_advances_one_tile_row_only_after_crossing_
             next_level_row: 7,
             next_level_layout_offset: 0x0120,
         },
-        "ASM loc_10C50 should keep `d0`, bit `$10` in `d3`, and `a2` unchanged while the updated integer Y still snaps to the same 16px row",
+        "ASM loc_10C74 should copy the unchanged snapped row back into `d0` while loc_10C50 leaves bit `$10` in `d3` and `a2` untouched inside the same 16px band",
     );
     assert_eq!(
         NativeRuntime::floating_prize_fall_step_loc_10C50(
@@ -7887,7 +7886,7 @@ fn floating_prize_fall_step_loc_10c50_advances_one_tile_row_only_after_crossing_
             next_level_row: 8,
             next_level_layout_offset: 0x0150,
         },
-        "ASM loc_10C50 should clear bit `$10` in `d3` and advance `a2` by `Level_width_tiles` exactly when the updated integer Y crosses into the next snapped 16px row",
+        "ASM loc_10C74 should still finish by writing the new `$0040` snapped row into `d0` after loc_10C50 clears bit `$10` in `d3` and advances `a2` by `Level_width_tiles`",
     );
 }
 
