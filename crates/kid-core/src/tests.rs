@@ -39574,3 +39574,195 @@ fn loc_12526_single_iteration_writes_one_cell() {
         "ASM loc_12526: count=1 should write exactly one cell"
     );
 }
+
+// --- Block type 8 (Shooter) layout tests ---
+// ASM loc_1253A, loc_12540, loc_1255C, loc_1257E (kid.asm:24758-24799)
+
+#[test]
+fn loc_1253a_returns_on_sentinel_x_position() {
+    // ASM loc_1253A (kid.asm:24758-24761): block type 8 entry point.
+    //   move.w (a1)+,d1       ; x_pos
+    //   bpl.s loc_12540       ; continue if >= 0
+    //   rts                   ; return on sentinel
+    let result = crate::level::block_type_8_read_x_pos_loc_1253a(&[0x8000]);
+    assert!(
+        result.is_none(),
+        "ASM loc_1253A: negative sentinel should return None"
+    );
+}
+
+#[test]
+fn loc_1253a_parses_positive_x_position() {
+    // ASM loc_1253A: positive x_pos continues to loc_12540.
+    let result = crate::level::block_type_8_read_x_pos_loc_1253a(&[0x0014, 0x0008])
+        .expect("ASM loc_1253A: positive x_pos should parse");
+    assert_eq!(
+        result.x_pos, 0x0014,
+        "ASM loc_1253A: should read x_pos = 20"
+    );
+    assert_eq!(
+        result.bytes_consumed, 1,
+        "ASM loc_1253A: should consume 1 word"
+    );
+}
+
+#[test]
+fn loc_12540_computes_cell_address_from_row_table() {
+    // ASM loc_12540 (kid.asm:24765-24776): parse Shooter block coordinates.
+    //   move.w (a1)+,d2       ; y_row
+    //   move.w d2,d3
+    //   add.w d3,d3          ; d3 = y_row * 2
+    //   lea ($FFFF4A04).l,a2 ; row pointer table
+    //   move.w (a2,d3.w),a4  ; a4 = row_start[y_row]
+    //   add.w d1,a4
+    //   add.w d1,a4          ; a4 = row_start + 2 * x_pos
+    //   move.w (a1)+,d3      ; height
+    //   subq.w #1,d3         ; d3 = height - 1
+    //   tst.w (a1)+          ; width flag
+    let row_table: Vec<u16> = vec![0xA000, 0xA040, 0xA080];
+    let result = crate::level::block_type_8_parse_coords_loc_12540(
+        &[0x0001, 0x0003, 0x0000], // y=1, height=3, width=0
+        0x0010,                    // x=16
+        &row_table,
+        64, // level_width_tiles
+    )
+    .expect("ASM loc_12540: valid entry should parse");
+    assert_eq!(result.y_row, 0x0001, "ASM loc_12540: y_row should be 1");
+    assert_eq!(result.height, 0x0003, "ASM loc_12540: height should be 3");
+    assert_eq!(result.width, 0x0000, "ASM loc_12540: width should be 0");
+    // row_table[2] = 0xA080, cell_addr = 0xA080 + 2*16 = 0xA0A0
+    assert_eq!(
+        result.cell_addr, 0x00A0A0,
+        "ASM loc_12540: cell_addr = row_table[y*2] + 2*x = 0xA080 + 0x20 = 0xA0A0"
+    );
+    assert_eq!(
+        result.bytes_consumed, 3,
+        "ASM loc_12540: should consume 3 words"
+    );
+}
+
+#[test]
+fn loc_1255c_places_narrow_shooter_tiles() {
+    // ASM loc_1255C (kid.asm:24778-24786): narrow placement (width=0).
+    // Each iteration places 4 tiles (top-left, top-right, bottom-left, bottom-right)
+    // and advances by 4 bytes (2 cells) for next column in same run.
+    //   move.w #$B811,(a2)   ; top-left
+    //   move.w #$B812,2(a2)  ; top-right
+    //   add.w (Level_width_tiles).w,a2
+    //   move.w #$B813,(a2)   ; bottom-left
+    //   move.w #$B814,2(a2)  ; bottom-right
+    //   addq.w #4,a4
+    //   dbf d3,loc_1255C
+    let result = crate::level::block_type_8_narrow_placement_loc_1255c(0xA000, 2, 64);
+    assert_eq!(
+        result.tiles.len(),
+        8,
+        "ASM loc_1255C: height=2 should produce 8 tiles (2 iterations * 4 tiles)"
+    );
+    // First 2x2 Shooter tile at cell_addr
+    assert_eq!(result.tiles[0].cell_addr, 0xA000);
+    assert_eq!(
+        result.tiles[0].tile_word, 0xB811,
+        "ASM loc_1255C: top-left = $B811"
+    );
+    assert_eq!(result.tiles[1].cell_addr, 0xA002);
+    assert_eq!(
+        result.tiles[1].tile_word, 0xB812,
+        "ASM loc_1255C: top-right = $B812"
+    );
+    // row_stride = 64 * 2 =128 = 0x80
+    assert_eq!(result.tiles[2].cell_addr, 0xA080);
+    assert_eq!(
+        result.tiles[2].tile_word, 0xB813,
+        "ASM loc_1255C: bottom-left = $B813"
+    );
+    assert_eq!(result.tiles[3].cell_addr, 0xA082);
+    assert_eq!(
+        result.tiles[3].tile_word, 0xB814,
+        "ASM loc_1255C: bottom-right = $B814"
+    );
+    // Second 2x2 Shooter tile at cell_addr + 4
+    assert_eq!(result.tiles[4].cell_addr, 0xA004);
+    assert_eq!(result.tiles[4].tile_word, 0xB811);
+    // next_column_offset = 0xA000 + 2*4 = 0xA008
+    assert_eq!(
+        result.next_column_offset, 0xA008,
+        "ASM loc_1255C: should advance by4 * height"
+    );
+}
+
+#[test]
+fn loc_1257e_places_wide_shooter_tiles() {
+    // ASM loc_1257E (kid.asm:24790-24799): wide placement (width>0).
+    // Each iteration places 4 tiles and advances by2*level_width (2 rows down).
+    //   move.w #$B811,(a2)
+    //   move.w #$B812,2(a2)
+    //   add.w (Level_width_tiles).w,a2
+    //   move.w #$B813,(a2)
+    //   move.w #$B814,2(a2)
+    //   add.w (Level_width_tiles).w,a4
+    //   add.w (Level_width_tiles).w,a4
+    //   dbf d3,loc_1257E
+    let result = crate::level::block_type_8_wide_placement_loc_1257e(0xA000, 2, 64);
+    assert_eq!(
+        result.tiles.len(),
+        8,
+        "ASM loc_1257E: height=2 should produce 8 tiles"
+    );
+    // First 2x2 Shooter tile
+    assert_eq!(result.tiles[0].cell_addr, 0xA000);
+    assert_eq!(
+        result.tiles[0].tile_word, 0xB811,
+        "ASM loc_1257E: top-left = $B811"
+    );
+    assert_eq!(result.tiles[1].cell_addr, 0xA002);
+    assert_eq!(
+        result.tiles[1].tile_word, 0xB812,
+        "ASM loc_1257E: top-right = $B812"
+    );
+    // row_stride = 64 * 2 = 128 = 0x80
+    assert_eq!(result.tiles[2].cell_addr, 0xA080);
+    assert_eq!(
+        result.tiles[2].tile_word, 0xB813,
+        "ASM loc_1257E: bottom-left = $B813"
+    );
+    assert_eq!(result.tiles[3].cell_addr, 0xA082);
+    assert_eq!(
+        result.tiles[3].tile_word, 0xB814,
+        "ASM loc_1257E: bottom-right = $B814"
+    );
+    // Second 2x2 tile at cell_addr + row_stride
+    assert_eq!(result.tiles[4].cell_addr, 0xA080);
+    assert_eq!(result.tiles[4].tile_word, 0xB811);
+    // next_column_offset = 0xA000 + 2*128 = 0xA100
+    assert_eq!(
+        result.next_column_offset, 0xA100,
+        "ASM loc_1257E: should advance by 2 * row_stride"
+    );
+}
+
+#[test]
+fn loc_1255c_single_height_places_one_2x2_tile() {
+    // height=1 means dbf executes once (counter was seeded as height-1=0).
+    let result = crate::level::block_type_8_narrow_placement_loc_1255c(0xB000, 1, 80);
+    assert_eq!(
+        result.tiles.len(),
+        4,
+        "ASM loc_1255C: height=1 should produce 4 tiles for one 2x2 block"
+    );
+    assert_eq!(result.tiles[0].tile_word, 0xB811);
+    assert_eq!(result.tiles[1].tile_word, 0xB812);
+    assert_eq!(result.tiles[2].tile_word, 0xB813);
+    assert_eq!(result.tiles[3].tile_word, 0xB814);
+}
+
+#[test]
+fn loc_1257e_single_height_places_one_2x2_tile() {
+    // height=1 means dbf executes once.
+    let result = crate::level::block_type_8_wide_placement_loc_1257e(0xB000, 1, 80);
+    assert_eq!(
+        result.tiles.len(),
+        4,
+        "ASM loc_1257E: height=1 should produce 4 tiles for one 2x2 block"
+    );
+}

@@ -353,8 +353,8 @@ pub(crate) fn block_type_base_cell_loc_122B8(block_type: u16) -> u16 {
         0xE50B, // type 5 (dispatches to loc_1263C)
         0xE60C, // type 6 → Rubber block base cell
         0xE710, // type 7 (dispatches to loc_1233C)
-        0x0000, // type 8 (dispatches to loc_122B8, returns $0000)
-        0xE919, // type 9 (dispatches to loc_1253A)
+        0x0000, // type 8 = Shooter (dispatches to loc_1253A, ASM writes $B811-$B814)
+        0xE919, // type 9 = Mushroom (dispatches to loc_122B8, uses $E919 base cell)
     ];
     let idx = usize::from(block_type);
     if idx < WORD_122C6.len() {
@@ -1297,6 +1297,206 @@ pub(crate) fn block_type_3_vertical_fill_loc_12526(
         .map(|i| cell_addr.wrapping_add((i as u32) * row_stride))
         .collect();
     BlockType3VerticalFillLoc12526 { cell_addrs }
+}
+
+// ---------------------------------------------------------------------------
+// Block type 8 (Shooter) layout functions
+// ASM loc_1253A, loc_12540, loc_1255C, loc_1257E (kid.asm:24758-24799)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockType8ReadEntryLoc1253a {
+    pub(crate) x_pos: u16,
+    pub(crate) bytes_consumed: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockType8SetupLoc12540 {
+    pub(crate) y_row: u16,
+    pub(crate) height: u16,
+    pub(crate) width: u16,
+    pub(crate) cell_addr: u32,
+    pub(crate) bytes_consumed: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockType8ShooterTile {
+    pub(crate) cell_addr: u32,
+    pub(crate) tile_word: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockType8PlacementResult {
+    pub(crate) tiles: Vec<BlockType8ShooterTile>,
+    pub(crate) next_column_offset: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_8_read_x_pos_loc_1253a(
+    layout_words: &[u16],
+) -> Option<BlockType8ReadEntryLoc1253a> {
+    // ASM loc_1253A (kid.asm:24758-24761): block type 8 (Shooter) layout entry point.
+    // Reads x_pos from (a1)+ and returns if sentinel ($8000+, negative x_pos).
+    //   move.w (a1)+,d1       ; x_pos
+    //   bpl.s loc_12540       ; continue if >= 0
+    //   rts                   ; return on sentinel
+    if layout_words.is_empty() {
+        return None;
+    }
+    let x_pos = layout_words[0];
+    if x_pos & 0x8000 != 0 {
+        return None;
+    }
+    Some(BlockType8ReadEntryLoc1253a {
+        x_pos,
+        bytes_consumed: 1,
+    })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_8_parse_coords_loc_12540(
+    layout_words: &[u16],
+    x_pos: u16,
+    row_table: &[u16],
+    _level_width_tiles: u16,
+) -> Option<BlockType8SetupLoc12540> {
+    // ASM loc_12540 (kid.asm:24765-24776): parse Shooter block coordinates.
+    //   move.w (a1)+,d2       ; y_row
+    //   move.w d2,d3
+    //   add.w d3,d3          ; d3 = y_row * 2
+    //   lea ($FFFF4A04).l,a2 ; row pointer table
+    //   move.w (a2,d3.w),a4  ; a4 = row_start[y_row]
+    //   add.w d1,a4
+    //   add.w d1,a4          ; a4 = row_start + 2 * x_pos
+    //   move.w (a1)+,d3      ; height (number of 2x2 tiles)
+    //   subq.w #1,d3         ; d3 = height - 1 (for dbf loop)
+    //   tst.w (a1)+          ; width flag: 0 = single column, non-zero =wide
+    //   bne.s loc_1257E      ; branch to wide placement if non-zero
+    if layout_words.len() < 3 {
+        return None;
+    }
+    let y_row = layout_words[0];
+    let height = layout_words[1];
+    let width = layout_words[2];
+    let y_idx = usize::from(y_row) * 2;
+    let row_start = u32::from(
+        row_table
+            .get(y_idx)?
+            .wrapping_add(x_pos)
+            .wrapping_add(x_pos),
+    );
+    Some(BlockType8SetupLoc12540 {
+        y_row,
+        height,
+        width,
+        cell_addr: row_start,
+        bytes_consumed: 3,
+    })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_8_narrow_placement_loc_1255c(
+    cell_addr: u32,
+    height: u16,
+    level_width_tiles: u16,
+) -> BlockType8PlacementResult {
+    // ASM loc_1255C (kid.asm:24778-24786): narrow Shooter block placement (width = 0).
+    // Each iteration places a 2x2 Shooter tile (4 cell words) and advances
+    // by 4 bytes (2 cells) for the next column in the same horizontal run.
+    //   move.l a4,a2
+    //   move.w #$B811,(a2)   ; top-left
+    //   move.w #$B812,2(a2)  ; top-right
+    //   add.w (Level_width_tiles).w,a2
+    //   move.w #$B813,(a2)   ; bottom-left
+    //   move.w #$B814,2(a2)  ; bottom-right
+    //   addq.w #4,a4         ; advance by 2 cells (next column)
+    //   dbf d3,loc_1255C
+    const TILE_TOP_LEFT: u16 = 0xB811;
+    const TILE_TOP_RIGHT: u16 = 0xB812;
+    const TILE_BOTTOM_LEFT: u16 = 0xB813;
+    const TILE_BOTTOM_RIGHT: u16 = 0xB814;
+    let iterations = usize::from(height);
+    let row_stride = u32::from(level_width_tiles) * 2;
+    let mut tiles = Vec::with_capacity(iterations * 4);
+    let mut addr = cell_addr;
+    for _ in 0..iterations {
+        tiles.push(BlockType8ShooterTile {
+            cell_addr: addr,
+            tile_word: TILE_TOP_LEFT,
+        });
+        tiles.push(BlockType8ShooterTile {
+            cell_addr: addr + 2,
+            tile_word: TILE_TOP_RIGHT,
+        });
+        tiles.push(BlockType8ShooterTile {
+            cell_addr: addr + row_stride,
+            tile_word: TILE_BOTTOM_LEFT,
+        });
+        tiles.push(BlockType8ShooterTile {
+            cell_addr: addr + row_stride + 2,
+            tile_word: TILE_BOTTOM_RIGHT,
+        });
+        addr = addr.wrapping_add(4);
+    }
+    BlockType8PlacementResult {
+        tiles,
+        next_column_offset: addr,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_8_wide_placement_loc_1257e(
+    cell_addr: u32,
+    height: u16,
+    level_width_tiles: u16,
+) -> BlockType8PlacementResult {
+    // ASM loc_1257E (kid.asm:24790-24799): wide Shooter block placement (width > 0).
+    // Each iteration places a 2x2 Shooter tile and advances by two rows
+    // (2 * level_width_tiles) for the next tile in the same column.
+    //   move.l a4,a2
+    //   move.w #$B811,(a2)   ; top-left
+    //   move.w #$B812,2(a2)  ; top-right
+    //   add.w (Level_width_tiles).w,a2
+    //   move.w #$B813,(a2)   ; bottom-left
+    //   move.w #$B814,2(a2)  ; bottom-right
+    //   add.w (Level_width_tiles).w,a4
+    //   add.w (Level_width_tiles).w,a4 ; advance by 2 rows
+    //   dbf d3,loc_1257E
+    const TILE_TOP_LEFT: u16 = 0xB811;
+    const TILE_TOP_RIGHT: u16 = 0xB812;
+    const TILE_BOTTOM_LEFT: u16 = 0xB813;
+    const TILE_BOTTOM_RIGHT: u16 = 0xB814;
+    let iterations = usize::from(height);
+    let row_stride = u32::from(level_width_tiles) * 2;
+    let mut tiles = Vec::with_capacity(iterations * 4);
+    let mut addr = cell_addr;
+    for _ in 0..iterations {
+        tiles.push(BlockType8ShooterTile {
+            cell_addr: addr,
+            tile_word: TILE_TOP_LEFT,
+        });
+        tiles.push(BlockType8ShooterTile {
+            cell_addr: addr + 2,
+            tile_word: TILE_TOP_RIGHT,
+        });
+        tiles.push(BlockType8ShooterTile {
+            cell_addr: addr + row_stride,
+            tile_word: TILE_BOTTOM_LEFT,
+        });
+        tiles.push(BlockType8ShooterTile {
+            cell_addr: addr + row_stride + 2,
+            tile_word: TILE_BOTTOM_RIGHT,
+        });
+        addr = addr.wrapping_add(row_stride);
+    }
+    BlockType8PlacementResult {
+        tiles,
+        next_column_offset: addr,
+    }
 }
 
 #[allow(non_snake_case)]
