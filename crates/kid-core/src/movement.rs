@@ -81,8 +81,12 @@ pub(crate) fn clear_owner_gfx_backref_loc_1078(
     // ASM loc_1078 (kid.asm:2002): only treat `a5` as an owner-object pointer
     // when bit 0 is clear and the masked 24-bit address stays in WRAM
     // (`>= $FF0000`). Then compare the deleted gfx pointer in `a3` against
-    // `$36/$3A/$3E(a5)`, clear the first matching back-reference, and branch
-    // straight to the shared free-list walk without touching later slots.
+    // `$36(a5)`.
+    // ASM loc_10A0 (kid.asm:2017): when `$36(a5)` does not match, compare
+    // `$3A(a5)` next, clear only that second back-reference on equality, and
+    // branch straight to the shared free-list walk without touching `$3E(a5)`.
+    // ASM loc_10AC (kid.asm:2024): only if both earlier slots miss does the
+    // routine compare and clear `$3E(a5)`.
     if owner_addr & 1 != 0 {
         return owner_links;
     }

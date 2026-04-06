@@ -191,6 +191,21 @@ fn clear_owner_gfx_backref_loc_1078_clears_only_the_first_matching_owner_slot() 
 }
 
 #[test]
+fn clear_owner_gfx_backref_loc_10a0_clears_the_second_owner_slot_after_the_first_miss() {
+    let links = clear_owner_gfx_backref_loc_1078(
+        0x01FF_8000,
+        [0x00BB_0000, 0x00AA_0000, 0x00CC_0000],
+        0x00AA_0000,
+    );
+
+    assert_eq!(
+        links,
+        [0x00BB_0000, 0, 0x00CC_0000],
+        "ASM loc_10A0 should compare `$3A(a5)` only after `$36(a5)` misses, clear that second back-reference, and branch away before touching `$3E(a5)`",
+    );
+}
+
+#[test]
 fn gfx_object_unlink_loc_100e_splices_the_target_successor_over_the_predecessor_link() {
     let mut next_indices = [
         Some(1), // sentinel -> first live node
