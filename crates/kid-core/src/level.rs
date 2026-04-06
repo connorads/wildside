@@ -1212,6 +1212,53 @@ pub(crate) fn step_island_palette_cycle_lower_band_loc_12188(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RotatePaletteLavaWaterDelayLoc1223A {
+    pub(crate) delay_frames: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn compute_rotate_palette_delay_loc_1223A(
+    foreground_theme: u16,
+) -> RotatePaletteLavaWaterDelayLoc1223A {
+    const FOREGROUND_THEME_MOUNTAIN_LOC_1223A: u16 = 0x0007;
+
+    // ASM loc_1223A (kid.asm:24370): after `RotatePalette_Lava_Water`
+    // initialises `d0 = #5`, the Mountain compare branches here on match;
+    // otherwise `addq.w #3,d0` makes it `#8`. The result is saved into `d2`
+    // before the hibernate loop at `loc_1223C`.
+    let delay_frames = if foreground_theme == FOREGROUND_THEME_MOUNTAIN_LOC_1223A {
+        5
+    } else {
+        8
+    };
+    RotatePaletteLavaWaterDelayLoc1223A { delay_frames }
+}
+
+pub(crate) const PALETTE_BUFFER_ROTATE_START_LOC_1223C: usize = 0x0E;
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn rotate_palette_lava_water_loc_1223C(palette_buffer: &mut [u16; 0x40]) {
+    // ASM loc_1223C (kid.asm:24373): after the hibernate loop drains `d0`,
+    // the routine rotates four palette words downward:
+    // - `move.w (Palette_Buffer+$14).l,d1` saves word at $14
+    // - `move.w (Palette_Buffer+$12).l,(Palette_Buffer+$14).l` copies $12→$14
+    // - `move.w (Palette_Buffer+$10).l,(Palette_Buffer+$12).l` copies $10→$12
+    // - `move.w (Palette_Buffer+$E).l,(Palette_Buffer+$10).l`  copies $E→$10
+    // - `move.w d1,(Palette_Buffer+$E).l` restores saved $14→$E
+    // - `bra.s loc_1223C` returns to hibernate for another cycle.
+    let saved = palette_buffer[PALETTE_BUFFER_ROTATE_START_LOC_1223C + 3];
+    palette_buffer[PALETTE_BUFFER_ROTATE_START_LOC_1223C + 3] =
+        palette_buffer[PALETTE_BUFFER_ROTATE_START_LOC_1223C + 2];
+    palette_buffer[PALETTE_BUFFER_ROTATE_START_LOC_1223C + 2] =
+        palette_buffer[PALETTE_BUFFER_ROTATE_START_LOC_1223C + 1];
+    palette_buffer[PALETTE_BUFFER_ROTATE_START_LOC_1223C + 1] =
+        palette_buffer[PALETTE_BUFFER_ROTATE_START_LOC_1223C];
+    palette_buffer[PALETTE_BUFFER_ROTATE_START_LOC_1223C] = saved;
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {

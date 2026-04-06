@@ -43,15 +43,15 @@ use crate::level::{
     IslandPaletteCycleLowerBandLoc12188, IslandPaletteCycleMidBandLoc12110,
     IslandPaletteCyclePrimaryBandLoc12098, LateBackgroundPaletteOverrideLoc11E06,
     LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, PostLoadObjectRoutineLoc11F96,
-    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
-    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
-    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
-    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
-    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
-    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
-    classify_foreground_palette_override_loc_11D8E,
+    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
+    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
+    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
+    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
+    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
+    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
+    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
@@ -26204,6 +26204,87 @@ fn loc_12188_hibernates_until_countdown_48_expires_then_uploads_the_lower_band()
             dma_length_bytes: Some(0x0180),
         },
         "ASM loc_12188 should use the pre-increment `d1` frame index, wrap `d1` back to 0 after frame 5, reload `$48(a5)` from `unk_12226[d4]`, and DMA `off_1220E[d4] + $162` to VRAM `$F760` on expiry"
+    );
+}
+
+#[test]
+fn loc_121a6_provides_the_lower_band_countdown_table_after_phase_wrap() {
+    // ASM loc_121A6 (kid.asm:24322): merge point after the `cmpi.w #5,d1` check;
+    // `move.b unk_12226(pc,d4.w),d7` loads the phase-indexed countdown from
+    // the ROM table. The table bytes $19,$1E,$1E,$14,$0F,$0A define how many
+    // frames each lower-band phase holds before the next DMA upload.
+    assert_eq!(
+        crate::level::step_island_palette_cycle_lower_band_loc_12188(1, 0),
+        IslandPaletteCycleLowerBandLoc12188 {
+            next_countdown: 0x0019,
+            next_phase: 1,
+            uploaded_frame_index: Some(0),
+            dma_source_offset: Some(0x0162),
+            vram_word_address: Some(0xF760),
+            dma_length_bytes: Some(0x0180),
+        },
+        "ASM loc_121A6 should load `unk_12226[0] = $19` as the first countdown when phase wraps to 0"
+    );
+    assert_eq!(
+        crate::level::step_island_palette_cycle_lower_band_loc_12188(1, 3),
+        IslandPaletteCycleLowerBandLoc12188 {
+            next_countdown: 0x0014,
+            next_phase: 4,
+            uploaded_frame_index: Some(3),
+            dma_source_offset: Some(0x0162),
+            vram_word_address: Some(0xF760),
+            dma_length_bytes: Some(0x0180),
+        },
+        "ASM loc_121A6 should load `unk_12226[3] = $14` as the countdown for phase 3"
+    );
+}
+
+#[test]
+fn loc_1223a_computes_lava_water_rotation_delay_from_foreground_theme() {
+    // ASM loc_1223A (kid.asm:24370): after `RotatePalette_Lava_Water`
+    // initialises `d0 = #5`, the Mountain compare branches here on match;
+    // Cave he addq.w #3,d0` making it `#8`. The result is saved into `d2`
+    // before the hibernate loop at `loc_1223C`.
+    assert_eq!(
+        crate::level::compute_rotate_palette_delay_loc_1223A(0x0007),
+        RotatePaletteLavaWaterDelayLoc1223A { delay_frames: 5 },
+        "ASM loc_1223A should keep `d0 = #5` when `Foreground_theme == Mountain`"
+    );
+    assert_eq!(
+        crate::level::compute_rotate_palette_delay_loc_1223A(0x0008),
+        RotatePaletteLavaWaterDelayLoc1223A { delay_frames: 8 },
+        "ASM loc_1223A should compute `d0 = #5 + #3 = #8` for Cave (and other non-Mountain themes)"
+    );
+}
+
+#[test]
+fn loc_1223c_rotates_four_palette_entries_downward() {
+    // ASM loc_1223C (kid.asm:24373): after the hibernate loop drains `d0`,
+    // the routine rotates palette words $E,$10,$12,$14 downward by one position.
+    // The word at $14 wraps around to $E.
+    let mut palette_buffer = [0x0000u16; 0x40];
+    palette_buffer[0x0E] = 0x0EEE;
+    palette_buffer[0x10] = 0x0ACE;
+    palette_buffer[0x12] = 0x0246;
+    palette_buffer[0x14] = 0x0123;
+
+    crate::level::rotate_palette_lava_water_loc_1223C(&mut palette_buffer);
+
+    assert_eq!(
+        palette_buffer[0x0E], 0x0123,
+        "ASM loc_1223C should move the word from $14 to $E, completing the rotation"
+    );
+    assert_eq!(
+        palette_buffer[0x10], 0x0EEE,
+        "ASM loc_1223C should shift the word from $E down to $10"
+    );
+    assert_eq!(
+        palette_buffer[0x12], 0x0ACE,
+        "ASM loc_1223C should shift the word from $10 down to $12"
+    );
+    assert_eq!(
+        palette_buffer[0x14], 0x0246,
+        "ASM loc_1223C should shift the word from $12 down to $14"
     );
 }
 
