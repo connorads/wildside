@@ -890,8 +890,8 @@ impl OpeningSliceState {
         allow_asm_faithful_solid_touch_snap: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
-        // ASM pull-up animation (stru_8BB4): Hibernate_UntilAnimFinished
-        // loops for 21 frames after ledge snap, suppressing all physics.
+        // ASM loc_1062 / Hibernate_UntilAnimFinished (kid.asm:1985) loops for
+        // 21 frames after ledge snap, suppressing all physics.
         // Camera follow resumes on the final frame (ASM exits animation,
         // transitions to Standingstill, then main loop runs camera follow).
         if self.player.ledge_snap_cooldown > 0 {

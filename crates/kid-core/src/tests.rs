@@ -4220,6 +4220,64 @@ fn jump_pressed_from_right_wall_sticky_catches_adjacent_ledge() {
 }
 
 #[test]
+fn ledge_snap_cooldown_loc_1062_hibernates_physics_while_animation_is_active() {
+    let bounds = LevelBounds {
+        width_pixels: 320,
+        height_pixels: 224,
+    };
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = 96 << 16;
+    slice.player.y_pos = 144 << 16;
+    slice.player.x_velocity = 0x0002_0000;
+    slice.player.y_velocity = 0x0001_0000;
+    slice.player.on_ground = false;
+    slice.player.ledge_snap_cooldown = 2;
+
+    let start_x_pos = slice.player.x_pos;
+    let start_y_pos = slice.player.y_pos;
+    let start_x_velocity = slice.player.x_velocity;
+    let start_y_velocity = slice.player.y_velocity;
+
+    slice.step_with_order(
+        FrameInput {
+            right: true,
+            a: true,
+            ..FrameInput::default()
+        },
+        true,
+        PlayerForm::TheKid,
+        None,
+        None,
+        false,
+        0,
+        PhysicsOrder::GravityFirst,
+        true,
+        &[],
+    );
+
+    assert_eq!(
+        slice.player.ledge_snap_cooldown, 1,
+        "ASM loc_1062 should keep hibernating while `$18(a3)` still says the pull-up animation is active",
+    );
+    assert_eq!(
+        slice.player.x_pos, start_x_pos,
+        "ASM loc_1062 should suppress horizontal motion until `Hibernate_UntilAnimFinished` returns",
+    );
+    assert_eq!(
+        slice.player.y_pos, start_y_pos,
+        "ASM loc_1062 should suppress vertical motion until `Hibernate_UntilAnimFinished` returns",
+    );
+    assert_eq!(
+        slice.player.x_velocity, start_x_velocity,
+        "ASM loc_1062 should leave the stored horizontal velocity untouched while the hibernate loop is still active",
+    );
+    assert_eq!(
+        slice.player.y_velocity, start_y_velocity,
+        "ASM loc_1062 should leave the stored vertical velocity untouched while the hibernate loop is still active",
+    );
+}
+
+#[test]
 fn timing_regression_airborne_within_ground_snap_tolerance_cannot_jump_early() {
     let mut slice = OpeningSliceState::respawn(LevelBounds {
         width_pixels: 320,
