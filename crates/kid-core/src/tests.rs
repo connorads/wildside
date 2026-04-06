@@ -7,7 +7,8 @@ use crate::blocks::{
     Prize10DiamondsWorkerInitLoc10988, Prize10DiamondsWorkerScanStartLoc10960,
     Prize10DiamondsWorkerStepLoc109C0, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
     PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
-    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838, ShooterLeftSupportProbeLoc11448,
+    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838, ShooterCenterWorkerGateLoc1146E,
+    ShooterLeftSupportProbeLoc11448,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -18497,6 +18498,21 @@ fn shooter_slot_tick_sub_f730_wraps_live_states_back_to_zero_after_the_flash_pai
 fn shooter_headbutt_center_worker_runs_sub_114c0_timeline() {
     let mut rt = NativeRuntime::new(manifest());
     rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
+    rt.block_grid.as_mut().expect("block grid").set_cell_at(
+        5,
+        3,
+        terrain::Cell::from_be_bytes(0x60, 0),
+    );
+    rt.block_grid.as_mut().expect("block grid").set_cell_at(
+        4,
+        3,
+        terrain::Cell::from_be_bytes(0x60, 0),
+    );
+    rt.block_grid.as_mut().expect("block grid").set_cell_at(
+        6,
+        3,
+        terrain::Cell::from_be_bytes(0x60, 0),
+    );
 
     let mut slice = OpeningSliceState::new(default_bounds());
     slice.shooter_block_hit = Some((5, 4));
@@ -18532,6 +18548,21 @@ fn shooter_headbutt_center_worker_runs_sub_114c0_timeline() {
 fn shooter_headbutt_center_worker_sub_114c0_ignores_support_cell_changes() {
     let mut rt = NativeRuntime::new(manifest());
     rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
+    rt.block_grid.as_mut().expect("block grid").set_cell_at(
+        5,
+        3,
+        terrain::Cell::from_be_bytes(0x60, 0),
+    );
+    rt.block_grid.as_mut().expect("block grid").set_cell_at(
+        4,
+        3,
+        terrain::Cell::from_be_bytes(0x60, 0),
+    );
+    rt.block_grid.as_mut().expect("block grid").set_cell_at(
+        6,
+        3,
+        terrain::Cell::from_be_bytes(0x60, 0),
+    );
 
     let mut slice = OpeningSliceState::new(default_bounds());
     slice.shooter_block_hit = Some((5, 4));
@@ -33692,18 +33723,18 @@ fn process_block_effects_sub_1149c_queues_empty_support_workers() {
 
     assert_eq!(
         rt.block_grid().expect("block grid").cell_at(5, 4),
-        terrain::Cell::from_be_bytes(0xEF, 0x02),
-        "ASM loc_11430 immediately marks the struck shooter as deleted-solid before sub_114C0 wakes"
+        terrain::Cell::from_be_bytes(0xE9, 0x02),
+        "ASM loc_1146E branches to `loc_11496` once any `sub_1149C` probe sets `d4`, so the struck shooter cell should stay untouched on the support-worker path"
     );
-    assert_eq!(rt.block_state.shooter_headbutt_workers.len(), 3);
+    assert_eq!(rt.block_state.shooter_headbutt_workers.len(), 2);
     assert_eq!(
         rt.block_state
             .shooter_headbutt_workers
             .iter()
             .filter(|worker| worker.kind == ShooterHeadbuttWorkerKind::Center)
             .count(),
-        1,
-        "sub_114C0 should always be queued for the struck shooter cell"
+        0,
+        "ASM loc_11496 is the immediate epilogue after the `bne.s` at loc_1146E, so the support-worker path should return without queuing `sub_114C0`"
     );
     assert_eq!(
         rt.block_state
@@ -34266,6 +34297,30 @@ fn shooter_headbutt_support_worker_sub_114f4_aborts_when_target_refills_before_w
         rt.block_grid().expect("block grid").cell_at(5, 3),
         terrain::Cell::from_be_bytes(0x60, 0),
         "ASM sub_114F4 deletes itself immediately if the support cell is no longer empty on wake"
+    );
+}
+
+#[test]
+fn shooter_center_worker_gate_loc_1146e_restores_the_original_column_and_skips_centre_worker_after_support_spawn()
+ {
+    let no_support = NativeRuntime::shooter_center_worker_gate_loc_1146E(6, false);
+    assert_eq!(
+        no_support,
+        ShooterCenterWorkerGateLoc1146E {
+            restored_block_col: 5,
+            should_queue_center_worker: true,
+        },
+        "ASM loc_1146E should undo loc_11458's extra `addq.w #1,d1` before falling through to loc_11474 when `d4` is still zero",
+    );
+
+    let support_spawned = NativeRuntime::shooter_center_worker_gate_loc_1146E(6, true);
+    assert_eq!(
+        support_spawned,
+        ShooterCenterWorkerGateLoc1146E {
+            restored_block_col: 5,
+            should_queue_center_worker: false,
+        },
+        "ASM loc_1146E should branch straight to loc_11496 once any earlier `sub_1149C` call leaves `d4` non-zero",
     );
 }
 

@@ -243,6 +243,13 @@ pub(crate) struct ShooterLeftSupportProbeLoc11448 {
     pub(crate) next_block_col_for_right_probe: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterCenterWorkerGateLoc1146E {
+    pub(crate) restored_block_col: u16,
+    pub(crate) should_queue_center_worker: bool,
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
@@ -756,6 +763,40 @@ impl NativeRuntime {
             should_probe_support,
             support_col: should_probe_support.then(|| block_col - 1),
             next_block_col_for_right_probe: block_col.wrapping_add(1),
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_center_worker_gate_loc_1146E(
+        block_col_after_right_probe: u16,
+        queued_support_worker: bool,
+    ) -> ShooterCenterWorkerGateLoc1146E {
+        // ASM loc_1146E (kid.asm:23394-23397): `subq.w #1,d1` restores the
+        // original shooter column after loc_11458's shared `addq.w #1,d1`
+        // tail, then `tst.w d4; bne.s loc_11496` suppresses the struck-cell
+        // worker whenever any earlier `sub_1149C` call already queued a
+        // support worker.
+        ShooterCenterWorkerGateLoc1146E {
+            restored_block_col: block_col_after_right_probe.wrapping_sub(1),
+            should_queue_center_worker: !queued_support_worker,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_center_worker_loc_11474(
+        block_col: u16,
+        block_row: u16,
+    ) -> ShooterHeadbuttWorker {
+        // ASM loc_11474 (kid.asm:23399-23407): allocate a `$2001` worker,
+        // install `sub_114C0`, then copy `d1/d2/d3` into `$44/$46/$48`. The
+        // native equivalent keeps the struck cell address as `(col,row)`.
+        ShooterHeadbuttWorker {
+            col: block_col,
+            row: block_row,
+            age: 0,
+            kind: ShooterHeadbuttWorkerKind::Center,
         }
     }
 
@@ -1916,31 +1957,17 @@ impl NativeRuntime {
             && let Some(grid) = self.block_grid.as_mut()
         {
             self.blocks_hit_this_frame += 1;
-            let shooter_cell = grid.cell_at(cell_x, cell_y);
-            // ASM loc_11430 marks the struck shooter as deleted-solid
-            // immediately via `or.b #$F,(a1)` before the timed workers run.
-            grid.set_cell_at(
-                cell_x,
-                cell_y,
-                Self::shooter_deleted_tile_for_sub_114c0(shooter_cell.skin),
-            );
-
-            self.block_state
-                .shooter_headbutt_workers
-                .push(ShooterHeadbuttWorker {
-                    col: cell_x,
-                    row: cell_y,
-                    age: 0,
-                    kind: ShooterHeadbuttWorkerKind::Center,
-                });
+            let mut should_queue_center_worker = true;
 
             if cell_y > 0 {
                 let support_row = cell_y - 1;
+                let mut queued_support_worker = false;
                 let mut try_queue_support = |support_col: u16| {
                     if grid.cell_at(support_col, support_row) == terrain::Cell::from_be_bytes(0, 0)
                     {
                         // ASM sub_1149C: queue one support worker per empty cell above the
                         // struck shooter, including the diagonals when in bounds.
+                        queued_support_worker = true;
                         self.block_state
                             .shooter_headbutt_workers
                             .push(ShooterHeadbuttWorker {
@@ -1959,6 +1986,27 @@ impl NativeRuntime {
                 if cell_x + 1 < grid.width_cells {
                     try_queue_support(cell_x + 1);
                 }
+
+                should_queue_center_worker = Self::shooter_center_worker_gate_loc_1146E(
+                    cell_x.wrapping_add(1),
+                    queued_support_worker,
+                )
+                .should_queue_center_worker;
+            }
+
+            if should_queue_center_worker {
+                let shooter_cell = grid.cell_at(cell_x, cell_y);
+                // ASM loc_11474 resets `a1` from `d3`, marks the struck
+                // shooter deleted-solid via `or.b #$F,(a1)`, then installs the
+                // `sub_114C0` centre worker.
+                grid.set_cell_at(
+                    cell_x,
+                    cell_y,
+                    Self::shooter_deleted_tile_for_sub_114c0(shooter_cell.skin),
+                );
+                self.block_state
+                    .shooter_headbutt_workers
+                    .push(Self::shooter_center_worker_loc_11474(cell_x, cell_y));
             }
         }
 
