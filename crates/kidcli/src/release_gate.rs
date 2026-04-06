@@ -248,7 +248,7 @@ fn run_one_player_accurate_gate(
     ] {
         let step_name = format!("frame_oracle:{}", scenario.slug());
         run_release_step(report, &step_name, || {
-            verify_frames(repo_root, rom_path, &rom_bytes, scenario)?;
+            verify_frames(repo_root, rom_path, &rom_bytes, manifest, scenario)?;
             Ok(format!("frame compare passed for {}", scenario.slug()))
         })?;
     }
@@ -256,7 +256,7 @@ fn run_one_player_accurate_gate(
     for scenario in [Scenario::BootTitleStartLevel1, Scenario::BootTitleIdle10s] {
         let step_name = format!("audio_oracle:{}", scenario.slug());
         run_release_step(report, &step_name, || {
-            verify_audio_output(repo_root, rom_path, &rom_bytes, scenario)?;
+            verify_audio_output(repo_root, rom_path, &rom_bytes, manifest, scenario)?;
             Ok(format!("audio compare passed for {}", scenario.slug()))
         })?;
     }

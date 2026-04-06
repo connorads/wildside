@@ -903,15 +903,18 @@ fn main() -> Result<()> {
         Commands::VerifyAudioOutput { rom, scenario } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, None);
+            bootstrap_upstream(&upstream_dir)?;
             let verified = verify_rom(&rom_path)?;
             if !matches!(verified.identity, RomIdentity::KnownKidChameleon) {
                 bail!(
                     "verify-audio-output currently supports only the known Kid Chameleon ROM dump"
                 );
             }
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             let rom_bytes = fs::read(&rom_path)
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
-            verify_audio_output(&repo_root, &rom_path, &rom_bytes, scenario)?;
+            verify_audio_output(&repo_root, &rom_path, &rom_bytes, &manifest, scenario)?;
             println!("audio-output verification passed");
         }
         Commands::TraceAudio { rom, scenario } => {
@@ -928,25 +931,31 @@ fn main() -> Result<()> {
         Commands::VerifyFrames { rom, scenario } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, None);
+            bootstrap_upstream(&upstream_dir)?;
             let verified = verify_rom(&rom_path)?;
             if !matches!(verified.identity, RomIdentity::KnownKidChameleon) {
                 bail!("verify-frames currently supports only the known Kid Chameleon ROM dump");
             }
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             let rom_bytes = fs::read(&rom_path)
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
-            verify_frames(&repo_root, &rom_path, &rom_bytes, scenario)?;
+            verify_frames(&repo_root, &rom_path, &rom_bytes, &manifest, scenario)?;
             println!("frame verification passed");
         }
         Commands::VerifyOracle { rom, scenario } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, None);
+            bootstrap_upstream(&upstream_dir)?;
             let verified = verify_rom(&rom_path)?;
             if !matches!(verified.identity, RomIdentity::KnownKidChameleon) {
                 bail!("verify-oracle currently supports only the known Kid Chameleon ROM dump");
             }
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             let rom_bytes = fs::read(&rom_path)
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
-            verify_oracle(&repo_root, &rom_path, &rom_bytes, scenario)?;
+            verify_oracle(&repo_root, &rom_path, &rom_bytes, &manifest, scenario)?;
             println!("oracle verification passed");
         }
         Commands::RenderFrame {

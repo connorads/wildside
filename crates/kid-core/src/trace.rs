@@ -1642,9 +1642,10 @@ impl NativeRuntime {
                 // at `$28` until Obj_TitleMenu later reaches loc_1BB02.
                 Some(PlayerState::title_pose())
             }
-            BootState::IntroSequence6 { .. } if self.title_menu_active => {
-                self.title_menu_cursor_player_state()
-            }
+            BootState::IntroSequence6 { .. } if self.title_menu_active => self
+                .title_screen_ready()
+                .then(PlayerState::title_pose)
+                .or_else(|| self.title_menu_cursor_player_state()),
             BootState::IntroSequence6 { .. } => None,
             BootState::IntroSequence { .. } => None,
             BootState::TitleScreen { .. } if self.title_uses_full_demo_snapshot() => {
@@ -1662,9 +1663,10 @@ impl NativeRuntime {
             {
                 Some(PlayerState::intro_sequence_5_slot_2_pose())
             }
-            BootState::TitleScreen { .. } if self.title_menu_active => {
-                self.title_menu_cursor_player_state()
-            }
+            BootState::TitleScreen { .. } if self.title_menu_active => self
+                .title_screen_ready()
+                .then(PlayerState::title_pose)
+                .or_else(|| self.title_menu_cursor_player_state()),
             BootState::TitleScreen { .. } if self.title_hides_demo_return_player() => None,
             BootState::TitleScreen { .. }
             | BootState::OptionsMenu { .. }

@@ -253,6 +253,45 @@ pub(crate) fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<S
     })
 }
 
+pub(crate) fn capture_native_states_for_scenario(
+    manifest: &AssetManifest,
+    scenario: Scenario,
+) -> Result<Vec<CapturedState>> {
+    let script = scenario.script()?;
+    let checkpoints = scenario.checkpoints();
+    let trace = run_native_script_for_scenario(manifest, &script, scenario);
+    let mut checkpoint_index = 0usize;
+    let mut states = Vec::with_capacity(checkpoints.len());
+
+    for snapshot in trace {
+        while checkpoint_index < checkpoints.len()
+            && checkpoints[checkpoint_index].frame_index == snapshot.frame_index
+        {
+            let checkpoint = checkpoints[checkpoint_index];
+            states.push(CapturedState {
+                label: checkpoint.label.to_string(),
+                frame_index: snapshot.frame_index,
+                game_mode: snapshot.game_mode_value,
+                current_player: snapshot.current_player,
+                number_hitpoints: snapshot.number_hitpoints,
+                current_helmet_id: snapshot.current_helmet_id,
+                current_level_id: u16::from(snapshot.current_level.0),
+                player_1_level_id: u16::from(snapshot.player_1_level_id.0),
+                camera_x_pos: snapshot.camera_x_pos,
+                camera_y_pos: snapshot.camera_y_pos,
+                kid_x_pos: snapshot.kid_x_pos.unwrap_or(0),
+                kid_y_pos: snapshot.kid_y_pos.unwrap_or(0),
+                number_objects: snapshot.number_objects,
+                number_gfx_objects: snapshot.number_gfx_objects,
+                active_enemies: Vec::new(),
+            });
+            checkpoint_index += 1;
+        }
+    }
+
+    Ok(states)
+}
+
 pub(crate) fn capture_gameplay_scenario(
     rom_bytes: &[u8],
     scenario: GameplayScenario,

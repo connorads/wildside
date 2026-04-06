@@ -2448,15 +2448,29 @@ fn boot_title_start_keeps_title_shell_through_frame_360() {
         };
         let trace = runtime.step_frame(input);
         if frame_index == 360 {
-            frame_360 = Some((trace.game_mode, trace.current_level));
+            frame_360 = Some((
+                trace.game_mode,
+                trace.current_level,
+                trace.kid_x_pos,
+                trace.kid_y_pos,
+            ));
         }
     }
 
     // ASM cold-boot Start presses can skip the intro into title early, but the
-    // interactive 1P selection does not arm until the later frame-178 Start.
-    // The frame-360 Start therefore still lands on title instead of pausing
-    // already-live gameplay.
-    assert_eq!(frame_360, Some((GameMode::TitleScreen, LevelId(0))));
+    // interactive 1P selection does not arm until the later frame-178 Start,
+    // and Obj_TitleMenu `loc_1BB52` adds the cursor as a separate gfx slot.
+    // The frame-360 Start therefore still lands on the settled title shell
+    // with Kid at `loc_1B5CE`'s standard `x=$2E`, `y=$8C` pose.
+    assert_eq!(
+        frame_360,
+        Some((
+            GameMode::TitleScreen,
+            LevelId(0),
+            Some(TITLE_KID_X_POS),
+            Some(TITLE_KID_Y_POS),
+        ))
+    );
 }
 
 #[test]
@@ -3030,19 +3044,45 @@ fn reaches_title_screen_without_input() {
 }
 
 #[test]
-fn boot_with_start_presses_keeps_title_active_until_frame_460_selection() {
-    let mut script = vec![0u8; 500];
-    for &f in BOOT_TO_LEVEL_START_FRAMES.iter() {
-        if f < script.len() {
-            script[f] = 0x80;
+fn boot_with_start_presses_keep_title_visible_until_frame_460_selection() {
+    let mut runtime = cached_generated_runtime();
+    let mut frame_178 = None;
+    let mut frame_360 = None;
+    let mut frame_460 = None;
+    let mut frame_461 = None;
+    let mut frame_462 = None;
+
+    for frame_index in 0..=462 {
+        let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame_index) {
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            }
+        } else {
+            FrameInput::default()
+        };
+        let trace = runtime.step_frame(input);
+        match frame_index {
+            178 => frame_178 = Some(trace.game_mode),
+            360 => frame_360 = Some(trace.game_mode),
+            460 => frame_460 = Some(trace.game_mode),
+            461 => frame_461 = Some(trace.game_mode),
+            462 => frame_462 = Some(trace.game_mode),
+            _ => {}
         }
     }
-    let trace = run_script(manifest(), &script, 500);
-    assert_eq!(trace[178].game_mode, GameMode::TitleScreen);
-    assert_eq!(trace[360].game_mode, GameMode::LevelTransition);
-    assert_eq!(trace[460].game_mode, GameMode::TitleScreen);
-    assert_eq!(trace[461].game_mode, GameMode::LevelTransition);
-    assert_eq!(trace[462].game_mode, GameMode::LevelTransition);
+
+    // ASM Obj_TitleMenu `loc_1BAEA` seeds the shared `$280` DBF idle loop, and
+    // only `loc_1BB02` flips `Game_Mode` out of title. Oracle-backed
+    // `boot_title_start_level1` traces therefore keep frame 360 on the settled
+    // title shell; the frame-360 Start then arms the hidden level bootstrap,
+    // which stays in `Game_Mode=$0008` by frame 460 and continues into the
+    // later `loc_1AE2E -> Game_Mode=$000C` hand-off.
+    assert_eq!(frame_178, Some(GameMode::TitleScreen));
+    assert_eq!(frame_360, Some(GameMode::TitleScreen));
+    assert_eq!(frame_460, Some(GameMode::LevelTransition));
+    assert_eq!(frame_461, Some(GameMode::LevelTransition));
+    assert_eq!(frame_462, Some(GameMode::LevelTransition));
 }
 
 #[test]

@@ -518,9 +518,10 @@ pub(crate) fn verify_audio_output(
     repo_root: &Path,
     rom_path: &Path,
     rom_bytes: &[u8],
+    manifest: &AssetManifest,
     scenario: Scenario,
 ) -> Result<()> {
-    let comparison = capture_oracle_pair(repo_root, rom_path, rom_bytes, scenario)?;
+    let comparison = capture_oracle_pair(repo_root, rom_path, rom_bytes, manifest, scenario)?;
     compare_audio_against_oracle(&comparison)
 }
 
@@ -528,9 +529,10 @@ pub(crate) fn verify_frames(
     repo_root: &Path,
     rom_path: &Path,
     rom_bytes: &[u8],
+    manifest: &AssetManifest,
     scenario: Scenario,
 ) -> Result<()> {
-    let comparison = capture_oracle_pair(repo_root, rom_path, rom_bytes, scenario)?;
+    let comparison = capture_oracle_pair(repo_root, rom_path, rom_bytes, manifest, scenario)?;
     compare_frames_against_oracle(&comparison)
 }
 
@@ -538,9 +540,10 @@ pub(crate) fn verify_oracle(
     repo_root: &Path,
     rom_path: &Path,
     rom_bytes: &[u8],
+    manifest: &AssetManifest,
     scenario: Scenario,
 ) -> Result<()> {
-    let comparison = capture_oracle_pair(repo_root, rom_path, rom_bytes, scenario)?;
+    let comparison = capture_oracle_pair(repo_root, rom_path, rom_bytes, manifest, scenario)?;
     compare_audio_against_oracle(&comparison)?;
     compare_frames_against_oracle(&comparison)
 }
@@ -549,6 +552,7 @@ pub(crate) fn capture_oracle_pair(
     repo_root: &Path,
     rom_path: &Path,
     rom_bytes: &[u8],
+    manifest: &AssetManifest,
     scenario: Scenario,
 ) -> Result<OracleComparison> {
     let env = ensure_oracles(repo_root)?;
@@ -569,6 +573,11 @@ pub(crate) fn capture_oracle_pair(
         .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
 
     let native = capture_scenario(rom_bytes, scenario)?;
+    let native_states = capture_native_states_for_scenario(manifest, scenario)?;
+    let native = ScenarioCapture {
+        states: native_states,
+        ..native
+    };
     write_native_artifacts(&native_dir, &native)?;
     let oracle = run_jgenesis_capture(&env, rom_path, scenario, &oracle_dir)?;
     fs::write(
