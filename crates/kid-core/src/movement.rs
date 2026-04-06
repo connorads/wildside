@@ -158,6 +158,9 @@ pub(crate) fn gfx_object_delete_loc_10C6(
         // object kind 2 branches here, decrements once more to zero, then
         // clears `Addr_GfxObject_KidProjectile`.
         2 => GfxObjectSpecialSlotLoc10C6::KidProjectile,
+        // ASM loc_10F4 (kid.asm:2061): after the shared `subq.w #1,d0`, kind
+        // 3 decrements once more to zero here and clears the `$FFFFF86A`
+        // singleton pointer before the shared `loc_1106` tail.
         3 => GfxObjectSpecialSlotLoc10C6::UnknownF86A,
         _ => GfxObjectSpecialSlotLoc10C6::None,
     };
