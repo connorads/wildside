@@ -195,6 +195,8 @@ pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
     -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
     2, 2, 2, 2,
 ];
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A: [i16; 4] = [2, 2, 2, 2];
 
 impl NativeRuntime {
     #[allow(non_snake_case)]
@@ -843,6 +845,15 @@ impl NativeRuntime {
         // five-frame `addq.w #2,y_pos(a3)` rebound before the animation waits
         // to finish and the worker deletes itself.
         &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn evanescent_block_reveal_descent_y_deltas_loc_1117A() -> &'static [i16; 4] {
+        // ASM loc_1117A (kid.asm:23077): when `$4C(a5)` is zero, `moveq #3,d0`
+        // drives an inclusive `dbf` loop, so the worker spends four hibernated
+        // frames on `addq.w #2,y_pos(a3)` before the mirrored rebound.
+        &EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A
     }
 
     #[allow(non_snake_case)]
