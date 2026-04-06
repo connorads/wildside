@@ -812,6 +812,11 @@ pub(crate) struct LevelStartMusicCommandLoc11FD2 {
     pub(crate) sound_id: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ForegroundThemeMusicLoc12004 {
+    pub(crate) sound_id: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -1052,20 +1057,25 @@ pub(crate) fn select_level_start_music_loc_11FD2(
         }
     } else {
         LevelStartMusicCommandLoc11FD2 {
-            sound_id: match foreground_theme {
-                0x0000 | 0x0007 => 0x0080,
-                0x0001 => 0x0081,
-                0x0002 => 0x0082,
-                0x0003 => 0x0083,
-                0x0004 => 0x0085,
-                0x0005 => 0x0086,
-                0x0006 => 0x0087,
-                0x0008 => 0x0088,
-                0x0009 => 0x0089,
-                0x000A => 0x008A,
-                _ => unreachable!("foreground theme should match the ROM table width"),
-            },
+            sound_id: select_foreground_theme_music_loc_12004(foreground_theme).sound_id,
         }
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn select_foreground_theme_music_loc_12004(
+    foreground_theme: u16,
+) -> ForegroundThemeMusicLoc12004 {
+    const FOREGROUND_THEME_BGM_TABLE_LOC_12004: [u16; 11] = [
+        0x0080, 0x0081, 0x0082, 0x0083, 0x0085, 0x0086, 0x0087, 0x0080, 0x0088, 0x0089, 0x008A,
+    ];
+
+    // ASM loc_12004 (kid.asm:24190): load `Foreground_theme` into `d1`, index
+    // `unk_1201E(pc)` bytewise, mirror that byte into `d0`, store it in
+    // `($FFFFFC32).w`, then call `j_PlaySound`.
+    ForegroundThemeMusicLoc12004 {
+        sound_id: FOREGROUND_THEME_BGM_TABLE_LOC_12004[usize::from(foreground_theme)],
     }
 }
 

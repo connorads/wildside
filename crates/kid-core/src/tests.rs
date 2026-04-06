@@ -26102,6 +26102,25 @@ fn loc_11fd2_forces_murderwall_music_before_the_foreground_theme_lookup() {
 }
 
 #[test]
+fn loc_12004_looks_up_foreground_theme_music_from_the_rom_table() {
+    assert_eq!(
+        crate::level::select_foreground_theme_music_loc_12004(0x0000),
+        crate::level::ForegroundThemeMusicLoc12004 { sound_id: 0x0080 },
+        "ASM loc_12004 should read `unk_1201E[0]` and play `bgm_Mountain` for foreground theme 0"
+    );
+    assert_eq!(
+        crate::level::select_foreground_theme_music_loc_12004(0x0007),
+        crate::level::ForegroundThemeMusicLoc12004 { sound_id: 0x0080 },
+        "ASM loc_12004 should reuse the same table byte for foreground theme 7, matching the duplicated `bgm_Mountain` entry in `unk_1201E`"
+    );
+    assert_eq!(
+        crate::level::select_foreground_theme_music_loc_12004(0x000A),
+        crate::level::ForegroundThemeMusicLoc12004 { sound_id: 0x008A },
+        "ASM loc_12004 should index the final `unk_1201E` byte for foreground theme 10 and play `bgm_City`"
+    );
+}
+
+#[test]
 fn loc_11bd2_loads_player_start_and_flag_positions_when_the_preserve_latch_is_clear() {
     assert_eq!(
         crate::level::decode_spawn_positions_loc_11BD2(
