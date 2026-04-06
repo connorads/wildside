@@ -995,7 +995,6 @@ pub(crate) fn classify_post_load_object_routine_loc_11F96(
     background_theme: u16,
 ) -> Option<PostLoadObjectRoutineLoc11F96> {
     const FOREGROUND_THEME_CAVE_LOC_11F96: u16 = 0x0008;
-    const BACKGROUND_THEME_ISLAND_LOC_11FB0: u16 = 0x0004;
     const ROTATE_PALETTE_OBJECT_SLOT_SEED_LOC_11F96: u16 = 0xA000;
     const ISLAND_OBJECT_SLOT_SEED_LOC_11FB0: u16 = 0x0000;
     const ISLAND_OBJECT_ROUTINE_ADDR_LOC_11FB0: u32 = 0x0001_202A;
@@ -1009,7 +1008,7 @@ pub(crate) fn classify_post_load_object_routine_loc_11F96(
         Some(PostLoadObjectRoutineLoc11F96::RotatePaletteLavaWater {
             object_slot_seed: ROTATE_PALETTE_OBJECT_SLOT_SEED_LOC_11F96,
         })
-    } else if background_theme == BACKGROUND_THEME_ISLAND_LOC_11FB0 {
+    } else if classify_island_background_object_loc_11FB0(background_theme) {
         Some(PostLoadObjectRoutineLoc11F96::IslandPaletteCycle {
             object_slot_seed: ISLAND_OBJECT_SLOT_SEED_LOC_11FB0,
             object_routine_addr: ISLAND_OBJECT_ROUTINE_ADDR_LOC_11FB0,
@@ -1017,6 +1016,18 @@ pub(crate) fn classify_post_load_object_routine_loc_11F96(
     } else {
         None
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn classify_island_background_object_loc_11FB0(background_theme: u16) -> bool {
+    const BACKGROUND_THEME_ISLAND_LOC_11FB0: u16 = 0x0004;
+
+    // ASM loc_11FB0 (kid.asm:24163): once the foreground Cave branch at
+    // `loc_11F96` falls through, only `Background_theme == Island` allocates
+    // slot `0` and seeds `4(a0)` with `loc_1202A`; all other themes fall
+    // through untouched into `loc_11FC8`.
+    background_theme == BACKGROUND_THEME_ISLAND_LOC_11FB0
 }
 
 #[allow(non_snake_case)]

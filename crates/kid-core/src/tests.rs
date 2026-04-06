@@ -26076,6 +26076,18 @@ fn loc_11f96_allocates_the_palette_rotator_for_cave_and_the_island_worker_otherw
 }
 
 #[test]
+fn loc_11fb0_only_allocates_the_island_background_worker_for_island_backgrounds() {
+    assert!(
+        crate::level::classify_island_background_object_loc_11FB0(0x0004),
+        "ASM loc_11FB0 should take the Island-only branch and allocate slot `0` for `loc_1202A` when `Background_theme == Island`"
+    );
+    assert!(
+        !crate::level::classify_island_background_object_loc_11FB0(0x0005),
+        "ASM loc_11FB0 should fall through to `loc_11FC8` without allocating the worker when `Background_theme` is not Island"
+    );
+}
+
+#[test]
 fn loc_11bd2_loads_player_start_and_flag_positions_when_the_preserve_latch_is_clear() {
     assert_eq!(
         crate::level::decode_spawn_positions_loc_11BD2(
