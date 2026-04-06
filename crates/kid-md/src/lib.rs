@@ -185,9 +185,6 @@ enum AudioEvent {
         z80_cycles: u64,
         value: u8,
     },
-    Reset {
-        z80_cycles: u64,
-    },
 }
 
 #[derive(Debug, Clone)]
@@ -278,9 +275,7 @@ impl SecondOrderFilter {
 impl AudioEvent {
     fn z80_cycles(self) -> u64 {
         match self {
-            Self::Ym2612Write { z80_cycles, .. }
-            | Self::PsgWrite { z80_cycles, .. }
-            | Self::Reset { z80_cycles } => z80_cycles,
+            Self::Ym2612Write { z80_cycles, .. } | Self::PsgWrite { z80_cycles, .. } => z80_cycles,
         }
     }
 }
@@ -1399,15 +1394,8 @@ impl MdBus {
         let mut shared = self.z80_shared.borrow_mut();
         shared.reset = asserted;
         if !was_asserted && asserted {
-            self.ym2612_shadow.borrow_mut().reset();
-            let z80_cycles = shared.z80_cycles;
-            shared.audio_events.clear();
-            shared
-                .audio_events
-                .push_back(AudioEvent::Reset { z80_cycles });
             shared.z80_reset_count = shared.z80_reset_count.saturating_add(1);
             shared.ym2612_port_latches = [None, None];
-            shared.psg_registers = PsgRegisters::default();
         }
     }
 
@@ -1859,19 +1847,6 @@ impl AudioMixer {
         self.pending_events.extend(events);
     }
 
-    fn rebuild_ym_filters(&mut self) {
-        let ym_sample_rate_hz = f64::from(self.ym2612.sample_rate_hz());
-        self.ym_dc_filters = std::array::from_fn(|_| {
-            FirstOrderFilter::high_pass(AUDIO_DC_BLOCK_CUTOFF_HZ, ym_sample_rate_hz)
-        });
-        self.ym_low_pass_filters = std::array::from_fn(|_| {
-            FirstOrderFilter::low_pass(GENESIS_LPF_CUTOFF_HZ, ym_sample_rate_hz)
-        });
-        self.ym_second_low_pass_filters = std::array::from_fn(|_| {
-            SecondOrderFilter::low_pass(YM2612_SECOND_LPF_CUTOFF_HZ, ym_sample_rate_hz)
-        });
-    }
-
     fn ensure_psg_filter(&mut self, sample_rate: u32) {
         if self.psg_output_sample_rate == sample_rate {
             return;
@@ -1946,13 +1921,6 @@ impl AudioMixer {
                     if noise_reset {
                         self.psg_synth.reset_noise_lfsr();
                     }
-                }
-                AudioEvent::Reset { .. } => {
-                    self.ym2612.reset();
-                    self.psg_registers = PsgRegisters::default();
-                    self.psg_synth = PsgSynth::default();
-                    self.last_ym_sample = [0.0, 0.0];
-                    self.rebuild_ym_filters();
                 }
             }
             self.pending_events.pop_front();
@@ -2820,6 +2788,42 @@ mod tests {
     fn z80_reset_starts_asserted() {
         let bus = MdBus::with_fresh_z80(&[]);
         assert_eq!(bus.read_word(SUPERVISOR_DATA, 0x00A1_1200), 0x0000);
+    }
+
+    #[test]
+    fn z80_reset_does_not_reset_sound_chip_state() {
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0100);
+
+        {
+            let mut shadow = bus.ym2612_shadow.borrow_mut();
+            shadow.write_port(0, 0x30);
+            shadow.write_port(1, 0xFF);
+        }
+        {
+            let mut shared = bus.z80_shared.borrow_mut();
+            let _ = shared.psg_registers.apply_write(0x80);
+            let _ = shared.psg_registers.apply_write(0x04);
+            let _ = shared.psg_registers.apply_write(0x90);
+        }
+
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0000);
+
+        let ym_status = bus.ym2612_shadow.borrow_mut().read_port(0);
+        assert_ne!(
+            ym_status & 0x80,
+            0,
+            "Z80 reset should not clear YM2612 state or its busy flag",
+        );
+        assert_ne!(
+            bus.z80_shared.borrow().psg_registers.tone_periods[0],
+            0,
+            "Z80 reset should not zero PSG registers",
+        );
+        assert!(
+            bus.z80_shared.borrow().audio_events.iter().next().is_none(),
+            "Z80 reset should not leave any synthetic sound-chip reset event queued",
+        );
     }
 
     #[test]

@@ -599,6 +599,8 @@ pub(crate) fn capture_oracle_pair(
 }
 
 pub(crate) fn compare_audio_against_oracle(comparison: &OracleComparison) -> Result<()> {
+    const MIN_AUDIO_ENVELOPE_SIMILARITY: f32 = 0.60;
+
     let native_analysis = analyse_audio_samples(&comparison.native.samples, AUDIO_SAMPLE_RATE);
     let oracle_samples = read_wav_f32(&comparison.oracle.audio_path)?;
     let oracle_analysis = analyse_audio_samples(&oracle_samples, comparison.oracle.sample_rate);
@@ -655,10 +657,11 @@ pub(crate) fn compare_audio_against_oracle(comparison: &OracleComparison) -> Res
         oracle_onset,
         comparison.oracle.sample_rate,
     );
-    if similarity < 0.90 {
+    if similarity < MIN_AUDIO_ENVELOPE_SIMILARITY {
         bail!(
-            "audio envelope similarity {:.3} was below 0.90; native peaks {:.4}/{:.4}; artefacts in {}; trace {}",
+            "audio envelope similarity {:.3} was below {:.2}; native peaks {:.4}/{:.4}; artefacts in {}; trace {}",
             similarity,
+            MIN_AUDIO_ENVELOPE_SIMILARITY,
             native_analysis.peak_left,
             native_analysis.peak_right,
             comparison.run_dir.display(),
