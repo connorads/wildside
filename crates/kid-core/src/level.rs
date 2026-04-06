@@ -255,6 +255,38 @@ pub(crate) fn level_layout_cell_loc_11C36(terrain_byte: u8, theme_collision_inde
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn level_layout_cells_loc_11C34(
+    terrain_layout: &[u8],
+    theme_collision_index: &[u8],
+    level_width_blocks: u16,
+    level_height_blocks: u16,
+) -> Vec<u16> {
+    // ASM loc_11C34 (kid.asm:23815-23827) clears the per-row column counter
+    // `d1`, then re-enters loc_11C36 exactly `Level_width_blocks` times before
+    // incrementing `d0` and starting the next row.
+    let expected_cells = usize::from(level_width_blocks) * usize::from(level_height_blocks);
+    assert!(
+        terrain_layout.len() >= expected_cells,
+        "terrain_layout must provide at least one byte per block cell"
+    );
+
+    let mut level_layout = Vec::with_capacity(expected_cells);
+    let width = usize::from(level_width_blocks);
+    let height = usize::from(level_height_blocks);
+    for row in 0..height {
+        for col in 0..width {
+            let terrain_byte = terrain_layout[row * width + col];
+            level_layout.push(level_layout_cell_loc_11C36(
+                terrain_byte,
+                theme_collision_index,
+            ));
+        }
+    }
+    level_layout
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_dimensions_loc_11B40(
     level_width_tiles: u16,
     level_height_tiles: u16,
