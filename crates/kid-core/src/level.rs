@@ -623,6 +623,19 @@ pub(crate) fn apply_foreground_palette_override_loc_11DAC(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn copy_foreground_palette_loc_11DB0(
+    foreground_palette: &[u16; 15],
+    palette_buffer: &mut [u16; 0x40],
+) {
+    // ASM loc_11DB0 (kid.asm:23977): `lea (Palette_Buffer+$2).l,a2` and
+    // `moveq #$E,d1` feed a `move.w (a1)+,(a2)+` / `dbf d1,-` loop, so the ROM
+    // copies exactly 15 words into palette slots 1..15 and leaves word 0 plus
+    // the remaining palette lines untouched.
+    palette_buffer[1..=15].copy_from_slice(foreground_palette);
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point
     // `Addr_NextSpriteSlot` at `Sprite_Table`, and reset the dynamic-art

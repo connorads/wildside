@@ -42,8 +42,8 @@ use crate::level::{
     background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
     blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
     classify_foreground_palette_override_loc_11D8E, compile_block_debris_sprites_sub_2A4C,
-    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
-    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    copy_foreground_palette_loc_11DB0, drain_fg_update_queue_custom_sub_1596,
+    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
@@ -25932,6 +25932,28 @@ fn loc_11dac_swaps_in_pal_12d26_only_for_the_late_override_branch() {
         ),
         0x0246,
         "ASM loc_11DAC should leave the current theme palette untouched when the `$1A/$1B` branch was not taken"
+    );
+}
+
+#[test]
+fn loc_11db0_copies_15_foreground_words_into_palette_slots_1_through_15() {
+    let foreground_palette = std::array::from_fn(|index| 0x0100 + index as u16);
+    let mut palette_buffer = [0x0EEE; 0x40];
+
+    copy_foreground_palette_loc_11DB0(&foreground_palette, &mut palette_buffer);
+
+    assert_eq!(
+        palette_buffer[0], 0x0EEE,
+        "ASM loc_11DB0 should start at `Palette_Buffer+$2`, leaving palette word 0 untouched"
+    );
+    assert_eq!(
+        &palette_buffer[1..=15],
+        &foreground_palette,
+        "ASM loc_11DB0 should copy exactly 15 foreground palette words via the `moveq #$E` / `dbf` loop"
+    );
+    assert!(
+        palette_buffer[16..].iter().all(|word| *word == 0x0EEE),
+        "ASM loc_11DB0 should stop after those 15 words, leaving later palette entries untouched"
     );
 }
 
