@@ -2005,6 +2005,34 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn metal_block_push_scan_right_loc_11208(
+        row: &[terrain::Cell],
+        source_col: u16,
+    ) -> Option<u16> {
+        // ASM loc_11208 (kid.asm:23139): starting from the cell immediately
+        // right of the struck metal block, keep walking while each sampled
+        // cell is both collision `$6000` and block type `$500`. The first
+        // non-solid cell falls through `loc_11256` and selects the previous
+        // metal block, while any in-bounds solid non-metal or empty-bit15
+        // cell aborts at `loc_11296`.
+        let width = u16::try_from(row.len()).expect("row slices should fit in u16");
+        let mut current_col = source_col.saturating_add(1);
+        while current_col < width {
+            let cell = row[usize::from(current_col)];
+            if cell.collision != terrain::CollisionKind::Solid {
+                return current_col.checked_sub(1);
+            }
+            if !cell.has_block || cell.block_type != terrain::BlockType::Metal {
+                return None;
+            }
+            current_col = current_col.saturating_add(1);
+        }
+
+        None
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_effect_sprite_pos_loc_1110E(cell_x: u16, cell_y: u16) -> (u16, u16) {
         let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cell_x, cell_y);
         // ASM loc_1110E (kid.asm:23038): copy the cached tile coordinates into

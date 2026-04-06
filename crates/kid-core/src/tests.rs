@@ -33404,6 +33404,38 @@ fn metal_block_push_entry_loc_111f4_aborts_the_right_scan_at_the_level_edge() {
 }
 
 #[test]
+fn metal_block_push_scan_right_loc_11208_stops_on_the_last_contiguous_metal_block() {
+    let row = [
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+        terrain::Cell::from_be_bytes(0x00, 0x00),
+    ];
+
+    assert_eq!(
+        NativeRuntime::metal_block_push_scan_right_loc_11208(&row, 0),
+        Some(2),
+        "ASM loc_11208 should keep advancing across contiguous solid metal blocks and, via `loc_11256`, select the last matching block before the first non-solid cell",
+    );
+}
+
+#[test]
+fn metal_block_push_scan_right_loc_11208_aborts_on_in_bounds_solid_non_metal() {
+    let row = [
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+        terrain::Cell::from_be_bytes(0xE5, 0x00),
+        terrain::Cell::from_be_bytes(0xE0, 0x01),
+        terrain::Cell::from_be_bytes(0x00, 0x00),
+    ];
+
+    assert_eq!(
+        NativeRuntime::metal_block_push_scan_right_loc_11208(&row, 0),
+        None,
+        "ASM loc_11208 should jump to `loc_11296` when the scan hits an in-bounds solid cell whose bit-15 / block-type test is not `$E5xx` metal",
+    );
+}
+
+#[test]
 fn metal_block_effect_sprite_pos_loc_1110e_scales_tile_words_into_pixels() {
     assert_eq!(
         NativeRuntime::metal_block_effect_sprite_pos_loc_1110E(5, 3),
