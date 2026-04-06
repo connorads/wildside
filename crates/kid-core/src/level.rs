@@ -556,6 +556,7 @@ pub(crate) fn decode_spawn_positions_loc_11BD2(
 pub(crate) enum ForegroundPaletteOverrideLoc11D8E {
     None,
     AlternativeCave,
+    RemovedSpecialPaletteNoop,
 }
 
 #[allow(non_snake_case)]
@@ -567,9 +568,30 @@ pub(crate) fn classify_foreground_palette_override_loc_11D8E(
     // Stairway to Oblivion (`#3`) and Elsewhere 23 (`#23`) replace `a1` with
     // the alternative cave palette before the later override checks run.
     if matches!(map_id, 0x03 | 23) {
-        ForegroundPaletteOverrideLoc11D8E::AlternativeCave
-    } else {
+        return ForegroundPaletteOverrideLoc11D8E::AlternativeCave;
+    }
+    // ASM loc_11D92 (kid.asm:23954): The Deadly Skyscrapers (`#$1C`) and
+    // Elsewhere 30 (`#30`) branch into `loc_11D9E`, where the removed special
+    // palette command now leaves the already selected theme palette intact.
+    if matches!(map_id, 0x1C | 30) {
+        return ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop;
+    }
+    ForegroundPaletteOverrideLoc11D8E::None
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn apply_foreground_palette_override_loc_11D9E(
+    selected_theme_palette: u16,
+    override_kind: ForegroundPaletteOverrideLoc11D8E,
+) -> u16 {
+    // ASM loc_11D9E (kid.asm:23960): the removed `lea Pal_12D08(pc),a1`
+    // command was replaced with `nop`, so both the explicit no-op path and
+    // the ordinary fallthrough keep the already selected theme palette.
+    match override_kind {
         ForegroundPaletteOverrideLoc11D8E::None
+        | ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop => selected_theme_palette,
+        ForegroundPaletteOverrideLoc11D8E::AlternativeCave => selected_theme_palette,
     }
 }
 

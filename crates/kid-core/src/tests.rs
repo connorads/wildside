@@ -25854,6 +25854,25 @@ fn loc_11d8e_selects_the_alternative_cave_palette_for_stairway_and_elsewhere_23(
 }
 
 #[test]
+fn loc_11d92_routes_deadly_skyscrapers_and_elsewhere_30_into_the_removed_palette_path() {
+    assert_eq!(
+        classify_foreground_palette_override_loc_11D8E(0x1C),
+        ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop,
+        "ASM loc_11D92 should route The Deadly Skyscrapers into the `loc_11D9E` removed-special-palette path"
+    );
+    assert_eq!(
+        classify_foreground_palette_override_loc_11D8E(30),
+        ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop,
+        "ASM loc_11D92 should take the same `loc_11D9E` branch for Elsewhere 30"
+    );
+    assert_eq!(
+        classify_foreground_palette_override_loc_11D8E(0x1B),
+        ForegroundPaletteOverrideLoc11D8E::None,
+        "ASM loc_11D92 should leave neighbouring map IDs on the remaining palette-check path"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {
