@@ -25635,6 +25635,26 @@ fn loc_11c96_only_seeds_the_hidden_block_copy_state_when_entries_exist() {
 }
 
 #[test]
+fn loc_11ca8_copies_one_hidden_block_entry_even_when_dbf_starts_at_zero() {
+    let temp_entries = [
+        [0x0002_1000, 0x0001_0001],
+        [0x0002_2000, 0x0002_0002],
+        [0x0002_3000, 0x0003_0003],
+    ];
+
+    assert_eq!(
+        crate::level::copy_hidden_block_entries_loc_11CA8(&temp_entries, 0),
+        vec![[0x0002_1000, 0x0001_0001]],
+        "ASM loc_11CA8 copies both longwords before `dbf` checks for `-1`, so a zero counter should still copy one 8-byte hidden-block entry"
+    );
+    assert_eq!(
+        crate::level::copy_hidden_block_entries_loc_11CA8(&temp_entries, 1),
+        vec![[0x0002_1000, 0x0001_0001], [0x0002_2000, 0x0002_0002]],
+        "ASM loc_11CA8 should copy one 8-byte hidden-block entry per `dbf` iteration and stop after `d0` falls from 0 to -1"
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),

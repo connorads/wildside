@@ -328,6 +328,22 @@ pub(crate) fn hidden_block_copy_setup_loc_11C96(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn copy_hidden_block_entries_loc_11CA8(
+    temp_entries: &[[u32; 2]],
+    dbf_counter: u16,
+) -> Vec<[u32; 2]> {
+    // ASM loc_11CA8 (kid.asm:23858-23860) copies two longwords from `(a4)+`
+    // to `(a5)+` before each `dbf d0,loc_11CA8` check, so a counter of zero
+    // still copies exactly one 8-byte hidden-block entry.
+    temp_entries
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_dimensions_loc_11B40(
     level_width_tiles: u16,
     level_height_tiles: u16,
