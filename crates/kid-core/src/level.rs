@@ -1924,6 +1924,136 @@ pub(crate) fn block_type_4_hidden_entry_loc_12670(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType11ReadXPosLoc126BA {
+    pub(crate) x_pos: u16,
+    pub(crate) bytes_consumed: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_11_read_x_pos_loc_126ba(
+    layout_words: &[u16],
+) -> Option<BlockType11ReadXPosLoc126BA> {
+    // ASM loc_126BA (kid.asm:24948-24952): entry point for block type 11.
+    //   move.w (a1)+,d1    ; read x_pos
+    //   bpl.s  loc_126C0   ; if >= 0, continue
+    //   rts                ; else return (end of layout)
+    // Block type 11 dispatches here from AddrTbl_BlockTypes entry 11.
+    if layout_words.is_empty() {
+        return None;
+    }
+    let x_pos = layout_words[0];
+    if x_pos & 0x8000 != 0 {
+        None
+    } else {
+        Some(BlockType11ReadXPosLoc126BA {
+            x_pos,
+            bytes_consumed: 1,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType11ParseCoordsLoc126C0 {
+    pub(crate) cell_addr: u32,
+    pub(crate) y_row: u16,
+    pub(crate) is_hidden: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_11_parse_coords_loc_126c0(
+    layout_words: &[u16],
+    row_pointer_table: &[u16],
+    x_pos: u16,
+    block_type: i16,
+) -> Option<BlockType11ParseCoordsLoc126C0> {
+    // ASM loc_126C0 (kid.asm:24955-24966): coordinate parsing for block type 11.
+    //   move.w (a1)+,d2       ; read Y row coordinate
+    //   move.w d2,d3
+    //   add.w d3,d3           ; d3 = Y * 2 (row table index)
+    //   lea ($FFFF4A04).l,a2 ; Level_Layout row pointer table
+    //   move.w (a2,d3.w),a4  ; a4 = row_start_addr for Y
+    //   add.w d1,a4
+    //   add.w d1,a4           ; a4 = row_start + 2*X (cell address)
+    //   tst.w d0              ; test block_type
+    //   bmi.s loc_126DE       ; if < 0 (hidden), branch to hidden case
+    //   move.w #$EB2C,(a4)    ; write tile $EB2C to visible cell
+    //   bra.s loc_126BA       ; loop back for next entry
+    // Block type 11 handles single-cell hidden blocks (like block type 10 but with
+    // tile value $EB2C instead of computed from property byte).
+    if layout_words.is_empty() {
+        return None;
+    }
+    let y_row = layout_words[0];
+
+    let y_idx = usize::from(y_row) * 2;
+    if y_idx >= row_pointer_table.len() * 2 {
+        return None;
+    }
+    let row_start = u32::from(row_pointer_table[y_idx / 2]);
+    let cell_addr = row_start.wrapping_add(u32::from(x_pos) * 2);
+
+    Some(BlockType11ParseCoordsLoc126C0 {
+        cell_addr,
+        y_row,
+        is_hidden: block_type < 0,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType11VisibleTileLoc126C0 {
+    pub(crate) tile_word: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_11_visible_tile_loc_126c0() -> BlockType11VisibleTileLoc126C0 {
+    // ASM loc_126C0 (kid.asm:24963-24966): visible tile value for block type 11.
+    //   tst.w d0              ; test block_type
+    //   bmi.s loc_126DE       ; hidden case branches away
+    //   move.w #$EB2C,(a4)    ; write tile $EB2C to visible cell
+    //   bra.s loc_126BA       ; loop back for next entry
+    // The visible case writes a fixed tile value $EB2C.
+    BlockType11VisibleTileLoc126C0 { tile_word: 0xEB2C }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType11HiddenEntryLoc126DE {
+    pub(crate) cell_addr: u32,
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+    pub(crate) block_type: i16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_11_hidden_entry_loc_126de(
+    cell_addr: u32,
+    x_pos: u16,
+    y_row: u16,
+    block_type: i16,
+) -> BlockType11HiddenEntryLoc126DE {
+    // ASM loc_126DE (kid.asm:24969-24977): hidden block entry for block type 11.
+    //   bsr.w sub_127A8        ; write $20 placeholder + terrain byte to cell
+    //   bsr.w sub_127CE       ; shift hidden block list to make room
+    //   move.w a4,(a2)+       ; store cell_addr in hidden block list
+    //   move.w d1,(a2)+       ; store x_pos
+    //   move.w d2,(a2)+       ; store y_row
+    //   move.b d0,(a2)+       ; store block_type (negated, as byte)
+    //   clr.b (a2)+           ; clear flag byte (0 = primary entry)
+    //   bra.s loc_126BA       ; loop back for next entry
+    // Creates a single hidden block entry. Block type 11 hidden blocks use a
+    // single8-byte entry (unlike block type 4 which creates two entries).
+    BlockType11HiddenEntryLoc126DE {
+        cell_addr,
+        x_pos,
+        y_row,
+        block_type,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(

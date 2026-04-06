@@ -40181,3 +40181,116 @@ fn loc_12670_creates_hidden_block_entry_pair() {
     assert_eq!(result.block_type, -4, "ASM loc_12670: block type preserved");
     assert_eq!(result.flag_byte, 0, "ASM loc_12670: first entry flag = 0");
 }
+
+#[test]
+fn loc_126ba_reads_x_pos_for_block_type_11() {
+    // ASM loc_126BA (kid.asm:24948-24952): entry for block type 11.
+    //   move.w (a1)+,d1    ; read x_pos
+    //   bpl.s  loc_126C0   ; continue if >= 0
+    //   rts                ; return if negative (end of layout)
+    let sentinel = crate::level::block_type_11_read_x_pos_loc_126ba(&[0x8000]);
+    assert!(
+        sentinel.is_none(),
+        "ASM loc_126BA: negative x_pos should return None"
+    );
+    let valid = crate::level::block_type_11_read_x_pos_loc_126ba(&[0x002A, 0x0006])
+        .expect("ASM loc_126BA: valid entry should parse");
+    assert_eq!(valid.x_pos, 0x002A, "ASM loc_126BA: should read x_pos = 42");
+    assert_eq!(
+        valid.bytes_consumed, 1,
+        "ASM loc_126BA: should consume 1 word"
+    );
+}
+
+#[test]
+fn loc_126c0_computes_cell_address_for_type_11() {
+    // ASM loc_126C0 (kid.asm:24955-24966): parse coordinates for block type 11.
+    //   move.w (a1)+,d2       ; y_row
+    //   move.w d2,d3
+    //   add.w d3,d3           ; d3 = y_row * 2
+    //   lea ($FFFF4A04).l,a2 ; row pointer table
+    //   move.w (a2,d3.w),a4  ; a4 = row_start[y_row]
+    //   add.w d1,a4
+    //   add.w d1,a4           ; a4 = row_start + 2*x_pos
+    //   tst.w d0              ; test block_type
+    //   bmi.s loc_126DE       ; branch if hidden
+    let row_table: Vec<u16> = vec![0xB000, 0xB040, 0xB080];
+    let result = crate::level::block_type_11_parse_coords_loc_126c0(
+        &[0x0002], // y_row=2
+        &row_table,
+        0x0018, // x_pos=24
+        11,     // visible block type 11
+    )
+    .expect("ASM loc_126C0: valid entry should parse");
+    assert_eq!(result.y_row, 0x0002, "ASM loc_126C0: y_row should be 2");
+    // y_row=2, y_idx=4, row_table[2]=0xB080, cell_addr = 0xB080 + 2*24 = 0xB0B0
+    assert_eq!(
+        result.cell_addr, 0x00B0B0,
+        "ASM loc_126C0: cell_addr = row_table[y] + 2*x = 0xB080 + 0x30 = 0xB0B0"
+    );
+    assert!(
+        !result.is_hidden,
+        "ASM loc_126C0: positive block_type (11) is visible"
+    );
+}
+
+#[test]
+fn loc_126c0_detects_hidden_block_type_11() {
+    // ASM loc_126C0: tst.w d0; bmi.s loc_126DE
+    // When block_type < 0 (hidden), is_hidden flag is set.
+    let row_table: Vec<u16> = vec![0xC000, 0xC020];
+    let result = crate::level::block_type_11_parse_coords_loc_126c0(
+        &[0x0001],
+        &row_table,
+        0x0010,
+        -11, // hidden type -11
+    )
+    .expect("ASM loc_126C0: should parse coordinates for hidden");
+
+    assert!(
+        result.is_hidden,
+        "ASM loc_126C0: negative block type should set is_hidden"
+    );
+}
+
+#[test]
+fn loc_126c0_returns_visible_tile_value() {
+    // ASM loc_126C0 (kid.asm:24963-24966): visible block writes fixed tile.
+    //   tst.w d0
+    //   bmi.s loc_126DE
+    //   move.w #$EB2C,(a4)   ; write tile $EB2C
+    let result = crate::level::block_type_11_visible_tile_loc_126c0();
+    assert_eq!(
+        result.tile_word, 0xEB2C,
+        "ASM loc_126C0: visible type 11 uses fixed tile $EB2C"
+    );
+}
+
+#[test]
+fn loc_126de_creates_hidden_block_entry() {
+    // ASM loc_126DE (kid.asm:24969-24977): create hidden block entry.
+    //   bsr.w sub_127A8        ; write $20 placeholder + terrain byte
+    //   bsr.w sub_127CE       ; shift hidden block list
+    //   move.w a4,(a2)+       ; store cell_addr
+    //   move.w d1,(a2)+       ; store x_pos
+    //   move.w d2,(a2)+       ; store y_row
+    //   move.b d0,(a2)+       ; store block_type (as byte)
+    //   clr.b (a2)+           ; clear flag byte
+    let result = crate::level::block_type_11_hidden_entry_loc_126de(
+        0xA500, // cell_addr
+        0x001E, // x_pos
+        0x0003, // y_row
+        -11,    // hidden block type -11
+    );
+
+    assert_eq!(
+        result.cell_addr, 0xA500,
+        "ASM loc_126DE: cell_addr preserved"
+    );
+    assert_eq!(result.x_pos, 0x001E, "ASM loc_126DE: x_pos preserved");
+    assert_eq!(result.y_row, 0x0003, "ASM loc_126DE: y_row preserved");
+    assert_eq!(
+        result.block_type, -11,
+        "ASM loc_126DE: block type preserved"
+    );
+}
