@@ -552,6 +552,27 @@ pub(crate) fn decode_spawn_positions_loc_11BD2(
     (player_start, flag_position, false)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ForegroundPaletteOverrideLoc11D8E {
+    None,
+    AlternativeCave,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn classify_foreground_palette_override_loc_11D8E(
+    map_id: u8,
+) -> ForegroundPaletteOverrideLoc11D8E {
+    // ASM loc_11D8E (kid.asm:23951): after the default theme palette lookup,
+    // Stairway to Oblivion (`#3`) and Elsewhere 23 (`#23`) replace `a1` with
+    // the alternative cave palette before the later override checks run.
+    if matches!(map_id, 0x03 | 23) {
+        ForegroundPaletteOverrideLoc11D8E::AlternativeCave
+    } else {
+        ForegroundPaletteOverrideLoc11D8E::None
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {

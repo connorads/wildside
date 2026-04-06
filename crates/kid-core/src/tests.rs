@@ -34,14 +34,14 @@ use crate::helmets::{
 };
 use crate::level::{
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
-    FlagpoleScoreboardStepSubC254, FullscreenPaletteFadeSub73D0, LinkedObjectSlotInit,
-    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    FlagpoleScoreboardStepSubC254, ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
+    LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
+    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
+    SpriteFrameStateSubB52, apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
     background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, compile_block_debris_sprites_sub_2A4C,
-    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
-    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    build_palette_fade_curve_sub_14C0, classify_foreground_palette_override_loc_11D8E,
+    compile_block_debris_sprites_sub_2A4C, drain_fg_update_queue_custom_sub_1596,
+    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
@@ -25831,6 +25831,25 @@ fn loc_11bd2_preserves_existing_player_start_when_the_teleport_latch_is_set() {
         ),
         ((0x0020, 0x048F), (0x0750, 0x0300), false),
         "ASM loc_11BD2 should skip the two player-start header words with `addq.w #4,a0`, clear `$FFFFFC29`, and still load the flag position from the following words"
+    );
+}
+
+#[test]
+fn loc_11d8e_selects_the_alternative_cave_palette_for_stairway_and_elsewhere_23() {
+    assert_eq!(
+        classify_foreground_palette_override_loc_11D8E(0x03),
+        ForegroundPaletteOverrideLoc11D8E::AlternativeCave,
+        "ASM loc_11D8E should replace the theme-selected foreground palette with the alternative cave palette for Stairway to Oblivion"
+    );
+    assert_eq!(
+        classify_foreground_palette_override_loc_11D8E(23),
+        ForegroundPaletteOverrideLoc11D8E::AlternativeCave,
+        "ASM loc_11D8E should take the same alternative cave palette branch for Elsewhere 23"
+    );
+    assert_eq!(
+        classify_foreground_palette_override_loc_11D8E(0x04),
+        ForegroundPaletteOverrideLoc11D8E::None,
+        "ASM loc_11D8E should leave neighbouring map IDs on the theme-selected palette path"
     );
 }
 
