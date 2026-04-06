@@ -2179,6 +2179,156 @@ pub(crate) fn block_type_16_property_lookup_loc_12714(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HandlePropertyCode40Loc12752 {
+    pub(crate) marks_diagonal_right: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn handle_property_code_40_loc_12752(property_byte: u8) -> HandlePropertyCode40Loc12752 {
+    // ASM sub_12752 (kid.asm:25037-25050): handle property code $40.
+    //   cmpi.b  #$40,d5
+    //   bne.s   loc_12772               ; if not $40, try $50
+    //   addq.w  #1,d1                   ; x_pos += 1 (move right)
+    //   addq.w  #2,a4                   ; cell_addr += 2 (next cell)
+    //   bsr.s   sub_12792               ; mark if in bounds
+    //   subq.w  #2,a4                   ; restore cell_addr
+    //   subq.w  #1,d1                   ; restore x_pos
+    //   addq.w  #1,d2                   ; y_row += 1 (move down)
+    //   add.w   (Level_width_tiles).w,a4 ; move down one row
+    //   bsr.s   sub_12792               ; mark if in bounds
+    //   suba.w  (Level_width_tiles).w,a4 ; restore
+    //   subq.w  #1,d2                   ; restore y_row
+    //   rts
+    // Property code $40 (from byte_1274E[2]=4, shifted to $40) marks diagonal down-right.
+    // Returns whether this code should trigger diagonal marking.
+    HandlePropertyCode40Loc12752 {
+        marks_diagonal_right: property_byte == 0x40,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HandlePropertyCode50Loc12772 {
+    pub(crate) marks_diagonal_left: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn handle_property_code_50_loc_12772(property_byte: u8) -> HandlePropertyCode50Loc12772 {
+    // ASM loc_12772 (kid.asm:25053-25068): handle property code $50.
+    //   cmpi.b  #$50,d5
+    //   bne.s   return_12790            ; if not $50, return immediately
+    //   subq.w  #1,d1                   ; x_pos -= 1 (move left)
+    //   subq.w  #2,a4                   ; cell_addr -= 2 (previous cell)
+    //   bsr.s   sub_12792               ; mark if in bounds
+    //   addq.w  #2,a4                   ; restore cell_addr
+    //   addq.w  #1,d1                   ; restore x_pos
+    //   addq.w  #1,d2                   ; y_row += 1 (move down)
+    //   add.w   (Level_width_tiles).w,a4 ; move down one row
+    //   bsr.s   sub_12792               ; mark if in bounds
+    //   suba.w  (Level_width_tiles).w,a4 ; restore
+    //   subq.w  #1,d2                   ; restore y_row
+    //   rts
+    // Property code $50 (from byte_1274E[1]=5, shifted to $50) marks diagonal down-left.
+    // Returns whether this code should trigger diagonal marking.
+    HandlePropertyCode50Loc12772 {
+        marks_diagonal_left: property_byte == 0x50,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoundsCheckMarkLoc12792 {
+    pub(crate) in_bounds: bool,
+    pub(crate) should_mark: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn bounds_check_mark_loc_12792(
+    x_pos: u16,
+    y_row: u16,
+    width_blocks: u16,
+    height_blocks: u16,
+    cell_value: i8,
+) -> BoundsCheckMarkLoc12792 {
+    // ASM sub_12792 (kid.asm:25075-25085): bounds check and mark cell.
+    //   cmp.w   (Level_width_blocks).w,d1   ; if x >= width_blocks
+    //   bcc.s   return_127A6                ; return (out of bounds)
+    //   cmp.w   (Level_height_blocks).w,d2  ; if y >= height_blocks
+    //   bcc.s   return_127A6                ; return (out of bounds)
+    //   tst.b   (a4)                         ; test cell value
+    //   bmi.s   return_127A6                ; if negative (already special), return
+    //   bset    #0,(a4)                      ; set bit 0 to mark cell
+    //   rts
+    // Returns whether position is in bounds and cell can be marked.
+    let in_bounds = x_pos < width_blocks && y_row < height_blocks;
+    let should_mark = in_bounds && cell_value >= 0;
+    BoundsCheckMarkLoc12792 {
+        in_bounds,
+        should_mark,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HiddenBlockFindInsertionLoc127DA {
+    pub(crate) insertion_index: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_find_insertion_loc_127da(
+    cell_addrs: &[u16],
+    target_addr: u16,
+) -> HiddenBlockFindInsertionLoc127DA {
+    // ASM loc_127DA (kid.asm:25116-25120): search for insertion position in hidden block list.
+    //   loc_127DA:
+    //   cmp.w   (a0),d0         ; compare cell address with entry
+    //   bcs.s   loc_127E2       ; if current < entry, found position
+    //   addq.w  #8,a0           ; else advance to next entry (8 bytes each)
+    //   bra.s   loc_127DA       ; continue loop
+    // The list is sorted by cell address. Find first entry >= target_addr.
+    // Returns index where new entry should be inserted.
+    let insertion_index = cell_addrs
+        .iter()
+        .position(|&addr| target_addr < addr)
+        .unwrap_or(cell_addrs.len());
+    HiddenBlockFindInsertionLoc127DA { insertion_index }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct HiddenBlockShiftInsertLoc127E2 {
+    pub(crate) shifted_addrs: Vec<u16>,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_shift_insert_loc_127e2(
+    cell_addrs: &[u16],
+    insert_index: usize,
+    new_addr: u16,
+) -> HiddenBlockShiftInsertLoc127E2 {
+    // ASM loc_127E2 (kid.asm:25123-25138): shift entries and insert new one.
+    //   move.l  a0,a2                   ; save insertion point
+    //   move.w  ($FFFFF8EA).w,d0        ; d0 = hidden_block_count
+    //   lsl.w   #3,d0                   ; d0 = count * 8 (bytes per entry)
+    //   add.w   d0,a1                   ; a1 = end of list
+    //   move.w  a1,d0
+    //   sub.w   a0,d0                   ; d0 = distance to shift
+    //   lsr.w   #3,d0                   ; d0 = number of entries to shift
+    //   addq.w  #8,a1                   ; a1 = dest + 8 (make room for new entry)
+    //   lea     8(a1),a0                ; a0 = dest + 16 (destination for shift)
+    // loc_127F8:                            ; shift loop
+    //   move.l  -(a1),-(a0)             ; copy entry (2 longwords = 8 bytes)
+    //   move.l  -(a1),-(a0)
+    //   dbf     d0,loc_127F8
+    //   addq.w  #1,($FFFFF8EA).w       ; increment count
+    // Returns the list with new entry inserted at the correct position.
+    let mut shifted_addrs = cell_addrs.to_vec();
+    shifted_addrs.insert(insert_index, new_addr);
+    HiddenBlockShiftInsertLoc127E2 { shifted_addrs }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(

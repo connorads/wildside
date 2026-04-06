@@ -40383,3 +40383,192 @@ fn loc_12714_property_lookup_uses_byte_1274e_table() {
         "ASM byte_1274E: out-of-bounds index returns 0"
     );
 }
+
+#[test]
+fn loc_12752_handles_property_code_40_for_diagonal_down_right() {
+    // ASM sub_12752 (kid.asm:25037-25050): entry point for property code $40.
+    //   cmpi.b  #$40,d5
+    //   bne.s   loc_12772
+    // Property code $40 (from byte_1274E[2]=4, shifted left 4) marks diagonal down-right.
+    let result_40 = crate::level::handle_property_code_40_loc_12752(0x40);
+    assert!(
+        result_40.marks_diagonal_right,
+        "ASM sub_12752: $40 should mark diagonal right"
+    );
+
+    let result_other = crate::level::handle_property_code_40_loc_12752(0x50);
+    assert!(
+        !result_other.marks_diagonal_right,
+        "ASM sub_12752: $50 should not match $40 case"
+    );
+}
+
+#[test]
+fn loc_12772_handles_property_code_50_for_diagonal_down_left() {
+    // ASM loc_12772 (kid.asm:25053-25068): handle property code $50.
+    //   cmpi.b  #$50,d5
+    //   bne.s   return_12790
+    // Property code $50 (from byte_1274E[1]=5, shifted left 4) marks diagonal down-left.
+    let result_50 = crate::level::handle_property_code_50_loc_12772(0x50);
+    assert!(
+        result_50.marks_diagonal_left,
+        "ASM loc_12772: $50 should mark diagonal left"
+    );
+
+    let result_other = crate::level::handle_property_code_50_loc_12772(0x40);
+    assert!(
+        !result_other.marks_diagonal_left,
+        "ASM loc_12772: $40 should not match $50 case"
+    );
+
+    let result_other = crate::level::handle_property_code_50_loc_12772(0x00);
+    assert!(
+        !result_other.marks_diagonal_left,
+        "ASM loc_12772: $00 should not match $50 case"
+    );
+}
+
+#[test]
+fn sub_12792_bounds_check_and_mark() {
+    // ASM sub_12792 (kid.asm:25075-25085): bounds check and mark cell.
+    //   cmp.w   (Level_width_blocks).w,d1
+    //   bcc.s   return_127A6              ; out of bounds if x >= width
+    //   cmp.w   (Level_height_blocks).w,d2
+    //   bcc.s   return_127A6              ; out of bounds if y >= height
+    //   tst.b   (a4)
+    //   bmi.s   return_127A6              ; skip if cell already special (negative)
+    //   bset    #0,(a4)                   ; mark cell by setting bit 0
+
+    // In bounds, normal cell
+    let result = crate::level::bounds_check_mark_loc_12792(5, 3, 10, 8, 0);
+    assert!(
+        result.in_bounds,
+        "ASM sub_12792: x=5 < width=10 should be in bounds"
+    );
+    assert!(
+        result.should_mark,
+        "ASM sub_12792: normal cell should be marked"
+    );
+
+    // Out of bounds (x >= width)
+    let result = crate::level::bounds_check_mark_loc_12792(10, 3, 10, 8, 0);
+    assert!(
+        !result.in_bounds,
+        "ASM sub_12792: x=10 >= width=10 should be out of bounds"
+    );
+
+    // Out of bounds (y >= height)
+    let result = crate::level::bounds_check_mark_loc_12792(5, 8, 10, 8, 0);
+    assert!(
+        !result.in_bounds,
+        "ASM sub_12792: y=8 >= height=8 should be out of bounds"
+    );
+
+    // In bounds but special cell (negative = already marked)
+    let result = crate::level::bounds_check_mark_loc_12792(5, 3, 10, 8, -1);
+    assert!(result.in_bounds, "ASM sub_12792: should still be in bounds");
+    assert!(
+        !result.should_mark,
+        "ASM sub_12792: negative cell should not be marked"
+    );
+}
+
+#[test]
+fn loc_127da_finds_insertion_position_in_sorted_list() {
+    // ASM loc_127DA (kid.asm:25116-25120): search for insertion position.
+    //   cmp.w   (a0),d0         ; compare target with entry
+    //   bcs.s   loc_127E2       ; if target < entry, found position
+    //   addq.w  #8,a0           ; advance by 8 bytes (entry size)
+    //   bra.s   loc_127DA
+    // List is sorted ascending. Find first position where target < entry.
+
+    // Empty list - insert at 0
+    let result = crate::level::hidden_block_find_insertion_loc_127da(&[], 0x1000);
+    assert_eq!(
+        result.insertion_index, 0,
+        "ASM loc_127DA: empty list should insert at 0"
+    );
+
+    // Insert before first
+    let result =
+        crate::level::hidden_block_find_insertion_loc_127da(&[0x2000, 0x3000, 0x4000], 0x1000);
+    assert_eq!(
+        result.insertion_index, 0,
+        "ASM loc_127DA: target < first should insert at 0"
+    );
+
+    // Insert in middle
+    let result =
+        crate::level::hidden_block_find_insertion_loc_127da(&[0x1000, 0x2000, 0x3000], 0x2500);
+    assert_eq!(
+        result.insertion_index, 2,
+        "ASM loc_127DA: target between entries should find correct position"
+    );
+
+    // Insert at end
+    let result =
+        crate::level::hidden_block_find_insertion_loc_127da(&[0x1000, 0x2000, 0x3000], 0x4000);
+    assert_eq!(
+        result.insertion_index, 3,
+        "ASM loc_127DA: target > all entries should insert at end"
+    );
+
+    // Insert before equal value (first >=)
+    let result =
+        crate::level::hidden_block_find_insertion_loc_127da(&[0x1000, 0x2000, 0x3000], 0x2000);
+    assert_eq!(
+        result.insertion_index, 2,
+        "ASM loc_127DA: target == entry should continue past equal value, insert before first greater"
+    );
+
+    // Insert before first greater value
+    let result =
+        crate::level::hidden_block_find_insertion_loc_127da(&[0x1000, 0x2000, 0x3000], 0x1500);
+    assert_eq!(
+        result.insertion_index, 1,
+        "ASM loc_127DA: target between entries should find correct position"
+    );
+}
+
+#[test]
+fn loc_127e2_shifts_entries_and_inserts_new() {
+    // ASM loc_127E2 (kid.asm:25123-25138): shift entries to make room for new one.
+    //   move.l  a0,a2                   ; save insertion point
+    //   move.w  ($FFFFF8EA).w,d0        ; count
+    //   lsl.w   #3,d0                   ; count * 8 bytes
+    //   add.w   d0,a1                   ; end of list
+    //   ... shift loop ...
+    // Returns list with new address inserted.
+
+    // Insert at beginning
+    let result = crate::level::hidden_block_shift_insert_loc_127e2(&[0x2000, 0x3000], 0, 0x1000);
+    assert_eq!(
+        result.shifted_addrs,
+        vec![0x1000, 0x2000, 0x3000],
+        "ASM loc_127E2: insert at beginning"
+    );
+
+    // Insert in middle
+    let result = crate::level::hidden_block_shift_insert_loc_127e2(&[0x1000, 0x3000], 1, 0x2000);
+    assert_eq!(
+        result.shifted_addrs,
+        vec![0x1000, 0x2000, 0x3000],
+        "ASM loc_127E2: insert in middle"
+    );
+
+    // Insert at end
+    let result = crate::level::hidden_block_shift_insert_loc_127e2(&[0x1000, 0x2000], 2, 0x3000);
+    assert_eq!(
+        result.shifted_addrs,
+        vec![0x1000, 0x2000, 0x3000],
+        "ASM loc_127E2: insert at end"
+    );
+
+    // Insert into empty list
+    let result = crate::level::hidden_block_shift_insert_loc_127e2(&[], 0, 0x1000);
+    assert_eq!(
+        result.shifted_addrs,
+        vec![0x1000],
+        "ASM loc_127E2: insert into empty list"
+    );
+}
