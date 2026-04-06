@@ -807,6 +807,11 @@ pub(crate) enum PostLoadObjectRoutineLoc11F96 {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelStartMusicCommandLoc11FD2 {
+    pub(crate) sound_id: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -1028,6 +1033,40 @@ pub(crate) fn classify_island_background_object_loc_11FB0(background_theme: u16)
     // slot `0` and seeds `4(a0)` with `loc_1202A`; all other themes fall
     // through untouched into `loc_11FC8`.
     background_theme == BACKGROUND_THEME_ISLAND_LOC_11FB0
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn select_level_start_music_loc_11FD2(
+    murder_wall_flag: bool,
+    foreground_theme: u16,
+) -> LevelStartMusicCommandLoc11FD2 {
+    const BGM_MURDERWALL_LOC_11FD2: u16 = 0x0084;
+
+    // ASM loc_11FD2 (kid.asm:24175): after the shared post-load init calls, a
+    // non-zero `MurderWall_flag` forces `d0 = bgm_Murderwall` and returns
+    // immediately; otherwise execution falls through to `loc_12004`.
+    if murder_wall_flag {
+        LevelStartMusicCommandLoc11FD2 {
+            sound_id: BGM_MURDERWALL_LOC_11FD2,
+        }
+    } else {
+        LevelStartMusicCommandLoc11FD2 {
+            sound_id: match foreground_theme {
+                0x0000 | 0x0007 => 0x0080,
+                0x0001 => 0x0081,
+                0x0002 => 0x0082,
+                0x0003 => 0x0083,
+                0x0004 => 0x0085,
+                0x0005 => 0x0086,
+                0x0006 => 0x0087,
+                0x0008 => 0x0088,
+                0x0009 => 0x0089,
+                0x000A => 0x008A,
+                _ => unreachable!("foreground theme should match the ROM table width"),
+            },
+        }
+    }
 }
 
 #[allow(non_snake_case)]

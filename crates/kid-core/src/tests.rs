@@ -26088,6 +26088,20 @@ fn loc_11fb0_only_allocates_the_island_background_worker_for_island_backgrounds(
 }
 
 #[test]
+fn loc_11fd2_forces_murderwall_music_before_the_foreground_theme_lookup() {
+    assert_eq!(
+        crate::level::select_level_start_music_loc_11FD2(true, 0x0009),
+        crate::level::LevelStartMusicCommandLoc11FD2 { sound_id: 0x0084 },
+        "ASM loc_11FD2 should ignore the later foreground-theme lookup and play `bgm_Murderwall` immediately when `MurderWall_flag` is non-zero"
+    );
+    assert_eq!(
+        crate::level::select_level_start_music_loc_11FD2(false, 0x0009),
+        crate::level::LevelStartMusicCommandLoc11FD2 { sound_id: 0x0089 },
+        "ASM loc_11FD2 should fall through to `loc_12004` when `MurderWall_flag` is clear, so Forest still resolves to its table-selected BGM"
+    );
+}
+
+#[test]
 fn loc_11bd2_loads_player_start_and_flag_positions_when_the_preserve_latch_is_clear() {
     assert_eq!(
         crate::level::decode_spawn_positions_loc_11BD2(
