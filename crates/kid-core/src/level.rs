@@ -231,6 +231,19 @@ pub(crate) fn terrain_layout_row_pointers_loc_11B40(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_chunk_attempts_loc_11C10(status_words: &[u16]) -> usize {
+    // ASM loc_11C10 (kid.asm:23803-23806) calls `Decompress_Chunk`, tests the
+    // returned `d0`, and branches back to `loc_11C10` until the word result is
+    // exactly zero. Return the number of attempts consumed through the first
+    // successful zero status, or all provided attempts if no zero is present.
+    match status_words.iter().position(|&status| status == 0) {
+        Some(success_index) => success_index + 1,
+        None => status_words.len(),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_dimensions_loc_11B40(
     level_width_tiles: u16,
     level_height_tiles: u16,

@@ -25558,6 +25558,24 @@ fn loc_11b40_emits_one_terrain_layout_pointer_per_block_row() {
 }
 
 #[test]
+fn loc_11c10_retries_decompress_chunk_until_the_status_word_clears() {
+    assert_eq!(
+        crate::level::decompress_chunk_attempts_loc_11C10(&[2, 1, 0, 7]),
+        3,
+        "ASM loc_11C10 should branch back to `Decompress_Chunk` until `tst.w d0` sees an exact zero result"
+    );
+}
+
+#[test]
+fn loc_11c10_reports_all_attempts_when_decompress_never_succeeds() {
+    assert_eq!(
+        crate::level::decompress_chunk_attempts_loc_11C10(&[3, 2, 1]),
+        3,
+        "ASM loc_11C10 should keep retrying on every non-zero `d0`, so a no-success trace consumes every provided attempt"
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),
