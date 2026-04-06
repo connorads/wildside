@@ -605,6 +605,24 @@ pub(crate) fn apply_foreground_palette_override_loc_11D9E(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn apply_foreground_palette_override_loc_11DAC(
+    selected_theme_palette: u16,
+    late_alternative_palette: u16,
+    override_kind: ForegroundPaletteOverrideLoc11D8E,
+) -> u16 {
+    // ASM loc_11DAC (kid.asm:23974): the taken `$1A/$1B` branch replaces `a1`
+    // with `Pal_12D26(pc)` immediately before the shared copy loop at
+    // `loc_11DB0`; all other paths keep the palette already selected above.
+    match override_kind {
+        ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette => late_alternative_palette,
+        ForegroundPaletteOverrideLoc11D8E::None
+        | ForegroundPaletteOverrideLoc11D8E::AlternativeCave
+        | ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop => selected_theme_palette,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point
     // `Addr_NextSpriteSlot` at `Sprite_Table`, and reset the dynamic-art

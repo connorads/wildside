@@ -38,11 +38,12 @@ use crate::level::{
     LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
     ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
     SpriteFrameStateSubB52, apply_foreground_palette_override_loc_11D9E,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, classify_foreground_palette_override_loc_11D8E,
-    compile_block_debris_sprites_sub_2A4C, drain_fg_update_queue_custom_sub_1596,
-    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    apply_foreground_palette_override_loc_11DAC, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    classify_foreground_palette_override_loc_11D8E, compile_block_debris_sprites_sub_2A4C,
+    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
+    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
@@ -25909,6 +25910,28 @@ fn loc_11da0_routes_the_crypt_leftover_and_alien_twilight_into_the_late_palette_
         classify_foreground_palette_override_loc_11D8E(0x19),
         ForegroundPaletteOverrideLoc11D8E::None,
         "ASM loc_11DA0 should leave neighbouring map IDs on the ordinary foreground palette path"
+    );
+}
+
+#[test]
+fn loc_11dac_swaps_in_pal_12d26_only_for_the_late_override_branch() {
+    assert_eq!(
+        apply_foreground_palette_override_loc_11DAC(
+            0x0246,
+            0x0ACE,
+            ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette,
+        ),
+        0x0ACE,
+        "ASM loc_11DAC should replace the previously selected theme palette with `Pal_12D26` on the taken branch"
+    );
+    assert_eq!(
+        apply_foreground_palette_override_loc_11DAC(
+            0x0246,
+            0x0ACE,
+            ForegroundPaletteOverrideLoc11D8E::None,
+        ),
+        0x0246,
+        "ASM loc_11DAC should leave the current theme palette untouched when the `$1A/$1B` branch was not taken"
     );
 }
 
