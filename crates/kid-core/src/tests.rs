@@ -33176,6 +33176,30 @@ fn floating_eyeclops_loc_10542_stays_alive_while_above_level_bottom_and_uncollec
     );
 }
 
+#[test]
+fn floating_eyeclops_loc_1055a_deletes_the_collected_helmet_on_the_next_step() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Eyeclops,
+        collected: true,
+    });
+
+    rt.step_visual_effects();
+
+    assert!(
+        rt.floating_items.is_empty(),
+        "ASM loc_1055A should jump straight to `Delete_CurrentObject` once Eyeclops' `collision_type(a3)` becomes non-zero",
+    );
+}
+
 // --- Visual effects: countdown and retention ---
 
 #[test]
