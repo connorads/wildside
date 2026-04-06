@@ -1985,6 +1985,26 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn metal_block_push_entry_loc_111F4(
+        source_col: u16,
+        direction: u16,
+        level_width_blocks: u16,
+    ) -> Option<u16> {
+        // ASM loc_111F4 (kid.asm:23130): seed `a2` from the source
+        // `Level_Layout` word in `d3`, branch to the right-walking scan only
+        // when `d6 == 3`, and otherwise enter the left-walking path. The
+        // right branch pre-advances to the next column and aborts once the
+        // source block already sits on `Level_width_blocks-1`.
+        if direction == 3 {
+            let next_col = source_col.saturating_add(1);
+            return (next_col < level_width_blocks).then_some(next_col);
+        }
+
+        source_col.checked_sub(1)
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_effect_sprite_pos_loc_1110E(cell_x: u16, cell_y: u16) -> (u16, u16) {
         let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cell_x, cell_y);
         // ASM loc_1110E (kid.asm:23038): copy the cached tile coordinates into

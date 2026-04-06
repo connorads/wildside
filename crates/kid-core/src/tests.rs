@@ -33377,6 +33377,33 @@ fn metal_block_effect_cell_words_loc_110d0_keeps_tile_coordinates_unshifted() {
 }
 
 #[test]
+fn metal_block_push_entry_loc_111f4_starts_the_right_scan_one_cell_ahead() {
+    assert_eq!(
+        NativeRuntime::metal_block_push_entry_loc_111F4(5, 3, 12),
+        Some(6),
+        "ASM loc_111F4 should pre-advance the layout pointer and column counter to the cell immediately right of the struck metal block when `d6 == 3`",
+    );
+}
+
+#[test]
+fn metal_block_push_entry_loc_111f4_falls_back_to_the_left_scan_for_other_directions() {
+    assert_eq!(
+        NativeRuntime::metal_block_push_entry_loc_111F4(5, 1, 12),
+        Some(4),
+        "ASM loc_111F4 should treat non-`3` directions as the left-walking branch and pre-decrement the source column before `loc_11230` starts scanning",
+    );
+}
+
+#[test]
+fn metal_block_push_entry_loc_111f4_aborts_the_right_scan_at_the_level_edge() {
+    assert_eq!(
+        NativeRuntime::metal_block_push_entry_loc_111F4(11, 3, 12),
+        None,
+        "ASM loc_111F4 should jump to `loc_11296` once the source block already sits on `Level_width_blocks-1`, because the right scan has no in-bounds cell to inspect",
+    );
+}
+
+#[test]
 fn metal_block_effect_sprite_pos_loc_1110e_scales_tile_words_into_pixels() {
     assert_eq!(
         NativeRuntime::metal_block_effect_sprite_pos_loc_1110E(5, 3),
