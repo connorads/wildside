@@ -15,10 +15,11 @@ use crate::boot::{
     end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
     end_sequence_falling_sprite_init_sub_1D8B4, hide_pause_menu_overwritten_sprites_sub_6874,
     hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_dispatch_loc_10B76,
-    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
-    read_io_port_a10001_flags_sub_6E24, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
-    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
+    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_cleanup_loc_10BE6,
+    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_spawn_loc_10B3A,
+    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
+    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
+    vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -23143,6 +23144,27 @@ fn prize_10000_points_star_dispatch_loc_10b76_skips_empty_worker_slots() {
     assert!(
         !dispatch.finished_scan,
         "ASM loc_10B76 should only finish after the shared scan advances past the fifth slot",
+    );
+}
+
+#[test]
+fn prize_10000_points_star_cleanup_loc_10be6_walks_all_five_cached_slots_before_deleting_parent() {
+    let cleanup = prize_10000_points_star_cleanup_loc_10BE6([
+        0x00FF_2448,
+        0,
+        0x00FF_24E0,
+        0x00FF_252C,
+        0x00FF_2578,
+    ]);
+
+    assert_eq!(
+        cleanup.visited_slots,
+        [0x00FF_2448, 0, 0x00FF_24E0, 0x00FF_252C, 0x00FF_2578],
+        "ASM loc_10BE6 should execute `move.l (a2)+,a3; jsr (j_loc_1078).w` five times from `$44(a5)` through the fifth cached star slot before the `dbf` loop ends",
+    );
+    assert!(
+        cleanup.should_delete_current_object,
+        "ASM loc_10BE6 should jump to `Delete_CurrentObject` once the five-slot cleanup loop finishes",
     );
 }
 

@@ -1,6 +1,13 @@
 use super::*;
 use kid_data::{DiamondHudDmaTransferSub5D4A, diamond_hud_dma_transfer_sub_5D4A};
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {
+    pub(crate) visited_slots: [u32; 5],
+    pub(crate) should_delete_current_object: bool,
+}
+
 /// ASM sub_40236 (kid.asm:45620): angle-to-sine/cosine lookup.
 /// Takes an 8-bit angle (0-255 representing 0-360° in 256 steps), returns (cos, sin) as
 /// 16-bit signed values in the range [-$3FFE, $3FFE] (table max is $3FFE).
@@ -932,6 +939,21 @@ pub(crate) fn prize_10000_points_star_advance_loc_10BCE(
     Prize10000PointsStarAdvanceLoc10BCE {
         next_slot_offset,
         finished_scan: next_slot_offset == 0x0014,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn prize_10000_points_star_cleanup_loc_10BE6(
+    worker_slots: [u32; 5],
+) -> Prize10000PointsStarCleanupLoc10BE6 {
+    // ASM loc_10BE6 (kid.asm:22484): seed `a2 = $44(a5)` and `d0 = #4`, then
+    // run `move.l (a2)+,a3; jsr (j_loc_1078).w; dbf d0,loc_10BE6` so all five
+    // cached star gfx slots are visited before the parent worker jumps to
+    // `Delete_CurrentObject`.
+    Prize10000PointsStarCleanupLoc10BE6 {
+        visited_slots: worker_slots,
+        should_delete_current_object: true,
     }
 }
 
