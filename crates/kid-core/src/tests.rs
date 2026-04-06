@@ -33117,6 +33117,30 @@ fn floating_ankh_loc_10738_stays_alive_while_above_level_bottom_and_uncollected(
 }
 
 #[test]
+fn floating_ankh_loc_10768_deletes_the_collected_ankh_on_the_next_step() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Ankh,
+        collected: true,
+    });
+
+    rt.step_visual_effects();
+
+    assert!(
+        rt.floating_items.is_empty(),
+        "ASM loc_10768 should jump straight to `Delete_CurrentObject` once PrizeAnkh's `collision_type(a3)` becomes non-zero",
+    );
+}
+
+#[test]
 fn floating_skycutter_loc_10464_stays_alive_while_above_level_bottom_and_uncollected() {
     let mut rt = NativeRuntime::new(manifest());
     rt.floating_items.push(FloatingItem {
