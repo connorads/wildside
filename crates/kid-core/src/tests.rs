@@ -36,17 +36,17 @@ use crate::level::{
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
     FlagpoleScoreboardStepSubC254, ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
-    LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
-    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
+    LateBackgroundPaletteOverrideLoc11E06, LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT,
+    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
+    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
     apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
     background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
     build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
     classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
-    compile_block_debris_sprites_sub_2A4C, copy_foreground_palette_loc_11DB0,
-    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
-    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    classify_late_background_palette_override_loc_11E06, compile_block_debris_sprites_sub_2A4C,
+    copy_foreground_palette_loc_11DB0, drain_fg_update_queue_custom_sub_1596,
+    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
@@ -26020,6 +26020,25 @@ fn loc_11e04_preserves_the_selected_background_palette_on_the_removed_special_pa
         ),
         0x0789,
         "ASM loc_11E04 should leave the same palette intact on the ordinary fallthrough as well"
+    );
+}
+
+#[test]
+fn loc_11e06_routes_only_map_ids_1a_and_1b_into_the_late_alien_palette_branch() {
+    assert_eq!(
+        classify_late_background_palette_override_loc_11E06(0x1A),
+        LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette,
+        "ASM loc_11E06 should branch from `M_unused_1A` to the later `loc_11E12` palette load"
+    );
+    assert_eq!(
+        classify_late_background_palette_override_loc_11E06(0x1B),
+        LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette,
+        "ASM loc_11E06 should reuse that same late branch for Alien Twilight"
+    );
+    assert_eq!(
+        classify_late_background_palette_override_loc_11E06(0x19),
+        LateBackgroundPaletteOverrideLoc11E06::None,
+        "ASM loc_11E06 should let unrelated neighbouring map IDs fall straight through to `loc_11E16`"
     );
 }
 

@@ -679,6 +679,26 @@ pub(crate) fn classify_background_palette_followup_loc_11DF8(
     BackgroundPaletteFollowupLoc11DF8::None
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LateBackgroundPaletteOverrideLoc11E06 {
+    None,
+    AlternativeAlienPalette,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn classify_late_background_palette_override_loc_11E06(
+    map_id: u8,
+) -> LateBackgroundPaletteOverrideLoc11E06 {
+    // ASM loc_11E06 (kid.asm:24020): after the earlier `loc_11DF8` / `loc_11E04`
+    // checks, only map IDs `$1A` and `$1B` branch to `loc_11E12`; every other
+    // map falls straight through to `loc_11E16`.
+    if matches!(map_id, 0x1A | 0x1B) {
+        return LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette;
+    }
+    LateBackgroundPaletteOverrideLoc11E06::None
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn apply_background_palette_override_loc_11E04(
