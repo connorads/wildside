@@ -15201,14 +15201,19 @@ fn tank_fires_bullet_after_timer_expires() {
         shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
     };
     let mut projs = Vec::new();
-    step_tank_fire(&mut enemy, &mut projs);
-    assert_eq!(projs.len(), 1, "tank should fire a bullet");
+    enemy.family = EnemyFamily::TankShooting;
+    step_tank_shooting_fire(&mut enemy, &mut projs);
+    assert_eq!(projs.len(), 1, "shooting tank should fire a bullet");
     assert!(
         projs[0].x_velocity > 0,
         "bullet should go right (same as facing)"
     );
     assert_eq!(projs[0].y_velocity, 0, "bullet should be horizontal");
-    assert_eq!(enemy.wait_timer, TANK_FIRE_INTERVAL, "timer should reset");
+    assert_eq!(
+        enemy.wait_timer,
+        TANK_SHOOTING_SLOW_CYCLE_FRAMES - 1,
+        "ASM `stru_3B4F6` reloads a 232-frame cycle after the shot"
+    );
 }
 
 #[test]
@@ -15217,7 +15222,7 @@ fn tank_does_not_fire_while_timer_active() {
         segment_index: 0,
         layout_index: 0,
         enemy_level: 0,
-        family: EnemyFamily::Tank,
+        family: EnemyFamily::TankShooting,
         x_pos: 100 << 16,
         y_pos: 100 << 16,
         x_velocity: 0x8000,
@@ -15265,7 +15270,7 @@ fn tank_does_not_fire_while_timer_active() {
         shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
     };
     let mut projs = Vec::new();
-    step_tank_fire(&mut enemy, &mut projs);
+    step_tank_shooting_fire(&mut enemy, &mut projs);
     assert!(projs.is_empty(), "should not fire while timer > 0");
     assert_eq!(enemy.wait_timer, 9, "timer should decrement");
 }

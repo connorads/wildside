@@ -110,7 +110,7 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         // Tank: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
         // ASM Tank.asm loc_3B36A/loc_3B372: HP 2 gets one `$8000` add,
         // HP 3 gets two, HP 4+ gets three.
-        EnemyFamily::Tank => (2, 0x0000_8000, 0x0000_8000),
+        EnemyFamily::Tank | EnemyFamily::TankShooting => (2, 0x0000_8000, 0x0000_8000),
         // Fire Demon: HP = enemy_level + 3 (min 3). Base speed $8000, step $8000.
         EnemyFamily::FireDemon => (3, 0x0000_8000, 0x0000_8000),
         // Robot: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
@@ -141,12 +141,21 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
     base_speed + tiers * speed_step
 }
 
-/// Tank fire interval in frames (from Tank_Shooting.asm: $20 = 32 frames).
-pub(crate) const TANK_FIRE_INTERVAL: u16 = 0x20;
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).
 pub(crate) const TANK_BULLET_LIFETIME: u16 = 120;
+/// ASM Tank_Shooting.asm `stru_3B4D8`: one shot every 116 frames at HP 4.
+pub(crate) const TANK_SHOOTING_FAST_CYCLE_FRAMES: u16 = 116;
+/// ASM Tank_Shooting.asm `stru_3B4F6`: one shot every 232 frames at HP 2-3.
+pub(crate) const TANK_SHOOTING_SLOW_CYCLE_FRAMES: u16 = 232;
+/// ASM GfxObject_Animate + `stru_3B4D8`/`stru_3B4F6`: `loc_3C50E` fires one
+/// frame after the turret enters `LnkTo_unk_C7F10`, which is 74 frames after init.
+pub(crate) const TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES: u16 = 74;
+/// ASM Tank_Shooting.asm loc_3B75A/loc_3B77E: spawn at ±15px from tank centre.
+pub(crate) const TANK_BULLET_SPAWN_X_OFFSET_PX: i32 = 15;
+/// ASM Tank_Shooting.asm loc_3B786/loc_3B78E: projectile Y = turret_y - (8 + 6) px.
+pub(crate) const TANK_BULLET_SPAWN_Y_OFFSET_PX: i32 = 14;
 
 /// Scorpion tracking range in pixels (Scorpion.asm line 158: $AA = 170).
 /// Outside this range, speed resets to base $18000.
@@ -220,6 +229,7 @@ pub(crate) enum EnemyFamily {
     Goat,
     Armadillo,
     Tank,
+    TankShooting,
     Crab,
     Orca,
     #[allow(clippy::upper_case_acronyms)]
@@ -802,6 +812,7 @@ impl EnemyFamily {
             Self::Goat
             | Self::Armadillo
             | Self::Tank
+            | Self::TankShooting
             | Self::Crab
             | Self::Scorpion
             | Self::Driller
@@ -831,6 +842,7 @@ impl EnemyFamily {
             Some(0x05) => Self::TarMonster,
             Some(0x09) => Self::Crab,
             Some(0x0A) => Self::Tank,
+            Some(0x0B) => Self::TankShooting,
             Some(0x0C) => Self::Dragon,
             Some(0x0D) => Self::DragonWalking,
             Some(0x06) => Self::Sphere,
@@ -872,6 +884,7 @@ impl EnemyFamily {
             Self::Orca => 0x08,
             Self::Crab => 0x09,
             Self::Tank => 0x0A,
+            Self::TankShooting => 0x0B,
             Self::Dragon => 0x0C,
             Self::DragonWalking => 0x0D,
             Self::Cloud => 0x0E,
@@ -1271,11 +1284,13 @@ pub(crate) fn step_active_enemies_with_rng(
                         if matches!(enemy.family, EnemyFamily::Scorpion) {
                             step_scorpion_tracking(enemy, player_x_pos, player_y_pos);
                         }
-                        // Tank fires horizontal bullets at intervals
-                        if matches!(enemy.family, EnemyFamily::Tank)
+                        // ASM Tank_Shooting.asm loc_3C50E/loc_3B730: only the
+                        // shooting tank variant emits bullets, and only on the
+                        // turret animation gate.
+                        if matches!(enemy.family, EnemyFamily::TankShooting)
                             && let Some(ref mut projs) = projectiles
                         {
-                            step_tank_fire(enemy, projs);
+                            step_tank_shooting_fire(enemy, projs);
                         }
                     }
                 }
@@ -2375,6 +2390,7 @@ pub(crate) fn enemy_should_remain_active(
                     | EnemyFamily::Robot
                     | EnemyFamily::SpinningTwins
                     | EnemyFamily::Tank
+                    | EnemyFamily::TankShooting
             ) =>
         {
             shared_enemy_should_remain_active_sub_3C3CE(
@@ -4742,22 +4758,61 @@ pub(crate) fn step_crab_freeze(
     // (already frozen stays frozen, already unfrozen stays unfrozen)
 }
 
-/// Tank fires a horizontal bullet at intervals while pacing.
-pub(crate) fn step_tank_fire(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
+fn tank_shooting_cycle_frames(hit_points: u8) -> u16 {
+    if hit_points >= 4 {
+        TANK_SHOOTING_FAST_CYCLE_FRAMES
+    } else {
+        TANK_SHOOTING_SLOW_CYCLE_FRAMES
+    }
+}
+
+/// Tank_Shooting.asm loc_3C50E only spawns `loc_3B730` when the turret child
+/// is on `LnkTo_unk_C7F10` with `animation_timer == 5`.
+fn tank_shooting_spawn_worker_now_sub_3c4f8() -> bool {
+    shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::RockTankShooting,
+        parent_mapping: ROCK_TANK_SHOOTING_MAPPING_SUB_3C4F8,
+        parent_state_word_32: 5,
+        child_state_word_40: 0,
+        child_counter_word_4e: 0,
+        child_timer_word_54: 0,
+        parent_x_pos: 0,
+        kid_x_pos: 0,
+        parent_x_direction: 0,
+        parent_flag_15: false,
+        random_word: 0,
+    })
+    .spawned_loc_3_b730_worker
+}
+
+/// ASM Tank_Shooting.asm loc_3C50E/loc_3B730: fire only when the turret
+/// animation reaches `LnkTo_unk_C7F10` with `animation_timer == 5`.
+pub(crate) fn step_tank_shooting_fire(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+) {
     if enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
         return;
     }
-    enemy.wait_timer = TANK_FIRE_INTERVAL;
+    enemy.wait_timer = tank_shooting_cycle_frames(enemy.hit_points).saturating_sub(1);
 
     if projectiles.len() >= MAX_PROJECTILES {
         return;
     }
+    if !tank_shooting_spawn_worker_now_sub_3c4f8() {
+        return;
+    }
 
     let x_velocity = horizontal_velocity(enemy.facing, TANK_BULLET_SPEED);
+    let x_offset = horizontal_velocity(enemy.facing, TANK_BULLET_SPAWN_X_OFFSET_PX << 16);
     projectiles.push(EnemyProjectile {
-        x_pos: enemy.x_pos,
-        y_pos: enemy.y_pos.wrapping_sub(8 << 16), // spawn above tank body
+        // ASM loc_3B75A/loc_3B786: start from the turret child and offset to
+        // the muzzle instead of the body centre.
+        x_pos: enemy.x_pos.wrapping_add_signed(x_offset),
+        y_pos: enemy
+            .y_pos
+            .wrapping_sub((TANK_BULLET_SPAWN_Y_OFFSET_PX as u32) << 16),
         x_velocity,
         y_velocity: 0,
         lifetime: TANK_BULLET_LIFETIME,
@@ -5158,6 +5213,86 @@ mod tests {
         assert_eq!(pacer_walk_speed(EnemyFamily::Tank, hp2), 0x0000_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Tank, hp3), 0x0001_0000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Tank, hp4), 0x0001_8000);
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::TankShooting, hp2),
+            0x0000_8000
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::TankShooting, hp3),
+            0x0001_0000
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::TankShooting, hp4),
+            0x0001_8000
+        );
+    }
+
+    #[test]
+    fn tank_shooting_layout_object_maps_enemy_id_0b() {
+        let object = kid_data::EnemyLayoutObject {
+            object_type: 0x0B,
+            flags: 0,
+            hit_points_plus_one: 1,
+            x: 0x0120,
+            y: 0x0088,
+        };
+
+        assert_eq!(
+            EnemyFamily::from_layout_object(&[0x000A, 0x000B], &object),
+            EnemyFamily::TankShooting,
+            "ASM kid.asm enemyloaddata table maps object id `$0B` to `Enemy0B_RockTank_shooting_Init`"
+        );
+    }
+
+    #[test]
+    fn tank_shooting_fire_uses_loc_3c50e_cadence_and_loc_3b730_offsets() {
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::TankShooting,
+            hit_points: 4,
+            facing: Direction::Right,
+            x_pos: 100 << 16,
+            y_pos: 80 << 16,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_tank_shooting_fire(&mut enemy, &mut projectiles);
+
+        assert_eq!(projectiles.len(), 1);
+        assert_eq!(
+            projectiles[0].x_pos,
+            (115_u32) << 16,
+            "ASM Tank_Shooting.asm loc_3B75A adds `$000F` when facing right"
+        );
+        assert_eq!(
+            projectiles[0].y_pos,
+            (66_u32) << 16,
+            "ASM Tank_Shooting.asm loc_3B786/loc_3B78E fires from turret_y-14"
+        );
+        assert_eq!(projectiles[0].x_velocity, 0x0003_0000);
+        assert_eq!(projectiles[0].y_velocity, 0);
+        assert_eq!(
+            enemy.wait_timer,
+            TANK_SHOOTING_FAST_CYCLE_FRAMES - 1,
+            "ASM `stru_3B4D8` loops every 116 frames, so the countdown reload is 115 after a shot"
+        );
+    }
+
+    #[test]
+    fn tank_shooting_spawn_wait_timer_matches_first_loc_3c50e_fire_gate() {
+        let mut rng = RomRandomState::default();
+
+        assert_eq!(
+            spawn_wait_timer(EnemyFamily::Tank, 0, 0, &mut rng),
+            0,
+            "Tank.asm never reaches the shooter helper"
+        );
+        assert_eq!(
+            spawn_wait_timer(EnemyFamily::TankShooting, 0, 0, &mut rng),
+            TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES - 1,
+            "ASM GfxObject_Animate reaches `LnkTo_unk_C7F10`/timer 5 after 74 frames, so the countdown seed is 73"
+        );
     }
 
     #[test]
@@ -5492,7 +5627,7 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Goat => 3,
         EnemyFamily::Armadillo => 1,
         EnemyFamily::Crab => 2,
-        EnemyFamily::Tank => 2,
+        EnemyFamily::Tank | EnemyFamily::TankShooting => 2,
         EnemyFamily::Scorpion => 3,
         EnemyFamily::Driller => 2,
         EnemyFamily::Cloud => 1,
@@ -5543,8 +5678,10 @@ pub(crate) fn spawn_wait_timer(
 ) -> u16 {
     match family {
         EnemyFamily::EmoRock => emo_rock_wait_timer_with_rng(rng, player_x),
-        // Tank: fire first bullet after one full interval.
-        EnemyFamily::Tank => TANK_FIRE_INTERVAL,
+        // ASM Tank_Shooting.asm `stru_3B4D8`/`stru_3B4F6` reaches the
+        // `loc_3C50E` fire gate 74 frames after init. Plain Tank.asm never fires.
+        EnemyFamily::Tank => 0,
+        EnemyFamily::TankShooting => TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES.saturating_sub(1),
         // Archer: fire first arrow after one full interval (HP1 rate).
         EnemyFamily::Archer => ARCHER_FIRE_TIMER[0],
         // Lion: charge timer counts down from $3C (60 frames) before first charge.
@@ -5787,7 +5924,9 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
         EnemyFamily::Driller => Some(SharedEnemyDriveSoundEffectSub3C352::DrillMoving),
         // ASM sub_3C352: `d6=1` selects `byte_3C46C[1]=sfx_Tank_driving` for
         // both RockTank variants.
-        EnemyFamily::Tank => Some(SharedEnemyDriveSoundEffectSub3C352::TankDriving),
+        EnemyFamily::Tank | EnemyFamily::TankShooting => {
+            Some(SharedEnemyDriveSoundEffectSub3C352::TankDriving)
+        }
         _ => None,
     }) else {
         return SharedEnemyDriveSoundResultSub3C352 {
