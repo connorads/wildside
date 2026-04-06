@@ -208,6 +208,14 @@ pub(crate) struct MetalBlockPushWakeStep {
     pub(crate) reached_neighbour_check: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShiftingBlockActivationLoc11364 {
+    pub(crate) should_play_sound: bool,
+    pub(crate) should_spawn_worker: bool,
+    pub(crate) reserved_above_cell: Option<terrain::Cell>,
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
@@ -1644,6 +1652,36 @@ impl NativeRuntime {
             });
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shifting_block_activation_loc_11364(
+        source_row: u16,
+        above_cell: terrain::Cell,
+    ) -> ShiftingBlockActivationLoc11364 {
+        // ASM loc_11364 (kid.asm:23287-23315): preserve `d0`, play
+        // `sfx_Shifting_block`, then only enter the `sub_113C0` worker setup
+        // when `d2 != 0` and `btst #6,(a2)` sees the cell above as clear. Bit
+        // 6 is the high collision bit, so slope, solid, and spike terrain all
+        // block the worker even without bit 15 set. The setup reserves that
+        // above cell by overwriting only its high byte with `$6F`; native
+        // compresses the later worker into an immediate upward move once this
+        // gate passes.
+        let above_cell_sets_bit_6 = matches!(
+            above_cell.collision,
+            terrain::CollisionKind::SlopeUp
+                | terrain::CollisionKind::SlopeDown
+                | terrain::CollisionKind::Solid
+                | terrain::CollisionKind::Spikes
+        );
+        let should_spawn_worker = source_row != 0 && !above_cell_sets_bit_6;
+        ShiftingBlockActivationLoc11364 {
+            should_play_sound: true,
+            should_spawn_worker,
+            reserved_above_cell: should_spawn_worker
+                .then_some(terrain::Cell::from_be_bytes(0x6F, above_cell.skin)),
+        }
+    }
+
     pub(crate) fn apply_shifting_blocks(&mut self, slice: &OpeningSliceState) {
         if !slice.player.on_ground {
             return;
@@ -1666,10 +1704,10 @@ impl NativeRuntime {
             return; // no cell above to shift into
         }
 
-        let above = grid.cell_at(col, foot_row - 1);
-        // ASM only checks `btst #6` (has_block bit) — no collision check.
-        if above.has_block {
-            return; // cell above is occupied
+        let activation =
+            Self::shifting_block_activation_loc_11364(foot_row, grid.cell_at(col, foot_row - 1));
+        if !activation.should_spawn_worker {
+            return;
         }
 
         // Move block up: copy cell to row above, clear current cell

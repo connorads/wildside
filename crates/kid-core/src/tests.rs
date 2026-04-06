@@ -35148,6 +35148,51 @@ fn process_block_effects_lift_spawns_platform() {
 }
 
 #[test]
+fn shifting_block_activation_loc_11364_skips_the_worker_on_the_top_row() {
+    let activation = NativeRuntime::shifting_block_activation_loc_11364(
+        0,
+        terrain::Cell::from_be_bytes(0x00, 0x07),
+    );
+
+    assert!(
+        activation.should_play_sound,
+        "ASM loc_11364 should preserve `d0` and play `sfx_Shifting_block` even when `tst.w d2` aborts the worker path on row zero",
+    );
+    assert!(
+        !activation.should_spawn_worker,
+        "ASM loc_11364 should branch straight to `loc_113BA` when `d2 == 0`, so a top-row shifting block never allocates the `sub_113C0` worker",
+    );
+    assert_eq!(activation.reserved_above_cell, None);
+}
+
+#[test]
+fn shifting_block_activation_loc_11364_only_reserves_clear_cells_above_the_source_block() {
+    let blocked = NativeRuntime::shifting_block_activation_loc_11364(
+        5,
+        terrain::Cell::from_be_bytes(0x60, 0x09),
+    );
+    assert!(
+        !blocked.should_spawn_worker,
+        "ASM loc_11364 should branch to `loc_113BA` when `btst #6,(a2)` finds the cell above occupied",
+    );
+    assert_eq!(blocked.reserved_above_cell, None);
+
+    let clear = NativeRuntime::shifting_block_activation_loc_11364(
+        5,
+        terrain::Cell::from_be_bytes(0x00, 0x09),
+    );
+    assert!(
+        clear.should_spawn_worker,
+        "ASM loc_11364 should continue into the `sub_113C0` setup once the source row is non-zero and the cell above has bit 6 clear",
+    );
+    assert_eq!(
+        clear.reserved_above_cell,
+        Some(terrain::Cell::from_be_bytes(0x6F, 0x09)),
+        "ASM loc_11364 should reserve the above cell by writing only high byte `$6F`, preserving that cell's original skin byte",
+    );
+}
+
+#[test]
 fn lift_platform_vertical_step_sub_fd00_adds_signed_velocity_to_fp16_y() {
     let next_y = NativeRuntime::lift_platform_vertical_step_sub_FD00(0x0080_0000, -0x0000_0708);
 
