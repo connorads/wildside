@@ -1,5 +1,5 @@
 use super::*;
-use crate::blocks::PrizeClockSoundRefcountLoc10792;
+use crate::blocks::{PrizeClockCountdownLoc10796, PrizeClockSoundRefcountLoc10792};
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IoPortFlagsSub6E24,
@@ -7697,6 +7697,28 @@ fn prize_clock_sound_refcount_loc_10792_only_starts_the_first_loop() {
             next_refcount: 4,
         },
         "ASM loc_10792 should skip the start sound once another clock prize already owns the shared loop",
+    );
+}
+
+#[test]
+fn prize_clock_countdown_loc_10796_deletes_at_zero_and_swaps_at_012c() {
+    assert_eq!(
+        NativeRuntime::prize_clock_countdown_loc_10796(1),
+        PrizeClockCountdownLoc10796 {
+            next_remaining: 0,
+            should_delete: true,
+            should_swap_animation: false,
+        },
+        "ASM loc_10796 should delete the clock prize as soon as the post-hibernate `subq.w #1,d3` result reaches zero",
+    );
+    assert_eq!(
+        NativeRuntime::prize_clock_countdown_loc_10796(0x012D),
+        PrizeClockCountdownLoc10796 {
+            next_remaining: 0x012C,
+            should_delete: false,
+            should_swap_animation: true,
+        },
+        "ASM loc_10796 should switch to `stru_10C1E` exactly when the decremented countdown equals `$012C`",
     );
 }
 

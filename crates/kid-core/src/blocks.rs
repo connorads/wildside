@@ -41,6 +41,14 @@ pub(crate) struct PrizeClockSoundRefcountLoc10792 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeClockCountdownLoc10796 {
+    pub(crate) next_remaining: u16,
+    pub(crate) should_delete: bool,
+    pub(crate) should_swap_animation: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
     -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
     2, 2, 2, 2,
@@ -64,6 +72,20 @@ impl NativeRuntime {
         PrizeClockSoundRefcountLoc10792 {
             should_play_sound: active_clock_prize_sounds == 0,
             next_refcount: active_clock_prize_sounds.wrapping_add(1),
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_clock_countdown_loc_10796(remaining: u16) -> PrizeClockCountdownLoc10796 {
+        // ASM loc_10796 (kid.asm:22006-22014): hibernate one frame, subtract 1
+        // from `d3`, delete immediately when it reaches zero, and swap to
+        // `stru_10C1E` exactly on the `$012C` countdown edge.
+        let next_remaining = remaining.saturating_sub(1);
+        PrizeClockCountdownLoc10796 {
+            next_remaining,
+            should_delete: next_remaining == 0,
+            should_swap_animation: next_remaining == 0x012C,
         }
     }
 
