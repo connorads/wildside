@@ -6846,6 +6846,17 @@ fn evanescent_block_reveal_descent_y_deltas_loc_1117a_use_four_hibernated_fall_f
 }
 
 #[test]
+fn evanescent_block_reveal_ascent_y_deltas_loc_11188_use_four_hibernated_rise_frames() {
+    let deltas = NativeRuntime::evanescent_block_reveal_ascent_y_deltas_loc_11188();
+
+    assert_eq!(
+        deltas,
+        &[-2, -2, -2, -2],
+        "ASM loc_11188 should spend four hibernated frames on `subq.w #2,y_pos(a3)` because the reloaded `moveq #3,d0` still yields four inclusive DBF iterations",
+    );
+}
+
+#[test]
 fn restored_prize_ceiling_frame_blocks_motion_without_restarting_dispatch() {
     let mut grid = grid_with_blocks();
 
