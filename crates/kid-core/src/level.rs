@@ -200,6 +200,15 @@ pub(crate) fn row_buffer_pointer_table_loc_11B1A(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn empty_collision_row_loc_11B28(level_width_blocks: u16) -> Vec<u16> {
+    // ASM loc_11B28 (kid.asm:23716-23718) reloads `d0` with
+    // `Level_width_blocks-1`, clears `d1`, then writes exactly one zero word
+    // per block column into the next row buffer at `a3`.
+    vec![0; usize::from(level_width_blocks)]
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point

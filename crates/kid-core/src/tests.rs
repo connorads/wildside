@@ -39,12 +39,13 @@ use crate::level::{
     ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
     apply_pending_palette_fade_sub_14C0, blend_selected_palette_entries_sub_1536,
     build_palette_fade_curve_sub_14C0, compile_block_debris_sprites_sub_2A4C,
-    drain_fg_update_queue_custom_sub_1596, fade_palette_span_sub_1C85E,
-    flagpole_scoreboard_step_sub_C254, initialise_evanesc_object_slots_sub_EABC,
-    initialise_fullscreen_palette_fade_sub_73D0, initialise_scratch_queue_sub_28FC,
-    initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
-    scratch_debris_pieces_sub_292E, spawn_block_debris_sub_292E,
-    step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
+    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
+    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
+    initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
+    initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
+    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
+    swap_forest_background_palette_entries_sub_129AE,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -25534,6 +25535,15 @@ fn loc_11b1a_repeats_the_advanced_row_buffer_pointer_eight_times() {
         crate::level::row_buffer_pointer_table_loc_11B1A(0xFFFF_9E32, 4),
         [0x9E3A; 8],
         "ASM loc_11B1A should write the post-`loc_11B12` `a3` word eight times after advancing by two bytes per block column"
+    );
+}
+
+#[test]
+fn loc_11b28_fills_the_following_row_buffer_with_zero_collision_words() {
+    assert_eq!(
+        empty_collision_row_loc_11B28(4),
+        vec![0x0000, 0x0000, 0x0000, 0x0000],
+        "ASM loc_11B28 should clear `d1` and write one zero collision word per `Level_width_blocks` column"
     );
 }
 
