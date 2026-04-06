@@ -26170,6 +26170,71 @@ fn loc_12372_returns_zero_for_hidden_block_types() {
 }
 
 #[test]
+fn loc_1239a_advances_cell_and_terrain_for_horizontal_stride() {
+    // ASM loc_1239A (kid.asm:24539-24543): horizontal stride continuation.
+    // After writing a cell at loc_12384, advance pointers:
+    //   addq.w #2,a4         ; advance cell pointer by 1 cell (2 bytes)
+    //   addq.w #1,a3         ; advance terrain pointer by 1 byte
+    //   dbf d3,loc_12372     ; loop for remaining cells
+    let result = crate::level::block_type_7_horizontal_advance_loc_1239a(0x9E40, 0x1234);
+    assert_eq!(
+        result.next_cell_addr, 0x9E42,
+        "ASM loc_1239A should advance cell pointer by 2 bytes",
+    );
+    assert_eq!(
+        result.next_terrain_addr, 0x1235,
+        "ASM loc_1239A should advance terrain pointer by 1 byte",
+    );
+}
+
+#[test]
+fn loc_123b6_writes_appropriate_cell_for_vertical_placement() {
+    // ASM loc_123B2/loc_123B6 (kid.asm:24555-24560): vertical placement cell
+    // selection and write. For non-hidden blocks, uses same cell logic as loc_12372:
+    //   move.b (a3),d5       ; load terrain byte
+    //   bne.s loc_123B2      ; branch if non-zero
+    //   move.w #$E60C,d5     ; default cell
+    //   bra.s loc_123B6
+    // loc_123B2:
+    //   move.w #$E60E,d5     ; alternate cell
+    // loc_123B6:
+    //   move.w d5,(a4)       ; write to Level_Layout
+    let zero_terrain = crate::level::block_type_7_vertical_write_loc_123b6(0x9E40, 0);
+    assert_eq!(
+        zero_terrain.cell_word, 0xE60C,
+        "ASM loc_123B6 should use $E60C for terrain byte 0",
+    );
+    let nonzero_terrain = crate::level::block_type_7_vertical_write_loc_123b6(0x9E42, 0x0D);
+    assert_eq!(
+        nonzero_terrain.cell_word, 0xE60E,
+        "ASM loc_123B2 should use $E60E for non-zero terrain byte",
+    );
+}
+
+#[test]
+fn loc_123cc_advances_cell_and_terrain_for_vertical_stride() {
+    // ASM loc_123CC (kid.asm:24572-24576): vertical stride continuation.
+    // After writing a cell at loc_123B6, advance to next row:
+    //   add.w (Level_width_tiles).w,a4   ; advance cell pointer by one row
+    //   add.w (Level_width_blocks).w,a3  ; advance terrain pointer by one row
+    //   dbf d3,loc_123A4               ; loop for remaining rows
+    let result = crate::level::block_type_7_vertical_advance_loc_123cc(
+        0x9E40, // cell_addr
+        0x1234, // terrain_addr
+        64,     // level_width_tiles
+        16,     // level_width_blocks
+    );
+    assert_eq!(
+        result.next_cell_addr, 0x9EC0,
+        "ASM loc_123CC should advance cell pointer by level_width_tiles * 2 = 64 * 2 = 128 bytes",
+    );
+    assert_eq!(
+        result.next_terrain_addr, 0x1244,
+        "ASM loc_123CC should advance terrain pointer by level_width_blocks = 16 bytes",
+    );
+}
+
+#[test]
 fn loc_11d46_copies_exactly_a2_longwords_and_ors_each_with_the_prepared_mask() {
     let source_longwords = (0..0xA4).map(|value| value as u32).collect::<Vec<_>>();
     let copied = crate::level::copy_block_mappings_loc_11D46(&source_longwords, 0x8000_8000);

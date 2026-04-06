@@ -555,6 +555,91 @@ pub(crate) fn block_type_7_cell_value_loc_12372(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType7AdvanceLoc1239A {
+    pub(crate) next_cell_addr: u32,
+    pub(crate) next_terrain_addr: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_7_horizontal_advance_loc_1239a(
+    cell_addr: u32,
+    terrain_addr: u32,
+) -> BlockType7AdvanceLoc1239A {
+    // ASM loc_1239A (kid.asm:24539-24543): horizontal stride continuation for
+    // block type 7. After writing a cell at loc_12384, advance pointers:
+    //   addq.w #2,a4         ; advance cell pointer by 1 cell (2 bytes)
+    //   addq.w #1,a3         ; advance terrain pointer by 1 byte
+    //   dbf d3,loc_12372     ; loop for remaining cells
+    //   bra.s loc_1233E      ; continue to next layout entry
+    // The horizontal stride advances a4 by 2 (one cell) and a3 by 1 (one terrain byte).
+    BlockType7AdvanceLoc1239A {
+        next_cell_addr: cell_addr.wrapping_add(2),
+        next_terrain_addr: terrain_addr.wrapping_add(1),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType7VerticalCellLoc123B6 {
+    pub(crate) cell_addr: u32,
+    pub(crate) cell_word: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_7_vertical_write_loc_123b6(
+    cell_addr: u32,
+    terrain_byte: u8,
+) -> BlockType7VerticalCellLoc123B6 {
+    // ASM loc_123B2/loc_123B6 (kid.asm:24555-24560): vertical placement cell
+    // selection and write. The cell value logic mirrors loc_12372:
+    //   tst.w d0             ; test block type (checked at loc_123A4)
+    //   bmi.s loc_123BA      ; hidden block path
+    //   move.b (a3),d5       ; load terrain byte
+    //   bne.s loc_123B2
+    //   move.w #$E60C,d5     ; default cell (falls through to loc_123B6)
+    //   bra.s loc_123B6
+    // loc_123B2:
+    //   move.w #$E60E,d5     ; alternate cell
+    // loc_123B6:
+    //   move.w d5,(a4)       ; write cell to Level_Layout
+    //   bra.s loc_123CC      ; advance for next row
+    // This function assumes block_type >= 0 (non-hidden).
+    let cell_word = if terrain_byte == 0 { 0xE60C } else { 0xE60E };
+    BlockType7VerticalCellLoc123B6 {
+        cell_addr,
+        cell_word,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType7AdvanceLoc123CC {
+    pub(crate) next_cell_addr: u32,
+    pub(crate) next_terrain_addr: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_7_vertical_advance_loc_123cc(
+    cell_addr: u32,
+    terrain_addr: u32,
+    level_width_tiles: u16,
+    level_width_blocks: u16,
+) -> BlockType7AdvanceLoc123CC {
+    // ASM loc_123CC (kid.asm:24572-24576): vertical stride continuation for
+    // block type 7. After writing a cell at loc_123B6, advance to next row:
+    //   add.w (Level_width_tiles).w,a4   ; advance cell pointer by one row
+    //   add.w (Level_width_blocks).w,a3  ; advance terrain pointer by one row
+    //   dbf d3,loc_123A4               ; loop for remaining rows
+    //   bra.w loc_1233E                ; continue to next layout entry
+    // The vertical stride advances by full row widths in both arrays.
+    BlockType7AdvanceLoc123CC {
+        next_cell_addr: cell_addr.wrapping_add(u32::from(level_width_tiles) * 2),
+        next_terrain_addr: terrain_addr.wrapping_add(u32::from(level_width_blocks)),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutEntryLoc1233E {
     pub(crate) x_pos: u16,
 }
