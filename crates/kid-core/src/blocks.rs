@@ -2093,6 +2093,23 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn metal_block_push_step_left_loc_112FE(
+        x_pos: u16,
+        substep_counter: u16,
+    ) -> MetalBlockPushWakeStep {
+        let substep_counter = substep_counter.saturating_add(1);
+        // ASM loc_112FE (kid.asm:23236): the left-moving wake mirrors the
+        // right branch, subtracting 4 px from `x_pos(a3)`, incrementing `d3`,
+        // and handing off to `loc_1130C` once `d3 == 4`.
+        MetalBlockPushWakeStep {
+            x_pos: x_pos.saturating_sub(4),
+            substep_counter,
+            reached_neighbour_check: substep_counter == 4,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_effect_sprite_pos_loc_1110E(cell_x: u16, cell_y: u16) -> (u16, u16) {
         let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cell_x, cell_y);
         // ASM loc_1110E (kid.asm:23038): copy the cached tile coordinates into

@@ -33494,6 +33494,21 @@ fn metal_block_push_step_right_loc_112e2_reaches_the_neighbour_check_when_d3_hit
 }
 
 #[test]
+fn metal_block_push_step_left_loc_112fe_reaches_the_neighbour_check_when_d3_hits_four() {
+    let step = NativeRuntime::metal_block_push_step_left_loc_112FE(0x0050, 3);
+
+    assert_eq!(
+        step.x_pos, 0x004C,
+        "ASM loc_112FE should move the worker sprite 4 px left on each wake",
+    );
+    assert_eq!(step.substep_counter, 4);
+    assert!(
+        step.reached_neighbour_check,
+        "ASM loc_112FE should branch to `loc_1130C` once the incremented `d3` reaches 4",
+    );
+}
+
+#[test]
 fn metal_block_effect_sprite_pos_loc_1110e_scales_tile_words_into_pixels() {
     assert_eq!(
         NativeRuntime::metal_block_effect_sprite_pos_loc_1110E(5, 3),
