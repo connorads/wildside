@@ -35,7 +35,8 @@ use crate::helmets::{
 use crate::level::{
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
-    FlagpoleScoreboardStepSubC254, ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
+    FlagpoleScoreboardStepSubC254, ForegroundArtPermutationLoc11E48,
+    ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
     LateBackgroundPaletteOverrideLoc11E06, LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT,
     ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
     ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
@@ -52,8 +53,9 @@ use crate::level::{
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
-    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
-    swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
+    select_foreground_art_permutation_loc_11E48, spawn_block_debris_sub_292E,
+    step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
+    terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -25810,6 +25812,23 @@ fn loc_11b9a_leaves_non_enigma_background_widths_unchanged() {
         crate::level::decode_background_theme_flags_loc_11B9A(0x18, 0x005A),
         (0x0001, 0x0008, false, 0x005A),
         "ASM loc_11B9A should leave non-Hills/Desert/Mountain/Forest backgrounds in piece format and preserve the previously derived background width"
+    );
+}
+
+#[test]
+fn loc_11e48_only_overrides_the_existing_foreground_permutation_for_forest() {
+    assert_eq!(
+        select_foreground_art_permutation_loc_11E48(
+            0x0009,
+            ForegroundArtPermutationLoc11E48::Identity
+        ),
+        ForegroundArtPermutationLoc11E48::Forest,
+        "ASM loc_11E48 should replace the identity permutation with `Palette_Permutation_FGForest` when `Foreground_theme == Forest`"
+    );
+    assert_eq!(
+        select_foreground_art_permutation_loc_11E48(0x000A, ForegroundArtPermutationLoc11E48::City),
+        ForegroundArtPermutationLoc11E48::City,
+        "ASM loc_11E48 should fall through to `loc_11E54` without disturbing the earlier City permutation when the Forest compare fails"
     );
 }
 

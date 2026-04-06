@@ -745,6 +745,33 @@ pub(crate) fn copy_background_palette_loc_11E16(
     palette_buffer[0x19..=0x1F].copy_from_slice(&background_palette[1..]);
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ForegroundArtPermutationLoc11E48 {
+    Identity,
+    City,
+    Forest,
+    Mountain,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn select_foreground_art_permutation_loc_11E48(
+    foreground_theme: u16,
+    selected_permutation: ForegroundArtPermutationLoc11E48,
+) -> ForegroundArtPermutationLoc11E48 {
+    const FOREGROUND_THEME_FOREST_LOC_11E48: u16 = 0x0009;
+
+    // ASM loc_11E48 (kid.asm:24046): after the earlier City compare may have
+    // already swapped `a3` to `Palette_Permutation_FGCity`, this branch only
+    // overrides that selection when `Foreground_theme == Forest`.
+    if foreground_theme == FOREGROUND_THEME_FOREST_LOC_11E48 {
+        ForegroundArtPermutationLoc11E48::Forest
+    } else {
+        selected_permutation
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
