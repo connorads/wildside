@@ -493,6 +493,12 @@ pub(crate) struct Prize10000PointsStarDispatchLoc10B76 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10000PointsStarAdvanceLoc10BCE {
+    pub(crate) next_slot_offset: u16,
+    pub(crate) finished_scan: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarStepLoc10B74 {
     pub(crate) latched_screen_pos: Option<(i16, i16)>,
     pub(crate) x_pos: i16,
@@ -906,12 +912,26 @@ pub(crate) fn prize_10000_points_star_dispatch_loc_10B76(
             finished_scan: false,
         }
     } else {
-        let next_slot_offset = slot_offset.wrapping_add(4);
+        let advance = prize_10000_points_star_advance_loc_10BCE(slot_offset);
         Prize10000PointsStarDispatchLoc10B76 {
             should_step_slot: false,
-            next_slot_offset,
-            finished_scan: next_slot_offset == 0x0014,
+            next_slot_offset: advance.next_slot_offset,
+            finished_scan: advance.finished_scan,
         }
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn prize_10000_points_star_advance_loc_10BCE(
+    slot_offset: u16,
+) -> Prize10000PointsStarAdvanceLoc10BCE {
+    // ASM loc_10BCE (kid.asm:22472): `addq.w #4,d2` walks the five longword
+    // star slots, and `cmpi.w #$14,d2` stops the scan after the fifth entry.
+    let next_slot_offset = slot_offset.wrapping_add(4);
+    Prize10000PointsStarAdvanceLoc10BCE {
+        next_slot_offset,
+        finished_scan: next_slot_offset == 0x0014,
     }
 }
 

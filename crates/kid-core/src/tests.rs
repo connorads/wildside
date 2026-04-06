@@ -15,10 +15,10 @@ use crate::boot::{
     end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
     end_sequence_falling_sprite_init_sub_1D8B4, hide_pause_menu_overwritten_sprites_sub_6874,
     hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_spawn_loc_10B3A,
-    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
-    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
-    vdp_upload_32_longwords_sub_44D0,
+    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_dispatch_loc_10B76,
+    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
+    read_io_port_a10001_flags_sub_6E24, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
+    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -23210,6 +23210,20 @@ fn prize_10000_points_star_step_loc_10b74_deletes_the_parent_worker_when_the_las
     assert_eq!(
         step.timer, 0x0010,
         "ASM loc_10BE0 branches before loc_10BCA, so the deletion frame must not decrement the timer",
+    );
+}
+
+#[test]
+fn prize_10000_points_star_advance_loc_10bce_finishes_after_the_fifth_slot() {
+    let advance = prize_10000_points_star_advance_loc_10BCE(0x0010);
+
+    assert_eq!(
+        advance.next_slot_offset, 0x0014,
+        "ASM loc_10BCE should advance the longword slot index by 4 bytes each pass",
+    );
+    assert!(
+        advance.finished_scan,
+        "ASM loc_10BCE should stop the scan once `d2` reaches `#$14` after the fifth slot",
     );
 }
 
