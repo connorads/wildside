@@ -2331,10 +2331,32 @@ impl NativeRuntime {
         };
     }
 
+    #[allow(non_snake_case)]
+    pub(crate) fn sprite_vertical_extent_loc_11EA(
+        use_alternate_extent: bool,
+        default_extent_px: i32,
+        alternate_extent_px: i32,
+    ) -> i32 {
+        // ASM loc_11EA (kid.asm:2205): when `$12(a3)` is non-zero,
+        // `Make_SpriteFromGfxObject` loads the vertical extent from `4(a4)`
+        // instead of the default `6(a4)` word before subtracting it from the
+        // camera-relative Y position.
+        if use_alternate_extent {
+            alternate_extent_px
+        } else {
+            default_extent_px
+        }
+    }
+
     fn death_sprite_still_visible(player: PlayerState, camera: CameraState) -> bool {
+        let sprite_vertical_extent_px = Self::sprite_vertical_extent_loc_11EA(
+            true,
+            PLAYER_HEIGHT,
+            PLAYER_DEATH_SPRITE_Y_EXTENT_PX,
+        );
         let y_screen_px = ((player.y_pos >> 16) as i32)
             - ((camera.y_pos >> 16) as i32)
-            - PLAYER_DEATH_SPRITE_Y_EXTENT_PX;
+            - sprite_vertical_extent_px;
         if !(-SPRITE_VISIBILITY_TOP_MARGIN_PX
             ..=physics::VIEWPORT_HEIGHT + SPRITE_VISIBILITY_BOTTOM_MARGIN_PX)
             .contains(&y_screen_px)

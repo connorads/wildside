@@ -4072,6 +4072,20 @@ fn grounded_death_windup_uses_tumble_arc_and_exits_before_fallback_timeout() {
 }
 
 #[test]
+fn loc_11ea_selects_the_alternate_sprite_vertical_extent_when_flagged() {
+    assert_eq!(
+        NativeRuntime::sprite_vertical_extent_loc_11EA(false, 0x0012, 0x001B),
+        0x0012,
+        "ASM loc_11EA should keep using `6(a4)` when `$12(a3)` is clear"
+    );
+    assert_eq!(
+        NativeRuntime::sprite_vertical_extent_loc_11EA(true, 0x0012, 0x001B),
+        0x001B,
+        "ASM loc_11EA should switch to `4(a4)` when `$12(a3)` is non-zero"
+    );
+}
+
+#[test]
 fn timing_regression_jump_press_on_block_grid_primes_takeoff_for_next_frame() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
