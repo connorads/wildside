@@ -1094,9 +1094,10 @@ impl NativeRuntime {
     ) {
         let (x_px, y_px) = Self::offset_block_destroy_effect_origin(direction, x_px, y_px);
         self.block_destroy_effects.push(BlockDestroyEffect {
-            // ASM sub_10F9C mirrors sub_10EDA's directional 4px nudge but uses
-            // the ice-block sprite set and a 3-frame hibernate before the
-            // shared debris worker runs.
+            // ASM loc_10FDC / loc_10FEC (kid.asm:22900): this helper reuses
+            // the shared directional 4 px offset logic, including the
+            // `d6 == 2` upward branch at `loc_10FDC`, then swaps to the
+            // ice-block art and hibernates for 3 frames before deleting.
             x_px,
             y_px,
             remaining: 3,
