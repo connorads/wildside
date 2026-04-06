@@ -33,14 +33,15 @@ use crate::helmets::{
     red_stealth_swing_anchor_sub_868E, skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
-    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
-    FlagpoleScoreboardStepSubC254, ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
-    LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
-    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_pending_palette_fade_sub_14C0,
-    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    BackgroundPaletteOverrideLoc11DF4, FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
+    FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
+    ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0, LinkedObjectSlotInit,
+    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
+    ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
+    build_palette_fade_curve_sub_14C0, classify_background_palette_override_loc_11DF4,
     classify_foreground_palette_override_loc_11D8E, compile_block_debris_sprites_sub_2A4C,
     copy_foreground_palette_loc_11DB0, drain_fg_update_queue_custom_sub_1596,
     empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
@@ -25954,6 +25955,25 @@ fn loc_11db0_copies_15_foreground_words_into_palette_slots_1_through_15() {
     assert!(
         palette_buffer[16..].iter().all(|word| *word == 0x0EEE),
         "ASM loc_11DB0 should stop after those 15 words, leaving later palette entries untouched"
+    );
+}
+
+#[test]
+fn loc_11df4_selects_the_alternative_cave_background_palette_only_for_map_ids_3_and_23() {
+    assert_eq!(
+        classify_background_palette_override_loc_11DF4(0x03),
+        BackgroundPaletteOverrideLoc11DF4::AlternativeCave,
+        "ASM loc_11DF4 should swap in `Pal_12CF8` for Stairway to Oblivion"
+    );
+    assert_eq!(
+        classify_background_palette_override_loc_11DF4(23),
+        BackgroundPaletteOverrideLoc11DF4::AlternativeCave,
+        "ASM loc_11DF4 should reuse that same background palette for Elsewhere 23"
+    );
+    assert_eq!(
+        classify_background_palette_override_loc_11DF4(0x04),
+        BackgroundPaletteOverrideLoc11DF4::None,
+        "ASM loc_11DF4 should leave neighbouring map IDs on the ordinary background palette path"
     );
 }
 

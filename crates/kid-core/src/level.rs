@@ -634,6 +634,26 @@ pub(crate) fn copy_foreground_palette_loc_11DB0(
     palette_buffer[1..=15].copy_from_slice(foreground_palette);
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundPaletteOverrideLoc11DF4 {
+    None,
+    AlternativeCave,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn classify_background_palette_override_loc_11DF4(
+    map_id: u8,
+) -> BackgroundPaletteOverrideLoc11DF4 {
+    // ASM loc_11DF4 (kid.asm:24002): Stairway to Oblivion (`#3`) and
+    // Elsewhere 23 (`#23`) replace `a1` with `Pal_12CF8(pc)` before the shared
+    // continuation at `loc_11DF8`.
+    if matches!(map_id, 0x03 | 23) {
+        return BackgroundPaletteOverrideLoc11DF4::AlternativeCave;
+    }
+    BackgroundPaletteOverrideLoc11DF4::None
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
