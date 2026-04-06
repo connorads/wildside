@@ -1273,6 +1273,7 @@ impl NativeRuntime {
 
     pub(crate) fn step_visual_effects(&mut self) {
         self.step_rubber_block_animations_sub_10de4();
+        let level_height_pixels = i64::from(self.level_bounds(self.current_level).height_pixels);
 
         let floating_item_can_fall = |grid: &terrain::BlockGrid, item: &FloatingItem| {
             let current_cell = grid.cell_at(item.level_col, item.level_row);
@@ -1345,8 +1346,14 @@ impl NativeRuntime {
                 f.y_velocity = 0;
             }
         }
-        self.floating_items
-            .retain(|f| (f.spawn_delay > 0 || f.remaining > 0) && !f.collected);
+        self.floating_items.retain(|f| {
+            let integer_y = f.y_pos >> 16;
+            // ASM loc_10430 (kid.asm:21678): after the shared tail at
+            // `loc_10404`, delete the prize object once `y_pos(a3)` reaches
+            // or exceeds `Level_height_pixels`.
+            let above_level_bottom = integer_y < level_height_pixels;
+            (f.spawn_delay > 0 || f.remaining > 0) && !f.collected && above_level_bottom
+        });
 
         for e in &mut self.enemy_death_effects {
             e.remaining = e.remaining.saturating_sub(1);

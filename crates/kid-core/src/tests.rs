@@ -33430,6 +33430,47 @@ fn floating_item_loc_10402_updates_the_row_baseline_once_per_16px_boundary_cross
     );
 }
 
+#[test]
+fn floating_item_loc_10430_deletes_items_once_they_reach_level_height() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: (2 * 16 + 8) << 16,
+        y_pos: i64::from(895 << 16),
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 2,
+        level_row: 55,
+        first_row_grace: false,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+    rt.floating_items.push(FloatingItem {
+        x_pos: (3 * 16 + 8) << 16,
+        y_pos: i64::from(896 << 16),
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 3,
+        level_row: 56,
+        first_row_grace: false,
+        content: terrain::PrizeContent::Clock,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items.len(),
+        1,
+        "ASM loc_10430 should jump straight to `Delete_CurrentObject` once `y_pos(a3)` reaches `Level_height_pixels`",
+    );
+    assert_eq!(
+        rt.floating_items[0].level_row, 55,
+        "ASM loc_10430 should keep the still-in-bounds item alive while its integer Y word remains strictly below `Level_height_pixels`",
+    );
+}
+
 // --- Projectile subsystem mutation tests ---
 
 fn make_projectile(x: u16, y: u16) -> EnemyProjectile {
