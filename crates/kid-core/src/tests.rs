@@ -40,16 +40,17 @@ use crate::level::{
     FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
     ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
     ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
-    LateBackgroundPaletteOverrideLoc11E06, LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit,
-    PostLoadObjectRoutineLoc11F96, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
-    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
-    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
-    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
+    IslandPaletteCyclePrimaryBandLoc12098, LateBackgroundPaletteOverrideLoc11E06,
+    LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, PostLoadObjectRoutineLoc11F96,
+    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
+    ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
+    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
+    classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
@@ -63,8 +64,8 @@ use crate::level::{
     scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
     select_background_art_permutation_loc_11E96, select_foreground_art_permutation_loc_11E48,
     select_foreground_art_permutation_loc_11E54, spawn_block_debris_sub_292E,
-    step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
-    terrain_layout_row_pointers_loc_11B40,
+    step_fullscreen_palette_fade_sub_73D0, step_island_palette_cycle_primary_band_loc_12098,
+    swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -26117,6 +26118,34 @@ fn loc_12004_looks_up_foreground_theme_music_from_the_rom_table() {
         crate::level::select_foreground_theme_music_loc_12004(0x000A),
         crate::level::ForegroundThemeMusicLoc12004 { sound_id: 0x008A },
         "ASM loc_12004 should index the final `unk_1201E` byte for foreground theme 10 and play `bgm_City`"
+    );
+}
+
+#[test]
+fn loc_12098_hibernates_until_countdown_44_expires_then_uploads_the_primary_band() {
+    assert_eq!(
+        step_island_palette_cycle_primary_band_loc_12098(9, 1),
+        IslandPaletteCyclePrimaryBandLoc12098 {
+            next_countdown: 8,
+            next_phase: 1,
+            uploaded_frame_index: None,
+            dma_source_offset: None,
+            vram_word_address: None,
+            dma_length_bytes: None,
+        },
+        "ASM loc_12098 should just decrement `$44(a5)` after the one-frame hibernate and fall through to `loc_12110` while the countdown stays non-zero"
+    );
+    assert_eq!(
+        step_island_palette_cycle_primary_band_loc_12098(1, 3),
+        IslandPaletteCyclePrimaryBandLoc12098 {
+            next_countdown: 9,
+            next_phase: 0,
+            uploaded_frame_index: Some(3),
+            dma_source_offset: Some(0x0002),
+            vram_word_address: Some(0xF600),
+            dma_length_bytes: Some(0x00C0),
+        },
+        "ASM loc_12098 should use the pre-increment `d3` frame index, wrap `d3` with `andi.w #3`, DMA `off_1220E[d4] + 2` to VRAM `$F600`, and reload `$44(a5)` with `#9` once the countdown reaches zero"
     );
 }
 

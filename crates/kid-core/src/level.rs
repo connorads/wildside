@@ -817,6 +817,16 @@ pub(crate) struct ForegroundThemeMusicLoc12004 {
     pub(crate) sound_id: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IslandPaletteCyclePrimaryBandLoc12098 {
+    pub(crate) next_countdown: u16,
+    pub(crate) next_phase: u16,
+    pub(crate) uploaded_frame_index: Option<u16>,
+    pub(crate) dma_source_offset: Option<u32>,
+    pub(crate) vram_word_address: Option<u16>,
+    pub(crate) dma_length_bytes: Option<u16>,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -1076,6 +1086,39 @@ pub(crate) fn select_foreground_theme_music_loc_12004(
     // `($FFFFFC32).w`, then call `j_PlaySound`.
     ForegroundThemeMusicLoc12004 {
         sound_id: FOREGROUND_THEME_BGM_TABLE_LOC_12004[usize::from(foreground_theme)],
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn step_island_palette_cycle_primary_band_loc_12098(
+    countdown_44: u16,
+    phase_d3: u16,
+) -> IslandPaletteCyclePrimaryBandLoc12098 {
+    // ASM loc_12098 (kid.asm:24246): after `Hibernate_Object_1Frame`, decrement
+    // `$44(a5)`. A non-zero result falls straight through to `loc_12110`; zero
+    // uses the current `d3` as the frame-table index, advances `d3` with
+    // `addq.w #1` + `andi.w #3`, uploads `off_1220E[d4] + 2` to VRAM `$F600`,
+    // and reloads `$44(a5)` with `#9`.
+    let decremented = countdown_44.wrapping_sub(1);
+    if decremented != 0 {
+        return IslandPaletteCyclePrimaryBandLoc12098 {
+            next_countdown: decremented,
+            next_phase: phase_d3 & 3,
+            uploaded_frame_index: None,
+            dma_source_offset: None,
+            vram_word_address: None,
+            dma_length_bytes: None,
+        };
+    }
+
+    IslandPaletteCyclePrimaryBandLoc12098 {
+        next_countdown: 9,
+        next_phase: phase_d3.wrapping_add(1) & 3,
+        uploaded_frame_index: Some(phase_d3 & 3),
+        dma_source_offset: Some(0x0002),
+        vram_word_address: Some(0xF600),
+        dma_length_bytes: Some(0x00C0),
     }
 }
 
