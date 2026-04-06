@@ -443,8 +443,16 @@ struct BacklogIssueCandidate {
     priority: String,
     system: String,
     summary: String,
+    verify: String,
     status: String,
     focus: BacklogIssueFocus,
+}
+
+#[derive(Debug, Clone)]
+struct ReleaseGateFailureCandidate {
+    target: String,
+    step_name: String,
+    detail: String,
 }
 
 #[derive(Debug, Clone)]
@@ -1285,94 +1293,122 @@ fn evaluate_source_port_frontier_cycle(
                 summary,
             )
         } else {
-            // No case-queue work. Priority: code-producing work first
-            // (sub_ labels, proactive verification), then evidence-only
-            // backlog issues, then sweep-parity.
-            let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
-            if !uncovered.is_empty() {
-                let batch_size = (routines_per_task as usize).min(uncovered.len());
-                let batch = &uncovered[..batch_size];
-                let first_label = &batch[0].1;
-                let task = source_port_frontier_gameplay_backlog_task(
-                    frontier,
-                    &note,
-                    batch,
-                    uncovered.len(),
-                );
+            // No case-queue work. Prioritise ready backlog fixes and live
+            // gate blockers before coverage-driven fallback work.
+            if let Some(issue) = select_ready_backlog_issue(repo_root)? {
+                let task = source_port_frontier_ready_backlog_issue_task(frontier, &note, &issue);
                 let summary = format!(
-                    "TAS frontier {} is closed through frame {}; no actionable case-queue, delegated to gameplay-backlog ({} uncovered sub_ labels, batch of {}, first: {}).",
-                    frontier.slug,
-                    frontier.authoritative_clean_through,
-                    uncovered.len(),
-                    batch_size,
-                    first_label
+                    "TAS frontier {} is closed through frame {}; delegated to ready backlog issue #{} ({}).",
+                    frontier.slug, frontier.authoritative_clean_through, issue.id, issue.summary
                 );
                 (
                     task,
-                    Some(AutonomyGoal::GameplayBacklog),
-                    Some(first_label.clone()),
-                    Some(format!("gameplay-backlog:{}", first_label)),
+                    Some(AutonomyGoal::ProactiveVerification),
+                    Some(issue.id.clone()),
+                    Some(format!("ready-backlog:{}", issue.id)),
+                    summary,
+                )
+            } else if let Some(gate_failure) = select_release_gate_blocker(repo_root)? {
+                let task = source_port_frontier_release_gate_task(frontier, &note, &gate_failure);
+                let summary = format!(
+                    "TAS frontier {} is closed through frame {}; delegated to failing release-gate step {} ({}).",
+                    frontier.slug,
+                    frontier.authoritative_clean_through,
+                    gate_failure.step_name,
+                    gate_failure.target
+                );
+                (
+                    task,
+                    Some(AutonomyGoal::SweepParity),
+                    Some(gate_failure.step_name.clone()),
+                    Some(format!(
+                        "release-gate:{}:{}",
+                        gate_failure.target, gate_failure.step_name
+                    )),
                     summary,
                 )
             } else {
-                // No uncovered sub_ labels. Try proactive verification
-                // (loc_ coverage, enemy audits, mutation testing) —
-                // these produce code, unlike evidence-only backlog issues.
-                let pv_report =
-                    evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
-                if let Some(pv_task) = pv_report.task_package {
-                    let target = pv_task.progress_fingerprint.clone();
-                    let summary = format!(
-                        "TAS frontier {} closed; delegated to proactive-verification ({}).",
-                        frontier.slug, target
+                let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
+                if !uncovered.is_empty() {
+                    let batch_size = (routines_per_task as usize).min(uncovered.len());
+                    let batch = &uncovered[..batch_size];
+                    let first_label = &batch[0].1;
+                    let task = source_port_frontier_gameplay_backlog_task(
+                        frontier,
+                        &note,
+                        batch,
+                        uncovered.len(),
                     );
-                    (
-                        TaskPackage {
-                            capability: CapabilityId::SourcePortFrontierTask,
-                            delegated_goal: Some(AutonomyGoal::ProactiveVerification),
-                            delegated_target: Some(target.clone()),
-                            delegation_reason: Some(
-                                "all sub_ labels covered; proactive verification has work"
-                                    .to_owned(),
-                            ),
-                            ..pv_task
-                        },
-                        Some(AutonomyGoal::ProactiveVerification),
-                        Some(target.clone()),
-                        Some(target),
-                        summary,
-                    )
-                } else if let Some(issue) = select_open_backlog_issue(repo_root)? {
-                    // All code-producing strategies exhausted; fall back
-                    // to evidence-capture backlog issues.
-                    let task = source_port_frontier_backlog_issue_task(frontier, &note, &issue);
                     let summary = format!(
-                        "TAS frontier {} is closed through frame {}; proactive verification exhausted, pivoting to backlog issue #{} ({}).",
+                        "TAS frontier {} is closed through frame {}; no actionable case-queue, delegated to gameplay-backlog ({} uncovered sub_ labels, batch of {}, first: {}).",
                         frontier.slug,
                         frontier.authoritative_clean_through,
-                        issue.id,
-                        issue.summary
+                        uncovered.len(),
+                        batch_size,
+                        first_label
                     );
                     (
                         task,
-                        None,
-                        Some(issue.id.clone()),
-                        Some(format!("backlog-issue:{}", issue.id)),
+                        Some(AutonomyGoal::GameplayBacklog),
+                        Some(first_label.clone()),
+                        Some(format!("gameplay-backlog:{}", first_label)),
                         summary,
                     )
                 } else {
-                    let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
-                    let summary = format!(
-                        "TAS frontier {} is closed through frame {}; all proactive verification strategies and backlog issues exhausted, so source-port pivots to sweep parity hardening.",
-                        frontier.slug, frontier.authoritative_clean_through
-                    );
-                    (
-                        task,
-                        Some(AutonomyGoal::SweepParity),
-                        Some("state-sweep".to_owned()),
-                        Some("state-sweep".to_owned()),
-                        summary,
-                    )
+                    let pv_report =
+                        evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
+                    if let Some(pv_task) = pv_report.task_package {
+                        let target = pv_task.progress_fingerprint.clone();
+                        let summary = format!(
+                            "TAS frontier {} closed; delegated to proactive-verification ({}).",
+                            frontier.slug, target
+                        );
+                        (
+                            TaskPackage {
+                                capability: CapabilityId::SourcePortFrontierTask,
+                                delegated_goal: Some(AutonomyGoal::ProactiveVerification),
+                                delegated_target: Some(target.clone()),
+                                delegation_reason: Some(
+                                    "ready backlog and release-gate blockers are clear; proactive verification has work"
+                                        .to_owned(),
+                                ),
+                                ..pv_task
+                            },
+                            Some(AutonomyGoal::ProactiveVerification),
+                            Some(target.clone()),
+                            Some(target),
+                            summary,
+                        )
+                    } else if let Some(issue) = select_open_backlog_issue(repo_root)? {
+                        let task = source_port_frontier_backlog_issue_task(frontier, &note, &issue);
+                        let summary = format!(
+                            "TAS frontier {} is closed through frame {}; proactive verification exhausted, pivoting to backlog issue #{} ({}).",
+                            frontier.slug,
+                            frontier.authoritative_clean_through,
+                            issue.id,
+                            issue.summary
+                        );
+                        (
+                            task,
+                            None,
+                            Some(issue.id.clone()),
+                            Some(format!("backlog-issue:{}", issue.id)),
+                            summary,
+                        )
+                    } else {
+                        let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
+                        let summary = format!(
+                            "TAS frontier {} is closed through frame {}; all proactive verification strategies and backlog issues exhausted, so source-port pivots to sweep parity hardening.",
+                            frontier.slug, frontier.authoritative_clean_through
+                        );
+                        (
+                            task,
+                            Some(AutonomyGoal::SweepParity),
+                            Some("state-sweep".to_owned()),
+                            Some("state-sweep".to_owned()),
+                            summary,
+                        )
+                    }
                 }
             }
         }
@@ -3056,6 +3092,8 @@ fn collect_uncovered_sub_labels(
         cited_in: Vec<String>,
         #[serde(default)]
         priority: Option<String>,
+        #[serde(default)]
+        implementation_cited: Option<bool>,
     }
 
     let map: CovMap =
@@ -3065,7 +3103,10 @@ fn collect_uncovered_sub_labels(
     let mut uncovered: Vec<(String, String, String, usize, Option<String>)> = Vec::new();
     for (subsystem, sub) in &map.subsystems {
         for label in &sub.labels {
-            if label.kind == asm_coverage::LabelKind::Sub && label.cited_in.is_empty() {
+            let implementation_cited = label
+                .implementation_cited
+                .unwrap_or(!label.cited_in.is_empty());
+            if label.kind == asm_coverage::LabelKind::Sub && !implementation_cited {
                 uncovered.push((
                     subsystem.clone(),
                     label.label.clone(),
@@ -3141,6 +3182,8 @@ fn collect_uncovered_loc_labels(
         cited_in: Vec<String>,
         #[serde(default)]
         priority: Option<String>,
+        #[serde(default)]
+        implementation_cited: Option<bool>,
     }
 
     let map: CovMap =
@@ -3150,7 +3193,10 @@ fn collect_uncovered_loc_labels(
     let mut uncovered: Vec<(String, String, String, usize, Option<String>)> = Vec::new();
     for (subsystem, sub) in &map.subsystems {
         for label in &sub.labels {
-            if label.kind == asm_coverage::LabelKind::Loc && label.cited_in.is_empty() {
+            let implementation_cited = label
+                .implementation_cited
+                .unwrap_or(!label.cited_in.is_empty());
+            if label.kind == asm_coverage::LabelKind::Loc && !implementation_cited {
                 uncovered.push((
                     subsystem.clone(),
                     label.label.clone(),
@@ -3853,12 +3899,14 @@ fn load_open_backlog_issues(repo_root: &Path) -> Result<Vec<BacklogIssueCandidat
         }
         let system = columns[3].to_owned();
         let summary = columns[4].to_owned();
+        let verify = columns.get(5).copied().unwrap_or_default().to_owned();
         items.push(BacklogIssueCandidate {
             id: columns[0].to_owned(),
             priority: priority.to_owned(),
             focus: classify_backlog_issue_focus(&system, &summary),
             system,
             summary,
+            verify,
             status: status.to_owned(),
         });
     }
@@ -3888,6 +3936,208 @@ fn select_open_backlog_issue(repo_root: &Path) -> Result<Option<BacklogIssueCand
             .then_with(|| left.id.cmp(&right.id))
     });
     Ok(items.into_iter().next())
+}
+
+fn is_ready_backlog_issue(issue: &BacklogIssueCandidate) -> bool {
+    let summary = issue.summary.to_ascii_lowercase();
+    let verify = issue.verify.to_ascii_lowercase();
+    summary.contains("root cause identified") || verify.contains("root cause identified")
+}
+
+fn select_ready_backlog_issue(repo_root: &Path) -> Result<Option<BacklogIssueCandidate>> {
+    let mut items = load_open_backlog_issues(repo_root)?;
+    items.retain(is_ready_backlog_issue);
+    items.sort_by(|left, right| {
+        fn priority_rank(priority: &str) -> u8 {
+            match priority {
+                "P0" => 0,
+                "P1" => 1,
+                "P2" => 2,
+                _ => 3,
+            }
+        }
+        priority_rank(&left.priority)
+            .cmp(&priority_rank(&right.priority))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    Ok(items.into_iter().next())
+}
+
+fn source_port_frontier_ready_backlog_issue_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+    issue: &BacklogIssueCandidate,
+) -> TaskPackage {
+    let impl_target = match issue.system.as_str() {
+        "enemy" => "crates/kid-core/src/enemies.rs",
+        "block" | "platform" => "crates/kid-core/src/blocks.rs",
+        "player" | "camera" | "form" => "crates/kid-core/src/lib.rs",
+        "render" | "level" => "crates/kid-core/src/level.rs",
+        _ => "crates/kid-core/src/lib.rs",
+    };
+    let mut task = source_port_frontier_backlog_issue_task(frontier, note, issue);
+    task.title = format!("Implement ready backlog issue #{}", issue.id);
+    task.summary = format!(
+        "{} is authoritative-clean through frame {}; backlog issue #{} already has root-cause evidence, so implement it before fallback coverage work.",
+        frontier.recording, frontier.authoritative_clean_through, issue.id
+    );
+    task.implementation_targets = vec![impl_target.to_owned(), SOURCE_PORT_BACKLOG_PATH.to_owned()];
+    task.commands = vec![
+        "mise run verify-slice-fast".to_owned(),
+        "cargo run -p kidcli -- asm-coverage --update".to_owned(),
+    ];
+    task.done_criteria = vec![
+        format!("Backlog issue #{} marked [x].", issue.id),
+        "Targeted regression test added for the repaired behaviour.".to_owned(),
+        "verify-slice-fast passes.".to_owned(),
+    ];
+    task.delegated_goal = Some(AutonomyGoal::ProactiveVerification);
+    task.delegated_target = Some(issue.id.clone());
+    task.delegation_reason = Some(
+        "root-cause backlog items outrank proactive loc_ coverage once TAS is closed".to_owned(),
+    );
+    task
+}
+
+fn select_release_gate_blocker(repo_root: &Path) -> Result<Option<ReleaseGateFailureCandidate>> {
+    #[derive(Deserialize)]
+    struct GateReport {
+        #[serde(default)]
+        passed: bool,
+        #[serde(default)]
+        steps: Vec<GateStep>,
+    }
+    #[derive(Deserialize)]
+    struct GateStep {
+        name: String,
+        status: String,
+        detail: String,
+    }
+
+    for target in ["1p-playable", "1p-accurate"] {
+        let path = repo_root
+            .join(".cache/release-gate")
+            .join(target)
+            .join("latest.json");
+        let Ok(content) = fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(report): Result<GateReport, _> = serde_json::from_str(&content) else {
+            continue;
+        };
+        if report.passed {
+            continue;
+        }
+        if let Some(step) = report
+            .steps
+            .into_iter()
+            .find(|step| step.status.eq_ignore_ascii_case("failed"))
+        {
+            return Ok(Some(ReleaseGateFailureCandidate {
+                target: target.to_owned(),
+                step_name: step.name,
+                detail: step.detail,
+            }));
+        }
+    }
+
+    Ok(None)
+}
+
+fn source_port_frontier_release_gate_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+    gate_failure: &ReleaseGateFailureCandidate,
+) -> TaskPackage {
+    let gate_command = if gate_failure.target == "1p-playable" {
+        "mise run verify-1p-playable"
+    } else {
+        "mise run release-gate"
+    };
+    TaskPackage {
+        capability: CapabilityId::SourcePortFrontierTask,
+        title: format!(
+            "Repair failing release-gate step {} ({})",
+            gate_failure.step_name, gate_failure.target
+        ),
+        summary: format!(
+            "{} is authoritative-clean through frame {}; fix the live {} blocker before proactive coverage work.",
+            frontier.recording, frontier.authoritative_clean_through, gate_failure.target
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            SOURCE_PORT_RELEASE_GATE_PATH.to_owned(),
+            SOURCE_PORT_BACKLOG_PATH.to_owned(),
+            "docs/source-port/research-map.md".to_owned(),
+        ],
+        implementation_targets: vec!["crates/kid-core/src/".to_owned()],
+        commands: vec![
+            gate_command.to_owned(),
+            "mise run verify-slice-fast".to_owned(),
+            "mise run project-status".to_owned(),
+        ],
+        done_criteria: vec![
+            format!(
+                "The failing gate step {} is green or replaced by a later blocker with fresher evidence.",
+                gate_failure.step_name
+            ),
+            "verify-slice-fast passes.".to_owned(),
+            "project-status no longer leads with the same release-gate blocker.".to_owned(),
+        ],
+        evidence: vec![
+            EvidenceItem {
+                label: "active-frontier".to_owned(),
+                status: frontier.status.clone(),
+                detail: format!(
+                    "{} clean through frame {}",
+                    frontier.slug, frontier.authoritative_clean_through
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "release-gate-failure".to_owned(),
+                status: "failed".to_owned(),
+                detail: format!(
+                    "{} {}: {}",
+                    gate_failure.target, gate_failure.step_name, gate_failure.detail
+                ),
+                artefact_path: Some(PathBuf::from(format!(
+                    ".cache/release-gate/{}/latest.json",
+                    gate_failure.target
+                ))),
+            },
+        ],
+        frontier_context: Some(FrontierContext {
+            slug: frontier.slug.clone(),
+            recording: frontier.recording.clone(),
+            scenario: frontier.scenario.clone(),
+            area: frontier.area.clone(),
+            status: frontier.status.clone(),
+            frontier_frame: frontier.frontier_frame,
+            authoritative_clean_through: frontier.authoritative_clean_through,
+            current_blocker: frontier.current_blocker.clone(),
+            current_hypothesis: frontier.current_hypothesis.clone(),
+            rejected_hypotheses: frontier.rejected_hypotheses.clone(),
+            required_next_evidence: frontier.required_next_evidence.clone(),
+            verification_commands: frontier.verification_commands.clone(),
+        }),
+        case_queue_context: None,
+        delegated_goal: Some(AutonomyGoal::SweepParity),
+        delegated_target: Some(gate_failure.step_name.clone()),
+        delegation_reason: Some(
+            "failing release-gate blockers outrank proactive verification once replay parity is closed"
+                .to_owned(),
+        ),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
+        next_agent_note: Some(note.clone()),
+        target_routines: None,
+    }
 }
 
 fn source_port_frontier_backlog_issue_task(
@@ -6273,6 +6523,11 @@ mod tests {
             "# Research Map\n",
         )
         .expect("research map should write");
+        fs::write(
+            temp_dir.path().join("docs/source-port/asm-coverage.yaml"),
+            "generated_at: now\nsummary: { total_sub_labels: 0, total_loc_labels: 0, sub_cited: 0, sub_coverage_pct: 0.0, loc_cited: 0, loc_coverage_pct: 0.0 }\nsubsystems: {}\n",
+        )
+        .expect("asm coverage should write");
         Command::new("git")
             .args(["init"])
             .current_dir(temp_dir.path())
@@ -6952,6 +7207,77 @@ mod tests {
             task.evidence
                 .iter()
                 .any(|item| item.label == "dirty-tree" && item.detail.contains("methodology.md"))
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_prioritises_ready_backlog_before_loc_coverage() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(super::SOURCE_PORT_BACKLOG_PATH),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 144 | [ ] | P1 | enemy | Level 2 shooter enemy fires too rapidly. Root cause identified. | verify |
+",
+        )
+        .expect("backlog should write");
+        fs::write(
+            temp_dir.path().join("docs/source-port/asm-coverage.yaml"),
+            "generated_at: now\nsummary: { total_sub_labels: 0, total_loc_labels: 1, sub_cited: 0, sub_coverage_pct: 0.0, loc_cited: 0, loc_coverage_pct: 0.0 }\nsubsystems:\n  kid_main:\n    asm_source: kid.asm\n    sub_total: 0\n    sub_cited: 0\n    loc_total: 1\n    loc_cited: 0\n    labels:\n      - { label: loc_1295E, kind: loc, asm_file: kid.asm, line_number: 1, cited_in: [] }\n",
+        )
+        .expect("coverage should write");
+        commit_repo(temp_dir.path(), "prepare ready backlog repo");
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.delegated_target.as_deref(), Some("144"));
+        assert!(
+            task.title.contains("Implement ready backlog issue"),
+            "ready backlog issue should beat loc coverage"
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_prioritises_release_gate_blocker_before_proactive_verification() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-playable"))
+            .expect("gate dir should exist");
+        fs::write(
+            temp_dir
+                .path()
+                .join(".cache/release-gate/1p-playable/latest.json"),
+            r#"{
+  "passed": false,
+  "steps": [
+    {
+      "name": "native_gameplay:death_respawn_level1",
+      "status": "failed",
+      "detail": "death_respawn_level1 did not lose a life"
+    }
+  ]
+}"#,
+        )
+        .expect("gate should write");
+        commit_repo(temp_dir.path(), "prepare release gate blocker repo");
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert!(
+            task.title.contains("Repair failing release-gate step"),
+            "release gate blocker should beat proactive verification"
+        );
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "release-gate-failure"),
+            "task should surface the failing gate evidence"
         );
     }
 

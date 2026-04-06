@@ -20,6 +20,7 @@ pub(crate) struct ProjectStatusReport {
     headline_passed: bool,
     secondary_gates: Vec<GateSignal>,
     tas_frontier: TasFrontierStatus,
+    ready_to_implement_items: Vec<BacklogItem>,
     top_open_playability_items: Vec<BacklogItem>,
     top_open_visual_items: Vec<BacklogItem>,
     warnings: Vec<String>,
@@ -31,6 +32,7 @@ struct GateSignal {
     passed: bool,
     detail: String,
     path: String,
+    failing_step: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -74,6 +76,15 @@ struct ActiveFrontierState {
 #[derive(Debug, Clone, serde::Deserialize)]
 struct GateReport {
     passed: bool,
+    #[serde(default)]
+    steps: Vec<GateStep>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct GateStep {
+    name: String,
+    status: String,
+    detail: String,
 }
 
 pub(crate) fn run_project_status(repo_root: &Path, format: ProjectStatusFormat) -> Result<()> {
@@ -89,6 +100,7 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
     let playable_gate = load_gate_signal(repo_root, "1p-playable");
     let accurate_gate = load_gate_signal(repo_root, "1p-accurate");
     let tas_frontier = load_tas_frontier(repo_root)?;
+    let ready_to_implement_items = load_ready_to_implement_items(repo_root, 5)?;
     let top_open_playability_items = load_top_open_items(repo_root, 5, BacklogFocus::Playability)?;
     let top_open_visual_items = load_top_open_items(repo_root, 5, BacklogFocus::VisualParity)?;
 
@@ -123,6 +135,7 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
         headline_passed: playable_gate.passed,
         secondary_gates: vec![accurate_gate],
         tas_frontier,
+        ready_to_implement_items,
         top_open_playability_items,
         top_open_visual_items,
         warnings,
@@ -142,6 +155,7 @@ fn load_gate_signal(repo_root: &Path, gate_name: &str) -> GateSignal {
                 passed: false,
                 detail: format!("missing gate artefact: {error}"),
                 path: path.display().to_string(),
+                failing_step: None,
             };
         }
     };
@@ -153,18 +167,27 @@ fn load_gate_signal(repo_root: &Path, gate_name: &str) -> GateSignal {
                 passed: false,
                 detail: format!("failed to parse gate artefact: {error}"),
                 path: path.display().to_string(),
+                failing_step: None,
             };
         }
     };
+    let failing_step = report
+        .steps
+        .iter()
+        .find(|step| step.status.eq_ignore_ascii_case("failed"))
+        .map(|step| format!("{}: {}", step.name, step.detail));
     GateSignal {
         name: gate_name.to_owned(),
         passed: report.passed,
         detail: if report.passed {
             "latest cached report passed".to_owned()
         } else {
-            "latest cached report failed".to_owned()
+            failing_step
+                .clone()
+                .unwrap_or_else(|| "latest cached report failed".to_owned())
         },
         path: path.display().to_string(),
+        failing_step,
     }
 }
 
@@ -241,6 +264,12 @@ fn classify_backlog_focus(system: &str, summary: &str) -> BacklogFocus {
     }
 }
 
+fn backlog_row_has_root_cause(summary: &str, verify: &str) -> bool {
+    let summary = summary.to_ascii_lowercase();
+    let verify = verify.to_ascii_lowercase();
+    summary.contains("root cause identified") || verify.contains("root cause identified")
+}
+
 fn load_top_open_items(
     repo_root: &Path,
     limit: usize,
@@ -299,6 +328,55 @@ fn load_top_open_items(
     Ok(items)
 }
 
+fn load_ready_to_implement_items(repo_root: &Path, limit: usize) -> Result<Vec<BacklogItem>> {
+    let path = repo_root.join(BACKLOG_PATH);
+    let contents = fs::read_to_string(&path)
+        .with_context(|| format!("failed to read backlog {}", path.display()))?;
+    let mut items = Vec::new();
+    for line in contents.lines() {
+        if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
+            continue;
+        }
+        let columns = line
+            .split('|')
+            .map(str::trim)
+            .filter(|column| !column.is_empty())
+            .collect::<Vec<_>>();
+        if columns.len() < 6 {
+            continue;
+        }
+        let status = columns[1];
+        let priority = columns[2];
+        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2") {
+            continue;
+        }
+        if !backlog_row_has_root_cause(columns[4], columns[5]) {
+            continue;
+        }
+        items.push(BacklogItem {
+            id: columns[0].to_owned(),
+            priority: priority.to_owned(),
+            system: columns[3].to_owned(),
+            summary: columns[4].to_owned(),
+        });
+    }
+    items.sort_by(|left, right| {
+        fn priority_rank(priority: &str) -> u8 {
+            match priority {
+                "P0" => 0,
+                "P1" => 1,
+                "P2" => 2,
+                _ => 3,
+            }
+        }
+        priority_rank(&left.priority)
+            .cmp(&priority_rank(&right.priority))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    items.truncate(limit);
+    Ok(items)
+}
+
 fn print_project_status(report: &ProjectStatusReport) {
     println!("Project Status");
     println!(
@@ -331,6 +409,17 @@ fn print_project_status(report: &ProjectStatusReport) {
     );
     println!("    - handoff note: {}", report.tas_frontier.note_status);
     println!("    - summary: {}", report.tas_frontier.summary);
+    println!("  ready to implement now:");
+    if report.ready_to_implement_items.is_empty() {
+        println!("    - none");
+    } else {
+        for item in &report.ready_to_implement_items {
+            println!(
+                "    - #{} {} {}: {}",
+                item.id, item.priority, item.system, item.summary
+            );
+        }
+    }
     println!("  top open playability risks:");
     if report.top_open_playability_items.is_empty() {
         println!("    - none");
@@ -366,8 +455,8 @@ fn print_project_status(report: &ProjectStatusReport) {
 #[cfg(test)]
 mod tests {
     use super::{
-        BacklogFocus, ProjectStatusFormat, build_project_status_report, load_top_open_items,
-        run_project_status,
+        BacklogFocus, ProjectStatusFormat, build_project_status_report,
+        load_ready_to_implement_items, load_top_open_items, run_project_status,
     };
     use std::fs;
     use tempfile::TempDir;
@@ -401,6 +490,28 @@ mod tests {
             load_top_open_items(temp_dir.path(), 5, BacklogFocus::VisualParity).expect("items");
         assert_eq!(visual_items.len(), 1);
         assert_eq!(visual_items[0].id, "005");
+    }
+
+    #[test]
+    fn project_status_extracts_ready_to_implement_items() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 144 | [ ] | P1 | enemy | Level 2 shooter enemy fires too rapidly. Root cause identified. | verify |
+| 145 | [ ] | P1 | render | Level 2 shooter enemy is not rendered correctly. Root cause identified. | verify |
+| 146 | [ ] | P1 | level | Needs human repro | no |
+",
+        )
+        .expect("backlog");
+
+        let items = load_ready_to_implement_items(temp_dir.path(), 5).expect("items");
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].id, "144");
+        assert_eq!(items[1].id, "145");
     }
 
     #[test]

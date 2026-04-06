@@ -61,6 +61,27 @@ struct AnnotationOverlay {
     descriptions: BTreeMap<String, String>,
     #[serde(default)]
     priorities: BTreeMap<String, String>,
+    #[serde(default)]
+    backlog_ids: BTreeMap<String, Vec<String>>,
+    #[serde(default)]
+    parity_evidence: BTreeMap<String, Vec<String>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum CoverageState {
+    Mentioned,
+    Implemented,
+    Tested,
+    OracleBacked,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+struct CitationBreakdown {
+    implementation: Vec<String>,
+    tests: Vec<String>,
+    docs: Vec<String>,
+    support: Vec<String>,
 }
 
 // ── Label extraction ───────────────────────────────────────────────────
@@ -334,6 +355,16 @@ fn load_existing_annotations(path: &Path) -> AnnotationOverlay {
             if let Some(pri) = &label.priority {
                 overlay.priorities.insert(label.label.clone(), pri.clone());
             }
+            if !label.backlog_ids.is_empty() {
+                overlay
+                    .backlog_ids
+                    .insert(label.label.clone(), label.backlog_ids.clone());
+            }
+            if !label.parity_evidence.is_empty() {
+                overlay
+                    .parity_evidence
+                    .insert(label.label.clone(), label.parity_evidence.clone());
+            }
         }
     }
     overlay
@@ -352,6 +383,20 @@ struct AsmLabelAnnotated {
     description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     priority: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    backlog_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    parity_evidence: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    coverage_state: Option<CoverageState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    implementation_cited: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    test_cited: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    oracle_backed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    citation_breakdown: Option<CitationBreakdown>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -380,6 +425,21 @@ fn apply_annotations(map: CoverageMap, overlay: &AnnotationOverlay) -> CoverageM
                 .labels
                 .into_iter()
                 .map(|l| AsmLabelAnnotated {
+                    backlog_ids: overlay
+                        .backlog_ids
+                        .get(&l.label)
+                        .cloned()
+                        .unwrap_or_default(),
+                    parity_evidence: overlay
+                        .parity_evidence
+                        .get(&l.label)
+                        .cloned()
+                        .unwrap_or_default(),
+                    coverage_state: coverage_state_for_citations(&l.cited_in, overlay, &l.label),
+                    implementation_cited: Some(has_implementation_citation(&l.cited_in)),
+                    test_cited: Some(has_test_citation(&l.cited_in)),
+                    oracle_backed: Some(is_oracle_backed(overlay, &l.label)),
+                    citation_breakdown: Some(classify_citations(&l.cited_in)),
                     description: overlay.descriptions.get(&l.label).cloned(),
                     priority: overlay.priorities.get(&l.label).cloned(),
                     label: l.label,
@@ -406,6 +466,55 @@ fn apply_annotations(map: CoverageMap, overlay: &AnnotationOverlay) -> CoverageM
         generated_at: map.generated_at,
         summary: map.summary,
         subsystems,
+    }
+}
+
+fn classify_citations(cited_in: &[String]) -> CitationBreakdown {
+    let mut breakdown = CitationBreakdown::default();
+    for citation in cited_in {
+        if citation.ends_with("/tests.rs") || citation.contains("/tests/") {
+            breakdown.tests.push(citation.clone());
+        } else if citation.ends_with(".md") {
+            breakdown.docs.push(citation.clone());
+        } else if citation.contains("/src/") {
+            breakdown.implementation.push(citation.clone());
+        } else {
+            breakdown.support.push(citation.clone());
+        }
+    }
+    breakdown
+}
+
+fn has_implementation_citation(cited_in: &[String]) -> bool {
+    !classify_citations(cited_in).implementation.is_empty()
+}
+
+fn has_test_citation(cited_in: &[String]) -> bool {
+    !classify_citations(cited_in).tests.is_empty()
+}
+
+fn is_oracle_backed(overlay: &AnnotationOverlay, label: &str) -> bool {
+    overlay
+        .parity_evidence
+        .get(label)
+        .is_some_and(|entries| !entries.is_empty())
+}
+
+fn coverage_state_for_citations(
+    cited_in: &[String],
+    overlay: &AnnotationOverlay,
+    label: &str,
+) -> Option<CoverageState> {
+    if is_oracle_backed(overlay, label) {
+        Some(CoverageState::OracleBacked)
+    } else if has_test_citation(cited_in) {
+        Some(CoverageState::Tested)
+    } else if has_implementation_citation(cited_in) {
+        Some(CoverageState::Implemented)
+    } else if !cited_in.is_empty() {
+        Some(CoverageState::Mentioned)
+    } else {
+        None
     }
 }
 
@@ -560,4 +669,45 @@ pub(crate) fn run_asm_coverage(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classify_citations_separates_implementation_and_tests() {
+        let cited_in = vec![
+            "crates/kid-core/src/level.rs".to_owned(),
+            "crates/kid-core/src/tests.rs".to_owned(),
+            "docs/source-port/backlog.md".to_owned(),
+        ];
+
+        let breakdown = classify_citations(&cited_in);
+
+        assert_eq!(
+            breakdown.implementation,
+            vec!["crates/kid-core/src/level.rs"]
+        );
+        assert_eq!(breakdown.tests, vec!["crates/kid-core/src/tests.rs"]);
+        assert_eq!(breakdown.docs, vec!["docs/source-port/backlog.md"]);
+    }
+
+    #[test]
+    fn coverage_state_prefers_oracle_backed_evidence() {
+        let cited_in = vec![
+            "crates/kid-core/src/level.rs".to_owned(),
+            "crates/kid-core/src/tests.rs".to_owned(),
+        ];
+        let mut overlay = AnnotationOverlay::default();
+        overlay.parity_evidence.insert(
+            "loc_1234".to_owned(),
+            vec!["verify-tas --frame-start 10 --frame-end 20".to_owned()],
+        );
+
+        assert_eq!(
+            coverage_state_for_citations(&cited_in, &overlay, "loc_1234"),
+            Some(CoverageState::OracleBacked)
+        );
+    }
 }

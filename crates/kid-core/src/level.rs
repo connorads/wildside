@@ -2578,6 +2578,118 @@ pub(crate) fn background_final_pattern_loc_12952(
     }
 }
 
+#[cfg_attr(test, allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundHillsLoadLoc1295E {
+    pub(crate) pattern_vram_offset_1_2: u16,
+    pub(crate) pattern_vram_offset_3: u16,
+    pub(crate) vram_buffer1_addr: u32,
+    pub(crate) vram_buffer2_addr: u32,
+    pub(crate) vram_buffer3_addr: u32,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_hills_tileset_loc_1295E() -> BackgroundHillsLoadLoc1295E {
+    // ASM loc_1295E (kid.asm:25305-25318): Hills theme background tileset load.
+    //   loc_1295E:	; hill
+    //   move.w  #$2780,d0           ; pattern VRAM offset for first two buffers
+    //   move.l  (a3)+,a0            ; load first art pointer
+    //   lea     ($FFFF87B2).w,a1    ; dest: VRAM buffer 1 ($87B2)
+    //   bsr.w   EniDec              ; decompress
+    //   move.l  (a3)+,a0            ; load second art pointer
+    //   lea     ($FFFF8EB2).w,a1    ; dest: VRAM buffer 2 ($8EB2)
+    //   bsr.w   EniDec              ; decompress
+    //   move.w  #$7C0,d0            ; pattern VRAM offset for third buffer
+    //   move.l  (a3)+,a0            ; load third art pointer
+    //   lea     ($FFFF95B2).w,a1    ; dest: VRAM buffer 3 ($95B2)
+    //   bsr.w   EniDec              ; decompress
+    //   move.l  (sp)+,a0            ; restore return address
+    //   rts                         ; return
+    const HILLS_PATTERN_1_2_LOC_1295E: u16 = 0x2780;
+    const HILLS_PATTERN_3_LOC_1295E: u16 = 0x07C0;
+    const VRAM_BUFFER_1_ADDR: u32 = 0xFFFF_87B2;
+    const VRAM_BUFFER_2_ADDR: u32 = 0xFFFF_8EB2;
+    const VRAM_BUFFER_3_ADDR: u32 = 0xFFFF_95B2;
+
+    BackgroundHillsLoadLoc1295E {
+        pattern_vram_offset_1_2: HILLS_PATTERN_1_2_LOC_1295E,
+        pattern_vram_offset_3: HILLS_PATTERN_3_LOC_1295E,
+        vram_buffer1_addr: VRAM_BUFFER_1_ADDR,
+        vram_buffer2_addr: VRAM_BUFFER_2_ADDR,
+        vram_buffer3_addr: VRAM_BUFFER_3_ADDR,
+    }
+}
+
+#[cfg_attr(test, allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundDesertLoadLoc12988 {
+    pub(crate) pattern_vram_offset: u16,
+    pub(crate) vram_buffer1_addr: u32,
+    pub(crate) vram_buffer2_addr: u32,
+    pub(crate) vram_buffer3_addr: u32,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_desert_tileset_loc_12988() -> BackgroundDesertLoadLoc12988 {
+    // ASM loc_12988 (kid.asm:25321-25333): Desert theme background tileset load.
+    //   loc_12988:	; desert
+    //   move.w  #$2780,d0           ; pattern VRAM offset for all buffers
+    //   move.l  (a3)+,a0            ; load first art pointer
+    //   lea     ($FFFF87B2).w,a1    ; dest: VRAM buffer 1 ($87B2)
+    //   bsr.w   EniDec              ; decompress
+    //   move.l  (a3)+,a0            ; load second art pointer
+    //   lea     ($FFFF8EB2).w,a1    ; dest: VRAM buffer 2 ($8EB2)
+    //   bsr.w   EniDec              ; decompress
+    //   move.l  (a3)+,a0            ; load third art pointer
+    //   lea     ($FFFF95B2).w,a1    ; dest: VRAM buffer 3 ($95B2)
+    //   bsr.w   EniDec              ; decompress
+    //   move.l  (sp)+,a0            ; restore return address
+    //   rts                         ; return
+    const DESERT_PATTERN_LOC_12988: u16 = 0x2780;
+    const VRAM_BUFFER_1_ADDR: u32 = 0xFFFF_87B2;
+    const VRAM_BUFFER_2_ADDR: u32 = 0xFFFF_8EB2;
+    const VRAM_BUFFER_3_ADDR: u32 = 0xFFFF_95B2;
+
+    BackgroundDesertLoadLoc12988 {
+        pattern_vram_offset: DESERT_PATTERN_LOC_12988,
+        vram_buffer1_addr: VRAM_BUFFER_1_ADDR,
+        vram_buffer2_addr: VRAM_BUFFER_2_ADDR,
+        vram_buffer3_addr: VRAM_BUFFER_3_ADDR,
+    }
+}
+
+#[cfg_attr(test, allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct JuggernautSkullArtDmaLoc129DC {
+    pub(crate) vdp_command: u32,
+    pub(crate) art_source: u32,
+    pub(crate) longword_count: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn juggernaut_skull_art_dma_loop_loc_129DC() -> JuggernautSkullArtDmaLoc129DC {
+    // ASM loc_129DC (kid.asm:25359-25361): Juggernaut skull frame 1 DMA loop.
+    //   loc_129DC:
+    //   move.l  (a1)+,(a6)          ; copy longword from ArtUnc_12A08 to VDP
+    //   dbf     d0,loc_129DC        ; loop 32 times ($1F+1 iterations)
+    // This is the first of three DMA loops in sub_129CE that load:
+    //   - ArtUnc_12A08 (Juggernaut skull frame 1) -> $CDC0
+    //   - ArtUnc_12A8C (Juggernaut skull frame 2) -> $CDC0 (continuation, 32 more longwords)
+    //   - ArtUnc_12B0C (Some kind of star)         -> $DF40
+    const VDP_COMMAND: u32 = 0xC000_00CD; // vdpComm($CDC0,VRAM,WRITE)
+    const ART_SOURCE_OFFSET: u32 = 0x0001_2A08; // ArtUnc_12A08
+    const LONGWORD_COUNT: u16 = 32; // $1F + 1
+
+    JuggernautSkullArtDmaLoc129DC {
+        vdp_command: VDP_COMMAND,
+        art_source: ART_SOURCE_OFFSET,
+        longword_count: LONGWORD_COUNT,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
