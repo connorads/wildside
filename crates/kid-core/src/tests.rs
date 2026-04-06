@@ -3,9 +3,9 @@ use crate::blocks::{
     OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A,
     OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8,
     Prize10DiamondsSpawnLoc108EE, Prize10DiamondsWorkerCountdownGateLoc10984,
-    Prize10DiamondsWorkerScanStartLoc10960, PrizeClockCountdownLoc10796,
-    PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
-    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    Prize10DiamondsWorkerInitLoc10988, Prize10DiamondsWorkerScanStartLoc10960,
+    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
+    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -8033,6 +8033,25 @@ fn prize_10_diamonds_worker_countdown_gate_loc_10984_clears_display_only_on_fram
             should_clear_display_enabled: false,
         },
         "ASM loc_10984 should leave `$14(a1)` untouched for non-`$70` countdown values",
+    );
+}
+
+#[test]
+fn prize_10_diamonds_worker_init_loc_10988_seeds_camera_relative_arc_toward_target_point() {
+    assert_eq!(
+        NativeRuntime::prize_10_diamonds_worker_init_loc_10988(
+            0x0116_0000,
+            0x0030_0000,
+            0x0010_0000,
+            0x0010_0000,
+        ),
+        Prize10DiamondsWorkerInitLoc10988 {
+            camera_relative_x_pos: 0x0106_0000,
+            camera_relative_y_pos: 0x0020_0000,
+            x_velocity: 0x0001_0000,
+            y_velocity: 0x0000_8000,
+        },
+        "ASM loc_10988 should subtract the camera from `$1A/$1E`, then aim the worker toward `#$1260000,#$300000` with an arithmetic `>> 5` velocity seed",
     );
 }
 

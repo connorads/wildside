@@ -155,6 +155,15 @@ pub(crate) struct Prize10DiamondsWorkerCountdownGateLoc10984 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10DiamondsWorkerInitLoc10988 {
+    pub(crate) camera_relative_x_pos: i32,
+    pub(crate) camera_relative_y_pos: i32,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -506,6 +515,27 @@ impl NativeRuntime {
         // `loc_109E8`; every other timer value just falls straight through.
         Prize10DiamondsWorkerCountdownGateLoc10984 {
             should_clear_display_enabled: lifetime_frames == 0x0070,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_10_diamonds_worker_init_loc_10988(
+        x_pos: i32,
+        y_pos: i32,
+        camera_x_pos: i32,
+        camera_y_pos: i32,
+    ) -> Prize10DiamondsWorkerInitLoc10988 {
+        // ASM loc_10988 (kid.asm:22227-22242): cache camera-relative FP16.16
+        // position in `$3E/$42`, then seed `$26/$2A` from
+        // `(#$1260000 - rel_x) >> 5` and `(#$300000 - rel_y) >> 5`.
+        let camera_relative_x_pos = x_pos.wrapping_sub(camera_x_pos);
+        let camera_relative_y_pos = y_pos.wrapping_sub(camera_y_pos);
+        Prize10DiamondsWorkerInitLoc10988 {
+            camera_relative_x_pos,
+            camera_relative_y_pos,
+            x_velocity: (0x0126_0000_i32.wrapping_sub(camera_relative_x_pos)) >> 5,
+            y_velocity: (0x0030_0000_i32.wrapping_sub(camera_relative_y_pos)) >> 5,
         }
     }
 
