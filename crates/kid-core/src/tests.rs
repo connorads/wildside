@@ -33200,6 +33200,36 @@ fn floating_eyeclops_loc_1055a_deletes_the_collected_helmet_on_the_next_step() {
     );
 }
 
+#[test]
+fn floating_juggernaut_loc_1058c_stays_alive_while_above_level_bottom_and_uncollected() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: (6 * 16 + 8) << 16,
+        y_pos: i64::from(192 << 16),
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 12,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Juggernaut,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items.len(),
+        1,
+        "ASM loc_1058C should keep looping while Juggernaut stays above `Level_height_pixels` and `collision_type(a3)` remains zero",
+    );
+    assert_eq!(
+        rt.floating_items[0].remaining,
+        NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES - 1,
+        "ASM loc_1058C still advances the shared helmet countdown on each hibernated frame before the later delete exit",
+    );
+}
+
 // --- Visual effects: countdown and retention ---
 
 #[test]

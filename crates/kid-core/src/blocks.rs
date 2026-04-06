@@ -1356,12 +1356,12 @@ impl NativeRuntime {
             // `loc_10404`, delete the prize object once `y_pos(a3)` reaches
             // or exceeds `Level_height_pixels`.
             // ASM loc_1047C (kid.asm:21709), loc_104C6 (kid.asm:21735),
-            // loc_10510 (kid.asm:21761), and loc_1055A (kid.asm:21787) are
-            // the matching Skycutter/Cyclone/Red Stealth/Eyeclops delete
-            // exits: once the per-frame loop at
-            // loc_10464/loc_104AE/loc_104F8/loc_10542 sees either a non-zero
-            // `collision_type(a3)` or the bottom-of-level compare, control
-            // jumps straight to `Delete_CurrentObject`.
+            // loc_10510 (kid.asm:21761), loc_1055A (kid.asm:21787), and
+            // loc_105A4 (kid.asm:21813) are the matching Skycutter/Cyclone/
+            // Red Stealth/Eyeclops/Juggernaut delete exits: once the per-frame
+            // loop at loc_10464/loc_104AE/loc_104F8/loc_10542/loc_1058C sees
+            // either a non-zero `collision_type(a3)` or the bottom-of-level
+            // compare, control jumps straight to `Delete_CurrentObject`.
             let above_level_bottom = integer_y < level_height_pixels;
             (f.spawn_delay > 0 || f.remaining > 0) && !f.collected && above_level_bottom
         });
