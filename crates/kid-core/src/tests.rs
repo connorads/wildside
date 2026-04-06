@@ -25709,6 +25709,20 @@ fn loc_11d0c_selects_the_theme_mapping_entry_and_splits_the_enemy_layout_pointer
 }
 
 #[test]
+fn loc_11d42_only_enables_the_block_priority_mask_when_f896_is_non_zero() {
+    assert_eq!(
+        crate::level::block_mapping_or_mask_loc_11D42(false),
+        0,
+        "ASM loc_11D42 should leave `d1` cleared when `tst.b ($FFFFF896).w` branches through `beq.s loc_11D42`",
+    );
+    assert_eq!(
+        crate::level::block_mapping_or_mask_loc_11D42(true),
+        0x8000_8000,
+        "ASM loc_11D0C should load `$80008000` into `d1` before `loc_11D42` when `($FFFFF896).w` is non-zero",
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),

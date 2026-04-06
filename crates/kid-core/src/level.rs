@@ -426,6 +426,15 @@ pub(crate) fn level_load_pointers_loc_11D0C(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
+    // ASM loc_11D0C -> loc_11D42 (kid.asm:23917-23923) clears `d1`, tests
+    // `($FFFFF896).w`, and only loads `$80008000` into `d1` when that byte is
+    // non-zero before falling through into the block-mapping copy loop.
+    if high_priority_flag { 0x8000_8000 } else { 0 }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_dimensions_loc_11B40(
     level_width_tiles: u16,
     level_height_tiles: u16,
