@@ -282,6 +282,9 @@ impl NativeRuntime {
             // ASM sub_10C78 seeds d3 with $0001_0320 for the shared
             // Ankh/Clock/Continue falling-prize initialiser, while sub_10CB0
             // reuses the same lifetime for helmets before its extra cleanup.
+            // ASM loc_10464 (kid.asm:21700) is Skycutter's per-frame loop, but
+            // it still runs on that same shared d3 countdown until the later
+            // delete exit fires.
             terrain::PrizeContent::Points10000
             | terrain::PrizeContent::Skycutter
             | terrain::PrizeContent::Cyclone
