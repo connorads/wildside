@@ -8183,6 +8183,21 @@ fn prize_content_10000_points_loc_10ac2_arms_the_hundred_k_trip_timer_once() {
 }
 
 #[test]
+fn prize_10000_points_init_loc_10ae0_caches_parent_positions_and_resets_d3() {
+    let init = prize_10000_points_init_loc_10AE0(0x0123_4567, 0x089A_BCDE);
+
+    assert_eq!(
+        init,
+        Prize10000PointsInitLoc10Ae0 {
+            cached_x_pos: 0x0123_4567,
+            cached_y_pos: 0x089A_BCDE,
+            worker_index_d3: 0,
+        },
+        "ASM loc_10AE0 should copy `x_pos(a3)`/`y_pos(a3)` into the parent scratch words and seed `d3 = 0` before the worker loop",
+    );
+}
+
+#[test]
 fn lives_capped_at_nine() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

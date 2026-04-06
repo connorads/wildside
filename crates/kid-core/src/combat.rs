@@ -4,6 +4,29 @@ const HUNDRED_K_TRIP_START_LEVEL_ID: LevelId = LevelId(4);
 const HUNDRED_K_TRIP_ARM_FRAMES_LOC_10AC2: u16 = 0x003C;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10000PointsInitLoc10Ae0 {
+    pub(crate) cached_x_pos: u32,
+    pub(crate) cached_y_pos: u32,
+    pub(crate) worker_index_d3: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn prize_10000_points_init_loc_10AE0(
+    x_pos: u32,
+    y_pos: u32,
+) -> Prize10000PointsInitLoc10Ae0 {
+    // ASM loc_10AE0 (kid.asm:22384): cache the parent prize object's
+    // `x_pos(a3)`/`y_pos(a3)` into `$6C(a5)`/`$70(a5)`, run `j_loc_1078`, then
+    // seed `d3 = 0` before the later worker-spawn loop at `loc_10B00`.
+    Prize10000PointsInitLoc10Ae0 {
+        cached_x_pos: x_pos,
+        cached_y_pos: y_pos,
+        worker_index_d3: 0,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum QueuedSoundEffect {
     MiniHoppingSkullScream,
     RedStealthAttackDown,
