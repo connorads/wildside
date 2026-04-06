@@ -25894,6 +25894,25 @@ fn loc_11d9e_keeps_the_selected_theme_palette_when_the_removed_branch_fires() {
 }
 
 #[test]
+fn loc_11da0_routes_the_crypt_leftover_and_alien_twilight_into_the_late_palette_branch() {
+    assert_eq!(
+        classify_foreground_palette_override_loc_11D8E(0x1A),
+        ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette,
+        "ASM loc_11DA0 should route `M_unused_1A` into the later `loc_11DAC` alternative palette branch"
+    );
+    assert_eq!(
+        classify_foreground_palette_override_loc_11D8E(0x1B),
+        ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette,
+        "ASM loc_11DA0 should take the same `loc_11DAC` branch for Alien Twilight"
+    );
+    assert_eq!(
+        classify_foreground_palette_override_loc_11D8E(0x19),
+        ForegroundPaletteOverrideLoc11D8E::None,
+        "ASM loc_11DA0 should leave neighbouring map IDs on the ordinary foreground palette path"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {

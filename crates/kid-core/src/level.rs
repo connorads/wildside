@@ -557,6 +557,7 @@ pub(crate) enum ForegroundPaletteOverrideLoc11D8E {
     None,
     AlternativeCave,
     RemovedSpecialPaletteNoop,
+    LateAlternativePalette,
 }
 
 #[allow(non_snake_case)]
@@ -576,6 +577,12 @@ pub(crate) fn classify_foreground_palette_override_loc_11D8E(
     if matches!(map_id, 0x1C | 30) {
         return ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop;
     }
+    // ASM loc_11DA0 (kid.asm:23968): after the earlier cave/skyscraper
+    // checks, The Crypt leftover (`#$1A`) and Alien Twilight (`#$1B`) branch
+    // to `loc_11DAC`, which swaps in the later alternative foreground palette.
+    if matches!(map_id, 0x1A | 0x1B) {
+        return ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette;
+    }
     ForegroundPaletteOverrideLoc11D8E::None
 }
 
@@ -591,7 +598,8 @@ pub(crate) fn apply_foreground_palette_override_loc_11D9E(
     match override_kind {
         ForegroundPaletteOverrideLoc11D8E::None
         | ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop => selected_theme_palette,
-        ForegroundPaletteOverrideLoc11D8E::AlternativeCave => selected_theme_palette,
+        ForegroundPaletteOverrideLoc11D8E::AlternativeCave
+        | ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette => selected_theme_palette,
     }
 }
 
