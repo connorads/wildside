@@ -1,8 +1,8 @@
 use super::*;
 use crate::blocks::{
     OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A,
-    OneTimePrizeScanStepLoc10886, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
-    PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
+    OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, PrizeClockCountdownLoc10796,
+    PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
     PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
@@ -7894,6 +7894,26 @@ fn one_time_prize_scan_step_loc_10886_advances_four_bytes_and_honours_dbf_underf
             should_continue_scan: false,
         },
         "ASM loc_10886 should stop after the final scan iteration when DBF decrements zero to `$FFFF`",
+    );
+}
+
+#[test]
+fn one_time_prize_store_loc_1089a_writes_at_the_old_header_slot_then_wraps_the_next_index() {
+    let entries = core::array::from_fn(|index| 0xA000_0000_u32.wrapping_add(index as u32));
+
+    assert_eq!(
+        NativeRuntime::one_time_prize_store_loc_1089A(0x0027, entries, 0x4A72, 0x0011),
+        OneTimePrizeStoreLoc1089A {
+            next_write_index: 0,
+            entries: core::array::from_fn(|index| {
+                if index == 0x27 {
+                    0x4A72_0011
+                } else {
+                    0xA000_0000_u32.wrapping_add(index as u32)
+                }
+            }),
+        },
+        "ASM loc_1089A should write the new prize into the current header slot and only then wrap the header back to zero at `$28`",
     );
 }
 

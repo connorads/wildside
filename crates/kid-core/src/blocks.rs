@@ -108,6 +108,13 @@ pub(crate) struct OneTimePrizeScanStepLoc10886 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OneTimePrizeStoreLoc1089A {
+    pub(crate) next_write_index: u16,
+    pub(crate) entries: [u32; 0x28],
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -303,6 +310,32 @@ impl NativeRuntime {
             next_entry_byte_offset_from_table_base: entry_byte_offset_from_table_base
                 .wrapping_add(4),
             should_continue_scan: next_remaining_entry_checks != u16::MAX,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn one_time_prize_store_loc_1089A(
+        current_write_index: u16,
+        entries: [u32; 0x28],
+        prize_layout_addr: u16,
+        current_level_id: u16,
+    ) -> OneTimePrizeStoreLoc1089A {
+        // ASM loc_1089A (kid.asm:22119): keep `d0` as the current header slot,
+        // compute the next header value in `d1` with wrap at `$28`, store that
+        // next value back into `(a0)`, then write the new `(layout_addr,
+        // level_id)` pair into slot `d0`. The header therefore points to the
+        // next insertion slot, not the one just written.
+        let mut next_entries = entries;
+        next_entries[usize::from(current_write_index)] =
+            (u32::from(prize_layout_addr) << 16) | u32::from(current_level_id);
+        let mut next_write_index = current_write_index.wrapping_add(1);
+        if next_write_index >= 0x28 {
+            next_write_index = 0;
+        }
+        OneTimePrizeStoreLoc1089A {
+            next_write_index,
+            entries: next_entries,
         }
     }
 
