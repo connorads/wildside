@@ -342,6 +342,28 @@ pub(crate) fn copy_hidden_block_entries_loc_11CA8(
         .collect()
 }
 
+fn fg_queue_guard_low_word_loc_11_cb6(base_addr: u32, span_words: u16) -> bool {
+    if base_addr == 0 {
+        return true;
+    }
+
+    let guarded_end = (base_addr as u16).wrapping_add(span_words);
+    guarded_end < 0x43BC
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn prize_block_list_guard_loc_11CB6(
+    prize_block_list_addr: u32,
+    prize_block_count: u16,
+) -> bool {
+    // ASM loc_11CB6 (kid.asm:23868-23874) skips the guard when
+    // `($FFFFF8D4).w` is zero; otherwise it adds `($FFFFF8D2).w << 3` to the
+    // low word of that pointer and branches to `loc_11D0A` once the result is
+    // greater than or equal to `FGPlane_UpdateQueueCustom = $43BC`.
+    fg_queue_guard_low_word_loc_11_cb6(prize_block_list_addr, prize_block_count << 3)
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_dimensions_loc_11B40(

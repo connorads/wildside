@@ -25655,6 +25655,18 @@ fn loc_11ca8_copies_one_hidden_block_entry_even_when_dbf_starts_at_zero() {
 }
 
 #[test]
+fn loc_11cb6_allows_null_prize_lists_and_traps_once_the_custom_queue_base_is_reached() {
+    assert!(
+        crate::level::prize_block_list_guard_loc_11CB6(0, 0x0010),
+        "ASM loc_11CB6 should fall through to `loc_11CCA` when `($FFFFF8D4).w` is zero, so an empty prize list must skip the queue-capacity guard"
+    );
+    assert!(
+        !crate::level::prize_block_list_guard_loc_11CB6(0xFFFF_43B4, 1),
+        "ASM loc_11CB6 adds `($FFFFF8D2).w << 3` to the low word of `($FFFFF8D4).w` and branches to `loc_11D0A` on `bcc`, so an 8-byte prize entry ending at `$43BC` must be treated as overflow"
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),
