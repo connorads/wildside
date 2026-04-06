@@ -33,20 +33,21 @@ use crate::helmets::{
     red_stealth_swing_anchor_sub_868E, skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
-    BackgroundArtPermutationLoc11E8A, BackgroundPaletteFollowupLoc11DF8,
-    BackgroundPaletteOverrideLoc11DF4, FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
-    FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
-    ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
-    ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
-    LateBackgroundPaletteOverrideLoc11E06, LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT,
-    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
-    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
-    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_pending_palette_fade_sub_14C0,
-    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
-    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
-    classify_foreground_palette_override_loc_11D8E,
+    BackgroundArtPermutationLoc11E8A, BackgroundFollowupArtDecompressLoc11EC4,
+    BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
+    BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
+    ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
+    FullscreenPaletteFadeSub73D0, LateBackgroundPaletteOverrideLoc11E06, LinkedObjectSlotInit,
+    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
+    ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
+    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
+    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
+    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
     drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
@@ -54,11 +55,11 @@ use crate::level::{
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, prepare_foreground_art_decompress_loc_11E60,
-    scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
-    select_background_art_permutation_loc_11E96, select_foreground_art_permutation_loc_11E48,
-    select_foreground_art_permutation_loc_11E54, spawn_block_debris_sub_292E,
-    step_fullscreen_palette_fade_sub_73D0, swap_forest_background_palette_entries_sub_129AE,
-    terrain_layout_row_pointers_loc_11B40,
+    prepare_mountain_background_art_loc_11EC4, scratch_debris_pieces_sub_292E,
+    select_background_art_permutation_loc_11E8A, select_background_art_permutation_loc_11E96,
+    select_foreground_art_permutation_loc_11E48, select_foreground_art_permutation_loc_11E54,
+    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
+    swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -25943,6 +25944,24 @@ fn loc_11e96_only_overrides_the_existing_background_permutation_for_mountain() {
         ),
         BackgroundArtPermutationLoc11E8A::Forest,
         "ASM loc_11E96 should fall through to `loc_11EA2` without disturbing the earlier Forest permutation when the Mountain compare fails"
+    );
+}
+
+#[test]
+fn loc_11ec4_only_prepares_the_mountain_followup_background_decompress() {
+    assert_eq!(
+        prepare_mountain_background_art_loc_11EC4(0x0007),
+        Some(BackgroundFollowupArtDecompressLoc11EC4 {
+            tile_base: 0xFCA0,
+            permutation: BackgroundFollowupArtPermutationLoc11EC4::Identity,
+            art_source: BackgroundFollowupArtSourceLoc11EC4::CaveAlt,
+        }),
+        "ASM loc_11EC4 should prepare the Mountain-only follow-up RAM decompress with `ThemeArtBack_CaveAlt`, `Palette_Permutation_Identity`, and VRAM base `$FCA0`"
+    );
+    assert_eq!(
+        prepare_mountain_background_art_loc_11EC4(0x0005),
+        None,
+        "ASM loc_11EC4 should fall through to `loc_11EFA` without a second background decompress when `Background_theme` is not Mountain"
     );
 }
 

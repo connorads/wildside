@@ -762,6 +762,23 @@ pub(crate) enum BackgroundArtPermutationLoc11E8A {
     Mountain,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundFollowupArtSourceLoc11EC4 {
+    CaveAlt,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundFollowupArtPermutationLoc11EC4 {
+    Identity,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundFollowupArtDecompressLoc11EC4 {
+    pub(crate) tile_base: u16,
+    pub(crate) permutation: BackgroundFollowupArtPermutationLoc11EC4,
+    pub(crate) art_source: BackgroundFollowupArtSourceLoc11EC4,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -833,6 +850,25 @@ pub(crate) fn select_background_art_permutation_loc_11E96(
     } else {
         selected_permutation
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn prepare_mountain_background_art_loc_11EC4(
+    background_theme: u16,
+) -> Option<BackgroundFollowupArtDecompressLoc11EC4> {
+    const BACKGROUND_THEME_MOUNTAIN_LOC_11EC4: u16 = 0x0007;
+
+    // ASM loc_11EC4 (kid.asm:24089): only the Mountain background runs this
+    // second RAM decompress, seeding `a3` with the identity permutation,
+    // selecting `ThemeArtBack_CaveAlt`, and using VRAM base `$FCA0`.
+    (background_theme == BACKGROUND_THEME_MOUNTAIN_LOC_11EC4).then_some(
+        BackgroundFollowupArtDecompressLoc11EC4 {
+            tile_base: 0xFCA0,
+            permutation: BackgroundFollowupArtPermutationLoc11EC4::Identity,
+            art_source: BackgroundFollowupArtSourceLoc11EC4::CaveAlt,
+        },
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
