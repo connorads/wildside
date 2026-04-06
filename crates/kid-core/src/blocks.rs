@@ -1135,6 +1135,9 @@ impl NativeRuntime {
             return (target_row < level_height_blocks).then_some((source_col, target_row));
         }
 
+        // ASM loc_1104A (kid.asm:22957): the final branch treats any other
+        // remapped direction as left, aborting on column 0 before subtracting
+        // one block from the source column.
         source_col.checked_sub(1).map(|col| (col, source_row))
     }
 

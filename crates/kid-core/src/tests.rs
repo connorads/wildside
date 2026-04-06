@@ -33717,6 +33717,24 @@ fn ice_block_bullet_target_cell_sub_11006_loc_11036_rejects_the_bottom_boundary(
     );
 }
 
+#[test]
+fn ice_block_bullet_target_cell_sub_11006_loc_1104a_steps_one_cell_left_inside_the_level_width() {
+    assert_eq!(
+        NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 3, 1, 8, 6),
+        Some((4, 3)),
+        "ASM loc_1104A should remap direction 1 through `eori.w #2,d6`, then probe one block to the left when `source_col != 0`",
+    );
+}
+
+#[test]
+fn ice_block_bullet_target_cell_sub_11006_loc_1104a_rejects_the_left_boundary() {
+    assert_eq!(
+        NativeRuntime::ice_block_bullet_target_cell_sub_11006(0, 3, 1, 8, 6),
+        None,
+        "ASM loc_1104A should branch to `loc_11080` when the source column is already zero",
+    );
+}
+
 // --- Shooter blocks: multi-direction and cell-change pruning ---
 
 #[test]
