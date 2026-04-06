@@ -33509,6 +33509,21 @@ fn ice_block_effect_sub_10f9c_uses_loc_10fe2_leftward_offset() {
 }
 
 #[test]
+fn ice_block_effect_sub_10f9c_uses_loc_10fe8_rightward_offset() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    runtime.spawn_ice_block_effect_sub_10f9c(80, 48, NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT);
+
+    assert_eq!(runtime.block_destroy_effects.len(), 1);
+    assert_eq!(
+        runtime.block_destroy_effects[0].x_px, 84,
+        "ASM loc_10FE8 adds 4 to `x_pos(a3)` when `d6 == 3`, so sub_10F9C nudges the ice effect 4px right before the shared loc_10FEC 3-frame hibernate tail"
+    );
+    assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
+    assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
+}
+
+#[test]
 fn smash_block_effect_sub_10eda_uses_loc_10f20_leftward_offset() {
     let mut runtime = NativeRuntime::new(manifest());
 
