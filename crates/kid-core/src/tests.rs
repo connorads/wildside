@@ -28983,6 +28983,35 @@ fn death_respawn_level_1_reports_grounded_walk_on_frame_720() {
 }
 
 #[test]
+fn death_respawn_level_1_keeps_loc_9d22_uphill_state_on_frame_1003() {
+    let mut runtime = cached_generated_runtime();
+    let script = death_respawn_level_1_script();
+
+    let mut frame_1003 = None;
+    let mut frame_1004 = None;
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_005) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_003 {
+            frame_1003 = Some(trace);
+        } else if frame_index == 1_004 {
+            frame_1004 = Some(trace);
+            break;
+        }
+    }
+
+    let frame_1003 = frame_1003.expect("frame 1003 trace");
+    let frame_1004 = frame_1004.expect("frame 1004 trace");
+    // ASM loc_9D22 keeps MoveID 6 while either grounded support edge still
+    // rides the slope continuation, even once the centre probe has crossed
+    // onto the adjacent solid cell. Once sub_B43A reacquires flat support on
+    // the next frame, the route returns to loc_8BF0's plain walking state.
+    assert_eq!(frame_1003.kid_on_ground, Some(true));
+    assert_eq!(frame_1003.character_movement, Some(6));
+    assert_eq!(frame_1004.kid_on_ground, Some(true));
+    assert_eq!(frame_1004.character_movement, Some(2));
+}
+
+#[test]
 #[ignore] // values were never correct on main — need oracle re-derivation
 fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
     let mut runtime = cached_generated_runtime();
