@@ -37,7 +37,8 @@ use crate::level::{
     FlagpoleScoreboardStepSubC254, ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
     LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
     ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    SpriteFrameStateSubB52, apply_foreground_palette_override_loc_11D9E,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
     background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
     build_palette_fade_curve_sub_14C0, classify_foreground_palette_override_loc_11D8E,
     compile_block_debris_sprites_sub_2A4C, drain_fg_update_queue_custom_sub_1596,
@@ -25869,6 +25870,26 @@ fn loc_11d92_routes_deadly_skyscrapers_and_elsewhere_30_into_the_removed_palette
         classify_foreground_palette_override_loc_11D8E(0x1B),
         ForegroundPaletteOverrideLoc11D8E::None,
         "ASM loc_11D92 should leave neighbouring map IDs on the remaining palette-check path"
+    );
+}
+
+#[test]
+fn loc_11d9e_keeps_the_selected_theme_palette_when_the_removed_branch_fires() {
+    assert_eq!(
+        apply_foreground_palette_override_loc_11D9E(
+            0x0ACE,
+            ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop,
+        ),
+        0x0ACE,
+        "ASM loc_11D9E should preserve the already selected theme palette because the old `lea Pal_12D08(pc),a1` was replaced with `nop`"
+    );
+    assert_eq!(
+        apply_foreground_palette_override_loc_11D9E(
+            0x0246,
+            ForegroundPaletteOverrideLoc11D8E::None,
+        ),
+        0x0246,
+        "ASM loc_11D9E's ordinary fallthrough should also leave the current theme palette untouched"
     );
 }
 
