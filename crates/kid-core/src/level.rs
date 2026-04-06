@@ -186,6 +186,20 @@ pub(crate) fn solid_collision_row_loc_11B12(level_width_blocks: u16) -> Vec<u16>
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn row_buffer_pointer_table_loc_11B1A(
+    row_pointer_base: u32,
+    level_width_blocks: u16,
+) -> [u16; 8] {
+    // ASM loc_11B1A (kid.asm:23709-23711) runs after loc_11B12 advanced `a3`
+    // across the just-filled collision row, so `move.w a3,(a1)+` repeats the
+    // row-end pointer word eight times into the secondary pointer table.
+    let row_end_pointer =
+        (row_pointer_base as u16).wrapping_add(level_width_blocks.wrapping_mul(2));
+    [row_end_pointer; 8]
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point

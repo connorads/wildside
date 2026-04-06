@@ -25529,6 +25529,15 @@ fn loc_11b12_fills_the_selected_row_buffer_with_solid_collision_words() {
 }
 
 #[test]
+fn loc_11b1a_repeats_the_advanced_row_buffer_pointer_eight_times() {
+    assert_eq!(
+        crate::level::row_buffer_pointer_table_loc_11B1A(0xFFFF_9E32, 4),
+        [0x9E3A; 8],
+        "ASM loc_11B1A should write the post-`loc_11B12` `a3` word eight times after advancing by two bytes per block column"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {
