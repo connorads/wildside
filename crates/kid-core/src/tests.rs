@@ -1,7 +1,7 @@
 use super::*;
 use crate::blocks::{
     PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
-    PrizeClockSoundRefcountLoc10792,
+    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -7779,6 +7779,28 @@ fn prize_clock_sound_cleanup_loc_107e0_only_stops_the_last_loop() {
     assert!(
         NativeRuntime::prize_clock_sound_cleanup_loc_107E0(2).should_delete_current_object,
         "ASM loc_107EE should jump straight to `Delete_CurrentObject` after the shared clock-sound cleanup tail",
+    );
+}
+
+#[test]
+fn prize_continue_countdown_loc_1080a_deletes_at_zero_and_swaps_at_012c() {
+    assert_eq!(
+        NativeRuntime::prize_continue_countdown_loc_1080A(1),
+        PrizeContinueCountdownLoc1080A {
+            next_remaining: 0,
+            should_delete: true,
+            should_swap_animation: false,
+        },
+        "ASM loc_1080A should delete the continue prize as soon as the post-hibernate `subq.w #1,d3` result reaches zero",
+    );
+    assert_eq!(
+        NativeRuntime::prize_continue_countdown_loc_1080A(0x012D),
+        PrizeContinueCountdownLoc1080A {
+            next_remaining: 0x012C,
+            should_delete: false,
+            should_swap_animation: true,
+        },
+        "ASM loc_1080A should switch to `stru_10C2E` exactly when the decremented countdown equals `$012C`",
     );
 }
 

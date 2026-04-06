@@ -58,6 +58,14 @@ pub(crate) struct PrizeClockFallGateLoc107B0 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeContinueCountdownLoc1080A {
+    pub(crate) next_remaining: u16,
+    pub(crate) should_delete: bool,
+    pub(crate) should_swap_animation: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -140,6 +148,23 @@ impl NativeRuntime {
             next_refcount,
             should_play_stop_sound: next_refcount == 0,
             should_delete_current_object: true,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_continue_countdown_loc_1080A(
+        remaining: u16,
+    ) -> PrizeContinueCountdownLoc1080A {
+        // ASM loc_1080A (kid.asm:22045-22053): the continue prize hibernates,
+        // decrements `d3`, deletes once the result reaches zero, and swaps to
+        // `stru_10C2E` exactly on the shared `$012C` countdown edge before
+        // the later fall/collision gate resumes at loc_10824.
+        let next_remaining = remaining.saturating_sub(1);
+        PrizeContinueCountdownLoc1080A {
+            next_remaining,
+            should_delete: next_remaining == 0,
+            should_swap_animation: next_remaining == 0x012C,
         }
     }
 
