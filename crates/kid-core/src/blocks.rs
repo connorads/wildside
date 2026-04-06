@@ -1106,6 +1106,35 @@ impl NativeRuntime {
         });
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn ice_block_bullet_target_cell_sub_11006(
+        source_col: u16,
+        source_row: u16,
+        direction: u16,
+        level_width_blocks: u16,
+        level_height_blocks: u16,
+    ) -> Option<(u16, u16)> {
+        let remapped_direction = direction ^ 2;
+        if remapped_direction == 0 {
+            return source_row.checked_sub(1).map(|row| (source_col, row));
+        }
+
+        if remapped_direction < 2 {
+            // ASM loc_11020 (kid.asm:22936): after `eori.w #2,d6`, the
+            // `d6 == 1` path probes the cell one block to the right and bails
+            // once `source_col + 1 >= Level_width_blocks`.
+            let target_col = source_col.saturating_add(1);
+            return (target_col < level_width_blocks).then_some((target_col, source_row));
+        }
+
+        if remapped_direction == 2 {
+            let target_row = source_row.saturating_add(1);
+            return (target_row < level_height_blocks).then_some((source_col, target_row));
+        }
+
+        source_col.checked_sub(1).map(|col| (col, source_row))
+    }
+
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // Trigger: if the player is on ground, check the floor cell
         if slice.player.on_ground

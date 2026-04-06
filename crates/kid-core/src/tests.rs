@@ -33681,6 +33681,24 @@ fn align_player_for_down_hold_sub_7a10_restores_integer_x_when_both_sides_are_bl
     );
 }
 
+#[test]
+fn ice_block_bullet_target_cell_sub_11006_loc_11020_steps_one_cell_right_inside_the_level_width() {
+    assert_eq!(
+        NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 3, 3, 8, 6),
+        Some((6, 3)),
+        "ASM loc_11020 should remap direction 3 through `eori.w #2,d6`, then probe one block to the right when `source_col + 1 < Level_width_blocks`",
+    );
+}
+
+#[test]
+fn ice_block_bullet_target_cell_sub_11006_loc_11020_rejects_the_right_boundary() {
+    assert_eq!(
+        NativeRuntime::ice_block_bullet_target_cell_sub_11006(7, 3, 3, 8, 6),
+        None,
+        "ASM loc_11020 should branch to `loc_11080` when `source_col + 1 >= Level_width_blocks`",
+    );
+}
+
 // --- Shooter blocks: multi-direction and cell-change pruning ---
 
 #[test]
