@@ -34331,7 +34331,7 @@ fn shooter_headbutt_support_worker_runs_sub_114f4_timeline() {
 }
 
 #[test]
-fn shooter_headbutt_support_worker_sub_114f4_aborts_when_target_refills_before_wake() {
+fn shooter_headbutt_support_worker_loc_1152c_deletes_when_target_refills_before_wake() {
     let mut rt = NativeRuntime::new(manifest());
     rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
 
@@ -34349,7 +34349,7 @@ fn shooter_headbutt_support_worker_sub_114f4_aborts_when_target_refills_before_w
     assert_eq!(
         rt.block_grid().expect("block grid").cell_at(5, 3),
         terrain::Cell::from_be_bytes(0x60, 0),
-        "ASM sub_114F4 deletes itself immediately if the support cell is no longer empty on wake"
+        "ASM loc_1152C deletes the support worker immediately if the support cell is no longer empty on wake"
     );
 }
 

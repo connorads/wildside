@@ -1737,8 +1737,9 @@ impl NativeRuntime {
                     },
                     ShooterHeadbuttWorkerKind::Support => match worker.age {
                         0 => {
-                            // ASM sub_114F4 bails if the target cell is no longer empty when
-                            // the worker first wakes.
+                            // ASM sub_114F4 tests `(a1)` before queueing any tile writes; if
+                            // the support cell refilled, `bne.s loc_1152C` jumps straight to
+                            // `Delete_CurrentObject` on the first wake frame.
                             if grid.cell_at(worker.col, worker.row)
                                 != terrain::Cell::from_be_bytes(0, 0)
                             {
