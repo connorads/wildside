@@ -154,6 +154,9 @@ pub(crate) fn gfx_object_delete_loc_10C6(
     // `loc_1106` tail.
     let special_slot = match object_kind_word {
         1 => GfxObjectSpecialSlotLoc10C6::Kid,
+        // ASM loc_10EA (kid.asm:2054): after the shared `subq.w #1,d0`,
+        // object kind 2 branches here, decrements once more to zero, then
+        // clears `Addr_GfxObject_KidProjectile`.
         2 => GfxObjectSpecialSlotLoc10C6::KidProjectile,
         3 => GfxObjectSpecialSlotLoc10C6::UnknownF86A,
         _ => GfxObjectSpecialSlotLoc10C6::None,
