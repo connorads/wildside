@@ -66,6 +66,14 @@ pub(crate) struct PrizeContinueCountdownLoc1080A {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeContinueDeleteLoc10838 {
+    pub(crate) sound_effect_id: u8,
+    pub(crate) preserves_d0_across_sound_call: bool,
+    pub(crate) should_delete_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -165,6 +173,19 @@ impl NativeRuntime {
             next_remaining,
             should_delete: next_remaining == 0,
             should_swap_animation: next_remaining == 0x012C,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_continue_delete_loc_10838() -> PrizeContinueDeleteLoc10838 {
+        // ASM loc_10838 (kid.asm:22062): preserve `d0`, call `j_PlaySound`
+        // with `#$6A`, restore `d0`, then jump straight to
+        // `Delete_CurrentObject`.
+        PrizeContinueDeleteLoc10838 {
+            sound_effect_id: 0x6A,
+            preserves_d0_across_sound_call: true,
+            should_delete_current_object: true,
         }
     }
 

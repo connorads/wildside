@@ -1,7 +1,7 @@
 use super::*;
 use crate::blocks::{
     PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
-    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A,
+    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -7801,6 +7801,19 @@ fn prize_continue_countdown_loc_1080a_deletes_at_zero_and_swaps_at_012c() {
             should_swap_animation: true,
         },
         "ASM loc_1080A should switch to `stru_10C2E` exactly when the decremented countdown equals `$012C`",
+    );
+}
+
+#[test]
+fn prize_continue_delete_loc_10838_plays_sound_6a_then_deletes() {
+    assert_eq!(
+        NativeRuntime::prize_continue_delete_loc_10838(),
+        PrizeContinueDeleteLoc10838 {
+            sound_effect_id: 0x6A,
+            preserves_d0_across_sound_call: true,
+            should_delete_current_object: true,
+        },
+        "ASM loc_10838 should preserve `d0`, call `j_PlaySound` with `#$6A`, then jump straight to `Delete_CurrentObject`",
     );
 }
 
