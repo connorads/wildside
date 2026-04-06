@@ -145,6 +145,43 @@ fn gfx_object_predecessor_index_sub_ff6_returns_none_when_loc_1004_walks_to_a_nu
 }
 
 #[test]
+fn clear_owner_gfx_backref_loc_1078_ignores_odd_owner_pointers() {
+    let links = clear_owner_gfx_backref_loc_1078(0x00FF_8001, [0x10, 0x20, 0x30], 0x20);
+
+    assert_eq!(
+        links,
+        [0x10, 0x20, 0x30],
+        "ASM loc_1078 should branch to the shared free-list walk immediately when bit 0 of `a5` is set",
+    );
+}
+
+#[test]
+fn clear_owner_gfx_backref_loc_1078_requires_the_masked_owner_address_to_stay_in_wram() {
+    let links = clear_owner_gfx_backref_loc_1078(0x0100_8000, [0x10, 0x20, 0x30], 0x20);
+
+    assert_eq!(
+        links,
+        [0x10, 0x20, 0x30],
+        "ASM loc_1078 should mask `a5` to 24 bits and skip the `$36/$3A/$3E(a5)` clears when the result falls below `$FF0000`",
+    );
+}
+
+#[test]
+fn clear_owner_gfx_backref_loc_1078_clears_only_the_first_matching_owner_slot() {
+    let links = clear_owner_gfx_backref_loc_1078(
+        0x01FF_8000,
+        [0x00AA_0000, 0x00AA_0000, 0x00AA_0000],
+        0x00AA_0000,
+    );
+
+    assert_eq!(
+        links,
+        [0, 0x00AA_0000, 0x00AA_0000],
+        "ASM loc_1078 should clear `$36(a5)` first and branch away before touching `$3A/$3E(a5)` even if they also match `a3`",
+    );
+}
+
+#[test]
 fn gfx_object_unlink_loc_100e_splices_the_target_successor_over_the_predecessor_link() {
     let mut next_indices = [
         Some(1), // sentinel -> first live node

@@ -73,6 +73,38 @@ pub(crate) struct ObjectGfxLinksSubE02 {
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn clear_owner_gfx_backref_loc_1078(
+    owner_addr: u32,
+    mut owner_links: [u32; 3],
+    target_gfx_addr: u32,
+) -> [u32; 3] {
+    // ASM loc_1078 (kid.asm:2002): only treat `a5` as an owner-object pointer
+    // when bit 0 is clear and the masked 24-bit address stays in WRAM
+    // (`>= $FF0000`). Then compare the deleted gfx pointer in `a3` against
+    // `$36/$3A/$3E(a5)`, clear the first matching back-reference, and branch
+    // straight to the shared free-list walk without touching later slots.
+    if owner_addr & 1 != 0 {
+        return owner_links;
+    }
+
+    let masked_owner_addr = owner_addr & 0x00FF_FFFF;
+    if masked_owner_addr < 0x00FF_0000 {
+        return owner_links;
+    }
+
+    if owner_links[0] == target_gfx_addr {
+        owner_links[0] = 0;
+    } else if owner_links[1] == target_gfx_addr {
+        owner_links[1] = 0;
+    } else if owner_links[2] == target_gfx_addr {
+        owner_links[2] = 0;
+    }
+
+    owner_links
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_predecessor_index_sub_FF6(
     next_indices: &[Option<usize>],
     target_index: usize,
