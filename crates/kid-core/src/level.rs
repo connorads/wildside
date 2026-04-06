@@ -1028,6 +1028,206 @@ pub(crate) fn hidden_block_list_guard_loc_11CCA(
     fg_queue_guard_low_word_loc_11_cb6(hidden_block_list_addr, hidden_block_count << 4)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType3InitLoc124A6 {
+    pub(crate) hidden_block_list_addr: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_3_init_list_loc_124a6(list_addr: u32) -> BlockType3InitLoc124A6 {
+    // ASM loc_124A6 (kid.asm:24691-24692): block type 3 (solid ghost) entry point.
+    // Stores the hidden block list pointer for subsequent entries:
+    //   move.l a5,($FFFFF8DA).w   ; save hidden block list base
+    // The $FFFFF8DA variable holds the pointer to hidden block entries,
+    // parallel to $FFFFF8D4 for prize blocks. After init, falls through
+    // to loc_124AA which processes each hidden block entry.
+    BlockType3InitLoc124A6 {
+        hidden_block_list_addr: list_addr,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType3Entry {
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+    pub(crate) count: u16,
+    pub(crate) stride: u16,
+    pub(crate) attr0: u16,
+    pub(crate) priority: u16,
+    pub(crate) attr2: u16,
+    pub(crate) attr3: u16,
+    pub(crate) byte5: u8,
+    pub(crate) byte7: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType3ReadEntryLoc124AA {
+    pub(crate) entry: Option<BlockType3Entry>,
+    pub(crate) words_consumed: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_3_read_entry_loc_124aa(
+    layout_words: &[u16],
+) -> BlockType3ReadEntryLoc124AA {
+    // ASM loc_124AA (kid.asm:24694-24698): loop entry for block type 3.
+    // Reads x_pos from (a1), branches if negative (end marker):
+    //   move.w (a1),d1       ; d1 = x_pos
+    //   bpl.s loc_124BE      ; if >= 0, process entry
+    //   addq.w #2,a1         ; skip past sentinel
+    //   rts                   ; return (list exhausted)
+    // Each hidden block entry is $10 bytes: x_pos(2) + y_row(2) + count(2) +
+    // stride(2) + attr0(2) + priority(2) + attr2(2) + attr3(2).
+    // Bytes at offset 5 and 7 are low bytes of count/stride fields.
+    if layout_words.is_empty() {
+        return BlockType3ReadEntryLoc124AA {
+            entry: None,
+            words_consumed: 0,
+        };
+    }
+    let x_pos = layout_words[0];
+    if x_pos & 0x8000 != 0 {
+        // End marker: x_pos negative means list exhausted
+        return BlockType3ReadEntryLoc124AA {
+            entry: None,
+            words_consumed: 1,
+        };
+    }
+    if layout_words.len() < 8 {
+        return BlockType3ReadEntryLoc124AA {
+            entry: None,
+            words_consumed: 0,
+        };
+    }
+    let entry = BlockType3Entry {
+        x_pos,
+        y_row: layout_words[1],
+        count: layout_words[2],
+        stride: layout_words[3],
+        attr0: layout_words[4],
+        priority: layout_words[5],
+        attr2: layout_words[6],
+        attr3: layout_words[7],
+        byte5: (layout_words[2] & 0xFF) as u8,
+        byte7: (layout_words[3] & 0xFF) as u8,
+    };
+    BlockType3ReadEntryLoc124AA {
+        entry: Some(entry),
+        words_consumed: 8,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType3CellAddrLoc124BE {
+    pub(crate) cell_addr: u32,
+    pub(crate) y_row: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_3_cell_addr_loc_124be(
+    row_pointer_table: &[u16],
+    x_pos: u16,
+    y_row: u16,
+) -> Option<BlockType3CellAddrLoc124BE> {
+    // ASM loc_124BE (kid.asm:24708-24715): compute cell address for block type 3.
+    //   move.w 2(a1),d2          ; d2 = y_row
+    //   move.w d2,d3
+    //   add.w d3,d3               ; d3 = y_row * 2 (index into row pointer table)
+    //   lea ($FFFF4A04).l,a2     ; Level_Layout row pointer table
+    //   move.w (a2,d3.w),a4      ; a4 = row_start_addr[y_row]
+    //   add.w d1,a4
+    //   add.w d1,a4               ; a4 = row_start + 2*x_pos (cell address)
+    let y_idx = usize::from(y_row) * 2;
+    if y_idx / 2 >= row_pointer_table.len() {
+        return None;
+    }
+    let row_start = u32::from(row_pointer_table[y_idx / 2]);
+    let cell_addr = row_start.wrapping_add(u32::from(x_pos) * 2);
+    Some(BlockType3CellAddrLoc124BE { cell_addr, y_row })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType3WriteEntryLoc124BE {
+    pub(crate) priority: u16,
+    pub(crate) words_written: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_3_write_entry_loc_124be(
+    priority_raw: u16,
+) -> BlockType3WriteEntryLoc124BE {
+    // ASM loc_124BE (kid.asm:24716-24721): write first attribute and process priority.
+    //   move.w 8(a1),(a5)+       ; write attr0 to hidden block list
+    //   move.w $A(a1),d0         ; d0 = priority field
+    //   beq.s loc_124E8          ; if 0, skip priority modification
+    //   cmpi.w #3,d0             ; if 3, skip priority modification
+    //   beq.s loc_124E8
+    //   ori.w #$8000,d0          ; otherwise set high bit for hidden block visibility
+    // Priority values 0 and 3 pass through unmodified; other values get $8000 ORed.
+    // This controls sprite priority for the hidden block marker.
+    let priority = if priority_raw == 0 || priority_raw == 3 {
+        priority_raw
+    } else {
+        priority_raw | 0x8000
+    };
+    BlockType3WriteEntryLoc124BE {
+        priority,
+        words_written: 1,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType3HiddenBlockEntryLoc124E8 {
+    pub(crate) priority: u16,
+    pub(crate) attr2: u16,
+    pub(crate) attr3: u16,
+    pub(crate) cell_addr: u32,
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+    pub(crate) byte5: u8,
+    pub(crate) byte7: u8,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_3_hidden_block_entry_loc_124e8(
+    entry: &BlockType3Entry,
+    cell_addr: u32,
+) -> BlockType3HiddenBlockEntryLoc124E8 {
+    // ASM loc_124E8 (kid.asm:24723-24732): write remaining hidden block entry.
+    // After attr0 was written at loc_124BE and priority (possibly ORed with $8000),
+    // writes the rest of the 16-byte hidden block entry:
+    //   move.w d0,(a5)+          ; write priority
+    //   move.w $C(a1),(a5)+     ; write attr2
+    //   move.w $E(a1),(a5)+     ; write attr3
+    //   move.w a4,(a5)+         ; write cell_addr (Level_Layout address)
+    //   move.w d1,(a5)+         ; write x_pos
+    //   move.w d2,(a5)+         ; write y_row
+    //   move.b 5(a1),(a5)+      ; write low byte of count field
+    //   move.b 7(a1),(a5)+      ; write low byte of stride field
+    //   addq.w #1,($FFFFF8D8).w ; increment hidden block count
+    // The 16-byte entry layout matches the multiplier in hidden_block_list_guard_loc_11CCA.
+    let priority = if entry.priority == 0 || entry.priority == 3 {
+        entry.priority
+    } else {
+        entry.priority | 0x8000
+    };
+    BlockType3HiddenBlockEntryLoc124E8 {
+        priority,
+        attr2: entry.attr2,
+        attr3: entry.attr3,
+        cell_addr,
+        x_pos: entry.x_pos,
+        y_row: entry.y_row,
+        byte5: entry.byte5,
+        byte7: entry.byte7,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(

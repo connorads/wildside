@@ -39347,3 +39347,164 @@ fn loc_12480_finalizes_row_by_row_and_advances() {
         "ASM loc_12480: list index increments by 1",
     );
 }
+
+#[test]
+#[allow(non_snake_case)]
+fn loc_124a6_initializes_hidden_block_list_pointer() {
+    // ASM loc_124A6 (kid.asm:24691-24692): block type 3 entry point.
+    //   move.l a5,($FFFFF8DA).w   ; save hidden block list base
+    let result = crate::level::block_type_3_init_list_loc_124a6(0xFFFF_3B24);
+    assert_eq!(
+        result.hidden_block_list_addr, 0xFFFF_3B24,
+        "ASM loc_124A6 should store the hidden block list base address",
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn loc_124aa_returns_on_negative_x_position() {
+    // ASM loc_124AA (kid.asm:24694-24698): loop entry for block type 3.
+    //   move.w (a1),d1       ; read x_pos
+    //   bpl.s loc_124BE      ; continue if >= 0
+    //   addq.w #2,a1         ; skip past sentinel
+    //   rts                   ; return (list exhausted)
+    let result = crate::level::block_type_3_read_entry_loc_124aa(&[0x8000]);
+    assert!(
+        result.entry.is_none(),
+        "ASM loc_124AA: negative x_pos should return None (end of list)",
+    );
+    assert_eq!(
+        result.words_consumed, 1,
+        "ASM loc_124AA: should consume 1 word for sentinel",
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn loc_124aa_parses_hidden_block_entry() {
+    // ASM loc_124AA (kid.asm:24694-24698): reads x_pos, falls through to loc_124BE
+    // if non-negative. Entry layout: x_pos(2) + y_row(2) + count(2) + stride(2) +
+    // attr0(2) + priority(2) + attr2(2) + attr3(2) = 16 bytes = 8 words.
+    let entry = crate::level::block_type_3_read_entry_loc_124aa(&[
+        0x0014, // x_pos = 20
+        0x0008, // y_row = 8
+        0x0003, // count = 3
+        0x0000, // stride = 0 (horizontal)
+        0x1234, // attr0
+        0x0001, // priority = 1 (will get ORed with $8000)
+        0xABCD, // attr2
+        0xEF01, // attr3
+    ]);
+    assert!(
+        entry.entry.is_some(),
+        "ASM loc_124AA should parse valid entry"
+    );
+    let e = entry.entry.unwrap();
+    assert_eq!(e.x_pos, 0x0014);
+    assert_eq!(e.y_row, 0x0008);
+    assert_eq!(e.count, 0x0003);
+    assert_eq!(e.stride, 0x0000);
+    assert_eq!(e.attr0, 0x1234);
+    assert_eq!(e.priority, 0x0001);
+    assert_eq!(e.attr2, 0xABCD);
+    assert_eq!(e.attr3, 0xEF01);
+    assert_eq!(entry.words_consumed, 8);
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn loc_124be_computes_cell_address_from_row_table() {
+    // ASM loc_124BE (kid.asm:24708-24715): compute cell address.
+    //   move.w 2(a1),d2          ; y_row
+    //   add.w d2,d2              ; y_row * 2
+    //   lea ($FFFF4A04).l,a2     ; row pointer table
+    //   move.w (a2,d2.w),a4      ; row_start[y_row]
+    //   add.w d1,a4
+    //   add.w d1,a4              ; row_start + 2*x_pos
+    let row_table = vec![
+        0xA000, // row 0 starts at 0xA000
+        0xA040, // row 1 starts at 0xA040
+        0xA080, // row 2 starts at 0xA080
+    ];
+    let result = crate::level::block_type_3_cell_addr_loc_124be(&row_table, 0x0010, 0x0001);
+    assert!(result.is_some());
+    let r = result.unwrap();
+    assert_eq!(
+        r.cell_addr, 0xA060,
+        "ASM loc_124BE: row_start[1] + 2*x_pos = 0xA040 + 0x20 = 0xA060",
+    );
+    assert_eq!(r.y_row, 0x0001);
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn loc_124be_priority_0_and_3_skip_bit_modification() {
+    // ASM loc_124BE (kid.asm:24716-24721): priority modification.
+    //   move.w $A(a1),d0    ; priority field
+    //   beq.s loc_124E8     ; 0 passes through
+    //   cmpi.w #3,d0
+    //   beq.s loc_124E8     ; 3 passes through
+    //   ori.w #$8000,d0     ; others get high bit set
+    let result0 = crate::level::block_type_3_write_entry_loc_124be(0);
+    assert_eq!(
+        result0.priority, 0,
+        "ASM loc_124BE: priority 0 should pass through"
+    );
+
+    let result3 = crate::level::block_type_3_write_entry_loc_124be(3);
+    assert_eq!(
+        result3.priority, 3,
+        "ASM loc_124BE: priority 3 should pass through"
+    );
+
+    let result1 = crate::level::block_type_3_write_entry_loc_124be(1);
+    assert_eq!(
+        result1.priority, 0x8001,
+        "ASM loc_124BE: priority 1 should get $8000 ORed",
+    );
+
+    let result2 = crate::level::block_type_3_write_entry_loc_124be(2);
+    assert_eq!(
+        result2.priority, 0x8002,
+        "ASM loc_124BE: priority 2 should get $8000 ORed",
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn loc_124e8_builds_complete_hidden_block_entry() {
+    // ASM loc_124E8 (kid.asm:24723-24732): writes remaining hidden block entry.
+    //   move.w d0,(a5)+     ; priority (possibly ORed)
+    //   move.w $C(a1),(a5)+ ; attr2
+    //   move.w $E(a1),(a5)+ ; attr3
+    //   move.w a4,(a5)+     ; cell_addr
+    //   move.w d1,(a5)+     ; x_pos
+    //   move.w d2,(a5)+     ; y_row
+    //   move.b 5(a1),(a5)+  ; low byte of count field
+    //   move.b 7(a1),(a5)+  ; low byte of stride field
+    // Entry layout: $10 bytes (matches hidden_block_list_guard multiplier).
+    let entry = crate::level::BlockType3Entry {
+        x_pos: 0x0014,
+        y_row: 0x0008,
+        count: 0x0003,
+        stride: 0x0000,
+        attr0: 0x1234,
+        priority: 0x0001,
+        attr2: 0xABCD,
+        attr3: 0xEF01,
+        byte5: 0x03,
+        byte7: 0x00,
+    };
+    let result = crate::level::block_type_3_hidden_block_entry_loc_124e8(&entry, 0xA060);
+    assert_eq!(
+        result.priority, 0x8001,
+        "ASM loc_124E8: priority 1 should be ORed with $8000"
+    );
+    assert_eq!(result.attr2, 0xABCD);
+    assert_eq!(result.attr3, 0xEF01);
+    assert_eq!(result.cell_addr, 0xA060);
+    assert_eq!(result.x_pos, 0x0014);
+    assert_eq!(result.y_row, 0x0008);
+    assert_eq!(result.byte5, 0x03);
+    assert_eq!(result.byte7, 0x00);
+}
