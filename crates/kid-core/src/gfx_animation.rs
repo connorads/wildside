@@ -6,6 +6,31 @@ pub(crate) struct GfxAnimationState {
     pub(crate) script_offset: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GfxAnimationDispatchLoc1158 {
+    StopAnimation,
+    AdvanceNormally,
+    RewindScriptPointer,
+}
+
+#[allow(dead_code)]
+pub(crate) fn decode_gfx_animation_dispatch_loc_1158(
+    script: &[u8],
+    script_offset: usize,
+) -> Option<(GfxAnimationDispatchLoc1158, usize)> {
+    let opcode = *script.get(script_offset)?;
+    let dispatch = match opcode {
+        // ASM loc_1158 (kid.asm:2124) reads one byte from `(a2)+`, multiplies
+        // it by four, and indexes `off_1176`.
+        0 => GfxAnimationDispatchLoc1158::StopAnimation,
+        1 => GfxAnimationDispatchLoc1158::AdvanceNormally,
+        2 => GfxAnimationDispatchLoc1158::RewindScriptPointer,
+        _ => return None,
+    };
+
+    Some((dispatch, script_offset.checked_add(1)?))
+}
+
 #[allow(dead_code)]
 pub(crate) fn advance_gfx_animation_sub_1194(
     script: &[u8],
@@ -78,6 +103,39 @@ mod tests {
         assert_eq!(state.timer, 7);
         assert_eq!(state.sprite_offset, 0xAAAA);
         assert_eq!(state.script_offset, 9);
+    }
+
+    #[test]
+    fn loc_1158_decodes_stop_animation_dispatch_and_advances_script_pointer() {
+        let (dispatch, next_offset) = decode_gfx_animation_dispatch_loc_1158(&[0x00, 0xFF], 0)
+            .expect("ASM loc_1158 should accept `off_1176` selector 0 for loc_1182");
+
+        assert_eq!(dispatch, GfxAnimationDispatchLoc1158::StopAnimation);
+        assert_eq!(
+            next_offset, 1,
+            "ASM loc_1158 post-increments a2 after reading the dispatch byte"
+        );
+    }
+
+    #[test]
+    fn loc_1158_decodes_normal_animation_and_rewind_dispatch_entries() {
+        let (normal, normal_offset) = decode_gfx_animation_dispatch_loc_1158(&[0x01], 0)
+            .expect("ASM loc_1158 should map selector 1 to sub_1194");
+        let (rewind, rewind_offset) = decode_gfx_animation_dispatch_loc_1158(&[0x02], 0)
+            .expect("ASM loc_1158 should map selector 2 to sub_11AC");
+
+        assert_eq!(normal, GfxAnimationDispatchLoc1158::AdvanceNormally);
+        assert_eq!(normal_offset, 1);
+        assert_eq!(rewind, GfxAnimationDispatchLoc1158::RewindScriptPointer);
+        assert_eq!(rewind_offset, 1);
+    }
+
+    #[test]
+    fn loc_1158_rejects_dispatch_selectors_outside_off_1176() {
+        assert!(
+            decode_gfx_animation_dispatch_loc_1158(&[0x03], 0).is_none(),
+            "ASM loc_1158 only has three handlers in off_1176: loc_1182, sub_1194, and sub_11AC"
+        );
     }
 
     #[test]
