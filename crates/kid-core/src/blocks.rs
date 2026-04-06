@@ -49,6 +49,14 @@ pub(crate) struct PrizeClockCountdownLoc10796 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeClockFallGateLoc107B0 {
+    pub(crate) stays_active: bool,
+    pub(crate) hit_level_bottom: bool,
+    pub(crate) collided_with_player: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
     -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
     2, 2, 2, 2,
@@ -86,6 +94,25 @@ impl NativeRuntime {
             next_remaining,
             should_delete: next_remaining == 0,
             should_swap_animation: next_remaining == 0x012C,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_clock_fall_gate_loc_107B0(
+        integer_y: i64,
+        level_height_pixels: i64,
+        collected: bool,
+    ) -> PrizeClockFallGateLoc107B0 {
+        // ASM loc_107B0 (kid.asm:22015-22028): after `sub_10C38`, the clock
+        // keeps looping only while `y_pos(a3)` stays strictly above
+        // `Level_height_pixels` and `collision_type(a3)` remains zero.
+        let hit_level_bottom = integer_y >= level_height_pixels;
+        let collided_with_player = collected;
+        PrizeClockFallGateLoc107B0 {
+            stays_active: !hit_level_bottom && !collided_with_player,
+            hit_level_bottom,
+            collided_with_player,
         }
     }
 
@@ -1413,8 +1440,9 @@ impl NativeRuntime {
             // loc_1058C/loc_10620/loc_1066A/loc_10738 sees either a non-zero
             // `collision_type(a3)` or the bottom-of-level compare, control
             // jumps straight to `Delete_CurrentObject`.
-            let above_level_bottom = integer_y < level_height_pixels;
-            (f.spawn_delay > 0 || f.remaining > 0) && !f.collected && above_level_bottom
+            let gate =
+                Self::prize_clock_fall_gate_loc_107B0(integer_y, level_height_pixels, f.collected);
+            (f.spawn_delay > 0 || f.remaining > 0) && gate.stays_active
         });
 
         for e in &mut self.enemy_death_effects {

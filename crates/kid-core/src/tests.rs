@@ -1,5 +1,7 @@
 use super::*;
-use crate::blocks::{PrizeClockCountdownLoc10796, PrizeClockSoundRefcountLoc10792};
+use crate::blocks::{
+    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundRefcountLoc10792,
+};
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IoPortFlagsSub6E24,
@@ -7719,6 +7721,37 @@ fn prize_clock_countdown_loc_10796_deletes_at_zero_and_swaps_at_012c() {
             should_swap_animation: true,
         },
         "ASM loc_10796 should switch to `stru_10C1E` exactly when the decremented countdown equals `$012C`",
+    );
+}
+
+#[test]
+fn prize_clock_fall_gate_loc_107b0_deletes_on_bottom_or_collection() {
+    assert_eq!(
+        NativeRuntime::prize_clock_fall_gate_loc_107B0(95, 96, false),
+        PrizeClockFallGateLoc107B0 {
+            stays_active: true,
+            hit_level_bottom: false,
+            collided_with_player: false,
+        },
+        "ASM loc_107B0 should loop back to `loc_10796` while the clock remains above `Level_height_pixels` and `collision_type(a3)` is zero",
+    );
+    assert_eq!(
+        NativeRuntime::prize_clock_fall_gate_loc_107B0(96, 96, false),
+        PrizeClockFallGateLoc107B0 {
+            stays_active: false,
+            hit_level_bottom: true,
+            collided_with_player: false,
+        },
+        "ASM loc_107B0 should jump to the delete exit once `cmp.w y_pos(a3),d4` reaches the level bottom",
+    );
+    assert_eq!(
+        NativeRuntime::prize_clock_fall_gate_loc_107B0(40, 96, true),
+        PrizeClockFallGateLoc107B0 {
+            stays_active: false,
+            hit_level_bottom: false,
+            collided_with_player: true,
+        },
+        "ASM loc_107B0 should stop looping once `collision_type(a3)` becomes non-zero from player contact",
     );
 }
 
