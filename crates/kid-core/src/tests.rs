@@ -2,9 +2,9 @@ use super::*;
 use crate::blocks::{
     OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A,
     OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8,
-    Prize10DiamondsSpawnLoc108EE, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
-    PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
-    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    Prize10DiamondsSpawnLoc108EE, Prize10DiamondsWorkerScanStartLoc10960,
+    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
+    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -8001,6 +8001,19 @@ fn prize_10_diamonds_spawn_loc_108ee_stops_spawning_after_thirty_frames() {
             lifetime_frames: None,
         },
         "ASM loc_108EE should stop consulting `byte_108AC` once `d3` reaches `$1E` and fall through to the worker scan only",
+    );
+}
+
+#[test]
+fn prize_10_diamonds_worker_scan_start_loc_10960_starts_at_slot_zero_and_scans_ten_longwords() {
+    assert_eq!(
+        NativeRuntime::prize_10_diamonds_worker_scan_start_loc_10960(),
+        Prize10DiamondsWorkerScanStartLoc10960 {
+            first_worker_slot_byte_offset: 0,
+            worker_slot_stride_bytes: 4,
+            worker_table_len_bytes: 0x28,
+        },
+        "ASM loc_10960 should seed `d2 = 0` before the worker scan advances in 4-byte steps across the ten longwords at `$44(a5)`",
     );
 }
 

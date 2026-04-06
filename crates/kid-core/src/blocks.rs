@@ -141,6 +141,14 @@ pub(crate) struct Prize10DiamondsSpawnLoc108EE {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10DiamondsWorkerScanStartLoc10960 {
+    pub(crate) first_worker_slot_byte_offset: u16,
+    pub(crate) worker_slot_stride_bytes: u16,
+    pub(crate) worker_table_len_bytes: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -465,6 +473,20 @@ impl NativeRuntime {
             y_velocity: Some(i32::from(y_velocity_word) << 13),
             is_moved: Some(true),
             lifetime_frames: Some(0x0078),
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_10_diamonds_worker_scan_start_loc_10960()
+    -> Prize10DiamondsWorkerScanStartLoc10960 {
+        // ASM loc_10960 (kid.asm:22208) seeds `d2 = 0` before `loc_10962`
+        // walks the ten longword worker slots at `$44(a5)` and `loc_10A3A`
+        // advances the offset by four bytes until it reaches `$28`.
+        Prize10DiamondsWorkerScanStartLoc10960 {
+            first_worker_slot_byte_offset: 0,
+            worker_slot_stride_bytes: 4,
+            worker_table_len_bytes: 0x28,
         }
     }
 
