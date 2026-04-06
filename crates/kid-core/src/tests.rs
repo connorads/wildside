@@ -1,12 +1,12 @@
 use super::*;
 use crate::blocks::{
-    OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A,
-    OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8,
-    Prize10DiamondsSpawnLoc108EE, Prize10DiamondsWorkerCountdownGateLoc10984,
-    Prize10DiamondsWorkerInitLoc10988, Prize10DiamondsWorkerScanStartLoc10960,
-    Prize10DiamondsWorkerStepLoc109C0, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
-    PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
-    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    FloatingPrizeFallStepLoc10C50, OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856,
+    OneTimePrizeScanStartLoc1086A, OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A,
+    Prize10DiamondsInitLoc108E8, Prize10DiamondsSpawnLoc108EE,
+    Prize10DiamondsWorkerCountdownGateLoc10984, Prize10DiamondsWorkerInitLoc10988,
+    Prize10DiamondsWorkerScanStartLoc10960, Prize10DiamondsWorkerStepLoc109C0,
+    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
+    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -7843,6 +7843,51 @@ fn prize_clock_fall_gate_loc_107b0_deletes_on_bottom_or_collection() {
             collided_with_player: true,
         },
         "ASM loc_107B0 should stop looping once `collision_type(a3)` becomes non-zero from player contact",
+    );
+}
+
+#[test]
+fn floating_prize_fall_step_loc_10c50_advances_one_tile_row_only_after_crossing_a_snapped_16px_boundary()
+ {
+    assert_eq!(
+        NativeRuntime::floating_prize_fall_step_loc_10C50(
+            0x0030,
+            0x003F_0000,
+            0,
+            true,
+            7,
+            0x0120,
+            0x0030
+        ),
+        FloatingPrizeFallStepLoc10C50 {
+            next_y_velocity: 0x1388,
+            next_y_pos: 0x003F_1388,
+            next_aligned_y: 0x0030,
+            next_first_row_grace: true,
+            next_level_row: 7,
+            next_level_layout_offset: 0x0120,
+        },
+        "ASM loc_10C50 should keep `d0`, bit `$10` in `d3`, and `a2` unchanged while the updated integer Y still snaps to the same 16px row",
+    );
+    assert_eq!(
+        NativeRuntime::floating_prize_fall_step_loc_10C50(
+            0x0030,
+            0x003F_F000,
+            0x3000,
+            true,
+            7,
+            0x0120,
+            0x0030
+        ),
+        FloatingPrizeFallStepLoc10C50 {
+            next_y_velocity: 0x4388,
+            next_y_pos: 0x0040_3388,
+            next_aligned_y: 0x0040,
+            next_first_row_grace: false,
+            next_level_row: 8,
+            next_level_layout_offset: 0x0150,
+        },
+        "ASM loc_10C50 should clear bit `$10` in `d3` and advance `a2` by `Level_width_tiles` exactly when the updated integer Y crosses into the next snapped 16px row",
     );
 }
 

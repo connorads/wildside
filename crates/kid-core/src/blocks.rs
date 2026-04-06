@@ -74,6 +74,17 @@ pub(crate) struct PrizeContinueDeleteLoc10838 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FloatingPrizeFallStepLoc10C50 {
+    pub(crate) next_y_velocity: i32,
+    pub(crate) next_y_pos: i64,
+    pub(crate) next_aligned_y: i32,
+    pub(crate) next_first_row_grace: bool,
+    pub(crate) next_level_row: u16,
+    pub(crate) next_level_layout_offset: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OneTimePrizeInitLoc10856 {
     pub(crate) was_first_prize_initialisation: bool,
     pub(crate) next_write_index: u16,
@@ -285,6 +296,50 @@ impl NativeRuntime {
             sound_effect_id: 0x6A,
             preserves_d0_across_sound_call: true,
             should_delete_current_object: true,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn floating_prize_fall_step_loc_10C50(
+        aligned_y: i32,
+        y_pos: i64,
+        y_velocity: i32,
+        first_row_grace: bool,
+        level_row: u16,
+        level_layout_offset: u32,
+        level_width_tiles: u16,
+    ) -> FloatingPrizeFallStepLoc10C50 {
+        // ASM loc_10C50 (kid.asm:22553): once the prechecks allow the fall,
+        // add `#$1388` to `d1`, advance `y_pos(a3)`, snap the integer row with
+        // `andi.w #$FFF0,d2`, and only when that snapped row differs from `d0`
+        // clear bit `$10` in `d3` and advance `a2` by `Level_width_tiles`
+        // before the shared tail stores the new aligned row back into `d0`.
+        let next_y_velocity = y_velocity.saturating_add(0x1388);
+        let next_y_pos = y_pos.saturating_add(i64::from(next_y_velocity));
+        let integer_y = (next_y_pos >> 16) as i32;
+        let next_aligned_y = integer_y & !0xF;
+        let crossed_row_boundary = next_aligned_y != aligned_y;
+
+        FloatingPrizeFallStepLoc10C50 {
+            next_y_velocity,
+            next_y_pos,
+            next_aligned_y,
+            next_first_row_grace: if crossed_row_boundary {
+                false
+            } else {
+                first_row_grace
+            },
+            next_level_row: if crossed_row_boundary {
+                level_row.saturating_add(1)
+            } else {
+                level_row
+            },
+            next_level_layout_offset: if crossed_row_boundary {
+                level_layout_offset.wrapping_add(u32::from(level_width_tiles))
+            } else {
+                level_layout_offset
+            },
         }
     }
 
@@ -1859,19 +1914,20 @@ impl NativeRuntime {
                 .as_ref()
                 .is_none_or(|grid| floating_item_can_fall(grid, f));
             if can_fall {
-                let previous_aligned_y = ((f.y_pos >> 16) as i32) & !0xF;
-                // ASM: velocity accumulates +$1388/frame (downward), applied to position.
-                // PrizeDiamond_Init (kid.asm:21640) and sub_10C38.
-                f.y_velocity = f.y_velocity.saturating_add(0x1388);
-                f.y_pos += i64::from(f.y_velocity);
-                let new_aligned_y = ((f.y_pos >> 16) as i32) & !0xF;
-                if new_aligned_y != previous_aligned_y {
-                    // ASM loc_10402 (kid.asm:21663): once the snapped 16px row
-                    // changes, copy the new aligned Y into `d0` so later
-                    // frames compare against the updated row baseline.
-                    f.first_row_grace = false;
-                    f.level_row = f.level_row.saturating_add(1);
-                }
+                let aligned_y = ((f.y_pos >> 16) as i32) & !0xF;
+                let fall = Self::floating_prize_fall_step_loc_10C50(
+                    aligned_y,
+                    f.y_pos,
+                    f.y_velocity,
+                    f.first_row_grace,
+                    f.level_row,
+                    0,
+                    0,
+                );
+                f.y_velocity = fall.next_y_velocity;
+                f.y_pos = fall.next_y_pos;
+                f.first_row_grace = fall.next_first_row_grace;
+                f.level_row = fall.next_level_row;
             } else {
                 // ASM loc_103DA (kid.asm:21645): `moveq #0,d1` feeds the
                 // shared tail at `loc_10404`, so blocked floating prizes
