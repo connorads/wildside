@@ -25608,6 +25608,15 @@ fn loc_11c34_resets_the_column_counter_for_each_row_of_level_layout_output() {
 }
 
 #[test]
+fn loc_11c7e_stops_dispatching_block_layout_words_at_the_ffff_sentinel() {
+    assert_eq!(
+        crate::level::block_layout_dispatch_words_loc_11C7E(&[0x0003, 0x8012, 0xFFFF, 0x0044]),
+        vec![0x0003, 0x8012],
+        "ASM loc_11C7E should keep dispatching non-`$FFFF` block-layout words through `AddrTbl_BlockTypes` and stop as soon as `(a1)+` yields the sentinel"
+    );
+}
+
+#[test]
 fn loc_11b40_derives_background_dimensions_from_tile_counts() {
     assert_eq!(
         background_dimensions_loc_11B40(0x00F0, 0x0070),

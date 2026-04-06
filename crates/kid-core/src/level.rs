@@ -287,6 +287,19 @@ pub(crate) fn level_layout_cells_loc_11C34(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_dispatch_words_loc_11C7E(block_layout_words: &[u16]) -> Vec<u16> {
+    // ASM loc_11C7E (kid.asm:23839-23848) reads one block-layout word through
+    // `(a1)+`, stops once that word is `$FFFF`, and otherwise dispatches the
+    // word through `AddrTbl_BlockTypes` before looping back to the next entry.
+    block_layout_words
+        .iter()
+        .copied()
+        .take_while(|&word| word != 0xFFFF)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_dimensions_loc_11B40(
     level_width_tiles: u16,
     level_height_tiles: u16,
