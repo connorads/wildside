@@ -1499,6 +1499,182 @@ pub(crate) fn block_type_8_wide_placement_loc_1257e(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1012ReadXPosLoc125A6 {
+    pub(crate) x_pos: u16,
+    pub(crate) bytes_consumed: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1012_read_x_pos_loc_125a6(
+    layout_words: &[u16],
+) -> Option<BlockType1012ReadXPosLoc125A6> {
+    // ASM loc_125A6 (kid.asm:24803-24807): entry point for block types 10 and 12.
+    //   move.w (a1)+,d1    ; read x_pos
+    //   bpl.s  loc_125AC  ; if >= 0, continue
+    //   rts                ; else return (end of layout)
+    // Block types 10 and 12 share this entry point via AddrTbl_BlockTypes entries 10 and 12.
+    if layout_words.is_empty() {
+        return None;
+    }
+    let x_pos = layout_words[0];
+    if x_pos & 0x8000 != 0 {
+        None
+    } else {
+        Some(BlockType1012ReadXPosLoc125A6 {
+            x_pos,
+            bytes_consumed: 1,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1012ParseCoordsLoc125AC {
+    pub(crate) cell_addr: u32,
+    pub(crate) y_row: u16,
+    pub(crate) count: u16,
+    pub(crate) stride: bool,
+    pub(crate) bytes_consumed: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1012_parse_coords_loc_125ac(
+    layout_words: &[u16],
+    row_pointer_table: &[u16],
+    x_pos: u16,
+) -> Option<BlockType1012ParseCoordsLoc125AC> {
+    // ASM loc_125AC (kid.asm:24810-24821): coordinate parser for block types 10 and 12.
+    //   move.w (a1)+,d2       ; Y row coordinate
+    //   move.w d2,d3
+    //   add.w d3,d3           ; d3 = Y * 2 (row table index)
+    //   lea ($FFFF4A04).l,a2 ; Level_Layout row pointer table
+    //   move.w (a2,d3.w),a4  ; a4 = row_start_addr for Y
+    //   add.w d1,a4
+    //   add.w d1,a4           ; a4 = row_start + 2*X (cell address)
+    //   move.w (a1)+,d3       ; count (number of cells to place)
+    //   subq.w #1,d3          ; d3 = count - 1 (for dbf loop)
+    //   tst.w (a1)+           ; stride flag: 0 = horizontal, non-zero = row-by-row
+    //   bne.s loc_12600       ; branch to row-by-row handler if stride != 0
+    if layout_words.len() < 3 {
+        return None;
+    }
+    let y_row = layout_words[0];
+    let count = layout_words[1];
+    let stride = layout_words[2] != 0;
+
+    let y_idx = usize::from(y_row) * 2;
+    if y_idx >= row_pointer_table.len() * 2 {
+        return None;
+    }
+    let row_start = u32::from(row_pointer_table[y_idx / 2]);
+    let cell_addr = row_start.wrapping_add(u32::from(x_pos) * 2);
+
+    Some(BlockType1012ParseCoordsLoc125AC {
+        cell_addr,
+        y_row,
+        count,
+        stride,
+        bytes_consumed: 3,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1012TileResultLoc125C8 {
+    pub(crate) tile_word: u16,
+    pub(crate) is_hidden: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1012_tile_value_loc_125c8(
+    property_byte: u16,
+    block_type: i16,
+) -> BlockType1012TileResultLoc125C8 {
+    // ASM loc_125C8 (kid.asm:24823-24833): compute tile value for block types 10 and 12.
+    // For visible (non-hidden) blocks:
+    //   moveq #0,d6
+    //   move.b d5,d6           ; d6 = low byte of property word
+    //   move.w d6,(a4)         ; write to cell
+    //   cmpi.w #$C,d0          ; is block_type == 12?
+    //   bne.s loc_125E0
+    //   addi.w #-$13D3,(a4)   ; type 12: subtract $13D3
+    //   bra.s loc_125F8
+    // loc_125E0:
+    //   addi.w #-$15E4,(a4)   ; type 10: subtract $15E4
+    //
+    // For hidden blocks (d0 < 0), call sub_127A8/sub_127CE first (caller handles).
+    // The tile adjustments produce values in the $E3xx range for special effects.
+    if block_type < 0 {
+        // Hidden block case - caller would call sub_127A8/sub_127CE
+        // The property_byte is stored in hidden block list, not written to cell.
+        return BlockType1012TileResultLoc125C8 {
+            tile_word: property_byte,
+            is_hidden: true,
+        };
+    }
+    let low_byte = property_byte & 0xFF;
+    let tile_word = if block_type == 12 {
+        // ASM loc_125E0: type 12 subtracts $13D3
+        // This produces $ECxx - $13D3 from low byte, but math is: (low_byte) - $13D3
+        // In 16-bit arithmetic: low_byte - $13D3 = low_byte + $EC2D
+        low_byte.wrapping_add(0xEC2D)
+    } else {
+        // ASM loc_125E0: type 10 subtracts $15E4
+        // In 16-bit arithmetic: low_byte - $15E4 = low_byte + $EA1C
+        low_byte.wrapping_add(0xEA1C)
+    };
+    BlockType1012TileResultLoc125C8 {
+        tile_word,
+        is_hidden: false,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockType1012HorizontalPlaceLoc125C8 {
+    pub(crate) tiles: Vec<(u32, u16)>,
+    pub(crate) next_addr: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1012_horizontal_place_loc_125c8(
+    cell_addr: u32,
+    count: u16,
+    property_words: &[u16],
+    block_type: i16,
+) -> BlockType1012HorizontalPlaceLoc125C8 {
+    // ASM loc_125C8 (kid.asm:24823-24853): horizontal placement loop.
+    // Reads property words from layout, computes tile values, writes to cells.
+    //   move.w (a1)+,d5       ; read property word
+    //   tst.w d0              ; check block_type
+    //   bmi.s loc_125E6       ; if < 0, hidden block case
+    //   <compute tile value>  ; visible case
+    //   addq.w #2,a4          ; advance to next cell
+    //   dbf d3,loc_125C8      ; loop for count-1 times
+    //   bra.s loc_125A6       ; continue to next entry
+    let iterations = usize::from(count);
+    let mut tiles = Vec::with_capacity(iterations);
+    let mut addr = cell_addr;
+
+    for &property_word in property_words.iter().take(iterations) {
+        let result = block_type_1012_tile_value_loc_125c8(property_word, block_type);
+        if result.is_hidden {
+            // Hidden blocks don't write tiles to level layout
+            // (they queue hidden block entries instead - caller handles)
+        } else {
+            tiles.push((addr, result.tile_word));
+        }
+        addr = addr.wrapping_add(2);
+    }
+
+    BlockType1012HorizontalPlaceLoc125C8 {
+        tiles,
+        next_addr: addr,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(

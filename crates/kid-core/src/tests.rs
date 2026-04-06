@@ -39766,3 +39766,150 @@ fn loc_1257e_single_height_places_one_2x2_tile() {
         "ASM loc_1257E: height=1 should produce 4 tiles for one 2x2 block"
     );
 }
+
+#[test]
+fn loc_125a6_reads_x_pos_for_block_types_10_and_12() {
+    // ASM loc_125A6 (kid.asm:24803-24807): entry for block types 10 and 12.
+    //   move.w (a1)+,d1    ; read x_pos
+    //   bpl.s  loc_125AC  ; continue if >= 0
+    //   rts                ; return if negative (end of layout)
+    let sentinel = crate::level::block_type_1012_read_x_pos_loc_125a6(&[0x8000]);
+    assert!(
+        sentinel.is_none(),
+        "ASM loc_125A6: negative x_pos should return None"
+    );
+    let valid = crate::level::block_type_1012_read_x_pos_loc_125a6(&[0x0014, 0x0008])
+        .expect("ASM loc_125A6: valid entry should parse");
+    assert_eq!(valid.x_pos, 0x0014, "ASM loc_125A6: should read x_pos = 20");
+    assert_eq!(
+        valid.bytes_consumed, 1,
+        "ASM loc_125A6: should consume 1 word"
+    );
+}
+
+#[test]
+fn loc_125ac_computes_cell_address_for_types_10_and_12() {
+    // ASM loc_125AC (kid.asm:24810-24821): parse coordinates for block types 10/12.
+    //   move.w (a1)+,d2       ; y_row
+    //   move.w d2,d3
+    //   add.w d3,d3          ; d3 = y_row * 2
+    //   lea ($FFFF4A04).l,a2 ; row pointer table
+    //   move.w (a2,d3.w),a4  ; a4 = row_start[y_row]
+    //   add.w d1,a4
+    //   add.w d1,a4          ; a4 = row_start + 2*x_pos
+    //   move.w (a1)+,d3      ; count
+    //   subq.w #1,d3         ; d3 = count - 1
+    //   tst.w (a1)+          ; stride flag
+    let row_table: Vec<u16> = vec![0xA000, 0xA040, 0xA080];
+    let result = crate::level::block_type_1012_parse_coords_loc_125ac(
+        &[0x0001, 0x0003, 0x0000], // y=1, count=3, stride=0
+        &row_table,
+        0x0010, // x=16
+    )
+    .expect("ASM loc_125AC: valid entry should parse");
+    assert_eq!(result.y_row, 0x0001, "ASM loc_125AC: y_row should be 1");
+    assert_eq!(result.count, 0x0003, "ASM loc_125AC: count should be 3");
+    assert!(!result.stride, "ASM loc_125AC: stride=0 means horizontal");
+    // y_row=1, y_idx=2, row_table[1]=0xA040, cell_addr = 0xA040 + 2*16 = 0xA060
+    assert_eq!(
+        result.cell_addr, 0x00A060,
+        "ASM loc_125AC: cell_addr = row_table[y] + 2*x = 0xA040 + 0x20 = 0xA060"
+    );
+    assert_eq!(
+        result.bytes_consumed, 3,
+        "ASM loc_125AC: should consume 3 words"
+    );
+}
+
+#[test]
+fn loc_125c8_computes_tile_value_for_type_10() {
+    // ASM loc_125C8 (kid.asm:24823-24833): compute tile for block type 10.
+    // For type 10 (not 12), the adjustment subtracts $15E4:
+    //   moveq #0,d6
+    //   move.b d5,d6           ; d6 = low byte of property
+    //   move.w d6,(a4)         ; write to cell
+    //   cmpi.w #$C,d0          ; block_type != 12
+    //   bne.s loc_125E0
+    // loc_125E0:
+    //   addi.w #-$15E4,(a4)   ; subtract $15E4
+    let property_byte: u16 = 0x00CE;
+    let result = crate::level::block_type_1012_tile_value_loc_125c8(property_byte, -1);
+    assert!(
+        result.is_hidden,
+        "ASM loc_125C8: negative block_type indicates hidden block"
+    );
+    assert_eq!(
+        result.tile_word, 0xEAEA,
+        "ASM loc_125E0: type 10 tile = low_byte + $EA1C = 0xCE + 0xEA1C = 0xEAEA"
+    );
+}
+
+#[test]
+fn loc_125c8_computes_tile_value_for_type_12() {
+    // ASM loc_125C8 (kid.asm:24830-24833): compute tile for block type 12.
+    //   cmpi.w #$C,d0          ; block_type == 12
+    //   bne.s loc_125E0
+    //   addi.w #-$13D3,(a4)   ; subtract $13D3 for type 12
+    let property_byte: u16 = 0x00CE;
+    let result = crate::level::block_type_1012_tile_value_loc_125c8(property_byte, 12);
+    assert!(
+        !result.is_hidden,
+        "ASM loc_125C8: type 12 should not be hidden"
+    );
+    // property_byte & 0xFF = 0xCE
+    // type 12: 0xCE + 0xEC2D = 0xECFB
+    assert_eq!(
+        result.tile_word, 0xECFB,
+        "ASM loc_125C8: type 12 tile = low_byte + $EC2D = 0xCE + 0xEC2D = 0xECFB"
+    );
+}
+
+#[test]
+fn loc_125c8_handles_hidden_blocks() {
+    // ASM loc_125C8 (kid.asm:24824-24826): when block_type is negative,
+    // branch to loc_125E6 for hidden block handling (sub_127A8, sub_127CE).
+    let property_byte: u16 = 0x00CE;
+    let result = crate::level::block_type_1012_tile_value_loc_125c8(property_byte, -1);
+    assert!(
+        result.is_hidden,
+        "ASM loc_125C8: negative block_type indicates hidden block"
+    );
+    assert_eq!(
+        result.tile_word, property_byte,
+        "ASM loc_125E6: hidden blocks return property byte unchanged"
+    );
+}
+
+#[test]
+fn loc_125c8_horizontal_place_writes_tiles() {
+    // ASM loc_125C8 (kid.asm:24823-24853): horizontal placement loop.
+    // Reads property words, computes tile values, advances by +2 per cell.
+    let result = crate::level::block_type_1012_horizontal_place_loc_125c8(
+        0xA000,
+        3,
+        &[0x0001, 0x0002, 0x0003],
+        10, // type 10
+    );
+    assert_eq!(result.tiles.len(), 3, "ASM loc_125C8: should place 3 tiles");
+    // property words 1, 2, 3 -> low bytes 1, 2, 3
+    // type 10: each + $EA1C
+    assert_eq!(
+        result.tiles[0],
+        (0xA000, 0xEA1D),
+        "ASM loc_125C8: first tile = 0x01 + 0xEA1C = 0xEA1D"
+    );
+    assert_eq!(
+        result.tiles[1],
+        (0xA002, 0xEA1E),
+        "ASM loc_125C8: second tile = 0x02 + 0xEA1C = 0xEA1E"
+    );
+    assert_eq!(
+        result.tiles[2],
+        (0xA004, 0xEA1F),
+        "ASM loc_125C8: third tile = 0x03 + 0xEA1C = 0xEA1F"
+    );
+    assert_eq!(
+        result.next_addr, 0xA006,
+        "ASM loc_125C8: should advance by 2*count = 6"
+    );
+}
