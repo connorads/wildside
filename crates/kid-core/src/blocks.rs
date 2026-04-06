@@ -34,6 +34,13 @@ pub(crate) struct PrizeBlockSpawnFlashLoc102B8 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeClockSoundRefcountLoc10792 {
+    pub(crate) should_play_sound: bool,
+    pub(crate) next_refcount: u8,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
     -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
     2, 2, 2, 2,
@@ -44,6 +51,20 @@ impl NativeRuntime {
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
         // ASM sub_FD00 (kid.asm:21064): `move.l $E(a3),d7; add.l d7,6(a3)`.
         y_pos.wrapping_add_signed(y_velocity)
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_clock_sound_refcount_loc_10792(
+        active_clock_prize_sounds: u8,
+    ) -> PrizeClockSoundRefcountLoc10792 {
+        // ASM PrizeClock_Init -> loc_10792 (kid.asm:21997-22005): only the
+        // first active clock prize plays `sfx_Clock_prize`; every spawned
+        // clock increments the shared `$FFFFFB55` refcount afterwards.
+        PrizeClockSoundRefcountLoc10792 {
+            should_play_sound: active_clock_prize_sounds == 0,
+            next_refcount: active_clock_prize_sounds.wrapping_add(1),
+        }
     }
 
     #[allow(non_snake_case)]

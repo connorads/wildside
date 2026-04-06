@@ -1,4 +1,5 @@
 use super::*;
+use crate::blocks::PrizeClockSoundRefcountLoc10792;
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IoPortFlagsSub6E24,
@@ -7676,6 +7677,26 @@ fn prize_content_clock_increments_clocks_collected() {
     assert_eq!(
         runtime.clocks_collected, 1,
         "ASM loc_10002 should increment `Clocks_collected` once for each collected clock prize"
+    );
+}
+
+#[test]
+fn prize_clock_sound_refcount_loc_10792_only_starts_the_first_loop() {
+    assert_eq!(
+        NativeRuntime::prize_clock_sound_refcount_loc_10792(0),
+        PrizeClockSoundRefcountLoc10792 {
+            should_play_sound: true,
+            next_refcount: 1,
+        },
+        "ASM loc_10792 should play `sfx_Clock_prize` only when `$FFFFFB55` was zero before incrementing the shared refcount",
+    );
+    assert_eq!(
+        NativeRuntime::prize_clock_sound_refcount_loc_10792(3),
+        PrizeClockSoundRefcountLoc10792 {
+            should_play_sound: false,
+            next_refcount: 4,
+        },
+        "ASM loc_10792 should skip the start sound once another clock prize already owns the shared loop",
     );
 }
 
