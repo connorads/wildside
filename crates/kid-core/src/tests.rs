@@ -33038,6 +33038,36 @@ fn floating_skycutter_loc_1047c_deletes_the_collected_helmet_on_the_next_step() 
     );
 }
 
+#[test]
+fn floating_cyclone_loc_104ae_stays_alive_while_above_level_bottom_and_uncollected() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: (3 * 16 + 8) << 16,
+        y_pos: i64::from(144 << 16),
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 3,
+        level_row: 9,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Cyclone,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items.len(),
+        1,
+        "ASM loc_104AE should keep looping while Cyclone stays above `Level_height_pixels` and `collision_type(a3)` remains zero",
+    );
+    assert_eq!(
+        rt.floating_items[0].remaining,
+        NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES - 1,
+        "ASM loc_104AE still advances the shared helmet countdown on each hibernated frame before the shared delete exit",
+    );
+}
+
 // --- Visual effects: countdown and retention ---
 
 #[test]
