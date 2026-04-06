@@ -177,6 +177,15 @@ pub(crate) fn level_layout_row_pointers_loc_11AFE(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn solid_collision_row_loc_11B12(level_width_blocks: u16) -> Vec<u16> {
+    // ASM loc_11B12 (kid.asm:23704-23706) reloads `d0` with
+    // `Level_width_blocks-1`, seeds `d1` with `$6000`, then writes exactly one
+    // solid-collision word per block column into the row buffer at `a3`.
+    vec![0x6000; usize::from(level_width_blocks)]
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point

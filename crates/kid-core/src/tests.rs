@@ -25520,6 +25520,15 @@ fn loc_11afe_emits_one_level_layout_pointer_per_block_row() {
 }
 
 #[test]
+fn loc_11b12_fills_the_selected_row_buffer_with_solid_collision_words() {
+    assert_eq!(
+        crate::level::solid_collision_row_loc_11B12(4),
+        vec![0x6000, 0x6000, 0x6000, 0x6000],
+        "ASM loc_11B12 should emit one `$6000` collision word per `Level_width_blocks` column"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {
