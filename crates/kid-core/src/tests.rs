@@ -15,8 +15,9 @@ use crate::boot::{
     end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
     end_sequence_falling_sprite_init_sub_1D8B4, hide_pause_menu_overwritten_sprites_sub_6874,
     hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    read_io_port_a10001_flags_sub_6E24, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
-    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
+    prize_10000_points_star_spawn_loc_10B3A, read_io_port_a10001_flags_sub_6E24,
+    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
+    vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -23059,6 +23060,54 @@ fn end_sequence_falling_sprite_init_sub_1d8b4_keeps_full_v_int_delay_and_121_fra
             .initial_hibernate_frames,
         init.initial_hibernate_frames,
         "ASM sub_1D8B4 uses the full `V_Int_counter` byte here, so bit 7 must affect the initial hibernate delay",
+    );
+}
+
+#[test]
+fn prize_10000_points_star_spawn_loc_10b3a_uses_the_first_mapping_only_on_frame_zero() {
+    let spawn = prize_10000_points_star_spawn_loc_10B3A(0, 0x0123, 0x0045)
+        .expect("frame 0 should spawn the first prize star");
+
+    assert_eq!(
+        spawn.sprite_mapping_label, "LnkTo_unk_E1056-Data_Index",
+        "ASM loc_10B3A should keep the `move.w #LnkTo_unk_E1056,$22(a1)` special case only for `tst.w d3 == 0`",
+    );
+    assert_eq!(
+        (spawn.x_pos, spawn.y_pos),
+        (0x0123, 0x0045),
+        "ASM loc_10B3A should copy the cached prize position from `$6C/$70(a5)` into the spawned star",
+    );
+    assert_eq!(
+        (spawn.x_velocity_fp, spawn.y_velocity_fp),
+        (-0x0002_0000, -0x0002_8000),
+        "ASM loc_10B3A should convert the first `unk_10BF4` pair `(-$10,-$14)` into 16.16 velocities via `swap/clr/asr.l #3`",
+    );
+    assert!(
+        spawn.display_enabled && spawn.is_moved,
+        "ASM loc_10B3A should set both `$13(a1)` and `$14(a1)` on the spawned prize star",
+    );
+    assert_eq!(spawn.palette_line, 1);
+    assert_eq!(spawn.timer, 0x0078);
+}
+
+#[test]
+fn prize_10000_points_star_spawn_loc_10b3a_only_emits_every_fifth_frame_after_frame_zero() {
+    assert_eq!(
+        prize_10000_points_star_spawn_loc_10B3A(4, 0x0000, 0x0000),
+        None,
+        "ASM loc_10B3A should not run on intermediate `d3` values where `unk_10A7A` holds `$FF`",
+    );
+
+    let spawn = prize_10000_points_star_spawn_loc_10B3A(15, 0x0080, 0x0060)
+        .expect("frame 15 should spawn the fourth prize star");
+    assert_eq!(
+        spawn.sprite_mapping_label, "LnkTo_unk_E104E-Data_Index",
+        "ASM loc_10B3A should leave the default mapping in place for non-zero `d3` spawns",
+    );
+    assert_eq!(
+        (spawn.x_velocity_fp, spawn.y_velocity_fp),
+        (0x0001_0000, -0x0002_8000),
+        "ASM loc_10B3A should select the fourth `unk_10BF4` velocity pair `($8,-$14)` when `d3=15` maps to spawn index 3",
     );
 }
 

@@ -472,6 +472,19 @@ pub(crate) struct EndSequenceFallingSpriteInitSub1D8B4 {
     pub(crate) total_y_delta_fp: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10000PointsStarSpawnLoc10B3A {
+    pub(crate) palette_line: u8,
+    pub(crate) display_enabled: bool,
+    pub(crate) sprite_mapping_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) x_velocity_fp: i32,
+    pub(crate) y_velocity_fp: i32,
+    pub(crate) is_moved: bool,
+    pub(crate) timer: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRowWriteSub1B71A {
     pub(crate) vram_word_address: u16,
@@ -813,6 +826,52 @@ pub(crate) fn end_sequence_falling_sprite_init_sub_1D8B4(
         last_frame_y_delta_fp,
         total_y_delta_fp,
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn prize_10000_points_star_spawn_loc_10B3A(
+    frame_counter: u16,
+    x_pos: u16,
+    y_pos: u16,
+) -> Option<Prize10000PointsStarSpawnLoc10B3A> {
+    // ASM loc_10B3A (kid.asm:22414): `unk_10A7A` only emits one star every
+    // fifth wake, using indices 0..4 for `d3=0,5,10,15,20`; each emitted star
+    // gets palette line 1, display flag `$13(a1)`, world position `$6C/$70(a5)`,
+    // fixed-point velocities from `unk_10BF4` (`swap/clr/asr.l #3`), `st $14(a1)`,
+    // and countdown `$46(a1)=#$78`. `d3=0` alone uses `LnkTo_unk_E1056`.
+    const SPAWN_INDEX_BY_FRAME: [i8; 21] = [
+        0, -1, -1, -1, -1, 1, -1, -1, -1, -1, 2, -1, -1, -1, -1, 3, -1, -1, -1, -1, 4,
+    ];
+    const VELOCITY_WORDS: [(i16, i16); 5] = [
+        (-0x0010, -0x0014),
+        (-0x0008, -0x0014),
+        (0x0000, -0x0014),
+        (0x0008, -0x0014),
+        (0x0010, -0x0014),
+    ];
+
+    let spawn_index = *SPAWN_INDEX_BY_FRAME.get(usize::from(frame_counter))?;
+    if spawn_index < 0 {
+        return None;
+    }
+    let spawn_index = spawn_index as usize;
+    let (x_velocity_word, y_velocity_word) = VELOCITY_WORDS[spawn_index];
+    Some(Prize10000PointsStarSpawnLoc10B3A {
+        palette_line: 1,
+        display_enabled: true,
+        sprite_mapping_label: if frame_counter == 0 {
+            "LnkTo_unk_E1056-Data_Index"
+        } else {
+            "LnkTo_unk_E104E-Data_Index"
+        },
+        x_pos,
+        y_pos,
+        x_velocity_fp: i32::from(x_velocity_word) << 13,
+        y_velocity_fp: i32::from(y_velocity_word) << 13,
+        is_moved: true,
+        timer: 0x0078,
+    })
 }
 
 impl NativeRuntime {
