@@ -1128,6 +1128,9 @@ impl NativeRuntime {
         }
 
         if remapped_direction == 2 {
+            // ASM loc_11036 (kid.asm:22947): the remapped `d6 == 2` branch
+            // advances one block downward and aborts when
+            // `source_row + 1 >= Level_height_blocks`.
             let target_row = source_row.saturating_add(1);
             return (target_row < level_height_blocks).then_some((source_col, target_row));
         }

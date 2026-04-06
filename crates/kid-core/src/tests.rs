@@ -33699,6 +33699,24 @@ fn ice_block_bullet_target_cell_sub_11006_loc_11020_rejects_the_right_boundary()
     );
 }
 
+#[test]
+fn ice_block_bullet_target_cell_sub_11006_loc_11036_steps_one_cell_down_inside_the_level_height() {
+    assert_eq!(
+        NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 3, 0, 8, 6),
+        Some((5, 4)),
+        "ASM loc_11036 should remap direction 0 through `eori.w #2,d6`, then probe one block downward when `source_row + 1 < Level_height_blocks`",
+    );
+}
+
+#[test]
+fn ice_block_bullet_target_cell_sub_11006_loc_11036_rejects_the_bottom_boundary() {
+    assert_eq!(
+        NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 5, 0, 8, 6),
+        None,
+        "ASM loc_11036 should branch to `loc_11080` when `source_row + 1 >= Level_height_blocks`",
+    );
+}
+
 // --- Shooter blocks: multi-direction and cell-change pruning ---
 
 #[test]
