@@ -1661,6 +1661,18 @@ mod tests {
         }
     }
 
+    fn sample_object_frame_with_base(
+        signature: u8,
+        width_px: u16,
+        height_px: u16,
+        tile_base_index: u16,
+    ) -> SpriteFrame {
+        SpriteFrame {
+            tile_base_index,
+            ..sample_object_frame(signature, width_px, height_px)
+        }
+    }
+
     fn numbered_object_frame(width_px: u16, height_px: u16) -> SpriteFrame {
         let tile_count = usize::from(width_px.div_ceil(8)) * usize::from(height_px.div_ceil(8));
         let tiles = (0..tile_count)
@@ -1796,6 +1808,35 @@ mod tests {
                 },
                 extra_palettes: vec![],
                 frames: vec![sample_object_frame(71, 16, 16)],
+                frame_duration: 6,
+            },
+        );
+        let tank_palette = Palette {
+            colours: vec![colour(0, 0, 0), colour(140, 188, 120)],
+        };
+        families.insert(
+            0x0A,
+            AnimatedSpriteVisual {
+                palette: tank_palette.clone(),
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(81, 0x1E, 0x08, 0x02C),
+                    sample_object_frame_with_base(82, 0x1E, 0x08, 0x030),
+                    sample_object_frame_with_base(83, 0x1E, 0x08, 0x034),
+                ],
+                frame_duration: 6,
+            },
+        );
+        families.insert(
+            0x0B,
+            AnimatedSpriteVisual {
+                palette: tank_palette,
+                extra_palettes: vec![],
+                frames: vec![
+                    sample_object_frame_with_base(81, 0x1E, 0x08, 0x02C),
+                    sample_object_frame_with_base(82, 0x1E, 0x08, 0x030),
+                    sample_object_frame_with_base(83, 0x1E, 0x08, 0x034),
+                ],
                 frame_duration: 6,
             },
         );
@@ -3349,6 +3390,117 @@ mod tests {
         assert_eq!(sprite_position(&scene, 41), Some((-4, 16)));
         assert_eq!(sprite_position(&scene, 21), Some((10, 12)));
         assert_eq!(sprite_position(&scene, 1), Some((8, -24)));
+    }
+
+    #[test]
+    fn rock_tank_renderer_emits_body_and_turret_sprites_per_stru_3b27e() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 720;
+        let visuals = sample_level_visuals();
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0A },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0030_0000,
+            layout_index: Some(0),
+            x_velocity: None,
+            y_velocity: None,
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(2),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let mut commands = Vec::new();
+
+        sprites::push_enemy_sprite(&mut commands, &object, &trace, &visuals, 0x0A);
+
+        match commands.as_slice() {
+            [
+                DrawCommand::Sprite {
+                    x: body_x,
+                    y: body_y,
+                    tiles: body_tiles,
+                    ..
+                },
+                DrawCommand::Sprite {
+                    x: turret_x,
+                    y: turret_y,
+                    tiles: turret_tiles,
+                    ..
+                },
+            ] => {
+                assert_eq!(
+                    body_tiles[0].tile.tile_index, 0x02C,
+                    "ASM Tank.asm `stru_3B270` keeps the body on the first GfxObject"
+                );
+                assert_eq!(
+                    turret_tiles[0].tile.tile_index, 0x020,
+                    "ASM Tank.asm `stru_3B27E` uses `LnkTo_unk_C7EC8` for the turret idle frame"
+                );
+                assert_eq!(*turret_x, *body_x);
+                assert!(
+                    turret_y < body_y,
+                    "ASM Tank.asm loc_3B39C copies the parent X/Y into the child and then `subi.w #8,$1E(a1)`, so the turret must render above the body"
+                );
+            }
+            other => panic!("expected body + turret sprite commands, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rock_tank_shooting_renderer_uses_stru_3b4d8_turret_frames() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 771;
+        let visuals = sample_level_visuals();
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0B },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0030_0000,
+            layout_index: Some(0),
+            x_velocity: None,
+            y_velocity: None,
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(4),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let mut commands = Vec::new();
+
+        sprites::push_enemy_sprite(&mut commands, &object, &trace, &visuals, 0x0B);
+
+        match commands.as_slice() {
+            [
+                DrawCommand::Sprite {
+                    tiles: body_tiles, ..
+                },
+                DrawCommand::Sprite {
+                    tiles: turret_tiles,
+                    ..
+                },
+            ] => {
+                assert_eq!(body_tiles[0].tile.tile_index, 0x034);
+                assert_eq!(
+                    turret_tiles[0].tile.tile_index, 0x060,
+                    "ASM Tank_Shooting.asm `stru_3B4D8` reaches `LnkTo_unk_C7F10` on the muzzle-open frame"
+                );
+            }
+            other => panic!("expected body + turret sprite commands, got {other:?}"),
+        }
     }
 
     #[test]

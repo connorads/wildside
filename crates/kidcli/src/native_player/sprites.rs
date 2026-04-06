@@ -1,6 +1,205 @@
 use super::*;
 use crate::scenarios::DynamicCheckpoint;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TankTurretFrameSpec {
+    duration_frames: usize,
+    tile_base_index: u16,
+    origin_x: i16,
+    origin_y: i16,
+    width_px: u16,
+    height_px: u16,
+}
+
+const ROCK_TANK_TURRET_STRU_3B27E: [TankTurretFrameSpec; 5] = [
+    TankTurretFrameSpec {
+        duration_frames: 0x37,
+        // ASM unk_C7EC8 / `stru_3B27E`
+        tile_base_index: 0x020,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x14,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x0A,
+        // ASM unk_C7F20 / `stru_3B27E`
+        tile_base_index: 0x078,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x15,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x06,
+        // ASM unk_C7F28 / `stru_3B27E`
+        tile_base_index: 0x084,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1F,
+        height_px: 0x18,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x04,
+        // ASM unk_C7F20 / `stru_3B27E`
+        tile_base_index: 0x078,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x15,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x05,
+        // ASM unk_C7EC8 / `stru_3B27E`
+        tile_base_index: 0x020,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x14,
+    },
+];
+
+const ROCK_TANK_SHOOTING_FAST_STRU_3B4D8: [TankTurretFrameSpec; 7] = [
+    TankTurretFrameSpec {
+        duration_frames: 0x37,
+        // ASM unk_C7EC8 / `stru_3B4D8`
+        tile_base_index: 0x020,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x14,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x0C,
+        // ASM unk_C7F00 / `stru_3B4D8`
+        tile_base_index: 0x048,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x15,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x06,
+        // ASM unk_C7F08 / `stru_3B4D8`
+        tile_base_index: 0x054,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1F,
+        height_px: 0x18,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x06,
+        // ASM unk_C7F10 / `stru_3B4D8`
+        tile_base_index: 0x060,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1F,
+        height_px: 0x18,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x14,
+        // ASM unk_C7F08 / `stru_3B4D8`
+        tile_base_index: 0x054,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1F,
+        height_px: 0x18,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x0C,
+        // ASM unk_C7F00 / `stru_3B4D8`
+        tile_base_index: 0x048,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x15,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x05,
+        // ASM unk_C7EC8 / `stru_3B4D8`
+        tile_base_index: 0x020,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x14,
+    },
+];
+
+const ROCK_TANK_SHOOTING_SLOW_STRU_3B4F6: [TankTurretFrameSpec; 8] = [
+    TankTurretFrameSpec {
+        duration_frames: 0x37,
+        // ASM unk_C7EC8 / `stru_3B4F6`
+        tile_base_index: 0x020,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x14,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x0C,
+        // ASM unk_C7F00 / `stru_3B4F6`
+        tile_base_index: 0x048,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x15,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x06,
+        // ASM unk_C7F08 / `stru_3B4F6`
+        tile_base_index: 0x054,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1F,
+        height_px: 0x18,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x06,
+        // ASM unk_C7F10 / `stru_3B4F6`
+        tile_base_index: 0x060,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1F,
+        height_px: 0x18,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x14,
+        // ASM unk_C7F08 / `stru_3B4F6`
+        tile_base_index: 0x054,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1F,
+        height_px: 0x18,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x0C,
+        // ASM unk_C7F00 / `stru_3B4F6`
+        tile_base_index: 0x048,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x15,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x05,
+        // ASM unk_C7EC8 / `stru_3B4F6`
+        tile_base_index: 0x020,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x14,
+    },
+    TankTurretFrameSpec {
+        duration_frames: 0x74,
+        // ASM unk_C7EC8 / `stru_3B4F6`
+        tile_base_index: 0x020,
+        origin_x: 0x0F,
+        origin_y: 0x00,
+        width_px: 0x1E,
+        height_px: 0x14,
+    },
+];
+
 pub(super) fn build_player_sprite_tiles(
     frame: &kid_render::SpriteFrame,
     facing: Direction,
@@ -340,6 +539,70 @@ pub(super) fn push_enemy_sprite(
         palette: Arc::new(select_enemy_palette(enemy_visuals, object.palette_variant).clone()),
         tiles: build_sprite_tiles(frame, render_facing, 0),
     });
+
+    if let Some(turret_frame) = rock_tank_turret_frame(object, trace, enemy_visuals, object_type) {
+        let turret_screen_y = screen_y - 8;
+        let (turret_x, turret_y) =
+            sprite_draw_position(&turret_frame, screen_x, turret_screen_y, render_facing);
+        commands.push(DrawCommand::Sprite {
+            x: turret_x,
+            y: turret_y,
+            tile_sheet: Arc::new(turret_frame.tile_sheet.clone()),
+            palette: Arc::new(select_enemy_palette(enemy_visuals, object.palette_variant).clone()),
+            tiles: build_sprite_tiles(&turret_frame, render_facing, 0),
+        });
+    }
+}
+
+fn rock_tank_turret_frame(
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    enemy_visuals: &kid_render::AnimatedSpriteVisual,
+    object_type: u8,
+) -> Option<kid_render::SpriteFrame> {
+    let specs = match object_type {
+        // ASM Tank.asm loc_3B372 + `stru_3B27E`: plain RockTank allocates a
+        // second GfxObject at `$3A(a5)` for the turret and keeps it 8px above
+        // the body while the body animation uses the first object.
+        0x0A => &ROCK_TANK_TURRET_STRU_3B27E[..],
+        // ASM Tank_Shooting.asm loc_3B5FA/loc_3B682: HP 4 uses `stru_3B4D8`,
+        // HP 2-3 use `stru_3B4F6`, again on the child GfxObject at `$3A(a5)`.
+        0x0B if object.hit_points == Some(4) => &ROCK_TANK_SHOOTING_FAST_STRU_3B4D8[..],
+        0x0B => &ROCK_TANK_SHOOTING_SLOW_STRU_3B4F6[..],
+        _ => return None,
+    };
+    let spec = scripted_tank_turret_frame(object, trace, specs)?;
+    let tile_sheet = enemy_visuals.frames.first()?.tile_sheet.clone();
+    Some(kid_render::SpriteFrame {
+        origin_x: spec.origin_x,
+        origin_y: spec.origin_y,
+        width_px: spec.width_px,
+        height_px: spec.height_px,
+        tile_base_index: spec.tile_base_index,
+        tile_sheet,
+    })
+}
+
+fn scripted_tank_turret_frame(
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    specs: &[TankTurretFrameSpec],
+) -> Option<TankTurretFrameSpec> {
+    let cycle_frames = specs.iter().map(|spec| spec.duration_frames).sum::<usize>();
+    if cycle_frames == 0 {
+        return None;
+    }
+    let phase_seed = trace
+        .frame_index
+        .wrapping_add(object.layout_index.unwrap_or(0).wrapping_mul(3));
+    let mut phase = phase_seed % cycle_frames;
+    for spec in specs {
+        if phase < spec.duration_frames {
+            return Some(*spec);
+        }
+        phase -= spec.duration_frames;
+    }
+    specs.last().copied()
 }
 
 fn select_enemy_palette(

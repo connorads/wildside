@@ -165,7 +165,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 142 | [x] | P1 | enemy | Level 1 dragon breath travels too far | FIXED — ASM loc_3D02A: breath is stationary hitbox (stru_3CCC8, 68f), not a projectile. Also fixed flying dragon fire X offset (loc_34BAC ±10px) and terrain_kill. |
 | 143 | [ ] | P1 | block | Heavy Man's first helmet causes repeated block-bounce instead of the ROM's smooth single-hit break | Break blocks as Heavy Man and compare collision/animation timing to oracle |
 | 144 | [x] | P1 | enemy | Level 2 shooter enemy fires too rapidly | Fixed: add `EnemyFamily::TankShooting` for enemy ID `0x0B`, stop plain `0x0A` tanks firing, and gate bullet spawn through ASM `sub_3C4F8` / `loc_3B730` cadence and muzzle offsets. |
-| 145 | [ ] | P1 | render | Level 2 shooter enemy is not rendered correctly | **Root cause identified**: ASM tank uses 2 GfxObjects (body + turret at `$3A(a5)`), native uses 1 sprite. Turret has independent animation (`stru_3B27E` non-shooting, `stru_3B4D8`/`stru_3B4F6` shooting) offset y-8px. Bullet spawn offset ±15px X (not 0), turret_y-14 Y (not enemy_y-8). Fix: implement two-object rendering for both tank variants. |
+| 145 | [x] | P1 | render | Level 2 shooter enemy is not rendered correctly | FIXED — native player now mirrors ASM Tank/Tank_Shooting dual-GfxObject rendering: body on the parent object, turret child at `$3A(a5)` with `stru_3B27E` / `stru_3B4D8` / `stru_3B4F6` frame timing and the ROM's y-8px attachment. |
 | 146 | [b] | P1 | level | Dying in Level 2 can leave the game stuck on the level-loading screen | **blocked:needs-human-repro** — requires interactive play to reproduce (agent cannot play). 14+ autonomy cycles failed to capture evidence. Negative baseline only: recording slug `issue-146` never enters Level 2. Downgraded from P0→P1 until a human playtest captures the hang. Next step: `cargo run --release -p kidcli -- play-native --warp-level 01 --settled --record issue-146-level2-death` |
 | 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision self-applies y_pos (sub_902A) | DONE — resolved in #080 |
 | 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | DEFERRED — jgenesis sufficient, GDB stub approach documented in previous plan |
@@ -889,14 +889,21 @@ Regression coverage:
 - `tank_shooting_fire_uses_loc_3c50e_cadence_and_loc_3b730_offsets`
 - `tank_shooting_spawn_wait_timer_matches_first_loc_3c50e_fire_gate`
 
-### 145 — Level 2 shooter enemy rendered incorrectly (OPEN — root cause identified)
+### 145 — Level 2 shooter enemy rendered incorrectly (FIXED)
 ASM audit 2026-04-05: Tank uses **2 GfxObject slots** (body at `a3`, turret at `$3A(a5)`). Native uses 1 sprite. Missing turret has independent animations:
 - Non-shooting (`stru_3B27E`): 5-frame mouth open/close, 92 frames
 - Shooting HP≥4 (`stru_3B4D8`): 7-frame fire cycle, 116 frames
 - Shooting HP<4 (`stru_3B4F6`): 8-frame fire cycle, 232 frames
 - Turret offset: body y_pos - 8px, copied via `sub_3BF72` every frame
 
-Fix: implement two-object rendering for both tank variants.
+Fix landed:
+1. Native player now emits a second RockTank sprite for the turret child GfxObject instead of collapsing everything into the body sprite.
+2. Plain tanks use `stru_3B27E`; shooting tanks use `stru_3B4D8` at HP 4 and `stru_3B4F6` at HP 2-3, reusing the ROM frame descriptors `unk_C7EC8`, `unk_C7F00`, `unk_C7F08`, `unk_C7F10`, `unk_C7F20`, and `unk_C7F28`.
+3. The turret render keeps the ROM's y-8px child attachment from `Enemy0A_RockTank_Init` / `Enemy0B_RockTank_shooting_Init`.
+
+Regression coverage:
+- `rock_tank_renderer_emits_body_and_turret_sprites_per_stru_3b27e`
+- `rock_tank_shooting_renderer_uses_stru_3b4d8_turret_frames`
 
 ### 146 — Dying in Level 2 can leave the game stuck on the level-loading screen (BLOCKED)
 **Status: blocked:needs-human-repro** — downgraded P0→P1 on 2026-04-05.
