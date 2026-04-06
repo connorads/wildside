@@ -654,6 +654,31 @@ pub(crate) fn classify_background_palette_override_loc_11DF4(
     BackgroundPaletteOverrideLoc11DF4::None
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundPaletteFollowupLoc11DF8 {
+    None,
+    RemovedSpecialPaletteNoop,
+    LateAlternativePalette,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn classify_background_palette_followup_loc_11DF8(
+    map_id: u8,
+) -> BackgroundPaletteFollowupLoc11DF8 {
+    // ASM loc_11DF8 (kid.asm:24005): whether the earlier `loc_11DF4` cave
+    // branch fired or not, the shared continuation then checks The Deadly
+    // Skyscrapers (`#$1C`) / Elsewhere 30 (`#30`) for the removed special
+    // palette path before the later `$1A/$1B` alternative-palette override.
+    if matches!(map_id, 0x1C | 30) {
+        return BackgroundPaletteFollowupLoc11DF8::RemovedSpecialPaletteNoop;
+    }
+    if matches!(map_id, 0x1A | 0x1B) {
+        return BackgroundPaletteFollowupLoc11DF8::LateAlternativePalette;
+    }
+    BackgroundPaletteFollowupLoc11DF8::None
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {

@@ -33,15 +33,16 @@ use crate::helmets::{
     red_stealth_swing_anchor_sub_868E, skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
-    BackgroundPaletteOverrideLoc11DF4, FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
-    FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
-    ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0, LinkedObjectSlotInit,
-    SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
-    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    build_palette_fade_curve_sub_14C0, classify_background_palette_override_loc_11DF4,
+    BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    FlagpoleScoreboardStepSubC254, ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
+    LinkedObjectSlotInit, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
+    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
+    SpriteFrameStateSubB52, apply_foreground_palette_override_loc_11D9E,
+    apply_foreground_palette_override_loc_11DAC, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    blend_selected_palette_entries_sub_1536, build_palette_fade_curve_sub_14C0,
+    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
     classify_foreground_palette_override_loc_11D8E, compile_block_debris_sprites_sub_2A4C,
     copy_foreground_palette_loc_11DB0, drain_fg_update_queue_custom_sub_1596,
     empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
@@ -25974,6 +25975,30 @@ fn loc_11df4_selects_the_alternative_cave_background_palette_only_for_map_ids_3_
         classify_background_palette_override_loc_11DF4(0x04),
         BackgroundPaletteOverrideLoc11DF4::None,
         "ASM loc_11DF4 should leave neighbouring map IDs on the ordinary background palette path"
+    );
+}
+
+#[test]
+fn loc_11df8_routes_the_shared_background_palette_followup_checks() {
+    assert_eq!(
+        classify_background_palette_followup_loc_11DF8(0x1C),
+        BackgroundPaletteFollowupLoc11DF8::RemovedSpecialPaletteNoop,
+        "ASM loc_11DF8 should send The Deadly Skyscrapers into the removed special-palette branch"
+    );
+    assert_eq!(
+        classify_background_palette_followup_loc_11DF8(30),
+        BackgroundPaletteFollowupLoc11DF8::RemovedSpecialPaletteNoop,
+        "ASM loc_11DF8 should reuse that same shared continuation for Elsewhere 30"
+    );
+    assert_eq!(
+        classify_background_palette_followup_loc_11DF8(0x1A),
+        BackgroundPaletteFollowupLoc11DF8::LateAlternativePalette,
+        "ASM loc_11DF8 should continue past the no-op branch and expose the later `$1A/$1B` palette override"
+    );
+    assert_eq!(
+        classify_background_palette_followup_loc_11DF8(0x19),
+        BackgroundPaletteFollowupLoc11DF8::None,
+        "ASM loc_11DF8 should leave unrelated map IDs on the plain background palette path"
     );
 }
 
