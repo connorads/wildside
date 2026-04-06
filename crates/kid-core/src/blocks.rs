@@ -1713,10 +1713,11 @@ impl NativeRuntime {
 
         // Metal block bounce animation
         if let Some((cx, cy)) = slice.metal_block_hit {
+            let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cx, cy);
             self.blocks_hit_this_frame += 1;
             self.block_bounces.push(BlockBounceAnim {
-                cell_x: cx,
-                cell_y: cy,
+                cell_x,
+                cell_y,
                 remaining: 8,
             });
         }
@@ -1930,6 +1931,15 @@ impl NativeRuntime {
         for content in collected_contents {
             self.apply_prize_content(content);
         }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn metal_block_effect_cell_words_loc_110D0(cell_x: u16, cell_y: u16) -> (u16, u16) {
+        // ASM loc_110D0 (kid.asm:23019): after `j_sub_E02`, the worker stores
+        // the tile coordinates unmodified in `$44(a0)` and `$46(a0)` before
+        // the sprite-position copy at loc_1110E.
+        (cell_x, cell_y)
     }
 
     pub(crate) fn step_visual_effects(&mut self) {

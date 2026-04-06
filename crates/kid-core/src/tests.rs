@@ -33299,6 +33299,15 @@ fn process_block_effects_metal_and_rubber_create_bounce_anims() {
 }
 
 #[test]
+fn metal_block_effect_cell_words_loc_110d0_keeps_tile_coordinates_unshifted() {
+    assert_eq!(
+        NativeRuntime::metal_block_effect_cell_words_loc_110D0(5, 3),
+        (5, 3),
+        "ASM loc_110D0 should cache the struck block's tile coordinates in `$44/$46` before any sprite-space scaling happens",
+    );
+}
+
+#[test]
 fn rubber_block_contact_runs_sub_10de4_skin_sequence() {
     let mut rt = NativeRuntime::new(manifest());
     let mut grid = grid_with_floor_at_row(10);
