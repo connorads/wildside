@@ -733,6 +733,20 @@ pub(crate) fn apply_background_palette_override_loc_11E12(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn copy_background_palette_loc_11E16(
+    background_palette: &[u16; 8],
+    palette_buffer: &mut [u16; 0x40],
+) {
+    // ASM loc_11E16 (kid.asm:24029): copy the first word into
+    // `Palette_Buffer`, then seed `a2` with `Palette_Buffer+$32` and run a
+    // `moveq #6,d1` / `dbf` loop that copies the remaining 7 words into
+    // palette slots `$19..$1F`.
+    palette_buffer[0] = background_palette[0];
+    palette_buffer[0x19..=0x1F].copy_from_slice(&background_palette[1..]);
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point
     // `Addr_NextSpriteSlot` at `Sprite_Table`, and reset the dynamic-art

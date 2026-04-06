@@ -46,8 +46,9 @@ use crate::level::{
     classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
     classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06, compile_block_debris_sprites_sub_2A4C,
-    copy_foreground_palette_loc_11DB0, drain_fg_update_queue_custom_sub_1596,
-    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
+    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
+    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
     initialise_sprite_frame_state_sub_B52, scratch_debris_pieces_sub_292E,
@@ -26062,6 +26063,31 @@ fn loc_11e12_selects_the_alternative_alien_background_palette_only_on_the_taken_
         ),
         0x0456,
         "ASM loc_11E12 should leave the already selected palette intact on the `loc_11E16` fallthrough path"
+    );
+}
+
+#[test]
+fn loc_11e16_copies_the_background_palette_into_word_0_and_slots_19_through_1f() {
+    let background_palette = [
+        0x0ACE, 0x0111, 0x0222, 0x0333, 0x0444, 0x0555, 0x0666, 0x0777,
+    ];
+    let mut palette_buffer = [0x0EEE; 0x40];
+
+    copy_background_palette_loc_11E16(&background_palette, &mut palette_buffer);
+
+    assert_eq!(
+        palette_buffer[0], 0x0ACE,
+        "ASM loc_11E16 should copy the first background colour directly into `Palette_Buffer`"
+    );
+    assert_eq!(
+        &palette_buffer[0x19..=0x1F],
+        &background_palette[1..],
+        "ASM loc_11E16 should copy the remaining 7 words through the `moveq #6` / `dbf` loop at `Palette_Buffer+$32`"
+    );
+    assert!(
+        palette_buffer[1..0x19].iter().all(|word| *word == 0x0EEE)
+            && palette_buffer[0x20..].iter().all(|word| *word == 0x0EEE),
+        "ASM loc_11E16 should leave every palette word outside word 0 and `$19..$1F` untouched"
     );
 }
 
