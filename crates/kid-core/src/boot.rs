@@ -928,11 +928,11 @@ pub(crate) fn prize_10000_points_star_step_loc_10B74(
 ) -> Prize10000PointsStarStepLoc10B74 {
     // ASM loc_10B74 (kid.asm:22433): iterate the five cached star slots and
     // branch by `$46(a1)`. `#$70` clears `$14(a1)` once before the shared
-    // countdown. `#$20` latches screen-space `$3E/$42` from world position
-    // minus camera before falling into loc_10BB2. Timers `<= #$20` move left
-    // by 6 px/frame, and the final slot (`d2 == #$10`) jumps to loc_10BE0
-    // once its updated screen X falls below `#$FFE0` (-32), skipping the
-    // countdown decrement on that deletion frame.
+    // loc_10B98/loc_10BCA countdown tail. `#$20` latches screen-space
+    // `$3E/$42` from world position minus camera before falling into
+    // loc_10BB2. Timers `<= #$20` move left by 6 px/frame, and the final slot
+    // (`d2 == #$10`) jumps to loc_10BE0 once its updated screen X falls below
+    // `#$FFE0` (-32), skipping the countdown decrement on that deletion frame.
     let mut next_x_pos = x_pos;
     let mut next_is_moved = is_moved;
     let mut next_timer = timer;

@@ -23151,6 +23151,26 @@ fn prize_10000_points_star_step_loc_10b74_hides_moved_flag_once_timer_reaches_0x
 }
 
 #[test]
+fn prize_10000_points_star_step_loc_10b98_uses_the_shared_countdown_tail_for_other_timers() {
+    let step = prize_10000_points_star_step_loc_10B74(0x0004, 0x0071, 0x0040, 0x0030, 0, 0, true);
+
+    assert_eq!(
+        step.x_pos, 0x0040,
+        "ASM loc_10B98 should skip the `$70` hide path and the `$20` drift path for all other timers above `$20`",
+    );
+    assert!(
+        step.is_moved,
+        "ASM loc_10B98 should leave `$14(a1)` unchanged when the timer is neither `$70` nor `<= $20`",
+    );
+    assert_eq!(
+        step.timer, 0x0070,
+        "ASM loc_10B98 should fall straight into loc_10BCA's shared decrement tail",
+    );
+    assert_eq!(step.latched_screen_pos, None);
+    assert!(!step.delete_prize_worker);
+}
+
+#[test]
 fn prize_10000_points_star_step_loc_10b74_latches_screen_position_at_timer_0x20_before_moving_left()
 {
     let step = prize_10000_points_star_step_loc_10B74(
