@@ -2329,6 +2329,99 @@ pub(crate) fn hidden_block_shift_insert_loc_127e2(
     HiddenBlockShiftInsertLoc127E2 { shifted_addrs }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundMappingsCrossLevelLoc12824 {
+    pub(crate) x_offset: i16,
+    pub(crate) y_offset: i16,
+    pub(crate) source_layout_addr: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundMappingsChunkLoc12830 {
+    pub(crate) chunk_index: u16,
+    pub(crate) x_pos: i16,
+    pub(crate) y_pos: i16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_mappings_cross_level_loc_12824(
+    layout_words: &[u16],
+) -> Option<BackgroundMappingsCrossLevelLoc12824> {
+    // ASM loc_12824 (kid.asm:25158-25164): cross-level layout copy handler.
+    // When the layout starts with $8000 marker, this branch reads offset/pointer:
+    //   movem.l d5-d7,-(sp)      ; save registers
+    //   addq.w  #2,a1            ; skip $8000 marker word
+    //   move.w  (a1)+,d5         ; x offset for copying from other level
+    //   move.w  (a1)+,d6         ; y offset for copying from other level
+    //   move.l  (a1),a1          ; load pointer to source level layout
+    // After this preparation, execution falls through to loc_12830.
+    // The x/y offsets are subtracted from positions read from the source layout,
+    // effectively translating coordinates from source level to destination level.
+    let marker = *layout_words.first()?;
+    if marker != 0x8000 {
+        return None;
+    }
+    let x_offset = layout_words.get(1).copied()? as i16;
+    let y_offset = layout_words.get(2).copied()? as i16;
+    let source_addr =
+        u32::from(layout_words.get(4).copied()?) << 16 | u32::from(layout_words.get(3).copied()?);
+    Some(BackgroundMappingsCrossLevelLoc12824 {
+        x_offset,
+        y_offset,
+        source_layout_addr: source_addr,
+    })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_mappings_read_chunk_loc_12830(
+    layout_words: &[u16],
+    x_offset: i16,
+    y_offset: i16,
+) -> Option<(BackgroundMappingsChunkLoc12830, &[u16])> {
+    // ASM loc_12830 (kid.asm:25165-25173): background chunk placement loop.
+    // Reads sequential (chunk_index, x_pos, y_pos) entries until terminator:
+    //   loc_12830:
+    //   move.w  (a1)+,d0        ; read chunk index
+    //   bmi.s   loc_12842       ; terminate if negative (bit 15 set)
+    //   move.w  (a1)+,d2        ; read x position
+    //   sub.w   d5,d2           ; apply x_offset (d5 from loc_12824 or 0)
+    //   move.w  (a1)+,d3        ; read y position
+    //   sub.w   d6,d3           ; apply y_offset (d6 from loc_12824 or 0)
+    //   bsr.w   Load_BackgroundChunk
+    //   bra.s   loc_12830       ; continue loop
+    // The terminator is any word with bit 15 set ($8000+).
+    // Each chunk placement consumes 3 words: index, x, y.
+    // Offsets are applied when copying from another level (loc_12824 path).
+    let chunk_index = layout_words.first().copied()?;
+    if chunk_index & 0x8000 != 0 {
+        return None; // terminator, bit 15 set
+    }
+    let x_pos = (layout_words.get(1).copied()? as i16).wrapping_sub(x_offset);
+    let y_pos = (layout_words.get(2).copied()? as i16).wrapping_sub(y_offset);
+    let remaining = &layout_words[3..];
+    Some((
+        BackgroundMappingsChunkLoc12830 {
+            chunk_index,
+            x_pos,
+            y_pos,
+        },
+        remaining,
+    ))
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_mappings_terminator_loc_12842() -> bool {
+    // ASM loc_12842 (kid.asm:25176-25178): loop termination.
+    //   movem.l (sp)+,d5-d7    ; restore saved registers
+    //   rts                     ; return to caller
+    // This is reached when loc_12830 reads a negative chunk index.
+    // The terminator word has bit 15 set ($8000+).
+    true
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(

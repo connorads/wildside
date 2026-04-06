@@ -40572,3 +40572,113 @@ fn loc_127e2_shifts_entries_and_inserts_new() {
         "ASM loc_127E2: insert into empty list"
     );
 }
+
+#[test]
+fn loc_12824_parses_cross_level_layout_marker() {
+    // ASM loc_12824 (kid.asm:25158-25164): cross-level copy setup.
+    // When layout starts with $8000 marker, reads offsets and source pointer.
+    //   addq.w  #2,a1        ; skip marker
+    //   move.w  (a1)+,d5     ; x_offset
+    //   move.w  (a1)+,d6     ; y_offset
+    //   move.l  (a1),a1      ; source layout addr
+
+    // Not a cross-level layout (no $8000 marker)
+    let result = crate::level::background_mappings_cross_level_loc_12824(&[0x0010, 0x0020]);
+    assert!(
+        result.is_none(),
+        "ASM loc_12824: should return None for non-$8000 marker"
+    );
+
+    // Cross-level layout with offsets
+    let layout = &[0x8000, 0x0010, 0x0020, 0x0034, 0x5678];
+    let result = crate::level::background_mappings_cross_level_loc_12824(layout).unwrap();
+    assert_eq!(
+        result.x_offset, 0x0010,
+        "ASM loc_12824: x_offset should be second word"
+    );
+    assert_eq!(
+        result.y_offset, 0x0020,
+        "ASM loc_12824: y_offset should be third word"
+    );
+    assert_eq!(
+        result.source_layout_addr, 0x56780034,
+        "ASM loc_12824: source addr should be longword at words3-4"
+    );
+}
+
+#[test]
+fn loc_12830_reads_chunk_placements_until_terminator() {
+    // ASM loc_12830 (kid.asm:25165-25173): chunk placement loop.
+    // Reads (chunk_index, x_pos, y_pos) triplets until negative index.
+    //   move.w  (a1)+,d0    ; chunk index
+    //   bmi.s   loc_12842   ; terminate if negative
+    //   move.w  (a1)+,d2    ; x pos
+    //   sub.w   d5,d2       ; apply x_offset
+    //   move.w  (a1)+,d3    ; y pos
+    //   sub.w   d6,d3       ; apply y_offset
+
+    // First entry terminates immediately
+    let result = crate::level::background_mappings_read_chunk_loc_12830(&[0x8001], 0, 0);
+    assert!(
+        result.is_none(),
+        "ASM loc_12830: negative chunk index should terminate"
+    );
+
+    // Normal chunk placement (no offsets)
+    let layout = &[0x0005, 0x0100, 0x0200, 0x8000];
+    let (chunk, remaining) =
+        crate::level::background_mappings_read_chunk_loc_12830(layout, 0, 0).unwrap();
+    assert_eq!(
+        chunk.chunk_index, 5,
+        "ASM loc_12830: should read chunk index"
+    );
+    assert_eq!(
+        chunk.x_pos, 0x0100,
+        "ASM loc_12830: should read x position unchanged when offset is 0"
+    );
+    assert_eq!(
+        chunk.y_pos, 0x0200,
+        "ASM loc_12830: should read y position unchanged when offset is 0"
+    );
+    assert_eq!(
+        remaining,
+        &[0x8000],
+        "ASM loc_12830: should return remaining layout after reading 3 words"
+    );
+
+    // Chunk placement with offsets (cross-level copy)
+    let layout = &[0x0003, 0x0100, 0x0200];
+    let (chunk, _) =
+        crate::level::background_mappings_read_chunk_loc_12830(layout, 0x10, 0x20).unwrap();
+    assert_eq!(
+        chunk.x_pos,
+        0x0100 - 0x10,
+        "ASM loc_12830: should subtract x_offset from x position"
+    );
+    assert_eq!(
+        chunk.y_pos,
+        0x0200 - 0x20,
+        "ASM loc_12830: should subtract y_offset from y position"
+    );
+
+    // Negative x/y positions preserved with wrapping
+    let layout: &[u16] = &[0x0002, 0x0000, 0xFFFF];
+    let (chunk, _) = crate::level::background_mappings_read_chunk_loc_12830(layout, 0, 0).unwrap();
+    assert_eq!(
+        chunk.y_pos, -1i16,
+        "ASM loc_12830: should preserve signed y position"
+    );
+}
+
+#[test]
+fn loc_12842_terminates_background_mappings_loop() {
+    // ASM loc_12842 (kid.asm:25176-25178): loop termination.
+    //   movem.l (sp)+,d5-d7  ; restore registers
+    //   rts                    ; return
+    // Reached when loc_12830 reads negative chunk index.
+    let terminator = crate::level::background_mappings_terminator_loc_12842();
+    assert!(
+        terminator,
+        "ASM loc_12842: should return true for terminator"
+    );
+}
