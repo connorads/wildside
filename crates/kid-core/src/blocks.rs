@@ -1318,12 +1318,13 @@ impl NativeRuntime {
                 f.spawn_delay -= 1;
                 continue;
             }
-            // ASM loc_10396 (kid.asm:21621): each hibernated frame decrements
-            // `d3`, deletes the object when the countdown reaches zero, and
-            // switches to `stru_10D80` exactly when `d3 == $00C8`. Native
-            // floating items do not carry animation-script state, so this loop
-            // models the shared countdown/delete timing and leaves the visual
-            // script swap implicit.
+            // ASM loc_10396 (kid.asm:21621) and loc_1071E (kid.asm:21965):
+            // each hibernated frame decrements `d3`, deletes the object when
+            // the countdown reaches zero, and swaps animation exactly at the
+            // routine-specific threshold (`$00C8` for diamonds, `$012C` for
+            // the ankh). Native floating items do not carry animation-script
+            // state, so this loop models the shared countdown/delete timing
+            // and leaves the visual script swap implicit.
             f.remaining = f.remaining.saturating_sub(1);
             let can_fall = self
                 .block_grid

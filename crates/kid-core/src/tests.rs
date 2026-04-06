@@ -33020,6 +33020,73 @@ fn floating_item_loc_10396_keeps_the_frame_0xc8_countdown_alive() {
 }
 
 #[test]
+fn floating_ankh_loc_1071e_keeps_the_frame_0x12c_countdown_alive() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        y_velocity: 0,
+        remaining: 0x012D,
+        spawn_delay: 0,
+        level_col: 6,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Ankh,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items.len(),
+        1,
+        "ASM loc_1071E only branches to delete once `subq.w #1,d3` reaches zero; the `$012C` frame stays alive for the later animation swap",
+    );
+    assert_eq!(
+        rt.floating_items[0].remaining, 0x012C,
+        "ASM loc_1071E reaches the `cmpi.w #$12C,d3` animation threshold one frame before deletion becomes possible",
+    );
+}
+
+#[test]
+fn floating_ankh_loc_1071e_collects_before_timeout_and_grants_the_life_bonus() {
+    let mut rt = NativeRuntime::new(manifest());
+    start_level(&mut rt);
+    rt.floating_items.push(FloatingItem {
+        x_pos: 72 << 16,
+        y_pos: i64::from(100 << 16),
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 4,
+        level_row: 6,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Ankh,
+        collected: false,
+    });
+    let lives_before = rt.progression.number_lives;
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 72 << 16;
+    slice.player.y_pos = 110 << 16;
+
+    rt.collect_floating_items(&mut slice);
+
+    assert!(rt.floating_items[0].collected);
+    assert_eq!(
+        rt.progression.number_lives,
+        lives_before + 1,
+        "ASM loc_1071E should take the collision path before timeout expiry so the collected ankh still grants its life bonus",
+    );
+
+    rt.step_visual_effects();
+
+    assert!(
+        rt.floating_items.is_empty(),
+        "ASM loc_1071E jumps to `Delete_CurrentObject` after the collection path allocates the follow-up worker",
+    );
+}
+
+#[test]
 fn floating_skycutter_loc_10464_stays_alive_while_above_level_bottom_and_uncollected() {
     let mut rt = NativeRuntime::new(manifest());
     rt.floating_items.push(FloatingItem {
