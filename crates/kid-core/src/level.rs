@@ -310,6 +310,26 @@ pub(crate) fn decode_background_theme_flags_loc_11B9A(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decode_spawn_positions_loc_11BD2(
+    preserve_existing_player_start: bool,
+    existing_player_start: (u16, u16),
+    header_player_start: (u16, u16),
+    flag_position: (u16, u16),
+) -> ((u16, u16), (u16, u16), bool) {
+    // ASM loc_11BD2 (kid.asm:23777-23782) tests the `$FFFFFC29` latch before
+    // reading `PlayerStart_X/Y_pos`. When set, it skips those two header words
+    // with `addq.w #4,a0`, clears the latch, and still falls through to load
+    // `Flag_X/Y_pos` from the following words.
+    let player_start = if preserve_existing_player_start {
+        existing_player_start
+    } else {
+        header_player_start
+    };
+    (player_start, flag_position, false)
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 {
     // ASM sub_B52 (kid.asm:1319): clear `Number_Sprites`, point

@@ -25617,6 +25617,34 @@ fn loc_11b9a_leaves_non_enigma_background_widths_unchanged() {
 }
 
 #[test]
+fn loc_11bd2_loads_player_start_and_flag_positions_when_the_preserve_latch_is_clear() {
+    assert_eq!(
+        crate::level::decode_spawn_positions_loc_11BD2(
+            false,
+            (0x0020, 0x048F),
+            (0x0750, 0x00E0),
+            (0x0750, 0x0300),
+        ),
+        ((0x0750, 0x00E0), (0x0750, 0x0300), false),
+        "ASM loc_11BD2 should fall through to `loc_11BE4` and load both `PlayerStart_X/Y_pos` words from the header before it reaches `loc_11BEC`"
+    );
+}
+
+#[test]
+fn loc_11bd2_preserves_existing_player_start_when_the_teleport_latch_is_set() {
+    assert_eq!(
+        crate::level::decode_spawn_positions_loc_11BD2(
+            true,
+            (0x0020, 0x048F),
+            (0x0750, 0x00E0),
+            (0x0750, 0x0300),
+        ),
+        ((0x0020, 0x048F), (0x0750, 0x0300), false),
+        "ASM loc_11BD2 should skip the two player-start header words with `addq.w #4,a0`, clear `$FFFFFC29`, and still load the flag position from the following words"
+    );
+}
+
+#[test]
 fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {
