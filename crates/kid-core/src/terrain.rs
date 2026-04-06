@@ -692,6 +692,20 @@ impl BlockList {
             .map(|entry| entry.content)
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_block_by_layout_addr_loc_10342(
+        &self,
+        layout_addr: u16,
+    ) -> Option<&PrizeBlockEntry> {
+        // ASM loc_10342 (kid.asm:21588) advances `a1` by 8 bytes per prize
+        // entry until `loc_10344` finds an `(a1)` layout-address match for the
+        // worker's `$48(a5)` value, then consumes the matching entry's content.
+        self.prize_blocks
+            .iter()
+            .find(|entry| entry.layout_addr == layout_addr)
+    }
+
     /// Look up a teleporter at a given cell position.
     pub fn teleporter_at(&self, col: u16, row: u16) -> Option<&TeleporterEntry> {
         self.teleporters
@@ -731,10 +745,7 @@ impl BlockList {
         // `d3`. Type 1 reuses the matching 8-byte prize entry from
         // `$FFFFF8D4`; the other reveal types come from `unk_E412/unk_E414`.
         if entry.block_type == 1 {
-            let prize = self
-                .prize_blocks
-                .iter()
-                .find(|prize| prize.layout_addr == entry.layout_addr)?;
+            let prize = self.prize_block_by_layout_addr_loc_10342(entry.layout_addr)?;
             let (base_cell, sprite_mapping) = if prize.disguised {
                 (0xE101u16, 0x1058u16)
             } else {
@@ -2278,6 +2289,49 @@ mod tests {
             .expect("ASM sub_E3C6 should pick the disguised prize tile set when the prize entry is flagged negative");
         assert_eq!(disguised_prize.cell, Cell::from_be_bytes(0xE1, 0x05));
         assert_eq!(disguised_prize.sprite_mapping, 0x1058);
+    }
+
+    #[test]
+    fn prize_block_by_layout_addr_loc_10342_walks_the_eight_byte_prize_entries_until_match() {
+        let bl = BlockList {
+            prize_blocks: vec![
+                PrizeBlockEntry {
+                    layout_addr: 0x0008,
+                    col: 1,
+                    row: 0,
+                    content: PrizeContent::Diamond,
+                    disguised: false,
+                },
+                PrizeBlockEntry {
+                    layout_addr: 0x0010,
+                    col: 2,
+                    row: 0,
+                    content: PrizeContent::Clock,
+                    disguised: false,
+                },
+                PrizeBlockEntry {
+                    layout_addr: 0x0018,
+                    col: 3,
+                    row: 0,
+                    content: PrizeContent::Micromax,
+                    disguised: true,
+                },
+            ],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+
+        let matched = bl
+            .prize_block_by_layout_addr_loc_10342(0x0018)
+            .expect("expected matching prize entry");
+
+        assert_eq!(matched.layout_addr, 0x0018);
+        assert_eq!(matched.content, PrizeContent::Micromax);
+        assert!(
+            matched.disguised,
+            "ASM loc_10342 should keep stepping `a1` by 8 bytes until `loc_10344` reaches the requested layout address, then reuse that exact entry",
+        );
     }
 
     #[test]
