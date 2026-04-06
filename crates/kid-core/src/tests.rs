@@ -33169,6 +33169,53 @@ fn deferred_helmet_ceiling_clear_replaces_existing_helmet_via_loc_10cf4_scan() {
     );
 }
 
+#[test]
+fn deferred_helmet_ceiling_clear_without_existing_helmet_falls_through_loc_10d38() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_blocks());
+    rt.floating_items.push(FloatingItem {
+        x_pos: 0x0030_0000,
+        y_pos: 0x0040_0000,
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 3,
+        level_row: 4,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Clock,
+        collected: false,
+    });
+    rt.block_state
+        .deferred_ceiling_clears
+        .push(DeferredCeilingClear {
+            col: 5,
+            row: 2,
+            content: terrain::PrizeContent::Cyclone,
+            restore_cell: terrain::Cell::from_be_bytes(0xE0, 0x03),
+            deleted_frames_remaining: 0,
+            phase: DeferredPrizeBlockPhase::PendingClear,
+        });
+
+    rt.finish_deferred_ceiling_clears();
+
+    assert!(
+        rt.block_destroy_effects.is_empty(),
+        "ASM loc_10D38 should be the no-match return path from sub_10CEC, so spawning a helmet with no older helmet owner must not create a cleanup effect",
+    );
+    assert!(
+        rt.floating_items
+            .iter()
+            .any(|item| item.content == terrain::PrizeContent::Clock),
+        "non-helmet prizes should survive the no-match scan"
+    );
+    assert!(
+        rt.floating_items
+            .iter()
+            .any(|item| item.content == terrain::PrizeContent::Cyclone),
+        "the requested helmet should still spawn after the loc_10D38 return path"
+    );
+}
+
 // --- Process block effects ---
 
 #[test]

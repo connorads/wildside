@@ -923,6 +923,9 @@ impl NativeRuntime {
             });
             false
         });
+        // ASM loc_10D38 (kid.asm:22644) is the shared epilogue after the
+        // loc_10CF4 scan, so when no older helmet matched the walk simply
+        // falls through here and returns without seeding any cleanup effect.
         self.block_destroy_effects.extend(removed_effects);
     }
 
