@@ -6856,6 +6856,17 @@ fn evanescent_block_reveal_descent_y_deltas_loc_1117a_use_four_hibernated_fall_f
 }
 
 #[test]
+fn evanescent_block_reveal_alt_branch_y_deltas_loc_11198_use_four_hibernated_rise_frames() {
+    let deltas = NativeRuntime::evanescent_block_reveal_alt_branch_y_deltas_loc_11198();
+
+    assert_eq!(
+        deltas,
+        &[-2, -2, -2, -2],
+        "ASM loc_11198 should spend four hibernated frames on `subq.w #2,y_pos(a3)` before the mirrored `loc_111A6` rebound",
+    );
+}
+
+#[test]
 fn evanescent_block_reveal_ascent_y_deltas_loc_11188_use_four_hibernated_rise_frames() {
     let deltas = NativeRuntime::evanescent_block_reveal_ascent_y_deltas_loc_11188();
 
