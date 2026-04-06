@@ -33308,6 +33308,15 @@ fn metal_block_effect_cell_words_loc_110d0_keeps_tile_coordinates_unshifted() {
 }
 
 #[test]
+fn metal_block_effect_sprite_pos_loc_1110e_scales_tile_words_into_pixels() {
+    assert_eq!(
+        NativeRuntime::metal_block_effect_sprite_pos_loc_1110E(5, 3),
+        (80, 48),
+        "ASM loc_1110E should mirror the cached `$44/$46` tile words into sprite-space with `lsl.w #4` for both axes",
+    );
+}
+
+#[test]
 fn rubber_block_contact_runs_sub_10de4_skin_sequence() {
     let mut rt = NativeRuntime::new(manifest());
     let mut grid = grid_with_floor_at_row(10);

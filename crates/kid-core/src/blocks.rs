@@ -1942,6 +1942,16 @@ impl NativeRuntime {
         (cell_x, cell_y)
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn metal_block_effect_sprite_pos_loc_1110E(cell_x: u16, cell_y: u16) -> (u16, u16) {
+        let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cell_x, cell_y);
+        // ASM loc_1110E (kid.asm:23038): copy the cached tile coordinates into
+        // sprite space with `lsl.w #4`, so the bounce worker renders at the
+        // struck block's top-left 16px cell origin.
+        (cell_x << 4, cell_y << 4)
+    }
+
     pub(crate) fn step_visual_effects(&mut self) {
         self.step_rubber_block_animations_sub_10de4();
         let level_height_pixels = i64::from(self.level_bounds(self.current_level).height_pixels);
