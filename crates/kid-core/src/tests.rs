@@ -172,6 +172,22 @@ fn gfx_object_delete_predecessor_index_loc_10b6_restarts_the_walk_from_the_senti
 }
 
 #[test]
+fn gfx_object_delete_loc_10c6_splices_the_target_into_the_free_list_and_routes_kind_2_to_kid_projectile()
+ {
+    assert_eq!(
+        gfx_object_delete_loc_10C6(Some(4), Some(7), 5, 2, 3),
+        GfxObjectDeleteLoc10C6 {
+            predecessor_next_index: Some(4),
+            target_next_free_index: Some(7),
+            next_free_head_index: 3,
+            next_number_gfx_objects: 4,
+            special_slot: GfxObjectSpecialSlotLoc10C6::KidProjectile,
+        },
+        "ASM loc_10C6 should splice `0(a3)` over the predecessor link, push `a3` onto `Addr_NextFreeGfxObjectSlot`, decrement `Number_GfxObjects`, and route object kind 2 through `Addr_GfxObject_KidProjectile`",
+    );
+}
+
+#[test]
 fn clear_owner_gfx_backref_loc_1078_ignores_odd_owner_pointers() {
     let links = clear_owner_gfx_backref_loc_1078(0x00FF_8001, [0x10, 0x20, 0x30], 0x20);
 

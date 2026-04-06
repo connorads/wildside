@@ -71,6 +71,25 @@ pub(crate) struct ObjectGfxLinksSubE02 {
     pub(crate) object_to_gfx_link: u32,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GfxObjectSpecialSlotLoc10C6 {
+    None,
+    Kid,
+    KidProjectile,
+    UnknownF86A,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GfxObjectDeleteLoc10C6 {
+    pub(crate) predecessor_next_index: Option<usize>,
+    pub(crate) target_next_free_index: Option<usize>,
+    pub(crate) next_free_head_index: usize,
+    pub(crate) next_number_gfx_objects: u16,
+    pub(crate) special_slot: GfxObjectSpecialSlotLoc10C6,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn clear_owner_gfx_backref_loc_1078(
@@ -117,6 +136,36 @@ pub(crate) fn gfx_object_delete_predecessor_index_loc_10B6(
     // reset `a0` to `(Addr_FirstGfxObjectSlot).w` so the shared `loc_10BA`
     // walk starts from the sentinel head before unlinking `a3`.
     gfx_object_predecessor_index_sub_FF6(next_indices, target_index)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_delete_loc_10C6(
+    target_next_index: Option<usize>,
+    next_free_head_index: Option<usize>,
+    number_gfx_objects: u16,
+    object_kind_word: u16,
+    target_index: usize,
+) -> GfxObjectDeleteLoc10C6 {
+    // ASM loc_10C6 (kid.asm:2041): splice `0(a3)` over the predecessor link,
+    // push `a3` onto `(Addr_NextFreeGfxObjectSlot).w`, decrement
+    // `Number_GfxObjects`, then fan out on `8(a3)` so kinds 1/2/3 clear the
+    // Kid / KidProjectile / `$FFFFF86A` singleton pointer before the shared
+    // `loc_1106` tail.
+    let special_slot = match object_kind_word {
+        1 => GfxObjectSpecialSlotLoc10C6::Kid,
+        2 => GfxObjectSpecialSlotLoc10C6::KidProjectile,
+        3 => GfxObjectSpecialSlotLoc10C6::UnknownF86A,
+        _ => GfxObjectSpecialSlotLoc10C6::None,
+    };
+
+    GfxObjectDeleteLoc10C6 {
+        predecessor_next_index: target_next_index,
+        target_next_free_index: next_free_head_index,
+        next_free_head_index: target_index,
+        next_number_gfx_objects: number_gfx_objects.wrapping_sub(1),
+        special_slot,
+    }
 }
 
 #[allow(non_snake_case)]
