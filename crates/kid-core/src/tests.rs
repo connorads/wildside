@@ -200,6 +200,21 @@ fn gfx_object_delete_loc_1114_copies_the_targets_successor_over_the_predecessor_
 }
 
 #[test]
+fn gfx_object_delete_special_chain_loc_111a_returns_without_relink_when_the_target_is_missing() {
+    let next_indices = [
+        Some(1), // sentinel -> first singleton entry
+        Some(2), // first singleton entry -> second singleton entry
+        None,
+    ];
+
+    assert_eq!(
+        gfx_object_delete_special_predecessor_index_loc_111A(&next_indices, 3),
+        None,
+        "ASM loc_111A should return immediately when the `loc_1106` singleton-chain walk hits a null `4(a0)` link before seeing `a3`",
+    );
+}
+
+#[test]
 fn gfx_object_delete_loc_10ea_routes_object_kind_2_to_the_kid_projectile_singleton_slot() {
     assert_eq!(
         gfx_object_delete_loc_10C6(None, Some(7), 5, 2, 3).special_slot,

@@ -183,6 +183,19 @@ pub(crate) fn gfx_object_delete_loc_10C6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_delete_special_predecessor_index_loc_111A(
+    next_indices: &[Option<usize>],
+    target_index: usize,
+) -> Option<usize> {
+    // ASM loc_1106 (kid.asm:2072): walk the special singleton chain through
+    // `4(a0)` until it finds `a3`. If `move.l 4(a0),d0` hits a null link
+    // first, `beq.s loc_111A` returns immediately without the `loc_1114`
+    // relink, so a miss is modelled as `None`.
+    gfx_object_predecessor_index_sub_FF6(next_indices, target_index)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_predecessor_index_sub_FF6(
     next_indices: &[Option<usize>],
     target_index: usize,
