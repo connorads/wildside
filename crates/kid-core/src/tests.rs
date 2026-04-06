@@ -15,9 +15,9 @@ use crate::boot::{
     end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
     end_sequence_falling_sprite_init_sub_1D8B4, hide_pause_menu_overwritten_sprites_sub_6874,
     hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    prize_10000_points_star_spawn_loc_10B3A, read_io_port_a10001_flags_sub_6E24,
-    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
-    vdp_upload_32_longwords_sub_44D0,
+    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
+    read_io_port_a10001_flags_sub_6E24, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
+    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -23108,6 +23108,69 @@ fn prize_10000_points_star_spawn_loc_10b3a_only_emits_every_fifth_frame_after_fr
         (spawn.x_velocity_fp, spawn.y_velocity_fp),
         (0x0001_0000, -0x0002_8000),
         "ASM loc_10B3A should select the fourth `unk_10BF4` velocity pair `($8,-$14)` when `d3=15` maps to spawn index 3",
+    );
+}
+
+#[test]
+fn prize_10000_points_star_step_loc_10b74_hides_moved_flag_once_timer_reaches_0x70() {
+    let step = prize_10000_points_star_step_loc_10B74(0x0000, 0x0070, 0x0040, 0x0030, 0, 0, true);
+
+    assert!(
+        !step.is_moved,
+        "ASM loc_10B74 should execute `sf $14(a1)` exactly on the `$70` timer branch"
+    );
+    assert_eq!(
+        step.x_pos, 0x0040,
+        "ASM loc_10B74 should not move the star while the timer is still above `$20`"
+    );
+    assert_eq!(
+        step.timer, 0x006F,
+        "ASM loc_10BCA should still decrement the timer after the `$70` visibility change"
+    );
+    assert_eq!(step.latched_screen_pos, None);
+    assert!(!step.delete_prize_worker);
+}
+
+#[test]
+fn prize_10000_points_star_step_loc_10b74_latches_screen_position_at_timer_0x20_before_moving_left()
+{
+    let step = prize_10000_points_star_step_loc_10B74(
+        0x0008, 0x0020, 0x0034, 0x0056, 0x0010, 0x0020, true,
+    );
+
+    assert_eq!(
+        step.latched_screen_pos,
+        Some((0x0024, 0x0036)),
+        "ASM loc_10B9A should store `$1A/$1E(a1) - Camera_X/Y_pos` into `$3E/$42(a1)` before loc_10BB2 starts the leftward drift",
+    );
+    assert_eq!(
+        step.x_pos, 0x002E,
+        "ASM loc_10BB2 should subtract 6 from the world X position once the timer reaches `$20`"
+    );
+    assert_eq!(
+        step.timer, 0x001F,
+        "ASM loc_10BCA should decrement the shared countdown after the `$20` branch"
+    );
+    assert!(step.is_moved);
+    assert!(!step.delete_prize_worker);
+}
+
+#[test]
+fn prize_10000_points_star_step_loc_10b74_deletes_the_parent_worker_when_the_last_star_exits_left()
+{
+    let step = prize_10000_points_star_step_loc_10B74(0x0010, 0x0010, -0x001B, 0x0000, 0, 0, true);
+
+    assert!(
+        step.delete_prize_worker,
+        "ASM loc_10B74 should jump to loc_10BE0 when the fifth star's updated screen X falls below `#$FFE0` after loc_10BB2",
+    );
+    assert_eq!(
+        step.x_pos, -0x0021,
+        "ASM loc_10BB2 should still apply the 6px left step before the off-screen kill check"
+    );
+    assert_eq!(
+        step.timer, 0x0010,
+        "ASM loc_10BE0 branches before loc_10BCA, so the deletion frame must not decrement the timer",
     );
 }
 

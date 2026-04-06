@@ -485,6 +485,15 @@ pub(crate) struct Prize10000PointsStarSpawnLoc10B3A {
     pub(crate) timer: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10000PointsStarStepLoc10B74 {
+    pub(crate) latched_screen_pos: Option<(i16, i16)>,
+    pub(crate) x_pos: i16,
+    pub(crate) is_moved: bool,
+    pub(crate) timer: u16,
+    pub(crate) delete_prize_worker: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonRowWriteSub1B71A {
     pub(crate) vram_word_address: u16,
@@ -872,6 +881,62 @@ pub(crate) fn prize_10000_points_star_spawn_loc_10B3A(
         is_moved: true,
         timer: 0x0078,
     })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn prize_10000_points_star_step_loc_10B74(
+    slot_offset: u16,
+    timer: u16,
+    x_pos: i16,
+    y_pos: i16,
+    camera_x_pos: i16,
+    camera_y_pos: i16,
+    is_moved: bool,
+) -> Prize10000PointsStarStepLoc10B74 {
+    // ASM loc_10B74 (kid.asm:22433): iterate the five cached star slots and
+    // branch by `$46(a1)`. `#$70` clears `$14(a1)` once before the shared
+    // countdown. `#$20` latches screen-space `$3E/$42` from world position
+    // minus camera before falling into loc_10BB2. Timers `<= #$20` move left
+    // by 6 px/frame, and the final slot (`d2 == #$10`) jumps to loc_10BE0
+    // once its updated screen X falls below `#$FFE0` (-32), skipping the
+    // countdown decrement on that deletion frame.
+    let mut next_x_pos = x_pos;
+    let mut next_is_moved = is_moved;
+    let mut next_timer = timer;
+    let mut latched_screen_pos = None;
+    let mut delete_prize_worker = false;
+
+    if timer == 0x0020 {
+        latched_screen_pos = Some((
+            x_pos.wrapping_sub(camera_x_pos),
+            y_pos.wrapping_sub(camera_y_pos),
+        ));
+    }
+
+    if timer <= 0x0020 {
+        next_x_pos = next_x_pos.wrapping_sub(6);
+        if slot_offset == 0x0010 {
+            let updated_screen_x = next_x_pos.wrapping_sub(camera_x_pos);
+            if updated_screen_x < -0x0020 {
+                delete_prize_worker = true;
+            }
+        }
+    } else if timer == 0x0070 {
+        next_is_moved = false;
+    }
+
+    if !delete_prize_worker {
+        next_timer = next_timer.wrapping_sub(1);
+    }
+
+    Prize10000PointsStarStepLoc10B74 {
+        latched_screen_pos,
+        x_pos: next_x_pos,
+        is_moved: next_is_moved,
+        timer: next_timer,
+        delete_prize_worker,
+    }
 }
 
 impl NativeRuntime {
