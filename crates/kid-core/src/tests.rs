@@ -1,8 +1,8 @@
 use super::*;
 use crate::blocks::{
-    FloatingPrizeFallStepLoc10C50, OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856,
-    OneTimePrizeScanStartLoc1086A, OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A,
-    Prize10DiamondsInitLoc108E8, Prize10DiamondsSpawnLoc108EE,
+    FloatingPrizeFallStepLoc10C50, LiftBlockRiseStepLoc113F4, OneTimePrizeEntryCheckLoc10876,
+    OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A, OneTimePrizeScanStepLoc10886,
+    OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8, Prize10DiamondsSpawnLoc108EE,
     Prize10DiamondsWorkerCountdownGateLoc10984, Prize10DiamondsWorkerInitLoc10988,
     Prize10DiamondsWorkerScanStartLoc10960, Prize10DiamondsWorkerStepLoc109C0,
     PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
@@ -35199,6 +35199,48 @@ fn lift_platform_vertical_step_sub_fd00_adds_signed_velocity_to_fp16_y() {
     assert_eq!(
         next_y, 0x007F_F8F8,
         "ASM sub_FD00 should add `$E(a3)` directly into `6(a3)`, preserving the fractional carry/borrow",
+    );
+}
+
+#[test]
+fn lift_block_rise_step_loc_113f4_moves_up_2px_for_eight_hibernating_iterations() {
+    let mut y_pos = 80u16;
+    let mut loop_counter = 7u16;
+    let mut steps = Vec::new();
+
+    loop {
+        let step = NativeRuntime::lift_block_rise_step_loc_113F4(y_pos, loop_counter);
+        steps.push(step);
+        y_pos = step.next_y_pos;
+        loop_counter = step.next_loop_counter;
+        if !step.should_repeat_loop {
+            break;
+        }
+    }
+
+    assert_eq!(steps.len(), 8);
+    assert!(
+        steps.iter().all(|step| step.should_hibernate_one_frame),
+        "ASM loc_113F4 should call `j_Hibernate_Object_1Frame` on every rise iteration before the `dbf d0,loc_113F4` back-edge",
+    );
+    assert_eq!(
+        steps[0],
+        LiftBlockRiseStepLoc113F4 {
+            next_y_pos: 78,
+            next_loop_counter: 6,
+            should_hibernate_one_frame: true,
+            should_repeat_loop: true,
+        },
+    );
+    assert_eq!(
+        steps.last().copied(),
+        Some(LiftBlockRiseStepLoc113F4 {
+            next_y_pos: 64,
+            next_loop_counter: u16::MAX,
+            should_hibernate_one_frame: true,
+            should_repeat_loop: false,
+        }),
+        "ASM loc_113F4 starts from `move.w #7,d0`, so the final `dbf` decrements to `-1` only after eight 2px upward moves",
     );
 }
 

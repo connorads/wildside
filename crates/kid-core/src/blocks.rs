@@ -216,6 +216,15 @@ pub(crate) struct ShiftingBlockActivationLoc11364 {
     pub(crate) reserved_above_cell: Option<terrain::Cell>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LiftBlockRiseStepLoc113F4 {
+    pub(crate) next_y_pos: u16,
+    pub(crate) next_loop_counter: u16,
+    pub(crate) should_hibernate_one_frame: bool,
+    pub(crate) should_repeat_loop: bool,
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
@@ -676,6 +685,23 @@ impl NativeRuntime {
 
         let signed_integer_y = i32::from(i16::from_ne_bytes(current_integer_y.to_ne_bytes()));
         signed_integer_y < i32::from(level_height_pixels)
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn lift_block_rise_step_loc_113F4(
+        y_pos: u16,
+        loop_counter: u16,
+    ) -> LiftBlockRiseStepLoc113F4 {
+        // ASM loc_113F4 (kid.asm:23335-23339): `subq.w #2,y_pos(a3)`, hibernate
+        // one frame, then `dbf d0,loc_113F4`, so `d0 = 7` yields eight 2px
+        // upward steps before the worker falls through to `sub_11530`.
+        LiftBlockRiseStepLoc113F4 {
+            next_y_pos: y_pos.wrapping_sub(2),
+            next_loop_counter: loop_counter.wrapping_sub(1),
+            should_hibernate_one_frame: true,
+            should_repeat_loop: loop_counter != 0,
+        }
     }
 
     #[allow(non_snake_case)]
