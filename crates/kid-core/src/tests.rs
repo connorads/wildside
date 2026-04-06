@@ -33087,6 +33087,36 @@ fn floating_ankh_loc_1071e_collects_before_timeout_and_grants_the_life_bonus() {
 }
 
 #[test]
+fn floating_ankh_loc_10738_stays_alive_while_above_level_bottom_and_uncollected() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.floating_items.push(FloatingItem {
+        x_pos: (4 * 16 + 8) << 16,
+        y_pos: i64::from(160 << 16),
+        y_velocity: 0,
+        remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+        spawn_delay: 0,
+        level_col: 4,
+        level_row: 10,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Ankh,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items.len(),
+        1,
+        "ASM loc_10738 should keep looping while the ankh stays above `Level_height_pixels` and `collision_type(a3)` remains zero",
+    );
+    assert_eq!(
+        rt.floating_items[0].remaining,
+        NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES - 1,
+        "ASM loc_10738 still burns one shared falling-prize countdown step before the later delete exit",
+    );
+}
+
+#[test]
 fn floating_skycutter_loc_10464_stays_alive_while_above_level_bottom_and_uncollected() {
     let mut rt = NativeRuntime::new(manifest());
     rt.floating_items.push(FloatingItem {

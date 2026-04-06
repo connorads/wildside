@@ -1356,6 +1356,10 @@ impl NativeRuntime {
             // ASM loc_10430 (kid.asm:21678): after the shared tail at
             // `loc_10404`, delete the prize object once `y_pos(a3)` reaches
             // or exceeds `Level_height_pixels`.
+            // ASM loc_10738 (kid.asm:21974) is PrizeAnkh's matching per-frame
+            // loop body: once `sub_10C38` updates the fall state, the object
+            // stays alive only while its integer `y_pos(a3)` remains strictly
+            // below `Level_height_pixels` and `collision_type(a3)` stays zero.
             // ASM loc_1047C (kid.asm:21709), loc_104C6 (kid.asm:21735),
             // loc_10510 (kid.asm:21761), loc_1055A (kid.asm:21787),
             // loc_105A4 (kid.asm:21813), loc_10638 (kid.asm:21865), and
