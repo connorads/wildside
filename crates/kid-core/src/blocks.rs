@@ -149,6 +149,12 @@ pub(crate) struct Prize10DiamondsWorkerScanStartLoc10960 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10DiamondsWorkerCountdownGateLoc10984 {
+    pub(crate) should_clear_display_enabled: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -487,6 +493,19 @@ impl NativeRuntime {
             first_worker_slot_byte_offset: 0,
             worker_slot_stride_bytes: 4,
             worker_table_len_bytes: 0x28,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_10_diamonds_worker_countdown_gate_loc_10984(
+        lifetime_frames: u16,
+    ) -> Prize10DiamondsWorkerCountdownGateLoc10984 {
+        // ASM loc_10984 (kid.asm:22223-22227): the `$70` frame clears
+        // `$14(a1)` with `sf` before branching into the shared countdown at
+        // `loc_109E8`; every other timer value just falls straight through.
+        Prize10DiamondsWorkerCountdownGateLoc10984 {
+            should_clear_display_enabled: lifetime_frames == 0x0070,
         }
     }
 

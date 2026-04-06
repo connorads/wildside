@@ -2,9 +2,10 @@ use super::*;
 use crate::blocks::{
     OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A,
     OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8,
-    Prize10DiamondsSpawnLoc108EE, Prize10DiamondsWorkerScanStartLoc10960,
-    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
-    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    Prize10DiamondsSpawnLoc108EE, Prize10DiamondsWorkerCountdownGateLoc10984,
+    Prize10DiamondsWorkerScanStartLoc10960, PrizeClockCountdownLoc10796,
+    PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
+    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -8014,6 +8015,24 @@ fn prize_10_diamonds_worker_scan_start_loc_10960_starts_at_slot_zero_and_scans_t
             worker_table_len_bytes: 0x28,
         },
         "ASM loc_10960 should seed `d2 = 0` before the worker scan advances in 4-byte steps across the ten longwords at `$44(a5)`",
+    );
+}
+
+#[test]
+fn prize_10_diamonds_worker_countdown_gate_loc_10984_clears_display_only_on_frame_0x70() {
+    assert_eq!(
+        NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(0x0070),
+        Prize10DiamondsWorkerCountdownGateLoc10984 {
+            should_clear_display_enabled: true,
+        },
+        "ASM loc_10984 should clear `$14(a1)` exactly on the `$70` countdown frame before falling into loc_109E8",
+    );
+    assert_eq!(
+        NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(0x006F),
+        Prize10DiamondsWorkerCountdownGateLoc10984 {
+            should_clear_display_enabled: false,
+        },
+        "ASM loc_10984 should leave `$14(a1)` untouched for non-`$70` countdown values",
     );
 }
 
