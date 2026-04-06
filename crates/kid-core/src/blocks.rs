@@ -945,11 +945,15 @@ impl NativeRuntime {
     pub(crate) const BLOCK_DESTROY_DIRECTION_ABOVE: u16 = 2;
     pub(crate) const BLOCK_DESTROY_DIRECTION_RIGHT: u16 = 3;
 
-    fn rubber_block_base_skin_for_sub_10de4(cell: terrain::Cell) -> Option<u8> {
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn rubber_block_base_skin_for_sub_10de4(cell: terrain::Cell) -> Option<u8> {
         if cell.block_type != terrain::BlockType::Rubber {
             return None;
         }
 
+        // ASM loc_10E06 (kid.asm:22730): rubber skins `$0C/$0D` share the
+        // low animation pair, so the worker seeds `d0` with `$E60C` before the
+        // shared `loc_10E0A` toggles between `$E60C` and `$E60D`.
         Some(match cell.skin {
             0x0C | 0x0D => 0x0C,
             _ => 0x0E,

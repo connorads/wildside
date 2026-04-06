@@ -33334,6 +33334,17 @@ fn rubber_block_contact_runs_sub_10de4_skin_sequence() {
 }
 
 #[test]
+fn rubber_block_base_skin_for_sub_10de4_loc_10e06_keeps_the_low_animation_pair_for_0c_and_0d() {
+    assert_eq!(
+        NativeRuntime::rubber_block_base_skin_for_sub_10de4(terrain::Cell::from_be_bytes(
+            0xE6, 0x0D,
+        )),
+        Some(0x0C),
+        "ASM loc_10E06 should seed rubber skins `$0C/$0D` from base frame `$E60C` so the shared writer only toggles the low pair",
+    );
+}
+
+#[test]
 fn process_block_effects_smash_creates_destroy_effect() {
     let mut rt = NativeRuntime::new(manifest());
     let mut slice = OpeningSliceState::new(default_bounds());
