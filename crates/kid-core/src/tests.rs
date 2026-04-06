@@ -33440,7 +33440,7 @@ fn iron_knight_smash_block_uses_sub_10eda_upward_offset() {
     assert_eq!(runtime.block_destroy_effects[0].x_px, 80);
     assert_eq!(
         runtime.block_destroy_effects[0].y_px, 220,
-        "ASM sub_10EDA direction=2 nudges the smash effect 4px upward before the 2-frame hibernate"
+        "ASM loc_10F1A subtracts 4 from `y_pos(a3)` when `d6 == 2`, so sub_10EDA nudges the smash effect 4px upward before the 2-frame hibernate"
     );
     assert_eq!(runtime.block_destroy_effects[0].remaining, 2);
 }
