@@ -2348,15 +2348,18 @@ impl NativeRuntime {
         }
     }
 
-    fn death_sprite_still_visible(player: PlayerState, camera: CameraState) -> bool {
-        let sprite_vertical_extent_px = Self::sprite_vertical_extent_loc_11EA(
-            true,
-            PLAYER_HEIGHT,
-            PLAYER_DEATH_SPRITE_Y_EXTENT_PX,
-        );
-        let y_screen_px = ((player.y_pos >> 16) as i32)
-            - ((camera.y_pos >> 16) as i32)
-            - sprite_vertical_extent_px;
+    #[allow(non_snake_case)]
+    pub(crate) fn sprite_visibility_window_loc_11EE(
+        sprite_x_px: i32,
+        sprite_y_px: i32,
+        camera: CameraState,
+        sprite_vertical_extent_px: i32,
+    ) -> bool {
+        // ASM loc_11EE (kid.asm:2208): `Make_SpriteFromGfxObject` subtracts
+        // the selected sprite extent from `y_pos-Camera_Y_pos`, rejects
+        // values above `$160` or below `$FF80`, then applies the same pattern
+        // to `x_pos-Camera_X_pos` with horizontal limits `$160/$FFC0`.
+        let y_screen_px = sprite_y_px - ((camera.y_pos >> 16) as i32) - sprite_vertical_extent_px;
         if !(-SPRITE_VISIBILITY_TOP_MARGIN_PX
             ..=physics::VIEWPORT_HEIGHT + SPRITE_VISIBILITY_BOTTOM_MARGIN_PX)
             .contains(&y_screen_px)
@@ -2364,10 +2367,24 @@ impl NativeRuntime {
             return false;
         }
 
-        let x_screen_px = ((player.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
+        let x_screen_px = sprite_x_px - ((camera.x_pos >> 16) as i32);
         (-SPRITE_VISIBILITY_LEFT_MARGIN_PX
             ..=physics::VIEWPORT_WIDTH + SPRITE_VISIBILITY_RIGHT_MARGIN_PX)
             .contains(&x_screen_px)
+    }
+
+    fn death_sprite_still_visible(player: PlayerState, camera: CameraState) -> bool {
+        let sprite_vertical_extent_px = Self::sprite_vertical_extent_loc_11EA(
+            true,
+            PLAYER_HEIGHT,
+            PLAYER_DEATH_SPRITE_Y_EXTENT_PX,
+        );
+        Self::sprite_visibility_window_loc_11EE(
+            (player.x_pos >> 16) as i32,
+            (player.y_pos >> 16) as i32,
+            camera,
+            sprite_vertical_extent_px,
+        )
     }
 
     fn build_death_shell_snapshot(&self, slice: OpeningSliceState) -> LevelSkipTransitionState {

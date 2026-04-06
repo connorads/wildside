@@ -4086,6 +4086,28 @@ fn loc_11ea_selects_the_alternate_sprite_vertical_extent_when_flagged() {
 }
 
 #[test]
+fn loc_11ee_applies_the_make_sprite_from_gfxobject_visibility_window() {
+    let camera = CameraState { x_pos: 0, y_pos: 0 };
+
+    assert!(
+        NativeRuntime::sprite_visibility_window_loc_11EE(0x0160, 0x0170, camera, 0x0010),
+        "ASM loc_11EE should keep sprites visible at the inclusive bottom edge when `y_pos-Camera_Y_pos-d6 == $160`"
+    );
+    assert!(
+        !NativeRuntime::sprite_visibility_window_loc_11EE(0x0160, 0x0171, camera, 0x0010),
+        "ASM loc_11EE should reject sprites once `y_pos-Camera_Y_pos-d6` exceeds `$160`"
+    );
+    assert!(
+        NativeRuntime::sprite_visibility_window_loc_11EE(-0x0040, -0x0070, camera, 0x0010),
+        "ASM loc_11EE should keep sprites visible at the inclusive left/top edges when the screen-space values equal `$FFC0` and `$FF80`"
+    );
+    assert!(
+        !NativeRuntime::sprite_visibility_window_loc_11EE(-0x0041, -0x0071, camera, 0x0010),
+        "ASM loc_11EE should reject sprites once the screen-space X/Y values drop below `$FFC0/$FF80`"
+    );
+}
+
+#[test]
 fn timing_regression_jump_press_on_block_grid_primes_takeoff_for_next_frame() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.set_block_grid(grid_with_floor_at_row(17));
