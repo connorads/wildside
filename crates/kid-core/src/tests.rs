@@ -1,8 +1,8 @@
 use super::*;
 use crate::blocks::{
-    OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A, PrizeClockCountdownLoc10796,
-    PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
-    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A,
+    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
+    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -7843,6 +7843,33 @@ fn one_time_prize_scan_start_loc_1086a_skips_the_header_and_scans_40_entries() {
             entry_byte_offset_from_table_base: 2,
         },
         "ASM loc_1086A should reset the DBF counter to `#$27`, copy `$4A(a5)` into `d1`, and start scanning at `2(a0)` after the header word",
+    );
+}
+
+#[test]
+fn one_time_prize_entry_check_loc_10876_only_hits_when_layout_and_level_match() {
+    assert_eq!(
+        NativeRuntime::one_time_prize_entry_check_loc_10876(0x4A72_0011, 0x4A72, 0x0011),
+        OneTimePrizeEntryCheckLoc10876 {
+            entry_layout_addr: 0x4A72,
+            entry_level_id: 0x0011,
+            layout_addr_matches: true,
+            level_id_matches: true,
+            should_init_prize_diamond: true,
+        },
+        "ASM loc_10876 should branch to `PrizeDiamond_Init` only when both `(a1)` and `2(a1)` match the current layout address and level ID",
+    );
+
+    assert_eq!(
+        NativeRuntime::one_time_prize_entry_check_loc_10876(0x4A72_0012, 0x4A72, 0x0011),
+        OneTimePrizeEntryCheckLoc10876 {
+            entry_layout_addr: 0x4A72,
+            entry_level_id: 0x0012,
+            layout_addr_matches: true,
+            level_id_matches: false,
+            should_init_prize_diamond: false,
+        },
+        "ASM loc_10876 should keep scanning when the layout word matches but the stored level differs",
     );
 }
 

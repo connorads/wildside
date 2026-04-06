@@ -90,6 +90,16 @@ pub(crate) struct OneTimePrizeScanStartLoc1086A {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OneTimePrizeEntryCheckLoc10876 {
+    pub(crate) entry_layout_addr: u16,
+    pub(crate) entry_level_id: u16,
+    pub(crate) layout_addr_matches: bool,
+    pub(crate) level_id_matches: bool,
+    pub(crate) should_init_prize_diamond: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -242,6 +252,31 @@ impl NativeRuntime {
             remaining_entry_checks: 0x27,
             prize_layout_addr,
             entry_byte_offset_from_table_base: 2,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn one_time_prize_entry_check_loc_10876(
+        packed_entry: u32,
+        prize_layout_addr: u16,
+        current_level_id: u16,
+    ) -> OneTimePrizeEntryCheckLoc10876 {
+        // ASM loc_10876 (kid.asm:22098): compare `(a1)` against the current
+        // prize layout address in `d1`; only on a layout match does the code
+        // load `Current_LevelID` into `d2`, compare `2(a1)`, and branch to
+        // `PrizeDiamond_Init` when both words match. Native packs each
+        // `(layout_addr, level_id)` pair as `0xLLLL_VVVV`.
+        let entry_layout_addr = (packed_entry >> 16) as u16;
+        let entry_level_id = packed_entry as u16;
+        let layout_addr_matches = entry_layout_addr == prize_layout_addr;
+        let level_id_matches = layout_addr_matches && entry_level_id == current_level_id;
+        OneTimePrizeEntryCheckLoc10876 {
+            entry_layout_addr,
+            entry_level_id,
+            layout_addr_matches,
+            level_id_matches,
+            should_init_prize_diamond: level_id_matches,
         }
     }
 
