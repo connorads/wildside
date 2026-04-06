@@ -25950,6 +25950,97 @@ fn loc_122f6_writes_cells_horizontally_at_stride_zero() {
 }
 
 #[test]
+fn loc_12320_queues_hidden_block_entry_for_row_by_row_placement() {
+    // ASM loc_12320 (kid.asm:24470-24477): row-by-row hidden-block handler.
+    // When `d0` is negative during stride placement, call sub_127A8/sub_127CE
+    // and write the hidden-block list entry:
+    //   bsr.w sub_127A8
+    //   bsr.w sub_127CE
+    //   move.w a4,(a2)+    ; cell address
+    //   move.w d1,(a2)+    ; X position
+    //   move.w d2,(a2)+    ; Y row
+    //   move.b d0,(a2)+    ; block type (negative byte)
+    //   clr.b (a2)+        ; zero padding byte
+    let result = crate::level::block_place_row_by_row_hidden_loc_12320(
+        0x9E40, // cell_addr (Level_Layout)
+        0x0012, // x_pos (column 18)
+        0x0008, // y_row (row 8)
+        -1i16,  // hidden_block_type (negative signals hidden block)
+    );
+    assert_eq!(
+        result.cell_addr, 0x9E40,
+        "ASM loc_12320 should preserve the cell address for hidden-block list entry",
+    );
+    assert_eq!(
+        result.x_pos, 0x0012,
+        "ASM loc_12320 should store X position from d1",
+    );
+    assert_eq!(
+        result.y_row, 0x0008,
+        "ASM loc_12320 should store Y row from d2",
+    );
+    assert_eq!(
+        result.block_type, -1i16,
+        "ASM loc_12320 should preserve the negative block type marker from d0",
+    );
+}
+
+#[test]
+fn loc_12332_advances_cell_addr_by_level_width_tiles() {
+    // ASM loc_12332 (kid.asm:24479-24481): row-by-row stride continuation.
+    // After placing (or skipping) a cell, advance to the next row:
+    //   add.w (Level_width_tiles).w,a4
+    //   dbf d3,loc_12318
+    //   bra.s loc_122C0
+    let result = crate::level::block_place_row_by_row_advance_loc_12332(
+        0x9E40, // cell_addr (start of row cell in Level_Layout)
+        64,     // level_width_tiles (e.g., 64 tiles wide)
+    );
+    assert_eq!(
+        result.next_cell_addr, 0x9EC0,
+        "ASM loc_12332 should advance cell address by Level_width_tiles * 2 bytes",
+    );
+    // Test wraparound: 16-bit address arithmetic
+    let wrapped = crate::level::block_place_row_by_row_advance_loc_12332(
+        0xFFFF, // cell_addr at end of address space
+        64,     // level_width_tiles
+    );
+    assert_eq!(
+        wrapped.next_cell_addr,
+        0x007F, // 0xFFFF + 64*2 = 0x1007F -> wraps to 0x007F
+        "ASM loc_12332 should use 16-bit wrapping arithmetic for cell address",
+    );
+}
+
+#[test]
+fn loc_1233e_reads_layout_entry_and_returns_on_terminator() {
+    // ASM loc_1233E (kid.asm:24488-24492): block layout entry reader for
+    // block types dispatched through AddrTbl_BlockTypes entry 7. The routine
+    // reads one word from `(a1)+` into `d1`:
+    //   move.w (a1)+,d1
+    //   bpl.s loc_12346      ; continue if positive (X position)
+    //   move.l (sp)+,a3      ; restore saved register
+    //   rts                  ; return from block handler
+    // Positive values are X positions; $8000+ signals end-of-layout.
+    let result = crate::level::block_layout_read_entry_loc_1233E(0x0014);
+    assert_eq!(
+        result,
+        Some(crate::level::BlockLayoutEntryLoc1233E { x_pos: 0x0014 }),
+        "ASM loc_1233E should return Some(X position) for positive layout word",
+    );
+    let negative = crate::level::block_layout_read_entry_loc_1233E(0x8000);
+    assert_eq!(
+        negative, None,
+        "ASM loc_1233E should return None for terminator word $8000",
+    );
+    let terminator = crate::level::block_layout_read_entry_loc_1233E(0xFFFF);
+    assert_eq!(
+        terminator, None,
+        "ASM loc_1233E should return None for any negative terminator word",
+    );
+}
+
+#[test]
 fn loc_11d46_copies_exactly_a2_longwords_and_ors_each_with_the_prepared_mask() {
     let source_longwords = (0..0xA4).map(|value| value as u32).collect::<Vec<_>>();
     let copied = crate::level::copy_block_mappings_loc_11D46(&source_longwords, 0x8000_8000);

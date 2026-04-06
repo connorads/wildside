@@ -457,6 +457,90 @@ pub(crate) fn block_place_cells_loc_122F6(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockPlaceRowByRowResultLoc12320 {
+    pub(crate) cell_addr: u32,
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+    pub(crate) block_type: i16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_place_row_by_row_hidden_loc_12320(
+    cell_addr: u32,
+    x_pos: u16,
+    y_row: u16,
+    hidden_block_type: i16,
+) -> BlockPlaceRowByRowResultLoc12320 {
+    // ASM loc_12320 (kid.asm:24470-24477): when `d0` is negative during row-by-row
+    // placement (stride != 0), call sub_127A8/sub_127CE to queue a hidden-block
+    // entry, then store the cell address, X position, Y row, and block type in
+    // the hidden-block list at `(a2)+`:
+    //   bsr.w sub_127A8
+    //   bsr.w sub_127CE
+    //   move.w a4,(a2)+    ; cell address
+    //   move.w d1,(a2)+    ; X position
+    //   move.w d2,(a2)+    ; Y row
+    //   move.b d0,(a2)+    ; block type (negative byte stored)
+    //   clr.b (a2)+        ; zero padding byte
+    BlockPlaceRowByRowResultLoc12320 {
+        cell_addr,
+        x_pos,
+        y_row,
+        block_type: hidden_block_type,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockPlaceRowByRowAdvanceLoc12332 {
+    pub(crate) next_cell_addr: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_place_row_by_row_advance_loc_12332(
+    cell_addr: u32,
+    level_width_tiles: u16,
+) -> BlockPlaceRowByRowAdvanceLoc12332 {
+    // ASM loc_12332 (kid.asm:24479-24481): after writing (or skipping) a cell
+    // in row-by-row stride mode, advance the cell address by one full row:
+    //   add.w (Level_width_tiles).w,a4
+    //   dbf d3,loc_12318
+    //   bra.s loc_122C0
+    // The address advances by Level_width_tiles (in words), returning to the
+    // same column in the next row down.
+    BlockPlaceRowByRowAdvanceLoc12332 {
+        next_cell_addr: cell_addr.wrapping_add(u32::from(level_width_tiles) * 2),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutEntryLoc1233E {
+    pub(crate) x_pos: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_read_entry_loc_1233E(
+    layout_word: u16,
+) -> Option<BlockLayoutEntryLoc1233E> {
+    // ASM loc_1233E (kid.asm:24488-24492): reads the next layout word from `(a1)+`
+    // into `d1` and returns immediately if the value is negative (bit 15 set),
+    // signalling end-of-layout. Otherwise continues to loc_12346 for processing:
+    //   move.w (a1)+,d1
+    //   bpl.s loc_12346
+    //   move.l (sp)+,a3
+    //   rts
+    // This is the entry point for block types dispatched through AddrTbl_BlockTypes
+    // entry 7 (loc_1233C pushes a3 first, then falls into loc_1233E).
+    if layout_word & 0x8000 != 0 {
+        None
+    } else {
+        Some(BlockLayoutEntryLoc1233E { x_pos: layout_word })
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_copy_setup_loc_11C96(
