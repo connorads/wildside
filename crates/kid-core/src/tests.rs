@@ -1,12 +1,13 @@
 use super::*;
 use crate::blocks::{
-    FloatingPrizeFallStepLoc10C50, LiftBlockRiseStepLoc113F4, OneTimePrizeEntryCheckLoc10876,
-    OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A, OneTimePrizeScanStepLoc10886,
-    OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8, Prize10DiamondsSpawnLoc108EE,
-    Prize10DiamondsWorkerCountdownGateLoc10984, Prize10DiamondsWorkerInitLoc10988,
-    Prize10DiamondsWorkerScanStartLoc10960, Prize10DiamondsWorkerStepLoc109C0,
-    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
-    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    FloatingPrizeFallStepLoc10C50, LiftBlockFallStepLoc1141E, LiftBlockRiseStepLoc113F4,
+    OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A,
+    OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8,
+    Prize10DiamondsSpawnLoc108EE, Prize10DiamondsWorkerCountdownGateLoc10984,
+    Prize10DiamondsWorkerInitLoc10988, Prize10DiamondsWorkerScanStartLoc10960,
+    Prize10DiamondsWorkerStepLoc109C0, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
+    PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
+    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -35241,6 +35242,50 @@ fn lift_block_rise_step_loc_113f4_moves_up_2px_for_eight_hibernating_iterations(
             should_repeat_loop: false,
         }),
         "ASM loc_113F4 starts from `move.w #7,d0`, so the final `dbf` decrements to `-1` only after eight 2px upward moves",
+    );
+}
+
+#[test]
+fn lift_block_fall_step_loc_1141e_descends_1px_for_sixteen_frames_then_deletes() {
+    let mut y_pos = 80u16;
+    let mut loop_counter = 0x0Fu16;
+    let mut steps = Vec::new();
+
+    loop {
+        let step = NativeRuntime::lift_block_fall_step_loc_1141E(y_pos, loop_counter);
+        steps.push(step);
+        y_pos = step.next_y_pos;
+        loop_counter = step.next_loop_counter;
+        if !step.should_repeat_loop {
+            break;
+        }
+    }
+
+    assert_eq!(steps.len(), 16);
+    assert!(
+        steps.iter().all(|step| step.should_hibernate_one_frame),
+        "ASM loc_1141E should call `j_Hibernate_Object_1Frame` before each `dbf d0,loc_1141E` check during the descent",
+    );
+    assert_eq!(
+        steps[0],
+        LiftBlockFallStepLoc1141E {
+            next_y_pos: 79,
+            next_loop_counter: 0x0E,
+            should_hibernate_one_frame: true,
+            should_delete_current_object: false,
+            should_repeat_loop: true,
+        },
+    );
+    assert_eq!(
+        steps.last().copied(),
+        Some(LiftBlockFallStepLoc1141E {
+            next_y_pos: 64,
+            next_loop_counter: u16::MAX,
+            should_hibernate_one_frame: true,
+            should_delete_current_object: true,
+            should_repeat_loop: false,
+        }),
+        "ASM loc_1141E starts from `move.w #$F,d0`, so the worker only reaches `Delete_CurrentObject` after sixteen 1px descent steps",
     );
 }
 
