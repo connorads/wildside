@@ -61,6 +61,7 @@ pub(crate) struct PrizeClockFallGateLoc107B0 {
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
+    pub(crate) should_delete_current_object: bool,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -132,10 +133,13 @@ impl NativeRuntime {
         // loop, decrement the shared `$FFFFFB55` refcount and play
         // `sfx_Clock_prize` through `PlaySound2` only when that decremented
         // count reaches zero.
+        // ASM loc_107EE (kid.asm:22034): the routine then jumps straight to
+        // `Delete_CurrentObject` regardless of whether the stop sound ran.
         let next_refcount = active_clock_prize_sounds.wrapping_sub(1);
         PrizeClockSoundCleanupLoc107E0 {
             next_refcount,
             should_play_stop_sound: next_refcount == 0,
+            should_delete_current_object: true,
         }
     }
 

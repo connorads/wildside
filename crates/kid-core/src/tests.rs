@@ -7763,6 +7763,7 @@ fn prize_clock_sound_cleanup_loc_107e0_only_stops_the_last_loop() {
         PrizeClockSoundCleanupLoc107E0 {
             next_refcount: 0,
             should_play_stop_sound: true,
+            should_delete_current_object: true,
         },
         "ASM loc_107E0 should play `sfx_Clock_prize` through `PlaySound2` only when the decremented shared refcount reaches zero",
     );
@@ -7771,8 +7772,13 @@ fn prize_clock_sound_cleanup_loc_107e0_only_stops_the_last_loop() {
         PrizeClockSoundCleanupLoc107E0 {
             next_refcount: 3,
             should_play_stop_sound: false,
+            should_delete_current_object: true,
         },
         "ASM loc_107E0 should skip the stop sound while another live clock prize still owns the shared loop",
+    );
+    assert!(
+        NativeRuntime::prize_clock_sound_cleanup_loc_107E0(2).should_delete_current_object,
+        "ASM loc_107EE should jump straight to `Delete_CurrentObject` after the shared clock-sound cleanup tail",
     );
 }
 
