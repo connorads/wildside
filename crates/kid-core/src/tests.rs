@@ -35645,6 +35645,24 @@ fn ice_block_effect_sub_10f9c_uses_loc_10fe8_rightward_offset() {
 }
 
 #[test]
+fn ice_block_effect_sub_10f9c_uses_the_default_downward_offset_when_d6_is_zero() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    runtime.spawn_ice_block_effect_sub_10f9c(80, 48, NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW);
+
+    assert_eq!(runtime.block_destroy_effects.len(), 1);
+    assert_eq!(
+        runtime.block_destroy_effects[0].x_px, 80,
+        "ASM sub_10F9C falls through to the default branch when `d6 == 0`, so the ice effect should keep its source X position before the shared `loc_10FEC` tail",
+    );
+    assert_eq!(
+        runtime.block_destroy_effects[0].y_px, 52,
+        "ASM sub_10F9C takes the default `addq.w #4,y_pos(a3)` path when `d6` is neither 1, 2, nor 3, so the ice effect should nudge 4px downward before the 3-frame hibernate",
+    );
+    assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
+}
+
+#[test]
 fn smash_block_effect_sub_10eda_uses_loc_10f20_leftward_offset() {
     let mut runtime = NativeRuntime::new(manifest());
 
