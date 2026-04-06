@@ -39087,3 +39087,167 @@ fn step_hud_animation_sub_44dc_keeps_existing_offsets_when_no_counter_expires() 
     assert!(step.diamond_upload.is_none());
     assert!(step.flag_upload.is_none());
 }
+
+#[test]
+fn loc_123_dc_initializes_block_list_pointer_when_empty() {
+    // ASM loc_123DC (kid.asm:24579-24582): block type 1 entry point. Loads the
+    // prize block list pointer from $FFFFF8D4 and checks if it's non-zero:
+    //   move.l ($FFFFF8D4).w,d1   ; load existing pointer
+    //   bne.s loc_123E6           ; skip init if already set
+    //   move.l a5,($FFFFF8D4).w   ; storeprize list base
+    // When existing_list_addr is 0, initializes with prize_list_addr.
+    let init_result = crate::level::block_type_1_init_list_loc_123dc(0, 0xFF3B24);
+    assert_eq!(
+        init_result.block_list_addr, 0xFF3B24,
+        "ASM loc_123DC should initialize block list when pointer is zero",
+    );
+    assert!(
+        !init_result.already_initialized,
+        "ASM loc_123DC should report not initialized when pointer was zero",
+    );
+}
+
+#[test]
+fn loc_123_dc_preserves_existing_list_pointer() {
+    // When the block list pointer is already set, loc_123DC returns it unchanged:
+    let existing_result = crate::level::block_type_1_init_list_loc_123dc(0xFF4500, 0xFF3B24);
+    assert_eq!(
+        existing_result.block_list_addr, 0xFF4500,
+        "ASM loc_123DC should return existing pointer when already initialized",
+    );
+    assert!(
+        existing_result.already_initialized,
+        "ASM loc_123DC should report initialized when pointer was non-zero",
+    );
+}
+
+#[test]
+fn loc_123_e6_reads_layout_entry_and_returns_on_terminator() {
+    // ASM loc_123E6 (kid.asm:24584-24587): block type 1 layout reader.
+    // Reads one word from `(a1)+` into `d1`:
+    //   move.w (a1)+,d1
+    //   bpl.s loc_123EC       ; continue if positive (X position)
+    //   rts                  ; return from block handler
+    // Positive values are X positions; $8000+ signals end-of-layout.
+    let result = crate::level::block_layout_read_x_pos_loc_123e6(0x0020);
+    assert_eq!(
+        result,
+        Some(crate::level::BlockLayoutEntryLoc123E6 { x_pos: 0x0020 }),
+        "ASM loc_123E6 should return Some(X position) for positive layout word",
+    );
+    let negative = crate::level::block_layout_read_x_pos_loc_123e6(0x8000);
+    assert_eq!(
+        negative, None,
+        "ASM loc_123E6 should return None for terminator word $8000",
+    );
+    let terminator = crate::level::block_layout_read_x_pos_loc_123e6(0xFFFF);
+    assert_eq!(
+        terminator, None,
+        "ASM loc_123E6 should return None for any negative terminator word",
+    );
+}
+
+#[test]
+fn loc_123_ec_calculates_cell_address_from_coordinates() {
+    // ASM loc_123EC (kid.asm:24590-24601): coordinate parser for block type 1.
+    // Reads Y position, count, and stride flag, then calculates cell address:
+    //   move.w (a1)+,d2       ; Y row coordinate
+    //   move.w d2,d3
+    //   add.w d3,d3          ; d3 = Y * 2 (word index)
+    //   lea ($FFFF4A04).l,a2 ; row pointer table
+    //   move.w (a2,d3.w),a4  ; a4 = row_start_addr for Y
+    //   add.w d1,a4
+    //   add.w d1,a4          ; a4 = row_start + 2*X
+    //   move.w (a1)+,d3      ; count
+    //   subq.w #1,d3         ; count - 1 for dbf
+    //   tst.w (a1)+          ; stride flag
+    //   bne.s loc_12454       ; branch if non-zero (row-by-row)
+    let row_table = vec![
+        0xA000, // row 0: starts at $A000
+        0xA040, // row 1: starts at $A040 (64 cells wide -> 128 bytes per row)
+        0xA080, // row 2
+    ];
+    let result = crate::level::block_type_1_cell_coords_loc_123ec(
+        &[0x0001, 0x0005, 0x0000], // Y=1, count=5, stride=0 (horizontal)
+        &row_table,
+        0x0010, // X = 16
+    );
+    let setup = result.expect("loc_123EC should return setup for valid input");
+    assert_eq!(
+        setup.cell_addr, 0xA060,
+        "ASM loc_123EC: row 1 (0xA040) + X*2 (0x20) = 0xA060",
+    );
+    assert_eq!(setup.y_row, 1, "Y row should be 1");
+    assert_eq!(setup.count, 5, "count should be 5");
+    assert!(!setup.stride, "stride should be false (horizontal)");
+    assert_eq!(setup.words_consumed, 3, "should consume 3 words");
+}
+
+#[test]
+fn loc_123_ec_detects_row_by_row_stride() {
+    // Non-zero stride word triggers row-by-row placement (branches to loc_12454)
+    let result = crate::level::block_type_1_cell_coords_loc_123ec(
+        &[0x0002, 0x0003, 0x0001], // Y=2, count=3, stride=1 (row-by-row)
+        &[0xA000, 0xA040, 0xA080],
+        0x0008,
+    );
+    let setup = result.expect("loc_123EC should handle non-zero stride");
+    assert!(setup.stride, "Non-zero stride should be true");
+}
+
+#[test]
+fn loc_123_ec_returns_none_for_insufficient_data() {
+    // Need at least 3 words: Y, count, stride
+    let result = crate::level::block_type_1_cell_coords_loc_123ec(
+        &[0x0001, 0x0002], // only 2 words
+        &[0xA000],
+        0x0010,
+    );
+    assert_eq!(
+        result, None,
+        "ASM loc_123EC should return None with insufficient data"
+    );
+}
+
+#[test]
+fn loc_124_08_determines_prize_block_cell_value() {
+    // ASM loc_12408 (kid.asm:24603-24611): horizontal placement cell for block type 1.
+    //   move.w (a1)+,d5       ; property word
+    //   bsr.w nullsub_1       ; no-op
+    //   tst.w d0              ; test block_type (pre-existing value)
+    //   bmi.s loc_12422       ; branch if hidden (negative)
+    //   tst.w d5              ; test property word
+    //   bmi.s loc_1241C       ; branch if bit 15 set
+    //   move.w #$E102,(a4)    ; write $E102 (visible prize)
+    //   bra.s loc_12434
+    // loc_1241C:
+    //   move.w #$E101,(a4)    ; write $E101 (disguised/hidden prize)
+    // The $E101 has bit 15 set (disguised flag), $E102 is normal prize block.
+    // When block_type is negative, the function returns $E101 (caller handles hidden).
+    let visible_result = crate::level::block_type_1_cell_value_loc_12408(
+        0xA000, // cell address
+        0x0000, // property word (no disguised flag)
+        1,      // block type 1 (positive = non-hidden)
+    );
+    assert_eq!(
+        visible_result.cell_word, 0xE102,
+        "ASM loc_12408: normal prize block with no flag should use $E102",
+    );
+
+    let disguised_result = crate::level::block_type_1_cell_value_loc_12408(
+        0xA000, 0x8000, // property word with disguised flag (bit 15 set)
+        1,
+    );
+    assert_eq!(
+        disguised_result.cell_word, 0xE101,
+        "ASM loc_12408: property word with bit 15 set should use $E101",
+    );
+
+    let hidden_result = crate::level::block_type_1_cell_value_loc_12408(
+        0xA000, 0x0000, -1, // negative block_type = hidden
+    );
+    assert_eq!(
+        hidden_result.cell_word, 0xE101,
+        "ASM loc_12408: hidden block type should use $E101",
+    );
+}

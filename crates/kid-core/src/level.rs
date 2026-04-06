@@ -665,6 +665,170 @@ pub(crate) fn block_layout_read_entry_loc_1233E(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1InitLoc123DC {
+    pub(crate) block_list_addr: u32,
+    pub(crate) already_initialized: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1_init_list_loc_123dc(
+    existing_list_addr: u32,
+    prize_list_addr: u32,
+) -> BlockType1InitLoc123DC {
+    // ASM loc_123DC (kid.asm:24579-24582): block type 1 (prize block) entry point.
+    // Initializes the block list pointer if not already set:
+    //   move.l ($FFFFF8D4).w,d1   ; load existing block list pointer
+    //   bne.s loc_123E6           ; if non-zero, skip init
+    //   move.l a5,($FFFFF8D4).w   ; store prize list base address
+    // The $FFFFF8D4 variable holds a pointer to the prize/hidden block list.
+    // a5 contains the starting address for theprize block entries.
+    // This allows multiple prize block groups to share a single list allocation.
+    if existing_list_addr != 0 {
+        BlockType1InitLoc123DC {
+            block_list_addr: existing_list_addr,
+            already_initialized: true,
+        }
+    } else {
+        BlockType1InitLoc123DC {
+            block_list_addr: prize_list_addr,
+            already_initialized: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutEntryLoc123E6 {
+    pub(crate) x_pos: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_read_x_pos_loc_123e6(
+    layout_word: u16,
+) -> Option<BlockLayoutEntryLoc123E6> {
+    // ASM loc_123E6 (kid.asm:24584-24587): reads the next layout word from `(a1)+`
+    // into `d1` for block type 1 processing. Returns if the value is negative
+    // (bit 15 set), signalling end-of-layout. Otherwise continues to loc_123EC:
+    //   move.w (a1)+,d1
+    //   bpl.s loc_123EC
+    //   rts
+    // This mirrors loc_122C0 but for the block type 1 handler dispatch.
+    // The block type 1 handler is reached via AddrTbl_BlockTypes entry 1.
+    if layout_word & 0x8000 != 0 {
+        None
+    } else {
+        Some(BlockLayoutEntryLoc123E6 { x_pos: layout_word })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1CellSetupLoc123EC {
+    pub(crate) cell_addr: u32,
+    pub(crate) y_row: u16,
+    pub(crate) count: u16,
+    pub(crate) stride: bool,
+    pub(crate) words_consumed: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1_cell_coords_loc_123ec(
+    layout_words: &[u16],
+    row_pointer_table: &[u16],
+    x_pos: u16,
+) -> Option<BlockType1CellSetupLoc123EC> {
+    // ASM loc_123EC (kid.asm:24590-24601): block type 1 coordinate and stride parser.
+    // Called after loc_123E6 read an X position into `d1`. This routine reads:
+    //   move.w (a1)+,d2       ; Y row coordinate
+    //   move.w d2,d3
+    //   add.w d3,d3          ; d3 = Y * 2 (row table index)
+    //   lea ($FFFF4A04).l,a2 ; Level_Layout row pointer table
+    //   move.w (a2,d3.w),a4  ; a4 = row_start_addr for Y
+    //   add.w d1,a4
+    //   add.w d1,a4          ; a4 = row_start + 2*X (cell address in Level_Layout)
+    //   move.w (a1)+,d3      ; count (number of cells to place)
+    //   subq.w #1,d3         ; d3 = count - 1 (for dbf loop)
+    //   tst.w (a1)+          ; stride flag: 0 = horizontal, non-zero = row-by-row
+    //   bne.s loc_12454      ; branch to row-by-row handler if stride != 0
+    // Returns (setup, words_consumed) or None if layout exhausted.
+    if layout_words.len() < 3 {
+        return None;
+    }
+    let y_row = layout_words[0];
+    let count = layout_words[1];
+    let stride = layout_words[2] != 0;
+
+    let y_idx = usize::from(y_row) * 2;
+    if y_idx + 1 >= row_pointer_table.len() * 2 {
+        return None;
+    }
+    let row_start = if y_idx < row_pointer_table.len() * 2 {
+        u32::from(row_pointer_table[y_idx / 2])
+    } else {
+        return None;
+    };
+
+    let cell_addr = row_start.wrapping_add(u32::from(x_pos) * 2);
+
+    Some(BlockType1CellSetupLoc123EC {
+        cell_addr,
+        y_row,
+        count,
+        stride,
+        words_consumed: 3,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockType1CellValueLoc12408 {
+    pub(crate) cell_addr: u32,
+    pub(crate) cell_word: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_type_1_cell_value_loc_12408(
+    cell_addr: u32,
+    property_word: u16,
+    block_type: i16,
+) -> BlockType1CellValueLoc12408 {
+    // ASM loc_12408 (kid.asm:24603-24611): determines the cell value for block type 1
+    // (prize block) when stride is zero (horizontal placement).
+    //   move.w (a1)+,d5       ; property/flags word
+    //   bsr.w nullsub_1       ; does nothing, just returns
+    //   tst.w d0              ; test pre-existing d0 (block type)
+    //   bmi.s loc_12422       ; if negative (hidden), branch
+    //   tst.w d5              ; test property word
+    //   bmi.s loc_1241C       ; if negative, use $E101
+    //   move.w #$E102,(a4)    ; write $E102 tile
+    //   bra.s loc_12434
+    // loc_1241C:
+    //   move.w #$E101,(a4)    ; write $E101 tile
+    //   bra.s loc_12434
+    // The $E101/$E102 values are prize block tile IDs. $E101 has the high bit set
+    // (disguised/hidden prize), $E102 is the normal visible prize block.
+    // The bsr.w nullsub_1 is a no-op; d0 is tested to check if this is a hidden block
+    // (negative block_type from a prior hidden-block detection routine).
+    // When block_type is non-negative and property_word has bit 15 set, use $E101.
+    // Otherwise use $E102 for normal prize blocks.
+    let cell_word = if block_type < 0 {
+        // Hidden block case branches to loc_12422, which calls sub_127A8/sub_127CE
+        // For this native function, we return the cell_addr and let caller handle
+        // the hidden-block queueing separately.
+        0xE101
+    } else if property_word & 0x8000 != 0 {
+        0xE101
+    } else {
+        0xE102
+    };
+    BlockType1CellValueLoc12408 {
+        cell_addr,
+        cell_word,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_copy_setup_loc_11C96(
