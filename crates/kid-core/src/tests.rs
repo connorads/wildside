@@ -1,8 +1,9 @@
 use super::*;
 use crate::blocks::{
     OneTimePrizeEntryCheckLoc10876, OneTimePrizeInitLoc10856, OneTimePrizeScanStartLoc1086A,
-    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
-    PrizeClockSoundRefcountLoc10792, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    OneTimePrizeScanStepLoc10886, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
+    PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
+    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
@@ -7870,6 +7871,29 @@ fn one_time_prize_entry_check_loc_10876_only_hits_when_layout_and_level_match() 
             should_init_prize_diamond: false,
         },
         "ASM loc_10876 should keep scanning when the layout word matches but the stored level differs",
+    );
+}
+
+#[test]
+fn one_time_prize_scan_step_loc_10886_advances_four_bytes_and_honours_dbf_underflow() {
+    assert_eq!(
+        NativeRuntime::one_time_prize_scan_step_loc_10886(0x0027, 2),
+        OneTimePrizeScanStepLoc10886 {
+            next_remaining_entry_checks: 0x0026,
+            next_entry_byte_offset_from_table_base: 6,
+            should_continue_scan: true,
+        },
+        "ASM loc_10886 should advance `a1` by one packed entry and keep looping while DBF leaves `d0` above `$FFFF`",
+    );
+
+    assert_eq!(
+        NativeRuntime::one_time_prize_scan_step_loc_10886(0, 0x009E),
+        OneTimePrizeScanStepLoc10886 {
+            next_remaining_entry_checks: 0xFFFF,
+            next_entry_byte_offset_from_table_base: 0x00A2,
+            should_continue_scan: false,
+        },
+        "ASM loc_10886 should stop after the final scan iteration when DBF decrements zero to `$FFFF`",
     );
 }
 

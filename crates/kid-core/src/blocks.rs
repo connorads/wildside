@@ -100,6 +100,14 @@ pub(crate) struct OneTimePrizeEntryCheckLoc10876 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OneTimePrizeScanStepLoc10886 {
+    pub(crate) next_remaining_entry_checks: u16,
+    pub(crate) next_entry_byte_offset_from_table_base: u16,
+    pub(crate) should_continue_scan: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
     pub(crate) should_play_stop_sound: bool,
@@ -277,6 +285,24 @@ impl NativeRuntime {
             layout_addr_matches,
             level_id_matches,
             should_init_prize_diamond: level_id_matches,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn one_time_prize_scan_step_loc_10886(
+        remaining_entry_checks: u16,
+        entry_byte_offset_from_table_base: u16,
+    ) -> OneTimePrizeScanStepLoc10886 {
+        // ASM loc_10886 (kid.asm:22107): advance `a1` by four bytes to the
+        // next packed entry, then `dbf d0,loc_10876` repeats until the
+        // post-decrement counter underflows from zero to `$FFFF`.
+        let next_remaining_entry_checks = remaining_entry_checks.wrapping_sub(1);
+        OneTimePrizeScanStepLoc10886 {
+            next_remaining_entry_checks,
+            next_entry_byte_offset_from_table_base: entry_byte_offset_from_table_base
+                .wrapping_add(4),
+            should_continue_scan: next_remaining_entry_checks != u16::MAX,
         }
     }
 
