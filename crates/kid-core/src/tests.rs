@@ -15,9 +15,10 @@ use crate::boot::{
     end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
     end_sequence_falling_sprite_init_sub_1D8B4, hide_pause_menu_overwritten_sprites_sub_6874,
     hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
-    read_io_port_a10001_flags_sub_6E24, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
-    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
+    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_spawn_loc_10B3A,
+    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
+    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
+    vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -23108,6 +23109,24 @@ fn prize_10000_points_star_spawn_loc_10b3a_only_emits_every_fifth_frame_after_fr
         (spawn.x_velocity_fp, spawn.y_velocity_fp),
         (0x0001_0000, -0x0002_8000),
         "ASM loc_10B3A should select the fourth `unk_10BF4` velocity pair `($8,-$14)` when `d3=15` maps to spawn index 3",
+    );
+}
+
+#[test]
+fn prize_10000_points_star_dispatch_loc_10b76_skips_empty_worker_slots() {
+    let dispatch = prize_10000_points_star_dispatch_loc_10B76(0x000C, false);
+
+    assert!(
+        !dispatch.should_step_slot,
+        "ASM loc_10B76 should branch to loc_10BCE immediately when `$44(a5,d2.w)` is null",
+    );
+    assert_eq!(
+        dispatch.next_slot_offset, 0x0010,
+        "ASM loc_10B76 should leave empty star slots to the shared 4-byte slot walk",
+    );
+    assert!(
+        !dispatch.finished_scan,
+        "ASM loc_10B76 should only finish after the shared scan advances past the fifth slot",
     );
 }
 

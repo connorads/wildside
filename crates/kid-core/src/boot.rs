@@ -486,6 +486,13 @@ pub(crate) struct Prize10000PointsStarSpawnLoc10B3A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Prize10000PointsStarDispatchLoc10B76 {
+    pub(crate) should_step_slot: bool,
+    pub(crate) next_slot_offset: u16,
+    pub(crate) finished_scan: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarStepLoc10B74 {
     pub(crate) latched_screen_pos: Option<(i16, i16)>,
     pub(crate) x_pos: i16,
@@ -881,6 +888,31 @@ pub(crate) fn prize_10000_points_star_spawn_loc_10B3A(
         is_moved: true,
         timer: 0x0078,
     })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn prize_10000_points_star_dispatch_loc_10B76(
+    slot_offset: u16,
+    slot_present: bool,
+) -> Prize10000PointsStarDispatchLoc10B76 {
+    // ASM loc_10B76 (kid.asm:22436): load `$44(a5,d2.w)` and skip empty star
+    // slots with `beq.w loc_10BCE`; populated slots stay on the current `d2`
+    // so the timer branch can execute first.
+    if slot_present {
+        Prize10000PointsStarDispatchLoc10B76 {
+            should_step_slot: true,
+            next_slot_offset: slot_offset,
+            finished_scan: false,
+        }
+    } else {
+        let next_slot_offset = slot_offset.wrapping_add(4);
+        Prize10000PointsStarDispatchLoc10B76 {
+            should_step_slot: false,
+            next_slot_offset,
+            finished_scan: next_slot_offset == 0x0014,
+        }
+    }
 }
 
 #[allow(non_snake_case)]
