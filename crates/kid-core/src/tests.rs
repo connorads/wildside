@@ -33500,6 +33500,25 @@ fn smash_block_effect_sub_10eda_uses_loc_10f20_leftward_offset() {
 }
 
 #[test]
+fn smash_block_effect_sub_10eda_uses_loc_10f2a_default_downward_offset() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    runtime.spawn_smash_block_effect_sub_10eda(
+        80,
+        48,
+        NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW,
+    );
+
+    assert_eq!(runtime.block_destroy_effects.len(), 1);
+    assert_eq!(runtime.block_destroy_effects[0].x_px, 80);
+    assert_eq!(
+        runtime.block_destroy_effects[0].y_px, 52,
+        "ASM sub_10EDA falls through to the default `addq.w #4,y_pos(a3)` path before loc_10F2A when `d6 == 0`, so the smash effect should nudge 4px downward before the 2-frame hibernate"
+    );
+    assert_eq!(runtime.block_destroy_effects[0].remaining, 2);
+}
+
+#[test]
 fn smash_block_effect_sub_10eda_uses_loc_10f26_rightward_offset() {
     let mut runtime = NativeRuntime::new(manifest());
 

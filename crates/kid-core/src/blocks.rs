@@ -1060,6 +1060,10 @@ impl NativeRuntime {
             // ASM loc_10F20 (kid.asm:22829): `subq.w #4,x_pos(a3)` nudges the
             // smash effect 4 px left when `d6 == 1`.
             Self::BLOCK_DESTROY_DIRECTION_LEFT => (x_px.saturating_sub(4), y_px),
+            // ASM sub_10EDA fallthrough before loc_10F2A (kid.asm:22831):
+            // when `d6 == 0`, the routine takes the default `addq.w #4,
+            // y_pos(a3)` path before the shared sprite-swap / hibernate tail
+            // at `loc_10F2A`.
             _ => (x_px, y_px.saturating_add(4)),
         }
     }
@@ -1072,9 +1076,10 @@ impl NativeRuntime {
     ) {
         let (x_px, y_px) = Self::offset_block_destroy_effect_origin(direction, x_px, y_px);
         self.block_destroy_effects.push(BlockDestroyEffect {
-            // ASM sub_10EDA swaps the smash-block sprite art immediately,
-            // nudges it 4px in the impact direction, then hibernates for 2
-            // frames before dispatching the shared debris worker.
+            // ASM loc_10F2A (kid.asm:22836): after the direction-specific
+            // offset branch, sub_10EDA swaps to `LnkTo_unk_E0E56-Data_Index`,
+            // hibernates for 2 frames, then dispatches the shared debris
+            // worker and deletes the coroutine.
             x_px,
             y_px,
             remaining: 2,
