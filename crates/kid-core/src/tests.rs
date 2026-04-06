@@ -5919,6 +5919,26 @@ fn add_score_crossing_two_50k_boundaries_awards_two_lives() {
 }
 
 #[test]
+fn add_score_loc_10aae_uses_the_capped_score_for_50k_life_awards() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    runtime.progression.score = 9_995_000;
+    let lives_before = runtime.progression.number_lives;
+
+    runtime.add_score(10_000);
+
+    assert_eq!(
+        runtime.progression.score, SCORE_CAP,
+        "ASM loc_10AAE should store the post-clamp score before the `divu.w #50000` life check",
+    );
+    assert_eq!(
+        runtime.progression.number_lives, lives_before,
+        "ASM loc_10AAE should compare the old score and capped new score quotients, so clamping at 9,999,999 must not award a phantom extra life",
+    );
+}
+
+#[test]
 fn add_life_caps_at_nine() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

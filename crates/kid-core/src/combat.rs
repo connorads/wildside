@@ -1932,6 +1932,10 @@ impl NativeRuntime {
 
     /// Add points with score cap (9,999,999) and extra-life-per-50K tracking.
     pub(crate) fn add_score(&mut self, points: u32) {
+        // ASM Prize10000Points_Init -> loc_10AAE (kid.asm:22367): after the
+        // optional `#9999999` clamp, write `d1` back to `(Score).w`, divide
+        // both the old and new scores by `50000`, and only award lives for
+        // boundaries crossed by that post-clamp value.
         let old_score = self.progression.score;
         self.progression.score = self.progression.score.saturating_add(points).min(SCORE_CAP);
         // ASM: award extra life for every 50,000 point boundary crossed.
