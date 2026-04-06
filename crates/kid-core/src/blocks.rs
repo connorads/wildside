@@ -1283,11 +1283,13 @@ impl NativeRuntime {
             if current_row_open {
                 return true;
             }
+            // ASM loc_103B2 (kid.asm:21630): sample the current row first and
+            // stop immediately on solid rows unless the bit-16 grace flag is
+            // still set. When that grace bit is present, the routine checks
+            // one row below and keeps falling only if that second sample is
+            // passable too.
             if !item.first_row_grace {
                 return false;
-            }
-            if item.content != terrain::PrizeContent::Diamond {
-                return true;
             }
             let below_cell = grid.cell_at(item.level_col, item.level_row.saturating_add(1));
             matches!(

@@ -33307,6 +33307,52 @@ fn floating_item_accumulates_velocity_each_frame() {
     );
 }
 
+#[test]
+fn floating_item_loc_103b2_uses_the_grace_probe_row_before_stopping() {
+    let mut rt = NativeRuntime::new(manifest());
+    let mut grid = grid_with_blocks();
+    grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0xE0, 0x01));
+    grid.set_cell_at(2, 3, terrain::Cell::from_be_bytes(0x00, 0x00));
+    grid.set_cell_at(3, 2, terrain::Cell::from_be_bytes(0xE0, 0x01));
+    grid.set_cell_at(3, 3, terrain::Cell::from_be_bytes(0xE0, 0x01));
+    rt.set_block_grid(grid);
+    rt.floating_items.push(FloatingItem {
+        x_pos: (2 * 16 + 8) << 16,
+        y_pos: i64::from(32 << 16),
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 2,
+        level_row: 2,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Diamond,
+        collected: false,
+    });
+    rt.floating_items.push(FloatingItem {
+        x_pos: (3 * 16 + 8) << 16,
+        y_pos: i64::from(32 << 16),
+        y_velocity: 0,
+        remaining: 500,
+        spawn_delay: 0,
+        level_col: 3,
+        level_row: 2,
+        first_row_grace: true,
+        content: terrain::PrizeContent::Clock,
+        collected: false,
+    });
+
+    rt.step_visual_effects();
+
+    assert_eq!(
+        rt.floating_items[0].y_velocity, 0x1388,
+        "ASM loc_103B2 keeps the item falling when the current row is blocked but the one-row grace probe below is still open",
+    );
+    assert_eq!(
+        rt.floating_items[1].y_velocity, 0,
+        "ASM loc_103B2 stops immediately once both the current row and the grace-probed row below are solid",
+    );
+}
+
 // --- Projectile subsystem mutation tests ---
 
 fn make_projectile(x: u16, y: u16) -> EnemyProjectile {
