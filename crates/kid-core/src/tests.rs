@@ -19,9 +19,10 @@ use crate::boot::{
     hide_pause_menu_overwritten_sprites_sub_6874, hud_timer_sprite_layout_sub_BD0A,
     init_hud_animation_frames_sub_44B0, prize_10000_points_star_advance_loc_10BCE,
     prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
-    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
-    read_io_port_a10001_flags_sub_6E24, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
-    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
+    prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
+    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
+    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
+    vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -23851,6 +23852,15 @@ fn prize_10000_points_star_step_loc_10b98_uses_the_shared_countdown_tail_for_oth
     );
     assert_eq!(step.latched_screen_pos, None);
     assert!(!step.delete_prize_worker);
+}
+
+#[test]
+fn prize_10000_points_star_latch_screen_pos_loc_10b9a_caches_camera_relative_coords() {
+    assert_eq!(
+        prize_10000_points_star_latch_screen_pos_loc_10B9A(0x0034, 0x0056, 0x0010, 0x0020),
+        (0x0024, 0x0036),
+        "ASM loc_10B9A should store `$1A/$1E(a1) - Camera_X/Y_pos` into `$3E/$42(a1)` before loc_10BB2 starts the leftward drift",
+    );
 }
 
 #[test]

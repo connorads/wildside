@@ -970,6 +970,22 @@ pub(crate) fn prize_10000_points_star_cleanup_loc_10BE6(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn prize_10000_points_star_latch_screen_pos_loc_10B9A(
+    x_pos: i16,
+    y_pos: i16,
+    camera_x_pos: i16,
+    camera_y_pos: i16,
+) -> (i16, i16) {
+    // ASM loc_10B9A (kid.asm:22452): copy `$1A/$1E(a1) - Camera_X/Y_pos`
+    // into `$3E/$42(a1)` before the shared left-drift path at `loc_10BB2`.
+    (
+        x_pos.wrapping_sub(camera_x_pos),
+        y_pos.wrapping_sub(camera_y_pos),
+    )
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn prize_10000_points_star_step_loc_10B74(
     slot_offset: u16,
     timer: u16,
@@ -981,11 +997,12 @@ pub(crate) fn prize_10000_points_star_step_loc_10B74(
 ) -> Prize10000PointsStarStepLoc10B74 {
     // ASM loc_10B74 (kid.asm:22433): iterate the five cached star slots and
     // branch by `$46(a1)`. `#$70` clears `$14(a1)` once before the shared
-    // loc_10B98/loc_10BCA countdown tail. `#$20` latches screen-space
-    // `$3E/$42` from world position minus camera before falling into
-    // loc_10BB2. Timers `<= #$20` move left by 6 px/frame, and the final slot
-    // (`d2 == #$10`) jumps to loc_10BE0 once its updated screen X falls below
-    // `#$FFE0` (-32), skipping the countdown decrement on that deletion frame.
+    // loc_10B98/loc_10BCA countdown tail. `#$20` enters `loc_10B9A`, which
+    // latches screen-space `$3E/$42` from world position minus camera before
+    // falling into loc_10BB2. Timers `<= #$20` move left by 6 px/frame, and
+    // the final slot (`d2 == #$10`) jumps to loc_10BE0 once its updated
+    // screen X falls below `#$FFE0` (-32), skipping the countdown decrement on
+    // that deletion frame.
     let mut next_x_pos = x_pos;
     let mut next_is_moved = is_moved;
     let mut next_timer = timer;
@@ -993,9 +1010,11 @@ pub(crate) fn prize_10000_points_star_step_loc_10B74(
     let mut delete_prize_worker = false;
 
     if timer == 0x0020 {
-        latched_screen_pos = Some((
-            x_pos.wrapping_sub(camera_x_pos),
-            y_pos.wrapping_sub(camera_y_pos),
+        latched_screen_pos = Some(prize_10000_points_star_latch_screen_pos_loc_10B9A(
+            x_pos,
+            y_pos,
+            camera_x_pos,
+            camera_y_pos,
         ));
     }
 
