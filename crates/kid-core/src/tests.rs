@@ -42555,6 +42555,37 @@ fn loc_135a8_only_consumes_a_bit_when_the_second_property_flag_requests_bit_14()
 }
 
 #[test]
+fn loc_135b6_only_consumes_a_bit_when_the_third_property_flag_requests_bit_13() {
+    assert_eq!(
+        crate::level::block_layout_apply_third_high_bit_loc_135B6(0x0123, 0x20, 6, 0b10_0000),
+        crate::level::BlockLayoutDecodeBitLoc135B6 {
+            decoded_word: 0x0123,
+            shifted_property_byte: 0x40,
+            bits_remaining: 6,
+        },
+        "ASM loc_135B6 should fall through without touching `d6` or bit 13 when the third `add.b d1,d1` carry is clear"
+    );
+    assert_eq!(
+        crate::level::block_layout_apply_third_high_bit_loc_135B6(0x0123, 0x80, 6, 0b00_0000),
+        crate::level::BlockLayoutDecodeBitLoc135B6 {
+            decoded_word: 0x0123,
+            shifted_property_byte: 0x00,
+            bits_remaining: 5,
+        },
+        "ASM loc_135B6 should still consume one source bit when the carry is set, but keep bit 13 clear when `btst d6,d5` reads zero"
+    );
+    assert_eq!(
+        crate::level::block_layout_apply_third_high_bit_loc_135B6(0x0123, 0x80, 6, 0b10_0000),
+        crate::level::BlockLayoutDecodeBitLoc135B6 {
+            decoded_word: 0x2123,
+            shifted_property_byte: 0x00,
+            bits_remaining: 5,
+        },
+        "ASM loc_135B6 should add `$2000` into the decoded word only when the third carry bit is set and the consumed `d5` bit is one"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);
