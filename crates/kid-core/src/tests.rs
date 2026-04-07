@@ -39,21 +39,22 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
-    BlockLayoutDispatchLoc132D6, FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
-    FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
-    ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
-    ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
-    IslandPaletteCycleLowerBandLoc12188, IslandPaletteCycleMidBandLoc12110,
-    IslandPaletteCyclePrimaryBandLoc12098, LateBackgroundPaletteOverrideLoc11E06,
-    LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, PostLoadObjectRoutineLoc11F96,
-    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
-    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA,
-    SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
-    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
-    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
-    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
-    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    blend_selected_palette_entries_sub_1536, block_layout_dispatch_loc_132D6,
+    BlockLayoutDispatchLoc132D6, BlockLayoutLoopLoc1331E, FgPlaneCustomWriteSub1596,
+    FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
+    ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
+    FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
+    IslandPaletteCycleMidBandLoc12110, IslandPaletteCyclePrimaryBandLoc12098,
+    LateBackgroundPaletteOverrideLoc11E06, LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit,
+    PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT,
+    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
+    SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
+    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
+    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
+    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
+    block_layout_dispatch_loc_132D6, block_layout_repeat_loop_loc_1331E,
     build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
     classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06,
@@ -41914,6 +41915,23 @@ fn loc_132d6_rotates_the_leading_flag_bit_into_the_header_word() {
             terminated: true,
         },
         "ASM loc_132D6 should treat block type `$1F` as the terminator before dispatching through `off_132FC`"
+    );
+}
+
+#[test]
+fn loc_1331e_writes_ffff_and_restarts_when_x_matches_the_sentinel() {
+    let restart = block_layout_repeat_loop_loc_1331E(0x000A, 0x000A);
+    let continue_entry = block_layout_repeat_loop_loc_1331E(0x0009, 0x000A);
+
+    assert_eq!(
+        restart,
+        BlockLayoutLoopLoc1331E::RestartAtLoc132D6 { end_marker: 0xFFFF },
+        "ASM loc_1331E should emit `$FFFF` and branch back to `loc_132D6` once the decoded X word matches the `a5` sentinel"
+    );
+    assert_eq!(
+        continue_entry,
+        BlockLayoutLoopLoc1331E::ContinueLoc1332E,
+        "ASM loc_1331E should fall through to `loc_1332E` while the decoded X word is not the sentinel"
     );
 }
 

@@ -45,6 +45,12 @@ pub(crate) struct BlockLayoutDispatchLoc132D6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BlockLayoutLoopLoc1331E {
+    RestartAtLoc132D6 { end_marker: u16 },
+    ContinueLoc1332E,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLoadPointersLoc11D0C {
     pub(crate) theme_mappings_addr: u32,
     pub(crate) enemy_layout_addr: u32,
@@ -303,6 +309,23 @@ pub(crate) fn block_layout_dispatch_loc_132D6(
     BlockLayoutDispatchLoc132D6 {
         header_word: (if high_bit_set { 0x8000 } else { 0 }) | (block_type & 0x001F),
         terminated: block_type == 0x001F,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_repeat_loop_loc_1331E(
+    x_pos: u16,
+    end_marker_x_pos: u16,
+) -> BlockLayoutLoopLoc1331E {
+    // ASM loc_1331E (kid.asm:25614-25621) reads the next X position through
+    // `sub_13622`, compares it to the sentinel loaded into `a5`, writes
+    // `$FFFF` and jumps back to loc_132D6 on a match, or falls through to
+    // loc_1332E to emit the rest of the entry words.
+    if x_pos == end_marker_x_pos {
+        BlockLayoutLoopLoc1331E::RestartAtLoc132D6 { end_marker: 0xFFFF }
+    } else {
+        BlockLayoutLoopLoc1331E::ContinueLoc1332E
     }
 }
 
