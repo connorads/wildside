@@ -8237,6 +8237,30 @@ fn floating_prize_fall_loc_103de_adds_gravity_and_advances_y_inside_one_row_band
 }
 
 #[test]
+fn floating_prize_row_sync_loc_10402_advances_the_tracked_row_after_a_boundary_crossing() {
+    assert_eq!(
+        NativeRuntime::floating_prize_row_sync_loc_10402(
+            0x0030,
+            0x003F_F000,
+            0x3000,
+            true,
+            7,
+            0x0120,
+            0x0030
+        ),
+        FloatingPrizeFallStepLoc10C50 {
+            next_y_velocity: 0x4388,
+            next_y_pos: 0x0040_3388,
+            next_aligned_y: 0x0040,
+            next_first_row_grace: false,
+            next_level_row: 8,
+            next_level_layout_offset: 0x0150,
+        },
+        "ASM loc_10402 should keep the new snapped row in `d0` after a boundary-crossing fall, so the one-row grace bit clears and the tracked level row advances exactly once",
+    );
+}
+
+#[test]
 fn prize_clock_sound_cleanup_loc_107e0_only_stops_the_last_loop() {
     assert_eq!(
         NativeRuntime::prize_clock_sound_cleanup_loc_107E0(1),

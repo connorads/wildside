@@ -426,6 +426,32 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn floating_prize_row_sync_loc_10402(
+        aligned_y: i32,
+        y_pos: i64,
+        y_velocity: i32,
+        first_row_grace: bool,
+        level_row: u16,
+        level_layout_offset: u32,
+        level_width_tiles: u16,
+    ) -> FloatingPrizeFallStepLoc10C50 {
+        // ASM loc_10402 (kid.asm:21663): copy the latest snapped row from
+        // `d2` into `d0` after the `loc_103DE` fall step, with the preceding
+        // boundary-crossing path already responsible for clearing bit `$10`
+        // in `d3` and advancing `a2` by `Level_width_tiles`.
+        Self::floating_prize_fall_step_loc_10C50(
+            aligned_y,
+            y_pos,
+            y_velocity,
+            first_row_grace,
+            level_row,
+            level_layout_offset,
+            level_width_tiles,
+        )
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn one_time_prize_init_loc_10856(
         header_word: i16,
         entries: [u32; 0x28],
