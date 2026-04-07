@@ -400,6 +400,32 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn floating_prize_fall_loc_103DE(
+        aligned_y: i32,
+        y_pos: i64,
+        y_velocity: i32,
+        first_row_grace: bool,
+        level_row: u16,
+        level_layout_offset: u32,
+        level_width_tiles: u16,
+    ) -> FloatingPrizeFallStepLoc10C50 {
+        // ASM loc_103DE (kid.asm:21650): once the collision probes leave the
+        // fall branch open, add `#$1388` to `d1`, advance `y_pos(a3)`, and
+        // feed the snapped-row result into the shared `loc_10402/loc_10404`
+        // tail.
+        Self::floating_prize_fall_step_loc_10C50(
+            aligned_y,
+            y_pos,
+            y_velocity,
+            first_row_grace,
+            level_row,
+            level_layout_offset,
+            level_width_tiles,
+        )
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn one_time_prize_init_loc_10856(
         header_word: i16,
         entries: [u32; 0x28],

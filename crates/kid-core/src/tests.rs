@@ -8213,6 +8213,30 @@ fn floating_prize_fall_step_loc_10c74_keeps_d0_in_sync_with_the_latest_snapped_r
 }
 
 #[test]
+fn floating_prize_fall_loc_103de_adds_gravity_and_advances_y_inside_one_row_band() {
+    assert_eq!(
+        NativeRuntime::floating_prize_fall_loc_103DE(
+            0x0030,
+            0x003F_0000,
+            0,
+            true,
+            7,
+            0x0120,
+            0x0030
+        ),
+        FloatingPrizeFallStepLoc10C50 {
+            next_y_velocity: 0x1388,
+            next_y_pos: 0x003F_1388,
+            next_aligned_y: 0x0030,
+            next_first_row_grace: true,
+            next_level_row: 7,
+            next_level_layout_offset: 0x0120,
+        },
+        "ASM loc_103DE should add `#$1388` to `d1` and advance `y_pos(a3)` even when the updated integer Y stays inside the current snapped 16px row",
+    );
+}
+
+#[test]
 fn prize_clock_sound_cleanup_loc_107e0_only_stops_the_last_loop() {
     assert_eq!(
         NativeRuntime::prize_clock_sound_cleanup_loc_107E0(1),
