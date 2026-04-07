@@ -384,10 +384,10 @@ pub(crate) fn copy_sega_screen_palette_loc_12DFE(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
-pub(crate) fn sega_screen_tile_strip_loc_12E3E(first_tile: u16) -> [u16; 12] {
-    // ASM loc_12E3E (kid.asm:25479): after `moveq #$B,d0`, the `dbf` loop
-    // writes 12 successive tile words starting from d1 to the VDP data port,
-    // incrementing d1 after each write.
+pub(crate) fn sega_screen_tile_strip_sub_12E3C(first_tile: u16) -> [u16; 12] {
+    // ASM sub_12E3C / loc_12E3E (kid.asm:25476): `moveq #$B,d0` followed by the
+    // `dbf` loop writes 12 successive tile words starting from d1 to the VDP
+    // data port, incrementing d1 after each write.
     core::array::from_fn(|index| {
         first_tile
             .checked_add(index as u16)

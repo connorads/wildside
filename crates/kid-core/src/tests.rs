@@ -22,7 +22,7 @@ use crate::boot::{
     prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_latch_screen_pos_loc_10B9A,
     prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
     read_io_port_a10001_flags_sub_6E24, sega_screen_object_bootstrap_loc_12E48,
-    sega_screen_tile_strip_loc_12E3E, sin_cos_sub_40236, step_hud_animation_sub_44DC,
+    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
     vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
@@ -2124,8 +2124,8 @@ fn loc_12dfe_copies_dbf_count_plus_one_palette_words_into_the_buffer_offset() {
 }
 
 #[test]
-fn loc_12e3e_builds_the_incrementing_sega_screen_tile_strip() {
-    let strip = sega_screen_tile_strip_loc_12E3E(0x80BC);
+fn sub_12e3c_builds_the_incrementing_sega_screen_tile_strip() {
+    let strip = sega_screen_tile_strip_sub_12E3C(0x80BC);
 
     assert_eq!(
         strip,
@@ -2133,7 +2133,7 @@ fn loc_12e3e_builds_the_incrementing_sega_screen_tile_strip() {
             0x80BC, 0x80BD, 0x80BE, 0x80BF, 0x80C0, 0x80C1, 0x80C2, 0x80C3, 0x80C4, 0x80C5, 0x80C6,
             0x80C7,
         ],
-        "ASM loc_12E3E should emit twelve successive tile words from the starting d1 value"
+        "ASM sub_12E3C should emit twelve successive tile words from the starting d1 value"
     );
 }
 
