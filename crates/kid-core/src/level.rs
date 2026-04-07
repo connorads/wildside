@@ -775,6 +775,26 @@ pub(crate) fn block_layout_increment_decoded_word_loc_13532(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_decrement_words_loc_13544(
+    start_word: u16,
+    dbf_counter: u16,
+) -> BlockLayoutRepeatWordsLoc13514 {
+    // ASM loc_13544 (kid.asm:25914-25917) stores `d1` to `(a1)+`, then
+    // `subq.w #1,d1` after each write while `dbf d2,loc_13544` keeps the loop
+    // inclusive, so `d2 = 0` still emits exactly one word.
+    let iterations = usize::from(dbf_counter) + 1;
+    let words = (0..iterations)
+        .map(|step| start_word.wrapping_sub(u16::try_from(step).unwrap_or(u16::MAX)))
+        .collect();
+
+    BlockLayoutRepeatWordsLoc13514 {
+        words,
+        next_word: start_word.wrapping_sub(dbf_counter).wrapping_sub(1),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_property_words_loc_1337C(
     property_words: &[BlockLayoutPropertyWordLoc1337C],
     dbf_counter: u16,
