@@ -41581,3 +41581,21 @@ fn loc_12952_loads_final_pattern_to_vram() {
         "ASM loc_12952: should target VRAM buffer 4 at $FFFF98F2 for both paths"
     );
 }
+
+#[test]
+fn loc_129e8_loads_juggernaut_skull_frame_2_into_the_same_vram_span() {
+    let result = crate::level::juggernaut_skull_art_dma_loop_loc_129E8();
+
+    assert_eq!(
+        result.vdp_command, 0xC000_00CD,
+        "ASM loc_129E8 should keep writing to vdpComm($CDC0,VRAM,WRITE)"
+    );
+    assert_eq!(
+        result.art_source, 0x0001_2A8C,
+        "ASM loc_129E8 should advance `a1` to ArtUnc_12A8C for Juggernaut skull frame 2"
+    );
+    assert_eq!(
+        result.longword_count, 32,
+        "ASM loc_129E8 seeds `d0=#1F`, so `dbf d0,loc_129E8` copies 32 longwords"
+    );
+}

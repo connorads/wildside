@@ -2692,6 +2692,23 @@ pub(crate) fn juggernaut_skull_art_dma_loop_loc_129DC() -> JuggernautSkullArtDma
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn juggernaut_skull_art_dma_loop_loc_129E8() -> JuggernautSkullArtDmaLoc129DC {
+    // ASM loc_129E8 (kid.asm:25365-25367): second `dbf` loop in sub_129CE.
+    // It keeps the same `$CDC0` VRAM write command and copies another
+    // `$1F+1` longwords, but `a1` now points at `ArtUnc_12A8C`.
+    const VDP_COMMAND: u32 = 0xC000_00CD; // vdpComm($CDC0,VRAM,WRITE)
+    const ART_SOURCE_OFFSET: u32 = 0x0001_2A8C; // ArtUnc_12A8C
+    const LONGWORD_COUNT: u16 = 32; // $1F + 1
+
+    JuggernautSkullArtDmaLoc129DC {
+        vdp_command: VDP_COMMAND,
+        art_source: ART_SOURCE_OFFSET,
+        longword_count: LONGWORD_COUNT,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,
