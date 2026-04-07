@@ -114,6 +114,12 @@ pub(crate) struct BlockLayoutRepeatWordsLoc1351E {
     pub(crate) next_word: u16,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum BlockLayoutDecodeWordsLoc1354E {
+    ReturnViaLoc13570 { rewound_input_addr: u16 },
+    ContinueLoc13554 { words: Vec<u16> },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutTerminateLoc134BA {
     pub(crate) end_marker: u16,
@@ -803,6 +809,50 @@ pub(crate) fn block_layout_decrement_decoded_word_loc_13540(
     // then falls through to `loc_13544`, so the emitted run decrements from
     // the single decoded word instead of decoding a fresh word per iteration.
     block_layout_decrement_words_loc_13544(decoded_word, dbf_counter)
+}
+
+fn block_layout_rewind_input_addr_loc_13570(mut next_input_addr: u16, bits_remaining: u16) -> u16 {
+    // ASM loc_13570 (kid.asm:25935-25944) rewinds `a0` by one byte, rewinds a
+    // second byte when `d6 == $10`, then rounds odd addresses back up to the
+    // next even boundary before `EniDec` returns.
+    next_input_addr = next_input_addr.wrapping_sub(1);
+    if bits_remaining == 0x0010 {
+        next_input_addr = next_input_addr.wrapping_sub(1);
+    }
+    if next_input_addr & 1 != 0 {
+        next_input_addr = next_input_addr.wrapping_add(1);
+    }
+    next_input_addr
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_decode_word_run_loc_1354E(
+    decoded_words: &[u16],
+    dbf_counter: u16,
+    next_input_addr: u16,
+    bits_remaining: u16,
+) -> BlockLayoutDecodeWordsLoc1354E {
+    // ASM loc_1354E (kid.asm:25921-25932) uses `$F` as a sentinel: that value
+    // skips the shared `loc_13554` decode loop and returns through `loc_13570`.
+    // Any other `d2` value decodes one fresh word via `sub_13588` on every
+    // inclusive `dbf d2,loc_13554` iteration.
+    if dbf_counter == 0x000F {
+        BlockLayoutDecodeWordsLoc1354E::ReturnViaLoc13570 {
+            rewound_input_addr: block_layout_rewind_input_addr_loc_13570(
+                next_input_addr,
+                bits_remaining,
+            ),
+        }
+    } else {
+        BlockLayoutDecodeWordsLoc1354E::ContinueLoc13554 {
+            words: decoded_words
+                .iter()
+                .copied()
+                .take(usize::from(dbf_counter) + 1)
+                .collect(),
+        }
+    }
 }
 
 #[allow(non_snake_case)]

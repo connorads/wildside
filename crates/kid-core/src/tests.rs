@@ -39,13 +39,13 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
-    BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504, BlockLayoutEntryWordsLoc133B2,
-    BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E,
-    BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE,
-    BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E,
-    BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C, BlockLayoutRepeatWordsLoc1351E,
-    BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA, FgPlaneCustomWriteSub1596,
-    FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    BlockLayoutDecodeWordsLoc1354E, BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504,
+    BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E,
+    BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0,
+    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
+    BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
+    BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
     FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
     ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
     FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
@@ -59,11 +59,12 @@ use crate::level::{
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
     background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
-    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
-    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
-    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
-    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
+    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
+    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
+    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
+    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
+    block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -42442,6 +42443,29 @@ fn loc_13540_decrements_from_the_single_word_decoded_by_sub_13588() {
             next_word: 0xFFFF,
         },
         "ASM loc_13540 should still emit the one word returned by `sub_13588` when `d2` starts at zero"
+    );
+}
+
+#[test]
+fn loc_1354e_either_decodes_a_fresh_word_run_or_returns_via_loc_13570() {
+    assert_eq!(
+        block_layout_decode_word_run_loc_1354E(
+            &[0x1111, 0x2222, 0x3333, 0x4444],
+            2,
+            0x0200,
+            0x000C
+        ),
+        BlockLayoutDecodeWordsLoc1354E::ContinueLoc13554 {
+            words: vec![0x1111, 0x2222, 0x3333],
+        },
+        "ASM loc_1354E should branch to `loc_13554` while `d2 != $F`, decoding one fresh word through `sub_13588` on each inclusive `dbf` iteration"
+    );
+    assert_eq!(
+        block_layout_decode_word_run_loc_1354E(&[0xAAAA], 0x000F, 0x0105, 0x0010),
+        BlockLayoutDecodeWordsLoc1354E::ReturnViaLoc13570 {
+            rewound_input_addr: 0x0104,
+        },
+        "ASM loc_1354E should treat `d2 = $F` as the terminator arm, skip `loc_13554`, and return through `loc_13570`, which rewinds `a0` and rounds it back to an even address"
     );
 }
 
