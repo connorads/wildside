@@ -74,6 +74,13 @@ pub(crate) struct BlockLayoutDecodeBitLoc135B6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutDecodeBitLoc135C4 {
+    pub(crate) decoded_word: u16,
+    pub(crate) shifted_property_byte: u8,
+    pub(crate) bits_remaining: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -951,6 +958,35 @@ pub(crate) fn block_layout_apply_third_high_bit_loc_135B6(
     }
 
     BlockLayoutDecodeBitLoc135B6 {
+        decoded_word,
+        shifted_property_byte,
+        bits_remaining: bits_remaining_after,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_apply_fourth_high_bit_loc_135C4(
+    base_word: u16,
+    property_byte: u8,
+    bits_remaining: u16,
+    bit_buffer: u16,
+) -> BlockLayoutDecodeBitLoc135C4 {
+    // ASM loc_135C4 (kid.asm:25980-25987) shifts the fourth property flag into
+    // carry, only decrements `d6` and probes `d5` on that carry path, and ORs
+    // `$1000` into `d3` when the consumed source bit is set.
+    let shifted_property_byte = property_byte.wrapping_add(property_byte);
+    let mut decoded_word = base_word;
+    let mut bits_remaining_after = bits_remaining;
+
+    if property_byte & 0x80 != 0 {
+        bits_remaining_after = bits_remaining_after.wrapping_sub(1);
+        if bit_buffer & (1u16 << bits_remaining_after) != 0 {
+            decoded_word |= 0x1000;
+        }
+    }
+
+    BlockLayoutDecodeBitLoc135C4 {
         decoded_word,
         shifted_property_byte,
         bits_remaining: bits_remaining_after,
