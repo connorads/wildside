@@ -102,6 +102,12 @@ pub(crate) struct BlockLayoutEntryWordsLoc13470 {
     pub(crate) y_row: u16,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockLayoutRepeatWordsLoc13514 {
+    pub(crate) words: Vec<u16>,
+    pub(crate) next_word: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutTerminateLoc134BA {
     pub(crate) end_marker: u16,
@@ -680,6 +686,26 @@ pub(crate) fn block_layout_dispatch_loc_13504(
         jump_table_word_offset: ((decoded_word >> 4) & 0x000E),
         bits_remaining,
         refilled_input_byte,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_repeat_words_loc_13514(
+    start_word: u16,
+    dbf_counter: u16,
+) -> BlockLayoutRepeatWordsLoc13514 {
+    // ASM loc_13514 (kid.asm:25878-25881) writes `a2` to `(a1)+`, increments
+    // `a2` by one word after every store, and lets `dbf d2,loc_13514` make the
+    // loop inclusive, so `d2 = 0` still emits exactly one word.
+    let iterations = usize::from(dbf_counter) + 1;
+    let words = (0..iterations)
+        .map(|step| start_word.wrapping_add(u16::try_from(step).unwrap_or(u16::MAX)))
+        .collect();
+
+    BlockLayoutRepeatWordsLoc13514 {
+        words,
+        next_word: start_word.wrapping_add(dbf_counter).wrapping_add(1),
     }
 }
 
