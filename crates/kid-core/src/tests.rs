@@ -42751,6 +42751,26 @@ fn loc_1374a_copies_two_short_ref_tail_bytes_then_checks_the_end_pointer() {
 }
 
 #[test]
+fn loc_13756_extracts_the_bbb_distance_bits_and_decodes_the_aa_copy_mode() {
+    assert_eq!(
+        crate::level::decompress_long_ref_header_loc_13756(0b1011_0000, 0x0700, 0x34),
+        crate::level::DecompressLongRefHeaderLoc13756 {
+            source_back_distance: 0x0534,
+            copy_mode: crate::level::DecompressLongRefCopyModeLoc13756::Copy5,
+        },
+        "ASM loc_13756 should pack `BBB` into the high distance bits and decode `AA=10` as the five-byte long-reference path"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_header_loc_13756(0b0110_1000, 0x0700, 0xAB),
+        crate::level::DecompressLongRefHeaderLoc13756 {
+            source_back_distance: 0x03AB,
+            copy_mode: crate::level::DecompressLongRefCopyModeLoc13756::Copy4,
+        },
+        "ASM loc_13756 should decode `AA=01` as the four-byte long-reference path after appending the next source byte"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);

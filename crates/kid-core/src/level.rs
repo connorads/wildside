@@ -111,6 +111,20 @@ pub(crate) enum DecompressModeDispatchLoc13736 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DecompressLongRefCopyModeLoc13756 {
+    Copy3,
+    Copy4,
+    Copy5,
+    VariableLength,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressLongRefHeaderLoc13756 {
+    pub(crate) source_back_distance: u16,
+    pub(crate) copy_mode: DecompressLongRefCopyModeLoc13756,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -1161,6 +1175,33 @@ pub(crate) fn decompress_short_ref_finished_loc_1374A(
     DecompressShortRefTailLoc136D0 {
         copied_bytes,
         finished: output_addr_after_tail >= output_limit_addr,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_header_loc_13756(
+    bit_buffer: u8,
+    long_ref_mask: u16,
+    long_ref_low_byte: u8,
+) -> DecompressLongRefHeaderLoc13756 {
+    // ASM loc_13756 (kid.asm:26274-26284) shifts the already-consumed `d1`
+    // word left three more bits so `BBB` lands in the high-byte distance
+    // field, masks that field through `d4`, appends the next input byte, then
+    // decodes `AA` into the 3/4/5/extended long-reference families.
+    let shifted_word = u16::from(bit_buffer) << 3;
+    let source_back_distance = (shifted_word & long_ref_mask) | u16::from(long_ref_low_byte);
+    let copy_mode = match (shifted_word >> 6) & 0b11 {
+        0b00 => DecompressLongRefCopyModeLoc13756::Copy3,
+        0b01 => DecompressLongRefCopyModeLoc13756::Copy4,
+        0b10 => DecompressLongRefCopyModeLoc13756::Copy5,
+        0b11 => DecompressLongRefCopyModeLoc13756::VariableLength,
+        _ => unreachable!(),
+    };
+
+    DecompressLongRefHeaderLoc13756 {
+        source_back_distance,
+        copy_mode,
     }
 }
 
