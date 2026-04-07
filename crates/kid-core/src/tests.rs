@@ -41,24 +41,25 @@ use crate::level::{
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     BlockLayoutDispatchLoc132D6, BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0,
     BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E, BlockLayoutLoopLoc133A0,
-    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutPropertyWordLoc1337C,
-    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
-    FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
-    ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
-    FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
-    IslandPaletteCycleMidBandLoc12110, IslandPaletteCyclePrimaryBandLoc12098,
-    LateBackgroundPaletteOverrideLoc11E06, LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit,
-    PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT,
-    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
-    SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
-    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    block_layout_dispatch_loc_132D6, block_layout_entry_words_loc_133B2,
-    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
-    block_layout_entry_words_loc_1335E, block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
+    BlockLayoutPropertyWordLoc1337C, FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
+    FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
+    ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
+    ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
+    IslandPaletteCycleLowerBandLoc12188, IslandPaletteCycleMidBandLoc12110,
+    IslandPaletteCyclePrimaryBandLoc12098, LateBackgroundPaletteOverrideLoc11E06,
+    LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, PostLoadObjectRoutineLoc11F96,
+    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
+    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA,
+    SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
+    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    blend_selected_palette_entries_sub_1536, block_layout_dispatch_loc_132D6,
+    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
+    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
+    block_layout_fixed_pattern_repeat_loop_loc_133DE, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_loop_loc_1331E,
     block_layout_store_property_word_loc_13398, block_layout_variable_repeat_loop_loc_133A0,
     block_layout_variable_repeat_loop_loc_1334C, build_palette_fade_curve_sub_14C0,
@@ -42106,6 +42107,23 @@ fn loc_133f0_emits_the_fixed_pattern_header_and_property_words() {
             property_words: [0x00AA, 0x0003, 0x0055, 0x00F0],
         },
         "ASM loc_133F0 should write X and Y, store the 3-bit run length as `count+1`, append the 1-bit stride word, then emit the trailing 8/3/8/8-bit property words before looping"
+    );
+}
+
+#[test]
+fn loc_1342e_restarts_on_the_same_x_sentinel_in_the_long_run_dispatch_arm() {
+    let restart = block_layout_long_run_repeat_loop_loc_1342E(0x0014, 0x0014);
+    let continue_entry = block_layout_long_run_repeat_loop_loc_1342E(0x0013, 0x0014);
+
+    assert_eq!(
+        restart,
+        BlockLayoutLoopLoc1342E::RestartAtLoc132D6 { end_marker: 0xFFFF },
+        "ASM loc_1342E should emit `$FFFF` and branch back to `loc_132D6` when the decoded X word matches the `a5` sentinel in the long-run arm"
+    );
+    assert_eq!(
+        continue_entry,
+        BlockLayoutLoopLoc1342E::ContinueLoc13440,
+        "ASM loc_1342E should fall through to `loc_13440` while the decoded X word differs from the `a5` sentinel"
     );
 }
 

@@ -63,6 +63,12 @@ pub(crate) enum BlockLayoutLoopLoc133DE {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BlockLayoutLoopLoc1342E {
+    RestartAtLoc132D6 { end_marker: u16 },
+    ContinueLoc13440,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutEntryWordsLoc1332E {
     pub(crate) x_pos: u16,
     pub(crate) y_row: u16,
@@ -507,6 +513,22 @@ pub(crate) fn block_layout_entry_words_loc_133F0(
         count: count_bits.wrapping_add(1),
         stride_word: u16::from(stride_bit),
         property_words,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_long_run_repeat_loop_loc_1342E(
+    x_pos: u16,
+    end_marker_x_pos: u16,
+) -> BlockLayoutLoopLoc1342E {
+    // ASM loc_1342E (kid.asm:25753-25760) repeats the same sentinel check in
+    // the next dispatch arm: decode X via `sub_13622`, emit `$FFFF`, and jump
+    // back to `loc_132D6` on a match; otherwise fall through to `loc_13440`.
+    if x_pos == end_marker_x_pos {
+        BlockLayoutLoopLoc1342E::RestartAtLoc132D6 { end_marker: 0xFFFF }
+    } else {
+        BlockLayoutLoopLoc1342E::ContinueLoc13440
     }
 }
 
