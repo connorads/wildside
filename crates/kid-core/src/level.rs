@@ -3589,6 +3589,9 @@ pub(crate) fn step_island_palette_cycle_lower_band_loc_12188(
         };
     }
 
+    // ASM loc_121A6 (kid.asm:24322): merge point after `cmpi.w #5,d1`; it
+    // reloads `$48(a5)` from `unk_12226[d4]` using the pre-increment phase in
+    // `d4`, while the already-incremented `d1` either advances or wraps to 0.
     let frame_index = usize::from(phase_d1);
     let next_phase = if phase_d1 >= 5 { 0 } else { phase_d1 + 1 };
     IslandPaletteCycleLowerBandLoc12188 {
