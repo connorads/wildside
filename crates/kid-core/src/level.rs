@@ -95,6 +95,12 @@ pub(crate) struct BlockLayoutEntryWordsLoc13470 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutTerminateLoc134BA {
+    pub(crate) end_marker: u16,
+    pub(crate) output_addr: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutEntryWordsLoc133F0 {
     pub(crate) x_pos: u16,
     pub(crate) y_row: u16,
@@ -628,6 +634,18 @@ pub(crate) fn block_layout_short_count_property_words_loc_134AC(
         .copied()
         .take(usize::from(dbf_counter) + 1)
         .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_terminate_loc_134BA() -> BlockLayoutTerminateLoc134BA {
+    // ASM loc_134BA (kid.asm:25828-25831) writes the `$FFFF` terminator into
+    // the current decode stream, then resets `a1` to `Decompression_Buffer`
+    // before restoring registers and returning from `EniDec`.
+    BlockLayoutTerminateLoc134BA {
+        end_marker: 0xFFFF,
+        output_addr: 0xFFFF_77B2,
+    }
 }
 
 #[allow(non_snake_case)]
