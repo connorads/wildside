@@ -404,6 +404,37 @@ pub(crate) fn block_layout_entry_words_loc_1335E(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutPropertyWordLoc1337C {
+    pub(crate) high_bit_set: bool,
+    pub(crate) low_nibble: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_property_words_loc_1337C(
+    property_words: &[BlockLayoutPropertyWordLoc1337C],
+    dbf_counter: u16,
+) -> Vec<u16> {
+    // ASM loc_1337C (kid.asm:25663-25676) runs exactly `dbf_counter+1`
+    // iterations: read one flag bit, and when that bit is non-zero read the
+    // next 4-bit value and set bit 15 with `ori.w #$8000,d1`; otherwise store
+    // the raw 4-bit value from loc_13392.
+    property_words
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .map(|entry| {
+            let low_nibble = entry.low_nibble & 0x000F;
+            if entry.high_bit_set {
+                low_nibble | 0x8000
+            } else {
+                low_nibble
+            }
+        })
+        .collect()
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_layout_cell_loc_11C36(terrain_byte: u8, theme_collision_index: &[u8]) -> u16 {
