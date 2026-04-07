@@ -979,6 +979,14 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_block_wobble_rise_loc_10104() -> &'static [i16] {
+        // ASM loc_10104 (kid.asm:21391): after `moveq #4,d1`, the inclusive
+        // `dbf d1,loc_10104` loop applies five `addq.w #2,y_pos(a3)` steps.
+        &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A[17..22]
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn deleted_tile_wobble_y_deltas_loc_10200() -> &'static [i16; 31] {
         // ASM loc_10236 (kid.asm:21493): after the opening six-frame
         // `loc_10228` rise, `moveq #5,d1` drives an inclusive `dbf` loop of
