@@ -2524,7 +2524,7 @@ impl NativeRuntime {
             // Red Stealth/Eyeclops/Juggernaut/Iron Knight/Berzerker/Maniaxe/
             // PrizeAnkh delete exits: once the per-frame loop at
             // loc_10464/loc_104AE/loc_104F8/loc_10542/loc_1058C/loc_105D6/
-            // loc_10620/loc_1066A/loc_10738 sees either a non-zero
+            // loc_10620/loc_1066A/loc_106B4/loc_10738 sees either a non-zero
             // `collision_type(a3)` or the bottom-of-level compare, control
             // jumps straight to `Delete_CurrentObject`.
             let gate =
