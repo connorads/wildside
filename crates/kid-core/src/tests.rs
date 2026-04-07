@@ -64,8 +64,9 @@ use crate::level::{
     block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
     block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_long_run_repeat_loop_loc_1342E, block_layout_property_words_loc_1337C,
-    block_layout_repeat_loop_loc_1331E, block_layout_repeat_words_loc_1351E,
-    block_layout_repeat_words_loc_13514, block_layout_short_count_property_words_loc_134AC,
+    block_layout_repeat_current_word_loc_1352A, block_layout_repeat_loop_loc_1331E,
+    block_layout_repeat_words_loc_1351E, block_layout_repeat_words_loc_13514,
+    block_layout_short_count_property_words_loc_134AC,
     block_layout_short_count_repeat_loop_loc_1347C, block_layout_short_pair_repeat_loop_loc_1345E,
     block_layout_store_property_word_loc_13398, block_layout_terminate_loc_134BA,
     block_layout_variable_repeat_loop_loc_133A0, block_layout_variable_repeat_loop_loc_1334C,
@@ -42339,6 +42340,26 @@ fn loc_1351e_emits_an_inclusive_constant_word_run_from_a4() {
             next_word: 0x0001,
         },
         "ASM loc_1351E should still emit one word when `d2` starts at zero because the first store happens before `dbf` checks for `-1`"
+    );
+}
+
+#[test]
+fn loc_1352a_repeats_the_current_decoded_word_for_an_inclusive_dbf_run() {
+    assert_eq!(
+        block_layout_repeat_current_word_loc_1352A(0x8123, 2),
+        BlockLayoutRepeatWordsLoc1351E {
+            words: vec![0x8123, 0x8123, 0x8123],
+            next_word: 0x8123,
+        },
+        "ASM loc_1352A should keep storing the current `d1` word while `dbf d2,loc_1352A` runs for `d2+1` iterations"
+    );
+    assert_eq!(
+        block_layout_repeat_current_word_loc_1352A(0x4000, 0),
+        BlockLayoutRepeatWordsLoc1351E {
+            words: vec![0x4000],
+            next_word: 0x4000,
+        },
+        "ASM loc_1352A should still emit one word when `d2` starts at zero because the loop writes before `dbf` checks for `-1`"
     );
 }
 

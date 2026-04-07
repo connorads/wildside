@@ -734,6 +734,23 @@ pub(crate) fn block_layout_repeat_words_loc_1351E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_repeat_current_word_loc_1352A(
+    current_word: u16,
+    dbf_counter: u16,
+) -> BlockLayoutRepeatWordsLoc1351E {
+    // ASM loc_1352A (kid.asm:25895-25898) stores the current `d1` word to
+    // `(a1)+` and never mutates `d1` inside the loop, so `dbf d2,loc_1352A`
+    // repeats the decoded word exactly `d2 + 1` times.
+    let iterations = usize::from(dbf_counter) + 1;
+
+    BlockLayoutRepeatWordsLoc1351E {
+        words: vec![current_word; iterations],
+        next_word: current_word,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_property_words_loc_1337C(
     property_words: &[BlockLayoutPropertyWordLoc1337C],
     dbf_counter: u16,
