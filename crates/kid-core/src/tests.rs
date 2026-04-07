@@ -41890,6 +41890,75 @@ fn loc_130e_emits_the_final_corner_chunk_after_rounding_both_remainder_axes() {
 }
 
 #[test]
+fn loc_134a_tiles_x_flipped_sprites_right_to_left_in_32px_rows() {
+    let chunks = crate::NativeRuntime::sprite_x_flipped_chunks_loc_134A(110, 20, 40, 56);
+
+    assert_eq!(
+        chunks,
+        vec![
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 78,
+                y_screen_px: 20,
+                size_code: 0x0F,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 70,
+                y_screen_px: 20,
+                size_code: 0x03,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 78,
+                y_screen_px: 52,
+                size_code: 0x0E,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 70,
+                y_screen_px: 52,
+                size_code: 0x02,
+            },
+        ],
+        "ASM loc_134A should mirror the non-flipped tiling loop but subtract each emitted width from the current right edge before calling `sub_13C0`"
+    );
+}
+
+#[test]
+fn loc_1352_keeps_emitting_full_width_flipped_chunks_until_the_row_remainder() {
+    let chunks = crate::NativeRuntime::sprite_x_flipped_chunks_loc_134A(110, 20, 64, 32);
+
+    assert_eq!(
+        chunks,
+        vec![
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 78,
+                y_screen_px: 20,
+                size_code: 0x0F,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 46,
+                y_screen_px: 20,
+                size_code: 0x0F,
+            },
+        ],
+        "ASM loc_1352 should keep subtracting `$20` from the flipped row cursor and emitting full 32x32 chunks while `d2 >= $20`"
+    );
+}
+
+#[test]
+fn loc_1362_rounds_the_flipped_row_tail_up_to_the_next_8px_multiple() {
+    let chunks = crate::NativeRuntime::sprite_x_flipped_chunks_loc_134A(110, 20, 24, 32);
+
+    assert_eq!(
+        chunks,
+        vec![crate::combat::NormalSpriteChunkLoc12B8 {
+            x_screen_px: 86,
+            y_screen_px: 20,
+            size_code: 0x0B,
+        }],
+        "ASM loc_1362 should round the final flipped row width to 24px, subtract that width from `d3`, set the width bits with `ori.w #3,d0`, and emit one tail chunk"
+    );
+}
+
+#[test]
 fn loc_132a6_decodes_block_layout_words_from_the_enigma_stream() {
     let decoded = decode_block_layout_loc_132A6(&[
         0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, // header

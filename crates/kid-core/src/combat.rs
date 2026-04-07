@@ -2621,6 +2621,89 @@ impl NativeRuntime {
         emitted
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn sprite_x_flipped_chunks_loc_134A(
+        base_x_screen_px: i16,
+        base_y_screen_px: i16,
+        width_px: i16,
+        height_px: i16,
+    ) -> Vec<NormalSpriteChunkLoc12B8> {
+        const CHUNK_SPAN_LOC_134A: i16 = 0x20;
+
+        // ASM loc_134A (kid.asm:2378-2408): the x-flipped sprite path reuses
+        // the same 32px row cadence as `loc_12B8`, but each width pass starts
+        // from the current right edge in `d6` and subtracts the emitted chunk
+        // width from `d3` before every `sub_13C0` call. `loc_1352` therefore
+        // walks full 32x32 chunks from right to left, `loc_1362` rounds the
+        // tail width up to the next 8px multiple, and `loc_137A` advances to
+        // the next row once the row height budget in `d5` loses another `$20`.
+        // Once fewer than 32px of height remain, `loc_1388`/`loc_13A2` keep
+        // the same right-to-left layout with `$20`-wide vertical strips and a
+        // final rounded corner chunk.
+        let mut emitted = Vec::new();
+        let mut row_y = base_y_screen_px;
+        let mut remaining_height = height_px;
+
+        while remaining_height >= CHUNK_SPAN_LOC_134A {
+            let mut row_right_edge = base_x_screen_px;
+            let mut remaining_width = width_px;
+
+            while remaining_width >= CHUNK_SPAN_LOC_134A {
+                row_right_edge -= CHUNK_SPAN_LOC_134A;
+                emitted.push(NormalSpriteChunkLoc12B8 {
+                    x_screen_px: row_right_edge,
+                    y_screen_px: row_y,
+                    size_code: 0x0F,
+                });
+                remaining_width -= CHUNK_SPAN_LOC_134A;
+            }
+
+            let rounded_width = (remaining_width + 7) & !7;
+            if rounded_width != 0 {
+                row_right_edge -= rounded_width;
+                emitted.push(NormalSpriteChunkLoc12B8 {
+                    x_screen_px: row_right_edge,
+                    y_screen_px: row_y,
+                    size_code: (((rounded_width - 8) >> 1) | 0x0003) as u8,
+                });
+            }
+
+            remaining_height -= CHUNK_SPAN_LOC_134A;
+            row_y = row_y.wrapping_add(CHUNK_SPAN_LOC_134A);
+        }
+
+        let rounded_height = (remaining_height + 7) & !7;
+        if rounded_height == 0 {
+            return emitted;
+        }
+
+        let mut row_right_edge = base_x_screen_px;
+        let mut remaining_width = width_px;
+
+        while remaining_width >= CHUNK_SPAN_LOC_134A {
+            row_right_edge -= CHUNK_SPAN_LOC_134A;
+            emitted.push(NormalSpriteChunkLoc12B8 {
+                x_screen_px: row_right_edge,
+                y_screen_px: row_y,
+                size_code: (((rounded_height - 8) >> 3) | 0x000C) as u8,
+            });
+            remaining_width -= CHUNK_SPAN_LOC_134A;
+        }
+
+        let rounded_width = (remaining_width + 7) & !7;
+        if rounded_width != 0 {
+            row_right_edge -= rounded_width;
+            emitted.push(NormalSpriteChunkLoc12B8 {
+                x_screen_px: row_right_edge,
+                y_screen_px: row_y,
+                size_code: (((rounded_width - 8) >> 1) | ((rounded_height - 8) >> 3)) as u8,
+            });
+        }
+
+        emitted
+    }
+
     fn death_sprite_still_visible(player: PlayerState, camera: CameraState) -> bool {
         let sprite_vertical_extent_px = Self::sprite_vertical_extent_loc_11EA(
             true,
