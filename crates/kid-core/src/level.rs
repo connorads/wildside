@@ -412,6 +412,16 @@ pub(crate) struct BlockLayoutPropertyWordLoc1337C {
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_store_property_word_loc_13398(property_word: u16) -> u16 {
+    // ASM loc_13398 (kid.asm:25678-25681) is the shared store/loop tail after
+    // either loc_13392 leaves `d1` as the raw 4-bit property word or
+    // loc_1337C sets bit 15 with `ori.w #$8000,d1`; the common tail writes that
+    // final word to `(a1)+` before `dbf d2,loc_1337C`.
+    property_word
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_property_words_loc_1337C(
     property_words: &[BlockLayoutPropertyWordLoc1337C],
     dbf_counter: u16,
@@ -427,9 +437,9 @@ pub(crate) fn block_layout_property_words_loc_1337C(
         .map(|entry| {
             let low_nibble = entry.low_nibble & 0x000F;
             if entry.high_bit_set {
-                low_nibble | 0x8000
+                block_layout_store_property_word_loc_13398(low_nibble | 0x8000)
             } else {
-                low_nibble
+                block_layout_store_property_word_loc_13398(low_nibble)
             }
         })
         .collect()

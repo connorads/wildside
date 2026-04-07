@@ -57,9 +57,10 @@ use crate::level::{
     background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
     block_layout_dispatch_loc_132D6, block_layout_entry_words_loc_1332E,
     block_layout_entry_words_loc_1335E, block_layout_property_words_loc_1337C,
-    block_layout_repeat_loop_loc_1331E, block_layout_variable_repeat_loop_loc_1334C,
-    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
-    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
+    block_layout_repeat_loop_loc_1331E, block_layout_store_property_word_loc_13398,
+    block_layout_variable_repeat_loop_loc_1334C, build_palette_fade_curve_sub_14C0,
+    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
+    classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
@@ -42014,6 +42015,20 @@ fn loc_1337c_emits_dbf_count_plus_one_property_words_and_sets_bit_15_on_flagged_
         block_layout_property_words_loc_1337C(&property_words, 0),
         vec![0x0005],
         "ASM loc_1337C should still emit exactly one property word when `d2` starts at zero because `dbf` checks for `-1` after the write"
+    );
+}
+
+#[test]
+fn loc_13398_stores_the_final_property_word_from_either_decode_path() {
+    assert_eq!(
+        block_layout_store_property_word_loc_13398(0x0005),
+        0x0005,
+        "ASM loc_13398 should write the raw `d1` value from `loc_13392` into `(a1)+` before the trailing `dbf d2,loc_1337C`"
+    );
+    assert_eq!(
+        block_layout_store_property_word_loc_13398(0x8002),
+        0x8002,
+        "ASM loc_13398 should also preserve the bit-15-tagged `d1` value produced by `ori.w #$8000,d1` in the flagged branch"
     );
 }
 
