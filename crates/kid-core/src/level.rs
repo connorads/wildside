@@ -81,6 +81,12 @@ pub(crate) struct BlockLayoutDecodeBitLoc135C4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutFinalizeWordLoc135F0 {
+    pub(crate) decoded_word: u16,
+    pub(crate) bit_buffer: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -990,6 +996,29 @@ pub(crate) fn block_layout_apply_fourth_high_bit_loc_135C4(
         decoded_word,
         shifted_property_byte,
         bits_remaining: bits_remaining_after,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_finalize_word_loc_135F0(
+    partial_word: u16,
+    base_word: u16,
+    decode_width_bits: u16,
+    next_input_word: u16,
+) -> BlockLayoutFinalizeWordLoc135F0 {
+    // ASM loc_135F0 (kid.asm:26031-26037) indexes `return_13662` with `a5`,
+    // masks `d1` down to the requested decode width, adds the accumulated base
+    // word from `d3`, then refills `d5` from the next two input bytes at `a0`.
+    let decode_mask = match decode_width_bits {
+        0 => 0,
+        1..=15 => (1u16 << decode_width_bits) - 1,
+        _ => u16::MAX,
+    };
+
+    BlockLayoutFinalizeWordLoc135F0 {
+        decoded_word: (partial_word & decode_mask).wrapping_add(base_word),
+        bit_buffer: next_input_word,
     }
 }
 

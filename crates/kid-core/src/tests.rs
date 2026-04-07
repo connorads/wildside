@@ -42617,6 +42617,18 @@ fn loc_135c4_only_consumes_a_bit_when_the_fourth_property_flag_requests_bit_12()
 }
 
 #[test]
+fn loc_135f0_masks_the_partial_word_adds_the_base_word_and_refills_d5() {
+    assert_eq!(
+        crate::level::block_layout_finalize_word_loc_135F0(0x00BD, 0x1200, 3, 0x3456),
+        crate::level::BlockLayoutFinalizeWordLoc135F0 {
+            decoded_word: 0x1205,
+            bit_buffer: 0x3456,
+        },
+        "ASM loc_135F0 should mask `d1` through the `return_13662[a5]` width table, add the accumulated base word from `d3`, then reload `d5` from the next two input bytes"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);
