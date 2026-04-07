@@ -396,6 +396,28 @@ pub(crate) fn sega_screen_tile_strip_loc_12E3E(first_tile: u16) -> [u16; 12] {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SegaScreenObjectBootstrapLoc12E48 {
+    pub(crate) vdp_register_word: u16,
+    pub(crate) restored_sr: u16,
+    pub(crate) allocate_object_slot_arg: u16,
+    pub(crate) object_routine_label: &'static str,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn sega_screen_object_bootstrap_loc_12E48() -> SegaScreenObjectBootstrapLoc12E48 {
+    // ASM loc_12E48 (kid.asm:25488): restore VDP register 1 with `$8174`,
+    // lower SR back to `$2500`, call `j_Allocate_ObjectSlot` with `a0=0`, and
+    // seed the allocated object's routine longword with `#loc_12E64`.
+    SegaScreenObjectBootstrapLoc12E48 {
+        vdp_register_word: 0x8174,
+        restored_sr: 0x2500,
+        allocate_object_slot_arg: 0,
+        object_routine_label: "loc_12E64",
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PauseMenuSpriteEntrySub6874 {
     pub(crate) y_pos: u16,
     pub(crate) vram_tile_word: u16,
