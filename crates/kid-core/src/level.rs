@@ -2744,6 +2744,24 @@ pub(crate) fn flag_bottom_art_dma_loop_loc_12B9C() -> JuggernautSkullArtDmaLoc12
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hitpoint_display_art_dma_loop_loc_12C34() -> JuggernautSkullArtDmaLoc129DC {
+    // ASM loc_12C34 (kid.asm:25414-25416): `sub_12C24` writes
+    // `vdpComm($45A0,VRAM,WRITE)` to the VDP control port, points `a1` at
+    // `ArtUnc_12C3C`, seeds `d0=#1F`, then streams 32 longwords via
+    // `move.l (a1)+,(a6)` / `dbf d0,loc_12C34`.
+    const VDP_COMMAND: u32 = 0xA000_00C5; // vdpComm($45A0,VRAM,WRITE)
+    const ART_SOURCE_OFFSET: u32 = 0x0001_2C3C; // ArtUnc_12C3C
+    const LONGWORD_COUNT: u16 = 32; // $1F + 1
+
+    JuggernautSkullArtDmaLoc129DC {
+        vdp_command: VDP_COMMAND,
+        art_source: ART_SOURCE_OFFSET,
+        longword_count: LONGWORD_COUNT,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,

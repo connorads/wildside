@@ -41689,3 +41689,21 @@ fn loc_12c0_emits_full_width_32px_chunks_until_the_row_remainder() {
         "ASM loc_12C0 should keep issuing full 32x32 `sub_13C0` chunks while the remaining width stays >= $20"
     );
 }
+
+#[test]
+fn loc_12c34_loads_hitpoint_display_art_into_vram_45a0() {
+    let result = crate::level::hitpoint_display_art_dma_loop_loc_12C34();
+
+    assert_eq!(
+        result.vdp_command, 0xA000_00C5,
+        "ASM loc_12C34 should program vdpComm($45A0,VRAM,WRITE) before the copy loop"
+    );
+    assert_eq!(
+        result.art_source, 0x0001_2C3C,
+        "ASM loc_12C34 should stream hitpoint display art from ArtUnc_12C3C"
+    );
+    assert_eq!(
+        result.longword_count, 32,
+        "ASM loc_12C34 seeds `d0=#1F`, so `dbf d0,loc_12C34` copies 32 longwords"
+    );
+}
