@@ -13,16 +13,16 @@ use crate::blocks::{
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IoPortFlagsSub6E24,
-    PauseMenuSpriteEntrySub6874, end_sequence_burst_sprite_init_sub_1D86C,
-    end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
-    end_sequence_falling_sprite_init_sub_1D8B4, flag_hud_dma_upload_sub_5DA6,
-    hide_pause_menu_overwritten_sprites_sub_6874, hud_timer_sprite_layout_sub_BD0A,
-    init_hud_animation_frames_sub_44B0, prize_10000_points_star_advance_loc_10BCE,
-    prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
-    prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
-    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
-    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
-    vdp_upload_32_longwords_sub_44D0,
+    PauseMenuSpriteEntrySub6874, copy_sega_screen_palette_loc_12DFE,
+    end_sequence_burst_sprite_init_sub_1D86C, end_sequence_camera_shake_sub_1D846,
+    end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
+    flag_hud_dma_upload_sub_5DA6, hide_pause_menu_overwritten_sprites_sub_6874,
+    hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
+    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_cleanup_loc_10BE6,
+    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_latch_screen_pos_loc_10B9A,
+    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
+    read_io_port_a10001_flags_sub_6E24, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
+    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -2103,6 +2103,23 @@ fn sub_129ae_swaps_forest_palette_words_only() {
         "ASM sub_129AE must leave non-Forest background palettes unchanged"
     );
     assert_eq!(non_forest_palette[0x1A], 0x5678);
+}
+
+#[test]
+fn loc_12dfe_copies_dbf_count_plus_one_palette_words_into_the_buffer_offset() {
+    let source_words = [0x0123, 0x4567, 0x89AB, 0xCDEF];
+    let mut palette_buffer = [0u16; 6];
+    palette_buffer[0] = 0xAAAA;
+    palette_buffer[1] = 0xBBBB;
+    palette_buffer[5] = 0xDDDD;
+
+    copy_sega_screen_palette_loc_12DFE(&source_words, &mut palette_buffer, 4, 2);
+
+    assert_eq!(
+        palette_buffer,
+        [0xAAAA, 0xBBBB, 0x0123, 0x4567, 0x89AB, 0xDDDD],
+        "ASM loc_12DFE should treat the header byte as a Palette_Buffer byte offset and copy `dbf` count plus one words"
+    );
 }
 
 #[test]

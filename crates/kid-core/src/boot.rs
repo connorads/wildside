@@ -362,6 +362,28 @@ pub(crate) fn step_hud_animation_sub_44DC(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn copy_sega_screen_palette_loc_12DFE(
+    source_words: &[u16],
+    palette_buffer: &mut [u16],
+    destination_byte_offset: u8,
+    dbf_count: u8,
+) {
+    // ASM loc_12DFE (kid.asm:25459): `add.w d7,a3` treats the first header byte
+    // as a byte offset into `Palette_Buffer`, then the `dbf d7,loc_12DFE` loop
+    // copies `d7+1` palette words from `(a2)+` into `(a3)+`.
+    assert_eq!(
+        destination_byte_offset & 1,
+        0,
+        "Sega screen palette copy should start on a word-aligned Palette_Buffer offset"
+    );
+    let start_index = usize::from(destination_byte_offset >> 1);
+    let words_to_copy = usize::from(dbf_count) + 1;
+    let end_index = start_index + words_to_copy;
+    palette_buffer[start_index..end_index].copy_from_slice(&source_words[..words_to_copy]);
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn sega_screen_tile_strip_sub_12E3C(first_tile: u16) -> [u16; 12] {
     // ASM sub_12E3C (kid.asm:25476): write 12 successive tile words starting
     // from d1 to the VDP data port, incrementing d1 after each write.
