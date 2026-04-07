@@ -41731,6 +41731,20 @@ fn loc_12c0_emits_full_width_32px_chunks_until_the_row_remainder() {
 }
 
 #[test]
+fn loc_12e6_advances_to_the_next_row_after_finishing_a_width_remainder() {
+    let chunks = crate::NativeRuntime::sprite_normal_orientation_chunks_loc_12B8(10, 20, 40, 64);
+
+    assert_eq!(
+        chunks[2],
+        crate::combat::NormalSpriteChunkLoc12B8 {
+            x_screen_px: 10,
+            y_screen_px: 52,
+            size_code: 0x0F,
+        },
+        "ASM loc_12E6 should subtract `$20` from the remaining height and add `$20` to the row Y position before branching back to `loc_12B8`"
+    );
+}
+#[test]
 fn loc_12c34_loads_hitpoint_display_art_into_vram_45a0() {
     let result = crate::level::hitpoint_display_art_dma_loop_loc_12C34();
 
