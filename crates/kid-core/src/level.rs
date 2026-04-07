@@ -53,6 +53,13 @@ pub(crate) struct BlockLayoutDispatchLoc13504 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutDecodeHighBitLoc1359A {
+    pub(crate) decoded_word: u16,
+    pub(crate) shifted_property_byte: u8,
+    pub(crate) bits_remaining: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -843,6 +850,37 @@ pub(crate) fn block_layout_return_input_addr_loc_13582(next_input_addr: u16) -> 
     // stack and returns, so the aligned `a0` from `loc_1357A` passes through
     // unchanged as the caller-visible decode pointer.
     next_input_addr
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_apply_high_bit_loc_1359A(
+    base_word: u16,
+    property_byte: u8,
+    bits_remaining: u16,
+    bit_buffer: u16,
+) -> BlockLayoutDecodeHighBitLoc1359A {
+    // ASM sub_13588 / loc_1359A (kid.asm:25952-25963) seeds `d3` from `a3`,
+    // copies `d4` into `d1`, then uses the first `add.b d1,d1` carry as a gate
+    // for the `$8000` contribution. Only when that carry is set does the code
+    // consume one bit from `d5` via `subq.w #1,d6` + `btst d6,d5`; otherwise it
+    // falls through to `loc_1359A` without touching `d6` or bit 15.
+    let shifted_property_byte = property_byte.wrapping_add(property_byte);
+    let mut decoded_word = base_word;
+    let mut bits_remaining_after = bits_remaining;
+
+    if property_byte & 0x80 != 0 {
+        bits_remaining_after = bits_remaining_after.wrapping_sub(1);
+        if bit_buffer & (1u16 << bits_remaining_after) != 0 {
+            decoded_word |= 0x8000;
+        }
+    }
+
+    BlockLayoutDecodeHighBitLoc1359A {
+        decoded_word,
+        shifted_property_byte,
+        bits_remaining: bits_remaining_after,
+    }
 }
 
 #[allow(non_snake_case)]
