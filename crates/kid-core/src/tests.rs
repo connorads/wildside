@@ -40,8 +40,8 @@ use crate::level::{
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     BlockLayoutDispatchLoc132D6, BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E,
-    BlockLayoutLoopLoc1331E, BlockLayoutPropertyWordLoc1337C, FgPlaneCustomWriteSub1596,
-    FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc1331E, BlockLayoutPropertyWordLoc1337C,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
     FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
     ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
     FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
@@ -58,9 +58,9 @@ use crate::level::{
     block_layout_dispatch_loc_132D6, block_layout_entry_words_loc_1332E,
     block_layout_entry_words_loc_1335E, block_layout_property_words_loc_1337C,
     block_layout_repeat_loop_loc_1331E, block_layout_store_property_word_loc_13398,
-    block_layout_variable_repeat_loop_loc_1334C, build_palette_fade_curve_sub_14C0,
-    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
-    classify_foreground_palette_override_loc_11D8E,
+    block_layout_variable_repeat_loop_loc_133A0, block_layout_variable_repeat_loop_loc_1334C,
+    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
+    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
@@ -42029,6 +42029,23 @@ fn loc_13398_stores_the_final_property_word_from_either_decode_path() {
         block_layout_store_property_word_loc_13398(0x8002),
         0x8002,
         "ASM loc_13398 should also preserve the bit-15-tagged `d1` value produced by `ori.w #$8000,d1` in the flagged branch"
+    );
+}
+
+#[test]
+fn loc_133a0_restarts_on_the_same_x_sentinel_in_the_third_dispatch_arm() {
+    let restart = block_layout_variable_repeat_loop_loc_133A0(0x0014, 0x0014);
+    let continue_entry = block_layout_variable_repeat_loop_loc_133A0(0x0013, 0x0014);
+
+    assert_eq!(
+        restart,
+        BlockLayoutLoopLoc133A0::RestartAtLoc132D6 { end_marker: 0xFFFF },
+        "ASM loc_133A0 should emit `$FFFF` and branch back to `loc_132D6` when the decoded X word matches the `a5` sentinel in the third jump-table arm"
+    );
+    assert_eq!(
+        continue_entry,
+        BlockLayoutLoopLoc133A0::ContinueLoc133B2,
+        "ASM loc_133A0 should fall through to `loc_133B2` while the decoded X word differs from the `a5` sentinel"
     );
 }
 

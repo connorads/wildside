@@ -51,6 +51,12 @@ pub(crate) enum BlockLayoutLoopLoc1331E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BlockLayoutLoopLoc133A0 {
+    RestartAtLoc132D6 { end_marker: u16 },
+    ContinueLoc133B2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutEntryWordsLoc1332E {
     pub(crate) x_pos: u16,
     pub(crate) y_row: u16,
@@ -371,6 +377,23 @@ pub(crate) fn block_layout_variable_repeat_loop_loc_1334C(
         BlockLayoutLoopLoc1331E::RestartAtLoc132D6 { end_marker: 0xFFFF }
     } else {
         BlockLayoutLoopLoc1331E::ContinueLoc1332E
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_variable_repeat_loop_loc_133A0(
+    x_pos: u16,
+    end_marker_x_pos: u16,
+) -> BlockLayoutLoopLoc133A0 {
+    // ASM loc_133A0 (kid.asm:25684-25691) repeats the same `a5` sentinel gate
+    // through the third dispatch arm: decode the next X word with `sub_13622`,
+    // write `$FFFF`, and jump back to loc_132D6 on a match; otherwise fall
+    // through to loc_133B2 for the unflagged property-word format.
+    if x_pos == end_marker_x_pos {
+        BlockLayoutLoopLoc133A0::RestartAtLoc132D6 { end_marker: 0xFFFF }
+    } else {
+        BlockLayoutLoopLoc133A0::ContinueLoc133B2
     }
 }
 
