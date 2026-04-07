@@ -838,6 +838,15 @@ pub(crate) fn block_layout_align_rewound_input_addr_loc_1357A(mut next_input_add
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_return_input_addr_loc_13582(next_input_addr: u16) -> u16 {
+    // ASM loc_13582 (kid.asm:25946-25947) only restores `d0-d7/a1-a5` from the
+    // stack and returns, so the aligned `a0` from `loc_1357A` passes through
+    // unchanged as the caller-visible decode pointer.
+    next_input_addr
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_decode_word_run_loc_1354E(
     decoded_words: &[u16],
     dbf_counter: u16,

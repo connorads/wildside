@@ -42484,6 +42484,15 @@ fn loc_1357a_rounds_odd_rewound_addresses_back_up_to_even() {
 }
 
 #[test]
+fn loc_13582_returns_the_aligned_input_pointer_unchanged() {
+    assert_eq!(
+        crate::level::block_layout_return_input_addr_loc_13582(0x0104),
+        0x0104,
+        "ASM loc_13582 should only restore registers and `rts`, so the aligned `a0` from `loc_1357A` becomes the caller-visible decode pointer unchanged"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);
