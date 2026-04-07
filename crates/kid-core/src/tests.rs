@@ -46,7 +46,8 @@ use crate::level::{
     LateBackgroundPaletteOverrideLoc11E06, LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit,
     PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT,
     ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
-    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
+    SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
+    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
     apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
@@ -66,9 +67,10 @@ use crate::level::{
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
     select_background_art_permutation_loc_11E96, select_foreground_art_permutation_loc_11E48,
-    select_foreground_art_permutation_loc_11E54, spawn_block_debris_sub_292E,
-    step_fullscreen_palette_fade_sub_73D0, step_island_palette_cycle_lower_band_loc_12188,
-    step_island_palette_cycle_mid_band_loc_12110, step_island_palette_cycle_primary_band_loc_12098,
+    select_foreground_art_permutation_loc_11E54, shared_vram_art_decompresses_loc_11EFA,
+    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
+    step_island_palette_cycle_lower_band_loc_12188, step_island_palette_cycle_mid_band_loc_12110,
+    step_island_palette_cycle_primary_band_loc_12098,
     swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
@@ -26957,6 +26959,24 @@ fn loc_11ef2_preserves_the_selected_followup_background_art_into_the_shared_deco
             art_source: BackgroundFollowupArtSourceLoc11EC4::CaveAlt,
         },
         "ASM loc_11EF2 should also leave the earlier `loc_11EC4` CaveAlt selection intact when the weather branches fall through"
+    );
+}
+
+#[test]
+fn loc_11efa_decompresses_blocks_then_ingame_numbers_into_their_vram_slots() {
+    assert_eq!(
+        shared_vram_art_decompresses_loc_11EFA(),
+        [
+            SharedVramArtDecompressLoc11EFA {
+                tile_base: 0x4400,
+                art_source: SharedVramArtSourceLoc11EFA::Blocks,
+            },
+            SharedVramArtDecompressLoc11EFA {
+                tile_base: 0xD740,
+                art_source: SharedVramArtSourceLoc11EFA::IngameNumbers,
+            },
+        ],
+        "ASM loc_11EFA should always decompress `ArtComp_992E4_Blocks` to VRAM `$4400` before loading `ArtComp_99F34_IngameNumbers` into VRAM `$D740`"
     );
 }
 

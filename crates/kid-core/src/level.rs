@@ -3133,6 +3133,18 @@ pub(crate) struct BackgroundFollowupArtDecompressLoc11EF2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SharedVramArtSourceLoc11EFA {
+    Blocks,
+    IngameNumbers,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SharedVramArtDecompressLoc11EFA {
+    pub(crate) tile_base: u16,
+    pub(crate) art_source: SharedVramArtSourceLoc11EFA,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelCameraBootstrapLoc11F48 {
     pub(crate) vram_fill_word: u16,
     pub(crate) vram_fill_count: u16,
@@ -3338,6 +3350,25 @@ pub(crate) fn prepare_followup_background_art_decompress_loc_11EF2(
         permutation: selected_decompress.permutation,
         art_source: selected_decompress.art_source,
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shared_vram_art_decompresses_loc_11EFA() -> [SharedVramArtDecompressLoc11EFA; 2] {
+    // ASM loc_11EFA (kid.asm:24108-24115): after the background setup, the
+    // shared tail always decompresses the block art to VRAM `$4400` and the
+    // in-game number glyphs to VRAM `$D740` before continuing into the HUD
+    // and helper-art loads.
+    [
+        SharedVramArtDecompressLoc11EFA {
+            tile_base: 0x4400,
+            art_source: SharedVramArtSourceLoc11EFA::Blocks,
+        },
+        SharedVramArtDecompressLoc11EFA {
+            tile_base: 0xD740,
+            art_source: SharedVramArtSourceLoc11EFA::IngameNumbers,
+        },
+    ]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
