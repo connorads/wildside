@@ -2591,6 +2591,10 @@ impl NativeRuntime {
         let mut column_x = base_x_screen_px;
         let mut remaining_width = width_px;
 
+        // ASM loc_12F4 (kid.asm:2333-2345): while the rounded tail height in
+        // `d5` stays fixed, keep emitting `$20`-wide strips with
+        // `ori.w #$C,d0`, then subtract/add `$20` from the remaining width and
+        // screen X before looping back to `loc_12F4`.
         while remaining_width >= CHUNK_SPAN_LOC_12B8 {
             emitted.push(NormalSpriteChunkLoc12B8 {
                 x_screen_px: column_x,
