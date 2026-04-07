@@ -41766,6 +41766,44 @@ fn loc_12ec_emits_the_final_height_remainder_as_vertical_strips_then_corner_chun
         "ASM loc_12EC should round the final 24px height remainder up to 24px, emit one `$20x18` strip with `ori.w #$C,d0`, then finish with the 8px-wide corner chunk"
     );
 }
+
+#[test]
+fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
+    let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
+    let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);
+    let timeout = crate::boot::sega_screen_start_poll_loc_12E6C(&[]);
+
+    assert_eq!(
+        immediate_start.wait_iterations, 1,
+        "ASM loc_12E6C should inspect Start on the first VBlank iteration"
+    );
+    assert_eq!(
+        immediate_start.palette_upload_calls, 0,
+        "ASM loc_12E6C should branch to `loc_12EDE` before `j_Palette_to_VRAM` when `bclr #7,(Ctrl_1_Pressed).w` sees Start immediately"
+    );
+    assert!(immediate_start.start_pressed);
+
+    assert_eq!(
+        delayed_start.wait_iterations, 3,
+        "ASM loc_12E6C should keep looping until the frame where Start becomes newly pressed"
+    );
+    assert_eq!(
+        delayed_start.palette_upload_calls, 2,
+        "ASM loc_12E6C should upload the palette only on the non-Start iterations before the branch"
+    );
+    assert!(delayed_start.start_pressed);
+
+    assert_eq!(
+        timeout.wait_iterations, 11,
+        "ASM loc_12E6C seeds `d2=#A`, so `dbf d2,loc_12E6C` should run exactly 11 iterations when Start is never pressed"
+    );
+    assert_eq!(
+        timeout.palette_upload_calls, 11,
+        "ASM loc_12E6C should keep calling `j_Palette_to_VRAM` on every non-Start iteration until the `dbf` loop expires"
+    );
+    assert!(!timeout.start_pressed);
+}
+
 #[test]
 fn loc_12c34_loads_hitpoint_display_art_into_vram_45a0() {
     let result = crate::level::hitpoint_display_art_dma_loop_loc_12C34();

@@ -418,6 +418,54 @@ pub(crate) fn sega_screen_object_bootstrap_loc_12E48() -> SegaScreenObjectBootst
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SegaScreenStartPollLoc12E6C {
+    pub(crate) wait_iterations: u16,
+    pub(crate) palette_upload_calls: u16,
+    pub(crate) start_pressed: bool,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn sega_screen_start_poll_loc_12E6C(
+    ctrl_1_pressed_reads: &[u8],
+) -> SegaScreenStartPollLoc12E6C {
+    // ASM loc_12E6C (kid.asm:25501): seed `d2 = #$A`, then on each pass wait
+    // for VBlank, read the joypad, consume the Start edge with
+    // `bclr #7,(Ctrl_1_Pressed).w`, and only call `j_Palette_to_VRAM` when
+    // Start was not newly pressed. `dbf d2,loc_12E6C` makes the loop run
+    // exactly 11 iterations when Start never interrupts it.
+    let mut wait_iterations = 0u16;
+    let mut palette_upload_calls = 0u16;
+    let mut counter = 0x000Au16;
+
+    loop {
+        wait_iterations = wait_iterations.wrapping_add(1);
+        let ctrl_1_pressed = ctrl_1_pressed_reads
+            .get((wait_iterations - 1) as usize)
+            .copied()
+            .unwrap_or(0);
+        let start_pressed = ctrl_1_pressed & 0x80 != 0;
+        if start_pressed {
+            return SegaScreenStartPollLoc12E6C {
+                wait_iterations,
+                palette_upload_calls,
+                start_pressed: true,
+            };
+        }
+
+        palette_upload_calls = palette_upload_calls.wrapping_add(1);
+        if counter == 0 {
+            return SegaScreenStartPollLoc12E6C {
+                wait_iterations,
+                palette_upload_calls,
+                start_pressed: false,
+            };
+        }
+        counter -= 1;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PauseMenuSpriteEntrySub6874 {
     pub(crate) y_pos: u16,
     pub(crate) vram_tile_word: u16,
