@@ -1228,7 +1228,12 @@ impl NativeRuntime {
         }
     }
 
-    fn offset_block_destroy_effect_origin(direction: u16, x_px: u16, y_px: u16) -> (u16, u16) {
+    #[allow(non_snake_case)]
+    fn smash_block_destroy_effect_origin_sub_10EDA(
+        direction: u16,
+        x_px: u16,
+        y_px: u16,
+    ) -> (u16, u16) {
         match direction {
             // ASM loc_10F26 / loc_10FE8 (kid.asm:22833,22908): both smash and
             // ice helpers share the `addq.w #4,x_pos(a3)` branch, nudging the
@@ -1249,13 +1254,36 @@ impl NativeRuntime {
         }
     }
 
+    #[allow(non_snake_case)]
+    fn ice_block_destroy_effect_origin_sub_10F9C(
+        direction: u16,
+        x_px: u16,
+        y_px: u16,
+    ) -> (u16, u16) {
+        match direction {
+            // ASM loc_10FE8 (kid.asm:22908): `d6 == 3` nudges the ice shard
+            // worker 4 px right before the shared `loc_10FEC` sprite swap.
+            Self::BLOCK_DESTROY_DIRECTION_RIGHT => (x_px.saturating_add(4), y_px),
+            // ASM loc_10FDC (kid.asm:22900): `d6 == 2` nudges the ice shard
+            // worker 4 px upward before the 3-frame hibernate.
+            Self::BLOCK_DESTROY_DIRECTION_ABOVE => (x_px, y_px.saturating_sub(4)),
+            // ASM loc_10FE2 (kid.asm:22904): `d6 == 1` nudges the ice shard
+            // worker 4 px left before the shared `loc_10FEC` tail.
+            Self::BLOCK_DESTROY_DIRECTION_LEFT => (x_px.saturating_sub(4), y_px),
+            // ASM sub_10F9C (kid.asm:22881): when `d6` is neither 1, 2, nor
+            // 3, the routine falls through to `addq.w #4,y_pos(a3)` before
+            // the shared sprite swap and 3-frame hibernate at `loc_10FEC`.
+            _ => (x_px, y_px.saturating_add(4)),
+        }
+    }
+
     pub(crate) fn spawn_smash_block_effect_sub_10eda(
         &mut self,
         x_px: u16,
         y_px: u16,
         direction: u16,
     ) {
-        let (x_px, y_px) = Self::offset_block_destroy_effect_origin(direction, x_px, y_px);
+        let (x_px, y_px) = Self::smash_block_destroy_effect_origin_sub_10EDA(direction, x_px, y_px);
         self.block_destroy_effects.push(BlockDestroyEffect {
             // ASM loc_10F2A (kid.asm:22836): after the direction-specific
             // offset branch, sub_10EDA swaps to `LnkTo_unk_E0E56-Data_Index`,
@@ -1273,12 +1301,12 @@ impl NativeRuntime {
         y_px: u16,
         direction: u16,
     ) {
-        let (x_px, y_px) = Self::offset_block_destroy_effect_origin(direction, x_px, y_px);
+        let (x_px, y_px) = Self::ice_block_destroy_effect_origin_sub_10F9C(direction, x_px, y_px);
         self.block_destroy_effects.push(BlockDestroyEffect {
-            // ASM loc_10FDC / loc_10FEC (kid.asm:22900): this helper reuses
-            // the shared directional 4 px offset logic, including the
-            // `d6 == 2` upward branch at `loc_10FDC`, then swaps to the
-            // ice-block art and hibernates for 3 frames before deleting.
+            // ASM sub_10F9C / loc_10FEC (kid.asm:22881,22910): after the
+            // direction-specific nudge, the worker marks the effect visible,
+            // swaps to the ice-block art, hibernates for 3 frames, then
+            // dispatches the shared debris helper and deletes itself.
             x_px,
             y_px,
             remaining: 3,
