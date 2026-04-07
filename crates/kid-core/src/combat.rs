@@ -2544,6 +2544,10 @@ impl NativeRuntime {
         // 32px row span from `d5`, add it to `d7`, and branch back to
         // `loc_12B8`, so each completed row advances vertically before the
         // next width pass starts.
+        // ASM loc_12EC: once fewer than 32px of height remain, round the tail
+        // row up to the next 8px multiple, emit `$20`-wide strips with
+        // `ori.w #$C,d0`, then finish with the combined width/height corner
+        // chunk before `return_1328`.
         // The combined routine emits as many 32x32 chunks as possible first,
         // rounds each leftover axis up to the next multiple of 8, then encodes
         // the width and height remainder bits into the final `sub_13C0` size
