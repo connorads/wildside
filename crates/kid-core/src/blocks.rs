@@ -2518,14 +2518,15 @@ impl NativeRuntime {
             // below `Level_height_pixels` and `collision_type(a3)` stays zero.
             // ASM loc_1047C (kid.asm:21709), loc_104C6 (kid.asm:21735),
             // loc_10510 (kid.asm:21761), loc_1055A (kid.asm:21787),
-            // loc_105A4 (kid.asm:21813), loc_10638 (kid.asm:21865),
-            // loc_10682 (kid.asm:21891), and loc_10768 (kid.asm:21987) are
-            // the matching Skycutter/Cyclone/Red Stealth/Eyeclops/
-            // Juggernaut/Berzerker/Maniaxe/PrizeAnkh delete exits: once the
-            // per-frame loop at loc_10464/loc_104AE/loc_104F8/loc_10542/
-            // loc_1058C/loc_105D6/loc_10620/loc_1066A/loc_10738 sees either a
-            // non-zero `collision_type(a3)` or the bottom-of-level compare,
-            // control jumps straight to `Delete_CurrentObject`.
+            // loc_105A4 (kid.asm:21813), loc_105EE (kid.asm:21839),
+            // loc_10638 (kid.asm:21865), loc_10682 (kid.asm:21891), and
+            // loc_10768 (kid.asm:21987) are the matching Skycutter/Cyclone/
+            // Red Stealth/Eyeclops/Juggernaut/Iron Knight/Berzerker/Maniaxe/
+            // PrizeAnkh delete exits: once the per-frame loop at
+            // loc_10464/loc_104AE/loc_104F8/loc_10542/loc_1058C/loc_105D6/
+            // loc_10620/loc_1066A/loc_10738 sees either a non-zero
+            // `collision_type(a3)` or the bottom-of-level compare, control
+            // jumps straight to `Delete_CurrentObject`.
             let gate =
                 Self::prize_clock_fall_gate_loc_107B0(integer_y, level_height_pixels, f.collected);
             (f.spawn_delay > 0 || f.remaining > 0) && gate.stays_active
