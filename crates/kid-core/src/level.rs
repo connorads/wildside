@@ -108,6 +108,12 @@ pub(crate) struct BlockLayoutRepeatWordsLoc13514 {
     pub(crate) next_word: u16,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BlockLayoutRepeatWordsLoc1351E {
+    pub(crate) words: Vec<u16>,
+    pub(crate) next_word: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutTerminateLoc134BA {
     pub(crate) end_marker: u16,
@@ -706,6 +712,23 @@ pub(crate) fn block_layout_repeat_words_loc_13514(
     BlockLayoutRepeatWordsLoc13514 {
         words,
         next_word: start_word.wrapping_add(dbf_counter).wrapping_add(1),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_repeat_words_loc_1351E(
+    repeated_word: u16,
+    dbf_counter: u16,
+) -> BlockLayoutRepeatWordsLoc1351E {
+    // ASM loc_1351E (kid.asm:25886-25888) stores `a4` to `(a1)+` for every
+    // iteration but never changes `a4`, so the inclusive `dbf d2,loc_1351E`
+    // loop repeats one constant word exactly `d2 + 1` times.
+    let iterations = usize::from(dbf_counter) + 1;
+
+    BlockLayoutRepeatWordsLoc1351E {
+        words: vec![repeated_word; iterations],
+        next_word: repeated_word,
     }
 }
 
