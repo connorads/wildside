@@ -69,6 +69,12 @@ pub(crate) enum BlockLayoutLoopLoc1342E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BlockLayoutLoopLoc1345E {
+    RestartAtLoc132D6 { end_marker: u16 },
+    ContinueLoc13470,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutEntryWordsLoc1332E {
     pub(crate) x_pos: u16,
     pub(crate) y_row: u16,
@@ -546,6 +552,23 @@ pub(crate) fn block_layout_store_property_word_loc_13398(property_word: u16) -> 
     // loc_1337C sets bit 15 with `ori.w #$8000,d1`; the common tail writes that
     // final word to `(a1)+` before `dbf d2,loc_1337C`.
     property_word
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_short_pair_repeat_loop_loc_1345E(
+    x_pos: u16,
+    end_marker_x_pos: u16,
+) -> BlockLayoutLoopLoc1345E {
+    // ASM loc_1345E (kid.asm:25778-25785) keeps the same sentinel gate as the
+    // prior dispatch arms: decode X through `sub_13622`, compare it to the
+    // `a5` sentinel, emit `$FFFF`, and jump back to `loc_132D6` on a match;
+    // otherwise fall through to `loc_13470`.
+    if x_pos == end_marker_x_pos {
+        BlockLayoutLoopLoc1345E::RestartAtLoc132D6 { end_marker: 0xFFFF }
+    } else {
+        BlockLayoutLoopLoc1345E::ContinueLoc13470
+    }
 }
 
 #[allow(non_snake_case)]
