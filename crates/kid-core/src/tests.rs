@@ -7003,6 +7003,15 @@ fn prize_block_wobble_rise_loc_10104_uses_five_two_pixel_steps() {
 }
 
 #[test]
+fn prize_block_wobble_fall_loc_10112_uses_four_two_pixel_steps() {
+    assert_eq!(
+        NativeRuntime::prize_block_wobble_fall_loc_10112(),
+        &[-2, -2, -2, -2],
+        "ASM loc_10112 should run four `subq.w #2,y_pos(a3)` steps after `moveq #3,d0` because `dbf` includes zero",
+    );
+}
+
+#[test]
 fn deleted_tile_wobble_y_deltas_loc_10236_use_six_hibernated_rise_frames() {
     let deltas = NativeRuntime::deleted_tile_wobble_y_deltas_loc_10200();
 
