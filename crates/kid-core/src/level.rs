@@ -83,6 +83,12 @@ pub(crate) struct BlockLayoutEntryWordsLoc1332E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutEntryWordsLoc13470 {
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutEntryWordsLoc133F0 {
     pub(crate) x_pos: u16,
     pub(crate) y_row: u16,
@@ -569,6 +575,19 @@ pub(crate) fn block_layout_short_pair_repeat_loop_loc_1345E(
     } else {
         BlockLayoutLoopLoc1345E::ContinueLoc13470
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_entry_words_loc_13470(
+    x_pos: u16,
+    y_row: u16,
+) -> BlockLayoutEntryWordsLoc13470 {
+    // ASM loc_13470 (kid.asm:25788-25793) is the short two-word tail for this
+    // dispatch arm: write the X word already decoded in `d1`, decode the next
+    // Y word through `sub_13622`, write that second word, then loop back to
+    // `loc_1345E`.
+    BlockLayoutEntryWordsLoc13470 { x_pos, y_row }
 }
 
 #[allow(non_snake_case)]

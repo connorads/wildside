@@ -40,10 +40,10 @@ use crate::level::{
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     BlockLayoutDispatchLoc132D6, BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0,
-    BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E, BlockLayoutLoopLoc133A0,
-    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
-    BlockLayoutLoopLoc1345E, BlockLayoutPropertyWordLoc1337C, FgPlaneCustomWriteSub1596,
-    FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470,
+    BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E,
+    BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E, BlockLayoutPropertyWordLoc1337C,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
     FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
     ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
     FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
@@ -59,13 +59,13 @@ use crate::level::{
     background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
     block_layout_dispatch_loc_132D6, block_layout_entry_words_loc_133B2,
     block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
-    block_layout_entry_words_loc_1335E, block_layout_fixed_pattern_repeat_loop_loc_133DE,
-    block_layout_long_run_repeat_loop_loc_1342E, block_layout_property_words_loc_1337C,
-    block_layout_repeat_loop_loc_1331E, block_layout_short_pair_repeat_loop_loc_1345E,
-    block_layout_store_property_word_loc_13398, block_layout_variable_repeat_loop_loc_133A0,
-    block_layout_variable_repeat_loop_loc_1334C, build_palette_fade_curve_sub_14C0,
-    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
-    classify_foreground_palette_override_loc_11D8E,
+    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
+    block_layout_fixed_pattern_repeat_loop_loc_133DE, block_layout_long_run_repeat_loop_loc_1342E,
+    block_layout_property_words_loc_1337C, block_layout_repeat_loop_loc_1331E,
+    block_layout_short_pair_repeat_loop_loc_1345E, block_layout_store_property_word_loc_13398,
+    block_layout_variable_repeat_loop_loc_133A0, block_layout_variable_repeat_loop_loc_1334C,
+    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
+    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
@@ -42142,6 +42142,20 @@ fn loc_1345e_restarts_on_the_same_x_sentinel_in_the_short_pair_dispatch_arm() {
         continue_entry,
         BlockLayoutLoopLoc1345E::ContinueLoc13470,
         "ASM loc_1345E should fall through to `loc_13470` while the decoded X word differs from the `a5` sentinel"
+    );
+}
+
+#[test]
+fn loc_13470_emits_the_two_word_short_pair_entry() {
+    let entry = block_layout_entry_words_loc_13470(0x0032, 0x000B);
+
+    assert_eq!(
+        entry,
+        BlockLayoutEntryWordsLoc13470 {
+            x_pos: 0x0032,
+            y_row: 0x000B,
+        },
+        "ASM loc_13470 should write the decoded X word, decode one Y word through `sub_13622`, write it, and loop back to `loc_1345E`"
     );
 }
 
