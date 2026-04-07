@@ -39,8 +39,8 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
-    BlockLayoutDispatchLoc132D6, BlockLayoutLoopLoc1331E, FgPlaneCustomWriteSub1596,
-    FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    BlockLayoutDispatchLoc132D6, BlockLayoutEntryWordsLoc1332E, BlockLayoutLoopLoc1331E,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
     FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
     ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
     FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
@@ -54,9 +54,10 @@ use crate::level::{
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
     background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    block_layout_dispatch_loc_132D6, block_layout_repeat_loop_loc_1331E,
-    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
-    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
+    block_layout_dispatch_loc_132D6, block_layout_entry_words_loc_1332E,
+    block_layout_repeat_loop_loc_1331E, build_palette_fade_curve_sub_14C0,
+    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
+    classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
@@ -41932,6 +41933,22 @@ fn loc_1331e_writes_ffff_and_restarts_when_x_matches_the_sentinel() {
         continue_entry,
         BlockLayoutLoopLoc1331E::ContinueLoc1332E,
         "ASM loc_1331E should fall through to `loc_1332E` while the decoded X word is not the sentinel"
+    );
+}
+
+#[test]
+fn loc_1332e_emits_x_y_count_plus_one_and_stride_words() {
+    let entry = block_layout_entry_words_loc_1332E(0x0012, 0x0007, 0x0000, true);
+
+    assert_eq!(
+        entry,
+        BlockLayoutEntryWordsLoc1332E {
+            x_pos: 0x0012,
+            y_row: 0x0007,
+            count: 0x0001,
+            stride_word: 0x0001,
+        },
+        "ASM loc_1332E should write the decoded X and Y words, store the 4-bit run length as `count+1`, then append the 1-bit stride word before looping"
     );
 }
 
