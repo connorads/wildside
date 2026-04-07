@@ -58,8 +58,8 @@ use crate::level::{
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
-    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
-    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    decode_block_layout_loc_132A6, drain_fg_update_queue_custom_sub_1596,
+    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_camera_bootstrap_loc_11F48, initialise_evanesc_object_slots_sub_EABC,
     initialise_fullscreen_palette_fade_sub_73D0, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
@@ -41874,6 +41874,22 @@ fn loc_130e_emits_the_final_corner_chunk_after_rounding_both_remainder_axes() {
             size_code: 0x0A,
         }],
         "ASM loc_130E should round the final 24x24 remainder to the closing corner size code `$A` and emit one last `sub_13C0` chunk"
+    );
+}
+
+#[test]
+fn loc_132a6_decodes_block_layout_words_from_the_enigma_stream() {
+    let decoded = decode_block_layout_loc_132A6(&[
+        0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, // header
+        0xE1, 0x55, 0x7F, 0x80,
+        0x00, // command 7,count 0; inline 0x2AA; terminator; refill tail byte
+    ])
+    .expect("ASM loc_132A6 should enter the Enigma block-layout decode path");
+
+    assert_eq!(
+        decoded,
+        vec![0x02AA],
+        "ASM loc_132A6 should preserve the decoded block-layout word stream produced by the inline-packet fixture"
     );
 }
 

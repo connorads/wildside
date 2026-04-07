@@ -276,6 +276,16 @@ pub(crate) fn decompress_chunk_attempts_loc_11C10(status_words: &[u16]) -> usize
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u16>, String> {
+    // ASM LoadBlockLayout loc_132A6 (kid.asm:25563-25582) saves registers,
+    // seeds the Enigma bit reader via `sub_13618`/`sub_13622`, and starts
+    // decoding block-layout words into `Decompression_Buffer` once the caller
+    // has already dispatched here for the `$40` layout tag.
+    kid_data::decode_enigma(layout_bytes, 0).map_err(|error| error.to_string())
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_layout_cell_loc_11C36(terrain_byte: u8, theme_collision_index: &[u8]) -> u16 {
     // ASM loc_11C36 (kid.asm:23818-23822) reads one terrain byte through `d2`,
     // loads the matching theme-collision nibble through `d3`, shifts that
