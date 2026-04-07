@@ -2607,6 +2607,10 @@ impl NativeRuntime {
 
         let rounded_width = (remaining_width + 7) & !7;
         if rounded_width != 0 {
+            // ASM loc_130E (kid.asm:2347-2355): round the final width
+            // remainder up to the next 8px multiple, fold its encoded bits
+            // together with the fixed tail height remainder from `d6`, and
+            // issue the closing `sub_13C0` corner chunk before `return_1328`.
             emitted.push(NormalSpriteChunkLoc12B8 {
                 x_screen_px: column_x,
                 y_screen_px: row_y,

@@ -41863,6 +41863,21 @@ fn loc_12f4_emits_full_width_tail_strips_while_the_remaining_width_stays_at_leas
 }
 
 #[test]
+fn loc_130e_emits_the_final_corner_chunk_after_rounding_both_remainder_axes() {
+    let chunks = crate::NativeRuntime::sprite_normal_orientation_chunks_loc_12B8(10, 20, 24, 24);
+
+    assert_eq!(
+        chunks,
+        vec![crate::combat::NormalSpriteChunkLoc12B8 {
+            x_screen_px: 10,
+            y_screen_px: 20,
+            size_code: 0x0A,
+        }],
+        "ASM loc_130E should round the final 24x24 remainder to the closing corner size code `$A` and emit one last `sub_13C0` chunk"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);
