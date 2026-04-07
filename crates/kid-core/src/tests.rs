@@ -6985,6 +6985,15 @@ fn prize_block_wobble_y_deltas_sub_1007a_match_the_loc_100da_bounce_script() {
 }
 
 #[test]
+fn prize_block_wobble_fall_loc_100f6_uses_five_two_pixel_steps() {
+    assert_eq!(
+        NativeRuntime::prize_block_wobble_fall_loc_100F6(),
+        &[-2, -2, -2, -2, -2],
+        "ASM loc_100F6 should run five `subq.w #2,y_pos(a3)` steps after `moveq #4,d0` because `dbf` includes zero",
+    );
+}
+
+#[test]
 fn deleted_tile_wobble_y_deltas_loc_10236_use_six_hibernated_rise_frames() {
     let deltas = NativeRuntime::deleted_tile_wobble_y_deltas_loc_10200();
 
