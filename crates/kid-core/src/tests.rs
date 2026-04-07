@@ -41599,3 +41599,21 @@ fn loc_129e8_loads_juggernaut_skull_frame_2_into_the_same_vram_span() {
         "ASM loc_129E8 seeds `d0=#1F`, so `dbf d0,loc_129E8` copies 32 longwords"
     );
 }
+
+#[test]
+fn loc_129fc_loads_the_final_star_art_block_into_vram_df40() {
+    let result = crate::level::juggernaut_star_art_dma_loop_loc_129FC();
+
+    assert_eq!(
+        result.vdp_command, 0x4000_00DF,
+        "ASM loc_129FC should retarget the final DMA loop to vdpComm($DF40,VRAM,WRITE)"
+    );
+    assert_eq!(
+        result.art_source, 0x0001_2B0C,
+        "ASM loc_129FC should load the last art block from ArtUnc_12B0C"
+    );
+    assert_eq!(
+        result.longword_count, 32,
+        "ASM loc_129FC also seeds `d0=#1F`, so the closing `dbf` loop copies 32 longwords"
+    );
+}
