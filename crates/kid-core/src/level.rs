@@ -406,6 +406,15 @@ pub(crate) struct BlockLayoutEntryWordsLoc1335E {
     pub(crate) property_word_dbf_counter: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutEntryWordsLoc133B2 {
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+    pub(crate) count: u16,
+    pub(crate) stride_word: u16,
+    pub(crate) property_word_dbf_counter: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_entry_words_loc_1335E(
@@ -419,6 +428,27 @@ pub(crate) fn block_layout_entry_words_loc_1335E(
     // loop, stores `count+1`, then appends the initial 1-bit stride word
     // before falling through into loc_1337C.
     BlockLayoutEntryWordsLoc1335E {
+        x_pos,
+        y_row,
+        count: count_bits.wrapping_add(1),
+        stride_word: u16::from(stride_bit),
+        property_word_dbf_counter: count_bits,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_entry_words_loc_133B2(
+    x_pos: u16,
+    y_row: u16,
+    count_bits: u16,
+    stride_bit: bool,
+) -> BlockLayoutEntryWordsLoc133B2 {
+    // ASM loc_133B2 (kid.asm:25694-25706) mirrors the wider header write from
+    // loc_1335E: store decoded X and Y words, keep the raw 4-bit count in `d2`
+    // for the later `dbf d2,loc_133D0` loop, then write `count+1` and the
+    // initial 1-bit stride word before the unflagged property-word loop.
+    BlockLayoutEntryWordsLoc133B2 {
         x_pos,
         y_row,
         count: count_bits.wrapping_add(1),
