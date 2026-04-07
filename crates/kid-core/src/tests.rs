@@ -62,11 +62,12 @@ use crate::level::{
     block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
     block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_long_run_repeat_loop_loc_1342E, block_layout_property_words_loc_1337C,
-    block_layout_repeat_loop_loc_1331E, block_layout_short_count_repeat_loop_loc_1347C,
-    block_layout_short_pair_repeat_loop_loc_1345E, block_layout_store_property_word_loc_13398,
-    block_layout_variable_repeat_loop_loc_133A0, block_layout_variable_repeat_loop_loc_1334C,
-    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
-    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
+    block_layout_repeat_loop_loc_1331E, block_layout_short_count_property_words_loc_134AC,
+    block_layout_short_count_repeat_loop_loc_1347C, block_layout_short_pair_repeat_loop_loc_1345E,
+    block_layout_store_property_word_loc_13398, block_layout_variable_repeat_loop_loc_133A0,
+    block_layout_variable_repeat_loop_loc_1334C, build_palette_fade_curve_sub_14C0,
+    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
+    classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
@@ -42243,6 +42244,22 @@ fn loc_1347c_restarts_on_the_same_x_sentinel_in_the_short_count_dispatch_arm() {
         continue_entry,
         BlockLayoutLoopLoc1347C::ContinueLoc1348E,
         "ASM loc_1347C should fall through to `loc_1348E` while the decoded X word differs from the `a5` sentinel"
+    );
+}
+
+#[test]
+fn loc_134ac_emits_dbf_count_plus_one_three_bit_property_words() {
+    let property_words = [0x0005, 0x0002, 0x0007, 0x0001];
+
+    assert_eq!(
+        block_layout_short_count_property_words_loc_134AC(&property_words, 2),
+        vec![0x0005, 0x0002, 0x0007],
+        "ASM loc_134AC should decode and write exactly `d2+1` 3-bit property words before the `dbf` loop falls through to `loc_1347C`"
+    );
+    assert_eq!(
+        block_layout_short_count_property_words_loc_134AC(&property_words, 0),
+        vec![0x0005],
+        "ASM loc_134AC should still write one property word when `d2` starts at zero because `dbf` checks for `-1` after the first store"
     );
 }
 

@@ -615,6 +615,23 @@ pub(crate) fn block_layout_short_count_repeat_loop_loc_1347C(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_short_count_property_words_loc_134AC(
+    property_words: &[u16],
+    dbf_counter: u16,
+) -> Vec<u16> {
+    // ASM loc_134AC (kid.asm:25820-25824) is the short-count arm's trailing
+    // property loop: each iteration forces `d0 = 3`, decodes one 3-bit word
+    // through `sub_13622`, stores it to `(a1)+`, then `dbf d2,loc_134AC`
+    // repeats exactly `d2 + 1` times.
+    property_words
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_property_words_loc_1337C(
     property_words: &[BlockLayoutPropertyWordLoc1337C],
     dbf_counter: u16,
