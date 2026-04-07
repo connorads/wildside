@@ -358,6 +358,24 @@ pub(crate) fn block_layout_entry_words_loc_1332E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_variable_repeat_loop_loc_1334C(
+    x_pos: u16,
+    end_marker_x_pos: u16,
+) -> BlockLayoutLoopLoc1331E {
+    // ASM loc_1334C (kid.asm:25639-25646) repeats the same sentinel gate as
+    // loc_1331E, but through the alternate dispatch arm rooted at
+    // `off_132FC[1]`: decode the next X word, compare it to `a5`, write
+    // `$FFFF`, and jump back to loc_132D6 on a match; otherwise fall through
+    // to loc_1335E for the wider entry format.
+    if x_pos == end_marker_x_pos {
+        BlockLayoutLoopLoc1331E::RestartAtLoc132D6 { end_marker: 0xFFFF }
+    } else {
+        BlockLayoutLoopLoc1331E::ContinueLoc1332E
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_layout_cell_loc_11C36(terrain_byte: u8, theme_collision_index: &[u8]) -> u16 {
     // ASM loc_11C36 (kid.asm:23818-23822) reads one terrain byte through `d2`,
     // loads the matching theme-collision nibble through `d3`, shifts that

@@ -55,9 +55,9 @@ use crate::level::{
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
     background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
     block_layout_dispatch_loc_132D6, block_layout_entry_words_loc_1332E,
-    block_layout_repeat_loop_loc_1331E, build_palette_fade_curve_sub_14C0,
-    classify_background_palette_followup_loc_11DF8, classify_background_palette_override_loc_11DF4,
-    classify_foreground_palette_override_loc_11D8E,
+    block_layout_repeat_loop_loc_1331E, block_layout_variable_repeat_loop_loc_1334C,
+    build_palette_fade_curve_sub_14C0, classify_background_palette_followup_loc_11DF8,
+    classify_background_palette_override_loc_11DF4, classify_foreground_palette_override_loc_11D8E,
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
@@ -41949,6 +41949,23 @@ fn loc_1332e_emits_x_y_count_plus_one_and_stride_words() {
             stride_word: 0x0001,
         },
         "ASM loc_1332E should write the decoded X and Y words, store the 4-bit run length as `count+1`, then append the 1-bit stride word before looping"
+    );
+}
+
+#[test]
+fn loc_1334c_restarts_on_the_same_x_sentinel_in_the_alternate_dispatch_arm() {
+    let restart = block_layout_variable_repeat_loop_loc_1334C(0x0014, 0x0014);
+    let continue_entry = block_layout_variable_repeat_loop_loc_1334C(0x0013, 0x0014);
+
+    assert_eq!(
+        restart,
+        BlockLayoutLoopLoc1331E::RestartAtLoc132D6 { end_marker: 0xFFFF },
+        "ASM loc_1334C should emit `$FFFF` and branch back to `loc_132D6` when the decoded X word matches the `a5` sentinel in the alternate jump-table arm"
+    );
+    assert_eq!(
+        continue_entry,
+        BlockLayoutLoopLoc1331E::ContinueLoc1332E,
+        "ASM loc_1334C should fall through to `loc_1335E` while the decoded X word differs from the `a5` sentinel"
     );
 }
 
