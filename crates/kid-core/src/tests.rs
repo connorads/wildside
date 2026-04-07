@@ -10430,6 +10430,39 @@ fn end_sequence_credits_glyph_init_sub_1d786_uses_the_expected_gfx_object_defaul
 }
 
 #[test]
+fn load_end_sequence_credits_glyphs_sub_1d7a8_maps_triples_until_the_zero_x_sentinel() {
+    let glyphs = load_end_sequence_credits_glyphs_sub_1D7A8(
+        &[0x10, 0xA8, 0x04, 0x20, 0xA4, 0x08, 0x00, 0xFF, 0xFF],
+        [None; 6],
+    );
+
+    assert_eq!(
+        glyphs[0],
+        Some(EndSequenceCreditsGlyphPlacementSub1D7A8 {
+            x_pos: 0x0042,
+            y_pos: 0x0008,
+            addroffset_sprite: 0x110A,
+            display_enabled: true,
+        }),
+        "ASM sub_1D7A8 should add `$32` to the first X byte, subtract `$A0` from the Y byte, offset the sprite byte from `LnkTo_unk_E1106-Data_Index`, and set `$13(a3)`",
+    );
+    assert_eq!(
+        glyphs[1],
+        Some(EndSequenceCreditsGlyphPlacementSub1D7A8 {
+            x_pos: 0x0052,
+            y_pos: 0x0004,
+            addroffset_sprite: 0x110E,
+            display_enabled: true,
+        }),
+        "ASM sub_1D7A8 should advance to the next cached glyph worker and keep consuming `(x,y,sprite)` triples from `a4`",
+    );
+    assert_eq!(
+        glyphs[2], None,
+        "ASM sub_1D7A8 should stop as soon as the next X byte is zero, without consuming or materialising later bytes",
+    );
+}
+
+#[test]
 fn allocate_object_and_gfx_links_sub_e02_cross_links_the_new_slots() {
     let links = allocate_object_and_gfx_links_sub_E02(0x00FF_8000, 0x00FF_9000);
 

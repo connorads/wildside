@@ -52,6 +52,15 @@ pub(crate) struct EndSequenceCreditsGlyphInitSub1D786 {
     pub(crate) palette_line: u8,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceCreditsGlyphPlacementSub1D7A8 {
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) addroffset_sprite: u16,
+    pub(crate) display_enabled: bool,
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsGlyphInitSub1D786 {
@@ -65,6 +74,45 @@ pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsG
         priority: 2,
         palette_line: 1,
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_end_sequence_credits_glyphs_sub_1D7A8(
+    script: &[u8],
+    mut glyphs: [Option<EndSequenceCreditsGlyphPlacementSub1D7A8>; 6],
+) -> [Option<EndSequenceCreditsGlyphPlacementSub1D7A8>; 6] {
+    // ASM sub_1D7A8 (kid.asm:32997): read a sentinel-terminated byte stream
+    // from `a4` as `(x, y, sprite)` triples, stop when the next X byte is
+    // zero, then write each triple into the next cached credits glyph worker
+    // starting at `$FFFFFB76`.
+    let mut script_offset = 0usize;
+    let mut glyph_offset = 0usize;
+
+    while script_offset < script.len() && glyph_offset < glyphs.len() {
+        let x_byte = script[script_offset];
+        script_offset += 1;
+        if x_byte == 0 {
+            break;
+        }
+        if script_offset + 1 >= script.len() {
+            break;
+        }
+
+        let y_byte = script[script_offset];
+        let sprite_byte = script[script_offset + 1];
+        script_offset += 2;
+
+        glyphs[glyph_offset] = Some(EndSequenceCreditsGlyphPlacementSub1D7A8 {
+            x_pos: u16::from(x_byte).wrapping_add(0x0032),
+            y_pos: u16::from(y_byte).wrapping_sub(0x00A0),
+            addroffset_sprite: 0x1106u16.wrapping_add(u16::from(sprite_byte)),
+            display_enabled: true,
+        });
+        glyph_offset += 1;
+    }
+
+    glyphs
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
