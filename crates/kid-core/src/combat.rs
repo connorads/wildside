@@ -2535,10 +2535,15 @@ impl NativeRuntime {
     ) -> Vec<NormalSpriteChunkLoc12B8> {
         const CHUNK_SPAN_LOC_12B8: i16 = 0x20;
 
-        // ASM loc_12B8 (kid.asm:2296-2335): the non-flipped sprite path emits
-        // as many 32x32 chunks as possible first (`moveq #$F,d0`), rounds each
-        // leftover axis up to the next multiple of 8, then encodes the width
-        // and height remainder bits into the final `sub_13C0` size byte.
+        // ASM loc_12B8 (kid.asm:2296-2335): outer row loop for the non-flipped
+        // sprite path.
+        // ASM loc_12C0: inner width loop keeps issuing `moveq #$F,d0` and
+        // `bsr.w sub_13C0` while `d2 >= $20`, subtracting/advancing by 32px
+        // each iteration before the remainder handling at `loc_12D0`.
+        // The combined routine emits as many 32x32 chunks as possible first,
+        // rounds each leftover axis up to the next multiple of 8, then encodes
+        // the width and height remainder bits into the final `sub_13C0` size
+        // byte.
         let mut emitted = Vec::new();
         let mut row_y = base_y_screen_px;
         let mut remaining_height = height_px;

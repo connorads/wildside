@@ -41667,3 +41667,25 @@ fn loc_12b8_tiles_normal_orientation_sprites_in_32px_rows_then_8px_remainders() 
         "ASM loc_12B8 should emit full 32x32 chunks first, then round each leftover axis up to 8px and encode the width/height remainder bits for sub_13C0"
     );
 }
+
+#[test]
+fn loc_12c0_emits_full_width_32px_chunks_until_the_row_remainder() {
+    let chunks = crate::NativeRuntime::sprite_normal_orientation_chunks_loc_12B8(10, 20, 64, 32);
+
+    assert_eq!(
+        chunks,
+        vec![
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 10,
+                y_screen_px: 20,
+                size_code: 0x0F,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 42,
+                y_screen_px: 20,
+                size_code: 0x0F,
+            },
+        ],
+        "ASM loc_12C0 should keep issuing full 32x32 `sub_13C0` chunks while the remaining width stays >= $20"
+    );
+}
