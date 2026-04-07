@@ -396,6 +396,19 @@ pub(crate) struct HeadyMetalBreakupStepSub37708 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalCleanupSub378C8 {
+    pub(crate) next_countdown_42: u16,
+    pub(crate) should_cleanup_workers: bool,
+    pub(crate) current_x_velocity_delta: i32,
+    pub(crate) left_worker_x_velocity_delta: i32,
+    pub(crate) centre_worker_y_velocity_delta: i32,
+    pub(crate) centre_worker_sprite_label: Option<&'static str>,
+    pub(crate) played_sound_effect: Option<&'static str>,
+    pub(crate) right_worker_x_velocity_delta: i32,
+    pub(crate) far_right_worker_x_velocity_delta: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossEyeAttackFrameInputsSub37332 {
     pub(crate) effect_x: u16,
     pub(crate) effect_y: u16,
@@ -1682,6 +1695,51 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
     });
 
     result
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_cleanup_sub_378C8(
+    global_hit_latch_fb4e: bool,
+    countdown_42: u16,
+) -> HeadyMetalCleanupSub378C8 {
+    // ASM sub_378C8 (kid.asm:39675): once the final HeadyMetal breakup pair is
+    // visible, either decrement `$42(a3)` while the shared hit latch is set
+    // and fan the five workers outward, or call `j_loc_1078` on the cached
+    // worker pointers at `$FFFFFB72/$76/$7A/$BAE/$BB2` and clear those slots
+    // once the countdown reaches zero.
+    let mut next_countdown_42 = countdown_42;
+    if global_hit_latch_fb4e {
+        next_countdown_42 = next_countdown_42.wrapping_sub(1);
+        if next_countdown_42 == 0 {
+            return HeadyMetalCleanupSub378C8 {
+                next_countdown_42,
+                should_cleanup_workers: true,
+                current_x_velocity_delta: 0,
+                left_worker_x_velocity_delta: 0,
+                centre_worker_y_velocity_delta: 0,
+                centre_worker_sprite_label: None,
+                played_sound_effect: None,
+                right_worker_x_velocity_delta: 0,
+                far_right_worker_x_velocity_delta: 0,
+            };
+        }
+    }
+
+    HeadyMetalCleanupSub378C8 {
+        next_countdown_42,
+        should_cleanup_workers: false,
+        // ASM loc_378D6 (kid.asm:39683): apply the same split impulse every
+        // frame until the countdown expires and refresh the centre worker art
+        // before replaying `sfx_Boss_dies`.
+        current_x_velocity_delta: -0x0002_6D18,
+        left_worker_x_velocity_delta: 0x0002_6D18,
+        centre_worker_y_velocity_delta: 0x0001_3880,
+        centre_worker_sprite_label: Some("LnkTo_unk_C8458-Data_Index"),
+        played_sound_effect: Some("sfx_Boss_dies"),
+        right_worker_x_velocity_delta: -0x0002_6D18,
+        far_right_worker_x_velocity_delta: 0x0002_6D18,
+    }
 }
 
 impl NativeRuntime {

@@ -25133,6 +25133,41 @@ fn heady_metal_breakup_step_sub_37708_reveals_the_anchor_pair_before_cleanup_whe
 }
 
 #[test]
+fn heady_metal_cleanup_sub_378c8_uses_loc_378d6_scatter_impulses_while_the_countdown_survives() {
+    let result = heady_metal_cleanup_sub_378C8(true, 2);
+
+    assert_eq!(
+        result.next_countdown_42, 1,
+        "ASM sub_378C8 decrements `$42(a3)` first when `$FFFFFB4E` is set and only falls into loc_37922 once that decremented value reaches zero",
+    );
+    assert!(!result.should_cleanup_workers);
+    assert_eq!(result.current_x_velocity_delta, -0x0002_6D18);
+    assert_eq!(result.left_worker_x_velocity_delta, 0x0002_6D18);
+    assert_eq!(result.centre_worker_y_velocity_delta, 0x0001_3880);
+    assert_eq!(
+        result.centre_worker_sprite_label,
+        Some("LnkTo_unk_C8458-Data_Index"),
+        "ASM loc_378D6 refreshes `$FFFFFB7A` to `LnkTo_unk_C8458-Data_Index` before replaying the boss-death sound",
+    );
+    assert_eq!(result.played_sound_effect, Some("sfx_Boss_dies"));
+    assert_eq!(result.right_worker_x_velocity_delta, -0x0002_6D18);
+    assert_eq!(result.far_right_worker_x_velocity_delta, 0x0002_6D18);
+}
+
+#[test]
+fn heady_metal_cleanup_sub_378c8_uses_loc_37922_once_the_latched_countdown_reaches_zero() {
+    let result = heady_metal_cleanup_sub_378C8(true, 1);
+
+    assert_eq!(result.next_countdown_42, 0);
+    assert!(
+        result.should_cleanup_workers,
+        "ASM loc_37922 runs `j_loc_1078` on the five cached worker pointers once the decremented `$42(a3)` reaches zero",
+    );
+    assert_eq!(result.centre_worker_sprite_label, None);
+    assert_eq!(result.played_sound_effect, None);
+}
+
+#[test]
 fn two_player_switch_on_death() {
     let manifest = manifest_with_levels(4);
     let mut runtime = NativeRuntime::new(manifest);
