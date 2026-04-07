@@ -42699,6 +42699,38 @@ fn loc_1372c_returns_success_once_the_long_ref_tail_reaches_the_end_pointer() {
 }
 
 #[test]
+fn loc_13736_dispatches_between_direct_copy_long_ref_and_short_ref_lengths() {
+    assert_eq!(
+        crate::level::decompress_mode_dispatch_loc_13736(0x80, 0x2200, 0x12),
+        crate::level::DecompressModeDispatchLoc13736::DirectCopy,
+        "ASM loc_13736 should branch straight to `loc_137AE` when the next control bit is 1"
+    );
+    assert_eq!(
+        crate::level::decompress_mode_dispatch_loc_13736(0x40, 0x2200, 0x12),
+        crate::level::DecompressModeDispatchLoc13736::LongRef {
+            output_copy_base_addr: 0x2200,
+        },
+        "ASM loc_13736 should seed `a6` from `a2` and branch to `loc_13756` when the top bits decode as `01`"
+    );
+    assert_eq!(
+        crate::level::decompress_mode_dispatch_loc_13736(0x20, 0x2200, 0x12),
+        crate::level::DecompressModeDispatchLoc13736::ShortRef {
+            source_copy_addr: 0x21EE,
+            total_copy_len: 3,
+        },
+        "ASM loc_13736 should subtract the short back-reference byte from `a2` and request the three-byte `00:1` copy variant"
+    );
+    assert_eq!(
+        crate::level::decompress_mode_dispatch_loc_13736(0x10, 0x2200, 0x12),
+        crate::level::DecompressModeDispatchLoc13736::ShortRef {
+            source_copy_addr: 0x21EE,
+            total_copy_len: 2,
+        },
+        "ASM loc_13736 should fall through to `loc_1374A` for the two-byte `00:0` short-reference variant"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);
