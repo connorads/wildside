@@ -483,6 +483,51 @@ pub(crate) fn copy_sega_screen_palette_fade_strip_loc_12ED2(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SegaScreenPaletteFadeTickLoc12ED8 {
+    pub(crate) frame_delay_counter: i16,
+    pub(crate) palette_cursor: i16,
+    pub(crate) source_byte_offset_for_copy: Option<u16>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn sega_screen_palette_fade_tick_loc_12ED8(
+    frame_delay_counter: i16,
+    palette_cursor: i16,
+) -> SegaScreenPaletteFadeTickLoc12ED8 {
+    // ASM loc_12E96 -> loc_12ED8 (kid.asm:25515-25544): decrement `d1` each
+    // frame; when the result stays >= 0 the loop branches straight to
+    // `loc_12ED8` without touching the fade strip. Once it goes negative,
+    // reset `d1` to 3, and only perform the `loc_12ED2` palette copy when
+    // `d3` was still non-negative; exhausted negative cursors branch to
+    // `loc_12ED8` unchanged.
+    let decremented_frame_delay = frame_delay_counter.wrapping_sub(1);
+    if decremented_frame_delay >= 0 {
+        return SegaScreenPaletteFadeTickLoc12ED8 {
+            frame_delay_counter: decremented_frame_delay,
+            palette_cursor,
+            source_byte_offset_for_copy: None,
+        };
+    }
+
+    if palette_cursor < 0 {
+        return SegaScreenPaletteFadeTickLoc12ED8 {
+            frame_delay_counter: 3,
+            palette_cursor,
+            source_byte_offset_for_copy: None,
+        };
+    }
+
+    SegaScreenPaletteFadeTickLoc12ED8 {
+        frame_delay_counter: 3,
+        palette_cursor: palette_cursor.wrapping_sub(2),
+        source_byte_offset_for_copy: Some(
+            u16::try_from(palette_cursor).expect("non-negative palette cursor should fit in u16"),
+        ),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PauseMenuSpriteEntrySub6874 {
     pub(crate) y_pos: u16,
     pub(crate) vram_tile_word: u16,

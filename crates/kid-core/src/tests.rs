@@ -2185,6 +2185,49 @@ fn loc_12ed2_copies_eleven_fade_words_into_palette_buffer_plus_4() {
 }
 
 #[test]
+fn loc_12ed8_counts_down_each_frame_then_resets_to_3_for_the_next_fade_step() {
+    let waiting = crate::boot::sega_screen_palette_fade_tick_loc_12ED8(2, 0x28);
+    let copying = crate::boot::sega_screen_palette_fade_tick_loc_12ED8(0, 0x28);
+    let exhausted = crate::boot::sega_screen_palette_fade_tick_loc_12ED8(0, -2);
+
+    assert_eq!(
+        waiting.frame_delay_counter, 1,
+        "ASM loc_12ED8 should loop with the decremented `d1` value while `subq.w #1,d1` stays non-negative"
+    );
+    assert_eq!(
+        waiting.source_byte_offset_for_copy, None,
+        "ASM loc_12ED8 should skip the `loc_12ED2` palette copy on ordinary countdown frames"
+    );
+
+    assert_eq!(
+        copying.frame_delay_counter, 3,
+        "ASM loc_12ED8 should reset `d1` to 3 after the countdown underflows"
+    );
+    assert_eq!(
+        copying.source_byte_offset_for_copy,
+        Some(0x28),
+        "ASM loc_12ED8 should reuse the pre-decrement `d3` value as the palette source offset for the next `loc_12ED2` copy"
+    );
+    assert_eq!(
+        copying.palette_cursor, 0x26,
+        "ASM loc_12ED8 should subtract 2 from `d3` after each emitted fade strip"
+    );
+
+    assert_eq!(
+        exhausted.frame_delay_counter, 3,
+        "ASM loc_12ED8 should still reset `d1` to 3 even after the fade cursor is exhausted"
+    );
+    assert_eq!(
+        exhausted.source_byte_offset_for_copy, None,
+        "ASM loc_12ED8 should branch back to the loop without copying once `d3` is negative"
+    );
+    assert_eq!(
+        exhausted.palette_cursor, -2,
+        "ASM loc_12ED8 should leave the negative exhausted `d3` cursor unchanged on the `bmi.w loc_12ED8` path"
+    );
+}
+
+#[test]
 fn sub_1536_blends_masked_palette_words_with_signed_curve_steps() {
     let palette_buffer_2 = [0x0ACE, 0x0246, 0x0EEE];
     let palette_buffer_3 = [0x0246, 0x0ACE, 0x0000];
