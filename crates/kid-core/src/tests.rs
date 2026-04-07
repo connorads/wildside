@@ -41836,6 +41836,33 @@ fn loc_12ec_emits_the_final_height_remainder_as_vertical_strips_then_corner_chun
 }
 
 #[test]
+fn loc_12f4_emits_full_width_tail_strips_while_the_remaining_width_stays_at_least_32px() {
+    let chunks = crate::NativeRuntime::sprite_normal_orientation_chunks_loc_12B8(10, 20, 96, 24);
+
+    assert_eq!(
+        chunks,
+        vec![
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 10,
+                y_screen_px: 20,
+                size_code: 0x0E,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 42,
+                y_screen_px: 20,
+                size_code: 0x0E,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 74,
+                y_screen_px: 20,
+                size_code: 0x0E,
+            },
+        ],
+        "ASM loc_12F4 should keep emitting `$20x18` tail strips while the remaining width stays >= $20 before falling through to `loc_130E`"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);
