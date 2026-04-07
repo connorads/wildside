@@ -42470,6 +42470,20 @@ fn loc_1354e_either_decodes_a_fresh_word_run_or_returns_via_loc_13570() {
 }
 
 #[test]
+fn loc_1357a_rounds_odd_rewound_addresses_back_up_to_even() {
+    assert_eq!(
+        crate::level::block_layout_align_rewound_input_addr_loc_1357A(0x0103),
+        0x0104,
+        "ASM loc_1357A should detect the odd `a0` low bit through `lsr.w #1,d0` carry and add one byte so `EniDec` returns on an even boundary"
+    );
+    assert_eq!(
+        crate::level::block_layout_align_rewound_input_addr_loc_1357A(0x0104),
+        0x0104,
+        "ASM loc_1357A should leave already-even rewind addresses untouched because `bcc.s loc_13582` skips the `addq.w #1,a0` fix-up"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);

@@ -695,7 +695,7 @@ pub(crate) fn block_layout_dispatch_loc_13504(
 
     BlockLayoutDispatchLoc13504 {
         property_word_dbf_counter: decoded_word & 0x000F,
-        jump_table_word_offset: ((decoded_word >> 4) & 0x000E),
+        jump_table_word_offset: ((decoded_word >> 4) & 0x000F) << 1,
         bits_remaining,
         refilled_input_byte,
     }
@@ -813,12 +813,23 @@ pub(crate) fn block_layout_decrement_decoded_word_loc_13540(
 
 fn block_layout_rewind_input_addr_loc_13570(mut next_input_addr: u16, bits_remaining: u16) -> u16 {
     // ASM loc_13570 (kid.asm:25935-25944) rewinds `a0` by one byte, rewinds a
-    // second byte when `d6 == $10`, then rounds odd addresses back up to the
-    // next even boundary before `EniDec` returns.
+    // second byte when `d6 == $10`, then falls through to `loc_1357A` for the
+    // final even-address alignment before `loc_13582` restores registers and
+    // returns from `EniDec`.
     next_input_addr = next_input_addr.wrapping_sub(1);
     if bits_remaining == 0x0010 {
         next_input_addr = next_input_addr.wrapping_sub(1);
     }
+    block_layout_align_rewound_input_addr_loc_1357A(next_input_addr)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_align_rewound_input_addr_loc_1357A(mut next_input_addr: u16) -> u16 {
+    // ASM loc_1357A (kid.asm:25941-25944) copies `a0` into `d0`, shifts right
+    // one bit, and uses the carry from that shift to detect odd addresses. If
+    // the rewind path left `a0` odd, it adds one byte so `loc_13582` returns
+    // with an even-aligned input pointer.
     if next_input_addr & 1 != 0 {
         next_input_addr = next_input_addr.wrapping_add(1);
     }
