@@ -42663,6 +42663,18 @@ fn loc_136fe_copies_the_long_ref_prefix_for_an_inclusive_dbf_count() {
 }
 
 #[test]
+fn loc_13716_returns_zero_without_selecting_another_copy_mode() {
+    assert_eq!(
+        crate::level::decompress_long_ref_zero_length_loc_13716(),
+        crate::level::DecompressBp0ReturnLoc13716 {
+            status_word: 0,
+            next_copy_mode: None,
+        },
+        "ASM loc_13716 should zero `d0` and return immediately when the long-reference byte count read from `(a1)+` is zero"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);

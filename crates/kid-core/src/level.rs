@@ -93,6 +93,12 @@ pub(crate) struct DecompressShortRefTailLoc136D0 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressBp0ReturnLoc13716 {
+    pub(crate) status_word: u16,
+    pub(crate) next_copy_mode: Option<u16>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -1060,6 +1066,18 @@ pub(crate) fn decompress_long_ref_prefix_loc_136FE(
         .copied()
         .take(usize::from(dbf_counter) + 1)
         .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_zero_length_loc_13716() -> DecompressBp0ReturnLoc13716 {
+    // ASM loc_13716 (kid.asm:26226-26227) is the empty-length early return
+    // from `Decompress_BP0_LongRef_2or3`: `beq.s loc_13716` zeroes `d0` and
+    // returns without seeding `d2` with another copy mode.
+    DecompressBp0ReturnLoc13716 {
+        status_word: 0,
+        next_copy_mode: None,
+    }
 }
 
 #[allow(non_snake_case)]
