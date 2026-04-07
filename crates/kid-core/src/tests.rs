@@ -42731,6 +42731,26 @@ fn loc_13736_dispatches_between_direct_copy_long_ref_and_short_ref_lengths() {
 }
 
 #[test]
+fn loc_1374a_copies_two_short_ref_tail_bytes_then_checks_the_end_pointer() {
+    assert_eq!(
+        crate::level::decompress_short_ref_finished_loc_1374A([0x12, 0x34], 0x0100, 0x0101),
+        crate::level::DecompressShortRefTailLoc136D0 {
+            copied_bytes: [0x12, 0x34],
+            finished: false,
+        },
+        "ASM loc_1374A should always copy exactly two bytes after the optional third-byte prelude from `loc_13736`"
+    );
+    assert_eq!(
+        crate::level::decompress_short_ref_finished_loc_1374A([0x56, 0x78], 0x0102, 0x0101),
+        crate::level::DecompressShortRefTailLoc136D0 {
+            copied_bytes: [0x56, 0x78],
+            finished: true,
+        },
+        "ASM loc_1374A should branch to `loc_1379E` once the post-tail output cursor reaches or passes `d7`"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);
