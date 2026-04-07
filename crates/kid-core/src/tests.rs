@@ -37151,6 +37151,14 @@ fn floating_micromax_loc_106b4_stays_alive_while_above_level_bottom_and_uncollec
 }
 
 #[test]
+fn floating_micromax_delete_exit_loc_106cc_jumps_straight_to_delete_current_object() {
+    assert!(
+        NativeRuntime::floating_micromax_delete_exit_loc_106CC(),
+        "ASM loc_106CC should jump straight to `Delete_CurrentObject` once Micromax leaves loc_106B4",
+    );
+}
+
+#[test]
 fn floating_micromax_loc_106cc_deletes_the_collected_helmet_on_the_next_step() {
     let mut rt = NativeRuntime::new(manifest());
     rt.floating_items.push(FloatingItem {

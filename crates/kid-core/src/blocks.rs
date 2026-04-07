@@ -2276,6 +2276,14 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn floating_micromax_delete_exit_loc_106CC() -> bool {
+        // ASM loc_106CC (kid.asm:21917): Micromax's fall loop exits by
+        // jumping straight to `Delete_CurrentObject`.
+        true
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_effect_cell_words_loc_110D0(cell_x: u16, cell_y: u16) -> (u16, u16) {
         // ASM loc_110D0 (kid.asm:23019): after `j_sub_E02`, the worker stores
         // the tile coordinates unmodified in `$44(a0)` and `$46(a0)` before
@@ -2537,10 +2545,18 @@ impl NativeRuntime {
             // loc_10464/loc_104AE/loc_104F8/loc_10542/loc_1058C/loc_105D6/
             // loc_10620/loc_1066A/loc_106B4/loc_10738 sees either a non-zero
             // `collision_type(a3)` or the bottom-of-level compare, control
-            // jumps straight to `Delete_CurrentObject`.
+            // jumps straight to `Delete_CurrentObject`. Micromax uses the
+            // dedicated delete exit at ASM loc_106CC (kid.asm:21917).
             let gate =
                 Self::prize_clock_fall_gate_loc_107B0(integer_y, level_height_pixels, f.collected);
-            (f.spawn_delay > 0 || f.remaining > 0) && gate.stays_active
+            let stays_alive = (f.spawn_delay > 0 || f.remaining > 0) && gate.stays_active;
+            if stays_alive {
+                true
+            } else if f.content == terrain::PrizeContent::Micromax {
+                !Self::floating_micromax_delete_exit_loc_106CC()
+            } else {
+                false
+            }
         });
 
         for e in &mut self.enemy_death_effects {
