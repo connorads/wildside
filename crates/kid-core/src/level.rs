@@ -374,6 +374,36 @@ pub(crate) fn block_layout_variable_repeat_loop_loc_1334C(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutEntryWordsLoc1335E {
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+    pub(crate) count: u16,
+    pub(crate) stride_word: u16,
+    pub(crate) property_word_dbf_counter: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_entry_words_loc_1335E(
+    x_pos: u16,
+    y_row: u16,
+    count_bits: u16,
+    stride_bit: bool,
+) -> BlockLayoutEntryWordsLoc1335E {
+    // ASM loc_1335E (kid.asm:25649-25661) writes the decoded X and Y words,
+    // copies the raw 4-bit count into `d2` for the later `dbf d2,loc_1337C`
+    // loop, stores `count+1`, then appends the initial 1-bit stride word
+    // before falling through into loc_1337C.
+    BlockLayoutEntryWordsLoc1335E {
+        x_pos,
+        y_row,
+        count: count_bits.wrapping_add(1),
+        stride_word: u16::from(stride_bit),
+        property_word_dbf_counter: count_bits,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_layout_cell_loc_11C36(terrain_byte: u8, theme_collision_index: &[u8]) -> u16 {
