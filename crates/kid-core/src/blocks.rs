@@ -2523,9 +2523,9 @@ impl NativeRuntime {
             // the matching Skycutter/Cyclone/Red Stealth/Eyeclops/
             // Juggernaut/Berzerker/Maniaxe/PrizeAnkh delete exits: once the
             // per-frame loop at loc_10464/loc_104AE/loc_104F8/loc_10542/
-            // loc_1058C/loc_10620/loc_1066A/loc_10738 sees either a non-zero
-            // `collision_type(a3)` or the bottom-of-level compare, control
-            // jumps straight to `Delete_CurrentObject`.
+            // loc_1058C/loc_105D6/loc_10620/loc_1066A/loc_10738 sees either a
+            // non-zero `collision_type(a3)` or the bottom-of-level compare,
+            // control jumps straight to `Delete_CurrentObject`.
             let gate =
                 Self::prize_clock_fall_gate_loc_107B0(integer_y, level_height_pixels, f.collected);
             (f.spawn_delay > 0 || f.remaining > 0) && gate.stays_active
