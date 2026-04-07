@@ -26180,6 +26180,18 @@ fn loc_11ce0_allows_null_custom_write_lists_and_rejects_a_10_byte_overflow() {
 }
 
 #[test]
+fn loc_11cf6_allows_null_background_tile_lists_and_rejects_an_8_byte_overflow() {
+    assert!(
+        crate::level::background_tile_guard_loc_11CF6(0, 0x0009),
+        "ASM loc_11CF6 should fall through to `loc_11D0C` when `($FFFFF8EC).w` is zero, so an empty background-tile list must skip the queue-capacity guard"
+    );
+    assert!(
+        !crate::level::background_tile_guard_loc_11CF6(0xFFFF_43B4, 1),
+        "ASM loc_11CF6 shifts `($FFFFF8EA).w` left by three before `cmpi.w #$43BC,d0`, so a single 8-byte background-tile entry ending at `$43BC` must branch to `loc_11D0A`"
+    );
+}
+
+#[test]
 fn loc_11d0c_selects_the_theme_mapping_entry_and_splits_the_enemy_layout_pointer() {
     assert_eq!(
         crate::level::level_load_pointers_loc_11D0C(
