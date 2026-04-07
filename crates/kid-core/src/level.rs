@@ -60,6 +60,13 @@ pub(crate) struct BlockLayoutDecodeHighBitLoc1359A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutDecodeBitLoc135A8 {
+    pub(crate) decoded_word: u16,
+    pub(crate) shifted_property_byte: u8,
+    pub(crate) bits_remaining: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -877,6 +884,37 @@ pub(crate) fn block_layout_apply_high_bit_loc_1359A(
     }
 
     BlockLayoutDecodeHighBitLoc1359A {
+        decoded_word,
+        shifted_property_byte,
+        bits_remaining: bits_remaining_after,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_apply_second_high_bit_loc_135A8(
+    base_word: u16,
+    property_byte: u8,
+    bits_remaining: u16,
+    bit_buffer: u16,
+) -> BlockLayoutDecodeBitLoc135A8 {
+    // ASM loc_135A8 (kid.asm:25964-25971) repeats the same property-bit gate:
+    // `add.b d1,d1` shifts the second flag into carry, and only that carry path
+    // consumes one `d5` bit through `subq.w #1,d6` + `btst d6,d5`. When the
+    // tested bit is set it contributes `$4000` to the decoded word; otherwise
+    // the code falls through to `loc_135A8` with just the shifted `d1`.
+    let shifted_property_byte = property_byte.wrapping_add(property_byte);
+    let mut decoded_word = base_word;
+    let mut bits_remaining_after = bits_remaining;
+
+    if property_byte & 0x80 != 0 {
+        bits_remaining_after = bits_remaining_after.wrapping_sub(1);
+        if bit_buffer & (1u16 << bits_remaining_after) != 0 {
+            decoded_word = decoded_word.wrapping_add(0x4000);
+        }
+    }
+
+    BlockLayoutDecodeBitLoc135A8 {
         decoded_word,
         shifted_property_byte,
         bits_remaining: bits_remaining_after,
