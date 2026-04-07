@@ -34418,13 +34418,15 @@ subsystems:
       asm_file: kid.asm
       line_number: 23785
       cited_in:
+      - crates/kid-core/src/level.rs
       - crates/kid-core/src/tests.rs
       coverage_state: tested
-      implementation_cited: false
+      implementation_cited: true
       test_cited: true
       oracle_backed: false
       citation_breakdown:
-        implementation: []
+        implementation:
+        - crates/kid-core/src/level.rs
         tests:
         - crates/kid-core/src/tests.rs
         docs: []

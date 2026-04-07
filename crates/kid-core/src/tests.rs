@@ -27204,6 +27204,15 @@ fn loc_11bd2_preserves_existing_player_start_when_the_teleport_latch_is_set() {
 }
 
 #[test]
+fn loc_11be4_loads_the_player_start_pair_from_the_header_words() {
+    assert_eq!(
+        crate::level::player_start_position_loc_11BE4((0x0750, 0x00E0)),
+        (0x0750, 0x00E0),
+        "ASM loc_11BE4 should consume the current header pair as `PlayerStart_X_pos` and `PlayerStart_Y_pos` before control falls through to `loc_11BEC`",
+    );
+}
+
+#[test]
 fn loc_11d8e_selects_the_alternative_cave_palette_for_stairway_and_elsewhere_23() {
     assert_eq!(
         classify_foreground_palette_override_loc_11D8E(0x03),

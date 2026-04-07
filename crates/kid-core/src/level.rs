@@ -2840,6 +2840,15 @@ pub(crate) fn decode_background_theme_flags_loc_11B9A(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn player_start_position_loc_11BE4(header_player_start: (u16, u16)) -> (u16, u16) {
+    // ASM loc_11BE4 (kid.asm:23785-23788): when `loc_11BD2` leaves the header
+    // pointer at the player-start words, `move.w (a0)+` loads exactly the X
+    // and Y start coordinates before execution falls through to `loc_11BEC`.
+    header_player_start
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decode_spawn_positions_loc_11BD2(
     preserve_existing_player_start: bool,
     existing_player_start: (u16, u16),
@@ -2853,7 +2862,7 @@ pub(crate) fn decode_spawn_positions_loc_11BD2(
     let player_start = if preserve_existing_player_start {
         existing_player_start
     } else {
-        header_player_start
+        player_start_position_loc_11BE4(header_player_start)
     };
     (player_start, flag_position, false)
 }
