@@ -751,6 +751,18 @@ pub(crate) fn block_layout_repeat_current_word_loc_1352A(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_repeat_decoded_word_loc_13526(
+    decoded_word: u16,
+    dbf_counter: u16,
+) -> BlockLayoutRepeatWordsLoc1351E {
+    // ASM loc_13526 (kid.asm:25892-25898) calls `sub_13588` once to decode the
+    // seed word into `d1`, then falls through to `loc_1352A` without mutating
+    // that word again, so the emitted run is whatever `sub_13588` produced.
+    block_layout_repeat_current_word_loc_1352A(decoded_word, dbf_counter)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_property_words_loc_1337C(
     property_words: &[BlockLayoutPropertyWordLoc1337C],
     dbf_counter: u16,
