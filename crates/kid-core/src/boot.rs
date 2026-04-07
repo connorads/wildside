@@ -465,6 +465,23 @@ pub(crate) fn sega_screen_start_poll_loc_12E6C(
     }
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn copy_sega_screen_palette_fade_strip_loc_12ED2(
+    source_words: &[u16],
+    palette_buffer: &mut [u16],
+) {
+    // ASM loc_12ED2 (kid.asm:25537): after `lea Pal_12EEC+6(pc,d0.w),a0` and
+    // `lea (Palette_Buffer+$4).l,a1`, `moveq #$A,d0` drives a `dbf` loop that
+    // copies 11 words from `(a0)+` into `(a1)+`.
+    const FADE_STRIP_WORDS_LOC_12ED2: usize = 11;
+    const PALETTE_BUFFER_START_WORD_LOC_12ED2: usize = 2;
+
+    palette_buffer[PALETTE_BUFFER_START_WORD_LOC_12ED2
+        ..PALETTE_BUFFER_START_WORD_LOC_12ED2 + FADE_STRIP_WORDS_LOC_12ED2]
+        .copy_from_slice(&source_words[..FADE_STRIP_WORDS_LOC_12ED2]);
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PauseMenuSpriteEntrySub6874 {
     pub(crate) y_pos: u16,

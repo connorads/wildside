@@ -2160,6 +2160,31 @@ fn loc_12e48_restores_vdp_state_and_seeds_the_sega_screen_object() {
 }
 
 #[test]
+fn loc_12ed2_copies_eleven_fade_words_into_palette_buffer_plus_4() {
+    let source_words = [
+        0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000A, 0x000B,
+        0x000C,
+    ];
+    let mut palette_buffer = [0x0EEE; 16];
+
+    crate::boot::copy_sega_screen_palette_fade_strip_loc_12ED2(&source_words, &mut palette_buffer);
+
+    assert_eq!(
+        &palette_buffer[2..13],
+        &source_words[..11],
+        "ASM loc_12ED2 should copy 11 palette words from `Pal_12EEC+6(pc,d0.w)` into `Palette_Buffer+$4`"
+    );
+    assert_eq!(
+        palette_buffer[1], 0x0EEE,
+        "ASM loc_12ED2 starts writing at `Palette_Buffer+$4`, so the preceding palette word should stay untouched"
+    );
+    assert_eq!(
+        palette_buffer[13], 0x0EEE,
+        "ASM loc_12ED2 seeds `d0=#$A`, so the `dbf` loop must stop after 11 copied words"
+    );
+}
+
+#[test]
 fn sub_1536_blends_masked_palette_words_with_signed_curve_steps() {
     let palette_buffer_2 = [0x0ACE, 0x0246, 0x0EEE];
     let palette_buffer_3 = [0x0246, 0x0ACE, 0x0000];
