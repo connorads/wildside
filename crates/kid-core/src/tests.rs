@@ -41619,6 +41619,24 @@ fn loc_129fc_loads_the_final_star_art_block_into_vram_df40() {
 }
 
 #[test]
+fn loc_12b9c_loads_flag_bottom_art_into_vram_d2c0() {
+    let result = crate::level::flag_bottom_art_dma_loop_loc_12B9C();
+
+    assert_eq!(
+        result.vdp_command, 0xC000_00D2,
+        "ASM loc_12B9C should program vdpComm($D2C0,VRAM,WRITE) before the copy loop"
+    );
+    assert_eq!(
+        result.art_source, 0x0001_2BA4,
+        "ASM loc_12B9C should stream Flag_bottom art from ArtUnc_12BA4"
+    );
+    assert_eq!(
+        result.longword_count, 32,
+        "ASM loc_12B9C seeds `d0=#1F`, so `dbf d0,loc_12B9C` copies 32 longwords"
+    );
+}
+
+#[test]
 fn loc_12b8_tiles_normal_orientation_sprites_in_32px_rows_then_8px_remainders() {
     let chunks = crate::NativeRuntime::sprite_normal_orientation_chunks_loc_12B8(10, 20, 40, 56);
 
