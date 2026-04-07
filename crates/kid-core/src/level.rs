@@ -2864,7 +2864,16 @@ pub(crate) fn decode_spawn_positions_loc_11BD2(
     } else {
         player_start_position_loc_11BE4(header_player_start)
     };
-    (player_start, flag_position, false)
+    (player_start, flag_position_loc_11BEC(flag_position), false)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn flag_position_loc_11BEC(flag_position: (u16, u16)) -> (u16, u16) {
+    // ASM loc_11BEC (kid.asm:23789-23792): regardless of whether `loc_11BD2`
+    // skipped the player-start pair, the next two header words always become
+    // `Flag_X_pos` and `Flag_Y_pos`.
+    flag_position
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

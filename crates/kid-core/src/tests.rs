@@ -27251,6 +27251,15 @@ fn loc_11d92_routes_deadly_skyscrapers_and_elsewhere_30_into_the_removed_palette
 }
 
 #[test]
+fn loc_11bec_loads_the_flag_pair_even_after_player_start_is_skipped() {
+    assert_eq!(
+        crate::level::flag_position_loc_11BEC((0x0750, 0x0300)),
+        (0x0750, 0x0300),
+        "ASM loc_11BEC should always consume the next header pair as `Flag_X_pos` and `Flag_Y_pos`, even when `loc_11BD2` advanced `a0` by four bytes first",
+    );
+}
+
+#[test]
 fn loc_11d9e_keeps_the_selected_theme_palette_when_the_removed_branch_fires() {
     assert_eq!(
         apply_foreground_palette_override_loc_11D9E(
