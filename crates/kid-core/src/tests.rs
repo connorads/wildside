@@ -36127,6 +36127,30 @@ fn align_player_for_down_hold_sub_7a10_restores_integer_x_when_both_sides_are_bl
 }
 
 #[test]
+fn ice_block_load_bullets_restore_direction_loc_11080_restores_the_original_direction_bits() {
+    assert_eq!(
+        NativeRuntime::ice_block_load_bullets_restore_direction_loc_11080(0),
+        2,
+        "ASM loc_11080 should restore the original down-facing `d6` after the entry `eori.w #2,d6` remap",
+    );
+    assert_eq!(
+        NativeRuntime::ice_block_load_bullets_restore_direction_loc_11080(1),
+        3,
+        "ASM loc_11080 should restore the original right-facing `d6` before returning",
+    );
+    assert_eq!(
+        NativeRuntime::ice_block_load_bullets_restore_direction_loc_11080(2),
+        0,
+        "ASM loc_11080 should restore the original up-facing `d6` before returning",
+    );
+    assert_eq!(
+        NativeRuntime::ice_block_load_bullets_restore_direction_loc_11080(3),
+        1,
+        "ASM loc_11080 should restore the original left-facing `d6` before returning",
+    );
+}
+
+#[test]
 fn ice_block_bullet_target_cell_sub_11006_loc_11020_steps_one_cell_right_inside_the_level_width() {
     assert_eq!(
         NativeRuntime::ice_block_bullet_target_cell_sub_11006(5, 3, 3, 8, 6),

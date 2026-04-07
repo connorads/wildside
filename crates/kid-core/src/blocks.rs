@@ -1447,6 +1447,17 @@ impl NativeRuntime {
         )
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn ice_block_load_bullets_restore_direction_loc_11080(
+        remapped_direction: u16,
+    ) -> u16 {
+        // ASM loc_11080 (kid.asm:22983): the shared epilogue restores `d6`
+        // with `eori.w #2,d6` before the saved registers are popped and the
+        // routine returns.
+        remapped_direction ^ 2
+    }
+
     pub(crate) fn step_evanescent_blocks(&mut self, slice: &OpeningSliceState) {
         // Trigger: if the player is on ground, check the floor cell
         if slice.player.on_ground
