@@ -42629,6 +42629,26 @@ fn loc_135f0_masks_the_partial_word_adds_the_base_word_and_refills_d5() {
 }
 
 #[test]
+fn loc_136d0_copies_two_short_ref_bytes_then_checks_the_end_pointer() {
+    assert_eq!(
+        crate::level::decompress_short_ref_tail_loc_136D0([0x12, 0x34], 0x0100, 0x0101),
+        crate::level::DecompressShortRefTailLoc136D0 {
+            copied_bytes: [0x12, 0x34],
+            finished: false,
+        },
+        "ASM loc_136D0 should always copy exactly two bytes before the `cmp.w a2,d7` tail decides whether decoding continues"
+    );
+    assert_eq!(
+        crate::level::decompress_short_ref_tail_loc_136D0([0x56, 0x78], 0x0102, 0x0101),
+        crate::level::DecompressShortRefTailLoc136D0 {
+            copied_bytes: [0x56, 0x78],
+            finished: true,
+        },
+        "ASM loc_136D0 should branch to `loc_13724` once the post-copy output cursor reaches or passes the `d7` limit"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);

@@ -87,6 +87,12 @@ pub(crate) struct BlockLayoutFinalizeWordLoc135F0 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressShortRefTailLoc136D0 {
+    pub(crate) copied_bytes: [u8; 2],
+    pub(crate) finished: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -1019,6 +1025,23 @@ pub(crate) fn block_layout_finalize_word_loc_135F0(
     BlockLayoutFinalizeWordLoc135F0 {
         decoded_word: (partial_word & decode_mask).wrapping_add(base_word),
         bit_buffer: next_input_word,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_short_ref_tail_loc_136D0(
+    copied_bytes: [u8; 2],
+    output_addr_after_tail: u16,
+    output_limit_addr: u16,
+) -> DecompressShortRefTailLoc136D0 {
+    // ASM loc_136D0 (kid.asm:26177-26182) copies exactly two bytes from the
+    // short-reference source into `(a2)+`, then uses `cmp.w a2,d7` / `bls.s
+    // loc_13724` to finish once the post-copy output cursor has reached or
+    // passed the end pointer carried in `d7`.
+    DecompressShortRefTailLoc136D0 {
+        copied_bytes,
+        finished: output_addr_after_tail >= output_limit_addr,
     }
 }
 
