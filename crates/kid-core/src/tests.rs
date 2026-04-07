@@ -15,13 +15,13 @@ use crate::boot::{
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IoPortFlagsSub6E24,
     PauseMenuSpriteEntrySub6874, end_sequence_burst_sprite_init_sub_1D86C,
     end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
-    end_sequence_falling_sprite_init_sub_1D8B4, hide_pause_menu_overwritten_sprites_sub_6874,
-    hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_cleanup_loc_10BE6,
-    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_spawn_loc_10B3A,
-    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
-    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
-    vdp_upload_32_longwords_sub_44D0,
+    end_sequence_falling_sprite_init_sub_1D8B4, flag_hud_dma_upload_sub_5DA6,
+    hide_pause_menu_overwritten_sprites_sub_6874, hud_timer_sprite_layout_sub_BD0A,
+    init_hud_animation_frames_sub_44B0, prize_10000_points_star_advance_loc_10BCE,
+    prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
+    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
+    read_io_port_a10001_flags_sub_6E24, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
+    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -39340,6 +39340,21 @@ fn step_hud_animation_sub_44dc_wraps_coin_life_clock_and_flag_tables_at_ff_ff() 
     assert_eq!(step.next_state.flag_frame_offset_fb61, 0);
 
     assert!(step.diamond_upload.is_none());
+}
+
+#[test]
+fn flag_hud_dma_upload_sub_5da6_targets_the_flag_vram_slot() {
+    let upload = flag_hud_dma_upload_sub_5DA6(0x14);
+
+    assert_eq!(
+        upload,
+        FlagHudDmaUploadSub44DC {
+            asset_label: "ArtUnc_4C92",
+            vram_byte_address: 0xD340,
+            frame_table_byte_offset: 0x14,
+        },
+        "ASM sub_5DA6 should DMA the selected `ArtUnc_4C92` frame to VRAM byte `$D340`",
+    );
 }
 
 #[test]

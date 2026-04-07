@@ -151,6 +151,21 @@ pub(crate) struct FlagHudDmaUploadSub44DC {
     pub(crate) frame_table_byte_offset: u8,
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn flag_hud_dma_upload_sub_5DA6(frame_table_byte_offset: u8) -> FlagHudDmaUploadSub44DC {
+    // ASM sub_5DA6 (kid.asm:5803): stop Z80, configure a DMA of
+    // `ANIART_FLAG_SIZE` bytes from `a1`, and write it to VRAM byte `$D340`.
+    // `sub_44DC` selects the source frame by advancing the byte offset inside
+    // `ArtUnc_4C92`, so the native plan preserves that selector and the fixed
+    // destination.
+    FlagHudDmaUploadSub44DC {
+        asset_label: "ArtUnc_4C92",
+        vram_byte_address: 0xD340,
+        frame_table_byte_offset,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HudTimerSpritePositionSubBD0A {
     pub(crate) y_pos: u16,
@@ -341,11 +356,7 @@ pub(crate) fn step_hud_animation_sub_44DC(
             diamond_hud_dma_transfer_sub_5D4A(u16::from(frame_table_byte_offset))
                 .expect("ASM sub_44DC only emits selectors from `unk_461C` that fit sub_5D4A")
         }),
-        flag_upload: flag_frame.map(|frame_table_byte_offset| FlagHudDmaUploadSub44DC {
-            asset_label: "ArtUnc_4C92",
-            vram_byte_address: 0xD340,
-            frame_table_byte_offset,
-        }),
+        flag_upload: flag_frame.map(flag_hud_dma_upload_sub_5DA6),
     }
 }
 
