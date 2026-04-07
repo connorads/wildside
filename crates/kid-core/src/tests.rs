@@ -41617,3 +41617,35 @@ fn loc_129fc_loads_the_final_star_art_block_into_vram_df40() {
         "ASM loc_129FC also seeds `d0=#1F`, so the closing `dbf` loop copies 32 longwords"
     );
 }
+
+#[test]
+fn loc_12b8_tiles_normal_orientation_sprites_in_32px_rows_then_8px_remainders() {
+    let chunks = crate::NativeRuntime::sprite_normal_orientation_chunks_loc_12B8(10, 20, 40, 56);
+
+    assert_eq!(
+        chunks,
+        vec![
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 10,
+                y_screen_px: 20,
+                size_code: 0x0F,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 42,
+                y_screen_px: 20,
+                size_code: 0x03,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 10,
+                y_screen_px: 52,
+                size_code: 0x0E,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 42,
+                y_screen_px: 52,
+                size_code: 0x02,
+            },
+        ],
+        "ASM loc_12B8 should emit full 32x32 chunks first, then round each leftover axis up to 8px and encode the width/height remainder bits for sub_13C0"
+    );
+}

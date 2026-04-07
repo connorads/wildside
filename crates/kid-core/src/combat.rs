@@ -348,6 +348,14 @@ pub(crate) struct HeadyMetalSpriteVelocitySub376EC {
     pub(crate) y_velocity: i32,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct NormalSpriteChunkLoc12B8 {
+    pub(crate) x_screen_px: i16,
+    pub(crate) y_screen_px: i16,
+    pub(crate) size_code: u8,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalScatterVelocities {
     pub(crate) slot_fb72_x_velocity: i32,
@@ -2515,6 +2523,81 @@ impl NativeRuntime {
         // x-flipped renderer at `loc_132A` for any non-zero byte and reaches
         // the normal-orientation path at `loc_129E` only when the byte is 0.
         x_direction != 0
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn sprite_normal_orientation_chunks_loc_12B8(
+        base_x_screen_px: i16,
+        base_y_screen_px: i16,
+        width_px: i16,
+        height_px: i16,
+    ) -> Vec<NormalSpriteChunkLoc12B8> {
+        const CHUNK_SPAN_LOC_12B8: i16 = 0x20;
+
+        // ASM loc_12B8 (kid.asm:2296-2335): the non-flipped sprite path emits
+        // as many 32x32 chunks as possible first (`moveq #$F,d0`), rounds each
+        // leftover axis up to the next multiple of 8, then encodes the width
+        // and height remainder bits into the final `sub_13C0` size byte.
+        let mut emitted = Vec::new();
+        let mut row_y = base_y_screen_px;
+        let mut remaining_height = height_px;
+
+        while remaining_height >= CHUNK_SPAN_LOC_12B8 {
+            let mut column_x = base_x_screen_px;
+            let mut remaining_width = width_px;
+
+            while remaining_width >= CHUNK_SPAN_LOC_12B8 {
+                emitted.push(NormalSpriteChunkLoc12B8 {
+                    x_screen_px: column_x,
+                    y_screen_px: row_y,
+                    size_code: 0x0F,
+                });
+                remaining_width -= CHUNK_SPAN_LOC_12B8;
+                column_x = column_x.wrapping_add(CHUNK_SPAN_LOC_12B8);
+            }
+
+            let rounded_width = (remaining_width + 7) & !7;
+            if rounded_width != 0 {
+                emitted.push(NormalSpriteChunkLoc12B8 {
+                    x_screen_px: column_x,
+                    y_screen_px: row_y,
+                    size_code: (((rounded_width - 8) >> 1) | 0x0003) as u8,
+                });
+            }
+
+            remaining_height -= CHUNK_SPAN_LOC_12B8;
+            row_y = row_y.wrapping_add(CHUNK_SPAN_LOC_12B8);
+        }
+
+        let rounded_height = (remaining_height + 7) & !7;
+        if rounded_height == 0 {
+            return emitted;
+        }
+
+        let mut column_x = base_x_screen_px;
+        let mut remaining_width = width_px;
+
+        while remaining_width >= CHUNK_SPAN_LOC_12B8 {
+            emitted.push(NormalSpriteChunkLoc12B8 {
+                x_screen_px: column_x,
+                y_screen_px: row_y,
+                size_code: (((rounded_height - 8) >> 3) | 0x000C) as u8,
+            });
+            remaining_width -= CHUNK_SPAN_LOC_12B8;
+            column_x = column_x.wrapping_add(CHUNK_SPAN_LOC_12B8);
+        }
+
+        let rounded_width = (remaining_width + 7) & !7;
+        if rounded_width != 0 {
+            emitted.push(NormalSpriteChunkLoc12B8 {
+                x_screen_px: column_x,
+                y_screen_px: row_y,
+                size_code: (((rounded_width - 8) >> 1) | ((rounded_height - 8) >> 3)) as u8,
+            });
+        }
+
+        emitted
     }
 
     fn death_sprite_still_visible(player: PlayerState, camera: CameraState) -> bool {
