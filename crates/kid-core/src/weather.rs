@@ -159,6 +159,326 @@ pub(crate) enum WeatherPaletteOpSub6048 {
     WritePaletteBuffer3 { start_word: u8, words: Vec<u16> },
 }
 
+const FALLING_WEATHER_SLOT_COUNT_SUB_61CA: usize = 5;
+const WEATHER_IMPACT_SLOT_COUNT_SUB_61CA: usize = 10;
+const FALLING_WEATHER_SPRITES_SUB_61CA: [u16; 6] = [0xA3B5, 0xA3B9, 0xA3BD, 0xA3C1, 0xA3C5, 0xA3C9];
+const IMPACT_WEATHER_SPRITES_SUB_61CA: [u16; 2] = [0xA3CD, 0xA3D1];
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FallingWeatherSlotSub61CA {
+    pub(crate) y_px: i16,
+    pub(crate) x_px: i16,
+    pub(crate) animation_cooldown: u8,
+    pub(crate) animation_frame: u8,
+}
+
+impl FallingWeatherSlotSub61CA {
+    #[allow(dead_code)]
+    pub(crate) const fn inactive(animation_cooldown: u8, animation_frame: u8) -> Self {
+        Self {
+            y_px: -1,
+            x_px: -1,
+            animation_cooldown,
+            animation_frame,
+        }
+    }
+
+    fn is_active(self) -> bool {
+        self.y_px >= 0
+    }
+
+    fn clear_position(&mut self) {
+        self.y_px = -1;
+        self.x_px = -1;
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct WeatherImpactSlotSub61CA {
+    pub(crate) y_px: i16,
+    pub(crate) x_px: i16,
+    pub(crate) animation_cooldown: u8,
+    pub(crate) animation_frame: u8,
+}
+
+impl WeatherImpactSlotSub61CA {
+    #[allow(dead_code)]
+    pub(crate) const fn inactive(animation_cooldown: u8, animation_frame: u8) -> Self {
+        Self {
+            y_px: -1,
+            x_px: -1,
+            animation_cooldown,
+            animation_frame,
+        }
+    }
+
+    fn is_active(self) -> bool {
+        self.y_px >= 0
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WeatherCollisionRowsSub61CA {
+    pub(crate) rows: Vec<Vec<u16>>,
+}
+
+impl WeatherCollisionRowsSub61CA {
+    fn word_at(&self, row: usize, col: usize) -> u16 {
+        self.rows
+            .get(row)
+            .and_then(|cells| cells.get(col))
+            .copied()
+            .unwrap_or(0)
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct WeatherSpriteSub61CA {
+    pub(crate) y: u16,
+    pub(crate) link: u16,
+    pub(crate) tile_word: u16,
+    pub(crate) x: u16,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WeatherWorkerInputSub61CA {
+    pub(crate) camera_x_px: i16,
+    pub(crate) camera_y_px: i16,
+    pub(crate) spawn_cooldown: u8,
+    pub(crate) free_falling_slots: u8,
+    pub(crate) falling_slots: [FallingWeatherSlotSub61CA; FALLING_WEATHER_SLOT_COUNT_SUB_61CA],
+    pub(crate) impact_slots: [WeatherImpactSlotSub61CA; WEATHER_IMPACT_SLOT_COUNT_SUB_61CA],
+    pub(crate) kid_hitbox_top_px: i16,
+    pub(crate) kid_hitbox_bottom_px: i16,
+    pub(crate) kid_hitbox_left_px: i16,
+    pub(crate) kid_hitbox_right_px: i16,
+    pub(crate) random_byte: u8,
+    pub(crate) collision_rows: WeatherCollisionRowsSub61CA,
+    pub(crate) starting_number_sprites: u8,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WeatherWorkerOutputSub61CA {
+    pub(crate) spawn_cooldown: u8,
+    pub(crate) free_falling_slots: u8,
+    pub(crate) falling_slots: [FallingWeatherSlotSub61CA; FALLING_WEATHER_SLOT_COUNT_SUB_61CA],
+    pub(crate) impact_slots: [WeatherImpactSlotSub61CA; WEATHER_IMPACT_SLOT_COUNT_SUB_61CA],
+    pub(crate) kid_collision_timer: Option<u16>,
+    pub(crate) number_sprites: u8,
+    pub(crate) sprites: Vec<WeatherSpriteSub61CA>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn step_weather_worker_sub_61CA(
+    input: WeatherWorkerInputSub61CA,
+) -> WeatherWorkerOutputSub61CA {
+    // ASM sub_61CA (kid.asm:6190): advance five falling weather slots,
+    // respawn one free slot from the top camera row when `$FFFFFB3C` expires,
+    // splash on terrain, hurt Kid on overlap, and emit splash/falling sprites.
+    let mut output = WeatherWorkerOutputSub61CA {
+        spawn_cooldown: input.spawn_cooldown,
+        free_falling_slots: input.free_falling_slots,
+        falling_slots: input.falling_slots,
+        impact_slots: input.impact_slots,
+        kid_collision_timer: None,
+        number_sprites: input.starting_number_sprites,
+        sprites: Vec::new(),
+    };
+
+    let delete_bottom_px = input.camera_y_px.wrapping_add(0x00E0);
+    let delete_left_px = input.camera_x_px.wrapping_sub(0x0010);
+
+    for slot in &mut output.falling_slots {
+        if !slot.is_active() {
+            continue;
+        }
+
+        slot.y_px = slot.y_px.wrapping_add(4);
+        slot.x_px = slot.x_px.wrapping_sub(1);
+        slot.animation_cooldown = slot.animation_cooldown.wrapping_sub(1);
+        if slot.animation_cooldown == 0 {
+            slot.animation_cooldown = 6;
+            slot.animation_frame = if slot.animation_frame >= 5 {
+                0
+            } else {
+                slot.animation_frame.wrapping_add(1)
+            };
+        }
+
+        if delete_bottom_px < slot.y_px || delete_left_px > slot.x_px {
+            slot.clear_position();
+            output.free_falling_slots = output.free_falling_slots.wrapping_add(1);
+        }
+    }
+
+    output.spawn_cooldown = output.spawn_cooldown.wrapping_sub(1);
+    if output.spawn_cooldown == 0 {
+        output.spawn_cooldown = 0x25u8.wrapping_sub(input.random_byte & 0x0F);
+        if output.free_falling_slots != 0 {
+            for slot in &mut output.falling_slots {
+                if slot.is_active() {
+                    continue;
+                }
+
+                let spawn_x_px = input
+                    .camera_x_px
+                    .wrapping_add(i16::from(input.random_byte))
+                    .wrapping_add(0x0028);
+                let spawn_y_px = input.camera_y_px;
+                let row_index = usize::from(
+                    (u16::from_be_bytes(spawn_y_px.to_be_bytes())).wrapping_add(0x000F) >> 4,
+                );
+                let col_floor = usize::from(u16::from_be_bytes(spawn_x_px.to_be_bytes()) >> 4);
+                let col_ceil = usize::from(
+                    u16::from_be_bytes(spawn_x_px.to_be_bytes()).wrapping_add(0x000F) >> 4,
+                );
+                let first_word = input.collision_rows.word_at(row_index, col_floor);
+                let blocked_first_tile = first_word & 0x000F != 0;
+                let crosses_tile = col_ceil != col_floor;
+                let blocked_second_tile = crosses_tile
+                    && (input.collision_rows.word_at(row_index, col_floor + 1) & 0x00FF != 0);
+
+                if blocked_first_tile || blocked_second_tile {
+                    break;
+                }
+
+                // ASM sub_61CA loc_62C2 only rewrites Y/X; the animation word
+                // is intentionally preserved from the reused slot.
+                slot.y_px = spawn_y_px;
+                slot.x_px = spawn_x_px;
+                output.free_falling_slots = output.free_falling_slots.wrapping_sub(1);
+                break;
+            }
+        }
+    }
+
+    for slot in &output.falling_slots {
+        if !slot.is_active() {
+            continue;
+        }
+
+        let y_plus_2 = slot.y_px.wrapping_add(2);
+        if y_plus_2 < input.kid_hitbox_top_px {
+            continue;
+        }
+        if y_plus_2.wrapping_add(0x000C) > input.kid_hitbox_bottom_px {
+            continue;
+        }
+        let x_plus_2 = slot.x_px.wrapping_add(2);
+        if x_plus_2 > input.kid_hitbox_right_px {
+            continue;
+        }
+        if x_plus_2.wrapping_add(0x000C) < input.kid_hitbox_left_px {
+            continue;
+        }
+
+        output.kid_collision_timer = Some(0x0028);
+    }
+
+    for slot in &mut output.falling_slots {
+        if !slot.is_active() {
+            continue;
+        }
+
+        let row_index =
+            usize::from(u16::from_be_bytes(slot.y_px.to_be_bytes()).wrapping_add(0x000F) >> 4);
+        let col_floor = usize::from(u16::from_be_bytes(slot.x_px.to_be_bytes()) >> 4);
+        let collision_word = input.collision_rows.word_at(row_index, col_floor);
+        let terrain_kind = collision_word & 0x7000;
+        if terrain_kind == 0 {
+            continue;
+        }
+
+        if let Some(impact_slot) = output
+            .impact_slots
+            .iter_mut()
+            .find(|slot| !slot.is_active())
+        {
+            impact_slot.y_px = if terrain_kind == 0x4000 || terrain_kind == 0x5000 {
+                slot.y_px.wrapping_add(0x000C)
+            } else {
+                slot.y_px
+            };
+            impact_slot.x_px = slot.x_px;
+            impact_slot.animation_cooldown = 6;
+            impact_slot.animation_frame = 0;
+        }
+
+        slot.clear_position();
+        output.free_falling_slots = output.free_falling_slots.wrapping_add(1);
+    }
+
+    for slot in &mut output.impact_slots {
+        if !slot.is_active() {
+            continue;
+        }
+
+        slot.animation_cooldown = slot.animation_cooldown.wrapping_sub(1);
+        if slot.animation_cooldown == 0 {
+            slot.y_px = slot.y_px.wrapping_sub(4);
+            slot.x_px = slot.x_px.wrapping_sub(4);
+            slot.animation_cooldown = 6;
+            slot.animation_frame = slot.animation_frame.wrapping_add(1);
+            if slot.animation_frame >= 2 {
+                slot.y_px = -1;
+                slot.x_px = -1;
+                slot.animation_cooldown = 1;
+                slot.animation_frame = 0;
+                continue;
+            }
+        }
+
+        let sprite_y = slot
+            .y_px
+            .wrapping_sub(input.camera_y_px)
+            .wrapping_add(0x0080);
+        let sprite_x = slot
+            .x_px
+            .wrapping_sub(input.camera_x_px)
+            .wrapping_add(0x0080);
+        let frame_index = usize::from(slot.animation_frame.min(1));
+        output.number_sprites = output.number_sprites.wrapping_add(1);
+        output.sprites.push(WeatherSpriteSub61CA {
+            y: u16::from_be_bytes(sprite_y.to_be_bytes()),
+            link: 0x0500u16.wrapping_add(u16::from(output.number_sprites)),
+            tile_word: IMPACT_WEATHER_SPRITES_SUB_61CA[frame_index],
+            x: u16::from_be_bytes(sprite_x.to_be_bytes()),
+        });
+    }
+
+    for slot in &output.falling_slots {
+        if !slot.is_active() {
+            continue;
+        }
+
+        let sprite_y = slot
+            .y_px
+            .wrapping_sub(input.camera_y_px)
+            .wrapping_add(0x0080);
+        let sprite_x = slot
+            .x_px
+            .wrapping_sub(input.camera_x_px)
+            .wrapping_add(0x0080);
+        let frame_index = usize::from(slot.animation_frame.min(5));
+        output.number_sprites = output.number_sprites.wrapping_add(1);
+        output.sprites.push(WeatherSpriteSub61CA {
+            y: u16::from_be_bytes(sprite_y.to_be_bytes()),
+            link: 0x0500u16.wrapping_add(u16::from(output.number_sprites)),
+            tile_word: FALLING_WEATHER_SPRITES_SUB_61CA[frame_index],
+            x: u16::from_be_bytes(sprite_x.to_be_bytes()),
+        });
+    }
+
+    output
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct WeatherSpecialEffectsStepSub6048 {

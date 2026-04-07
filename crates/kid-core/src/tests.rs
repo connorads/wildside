@@ -74,10 +74,12 @@ use crate::projectiles::{
     KidProjectileCollisionPassSub1D76, kid_projectile_collision_passes_sub_1D76,
 };
 use crate::weather::{
-    LevelSpecialEffectsRoutineSub6034, MurderWallWarningInputSub5E02,
-    MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02, WeatherPaletteOpSub6048,
-    WeatherSpecialEffectsStepSub6048, compile_murder_wall_warning_sprites_sub_5E02,
+    FallingWeatherSlotSub61CA, LevelSpecialEffectsRoutineSub6034, MurderWallWarningInputSub5E02,
+    MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02, WeatherCollisionRowsSub61CA,
+    WeatherImpactSlotSub61CA, WeatherPaletteOpSub6048, WeatherSpecialEffectsStepSub6048,
+    WeatherSpriteSub61CA, WeatherWorkerInputSub61CA, compile_murder_wall_warning_sprites_sub_5E02,
     dispatch_level_special_effects_sub_6034, step_level_special_effects_sub_6048,
+    step_weather_worker_sub_61CA,
 };
 use kid_data::{
     AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
@@ -108,6 +110,12 @@ fn expected_level0_respawn_bootstrap_pose() -> (u32, u32) {
         PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_X_FP,
         PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_INITIAL_Y_FP,
     )
+}
+
+fn empty_weather_collision_rows_sub_61_ca() -> WeatherCollisionRowsSub61CA {
+    WeatherCollisionRowsSub61CA {
+        rows: vec![vec![0; 32]; 16],
+    }
 }
 
 fn crawl_escape_test_grid(left_solid: bool, right_solid: bool) -> terrain::BlockGrid {
@@ -19772,6 +19780,142 @@ fn sub_6048_snow_cycle_toggles_inactive_and_requests_spawn_when_slots_available(
     assert_eq!(
         stepped.snow_spawn_cooldown, 2,
         "ASM sub_6048 should write `2` to `($FFFFFB3C).w` when snow is inactive and fewer than five slots are live"
+    );
+}
+
+#[test]
+fn sub_61ca_reuses_deleted_falling_slot_and_keeps_its_animation_word() {
+    let mut collision_rows = empty_weather_collision_rows_sub_61_ca();
+    collision_rows.rows[2][8] = 0;
+    collision_rows.rows[2][9] = 0;
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 100,
+        camera_y_px: 40,
+        spawn_cooldown: 1,
+        free_falling_slots: 1,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 40 + 0x00E1,
+                x_px: 132,
+                animation_cooldown: 2,
+                animation_frame: 5,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 35,
+        kid_hitbox_bottom_px: 60,
+        kid_hitbox_left_px: 130,
+        kid_hitbox_right_px: 160,
+        random_byte: 0x00,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.spawn_cooldown, 0x25,
+        "ASM sub_61CA should reload `($FFFFFB3C).w` to `$25-(rand&$0F)` before attempting a respawn"
+    );
+    assert_eq!(
+        stepped.free_falling_slots, 1,
+        "ASM sub_61CA should free the off-screen slot, then immediately spend one free slot on the respawn"
+    );
+    assert_eq!(
+        stepped.falling_slots[0],
+        FallingWeatherSlotSub61CA {
+            y_px: 40,
+            x_px: 140,
+            animation_cooldown: 1,
+            animation_frame: 5,
+        },
+        "ASM sub_61CA loc_6226 -> loc_62C2 should only rewrite Y/X when a deleted slot is recycled"
+    );
+    assert_eq!(
+        stepped.kid_collision_timer,
+        Some(0x0028),
+        "ASM sub_61CA should set `$38(a5)` to `$28` when the recycled falling slot overlaps Kid"
+    );
+    assert_eq!(
+        stepped.sprites,
+        vec![WeatherSpriteSub61CA {
+            y: 0x0080,
+            link: 0x0501,
+            tile_word: 0xA3C9,
+            x: 0x00A8,
+        }],
+        "ASM sub_61CA should render the recycled slot with the preserved frame tile from `unk_64BC`"
+    );
+}
+
+#[test]
+fn sub_61ca_promotes_terrain_hit_into_an_impact_slot_with_the_slope_offset() {
+    let mut collision_rows = empty_weather_collision_rows_sub_61_ca();
+    collision_rows.rows[5][1] = 0x4000;
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 9,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 64,
+                x_px: 32,
+                animation_cooldown: 3,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 200,
+        kid_hitbox_bottom_px: 210,
+        kid_hitbox_left_px: 200,
+        kid_hitbox_right_px: 210,
+        random_byte: 0x34,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.free_falling_slots, 1,
+        "ASM sub_61CA should return the falling slot to the free-count byte after a terrain impact"
+    );
+    assert_eq!(
+        stepped.falling_slots[0],
+        FallingWeatherSlotSub61CA {
+            y_px: -1,
+            x_px: -1,
+            animation_cooldown: 2,
+            animation_frame: 0,
+        },
+        "ASM sub_61CA should clear only Y/X when the falling slot turns into a terrain splash"
+    );
+    assert_eq!(
+        stepped.impact_slots[0],
+        WeatherImpactSlotSub61CA {
+            y_px: 80,
+            x_px: 31,
+            animation_cooldown: 5,
+            animation_frame: 0,
+        },
+        "ASM sub_61CA loc_638E should add `$0C` to the copied Y before the impact slot enters its first render frame"
+    );
+    assert_eq!(
+        stepped.sprites,
+        vec![WeatherSpriteSub61CA {
+            y: 0x00D0,
+            link: 0x0501,
+            tile_word: 0xA3CD,
+            x: 0x009F,
+        }],
+        "ASM sub_61CA should render the first impact frame with sprite tile `$A3CD` after the slope-adjusted terrain hit"
     );
 }
 
