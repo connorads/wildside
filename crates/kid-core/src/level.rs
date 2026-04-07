@@ -71,6 +71,15 @@ pub(crate) struct BlockLayoutEntryWordsLoc1332E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutEntryWordsLoc133F0 {
+    pub(crate) x_pos: u16,
+    pub(crate) y_row: u16,
+    pub(crate) count: u16,
+    pub(crate) stride_word: u16,
+    pub(crate) property_words: [u16; 4],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLoadPointersLoc11D0C {
     pub(crate) theme_mappings_addr: u32,
     pub(crate) enemy_layout_addr: u32,
@@ -476,6 +485,28 @@ pub(crate) fn block_layout_entry_words_loc_133B2(
         count: count_bits.wrapping_add(1),
         stride_word: u16::from(stride_bit),
         property_word_dbf_counter: count_bits,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_entry_words_loc_133F0(
+    x_pos: u16,
+    y_row: u16,
+    count_bits: u16,
+    stride_bit: bool,
+    property_words: [u16; 4],
+) -> BlockLayoutEntryWordsLoc133F0 {
+    // ASM loc_133F0 (kid.asm:25726-25748) writes the decoded X and Y words,
+    // reads a 3-bit run length and stores `count+1`, reads one stride bit, then
+    // appends the trailing 8/3/8/8-bit property words before looping back to
+    // `loc_133DE`.
+    BlockLayoutEntryWordsLoc133F0 {
+        x_pos,
+        y_row,
+        count: count_bits.wrapping_add(1),
+        stride_word: u16::from(stride_bit),
+        property_words,
     }
 }
 
