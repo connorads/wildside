@@ -795,6 +795,18 @@ pub(crate) fn block_layout_decrement_words_loc_13544(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_decrement_decoded_word_loc_13540(
+    decoded_word: u16,
+    dbf_counter: u16,
+) -> BlockLayoutRepeatWordsLoc13514 {
+    // ASM loc_13540 (kid.asm:25911-25917) calls `sub_13588` once to seed `d1`,
+    // then falls through to `loc_13544`, so the emitted run decrements from
+    // the single decoded word instead of decoding a fresh word per iteration.
+    block_layout_decrement_words_loc_13544(decoded_word, dbf_counter)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_property_words_loc_1337C(
     property_words: &[BlockLayoutPropertyWordLoc1337C],
     dbf_counter: u16,
