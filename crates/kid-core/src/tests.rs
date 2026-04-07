@@ -63,10 +63,11 @@ use crate::level::{
     block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
     block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
     block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
-    block_layout_long_run_repeat_loop_loc_1342E, block_layout_property_words_loc_1337C,
-    block_layout_repeat_current_word_loc_1352A, block_layout_repeat_decoded_word_loc_13526,
-    block_layout_repeat_loop_loc_1331E, block_layout_repeat_words_loc_1351E,
-    block_layout_repeat_words_loc_13514, block_layout_short_count_property_words_loc_134AC,
+    block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
+    block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
+    block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
+    block_layout_repeat_words_loc_1351E, block_layout_repeat_words_loc_13514,
+    block_layout_short_count_property_words_loc_134AC,
     block_layout_short_count_repeat_loop_loc_1347C, block_layout_short_pair_repeat_loop_loc_1345E,
     block_layout_store_property_word_loc_13398, block_layout_terminate_loc_134BA,
     block_layout_variable_repeat_loop_loc_133A0, block_layout_variable_repeat_loop_loc_1334C,
@@ -42380,6 +42381,26 @@ fn loc_13526_repeats_the_single_word_decoded_by_sub_13588() {
             next_word: 0x0123,
         },
         "ASM loc_13526 should still emit the one word returned by `sub_13588` when `d2` starts at zero"
+    );
+}
+
+#[test]
+fn loc_13532_increments_the_word_stream_after_the_single_sub_13588_decode() {
+    assert_eq!(
+        block_layout_increment_decoded_word_loc_13532(0xC321, 2),
+        BlockLayoutRepeatWordsLoc13514 {
+            words: vec![0xC321, 0xC322, 0xC323],
+            next_word: 0xC324,
+        },
+        "ASM loc_13532 should call `sub_13588` once, store that decoded `d1` word, then increment `d1` after each inclusive `dbf` iteration"
+    );
+    assert_eq!(
+        block_layout_increment_decoded_word_loc_13532(0x7FFF, 0),
+        BlockLayoutRepeatWordsLoc13514 {
+            words: vec![0x7FFF],
+            next_word: 0x8000,
+        },
+        "ASM loc_13532 should still emit one word when `d2` starts at zero because the first store happens before `dbf` reaches `-1`"
     );
 }
 

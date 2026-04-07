@@ -763,6 +763,18 @@ pub(crate) fn block_layout_repeat_decoded_word_loc_13526(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_increment_decoded_word_loc_13532(
+    decoded_word: u16,
+    dbf_counter: u16,
+) -> BlockLayoutRepeatWordsLoc13514 {
+    // ASM loc_13532 (kid.asm:25901-25906) calls `sub_13588` once, stores the
+    // decoded `d1` word, then `addq.w #1,d1` after each write while
+    // `dbf d2,loc_13536` keeps the loop inclusive.
+    block_layout_repeat_words_loc_13514(decoded_word, dbf_counter)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_property_words_loc_1337C(
     property_words: &[BlockLayoutPropertyWordLoc1337C],
     dbf_counter: u16,
