@@ -3101,6 +3101,12 @@ pub(crate) enum BackgroundArtPermutationLoc11E8A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundArtDecompressLoc11EA2 {
+    pub(crate) tile_base: u16,
+    pub(crate) permutation: BackgroundArtPermutationLoc11E8A,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BackgroundFollowupArtSourceLoc11EC4 {
     CaveAlt,
     MountainLightning,
@@ -3255,6 +3261,20 @@ pub(crate) fn select_background_art_permutation_loc_11E96(
         BackgroundArtPermutationLoc11E8A::Mountain
     } else {
         selected_permutation
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn prepare_background_art_decompress_loc_11EA2(
+    selected_permutation: BackgroundArtPermutationLoc11E8A,
+) -> BackgroundArtDecompressLoc11EA2 {
+    // ASM loc_11EA2 (kid.asm:24079-24080): after the Forest/Mountain checks
+    // have finished mutating `a3`, the shared continuation calls
+    // `DecompressToRAM` with that same permutation and RAM base `$F000`.
+    BackgroundArtDecompressLoc11EA2 {
+        tile_base: 0xF000,
+        permutation: selected_permutation,
     }
 }
 

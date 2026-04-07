@@ -34,19 +34,19 @@ use crate::helmets::{
     red_stealth_swing_anchor_sub_868E, skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
-    BackgroundArtPermutationLoc11E8A, BackgroundFollowupArtDecompressLoc11EC4,
-    BackgroundFollowupArtDecompressLoc11EF2, BackgroundFollowupArtPermutationLoc11EC4,
-    BackgroundFollowupArtSourceLoc11EC4, BackgroundPaletteFollowupLoc11DF8,
-    BackgroundPaletteOverrideLoc11DF4, FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596,
-    FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
-    ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
-    ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
-    IslandPaletteCycleLowerBandLoc12188, IslandPaletteCycleMidBandLoc12110,
-    IslandPaletteCyclePrimaryBandLoc12098, LateBackgroundPaletteOverrideLoc11E06,
-    LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, PostLoadObjectRoutineLoc11F96,
-    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
-    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
+    BackgroundArtDecompressLoc11EA2, BackgroundArtPermutationLoc11E8A,
+    BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
+    BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
+    BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
+    ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
+    FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
+    IslandPaletteCycleMidBandLoc12110, IslandPaletteCyclePrimaryBandLoc12098,
+    LateBackgroundPaletteOverrideLoc11E06, LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit,
+    PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT,
+    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
+    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
     apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
@@ -61,6 +61,7 @@ use crate::level::{
     initialise_camera_bootstrap_loc_11F48, initialise_evanesc_object_slots_sub_EABC,
     initialise_fullscreen_palette_fade_sub_73D0, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
+    prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
@@ -26851,6 +26852,26 @@ fn loc_11e96_only_overrides_the_existing_background_permutation_for_mountain() {
         ),
         BackgroundArtPermutationLoc11E8A::Forest,
         "ASM loc_11E96 should fall through to `loc_11EA2` without disturbing the earlier Forest permutation when the Mountain compare fails"
+    );
+}
+
+#[test]
+fn loc_11ea2_passes_the_selected_background_permutation_and_f000_base_into_decompress() {
+    assert_eq!(
+        prepare_background_art_decompress_loc_11EA2(BackgroundArtPermutationLoc11E8A::Mountain),
+        BackgroundArtDecompressLoc11EA2 {
+            tile_base: 0xF000,
+            permutation: BackgroundArtPermutationLoc11E8A::Mountain,
+        },
+        "ASM loc_11EA2 should reload `d0` with `$F000` and preserve the selected Mountain background permutation into the shared `DecompressToRAM` call"
+    );
+    assert_eq!(
+        prepare_background_art_decompress_loc_11EA2(BackgroundArtPermutationLoc11E8A::Forest),
+        BackgroundArtDecompressLoc11EA2 {
+            tile_base: 0xF000,
+            permutation: BackgroundArtPermutationLoc11E8A::Forest,
+        },
+        "ASM loc_11EA2 should also leave the earlier Forest permutation intact before the shared background-art decompress"
     );
 }
 
