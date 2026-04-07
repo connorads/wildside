@@ -2508,6 +2508,15 @@ impl NativeRuntime {
         }
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn sprite_uses_x_flip_loc_1292(x_direction: u8) -> bool {
+        // ASM loc_1292 (kid.asm:2273): `tst.b x_direction(a3)` branches to the
+        // x-flipped renderer at `loc_132A` for any non-zero byte and reaches
+        // the normal-orientation path at `loc_129E` only when the byte is 0.
+        x_direction != 0
+    }
+
     fn death_sprite_still_visible(player: PlayerState, camera: CameraState) -> bool {
         let sprite_vertical_extent_px = Self::sprite_vertical_extent_loc_11EA(
             true,

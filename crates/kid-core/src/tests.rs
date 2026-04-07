@@ -41458,6 +41458,22 @@ fn loc_1286_subtracts_y_offset_for_maniaxe_axe_sprite_frame() {
 }
 
 #[test]
+fn loc_1292_routes_zero_x_direction_to_normal_orientation_and_nonzero_to_flip() {
+    assert!(
+        !NativeRuntime::sprite_uses_x_flip_loc_1292(0),
+        "ASM loc_1292 should fall through to loc_129E when `x_direction(a3)` is 0"
+    );
+    assert!(
+        NativeRuntime::sprite_uses_x_flip_loc_1292(0xFF),
+        "ASM loc_1292 should branch to loc_132A when `x_direction(a3)` is non-zero"
+    );
+    assert!(
+        NativeRuntime::sprite_uses_x_flip_loc_1292(1),
+        "ASM loc_1292 uses `tst.b`, so any non-zero `x_direction(a3)` should select the flipped sprite path"
+    );
+}
+
+#[test]
 fn loc_12910_loads_mountain_background_tileset() {
     // ASM loc_12910 (kid.asm:25274-25291): Mountain theme background tileset load.
     //   move.w  #$2780,d0           ; pattern VRAM offset
