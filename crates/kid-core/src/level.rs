@@ -39,6 +39,12 @@ pub(crate) struct BlockPlaceResultLoc122F6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutDispatchLoc132D6 {
+    pub(crate) header_word: u16,
+    pub(crate) terminated: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLoadPointersLoc11D0C {
     pub(crate) theme_mappings_addr: u32,
     pub(crate) enemy_layout_addr: u32,
@@ -282,6 +288,22 @@ pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u
     // decoding block-layout words into `Decompression_Buffer` once the caller
     // has already dispatched here for the `$40` layout tag.
     kid_data::decode_enigma(layout_bytes, 0).map_err(|error| error.to_string())
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_dispatch_loc_132D6(
+    high_bit_set: bool,
+    block_type: u16,
+) -> BlockLayoutDispatchLoc132D6 {
+    // ASM loc_132D6 (kid.asm:25580-25593) reads a 1-bit high flag, rotates it
+    // into bit 15 with `ror.w #1,d1`, reads the 5-bit block type, treats `$1F`
+    // as the terminator, and otherwise ORs the pieces together before writing
+    // the header word into `Decompression_Buffer`.
+    BlockLayoutDispatchLoc132D6 {
+        header_word: (if high_bit_set { 0x8000 } else { 0 }) | (block_type & 0x001F),
+        terminated: block_type == 0x001F,
+    }
 }
 
 #[allow(non_snake_case)]
