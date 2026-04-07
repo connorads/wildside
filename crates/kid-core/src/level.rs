@@ -1095,6 +1095,19 @@ pub(crate) fn decompress_long_ref_too_short_loc_1371C() -> DecompressBp0ReturnSt
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_finished_loc_1372C() -> DecompressBp0ReturnStatus {
+    // ASM loc_1372C (kid.asm:26243-26245) is the successful long-reference
+    // return after `cmp.w a2,d7` / `bls.s loc_1372C`: once the fixed five-byte
+    // tail reaches or passes the output limit, the routine returns `d0=1` and
+    // `d2=1`, matching the caller's "done" status plus direct-copy mode tag.
+    DecompressBp0ReturnStatus {
+        status_word: 1,
+        next_copy_mode: Some(1),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_decode_word_run_loc_1354E(
     decoded_words: &[u16],
     dbf_counter: u16,

@@ -42687,6 +42687,18 @@ fn loc_1371c_returns_minus_one_and_retries_with_one_byte_direct_copy() {
 }
 
 #[test]
+fn loc_1372c_returns_success_once_the_long_ref_tail_reaches_the_end_pointer() {
+    assert_eq!(
+        crate::level::decompress_long_ref_finished_loc_1372C(),
+        crate::level::DecompressBp0ReturnStatus {
+            status_word: 1,
+            next_copy_mode: Some(1),
+        },
+        "ASM loc_1372C should return `d0=1` and `d2=1` once the five-byte long-reference tail has advanced `a2` to or past `d7`"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);
