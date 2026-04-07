@@ -42649,6 +42649,20 @@ fn loc_136d0_copies_two_short_ref_bytes_then_checks_the_end_pointer() {
 }
 
 #[test]
+fn loc_136fe_copies_the_long_ref_prefix_for_an_inclusive_dbf_count() {
+    assert_eq!(
+        crate::level::decompress_long_ref_prefix_loc_136FE(&[0x9A, 0xBC, 0xDE], 0),
+        vec![0x9A],
+        "ASM loc_136FE should still copy one byte when `d0` starts at zero because `dbf` decrements only after the store"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_prefix_loc_136FE(&[0x9A, 0xBC, 0xDE, 0xF0], 2),
+        vec![0x9A, 0xBC, 0xDE],
+        "ASM loc_136FE should copy exactly `d0+1` bytes before falling through to the fixed five-byte long-reference tail"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);

@@ -1047,6 +1047,23 @@ pub(crate) fn decompress_short_ref_tail_loc_136D0(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_prefix_loc_136FE(
+    source_bytes: &[u8],
+    dbf_counter: u16,
+) -> Vec<u8> {
+    // ASM loc_136FE (kid.asm:26207-26208) copies one byte before each
+    // `dbf d0,loc_136FE` test, so after `subq.w #6,d0` the loop emits exactly
+    // `d0 + 1` prefix bytes before the fixed five-byte tail at
+    // `Decompress_BP0_LongRef_2` / `loc_13706` / `loc_13708`.
+    source_bytes
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_decode_word_run_loc_1354E(
     decoded_words: &[u16],
     dbf_counter: u16,
