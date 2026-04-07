@@ -42666,11 +42666,23 @@ fn loc_136fe_copies_the_long_ref_prefix_for_an_inclusive_dbf_count() {
 fn loc_13716_returns_zero_without_selecting_another_copy_mode() {
     assert_eq!(
         crate::level::decompress_long_ref_zero_length_loc_13716(),
-        crate::level::DecompressBp0ReturnLoc13716 {
+        crate::level::DecompressBp0ReturnStatus {
             status_word: 0,
             next_copy_mode: None,
         },
         "ASM loc_13716 should zero `d0` and return immediately when the long-reference byte count read from `(a1)+` is zero"
+    );
+}
+
+#[test]
+fn loc_1371c_returns_minus_one_and_retries_with_one_byte_direct_copy() {
+    assert_eq!(
+        crate::level::decompress_long_ref_too_short_loc_1371C(),
+        crate::level::DecompressBp0ReturnStatus {
+            status_word: u16::MAX,
+            next_copy_mode: Some(1),
+        },
+        "ASM loc_1371C should return `d0=$FFFF` and `d2=1` when subtracting the fixed five-byte tail from the requested long-reference count underflows"
     );
 }
 

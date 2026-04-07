@@ -93,7 +93,7 @@ pub(crate) struct DecompressShortRefTailLoc136D0 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct DecompressBp0ReturnLoc13716 {
+pub(crate) struct DecompressBp0ReturnStatus {
     pub(crate) status_word: u16,
     pub(crate) next_copy_mode: Option<u16>,
 }
@@ -1070,13 +1070,26 @@ pub(crate) fn decompress_long_ref_prefix_loc_136FE(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn decompress_long_ref_zero_length_loc_13716() -> DecompressBp0ReturnLoc13716 {
+pub(crate) fn decompress_long_ref_zero_length_loc_13716() -> DecompressBp0ReturnStatus {
     // ASM loc_13716 (kid.asm:26226-26227) is the empty-length early return
     // from `Decompress_BP0_LongRef_2or3`: `beq.s loc_13716` zeroes `d0` and
     // returns without seeding `d2` with another copy mode.
-    DecompressBp0ReturnLoc13716 {
+    DecompressBp0ReturnStatus {
         status_word: 0,
         next_copy_mode: None,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_too_short_loc_1371C() -> DecompressBp0ReturnStatus {
+    // ASM loc_1371C (kid.asm:26231-26233) is the underflow return from
+    // `subq.w #6,d0`: when the requested long-reference byte count cannot pay
+    // for the fixed five-byte tail, the routine returns `d0=$FFFF` and seeds
+    // `d2=1` so the caller retries with the one-byte direct-copy mode.
+    DecompressBp0ReturnStatus {
+        status_word: u16::MAX,
+        next_copy_mode: Some(1),
     }
 }
 
