@@ -45,6 +45,14 @@ pub(crate) struct BlockLayoutDispatchLoc132D6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BlockLayoutDispatchLoc13504 {
+    pub(crate) property_word_dbf_counter: u16,
+    pub(crate) jump_table_word_offset: u16,
+    pub(crate) bits_remaining: u16,
+    pub(crate) refilled_input_byte: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -645,6 +653,33 @@ pub(crate) fn block_layout_terminate_loc_134BA() -> BlockLayoutTerminateLoc134BA
     BlockLayoutTerminateLoc134BA {
         end_marker: 0xFFFF,
         output_addr: 0xFFFF_77B2,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn block_layout_dispatch_loc_13504(
+    decoded_word: u16,
+    decode_width_bits: u16,
+    bits_remaining_before: u16,
+) -> BlockLayoutDispatchLoc13504 {
+    // ASM loc_13504 (kid.asm:25870-25874) keeps the low nibble of `d2` as the
+    // inclusive `dbf` counter, shifts the upper nibble of `d1` into a word
+    // offset for the `loc_13560` jump table, and relies on `loc_13650` to
+    // subtract the consumed width from `d6`, refilling one byte only when the
+    // remaining bit budget drops below 9.
+    let bits_after_subtract = bits_remaining_before.wrapping_sub(decode_width_bits);
+    let (bits_remaining, refilled_input_byte) = if bits_after_subtract >= 9 {
+        (bits_after_subtract, false)
+    } else {
+        (bits_after_subtract.wrapping_add(8), true)
+    };
+
+    BlockLayoutDispatchLoc13504 {
+        property_word_dbf_counter: decoded_word & 0x000F,
+        jump_table_word_offset: ((decoded_word >> 4) & 0x000E),
+        bits_remaining,
+        refilled_input_byte,
     }
 }
 

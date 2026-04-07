@@ -39,12 +39,12 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
-    BlockLayoutDispatchLoc132D6, BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0,
-    BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470,
-    BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E,
-    BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C,
-    BlockLayoutPropertyWordLoc1337C, BlockLayoutTerminateLoc134BA, FgPlaneCustomWriteSub1596,
-    FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504, BlockLayoutEntryWordsLoc133B2,
+    BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E,
+    BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE,
+    BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E,
+    BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C, BlockLayoutTerminateLoc134BA,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
     FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
     ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
     FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
@@ -58,12 +58,12 @@ use crate::level::{
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
     background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    block_layout_dispatch_loc_132D6, block_layout_entry_words_loc_133B2,
-    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
-    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
-    block_layout_fixed_pattern_repeat_loop_loc_133DE, block_layout_long_run_repeat_loop_loc_1342E,
-    block_layout_property_words_loc_1337C, block_layout_repeat_loop_loc_1331E,
-    block_layout_short_count_property_words_loc_134AC,
+    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
+    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
+    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
+    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    block_layout_long_run_repeat_loop_loc_1342E, block_layout_property_words_loc_1337C,
+    block_layout_repeat_loop_loc_1331E, block_layout_short_count_property_words_loc_134AC,
     block_layout_short_count_repeat_loop_loc_1347C, block_layout_short_pair_repeat_loop_loc_1345E,
     block_layout_store_property_word_loc_13398, block_layout_terminate_loc_134BA,
     block_layout_variable_repeat_loop_loc_133A0, block_layout_variable_repeat_loop_loc_1334C,
@@ -42273,6 +42273,30 @@ fn loc_134ba_writes_the_ffff_terminator_and_rewinds_to_the_decompression_buffer(
             output_addr: 0xFFFF_77B2,
         },
         "ASM loc_134BA should append `$FFFF` and reset `a1` to `Decompression_Buffer` before `EniDec` returns"
+    );
+}
+
+#[test]
+fn loc_13504_masks_the_dbf_count_selects_the_jump_table_arm_and_refills_only_below_nine_bits() {
+    assert_eq!(
+        block_layout_dispatch_loc_13504(0x0065, 6, 0x0010),
+        BlockLayoutDispatchLoc13504 {
+            property_word_dbf_counter: 0x0005,
+            jump_table_word_offset: 0x000C,
+            bits_remaining: 0x000A,
+            refilled_input_byte: false,
+        },
+        "ASM loc_13504 should keep the low nibble as the inclusive `dbf d2` count, shift the upper nibble into a word offset for `loc_13560`, and leave `d6` alone when `loc_13650` still has at least 9 bits"
+    );
+    assert_eq!(
+        block_layout_dispatch_loc_13504(0x0032, 7, 0x000C),
+        BlockLayoutDispatchLoc13504 {
+            property_word_dbf_counter: 0x0002,
+            jump_table_word_offset: 0x0006,
+            bits_remaining: 0x000D,
+            refilled_input_byte: true,
+        },
+        "ASM loc_13504 should force the shared `loc_13650` refill path when subtracting the consumed width leaves fewer than 9 bits in `d6`"
     );
 }
 
