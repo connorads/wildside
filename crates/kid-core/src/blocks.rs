@@ -1901,6 +1901,19 @@ impl NativeRuntime {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shifting_block_worker_gate_loc_113BA(
+        source_row: u16,
+        above_cell_sets_bit_6: bool,
+    ) -> bool {
+        // ASM loc_113BA (kid.asm:23314-23315): both the `tst.w d2` early exit
+        // and the occupied-above `bne.s` path land on this shared `rts`, so
+        // the worker setup only proceeds when the source row is non-zero and
+        // bit 6 of the cell above is clear.
+        source_row != 0 && !above_cell_sets_bit_6
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shifting_block_activation_loc_11364(
         source_row: u16,
         above_cell: terrain::Cell,
@@ -1920,7 +1933,8 @@ impl NativeRuntime {
                 | terrain::CollisionKind::Solid
                 | terrain::CollisionKind::Spikes
         );
-        let should_spawn_worker = source_row != 0 && !above_cell_sets_bit_6;
+        let should_spawn_worker =
+            Self::shifting_block_worker_gate_loc_113BA(source_row, above_cell_sets_bit_6);
         ShiftingBlockActivationLoc11364 {
             should_play_sound: true,
             should_spawn_worker,

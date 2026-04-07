@@ -37385,6 +37385,22 @@ fn shifting_block_activation_loc_11364_skips_the_worker_on_the_top_row() {
 }
 
 #[test]
+fn loc_113ba_only_allows_the_worker_when_the_above_cell_is_clear_and_in_bounds() {
+    assert!(
+        !NativeRuntime::shifting_block_worker_gate_loc_113BA(0, false),
+        "ASM loc_113BA should return immediately when `tst.w d2` sees the top row",
+    );
+    assert!(
+        !NativeRuntime::shifting_block_worker_gate_loc_113BA(5, true),
+        "ASM loc_113BA should return immediately when `btst #6,(a2)` reports the above cell occupied",
+    );
+    assert!(
+        NativeRuntime::shifting_block_worker_gate_loc_113BA(5, false),
+        "ASM loc_113BA should let the caller continue into `sub_113C0` only for non-zero rows with bit 6 clear above",
+    );
+}
+
+#[test]
 fn shifting_block_activation_loc_11364_only_reserves_clear_cells_above_the_source_block() {
     let blocked = NativeRuntime::shifting_block_activation_loc_11364(
         5,
