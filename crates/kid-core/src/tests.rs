@@ -41437,53 +41437,20 @@ fn loc_12884_and_loc_1288a_copy_chunk_tiles_within_bounds() {
 
 #[test]
 fn loc_1286_subtracts_y_offset_for_maniaxe_axe_sprite_frame() {
-    // ASM loc_1286 (kid.asm:2268-2271): special y-position adjustment for Maniaxe axe frame.
-    //   loc_1286:
-    //   cmpi.w  #(LnkTo_unk_A59AA-Data_Index),addroffset_sprite(a3)
-    //   bne.w   loc_1292
-    //   subq.w  #6,d7          ; adjust y screen position by -6
-    //
-    // This is part of Make_SpriteFromGfxObject and applies a -6 pixel y-offset
-    // when rendering the 3rd animation frame of the Maniaxe thrown axe.
-    // The stru_8B86 animation script calls:
-    //   anim_frame  1, 2, LnkTo_unk_A589E-Data_Index
-    //   anim_frame  1, 2, LnkTo_unk_A5924-Data_Index
-    //   anim_frame  1, 2, LnkTo_unk_A59AA-Data_Index   ; ← triggers this adjustment
-    //   anim_frame  1, 2, LnkTo_unk_A5A30-Data_Index
-    //
-    // The Data_Index table starts at line 47075. Counting longword entries:
-    // Entry 0 is Data_Index (null), entries 1-43 follow, then:
-    //   LnkTo_unk_A589E = offset 42*4 = 168 = 0xA8
-    //   LnkTo_unk_A5924 = offset 43*4 = 172 = 0xAC
-    //   LnkTo_unk_A59AA = offset 44*4 = 176 = 0xB0
-    //   LnkTo_unk_A5A30 = offset 45*4 = 180 = 0xB4
-    //
-    // The Maniaxe axe frame at offset 0xB0 gets -6 pixels applied to y position.
-
-    // Verified: LnkTo_unk_A59AA is the 44th entry after Data_Index,
-    // giving byte offset 44*4 = 176 = 0xB0.
+    // ASM loc_1286 (kid.asm:2268-2271): special y-position adjustment for the
+    // Maniaxe axe's third sprite frame before control rejoins loc_1292.
     const MANIAXE_AXE_FRAME_3_SPRITE_OFFSET_LOC_1286: u16 = 0x00B0;
 
-    let y_screen_before = 100i16;
-    let y_screen_after = if true {
-        // Simulating loc_1286 adjustment for sprite offset 0xB0
-        y_screen_before.wrapping_sub(6)
-    } else {
-        y_screen_before
-    };
+    let y_screen_after = NativeRuntime::sprite_special_y_offset_loc_1286(
+        MANIAXE_AXE_FRAME_3_SPRITE_OFFSET_LOC_1286,
+        100,
+    );
     assert_eq!(
         y_screen_after, 94,
         "ASM loc_1286: sprite with Maniaxe axe frame 3 offset should have y position reduced by 6"
     );
 
-    // For non-matching sprite offsets, no adjustment applies
-    let other_offset = 0u16;
-    let y_screen_other = 100i16;
-    let y_screen_adjusted = if other_offset == MANIAXE_AXE_FRAME_3_SPRITE_OFFSET_LOC_1286 {
-        y_screen_other.wrapping_sub(6)
-    } else {
-        y_screen_other // loc_1292: bne jumps past the adjustment
-    };
+    let y_screen_adjusted = NativeRuntime::sprite_special_y_offset_loc_1286(0, 100);
     assert_eq!(
         y_screen_adjusted, 100,
         "ASM loc_1286: non-matching sprite offset skips the y adjustment (loc_1292)"

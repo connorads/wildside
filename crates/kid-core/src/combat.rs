@@ -2492,6 +2492,22 @@ impl NativeRuntime {
         }
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn sprite_special_y_offset_loc_1286(sprite_offset: u16, y_screen_px: i32) -> i32 {
+        const MANIAXE_AXE_FRAME_3_SPRITE_OFFSET_LOC_1286: u16 = 0x00B0;
+
+        // ASM loc_1286 (kid.asm:2268): once the non-Kid `$17(a3)` path falls
+        // through from `loc_124A`, only `addroffset_sprite(a3) ==
+        // LnkTo_unk_A59AA-Data_Index` gets the extra `subq.w #6,d7` Maniaxe
+        // axe lift before control rejoins `loc_1292`.
+        if sprite_offset == MANIAXE_AXE_FRAME_3_SPRITE_OFFSET_LOC_1286 {
+            y_screen_px.wrapping_sub(6)
+        } else {
+            y_screen_px
+        }
+    }
+
     fn death_sprite_still_visible(player: PlayerState, camera: CameraState) -> bool {
         let sprite_vertical_extent_px = Self::sprite_vertical_extent_loc_11EA(
             true,
