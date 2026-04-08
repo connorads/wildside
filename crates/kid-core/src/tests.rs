@@ -20561,6 +20561,21 @@ fn loc_149fc_hibernates_refreshes_collision_and_applies_the_signed_segment_delta
 }
 
 #[test]
+fn loc_14b06_uses_inclusive_overlap_bounds_for_fireball_damage() {
+    let window = crate::weather::LavaFireballVerticalWindowLoc14AFC {
+        top_px: 0x0200,
+        bottom_px: 0x020F,
+    };
+
+    assert!(
+        crate::weather::lava_fireball_overlap_gate_loc_14B06(
+            0x0107, 0x0108, 0x020F, 0x0200, 0x0108, 0x010E, window,
+        ),
+        "ASM loc_14B06 should keep the hit active when Kid only touches the fireball on the shared left/right/top/bottom boundaries"
+    );
+}
+
+#[test]
 fn loc_14a46_decrements_the_dbf_counter_and_only_exits_after_the_ffff_sentinel() {
     assert_eq!(
         crate::weather::lava_fireball_segment_back_edge_loc_14A46(0x0003),
