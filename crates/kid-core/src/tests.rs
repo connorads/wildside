@@ -42906,6 +42906,42 @@ fn loc_13756_extracts_the_bbb_distance_bits_and_decodes_the_aa_copy_mode() {
 }
 
 #[test]
+fn loc_1384e_extracts_the_later_distance_bits_and_decodes_the_aa_copy_mode() {
+    assert_eq!(
+        crate::level::decompress_long_ref_header_loc_1384E(0xE0, 0b0000_0000, 0x0700, 0x34),
+        crate::level::DecompressLongRefHeaderLoc13756 {
+            source_back_distance: 0x0734,
+            copy_mode: crate::level::DecompressLongRefCopyModeLoc13756::Copy3,
+        },
+        "ASM loc_1384E should preserve the shifted high distance bits from `d1`, append the later control byte from `(a0)+`, and treat `AA=00` as the three-byte tail at `loc_1387C`"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_header_loc_1384E(0xA0, 0b0100_0000, 0x0700, 0x56),
+        crate::level::DecompressLongRefHeaderLoc13756 {
+            source_back_distance: 0x0556,
+            copy_mode: crate::level::DecompressLongRefCopyModeLoc13756::Copy4,
+        },
+        "ASM loc_1384E should decode `AA=01` as the four-byte tail that starts at `loc_1387A`"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_header_loc_1384E(0xC0, 0b1000_0000, 0x0700, 0x78),
+        crate::level::DecompressLongRefHeaderLoc13756 {
+            source_back_distance: 0x0678,
+            copy_mode: crate::level::DecompressLongRefCopyModeLoc13756::Copy5,
+        },
+        "ASM loc_1384E should route `AA=10` through `loc_13864` and then straight to the fixed five-byte tail when the second control bit is clear"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_header_loc_1384E(0x80, 0b1100_0000, 0x0700, 0x9A),
+        crate::level::DecompressLongRefHeaderLoc13756 {
+            source_back_distance: 0x049A,
+            copy_mode: crate::level::DecompressLongRefCopyModeLoc13756::VariableLength,
+        },
+        "ASM loc_1384E should decode `AA=11` as the variable-length long-reference family that continues through `loc_13864`"
+    );
+}
+
+#[test]
 fn loc_1376a_routes_the_second_aa_bit_into_copy5_quit_flush_or_variable_length() {
     assert_eq!(
         crate::level::decompress_long_ref_extended_loc_1376A(0b0000_0000, 0x12),
