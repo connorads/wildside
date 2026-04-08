@@ -951,6 +951,31 @@ pub(crate) fn title_screen_tile_attribute_upload_loc_1B322()
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleScreenLightningFlashUploadLoc1B432 {
+    pub(crate) flash_frame: u8,
+    pub(crate) art_byte_offset: u16,
+    pub(crate) vram_word_addr: u16,
+    pub(crate) longword_write_count: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_screen_lightning_flash_upload_loc_1B432(
+    flash_frame: u8,
+) -> TitleScreenLightningFlashUploadLoc1B432 {
+    // ASM sub_1B41C / loc_1B432 (kid.asm:29642-29654): copy `d0` into `d4`,
+    // `lsl.w #7,d4`, add that byte offset to `ArtUnc_2A4D6`, then stream one
+    // longword per pass before the inclusive `dbf d4,loc_1B432` terminates.
+    TitleScreenLightningFlashUploadLoc1B432 {
+        flash_frame,
+        art_byte_offset: u16::from(flash_frame) << 7,
+        vram_word_addr: 0x17A0,
+        longword_write_count: 0x001F + 1,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleScreenLightningFlashStepLoc1B37C {
     pub(crate) hibernate_frames: u16,
     pub(crate) flash_frame: u8,
@@ -1031,9 +1056,11 @@ pub(crate) fn title_screen_lightning_sequence_loc_1B37C() -> TitleScreenLightnin
         },
     ]);
 
+    let flash_upload = title_screen_lightning_flash_upload_loc_1B432(0);
+
     TitleScreenLightningSequenceLoc1B37C {
-        flash_vram_word_addr: 0x17A0,
-        flash_longword_write_count: 0x001F + 1,
+        flash_vram_word_addr: flash_upload.vram_word_addr,
+        flash_longword_write_count: flash_upload.longword_write_count,
         steps,
     }
 }
@@ -3639,6 +3666,25 @@ mod tests {
                 .count(),
             5,
             "ASM loc_1B37C calls `sub_1B36C` five times across the opening and closing lightning bursts",
+        );
+    }
+
+    #[test]
+    fn loc_1b432_uploads_32_longwords_from_flash_frame_art_banks() {
+        let flash_0 = title_screen_lightning_flash_upload_loc_1B432(0);
+        let flash_4 = title_screen_lightning_flash_upload_loc_1B432(4);
+
+        assert_eq!(flash_0.flash_frame, 0);
+        assert_eq!(flash_0.art_byte_offset, 0);
+        assert_eq!(flash_0.vram_word_addr, 0x17A0);
+        assert_eq!(
+            flash_0.longword_write_count,
+            0x001F + 1,
+            "ASM loc_1B432 runs one `move.l (a4)+,(a6)` before each inclusive `dbf d4,loc_1B432` check, so every flash uploads 32 longwords",
+        );
+        assert_eq!(
+            flash_4.art_byte_offset, 0x0200,
+            "ASM sub_1B41C shifts `d0` left by 7 before loc_1B432 starts, so flash frame 4 reads from `ArtUnc_2A4D6 + $200`",
         );
     }
 
