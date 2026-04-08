@@ -105,6 +105,16 @@ pub(crate) struct DecompressSpecialPaletteRowStartLoc14348 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressToVramSpecialChunkSetupLoc14366 {
+    pub(crate) decompress_chunk_status_seed: i16,
+    pub(crate) decompress_chunk_a3_seed_addr: u32,
+    pub(crate) restored_output_addr: u32,
+    pub(crate) palette_permutation_table_addr: u32,
+    pub(crate) byte_lookup_accumulator: u16,
+    pub(crate) word_dbf_counter: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DecompressDirectCopyLoc137AE {
     pub(crate) copied_byte: u8,
 }
@@ -965,6 +975,30 @@ pub(crate) fn decompress_special_palette_row_bytes_loc_1434A(
         .take(usize::from(dbf_counter) + 1)
         .map(|low_nibble| high_nibble | low_nibble)
         .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_to_vram_special_chunk_setup_loc_14366(
+    buffer_start_addr: u32,
+    buffer_end_addr: u32,
+    saved_output_addr: u32,
+) -> DecompressToVramSpecialChunkSetupLoc14366 {
+    // ASM loc_14366 (kid.asm:27214-27226) seeds `d0` and `a3` with `-1`
+    // before `Decompress_Chunk`, snapshots the current output cursor with
+    // `move.l a2,a4`, turns the emitted byte span `(a2-a4)` into the inclusive
+    // special-VRAM transfer loop word count, then restores `a6` from the saved stack
+    // pointer and points `a3` at the special palette table scratch buffer.
+    let emitted_word_count = buffer_end_addr.wrapping_sub(buffer_start_addr) >> 1;
+
+    DecompressToVramSpecialChunkSetupLoc14366 {
+        decompress_chunk_status_seed: -1,
+        decompress_chunk_a3_seed_addr: u32::MAX,
+        restored_output_addr: saved_output_addr,
+        palette_permutation_table_addr: 0xFFFF_0280,
+        byte_lookup_accumulator: 0,
+        word_dbf_counter: emitted_word_count.wrapping_sub(1) as u16,
+    }
 }
 
 #[allow(non_snake_case)]

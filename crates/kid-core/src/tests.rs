@@ -42673,6 +42673,43 @@ fn loc_1434a_builds_one_sixteen_entry_palette_permutation_row_from_the_current_h
 }
 
 #[test]
+fn loc_14366_seeds_decompress_chunk_and_converts_the_special_buffer_span_into_an_inclusive_dbf_count()
+ {
+    assert_eq!(
+        crate::level::decompress_to_vram_special_chunk_setup_loc_14366(
+            0xFFFF_77B2,
+            0xFFFF_77B4,
+            0x00C0_0000,
+        ),
+        crate::level::DecompressToVramSpecialChunkSetupLoc14366 {
+            decompress_chunk_status_seed: -1,
+            decompress_chunk_a3_seed_addr: 0xFFFF_FFFF,
+            restored_output_addr: 0x00C0_0000,
+            palette_permutation_table_addr: 0xFFFF_0280,
+            byte_lookup_accumulator: 0,
+            word_dbf_counter: 0,
+        },
+        "ASM loc_14366 should seed `d0` and `a3` with `-1`, restore `a6` from the saved stack slot, repoint `a3` at `$FFFF0280`, clear `d5`, and still leave the following special VRAM transfer loop with a single inclusive DBF iteration when `Decompress_Chunk` emits one word"
+    );
+    assert_eq!(
+        crate::level::decompress_to_vram_special_chunk_setup_loc_14366(
+            0xFFFF_77B2,
+            0xFFFF_77BA,
+            0x00C0_0000,
+        ),
+        crate::level::DecompressToVramSpecialChunkSetupLoc14366 {
+            decompress_chunk_status_seed: -1,
+            decompress_chunk_a3_seed_addr: 0xFFFF_FFFF,
+            restored_output_addr: 0x00C0_0000,
+            palette_permutation_table_addr: 0xFFFF_0280,
+            byte_lookup_accumulator: 0,
+            word_dbf_counter: 3,
+        },
+        "ASM loc_14366 should subtract the pre-chunk `a4` snapshot from the post-chunk `a2`, divide that byte span by two, and `subq.w #1,d3`, so an 8-byte chunk becomes an inclusive four-word run for the following special VRAM word-transfer loop"
+    );
+}
+
+#[test]
 fn loc_13504_masks_the_dbf_count_selects_the_jump_table_arm_and_refills_only_below_nine_bits() {
     assert_eq!(
         block_layout_dispatch_loc_13504(0x0065, 6, 0x0010),
