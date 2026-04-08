@@ -19795,6 +19795,44 @@ fn loc_14d1e_selects_the_storm_pattern_source_but_keeps_the_shared_addend_and_he
 }
 
 #[test]
+fn loc_14d32_programs_vram_6000_and_repeats_each_four_longword_storm_group_with_inclusive_dbf_loops()
+ {
+    let source_longwords = core::array::from_fn(|index| 0x1000_0000u32.wrapping_add(index as u32));
+    let result =
+        crate::weather::upload_storm_pattern_blocks_loc_14D32(&source_longwords, 0x0380_0380);
+
+    assert_eq!(
+        result.vdp_command, 0x4000_0003,
+        "ASM loc_14D32 should program `vdpComm($6000,VRAM,WRITE)` before the nested `dbf` upload loops"
+    );
+    assert_eq!(
+        result.written_longwords.len(),
+        4 * 8 * 8 * 4,
+        "ASM loc_14D32 seeds `d2=#3`, `d1=#7`, and `d0=#7`, so the shared upload tail should emit 4 outer passes × 8 groups × 8 repeats × 4 longwords"
+    );
+    assert_eq!(
+        &result.written_longwords[..4],
+        &[0x1380_0380, 0x1380_0381, 0x1380_0382, 0x1380_0383,],
+        "ASM loc_14D32 should add the shared `$0380_0380` tile offset to the first four-longword group before the first `dbf d0` iteration stores it"
+    );
+    assert_eq!(
+        &result.written_longwords[4..8],
+        &[0x1380_0380, 0x1380_0381, 0x1380_0382, 0x1380_0383,],
+        "ASM loc_14D32 should repeat the same four source longwords while `dbf d0` counts down from 7 to -1 because `a0` is not advanced until after the inner loop"
+    );
+    assert_eq!(
+        &result.written_longwords[32..36],
+        &[0x1380_0384, 0x1380_0385, 0x1380_0386, 0x1380_0387,],
+        "ASM loc_14D32 should advance by `$10` bytes only after eight inner repeats, so the second group begins after the first 32 writes"
+    );
+    assert_eq!(
+        &result.written_longwords[256..260],
+        &[0x1380_0380, 0x1380_0381, 0x1380_0382, 0x1380_0383,],
+        "ASM loc_14D32 should restore `a0` from `a3` between outer passes, causing the whole 32-longword table to restart after each 256-write block"
+    );
+}
+
+#[test]
 fn sub_6048_before_20_seconds_only_sets_weather_mode_byte() {
     let stepped = step_level_special_effects_sub_6048(
         WeatherSpecialEffectsStepSub6048 {

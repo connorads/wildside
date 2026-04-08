@@ -272,6 +272,43 @@ pub(crate) fn select_storm_pattern_upload_loc_14D1E(
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct StormPatternUploadLoc14D32 {
+    pub(crate) vdp_command: u32,
+    pub(crate) written_longwords: Vec<u32>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
+    source_longwords: &[u32; 32],
+    vram_tile_addend: u32,
+) -> StormPatternUploadLoc14D32 {
+    // ASM loc_14D32 (kid.asm:28387-28409): program `vdpComm($6000,VRAM,WRITE)`
+    // and write the selected 32-longword storm table in 4 outer passes. Each
+    // pass walks eight 4-longword groups; each group is emitted eight times
+    // before `lea $10(a0),a0` advances to the next group, then `move.l a3,a0`
+    // restarts the whole table for the next outer pass.
+    const VDP_COMMAND: u32 = 0x4000_0003; // vdpComm($6000,VRAM,WRITE)
+    let mut written_longwords = Vec::with_capacity(4 * 8 * 8 * 4);
+
+    for _ in 0..4 {
+        for group in source_longwords.chunks_exact(4) {
+            for _ in 0..8 {
+                for &word in group {
+                    written_longwords.push(word.wrapping_add(vram_tile_addend));
+                }
+            }
+        }
+    }
+
+    StormPatternUploadLoc14D32 {
+        vdp_command: VDP_COMMAND,
+        written_longwords,
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
     CopyPaletteBufferToBuffer2,
     CopyPaletteBufferToBuffer3,
