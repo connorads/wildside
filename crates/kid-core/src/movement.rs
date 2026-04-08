@@ -1299,10 +1299,20 @@ fn level_entry_title_start_pose(rng: &mut RomRandomState, selector: u8) -> (u32,
         // `move.w #$FFE0,d6` fixes Y to -32px before the shared loc_1ACCC
         // random-X tail runs.
         1 => (level_entry_title_random_x(rng), -0x20),
-        2 => (0x160, level_entry_title_random_y(rng)),
+        2 => (
+            level_entry_title_right_edge_x_loc_1ace0(),
+            level_entry_title_random_y(rng),
+        ),
         _ => (level_entry_title_random_x(rng), 0x100),
     };
     ((x << 16) as u32, (y << 16) as u32)
+}
+
+fn level_entry_title_right_edge_x_loc_1ace0() -> i32 {
+    // ASM loc_1ACE0 (kid.asm:28937-28939) is the selector-2 branch:
+    // `move.w #$160,d5` fixes X to the right title-entry edge before the
+    // shared loc_1ACEA random-Y tail runs.
+    0x160
 }
 
 fn level_entry_title_random_y(rng: &mut RomRandomState) -> i32 {
@@ -3947,7 +3957,7 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
 mod tests {
     use super::{
         level_entry_title_advance_x, level_entry_title_deferred_number_indices_loc_1ABF4,
-        level_entry_title_space_token_x_loc_1ABEA,
+        level_entry_title_right_edge_x_loc_1ace0, level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
     };
     use crate::types::RomRandomState;
@@ -4039,6 +4049,15 @@ mod tests {
         assert_eq!(
             y, 0xFFE0_0000,
             "ASM loc_1ACC8 should set `d6=$FFE0` for selector 1 before the shared loc_1ACCC random-X logic runs",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_right_edge_x_loc_1ace0_returns_right_spawn_edge() {
+        assert_eq!(
+            level_entry_title_right_edge_x_loc_1ace0(),
+            0x160,
+            "ASM loc_1ACE0 should seed `d5=$160` before the shared loc_1ACEA random-Y branch resumes",
         );
     }
 
