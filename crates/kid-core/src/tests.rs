@@ -26563,6 +26563,38 @@ fn loc_14236_adjusts_each_8_byte_hidden_background_entry_for_inserted_blank_top_
 }
 
 #[test]
+fn loc_1423e_adjusts_only_the_prefix_selected_by_the_dbf_entry_count() {
+    assert_eq!(
+        crate::level::adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_1423E(
+            &[
+                [0x0120, 0x0014, 0x0003, 0xFF00],
+                [0x0280, 0x0030, 0x0008, 0xFF01],
+                [0x03C0, 0x0042, 0x000D, 0xFF02],
+            ],
+            2,
+            2,
+            0x0040,
+        ),
+        vec![
+            [0x01A0, 0x0014, 0x0005, 0xFF00],
+            [0x0300, 0x0030, 0x000A, 0xFF01],
+            [0x03C0, 0x0042, 0x000D, 0xFF02],
+        ],
+        "ASM loc_1423E branches straight into `dbf d0,loc_14236`, so `d0=2` should adjust exactly the first two 8-byte hidden/background entries before `sub_140F6` returns"
+    );
+    assert_eq!(
+        crate::level::adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_1423E(
+            &[[0x0120, 0x0014, 0x0003, 0xFF00]],
+            0,
+            2,
+            0x0040,
+        ),
+        vec![[0x0120, 0x0014, 0x0003, 0xFF00]],
+        "ASM loc_1423E should skip the `loc_14236` body entirely when `($FFFFF8EA).w` loads `d0=0` before the first `dbf`"
+    );
+}
+
+#[test]
 fn loc_11d42_only_enables_the_block_priority_mask_when_f896_is_non_zero() {
     assert_eq!(
         crate::level::block_mapping_or_mask_loc_11D42(false),
