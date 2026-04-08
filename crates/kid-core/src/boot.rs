@@ -904,6 +904,20 @@ pub(crate) fn intro_sequence_5_art_source_loc_1B100(title_variant: u8) -> &'stat
     }
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_screen_art_source_loc_1B2D8(title_variant: u8) -> &'static str {
+    // ASM sub_1B2A4 -> loc_1B2D8 (kid.asm:29479-29484): start from
+    // `byte_26E3D`, switch to `byte_2927C` when `($FFFFFC82).w == 1`, and
+    // otherwise use `byte_282C1` for the remaining non-zero title variants
+    // before the shared VRAM decompress tail at `loc_1B2D8`.
+    match title_variant {
+        0 => "byte_26E3D",
+        1 => "byte_2927C",
+        _ => "byte_282C1",
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence6LongwordFillLoc1B170 {
@@ -3374,6 +3388,17 @@ mod tests {
                 word_write_count: 0x07FF + 1,
             },
             "ASM loc_1B258 should rerun the same inclusive 2048-word `$20BC` VRAM clear loop as loc_1B182 before `sub_1B2A4` and `Load_TitleArt`",
+        );
+    }
+
+    #[test]
+    fn loc_1b2d8_selects_the_title_art_variant_from_fc82() {
+        assert_eq!(title_screen_art_source_loc_1B2D8(0), "byte_26E3D");
+        assert_eq!(title_screen_art_source_loc_1B2D8(1), "byte_2927C");
+        assert_eq!(
+            title_screen_art_source_loc_1B2D8(2),
+            "byte_282C1",
+            "ASM loc_1B2D8 should only keep the middle title-art source when `($FFFFFC82).w == 1`; every other non-zero variant falls through to `byte_282C1`",
         );
     }
 
