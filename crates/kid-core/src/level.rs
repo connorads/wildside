@@ -6892,6 +6892,10 @@ pub(crate) fn apply_pending_palette_fade_sub_14C0(
         return;
     }
 
+    // ASM loc_1518 (kid.asm:2618): after the optional first-half blend, repoint
+    // `a0/a1/a2` at `Palette_Buffer_{2,3}/Palette_Buffer + $40`, load the
+    // second pending mask from `$FFFFF88C`, and return immediately if it is
+    // zero.
     let Some(palette_buffer_2) = palette_buffer_2.get(0x20..) else {
         *pending_palette_1_mask = 0;
         return;

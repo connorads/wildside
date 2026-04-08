@@ -2380,6 +2380,37 @@ fn sub_14c0_dispatches_both_palette_halves_and_clears_pending_masks() {
 }
 
 #[test]
+fn loc_1518_repoints_the_blend_to_palette_words_20_through_3f() {
+    let mut palette_buffer_2 = [0u16; 0x40];
+    let mut palette_buffer_3 = [0u16; 0x40];
+    let mut palette_buffer = [0x0EEE; 0x40];
+    palette_buffer_2[0] = 0x0ACE;
+    palette_buffer_3[0] = 0x0246;
+    palette_buffer_2[0x20] = 0x0246;
+    palette_buffer_3[0x20] = 0x0ACE;
+    let mut pending_palette_0_mask = 0;
+    let mut pending_palette_1_mask = 0x8000_0000;
+
+    apply_pending_palette_fade_sub_14C0(
+        0x0080,
+        &mut pending_palette_0_mask,
+        &mut pending_palette_1_mask,
+        &palette_buffer_2,
+        &palette_buffer_3,
+        &mut palette_buffer,
+    );
+
+    assert_eq!(
+        palette_buffer[0], 0x0EEE,
+        "ASM loc_1518 should repoint `a0/a1/a2` to `Palette_Buffer_2/Palette_Buffer_3/Palette_Buffer+$40`, so a second-half-only mask must leave palette word 0 untouched"
+    );
+    assert_eq!(
+        palette_buffer[0x20], 0x068A,
+        "ASM loc_1518 should feed `Palette_Buffer_2+$40` and `Palette_Buffer_3+$40` into sub_1536, so the first selected second-half word blends at palette index $20"
+    );
+}
+
+#[test]
 fn sub_1596_drains_each_custom_fg_entry_into_two_vdp_writes() {
     let mut pending_queue = Some(vec![
         FgUpdateQueueCustomEntrySub1596 {
