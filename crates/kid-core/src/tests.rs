@@ -79,9 +79,10 @@ use crate::level::{
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
-    decode_block_layout_loc_132A6, decompress_to_ram_palette_row_start_loc_143CC,
-    decompress_to_vram_special_return_loc_143B2, drain_fg_update_queue_custom_sub_1596,
-    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    decode_block_layout_loc_132A6, decompress_to_ram_palette_row_bytes_loc_143CE,
+    decompress_to_ram_palette_row_start_loc_143CC, decompress_to_vram_special_return_loc_143B2,
+    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
+    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_camera_bootstrap_loc_11F48, initialise_evanesc_object_slots_sub_EABC,
     initialise_fullscreen_palette_fade_sub_73D0, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
@@ -42799,6 +42800,27 @@ fn loc_143cc_resets_the_low_nibble_column_index_for_each_ram_palette_row() {
             column_index: 0,
         },
         "ASM loc_143CC should re-zero the low-nibble column index on every outer-loop iteration, not just for the first row"
+    );
+}
+
+#[test]
+fn loc_143ce_builds_one_sixteen_entry_ram_palette_permutation_row_from_the_current_high_nibble() {
+    let permutation = [
+        0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF,
+    ];
+
+    assert_eq!(
+        decompress_to_ram_palette_row_bytes_loc_143CE(&permutation, 0x000B, 0),
+        vec![
+            0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD,
+            0xBE, 0xBF,
+        ],
+        "ASM loc_143CE should still emit one packed byte when `d4` starts at zero because the store to `(a4)+` happens before the later `cmpi.w #$10,d4` loop check"
+    );
+    assert_eq!(
+        decompress_to_ram_palette_row_bytes_loc_143CE(&permutation, 0x000B, 0x000F),
+        vec![0xBF],
+        "ASM loc_143CE should reuse `(a3,d3.w)` as the shared high nibble and OR in each successive `(a3,d4.w)` low nibble until the inner loop has emitted all remaining packed permutation bytes for that row"
     );
 }
 

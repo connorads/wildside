@@ -1087,6 +1087,27 @@ pub(crate) fn decompress_to_ram_palette_row_start_loc_143CC(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_to_ram_palette_row_bytes_loc_143CE(
+    permutation: &[u8; 16],
+    row_index: u16,
+    start_column_index: u16,
+) -> Vec<u8> {
+    // ASM loc_143CE (kid.asm:27272-27279) reads the shared high nibble from
+    // `(a3,d3.w)`, shifts it into the upper half of `d5` with `lsl.b #4,d5`,
+    // ORs in each successive low nibble from `(a3,d4.w)`, stores the packed
+    // byte to `(a4)+`, and keeps looping until `d4` reaches `$10`.
+    let row_high_nibble = permutation[usize::from(row_index & 0x000F)] << 4;
+
+    permutation
+        .iter()
+        .copied()
+        .skip(usize::from(start_column_index))
+        .map(|low_nibble| row_high_nibble | low_nibble)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
