@@ -20551,6 +20551,23 @@ fn loc_147ba_decodes_geyser_script_sentinels_and_sprite_rows() {
 }
 
 #[test]
+fn loc_1483a_disables_the_geyser_for_60_frames_then_rejoins_the_repeat_loop() {
+    let step = crate::weather::lava_geyser_disable_step_loc_1483A();
+    assert_eq!(
+        step.sound, "sfx_Lava_Geyser",
+        "ASM loc_1483A should queue `sfx_Lava_Geyser` before disabling the worker"
+    );
+    assert_eq!(
+        step.disabled_frames, 0x003C,
+        "ASM loc_1483A should push `#$3C` into `j_Hibernate_Object`, disabling the geyser for 60 frames"
+    );
+    assert!(
+        step.resumes_at_repeat_loop,
+        "ASM loc_1483A should resume at loc_1478E after the disable hibernation rather than restarting the first-eruption script"
+    );
+}
+
+#[test]
 fn loc_147d6_uses_the_padded_camera_window_before_building_sprite_rows() {
     let inside = crate::weather::LavaGeyserCameraWindowInputLoc147D6 {
         x_px: 0x00E0,

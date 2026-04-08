@@ -874,6 +874,27 @@ pub(crate) fn decode_lava_geyser_script_step_loc_147BA(
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserDisableStepLoc1483A {
+    pub(crate) sound: &'static str,
+    pub(crate) disabled_frames: u16,
+    pub(crate) resumes_at_repeat_loop: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_disable_step_loc_1483A() -> LavaGeyserDisableStepLoc1483A {
+    // ASM loc_1483A (kid.asm:27900): the `$FFFE` script sentinel falls here,
+    // queues `sfx_Lava_Geyser`, hibernates for `$3C` frames, then resumes at
+    // the repeat-eruption path (`loc_1478E`) rather than the startup script.
+    LavaGeyserDisableStepLoc1483A {
+        sound: "sfx_Lava_Geyser",
+        disabled_frames: 0x003C,
+        resumes_at_repeat_loop: true,
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserCameraWindowInputLoc147D6 {
     pub(crate) x_px: u16,
     pub(crate) y_px: u16,
