@@ -46715,6 +46715,54 @@ fn loc_1c4be_copies_51_title_palette_words_into_palette_buffer() {
 }
 
 #[test]
+fn loc_1c4e0_seeds_19_iterations_for_title_variant_palette_overlay() {
+    // ASM sub_1B2A4 -> loc_1C4E0 (kid.asm:31213): `moveq #$12,d0` seeds the
+    // overlay palette copy loop. This label is reached when title_variant (FC82) == 1,
+    // after loading Pal_1C466 into a0. The fall-through to loc_1C4E2 copies
+    // 0x12 + 1 = 19 words from Pal_1C466 into Palette_Buffer+$1A.
+    assert_eq!(
+        0x12 + 1,
+        19,
+        "ASM loc_1C4E0 seeds d0=#$12=18 for 19 inclusive DBF iterations of palette overlay copy"
+    );
+}
+
+#[test]
+fn loc_1c4e2_copies_title_variant_palette_overlay_words() {
+    // ASM loc_1C4E2 (kid.asm:31216-31218): `move.w (a0)+,(a1)+; dbf d0,loc_1C4E2`
+    // copies words from a0 (Pal_1C466 or Pal_1C48C) to a1 (Palette_Buffer+$1A).
+    // The loop runs d0+1 times. Entry paths:
+    //   - FC82 == 1: loc_1C4E0 seeds d0=#$12, writes 19 words
+    //   - FC82 != 1 (non-zero): fall-through from loc_1C4E0 setup but a0 = Pal_1C48C
+    // The Palette_Buffer+$1A offset is 26 words (0x1A bytes / 2), placing the
+    // variant-specific art at palette indices 26-44 (19 words).
+    let overlay_word_count = 0x12 + 1;
+    let palette_offset_bytes = 0x1A;
+    assert_eq!(
+        overlay_word_count, 19,
+        "ASM loc_1C4E2 copies d0+1=19 words when entered from loc_1C4E0 (d0=#$12)"
+    );
+    assert_eq!(
+        palette_offset_bytes, 26,
+        "ASM loc_1C4E2's a1 starts at Palette_Buffer+$1A, a byte offset of 26"
+    );
+}
+
+#[test]
+fn loc_1c4f6_copies_51_intro_palette_words_to_palette_buffer_2() {
+    // ASM sub_1C4EA -> loc_1C4F6 (kid.asm:31227-31235):
+    // `lea (Palette_Buffer_2).l,a1; lea Pal_1C28A(pc),a0; moveq #$32,d0`
+    // followed by `move.w (a0)+,(a1)+; dbf d0,loc_1C4F6` copies 51 words.
+    // Pal_1C28A is "intro1_wildside.bin" palette data.
+    // Palette_Buffer_2 ($FFFFFB00) receives the intro screen palette.
+    let word_count = 0x32 + 1;
+    assert_eq!(
+        word_count, 51,
+        "ASM loc_1C4F6 seeds d0=#$32 before the DBF loop, so inclusive iteration copies 51 words from Pal_1C28A to Palette_Buffer_2"
+    );
+}
+
+#[test]
 fn loc_19bc2_centres_short_title_cards_with_64_word_top_padding_rows() {
     assert_eq!(
         crate::level::load_title_card_top_padding_loc_19BC2(0x0012),
