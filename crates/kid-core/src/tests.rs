@@ -44559,3 +44559,27 @@ fn loc_1453e_prefers_existing_non_zero_nibbles_and_falls_back_to_the_buffered_ti
         "ASM loc_1453E rotates both longwords one nibble per step and chooses the existing `(a1)` nibble unless it is zero, so zero holes are filled from the buffered scratch longword"
     );
 }
+
+#[test]
+fn loc_14538_repacks_dbf_counter_plus_one_longword_rows_with_the_inner_nibble_merge() {
+    assert_eq!(
+        crate::level::indoor_rubber_block_repack_rows_loc_14538(
+            &[0xA0C0_E0F0, 0x0BAD_F00D],
+            &[0x1234_5678, 0xDEAD_BEEF],
+            0,
+            7,
+        ),
+        vec![0xA2C4_E6F8],
+        "ASM loc_14538 should still repack one row when `d0` starts at zero because it loads `(a1)` and `(a0)+`, runs the inner `loc_1453E` loop, and only then lets `dbf` reach `-1`"
+    );
+    assert_eq!(
+        crate::level::indoor_rubber_block_repack_rows_loc_14538(
+            &[0xA0C0_E0F0, 0x0BAD_F00D],
+            &[0x1234_5678, 0xDEAD_BEEF],
+            1,
+            7,
+        ),
+        vec![0xA2C4_E6F8, 0xDBAD_FEED],
+        "ASM loc_14538 reloads `d1=#7` for each outer iteration, so `d0=#1` should repack two longword rows before the loop falls through to `move.l #vdpComm($5E60,VRAM,WRITE),4(a6)`"
+    );
+}

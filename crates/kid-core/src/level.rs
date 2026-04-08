@@ -1271,6 +1271,34 @@ pub(crate) fn indoor_rubber_block_repack_longword_loc_1453E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn indoor_rubber_block_repack_rows_loc_14538(
+    existing_longwords: &[u32],
+    buffered_longwords: &[u32],
+    outer_dbf_counter: u16,
+    inner_dbf_counter: u16,
+) -> Vec<u32> {
+    // ASM loc_14538 (kid.asm:27392-27407) reloads `d1=#7`, reads one existing
+    // longword from `(a1)` and one buffered longword from `(a0)+`, runs the
+    // `loc_1453E` nibble merge, stores the packed result to `(a1)+`, and then
+    // lets the inclusive `dbf d0,loc_14538` loop advance to the next longword.
+    existing_longwords
+        .iter()
+        .copied()
+        .zip(buffered_longwords.iter().copied())
+        .take(usize::from(outer_dbf_counter) + 1)
+        .map(|(existing_longword, buffered_longword)| {
+            indoor_rubber_block_repack_longword_loc_1453E(
+                existing_longword,
+                buffered_longword,
+                0,
+                inner_dbf_counter,
+            )
+        })
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
