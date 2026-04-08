@@ -45887,6 +45887,15 @@ fn loc_180e_continues_when_the_upslope_probe_misses_or_stays_above_the_diagonal(
 }
 
 #[test]
+fn loc_1814_rewinds_the_postincremented_tile_pointer_before_chkupslope() {
+    assert_eq!(
+        crate::movement::gfx_objects_collision_upslope_tile_addr_loc_1814(0xA654),
+        0xA652,
+        "ASM loc_1814 should apply `subq.w #2,a3` before caching the matched Level_Layout cell for `GfxObjects_Collision_ChkUpSlope`",
+    );
+}
+
+#[test]
 fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
     let next_indices = [Some(1), Some(2), Some(3), None];
     let kind_words = [0, 2, 3, 4];
