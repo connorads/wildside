@@ -25101,6 +25101,129 @@ fn title_menu_up_navigation_plays_sub_1bc26_only_when_the_cursor_moves() {
 }
 
 #[test]
+fn title_menu_down_navigation_plays_sub_1bc26_only_when_the_cursor_moves() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+    runtime.title_menu_active = true;
+    runtime.title_menu_arm_frame = 0;
+
+    runtime.step_frame(FrameInput {
+        down: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.boot_state,
+        BootState::TitleScreen { cursor: 1 },
+        "ASM Obj_TitleMenu loc_1BBF6 should move the cursor from row 0 to row 1 on Down",
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::NavigateJingle],
+        "ASM Obj_TitleMenu loc_1BBF6 should call sub_1BC26 when Down actually moves the cursor",
+    );
+
+    runtime.prior_input = FrameInput::default();
+    runtime.step_frame(FrameInput {
+        down: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.boot_state,
+        BootState::TitleScreen { cursor: 2 },
+        "ASM Obj_TitleMenu loc_1BBF6 should move the cursor from row 1 to row 2 on Down",
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![
+            QueuedSoundEffect::NavigateJingle,
+            QueuedSoundEffect::NavigateJingle
+        ],
+        "ASM Obj_TitleMenu loc_1BBF6 should call sub_1BC26 on each successful Down navigation",
+    );
+
+    runtime.played_sound_effects.clear();
+    runtime.prior_input = FrameInput::default();
+    runtime.step_frame(FrameInput {
+        down: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.played_sound_effects,
+        Vec::<QueuedSoundEffect>::new(),
+        "ASM Obj_TitleMenu should stay silent when Down hits the bottom row guard",
+    );
+}
+
+#[test]
+fn title_start_one_player_sets_two_player_flag_off_and_begins_level_entry_loc_1bbd6() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+    runtime.title_menu_active = true;
+    runtime.title_menu_arm_frame = 0;
+
+    runtime.step_frame(FrameInput {
+        start: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.title_menu_selection_pending,
+        Some(0),
+        "ASM Obj_TitleMenu Title_InputLoop queues cursor 0 for one-player selection",
+    );
+    assert_eq!(
+        runtime.boot_state,
+        BootState::TitleScreen { cursor: 0 },
+        "ASM Obj_TitleMenu loc_1BBD6 waits before transitioning to level entry"
+    );
+}
+
+#[test]
+fn title_start_two_player_sets_two_player_flag_on_and_begins_level_entry_loc_1bbd6() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::TitleScreen { cursor: 1 };
+    runtime.title_menu_active = true;
+    runtime.title_menu_arm_frame = 0;
+
+    runtime.step_frame(FrameInput {
+        start: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.title_menu_selection_pending,
+        Some(1),
+        "ASM Obj_TitleMenu Title_InputLoop queues cursor 1 for two-player selection",
+    );
+    assert_eq!(
+        runtime.boot_state,
+        BootState::TitleScreen { cursor: 1 },
+        "ASM Obj_TitleMenu loc_1BBD6 waits before transitioning to level entry"
+    );
+}
+
+#[test]
+fn title_start_options_enters_options_menu_mode_loc_1bbd6() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::TitleScreen { cursor: 2 };
+    runtime.title_menu_active = true;
+    runtime.title_menu_arm_frame = 0;
+
+    runtime.step_frame(FrameInput {
+        start: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.title_menu_selection_pending,
+        Some(2),
+        "ASM Obj_TitleMenu Title_InputLoop queues cursor 2 for options-menu selection",
+    );
+    assert_eq!(
+        runtime.boot_state,
+        BootState::TitleScreen { cursor: 2 },
+        "ASM Obj_TitleMenu loc_1BBD6 waits before transitioning to options menu"
+    );
+}
+
+#[test]
 fn options_menu_left_and_right_toggle_paths_play_sub_1bc26() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
