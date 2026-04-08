@@ -427,6 +427,10 @@ pub(crate) fn insert_blank_top_rows_terrain_bytes_loc_141AA(
     // shifting the populated terrain rows downward by `Number_blank_top_rows`.
     // ASM loc_141AC is the inner `move.b (a0)+,(a1)+` loop inside that pass,
     // with the inclusive `dbf` count again seeded from `Level_width_blocks-1`.
+    // ASM loc_141C8 then reloads `d1` from the same cached row width before
+    // each top-row clear, so the already shifted terrain bytes stay untouched
+    // while the outer zero-fill loop walks exactly `Number_blank_top_rows`
+    // inserted rows.
     if width_blocks == 0 {
         return terrain_layout.to_vec();
     }
@@ -3192,6 +3196,32 @@ mod tests {
                 0x20, // original row 1
             ],
             "ASM loc_141AC seeds `d1` from `Level_width_blocks-1`, so width=1 should still copy exactly one terrain byte before the inner `dbf d1,loc_141AC` falls through"
+        );
+    }
+
+    #[test]
+    fn loc_141c8_repeats_the_top_row_clear_once_per_inserted_blank_row() {
+        let shifted = insert_blank_top_rows_terrain_bytes_loc_141AA(
+            &[
+                0x11, 0x12, // row 0
+                0x21, 0x22, // row 1
+            ],
+            2,
+            3,
+        );
+
+        assert_eq!(
+            &shifted[..6],
+            &[0x00; 6],
+            "ASM loc_141C8 should rerun the row-sized zero-fill pass once per `Number_blank_top_rows`, leaving three inserted blank terrain rows before the shifted source bytes"
+        );
+        assert_eq!(
+            &shifted[6..],
+            &[
+                0x11, 0x12, // row 0
+                0x21, 0x22, // row 1
+            ],
+            "ASM loc_141C8 should only iterate the inserted blank rows, not consume any of the copied terrain payload below them"
         );
     }
 }
