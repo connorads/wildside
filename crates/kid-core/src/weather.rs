@@ -279,6 +279,14 @@ pub(crate) struct StormPatternUploadLoc14D32 {
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn storm_pattern_outer_pass_count_loc_14D3C() -> usize {
+    // ASM loc_14D3C (kid.asm:28390): `moveq #3,d2` falls through to the shared
+    // upload loop, and `dbf d2,loc_14D3C` runs inclusively from 3 down to -1.
+    4
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
     source_longwords: &[u32; 32],
     vram_tile_addend: u32,
@@ -291,7 +299,7 @@ pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
     const VDP_COMMAND: u32 = 0x4000_0003; // vdpComm($6000,VRAM,WRITE)
     let mut written_longwords = Vec::with_capacity(4 * 8 * 8 * 4);
 
-    for _ in 0..4 {
+    for _ in 0..storm_pattern_outer_pass_count_loc_14D3C() {
         for group in source_longwords.chunks_exact(4) {
             for _ in 0..8 {
                 for &word in group {

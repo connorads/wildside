@@ -19795,6 +19795,15 @@ fn loc_14d1e_selects_the_storm_pattern_source_but_keeps_the_shared_addend_and_he
 }
 
 #[test]
+fn loc_14d3c_repeats_the_full_storm_pattern_upload_for_four_outer_passes() {
+    assert_eq!(
+        crate::weather::storm_pattern_outer_pass_count_loc_14D3C(),
+        4,
+        "ASM loc_14D3C should run the shared upload body four times because `moveq #3,d2` plus `dbf d2,loc_14D3C` counts inclusively from 3 to -1"
+    );
+}
+
+#[test]
 fn loc_14d32_programs_vram_6000_and_repeats_each_four_longword_storm_group_with_inclusive_dbf_loops()
  {
     let source_longwords = core::array::from_fn(|index| 0x1000_0000u32.wrapping_add(index as u32));
