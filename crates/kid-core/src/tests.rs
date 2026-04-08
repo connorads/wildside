@@ -19968,6 +19968,15 @@ fn loc_14e44_repeats_the_current_pair_sixteen_times_before_the_group_advance() {
 }
 
 #[test]
+fn loc_14e46_writes_d6_then_d7_before_the_dbf_branch_check() {
+    assert_eq!(
+        crate::weather::special_effect_unknown_pair_write_loc_14E46(),
+        [0x8380_8381, 0x8382_8383],
+        "ASM loc_14E46 should write the current `d6` longword before the current `d7` longword because the two `move.l` stores run before `dbf d0,loc_14E46` tests for another iteration"
+    );
+}
+
+#[test]
 fn loc_14dac_clears_five_weather_slots_and_seeds_the_post_loop_worker_state() {
     let stepped = crate::weather::initialise_storm_slots_loc_14DAC(
         crate::weather::StormSlotFillSetupLoc14D8A {

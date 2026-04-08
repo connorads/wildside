@@ -516,6 +516,16 @@ pub(crate) fn special_effect_unknown_inner_repeat_count_loc_14E44() -> usize {
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn special_effect_unknown_pair_write_loc_14E46() -> [u32; 2] {
+    // ASM loc_14E46 (kid.asm:28490): the innermost loop body writes the
+    // current `d6` seed first, then the current `d7` seed, before `dbf d0`
+    // decides whether another pair should follow.
+    let (d6, d7) = special_effect_unknown_plane_seed_pair();
+    [d6, d7]
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn special_effect_unknown_group_loc_14E44() -> Vec<u32> {
     let (d6, d7) = special_effect_unknown_plane_seed_pair();
     let mut written_longwords =
