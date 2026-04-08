@@ -1237,6 +1237,40 @@ pub(crate) fn indoor_rubber_block_vram_walk_loc_1451E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn indoor_rubber_block_repack_longword_loc_1453E(
+    existing_longword: u32,
+    buffered_longword: u32,
+    seed_longword: u32,
+    dbf_counter: u16,
+) -> u32 {
+    // ASM loc_1453E (kid.asm:27397-27405) shifts `d5` left four bits, rotates
+    // both source longwords left by one nibble, prefers the rotated `(a1)` low
+    // nibble when it is non-zero, and otherwise falls back to the rotated
+    // scratch-buffer nibble from `d4`. The inclusive `dbf d1,loc_1453E` loop
+    // therefore packs exactly `d1 + 1` nibbles into `d5`.
+    let mut packed_longword = seed_longword;
+    let mut existing_rotated = existing_longword;
+    let mut buffered_rotated = buffered_longword;
+
+    for _ in 0..=dbf_counter {
+        packed_longword <<= 4;
+        existing_rotated = existing_rotated.rotate_left(4);
+        buffered_rotated = buffered_rotated.rotate_left(4);
+
+        let selected_nibble = if (existing_rotated & 0xF) != 0 {
+            existing_rotated & 0xF
+        } else {
+            buffered_rotated & 0xF
+        };
+
+        packed_longword |= selected_nibble;
+    }
+
+    packed_longword
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,

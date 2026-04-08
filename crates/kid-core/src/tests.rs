@@ -44545,3 +44545,17 @@ fn loc_1451e_walks_dbf_counter_plus_one_consecutive_vram_tiles() {
         "ASM loc_1451E seeds `d2=#7`, so the indoor rubber-block upload should walk eight consecutive VRAM tiles before the loop falls through to `moveq #$3F,d0` at loc_14538"
     );
 }
+
+#[test]
+fn loc_1453e_prefers_existing_non_zero_nibbles_and_falls_back_to_the_buffered_tile() {
+    assert_eq!(
+        crate::level::indoor_rubber_block_repack_longword_loc_1453E(0x0000_0000, 0x1234_5678, 0, 0),
+        0x0000_0001,
+        "ASM loc_1453E should still pack one nibble when `d1` starts at zero, taking the top buffered nibble after the first rotate because the existing nibble is zero"
+    );
+    assert_eq!(
+        crate::level::indoor_rubber_block_repack_longword_loc_1453E(0xA0C0_E0F0, 0x1234_5678, 0, 7),
+        0xA2C4_E6F8,
+        "ASM loc_1453E rotates both longwords one nibble per step and chooses the existing `(a1)` nibble unless it is zero, so zero holes are filled from the buffered scratch longword"
+    );
+}
