@@ -1194,6 +1194,9 @@ fn level_entry_title_advance_x(glyph: u8) -> u16 {
         // ASM loc_1ABD6 (kid.asm:28817-28819): glyphs `$7E` and `$7F` share
         // the same spacing branch and advance the destination by `#$18`.
         0x1D | 0x1E => 0x18,
+        // ASM loc_1ABDC (kid.asm:28822-28824): both lowercase `i` (`$69`)
+        // and the raised `$83` glyph take the narrow spacing branch and
+        // advance the destination by `#8`.
         0x08 | 0x22 => 0x08,
         _ => 0x10,
     }
@@ -3930,6 +3933,20 @@ mod tests {
             level_entry_title_advance_x(0x7F),
             0x18,
             "ASM loc_1ABD6 reuses the same `addi.w #$18,d2` branch for glyph $7F",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_advance_x_uses_8_pixels_for_glyphs_69_and_83_loc_1abdc() {
+        assert_eq!(
+            level_entry_title_advance_x(b'i'),
+            0x08,
+            "ASM loc_1ABDC handles lowercase `i` with `addi.w #8,d2` before looping back",
+        );
+        assert_eq!(
+            level_entry_title_advance_x(0x83),
+            0x08,
+            "ASM loc_1ABDC reuses the same `addi.w #8,d2` branch for glyph $83",
         );
     }
 }
