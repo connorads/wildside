@@ -385,6 +385,9 @@ pub(crate) fn insert_blank_top_rows_sub_140F6(
     // ASM loc_140FE seeds `a0` from the bottom populated row and `a1` from the
     // row that sits `Number_blank_top_rows` lower, so the copy starts from the
     // tail and leaves a blank strip above the original layout.
+    // ASM loc_1413A performs the inner `move.w (a0)+,(a1)+` copy, with `d1`
+    // seeded from `Level_width_blocks-1` so each shifted row copies exactly
+    // one full row of layout words before the outer loop steps upward.
     // ASM loc_14138 reloads the per-row cell counter, copies one full row, then
     // steps both row bases upward and repeats until every populated row has
     // moved down by the requested blank-top-row count.
@@ -3030,6 +3033,28 @@ mod tests {
                 0x33, 0x05, 0x33, 0x06, // row 2
             ],
             "ASM loc_14138 should repeat the row copy for each source row without scrambling their original order"
+        );
+    }
+
+    #[test]
+    fn loc_1413a_copies_exactly_one_word_per_row_when_the_inner_dbf_counter_starts_at_zero() {
+        let shifted = insert_blank_top_rows_sub_140F6(
+            &[
+                0x10, 0x01, // row 0
+                0x20, 0x02, // row 1
+            ],
+            1,
+            1,
+        );
+
+        assert_eq!(
+            shifted,
+            vec![
+                0x00, 0x00, // blank row 0
+                0x10, 0x01, // original row 0
+                0x20, 0x02, // original row 1
+            ],
+            "ASM loc_1413A seeds `d1` from `Level_width_blocks-1`, so width=1 should still copy exactly one layout word before the inner `dbf d1,loc_1413A` falls through"
         );
     }
 }
