@@ -1188,6 +1188,8 @@ fn level_entry_title_advance_x(glyph: u8) -> u16 {
         // ASM loc_1ABCA (kid.asm:28807-28809): the wide `$7C` title glyph
         // skips the default branch and advances the destination by `#$28`.
         0x1B => 0x28,
+        // ASM loc_1ABD0 (kid.asm:28812-28814): glyph `$7D` uses its own
+        // spacing branch and advances the destination by `#$20`.
         0x1C => 0x20,
         0x1D | 0x1E => 0x18,
         0x08 | 0x22 => 0x08,
@@ -3903,6 +3905,15 @@ mod tests {
             level_entry_title_advance_x(0x7C),
             0x28,
             "ASM loc_1ABCA handles glyph $7C with `addi.w #$28,d2` before looping back",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_advance_x_uses_20_pixels_for_glyph_7d_loc_1abd0() {
+        assert_eq!(
+            level_entry_title_advance_x(0x7D),
+            0x20,
+            "ASM loc_1ABD0 handles glyph $7D with `addi.w #$20,d2` before looping back",
         );
     }
 }
