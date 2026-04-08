@@ -914,6 +914,20 @@ pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one
     sprite_rows_minus_one
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_sprite_top_y_loc_1480C(
+    sprite_screen_y_with_bias: u16,
+    camera_y_px: u16,
+) -> u16 {
+    // ASM loc_1480C (kid.asm:27880): after `sub_14BD8` builds the current row,
+    // the worker un-biases the returned screen Y by `$80`, adds `Camera_Y_pos`,
+    // and stores the result in `$54(a5)` for the following collision checks.
+    sprite_screen_y_with_bias
+        .wrapping_sub(0x80)
+        .wrapping_add(camera_y_px)
+}
+
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;

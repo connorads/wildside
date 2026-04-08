@@ -20597,6 +20597,20 @@ fn loc_14804_hibernates_once_per_additional_sprite_row_after_the_first() {
 }
 
 #[test]
+fn loc_1480c_unbiases_the_built_sprite_row_y_and_adds_camera_y() {
+    assert_eq!(
+        crate::weather::lava_geyser_sprite_top_y_loc_1480C(0x0080, 0x0123),
+        0x0123,
+        "ASM loc_1480C should treat a biased screen Y of `$80` as zero before adding `Camera_Y_pos` into `$54(a5)`"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_sprite_top_y_loc_1480C(0x00A7, 0x0312),
+        0x0339,
+        "ASM loc_1480C should store `d7 - $80 + Camera_Y_pos` in `$54(a5)` after `sub_14BD8` builds the current sprite row"
+    );
+}
+
+#[test]
 fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
