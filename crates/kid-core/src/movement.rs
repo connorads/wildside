@@ -362,6 +362,32 @@ pub(crate) fn gfx_objects_collision_downslope_tile_addr_loc_1838(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GfxObjectsCollisionSolidLeftWallLoc19BA {
+    ContinueLoc19D2,
+    RedirectToDownSlope { layout_addr: u16 },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_collision_solid_leftwall_loc_19BA(
+    lower_right_tile_word: u16,
+    cached_layout_addr: u16,
+) -> GfxObjectsCollisionSolidLeftWallLoc19BA {
+    // ASM loc_19BA (kid.asm:3139-3144): inspect `2(a3)` after the solid-left
+    // wall resolver decides the contact came from above/right. A `$5000`
+    // slope-down there advances the cached `FB6C` tile pointer by one cell and
+    // jumps straight to `GfxObjects_Collision_ChkDownSlope`; every other
+    // collision nibble falls through to the non-Kid left-wall snap at loc_19D2.
+    if lower_right_tile_word & 0x7000 == 0x5000 {
+        GfxObjectsCollisionSolidLeftWallLoc19BA::RedirectToDownSlope {
+            layout_addr: cached_layout_addr.wrapping_add(2),
+        }
+    } else {
+        GfxObjectsCollisionSolidLeftWallLoc19BA::ContinueLoc19D2
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GfxObjectsCollisionSolidRightWallLoc1966 {
     ContinueLoc197E,
     RedirectToUpSlope { layout_addr: u16 },

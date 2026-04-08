@@ -45986,6 +45986,26 @@ fn loc_1838_rewinds_the_postincremented_tile_pointer_before_chkdownslope() {
 }
 
 #[test]
+fn loc_19ba_redirects_leftwall_contacts_into_chkdownslope_only_for_5000_tiles() {
+    use crate::movement::GfxObjectsCollisionSolidLeftWallLoc19BA::{
+        ContinueLoc19D2, RedirectToDownSlope,
+    };
+
+    assert_eq!(
+        crate::movement::gfx_objects_collision_solid_leftwall_loc_19BA(0x5ACE, 0xA684),
+        RedirectToDownSlope {
+            layout_addr: 0xA686
+        },
+        "ASM loc_19BA should advance `$FFFFFB6C` by one tile and branch to `GfxObjects_Collision_ChkDownSlope` when `2(a3)` carries `$5000` collision bits",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_solid_leftwall_loc_19BA(0x4ACE, 0xA684),
+        ContinueLoc19D2,
+        "ASM loc_19BA should fall through to `loc_19D2` when the inspected `2(a3)` tile is not a slope-down collision",
+    );
+}
+
+#[test]
 fn loc_1966_redirects_rightwall_contacts_into_chkupslope_only_for_4000_tiles() {
     use crate::movement::GfxObjectsCollisionSolidRightWallLoc1966::{
         ContinueLoc197E, RedirectToUpSlope,
