@@ -44509,3 +44509,23 @@ fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
         "ASM loc_14506 seeds `d2=#3`, so the rubber-block setup should read exactly four source words before the loop falls through to `moveq #$1F,d2` at loc_14512"
     );
 }
+
+#[test]
+fn loc_14512_copies_dbf_counter_plus_one_longwords_back_into_the_rubber_block_buffer() {
+    assert_eq!(
+        crate::level::indoor_rubber_block_buffer_copy_loc_14512(
+            &[0x1122_3344, 0x5566_7788, 0x99AA_BBCC],
+            0,
+        ),
+        vec![0x1122_3344],
+        "ASM loc_14512 should still copy one longword from `(a2)+` to `(a1)+` when `d2` starts at zero because the store happens before `dbf` reaches `-1`"
+    );
+    assert_eq!(
+        crate::level::indoor_rubber_block_buffer_copy_loc_14512(
+            &[0x1122_3344, 0x5566_7788, 0x99AA_BBCC],
+            2,
+        ),
+        vec![0x1122_3344, 0x5566_7788, 0x99AA_BBCC],
+        "ASM loc_14512 should copy exactly `d2+1` longwords before the loop falls through to `moveq #7,d2` for the later VRAM-address walk at loc_1451E"
+    );
+}

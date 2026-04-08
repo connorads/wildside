@@ -1204,6 +1204,23 @@ pub(crate) fn indoor_rubber_block_source_words_loc_14506(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn indoor_rubber_block_buffer_copy_loc_14512(
+    buffered_longwords: &[u32],
+    dbf_counter: u16,
+) -> Vec<u32> {
+    // ASM loc_14512 (kid.asm:27377-27378) copies one longword from `(a2)+` to
+    // `(a1)+` before each `dbf d2,loc_14512` test. After `moveq #$1F,d2`, the
+    // loop therefore copies exactly 32 longwords from the scratch cursor back
+    // into `Decompression_Buffer`.
+    buffered_longwords
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
