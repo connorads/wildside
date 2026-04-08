@@ -2583,6 +2583,10 @@ impl NativeRuntime {
             row_y = row_y.wrapping_add(CHUNK_SPAN_LOC_12B8);
         }
 
+        // ASM loc_1380 (kid.asm:2411-2414): once the x-flipped path reaches a
+        // tail shorter than `$20`, it rounds the remaining height up to the
+        // next 8px multiple before entering `loc_1388`'s full-width strip
+        // loop or `loc_13A2`'s closing corner chunk.
         let rounded_height = (remaining_height + 7) & !7;
         if rounded_height == 0 {
             return emitted;

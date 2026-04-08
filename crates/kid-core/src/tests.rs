@@ -41967,6 +41967,28 @@ fn loc_1362_rounds_the_flipped_row_tail_up_to_the_next_8px_multiple() {
 }
 
 #[test]
+fn loc_1380_rounds_a_short_flipped_tail_height_before_emitting_full_width_strips() {
+    let chunks = crate::NativeRuntime::sprite_x_flipped_chunks_loc_134A(110, 20, 64, 24);
+
+    assert_eq!(
+        chunks,
+        vec![
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 78,
+                y_screen_px: 20,
+                size_code: 0x0E,
+            },
+            crate::combat::NormalSpriteChunkLoc12B8 {
+                x_screen_px: 46,
+                y_screen_px: 20,
+                size_code: 0x0E,
+            },
+        ],
+        "ASM loc_1380 should round a 24px tail height up through `addq.w #7` / `andi.w #$F8`, then let `loc_1388` emit `$20x18` strips from right to left"
+    );
+}
+
+#[test]
 fn loc_132a6_decodes_block_layout_words_from_the_enigma_stream() {
     let decoded = decode_block_layout_loc_132A6(&[
         0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, // header
