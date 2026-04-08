@@ -1386,6 +1386,25 @@ pub(crate) fn decompress_long_ref_loop_loc_13778(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_loop_loc_137F6(
+    source_bytes: &[u8],
+    dbf_counter: u16,
+) -> DecompressLongRefLoopLoc13778 {
+    // ASM loc_137F6 (kid.asm:26386-26387) copies one byte from `(a6)+` to
+    // `(a2)+` before each `dbf d0,loc_137F6` check, so the variable-length
+    // branch from `loc_137E6` emits exactly `d0+1` prefix bytes before the
+    // fixed tail that starts at `loc_137FC`.
+    DecompressLongRefLoopLoc13778 {
+        copied_bytes: source_bytes
+            .iter()
+            .copied()
+            .take(usize::from(dbf_counter) + 1)
+            .collect(),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_long_ref_quit_loc_13790() -> DecompressBp0ReturnStatus {
     // ASM loc_13790 (kid.asm:26316-26317) is the `BYTE2 = 0` early return from
     // `loc_1376A`: it clears `d0` and returns immediately without reseeding
