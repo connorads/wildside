@@ -43390,6 +43390,24 @@ fn loc_139ec_copies_dbf_counter_plus_one_prefix_bytes_before_the_fixed_tail() {
 }
 
 #[test]
+fn loc_13a68_copies_dbf_counter_plus_one_prefix_bytes_before_the_fixed_tail() {
+    assert_eq!(
+        crate::level::decompress_long_ref_loop_loc_13A68(&[0x9A, 0xBC, 0xDE], 0),
+        crate::level::DecompressLongRefLoopLoc13778 {
+            copied_bytes: vec![0x9A],
+        },
+        "ASM loc_13A68 should still copy one byte when `d0` starts at zero because the store happens before `dbf` checks for `-1`"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_loop_loc_13A68(&[0x12, 0x34, 0x56, 0x78], 2),
+        crate::level::DecompressLongRefLoopLoc13778 {
+            copied_bytes: vec![0x12, 0x34, 0x56],
+        },
+        "ASM loc_13A68 should emit exactly `d0+1` bytes from the back-reference stream before control falls through to `loc_13A6E`"
+    );
+}
+
+#[test]
 fn loc_13790_quits_decompression_without_reseeding_the_copy_mode() {
     assert_eq!(
         crate::level::decompress_long_ref_quit_loc_13790(),
