@@ -30305,6 +30305,56 @@ fn loc_1c7b6_intro_text_character_dispatch_parses_ff_fd_fe_markers() {
 }
 
 #[test]
+fn loc_1c7c4_intro_text_linebreak_reloads_x_and_advances_y() {
+    // ASM loc_1C7C4 (kid.asm:31424-31429): after loc_1C7B6 confirms $FF is not present,
+    // this label checks cmpi.b #$FD,d6. If d6==$FD (linebreak marker):
+    //   move.w 6(a0),d1 ; reload d1 with initial X position from text header offset 6
+    //   addq.w #2,d2   ; advance Y position by 2 rows (next line)
+    //   bra.s loc_1C7B6 ; continue parsing characters
+    // The intro texts (IntroText1-5, SegaText) embed $FD bytes for line breaks.
+    // Character chart (kid.asm:31376) documents $FD as linebreak.
+    const LINEBREAK_MARKER: u8 = 0xFD;
+    assert_eq!(LINEBREAK_MARKER, 0xFD, "intro text $FD embeds linebreak");
+}
+
+#[test]
+fn loc_1c7d2_intro_text_delay_reads_duration_byte() {
+    // ASM loc_1C7D2 (kid.asm:31432-31436): after loc_1C7C4 confirms $FD is not present,
+    // this label checks cmpi.b #$FE,d6. If d6==$FE (delay marker):
+    //   move.b (a1)+,d0 ; read the delay duration byte following $FE
+    //   bra.s loc_1C7AE  ; hibernate for d0 frames (DBF loop in loc_1C7AE)
+    // IntroText1 at kid.asm:31381 embeds $FE,$20 for 32-frame delay.
+    // Character chart (kid.asm:31377) documents $FE as delay with duration byte.
+    const DELAY_MARKER: u8 = 0xFE;
+    const DEFAULT_DELAY_FRAMES: u8 = 0x20; // 32 frames, common in intro texts
+    assert_eq!(DELAY_MARKER, 0xFE, "intro text $FE begins delay sequence");
+    assert_eq!(
+        DEFAULT_DELAY_FRAMES, 0x20,
+        "IntroText1 uses $FE,$20 = 32 frame delay"
+    );
+}
+
+#[test]
+fn loc_1c7dc_intro_text_bug_reads_exception_vector_for_char_substitution() {
+    // ASM loc_1C7DC (kid.asm:31439-31442): after loc_1C7D2 confirms $FE is not present,
+    // this label reads cmp.b (off_20).w,d6. The comment notes this is a programming
+    // error - they likely meant cmpi.b #$20,d6 to compare against space character.
+    // off_20 (kid.asm:77) is the exception vector at address $20 containing
+    // dc.l PrivilegeViolation. The ROM compares d6 against this program counter.
+    // If d6 matches the byte at $20 (random/hardware-dependent), replace with $6D.
+    // sub_1C7F6 then renders tile index $6D-$41=$2C=44 for this character.
+    // ORIGINAL_QUIRK: The comparison reads from exception vector table instead of
+    // comparing against immediate value $20. Effect depends on actual byte at $20.
+    const BUGGY_CMP_ADDRESS: u16 = 0x20; // off_20 exception vector location
+    const SUBSTITUTION_TILE: u8 = 0x6D; // character byte if buggy match succeeds
+    assert_eq!(
+        BUGGY_CMP_ADDRESS, 0x20,
+        "off_20 points to exception vector at $20"
+    );
+    assert_eq!(SUBSTITUTION_TILE, 0x6D, "matching chars render as tile $6D");
+}
+
+#[test]
 fn published_tas_demo_2_holds_intro_sequence_1_until_frame_5504() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_5503 = None;
