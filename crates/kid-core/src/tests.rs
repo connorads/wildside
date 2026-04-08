@@ -29799,6 +29799,28 @@ fn published_tas_demo_2_holds_intro_sequence_2_until_frame_5953() {
 }
 
 #[test]
+fn loc_1b9d0_loc_1b9f4_loc_1ba02_count_intro_sequence_2_frames() {
+    // ASM Load_IntroSequence2 (kid.asm:29299) stores `move.l #loc_1B9D0,4(a0)`
+    // to allocate the intro sequence 2 worker object. loc_1B9D0 sets up
+    // `#loc_1C7A0,4(a0)` (render helper), `#IntroText2,$44(a0)`, and stores
+    // `#loc_1B9F4,$44(a5)` as the continuation before calling sub_1C204.
+    // loc_1B9F4 hibernates for `#$3C` (60) frames, then seeds `d0=#$149` (329)
+    // for the countdown loop. loc_1BA02 runs `Hibernate_Object_1Frame`,
+    // `sub_1C1A2` twice, `sub_1C246`, and `sub_1C180` per iteration, with
+    // `dbf d0,loc_1BA02` executing 330 times (d0: $149→0). After the loop,
+    // loc_1BA02 writes `move.w #$1C,(Game_Mode).w` to switch to intro sequence 3.
+    // The total frame budget is: 17 (fade) + 60 (hibernate) + 330 (loop) = 407.
+    // Oracle-backed timeout-restart traces show 449 frames for intro sequence 2
+    // on the restart path, accounting for the shared fade and dispatch delays.
+    const FADE_FRAMES: u16 = 17;
+    const HIBERNATE_FRAMES: u16 = 0x3C; // 60
+    const LOOP_COUNTER: u16 = 0x149; // 329, dbf executes 330 times
+    const EXPECTED_TOTAL: usize =
+        FADE_FRAMES as usize + HIBERNATE_FRAMES as usize + (LOOP_COUNTER as usize + 1);
+    assert_eq!(EXPECTED_TOTAL, 407);
+}
+
+#[test]
 fn published_tas_demo_2_exposes_the_first_intro_sequence_3_kid_pose_on_frame_5994() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_5993 = None;

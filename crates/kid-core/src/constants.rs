@@ -65,6 +65,13 @@ pub(crate) const DEMO_AUTO_TIMEOUT_MODE_0_FRAMES: usize = 177;
 // and only expose `game_mode=0x0018` on frame 5504, so this restart path
 // cannot reuse the cold-boot 160-frame timer.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIRST_SEGMENT_FRAMES: usize = 361;
+// ASM Load_IntroSequence2 allocates an object with `move.l #loc_1B9D0,4(a0)`.
+// loc_1B9D0 stores `#loc_1C7A0,4(a0)` (render helper), `#IntroText2,$44(a0)`,
+// `#loc_1B9F4,$44(a5)` (continuation), then calls `sub_1C204` (17-frame fade).
+// loc_1B9F4 hibernates for `#$3C` (60) frames, then sets `d0=#$149` (329) for
+// the `dbf` loop. loc_1BA02 runs `Hibernate_Object_1Frame`, `sub_1C1A2` twice,
+// `sub_1C246`, and `sub_1C180` per iteration. The `dbf d0,loc_1BA02` executes
+// 330 times (d0: $149→0). After the loop, `loc_1BA02+14` sets `Game_Mode=$1C`.
 // Oracle-backed Game_Mode probes keep the timeout-restart copy of intro
 // sequence 2 alive through frame 5952 and only expose `game_mode=0x001C` on
 // frame 5953, so this restart path cannot reuse the shared 80-frame timer.
