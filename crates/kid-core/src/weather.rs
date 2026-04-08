@@ -912,6 +912,32 @@ pub(crate) fn lava_fireball_loop_resume_loc_149FC(
     }
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaFireballSegmentBackEdgeLoc14A46 {
+    pub(crate) next_dbf_counter: u16,
+    pub(crate) reenters_segment_loop: bool,
+    pub(crate) advances_to_next_script_step: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_fireball_segment_back_edge_loc_14A46(
+    dbf_counter: u16,
+) -> LavaFireballSegmentBackEdgeLoc14A46 {
+    // ASM loc_14A46 (kid.asm:28098): `dbf d2,loc_149FC` decrements the low
+    // word once and loops back while the post-decrement value is not `$FFFF`.
+    // When the counter reaches `$FFFF`, the segment finishes and control falls
+    // through to the next script entry at `loc_149E4`.
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+    let reenters_segment_loop = next_dbf_counter != u16::MAX;
+    LavaFireballSegmentBackEdgeLoc14A46 {
+        next_dbf_counter,
+        reenters_segment_loop,
+        advances_to_next_script_step: !reenters_segment_loop,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {

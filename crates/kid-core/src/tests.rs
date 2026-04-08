@@ -20561,6 +20561,28 @@ fn loc_149fc_hibernates_refreshes_collision_and_applies_the_signed_segment_delta
 }
 
 #[test]
+fn loc_14a46_decrements_the_dbf_counter_and_only_exits_after_the_ffff_sentinel() {
+    assert_eq!(
+        crate::weather::lava_fireball_segment_back_edge_loc_14A46(0x0003),
+        crate::weather::LavaFireballSegmentBackEdgeLoc14A46 {
+            next_dbf_counter: 0x0002,
+            reenters_segment_loop: true,
+            advances_to_next_script_step: false,
+        },
+        "ASM loc_14A46 should loop back to loc_149FC while `dbf d2,loc_149FC` leaves the post-decrement counter above `$FFFF`"
+    );
+    assert_eq!(
+        crate::weather::lava_fireball_segment_back_edge_loc_14A46(0x0000),
+        crate::weather::LavaFireballSegmentBackEdgeLoc14A46 {
+            next_dbf_counter: 0xFFFF,
+            reenters_segment_loop: false,
+            advances_to_next_script_step: true,
+        },
+        "ASM loc_14A46 should fall through to `bra.s loc_149E4` exactly when the low-word counter underflows to `$FFFF`"
+    );
+}
+
+#[test]
 fn loc_14788_points_the_first_lava_geyser_eruption_at_the_startup_script() {
     assert_eq!(
         crate::weather::lava_geyser_startup_script_loc_14788(),
