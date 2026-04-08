@@ -479,6 +479,34 @@ pub(crate) fn gfx_objects_collision_leftwall_snap_loc_1A00(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GfxObjectsCollisionSolidFloorAboveTileLoc1A12 {
+    ContinueLoc1A30 { collision_bits: u16 },
+    RedirectToUpSlope { layout_addr: u16 },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_collision_solid_floor_above_tile_loc_1A12(
+    upper_tile_word: u16,
+    cached_layout_addr: u16,
+    level_width_tiles: u16,
+) -> GfxObjectsCollisionSolidFloorAboveTileLoc1A12 {
+    // ASM loc_1A12 (kid.asm:3172-3179): inspect the tile one row above the
+    // cached floor contact. A `$4000` upslope rewinds `$FFFFFB6C` by one row
+    // via `sub.w Level_width_tiles,($FFFFFB6C).w` and branches to
+    // `GfxObjects_Collision_ChkUpSlope`; every other collision nibble falls
+    // through to `loc_1A30` carrying the masked collision bits in `d7`.
+    let collision_bits = upper_tile_word & 0x7000;
+    if collision_bits == 0x4000 {
+        GfxObjectsCollisionSolidFloorAboveTileLoc1A12::RedirectToUpSlope {
+            layout_addr: cached_layout_addr.wrapping_sub(level_width_tiles),
+        }
+    } else {
+        GfxObjectsCollisionSolidFloorAboveTileLoc1A12::ContinueLoc1A30 { collision_bits }
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(

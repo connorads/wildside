@@ -46159,6 +46159,32 @@ fn loc_1a00_skips_kid_and_snaps_other_gfx_objects_against_the_left_wall() {
 }
 
 #[test]
+fn loc_1a12_redirects_floor_contacts_into_chkupslope_only_for_4000_tiles() {
+    use crate::movement::GfxObjectsCollisionSolidFloorAboveTileLoc1A12::{
+        ContinueLoc1A30, RedirectToUpSlope,
+    };
+
+    assert_eq!(
+        crate::movement::gfx_objects_collision_solid_floor_above_tile_loc_1A12(
+            0x4ACE, 0xA684, 0x0040
+        ),
+        RedirectToUpSlope {
+            layout_addr: 0xA644
+        },
+        "ASM loc_1A12 should rewind `$FFFFFB6C` by `Level_width_tiles` and branch to `GfxObjects_Collision_ChkUpSlope` when `(a3)` carries `$4000` collision bits",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_solid_floor_above_tile_loc_1A12(
+            0x5ACE, 0xA684, 0x0040
+        ),
+        ContinueLoc1A30 {
+            collision_bits: 0x5000
+        },
+        "ASM loc_1A12 should fall through to `loc_1A30` with masked collision bits when the tile above the floor contact is not an upslope",
+    );
+}
+
+#[test]
 fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
     let next_indices = [Some(1), Some(2), Some(3), None];
     let kind_words = [0, 2, 3, 4];
