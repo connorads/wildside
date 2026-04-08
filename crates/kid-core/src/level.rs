@@ -180,6 +180,21 @@ pub(crate) enum DecompressModeDispatchLoc139A6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DecompressModeDispatchLoc13A24 {
+    DirectCopy {
+        copied_byte: u8,
+    },
+    LongRef {
+        output_copy_base_addr: u16,
+        control_byte: u8,
+    },
+    ShortRef {
+        source_copy_addr: u16,
+        total_copy_len: u8,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DecompressLongRefCopyModeLoc13756 {
     Copy3,
     Copy4,
@@ -1448,6 +1463,40 @@ pub(crate) fn decompress_mode_dispatch_loc_139A6(
         2
     };
     DecompressModeDispatchLoc139A6::ShortRef {
+        source_copy_addr: output_addr.wrapping_sub(u16::from(short_ref_back_distance)),
+        total_copy_len,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_mode_dispatch_loc_13A24(
+    bit_buffer: u8,
+    output_addr: u16,
+    direct_copy_byte: u8,
+    control_byte: u8,
+    short_ref_back_distance: u8,
+) -> DecompressModeDispatchLoc13A24 {
+    // ASM loc_13A24 (kid.asm:26786-26798) runs after `loc_13A22` has already
+    // copied one literal byte. One carried mode bit decides whether the next
+    // step is another literal byte through `loc_13A9E`; otherwise a fresh
+    // `(a0)+` control byte chooses between the later long-reference family at
+    // `loc_13A46` and the shared 2/3-byte short-reference path at `loc_13A3A`.
+    if bit_buffer & 0x80 != 0 {
+        return DecompressModeDispatchLoc13A24::DirectCopy {
+            copied_byte: direct_copy_byte,
+        };
+    }
+
+    if control_byte & 0x80 != 0 {
+        return DecompressModeDispatchLoc13A24::LongRef {
+            output_copy_base_addr: output_addr,
+            control_byte,
+        };
+    }
+
+    let total_copy_len = if control_byte & 0x40 != 0 { 3 } else { 2 };
+    DecompressModeDispatchLoc13A24::ShortRef {
         source_copy_addr: output_addr.wrapping_sub(u16::from(short_ref_back_distance)),
         total_copy_len,
     }
