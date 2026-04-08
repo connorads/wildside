@@ -1281,6 +1281,9 @@ fn level_entry_title_worker_axis_pos(
     step_fp: i32,
     elapsed_frames: usize,
 ) -> u32 {
+    // ASM loc_1AD2A -> loc_1AD3A (kid.asm:28974-28994): each wake compares X
+    // first and skips the `add.l d2,x_pos(a3)` write once the destination is
+    // reached, then independently applies the same compare/add loop to Y.
     let current = (start_pos as i32).wrapping_add(
         step_fp.wrapping_mul(elapsed_frames.min(LEVEL_ENTRY_TITLE_ANIMATION_FRAMES) as i32),
     );
@@ -3979,7 +3982,7 @@ mod tests {
         level_entry_title_random_y_snap_loc_1acf8, level_entry_title_right_edge_x_loc_1ace0,
         level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
-        level_entry_title_top_edge_y_loc_1ace6,
+        level_entry_title_top_edge_y_loc_1ace6, level_entry_title_worker_axis_pos,
     };
     use crate::types::RomRandomState;
 
@@ -4130,6 +4133,24 @@ mod tests {
             level_entry_title_axis_step(0x0160_0000, 0x0040_0000),
             -0x0004_8000,
             "ASM loc_1ACFE should preserve the sign when the worker glides back from the right edge",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_worker_axis_pos_loc_1ad3a_pins_finished_axis_while_other_axis_keeps_gliding()
+     {
+        let x_step = level_entry_title_axis_step(0xFFE0_0000, 0x0040_0000);
+        let y_step = level_entry_title_axis_step(0xFFE0_0000, 0x0080_0000);
+
+        assert_eq!(
+            level_entry_title_worker_axis_pos(0xFFE0_0000, 0x0040_0000, x_step, 64),
+            0x0040_0000,
+            "ASM loc_1AD3A should stop applying `d2` once the X compare reaches the destination",
+        );
+        assert_eq!(
+            level_entry_title_worker_axis_pos(0xFFE0_0000, 0x0080_0000, y_step, 32),
+            0x0030_0000,
+            "ASM loc_1AD3A should keep the other axis moving until its own compare matches",
         );
     }
 
