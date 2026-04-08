@@ -20568,6 +20568,23 @@ fn loc_1483a_disables_the_geyser_for_60_frames_then_rejoins_the_repeat_loop() {
 }
 
 #[test]
+fn loc_1484e_resets_the_rise_row_cursor_and_two_frame_cadence() {
+    let reset = crate::weather::lava_geyser_rise_reset_loc_1484E();
+    assert_eq!(
+        reset.sprite_row_index, 0,
+        "ASM loc_1484E should restart the rise row cursor by loading `d3 = 0`"
+    );
+    assert_eq!(
+        reset.frames_per_sprite_row, 2,
+        "ASM loc_1484E should seed `$48(a5)` with two frames per sprite row while the geyser rises"
+    );
+    assert_eq!(
+        reset.sprite_frame_within_row, 0,
+        "ASM loc_1484E should clear `$4C(a5)` before entering the shared ascent loop"
+    );
+}
+
+#[test]
 fn loc_147d6_uses_the_padded_camera_window_before_building_sprite_rows() {
     let inside = crate::weather::LavaGeyserCameraWindowInputLoc147D6 {
         x_px: 0x00E0,

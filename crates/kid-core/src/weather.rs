@@ -895,6 +895,27 @@ pub(crate) fn lava_geyser_disable_step_loc_1483A() -> LavaGeyserDisableStepLoc14
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserRiseResetLoc1484E {
+    pub(crate) sprite_row_index: u16,
+    pub(crate) frames_per_sprite_row: u16,
+    pub(crate) sprite_frame_within_row: u8,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_rise_reset_loc_1484E() -> LavaGeyserRiseResetLoc1484E {
+    // ASM loc_1484E (kid.asm:27908): the upward-motion path restarts the row
+    // cursor in `d3`, seeds `$48(a5)` with a fixed 2-frame cadence per sprite
+    // row, and clears `$4C(a5)` before entering the shared `loc_14866` loop.
+    LavaGeyserRiseResetLoc1484E {
+        sprite_row_index: 0,
+        frames_per_sprite_row: 2,
+        sprite_frame_within_row: 0,
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserCameraWindowInputLoc147D6 {
     pub(crate) x_px: u16,
     pub(crate) y_px: u16,
