@@ -42828,6 +42828,18 @@ fn loc_13790_quits_decompression_without_reseeding_the_copy_mode() {
 }
 
 #[test]
+fn loc_13796_flushes_the_buffer_with_status_ffff_and_copy_mode_zero() {
+    assert_eq!(
+        crate::level::decompress_long_ref_flush_loc_13796(),
+        crate::level::DecompressBp0ReturnStatus {
+            status_word: u16::MAX,
+            next_copy_mode: Some(0),
+        },
+        "ASM loc_13796 should return `d0=$FFFF` and seed `d2=0` when `subq.w #6,d0` underflows on the flush-buffer path"
+    );
+}
+
+#[test]
 fn loc_1377e_copies_the_fixed_five_byte_tail_and_finishes_at_or_beyond_d7() {
     assert_eq!(
         crate::level::decompress_long_ref_tail_loc_1377E(

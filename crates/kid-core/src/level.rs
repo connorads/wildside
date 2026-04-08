@@ -1288,6 +1288,19 @@ pub(crate) fn decompress_long_ref_quit_loc_13790() -> DecompressBp0ReturnStatus 
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_flush_loc_13796() -> DecompressBp0ReturnStatus {
+    // ASM loc_13796 (kid.asm:26321-26323) is the `0 < BYTE2 < 6` underflow
+    // return from `loc_1376A`: after `subq.w #6,d0` goes negative, the routine
+    // reports `d0=$FFFF` and explicitly seeds `d2=0` for the caller's flush
+    // handling.
+    DecompressBp0ReturnStatus {
+        status_word: u16::MAX,
+        next_copy_mode: Some(0),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_long_ref_tail_loc_1377E(
     copied_bytes: [u8; 5],
     output_addr_after_tail: u16,
