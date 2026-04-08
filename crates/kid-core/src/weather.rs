@@ -872,6 +872,38 @@ pub(crate) fn decode_lava_geyser_script_step_loc_147BA(
     })
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserCameraWindowInputLoc147D6 {
+    pub(crate) x_px: u16,
+    pub(crate) y_px: u16,
+    pub(crate) camera_x_px: u16,
+    pub(crate) camera_y_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_is_inside_camera_window_loc_147D6(
+    input: LavaGeyserCameraWindowInputLoc147D6,
+) -> bool {
+    // ASM loc_147D6 (kid.asm:27858): before building one sprite row, the lava
+    // geyser worker culls against a padded camera window. X must stay within
+    // `[Camera_X_pos - $20, Camera_X_pos + $160]` and Y within
+    // `[Camera_Y_pos - $48, Camera_Y_pos + $128]`; anything outside branches to
+    // `loc_1482E`, which hibernates one frame without drawing.
+    let x_px = i32::from(input.x_px);
+    let y_px = i32::from(input.y_px);
+    let camera_x_px = i32::from(input.camera_x_px);
+    let camera_y_px = i32::from(input.camera_y_px);
+
+    let min_x = camera_x_px - 0x20;
+    let max_x = min_x + 0x180;
+    let min_y = camera_y_px - 0x48;
+    let max_y = min_y + 0x170;
+
+    x_px >= min_x && x_px <= max_x && y_px >= min_y && y_px <= max_y
+}
+
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;

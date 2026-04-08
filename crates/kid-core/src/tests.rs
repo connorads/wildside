@@ -20551,6 +20551,38 @@ fn loc_147ba_decodes_geyser_script_sentinels_and_sprite_rows() {
 }
 
 #[test]
+fn loc_147d6_uses_the_padded_camera_window_before_building_sprite_rows() {
+    let inside = crate::weather::LavaGeyserCameraWindowInputLoc147D6 {
+        x_px: 0x00E0,
+        y_px: 0x0118,
+        camera_x_px: 0x0100,
+        camera_y_px: 0x0160,
+    };
+    assert!(
+        crate::weather::lava_geyser_is_inside_camera_window_loc_147D6(inside),
+        "ASM loc_147D6 should keep rows whose base point sits on the inclusive `[camera_x - $20, camera_x + $160]` and `[camera_y - $48, camera_y + $128]` window"
+    );
+
+    let left_clipped = crate::weather::LavaGeyserCameraWindowInputLoc147D6 {
+        x_px: 0x00DF,
+        ..inside
+    };
+    assert!(
+        !crate::weather::lava_geyser_is_inside_camera_window_loc_147D6(left_clipped),
+        "ASM loc_147D6 should skip rows left of `Camera_X_pos - $20`"
+    );
+
+    let bottom_clipped = crate::weather::LavaGeyserCameraWindowInputLoc147D6 {
+        y_px: 0x0289,
+        ..inside
+    };
+    assert!(
+        !crate::weather::lava_geyser_is_inside_camera_window_loc_147D6(bottom_clipped),
+        "ASM loc_147D6 should skip rows below `Camera_Y_pos + $128`"
+    );
+}
+
+#[test]
 fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
