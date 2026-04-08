@@ -849,6 +849,23 @@ pub(crate) fn intro_sequence_1_left_title_sprite_step_loc_1AE10(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn intro_sequence_1_right_title_sprite_step_loc_1AE20(
+    current_x_pos: i16,
+    target_x_pos: i16,
+) -> i16 {
+    // ASM loc_1AE20 (kid.asm:29050): after the shared loc_1AE10 left-sprite
+    // check, the mirrored title sprite compares `$1A(a1)` against `d1` and
+    // only runs `subi.w #4,$1A(a1)` while it still sits right of the `$D0`
+    // destination.
+    if current_x_pos == target_x_pos {
+        current_x_pos
+    } else {
+        current_x_pos.wrapping_sub(4)
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
     decoded_words: &[u16],
     d2: i16,
@@ -3175,6 +3192,20 @@ mod tests {
             intro_sequence_1_left_title_sprite_step_loc_1AE10(0x0060, 0x0060),
             0x0060,
             "ASM loc_1AE10 branches straight to loc_1AE20 once `cmp.w x_pos(a3),d0` sees the target already reached",
+        );
+    }
+
+    #[test]
+    fn loc_1ae20_moves_the_right_intro_sequence_1_title_sprite_4px_until_xd0() {
+        assert_eq!(
+            intro_sequence_1_right_title_sprite_step_loc_1AE20(0x0160, 0x00D0),
+            0x015C,
+            "ASM loc_1AE20 runs `subi.w #4,$1A(a1)` whenever the mirrored title sprite has not yet reached `d1=$D0`",
+        );
+        assert_eq!(
+            intro_sequence_1_right_title_sprite_step_loc_1AE20(0x00D0, 0x00D0),
+            0x00D0,
+            "ASM loc_1AE20 branches back to loc_1AE10 without changing `$1A(a1)` once the right sprite already matches the target",
         );
     }
 
