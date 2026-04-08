@@ -19804,6 +19804,15 @@ fn loc_14d3c_repeats_the_full_storm_pattern_upload_for_four_outer_passes() {
 }
 
 #[test]
+fn loc_14d3e_repeats_each_storm_pattern_group_eight_times_before_advancing_a0() {
+    assert_eq!(
+        crate::weather::storm_pattern_group_repeat_count_loc_14D3E(),
+        8,
+        "ASM loc_14D3E should keep each four-longword group live for eight repeats because `moveq #7,d1` plus `dbf d1,loc_14D3E` counts inclusively from 7 to -1"
+    );
+}
+
+#[test]
 fn loc_14d32_programs_vram_6000_and_repeats_each_four_longword_storm_group_with_inclusive_dbf_loops()
  {
     let source_longwords = core::array::from_fn(|index| 0x1000_0000u32.wrapping_add(index as u32));

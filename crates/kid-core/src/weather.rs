@@ -287,6 +287,14 @@ pub(crate) fn storm_pattern_outer_pass_count_loc_14D3C() -> usize {
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn storm_pattern_group_repeat_count_loc_14D3E() -> usize {
+    // ASM loc_14D3E (kid.asm:28393): `moveq #7,d1` selects eight passes through
+    // the group loop before `dbf d1,loc_14D3E` stops at -1.
+    8
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
     source_longwords: &[u32; 32],
     vram_tile_addend: u32,
@@ -301,7 +309,7 @@ pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
 
     for _ in 0..storm_pattern_outer_pass_count_loc_14D3C() {
         for group in source_longwords.chunks_exact(4) {
-            for _ in 0..8 {
+            for _ in 0..storm_pattern_group_repeat_count_loc_14D3E() {
                 for &word in group {
                     written_longwords.push(word.wrapping_add(vram_tile_addend));
                 }
