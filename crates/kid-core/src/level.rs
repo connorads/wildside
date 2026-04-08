@@ -140,6 +140,20 @@ pub(crate) enum DecompressModeDispatchLoc1382E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DecompressModeDispatchLoc138AA {
+    DirectCopy {
+        copied_byte: u8,
+    },
+    LongRef {
+        output_copy_base_addr: u16,
+    },
+    ShortRef {
+        source_copy_addr: u16,
+        total_copy_len: u8,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DecompressLongRefCopyModeLoc13756 {
     Copy3,
     Copy4,
@@ -1306,6 +1320,39 @@ pub(crate) fn decompress_mode_dispatch_loc_1382E(
 
     let total_copy_len = if bit_buffer & 0x20 != 0 { 3 } else { 2 };
     DecompressModeDispatchLoc1382E::ShortRef {
+        source_copy_addr: output_addr.wrapping_sub(u16::from(short_ref_back_distance)),
+        total_copy_len,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_mode_dispatch_loc_138AA(
+    bit_buffer: u8,
+    output_addr: u16,
+    source_byte: u8,
+    short_ref_back_distance: u8,
+) -> DecompressModeDispatchLoc138AA {
+    // ASM loc_138AA (kid.asm:26519-26534) is the later bit-position-1 decode
+    // entry: `1` copies one literal byte through `loc_13926`, `01` seeds `a6`
+    // from `a2` and branches into the later long-reference header at
+    // `loc_138CA`, and `00:A` subtracts the short back-reference byte from
+    // `a2` before choosing the two-byte or three-byte short-reference tail at
+    // `loc_138BE`.
+    if bit_buffer & 0x80 != 0 {
+        return DecompressModeDispatchLoc138AA::DirectCopy {
+            copied_byte: source_byte,
+        };
+    }
+
+    if bit_buffer & 0x40 != 0 {
+        return DecompressModeDispatchLoc138AA::LongRef {
+            output_copy_base_addr: output_addr,
+        };
+    }
+
+    let total_copy_len = if bit_buffer & 0x20 != 0 { 3 } else { 2 };
+    DecompressModeDispatchLoc138AA::ShortRef {
         source_copy_addr: output_addr.wrapping_sub(u16::from(short_ref_back_distance)),
         total_copy_len,
     }
