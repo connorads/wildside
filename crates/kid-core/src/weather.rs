@@ -813,6 +813,35 @@ pub(crate) fn initialise_lava_fireball_state_loc_1499C(
     }
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaFireballScriptStartLoc149CC {
+    pub(crate) script_name: &'static str,
+    pub(crate) x_px: u16,
+    pub(crate) y_px: u16,
+    pub(crate) sprite_top_y_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn initialise_lava_fireball_script_loc_149CC(
+    biased_x_px: u16,
+    biased_y_px: u16,
+) -> LavaFireballScriptStartLoc149CC {
+    // ASM loc_149CC (kid.asm:28052): the USM2 fireball restarts from
+    // `unk_146CC`, un-biases `$44/$46(a5)` back into `d0/d1`, and seeds
+    // `$54(a5)` from the same unbiased baseline row before the segment loop at
+    // `loc_149E4`.
+    let x_px = biased_x_px.wrapping_sub(0x80);
+    let y_px = biased_y_px.wrapping_sub(0x80);
+    LavaFireballScriptStartLoc149CC {
+        script_name: "unk_146CC",
+        x_px,
+        y_px,
+        sprite_top_y_px: y_px,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {

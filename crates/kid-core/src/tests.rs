@@ -20497,6 +20497,20 @@ fn loc_1499c_clears_the_fireball_sign_bit_then_seeds_delay_height_and_biased_ori
 }
 
 #[test]
+fn loc_149cc_restarts_the_fireball_from_unk_146cc_and_unbiases_the_saved_origin() {
+    assert_eq!(
+        crate::weather::initialise_lava_fireball_script_loc_149CC(0x03C6, 0x0392),
+        crate::weather::LavaFireballScriptStartLoc149CC {
+            script_name: "unk_146CC",
+            x_px: 0x0346,
+            y_px: 0x0312,
+            sprite_top_y_px: 0x0312,
+        },
+        "ASM loc_149CC should reload `a0` from `unk_146CC`, subtract the shared `$80` sprite bias from `$44/$46(a5)`, and seed `$54(a5)` from the unbiased baseline Y row before the fireball segment loop restarts"
+    );
+}
+
+#[test]
 fn loc_14788_points_the_first_lava_geyser_eruption_at_the_startup_script() {
     assert_eq!(
         crate::weather::lava_geyser_startup_script_loc_14788(),
