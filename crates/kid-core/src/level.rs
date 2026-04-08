@@ -7367,6 +7367,9 @@ pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offse
         return;
     };
 
+    // ASM loc_1C868: loop entry, processes each of 16 palette words
+    // ASM loc_1C876: mid-channel processing (after low channel)
+    // ASM loc_1C880: high-channel processing (after mid channel)
     for word in span.iter_mut().take(0x10) {
         let low = match *word & 0x000F {
             0 => 0,
