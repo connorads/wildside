@@ -19148,7 +19148,10 @@ fn murder_wall_initialises_from_header_flags() {
 
     let wall = runtime.murder_wall.expect("murder wall should be active");
     assert!(!wall.reversed);
-    assert_eq!(wall.speed, 0);
+    assert_eq!(
+        wall.speed, 0,
+        "ASM loc_140BE should clear `MurderWall_speed` after picking the initial max speed"
+    );
     assert_eq!(wall.max_speed, MURDER_WALL_DEFAULT_MAX_SPEED);
 }
 
