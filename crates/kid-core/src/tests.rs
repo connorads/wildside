@@ -83,11 +83,12 @@ use crate::level::{
     decode_block_layout_loc_132A6, decompress_to_ram_palette_row_bytes_loc_143CE,
     decompress_to_ram_palette_row_start_loc_143CC, decompress_to_vram_special_return_loc_143B2,
     drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
-    fade_palette_span_sub_1C85E, fg_update_queue_cell_vram_word_loc_1614,
-    flagpole_scoreboard_step_sub_C254, initialise_camera_bootstrap_loc_11F48,
-    initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
-    initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
-    initialise_sprite_frame_state_sub_B52, prepare_background_art_decompress_loc_11EA2,
+    fade_palette_span_sub_1C85E, fg_update_queue_cell_mapping_longwords_loc_165E,
+    fg_update_queue_cell_vram_word_loc_1614, flagpole_scoreboard_step_sub_C254,
+    initialise_camera_bootstrap_loc_11F48, initialise_evanesc_object_slots_sub_EABC,
+    initialise_fullscreen_palette_fade_sub_73D0, initialise_scratch_queue_sub_28FC,
+    initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
+    prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
@@ -2509,6 +2510,24 @@ fn loc_1614_accepts_inclusive_camera_tile_bounds_and_packs_the_vram_word() {
         fg_update_queue_cell_vram_word_loc_1614(0x0016, 0x0011, 0x0020, 0x0030),
         Some(0x4118),
         "ASM loc_1614 should also accept the upper inclusive bounds after `addi.w #$14,d6` and `addi.w #$E,d7` before writing the second visible edge cell"
+    );
+}
+
+#[test]
+fn loc_165e_uses_block_mappings_for_negative_cell_words_and_low_byte_indexing() {
+    let theme_mappings = vec![[0x1111_2222, 0x3333_4444]; 0x100];
+    let mut block_mappings = vec![[0xAAAA_0000, 0xBBBB_0000]; 0x100];
+    block_mappings[0x34] = [0xDEAD_BEEF, 0xFACE_CAFE];
+
+    assert_eq!(
+        fg_update_queue_cell_mapping_longwords_loc_165E(0x8034, &theme_mappings, &block_mappings),
+        [0xDEAD_BEEF, 0xFACE_CAFE],
+        "ASM loc_165E should treat a negative queued layout word as the block-present path, keep only the low byte, and load both longwords from `Block_Mappings`"
+    );
+    assert_eq!(
+        fg_update_queue_cell_mapping_longwords_loc_165E(0x0134, &theme_mappings, &block_mappings),
+        [0x1111_2222, 0x3333_4444],
+        "ASM loc_1614 should leave non-negative queued layout words on the theme-mappings path even when the high byte differs, because both branches index from `andi.w #$FF,d0`"
     );
 }
 

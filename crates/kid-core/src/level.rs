@@ -6984,6 +6984,26 @@ pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fg_update_queue_cell_mapping_longwords_loc_165E(
+    cell_word: u16,
+    theme_mappings: &[[u32; 2]],
+    block_mappings: &[[u32; 2]],
+) -> [u32; 2] {
+    // ASM loc_1614 / loc_165E (kid.asm:2757-2783): after the visible-cell
+    // gate, `bmi.s loc_165E` uses the sign bit of the queued layout word to
+    // decide which mapping table feeds the two `(a6)` writes. Both branches
+    // keep only the low byte, `lsl.w #3` to reach the 8-byte pair, and copy
+    // two longwords from either `Addr_ThemeMappings` or `Block_Mappings`.
+    let mapping_index = usize::from(cell_word & 0x00FF);
+    if (cell_word as i16).is_negative() {
+        block_mappings[mapping_index]
+    } else {
+        theme_mappings[mapping_index]
+    }
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn drain_fg_update_queue_custom_sub_1596(
     pending_queue: &mut Option<Vec<FgUpdateQueueCustomEntrySub1596>>,
