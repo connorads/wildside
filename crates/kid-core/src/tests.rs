@@ -45940,6 +45940,15 @@ fn loc_19bee_fills_the_rest_of_each_title_card_row_with_02fb() {
 }
 
 #[test]
+fn loc_19c02_reloads_the_bottom_padding_row_width_to_64_words() {
+    assert_eq!(
+        crate::level::load_title_card_bottom_padding_row_width_loc_19C02(),
+        64,
+        "ASM loc_19C02 should reload `d4=#$3F` before each `loc_19C04` pass, so every bottom-padding row spans the full 64-word title-card tilemap width"
+    );
+}
+
+#[test]
 fn loc_1462_reloads_the_samurai_haze_walk_from_the_gfx_head_pointer() {
     assert_eq!(
         crate::movement::gfx_object_head_under_samurai_haze_loc_1462(None),

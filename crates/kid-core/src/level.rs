@@ -5475,6 +5475,15 @@ pub(crate) fn load_title_card_right_padding_loc_19BEE(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_title_card_bottom_padding_row_width_loc_19C02() -> u16 {
+    // ASM loc_19C02 (kid.asm:28713): each bottom-padding row reloads
+    // `d4=#$3F` immediately before `loc_19C04`, so the following inclusive
+    // `dbf d4,loc_19C04` loop writes 64 fill words across the full row.
+    0x003F + 1
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,
