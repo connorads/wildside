@@ -26368,6 +26368,38 @@ fn loc_141ee_adjusts_only_the_layout_and_row_words_of_each_8_byte_block_entry() 
 }
 
 #[test]
+fn loc_141f6_only_adjusts_the_first_d0_8_byte_entries() {
+    assert_eq!(
+        crate::level::adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141F6(
+            &[
+                [0x0120, 0x0007, 0x0003, 0x6004],
+                [0x0450, 0x0009, 0x000A, 0x8011],
+                [0x0780, 0x000B, 0x000F, 0x9002],
+            ],
+            2,
+            2,
+            0x0040,
+        ),
+        vec![
+            [0x01A0, 0x0007, 0x0005, 0x6004],
+            [0x04D0, 0x0009, 0x000C, 0x8011],
+            [0x0780, 0x000B, 0x000F, 0x9002],
+        ],
+        "ASM loc_141F6 branches straight into `dbf d0,loc_141EE`, so `d0=2` should adjust exactly the first two 8-byte entries before falling through to the next list"
+    );
+    assert_eq!(
+        crate::level::adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141F6(
+            &[[0x0120, 0x0007, 0x0003, 0x6004]],
+            0,
+            2,
+            0x0040,
+        ),
+        vec![[0x0120, 0x0007, 0x0003, 0x6004]],
+        "ASM loc_141F6 should skip the `loc_141EE` body entirely when `($FFFFF8D2).w` loads `d0=0` before the first `dbf`"
+    );
+}
+
+#[test]
 fn loc_11d0c_selects_the_theme_mapping_entry_and_splits_the_enemy_layout_pointer() {
     assert_eq!(
         crate::level::level_load_pointers_loc_11D0C(
