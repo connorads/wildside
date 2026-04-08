@@ -26720,6 +26720,25 @@ fn loc_1238_computes_sprite_tile_id_from_art_data_and_vram_offset() {
 }
 
 #[test]
+fn loc_141a_queues_dma_art_and_advances_both_tile_cursors_by_the_chunk_length() {
+    let result =
+        crate::NativeRuntime::sprite_dma_upload_loc_141A(0x0F, 0x0100, 0x0240, 0x0012_3456);
+
+    assert_eq!(
+        result,
+        crate::combat::SpriteDmaUploadLoc141A {
+            sprite_tile_word: 0x0100,
+            dma_tile_count: 0x0010,
+            next_sprite_tile_word: 0x0110,
+            next_hardware_tile_word: 0x0250,
+            dma_source: 0x0012_3456,
+            next_dma_source: 0x0012_3656,
+        },
+        "ASM loc_141A should look up size `$F` as 15 tiles, add one, advance both `$FFFFF830/$FFFFF83C`, queue that length, and step `a4` by `tile_count << 5` bytes"
+    );
+}
+
+#[test]
 fn loc_12372_uses_default_rubber_cell_for_type_7_with_zero_terrain_byte() {
     // ASM loc_12372 (kid.asm:24513-24527): block type 7 handler for horizontal
     // placement. When block_type is non-negative and terrain_byte is zero,

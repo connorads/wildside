@@ -356,6 +356,17 @@ pub(crate) struct NormalSpriteChunkLoc12B8 {
     pub(crate) size_code: u8,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SpriteDmaUploadLoc141A {
+    pub(crate) sprite_tile_word: u16,
+    pub(crate) dma_tile_count: u16,
+    pub(crate) next_sprite_tile_word: u16,
+    pub(crate) next_hardware_tile_word: u16,
+    pub(crate) dma_source: u32,
+    pub(crate) next_dma_source: u32,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalScatterVelocities {
     pub(crate) slot_fb72_x_velocity: i32,
@@ -2497,6 +2508,36 @@ impl NativeRuntime {
             base_tile_id
                 .wrapping_add(sprite_offset_word)
                 .wrapping_add(vram_tile)
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn sprite_dma_upload_loc_141A(
+        size_code: u8,
+        sprite_tile_word: u16,
+        hardware_tile_word: u16,
+        dma_source: u32,
+    ) -> SpriteDmaUploadLoc141A {
+        const NUMBER_TILES_PER_SPRITE_SIZE_LOC_141A: [u16; 16] =
+            [0, 1, 2, 3, 1, 3, 5, 7, 2, 5, 8, 0x0B, 3, 7, 0x0B, 0x0F];
+
+        // ASM loc_141A (kid.asm:2491-2501): the `$12(a3) != 0` sprite path in
+        // `sub_13C0` reuses `(FFFFF830).w` as the emitted sprite's tile word,
+        // then looks up the chunk length from `NumberTilesPerSpriteSize`,
+        // adds one tile, advances both `$FFFFF830/$FFFFF83C`, queues that
+        // tile count plus the current art pointer for DMA, and finally bumps
+        // `a4` by `tile_count << 5` bytes.
+        let dma_tile_count =
+            NUMBER_TILES_PER_SPRITE_SIZE_LOC_141A[usize::from(size_code & 0x0F)].wrapping_add(1);
+
+        SpriteDmaUploadLoc141A {
+            sprite_tile_word,
+            dma_tile_count,
+            next_sprite_tile_word: sprite_tile_word.wrapping_add(dma_tile_count),
+            next_hardware_tile_word: hardware_tile_word.wrapping_add(dma_tile_count),
+            dma_source,
+            next_dma_source: dma_source.wrapping_add(u32::from(dma_tile_count) << 5),
         }
     }
 
