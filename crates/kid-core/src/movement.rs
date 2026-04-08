@@ -486,6 +486,37 @@ pub(crate) enum GfxObjectsCollisionSolidFloorAboveTileLoc1A12 {
     RedirectToUpSlope { layout_addr: u16 },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GfxObjectsCollisionCeilingSnapLoc1A6C {
+    pub(crate) collision_type: u16,
+    pub(crate) snapped_y_px: u16,
+    pub(crate) y_subpixel: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_collision_ceiling_snap_loc_1A6C(
+    is_kid_gfx_object: bool,
+    anchor_y_px: u16,
+    first_extent_px: u16,
+) -> Option<GfxObjectsCollisionCeilingSnapLoc1A6C> {
+    // ASM loc_1A6C (kid.asm:3206-3215): Kid itself exits via `loc_1ADA`, but
+    // every other gfx object stores `colid_ceiling`, snaps `$1E(a2)` from the
+    // stacked anchor row using `anchor - first_extent + $10`, and clears the
+    // vertical subpixel at `$20(a2)`.
+    if is_kid_gfx_object {
+        return None;
+    }
+
+    Some(GfxObjectsCollisionCeilingSnapLoc1A6C {
+        collision_type: 0x0002,
+        snapped_y_px: anchor_y_px
+            .wrapping_sub(first_extent_px)
+            .wrapping_add(0x0010),
+        y_subpixel: 0,
+    })
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_solid_floor_above_tile_loc_1A12(

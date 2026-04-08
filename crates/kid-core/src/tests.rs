@@ -46192,6 +46192,24 @@ fn loc_1a12_redirects_floor_contacts_into_chkupslope_only_for_4000_tiles() {
 }
 
 #[test]
+fn loc_1a6c_skips_kid_and_snaps_other_gfx_objects_against_the_ceiling() {
+    assert_eq!(
+        crate::movement::gfx_objects_collision_ceiling_snap_loc_1A6C(true, 100, 12),
+        None,
+        "ASM loc_1A6C should branch straight to `loc_1ADA` when the colliding gfx object is Kid himself",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_ceiling_snap_loc_1A6C(false, 100, 12),
+        Some(crate::movement::GfxObjectsCollisionCeilingSnapLoc1A6C {
+            collision_type: 0x0002,
+            snapped_y_px: 104,
+            y_subpixel: 0,
+        }),
+        "ASM loc_1A6C should store `colid_ceiling`, use `anchor - (a1)+ + $10` for `$1E(a2)`, and clear `$20(a2)`",
+    );
+}
+
+#[test]
 fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
     let next_indices = [Some(1), Some(2), Some(3), None];
     let kind_words = [0, 2, 3, 4];
