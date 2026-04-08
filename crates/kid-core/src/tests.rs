@@ -45831,6 +45831,24 @@ fn loc_12c34_loads_hitpoint_display_art_into_vram_45a0() {
 }
 
 #[test]
+fn loc_19b6a_clears_16_words_of_title_card_name_table_space_from_1280() {
+    let result = crate::level::load_title_card_name_table_clear_loc_19B6A();
+
+    assert_eq!(
+        result.vram_word_addr, 0x1280,
+        "ASM loc_19B6A should retarget the VDP write loop to VRAM word address $1280"
+    );
+    assert_eq!(
+        result.fill_word, 0,
+        "ASM loc_19B6A seeds `d1=0`, so each `move.w d1,(a6)` write clears the destination word"
+    );
+    assert_eq!(
+        result.word_write_count, 16,
+        "ASM loc_19B6A seeds `d0=#$F`, so the inclusive `dbf d0,loc_19B6A` loop writes 16 words"
+    );
+}
+
+#[test]
 fn loc_1462_reloads_the_samurai_haze_walk_from_the_gfx_head_pointer() {
     assert_eq!(
         crate::movement::gfx_object_head_under_samurai_haze_loc_1462(None),
