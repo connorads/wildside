@@ -45876,6 +45876,24 @@ fn loc_19bc2_centres_short_title_cards_with_64_word_top_padding_rows() {
 }
 
 #[test]
+fn loc_19bd4_emits_d7_left_padding_words_before_each_title_card_row() {
+    assert_eq!(
+        crate::level::load_title_card_left_padding_loc_19BD4(0),
+        None,
+        "ASM loc_19BD4 should skip the left-padding loop when `d4=d7-1` is already negative"
+    );
+    assert_eq!(
+        crate::level::load_title_card_left_padding_loc_19BD4(0x000E),
+        Some(crate::level::TitleCardVramWordFillLoop {
+            vram_word_addr: 0xE000,
+            fill_word: 0x02FB,
+            word_write_count: 14,
+        }),
+        "ASM loc_19BD4 should write exactly `d7` `$02FB` fill words before the art row because the `move.w d5,(a6)` store happens before the inclusive `dbf d4,loc_19BD4` test"
+    );
+}
+
+#[test]
 fn loc_1462_reloads_the_samurai_haze_walk_from_the_gfx_head_pointer() {
     assert_eq!(
         crate::movement::gfx_object_head_under_samurai_haze_loc_1462(None),

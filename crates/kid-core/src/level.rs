@@ -5410,6 +5410,26 @@ pub(crate) fn load_title_card_top_padding_loc_19BC2(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_title_card_left_padding_loc_19BD4(
+    horizontal_padding_words: u16,
+) -> Option<TitleCardVramWordFillLoop> {
+    // ASM loc_19BD4 (kid.asm:28688-28689): `d4` arrives as `d7-1`, so the
+    // `move.w d5,(a6)` store happens once per pass before the inclusive
+    // `dbf d4,loc_19BD4` test. The loop therefore emits exactly `d7`
+    // left-padding words, each still filled with `#$2FB`.
+    if horizontal_padding_words == 0 {
+        None
+    } else {
+        Some(TitleCardVramWordFillLoop {
+            vram_word_addr: 0xE000,
+            fill_word: 0x02FB,
+            word_write_count: horizontal_padding_words,
+        })
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,
