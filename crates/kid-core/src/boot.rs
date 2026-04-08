@@ -1516,11 +1516,12 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
     d2: i16,
     d3: u16,
 ) -> Option<TitleTextChameleonFrameUploadSub1B71A> {
-    // ASM sub_1B71A (kid.asm:29957): pick one of four Enigma tilemaps from
-    // `off_1B70A` via `d3 & $C`, clip the 7x29 decoded strip against the
-    // reveal index `d2`, cap the first row to 21 words, and optionally emit a
-    // `$00BC` filler word one cell to the left when the reveal still starts in
-    // blank space.
+    // ASM sub_1B71A / loc_1B734 / loc_1B758 / loc_1B76C (kid.asm:29957-30011):
+    // pick one of four Enigma tilemaps from `off_1B70A` via `d3 & $C`,
+    // clamp negative reveal indices back to zero, build the base VRAM word
+    // address from row `$12` plus the clipped horizontal offset, cap the first
+    // row to 21 words, and optionally emit a `$00BC` filler word one cell to
+    // the left when the reveal still starts in blank space.
     if d2 >= 0x22 {
         return None;
     }
@@ -1540,6 +1541,7 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
         _ => "unk_2E728",
     };
 
+    // ASM loc_1B734: `tst.w d2; bpl.s loc_1B734; moveq #0,d2`.
     let reveal = d2.max(0);
     let mut horizontal_offset = 5_i16 - reveal;
     let mut source_start_word = 0_usize;
@@ -4345,6 +4347,29 @@ mod tests {
         assert_eq!(upload.rows[0].words[20], 20);
         assert_eq!(upload.rows[1].words.len(), 29);
         assert_eq!(upload.rows[1].words[0], 29);
+    }
+
+    #[test]
+    fn loc_1b734_clamps_negative_reveal_indices_back_to_zero() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let upload = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, -2, 0x0000)
+            .expect("ASM loc_1B734 should still upload after negative d2 is clamped back to zero");
+
+        assert_eq!(
+            upload.rows[0].vram_word_address, 0x048A,
+            "ASM loc_1B734 forces negative `d2` to zero before loc_1B758 builds the `$048A` top-row write address"
+        );
+        assert_eq!(
+            upload.rows[0].filler_word,
+            Some(0x00BC),
+            "ASM loc_1B734 should preserve the early-reveal filler path after the negative `d2` clamp"
+        );
+        assert_eq!(
+            upload.rows[1].words.len(),
+            29,
+            "ASM loc_1B734 resets negative `d2` before the row-width math, so later rows still copy the full 29 decoded words"
+        );
     }
 
     #[test]
