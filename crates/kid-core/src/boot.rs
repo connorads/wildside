@@ -1563,6 +1563,9 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
     let mut rows = Vec::with_capacity(ROW_COUNT);
     for row_index in 0..ROW_COUNT {
         let row_start = row_index * SOURCE_ROW_WORDS + source_start_word;
+        // ASM loc_1B76C: while `d7==6` (the first row), non-negative `d4`
+        // plus `d1 >= $14` force `d1=$14`, so the inclusive DBF copy emits 21
+        // words on the top row even when later rows keep the full width.
         let top_row_limit = if row_index == 0 {
             row_word_count.min(TOP_ROW_MAX_WORDS)
         } else {
@@ -4428,6 +4431,31 @@ mod tests {
         assert!(
             title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 0x22, 0).is_none(),
             "ASM sub_1B71A returns immediately once `cmpi.w #$22,d2` succeeds"
+        );
+    }
+
+    #[test]
+    fn loc_1b76c_caps_only_the_first_row_at_21_words_when_the_reveal_starts_on_column_five() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let upload = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 5, 0x0008).expect(
+            "ASM loc_1B76C should still upload once the reveal reaches the first visible column",
+        );
+
+        assert_eq!(upload.tilemap_label, "unk_2E77A");
+        assert_eq!(
+            upload.rows[0].words.len(),
+            21,
+            "ASM loc_1B76C clamps the first `d1` copy count to `$14`, so the inclusive DBF loop writes 21 top-row words"
+        );
+        assert_eq!(
+            upload.rows[0].filler_word, None,
+            "ASM loc_1B76C only clamps the top-row copy count here; with `d4=0`, loc_1B780 should skip the left filler write"
+        );
+        assert_eq!(
+            upload.rows[1].words.len(),
+            29,
+            "ASM loc_1B76C only applies while `d7==6`, so later rows keep the full 29-word width"
         );
     }
 
