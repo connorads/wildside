@@ -45865,6 +45865,28 @@ fn loc_17c6_routes_current_tiles_by_the_collision_nibble() {
 }
 
 #[test]
+fn loc_180e_continues_when_the_upslope_probe_misses_or_stays_above_the_diagonal() {
+    assert!(
+        crate::movement::gfx_objects_collision_upslope_continue_loc_180E(
+            0x0031, 0x004F, 0x0020, 0x0040
+        ),
+        "ASM loc_180E should keep scanning when `andi.w #$FFF0,d7` shows the right edge is no longer in the current tile column",
+    );
+    assert!(
+        crate::movement::gfx_objects_collision_upslope_continue_loc_180E(
+            0x0032, 0x0045, 0x0030, 0x0040
+        ),
+        "ASM loc_180E should restore `d0-d1` and continue when the sampled bottom-right corner has not crossed below the upslope diagonal",
+    );
+    assert!(
+        !crate::movement::gfx_objects_collision_upslope_continue_loc_180E(
+            0x003E, 0x0045, 0x0030, 0x0040
+        ),
+        "ASM loc_180E should not run when the bottom-right sample is inside the upslope half-cell and must fall through toward loc_1814",
+    );
+}
+
+#[test]
 fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
     let next_indices = [Some(1), Some(2), Some(3), None];
     let kind_words = [0, 2, 3, 4];

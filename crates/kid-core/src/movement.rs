@@ -319,6 +319,28 @@ pub(crate) fn gfx_objects_collision_tile_dispatch_loc_17C6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_collision_upslope_continue_loc_180E(
+    hitbox_right_px: u16,
+    hitbox_bottom_px: u16,
+    tile_left_px: u16,
+    tile_top_px: u16,
+) -> bool {
+    // ASM GfxObjects_Collision_UpSlope / loc_180E (kid.asm:2951-2970): only
+    // keep the current tile when the right edge lives in that tile's column
+    // and the sampled bottom-right corner has crossed below the upslope line
+    // `x_within > $E - y_within`; otherwise restore `d0-d1` and continue the
+    // rectangle scan via loc_180E.
+    if (hitbox_right_px & 0xFFF0) != tile_left_px {
+        return true;
+    }
+
+    let y_within = i32::from(hitbox_bottom_px.wrapping_sub(tile_top_px));
+    let x_within = i32::from(hitbox_right_px.wrapping_sub(tile_left_px));
+    x_within <= (0x0E - y_within)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(
     time_frames: u16,
     first_gfx_object_index: Option<usize>,
