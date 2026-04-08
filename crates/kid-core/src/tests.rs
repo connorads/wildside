@@ -19441,7 +19441,8 @@ fn step_murder_wall_noop_when_no_wall() {
 
 #[test]
 fn init_murder_wall_with_nonzero_camera_offsets_initial_position() {
-    // When camera_x > 0, initial_x = (camera_x << 16) + (OFFSET << 16)
+    // ASM loc_140D2 stores the shared branch result after the non-zero-camera
+    // `addi.w #$30,d0` path, so native should place the wall at camera_x+$30.
     let mut manifest = manifest_with_levels(2);
     manifest.levels[0]
         .header_metadata
@@ -19457,7 +19458,7 @@ fn init_murder_wall_with_nonzero_camera_offsets_initial_position() {
     let expected = (i64::from(camera_x) << 16) + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
     assert_eq!(
         wall.x_pos, expected,
-        "non-zero camera should offset initial wall position"
+        "ASM loc_140D2 should store the non-zero-camera `$30` offset as the initial murder-wall X position"
     );
 }
 

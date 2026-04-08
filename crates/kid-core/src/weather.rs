@@ -1029,6 +1029,8 @@ impl NativeRuntime {
                 // shared `loc_140D2` store.
                 -(i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16)
             } else {
+                // ASM loc_140D2 receives the non-zero-camera `addi.w #$30,d0`
+                // result and stores that shared branch value as Murderwall X.
                 (i64::from(camera_x) << 16) + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16)
             };
             self.murder_wall = Some(MurderWallState {
