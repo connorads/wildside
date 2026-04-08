@@ -1379,6 +1379,58 @@ pub(crate) fn title_text_chameleon_idle_step_loc_1B6A2(
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleTextChameleonRevealIterationLoc1B6CE {
+    pub(crate) incoming_d2: i16,
+    pub(crate) next_d2: i16,
+    pub(crate) next_d3: u16,
+    pub(crate) upload: Option<TitleTextChameleonFrameUploadSub1B71A>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleTextChameleonRevealLoopLoc1B6CE {
+    pub(crate) hibernate_frames_per_iteration: u16,
+    pub(crate) iterations: Vec<TitleTextChameleonRevealIterationLoc1B6CE>,
+    pub(crate) final_d0: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_text_chameleon_reveal_loop_loc_1B6CE(
+    decoded_words: &[u16],
+) -> TitleTextChameleonRevealLoopLoc1B6CE {
+    // ASM loc_1B6CE (kid.asm:29927-29931): starting from `d2=#$28,d3=0`, each
+    // pass hibernates one frame, calls `sub_1B71A`, decrements `d2`, and
+    // loops until that post-decrement value reaches zero, after which the
+    // caller seeds `d0=0` for the later Sega text cadence at `loc_1B6DC`.
+    let mut d2 = 0x0028_i16;
+    let mut d3 = 0_u16;
+    let mut iterations = Vec::with_capacity(0x0028);
+    loop {
+        d3 = d3.wrapping_add(1);
+        let upload = title_text_chameleon_frame_upload_sub_1B71A(decoded_words, d2, d3);
+        let next_d2 = d2.wrapping_sub(1);
+        iterations.push(TitleTextChameleonRevealIterationLoc1B6CE {
+            incoming_d2: d2,
+            next_d2,
+            next_d3: d3,
+            upload,
+        });
+        d2 = next_d2;
+        if d2 == 0 {
+            break;
+        }
+    }
+
+    TitleTextChameleonRevealLoopLoc1B6CE {
+        hibernate_frames_per_iteration: 1,
+        iterations,
+        final_d0: 0,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) vram_word_addr: u16,
     pub(crate) word_writes: Vec<u16>,
@@ -4109,6 +4161,38 @@ mod tests {
             step.upload.as_ref().map(|upload| upload.tilemap_label),
             Some("unk_2E728"),
             "with `d3=3` on entry, ASM loc_1B6A2 reaches sub_1B71A with `d3=4`, so `d3 & $C` should pick the second `off_1B70A` tilemap",
+        );
+    }
+
+    #[test]
+    fn loc_1b6ce_keeps_the_first_seven_reveal_frames_hidden_then_seeds_d0_for_loc_1b6dc() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let reveal = title_text_chameleon_reveal_loop_loc_1B6CE(&decoded_words);
+
+        assert_eq!(reveal.hibernate_frames_per_iteration, 1);
+        assert_eq!(
+            reveal.iterations.len(),
+            0x28,
+            "ASM loc_1B6CE starts from `d2=#$28` and exits only after the post-`subq.w #1,d2` value reaches zero, so the loop should hibernate exactly 40 times",
+        );
+        assert!(
+            reveal.iterations[..7]
+                .iter()
+                .all(|iteration| iteration.upload.is_none()),
+            "ASM sub_1B71A returns immediately while `d2 >= $22`, so the first seven loc_1B6CE iterations should stay hidden",
+        );
+        assert_eq!(
+            reveal.iterations[7].incoming_d2, 0x0021,
+            "the eighth loc_1B6CE pass should be the first visible one because `d2` has just dropped below sub_1B71A's `$22` guard",
+        );
+        assert!(
+            reveal.iterations[7].upload.is_some(),
+            "once `d2=$21`, ASM loc_1B6CE should finally let sub_1B71A decode and upload the Chameleon strip",
+        );
+        assert_eq!(
+            reveal.final_d0, 0,
+            "ASM loc_1B6CE falls through to `moveq #0,d0` immediately after the countdown, seeding the later loc_1B6DC Sega-text delay",
         );
     }
 
