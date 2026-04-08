@@ -1256,17 +1256,34 @@ pub(crate) fn indoor_rubber_block_repack_longword_loc_1453E(
         packed_longword <<= 4;
         existing_rotated = existing_rotated.rotate_left(4);
         buffered_rotated = buffered_rotated.rotate_left(4);
-
-        let selected_nibble = if (existing_rotated & 0xF) != 0 {
-            existing_rotated & 0xF
-        } else {
-            buffered_rotated & 0xF
-        };
-
-        packed_longword |= selected_nibble;
+        packed_longword = indoor_rubber_block_pack_selected_nibble_loc_14552(
+            packed_longword,
+            existing_rotated,
+            buffered_rotated,
+        );
     }
 
     packed_longword
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn indoor_rubber_block_pack_selected_nibble_loc_14552(
+    shifted_seed_longword: u32,
+    existing_rotated: u32,
+    buffered_rotated: u32,
+) -> u32 {
+    // ASM loc_14552 (kid.asm:27407) ORs the nibble already loaded into `d3`
+    // into `d5`. The preceding `bne.s loc_14552` keeps the rotated existing
+    // nibble when it is non-zero; otherwise `move.w d4,d3` / `andi.w #$F,d3`
+    // replaces it with the rotated scratch-buffer nibble before the OR.
+    let selected_nibble = if (existing_rotated & 0xF) != 0 {
+        existing_rotated & 0xF
+    } else {
+        buffered_rotated & 0xF
+    };
+
+    shifted_seed_longword | selected_nibble
 }
 
 #[allow(non_snake_case)]

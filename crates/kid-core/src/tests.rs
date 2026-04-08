@@ -44561,6 +44561,28 @@ fn loc_1453e_prefers_existing_non_zero_nibbles_and_falls_back_to_the_buffered_ti
 }
 
 #[test]
+fn loc_14552_ors_the_selected_nibble_into_the_shifted_seed_longword() {
+    assert_eq!(
+        crate::level::indoor_rubber_block_pack_selected_nibble_loc_14552(
+            0x1234_5670,
+            0x0000_000C,
+            0x0000_0007,
+        ),
+        0x1234_567C,
+        "ASM loc_14552 should OR the existing rotated nibble into `d5` when the preceding `bne.s loc_14552` keeps `d3` sourced from `d2`"
+    );
+    assert_eq!(
+        crate::level::indoor_rubber_block_pack_selected_nibble_loc_14552(
+            0x1234_5670,
+            0x0000_0000,
+            0x0000_0007,
+        ),
+        0x1234_5677,
+        "ASM loc_14552 should OR the buffered rotated nibble into `d5` when the existing nibble is zero and the preceding `move.w d4,d3` / `andi.w #$F,d3` reloads `d3` from the scratch longword"
+    );
+}
+
+#[test]
 fn loc_14538_repacks_dbf_counter_plus_one_longword_rows_with_the_inner_nibble_merge() {
     assert_eq!(
         crate::level::indoor_rubber_block_repack_rows_loc_14538(
