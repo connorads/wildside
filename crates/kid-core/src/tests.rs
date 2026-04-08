@@ -43552,6 +43552,18 @@ fn loc_13a0a_flushes_the_buffer_with_status_ffff_and_copy_mode_three() {
 }
 
 #[test]
+fn loc_13a86_flushes_the_buffer_with_status_ffff_and_copy_mode_two() {
+    assert_eq!(
+        crate::level::decompress_long_ref_flush_loc_13A86(),
+        crate::level::DecompressBp0ReturnStatus {
+            status_word: u16::MAX,
+            next_copy_mode: Some(2),
+        },
+        "ASM loc_13A86 should return `d0=$FFFF` and seed `d2=2` when the `loc_13A5A` branch underflows after `subq.w #6,d0`"
+    );
+}
+
+#[test]
 fn loc_1390e_flushes_the_buffer_with_status_ffff_and_copy_mode_five() {
     assert_eq!(
         crate::level::decompress_long_ref_flush_loc_1390E(),
