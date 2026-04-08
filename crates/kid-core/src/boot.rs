@@ -808,6 +808,56 @@ pub(crate) fn title_menu_sliding_sprites_sub_1C572() -> [TitleMenuSlidingSpriteS
     ]
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleTextIntroSpriteLoc1BB10 {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) visibility_flag: bool,
+    pub(crate) palette_line: u8,
+    pub(crate) y_pos: u16,
+    pub(crate) vram_tile: u16,
+    pub(crate) sprite_label: &'static str,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_text_intro_sprite_loc_1BB10() -> TitleTextIntroSpriteLoc1BB10 {
+    // ASM loc_1BB10 (kid.asm:30405-30412): allocate gfx slot `$02000000`, set
+    // visibility (`st $13(a3)`), set `palette_line(a3)=2`, seed `y_pos=$94`,
+    // `vram_tile=$4BD`, and the sprite offset `LnkTo_unk_E0ED6-Data_Index`.
+    // Called from loc_1B6AC (kid.asm:29922) with `$27` in `$44(a0)`, and from
+    // Obj_TitleMenu (kid.asm:30383).
+    TitleTextIntroSpriteLoc1BB10 {
+        gfx_slot_base: 0x0200_0000,
+        visibility_flag: true,
+        palette_line: 2,
+        y_pos: 0x0094,
+        vram_tile: 0x04BD,
+        sprite_label: "LnkTo_unk_E0ED6-Data_Index",
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(counter: u16) -> i16 {
+    // ASM loc_1BB36 (kid.asm:30414-30418) and loc_1BB44 (kid.asm:30420-30425):
+    // The intro text sprite slides in from the left. Each frame:
+    // - loc_1BB36: d0 = #$10C (268), d1 = counter from $44(a5)
+    // - If d1 == 0, skip decrement; otherwise subq.w #1,$44(a5)
+    // - loc_1BB44: d1 <<= 3 (multiply by 8), then d0 -= d1
+    // - x_pos = 268 - (counter * 8)
+    // Initial counter is $27 (39) set at loc_1B6AC line 29923.
+    // First visible frame: x_pos = 268 - (39 * 8) = -44 (off-screen left).
+    // Final frame (counter=0): x_pos = 268.
+    // ASM loading order matters: d0 is set first, then d1, so decrement happens
+    // before the calculation when counter > 0.
+    let effective_counter = if counter == 0 {
+        0
+    } else {
+        counter.saturating_sub(1)
+    };
+    0x010C_u16 as i16 - (effective_counter * 8) as i16
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn intro_sequence_1_player_title_sprite_loc_1ADEA(
@@ -3814,6 +3864,124 @@ mod tests {
         assert_eq!(
             right.moving_frames, 0x0042,
             "ASM loc_1C5BE also slides the right sprite for 66 hibernated frames before the infinite idle loop",
+        );
+    }
+
+    #[test]
+    fn loc_1bb10_allocates_the_intro_text_sprite() {
+        let sprite = title_text_intro_sprite_loc_1BB10();
+
+        assert_eq!(
+            sprite.gfx_slot_base, 0x0200_0000,
+            "ASM loc_1BB10 loads `#$2000000` into a3 before the gfx slot allocation",
+        );
+        assert!(
+            sprite.visibility_flag,
+            "ASM loc_1BB10 uses `st $13(a3)` to set the visibility flag",
+        );
+        assert_eq!(
+            sprite.palette_line, 2,
+            "ASM loc_1BB10 writes `move.b #2,palette_line(a3)`",
+        );
+        assert_eq!(
+            sprite.y_pos, 0x0094,
+            "ASM loc_1BB10 writes `move.w #$94,y_pos(a3)` for the intro text vertical position",
+        );
+        assert_eq!(
+            sprite.vram_tile, 0x04BD,
+            "ASM loc_1BB10 writes `move.w #$4BD,vram_tile(a3)` for the intro text tile base",
+        );
+        assert_eq!(
+            sprite.sprite_label, "LnkTo_unk_E0ED6-Data_Index",
+            "ASM loc_1BB10 writes `move.w #(LnkTo_unk_E0ED6-Data_Index),addroffset_sprite(a3)`",
+        );
+    }
+
+    #[test]
+    fn loc_1bb36_and_loc_1bb44_slide_intro_text_from_left() {
+        // ASM loc_1BB36 (kid.asm:30414-30418) and loc_1BB44 (kid.asm:30420-30425):
+        // The slide loop calculates x_pos = 268 - (counter * 8).
+        // Initial counter is $27 (39) from loc_1B6AC line 29923.
+        // The loop decrements counter first, then calculates position.
+
+        // First frame: counter starts at 39, becomes 38 after decrement
+        let first_frame = title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(39);
+        assert_eq!(
+            first_frame, -44,
+            "ASM loc_1BB44 should compute 268 - (38 * 8) = 268 - 304 = -44 for the first visible frame (counter decrements before calculation)",
+        );
+
+        // Mid-animation: counter at 20, becomes 19 after decrement
+        let mid_frame = title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(20);
+        assert_eq!(
+            mid_frame, 116,
+            "ASM loc_1BB44 should compute 268 - (19 * 8) = 268 - 152 = 116 for mid-animation",
+        );
+
+        // Late animation: counter at 1, becomes 0 after decrement
+        let last_moving_frame = title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(1);
+        assert_eq!(
+            last_moving_frame, 260,
+            "ASM loc_1BB44 should compute 268 - (0 * 8) = 268 for the last moving frame",
+        );
+
+        // Final position: counter = 0, stays at 0 (beq.s skips decrement)
+        let final_frame = title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(0);
+        assert_eq!(
+            final_frame, 268,
+            "ASM loc_1BB44 should compute 268 - (0 * 8) = 268 when counter reaches zero and the sprite holds position",
+        );
+    }
+
+    #[test]
+    fn loc_1bb36_decrements_counter_before_calculation() {
+        // ASM loc_1BB36: the counter decrement happens in two different code paths:
+        // 1. If counter != 0: subq.w #1,$44(a5) executes, then falls through to loc_1BB44
+        // 2. If counter == 0: beq.s skips the decrement, uses counter=0 directly
+        // This means the first frame with counter=39 produces x_pos using counter=38.
+
+        for initial_counter in [39, 20, 5, 1] {
+            let x_pos = title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(initial_counter);
+            let expected_counter = initial_counter - 1;
+            let expected_x = 0x010C_u16 as i16 - (expected_counter * 8) as i16;
+            assert_eq!(
+                x_pos, expected_x,
+                "ASM loc_1BB44 with counter={} should use effective counter={} for x_pos={}",
+                initial_counter, expected_counter, expected_x,
+            );
+        }
+    }
+
+    #[test]
+    fn loc_1bb36_and_loc_1bb44_full_slide_trajectory() {
+        // Verify the slide progresses from off-screen left to final position.
+        // The intro text ("THIS IS THE STORY OF SOMEONE TOO TOUGH TO BEAT")
+        // starts invisible at x=-44 and slides right 8 pixels per frame.
+        let frames: Vec<i16> = (0..=39)
+            .map(|frame_idx| {
+                // Counter starts at 39 and decrements each frame
+                let counter = 39 - frame_idx;
+                title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(counter)
+            })
+            .collect();
+
+        // First visible position (after 1 frame): -44
+        assert_eq!(frames[0], -44, "First visible frame should be at x=-44");
+
+        // The sprite moves 8 pixels right each frame
+        for i in 1..frames.len() {
+            assert_eq!(
+                frames[i] - frames[i - 1],
+                8,
+                "ASM loc_1BB44 should increment x_pos by 8 pixels per frame (counter decrements by 1, x = 268 - counter*8)",
+            );
+        }
+
+        // Final position: 268 (stays there forever after counter reaches 0)
+        assert_eq!(
+            *frames.last().unwrap(),
+            268,
+            "Final position should be x=268"
         );
     }
 
