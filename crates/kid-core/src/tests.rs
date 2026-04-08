@@ -45894,6 +45894,20 @@ fn loc_19bd4_emits_d7_left_padding_words_before_each_title_card_row() {
 }
 
 #[test]
+fn loc_19bda_primes_the_title_card_row_copy_loop_with_width_minus_one() {
+    assert_eq!(
+        crate::level::load_title_card_row_copy_seed_loc_19BDA(0),
+        None,
+        "ASM loc_19BDA should leave the following `dbf d5,loc_19BDE` loop skipped when `d0=0`, because `subq.w #1,d5` underflows to `-1` immediately"
+    );
+    assert_eq!(
+        crate::level::load_title_card_row_copy_seed_loc_19BDA(0x0024),
+        Some(0x0023),
+        "ASM loc_19BDA should copy `d0` into `d5` then `subq.w #1,d5`, so a 36-tile title-card row primes the later DBF loop with 35"
+    );
+}
+
+#[test]
 fn loc_1462_reloads_the_samurai_haze_walk_from_the_gfx_head_pointer() {
     assert_eq!(
         crate::movement::gfx_object_head_under_samurai_haze_loc_1462(None),

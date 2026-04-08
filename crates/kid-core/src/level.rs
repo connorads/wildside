@@ -5430,6 +5430,16 @@ pub(crate) fn load_title_card_left_padding_loc_19BD4(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_title_card_row_copy_seed_loc_19BDA(title_card_width_tiles: u16) -> Option<u16> {
+    // ASM loc_19BDA (kid.asm:28692-28693): `move.w d0,d5` followed by
+    // `subq.w #1,d5` primes the following `dbf d5,loc_19BDE` loop with an
+    // inclusive counter, so width zero skips the copy stage and every other
+    // width becomes `width_tiles - 1`.
+    title_card_width_tiles.checked_sub(1)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,
