@@ -20511,6 +20511,27 @@ fn loc_149cc_restarts_the_fireball_from_unk_146cc_and_unbiases_the_saved_origin(
 }
 
 #[test]
+fn loc_149e4_decodes_fireball_segments_and_treats_negative_counts_as_the_cooldown_sentinel() {
+    assert_eq!(
+        crate::weather::decode_lava_fireball_script_step_loc_149E4(&[0x000A, 0xFFFC, 0x1234]),
+        Some(crate::weather::LavaFireballScriptStepLoc149E4::EmitSegment(
+            crate::weather::LavaFireballSegmentLoc149E4 {
+                dbf_counter: 0x000A,
+                frames: 0x000B,
+                delta_y: -4,
+                sprite_script_word: 0x1234,
+            }
+        )),
+        "ASM loc_149E4 should treat the first word as the `dbf` counter, load the second word into `$52(a5)` as the signed per-frame Y delta, and pass the third word through as the `LoadGameModeData` sprite-script offset"
+    );
+    assert_eq!(
+        crate::weather::decode_lava_fireball_script_step_loc_149E4(&[0xFFFF]),
+        Some(crate::weather::LavaFireballScriptStepLoc149E4::CooldownAndRestart),
+        "ASM loc_149E4 should branch to loc_14A4C as soon as the first script word is negative, which is how `unk_146CC` terminates the fireball loop before the 60-frame hibernation"
+    );
+}
+
+#[test]
 fn loc_14788_points_the_first_lava_geyser_eruption_at_the_startup_script() {
     assert_eq!(
         crate::weather::lava_geyser_startup_script_loc_14788(),

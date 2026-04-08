@@ -842,6 +842,49 @@ pub(crate) fn initialise_lava_fireball_script_loc_149CC(
     }
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaFireballSegmentLoc149E4 {
+    pub(crate) dbf_counter: u16,
+    pub(crate) frames: u16,
+    pub(crate) delta_y: i16,
+    pub(crate) sprite_script_word: u16,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LavaFireballScriptStepLoc149E4 {
+    CooldownAndRestart,
+    EmitSegment(LavaFireballSegmentLoc149E4),
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decode_lava_fireball_script_step_loc_149E4(
+    script_words: &[u16],
+) -> Option<LavaFireballScriptStepLoc149E4> {
+    // ASM loc_149E4 (kid.asm:28060): each fireball script entry starts with
+    // `move.w (a0)+,d2`; negative values branch to `loc_14A4C` for the `$3C`
+    // frame hibernation. Non-negative entries load `$52(a5)` as the per-frame
+    // Y delta, then resolve the next word as a `LoadGameModeData` sprite
+    // script pointer before entering the segment loop at `loc_14A0A`.
+    let (&dbf_counter, rest) = script_words.split_first()?;
+    if (dbf_counter as i16) < 0 {
+        return Some(LavaFireballScriptStepLoc149E4::CooldownAndRestart);
+    }
+
+    let (&delta_y_word, remaining) = rest.split_first()?;
+    let &sprite_script_word = remaining.first()?;
+    Some(LavaFireballScriptStepLoc149E4::EmitSegment(
+        LavaFireballSegmentLoc149E4 {
+            dbf_counter,
+            frames: dbf_counter.wrapping_add(1),
+            delta_y: delta_y_word as i16,
+            sprite_script_word,
+        },
+    ))
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {
