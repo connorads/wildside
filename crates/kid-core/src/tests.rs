@@ -3278,6 +3278,20 @@ fn boot_title_start_isle_of_the_lion_lord_preserves_loc_1ab26_spacing_tokens() {
     assert_eq!(third_line_l.target_x_pos, 0x0020_0000);
 }
 
+#[test]
+fn boot_title_start_elsewhere_2_reuses_loc_1ab52_first_elsewhere_title_text() {
+    let mut first_elsewhere = cached_generated_runtime();
+    first_elsewhere.begin_level_entry(LevelId(crate::constants::FIRST_ELSEWHERE_LEVEL_ID));
+
+    let mut later_elsewhere = cached_generated_runtime();
+    later_elsewhere.begin_level_entry(LevelId(crate::constants::FIRST_ELSEWHERE_LEVEL_ID + 1));
+
+    assert_eq!(
+        later_elsewhere.starting_level_title_workers, first_elsewhere.starting_level_title_workers,
+        "ASM loc_1AB52 clamps `Current_LevelID` back to `FirstElsewhere_LevelID` before indexing `AddrTbl_LevelNames`, so later Elsewhere stages should reuse the first Elsewhere title script and destinations",
+    );
+}
+
 fn assert_level_restart_state_cleared(runtime: &NativeRuntime) {
     assert!(runtime.killed_enemies.is_empty());
     assert!(runtime.projectiles.is_empty());

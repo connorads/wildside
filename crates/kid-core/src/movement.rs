@@ -907,8 +907,9 @@ impl PlayerState {
 impl NativeRuntime {
     pub(crate) fn rebuild_starting_level_title_workers(&mut self) {
         self.starting_level_title_workers.clear();
+        let title_text_level_id = level_entry_title_text_level_id_loc_1AB52(self.current_level);
         let Some(title_card) = self
-            .level_record(self.current_level)
+            .level_record(title_text_level_id)
             .and_then(|level| level.title_card.as_ref())
             .cloned()
         else {
@@ -1155,6 +1156,19 @@ impl NativeRuntime {
                 .unwrap_or(usize::MAX)
         });
         objects
+    }
+}
+
+#[allow(non_snake_case)]
+fn level_entry_title_text_level_id_loc_1AB52(level_id: LevelId) -> LevelId {
+    // ASM loc_1AB40 / loc_1AB52 (kid.asm:28761-28767): after the title-letter
+    // palette copy, `Current_LevelID` stays in `d7` only while it is below
+    // `FirstElsewhere_LevelID`; later Elsewhere stages clamp `d7` back to the
+    // first Elsewhere entry before indexing `AddrTbl_LevelNames`.
+    if level_id.0 < FIRST_ELSEWHERE_LEVEL_ID {
+        level_id
+    } else {
+        LevelId(FIRST_ELSEWHERE_LEVEL_ID)
     }
 }
 
