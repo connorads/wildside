@@ -42980,6 +42980,18 @@ fn loc_13796_flushes_the_buffer_with_status_ffff_and_copy_mode_zero() {
 }
 
 #[test]
+fn loc_13814_flushes_the_buffer_with_status_ffff_and_copy_mode_seven() {
+    assert_eq!(
+        crate::level::decompress_long_ref_flush_loc_13814(),
+        crate::level::DecompressBp0ReturnStatus {
+            status_word: u16::MAX,
+            next_copy_mode: Some(7),
+        },
+        "ASM loc_13814 should return `d0=$FFFF` and seed `d2=7` when the later long-reference path underflows after `subq.w #6,d0`"
+    );
+}
+
+#[test]
 fn loc_137a6_finishes_the_long_reference_tail_with_copy_mode_zero() {
     assert_eq!(
         crate::level::decompress_long_ref_finished_loc_137A6(),
