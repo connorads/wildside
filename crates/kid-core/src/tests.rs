@@ -29982,6 +29982,24 @@ fn published_tas_demo_1_uses_the_second_intro_sequence_3_roster_pose_on_frame_90
 }
 
 #[test]
+fn loc_1aeba_reads_intro_sequence_3_descriptors_from_the_rotating_roster_and_stops_on_ff() {
+    assert_eq!(
+        crate::movement::intro_sequence_3_descriptor_loc_1AEBA(1, 2),
+        Some(crate::movement::IntroSequence3Descriptor {
+            x_pos: 0x0070,
+            y_pos: 0x00CC,
+            raw_flags: 0x1219,
+        }),
+        "ASM loc_1AEBA should use the second `unk_1AF78` roster's third byte as descriptor index 6, then scale into the six-byte `unk_1AF24` table entry at `$70,$CC,$1219`",
+    );
+    assert_eq!(
+        crate::movement::intro_sequence_3_descriptor_loc_1AEBA(1, 6),
+        None,
+        "ASM loc_1AEBA should branch to `return_1AF22` as soon as the roster byte is `$FF` because `move.b (a2)+,d0` leaves the sign bit set for `bmi.w`",
+    );
+}
+
+#[test]
 fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit() {
     let (_, script) = cached_any_percent_published_runtime_and_script();
     let first_visit_start_frames = (6_204..=6_211)

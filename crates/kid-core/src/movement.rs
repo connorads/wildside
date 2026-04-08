@@ -2,21 +2,84 @@ use super::*;
 use crate::level::fade_palette_span_sub_1C85E;
 use std::collections::BTreeMap;
 
-const INTRO_SEQUENCE_3_ROSTER_DESCRIPTOR_POSITIONS: [(u16, u16); 14] = [
-    (0x00F8, 0x00D0),
-    (0x00E3, 0x00CC),
-    (0x0040, 0x00CC),
-    (0x0060, 0x00D0),
-    (0x00D0, 0x00C8),
-    (0x00C4, 0x00CC),
-    (0x0070, 0x00CC),
-    (0x0098, 0x00C4),
-    (0x00E4, 0x00C8),
-    (0x0050, 0x00C8),
-    (0x0024, 0x00CC),
-    (0x003C, 0x00C8),
-    (0x0114, 0x00CA),
-    (0x002C, 0x00C8),
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence3Descriptor {
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) raw_flags: u16,
+}
+
+const INTRO_SEQUENCE_3_DESCRIPTORS: [IntroSequence3Descriptor; 14] = [
+    IntroSequence3Descriptor {
+        x_pos: 0x00F8,
+        y_pos: 0x00D0,
+        raw_flags: 0x1209,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x00E3,
+        y_pos: 0x00CC,
+        raw_flags: 0x1229,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x0040,
+        y_pos: 0x00CC,
+        raw_flags: 0x1231,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x0060,
+        y_pos: 0x00D0,
+        raw_flags: 0x120D,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x00D0,
+        y_pos: 0x00C8,
+        raw_flags: 0x1211,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x00C4,
+        y_pos: 0x00CC,
+        raw_flags: 0x1215,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x0070,
+        y_pos: 0x00CC,
+        raw_flags: 0x1219,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x0098,
+        y_pos: 0x00C4,
+        raw_flags: 0x121C,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x00E4,
+        y_pos: 0x00C8,
+        raw_flags: 0x1221,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x0050,
+        y_pos: 0x00C8,
+        raw_flags: 0x122D,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x0024,
+        y_pos: 0x00CC,
+        raw_flags: 0x1235,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x003C,
+        y_pos: 0x00C8,
+        raw_flags: 0x1239,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x0114,
+        y_pos: 0x00CA,
+        raw_flags: 0x123D,
+    },
+    IntroSequence3Descriptor {
+        x_pos: 0x002C,
+        y_pos: 0x00C8,
+        raw_flags: 0x1225,
+    },
 ];
 const INTRO_SEQUENCE_3_ROSTERS: [[u8; 8]; 4] = [
     [0, 2, 3, 4, 6, 7, 9, 10],
@@ -41,6 +104,24 @@ pub(crate) const LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES: usize = 342;
 // settled gameplay slice nine local frames earlier once live movement input is
 // already being held.
 pub(crate) const LEVEL_ENTRY_TITLE_ACTIVE_INPUT_HANDOFF_FRAMES: usize = 333;
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn intro_sequence_3_descriptor_loc_1AEBA(
+    roster_index: usize,
+    descriptor_slot: usize,
+) -> Option<IntroSequence3Descriptor> {
+    // ASM loc_1AEBA (kid.asm:29097): read the next roster byte from
+    // `unk_1AF78`, stop immediately when it is negative (`$FF` sentinel), and
+    // otherwise scale the descriptor index by six bytes into `unk_1AF24`.
+    let descriptor_index =
+        INTRO_SEQUENCE_3_ROSTERS[roster_index % INTRO_SEQUENCE_3_ROSTERS.len()][descriptor_slot];
+    if descriptor_index == u8::MAX {
+        None
+    } else {
+        Some(INTRO_SEQUENCE_3_DESCRIPTORS[usize::from(descriptor_index)])
+    }
+}
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -793,13 +874,14 @@ impl PlayerState {
         // ROM Load_IntroSequence3 rotates through the four `unk_1AF78`
         // descriptor rosters via `$FFFFFC83`, and oracle traces expose the
         // third allocated roster descriptor in slot 2 as `kid_gfx`.
-        let descriptor_index = INTRO_SEQUENCE_3_ROSTERS
-            [roster_index % INTRO_SEQUENCE_3_ROSTERS.len()][INTRO_SEQUENCE_3_TRACE_DESCRIPTOR_SLOT]
-            as usize;
-        let (x_pos, y_pos) = INTRO_SEQUENCE_3_ROSTER_DESCRIPTOR_POSITIONS[descriptor_index];
+        let descriptor = intro_sequence_3_descriptor_loc_1AEBA(
+            roster_index,
+            INTRO_SEQUENCE_3_TRACE_DESCRIPTOR_SLOT,
+        )
+        .expect("intro sequence 3 trace descriptor slot must not hit the ROM sentinel");
         Self {
-            x_pos: u32::from(x_pos) << 16,
-            y_pos: u32::from(y_pos) << 16,
+            x_pos: u32::from(descriptor.x_pos) << 16,
+            y_pos: u32::from(descriptor.y_pos) << 16,
             x_velocity: 0,
             y_velocity: 0,
             facing: Direction::Left,
