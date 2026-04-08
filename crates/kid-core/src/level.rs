@@ -891,6 +891,23 @@ pub(crate) fn decompress_to_vram_chunk_setup_loc_14300(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_to_vram_word_transfer_loc_14314(
+    buffered_words: &[u16],
+    dbf_counter: u16,
+) -> Vec<u16> {
+    // ASM loc_14314 (kid.asm:27164-27165) writes one word from `(a4)+` to the
+    // VDP data port `(a6)` before each `dbf d3,loc_14314` test, so the loop
+    // transfers exactly `d3 + 1` buffered words and `d3 = 0` still emits one
+    // VRAM word before the later `tst.w d0` status gate.
+    buffered_words
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,

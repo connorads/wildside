@@ -42598,6 +42598,20 @@ fn loc_14300_points_a6_at_vdp_data_and_converts_the_buffer_span_into_an_inclusiv
 }
 
 #[test]
+fn loc_14314_transfers_d3_plus_one_words_from_the_buffer_to_vram() {
+    assert_eq!(
+        crate::level::decompress_to_vram_word_transfer_loc_14314(&[0x1234, 0x5678, 0x9ABC], 0),
+        vec![0x1234],
+        "ASM loc_14314 should still write one word to `(a6)` when `d3` starts at zero because the `move.w (a4)+,(a6)` happens before `dbf` reaches `-1`"
+    );
+    assert_eq!(
+        crate::level::decompress_to_vram_word_transfer_loc_14314(&[0x1234, 0x5678, 0x9ABC], 2),
+        vec![0x1234, 0x5678, 0x9ABC],
+        "ASM loc_14314 should stream exactly `d3+1` buffered words into VRAM before the loop falls through to the later `tst.w d0` completion check"
+    );
+}
+
+#[test]
 fn loc_13504_masks_the_dbf_count_selects_the_jump_table_arm_and_refills_only_below_nine_bits() {
     assert_eq!(
         block_layout_dispatch_loc_13504(0x0065, 6, 0x0010),
