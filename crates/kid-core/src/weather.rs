@@ -937,6 +937,27 @@ pub(crate) fn lava_geyser_pre_loop_hibernate_loc_1485E() -> LavaGeyserPreLoopHib
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserLoopBackEdgeLoc1486C {
+    pub(crate) hibernation_frames: u16,
+    pub(crate) collision_refreshes: u16,
+    pub(crate) reenters_shared_loop: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_loop_back_edge_loc_1486C() -> LavaGeyserLoopBackEdgeLoc1486C {
+    // ASM loc_1486C (kid.asm:27924): each taken `dbf d2,loc_1486C` back-edge
+    // hibernates one frame, re-runs `sub_14A58`, then re-enters the shared
+    // `loc_14874` sprite-row builder.
+    LavaGeyserLoopBackEdgeLoc1486C {
+        hibernation_frames: 1,
+        collision_refreshes: 1,
+        reenters_shared_loop: true,
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserCameraWindowInputLoc147D6 {
     pub(crate) x_px: u16,
     pub(crate) y_px: u16,

@@ -20602,6 +20602,23 @@ fn loc_1485e_hibernates_once_refreshes_collision_once_then_rejoins_the_shared_lo
 }
 
 #[test]
+fn loc_1486c_hibernates_once_on_each_taken_back_edge_then_reenters_the_shared_row_loop() {
+    let step = crate::weather::lava_geyser_loop_back_edge_loc_1486C();
+    assert_eq!(
+        step.hibernation_frames, 1,
+        "ASM loc_1486C should call `j_Hibernate_Object_1Frame` once on each taken `dbf d2,loc_1486C` loop back-edge"
+    );
+    assert_eq!(
+        step.collision_refreshes, 1,
+        "ASM loc_1486C should re-run `sub_14A58` exactly once before falling back into the shared row builder"
+    );
+    assert!(
+        step.reenters_shared_loop,
+        "ASM loc_1486C should fall through into loc_14874 after the one-frame hibernation/collision refresh"
+    );
+}
+
+#[test]
 fn loc_147d6_uses_the_padded_camera_window_before_building_sprite_rows() {
     let inside = crate::weather::LavaGeyserCameraWindowInputLoc147D6 {
         x_px: 0x00E0,
