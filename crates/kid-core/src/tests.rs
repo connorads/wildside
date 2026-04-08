@@ -21004,6 +21004,49 @@ fn loc_148d4_unbiases_the_top_sprite_row_y_before_storing_world_y() {
 }
 
 #[test]
+fn loc_14be8_accumulates_y_steps_and_biases_tiles_with_the_incremented_sprite_count() {
+    let sprite_rows = crate::weather::lava_geyser_sprite_chunks_loc_14BE8(
+        0x0400,
+        0x0380,
+        0x00D0,
+        3,
+        &[
+            crate::weather::LavaGeyserSpriteTemplateLoc14BE8 {
+                x_offset_px: 0x0008,
+                y_step_px: 0x0010,
+                size_word: 0x0F00,
+                tile_base_word: 0x0200,
+            },
+            crate::weather::LavaGeyserSpriteTemplateLoc14BE8 {
+                x_offset_px: 0x0018,
+                y_step_px: 0x0006,
+                size_word: 0x0500,
+                tile_base_word: 0x0210,
+            },
+        ],
+    );
+
+    assert_eq!(
+        sprite_rows,
+        vec![
+            crate::weather::LavaGeyserSpriteChunkLoc14BE8 {
+                screen_y_with_bias: 0x00C0,
+                tile_word: 0x0204,
+                size_word: 0x0F00,
+                screen_x_px: 0x0088,
+            },
+            crate::weather::LavaGeyserSpriteChunkLoc14BE8 {
+                screen_y_with_bias: 0x00BA,
+                tile_word: 0x0215,
+                size_word: 0x0500,
+                screen_x_px: 0x0098,
+            },
+        ],
+        "ASM loc_14BE8 should subtract each entry's Y step from the running `d7`, increment `Number_Sprites` before adding it into the tile word, and place X at `$44(a5) - Camera_X_pos + entry_x_offset`"
+    );
+}
+
+#[test]
 fn loc_148f8_uses_the_middle_row_camera_band_before_emitting_a_sprite_row() {
     assert_eq!(
         crate::weather::lava_geyser_middle_sprite_row_window_loc_148F8(0x0150, 0x0160),

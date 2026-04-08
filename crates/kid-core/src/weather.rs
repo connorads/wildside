@@ -779,6 +779,59 @@ fn lava_geyser_hits_kid_sub_14A58(geyser: &LavaGeyser, slice: &OpeningSliceState
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserSpriteTemplateLoc14BE8 {
+    pub(crate) x_offset_px: u16,
+    pub(crate) y_step_px: u16,
+    pub(crate) size_word: u16,
+    pub(crate) tile_base_word: u16,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserSpriteChunkLoc14BE8 {
+    pub(crate) screen_y_with_bias: u16,
+    pub(crate) tile_word: u16,
+    pub(crate) size_word: u16,
+    pub(crate) screen_x_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_sprite_chunks_loc_14BE8(
+    base_x_world_px: u16,
+    camera_x_px: u16,
+    initial_screen_y_with_bias: u16,
+    number_sprites: u8,
+    templates: &[LavaGeyserSpriteTemplateLoc14BE8],
+) -> Vec<LavaGeyserSpriteChunkLoc14BE8> {
+    // ASM loc_14BE8 (kid.asm:28262): each row copies the current geyser base X
+    // through `x_pos - Camera_X_pos + entry_x_offset`, subtracts the entry's
+    // Y step from the running biased screen Y, increments `Number_Sprites`
+    // before biasing the tile word, and writes the row to the next sprite slot.
+    let mut sprite_rows = Vec::with_capacity(templates.len());
+    let mut screen_y_with_bias = initial_screen_y_with_bias;
+    let mut sprite_count = number_sprites;
+
+    for template in templates {
+        screen_y_with_bias = screen_y_with_bias.wrapping_sub(template.y_step_px);
+        sprite_count = sprite_count.wrapping_add(1);
+        sprite_rows.push(LavaGeyserSpriteChunkLoc14BE8 {
+            screen_y_with_bias,
+            tile_word: template
+                .tile_base_word
+                .wrapping_add(u16::from(sprite_count)),
+            size_word: template.size_word,
+            screen_x_px: base_x_world_px
+                .wrapping_sub(camera_x_px)
+                .wrapping_add(template.x_offset_px),
+        });
+    }
+
+    sprite_rows
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaFireballVerticalWindowLoc14AFC {
     pub(crate) top_px: i32,
     pub(crate) bottom_px: i32,
