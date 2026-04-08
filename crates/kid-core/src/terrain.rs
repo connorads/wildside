@@ -391,6 +391,9 @@ pub(crate) fn insert_blank_top_rows_sub_140F6(
     // ASM loc_14138 reloads the per-row cell counter, copies one full row, then
     // steps both row bases upward and repeats until every populated row has
     // moved down by the requested blank-top-row count.
+    // ASM loc_14156 then reloads the same per-row counter for each inserted
+    // blank row, stepping `a1` upward after every row-sized zero-fill pass
+    // until `Number_blank_top_rows` rows at the top are cleared.
     if width_blocks == 0 {
         return level_layout.to_vec();
     }
@@ -3055,6 +3058,32 @@ mod tests {
                 0x20, 0x02, // original row 1
             ],
             "ASM loc_1413A seeds `d1` from `Level_width_blocks-1`, so width=1 should still copy exactly one layout word before the inner `dbf d1,loc_1413A` falls through"
+        );
+    }
+
+    #[test]
+    fn loc_14156_repeats_the_zero_fill_for_every_requested_blank_top_row() {
+        let shifted = insert_blank_top_rows_sub_140F6(
+            &[
+                0x10, 0x01, 0x10, 0x02, // row 0
+                0x20, 0x03, 0x20, 0x04, // row 1
+            ],
+            2,
+            3,
+        );
+
+        assert_eq!(
+            &shifted[..12],
+            &[0x00; 12],
+            "ASM loc_14156 should step `a1` upward and repeat the zero-fill row loop until all `Number_blank_top_rows` rows at the top have been cleared"
+        );
+        assert_eq!(
+            &shifted[12..],
+            &[
+                0x10, 0x01, 0x10, 0x02, // row 0
+                0x20, 0x03, 0x20, 0x04, // row 1
+            ],
+            "ASM loc_14156 should only consume the requested blank-row count, then leave the shifted source rows intact below the cleared strip"
         );
     }
 }
