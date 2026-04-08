@@ -236,6 +236,41 @@ pub(crate) fn copy_storm_palette_loc_14CF2(
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StormPatternAssetLoc14D1E {
+    Rain,
+    Hail,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct StormPatternUploadSetupLoc14D1E {
+    pub(crate) vram_tile_addend: u32,
+    pub(crate) source_asset: StormPatternAssetLoc14D1E,
+    pub(crate) skipped_header_longwords: usize,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn select_storm_pattern_upload_loc_14D1E(
+    background_theme_is_ice: bool,
+) -> StormPatternUploadSetupLoc14D1E {
+    // ASM loc_14CF2 -> loc_14D1E (kid.asm:28364-28385): after the palette
+    // copy, both branches build `d7 = $0380_0380`, skip the first longword of
+    // the selected table with `addq.w #4,a0`, and only differ in whether `a0`
+    // comes from the rain (`LnkTo_unk_9B65C`) or hail (`LnkTo_unk_9B6E0`) data.
+    StormPatternUploadSetupLoc14D1E {
+        vram_tile_addend: 0x0380_0380,
+        source_asset: if background_theme_is_ice {
+            StormPatternAssetLoc14D1E::Hail
+        } else {
+            StormPatternAssetLoc14D1E::Rain
+        },
+        skipped_header_longwords: 1,
+    }
+}
+
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
     CopyPaletteBufferToBuffer2,

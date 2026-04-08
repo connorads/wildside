@@ -19773,6 +19773,28 @@ fn loc_14cf2_copies_four_longwords_into_palette_buffer_plus_20_only() {
 }
 
 #[test]
+fn loc_14d1e_selects_the_storm_pattern_source_but_keeps_the_shared_addend_and_header_skip() {
+    assert_eq!(
+        crate::weather::select_storm_pattern_upload_loc_14D1E(false),
+        crate::weather::StormPatternUploadSetupLoc14D1E {
+            vram_tile_addend: 0x0380_0380,
+            source_asset: crate::weather::StormPatternAssetLoc14D1E::Rain,
+            skipped_header_longwords: 1,
+        },
+        "ASM loc_14D1E's fallthrough path should keep the rain pattern table, seed `d7` as `$0380_0380`, and skip the first longword before the shared upload loop at loc_14D32"
+    );
+    assert_eq!(
+        crate::weather::select_storm_pattern_upload_loc_14D1E(true),
+        crate::weather::StormPatternUploadSetupLoc14D1E {
+            vram_tile_addend: 0x0380_0380,
+            source_asset: crate::weather::StormPatternAssetLoc14D1E::Hail,
+            skipped_header_longwords: 1,
+        },
+        "ASM loc_14D1E should only swap `a0` to the hail table when `Background_theme == Ice`; the duplicated `move.w/swap/move.w` sequence still produces the same `$0380_0380` addend and the same `addq.w #4,a0` header skip"
+    );
+}
+
+#[test]
 fn sub_6048_before_20_seconds_only_sets_weather_mode_byte() {
     let stepped = step_level_special_effects_sub_6048(
         WeatherSpecialEffectsStepSub6048 {
