@@ -19704,6 +19704,20 @@ fn sub_6034_dispatches_storm_and_storm_hail_to_sub_6048() {
 }
 
 #[test]
+fn loc_14cce_selects_hail_art_only_for_ice_backgrounds() {
+    assert_eq!(
+        crate::weather::select_storm_art_loc_14CCE(false),
+        crate::weather::StormArtAssetLoc14CCE::Rain,
+        "ASM loc_14CCE should fall through with the rain art pointer when `Background_theme` is not Ice",
+    );
+    assert_eq!(
+        crate::weather::select_storm_art_loc_14CCE(true),
+        crate::weather::StormArtAssetLoc14CCE::Hail,
+        "ASM loc_14CCE should branch to the hail art pointer when `Background_theme == Ice`",
+    );
+}
+
+#[test]
 fn sub_6048_before_20_seconds_only_sets_weather_mode_byte() {
     let stepped = step_level_special_effects_sub_6048(
         WeatherSpecialEffectsStepSub6048 {

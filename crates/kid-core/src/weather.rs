@@ -163,6 +163,26 @@ pub(crate) fn dispatch_level_special_effects_sub_6034(
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StormArtAssetLoc14CCE {
+    Rain,
+    Hail,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn select_storm_art_loc_14CCE(background_theme_is_ice: bool) -> StormArtAssetLoc14CCE {
+    // ASM Init_SpecialEffect_Storm -> loc_14CCE (kid.asm:28339-28346): Ice
+    // backgrounds branch away from the default rain art and load the hail art
+    // pointer instead before the shared VRAM upload tail.
+    if background_theme_is_ice {
+        StormArtAssetLoc14CCE::Hail
+    } else {
+        StormArtAssetLoc14CCE::Rain
+    }
+}
+
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
     CopyPaletteBufferToBuffer2,
