@@ -26427,6 +26427,54 @@ fn loc_14204_adjusts_the_layout_and_row_words_of_each_16_byte_hidden_block_entry
 }
 
 #[test]
+fn loc_14210_only_adjusts_the_first_d0_16_byte_hidden_block_entries() {
+    assert_eq!(
+        crate::level::adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14210(
+            &[
+                [
+                    0x1234, 0x8001, 0xABCD, 0xEF01, 0x0120, 0x0014, 0x0003, 0x0300
+                ],
+                [
+                    0x5678, 0x0003, 0xBCDE, 0xF012, 0x0450, 0x0028, 0x000A, 0x1102
+                ],
+                [
+                    0x9ABC, 0x8002, 0xCDEF, 0x0123, 0x0780, 0x0032, 0x000F, 0x2204
+                ],
+            ],
+            2,
+            2,
+            0x0040,
+        ),
+        vec![
+            [
+                0x1234, 0x8001, 0xABCD, 0xEF01, 0x01A0, 0x0014, 0x0005, 0x0300
+            ],
+            [
+                0x5678, 0x0003, 0xBCDE, 0xF012, 0x04D0, 0x0028, 0x000C, 0x1102
+            ],
+            [
+                0x9ABC, 0x8002, 0xCDEF, 0x0123, 0x0780, 0x0032, 0x000F, 0x2204
+            ],
+        ],
+        "ASM loc_14210 branches straight into `dbf d0,loc_14204`, so `d0=2` should adjust exactly the first two 16-byte hidden-block entries before falling through to the next queue"
+    );
+    assert_eq!(
+        crate::level::adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14210(
+            &[[
+                0x1234, 0x8001, 0xABCD, 0xEF01, 0x0120, 0x0014, 0x0003, 0x0300
+            ]],
+            0,
+            2,
+            0x0040,
+        ),
+        vec![[
+            0x1234, 0x8001, 0xABCD, 0xEF01, 0x0120, 0x0014, 0x0003, 0x0300
+        ]],
+        "ASM loc_14210 should skip the `loc_14204` body entirely when `($FFFFF8D8).w` loads `d0=0` before the first `dbf`"
+    );
+}
+
+#[test]
 fn loc_11d0c_selects_the_theme_mapping_entry_and_splits_the_enemy_layout_pointer() {
     assert_eq!(
         crate::level::level_load_pointers_loc_11D0C(
