@@ -1508,6 +1508,35 @@ pub(crate) fn decompress_long_ref_extended_loc_137E6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_extended_loc_138E2(
+    bit_buffer: u8,
+    length_byte: u8,
+) -> DecompressLongRefExtendedLoc1376A {
+    // ASM loc_138E2 (kid.asm:26554-26562) consumes the post-distance control
+    // bit for the `loc_138CA` family: carry clear branches straight to
+    // `loc_138F6` for the fixed five-byte tail, while carry set loads `BYTE2`
+    // and uses the same quit / flush / variable-length split before feeding
+    // the inclusive prefix loop at `loc_138F0`.
+    if bit_buffer & 0x80 == 0 {
+        return DecompressLongRefExtendedLoc1376A::Copy5;
+    }
+
+    if length_byte == 0 {
+        return DecompressLongRefExtendedLoc1376A::QuitDecompression;
+    }
+
+    if length_byte < 6 {
+        return DecompressLongRefExtendedLoc1376A::FlushBuffer;
+    }
+
+    DecompressLongRefExtendedLoc1376A::VariableLength {
+        total_copy_len: length_byte,
+        dbf_counter: u16::from(length_byte - 6),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_long_ref_loop_loc_13778(
     source_bytes: &[u8],
     dbf_counter: u16,
