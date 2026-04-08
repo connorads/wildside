@@ -1185,6 +1185,8 @@ fn level_entry_title_advance_x(glyph: u8) -> u16 {
     // worker is allocated, advance `d2` by a glyph-specific width before the
     // next script byte is read.
     match glyph.wrapping_sub(b'a') {
+        // ASM loc_1ABCA (kid.asm:28807-28809): the wide `$7C` title glyph
+        // skips the default branch and advances the destination by `#$28`.
         0x1B => 0x28,
         0x1C => 0x20,
         0x1D | 0x1E => 0x18,
@@ -3892,6 +3894,15 @@ mod tests {
             level_entry_title_advance_x(b'a'),
             0x10,
             "ASM loc_1AB6A falls through to `addi.w #$10,d2` for ordinary title glyphs",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_advance_x_uses_28_pixels_for_wide_glyph_loc_1abca() {
+        assert_eq!(
+            level_entry_title_advance_x(0x7C),
+            0x28,
+            "ASM loc_1ABCA handles glyph $7C with `addi.w #$28,d2` before looping back",
         );
     }
 }
