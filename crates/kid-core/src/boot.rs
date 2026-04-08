@@ -986,6 +986,33 @@ pub(crate) fn intro_sequence_6_scroll_bootstrap_loc_1B23A(
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct IntroSequence6HiddenTitleShellLoc1B1E8 {
+    pub(crate) scroll_bootstrap: IntroSequence6ScrollBootstrapLoc1B23A,
+    pub(crate) background_no_scroll: bool,
+    pub(crate) object_handlers: [&'static str; 3],
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_sequence_6_hidden_title_shell_loc_1B1E8(
+    hidden_camera_word: u16,
+    level_layout_word: u16,
+) -> IntroSequence6HiddenTitleShellLoc1B1E8 {
+    // ASM loc_1B1E8 (kid.asm:29411-29423): call `sub_1B222`, set
+    // `(Background_NoScrollFlag).w`, then allocate three gfx object slots in
+    // order for `loc_1BAB0`, `loc_1B37C`, and `sub_1B43A`.
+    IntroSequence6HiddenTitleShellLoc1B1E8 {
+        scroll_bootstrap: intro_sequence_6_scroll_bootstrap_loc_1B23A(
+            hidden_camera_word,
+            level_layout_word,
+        ),
+        background_no_scroll: true,
+        object_handlers: ["loc_1BAB0", "loc_1B37C", "sub_1B43A"],
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) vram_word_addr: u16,
     pub(crate) word_writes: Vec<u16>,
@@ -3347,6 +3374,30 @@ mod tests {
                 word_write_count: 0x07FF + 1,
             },
             "ASM loc_1B258 should rerun the same inclusive 2048-word `$20BC` VRAM clear loop as loc_1B182 before `sub_1B2A4` and `Load_TitleArt`",
+        );
+    }
+
+    #[test]
+    fn loc_1b1e8_sets_no_scroll_and_spawns_the_three_hidden_title_shell_workers_in_order() {
+        let result = intro_sequence_6_hidden_title_shell_loc_1B1E8(0xFFD0, 0xFFB8);
+
+        assert!(
+            result.background_no_scroll,
+            "ASM loc_1B1E8 should `st (Background_NoScrollFlag).w` before it allocates the hidden title-shell workers",
+        );
+        assert_eq!(
+            result.scroll_bootstrap,
+            IntroSequence6ScrollBootstrapLoc1B23A {
+                camera_y_pos: 0xFFD0_0000u32 as i32,
+                scroll_fill_longword: 0xFFB8_0000,
+                longword_write_count: 0x00DF + 1,
+            },
+            "ASM loc_1B1E8 should enter through `sub_1B222`, so the hidden title shell inherits the same camera row seed and 224-entry horizontal scroll fill as loc_1B23A",
+        );
+        assert_eq!(
+            result.object_handlers,
+            ["loc_1BAB0", "loc_1B37C", "sub_1B43A"],
+            "ASM loc_1B1E8 should allocate the hidden title shell workers in `loc_1BAB0`, `loc_1B37C`, then `sub_1B43A` order",
         );
     }
 
