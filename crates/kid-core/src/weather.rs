@@ -904,6 +904,16 @@ pub(crate) fn lava_geyser_is_inside_camera_window_loc_147D6(
     x_px >= min_x && x_px <= max_x && y_px >= min_y && y_px <= max_y
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one: u16) -> u16 {
+    // ASM loc_14804 (kid.asm:27876): the `dbf d2,loc_14804` back-edge runs only
+    // between sprite rows. With `d2` seeded from the "rows minus one" script
+    // word, the worker hibernates one frame and re-runs `sub_14A58` exactly
+    // once per additional row after the first.
+    sprite_rows_minus_one
+}
+
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;

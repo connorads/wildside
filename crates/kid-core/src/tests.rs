@@ -20583,6 +20583,20 @@ fn loc_147d6_uses_the_padded_camera_window_before_building_sprite_rows() {
 }
 
 #[test]
+fn loc_14804_hibernates_once_per_additional_sprite_row_after_the_first() {
+    assert_eq!(
+        crate::weather::lava_geyser_inter_row_hibernations_loc_14804(0),
+        0,
+        "ASM loc_14804 sits on the `dbf d2,loc_14804` back-edge, so a one-row geyser should not take any inter-row hibernation/collision step before the loc_1480C tail path"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_inter_row_hibernations_loc_14804(3),
+        3,
+        "ASM loc_14804 should hibernate one frame and re-run `sub_14A58` exactly once per extra sprite row after the first when `d2` starts at the script's rows-minus-one count"
+    );
+}
+
+#[test]
 fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
