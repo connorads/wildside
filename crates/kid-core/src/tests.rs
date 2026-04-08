@@ -30364,7 +30364,7 @@ fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_94
         }
     }
 
-    // ASM loc_1B9B2 counts `move.w #$21B,d0` down with `dbf` before the
+    // ASM loc_1B9B6 counts `move.w #$21B,d0` down with `dbf` before the
     // `move.w #$24,(Game_Mode).w` hand-off, so the timeout-restart path must
     // still be in intro sequence 4 across the old frame-9435 frontier.
     assert_eq!(
@@ -30375,7 +30375,7 @@ fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_94
     assert_eq!(
         frame_9435,
         Some((GameMode::IntroSequence4, 0x0004_0000)),
-        "frame 9435 should stay in intro sequence 4 because loc_1B9B2 has not timed out yet",
+        "frame 9435 should stay in intro sequence 4 because loc_1B9B6 has not timed out yet",
     );
     assert_eq!(
         frame_9436,
@@ -30409,7 +30409,7 @@ fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_98
     }
 
     // ASM Load_IntroSequence4 allocates the `sub_1B988` worker, and only that
-    // worker reaches loc_1B9B2's `move.w #$21B,d0` / `dbf` timeout loop. The
+    // worker reaches loc_1B9B6's `move.w #$21B,d0` / `dbf` timeout loop. The
     // timeout-restart path therefore cannot count from the frame where
     // `Game_Mode=$20` first becomes visible; oracle still shows intro
     // sequence 4 across the old frame-9895 frontier.
@@ -30421,12 +30421,12 @@ fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_98
     assert_eq!(
         frame_9895,
         Some((GameMode::IntroSequence4, 0x0004_0000)),
-        "frame 9895 should remain in intro sequence 4 because loc_1B9B2 started after the delayed sub_1B988 dispatch",
+        "frame 9895 should remain in intro sequence 4 because loc_1B9B6 started after the delayed sub_1B988 dispatch",
     );
     assert_eq!(
         frame_9896,
         Some((GameMode::IntroSequence4, 0x0004_0000)),
-        "frame 9896 should still be in intro sequence 4 until the delayed loc_1B9B2 loop actually expires",
+        "frame 9896 should still be in intro sequence 4 until the delayed loc_1B9B6 loop actually expires",
     );
 }
 
@@ -30456,13 +30456,13 @@ fn published_tas_second_timeout_restart_carries_camera_into_intro_sequence_5_on_
 
     // ASM sub_1B988 stores `#loc_1B9B2,$44(a5)` and immediately calls
     // sub_1C204, whose `addi.w #$10,($FFFFF876).w` / `cmpi.w #$100` fade loop
-    // delays the later `loc_1B9B2` DBF countdown. Once loc_1B9B2 finally
+    // delays the later `loc_1B9B6` DBF countdown. Once loc_1B9B6 finally
     // flips `Game_Mode=$24`, the carried `Camera_Y_pos=4` still survives into
     // intro sequence 5.
     assert_eq!(
         frame_9948,
         Some((GameMode::IntroSequence4, 0x0004_0000)),
-        "frame 9948 should still be intro sequence 4 while sub_1C204's delayed loc_1B9B2 timeout finishes",
+        "frame 9948 should still be intro sequence 4 while sub_1C204's delayed loc_1B9B6 timeout finishes",
     );
     assert_eq!(
         frame_9949,

@@ -89,14 +89,14 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES: usize =
 // ($FFFFF876).w`, `cmpi.w #$100,($FFFFF876).w`, so the fade helper idles for
 // 17 frames before it finally dispatches `$44(a5)` to loc_1B9B2.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_FADE_FRAMES: usize = 17;
-// ASM sub_1B988 / sub_1C204 / loc_1B9B2 do not start the
+// ASM sub_1B988 / sub_1C204 / loc_1B9B6 do not start the
 // `move.w #$21B,d0` / `dbf` countdown until the delayed `sub_1B988` worker
 // reaches the end of the 17-frame fade helper. On the timeout-restart path
 // oracle keeps the carried intro-sequence-3 pose alive for 27 frames,
 // exposes the `Camera_Y_pos=4` hand-off on frame 9392, idles inside
 // `sub_1C204`, then holds `Game_Mode=$20` for the full `0x21C`-frame
-// `loc_1B9B2` loop after that dispatch. Native therefore needs the camera
-// hand-off delay, the `sub_1C204` fade delay, and the `loc_1B9B2` loop
+// `loc_1B9B6` loop after that dispatch. Native therefore needs the camera
+// hand-off delay, the `sub_1C204` fade delay, and the `loc_1B9B6` loop
 // length; counting only from the visible camera hand-off exits 17 frames too
 // early.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FOURTH_SEGMENT_FRAMES: usize =

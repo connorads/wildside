@@ -211,7 +211,7 @@ pub struct NativeRuntime {
     /// Its direct title return is still Start-driven; the natural timeout
     /// path continues through the later intro sequences.
     demo_auto_timeout_intro_sequence_3_frames_override: Option<usize>,
-    /// ASM sub_1B988 / loc_1B9B2 hibernate intro sequence 4 for `#$21B+1`
+    /// ASM sub_1B988 / loc_1B9B6 hibernate intro sequence 4 for `#$21B+1`
     /// frames before exposing intro sequence 5 on the timeout-restart path.
     demo_auto_timeout_intro_sequence_4_frames_override: Option<usize>,
     /// ASM loc_1BA28 / sub_1C204 / loc_1BA5C keep timeout-restart intro
