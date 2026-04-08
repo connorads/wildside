@@ -1047,6 +1047,18 @@ pub(crate) fn lava_geyser_top_sprite_window_loc_14874(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_top_sprite_script_loc_148CE(sprite_frame_within_row: u8) -> &'static str {
+    // ASM loc_148CE (kid.asm:27959): when `$4C(a5)` is non-zero the geyser uses
+    // `dword_14636` for the top sprite-row template; zero keeps `unk_14624`.
+    if sprite_frame_within_row == 0 {
+        "unk_14624"
+    } else {
+        "dword_14636"
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one: u16) -> u16 {
     // ASM loc_14804 (kid.asm:27876): the `dbf d2,loc_14804` back-edge runs only
     // between sprite rows. With `d2` seeded from the "rows minus one" script

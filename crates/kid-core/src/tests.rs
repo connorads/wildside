@@ -20701,6 +20701,20 @@ fn loc_14874_unbiases_the_current_row_and_distinguishes_skip_top_from_full_cull(
 }
 
 #[test]
+fn loc_148ce_switches_top_sprite_scripts_once_the_row_animation_flag_is_non_zero() {
+    assert_eq!(
+        crate::weather::lava_geyser_top_sprite_script_loc_148CE(0),
+        "unk_14624",
+        "ASM loc_148CE should leave `d7 = unk_14624` when `$4C(a5)` is still zero"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_top_sprite_script_loc_148CE(1),
+        "dword_14636",
+        "ASM loc_148CE should switch to `dword_14636` once `$4C(a5)` becomes non-zero"
+    );
+}
+
+#[test]
 fn loc_14804_hibernates_once_per_additional_sprite_row_after_the_first() {
     assert_eq!(
         crate::weather::lava_geyser_inter_row_hibernations_loc_14804(0),
