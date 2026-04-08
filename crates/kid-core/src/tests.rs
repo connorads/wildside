@@ -43542,6 +43542,34 @@ fn loc_138f6_copies_the_later_fixed_five_byte_tail_and_finishes_at_or_beyond_d7(
 }
 
 #[test]
+fn loc_139f2_copies_the_fixed_five_byte_tail_and_finishes_at_or_beyond_d7() {
+    assert_eq!(
+        crate::level::decompress_long_ref_tail_loc_139F2(
+            [0x10, 0x20, 0x30, 0x40, 0x50],
+            0x0104,
+            0x0105
+        ),
+        crate::level::DecompressLongRefTailLoc1377E {
+            copied_bytes: [0x10, 0x20, 0x30, 0x40, 0x50],
+            finished: false,
+        },
+        "ASM loc_139F2 should copy five bytes through `loc_139F4` and the `loc_139F6` fallthrough before checking the output limit"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_tail_loc_139F2(
+            [0x60, 0x70, 0x80, 0x90, 0xA0],
+            0x0105,
+            0x0105
+        ),
+        crate::level::DecompressLongRefTailLoc1377E {
+            copied_bytes: [0x60, 0x70, 0x80, 0x90, 0xA0],
+            finished: true,
+        },
+        "ASM loc_139F2 should branch to `loc_13A1A` once the post-tail output cursor reaches or passes `d7`"
+    );
+}
+
+#[test]
 fn loc_1387a_copies_the_later_four_byte_tail_and_finishes_at_or_beyond_d7() {
     assert_eq!(
         crate::level::decompress_long_ref_tail_loc_1387A([0x20, 0x30, 0x40, 0x50], 0x0104, 0x0105),
