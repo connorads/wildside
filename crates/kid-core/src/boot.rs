@@ -833,6 +833,22 @@ pub(crate) fn intro_sequence_1_player_title_sprite_loc_1ADEA(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn intro_sequence_1_left_title_sprite_step_loc_1AE10(
+    current_x_pos: i16,
+    target_x_pos: i16,
+) -> i16 {
+    // ASM loc_1AE10 (kid.asm:29044): each loop iteration hibernates for one
+    // frame, compares `x_pos(a3)` against `d0`, and only runs `addi.w #4` on
+    // the left title sprite while it still sits short of the `$60` target.
+    if current_x_pos == target_x_pos {
+        current_x_pos
+    } else {
+        current_x_pos.wrapping_add(4)
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
     decoded_words: &[u16],
     d2: i16,
@@ -3146,6 +3162,20 @@ mod tests {
         assert_eq!(player_1.vram_tile, 0x0409);
         assert_eq!(player_1.target_x_pos, 0x0160);
         assert_eq!(player_1.target_y_pos, 0x00C8);
+    }
+
+    #[test]
+    fn loc_1ae10_moves_the_left_intro_sequence_1_title_sprite_4px_until_x60() {
+        assert_eq!(
+            intro_sequence_1_left_title_sprite_step_loc_1AE10(-0x0030, 0x0060),
+            -0x002C,
+            "ASM loc_1AE10 runs `addi.w #4,x_pos(a3)` whenever the left title sprite has not yet reached `d0=$60`",
+        );
+        assert_eq!(
+            intro_sequence_1_left_title_sprite_step_loc_1AE10(0x0060, 0x0060),
+            0x0060,
+            "ASM loc_1AE10 branches straight to loc_1AE20 once `cmp.w x_pos(a3),d0` sees the target already reached",
+        );
     }
 
     #[test]
