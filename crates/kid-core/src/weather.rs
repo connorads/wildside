@@ -362,6 +362,47 @@ pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StormSharedArtAssetLoc14D8A {
+    ArtComp9A7D2,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct StormSlotFillSetupLoc14D8A {
+    pub(crate) loop_count: u16,
+    pub(crate) falling_slot_sentinel: u32,
+    pub(crate) falling_slot_y_word: u16,
+    pub(crate) impact_slot_sentinel: u32,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct StormInitSetupLoc14D8A {
+    pub(crate) art_asset: StormSharedArtAssetLoc14D8A,
+    pub(crate) art_vram_word: u16,
+    pub(crate) fill_setup: StormSlotFillSetupLoc14D8A,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn initialise_storm_setup_loc_14D8A() -> StormInitSetupLoc14D8A {
+    // ASM loc_14D8A (kid.asm:28423-28433): load the shared `LnkTo_ArtComp_9A7D2`
+    // weather art, decompress it to VRAM word `$76A0`, then seed the later
+    // `loc_14DAC` fill loop with `d0=#4`, `d2=#$100`, and `d1=#$FFFF_FFFF`.
+    StormInitSetupLoc14D8A {
+        art_asset: StormSharedArtAssetLoc14D8A::ArtComp9A7D2,
+        art_vram_word: 0x76A0,
+        fill_setup: StormSlotFillSetupLoc14D8A {
+            loop_count: 4,
+            falling_slot_sentinel: 0xFFFF_FFFF,
+            falling_slot_y_word: 0x0100,
+            impact_slot_sentinel: 0xFFFF_FFFF,
+        },
+    }
+}
+
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
     CopyPaletteBufferToBuffer2,

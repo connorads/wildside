@@ -19876,6 +19876,24 @@ fn loc_14d32_programs_vram_6000_and_repeats_each_four_longword_storm_group_with_
 }
 
 #[test]
+fn loc_14d8a_selects_the_shared_weather_art_and_seeds_the_later_slot_fill_loop() {
+    assert_eq!(
+        crate::weather::initialise_storm_setup_loc_14D8A(),
+        crate::weather::StormInitSetupLoc14D8A {
+            art_asset: crate::weather::StormSharedArtAssetLoc14D8A::ArtComp9A7D2,
+            art_vram_word: 0x76A0,
+            fill_setup: crate::weather::StormSlotFillSetupLoc14D8A {
+                loop_count: 4,
+                falling_slot_sentinel: 0xFFFF_FFFF,
+                falling_slot_y_word: 0x0100,
+                impact_slot_sentinel: 0xFFFF_FFFF,
+            },
+        },
+        "ASM loc_14D8A should decompress `LnkTo_ArtComp_9A7D2` to `$76A0` and seed the later loc_14DAC loop with `d0=#4`, `d2=#$100`, and `d1=#$FFFF_FFFF`"
+    );
+}
+
+#[test]
 fn sub_6048_before_20_seconds_only_sets_weather_mode_byte() {
     let stepped = step_level_special_effects_sub_6048(
         WeatherSpecialEffectsStepSub6048 {
