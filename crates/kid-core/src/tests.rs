@@ -44489,3 +44489,23 @@ fn loc_144e_walks_each_linked_gfx_object_until_the_null_tail() {
         "ASM loc_144E should move to the linked worker, run the shared move/animate pair, and keep following `0(a3)` until the tail link is zero"
     );
 }
+
+#[test]
+fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
+    assert_eq!(
+        crate::level::indoor_rubber_block_source_words_loc_14506(
+            &[0x0123, 0x4567, 0x89AB, 0xCDEF],
+            0,
+        ),
+        vec![0x0123],
+        "ASM loc_14506 should still process one source word through `sub_14582` when `d2` starts at zero because the `move.w (a0)+,d0` happens before `dbf` reaches `-1`"
+    );
+    assert_eq!(
+        crate::level::indoor_rubber_block_source_words_loc_14506(
+            &[0x0123, 0x4567, 0x89AB, 0xCDEF, 0x2468],
+            3,
+        ),
+        vec![0x0123, 0x4567, 0x89AB, 0xCDEF],
+        "ASM loc_14506 seeds `d2=#3`, so the rubber-block setup should read exactly four source words before the loop falls through to `moveq #$1F,d2` at loc_14512"
+    );
+}

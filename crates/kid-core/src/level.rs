@@ -1187,6 +1187,23 @@ pub(crate) fn decompress_to_ram_buffer_rollover_loc_14430(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn indoor_rubber_block_source_words_loc_14506(
+    mapping_words: &[u16],
+    dbf_counter: u16,
+) -> Vec<u16> {
+    // ASM loc_14506 (kid.asm:27371-27374) reads one source word from `(a0)+`,
+    // calls `sub_14582` to expand that tile into the scratch buffer, then
+    // `dbf d2,loc_14506` repeats inclusively. With the `moveq #3,d2` setup in
+    // `sub_144DA`, the loop consumes exactly four source words.
+    mapping_words
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
