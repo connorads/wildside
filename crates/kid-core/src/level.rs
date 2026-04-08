@@ -908,6 +908,23 @@ pub(crate) fn decompress_to_vram_word_transfer_loc_14314(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_to_vram_buffer_rollover_loc_1432C(
+    buffered_longwords: &[u32],
+    dbf_counter: u16,
+) -> Vec<u32> {
+    // ASM loc_1432C (kid.asm:27174-27175) reseeds `a2` to
+    // `Decompression_Buffer`, `a4` to `Decompression_Buffer+$800`, loads
+    // `d3 = #$1FF`, then copies one longword from `(a4)+` to `(a2)+` before
+    // each `dbf d3,loc_1432C` test. That makes the rollover move exactly
+    // `d3+1` longwords, so the second `$800` bytes slide down over the first.
+    buffered_longwords
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .collect()
+}
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
