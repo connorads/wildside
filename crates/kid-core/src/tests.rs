@@ -42578,6 +42578,26 @@ fn loc_134ba_writes_the_ffff_terminator_and_rewinds_to_the_decompression_buffer(
 }
 
 #[test]
+fn loc_14300_points_a6_at_vdp_data_and_converts_the_buffer_span_into_an_inclusive_dbf_count() {
+    assert_eq!(
+        crate::level::decompress_to_vram_chunk_setup_loc_14300(0xFFFF_77B2, 0xFFFF_77B4),
+        crate::level::DecompressToVramChunkSetupLoc14300 {
+            vdp_data_port_addr: 0x00C0_0000,
+            word_dbf_counter: 0,
+        },
+        "ASM loc_14300 should aim `a6` at `$C00000` and seed `d3=0` when `Decompress_Chunk` advances `a2` by one word, so `loc_14314` still performs one VRAM write before `dbf` reaches `-1`"
+    );
+    assert_eq!(
+        crate::level::decompress_to_vram_chunk_setup_loc_14300(0xFFFF_77B2, 0xFFFF_77B8),
+        crate::level::DecompressToVramChunkSetupLoc14300 {
+            vdp_data_port_addr: 0x00C0_0000,
+            word_dbf_counter: 2,
+        },
+        "ASM loc_14300 should subtract `a4` from the post-chunk `a2`, divide the emitted byte span by two with `lsr.w #1,d3`, and then `subq.w #1,d3` so a 6-byte chunk becomes an inclusive three-word `dbf` run"
+    );
+}
+
+#[test]
 fn loc_13504_masks_the_dbf_count_selects_the_jump_table_arm_and_refills_only_below_nine_bits() {
     assert_eq!(
         block_layout_dispatch_loc_13504(0x0065, 6, 0x0010),

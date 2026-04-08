@@ -317,6 +317,12 @@ pub(crate) struct BlockLayoutTerminateLoc134BA {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressToVramChunkSetupLoc14300 {
+    pub(crate) vdp_data_port_addr: u32,
+    pub(crate) word_dbf_counter: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutEntryWordsLoc133F0 {
     pub(crate) x_pos: u16,
     pub(crate) y_row: u16,
@@ -861,6 +867,25 @@ pub(crate) fn block_layout_terminate_loc_134BA() -> BlockLayoutTerminateLoc134BA
     BlockLayoutTerminateLoc134BA {
         end_marker: 0xFFFF,
         output_addr: 0xFFFF_77B2,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_to_vram_chunk_setup_loc_14300(
+    buffer_start_addr: u32,
+    buffer_end_addr: u32,
+) -> DecompressToVramChunkSetupLoc14300 {
+    // ASM loc_14300 (kid.asm:27152-27162) snapshots the current
+    // `Decompression_Buffer` cursor with `move.l a2,a4`, calls
+    // `Decompress_Chunk`, points `a6` at VDP data port `$C00000`, then turns
+    // the emitted byte span `(a2-a4)` into the inclusive `dbf d3,loc_14314`
+    // word counter via `lsr.w #1,d3` followed by `subq.w #1,d3`.
+    let emitted_word_count = buffer_end_addr.wrapping_sub(buffer_start_addr) >> 1;
+
+    DecompressToVramChunkSetupLoc14300 {
+        vdp_data_port_addr: 0x00C0_0000,
+        word_dbf_counter: emitted_word_count.wrapping_sub(1) as u16,
     }
 }
 
