@@ -405,6 +405,57 @@ fn loc_1c0a4_streams_15_words_per_row_to_vdp_for_8_rows() {
 }
 
 #[test]
+fn loc_1c0be_streams_16_words_per_row_to_vdp_for_2_rows() {
+    let result = crate::boot::intro_tile_upload_vram_dma_group_2_loc_1C0BE();
+    assert_eq!(
+        result.words_per_row, 16,
+        "ASM loc_1C0BE runs `d6+1` iterations where `moveq #$F,d6` sets d6=15, giving 16 words per row"
+    );
+    assert_eq!(
+        result.vram_address_step, 0x0080_0000,
+        "ASM loc_1C0BE advances VRAM address by `$800000` = 2048 bytes per row via `addi.l #$800000,d0`"
+    );
+    assert_eq!(
+        result.row_count, 2,
+        "ASM loc_1C0BE outer loop runs `d7+1` iterations where `moveq #1,d7` sets d7=1, giving 2 total rows"
+    );
+}
+
+#[test]
+fn loc_1c0d6_streams_15_words_per_row_to_vdp_for_15_rows_with_stride() {
+    let result = crate::boot::intro_tile_upload_vram_dma_group_3_loc_1C0D6();
+    assert_eq!(
+        result.words_per_row, 15,
+        "ASM loc_1C0D6 runs `d6+1` iterations where `moveq #$E,d6` sets d6=14, giving 15 words per row"
+    );
+    assert_eq!(
+        result.vram_address_step, 0x0080_0000,
+        "ASM loc_1C0D6 advances VRAM address by `$800000` = 2048 bytes per row via `addi.l #$800000,d0`"
+    );
+    assert_eq!(
+        result.row_count, 15,
+        "ASM loc_1C0D6 outer loop runs `d7+1` iterations where `moveq #$E,d7` sets d7=14, giving 15 total rows"
+    );
+    assert_eq!(
+        result.stride_padding_bytes, 2,
+        "ASM loc_1C0D6 executes `addq.w #2,a0` after each row to skip 2 bytes of padding between rows"
+    );
+}
+
+#[test]
+fn loc_1c11e_zero_fills_90_words_in_decompression_buffer() {
+    let result = crate::boot::intro_decompression_buffer_zero_fill_loc_1C11E();
+    assert_eq!(
+        result.word_count, 90,
+        "ASM loc_1C11E runs `d0+1` iterations where `move.w #$59,d0` sets d0=89, giving 90 words total"
+    );
+    assert_eq!(
+        result.fill_value, 0,
+        "ASM loc_1C11E fills with zero via `moveq #0,d1` before the `move.w d1,(a0)+` loop"
+    );
+}
+
+#[test]
 fn gfx_object_predecessor_index_sub_ff6_returns_none_when_loc_1004_walks_to_a_null_link() {
     let next_indices = [
         Some(1), // sentinel -> first live node

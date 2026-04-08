@@ -1565,6 +1565,84 @@ pub(crate) fn intro_tile_upload_vram_dma_loop_loc_1C0A4() -> IntroTileUploadVram
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTileUploadVramDmaGroup2Loc1C0BE {
+    pub(crate) words_per_row: u16,
+    pub(crate) vram_address_step: u32,
+    pub(crate) row_count: u8,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_tile_upload_vram_dma_group_2_loc_1C0BE() -> IntroTileUploadVramDmaGroup2Loc1C0BE
+{
+    // ASM sub_1C034 -> loc_1C0BE (kid.asm:30901-30905): second VRAM DMA group
+    // after the 8-row initial upload at loc_1C09E. The outer loop sets d7=1
+    // via `moveq #1,d7` before loc_1C0B8, so this group runs 2 iterations.
+    // Each iteration writes 16 words (d6=$F via `moveq #$F,d6`) to the VDP
+    // data port via `move.w (a0)+,(a6)`. Between rows, `addi.l #$800000,d0`
+    // advances the VRAM write address by $800 = 2048 bytes. The VDP command
+    // register write at `4(a6)` before each row sets destination from d0.
+    IntroTileUploadVramDmaGroup2Loc1C0BE {
+        words_per_row: 0x0F + 1,
+        vram_address_step: 0x0080_0000,
+        row_count: 0x01 + 1,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTileUploadVramDmaGroup3Loc1C0D6 {
+    pub(crate) words_per_row: u16,
+    pub(crate) vram_address_step: u32,
+    pub(crate) row_count: u8,
+    pub(crate) stride_padding_bytes: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_tile_upload_vram_dma_group_3_loc_1C0D6() -> IntroTileUploadVramDmaGroup3Loc1C0D6
+{
+    // ASM sub_1C034 -> loc_1C0D6 (kid.asm:30912-30917): third VRAM DMA group
+    // after the 2-row group at loc_1C0B8. The outer loop sets d7=14 via
+    // `moveq #$E,d7` before loc_1C0D0, so this group runs 15 iterations.
+    // Each iteration writes 15 words (d6=$E via `moveq #$E,d6`) to the VDP
+    // data port via `move.w (a0)+,(a6)`. Unlike groups 1 and 2, this group
+    // executes `addq.w #2,a0` after each row to skip 2 bytes of padding.
+    // `addi.l #$800000,d0` still advances VRAM address by $800 per row.
+    IntroTileUploadVramDmaGroup3Loc1C0D6 {
+        words_per_row: 0x0E + 1,
+        vram_address_step: 0x0080_0000,
+        row_count: 0x0E + 1,
+        stride_padding_bytes: 0x0002,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroDecompressionBufferZeroFillLoc1C11E {
+    pub(crate) word_count: u16,
+    pub(crate) fill_value: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_decompression_buffer_zero_fill_loc_1C11E()
+-> IntroDecompressionBufferZeroFillLoc1C11E {
+    // ASM sub_1C112 -> loc_1C11E (kid.asm:30948-30950): zero-fills the
+    // Decompression_Buffer area before the general VDP upload at loc_1C104.
+    // The routine sets `d0=$59` (90-1 for loop count) via `move.w #$59,d0` and
+    // `d1=0` via `moveq #0,d1` before entering the loop. Each iteration does
+    // `move.w d1,(a0)+` to write a zero word and advance the pointer. The loop
+    // runs `d0+1` = 90 iterations, zeroing 180 bytes. Target address is
+    // Decompression_Buffer at `$FFFF0000`.
+    IntroDecompressionBufferZeroFillLoc1C11E {
+        word_count: 0x0059 + 1,
+        fill_value: 0x0000,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextKidSetupLoc1B5E4 {
     pub(crate) palette_line: u8,
