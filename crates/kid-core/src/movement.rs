@@ -1327,6 +1327,13 @@ fn level_entry_title_random_y(rng: &mut RomRandomState) -> i32 {
     if value <= 0 {
         value += 0x28;
     }
+    level_entry_title_random_y_snap_loc_1acf8(value)
+}
+
+fn level_entry_title_random_y_snap_loc_1acf8(value: i32) -> i32 {
+    // ASM loc_1ACF8 (kid.asm:28951-28952) clears the low two bits after the
+    // shared loc_1ACEA bias step so the vertical-entry Y positions land on
+    // 4px boundaries before moving into `d6`.
     value & !3
 }
 
@@ -3964,7 +3971,8 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
 mod tests {
     use super::{
         level_entry_title_advance_x, level_entry_title_deferred_number_indices_loc_1ABF4,
-        level_entry_title_right_edge_x_loc_1ace0, level_entry_title_space_token_x_loc_1ABEA,
+        level_entry_title_random_y_snap_loc_1acf8, level_entry_title_right_edge_x_loc_1ace0,
+        level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
         level_entry_title_top_edge_y_loc_1ace6,
     };
@@ -4075,6 +4083,20 @@ mod tests {
             level_entry_title_top_edge_y_loc_1ace6(),
             -0x20,
             "ASM loc_1ACE6 should seed `d5=$FFE0` before the shared loc_1ACEA random-Y branch resumes",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_random_y_snap_loc_1acf8_clears_low_two_bits() {
+        assert_eq!(
+            level_entry_title_random_y_snap_loc_1acf8(0x11),
+            0x10,
+            "ASM loc_1ACF8 should clear the low two bits after the shared bias step so positive Y entries land on 4px boundaries",
+        );
+        assert_eq!(
+            level_entry_title_random_y_snap_loc_1acf8(0x07),
+            0x04,
+            "ASM loc_1ACF8 should apply the same 4px snap after the non-positive loc_1ACEA path adds `#$28`",
         );
     }
 
