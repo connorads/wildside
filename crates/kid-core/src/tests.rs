@@ -93,9 +93,9 @@ use crate::level::{
     scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
     select_background_art_permutation_loc_11E96, select_foreground_art_permutation_loc_11E48,
     select_foreground_art_permutation_loc_11E54, shared_vram_art_decompresses_loc_11EFA,
-    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
-    step_island_palette_cycle_lower_band_loc_12188, step_island_palette_cycle_mid_band_loc_12110,
-    step_island_palette_cycle_primary_band_loc_12098,
+    should_process_fg_update_queue_cell_loc_15D2, spawn_block_debris_sub_292E,
+    step_fullscreen_palette_fade_sub_73D0, step_island_palette_cycle_lower_band_loc_12188,
+    step_island_palette_cycle_mid_band_loc_12110, step_island_palette_cycle_primary_band_loc_12098,
     swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
@@ -2471,6 +2471,30 @@ fn loc_1534_clears_the_second_half_pending_mask_before_the_blend_returns() {
     assert_eq!(
         palette_buffer[0x20], 0x068A,
         "ASM loc_1534 clears the pending mask without cancelling the fallthrough, so the selected second-half palette word should still be blended by sub_1536"
+    );
+}
+
+#[test]
+fn loc_15d2_only_enters_the_cell_queue_path_for_non_zero_non_sentinel_next_slots() {
+    const FG_PLANE_UPDATE_QUEUE_CELL_LOW_WORD: u16 = 0x1234;
+
+    assert!(
+        !should_process_fg_update_queue_cell_loc_15D2(0, FG_PLANE_UPDATE_QUEUE_CELL_LOW_WORD),
+        "ASM loc_15D2 should branch straight to `loc_1686` when `FGUpdateQueueCell_NextSlot` is zero"
+    );
+    assert!(
+        !should_process_fg_update_queue_cell_loc_15D2(
+            0xFFFF_1234,
+            FG_PLANE_UPDATE_QUEUE_CELL_LOW_WORD,
+        ),
+        "ASM loc_15D2 uses `cmpi.w #FGPlane_UpdateQueueCell,d0`, so the queue-base sentinel should also skip the cell-drain path even when the high word is non-zero"
+    );
+    assert!(
+        should_process_fg_update_queue_cell_loc_15D2(
+            0xFFFF_1240,
+            FG_PLANE_UPDATE_QUEUE_CELL_LOW_WORD
+        ),
+        "ASM loc_15D2 should enter the cell-queue worker once the next-slot pointer advances past the base sentinel"
     );
 }
 

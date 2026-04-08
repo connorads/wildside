@@ -6947,6 +6947,19 @@ pub(crate) fn apply_pending_palette_fade_sub_14C0(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn should_process_fg_update_queue_cell_loc_15D2(
+    next_slot: u32,
+    fg_plane_update_queue_cell_addr: u16,
+) -> bool {
+    // ASM loc_15D2 (kid.asm:2717): the cell-queue half of sub_1596 only runs
+    // when `FGUpdateQueueCell_NextSlot` is non-zero and its low word differs
+    // from `FGPlane_UpdateQueueCell`; zero or the queue-base sentinel both
+    // branch straight to `loc_1686`.
+    next_slot != 0 && (next_slot as u16) != fg_plane_update_queue_cell_addr
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn drain_fg_update_queue_custom_sub_1596(
     pending_queue: &mut Option<Vec<FgUpdateQueueCustomEntrySub1596>>,
 ) -> Vec<FgPlaneCustomWriteSub1596> {
