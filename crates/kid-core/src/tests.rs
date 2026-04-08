@@ -21140,6 +21140,30 @@ fn loc_14c5e_selects_usm2_black_pit_and_fallback_tables_from_resource_level_ids(
 }
 
 #[test]
+fn loc_14c6a_decodes_each_geyser_entrys_height_and_startup_delay() {
+    assert_eq!(
+        crate::weather::initialise_lava_geyser_loc_14C6A(0x0240, 0x0312, 0x0063),
+        crate::weather::LavaGeyserInitLoc14C6A {
+            x_px: 0x0240,
+            y_px: 0x0312,
+            height_px: 0x0006,
+            startup_delay_frames: 30,
+        },
+        "ASM loc_14C6A should copy the table's X/Y words through unchanged, use the high bits of the encoded height word for sprite height, and leave the low nibble for loc_14772's startup delay"
+    );
+    assert_eq!(
+        crate::weather::initialise_lava_geyser_loc_14C6A(0x0090, 0x0330, 0x0260),
+        crate::weather::LavaGeyserInitLoc14C6A {
+            x_px: 0x0090,
+            y_px: 0x0330,
+            height_px: 0x0026,
+            startup_delay_frames: 0,
+        },
+        "ASM loc_14C6A should preserve the fallback table's taller geyser entries while keeping a zero low nibble as an immediate-start eruption"
+    );
+}
+
+#[test]
 fn init_lava_geysers_resource_level_0_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);

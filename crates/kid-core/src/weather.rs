@@ -1583,6 +1583,15 @@ pub(crate) enum LavaGeyserPositionTableLoc14C5E {
     Other,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserInitLoc14C6A {
+    pub(crate) x_px: u16,
+    pub(crate) y_px: u16,
+    pub(crate) height_px: u16,
+    pub(crate) startup_delay_frames: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_position_table_loc_14C5E(
@@ -1596,6 +1605,25 @@ pub(crate) fn lava_geyser_position_table_loc_14C5E(
         0 => LavaGeyserPositionTableLoc14C5E::Usm2,
         2 | 4 => LavaGeyserPositionTableLoc14C5E::BlackPit,
         _ => LavaGeyserPositionTableLoc14C5E::Other,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn initialise_lava_geyser_loc_14C6A(
+    x_px: u16,
+    y_px: u16,
+    encoded_height_word: u16,
+) -> LavaGeyserInitLoc14C6A {
+    // ASM loc_14C6A (kid.asm:28312): each loop iteration allocates one geyser
+    // worker, copies the table's longword into `$16(a0)` as `(x,y)`, copies
+    // the encoded height word into `$1A(a0)`, and leaves the worker to decode
+    // `height >> 4` plus the low-nibble startup delay later at `loc_14772`.
+    LavaGeyserInitLoc14C6A {
+        x_px,
+        y_px,
+        height_px: encoded_height_word >> 4,
+        startup_delay_frames: lava_geyser_initial_delay_frames_loc_14772(encoded_height_word),
     }
 }
 
@@ -1733,12 +1761,13 @@ impl NativeRuntime {
         };
 
         for &(x, y, h) in positions {
+            let geyser = initialise_lava_geyser_loc_14C6A(x, y, h);
             self.weather.lava_geysers.push(LavaGeyser {
-                x_px: x,
-                y_px: y,
-                height_px: h >> 4,
+                x_px: geyser.x_px,
+                y_px: geyser.y_px,
+                height_px: geyser.height_px,
                 phase: 0,
-                timer: lava_geyser_initial_delay_frames_loc_14772(h),
+                timer: geyser.startup_delay_frames,
                 current_height: 0,
             });
         }
