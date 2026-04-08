@@ -26493,6 +26493,25 @@ fn loc_11d0c_selects_the_theme_mapping_entry_and_splits_the_enemy_layout_pointer
 }
 
 #[test]
+fn loc_1421e_adjusts_each_10_byte_custom_write_entry_for_inserted_blank_top_rows() {
+    assert_eq!(
+        crate::level::adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_1421E(
+            &[
+                [0x0120, 0x0014, 0x0003, 0xE407, 0xE408],
+                [0x0280, 0x0030, 0x0008, 0xE40A, 0xE40B],
+            ],
+            2,
+            0x0040,
+        ),
+        vec![
+            [0x01A0, 0x0014, 0x0005, 0xE407, 0xE408],
+            [0x0300, 0x0030, 0x000A, 0xE40A, 0xE40B],
+        ],
+        "ASM loc_1421E should add `Number_blank_top_rows * Level_width_tiles` to word 0 and `Number_blank_top_rows` to word 2 of each 10-byte custom-write entry, leaving the other words untouched"
+    );
+}
+
+#[test]
 fn loc_11d42_only_enables_the_block_priority_mask_when_f896_is_non_zero() {
     assert_eq!(
         crate::level::block_mapping_or_mask_loc_11D42(false),
