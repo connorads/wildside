@@ -30200,9 +30200,9 @@ fn published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_fr
         }
     }
 
-    // ASM sub_1B93E / loc_1B96A keep polling the Start-gated sub_1C246 path
-    // while the roster still points at the second Load_IntroSequence3 visit;
-    // oracle frame 9312 still exposes the same visible pose at $70,$CC.
+    // ASM loc_1B96E keeps polling the Start-gated sub_1C246 path while the
+    // roster still points at the second Load_IntroSequence3 visit; oracle
+    // frame 9312 still exposes the same visible pose at $70,$CC.
     assert_eq!(
         frame_9311,
         Some((
@@ -30219,7 +30219,7 @@ fn published_tas_second_timeout_restart_intro_sequence_3_visit_matches_oracle_fr
             Some(0x0070_0000),
             Some(0x00CC_0000),
         )),
-        "oracle frame 9312 is still inside loc_1B96A with the second roster pose alive; native must not time out into intro sequence 4 yet",
+        "oracle frame 9312 is still inside loc_1B96E with the second roster pose alive; native must not time out into intro sequence 4 yet",
     );
     assert_eq!(
         frame_9354,

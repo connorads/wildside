@@ -69,9 +69,9 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIRST_SEGMENT_FRAMES: usize = 361;
 // sequence 2 alive through frame 5952 and only expose `game_mode=0x001C` on
 // frame 5953, so this restart path cannot reuse the shared 80-frame timer.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_SECOND_SEGMENT_FRAMES: usize = 449;
-// ASM sub_1B93E / loc_1B96A keep the timeout-restart copy of intro sequence 3
-// polling the Start-gated sub_1C246 return until the natural timeout hands off
-// to `Game_Mode=$20`. Oracle-backed published TAS traces keep the second visit
+// ASM loc_1B96E keeps the timeout-restart copy of intro sequence 3 polling
+// the Start-gated sub_1C246 return until the natural timeout hand-off reaches
+// `Game_Mode=$20`. Oracle-backed published TAS traces keep the second visit
 // alive through frame 9354 and only expose intro sequence 4 on frame 9355, so
 // the native boot-state model needs a 299-frame local timer here rather than
 // the earlier 256-frame approximation.
