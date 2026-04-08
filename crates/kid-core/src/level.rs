@@ -1316,6 +1316,23 @@ pub(crate) fn indoor_rubber_block_repack_rows_loc_14538(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn indoor_rubber_block_upload_vram_rows_loc_1456E(
+    buffered_longwords: &[u32],
+    dbf_counter: u16,
+) -> Vec<u32> {
+    // ASM loc_1456E (kid.asm:27416-27417) copies one longword from `(a0)+`
+    // into the VDP data port at `(a6)` before each inclusive `dbf d0,loc_1456E`.
+    // After `moveq #$3F,d0`, the upload therefore pushes 64 longwords from the
+    // scratch area at `$FFFF78B2`.
+    buffered_longwords
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,

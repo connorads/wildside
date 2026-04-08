@@ -44605,3 +44605,22 @@ fn loc_14538_repacks_dbf_counter_plus_one_longword_rows_with_the_inner_nibble_me
         "ASM loc_14538 reloads `d1=#7` for each outer iteration, so `d0=#1` should repack two longword rows before the loop falls through to `move.l #vdpComm($5E60,VRAM,WRITE),4(a6)`"
     );
 }
+
+#[test]
+fn loc_1456e_uploads_dbf_counter_plus_one_longwords_to_vram() {
+    assert_eq!(
+        crate::level::indoor_rubber_block_upload_vram_rows_loc_1456E(
+            &[0x1122_3344, 0x5566_7788],
+            0,
+        ),
+        vec![0x1122_3344],
+        "ASM loc_1456E should still upload one longword from `(a0)+` to `(a6)` when `d0` starts at zero because the store happens before `dbf` reaches `-1`"
+    );
+
+    let source_rows: Vec<u32> = (0..64).map(|index| 0x2000_0000u32 + index).collect();
+    assert_eq!(
+        crate::level::indoor_rubber_block_upload_vram_rows_loc_1456E(&source_rows, 0x3F),
+        source_rows,
+        "ASM loc_1456E seeds `d0=#$3F`, so the indoor rubber-block upload should push exactly 64 scratch longwords into VRAM before `rts`"
+    );
+}
