@@ -5484,6 +5484,33 @@ pub(crate) fn load_title_card_bottom_padding_row_width_loc_19C02() -> u16 {
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_title_card_bottom_padding_loc_19C04(
+    title_card_height_tiles: u16,
+) -> Option<TitleCardTopPaddingLoc19BC2> {
+    // ASM loc_19C04 (kid.asm:28716-28718): after the art rows finish, the
+    // routine seeds `d5 = $1C - d1 - d6 - 1`, reloads `d4=#$3F` via
+    // `loc_19C02`, and writes `#$2FB` once per inclusive `dbf d4,loc_19C04`
+    // before the outer `dbf d5,loc_19C02`. Because `d6` is the top-padding
+    // row count from `lsr.w #1`, this emits the remaining
+    // `0x1C - height_tiles - top_padding_rows` full 64-word rows at the
+    // bottom. A full-height title card leaves the outer seed negative
+    // immediately and skips the loop.
+    let top_padding_rows = 0x001Cu16.checked_sub(title_card_height_tiles)? >> 1;
+    let used_rows = title_card_height_tiles.checked_add(top_padding_rows)?;
+    let bottom_padding_rows = 0x001Cu16.checked_sub(used_rows)?;
+    if bottom_padding_rows == 0 {
+        None
+    } else {
+        Some(TitleCardTopPaddingLoc19BC2 {
+            fill_word: 0x02FB,
+            words_per_row: load_title_card_bottom_padding_row_width_loc_19C02(),
+            row_count: bottom_padding_rows,
+        })
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,

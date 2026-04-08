@@ -45949,6 +45949,24 @@ fn loc_19c02_reloads_the_bottom_padding_row_width_to_64_words() {
 }
 
 #[test]
+fn loc_19c04_fills_the_remaining_bottom_rows_with_full_width_02fb_padding() {
+    assert_eq!(
+        crate::level::load_title_card_bottom_padding_loc_19C04(0x0012),
+        Some(crate::level::TitleCardTopPaddingLoc19BC2 {
+            fill_word: 0x02FB,
+            words_per_row: 64,
+            row_count: 5,
+        }),
+        "ASM loc_19C04 should emit the remaining `0x1C - d1 - d6` full rows of `$02FB` padding after the art rows, so a 18-tile title card leaves five bottom-padding rows once `d6=5` consumed the top half"
+    );
+    assert_eq!(
+        crate::level::load_title_card_bottom_padding_loc_19C04(0x001C),
+        None,
+        "ASM loc_19C04 should skip the outer bottom-padding loop when `d5 = 0x1C - d1 - d6 - 1` goes negative immediately, which happens for a full-height title card"
+    );
+}
+
+#[test]
 fn loc_1462_reloads_the_samurai_haze_walk_from_the_gfx_head_pointer() {
     assert_eq!(
         crate::movement::gfx_object_head_under_samurai_haze_loc_1462(None),
