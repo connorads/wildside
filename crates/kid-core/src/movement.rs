@@ -249,6 +249,27 @@ pub(crate) fn gfx_object_delete_special_predecessor_index_loc_111A(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_move_and_animate_loc_144E(
+    first_gfx_object_index: Option<usize>,
+    next_indices: &[Option<usize>],
+) -> Vec<usize> {
+    // ASM loc_144E (kid.asm:2518-2523): load the current link from `0(a3)`,
+    // return immediately when the sentinel head points at zero, otherwise move
+    // `a3` to that worker, call `GfxObject_Move` and `GfxObject_Animate`, then
+    // branch back to `loc_144E` and repeat until the next link is null.
+    let mut visited_indices = Vec::new();
+    let mut current = first_gfx_object_index;
+
+    while let Some(index) = current {
+        visited_indices.push(index);
+        current = next_indices[index];
+    }
+
+    visited_indices
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_predecessor_index_sub_FF6(
     next_indices: &[Option<usize>],
     target_index: usize,

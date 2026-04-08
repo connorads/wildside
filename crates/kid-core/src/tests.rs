@@ -44475,3 +44475,17 @@ fn loc_12c34_loads_hitpoint_display_art_into_vram_45a0() {
         "ASM loc_12C34 seeds `d0=#1F`, so `dbf d0,loc_12C34` copies 32 longwords"
     );
 }
+
+#[test]
+fn loc_144e_walks_each_linked_gfx_object_until_the_null_tail() {
+    assert_eq!(
+        crate::movement::gfx_objects_move_and_animate_loc_144E(None, &[Some(1), Some(2), None]),
+        Vec::<usize>::new(),
+        "ASM loc_144E should return immediately when `(Addr_FirstGfxObjectSlot).w` is null before either `GfxObject_Move` or `GfxObject_Animate` can run"
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_move_and_animate_loc_144E(Some(1), &[Some(1), Some(2), None]),
+        vec![1, 2],
+        "ASM loc_144E should move to the linked worker, run the shared move/animate pair, and keep following `0(a3)` until the tail link is zero"
+    );
+}
