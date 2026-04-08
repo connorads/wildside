@@ -1221,6 +1221,22 @@ pub(crate) fn indoor_rubber_block_buffer_copy_loc_14512(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn indoor_rubber_block_vram_walk_loc_1451E(
+    start_vram_tile: u16,
+    dbf_counter: u16,
+) -> Vec<u16> {
+    // ASM loc_1451E (kid.asm:27383-27386) copies the current VRAM tile from
+    // `d3` into `d0`, calls `sub_14582`, increments `d3`, then lets the
+    // inclusive `dbf d2,loc_1451E` loop keep walking one tile at a time. With
+    // `moveq #7,d2`, the rubber-block upload visits eight consecutive tiles.
+    let iterations = usize::from(dbf_counter) + 1;
+    (0..iterations)
+        .map(|step| start_vram_tile.wrapping_add(u16::try_from(step).unwrap_or(u16::MAX)))
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,

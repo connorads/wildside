@@ -44529,3 +44529,19 @@ fn loc_14512_copies_dbf_counter_plus_one_longwords_back_into_the_rubber_block_bu
         "ASM loc_14512 should copy exactly `d2+1` longwords before the loop falls through to `moveq #7,d2` for the later VRAM-address walk at loc_1451E"
     );
 }
+
+#[test]
+fn loc_1451e_walks_dbf_counter_plus_one_consecutive_vram_tiles() {
+    assert_eq!(
+        crate::level::indoor_rubber_block_vram_walk_loc_1451E(0x026E, 0),
+        vec![0x026E],
+        "ASM loc_1451E should still visit the starting rubber-block tile when `d2` starts at zero because `move.w d3,d0` and `sub_14582` happen before `dbf` reaches `-1`"
+    );
+    assert_eq!(
+        crate::level::indoor_rubber_block_vram_walk_loc_1451E(0x026E, 7),
+        vec![
+            0x026E, 0x026F, 0x0270, 0x0271, 0x0272, 0x0273, 0x0274, 0x0275
+        ],
+        "ASM loc_1451E seeds `d2=#7`, so the indoor rubber-block upload should walk eight consecutive VRAM tiles before the loop falls through to `moveq #$3F,d0` at loc_14538"
+    );
+}
