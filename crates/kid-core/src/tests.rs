@@ -42798,6 +42798,24 @@ fn loc_1376a_routes_the_second_aa_bit_into_copy5_quit_flush_or_variable_length()
 }
 
 #[test]
+fn loc_13778_copies_dbf_counter_plus_one_prefix_bytes_before_the_fixed_tail() {
+    assert_eq!(
+        crate::level::decompress_long_ref_loop_loc_13778(&[0x9A, 0xBC, 0xDE], 0),
+        crate::level::DecompressLongRefLoopLoc13778 {
+            copied_bytes: vec![0x9A],
+        },
+        "ASM loc_13778 should still copy one byte when `d0` starts at zero because the store happens before `dbf` checks for `-1`"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_loop_loc_13778(&[0x12, 0x34, 0x56, 0x78], 2),
+        crate::level::DecompressLongRefLoopLoc13778 {
+            copied_bytes: vec![0x12, 0x34, 0x56],
+        },
+        "ASM loc_13778 should emit exactly `d0+1` bytes from the back-reference stream before control falls through to `loc_1377E`"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);

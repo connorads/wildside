@@ -135,6 +135,11 @@ pub(crate) enum DecompressLongRefExtendedLoc1376A {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DecompressLongRefLoopLoc13778 {
+    pub(crate) copied_bytes: Vec<u8>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
@@ -1242,6 +1247,24 @@ pub(crate) fn decompress_long_ref_extended_loc_1376A(
     DecompressLongRefExtendedLoc1376A::VariableLength {
         total_copy_len: length_byte,
         dbf_counter: u16::from(length_byte - 6),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_loop_loc_13778(
+    source_bytes: &[u8],
+    dbf_counter: u16,
+) -> DecompressLongRefLoopLoc13778 {
+    // ASM loc_13778 (kid.asm:26297-26299) copies one byte from `(a6)+` to
+    // `(a2)+` before each `dbf d0,loc_13778` check, so the loop emits exactly
+    // `d0+1` bytes from the variable-length long-reference prefix.
+    DecompressLongRefLoopLoc13778 {
+        copied_bytes: source_bytes
+            .iter()
+            .copied()
+            .take(usize::from(dbf_counter) + 1)
+            .collect(),
     }
 }
 
