@@ -19894,6 +19894,26 @@ fn loc_14d8a_selects_the_shared_weather_art_and_seeds_the_later_slot_fill_loop()
 }
 
 #[test]
+fn loc_14df6_streams_dbf_counter_plus_one_eight_longword_bursts_to_vram() {
+    let source_longwords: Vec<u32> = (0..24).map(|index| 0x9000_0000u32 + index).collect();
+
+    assert_eq!(
+        crate::weather::upload_special_effect_unknown_art_loc_14DF6(&source_longwords, 0),
+        crate::weather::SpecialEffectUnknownArtUploadLoc14DF6 {
+            written_longwords: source_longwords[..8].to_vec(),
+        },
+        "ASM loc_14DF6 should still stream one eight-longword burst when `d0` starts at zero because the eight `move.l (a0)+,(a6)` stores happen before `dbf` reaches `-1`"
+    );
+    assert_eq!(
+        crate::weather::upload_special_effect_unknown_art_loc_14DF6(&source_longwords, 2),
+        crate::weather::SpecialEffectUnknownArtUploadLoc14DF6 {
+            written_longwords: source_longwords[..24].to_vec(),
+        },
+        "ASM loc_14DF6 should stream exactly `(d0+1) * 8` longwords to the VDP data port because each inclusive `dbf` iteration copies eight consecutive source longwords before the branch check"
+    );
+}
+
+#[test]
 fn loc_14dac_clears_five_weather_slots_and_seeds_the_post_loop_worker_state() {
     let stepped = crate::weather::initialise_storm_slots_loc_14DAC(
         crate::weather::StormSlotFillSetupLoc14D8A {

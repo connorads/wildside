@@ -462,6 +462,29 @@ pub(crate) fn initialise_storm_slots_loc_14DAC(
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SpecialEffectUnknownArtUploadLoc14DF6 {
+    pub(crate) written_longwords: Vec<u32>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn upload_special_effect_unknown_art_loc_14DF6(
+    source_longwords: &[u32],
+    dbf_counter: u16,
+) -> SpecialEffectUnknownArtUploadLoc14DF6 {
+    // ASM loc_14DF6 (kid.asm:28458-28465): after `move.w (a0)+,d0` and
+    // `subq.w #1,d0`, each inclusive `dbf d0,loc_14DF6` iteration streams
+    // eight consecutive longwords from `(a0)+` to the VDP data port.
+    let burst_count = usize::from(dbf_counter) + 1;
+    let longword_count = burst_count * 8;
+
+    SpecialEffectUnknownArtUploadLoc14DF6 {
+        written_longwords: source_longwords[..longword_count].to_vec(),
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
     CopyPaletteBufferToBuffer2,
     CopyPaletteBufferToBuffer3,
