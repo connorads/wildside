@@ -42816,6 +42816,34 @@ fn loc_13778_copies_dbf_counter_plus_one_prefix_bytes_before_the_fixed_tail() {
 }
 
 #[test]
+fn loc_1377e_copies_the_fixed_five_byte_tail_and_finishes_at_or_beyond_d7() {
+    assert_eq!(
+        crate::level::decompress_long_ref_tail_loc_1377E(
+            [0x10, 0x20, 0x30, 0x40, 0x50],
+            0x0104,
+            0x0105
+        ),
+        crate::level::DecompressLongRefTailLoc1377E {
+            copied_bytes: [0x10, 0x20, 0x30, 0x40, 0x50],
+            finished: false,
+        },
+        "ASM loc_1377E should always copy five bytes through the `loc_13780` and `loc_13782` fallthrough before checking the output limit"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_tail_loc_1377E(
+            [0x60, 0x70, 0x80, 0x90, 0xA0],
+            0x0105,
+            0x0105
+        ),
+        crate::level::DecompressLongRefTailLoc1377E {
+            copied_bytes: [0x60, 0x70, 0x80, 0x90, 0xA0],
+            finished: true,
+        },
+        "ASM loc_1377E should branch to `loc_137A6` once the post-tail output cursor reaches or passes `d7`"
+    );
+}
+
+#[test]
 fn loc_12e6c_skips_palette_uploads_once_start_is_newly_pressed() {
     let immediate_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x80]);
     let delayed_start = crate::boot::sega_screen_start_poll_loc_12E6C(&[0x00, 0x00, 0x80]);

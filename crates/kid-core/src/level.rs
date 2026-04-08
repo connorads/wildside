@@ -141,6 +141,12 @@ pub(crate) struct DecompressLongRefLoopLoc13778 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressLongRefTailLoc1377E {
+    pub(crate) copied_bytes: [u8; 5],
+    pub(crate) finished: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -1265,6 +1271,22 @@ pub(crate) fn decompress_long_ref_loop_loc_13778(
             .copied()
             .take(usize::from(dbf_counter) + 1)
             .collect(),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_tail_loc_1377E(
+    copied_bytes: [u8; 5],
+    output_addr_after_tail: u16,
+    output_limit_addr: u16,
+) -> DecompressLongRefTailLoc1377E {
+    // ASM loc_1377E (kid.asm:26301-26308) falls through `loc_13780` and
+    // `loc_13782`, so once control lands here the decompressor always copies
+    // exactly five trailing bytes before the closing `cmp.w a2,d7`.
+    DecompressLongRefTailLoc1377E {
+        copied_bytes,
+        finished: output_addr_after_tail >= output_limit_addr,
     }
 }
 
