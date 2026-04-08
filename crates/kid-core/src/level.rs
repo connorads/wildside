@@ -115,6 +115,12 @@ pub(crate) struct DecompressToVramSpecialChunkSetupLoc14366 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressToVramSpecialReturnLoc143B2 {
+    pub(crate) restored_input_addr: u32,
+    pub(crate) vdp_data_port_addr: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DecompressDirectCopyLoc137AE {
     pub(crate) copied_byte: u8,
 }
@@ -1042,6 +1048,20 @@ pub(crate) fn decompress_to_vram_special_buffer_rollover_loc_143AA(
         .copied()
         .take(usize::from(dbf_counter) + 1)
         .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_to_vram_special_return_loc_143B2(
+    saved_input_addr: u32,
+) -> DecompressToVramSpecialReturnLoc143B2 {
+    // ASM loc_143B2 (kid.asm:27248-27250) pops the caller's saved `a1` back
+    // from the stack slot that `DecompressToVRAM_Special` pushed on entry, then
+    // restores `a6` to the fixed VDP data port `$C00000` before returning.
+    DecompressToVramSpecialReturnLoc143B2 {
+        restored_input_addr: saved_input_addr,
+        vdp_data_port_addr: 0x00C0_0000,
+    }
 }
 
 #[allow(non_snake_case)]
