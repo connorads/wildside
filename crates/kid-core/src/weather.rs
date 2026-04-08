@@ -793,6 +793,15 @@ pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {
     "unk_146B6"
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_repeat_sound_loc_1478E(sound_suppressed: bool) -> Option<&'static str> {
+    // ASM loc_1478E (kid.asm:27830): the repeat-cycle path plays
+    // `sfx_Lava_Geyser` only when `$19(a3)` is clear; non-zero skips the sound
+    // call and falls straight through to the steady-state script at loc_1479C.
+    (!sound_suppressed).then_some("sfx_Lava_Geyser")
+}
+
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;

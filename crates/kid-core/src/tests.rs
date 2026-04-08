@@ -20492,6 +20492,20 @@ fn loc_14788_points_the_first_lava_geyser_eruption_at_the_startup_script() {
 }
 
 #[test]
+fn loc_1478e_only_plays_the_repeat_lava_geyser_sound_when_the_flag_is_clear() {
+    assert_eq!(
+        crate::weather::lava_geyser_repeat_sound_loc_1478E(false),
+        Some("sfx_Lava_Geyser"),
+        "ASM loc_1478E should queue `sfx_Lava_Geyser` when `$19(a3)` is zero on repeat eruptions"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_repeat_sound_loc_1478E(true),
+        None,
+        "ASM loc_1478E should skip the repeat sound when `$19(a3)` is non-zero"
+    );
+}
+
+#[test]
 fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
