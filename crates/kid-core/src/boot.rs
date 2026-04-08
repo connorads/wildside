@@ -1579,6 +1579,9 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
         let row_base = 0x0480_u16
             .checked_add(horizontal_offset_words.saturating_mul(2))?
             .checked_add(u16::try_from(row_index).ok()?.saturating_mul(64))?;
+        // ASM loc_1B780 / loc_1B79A: positive `d4` first writes filler tile
+        // `$00BC` one cell to the left, while zero `d4` falls through to the
+        // plain `move.l d0,4(a6)` path with no filler write at all.
         rows.push(TitleTextChameleonRowWriteSub1B71A {
             vram_word_address: row_base,
             filler_word: (horizontal_offset_words != 0).then_some(0x00BC),
@@ -4456,6 +4459,24 @@ mod tests {
             upload.rows[1].words.len(),
             29,
             "ASM loc_1B76C only applies while `d7==6`, so later rows keep the full 29-word width"
+        );
+    }
+
+    #[test]
+    fn loc_1b79a_writes_the_row_base_directly_once_the_blank_lead_in_is_gone() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let upload = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 5, 0x0000).expect(
+            "ASM loc_1B79A should still upload once the reveal reaches the first visible column",
+        );
+
+        assert_eq!(
+            upload.rows[0].vram_word_address, 0x0480,
+            "ASM loc_1B79A falls through to `move.l d0,4(a6)` with `d4=0`, so the top row should use the unclipped `$0480` base address"
+        );
+        assert_eq!(
+            upload.rows[0].filler_word, None,
+            "ASM loc_1B79A is the no-filler branch after `tst.w d4; beq.s loc_1B79A`"
         );
     }
 
