@@ -811,6 +811,35 @@ pub(crate) fn lava_geyser_repeat_script_loc_1479C() -> &'static str {
     "unk_146A0"
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserFullHeightStateLoc147A0 {
+    pub(crate) x_px: u16,
+    pub(crate) y_px: u16,
+    pub(crate) hold_frames: u16,
+    pub(crate) sprite_top_y_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn initialise_lava_geyser_full_height_state_loc_147A0(
+    biased_x_px: u16,
+    biased_y_px: u16,
+) -> LavaGeyserFullHeightStateLoc147A0 {
+    // ASM loc_147A0 (kid.asm:27839): `$44/$46(a5)` already include the VDP's
+    // `$80` sprite bias, so the worker subtracts `$80` back out before seeding
+    // `d0/d1`, stores the fixed `$1E` full-height timer in `$50(a5)`, and
+    // initialises `$54(a5)` from that unbiased base Y row.
+    let x_px = biased_x_px.saturating_sub(0x80);
+    let y_px = biased_y_px.saturating_sub(0x80);
+    LavaGeyserFullHeightStateLoc147A0 {
+        x_px,
+        y_px,
+        hold_frames: 0x1E,
+        sprite_top_y_px: y_px,
+    }
+}
+
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;

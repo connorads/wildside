@@ -20515,6 +20515,18 @@ fn loc_1479c_points_repeat_lava_geyser_loops_at_the_steady_state_script() {
 }
 
 #[test]
+fn loc_147a0_removes_the_vdp_bias_and_seeds_the_full_height_timer() {
+    let state = crate::weather::initialise_lava_geyser_full_height_state_loc_147A0(0x0200, 0x0392);
+    assert_eq!(state.x_px, 0x0180);
+    assert_eq!(state.y_px, 0x0312);
+    assert_eq!(state.hold_frames, 0x001E);
+    assert_eq!(
+        state.sprite_top_y_px, 0x0312,
+        "ASM loc_147A0 should subtract the shared `$80` sprite bias from `$44/$46(a5)`, set `$50(a5) = $1E`, and seed `$54(a5)` from the unbiased base Y row"
+    );
+}
+
+#[test]
 fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
