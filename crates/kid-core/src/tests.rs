@@ -30475,6 +30475,61 @@ fn loc_1be88_positions_center_particle_based_on_fc82() {
 }
 
 #[test]
+fn loc_1bf02_sets_sprite_offset_and_loop_counter_from_fc82_variant() {
+    let variant_0 =
+        crate::movement::intro_sequence_5_sprite_offset_loc_1BF02("LnkTo_unk_E10B6-Data_Index");
+    let variant_1 =
+        crate::movement::intro_sequence_5_sprite_offset_loc_1BF02("LnkTo_unk_E10C6-Data_Index");
+    let variant_2 =
+        crate::movement::intro_sequence_5_sprite_offset_loc_1BF02("LnkTo_unk_E10BE-Data_Index");
+
+    assert_eq!(
+        variant_0.addroffset_sprite, 0x0F16,
+        "ASM loc_1BF02 (kid.asm:30723) should set addroffset_sprite from LnkTo_unk_E10B6 when FC82 == 0"
+    );
+    assert_eq!(
+        variant_1.addroffset_sprite, 0x0F1E,
+        "ASM loc_1BF02 should set addroffset_sprite from LnkTo_unk_E10C6 when FC82 == 1"
+    );
+    assert_eq!(
+        variant_2.addroffset_sprite, 0x0F26,
+        "ASM loc_1BF02 should set addroffset_sprite from LnkTo_unk_E10BE when FC82 >= 2"
+    );
+    assert_eq!(
+        variant_0.hibernate_loop_count, 0x001C,
+        "ASM loc_1BF02 (kid.asm:30725) should init d0 to $1C = 28 iterations"
+    );
+}
+
+#[test]
+fn loc_1bf0a_hibernate_loop_accumulates_y_vel_for_28_frames() {
+    let loop_params = crate::movement::intro_sequence_5_hibernate_loop_loc_1BF0A();
+
+    assert_eq!(
+        loop_params.iterations, 0x001C,
+        "ASM loc_1BF0A (kid.asm:30727) should loop $1C = 28 times seeded from d0"
+    );
+    assert_eq!(
+        loop_params.y_vel_delta_per_frame, 0x0000_9000,
+        "ASM loc_1BF0A (kid.asm:30729) should add #$9000 to y_vel each iteration"
+    );
+    assert!(
+        !loop_params.is_moved_after_loop,
+        "ASM loc_1BF0A+sf (kid.asm:30731) should clear is_moved with sf after DBF expires"
+    );
+}
+
+#[test]
+fn loc_1bf1e_is_infinite_hibernate_terminal_state() {
+    let is_terminal = crate::movement::intro_sequence_5_hibernate_forever_loc_1BF1E();
+
+    assert!(
+        is_terminal,
+        "ASM loc_1BF1E (kid.asm:30733-30735) is an infinite hibernate loop marking terminal state"
+    );
+}
+
+#[test]
 fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit() {
     let (_, script) = cached_any_percent_published_runtime_and_script();
     let first_visit_start_frames = (6_204..=6_211)

@@ -292,6 +292,65 @@ pub(crate) fn intro_sequence_5_center_particle_loc_1BE88(
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence5SpriteOffsetLoc1BF02 {
+    pub(crate) addroffset_sprite: u16,
+    pub(crate) hibernate_loop_count: u16,
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn intro_sequence_5_sprite_offset_loc_1BF02(
+    sprite_label: &'static str,
+) -> IntroSequence5SpriteOffsetLoc1BF02 {
+    // ASM loc_1BF02 (kid.asm:30723-30725): After FC82-variant-specific sprite
+    // label selection, write the chosen mapping offset to addroffset_sprite(a3)
+    // and seed the $1C counter for the loc_1BF0A hibernate loop.
+    // d0 holds one of the LnkTo_unk_E10B6/E10BE/E10C6 mapping indices.
+    let addroffset_sprite = match sprite_label {
+        "LnkTo_unk_E10B6-Data_Index" => 0x0F16,
+        "LnkTo_unk_E10C6-Data_Index" => 0x0F1E,
+        _ => 0x0F26, // LnkTo_unk_E10BE-Data_Index
+    };
+    IntroSequence5SpriteOffsetLoc1BF02 {
+        addroffset_sprite,
+        hibernate_loop_count: 0x001C, // $1C = 28 iterations
+    }
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence5HibernateLoopLoc1BF0A {
+    pub(crate) iterations: u16,
+    pub(crate) y_vel_delta_per_frame: i32,
+    pub(crate) is_moved_after_loop: bool,
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn intro_sequence_5_hibernate_loop_loc_1BF0A() -> IntroSequence5HibernateLoopLoc1BF0A {
+    // ASM loc_1BF0A (kid.asm:30727-30730): Hibernate for one frame, add $9000
+    // to y_vel each iteration, repeat d0 times (d0 seeded as $1C at loc_1BF02).
+    // After DBF expires: sf is_moved(a3) clears the movement flag.
+    // Total y_vel change: 28 * $9000 = $F4000 = ~15.25 pixels in 16.16 fixed-point.
+    IntroSequence5HibernateLoopLoc1BF0A {
+        iterations: 0x001C,
+        y_vel_delta_per_frame: 0x0000_9000,
+        is_moved_after_loop: false,
+    }
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn intro_sequence_5_hibernate_forever_loc_1BF1E() -> bool {
+    // ASM loc_1BF1E (kid.asm:30733-30735): Infinite hibernate loop after the
+    // velocity-accumulation phase clears is_moved. The object stays alive but
+    // never moves again - `jsr (j_Hibernate_Object_1Frame).w; bra.s loc_1BF1E`.
+    // This is the terminal state for intro sequence 5 center particles.
+    true
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsGlyphInitSub1D786 {
     pub(crate) raw_allocation_spec: u32,
     pub(crate) display_enabled: bool,
