@@ -19718,6 +19718,20 @@ fn loc_14cce_selects_hail_art_only_for_ice_backgrounds() {
 }
 
 #[test]
+fn loc_14d82_writes_the_same_saved_rain_palette_pointer_for_storm_and_storm_hail() {
+    assert_eq!(
+        crate::weather::select_saved_storm_palette_loc_14D82(2),
+        crate::weather::StormSavedPaletteAssetLoc14D82::RainPalette7B85C,
+        "ASM loc_14D82 should keep `($FFFFFADE).w` pointed at `LnkTo_Pal_7B85C` on the direct rain branch"
+    );
+    assert_eq!(
+        crate::weather::select_saved_storm_palette_loc_14D82(3),
+        crate::weather::StormSavedPaletteAssetLoc14D82::RainPalette7B85C,
+        "ASM loc_14D82's hail fallthrough should still write the same `LnkTo_Pal_7B85C` pointer before branching to loc_14D8A"
+    );
+}
+
+#[test]
 fn loc_14cd8_uploads_the_selected_storm_art_to_vram_7000() {
     assert_eq!(
         crate::weather::upload_storm_art_loc_14CD8(crate::weather::StormArtAssetLoc14CCE::Rain),

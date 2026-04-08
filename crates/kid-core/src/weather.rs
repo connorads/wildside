@@ -208,6 +208,28 @@ pub(crate) enum StormPaletteAssetLoc14CEC {
     Hail,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StormSavedPaletteAssetLoc14D82 {
+    RainPalette7B85C,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn select_saved_storm_palette_loc_14D82(
+    level_special_effects: u16,
+) -> StormSavedPaletteAssetLoc14D82 {
+    // ASM loc_14D82 (kid.asm:28420-28423): `cmpi.w #2,(Level_Special_Effects).w`
+    // branches to the label for rain, but both the branch target and the
+    // fallthrough write the same `LnkTo_Pal_7B85C` pointer into `($FFFFFADE).w`.
+    debug_assert!(
+        matches!(level_special_effects, 2 | 3),
+        "loc_14D82 is only reached for storm weather"
+    );
+    let _ = level_special_effects;
+    StormSavedPaletteAssetLoc14D82::RainPalette7B85C
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn select_storm_palette_loc_14CEC(
