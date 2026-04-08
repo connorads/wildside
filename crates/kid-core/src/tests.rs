@@ -26544,6 +26544,25 @@ fn loc_14228_adjusts_only_the_prefix_selected_by_the_dbf_entry_count() {
 }
 
 #[test]
+fn loc_14236_adjusts_each_8_byte_hidden_background_entry_for_inserted_blank_top_rows() {
+    assert_eq!(
+        crate::level::adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_14236(
+            &[
+                [0x0120, 0x0014, 0x0003, 0xFF00],
+                [0x0280, 0x0030, 0x0008, 0xFF01],
+            ],
+            2,
+            0x0040,
+        ),
+        vec![
+            [0x01A0, 0x0014, 0x0005, 0xFF00],
+            [0x0300, 0x0030, 0x000A, 0xFF01],
+        ],
+        "ASM loc_14236 should add `Number_blank_top_rows * Level_width_tiles` to word 0 and `Number_blank_top_rows` to word 2 of each 8-byte `($FFFFF8EC).w` entry, leaving the other words untouched"
+    );
+}
+
+#[test]
 fn loc_11d42_only_enables_the_block_priority_mask_when_f896_is_non_zero() {
     assert_eq!(
         crate::level::block_mapping_or_mask_loc_11D42(false),
