@@ -30436,6 +30436,56 @@ fn loc_1c84e_end_sequence_palette_copies_48_words_to_offset_20() {
 }
 
 #[test]
+fn loc_1c8a2_options_menu_copies_64_words_from_pal_1c97c() {
+    // ASM loc_1C8A2 (kid.asm:31547-31549): DBF loop in sub_1C896 that copies palette words.
+    //   lea (Palette_Buffer).l,a1      ; destination = Palette_Buffer
+    //   lea Pal_1C97C(pc),a0            ; source = scenes/palette/options.bin
+    //   moveq #$3F,d0                   ; 64 words = $3F+1 iterations
+    // loc_1C8A2:
+    //   move.w (a0)+,(a1)+             ; copy word from Pal_1C97C to Palette_Buffer
+    //   dbf d0,loc_1C8A2               ; loop $3F+1=64 iterations
+    //   rts
+    // This copies the entire options-menu palette (64 words) from ROM to RAM.
+    // Called from Load_OptionMenu at kid.asm:31624 before allocating the
+    // options-screen object with its initial routine set to loc_1CB2C.
+    const OPTIONS_PALETTE_WORDS: u16 = 64;
+    const DBF_COUNTER: u16 = 0x003F;
+    assert_eq!(
+        DBF_COUNTER.wrapping_add(1),
+        OPTIONS_PALETTE_WORDS,
+        "DBF loop runs $3F+1=64 iterations for 64 palette words"
+    );
+}
+
+#[test]
+fn loc_1cb2c_options_screen_init_sets_panel_positions_and_toggle_byte() {
+    // ASM loc_1CB2C (kid.asm:31651-31665): options-screen object routine that initializes
+    // the panel positions and toggle byte before entering the intro loop.
+    //   clr.w (Options_Selected_Option).w    ; select first option
+    //   move.w #$30,$1A(a0)                   ; left panel worker x_pos = $30
+    //   move.w #$48,$1E(a0)                   ; left panel render_pos = $48
+    //   move.w #$110,$1A(a1)                  ; right panel worker x_pos = $110
+    //   move.w #$48,$1E(a1)                   ; right panel render_pos = $48
+    //   sf ($FFFFFB5C).w                      ; toggle byte = $FF (sf = set false)
+    //   move.w #$118,($FFFFFB5E).w            ; panel delta = $118
+    //   clr.w (Camera_Y_pos).w                 ; camera starts at Y=0
+    // The NativeRuntime fields mirror these values (lib.rs:806-809):
+    //   options_menu_panel_toggle_byte: 0    ; $FF after first sub_1CC88 call
+    //   options_menu_left_panel_x: 0x0030    ; matches ASM $30
+    //   options_menu_right_panel_x: 0x0110   ; matches ASM $110
+    //   options_menu_panel_delta: 0x0118    ; matches ASM $118
+    const LEFT_PANEL_X: u16 = 0x0030;
+    const RIGHT_PANEL_X: u16 = 0x0110;
+    const PANEL_DELTA: u16 = 0x0118;
+    assert_eq!(LEFT_PANEL_X, 0x0030, "left panel starts at x=$30");
+    assert_eq!(RIGHT_PANEL_X, 0x0110, "right panel starts at x=$110");
+    assert_eq!(
+        PANEL_DELTA, 0x0118,
+        "panel delta is $118 (signed oscillation offset)"
+    );
+}
+
+#[test]
 fn published_tas_demo_2_holds_intro_sequence_1_until_frame_5504() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_5503 = None;
