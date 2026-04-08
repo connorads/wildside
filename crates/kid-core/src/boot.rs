@@ -1643,6 +1643,50 @@ pub(crate) fn intro_decompression_buffer_zero_fill_loc_1C11E()
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VdpPatternFillRowLoopLoc1C5E8 {
+    pub(crate) vram_address_step: u32,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn vdp_pattern_fill_row_loop_loc_1C5E8() -> VdpPatternFillRowLoopLoc1C5E8 {
+    // ASM sub_1C5D0 -> loc_1C5E8 (kid.asm:31353-31356): outer loop of the VDP
+    // pattern fill routine called from multiple intro/end screen initialization
+    // functions. Each iteration:
+    // 1. Copies the current row counter from d6 to d1 (inner loop counter)
+    // 2. Writes d0.long to VDP control port 4(a6) setting VRAM write address
+    // 3. Advances d0 by $800000 (2048 bytes = VSRAM row stride)
+    // Called at lines 29295, 29404, 30197, 30438, 30790, 30936 with varying
+    // dimensions. Initial d0 = ((y << 7) + (x << 1)) | $4000 << 16.
+    VdpPatternFillRowLoopLoc1C5E8 {
+        vram_address_step: 0x0080_0000,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VdpPatternFillWordLoopLoc1C5F4 {
+    pub(crate) source_register: &'static str,
+    pub(crate) dest_register: &'static str,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn vdp_pattern_fill_word_loop_loc_1C5F4() -> VdpPatternFillWordLoopLoc1C5F4 {
+    // ASM sub_1C5D0 -> loc_1C5F4 (kid.asm:31358-31360): inner DBF loop that copies
+    // one row of pattern data from source buffer to VDP data port. Each iteration
+    // does `move.w (a4)+,(a6)` copying a word while advancing the source pointer.
+    // The loop runs d1+1 times where d1 was set from d6 (row height in words).
+    // After filling one row, control returns to loc_1C5E8 which advances to the
+    // next VRAM address row.
+    VdpPatternFillWordLoopLoc1C5F4 {
+        source_register: "a4",
+        dest_register: "a6",
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextKidSetupLoc1B5E4 {
     pub(crate) palette_line: u8,
@@ -4151,6 +4195,55 @@ mod tests {
         assert_eq!(
             right.moving_frames, 0x0042,
             "ASM loc_1C5BE also slides the right sprite for 66 hibernated frames before the infinite idle loop",
+        );
+    }
+
+    #[test]
+    fn loc_1_c5_ca_is_the_infinite_idle_loop_after_sliding() {
+        // ASM loc_1C5CA (kid.asm:31332-31334): after `loc_1C5BE` completes the
+        // 66-frame slide, the sprite enters an infinite idle state:
+        //   loc_1C5CA:
+        //     jsr (j_Hibernate_Object_1Frame).w
+        //     bra.s loc_1C5CA
+        // This is a terminal state - the sprite hibernates forever and never
+        // moves again. Both left and right sliding title sprites reach this
+        // state after their movement completes.
+        let [left, right] = title_menu_sliding_sprites_sub_1C572();
+        assert_eq!(left.moving_frames, 0x0042);
+        assert_eq!(right.moving_frames, 0x0042);
+    }
+
+    #[test]
+    fn loc_1_c5_e8_is_the_vdp_pattern_fill_row_loop() {
+        // ASM sub_1C5D0 -> loc_1C5E8 (kid.asm:31353-31356): outer loop that sets
+        // VRAM write address for each row in the pattern fill routine. Called from
+        // intro/end screen initialization at lines 29295, 29404, 30197, 30438,
+        // 30790, 30936. Each iteration:
+        // 1. Copies d6 (row height in words) to d1 for inner loop counter
+        // 2. Writes d0.long to VDP control port 4(a6) setting VRAM write address
+        // 3. Adds $800000 to d0 advancing VRAM by 2048 bytes (VSRAM stride)
+        let row_loop = vdp_pattern_fill_row_loop_loc_1C5E8();
+        assert_eq!(
+            row_loop.vram_address_step, 0x0080_0000,
+            "ASM loc_1C5E8 adds `#$800000` to the VRAM address between rows, advancing by 2048 bytes",
+        );
+    }
+
+    #[test]
+    fn loc_1_c5_f4_is_the_vdp_pattern_fill_word_loop() {
+        // ASM sub_1C5D0 -> loc_1C5F4 (kid.asm:31358-31360): inner DBF loop that
+        // copies one row of pattern data to VDP. Each iteration does
+        // `move.w (a4)+,(a6)` copying a word from source buffer (a4) to VDP data
+        // port (a6). The loop runs d1+1 times where d1 is the row height in words.
+        // After this row completes, control returns to loc_1C5E8 for the next row.
+        let word_loop = vdp_pattern_fill_word_loop_loc_1C5F4();
+        assert_eq!(
+            word_loop.source_register, "a4",
+            "ASM loc_1C5F4 reads from source buffer via `(a4)+`",
+        );
+        assert_eq!(
+            word_loop.dest_register, "a6",
+            "ASM loc_1C5F4 writes to VDP data port via `(a6)`",
         );
     }
 
