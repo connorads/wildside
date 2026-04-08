@@ -998,6 +998,15 @@ impl NativeRuntime {
                     });
             }
         }
+
+        if level_entry_title_spawns_two_player_waiter_loc_1AC10(self.two_player) {
+            // TODO(fidelity): ASM loc_1AC10 (kid.asm:28849-28856) allocates
+            // loc_1AD80 when `Two_player_flag` is set, and loc_1AD80 then
+            // builds the alternating-player head sprites during the level
+            // entry. The current title-worker reconstruction only models the
+            // loc_1AB26 / loc_1AD48 script shell, so keep the 2P waiter branch
+            // explicit until we add a two-player oracle case for that lineage.
+        }
     }
 
     pub(crate) fn maybe_seed_starting_level_title_workers(&mut self, elapsed_frames: usize) {
@@ -1225,6 +1234,14 @@ fn level_entry_title_deferred_number_indices_loc_1ABF4(
     // zero. Otherwise the fallthrough seeds loc_1AD48, whose `subq.w #1,d3`
     // plus `dbf` allocates exactly `d0` `#$7B` workers.
     0..usize::from(level_number_glyph_count)
+}
+
+#[allow(non_snake_case)]
+fn level_entry_title_spawns_two_player_waiter_loc_1AC10(two_player: bool) -> bool {
+    // ASM loc_1AC10 (kid.asm:28849-28856): `tst.b (Two_player_flag).w`
+    // falls through to `loc_1AC26` in 1P, but allocates `loc_1AD80` before
+    // the shared delete tail when alternating 2P mode is active.
+    two_player
 }
 
 fn level_entry_title_letter_gfx_slot_index(
@@ -3921,6 +3938,7 @@ mod tests {
     use super::{
         level_entry_title_advance_x, level_entry_title_deferred_number_indices_loc_1ABF4,
         level_entry_title_space_token_x_loc_1ABEA,
+        level_entry_title_spawns_two_player_waiter_loc_1AC10,
     };
 
     #[test]
@@ -3947,6 +3965,22 @@ mod tests {
             level_entry_title_deferred_number_indices_loc_1ABF4(3).collect::<Vec<_>>(),
             vec![0, 1, 2],
             "ASM loc_1ABF4 should fall through to loc_1AD48 when `d0` is non-zero, and loc_1AD48's `subq.w #1,d3` / `dbf` pair should allocate exactly `d0` deferred number workers",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_two_player_waiter_stays_off_in_single_player_loc_1ac10() {
+        assert!(
+            !level_entry_title_spawns_two_player_waiter_loc_1AC10(false),
+            "ASM loc_1AC10 should branch straight to the shared delete tail when `Two_player_flag` is clear",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_two_player_waiter_turns_on_in_two_player_mode_loc_1ac10() {
+        assert!(
+            level_entry_title_spawns_two_player_waiter_loc_1AC10(true),
+            "ASM loc_1AC10 should allocate loc_1AD80 before `Delete_CurrentObject` when `Two_player_flag` is set",
         );
     }
 
