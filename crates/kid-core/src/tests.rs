@@ -2411,6 +2411,35 @@ fn loc_1518_repoints_the_blend_to_palette_words_20_through_3f() {
 }
 
 #[test]
+fn loc_1534_clears_the_second_half_pending_mask_before_the_blend_returns() {
+    let mut palette_buffer_2 = [0u16; 0x40];
+    let mut palette_buffer_3 = [0u16; 0x40];
+    let mut palette_buffer = [0x0EEE; 0x40];
+    palette_buffer_2[0x20] = 0x0246;
+    palette_buffer_3[0x20] = 0x0ACE;
+    let mut pending_palette_0_mask = 0;
+    let mut pending_palette_1_mask = 0x8000_0000;
+
+    apply_pending_palette_fade_sub_14C0(
+        0x0080,
+        &mut pending_palette_0_mask,
+        &mut pending_palette_1_mask,
+        &palette_buffer_2,
+        &palette_buffer_3,
+        &mut palette_buffer,
+    );
+
+    assert_eq!(
+        pending_palette_1_mask, 0,
+        "ASM loc_1534 should clear `($FFFFF88C).w` before the second-half sub_1536 fallthrough returns to the caller"
+    );
+    assert_eq!(
+        palette_buffer[0x20], 0x068A,
+        "ASM loc_1534 clears the pending mask without cancelling the fallthrough, so the selected second-half palette word should still be blended by sub_1536"
+    );
+}
+
+#[test]
 fn sub_1596_drains_each_custom_fg_entry_into_two_vdp_writes() {
     let mut pending_queue = Some(vec![
         FgUpdateQueueCustomEntrySub1596 {

@@ -6909,6 +6909,9 @@ pub(crate) fn apply_pending_palette_fade_sub_14C0(
         return;
     };
     let pending_mask = *pending_palette_1_mask;
+    // ASM loc_1534 (kid.asm:2628): once the second-half mask is non-zero,
+    // clear `$FFFFF88C` before falling straight into sub_1536 for the actual
+    // blend.
     *pending_palette_1_mask = 0;
     let palette_1_len = palette_buffer.len().min(0x20);
     blend_selected_palette_entries_sub_1536(
