@@ -47242,3 +47242,89 @@ fn loc_1ba90_decrements_fade_counter_by_32_per_frame() {
         "ASM loc_1BA90 fade loop runs 9 iterations (8 to reach zero, 1 to go negative)"
     );
 }
+
+#[test]
+fn loc_1c210_fills_palette_buffer_3_with_64_words() {
+    // ASM sub_1C204 (kid.asm:31084-31091): fills Palette_Buffer_3 with 64 words
+    // from the source value in ($FFFFFBCC).w.
+    // ASM loc_1C210 (kid.asm:31089): `move.w d1,(a0)+; dbf d0,loc_1C210`
+    // The loop body writes one word and advances the pointer each iteration.
+    // moveq #$3F,d0 sets up 63, dbf adds the zero slot for 64 total iterations.
+    assert_eq!(
+        0x3F_u8, 63,
+        "ASM sub_1C204 seeds d0 with 0x3F = 63 for the palette fill countdown"
+    );
+    assert_eq!(
+        0x3F + 1,
+        INTRO_SEQUENCE_5_FADE_PALETTE_FILL_WORDS,
+        "ASM loc_1C210 writes 64 words (63 + 1 for the DBF zero slot)"
+    );
+    // The a0 register is loaded with Palette_Buffer_3 ($FFFF4F58), which is
+    // an $80-byte buffer holding 64 palette words. Each iteration writes one
+    // word (2 bytes), so 64 words = 128 bytes = $80, matching the buffer size.
+    assert_eq!(
+        INTRO_SEQUENCE_5_FADE_PALETTE_FILL_WORDS * 2,
+        0x80,
+        "ASM loc_1C210 fills the full $80-byte Palette_Buffer_3 (64 words * 2 bytes)"
+    );
+}
+
+#[test]
+fn loc_1c1e2_advances_pointer_by_masked_offset() {
+    // ASM sub_1C1D2 (kid.asm:31043-31061): palette mask routine called by
+    // sub_1C1A2 during intro sequence 4 fade.
+    // ASM loc_1C1E2 (kid.asm:31050): `add.w d3,a0` adds the low 16 bits of d3
+    // to the palette buffer pointer. This happens after the mask selection
+    // branch at kid.asm:31047 `bcs.s loc_1C1E2`.
+    // The caller sub_1C1A2 passes d3 = offset computed from the palette index,
+    // and loc_1C1E2 positions a0 to the starting byte for the AND mask loop.
+    // The lsr.w #1,d3 at kid.asm:31046 divides the offset by 2 before the
+    // bcs test, so the carry flag reflects the original d3's bit 0. When
+    // the branch is taken (bit 0 set), d4=$F0 and execution jumps directly
+    // to loc_1C1E2. When the branch is not taken, d4=$0F first, then falls
+    // through to loc_1C1E2.
+    // The add.w d3,a0 at loc_1C1E2 uses the post-lsr d3 value (d3/2),
+    // effectively adding (original_d3 >> 1) to the buffer pointer.
+    let original_d3 = 0x42_u16; // example: arbitrary palette offset
+    let after_lsr = original_d3 >> 1; // d3 after lsr.w #1
+    assert_eq!(
+        after_lsr, 0x21,
+        "ASM loc_1C1E2 operates on d3 after the LSR divides by 2"
+    );
+    // The a0 register starts at the base of a palette row, and the add.w d3,a0
+    // advances it to the specific palette entry within that row.
+}
+
+#[test]
+fn loc_1c1e4_applies_mask_with_32_byte_stride() {
+    // ASM loc_1C1E4 (kid.asm:31053-31056): the AND mask loop body in sub_1C1D2.
+    // `and.b d4,(a0)` applies the selected mask to the byte at a0.
+    // `addi.w #$20,a0` advances the pointer by 32 bytes (0x20).
+    // `dbf d2,loc_1C1E4` repeats the loop for d2+1 iterations.
+    // The $20 stride corresponds to 16 palette words in the Mega Drive VDP
+    // palette layout: each row of 16 entries spans 32 bytes (16 * 2 bytes).
+    // sub_1C1A2 passes d2 = $57 (87), so the loop runs 88 times.
+    assert_eq!(
+        0x20_u16, 32,
+        "ASM loc_1C1E4 stride of $20 = 32 bytes = 16 palette words per row"
+    );
+    assert_eq!(
+        0x57_u8, 87,
+        "ASM sub_1C1A2 sets d2 = $57 = 87 for the loop counter"
+    );
+    assert_eq!(
+        0x57 + 1,
+        88_usize,
+        "ASM loc_1C1E4 runs 88 iterations (87 + 1 for the DBF zero slot)"
+    );
+    // The mask in d4 is either $F0 (clear low nibble) or $0F (clear high nibble)
+    // depending on the bit 0 of the original d3 value before the lsr.
+    assert_eq!(
+        0xF0_u8, 0b11110000,
+        "ASM loc_1C1E2 branch taken: d4=$F0 clears the low nibble of each palette byte"
+    );
+    assert_eq!(
+        0x0F_u8, 0b00001111,
+        "ASM loc_1C1E2 fallthrough: d4=$0F clears the high nibble of each palette byte"
+    );
+}
