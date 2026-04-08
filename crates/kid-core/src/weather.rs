@@ -916,6 +916,27 @@ pub(crate) fn lava_geyser_rise_reset_loc_1484E() -> LavaGeyserRiseResetLoc1484E 
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserPreLoopHibernateLoc1485E {
+    pub(crate) hibernation_frames: u16,
+    pub(crate) collision_refreshes: u16,
+    pub(crate) falls_through_to_shared_loop: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_pre_loop_hibernate_loc_1485E() -> LavaGeyserPreLoopHibernateLoc1485E {
+    // ASM loc_1485E (kid.asm:27915): before reloading `$48(a5)` into `d2` at
+    // `loc_14866`, the worker hibernates exactly one frame, re-runs
+    // `sub_14A58`, then falls through into the shared sprite-row loop.
+    LavaGeyserPreLoopHibernateLoc1485E {
+        hibernation_frames: 1,
+        collision_refreshes: 1,
+        falls_through_to_shared_loop: true,
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserCameraWindowInputLoc147D6 {
     pub(crate) x_px: u16,
     pub(crate) y_px: u16,

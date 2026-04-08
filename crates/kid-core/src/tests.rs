@@ -20585,6 +20585,23 @@ fn loc_1484e_resets_the_rise_row_cursor_and_two_frame_cadence() {
 }
 
 #[test]
+fn loc_1485e_hibernates_once_refreshes_collision_once_then_rejoins_the_shared_loop() {
+    let step = crate::weather::lava_geyser_pre_loop_hibernate_loc_1485E();
+    assert_eq!(
+        step.hibernation_frames, 1,
+        "ASM loc_1485E should call `j_Hibernate_Object_1Frame` exactly once before the shared loop resumes"
+    );
+    assert_eq!(
+        step.collision_refreshes, 1,
+        "ASM loc_1485E should re-run `sub_14A58` exactly once on that hibernated frame"
+    );
+    assert!(
+        step.falls_through_to_shared_loop,
+        "ASM loc_1485E should fall through to loc_14866 after the one-frame hibernation/collision refresh"
+    );
+}
+
+#[test]
 fn loc_147d6_uses_the_padded_camera_window_before_building_sprite_rows() {
     let inside = crate::weather::LavaGeyserCameraWindowInputLoc147D6 {
         x_px: 0x00E0,
