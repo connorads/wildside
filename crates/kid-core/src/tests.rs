@@ -25708,6 +25708,127 @@ fn options_menu_panel_step_sub_1cc88_alternates_the_worker_offsets_each_frame() 
 }
 
 #[test]
+fn options_menu_loc_1cb88_intro_loop_omitted_enters_directly() {
+    // ASM loc_1CB88 (kid.asm:31678-31688): The ROM has an intro loop that
+    // steps panel animation while scrolling Camera_Y_pos for visual effect
+    // before entering the interactive loop. Native omits this and enters
+    // OptionsMenu directly with panels already positioned.
+    //   bne.w loc_1CB88        ; loop until camera scroll completes
+    //   moveq #8,d2            ; reset oscillation
+    //   subq.w #1,d0
+    //   subq.w #1,d1
+    //   bsr.w sub_1CDA8        ; update panel workers
+    // loc_1CB88:
+    //   bsr.w sub_1CC88        ; step panel animation
+    //   bclr #7,(Ctrl_1_Pressed).w
+    //   beq.s OptionScreen_IntroLoop
+    //   bra.w Option_Exit
+    // Native enters directly at the interactive loop state without the camera
+    // scroll intro, but still calls sub_1CC88 each frame for panel animation.
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
+
+    // Verify native steps panels immediately like loc_1CB88 does
+    runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        runtime.options_menu_panel_toggle_byte, 0xFF,
+        "ASM loc_1CB88 calls sub_1CC88; native should toggle the panel byte on first frame",
+    );
+}
+
+#[test]
+fn options_menu_loc_1cbf2_up_guard_skips_decrement_at_cursor_zero() {
+    // ASM loc_1CBF2 (kid.asm:31721-31727): Branch target when Up is not pressed
+    // or cursor is already at 0, skipping the decrement and sound effect.
+    //   bclr #Button_Up,(Ctrl_Pressed).w
+    //   beq.w loc_1CBF2         ; skip if Up not pressed
+    //   tst.w (Options_Selected_Option).w
+    //   beq.w loc_1CBF2         ; skip if already at 0
+    //   bsr.w sub_1BC26
+    //   subq.w #1,(Options_Selected_Option).w
+    // loc_1CBF2:                ; continue to check Down
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
+
+    runtime.step_frame(FrameInput {
+        up: true,
+        ..FrameInput::default()
+    });
+    assert!(matches!(
+        runtime.boot_state,
+        BootState::OptionsMenu { cursor: 0 }
+    ));
+    assert_eq!(
+        runtime.played_sound_effects.len(),
+        0,
+        "ASM loc_1CBF2 skips sub_1BC26 when cursor is at 0; no sound should play"
+    );
+
+    // Compare to cursor 1 where Up should decrement
+    runtime.boot_state = BootState::OptionsMenu { cursor: 1 };
+    runtime.prior_input = FrameInput::default();
+    runtime.step_frame(FrameInput {
+        up: true,
+        ..FrameInput::default()
+    });
+    assert!(
+        matches!(runtime.boot_state, BootState::OptionsMenu { cursor: 0 }),
+        "ASM OptionScreen_Input should decrement cursor from 1 to 0 on Up press"
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::NavigateJingle],
+        "ASM OptionScreen_Input calls sub_1BC26 when cursor moves from 1 to 0"
+    );
+}
+
+#[test]
+fn options_menu_loc_1cc0e_down_guard_skips_increment_at_cursor_three() {
+    // ASM loc_1CC0E (kid.asm:31730-31736): Branch target when Down is not pressed
+    // or cursor is already at 3, skipping the increment and sound effect.
+    //   bclr #Button_Down,(Ctrl_Pressed).w
+    //   beq.w loc_1CC0E         ; skip if Down not pressed
+    //   cmpi.w #3,(Options_Selected_Option).w
+    //   beq.w loc_1CC0E         ; skip if already at 3 (EXIT option)
+    //   bsr.w sub_1BC26
+    //   addq.w #1,(Options_Selected_Option).w
+    // loc_1CC0E:                ; continue to check Left
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::OptionsMenu { cursor: 3 };
+
+    runtime.step_frame(FrameInput {
+        down: true,
+        ..FrameInput::default()
+    });
+    assert!(matches!(
+        runtime.boot_state,
+        BootState::OptionsMenu { cursor: 3 }
+    ));
+    assert_eq!(
+        runtime.played_sound_effects.len(),
+        0,
+        "ASM loc_1CC0E skips sub_1BC26 when cursor is at 3; no sound should play"
+    );
+
+    // Compare to cursor 2 where Down should increment
+    runtime.boot_state = BootState::OptionsMenu { cursor: 2 };
+    runtime.prior_input = FrameInput::default();
+    runtime.step_frame(FrameInput {
+        down: true,
+        ..FrameInput::default()
+    });
+    assert!(
+        matches!(runtime.boot_state, BootState::OptionsMenu { cursor: 3 }),
+        "ASM OptionScreen_Input should increment cursor from 2 to 3 on Down press"
+    );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::NavigateJingle],
+        "ASM OptionScreen_Input calls sub_1BC26 when cursor moves from 2 to 3"
+    );
+}
+
+#[test]
 fn end_sequence_display_refresh_sub_1d830_combines_camera_scroll_upload_and_panel_step() {
     let refresh =
         end_sequence_display_refresh_sub_1D830(0x0123, 0x0045, 0x00, 0x0118, 0x0030, 0x0110);

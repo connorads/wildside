@@ -3610,6 +3610,9 @@ impl NativeRuntime {
                 let b_pressed = input.b && !self.prior_input.b;
                 let left_pressed = input.left && !self.prior_input.left;
                 let right_pressed = input.right && !self.prior_input.right;
+                // ASM loc_1CB88 (kid.asm:31684): loop entry that steps panel
+                // animation (sub_1CC88) then checks Start to exit. Native
+                // omits the intro-loop camera scroll and enters directly.
                 (
                     self.options_menu_panel_toggle_byte,
                     self.options_menu_left_panel_x,
@@ -3623,9 +3626,13 @@ impl NativeRuntime {
                 // ASM OptionScreen_Input: 4 items:
                 // 0 = 2 PLAYERS (one/two controllers), 1 = CONTROLS (0..5),
                 // 2 = SPEED BUTTON (normal/fast), 3 = EXIT.
+                // ASM loc_1CBF2 (kid.asm:31727): branch target when Up not pressed
+                // or cursor already at 0; continues to check Down below.
                 if input.up && !self.prior_input.up && *cursor > 0 {
                     *cursor -= 1;
                 }
+                // ASM loc_1CC0E (kid.asm:31736): branch target when Down not pressed
+                // or cursor already at 3; continues to check Left/Right below.
                 if input.down && !self.prior_input.down && *cursor < 3 {
                     *cursor += 1;
                 }
