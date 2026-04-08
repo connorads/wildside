@@ -43235,6 +43235,18 @@ fn loc_137a6_finishes_the_long_reference_tail_with_copy_mode_zero() {
 }
 
 #[test]
+fn loc_13916_finishes_the_later_long_reference_tail_with_copy_mode_one() {
+    assert_eq!(
+        crate::level::decompress_long_ref_finished_loc_13916(),
+        crate::level::DecompressBp0ReturnStatus {
+            status_word: 1,
+            next_copy_mode: Some(1),
+        },
+        "ASM loc_13916 should return `d0=1` and seed `d2=1` once the `loc_138F6` fixed five-byte tail reaches or passes `d7`"
+    );
+}
+
+#[test]
 fn loc_13878_copies_the_later_fixed_five_byte_tail_and_finishes_at_or_beyond_d7() {
     assert_eq!(
         crate::level::decompress_long_ref_tail_loc_13878(
