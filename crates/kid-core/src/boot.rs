@@ -1349,6 +1349,36 @@ pub(crate) fn title_text_kid_setup_loc_1B5E4() -> TitleTextKidSetupLoc1B5E4 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleTextChameleonIdleStepLoc1B6A2 {
+    pub(crate) hibernate_frames: u16,
+    pub(crate) next_d2: i16,
+    pub(crate) next_d3: u16,
+    pub(crate) upload: Option<TitleTextChameleonFrameUploadSub1B71A>,
+    pub(crate) loops_forever: bool,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_text_chameleon_idle_step_loc_1B6A2(
+    decoded_words: &[u16],
+    d2: i16,
+    d3: u16,
+) -> TitleTextChameleonIdleStepLoc1B6A2 {
+    // ASM Obj_TitleTextChameleon / loc_1B6A2 (kid.asm:29911-29914): hibernate
+    // exactly one frame, call `sub_1B71A`, preserve `d2`, advance `d3` by one
+    // through that helper, then branch straight back to `loc_1B6A2` forever.
+    let next_d3 = d3.wrapping_add(1);
+    TitleTextChameleonIdleStepLoc1B6A2 {
+        hibernate_frames: 1,
+        next_d2: d2,
+        next_d3,
+        upload: title_text_chameleon_frame_upload_sub_1B71A(decoded_words, d2, next_d3),
+        loops_forever: true,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) vram_word_addr: u16,
     pub(crate) word_writes: Vec<u16>,
@@ -4054,6 +4084,32 @@ mod tests {
         assert_eq!(player_1.vram_tile, 0x0409);
         assert_eq!(player_1.target_x_pos, 0x0160);
         assert_eq!(player_1.target_y_pos, 0x00C8);
+    }
+
+    #[test]
+    fn loc_1b6a2_hibernates_one_frame_then_calls_sub_1b71a_without_touching_d2() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let step = title_text_chameleon_idle_step_loc_1B6A2(&decoded_words, 0, 3);
+
+        assert_eq!(step.hibernate_frames, 1);
+        assert_eq!(
+            step.next_d2, 0,
+            "ASM loc_1B6A2 only calls `Hibernate_Object_1Frame` and `sub_1B71A`, so the `moveq #0,d2` value from Obj_TitleTextChameleon should stay latched forever",
+        );
+        assert_eq!(
+            step.next_d3, 4,
+            "ASM sub_1B71A starts with `addq.w #1,d3`, so loc_1B6A2 should advance the animation selector once per loop",
+        );
+        assert!(
+            step.loops_forever,
+            "ASM loc_1B6A2 ends in `bra.s loc_1B6A2`, so the title-text worker should never leave this cadence on its own",
+        );
+        assert_eq!(
+            step.upload.as_ref().map(|upload| upload.tilemap_label),
+            Some("unk_2E728"),
+            "with `d3=3` on entry, ASM loc_1B6A2 reaches sub_1B71A with `d3=4`, so `d3 & $C` should pick the second `off_1B70A` tilemap",
+        );
     }
 
     #[test]
