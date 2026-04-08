@@ -5377,6 +5377,37 @@ pub(crate) fn load_title_card_palette_copy_word_count_loc_19B80() -> u16 {
     0x000F + 1
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleCardTopPaddingLoc19BC2 {
+    pub(crate) fill_word: u16,
+    pub(crate) words_per_row: u16,
+    pub(crate) row_count: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_title_card_top_padding_loc_19BC2(
+    title_card_height_tiles: u16,
+) -> Option<TitleCardTopPaddingLoc19BC2> {
+    // ASM loc_19BC2 (kid.asm:28669-28674): after `moveq #$1C,d6`,
+    // `sub.w d1,d6`, and `lsr.w #1,d6`, the routine seeds `d2=d6-1` and
+    // exits early on `bmi.s loc_19BCE`. Otherwise each outer pass reloads
+    // `d4=#$3F` and writes `#$2FB` once per inclusive `dbf d4,loc_19BC4`,
+    // so the top-padding stage emits 64 fill words per row for
+    // `(0x1C - height_tiles) / 2` rows.
+    let row_count = 0x001Cu16.checked_sub(title_card_height_tiles)? >> 1;
+    if row_count == 0 {
+        None
+    } else {
+        Some(TitleCardTopPaddingLoc19BC2 {
+            fill_word: 0x02FB,
+            words_per_row: 0x003F + 1,
+            row_count,
+        })
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(

@@ -45858,6 +45858,24 @@ fn loc_19b80_copies_all_16_title_card_palette_words_into_palette_buffer() {
 }
 
 #[test]
+fn loc_19bc2_centres_short_title_cards_with_64_word_top_padding_rows() {
+    assert_eq!(
+        crate::level::load_title_card_top_padding_loc_19BC2(0x0012),
+        Some(crate::level::TitleCardTopPaddingLoc19BC2 {
+            fill_word: 0x02FB,
+            words_per_row: 64,
+            row_count: 5,
+        }),
+        "ASM loc_19BC2 should emit `(0x1C - height) / 2` rows of 64 `$02FB` fill words before the title-card art rows when `d1=$12`"
+    );
+    assert_eq!(
+        crate::level::load_title_card_top_padding_loc_19BC2(0x001C),
+        None,
+        "ASM loc_19BC2 should skip the top-padding loop when `d2=d6-1` goes negative immediately, which happens once the title-card height already fills all `$1C` rows"
+    );
+}
+
+#[test]
 fn loc_1462_reloads_the_samurai_haze_walk_from_the_gfx_head_pointer() {
     assert_eq!(
         crate::movement::gfx_object_head_under_samurai_haze_loc_1462(None),
