@@ -1307,6 +1307,48 @@ pub(crate) fn title_screen_tile_stripe_clear_loc_1B53E() -> TitleScreenTileStrip
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleTextKidSetupLoc1B5E4 {
+    pub(crate) palette_line: u8,
+    pub(crate) x_pos: u16,
+    pub(crate) vram_tile: u16,
+    pub(crate) sprite_mapping_label: &'static str,
+    pub(crate) display_enabled: bool,
+    pub(crate) pre_drift_hibernate_frames: u16,
+    pub(crate) drift_frame_count: u16,
+    pub(crate) moves_during_drift: bool,
+    pub(crate) post_drift_hibernate_frames: u16,
+    pub(crate) interstitial_hibernate_frames: u16,
+    pub(crate) popup_positions: [(u16, u16); 2],
+    pub(crate) loops_forever: bool,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_text_kid_setup_loc_1B5E4() -> TitleTextKidSetupLoc1B5E4 {
+    // ASM Obj_TitleTextKid / loc_1B5E4 (kid.asm:29847-29866): both title-text
+    // entry points share the same visible shell here, setting palette line 2,
+    // x=`$2E`, tile `$4D3`, mapping `LnkTo_unk_E10FE`, display flag `$13(a3)`,
+    // a `$1E`-frame wait, a 43-frame `is_moved` drift, a `$14`-frame pause,
+    // then two `sub_1B652` popups around the fixed poses `($2E,$8C)` and
+    // `($5A,$98)` before the worker hibernates forever.
+    TitleTextKidSetupLoc1B5E4 {
+        palette_line: 2,
+        x_pos: 0x002E,
+        vram_tile: 0x04D3,
+        sprite_mapping_label: "LnkTo_unk_E10FE-Data_Index",
+        display_enabled: true,
+        pre_drift_hibernate_frames: 0x001E,
+        drift_frame_count: 0x002A + 1,
+        moves_during_drift: true,
+        post_drift_hibernate_frames: 0x0014,
+        interstitial_hibernate_frames: 0x000A,
+        popup_positions: [(0x002E, 0x008C), (0x005A, 0x0098)],
+        loops_forever: true,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) vram_word_addr: u16,
     pub(crate) word_writes: Vec<u16>,
@@ -3953,6 +3995,37 @@ mod tests {
             clear.longword_write_count,
             0x0007 + 1,
             "ASM loc_1B53E seeds `d0=#7`, so the inclusive `dbf d0,loc_1B53E` loop should write eight zero longwords into VRAM `$1780`",
+        );
+    }
+
+    #[test]
+    fn loc_1b5e4_builds_the_shared_title_text_kid_shell_before_the_popup_spawns() {
+        let setup = title_text_kid_setup_loc_1B5E4();
+
+        assert_eq!(setup.palette_line, 2);
+        assert_eq!(setup.x_pos, 0x002E);
+        assert_eq!(setup.vram_tile, 0x04D3);
+        assert_eq!(setup.sprite_mapping_label, "LnkTo_unk_E10FE-Data_Index");
+        assert!(
+            setup.display_enabled,
+            "ASM loc_1B5E4 executes `st $13(a3)` before the first hibernate, so the shared title-text worker should be visible once the later y-position entry path settles",
+        );
+        assert_eq!(setup.pre_drift_hibernate_frames, 0x001E);
+        assert_eq!(
+            setup.drift_frame_count,
+            0x002A + 1,
+            "ASM loc_1B5E4 seeds `d0=#$2A`, so the inclusive `dbf d0,loc_1B610` drift should run for 43 one-frame steps",
+        );
+        assert!(
+            setup.moves_during_drift,
+            "ASM loc_1B5E4 sets `is_moved(a3)` immediately before loc_1B610 and clears it only after the DBF loop finishes",
+        );
+        assert_eq!(setup.post_drift_hibernate_frames, 0x0014);
+        assert_eq!(setup.interstitial_hibernate_frames, 0x000A);
+        assert_eq!(setup.popup_positions, [(0x002E, 0x008C), (0x005A, 0x0098)]);
+        assert!(
+            setup.loops_forever,
+            "ASM loc_1B64C falls into a perpetual one-frame hibernate loop after the second popup position is written",
         );
     }
 
