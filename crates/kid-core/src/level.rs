@@ -1417,6 +1417,23 @@ pub(crate) fn decompress_long_ref_quit_loc_13790() -> DecompressBp0ReturnStatus 
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_tail_loc_137FC(
+    copied_bytes: [u8; 5],
+    output_addr_after_tail: u16,
+    output_limit_addr: u16,
+) -> DecompressLongRefTailLoc1377E {
+    // ASM loc_137FC (kid.asm:26390-26397) falls through `loc_137FE` and
+    // `loc_13800`, so once control lands here the decompressor always copies
+    // exactly five trailing bytes before `cmp.w a2,d7` either returns through
+    // `loc_13824` or resumes the main decoder at `loc_13736`.
+    DecompressLongRefTailLoc1377E {
+        copied_bytes,
+        finished: output_addr_after_tail >= output_limit_addr,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_long_ref_flush_loc_13796() -> DecompressBp0ReturnStatus {
     // ASM loc_13796 (kid.asm:26321-26323) is the `0 < BYTE2 < 6` underflow
     // return from `loc_1376A`: after `subq.w #6,d0` goes negative, the routine
