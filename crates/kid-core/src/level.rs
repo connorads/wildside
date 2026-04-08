@@ -5377,6 +5377,16 @@ pub(crate) fn load_title_card_palette_copy_word_count_loc_19B80() -> u16 {
     0x000F + 1
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn level_entry_title_letter_palette_copy_word_count_loc_1AB40() -> u16 {
+    // ASM loc_1AB40 (kid.asm:28758-28760): after `lea Pal_19C48(pc),a0`,
+    // `lea (Palette_Buffer+$20).l,a1`, and `moveq #$F,d0`, the loop copies one
+    // word per pass before the inclusive `dbf d0,loc_1AB40` test. That always
+    // copies 16 words into the level-entry title-letter palette window.
+    0x000F + 1
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleCardTopPaddingLoc19BC2 {

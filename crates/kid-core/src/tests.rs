@@ -45858,6 +45858,15 @@ fn loc_19b80_copies_all_16_title_card_palette_words_into_palette_buffer() {
 }
 
 #[test]
+fn loc_1ab40_copies_all_16_title_letter_palette_words_into_palette_buffer_plus_20() {
+    assert_eq!(
+        crate::level::level_entry_title_letter_palette_copy_word_count_loc_1AB40(),
+        16,
+        "ASM loc_1AB40 seeds `d0=#$F`, so the inclusive `dbf d0,loc_1AB40` loop copies 16 title-letter palette words into `Palette_Buffer+$20`"
+    );
+}
+
+#[test]
 fn loc_19bc2_centres_short_title_cards_with_64_word_top_padding_rows() {
     assert_eq!(
         crate::level::load_title_card_top_padding_loc_19BC2(0x0012),
