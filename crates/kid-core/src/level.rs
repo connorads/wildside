@@ -1473,6 +1473,25 @@ pub(crate) fn decompress_long_ref_loop_loc_13778(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_loop_loc_13872(
+    source_bytes: &[u8],
+    dbf_counter: u16,
+) -> DecompressLongRefLoopLoc13778 {
+    // ASM loc_13872 (kid.asm:26474-26475) is the later variable-length
+    // back-reference prefix loop: after `subq.w #6,d0`, it copies one byte
+    // from `(a6)+` to `(a2)+` before each `dbf d0,loc_13872` check, then
+    // falls through to `loc_13878` for the fixed tail bytes.
+    DecompressLongRefLoopLoc13778 {
+        copied_bytes: source_bytes
+            .iter()
+            .copied()
+            .take(usize::from(dbf_counter) + 1)
+            .collect(),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_long_ref_loop_loc_137F6(
     source_bytes: &[u8],
     dbf_counter: u16,
