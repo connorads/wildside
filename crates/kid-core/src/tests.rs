@@ -43281,6 +43281,18 @@ fn loc_13908_quits_decompression_without_reseeding_the_copy_mode() {
 }
 
 #[test]
+fn loc_13986_quits_decompression_without_reseeding_the_copy_mode() {
+    assert_eq!(
+        crate::level::decompress_long_ref_quit_loc_13986(),
+        crate::level::DecompressBp0ReturnStatus {
+            status_word: 0,
+            next_copy_mode: None,
+        },
+        "ASM loc_13986 should return with `d0=0` and leave `d2` untouched when `loc_13960` sees `BYTE2=0`"
+    );
+}
+
+#[test]
 fn loc_13796_flushes_the_buffer_with_status_ffff_and_copy_mode_zero() {
     assert_eq!(
         crate::level::decompress_long_ref_flush_loc_13796(),
