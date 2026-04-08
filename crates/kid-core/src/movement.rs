@@ -281,6 +281,33 @@ pub(crate) fn gfx_objects_move_and_animate_loc_144E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(
+    time_frames: u16,
+    first_gfx_object_index: Option<usize>,
+    next_indices: &[Option<usize>],
+    kind_words: &[u16],
+) -> Vec<usize> {
+    // ASM loc_1466 / loc_147E / loc_1488 (kid.asm:2534-2548): walk the same
+    // linked gfx-object list as `loc_144E`, but when a worker's kind word at
+    // `8(a3)` is 2 or 3, skip `GfxObject_Move`/`GfxObject_Animate` unless
+    // `Time_Frames & 3 == 0`. Other kinds still run every frame.
+    let mut moved_indices = Vec::new();
+    let mut current = first_gfx_object_index;
+    let slowed_frame = time_frames & 3 != 0;
+
+    while let Some(index) = current {
+        let kind_word = kind_words.get(index).copied().unwrap_or_default();
+        if !(slowed_frame && matches!(kind_word, 2 | 3)) {
+            moved_indices.push(index);
+        }
+        current = next_indices[index];
+    }
+
+    moved_indices
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_predecessor_index_sub_FF6(
     next_indices: &[Option<usize>],
     target_index: usize,

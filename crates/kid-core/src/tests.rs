@@ -44505,6 +44505,33 @@ fn loc_144e_walks_each_linked_gfx_object_until_the_null_tail() {
 }
 
 #[test]
+fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
+    let next_indices = [Some(1), Some(2), Some(3), None];
+    let kind_words = [0, 2, 3, 4];
+
+    assert_eq!(
+        crate::movement::gfx_objects_move_and_animate_under_samurai_haze_loc_1466(
+            1,
+            Some(1),
+            &next_indices,
+            &kind_words,
+        ),
+        vec![3],
+        "ASM loc_1466 should keep walking the linked list on slowed frames, but `loc_147E` must skip the move/animate pair for kind `2` and `3` workers until `Time_Frames & 3 == 0`"
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_move_and_animate_under_samurai_haze_loc_1466(
+            4,
+            Some(1),
+            &next_indices,
+            &kind_words,
+        ),
+        vec![1, 2, 3],
+        "ASM loc_1488 should run `GfxObject_Move` and `GfxObject_Animate` for every worker once the Samurai Haze quarter-rate gate opens"
+    );
+}
+
+#[test]
 fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
     assert_eq!(
         crate::level::indoor_rubber_block_source_words_loc_14506(
