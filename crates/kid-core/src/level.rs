@@ -4853,6 +4853,29 @@ pub(crate) fn background_tile_guard_loc_11CF6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141EE(
+    entries: &[[u16; 4]],
+    blank_top_rows: u16,
+    level_width_tiles: u16,
+) -> Vec<[u16; 4]> {
+    // ASM loc_141EE (kid.asm:27037-27039) walks the 8-byte block-list entries
+    // rooted at `($FFFFF8D4).w`, adding `Number_blank_top_rows * Level_width_tiles`
+    // to word 0 and `Number_blank_top_rows` to word 2 before `addq.w #8,a0`
+    // advances to the next entry. The other two words stay unchanged.
+    let layout_word_delta = blank_top_rows.wrapping_mul(level_width_tiles);
+    entries
+        .iter()
+        .map(|entry| {
+            let mut adjusted = *entry;
+            adjusted[0] = adjusted[0].wrapping_add(layout_word_delta);
+            adjusted[2] = adjusted[2].wrapping_add(blank_top_rows);
+            adjusted
+        })
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_load_pointers_loc_11D0C(
     theme_mapping_index: &[u32],
     theme_mapping_table_offset_bytes: u16,

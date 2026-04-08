@@ -26349,6 +26349,25 @@ fn loc_11cf6_allows_null_background_tile_lists_and_rejects_an_8_byte_overflow() 
 }
 
 #[test]
+fn loc_141ee_adjusts_only_the_layout_and_row_words_of_each_8_byte_block_entry() {
+    assert_eq!(
+        crate::level::adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141EE(
+            &[
+                [0x0120, 0x0007, 0x0003, 0x6004],
+                [0x0450, 0x0009, 0x000A, 0x8011],
+            ],
+            2,
+            0x0040,
+        ),
+        vec![
+            [0x01A0, 0x0007, 0x0005, 0x6004],
+            [0x04D0, 0x0009, 0x000C, 0x8011],
+        ],
+        "ASM loc_141EE should add `Number_blank_top_rows * Level_width_tiles` to word 0 and `Number_blank_top_rows` to word 2 of each 8-byte block-list entry, leaving the other words untouched"
+    );
+}
+
+#[test]
 fn loc_11d0c_selects_the_theme_mapping_entry_and_splits_the_enemy_layout_pointer() {
     assert_eq!(
         crate::level::level_load_pointers_loc_11D0C(
