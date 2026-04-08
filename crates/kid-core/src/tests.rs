@@ -20592,6 +20592,25 @@ fn loc_14788_points_the_first_lava_geyser_eruption_at_the_startup_script() {
 }
 
 #[test]
+fn loc_14aaa_only_keeps_the_geyser_damage_window_when_all_inclusive_bounds_pass() {
+    assert_eq!(
+        crate::weather::lava_geyser_hitbox_window_loc_14AAA(0x0100, 0x0200, 0),
+        None,
+        "ASM loc_14AAA should never arm the damage window when the geyser height is zero, because sub_14A58 exits before any overlap can succeed"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_hitbox_window_loc_14AAA(0x0100, 0x0200, 0x0030),
+        Some(crate::weather::LavaGeyserHitboxWindowLoc14AAA {
+            left_px: 0x0103,
+            right_px: 0x011D,
+            top_px: 0x01E0,
+            bottom_px: 0x0200,
+        }),
+        "ASM loc_14AAA should only fall through to the Kid damage write after sub_14A58 builds the inclusive window `[x+3, x+3+$1A]` by `[top_sprite_y+$10, base_y]`"
+    );
+}
+
+#[test]
 fn loc_14966_expands_the_peak_row_target_by_two_when_the_top_cap_wraps() {
     assert_eq!(
         crate::weather::lava_geyser_peak_row_target_loc_14966(0x0008),

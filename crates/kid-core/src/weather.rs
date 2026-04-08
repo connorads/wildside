@@ -727,24 +727,54 @@ fn kid_hitbox_bounds_px(slice: &OpeningSliceState) -> (i32, i32, i32, i32) {
     )
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserHitboxWindowLoc14AAA {
+    pub(crate) left_px: i32,
+    pub(crate) right_px: i32,
+    pub(crate) top_px: i32,
+    pub(crate) bottom_px: i32,
+}
+
 #[allow(non_snake_case)]
-fn lava_geyser_hits_kid_sub_14A58(geyser: &LavaGeyser, slice: &OpeningSliceState) -> bool {
-    if geyser.current_height == 0 {
-        return false;
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_hitbox_window_loc_14AAA(
+    geyser_x_px: u16,
+    geyser_base_y_px: u16,
+    geyser_current_height: u16,
+) -> Option<LavaGeyserHitboxWindowLoc14AAA> {
+    if geyser_current_height == 0 {
+        return None;
     }
 
-    let (kid_left, kid_right, kid_top, kid_bottom) = kid_hitbox_bounds_px(slice);
-    let geyser_left = i32::from(geyser.x_px) + 3;
-    let geyser_right = geyser_left + 0x1A;
-    let geyser_bottom = i32::from(geyser.y_px);
-    // ASM sub_14A58 compares Kid against `$54(a5)+$10`, where `$54(a5)` tracks
-    // the current top sprite row built by the geyser worker.
-    let geyser_top = i32::from(geyser.y_px.saturating_sub(geyser.current_height)) + 0x10;
+    let left_px = i32::from(geyser_x_px) + 3;
+    let bottom_px = i32::from(geyser_base_y_px);
+    // ASM sub_14A58 -> loc_14AAA (kid.asm:28116-28137): each failed compare
+    // branches straight to `loc_14AAA`, so damage only applies when Kid stays
+    // within the inclusive X window `[x+3, x+3+$1A]` and Y window
+    // `[top_sprite_y+$10, base_y]`.
+    Some(LavaGeyserHitboxWindowLoc14AAA {
+        left_px,
+        right_px: left_px + 0x1A,
+        top_px: bottom_px - i32::from(geyser_current_height) + 0x10,
+        bottom_px,
+    })
+}
 
-    kid_right >= geyser_left
-        && kid_left <= geyser_right
-        && kid_top <= geyser_bottom
-        && kid_bottom >= geyser_top
+#[allow(non_snake_case)]
+fn lava_geyser_hits_kid_sub_14A58(geyser: &LavaGeyser, slice: &OpeningSliceState) -> bool {
+    let Some(hitbox_window) =
+        lava_geyser_hitbox_window_loc_14AAA(geyser.x_px, geyser.y_px, geyser.current_height)
+    else {
+        return false;
+    };
+
+    let (kid_left, kid_right, kid_top, kid_bottom) = kid_hitbox_bounds_px(slice);
+
+    kid_right >= hitbox_window.left_px
+        && kid_left <= hitbox_window.right_px
+        && kid_top <= hitbox_window.bottom_px
+        && kid_bottom >= hitbox_window.top_px
 }
 
 #[allow(non_snake_case)]
