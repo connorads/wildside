@@ -47,7 +47,7 @@ use crate::level::{
     BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
     DecompressToVramSpecialReturnLoc143B2, FgPlaneCustomWriteSub1596,
-    FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596,
+    FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680,
     FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
     ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
     ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
@@ -92,12 +92,13 @@ use crate::level::{
     initialise_sprite_frame_state_sub_B52, prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
-    scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
-    select_background_art_permutation_loc_11E96, select_foreground_art_permutation_loc_11E48,
-    select_foreground_art_permutation_loc_11E54, shared_vram_art_decompresses_loc_11EFA,
-    should_process_fg_update_queue_cell_loc_15D2, spawn_block_debris_sub_292E,
-    step_fullscreen_palette_fade_sub_73D0, step_island_palette_cycle_lower_band_loc_12188,
-    step_island_palette_cycle_mid_band_loc_12110, step_island_palette_cycle_primary_band_loc_12098,
+    reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
+    select_background_art_permutation_loc_11E8A, select_background_art_permutation_loc_11E96,
+    select_foreground_art_permutation_loc_11E48, select_foreground_art_permutation_loc_11E54,
+    shared_vram_art_decompresses_loc_11EFA, should_process_fg_update_queue_cell_loc_15D2,
+    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
+    step_island_palette_cycle_lower_band_loc_12188, step_island_palette_cycle_mid_band_loc_12110,
+    step_island_palette_cycle_primary_band_loc_12098,
     swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
@@ -2549,6 +2550,19 @@ fn loc_167a_skips_one_culled_cell_word_before_loading_the_next_x_word() {
             next_x_word: None,
         },
         "ASM loc_167A should still consume the culled cell word even when there is no following X word before the loop reaches its terminal negative sentinel"
+    );
+}
+
+#[test]
+fn loc_1680_zeroes_the_cell_queue_pointer_before_restoring_both_queue_bases() {
+    assert_eq!(
+        reset_fg_update_queues_loc_1680(0xFFFF_43BC, 0xFFFF_47A6),
+        FgUpdateQueueResetLoc1680 {
+            transient_cell_next_slot: 0,
+            final_custom_next_slot: 0xFFFF_43BC,
+            final_cell_next_slot: 0xFFFF_47A6,
+        },
+        "ASM loc_1680 should clear `FGUpdateQueueCell_NextSlot` with `d0=0` before the shared loc_1686 epilogue repoints both queue next-slot longs at `FGPlane_UpdateQueueCustom` and `FGPlane_UpdateQueueCell`"
     );
 }
 

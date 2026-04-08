@@ -6964,6 +6964,30 @@ pub(crate) fn should_process_fg_update_queue_cell_loc_15D2(
     next_slot != 0 && (next_slot as u16) != fg_plane_update_queue_cell_addr
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FgUpdateQueueResetLoc1680 {
+    pub(crate) transient_cell_next_slot: u32,
+    pub(crate) final_custom_next_slot: u32,
+    pub(crate) final_cell_next_slot: u32,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn reset_fg_update_queues_loc_1680(
+    fg_plane_update_queue_custom_addr: u32,
+    fg_plane_update_queue_cell_addr: u32,
+) -> FgUpdateQueueResetLoc1680 {
+    // ASM loc_1680 / loc_1686 (kid.asm:2791): the negative-sentinel exit from
+    // the cell-drain loop first stores `d0=0` into `FGUpdateQueueCell_NextSlot`
+    // before the shared epilogue repoints both next-slot longs at
+    // `FGPlane_UpdateQueueCustom` and `FGPlane_UpdateQueueCell`.
+    FgUpdateQueueResetLoc1680 {
+        transient_cell_next_slot: 0,
+        final_custom_next_slot: fg_plane_update_queue_custom_addr,
+        final_cell_next_slot: fg_plane_update_queue_cell_addr,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
