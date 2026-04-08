@@ -20546,6 +20546,21 @@ fn loc_149e4_decodes_fireball_segments_and_treats_negative_counts_as_the_cooldow
 }
 
 #[test]
+fn loc_149fc_hibernates_refreshes_collision_and_applies_the_signed_segment_delta_before_rechecking_the_camera_window()
+ {
+    assert_eq!(
+        crate::weather::lava_fireball_loop_resume_loc_149FC(0x0312, -4),
+        crate::weather::LavaFireballLoopResumeLoc149FC {
+            hibernation_frames: 1,
+            collision_refreshes: 1,
+            sprite_script_restored: true,
+            next_baseline_y_px: 0x030E,
+        },
+        "ASM loc_149FC should hibernate one frame, re-run `sub_14AB0`, restore `a2` from `a1`, and add the signed `$52(a5)` delta into `d1` before the shared camera-window check"
+    );
+}
+
+#[test]
 fn loc_14788_points_the_first_lava_geyser_eruption_at_the_startup_script() {
     assert_eq!(
         crate::weather::lava_geyser_startup_script_loc_14788(),

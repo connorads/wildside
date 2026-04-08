@@ -858,6 +858,15 @@ pub(crate) enum LavaFireballScriptStepLoc149E4 {
     EmitSegment(LavaFireballSegmentLoc149E4),
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaFireballLoopResumeLoc149FC {
+    pub(crate) hibernation_frames: u16,
+    pub(crate) collision_refreshes: u16,
+    pub(crate) sprite_script_restored: bool,
+    pub(crate) next_baseline_y_px: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decode_lava_fireball_script_step_loc_149E4(
@@ -883,6 +892,24 @@ pub(crate) fn decode_lava_fireball_script_step_loc_149E4(
             sprite_script_word,
         },
     ))
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_fireball_loop_resume_loc_149FC(
+    baseline_y_px: u16,
+    delta_y: i16,
+) -> LavaFireballLoopResumeLoc149FC {
+    // ASM loc_149FC (kid.asm:28072): each taken fireball-segment back-edge
+    // hibernates for one frame, re-runs `sub_14AB0`, restores `a2` from `a1`,
+    // then advances `d1` by the signed `$52(a5)` delta before re-entering the
+    // shared camera-window path at `loc_14A0A`.
+    LavaFireballLoopResumeLoc149FC {
+        hibernation_frames: 1,
+        collision_refreshes: 1,
+        sprite_script_restored: true,
+        next_baseline_y_px: baseline_y_px.wrapping_add_signed(delta_y),
+    }
 }
 
 #[allow(non_snake_case)]
