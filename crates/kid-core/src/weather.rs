@@ -784,6 +784,15 @@ pub(crate) fn lava_geyser_initial_delay_frames_loc_14772(encoded_height_word: u1
     (encoded_height_word & 0xF) * 10
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {
+    // ASM loc_14788 (kid.asm:27825): after the initial hibernation and optional
+    // `sfx_Lava_Geyser_starting`, the very first eruption seeds `a0` from
+    // `unk_146B6`, not the steady-state geyser script used by later cycles.
+    "unk_146B6"
+}
+
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;

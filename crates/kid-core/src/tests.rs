@@ -20483,6 +20483,15 @@ fn loc_14772_uses_the_low_height_nibble_as_a_10_frame_delay_table_index() {
 }
 
 #[test]
+fn loc_14788_points_the_first_lava_geyser_eruption_at_the_startup_script() {
+    assert_eq!(
+        crate::weather::lava_geyser_startup_script_loc_14788(),
+        "unk_146B6",
+        "ASM loc_14788 should seed `a0` with the startup geyser script `unk_146B6` before entering loc_147A0"
+    );
+}
+
+#[test]
 fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
