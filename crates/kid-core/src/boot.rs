@@ -1569,6 +1569,10 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
             row_word_count
         };
         let words = decoded_words[row_start..row_start + top_row_limit].to_vec();
+        // ASM loc_1B758: `move.w d5,d0; lsl.w #7,d0; add.w d4,d0; add.w d4,d0`
+        // builds the row-`$12` VRAM word address, then `addi.w #$4000,d0;
+        // swap d0; clr.w d0` turns that into the VDP command whose high word
+        // exposes the `$04xx` word address we store here.
         let row_base = 0x0480_u16
             .checked_add(horizontal_offset_words.saturating_mul(2))?
             .checked_add(u16::try_from(row_index).ok()?.saturating_mul(64))?;
@@ -4391,6 +4395,30 @@ mod tests {
         assert_eq!(upload.rows[0].words[20], 23);
         assert_eq!(upload.rows[1].words.len(), 26);
         assert_eq!(upload.rows[1].words[0], 32);
+    }
+
+    #[test]
+    fn loc_1b758_builds_the_vram_word_address_from_row_12_and_the_horizontal_offset() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let upload = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 2, 0x0004).expect(
+            "ASM loc_1B758 should still upload while the early reveal keeps three blank columns",
+        );
+
+        assert_eq!(upload.tilemap_label, "unk_2E728");
+        assert_eq!(
+            upload.rows[0].vram_word_address, 0x0486,
+            "ASM loc_1B758 starts from row `$12 << 7 = $900`, adds `d4+d4 = 6`, then the swapped VDP command exposes word address `$0486`"
+        );
+        assert_eq!(
+            upload.rows[1].vram_word_address, 0x04C6,
+            "ASM loc_1B79E adds `$800000` between rows, so the next word address should advance by `$40`"
+        );
+        assert_eq!(
+            upload.rows[0].filler_word,
+            Some(0x00BC),
+            "ASM loc_1B758 still feeds loc_1B780's filler path while `d4` stays positive"
+        );
     }
 
     #[test]
