@@ -5369,6 +5369,16 @@ pub(crate) fn load_title_card_name_table_clear_loc_19B6A() -> TitleCardVramWordF
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_title_card_palette_copy_word_count_loc_19B80() -> u16 {
+    // ASM loc_19B80 (kid.asm:28651-28652): after loading the title-card
+    // palette pointer into `a0`, `Palette_Buffer` into `a1`, and seeding
+    // `d0=#$F`, the loop copies one palette word per pass before the
+    // inclusive `dbf d0,loc_19B80` test. That always copies 16 words.
+    0x000F + 1
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,

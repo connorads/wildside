@@ -45849,6 +45849,15 @@ fn loc_19b6a_clears_16_words_of_title_card_name_table_space_from_1280() {
 }
 
 #[test]
+fn loc_19b80_copies_all_16_title_card_palette_words_into_palette_buffer() {
+    assert_eq!(
+        crate::level::load_title_card_palette_copy_word_count_loc_19B80(),
+        16,
+        "ASM loc_19B80 seeds `d0=#$F`, so the inclusive `dbf d0,loc_19B80` loop copies 16 palette words into `Palette_Buffer`"
+    );
+}
+
+#[test]
 fn loc_1462_reloads_the_samurai_haze_walk_from_the_gfx_head_pointer() {
     assert_eq!(
         crate::movement::gfx_object_head_under_samurai_haze_loc_1462(None),
