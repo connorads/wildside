@@ -42652,6 +42652,27 @@ fn loc_14348_resets_the_low_nibble_column_index_for_each_outer_palette_row() {
 }
 
 #[test]
+fn loc_1434a_builds_one_sixteen_entry_palette_permutation_row_from_the_current_high_nibble() {
+    let permutation = [
+        0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF,
+    ];
+
+    assert_eq!(
+        crate::level::decompress_special_palette_row_bytes_loc_1434A(&permutation, 0x000B, 0),
+        vec![0xB0],
+        "ASM loc_1434A should still emit one packed byte when `d4` starts at zero because the store to `(a4)+` happens before the later `cmpi.w #$10,d4` loop check"
+    );
+    assert_eq!(
+        crate::level::decompress_special_palette_row_bytes_loc_1434A(&permutation, 0x000B, 0x000F),
+        vec![
+            0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD,
+            0xBE, 0xBF,
+        ],
+        "ASM loc_1434A should reuse `(a3,d3.w)` as the shared high nibble and OR in each successive `(a3,d4.w)` low nibble until the inner loop has emitted all 16 packed permutation bytes for that row"
+    );
+}
+
+#[test]
 fn loc_13504_masks_the_dbf_count_selects_the_jump_table_arm_and_refills_only_below_nine_bits() {
     assert_eq!(
         block_layout_dispatch_loc_13504(0x0065, 6, 0x0010),

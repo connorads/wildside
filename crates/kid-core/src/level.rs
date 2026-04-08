@@ -947,6 +947,28 @@ pub(crate) fn decompress_special_palette_row_start_loc_14348(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_special_palette_row_bytes_loc_1434A(
+    permutation: &[u8; 16],
+    row_index: u16,
+    dbf_counter: u16,
+) -> Vec<u8> {
+    // ASM loc_1434A (kid.asm:27202-27209) reads `move.b (a3,d3.w),d5`,
+    // shifts it into the high nibble, ORs in `move.b (a3,d4.w),d5`, stores
+    // that packed byte to the palette scratch table at `(a4)+`, then
+    // `addq.w #1,d4` / `cmpi.w #$10,d4` repeat until all 16 low-nibble
+    // permutations have been emitted for the current `d3` row.
+    let high_nibble = permutation[usize::from(row_index & 0x000F)] << 4;
+
+    permutation
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .map(|low_nibble| high_nibble | low_nibble)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
