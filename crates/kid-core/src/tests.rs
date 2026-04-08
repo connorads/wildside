@@ -43480,6 +43480,18 @@ fn loc_13a04_quits_decompression_without_reseeding_the_copy_mode() {
 }
 
 #[test]
+fn loc_13a80_quits_decompression_without_reseeding_the_copy_mode() {
+    assert_eq!(
+        crate::level::decompress_long_ref_quit_loc_13A80(),
+        crate::level::DecompressBp0ReturnStatus {
+            status_word: 0,
+            next_copy_mode: None,
+        },
+        "ASM loc_13A80 should return with `d0=0` and leave `d2` untouched when the `loc_13A5A` branch sees `BYTE2=0`"
+    );
+}
+
+#[test]
 fn loc_13796_flushes_the_buffer_with_status_ffff_and_copy_mode_zero() {
     assert_eq!(
         crate::level::decompress_long_ref_flush_loc_13796(),
