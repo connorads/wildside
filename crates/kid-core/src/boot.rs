@@ -612,6 +612,17 @@ pub(crate) struct TitleMenuSlidingSpriteSub1C572 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence1PlayerTitleSpriteLoc1ADEA {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority_flag: bool,
+    pub(crate) display_enabled: bool,
+    pub(crate) sprite_label: &'static str,
+    pub(crate) vram_tile: u16,
+    pub(crate) target_x_pos: u16,
+    pub(crate) target_y_pos: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceDisplayRefreshSub1D830 {
     pub(crate) camera_y_scroll: i16,
     pub(crate) h_scroll_value: i16,
@@ -795,6 +806,29 @@ pub(crate) fn title_menu_sliding_sprites_sub_1C572() -> [TitleMenuSlidingSpriteS
             moving_frames: 0x0042,
         },
     ]
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_sequence_1_player_title_sprite_loc_1ADEA(
+    current_player_index: u8,
+) -> IntroSequence1PlayerTitleSpriteLoc1ADEA {
+    // ASM loc_1ADEA (kid.asm:29034): after the shared intro-sequence-1 title
+    // worker allocates `$3000004` into `a1`, player 0 keeps `d7=$81` while
+    // player 1 increments it to `$82`; both paths then index `off_1AC2A` and
+    // seed tile `$409` with target position `(x,y)=(#$160,#$C8)`.
+    IntroSequence1PlayerTitleSpriteLoc1ADEA {
+        gfx_slot_base: 0x0300_0004,
+        priority_flag: true,
+        display_enabled: true,
+        sprite_label: match current_player_index {
+            0 => "LnkTo_unk_C87E8-Data_Index",
+            _ => "LnkTo_unk_C87F0-Data_Index",
+        },
+        vram_tile: 0x0409,
+        target_x_pos: 0x0160,
+        target_y_pos: 0x00C8,
+    }
 }
 
 #[allow(non_snake_case)]
@@ -3085,6 +3119,33 @@ mod tests {
             right.moving_frames, 0x0042,
             "ASM loc_1C5BE also slides the right sprite for 66 hibernated frames before the infinite idle loop",
         );
+    }
+
+    #[test]
+    fn loc_1adea_selects_the_intro_sequence_1_player_title_sprite_from_current_player() {
+        let player_1 = intro_sequence_1_player_title_sprite_loc_1ADEA(0);
+        let player_2 = intro_sequence_1_player_title_sprite_loc_1ADEA(1);
+
+        assert_eq!(player_1.gfx_slot_base, 0x0300_0004);
+        assert!(
+            player_1.priority_flag,
+            "ASM loc_1ADEA inherits the earlier `st $13(a1)` priority flag on the second intro-sequence-1 title sprite",
+        );
+        assert!(
+            player_1.display_enabled,
+            "ASM loc_1ADEA keeps `$11(a1)=1` after the shared allocation shell",
+        );
+        assert_eq!(
+            player_1.sprite_label, "LnkTo_unk_C87E8-Data_Index",
+            "ASM loc_1ADEA keeps `d7=$81` for player 1, so `off_1AC2A[d7-$61]` resolves to the `$C87E8` title sprite mapping",
+        );
+        assert_eq!(
+            player_2.sprite_label, "LnkTo_unk_C87F0-Data_Index",
+            "ASM loc_1ADEA increments `d7` to `$82` when `(Current_player).w` is non-zero, selecting the next `$C87F0` mapping for player 2",
+        );
+        assert_eq!(player_1.vram_tile, 0x0409);
+        assert_eq!(player_1.target_x_pos, 0x0160);
+        assert_eq!(player_1.target_y_pos, 0x00C8);
     }
 
     #[test]
