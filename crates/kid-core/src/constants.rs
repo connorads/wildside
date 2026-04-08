@@ -59,9 +59,11 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES: 
 // mode-0 Sega handoff through local frame 176, then switch to intro sequence 1
 // on local frame 177 (trace frame 5143).
 pub(crate) const DEMO_AUTO_TIMEOUT_MODE_0_FRAMES: usize = 177;
-// Oracle-backed published TAS traces keep the timeout-restart copy of intro
-// sequence 1 alive through frame 5503 and only expose `game_mode=0x0018` on
-// frame 5504, so this restart path cannot reuse the cold-boot 160-frame timer.
+// ASM loc_1B924 hibernates intro sequence 1 for the full `#$12B+1` DBF loop
+// before it hands off to `Game_Mode=$18`. Oracle-backed published TAS traces
+// keep the timeout-restart copy of intro sequence 1 alive through frame 5503
+// and only expose `game_mode=0x0018` on frame 5504, so this restart path
+// cannot reuse the cold-boot 160-frame timer.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIRST_SEGMENT_FRAMES: usize = 361;
 // Oracle-backed Game_Mode probes keep the timeout-restart copy of intro
 // sequence 2 alive through frame 5952 and only expose `game_mode=0x001C` on

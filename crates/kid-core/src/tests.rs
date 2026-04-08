@@ -34350,10 +34350,10 @@ fn published_tas_intro_sequence_1_start_skip_keeps_kid_hidden_on_frame_12430() {
         }
     }
 
-    // ASM sub_1B8F4 / loc_1B920 hibernate intro sequence 1 while polling
-    // sub_1C246 for Start skips. When sub_1C246 writes `Game_Mode=$2C`, the
-    // later Load_IntroSequence6 / loc_1BCD0 title rebuild still needs its
-    // local settle window, so the first title frame must keep Kid hidden.
+    // ASM loc_1B924 hibernates intro sequence 1 while polling sub_1C246 for
+    // Start skips. When sub_1C246 writes `Game_Mode=$2C`, the later
+    // Load_IntroSequence6 / loc_1BCD0 title rebuild still needs its local
+    // settle window, so the first title frame must keep Kid hidden.
     assert_eq!(
         frame_12429,
         Some((0x00, GameMode::IntroSequence1, LevelId(0x00), true)),
