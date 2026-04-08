@@ -26400,6 +26400,33 @@ fn loc_141f6_only_adjusts_the_first_d0_8_byte_entries() {
 }
 
 #[test]
+fn loc_14204_adjusts_the_layout_and_row_words_of_each_16_byte_hidden_block_entry() {
+    assert_eq!(
+        crate::level::adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14204(
+            &[
+                [
+                    0x1234, 0x8001, 0xABCD, 0xEF01, 0x0120, 0x0014, 0x0003, 0x0300
+                ],
+                [
+                    0x5678, 0x0003, 0xBCDE, 0xF012, 0x0450, 0x0028, 0x000A, 0x1102
+                ],
+            ],
+            2,
+            0x0040,
+        ),
+        vec![
+            [
+                0x1234, 0x8001, 0xABCD, 0xEF01, 0x01A0, 0x0014, 0x0005, 0x0300
+            ],
+            [
+                0x5678, 0x0003, 0xBCDE, 0xF012, 0x04D0, 0x0028, 0x000C, 0x1102
+            ],
+        ],
+        "ASM loc_14204 should add `Number_blank_top_rows * Level_width_tiles` to the stored layout word at `8(a0)` and `Number_blank_top_rows` to the stored row word at `$C(a0)`, leaving the other 16-byte entry words untouched"
+    );
+}
+
+#[test]
 fn loc_11d0c_selects_the_theme_mapping_entry_and_splits_the_enemy_layout_pointer() {
     assert_eq!(
         crate::level::level_load_pointers_loc_11D0C(

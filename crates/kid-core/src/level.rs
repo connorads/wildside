@@ -4898,6 +4898,30 @@ pub(crate) fn adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141F6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14204(
+    entries: &[[u16; 8]],
+    blank_top_rows: u16,
+    level_width_tiles: u16,
+) -> Vec<[u16; 8]> {
+    // ASM loc_14204 (kid.asm:27049-27051) walks each 16-byte hidden-block
+    // entry rooted at `($FFFFF8DA).w`, adding `Number_blank_top_rows *
+    // Level_width_tiles` to word offset `$8(a0)` (the stored layout word) and
+    // `Number_blank_top_rows` to word offset `$C(a0)` (the stored row word)
+    // before `lea $10(a0),a0` advances to the next entry.
+    let layout_word_delta = blank_top_rows.wrapping_mul(level_width_tiles);
+    entries
+        .iter()
+        .map(|entry| {
+            let mut adjusted = *entry;
+            adjusted[4] = adjusted[4].wrapping_add(layout_word_delta);
+            adjusted[6] = adjusted[6].wrapping_add(blank_top_rows);
+            adjusted
+        })
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_load_pointers_loc_11D0C(
     theme_mapping_index: &[u32],
     theme_mapping_table_offset_bytes: u16,
