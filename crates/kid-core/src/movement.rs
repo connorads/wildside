@@ -184,6 +184,114 @@ pub(crate) fn intro_sequence_3_gfx_object_loc_1AEEC(
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence5ParticleDataLoc1BE3C {
+    pub(crate) sprite_label: u16,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) x_vel: u16,
+    pub(crate) y_vel: u16,
+    pub(crate) loop_count: u16,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence5ParticleVelocityLoc1BE74 {
+    pub(crate) gravity_add: u32,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence5CenterParticleLoc1BE88 {
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) x_vel: u32,
+    pub(crate) y_vel: u32,
+    pub(crate) vram_tile: u16,
+    pub(crate) sprite_label: &'static str,
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn intro_sequence_5_particle_data_loc_1BE3C() -> [IntroSequence5ParticleDataLoc1BE3C; 3]
+{
+    // ASM loc_1BE3C (kid.asm:30667-30681): Load particle sprite from data
+    // table referenced by $44(a5). The three unk_ tables each contain:
+    //   dc.b sprite_label_word_hi, sprite_label_word_lo
+    //   dc.b y_pos_hi, y_pos_lo
+    //   dc.b x_pos_hi, x_pos_lo
+    //   dc.b y_vel_hi, y_vel_lo
+    //   dc.b x_vel_hi, x_vel_lo
+    //   dc.b loop_count_hi, loop_count_lo
+    // See unk_1BE18, unk_1BE24, unk_1BE30 (kid.asm:30629-30664).
+    [
+        IntroSequence5ParticleDataLoc1BE3C {
+            sprite_label: 0x0011, // unk_1BE18 byte 0-1
+            x_pos: 0x0078,        // unk_1BE18 bytes 4-5
+            y_pos: 0x0000,        // unk_1BE18 byte 2
+            x_vel: 0xFFFC,        // unk_1BE18 bytes 8-9 (word)
+            y_vel: 0xFFFE,        // unk_1BE18 bytes 10-11 (word)
+            loop_count: 0x0028,   // unk_1BE18 bytes 6-7 (word)
+        },
+        IntroSequence5ParticleDataLoc1BE3C {
+            sprite_label: 0x0011, // unk_1BE24 byte 0-1
+            x_pos: 0x0058,        // unk_1BE24 bytes 4-5
+            y_pos: 0x0000,        // unk_1BE24 byte 2
+            x_vel: 0x0004,        // unk_1BE24 bytes 8-9
+            y_vel: 0xFFFE,        // unk_1BE24 bytes 10-11
+            loop_count: 0x003C,   // unk_1BE24 bytes 6-7
+        },
+        IntroSequence5ParticleDataLoc1BE3C {
+            sprite_label: 0x0011, // unk_1BE30 byte 0-1
+            x_pos: 0x0030,        // unk_1BE30 bytes 4-5
+            y_pos: 0x0000,        // unk_1BE30 byte 2
+            x_vel: 0x0000,        // unk_1BE30 bytes 8-9
+            y_vel: 0xFF04,        // unk_1BE30 bytes 10-11
+            loop_count: 0x0028,   // unk_1BE30 bytes 6-7
+        },
+    ]
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn intro_sequence_5_particle_fall_loc_1BE74() -> IntroSequence5ParticleVelocityLoc1BE74 {
+    // ASM loc_1BE74 (kid.asm:30682-30686): Hibernate 1 frame, add $4000 to
+    // y_vel (16.16 fixed-point gravity of 0.25 px/frame), loop d0 times.
+    // After DBF expires, delete the object.
+    IntroSequence5ParticleVelocityLoc1BE74 {
+        gravity_add: 0x0000_4000,
+    }
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn intro_sequence_5_center_particle_loc_1BE88(
+    fc82_variant: u8,
+) -> IntroSequence5CenterParticleLoc1BE88 {
+    // ASM loc_1BE88 (kid.asm:30689-30724): Allocate fixed-position sprite
+    // with position and animation pointer dependent on ($FFFFFC82).w:
+    //   FC82 == 0: (x,y) = ($2A,$74), mapping LnkTo_unk_E10B6
+    //   FC82 == 1: (x,y) = ($30,$70), mapping LnkTo_unk_E10C6
+    //   FC82 == 2: (x,y) = ($2A,$74), mapping LnkTo_unk_E10BE
+    // ASM loc_1BEBE (kid.asm:30704-30709): Second position adjustment
+    // branch for FC82 != 0 && FC82 != 1; subtracts 6 from x, adds 4 to y.
+    let (x_pos, y_pos, sprite_label) = match fc82_variant {
+        0 => (0x002A, 0x0074, "LnkTo_unk_E10B6-Data_Index"),
+        1 => (0x0030, 0x0070, "LnkTo_unk_E10C6-Data_Index"),
+        _ => (0x002A, 0x0074, "LnkTo_unk_E10BE-Data_Index"),
+    };
+
+    IntroSequence5CenterParticleLoc1BE88 {
+        x_pos,
+        y_pos,
+        x_vel: 0x0002_F000,
+        y_vel: 0xFFFF_7100, // -0x8F000 in 16.16 fixed-point
+        vram_tile: 0x05EB,
+        sprite_label,
+    }
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsGlyphInitSub1D786 {
     pub(crate) raw_allocation_spec: u32,
     pub(crate) display_enabled: bool,

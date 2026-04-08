@@ -30352,6 +30352,129 @@ fn loc_1b100_selects_the_intro_sequence_5_art_source_from_fc82() {
 }
 
 #[test]
+fn loc_1be3c_loads_particle_sprite_from_data_tables() {
+    let particles = crate::movement::intro_sequence_5_particle_data_loc_1BE3C();
+
+    assert_eq!(
+        particles.len(),
+        3,
+        "ASM loc_1BE3C (kid.asm:30667) should load exactly three particle objects from unk_1BE18, unk_1BE24, unk_1BE30"
+    );
+
+    assert_eq!(
+        particles[0].sprite_label, 0x0011,
+        "First particle should use sprite label $0011 from unk_1BE18 (kid.asm:30629)"
+    );
+    assert_eq!(
+        particles[0].x_pos, 0x0078,
+        "First particle should have x_pos=$78 from unk_1BE18 (kid.asm:30634)"
+    );
+    assert_eq!(
+        particles[0].y_vel, 0xFFFE,
+        "First particle should have y_vel=$FFFE from unk_1BE18 (kid.asm:30637-30638)"
+    );
+    assert_eq!(
+        particles[0].loop_count, 0x0028,
+        "First particle should have loop_count=$28 from unk_1BE18 (kid.asm:30640)"
+    );
+
+    assert_eq!(
+        particles[1].sprite_label, 0x0011,
+        "Second particle should use sprite label $0011 from unk_1BE24 (kid.asm:30641)"
+    );
+    assert_eq!(
+        particles[1].x_pos, 0x0058,
+        "Second particle should have x_pos=$58 from unk_1BE24 (kid.asm:30644)"
+    );
+    assert_eq!(
+        particles[1].loop_count, 0x003C,
+        "Second particle should have loop_count=$3C from unk_1BE24 (kid.asm:30652)"
+    );
+
+    assert_eq!(
+        particles[2].sprite_label, 0x0011,
+        "Third particle should use sprite label $0011 from unk_1BE30 (kid.asm:30653)"
+    );
+    assert_eq!(
+        particles[2].x_pos, 0x0030,
+        "Third particle should have x_pos=$30 from unk_1BE30 (kid.asm:30656)"
+    );
+    assert_eq!(
+        particles[2].loop_count, 0x0028,
+        "Third particle should have loop_count=$28 from unk_1BE30 (kid.asm:30664)"
+    );
+}
+
+#[test]
+fn loc_1be74_adds_gravity_to_falling_particles() {
+    let gravity = crate::movement::intro_sequence_5_particle_fall_loc_1BE74();
+
+    assert_eq!(
+        gravity.gravity_add, 0x0000_4000,
+        "ASM loc_1BE74 (kid.asm:30684) should add #$4000 = 0.25 px/frame gravity to y_vel"
+    );
+}
+
+#[test]
+fn loc_1be88_positions_center_particle_based_on_fc82() {
+    let variant_0 = crate::movement::intro_sequence_5_center_particle_loc_1BE88(0);
+    let variant_1 = crate::movement::intro_sequence_5_center_particle_loc_1BE88(1);
+    let variant_2 = crate::movement::intro_sequence_5_center_particle_loc_1BE88(2);
+
+    assert_eq!(
+        variant_0.x_pos, 0x002A,
+        "ASM loc_1BE88 (kid.asm:30695-30708) should adjust x from $30 to $2A when FC82 == 0"
+    );
+    assert_eq!(
+        variant_0.y_pos, 0x0074,
+        "ASM loc_1BE88 (kid.asm:30695-30708) should adjust y from $70 to $74 when FC82 == 0"
+    );
+    assert_eq!(
+        variant_0.sprite_label, "LnkTo_unk_E10B6-Data_Index",
+        "ASM loc_1BE88 (kid.asm:30715-30721) should select LnkTo_unk_E10B6 when FC82 == 0"
+    );
+
+    assert_eq!(
+        variant_1.x_pos, 0x0030,
+        "ASM loc_1BE88 should keep x=$30 when FC82 == 1 (no adjustment)"
+    );
+    assert_eq!(
+        variant_1.y_pos, 0x0070,
+        "ASM loc_1BE88 should keep y=$70 when FC82 == 1 (no adjustment)"
+    );
+    assert_eq!(
+        variant_1.sprite_label, "LnkTo_unk_E10C6-Data_Index",
+        "ASM loc_1BE88 should select LnkTo_unk_E10C6 when FC82 == 1"
+    );
+
+    assert_eq!(
+        variant_2.x_pos, 0x002A,
+        "ASM loc_1BEBE (kid.asm:30704-30709) should adjust x from $30 to $2A when FC82 != 0 && FC82 != 1"
+    );
+    assert_eq!(
+        variant_2.y_pos, 0x0074,
+        "ASM loc_1BEBE should adjust y from $70 to $74 when FC82 != 0 && FC82 != 1"
+    );
+    assert_eq!(
+        variant_2.sprite_label, "LnkTo_unk_E10BE-Data_Index",
+        "ASM loc_1BE88 should select LnkTo_unk_E10BE when FC82 >= 2"
+    );
+
+    assert_eq!(
+        variant_0.x_vel, 0x0002_F000,
+        "ASM loc_1BECE (kid.asm:30711) should set x_vel to $2F000 for all FC82 variants"
+    );
+    assert_eq!(
+        variant_0.y_vel, 0xFFFF_7100,
+        "ASM loc_1BECE (kid.asm:30712) should set y_vel to -$8F000 for all FC82 variants"
+    );
+    assert_eq!(
+        variant_0.vram_tile, 0x05EB,
+        "ASM loc_1BECE (kid.asm:30713) should set vram_tile to $5EB for all FC82 variants"
+    );
+}
+
+#[test]
 fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit() {
     let (_, script) = cached_any_percent_published_runtime_and_script();
     let first_visit_start_frames = (6_204..=6_211)
