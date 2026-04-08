@@ -1172,6 +1172,33 @@ pub(crate) fn intro_sequence_6_hidden_title_shell_loc_1B1E8(
     }
 }
 
+const TITLE_SCREEN_HIDDEN_SHELL_FRAMES_LOC_1B446: [u8; 29] = [
+    0, 1, 0, 1, 0, 1, 2, 1, 2, 3, 2, 3, 2, 3, 4, 3, 4, 3, 4, 5, 4, 5, 4, 5, 6, 5, 6, 5, 6,
+];
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleScreenHiddenShellScriptLoc1B446 {
+    pub(crate) initial_hibernate_frames: u16,
+    pub(crate) loop_hibernate_frames: u16,
+    pub(crate) title_frames: Vec<u8>,
+    pub(crate) sentinel: i8,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_screen_hidden_shell_script_loc_1B446() -> TitleScreenHiddenShellScriptLoc1B446 {
+    // ASM sub_1B43A / loc_1B446 (kid.asm:29658-29676): wait `$2A` frames,
+    // then loop on a 3-frame hibernate, `move.b (a0)+,d4`, and `bsr.w
+    // sub_1BF24` until the next byte is negative and branches to loc_1B45A.
+    TitleScreenHiddenShellScriptLoc1B446 {
+        initial_hibernate_frames: 0x002A,
+        loop_hibernate_frames: 0x0003,
+        title_frames: TITLE_SCREEN_HIDDEN_SHELL_FRAMES_LOC_1B446.to_vec(),
+        sentinel: -1,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
@@ -3709,6 +3736,30 @@ mod tests {
             result.object_handlers,
             ["loc_1BAB0", "loc_1B37C", "sub_1B43A"],
             "ASM loc_1B1E8 should allocate the hidden title shell workers in `loc_1BAB0`, `loc_1B37C`, then `sub_1B43A` order",
+        );
+    }
+
+    #[test]
+    fn loc_1b446_runs_the_hidden_title_shell_frame_script_until_ff() {
+        let script = title_screen_hidden_shell_script_loc_1B446();
+
+        assert_eq!(script.initial_hibernate_frames, 0x002A);
+        assert_eq!(script.loop_hibernate_frames, 0x0003);
+        assert_eq!(script.sentinel, -1);
+        assert_eq!(
+            script.title_frames.len(),
+            29,
+            "ASM loc_1B446 should keep dispatching `sub_1BF24` until the first negative byte, so the 29 non-negative `unk_1B4D6` entries all become title-shell steps",
+        );
+        assert_eq!(
+            &script.title_frames[..10],
+            &[0, 1, 0, 1, 0, 1, 2, 1, 2, 3],
+            "ASM loc_1B446 must consume `unk_1B4D6` in order, including the repeated early `0,1` flicker pairs before the higher frame ids appear",
+        );
+        assert_eq!(
+            &script.title_frames[24..],
+            &[6, 5, 6, 5, 6],
+            "ASM loc_1B446 should stop only after the trailing `$FF`, so the final visible passes are the five non-negative bytes immediately before that sentinel",
         );
     }
 
