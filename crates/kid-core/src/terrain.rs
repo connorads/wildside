@@ -425,6 +425,8 @@ pub(crate) fn insert_blank_top_rows_terrain_bytes_loc_141AA(
     // table. `d1` reloads from `Level_width_blocks-1` before each row copy, so
     // the outer `dbf d0,loc_141AA` preserves the original row ordering while
     // shifting the populated terrain rows downward by `Number_blank_top_rows`.
+    // ASM loc_141AC is the inner `move.b (a0)+,(a1)+` loop inside that pass,
+    // with the inclusive `dbf` count again seeded from `Level_width_blocks-1`.
     if width_blocks == 0 {
         return terrain_layout.to_vec();
     }
@@ -3168,6 +3170,28 @@ mod tests {
                 0x31, 0x32, // row 2
             ],
             "ASM loc_141AA should reload `d1` from `Level_width_blocks-1` for each source row and preserve byte-row order during the downward shift"
+        );
+    }
+
+    #[test]
+    fn loc_141ac_still_copies_one_terrain_byte_when_the_inner_dbf_counter_starts_at_zero() {
+        let shifted = insert_blank_top_rows_terrain_bytes_loc_141AA(
+            &[
+                0x10, // row 0
+                0x20, // row 1
+            ],
+            1,
+            1,
+        );
+
+        assert_eq!(
+            shifted,
+            vec![
+                0x00, // blank row 0
+                0x10, // original row 0
+                0x20, // original row 1
+            ],
+            "ASM loc_141AC seeds `d1` from `Level_width_blocks-1`, so width=1 should still copy exactly one terrain byte before the inner `dbf d1,loc_141AC` falls through"
         );
     }
 }
