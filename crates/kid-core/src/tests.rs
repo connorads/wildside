@@ -3279,6 +3279,24 @@ fn boot_title_start_isle_of_the_lion_lord_preserves_loc_1ab26_spacing_tokens() {
 }
 
 #[test]
+fn boot_title_start_isle_of_the_lion_lord_reloads_line_destination_loc_1abe2() {
+    let mut runtime = cached_generated_runtime();
+    runtime.begin_level_entry(LevelId(7));
+
+    let third_line_l = runtime
+        .starting_level_title_workers
+        .iter()
+        .find(|worker| worker.glyph == b'l' && worker.target_y_pos == 0x004C_0000)
+        .expect("loc_1ABE2 should reload the next line destination before the third-line `l`");
+
+    assert_eq!(
+        third_line_l.target_x_pos, 0x0020_0000,
+        "ASM loc_1ABE2 consumes the `0` line-break token with `addq.w #1,a2`, then reloads `d2/d3` from `(a3)+`, so the first glyph on the third line should start at that line's scripted destination",
+    );
+    assert_eq!(third_line_l.target_y_pos, 0x004C_0000);
+}
+
+#[test]
 fn boot_title_start_elsewhere_2_reuses_loc_1ab52_first_elsewhere_title_text() {
     let mut first_elsewhere = cached_generated_runtime();
     first_elsewhere.begin_level_entry(LevelId(crate::constants::FIRST_ELSEWHERE_LEVEL_ID));

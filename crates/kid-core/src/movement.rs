@@ -928,6 +928,10 @@ impl NativeRuntime {
         for &glyph in &title_card.script_bytes {
             match glyph {
                 0 => {
+                    // ASM loc_1ABE2 (kid.asm:28827-28830): the line-break
+                    // token consumes one script byte, then reloads `d2/d3`
+                    // from the next `(x,y)` pair in the title destination
+                    // stream before resuming glyph parsing.
                     line_index += 1;
                     current_destination = title_card.line_destinations.get(line_index).cloned();
                 }
