@@ -1356,6 +1356,72 @@ pub(crate) fn title_screen_tile_stripe_clear_loc_1B53E() -> TitleScreenTileStrip
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleShellArtIndexLoc1BF3E {
+    pub(crate) table_entry_size: u16,
+    pub(crate) tile_pattern_index_zero: u16,
+    pub(crate) tile_pattern_index_nonzero: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_shell_art_index_loc_1BF3E() -> TitleShellArtIndexLoc1BF3E {
+    // ASM sub_1BF24 -> loc_1BF3E (kid.asm:30751-30758): after conditional index
+    // adjustment based on `$FFFFFC82` region flags, multiply `d4` by 6 (each
+    // table entry is 4-byte pointer + 2-byte width), load `off_1BFB0` table
+    // base, and select tile pattern `$20C1` if the offset is zero or `$210F`
+    // otherwise.
+    TitleShellArtIndexLoc1BF3E {
+        table_entry_size: 6,
+        tile_pattern_index_zero: 0x20C1,
+        tile_pattern_index_nonzero: 0x210F,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleShellArtDecompressLoc1BF54 {
+    pub(crate) decompress_target: u32,
+    pub(crate) vram_fill_iterations: u16,
+    pub(crate) vram_fill_addr: u32,
+    pub(crate) vram_fill_pattern: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_shell_art_decompress_loc_1BF54() -> TitleShellArtDecompressLoc1BF54 {
+    // ASM sub_1BF24 -> loc_1BF54 (kid.asm:30760-30766): after tile pattern
+    // selection, load mapping pointer from table, set `a1` to
+    // `Decompression_Buffer`, call `EniDec`, then fill 360 words at
+    // `$FFFF7F82` with pattern `$20BC`.
+    TitleShellArtDecompressLoc1BF54 {
+        decompress_target: 0xFFFF7F82,
+        vram_fill_iterations: 0x0167 + 1,
+        vram_fill_addr: 0xFFFF7F82,
+        vram_fill_pattern: 0x20BC,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleShellVRamFillLoc1BF70 {
+    pub(crate) fill_pattern: u16,
+    pub(crate) fill_iterations: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_shell_vram_fill_loc_1BF70() -> TitleShellVRamFillLoc1BF70 {
+    // ASM sub_1BF24 -> loc_1BF70 (kid.asm:30768-30770): DBF loop that writes
+    // pattern `$20BC` to consecutive words at `$FFFF7F82` for `d0+1` iterations
+    // where `d0=$167`, filling 360 words total.
+    TitleShellVRamFillLoc1BF70 {
+        fill_pattern: 0x20BC,
+        fill_iterations: 0x0167 + 1,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextKidSetupLoc1B5E4 {
     pub(crate) palette_line: u8,

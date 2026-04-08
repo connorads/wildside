@@ -25,7 +25,8 @@ use crate::boot::{
     prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
     read_io_port_a10001_flags_sub_6E24, sega_screen_object_bootstrap_loc_12E48,
     sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
-    vdp_upload_32_longwords_sub_44D0,
+    title_shell_art_decompress_loc_1BF54, title_shell_art_index_loc_1BF3E,
+    title_shell_vram_fill_loc_1BF70, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -271,6 +272,53 @@ fn loc_1b194_emits_fourteen_striped_64_pair_bands_into_e000() {
         &writes.word_writes[writes.word_writes.len() - 4..],
         &[0x00BF, 0x00C0, 0x00BF, 0x00C0],
         "ASM loc_1B194 should end on the final `$00BF,$00C0` pair from the fourteenth outer pass"
+    );
+}
+
+#[test]
+fn loc_1bf3e_multiplies_art_index_by_six_and_selects_tile_pattern() {
+    let result = title_shell_art_index_loc_1BF3E();
+    assert_eq!(
+        result.table_entry_size, 6,
+        "ASM loc_1BF3E should multiply `d4` by 6 via `mulu.w #6,d4` because each table entry has 4-byte pointer plus 2-byte width"
+    );
+    assert_eq!(
+        result.tile_pattern_index_zero, 0x20C1,
+        "ASM loc_1BF3E should select `#$20C1`for `d0` when `d4` is zero after the `tst.w d4; beq.s loc_1BF54` fallthrough"
+    );
+    assert_eq!(
+        result.tile_pattern_index_nonzero, 0x210F,
+        "ASM loc_1BF3E should select `#$210F` for `d0` when `d4` is nonzero via the `move.w #$210F,d0` before `loc_1BF54`"
+    );
+}
+
+#[test]
+fn loc_1bf54_decompresses_mappings_and_previews_vram_fill() {
+    let result = title_shell_art_decompress_loc_1BF54();
+    assert_eq!(
+        result.vram_fill_iterations, 360,
+        "ASM loc_1BF54 should initialize `d0=$167` for 360 iterations (`dbf` loops `d0+1` times) before the `loc_1BF70` fill"
+    );
+    assert_eq!(
+        result.vram_fill_pattern, 0x20BC,
+        "ASM loc_1BF54 should set `d1=$20BC` as the fill pattern written by `move.w d1,(a0)+` in `loc_1BF70`"
+    );
+    assert_eq!(
+        result.vram_fill_addr, 0xFFFF7F82,
+        "ASM loc_1BF54 should set `a0=$FFFF7F82` as the fill destination via `lea ($FFFF7F82).l,a0`"
+    );
+}
+
+#[test]
+fn loc_1bf70_fills_360_vram_words_with_pattern_20bc() {
+    let result = title_shell_vram_fill_loc_1BF70();
+    assert_eq!(
+        result.fill_pattern, 0x20BC,
+        "ASM loc_1BF70 should fill with pattern `#$20BC` via `move.w d1,(a0)+`"
+    );
+    assert_eq!(
+        result.fill_iterations, 360,
+        "ASM loc_1BF70 should run `d0+1` iterations with `d0=$167`, filling 360 words total"
     );
 }
 
