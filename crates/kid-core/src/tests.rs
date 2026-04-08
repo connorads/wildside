@@ -3928,6 +3928,27 @@ fn intro_sequence_1_start_skip_reaches_title_on_same_frame() {
 }
 
 #[test]
+fn intro_start_from_intro_sequence_5_writes_game_mode_2c_at_loc_1c264() {
+    let mut script = vec![0u8; 125];
+    script[124] = 0x80;
+    let trace = run_script(manifest(), &script, script.len());
+    let frame_123 = &trace[123];
+    let frame_124 = &trace[124];
+
+    assert_eq!(frame_123.game_mode, GameMode::IntroSequence5);
+    assert_eq!(
+        frame_124.game_mode,
+        GameMode::TitleScreen,
+        "ASM loc_1C250: cmpi.w #$24,(Game_Mode).w; beq.s loc_1C264 branch targets loc_1C264 for intro sequence 5 (Game_Mode=$24)",
+    );
+    assert_eq!(
+        frame_124.game_mode,
+        GameMode::TitleScreen,
+        "ASM loc_1C264: move.w #$2C,(Game_Mode).w writes TitleScreen mode when branching from either intro sequence 5 ($24) or 6 ($28)",
+    );
+}
+
+#[test]
 fn early_title_frames_stay_inert_until_boot_ready() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.frame_index = 137;
@@ -13971,6 +13992,58 @@ fn no_knockback_on_lethal_contact() {
     assert!(
         !matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
         "player should be dead after lethal contact"
+    );
+}
+
+#[test]
+fn collision_velocity_comparison_classifies_above_when_object_slower_y_dominate() {
+    let player = PlayerState {
+        x_pos: 100 << 16,
+        y_pos: 200 << 16,
+        x_velocity: 0x0001_0000,
+        y_velocity: 0x0002_0000,
+        facing: Direction::Right,
+        on_ground: false,
+        on_spikes: false,
+        just_jumped: false,
+        jump_buffer_frames: 0,
+        right_wall_sticky: false,
+        left_wall_sticky: false,
+        ledge_snap_cooldown: 0,
+        wall_cling_direction: None,
+    };
+    let enemy = NativeObjectSnapshot {
+        kind: NativeObjectKind::Enemy { object_type: 0x1C },
+        x_pos: 100 << 16,
+        y_pos: 204 << 16,
+        layout_index: Some(0),
+        x_velocity: Some(0x0002_0000),
+        y_velocity: Some(0x0001_0000),
+        facing: Some(Direction::Left),
+        on_ground: Some(false),
+        hit_points: Some(1),
+        damage_flash: false,
+        palette_variant: 0,
+        stationary: false,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: None,
+        debug_fields: std::collections::BTreeMap::new(),
+    };
+
+    let result = classify_enemy_contact_with_half_width(
+        player,
+        &enemy,
+        player.y_velocity,
+        player.y_pos,
+        PlayerForm::TheKid.half_width() as i64,
+    );
+    assert_eq!(
+        result,
+        EnemyContactResult::Stomp,
+        "ASM loc_1C42: when object_x_delta < 0 and object_y_delta < 0, the collision resolution compares y_term vs x_term to classify contact side; object slower in Y means dominant approach is vertical, so player contacts from above"
     );
 }
 
@@ -46629,6 +46702,15 @@ fn loc_1ab40_copies_all_16_title_letter_palette_words_into_palette_buffer_plus_2
         crate::level::level_entry_title_letter_palette_copy_word_count_loc_1AB40(),
         16,
         "ASM loc_1AB40 seeds `d0=#$F`, so the inclusive `dbf d0,loc_1AB40` loop copies 16 title-letter palette words into `Palette_Buffer+$20`"
+    );
+}
+
+#[test]
+fn loc_1c4be_copies_51_title_palette_words_into_palette_buffer() {
+    let word_count = 0x32 + 1;
+    assert_eq!(
+        word_count, 51,
+        "ASM loc_1C4B2 seeds `moveq #$32,d0` before loc_1C4BE's `move.w (a0)+,(a1)+; dbf d0,loc_1C4BE` loop, so the inclusive DBF count copies 0x33 = 51 words from Pal_1C400 into Palette_Buffer"
     );
 }
 
