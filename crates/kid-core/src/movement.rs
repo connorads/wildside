@@ -979,7 +979,9 @@ impl NativeRuntime {
         }
 
         if let Some(destination) = title_card.level_number_destination {
-            for number_index in 0..usize::from(title_card.level_number_glyph_count) {
+            for number_index in level_entry_title_deferred_number_indices_loc_1ABF4(
+                title_card.level_number_glyph_count,
+            ) {
                 self.starting_level_title_workers
                     .push(LevelEntryTitleWorker {
                         // ASM loc_1AD48 allocates the deferred number worker
@@ -1212,6 +1214,17 @@ fn level_entry_title_space_token_x_loc_1ABEA(x: u16) -> u16 {
     // script byte with `addq.w #1,a2`, skips worker allocation, and advances
     // the current title-card destination by exactly `#$10`.
     x.saturating_add(0x10)
+}
+
+#[allow(non_snake_case)]
+fn level_entry_title_deferred_number_indices_loc_1ABF4(
+    level_number_glyph_count: u16,
+) -> core::ops::Range<usize> {
+    // ASM loc_1ABF4 (kid.asm:28840-28847): `tst.w d0; beq.s loc_1AC10`
+    // skips the deferred number-worker shell when the level suffix count is
+    // zero. Otherwise the fallthrough seeds loc_1AD48, whose `subq.w #1,d3`
+    // plus `dbf` allocates exactly `d0` `#$7B` workers.
+    0..usize::from(level_number_glyph_count)
 }
 
 fn level_entry_title_letter_gfx_slot_index(
@@ -3905,7 +3918,10 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
 
 #[cfg(test)]
 mod tests {
-    use super::{level_entry_title_advance_x, level_entry_title_space_token_x_loc_1ABEA};
+    use super::{
+        level_entry_title_advance_x, level_entry_title_deferred_number_indices_loc_1ABF4,
+        level_entry_title_space_token_x_loc_1ABEA,
+    };
 
     #[test]
     fn level_entry_title_space_token_adds_10_pixels_loc_1abea() {
@@ -3913,6 +3929,24 @@ mod tests {
             level_entry_title_space_token_x_loc_1ABEA(0x20),
             0x30,
             "ASM loc_1ABEA should skip the `#$84` control byte and advance `d2` by `#$10` before looping back",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_deferred_number_indices_skip_zero_count_loc_1abf4() {
+        assert_eq!(
+            level_entry_title_deferred_number_indices_loc_1ABF4(0).collect::<Vec<_>>(),
+            Vec::<usize>::new(),
+            "ASM loc_1ABF4 should branch straight to loc_1AC10 when `tst.w d0` sees a zero suffix count",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_deferred_number_indices_emit_one_slot_per_digit_loc_1abf4() {
+        assert_eq!(
+            level_entry_title_deferred_number_indices_loc_1ABF4(3).collect::<Vec<_>>(),
+            vec![0, 1, 2],
+            "ASM loc_1ABF4 should fall through to loc_1AD48 when `d0` is non-zero, and loc_1AD48's `subq.w #1,d3` / `dbf` pair should allocate exactly `d0` deferred number workers",
         );
     }
 
