@@ -19914,6 +19914,32 @@ fn loc_14df6_streams_dbf_counter_plus_one_eight_longword_bursts_to_vram() {
 }
 
 #[test]
+fn loc_14e42_seeds_four_consecutive_groups_before_the_later_outer_reset() {
+    assert_eq!(
+        crate::weather::special_effect_unknown_group_count_loc_14E42(),
+        4,
+        "ASM loc_14E42 should run four middle-loop groups per outer pass because `moveq #3,d1` makes `dbf d1,loc_14E44` count inclusively from 3 to -1"
+    );
+
+    let stepped = crate::weather::special_effect_unknown_outer_pass_loc_14E42(16);
+    assert_eq!(
+        stepped.written_longwords.len(),
+        4 * 16 * 2,
+        "ASM loc_14E42 should emit four 16-pair groups before the later `move.l d3,d7` / `move.l d4,d6` reset because the outer pass does not restart the seed pair until after all four groups finish"
+    );
+    assert_eq!(
+        &stepped.written_longwords[..4],
+        &[0x8380_8381, 0x8382_8383, 0x8380_8381, 0x8382_8383],
+        "ASM loc_14E42 should begin the first group with the precomputed `d6=$83808381` / `d7=$83828383` pair before loc_14E44 reloads `d0`"
+    );
+    assert_eq!(
+        &stepped.written_longwords[32..36],
+        &[0x8384_8385, 0x8386_8387, 0x8384_8385, 0x8386_8387],
+        "ASM loc_14E42 should advance to the next pair only after one full 16-pair group completes, so the second group begins at `d6/d7 + $00040004`"
+    );
+}
+
+#[test]
 fn loc_14dac_clears_five_weather_slots_and_seeds_the_post_loop_worker_state() {
     let stepped = crate::weather::initialise_storm_slots_loc_14DAC(
         crate::weather::StormSlotFillSetupLoc14D8A {

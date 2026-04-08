@@ -485,6 +485,49 @@ pub(crate) fn upload_special_effect_unknown_art_loc_14DF6(
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SpecialEffectUnknownPlaneFillOuterPassLoc14E42 {
+    pub(crate) written_longwords: Vec<u32>,
+}
+
+fn special_effect_unknown_plane_seed_pair() -> (u32, u32) {
+    // Matches the `move.l #$8380,d7` / `move.w d7,d6` / `swap d7` /
+    // `move.w d6,d7` / `move.l d7,d6` / `addi.l` sequence between loc_14DF6 and
+    // loc_14E42.
+    (0x8380_8381, 0x8382_8383)
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn special_effect_unknown_group_count_loc_14E42() -> usize {
+    // ASM loc_14E42 (kid.asm:28484): `moveq #3,d1` seeds the middle loop, so an
+    // outer pass emits four consecutive 16-pair groups before the later
+    // `move.l d3,d7` / `move.l d4,d6` reset.
+    4
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn special_effect_unknown_outer_pass_loc_14E42(
+    inner_repeat_count: usize,
+) -> SpecialEffectUnknownPlaneFillOuterPassLoc14E42 {
+    let (mut d6, mut d7) = special_effect_unknown_plane_seed_pair();
+    let mut written_longwords =
+        Vec::with_capacity(special_effect_unknown_group_count_loc_14E42() * inner_repeat_count * 2);
+
+    for _ in 0..special_effect_unknown_group_count_loc_14E42() {
+        for _ in 0..inner_repeat_count {
+            written_longwords.push(d6);
+            written_longwords.push(d7);
+        }
+        d6 = d6.wrapping_add(0x0004_0004);
+        d7 = d7.wrapping_add(0x0004_0004);
+    }
+
+    SpecialEffectUnknownPlaneFillOuterPassLoc14E42 { written_longwords }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
     CopyPaletteBufferToBuffer2,
     CopyPaletteBufferToBuffer3,
