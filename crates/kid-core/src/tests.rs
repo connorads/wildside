@@ -366,6 +366,28 @@ fn loc_1c060_clears_400_words_of_vram_work_ram_before_mapping_copy() {
 }
 
 #[test]
+fn loc_1c07c_copies_mapping_rows_with_32_byte_stride() {
+    let result = crate::boot::intro_tile_upload_row_copy_loop_loc_1C07C();
+    assert_eq!(
+        result.vram_row_stride_bytes, 0x20,
+        "ASM loc_1C07C should advance `a0` by `$20` = 32 bytes per row via `addi.w #$20,a0`"
+    );
+}
+
+#[test]
+fn loc_1c082_copies_one_row_of_mapping_words_to_vram_work_ram() {
+    let result = crate::boot::intro_tile_upload_word_copy_loop_loc_1C082();
+    assert_eq!(
+        result.source, 0xFFFF0000,
+        "ASM loc_1C082 reads from `Decompression_Buffer` which is at `$FFFF0000`"
+    );
+    assert_eq!(
+        result.dest, 0xFFFF7F82,
+        "ASM loc_1C082 writes to VRAM work RAM at `$FFFF7F82` before the offset adjustment"
+    );
+}
+
+#[test]
 fn gfx_object_predecessor_index_sub_ff6_returns_none_when_loc_1004_walks_to_a_null_link() {
     let next_indices = [
         Some(1), // sentinel -> first live node

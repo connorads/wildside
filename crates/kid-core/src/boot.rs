@@ -1494,6 +1494,50 @@ pub(crate) fn intro_tile_upload_clear_loop_loc_1C060() -> IntroTileUploadClearLo
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTileUploadRowCopyLoopLoc1C07C {
+    pub(crate) vram_row_stride_bytes: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_tile_upload_row_copy_loop_loc_1C07C() -> IntroTileUploadRowCopyLoopLoc1C07C {
+    // ASM sub_1C034 -> loc_1C07C (kid.asm:30871-30880): after zeros clearing at
+    // loc_1C060, the routine copies decompressed mapping rows into VRAM work RAM.
+    // Each pass loads `move.w (a4),d0; subq.w #1,d0` to get the width from the
+    // off_1C126 table (e.g., `$C` = 12for first entry), copies that many words via
+    // loc_1C082, then `addi.w #$20,a0` advances the destination by 32 bytes
+    // (16 words per row). The outer `dbf d1,loc_1C07C` runs `height` passes
+    // where `d1` was loaded from `2(a4)` (table entry byte 3-4, e.g., `$18` = 24).
+    // Video DMA follows at loc_1C09E/loc_1C0B8/loc_1C0D0 pattern groups.
+    IntroTileUploadRowCopyLoopLoc1C07C {
+        vram_row_stride_bytes: 0x0020,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTileUploadWordCopyLoopLoc1C082 {
+    pub(crate) source: u32,
+    pub(crate) dest: u32,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_tile_upload_word_copy_loop_loc_1C082() -> IntroTileUploadWordCopyLoopLoc1C082 {
+    // ASM sub_1C034 -> loc_1C082 (kid.asm:30876-30878): inner DBF loop that copies
+    // one row of decompressed mapping words from `Decompression_Buffer` to
+    // VRAM work RAM at `$FFFF7F82 + offset`. Each iteration does
+    // `move.w (a1)+,(a2)+` to copy a word while advancing both pointers. The loop
+    // runs `d0+1` times where `d0` was set from the table entry width minus one.
+    // After the row completes, `addi.w #$20,a0` moves to the next 32-byte row.
+    IntroTileUploadWordCopyLoopLoc1C082 {
+        source: 0xFFFF0000,
+        dest: 0xFFFF7F82,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextKidSetupLoc1B5E4 {
     pub(crate) palette_line: u8,
