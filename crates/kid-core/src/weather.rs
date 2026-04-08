@@ -878,6 +878,31 @@ pub(crate) fn lava_geyser_peak_hold_step_loc_1496C(
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserCollapseStepLoc1498C {
+    pub(crate) next_sprite_row_index: u16,
+    pub(crate) descending: bool,
+    pub(crate) restart_startup_script: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_collapse_step_loc_1498C(
+    sprite_row_index: u16,
+) -> LavaGeyserCollapseStepLoc1498C {
+    // ASM loc_1498C (kid.asm:28031): decrement `d3` once per collapse tick and
+    // keep looping through loc_1485E while rows remain; when the decremented
+    // count reaches zero, clear `$4D(a5)` and jump back to loc_14788.
+    let next_sprite_row_index = sprite_row_index.wrapping_sub(1);
+    let restart_startup_script = next_sprite_row_index == 0;
+    LavaGeyserCollapseStepLoc1498C {
+        next_sprite_row_index,
+        descending: !restart_startup_script,
+        restart_startup_script,
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaGeyserScriptStepLoc147BA {
     HoldAtFullHeight,
     DisableForCooldown,

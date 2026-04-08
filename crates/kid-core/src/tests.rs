@@ -20525,6 +20525,28 @@ fn loc_1496c_counts_down_the_hold_timer_and_only_switches_to_collapse_at_zero() 
 }
 
 #[test]
+fn loc_1498c_restarts_the_geyser_once_the_last_collapse_row_clears() {
+    assert_eq!(
+        crate::weather::lava_geyser_collapse_step_loc_1498C(0x0003),
+        crate::weather::LavaGeyserCollapseStepLoc1498C {
+            next_sprite_row_index: 0x0002,
+            descending: true,
+            restart_startup_script: false,
+        },
+        "ASM loc_1498C should keep collapsing through loc_1485E while the decremented row count stays non-zero"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_collapse_step_loc_1498C(0x0001),
+        crate::weather::LavaGeyserCollapseStepLoc1498C {
+            next_sprite_row_index: 0x0000,
+            descending: false,
+            restart_startup_script: true,
+        },
+        "ASM loc_1498C should clear `$4D(a5)` and branch back to loc_14788 when the final collapse row decrements to zero"
+    );
+}
+
+#[test]
 fn loc_1478e_only_plays_the_repeat_lava_geyser_sound_when_the_flag_is_clear() {
     assert_eq!(
         crate::weather::lava_geyser_repeat_sound_loc_1478E(false),
