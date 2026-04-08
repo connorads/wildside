@@ -164,6 +164,12 @@ pub(crate) struct DecompressLongRefTailLoc1377E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressShortRefTailLoc137C4 {
+    pub(crate) copied_bytes: [u8; 2],
+    pub(crate) finished: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -1282,6 +1288,23 @@ pub(crate) fn decompress_long_ref_header_loc_13756(
     DecompressLongRefHeaderLoc13756 {
         source_back_distance,
         copy_mode,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_short_ref_finished_loc_137C4(
+    copied_bytes: [u8; 2],
+    output_addr_after_tail: u16,
+    output_limit_addr: u16,
+) -> DecompressShortRefTailLoc137C4 {
+    // ASM loc_137C4 (kid.asm:26354-26359) is the shared short-reference tail
+    // after the optional third byte in `loc_137B0`: it copies exactly two
+    // more bytes from `(a6)+` into `(a2)+`, then uses `cmp.w a2,d7` /
+    // `bls.s loc_1381C` to decide whether the decode has finished.
+    DecompressShortRefTailLoc137C4 {
+        copied_bytes,
+        finished: output_addr_after_tail >= output_limit_addr,
     }
 }
 

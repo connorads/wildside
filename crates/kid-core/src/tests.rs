@@ -42772,6 +42772,26 @@ fn loc_137b0_dispatches_between_direct_copy_long_ref_and_short_ref_lengths() {
 }
 
 #[test]
+fn loc_137c4_copies_two_short_ref_tail_bytes_then_checks_the_end_pointer() {
+    assert_eq!(
+        crate::level::decompress_short_ref_finished_loc_137C4([0x12, 0x34], 0x0100, 0x0101),
+        crate::level::DecompressShortRefTailLoc137C4 {
+            copied_bytes: [0x12, 0x34],
+            finished: false,
+        },
+        "ASM loc_137C4 should always copy exactly two bytes after the optional third-byte prelude from `loc_137B0`"
+    );
+    assert_eq!(
+        crate::level::decompress_short_ref_finished_loc_137C4([0x56, 0x78], 0x0102, 0x0101),
+        crate::level::DecompressShortRefTailLoc137C4 {
+            copied_bytes: [0x56, 0x78],
+            finished: true,
+        },
+        "ASM loc_137C4 should branch to `loc_1381C` once the post-tail output cursor reaches or passes `d7`"
+    );
+}
+
+#[test]
 fn loc_1374a_copies_two_short_ref_tail_bytes_then_checks_the_end_pointer() {
     assert_eq!(
         crate::level::decompress_short_ref_finished_loc_1374A([0x12, 0x34], 0x0100, 0x0101),
