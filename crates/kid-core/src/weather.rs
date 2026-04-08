@@ -774,6 +774,16 @@ fn lava_fireball_hits_kid_sub_14AB0(
         && kid_bottom >= fireball_top
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_initial_delay_frames_loc_14772(encoded_height_word: u16) -> u16 {
+    // ASM Obj_Lava_Geyser -> loc_14772 (kid.asm:27810-27820): the low nibble of
+    // the encoded height indexes `word_14710`, whose entries are `0, 10, 20,
+    // ... 150`. `loc_14772` then hibernates once per stored frame before the
+    // eruption continues into the sound/effect script.
+    (encoded_height_word & 0xF) * 10
+}
+
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;
@@ -929,13 +939,12 @@ impl NativeRuntime {
         };
 
         for &(x, y, h) in positions {
-            let initial_delay = (h & 0xF) * 10;
             self.weather.lava_geysers.push(LavaGeyser {
                 x_px: x,
                 y_px: y,
                 height_px: h >> 4,
                 phase: 0,
-                timer: initial_delay,
+                timer: lava_geyser_initial_delay_frames_loc_14772(h),
                 current_height: 0,
             });
         }

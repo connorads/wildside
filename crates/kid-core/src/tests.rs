@@ -20464,6 +20464,25 @@ fn lava_fireball_script_restarts_after_rom_cooldown() {
 // --- Lava geyser init ---
 
 #[test]
+fn loc_14772_uses_the_low_height_nibble_as_a_10_frame_delay_table_index() {
+    assert_eq!(
+        crate::weather::lava_geyser_initial_delay_frames_loc_14772(0x0060),
+        0,
+        "ASM loc_14772 should use `word_14710[0] = 0` when the encoded height low nibble is zero"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_initial_delay_frames_loc_14772(0x0063),
+        30,
+        "ASM loc_14772 should map low nibble `3` to `word_14710[3] = 30` hibernation frames before the geyser starts"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_initial_delay_frames_loc_14772(0x008F),
+        150,
+        "ASM loc_14772 should cap the low-nibble lookup at `word_14710[15] = 150`"
+    );
+}
+
+#[test]
 fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
