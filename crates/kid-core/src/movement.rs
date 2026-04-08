@@ -1289,6 +1289,10 @@ fn level_entry_title_worker_axis_pos(
 }
 
 fn level_entry_title_start_pose(rng: &mut RomRandomState, selector: u8) -> (u32, u32) {
+    // ASM loc_1ACB0 (kid.asm:28914-28923) masks the first RNG byte to two
+    // bits, then dispatches four entry poses: selectors 0/2 pin X to the left
+    // and right edges while sharing the random-Y branch, selector 1 seeds the
+    // top edge, and selector 3 seeds the bottom edge.
     let (x, y) = match selector {
         0 => (-0x20, level_entry_title_random_y(rng)),
         1 => (level_entry_title_random_x(rng), -0x20),
@@ -3938,8 +3942,9 @@ mod tests {
     use super::{
         level_entry_title_advance_x, level_entry_title_deferred_number_indices_loc_1ABF4,
         level_entry_title_space_token_x_loc_1ABEA,
-        level_entry_title_spawns_two_player_waiter_loc_1AC10,
+        level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
     };
+    use crate::types::RomRandomState;
 
     #[test]
     fn level_entry_title_space_token_adds_10_pixels_loc_1abea() {
@@ -3999,6 +4004,22 @@ mod tests {
             level_entry_title_advance_x(0x7C),
             0x28,
             "ASM loc_1ABCA handles glyph $7C with `addi.w #$28,d2` before looping back",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_start_pose_loc_1acb0_keeps_left_and_right_edge_x_values() {
+        let mut left_rng = RomRandomState::default();
+        let mut right_rng = RomRandomState::default();
+
+        let (left_x, left_y) = level_entry_title_start_pose(&mut left_rng, 0);
+        let (right_x, right_y) = level_entry_title_start_pose(&mut right_rng, 2);
+
+        assert_eq!(left_x, 0xFFE0_0000);
+        assert_eq!(right_x, 0x0160_0000);
+        assert_eq!(
+            left_y, right_y,
+            "ASM loc_1ACB0 routes selectors 0 and 2 through the same loc_1ACEA random-Y path while keeping their fixed edge X positions",
         );
     }
 
