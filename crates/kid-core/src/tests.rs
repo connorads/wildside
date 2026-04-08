@@ -21116,10 +21116,34 @@ fn loc_1480c_unbiases_the_built_sprite_row_y_and_adds_camera_y() {
 }
 
 #[test]
-fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
+fn loc_14c5e_selects_usm2_black_pit_and_fallback_tables_from_resource_level_ids() {
+    assert_eq!(
+        crate::weather::lava_geyser_position_table_loc_14C5E(0),
+        crate::weather::LavaGeyserPositionTableLoc14C5E::Usm2,
+        "ASM loc_14C5E should keep `d1 = 0` for resource level 0 so USM2 uses the first geyser-position table"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_position_table_loc_14C5E(2),
+        crate::weather::LavaGeyserPositionTableLoc14C5E::BlackPit,
+        "ASM loc_14C5E should increment `d1` once before the second compare so resource level 2 selects Black Pit's table"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_position_table_loc_14C5E(4),
+        crate::weather::LavaGeyserPositionTableLoc14C5E::BlackPit,
+        "ASM loc_14C5E should reuse the same Black Pit table for resource level 4"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_position_table_loc_14C5E(5),
+        crate::weather::LavaGeyserPositionTableLoc14C5E::Other,
+        "ASM loc_14C5E should fall through with `d1 = 3` for every other lava level and select the shared fallback table"
+    );
+}
+
+#[test]
+fn init_lava_geysers_resource_level_0_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
-    runtime.init_lava_geysers(LevelId(0x06));
+    runtime.init_lava_geysers(LevelId(0x00));
 
     assert_eq!(runtime.weather.lava_geysers.len(), 2);
     assert_eq!(runtime.weather.lava_fireballs.len(), 1);
@@ -21139,13 +21163,17 @@ fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
 }
 
 #[test]
-fn init_lava_geysers_unknown_level_creates_none() {
-    let manifest = manifest_with_levels(2);
+fn init_lava_geysers_fallback_table_creates_shared_other_entries_without_a_fireball() {
+    let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
-    runtime.init_lava_geysers(LevelId(0x01));
+    runtime.init_lava_geysers(LevelId(0x06));
 
-    assert!(runtime.weather.lava_geysers.is_empty());
+    assert_eq!(runtime.weather.lava_geysers.len(), 3);
     assert!(runtime.weather.lava_fireballs.is_empty());
+    let geyser = &runtime.weather.lava_geysers[0];
+    assert_eq!(geyser.x_px, 0x0090);
+    assert_eq!(geyser.y_px, 0x0330);
+    assert_eq!(geyser.height_px, 0x0260 >> 4);
 }
 
 #[test]

@@ -1552,6 +1552,53 @@ pub(crate) fn lava_geyser_sprite_top_y_loc_1480C(
     lava_geyser_store_top_sprite_y_loc_148D4(sprite_screen_y_with_bias, camera_y_px)
 }
 
+const LAVA_GEYSER_POSITIONS_USM2_LOC_14C5E: &[(u16, u16, u16)] =
+    &[(0x180, 0x312, 0x60), (0x240, 0x312, 0x63)];
+const LAVA_GEYSER_POSITIONS_BLACK_PIT_LOC_14C5E: &[(u16, u16, u16)] = &[
+    (0x290, 0x170, 0x20),
+    (0x3D0, 0x170, 0x20),
+    (0x510, 0x170, 0x40),
+    (0x650, 0x170, 0x60),
+    (0x790, 0x170, 0x80),
+    (0x8D0, 0x170, 0xA0),
+    (0xA10, 0x170, 0xC0),
+    (0xB50, 0x170, 0xE0),
+    (0xC90, 0x170, 0x100),
+    (0xDD0, 0x170, 0x100),
+    (0xF10, 0x170, 0x100),
+    (0x1050, 0x170, 0x100),
+    (0x1190, 0x170, 0x100),
+];
+const LAVA_GEYSER_POSITIONS_OTHER_LOC_14C5E: &[(u16, u16, u16)] = &[
+    (0x090, 0x330, 0x260),
+    (0x010, 0x1D0, 0x090),
+    (0x110, 0x1D0, 0x090),
+];
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LavaGeyserPositionTableLoc14C5E {
+    Usm2,
+    BlackPit,
+    Other,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_position_table_loc_14C5E(
+    resource_level_id: u8,
+) -> LavaGeyserPositionTableLoc14C5E {
+    // ASM loc_14C5E (kid.asm:28305): after resolving `Current_LevelID`
+    // through `MapOrder_Index`, the lava special-effect worker picks USM2's
+    // position table for resource level 0, Black Pit's table for resource
+    // levels 2 and 4, and the shared fallback table for every other lava level.
+    match resource_level_id {
+        0 => LavaGeyserPositionTableLoc14C5E::Usm2,
+        2 | 4 => LavaGeyserPositionTableLoc14C5E::BlackPit,
+        _ => LavaGeyserPositionTableLoc14C5E::Other,
+    }
+}
+
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;
@@ -1677,33 +1724,12 @@ impl NativeRuntime {
     /// Initialise lava geyser positions for lava weather levels.
     /// Uses hardcoded per-level position tables matching the original ASM data.
     pub(crate) fn init_lava_geysers(&mut self, level_id: LevelId) {
-        // Per-level geyser positions: (x_px, y_px, height_px)
-        let positions: &[(u16, u16, u16)] = match level_id.0 {
-            // Under Skull Mountain 2 (USM2)
-            0x06 => &[(0x180, 0x312, 0x60), (0x240, 0x312, 0x63)],
-            // Black Pit
-            0x45 => &[
-                (0x290, 0x170, 0x20),
-                (0x3D0, 0x170, 0x20),
-                (0x510, 0x170, 0x40),
-                (0x650, 0x170, 0x60),
-                (0x790, 0x170, 0x80),
-                (0x8D0, 0x170, 0xA0),
-                (0xA10, 0x170, 0xC0),
-                (0xB50, 0x170, 0xE0),
-                (0xC90, 0x170, 0x100),
-                (0xDD0, 0x170, 0x100),
-                (0xF10, 0x170, 0x100),
-                (0x1050, 0x170, 0x100),
-                (0x1190, 0x170, 0x100),
-            ],
-            // Elsewhere 29
-            0x3E => &[
-                (0x090, 0x330, 0x260),
-                (0x010, 0x1D0, 0x090),
-                (0x110, 0x1D0, 0x090),
-            ],
-            _ => &[],
+        let resource_level_id = kid_data::resource_level_id(&self.assets, level_id.0);
+        let selected_table = lava_geyser_position_table_loc_14C5E(resource_level_id);
+        let positions = match selected_table {
+            LavaGeyserPositionTableLoc14C5E::Usm2 => LAVA_GEYSER_POSITIONS_USM2_LOC_14C5E,
+            LavaGeyserPositionTableLoc14C5E::BlackPit => LAVA_GEYSER_POSITIONS_BLACK_PIT_LOC_14C5E,
+            LavaGeyserPositionTableLoc14C5E::Other => LAVA_GEYSER_POSITIONS_OTHER_LOC_14C5E,
         };
 
         for &(x, y, h) in positions {
@@ -1717,7 +1743,7 @@ impl NativeRuntime {
             });
         }
 
-        if level_id.0 == 0x06 {
+        if matches!(selected_table, LavaGeyserPositionTableLoc14C5E::Usm2) {
             self.weather.lava_fireballs.push(LavaFireball {
                 x_px: 0x346,
                 base_y_px: 0x312,
