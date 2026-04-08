@@ -6959,6 +6959,31 @@ pub(crate) fn should_process_fg_update_queue_cell_loc_15D2(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
+    cell_x: u16,
+    cell_y: u16,
+    camera_x_pixels: u16,
+    camera_y_pixels: u16,
+) -> Option<u16> {
+    // ASM loc_1614 (kid.asm:2738): after loading `d4/d6` from
+    // `Camera_X_pos>>4` and `Camera_X_pos>>4 + $14`, and `d5/d7` from
+    // `Camera_Y_pos>>4` and `Camera_Y_pos>>4 + $E`, only cells whose `(d0,d1)`
+    // tile coordinates lie within both inclusive ranges reach the VDP write
+    // path. The packed VRAM word is `((d1 << 8) & $F00) + ((d0 << 2) & $7C) |
+    // $4000`.
+    let min_x = camera_x_pixels >> 4;
+    let max_x = min_x.wrapping_add(0x0014);
+    let min_y = camera_y_pixels >> 4;
+    let max_y = min_y.wrapping_add(0x000E);
+    if !(min_x..=max_x).contains(&cell_x) || !(min_y..=max_y).contains(&cell_y) {
+        return None;
+    }
+
+    Some((((cell_y << 8) & 0x0F00) | ((cell_x << 2) & 0x007C)).wrapping_add(0x4000))
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn drain_fg_update_queue_custom_sub_1596(
     pending_queue: &mut Option<Vec<FgUpdateQueueCustomEntrySub1596>>,
