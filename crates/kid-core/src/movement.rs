@@ -281,6 +281,18 @@ pub(crate) fn gfx_objects_move_and_animate_loc_144E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_collision_next_index_loc_17BE(
+    current_next_index: Option<usize>,
+) -> Option<usize> {
+    // ASM GfxObjects_Collision loc_16FC / loc_17BE (kid.asm:2829, 2934):
+    // load the current `4(a2)` link into `d0`; if it is zero, branch straight
+    // to the shared epilogue at loc_17BE, otherwise move that link into `a2`
+    // and continue the collision walk.
+    current_next_index
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(
     time_frames: u16,
     first_gfx_object_index: Option<usize>,

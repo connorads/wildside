@@ -45823,6 +45823,20 @@ fn loc_144e_walks_each_linked_gfx_object_until_the_null_tail() {
 }
 
 #[test]
+fn loc_17be_returns_immediately_when_the_collision_walk_sees_a_null_next_link() {
+    assert_eq!(
+        crate::movement::gfx_objects_collision_next_index_loc_17BE(None),
+        None,
+        "ASM loc_17BE should terminate `GfxObjects_Collision` immediately when `move.l 4(a2),d0` loads a null next link",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_next_index_loc_17BE(Some(3)),
+        Some(3),
+        "ASM loc_16FC should move the non-null `4(a2)` link into `a2` and continue the collision walk instead of taking the loc_17BE epilogue",
+    );
+}
+
+#[test]
 fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
     let next_indices = [Some(1), Some(2), Some(3), None];
     let kind_words = [0, 2, 3, 4];
