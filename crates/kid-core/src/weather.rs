@@ -850,6 +850,34 @@ pub(crate) fn lava_geyser_peak_row_target_loc_14966(sprite_row_target: u16) -> u
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserPeakHoldStepLoc1496C {
+    pub(crate) sprite_row_index: u16,
+    pub(crate) frames_per_sprite: u16,
+    pub(crate) next_hold_frames: u16,
+    pub(crate) descending: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_peak_hold_step_loc_1496C(
+    sprite_row_target: u16,
+    hold_frames_remaining: u16,
+) -> LavaGeyserPeakHoldStepLoc1496C {
+    // ASM loc_1496C (kid.asm:28021): reload `d3` from `$4A(a5)`, use the
+    // 6-frame top-cap cadence while holding, decrement `$50(a5)`, and only
+    // switch to the 1-frame collapse cadence once the decremented timer hits 0.
+    let next_hold_frames = hold_frames_remaining.wrapping_sub(1);
+    let descending = next_hold_frames == 0;
+    LavaGeyserPeakHoldStepLoc1496C {
+        sprite_row_index: sprite_row_target,
+        frames_per_sprite: if descending { 1 } else { 6 },
+        next_hold_frames,
+        descending,
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaGeyserScriptStepLoc147BA {
     HoldAtFullHeight,
     DisableForCooldown,

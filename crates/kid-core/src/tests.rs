@@ -20501,6 +20501,30 @@ fn loc_14966_expands_the_peak_row_target_by_two_when_the_top_cap_wraps() {
 }
 
 #[test]
+fn loc_1496c_counts_down_the_hold_timer_and_only_switches_to_collapse_at_zero() {
+    assert_eq!(
+        crate::weather::lava_geyser_peak_hold_step_loc_1496C(0x000A, 0x001E),
+        crate::weather::LavaGeyserPeakHoldStepLoc1496C {
+            sprite_row_index: 0x000A,
+            frames_per_sprite: 6,
+            next_hold_frames: 0x001D,
+            descending: false,
+        },
+        "ASM loc_1496C should keep the 6-frame top-cap cadence while the decremented `$50(a5)` timer stays non-zero"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_peak_hold_step_loc_1496C(0x000A, 0x0001),
+        crate::weather::LavaGeyserPeakHoldStepLoc1496C {
+            sprite_row_index: 0x000A,
+            frames_per_sprite: 1,
+            next_hold_frames: 0x0000,
+            descending: true,
+        },
+        "ASM loc_1496C should arm the collapse path and switch to the 1-frame cadence once `subq.w #1,$50(a5)` reaches zero"
+    );
+}
+
+#[test]
 fn loc_1478e_only_plays_the_repeat_lava_geyser_sound_when_the_flag_is_clear() {
     assert_eq!(
         crate::weather::lava_geyser_repeat_sound_loc_1478E(false),
