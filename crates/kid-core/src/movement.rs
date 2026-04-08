@@ -1181,6 +1181,9 @@ fn level_entry_title_target_y(glyph: u8, y: u16) -> u16 {
 }
 
 fn level_entry_title_advance_x(glyph: u8) -> u16 {
+    // ASM loc_1AB6A (kid.asm:28775-28805): after each visible title glyph
+    // worker is allocated, advance `d2` by a glyph-specific width before the
+    // next script byte is read.
     match glyph.wrapping_sub(b'a') {
         0x1B => 0x28,
         0x1C => 0x20,
@@ -3876,5 +3879,19 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
     CrawlSlopeSnapSub83E6 {
         x_pos: original_x_pos,
         adjusted: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::level_entry_title_advance_x;
+
+    #[test]
+    fn level_entry_title_advance_x_defaults_to_10_pixels_for_plain_glyphs_loc_1ab6a() {
+        assert_eq!(
+            level_entry_title_advance_x(b'a'),
+            0x10,
+            "ASM loc_1AB6A falls through to `addi.w #$10,d2` for ordinary title glyphs",
+        );
     }
 }
