@@ -44477,6 +44477,20 @@ fn loc_12c34_loads_hitpoint_display_art_into_vram_45a0() {
 }
 
 #[test]
+fn loc_1462_reloads_the_samurai_haze_walk_from_the_gfx_head_pointer() {
+    assert_eq!(
+        crate::movement::gfx_object_head_under_samurai_haze_loc_1462(None),
+        None,
+        "ASM loc_1462 should preserve the null sentinel when `(Addr_FirstGfxObjectSlot).w` is empty before the slowed `loc_1466` walk starts"
+    );
+    assert_eq!(
+        crate::movement::gfx_object_head_under_samurai_haze_loc_1462(Some(7)),
+        Some(7),
+        "ASM loc_1462 should reload `a3` from `(Addr_FirstGfxObjectSlot).w` before entering the Samurai Haze-specific loop at `loc_1466`"
+    );
+}
+
+#[test]
 fn loc_144e_walks_each_linked_gfx_object_until_the_null_tail() {
     assert_eq!(
         crate::movement::gfx_objects_move_and_animate_loc_144E(None, &[Some(1), Some(2), None]),

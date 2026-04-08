@@ -249,6 +249,17 @@ pub(crate) fn gfx_object_delete_special_predecessor_index_loc_111A(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_head_under_samurai_haze_loc_1462(
+    first_gfx_object_index: Option<usize>,
+) -> Option<usize> {
+    // ASM loc_1462 (kid.asm:2531): the Samurai Haze branch reloads `a3` from
+    // `(Addr_FirstGfxObjectSlot).w` before falling straight into `loc_1466`, so
+    // the slowed-object walk always restarts from the sentinel head pointer.
+    first_gfx_object_index
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_loc_144E(
     first_gfx_object_index: Option<usize>,
     next_indices: &[Option<usize>],
