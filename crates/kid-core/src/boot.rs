@@ -1571,6 +1571,9 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
         } else {
             row_word_count
         };
+        // ASM loc_1B7A6: `move.w (a0)+,(a6)` runs before `dbf d1,loc_1B7A6`,
+        // so each row copies `d1 + 1` words and still emits one word when the
+        // clipped counter has already reached zero.
         let words = decoded_words[row_start..row_start + top_row_limit].to_vec();
         // ASM loc_1B758: `move.w d5,d0; lsl.w #7,d0; add.w d4,d0; add.w d4,d0`
         // builds the row-`$12` VRAM word address, then `addi.w #$4000,d0;
@@ -4477,6 +4480,31 @@ mod tests {
         assert_eq!(
             upload.rows[0].filler_word, None,
             "ASM loc_1B79A is the no-filler branch after `tst.w d4; beq.s loc_1B79A`"
+        );
+    }
+
+    #[test]
+    fn loc_1b7a6_copies_the_clipped_row_width_with_inclusive_dbf_semantics() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let upload = title_text_chameleon_frame_upload_sub_1B71A(&decoded_words, 33, 0x0008)
+            .expect("ASM loc_1B7A6 should still emit one decoded word when the clipped copy count reaches zero");
+
+        assert_eq!(
+            upload.rows.len(),
+            7,
+            "ASM loc_1B7A6 still runs once per row while `dbf d7,loc_1B76C` walks all seven rows"
+        );
+        assert!(upload.rows.iter().all(|row| row.words.len() == 1));
+        assert_eq!(
+            upload.rows[0].words,
+            vec![28],
+            "ASM loc_1B7A6 writes before `dbf d1,loc_1B7A6`, so a clipped `d1=0` top row should still copy the final decoded word"
+        );
+        assert_eq!(
+            upload.rows[6].words,
+            vec![202],
+            "ASM loc_1B7A6 should keep the same inclusive one-word copy rule on later rows after the source pointer advances by `$1D` words per row"
         );
     }
 
