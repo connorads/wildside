@@ -19738,6 +19738,20 @@ fn loc_14cd8_uploads_the_selected_storm_art_to_vram_7000() {
 }
 
 #[test]
+fn loc_14cec_selects_the_hail_palette_only_for_ice_backgrounds() {
+    assert_eq!(
+        crate::weather::select_storm_palette_loc_14CEC(false),
+        crate::weather::StormPaletteAssetLoc14CEC::Rain,
+        "ASM loc_14CEC should keep the default rain palette pointer when `Background_theme` is not Ice",
+    );
+    assert_eq!(
+        crate::weather::select_storm_palette_loc_14CEC(true),
+        crate::weather::StormPaletteAssetLoc14CEC::Hail,
+        "ASM loc_14CEC should branch to the hail palette pointer when `Background_theme == Ice`",
+    );
+}
+
+#[test]
 fn sub_6048_before_20_seconds_only_sets_weather_mode_byte() {
     let stepped = step_level_special_effects_sub_6048(
         WeatherSpecialEffectsStepSub6048 {

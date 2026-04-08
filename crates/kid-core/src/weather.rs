@@ -202,6 +202,28 @@ pub(crate) fn upload_storm_art_loc_14CD8(asset: StormArtAssetLoc14CCE) -> StormA
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StormPaletteAssetLoc14CEC {
+    Rain,
+    Hail,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn select_storm_palette_loc_14CEC(
+    background_theme_is_ice: bool,
+) -> StormPaletteAssetLoc14CEC {
+    // ASM loc_14CEC (kid.asm:28356-28358): the shared palette-selection tail
+    // swaps from the default rain palette to the hail palette when the
+    // background theme is Ice.
+    if background_theme_is_ice {
+        StormPaletteAssetLoc14CEC::Hail
+    } else {
+        StormPaletteAssetLoc14CEC::Rain
+    }
+}
+
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
     CopyPaletteBufferToBuffer2,
