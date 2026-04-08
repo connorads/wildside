@@ -1145,6 +1145,31 @@ pub(crate) fn decompress_to_ram_chunk_setup_loc_143EA(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_to_ram_word_transfer_loc_1440A(
+    permutation_table: &[u8; 256],
+    buffered_bytes: &[u8],
+    dbf_counter: u16,
+) -> Vec<u16> {
+    // ASM loc_1440A (kid.asm:27297-27305) reads two bytes from `(a4)+`, uses
+    // each as an index into the 256-entry permutation table at `$FFFF0280`,
+    // shifts the first lookup into the high byte with `lsl.w #8,d6`, overwrites
+    // the low byte with the second lookup, writes the packed word to `(a6)`,
+    // then repeats exactly `d3+1` times via `dbf`.
+    let word_count = usize::from(dbf_counter) + 1;
+
+    buffered_bytes
+        .chunks_exact(2)
+        .take(word_count)
+        .map(|byte_pair| {
+            let high_byte = u16::from(permutation_table[usize::from(byte_pair[0])]);
+            let low_byte = u16::from(permutation_table[usize::from(byte_pair[1])]);
+            (high_byte << 8) | low_byte
+        })
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
