@@ -988,6 +988,63 @@ pub(crate) fn lava_geyser_is_inside_camera_window_loc_147D6(
     x_px >= min_x && x_px <= max_x && y_px >= min_y && y_px <= max_y
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserTopSpriteWindowInputLoc14874 {
+    pub(crate) x_px: u16,
+    pub(crate) y_px: u16,
+    pub(crate) sprite_row_index: u16,
+    pub(crate) camera_x_px: u16,
+    pub(crate) camera_y_px: u16,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LavaGeyserTopSpriteWindowResultLoc14874 {
+    Culled,
+    SkipTopSprite { sprite_row_y_px: u16 },
+    BuildTopSprite { sprite_row_y_px: u16 },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_top_sprite_window_loc_14874(
+    input: LavaGeyserTopSpriteWindowInputLoc14874,
+) -> LavaGeyserTopSpriteWindowResultLoc14874 {
+    // ASM loc_14874 (kid.asm:27928): the shared geyser row loop first un-biases
+    // `$44/$46(a5)` by `$80`, subtracts `$10 + ((d3 + 1) << 4)` from Y for the
+    // current row, and culls against X `[Camera_X_pos - $20, Camera_X_pos +
+    // $160]`. Rows above `Camera_Y_pos - $28` skip only the top-cap build via
+    // `loc_148E6`; rows below `Camera_Y_pos + $108` branch straight to
+    // `loc_14940` and emit nothing.
+    let x_px = input.x_px.wrapping_sub(0x80);
+    let sprite_row_y_px = input
+        .y_px
+        .wrapping_sub(0x80)
+        .wrapping_sub(0x10)
+        .wrapping_sub((input.sprite_row_index.wrapping_add(1)) << 4);
+
+    let x_px_i32 = i32::from(x_px);
+    let sprite_row_y_px_i32 = i32::from(sprite_row_y_px);
+    let min_x = i32::from(input.camera_x_px) - 0x20;
+    let max_x = min_x + 0x180;
+    if x_px_i32 < min_x || x_px_i32 > max_x {
+        return LavaGeyserTopSpriteWindowResultLoc14874::Culled;
+    }
+
+    let min_y = i32::from(input.camera_y_px) - 0x28;
+    if sprite_row_y_px_i32 < min_y {
+        return LavaGeyserTopSpriteWindowResultLoc14874::SkipTopSprite { sprite_row_y_px };
+    }
+
+    let max_y = min_y + 0x130;
+    if sprite_row_y_px_i32 > max_y {
+        return LavaGeyserTopSpriteWindowResultLoc14874::Culled;
+    }
+
+    LavaGeyserTopSpriteWindowResultLoc14874::BuildTopSprite { sprite_row_y_px }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one: u16) -> u16 {

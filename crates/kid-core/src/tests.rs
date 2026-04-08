@@ -20651,6 +20651,56 @@ fn loc_147d6_uses_the_padded_camera_window_before_building_sprite_rows() {
 }
 
 #[test]
+fn loc_14874_unbiases_the_current_row_and_distinguishes_skip_top_from_full_cull() {
+    let visible = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
+        x_px: 0x0180,
+        y_px: 0x0210,
+        sprite_row_index: 0,
+        camera_x_px: 0x0100,
+        camera_y_px: 0x0160,
+    };
+    assert_eq!(
+        crate::weather::lava_geyser_top_sprite_window_loc_14874(visible),
+        crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::BuildTopSprite {
+            sprite_row_y_px: 0x0180,
+        },
+        "ASM loc_14874 should subtract `$80` from `$44/$46(a5)`, subtract `$10 + ((d3 + 1) << 4)` from Y, and keep rows inside the inclusive X and lower/upper Y camera pads on the top-cap path"
+    );
+
+    let above_top_pad = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
+        y_px: 0x01F7,
+        ..visible
+    };
+    assert_eq!(
+        crate::weather::lava_geyser_top_sprite_window_loc_14874(above_top_pad),
+        crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::SkipTopSprite {
+            sprite_row_y_px: 0x0167,
+        },
+        "ASM loc_14874 should branch to loc_148E6, skipping only the top-cap build, when the current row sits above `Camera_Y_pos - $28`"
+    );
+
+    let right_clipped = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
+        x_px: 0x0301,
+        ..visible
+    };
+    assert_eq!(
+        crate::weather::lava_geyser_top_sprite_window_loc_14874(right_clipped),
+        crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::Culled,
+        "ASM loc_14874 should branch to loc_14940 when `$44(a5) - $80` lies right of `Camera_X_pos + $160`"
+    );
+
+    let below_bottom_pad = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
+        y_px: 0x02B9,
+        ..visible
+    };
+    assert_eq!(
+        crate::weather::lava_geyser_top_sprite_window_loc_14874(below_bottom_pad),
+        crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::Culled,
+        "ASM loc_14874 should branch to loc_14940 when the current row falls below `Camera_Y_pos + $108`"
+    );
+}
+
+#[test]
 fn loc_14804_hibernates_once_per_additional_sprite_row_after_the_first() {
     assert_eq!(
         crate::weather::lava_geyser_inter_row_hibernations_loc_14804(0),
