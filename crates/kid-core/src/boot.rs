@@ -1201,6 +1201,41 @@ pub(crate) fn title_screen_hidden_shell_script_loc_1B446() -> TitleScreenHiddenS
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleScreenHiddenShellPaletteRestoreLoc1B45A {
+    pub(crate) blackout_hibernate_frames: u16,
+    pub(crate) palette_word_count: u16,
+    pub(crate) blackout_frame: u8,
+    pub(crate) interstitial_hibernate_frames: u16,
+    pub(crate) reload_title_art: bool,
+    pub(crate) spawned_handlers: [&'static str; 3],
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_screen_hidden_shell_palette_restore_loc_1B45A()
+-> TitleScreenHiddenShellPaletteRestoreLoc1B45A {
+    // ASM loc_1B45A (kid.asm:29677-29709): after the `$FF` sentinel, wait
+    // `$39` frames, copy all `$40` palette words from `Palette_Buffer` into
+    // `Palette_Buffer_2` while clearing the original via loc_1B470, hibernate
+    // one frame, show frame 7, rebuild the title shell, restore those same
+    // `$40` words via loc_1B494, hibernate one more frame, reload title art,
+    // then allocate the bottom-boundary, `loc_1B6AC`, and `loc_1B5CE` workers.
+    TitleScreenHiddenShellPaletteRestoreLoc1B45A {
+        blackout_hibernate_frames: 0x0039,
+        palette_word_count: 0x003F + 1,
+        blackout_frame: 7,
+        interstitial_hibernate_frames: 1,
+        reload_title_art: true,
+        spawned_handlers: [
+            "GfxObjects_Collision_BottomBoundary4",
+            "loc_1B6AC",
+            "loc_1B5CE",
+        ],
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) vram_word_addr: u16,
     pub(crate) word_writes: Vec<u16>,
@@ -3760,6 +3795,36 @@ mod tests {
             &script.title_frames[24..],
             &[6, 5, 6, 5, 6],
             "ASM loc_1B446 should stop only after the trailing `$FF`, so the final visible passes are the five non-negative bytes immediately before that sentinel",
+        );
+    }
+
+    #[test]
+    fn loc_1b45a_blacks_out_and_restores_all_64_palette_words_before_spawning_title_workers() {
+        let restore = title_screen_hidden_shell_palette_restore_loc_1B45A();
+
+        assert_eq!(restore.blackout_hibernate_frames, 0x0039);
+        assert_eq!(
+            restore.palette_word_count,
+            0x003F + 1,
+            "ASM loc_1B45A seeds `d0=#$3F` for both loc_1B470 and loc_1B494, so the blackout and restore passes each process all 64 palette words",
+        );
+        assert_eq!(
+            restore.blackout_frame, 7,
+            "ASM loc_1B45A loads `d4=7` before `bsr.w sub_1BF24`, so the shell shows frame 7 during the blackout interstitial",
+        );
+        assert_eq!(restore.interstitial_hibernate_frames, 1);
+        assert!(
+            restore.reload_title_art,
+            "ASM loc_1B45A calls `Load_TitleArt` after restoring the palette data and before allocating the next title workers",
+        );
+        assert_eq!(
+            restore.spawned_handlers,
+            [
+                "GfxObjects_Collision_BottomBoundary4",
+                "loc_1B6AC",
+                "loc_1B5CE",
+            ],
+            "ASM loc_1B45A should allocate the bottom boundary, `loc_1B6AC`, then `loc_1B5CE` after the palette restore tail completes",
         );
     }
 
