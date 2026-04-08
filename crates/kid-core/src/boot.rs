@@ -951,6 +951,95 @@ pub(crate) fn title_screen_tile_attribute_upload_loc_1B322()
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleScreenLightningFlashStepLoc1B37C {
+    pub(crate) hibernate_frames: u16,
+    pub(crate) flash_frame: u8,
+    pub(crate) play_thunderstorm: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleScreenLightningSequenceLoc1B37C {
+    pub(crate) flash_vram_word_addr: u16,
+    pub(crate) flash_longword_write_count: u16,
+    pub(crate) steps: Vec<TitleScreenLightningFlashStepLoc1B37C>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_screen_lightning_sequence_loc_1B37C() -> TitleScreenLightningSequenceLoc1B37C {
+    // ASM loc_1B37C (kid.asm:29587-29635): hibernate for 3 frames before each
+    // flash step, route `d0` through `sub_1B41C`, and interleave five
+    // `sub_1B36C` thunder calls around a 45-step `(d1 & 3) + 1` flash loop.
+    // ASM sub_1B41C (kid.asm:29642-29650): each flash uploads 32 longwords
+    // from `ArtUnc_2A4D6 + (d0 << 7)` into VRAM word address `$17A0`.
+    let mut steps = Vec::with_capacity(55);
+    steps.extend([
+        TitleScreenLightningFlashStepLoc1B37C {
+            hibernate_frames: 3,
+            flash_frame: 1,
+            play_thunderstorm: false,
+        },
+        TitleScreenLightningFlashStepLoc1B37C {
+            hibernate_frames: 3,
+            flash_frame: 0,
+            play_thunderstorm: true,
+        },
+        TitleScreenLightningFlashStepLoc1B37C {
+            hibernate_frames: 3,
+            flash_frame: 2,
+            play_thunderstorm: false,
+        },
+        TitleScreenLightningFlashStepLoc1B37C {
+            hibernate_frames: 3,
+            flash_frame: 0,
+            play_thunderstorm: true,
+        },
+    ]);
+    for d1 in (0..=0x002C_u16).rev() {
+        steps.push(TitleScreenLightningFlashStepLoc1B37C {
+            hibernate_frames: 3,
+            flash_frame: ((d1 & 3) + 1) as u8,
+            play_thunderstorm: false,
+        });
+    }
+    steps.extend([
+        TitleScreenLightningFlashStepLoc1B37C {
+            hibernate_frames: 3,
+            flash_frame: 0,
+            play_thunderstorm: true,
+        },
+        TitleScreenLightningFlashStepLoc1B37C {
+            hibernate_frames: 3,
+            flash_frame: 1,
+            play_thunderstorm: false,
+        },
+        TitleScreenLightningFlashStepLoc1B37C {
+            hibernate_frames: 3,
+            flash_frame: 0,
+            play_thunderstorm: true,
+        },
+        TitleScreenLightningFlashStepLoc1B37C {
+            hibernate_frames: 3,
+            flash_frame: 2,
+            play_thunderstorm: false,
+        },
+        TitleScreenLightningFlashStepLoc1B37C {
+            hibernate_frames: 3,
+            flash_frame: 0,
+            play_thunderstorm: true,
+        },
+    ]);
+
+    TitleScreenLightningSequenceLoc1B37C {
+        flash_vram_word_addr: 0x17A0,
+        flash_longword_write_count: 0x001F + 1,
+        steps,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence6LongwordFillLoc1B170 {
     pub(crate) vram_word_addr: u16,
     pub(crate) fill_longword: u32,
@@ -3461,6 +3550,95 @@ mod tests {
             &[
                 0x0010, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
             ]
+        );
+    }
+
+    #[test]
+    fn loc_1b37c_runs_the_55_step_title_lightning_script_through_sub_1b41c() {
+        let sequence = title_screen_lightning_sequence_loc_1B37C();
+
+        assert_eq!(sequence.flash_vram_word_addr, 0x17A0);
+        assert_eq!(
+            sequence.flash_longword_write_count,
+            0x001F + 1,
+            "ASM sub_1B41C seeds `d4=#$1F`, so each title lightning flash should upload 32 longwords into VRAM `$17A0`",
+        );
+        assert_eq!(
+            sequence.steps.len(),
+            55,
+            "ASM loc_1B37C runs four opening flashes, a 45-iteration `dbf d1,loc_1B3BC` loop, then five closing flashes before deleting the worker",
+        );
+        assert_eq!(
+            &sequence.steps[..4],
+            &[
+                TitleScreenLightningFlashStepLoc1B37C {
+                    hibernate_frames: 3,
+                    flash_frame: 1,
+                    play_thunderstorm: false,
+                },
+                TitleScreenLightningFlashStepLoc1B37C {
+                    hibernate_frames: 3,
+                    flash_frame: 0,
+                    play_thunderstorm: true,
+                },
+                TitleScreenLightningFlashStepLoc1B37C {
+                    hibernate_frames: 3,
+                    flash_frame: 2,
+                    play_thunderstorm: false,
+                },
+                TitleScreenLightningFlashStepLoc1B37C {
+                    hibernate_frames: 3,
+                    flash_frame: 0,
+                    play_thunderstorm: true,
+                },
+            ],
+        );
+        assert_eq!(
+            sequence.steps[4..12]
+                .iter()
+                .map(|step| step.flash_frame)
+                .collect::<Vec<_>>(),
+            vec![1, 4, 3, 2, 1, 4, 3, 2],
+            "ASM loc_1B3BC masks `d1` with 3 and adds 1, so the looped flashes should cycle `1,4,3,2` while `d1` counts down from `$2C`",
+        );
+        assert_eq!(
+            &sequence.steps[50..],
+            &[
+                TitleScreenLightningFlashStepLoc1B37C {
+                    hibernate_frames: 3,
+                    flash_frame: 0,
+                    play_thunderstorm: true,
+                },
+                TitleScreenLightningFlashStepLoc1B37C {
+                    hibernate_frames: 3,
+                    flash_frame: 1,
+                    play_thunderstorm: false,
+                },
+                TitleScreenLightningFlashStepLoc1B37C {
+                    hibernate_frames: 3,
+                    flash_frame: 0,
+                    play_thunderstorm: true,
+                },
+                TitleScreenLightningFlashStepLoc1B37C {
+                    hibernate_frames: 3,
+                    flash_frame: 2,
+                    play_thunderstorm: false,
+                },
+                TitleScreenLightningFlashStepLoc1B37C {
+                    hibernate_frames: 3,
+                    flash_frame: 0,
+                    play_thunderstorm: true,
+                },
+            ],
+        );
+        assert_eq!(
+            sequence
+                .steps
+                .iter()
+                .filter(|step| step.play_thunderstorm)
+                .count(),
+            5,
+            "ASM loc_1B37C calls `sub_1B36C` five times across the opening and closing lightning bursts",
         );
     }
 
