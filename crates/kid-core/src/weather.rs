@@ -1024,6 +1024,9 @@ impl NativeRuntime {
             // ASM loc_140BE clears `MurderWall_speed` after the level-specific
             // max-speed branch, so native always starts the wall from rest.
             let initial_x = if camera_x == 0 {
+                // ASM loc_140CE runs after `move.w (Camera_X_pos).w,d0` / `beq.s`,
+                // so the zero-camera case subtracts `$30` from zero before the
+                // shared `loc_140D2` store.
                 -(i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16)
             } else {
                 (i64::from(camera_x) << 16) + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16)

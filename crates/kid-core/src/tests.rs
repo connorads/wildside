@@ -19477,7 +19477,7 @@ fn init_murder_wall_zero_camera_starts_offscreen_left() {
     let expected = -(i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16);
     assert_eq!(
         wall.x_pos, expected,
-        "zero camera should start wall offscreen left"
+        "ASM loc_140CE should subtract `$30` from zero `Camera_X_pos` before the shared murder-wall X store"
     );
 }
 
