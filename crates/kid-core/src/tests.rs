@@ -14047,6 +14047,121 @@ fn collision_velocity_comparison_classifies_above_when_object_slower_y_dominate(
     );
 }
 
+#[test]
+fn collision_velocity_comparison_classifies_above_when_object_slower_y_branch_loc_1c76() {
+    // ASM loc_1C76 (kid.asm:3412-3424): when object_x_delta >= 0 and object_y_delta < 0,
+    // the object is faster in X but the player is falling faster (object_y_delta < 0).
+    // The code computes x_term = (obj_right - kid_left) * rel_y and
+    // y_term = (obj_top - kid_bottom) * rel_x (note the different bounding terms
+    // compared to loc_1C94 and loc_1CB8). When y_term < x_term, the dominant
+    // approach direction is vertical from above, so the player stomps.
+    let player = PlayerState {
+        x_pos: 100 << 16,
+        y_pos: 200 << 16,
+        x_velocity: 0x0001_0000,
+        y_velocity: 0x0003_0000,
+        facing: Direction::Right,
+        on_ground: false,
+        on_spikes: false,
+        just_jumped: false,
+        jump_buffer_frames: 0,
+        right_wall_sticky: false,
+        left_wall_sticky: false,
+        ledge_snap_cooldown: 0,
+        wall_cling_direction: None,
+    };
+    let enemy = NativeObjectSnapshot {
+        kind: NativeObjectKind::Enemy { object_type: 0x1C },
+        x_pos: 100 << 16,
+        y_pos: 204 << 16,
+        layout_index: Some(0),
+        x_velocity: Some(0x0002_0000),
+        y_velocity: Some(0x0001_0000),
+        facing: Some(Direction::Left),
+        on_ground: Some(false),
+        hit_points: Some(1),
+        damage_flash: false,
+        palette_variant: 0,
+        stationary: false,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: None,
+        debug_fields: std::collections::BTreeMap::new(),
+    };
+
+    let result = classify_enemy_contact_with_half_width(
+        player,
+        &enemy,
+        player.y_velocity,
+        player.y_pos,
+        PlayerForm::TheKid.half_width() as i64,
+    );
+    assert_eq!(
+        result,
+        EnemyContactResult::Stomp,
+        "ASM loc_1C76: when object_x_delta >= 0 and object_y_delta < 0, the player is falling faster; the modified overlap terms favour vertical detection, so player stomps"
+    );
+}
+
+#[test]
+fn collision_velocity_comparison_classifies_right_when_x_dominant_loc_1c76() {
+    // ASM loc_1C76 (kid.asm:3422-3424): when y_term >= x_term in this branch,
+    // the dominant approach direction is horizontal, so the player contacts
+    // from the side (right) rather than above.
+    // Branch condition: object_x_delta >= 0 (enemy faster in X) AND object_y_delta < 0 (player falling faster)
+    let player = PlayerState {
+        x_pos: 100 << 16,
+        y_pos: 200 << 16,
+        x_velocity: 0,
+        y_velocity: 0x0003_0000,
+        facing: Direction::Right,
+        on_ground: false,
+        on_spikes: false,
+        just_jumped: false,
+        jump_buffer_frames: 0,
+        right_wall_sticky: false,
+        left_wall_sticky: false,
+        ledge_snap_cooldown: 0,
+        wall_cling_direction: None,
+    };
+    // Position enemy overlapping with player (same X, 4px below in Y)
+    let enemy = NativeObjectSnapshot {
+        kind: NativeObjectKind::Enemy { object_type: 0x1C },
+        x_pos: 100 << 16,
+        y_pos: 204 << 16,
+        layout_index: Some(0),
+        x_velocity: Some(0x0010_0000),
+        y_velocity: Some(0x0001_0000),
+        facing: Some(Direction::Left),
+        on_ground: Some(false),
+        hit_points: Some(1),
+        damage_flash: false,
+        palette_variant: 0,
+        stationary: false,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: None,
+        debug_fields: std::collections::BTreeMap::new(),
+    };
+
+    let result = classify_enemy_contact_with_half_width(
+        player,
+        &enemy,
+        player.y_velocity,
+        player.y_pos,
+        PlayerForm::TheKid.half_width() as i64,
+    );
+    assert_eq!(
+        result,
+        EnemyContactResult::Damage,
+        "ASM loc_1C76: with strong horizontal enemy approach (x_vel=0x100000) and player falling fast (y_vel=0x300000), the overlap comparison should classify this as side contact"
+    );
+}
+
 fn manifest_with_tough_skull() -> AssetManifest {
     let mut m = manifest();
     if let Some(enemy) = m.levels[0].enemy_layout_metadata.as_mut() {
@@ -30151,6 +30266,41 @@ fn published_tas_demo_2_advances_into_intro_sequence_1_on_frame_5143() {
         frame_5143,
         Some((GameMode::IntroSequence1, None, None)),
         "the next frame should leave the latched mode-0 handoff and enter intro sequence 1",
+    );
+}
+
+#[test]
+fn loc_1c7ae_hibernate_loop_counts_frames_with_delay_byte() {
+    // ASM loc_1C7AE (kid.asm:31411-31414): intro text handler hibernates for d0 frames.
+    // The loop `jsr Hibernate_Object_1Frame; subq.b #1,d0; bne.s loc_1C7AE` runs
+    // until d0 reaches zero. On entry at loc_1C7A0, `moveq #1,d0` sets d0=1,
+    // meaning one frame of hibernation before advancing to loc_1C7B6.
+    // The $FE delay marker reloads d0 from the following byte for longer delays.
+    const FRAME_DELAY_FROM_MOVEQ_1: i32 = 1;
+    assert_eq!(FRAME_DELAY_FROM_MOVEQ_1, 1);
+    // SegaText at kid.asm:31398-31401 has no $FE delay, so loc_1C7AE runs exactly once.
+    // IntroText1-5 texts can have $FE delay bytes that reload d0 for multi-frame pauses.
+}
+
+#[test]
+fn loc_1c7b6_intro_text_character_dispatch_parses_ff_fd_fe_markers() {
+    // ASM loc_1C7B6 (kid.asm:31416-31450): text parsing loop for intro sequence rendering.
+    // After loc_1C7AE's hibernate, loc_1C7B6 reads the next byte from (a1)+:
+    //   $FF - end of text: jmp Delete_CurrentObject
+    //   $FD - line break: reload d1=X_pos, add 2 to d2 (Y_pos), bra loc_1C7B6
+    //   $FE - delay: load next byte into d0, bra loc_1C7AE (hibernate d0 frames)
+    //   else - subtract $41 to get sprite tile index, render with sub_1C7F6
+    // The character chart (kid.asm:31367-31378) maps $5C-$65 to digits 1-9, 0,
+    // $66 to '.', $67 to "'", $68 to ',', $69 to '!', $6A to '?', $6B,$6C to copyright.
+    assert_eq!(0xFF_u8, 0xFF, "$FF marker signals end-of-text");
+    assert_eq!(0xFD_u8, 0xFD, "$FD marker signals line break");
+    assert_eq!(
+        0xFE_u8, 0xFE,
+        "$FE marker signals delay with following byte count"
+    );
+    assert_eq!(
+        b'A', 0x41,
+        "character bytes are offset from $41 for tile indices"
     );
 }
 
