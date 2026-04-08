@@ -1510,6 +1510,37 @@ pub(crate) fn decompress_long_ref_header_loc_1384E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_header_loc_13948(
+    bit_buffer: u8,
+    control_byte: u8,
+    long_ref_mask: u16,
+    long_ref_low_byte: u8,
+) -> DecompressLongRefHeaderLoc13756 {
+    // ASM loc_13948 (kid.asm:26628-26638) first shifts the carried `d1` word
+    // left one bit with `add.w d1,d1`, then replaces its low byte with
+    // `(a0)+`, shifts the result left two more bits, masks the distance bits
+    // through `d4`, appends the next source byte, and decodes the later copy
+    // family from control bits 5:4: `00` => copy 3 at `loc_13978`, `01` =>
+    // copy 4 at `loc_13976`, `10` => copy 5 via `loc_13974`, `11` =>
+    // variable-length via `loc_13960`.
+    let shifted_word = ((((u16::from(bit_buffer)) << 1) & 0xFF00) | u16::from(control_byte)) << 2;
+    let source_back_distance = (shifted_word & long_ref_mask) | u16::from(long_ref_low_byte);
+    let copy_mode = match (control_byte >> 4) & 0b11 {
+        0b00 => DecompressLongRefCopyModeLoc13756::Copy3,
+        0b01 => DecompressLongRefCopyModeLoc13756::Copy4,
+        0b10 => DecompressLongRefCopyModeLoc13756::Copy5,
+        0b11 => DecompressLongRefCopyModeLoc13756::VariableLength,
+        _ => unreachable!(),
+    };
+
+    DecompressLongRefHeaderLoc13756 {
+        source_back_distance,
+        copy_mode,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_long_ref_extended_loc_1376A(
     bit_buffer: u8,
     length_byte: u8,
