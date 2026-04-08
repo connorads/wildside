@@ -6846,6 +6846,9 @@ pub(crate) fn blend_selected_palette_entries_sub_1536(
             .checked_sub(index as u32)
             .expect("sub_1536 should only scan the first 32 palette words");
         if pending_mask & (1_u32 << bit) == 0 {
+            // ASM loc_158E (kid.asm:2679): clear bits do not exit the DBF
+            // loop; they only skip the `(a2)+` write, advance `a2` by one
+            // palette word, and continue scanning later mask bits.
             continue;
         }
 

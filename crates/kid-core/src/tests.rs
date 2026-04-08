@@ -2335,6 +2335,29 @@ fn sub_1536_masks_each_word_from_bit_31_downward() {
 }
 
 #[test]
+fn loc_158e_skips_clear_mask_bits_but_keeps_scanning_later_palette_words() {
+    let palette_buffer_2 = [0x0ACE, 0x0246, 0x0ACE];
+    let palette_buffer_3 = [0x0246, 0x0ACE, 0x0246];
+    let mut palette_buffer = [0x0EEE, 0x0EEE, 0x0EEE];
+    let mut fade_curve = [0u8; 15];
+    fade_curve[3] = 0x02;
+
+    blend_selected_palette_entries_sub_1536(
+        &palette_buffer_2,
+        &palette_buffer_3,
+        &mut palette_buffer,
+        0x2000_0000,
+        &fade_curve,
+    );
+
+    assert_eq!(
+        palette_buffer,
+        [0x0EEE, 0x0EEE, 0x08AC],
+        "ASM loc_158E should treat a clear mask bit as `addq.w #2,a2` plus `dbf`, leaving skipped palette words untouched while later selected words still blend"
+    );
+}
+
+#[test]
 fn sub_14c0_builds_the_signed_15_byte_fade_curve_from_progress() {
     let fade_curve = build_palette_fade_curve_sub_14C0(0x0080);
 
