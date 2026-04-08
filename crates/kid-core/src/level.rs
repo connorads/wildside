@@ -166,6 +166,20 @@ pub(crate) enum DecompressModeDispatchLoc13928 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DecompressModeDispatchLoc139A6 {
+    DirectCopy {
+        copied_byte: u8,
+    },
+    LongRef {
+        output_copy_base_addr: u16,
+    },
+    ShortRef {
+        source_copy_addr: u16,
+        total_copy_len: u8,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DecompressLongRefCopyModeLoc13756 {
     Copy3,
     Copy4,
@@ -1395,6 +1409,45 @@ pub(crate) fn decompress_mode_dispatch_loc_13928(
 
     let total_copy_len = if bit_buffer & 0x20 != 0 { 3 } else { 2 };
     DecompressModeDispatchLoc13928::ShortRef {
+        source_copy_addr: output_addr.wrapping_sub(u16::from(short_ref_back_distance)),
+        total_copy_len,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_mode_dispatch_loc_139A6(
+    bit_buffer: u8,
+    output_addr: u16,
+    direct_copy_byte: u8,
+    short_ref_control_byte: u8,
+    short_ref_back_distance: u8,
+) -> DecompressModeDispatchLoc139A6 {
+    // ASM loc_139A6 (kid.asm:26690-26701) consumes two mode bits from the
+    // carried `d1` byte: `1` branches to `loc_13A22` for another literal-byte
+    // copy, `01` seeds `a6` from `a2` and branches into the later long-ref
+    // header at `loc_139C8`, and `00` loads a fresh control byte from `(a0)+`
+    // plus the short back-reference byte from `(a1)+`. The high bit of that
+    // fresh control byte decides whether the short-reference path copies just
+    // the shared two-byte tail at `loc_139BC` or an extra leading byte first.
+    if bit_buffer & 0x80 != 0 {
+        return DecompressModeDispatchLoc139A6::DirectCopy {
+            copied_byte: direct_copy_byte,
+        };
+    }
+
+    if bit_buffer & 0x40 != 0 {
+        return DecompressModeDispatchLoc139A6::LongRef {
+            output_copy_base_addr: output_addr,
+        };
+    }
+
+    let total_copy_len = if short_ref_control_byte & 0x80 != 0 {
+        3
+    } else {
+        2
+    };
+    DecompressModeDispatchLoc139A6::ShortRef {
         source_copy_addr: output_addr.wrapping_sub(u16::from(short_ref_back_distance)),
         total_copy_len,
     }
