@@ -1236,6 +1236,56 @@ pub(crate) fn title_screen_hidden_shell_palette_restore_loc_1B45A()
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleScreenHiddenCameraRampLoc1B51A {
+    pub(crate) initial_hibernate_frames: u16,
+    pub(crate) iteration_count: u16,
+    pub(crate) level_layout_step_fp: i32,
+    pub(crate) hidden_camera_step_fp: i32,
+    pub(crate) level_layout_values_fp: Vec<i32>,
+    pub(crate) hidden_camera_values_fp: Vec<i32>,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_screen_hidden_camera_ramp_loc_1B51A(
+    level_layout_fp: i32,
+    hidden_camera_fp: i32,
+) -> TitleScreenHiddenCameraRampLoc1B51A {
+    // ASM GfxObjects_Collision_BottomBoundary4 -> loc_1B51A
+    // (kid.asm:29764-29777): after the initial `$A`-frame hibernate, copy
+    // `(Level_Layout).w` and `($FFFFA656).w` into `d0/d1`, arithmetic-shift
+    // both right by 4, then run 16 inclusive `dbf` passes that hibernate one
+    // frame, subtract those fixed-point deltas from both accumulators, and
+    // call `sub_1B222` before deleting the worker.
+    let level_layout_step_fp = level_layout_fp >> 4;
+    let hidden_camera_step_fp = hidden_camera_fp >> 4;
+    let iteration_count = 0x000F + 1;
+    let mut next_level_layout_fp = level_layout_fp;
+    let mut next_hidden_camera_fp = hidden_camera_fp;
+    let mut level_layout_values_fp = Vec::with_capacity(usize::from(iteration_count));
+    let mut hidden_camera_values_fp = Vec::with_capacity(usize::from(iteration_count));
+
+    for _ in 0..usize::from(iteration_count) {
+        next_level_layout_fp = next_level_layout_fp.wrapping_sub(level_layout_step_fp);
+        next_hidden_camera_fp = next_hidden_camera_fp.wrapping_sub(hidden_camera_step_fp);
+        level_layout_values_fp.push(next_level_layout_fp);
+        hidden_camera_values_fp.push(next_hidden_camera_fp);
+    }
+
+    TitleScreenHiddenCameraRampLoc1B51A {
+        initial_hibernate_frames: 0x000A,
+        iteration_count,
+        level_layout_step_fp,
+        hidden_camera_step_fp,
+        level_layout_values_fp,
+        hidden_camera_values_fp,
+        deletes_current_object: true,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) vram_word_addr: u16,
     pub(crate) word_writes: Vec<u16>,
@@ -3825,6 +3875,50 @@ mod tests {
                 "loc_1B5CE",
             ],
             "ASM loc_1B45A should allocate the bottom boundary, `loc_1B6AC`, then `loc_1B5CE` after the palette restore tail completes",
+        );
+    }
+
+    #[test]
+    fn loc_1b51a_runs_a_16_frame_hidden_camera_ramp_before_deleting_the_worker() {
+        let ramp =
+            title_screen_hidden_camera_ramp_loc_1B51A(0xFFB8_0000u32 as i32, 0xFFF0_0000u32 as i32);
+
+        assert_eq!(ramp.initial_hibernate_frames, 0x000A);
+        assert_eq!(
+            ramp.iteration_count,
+            0x000F + 1,
+            "ASM loc_1B51A seeds `d2=#$F`, so the inclusive `dbf d2,loc_1B51A` loop should run for 16 one-frame steps",
+        );
+        assert_eq!(
+            ramp.level_layout_step_fp, 0xFFFB_8000u32 as i32,
+            "ASM loc_1B51A arithmetic-shifts `(Level_Layout).w` right by 4 before the loop, so `$FFB8_0000` advances upward by 4.5 pixels per pass",
+        );
+        assert_eq!(
+            ramp.hidden_camera_step_fp, 0xFFFF_0000u32 as i32,
+            "ASM loc_1B51A also arithmetic-shifts `($FFFFA656).w` right by 4, so the wrapped `$FFF0_0000` hidden camera climbs one pixel per pass",
+        );
+        assert_eq!(
+            &ramp.hidden_camera_values_fp[..3],
+            &[
+                0xFFF1_0000u32 as i32,
+                0xFFF2_0000u32 as i32,
+                0xFFF3_0000u32 as i32
+            ],
+            "ASM loc_1B51A subtracts the negative hidden-camera delta after each one-frame hibernate, so the first three passes should expose a one-pixel-per-frame ramp",
+        );
+        assert_eq!(
+            ramp.hidden_camera_values_fp.last().copied(),
+            Some(0),
+            "ASM loc_1B51A runs 16 passes from the wrapped `$FFF0_0000` seed, landing exactly on zero before the worker deletes itself",
+        );
+        assert_eq!(
+            ramp.level_layout_values_fp.last().copied(),
+            Some(0),
+            "ASM loc_1B51A applies the same 16-step subtraction to `(Level_Layout).w`, so the hidden scroll seed should also settle on zero",
+        );
+        assert!(
+            ramp.deletes_current_object,
+            "ASM loc_1B51A ends with `jmp (j_Delete_CurrentObject).w` once the ramp finishes",
         );
     }
 
