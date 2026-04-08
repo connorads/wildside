@@ -323,6 +323,49 @@ fn loc_1bf70_fills_360_vram_words_with_pattern_20bc() {
 }
 
 #[test]
+fn loc_1bf84_copies_20_rows_of_mapping_data_to_vram_work_ram() {
+    let result = crate::boot::title_shell_row_copy_loop_loc_1BF84();
+    assert_eq!(
+        result.row_count, 20,
+        "ASM loc_1BF84 should run `d1=$13` + 1 = 20 outer iterations for the title shell row copy loop"
+    );
+    assert_eq!(
+        result.vram_row_stride_bytes, 0x24,
+        "ASM loc_1BF84 should advance `a0` by `$24` = 36 bytes per row via `addi.w #$24,a0`"
+    );
+}
+
+#[test]
+fn loc_1bf8a_copies_one_row_of_mapping_words_from_decomp_buffer() {
+    let result = crate::boot::title_shell_word_copy_loop_loc_1BF8A();
+    assert_eq!(
+        result.source, 0xFFFF0000,
+        "ASM loc_1BF8A reads from `Decompression_Buffer` which is at `$FFFF0000`"
+    );
+    assert_eq!(
+        result.dest, 0xFFFF7F82,
+        "ASM loc_1BF8A writes to VRAM work RAM at `$FFFF7F82`"
+    );
+}
+
+#[test]
+fn loc_1c060_clears_400_words_of_vram_work_ram_before_mapping_copy() {
+    let result = crate::boot::intro_tile_upload_clear_loop_loc_1C060();
+    assert_eq!(
+        result.vram_work_ram_addr, 0xFFFF7F82,
+        "ASM loc_1C060 clears VRAM work RAM at `$FFFF7F82`"
+    );
+    assert_eq!(
+        result.clear_iterations, 400,
+        "ASM loc_1C060 runs `d0+1` iterations where `d0=$18F` = 399, clearing 400 words total"
+    );
+    assert_eq!(
+        result.fill_value, 0x0000,
+        "ASM loc_1C060 fills with zero via `moveq #0,d1` before the `move.w d1,(a0)+` loop"
+    );
+}
+
+#[test]
 fn gfx_object_predecessor_index_sub_ff6_returns_none_when_loc_1004_walks_to_a_null_link() {
     let next_indices = [
         Some(1), // sentinel -> first live node

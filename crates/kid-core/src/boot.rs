@@ -1422,6 +1422,78 @@ pub(crate) fn title_shell_vram_fill_loc_1BF70() -> TitleShellVRamFillLoc1BF70 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleShellRowCopyLoopLoc1BF84 {
+    pub(crate) row_count: u16,
+    pub(crate) vram_row_stride_bytes: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_shell_row_copy_loop_loc_1BF84() -> TitleShellRowCopyLoopLoc1BF84 {
+    // ASM sub_1BF24 -> loc_1BF84 (kid.asm:30775-30784): after filling VRAM work
+    // RAM with 360 words of `$20BC` at loc_1BF70, the routine loads up to 20
+    // rows of decompressed mapping data. Each pass loads `move.w (a4),d0; subq.w
+    // #1,d0` to get the width from the off_1BFB0 table (`$12` for Kid frames),
+    // copies that many words from `Decompression_Buffer` to VRAM work RAM via
+    // loc_1BF8A, then `addi.w #$24,a0` advances the destination by 36 bytes
+    // (18 words per row). The outer `dbf d1,loc_1BF84` runs `d1=$13` + 1 = 20
+    // iterations. Widths vary by character: `$12` (18) for Kid, `$10` (16) for
+    // Maniaxe/Juggernaut, `$11` (17) and `$E` (14) for edge frames.
+    TitleShellRowCopyLoopLoc1BF84 {
+        row_count: 0x0013 + 1,
+        vram_row_stride_bytes: 0x0024,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleShellWordCopyLoopLoc1BF8A {
+    pub(crate) source: u32,
+    pub(crate) dest: u32,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_shell_word_copy_loop_loc_1BF8A() -> TitleShellWordCopyLoopLoc1BF8A {
+    // ASM sub_1BF24 -> loc_1BF8A (kid.asm:30780-30782): inner DBF loop that copies
+    // one row of decompressed mapping words from `Decompression_Buffer` to
+    // VRAM work RAM at `$FFFF7F82`. Each iteration does `move.w (a1)+,(a2)+` to
+    // copy a word while advancing both pointers. The loop runs `d0+1` times
+    // where `d0` was set from the table entry width minus one. This fills one
+    // row before `addi.w #$24,a0` moves to the next row.
+    TitleShellWordCopyLoopLoc1BF8A {
+        source: 0xFFFF0000,
+        dest: 0xFFFF7F82,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTileUploadClearLoopLoc1C060 {
+    pub(crate) vram_work_ram_addr: u32,
+    pub(crate) clear_iterations: u16,
+    pub(crate) fill_value: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_tile_upload_clear_loop_loc_1C060() -> IntroTileUploadClearLoopLoc1C060 {
+    // ASM sub_1C034 -> loc_1C060 (kid.asm:30862-30864): after decompressing
+    // title art via `EniDec`, the routine zeros VRAM work RAM before copying
+    // in the mapping data. The loop runs `move.w d1,(a0)+` for `d0+1` iterations
+    // where `d0=$18F` (399), filling 400 words with `d1=0` (set by
+    // `moveq #0,d1`). The destination `$FFFF7F82` is the same scratch area used
+    // by sub_1BF24 for title-shell art uploads but with a different fill value
+    // and count than loc_1BF70's `$20BC`/360-word prefill.
+    IntroTileUploadClearLoopLoc1C060 {
+        vram_work_ram_addr: 0xFFFF7F82,
+        clear_iterations: 0x018F + 1,
+        fill_value: 0x0000,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextKidSetupLoc1B5E4 {
     pub(crate) palette_line: u8,
