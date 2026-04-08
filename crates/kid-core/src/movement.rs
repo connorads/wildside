@@ -291,6 +291,32 @@ pub(crate) fn gfx_objects_collision_next_index_loc_17BE(
     current_next_index
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GfxObjectsCollisionTileDispatchLoc17C6 {
+    Continue,
+    Solid,
+    UpSlope,
+    DownSlope,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_collision_tile_dispatch_loc_17C6(
+    tile_word: u16,
+) -> GfxObjectsCollisionTileDispatchLoc17C6 {
+    // ASM loc_17C6 (kid.asm:2940): reload the current tile after the bit-$4000
+    // precheck, keep only the collision nibble, ignore spikes (`$7000`), route
+    // solids to the solid worker, slope-up to the upslope worker, and treat
+    // the remaining collision case as slope-down.
+    match tile_word & 0x7000 {
+        0x7000 => GfxObjectsCollisionTileDispatchLoc17C6::Continue,
+        0x6000 => GfxObjectsCollisionTileDispatchLoc17C6::Solid,
+        0x4000 => GfxObjectsCollisionTileDispatchLoc17C6::UpSlope,
+        _ => GfxObjectsCollisionTileDispatchLoc17C6::DownSlope,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(

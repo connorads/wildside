@@ -45837,6 +45837,34 @@ fn loc_17be_returns_immediately_when_the_collision_walk_sees_a_null_next_link() 
 }
 
 #[test]
+fn loc_17c6_routes_current_tiles_by_the_collision_nibble() {
+    use crate::movement::GfxObjectsCollisionTileDispatchLoc17C6::{
+        Continue, DownSlope, Solid, UpSlope,
+    };
+
+    assert_eq!(
+        crate::movement::gfx_objects_collision_tile_dispatch_loc_17C6(0x7123),
+        Continue,
+        "ASM loc_17C6 should ignore spike tiles once `andi.w #$7000,d7` isolates the collision nibble",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_tile_dispatch_loc_17C6(0x6ABC),
+        Solid,
+        "ASM loc_17C6 should branch to `GfxObjects_Collision_Solid` for `$6000` collision bits",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_tile_dispatch_loc_17C6(0x4FFF),
+        UpSlope,
+        "ASM loc_17C6 should branch to `GfxObjects_Collision_UpSlope` for `$4000` collision bits",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_tile_dispatch_loc_17C6(0x5ACE),
+        DownSlope,
+        "ASM loc_17C6 should fall through to `GfxObjects_Collision_DownSlope` for the remaining `$5000` collision case",
+    );
+}
+
+#[test]
 fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
     let next_indices = [Some(1), Some(2), Some(3), None];
     let kind_words = [0, 2, 3, 4];
