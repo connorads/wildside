@@ -918,6 +918,37 @@ pub(crate) fn title_screen_art_source_loc_1B2D8(title_variant: u8) -> &'static s
     }
 }
 
+const TITLE_SCREEN_TILE_ATTRIBUTE_BYTES_LOC_1B322: [u8; 64] = [
+    0x11, 0x11, 0x10, 0x10, 0x00, 0x10, 0x00, 0x11, 0x00, 0x10, 0x00, 0x10, 0x00, 0x10, 0x00, 0x10,
+    0x00, 0x10, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x10, 0x00, 0x00, 0x01, 0x10, 0x00, 0x00, 0x10, 0x10, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00,
+    0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+];
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleScreenTileAttributeUploadLoc1B322 {
+    pub(crate) vram_word_addr: u16,
+    pub(crate) words: Vec<u16>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_screen_tile_attribute_upload_loc_1B322()
+-> TitleScreenTileAttributeUploadLoc1B322 {
+    // ASM sub_1B2A4 -> loc_1B322 (kid.asm:29499-29503): after
+    // `move.l #vdpComm($F000,VRAM,WRITE),4(a6)`, the code reads 32 words from
+    // `unk_1B32C` and streams each word to the VDP data port before the
+    // inclusive `dbf d0,loc_1B322` terminates.
+    TitleScreenTileAttributeUploadLoc1B322 {
+        vram_word_addr: 0xF000,
+        words: TITLE_SCREEN_TILE_ATTRIBUTE_BYTES_LOC_1B322
+            .chunks_exact(2)
+            .map(|word| u16::from_be_bytes([word[0], word[1]]))
+            .collect(),
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence6LongwordFillLoc1B170 {
@@ -3399,6 +3430,37 @@ mod tests {
             title_screen_art_source_loc_1B2D8(2),
             "byte_282C1",
             "ASM loc_1B2D8 should only keep the middle title-art source when `($FFFFFC82).w == 1`; every other non-zero variant falls through to `byte_282C1`",
+        );
+    }
+
+    #[test]
+    fn loc_1b322_streams_32_words_from_unk_1b32c_into_vram_f000() {
+        let upload = title_screen_tile_attribute_upload_loc_1B322();
+
+        assert_eq!(upload.vram_word_addr, 0xF000);
+        assert_eq!(
+            upload.words.len(),
+            0x001F + 1,
+            "ASM loc_1B322 seeds `d0=#$1F`, so the inclusive `dbf d0,loc_1B322` loop should stream 32 tile-attribute words",
+        );
+        assert_eq!(
+            &upload.words[..8],
+            &[
+                0x1111, 0x1010, 0x0010, 0x0011, 0x0010, 0x0010, 0x0010, 0x0010
+            ],
+            "ASM loc_1B322 should read big-endian words from `unk_1B32C` before writing them to the VDP data port",
+        );
+        assert_eq!(
+            &upload.words[16..24],
+            &[
+                0x0010, 0x0000, 0x0110, 0x0000, 0x1010, 0x0000, 0x0010, 0x0000
+            ],
+        );
+        assert_eq!(
+            &upload.words[24..],
+            &[
+                0x0010, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000
+            ]
         );
     }
 
