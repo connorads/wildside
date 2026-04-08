@@ -1529,6 +1529,18 @@ pub(crate) fn decompress_long_ref_quit_loc_1380E() -> DecompressBp0ReturnStatus 
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_quit_loc_1388A() -> DecompressBp0ReturnStatus {
+    // ASM loc_1388A (kid.asm:26493-26494) is the later `BYTE2 = 0` early
+    // return from the variable-length branch that feeds `loc_13872`: it clears
+    // `d0` and returns immediately without writing a new copy mode to `d2`.
+    DecompressBp0ReturnStatus {
+        status_word: 0,
+        next_copy_mode: None,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_long_ref_quit_loc_13790() -> DecompressBp0ReturnStatus {
     // ASM loc_13790 (kid.asm:26316-26317) is the `BYTE2 = 0` early return from
     // `loc_1376A`: it clears `d0` and returns immediately without reseeding
