@@ -1614,6 +1614,9 @@ pub(crate) fn title_text_word_writes_sub_1B7B6() -> Vec<TitleTextWordWritesSub1B
 
     BASE_WORD_ADDRESSES
         .into_iter()
+        // ASM loc_1B7BA reloads the next table word, exits on `$FFFF`, and
+        // otherwise branches back to itself after stamping the same 2x2 tile
+        // block at the new base address.
         .map(|base_word_address| TitleTextWordWritesSub1B7B6 {
             base_word_address,
             top_words: [0x21AB, 0x21AC],
@@ -4548,5 +4551,22 @@ mod tests {
                     entry.base_word_address + 0x52,
                 ]
         }));
+    }
+
+    #[test]
+    fn loc_1b7ba_repeats_the_same_four_tile_words_for_every_non_sentinel_entry() {
+        let writes = title_text_word_writes_sub_1B7B6();
+
+        assert!(writes.iter().all(|entry| {
+            entry.top_words == [0x21AB, 0x21AC] && entry.bottom_words == [0x21AD, 0x21AE]
+        }));
+        assert_eq!(
+            writes
+                .iter()
+                .filter(|entry| entry.base_word_address == 0xFFFF)
+                .count(),
+            0,
+            "ASM loc_1B7BA exits on `cmpi.w #$FFFF,d0; beq.s return_1B7DE`, so the sentinel must never become a write target"
+        );
     }
 }
