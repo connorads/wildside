@@ -138,6 +138,47 @@ pub(crate) fn intro_sequence_3_allocation_spec_loc_1AEE2(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence3GfxObjectLoc1AEEC {
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) display_enabled: bool,
+    pub(crate) palette_line: u8,
+    pub(crate) vram_tile: u16,
+    pub(crate) priority: u8,
+    pub(crate) x_direction: u8,
+    pub(crate) addroffset_sprite: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn intro_sequence_3_gfx_object_loc_1AEEC(
+    descriptor: IntroSequence3Descriptor,
+) -> IntroSequence3GfxObjectLoc1AEEC {
+    // ASM loc_1AEEC (kid.asm:29117): copy the descriptor X/Y words into
+    // `$1A(a1)`/`$1E(a1)`, set display flag `$13(a1)`, palette line 1, and
+    // VRAM tile `$01D6`, then clear bits 0-1 out of the descriptor flag word
+    // while routing bit 0 into priority `$10(a1)` and bit 1 into
+    // `x_direction(a1)` via `sne`.
+    let priority = if descriptor.raw_flags & 1 == 0 { 0 } else { 1 };
+    let x_direction = if descriptor.raw_flags & 2 == 0 {
+        0
+    } else {
+        u8::MAX
+    };
+    IntroSequence3GfxObjectLoc1AEEC {
+        x_pos: descriptor.x_pos,
+        y_pos: descriptor.y_pos,
+        display_enabled: true,
+        palette_line: 1,
+        vram_tile: 0x01D6,
+        priority,
+        x_direction,
+        addroffset_sprite: descriptor.raw_flags & !0b11,
+    }
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsGlyphInitSub1D786 {

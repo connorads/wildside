@@ -30019,6 +30019,39 @@ fn loc_1aee2_switches_intro_sequence_3_allocation_specs_from_descriptor_bit_0() 
 }
 
 #[test]
+fn loc_1aeec_copies_intro_sequence_3_descriptor_fields_into_the_gfx_object_tail() {
+    let roster_descriptor = crate::movement::intro_sequence_3_descriptor_loc_1AEBA(1, 2)
+        .expect("second roster slot 2 should point at descriptor 6");
+
+    assert_eq!(
+        crate::movement::intro_sequence_3_gfx_object_loc_1AEEC(roster_descriptor),
+        crate::movement::IntroSequence3GfxObjectLoc1AEEC {
+            x_pos: 0x0070,
+            y_pos: 0x00CC,
+            display_enabled: true,
+            palette_line: 1,
+            vram_tile: 0x01D6,
+            priority: 1,
+            x_direction: 0,
+            addroffset_sprite: 0x1218,
+        },
+        "ASM loc_1AEEC should copy `$70,$CC`, set `$13(a1)`, palette line 1, VRAM tile `$01D6`, keep priority high from bit 0, and store descriptor word `$1219` back to `$22(a1)` with bits 0-1 cleared",
+    );
+    assert_eq!(
+        crate::movement::intro_sequence_3_gfx_object_loc_1AEEC(
+            crate::movement::IntroSequence3Descriptor {
+                x_pos: 0,
+                y_pos: 0,
+                raw_flags: 0x1202,
+            },
+        )
+        .x_direction,
+        u8::MAX,
+        "ASM loc_1AF12 should make `sne $16(a1)` write `$FF` when descriptor bit 1 survives into the `bclr #1,d0` test",
+    );
+}
+
+#[test]
 fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit() {
     let (_, script) = cached_any_percent_published_runtime_and_script();
     let first_visit_start_frames = (6_204..=6_211)
