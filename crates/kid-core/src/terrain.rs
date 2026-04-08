@@ -394,6 +394,9 @@ pub(crate) fn insert_blank_top_rows_sub_140F6(
     // ASM loc_14156 then reloads the same per-row counter for each inserted
     // blank row, stepping `a1` upward after every row-sized zero-fill pass
     // until `Number_blank_top_rows` rows at the top are cleared.
+    // ASM loc_14158 is the inner `move.w d4,(a1)+` loop inside that pass, with
+    // `d4` kept at zero so each blank row stores exactly `Level_width_blocks`
+    // zero words before the inclusive `dbf` exits.
     if width_blocks == 0 {
         return level_layout.to_vec();
     }
@@ -3084,6 +3087,28 @@ mod tests {
                 0x20, 0x03, 0x20, 0x04, // row 1
             ],
             "ASM loc_14156 should only consume the requested blank-row count, then leave the shifted source rows intact below the cleared strip"
+        );
+    }
+
+    #[test]
+    fn loc_14158_still_writes_one_zero_word_when_the_blank_row_width_is_one_block() {
+        let shifted = insert_blank_top_rows_sub_140F6(
+            &[
+                0x10, 0x01, // row 0
+            ],
+            1,
+            2,
+        );
+
+        assert_eq!(
+            &shifted[..4],
+            &[0x00; 4],
+            "ASM loc_14158 seeds `d1` from `Level_width_blocks-1`, so width=1 should still store one zero layout word into each blank row before the inner `dbf d1,loc_14158` falls through"
+        );
+        assert_eq!(
+            &shifted[4..],
+            &[0x10, 0x01],
+            "ASM loc_14158 should only zero-fill the inserted rows and leave the shifted source row unchanged below them"
         );
     }
 }
