@@ -1431,6 +1431,49 @@ pub(crate) fn title_text_chameleon_reveal_loop_loc_1B6CE(
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TitleTextChameleonSegaStepLoc1B6DC {
+    pub(crate) hibernate_frames: u16,
+    pub(crate) next_d0: u16,
+    pub(crate) next_d3: u16,
+    pub(crate) upload: Option<TitleTextChameleonFrameUploadSub1B71A>,
+    pub(crate) spawned_handler: Option<&'static str>,
+    pub(crate) spawned_art_label: Option<&'static str>,
+    pub(crate) loops_forever: bool,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_text_chameleon_sega_step_loc_1B6DC(
+    decoded_words: &[u16],
+    d0: u16,
+    d3: u16,
+) -> TitleTextChameleonSegaStepLoc1B6DC {
+    // ASM loc_1B6DC (kid.asm:29934-29948): hibernate one frame, save `d0`
+    // across `sub_1B71A`, restore it, then increment the preserved counter.
+    // Only the transition to `$1E` allocates the fixed `loc_1C7A0` Sega text
+    // worker; later passes branch back to `loc_1B6DC` without spawning again.
+    let next_d3 = d3.wrapping_add(1);
+    let upload = title_text_chameleon_frame_upload_sub_1B71A(decoded_words, 0, next_d3);
+    let next_d0 = d0.wrapping_add(1);
+    let (spawned_handler, spawned_art_label) = if next_d0 == 0x001E {
+        (Some("loc_1C7A0"), Some("SegaText"))
+    } else {
+        (None, None)
+    };
+
+    TitleTextChameleonSegaStepLoc1B6DC {
+        hibernate_frames: 1,
+        next_d0,
+        next_d3,
+        upload,
+        spawned_handler,
+        spawned_art_label,
+        loops_forever: true,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) vram_word_addr: u16,
     pub(crate) word_writes: Vec<u16>,
@@ -4194,6 +4237,43 @@ mod tests {
             reveal.final_d0, 0,
             "ASM loc_1B6CE falls through to `moveq #0,d0` immediately after the countdown, seeding the later loc_1B6DC Sega-text delay",
         );
+    }
+
+    #[test]
+    fn loc_1b6dc_restores_d0_after_sub_1b71a_and_spawns_sega_text_only_on_count_1e() {
+        let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        let spawn_step = title_text_chameleon_sega_step_loc_1B6DC(&decoded_words, 0x001D, 3);
+        let post_spawn_step = title_text_chameleon_sega_step_loc_1B6DC(&decoded_words, 0x001E, 4);
+
+        assert_eq!(spawn_step.hibernate_frames, 1);
+        assert_eq!(
+            spawn_step.next_d0, 0x001E,
+            "ASM loc_1B6DC saves `d0` on the stack before `sub_1B71A`, restores it, then runs `addq.w #1,d0`, so the Sega-text threshold should be based on the preserved counter rather than the helper's scratch value",
+        );
+        assert_eq!(
+            spawn_step.spawned_handler,
+            Some("loc_1C7A0"),
+            "the preserved `d0=$1D -> $1E` transition is the only loc_1B6DC pass that should allocate the fixed Sega text worker",
+        );
+        assert_eq!(spawn_step.spawned_art_label, Some("SegaText"));
+        assert_eq!(
+            spawn_step
+                .upload
+                .as_ref()
+                .map(|upload| upload.tilemap_label),
+            Some("unk_2E728"),
+            "with `d3=3` on entry, loc_1B6DC still reaches sub_1B71A after the leading `addq.w #1,d3`, so the visible upload should use the second `off_1B70A` entry while `d2` stays zero",
+        );
+        assert_eq!(
+            post_spawn_step.next_d0, 0x001F,
+            "after the spawn frame, ASM loc_1B6DC keeps incrementing the restored counter on each hibernated pass",
+        );
+        assert_eq!(
+            post_spawn_step.spawned_handler, None,
+            "ASM loc_1B6DC branches back to the top after allocating the Sega text worker, so later frames should not keep spawning duplicate handlers",
+        );
+        assert!(post_spawn_step.loops_forever);
     }
 
     #[test]
