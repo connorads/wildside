@@ -1942,6 +1942,19 @@ pub(crate) fn decompress_long_ref_finished_loc_13916() -> DecompressBp0ReturnSta
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_finished_loc_1399C() -> DecompressBp0ReturnStatus {
+    // ASM loc_1399C (kid.asm:26684-26686) is the successful return after the
+    // later fixed three-byte tail at `loc_13978`: once `cmp.w a2,d7` / `bls.s
+    // loc_1399C` reports the output cursor at or beyond the limit, the routine
+    // returns `d0=1` and seeds `d2=4`.
+    DecompressBp0ReturnStatus {
+        status_word: 1,
+        next_copy_mode: Some(4),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_long_ref_tail_loc_1377E(
     copied_bytes: [u8; 5],
     output_addr_after_tail: u16,

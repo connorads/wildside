@@ -43377,6 +43377,18 @@ fn loc_13916_finishes_the_later_long_reference_tail_with_copy_mode_one() {
 }
 
 #[test]
+fn loc_1399c_finishes_the_later_three_byte_long_reference_tail_with_copy_mode_four() {
+    assert_eq!(
+        crate::level::decompress_long_ref_finished_loc_1399C(),
+        crate::level::DecompressBp0ReturnStatus {
+            status_word: 1,
+            next_copy_mode: Some(4),
+        },
+        "ASM loc_1399C should return `d0=1` and seed `d2=4` once the `loc_13978` fixed three-byte tail reaches or passes `d7`"
+    );
+}
+
+#[test]
 fn loc_13878_copies_the_later_fixed_five_byte_tail_and_finishes_at_or_beyond_d7() {
     assert_eq!(
         crate::level::decompress_long_ref_tail_loc_13878(
