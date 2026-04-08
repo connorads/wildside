@@ -42859,6 +42859,33 @@ fn loc_1376a_routes_the_second_aa_bit_into_copy5_quit_flush_or_variable_length()
 }
 
 #[test]
+fn loc_137e6_routes_the_post_distance_control_bit_into_copy5_quit_flush_or_variable_length() {
+    assert_eq!(
+        crate::level::decompress_long_ref_extended_loc_137E6(0b0000_0000, 0x12),
+        crate::level::DecompressLongRefExtendedLoc1376A::Copy5,
+        "ASM loc_137E6 should branch straight to `loc_137FC` when the consumed control bit is 0, making this path use the fixed five-byte long-reference tail"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_extended_loc_137E6(0b1000_0000, 0x00),
+        crate::level::DecompressLongRefExtendedLoc1376A::QuitDecompression,
+        "ASM loc_137E6 should treat a zero length byte as the quit marker before the `subq.w #6,d0` adjustment"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_extended_loc_137E6(0b1000_0000, 0x05),
+        crate::level::DecompressLongRefExtendedLoc1376A::FlushBuffer,
+        "ASM loc_137E6 should flush the buffer when `subq.w #6,d0` underflows for length bytes 1 through 5"
+    );
+    assert_eq!(
+        crate::level::decompress_long_ref_extended_loc_137E6(0b1000_0000, 0x09),
+        crate::level::DecompressLongRefExtendedLoc1376A::VariableLength {
+            total_copy_len: 9,
+            dbf_counter: 3,
+        },
+        "ASM loc_137E6 should hand `BYTE2-6` to the later `dbf d0,loc_137F6` loop so a 9-byte request copies a 4-byte variable prefix before the fixed tail"
+    );
+}
+
+#[test]
 fn loc_13778_copies_dbf_counter_plus_one_prefix_bytes_before_the_fixed_tail() {
     assert_eq!(
         crate::level::decompress_long_ref_loop_loc_13778(&[0x9A, 0xBC, 0xDE], 0),
