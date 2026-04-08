@@ -45905,6 +45905,26 @@ fn loc_1838_rewinds_the_postincremented_tile_pointer_before_chkdownslope() {
 }
 
 #[test]
+fn loc_1966_redirects_rightwall_contacts_into_chkupslope_only_for_4000_tiles() {
+    use crate::movement::GfxObjectsCollisionSolidRightWallLoc1966::{
+        ContinueLoc197E, RedirectToUpSlope,
+    };
+
+    assert_eq!(
+        crate::movement::gfx_objects_collision_solid_rightwall_loc_1966(0x4ACE, 0xA684),
+        RedirectToUpSlope {
+            layout_addr: 0xA682
+        },
+        "ASM loc_1966 should rewind `$FFFFFB6C` by one tile and branch to `GfxObjects_Collision_ChkUpSlope` when `-2(a3)` carries `$4000` collision bits",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_solid_rightwall_loc_1966(0x6ACE, 0xA684),
+        ContinueLoc197E,
+        "ASM loc_1966 should fall through to `loc_197E` when the inspected `-2(a3)` tile is not an upslope",
+    );
+}
+
+#[test]
 fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
     let next_indices = [Some(1), Some(2), Some(3), None];
     let kind_words = [0, 2, 3, 4];

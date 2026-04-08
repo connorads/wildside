@@ -361,6 +361,32 @@ pub(crate) fn gfx_objects_collision_downslope_tile_addr_loc_1838(
     scanned_tile_layout_addr.wrapping_sub(2)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GfxObjectsCollisionSolidRightWallLoc1966 {
+    ContinueLoc197E,
+    RedirectToUpSlope { layout_addr: u16 },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_collision_solid_rightwall_loc_1966(
+    upper_left_tile_word: u16,
+    cached_layout_addr: u16,
+) -> GfxObjectsCollisionSolidRightWallLoc1966 {
+    // ASM loc_1966 (kid.asm:3106): after the solid-rightwall resolver decides
+    // the contact came from above/left, inspect `-2(a3)`. A `$4000` upslope
+    // there rewinds the cached `FB6C` tile pointer by one cell and jumps to
+    // `GfxObjects_Collision_ChkUpSlope`; every other collision nibble falls
+    // through to the non-Kid right-wall snap at loc_197E.
+    if upper_left_tile_word & 0x7000 == 0x4000 {
+        GfxObjectsCollisionSolidRightWallLoc1966::RedirectToUpSlope {
+            layout_addr: cached_layout_addr.wrapping_sub(2),
+        }
+    } else {
+        GfxObjectsCollisionSolidRightWallLoc1966::ContinueLoc197E
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(
