@@ -840,6 +840,14 @@ pub(crate) fn initialise_lava_geyser_full_height_state_loc_147A0(
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_peak_row_target_loc_14966(sprite_row_target: u16) -> u16 {
+    // ASM loc_14966 (kid.asm:28018): when the alternating top-cap frame wraps
+    // back to zero, the worker grows `$4A(a5)` by 2 before reloading `d3`.
+    sprite_row_target.wrapping_add(2)
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaGeyserScriptStepLoc147BA {

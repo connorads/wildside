@@ -20492,6 +20492,15 @@ fn loc_14788_points_the_first_lava_geyser_eruption_at_the_startup_script() {
 }
 
 #[test]
+fn loc_14966_expands_the_peak_row_target_by_two_when_the_top_cap_wraps() {
+    assert_eq!(
+        crate::weather::lava_geyser_peak_row_target_loc_14966(0x0008),
+        0x000A,
+        "ASM loc_14966 should add 2 to `$4A(a5)` when `eori.b #1,$4C(a5)` wraps the alternating top-cap frame back to zero"
+    );
+}
+
+#[test]
 fn loc_1478e_only_plays_the_repeat_lava_geyser_sound_when_the_flag_is_clear() {
     assert_eq!(
         crate::weather::lava_geyser_repeat_sound_loc_1478E(false),
