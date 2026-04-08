@@ -46763,6 +46763,50 @@ fn loc_1c4f6_copies_51_intro_palette_words_to_palette_buffer_2() {
 }
 
 #[test]
+fn loc_1c50a_copies_35_intro2_sky_palette_words_to_palette_buffer_2() {
+    // ASM sub_1C4FE -> loc_1C50A (kid.asm:31242-31250):
+    // `lea (Palette_Buffer_2).l,a1; lea Pal_1C2F0(pc),a0; moveq #$22,d0`
+    // followed by `move.w (a0)+,(a1)+; dbf d0,loc_1C50A` copies 35 words.
+    // Pal_1C2F0 is "intro2_sky.bin" palette data.
+    // Palette_Buffer_2 ($FFFF4ED8) receives the intro 2 sky palette.
+    let word_count = 0x22 + 1;
+    assert_eq!(
+        word_count, 35,
+        "ASM loc_1C50A seeds d0=#$22 before the DBF loop, so inclusive iteration copies 35 words from Pal_1C2F0 to Palette_Buffer_2"
+    );
+}
+
+#[test]
+fn loc_1c51e_copies_64_character_palette_words_to_palette_buffer_2() {
+    // ASM sub_1C512 -> loc_1C51E (kid.asm:31257-31264):
+    // `lea (Palette_Buffer_2).l,a1; lea Pal_1C346(pc),a0; moveq #$3F,d0`
+    // followed by `move.w (a0)+,(a1)+; dbf d0,loc_1C51E` copies 64 words.
+    // Pal_1C346 is "intro3_alley.bin" palette data.
+    // Palette_Buffer_2 ($FFFF4ED8) receives the character screen palette.
+    let word_count = 0x3F + 1;
+    assert_eq!(
+        word_count, 64,
+        "ASM loc_1C51E seeds d0=#$3F before the DBF loop, so inclusive iteration copies 64 words from Pal_1C346 to Palette_Buffer_2"
+    );
+}
+
+#[test]
+fn loc_1c540_copies_14_region_specific_overlay_words_to_palette_buffer_2() {
+    // ASM sub_1C512 -> loc_1C540 (kid.asm:31273-31278):
+    // Conditional path after checking ($FFFFFC82).w:
+    // If byte == 1: `lea Pal_1C3C6(pc),a0; moveq #$D,d0`
+    // Else if byte != 0: `lea Pal_1C3D4(pc),a0; moveq #$D,d0`
+    // followed by `move.w (a0)+,(a1)+; dbf d0,loc_1C542` copies 14 words.
+    // Pal_1C3C6 is "title_maniaxe_mask.bin" (region=1), Pal_1C3D4 is "title_juggernaut_mask.bin" (other regions).
+    // Destination is Palette_Buffer_2+$62 (word offset $31).
+    let word_count = 0xD + 1;
+    assert_eq!(
+        word_count, 14,
+        "ASM loc_1C540 seeds d0=#$D before the DBF loop, so inclusive iteration copies 14 region-specific palette overlay words"
+    );
+}
+
+#[test]
 fn loc_19bc2_centres_short_title_cards_with_64_word_top_padding_rows() {
     assert_eq!(
         crate::level::load_title_card_top_padding_loc_19BC2(0x0012),
