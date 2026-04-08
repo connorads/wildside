@@ -1285,6 +1285,27 @@ pub(crate) fn title_screen_hidden_camera_ramp_loc_1B51A(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleScreenTileStripeClearLoc1B53E {
+    pub(crate) vram_word_addr: u16,
+    pub(crate) fill_longword: u32,
+    pub(crate) longword_write_count: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_screen_tile_stripe_clear_loc_1B53E() -> TitleScreenTileStripeClearLoc1B53E {
+    // ASM sub_1B532 -> loc_1B53E (kid.asm:29783-29790): seed VRAM write
+    // `$1780`, clear `d1`, and stream eight zero longwords into the VDP data
+    // port before the later `EniDec`/tile upload rebuilds the title stripe.
+    TitleScreenTileStripeClearLoc1B53E {
+        vram_word_addr: 0x1780,
+        fill_longword: 0x0000_0000,
+        longword_write_count: 0x0007 + 1,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) vram_word_addr: u16,
@@ -3919,6 +3940,19 @@ mod tests {
         assert!(
             ramp.deletes_current_object,
             "ASM loc_1B51A ends with `jmp (j_Delete_CurrentObject).w` once the ramp finishes",
+        );
+    }
+
+    #[test]
+    fn loc_1b53e_clears_eight_longwords_before_the_title_stripe_rebuild() {
+        let clear = title_screen_tile_stripe_clear_loc_1B53E();
+
+        assert_eq!(clear.vram_word_addr, 0x1780);
+        assert_eq!(clear.fill_longword, 0x0000_0000);
+        assert_eq!(
+            clear.longword_write_count,
+            0x0007 + 1,
+            "ASM loc_1B53E seeds `d0=#7`, so the inclusive `dbf d0,loc_1B53E` loop should write eight zero longwords into VRAM `$1780`",
         );
     }
 
