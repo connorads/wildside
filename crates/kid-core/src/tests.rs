@@ -42858,6 +42858,38 @@ fn loc_138aa_dispatches_between_literal_copy_long_ref_and_short_ref_lengths() {
 }
 
 #[test]
+fn loc_13928_dispatches_between_direct_copy_long_ref_and_short_ref_lengths() {
+    assert_eq!(
+        crate::level::decompress_mode_dispatch_loc_13928(0x80, 0x2200, 0x12),
+        crate::level::DecompressModeDispatchLoc13928::DirectCopy,
+        "ASM loc_13928 should branch to the next direct-copy entry at `loc_139A4` when the next control bit is 1 after `loc_13926`"
+    );
+    assert_eq!(
+        crate::level::decompress_mode_dispatch_loc_13928(0x40, 0x2200, 0x12),
+        crate::level::DecompressModeDispatchLoc13928::LongRef {
+            output_copy_base_addr: 0x2200,
+        },
+        "ASM loc_13928 should seed `a6` from `a2` and branch to `loc_13948` when the top bits decode as `01`"
+    );
+    assert_eq!(
+        crate::level::decompress_mode_dispatch_loc_13928(0x20, 0x2200, 0x12),
+        crate::level::DecompressModeDispatchLoc13928::ShortRef {
+            source_copy_addr: 0x21EE,
+            total_copy_len: 3,
+        },
+        "ASM loc_13928 should subtract the short back-reference byte from `a2` and request the three-byte `00:1` short-reference variant before the shared tail at `loc_1393C`"
+    );
+    assert_eq!(
+        crate::level::decompress_mode_dispatch_loc_13928(0x10, 0x2200, 0x12),
+        crate::level::DecompressModeDispatchLoc13928::ShortRef {
+            source_copy_addr: 0x21EE,
+            total_copy_len: 2,
+        },
+        "ASM loc_13928 should fall through to `loc_1393C` for the two-byte `00:0` short-reference variant"
+    );
+}
+
+#[test]
 fn loc_137c4_copies_two_short_ref_tail_bytes_then_checks_the_end_pointer() {
     assert_eq!(
         crate::level::decompress_short_ref_finished_loc_137C4([0x12, 0x34], 0x0100, 0x0101),
