@@ -937,7 +937,7 @@ impl NativeRuntime {
                 }
                 0x84 => {
                     if let Some(destination) = current_destination.as_mut() {
-                        destination.x = destination.x.saturating_add(0x10);
+                        destination.x = level_entry_title_space_token_x_loc_1ABEA(destination.x);
                     }
                 }
                 0xFF => break,
@@ -1204,6 +1204,14 @@ fn level_entry_title_advance_x(glyph: u8) -> u16 {
         0x08 | 0x22 => 0x08,
         _ => 0x10,
     }
+}
+
+#[allow(non_snake_case)]
+fn level_entry_title_space_token_x_loc_1ABEA(x: u16) -> u16 {
+    // ASM loc_1ABEA (kid.asm:28834-28837): control byte `#$84` consumes one
+    // script byte with `addq.w #1,a2`, skips worker allocation, and advances
+    // the current title-card destination by exactly `#$10`.
+    x.saturating_add(0x10)
 }
 
 fn level_entry_title_letter_gfx_slot_index(
@@ -3897,7 +3905,16 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
 
 #[cfg(test)]
 mod tests {
-    use super::level_entry_title_advance_x;
+    use super::{level_entry_title_advance_x, level_entry_title_space_token_x_loc_1ABEA};
+
+    #[test]
+    fn level_entry_title_space_token_adds_10_pixels_loc_1abea() {
+        assert_eq!(
+            level_entry_title_space_token_x_loc_1ABEA(0x20),
+            0x30,
+            "ASM loc_1ABEA should skip the `#$84` control byte and advance `d2` by `#$10` before looping back",
+        );
+    }
 
     #[test]
     fn level_entry_title_advance_x_defaults_to_10_pixels_for_plain_glyphs_loc_1ab6a() {
