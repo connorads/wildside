@@ -387,6 +387,45 @@ pub(crate) fn gfx_objects_collision_solid_rightwall_loc_1966(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GfxObjectsCollisionRightWallSnapLoc197E {
+    pub(crate) collision_type: u16,
+    pub(crate) snapped_x_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_collision_rightwall_snap_loc_197E(
+    is_kid_gfx_object: bool,
+    direction_flag: u8,
+    anchor_x_px: u16,
+    first_extent_px: u16,
+    second_extent_px: u16,
+) -> Option<GfxObjectsCollisionRightWallSnapLoc197E> {
+    // ASM loc_197E / loc_19A8 (kid.asm:3115-3128): Kid itself exits via
+    // loc_1ADA, but every other gfx object stores `colid_rightwall` and snaps
+    // `$1A(a2)` from the stacked anchor coordinate. Non-zero `$16(a2)` uses
+    // `anchor + first_extent - 1`; zero `$16(a2)` uses
+    // `anchor - first_extent - second_extent - 1`.
+    if is_kid_gfx_object {
+        return None;
+    }
+
+    let snapped_x_px = if direction_flag != 0 {
+        anchor_x_px.wrapping_add(first_extent_px).wrapping_sub(1)
+    } else {
+        anchor_x_px
+            .wrapping_sub(first_extent_px)
+            .wrapping_sub(second_extent_px)
+            .wrapping_sub(1)
+    };
+
+    Some(GfxObjectsCollisionRightWallSnapLoc197E {
+        collision_type: 0x0004,
+        snapped_x_px,
+    })
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(

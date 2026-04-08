@@ -45925,6 +45925,31 @@ fn loc_1966_redirects_rightwall_contacts_into_chkupslope_only_for_4000_tiles() {
 }
 
 #[test]
+fn loc_197e_skips_kid_and_snaps_other_gfx_objects_against_the_right_wall() {
+    assert_eq!(
+        crate::movement::gfx_objects_collision_rightwall_snap_loc_197E(true, 1, 100, 12, 20),
+        None,
+        "ASM loc_197E should branch straight to `loc_1ADA` when the colliding gfx object is Kid himself",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_rightwall_snap_loc_197E(false, 1, 100, 12, 20),
+        Some(crate::movement::GfxObjectsCollisionRightWallSnapLoc197E {
+            collision_type: 0x0004,
+            snapped_x_px: 111,
+        }),
+        "ASM loc_197E should store `colid_rightwall` and use `anchor + (a1)+ - 1` when `$16(a2)` is non-zero",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_rightwall_snap_loc_197E(false, 0, 100, 12, 20),
+        Some(crate::movement::GfxObjectsCollisionRightWallSnapLoc197E {
+            collision_type: 0x0004,
+            snapped_x_px: 67,
+        }),
+        "ASM loc_19A8 should store `colid_rightwall` and use `anchor - (a1)+ - (a1)+ - 1` when `$16(a2)` is zero",
+    );
+}
+
+#[test]
 fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
     let next_indices = [Some(1), Some(2), Some(3), None];
     let kind_words = [0, 2, 3, 4];
