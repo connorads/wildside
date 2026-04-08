@@ -1535,6 +1535,23 @@ pub(crate) fn decompress_long_ref_quit_loc_13790() -> DecompressBp0ReturnStatus 
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_tail_loc_13878(
+    copied_bytes: [u8; 5],
+    output_addr_after_tail: u16,
+    output_limit_addr: u16,
+) -> DecompressLongRefTailLoc1377E {
+    // ASM loc_13878 (kid.asm:26477-26486) is the later fixed five-byte tail:
+    // one byte at `loc_13878`, one at `loc_1387A`, then three more through
+    // the `loc_1387C` fallthrough before `cmp.w a2,d7` branches to `loc_138A0`
+    // or resumes the shared decode loop at `loc_137B0`.
+    DecompressLongRefTailLoc1377E {
+        copied_bytes,
+        finished: output_addr_after_tail >= output_limit_addr,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_long_ref_tail_loc_137FC(
     copied_bytes: [u8; 5],
     output_addr_after_tail: u16,
