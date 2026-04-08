@@ -1295,10 +1295,10 @@ fn level_entry_title_start_pose(rng: &mut RomRandomState, selector: u8) -> (u32,
     // top edge, and selector 3 seeds the bottom edge.
     let (x, y) = match selector {
         0 => (-0x20, level_entry_title_random_y(rng)),
-        // ASM loc_1ACC8 (kid.asm:28925-28926) is the selector-1 branch:
-        // `move.w #$FFE0,d6` fixes Y to -32px before the shared loc_1ACCC
-        // random-X tail runs.
-        1 => (level_entry_title_random_x(rng), -0x20),
+        1 => (
+            level_entry_title_random_x(rng),
+            level_entry_title_top_edge_y_loc_1ace6(),
+        ),
         2 => (
             level_entry_title_right_edge_x_loc_1ace0(),
             level_entry_title_random_y(rng),
@@ -1313,6 +1313,13 @@ fn level_entry_title_right_edge_x_loc_1ace0() -> i32 {
     // `move.w #$160,d5` fixes X to the right title-entry edge before the
     // shared loc_1ACEA random-Y tail runs.
     0x160
+}
+
+fn level_entry_title_top_edge_y_loc_1ace6() -> i32 {
+    // ASM loc_1ACE6 (kid.asm:28942-28944) is the selector-1 branch tail:
+    // `move.w #$FFE0,d5` fixes Y to the top title-entry edge before the shared
+    // loc_1ACEA random-Y branch resumes.
+    -0x20
 }
 
 fn level_entry_title_random_y(rng: &mut RomRandomState) -> i32 {
@@ -3959,6 +3966,7 @@ mod tests {
         level_entry_title_advance_x, level_entry_title_deferred_number_indices_loc_1ABF4,
         level_entry_title_right_edge_x_loc_1ace0, level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
+        level_entry_title_top_edge_y_loc_1ace6,
     };
     use crate::types::RomRandomState;
 
@@ -4058,6 +4066,15 @@ mod tests {
             level_entry_title_right_edge_x_loc_1ace0(),
             0x160,
             "ASM loc_1ACE0 should seed `d5=$160` before the shared loc_1ACEA random-Y branch resumes",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_top_edge_y_loc_1ace6_returns_top_spawn_edge() {
+        assert_eq!(
+            level_entry_title_top_edge_y_loc_1ace6(),
+            -0x20,
+            "ASM loc_1ACE6 should seed `d5=$FFE0` before the shared loc_1ACEA random-Y branch resumes",
         );
     }
 
