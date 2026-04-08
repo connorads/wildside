@@ -45922,6 +45922,24 @@ fn loc_19bde_copies_one_art_word_per_inclusive_dbf_iteration() {
 }
 
 #[test]
+fn loc_19bee_fills_the_rest_of_each_title_card_row_with_02fb() {
+    assert_eq!(
+        crate::level::load_title_card_right_padding_loc_19BEE(0x000E, 0x0024),
+        Some(crate::level::TitleCardVramWordFillLoop {
+            vram_word_addr: 0xE000,
+            fill_word: 0x02FB,
+            word_write_count: 14,
+        }),
+        "ASM loc_19BEE should write `0x40 - d7 - d0` `$02FB` words after each copied art row, so a centred 36-tile title card with 14 left-padding words leaves 14 right-padding words"
+    );
+    assert_eq!(
+        crate::level::load_title_card_right_padding_loc_19BEE(0x0000, 0x0040),
+        None,
+        "ASM loc_19BEE should skip the trailing fill when `d5 = 0x40 - d7 - d0 - 1` goes negative immediately, which happens when the row already occupies all 64 words"
+    );
+}
+
+#[test]
 fn loc_1462_reloads_the_samurai_haze_walk_from_the_gfx_head_pointer() {
     assert_eq!(
         crate::movement::gfx_object_head_under_samurai_haze_loc_1462(None),

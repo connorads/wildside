@@ -5449,6 +5449,32 @@ pub(crate) fn load_title_card_row_copy_word_count_loc_19BDE(row_copy_seed: u16) 
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_title_card_right_padding_loc_19BEE(
+    horizontal_padding_words: u16,
+    title_card_width_tiles: u16,
+) -> Option<TitleCardVramWordFillLoop> {
+    // ASM loc_19BEE (kid.asm:28698-28704): after `loc_19BDE` copies one art
+    // row, the routine seeds `d5 = $40 - d7 - d0 - 1` and writes `#$2FB`
+    // once per inclusive `dbf d5,loc_19BEE`. Because `d7` is the already-used
+    // left-padding width and `d0` is the copied art width, the loop emits the
+    // remaining `64 - left_padding_words - title_card_width_tiles` fill words
+    // needed to complete the row. When that remainder is zero the seed goes
+    // negative immediately and the loop is skipped.
+    let used_words = horizontal_padding_words.checked_add(title_card_width_tiles)?;
+    let right_padding_words = 0x0040u16.checked_sub(used_words)?;
+    if right_padding_words == 0 {
+        None
+    } else {
+        Some(TitleCardVramWordFillLoop {
+            vram_word_addr: 0xE000,
+            fill_word: 0x02FB,
+            word_write_count: right_padding_words,
+        })
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,
