@@ -840,6 +840,38 @@ pub(crate) fn initialise_lava_geyser_full_height_state_loc_147A0(
     }
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LavaGeyserScriptStepLoc147BA {
+    HoldAtFullHeight,
+    DisableForCooldown,
+    EmitSpriteRows {
+        sprite_rows_minus_one: u16,
+        sprite_script_word: u16,
+    },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decode_lava_geyser_script_step_loc_147BA(
+    script_words: &[u16],
+) -> Option<LavaGeyserScriptStepLoc147BA> {
+    // ASM loc_147BA (kid.asm:27847): each geyser script entry starts with a
+    // word loaded into `d2`. `$FFFF` jumps to the dedicated full-height loop,
+    // `$FFFE` disables the geyser for `$3C` frames, and every other value keeps
+    // the next word in place so `d2` can count sprite rows while `a1/a2` point
+    // at the `LoadGameModeData + script_word` sprite template.
+    let (&sprite_rows_minus_one, rest) = script_words.split_first()?;
+    Some(match sprite_rows_minus_one {
+        0xFFFF => LavaGeyserScriptStepLoc147BA::HoldAtFullHeight,
+        0xFFFE => LavaGeyserScriptStepLoc147BA::DisableForCooldown,
+        _ => LavaGeyserScriptStepLoc147BA::EmitSpriteRows {
+            sprite_rows_minus_one,
+            sprite_script_word: *rest.first()?,
+        },
+    })
+}
+
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;

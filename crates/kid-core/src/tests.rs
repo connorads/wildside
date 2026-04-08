@@ -20527,6 +20527,30 @@ fn loc_147a0_removes_the_vdp_bias_and_seeds_the_full_height_timer() {
 }
 
 #[test]
+fn loc_147ba_decodes_geyser_script_sentinels_and_sprite_rows() {
+    assert_eq!(
+        crate::weather::decode_lava_geyser_script_step_loc_147BA(&[0xFFFF]),
+        Some(crate::weather::LavaGeyserScriptStepLoc147BA::HoldAtFullHeight),
+        "ASM loc_147BA should treat `$FFFF` as the full-height loop sentinel"
+    );
+    assert_eq!(
+        crate::weather::decode_lava_geyser_script_step_loc_147BA(&[0xFFFE]),
+        Some(crate::weather::LavaGeyserScriptStepLoc147BA::DisableForCooldown),
+        "ASM loc_147BA should treat `$FFFE` as the 60-frame disable sentinel"
+    );
+    assert_eq!(
+        crate::weather::decode_lava_geyser_script_step_loc_147BA(&[0x0003, 0x0124]),
+        Some(
+            crate::weather::LavaGeyserScriptStepLoc147BA::EmitSpriteRows {
+                sprite_rows_minus_one: 0x0003,
+                sprite_script_word: 0x0124,
+            }
+        ),
+        "ASM loc_147BA should leave the second word available as the `LoadGameModeData` sprite-script offset for normal geyser rows"
+    );
+}
+
+#[test]
 fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);
