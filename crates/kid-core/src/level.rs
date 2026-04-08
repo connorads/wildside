@@ -121,6 +121,12 @@ pub(crate) struct DecompressToVramSpecialReturnLoc143B2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressToRamPaletteRowStartLoc143CC {
+    pub(crate) row_index: u16,
+    pub(crate) column_index: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DecompressDirectCopyLoc137AE {
     pub(crate) copied_byte: u8,
 }
@@ -1061,6 +1067,21 @@ pub(crate) fn decompress_to_vram_special_return_loc_143B2(
     DecompressToVramSpecialReturnLoc143B2 {
         restored_input_addr: saved_input_addr,
         vdp_data_port_addr: 0x00C0_0000,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_to_ram_palette_row_start_loc_143CC(
+    row_index: u16,
+) -> DecompressToRamPaletteRowStartLoc143CC {
+    // ASM loc_143CC (kid.asm:27269) is the `DecompressToRAM` outer
+    // permutation-loop entry and simply resets `d4` with `moveq #0,d4`
+    // before `loc_143CE` starts emitting the 16 packed bytes for the current
+    // high-nibble row selected by `d3`.
+    DecompressToRamPaletteRowStartLoc143CC {
+        row_index,
+        column_index: 0,
     }
 }
 

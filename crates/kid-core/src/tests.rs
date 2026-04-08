@@ -45,8 +45,8 @@ use crate::level::{
     BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
     BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
     BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
-    DecompressToVramSpecialReturnLoc143B2, FgPlaneCustomWriteSub1596,
-    FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    DecompressToRamPaletteRowStartLoc143CC, DecompressToVramSpecialReturnLoc143B2,
+    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
     FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
     ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
     FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
@@ -79,9 +79,9 @@ use crate::level::{
     classify_late_background_palette_override_loc_11E06,
     classify_post_load_object_routine_loc_11F96, compile_block_debris_sprites_sub_2A4C,
     copy_background_palette_loc_11E16, copy_foreground_palette_loc_11DB0,
-    decode_block_layout_loc_132A6, decompress_to_vram_special_return_loc_143B2,
-    drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
-    fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
+    decode_block_layout_loc_132A6, decompress_to_ram_palette_row_start_loc_143CC,
+    decompress_to_vram_special_return_loc_143B2, drain_fg_update_queue_custom_sub_1596,
+    empty_collision_row_loc_11B28, fade_palette_span_sub_1C85E, flagpole_scoreboard_step_sub_C254,
     initialise_camera_bootstrap_loc_11F48, initialise_evanesc_object_slots_sub_EABC,
     initialise_fullscreen_palette_fade_sub_73D0, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
@@ -42779,6 +42779,26 @@ fn loc_143b2_restores_the_saved_source_pointer_and_repoints_a6_at_the_vdp_data_p
             vdp_data_port_addr: 0x00C0_0000,
         },
         "ASM loc_143B2 should preserve whichever source pointer `DecompressToVRAM_Special` saved on entry while always resetting the output register to the VDP data port"
+    );
+}
+
+#[test]
+fn loc_143cc_resets_the_low_nibble_column_index_for_each_ram_palette_row() {
+    assert_eq!(
+        decompress_to_ram_palette_row_start_loc_143CC(0),
+        DecompressToRamPaletteRowStartLoc143CC {
+            row_index: 0,
+            column_index: 0,
+        },
+        "ASM loc_143CC should preserve the current `d3` row selector while resetting `d4` to zero before `loc_143CE` emits the first packed byte for that RAM permutation row"
+    );
+    assert_eq!(
+        decompress_to_ram_palette_row_start_loc_143CC(0x000D),
+        DecompressToRamPaletteRowStartLoc143CC {
+            row_index: 0x000D,
+            column_index: 0,
+        },
+        "ASM loc_143CC should re-zero the low-nibble column index on every outer-loop iteration, not just for the first row"
     );
 }
 
