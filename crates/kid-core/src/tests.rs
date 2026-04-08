@@ -56,20 +56,20 @@ use crate::level::{
     IslandPaletteCycleLowerBandLoc12188, IslandPaletteCycleMidBandLoc12110,
     IslandPaletteCyclePrimaryBandLoc12098, LateBackgroundPaletteOverrideLoc11E06,
     LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, PostLoadObjectRoutineLoc11F96,
-    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, ScratchDebrisPieceSub292E,
-    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA,
-    SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
-    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
-    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
-    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
-    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    blend_palette_entry_loc_1538, blend_selected_palette_entries_sub_1536,
-    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
-    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
-    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
-    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
-    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
-    block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
+    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
+    SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
+    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
+    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
+    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A, blend_palette_entry_loc_1538,
+    blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
+    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
+    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
+    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
+    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
+    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -1796,6 +1796,58 @@ fn compile_block_debris_sprites_sub_2a4c_clears_slots_when_the_lead_fragment_lea
     assert_eq!(
         queue.slots[0][0], 0x00,
         "ASM sub_2A4C should clear the slot's active byte once the lead fragment trips the off-screen kill path",
+    );
+}
+
+#[test]
+fn compile_block_debris_sprites_sub_2a4c_loc_2a56_skips_inactive_slots() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+    spawn_block_debris_sub_292E(&mut queue, 0x0100, 0x0080, 2);
+
+    // Clear the first slot's active byte to simulate an inactive slot
+    queue.slots[0][SUB_292E_SLOT_ACTIVE_OFFSET] = 0x00;
+
+    let render = compile_block_debris_sprites_sub_2A4C(&mut queue, 0, 0, 0);
+
+    assert_eq!(
+        render.sprites.len(),
+        0,
+        "ASM loc_2A56 should skip slots with active byte `0x00` and emit no sprites",
+    );
+    assert_eq!(
+        render.number_sprites, 0,
+        "ASM loc_2A56 should leave Number_Sprites at the starting value when skipping inactive slots",
+    );
+}
+
+#[test]
+fn compile_block_debris_sprites_sub_2a4c_loc_2b9c_clears_active_byte_on_offscreen_kill() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+    // Spawn at camera origin - lead fragment will be on-screen
+    spawn_block_debris_sub_292E(&mut queue, 0x0000, 0x0000, 0);
+
+    let render = compile_block_debris_sprites_sub_2A4C(&mut queue, 0, 0, 0);
+
+    assert!(
+        render.sprites.is_empty(),
+        "ASM loc_2B9C should clear the slot when lead fragment's y-pos fails the `$FF9C..$E0` bounds check",
+    );
+    assert_eq!(
+        queue.slots[0][SUB_292E_SLOT_ACTIVE_OFFSET], 0x00,
+        "ASM loc_2B9C should execute `sf (a0)` to clear the active byte when bounds check fails",
+    );
+}
+
+#[test]
+fn compile_block_debris_sprites_sub_2a4c_loc_2b9e_updates_sprite_count() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+    spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 2);
+
+    let render = compile_block_debris_sprites_sub_2A4C(&mut queue, 7, 0, 0);
+
+    assert_eq!(
+        render.number_sprites, 12,
+        "ASM loc_2B9E should emit five sprites starting from link value 7, yielding final link value 12",
     );
 }
 

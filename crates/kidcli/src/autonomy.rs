@@ -2859,17 +2859,25 @@ fn try_loc_coverage_drive_strategy(
     min_cluster_size: usize,
     focus_subsystems: &[String],
 ) -> Result<Option<CycleReport>> {
-    let uncovered = collect_uncovered_loc_labels(repo_root)?;
+    let uncovered = collect_loc_labels(repo_root, LocCoverageSelection::Uncovered)?;
     if uncovered.is_empty() {
-        return Ok(None);
+        return try_loc_promotion_strategy(
+            repo_root,
+            cycle,
+            routines_per_task,
+            min_cluster_size,
+            focus_subsystems,
+        );
     }
 
     // Group by subsystem, pick the one with the most uncovered labels.
-    let mut by_subsystem: BTreeMap<&str, Vec<&(String, String, String, usize, Option<String>)>> =
-        BTreeMap::new();
+    let mut by_subsystem: BTreeMap<&str, Vec<&LocCoverageCandidate>> = BTreeMap::new();
     for entry in &uncovered {
-        if focus_subsystems.is_empty() || focus_subsystems.iter().any(|f| f == &entry.0) {
-            by_subsystem.entry(&entry.0).or_default().push(entry);
+        if focus_subsystems.is_empty() || focus_subsystems.iter().any(|f| f == &entry.subsystem) {
+            by_subsystem
+                .entry(&entry.subsystem)
+                .or_default()
+                .push(entry);
         }
     }
 
@@ -2892,15 +2900,15 @@ fn try_loc_coverage_drive_strategy(
 
     let target_routines: Vec<TargetRoutine> = batch
         .iter()
-        .map(|(sub, lbl, file, line, _)| TargetRoutine {
-            label: lbl.clone(),
-            subsystem: sub.clone(),
-            asm_file: file.clone(),
-            line_number: *line,
+        .map(|entry| TargetRoutine {
+            label: entry.label.clone(),
+            subsystem: entry.subsystem.clone(),
+            asm_file: entry.asm_file.clone(),
+            line_number: entry.line_number,
         })
         .collect();
 
-    let first_label = &batch[0].1;
+    let first_label = batch[0].label.clone();
 
     let task = TaskPackage {
         capability: CapabilityId::ProactiveVerificationTask,
@@ -2915,7 +2923,7 @@ fn try_loc_coverage_drive_strategy(
         cycle: 0,
         progress_fingerprint: String::new(),
         sources: vec![
-            format!(".cache/upstream/kid-chameleon-disasm/{}", batch[0].2),
+            format!(".cache/upstream/kid-chameleon-disasm/{}", batch[0].asm_file),
             ".agents/skills/m68k-kid-asm/SKILL.md".to_owned(),
             ".cache/upstream/kid-chameleon-disasm/variables.asm".to_owned(),
         ],
@@ -2960,7 +2968,119 @@ fn try_loc_coverage_drive_strategy(
     Ok(Some(proactive_verification_report(
         cycle,
         "loc-coverage-drive",
-        first_label,
+        &first_label,
+        task,
+    )))
+}
+
+fn try_loc_promotion_strategy(
+    repo_root: &Path,
+    cycle: u32,
+    routines_per_task: u32,
+    min_cluster_size: usize,
+    focus_subsystems: &[String],
+) -> Result<Option<CycleReport>> {
+    let promotion_candidates = collect_loc_labels(repo_root, LocCoverageSelection::Promotion)?;
+    if promotion_candidates.is_empty() {
+        return Ok(None);
+    }
+
+    let mut by_subsystem: BTreeMap<&str, Vec<&LocCoverageCandidate>> = BTreeMap::new();
+    for entry in &promotion_candidates {
+        if focus_subsystems.is_empty() || focus_subsystems.iter().any(|f| f == &entry.subsystem) {
+            by_subsystem
+                .entry(&entry.subsystem)
+                .or_default()
+                .push(entry);
+        }
+    }
+
+    if by_subsystem.is_empty() {
+        return Ok(None);
+    }
+
+    let (best_subsystem, best_entries) = by_subsystem
+        .iter()
+        .max_by_key(|(_, entries)| entries.len())
+        .unwrap();
+
+    if best_entries.len() < min_cluster_size {
+        return Ok(None);
+    }
+
+    let batch_size = (routines_per_task as usize).min(best_entries.len());
+    let batch = &best_entries[..batch_size];
+    let first_label = batch[0].label.clone();
+    let target_routines: Vec<TargetRoutine> = batch
+        .iter()
+        .map(|entry| TargetRoutine {
+            label: entry.label.clone(),
+            subsystem: entry.subsystem.clone(),
+            asm_file: entry.asm_file.clone(),
+            line_number: entry.line_number,
+        })
+        .collect();
+
+    let task = TaskPackage {
+        capability: CapabilityId::ProactiveVerificationTask,
+        title: format!(
+            "Promote {} test-cited loc_ labels in {}",
+            batch_size, best_subsystem
+        ),
+        summary: format!(
+            "{} loc_ labels in {} already have test citations but no implementation citations. Read the ASM, add the missing implementation citations or code-path coverage, and refresh asm coverage.",
+            batch_size, best_subsystem
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            "docs/source-port/asm-coverage.yaml".to_owned(),
+            format!(".cache/upstream/kid-chameleon-disasm/{}", batch[0].asm_file),
+            ".agents/skills/m68k-kid-asm/SKILL.md".to_owned(),
+        ],
+        implementation_targets: vec!["crates/kid-core/src/".to_owned()],
+        commands: vec![
+            "mise run verify-slice-fast".to_owned(),
+            "cargo run -p kidcli -- asm-coverage --update".to_owned(),
+        ],
+        done_criteria: vec![
+            format!(
+                "At least {} test-cited loc_ labels in {} now have implementation citations.",
+                batch_size.min(3),
+                best_subsystem
+            ),
+            "verify-slice-fast passes.".to_owned(),
+        ],
+        evidence: vec![EvidenceItem {
+            label: "loc-coverage-promotion".to_owned(),
+            status: "test-cited-without-implementation".to_owned(),
+            detail: format!(
+                "{}: {} test-cited loc_ labels waiting for implementation promotion, batch of {}",
+                best_subsystem,
+                best_entries.len(),
+                batch_size
+            ),
+            artefact_path: Some(repo_root.join("docs/source-port/asm-coverage.yaml")),
+        }],
+        frontier_context: None,
+        case_queue_context: None,
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: None,
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: None,
+        next_agent_note: None,
+        target_routines: Some(target_routines),
+    };
+
+    Ok(Some(proactive_verification_report(
+        cycle,
+        "loc-coverage-promotion",
+        &first_label,
         task,
     )))
 }
@@ -3153,11 +3273,26 @@ fn collect_uncovered_sub_labels(
     Ok(uncovered)
 }
 
-/// Collect uncovered loc_ labels from asm-coverage, sorted by priority then subsystem gap.
-/// Returns: Vec<(subsystem, label, asm_file, line_number, priority)>
-fn collect_uncovered_loc_labels(
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LocCoverageSelection {
+    Uncovered,
+    Promotion,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LocCoverageCandidate {
+    subsystem: String,
+    label: String,
+    asm_file: String,
+    line_number: usize,
+    priority: Option<String>,
+}
+
+/// Collect loc_ labels for proactive coverage work, sorted by priority then subsystem gap.
+fn collect_loc_labels(
     repo_root: &Path,
-) -> Result<Vec<(String, String, String, usize, Option<String>)>> {
+    selection: LocCoverageSelection,
+) -> Result<Vec<LocCoverageCandidate>> {
     use crate::asm_coverage;
 
     let coverage_path = repo_root.join("docs/source-port/asm-coverage.yaml");
@@ -3184,32 +3319,39 @@ fn collect_uncovered_loc_labels(
         priority: Option<String>,
         #[serde(default)]
         implementation_cited: Option<bool>,
+        #[serde(default)]
+        test_cited: Option<bool>,
     }
 
     let map: CovMap =
         serde_yaml::from_str(&content).with_context(|| "failed to parse asm-coverage.yaml")?;
     let backlog_issues = load_open_backlog_issues(repo_root).unwrap_or_default();
 
-    let mut uncovered: Vec<(String, String, String, usize, Option<String>)> = Vec::new();
+    let mut candidates: Vec<LocCoverageCandidate> = Vec::new();
     for (subsystem, sub) in &map.subsystems {
         for label in &sub.labels {
             let implementation_cited = label
                 .implementation_cited
                 .unwrap_or(!label.cited_in.is_empty());
-            if label.kind == asm_coverage::LabelKind::Loc && !implementation_cited {
-                uncovered.push((
-                    subsystem.clone(),
-                    label.label.clone(),
-                    label.asm_file.clone(),
-                    label.line_number,
-                    label.priority.clone(),
-                ));
+            let test_cited = label.test_cited.unwrap_or(false);
+            let matches_selection = match selection {
+                LocCoverageSelection::Uncovered => !implementation_cited && !test_cited,
+                LocCoverageSelection::Promotion => !implementation_cited && test_cited,
+            };
+            if label.kind == asm_coverage::LabelKind::Loc && matches_selection {
+                candidates.push(LocCoverageCandidate {
+                    subsystem: subsystem.clone(),
+                    label: label.label.clone(),
+                    asm_file: label.asm_file.clone(),
+                    line_number: label.line_number,
+                    priority: label.priority.clone(),
+                });
             }
         }
     }
 
     // Sort: explicit priority first, then open backlog signals, then subsystem/name.
-    uncovered.sort_by(|a, b| {
+    candidates.sort_by(|a, b| {
         fn priority_rank(p: &Option<String>) -> u8 {
             match p.as_deref() {
                 Some("high") => 0,
@@ -3230,17 +3372,17 @@ fn collect_uncovered_loc_labels(
                 || (subsystem == "kid_main" && has_core_signal);
             if matches_backlog_signal { 0 } else { 1 }
         }
-        priority_rank(&a.4)
-            .cmp(&priority_rank(&b.4))
+        priority_rank(&a.priority)
+            .cmp(&priority_rank(&b.priority))
             .then_with(|| {
-                subsystem_signal_rank(&a.0, &backlog_issues)
-                    .cmp(&subsystem_signal_rank(&b.0, &backlog_issues))
+                subsystem_signal_rank(&a.subsystem, &backlog_issues)
+                    .cmp(&subsystem_signal_rank(&b.subsystem, &backlog_issues))
             })
-            .then_with(|| a.0.cmp(&b.0))
-            .then_with(|| a.1.cmp(&b.1))
+            .then_with(|| a.subsystem.cmp(&b.subsystem))
+            .then_with(|| a.label.cmp(&b.label))
     });
 
-    Ok(uncovered)
+    Ok(candidates)
 }
 
 fn build_case_queue_snapshot(repo_root: &Path) -> Result<CaseQueueSnapshot> {
@@ -7363,6 +7505,58 @@ mod tests {
         assert!(
             rendered_note.contains("narrow the next run to release-gate evidence refresh instead of another broad lane replay"),
             "recovery note should surface the stalled recovery pivot reason"
+        );
+    }
+
+    #[test]
+    fn collect_loc_labels_separates_uncovered_from_test_only_promotion() {
+        let temp_dir = source_port_repo();
+        fs::write(
+            temp_dir.path().join("docs/source-port/asm-coverage.yaml"),
+            "generated_at: now\nsummary: { total_sub_labels: 0, total_loc_labels: 2, sub_cited: 0, sub_coverage_pct: 0.0, loc_cited: 1, loc_coverage_pct: 50.0 }\nsubsystems:\n  kid_main:\n    asm_source: kid.asm\n    sub_total: 0\n    sub_cited: 0\n    loc_total: 2\n    loc_cited: 1\n    labels:\n      - { label: loc_1111, kind: loc, asm_file: kid.asm, line_number: 1, cited_in: [\"crates/kid-core/src/tests.rs\"], implementation_cited: false, test_cited: true }\n      - { label: loc_2222, kind: loc, asm_file: kid.asm, line_number: 2, cited_in: [], implementation_cited: false, test_cited: false }\n",
+        )
+        .expect("coverage should write");
+
+        let uncovered =
+            super::collect_loc_labels(temp_dir.path(), super::LocCoverageSelection::Uncovered)
+                .expect("uncovered labels should load");
+        let promotion =
+            super::collect_loc_labels(temp_dir.path(), super::LocCoverageSelection::Promotion)
+                .expect("promotion labels should load");
+
+        assert_eq!(uncovered.len(), 1);
+        assert_eq!(uncovered[0].label, "loc_2222");
+        assert_eq!(promotion.len(), 1);
+        assert_eq!(promotion[0].label, "loc_1111");
+    }
+
+    #[test]
+    fn loc_coverage_drive_promotes_test_only_labels_when_main_queue_is_empty() {
+        let temp_dir = source_port_repo();
+        fs::write(
+            temp_dir.path().join("docs/source-port/asm-coverage.yaml"),
+            "generated_at: now\nsummary: { total_sub_labels: 0, total_loc_labels: 1, sub_cited: 0, sub_coverage_pct: 0.0, loc_cited: 1, loc_coverage_pct: 100.0 }\nsubsystems:\n  kid_main:\n    asm_source: kid.asm\n    sub_total: 0\n    sub_cited: 0\n    loc_total: 1\n    loc_cited: 1\n    labels:\n      - { label: loc_1BBD6, kind: loc, asm_file: kid.asm, line_number: 30463, cited_in: [\"crates/kid-core/src/tests.rs\"], implementation_cited: false, test_cited: true }\n",
+        )
+        .expect("coverage should write");
+
+        let report =
+            super::try_loc_coverage_drive_strategy(temp_dir.path(), 7, 3, 1, &Vec::<String>::new())
+                .expect("strategy should succeed")
+                .expect("promotion report should exist");
+        let task = report.selected_task.expect("selected task should exist");
+
+        assert!(
+            task.title
+                .contains("Promote 1 test-cited loc_ labels in kid_main")
+        );
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:loc-coverage-promotion:loc_1BBD6"
+        );
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "loc-coverage-promotion")
         );
     }
 

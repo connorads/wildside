@@ -493,7 +493,7 @@ pub(crate) struct FullscreenPaletteFadeSub73D0 {
 }
 
 const SUB_292E_PIECE_COUNT: usize = 5;
-const SUB_292E_SLOT_ACTIVE_OFFSET: usize = 0;
+pub(crate) const SUB_292E_SLOT_ACTIVE_OFFSET: usize = 0;
 const SUB_292E_SLOT_FLAG_OFFSET: usize = 1;
 const SUB_292E_SLOT_PIECES_OFFSET: usize = 2;
 const SUB_292E_PIECE_STRIDE_BYTES: usize = 0x10;
@@ -6876,6 +6876,8 @@ pub(crate) fn compile_block_debris_sprites_sub_2A4C(
     let mut link = u16::from(number_sprites);
 
     for slot in &mut queue.slots {
+        // ASM sub_2A4C -> loc_2A56 (kid.asm:5057): `move.w a0,a1; tst.b (a0);
+        // beq.w loc_2BA6` — skip slot if `slot[0]` is zero (inactive).
         if slot[SUB_292E_SLOT_ACTIVE_OFFSET] == 0 {
             continue;
         }
@@ -6900,6 +6902,9 @@ pub(crate) fn compile_block_debris_sprites_sub_2A4C(
             let relative_y = world_y.wrapping_sub(camera_y_pos);
             let relative_x = world_x.wrapping_sub(camera_x_pos);
 
+            // ASM sub_2A4C -> loc_2A56 (kid.asm:5077-5086): lead fragment bounds
+            // check: `cmpi.w #$FF9C,d6; blt.w loc_2B9C; cmpi.w #$E0,d6; bge.w
+            // loc_2B9C; ...; bmi.w loc_2B9C; cmpi.w #$140,d5; bge.w loc_2B9C`.
             if piece_index == 0
                 && (!(-100..0x00E0).contains(&relative_y) || !(0..0x0140).contains(&relative_x))
             {
@@ -6907,6 +6912,8 @@ pub(crate) fn compile_block_debris_sprites_sub_2A4C(
                 break;
             }
 
+            // ASM sub_2A4C: tail fragment off-screen check (not a named loc_ label;
+            // computed inline after sprite emission around line 5132-5158).
             if piece_index == SUB_292E_PIECE_COUNT - 1 && relative_x >= 0x01EF {
                 slot_active = false;
                 break;
@@ -6921,6 +6928,13 @@ pub(crate) fn compile_block_debris_sprites_sub_2A4C(
             });
         }
 
+        // ASM sub_2A4C -> loc_2B9C (kid.asm:5166-5167): `sf (a0)` — clear
+        // slot active byte when fragment leaves bounds.
+        // ASM sub_2A4C -> loc_2B9E (kid.asm:5169-5171): `move.l a2,
+        // (Addr_NextSpriteSlot).w; move.b d0,(Number_Sprites).w` — update
+        // sprite table pointer and count after emitting sprites.
+        // ASM sub_2A4C -> loc_2BA6 (kid.asm:5173-5177): decrement counter,
+        // advance to next slot, loop back to loc_2A56.
         if !slot_active {
             slot[SUB_292E_SLOT_ACTIVE_OFFSET] = 0x00;
         }
