@@ -507,6 +507,30 @@ pub(crate) fn special_effect_unknown_group_count_loc_14E42() -> usize {
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn special_effect_unknown_inner_repeat_count_loc_14E44() -> usize {
+    // ASM loc_14E44 (kid.asm:28487): `moveq #$F,d0` reloads the innermost loop
+    // counter, so each group writes the current `d6/d7` pair 16 times before
+    // the later `add.l d5,d6` / `add.l d5,d7` bump to the next pair.
+    16
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn special_effect_unknown_group_loc_14E44() -> Vec<u32> {
+    let (d6, d7) = special_effect_unknown_plane_seed_pair();
+    let mut written_longwords =
+        Vec::with_capacity(special_effect_unknown_inner_repeat_count_loc_14E44() * 2);
+
+    for _ in 0..special_effect_unknown_inner_repeat_count_loc_14E44() {
+        written_longwords.push(d6);
+        written_longwords.push(d7);
+    }
+
+    written_longwords
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn special_effect_unknown_outer_pass_loc_14E42(
     inner_repeat_count: usize,
 ) -> SpecialEffectUnknownPlaneFillOuterPassLoc14E42 {

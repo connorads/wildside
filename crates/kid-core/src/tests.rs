@@ -19921,7 +19921,9 @@ fn loc_14e42_seeds_four_consecutive_groups_before_the_later_outer_reset() {
         "ASM loc_14E42 should run four middle-loop groups per outer pass because `moveq #3,d1` makes `dbf d1,loc_14E44` count inclusively from 3 to -1"
     );
 
-    let stepped = crate::weather::special_effect_unknown_outer_pass_loc_14E42(16);
+    let stepped = crate::weather::special_effect_unknown_outer_pass_loc_14E42(
+        crate::weather::special_effect_unknown_inner_repeat_count_loc_14E44(),
+    );
     assert_eq!(
         stepped.written_longwords.len(),
         4 * 16 * 2,
@@ -19936,6 +19938,32 @@ fn loc_14e42_seeds_four_consecutive_groups_before_the_later_outer_reset() {
         &stepped.written_longwords[32..36],
         &[0x8384_8385, 0x8386_8387, 0x8384_8385, 0x8386_8387],
         "ASM loc_14E42 should advance to the next pair only after one full 16-pair group completes, so the second group begins at `d6/d7 + $00040004`"
+    );
+}
+
+#[test]
+fn loc_14e44_repeats_the_current_pair_sixteen_times_before_the_group_advance() {
+    assert_eq!(
+        crate::weather::special_effect_unknown_inner_repeat_count_loc_14E44(),
+        16,
+        "ASM loc_14E44 should run sixteen pair writes per group because `moveq #$F,d0` makes `dbf d0,loc_14E46` count inclusively from 15 to -1"
+    );
+
+    let stepped = crate::weather::special_effect_unknown_group_loc_14E44();
+    assert_eq!(
+        stepped.len(),
+        16 * 2,
+        "ASM loc_14E44 should emit sixteen copies of the current `d6/d7` pair before the later `add.l d5,d6` / `add.l d5,d7` advances to the next pair"
+    );
+    assert_eq!(
+        &stepped[..4],
+        &[0x8380_8381, 0x8382_8383, 0x8380_8381, 0x8382_8383],
+        "ASM loc_14E44 should begin by writing the current `d6=$83808381` / `d7=$83828383` pair exactly as loaded before the inner `dbf` loop starts"
+    );
+    assert_eq!(
+        &stepped[28..32],
+        &[0x8380_8381, 0x8382_8383, 0x8380_8381, 0x8382_8383],
+        "ASM loc_14E44 should still be writing the same pair on the sixteenth and final iteration because the `$00040004` bump happens only after the inner loop finishes"
     );
 }
 
