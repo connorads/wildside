@@ -128,6 +128,18 @@ pub(crate) enum DecompressModeDispatchLoc137B0 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DecompressModeDispatchLoc1382E {
+    DirectCopy,
+    LongRef {
+        output_copy_base_addr: u16,
+    },
+    ShortRef {
+        source_copy_addr: u16,
+        total_copy_len: u8,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DecompressLongRefCopyModeLoc13756 {
     Copy3,
     Copy4,
@@ -1259,6 +1271,35 @@ pub(crate) fn decompress_mode_dispatch_loc_137B0(
 
     let total_copy_len = if bit_buffer & 0x20 != 0 { 3 } else { 2 };
     DecompressModeDispatchLoc137B0::ShortRef {
+        source_copy_addr: output_addr.wrapping_sub(u16::from(short_ref_back_distance)),
+        total_copy_len,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_mode_dispatch_loc_1382E(
+    bit_buffer: u8,
+    output_addr: u16,
+    short_ref_back_distance: u8,
+) -> DecompressModeDispatchLoc1382E {
+    // ASM loc_1382E (kid.asm:26418-26429) repeats the same three `add.b d1,d1`
+    // mode tests used by `loc_137B0`, but this later decode lane branches to
+    // `loc_138A8` for another direct-copy byte, `loc_1384E` for the later
+    // long-reference family, and `loc_13842` for the two-byte or three-byte
+    // short-reference tail.
+    if bit_buffer & 0x80 != 0 {
+        return DecompressModeDispatchLoc1382E::DirectCopy;
+    }
+
+    if bit_buffer & 0x40 != 0 {
+        return DecompressModeDispatchLoc1382E::LongRef {
+            output_copy_base_addr: output_addr,
+        };
+    }
+
+    let total_copy_len = if bit_buffer & 0x20 != 0 { 3 } else { 2 };
+    DecompressModeDispatchLoc1382E::ShortRef {
         source_copy_addr: output_addr.wrapping_sub(u16::from(short_ref_back_distance)),
         total_copy_len,
     }
