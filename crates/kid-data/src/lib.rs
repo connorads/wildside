@@ -3073,6 +3073,8 @@ pub fn level_layout_xor_vram_upload_sub_1C180(
         )
     })?;
 
+    // ASM loc_1C194: dbf loop that XORs each longword pair and streams to VRAM.
+    // The `move.l (a0)+,d4; move.l (a1)+,d5; eor.l d4,d5` iterates 704 times.
     let longwords = core::array::from_fn(|index| {
         let offset = index * 4;
         let level_longword = u32::from_be_bytes([
@@ -3707,9 +3709,11 @@ pub fn mask_level_layout_column_sub_1C1A2(level_layout: &mut [u8], selector: i16
         u16::try_from(adjusted_selector).expect("sub_1C1A2 should keep selectors in range");
     let mut encoded_offset =
         u16::from(COLUMN_MASK_LOOKUP_SUB_1C1A2[usize::from(adjusted_selector >> 2)]);
+    // ASM loc_1C1C6: btst #0,d1; beq.s loc_1C1CE; addi.w #$20,d3
     if adjusted_selector & 0x0001 != 0 {
         encoded_offset += 0x20;
     }
+    // ASM loc_1C1CE: btst #1,d1; beq.s loc_1C1D2; addq.w #4,d3
     if adjusted_selector & 0x0002 != 0 {
         encoded_offset += 0x04;
     }
