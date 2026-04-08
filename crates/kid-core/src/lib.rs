@@ -549,6 +549,20 @@ pub(crate) fn plane_clear_word_fill_loc_16B6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn plane_clear_word_fill_loc_16C8(
+    target_addr: u32,
+    source_word: u16,
+    dbf_seed: u16,
+) -> PlaneClearWordFillLoc16B6 {
+    // ASM loc_16C8 (kid.asm:2817): the second clear pass uses the same
+    // `move.w (a6),(a0)+` / `dbf d0` loop body as loc_16B6, so it emits
+    // `d0+1` copies of the current source word and advances `a0` by two bytes
+    // per iteration.
+    plane_clear_word_fill_loc_16B6(target_addr, source_word, dbf_seed)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_upload_sub_E13DA(
     manifest: &AssetManifest,
 ) -> std::io::Result<SoundDriverUploadSubE13DA> {
