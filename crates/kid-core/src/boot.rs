@@ -1538,6 +1538,33 @@ pub(crate) fn intro_tile_upload_word_copy_loop_loc_1C082() -> IntroTileUploadWor
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTileUploadVramDmaLoopLoc1C0A4 {
+    pub(crate) words_per_row: u16,
+    pub(crate) vram_address_step: u32,
+    pub(crate) row_count: u8,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_tile_upload_vram_dma_loop_loc_1C0A4() -> IntroTileUploadVramDmaLoopLoc1C0A4 {
+    // ASM sub_1C034 -> loc_1C0A4 (kid.asm:30889-30891): inner DBF loop that streams
+    // one row of tile pattern data from VRAM work RAM `$FFFF7F82` to the VDP data
+    // port via `move.w (a0)+,(a6)`. Each iteration writes one word, and the loop
+    // runs `d6+1` = 15 times per row (set via `moveq #$E,d6` at loc_1C09E).
+    // After the inner loop, `addq.w #2,a0` skips 2 bytes of padding,
+    // `addi.l #$800000,d0` advances the VRAM write address by $800 = 2048 bytes,
+    // and the outer `dbf d7,loc_1C09E` runs 8 iterations (d7 initialized to 7).
+    // VDP command port write at `4(a6)` sets destination address before each row.
+    // Initial `d0` = `$41940000` encodes VRAM write to address $40000-1 = $A340*2.
+    IntroTileUploadVramDmaLoopLoc1C0A4 {
+        words_per_row: 0x0E + 1,
+        vram_address_step: 0x0080_0000,
+        row_count: 0x07 + 1,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextKidSetupLoc1B5E4 {
     pub(crate) palette_line: u8,

@@ -388,6 +388,23 @@ fn loc_1c082_copies_one_row_of_mapping_words_to_vram_work_ram() {
 }
 
 #[test]
+fn loc_1c0a4_streams_15_words_per_row_to_vdp_for_8_rows() {
+    let result = crate::boot::intro_tile_upload_vram_dma_loop_loc_1C0A4();
+    assert_eq!(
+        result.words_per_row, 15,
+        "ASM loc_1C0A4 runs `d6+1` iterations where `moveq #$E,d6` sets d6=14, giving 15 words per row"
+    );
+    assert_eq!(
+        result.vram_address_step, 0x0080_0000,
+        "ASM loc_1C0A4 advances VRAM address by `$800000` = 2048 bytes per row via `addi.l #$800000,d0`"
+    );
+    assert_eq!(
+        result.row_count, 8,
+        "ASM loc_1C0A4 outer loop runs `d7+1` iterations where `moveq #7,d7` gives 8 total rows"
+    );
+}
+
+#[test]
 fn gfx_object_predecessor_index_sub_ff6_returns_none_when_loc_1004_walks_to_a_null_link() {
     let next_indices = [
         Some(1), // sentinel -> first live node
