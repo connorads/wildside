@@ -4968,6 +4968,28 @@ pub(crate) fn adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_1421E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_14228(
+    entries: &[[u16; 5]],
+    entry_count: u16,
+    blank_top_rows: u16,
+    level_width_tiles: u16,
+) -> Vec<[u16; 5]> {
+    // ASM loc_14228 (kid.asm:27066-27067) branches into `dbf d0,loc_1421E`
+    // after loading `($FFFFF8DE).w` into `d0`, so the body at `loc_1421E`
+    // runs exactly `entry_count` times. `d0 = 0` skips the 10-byte list
+    // entirely; larger counts adjust only the first `d0` custom-write entries.
+    let mut adjusted = entries.to_vec();
+    let adjusted_prefix = adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_1421E(
+        &adjusted[..usize::from(entry_count).min(adjusted.len())],
+        blank_top_rows,
+        level_width_tiles,
+    );
+    adjusted[..adjusted_prefix.len()].copy_from_slice(&adjusted_prefix);
+    adjusted
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_load_pointers_loc_11D0C(
     theme_mapping_index: &[u32],
     theme_mapping_table_offset_bytes: u16,

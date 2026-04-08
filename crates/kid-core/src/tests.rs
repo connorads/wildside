@@ -26512,6 +26512,38 @@ fn loc_1421e_adjusts_each_10_byte_custom_write_entry_for_inserted_blank_top_rows
 }
 
 #[test]
+fn loc_14228_adjusts_only_the_prefix_selected_by_the_dbf_entry_count() {
+    assert_eq!(
+        crate::level::adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_14228(
+            &[
+                [0x0120, 0x0014, 0x0003, 0xE407, 0xE408],
+                [0x0280, 0x0030, 0x0008, 0xE40A, 0xE40B],
+                [0x03C0, 0x0042, 0x000D, 0xE40C, 0xE40D],
+            ],
+            2,
+            2,
+            0x0040,
+        ),
+        vec![
+            [0x01A0, 0x0014, 0x0005, 0xE407, 0xE408],
+            [0x0300, 0x0030, 0x000A, 0xE40A, 0xE40B],
+            [0x03C0, 0x0042, 0x000D, 0xE40C, 0xE40D],
+        ],
+        "ASM loc_14228 branches straight into `dbf d0,loc_1421E`, so `d0=2` should adjust exactly the first two 10-byte custom-write entries before falling through to the next queue"
+    );
+    assert_eq!(
+        crate::level::adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_14228(
+            &[[0x0120, 0x0014, 0x0003, 0xE407, 0xE408]],
+            0,
+            2,
+            0x0040,
+        ),
+        vec![[0x0120, 0x0014, 0x0003, 0xE407, 0xE408]],
+        "ASM loc_14228 should skip the `loc_1421E` body entirely when `($FFFFF8DE).w` loads `d0=0` before the first `dbf`"
+    );
+}
+
+#[test]
 fn loc_11d42_only_enables_the_block_priority_mask_when_f896_is_non_zero() {
     assert_eq!(
         crate::level::block_mapping_or_mask_loc_11D42(false),
