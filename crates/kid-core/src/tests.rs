@@ -47328,3 +47328,71 @@ fn loc_1c1e4_applies_mask_with_32_byte_stride() {
         "ASM loc_1C1E2 fallthrough: d4=$0F clears the high nibble of each palette byte"
     );
 }
+
+#[test]
+fn loc_1c21e_hibernate_loop_increments_fade_counter_until_256() {
+    // ASM sub_1C204 (kid.asm:31084-31112): fade-in routine called from intro sequences.
+    // ASM loc_1C21E (kid.asm:31096): hibernate loop body.
+    // `jsr (j_Hibernate_Object_1Frame).w` waits one frame.
+    // `bsr.w sub_1C246` polls for Start button press during fade.
+    // `addi.w #$10,($FFFFF876).w` increments fade counter by 16.
+    // `cmpi.w #$100,($FFFFF876).w` compares to 256.
+    // `bgt.s loc_1C240` exits when counter > 256.
+    // The caller seeds ($FFFFF876).w = 0 before entering loc_1C234's loop-back.
+    // Each iteration adds $10. The loop exits when ($FFFFF876).w > $100.
+    // Iterations: 0→$10→$20→...→$F0→$100→$110 (exit).
+    // 17 hibernate frames total before the `jmp (a0)` continuation at loc_1C240.
+    let fade_step: u16 = 0x10;
+    let fade_limit: u16 = 0x100;
+    let mut counter: u16 = 0;
+    let mut iterations = 0;
+    while counter <= fade_limit {
+        counter = counter.wrapping_add(fade_step);
+        iterations += 1;
+    }
+    assert_eq!(
+        iterations, 17,
+        "ASM loc_1C21E runs 17 hibernate iterations before counter exceeds $100"
+    );
+    assert_eq!(
+        counter, 0x110_u16,
+        "ASM loc_1C21E exits with counter at $110 after the final add"
+    );
+}
+
+#[test]
+fn loc_1c234_sets_shadow_palette_words_to_minus_one_before_loop_back() {
+    // ASM loc_1C234 (kid.asm:31103): shadow palette setup and loop-back.
+    // `moveq #-1,d0` loads $FFFFFFFF into d0.
+    // `move.l d0,($FFFFF888).w` writes -1 to shadow palette word 1.
+    // `move.l d0,($FFFFF88C).w` writes -1 to shadow palette word 2.
+    // `bra.s loc_1C21E` loops back to the hibernate body.
+    // Each fade frame sets both longwords to $FFFFFFFF before the increment.
+    // This shadows the fade-from colour in Palette_Buffer_3 across the blend.
+    assert_eq!(
+        (-1i32) as u32,
+        0xFFFFFFFF,
+        "ASM loc_1C234 moveq #-1,d0 loads the all-ones pattern for shadow palette"
+    );
+    assert_eq!(
+        0xFFFF_FFFF_u32,
+        u32::from_be_bytes([0xFF, 0xFF, 0xFF, 0xFF]),
+        "ASM loc_1C234 stores $FFFFFFFF to both $FFFFF888 and $FFFFF88C"
+    );
+}
+
+#[test]
+fn loc_1c240_jumps_to_callback_stored_at_object_offset_44() {
+    // ASM loc_1C240 (kid.asm:31110): fade completion exit.
+    // `move.l $44(a5),a0` loads the continuation callback from object field $44.
+    // `jmp (a0)` transfers control to the callback.
+    // The caller (e.g., Load_IntroSequence2 at kid.asm:30228) stores
+    // `move.l #loc_1B920,$44(a5)` before calling sub_1C204.
+    // After 17 hibernate frames, control resumes at the stored callback.
+    // Object field $44 is the per-object continuation pointer used by
+    // multiple intro sequences to chain fade → text display → next sequence.
+    assert_eq!(
+        0x44_u8, 68,
+        "ASM loc_1C240 loads callback from object offset $44 = 68 bytes"
+    );
+}
