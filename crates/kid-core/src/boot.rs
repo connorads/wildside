@@ -949,6 +949,16 @@ pub(crate) fn intro_sequence_6_tilemap_clear_loc_1B182() -> IntroSequence6WordFi
     }
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn title_screen_tilemap_clear_loc_1B258() -> IntroSequence6WordFillLoc1B182 {
+    // ASM Load_TitleScreen -> loc_1B258 (kid.asm:29451-29453): the title
+    // screen reuses the same `move.w #$7FF,d0` / `move.w #$20BC,(a6)` clear
+    // loop as Load_IntroSequence6 before it loads the title art and menu
+    // objects.
+    intro_sequence_6_tilemap_clear_loc_1B182()
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence6ScrollBootstrapLoc1B23A {
@@ -3322,6 +3332,21 @@ mod tests {
             wrapped_seed.longword_write_count,
             0x00DF + 1,
             "ASM loc_1B23A seeds `d4=#$DF`, so the inclusive `dbf d4,loc_1B23A` loop should fill 224 longwords in `Horiz_Scroll_Buffer`",
+        );
+    }
+
+    #[test]
+    fn loc_1b258_reuses_the_intro_sequence_6_2048_word_vram_clear_before_loading_title_art() {
+        let result = title_screen_tilemap_clear_loc_1B258();
+
+        assert_eq!(
+            result,
+            IntroSequence6WordFillLoc1B182 {
+                vram_word_addr: 0x0000,
+                fill_word: 0x20BC,
+                word_write_count: 0x07FF + 1,
+            },
+            "ASM loc_1B258 should rerun the same inclusive 2048-word `$20BC` VRAM clear loop as loc_1B182 before `sub_1B2A4` and `Load_TitleArt`",
         );
     }
 
