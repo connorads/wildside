@@ -19894,6 +19894,62 @@ fn loc_14d8a_selects_the_shared_weather_art_and_seeds_the_later_slot_fill_loop()
 }
 
 #[test]
+fn loc_14dac_clears_five_weather_slots_and_seeds_the_post_loop_worker_state() {
+    let stepped = crate::weather::initialise_storm_slots_loc_14DAC(
+        crate::weather::StormSlotFillSetupLoc14D8A {
+            loop_count: 4,
+            falling_slot_sentinel: 0xFFFF_FFFF,
+            falling_slot_y_word: 0x0100,
+            impact_slot_sentinel: 0xFFFF_FFFF,
+        },
+    );
+
+    assert_eq!(
+        stepped.falling_slots,
+        [crate::weather::FallingWeatherInitSlotLoc14DAC {
+            sentinel_long: 0xFFFF_FFFF,
+            y_word: 0x0100,
+        }; 5],
+        "ASM loc_14DAC seeds `d0=#4`, so the inclusive `dbf d0,loc_14DAC` loop should write five identical `[$FFFF_FFFF,$0100]` falling-slot records at `$FFFFFAE2`"
+    );
+    assert_eq!(
+        stepped.impact_slots,
+        [crate::weather::WeatherImpactInitSlotLoc14DAC {
+            sentinel_words: [0xFFFF_FFFF; 3],
+        }; 5],
+        "ASM loc_14DAC should also clear five impact-slot records at `$FFFFFB00` because each of the same five loop iterations stores three `#$FFFF_FFFF` longwords to `(a1)+`"
+    );
+    assert_eq!(
+        stepped.spawn_cooldown, 1,
+        "ASM loc_14DAC should seed `($FFFFFB3C).w=1` before the storm worker starts counting down"
+    );
+    assert_eq!(
+        stepped.free_falling_slots, 5,
+        "ASM loc_14DAC should set `($FFFFFB3D).w=5` after clearing five falling-weather slots"
+    );
+    assert_eq!(
+        stepped.weather_mode_byte, 4,
+        "ASM loc_14DAC should write `4` to `($FFFFFAD6).w` before returning to the caller"
+    );
+    assert_eq!(
+        stepped.fade_countdown, 0x0100,
+        "ASM loc_14DAC should seed `($FFFFFADA).w` with `$100` for the later storm fade countdown"
+    );
+    assert_eq!(
+        stepped.thunder_timer, 1,
+        "ASM loc_14DAC should seed `($FFFFFADC).w=1` so sub_6048 decrements into the first thunder event"
+    );
+    assert_eq!(
+        stepped.fb52_word, 1,
+        "ASM loc_14DAC should write `1` to `($FFFFFB52).w` in the post-loop tail"
+    );
+    assert_eq!(
+        stepped.fb54_word, 0,
+        "ASM loc_14DAC should clear `($FFFFFB54).w` with `sf` before returning"
+    );
+}
+
+#[test]
 fn sub_6048_before_20_seconds_only_sets_weather_mode_byte() {
     let stepped = step_level_special_effects_sub_6048(
         WeatherSpecialEffectsStepSub6048 {

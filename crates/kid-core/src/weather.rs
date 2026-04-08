@@ -403,6 +403,64 @@ pub(crate) fn initialise_storm_setup_loc_14D8A() -> StormInitSetupLoc14D8A {
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FallingWeatherInitSlotLoc14DAC {
+    pub(crate) sentinel_long: u32,
+    pub(crate) y_word: u16,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct WeatherImpactInitSlotLoc14DAC {
+    pub(crate) sentinel_words: [u32; 3],
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct StormSlotInitLoc14DAC {
+    pub(crate) falling_slots: [FallingWeatherInitSlotLoc14DAC; 5],
+    pub(crate) impact_slots: [WeatherImpactInitSlotLoc14DAC; 5],
+    pub(crate) spawn_cooldown: u8,
+    pub(crate) free_falling_slots: u8,
+    pub(crate) weather_mode_byte: u8,
+    pub(crate) fade_countdown: u16,
+    pub(crate) thunder_timer: i16,
+    pub(crate) fb52_word: u16,
+    pub(crate) fb54_word: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn initialise_storm_slots_loc_14DAC(
+    setup: StormSlotFillSetupLoc14D8A,
+) -> StormSlotInitLoc14DAC {
+    // ASM loc_14DAC (kid.asm:28434-28448): `dbf d0,loc_14DAC` runs inclusively
+    // from `d0=#4`, so the loop fills five falling-weather slots at `$FFFFFAE2`
+    // with `[$FFFF_FFFF, $0100]`, five impact slots at `$FFFFFB00` with three
+    // `#$FFFF_FFFF` longwords each, then seeds the worker state bytes/words that
+    // sub_6048/sub_61CA consume immediately afterwards.
+    let fill_count = usize::from(setup.loop_count) + 1;
+    debug_assert_eq!(fill_count, 5, "loc_14DAC clears five weather slots");
+
+    StormSlotInitLoc14DAC {
+        falling_slots: core::array::from_fn(|_| FallingWeatherInitSlotLoc14DAC {
+            sentinel_long: setup.falling_slot_sentinel,
+            y_word: setup.falling_slot_y_word,
+        }),
+        impact_slots: core::array::from_fn(|_| WeatherImpactInitSlotLoc14DAC {
+            sentinel_words: [setup.impact_slot_sentinel; 3],
+        }),
+        spawn_cooldown: 1,
+        free_falling_slots: fill_count as u8,
+        weather_mode_byte: 4,
+        fade_countdown: 0x0100,
+        thunder_timer: 1,
+        fb52_word: 1,
+        fb54_word: 0,
+    }
+}
+
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
     CopyPaletteBufferToBuffer2,
