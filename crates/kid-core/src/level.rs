@@ -6466,6 +6466,27 @@ pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_sprite_build_order_loc_14A4(
+    first_gfx_object_index: Option<usize>,
+    next_indices: &[Option<usize>],
+) -> Vec<usize> {
+    // ASM loc_14A4 (kid.asm:2564): `Make_SpritesFromGfxObjects` loads `0(a3)`,
+    // returns at `loc_14B2` when the sentinel head points at zero, otherwise
+    // advances `a3` to that worker, calls `j_Make_SpriteFromGfxObject`, and
+    // loops until the next link is null.
+    let mut sprite_build_order = Vec::new();
+    let mut current = first_gfx_object_index;
+
+    while let Some(index) = current {
+        sprite_build_order.push(index);
+        current = next_indices[index];
+    }
+
+    sprite_build_order
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_scratch_queue_sub_28FC() -> ScratchQueueSub28FC {
     // ASM sub_28FC (kid.asm:4854): clear the `$FFFFF01E` work area as

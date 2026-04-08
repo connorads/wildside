@@ -203,6 +203,20 @@ fn initialise_sprite_frame_state_sub_b52_resets_the_shared_sprite_cursors() {
 }
 
 #[test]
+fn loc_14a4_walks_each_linked_gfx_object_until_the_null_tail_for_sprite_builds() {
+    assert_eq!(
+        crate::level::gfx_object_sprite_build_order_loc_14A4(None, &[Some(1), Some(2), None]),
+        Vec::<usize>::new(),
+        "ASM loc_14A4 should branch straight to loc_14B2 when `(Addr_FirstGfxObjectSlot).w` is null before any sprite build runs",
+    );
+    assert_eq!(
+        crate::level::gfx_object_sprite_build_order_loc_14A4(Some(1), &[Some(1), Some(2), None],),
+        vec![1, 2],
+        "ASM loc_14A4 should keep following `0(a3)` and calling `j_Make_SpriteFromGfxObject` until the null tail stops the loop at loc_14B2",
+    );
+}
+
+#[test]
 fn gfx_object_predecessor_index_sub_ff6_returns_none_when_loc_1004_walks_to_a_null_link() {
     let next_indices = [
         Some(1), // sentinel -> first live node
