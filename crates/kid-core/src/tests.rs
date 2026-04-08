@@ -30054,6 +30054,33 @@ fn loc_1af12_sets_x_direction_only_when_descriptor_bit_1_is_set() {
 }
 
 #[test]
+fn loc_1b012_copies_exactly_0x2c0_longwords_into_the_later_level_layout_window() {
+    let source = (0..0x02C4)
+        .map(|value| 0x1000_0000_u32.wrapping_add(value))
+        .collect::<Vec<_>>();
+
+    let copied = crate::boot::intro_sequence_2_layout_copy_loc_1B012(&source);
+
+    assert_eq!(
+        copied.destination_addr, 0xFFFF_B152,
+        "ASM loc_1B012 should target `$FFFFB152`, the later `Level_Layout` window fed by `lea ($FFFFB152).w,a2`",
+    );
+    assert_eq!(
+        copied.copied_longwords.len(),
+        0x02C0,
+        "ASM loc_1B012 seeds `d0=#$2BF`, so the inclusive `dbf d0,loc_1B012` loop should copy exactly `$2C0` longwords",
+    );
+    assert_eq!(
+        copied.copied_longwords[0], source[0],
+        "ASM loc_1B012 should copy the first source longword before the first `dbf` decrement",
+    );
+    assert_eq!(
+        copied.copied_longwords[0x02BF], source[0x02BF],
+        "ASM loc_1B012 should still copy source longword `$2BF` because the last store happens before `dbf` reaches `-1`",
+    );
+}
+
+#[test]
 fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit() {
     let (_, script) = cached_any_percent_published_runtime_and_script();
     let first_visit_start_frames = (6_204..=6_211)

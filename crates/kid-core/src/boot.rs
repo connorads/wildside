@@ -864,6 +864,33 @@ pub(crate) fn intro_sequence_1_right_title_sprite_step_loc_1AE20(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct IntroSequence2LayoutCopyLoc1B012 {
+    pub(crate) destination_addr: u32,
+    pub(crate) copied_longwords: Vec<u32>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_sequence_2_layout_copy_loc_1B012(
+    level_layout_longwords: &[u32],
+) -> IntroSequence2LayoutCopyLoc1B012 {
+    // ASM loc_1B012 (kid.asm:29283): seed `d0 = #$2BF`, copy one longword per
+    // pass from `Level_Layout` into `$FFFFB152`, and let `dbf d0,loc_1B012`
+    // run inclusively for `#$2BF + 1 = $2C0` longwords.
+    const COPY_LONGWORDS: usize = 0x02C0;
+    assert!(
+        level_layout_longwords.len() >= COPY_LONGWORDS,
+        "intro-sequence-2 layout copy needs at least $2C0 longwords"
+    );
+
+    IntroSequence2LayoutCopyLoc1B012 {
+        destination_addr: 0xFFFF_B152,
+        copied_longwords: level_layout_longwords[..COPY_LONGWORDS].to_vec(),
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
