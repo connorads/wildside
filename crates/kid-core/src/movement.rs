@@ -987,11 +987,17 @@ impl NativeRuntime {
                         // ASM loc_1AD48 allocates the deferred number worker
                         // after the visible title glyph shell, so the suffix
                         // occupies the next free gfx slots above the letters.
+                        // ASM loc_1AD56 then writes glyph `#$7B`, stores the
+                        // `(d1,d2)` destination pair into `$46/$48(a0)`, and
+                        // advances `d1` by `#$10` on each inclusive DBF pass.
                         gfx_slot_index: visible_glyph_count + number_index,
                         activation_frame: LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME,
                         glyph: 0x7B,
                         target_x_pos: u32::from(
-                            destination.x.saturating_add(number_index as u16 * 0x10),
+                            level_entry_title_deferred_number_target_x_loc_1AD56(
+                                destination.x,
+                                number_index,
+                            ),
                         ) << 16,
                         target_y_pos: u32::from(destination.y) << 16,
                         motion: None,
@@ -1273,6 +1279,14 @@ fn level_entry_title_axis_step(start_pos: u32, target_pos: u32) -> i32 {
     // fixed-point delta over 64 frames via `muls.w #$100`, `asr.l #6`,
     // `lsl.l #8`. On native fixed-point positions that reduces to `delta >> 6`.
     (target_pos as i32).wrapping_sub(start_pos as i32) >> 6
+}
+
+#[allow(non_snake_case)]
+fn level_entry_title_deferred_number_target_x_loc_1AD56(base_x: u16, number_index: usize) -> u16 {
+    // ASM loc_1AD56 (kid.asm:28996-29004): each deferred number worker stores
+    // the current `d1` X destination into `$46(a0)`, then advances `d1` by
+    // `#$10` before the inclusive `dbf d3,loc_1AD56` back-edge.
+    base_x.saturating_add(number_index as u16 * 0x10)
 }
 
 fn level_entry_title_worker_axis_pos(
@@ -3979,6 +3993,7 @@ mod tests {
     use super::{
         level_entry_title_advance_x, level_entry_title_axis_step,
         level_entry_title_deferred_number_indices_loc_1ABF4,
+        level_entry_title_deferred_number_target_x_loc_1AD56,
         level_entry_title_random_y_snap_loc_1acf8, level_entry_title_right_edge_x_loc_1ace0,
         level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
@@ -4151,6 +4166,19 @@ mod tests {
             level_entry_title_worker_axis_pos(0xFFE0_0000, 0x0080_0000, y_step, 32),
             0x0030_0000,
             "ASM loc_1AD3A should keep the other axis moving until its own compare matches",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_deferred_number_worker_stride_loc_1ad56_uses_glyph_7b_every_16_pixels() {
+        assert_eq!(
+            [
+                level_entry_title_deferred_number_target_x_loc_1AD56(0x0050, 0),
+                level_entry_title_deferred_number_target_x_loc_1AD56(0x0050, 1),
+                level_entry_title_deferred_number_target_x_loc_1AD56(0x0050, 2),
+            ],
+            [0x0050, 0x0060, 0x0070],
+            "ASM loc_1AD56 should keep glyph `#$7B` on the shared worker and advance `d1` by `#$10` between DBF iterations",
         );
     }
 
