@@ -1069,6 +1069,35 @@ fn start_z80_guard_sub_924_clears_zero_depth_and_restarts_z80() {
 }
 
 #[test]
+fn loc_1698_stops_z80_and_seeds_the_first_plane_clear_pass() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    let setup = runtime.prepare_plane_clear_pass_loc_1698();
+
+    assert_eq!(
+        runtime.z80_stop_request_depth, 1,
+        "ASM loc_1698 should call `j_sub_914` before touching the plane-clear buffer state",
+    );
+    assert_eq!(
+        runtime.z80_guard_sr, 0x2700,
+        "ASM loc_1698 inherits sub_914's raised SR before the fill passes begin",
+    );
+    assert!(
+        !runtime.z80_running,
+        "ASM loc_1698 should keep the native Z80 mirror halted while the plane-clear routine owns the bus",
+    );
+    assert_eq!(
+        setup,
+        PlaneClearPassSetupLoc1698 {
+            target_addr: 0x00FE_0000,
+            dbf_seed: 0x003F,
+            next_source_longword: 0x0000_0020,
+        },
+        "ASM loc_1698 should target `$FE0000`, seed `d0=#$3F` for the first `dbf` fill loop, and store `#$20` into `4(a6)` before entering loc_16B6",
+    );
+}
+
+#[test]
 fn sound_driver_write_sub_e1330_queues_ff_05_and_preserves_a0_d0() {
     let write = sound_driver_write_sub_E1330(0x7B);
 

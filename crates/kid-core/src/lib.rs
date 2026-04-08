@@ -473,6 +473,14 @@ pub(crate) struct SoundDriverWriteCommandAndByte {
     pub(crate) restores_previous_sr: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlaneClearPassSetupLoc1698 {
+    pub(crate) target_addr: u32,
+    pub(crate) dbf_seed: u16,
+    pub(crate) next_source_longword: u32,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -833,6 +841,20 @@ impl NativeRuntime {
         self.z80_stop_request_depth = self.z80_stop_request_depth.wrapping_add(1);
         self.z80_guard_sr = 0x2700;
         self.z80_running = false;
+    }
+
+    #[allow(non_snake_case)]
+    #[allow(dead_code)]
+    fn prepare_plane_clear_pass_loc_1698(&mut self) -> PlaneClearPassSetupLoc1698 {
+        self.stop_z80_guard_sub_914();
+        // ASM loc_1698 (kid.asm:2803): after `j_sub_914`, the ROM targets
+        // `$FE0000`, seeds `d0` with `#$3F` for the first 64-word `dbf` fill
+        // pass, and stores `#$20` into `4(a6)` before entering `loc_16B6`.
+        PlaneClearPassSetupLoc1698 {
+            target_addr: 0x00FE_0000,
+            dbf_seed: 0x003F,
+            next_source_longword: 0x0000_0020,
+        }
     }
 
     #[allow(dead_code)]
