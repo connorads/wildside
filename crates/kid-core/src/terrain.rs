@@ -382,6 +382,9 @@ pub(crate) fn insert_blank_top_rows_sub_140F6(
 ) -> Vec<u8> {
     // ASM sub_140F6 (kid.asm:26925) shifts the populated level-layout rows
     // downward to make room for Number_blank_top_rows empty rows at the top.
+    // ASM loc_140FE seeds `a0` from the bottom populated row and `a1` from the
+    // row that sits `Number_blank_top_rows` lower, so the copy starts from the
+    // tail and leaves a blank strip above the original layout.
     if width_blocks == 0 {
         return level_layout.to_vec();
     }
@@ -2972,6 +2975,30 @@ mod tests {
                 0x20, 0x03, 0xA0, 0x04, // original row 1
             ],
             "ASM sub_140F6 should shift the populated rows downward and clear the inserted top rows"
+        );
+    }
+
+    #[test]
+    fn loc_140fe_starts_the_shift_from_the_bottom_row_with_blank_row_offset() {
+        let shifted = insert_blank_top_rows_sub_140F6(
+            &[
+                0x10, 0x01, 0x10, 0x02, // row 0
+                0x20, 0x03, 0x20, 0x04, // row 1
+                0x30, 0x05, 0x30, 0x06, // row 2
+            ],
+            2,
+            1,
+        );
+
+        assert_eq!(
+            &shifted[8..12],
+            &[0x20, 0x03, 0x20, 0x04],
+            "ASM loc_140FE should place the middle source row one row lower after seeding `a1` by `Number_blank_top_rows * Level_width_blocks * 2` bytes"
+        );
+        assert_eq!(
+            &shifted[12..16],
+            &[0x30, 0x05, 0x30, 0x06],
+            "ASM loc_140FE should start the downward copy from the bottom populated row instead of reordering the tail"
         );
     }
 }
