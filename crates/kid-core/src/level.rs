@@ -125,6 +125,17 @@ pub(crate) struct DecompressLongRefHeaderLoc13756 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DecompressLongRefExtendedLoc1376A {
+    Copy5,
+    QuitDecompression,
+    FlushBuffer,
+    VariableLength {
+        total_copy_len: u8,
+        dbf_counter: u16,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockLayoutLoopLoc1331E {
     RestartAtLoc132D6 { end_marker: u16 },
     ContinueLoc1332E,
@@ -1202,6 +1213,35 @@ pub(crate) fn decompress_long_ref_header_loc_13756(
     DecompressLongRefHeaderLoc13756 {
         source_back_distance,
         copy_mode,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_extended_loc_1376A(
+    bit_buffer: u8,
+    length_byte: u8,
+) -> DecompressLongRefExtendedLoc1376A {
+    // ASM loc_1376A (kid.asm:26287-26295) consumes the second `AA` bit: carry
+    // clear means `AA=10`, so the code skips straight to `loc_1377E` for the
+    // fixed five-byte tail. Carry set means `AA=11`, so the next source byte
+    // selects quit (`0`), flush (`1..=5` after `subq.w #6,d0` underflows), or
+    // the variable-length prefix that feeds `dbf d0,loc_13778`.
+    if bit_buffer & 0x20 == 0 {
+        return DecompressLongRefExtendedLoc1376A::Copy5;
+    }
+
+    if length_byte == 0 {
+        return DecompressLongRefExtendedLoc1376A::QuitDecompression;
+    }
+
+    if length_byte < 6 {
+        return DecompressLongRefExtendedLoc1376A::FlushBuffer;
+    }
+
+    DecompressLongRefExtendedLoc1376A::VariableLength {
+        total_copy_len: length_byte,
+        dbf_counter: u16::from(length_byte - 6),
     }
 }
 
