@@ -784,6 +784,35 @@ pub(crate) fn lava_geyser_initial_delay_frames_loc_14772(encoded_height_word: u1
     (encoded_height_word & 0xF) * 10
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaFireballInitStateLoc1499C {
+    pub(crate) startup_delay_frames: u16,
+    pub(crate) rise_height_steps: u16,
+    pub(crate) biased_x_px: u16,
+    pub(crate) biased_y_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn initialise_lava_fireball_state_loc_1499C(
+    x_px: u16,
+    y_px: u16,
+    encoded_height_word: u16,
+) -> LavaFireballInitStateLoc1499C {
+    // ASM loc_1499C (kid.asm:28038): the USM2 fireball clears the sign bit from
+    // `$1A(a5)`, uses the low nibble as a `word_14710` index for `$4E(a5)`,
+    // shifts the remaining height into `$4A(a5)`, then stores `$44/$46(a5)`
+    // with the usual `$80` sprite bias.
+    let untagged_height_word = encoded_height_word & 0x7FFF;
+    LavaFireballInitStateLoc1499C {
+        startup_delay_frames: lava_geyser_initial_delay_frames_loc_14772(untagged_height_word),
+        rise_height_steps: untagged_height_word >> 4,
+        biased_x_px: x_px.wrapping_add(0x80),
+        biased_y_px: y_px.wrapping_add(0x80),
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {

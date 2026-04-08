@@ -20483,6 +20483,20 @@ fn loc_14772_uses_the_low_height_nibble_as_a_10_frame_delay_table_index() {
 }
 
 #[test]
+fn loc_1499c_clears_the_fireball_sign_bit_then_seeds_delay_height_and_biased_origin() {
+    assert_eq!(
+        crate::weather::initialise_lava_fireball_state_loc_1499C(0x0346, 0x0312, 0x8063),
+        crate::weather::LavaFireballInitStateLoc1499C {
+            startup_delay_frames: 30,
+            rise_height_steps: 0x0063 >> 4,
+            biased_x_px: 0x03C6,
+            biased_y_px: 0x0392,
+        },
+        "ASM loc_1499C should clear bit 15 from `$1A(a5)`, use the low nibble as the `word_14710` delay index, shift the remaining height into `$4A(a5)`, and add the shared `$80` bias to `$44/$46(a5)`"
+    );
+}
+
+#[test]
 fn loc_14788_points_the_first_lava_geyser_eruption_at_the_startup_script() {
     assert_eq!(
         crate::weather::lava_geyser_startup_script_loc_14788(),
