@@ -12,18 +12,18 @@ use crate::blocks::{
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
-    HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IoPortFlagsSub6E24,
-    PauseMenuSpriteEntrySub6874, copy_sega_screen_palette_loc_12DFE,
+    HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IntroSequence6LongwordFillLoc1B170,
+    IoPortFlagsSub6E24, PauseMenuSpriteEntrySub6874, copy_sega_screen_palette_loc_12DFE,
     end_sequence_burst_sprite_init_sub_1D86C, end_sequence_camera_shake_sub_1D846,
     end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
     flag_hud_dma_upload_sub_5DA6, hide_pause_menu_overwritten_sprites_sub_6874,
     hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_cleanup_loc_10BE6,
-    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_latch_screen_pos_loc_10B9A,
-    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
-    read_io_port_a10001_flags_sub_6E24, sega_screen_object_bootstrap_loc_12E48,
-    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
-    vdp_upload_32_longwords_sub_44D0,
+    intro_sequence_6_longword_fill_loc_1B170, prize_10000_points_star_advance_loc_10BCE,
+    prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
+    prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
+    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
+    sega_screen_object_bootstrap_loc_12E48, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
+    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -216,6 +216,19 @@ fn loc_14a4_walks_each_linked_gfx_object_until_the_null_tail_for_sprite_builds()
         crate::level::gfx_object_sprite_build_order_loc_14A4(Some(1), &[Some(1), Some(2), None],),
         vec![1, 2],
         "ASM loc_14A4 should keep following `0(a3)` and calling `j_Make_SpriteFromGfxObject` until the null tail stops the loop at loc_14B2",
+    );
+}
+
+#[test]
+fn loc_1b170_fills_eight_longwords_of_intro_sequence_6_vram_with_0x11111111() {
+    assert_eq!(
+        intro_sequence_6_longword_fill_loc_1B170(),
+        IntroSequence6LongwordFillLoc1B170 {
+            vram_word_addr: 0x1780,
+            fill_longword: 0x1111_1111,
+            longword_write_count: 8,
+        },
+        "ASM loc_1B170 should stream `d1=$11111111` into `vdpComm($1780,VRAM,WRITE)` exactly `d0+1` times with `d0=#7`"
     );
 }
 

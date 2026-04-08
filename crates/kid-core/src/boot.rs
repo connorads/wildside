@@ -904,6 +904,28 @@ pub(crate) fn intro_sequence_5_art_source_loc_1B100(title_variant: u8) -> &'stat
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence6LongwordFillLoc1B170 {
+    pub(crate) vram_word_addr: u16,
+    pub(crate) fill_longword: u32,
+    pub(crate) longword_write_count: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_sequence_6_longword_fill_loc_1B170() -> IntroSequence6LongwordFillLoc1B170 {
+    // ASM Load_IntroSequence6 -> loc_1B170 (kid.asm:29371-29373): after
+    // `move.l #vdpComm($1780,VRAM,WRITE),4(a6)`, `moveq #7,d0`, and
+    // `move.l #$11111111,d1`, the loop writes that longword to the VDP data
+    // port once per pass before the inclusive `dbf d0,loc_1B170` test.
+    IntroSequence6LongwordFillLoc1B170 {
+        vram_word_addr: 0x1780,
+        fill_longword: 0x1111_1111,
+        longword_write_count: 0x0007 + 1,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
