@@ -44624,3 +44624,28 @@ fn loc_1456e_uploads_dbf_counter_plus_one_longwords_to_vram() {
         "ASM loc_1456E seeds `d0=#$3F`, so the indoor rubber-block upload should push exactly 64 scratch longwords into VRAM before `rts`"
     );
 }
+
+#[test]
+fn loc_1459a_reads_dbf_counter_plus_one_longwords_from_vram() {
+    assert_eq!(
+        crate::level::indoor_rubber_block_read_vram_rows_loc_1459A(&[0x89AB_CDEF, 0x0123_4567], 0,),
+        vec![0x89AB_CDEF],
+        "ASM loc_1459A should still read one longword from `(a6)` into `(a1)+` when `d1` starts at zero because the read happens before `dbf` reaches `-1`"
+    );
+
+    let vram_rows = vec![
+        0x1000_0001,
+        0x1000_0002,
+        0x1000_0003,
+        0x1000_0004,
+        0x1000_0005,
+        0x1000_0006,
+        0x1000_0007,
+        0x1000_0008,
+    ];
+    assert_eq!(
+        crate::level::indoor_rubber_block_read_vram_rows_loc_1459A(&vram_rows, 7),
+        vram_rows,
+        "ASM loc_1459A seeds `d1=#7`, so `sub_14582` should capture exactly eight longwords from the addressed VRAM tile into the scratch buffer"
+    );
+}

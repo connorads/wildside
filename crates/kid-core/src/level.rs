@@ -1333,6 +1333,23 @@ pub(crate) fn indoor_rubber_block_upload_vram_rows_loc_1456E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn indoor_rubber_block_read_vram_rows_loc_1459A(
+    vram_longwords: &[u32],
+    dbf_counter: u16,
+) -> Vec<u32> {
+    // ASM loc_1459A (kid.asm:27453-27454) reads one longword from the VDP data
+    // port at `(a6)` into `(a1)+` before each inclusive `dbf d1,loc_1459A`.
+    // Inside `sub_14582`, `moveq #7,d1` therefore captures eight consecutive
+    // longwords from the selected VRAM tile into the scratch buffer.
+    vram_longwords
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
