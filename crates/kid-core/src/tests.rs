@@ -45,8 +45,9 @@ use crate::level::{
     BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
     BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
     BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
-    DecompressToRamPaletteRowStartLoc143CC, DecompressToVramSpecialReturnLoc143B2,
-    FgPlaneCustomWriteSub1596, FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
+    DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
+    DecompressToVramSpecialReturnLoc143B2, FgPlaneCustomWriteSub1596,
+    FgUpdateQueueCustomEntrySub1596, FlagpoleScoreboardCursorSubC254,
     FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
     ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
     FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
@@ -42821,6 +42822,44 @@ fn loc_143ce_builds_one_sixteen_entry_ram_palette_permutation_row_from_the_curre
         decompress_to_ram_palette_row_bytes_loc_143CE(&permutation, 0x000B, 0x000F),
         vec![0xBF],
         "ASM loc_143CE should reuse `(a3,d3.w)` as the shared high nibble and OR in each successive `(a3,d4.w)` low nibble until the inner loop has emitted all remaining packed permutation bytes for that row"
+    );
+}
+
+#[test]
+fn loc_143ea_seeds_decompress_chunk_and_converts_the_ram_buffer_span_into_an_inclusive_dbf_count() {
+    assert_eq!(
+        crate::level::decompress_to_ram_chunk_setup_loc_143EA(
+            0xFFFF_77B2,
+            0xFFFF_77B4,
+            0x0000_F000,
+        ),
+        DecompressToRamChunkSetupLoc143EA {
+            decompress_chunk_status_seed: -1,
+            decompress_chunk_a3_seed_addr: 0xFFFF_FFFF,
+            restored_output_addr: 0x0000_F000,
+            vdp_data_port_addr: 0x00C0_0000,
+            word_dbf_counter: 0,
+            palette_permutation_table_addr: 0xFFFF_0280,
+            byte_lookup_accumulator: 0,
+        },
+        "ASM loc_143EA should seed `d0` and `a3` with `-1`, restore `a6` to `$C00000`, repoint `a3` at `$FFFF0280`, clear `d5`, and still leave `loc_1440A` with a single inclusive DBF iteration when `Decompress_Chunk` emits one word"
+    );
+    assert_eq!(
+        crate::level::decompress_to_ram_chunk_setup_loc_143EA(
+            0xFFFF_77B2,
+            0xFFFF_77BA,
+            0x0000_1780,
+        ),
+        DecompressToRamChunkSetupLoc143EA {
+            decompress_chunk_status_seed: -1,
+            decompress_chunk_a3_seed_addr: 0xFFFF_FFFF,
+            restored_output_addr: 0x0000_1780,
+            vdp_data_port_addr: 0x00C0_0000,
+            word_dbf_counter: 3,
+            palette_permutation_table_addr: 0xFFFF_0280,
+            byte_lookup_accumulator: 0,
+        },
+        "ASM loc_143EA should subtract the pre-chunk `a4` snapshot from `a2`, divide the emitted byte span by two with `lsr.w #1,d3`, and `subq.w #1,d3`, so an 8-byte chunk becomes an inclusive four-word run for `loc_1440A`"
     );
 }
 

@@ -127,6 +127,17 @@ pub(crate) struct DecompressToRamPaletteRowStartLoc143CC {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressToRamChunkSetupLoc143EA {
+    pub(crate) decompress_chunk_status_seed: i16,
+    pub(crate) decompress_chunk_a3_seed_addr: u32,
+    pub(crate) restored_output_addr: u32,
+    pub(crate) vdp_data_port_addr: u32,
+    pub(crate) word_dbf_counter: u16,
+    pub(crate) palette_permutation_table_addr: u32,
+    pub(crate) byte_lookup_accumulator: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DecompressDirectCopyLoc137AE {
     pub(crate) copied_byte: u8,
 }
@@ -1104,6 +1115,32 @@ pub(crate) fn decompress_to_ram_palette_row_bytes_loc_143CE(
         .skip(usize::from(start_column_index))
         .map(|low_nibble| row_high_nibble | low_nibble)
         .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_to_ram_chunk_setup_loc_143EA(
+    buffer_start_addr: u32,
+    buffer_end_addr: u32,
+    restored_output_addr: u32,
+) -> DecompressToRamChunkSetupLoc143EA {
+    // ASM loc_143EA (kid.asm:27284-27295) seeds `d0` and `a3` with `-1`
+    // before `Decompress_Chunk`, snapshots the current output cursor with
+    // `move.l a2,a4`, restores `a6` to the fixed VDP data port `$C00000`,
+    // turns the emitted byte span `(a2-a4)` into the inclusive `dbf d3`
+    // word count, repoints `a3` at the palette scratch table `$FFFF0280`,
+    // and clears `d5` before `loc_1440A` starts packing words.
+    let emitted_word_count = buffer_end_addr.wrapping_sub(buffer_start_addr) >> 1;
+
+    DecompressToRamChunkSetupLoc143EA {
+        decompress_chunk_status_seed: -1,
+        decompress_chunk_a3_seed_addr: u32::MAX,
+        restored_output_addr,
+        vdp_data_port_addr: 0x00C0_0000,
+        word_dbf_counter: emitted_word_count.wrapping_sub(1) as u16,
+        palette_permutation_table_addr: 0xFFFF_0280,
+        byte_lookup_accumulator: 0,
+    }
 }
 
 #[allow(non_snake_case)]
