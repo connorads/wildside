@@ -42741,6 +42741,26 @@ fn loc_14382_remaps_two_buffered_bytes_through_the_special_palette_table_and_pac
 }
 
 #[test]
+fn loc_143aa_rolls_the_upper_half_of_the_special_decompression_buffer_down_inclusive_of_dbf_zero() {
+    assert_eq!(
+        crate::level::decompress_to_vram_special_buffer_rollover_loc_143AA(
+            &[0x1122_3344, 0x5566_7788, 0x99AA_BBCC],
+            0,
+        ),
+        vec![0x1122_3344],
+        "ASM loc_143AA should still copy one longword from `Decompression_Buffer+$800` back to `Decompression_Buffer` when `d3` starts at zero because the `move.l (a4)+,(a2)+` store happens before `dbf` reaches `-1`"
+    );
+    assert_eq!(
+        crate::level::decompress_to_vram_special_buffer_rollover_loc_143AA(
+            &[0x1122_3344, 0x5566_7788, 0x99AA_BBCC],
+            2,
+        ),
+        vec![0x1122_3344, 0x5566_7788, 0x99AA_BBCC],
+        "ASM loc_143AA seeds `d3=#1FF`, so the special-path rollover copy is inclusive and should move exactly `d3+1` longwords before control loops back to the special chunk setup"
+    );
+}
+
+#[test]
 fn loc_13504_masks_the_dbf_count_selects_the_jump_table_arm_and_refills_only_below_nine_bits() {
     assert_eq!(
         block_layout_dispatch_loc_13504(0x0065, 6, 0x0010),

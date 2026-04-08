@@ -1028,6 +1028,24 @@ pub(crate) fn decompress_to_vram_special_word_transfer_loc_14382(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_to_vram_special_buffer_rollover_loc_143AA(
+    buffered_longwords: &[u32],
+    dbf_counter: u16,
+) -> Vec<u32> {
+    // ASM loc_143AA (kid.asm:27242-27245) reloads `a2` with
+    // `Decompression_Buffer`, points `a4` at `Decompression_Buffer+$800`,
+    // copies one longword from `(a4)+` to `(a2)+` before each `dbf`, and then
+    // loops back into the special chunk-setup path once the inclusive copy
+    // count is exhausted.
+    buffered_longwords
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
