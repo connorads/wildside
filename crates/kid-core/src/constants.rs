@@ -148,6 +148,13 @@ pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
 // through frame 20893 and only reach loc_1BA5C's `move.w #$28,(Game_Mode).w`
 // hand-off on 20894, so the older `17 + 0x1BD` approximation was 59 frames
 // short on the real timeout path.
+// ASM loc_1BA28 also allocates a worker at loc_1BC36 (kid.asm:30516) for
+// tile decompression via repeated sub_1C034 calls and j_Hibernate_Object
+// yields. After the tile uploads complete, loc_1BCCA (kid.asm:30562) spins
+// forever on `j_Hibernate_Object_1Frame` while the fade runs.
+// ASM loc_1BCD0 (kid.asm:30567) allocates title screen gfx slots and
+// spawns particle objects with routine loc_1BE3C (kid.asm:30667) which
+// loads sprite frames from the unk_1BE18/unk_1BE24/unk_1BE30 tables.
 // ASM loc_1BA5C: `move.w #$1BC,d0` seeds the countdown. ASM loc_1BA60 runs
 // `jsr (j_Hibernate_Object_1Frame).w; bsr.w sub_1C246; dbf d0,loc_1BA60`
 // for 0x1BC+1 = 0x1BD = 445 iterations before the `move.w #$28,(Game_Mode).w`

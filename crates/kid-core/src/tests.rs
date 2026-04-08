@@ -30702,6 +30702,11 @@ fn published_tas_second_timeout_restart_clears_intro_sequence_5_camera_on_frame_
     // oracle-backed timeout-restart window therefore keeps the inherited
     // `sub_1B988` camera only through frame 9979, then clears it on 9980
     // while intro sequence 5 remains active.
+    // ASM loc_1BA28 allocates a tile-upload worker at loc_1BC36 (kid.asm:30516)
+    // which calls sub_1C034 eight times to decompress title art, then yields
+    // forever at loc_1BCCA (kid.asm:30562). ASM loc_1BCD0 (kid.asm:30567) also
+    // allocates five title gfx slots and spawns particle objects with routine
+    // loc_1BE3C (kid.asm:30667) for screen effects.
     assert_eq!(
         frame_9979,
         Some((GameMode::IntroSequence5, 0x0004_0000)),
