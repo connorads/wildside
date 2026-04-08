@@ -1295,6 +1295,9 @@ fn level_entry_title_start_pose(rng: &mut RomRandomState, selector: u8) -> (u32,
     // top edge, and selector 3 seeds the bottom edge.
     let (x, y) = match selector {
         0 => (-0x20, level_entry_title_random_y(rng)),
+        // ASM loc_1ACC8 (kid.asm:28925-28926) is the selector-1 branch:
+        // `move.w #$FFE0,d6` fixes Y to -32px before the shared loc_1ACCC
+        // random-X tail runs.
         1 => (level_entry_title_random_x(rng), -0x20),
         2 => (0x160, level_entry_title_random_y(rng)),
         _ => (level_entry_title_random_x(rng), 0x100),
@@ -4020,6 +4023,19 @@ mod tests {
         assert_eq!(
             left_y, right_y,
             "ASM loc_1ACB0 routes selectors 0 and 2 through the same loc_1ACEA random-Y path while keeping their fixed edge X positions",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_start_pose_loc_1acc8_keeps_top_edge_y_fixed() {
+        let mut rng = RomRandomState::default();
+
+        let (x, y) = level_entry_title_start_pose(&mut rng, 1);
+
+        assert_eq!(x, 0x0078_0000);
+        assert_eq!(
+            y, 0xFFE0_0000,
+            "ASM loc_1ACC8 should set `d6=$FFE0` for selector 1 before the shared loc_1ACCC random-X logic runs",
         );
     }
 
