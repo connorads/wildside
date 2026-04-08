@@ -20729,6 +20729,25 @@ fn loc_148d4_unbiases_the_top_sprite_row_y_before_storing_world_y() {
 }
 
 #[test]
+fn loc_148f8_uses_the_middle_row_camera_band_before_emitting_a_sprite_row() {
+    assert_eq!(
+        crate::weather::lava_geyser_middle_sprite_row_window_loc_148F8(0x0150, 0x0160),
+        crate::weather::LavaGeyserMiddleSpriteRowResultLoc148F8::BuildSpriteRow,
+        "ASM loc_148F8 should keep middle rows whose `d1` lies inside the inclusive `[Camera_Y_pos - $10, Camera_Y_pos + $F0]` band"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_middle_sprite_row_window_loc_148F8(0x014F, 0x0160),
+        crate::weather::LavaGeyserMiddleSpriteRowResultLoc148F8::SkipAboveWindow,
+        "ASM loc_148F8 should skip the current middle-row build and fall through to loc_14914 when `d1` sits above `Camera_Y_pos - $10`"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_middle_sprite_row_window_loc_148F8(0x0251, 0x0160),
+        crate::weather::LavaGeyserMiddleSpriteRowResultLoc148F8::CulledBelowWindow,
+        "ASM loc_148F8 should branch to loc_14940 when `d1` falls below the inclusive `Camera_Y_pos + $F0` bound"
+    );
+}
+
+#[test]
 fn loc_14804_hibernates_once_per_additional_sprite_row_after_the_first() {
     assert_eq!(
         crate::weather::lava_geyser_inter_row_hibernations_loc_14804(0),

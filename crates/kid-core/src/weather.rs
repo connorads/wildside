@@ -1072,6 +1072,38 @@ pub(crate) fn lava_geyser_store_top_sprite_y_loc_148D4(
         .wrapping_add(camera_y_px)
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LavaGeyserMiddleSpriteRowResultLoc148F8 {
+    SkipAboveWindow,
+    BuildSpriteRow,
+    CulledBelowWindow,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_middle_sprite_row_window_loc_148F8(
+    sprite_row_y_px: u16,
+    camera_y_px: u16,
+) -> LavaGeyserMiddleSpriteRowResultLoc148F8 {
+    // ASM loc_148F8 (kid.asm:27977): each middle row checks `d1` against the
+    // inclusive vertical band `[Camera_Y_pos - $10, Camera_Y_pos + $F0]`.
+    // Rows above the band skip this build and fall through to loc_14914;
+    // rows below it branch to loc_14940 and stop the current geyser frame.
+    let sprite_row_y_px = i32::from(sprite_row_y_px);
+    let min_y = i32::from(camera_y_px) - 0x10;
+    if sprite_row_y_px < min_y {
+        return LavaGeyserMiddleSpriteRowResultLoc148F8::SkipAboveWindow;
+    }
+
+    let max_y = min_y + 0x100;
+    if sprite_row_y_px > max_y {
+        return LavaGeyserMiddleSpriteRowResultLoc148F8::CulledBelowWindow;
+    }
+
+    LavaGeyserMiddleSpriteRowResultLoc148F8::BuildSpriteRow
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one: u16) -> u16 {
