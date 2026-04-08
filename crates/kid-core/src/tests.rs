@@ -42731,6 +42731,15 @@ fn loc_13736_dispatches_between_direct_copy_long_ref_and_short_ref_lengths() {
 }
 
 #[test]
+fn loc_137ae_copies_one_literal_byte_before_returning_to_the_mode_decoder() {
+    assert_eq!(
+        crate::level::decompress_direct_copy_loc_137AE(0xA5),
+        crate::level::DecompressDirectCopyLoc137AE { copied_byte: 0xA5 },
+        "ASM loc_137AE should copy exactly one literal byte from `(a1)+` to `(a2)+` before control falls through to `loc_137B0`"
+    );
+}
+
+#[test]
 fn loc_1374a_copies_two_short_ref_tail_bytes_then_checks_the_end_pointer() {
     assert_eq!(
         crate::level::decompress_short_ref_finished_loc_1374A([0x12, 0x34], 0x0100, 0x0101),

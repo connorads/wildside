@@ -99,6 +99,11 @@ pub(crate) struct DecompressBp0ReturnStatus {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressDirectCopyLoc137AE {
+    pub(crate) copied_byte: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DecompressModeDispatchLoc13736 {
     DirectCopy,
     LongRef {
@@ -1151,6 +1156,17 @@ pub(crate) fn decompress_long_ref_finished_loc_1372C() -> DecompressBp0ReturnSta
     DecompressBp0ReturnStatus {
         status_word: 1,
         next_copy_mode: Some(1),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_direct_copy_loc_137AE(source_byte: u8) -> DecompressDirectCopyLoc137AE {
+    // ASM loc_137AE (kid.asm:26339) is the bit-position-0 direct-copy entry:
+    // it copies exactly one literal byte from `(a1)+` to `(a2)+` before
+    // falling through to `loc_137B0` for the next mode decode.
+    DecompressDirectCopyLoc137AE {
+        copied_byte: source_byte,
     }
 }
 
