@@ -808,6 +808,25 @@ pub(crate) fn lava_fireball_vertical_window_loc_14AFC(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_fireball_rejects_kid_loc_14B22(
+    kid_left_px: i32,
+    kid_right_px: i32,
+    kid_top_px: i32,
+    kid_bottom_px: i32,
+    fireball_left_px: i32,
+    fireball_right_px: i32,
+    vertical_window: LavaFireballVerticalWindowLoc14AFC,
+) -> bool {
+    // ASM loc_14B22 (kid.asm:28197): every failed compare in the overlap gate
+    // branches here, restores registers, and returns without applying damage.
+    kid_right_px < fireball_left_px
+        || kid_left_px > fireball_right_px
+        || kid_top_px > vertical_window.bottom_px
+        || kid_bottom_px < vertical_window.top_px
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_fireball_overlap_gate_loc_14B06(
     kid_left_px: i32,
     kid_right_px: i32,
@@ -820,10 +839,15 @@ pub(crate) fn lava_fireball_overlap_gate_loc_14B06(
     // ASM loc_14B06 (kid.asm:28187): after the sprite-kind buckets finish
     // shaping `d6/d7`, the fireball only damages Kid when all four inclusive
     // overlap compares succeed.
-    kid_right_px >= fireball_left_px
-        && kid_left_px <= fireball_right_px
-        && kid_top_px <= vertical_window.bottom_px
-        && kid_bottom_px >= vertical_window.top_px
+    !lava_fireball_rejects_kid_loc_14B22(
+        kid_left_px,
+        kid_right_px,
+        kid_top_px,
+        kid_bottom_px,
+        fireball_left_px,
+        fireball_right_px,
+        vertical_window,
+    )
 }
 
 #[allow(non_snake_case)]

@@ -20576,6 +20576,39 @@ fn loc_14b06_uses_inclusive_overlap_bounds_for_fireball_damage() {
 }
 
 #[test]
+fn loc_14b22_returns_early_when_any_fireball_overlap_compare_fails() {
+    let window = crate::weather::LavaFireballVerticalWindowLoc14AFC {
+        top_px: 0x0200,
+        bottom_px: 0x020F,
+    };
+
+    assert!(
+        crate::weather::lava_fireball_rejects_kid_loc_14B22(
+            0x0100, 0x0107, 0x0200, 0x020F, 0x0108, 0x010E, window,
+        ),
+        "ASM loc_14B22 should return immediately when Kid stays left of the fireball window"
+    );
+    assert!(
+        crate::weather::lava_fireball_rejects_kid_loc_14B22(
+            0x010F, 0x0116, 0x0200, 0x020F, 0x0108, 0x010E, window,
+        ),
+        "ASM loc_14B22 should return immediately when Kid stays right of the fireball window"
+    );
+    assert!(
+        crate::weather::lava_fireball_rejects_kid_loc_14B22(
+            0x0108, 0x010E, 0x0210, 0x0217, 0x0108, 0x010E, window,
+        ),
+        "ASM loc_14B22 should return immediately when Kid stays below the fireball window in screen coordinates"
+    );
+    assert!(
+        crate::weather::lava_fireball_rejects_kid_loc_14B22(
+            0x0108, 0x010E, 0x01F0, 0x01FF, 0x0108, 0x010E, window,
+        ),
+        "ASM loc_14B22 should return immediately when Kid stays above the fireball window in screen coordinates"
+    );
+}
+
+#[test]
 fn loc_14a46_decrements_the_dbf_counter_and_only_exits_after_the_ffff_sentinel() {
     assert_eq!(
         crate::weather::lava_fireball_segment_back_edge_loc_14A46(0x0003),
