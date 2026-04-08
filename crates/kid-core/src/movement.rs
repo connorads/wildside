@@ -352,6 +352,17 @@ pub(crate) fn gfx_objects_collision_upslope_tile_addr_loc_1814(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_collision_downslope_tile_addr_loc_1838(
+    scanned_tile_layout_addr: u16,
+) -> u16 {
+    // ASM loc_1838 (kid.asm:2991): like loc_1814, the down-slope hit path
+    // arrives after the row walk has post-incremented `a3`, so it rewinds by
+    // one tile before caching `$FFFFFB6C` for `GfxObjects_Collision_ChkDownSlope`.
+    scanned_tile_layout_addr.wrapping_sub(2)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(
     time_frames: u16,
     first_gfx_object_index: Option<usize>,

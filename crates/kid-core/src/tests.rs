@@ -45896,6 +45896,15 @@ fn loc_1814_rewinds_the_postincremented_tile_pointer_before_chkupslope() {
 }
 
 #[test]
+fn loc_1838_rewinds_the_postincremented_tile_pointer_before_chkdownslope() {
+    assert_eq!(
+        crate::movement::gfx_objects_collision_downslope_tile_addr_loc_1838(0xA654),
+        0xA652,
+        "ASM loc_1838 should apply `subq.w #2,a3` before caching the matched Level_Layout cell for `GfxObjects_Collision_ChkDownSlope`",
+    );
+}
+
+#[test]
 fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
     let next_indices = [Some(1), Some(2), Some(3), None];
     let kind_words = [0, 2, 3, 4];
