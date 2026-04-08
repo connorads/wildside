@@ -950,6 +950,31 @@ pub(crate) fn intro_sequence_6_tilemap_clear_loc_1B182() -> IntroSequence6WordFi
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence6ScrollBootstrapLoc1B23A {
+    pub(crate) camera_y_pos: i32,
+    pub(crate) scroll_fill_longword: u32,
+    pub(crate) longword_write_count: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_sequence_6_scroll_bootstrap_loc_1B23A(
+    hidden_camera_word: u16,
+    level_layout_word: u16,
+) -> IntroSequence6ScrollBootstrapLoc1B23A {
+    // ASM sub_1B222 -> loc_1B23A (kid.asm:29425-29438): copy the word at
+    // `($FFFFA656).w` into `(Camera_Y_pos).w`, seed `d5` from `(Level_Layout).w`,
+    // `swap d5`, then write that longword into `(Horiz_Scroll_Buffer).l`
+    // once per pass before the inclusive `dbf d4,loc_1B23A` test.
+    IntroSequence6ScrollBootstrapLoc1B23A {
+        camera_y_pos: i32::from(hidden_camera_word as i16) << 16,
+        scroll_fill_longword: u32::from(level_layout_word) << 16,
+        longword_write_count: 0x00DF + 1,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
     pub(crate) vram_word_addr: u16,
@@ -3273,6 +3298,30 @@ mod tests {
         assert_eq!(
             right.moving_frames, 0x0042,
             "ASM loc_1C5BE also slides the right sprite for 66 hibernated frames before the infinite idle loop",
+        );
+    }
+
+    #[test]
+    fn loc_1b23a_copies_the_hidden_camera_row_into_camera_y_and_fills_224_scroll_entries() {
+        let wrapped_seed = intro_sequence_6_scroll_bootstrap_loc_1B23A(0xFFD0, 0xFFB8);
+        let positive_seed = intro_sequence_6_scroll_bootstrap_loc_1B23A(0x0012, 0x1234);
+
+        assert_eq!(
+            wrapped_seed.camera_y_pos, 0xFFD0_0000u32 as i32,
+            "ASM sub_1B222 should mirror the `($FFFFA656).w` hidden camera row into `(Camera_Y_pos).w` before loc_1B23A writes the scroll buffer",
+        );
+        assert_eq!(
+            wrapped_seed.scroll_fill_longword, 0xFFB8_0000,
+            "ASM loc_1B23A should `swap d5` after loading `(Level_Layout).w`, so the horizontal scroll fill longword keeps the layout word in the high half",
+        );
+        assert_eq!(
+            positive_seed.camera_y_pos, 0x0012_0000,
+            "ASM sub_1B222 should preserve non-negative hidden camera rows when it copies the word into the high half of `Camera_Y_pos`",
+        );
+        assert_eq!(
+            wrapped_seed.longword_write_count,
+            0x00DF + 1,
+            "ASM loc_1B23A seeds `d4=#$DF`, so the inclusive `dbf d4,loc_1B23A` loop should fill 224 longwords in `Horiz_Scroll_Buffer`",
         );
     }
 
