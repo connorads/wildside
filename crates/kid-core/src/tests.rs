@@ -42710,6 +42710,37 @@ fn loc_14366_seeds_decompress_chunk_and_converts_the_special_buffer_span_into_an
 }
 
 #[test]
+fn loc_14382_remaps_two_buffered_bytes_through_the_special_palette_table_and_packs_one_word_per_dbf_iteration()
+ {
+    let mut permutation_table = [0u8; 256];
+    permutation_table[0x12] = 0xA4;
+    permutation_table[0x34] = 0xB7;
+    permutation_table[0x56] = 0xC8;
+    permutation_table[0x78] = 0xD9;
+    permutation_table[0x9A] = 0xE1;
+    permutation_table[0xBC] = 0xF2;
+
+    assert_eq!(
+        crate::level::decompress_to_vram_special_word_transfer_loc_14382(
+            &permutation_table,
+            &[0x12, 0x34, 0x56, 0x78],
+            0,
+        ),
+        vec![0xA4B7],
+        "ASM loc_14382 should still emit one packed VRAM word when `d3` starts at zero because the two `(a4)+` lookups and `move.w d6,(a6)+` happen before `dbf` reaches `-1`"
+    );
+    assert_eq!(
+        crate::level::decompress_to_vram_special_word_transfer_loc_14382(
+            &permutation_table,
+            &[0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC],
+            2,
+        ),
+        vec![0xA4B7, 0xC8D9, 0xE1F2],
+        "ASM loc_14382 should use each buffered byte as an index into the `$FFFF0280` permutation table, shift the first lookup into the high byte, OR in the second lookup, and repeat exactly `d3+1` times"
+    );
+}
+
+#[test]
 fn loc_13504_masks_the_dbf_count_selects_the_jump_table_arm_and_refills_only_below_nine_bits() {
     assert_eq!(
         block_layout_dispatch_loc_13504(0x0065, 6, 0x0010),
