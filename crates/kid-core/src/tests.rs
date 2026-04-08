@@ -19813,6 +19813,17 @@ fn loc_14d3e_repeats_each_storm_pattern_group_eight_times_before_advancing_a0() 
 }
 
 #[test]
+fn loc_14d40_adds_the_shared_tile_offset_to_each_longword_in_the_current_group() {
+    let source_group = [0x1000_0000, 0x1000_0001, 0x1000_0002, 0x1000_0003];
+
+    assert_eq!(
+        crate::weather::storm_pattern_emit_group_loc_14D40(&source_group, 0x0380_0380),
+        [0x1380_0380, 0x1380_0381, 0x1380_0382, 0x1380_0383],
+        "ASM loc_14D40 should load `(a0)`, `4(a0)`, `8(a0)`, and `$C(a0)`, add the shared `$0380_0380` tile offset to each, and emit the adjusted longwords in order before `dbf d0,loc_14D40` repeats the same group"
+    );
+}
+
+#[test]
 fn loc_14d32_programs_vram_6000_and_repeats_each_four_longword_storm_group_with_inclusive_dbf_loops()
  {
     let source_longwords = core::array::from_fn(|index| 0x1000_0000u32.wrapping_add(index as u32));

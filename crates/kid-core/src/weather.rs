@@ -295,6 +295,18 @@ pub(crate) fn storm_pattern_group_repeat_count_loc_14D3E() -> usize {
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn storm_pattern_emit_group_loc_14D40(
+    source_group: &[u32; 4],
+    vram_tile_addend: u32,
+) -> [u32; 4] {
+    // ASM loc_14D40 (kid.asm:28396-28405): load four consecutive longwords from
+    // `(a0)`, add the shared `d7` tile offset to each, and write the adjusted
+    // values to the VDP data port before the inclusive `dbf d0,loc_14D40`.
+    source_group.map(|word| word.wrapping_add(vram_tile_addend))
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
     source_longwords: &[u32; 32],
     vram_tile_addend: u32,
@@ -310,8 +322,12 @@ pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
     for _ in 0..storm_pattern_outer_pass_count_loc_14D3C() {
         for group in source_longwords.chunks_exact(4) {
             for _ in 0..storm_pattern_group_repeat_count_loc_14D3E() {
-                for &word in group {
-                    written_longwords.push(word.wrapping_add(vram_tile_addend));
+                let emitted_group = storm_pattern_emit_group_loc_14D40(
+                    &[group[0], group[1], group[2], group[3]],
+                    vram_tile_addend,
+                );
+                for word in emitted_group {
+                    written_longwords.push(word);
                 }
             }
         }
