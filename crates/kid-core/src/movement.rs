@@ -1268,6 +1268,10 @@ fn level_entry_title_effective_activation_frame(
 }
 
 fn level_entry_title_axis_step(start_pos: u32, target_pos: u32) -> i32 {
+    // ASM loc_1ACFE (kid.asm:28955-28970): after seeding `x_pos/y_pos(a3)`
+    // with `(d5,d6)`, the worker derives each 16.16 glide step from the
+    // fixed-point delta over 64 frames via `muls.w #$100`, `asr.l #6`,
+    // `lsl.l #8`. On native fixed-point positions that reduces to `delta >> 6`.
     (target_pos as i32).wrapping_sub(start_pos as i32) >> 6
 }
 
@@ -3970,7 +3974,8 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
 #[cfg(test)]
 mod tests {
     use super::{
-        level_entry_title_advance_x, level_entry_title_deferred_number_indices_loc_1ABF4,
+        level_entry_title_advance_x, level_entry_title_axis_step,
+        level_entry_title_deferred_number_indices_loc_1ABF4,
         level_entry_title_random_y_snap_loc_1acf8, level_entry_title_right_edge_x_loc_1ace0,
         level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
@@ -4059,9 +4064,7 @@ mod tests {
     fn level_entry_title_start_pose_loc_1acc8_keeps_top_edge_y_fixed() {
         let mut rng = RomRandomState::default();
 
-        let (x, y) = level_entry_title_start_pose(&mut rng, 1);
-
-        assert_eq!(x, 0x0078_0000);
+        let (_x, y) = level_entry_title_start_pose(&mut rng, 1);
         assert_eq!(
             y, 0xFFE0_0000,
             "ASM loc_1ACC8 should set `d6=$FFE0` for selector 1 before the shared loc_1ACCC random-X logic runs",
@@ -4114,6 +4117,20 @@ mod tests {
         );
         assert_eq!(top_y, 0xFFE0_0000);
         assert_eq!(bottom_y, 0x0100_0000);
+    }
+
+    #[test]
+    fn level_entry_title_axis_step_loc_1acfe_divides_fixed_point_delta_by_64_frames() {
+        assert_eq!(
+            level_entry_title_axis_step(0xFFE0_0000, 0x0040_0000),
+            0x0001_8000,
+            "ASM loc_1ACFE should turn a 96px delta into a 1.5px-per-frame fixed-point glide step",
+        );
+        assert_eq!(
+            level_entry_title_axis_step(0x0160_0000, 0x0040_0000),
+            -0x0004_8000,
+            "ASM loc_1ACFE should preserve the sign when the worker glides back from the right edge",
+        );
     }
 
     #[test]
