@@ -5440,6 +5440,15 @@ pub(crate) fn load_title_card_row_copy_seed_loc_19BDA(title_card_width_tiles: u1
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_title_card_row_copy_word_count_loc_19BDE(row_copy_seed: u16) -> u16 {
+    // ASM loc_19BDE (kid.asm:28696-28697): the `move.w (a0)+,(a6)` transfer
+    // happens before `dbf d5,loc_19BDE` tests for `-1`, so a seed of
+    // `width_tiles - 1` copies exactly `width_tiles` art words into the row.
+    row_copy_seed + 1
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,

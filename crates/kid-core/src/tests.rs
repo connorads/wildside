@@ -45908,6 +45908,20 @@ fn loc_19bda_primes_the_title_card_row_copy_loop_with_width_minus_one() {
 }
 
 #[test]
+fn loc_19bde_copies_one_art_word_per_inclusive_dbf_iteration() {
+    assert_eq!(
+        crate::level::load_title_card_row_copy_word_count_loc_19BDE(0),
+        1,
+        "ASM loc_19BDE should still copy one title-card art word when `d5=0` because `move.w (a0)+,(a6)` runs before `dbf d5,loc_19BDE` reaches `-1`"
+    );
+    assert_eq!(
+        crate::level::load_title_card_row_copy_word_count_loc_19BDE(0x0023),
+        0x0024,
+        "ASM loc_19BDE should copy `d5+1` art words into the current row, so the `loc_19BDA` seed for a 36-tile title card expands back to 36 transfers"
+    );
+}
+
+#[test]
 fn loc_1462_reloads_the_samurai_haze_walk_from_the_gfx_head_pointer() {
     assert_eq!(
         crate::movement::gfx_object_head_under_samurai_haze_loc_1462(None),
