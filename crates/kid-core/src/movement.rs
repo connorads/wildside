@@ -452,6 +452,33 @@ pub(crate) fn gfx_objects_collision_rightwall_snap_loc_197E(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GfxObjectsCollisionLeftWallSnapLoc1A00 {
+    pub(crate) collision_type: u16,
+    pub(crate) snapped_x_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_objects_collision_leftwall_snap_loc_1A00(
+    is_kid_gfx_object: bool,
+    anchor_x_px: u16,
+    first_extent_px: u16,
+) -> Option<GfxObjectsCollisionLeftWallSnapLoc1A00> {
+    // ASM loc_19D2 / loc_1A00 (kid.asm:3147-3169): Kid itself exits via
+    // `loc_1ADA`, but every other gfx object stores `colid_leftwall` and the
+    // zero-direction branch uses only one `(a1)+` extent before the shared
+    // `addi.w #$10,d7`, yielding `anchor - first_extent + $10`.
+    if is_kid_gfx_object {
+        return None;
+    }
+
+    Some(GfxObjectsCollisionLeftWallSnapLoc1A00 {
+        collision_type: 0x0008,
+        snapped_x_px: anchor_x_px.wrapping_sub(first_extent_px).wrapping_add(0x10),
+    })
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(

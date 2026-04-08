@@ -46142,6 +46142,23 @@ fn loc_197e_skips_kid_and_snaps_other_gfx_objects_against_the_right_wall() {
 }
 
 #[test]
+fn loc_1a00_skips_kid_and_snaps_other_gfx_objects_against_the_left_wall() {
+    assert_eq!(
+        crate::movement::gfx_objects_collision_leftwall_snap_loc_1A00(true, 100, 12),
+        None,
+        "ASM loc_19D2 should branch straight to `loc_1ADA` when the colliding gfx object is Kid himself",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_leftwall_snap_loc_1A00(false, 100, 12),
+        Some(crate::movement::GfxObjectsCollisionLeftWallSnapLoc1A00 {
+            collision_type: 0x0008,
+            snapped_x_px: 104,
+        }),
+        "ASM loc_1A00 should store `colid_leftwall` and use `anchor - (a1)+ + $10` when `$16(a2)` is zero",
+    );
+}
+
+#[test]
 fn loc_1466_only_moves_kind_2_and_3_workers_every_fourth_frame_under_samurai_haze() {
     let next_indices = [Some(1), Some(2), Some(3), None];
     let kind_words = [0, 2, 3, 4];
