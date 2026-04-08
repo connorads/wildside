@@ -412,6 +412,37 @@ pub(crate) fn insert_blank_top_rows_sub_140F6(
     shifted
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn insert_blank_top_rows_terrain_bytes_loc_141AA(
+    terrain_layout: &[u8],
+    width_blocks: u16,
+    blank_top_rows: u16,
+) -> Vec<u8> {
+    // ASM loc_141AA (kid.asm:27003-27013): after the word-based level-layout
+    // shift finishes, sub_140F6 repeats the same tail-first row move for the
+    // byte-per-cell terrain layout rooted from the `$FFFF4BB8` row-pointer
+    // table. `d1` reloads from `Level_width_blocks-1` before each row copy, so
+    // the outer `dbf d0,loc_141AA` preserves the original row ordering while
+    // shifting the populated terrain rows downward by `Number_blank_top_rows`.
+    if width_blocks == 0 {
+        return terrain_layout.to_vec();
+    }
+
+    let row_bytes = usize::from(width_blocks);
+    if row_bytes == 0
+        || terrain_layout.is_empty()
+        || !terrain_layout.len().is_multiple_of(row_bytes)
+    {
+        return terrain_layout.to_vec();
+    }
+
+    let blank_row_bytes = usize::from(blank_top_rows) * row_bytes;
+    let mut shifted = vec![0_u8; blank_row_bytes + terrain_layout.len()];
+    shifted[blank_row_bytes..].copy_from_slice(terrain_layout);
+    shifted
+}
+
 // ---------------------------------------------------------------------------
 // Block List — prize/ghost/teleporter/hidden block data from RAM dump
 // ---------------------------------------------------------------------------
@@ -3109,6 +3140,34 @@ mod tests {
             &shifted[4..],
             &[0x10, 0x01],
             "ASM loc_14158 should only zero-fill the inserted rows and leave the shifted source row unchanged below them"
+        );
+    }
+
+    #[test]
+    fn loc_141aa_repeats_the_terrain_byte_row_copy_without_disturbing_source_order() {
+        let shifted = insert_blank_top_rows_terrain_bytes_loc_141AA(
+            &[
+                0x11, 0x12, // row 0
+                0x21, 0x22, // row 1
+                0x31, 0x32, // row 2
+            ],
+            2,
+            2,
+        );
+
+        assert_eq!(
+            &shifted[..4],
+            &[0x00; 4],
+            "ASM loc_141AA should leave the inserted blank terrain rows at the top while the outer DBF loop copies the populated byte rows below them"
+        );
+        assert_eq!(
+            &shifted[4..],
+            &[
+                0x11, 0x12, // row 0
+                0x21, 0x22, // row 1
+                0x31, 0x32, // row 2
+            ],
+            "ASM loc_141AA should reload `d1` from `Level_width_blocks-1` for each source row and preserve byte-row order during the downward shift"
         );
     }
 }
