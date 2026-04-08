@@ -949,6 +949,43 @@ pub(crate) fn intro_sequence_6_tilemap_clear_loc_1B182() -> IntroSequence6WordFi
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct IntroSequence6StripedTileFillLoc1B194 {
+    pub(crate) vram_word_addr: u16,
+    pub(crate) word_writes: Vec<u16>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_sequence_6_striped_tile_fill_loc_1B194() -> IntroSequence6StripedTileFillLoc1B194
+{
+    // ASM Load_IntroSequence6 -> loc_1B194 (kid.asm:29383-29392): after
+    // `move.l #vdpComm($E000,VRAM,WRITE),4(a6)` and `moveq #$D,d0`, each outer
+    // pass runs `loc_1B196` with `d1=#$1F` to emit `$00BD,$00BE` 32 times,
+    // reloads `d1=#$1F`, then runs `loc_1B1A4` to emit `$00BF,$00C0` 32 times
+    // before the inclusive `dbf d0,loc_1B194` repeats the whole 64-pair band
+    // 14 times.
+    const OUTER_PASSES: usize = 0x000D + 1;
+    const PAIRS_PER_HALF: usize = 0x001F + 1;
+    let mut word_writes = Vec::with_capacity(OUTER_PASSES * PAIRS_PER_HALF * 4);
+    for _ in 0..OUTER_PASSES {
+        for _ in 0..PAIRS_PER_HALF {
+            word_writes.push(0x00BD);
+            word_writes.push(0x00BE);
+        }
+        for _ in 0..PAIRS_PER_HALF {
+            word_writes.push(0x00BF);
+            word_writes.push(0x00C0);
+        }
+    }
+
+    IntroSequence6StripedTileFillLoc1B194 {
+        vram_word_addr: 0xE000,
+        word_writes,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(

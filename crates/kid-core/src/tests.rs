@@ -19,12 +19,13 @@ use crate::boot::{
     end_sequence_falling_sprite_init_sub_1D8B4, flag_hud_dma_upload_sub_5DA6,
     hide_pause_menu_overwritten_sprites_sub_6874, hud_timer_sprite_layout_sub_BD0A,
     init_hud_animation_frames_sub_44B0, intro_sequence_6_longword_fill_loc_1B170,
-    intro_sequence_6_tilemap_clear_loc_1B182, prize_10000_points_star_advance_loc_10BCE,
-    prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
-    prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
-    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
-    sega_screen_object_bootstrap_loc_12E48, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
-    step_hud_animation_sub_44DC, vdp_upload_32_longwords_sub_44D0,
+    intro_sequence_6_striped_tile_fill_loc_1B194, intro_sequence_6_tilemap_clear_loc_1B182,
+    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_cleanup_loc_10BE6,
+    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_latch_screen_pos_loc_10B9A,
+    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
+    read_io_port_a10001_flags_sub_6E24, sega_screen_object_bootstrap_loc_12E48,
+    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
+    vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -243,6 +244,33 @@ fn loc_1b182_clears_the_intro_sequence_6_tilemap_with_2048_bc_words() {
             word_write_count: 2048,
         },
         "ASM loc_1B182 should write `#$20BC` to `vdpComm($0000,VRAM,WRITE)` exactly `d0+1` times with `d0=#$7FF`"
+    );
+}
+
+#[test]
+fn loc_1b194_emits_fourteen_striped_64_pair_bands_into_e000() {
+    let writes = intro_sequence_6_striped_tile_fill_loc_1B194();
+
+    assert_eq!(writes.vram_word_addr, 0xE000);
+    assert_eq!(
+        writes.word_writes.len(),
+        14 * 32 * 4,
+        "ASM loc_1B194 should repeat the two 32-pair inner DBF loops `d0+1` times with `d0=#$D`"
+    );
+    assert_eq!(
+        &writes.word_writes[..4],
+        &[0x00BD, 0x00BE, 0x00BD, 0x00BE],
+        "ASM loc_1B196 should start each outer band with repeated `$00BD,$00BE` pairs"
+    );
+    assert_eq!(
+        &writes.word_writes[64..68],
+        &[0x00BF, 0x00C0, 0x00BF, 0x00C0],
+        "ASM loc_1B1A4 should follow with repeated `$00BF,$00C0` pairs after the first 32 `$00BD,$00BE` pairs"
+    );
+    assert_eq!(
+        &writes.word_writes[writes.word_writes.len() - 4..],
+        &[0x00BF, 0x00C0, 0x00BF, 0x00C0],
+        "ASM loc_1B194 should end on the final `$00BF,$00C0` pair from the fourteenth outer pass"
     );
 }
 
