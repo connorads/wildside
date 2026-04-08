@@ -893,6 +893,19 @@ pub(crate) fn intro_sequence_2_layout_copy_loc_1B012(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn intro_sequence_5_art_source_loc_1B100(title_variant: u8) -> &'static str {
+    // ASM Load_IntroSequence5 -> loc_1B100 (kid.asm:29335-29351): start from
+    // `byte_213D9`, switch to `byte_219C1` when `($FFFFFC82).w` is non-zero,
+    // and only fall through to `byte_216B7` when that byte is neither 0 nor 1.
+    match title_variant {
+        0 => "byte_213D9",
+        1 => "byte_219C1",
+        _ => "byte_216B7",
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
     decoded_words: &[u16],
     d2: i16,

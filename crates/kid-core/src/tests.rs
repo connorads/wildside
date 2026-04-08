@@ -30081,6 +30081,25 @@ fn loc_1b012_copies_exactly_0x2c0_longwords_into_the_later_level_layout_window()
 }
 
 #[test]
+fn loc_1b100_selects_the_intro_sequence_5_art_source_from_fc82() {
+    assert_eq!(
+        crate::boot::intro_sequence_5_art_source_loc_1B100(0),
+        "byte_213D9",
+        "ASM loc_1B100 should keep the default `byte_213D9` art pointer when `tst.b ($FFFFFC82).w` sees zero",
+    );
+    assert_eq!(
+        crate::boot::intro_sequence_5_art_source_loc_1B100(1),
+        "byte_219C1",
+        "ASM loc_1B100 should keep `byte_219C1` when the first non-zero branch is taken and `cmpi.b #1,($FFFFFC82).w` then succeeds",
+    );
+    assert_eq!(
+        crate::boot::intro_sequence_5_art_source_loc_1B100(2),
+        "byte_216B7",
+        "ASM loc_1B100 should fall through to `byte_216B7` when `($FFFFFC82).w` is non-zero and not equal to 1",
+    );
+}
+
+#[test]
 fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit() {
     let (_, script) = cached_any_percent_published_runtime_and_script();
     let first_visit_start_frames = (6_204..=6_211)
