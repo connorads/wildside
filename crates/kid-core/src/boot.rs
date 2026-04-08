@@ -3637,6 +3637,32 @@ impl NativeRuntime {
                     *cursor += 1;
                 }
 
+                // ASM loc_1CC22 (kid.asm:31744): Left button jump table dispatch.
+                // After Left press check at loc_1CC0E, the ROM doubles the
+                // cursor index and uses PC-relative indexed jump:
+                //   move.w (Options_Selected_Option).w,d7
+                //   add.w d7,d7
+                //   jmp loc_1CC22(pc,d7.w)
+                // The jump table at loc_1CC22 then branches to option handlers:
+                //   cursor 0 → Option_2PInput
+                //   cursor 1 → Option_Controls_Left
+                //   cursor 2 → Option_SpeedButton
+                //   cursor 3 → Option_Exit
+                // ASM loc_1CC2A (kid.asm:31754): Right button handling entry.
+                // If Left was not pressed, execution continues here and checks
+                // Right. The ROM clears the Right button bit and dispatches:
+                //   bclr #Button_Right,(Ctrl_Pressed).w
+                //   beq.w return_1CC86         ; skip if Right not pressed
+                //   move.w (Options_Selected_Option).w,d7
+                //   add.w d7,d7
+                //   jmp loc_1CC3E(pc,d7.w)
+                // ASM loc_1CC3E (kid.asm:31761): Right button jump table dispatch.
+                // Similar indexed jump table for Right, with one difference:
+                //   cursor 0 → Option_2PInput
+                //   cursor 1 → Option_Controls_Right (increment, not decrement)
+                //   cursor 2 → Option_SpeedButton
+                //   cursor 3 → Option_Exit
+                // Native uses match on cursor for equivalent dispatch.
                 match *cursor {
                     0 if left_pressed || right_pressed => {
                         // ASM Option_2PInput toggles `Options_Suboption_2PController`

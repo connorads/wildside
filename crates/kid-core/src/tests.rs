@@ -25829,6 +25829,101 @@ fn options_menu_loc_1cc0e_down_guard_skips_increment_at_cursor_three() {
 }
 
 #[test]
+fn options_menu_loc_1cc22_left_button_jump_table_dispatches_to_option_handlers() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
+    runtime.step_frame(FrameInput {
+        left: true,
+        ..FrameInput::default()
+    });
+    assert!(
+        runtime.options_two_player_two_controllers,
+        "ASM loc_1CC22 (kid.asm:31744) jump table index0 dispatches to Option_2PInput for cursor 0"
+    );
+
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::OptionsMenu { cursor: 1 };
+    runtime.options_controls_scheme = 3;
+    runtime.step_frame(FrameInput {
+        left: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.options_controls_scheme, 2,
+        "ASM loc_1CC22 jump table index 2 dispatches to Option_Controls_Left for cursor 1"
+    );
+
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::OptionsMenu { cursor: 2 };
+    runtime.options_speed_button_fast = false;
+    runtime.step_frame(FrameInput {
+        left: true,
+        ..FrameInput::default()
+    });
+    assert!(
+        runtime.options_speed_button_fast,
+        "ASM loc_1CC22 jump table index 4 dispatches to Option_SpeedButton for cursor 2"
+    );
+}
+
+#[test]
+fn options_menu_loc_1cc2a_right_button_entry_skips_dispatch_when_right_not_pressed() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
+    runtime.options_two_player_two_controllers = false;
+
+    runtime.step_frame(FrameInput {
+        right: false,
+        ..FrameInput::default()
+    });
+    assert!(
+        !runtime.options_two_player_two_controllers,
+        "ASM loc_1CC2A (kid.asm:31754) skips the jump table dispatch when Right is not pressed; \
+         the bclr/beq sequence branches to return_1CC86 without touching any option"
+    );
+}
+
+#[test]
+fn options_menu_loc_1cc3e_right_button_jump_table_dispatches_to_option_handlers() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    runtime.boot_state = BootState::OptionsMenu { cursor: 0 };
+    runtime.step_frame(FrameInput {
+        right: true,
+        ..FrameInput::default()
+    });
+    assert!(
+        runtime.options_two_player_two_controllers,
+        "ASM loc_1CC3E (kid.asm:31761) jump table index 0 dispatches to Option_2PInput for cursor 0"
+    );
+
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::OptionsMenu { cursor: 1 };
+    runtime.options_controls_scheme = 2;
+    runtime.step_frame(FrameInput {
+        right: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.options_controls_scheme, 3,
+        "ASM loc_1CC3E jump table index 2 dispatches to Option_Controls_Right for cursor 1"
+    );
+
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::OptionsMenu { cursor: 2 };
+    runtime.options_speed_button_fast = false;
+    runtime.step_frame(FrameInput {
+        right: true,
+        ..FrameInput::default()
+    });
+    assert!(
+        runtime.options_speed_button_fast,
+        "ASM loc_1CC3E jump table index 4 dispatches to Option_SpeedButton for cursor 2"
+    );
+}
+
+#[test]
 fn end_sequence_display_refresh_sub_1d830_combines_camera_scroll_upload_and_panel_step() {
     let refresh =
         end_sequence_display_refresh_sub_1D830(0x0123, 0x0045, 0x00, 0x0118, 0x0030, 0x0110);
