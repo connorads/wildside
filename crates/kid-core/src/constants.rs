@@ -148,7 +148,28 @@ pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
 // through frame 20893 and only reach loc_1BA5C's `move.w #$28,(Game_Mode).w`
 // hand-off on 20894, so the older `17 + 0x1BD` approximation was 59 frames
 // short on the real timeout path.
+// ASM loc_1BA5C: `move.w #$1BC,d0` seeds the countdown. ASM loc_1BA60 runs
+// `jsr (j_Hibernate_Object_1Frame).w; bsr.w sub_1C246; dbf d0,loc_1BA60`
+// for 0x1BC+1 = 0x1BD = 445 iterations before the `move.w #$28,(Game_Mode).w`
+// transition to intro sequence 6. The DBF loop includes the zero slot.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES: usize = 17 + 0x01BD + 59;
+// ASM loc_1BA60: after the 445-iteration hibernate loop finishes, the
+// routine clears the intro-sequence flag at `$FFFFFBCE`, then ASM loc_1BA82
+// fills Palette_Buffer_3 with 64 words of `$AAA` for the fade-to-black.
+// The palette fill uses `moveq #$3F,d0` (63) and `dbf d0,loc_1BA82`,
+// writing $AAA to each of the 64 palette entries.
+#[allow(dead_code)]
+pub(crate) const INTRO_SEQUENCE_5_FADE_PALETTE_FILL_WORDS: usize = 64;
+// ASM loc_1BA90 / loc_1BAA0 together implement a fade counter decrement loop.
+// After loc_1BA82 sets `$FFFFF876 = $100` (256), loc_1BAA0 seeds d0=$FF and
+// writes -1 to both `$FFFFF888` and `$FFFFF88C`. Each loc_1BA90 frame then
+// runs `Hibernate_Object_1Frame; sub_1C246; subi.w #$20,($FFFFF876).w`,
+// decrementing the fade counter by $20 (32) per frame until it goes negative
+// (`bmi.s loc_1BAAC`), at which point `j_loc_6E2` returns the object.
+// The fade runs 9 iterations: $100→$E0→$C0→$A0→$80→$60→$40→$20→$00, then
+// the next subtraction yields $FFE0 and bmi branches to exit.
+#[allow(dead_code)]
+pub(crate) const INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS: usize = 9;
 // The later Start-skip intro-return lineage revisits the timeout-restart copy
 // of intro sequence 5 one shared sub_1C204 fade window earlier than the plain
 // timeout path. Oracle keeps `Game_Mode=$24` alive through frame 16649 and

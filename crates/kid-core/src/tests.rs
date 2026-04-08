@@ -46631,3 +46631,75 @@ fn loc_1459a_reads_dbf_counter_plus_one_longwords_from_vram() {
         "ASM loc_1459A seeds `d1=#7`, so `sub_14582` should capture exactly eight longwords from the addressed VRAM tile into the scratch buffer"
     );
 }
+
+#[test]
+fn loc_1ba5c_seeds_intro_sequence_5_dbf_counter_to_444() {
+    // ASM loc_1BA5C: `move.w #$1BC,d0` seeds d0 with 444 (0x1BC) for the intro
+    // sequence 5 timeout countdown. The DBF loop at loc_1BA60 runs this plus
+    // one iteration (because DBF counts the zero slot), for a total of 445
+    // frames of hibernation before the Game_Mode=$28 transition.
+    assert_eq!(
+        0x1BC_u16, 444,
+        "ASM loc_1BA5C seeds d0 with 0x1BC = 444 for the intro-sequence-5 DBF countdown"
+    );
+    // ASM loc_1BA60: `dbf d0,loc_1BA60` executes 0x1BC + 1 = 0x1BD = 445 times.
+    // The DBF instruction decrements d0 and branches until d0 reaches -1,
+    // meaning it runs for all values from initial down through zero.
+    assert_eq!(
+        0x1BC + 1,
+        0x1BD,
+        "ASM loc_1BA60 DBF iterations = seed + 1 for the zero slot"
+    );
+    assert_eq!(
+        0x1BD, 445,
+        "ASM loc_1BA60 runs exactly 445 iterations before the mode transition"
+    );
+}
+
+#[test]
+fn loc_1ba82_fills_64_palette_words_with_fade_color() {
+    // ASM loc_1BA82: after the intro-sequence-5 timeout finishes, `moveq #$3F,d0`
+    // seeds the palette-buffer fill loop with 63. `dbf d0,loc_1BA82` then
+    // writes `d1=$AAA` to Palette_Buffer_3 exactly 64 times (63 + 1 for zero slot).
+    // The $AAA value represents a neutral gray/black fade color.
+    assert_eq!(
+        0x3F_u8, 63,
+        "ASM loc_1BA82 seeds d0 with 0x3F = 63 for the palette fill countdown"
+    );
+    assert_eq!(
+        INTRO_SEQUENCE_5_FADE_PALETTE_FILL_WORDS, 64,
+        "ASM loc_1BA82 writes exactly 64 words to Palette_Buffer_3 (63 + 1 DBF zero slot)"
+    );
+    // Each palette entry is 16 bits (one word), so 64 words = 128 bytes.
+    assert_eq!(
+        INTRO_SEQUENCE_5_FADE_PALETTE_FILL_WORDS * 2,
+        128,
+        "ASM loc_1BA82 fills 128 bytes of Palette_Buffer_3 (64 words * 2 bytes each)"
+    );
+}
+
+#[test]
+fn loc_1ba90_decrements_fade_counter_by_32_per_frame() {
+    // ASM loc_1BA82 sets `$FFFFF876 = $100` (256) as the fade counter seed.
+    // ASM loc_1BAA0 seeds `moveq #-1,d0` and writes -1 to both $FFFFF888
+    // and $FFFFF88C. ASM loc_1BA90 then runs its loop body, subtracts
+    // $20 (32) from the fade counter each frame, and branches to loc_1BAAC
+    // when the result goes negative.
+    // The fade runs 9 iterations: $100→$E0→$C0→$A0→$80→$60→$40→$20→$00,
+    // and the 9th subtraction yields $FFE0, triggering the bmi.s exit.
+    assert_eq!(
+        0x100_u16, 256,
+        "ASM loc_1BA82 seeds the fade counter at $100 = 256"
+    );
+    assert_eq!(
+        0x20_u16, 32,
+        "ASM loc_1BA90 decrements the fade counter by $20 = 32 per frame"
+    );
+    // 256 / 32 = 8 full decrements before hitting zero, then one more
+    // subtraction produces $FFE0 which triggers bmi.s (negative = exit).
+    // So the fade runs exactly 9 frame iterations.
+    assert_eq!(
+        INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, 9,
+        "ASM loc_1BA90 fade loop runs 9 iterations (8 to reach zero, 1 to go negative)"
+    );
+}
