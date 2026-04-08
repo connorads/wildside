@@ -1314,6 +1314,9 @@ fn level_entry_title_random_y(rng: &mut RomRandomState) -> i32 {
 }
 
 fn level_entry_title_random_x(rng: &mut RomRandomState) -> i32 {
+    // ASM loc_1ACCC (kid.asm:28928-28933) is the shared selector-1/3 tail:
+    // fetch a random word, keep the low byte, bias by `#$3E`, then clear the
+    // low two bits so both vertical-entry branches land on 4px X increments.
     (i32::from(rng.next_word() & 0x00FF) + 0x3E) & !3
 }
 
@@ -4037,6 +4040,22 @@ mod tests {
             y, 0xFFE0_0000,
             "ASM loc_1ACC8 should set `d6=$FFE0` for selector 1 before the shared loc_1ACCC random-X logic runs",
         );
+    }
+
+    #[test]
+    fn level_entry_title_random_x_loc_1accc_is_shared_by_top_and_bottom_entries() {
+        let mut top_rng = RomRandomState::default();
+        let mut bottom_rng = RomRandomState::default();
+
+        let (top_x, top_y) = level_entry_title_start_pose(&mut top_rng, 1);
+        let (bottom_x, bottom_y) = level_entry_title_start_pose(&mut bottom_rng, 3);
+
+        assert_eq!(
+            top_x, bottom_x,
+            "ASM loc_1ACCC should feed the same low-byte-plus-#$3E snapped X generator to selectors 1 and 3",
+        );
+        assert_eq!(top_y, 0xFFE0_0000);
+        assert_eq!(bottom_y, 0x0100_0000);
     }
 
     #[test]
