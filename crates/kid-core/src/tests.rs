@@ -20620,6 +20620,32 @@ fn loc_14966_expands_the_peak_row_target_by_two_when_the_top_cap_wraps() {
 }
 
 #[test]
+fn loc_14afc_applies_the_tall_rise_fireball_drop_before_the_shared_overlap_checks() {
+    assert_eq!(
+        crate::weather::lava_fireball_vertical_window_loc_14AFC(
+            0x0200,
+            crate::weather::LavaFireballSpriteKind::TallRise,
+        ),
+        crate::weather::LavaFireballVerticalWindowLoc14AFC {
+            top_px: 0x01E9,
+            bottom_px: 0x01F8,
+        },
+        "ASM loc_14AFC should turn the tall-rise bucket into the vertical window `[baseline_y-23, baseline_y-8]` after the extra `subq.w #7,d7` adjustment"
+    );
+    assert_eq!(
+        crate::weather::lava_fireball_vertical_window_loc_14AFC(
+            0x0200,
+            crate::weather::LavaFireballSpriteKind::MidBody,
+        ),
+        crate::weather::LavaFireballVerticalWindowLoc14AFC {
+            top_px: 0x01F9,
+            bottom_px: 0x01FF,
+        },
+        "ASM loc_14AFC should leave the later sprite buckets on their own neighbouring branches, so a mid-body segment keeps the shared `baseline_y-1` bottom row"
+    );
+}
+
+#[test]
 fn loc_1496c_counts_down_the_hold_timer_and_only_switches_to_collapse_at_zero() {
     assert_eq!(
         crate::weather::lava_geyser_peak_hold_step_loc_1496C(0x000A, 0x001E),

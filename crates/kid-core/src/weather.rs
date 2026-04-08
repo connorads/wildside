@@ -650,7 +650,7 @@ struct LavaFireballSegment {
 }
 
 #[derive(Clone, Copy)]
-enum LavaFireballSpriteKind {
+pub(crate) enum LavaFireballSpriteKind {
     TallRise,
     MidRise,
     MidBody,
@@ -777,6 +777,35 @@ fn lava_geyser_hits_kid_sub_14A58(geyser: &LavaGeyser, slice: &OpeningSliceState
         && kid_bottom >= hitbox_window.top_px
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaFireballVerticalWindowLoc14AFC {
+    pub(crate) top_px: i32,
+    pub(crate) bottom_px: i32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_fireball_vertical_window_loc_14AFC(
+    baseline_y_px: u16,
+    sprite_kind: LavaFireballSpriteKind,
+) -> LavaFireballVerticalWindowLoc14AFC {
+    let baseline_y = i32::from(baseline_y_px);
+    // ASM sub_14AB0 -> loc_14AFC (kid.asm:28165-28177): the `a2 < unk_1466E`
+    // bucket subtracts 7 more from `d7` after the shared `subq.w #1,d7`,
+    // yielding the tall-rise bottom row at `baseline_y - 8`. The remaining
+    // buckets follow the neighbouring branches at `loc_14B00` / `loc_14B04`
+    // or fall through unchanged.
+    let (top_px, bottom_px) = match sprite_kind {
+        LavaFireballSpriteKind::TallRise => (baseline_y - 23, baseline_y - 8),
+        LavaFireballSpriteKind::MidRise => (baseline_y - 18, baseline_y - 1),
+        LavaFireballSpriteKind::MidBody => (baseline_y - 7, baseline_y - 1),
+        LavaFireballSpriteKind::MidFall => (baseline_y - 12, baseline_y - 1),
+        LavaFireballSpriteKind::TallFall => (baseline_y - 23, baseline_y + 6),
+    };
+    LavaFireballVerticalWindowLoc14AFC { top_px, bottom_px }
+}
+
 #[allow(non_snake_case)]
 fn lava_fireball_hits_kid_sub_14AB0(
     fireball: &LavaFireball,
@@ -786,22 +815,13 @@ fn lava_fireball_hits_kid_sub_14AB0(
     let (kid_left, kid_right, kid_top, kid_bottom) = kid_hitbox_bounds_px(slice);
     let fireball_left = i32::from(fireball.x_px) + 1;
     let fireball_right = fireball_left + 6;
-    let baseline_y = i32::from(fireball.current_y_px);
-    // ASM sub_14AB0 uses d1 as the segment baseline and `$54(a5)` as the top
-    // sprite row written by sub_14BD8. The table-specific adjustments below
-    // mirror the five sprite-layout buckets (`unk_14664` .. `unk_14696`).
-    let (fireball_top, fireball_bottom) = match sprite_kind {
-        LavaFireballSpriteKind::TallRise => (baseline_y - 23, baseline_y - 8),
-        LavaFireballSpriteKind::MidRise => (baseline_y - 18, baseline_y - 1),
-        LavaFireballSpriteKind::MidBody => (baseline_y - 7, baseline_y - 1),
-        LavaFireballSpriteKind::MidFall => (baseline_y - 12, baseline_y - 1),
-        LavaFireballSpriteKind::TallFall => (baseline_y - 23, baseline_y + 6),
-    };
+    let vertical_window =
+        lava_fireball_vertical_window_loc_14AFC(fireball.current_y_px, sprite_kind);
 
     kid_right >= fireball_left
         && kid_left <= fireball_right
-        && kid_top <= fireball_bottom
-        && kid_bottom >= fireball_top
+        && kid_top <= vertical_window.bottom_px
+        && kid_bottom >= vertical_window.top_px
 }
 
 #[allow(non_snake_case)]
