@@ -20715,6 +20715,20 @@ fn loc_148ce_switches_top_sprite_scripts_once_the_row_animation_flag_is_non_zero
 }
 
 #[test]
+fn loc_148d4_unbiases_the_top_sprite_row_y_before_storing_world_y() {
+    assert_eq!(
+        crate::weather::lava_geyser_store_top_sprite_y_loc_148D4(0x0080, 0x0123),
+        0x0123,
+        "ASM loc_148D4 should treat the `sub_14BD8` return value `$80` as zero screen offset before adding `Camera_Y_pos` into `$54(a5)`"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_store_top_sprite_y_loc_148D4(0x00A7, 0x0312),
+        0x0339,
+        "ASM loc_148D4 should store `d7 - $80 + Camera_Y_pos` after the top-cap build"
+    );
+}
+
+#[test]
 fn loc_14804_hibernates_once_per_additional_sprite_row_after_the_first() {
     assert_eq!(
         crate::weather::lava_geyser_inter_row_hibernations_loc_14804(0),

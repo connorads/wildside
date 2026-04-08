@@ -1059,6 +1059,21 @@ pub(crate) fn lava_geyser_top_sprite_script_loc_148CE(sprite_frame_within_row: u
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_store_top_sprite_y_loc_148D4(
+    sprite_screen_y_with_bias: u16,
+    camera_y_px: u16,
+) -> u16 {
+    // ASM loc_148D4 (kid.asm:27962): after `sub_14BD8` emits the selected
+    // top-cap script, `d7` holds the built screen Y with the usual `$80` bias.
+    // The worker un-biases it and stores world Y in `$54(a5)` via
+    // `d7 - $80 + Camera_Y_pos`.
+    sprite_screen_y_with_bias
+        .wrapping_sub(0x80)
+        .wrapping_add(camera_y_px)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one: u16) -> u16 {
     // ASM loc_14804 (kid.asm:27876): the `dbf d2,loc_14804` back-edge runs only
     // between sprite rows. With `d2` seeded from the "rows minus one" script
@@ -1076,9 +1091,7 @@ pub(crate) fn lava_geyser_sprite_top_y_loc_1480C(
     // ASM loc_1480C (kid.asm:27880): after `sub_14BD8` builds the current row,
     // the worker un-biases the returned screen Y by `$80`, adds `Camera_Y_pos`,
     // and stores the result in `$54(a5)` for the following collision checks.
-    sprite_screen_y_with_bias
-        .wrapping_sub(0x80)
-        .wrapping_add(camera_y_px)
+    lava_geyser_store_top_sprite_y_loc_148D4(sprite_screen_y_with_bias, camera_y_px)
 }
 
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
