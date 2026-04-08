@@ -926,6 +926,29 @@ pub(crate) fn intro_sequence_6_longword_fill_loc_1B170() -> IntroSequence6Longwo
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence6WordFillLoc1B182 {
+    pub(crate) vram_word_addr: u16,
+    pub(crate) fill_word: u16,
+    pub(crate) word_write_count: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_sequence_6_tilemap_clear_loc_1B182() -> IntroSequence6WordFillLoc1B182 {
+    // ASM Load_IntroSequence6 -> loc_1B182 (kid.asm:29377-29379): after
+    // `move.l #vdpComm($0000,VRAM,WRITE),4(a6)` and `move.w #$7FF,d0`, the
+    // loop writes `#$20BC` to the VDP data port once per pass before the
+    // inclusive `dbf d0,loc_1B182` test. That fills 2048 words from VRAM word
+    // address `$0000`.
+    IntroSequence6WordFillLoc1B182 {
+        vram_word_addr: 0x0000,
+        fill_word: 0x20BC,
+        word_write_count: 0x07FF + 1,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(

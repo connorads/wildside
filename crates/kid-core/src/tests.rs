@@ -13,12 +13,13 @@ use crate::blocks::{
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IntroSequence6LongwordFillLoc1B170,
-    IoPortFlagsSub6E24, PauseMenuSpriteEntrySub6874, copy_sega_screen_palette_loc_12DFE,
-    end_sequence_burst_sprite_init_sub_1D86C, end_sequence_camera_shake_sub_1D846,
-    end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
-    flag_hud_dma_upload_sub_5DA6, hide_pause_menu_overwritten_sprites_sub_6874,
-    hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    intro_sequence_6_longword_fill_loc_1B170, prize_10000_points_star_advance_loc_10BCE,
+    IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24, PauseMenuSpriteEntrySub6874,
+    copy_sega_screen_palette_loc_12DFE, end_sequence_burst_sprite_init_sub_1D86C,
+    end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
+    end_sequence_falling_sprite_init_sub_1D8B4, flag_hud_dma_upload_sub_5DA6,
+    hide_pause_menu_overwritten_sprites_sub_6874, hud_timer_sprite_layout_sub_BD0A,
+    init_hud_animation_frames_sub_44B0, intro_sequence_6_longword_fill_loc_1B170,
+    intro_sequence_6_tilemap_clear_loc_1B182, prize_10000_points_star_advance_loc_10BCE,
     prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
     prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
     prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
@@ -229,6 +230,19 @@ fn loc_1b170_fills_eight_longwords_of_intro_sequence_6_vram_with_0x11111111() {
             longword_write_count: 8,
         },
         "ASM loc_1B170 should stream `d1=$11111111` into `vdpComm($1780,VRAM,WRITE)` exactly `d0+1` times with `d0=#7`"
+    );
+}
+
+#[test]
+fn loc_1b182_clears_the_intro_sequence_6_tilemap_with_2048_bc_words() {
+    assert_eq!(
+        intro_sequence_6_tilemap_clear_loc_1B182(),
+        IntroSequence6WordFillLoc1B182 {
+            vram_word_addr: 0x0000,
+            fill_word: 0x20BC,
+            word_write_count: 2048,
+        },
+        "ASM loc_1B182 should write `#$20BC` to `vdpComm($0000,VRAM,WRITE)` exactly `d0+1` times with `d0=#$7FF`"
     );
 }
 
