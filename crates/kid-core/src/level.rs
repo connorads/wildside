@@ -5314,6 +5314,29 @@ pub(crate) fn hitpoint_display_art_dma_loop_loc_12C34() -> JuggernautSkullArtDma
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TitleCardVramWordFillLoop {
+    pub(crate) vram_word_addr: u16,
+    pub(crate) fill_word: u16,
+    pub(crate) word_write_count: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_title_card_clear_vram_loc_19ABE() -> TitleCardVramWordFillLoop {
+    // ASM loc_19ABE (kid.asm:28595-28598): after `move.l
+    // #vdpComm($1400,VRAM,WRITE),4(a6)` and `move.w #$DF,d1`, the loop writes
+    // `d0` to the VDP data port twice per pass before the inclusive
+    // `dbf d1,loc_19ABE` test. With `d0=0`, this clears 448 words starting at
+    // VRAM word address `$1400`.
+    TitleCardVramWordFillLoop {
+        vram_word_addr: 0x1400,
+        fill_word: 0,
+        word_write_count: (0x00DFu16 + 1) * 2,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(

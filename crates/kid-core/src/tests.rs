@@ -43360,6 +43360,24 @@ fn loc_12b9c_loads_flag_bottom_art_into_vram_d2c0() {
 }
 
 #[test]
+fn loc_19abe_clears_448_words_of_title_card_vram_from_1400() {
+    let result = crate::level::load_title_card_clear_vram_loc_19ABE();
+
+    assert_eq!(
+        result.vram_word_addr, 0x1400,
+        "ASM loc_19ABE should keep the VDP write target at VRAM word address $1400"
+    );
+    assert_eq!(
+        result.fill_word, 0,
+        "ASM loc_19ABE clears VRAM because `move.w #0,d0` followed by `neg.w d0` leaves `d0` at zero"
+    );
+    assert_eq!(
+        result.word_write_count, 448,
+        "ASM loc_19ABE seeds `d1=#$DF` and performs two `move.w d0,(a6)` writes before the inclusive `dbf d1,loc_19ABE` test"
+    );
+}
+
+#[test]
 fn loc_12b8_tiles_normal_orientation_sprites_in_32px_rows_then_8px_remainders() {
     let chunks = crate::NativeRuntime::sprite_normal_orientation_chunks_loc_12B8(10, 20, 40, 56);
 
