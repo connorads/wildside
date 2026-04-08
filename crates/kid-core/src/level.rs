@@ -99,6 +99,12 @@ pub(crate) struct DecompressBp0ReturnStatus {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressSpecialPaletteRowStartLoc14348 {
+    pub(crate) row_index: u16,
+    pub(crate) column_index: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DecompressDirectCopyLoc137AE {
     pub(crate) copied_byte: u8,
 }
@@ -923,6 +929,22 @@ pub(crate) fn decompress_to_vram_buffer_rollover_loc_1432C(
         .take(usize::from(dbf_counter) + 1)
         .collect()
 }
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_special_palette_row_start_loc_14348(
+    row_index: u16,
+) -> DecompressSpecialPaletteRowStartLoc14348 {
+    // ASM loc_14348 (kid.asm:27199) is the outer nibble-permutation loop's
+    // row prologue: `d3` already holds the current high-nibble selector and
+    // `moveq #0,d4` resets the low-nibble column index before `loc_1434A`
+    // emits the next 16 packed bytes.
+    DecompressSpecialPaletteRowStartLoc14348 {
+        row_index,
+        column_index: 0,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(

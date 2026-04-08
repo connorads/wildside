@@ -42632,6 +42632,26 @@ fn loc_1432c_rolls_the_upper_half_of_the_decompression_buffer_down_inclusive_of_
 }
 
 #[test]
+fn loc_14348_resets_the_low_nibble_column_index_for_each_outer_palette_row() {
+    assert_eq!(
+        crate::level::decompress_special_palette_row_start_loc_14348(0),
+        crate::level::DecompressSpecialPaletteRowStartLoc14348 {
+            row_index: 0,
+            column_index: 0,
+        },
+        "ASM loc_14348 should preserve the current `d3` row selector while resetting `d4` to zero before `loc_1434A` starts emitting the first packed byte"
+    );
+    assert_eq!(
+        crate::level::decompress_special_palette_row_start_loc_14348(9),
+        crate::level::DecompressSpecialPaletteRowStartLoc14348 {
+            row_index: 9,
+            column_index: 0,
+        },
+        "ASM loc_14348 should reset the low-nibble column index on every outer-loop iteration, not only on the first row"
+    );
+}
+
+#[test]
 fn loc_13504_masks_the_dbf_count_selects_the_jump_table_arm_and_refills_only_below_nine_bits() {
     assert_eq!(
         block_layout_dispatch_loc_13504(0x0065, 6, 0x0010),
