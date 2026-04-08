@@ -176,6 +176,12 @@ pub(crate) struct DecompressLongRefTailLoc1377E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DecompressLongRefTailLoc1387A {
+    pub(crate) copied_bytes: [u8; 4],
+    pub(crate) finished: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DecompressShortRefTailLoc137C4 {
     pub(crate) copied_bytes: [u8; 2],
     pub(crate) finished: bool,
@@ -1545,6 +1551,23 @@ pub(crate) fn decompress_long_ref_tail_loc_13878(
     // the `loc_1387C` fallthrough before `cmp.w a2,d7` branches to `loc_138A0`
     // or resumes the shared decode loop at `loc_137B0`.
     DecompressLongRefTailLoc1377E {
+        copied_bytes,
+        finished: output_addr_after_tail >= output_limit_addr,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_long_ref_tail_loc_1387A(
+    copied_bytes: [u8; 4],
+    output_addr_after_tail: u16,
+    output_limit_addr: u16,
+) -> DecompressLongRefTailLoc1387A {
+    // ASM loc_1387A (kid.asm:26479-26486) enters the later fixed tail one byte
+    // later than `loc_13878`: it copies one byte at `loc_1387A`, then three
+    // more through the `loc_1387C` fallthrough before `cmp.w a2,d7` branches
+    // to `loc_138A0` or resumes the shared decode loop at `loc_137B0`.
+    DecompressLongRefTailLoc1387A {
         copied_bytes,
         finished: output_addr_after_tail >= output_limit_addr,
     }
