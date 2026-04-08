@@ -19752,6 +19752,27 @@ fn loc_14cec_selects_the_hail_palette_only_for_ice_backgrounds() {
 }
 
 #[test]
+fn loc_14cf2_copies_four_longwords_into_palette_buffer_plus_20_only() {
+    let source_palette = [
+        0x1001, 0x1002, 0x1003, 0x1004, 0x1005, 0x1006, 0x1007, 0x1008,
+    ];
+    let mut palette_buffer = [0xDEAD; 0x40];
+
+    crate::weather::copy_storm_palette_loc_14CF2(&source_palette, &mut palette_buffer);
+
+    assert_eq!(
+        &palette_buffer[0x10..0x18],
+        &source_palette,
+        "ASM loc_14CF2 should copy the selected rain or hail palette into `Palette_Buffer+$20` as four longwords, i.e. exactly eight words"
+    );
+    assert!(
+        palette_buffer[..0x10].iter().all(|&word| word == 0xDEAD)
+            && palette_buffer[0x18..].iter().all(|&word| word == 0xDEAD),
+        "ASM loc_14CF2 should leave every palette entry outside `$20..$2E` untouched because all four `move.l` stores target the single `lea (Palette_Buffer+$20).l,a1` span"
+    );
+}
+
+#[test]
 fn sub_6048_before_20_seconds_only_sets_weather_mode_byte() {
     let stepped = step_level_special_effects_sub_6048(
         WeatherSpecialEffectsStepSub6048 {

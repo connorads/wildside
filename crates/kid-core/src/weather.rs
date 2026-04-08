@@ -223,6 +223,18 @@ pub(crate) fn select_storm_palette_loc_14CEC(
     }
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn copy_storm_palette_loc_14CF2(
+    source_palette: &[u16; 8],
+    palette_buffer: &mut [u16; 0x40],
+) {
+    // ASM loc_14CF2 (kid.asm:28360-28363): after choosing the rain or hail
+    // palette pointer, `lea (Palette_Buffer+$20).l,a1` and four `move.l`
+    // instructions copy exactly eight words into palette entries $10..$17.
+    palette_buffer[0x10..0x18].copy_from_slice(source_palette);
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
