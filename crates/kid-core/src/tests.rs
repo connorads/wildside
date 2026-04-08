@@ -103,8 +103,8 @@ use crate::weather::{
     MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02, WeatherCollisionRowsSub61CA,
     WeatherImpactSlotSub61CA, WeatherPaletteOpSub6048, WeatherSpecialEffectsStepSub6048,
     WeatherSpriteSub61CA, WeatherWorkerInputSub61CA, compile_murder_wall_warning_sprites_sub_5E02,
-    dispatch_level_special_effects_sub_6034, step_level_special_effects_sub_6048,
-    step_weather_worker_sub_61CA,
+    copy_murder_wall_palette_loc_140EE, dispatch_level_special_effects_sub_6034,
+    step_level_special_effects_sub_6048, step_weather_worker_sub_61CA,
 };
 use kid_data::{
     AssetManifest, BgscrollProfile, EnemyLayout, LevelHeader, LevelRecord, LevelResources,
@@ -19479,6 +19479,28 @@ fn init_murder_wall_zero_camera_starts_offscreen_left() {
     assert_eq!(
         wall.x_pos, expected,
         "ASM loc_140CE should subtract `$30` from zero `Camera_X_pos` before the shared murder-wall X store"
+    );
+}
+
+#[test]
+fn loc_140ee_copies_eight_murder_wall_palette_words_into_palette_buffer_offset_20() {
+    let source_palette = std::array::from_fn(|index| 0x0100 + index as u16);
+    let mut palette_buffer = [0x0EEE; 0x40];
+
+    copy_murder_wall_palette_loc_140EE(&source_palette, &mut palette_buffer);
+
+    assert!(
+        palette_buffer[..0x10].iter().all(|word| *word == 0x0EEE),
+        "ASM loc_140EE should not touch palette words before `Palette_Buffer+$20`"
+    );
+    assert_eq!(
+        &palette_buffer[0x10..0x18],
+        &source_palette,
+        "ASM loc_140EE should copy exactly eight palette words via the `moveq #7` / `dbf` loop"
+    );
+    assert!(
+        palette_buffer[0x18..].iter().all(|word| *word == 0x0EEE),
+        "ASM loc_140EE should stop after the eighth copied word"
     );
 }
 

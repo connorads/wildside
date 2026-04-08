@@ -3,6 +3,18 @@ use super::*;
 #[allow(dead_code)]
 const MURDER_WALL_PATTERN_SUB_5E02: [u16; 4] = [0xA2FB, 0xA31F, 0xA343, 0xA367];
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn copy_murder_wall_palette_loc_140EE(
+    source_palette: &[u16; 8],
+    palette_buffer: &mut [u16; 0x40],
+) {
+    // ASM loc_140EE (kid.asm:26915): `moveq #7,d0` then `move.w (a0)+,(a1)+`
+    // copies exactly eight palette words from `Pal_1408A` into
+    // `Palette_Buffer+$20`, leaving every other palette slot untouched.
+    palette_buffer[0x10..0x18].copy_from_slice(source_palette);
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct MurderWallWarningInputSub5E02 {
