@@ -43378,6 +43378,24 @@ fn loc_19abe_clears_448_words_of_title_card_vram_from_1400() {
 }
 
 #[test]
+fn loc_19b58_fills_2048_words_of_title_card_tilemap_space_with_0094() {
+    let result = crate::level::load_title_card_tilemap_clear_loc_19B58();
+
+    assert_eq!(
+        result.vram_word_addr, 0xE000,
+        "ASM loc_19B58 should keep the VDP write target at VRAM word address $E000"
+    );
+    assert_eq!(
+        result.fill_word, 0x0094,
+        "ASM loc_19B58 seeds `d1=#$94` before each `move.w d1,(a6)` tilemap fill write"
+    );
+    assert_eq!(
+        result.word_write_count, 2048,
+        "ASM loc_19B58 seeds `d0=#$7FF`, so the inclusive `dbf d0,loc_19B58` loop writes 2048 words"
+    );
+}
+
+#[test]
 fn loc_12b8_tiles_normal_orientation_sprites_in_32px_rows_then_8px_remainders() {
     let chunks = crate::NativeRuntime::sprite_normal_orientation_chunks_loc_12B8(10, 20, 40, 56);
 

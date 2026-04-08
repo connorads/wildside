@@ -5339,6 +5339,21 @@ pub(crate) fn load_title_card_clear_vram_loc_19ABE() -> TitleCardVramWordFillLoo
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_title_card_tilemap_clear_loc_19B58() -> TitleCardVramWordFillLoop {
+    // ASM loc_19B58 (kid.asm:28636-28637): after `move.l
+    // #vdpComm($E000,VRAM,WRITE),4(a6)`, `move.w #$7FF,d0`, and
+    // `move.w #$94,d1`, the loop writes `d1` to the VDP data port once per
+    // pass before the inclusive `dbf d0,loc_19B58` test. That fills 2048
+    // words at VRAM word address `$E000` with tile word `$0094`.
+    TitleCardVramWordFillLoop {
+        vram_word_addr: 0xE000,
+        fill_word: 0x0094,
+        word_write_count: 0x07FF + 1,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,
