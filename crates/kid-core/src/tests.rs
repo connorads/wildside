@@ -20740,6 +20740,33 @@ fn loc_1498c_restarts_the_geyser_once_the_last_collapse_row_clears() {
 }
 
 #[test]
+fn loc_14b2a_hibernates_five_frames_then_rotates_the_geyser_palette_ring() {
+    let mut palette_buffer = [0u16; 0x40];
+    palette_buffer[0x14] = 0x1111;
+    palette_buffer[0x15] = 0x2222;
+    palette_buffer[0x16] = 0x3333;
+    palette_buffer[0x17] = 0x4444;
+
+    let step = crate::weather::rotate_lava_geyser_palette_loc_14B2A(&mut palette_buffer);
+
+    assert_eq!(
+        step,
+        crate::weather::LavaGeyserPaletteLoopLoc14B2A {
+            hibernation_frames: 5,
+            reloaded_delay_counter: 5,
+        },
+        "ASM loc_14B2A should spend five one-frame hibernations in the `d0` countdown before reloading the loop counter to `#5`"
+    );
+    assert_eq!(
+        palette_buffer[0x14], 0x4444,
+        "ASM loc_14B2A should wrap `Palette_Buffer+$2E` back into `Palette_Buffer+$28`"
+    );
+    assert_eq!(palette_buffer[0x15], 0x1111);
+    assert_eq!(palette_buffer[0x16], 0x2222);
+    assert_eq!(palette_buffer[0x17], 0x3333);
+}
+
+#[test]
 fn loc_1478e_only_plays_the_repeat_lava_geyser_sound_when_the_flag_is_clear() {
     assert_eq!(
         crate::weather::lava_geyser_repeat_sound_loc_1478E(false),

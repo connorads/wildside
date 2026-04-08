@@ -885,6 +885,38 @@ pub(crate) fn lava_geyser_initial_delay_frames_loc_14772(encoded_height_word: u1
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserPaletteLoopLoc14B2A {
+    pub(crate) hibernation_frames: u16,
+    pub(crate) reloaded_delay_counter: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn rotate_lava_geyser_palette_loc_14B2A(
+    palette_buffer: &mut [u16; 0x40],
+) -> LavaGeyserPaletteLoopLoc14B2A {
+    const LAVA_GEYSER_PALETTE_START_LOC_14B2A: usize = 0x14;
+
+    // ASM loc_14B2A (kid.asm:28209): the geyser animator hibernates for five
+    // frames, reloads `d0 = #5`, then rotates palette words `$28/$2A/$2C/$2E`
+    // upward so `$2E` wraps back into `$28` before looping forever.
+    let saved = palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 3];
+    palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 3] =
+        palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 2];
+    palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 2] =
+        palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 1];
+    palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 1] =
+        palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A];
+    palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A] = saved;
+
+    LavaGeyserPaletteLoopLoc14B2A {
+        hibernation_frames: 5,
+        reloaded_delay_counter: 5,
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaFireballInitStateLoc1499C {
     pub(crate) startup_delay_frames: u16,
     pub(crate) rise_height_steps: u16,
