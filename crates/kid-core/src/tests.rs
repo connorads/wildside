@@ -46161,7 +46161,7 @@ fn loc_1a00_skips_kid_and_snaps_other_gfx_objects_against_the_left_wall() {
 #[test]
 fn loc_1a12_redirects_floor_contacts_into_chkupslope_only_for_4000_tiles() {
     use crate::movement::GfxObjectsCollisionSolidFloorAboveTileLoc1A12::{
-        ContinueLoc1A30, RedirectToUpSlope,
+        ContinueLoc1A44, RedirectToDownSlope, RedirectToUpSlope,
     };
 
     assert_eq!(
@@ -46177,10 +46177,17 @@ fn loc_1a12_redirects_floor_contacts_into_chkupslope_only_for_4000_tiles() {
         crate::movement::gfx_objects_collision_solid_floor_above_tile_loc_1A12(
             0x5ACE, 0xA684, 0x0040
         ),
-        ContinueLoc1A30 {
-            collision_bits: 0x5000
+        RedirectToDownSlope {
+            layout_addr: 0xA644
         },
-        "ASM loc_1A12 should fall through to `loc_1A30` with masked collision bits when the tile above the floor contact is not an upslope",
+        "ASM loc_1A30 should rewind `$FFFFFB6C` by `Level_width_tiles` and branch to `GfxObjects_Collision_ChkDownSlope` when `(a3)` carries `$5000` collision bits",
+    );
+    assert_eq!(
+        crate::movement::gfx_objects_collision_solid_floor_above_tile_loc_1A12(
+            0x6ACE, 0xA684, 0x0040
+        ),
+        ContinueLoc1A44,
+        "ASM loc_1A30 should fall through to `loc_1A44` when the tile above the floor contact is neither upslope nor downslope",
     );
 }
 
