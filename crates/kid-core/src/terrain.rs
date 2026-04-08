@@ -385,6 +385,9 @@ pub(crate) fn insert_blank_top_rows_sub_140F6(
     // ASM loc_140FE seeds `a0` from the bottom populated row and `a1` from the
     // row that sits `Number_blank_top_rows` lower, so the copy starts from the
     // tail and leaves a blank strip above the original layout.
+    // ASM loc_14138 reloads the per-row cell counter, copies one full row, then
+    // steps both row bases upward and repeats until every populated row has
+    // moved down by the requested blank-top-row count.
     if width_blocks == 0 {
         return level_layout.to_vec();
     }
@@ -2999,6 +3002,34 @@ mod tests {
             &shifted[12..16],
             &[0x30, 0x05, 0x30, 0x06],
             "ASM loc_140FE should start the downward copy from the bottom populated row instead of reordering the tail"
+        );
+    }
+
+    #[test]
+    fn loc_14138_repeats_the_row_copy_without_disturbing_source_order() {
+        let shifted = insert_blank_top_rows_sub_140F6(
+            &[
+                0x11, 0x01, 0x11, 0x02, // row 0
+                0x22, 0x03, 0x22, 0x04, // row 1
+                0x33, 0x05, 0x33, 0x06, // row 2
+            ],
+            2,
+            2,
+        );
+
+        assert_eq!(
+            &shifted[..8],
+            &[0x00; 8],
+            "ASM loc_14138 should preserve the inserted blank rows while the outer DBF loop copies the populated rows below them"
+        );
+        assert_eq!(
+            &shifted[8..],
+            &[
+                0x11, 0x01, 0x11, 0x02, // row 0
+                0x22, 0x03, 0x22, 0x04, // row 1
+                0x33, 0x05, 0x33, 0x06, // row 2
+            ],
+            "ASM loc_14138 should repeat the row copy for each source row without scrambling their original order"
         );
     }
 }
