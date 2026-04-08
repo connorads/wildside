@@ -123,6 +123,21 @@ pub(crate) fn intro_sequence_3_descriptor_loc_1AEBA(
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn intro_sequence_3_allocation_spec_loc_1AEE2(
+    descriptor: IntroSequence3Descriptor,
+) -> u32 {
+    // ASM loc_1AEBA / loc_1AEE2 (kid.asm:29106-29115): `btst #0,5(a0)` checks
+    // bit 0 of the descriptor flag byte and switches the raw
+    // `Allocate_GfxObjectSlot_a1` spec between `$01FF0000` and `$02010000`.
+    if descriptor.raw_flags & 1 == 0 {
+        0x01FF_0000
+    } else {
+        0x0201_0000
+    }
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsGlyphInitSub1D786 {

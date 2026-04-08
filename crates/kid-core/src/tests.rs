@@ -30000,6 +30000,25 @@ fn loc_1aeba_reads_intro_sequence_3_descriptors_from_the_rotating_roster_and_sto
 }
 
 #[test]
+fn loc_1aee2_switches_intro_sequence_3_allocation_specs_from_descriptor_bit_0() {
+    let low_spec_descriptor = crate::movement::intro_sequence_3_descriptor_loc_1AEBA(0, 7)
+        .expect("first roster slot 7 should point at descriptor 10");
+    let high_spec_descriptor = crate::movement::intro_sequence_3_descriptor_loc_1AEBA(1, 2)
+        .expect("second roster slot 2 should point at descriptor 6");
+
+    assert_eq!(
+        crate::movement::intro_sequence_3_allocation_spec_loc_1AEE2(low_spec_descriptor),
+        0x01FF_0000,
+        "ASM loc_1AEE2 should stay on the earlier `$01FF0000` allocation when `btst #0,5(a0)` sees bit 0 clear in descriptor word `$1235`",
+    );
+    assert_eq!(
+        crate::movement::intro_sequence_3_allocation_spec_loc_1AEE2(high_spec_descriptor),
+        0x0201_0000,
+        "ASM loc_1AEE2 should branch to the `$02010000` allocator when descriptor word `$1219` leaves bit 0 set in byte `5(a0)`",
+    );
+}
+
+#[test]
 fn published_tas_only_presses_start_on_the_first_timeout_restart_intro_sequence_3_visit() {
     let (_, script) = cached_any_percent_published_runtime_and_script();
     let first_visit_start_frames = (6_204..=6_211)
