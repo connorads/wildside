@@ -42816,6 +42816,18 @@ fn loc_13778_copies_dbf_counter_plus_one_prefix_bytes_before_the_fixed_tail() {
 }
 
 #[test]
+fn loc_13790_quits_decompression_without_reseeding_the_copy_mode() {
+    assert_eq!(
+        crate::level::decompress_long_ref_quit_loc_13790(),
+        crate::level::DecompressBp0ReturnStatus {
+            status_word: 0,
+            next_copy_mode: None,
+        },
+        "ASM loc_13790 should return with `d0=0` and leave `d2` untouched when `BYTE2=0` requests the quit-decompression path"
+    );
+}
+
+#[test]
 fn loc_1377e_copies_the_fixed_five_byte_tail_and_finishes_at_or_beyond_d7() {
     assert_eq!(
         crate::level::decompress_long_ref_tail_loc_1377E(
