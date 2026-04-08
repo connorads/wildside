@@ -1463,6 +1463,24 @@ pub(crate) fn decompress_short_ref_finished_loc_13842(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn decompress_short_ref_finished_loc_1393C(
+    copied_bytes: [u8; 2],
+    output_addr_after_tail: u16,
+    output_limit_addr: u16,
+) -> DecompressShortRefTailLoc137C4 {
+    // ASM loc_1393C (kid.asm:26620-26625) is the later two-byte
+    // short-reference tail after the optional extra byte from `loc_13928`:
+    // it copies exactly two more bytes from `(a6)+` into `(a2)+`, then uses
+    // `cmp.w a2,d7` / `bls.s loc_13994` to decide whether the decode has
+    // finished.
+    DecompressShortRefTailLoc137C4 {
+        copied_bytes,
+        finished: output_addr_after_tail >= output_limit_addr,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_long_ref_header_loc_1384E(
     bit_buffer: u8,
     control_byte: u8,
