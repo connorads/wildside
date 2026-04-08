@@ -153,20 +153,23 @@ pub(crate) struct IntroSequence3GfxObjectLoc1AEEC {
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn intro_sequence_3_x_direction_loc_1AF12(raw_flags: u16) -> u8 {
+    // ASM loc_1AF12 (kid.asm:29137): `bclr #1,d0` clears descriptor bit 1 and
+    // `sne $16(a1)` stores `$FF` only when that bit was previously set.
+    if raw_flags & 0b10 == 0 { 0 } else { u8::MAX }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn intro_sequence_3_gfx_object_loc_1AEEC(
     descriptor: IntroSequence3Descriptor,
 ) -> IntroSequence3GfxObjectLoc1AEEC {
     // ASM loc_1AEEC (kid.asm:29117): copy the descriptor X/Y words into
     // `$1A(a1)`/`$1E(a1)`, set display flag `$13(a1)`, palette line 1, and
     // VRAM tile `$01D6`, then clear bits 0-1 out of the descriptor flag word
-    // while routing bit 0 into priority `$10(a1)` and bit 1 into
-    // `x_direction(a1)` via `sne`.
+    // while routing bit 0 into priority `$10(a1)`. ASM loc_1AF12 then clears
+    // bit 1 and routes the old carry into `x_direction(a1)` via `sne`.
     let priority = if descriptor.raw_flags & 1 == 0 { 0 } else { 1 };
-    let x_direction = if descriptor.raw_flags & 2 == 0 {
-        0
-    } else {
-        u8::MAX
-    };
     IntroSequence3GfxObjectLoc1AEEC {
         x_pos: descriptor.x_pos,
         y_pos: descriptor.y_pos,
@@ -174,7 +177,7 @@ pub(crate) fn intro_sequence_3_gfx_object_loc_1AEEC(
         palette_line: 1,
         vram_tile: 0x01D6,
         priority,
-        x_direction,
+        x_direction: intro_sequence_3_x_direction_loc_1AF12(descriptor.raw_flags),
         addroffset_sprite: descriptor.raw_flags & !0b11,
     }
 }

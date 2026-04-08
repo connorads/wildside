@@ -30037,15 +30037,17 @@ fn loc_1aeec_copies_intro_sequence_3_descriptor_fields_into_the_gfx_object_tail(
         },
         "ASM loc_1AEEC should copy `$70,$CC`, set `$13(a1)`, palette line 1, VRAM tile `$01D6`, keep priority high from bit 0, and store descriptor word `$1219` back to `$22(a1)` with bits 0-1 cleared",
     );
+}
+
+#[test]
+fn loc_1af12_sets_x_direction_only_when_descriptor_bit_1_is_set() {
     assert_eq!(
-        crate::movement::intro_sequence_3_gfx_object_loc_1AEEC(
-            crate::movement::IntroSequence3Descriptor {
-                x_pos: 0,
-                y_pos: 0,
-                raw_flags: 0x1202,
-            },
-        )
-        .x_direction,
+        crate::movement::intro_sequence_3_x_direction_loc_1AF12(0x1200),
+        0,
+        "ASM loc_1AF12 should make `sne $16(a1)` leave `x_direction(a1)=0` when `bclr #1,d0` sees descriptor bit 1 clear",
+    );
+    assert_eq!(
+        crate::movement::intro_sequence_3_x_direction_loc_1AF12(0x1202),
         u8::MAX,
         "ASM loc_1AF12 should make `sne $16(a1)` write `$FF` when descriptor bit 1 survives into the `bclr #1,d0` test",
     );
