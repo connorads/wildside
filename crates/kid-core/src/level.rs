@@ -14,6 +14,12 @@ pub(crate) struct FgPlaneCustomWriteSub1596 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FgUpdateQueueCullAdvanceLoc167A {
+    pub(crate) skipped_words: usize,
+    pub(crate) next_x_word: Option<u16>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockCopySetupLoc11C96 {
     pub(crate) dbf_counter: u16,
     pub(crate) copied_list_addr: u32,
@@ -7000,6 +7006,22 @@ pub(crate) fn fg_update_queue_cell_mapping_longwords_loc_165E(
         block_mappings[mapping_index]
     } else {
         theme_mappings[mapping_index]
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fg_update_queue_culled_entry_advance_loc_167A(
+    queue_tail_words_from_cell: &[u16],
+) -> FgUpdateQueueCullAdvanceLoc167A {
+    // ASM loc_167A (kid.asm:2786): once a queued cell falls outside the
+    // inclusive camera tile window from loc_1614, `a0` already points at the
+    // cell word. `addq.w #2,a0` skips exactly that one word, and
+    // `move.w (a0)+,d0` reloads the next entry's X word for the `bpl.s
+    // loc_1614` loop test.
+    FgUpdateQueueCullAdvanceLoc167A {
+        skipped_words: queue_tail_words_from_cell.len().min(1),
+        next_x_word: queue_tail_words_from_cell.get(1).copied(),
     }
 }
 
