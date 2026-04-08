@@ -183,6 +183,25 @@ pub(crate) fn select_storm_art_loc_14CCE(background_theme_is_ice: bool) -> Storm
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct StormArtUploadLoc14CD8 {
+    pub(crate) asset: StormArtAssetLoc14CCE,
+    pub(crate) vram_word: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn upload_storm_art_loc_14CD8(asset: StormArtAssetLoc14CCE) -> StormArtUploadLoc14CD8 {
+    // ASM loc_14CD8 (kid.asm:28347-28348): both the rain and hail branches
+    // converge here and always decompress the previously selected art into
+    // VRAM word offset `$7000`.
+    StormArtUploadLoc14CD8 {
+        asset,
+        vram_word: 0x7000,
+    }
+}
+
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
     CopyPaletteBufferToBuffer2,

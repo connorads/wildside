@@ -19718,6 +19718,26 @@ fn loc_14cce_selects_hail_art_only_for_ice_backgrounds() {
 }
 
 #[test]
+fn loc_14cd8_uploads_the_selected_storm_art_to_vram_7000() {
+    assert_eq!(
+        crate::weather::upload_storm_art_loc_14CD8(crate::weather::StormArtAssetLoc14CCE::Rain),
+        crate::weather::StormArtUploadLoc14CD8 {
+            asset: crate::weather::StormArtAssetLoc14CCE::Rain,
+            vram_word: 0x7000,
+        },
+        "ASM loc_14CD8 should pass the rain art pointer through to `DecompressToVRAM` with destination `$7000`",
+    );
+    assert_eq!(
+        crate::weather::upload_storm_art_loc_14CD8(crate::weather::StormArtAssetLoc14CCE::Hail),
+        crate::weather::StormArtUploadLoc14CD8 {
+            asset: crate::weather::StormArtAssetLoc14CCE::Hail,
+            vram_word: 0x7000,
+        },
+        "ASM loc_14CD8 should use the same `$7000` VRAM destination after the hail branch rewrites `a0` at loc_14CCE",
+    );
+}
+
+#[test]
 fn sub_6048_before_20_seconds_only_sets_weather_mode_byte() {
     let stepped = step_level_special_effects_sub_6048(
         WeatherSpecialEffectsStepSub6048 {
