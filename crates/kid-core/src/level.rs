@@ -6781,6 +6781,49 @@ pub(crate) fn step_fullscreen_palette_fade_sub_73D0(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn blend_palette_entry_loc_1538(
+    palette_word_2: u16,
+    palette_word_3: u16,
+    fade_curve: &[u8; 15],
+) -> u16 {
+    // ASM loc_1538 (kid.asm:2639): one DBF iteration masks both palette
+    // words with `$0EEE`, blends the low, middle, and high colour channels in
+    // sequence via the signed 15-byte fade curve at `7(a3,d?.w)`, then packs
+    // the three nibbles back into one palette word with the same rotate/OR
+    // sequence the ROM uses.
+    let mut assembled_word = 0_u16;
+    let mut src_word = palette_word_2 & 0x0EEE;
+    let mut dst_word = palette_word_3 & 0x0EEE;
+
+    for _ in 0..2 {
+        let src_channel = (src_word & 0x000F) as u8;
+        let dst_channel = (dst_word & 0x000F) as u8;
+        let half_delta = ((i16::from(dst_channel) - i16::from(src_channel)) >> 1) + 7;
+        let fade_step = fade_curve[usize::try_from(half_delta)
+            .expect("loc_1538 channel deltas should stay inside the 15-byte fade curve")];
+        let blended_channel = src_channel.wrapping_sub(fade_step);
+
+        assembled_word = assembled_word.rotate_right(4);
+        assembled_word |= u16::from(blended_channel);
+
+        src_word >>= 4;
+        dst_word >>= 4;
+    }
+
+    let src_channel = (src_word & 0x000F) as u8;
+    let dst_channel = (dst_word & 0x000F) as u8;
+    let half_delta = ((i16::from(dst_channel) - i16::from(src_channel)) >> 1) + 7;
+    let fade_step = fade_curve[usize::try_from(half_delta)
+        .expect("loc_1538 top channel deltas should stay inside the 15-byte fade curve")];
+    let blended_channel = src_channel.wrapping_sub(fade_step);
+
+    assembled_word = assembled_word.rotate_right(4);
+    assembled_word |= u16::from(blended_channel);
+    assembled_word.rotate_right(8)
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn blend_selected_palette_entries_sub_1536(
     palette_buffer_2: &[u16],
     palette_buffer_3: &[u16],
@@ -6806,35 +6849,11 @@ pub(crate) fn blend_selected_palette_entries_sub_1536(
             continue;
         }
 
-        let mut assembled_word = 0_u16;
-        let mut src_word = palette_buffer_2[index] & 0x0EEE;
-        let mut dst_word = palette_buffer_3[index] & 0x0EEE;
-
-        for _ in 0..2 {
-            let src_channel = (src_word & 0x000F) as u8;
-            let dst_channel = (dst_word & 0x000F) as u8;
-            let half_delta = ((i16::from(dst_channel) - i16::from(src_channel)) >> 1) + 7;
-            let fade_step = fade_curve[usize::try_from(half_delta)
-                .expect("sub_1536 channel deltas should stay inside the 15-byte fade curve")];
-            let blended_channel = src_channel.wrapping_sub(fade_step);
-
-            assembled_word = assembled_word.rotate_right(4);
-            assembled_word |= u16::from(blended_channel);
-
-            src_word >>= 4;
-            dst_word >>= 4;
-        }
-
-        let src_channel = (src_word & 0x000F) as u8;
-        let dst_channel = (dst_word & 0x000F) as u8;
-        let half_delta = ((i16::from(dst_channel) - i16::from(src_channel)) >> 1) + 7;
-        let fade_step = fade_curve[usize::try_from(half_delta)
-            .expect("sub_1536 top channel deltas should stay inside the 15-byte fade curve")];
-        let blended_channel = src_channel.wrapping_sub(fade_step);
-
-        assembled_word = assembled_word.rotate_right(4);
-        assembled_word |= u16::from(blended_channel);
-        palette_buffer[index] = assembled_word.rotate_right(8);
+        palette_buffer[index] = blend_palette_entry_loc_1538(
+            palette_buffer_2[index],
+            palette_buffer_3[index],
+            fade_curve,
+        );
     }
 }
 

@@ -60,13 +60,13 @@ use crate::level::{
     apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, blend_selected_palette_entries_sub_1536,
-    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
-    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
-    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
-    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
-    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
-    block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    background_row_pointers_loc_11B7A, blend_palette_entry_loc_1538,
+    blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
+    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
+    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
+    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
+    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
+    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -2262,6 +2262,18 @@ fn loc_12ed8_counts_down_each_frame_then_resets_to_3_for_the_next_fade_step() {
     assert_eq!(
         exhausted.palette_cursor, -2,
         "ASM loc_12ED8 should leave the negative exhausted `d3` cursor unchanged on the `bmi.w loc_12ED8` path"
+    );
+}
+
+#[test]
+fn loc_1538_blends_one_palette_word_by_walking_low_mid_and_high_nibbles() {
+    let mut fade_curve = [0u8; 15];
+    fade_curve[3] = 0x02;
+
+    assert_eq!(
+        blend_palette_entry_loc_1538(0x0ACE, 0x0246, &fade_curve),
+        0x08AC,
+        "ASM loc_1538 should mask both words with `$0EEE`, blend each channel through the signed fade table, and repack the result with the same rotate-right sequence as the ROM"
     );
 }
 
