@@ -481,6 +481,14 @@ pub(crate) struct PlaneClearPassSetupLoc1698 {
     pub(crate) next_source_longword: u32,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PlaneClearWordFillLoc16B6 {
+    pub(crate) target_addr: u32,
+    pub(crate) next_addr: u32,
+    pub(crate) words: Vec<u16>,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
@@ -519,6 +527,24 @@ pub(crate) fn sound_driver_write_sub_E133C() -> SoundDriverWriteSubE133C {
     // ASM sub_E133C -> loc_E1576 (kid.asm:49508, 49847): enter the shared
     // Z80 write critical section, then return without queueing any command.
     SoundDriverWriteSubE133C { queued_bytes: [] }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn plane_clear_word_fill_loc_16B6(
+    target_addr: u32,
+    source_word: u16,
+    dbf_seed: u16,
+) -> PlaneClearWordFillLoc16B6 {
+    // ASM loc_16B6 (kid.asm:2811): `move.w (a6),(a0)+` followed by `dbf d0`
+    // copies the same source word `d0+1` times and advances `a0` by two bytes
+    // per iteration.
+    let repeat_count = usize::from(dbf_seed).wrapping_add(1);
+    PlaneClearWordFillLoc16B6 {
+        target_addr,
+        next_addr: target_addr.wrapping_add((repeat_count as u32) * 2),
+        words: vec![source_word; repeat_count],
+    }
 }
 
 #[allow(non_snake_case)]

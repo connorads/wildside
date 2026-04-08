@@ -1098,6 +1098,29 @@ fn loc_1698_stops_z80_and_seeds_the_first_plane_clear_pass() {
 }
 
 #[test]
+fn loc_16b6_repeats_the_same_source_word_for_dbf_seed_plus_one_writes() {
+    let fill = plane_clear_word_fill_loc_16B6(0x00FE_0000, 0xA55A, 0x003F);
+
+    assert_eq!(
+        fill.target_addr, 0x00FE_0000,
+        "ASM loc_16B6 should start writing at the `a0=$FE0000` address seeded by loc_1698",
+    );
+    assert_eq!(
+        fill.next_addr, 0x00FE_0080,
+        "ASM loc_16B6 should advance `a0` by two bytes per iteration, so a `d0=#$3F` loop lands exactly 64 words later",
+    );
+    assert_eq!(
+        fill.words.len(),
+        0x40,
+        "ASM loc_16B6 uses `dbf d0`, so a seed of `#$3F` must emit 64 copies of the same source word",
+    );
+    assert!(
+        fill.words.iter().all(|&word| word == 0xA55A),
+        "ASM loc_16B6 should keep re-reading `(a6)` as the same source word for every iteration of the first fill loop",
+    );
+}
+
+#[test]
 fn sound_driver_write_sub_e1330_queues_ff_05_and_preserves_a0_d0() {
     let write = sound_driver_write_sub_E1330(0x7B);
 
