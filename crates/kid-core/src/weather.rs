@@ -1104,6 +1104,33 @@ pub(crate) fn lava_geyser_middle_sprite_row_window_loc_148F8(
     LavaGeyserMiddleSpriteRowResultLoc148F8::BuildSpriteRow
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserMiddleRowAdvanceResultLoc14914 {
+    pub(crate) next_sprite_row_y_px: u16,
+    pub(crate) next_middle_row_index: u16,
+    pub(crate) continue_middle_rows: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_middle_row_advance_loc_14914(
+    sprite_row_y_px: u16,
+    middle_row_index: u16,
+    middle_row_limit: u16,
+) -> LavaGeyserMiddleRowAdvanceResultLoc14914 {
+    // ASM loc_14914 (kid.asm:27988): after each middle-row visit, the geyser
+    // advances `d1` by `$10`, increments `d5`, and loops back to loc_148F8
+    // while the updated index still satisfies `d5 <= d3`.
+    let next_sprite_row_y_px = sprite_row_y_px.wrapping_add(0x10);
+    let next_middle_row_index = middle_row_index.wrapping_add(1);
+    LavaGeyserMiddleRowAdvanceResultLoc14914 {
+        next_sprite_row_y_px,
+        next_middle_row_index,
+        continue_middle_rows: next_middle_row_index <= middle_row_limit,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one: u16) -> u16 {

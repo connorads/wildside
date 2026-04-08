@@ -20748,6 +20748,28 @@ fn loc_148f8_uses_the_middle_row_camera_band_before_emitting_a_sprite_row() {
 }
 
 #[test]
+fn loc_14914_advances_to_the_next_middle_row_and_loops_while_d5_stays_within_d3() {
+    assert_eq!(
+        crate::weather::lava_geyser_middle_row_advance_loc_14914(0x0150, 0, 2),
+        crate::weather::LavaGeyserMiddleRowAdvanceResultLoc14914 {
+            next_sprite_row_y_px: 0x0160,
+            next_middle_row_index: 1,
+            continue_middle_rows: true,
+        },
+        "ASM loc_14914 should add `$10` to `d1`, increment `d5`, and branch back to loc_148F8 while the updated index still satisfies `d5 <= d3`"
+    );
+    assert_eq!(
+        crate::weather::lava_geyser_middle_row_advance_loc_14914(0x0170, 2, 2),
+        crate::weather::LavaGeyserMiddleRowAdvanceResultLoc14914 {
+            next_sprite_row_y_px: 0x0180,
+            next_middle_row_index: 3,
+            continue_middle_rows: false,
+        },
+        "ASM loc_14914 should fall through to the bottom-cap path once the incremented middle-row index exceeds `d3`"
+    );
+}
+
+#[test]
 fn loc_14804_hibernates_once_per_additional_sprite_row_after_the_first() {
     assert_eq!(
         crate::weather::lava_geyser_inter_row_hibernations_loc_14804(0),
