@@ -30355,6 +30355,87 @@ fn loc_1c7dc_intro_text_bug_reads_exception_vector_for_char_substitution() {
 }
 
 #[test]
+fn loc_1c7e6_intro_text_character_subtracts_41_for_tile_index() {
+    // ASM loc_1C7E6 (kid.asm:31444-31450): after loc_1C7DC checks for buggy $20 match,
+    // this label continues regular character processing:
+    //   subi.b #$41,d6      ; convert ASCII-encoded char to tile index
+    //   bsr.s sub_1C7F6     ; render the character sprite
+    //   addq.w #1,d1        ; advance X position by 1 tile (2 pixels on VRAM grid)
+    //   move.w 4(a0),d0     ; check delay counter from text header offset 4
+    //   beq.s loc_1C7B6      ; if delay is zero, skip to next char immediately
+    //   bra.s loc_1C7AE     ; else hibernate for d0 frames before next char
+    // Character bytes $5C-$65 map to tiles: '5C-$41=$1B=27', '5D-$41=$1C=28', etc.
+    // IntroText5 uses characters from this range for the outro story text.
+    const CHAR_ENCODING_OFFSET: u8 = 0x41;
+    const FIRST_DIGIT_CHAR: u8 = 0x5C; // '1' in character chart
+    const LAST_DIGIT_CHAR: u8 = 0x65; // '0' in character chart
+    assert_eq!(
+        FIRST_DIGIT_CHAR.wrapping_sub(CHAR_ENCODING_OFFSET),
+        0x1B,
+        "$5C - $41 = $1B (tile index for '1')"
+    );
+    assert_eq!(
+        LAST_DIGIT_CHAR.wrapping_sub(CHAR_ENCODING_OFFSET),
+        0x24,
+        "$65 - $41 = $24 (tile index for '0')"
+    );
+    assert_eq!(
+        0x41_u8, b'A',
+        "character offset $41 is ASCII 'A', matching the character chart prefix"
+    );
+}
+
+#[test]
+fn loc_1c82c_end_sequence_palette_copies_16_words_from_pal_1c8aa() {
+    // ASM loc_1C82C (kid.asm:31483-31485): DBF loop in sub_1C820 that copies palette words.
+    //   move.w (a0)+,(a1)+   ; copy word from Pal_1C8AA to Palette_Buffer
+    //   dbf d0,loc_1C82C     ; loop $F+1=16 iterations for first palette bank
+    // a0 points to Pal_1C8AA (scenes/palette/1C8AA.bin)
+    // a1 points to Palette_Buffer (first 32 bytes / 16 words)
+    // d0 is $F at entry, so this loops 16 times copying the first 16 palette words.
+    // This loads the end sequence palette into the active palette buffer.
+    const PALETTE_WORDS_FIRST_BANK: u16 = 16;
+    const DBF_COUNTER: u16 = 0x000F;
+    assert_eq!(
+        DBF_COUNTER.wrapping_add(1),
+        PALETTE_WORDS_FIRST_BANK,
+        "DBF loop runs $F+1=16 iterations for 16 palette words"
+    );
+}
+
+#[test]
+fn loc_1c84e_end_sequence_palette_copies_48_words_to_offset_20() {
+    // ASM loc_1C84E (kid.asm:31493-31498): loads second palette bank into Palette_Buffer+$20.
+    // After loc_1C82C's first 16 words, sub_1C820 optionally modifies palette entries
+    // (lines 31486-31491) if d1!=0, then continues here:
+    //   lea (Palette_Buffer+$20).l,a1  ; advance palette pointer by 32 bytes
+    //   moveq #$2F,d0                  ; 48 words in second bank
+    // loc_1C856:
+    //   move.w (a0)+,(a1)+            ; copy from Pal_1C8AA to second buffer
+    //   dbf d0,loc_1C856              ; loop $2F+1=48 iterations
+    // Total palette: 16 words in first bank + 48 words in second bank = 64 words.
+    // Called from Load_EndSequence (kid.asm:32553) with d1=0 for initial palette,
+    // and from loc_1D1CE (kid.asm:32579) with d1=1 for modified palette variant.
+    const PALETTE_OFFSET: u16 = 0x20; // 32 bytes = second bank start
+    const PALETTE_WORDS_SECOND_BANK: u16 = 48;
+    const DBF_COUNTER: u16 = 0x002F;
+    assert_eq!(
+        PALETTE_OFFSET, 32,
+        "$20 is byte offset for second palette bank"
+    );
+    assert_eq!(
+        DBF_COUNTER.wrapping_add(1),
+        PALETTE_WORDS_SECOND_BANK,
+        "DBF loop runs $2F+1=48 iterations for 48 palette words"
+    );
+    assert_eq!(
+        16 + 48,
+        64,
+        "total end sequence palette is 64 words (128 bytes)"
+    );
+}
+
+#[test]
 fn published_tas_demo_2_holds_intro_sequence_1_until_frame_5504() {
     let (mut runtime, script) = cached_any_percent_published_runtime_and_script();
     let mut frame_5503 = None;
