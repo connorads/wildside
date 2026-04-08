@@ -20506,6 +20506,15 @@ fn loc_1478e_only_plays_the_repeat_lava_geyser_sound_when_the_flag_is_clear() {
 }
 
 #[test]
+fn loc_1479c_points_repeat_lava_geyser_loops_at_the_steady_state_script() {
+    assert_eq!(
+        crate::weather::lava_geyser_repeat_script_loc_1479C(),
+        "unk_146A0",
+        "ASM loc_1479C should seed `a0` with `unk_146A0` for repeat lava geyser loops after the loc_1478E sound gate"
+    );
+}
+
+#[test]
 fn init_lava_geysers_level_0x06_creates_2_geysers_and_1_fireball() {
     let manifest = manifest_with_levels(7);
     let mut runtime = NativeRuntime::new(manifest);

@@ -802,6 +802,15 @@ pub(crate) fn lava_geyser_repeat_sound_loc_1478E(sound_suppressed: bool) -> Opti
     (!sound_suppressed).then_some("sfx_Lava_Geyser")
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_repeat_script_loc_1479C() -> &'static str {
+    // ASM loc_1479C (kid.asm:27836): repeat eruptions reload `a0` from
+    // `unk_146A0`, the steady-state geyser script that runs after the optional
+    // sound gate at loc_1478E.
+    "unk_146A0"
+}
+
 fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;
