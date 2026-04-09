@@ -26199,6 +26199,54 @@ fn kid_object_collision_writeback_loc_1cf2_copies_the_selected_colid_into_both_s
 }
 
 #[test]
+fn kid_object_invulnerability_gate_loc_1d00_clears_ordinary_collisions_but_keeps_special_2c_hits() {
+    let ordinary = crate::trace::kid_object_invulnerability_gate_loc_1D00(true, 0x0010, 0xC063);
+    assert_eq!(
+        ordinary.next_player_collision_type, 0,
+        "ASM loc_1D00 (kid.asm:3485) should clear `$38(a0)` when invulnerability is active and the masked `$3A(a0)` payload stays below `$64`",
+    );
+    assert_eq!(
+        ordinary.next_player_collision_flags, 0xC063,
+        "ASM loc_1D00 should compare a masked copy of `$3A(a0)` but leave the stored flag word unchanged on the ordinary-clear branch",
+    );
+
+    let special = crate::trace::kid_object_invulnerability_gate_loc_1D00(true, 0x002C, 0xC064);
+    assert_eq!(
+        special.next_player_collision_type, 0x002C,
+        "ASM loc_1D00 should branch to loc_1D34 instead of clearing the special `$2C` collision id",
+    );
+    assert_eq!(
+        special.next_player_collision_flags, 0x0064,
+        "ASM loc_1D34 should clear bits 15 and 14 in `$3A(a0)` before returning from the invulnerability gate",
+    );
+}
+
+#[test]
+fn kid_object_invulnerability_gate_loc_1d00_leaves_non_invulnerable_or_large_payload_hits_untouched()
+ {
+    let vulnerable = crate::trace::kid_object_invulnerability_gate_loc_1D00(false, 0x0010, 0xC063);
+    assert_eq!(
+        vulnerable.next_player_collision_type, 0x0010,
+        "ASM loc_1D00 should return immediately when `KidIsInvulnerable` is zero",
+    );
+    assert_eq!(
+        vulnerable.next_player_collision_flags, 0xC063,
+        "ASM loc_1D00 should leave `$3A(a0)` untouched when the invulnerability byte is clear",
+    );
+
+    let large_payload =
+        crate::trace::kid_object_invulnerability_gate_loc_1D00(true, 0x0010, 0xC064);
+    assert_eq!(
+        large_payload.next_player_collision_type, 0x0010,
+        "ASM loc_1D00 should keep `$38(a0)` when the masked `$3A(a0)` payload is `$64` or greater",
+    );
+    assert_eq!(
+        large_payload.next_player_collision_flags, 0xC064,
+        "ASM loc_1D00 only uses the masked copy for the compare, so the stored collision flags stay unchanged on the keep branch",
+    );
+}
+
+#[test]
 fn options_menu_loc_1cc22_left_button_jump_table_dispatches_to_option_handlers() {
     let mut runtime = NativeRuntime::new(manifest());
 

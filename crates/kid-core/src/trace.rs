@@ -60,6 +60,13 @@ pub(crate) struct KidObjectCollisionWritebackLoc1CF2 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidObjectInvulnerabilityGateLoc1D00 {
+    pub(crate) next_player_collision_type: u16,
+    pub(crate) next_player_collision_flags: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_object_collision_writeback_loc_1CF2(
     relation: KidObjectRelation,
@@ -77,6 +84,42 @@ pub(crate) fn kid_object_collision_writeback_loc_1CF2(
         object_collision_label: collision_label,
         object_collision_flags,
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn kid_object_invulnerability_gate_loc_1D00(
+    kid_is_invulnerable: bool,
+    player_collision_type: u16,
+    player_collision_flags: u16,
+) -> KidObjectInvulnerabilityGateLoc1D00 {
+    // ASM loc_1D00 (kid.asm:3485): once the shared writeback has copied
+    // `$38/$3A`, invulnerability suppresses most collisions. A zero
+    // `KidIsInvulnerable` byte or zero collision id returns unchanged.
+    let mut result = KidObjectInvulnerabilityGateLoc1D00 {
+        next_player_collision_type: player_collision_type,
+        next_player_collision_flags: player_collision_flags,
+    };
+
+    if !kid_is_invulnerable || player_collision_type == 0 {
+        return result;
+    }
+
+    if player_collision_type == 0x002C {
+        // ASM loc_1D34 (kid.asm:3498): for the special `$2C` collision, clear
+        // bits 15 and 14 in `$3A(a0)` and keep the collision type live.
+        result.next_player_collision_flags &= 0x3FFF;
+        return result;
+    }
+
+    // ASM loc_1D00 masks bits 15 and 14 with `bclr`, compares the remaining
+    // payload against `$64`, and only clears `$38(a0)` when the masked value is
+    // below that threshold.
+    let masked_flags = player_collision_flags & 0x3FFF;
+    if masked_flags < 0x0064 {
+        result.next_player_collision_type = 0;
+    }
+    result
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
