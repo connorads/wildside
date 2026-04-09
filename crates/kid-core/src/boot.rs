@@ -716,6 +716,12 @@ pub(crate) struct DrawTextLineGlyphLoopLoc1D068 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DrawTextLineTerminatorLoc1D07A {
+    pub(crate) flushes_vdp_guard: bool,
+    pub(crate) returns_after_flush: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2327,6 +2333,20 @@ pub(crate) fn draw_text_line_glyph_loop_loc_1D068(
         glyph_tiles,
         bytes_consumed,
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn draw_text_line_terminator_loc_1D07A(
+    next_letter: u8,
+) -> Option<DrawTextLineTerminatorLoc1D07A> {
+    // ASM loc_1D07A (kid.asm:32439): the NUL-byte branch from `loc_1D068`
+    // lands here, calls `j_sub_924`, and immediately returns from
+    // `DrawTextLine`.
+    (next_letter == 0).then_some(DrawTextLineTerminatorLoc1D07A {
+        flushes_vdp_guard: true,
+        returns_after_flush: true,
+    })
 }
 
 #[allow(non_snake_case)]

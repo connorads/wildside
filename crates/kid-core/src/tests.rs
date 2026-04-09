@@ -26619,6 +26619,23 @@ fn draw_text_line_glyph_loop_loc_1d068_streams_letters_until_the_first_nul_byte(
 }
 
 #[test]
+fn draw_text_line_terminator_loc_1d07a_flushes_the_vdp_guard_only_for_the_nul_branch() {
+    assert_eq!(
+        crate::boot::draw_text_line_terminator_loc_1D07A(0),
+        Some(crate::boot::DrawTextLineTerminatorLoc1D07A {
+            flushes_vdp_guard: true,
+            returns_after_flush: true,
+        }),
+        "ASM loc_1D07A (kid.asm:32439) should call `j_sub_924` and return immediately once `loc_1D068` reads a zero byte",
+    );
+    assert_eq!(
+        crate::boot::draw_text_line_terminator_loc_1D07A(b'A'),
+        None,
+        "ASM loc_1D07A should stay unreachable for non-zero bytes because the glyph loop keeps dispatching back through `loc_1D068`",
+    );
+}
+
+#[test]
 fn options_menu_speed_text_loc_1cf78_switches_between_normal_and_fast_copy_pairs() {
     let normal = crate::boot::options_menu_speed_text_loc_1CF78(2, false);
     assert!(
