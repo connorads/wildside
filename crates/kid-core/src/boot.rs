@@ -2248,6 +2248,30 @@ pub(crate) fn vdp_pattern_stripe_outer_loop_loc_1CD90() -> VdpPatternStripeOuter
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VdpPatternStripeWordCopyLoopLoc1CD92 {
+    pub(crate) source: u32,
+    pub(crate) copy_seed: u16,
+    pub(crate) copy_iterations: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn vdp_pattern_stripe_word_copy_loop_loc_1CD92() -> VdpPatternStripeWordCopyLoopLoc1CD92
+{
+    // ASM loc_1CD90 (kid.asm:31935): each outer-row pass reloads `d0` with
+    // `$27` before entering the inner copy loop.
+    // ASM loc_1CD92 (kid.asm:31938): `move.w (a0)+,(a6)` executes before
+    // `dbf d0,loc_1CD92`, so the loop copies `$27 + 1 = $28` words from
+    // `Decompression_Buffer` into the VDP data port on each row.
+    VdpPatternStripeWordCopyLoopLoc1CD92 {
+        source: 0xFFFF77B2,
+        copy_seed: 0x0027,
+        copy_iterations: 0x0028,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn end_sequence_camera_shake_sub_1D846(

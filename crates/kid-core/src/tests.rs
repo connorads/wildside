@@ -26019,6 +26019,24 @@ fn vdp_pattern_stripe_outer_loop_loc_1cd90_runs_for_28_rows() {
 }
 
 #[test]
+fn vdp_pattern_stripe_word_copy_loop_loc_1cd92_copies_40_words_per_row() {
+    let loop_shape = crate::boot::vdp_pattern_stripe_word_copy_loop_loc_1CD92();
+
+    assert_eq!(
+        loop_shape.source, 0xFFFF77B2,
+        "ASM loc_1CD92 reads `(a0)+` after `lea (Decompression_Buffer).l,a0`, so the copy source should be `Decompression_Buffer` at `$FFFF77B2`",
+    );
+    assert_eq!(
+        loop_shape.copy_seed, 0x0027,
+        "ASM loc_1CD90 should reload `d0` with `$27` before entering loc_1CD92",
+    );
+    assert_eq!(
+        loop_shape.copy_iterations, 0x0028,
+        "ASM loc_1CD92 (kid.asm:31938) should execute `$27 + 1` inclusive DBF iterations, copying 40 words into the VDP data port",
+    );
+}
+
+#[test]
 fn classify_kid_object_relation_loc_1cd2_prefers_kidright_when_right_penetration_is_minimal() {
     let relation = crate::trace::classify_kid_object_relation(
         crate::trace::ObjectBoundsPx {
