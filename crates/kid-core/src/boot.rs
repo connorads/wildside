@@ -2256,6 +2256,14 @@ pub(crate) struct VdpPatternStripeWordCopyLoopLoc1CD92 {
     pub(crate) copy_iterations: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlaneLineWordCopyLoc1CDD4 {
+    pub(crate) source_base: u32,
+    pub(crate) source_byte_offset: u16,
+    pub(crate) words_copied: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn vdp_pattern_stripe_word_copy_loop_loc_1CD92() -> VdpPatternStripeWordCopyLoopLoc1CD92
@@ -2269,6 +2277,22 @@ pub(crate) fn vdp_pattern_stripe_word_copy_loop_loc_1CD92() -> VdpPatternStripeW
         source: 0xFFFF77B2,
         copy_seed: 0x0027,
         copy_iterations: 0x0028,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn plane_line_word_copy_loc_1CDD4(row_index: u16) -> PlaneLineWordCopyLoc1CDD4 {
+    // ASM sub_1CDA8 (kid.asm:31952): `lea (Decompression_Buffer).l,a4`
+    // followed by `mulu.w #$50,d7; add.w d7,a4` picks one `$50`-byte source
+    // row from `Decompression_Buffer` before the inner line copy starts.
+    // ASM loc_1CDD4 (kid.asm:31970): `move.w (a4)+,(a6)` executes before
+    // `dbf d7,loc_1CDD4`, so the loop copies `$27 + 1 = $28` words from that
+    // row into the VDP data port.
+    PlaneLineWordCopyLoc1CDD4 {
+        source_base: 0xFFFF77B2,
+        source_byte_offset: row_index.wrapping_mul(0x0050),
+        words_copied: 0x0028,
     }
 }
 

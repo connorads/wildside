@@ -26037,6 +26037,24 @@ fn vdp_pattern_stripe_word_copy_loop_loc_1cd92_copies_40_words_per_row() {
 }
 
 #[test]
+fn plane_line_word_copy_loc_1cdd4_reads_one_0x50_byte_row_from_decompression_buffer() {
+    let line_copy = crate::boot::plane_line_word_copy_loc_1CDD4(3);
+
+    assert_eq!(
+        line_copy.source_base, 0xFFFF77B2,
+        "ASM sub_1CDA8 should seed `a4` from `Decompression_Buffer` before loc_1CDD4 begins copying",
+    );
+    assert_eq!(
+        line_copy.source_byte_offset, 0x00F0,
+        "ASM sub_1CDA8 multiplies the caller's row index by `$50` bytes before loc_1CDD4, so row 3 should start `$F0` bytes into `Decompression_Buffer`",
+    );
+    assert_eq!(
+        line_copy.words_copied, 0x0028,
+        "ASM loc_1CDD4 (kid.asm:31970) should execute `$27 + 1` inclusive DBF iterations, copying 40 words from the selected row",
+    );
+}
+
+#[test]
 fn vdp_pattern_stripe_fill_loop_loc_1cd9a_appends_24_fill_words_per_row() {
     let loop_shape = crate::boot::vdp_pattern_stripe_fill_loop_loc_1CD9A();
 
