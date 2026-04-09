@@ -25973,6 +25973,30 @@ fn vdp_bit15_clear_to_decompression_buffer_loc_1cd5a_masks_bit_15_for_0x800_word
 }
 
 #[test]
+fn classify_kid_object_relation_loc_1cd2_prefers_kidright_when_right_penetration_is_minimal() {
+    let relation = crate::trace::classify_kid_object_relation(
+        crate::trace::ObjectBoundsPx {
+            left: 10,
+            right: 30,
+            top: 10,
+            bottom: 30,
+        },
+        crate::trace::ObjectBoundsPx {
+            left: 26,
+            right: 60,
+            top: 0,
+            bottom: 60,
+        },
+    );
+
+    assert_eq!(
+        relation.map(|relation| relation.as_debug_label()),
+        Some("kidright"),
+        "ASM loc_1CD2 (kid.asm:3460) should store `colid_kidright` when the right-side penetration wins the overlap comparison",
+    );
+}
+
+#[test]
 fn options_menu_loc_1cc22_left_button_jump_table_dispatches_to_option_handlers() {
     let mut runtime = NativeRuntime::new(manifest());
 

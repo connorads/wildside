@@ -25,7 +25,7 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum KidObjectRelation {
+pub(crate) enum KidObjectRelation {
     Below,
     Above,
     Left,
@@ -33,7 +33,7 @@ enum KidObjectRelation {
 }
 
 impl KidObjectRelation {
-    fn as_debug_label(self) -> &'static str {
+    pub(crate) fn as_debug_label(self) -> &'static str {
         match self {
             Self::Below => "kidbelow",
             Self::Above => "kidabove",
@@ -44,11 +44,11 @@ impl KidObjectRelation {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct ObjectBoundsPx {
-    left: i32,
-    right: i32,
-    top: i32,
-    bottom: i32,
+pub(crate) struct ObjectBoundsPx {
+    pub(crate) left: i32,
+    pub(crate) right: i32,
+    pub(crate) top: i32,
+    pub(crate) bottom: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2377,7 +2377,7 @@ fn kid_object_support_candidate(
     })
 }
 
-fn classify_kid_object_relation(
+pub(crate) fn classify_kid_object_relation(
     player_bounds: ObjectBoundsPx,
     object_bounds: ObjectBoundsPx,
 ) -> Option<KidObjectRelation> {
@@ -2400,6 +2400,9 @@ fn classify_kid_object_relation(
     } else if min_penetration == from_bottom {
         Some(KidObjectRelation::Above)
     } else if min_penetration == from_left {
+        // ASM loc_1CD2 (kid.asm:3460): once the surrounding overlap/velocity
+        // comparison picks the right-side branch, the routine stores
+        // `colid_kidright` and jumps into the shared collision writeback.
         Some(KidObjectRelation::Right)
     } else {
         Some(KidObjectRelation::Left)
