@@ -25947,6 +25947,32 @@ fn level_layout_final_copy_to_vram_loc_1cd18_uploads_0x1180_words_to_vram() {
 }
 
 #[test]
+fn vdp_bit15_clear_to_decompression_buffer_loc_1cd5a_masks_bit_15_for_0x800_words() {
+    let copy_pass = crate::boot::vdp_bit15_clear_to_decompression_buffer_loc_1CD5A();
+
+    assert_eq!(
+        copy_pass.dbf_seed, 0x07FF,
+        "ASM sub_1CD44 should seed `d7` with `$7FF` before entering loc_1CD5A",
+    );
+    assert_eq!(
+        copy_pass.words_copied, 0x0800,
+        "ASM loc_1CD5A (kid.asm:31908) should execute `$7FF + 1` VDP reads into `Decompression_Buffer` before the final VRAM upload",
+    );
+    assert_eq!(
+        copy_pass.cleared_mask, 0x7FFF,
+        "ASM loc_1CD5A should apply `bclr #$F,d6`, clearing bit 15 from each copied word",
+    );
+    assert_eq!(
+        copy_pass.destination_base, 0xFFFF_77B2,
+        "ASM sub_1CD44 should point `a4` at `Decompression_Buffer` before loc_1CD5A starts copying",
+    );
+    assert_eq!(
+        copy_pass.vram_word_addr, 0x0000,
+        "ASM sub_1CD44 should retarget the VDP to `vdpComm($0000,VRAM,WRITE)` after loc_1CD5A completes",
+    );
+}
+
+#[test]
 fn options_menu_loc_1cc22_left_button_jump_table_dispatches_to_option_handlers() {
     let mut runtime = NativeRuntime::new(manifest());
 

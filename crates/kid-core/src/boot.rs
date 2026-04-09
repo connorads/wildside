@@ -2154,6 +2154,35 @@ pub(crate) fn level_layout_final_copy_to_vram_loc_1CD18() -> LevelLayoutCopyToVr
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VdpBit15ClearToDecompressionBufferLoc1CD5A {
+    pub(crate) dbf_seed: u16,
+    pub(crate) words_copied: u16,
+    pub(crate) cleared_mask: u16,
+    pub(crate) destination_base: u32,
+    pub(crate) vram_word_addr: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn vdp_bit15_clear_to_decompression_buffer_loc_1CD5A()
+-> VdpBit15ClearToDecompressionBufferLoc1CD5A {
+    // ASM sub_1CD44 (kid.asm:31898): clear the VDP command register first,
+    // point `a4` at `Decompression_Buffer`, and seed `d7` with `$7FF`.
+    // ASM loc_1CD5A (kid.asm:31908): each pass reads one VDP word, clears bit
+    // 15 with `bclr #$F,d6`, stores the masked word to `Decompression_Buffer`,
+    // then loops inclusively through `$7FF + 1 = $800` words before retargeting
+    // the VDP to `vdpComm($0000,VRAM,WRITE)`.
+    VdpBit15ClearToDecompressionBufferLoc1CD5A {
+        dbf_seed: 0x07FF,
+        words_copied: 0x0800,
+        cleared_mask: 0x7FFF,
+        destination_base: 0xFFFF_77B2,
+        vram_word_addr: 0x0000,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn end_sequence_camera_shake_sub_1D846(
