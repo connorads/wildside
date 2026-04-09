@@ -26037,6 +26037,24 @@ fn vdp_pattern_stripe_word_copy_loop_loc_1cd92_copies_40_words_per_row() {
 }
 
 #[test]
+fn vdp_pattern_stripe_fill_loop_loc_1cd9a_appends_24_fill_words_per_row() {
+    let loop_shape = crate::boot::vdp_pattern_stripe_fill_loop_loc_1CD9A();
+
+    assert_eq!(
+        loop_shape.fill_word, 0x0094,
+        "ASM loc_1CD9A writes immediate word `$94` into the VDP data port on every iteration",
+    );
+    assert_eq!(
+        loop_shape.fill_seed, 0x0017,
+        "ASM loc_1CD92 should reload `d0` with `$17` before entering loc_1CD9A",
+    );
+    assert_eq!(
+        loop_shape.fill_iterations, 0x0018,
+        "ASM loc_1CD9A (kid.asm:31943) should execute `$17 + 1` inclusive DBF iterations, appending 24 fill words after each copied row",
+    );
+}
+
+#[test]
 fn classify_kid_object_relation_loc_1cd2_prefers_kidright_when_right_penetration_is_minimal() {
     let relation = crate::trace::classify_kid_object_relation(
         crate::trace::ObjectBoundsPx {

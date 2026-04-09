@@ -2272,6 +2272,29 @@ pub(crate) fn vdp_pattern_stripe_word_copy_loop_loc_1CD92() -> VdpPatternStripeW
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VdpPatternStripeFillLoopLoc1CD9A {
+    pub(crate) fill_word: u16,
+    pub(crate) fill_seed: u16,
+    pub(crate) fill_iterations: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn vdp_pattern_stripe_fill_loop_loc_1CD9A() -> VdpPatternStripeFillLoopLoc1CD9A {
+    // ASM loc_1CD92 (kid.asm:31938): after the 40 copied words, the routine
+    // reloads `d0` with `$17` for the trailing fill segment on the same row.
+    // ASM loc_1CD9A (kid.asm:31943): `move.w #$94,(a6)` executes before
+    // `dbf d0,loc_1CD9A`, so each row appends `$17 + 1 = $18` copies of
+    // tile/pattern word `$0094` to the VDP data port.
+    VdpPatternStripeFillLoopLoc1CD9A {
+        fill_word: 0x0094,
+        fill_seed: 0x0017,
+        fill_iterations: 0x0018,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn end_sequence_camera_shake_sub_1D846(
