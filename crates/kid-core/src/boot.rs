@@ -669,6 +669,16 @@ pub(crate) struct OptionsMenuControlsHeaderLoc1CEB2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OptionsMenuControlsBindingsLoc1CED6 {
+    pub(crate) highlighted: bool,
+    pub(crate) selection_tile_word: u16,
+    pub(crate) binding_label_rows: [u16; 3],
+    pub(crate) binding_text_labels: [&'static str; 3],
+    pub(crate) button_badge_rows: [u16; 3],
+    pub(crate) button_badge_text_labels: [&'static str; 3],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2200,6 +2210,45 @@ pub(crate) fn options_menu_controls_header_loc_1CEB2(
         second_line_x: 11,
         second_line_y: 3,
         second_line_text_label: "OptText4.MODE",
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn options_menu_controls_bindings_loc_1CED6(
+    selected_option: u16,
+    controls_scheme: u8,
+) -> OptionsMenuControlsBindingsLoc1CED6 {
+    fn controls_binding_labels(controls_scheme: u8) -> [&'static str; 3] {
+        match controls_scheme {
+            0 => ["OptText5.SPEED", "OptText5.JUMP", "OptText5.SPECIAL"],
+            1 => ["OptText5.SPEED", "OptText5.SPECIAL", "OptText5.JUMP"],
+            2 => ["OptText5.JUMP", "OptText5.SPEED", "OptText5.SPECIAL"],
+            3 => ["OptText5.JUMP", "OptText5.SPECIAL", "OptText5.SPEED"],
+            4 => ["OptText5.SPECIAL", "OptText5.SPEED", "OptText5.JUMP"],
+            5 => ["OptText5.SPECIAL", "OptText5.JUMP", "OptText5.SPEED"],
+            _ => panic!("unsupported controls scheme: {controls_scheme}"),
+        }
+    }
+
+    let highlighted = selected_option == 1;
+    let palette_base = if highlighted { 0xE509 } else { 0xC509 };
+
+    // ASM loc_1CED6 (kid.asm:32145): after the highlight palette choice, add
+    // `Options_Suboption_Controls + $1B` onto the `$C509/$E509` tile base and
+    // write the resulting selector word to the VDP data port.
+    // The same label then indexes `unk_1CF28` by `controls_scheme * 4`, using
+    // the first three bytes of that 4-byte stride as offsets into `OptText5`
+    // to pick one of the six SPEED/JUMP/SPECIAL permutations for rows 15/17/19.
+    // The trailing `OptText6` sequence draws the fixed A/B/C badges on those
+    // same three rows.
+    OptionsMenuControlsBindingsLoc1CED6 {
+        highlighted,
+        selection_tile_word: palette_base + 0x001B + u16::from(controls_scheme),
+        binding_label_rows: [15, 17, 19],
+        binding_text_labels: controls_binding_labels(controls_scheme),
+        button_badge_rows: [15, 17, 19],
+        button_badge_text_labels: ["OptText6.A", "OptText6.B", "OptText6.C"],
     }
 }
 

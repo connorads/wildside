@@ -26415,6 +26415,55 @@ fn options_menu_controls_header_loc_1ceb2_draws_both_packed_opttext4_entries_on_
 }
 
 #[test]
+fn options_menu_controls_bindings_loc_1ced6_uses_highlighted_tile_base_and_all_six_scheme_permutations()
+ {
+    let highlighted = crate::boot::options_menu_controls_bindings_loc_1CED6(1, 4);
+    assert!(
+        highlighted.highlighted,
+        "ASM loc_1CED6 (kid.asm:32145) should preserve the `d3` highlight state chosen just before the join",
+    );
+    assert_eq!(
+        highlighted.selection_tile_word, 0xE528,
+        "ASM loc_1CED6 should add `Options_Suboption_Controls + $1B` onto the highlighted `$E509` tile base before writing the selector word",
+    );
+    assert_eq!(
+        highlighted.binding_label_rows,
+        [15, 17, 19],
+        "ASM loc_1CED6 should seed `d1` from `word_1CE2C + 5` and then step the three binding rows by two",
+    );
+    assert_eq!(
+        highlighted.binding_text_labels,
+        ["OptText5.SPECIAL", "OptText5.SPEED", "OptText5.JUMP"],
+        "ASM loc_1CED6 should decode `unk_1CF28` scheme 4 as SPECIAL, SPEED, JUMP",
+    );
+    assert_eq!(
+        highlighted.button_badge_rows,
+        [15, 17, 19],
+        "ASM loc_1CED6 should draw the trailing OptText6 A/B/C badges on the same three rows as the binding labels",
+    );
+    assert_eq!(
+        highlighted.button_badge_text_labels,
+        ["OptText6.A", "OptText6.B", "OptText6.C"],
+        "ASM loc_1CED6 should keep the fixed OptText6 button badges in A, B, C order",
+    );
+
+    let unhighlighted = crate::boot::options_menu_controls_bindings_loc_1CED6(0, 5);
+    assert!(
+        !unhighlighted.highlighted,
+        "ASM loc_1CED6 should fall back to the non-highlighted palette base when `d3` is clear",
+    );
+    assert_eq!(
+        unhighlighted.selection_tile_word, 0xC529,
+        "ASM loc_1CED6 should use the non-highlighted `$C509` tile base when the cursor is not on CONTROLS",
+    );
+    assert_eq!(
+        unhighlighted.binding_text_labels,
+        ["OptText5.SPECIAL", "OptText5.JUMP", "OptText5.SPEED"],
+        "ASM loc_1CED6 should decode `unk_1CF28` scheme 5 as SPECIAL, JUMP, SPEED",
+    );
+}
+
+#[test]
 fn end_sequence_camera_shake_sub_1d846_masks_v_int_bit_7_before_sign_shifting_rng_bytes() {
     let (camera_x_pos, camera_y_pos) = end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x85);
 
