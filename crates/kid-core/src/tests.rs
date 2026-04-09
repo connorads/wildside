@@ -25708,6 +25708,25 @@ fn options_menu_panel_step_sub_1cc88_alternates_the_worker_offsets_each_frame() 
 }
 
 #[test]
+fn options_menu_panel_step_loc_1cca2_reverses_the_worker_offsets_when_the_toggled_byte_hits_zero() {
+    let (toggle_byte, left_panel_x, right_panel_x) =
+        crate::boot::step_option_menu_panels_sub_1CC88(0xFF, 0x0118, 0x0148, -0x0008);
+
+    assert_eq!(
+        toggle_byte, 0x00,
+        "ASM loc_1CCA2 (kid.asm:31818) is reached when `not.b ($FFFFFB5C).w` produces zero",
+    );
+    assert_eq!(
+        left_panel_x, 0x0030,
+        "ASM loc_1CCA2 should apply `sub.w d7,$24(a0)` on the zero-byte branch",
+    );
+    assert_eq!(
+        right_panel_x, 0x0110,
+        "ASM loc_1CCA2 should apply `add.w d7,$24(a1)` on the zero-byte branch",
+    );
+}
+
+#[test]
 fn options_menu_loc_1cb88_intro_loop_omitted_enters_directly() {
     // ASM loc_1CB88 (kid.asm:31678-31688): The ROM has an intro loop that
     // steps panel animation while scrolling Camera_Y_pos for visual effect

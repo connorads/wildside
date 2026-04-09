@@ -2024,6 +2024,9 @@ pub(crate) fn step_option_menu_panels_sub_1CC88(
             right_panel_x.wrapping_sub(panel_delta),
         )
     } else {
+        // ASM loc_1CCA2 (kid.asm:31818): zero-byte branch after `beq.w
+        // loc_1CCA2`, reversing the previous frame's worker offsets with
+        // `sub.w d7,$24(a0)` and `add.w d7,$24(a1)`.
         (
             toggle_byte,
             left_panel_x.wrapping_sub(panel_delta),
