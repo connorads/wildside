@@ -640,6 +640,12 @@ pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelLayoutCopyToVramLoc1CCDE {
+    pub(crate) dbf_seed: u16,
+    pub(crate) words_copied: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceBurstSpriteInitSub1D86C {
     pub(crate) callback_label: &'static str,
     pub(crate) x_pos: i16,
@@ -2083,6 +2089,20 @@ pub(crate) fn level_layout_read_pass_loc_1CCC2() -> LevelLayoutReadPassLoc1CCC2 
         dbf_seed: 0x045F,
         iterations: 0x0460,
         subroutine_order: ["sub_1CD20", "sub_1CD32"],
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_layout_copy_to_vram_loc_1CCDE() -> LevelLayoutCopyToVramLoc1CCDE {
+    // ASM sub_1CCAE (kid.asm:31826): after the first readback pass the routine
+    // retargets the VDP port for VRAM writes and seeds `d0` with `$117F`.
+    // ASM loc_1CCDE (kid.asm:31845): `move.w (a0)+,(a6)` then
+    // `dbf d0,loc_1CCDE`, so the Level_Layout upload writes `$117F + 1 = $1180`
+    // words to VRAM.
+    LevelLayoutCopyToVramLoc1CCDE {
+        dbf_seed: 0x117F,
+        words_copied: 0x1180,
     }
 }
 
