@@ -26375,6 +26375,46 @@ fn options_menu_text_draw_loc_1ce3a_highlights_row_zero_and_swaps_the_2p_copy_va
 }
 
 #[test]
+fn options_menu_controls_header_loc_1ceb2_draws_both_packed_opttext4_entries_on_row_three() {
+    let controls_selected = crate::boot::options_menu_controls_header_loc_1CEB2(1);
+
+    assert!(
+        controls_selected.highlighted,
+        "ASM DrawOptText2 (kid.asm:32126) should only raise `d3` when `Options_Selected_Option == 1`",
+    );
+    assert_eq!(
+        controls_selected.first_line_x, 0,
+        "ASM loc_1CEB2 (kid.asm:32132) should start `OptText4` from x offset 0 for the CONTROLS header",
+    );
+    assert_eq!(
+        controls_selected.first_line_y, 3,
+        "ASM loc_1CEB2 should keep the first packed `OptText4` entry on y offset 3",
+    );
+    assert_eq!(
+        controls_selected.first_line_text_label, "OptText4.CONTROLS",
+        "ASM loc_1CEB2 should draw the first packed `OptText4` entry as the CONTROLS header",
+    );
+    assert_eq!(
+        controls_selected.second_line_x, 11,
+        "ASM loc_1CEB2 should reach the second packed `OptText4` entry only after the first draw advances `a4` and `addq.w #1,a4` skips onto MODE's x offset",
+    );
+    assert_eq!(
+        controls_selected.second_line_y, 3,
+        "ASM loc_1CEB2 should keep the MODE header on the same y offset as CONTROLS",
+    );
+    assert_eq!(
+        controls_selected.second_line_text_label, "OptText4.MODE",
+        "ASM loc_1CEB2 should decode the second packed `OptText4` entry as the MODE header",
+    );
+
+    let another_row = crate::boot::options_menu_controls_header_loc_1CEB2(0);
+    assert!(
+        !another_row.highlighted,
+        "ASM DrawOptText2 should leave `d3 = 0` for every cursor row other than CONTROLS",
+    );
+}
+
+#[test]
 fn end_sequence_camera_shake_sub_1d846_masks_v_int_bit_7_before_sign_shifting_rng_bytes() {
     let (camera_x_pos, camera_y_pos) = end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x85);
 

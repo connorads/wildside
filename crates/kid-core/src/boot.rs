@@ -658,6 +658,17 @@ pub(crate) struct OptionsMenuTextDrawLoc1CE3A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OptionsMenuControlsHeaderLoc1CEB2 {
+    pub(crate) highlighted: bool,
+    pub(crate) first_line_x: u16,
+    pub(crate) first_line_y: u16,
+    pub(crate) first_line_text_label: &'static str,
+    pub(crate) second_line_x: u16,
+    pub(crate) second_line_y: u16,
+    pub(crate) second_line_text_label: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2166,6 +2177,29 @@ pub(crate) fn options_menu_text_draw_loc_1CE3A(
         } else {
             "OptText2"
         },
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn options_menu_controls_header_loc_1CEB2(
+    selected_option: u16,
+) -> OptionsMenuControlsHeaderLoc1CEB2 {
+    // ASM DrawOptText2 (kid.asm:32126): `d3` stays zero unless
+    // `Options_Selected_Option == 1`, so only the CONTROLS/MODE header pair
+    // highlights when the cursor is on row 1.
+    // ASM loc_1CEB2 (kid.asm:32132): draw the first packed `OptText4` entry at
+    // `(0,3)`, then rely on the first `DrawTextLine_Offset` call advancing
+    // `a4` to the next NUL-terminated entry before `addq.w #1,a4` lands on the
+    // second `(11,3)` header entry.
+    OptionsMenuControlsHeaderLoc1CEB2 {
+        highlighted: selected_option == 1,
+        first_line_x: 0,
+        first_line_y: 3,
+        first_line_text_label: "OptText4.CONTROLS",
+        second_line_x: 11,
+        second_line_y: 3,
+        second_line_text_label: "OptText4.MODE",
     }
 }
 
