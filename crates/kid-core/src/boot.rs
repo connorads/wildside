@@ -688,6 +688,20 @@ pub(crate) struct OptionsMenuControlsBindingLoopLoc1CEF8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OptionsMenuSpeedTextLoc1CF78 {
+    pub(crate) highlighted: bool,
+    pub(crate) header_x: u16,
+    pub(crate) header_y: u16,
+    pub(crate) header_text_label: &'static str,
+    pub(crate) mode_x: u16,
+    pub(crate) mode_y: u16,
+    pub(crate) mode_text_label: &'static str,
+    pub(crate) prompt_x: u16,
+    pub(crate) prompt_y: u16,
+    pub(crate) prompt_text_label: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2280,6 +2294,38 @@ pub(crate) fn options_menu_controls_bindings_loc_1CED6(
         binding_text_labels: loop_shape.binding_text_labels,
         button_badge_rows: [15, 17, 19],
         button_badge_text_labels: ["OptText6.A", "OptText6.B", "OptText6.C"],
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn options_menu_speed_text_loc_1CF78(
+    selected_option: u16,
+    speed_button_fast: bool,
+) -> OptionsMenuSpeedTextLoc1CF78 {
+    let (mode_text_label, prompt_text_label) = if speed_button_fast {
+        ("OptText9.FAST_ACTION", "OptText9.PUSH_FOR_NORMAL")
+    } else {
+        ("OptText8.NORMAL_ACTION", "OptText8.PUSH_FOR_FAST")
+    };
+
+    // ASM DrawOptText3 (kid.asm:32248): `d3` only flips to 1 when
+    // `Options_Selected_Option == 2`, so the SPEED BUTTON block highlights
+    // only while row 2 is selected.
+    // ASM loc_1CF78 (kid.asm:32254): always draw `OptText7` at `(0,$C)`, then
+    // switch to the packed `( $E,$C )` / `( $E,$E )` entries from `OptText8`
+    // or `OptText9` depending on `Options_Suboption_Speed`.
+    OptionsMenuSpeedTextLoc1CF78 {
+        highlighted: selected_option == 2,
+        header_x: 0,
+        header_y: 12,
+        header_text_label: "OptText7.SPEED_BUTTON",
+        mode_x: 14,
+        mode_y: 12,
+        mode_text_label,
+        prompt_x: 14,
+        prompt_y: 14,
+        prompt_text_label,
     }
 }
 

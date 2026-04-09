@@ -26522,6 +26522,46 @@ fn options_menu_controls_binding_loop_loc_1cef8_runs_three_rows_and_decodes_sche
 }
 
 #[test]
+fn options_menu_speed_text_loc_1cf78_switches_between_normal_and_fast_copy_pairs() {
+    let normal = crate::boot::options_menu_speed_text_loc_1CF78(2, false);
+    assert!(
+        normal.highlighted,
+        "ASM DrawOptText3 (kid.asm:32248) should only raise `d3` when `Options_Selected_Option == 2`",
+    );
+    assert_eq!(
+        (normal.header_x, normal.header_y, normal.header_text_label),
+        (0, 12, "OptText7.SPEED_BUTTON"),
+        "ASM loc_1CF78 (kid.asm:32254) should always start by drawing the packed `OptText7` SPEED BUTTON header at `(0,$C)`",
+    );
+    assert_eq!(
+        (normal.mode_x, normal.mode_y, normal.mode_text_label),
+        (14, 12, "OptText8.NORMAL_ACTION"),
+        "ASM loc_1CF78 should load `OptText8` when `Options_Suboption_Speed` is clear, so the second draw reads NORMAL ACTION from the `( $E,$C )` entry",
+    );
+    assert_eq!(
+        (normal.prompt_x, normal.prompt_y, normal.prompt_text_label),
+        (14, 14, "OptText8.PUSH_FOR_FAST"),
+        "ASM loc_1CF94 should reuse the next packed `OptText8` entry for the trailing PUSH FOR FAST prompt",
+    );
+
+    let fast = crate::boot::options_menu_speed_text_loc_1CF78(1, true);
+    assert!(
+        !fast.highlighted,
+        "ASM DrawOptText3 should leave `d3 = 0` when the cursor is not on the SPEED BUTTON row",
+    );
+    assert_eq!(
+        (fast.mode_x, fast.mode_y, fast.mode_text_label),
+        (14, 12, "OptText9.FAST_ACTION"),
+        "ASM loc_1CF78 should switch `a4` to `OptText9` when `Options_Suboption_Speed` is non-zero, so the second draw becomes FAST ACTION",
+    );
+    assert_eq!(
+        (fast.prompt_x, fast.prompt_y, fast.prompt_text_label),
+        (14, 14, "OptText9.PUSH_FOR_NORMAL"),
+        "ASM loc_1CF94 should then consume the following packed `OptText9` entry for the PUSH FOR NORMAL prompt",
+    );
+}
+
+#[test]
 fn end_sequence_camera_shake_sub_1d846_masks_v_int_bit_7_before_sign_shifting_rng_bytes() {
     let (camera_x_pos, camera_y_pos) = end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x85);
 
