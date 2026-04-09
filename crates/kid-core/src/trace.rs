@@ -2396,6 +2396,9 @@ pub(crate) fn classify_kid_object_relation(
     let min_penetration = from_top.min(from_bottom).min(from_left).min(from_right);
 
     if min_penetration == from_top {
+        // ASM loc_1CDE (kid.asm:3470): when the top-side overlap wins the
+        // branch-specific comparison, the routine stores `colid_kidbelow`
+        // before entering the shared collision writeback.
         Some(KidObjectRelation::Below)
     } else if min_penetration == from_bottom {
         Some(KidObjectRelation::Above)

@@ -26121,6 +26121,30 @@ fn classify_kid_object_relation_loc_1cd8_prefers_kidleft_when_left_penetration_i
 }
 
 #[test]
+fn classify_kid_object_relation_loc_1cde_prefers_kidbelow_when_top_penetration_is_minimal() {
+    let relation = crate::trace::classify_kid_object_relation(
+        crate::trace::ObjectBoundsPx {
+            left: 10,
+            right: 30,
+            top: 10,
+            bottom: 30,
+        },
+        crate::trace::ObjectBoundsPx {
+            left: 0,
+            right: 60,
+            top: 26,
+            bottom: 60,
+        },
+    );
+
+    assert_eq!(
+        relation.map(|relation| relation.as_debug_label()),
+        Some("kidbelow"),
+        "ASM loc_1CDE (kid.asm:3470) should store `colid_kidbelow` when the top-side penetration wins the overlap comparison",
+    );
+}
+
+#[test]
 fn options_menu_loc_1cc22_left_button_jump_table_dispatches_to_option_handlers() {
     let mut runtime = NativeRuntime::new(manifest());
 
