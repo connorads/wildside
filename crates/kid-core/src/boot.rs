@@ -2276,12 +2276,21 @@ pub(crate) fn options_menu_controls_binding_loop_loc_1CEF8(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn draw_text_line_palette_base_loc_1D05E(highlighted: bool) -> u16 {
+    // ASM loc_1D05E (kid.asm:32424): after `tst.b d3`, leave `d6 = $C000`
+    // when zero and overwrite it with `$E000` when non-zero, then add that
+    // palette-line base into the glyph tile word.
+    if highlighted { 0xE000 } else { 0xC000 }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn draw_text_line_tile_base_loc_1D050(highlighted: bool, alternate_font: bool) -> u16 {
     // ASM DrawTextLine (kid.asm:32380): seed `d7 = $4DC`, switch to `$509`
-    // when `tst.b d4` is non-zero, then add palette line `$C000/$E000`
-    // depending on the highlight bit in `d3`.
+    // when `tst.b d4` is non-zero, then fall through `loc_1D05E` to add the
+    // palette line selected from the highlight bit in `d3`.
     let glyph_base = if alternate_font { 0x0509 } else { 0x04DC };
-    let palette_base = if highlighted { 0xE000 } else { 0xC000 };
+    let palette_base = draw_text_line_palette_base_loc_1D05E(highlighted);
     palette_base + glyph_base
 }
 

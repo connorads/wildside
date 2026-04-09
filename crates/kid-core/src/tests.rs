@@ -26572,6 +26572,16 @@ fn options_menu_controls_binding_loop_loc_1cef8_runs_three_rows_and_decodes_sche
 #[test]
 fn draw_text_line_tile_base_loc_1d050_selects_font_bank_and_palette_line() {
     assert_eq!(
+        crate::boot::draw_text_line_palette_base_loc_1D05E(false),
+        0xC000,
+        "ASM loc_1D05E (kid.asm:32424) should keep `d6 = $C000` when `tst.b d3` sees an unhighlighted line",
+    );
+    assert_eq!(
+        crate::boot::draw_text_line_palette_base_loc_1D05E(true),
+        0xE000,
+        "ASM loc_1D05E should overwrite `d6` with `$E000` when the highlight flag in `d3` is non-zero",
+    );
+    assert_eq!(
         crate::boot::draw_text_line_tile_base_loc_1D050(false, false),
         0xC4DC,
         "ASM DrawTextLine should keep the default `$4DC` glyph base and add palette line `$C000` when both `d4` and `d3` are clear",
