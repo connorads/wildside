@@ -26297,6 +26297,29 @@ fn end_sequence_stripe_loop_loc_1cde4_steps_ten_display_refreshes_across_column_
 }
 
 #[test]
+fn end_sequence_stripe_fill_loop_loc_1ce1c_writes_28_copies_of_0094_between_z80_guards() {
+    let fill = crate::boot::end_sequence_stripe_fill_loop_loc_1CE1C();
+
+    assert_eq!(
+        fill.fill_word, 0x0094,
+        "ASM loc_1CE1C (kid.asm:32012) should write immediate word `$94` on each pass through the fill loop",
+    );
+    assert_eq!(
+        fill.iteration_seed, 0x001B,
+        "ASM sub_1CDFA should seed `d7` with `$1B` before entering loc_1CE1C",
+    );
+    assert_eq!(
+        fill.iterations, 0x001C,
+        "ASM loc_1CE1C should execute `$1B + 1` inclusive DBF iterations, producing 28 fill writes",
+    );
+    assert_eq!(
+        fill.z80_guard_subroutines,
+        ["j_sub_914", "j_sub_924"],
+        "ASM sub_1CDFA should wrap loc_1CE1C with the `j_sub_914` / `j_sub_924` guard calls",
+    );
+}
+
+#[test]
 fn end_sequence_camera_shake_sub_1d846_masks_v_int_bit_7_before_sign_shifting_rng_bytes() {
     let (camera_x_pos, camera_y_pos) = end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x85);
 

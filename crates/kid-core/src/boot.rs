@@ -642,6 +642,14 @@ pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceStripeFillLoopLoc1CE1C {
+    pub(crate) fill_word: u16,
+    pub(crate) iteration_seed: u16,
+    pub(crate) iterations: u16,
+    pub(crate) z80_guard_subroutines: [&'static str; 2],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2109,6 +2117,22 @@ pub(crate) fn end_sequence_stripe_loop_loc_1CDE4() -> EndSequenceStripeLoopLoc1C
         iterations: 0x000A,
         stripe_columns_per_iteration: 0x0002,
         final_next_column: 0x001D,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_stripe_fill_loop_loc_1CE1C() -> EndSequenceStripeFillLoopLoc1CE1C {
+    // ASM sub_1CDFA (kid.asm:31994): after the `j_sub_914` Z80 guard and the
+    // stripe base-address setup, the routine seeds `d7` with `#$1B`.
+    // ASM loc_1CE1C (kid.asm:32012): `move.w #$94,(a6)` executes before
+    // `dbf d7,loc_1CE1C`, so the fill loop writes `$1B + 1 = $1C` copies of
+    // tile/pattern word `$0094`, then exits through `j_sub_924`.
+    EndSequenceStripeFillLoopLoc1CE1C {
+        fill_word: 0x0094,
+        iteration_seed: 0x001B,
+        iterations: 0x001C,
+        z80_guard_subroutines: ["j_sub_914", "j_sub_924"],
     }
 }
 
