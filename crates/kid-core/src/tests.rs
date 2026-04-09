@@ -26360,7 +26360,7 @@ fn options_menu_text_draw_loc_1ce3a_highlights_row_zero_and_swaps_the_2p_copy_va
     );
     assert_eq!(
         first_option.second_line_text_label, "OptText2",
-        "ASM loc_1CE3A should keep `a4 = OptText2` when `Options_Suboption_2PController` is clear",
+        "ASM loc_1CE56 (kid.asm:32044) should reach the shared second-row draw with `a4 = OptText2` when `Options_Suboption_2PController` is clear",
     );
 
     let two_controller = crate::boot::options_menu_text_draw_loc_1CE3A(2, true);
@@ -26370,7 +26370,7 @@ fn options_menu_text_draw_loc_1ce3a_highlights_row_zero_and_swaps_the_2p_copy_va
     );
     assert_eq!(
         two_controller.second_line_text_label, "OptText3",
-        "ASM loc_1CE3A should swap the second row source to `OptText3` when `Options_Suboption_2PController` is non-zero",
+        "ASM loc_1CE56 should also serve the taken override path, drawing the shared second row with `a4 = OptText3` when `Options_Suboption_2PController` is non-zero",
     );
 }
 

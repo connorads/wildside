@@ -2154,8 +2154,9 @@ pub(crate) fn options_menu_text_draw_loc_1CE3A(
     // when `Options_Selected_Option == 0`, so the first line is highlighted
     // only while the 2 PLAYERS row is selected.
     // ASM loc_1CE3A (kid.asm:32034): this shared entry always draws row 0 from
-    // `OptText1`, then row 1 from `OptText2`, except `Options_Suboption_2PController != 0`
-    // swaps the second row source to `OptText3`.
+    // `OptText1`, then seeds `d4 = 1` and `a4 = OptText2` for the second row.
+    // ASM loc_1CE56 (kid.asm:32044): both the default path and the `OptText3`
+    // override rejoin here and issue the shared second `DrawTextLine_Offset`.
     OptionsMenuTextDrawLoc1CE3A {
         first_line_row: 0,
         first_line_highlighted: selected_option == 0,
