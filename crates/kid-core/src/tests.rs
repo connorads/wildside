@@ -26005,6 +26005,20 @@ fn vdp_post_upload_delay_loc_1cd82_waits_for_0x101_dbf_iterations() {
 }
 
 #[test]
+fn vdp_pattern_stripe_outer_loop_loc_1cd90_runs_for_28_rows() {
+    let loop_shape = crate::boot::vdp_pattern_stripe_outer_loop_loc_1CD90();
+
+    assert_eq!(
+        loop_shape.row_seed, 0x001B,
+        "ASM sub_1CD88 should seed `d1` with `$1B` before entering loc_1CD90",
+    );
+    assert_eq!(
+        loop_shape.row_iterations, 0x001C,
+        "ASM loc_1CD90 (kid.asm:31935) should execute `$1B + 1` outer DBF iterations, producing 28 rows",
+    );
+}
+
+#[test]
 fn classify_kid_object_relation_loc_1cd2_prefers_kidright_when_right_penetration_is_minimal() {
     let relation = crate::trace::classify_kid_object_relation(
         crate::trace::ObjectBoundsPx {

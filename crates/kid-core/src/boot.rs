@@ -2227,6 +2227,27 @@ pub(crate) fn vdp_post_upload_delay_loc_1CD82() -> VdpPostUploadDelayLoc1CD82 {
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VdpPatternStripeOuterLoopLoc1CD90 {
+    pub(crate) row_seed: u16,
+    pub(crate) row_iterations: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn vdp_pattern_stripe_outer_loop_loc_1CD90() -> VdpPatternStripeOuterLoopLoc1CD90 {
+    // ASM sub_1CD88 (kid.asm:31931): before entering the nested write loops,
+    // the routine seeds `d1` with `$1B` and points `a0` at
+    // `Decompression_Buffer`.
+    // ASM loc_1CD90 (kid.asm:31935): `moveq #$1B,d1` feeds `dbf d1,loc_1CD90`,
+    // so the outer stripe loop runs `$1B + 1 = $1C` rows.
+    VdpPatternStripeOuterLoopLoc1CD90 {
+        row_seed: 0x001B,
+        row_iterations: 0x001C,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn end_sequence_camera_shake_sub_1D846(
