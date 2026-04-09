@@ -2017,6 +2017,9 @@ pub(crate) fn step_option_menu_panels_sub_1CC88(
     // is non-zero add/subtract `($FFFFFB5E).w` across the two option-menu
     // workers; otherwise undo that same offset on the following frame.
     let toggle_byte = !toggle_byte;
+    // ASM loc_1CCAA (kid.asm:31822): shared epilogue after either panel branch,
+    // restoring `d7` from the stack and returning with the updated toggle byte
+    // plus both worker `$24` words.
     if toggle_byte != 0 {
         (
             toggle_byte,
