@@ -26169,6 +26169,36 @@ fn classify_kid_object_relation_loc_1ce4_prefers_kidabove_when_bottom_penetratio
 }
 
 #[test]
+fn kid_object_collision_writeback_loc_1cf2_copies_the_selected_colid_into_both_slots() {
+    let right = crate::trace::kid_object_collision_writeback_loc_1CF2(
+        crate::trace::KidObjectRelation::Right,
+        0xC064,
+    );
+    assert_eq!(
+        right.player_collision_label, "kidright",
+        "ASM loc_1CF2 (kid.asm:3480) should copy the branch-selected `d7` collision id into `$38(a0)`",
+    );
+    assert_eq!(
+        right.object_collision_label, "kidright",
+        "ASM loc_1CF2 should also mirror that same `d7` collision id into `$38(a2)`",
+    );
+    assert_eq!(
+        right.object_collision_flags, 0xC064,
+        "ASM loc_1CF2 should copy the raw object collision word from `$3A(a2)` into `$3A(a0)` before the later invulnerability masking path runs",
+    );
+
+    let above = crate::trace::kid_object_collision_writeback_loc_1CF2(
+        crate::trace::KidObjectRelation::Above,
+        0x002C,
+    );
+    assert_eq!(
+        (above.player_collision_label, above.object_collision_label),
+        ("kidabove", "kidabove"),
+        "ASM loc_1CF2 should stay agnostic to the entry branch and duplicate whichever `colid_kid*` value reached the shared tail",
+    );
+}
+
+#[test]
 fn options_menu_loc_1cc22_left_button_jump_table_dispatches_to_option_handlers() {
     let mut runtime = NativeRuntime::new(manifest());
 

@@ -51,6 +51,34 @@ pub(crate) struct ObjectBoundsPx {
     pub(crate) bottom: i32,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidObjectCollisionWritebackLoc1CF2 {
+    pub(crate) player_collision_label: &'static str,
+    pub(crate) object_collision_label: &'static str,
+    pub(crate) object_collision_flags: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn kid_object_collision_writeback_loc_1CF2(
+    relation: KidObjectRelation,
+    object_collision_flags: u16,
+) -> KidObjectCollisionWritebackLoc1CF2 {
+    // ASM loc_1CF2 (kid.asm:3480): the side/top/bottom classification branches
+    // arrive here with `d7` already loaded to one of the `colid_kid*` values.
+    // The shared tail writes that same collision id into both `$38(a0)` and
+    // `$38(a2)`, then copies the object's raw `$3A(a2)` collision flags into
+    // the player's `$3A(a0)` slot before the later invulnerability gate.
+    let collision_label = relation.as_debug_label();
+
+    KidObjectCollisionWritebackLoc1CF2 {
+        player_collision_label: collision_label,
+        object_collision_label: collision_label,
+        object_collision_flags,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct KidObjectSupportCandidate {
     abs_top_gap_px: i32,
