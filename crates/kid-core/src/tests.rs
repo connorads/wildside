@@ -25867,6 +25867,25 @@ fn options_menu_loc_1cc0e_down_guard_skips_increment_at_cursor_three() {
 }
 
 #[test]
+fn level_layout_read_pass_loc_1ccc2_calls_sub_1cd20_then_sub_1cd32_for_0x460_iterations() {
+    let read_pass = crate::boot::level_layout_read_pass_loc_1CCC2();
+
+    assert_eq!(
+        read_pass.dbf_seed, 0x045F,
+        "ASM sub_1CCAE should seed `d0` with `$45F` before entering loc_1CCC2",
+    );
+    assert_eq!(
+        read_pass.iterations, 0x0460,
+        "ASM loc_1CCC2 (kid.asm:31837) should execute `$45F + 1` DBF iterations",
+    );
+    assert_eq!(
+        read_pass.subroutine_order,
+        ["sub_1CD20", "sub_1CD32"],
+        "ASM loc_1CCC2 should call `sub_1CD20` before `sub_1CD32` on each iteration",
+    );
+}
+
+#[test]
 fn options_menu_loc_1cc22_left_button_jump_table_dispatches_to_option_handlers() {
     let mut runtime = NativeRuntime::new(manifest());
 

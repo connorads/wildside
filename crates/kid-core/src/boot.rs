@@ -633,6 +633,13 @@ pub(crate) struct EndSequenceDisplayRefreshSub1D830 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
+    pub(crate) dbf_seed: u16,
+    pub(crate) iterations: u16,
+    pub(crate) subroutine_order: [&'static str; 2],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceBurstSpriteInitSub1D86C {
     pub(crate) callback_label: &'static str,
     pub(crate) x_pos: i16,
@@ -2062,6 +2069,20 @@ pub(crate) fn end_sequence_display_refresh_sub_1D830(
         panel_toggle_byte,
         left_panel_x,
         right_panel_x,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_layout_read_pass_loc_1CCC2() -> LevelLayoutReadPassLoc1CCC2 {
+    // ASM sub_1CCAE (kid.asm:31826): seed `d0` with `$45F` before entering the
+    // first VRAM readback loop.
+    // ASM loc_1CCC2 (kid.asm:31837): `bsr.w sub_1CD20`, then `bsr.w sub_1CD32`,
+    // then `dbf d0,loc_1CCC2`, so the loop runs `$45F+1 = $460` iterations.
+    LevelLayoutReadPassLoc1CCC2 {
+        dbf_seed: 0x045F,
+        iterations: 0x0460,
+        subroutine_order: ["sub_1CD20", "sub_1CD32"],
     }
 }
 
