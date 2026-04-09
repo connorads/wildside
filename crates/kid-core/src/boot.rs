@@ -2183,6 +2183,30 @@ pub(crate) fn vdp_bit15_clear_to_decompression_buffer_loc_1CD5A()
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VdpUploadDecompressionBufferLoc1CD78 {
+    pub(crate) dbf_seed: u16,
+    pub(crate) words_uploaded: u16,
+    pub(crate) source_base: u32,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn vdp_upload_decompression_buffer_loc_1CD78() -> VdpUploadDecompressionBufferLoc1CD78 {
+    // ASM sub_1CD44 (kid.asm:31898): after the bit-15 clear pass, the routine
+    // retargets the VDP port for VRAM writes, rewinds `a4` to
+    // `Decompression_Buffer`, and re-seeds `d7` with `$7FF`.
+    // ASM loc_1CD78 (kid.asm:31917): `move.w (a4)+,(a6)` then
+    // `dbf d7,loc_1CD78`, so the upload writes `$7FF + 1 = $800` masked words
+    // from `Decompression_Buffer` back into VRAM.
+    VdpUploadDecompressionBufferLoc1CD78 {
+        dbf_seed: 0x07FF,
+        words_uploaded: 0x0800,
+        source_base: 0xFFFF_77B2,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn end_sequence_camera_shake_sub_1D846(

@@ -25973,6 +25973,24 @@ fn vdp_bit15_clear_to_decompression_buffer_loc_1cd5a_masks_bit_15_for_0x800_word
 }
 
 #[test]
+fn vdp_upload_decompression_buffer_loc_1cd78_writes_0x800_words_back_to_vram() {
+    let upload = crate::boot::vdp_upload_decompression_buffer_loc_1CD78();
+
+    assert_eq!(
+        upload.dbf_seed, 0x07FF,
+        "ASM sub_1CD44 should reseed `d7` with `$7FF` before entering loc_1CD78",
+    );
+    assert_eq!(
+        upload.words_uploaded, 0x0800,
+        "ASM loc_1CD78 (kid.asm:31917) should execute `$7FF + 1` word uploads from `Decompression_Buffer` back into the VDP data port",
+    );
+    assert_eq!(
+        upload.source_base, 0xFFFF_77B2,
+        "ASM sub_1CD44 should rewind `a4` to `Decompression_Buffer` before loc_1CD78 begins the VRAM upload",
+    );
+}
+
+#[test]
 fn classify_kid_object_relation_loc_1cd2_prefers_kidright_when_right_penetration_is_minimal() {
     let relation = crate::trace::classify_kid_object_relation(
         crate::trace::ObjectBoundsPx {
