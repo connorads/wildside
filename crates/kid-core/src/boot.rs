@@ -2207,6 +2207,26 @@ pub(crate) fn vdp_upload_decompression_buffer_loc_1CD78() -> VdpUploadDecompress
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VdpPostUploadDelayLoc1CD82 {
+    pub(crate) dbf_seed: u16,
+    pub(crate) iterations: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn vdp_post_upload_delay_loc_1CD82() -> VdpPostUploadDelayLoc1CD82 {
+    // ASM sub_1CD44 (kid.asm:31898): once the `$800`-word upload at loc_1CD78
+    // completes, the routine seeds `d7` with `$100` for a final fixed delay.
+    // ASM loc_1CD82 (kid.asm:31922): `dbf d7,loc_1CD82` performs a pure
+    // busy-wait, so the delay lasts `$100 + 1 = $101` iterations.
+    VdpPostUploadDelayLoc1CD82 {
+        dbf_seed: 0x0100,
+        iterations: 0x0101,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn end_sequence_camera_shake_sub_1D846(

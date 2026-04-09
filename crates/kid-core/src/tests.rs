@@ -25991,6 +25991,20 @@ fn vdp_upload_decompression_buffer_loc_1cd78_writes_0x800_words_back_to_vram() {
 }
 
 #[test]
+fn vdp_post_upload_delay_loc_1cd82_waits_for_0x101_dbf_iterations() {
+    let delay = crate::boot::vdp_post_upload_delay_loc_1CD82();
+
+    assert_eq!(
+        delay.dbf_seed, 0x0100,
+        "ASM sub_1CD44 should seed `d7` with `$100` before entering loc_1CD82",
+    );
+    assert_eq!(
+        delay.iterations, 0x0101,
+        "ASM loc_1CD82 (kid.asm:31922) should spin for `$100 + 1` DBF iterations after the VRAM upload completes",
+    );
+}
+
+#[test]
 fn classify_kid_object_relation_loc_1cd2_prefers_kidright_when_right_penetration_is_minimal() {
     let relation = crate::trace::classify_kid_object_relation(
         crate::trace::ObjectBoundsPx {
