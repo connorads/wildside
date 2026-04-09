@@ -679,6 +679,15 @@ pub(crate) struct OptionsMenuControlsBindingsLoc1CED6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OptionsMenuControlsBindingLoopLoc1CEF8 {
+    pub(crate) dbf_seed: u16,
+    pub(crate) iterations: u16,
+    pub(crate) row_start: u16,
+    pub(crate) row_step: u16,
+    pub(crate) binding_text_labels: [&'static str; 3],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2215,10 +2224,9 @@ pub(crate) fn options_menu_controls_header_loc_1CEB2(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
-pub(crate) fn options_menu_controls_bindings_loc_1CED6(
-    selected_option: u16,
+pub(crate) fn options_menu_controls_binding_loop_loc_1CEF8(
     controls_scheme: u8,
-) -> OptionsMenuControlsBindingsLoc1CED6 {
+) -> OptionsMenuControlsBindingLoopLoc1CEF8 {
     fn controls_binding_labels(controls_scheme: u8) -> [&'static str; 3] {
         match controls_scheme {
             0 => ["OptText5.SPEED", "OptText5.JUMP", "OptText5.SPECIAL"],
@@ -2231,22 +2239,45 @@ pub(crate) fn options_menu_controls_bindings_loc_1CED6(
         }
     }
 
+    // ASM loc_1CEF8 (kid.asm:32159): `moveq #2,d2` seeds a three-iteration DBF
+    // loop. Each pass reads one byte from `unk_1CF28 + controls_scheme * 4`,
+    // uses it as an offset into `OptText5`, draws the label at the current row,
+    // then `addq.w #2,d1` advances to the next binding row.
+    OptionsMenuControlsBindingLoopLoc1CEF8 {
+        dbf_seed: 0x0002,
+        iterations: 0x0003,
+        row_start: 15,
+        row_step: 2,
+        binding_text_labels: controls_binding_labels(controls_scheme),
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn options_menu_controls_bindings_loc_1CED6(
+    selected_option: u16,
+    controls_scheme: u8,
+) -> OptionsMenuControlsBindingsLoc1CED6 {
     let highlighted = selected_option == 1;
     let palette_base = if highlighted { 0xE509 } else { 0xC509 };
+    let loop_shape = options_menu_controls_binding_loop_loc_1CEF8(controls_scheme);
 
     // ASM loc_1CED6 (kid.asm:32145): after the highlight palette choice, add
     // `Options_Suboption_Controls + $1B` onto the `$C509/$E509` tile base and
     // write the resulting selector word to the VDP data port.
-    // The same label then indexes `unk_1CF28` by `controls_scheme * 4`, using
-    // the first three bytes of that 4-byte stride as offsets into `OptText5`
-    // to pick one of the six SPEED/JUMP/SPECIAL permutations for rows 15/17/19.
+    // ASM loc_1CEF8 (kid.asm:32159) then consumes the selected `unk_1CF28`
+    // stride as three `OptText5` offsets for the binding labels.
     // The trailing `OptText6` sequence draws the fixed A/B/C badges on those
     // same three rows.
     OptionsMenuControlsBindingsLoc1CED6 {
         highlighted,
         selection_tile_word: palette_base + 0x001B + u16::from(controls_scheme),
-        binding_label_rows: [15, 17, 19],
-        binding_text_labels: controls_binding_labels(controls_scheme),
+        binding_label_rows: [
+            loop_shape.row_start,
+            loop_shape.row_start + loop_shape.row_step,
+            loop_shape.row_start + (loop_shape.row_step * 2),
+        ],
+        binding_text_labels: loop_shape.binding_text_labels,
         button_badge_rows: [15, 17, 19],
         button_badge_text_labels: ["OptText6.A", "OptText6.B", "OptText6.C"],
     }

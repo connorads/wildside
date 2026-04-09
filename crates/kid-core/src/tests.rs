@@ -26464,6 +26464,34 @@ fn options_menu_controls_bindings_loc_1ced6_uses_highlighted_tile_base_and_all_s
 }
 
 #[test]
+fn options_menu_controls_binding_loop_loc_1cef8_runs_three_rows_and_decodes_scheme_stride_offsets()
+{
+    let bindings = crate::boot::options_menu_controls_binding_loop_loc_1CEF8(3);
+
+    assert_eq!(
+        bindings.dbf_seed, 0x0002,
+        "ASM loc_1CEF8 (kid.asm:32159) should seed `d2 = 2`, which makes the DBF loop run three inclusive iterations",
+    );
+    assert_eq!(
+        bindings.iterations, 0x0003,
+        "ASM loc_1CEF8 should execute exactly three binding-label draws before the DBF terminates",
+    );
+    assert_eq!(
+        bindings.row_start, 15,
+        "ASM loc_1CEF8 should inherit `d1 = word_1CE2C + 5`, starting the first binding label on row 15",
+    );
+    assert_eq!(
+        bindings.row_step, 2,
+        "ASM loc_1CEF8 should `addq.w #2,d1` between passes, spacing the binding rows by two",
+    );
+    assert_eq!(
+        bindings.binding_text_labels,
+        ["OptText5.JUMP", "OptText5.SPECIAL", "OptText5.SPEED"],
+        "ASM loc_1CEF8 should decode scheme 3's `unk_1CF28` stride as JUMP, SPECIAL, SPEED",
+    );
+}
+
+#[test]
 fn end_sequence_camera_shake_sub_1d846_masks_v_int_bit_7_before_sign_shifting_rng_bytes() {
     let (camera_x_pos, camera_y_pos) = end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x85);
 
