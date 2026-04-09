@@ -26636,6 +26636,33 @@ fn draw_text_line_terminator_loc_1d07a_flushes_the_vdp_guard_only_for_the_nul_br
 }
 
 #[test]
+fn credits_glyph_preview_entry_loc_1d0a2_writes_the_vdp_command_and_gates_non_zero_glyphs() {
+    let letter = crate::boot::credits_glyph_preview_entry_loc_1D0A2(0x4C40_0000, b'A');
+
+    assert_eq!(
+        letter,
+        crate::boot::CreditsGlyphPreviewEntryLoc1D0A2 {
+            vdp_command: 0x4C40_0000,
+            tile_word: Some(0xE4DC),
+            z80_guard_subroutines: Some(["j_sub_914", "j_sub_924"]),
+            refresh_dbf_seed: Some(0x0002),
+        },
+        "ASM loc_1D0A2 (kid.asm:32463-32472) should write the prepared VDP command, remap `'A'` to tile word `$E4DC`, guard the write with `j_sub_914/j_sub_924`, and seed `d6 = 2` for the shared three-pass refresh loop",
+    );
+
+    assert_eq!(
+        crate::boot::credits_glyph_preview_entry_loc_1D0A2(0x4C40_0000, 0),
+        crate::boot::CreditsGlyphPreviewEntryLoc1D0A2 {
+            vdp_command: 0x4C40_0000,
+            tile_word: None,
+            z80_guard_subroutines: None,
+            refresh_dbf_seed: None,
+        },
+        "ASM loc_1D0A2 should still write `d5` to `4(a6)` on entry, but a zero glyph byte must branch straight to `return_1D0EA` without the guarded tile write or `d6` seed",
+    );
+}
+
+#[test]
 fn options_menu_speed_text_loc_1cf78_switches_between_normal_and_fast_copy_pairs() {
     let normal = crate::boot::options_menu_speed_text_loc_1CF78(2, false);
     assert!(

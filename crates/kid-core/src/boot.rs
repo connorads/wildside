@@ -722,6 +722,14 @@ pub(crate) struct DrawTextLineTerminatorLoc1D07A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CreditsGlyphPreviewEntryLoc1D0A2 {
+    pub(crate) vdp_command: u32,
+    pub(crate) tile_word: Option<u16>,
+    pub(crate) z80_guard_subroutines: Option<[&'static str; 2]>,
+    pub(crate) refresh_dbf_seed: Option<u16>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2347,6 +2355,32 @@ pub(crate) fn draw_text_line_terminator_loc_1D07A(
         flushes_vdp_guard: true,
         returns_after_flush: true,
     })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn credits_glyph_preview_entry_loc_1D0A2(
+    vdp_command: u32,
+    next_letter: u8,
+) -> CreditsGlyphPreviewEntryLoc1D0A2 {
+    // ASM loc_1D0A2 (kid.asm:32463): always write the precomputed VDP command
+    // longword from `d5` to `4(a6)` before reading the next glyph byte.
+    // ASM loc_1D0A2 (kid.asm:32465-32472): a zero byte branches straight to
+    // `return_1D0EA`; otherwise subtract `$41`, add `-$1B24`, guard the VDP
+    // write with `j_sub_914/j_sub_924`, store the resulting tile word to
+    // `(a6)`, and seed `d6 = 2` for the shared three-pass refresh loop.
+    let tile_word = (next_letter != 0).then(|| {
+        u16::from(next_letter)
+            .wrapping_sub(0x0041)
+            .wrapping_sub(0x1B24)
+    });
+
+    CreditsGlyphPreviewEntryLoc1D0A2 {
+        vdp_command,
+        tile_word,
+        z80_guard_subroutines: tile_word.map(|_| ["j_sub_914", "j_sub_924"]),
+        refresh_dbf_seed: tile_word.map(|_| 0x0002),
+    }
 }
 
 #[allow(non_snake_case)]
