@@ -2401,6 +2401,9 @@ pub(crate) fn classify_kid_object_relation(
         // before entering the shared collision writeback.
         Some(KidObjectRelation::Below)
     } else if min_penetration == from_bottom {
+        // ASM loc_1CE4 (kid.asm:3475): the mirrored vertical branch stores
+        // `colid_kidabove` before the shared writeback checks
+        // `Character_Movement == MoveID_Jump` for the later stomp path.
         Some(KidObjectRelation::Above)
     } else if min_penetration == from_left {
         // ASM loc_1CD2 (kid.asm:3460): once the surrounding overlap/velocity
