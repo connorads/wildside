@@ -730,6 +730,15 @@ pub(crate) struct CreditsGlyphPreviewEntryLoc1D0A2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CreditsGlyphPreviewRefreshLoopLoc1D0C2 {
+    pub(crate) dbf_seed: u16,
+    pub(crate) iterations: u16,
+    pub(crate) subroutine_order: [&'static str; 5],
+    pub(crate) preserves_register_window: bool,
+    pub(crate) next_vdp_command: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2380,6 +2389,35 @@ pub(crate) fn credits_glyph_preview_entry_loc_1D0A2(
         tile_word,
         z80_guard_subroutines: tile_word.map(|_| ["j_sub_914", "j_sub_924"]),
         refresh_dbf_seed: tile_word.map(|_| 0x0002),
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn credits_glyph_preview_refresh_loop_loc_1D0C2(
+    vdp_command: u32,
+) -> CreditsGlyphPreviewRefreshLoopLoc1D0C2 {
+    // ASM loc_1D0C2 (kid.asm:32475-32482): with `d6 = 2` from the preceding
+    // entry path, the loop calls `sub_1DA24`, `sub_1CC88`,
+    // `j_Make_SpritesFromGfxObjects`, `j_WaitForVint`, and
+    // `j_Transfer_SpriteAndKidToVRAM` in that order on each pass.
+    // ASM loc_1D0C2 (kid.asm:32477-32481): `movem.l d0-a5,-(sp)` preserves the
+    // caller-visible register window across the VBlank/render helpers.
+    // ASM loc_1D0C2 (kid.asm:32482-32484): `dbf d6,loc_1D0C2` yields
+    // `$2 + 1 = 3` refresh passes before `addi.l #$20000,d5` advances the VDP
+    // command to the next row for the following glyph.
+    CreditsGlyphPreviewRefreshLoopLoc1D0C2 {
+        dbf_seed: 0x0002,
+        iterations: 0x0003,
+        subroutine_order: [
+            "sub_1DA24",
+            "sub_1CC88",
+            "j_Make_SpritesFromGfxObjects",
+            "j_WaitForVint",
+            "j_Transfer_SpriteAndKidToVRAM",
+        ],
+        preserves_register_window: true,
+        next_vdp_command: vdp_command.wrapping_add(0x0002_0000),
     }
 }
 

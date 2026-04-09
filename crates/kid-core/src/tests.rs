@@ -26663,6 +26663,29 @@ fn credits_glyph_preview_entry_loc_1d0a2_writes_the_vdp_command_and_gates_non_ze
 }
 
 #[test]
+fn credits_glyph_preview_refresh_loop_loc_1d0c2_runs_three_vblank_refresh_passes() {
+    let refresh = crate::boot::credits_glyph_preview_refresh_loop_loc_1D0C2(0x4C40_0000);
+
+    assert_eq!(
+        refresh,
+        crate::boot::CreditsGlyphPreviewRefreshLoopLoc1D0C2 {
+            dbf_seed: 0x0002,
+            iterations: 0x0003,
+            subroutine_order: [
+                "sub_1DA24",
+                "sub_1CC88",
+                "j_Make_SpritesFromGfxObjects",
+                "j_WaitForVint",
+                "j_Transfer_SpriteAndKidToVRAM",
+            ],
+            preserves_register_window: true,
+            next_vdp_command: 0x4C42_0000,
+        },
+        "ASM loc_1D0C2 (kid.asm:32475-32484) should run the display-refresh helper chain three times from `d6 = 2`, preserve `d0-a5` across the render helpers, and then advance `d5` by `$20000` for the next glyph row",
+    );
+}
+
+#[test]
 fn options_menu_speed_text_loc_1cf78_switches_between_normal_and_fast_copy_pairs() {
     let normal = crate::boot::options_menu_speed_text_loc_1CF78(2, false);
     assert!(
