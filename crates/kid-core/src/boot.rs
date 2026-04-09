@@ -2141,6 +2141,21 @@ pub(crate) fn level_layout_read_pass_loc_1CCFC() -> LevelLayoutReadPassLoc1CCC2 
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn level_layout_final_copy_to_vram_loc_1CD18() -> LevelLayoutCopyToVramLoc1CCDE {
+    // ASM sub_1CCAE (kid.asm:31826): after the second readback pass the routine
+    // reuses the same `lea (Level_Layout).w,a0` / `move.w #$117F,d0` setup for
+    // the final VRAM upload.
+    // ASM loc_1CD18 (kid.asm:31864): `move.w (a0)+,(a6)` then
+    // `dbf d0,loc_1CD18`, so the closing Level_Layout upload writes
+    // `$117F + 1 = $1180` words to the VDP data port.
+    LevelLayoutCopyToVramLoc1CCDE {
+        dbf_seed: 0x117F,
+        words_copied: 0x1180,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn end_sequence_camera_shake_sub_1D846(
     random_x_byte: u8,
     random_y_byte: u8,

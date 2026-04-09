@@ -25933,6 +25933,20 @@ fn level_layout_read_pass_loc_1ccfc_calls_sub_1cd32_then_sub_1cd20_for_0x460_ite
 }
 
 #[test]
+fn level_layout_final_copy_to_vram_loc_1cd18_uploads_0x1180_words_to_vram() {
+    let copy_pass = crate::boot::level_layout_final_copy_to_vram_loc_1CD18();
+
+    assert_eq!(
+        copy_pass.dbf_seed, 0x117F,
+        "ASM sub_1CCAE should reseed `d0` with `$117F` before entering loc_1CD18",
+    );
+    assert_eq!(
+        copy_pass.words_copied, 0x1180,
+        "ASM loc_1CD18 (kid.asm:31864) should execute `$117F + 1` word copies from `Level_Layout` into the VDP data port",
+    );
+}
+
+#[test]
 fn options_menu_loc_1cc22_left_button_jump_table_dispatches_to_option_handlers() {
     let mut runtime = NativeRuntime::new(manifest());
 
