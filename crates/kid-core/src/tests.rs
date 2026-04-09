@@ -26562,6 +26562,26 @@ fn options_menu_speed_text_loc_1cf78_switches_between_normal_and_fast_copy_pairs
 }
 
 #[test]
+fn options_menu_exit_text_loc_1cffe_highlights_only_the_exit_row() {
+    let selected = crate::boot::options_menu_exit_text_loc_1CFFE(3);
+    assert!(
+        selected.highlighted,
+        "ASM DrawOptText4 (kid.asm:32357) should only raise `d3` when `Options_Selected_Option == 3`",
+    );
+    assert_eq!(
+        (selected.text_x, selected.text_y, selected.text_label),
+        (0, 17, "OptText10.EXIT"),
+        "ASM loc_1CFFE (kid.asm:32363) should always point `a4` at `OptText10` and draw EXIT from packed coordinates `(0,$11)`",
+    );
+
+    let unselected = crate::boot::options_menu_exit_text_loc_1CFFE(2);
+    assert!(
+        !unselected.highlighted,
+        "ASM DrawOptText4 should leave `d3 = 0` whenever the cursor is not on the EXIT row",
+    );
+}
+
+#[test]
 fn end_sequence_camera_shake_sub_1d846_masks_v_int_bit_7_before_sign_shifting_rng_bytes() {
     let (camera_x_pos, camera_y_pos) = end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x85);
 

@@ -702,6 +702,14 @@ pub(crate) struct OptionsMenuSpeedTextLoc1CF78 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OptionsMenuExitTextLoc1CFFE {
+    pub(crate) highlighted: bool,
+    pub(crate) text_x: u16,
+    pub(crate) text_y: u16,
+    pub(crate) text_label: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2326,6 +2334,23 @@ pub(crate) fn options_menu_speed_text_loc_1CF78(
         prompt_x: 14,
         prompt_y: 14,
         prompt_text_label,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn options_menu_exit_text_loc_1CFFE(
+    selected_option: u16,
+) -> OptionsMenuExitTextLoc1CFFE {
+    // ASM DrawOptText4 (kid.asm:32357): `d3` stays zero unless the cursor is on
+    // row 3, so only EXIT highlights there.
+    // ASM loc_1CFFE (kid.asm:32363): regardless of highlight, seed `d4 = 0`,
+    // point `a4` at `OptText10`, and tail into `DrawTextLine_Offset`.
+    OptionsMenuExitTextLoc1CFFE {
+        highlighted: selected_option == 3,
+        text_x: 0,
+        text_y: 17,
+        text_label: "OptText10.EXIT",
     }
 }
 
