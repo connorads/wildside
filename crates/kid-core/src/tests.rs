@@ -26604,6 +26604,21 @@ fn draw_text_line_tile_base_loc_1d050_selects_font_bank_and_palette_line() {
 }
 
 #[test]
+fn draw_text_line_glyph_loop_loc_1d068_streams_letters_until_the_first_nul_byte() {
+    let glyphs = crate::boot::draw_text_line_glyph_loop_loc_1D068(0xC4DC, b"ACE\0Z");
+
+    assert_eq!(
+        glyphs.glyph_tiles,
+        vec![0xC4DC, 0xC4DE, 0xC4E0],
+        "ASM loc_1D068 (kid.asm:32429) should subtract `$41` from each non-zero letter byte and add that offset onto the running tile base in `d7`",
+    );
+    assert_eq!(
+        glyphs.bytes_consumed, 4,
+        "ASM loc_1D068 should stop after consuming the first NUL terminator from `(a4)+`, leaving any later bytes unread",
+    );
+}
+
+#[test]
 fn options_menu_speed_text_loc_1cf78_switches_between_normal_and_fast_copy_pairs() {
     let normal = crate::boot::options_menu_speed_text_loc_1CF78(2, false);
     assert!(

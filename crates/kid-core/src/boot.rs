@@ -709,6 +709,12 @@ pub(crate) struct OptionsMenuExitTextLoc1CFFE {
     pub(crate) text_label: &'static str,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DrawTextLineGlyphLoopLoc1D068 {
+    pub(crate) glyph_tiles: Vec<u16>,
+    pub(crate) bytes_consumed: usize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
@@ -2292,6 +2298,35 @@ pub(crate) fn draw_text_line_tile_base_loc_1D050(highlighted: bool, alternate_fo
     let glyph_base = if alternate_font { 0x0509 } else { 0x04DC };
     let palette_base = draw_text_line_palette_base_loc_1D05E(highlighted);
     palette_base + glyph_base
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn draw_text_line_glyph_loop_loc_1D068(
+    tile_base: u16,
+    text_bytes: &[u8],
+) -> DrawTextLineGlyphLoopLoc1D068 {
+    // ASM loc_1D068 (kid.asm:32429): clear `d5`, read the next `(a4)+` byte,
+    // stop the write loop when that byte is zero, otherwise subtract `$41`,
+    // add the result onto the tile base in `d7`, and stream the word to the
+    // plane before looping for the next byte.
+    let mut glyph_tiles = Vec::new();
+    let mut bytes_consumed = 0usize;
+
+    for &next_letter in text_bytes {
+        bytes_consumed += 1;
+        if next_letter == 0 {
+            break;
+        }
+
+        let glyph_offset = u16::from(next_letter.wrapping_sub(0x41));
+        glyph_tiles.push(tile_base.wrapping_add(glyph_offset));
+    }
+
+    DrawTextLineGlyphLoopLoc1D068 {
+        glyph_tiles,
+        bytes_consumed,
+    }
 }
 
 #[allow(non_snake_case)]
