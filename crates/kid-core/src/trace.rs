@@ -2405,6 +2405,8 @@ pub(crate) fn classify_kid_object_relation(
         // `colid_kidright` and jumps into the shared collision writeback.
         Some(KidObjectRelation::Right)
     } else {
+        // ASM loc_1CD8 (kid.asm:3465): the mirrored overlap branch stores
+        // `colid_kidleft` before jumping into the shared collision writeback.
         Some(KidObjectRelation::Left)
     }
 }
