@@ -26320,6 +26320,37 @@ fn end_sequence_stripe_fill_loop_loc_1ce1c_writes_28_copies_of_0094_between_z80_
 }
 
 #[test]
+fn options_menu_text_draw_loc_1ce3a_highlights_row_zero_and_swaps_the_2p_copy_variant() {
+    let first_option = crate::boot::options_menu_text_draw_loc_1CE3A(0, false);
+    assert_eq!(
+        first_option.first_line_row, 0,
+        "ASM loc_1CE3A (kid.asm:32034) should always draw `OptText1` on row 0 before touching the 2P sub-option line",
+    );
+    assert!(
+        first_option.first_line_highlighted,
+        "ASM DrawOptText1 reaches loc_1CE3A with `d3 = 1` only when `Options_Selected_Option` is zero, so the first row should highlight only for cursor 0",
+    );
+    assert_eq!(
+        first_option.second_line_row, 1,
+        "ASM loc_1CE3A should then load `d4 = 1` before drawing the second options-menu row",
+    );
+    assert_eq!(
+        first_option.second_line_text_label, "OptText2",
+        "ASM loc_1CE3A should keep `a4 = OptText2` when `Options_Suboption_2PController` is clear",
+    );
+
+    let two_controller = crate::boot::options_menu_text_draw_loc_1CE3A(2, true);
+    assert!(
+        !two_controller.first_line_highlighted,
+        "ASM DrawOptText1 should leave `d3 = 0` once any option other than row 0 is selected",
+    );
+    assert_eq!(
+        two_controller.second_line_text_label, "OptText3",
+        "ASM loc_1CE3A should swap the second row source to `OptText3` when `Options_Suboption_2PController` is non-zero",
+    );
+}
+
+#[test]
 fn end_sequence_camera_shake_sub_1d846_masks_v_int_bit_7_before_sign_shifting_rng_bytes() {
     let (camera_x_pos, camera_y_pos) = end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x85);
 

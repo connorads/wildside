@@ -650,6 +650,14 @@ pub(crate) struct EndSequenceStripeFillLoopLoc1CE1C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OptionsMenuTextDrawLoc1CE3A {
+    pub(crate) first_line_row: u16,
+    pub(crate) first_line_highlighted: bool,
+    pub(crate) second_line_row: u16,
+    pub(crate) second_line_text_label: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2133,6 +2141,30 @@ pub(crate) fn end_sequence_stripe_fill_loop_loc_1CE1C() -> EndSequenceStripeFill
         iteration_seed: 0x001B,
         iterations: 0x001C,
         z80_guard_subroutines: ["j_sub_914", "j_sub_924"],
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn options_menu_text_draw_loc_1CE3A(
+    selected_option: u16,
+    two_player_two_controllers: bool,
+) -> OptionsMenuTextDrawLoc1CE3A {
+    // ASM DrawOptText1 (kid.asm:32028): `d3` starts at 0 and only flips to 1
+    // when `Options_Selected_Option == 0`, so the first line is highlighted
+    // only while the 2 PLAYERS row is selected.
+    // ASM loc_1CE3A (kid.asm:32034): this shared entry always draws row 0 from
+    // `OptText1`, then row 1 from `OptText2`, except `Options_Suboption_2PController != 0`
+    // swaps the second row source to `OptText3`.
+    OptionsMenuTextDrawLoc1CE3A {
+        first_line_row: 0,
+        first_line_highlighted: selected_option == 0,
+        second_line_row: 1,
+        second_line_text_label: if two_player_two_controllers {
+            "OptText3"
+        } else {
+            "OptText2"
+        },
     }
 }
 
