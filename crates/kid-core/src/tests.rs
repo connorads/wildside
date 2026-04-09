@@ -26522,6 +26522,30 @@ fn options_menu_controls_binding_loop_loc_1cef8_runs_three_rows_and_decodes_sche
 }
 
 #[test]
+fn draw_text_line_tile_base_loc_1d050_selects_font_bank_and_palette_line() {
+    assert_eq!(
+        crate::boot::draw_text_line_tile_base_loc_1D050(false, false),
+        0xC4DC,
+        "ASM DrawTextLine should keep the default `$4DC` glyph base and add palette line `$C000` when both `d4` and `d3` are clear",
+    );
+    assert_eq!(
+        crate::boot::draw_text_line_tile_base_loc_1D050(true, false),
+        0xE4DC,
+        "ASM loc_1D050 (kid.asm:32418) should switch only the palette line to `$E000` when `d3` is set and `d4` is clear",
+    );
+    assert_eq!(
+        crate::boot::draw_text_line_tile_base_loc_1D050(false, true),
+        0xC509,
+        "ASM DrawTextLine should replace `$4DC` with `$509` before loc_1D050 when `tst.b d4` is non-zero",
+    );
+    assert_eq!(
+        crate::boot::draw_text_line_tile_base_loc_1D050(true, true),
+        0xE509,
+        "ASM loc_1D050 should combine the alternate `$509` glyph base with the highlighted `$E000` palette line",
+    );
+}
+
+#[test]
 fn options_menu_speed_text_loc_1cf78_switches_between_normal_and_fast_copy_pairs() {
     let normal = crate::boot::options_menu_speed_text_loc_1CF78(2, false);
     assert!(

@@ -2276,24 +2276,37 @@ pub(crate) fn options_menu_controls_binding_loop_loc_1CEF8(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn draw_text_line_tile_base_loc_1D050(highlighted: bool, alternate_font: bool) -> u16 {
+    // ASM DrawTextLine (kid.asm:32380): seed `d7 = $4DC`, switch to `$509`
+    // when `tst.b d4` is non-zero, then add palette line `$C000/$E000`
+    // depending on the highlight bit in `d3`.
+    let glyph_base = if alternate_font { 0x0509 } else { 0x04DC };
+    let palette_base = if highlighted { 0xE000 } else { 0xC000 };
+    palette_base + glyph_base
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn options_menu_controls_bindings_loc_1CED6(
     selected_option: u16,
     controls_scheme: u8,
 ) -> OptionsMenuControlsBindingsLoc1CED6 {
     let highlighted = selected_option == 1;
-    let palette_base = if highlighted { 0xE509 } else { 0xC509 };
     let loop_shape = options_menu_controls_binding_loop_loc_1CEF8(controls_scheme);
 
     // ASM loc_1CED6 (kid.asm:32145): after the highlight palette choice, add
-    // `Options_Suboption_Controls + $1B` onto the `$C509/$E509` tile base and
-    // write the resulting selector word to the VDP data port.
+    // `Options_Suboption_Controls + $1B` onto the alternate-font tile base
+    // chosen by DrawTextLine's `loc_1D050`, then write the resulting selector
+    // word to the VDP data port.
     // ASM loc_1CEF8 (kid.asm:32159) then consumes the selected `unk_1CF28`
     // stride as three `OptText5` offsets for the binding labels.
     // The trailing `OptText6` sequence draws the fixed A/B/C badges on those
     // same three rows.
     OptionsMenuControlsBindingsLoc1CED6 {
         highlighted,
-        selection_tile_word: palette_base + 0x001B + u16::from(controls_scheme),
+        selection_tile_word: draw_text_line_tile_base_loc_1D050(highlighted, true)
+            + 0x001B
+            + u16::from(controls_scheme),
         binding_label_rows: [
             loop_shape.row_start,
             loop_shape.row_start + loop_shape.row_step,
