@@ -2125,6 +2125,22 @@ pub(crate) fn level_layout_delay_loc_1CCE8() -> LevelLayoutDelayLoc1CCE8 {
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn level_layout_read_pass_loc_1CCFC() -> LevelLayoutReadPassLoc1CCC2 {
+    // ASM sub_1CCAE (kid.asm:31826): after the delay loop the routine reloads
+    // the VDP read command, re-seeds `d0` with `$45F`, and re-enters the
+    // readback pass.
+    // ASM loc_1CCFC (kid.asm:31856): `bsr.w sub_1CD32`, then `bsr.w sub_1CD20`,
+    // then `dbf d0,loc_1CCFC`, reversing the earlier subroutine order while
+    // keeping the same `$45F+1 = $460` iteration count.
+    LevelLayoutReadPassLoc1CCC2 {
+        dbf_seed: 0x045F,
+        iterations: 0x0460,
+        subroutine_order: ["sub_1CD32", "sub_1CD20"],
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn end_sequence_camera_shake_sub_1D846(
     random_x_byte: u8,
     random_y_byte: u8,

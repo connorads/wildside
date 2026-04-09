@@ -25914,6 +25914,25 @@ fn level_layout_delay_loc_1cce8_waits_for_0x101_dbf_iterations() {
 }
 
 #[test]
+fn level_layout_read_pass_loc_1ccfc_calls_sub_1cd32_then_sub_1cd20_for_0x460_iterations() {
+    let read_pass = crate::boot::level_layout_read_pass_loc_1CCFC();
+
+    assert_eq!(
+        read_pass.dbf_seed, 0x045F,
+        "ASM sub_1CCAE should reseed `d0` with `$45F` before entering loc_1CCFC",
+    );
+    assert_eq!(
+        read_pass.iterations, 0x0460,
+        "ASM loc_1CCFC (kid.asm:31856) should execute `$45F + 1` DBF iterations",
+    );
+    assert_eq!(
+        read_pass.subroutine_order,
+        ["sub_1CD32", "sub_1CD20"],
+        "ASM loc_1CCFC should reverse the earlier readback order and call `sub_1CD32` before `sub_1CD20` on each iteration",
+    );
+}
+
+#[test]
 fn options_menu_loc_1cc22_left_button_jump_table_dispatches_to_option_handlers() {
     let mut runtime = NativeRuntime::new(manifest());
 
