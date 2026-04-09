@@ -633,6 +633,15 @@ pub(crate) struct EndSequenceDisplayRefreshSub1D830 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
+    pub(crate) start_column: u16,
+    pub(crate) iteration_seed: u16,
+    pub(crate) iterations: u16,
+    pub(crate) stripe_columns_per_iteration: u16,
+    pub(crate) final_next_column: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelLayoutReadPassLoc1CCC2 {
     pub(crate) dbf_seed: u16,
     pub(crate) iterations: u16,
@@ -2081,6 +2090,25 @@ pub(crate) fn end_sequence_display_refresh_sub_1D830(
         panel_toggle_byte,
         left_panel_x,
         right_panel_x,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_stripe_loop_loc_1CDE4() -> EndSequenceStripeLoopLoc1CDE4 {
+    // ASM sub_1CDE0 (kid.asm:31978): seed both `d0` and `d1` with `#9`
+    // before entering the outer stripe loop.
+    // ASM loc_1CDE4 (kid.asm:31985): each pass calls `sub_1DA24`, runs
+    // `sub_1CDFA` twice with the current column then the incremented column,
+    // advances `d0` a second time, and loops with `dbf d1,loc_1CDE4`. That
+    // yields `$9 + 1 = $A` iterations, painting column pairs `(9,10)` through
+    // `(27,28)` before leaving `d0` poised at 29 for the caller.
+    EndSequenceStripeLoopLoc1CDE4 {
+        start_column: 0x0009,
+        iteration_seed: 0x0009,
+        iterations: 0x000A,
+        stripe_columns_per_iteration: 0x0002,
+        final_next_column: 0x001D,
     }
 }
 

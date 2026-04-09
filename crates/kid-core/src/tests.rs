@@ -26271,6 +26271,32 @@ fn end_sequence_display_refresh_sub_1d830_combines_camera_scroll_upload_and_pane
 }
 
 #[test]
+fn end_sequence_stripe_loop_loc_1cde4_steps_ten_display_refreshes_across_column_pairs() {
+    let stripe_loop = crate::boot::end_sequence_stripe_loop_loc_1CDE4();
+
+    assert_eq!(
+        stripe_loop.start_column, 0x0009,
+        "ASM sub_1CDE0 should seed `d0` with column `$9` before loc_1CDE4 starts",
+    );
+    assert_eq!(
+        stripe_loop.iteration_seed, 0x0009,
+        "ASM sub_1CDE0 should seed `d1` with `$9` before the `dbf d1,loc_1CDE4` loop",
+    );
+    assert_eq!(
+        stripe_loop.iterations, 0x000A,
+        "ASM loc_1CDE4 (kid.asm:31985) should execute `$9 + 1` outer iterations",
+    );
+    assert_eq!(
+        stripe_loop.stripe_columns_per_iteration, 0x0002,
+        "ASM loc_1CDE4 should call `sub_1CDFA` twice per iteration, covering adjacent column pairs",
+    );
+    assert_eq!(
+        stripe_loop.final_next_column, 0x001D,
+        "ASM loc_1CDE4 should leave `d0` at 29 after covering column pairs `(9,10)` through `(27,28)`",
+    );
+}
+
+#[test]
 fn end_sequence_camera_shake_sub_1d846_masks_v_int_bit_7_before_sign_shifting_rng_bytes() {
     let (camera_x_pos, camera_y_pos) = end_sequence_camera_shake_sub_1D846(0x81, 0x1F, 0x85);
 
