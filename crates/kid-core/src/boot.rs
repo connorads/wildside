@@ -2754,6 +2754,29 @@ pub(crate) fn end_sequence_camera_shake_sub_1D846(
     (camera_x_pos, camera_y_pos)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceBurstPreludeLoc1D1D6 {
+    pub(crate) burst_subroutine: &'static str,
+    pub(crate) burst_priority: u8,
+    pub(crate) wait_seed: u16,
+    pub(crate) wait_iterations: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_burst_prelude_loc_1D1D6() -> EndSequenceBurstPreludeLoc1D1D6 {
+    // ASM loc_1D1D6 (kid.asm:32582-32585): load `d4 = 1`, call `sub_1D86C`,
+    // then seed `d1 = 1` so the following `dbf d1,loc_1D1DE` hibernates
+    // twice before the next burst spawn.
+    EndSequenceBurstPreludeLoc1D1D6 {
+        burst_subroutine: "sub_1D86C",
+        burst_priority: 1,
+        wait_seed: 0x0001,
+        wait_iterations: 0x0002,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn end_sequence_burst_sprite_init_sub_1D86C(
