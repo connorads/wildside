@@ -646,6 +646,12 @@ pub(crate) struct LevelLayoutCopyToVramLoc1CCDE {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelLayoutDelayLoc1CCE8 {
+    pub(crate) dbf_seed: u16,
+    pub(crate) iterations: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceBurstSpriteInitSub1D86C {
     pub(crate) callback_label: &'static str,
     pub(crate) x_pos: i16,
@@ -2103,6 +2109,17 @@ pub(crate) fn level_layout_copy_to_vram_loc_1CCDE() -> LevelLayoutCopyToVramLoc1
     LevelLayoutCopyToVramLoc1CCDE {
         dbf_seed: 0x117F,
         words_copied: 0x1180,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_layout_delay_loc_1CCE8() -> LevelLayoutDelayLoc1CCE8 {
+    // ASM loc_1CCE8 (kid.asm:31850): `move.w #$100,d0` then `dbf d0,loc_1CCE8`,
+    // so this is a pure busy-wait lasting `$100 + 1 = $101` DBF iterations.
+    LevelLayoutDelayLoc1CCE8 {
+        dbf_seed: 0x0100,
+        iterations: 0x0101,
     }
 }
 

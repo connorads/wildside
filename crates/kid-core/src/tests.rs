@@ -25900,6 +25900,20 @@ fn level_layout_copy_to_vram_loc_1ccde_uploads_0x1180_words_to_vram() {
 }
 
 #[test]
+fn level_layout_delay_loc_1cce8_waits_for_0x101_dbf_iterations() {
+    let delay = crate::boot::level_layout_delay_loc_1CCE8();
+
+    assert_eq!(
+        delay.dbf_seed, 0x0100,
+        "ASM loc_1CCE8 should seed `d0` with `$100` before the busy-wait loop",
+    );
+    assert_eq!(
+        delay.iterations, 0x0101,
+        "ASM loc_1CCE8 (kid.asm:31850) should spin for `$100 + 1` DBF iterations before reloading the VRAM read command",
+    );
+}
+
+#[test]
 fn options_menu_loc_1cc22_left_button_jump_table_dispatches_to_option_handlers() {
     let mut runtime = NativeRuntime::new(manifest());
 
