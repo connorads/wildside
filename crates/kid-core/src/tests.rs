@@ -11298,6 +11298,39 @@ fn end_sequence_credits_glyph_init_sub_1d786_uses_the_expected_gfx_object_defaul
 }
 
 #[test]
+fn end_sequence_script_driver_loc_1d1b0_starts_from_unk_1d91c_and_waits_delay_plus_one_frames() {
+    let driver = crate::movement::end_sequence_script_driver_loc_1D1B0(&[
+        0x3C, 0x00, 0x06, 0x01, 0x06, 0x02, 0xFF, 0xFF,
+    ]);
+
+    assert_eq!(
+        driver,
+        crate::movement::EndSequenceScriptDriverLoc1D1B0 {
+            script_table_label: "unk_1D91C",
+            first_delay_seed: Some(0x003C),
+            first_script_id: Some(0x0000),
+            first_dispatch_subroutine: Some("sub_1D944"),
+            first_hibernate_iterations: Some(0x003D),
+            sentinel_branches_to: None,
+        },
+        "ASM loc_1D1B0 / loc_1D1B4 / loc_1D1C4 (kid.asm:32560-32574) should start from `unk_1D91C`, dispatch the first script id through `sub_1D944`, then hibernate `$3C + 1 = $3D` frames before fetching the next pair",
+    );
+
+    assert_eq!(
+        crate::movement::end_sequence_script_driver_loc_1D1B0(&[0xFF, 0xFF]),
+        crate::movement::EndSequenceScriptDriverLoc1D1B0 {
+            script_table_label: "unk_1D91C",
+            first_delay_seed: None,
+            first_script_id: None,
+            first_dispatch_subroutine: None,
+            first_hibernate_iterations: None,
+            sentinel_branches_to: Some("loc_1D1CE"),
+        },
+        "ASM loc_1D1B4 should branch straight to `loc_1D1CE` when the next delay byte from `unk_1D91C` is negative",
+    );
+}
+
+#[test]
 fn load_end_sequence_credits_glyphs_sub_1d7a8_maps_triples_until_the_zero_x_sentinel() {
     let glyphs = load_end_sequence_credits_glyphs_sub_1D7A8(
         &[0x10, 0xA8, 0x04, 0x20, 0xA4, 0x08, 0x00, 0xFF, 0xFF],

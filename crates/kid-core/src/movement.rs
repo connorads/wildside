@@ -368,6 +368,17 @@ pub(crate) struct EndSequenceCreditsGlyphPlacementSub1D7A8 {
     pub(crate) display_enabled: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceScriptDriverLoc1D1B0 {
+    pub(crate) script_table_label: &'static str,
+    pub(crate) first_delay_seed: Option<u16>,
+    pub(crate) first_script_id: Option<u16>,
+    pub(crate) first_dispatch_subroutine: Option<&'static str>,
+    pub(crate) first_hibernate_iterations: Option<u16>,
+    pub(crate) sentinel_branches_to: Option<&'static str>,
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsGlyphInitSub1D786 {
@@ -380,6 +391,55 @@ pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsG
         tile_word: 0x0509,
         priority: 2,
         palette_line: 1,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn end_sequence_script_driver_loc_1D1B0(
+    script: &[u8],
+) -> EndSequenceScriptDriverLoc1D1B0 {
+    // ASM loc_1D1B0 (kid.asm:32560): seed `a2` with `unk_1D91C` before
+    // falling straight into the shared script loop at `loc_1D1B4`.
+    // ASM loc_1D1B4 (kid.asm:32564-32570): clear `d1/d0`, read the next delay
+    // byte into `d1`, branch to `loc_1D1CE` when that byte is negative,
+    // otherwise read the script id into `d0` and dispatch it through
+    // `sub_1D944`.
+    // ASM loc_1D1C4 (kid.asm:32572-32574): hibernate on each loop body before
+    // `dbf d1,loc_1D1C4`, so a delay seed of `$3C` waits `$3C + 1 = $3D`
+    // frames before the script driver fetches the next pair.
+    let Some(&delay_byte) = script.first() else {
+        return EndSequenceScriptDriverLoc1D1B0 {
+            script_table_label: "unk_1D91C",
+            first_delay_seed: None,
+            first_script_id: None,
+            first_dispatch_subroutine: None,
+            first_hibernate_iterations: None,
+            sentinel_branches_to: None,
+        };
+    };
+
+    if (delay_byte as i8).is_negative() {
+        return EndSequenceScriptDriverLoc1D1B0 {
+            script_table_label: "unk_1D91C",
+            first_delay_seed: None,
+            first_script_id: None,
+            first_dispatch_subroutine: None,
+            first_hibernate_iterations: None,
+            sentinel_branches_to: Some("loc_1D1CE"),
+        };
+    }
+
+    let first_delay_seed = u16::from(delay_byte);
+    let first_script_id = script.get(1).copied().map(u16::from);
+
+    EndSequenceScriptDriverLoc1D1B0 {
+        script_table_label: "unk_1D91C",
+        first_delay_seed: Some(first_delay_seed),
+        first_script_id,
+        first_dispatch_subroutine: first_script_id.map(|_| "sub_1D944"),
+        first_hibernate_iterations: first_script_id.map(|_| first_delay_seed.wrapping_add(1)),
+        sentinel_branches_to: None,
     }
 }
 
