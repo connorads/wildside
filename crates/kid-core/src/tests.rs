@@ -198,10 +198,11 @@ use crate::level::{
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
-    object_check_in_range_active_count_gate_loc_320E2, object_check_in_range_normal_x_loc_320C0,
-    object_check_in_range_normal_y_loc_320D8, object_check_in_range_wide_load_x_loc_32122,
-    object_check_in_range_wide_load_y_loc_32140, object_out_of_range_delete_tail_loc_320B4,
-    object_out_of_range_positive_slot_loc_320A6, prepare_background_art_decompress_loc_11EA2,
+    manage_enemy_loading_setup_loc_3682C, object_check_in_range_active_count_gate_loc_320E2,
+    object_check_in_range_normal_x_loc_320C0, object_check_in_range_normal_y_loc_320D8,
+    object_check_in_range_wide_load_x_loc_32122, object_check_in_range_wide_load_y_loc_32140,
+    object_out_of_range_delete_tail_loc_320B4, object_out_of_range_positive_slot_loc_320A6,
+    prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
@@ -35464,6 +35465,28 @@ fn demo_play_non_knights_isle_suppresses_enemy_loading() {
     assert!(
         runtime.active_enemy_roster.is_empty(),
         "demo traces should stay free of enemy snapshots when loading is suppressed"
+    );
+}
+
+#[test]
+fn manage_enemy_loading_loc_3682c_masks_the_leading_count_word_to_a_low_byte_loop_counter() {
+    let setup = manage_enemy_loading_setup_loc_3682C(0x0012_3400, 0xAB03);
+
+    assert_eq!(
+        setup.enemy_count, 0x0003,
+        "ASM loc_3682C should keep only the low byte of the `(a1)+` count word in `d7`"
+    );
+    assert_eq!(
+        setup.loop_counter, 0x0003,
+        "ASM loc_3682C should mirror the masked `d7` count into `d6` before entering `loc_36968`"
+    );
+    assert_eq!(
+        setup.first_entry_addr, 0x0012_3402,
+        "ASM loc_3682C should advance `a1` past the leading count word before the first entry"
+    );
+    assert_eq!(
+        setup.enemy_status_index, 0,
+        "ASM loc_3682C should restart at the first `EnemyStatus_Table` word"
     );
 }
 

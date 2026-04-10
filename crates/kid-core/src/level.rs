@@ -6135,6 +6135,33 @@ pub(crate) fn enemy_layout_reset_and_seek_loc_31F8E(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ManageEnemyLoadingSetupLoc3682C {
+    pub(crate) enemy_count: u16,
+    pub(crate) loop_counter: u16,
+    pub(crate) first_entry_addr: u32,
+    pub(crate) enemy_status_index: usize,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn manage_enemy_loading_setup_loc_3682C(
+    enemy_layout_addr: u32,
+    enemy_count_word: u16,
+) -> ManageEnemyLoadingSetupLoc3682C {
+    // ASM Manage_EnemyLoading -> loc_3682C (kid.asm:37969-37974) reloads `a1`
+    // from `Addr_EnemyLayout`, reads the leading word through `(a1)+`, masks
+    // the loop counter down to its low byte with `andi.w #$FF,d7`, mirrors
+    // that value into `d6`, and reanchors `a2` on `EnemyStatus_Table`.
+    let enemy_count = enemy_count_word & 0x00FF;
+    ManageEnemyLoadingSetupLoc3682C {
+        enemy_count,
+        loop_counter: enemy_count,
+        first_entry_addr: enemy_layout_addr.wrapping_add(2),
+        enemy_status_index: 0,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
