@@ -46,15 +46,16 @@ use crate::level::{
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
-    BackgroundScrollStripeLayoutSeedLoc301D8, BackgroundScrollStripeRightWindowLoc301F6,
-    BackgroundScrollStripeRowSelectionLoc301CE, BackgroundScrollStripeVerticalPassLoc301FE,
-    BackgroundScrollUpperPassLoc2FFE8, BackgroundScrollUpperPassResumeLoc30014,
-    BlockLayoutDecodeWordsLoc1354E, BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504,
-    BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E,
-    BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0,
-    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
-    BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
-    BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
+    BackgroundScrollStripeHorizontalGateLoc3023C, BackgroundScrollStripeLayoutSeedLoc301D8,
+    BackgroundScrollStripeRightWindowLoc301F6, BackgroundScrollStripeRowSelectionLoc301CE,
+    BackgroundScrollStripeVerticalPassLoc301FE, BackgroundScrollUpperPassLoc2FFE8,
+    BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
+    BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504, BlockLayoutEntryWordsLoc133B2,
+    BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E,
+    BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE,
+    BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E,
+    BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C, BlockLayoutRepeatWordsLoc1351E,
+    BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
     DecompressToVramSpecialReturnLoc143B2, FgPlaneCustomWriteSub1596,
     FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680,
@@ -76,7 +77,9 @@ use crate::level::{
     apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
     background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
-    background_scroll_lower_pass_setup_loc_3001E, background_scroll_stripe_layout_seed_loc_301D8,
+    background_scroll_lower_pass_setup_loc_3001E,
+    background_scroll_stripe_horizontal_gate_loc_3023C,
+    background_scroll_stripe_layout_seed_loc_301D8,
     background_scroll_stripe_restore_camera_column_loc_3023A,
     background_scroll_stripe_right_window_loc_301F6,
     background_scroll_stripe_row_selection_loc_301CE,
@@ -2634,6 +2637,57 @@ fn background_scroll_stripe_restore_camera_column_loc_3023a_restores_the_saved_d
         background_scroll_stripe_restore_camera_column_loc_3023A(0x80F6),
         0x80F6,
         "ASM loc_3023A should pop the original `d7` word from the stack unchanged before `loc_3023C` starts the horizontal camera-delta check",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_horizontal_gate_loc_3023c_skips_rendering_when_the_camera_tile_column_is_unchanged()
+ {
+    assert_eq!(
+        background_scroll_stripe_horizontal_gate_loc_3023C(0x0046, 0x0046, 0x0100, 0x0230, 0x0118),
+        BackgroundScrollStripeHorizontalGateLoc3023C {
+            render_column: None,
+            latched_camera_x_pos: 0x0230,
+            latched_camera_y_pos: 0x0118,
+        },
+        "ASM loc_3023C should branch straight to loc_302E8 when the restored `d7` matches `($FFFFF82C).w`, but still latch the current camera X/Y words there",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_horizontal_gate_loc_3023c_uses_the_current_column_when_scrolling_left()
+{
+    assert_eq!(
+        background_scroll_stripe_horizontal_gate_loc_3023C(0x003A, 0x0040, 0x0100, 0x01D0, 0x00F0),
+        BackgroundScrollStripeHorizontalGateLoc3023C {
+            render_column: Some(0x003A),
+            latched_camera_x_pos: 0x01D0,
+            latched_camera_y_pos: 0x00F0,
+        },
+        "ASM loc_3023C should fall through the `blt.s loc_30262` path when the new tile column is left of the saved one, reusing the current `d6` without the `$28` right-edge bias",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_horizontal_gate_loc_3023c_uses_the_right_edge_only_when_it_stays_in_bounds()
+ {
+    assert_eq!(
+        background_scroll_stripe_horizontal_gate_loc_3023C(0x0010, 0x0008, 0x0050, 0x0080, 0x0040),
+        BackgroundScrollStripeHorizontalGateLoc3023C {
+            render_column: Some(0x0038),
+            latched_camera_x_pos: 0x0080,
+            latched_camera_y_pos: 0x0040,
+        },
+        "ASM loc_3023C should add `$28` tiles when scrolling right and keep the pass only while that biased column stays strictly below `Level_width_tiles`",
+    );
+    assert_eq!(
+        background_scroll_stripe_horizontal_gate_loc_3023C(0x0028, 0x0010, 0x0050, 0x0140, 0x0060),
+        BackgroundScrollStripeHorizontalGateLoc3023C {
+            render_column: None,
+            latched_camera_x_pos: 0x0140,
+            latched_camera_y_pos: 0x0060,
+        },
+        "ASM loc_3023C should branch to loc_302E8 once `d6 + $28` reaches `Level_width_tiles`, skipping the horizontal render but still latching the camera words",
     );
 }
 

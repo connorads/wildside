@@ -8064,6 +8064,45 @@ pub(crate) fn background_scroll_stripe_restore_camera_column_loc_3023A(
     saved_camera_tile_column
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeHorizontalGateLoc3023C {
+    pub(crate) render_column: Option<u16>,
+    pub(crate) latched_camera_x_pos: u16,
+    pub(crate) latched_camera_y_pos: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_horizontal_gate_loc_3023C(
+    current_camera_tile_column: u16,
+    saved_camera_tile_column: u16,
+    level_width_tiles: u16,
+    camera_x_pos: u16,
+    camera_y_pos: u16,
+) -> BackgroundScrollStripeHorizontalGateLoc3023C {
+    // ASM loc_3023C (kid.asm:33819): reload the saved `Camera_X_pos>>3` from
+    // `($FFFFF82C).w`, compare it against the restored `d7`, and skip the
+    // horizontal upload entirely when the tile column is unchanged. Scrolling
+    // left reuses the current column; scrolling right advances the render edge
+    // by `$28` tiles and drops the pass if that would reach or exceed
+    // `Level_width_tiles`. The shared tail at `loc_302E8` always latches the
+    // current camera X/Y words back into `$FFFFF82C/$FFFFF82E`.
+    let render_column = if current_camera_tile_column == saved_camera_tile_column {
+        None
+    } else if current_camera_tile_column < saved_camera_tile_column {
+        Some(current_camera_tile_column)
+    } else {
+        let right_edge_column = current_camera_tile_column.wrapping_add(0x0028);
+        (right_edge_column < level_width_tiles).then_some(right_edge_column)
+    };
+
+    BackgroundScrollStripeHorizontalGateLoc3023C {
+        render_column,
+        latched_camera_x_pos: camera_x_pos,
+        latched_camera_y_pos: camera_y_pos,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
