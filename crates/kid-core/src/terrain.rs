@@ -1593,6 +1593,25 @@ fn horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col: i32) -> 
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
+    grid: &BlockGrid,
+    lead_col: i32,
+    top_row: i32,
+    bottom_row: i32,
+) -> u16 {
+    // ASM loc_36AAE (kid.asm:38268): with `a4` already retargeted by
+    // `loc_36AA6`, OR the left lead-column words one row at a time via
+    // `add.w (Level_width_tiles).w,a4` so any blocking bit from the scanned
+    // prefix survives into the later `andi.w #$4000,d0` test.
+    let mut mask = 0u16;
+    for row in top_row..=bottom_row {
+        mask |= grid.cell_at(lead_col as u16, row as u16).to_word();
+    }
+    mask
+}
+
 pub(crate) fn transform_overlap_column_blocked_sub_7bea(
     grid: &BlockGrid,
     x_px: i32,
@@ -1683,8 +1702,9 @@ fn horizontal_collision_scan(
     } else {
         let lead_col = horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col)
             .expect("leftward lead-column scan should only run when the column is in bounds");
-        horizontal_collision_scan_column_mask_loc_369CE(grid, lead_col, top_row, bottom_row)
-            & 0x4000
+        horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
+            grid, lead_col, top_row, bottom_row,
+        ) & 0x4000
             != 0
     };
 
@@ -3369,6 +3389,20 @@ mod tests {
             horizontal_collision_scan_left_lead_column_index_loc_36AA6(3),
             Some(2),
             "ASM loc_36AA6 should retarget `a4` to the column immediately left of the hitbox with `lea -2(a1),a4` once the left edge is in bounds",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_lead_column_mask_loc_36aae_keeps_blocking_bits_from_any_scanned_row()
+     {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(2 * 4 + 0) * 2] = 0x50;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        assert_eq!(
+            horizontal_collision_scan_left_lead_column_mask_loc_36AAE(&grid, 0, 1, 3) & 0x7000,
+            0x5000,
+            "ASM loc_36AAE should keep OR-ing the same lead-column accumulator while stepping one `Level_width_tiles` row at a time, so a later-row `$5000` slope must survive the whole inclusive scan",
         );
     }
 
