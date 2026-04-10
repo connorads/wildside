@@ -32,6 +32,12 @@ pub(crate) struct HorizontalOverlapResolutionLoc25EE {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HorizontalOverlapResolutionLoc2616 {
+    pub(crate) push_x_px: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn horizontal_overlap_resolution_loc_25EE(
     platform_left_px: i16,
@@ -59,6 +65,22 @@ pub(crate) fn horizontal_overlap_resolution_loc_25EE(
         left_exit_px,
         right_exit_px,
         push_x_px,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn horizontal_overlap_right_exit_loc_2616(
+    platform_right_px: i16,
+    player_left_px: i16,
+) -> HorizontalOverlapResolutionLoc2616 {
+    // ASM loc_2616 (kid.asm:4530): when `player_left_px > platform_left_px`
+    // and `player_right_px >= platform_right_px`, the scan skips the
+    // mixed-overlap compare and uses only the right-hand horizontal exit.
+    HorizontalOverlapResolutionLoc2616 {
+        push_x_px: platform_right_px
+            .wrapping_sub(player_left_px)
+            .wrapping_add(1),
     }
 }
 

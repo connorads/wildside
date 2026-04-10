@@ -19050,6 +19050,15 @@ fn horizontal_overlap_resolution_loc_25ee_keeps_the_nearer_exit_distance() {
 }
 
 #[test]
+fn horizontal_overlap_right_exit_loc_2616_uses_the_platform_right_edge_only() {
+    assert_eq!(
+        horizontal_overlap_right_exit_loc_2616(87, 60),
+        HorizontalOverlapResolutionLoc2616 { push_x_px: 28 },
+        "ASM loc_2616 (kid.asm:4530) should skip the magnitude compare and set `d7 = platform_right-player_left+1` when the player already crosses the platform's right edge",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
