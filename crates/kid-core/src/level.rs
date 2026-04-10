@@ -7592,6 +7592,14 @@ pub(crate) struct BackgroundScrollUpperPassResumeLoc30014 {
     pub(crate) loop_iterations: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollLowerPassSetupLoc3001E {
+    pub(crate) original_camera_y: i16,
+    pub(crate) stepped_camera_y: i16,
+    pub(crate) shift_data_camera_y: i16,
+    pub(crate) loop_iterations: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7650,6 +7658,33 @@ pub(crate) fn background_scroll_upper_pass_resume_loc_30014(
     BackgroundScrollUpperPassResumeLoc30014 {
         restored_camera_y: prologue.original_camera_y,
         loop_iterations: prologue.loop_iterations,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_lower_pass_setup_loc_3001E(
+    resume: BackgroundScrollUpperPassResumeLoc30014,
+    level_height_pixels: i16,
+) -> BackgroundScrollLowerPassSetupLoc3001E {
+    // ASM loc_3001E (kid.asm:33614): once the upper `dbf d6,loc_30016` pass
+    // finishes, restore `d6/d7`, then rebuild the lower-pass state from the
+    // original camera word by storing `d7-$380` back into `Camera_Y_pos`,
+    // `d7-$3A0` into `$FFFFFAA8`, and re-seeding `d6=#1C` with the same
+    // bottom-edge clamp used for the second pass setup.
+    let stepped_camera_y = resume.restored_camera_y.wrapping_sub(0x0380);
+    let shift_data_camera_y = stepped_camera_y.wrapping_sub(0x0020);
+    let mut loop_iterations: u16 = 0x001C;
+    let lower_edge_sample = resume.restored_camera_y.wrapping_add(0x00E0);
+    if lower_edge_sample >= level_height_pixels {
+        loop_iterations = loop_iterations.wrapping_sub(1);
+    }
+
+    BackgroundScrollLowerPassSetupLoc3001E {
+        original_camera_y: resume.restored_camera_y,
+        stepped_camera_y,
+        shift_data_camera_y,
+        loop_iterations,
     }
 }
 
