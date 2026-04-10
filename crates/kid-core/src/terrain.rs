@@ -1347,6 +1347,22 @@ pub(crate) fn relative_collision_nibble_loc_33308(tile_word: u16) -> u16 {
     relative_collision_nibble_loc_33280(tile_word)
 }
 
+/// Mirror the single-cell relative lookup in `loc_3330E`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn relative_collision_mask_loc_3330E(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    x_offset_px: i32,
+    y_offset_px: i32,
+) -> u16 {
+    // ASM loc_3330E (kid.asm:37750): add `d6/d7` onto `x_pos/y_pos(a3)`,
+    // derive the row pointer through `$FFFF4A04`, fetch one Level_Layout word,
+    // and keep only `andi.w #$7000,d7`.
+    relative_collision_mask_loc_331D2(grid, center_x_px, foot_y_px, x_offset_px, y_offset_px)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct RelativeCollisionColumnLoc331F6 {
     pub(crate) current_row: u16,

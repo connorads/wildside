@@ -44749,6 +44749,22 @@ fn loc_33308_keeps_only_the_final_horizontal_row_collision_nibble() {
 }
 
 #[test]
+fn loc_3330e_reads_one_relative_level_layout_cell_and_masks_its_collision_bits() {
+    let grid = grid_with_cells(8, 8, &[(3, 5, 0x67, 0x89), (4, 5, 0x45, 0x67)]);
+
+    assert_eq!(
+        crate::terrain::relative_collision_mask_loc_3330E(&grid, 56, 80, 8, 0),
+        0x4000,
+        "ASM loc_3330E (kid.asm:37750) should add `d6/d7` onto `x_pos/y_pos(a3)`, resolve exactly that Level_Layout cell through `$FFFF4A04`, and keep only the `$7000` collision nibble",
+    );
+    assert_eq!(
+        crate::terrain::relative_collision_mask_loc_3330E(&grid, 56, 80, -8, 0),
+        0x6000,
+        "ASM loc_3330E should honour negative relative X offsets before the `lsr.w #4` cell conversion so the sampled collision nibble follows the addressed neighbour cell",
+    );
+}
+
+#[test]
 fn loc_331f6_reads_the_foot_row_plus_14_and_the_two_rows_above_it() {
     let grid = grid_with_cells(
         8,
