@@ -3014,6 +3014,8 @@ pub(crate) fn first_shooter_hit_sub_219C(
     // linked list one slot at a time, skipping forward on every strict miss.
     // Edge-equal contacts are rejected because the four bounds checks branch
     // back to `loc_21B8` on `ble` / `bge` rather than accepting equality.
+    // ASM loc_21F2 then restores registers and returns once the next-slot word
+    // is zero, which maps to `None` here when no strict interior point exists.
     shooter_points.iter().position(|point| {
         point.x_px > kid_hitbox.left_px
             && point.x_px < kid_hitbox.right_px

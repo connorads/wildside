@@ -2248,6 +2248,30 @@ fn loc_21b8_keeps_walking_the_shooter_list_until_a_point_is_strictly_inside() {
 }
 
 #[test]
+fn loc_21f2_returns_none_when_the_shooter_list_ends_without_a_strict_hit() {
+    let hitbox = collision_rect_sub_1f52(100, 120, 40, 80);
+
+    assert_eq!(
+        first_shooter_hit_sub_219C(hitbox, &[]),
+        None,
+        "ASM loc_21F2 should return once `move.w $A(a2),d7` reads a zero next-slot word at the list tail",
+    );
+
+    assert_eq!(
+        first_shooter_hit_sub_219C(
+            hitbox,
+            &[
+                shooter_point_sub_219c(90, 60),
+                shooter_point_sub_219c(130, 60),
+                shooter_point_sub_219c(110, 39),
+            ],
+        ),
+        None,
+        "ASM loc_21F2 should also return after `loc_21B8` exhausts the shooter list with only strict misses",
+    );
+}
+
+#[test]
 fn first_shooter_projectile_overlap_sub_226a_skips_zero_collision_entries_and_finds_the_first_hit()
 {
     assert_eq!(
