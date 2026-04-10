@@ -26737,11 +26737,11 @@ fn end_sequence_terminator_exit_loc_1d450_waits_clears_palette_and_resets_state(
     );
     assert_eq!(
         exit.palette_clear_dbf_seed, 0x003F,
-        "ASM loc_1D450 should seed the palette-clear DBF loop with `$3F`",
+        "ASM loc_1D450 should seed `d0 = $3F` before the palette-clear loop enters loc_1D464",
     );
     assert_eq!(
         exit.palette_clear_words, 0x0040,
-        "ASM loc_1D450 should clear `$3F + 1 = $40` palette words before the final upload",
+        "ASM loc_1D464 (kid.asm:32791) should run `clr.w (a0)+; dbf d0,loc_1D464` for `$3F + 1 = $40` palette words before the final upload",
     );
     assert_eq!(
         exit.wait_for_vint_subroutine, "j_WaitForVint",

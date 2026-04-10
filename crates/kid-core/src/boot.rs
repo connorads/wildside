@@ -2463,10 +2463,13 @@ pub(crate) fn end_sequence_terminator_exit_loc_1D450() -> EndSequenceTerminatorE
     // ASM loc_1D450 (kid.asm:32784-32798): seed `d0 = $190`, then run the same
     // `sub_1D830 -> j_Hibernate_Object_1Frame -> dbf` loop for `$190 + 1 =
     // $191` refreshes before clearing `Palette_Buffer` word-by-word.
-    // ASM loc_1D450 (kid.asm:32789-32798): after zeroing `$3F + 1 = $40` palette
-    // words, the tail waits for VBlank, idles once, uploads the cleared
-    // palette, sets `($FFFFFBCE).w`, clears `($FFFFFBCC).w`, `(Game_Mode).w`,
-    // and `(Number_Lives).w`, then jumps through the callback in `(off_7192).w`.
+    // ASM loc_1D464 (kid.asm:32791): `clr.w (a0)+; dbf d0,loc_1D464` starts
+    // from `d0 = $3F`, so the inclusive DBF clears `$40` palette words before
+    // the final upload/reset tail runs.
+    // ASM loc_1D450 (kid.asm:32794-32798): after the `loc_1D464` clear loop,
+    // the tail waits for VBlank, idles once, uploads the cleared palette, sets
+    // `($FFFFFBCE).w`, clears `($FFFFFBCC).w`, `(Game_Mode).w`, and
+    // `(Number_Lives).w`, then jumps through the callback in `(off_7192).w`.
     EndSequenceTerminatorExitLoc1D450 {
         wait_seed: 0x0190,
         wait_iterations: 0x0191,
