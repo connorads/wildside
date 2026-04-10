@@ -53,6 +53,7 @@ use crate::level::{
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshDualWrapBranchLoc30904,
     BackgroundScrollPieceRefreshLinearCopyLoc308A6,
+    BackgroundScrollPieceRefreshRowWrapFinalCopyLoc30968,
     BackgroundScrollPieceRefreshRowWrapFirstCopyLoc30942,
     BackgroundScrollPieceRefreshRowWrapSecondCopyLoc30954,
     BackgroundScrollPieceRefreshSeedLoc3081A,
@@ -123,6 +124,7 @@ use crate::level::{
     background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_piece_refresh_dual_wrap_branch_loc_30904,
     background_scroll_piece_refresh_linear_copy_loc_308A6,
+    background_scroll_piece_refresh_row_wrap_final_copy_loc_30968,
     background_scroll_piece_refresh_row_wrap_first_copy_loc_30942,
     background_scroll_piece_refresh_row_wrap_second_copy_loc_30954,
     background_scroll_piece_refresh_seed_loc_3081A,
@@ -3893,6 +3895,31 @@ fn background_scroll_piece_refresh_row_wrap_second_copy_loc_30954_copies_the_mid
             bytes_consumed: 3,
         }),
         "ASM loc_30954 should copy the inclusive `d7-d6` middle span after the row rewind, then restore the saved plane-B seam command with autoincrement `#3` before loc_30968 handles the wrapped tile tail",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_row_wrap_final_copy_loc_30968_copies_the_wrapped_tile_tail() {
+    let layout_row: Vec<u8> = (0..96).collect();
+    let block_mappings: Vec<u16> = (0..256)
+        .map(|index| 0x2000_u16.wrapping_add(index))
+        .collect();
+
+    assert_eq!(
+        background_scroll_piece_refresh_row_wrap_final_copy_loc_30968(
+            &layout_row,
+            42,
+            &block_mappings,
+            2,
+        ),
+        Some(BackgroundScrollPieceRefreshRowWrapFinalCopyLoc30968 {
+            mapping_words: (42..45)
+                .map(|index| 0x2000_u16.wrapping_add(index as u16))
+                .collect(),
+            next_layout_row_offset: 45,
+            bytes_consumed: 3,
+        }),
+        "ASM loc_30968 should copy the inclusive `d6+1` wrapped-tile tail from the post-seam `(a0)+` position before returning from sub_307D8",
     );
 }
 

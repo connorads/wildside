@@ -7754,6 +7754,13 @@ pub(crate) struct BackgroundScrollPieceRefreshRowWrapSecondCopyLoc30954 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshRowWrapFinalCopyLoc30968 {
+    pub(crate) mapping_words: Vec<u16>,
+    pub(crate) next_layout_row_offset: i16,
+    pub(crate) bytes_consumed: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollPieceRefreshWrappedCopyLoc308C4 {
     pub(crate) first_pass_mapping_words: Vec<u16>,
     pub(crate) second_pass_mapping_words: Vec<u16>,
@@ -8630,6 +8637,34 @@ pub(crate) fn background_scroll_piece_refresh_row_wrap_second_copy_loc_30954(
         seam_vdp_autoincrement_word: 3,
         next_layout_row_offset: current_layout_row_offset.wrapping_add(second_pass_count as i16),
         bytes_consumed: second_pass_count,
+    })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_row_wrap_final_copy_loc_30968(
+    layout_row: &[u8],
+    current_layout_row_offset: i16,
+    block_mappings: &[u16],
+    wrapped_tile_window_span: u16,
+) -> Option<BackgroundScrollPieceRefreshRowWrapFinalCopyLoc30968> {
+    // ASM loc_30968 (kid.asm:34805): once loc_30954 restores the saved plane-B
+    // seam command, the final inclusive `dbf d5,loc_30968` pass consumes the
+    // wrapped tile tail, where loc_30936 saved the original wrapped tile span
+    // in `d5 = d6`. That makes the final copy length exactly `d6 + 1`.
+    let final_pass_count = usize::from(wrapped_tile_window_span).wrapping_add(1);
+    let final_pass_start = usize::from(current_layout_row_offset as u16);
+    let final_pass_slice =
+        layout_row.get(final_pass_start..final_pass_start.wrapping_add(final_pass_count))?;
+    let mapping_words = final_pass_slice
+        .iter()
+        .map(|&mapping_index| block_mappings.get(usize::from(mapping_index)).copied())
+        .collect::<Option<Vec<_>>>()?;
+
+    Some(BackgroundScrollPieceRefreshRowWrapFinalCopyLoc30968 {
+        mapping_words,
+        next_layout_row_offset: current_layout_row_offset.wrapping_add(final_pass_count as i16),
+        bytes_consumed: final_pass_count,
     })
 }
 
