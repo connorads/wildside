@@ -19750,6 +19750,24 @@ fn loc_32188_pops_the_first_free_gfx_slot_and_splices_it_onto_the_owner_head() {
     );
 }
 
+#[test]
+fn loc_3219e_marks_the_allocated_gfx_slot_active_before_the_body_clear_setup() {
+    use enemies::{EnemyGfxSlotInitLoc3219E, enemy_gfx_slot_init_loc_3219E};
+
+    assert_eq!(
+        enemy_gfx_slot_init_loc_3219E(0x00FF_2448, 0x0014),
+        EnemyGfxSlotInitLoc3219E {
+            active_word_offset: 0x0032,
+            active_word_value: 0x0001,
+            next_number_gfx_objects: 0x0015,
+            a1_slot_address: 0x00FF_2448,
+            clear_start_offset: 0x0004,
+            cleared_byte_count: 0x0048,
+        },
+        "ASM loc_3219E should write `#1` to `$32(a0)`, increment `Number_GfxObjects`, preserve the slot address in `a1`, and seed loc_321B2 to clear bytes `$04..$4B`",
+    );
+}
+
 // --- UFO and Tornado flyer tests ---
 
 #[test]

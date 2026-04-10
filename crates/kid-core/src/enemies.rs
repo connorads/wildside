@@ -5798,6 +5798,16 @@ pub(crate) struct EnemyGfxSlotLinkLoc32188 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyGfxSlotInitLoc3219E {
+    pub(crate) active_word_offset: u16,
+    pub(crate) active_word_value: u16,
+    pub(crate) next_number_gfx_objects: u16,
+    pub(crate) a1_slot_address: u32,
+    pub(crate) clear_start_offset: u16,
+    pub(crate) cleared_byte_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SharedEnemyAttachmentChildSub3BF72 {
     pub(crate) x_pos: i16,
     pub(crate) y_pos: i16,
@@ -6169,6 +6179,26 @@ pub(crate) fn enemy_gfx_slot_link_loc_32188(
         next_free_gfx_slot: next_free_slot_address,
         allocated_slot_next: owner_gfx_head,
         owner_gfx_head: free_slot_address,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn enemy_gfx_slot_init_loc_3219E(
+    allocated_slot_address: u32,
+    number_gfx_objects: u16,
+) -> EnemyGfxSlotInitLoc3219E {
+    // ASM loc_3219E (kid.asm:37604-37608) writes `#1` to `$32(a0)`,
+    // increments `Number_GfxObjects`, copies the allocated slot address into
+    // `a1`, then advances `a0` to `4(a0)` so loc_321B2 can clear `$48` bytes
+    // across the rest of the gfx slot body.
+    EnemyGfxSlotInitLoc3219E {
+        active_word_offset: 0x0032,
+        active_word_value: 0x0001,
+        next_number_gfx_objects: number_gfx_objects.wrapping_add(1),
+        a1_slot_address: allocated_slot_address,
+        clear_start_offset: 0x0004,
+        cleared_byte_count: 0x0048,
     }
 }
 
