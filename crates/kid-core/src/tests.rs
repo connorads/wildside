@@ -94,6 +94,7 @@ use crate::level::{
     background_scroll_enigma_secondary_longword_copy_loc_30432,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E, background_scroll_shift_data_slot_loc_30452,
+    background_scroll_shift_data_unchanged_loc_30476,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2637,6 +2638,16 @@ fn background_scroll_shift_data_slot_loc_30452_halves_the_phase_adds_camera_bias
             branches_to_loc_30476: false,
         },
         "ASM loc_30452 should `lsr.w #1,d0`, save that halved phase in `a5`, add `Camera_X_pos>>3`, store the new word to `4(a0)`, mirror the old word to `6(a0)`, and only branch to loc_30476 when the logical `>>3` tile columns match",
+    );
+}
+
+#[test]
+fn background_scroll_shift_data_unchanged_loc_30476_emits_ffff_when_the_tile_column_does_not_change()
+ {
+    assert_eq!(
+        background_scroll_shift_data_unchanged_loc_30476(0x0028, 0x002F),
+        Some(0xFFFF),
+        "ASM loc_30476 should write `$FFFF` to `(a0)` when the logical `>>3` columns still match, because that slot skips `sub_304B4` and falls straight through to loc_3047A",
     );
 }
 

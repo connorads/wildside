@@ -8054,6 +8054,23 @@ pub(crate) fn background_scroll_shift_data_slot_loc_30452(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn background_scroll_shift_data_unchanged_loc_30476(
+    previous_scroll_word: u16,
+    updated_scroll_word: u16,
+) -> Option<u16> {
+    // ASM loc_30476 (kid.asm:34095): when the logical `>>3` tile columns match,
+    // the routine skips `sub_304B4` and writes `$FFFF` to `(a0)` as the
+    // unchanged-column sentinel before falling into the shared tail at
+    // `loc_3047A`.
+    if (previous_scroll_word >> 3) == (updated_scroll_word >> 3) {
+        Some(0xFFFF)
+    } else {
+        None
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
     tile_row: u16,
     background_theme: u16,
