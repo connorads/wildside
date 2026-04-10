@@ -1555,6 +1555,8 @@ fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16
             // keep advancing with `move.w (a1)+,d0`; the first later word that
             // clears bit `$4000` flips the mixed-row result to `d6=1`.
             if word & 0x4000 == 0 {
+                // ASM loc_36A36 (kid.asm:38206): both mixed-row scans converge
+                // here and tag the following row as mixed by returning `d6=1`.
                 return 1;
             }
         }
@@ -3290,6 +3292,16 @@ mod tests {
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000]),
             0,
             "ASM loc_36A2A should return with `d6=0` when the first blocked word is also the last scanned word, so the inclusive `dbf` loop never finds a clear `$4000` bit to flip the row class",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_following_row_class_loc_36a36_returns_one_when_a_blocked_entry_row_turns_mixed()
+     {
+        assert_eq!(
+            horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000, 0x0000]),
+            1,
+            "ASM loc_36A36 should return `d6=1` once the blocked-entry scan finds a later word with bit `$4000` clear",
         );
     }
 
