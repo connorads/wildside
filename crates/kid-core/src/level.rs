@@ -8222,6 +8222,61 @@ pub(crate) fn background_scroll_stripe_horizontal_row_transfer_loc_3031A(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundScrollStripeHorizontalRowTransferSource {
+    PrimaryMappings,
+    AlternateMappings,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeHorizontalRowTransferLoc302FE {
+    pub(crate) source: BackgroundScrollStripeHorizontalRowTransferSource,
+    pub(crate) mapping_index: u16,
+    pub(crate) tile_words: [u16; 2],
+    pub(crate) next_row_pointer: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_horizontal_row_transfer_loc_302FE(
+    layout_word: u16,
+    mapping_mask: u16,
+    primary_mapping_words: [u16; 2],
+    alternate_mapping_words: [u16; 2],
+    row_stride: u16,
+) -> BackgroundScrollStripeHorizontalRowTransferLoc302FE {
+    // ASM loc_302FE (kid.asm:33904): read the current layout word from `(a3)`,
+    // branch to `loc_30336` when bit 15 makes it negative, otherwise test bit
+    // 8 with `btst d2,d3`. Clear bit 8 reuses the indexed primary mapping pair
+    // unchanged; set bit 8 branches to `loc_3031A`; all three paths finish by
+    // advancing `a3` with `add.w a4,a3` before the inclusive `dbf d1,loc_302FE`.
+    let mapping_index = (layout_word & mapping_mask) << 3;
+    let (source, tile_words) = if layout_word & 0x8000 != 0 {
+        (
+            BackgroundScrollStripeHorizontalRowTransferSource::AlternateMappings,
+            alternate_mapping_words,
+        )
+    } else if layout_word & 0x0100 != 0 {
+        (
+            BackgroundScrollStripeHorizontalRowTransferSource::PrimaryMappings,
+            background_scroll_stripe_horizontal_row_transfer_loc_3031A(primary_mapping_words)
+                .tile_words,
+        )
+    } else {
+        (
+            BackgroundScrollStripeHorizontalRowTransferSource::PrimaryMappings,
+            primary_mapping_words,
+        )
+    };
+
+    BackgroundScrollStripeHorizontalRowTransferLoc302FE {
+        source,
+        mapping_index,
+        tile_words,
+        next_row_pointer: row_stride,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(

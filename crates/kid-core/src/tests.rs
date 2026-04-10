@@ -50,7 +50,9 @@ use crate::level::{
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
-    BackgroundScrollStripeHorizontalRowTransferLoc3031A, BackgroundScrollStripeLayoutSeedLoc301D8,
+    BackgroundScrollStripeHorizontalRowTransferLoc302FE,
+    BackgroundScrollStripeHorizontalRowTransferLoc3031A,
+    BackgroundScrollStripeHorizontalRowTransferSource, BackgroundScrollStripeLayoutSeedLoc301D8,
     BackgroundScrollStripeRightWindowLoc301F6, BackgroundScrollStripeRowSelectionLoc301CE,
     BackgroundScrollStripeVerticalPassLoc301FE, BackgroundScrollUpperPassLoc2FFE8,
     BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
@@ -86,6 +88,7 @@ use crate::level::{
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
     background_scroll_stripe_horizontal_pass_loc_30296,
+    background_scroll_stripe_horizontal_row_transfer_loc_302FE,
     background_scroll_stripe_horizontal_row_transfer_loc_3031A,
     background_scroll_stripe_layout_seed_loc_301D8,
     background_scroll_stripe_restore_camera_column_loc_3023A,
@@ -2804,6 +2807,47 @@ fn background_scroll_stripe_horizontal_row_transfer_loc_3031a_sets_high_priority
             tile_words: [0x9357, 0xA468],
         },
         "ASM loc_3031A should OR `$8000` into both mapping words after `btst d2,d3` sees bit 8 set",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_horizontal_row_transfer_loc_302fe_keeps_clear_bit8_rows_on_the_primary_mapping_pair()
+ {
+    assert_eq!(
+        background_scroll_stripe_horizontal_row_transfer_loc_302FE(
+            0x0027,
+            0x001F,
+            [0x1357, 0x2468],
+            [0xAAAA, 0xBBBB],
+            0x012C,
+        ),
+        BackgroundScrollStripeHorizontalRowTransferLoc302FE {
+            source: BackgroundScrollStripeHorizontalRowTransferSource::PrimaryMappings,
+            mapping_index: 0x0038,
+            tile_words: [0x1357, 0x2468],
+            next_row_pointer: 0x012C,
+        },
+        "ASM loc_302FE should keep clear-bit-8 rows on `(a1,d3.w)` without ORing `$8000`, preserve the masked `(d3 & d4) << 3` mapping index, then advance `a3` by `Level_width_tiles` for the next DBF pass",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_horizontal_row_transfer_loc_302fe_uses_loc_3031a_for_bit8_rows() {
+    assert_eq!(
+        background_scroll_stripe_horizontal_row_transfer_loc_302FE(
+            0x0127,
+            0x001F,
+            [0x1357, 0x2468],
+            [0xAAAA, 0xBBBB],
+            0x00F0,
+        ),
+        BackgroundScrollStripeHorizontalRowTransferLoc302FE {
+            source: BackgroundScrollStripeHorizontalRowTransferSource::PrimaryMappings,
+            mapping_index: 0x0038,
+            tile_words: [0x9357, 0xA468],
+            next_row_pointer: 0x00F0,
+        },
+        "ASM loc_302FE should branch to loc_3031A when bit 8 is set, preserving the same `(d3 & d4) << 3` primary mapping index while forcing the high-priority `$8000` bit onto both output words",
     );
 }
 
