@@ -2105,6 +2105,50 @@ fn spawn_block_debris_sub_292e_loc_296c_uses_the_second_direction_velocity_pair(
 }
 
 #[test]
+fn spawn_block_debris_sub_292e_loc_2988_uses_the_third_direction_velocity_pair() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+
+    spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 2);
+
+    assert_eq!(
+        scratch_debris_pieces_sub_292E(&queue, 0),
+        [
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: -1,
+                x_velocity_px: -3,
+                y_pos_px: 0x0080,
+                x_pos_px: 0x0120,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: -1,
+                x_velocity_px: -3,
+                y_pos_px: 0x0088,
+                x_pos_px: 0x0120,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 0,
+                x_velocity_px: -3,
+                y_pos_px: 0x0088,
+                x_pos_px: 0x0128,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 1,
+                x_velocity_px: -3,
+                y_pos_px: 0x0080,
+                x_pos_px: 0x0128,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 0,
+                x_velocity_px: -3,
+                y_pos_px: 0x0084,
+                x_pos_px: 0x0124,
+            },
+        ],
+        "ASM loc_2988 (kid.asm:4916) should select `unk_29FC`/`unk_2A06` when `cmpi.w #2,d6` matches exactly",
+    );
+}
+
+#[test]
 fn spawn_block_debris_sub_292e_advances_and_wraps_the_scratch_cursor() {
     let mut queue = initialise_scratch_queue_sub_28FC();
 
