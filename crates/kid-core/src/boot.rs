@@ -640,6 +640,12 @@ pub(crate) struct EndSequenceHorizontalScrollUploadLoc1DA50 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceTileFillLoc1DA6A {
+    pub(crate) fill_word: u16,
+    pub(crate) word_write_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceFadeLoopLoc1D270 {
     pub(crate) loop_seed: u16,
     pub(crate) fade_palette_byte_offset: u16,
@@ -2352,6 +2358,18 @@ pub(crate) fn end_sequence_h_scroll_upload_loc_1DA50(
         vram_word_addr: 0x1400,
         repeated_word: camera_x_pos.wrapping_neg(),
         word_write_count: (0x00DFu16 + 1) * 2,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_tile_fill_loc_1DA6A() -> EndSequenceTileFillLoc1DA6A {
+    // ASM loc_1DA6A (kid.asm:33340): `sub_1DA62` seeds `d0=#$7FF` and
+    // `d1=#$94`, then `move.w d1,(a6)` executes before `dbf d0,loc_1DA6A`, so
+    // the shared fill loop emits 2048 copies of tile word `$0094`.
+    EndSequenceTileFillLoc1DA6A {
+        fill_word: 0x0094,
+        word_write_count: 0x07FF + 1,
     }
 }
 

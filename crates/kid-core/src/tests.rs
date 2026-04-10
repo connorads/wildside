@@ -26600,6 +26600,18 @@ fn end_sequence_h_scroll_upload_loc_1da50_repeats_negated_camera_x_across_448_wo
 }
 
 #[test]
+fn end_sequence_tile_fill_loc_1da6a_streams_2048_copies_of_tile_0094() {
+    assert_eq!(
+        crate::boot::end_sequence_tile_fill_loc_1DA6A(),
+        crate::boot::EndSequenceTileFillLoc1DA6A {
+            fill_word: 0x0094,
+            word_write_count: 0x0800,
+        },
+        "ASM loc_1DA6A should stream `$7FF + 1` copies of tile word `$0094` because `move.w d1,(a6)` executes before the inclusive `dbf d0,loc_1DA6A` test",
+    );
+}
+
+#[test]
 fn end_sequence_fade_loop_loc_1d270_runs_eight_palette_darken_passes_before_vram_upload() {
     let fade_loop = crate::boot::end_sequence_fade_loop_loc_1D270();
 
