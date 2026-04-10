@@ -247,6 +247,39 @@ pub(crate) fn first_mirrored_kid_projectile_overlap_loc_1E1E(
     None
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum KidProjectileOverlapBranchLoc1E4A {
+    SpawnHelperLoc1E5E,
+    WallResponseLoc1EA0,
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn kid_projectile_overlap_branch_loc_1E4A(
+    collision_mode_d7: u16,
+    collision_size_word_22: u16,
+    lnk_to3_null_minus_data_index: u16,
+    lnk_to4_null_minus_data_index: u16,
+) -> KidProjectileOverlapBranchLoc1E4A {
+    // ASM loc_1E4A (kid.asm:3634-3639): `d7 != 0` jumps straight to
+    // `loc_1EA0`. In the `d7 == 0` pass, only the inclusive
+    // `[LnkTo3_NULL-Data_Index, LnkTo4_NULL-Data_Index]` window diverts to
+    // `loc_1EA0`; words below or above that range keep falling through to
+    // `loc_1E5E`.
+    if collision_mode_d7 != 0 {
+        return KidProjectileOverlapBranchLoc1E4A::WallResponseLoc1EA0;
+    }
+
+    if collision_size_word_22 >= lnk_to3_null_minus_data_index
+        && collision_size_word_22 <= lnk_to4_null_minus_data_index
+    {
+        KidProjectileOverlapBranchLoc1E4A::WallResponseLoc1EA0
+    } else {
+        KidProjectileOverlapBranchLoc1E4A::SpawnHelperLoc1E5E
+    }
+}
+
 impl NativeRuntime {
     fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
         projectile.friendly

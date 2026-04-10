@@ -43049,6 +43049,62 @@ fn first_mirrored_kid_projectile_overlap_loc_1e1e_stops_this_object_on_the_zero_
 }
 
 #[test]
+fn kid_projectile_overlap_branch_loc_1e4a_routes_nonzero_d7_straight_to_wall_response() {
+    assert_eq!(
+        crate::projectiles::kid_projectile_overlap_branch_loc_1E4A(1, 0x1234, 0x2000, 0x2010),
+        crate::projectiles::KidProjectileOverlapBranchLoc1E4A::WallResponseLoc1EA0,
+        "ASM loc_1E4A (kid.asm:3634-3635) should jump to `loc_1EA0` as soon as `tst.w d7` sees a non-zero collision pass",
+    );
+}
+
+#[test]
+fn kid_projectile_overlap_branch_loc_1e4a_only_diverts_the_inclusive_null_window() {
+    const LNK_TO3_NULL_MINUS_DATA_INDEX: u16 = 0x2000;
+    const LNK_TO4_NULL_MINUS_DATA_INDEX: u16 = 0x2010;
+
+    assert_eq!(
+        crate::projectiles::kid_projectile_overlap_branch_loc_1E4A(
+            0,
+            LNK_TO3_NULL_MINUS_DATA_INDEX.wrapping_sub(2),
+            LNK_TO3_NULL_MINUS_DATA_INDEX,
+            LNK_TO4_NULL_MINUS_DATA_INDEX,
+        ),
+        crate::projectiles::KidProjectileOverlapBranchLoc1E4A::SpawnHelperLoc1E5E,
+        "ASM loc_1E4A should fall through to `loc_1E5E` when `$22(a0)` stays below `LnkTo3_NULL-Data_Index`",
+    );
+    assert_eq!(
+        crate::projectiles::kid_projectile_overlap_branch_loc_1E4A(
+            0,
+            LNK_TO3_NULL_MINUS_DATA_INDEX,
+            LNK_TO3_NULL_MINUS_DATA_INDEX,
+            LNK_TO4_NULL_MINUS_DATA_INDEX,
+        ),
+        crate::projectiles::KidProjectileOverlapBranchLoc1E4A::WallResponseLoc1EA0,
+        "ASM loc_1E4A's `ble.s loc_1EA0` means the lower bound is inclusive",
+    );
+    assert_eq!(
+        crate::projectiles::kid_projectile_overlap_branch_loc_1E4A(
+            0,
+            LNK_TO4_NULL_MINUS_DATA_INDEX,
+            LNK_TO3_NULL_MINUS_DATA_INDEX,
+            LNK_TO4_NULL_MINUS_DATA_INDEX,
+        ),
+        crate::projectiles::KidProjectileOverlapBranchLoc1E4A::WallResponseLoc1EA0,
+        "ASM loc_1E4A should keep the upper bound inclusive before leaving for `loc_1EA0`",
+    );
+    assert_eq!(
+        crate::projectiles::kid_projectile_overlap_branch_loc_1E4A(
+            0,
+            LNK_TO4_NULL_MINUS_DATA_INDEX.wrapping_add(2),
+            LNK_TO3_NULL_MINUS_DATA_INDEX,
+            LNK_TO4_NULL_MINUS_DATA_INDEX,
+        ),
+        crate::projectiles::KidProjectileOverlapBranchLoc1E4A::SpawnHelperLoc1E5E,
+        "ASM loc_1E4A should resume the `loc_1E5E` helper-allocation path once `$22(a0)` rises above `LnkTo4_NULL-Data_Index`",
+    );
+}
+
+#[test]
 fn projectile_hitbox_half_plus_8_not_times() {
     // Projectile 12px away in x — inside `half + 8 = 14` but outside `half * 8 = 48`.
     // If + mutated to *, 12 < 48 would still pass, so use boundary at 13.
