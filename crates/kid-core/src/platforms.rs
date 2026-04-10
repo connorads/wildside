@@ -595,6 +595,10 @@ impl PlatformLoaderState {
 
 /// Check if a platform is within the activation window.
 pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: ActivationWindow) -> bool {
+    // ASM loc_2762 (kid.asm:4684): after loading Kid's X/Y into `d6`, the ROM
+    // rejects only strict out-of-range placements via `bgt`/`blt` against the
+    // buffered left/right/top/bottom edges. Equality stays in range, so the
+    // native port mirrors that with inclusive `RangeInclusive` checks.
     let object_x = u32::from(platform.x);
     let object_y = u32::from(platform.y);
     let x_min = window.x_min.saturating_sub(u32::from(platform.buffer_left));

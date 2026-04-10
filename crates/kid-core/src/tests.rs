@@ -18970,6 +18970,50 @@ fn platform_is_active_requires_both_x_and_y_in_window() {
 }
 
 #[test]
+fn platform_is_active_loc_2762_keeps_exact_buffer_edges_in_range() {
+    let window = ActivationWindow {
+        x_min: 100,
+        x_max: 200,
+        y_min: 50,
+        y_max: 150,
+    };
+    let placement = PlatformPlacement {
+        x: 90,
+        y: 40,
+        buffer_left: 10,
+        buffer_right: 0,
+        buffer_top: 10,
+        buffer_bottom: 0,
+        kind: 0,
+        subtype: 0,
+        h_variant: 1,
+        v_variant: 0,
+        script: PlatformScriptRef {
+            raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+            relative_offset: None,
+        },
+    };
+    assert!(
+        platform_is_active(&placement, window),
+        "ASM loc_2762 (kid.asm:4684) should keep a platform active when Kid lands exactly on the buffered left/top edge because the ROM only branches away on strict `bgt`/`blt` misses",
+    );
+
+    let right_bottom_edge = PlatformPlacement {
+        x: 200,
+        y: 150,
+        buffer_left: 0,
+        buffer_right: 0,
+        buffer_top: 0,
+        buffer_bottom: 0,
+        ..placement
+    };
+    assert!(
+        platform_is_active(&right_bottom_edge, window),
+        "ASM loc_2762 should also keep the exact buffered right/bottom edge active; equality reaches the loader instead of the `loc_2850` reject path",
+    );
+}
+
+#[test]
 fn find_active_platform_by_layout_offset_sub_2728_returns_the_first_matching_slot() {
     assert_eq!(
         find_active_platform_by_layout_offset_sub_2728(
