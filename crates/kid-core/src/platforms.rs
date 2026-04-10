@@ -553,6 +553,9 @@ pub(crate) fn platform_strip_sprites_loc_24F0(
         }
     }
 
+    // ASM loc_2512 (kid.asm:4415): skip the interior loop when only two caps
+    // are needed, advance `a4` once more to the right-cap mapping word, and
+    // emit the final sprite at the already-advanced X position.
     let right = emit_platform_sprite_loc_2548(
         screen_x_word,
         dispatch.screen_y_word,

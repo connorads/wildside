@@ -19302,6 +19302,42 @@ fn platform_strip_sprites_loc_2506_repeats_the_middle_mapping_word_across_interi
 }
 
 #[test]
+fn platform_strip_sprites_loc_2512_skips_the_middle_loop_for_a_two_tile_span() {
+    assert_eq!(
+        platform_strip_sprites_loc_24F0(
+            PlatformSpriteDispatchLoc244C {
+                screen_x_word: 0x00A0,
+                screen_y_word: 0x0090,
+                width_tiles_minus_one: 1,
+                height_tiles_minus_one: 0,
+                base_tile_word: 0x0500,
+                mapping_addr_word: 0x2468,
+                variant: PlatformSpriteVariantLoc244C::Loc24F0,
+            },
+            0x20,
+        ),
+        PlatformSpriteStripLoc24F0 {
+            sprites: vec![
+                PlatformSpriteEntryLoc2548 {
+                    y_word: 0x0090,
+                    tile_word: 0x0521,
+                    mapping_word: 0xA468,
+                    x_word: 0x00A0,
+                },
+                PlatformSpriteEntryLoc2548 {
+                    y_word: 0x0090,
+                    tile_word: 0x0522,
+                    mapping_word: 0xA470,
+                    x_word: 0x00B0,
+                },
+            ],
+            next_number_sprites: 0x22,
+        },
+        "ASM loc_2512 should branch around loc_2506 for a two-tile span and emit the final sprite with the right-cap mapping word after the second `addq.w #4,a4`",
+    );
+}
+
+#[test]
 fn platform_collision_shift_directions_matter() {
     // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
     // If >> became <<, pixel values would be wildly wrong and collision would fail.
