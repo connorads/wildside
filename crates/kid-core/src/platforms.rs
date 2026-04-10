@@ -571,3 +571,60 @@ pub(crate) fn platform_strip_sprites_loc_24F0(
         next_number_sprites,
     }
 }
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn platform_strip_sprites_loc_251C(
+    dispatch: PlatformSpriteDispatchLoc244C,
+    number_sprites: u8,
+) -> PlatformSpriteStripLoc24CC {
+    // ASM loc_251C (kid.asm:4421): emit the first platform sprite at the
+    // current mapping word, advance `a4`/`d6`, then branch into the remaining
+    // vertical-strip handling based on the decremented height counter.
+    let mut sprites = Vec::new();
+    let mut next_number_sprites = number_sprites;
+
+    let top = emit_platform_sprite_loc_2548(
+        dispatch.screen_x_word,
+        dispatch.screen_y_word,
+        dispatch.base_tile_word,
+        dispatch.mapping_addr_word,
+        next_number_sprites,
+    );
+    sprites.push(top.sprite);
+    next_number_sprites = top.next_number_sprites;
+
+    let middle_mapping_word = dispatch.mapping_addr_word.wrapping_add(0x0004);
+    let bottom_mapping_word = middle_mapping_word.wrapping_add(0x0004);
+    let mut screen_y_word = dispatch.screen_y_word.wrapping_add(0x0010);
+
+    if dispatch.height_tiles_minus_one > 1 {
+        for _ in 0..(dispatch.height_tiles_minus_one - 1) {
+            let emitted = emit_platform_sprite_loc_2548(
+                dispatch.screen_x_word,
+                screen_y_word,
+                dispatch.base_tile_word,
+                middle_mapping_word,
+                next_number_sprites,
+            );
+            sprites.push(emitted.sprite);
+            next_number_sprites = emitted.next_number_sprites;
+            screen_y_word = screen_y_word.wrapping_add(0x0010);
+        }
+    }
+
+    let bottom = emit_platform_sprite_loc_2548(
+        dispatch.screen_x_word,
+        screen_y_word,
+        dispatch.base_tile_word,
+        bottom_mapping_word,
+        next_number_sprites,
+    );
+    sprites.push(bottom.sprite);
+    next_number_sprites = bottom.next_number_sprites;
+
+    PlatformSpriteStripLoc24CC {
+        sprites,
+        next_number_sprites,
+    }
+}
