@@ -8623,6 +8623,39 @@ pub(crate) fn background_scroll_desert_heat_ripple_setup_loc_306D4(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_scroll_desert_heat_ripple_loop_loc_306F4(
+    horiz_scroll_buffer: &[u32],
+    start_scanline: u16,
+    ripple_dbf_counter: u16,
+    base_scroll_word: i16,
+    ripple_data: &[u8],
+    ripple_data_byte_offset: usize,
+) -> Option<Vec<u32>> {
+    // ASM loc_306F4 (kid.asm:34481): each inclusive `dbf d1,loc_306F4`
+    // iteration sign-extends the next heat-ripple byte into `d4`, adds the
+    // cached base word from `d3`, writes only that low word to `(a0)`, then
+    // advances `a0` by 4 bytes to the next `Horiz_Scroll_Buffer` longword.
+    let write_count = usize::from(ripple_dbf_counter) + 1;
+    let end_scanline = usize::from(start_scanline).checked_add(write_count)?;
+    let end_ripple_byte = ripple_data_byte_offset.checked_add(write_count)?;
+    if end_scanline > horiz_scroll_buffer.len() || end_ripple_byte > ripple_data.len() {
+        return None;
+    }
+
+    let mut updated_scroll_buffer = horiz_scroll_buffer.to_vec();
+    for write_index in 0..write_count {
+        let ripple_delta = i16::from(ripple_data[ripple_data_byte_offset + write_index] as i8);
+        let scanline_index = usize::from(start_scanline) + write_index;
+        let next_scroll_word = base_scroll_word.wrapping_add(ripple_delta) as u16;
+        updated_scroll_buffer[scanline_index] =
+            (updated_scroll_buffer[scanline_index] & 0xFFFF_0000) | u32::from(next_scroll_word);
+    }
+
+    Some(updated_scroll_buffer)
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
     tile_row: u16,

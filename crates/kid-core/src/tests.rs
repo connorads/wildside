@@ -97,7 +97,8 @@ use crate::level::{
     apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, background_scroll_desert_heat_ripple_setup_loc_306D4,
+    background_row_pointers_loc_11B7A, background_scroll_desert_heat_ripple_loop_loc_306F4,
+    background_scroll_desert_heat_ripple_setup_loc_306D4,
     background_scroll_desert_heat_ripple_visible_band_loc_306C2,
     background_scroll_enigma_primary_copy_setup_loc_30426,
     background_scroll_enigma_primary_longword_copy_loc_30428,
@@ -3019,6 +3020,26 @@ fn background_scroll_desert_heat_ripple_setup_loc_306d4_loads_the_base_scroll_wo
             ripple_data_byte_offset: 0x003A,
         }),
         "ASM loc_306D4 should point `a0` at the second word of the selected `Horiz_Scroll_Buffer` longword, cache that word in `d3`, mask `Time_Frames` with `$30`, add `d2`, and turn the visible span into an inclusive `dbf` counter with `subq.w #1,d1`",
+    );
+}
+
+#[test]
+fn background_scroll_desert_heat_ripple_loop_loc_306f4_writes_signed_ripple_deltas_into_successive_scanlines()
+ {
+    let horiz_scroll_buffer = [0xAAAA_1000, 0xBBBB_2000, 0xCCCC_3000, 0xDDDD_4000];
+    let ripple_data = [0x00, 0x05, 0xFE, 0x7F];
+
+    assert_eq!(
+        background_scroll_desert_heat_ripple_loop_loc_306F4(
+            &horiz_scroll_buffer,
+            0x0001,
+            0x0002,
+            0x0100,
+            &ripple_data,
+            0x0001,
+        ),
+        Some(vec![0xAAAA_1000, 0xBBBB_0105, 0xCCCC_00FE, 0xDDDD_017F]),
+        "ASM loc_306F4 should sign-extend each heat-ripple byte, add it to the cached base word from `d3`, write only the low word of the current `Horiz_Scroll_Buffer` longword, and advance by one longword per inclusive `dbf` step",
     );
 }
 
