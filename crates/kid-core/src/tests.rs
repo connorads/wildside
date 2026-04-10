@@ -59,20 +59,21 @@ use crate::level::{
     IslandPaletteCycleLowerBandLoc12188, IslandPaletteCycleMidBandLoc12110,
     IslandPaletteCyclePrimaryBandLoc12098, LateBackgroundPaletteOverrideLoc11E06,
     LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, PaletteFadeOutInitLoc28A6,
-    PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT,
-    SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA,
-    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
-    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, blend_palette_entry_loc_1538,
-    blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
-    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
-    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
-    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
-    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
-    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    PaletteFadeOutStepLoc28C6, PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A,
+    SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E,
+    ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA,
+    SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
+    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    blend_palette_entry_loc_1538, blend_selected_palette_entries_sub_1536,
+    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
+    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
+    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
+    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
+    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
+    block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -104,7 +105,7 @@ use crate::level::{
     shared_vram_art_decompresses_loc_11EFA, should_process_fg_update_queue_cell_loc_15D2,
     spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
     step_island_palette_cycle_lower_band_loc_12188, step_island_palette_cycle_mid_band_loc_12110,
-    step_island_palette_cycle_primary_band_loc_12098,
+    step_island_palette_cycle_primary_band_loc_12098, step_palette_fade_out_loc_28C6,
     swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
@@ -1191,6 +1192,20 @@ fn initialise_palette_fade_out_loc_28a6_copies_the_palette_and_seeds_a_full_fade
             fade_progress: 0x0100,
         },
         "ASM loc_28A6 (kid.asm:4813) should copy 32 longwords from `Palette_Buffer` into `Palette_Buffer_2`, flood-fill all 64 words of `Palette_Buffer_3`, and seed `$FFFFF876` with `$0100`",
+    );
+}
+
+#[test]
+fn step_palette_fade_out_loc_28c6_reseeds_both_pending_masks_while_the_fade_stays_non_negative() {
+    assert_eq!(
+        step_palette_fade_out_loc_28C6(0x0100, 0, 0),
+        PaletteFadeOutStepLoc28C6 {
+            fade_progress: 0x00F0,
+            pending_palette_0_mask: u32::MAX,
+            pending_palette_1_mask: u32::MAX,
+            continue_fading: true,
+        },
+        "ASM loc_28C6 (kid.asm:4827) should subtract `$10` from `$FFFFF876`, reseed both pending palette masks with `-1`, and branch back through `loc_28DE` while the fade progress stays non-negative",
     );
 }
 

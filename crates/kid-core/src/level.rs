@@ -499,6 +499,14 @@ pub(crate) struct PaletteFadeOutInitLoc28A6 {
     pub(crate) fade_progress: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PaletteFadeOutStepLoc28C6 {
+    pub(crate) fade_progress: u16,
+    pub(crate) pending_palette_0_mask: u32,
+    pub(crate) pending_palette_1_mask: u32,
+    pub(crate) continue_fading: bool,
+}
+
 const SUB_292E_PIECE_COUNT: usize = 5;
 pub(crate) const SUB_292E_SLOT_ACTIVE_OFFSET: usize = 0;
 const SUB_292E_SLOT_FLAG_OFFSET: usize = 1;
@@ -7264,6 +7272,35 @@ pub(crate) fn initialise_palette_fade_out_loc_28A6(
         palette_buffer_2: palette_buffer,
         palette_buffer_3: [fill_colour; 0x40],
         fade_progress: 0x0100,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn step_palette_fade_out_loc_28C6(
+    fade_progress: u16,
+    pending_palette_0_mask: u32,
+    pending_palette_1_mask: u32,
+) -> PaletteFadeOutStepLoc28C6 {
+    // ASM loc_28C6 / loc_28DE (kid.asm:4827): after the VBlank refresh and
+    // palette upload, subtract `$10` from `$FFFFF876`. Non-negative results
+    // reseed both pending palette masks with `-1` and loop for another fade
+    // frame.
+    let fade_progress = fade_progress.wrapping_sub(0x10);
+    if (fade_progress as i16) < 0 {
+        return PaletteFadeOutStepLoc28C6 {
+            fade_progress,
+            pending_palette_0_mask,
+            pending_palette_1_mask,
+            continue_fading: false,
+        };
+    }
+
+    PaletteFadeOutStepLoc28C6 {
+        fade_progress,
+        pending_palette_0_mask: u32::MAX,
+        pending_palette_1_mask: u32::MAX,
+        continue_fading: true,
     }
 }
 
