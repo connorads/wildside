@@ -54,6 +54,7 @@ use crate::level::{
     BackgroundScrollStripeHorizontalRowTransferLoc3031A,
     BackgroundScrollStripeHorizontalRowTransferSource, BackgroundScrollStripeLayoutSeedLoc301D8,
     BackgroundScrollStripeRightWindowLoc301F6, BackgroundScrollStripeRowSelectionLoc301CE,
+    BackgroundScrollStripeVerticalColumnTransferLoc3037C,
     BackgroundScrollStripeVerticalColumnTransferLoc30354,
     BackgroundScrollStripeVerticalPassLoc301FE, BackgroundScrollUpperPassLoc2FFE8,
     BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
@@ -96,6 +97,7 @@ use crate::level::{
     background_scroll_stripe_right_window_loc_301F6,
     background_scroll_stripe_row_selection_loc_301CE,
     background_scroll_stripe_vertical_column_transfer_loc_3036A,
+    background_scroll_stripe_vertical_column_transfer_loc_3037C,
     background_scroll_stripe_vertical_column_transfer_loc_30354,
     background_scroll_stripe_vertical_pass_loc_301FE, background_scroll_upper_pass_loc_2FFE8,
     background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
@@ -2820,6 +2822,19 @@ fn background_scroll_stripe_vertical_column_transfer_loc_3036a_sets_priority_on_
         background_scroll_stripe_vertical_column_transfer_loc_3036A(0x1357_2468),
         0x9357_A468,
         "ASM loc_3036A should OR `$80008000` into the selected primary mapping longword so both 16-bit tile words leave `(a6)` with bit 15 set",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_vertical_column_transfer_loc_3037c_uses_the_alternate_longword_for_negative_words()
+ {
+    assert_eq!(
+        background_scroll_stripe_vertical_column_transfer_loc_3037C(0x8027, 0x00FF, 0xAAAA_BBBB),
+        BackgroundScrollStripeVerticalColumnTransferLoc3037C {
+            mapping_index: 0x0138,
+            tile_longword: 0xAAAA_BBBB,
+        },
+        "ASM loc_3037C should branch straight from the negative layout word to `(a2,d3.w)`, preserving the masked `(d3 & d4) << 3` index while bypassing the bit-8 priority path entirely",
     );
 }
 
