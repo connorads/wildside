@@ -58,11 +58,11 @@ use crate::level::{
     ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
     IslandPaletteCycleLowerBandLoc12188, IslandPaletteCycleMidBandLoc12110,
     IslandPaletteCyclePrimaryBandLoc12098, LateBackgroundPaletteOverrideLoc11E06,
-    LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, PostLoadObjectRoutineLoc11F96,
-    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
-    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
-    SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
+    LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, PaletteFadeOutInitLoc28A6,
+    PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT,
+    SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
+    ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA,
+    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, apply_background_palette_override_loc_11E04,
     apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
@@ -93,8 +93,9 @@ use crate::level::{
     fg_update_queue_cell_vram_word_loc_1614, fg_update_queue_culled_entry_advance_loc_167A,
     flagpole_scoreboard_step_sub_C254, initialise_camera_bootstrap_loc_11F48,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
-    initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
-    initialise_sprite_frame_state_sub_B52, prepare_background_art_decompress_loc_11EA2,
+    initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
+    initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
+    prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
@@ -1175,6 +1176,21 @@ fn sub_73d0_seeds_the_fullscreen_palette_fade_buffers() {
             allow_pausing: false,
         },
         "ASM sub_73D0 should clear PaletteToDMA_Flag, copy all `$40` words into Palette_Buffer_2, flood-fill Palette_Buffer_3 from `($FFFFFBCC).w`, and clear `($FFFFF876).w`",
+    );
+}
+
+#[test]
+fn initialise_palette_fade_out_loc_28a6_copies_the_palette_and_seeds_a_full_fade() {
+    let palette_buffer = core::array::from_fn(|index| 0x0100_u16.wrapping_add(index as u16));
+
+    assert_eq!(
+        initialise_palette_fade_out_loc_28A6(palette_buffer, 0x0ACE),
+        PaletteFadeOutInitLoc28A6 {
+            palette_buffer_2: palette_buffer,
+            palette_buffer_3: [0x0ACE; 0x40],
+            fade_progress: 0x0100,
+        },
+        "ASM loc_28A6 (kid.asm:4813) should copy 32 longwords from `Palette_Buffer` into `Palette_Buffer_2`, flood-fill all 64 words of `Palette_Buffer_3`, and seed `$FFFFF876` with `$0100`",
     );
 }
 

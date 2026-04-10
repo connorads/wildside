@@ -492,6 +492,13 @@ pub(crate) struct FullscreenPaletteFadeSub73D0 {
     pub(crate) allow_pausing: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PaletteFadeOutInitLoc28A6 {
+    pub(crate) palette_buffer_2: [u16; 0x40],
+    pub(crate) palette_buffer_3: [u16; 0x40],
+    pub(crate) fade_progress: u16,
+}
+
 const SUB_292E_PIECE_COUNT: usize = 5;
 pub(crate) const SUB_292E_SLOT_ACTIVE_OFFSET: usize = 0;
 const SUB_292E_SLOT_FLAG_OFFSET: usize = 1;
@@ -7239,6 +7246,25 @@ pub(crate) fn swap_forest_background_palette_entries_sub_129AE(
         return;
     }
     palette_buffer.swap(0x18, 0x1A);
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn initialise_palette_fade_out_loc_28A6(
+    palette_buffer: [u16; 0x40],
+    fill_colour: u16,
+) -> PaletteFadeOutInitLoc28A6 {
+    // ASM Pal_FadeOut / loc_28A6 / loc_28B8 (kid.asm:4801): seed `d0=#$1F`
+    // and copy 32 longwords from `Palette_Buffer` into `Palette_Buffer_2`,
+    // seed `d0=#$3F` and flood-fill all 64 palette words in
+    // `Palette_Buffer_3` with `($FFFFFBCC).w`, then set `$FFFFF876` to
+    // `$0100` before the fade loop at `loc_28DE` begins stepping toward
+    // black.
+    PaletteFadeOutInitLoc28A6 {
+        palette_buffer_2: palette_buffer,
+        palette_buffer_3: [fill_colour; 0x40],
+        fade_progress: 0x0100,
+    }
 }
 
 #[allow(non_snake_case)]
