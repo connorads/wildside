@@ -26,6 +26,44 @@ pub(crate) fn kid_projectile_collision_passes_sub_1D76() -> [KidProjectileCollis
     ]
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidProjectileTargetXSpanLoc1DB4 {
+    pub(crate) left_px: i16,
+    pub(crate) right_px: i16,
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn kid_projectile_target_x_span_loc_1DB4(
+    x_pos: i16,
+    x_direction: u8,
+    x_leading_offset: i16,
+    x_span: i16,
+) -> KidProjectileTargetXSpanLoc1DB4 {
+    // ASM sub_1D84 (kid.asm:3560-3567): when `x_direction(a0)` is clear the
+    // pre-`loc_1DB4` path does `d0 = x_pos + leading_offset`, copies that to
+    // `d1`, then adds the span so the target runs `[d0, d0 + span]`.
+    //
+    // ASM loc_1DB4 (kid.asm:3568-3572): when `x_direction(a0)` is non-zero the
+    // routine mirrors that X interval by negating the leading offset, adding it
+    // to `x_pos`, copying the result to `d1`, then subtracting the span so the
+    // target runs `[d1 - span, d1]`.
+    if x_direction == 0 {
+        let left_px = x_pos.wrapping_add(x_leading_offset);
+        KidProjectileTargetXSpanLoc1DB4 {
+            left_px,
+            right_px: left_px.wrapping_add(x_span),
+        }
+    } else {
+        let right_px = x_pos.wrapping_sub(x_leading_offset);
+        KidProjectileTargetXSpanLoc1DB4 {
+            left_px: right_px.wrapping_sub(x_span),
+            right_px,
+        }
+    }
+}
+
 impl NativeRuntime {
     fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
         projectile.friendly

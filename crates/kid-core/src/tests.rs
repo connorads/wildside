@@ -42847,6 +42847,26 @@ fn kid_projectile_collision_passes_sub_1d76_dispatches_the_two_rom_list_heads() 
 }
 
 #[test]
+fn kid_projectile_target_x_span_loc_1db4_mirrors_the_leading_offset_when_facing_flipped() {
+    assert_eq!(
+        crate::projectiles::kid_projectile_target_x_span_loc_1DB4(100, 0, 6, 20),
+        crate::projectiles::KidProjectileTargetXSpanLoc1DB4 {
+            left_px: 106,
+            right_px: 126,
+        },
+        "ASM sub_1D84 should use `[x_pos + leading, x_pos + leading + span]` when `x_direction(a0)` is clear before reaching `loc_1DB4`",
+    );
+    assert_eq!(
+        crate::projectiles::kid_projectile_target_x_span_loc_1DB4(100, 0xFF, 6, 20),
+        crate::projectiles::KidProjectileTargetXSpanLoc1DB4 {
+            left_px: 74,
+            right_px: 94,
+        },
+        "ASM loc_1DB4 should negate the leading offset, anchor the right edge at `x_pos - leading`, and subtract the span for flipped targets",
+    );
+}
+
+#[test]
 fn projectile_hitbox_half_plus_8_not_times() {
     // Projectile 12px away in x — inside `half + 8 = 14` but outside `half * 8 = 48`.
     // If + mutated to *, 12 < 48 would still pass, so use boundary at 13.
