@@ -18783,6 +18783,65 @@ fn platform_step_script_loc_2422_immediately_loads_the_next_velocity_on_expiry()
     );
 }
 
+#[test]
+fn platform_step_script_loc_243e_rewinds_to_the_first_typed_command_after_the_loop_sentinel() {
+    use std::collections::BTreeMap;
+
+    let mut scripts = BTreeMap::new();
+    scripts.insert(
+        0x0000,
+        kid_data::PlatformScript {
+            commands: vec![
+                kid_data::PlatformMoveCommand {
+                    duration: 2,
+                    x_velocity: 0x4_0000,
+                    y_velocity: -0x1_0000,
+                },
+                kid_data::PlatformMoveCommand {
+                    duration: 1,
+                    x_velocity: -0x2_0000,
+                    y_velocity: 0x3_0000,
+                },
+            ],
+        },
+    );
+    let table = kid_data::PlatformScriptTable { scripts };
+
+    let mut platform = ActivePlatform {
+        x_pos: 100 << 16,
+        y_pos: 50 << 16,
+        width_px: 47,
+        height_px: 15,
+        x_velocity: 0,
+        y_velocity: 0,
+        script: Some(PlatformScriptState {
+            script_offset: 0,
+            command_index: 1,
+            remaining_duration: 1,
+        }),
+    };
+
+    platform.step_script(&table);
+
+    assert_eq!(
+        platform.script,
+        Some(PlatformScriptState {
+            script_offset: 0,
+            command_index: 0,
+            remaining_duration: 2,
+        }),
+        "ASM loc_243E (kid.asm:4302) follows the `$FFFF` loop-back pointer, which the native typed-script port models by rewinding to command 0",
+    );
+    assert_eq!(
+        platform.x_velocity, 0x4_0000,
+        "ASM loc_243E should leave `$A(a2)` armed with the first command's x velocity after the loop-back",
+    );
+    assert_eq!(
+        platform.y_velocity, -0x1_0000,
+        "ASM loc_243E should leave `$E(a2)` armed with the first command's y velocity after the loop-back",
+    );
+}
+
 // --- Platform collision targeted mutation tests ---
 // Tests below target surviving mutants from cargo-mutants on platforms.rs.
 // Each test name references the line/mutation it catches.

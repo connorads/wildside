@@ -1655,7 +1655,10 @@ impl ActivePlatform {
         if state.remaining_duration == 0 {
             state.command_index += 1;
             if state.command_index >= script.commands.len() {
-                state.command_index = 0; // loop
+                // ASM loc_243E (kid.asm:4302) follows the `$FFFF` sentinel's
+                // loop-back pointer, which the native typed script table
+                // represents by rewinding to command 0 in the current script.
+                state.command_index = 0;
             }
             let next_cmd = &script.commands[state.command_index];
             state.remaining_duration = next_cmd.duration;
