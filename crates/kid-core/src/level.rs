@@ -6247,6 +6247,47 @@ pub(crate) fn manage_enemy_loading_allocate_slot_hint_loc_3690A(enemy_id: u8) ->
     if enemy_id == 0x17 { 0xFFFF } else { 0x0001 }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ManageEnemyLoadingSpawnObjectLoc3691E {
+    pub(crate) enemy_load_index_offset: u16,
+    pub(crate) priority_flag: bool,
+    pub(crate) layout_entry_addr: u32,
+    pub(crate) object_status_slot: u8,
+    pub(crate) enemy_status_word: Option<u16>,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn manage_enemy_loading_spawn_object_loc_3691E(
+    enemy_id: u8,
+    layout_entry_addr: u32,
+    enemy_count: u16,
+    loop_counter: u16,
+    d4_state: u8,
+) -> ManageEnemyLoadingSpawnObjectLoc3691E {
+    // ASM loc_3691E (kid.asm:38064-38083) allocates the object slot, looks up
+    // the worker pointer via `EnemyLoad_Index + enemy_id * 8`, marks `$10(a0)`
+    // high priority with `st`, stores the source layout entry in `$44(a0)`,
+    // then packs `(d6 - d7 - 1)` into `$42(a0)`. `d4 == 1` ORs `$C0` into that
+    // byte and skips the `(a2) = $FFFF` write, `d4 > 1` ORs `$80`, and `d4 < 1`
+    // keeps the raw low byte before writing the loaded sentinel.
+    let base_status_slot = enemy_count.wrapping_sub(loop_counter).wrapping_sub(1) as u8;
+    let object_status_slot = match d4_state {
+        1 => base_status_slot | 0xC0,
+        2..=u8::MAX => base_status_slot | 0x80,
+        _ => base_status_slot,
+    };
+    let enemy_status_word = if d4_state == 1 { None } else { Some(0xFFFF) };
+
+    ManageEnemyLoadingSpawnObjectLoc3691E {
+        enemy_load_index_offset: u16::from(enemy_id) << 3,
+        priority_flag: true,
+        layout_entry_addr,
+        object_status_slot,
+        enemy_status_word,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {

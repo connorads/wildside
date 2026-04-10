@@ -99,20 +99,21 @@ use crate::level::{
     FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
     IslandPaletteCycleMidBandLoc12110, IslandPaletteCyclePrimaryBandLoc12098,
     LateBackgroundPaletteOverrideLoc11E06, LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit,
-    ManageEnemyLoadingCountDownActiveLoc3685E, ManageEnemyLoadingStatusBranchLoc36840,
-    PaletteFadeOutInitLoc28A6, PaletteFadeOutStepLoc28C6, PostLoadObjectRoutineLoc11F96,
-    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
-    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
-    SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, TransferScrollDataDispatchLoc3039C, TransferScrollDataDmaTailLoc300D2,
-    TransferScrollDataPreludeLoc3038A, TransferScrollDataRendererLoc3039C,
-    TransferScrollDataStormLoc30110, TransferScrollDataStormLoopLoc30130,
-    TransferScrollDataStormLoopLoc30172, TransferScrollDataStormSetupLoc30158,
-    TransferScrollDataVsramSetupLoc300BA, apply_background_palette_override_loc_11E04,
-    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, background_scroll_desert_heat_ripple_loop_loc_306F4,
+    ManageEnemyLoadingCountDownActiveLoc3685E, ManageEnemyLoadingSpawnObjectLoc3691E,
+    ManageEnemyLoadingStatusBranchLoc36840, PaletteFadeOutInitLoc28A6, PaletteFadeOutStepLoc28C6,
+    PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT,
+    SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
+    ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA,
+    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, TransferScrollDataDispatchLoc3039C,
+    TransferScrollDataDmaTailLoc300D2, TransferScrollDataPreludeLoc3038A,
+    TransferScrollDataRendererLoc3039C, TransferScrollDataStormLoc30110,
+    TransferScrollDataStormLoopLoc30130, TransferScrollDataStormLoopLoc30172,
+    TransferScrollDataStormSetupLoc30158, TransferScrollDataVsramSetupLoc300BA,
+    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    background_scroll_desert_heat_ripple_loop_loc_306F4,
     background_scroll_desert_heat_ripple_setup_loc_306D4,
     background_scroll_desert_heat_ripple_visible_band_loc_306C2,
     background_scroll_enigma_primary_copy_setup_loc_30426,
@@ -201,11 +202,12 @@ use crate::level::{
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
     manage_enemy_loading_allocate_slot_hint_loc_3690A,
     manage_enemy_loading_count_down_active_loc_3685E, manage_enemy_loading_setup_loc_3682C,
-    manage_enemy_loading_status_branch_loc_36840, manage_enemy_loading_status_word_loc_36900,
-    object_check_in_range_active_count_gate_loc_320E2, object_check_in_range_normal_x_loc_320C0,
-    object_check_in_range_normal_y_loc_320D8, object_check_in_range_wide_load_x_loc_32122,
-    object_check_in_range_wide_load_y_loc_32140, object_out_of_range_delete_tail_loc_320B4,
-    object_out_of_range_positive_slot_loc_320A6, prepare_background_art_decompress_loc_11EA2,
+    manage_enemy_loading_spawn_object_loc_3691E, manage_enemy_loading_status_branch_loc_36840,
+    manage_enemy_loading_status_word_loc_36900, object_check_in_range_active_count_gate_loc_320E2,
+    object_check_in_range_normal_x_loc_320C0, object_check_in_range_normal_y_loc_320D8,
+    object_check_in_range_wide_load_x_loc_32122, object_check_in_range_wide_load_y_loc_32140,
+    object_out_of_range_delete_tail_loc_320B4, object_out_of_range_positive_slot_loc_320A6,
+    prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
@@ -35572,6 +35574,43 @@ fn manage_enemy_loading_loc_3690a_uses_the_special_ffff_allocation_hint_only_for
         manage_enemy_loading_allocate_slot_hint_loc_3690A(0x17),
         0xFFFF,
         "ASM loc_3690A should overwrite `a0` with `$FFFF` only when `(a1)` is enemy id `$17`"
+    );
+}
+
+#[test]
+fn manage_enemy_loading_loc_3691e_packs_the_status_slot_and_loaded_sentinel_from_d4() {
+    assert_eq!(
+        manage_enemy_loading_spawn_object_loc_3691E(0x12, 0x0001_2340, 5, 5, 0),
+        ManageEnemyLoadingSpawnObjectLoc3691E {
+            enemy_load_index_offset: 0x0090,
+            priority_flag: true,
+            layout_entry_addr: 0x0001_2340,
+            object_status_slot: 0xFF,
+            enemy_status_word: Some(0xFFFF),
+        },
+        "ASM loc_3691E should pack `(d6 - d7 - 1)` into `$42(a0)` and write the loaded sentinel when `d4 < 1`"
+    );
+    assert_eq!(
+        manage_enemy_loading_spawn_object_loc_3691E(0x17, 0x0001_2348, 5, 4, 1),
+        ManageEnemyLoadingSpawnObjectLoc3691E {
+            enemy_load_index_offset: 0x00B8,
+            priority_flag: true,
+            layout_entry_addr: 0x0001_2348,
+            object_status_slot: 0xC0,
+            enemy_status_word: None,
+        },
+        "ASM loc_3691E should OR `$C0` into `$42(a0)` and skip the `(a2) = $FFFF` store when `d4 == 1`"
+    );
+    assert_eq!(
+        manage_enemy_loading_spawn_object_loc_3691E(0x03, 0x0001_2350, 5, 3, 2),
+        ManageEnemyLoadingSpawnObjectLoc3691E {
+            enemy_load_index_offset: 0x0018,
+            priority_flag: true,
+            layout_entry_addr: 0x0001_2350,
+            object_status_slot: 0x81,
+            enemy_status_word: Some(0xFFFF),
+        },
+        "ASM loc_3691E should OR `$80` into `$42(a0)` for the forced-reload path while still marking the layout entry loaded"
     );
 }
 
