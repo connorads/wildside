@@ -19149,6 +19149,34 @@ fn platform_sprite_dispatch_loc_244c_culls_platforms_whose_right_edge_is_left_of
 }
 
 #[test]
+fn platform_single_sprite_loc_24c0_emits_one_400_series_platform_sprite() {
+    assert_eq!(
+        platform_single_sprite_loc_24C0(
+            PlatformSpriteDispatchLoc244C {
+                screen_x_word: 0x00A0,
+                screen_y_word: 0x0090,
+                width_tiles_minus_one: 2,
+                height_tiles_minus_one: 1,
+                base_tile_word: 0x0500,
+                mapping_addr_word: 0x2468,
+                variant: PlatformSpriteVariantLoc244C::Loc24C0,
+            },
+            0x12,
+        ),
+        PlatformSpriteEmitLoc2548 {
+            sprite: PlatformSpriteEntryLoc2548 {
+                y_word: 0x0090,
+                tile_word: 0x0413,
+                mapping_word: 0xA468,
+                x_word: 0x00A0,
+            },
+            next_number_sprites: 0x13,
+        },
+        "ASM loc_24C0 should override `d2` to `#$400` and emit exactly one sprite via loc_2548, where the incremented `Number_Sprites` low byte is folded into the tile word",
+    );
+}
+
+#[test]
 fn platform_collision_shift_directions_matter() {
     // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
     // If >> became <<, pixel values would be wildly wrong and collision would fail.

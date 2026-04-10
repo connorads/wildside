@@ -400,3 +400,63 @@ pub(crate) fn platform_sprite_dispatch_loc_244C(
         variant,
     })
 }
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformSpriteEntryLoc2548 {
+    pub(crate) y_word: u16,
+    pub(crate) tile_word: u16,
+    pub(crate) mapping_word: u16,
+    pub(crate) x_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformSpriteEmitLoc2548 {
+    pub(crate) sprite: PlatformSpriteEntryLoc2548,
+    pub(crate) next_number_sprites: u8,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emit_platform_sprite_loc_2548(
+    screen_x_word: i16,
+    screen_y_word: i16,
+    base_tile_word: u16,
+    mapping_addr_word: u16,
+    number_sprites: u8,
+) -> PlatformSpriteEmitLoc2548 {
+    // ASM loc_2548 (kid.asm:4442): write `(y,tile,mapping,x)` into the next
+    // sprite slot, increment `(Number_Sprites).w`, add that low byte into `d2`,
+    // and add the mapping word in `a4` onto `$8000`.
+    let next_number_sprites = number_sprites.wrapping_add(1);
+    let tile_low_byte = (base_tile_word as u8).wrapping_add(next_number_sprites);
+    let tile_word = (base_tile_word & 0xFF00) | u16::from(tile_low_byte);
+
+    PlatformSpriteEmitLoc2548 {
+        sprite: PlatformSpriteEntryLoc2548 {
+            y_word: screen_y_word as u16,
+            tile_word,
+            mapping_word: 0x8000u16.wrapping_add(mapping_addr_word),
+            x_word: screen_x_word as u16,
+        },
+        next_number_sprites,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn platform_single_sprite_loc_24C0(
+    dispatch: PlatformSpriteDispatchLoc244C,
+    number_sprites: u8,
+) -> PlatformSpriteEmitLoc2548 {
+    // ASM loc_24C0 (kid.asm:4374): replace `d2` with `#$400`, copy `d7` back
+    // into `d4`, emit one sprite through `loc_2548`, then loop to `loc_244C`.
+    emit_platform_sprite_loc_2548(
+        dispatch.screen_x_word,
+        dispatch.screen_y_word,
+        0x0400,
+        dispatch.mapping_addr_word,
+        number_sprites,
+    )
+}
