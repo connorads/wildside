@@ -59,6 +59,7 @@ use crate::level::{
     BackgroundScrollPieceRefreshSeedLoc3081A,
     BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE,
     BackgroundScrollPieceRefreshTileWrapFirstCopyLoc30988,
+    BackgroundScrollPieceRefreshTileWrapWrappedCopyLoc3099E,
     BackgroundScrollPieceRefreshTileWrappedCopyLoc308E8,
     BackgroundScrollPieceRefreshVdpSeedLoc30884, BackgroundScrollPieceRefreshWindowSplitLoc3086A,
     BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6, BackgroundScrollPieceRefreshWrapLoc30836,
@@ -131,6 +132,7 @@ use crate::level::{
     background_scroll_piece_refresh_seed_loc_3081A,
     background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE,
     background_scroll_piece_refresh_tile_wrap_first_copy_loc_30988,
+    background_scroll_piece_refresh_tile_wrap_wrapped_copy_loc_3099E,
     background_scroll_piece_refresh_tile_wrapped_copy_loc_308E8,
     background_scroll_piece_refresh_vdp_seed_loc_30884,
     background_scroll_piece_refresh_window_split_loc_3086A,
@@ -3951,6 +3953,37 @@ fn background_scroll_piece_refresh_tile_wrap_first_copy_loc_30988_copies_the_pre
             bytes_consumed: 10,
         }),
         "ASM loc_30988 should copy the inclusive `$28-d6` pre-wrap tile tail from `(a0)+`, then restore the saved plane-B seam command with autoincrement `#3` before arming loc_3099E's exactly-once wrapped retry",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_tile_wrap_wrapped_copy_loc_3099e_rewinds_one_row_then_runs_exactly_one_wrapped_retry()
+ {
+    let layout_row: Vec<u8> = (0..96).collect();
+    let block_mappings: Vec<u16> = (0..256)
+        .map(|index| 0x2000_u16.wrapping_add(index))
+        .collect();
+
+    assert_eq!(
+        background_scroll_piece_refresh_tile_wrap_wrapped_copy_loc_3099E(
+            &layout_row,
+            30,
+            &block_mappings,
+            16,
+            30,
+            5,
+        ),
+        Some(BackgroundScrollPieceRefreshTileWrapWrappedCopyLoc3099E {
+            first_pass_mapping_words: (30..55)
+                .map(|index| 0x2000_u16.wrapping_add(index as u16))
+                .collect(),
+            second_pass_mapping_words: (39..45)
+                .map(|index| 0x2000_u16.wrapping_add(index as u16))
+                .collect(),
+            bytes_consumed: 31,
+            final_layout_row_offset: 45,
+        }),
+        "ASM loc_3099E should copy the inclusive `d6-d7` span up to the tile seam, rewind `a0` by `Background_width`, then use `d2=1` to permit exactly one wrapped retry that copies the inclusive `d5+1` row tail",
     );
 }
 
