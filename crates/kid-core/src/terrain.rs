@@ -1558,6 +1558,9 @@ fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16
                 return 1;
             }
         }
+        // ASM loc_36A2A (kid.asm:38199): when the inclusive `dbf d3,loc_36A20`
+        // scan finds no clear cell, the routine preserves the blocked-row class
+        // by returning with `d6=0`.
         0
     } else if words.iter().any(|word| word & 0x4000 != 0) {
         1
@@ -3277,6 +3280,16 @@ mod tests {
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000, 0x5000, 0x6000]),
             0,
             "ASM loc_36A10 should stay on the blocking path and leave `d6=0` when every scanned word in the following row keeps bit `$4000` set",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_following_row_class_loc_36a2a_returns_zero_when_every_scanned_word_stays_blocked()
+     {
+        assert_eq!(
+            horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000]),
+            0,
+            "ASM loc_36A2A should return with `d6=0` when the first blocked word is also the last scanned word, so the inclusive `dbf` loop never finds a clear `$4000` bit to flip the row class",
         );
     }
 
