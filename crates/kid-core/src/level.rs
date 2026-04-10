@@ -7730,6 +7730,13 @@ pub(crate) struct BackgroundScrollPieceRefreshTileWrappedCopyLoc308E8 {
     pub(crate) final_layout_row_offset: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundScrollPieceRefreshDualWrapBranchLoc30904 {
+    SharedSplitLoc30916,
+    RowWrapFirstLoc30936,
+    TileWrapFirstLoc30978,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollPieceRefreshWrappedCopyLoc308C4 {
     pub(crate) first_pass_mapping_words: Vec<u16>,
@@ -8519,6 +8526,29 @@ pub(crate) fn background_scroll_piece_refresh_tile_wrapped_copy_loc_308E8(
         final_layout_row_offset: current_layout_row_offset
             .wrapping_add((first_pass_count.wrapping_add(second_pass_count)) as i16),
     })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_dual_wrap_branch_loc_30904(
+    wrapped_tile_window_span: u16,
+    wrapped_row_window_end: i16,
+) -> BackgroundScrollPieceRefreshDualWrapBranchLoc30904 {
+    // ASM loc_30904 (kid.asm:34756): compare wrapped tile seam `d6` against
+    // wrapped row seam `d7`; `bgt.s loc_30936` means the row wrap happens
+    // later, `blt.w loc_30978` means the tile wrap happens later, and equality
+    // falls through to loc_30916 where both seams share the same split point.
+    match wrapped_row_window_end.cmp(&(wrapped_tile_window_span as i16)) {
+        std::cmp::Ordering::Greater => {
+            BackgroundScrollPieceRefreshDualWrapBranchLoc30904::RowWrapFirstLoc30936
+        }
+        std::cmp::Ordering::Less => {
+            BackgroundScrollPieceRefreshDualWrapBranchLoc30904::TileWrapFirstLoc30978
+        }
+        std::cmp::Ordering::Equal => {
+            BackgroundScrollPieceRefreshDualWrapBranchLoc30904::SharedSplitLoc30916
+        }
+    }
 }
 
 #[allow(non_snake_case)]

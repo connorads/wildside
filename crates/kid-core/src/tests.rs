@@ -51,8 +51,8 @@ use crate::level::{
     BackgroundScrollForestWaterRippleSetupLoc305E6,
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
-    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshLinearCopyLoc308A6,
-    BackgroundScrollPieceRefreshSeedLoc3081A,
+    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshDualWrapBranchLoc30904,
+    BackgroundScrollPieceRefreshLinearCopyLoc308A6, BackgroundScrollPieceRefreshSeedLoc3081A,
     BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE,
     BackgroundScrollPieceRefreshTileWrappedCopyLoc308E8,
     BackgroundScrollPieceRefreshVdpSeedLoc30884, BackgroundScrollPieceRefreshWindowSplitLoc3086A,
@@ -118,6 +118,7 @@ use crate::level::{
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E,
+    background_scroll_piece_refresh_dual_wrap_branch_loc_30904,
     background_scroll_piece_refresh_linear_copy_loc_308A6,
     background_scroll_piece_refresh_seed_loc_3081A,
     background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE,
@@ -2814,6 +2815,26 @@ fn background_scroll_piece_refresh_tile_wrapped_copy_loc_308e8_resets_plane_b_th
             final_layout_row_offset: 0x002C,
         }),
         "ASM loc_308E8 should consume the first inclusive `dbf d1` span, write `d3` plus autoincrement `#3` to `(a5)`, then continue the second pass from the advanced `(a0)+` position without rewinding by `Background_width`",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_dual_wrap_branch_loc_30904_routes_equal_and_asymmetric_seams_to_the_right_worker()
+ {
+    assert_eq!(
+        background_scroll_piece_refresh_dual_wrap_branch_loc_30904(0x001D, 0x001D),
+        BackgroundScrollPieceRefreshDualWrapBranchLoc30904::SharedSplitLoc30916,
+        "ASM loc_30904 should fall through to loc_30916 when `cmp.w d6,d7` sees equal wrapped tile and row seams",
+    );
+    assert_eq!(
+        background_scroll_piece_refresh_dual_wrap_branch_loc_30904(0x0015, 0x001D),
+        BackgroundScrollPieceRefreshDualWrapBranchLoc30904::RowWrapFirstLoc30936,
+        "ASM loc_30904 should branch with `bgt.s loc_30936` when wrapped row seam `d7` is greater than wrapped tile seam `d6`",
+    );
+    assert_eq!(
+        background_scroll_piece_refresh_dual_wrap_branch_loc_30904(0x001D, 0x0015),
+        BackgroundScrollPieceRefreshDualWrapBranchLoc30904::TileWrapFirstLoc30978,
+        "ASM loc_30904 should branch with `blt.w loc_30978` when wrapped row seam `d7` is less than wrapped tile seam `d6`",
     );
 }
 
