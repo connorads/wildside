@@ -1626,6 +1626,9 @@ fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -
     let rightmost_word = *words.last().expect("checked empty slice above");
     if rightmost_word & 0x4000 != 0 {
         for &word in words.iter().rev() {
+            // ASM loc_36B04 (kid.asm:38318): the blocked-entry path then walks
+            // right-to-left with `move.w -(a1),d0`, so the first earlier word
+            // that clears bit `$4000` flips the row class to mixed.
             if word & 0x4000 == 0 {
                 return 1;
             }
@@ -3519,6 +3522,16 @@ mod tests {
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x4000, 0x0000]),
             1,
             "ASM loc_36AF0 should inspect the rightmost following-row word first, so a clear right edge with a blocked word farther left must take the clear-entry path and return `d6=1`",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_following_row_class_loc_36b04_turns_a_blocked_entry_row_mixed()
+     {
+        assert_eq!(
+            horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x0000, 0x5000]),
+            1,
+            "ASM loc_36B04 should keep pre-decrementing across the following row after a blocked right-edge entry, and the first earlier clear word must flip the result to `d6=1`",
         );
     }
 
