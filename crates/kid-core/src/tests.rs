@@ -44693,6 +44693,20 @@ fn loc_33264_zeroes_the_middle_row_disguised_block_before_masking_collision() {
 }
 
 #[test]
+fn loc_33280_keeps_only_the_top_row_collision_nibble() {
+    assert_eq!(
+        crate::terrain::relative_collision_nibble_loc_33280(0xF6A5),
+        0x7000,
+        "ASM loc_33280 (kid.asm:37690) should end the third sampled-word path with `andi.w #$7000,d7`, dropping both the block flag and the lower tile bits",
+    );
+    assert_eq!(
+        crate::terrain::relative_collision_nibble_loc_33280(0x0333),
+        0,
+        "ASM loc_33280 should leave a zero collision nibble when the incoming top-row word has no `$1000/$2000/$4000/$5000/$6000/$7000` terrain bits set",
+    );
+}
+
+#[test]
 fn loc_331f6_reads_the_foot_row_plus_14_and_the_two_rows_above_it() {
     let grid = grid_with_cells(
         8,

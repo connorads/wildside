@@ -1279,6 +1279,15 @@ pub(crate) fn relative_collision_mask_loc_331D2(
     probe_at(grid, sample_x, sample_y).cell.to_word() & 0x7000
 }
 
+/// Mirror the final collision-nibble mask in `loc_33280`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn relative_collision_nibble_loc_33280(tile_word: u16) -> u16 {
+    // ASM loc_33280 (kid.asm:37690): the third sampled word skips any further
+    // block-type tests here and keeps only `andi.w #$7000,d7`.
+    tile_word & 0x7000
+}
+
 /// Mirror the disguised-block filter shared by `loc_331F6`, `loc_33248`, and
 /// the later horizontal scan at `loc_33286`.
 #[allow(non_snake_case)]
@@ -1291,7 +1300,7 @@ pub(crate) fn relative_collision_word_mask_loc_33248(tile_word: u16) -> u16 {
     if (tile_word & 0x8000) != 0 && (tile_word & 0x0F00) == 0x0300 {
         0
     } else {
-        tile_word & 0x7000
+        relative_collision_nibble_loc_33280(tile_word)
     }
 }
 
@@ -1357,7 +1366,7 @@ pub(crate) fn relative_collision_column_loc_331F6(
         RelativeCollisionColumnLoc331F6 {
             current_row: relative_collision_word_mask_loc_33248(current_row),
             one_row_up: relative_collision_word_mask_loc_33264(one_row_up),
-            two_rows_up: relative_collision_word_mask_loc_33248(two_rows_up),
+            two_rows_up: relative_collision_nibble_loc_33280(two_rows_up),
         }
     }
 }
