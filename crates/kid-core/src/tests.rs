@@ -52,6 +52,7 @@ use crate::level::{
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
+    BackgroundScrollShiftLayersLeadingPartialFillLoc30562,
     BackgroundScrollShiftLayersNoScrollFillLoc30502, BackgroundScrollShiftLayersSetupLoc3050A,
     BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
@@ -107,6 +108,7 @@ use crate::level::{
     background_scroll_shift_data_wrap_loop_loc_304C2,
     background_scroll_shift_data_wrap_loop_loc_304D8,
     background_scroll_shift_data_wrap_store_loc_304CA,
+    background_scroll_shift_layers_leading_partial_fill_loc_30562,
     background_scroll_shift_layers_no_scroll_fill_loc_30502,
     background_scroll_shift_layers_setup_loc_3050A,
     background_scroll_stripe_horizontal_gate_loc_3023C,
@@ -2846,6 +2848,25 @@ fn background_scroll_shift_layers_setup_loc_3050a_branches_straight_to_loc_3056a
             trailing_partial_longword_count: None,
         }),
         "ASM loc_3050A should branch straight to `loc_3056A` when `(Camera_Y_pos>>2) & 7` is zero, leaving `d4=-1` and skipping the leading/trailing partial-row setup",
+    );
+}
+
+#[test]
+fn background_scroll_shift_layers_leading_partial_fill_loc_30562_repeats_the_first_row_for_8_minus_phase_entries()
+ {
+    assert_eq!(
+        background_scroll_shift_layers_leading_partial_fill_loc_30562(
+            0xFEDD_0000,
+            0x0030,
+            0x0005,
+            0x001B,
+        ),
+        Some(BackgroundScrollShiftLayersLeadingPartialFillLoc30562 {
+            repeated_scroll_longword: 0xFEDD_FFD0,
+            longword_count: 0x0003,
+            next_block_dbf_counter: 0x001A,
+        }),
+        "ASM loc_30562 should repeat the first partial-row scroll longword `8-phase` times and then `subq.w #1,d0` so the later `loc_3056A` block loop runs one fewer inclusive pass",
     );
 }
 

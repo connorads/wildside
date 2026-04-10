@@ -7795,6 +7795,13 @@ pub(crate) struct BackgroundScrollShiftLayersSetupLoc3050A {
     pub(crate) trailing_partial_longword_count: Option<u16>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftLayersLeadingPartialFillLoc30562 {
+    pub(crate) repeated_scroll_longword: u32,
+    pub(crate) longword_count: u16,
+    pub(crate) next_block_dbf_counter: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -8343,6 +8350,30 @@ pub(crate) fn background_scroll_shift_layers_setup_loc_3050A(
         branches_to_loc_3056_a,
         leading_partial_longword_count,
         trailing_partial_longword_count,
+    })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_scroll_shift_layers_leading_partial_fill_loc_30562(
+    negated_camera_x_longword: u32,
+    background_scroll_word: i16,
+    quarter_row_phase: u16,
+    block_dbf_counter: u16,
+) -> Option<BackgroundScrollShiftLayersLeadingPartialFillLoc30562> {
+    // ASM loc_30562 (kid.asm:34220): after `move.w d3,d4`, `eor.w #7,d3`,
+    // `subq.w #1,d4`, and the preceding `move.w/neg.w` load rebuild `d2`, the
+    // inclusive `dbf d3,loc_30562` loop writes the packed scroll longword
+    // `8-phase` times, then `subq.w #1,d0` trims the later 8-row block count.
+    if !(1..=7).contains(&quarter_row_phase) {
+        return None;
+    }
+
+    Some(BackgroundScrollShiftLayersLeadingPartialFillLoc30562 {
+        repeated_scroll_longword: negated_camera_x_longword
+            | u32::from(background_scroll_word.wrapping_neg() as u16),
+        longword_count: 0x0008 - quarter_row_phase,
+        next_block_dbf_counter: block_dbf_counter.wrapping_sub(1),
     })
 }
 
