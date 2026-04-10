@@ -2017,6 +2017,50 @@ fn spawn_block_debris_sub_292e_loc_293a_uses_the_fallthrough_velocity_tables_for
 }
 
 #[test]
+fn spawn_block_debris_sub_292e_loc_296c_uses_the_second_direction_velocity_pair() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+
+    spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 1);
+
+    assert_eq!(
+        scratch_debris_pieces_sub_292E(&queue, 0),
+        [
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: -1,
+                x_velocity_px: -2,
+                y_pos_px: 0x0080,
+                x_pos_px: 0x0120,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: -1,
+                x_velocity_px: 0,
+                y_pos_px: 0x0088,
+                x_pos_px: 0x0120,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 0,
+                x_velocity_px: 0,
+                y_pos_px: 0x0088,
+                x_pos_px: 0x0128,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 1,
+                x_velocity_px: -1,
+                y_pos_px: 0x0080,
+                x_pos_px: 0x0128,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: -1,
+                x_velocity_px: -2,
+                y_pos_px: 0x0084,
+                x_pos_px: 0x0124,
+            },
+        ],
+        "ASM loc_296C (kid.asm:4904) should select `unk_2A38`/`unk_2A42` when `d6 == 1`",
+    );
+}
+
+#[test]
 fn spawn_block_debris_sub_292e_advances_and_wraps_the_scratch_cursor() {
     let mut queue = initialise_scratch_queue_sub_28FC();
 
