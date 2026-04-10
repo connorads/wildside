@@ -54,6 +54,7 @@ use crate::level::{
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
     BackgroundScrollShiftLayersLeadingPartialFillLoc30562,
     BackgroundScrollShiftLayersNoScrollFillLoc30502, BackgroundScrollShiftLayersSetupLoc3050A,
+    BackgroundScrollShiftLayersTrailingPartialFillLoc30592,
     BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
@@ -111,6 +112,7 @@ use crate::level::{
     background_scroll_shift_layers_leading_partial_fill_loc_30562,
     background_scroll_shift_layers_no_scroll_fill_loc_30502,
     background_scroll_shift_layers_setup_loc_3050A,
+    background_scroll_shift_layers_trailing_partial_fill_loc_30592,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2867,6 +2869,19 @@ fn background_scroll_shift_layers_leading_partial_fill_loc_30562_repeats_the_fir
             next_block_dbf_counter: 0x001A,
         }),
         "ASM loc_30562 should repeat the first partial-row scroll longword `8-phase` times and then `subq.w #1,d0` so the later `loc_3056A` block loop runs one fewer inclusive pass",
+    );
+}
+
+#[test]
+fn background_scroll_shift_layers_trailing_partial_fill_loc_30592_repeats_the_last_row_for_phase_entries()
+ {
+    assert_eq!(
+        background_scroll_shift_layers_trailing_partial_fill_loc_30592(0xFEDD_0000, 0x0014, 0x0005,),
+        Some(BackgroundScrollShiftLayersTrailingPartialFillLoc30592 {
+            repeated_scroll_longword: 0xFEDD_FFEC,
+            longword_count: 0x0005,
+        }),
+        "ASM loc_30592 should repeat the trailing partial-row scroll longword for the inclusive `dbf d4,loc_30592` span, which is exactly the saved quarter-row phase count",
     );
 }
 

@@ -7802,6 +7802,12 @@ pub(crate) struct BackgroundScrollShiftLayersLeadingPartialFillLoc30562 {
     pub(crate) next_block_dbf_counter: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftLayersTrailingPartialFillLoc30592 {
+    pub(crate) repeated_scroll_longword: u32,
+    pub(crate) longword_count: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -8374,6 +8380,28 @@ pub(crate) fn background_scroll_shift_layers_leading_partial_fill_loc_30562(
             | u32::from(background_scroll_word.wrapping_neg() as u16),
         longword_count: 0x0008 - quarter_row_phase,
         next_block_dbf_counter: block_dbf_counter.wrapping_sub(1),
+    })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_scroll_shift_layers_trailing_partial_fill_loc_30592(
+    negated_camera_x_longword: u32,
+    background_scroll_word: i16,
+    trailing_partial_longword_count: u16,
+) -> Option<BackgroundScrollShiftLayersTrailingPartialFillLoc30592> {
+    // ASM loc_30592 (kid.asm:34244): once `tst.w d4` proves a trailing span
+    // exists and the preceding `move.w/neg.w` pair rebuilds `d2`, the
+    // inclusive `dbf d4,loc_30592` loop writes the final partial-row scroll
+    // longword exactly `phase` times.
+    if trailing_partial_longword_count == 0 {
+        return None;
+    }
+
+    Some(BackgroundScrollShiftLayersTrailingPartialFillLoc30592 {
+        repeated_scroll_longword: negated_camera_x_longword
+            | u32::from(background_scroll_word.wrapping_neg() as u16),
+        longword_count: trailing_partial_longword_count,
     })
 }
 
