@@ -457,6 +457,14 @@ pub(crate) fn deallocate_platform_slot_sub_23B4(
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+pub(crate) fn find_active_platform_miss_loc_2740() -> Option<usize> {
+    // ASM loc_2740 (kid.asm:4662): once the active platform-slot walk reaches
+    // a zero link, `moveq #0,d7; rts` reports "no matching slot".
+    None
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
 pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
     layout_offset_words: u16,
     active_platforms: &[ActivePlatformHandleSub2728],
@@ -473,7 +481,7 @@ pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
         }
         slot_index += 1;
     }
-    None
+    find_active_platform_miss_loc_2740()
 }
 
 #[allow(non_snake_case)]

@@ -18996,7 +18996,7 @@ fn find_active_platform_by_layout_offset_sub_2728_returns_none_when_no_slot_matc
             ],
         ),
         None,
-        "ASM sub_2728 returns zero when the active platform-slot list contains no matching `$20(a2)` loader offset",
+        "ASM loc_2740 (kid.asm:4662) should return zero once `loc_272C` reaches the end of the active platform-slot walk without finding a `$20(a2)` match",
     );
 }
 
