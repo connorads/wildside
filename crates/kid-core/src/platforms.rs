@@ -599,6 +599,8 @@ pub(crate) fn platform_strip_sprites_loc_251C(
     let mut screen_y_word = dispatch.screen_y_word.wrapping_add(0x0010);
 
     if dispatch.height_tiles_minus_one > 1 {
+        // ASM loc_2532 (kid.asm:4431): reuse the middle mapping word while
+        // `dbf d0,loc_2532` walks the interior span one 16px row at a time.
         for _ in 0..(dispatch.height_tiles_minus_one - 1) {
             let emitted = emit_platform_sprite_loc_2548(
                 dispatch.screen_x_word,
