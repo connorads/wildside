@@ -1493,6 +1493,13 @@ fn sets_collision_bit_14(cell: Cell) -> bool {
     )
 }
 
+#[allow(non_snake_case)]
+fn horizontal_collision_scan_hitbox_mask_seed_loc_369F6() -> u16 {
+    // ASM loc_369F6 (kid.asm:38167): `moveq #0,d5` clears the rectangle-scan
+    // accumulator before the nested body sweep starts.
+    0
+}
+
 pub(crate) fn transform_overlap_column_blocked_sub_7bea(
     grid: &BlockGrid,
     x_px: i32,
@@ -1560,24 +1567,20 @@ fn horizontal_collision_scan(
         right_col = i32::from(grid.width_cells).saturating_sub(1);
     }
 
-    let mut hitbox_blocked = false;
+    let mut hitbox_mask = horizontal_collision_scan_hitbox_mask_seed_loc_369F6();
     for row in top_row..=bottom_row {
         for col in left_col..=right_col {
-            if sets_collision_bit_14(grid.cell_at(col as u16, row as u16)) {
-                hitbox_blocked = true;
-                break;
-            }
-        }
-        if hitbox_blocked {
-            break;
+            hitbox_mask |= grid.cell_at(col as u16, row as u16).to_word();
         }
     }
+    let hitbox_blocked = hitbox_mask & 0x4000 != 0;
 
     let lead_column_blocked = if leading_right {
         let lead_col = right_col + 1;
         if lead_col >= i32::from(grid.width_cells) {
             true
         } else {
+            // ASM loc_369C4 (kid.asm:38139): once the right lead column is still
             // ASM loc_369C4 (kid.asm:38139): once the right lead column is still
             // in bounds, scan that column over the same row span and treat any
             // bit-$4000 word found by the later `loc_369DE/loc_369EE` checks as
@@ -3144,6 +3147,15 @@ mod tests {
                 lead_column_blocked: true,
             },
             "ASM loc_369C4 should scan the in-bounds right lead column before the boundary fallback, so a `$5000` slope there must still block side contact",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_hitbox_mask_seed_loc_369f6_clears_the_rect_accumulator() {
+        assert_eq!(
+            horizontal_collision_scan_hitbox_mask_seed_loc_369F6(),
+            0,
+            "ASM loc_369F6 is just `moveq #0,d5`, so the rectangle scan must always start from a cleared accumulator",
         );
     }
 
