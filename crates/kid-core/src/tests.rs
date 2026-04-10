@@ -50291,3 +50291,26 @@ fn loc_20c6_moves_kid_and_the_object_up_by_the_chosen_overlap_plus_one() {
         "ASM loc_20C6 finishes with `clr.w $20(a0)`, forcing the colliding object's Y velocity to zero",
     );
 }
+
+#[test]
+fn loc_20dc_moves_kid_and_the_object_right_by_the_chosen_overlap_plus_one() {
+    let resolved = crate::level::kid_hitbox_solid_scan_resolve_right_loc_20DC(
+        4, 0x0020, 0x0038, 0x0080, 0x5678,
+    );
+    assert_eq!(
+        resolved.kid_hitbox_left, 0x0025,
+        "ASM loc_20DC (kid.asm:3916) adds one pixel before adding into `Kid_hitbox_left`",
+    );
+    assert_eq!(
+        resolved.kid_hitbox_right, 0x003D,
+        "ASM loc_20DC adds the same `d2 + 1` displacement into `Kid_hitbox_right`",
+    );
+    assert_eq!(
+        resolved.object_left, 0x0085,
+        "ASM loc_20DC also adds `d2 + 1` into object offset `$1A(a0)`",
+    );
+    assert_eq!(
+        resolved.object_x_velocity, 0,
+        "ASM loc_20DC finishes with `clr.w $1C(a0)`, forcing the colliding object's X velocity to zero",
+    );
+}
