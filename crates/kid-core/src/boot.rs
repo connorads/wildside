@@ -694,6 +694,16 @@ pub(crate) struct EndSequencePageFadeOuterLoopLoc1D80C {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequencePageFadeInnerLoopLoc1D814 {
+    pub(crate) loop_seed: u16,
+    pub(crate) iterations: u16,
+    pub(crate) refresh_subroutine: &'static str,
+    pub(crate) hibernate_subroutine: &'static str,
+    pub(crate) next_outer_label: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsGlyphCacheLoc1D3D0 {
     pub(crate) glyph_count: u16,
     pub(crate) glyph_pointer_table_base: u16,
@@ -2421,6 +2431,24 @@ pub(crate) fn end_sequence_page_fade_outer_loop_loc_1D80C() -> EndSequencePageFa
         inner_loop_seed: 0x0003,
         inner_loop_iterations: 0x0004,
         inner_loop_entry_label: "loc_1D814",
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_page_fade_inner_loop_loc_1D814() -> EndSequencePageFadeInnerLoopLoc1D814
+{
+    // ASM loc_1D814 (kid.asm:33056-33060): each inner pass refreshes the end
+    // sequence through `sub_1D830`, hibernates one frame, and lets
+    // `dbf d1,loc_1D814` consume the `d1 = 3` seed from `loc_1D80C` for four
+    // inclusive refresh/wait pairs before control falls through to
+    // `dbf d0,loc_1D80C`.
+    EndSequencePageFadeInnerLoopLoc1D814 {
+        loop_seed: 0x0003,
+        iterations: 0x0004,
+        refresh_subroutine: "sub_1D830",
+        hibernate_subroutine: "j_Hibernate_Object_1Frame",
+        next_outer_label: "loc_1D80C",
     }
 }
 

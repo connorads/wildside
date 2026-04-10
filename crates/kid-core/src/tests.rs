@@ -26702,6 +26702,32 @@ fn end_sequence_page_fade_outer_loop_loc_1d80c_reloads_the_palette_window_eight_
 }
 
 #[test]
+fn end_sequence_page_fade_inner_loop_loc_1d814_runs_four_refresh_and_hibernate_pairs() {
+    let fade = crate::boot::end_sequence_page_fade_inner_loop_loc_1D814();
+
+    assert_eq!(
+        fade.loop_seed, 0x0003,
+        "ASM loc_1D80C should hand `d1 = 3` into the inner `dbf d1,loc_1D814` loop",
+    );
+    assert_eq!(
+        fade.iterations, 0x0004,
+        "ASM loc_1D814 (kid.asm:33056) should execute four refresh/wait passes because `dbf d1,loc_1D814` counts inclusively from 3 to -1",
+    );
+    assert_eq!(
+        fade.refresh_subroutine, "sub_1D830",
+        "ASM loc_1D814 should refresh the end-sequence display through `sub_1D830` on every inner-loop pass",
+    );
+    assert_eq!(
+        fade.hibernate_subroutine, "j_Hibernate_Object_1Frame",
+        "ASM loc_1D814 should hibernate one frame immediately after each `sub_1D830` refresh",
+    );
+    assert_eq!(
+        fade.next_outer_label, "loc_1D80C",
+        "ASM loc_1D814 should fall through to the outer `dbf d0,loc_1D80C` once the inner `d1` counter expires",
+    );
+}
+
+#[test]
 fn end_sequence_page_break_dispatch_loc_1d40e_branches_to_the_wait_setup_entry() {
     let dispatch = crate::boot::end_sequence_page_break_dispatch_loc_1D40E();
 
