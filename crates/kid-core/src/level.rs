@@ -8000,6 +8000,23 @@ pub(crate) fn background_scroll_enigma_primary_longword_copy_loc_30428(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn background_scroll_enigma_secondary_longword_copy_loc_30432(
+    source_longwords: &[u32],
+    dbf_counter: u16,
+) -> Vec<u32> {
+    // ASM loc_30432 (kid.asm:34057): after `moveq #7,d0`, the secondary pass
+    // streams two longwords from `(a1)+` to the VDP data port before each
+    // `dbf d0,loc_30432` test, so the inclusive counter copies
+    // `(d0 + 1) * 2` longwords from the secondary decompression stream.
+    source_longwords
+        .iter()
+        .copied()
+        .take((usize::from(dbf_counter) + 1) * 2)
+        .collect()
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
     tile_row: u16,
     background_theme: u16,

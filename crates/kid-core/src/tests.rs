@@ -90,8 +90,10 @@ use crate::level::{
     background_row_pointers_loc_11B7A, background_scroll_enigma_primary_copy_setup_loc_30426,
     background_scroll_enigma_primary_longword_copy_loc_30428,
     background_scroll_enigma_row_table_lookup_loc_303EA,
-    background_scroll_enigma_row_transfer_loc_303D4, background_scroll_lower_pass_loop_loc_30066,
-    background_scroll_lower_pass_resume_loc_30054, background_scroll_lower_pass_setup_loc_3001E,
+    background_scroll_enigma_row_transfer_loc_303D4,
+    background_scroll_enigma_secondary_longword_copy_loc_30432,
+    background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
+    background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2587,6 +2589,37 @@ fn background_scroll_enigma_primary_longword_copy_loc_30428_copies_two_longwords
         background_scroll_enigma_primary_longword_copy_loc_30428(&source_longwords, 7),
         source_longwords[..16].to_vec(),
         "ASM loc_30428 should write two longwords before each `dbf d0,loc_30428` test, so `d0=#7` copies 16 primary-stream longwords",
+    );
+}
+
+#[test]
+fn background_scroll_enigma_secondary_longword_copy_loc_30432_copies_two_longwords_per_inclusive_dbf_iteration()
+ {
+    let source_longwords = [
+        0x0001_0000,
+        0x0001_0001,
+        0x0001_0002,
+        0x0001_0003,
+        0x0001_0004,
+        0x0001_0005,
+        0x0001_0006,
+        0x0001_0007,
+        0x0001_0008,
+        0x0001_0009,
+        0x0001_000A,
+        0x0001_000B,
+        0x0001_000C,
+        0x0001_000D,
+        0x0001_000E,
+        0x0001_000F,
+        0x0001_0010,
+        0x0001_0011,
+    ];
+
+    assert_eq!(
+        background_scroll_enigma_secondary_longword_copy_loc_30432(&source_longwords, 7),
+        source_longwords[..16].to_vec(),
+        "ASM loc_30432 should write two longwords before each `dbf d0,loc_30432` test, so `d0=#7` copies 16 secondary-stream longwords",
     );
 }
 
