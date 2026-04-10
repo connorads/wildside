@@ -199,6 +199,7 @@ use crate::level::{
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
+    manage_enemy_loading_allocate_slot_hint_loc_3690A,
     manage_enemy_loading_count_down_active_loc_3685E, manage_enemy_loading_setup_loc_3682C,
     manage_enemy_loading_status_branch_loc_36840, manage_enemy_loading_status_word_loc_36900,
     object_check_in_range_active_count_gate_loc_320E2, object_check_in_range_normal_x_loc_320C0,
@@ -35557,6 +35558,20 @@ fn manage_enemy_loading_loc_36900_only_bumps_the_enemy_status_word_for_the_d4_eq
         manage_enemy_loading_status_word_loc_36900(0x2180, 2),
         0x2180,
         "ASM loc_36900 should also leave `(a2)` untouched for the `loc_368A6` reload path where `d4 > 1`"
+    );
+}
+
+#[test]
+fn manage_enemy_loading_loc_3690a_uses_the_special_ffff_allocation_hint_only_for_enemy_17() {
+    assert_eq!(
+        manage_enemy_loading_allocate_slot_hint_loc_3690A(0x16),
+        0x0001,
+        "ASM loc_3690A should seed `a0` with `1` for ordinary enemy ids"
+    );
+    assert_eq!(
+        manage_enemy_loading_allocate_slot_hint_loc_3690A(0x17),
+        0xFFFF,
+        "ASM loc_3690A should overwrite `a0` with `$FFFF` only when `(a1)` is enemy id `$17`"
     );
 }
 

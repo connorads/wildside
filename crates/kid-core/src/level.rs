@@ -6240,6 +6240,15 @@ pub(crate) fn manage_enemy_loading_status_word_loc_36900(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn manage_enemy_loading_allocate_slot_hint_loc_3690A(enemy_id: u8) -> u16 {
+    // ASM loc_3690A (kid.asm:38056-38063) seeds `a0` with `1` before sign-
+    // extending the enemy id byte in `d0`; only enemy `$17` overwrites that
+    // allocation hint with `$FFFF` before entering `loc_3691E`.
+    if enemy_id == 0x17 { 0xFFFF } else { 0x0001 }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
     // ASM loc_3200A (kid.asm:37413): clear `d0`, read byte `1(a1)`, and
     // return zero immediately for empty slots. Positive bytes subtract one,
