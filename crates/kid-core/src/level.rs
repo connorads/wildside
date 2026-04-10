@@ -7648,6 +7648,13 @@ pub(crate) struct TransferScrollDataStormLoc30110 {
     pub(crate) next_storm_scroll_offset: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TransferScrollDataStormLoopLoc30130 {
+    pub(crate) h_scroll_word_pairs: u16,
+    pub(crate) first_h_scroll_word: i16,
+    pub(crate) second_h_scroll_word: i16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7855,6 +7862,22 @@ pub(crate) fn transfer_scroll_data_storm_loc_30110(
         second_vsram_word: storm_scroll_offset,
         weather_mode_byte: 4,
         next_storm_scroll_offset: storm_scroll_offset.wrapping_sub(8),
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn transfer_scroll_data_storm_loop_loc_30130(
+    camera_x_pos: i16,
+    storm_scroll_offset: i16,
+) -> TransferScrollDataStormLoopLoc30130 {
+    // ASM loc_30130 (kid.asm:33704): the storm upload loop writes
+    // `-Camera_X_pos` to `(a6)` first, then `($FFFFFAD8).w`, and `dbf d1`
+    // runs the pair `$DF+1` times.
+    TransferScrollDataStormLoopLoc30130 {
+        h_scroll_word_pairs: 0x00DF + 1,
+        first_h_scroll_word: camera_x_pos.wrapping_neg(),
+        second_h_scroll_word: storm_scroll_offset,
     }
 }
 
