@@ -52,9 +52,9 @@ use crate::level::{
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshSeedLoc3081A,
-    BackgroundScrollPieceRefreshWrapLoc30836, BackgroundScrollPieceRowDispatchLoc3079A,
-    BackgroundScrollPieceRowDispatchLoc3079ABranch, BackgroundScrollPieceRowUploadLoc307B2,
-    BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
+    BackgroundScrollPieceRefreshWindowSplitLoc3086A, BackgroundScrollPieceRefreshWrapLoc30836,
+    BackgroundScrollPieceRowDispatchLoc3079A, BackgroundScrollPieceRowDispatchLoc3079ABranch,
+    BackgroundScrollPieceRowUploadLoc307B2, BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
@@ -113,6 +113,7 @@ use crate::level::{
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E, background_scroll_piece_refresh_seed_loc_3081A,
+    background_scroll_piece_refresh_window_split_loc_3086A,
     background_scroll_piece_refresh_wrap_loc_30836, background_scroll_piece_row_dispatch_loc_3079A,
     background_scroll_piece_row_upload_loc_307B2,
     background_scroll_shift_data_second_pass_advance_loc_304A8,
@@ -2702,6 +2703,22 @@ fn background_scroll_piece_refresh_wrap_loc_30836_keeps_subtracting_background_w
             wrap_subtraction_count: 4,
         },
         "ASM loc_30836 should keep subtracting `Background_width` from the shifted coarse scroll word until `cmp.w d0,a4` sees a value strictly below the width",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_window_split_loc_3086a_wraps_the_row_and_tile_windows_independently()
+ {
+    assert_eq!(
+        background_scroll_piece_refresh_window_split_loc_3086A(0x0015, 0x0020, 0x003C),
+        BackgroundScrollPieceRefreshWindowSplitLoc3086A {
+            wrapped_row_window_end: 0x001D,
+            row_window_wraps: true,
+            tile_column_seed: 0x003C,
+            wrapped_tile_window_span: 0x0024,
+            tile_window_wraps: true,
+        },
+        "ASM loc_3086A should wrap `d7 = d0 + $28` by `Background_width` when the row span crosses the edge, then wrap `(d2 & $3F) + $28` by `$40` when the tile phase crosses the 64-column boundary",
     );
 }
 

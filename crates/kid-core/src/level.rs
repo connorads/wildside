@@ -7685,6 +7685,15 @@ pub(crate) struct BackgroundScrollPieceRefreshWrapLoc30836 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshWindowSplitLoc3086A {
+    pub(crate) wrapped_row_window_end: i16,
+    pub(crate) row_window_wraps: bool,
+    pub(crate) tile_column_seed: u16,
+    pub(crate) wrapped_tile_window_span: u16,
+    pub(crate) tile_window_wraps: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDispatchLoc3039C {
     pub(crate) computes_shift_data: bool,
     pub(crate) computes_shift_layers: bool,
@@ -8259,6 +8268,41 @@ pub(crate) fn background_scroll_piece_refresh_wrap_loc_30836(
     BackgroundScrollPieceRefreshWrapLoc30836 {
         reduced_scroll_word,
         wrap_subtraction_count,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_window_split_loc_3086A(
+    reduced_scroll_word: i16,
+    background_width: i16,
+    coarse_scroll_word: u16,
+) -> BackgroundScrollPieceRefreshWindowSplitLoc3086A {
+    // ASM loc_3086A (kid.asm:34678): after `loc_30840` seeds `d7 = d0 + $28`,
+    // this block wraps the row-window end back by `Background_width` when the
+    // 40-column span crosses the background edge, then masks `d2` to 6 bits,
+    // adds the same `$28` span, and wraps that local tile-window length by
+    // `$40` when it crosses the 64-column phase boundary.
+    let row_window_end = reduced_scroll_word.wrapping_add(0x0028);
+    let (wrapped_row_window_end, row_window_wraps) = if background_width <= row_window_end {
+        (row_window_end.wrapping_sub(background_width), true)
+    } else {
+        (row_window_end, false)
+    };
+
+    let tile_window_end = (coarse_scroll_word & 0x003F).wrapping_add(0x0028);
+    let (wrapped_tile_window_span, tile_window_wraps) = if tile_window_end > 0x003F {
+        (tile_window_end.wrapping_sub(0x0040), true)
+    } else {
+        (tile_window_end, false)
+    };
+
+    BackgroundScrollPieceRefreshWindowSplitLoc3086A {
+        wrapped_row_window_end,
+        row_window_wraps,
+        tile_column_seed: coarse_scroll_word,
+        wrapped_tile_window_span,
+        tile_window_wraps,
     }
 }
 
