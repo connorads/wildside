@@ -44,10 +44,10 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
-    BackgroundScrollEnigmaRowSourceLoc303D4, BackgroundScrollEnigmaRowTransferLoc303D4,
-    BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
-    BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
-    BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollEnigmaRowSourceLoc303D4, BackgroundScrollEnigmaRowTableLookupLoc303EA,
+    BackgroundScrollEnigmaRowTransferLoc303D4, BackgroundScrollLowerPassLoopLoc30066,
+    BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
+    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
@@ -86,9 +86,9 @@ use crate::level::{
     apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, background_scroll_enigma_row_transfer_loc_303D4,
-    background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
-    background_scroll_lower_pass_setup_loc_3001E,
+    background_row_pointers_loc_11B7A, background_scroll_enigma_row_table_lookup_loc_303EA,
+    background_scroll_enigma_row_transfer_loc_303D4, background_scroll_lower_pass_loop_loc_30066,
+    background_scroll_lower_pass_resume_loc_30054, background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2525,6 +2525,24 @@ fn transfer_scroll_data_dispatch_loc_3039c_selects_piece_or_enigma_renderers_aft
             renderer: TransferScrollDataRendererLoc3039C::EnigmaSub303BA,
         },
         "ASM loc_3039C should branch to `sub_303BA` instead of the piece renderer pair when `Background_format` is non-zero",
+    );
+}
+
+#[test]
+fn background_scroll_enigma_row_table_lookup_loc_303ea_biases_desert_rows_and_masks_tile_row_to_5_bits()
+ {
+    let background_row_table = [0, 0x11, 0x22, 0x33, 0];
+
+    assert_eq!(
+        background_scroll_enigma_row_table_lookup_loc_303EA(0x0021, 5, &background_row_table),
+        Some(BackgroundScrollEnigmaRowTableLookupLoc303EA {
+            map_header_byte_offset: 3,
+            background_row_index: 0x33,
+            row_mapping_byte_offset: 0x0CC0,
+            vdp_control_word: 0x6080,
+            vdp_autoincrement_word: 3,
+        }),
+        "ASM loc_303EA should apply the Desert `addq.w #1,a0` bias before `move.b 1(a0,d0.w),d1`, then mask the tile row with `$1F` when building the plane-B control word",
     );
 }
 

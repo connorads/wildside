@@ -7654,6 +7654,15 @@ pub(crate) enum BackgroundScrollEnigmaRowSourceLoc303D4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollEnigmaRowTableLookupLoc303EA {
+    pub(crate) map_header_byte_offset: usize,
+    pub(crate) background_row_index: u8,
+    pub(crate) row_mapping_byte_offset: usize,
+    pub(crate) vdp_control_word: u16,
+    pub(crate) vdp_autoincrement_word: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
     pub(crate) map_header_byte_offset: usize,
     pub(crate) background_row_index: u8,
@@ -7931,6 +7940,31 @@ pub(crate) fn transfer_scroll_data_dispatch_loc_3039C(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn background_scroll_enigma_row_table_lookup_loc_303EA(
+    tile_row: u16,
+    background_theme: u16,
+    background_row_table: &[u8],
+) -> Option<BackgroundScrollEnigmaRowTableLookupLoc303EA> {
+    // ASM loc_303EA (kid.asm:34025): after `cmpi.w #Desert,(Background_theme).w`
+    // leaves the theme non-Desert or after the preceding `addq.w #1,a0`,
+    // this entry clears `d1`, reads `1(a0,d0.w)` as the row byte, multiplies
+    // that index by `$40`, masks the tile row with `$1F`, and seeds plane B
+    // with `$6000 | ((d0 & $1F) << 7)` plus autoincrement `#3`.
+    let desert_bias = usize::from(background_theme == 5);
+    let map_header_byte_offset = usize::from(tile_row).wrapping_add(1 + desert_bias);
+    let background_row_index = *background_row_table.get(map_header_byte_offset)?;
+
+    Some(BackgroundScrollEnigmaRowTableLookupLoc303EA {
+        map_header_byte_offset,
+        background_row_index,
+        row_mapping_byte_offset: usize::from(background_row_index) << 6,
+        vdp_control_word: 0x6000 | ((tile_row & 0x001F) << 7),
+        vdp_autoincrement_word: 3,
+    })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
     tile_row: u16,
     background_theme: u16,
@@ -7943,10 +7977,14 @@ pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
     // `$6000 | ((d0 & $1F) << 7)` and autoincrement `#3`. Row indices below
     // `$1C` read paired strips from `$FFFF87B2` and `$FFFF8EB2` (`+$700`);
     // indices at or above `$1C` read both passes from `$FFFF8EB2`.
-    let desert_bias = usize::from(background_theme == 5);
-    let map_header_byte_offset = usize::from(tile_row).wrapping_add(1 + desert_bias);
-    let background_row_index = *background_row_table.get(map_header_byte_offset)?;
-    let row_mapping_byte_offset = usize::from(background_row_index) << 6;
+    let table_lookup = background_scroll_enigma_row_table_lookup_loc_303EA(
+        tile_row,
+        background_theme,
+        background_row_table,
+    )?;
+    let map_header_byte_offset = table_lookup.map_header_byte_offset;
+    let background_row_index = table_lookup.background_row_index;
+    let row_mapping_byte_offset = table_lookup.row_mapping_byte_offset;
     let source = if background_row_index < 0x1C {
         BackgroundScrollEnigmaRowSourceLoc303D4::LowerDecompressionBuffer
     } else {
@@ -7965,8 +8003,8 @@ pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
         map_header_byte_offset,
         background_row_index,
         row_mapping_byte_offset,
-        vdp_control_word: 0x6000 | ((tile_row & 0x001F) << 7),
-        vdp_autoincrement_word: 3,
+        vdp_control_word: table_lookup.vdp_control_word,
+        vdp_autoincrement_word: table_lookup.vdp_autoincrement_word,
         source,
         primary_decompression_byte_offset,
         secondary_decompression_byte_offset,
