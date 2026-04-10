@@ -6079,14 +6079,19 @@ pub(crate) fn enemy_layout_reset_and_seek_loc_31F8E(
     header_thresholds: &[u16],
     layout_group_counts: &[u16],
 ) -> Option<EnemyLayoutResetAndSeekLoc31F8E> {
-    // ASM loc_31F8E (kid.asm:37368): clear 30 words of `EnemyStatus_Table`,
-    // seed `$FFFFF940 = $FF` and `$FFFFF942 = 0`, then choose `Camera_X_pos`
-    // when the leading header word is zero or `Camera_Y_pos` with
-    // `$FFFFF93F = 1` otherwise. After `addi.l #8,a0`, the seek loop keeps
-    // consuming one layout count word per skipped header, advances `a1` by
-    // `count << 3`, and stops at the first threshold strictly above the active
-    // camera word. The stored header pointer rewinds by 8 bytes to the start
-    // of the matched record's pre-threshold word.
+    // ASM loc_31F8E (kid.asm:37368): reset the enemy-layout cursor state
+    // before seeking the active header bucket.
+    // ASM loc_31F9A (kid.asm:37374): `move.w d1,(a0)+` / `dbf d0,loc_31F9A`
+    // clears exactly 30 words of `EnemyStatus_Table`, then seeds
+    // `$FFFFF940 = $FF` and `$FFFFF942 = 0`.
+    // ASM loc_31FCE (kid.asm:37388): after loading the axis-selector word,
+    // the header cursor always skips forward 8 bytes to the first threshold
+    // entry.
+    // ASM loc_31FD4 (kid.asm:37391): while `d1 >= (a0)`, consume one layout
+    // count word per skipped header, advance `a1` by `count << 3`, and stop
+    // at the first threshold strictly above the active camera word. The
+    // stored header pointer therefore lands on the matched record's
+    // pre-threshold word.
     let (active_camera_word, uses_vertical_axis) = if input.axis_selector_word == 0 {
         (input.camera_x_pos, false)
     } else {

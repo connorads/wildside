@@ -3988,6 +3988,31 @@ fn background_scroll_piece_refresh_tile_wrap_wrapped_copy_loc_3099e_rewinds_one_
 }
 
 #[test]
+fn enemy_layout_reset_and_seek_loc_31f9a_clears_thirty_status_words_via_the_inclusive_dbf_loop() {
+    let result = enemy_layout_reset_and_seek_loc_31F8E(
+        EnemyLayoutResetAndSeekInputLoc31F8E {
+            enemy_layout_header_addr: 0x0001_2000,
+            enemy_layout_addr: 0x0001_4000,
+            previous_header_threshold: 0x0100,
+            axis_selector_word: 0,
+            camera_x_pos: 0x0000,
+            camera_y_pos: 0x0200,
+        },
+        &[0x0001],
+        &[0],
+    )
+    .expect("single header threshold should resolve");
+
+    assert_eq!(
+        result.enemy_status_words,
+        vec![0; 30],
+        "ASM loc_31F9A should execute the inclusive `dbf d0,loc_31F9A` clear loop 30 times, leaving every `EnemyStatus_Table` word zeroed before enemy loading restarts",
+    );
+    assert_eq!(result.loaded_enemy_slot_sentinel, 0xFF);
+    assert_eq!(result.enemy_layout_progress, 0);
+}
+
+#[test]
 fn enemy_layout_reset_and_seek_loc_31f8e_clears_status_words_and_advances_until_the_first_threshold_above_the_camera_word()
  {
     assert_eq!(
