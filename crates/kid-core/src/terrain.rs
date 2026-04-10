@@ -1525,9 +1525,10 @@ fn horizontal_collision_scan_rect_mask_loc_369F8(
     top_row: i32,
     bottom_row: i32,
 ) -> u16 {
-    // ASM loc_369F8 (kid.asm:38170): reset `a4` to each row start, OR every
-    // word across that row, advance one row by `Level_width_tiles`, and repeat
-    // until the full hitbox rectangle has been reduced into `d5`.
+    // ASM loc_369F8 / loc_369FC (kid.asm:38170 / 38174): reset `a4` to each
+    // row start, then `loc_369FC` walks `or.w (a4)+,d5` across that row before
+    // advancing one `Level_width_tiles` row and repeating until the whole
+    // rectangle has been reduced into `d5`.
     let mut mask = horizontal_collision_scan_hitbox_mask_seed_loc_369F6();
     for row in top_row..=bottom_row {
         for col in left_col..=right_col {
@@ -3223,6 +3224,21 @@ mod tests {
             mask & 0x7000,
             0x6000,
             "ASM loc_369F8 should sweep every row of the hitbox rectangle, so a later-row `$6000` solid must survive in the final OR mask after the nested `dbf` loops finish",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_rect_mask_loc_369fc_keeps_early_row_hits_after_later_empty_rows() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(1 * 4 + 1) * 2] = 0x40;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let mask = horizontal_collision_scan_rect_mask_loc_369F8(&grid, 1, 2, 1, 2);
+
+        assert_eq!(
+            mask & 0x4000,
+            0x4000,
+            "ASM loc_369FC should keep OR-ing the same `d5` accumulator as it advances row-major through the rectangle, so a `$4000` hit on the first scanned row must survive even when the final row is empty",
         );
     }
 
