@@ -88,6 +88,7 @@ use crate::level::{
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
     background_row_pointers_loc_11B7A, background_scroll_enigma_primary_copy_setup_loc_30426,
+    background_scroll_enigma_primary_longword_copy_loc_30428,
     background_scroll_enigma_row_table_lookup_loc_303EA,
     background_scroll_enigma_row_transfer_loc_303D4, background_scroll_lower_pass_loop_loc_30066,
     background_scroll_lower_pass_resume_loc_30054, background_scroll_lower_pass_setup_loc_3001E,
@@ -2556,6 +2557,36 @@ fn background_scroll_enigma_primary_copy_setup_loc_30426_seeds_the_dbf_counter_t
             longword_dbf_counter: 7,
         },
         "ASM loc_30426 should reload `d0` with `#7` before the primary `dbf d0,loc_30428` run, so the loop executes 8 inclusive iterations",
+    );
+}
+
+#[test]
+fn background_scroll_enigma_primary_longword_copy_loc_30428_copies_two_longwords_per_inclusive_dbf_iteration()
+ {
+    let source_longwords = [
+        0x0000_0000,
+        0x1111_1111,
+        0x2222_2222,
+        0x3333_3333,
+        0x4444_4444,
+        0x5555_5555,
+        0x6666_6666,
+        0x7777_7777,
+        0x8888_8888,
+        0x9999_9999,
+        0xAAAA_AAAA,
+        0xBBBB_BBBB,
+        0xCCCC_CCCC,
+        0xDDDD_DDDD,
+        0xEEEE_EEEE,
+        0xFFFF_FFFF,
+        0x1357_9BDF,
+    ];
+
+    assert_eq!(
+        background_scroll_enigma_primary_longword_copy_loc_30428(&source_longwords, 7),
+        source_longwords[..16].to_vec(),
+        "ASM loc_30428 should write two longwords before each `dbf d0,loc_30428` test, so `d0=#7` copies 16 primary-stream longwords",
     );
 }
 
