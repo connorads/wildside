@@ -7761,6 +7761,15 @@ pub(crate) struct BackgroundScrollPieceRefreshRowWrapFinalCopyLoc30968 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshTileWrapFirstCopyLoc30988 {
+    pub(crate) mapping_words: Vec<u16>,
+    pub(crate) seam_vdp_control_word: u16,
+    pub(crate) seam_vdp_autoincrement_word: u16,
+    pub(crate) next_layout_row_offset: i16,
+    pub(crate) bytes_consumed: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollPieceRefreshWrappedCopyLoc308C4 {
     pub(crate) first_pass_mapping_words: Vec<u16>,
     pub(crate) second_pass_mapping_words: Vec<u16>,
@@ -8665,6 +8674,38 @@ pub(crate) fn background_scroll_piece_refresh_row_wrap_final_copy_loc_30968(
         mapping_words,
         next_layout_row_offset: current_layout_row_offset.wrapping_add(final_pass_count as i16),
         bytes_consumed: final_pass_count,
+    })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_tile_wrap_first_copy_loc_30988(
+    layout_row: &[u8],
+    current_layout_row_offset: i16,
+    block_mappings: &[u16],
+    wrapped_tile_window_end: i16,
+    seam_vdp_control_word: u16,
+) -> Option<BackgroundScrollPieceRefreshTileWrapFirstCopyLoc30988> {
+    // ASM loc_30988 (kid.asm:34823): after loc_30978 seeds `d4 = $27 - d6`,
+    // this first inclusive `dbf d4,loc_30988` pass copies exactly `$28 - d6`
+    // mapping words from the current `(a0)+` position. The tail then restores
+    // the saved plane-B seam command `d3` and autoincrement `#3` to `(a5)`
+    // before `moveq #1,d2` arms loc_3099E for exactly one wrapped retry.
+    let first_pass_count = 0x0028_usize.wrapping_sub(usize::from(wrapped_tile_window_end as u16));
+    let first_pass_start = usize::from(current_layout_row_offset as u16);
+    let first_pass_slice =
+        layout_row.get(first_pass_start..first_pass_start.wrapping_add(first_pass_count))?;
+    let mapping_words = first_pass_slice
+        .iter()
+        .map(|&mapping_index| block_mappings.get(usize::from(mapping_index)).copied())
+        .collect::<Option<Vec<_>>>()?;
+
+    Some(BackgroundScrollPieceRefreshTileWrapFirstCopyLoc30988 {
+        mapping_words,
+        seam_vdp_control_word,
+        seam_vdp_autoincrement_word: 3,
+        next_layout_row_offset: current_layout_row_offset.wrapping_add(first_pass_count as i16),
+        bytes_consumed: first_pass_count,
     })
 }
 

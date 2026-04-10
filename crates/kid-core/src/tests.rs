@@ -58,6 +58,7 @@ use crate::level::{
     BackgroundScrollPieceRefreshRowWrapSecondCopyLoc30954,
     BackgroundScrollPieceRefreshSeedLoc3081A,
     BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE,
+    BackgroundScrollPieceRefreshTileWrapFirstCopyLoc30988,
     BackgroundScrollPieceRefreshTileWrappedCopyLoc308E8,
     BackgroundScrollPieceRefreshVdpSeedLoc30884, BackgroundScrollPieceRefreshWindowSplitLoc3086A,
     BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6, BackgroundScrollPieceRefreshWrapLoc30836,
@@ -129,6 +130,7 @@ use crate::level::{
     background_scroll_piece_refresh_row_wrap_second_copy_loc_30954,
     background_scroll_piece_refresh_seed_loc_3081A,
     background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE,
+    background_scroll_piece_refresh_tile_wrap_first_copy_loc_30988,
     background_scroll_piece_refresh_tile_wrapped_copy_loc_308E8,
     background_scroll_piece_refresh_vdp_seed_loc_30884,
     background_scroll_piece_refresh_window_split_loc_3086A,
@@ -3920,6 +3922,35 @@ fn background_scroll_piece_refresh_row_wrap_final_copy_loc_30968_copies_the_wrap
             bytes_consumed: 3,
         }),
         "ASM loc_30968 should copy the inclusive `d6+1` wrapped-tile tail from the post-seam `(a0)+` position before returning from sub_307D8",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_tile_wrap_first_copy_loc_30988_copies_the_pre_wrap_tail_then_restores_the_seam_command()
+ {
+    let layout_row: Vec<u8> = (0..96).collect();
+    let block_mappings: Vec<u16> = (0..256)
+        .map(|index| 0x2000_u16.wrapping_add(index))
+        .collect();
+
+    assert_eq!(
+        background_scroll_piece_refresh_tile_wrap_first_copy_loc_30988(
+            &layout_row,
+            20,
+            &block_mappings,
+            30,
+            0x6C80,
+        ),
+        Some(BackgroundScrollPieceRefreshTileWrapFirstCopyLoc30988 {
+            mapping_words: (20..30)
+                .map(|index| 0x2000_u16.wrapping_add(index as u16))
+                .collect(),
+            seam_vdp_control_word: 0x6C80,
+            seam_vdp_autoincrement_word: 3,
+            next_layout_row_offset: 30,
+            bytes_consumed: 10,
+        }),
+        "ASM loc_30988 should copy the inclusive `$28-d6` pre-wrap tile tail from `(a0)+`, then restore the saved plane-B seam command with autoincrement `#3` before arming loc_3099E's exactly-once wrapped retry",
     );
 }
 
