@@ -103,10 +103,11 @@ use crate::level::{
     select_background_art_permutation_loc_11E8A, select_background_art_permutation_loc_11E96,
     select_foreground_art_permutation_loc_11E48, select_foreground_art_permutation_loc_11E54,
     shared_vram_art_decompresses_loc_11EFA, should_process_fg_update_queue_cell_loc_15D2,
-    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
-    step_island_palette_cycle_lower_band_loc_12188, step_island_palette_cycle_mid_band_loc_12110,
-    step_island_palette_cycle_primary_band_loc_12098, step_palette_fade_out_loc_28C6,
-    swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
+    spawn_block_debris_loc_2928, spawn_block_debris_sub_292E,
+    step_fullscreen_palette_fade_sub_73D0, step_island_palette_cycle_lower_band_loc_12188,
+    step_island_palette_cycle_mid_band_loc_12110, step_island_palette_cycle_primary_band_loc_12098,
+    step_palette_fade_out_loc_28C6, swap_forest_background_palette_entries_sub_129AE,
+    terrain_layout_row_pointers_loc_11B40,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -1893,6 +1894,28 @@ fn initialise_shooter_object_slots_sub_f06a_chains_all_20_slots_and_resets_last_
             .windows(2)
             .all(|pair| pair[0].next_slot_addr == pair[1].slot_addr),
         "ASM sub_F06A should build a contiguous `$0E`-stride free list through all 20 shooter slots",
+    );
+}
+
+#[test]
+fn spawn_block_debris_loc_2928_sets_the_alternate_variant_flag_before_shared_build() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+
+    spawn_block_debris_loc_2928(&mut queue, 0x0120, 0x0080, 2);
+
+    assert_eq!(
+        queue.slots[0][1], 0xFF,
+        "ASM loc_2928 (kid.asm:4874) should set byte 1 with `st 1(a0)` before branching into the shared debris builder",
+    );
+    assert_eq!(
+        scratch_debris_pieces_sub_292E(&queue, 0)[0],
+        ScratchDebrisPieceSub292E {
+            y_velocity_px: -1,
+            x_velocity_px: -3,
+            y_pos_px: 0x0080,
+            x_pos_px: 0x0120,
+        },
+        "ASM loc_2928 should still flow into `loc_293A` and write the same first debris record as the standard builder path",
     );
 }
 

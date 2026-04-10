@@ -7067,14 +7067,39 @@ pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSu
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn spawn_block_debris_loc_2928(
+    queue: &mut ScratchQueueSub28FC,
+    x_pos_px: u16,
+    y_pos_px: u16,
+    direction: u16,
+) {
+    // ASM loc_2928 (kid.asm:4874): the alternate entry path sets byte 1 with
+    // `st 1(a0)` before branching into the shared debris builder at `loc_293A`.
+    spawn_block_debris_common_sub_292E(queue, x_pos_px, y_pos_px, direction, 0xFF);
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn spawn_block_debris_sub_292E(
     queue: &mut ScratchQueueSub28FC,
     x_pos_px: u16,
     y_pos_px: u16,
     direction: u16,
 ) {
-    // ASM sub_292E (kid.asm:4881): mark the current `$52`-byte scratch slot
-    // active, clear byte 1, then seed five 16-byte debris records with fixed
+    // ASM sub_292E (kid.asm:4881): the standard entry path clears byte 1 with
+    // `sf 1(a0)` before branching into the shared debris builder at `loc_293A`.
+    spawn_block_debris_common_sub_292E(queue, x_pos_px, y_pos_px, direction, 0x00);
+}
+
+#[allow(non_snake_case)]
+fn spawn_block_debris_common_sub_292E(
+    queue: &mut ScratchQueueSub28FC,
+    x_pos_px: u16,
+    y_pos_px: u16,
+    direction: u16,
+    variant_flag: u8,
+) {
+    // ASM loc_293A (kid.asm:4887): seed five 16-byte debris records with fixed
     // x/y offsets and direction-selected signed integer velocities. After the
     // write, decrement `$FFFFFAA0`; if it hit zero, rewind to slot 0 and
     // reload the six-slot counter, otherwise advance `$FFFFFA9C` by `$52`.
@@ -7082,7 +7107,7 @@ pub(crate) fn spawn_block_debris_sub_292E(
     let slot = &mut queue.slots[slot_index];
     slot.fill(0);
     slot[SUB_292E_SLOT_ACTIVE_OFFSET] = 0xFF;
-    slot[SUB_292E_SLOT_FLAG_OFFSET] = 0x00;
+    slot[SUB_292E_SLOT_FLAG_OFFSET] = variant_flag;
 
     let direction_index = usize::from(direction.min(3));
     for piece_index in 0..SUB_292E_PIECE_COUNT {
