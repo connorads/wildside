@@ -8188,9 +8188,10 @@ pub(crate) fn background_scroll_stripe_horizontal_pass_loc_30296(
     // `andi.w #$FFFE,d3`, mask it to five bits, and shift into bits 7-11.
     // The horizontal edge contributes `(d6 & $3F) << 1`, then `ori.w #$4000`
     // and `swap` build the first VDP command. `move.w (Level_width_tiles).w,a4`
-    // seeds the per-row stride for `sub_302F6`, and when `d2 >= 0` after the
-    // first pass the wrap command clears only the row bits with
-    // `andi.l #$F07EFFFF,d0`.
+    // seeds the per-row stride for `sub_302F6`. When `d2` stays negative the
+    // first pass falls straight through `loc_302E2` to the shared camera-latch
+    // tail at `loc_302E8`; otherwise the wrap command clears only the row bits
+    // with `andi.l #$F07EFFFF,d0` before the second `sub_302F6` call.
     let vram_word =
         (((camera_tile_row & 0x001E) << 7) | ((render_column & 0x003F) << 1)).wrapping_add(0x4000);
     let vdp_command = u32::from(vram_word) << 16;
