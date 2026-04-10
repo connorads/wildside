@@ -38,6 +38,12 @@ pub(crate) struct HorizontalOverlapResolutionLoc2616 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VerticalOverlapResolutionLoc261E {
+    pub(crate) push_y_px: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn horizontal_overlap_resolution_loc_25EE(
     platform_left_px: i16,
@@ -81,6 +87,22 @@ pub(crate) fn horizontal_overlap_right_exit_loc_2616(
         push_x_px: platform_right_px
             .wrapping_sub(player_left_px)
             .wrapping_add(1),
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn vertical_overlap_top_exit_loc_261E(
+    platform_top_px: i16,
+    player_bottom_px: i16,
+) -> VerticalOverlapResolutionLoc261E {
+    // ASM loc_261E (kid.asm:4535): after `d7` is fixed, the top-edge path runs
+    // when `player_top_px <= platform_top_px` and uses only the upward escape
+    // distance before the absolute-value compare at `loc_2662`.
+    VerticalOverlapResolutionLoc261E {
+        push_y_px: platform_top_px
+            .wrapping_sub(player_bottom_px)
+            .wrapping_sub(1),
     }
 }
 

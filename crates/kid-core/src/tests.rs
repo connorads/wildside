@@ -19059,6 +19059,15 @@ fn horizontal_overlap_right_exit_loc_2616_uses_the_platform_right_edge_only() {
 }
 
 #[test]
+fn vertical_overlap_top_exit_loc_261e_uses_the_platform_top_edge_only() {
+    assert_eq!(
+        vertical_overlap_top_exit_loc_261E(100, 118),
+        VerticalOverlapResolutionLoc261E { push_y_px: -19 },
+        "ASM loc_261E (kid.asm:4535) should skip the mixed vertical compare and set `d6 = platform_top-player_bottom-1` when the player top is still above the platform",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
