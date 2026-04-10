@@ -1614,6 +1614,35 @@ fn horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -> i16 {
+    // ASM loc_36AF0 (kid.asm:38306): after the leftward body scan, retarget
+    // `a1` to the rightmost word of the following row and seed `d6=0`. The
+    // first `move.w (a1),d0` decides whether the reverse scan starts on the
+    // blocked-entry path or the clear-entry path.
+    if words.is_empty() {
+        return -1;
+    }
+
+    let rightmost_word = *words.last().expect("checked empty slice above");
+    if rightmost_word & 0x4000 != 0 {
+        for &word in words.iter().rev() {
+            if word & 0x4000 == 0 {
+                return 1;
+            }
+        }
+        0
+    } else {
+        for &word in words.iter().rev() {
+            if word & 0x4000 != 0 {
+                return 1;
+            }
+        }
+        -1
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(word: u16) -> bool {
     let collision_nibble = word & 0x7000;
 
@@ -3480,6 +3509,16 @@ mod tests {
         assert!(
             !horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(0x3000),
             "ASM loc_36ACE should leave `d7` unchanged when the following lead cell has no bit `$4000` set",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_following_row_class_loc_36af0_starts_from_the_rightmost_word()
+    {
+        assert_eq!(
+            horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x4000, 0x0000]),
+            1,
+            "ASM loc_36AF0 should inspect the rightmost following-row word first, so a clear right edge with a blocked word farther left must take the clear-entry path and return `d6=1`",
         );
     }
 
