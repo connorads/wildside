@@ -43130,6 +43130,18 @@ fn kid_projectile_helper_spawn_loc_1e5e_overrides_hurt_with_ffff_for_3c_projecti
 }
 
 #[test]
+fn kid_projectile_rightwall_writeback_loc_1e94_marks_the_projectile_and_restarts_the_scan() {
+    assert_eq!(
+        crate::projectiles::kid_projectile_rightwall_writeback_loc_1E94(),
+        crate::projectiles::KidProjectileRightwallWritebackLoc1E94 {
+            projectile_collision_id: 0x0004,
+            next_label: "sub_1D84",
+        },
+        "ASM loc_1E94 (kid.asm:3655-3656) should store `#4` into `$38(a0)` before branching back to `sub_1D84`",
+    );
+}
+
+#[test]
 fn projectile_hitbox_half_plus_8_not_times() {
     // Projectile 12px away in x — inside `half + 8 = 14` but outside `half * 8 = 48`.
     // If + mutated to *, 12 < 48 would still pass, so use boundary at 13.

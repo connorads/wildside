@@ -315,6 +315,25 @@ pub(crate) fn kid_projectile_helper_spawn_loc_1E5E(
     }
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidProjectileRightwallWritebackLoc1E94 {
+    pub(crate) projectile_collision_id: u16,
+    pub(crate) next_label: &'static str,
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn kid_projectile_rightwall_writeback_loc_1E94() -> KidProjectileRightwallWritebackLoc1E94
+{
+    // ASM loc_1E94 (kid.asm:3655-3656): write `#4` into `$38(a0)` and branch
+    // back into `sub_1D84` for the next collision scan step.
+    KidProjectileRightwallWritebackLoc1E94 {
+        projectile_collision_id: 0x0004,
+        next_label: "sub_1D84",
+    }
+}
+
 impl NativeRuntime {
     fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
         projectile.friendly
