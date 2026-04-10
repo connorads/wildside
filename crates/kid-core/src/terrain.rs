@@ -1579,6 +1579,20 @@ fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col: i32) -> Option<i32> {
+    // ASM loc_36AA6 (kid.asm:38263): once `tst.w d0` proves the hitbox is not
+    // already on the level's left edge, `lea -2(a1),a4` retargets the scan to
+    // the lead column immediately left of the hitbox. A zero column offset
+    // skips this path and falls back to the boundary result at `loc_36AD6`.
+    if left_col == 0 {
+        None
+    } else {
+        Some(left_col - 1)
+    }
+}
+
 pub(crate) fn transform_overlap_column_blocked_sub_7bea(
     grid: &BlockGrid,
     x_px: i32,
@@ -1667,7 +1681,8 @@ fn horizontal_collision_scan(
     } else if left_col == 0 {
         true
     } else {
-        let lead_col = left_col - 1;
+        let lead_col = horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col)
+            .expect("leftward lead-column scan should only run when the column is in bounds");
         horizontal_collision_scan_column_mask_loc_369CE(grid, lead_col, top_row, bottom_row)
             & 0x4000
             != 0
@@ -3339,6 +3354,21 @@ mod tests {
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x0000, 0x0000, 0x0000]),
             -1,
             "ASM loc_36A4A should return `d6=-1` when the clear-entry path finishes its inclusive `dbf` scan without finding any later `$4000` word",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_lead_column_index_loc_36aa6_skips_the_boundary_and_targets_the_adjacent_column()
+     {
+        assert_eq!(
+            horizontal_collision_scan_left_lead_column_index_loc_36AA6(0),
+            None,
+            "ASM loc_36AA6 should not run when `d0==0`, because the left-edge case falls straight to the boundary-class result at `loc_36AD6`",
+        );
+        assert_eq!(
+            horizontal_collision_scan_left_lead_column_index_loc_36AA6(3),
+            Some(2),
+            "ASM loc_36AA6 should retarget `a4` to the column immediately left of the hitbox with `lea -2(a1),a4` once the left edge is in bounds",
         );
     }
 
