@@ -1572,6 +1572,9 @@ fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16
     }) {
         1
     } else {
+        // ASM loc_36A4A (kid.asm:38219): if the clear-entry scan reaches the
+        // inclusive `dbf d3,loc_36A40` tail without ever seeing bit `$4000`,
+        // the routine marks the following row as fully clear with `d6=-1`.
         -1
     }
 }
@@ -3326,6 +3329,16 @@ mod tests {
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x0000, 0x0000, 0x4000]),
             1,
             "ASM loc_36A40 should keep scanning after a clear entry word and reach the shared mixed-row exit once a later word sets bit `$4000`",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_following_row_class_loc_36a4a_returns_negative_one_when_the_row_stays_clear()
+     {
+        assert_eq!(
+            horizontal_collision_scan_following_row_class_loc_36A10(&[0x0000, 0x0000, 0x0000]),
+            -1,
+            "ASM loc_36A4A should return `d6=-1` when the clear-entry path finishes its inclusive `dbf` scan without finding any later `$4000` word",
         );
     }
 
