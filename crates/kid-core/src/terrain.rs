@@ -1614,13 +1614,25 @@ fn horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(word: u16) -> bool {
+    let collision_nibble = word & 0x7000;
+
+    // ASM loc_36ACE (kid.asm:38285): after the exact-`$4000` check fails, keep
+    // only bit `$4000`; mixed kinds such as `$5000`/`$6000` still block, while
+    // clear words fall through to the shared exit unchanged.
+    collision_nibble & 0x4000 != 0
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(word: u16) -> bool {
     let collision_nibble = word & 0x7000;
 
     // ASM loc_36ABE (kid.asm:38276): after the inclusive lead-column scan
     // leaves `a4` on the following row, an exact `$4000` nibble takes the fast
     // path that increments `d7` before returning to the shared exit.
-    collision_nibble == 0x4000 || collision_nibble & 0x4000 != 0
+    collision_nibble == 0x4000
+        || horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(collision_nibble)
 }
 
 pub(crate) fn transform_overlap_column_blocked_sub_7bea(
@@ -3433,6 +3445,19 @@ mod tests {
         assert!(
             horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(0x4000),
             "ASM loc_36ABE should take the exact `$4000` fast path for the following lead cell before the later mixed-kind branch runs",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ace_keeps_mixed_collision_nibbles_blocking()
+     {
+        assert!(
+            horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(0x5000),
+            "ASM loc_36ACE should still treat mixed `$5000` slope words as blocking once the exact-`$4000` compare falls through",
+        );
+        assert!(
+            !horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(0x3000),
+            "ASM loc_36ACE should leave `d7` unchanged when the following lead cell has no bit `$4000` set",
         );
     }
 
