@@ -7629,6 +7629,11 @@ pub(crate) struct TransferScrollDataVsramSetupLoc300BA {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TransferScrollDataPreludeLoc3038A {
+    pub(crate) next_time_frames: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDmaTailLoc300D2 {
     pub(crate) second_vsram_word: i16,
     pub(crate) dma_source_addr: u32,
@@ -7840,6 +7845,29 @@ pub(crate) fn transfer_scroll_data_vsram_setup_loc_300BA(
         first_vsram_word: camera_y_pos,
         second_vsram_word,
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn transfer_scroll_data_prelude_loc_3038A(
+    level_special_effects: u16,
+    game_mode: u16,
+    time_frames: u16,
+) -> Option<TransferScrollDataPreludeLoc3038A> {
+    // ASM loc_3038A (kid.asm:33983): `Level_Special_Effects == 4` returns
+    // immediately. Otherwise the routine falls through to `loc_3039C`, only
+    // incrementing `Time_Frames` first when `Game_Mode` is non-zero.
+    if level_special_effects == 4 {
+        return None;
+    }
+
+    let next_time_frames = if game_mode == 0 {
+        time_frames
+    } else {
+        time_frames.wrapping_add(1)
+    };
+
+    Some(TransferScrollDataPreludeLoc3038A { next_time_frames })
 }
 
 #[allow(non_snake_case)]
