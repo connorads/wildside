@@ -1288,6 +1288,14 @@ pub(crate) fn relative_collision_nibble_loc_33280(tile_word: u16) -> u16 {
     tile_word & 0x7000
 }
 
+fn relative_collision_word_mask_shared_disguised_block(tile_word: u16) -> u16 {
+    if (tile_word & 0x8000) != 0 && (tile_word & 0x0F00) == 0x0300 {
+        0
+    } else {
+        relative_collision_nibble_loc_33280(tile_word)
+    }
+}
+
 /// Mirror the disguised-block filter shared by `loc_331F6`, `loc_33248`, and
 /// the later horizontal scan at `loc_33286`.
 #[allow(non_snake_case)]
@@ -1297,11 +1305,7 @@ pub(crate) fn relative_collision_word_mask_loc_33248(tile_word: u16) -> u16 {
     // check when bit 15 was set. A surviving `$300` block-type nibble means a
     // disguised solid-ghost block, so the helper zeroes the word before
     // keeping only the collision nibble.
-    if (tile_word & 0x8000) != 0 && (tile_word & 0x0F00) == 0x0300 {
-        0
-    } else {
-        relative_collision_nibble_loc_33280(tile_word)
-    }
+    relative_collision_word_mask_shared_disguised_block(tile_word)
 }
 
 /// Mirror the middle-word disguised-block filter in `loc_33264`.
@@ -1311,7 +1315,17 @@ pub(crate) fn relative_collision_word_mask_loc_33264(tile_word: u16) -> u16 {
     // ASM loc_33264 (kid.asm:37680): after `bclr #$F,d6`, the second sampled
     // word follows the same disguised-block gate as `loc_33248` before falling
     // through to the shared collision-nibble mask.
-    relative_collision_word_mask_loc_33248(tile_word)
+    relative_collision_word_mask_shared_disguised_block(tile_word)
+}
+
+/// Mirror the first horizontal-word disguised-block filter in `loc_332D0`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn relative_collision_word_mask_loc_332D0(tile_word: u16) -> u16 {
+    // ASM loc_332D0 (kid.asm:37723): after `bclr #$F,d5`, the horizontal scan's
+    // first sampled word uses the same disguised-block gate before falling
+    // through to the collision-nibble mask.
+    relative_collision_word_mask_shared_disguised_block(tile_word)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
