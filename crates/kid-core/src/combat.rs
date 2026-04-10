@@ -2948,6 +2948,9 @@ pub(crate) fn kid_hitbox_from_collision_size_sub_21F8(
     };
 
     if collision_size.left_offset_px == 0 {
+        // ASM loc_224C (kid.asm:4070-4072): a zero first word branches
+        // straight to the common return without rewriting any hitbox edge, so
+        // the prior rectangle stays live.
         return previous_hitbox;
     }
 

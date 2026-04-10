@@ -2119,7 +2119,7 @@ fn kid_hitbox_from_collision_size_sub_21f8_uses_anchor_point_when_pointer_is_zer
 }
 
 #[test]
-fn kid_hitbox_from_collision_size_sub_21f8_keeps_previous_hitbox_on_zero_left_sentinel() {
+fn kid_hitbox_from_collision_size_sub_21f8_loc_224c_keeps_previous_hitbox_on_zero_left_sentinel() {
     let previous = collision_rect_sub_1f52(90, 101, 40, 71);
     let hitbox = kid_hitbox_from_collision_size_sub_21F8(
         previous,
@@ -2131,7 +2131,7 @@ fn kid_hitbox_from_collision_size_sub_21f8_keeps_previous_hitbox_on_zero_left_se
 
     assert_eq!(
         hitbox, previous,
-        "ASM sub_21F8 returns early when the CollisionSize entry begins with zero, leaving the last hitbox live",
+        "ASM loc_224C (kid.asm:4070) is the common return for the zero-first-word sentinel, leaving the last hitbox live",
     );
 }
 
