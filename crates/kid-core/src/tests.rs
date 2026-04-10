@@ -52,7 +52,8 @@ use crate::level::{
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshDualWrapBranchLoc30904,
-    BackgroundScrollPieceRefreshLinearCopyLoc308A6, BackgroundScrollPieceRefreshSeedLoc3081A,
+    BackgroundScrollPieceRefreshLinearCopyLoc308A6,
+    BackgroundScrollPieceRefreshRowWrapFirstCopyLoc30942, BackgroundScrollPieceRefreshSeedLoc3081A,
     BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE,
     BackgroundScrollPieceRefreshTileWrappedCopyLoc308E8,
     BackgroundScrollPieceRefreshVdpSeedLoc30884, BackgroundScrollPieceRefreshWindowSplitLoc3086A,
@@ -120,6 +121,7 @@ use crate::level::{
     background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_piece_refresh_dual_wrap_branch_loc_30904,
     background_scroll_piece_refresh_linear_copy_loc_308A6,
+    background_scroll_piece_refresh_row_wrap_first_copy_loc_30942,
     background_scroll_piece_refresh_seed_loc_3081A,
     background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE,
     background_scroll_piece_refresh_tile_wrapped_copy_loc_308E8,
@@ -3831,6 +3833,33 @@ fn background_scroll_stripe_horizontal_row_transfer_loc_302fe_uses_loc_3031a_for
             next_row_pointer: 0x00F0,
         },
         "ASM loc_302FE should branch to loc_3031A when bit 8 is set, preserving the same `(d3 & d4) << 3` primary mapping index while forcing the high-priority `$8000` bit onto both output words",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_row_wrap_first_copy_loc_30942_copies_the_pre_wrap_tail_then_rewinds_one_row()
+ {
+    let layout_row: Vec<u8> = (0..96).collect();
+    let block_mappings: Vec<u16> = (0..256)
+        .map(|index| 0x2000_u16.wrapping_add(index))
+        .collect();
+
+    assert_eq!(
+        background_scroll_piece_refresh_row_wrap_first_copy_loc_30942(
+            &layout_row,
+            20,
+            &block_mappings,
+            16,
+            5,
+        ),
+        Some(BackgroundScrollPieceRefreshRowWrapFirstCopyLoc30942 {
+            mapping_words: (20..55)
+                .map(|index| 0x2000_u16.wrapping_add(index as u16))
+                .collect(),
+            wrapped_layout_row_offset: 39,
+            bytes_consumed: 35,
+        }),
+        "ASM loc_30942 should copy the inclusive `$28-d7` pre-wrap tail from `(a0)+`, then apply `suba.w (Background_width).w,a0` so the next pass resumes one row higher at the wrapped column",
     );
 }
 
