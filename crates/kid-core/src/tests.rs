@@ -100,6 +100,7 @@ use crate::level::{
     background_scroll_enigma_row_table_lookup_loc_303EA,
     background_scroll_enigma_row_transfer_loc_303D4,
     background_scroll_enigma_secondary_longword_copy_loc_30432,
+    background_scroll_forest_water_ripple_loop_loc_3060A,
     background_scroll_forest_water_ripple_setup_loc_305E6,
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
@@ -2948,6 +2949,26 @@ fn background_scroll_forest_water_ripple_setup_loc_305e6_loads_the_base_scroll_w
             ripple_data_byte_offset: 0x0017,
         }),
         "ASM loc_305E6 should point `a0` at the second word of the selected `Horiz_Scroll_Buffer` longword, cache that word in `d3`, turn the visible span into a `dbf` counter with `subq.w #1,d1`, and bias `a1` by `(Time_Frames>>2) & $3F`",
+    );
+}
+
+#[test]
+fn background_scroll_forest_water_ripple_loop_loc_3060a_writes_signed_ripple_deltas_into_successive_scanlines()
+ {
+    let horiz_scroll_buffer = [0xAAAA_1000, 0xBBBB_2000, 0xCCCC_3000, 0xDDDD_4000];
+    let ripple_data = [0x80, 0x05, 0xFE, 0x7F];
+
+    assert_eq!(
+        background_scroll_forest_water_ripple_loop_loc_3060A(
+            &horiz_scroll_buffer,
+            0x0001,
+            0x0002,
+            0x0100,
+            &ripple_data,
+            0x0001,
+        ),
+        Some(vec![0xAAAA_1000, 0xBBBB_0105, 0xCCCC_00FE, 0xDDDD_017F]),
+        "ASM loc_3060A should sign-extend each ripple byte, add it to the cached base word from `d3`, write only the low word of the current `Horiz_Scroll_Buffer` longword, and advance by one longword per inclusive `dbf` step",
     );
 }
 
