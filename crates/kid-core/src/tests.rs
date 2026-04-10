@@ -52,7 +52,7 @@ use crate::level::{
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
-    BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollShiftLayersNoScrollFillLoc30502, BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
@@ -106,6 +106,7 @@ use crate::level::{
     background_scroll_shift_data_wrap_loop_loc_304C2,
     background_scroll_shift_data_wrap_loop_loc_304D8,
     background_scroll_shift_data_wrap_store_loc_304CA,
+    background_scroll_shift_layers_no_scroll_fill_loc_30502,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2784,6 +2785,19 @@ fn background_scroll_shift_data_wrap_loop_loc_304d8_uses_the_unbiased_seed_befor
             subtraction_count: 1,
         },
         "ASM loc_304D8 should skip the `$28` bias, seed `d7` and `d1` from `asr.w #3,4(a0)`, and reuse the same subtract-until-`d6>d7` loop before falling into `loc_304CA`",
+    );
+}
+
+#[test]
+fn background_scroll_shift_layers_no_scroll_fill_loc_30502_repeats_negated_camera_x_across_the_full_buffer()
+ {
+    assert_eq!(
+        background_scroll_shift_layers_no_scroll_fill_loc_30502(0x0123),
+        BackgroundScrollShiftLayersNoScrollFillLoc30502 {
+            repeated_scroll_longword: 0xFEDD_0000,
+            longword_count: 0x00E0,
+        },
+        "ASM loc_30502 should write the negated `Camera_X_pos` 16.16 longword into `Horiz_Scroll_Buffer` for the inclusive `$DF+1` `dbf` span when `(Background_NoScrollFlag).w` is non-zero",
     );
 }
 

@@ -7776,6 +7776,12 @@ pub(crate) struct TransferScrollDataStormLoopLoc30172 {
     pub(crate) next_storm_scroll_offset: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftLayersNoScrollFillLoc30502 {
+    pub(crate) repeated_scroll_longword: u32,
+    pub(crate) longword_count: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -8254,6 +8260,23 @@ pub(crate) fn background_scroll_shift_data_wrap_loop_loc_304D8(
         seeded_phase_row,
         reduced_phase_row: loop_body.reduced_phase_row,
         subtraction_count: loop_body.subtraction_count,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_shift_layers_no_scroll_fill_loc_30502(
+    camera_x_pos: i16,
+) -> BackgroundScrollShiftLayersNoScrollFillLoc30502 {
+    // ASM loc_30502 (kid.asm:34182): after the no-scroll path negates
+    // `(Camera_X_pos).w`, swaps it into the high word of `d2`, and clears the
+    // low word, the loop stores that 16.16 longword to `(a3)+` for the
+    // inclusive `dbf d0,loc_30502` span of `$DF+1` entries.
+    let repeated_scroll_longword = (u32::from(camera_x_pos.wrapping_neg() as u16)) << 16;
+
+    BackgroundScrollShiftLayersNoScrollFillLoc30502 {
+        repeated_scroll_longword,
+        longword_count: 0x00DF + 1,
     }
 }
 
