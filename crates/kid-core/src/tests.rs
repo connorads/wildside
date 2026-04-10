@@ -19693,7 +19693,7 @@ fn ufo_beam_fires_when_player_below() {
 }
 
 #[test]
-fn enemy_art_slot_assignment_sub_36e84_matches_first_second_and_fallback_slots() {
+fn loc_3215e_enemy_art_slot_assignment_matches_second_slot_before_fallback() {
     use enemies::enemy_art_slot_assignment_sub_36E84;
 
     let first = enemy_art_slot_assignment_sub_36E84(&[0x0022, 0x401C, 0x800D], 0x0022);
@@ -19703,8 +19703,14 @@ fn enemy_art_slot_assignment_sub_36e84_matches_first_second_and_fallback_slots()
 
     let second = enemy_art_slot_assignment_sub_36E84(&[0x0022, 0x401C, 0x800D], 0x001C);
     assert_eq!(second.slot_index, 1);
-    assert_eq!(second.palette_line, 2);
-    assert_eq!(second.vram_tile, 0x0409);
+    assert_eq!(
+        second.palette_line, 2,
+        "ASM loc_3215E should match the masked second header slot before falling through to loc_3216C's slot-2 fallback",
+    );
+    assert_eq!(
+        second.vram_tile, 0x0409,
+        "ASM loc_3215E should leave `d1=1` so loc_3216C loads the slot-1 VRAM tile `$0409` after the second-slot match",
+    );
 
     let fallback = enemy_art_slot_assignment_sub_36E84(&[0x0022, 0x401C, 0x800D], 0x0007);
     assert_eq!(fallback.slot_index, 2);

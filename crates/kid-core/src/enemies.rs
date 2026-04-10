@@ -6114,9 +6114,9 @@ pub(crate) fn enemy_art_slot_assignment_sub_36E84(
     enemy_type_slots: &[u16],
     enemy_id: u16,
 ) -> EnemyArtSlotAssignmentSub36E84 {
-    // ASM sub_36E84 (kid.asm:38805): compare the 12-bit enemy id against the
-    // first two header slots and otherwise fall back to slot 2, then map that
-    // slot to `EnemyArt_PaletteLines` / `EnemyArt_VRAMTileAddresses`.
+    // ASM sub_36E84 / loc_32146 (kid.asm:37582-37595) seeds `d1=0`, compares
+    // the masked 12-bit enemy id against the first header slot, and only
+    // increments into the second-slot probe when the first compare misses.
     const ENEMY_ART_PALETTE_LINES: [u8; 4] = [1, 2, 2, 0];
     const ENEMY_ART_VRAM_TILE_ADDRESSES: [u16; 3] = [0x02FB, 0x0409, 0x0517];
 
@@ -6127,6 +6127,9 @@ pub(crate) fn enemy_art_slot_assignment_sub_36E84(
     {
         0
     } else if enemy_type_slots
+        // ASM loc_3215E (kid.asm:37596-37602): read `4(a0)`, mask it with
+        // `$0FFF`, compare it to `d0`, and allocate slot 1 when it matches;
+        // otherwise increment `d1` again so loc_3216C falls back to slot 2.
         .get(1)
         .is_some_and(|slot| slot & 0x0FFF == enemy_id)
     {
