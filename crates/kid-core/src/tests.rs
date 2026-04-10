@@ -46,7 +46,8 @@ use crate::level::{
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
-    BackgroundScrollStripeHorizontalGateLoc3023C, BackgroundScrollStripeLayoutSeedLoc301D8,
+    BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollStripeHorizontalLayoutSeedLoc3026C, BackgroundScrollStripeLayoutSeedLoc301D8,
     BackgroundScrollStripeRightWindowLoc301F6, BackgroundScrollStripeRowSelectionLoc301CE,
     BackgroundScrollStripeVerticalPassLoc301FE, BackgroundScrollUpperPassLoc2FFE8,
     BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
@@ -79,6 +80,7 @@ use crate::level::{
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_stripe_horizontal_gate_loc_3023C,
+    background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_layout_seed_loc_301D8,
     background_scroll_stripe_restore_camera_column_loc_3023A,
     background_scroll_stripe_right_window_loc_301F6,
@@ -2691,6 +2693,51 @@ fn background_scroll_stripe_horizontal_gate_loc_3023c_uses_the_right_edge_only_w
     );
 }
 
+#[test]
+fn background_scroll_stripe_horizontal_layout_seed_loc_3026c_keeps_top_window_defaults_on_even_columns()
+ {
+    assert_eq!(
+        background_scroll_stripe_horizontal_layout_seed_loc_3026C(
+            &[0x1000, 0x1400, 0x1800, 0x1C00, 0x3000],
+            0x0003,
+            0x0010,
+        ),
+        Some(BackgroundScrollStripeHorizontalLayoutSeedLoc3026C {
+            theme_mapping_word_offset: 0,
+            block_mapping_word_offset: 0,
+            row_pointer: 0x1800 + 0x0010,
+            half_row_index: 0x0001,
+            half_row_mod16: 0x0001,
+            branches_to_loc_3028_e: false,
+            copy_rows: Some(0x000E),
+            initial_row_bias: Some(-1),
+        }),
+        "ASM loc_3026C should mask `d5` even for the row-pointer fetch, advance `a3` by `2 * (d6 >> 1)`, and keep the top-window defaults `d1=$E` / `d2=-1` while `(d5 >> 1) & $F` stays below `$2`",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_horizontal_layout_seed_loc_3026c_switches_odd_columns_and_branches_once_the_half_row_reaches_two()
+ {
+    assert_eq!(
+        background_scroll_stripe_horizontal_layout_seed_loc_3026C(
+            &[0x2000, 0x2400, 0x2800, 0x2C00, 0x3000, 0x3400, 0x3800],
+            0x0004,
+            0x0015,
+        ),
+        Some(BackgroundScrollStripeHorizontalLayoutSeedLoc3026C {
+            theme_mapping_word_offset: 1,
+            block_mapping_word_offset: 1,
+            row_pointer: 0x3000 + 0x0014,
+            half_row_index: 0x0002,
+            half_row_mod16: 0x0002,
+            branches_to_loc_3028_e: true,
+            copy_rows: None,
+            initial_row_bias: None,
+        }),
+        "ASM loc_30262 / loc_3026C should advance both mapping bases by one word on odd render columns, then branch to loc_3028E as soon as `(d5 >> 1) & $F` reaches `$2`",
+    );
+}
 #[test]
 fn compile_block_debris_sprites_sub_2a4c_steps_fixed_point_records_and_emits_linked_sprites() {
     let mut queue = initialise_scratch_queue_sub_28FC();

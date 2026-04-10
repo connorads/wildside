@@ -8103,6 +8103,50 @@ pub(crate) fn background_scroll_stripe_horizontal_gate_loc_3023C(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeHorizontalLayoutSeedLoc3026C {
+    pub(crate) theme_mapping_word_offset: usize,
+    pub(crate) block_mapping_word_offset: usize,
+    pub(crate) row_pointer: u16,
+    pub(crate) half_row_index: u16,
+    pub(crate) half_row_mod16: u16,
+    pub(crate) branches_to_loc_3028_e: bool,
+    pub(crate) copy_rows: Option<u16>,
+    pub(crate) initial_row_bias: Option<i16>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_horizontal_layout_seed_loc_3026C(
+    row_pointer_table: &[u16],
+    camera_tile_row: u16,
+    render_column: u16,
+) -> Option<BackgroundScrollStripeHorizontalLayoutSeedLoc3026C> {
+    // ASM loc_30262 / loc_3026C (kid.asm:33849): halve `d6` and use the
+    // shifted-out carry to pick the first or second word inside each mapping
+    // pair, then mask `d5` even with `andi.w #$FFFE,d1` to index the row
+    // pointer table. `a3` advances by `2 * (d6 >> 1)`, and the masked
+    // `andi.w #$F,d0` half-row keeps the top-window defaults `d1=$E` /
+    // `d2=-1` until the compare against `$2` branches to `loc_3028E`.
+    let mapping_word_offset = usize::from(render_column & 1);
+    let row_pointer = *row_pointer_table.get(usize::from(camera_tile_row & 0xFFFE))?;
+    let half_column_index = render_column >> 1;
+    let half_row_index = camera_tile_row >> 1;
+    let half_row_mod16 = half_row_index & 0x000F;
+    let branches_to_loc_3028_e = half_row_mod16 >= 0x0002;
+
+    Some(BackgroundScrollStripeHorizontalLayoutSeedLoc3026C {
+        theme_mapping_word_offset: mapping_word_offset,
+        block_mapping_word_offset: mapping_word_offset,
+        row_pointer: row_pointer.wrapping_add(half_column_index.wrapping_mul(2)),
+        half_row_index,
+        half_row_mod16,
+        branches_to_loc_3028_e,
+        copy_rows: (!branches_to_loc_3028_e).then_some(0x000E),
+        initial_row_bias: (!branches_to_loc_3028_e).then_some(-1),
+    })
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
