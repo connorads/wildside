@@ -44,6 +44,7 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
+    BackgroundScrollDesertHeatRippleSetupLoc306D4,
     BackgroundScrollDesertHeatRippleVisibleBandLoc306C2,
     BackgroundScrollEnigmaPrimaryCopySetupLoc30426, BackgroundScrollEnigmaRowSourceLoc303D4,
     BackgroundScrollEnigmaRowTableLookupLoc303EA, BackgroundScrollEnigmaRowTransferLoc303D4,
@@ -96,7 +97,8 @@ use crate::level::{
     apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, background_scroll_desert_heat_ripple_visible_band_loc_306C2,
+    background_row_pointers_loc_11B7A, background_scroll_desert_heat_ripple_setup_loc_306D4,
+    background_scroll_desert_heat_ripple_visible_band_loc_306C2,
     background_scroll_enigma_primary_copy_setup_loc_30426,
     background_scroll_enigma_primary_longword_copy_loc_30428,
     background_scroll_enigma_row_table_lookup_loc_303EA,
@@ -2994,6 +2996,29 @@ fn background_scroll_desert_heat_ripple_visible_band_loc_306c2_rebases_negative_
             affected_scanline_count: 0x0010,
         }),
         "ASM loc_306C2 should clear `d2` and clamp non-negative visible spans to `$10` scanlines before falling into `loc_306D4`",
+    );
+}
+
+#[test]
+fn background_scroll_desert_heat_ripple_setup_loc_306d4_loads_the_base_scroll_word_and_30_phase() {
+    let horiz_scroll_buffer = [0xAAAA_1111, 0xBBBB_FFF0, 0xCCCC_2222];
+
+    assert_eq!(
+        background_scroll_desert_heat_ripple_setup_loc_306D4(
+            &horiz_scroll_buffer,
+            0x0001,
+            0x0006,
+            0x000A,
+            0x0134,
+        ),
+        Some(BackgroundScrollDesertHeatRippleSetupLoc306D4 {
+            start_scanline: 0x0001,
+            target_word_offset_bytes: 0x0006,
+            base_scroll_word: -0x0010,
+            ripple_dbf_counter: 0x0005,
+            ripple_data_byte_offset: 0x003A,
+        }),
+        "ASM loc_306D4 should point `a0` at the second word of the selected `Horiz_Scroll_Buffer` longword, cache that word in `d3`, mask `Time_Frames` with `$30`, add `d2`, and turn the visible span into an inclusive `dbf` counter with `subq.w #1,d1`",
     );
 }
 
