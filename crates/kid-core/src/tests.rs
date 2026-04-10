@@ -4044,6 +4044,37 @@ fn enemy_layout_reset_and_seek_loc_31fce_skips_to_the_first_threshold_after_the_
 }
 
 #[test]
+fn enemy_layout_reset_and_seek_loc_31fd4_skips_equal_thresholds_and_advances_layout_by_count_times_eight()
+ {
+    assert_eq!(
+        enemy_layout_reset_and_seek_loc_31F8E(
+            EnemyLayoutResetAndSeekInputLoc31F8E {
+                enemy_layout_header_addr: 0x0001_2000,
+                enemy_layout_addr: 0x0001_4000,
+                previous_header_threshold: 0x0010,
+                axis_selector_word: 0,
+                camera_x_pos: 0x0040,
+                camera_y_pos: 0x0000,
+            },
+            &[0x0020, 0x0040, 0x0060],
+            &[1, 4, 2],
+        ),
+        Some(EnemyLayoutResetAndSeekLoc31F8E {
+            enemy_status_words: vec![0; 30],
+            loaded_enemy_slot_sentinel: 0xFF,
+            enemy_layout_progress: 0,
+            uses_vertical_axis: false,
+            active_camera_word: 0x0040,
+            current_header_threshold: 0x0060,
+            previous_header_threshold: 0x0040,
+            enemy_layout_header_addr: 0x0001_2012,
+            enemy_layout_addr: 0x0001_4028,
+        }),
+        "ASM loc_31FD4 should keep skipping while `d1 >= (a0)`, so an equal threshold is consumed too, with each skipped header advancing `a1` by `count << 3` bytes before the first strictly greater threshold remains",
+    );
+}
+
+#[test]
 fn enemy_layout_reset_and_seek_loc_31f8e_clears_status_words_and_advances_until_the_first_threshold_above_the_camera_word()
  {
     assert_eq!(
