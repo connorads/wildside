@@ -149,6 +149,55 @@ pub(crate) fn first_live_kid_projectile_collision_cursor_loc_1DCC(
     None
 }
 
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn first_non_mirrored_kid_projectile_overlap_loc_1DF2(
+    target: KidProjectileTargetRectLoc1DBE,
+    cursor: &KidProjectileCollisionCursorLoc1DCC,
+) -> Option<usize> {
+    // ASM loc_1DF2 (kid.asm:3595-3608): after `loc_1DCC` has selected a live
+    // object with clear `x_direction(a2)`, advance one 8-byte CollisionSize
+    // entry at a time. A zero first word aborts this object, otherwise the
+    // scan uses inclusive overlap checks and returns on the first hit.
+    if cursor.mirrored {
+        return None;
+    }
+
+    for (collision_size_index, collision_size) in cursor.collision_sizes.iter().enumerate() {
+        if collision_size.left_offset_px == 0 {
+            return None;
+        }
+
+        let left_px = cursor
+            .x_anchor_px
+            .saturating_add(collision_size.left_offset_px);
+        if left_px > target.right_px {
+            continue;
+        }
+
+        let right_px = left_px.saturating_add(collision_size.width_px);
+        if right_px < target.left_px {
+            continue;
+        }
+
+        let top_px = cursor
+            .y_anchor_px
+            .saturating_add(collision_size.top_offset_px);
+        if top_px > target.bottom_px {
+            continue;
+        }
+
+        let bottom_px = top_px.saturating_add(collision_size.height_px);
+        if bottom_px < target.top_px {
+            continue;
+        }
+
+        return Some(collision_size_index);
+    }
+
+    None
+}
+
 impl NativeRuntime {
     fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
         projectile.friendly

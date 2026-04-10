@@ -110,7 +110,7 @@ use crate::movement::*;
 use crate::projectiles::{
     KidProjectileCollisionCursorLoc1DCC, KidProjectileCollisionObjectLoc1DCC,
     KidProjectileCollisionPassSub1D76, first_live_kid_projectile_collision_cursor_loc_1DCC,
-    kid_projectile_collision_passes_sub_1D76,
+    first_non_mirrored_kid_projectile_overlap_loc_1DF2, kid_projectile_collision_passes_sub_1D76,
 };
 use crate::weather::{
     FallingWeatherSlotSub61CA, LevelSpecialEffectsRoutineSub6034, MurderWallWarningInputSub5E02,
@@ -42947,6 +42947,56 @@ fn first_live_kid_projectile_collision_cursor_loc_1dcc_skips_deleted_entries_and
             ],
         }),
         "ASM loc_1DCC should skip deleted gfx objects via `$3D(a2)`, then seed the CollisionSize cursor from `$22(a2)>>1` before the orientation-specific scan starts",
+    );
+}
+
+#[test]
+fn first_non_mirrored_kid_projectile_overlap_loc_1df2_skips_misses_until_the_first_inclusive_overlap()
+ {
+    let target =
+        crate::projectiles::kid_projectile_target_rect_loc_1DBE(100, 40, 0, 6, 20, -12, 30);
+    let cursor = KidProjectileCollisionCursorLoc1DCC {
+        object_index: 0,
+        collision_size_index: 0,
+        mirrored: false,
+        x_anchor_px: 100,
+        y_anchor_px: 40,
+        collision_sizes: vec![
+            collision_size_entry_sub_21f8(40, 10, -12, 30),
+            collision_size_entry_sub_21f8(-20, 5, -12, 30),
+            collision_size_entry_sub_21f8(6, 20, -12, 30),
+        ],
+    };
+
+    assert_eq!(
+        first_non_mirrored_kid_projectile_overlap_loc_1DF2(target, &cursor),
+        Some(2),
+        "ASM loc_1DF2 should keep advancing 8-byte CollisionSize entries after X/Y misses, then stop on the first inclusive overlap for clear `x_direction(a2)`",
+    );
+}
+
+#[test]
+fn first_non_mirrored_kid_projectile_overlap_loc_1df2_stops_this_object_on_the_zero_word_sentinel()
+{
+    let target =
+        crate::projectiles::kid_projectile_target_rect_loc_1DBE(100, 40, 0, 6, 20, -12, 30);
+    let cursor = KidProjectileCollisionCursorLoc1DCC {
+        object_index: 0,
+        collision_size_index: 0,
+        mirrored: false,
+        x_anchor_px: 100,
+        y_anchor_px: 40,
+        collision_sizes: vec![
+            collision_size_entry_sub_21f8(40, 10, -12, 30),
+            collision_size_entry_sub_21f8(0, 0, 0, 0),
+            collision_size_entry_sub_21f8(6, 20, -12, 30),
+        ],
+    };
+
+    assert_eq!(
+        first_non_mirrored_kid_projectile_overlap_loc_1DF2(target, &cursor),
+        None,
+        "ASM loc_1DF2 should branch back to `loc_1DCC` as soon as `(a3)` is zero, even if a later CollisionSize entry in RAM would overlap",
     );
 }
 
