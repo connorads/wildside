@@ -19001,6 +19001,19 @@ fn find_active_platform_by_layout_offset_sub_2728_returns_none_when_no_slot_matc
 }
 
 #[test]
+fn begin_platform_collision_loc_257e_clears_the_collision_scratch_and_reloads_loop_pointers() {
+    assert_eq!(
+        begin_platform_collision_loc_257E(0xFFFF_2450),
+        PlatformCollisionEntryLoc257E {
+            collision_response_word: 0,
+            first_platform_slot_pointer_addr: 0xFA8E,
+            kid_gfx_object_addr: 0xFFFF_2450,
+        },
+        "ASM loc_257E (kid.asm:4471) should clear `$FFFFFAA2`, point `a2` at `(Addr_FirstPlatformSlot).w`, and reload `(Addr_GfxObject_Kid).w` into `a0` before the platform scan begins",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),

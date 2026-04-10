@@ -6,6 +6,14 @@ pub(crate) struct ActivePlatformHandleSub2728 {
     pub(crate) layout_offset_words: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformCollisionEntryLoc257E {
+    pub(crate) collision_response_word: u32,
+    pub(crate) first_platform_slot_pointer_addr: u16,
+    pub(crate) kid_gfx_object_addr: u32,
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AllocatePlatformSlotSub238E {
@@ -122,6 +130,23 @@ pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
     active_platforms
         .iter()
         .position(|platform| platform.layout_offset_words == layout_offset_words)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn begin_platform_collision_loc_257E(
+    kid_gfx_object_addr: u32,
+) -> PlatformCollisionEntryLoc257E {
+    // ASM loc_257E (kid.asm:4471): after the transform guard passes,
+    // `Platforms_CheckCollision` reserves 8 stack bytes for platform bounds,
+    // clears the long scratch word at `$FFFFFAA2`, points `a2` at the
+    // `(Addr_FirstPlatformSlot).w` sentinel, and reloads Kid's gfx object
+    // address into `a0` before continuing to `loc_2590`.
+    PlatformCollisionEntryLoc257E {
+        collision_response_word: 0,
+        first_platform_slot_pointer_addr: 0xFA8E,
+        kid_gfx_object_addr,
+    }
 }
 
 impl PlatformLoaderState {
