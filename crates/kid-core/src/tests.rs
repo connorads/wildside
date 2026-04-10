@@ -2432,6 +2432,21 @@ fn first_shooter_projectile_overlap_sub_226a_mirrors_offsets_before_subtracting_
 }
 
 #[test]
+fn shooter_projectile_recycle_loc_22fe_marks_the_projectile_hurt_and_reuses_the_hit_slot() {
+    assert_eq!(
+        shooter_projectile_recycle_loc_22FE(0xF8C0, 0xE800, 0xE80E, 0xE8FC),
+        ShooterProjectileRecycleLoc22FE {
+            projectile_collision_id: 0x001C,
+            predecessor_next_slot_addr: 0xE80E,
+            recycled_slot_next_free_addr: 0xE8FC,
+            next_free_shooter_object_slot_addr: 0xE800,
+            next_scan_slot_addr: 0xF8C0,
+        },
+        "ASM loc_22FE should write `colid_hurt` into the collided projectile, unlink the current shooter slot by copying its `$A(a0)` link through `a1`, recycle that slot onto the shooter free list, and resume scanning from the predecessor link",
+    );
+}
+
+#[test]
 fn juggernaut_support_overlap_sub_9832_skips_inactive_and_zero_sentinel_entries() {
     assert!(
         juggernaut_support_overlap_sub_9832(

@@ -3030,6 +3030,38 @@ pub(crate) struct ShooterProjectileOverlapSub226A {
     pub(crate) projectile_index: usize,
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterProjectileRecycleLoc22FE {
+    pub(crate) projectile_collision_id: u16,
+    pub(crate) predecessor_next_slot_addr: u16,
+    pub(crate) recycled_slot_next_free_addr: u16,
+    pub(crate) next_free_shooter_object_slot_addr: u16,
+    pub(crate) next_scan_slot_addr: u16,
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn shooter_projectile_recycle_loc_22FE(
+    predecessor_slot_addr: u16,
+    current_slot_addr: u16,
+    current_slot_next_addr: u16,
+    next_free_shooter_object_slot_addr: u16,
+) -> ShooterProjectileRecycleLoc22FE {
+    // ASM loc_22FE (kid.asm:4149-4154): mark the collided Kid projectile as
+    // `colid_hurt`, splice the current shooter slot out of the active list by
+    // copying its `$A(a0)` link into the predecessor's `$A(a1)`, push the
+    // removed slot onto `(Addr_NextFreeShooterObjectSlot).w`, then resume the
+    // scan from the predecessor slot via `move.w a1,a0`.
+    ShooterProjectileRecycleLoc22FE {
+        projectile_collision_id: 0x001C,
+        predecessor_next_slot_addr: current_slot_next_addr,
+        recycled_slot_next_free_addr: next_free_shooter_object_slot_addr,
+        next_free_shooter_object_slot_addr: current_slot_addr,
+        next_scan_slot_addr: predecessor_slot_addr,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn next_shooter_point_loc_226E(
