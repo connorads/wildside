@@ -8053,6 +8053,18 @@ pub(crate) fn background_scroll_stripe_vertical_pass_loc_301FE(
 }
 
 #[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_restore_camera_column_loc_3023A(
+    saved_camera_tile_column: u16,
+) -> u16 {
+    // ASM loc_3023A (kid.asm:33816): both the single-pass and wraparound
+    // vertical paths rejoin here and `move.w (sp)+,d7` restores the original
+    // `Camera_X_pos>>3` tile column before the horizontal pass starts at
+    // `loc_3023C`.
+    saved_camera_tile_column
+}
+
+#[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
     cell_x: u16,

@@ -77,6 +77,7 @@ use crate::level::{
     background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E, background_scroll_stripe_layout_seed_loc_301D8,
+    background_scroll_stripe_restore_camera_column_loc_3023A,
     background_scroll_stripe_right_window_loc_301F6,
     background_scroll_stripe_row_selection_loc_301CE,
     background_scroll_stripe_vertical_pass_loc_301FE, background_scroll_upper_pass_loc_2FFE8,
@@ -2624,6 +2625,15 @@ fn background_scroll_stripe_vertical_pass_loc_301fe_skips_the_wrap_pass_when_d2_
             second_pass_vdp_command: None,
         },
         "ASM loc_301FE should branch straight to loc_3023A after the first `sub_3034A` call when `d2` remains negative, leaving no second VDP command to issue",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_restore_camera_column_loc_3023a_restores_the_saved_d7_word() {
+    assert_eq!(
+        background_scroll_stripe_restore_camera_column_loc_3023A(0x80F6),
+        0x80F6,
+        "ASM loc_3023A should pop the original `d7` word from the stack unchanged before `loc_3023C` starts the horizontal camera-delta check",
     );
 }
 
