@@ -19115,6 +19115,20 @@ fn vertical_push_magnitude_loc_266a_normalises_negative_pushes_with_word_wraparo
 }
 
 #[test]
+fn apply_horizontal_platform_push_loc_2686_updates_hitbox_edges_and_branch_direction() {
+    assert_eq!(
+        apply_horizontal_platform_push_loc_2686(40, 55, 48, -7),
+        HorizontalPlatformPushLoc2686 {
+            kid_hitbox_left_px: 33,
+            kid_hitbox_right_px: 48,
+            kid_gfx_x_px: 41,
+            takes_negative_branch: true,
+        },
+        "ASM loc_2686 (kid.asm:4583) should add the signed `d7` push into `Kid_hitbox_left/right` and `$1A(a0)` before `tst.w d7` chooses the `loc_26B6` negative branch",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),

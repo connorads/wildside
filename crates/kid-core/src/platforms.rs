@@ -187,6 +187,34 @@ pub(crate) fn vertical_push_magnitude_loc_266A(push_y_px: i16) -> VerticalPushMa
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HorizontalPlatformPushLoc2686 {
+    pub(crate) kid_hitbox_left_px: i16,
+    pub(crate) kid_hitbox_right_px: i16,
+    pub(crate) kid_gfx_x_px: i16,
+    pub(crate) takes_negative_branch: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn apply_horizontal_platform_push_loc_2686(
+    kid_hitbox_left_px: i16,
+    kid_hitbox_right_px: i16,
+    kid_gfx_x_px: i16,
+    push_x_px: i16,
+) -> HorizontalPlatformPushLoc2686 {
+    // ASM loc_2686 (kid.asm:4583): once `d7` wins the axis compare, add that
+    // signed push into `Kid_hitbox_left/right` and `$1A(a0)` before `tst.w d7`
+    // picks the negative path at `loc_26B6` or the non-negative path below.
+    HorizontalPlatformPushLoc2686 {
+        kid_hitbox_left_px: kid_hitbox_left_px.wrapping_add(push_x_px),
+        kid_hitbox_right_px: kid_hitbox_right_px.wrapping_add(push_x_px),
+        kid_gfx_x_px: kid_gfx_x_px.wrapping_add(push_x_px),
+        takes_negative_branch: push_x_px < 0,
+    }
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AllocatePlatformSlotSub238E {
