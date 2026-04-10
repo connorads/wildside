@@ -50074,3 +50074,56 @@ fn loc_1f56_sets_kidbelow_only_for_inclusive_support_overlap() {
         "ASM loc_1F56 should keep scanning past non-overlapping candidates and return without `colid_kidbelow` when the zero-word sentinel arrives",
     );
 }
+
+#[test]
+fn loc_1fb2_skips_disabled_or_missing_kid_and_seeds_the_hitbox_scan_window() {
+    assert_eq!(
+        crate::level::kid_hitbox_solid_scan_setup_loc_1FB2(
+            true,
+            true,
+            0x0020,
+            0x003F,
+            0x0010,
+            0x002F,
+            &[0xA000, 0xA040, 0xA080, 0xA0C0],
+        ),
+        None,
+        "ASM loc_1FB2 (kid.asm:3790) should jump to loc_200C when `$FFFFFA64` is non-zero before touching the row-pointer table",
+    );
+    assert_eq!(
+        crate::level::kid_hitbox_solid_scan_setup_loc_1FB2(
+            false,
+            false,
+            0x0020,
+            0x003F,
+            0x0010,
+            0x002F,
+            &[0xA000, 0xA040, 0xA080, 0xA0C0],
+        ),
+        None,
+        "ASM loc_1FB2 should also jump to loc_200C when `Addr_GfxObject_Kid` is null",
+    );
+
+    let setup = crate::level::kid_hitbox_solid_scan_setup_loc_1FB2(
+        false,
+        true,
+        0x0021,
+        0x004F,
+        0x0013,
+        0x003F,
+        &[0xA000, 0xA040, 0xA080, 0xA0C0, 0xA100],
+    )
+    .expect("ASM loc_1FB2 should compute the scan window when the guards pass");
+    assert_eq!(
+        setup.row_start_addr, 0xA044,
+        "ASM loc_1FB2 should load row 2 from `$FFFF4A04` and add `2 * (Kid_hitbox_left >> 4)` for the leftmost tile column",
+    );
+    assert_eq!(
+        setup.row_count, 2,
+        "ASM loc_1FB2 should seed `d1 = (Kid_hitbox_bottom >> 4) - (Kid_hitbox_top >> 4)` for an inclusive DBF row count",
+    );
+    assert_eq!(
+        setup.col_count, 2,
+        "ASM loc_1FB2 should seed `d2 = (Kid_hitbox_right >> 4) - (Kid_hitbox_left >> 4)` for an inclusive DBF column count",
+    );
+}

@@ -4479,6 +4479,45 @@ pub(crate) fn block_type_4_hidden_entry_loc_12670(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidHitboxSolidScanSetupLoc1FB2 {
+    pub(crate) row_start_addr: u16,
+    pub(crate) row_count: u16,
+    pub(crate) col_count: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn kid_hitbox_solid_scan_setup_loc_1FB2(
+    scan_disabled_fa64: bool,
+    kid_object_present: bool,
+    kid_hitbox_top: u16,
+    kid_hitbox_bottom: u16,
+    kid_hitbox_left: u16,
+    kid_hitbox_right: u16,
+    row_pointer_table: &[u16],
+) -> Option<KidHitboxSolidScanSetupLoc1FB2> {
+    // ASM loc_1FB2 (kid.asm:3790-3809): bail out when `$FFFFFA64` is non-zero
+    // or the Kid object pointer is null, otherwise convert the hitbox bounds
+    // from pixels to tile rows/columns, seed inclusive DBF counters, and load
+    // the top-row/left-column Level_Layout address from `$FFFF4A04`.
+    if scan_disabled_fa64 || !kid_object_present {
+        return None;
+    }
+
+    let top_row = kid_hitbox_top >> 4;
+    let bottom_row = kid_hitbox_bottom >> 4;
+    let left_col = kid_hitbox_left >> 4;
+    let right_col = kid_hitbox_right >> 4;
+    let row_start_addr = *row_pointer_table.get(usize::from(top_row))?;
+
+    Some(KidHitboxSolidScanSetupLoc1FB2 {
+        row_start_addr: row_start_addr.wrapping_add(left_col.wrapping_mul(2)),
+        row_count: bottom_row.wrapping_sub(top_row),
+        col_count: right_col.wrapping_sub(left_col),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockType11ReadXPosLoc126BA {
     pub(crate) x_pos: u16,
     pub(crate) bytes_consumed: usize,
