@@ -50,8 +50,9 @@ use crate::level::{
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
     BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
-    BackgroundScrollShiftDataWrapLoopLoc304C2, BackgroundScrollShiftDataWrapLoopLoc304D8,
-    BackgroundScrollShiftDataWrapStoreLoc304CA, BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
+    BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
+    BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
@@ -101,6 +102,7 @@ use crate::level::{
     background_scroll_shift_data_second_pass_slot_loc_3048C,
     background_scroll_shift_data_second_pass_unchanged_loc_304A4,
     background_scroll_shift_data_slot_loc_30452, background_scroll_shift_data_unchanged_loc_30476,
+    background_scroll_shift_data_wrap_loop_body_loc_304E0,
     background_scroll_shift_data_wrap_loop_loc_304C2,
     background_scroll_shift_data_wrap_loop_loc_304D8,
     background_scroll_shift_data_wrap_store_loc_304CA,
@@ -2755,6 +2757,19 @@ fn background_scroll_shift_data_wrap_store_loc_304ca_stores_the_reduced_row_and_
             strip_table_word_offset: 0x0030,
         },
         "ASM loc_304CA should store the reduced `d7` word to `(a0)`, then use the original `d1` seed for `andi.w #$3F,d1` / `add.w d1,d1` so the strip-table offset comes from the pre-reduction row",
+    );
+}
+
+#[test]
+fn background_scroll_shift_data_wrap_loop_body_loc_304e0_keeps_subtracting_background_width_until_the_reduced_row_fits()
+ {
+    assert_eq!(
+        background_scroll_shift_data_wrap_loop_body_loc_304E0(0x0030, 0x0020),
+        BackgroundScrollShiftDataWrapLoopBodyLoc304E0 {
+            reduced_phase_row: 0x0010,
+            subtraction_count: 1,
+        },
+        "ASM loc_304E0 should loop on `cmp.w d7,d6` / `sub.w d6,d7` until `d6 > d7`, leaving the reduced row ready for `loc_304CA`",
     );
 }
 

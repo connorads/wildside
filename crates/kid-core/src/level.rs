@@ -7713,6 +7713,12 @@ pub(crate) struct BackgroundScrollShiftDataWrapLoopLoc304D8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftDataWrapLoopBodyLoc304E0 {
+    pub(crate) reduced_phase_row: i16,
+    pub(crate) subtraction_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
     pub(crate) map_header_byte_offset: usize,
     pub(crate) background_row_index: u8,
@@ -8174,6 +8180,25 @@ fn reduce_background_scroll_phase(seed_phase_row: i16, background_width: i16) ->
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn background_scroll_shift_data_wrap_loop_body_loc_304E0(
+    seeded_phase_row: i16,
+    background_width: i16,
+) -> BackgroundScrollShiftDataWrapLoopBodyLoc304E0 {
+    // ASM loc_304E0 (kid.asm:34161): after `loc_304D8` seeds `d7` from the
+    // signed `asr.w #3,4(a0)` result, the shared body loops on
+    // `cmp.w d7,d6`/`sub.w d6,d7` until `d6 > d7`, then falls through to
+    // `loc_304CA` with the reduced row.
+    let (reduced_phase_row, subtraction_count) =
+        reduce_background_scroll_phase(seeded_phase_row, background_width);
+
+    BackgroundScrollShiftDataWrapLoopBodyLoc304E0 {
+        reduced_phase_row,
+        subtraction_count,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn background_scroll_shift_data_wrap_loop_loc_304C2(
     updated_scroll_word: u16,
     background_width: i16,
@@ -8219,15 +8244,16 @@ pub(crate) fn background_scroll_shift_data_wrap_loop_loc_304D8(
 ) -> BackgroundScrollShiftDataWrapLoopLoc304D8 {
     // ASM loc_304D8 (kid.asm:34156): the `bgt` arm skips the `$28` bias,
     // seeds both `d7` and `d1` from the signed `asr.w #3,4(a0)` result, then
-    // reuses the same subtract-until-`d6>d7` loop before joining `loc_304CA`.
+    // branches into the shared subtract-until-`d6>d7` body at `loc_304E0`
+    // before joining `loc_304CA`.
     let seeded_phase_row = updated_scroll_word as i16 >> 3;
-    let (reduced_phase_row, subtraction_count) =
-        reduce_background_scroll_phase(seeded_phase_row, background_width);
+    let loop_body =
+        background_scroll_shift_data_wrap_loop_body_loc_304E0(seeded_phase_row, background_width);
 
     BackgroundScrollShiftDataWrapLoopLoc304D8 {
         seeded_phase_row,
-        reduced_phase_row,
-        subtraction_count,
+        reduced_phase_row: loop_body.reduced_phase_row,
+        subtraction_count: loop_body.subtraction_count,
     }
 }
 
