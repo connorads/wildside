@@ -379,6 +379,15 @@ pub(crate) struct EndSequenceScriptDriverLoc1D1B0 {
     pub(crate) sentinel_branches_to: Option<&'static str>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceCreditsDecodeLoc1D97E {
+    pub(crate) script_index: u16,
+    pub(crate) flip_x_flag: bool,
+    pub(crate) alternate_layout_flag: bool,
+    pub(crate) decode_command: u16,
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsGlyphInitSub1D786 {
@@ -440,6 +449,32 @@ pub(crate) fn end_sequence_script_driver_loc_1D1B0(
         first_dispatch_subroutine: first_script_id.map(|_| "sub_1D944"),
         first_hibernate_iterations: first_script_id.map(|_| first_delay_seed.wrapping_add(1)),
         sentinel_branches_to: None,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn end_sequence_credits_decode_loc_1D97E(
+    raw_script_id: u16,
+) -> EndSequenceCreditsDecodeLoc1D97E {
+    // ASM sub_1D944 / loc_1D97E (kid.asm:33226-33238): `bclr #$F,d0` and
+    // `bclr #$E,d0` strip the two high control bits before indexing
+    // `unk_2E39A`, while each old bit is latched via `sne` into
+    // `($FFFFFB5C).w` / `($FFFFFB5E).w`. `loc_1D97E` keeps the default
+    // `EniDec` command `$813E`, except when bit 15 was set and bit 14 was
+    // clear, where the routine replaces it with `$22DC`.
+    let flip_x_flag = raw_script_id & 0x8000 != 0;
+    let alternate_layout_flag = raw_script_id & 0x4000 != 0;
+
+    EndSequenceCreditsDecodeLoc1D97E {
+        script_index: raw_script_id & 0x3FFF,
+        flip_x_flag,
+        alternate_layout_flag,
+        decode_command: if flip_x_flag && !alternate_layout_flag {
+            0x22DC
+        } else {
+            0x813E
+        },
     }
 }
 

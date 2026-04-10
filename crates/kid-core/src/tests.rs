@@ -11333,6 +11333,41 @@ fn end_sequence_script_driver_loc_1d1b0_starts_from_unk_1d91c_and_waits_delay_pl
 }
 
 #[test]
+fn end_sequence_credits_decode_loc_1d97e_masks_control_bits_and_switches_only_the_flipped_primary_layout()
+ {
+    assert_eq!(
+        crate::movement::end_sequence_credits_decode_loc_1D97E(0x0007),
+        crate::movement::EndSequenceCreditsDecodeLoc1D97E {
+            script_index: 0x0007,
+            flip_x_flag: false,
+            alternate_layout_flag: false,
+            decode_command: 0x813E,
+        },
+        "ASM loc_1D97E (kid.asm:33236) should keep the default `EniDec` command `$813E` when neither control bit was set before `bclr #$F/#$E,d0`",
+    );
+    assert_eq!(
+        crate::movement::end_sequence_credits_decode_loc_1D97E(0x8007),
+        crate::movement::EndSequenceCreditsDecodeLoc1D97E {
+            script_index: 0x0007,
+            flip_x_flag: true,
+            alternate_layout_flag: false,
+            decode_command: 0x22DC,
+        },
+        "ASM loc_1D97E should switch to decode command `$22DC` only when bit 15 latched `($FFFFFB5C).w != 0` and bit 14 left `($FFFFFB5E).w == 0`",
+    );
+    assert_eq!(
+        crate::movement::end_sequence_credits_decode_loc_1D97E(0xC007),
+        crate::movement::EndSequenceCreditsDecodeLoc1D97E {
+            script_index: 0x0007,
+            flip_x_flag: true,
+            alternate_layout_flag: true,
+            decode_command: 0x813E,
+        },
+        "ASM loc_1D97E should branch back to the default path when both high bits were set, because the second `tst.b ($FFFFFB5E).w` takes the `bne.w loc_1D97E` exit",
+    );
+}
+
+#[test]
 fn load_end_sequence_credits_glyphs_loc_1d7b0_maps_triples_until_the_zero_x_sentinel() {
     let glyphs = load_end_sequence_credits_glyphs_sub_1D7A8(
         &[0x10, 0xA8, 0x04, 0x20, 0xA4, 0x08, 0x00, 0xFF, 0xFF],
