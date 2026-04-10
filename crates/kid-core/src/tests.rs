@@ -44,6 +44,7 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
+    BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
     BackgroundScrollUpperPassLoc2FFE8, BackgroundScrollUpperPassResumeLoc30014,
     BlockLayoutDecodeWordsLoc1354E, BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504,
@@ -69,15 +70,15 @@ use crate::level::{
     apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
     apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
     background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    background_scroll_lower_pass_resume_loc_30054, background_scroll_lower_pass_setup_loc_3001E,
-    background_scroll_upper_pass_loc_2FFE8, background_scroll_upper_pass_resume_loc_30014,
-    blend_palette_entry_loc_1538, blend_selected_palette_entries_sub_1536,
-    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
-    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
-    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
-    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
-    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
-    block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
+    background_scroll_lower_pass_setup_loc_3001E, background_scroll_upper_pass_loc_2FFE8,
+    background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
+    blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
+    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
+    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
+    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
+    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
+    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -2306,6 +2307,50 @@ fn background_scroll_lower_pass_resume_loc_30054_preserves_the_wrapped_fc80_seed
             loop_iterations: 0x001B,
         },
         "ASM loc_30054 should branch straight to the lower-row loop when `Camera_Y_pos` already equals the wrapped `$FC80` seed",
+    );
+}
+
+#[test]
+fn background_scroll_lower_pass_loop_loc_30066_uses_piece_renderer_and_clears_shift_seed_for_zero_camera()
+ {
+    let resume = BackgroundScrollLowerPassResumeLoc30054 {
+        original_camera_y: 0,
+        stepped_camera_y: -0x0380,
+        shift_data_camera_y: -0x03A0,
+        loop_iterations: 0x001B,
+    };
+
+    assert_eq!(
+        background_scroll_lower_pass_loop_loc_30066(resume, 0),
+        BackgroundScrollLowerPassLoopLoc30066 {
+            renderer: BackgroundScrollLowerPassRendererLoc30066::PiecesSub307D8,
+            final_camera_y: 0,
+            final_scroll_data_camera_y: 0,
+            final_shift_data_camera_y: 0,
+        },
+        "ASM loc_30066 should dispatch piece backgrounds to `sub_307D8`, then the shared epilogue should restore `Camera_Y_pos/$FFFFF82E` from `d7` and clear `$FFFFFAA8` when `d7=0`",
+    );
+}
+
+#[test]
+fn background_scroll_lower_pass_loop_loc_30066_uses_enigma_renderer_and_preserves_non_zero_shift_seed()
+ {
+    let resume = BackgroundScrollLowerPassResumeLoc30054 {
+        original_camera_y: 0x0228,
+        stepped_camera_y: -0x0198,
+        shift_data_camera_y: -0x0178,
+        loop_iterations: 0x001E,
+    };
+
+    assert_eq!(
+        background_scroll_lower_pass_loop_loc_30066(resume, 0xFF),
+        BackgroundScrollLowerPassLoopLoc30066 {
+            renderer: BackgroundScrollLowerPassRendererLoc30066::EnigmaSub303BA,
+            final_camera_y: 0x0228,
+            final_scroll_data_camera_y: 0x0228,
+            final_shift_data_camera_y: -0x0178,
+        },
+        "ASM loc_30066 should branch non-zero `Background_format` values to `sub_303BA`, and the shared epilogue should preserve the precomputed `$FFFFFAA8` seed when saved `d7` is non-zero",
     );
 }
 

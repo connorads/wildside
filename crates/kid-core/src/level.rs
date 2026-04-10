@@ -7608,6 +7608,20 @@ pub(crate) struct BackgroundScrollLowerPassResumeLoc30054 {
     pub(crate) loop_iterations: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundScrollLowerPassRendererLoc30066 {
+    PiecesSub307D8,
+    EnigmaSub303BA,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollLowerPassLoopLoc30066 {
+    pub(crate) renderer: BackgroundScrollLowerPassRendererLoc30066,
+    pub(crate) final_camera_y: i16,
+    pub(crate) final_scroll_data_camera_y: i16,
+    pub(crate) final_shift_data_camera_y: i16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7718,6 +7732,36 @@ pub(crate) fn background_scroll_lower_pass_resume_loc_30054(
         stepped_camera_y: setup.stepped_camera_y.wrapping_sub(0x0040),
         shift_data_camera_y: setup.shift_data_camera_y,
         loop_iterations: setup.loop_iterations.wrapping_add(2),
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_lower_pass_loop_loc_30066(
+    resume: BackgroundScrollLowerPassResumeLoc30054,
+    background_format: u8,
+) -> BackgroundScrollLowerPassLoopLoc30066 {
+    // ASM loc_30066 (kid.asm:33640): select `sub_307D8` when
+    // `Background_format` is zero, otherwise branch to the enigma path.
+    // The shared lower-pass epilogue then restores both `Camera_Y_pos` and
+    // `$FFFFF82E` from the saved `d7`, only clearing `$FFFFFAA8` when `d7=0`.
+    let renderer = if background_format == 0 {
+        BackgroundScrollLowerPassRendererLoc30066::PiecesSub307D8
+    } else {
+        BackgroundScrollLowerPassRendererLoc30066::EnigmaSub303BA
+    };
+
+    let final_shift_data_camera_y = if resume.original_camera_y == 0 {
+        0
+    } else {
+        resume.shift_data_camera_y
+    };
+
+    BackgroundScrollLowerPassLoopLoc30066 {
+        renderer,
+        final_camera_y: resume.original_camera_y,
+        final_scroll_data_camera_y: resume.original_camera_y,
+        final_shift_data_camera_y,
     }
 }
 
