@@ -4651,6 +4651,35 @@ pub(crate) fn kid_hitbox_solid_scan_expand_up_loc_2050(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidHitboxSolidScanResolveUpLoc20C6 {
+    pub(crate) kid_hitbox_top: u16,
+    pub(crate) kid_hitbox_bottom: u16,
+    pub(crate) object_top: u16,
+    pub(crate) object_y_velocity: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn kid_hitbox_solid_scan_resolve_up_loc_20C6(
+    upward_overlap_px: u16,
+    kid_hitbox_top: u16,
+    kid_hitbox_bottom: u16,
+    object_top: u16,
+    _object_y_velocity: u16,
+) -> KidHitboxSolidScanResolveUpLoc20C6 {
+    // ASM loc_20C6 (kid.asm:3907-3913): add one pixel to the chosen upward
+    // overlap, subtract it from Kid's top/bottom hitbox words and from the
+    // colliding object's Y position at `$1E(a0)`, then clear `$20(a0)`.
+    let displacement = upward_overlap_px.wrapping_add(1);
+    KidHitboxSolidScanResolveUpLoc20C6 {
+        kid_hitbox_top: kid_hitbox_top.wrapping_sub(displacement),
+        kid_hitbox_bottom: kid_hitbox_bottom.wrapping_sub(displacement),
+        object_top: object_top.wrapping_sub(displacement),
+        object_y_velocity: 0,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockType11ReadXPosLoc126BA {
     pub(crate) x_pos: u16,
     pub(crate) bytes_consumed: usize,

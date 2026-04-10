@@ -50269,3 +50269,25 @@ fn loc_2050_scans_up_by_level_width_and_restores_the_last_zero_row() {
         "ASM loc_2050 keeps the low word of `d2` at `d1 - 1` before the later downward scan at `loc_2074` extends it",
     );
 }
+
+#[test]
+fn loc_20c6_moves_kid_and_the_object_up_by_the_chosen_overlap_plus_one() {
+    let resolved =
+        crate::level::kid_hitbox_solid_scan_resolve_up_loc_20C6(6, 0x0040, 0x0058, 0x0090, 0x1234);
+    assert_eq!(
+        resolved.kid_hitbox_top, 0x0039,
+        "ASM loc_20C6 (kid.asm:3907) adds one pixel before subtracting from `Kid_hitbox_top`",
+    );
+    assert_eq!(
+        resolved.kid_hitbox_bottom, 0x0051,
+        "ASM loc_20C6 subtracts the same `d3 + 1` displacement from `Kid_hitbox_bottom`",
+    );
+    assert_eq!(
+        resolved.object_top, 0x0089,
+        "ASM loc_20C6 also subtracts `d3 + 1` from object offset `$1E(a0)`",
+    );
+    assert_eq!(
+        resolved.object_y_velocity, 0,
+        "ASM loc_20C6 finishes with `clr.w $20(a0)`, forcing the colliding object's Y velocity to zero",
+    );
+}
