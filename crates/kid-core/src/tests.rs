@@ -1972,6 +1972,51 @@ fn spawn_block_debris_sub_292e_seeds_five_directional_debris_records() {
 }
 
 #[test]
+fn spawn_block_debris_sub_292e_loc_293a_uses_the_fallthrough_velocity_tables_for_direction_3_and_above()
+ {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+
+    spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 7);
+
+    assert_eq!(
+        scratch_debris_pieces_sub_292E(&queue, 0),
+        [
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 0,
+                x_velocity_px: -5,
+                y_pos_px: 0x0080,
+                x_pos_px: 0x0120,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 0,
+                x_velocity_px: -4,
+                y_pos_px: 0x0088,
+                x_pos_px: 0x0120,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 0,
+                x_velocity_px: -3,
+                y_pos_px: 0x0088,
+                x_pos_px: 0x0128,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 0,
+                x_velocity_px: -2,
+                y_pos_px: 0x0080,
+                x_pos_px: 0x0128,
+            },
+            ScratchDebrisPieceSub292E {
+                y_velocity_px: 0,
+                x_velocity_px: -1,
+                y_pos_px: 0x0084,
+                x_pos_px: 0x0124,
+            },
+        ],
+        "ASM loc_293A (kid.asm:4887) should fall through to `unk_2A24`/`unk_2A2E` when `d6` is neither 0, 1, nor 2",
+    );
+}
+
+#[test]
 fn spawn_block_debris_sub_292e_advances_and_wraps_the_scratch_cursor() {
     let mut queue = initialise_scratch_queue_sub_28FC();
 

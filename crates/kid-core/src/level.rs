@@ -7099,10 +7099,12 @@ fn spawn_block_debris_common_sub_292E(
     direction: u16,
     variant_flag: u8,
 ) {
-    // ASM loc_293A (kid.asm:4887): seed five 16-byte debris records with fixed
-    // x/y offsets and direction-selected signed integer velocities. After the
-    // write, decrement `$FFFFFAA0`; if it hit zero, rewind to slot 0 and
-    // reload the six-slot counter, otherwise advance `$FFFFFA9C` by `$52`.
+    // ASM loc_293A (kid.asm:4887): seed the shared x/y offset tables from
+    // `unk_29E8`/`unk_29F2`, then select one of four signed velocity-table
+    // pairs from `unk_29FC`..`unk_2A42` based on `d6`, with any value other
+    // than 0/1/2 falling through to the final `unk_2A24`/`unk_2A2E` pair.
+    // After the write, decrement `$FFFFFAA0`; if it hit zero, rewind to slot 0
+    // and reload the six-slot counter, otherwise advance `$FFFFFA9C` by `$52`.
     let slot_index = queue.next_slot;
     let slot = &mut queue.slots[slot_index];
     slot.fill(0);
