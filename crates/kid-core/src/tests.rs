@@ -46,13 +46,14 @@ use crate::level::{
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
-    BackgroundScrollUpperPassLoc2FFE8, BackgroundScrollUpperPassResumeLoc30014,
-    BlockLayoutDecodeWordsLoc1354E, BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504,
-    BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E,
-    BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0,
-    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
-    BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
-    BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
+    BackgroundScrollStripeRowSelectionLoc301CE, BackgroundScrollUpperPassLoc2FFE8,
+    BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
+    BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504, BlockLayoutEntryWordsLoc133B2,
+    BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E,
+    BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE,
+    BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E,
+    BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C, BlockLayoutRepeatWordsLoc1351E,
+    BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
     DecompressToVramSpecialReturnLoc143B2, FgPlaneCustomWriteSub1596,
     FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680,
@@ -74,14 +75,15 @@ use crate::level::{
     apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
     background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
-    background_scroll_lower_pass_setup_loc_3001E, background_scroll_upper_pass_loc_2FFE8,
-    background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
-    blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
-    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
-    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
-    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
-    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
-    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    background_scroll_lower_pass_setup_loc_3001E, background_scroll_stripe_row_selection_loc_301CE,
+    background_scroll_upper_pass_loc_2FFE8, background_scroll_upper_pass_resume_loc_30014,
+    blend_palette_entry_loc_1538, blend_selected_palette_entries_sub_1536,
+    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
+    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
+    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
+    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
+    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
+    block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -2509,6 +2511,33 @@ fn transfer_scroll_data_storm_loop_loc_30172_writes_storm_offset_first_and_mirro
             next_storm_scroll_offset: 0x00F8,
         },
         "ASM loc_30172 should stream `($FFFFFAD8).w` before `-Camera_X_pos` for each pair, then loc_3017E should mirror `Camera_Y_pos` into both VSRAM slots before subtracting 8 from the storm offset",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_row_selection_loc_301ce_keeps_even_rows_on_the_base_mapping_pair() {
+    assert_eq!(
+        background_scroll_stripe_row_selection_loc_301CE(0x001C),
+        BackgroundScrollStripeRowSelectionLoc301CE {
+            row_pair_index: 0x000E,
+            theme_mapping_longword_offset: 0,
+            block_mapping_longword_offset: 0,
+        },
+        "ASM loc_301CE should halve `d6` with `lsr.w #1,d0` and keep even rows on the first longword of each theme/block mapping pair",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_row_selection_loc_301ce_switches_odd_rows_to_the_second_mapping_longword()
+ {
+    assert_eq!(
+        background_scroll_stripe_row_selection_loc_301CE(0x001D),
+        BackgroundScrollStripeRowSelectionLoc301CE {
+            row_pair_index: 0x000E,
+            theme_mapping_longword_offset: 1,
+            block_mapping_longword_offset: 1,
+        },
+        "ASM loc_301CE should branch on the post-`lsr` carry for odd rows and advance both `a1` and `a2` by four bytes to the second longword in the 8-byte mapping pair",
     );
 }
 

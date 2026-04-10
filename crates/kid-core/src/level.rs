@@ -7935,6 +7935,33 @@ pub(crate) fn transfer_scroll_data_storm_loop_loc_30172(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeRowSelectionLoc301CE {
+    pub(crate) row_pair_index: u16,
+    pub(crate) theme_mapping_longword_offset: usize,
+    pub(crate) block_mapping_longword_offset: usize,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_row_selection_loc_301CE(
+    tile_row: u16,
+) -> BackgroundScrollStripeRowSelectionLoc301CE {
+    // ASM loc_301CE (kid.asm:33765): copy `d6` into `d0`, `lsr.w #1,d0`, and
+    // use the shifted-out low bit as the carry-tested odd-row selector. Odd
+    // rows advance both `a1` and `a2` by 4 bytes so the renderer reads the
+    // second longword from each 8-byte mapping pair; even rows keep the base
+    // pair.
+    let row_pair_index = tile_row >> 1;
+    let mapping_longword_offset = if tile_row & 1 == 0 { 0 } else { 1 };
+
+    BackgroundScrollStripeRowSelectionLoc301CE {
+        row_pair_index,
+        theme_mapping_longword_offset: mapping_longword_offset,
+        block_mapping_longword_offset: mapping_longword_offset,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
