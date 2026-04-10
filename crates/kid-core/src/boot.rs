@@ -2804,6 +2804,35 @@ pub(crate) fn end_sequence_burst_wait_loop_loc_1D1DE() -> EndSequenceBurstWaitLo
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceBurstCameraLoopLoc1D1EC {
+    pub(crate) burst_priority: u8,
+    pub(crate) outer_loop_seed: u16,
+    pub(crate) outer_loop_iterations: u16,
+    pub(crate) per_iteration_subroutines: [&'static str; 4],
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_burst_camera_loop_loc_1D1EC() -> EndSequenceBurstCameraLoopLoc1D1EC {
+    // ASM loc_1D1EC (kid.asm:32593-32599): load `d4 = 1`, then on each outer
+    // loop body call `sub_1D86C`, `sub_1D846`, `sub_1DA24`, and
+    // `j_Hibernate_Object_1Frame` before `dbf d0,loc_1D1EC` consumes the
+    // `$5A` counter loaded after `loc_1D1DE`.
+    EndSequenceBurstCameraLoopLoc1D1EC {
+        burst_priority: 1,
+        outer_loop_seed: 0x005A,
+        outer_loop_iterations: 0x005B,
+        per_iteration_subroutines: [
+            "sub_1D86C",
+            "sub_1D846",
+            "sub_1DA24",
+            "j_Hibernate_Object_1Frame",
+        ],
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn end_sequence_burst_sprite_init_sub_1D86C(

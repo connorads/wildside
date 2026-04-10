@@ -14,20 +14,21 @@ use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IntroSequence6LongwordFillLoc1B170,
     IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24, PauseMenuSpriteEntrySub6874,
-    copy_sega_screen_palette_loc_12DFE, end_sequence_burst_prelude_loc_1D1D6,
-    end_sequence_burst_sprite_init_sub_1D86C, end_sequence_burst_wait_loop_loc_1D1DE,
-    end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
-    end_sequence_falling_sprite_init_sub_1D8B4, flag_hud_dma_upload_sub_5DA6,
-    hide_pause_menu_overwritten_sprites_sub_6874, hud_timer_sprite_layout_sub_BD0A,
-    init_hud_animation_frames_sub_44B0, intro_sequence_6_longword_fill_loc_1B170,
-    intro_sequence_6_striped_tile_fill_loc_1B194, intro_sequence_6_tilemap_clear_loc_1B182,
-    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_cleanup_loc_10BE6,
-    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_latch_screen_pos_loc_10B9A,
-    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
-    read_io_port_a10001_flags_sub_6E24, sega_screen_object_bootstrap_loc_12E48,
-    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
-    title_shell_art_decompress_loc_1BF54, title_shell_art_index_loc_1BF3E,
-    title_shell_vram_fill_loc_1BF70, vdp_upload_32_longwords_sub_44D0,
+    copy_sega_screen_palette_loc_12DFE, end_sequence_burst_camera_loop_loc_1D1EC,
+    end_sequence_burst_prelude_loc_1D1D6, end_sequence_burst_sprite_init_sub_1D86C,
+    end_sequence_burst_wait_loop_loc_1D1DE, end_sequence_camera_shake_sub_1D846,
+    end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
+    flag_hud_dma_upload_sub_5DA6, hide_pause_menu_overwritten_sprites_sub_6874,
+    hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
+    intro_sequence_6_longword_fill_loc_1B170, intro_sequence_6_striped_tile_fill_loc_1B194,
+    intro_sequence_6_tilemap_clear_loc_1B182, prize_10000_points_star_advance_loc_10BCE,
+    prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
+    prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
+    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
+    sega_screen_object_bootstrap_loc_12E48, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
+    step_hud_animation_sub_44DC, title_shell_art_decompress_loc_1BF54,
+    title_shell_art_index_loc_1BF3E, title_shell_vram_fill_loc_1BF70,
+    vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -26874,6 +26875,34 @@ fn loc_1d1de_end_sequence_burst_wait_loop_repeats_21_outer_cycles_back_to_loc_1d
     assert_eq!(
         wait_loop.next_outer_label, "loc_1D1D6",
         "ASM loc_1D1DE should loop back to `loc_1D1D6` until the outer DBF counter expires",
+    );
+}
+
+#[test]
+fn loc_1d1ec_end_sequence_burst_camera_loop_runs_91_refresh_cycles() {
+    let burst_loop = end_sequence_burst_camera_loop_loc_1D1EC();
+
+    assert_eq!(
+        burst_loop.burst_priority, 1,
+        "ASM loc_1D1EC (kid.asm:32593-32599) should reload `d4 = 1` before each `sub_1D86C` burst spawn",
+    );
+    assert_eq!(
+        burst_loop.outer_loop_seed, 0x005A,
+        "ASM loc_1D1EC should start from `d0 = $5A` after the preceding wait-loop exhausts",
+    );
+    assert_eq!(
+        burst_loop.outer_loop_iterations, 0x005B,
+        "ASM loc_1D1EC's `dbf d0,loc_1D1EC` should repeat the burst-camera loop `$5A + 1 = $5B` times",
+    );
+    assert_eq!(
+        burst_loop.per_iteration_subroutines,
+        [
+            "sub_1D86C",
+            "sub_1D846",
+            "sub_1DA24",
+            "j_Hibernate_Object_1Frame",
+        ],
+        "ASM loc_1D1EC should run burst spawn, camera shake, display refresh, and one-frame hibernate in that exact order each iteration",
     );
 }
 
