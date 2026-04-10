@@ -18611,6 +18611,42 @@ fn platform_dimensions_from_h_v_variants() {
 }
 
 #[test]
+fn active_platform_from_placement_loc_2822_keeps_collision_shape_without_modelling_art_words() {
+    let platform = ActivePlatform::from_placement(
+        &PlatformPlacement {
+            x: 24,
+            y: 25,
+            buffer_left: 0,
+            buffer_right: 40,
+            buffer_top: 0,
+            buffer_bottom: 19,
+            kind: 0,
+            subtype: 2,
+            h_variant: 3,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        },
+        None,
+    );
+
+    assert_eq!(
+        platform.width_px, 63,
+        "ASM loc_2822 (kid.asm:4748) only swaps the platform art word after the size fields are ready, so the native gameplay model should preserve the collision width from `h_variant` while omitting `$18(a3)`",
+    );
+    assert_eq!(
+        platform.height_px, 15,
+        "ASM loc_2822 should leave the collision height established before the art lookup intact; the gameplay port tracks that height even though it does not model the VRAM art pointer",
+    );
+    assert_eq!(
+        platform.script, None,
+        "ASM loc_2822 is still on the stationary-platform path; without a relative script offset the native port should leave motion scripting unset",
+    );
+}
+
+#[test]
 fn platform_script_moves_platform() {
     use std::collections::BTreeMap;
     let mut scripts = BTreeMap::new();

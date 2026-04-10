@@ -1599,6 +1599,11 @@ impl ActivePlatform {
         placement: &kid_data::PlatformPlacement,
         script_table: Option<&kid_data::PlatformScriptTable>,
     ) -> Self {
+        // ASM loc_2822 (kid.asm:4748): once `Manage_PlatformLoading` has
+        // finished packing the placement into `$18/$1C(a3)`, the label itself
+        // only selects a VRAM art word from `PlatformArtAddr_Table`. The
+        // native gameplay port does not model that render-only word; it keeps
+        // the collision-relevant width/height derived from the typed layout.
         let script = placement
             .script
             .relative_offset
