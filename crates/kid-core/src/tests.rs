@@ -191,13 +191,13 @@ use crate::level::{
     decompress_to_ram_palette_row_start_loc_143CC, decompress_to_vram_special_return_loc_143B2,
     drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
     enemy_layout_reset_and_seek_loc_31F8E, enemy_layout_status_word_loc_3200A,
-    fade_palette_span_sub_1C85E, fg_update_queue_cell_mapping_longwords_loc_165E,
-    fg_update_queue_cell_vram_word_loc_1614, fg_update_queue_culled_entry_advance_loc_167A,
-    flagpole_scoreboard_step_sub_C254, initialise_camera_bootstrap_loc_11F48,
-    initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
-    initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
-    initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
-    prepare_background_art_decompress_loc_11EA2,
+    enemy_layout_status_word_with_negative_sentinel_loc_32036, fade_palette_span_sub_1C85E,
+    fg_update_queue_cell_mapping_longwords_loc_165E, fg_update_queue_cell_vram_word_loc_1614,
+    fg_update_queue_culled_entry_advance_loc_167A, flagpole_scoreboard_step_sub_C254,
+    initialise_camera_bootstrap_loc_11F48, initialise_evanesc_object_slots_sub_EABC,
+    initialise_fullscreen_palette_fade_sub_73D0, initialise_palette_fade_out_loc_28A6,
+    initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
+    initialise_sprite_frame_state_sub_B52, prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
@@ -4159,6 +4159,20 @@ fn loc_3200a_clears_zero_entries_and_packs_positive_enemy_art_slots() {
         enemy_layout_status_word_loc_3200A(4),
         0xF3C0,
         "ASM loc_3200A should keep using the `unk_3680C` entries through slot 3, producing `$F3C0` for status byte 4",
+    );
+}
+
+#[test]
+fn loc_32036_stores_the_negative_entry_sentinel_without_using_the_packing_table() {
+    assert_eq!(
+        enemy_layout_status_word_with_negative_sentinel_loc_32036(0x80),
+        0x8000,
+        "ASM loc_32036 should write the fixed `$8000` sentinel when `1(a1)` is negative instead of reusing the `loc_3200A` packing path",
+    );
+    assert_eq!(
+        enemy_layout_status_word_with_negative_sentinel_loc_32036(4),
+        0xF3C0,
+        "ASM loc_32036 should fall through to the loc_3200A packing logic for non-negative entry-status bytes",
     );
 }
 
