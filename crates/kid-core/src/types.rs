@@ -1641,20 +1641,26 @@ impl ActivePlatform {
         self.x_velocity = cmd.x_velocity;
         self.y_velocity = cmd.y_velocity;
 
-        // Apply velocity
+        // ASM loc_23F2 (kid.asm:4269): add the current `$A/$E(a2)` velocities
+        // into `2/6(a2)` before decrementing the command timer.
         self.x_pos = (i64::from(self.x_pos) + i64::from(self.x_velocity))
             .clamp(0, i64::from(u32::MAX)) as u32;
         self.y_pos = (i64::from(self.y_pos) + i64::from(self.y_velocity))
             .clamp(0, i64::from(u32::MAX)) as u32;
 
-        // Advance timer
+        // ASM loc_2422 (kid.asm:4290): when the timer expires, immediately load
+        // the next duration and velocities into platform RAM for the following
+        // frame, even though this frame already moved with the old command.
         state.remaining_duration = state.remaining_duration.saturating_sub(1);
         if state.remaining_duration == 0 {
             state.command_index += 1;
             if state.command_index >= script.commands.len() {
                 state.command_index = 0; // loop
             }
-            state.remaining_duration = script.commands[state.command_index].duration;
+            let next_cmd = &script.commands[state.command_index];
+            state.remaining_duration = next_cmd.duration;
+            self.x_velocity = next_cmd.x_velocity;
+            self.y_velocity = next_cmd.y_velocity;
         }
     }
 }

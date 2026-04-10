@@ -18724,6 +18724,65 @@ fn platform_step_script_loc_23f2_applies_the_current_velocity_before_reloading_s
     );
 }
 
+#[test]
+fn platform_step_script_loc_2422_immediately_loads_the_next_velocity_on_expiry() {
+    use std::collections::BTreeMap;
+
+    let mut scripts = BTreeMap::new();
+    scripts.insert(
+        0x0000,
+        kid_data::PlatformScript {
+            commands: vec![
+                kid_data::PlatformMoveCommand {
+                    duration: 1,
+                    x_velocity: 0x1_0000,
+                    y_velocity: 0,
+                },
+                kid_data::PlatformMoveCommand {
+                    duration: 5,
+                    x_velocity: -0x3_0000,
+                    y_velocity: 0x2_0000,
+                },
+            ],
+        },
+    );
+    let table = kid_data::PlatformScriptTable { scripts };
+
+    let mut platform = ActivePlatform {
+        x_pos: 100 << 16,
+        y_pos: 50 << 16,
+        width_px: 47,
+        height_px: 15,
+        x_velocity: 0,
+        y_velocity: 0,
+        script: Some(PlatformScriptState {
+            script_offset: 0,
+            command_index: 0,
+            remaining_duration: 1,
+        }),
+    };
+
+    platform.step_script(&table);
+
+    assert_eq!(
+        platform.x_velocity, -0x3_0000,
+        "ASM loc_2422 (kid.asm:4290) stores the next script entry's x velocity into `$A(a2)` as soon as the countdown expires",
+    );
+    assert_eq!(
+        platform.y_velocity, 0x2_0000,
+        "ASM loc_2422 should also store the next script entry's y velocity into `$E(a2)` on the same frame",
+    );
+    assert_eq!(
+        platform.script,
+        Some(PlatformScriptState {
+            script_offset: 0,
+            command_index: 1,
+            remaining_duration: 5,
+        }),
+        "ASM loc_2422 should reload `$16(a2)` with the next duration while advancing the script pointer",
+    );
+}
+
 // --- Platform collision targeted mutation tests ---
 // Tests below target surviving mutants from cargo-mutants on platforms.rs.
 // Each test name references the line/mutation it catches.
