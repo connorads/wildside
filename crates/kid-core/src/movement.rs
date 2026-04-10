@@ -396,6 +396,16 @@ pub(crate) struct EndSequenceCreditsUploadLoopLoc1D986 {
     pub(crate) row_indices: Vec<u16>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceCreditsRowUploadLoc1D9B6 {
+    pub(crate) row_index: u16,
+    pub(crate) source_byte_offset: u16,
+    pub(crate) source_word_count: u16,
+    pub(crate) vdp_command: u32,
+    pub(crate) z80_guard_subroutines: [&'static str; 2],
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsGlyphInitSub1D786 {
@@ -497,6 +507,41 @@ pub(crate) fn end_sequence_credits_upload_loop_loc_1D986() -> EndSequenceCredits
         dbf_seed,
         iterations: dbf_seed.wrapping_add(1),
         row_indices: (0..=dbf_seed).rev().collect(),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn end_sequence_credits_row_upload_loc_1D9B6(
+    row_index: u16,
+    flip_x_flag: bool,
+) -> EndSequenceCreditsRowUploadLoc1D9B6 {
+    // ASM sub_1D990 / loc_1D9B6 (kid.asm:33247-33270): scale `d7` by `$1C`
+    // bytes to pick one 14-word row from `Decompression_Buffer`, then derive
+    // the VRAM word address from `(7 + d7) * $80 + $1A`. When
+    // `($FFFFFB5C).w != 0`, the routine subtracts `$2000` before the
+    // `asl.l #2` / `lsr.w #2` / `addi.w #$4000` / `swap` sequence that
+    // materialises the final VDP command longword at `4(a6)`.
+    let source_byte_offset = row_index.wrapping_mul(0x001C);
+    let mut vram_word_address = row_index
+        .wrapping_add(0x0007)
+        .wrapping_mul(0x0080)
+        .wrapping_add(0x001A);
+    if flip_x_flag {
+        vram_word_address = vram_word_address.wrapping_sub(0x2000);
+    }
+
+    let mut vdp_command = u32::from(vram_word_address) << 2;
+    let low_word = ((vdp_command as u16) >> 2).wrapping_add(0x4000);
+    vdp_command = (vdp_command & 0xFFFF_0000) | u32::from(low_word);
+    vdp_command = vdp_command.rotate_right(16);
+
+    EndSequenceCreditsRowUploadLoc1D9B6 {
+        row_index,
+        source_byte_offset,
+        source_word_count: 0x000E,
+        vdp_command,
+        z80_guard_subroutines: ["j_sub_914", "j_sub_924"],
     }
 }
 

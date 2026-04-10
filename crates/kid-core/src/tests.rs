@@ -11390,6 +11390,33 @@ fn end_sequence_credits_upload_loop_loc_1d986_runs_fourteen_rows_in_descending_d
 }
 
 #[test]
+fn end_sequence_credits_row_upload_loc_1d9b6_builds_the_expected_vdp_commands_for_normal_and_flipped_rows()
+ {
+    assert_eq!(
+        crate::movement::end_sequence_credits_row_upload_loc_1D9B6(0x000D, false),
+        crate::movement::EndSequenceCreditsRowUploadLoc1D9B6 {
+            row_index: 0x000D,
+            source_byte_offset: 0x016C,
+            source_word_count: 0x000E,
+            vdp_command: 0x4A1A_0000,
+            z80_guard_subroutines: ["j_sub_914", "j_sub_924"],
+        },
+        "ASM loc_1D9B6 (kid.asm:33263) should upload row 13 from `Decompression_Buffer+$16C` and turn VRAM word address `$0A1A` into VDP command `$4A1A0000` through the `asl/lsr/addi/swap` sequence",
+    );
+    assert_eq!(
+        crate::movement::end_sequence_credits_row_upload_loc_1D9B6(0x0000, true),
+        crate::movement::EndSequenceCreditsRowUploadLoc1D9B6 {
+            row_index: 0x0000,
+            source_byte_offset: 0x0000,
+            source_word_count: 0x000E,
+            vdp_command: 0x639A_0003,
+            z80_guard_subroutines: ["j_sub_914", "j_sub_924"],
+        },
+        "ASM loc_1D9B6 should honour the earlier `subi.w #-$2000,d5` mirrored-layout path, so row 0 uses VRAM word address `$E39A` and emits VDP command `$639A0003` before the 14-word copy",
+    );
+}
+
+#[test]
 fn load_end_sequence_credits_glyphs_loc_1d7b0_maps_triples_until_the_zero_x_sentinel() {
     let glyphs = load_end_sequence_credits_glyphs_sub_1D7A8(
         &[0x10, 0xA8, 0x04, 0x20, 0xA4, 0x08, 0x00, 0xFF, 0xFF],
