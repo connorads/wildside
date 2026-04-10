@@ -23,6 +23,45 @@ pub(crate) struct PlayerHitboxLoc2590 {
     pub(crate) bottom: i16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HorizontalOverlapResolutionLoc25EE {
+    pub(crate) left_exit_px: i16,
+    pub(crate) right_exit_px: i16,
+    pub(crate) push_x_px: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn horizontal_overlap_resolution_loc_25EE(
+    platform_left_px: i16,
+    platform_right_px: i16,
+    player_left_px: i16,
+    player_right_px: i16,
+) -> HorizontalOverlapResolutionLoc25EE {
+    // ASM loc_25EE (kid.asm:4513): once `loc_25A0` has established overlap and
+    // `player_left_px > platform_left_px`, this branch handles the case where
+    // `player_right_px` still lies inside the platform span. It computes both
+    // horizontal escape distances, compares their magnitudes, and keeps the
+    // smaller-magnitude push in `d7` before falling through to `loc_261E`.
+    let left_exit_px = platform_left_px
+        .wrapping_sub(player_right_px)
+        .wrapping_sub(1);
+    let right_exit_px = platform_right_px
+        .wrapping_sub(player_left_px)
+        .wrapping_add(1);
+    let push_x_px = if left_exit_px.wrapping_neg() < right_exit_px {
+        left_exit_px
+    } else {
+        right_exit_px
+    };
+    HorizontalOverlapResolutionLoc25EE {
+        left_exit_px,
+        right_exit_px,
+        push_x_px,
+    }
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AllocatePlatformSlotSub238E {

@@ -19028,6 +19028,28 @@ fn load_player_hitbox_loc_2590_preserves_the_current_hitbox_edges_for_platform_s
 }
 
 #[test]
+fn horizontal_overlap_resolution_loc_25ee_keeps_the_nearer_exit_distance() {
+    assert_eq!(
+        horizontal_overlap_resolution_loc_25EE(40, 87, 50, 70),
+        HorizontalOverlapResolutionLoc25EE {
+            left_exit_px: -31,
+            right_exit_px: 38,
+            push_x_px: -31,
+        },
+        "ASM loc_25EE (kid.asm:4513) should compute both horizontal exits and keep the smaller-magnitude push in `d7` before control reaches `loc_261E`",
+    );
+    assert_eq!(
+        horizontal_overlap_resolution_loc_25EE(40, 87, 60, 80),
+        HorizontalOverlapResolutionLoc25EE {
+            left_exit_px: -41,
+            right_exit_px: 28,
+            push_x_px: 28,
+        },
+        "ASM loc_25EE should switch to the right-hand exit when `-(platform_left-player_right-1)` is not less than `platform_right-player_left+1`",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
