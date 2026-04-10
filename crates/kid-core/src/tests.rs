@@ -110,6 +110,7 @@ use crate::movement::*;
 use crate::projectiles::{
     KidProjectileCollisionCursorLoc1DCC, KidProjectileCollisionObjectLoc1DCC,
     KidProjectileCollisionPassSub1D76, first_live_kid_projectile_collision_cursor_loc_1DCC,
+    first_mirrored_kid_projectile_overlap_loc_1E1E,
     first_non_mirrored_kid_projectile_overlap_loc_1DF2, kid_projectile_collision_passes_sub_1D76,
 };
 use crate::weather::{
@@ -42997,6 +42998,53 @@ fn first_non_mirrored_kid_projectile_overlap_loc_1df2_stops_this_object_on_the_z
         first_non_mirrored_kid_projectile_overlap_loc_1DF2(target, &cursor),
         None,
         "ASM loc_1DF2 should branch back to `loc_1DCC` as soon as `(a3)` is zero, even if a later CollisionSize entry in RAM would overlap",
+    );
+}
+
+#[test]
+fn first_mirrored_kid_projectile_overlap_loc_1e1e_negates_the_left_offset_then_subtracts_width() {
+    let target =
+        crate::projectiles::kid_projectile_target_rect_loc_1DBE(100, 40, 0xFF, 6, 20, -12, 30);
+    let cursor = KidProjectileCollisionCursorLoc1DCC {
+        object_index: 0,
+        collision_size_index: 0,
+        mirrored: true,
+        x_anchor_px: 100,
+        y_anchor_px: 40,
+        collision_sizes: vec![
+            collision_size_entry_sub_21f8(20, 10, -12, 30),
+            collision_size_entry_sub_21f8(-6, 20, -12, 30),
+        ],
+    };
+
+    assert_eq!(
+        first_mirrored_kid_projectile_overlap_loc_1E1E(target, &cursor),
+        Some(1),
+        "ASM loc_1E1E should mirror the horizontal bounds by negating the stored left offset, then subtract the width back toward the facing side before the inclusive overlap checks",
+    );
+}
+
+#[test]
+fn first_mirrored_kid_projectile_overlap_loc_1e1e_stops_this_object_on_the_zero_word_sentinel() {
+    let target =
+        crate::projectiles::kid_projectile_target_rect_loc_1DBE(100, 40, 0xFF, 6, 20, -12, 30);
+    let cursor = KidProjectileCollisionCursorLoc1DCC {
+        object_index: 0,
+        collision_size_index: 0,
+        mirrored: true,
+        x_anchor_px: 100,
+        y_anchor_px: 40,
+        collision_sizes: vec![
+            collision_size_entry_sub_21f8(20, 10, -12, 30),
+            collision_size_entry_sub_21f8(0, 0, 0, 0),
+            collision_size_entry_sub_21f8(-6, 20, -12, 30),
+        ],
+    };
+
+    assert_eq!(
+        first_mirrored_kid_projectile_overlap_loc_1E1E(target, &cursor),
+        None,
+        "ASM loc_1E1E should branch back to `loc_1DCC` on the zero-word CollisionSize sentinel before any later mirrored entry is considered",
     );
 }
 

@@ -198,6 +198,55 @@ pub(crate) fn first_non_mirrored_kid_projectile_overlap_loc_1DF2(
     None
 }
 
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn first_mirrored_kid_projectile_overlap_loc_1E1E(
+    target: KidProjectileTargetRectLoc1DBE,
+    cursor: &KidProjectileCollisionCursorLoc1DCC,
+) -> Option<usize> {
+    // ASM loc_1E1E (kid.asm:3615-3629): for set `x_direction(a2)`, advance one
+    // 8-byte CollisionSize entry at a time, mirror the horizontal interval by
+    // negating the stored left offset, and subtract the width back from that
+    // anchor before applying the same inclusive overlap tests.
+    if !cursor.mirrored {
+        return None;
+    }
+
+    for (collision_size_index, collision_size) in cursor.collision_sizes.iter().enumerate() {
+        if collision_size.left_offset_px == 0 {
+            return None;
+        }
+
+        let right_px = cursor
+            .x_anchor_px
+            .saturating_sub(collision_size.left_offset_px);
+        if right_px < target.left_px {
+            continue;
+        }
+
+        let left_px = right_px.saturating_sub(collision_size.width_px);
+        if left_px > target.right_px {
+            continue;
+        }
+
+        let top_px = cursor
+            .y_anchor_px
+            .saturating_add(collision_size.top_offset_px);
+        if top_px > target.bottom_px {
+            continue;
+        }
+
+        let bottom_px = top_px.saturating_add(collision_size.height_px);
+        if bottom_px < target.top_px {
+            continue;
+        }
+
+        return Some(collision_size_index);
+    }
+
+    None
+}
+
 impl NativeRuntime {
     fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
         projectile.friendly
