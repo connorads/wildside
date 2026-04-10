@@ -26505,7 +26505,7 @@ fn end_sequence_panel_scroll_loop_loc_1d3a0_runs_112_scroll_steps_and_28_row_upl
     );
     assert_eq!(
         scroll_loop.panel_step_subroutine, "sub_1CC88",
-        "ASM loc_1D3A0 should step the menu-panel animation after each scroll update",
+        "ASM loc_1D3C4 should step the menu-panel animation after each scroll update before branching back to loc_1D3A0",
     );
     assert_eq!(
         scroll_loop.row_upload_subroutine, "sub_1CDA8",

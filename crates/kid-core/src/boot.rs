@@ -671,6 +671,7 @@ pub(crate) struct EndSequencePanelScrollLoopLoc1D3A0 {
     pub(crate) panel_refresh_iterations: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
@@ -2277,11 +2278,12 @@ pub(crate) fn end_sequence_panel_setup_loc_1D306() -> EndSequencePanelSetupLoc1D
 pub(crate) fn end_sequence_panel_scroll_loop_loc_1D3A0() -> EndSequencePanelScrollLoopLoc1D3A0 {
     // ASM loc_1D3A0 (kid.asm:32706): every active pass runs `sub_1DA24`,
     // hibernates one frame, subtracts 2 from both `Camera_Y_pos` and `d3`, and
-    // decrements `d2` by 2 before `sub_1CC88`. When `d2` reaches zero, the
-    // loop reloads `d2 = 8`, decrements the `sub_1CDA8` row/column seeds, and
-    // uploads the next panel row. Because the top-of-loop `tst.w d3` exits only
-    // on the following pass, the `$E0` seed yields `$E0 / 2 = $70` active
-    // iterations and `$70 / 4 = $1C` row uploads.
+    // decrements `d2` by 2 before `sub_1CC88`.
+    // ASM loc_1D3C4 (kid.asm:32720): `bsr.w sub_1CC88; bra.s loc_1D3A0` is the
+    // steady-state back-edge taken after both the plain passes and the rollover
+    // path that refreshes one more tilemap row through `sub_1CDA8`. Because the
+    // top-of-loop `tst.w d3` exits only on the following pass, the `$E0` seed
+    // yields `$E0 / 2 = $70` active iterations and `$70 / 4 = $1C` row uploads.
     EndSequencePanelScrollLoopLoc1D3A0 {
         display_refresh_subroutine: "sub_1DA24",
         hibernate_subroutine: "j_Hibernate_Object_1Frame",
