@@ -7622,6 +7622,12 @@ pub(crate) struct BackgroundScrollLowerPassLoopLoc30066 {
     pub(crate) final_shift_data_camera_y: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TransferScrollDataVsramSetupLoc300BA {
+    pub(crate) first_vsram_word: i16,
+    pub(crate) second_vsram_word: i16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7768,6 +7774,27 @@ pub(crate) fn background_scroll_lower_pass_loop_loc_30066(
         final_camera_y: resume.original_camera_y,
         final_scroll_data_camera_y: resume.original_camera_y,
         final_shift_data_camera_y,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn transfer_scroll_data_vsram_setup_loc_300BA(
+    camera_y_pos: i16,
+    background_no_scroll_flag: bool,
+) -> TransferScrollDataVsramSetupLoc300BA {
+    // ASM loc_300BA (kid.asm:33677): write `(Camera_Y_pos).w` into the first
+    // VSRAM slot, arithmetic-free shift it right by 2 for the parallax slot,
+    // then zero the shared-tail value when `(Background_NoScrollFlag).w` is
+    // non-zero.
+    let mut second_vsram_word = ((camera_y_pos as u16) >> 2) as i16;
+    if background_no_scroll_flag {
+        second_vsram_word = 0;
+    }
+
+    TransferScrollDataVsramSetupLoc300BA {
+        first_vsram_word: camera_y_pos,
+        second_vsram_word,
     }
 }
 
