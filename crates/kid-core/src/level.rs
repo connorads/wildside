@@ -7636,6 +7636,18 @@ pub(crate) struct TransferScrollDataDmaTailLoc300D2 {
     pub(crate) dma_word_count: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TransferScrollDataStormLoc30110 {
+    pub(crate) plane_address_word: u16,
+    pub(crate) h_scroll_word_pairs: u16,
+    pub(crate) first_h_scroll_word: i16,
+    pub(crate) second_h_scroll_word: i16,
+    pub(crate) first_vsram_word: i16,
+    pub(crate) second_vsram_word: i16,
+    pub(crate) weather_mode_byte: u8,
+    pub(crate) next_storm_scroll_offset: i16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7819,6 +7831,30 @@ pub(crate) fn transfer_scroll_data_dma_tail_loc_300D2(
         dma_source_addr: 0xFFFF_7432,
         dma_vram_word_addr: 0x1400,
         dma_word_count: 0x0380,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn transfer_scroll_data_storm_loc_30110(
+    camera_x_pos: i16,
+    camera_y_pos: i16,
+    storm_scroll_offset: i16,
+) -> TransferScrollDataStormLoc30110 {
+    // ASM loc_30110 (kid.asm:33695): once the storm countdown reaches zero,
+    // switch plane B to `$8403`, fill `$DF+1` horizontal-scroll word pairs
+    // with `-Camera_X_pos` then the current storm offset, mirror
+    // `Camera_Y_pos/storm_scroll_offset` into the two VSRAM slots, reset
+    // `($FFFFFAD6).w` to 4, and subtract 8 from `($FFFFFAD8).w`.
+    TransferScrollDataStormLoc30110 {
+        plane_address_word: 0x8403,
+        h_scroll_word_pairs: 0x00DF + 1,
+        first_h_scroll_word: camera_x_pos.wrapping_neg(),
+        second_h_scroll_word: storm_scroll_offset,
+        first_vsram_word: camera_y_pos,
+        second_vsram_word: storm_scroll_offset,
+        weather_mode_byte: 4,
+        next_storm_scroll_offset: storm_scroll_offset.wrapping_sub(8),
     }
 }
 
