@@ -1604,6 +1604,11 @@ impl ActivePlatform {
         // only selects a VRAM art word from `PlatformArtAddr_Table`. The
         // native gameplay port does not model that render-only word; it keeps
         // the collision-relevant width/height derived from the typed layout.
+        // ASM loc_2836 (kid.asm:4762): non-negative platform types stay on the
+        // scripted path and store `PlatformScript_BaseAddress + $A(a4)` into
+        // `$12(a3)`, while negative types branch to `loc_2876` as special
+        // stationary platforms. The native port mirrors that split as
+        // `relative_offset: Some(_)` versus `None`.
         let script = placement
             .script
             .relative_offset

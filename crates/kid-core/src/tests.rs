@@ -18647,6 +18647,78 @@ fn active_platform_from_placement_loc_2822_keeps_collision_shape_without_modelli
 }
 
 #[test]
+fn active_platform_from_placement_loc_2836_splits_scripted_and_special_platforms() {
+    use std::collections::BTreeMap;
+
+    let script_offset = 0x3C3A;
+    let script_table = kid_data::PlatformScriptTable {
+        scripts: BTreeMap::from([(
+            script_offset,
+            kid_data::PlatformScript {
+                commands: vec![kid_data::PlatformMoveCommand {
+                    duration: 6,
+                    x_velocity: 0x1_0000,
+                    y_velocity: -0x2_0000,
+                }],
+            },
+        )]),
+    };
+
+    let scripted = ActivePlatform::from_placement(
+        &PlatformPlacement {
+            x: 24,
+            y: 25,
+            buffer_left: 0,
+            buffer_right: 40,
+            buffer_top: 0,
+            buffer_bottom: 19,
+            kind: 0,
+            subtype: 2,
+            h_variant: 3,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_3C3A-PlatformScript_BaseAddress"),
+                relative_offset: Some(script_offset),
+            },
+        },
+        Some(&script_table),
+    );
+    assert_eq!(
+        scripted.script,
+        Some(PlatformScriptState {
+            script_offset,
+            command_index: 0,
+            remaining_duration: 6,
+        }),
+        "ASM loc_2836 (kid.asm:4762) should send non-negative platform types down the scripted path, seeding `$12(a3)` from `PlatformScript_BaseAddress + $A(a4)` and arming the first script command",
+    );
+
+    let special = ActivePlatform::from_placement(
+        &PlatformPlacement {
+            x: 24,
+            y: 25,
+            buffer_left: 0,
+            buffer_right: 40,
+            buffer_top: 0,
+            buffer_bottom: 19,
+            kind: 0x80,
+            subtype: 2,
+            h_variant: 3,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        },
+        Some(&script_table),
+    );
+    assert_eq!(
+        special.script, None,
+        "ASM loc_2836 should branch special platforms with bit 7 set to `loc_2876`, so the native gameplay model must leave motion scripting unset for `relative_offset: None` placements",
+    );
+}
+
+#[test]
 fn platform_script_moves_platform() {
     use std::collections::BTreeMap;
     let mut scripts = BTreeMap::new();
