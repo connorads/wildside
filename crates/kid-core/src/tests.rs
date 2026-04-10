@@ -44,6 +44,7 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
+    BackgroundScrollEnigmaRowSourceLoc303D4, BackgroundScrollEnigmaRowTransferLoc303D4,
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
     BackgroundScrollStripeHorizontalGateLoc3023C,
@@ -85,8 +86,9 @@ use crate::level::{
     apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, background_scroll_lower_pass_loop_loc_30066,
-    background_scroll_lower_pass_resume_loc_30054, background_scroll_lower_pass_setup_loc_3001E,
+    background_row_pointers_loc_11B7A, background_scroll_enigma_row_transfer_loc_303D4,
+    background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
+    background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2523,6 +2525,65 @@ fn transfer_scroll_data_dispatch_loc_3039c_selects_piece_or_enigma_renderers_aft
             renderer: TransferScrollDataRendererLoc3039C::EnigmaSub303BA,
         },
         "ASM loc_3039C should branch to `sub_303BA` instead of the piece renderer pair when `Background_format` is non-zero",
+    );
+}
+
+#[test]
+fn background_scroll_enigma_row_transfer_loc_303d4_uses_the_lower_decompression_pair_below_row_1c()
+{
+    let background_row_table = [0, 0x12, 0x00];
+
+    assert_eq!(
+        background_scroll_enigma_row_transfer_loc_303D4(0, 0, &background_row_table),
+        Some(BackgroundScrollEnigmaRowTransferLoc303D4 {
+            map_header_byte_offset: 1,
+            background_row_index: 0x12,
+            row_mapping_byte_offset: 0x0480,
+            vdp_control_word: 0x6000,
+            vdp_autoincrement_word: 3,
+            source: BackgroundScrollEnigmaRowSourceLoc303D4::LowerDecompressionBuffer,
+            primary_decompression_byte_offset: 0x0480,
+            secondary_decompression_byte_offset: 0x0B80,
+            longword_rows: 8,
+        }),
+        "ASM loc_303D4 should read `1(a0,d0.w)`, keep rows below `$1C` on the lower decompression pair, and seed plane B with `$6000 | ((d0 & $1F) << 7)` plus autoincrement `#3`",
+    );
+}
+
+#[test]
+fn background_scroll_enigma_row_transfer_loc_303d4_biases_desert_tables_and_uses_the_upper_bank_at_row_1c()
+ {
+    let background_row_table = [0, 0x00, 0x1C, 0x00];
+
+    assert_eq!(
+        background_scroll_enigma_row_transfer_loc_303D4(1, 5, &background_row_table),
+        Some(BackgroundScrollEnigmaRowTransferLoc303D4 {
+            map_header_byte_offset: 3,
+            background_row_index: 0,
+            row_mapping_byte_offset: 0,
+            vdp_control_word: 0x6080,
+            vdp_autoincrement_word: 3,
+            source: BackgroundScrollEnigmaRowSourceLoc303D4::LowerDecompressionBuffer,
+            primary_decompression_byte_offset: 0,
+            secondary_decompression_byte_offset: 0x0700,
+            longword_rows: 8,
+        }),
+        "ASM loc_303D4 should add the Desert byte bias before `move.b 1(a0,d0.w),d1`, so tile row 1 reads the third payload byte",
+    );
+    assert_eq!(
+        background_scroll_enigma_row_transfer_loc_303D4(0, 5, &background_row_table),
+        Some(BackgroundScrollEnigmaRowTransferLoc303D4 {
+            map_header_byte_offset: 2,
+            background_row_index: 0x1C,
+            row_mapping_byte_offset: 0x0700,
+            vdp_control_word: 0x6000,
+            vdp_autoincrement_word: 3,
+            source: BackgroundScrollEnigmaRowSourceLoc303D4::UpperDecompressionBuffer,
+            primary_decompression_byte_offset: 0x0700,
+            secondary_decompression_byte_offset: 0x0700,
+            longword_rows: 8,
+        }),
+        "ASM loc_303D4 should branch to `loc_3041C` once the row byte reaches `$1C`, reusing the upper decompression bank for both passes",
     );
 }
 

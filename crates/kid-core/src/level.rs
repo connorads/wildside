@@ -7648,6 +7648,25 @@ pub(crate) struct TransferScrollDataDispatchLoc3039C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundScrollEnigmaRowSourceLoc303D4 {
+    LowerDecompressionBuffer,
+    UpperDecompressionBuffer,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
+    pub(crate) map_header_byte_offset: usize,
+    pub(crate) background_row_index: u8,
+    pub(crate) row_mapping_byte_offset: usize,
+    pub(crate) vdp_control_word: u16,
+    pub(crate) vdp_autoincrement_word: u16,
+    pub(crate) source: BackgroundScrollEnigmaRowSourceLoc303D4,
+    pub(crate) primary_decompression_byte_offset: usize,
+    pub(crate) secondary_decompression_byte_offset: usize,
+    pub(crate) longword_rows: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDmaTailLoc300D2 {
     pub(crate) second_vsram_word: i16,
     pub(crate) dma_source_addr: u32,
@@ -7908,6 +7927,51 @@ pub(crate) fn transfer_scroll_data_dispatch_loc_3039C(
         computes_shift_layers: true,
         renderer,
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
+    tile_row: u16,
+    background_theme: u16,
+    background_row_table: &[u8],
+) -> Option<BackgroundScrollEnigmaRowTransferLoc303D4> {
+    // ASM loc_303D4 (kid.asm:34017): after the caller decides whether the row
+    // index needs the preceding `addi.w #$1C,d0`, the common tail reloads the
+    // map-header row table from `Addr_MapHeader+$14`, biases Desert tables by
+    // one extra byte, reads `1(a0,d0.w)`, then seeds plane-B VRAM with
+    // `$6000 | ((d0 & $1F) << 7)` and autoincrement `#3`. Row indices below
+    // `$1C` read paired strips from `$FFFF87B2` and `$FFFF8EB2` (`+$700`);
+    // indices at or above `$1C` read both passes from `$FFFF8EB2`.
+    let desert_bias = usize::from(background_theme == 5);
+    let map_header_byte_offset = usize::from(tile_row).wrapping_add(1 + desert_bias);
+    let background_row_index = *background_row_table.get(map_header_byte_offset)?;
+    let row_mapping_byte_offset = usize::from(background_row_index) << 6;
+    let source = if background_row_index < 0x1C {
+        BackgroundScrollEnigmaRowSourceLoc303D4::LowerDecompressionBuffer
+    } else {
+        BackgroundScrollEnigmaRowSourceLoc303D4::UpperDecompressionBuffer
+    };
+    let (primary_decompression_byte_offset, secondary_decompression_byte_offset) = match source {
+        BackgroundScrollEnigmaRowSourceLoc303D4::LowerDecompressionBuffer => {
+            (row_mapping_byte_offset, row_mapping_byte_offset + 0x0700)
+        }
+        BackgroundScrollEnigmaRowSourceLoc303D4::UpperDecompressionBuffer => {
+            (row_mapping_byte_offset, row_mapping_byte_offset)
+        }
+    };
+
+    Some(BackgroundScrollEnigmaRowTransferLoc303D4 {
+        map_header_byte_offset,
+        background_row_index,
+        row_mapping_byte_offset,
+        vdp_control_word: 0x6000 | ((tile_row & 0x001F) << 7),
+        vdp_autoincrement_word: 3,
+        source,
+        primary_decompression_byte_offset,
+        secondary_decompression_byte_offset,
+        longword_rows: 8,
+    })
 }
 
 #[allow(non_snake_case)]
