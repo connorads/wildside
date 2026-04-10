@@ -7662,6 +7662,16 @@ pub(crate) struct TransferScrollDataStormSetupLoc30158 {
     pub(crate) second_h_scroll_word: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TransferScrollDataStormLoopLoc30172 {
+    pub(crate) h_scroll_word_pairs: u16,
+    pub(crate) first_h_scroll_word: i16,
+    pub(crate) second_h_scroll_word: i16,
+    pub(crate) first_vsram_word: i16,
+    pub(crate) second_vsram_word: i16,
+    pub(crate) next_storm_scroll_offset: i16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7901,6 +7911,27 @@ pub(crate) fn transfer_scroll_data_storm_setup_loc_30158(
         h_scroll_word_pairs: 0x00DF + 1,
         first_h_scroll_word: storm_scroll_offset,
         second_h_scroll_word: camera_x_pos.wrapping_neg(),
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn transfer_scroll_data_storm_loop_loc_30172(
+    camera_x_pos: i16,
+    camera_y_pos: i16,
+    storm_scroll_offset: i16,
+) -> TransferScrollDataStormLoopLoc30172 {
+    // ASM loc_30172 / loc_3017E (kid.asm:33726): the alternate storm loop
+    // writes `($FFFFFAD8).w` first and `-Camera_X_pos` second for each of the
+    // `$DF+1` pairs, then mirrors `Camera_Y_pos` into both VSRAM slots before
+    // subtracting 8 from `($FFFFFAD8).w`.
+    TransferScrollDataStormLoopLoc30172 {
+        h_scroll_word_pairs: 0x00DF + 1,
+        first_h_scroll_word: storm_scroll_offset,
+        second_h_scroll_word: camera_x_pos.wrapping_neg(),
+        first_vsram_word: camera_y_pos,
+        second_vsram_word: camera_y_pos,
+        next_storm_scroll_offset: storm_scroll_offset.wrapping_sub(8),
     }
 }
 

@@ -67,21 +67,21 @@ use crate::level::{
     ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA,
     SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
     TransferScrollDataDmaTailLoc300D2, TransferScrollDataStormLoc30110,
-    TransferScrollDataStormLoopLoc30130, TransferScrollDataStormSetupLoc30158,
-    TransferScrollDataVsramSetupLoc300BA, apply_background_palette_override_loc_11E04,
-    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, background_scroll_lower_pass_loop_loc_30066,
-    background_scroll_lower_pass_resume_loc_30054, background_scroll_lower_pass_setup_loc_3001E,
-    background_scroll_upper_pass_loc_2FFE8, background_scroll_upper_pass_resume_loc_30014,
-    blend_palette_entry_loc_1538, blend_selected_palette_entries_sub_1536,
-    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
-    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
-    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
-    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
-    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
-    block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    TransferScrollDataStormLoopLoc30130, TransferScrollDataStormLoopLoc30172,
+    TransferScrollDataStormSetupLoc30158, TransferScrollDataVsramSetupLoc300BA,
+    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
+    background_scroll_lower_pass_setup_loc_3001E, background_scroll_upper_pass_loc_2FFE8,
+    background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
+    blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
+    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
+    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
+    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
+    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
+    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -117,7 +117,8 @@ use crate::level::{
     step_palette_fade_out_loc_28C6, swap_forest_background_palette_entries_sub_129AE,
     terrain_layout_row_pointers_loc_11B40, transfer_scroll_data_dma_tail_loc_300D2,
     transfer_scroll_data_storm_loc_30110, transfer_scroll_data_storm_loop_loc_30130,
-    transfer_scroll_data_storm_setup_loc_30158, transfer_scroll_data_vsram_setup_loc_300BA,
+    transfer_scroll_data_storm_loop_loc_30172, transfer_scroll_data_storm_setup_loc_30158,
+    transfer_scroll_data_vsram_setup_loc_300BA,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -2492,6 +2493,22 @@ fn transfer_scroll_data_storm_setup_loc_30158_prepares_the_reversed_storm_loop_i
             second_h_scroll_word: -0x0123,
         },
         "ASM loc_30158 should seed `d1=#$DF`, load `d2=($FFFFFAD8).w`, negate `Camera_X_pos`, and enter the reversed horizontal-scroll upload with storm-offset-first ordering",
+    );
+}
+
+#[test]
+fn transfer_scroll_data_storm_loop_loc_30172_writes_storm_offset_first_and_mirrors_camera_y() {
+    assert_eq!(
+        transfer_scroll_data_storm_loop_loc_30172(0x0123, 0x0045, 0x0100),
+        TransferScrollDataStormLoopLoc30172 {
+            h_scroll_word_pairs: 0x00E0,
+            first_h_scroll_word: 0x0100,
+            second_h_scroll_word: -0x0123,
+            first_vsram_word: 0x0045,
+            second_vsram_word: 0x0045,
+            next_storm_scroll_offset: 0x00F8,
+        },
+        "ASM loc_30172 should stream `($FFFFFAD8).w` before `-Camera_X_pos` for each pair, then loc_3017E should mirror `Camera_Y_pos` into both VSRAM slots before subtracting 8 from the storm offset",
     );
 }
 
