@@ -26267,6 +26267,25 @@ fn kid_object_stomp_object_writeback_loc_1d46_marks_the_enemy_as_kidbelow() {
 }
 
 #[test]
+fn kid_object_stomp_player_writeback_loc_1d4c_copies_kidbelow_and_enemy_flags_into_the_player_slot()
+{
+    let stomp = crate::trace::kid_object_stomp_player_writeback_loc_1D4C(0xC02A);
+
+    assert_eq!(
+        stomp.player_collision_label, "kidbelow",
+        "ASM loc_1D4C (kid.asm:3515) should write `colid_kidbelow` into `$38(a0)` on the stomp path",
+    );
+    assert_eq!(
+        stomp.player_collision_flags, 0xC02A,
+        "ASM loc_1D4C should copy the raw enemy collision flags from `$3A(a2)` into `$3A(a0)` before `loc_1D00` masks them",
+    );
+    assert!(
+        stomp.branches_to_invulnerability_gate,
+        "ASM loc_1D4C should branch straight into `loc_1D00` after the stomp writeback",
+    );
+}
+
+#[test]
 fn kid_object_invulnerability_gate_loc_1d00_leaves_non_invulnerable_or_large_payload_hits_untouched()
  {
     let vulnerable = crate::trace::kid_object_invulnerability_gate_loc_1D00(false, 0x0010, 0xC063);

@@ -73,6 +73,14 @@ pub(crate) struct KidObjectStompObjectWritebackLoc1D46 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidObjectStompPlayerWritebackLoc1D4C {
+    pub(crate) player_collision_label: &'static str,
+    pub(crate) player_collision_flags: u16,
+    pub(crate) branches_to_invulnerability_gate: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_object_collision_writeback_loc_1CF2(
     relation: KidObjectRelation,
@@ -101,6 +109,22 @@ pub(crate) fn kid_object_stomp_object_writeback_loc_1D46() -> KidObjectStompObje
     // player-side writeback at `loc_1D4C`.
     KidObjectStompObjectWritebackLoc1D46 {
         object_collision_label: KidObjectRelation::Below.as_debug_label(),
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn kid_object_stomp_player_writeback_loc_1D4C(
+    object_collision_flags: u16,
+) -> KidObjectStompPlayerWritebackLoc1D4C {
+    // ASM loc_1D4C (kid.asm:3515): the stomp path writes `colid_kidbelow` into
+    // the player's `$38(a0)`, copies the enemy's raw `$3A(a2)` flags into
+    // `$3A(a0)`, then branches straight into the shared invulnerability gate at
+    // `loc_1D00`.
+    KidObjectStompPlayerWritebackLoc1D4C {
+        player_collision_label: KidObjectRelation::Below.as_debug_label(),
+        player_collision_flags: object_collision_flags,
+        branches_to_invulnerability_gate: true,
     }
 }
 
