@@ -1564,7 +1564,12 @@ fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16
         // scan finds no clear cell, the routine preserves the blocked-row class
         // by returning with `d6=0`.
         0
-    } else if words.iter().any(|word| word & 0x4000 != 0) {
+    } else if words.iter().any(|word| {
+        // ASM loc_36A40 (kid.asm:38213): when the entry word is clear, keep
+        // advancing with `move.w (a1)+,d0` until a later cell sets bit
+        // `$4000`, then branch to the shared mixed-row exit at `loc_36A36`.
+        word & 0x4000 != 0
+    }) {
         1
     } else {
         -1
@@ -3311,6 +3316,16 @@ mod tests {
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000, 0x0000, 0x6000]),
             1,
             "ASM loc_36A20 should keep scanning after the blocked entry word and return `d6=1` once a later word in the same row clears bit `$4000`",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_following_row_class_loc_36a40_scans_past_a_clear_entry_until_a_later_blocked_word()
+     {
+        assert_eq!(
+            horizontal_collision_scan_following_row_class_loc_36A10(&[0x0000, 0x0000, 0x4000]),
+            1,
+            "ASM loc_36A40 should keep scanning after a clear entry word and reach the shared mixed-row exit once a later word sets bit `$4000`",
         );
     }
 
