@@ -18668,6 +18668,62 @@ fn platform_script_moves_platform() {
     assert_eq!(platform.script.unwrap().command_index, 0);
 }
 
+#[test]
+fn platform_step_script_loc_23f2_applies_the_current_velocity_before_reloading_script_state() {
+    use std::collections::BTreeMap;
+
+    let mut scripts = BTreeMap::new();
+    scripts.insert(
+        0x0000,
+        kid_data::PlatformScript {
+            commands: vec![
+                kid_data::PlatformMoveCommand {
+                    duration: 1,
+                    x_velocity: 0x1_0000,
+                    y_velocity: 0,
+                },
+                kid_data::PlatformMoveCommand {
+                    duration: 4,
+                    x_velocity: -0x2_0000,
+                    y_velocity: 0,
+                },
+            ],
+        },
+    );
+    let table = kid_data::PlatformScriptTable { scripts };
+
+    let mut platform = ActivePlatform {
+        x_pos: 100 << 16,
+        y_pos: 50 << 16,
+        width_px: 47,
+        height_px: 15,
+        x_velocity: 0,
+        y_velocity: 0,
+        script: Some(PlatformScriptState {
+            script_offset: 0,
+            command_index: 0,
+            remaining_duration: 1,
+        }),
+    };
+
+    platform.step_script(&table);
+
+    assert_eq!(
+        platform.x_pos,
+        101 << 16,
+        "ASM loc_23F2 (kid.asm:4269) adds `$A(a2)` into `2(a2)` before the duration countdown can fall through into the script reload path",
+    );
+    assert_eq!(
+        platform.script,
+        Some(PlatformScriptState {
+            script_offset: 0,
+            command_index: 1,
+            remaining_duration: 4,
+        }),
+        "ASM loc_23F2 should leave the platform armed with the next command after the terminal tick finishes",
+    );
+}
+
 // --- Platform collision targeted mutation tests ---
 // Tests below target surviving mutants from cargo-mutants on platforms.rs.
 // Each test name references the line/mutation it catches.
