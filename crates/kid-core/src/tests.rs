@@ -19142,6 +19142,19 @@ fn positive_platform_carry_loc_26a2_clamps_negative_velocity_and_restarts_scan()
 }
 
 #[test]
+fn negative_platform_carry_loc_26b6_clamps_positive_velocity_and_escalates_on_opposite_wall() {
+    assert_eq!(
+        negative_platform_carry_loc_26B6(0x2_0000, true),
+        NegativePlatformCarryLoc26B6 {
+            carried_x_velocity_fp: 0,
+            touched_left_wall: true,
+            escalates_to_loc_271_a: true,
+        },
+        "ASM loc_26B6 (kid.asm:4601) should clamp positive `$A(a2)` to zero, set `$FFFFFAA2`, and jump to `loc_271A` once `$FFFFFAA3` is already set",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
