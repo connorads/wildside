@@ -7282,10 +7282,12 @@ pub(crate) fn step_palette_fade_out_loc_28C6(
     pending_palette_0_mask: u32,
     pending_palette_1_mask: u32,
 ) -> PaletteFadeOutStepLoc28C6 {
-    // ASM loc_28C6 / loc_28DE (kid.asm:4827): after the VBlank refresh and
-    // palette upload, subtract `$10` from `$FFFFF876`. Non-negative results
-    // reseed both pending palette masks with `-1` and loop for another fade
-    // frame.
+    // ASM loc_28C6 / loc_28DE / loc_28EA (kid.asm:4827): after the VBlank
+    // refresh and palette upload, subtract `$10` from `$FFFFF876`.
+    // Non-negative results reseed both pending palette masks with `-1` and
+    // loop for another fade frame. Negative results branch to `loc_28EA`,
+    // which performs one final VBlank refresh and returns without rewriting
+    // either pending palette mask.
     let fade_progress = fade_progress.wrapping_sub(0x10);
     if (fade_progress as i16) < 0 {
         return PaletteFadeOutStepLoc28C6 {

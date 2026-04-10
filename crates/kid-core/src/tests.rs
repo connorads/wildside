@@ -1210,6 +1210,20 @@ fn step_palette_fade_out_loc_28c6_reseeds_both_pending_masks_while_the_fade_stay
 }
 
 #[test]
+fn step_palette_fade_out_loc_28c6_preserves_pending_masks_when_it_branches_to_loc_28ea() {
+    assert_eq!(
+        step_palette_fade_out_loc_28C6(0x0000, 0x1234_5678, 0x9ABC_DEF0),
+        PaletteFadeOutStepLoc28C6 {
+            fade_progress: 0xFFF0,
+            pending_palette_0_mask: 0x1234_5678,
+            pending_palette_1_mask: 0x9ABC_DEF0,
+            continue_fading: false,
+        },
+        "ASM loc_28EA (kid.asm:4842) should only run the final VBlank refresh and return after `subi.w #$10,($FFFFF876).w` underflows, so the branch out of `loc_28C6` must preserve the existing pending palette masks",
+    );
+}
+
+#[test]
 fn sub_73d0_only_finishes_after_the_seventeenth_fade_refresh_frame() {
     let mut state = initialise_fullscreen_palette_fade_sub_73D0([0x0000; 0x40], 0x0000);
     let mut completed_on = None;
