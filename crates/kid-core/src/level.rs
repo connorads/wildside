@@ -8205,6 +8205,30 @@ pub(crate) fn background_scroll_stripe_horizontal_pass_loc_30296(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeVerticalColumnTransferLoc30354 {
+    pub(crate) mapping_index: u16,
+    pub(crate) tile_longword: u32,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_vertical_column_transfer_loc_30354(
+    layout_word: u16,
+    mapping_mask: u16,
+    primary_mapping_longword: u32,
+) -> BackgroundScrollStripeVerticalColumnTransferLoc30354 {
+    // ASM loc_30354 (kid.asm:33950): after `move.w (a3)+,d3` keeps the layout
+    // word non-negative and `btst d2,d3` sees bit 8 clear, the loop masks the
+    // layout index with `and.w d4,d3`, shifts it by three bytes of mapping-pair
+    // stride, and copies the selected primary-table longword from `(a1,d3.w)`
+    // straight to `(a6)` without ORing in the `$8000` priority bits.
+    BackgroundScrollStripeVerticalColumnTransferLoc30354 {
+        mapping_index: (layout_word & mapping_mask) << 3,
+        tile_longword: primary_mapping_longword,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollStripeHorizontalRowTransferLoc3031A {
     pub(crate) tile_words: [u16; 2],
 }

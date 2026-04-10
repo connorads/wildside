@@ -54,6 +54,7 @@ use crate::level::{
     BackgroundScrollStripeHorizontalRowTransferLoc3031A,
     BackgroundScrollStripeHorizontalRowTransferSource, BackgroundScrollStripeLayoutSeedLoc301D8,
     BackgroundScrollStripeRightWindowLoc301F6, BackgroundScrollStripeRowSelectionLoc301CE,
+    BackgroundScrollStripeVerticalColumnTransferLoc30354,
     BackgroundScrollStripeVerticalPassLoc301FE, BackgroundScrollUpperPassLoc2FFE8,
     BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
     BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504, BlockLayoutEntryWordsLoc133B2,
@@ -94,6 +95,7 @@ use crate::level::{
     background_scroll_stripe_restore_camera_column_loc_3023A,
     background_scroll_stripe_right_window_loc_301F6,
     background_scroll_stripe_row_selection_loc_301CE,
+    background_scroll_stripe_vertical_column_transfer_loc_30354,
     background_scroll_stripe_vertical_pass_loc_301FE, background_scroll_upper_pass_loc_2FFE8,
     background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
     blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
@@ -2795,6 +2797,19 @@ fn background_scroll_stripe_horizontal_pass_loc_30296_skips_the_wrap_pass_when_d
             second_pass_vdp_command: None,
         },
         "ASM loc_30296 should branch to loc_302E2 after the first `sub_302F6` call when `d2` remains negative, leaving no wraparound VDP command to issue",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_vertical_column_transfer_loc_30354_keeps_clear_bit8_words_on_the_primary_longword()
+ {
+    assert_eq!(
+        background_scroll_stripe_vertical_column_transfer_loc_30354(0x0027, 0x00FF, 0x1357_2468),
+        BackgroundScrollStripeVerticalColumnTransferLoc30354 {
+            mapping_index: 0x0138,
+            tile_longword: 0x1357_2468,
+        },
+        "ASM loc_30354 should keep non-negative, clear-bit-8 layout words on `(a1,d3.w)`, preserve the masked `(d3 & d4) << 3` longword index, and stream that primary mapping longword to `(a6)` unchanged",
     );
 }
 
