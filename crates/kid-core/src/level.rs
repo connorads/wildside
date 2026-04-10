@@ -8000,6 +8000,27 @@ pub(crate) fn background_scroll_stripe_layout_seed_loc_301D8(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeRightWindowLoc301F6 {
+    pub(crate) copy_columns: u16,
+    pub(crate) initial_column_bias: i16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_right_window_loc_301F6(
+    half_column_mod32: u16,
+) -> BackgroundScrollStripeRightWindowLoc301F6 {
+    // ASM loc_301F6 (kid.asm:33787): once `loc_301D8` branches here, `d0`
+    // already holds `(Camera_X_pos>>4) & $1F`. The routine flips the span with
+    // `moveq #$1F,d1; sub.w d0,d1`, then derives the starting bias from
+    // `moveq #$13,d2; sub.w d1,d2`, which simplifies to `d2 = d0 - $C`.
+    BackgroundScrollStripeRightWindowLoc301F6 {
+        copy_columns: 0x001F_u16.wrapping_sub(half_column_mod32),
+        initial_column_bias: i16::try_from(half_column_mod32).unwrap_or(i16::MAX) - 0x000C,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(

@@ -46,14 +46,15 @@ use crate::level::{
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
-    BackgroundScrollStripeLayoutSeedLoc301D8, BackgroundScrollStripeRowSelectionLoc301CE,
-    BackgroundScrollUpperPassLoc2FFE8, BackgroundScrollUpperPassResumeLoc30014,
-    BlockLayoutDecodeWordsLoc1354E, BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504,
-    BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E,
-    BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0,
-    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
-    BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
-    BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
+    BackgroundScrollStripeLayoutSeedLoc301D8, BackgroundScrollStripeRightWindowLoc301F6,
+    BackgroundScrollStripeRowSelectionLoc301CE, BackgroundScrollUpperPassLoc2FFE8,
+    BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
+    BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504, BlockLayoutEntryWordsLoc133B2,
+    BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E,
+    BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE,
+    BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E,
+    BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C, BlockLayoutRepeatWordsLoc1351E,
+    BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
     DecompressToVramSpecialReturnLoc143B2, FgPlaneCustomWriteSub1596,
     FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680,
@@ -76,6 +77,7 @@ use crate::level::{
     background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E, background_scroll_stripe_layout_seed_loc_301D8,
+    background_scroll_stripe_right_window_loc_301F6,
     background_scroll_stripe_row_selection_loc_301CE, background_scroll_upper_pass_loc_2FFE8,
     background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
     blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
@@ -2571,6 +2573,30 @@ fn background_scroll_stripe_layout_seed_loc_301d8_branches_to_loc_301f6_once_the
             initial_column_bias: None,
         }),
         "ASM loc_301D8 should branch away to loc_301F6 as soon as `andi.w #$1F,d0` reaches `$C`, skipping the left-window `moveq #$14,d1` / `moveq #-1,d2` seeds",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_right_window_loc_301f6_starts_the_right_half_at_column_twelve() {
+    assert_eq!(
+        background_scroll_stripe_right_window_loc_301F6(0x000C),
+        BackgroundScrollStripeRightWindowLoc301F6 {
+            copy_columns: 0x0013,
+            initial_column_bias: 0,
+        },
+        "ASM loc_301F6 should turn half-column `$C` into `d1=$13` remaining copies and `d2=0` starting bias for the right-half window",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_right_window_loc_301f6_shrinks_the_span_towards_the_chunk_edge() {
+    assert_eq!(
+        background_scroll_stripe_right_window_loc_301F6(0x001F),
+        BackgroundScrollStripeRightWindowLoc301F6 {
+            copy_columns: 0,
+            initial_column_bias: 0x0013,
+        },
+        "ASM loc_301F6 should reduce `d1` to zero and raise `d2` to `$13` when the masked half-column already sits at the rightmost chunk edge",
     );
 }
 
