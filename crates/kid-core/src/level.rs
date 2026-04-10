@@ -6092,6 +6092,11 @@ pub(crate) fn enemy_layout_reset_and_seek_loc_31F8E(
     // at the first threshold strictly above the active camera word. The
     // stored header pointer therefore lands on the matched record's
     // pre-threshold word.
+    // ASM loc_31FE6 (kid.asm:37401): after the skip loop stops, the ROM
+    // stores the matched threshold into `EnemyHeader7D`, rewinds `a0` by
+    // eight bytes to recover the previous threshold into `$FFFFF93C`, and
+    // reanchors `Addr_EnemyLayoutHeader` on that matched record before
+    // loading the batch count from `(a1)+`.
     let (active_camera_word, uses_vertical_axis) = if input.axis_selector_word == 0 {
         (input.camera_x_pos, false)
     } else {

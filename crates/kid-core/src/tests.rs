@@ -4075,6 +4075,38 @@ fn enemy_layout_reset_and_seek_loc_31fd4_skips_equal_thresholds_and_advances_lay
 }
 
 #[test]
+fn enemy_layout_reset_and_seek_loc_31fe6_reanchors_the_header_cursor_on_the_matched_record() {
+    let result = enemy_layout_reset_and_seek_loc_31F8E(
+        EnemyLayoutResetAndSeekInputLoc31F8E {
+            enemy_layout_header_addr: 0x0001_2000,
+            enemy_layout_addr: 0x0001_4000,
+            previous_header_threshold: 0x0010,
+            axis_selector_word: 0,
+            camera_x_pos: 0x0040,
+            camera_y_pos: 0x0000,
+        },
+        &[0x0020, 0x0040, 0x0060],
+        &[1, 4, 2],
+    )
+    .expect(
+        "the third header should remain active once the camera passes the first two thresholds",
+    );
+
+    assert_eq!(
+        result.current_header_threshold, 0x0060,
+        "ASM loc_31FE6 should copy the threshold at the stopped `a0` position into `EnemyHeader7D` before rewinding the header cursor",
+    );
+    assert_eq!(
+        result.previous_header_threshold, 0x0040,
+        "ASM loc_31FE6 should `suba.l #8,a0` and reload the preceding threshold word into `$FFFFF93C`",
+    );
+    assert_eq!(
+        result.enemy_layout_header_addr, 0x0001_2012,
+        "ASM loc_31FE6 should leave `Addr_EnemyLayoutHeader` pointing at the matched record's pre-threshold word after the rewind",
+    );
+}
+
+#[test]
 fn enemy_layout_reset_and_seek_loc_31f8e_clears_status_words_and_advances_until_the_first_threshold_above_the_camera_word()
  {
     assert_eq!(
