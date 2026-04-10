@@ -26960,6 +26960,49 @@ fn end_sequence_falling_sprite_init_sub_1d8b4_keeps_full_v_int_delay_and_121_fra
 }
 
 #[test]
+fn loc_1d226_end_sequence_spawn_loop_seeds_three_falling_sprites_from_word_1d83a() {
+    let spawn_loop = crate::boot::end_sequence_falling_sprite_spawn_loop_loc_1D226();
+
+    assert_eq!(
+        spawn_loop.object_slot_flags, 0x6000,
+        "ASM loc_1D226 (kid.asm:32611-32619) should load `a0 = $6000` before each `j_Allocate_ObjectSlot` call",
+    );
+    assert_eq!(
+        spawn_loop.callback_label, "sub_1D8B4",
+        "ASM loc_1D226 should seed each allocated worker with callback `sub_1D8B4`",
+    );
+    assert_eq!(
+        spawn_loop.loop_seed, 0x0002,
+        "ASM loc_1D226 should start the DBF loop from `d0 = 2`",
+    );
+    assert_eq!(
+        spawn_loop.iterations, 0x0003,
+        "ASM loc_1D226's `dbf d0,loc_1D226` should allocate exactly three falling sprites",
+    );
+    assert_eq!(
+        spawn_loop.spawn_inputs,
+        [
+            crate::boot::EndSequenceFallingSpriteSpawnInput {
+                x_pos: 0x00AF,
+                y_pos: 0x0064,
+                sprite_mapping: 0x1268,
+            },
+            crate::boot::EndSequenceFallingSpriteSpawnInput {
+                x_pos: 0x0099,
+                y_pos: 0x007F,
+                sprite_mapping: 0x126C,
+            },
+            crate::boot::EndSequenceFallingSpriteSpawnInput {
+                x_pos: 0x008C,
+                y_pos: 0x005A,
+                sprite_mapping: 0x1270,
+            },
+        ],
+        "ASM loc_1D226 should read the three x/y pairs from `word_1D83A` and increment `d1` by 4 each spawn (`$1268,$126C,$1270`)",
+    );
+}
+
+#[test]
 fn prize_10000_points_star_spawn_loc_10b3a_uses_the_first_mapping_only_on_frame_zero() {
     let spawn = prize_10000_points_star_spawn_loc_10B3A(0, 0x0123, 0x0045)
         .expect("frame 0 should spawn the first prize star");

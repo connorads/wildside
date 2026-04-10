@@ -2892,6 +2892,55 @@ pub(crate) fn end_sequence_falling_sprite_init_sub_1D8B4(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceFallingSpriteSpawnInput {
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) sprite_mapping: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceFallingSpriteSpawnLoopLoc1D226 {
+    pub(crate) object_slot_flags: u16,
+    pub(crate) callback_label: &'static str,
+    pub(crate) loop_seed: u16,
+    pub(crate) iterations: u16,
+    pub(crate) spawn_inputs: [EndSequenceFallingSpriteSpawnInput; 3],
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_falling_sprite_spawn_loop_loc_1D226()
+-> EndSequenceFallingSpriteSpawnLoopLoc1D226 {
+    // ASM loc_1D226 (kid.asm:32611-32619): point `a4` at `word_1D83A`,
+    // start `d0 = 2` / `d1 = $1268`, then each `dbf d0,loc_1D226` pass sets
+    // `a0 = $6000`, calls `j_Allocate_ObjectSlot`, writes callback
+    // `#sub_1D8B4`, copies one x/y pair from `word_1D83A`, stores the current
+    // `d1` sprite word at `$48(a0)`, and `addq.w #4,d1` for the next spawn.
+    const WORD_1D83A_PAIRS: [(u16, u16); 3] =
+        [(0x00AF, 0x0064), (0x0099, 0x007F), (0x008C, 0x005A)];
+    let mut sprite_mapping = 0x1268;
+    let spawn_inputs = WORD_1D83A_PAIRS.map(|(x_pos, y_pos)| {
+        let input = EndSequenceFallingSpriteSpawnInput {
+            x_pos,
+            y_pos,
+            sprite_mapping,
+        };
+        sprite_mapping += 4;
+        input
+    });
+
+    EndSequenceFallingSpriteSpawnLoopLoc1D226 {
+        object_slot_flags: 0x6000,
+        callback_label: "sub_1D8B4",
+        loop_seed: 0x0002,
+        iterations: 0x0003,
+        spawn_inputs,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn prize_10000_points_star_spawn_loc_10B3A(
