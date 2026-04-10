@@ -249,6 +249,14 @@ pub(crate) struct NegativePlatformCarryLoc26B6 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct NegativePlatformCarryCommitLoc26C0 {
+    pub(crate) carried_x_velocity_fp: i32,
+    pub(crate) touched_left_wall: bool,
+    pub(crate) escalates_to_loc_271_a: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn negative_platform_carry_loc_26B6(
     platform_x_velocity_fp: i32,
@@ -260,6 +268,22 @@ pub(crate) fn negative_platform_carry_loc_26B6(
     // was already set by the non-negative branch.
     NegativePlatformCarryLoc26B6 {
         carried_x_velocity_fp: platform_x_velocity_fp.min(0),
+        touched_left_wall: true,
+        escalates_to_loc_271_a: right_wall_already_touched,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn negative_platform_carry_commit_loc_26C0(
+    carried_x_velocity_fp: i32,
+    right_wall_already_touched: bool,
+) -> NegativePlatformCarryCommitLoc26C0 {
+    // ASM loc_26C0 (kid.asm:4606): write the already-chosen horizontal carry
+    // back to `$26(a0)`, set `$FFFFFAA2`, and jump to `loc_271A` only if the
+    // non-negative branch had already set `$FFFFFAA3`.
+    NegativePlatformCarryCommitLoc26C0 {
+        carried_x_velocity_fp,
         touched_left_wall: true,
         escalates_to_loc_271_a: right_wall_already_touched,
     }

@@ -19155,6 +19155,29 @@ fn negative_platform_carry_loc_26b6_clamps_positive_velocity_and_escalates_on_op
 }
 
 #[test]
+fn negative_platform_carry_commit_loc_26c0_sets_the_left_wall_flag_and_only_escalates_after_both_sides_hit()
+ {
+    assert_eq!(
+        negative_platform_carry_commit_loc_26C0(-0x1_0000, false),
+        NegativePlatformCarryCommitLoc26C0 {
+            carried_x_velocity_fp: -0x1_0000,
+            touched_left_wall: true,
+            escalates_to_loc_271_a: false,
+        },
+        "ASM loc_26C0 (kid.asm:4606) should store the chosen negative carry in `$26(a0)`, set `$FFFFFAA2`, and branch back to `loc_2590` while `$FFFFFAA3` is still clear",
+    );
+    assert_eq!(
+        negative_platform_carry_commit_loc_26C0(0, true),
+        NegativePlatformCarryCommitLoc26C0 {
+            carried_x_velocity_fp: 0,
+            touched_left_wall: true,
+            escalates_to_loc_271_a: true,
+        },
+        "ASM loc_26C0 should jump to `loc_271A` once the opposite-side probe has already set `$FFFFFAA3`",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
