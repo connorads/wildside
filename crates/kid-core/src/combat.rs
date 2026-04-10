@@ -2963,6 +2963,9 @@ pub(crate) fn kid_hitbox_from_collision_size_sub_21F8(
         let left_px = right_px.saturating_sub(collision_size.width_px);
         (left_px, right_px)
     };
+    // ASM loc_2232 (kid.asm:4060-4069): both facing branches rejoin here to
+    // add the top offset from `$1E(a0)`, extend by height, and write the four
+    // Kid hitbox edges from the shared `(d0,d1,d2,d3)` registers.
     let top_px = y_anchor_px.saturating_add(collision_size.top_offset_px);
     let bottom_px = top_px.saturating_add(collision_size.height_px);
 

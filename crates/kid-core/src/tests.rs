@@ -2153,6 +2153,26 @@ fn kid_hitbox_from_collision_size_sub_21f8_expands_non_mirrored_entries_from_lef
 }
 
 #[test]
+fn kid_hitbox_from_collision_size_sub_21f8_loc_2232_rejoins_for_shared_vertical_bounds() {
+    let hitbox = kid_hitbox_from_collision_size_sub_21F8(
+        collision_rect_sub_1f52(0, 0, 0, 0),
+        120,
+        80,
+        true,
+        Some(collision_size_entry_sub_21f8(-9, 14, -20, 35)),
+    );
+
+    assert_eq!(
+        hitbox.top_px, 60,
+        "ASM loc_2232 (kid.asm:4060) adds the shared top offset from `$1E(a0)` after either facing branch rejoins",
+    );
+    assert_eq!(
+        hitbox.bottom_px, 95,
+        "ASM loc_2232 then adds the shared height word to the top edge before storing `Kid_hitbox_bottom`",
+    );
+}
+
+#[test]
 fn kid_hitbox_from_collision_size_sub_21f8_loc_2228_mirrors_width_back_from_the_anchor_side() {
     let hitbox = kid_hitbox_from_collision_size_sub_21F8(
         collision_rect_sub_1f52(0, 0, 0, 0),
