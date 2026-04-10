@@ -6,6 +6,48 @@ pub(crate) struct ActivePlatformHandleSub2728 {
     pub(crate) layout_offset_words: u16,
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AllocatePlatformSlotSub238E {
+    pub(crate) allocated_slot_addr: u16,
+    pub(crate) next_free_platform_slot_addr: u16,
+    pub(crate) first_platform_slot_addr: u16,
+    pub(crate) number_platforms: u16,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AllocatePlatformSlotResultSub238E {
+    Allocated(AllocatePlatformSlotSub238E),
+    NoFreeSlot { failure_label: &'static str },
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn allocate_platform_slot_sub_238E(
+    next_free_platform_slot_addr: u16,
+    allocated_slot_next_addr: u16,
+    _first_platform_slot_addr: u16,
+    number_platforms: u16,
+) -> AllocatePlatformSlotResultSub238E {
+    // ASM sub_238E / loc_23AE (kid.asm:4214-4222): if the free-list head at
+    // `(Addr_NextFreePlatformSlot).w` is zero, jump straight to `loc_6E2`.
+    // Otherwise pop that slot, link it onto the front of the active list, and
+    // increment `(Number_Platforms).w`.
+    if next_free_platform_slot_addr == 0 {
+        AllocatePlatformSlotResultSub238E::NoFreeSlot {
+            failure_label: "loc_6E2",
+        }
+    } else {
+        AllocatePlatformSlotResultSub238E::Allocated(AllocatePlatformSlotSub238E {
+            allocated_slot_addr: next_free_platform_slot_addr,
+            next_free_platform_slot_addr: allocated_slot_next_addr,
+            first_platform_slot_addr: next_free_platform_slot_addr,
+            number_platforms: number_platforms.wrapping_add(1),
+        })
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn find_active_platform_by_layout_offset_sub_2728(

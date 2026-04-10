@@ -18827,6 +18827,31 @@ fn find_active_platform_by_layout_offset_sub_2728_returns_none_when_no_slot_matc
 }
 
 #[test]
+fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
+    assert_eq!(
+        allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
+        AllocatePlatformSlotResultSub238E::NoFreeSlot {
+            failure_label: "loc_6E2",
+        },
+        "ASM loc_23AE should jump to `loc_6E2` immediately when `(Addr_NextFreePlatformSlot).w` is zero",
+    );
+}
+
+#[test]
+fn allocate_platform_slot_sub_238e_pops_the_free_head_and_pushes_it_active() {
+    assert_eq!(
+        allocate_platform_slot_sub_238E(0xEDBA, 0xEDDC, 0xEE24, 3),
+        AllocatePlatformSlotResultSub238E::Allocated(AllocatePlatformSlotSub238E {
+            allocated_slot_addr: 0xEDBA,
+            next_free_platform_slot_addr: 0xEDDC,
+            first_platform_slot_addr: 0xEDBA,
+            number_platforms: 4,
+        }),
+        "ASM sub_238E should pop the current free-list head, install it as the new `(Addr_FirstPlatformSlot).w`, and increment `(Number_Platforms).w`",
+    );
+}
+
+#[test]
 fn platform_collision_shift_directions_matter() {
     // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
     // If >> became <<, pixel values would be wildly wrong and collision would fail.
