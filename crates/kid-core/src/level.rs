@@ -7668,6 +7668,16 @@ pub(crate) struct BackgroundScrollEnigmaPrimaryCopySetupLoc30426 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftDataSlotLoc30452 {
+    pub(crate) next_phase_word: u16,
+    pub(crate) updated_scroll_word: u16,
+    pub(crate) cached_previous_scroll_word: u16,
+    pub(crate) previous_tile_column: u16,
+    pub(crate) updated_tile_column: u16,
+    pub(crate) branches_to_loc_30476: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
     pub(crate) map_header_byte_offset: usize,
     pub(crate) background_row_index: u8,
@@ -8013,6 +8023,33 @@ pub(crate) fn background_scroll_enigma_secondary_longword_copy_loc_30432(
         .copied()
         .take((usize::from(dbf_counter) + 1) * 2)
         .collect()
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_shift_data_slot_loc_30452(
+    phase_word: u16,
+    previous_scroll_word: u16,
+    camera_x_pos: u16,
+) -> BackgroundScrollShiftDataSlotLoc30452 {
+    // ASM loc_30452 (kid.asm:34078): each slot starts by loading the prior
+    // scroll word from `4(a0)` into `d2`, then `lsr.w #1,d0`, caches that
+    // halved phase word in `a5`, adds `Camera_X_pos>>3`, stores the new word
+    // back to `4(a0)`, mirrors the previous word into `6(a0)`, and compares
+    // the old/new words again after logical `>>3` tile-column quantisation.
+    let next_phase_word = phase_word >> 1;
+    let updated_scroll_word = next_phase_word.wrapping_add(camera_x_pos >> 3);
+    let previous_tile_column = previous_scroll_word >> 3;
+    let updated_tile_column = updated_scroll_word >> 3;
+
+    BackgroundScrollShiftDataSlotLoc30452 {
+        next_phase_word,
+        updated_scroll_word,
+        cached_previous_scroll_word: previous_scroll_word,
+        previous_tile_column,
+        updated_tile_column,
+        branches_to_loc_30476: previous_tile_column == updated_tile_column,
+    }
 }
 
 #[allow(non_snake_case)]

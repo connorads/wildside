@@ -48,7 +48,7 @@ use crate::level::{
     BackgroundScrollEnigmaRowTableLookupLoc303EA, BackgroundScrollEnigmaRowTransferLoc303D4,
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
-    BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollShiftDataSlotLoc30452, BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
@@ -93,7 +93,7 @@ use crate::level::{
     background_scroll_enigma_row_transfer_loc_303D4,
     background_scroll_enigma_secondary_longword_copy_loc_30432,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
-    background_scroll_lower_pass_setup_loc_3001E,
+    background_scroll_lower_pass_setup_loc_3001E, background_scroll_shift_data_slot_loc_30452,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2620,6 +2620,23 @@ fn background_scroll_enigma_secondary_longword_copy_loc_30432_copies_two_longwor
         background_scroll_enigma_secondary_longword_copy_loc_30432(&source_longwords, 7),
         source_longwords[..16].to_vec(),
         "ASM loc_30432 should write two longwords before each `dbf d0,loc_30432` test, so `d0=#7` copies 16 secondary-stream longwords",
+    );
+}
+
+#[test]
+fn background_scroll_shift_data_slot_loc_30452_halves_the_phase_adds_camera_bias_and_caches_the_previous_word()
+ {
+    assert_eq!(
+        background_scroll_shift_data_slot_loc_30452(0x0015, 0x0058, 0x0020),
+        BackgroundScrollShiftDataSlotLoc30452 {
+            next_phase_word: 0x000A,
+            updated_scroll_word: 0x000E,
+            cached_previous_scroll_word: 0x0058,
+            previous_tile_column: 0x000B,
+            updated_tile_column: 0x0001,
+            branches_to_loc_30476: false,
+        },
+        "ASM loc_30452 should `lsr.w #1,d0`, save that halved phase in `a5`, add `Camera_X_pos>>3`, store the new word to `4(a0)`, mirror the old word to `6(a0)`, and only branch to loc_30476 when the logical `>>3` tile columns match",
     );
 }
 
