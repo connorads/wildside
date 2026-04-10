@@ -615,6 +615,9 @@ pub(crate) fn platform_strip_sprites_loc_251C(
         }
     }
 
+    // ASM loc_253E (kid.asm:4436): skip the interior loop when only two caps
+    // are needed, advance `a4` once more to the bottom-cap mapping word, and
+    // emit the final sprite at the already-advanced Y position.
     let bottom = emit_platform_sprite_loc_2548(
         dispatch.screen_x_word,
         screen_y_word,
