@@ -50,8 +50,8 @@ use crate::level::{
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
     BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
-    BackgroundScrollShiftDataWrapLoopLoc304C2, BackgroundScrollShiftDataWrapStoreLoc304CA,
-    BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollShiftDataWrapLoopLoc304C2, BackgroundScrollShiftDataWrapLoopLoc304D8,
+    BackgroundScrollShiftDataWrapStoreLoc304CA, BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
@@ -102,6 +102,7 @@ use crate::level::{
     background_scroll_shift_data_second_pass_unchanged_loc_304A4,
     background_scroll_shift_data_slot_loc_30452, background_scroll_shift_data_unchanged_loc_30476,
     background_scroll_shift_data_wrap_loop_loc_304C2,
+    background_scroll_shift_data_wrap_loop_loc_304D8,
     background_scroll_shift_data_wrap_store_loc_304CA,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
@@ -2754,6 +2755,20 @@ fn background_scroll_shift_data_wrap_store_loc_304ca_stores_the_reduced_row_and_
             strip_table_word_offset: 0x0030,
         },
         "ASM loc_304CA should store the reduced `d7` word to `(a0)`, then use the original `d1` seed for `andi.w #$3F,d1` / `add.w d1,d1` so the strip-table offset comes from the pre-reduction row",
+    );
+}
+
+#[test]
+fn background_scroll_shift_data_wrap_loop_loc_304d8_uses_the_unbiased_seed_before_joining_the_shared_tail()
+ {
+    assert_eq!(
+        background_scroll_shift_data_wrap_loop_loc_304D8(0x0180, 0x0020),
+        BackgroundScrollShiftDataWrapLoopLoc304D8 {
+            seeded_phase_row: 0x0030,
+            reduced_phase_row: 0x0010,
+            subtraction_count: 1,
+        },
+        "ASM loc_304D8 should skip the `$28` bias, seed `d7` and `d1` from `asr.w #3,4(a0)`, and reuse the same subtract-until-`d6>d7` loop before falling into `loc_304CA`",
     );
 }
 

@@ -7706,6 +7706,13 @@ pub(crate) struct BackgroundScrollShiftDataWrapStoreLoc304CA {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftDataWrapLoopLoc304D8 {
+    pub(crate) seeded_phase_row: i16,
+    pub(crate) reduced_phase_row: i16,
+    pub(crate) subtraction_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
     pub(crate) map_header_byte_offset: usize,
     pub(crate) background_row_index: u8,
@@ -8201,6 +8208,26 @@ pub(crate) fn background_scroll_shift_data_wrap_store_loc_304CA(
     BackgroundScrollShiftDataWrapStoreLoc304CA {
         reduced_phase_row_word,
         strip_table_word_offset,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_shift_data_wrap_loop_loc_304D8(
+    updated_scroll_word: u16,
+    background_width: i16,
+) -> BackgroundScrollShiftDataWrapLoopLoc304D8 {
+    // ASM loc_304D8 (kid.asm:34156): the `bgt` arm skips the `$28` bias,
+    // seeds both `d7` and `d1` from the signed `asr.w #3,4(a0)` result, then
+    // reuses the same subtract-until-`d6>d7` loop before joining `loc_304CA`.
+    let seeded_phase_row = updated_scroll_word as i16 >> 3;
+    let (reduced_phase_row, subtraction_count) =
+        reduce_background_scroll_phase(seeded_phase_row, background_width);
+
+    BackgroundScrollShiftDataWrapLoopLoc304D8 {
+        seeded_phase_row,
+        reduced_phase_row,
+        subtraction_count,
     }
 }
 
