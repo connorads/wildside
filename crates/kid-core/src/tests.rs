@@ -26565,6 +26565,20 @@ fn end_sequence_credits_glyph_cache_loc_1d3d0_allocates_six_workers_then_seeds_l
 }
 
 #[test]
+fn end_sequence_page_break_dispatch_loc_1d40e_branches_to_the_wait_setup_entry() {
+    let dispatch = crate::boot::end_sequence_page_break_dispatch_loc_1D40E();
+
+    assert_eq!(
+        dispatch.branch_target, "loc_1D412",
+        "ASM loc_1D40E (kid.asm:32757) should use the page-break jump-table entry to branch straight into `loc_1D412`",
+    );
+    assert!(
+        dispatch.has_padding_nop,
+        "ASM loc_1D40E should leave the trailing `nop` padding word in place after the short branch",
+    );
+}
+
+#[test]
 fn end_sequence_text_loop_loc_1d3f0_dispatches_pages_breaks_and_zero_terminator() {
     let text_loop = crate::boot::end_sequence_text_loop_loc_1D3F0();
 

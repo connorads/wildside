@@ -684,6 +684,13 @@ pub(crate) struct EndSequenceCreditsGlyphCacheLoc1D3D0 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequencePageBreakDispatchLoc1D40E {
+    pub(crate) branch_target: &'static str,
+    pub(crate) has_padding_nop: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceTextLoopLoc1D3F0 {
     pub(crate) page_text_subroutine: &'static str,
     pub(crate) page_break_word: u16,
@@ -2369,6 +2376,18 @@ pub(crate) fn end_sequence_text_loop_loc_1D3F0() -> EndSequenceTextLoopLoc1D3F0 
         page_break_platform_layout_source: "Addr_PlatformLayout",
         terminator_word: 0x0000,
         terminator_branch: "loc_1D44C",
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_page_break_dispatch_loc_1D40E() -> EndSequencePageBreakDispatchLoc1D40E {
+    // ASM loc_1D40E (kid.asm:32757-32760): the page-break jump-table entry is
+    // just `bra.s loc_1D412`, with a trailing `nop` padding word that keeps the
+    // PC-relative jump table aligned for the following entry point.
+    EndSequencePageBreakDispatchLoc1D40E {
+        branch_target: "loc_1D412",
+        has_padding_nop: true,
     }
 }
 
