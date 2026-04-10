@@ -7808,6 +7808,13 @@ pub(crate) struct BackgroundScrollShiftLayersTrailingPartialFillLoc30592 {
     pub(crate) longword_count: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundScrollThemeDispatchLoc30598 {
+    Return,
+    ApplyForestWaterRipple,
+    ApplyDesertHeatRipple,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -8403,6 +8410,27 @@ pub(crate) fn background_scroll_shift_layers_trailing_partial_fill_loc_30592(
             | u32::from(background_scroll_word.wrapping_neg() as u16),
         longword_count: trailing_partial_longword_count,
     })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_scroll_theme_dispatch_loc_30598(
+    background_theme: u16,
+) -> BackgroundScrollThemeDispatchLoc30598 {
+    const BACKGROUND_THEME_DESERT_LOC_30598: u16 = 0x0005;
+    const BACKGROUND_THEME_FOREST_LOC_30598: u16 = 0x0009;
+
+    // ASM loc_30598 (kid.asm:34248): after the partial-span loops finish, the
+    // shared tail checks `(Background_theme).w`, branches to the Forest ripple
+    // helper on `Forest`, branches to the Desert heat ripple helper on
+    // `Desert`, and otherwise returns immediately.
+    if background_theme == BACKGROUND_THEME_FOREST_LOC_30598 {
+        BackgroundScrollThemeDispatchLoc30598::ApplyForestWaterRipple
+    } else if background_theme == BACKGROUND_THEME_DESERT_LOC_30598 {
+        BackgroundScrollThemeDispatchLoc30598::ApplyDesertHeatRipple
+    } else {
+        BackgroundScrollThemeDispatchLoc30598::Return
+    }
 }
 
 #[allow(non_snake_case)]

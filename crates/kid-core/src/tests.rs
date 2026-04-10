@@ -65,14 +65,14 @@ use crate::level::{
     BackgroundScrollStripeRightWindowLoc301F6, BackgroundScrollStripeRowSelectionLoc301CE,
     BackgroundScrollStripeVerticalColumnTransferLoc3037C,
     BackgroundScrollStripeVerticalColumnTransferLoc30354,
-    BackgroundScrollStripeVerticalPassLoc301FE, BackgroundScrollUpperPassLoc2FFE8,
-    BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
-    BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504, BlockLayoutEntryWordsLoc133B2,
-    BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E,
-    BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE,
-    BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E,
-    BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C, BlockLayoutRepeatWordsLoc1351E,
-    BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
+    BackgroundScrollStripeVerticalPassLoc301FE, BackgroundScrollThemeDispatchLoc30598,
+    BackgroundScrollUpperPassLoc2FFE8, BackgroundScrollUpperPassResumeLoc30014,
+    BlockLayoutDecodeWordsLoc1354E, BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504,
+    BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E,
+    BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0,
+    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
+    BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
+    BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
     DecompressToVramSpecialReturnLoc143B2, FgPlaneCustomWriteSub1596,
     FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680,
@@ -126,14 +126,15 @@ use crate::level::{
     background_scroll_stripe_vertical_column_transfer_loc_3036A,
     background_scroll_stripe_vertical_column_transfer_loc_3037C,
     background_scroll_stripe_vertical_column_transfer_loc_30354,
-    background_scroll_stripe_vertical_pass_loc_301FE, background_scroll_upper_pass_loc_2FFE8,
-    background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
-    blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
-    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
-    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
-    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
-    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
-    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    background_scroll_stripe_vertical_pass_loc_301FE, background_scroll_theme_dispatch_loc_30598,
+    background_scroll_upper_pass_loc_2FFE8, background_scroll_upper_pass_resume_loc_30014,
+    blend_palette_entry_loc_1538, blend_selected_palette_entries_sub_1536,
+    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
+    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
+    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
+    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
+    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
+    block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -2882,6 +2883,25 @@ fn background_scroll_shift_layers_trailing_partial_fill_loc_30592_repeats_the_la
             longword_count: 0x0005,
         }),
         "ASM loc_30592 should repeat the trailing partial-row scroll longword for the inclusive `dbf d4,loc_30592` span, which is exactly the saved quarter-row phase count",
+    );
+}
+
+#[test]
+fn background_scroll_theme_dispatch_loc_30598_only_branches_for_forest_and_desert() {
+    assert_eq!(
+        background_scroll_theme_dispatch_loc_30598(0x0009),
+        BackgroundScrollThemeDispatchLoc30598::ApplyForestWaterRipple,
+        "ASM loc_30598 should branch to `BackgroundScroll_ApplyForestWaterRipple` when `Background_theme == Forest`",
+    );
+    assert_eq!(
+        background_scroll_theme_dispatch_loc_30598(0x0005),
+        BackgroundScrollThemeDispatchLoc30598::ApplyDesertHeatRipple,
+        "ASM loc_30598 should branch to `BackgroundScroll_ApplyDesertHeatRipple` when `Background_theme == Desert`",
+    );
+    assert_eq!(
+        background_scroll_theme_dispatch_loc_30598(0x0007),
+        BackgroundScrollThemeDispatchLoc30598::Return,
+        "ASM loc_30598 should return immediately when `Background_theme` is neither Forest nor Desert",
     );
 }
 
