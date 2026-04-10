@@ -51,9 +51,9 @@ use crate::level::{
     BackgroundScrollForestWaterRippleSetupLoc305E6,
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
-    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRowDispatchLoc3079A,
-    BackgroundScrollPieceRowDispatchLoc3079ABranch, BackgroundScrollPieceRowUploadLoc307B2,
-    BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
+    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshSeedLoc3081A,
+    BackgroundScrollPieceRowDispatchLoc3079A, BackgroundScrollPieceRowDispatchLoc3079ABranch,
+    BackgroundScrollPieceRowUploadLoc307B2, BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
@@ -111,8 +111,8 @@ use crate::level::{
     background_scroll_forest_water_ripple_setup_loc_305E6,
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
-    background_scroll_lower_pass_setup_loc_3001E, background_scroll_piece_row_dispatch_loc_3079A,
-    background_scroll_piece_row_upload_loc_307B2,
+    background_scroll_lower_pass_setup_loc_3001E, background_scroll_piece_refresh_seed_loc_3081A,
+    background_scroll_piece_row_dispatch_loc_3079A, background_scroll_piece_row_upload_loc_307B2,
     background_scroll_shift_data_second_pass_advance_loc_304A8,
     background_scroll_shift_data_second_pass_slot_loc_3048C,
     background_scroll_shift_data_second_pass_unchanged_loc_304A4,
@@ -2647,6 +2647,46 @@ fn background_scroll_piece_row_upload_loc_307b2_packs_the_vdp_command_and_uses_t
             loops_to_loc_3079_a: true,
         }),
         "ASM loc_307B2 should OR the low scroll word with `($F80 & d2) | $6000`, write autoincrement `3`, `swap d5` so the original high word becomes the `(a0,d5.w)` byte offset, and then advance `a0`/`d2` for the next inclusive `dbf d3,loc_3079A` pass",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_seed_loc_3081a_uses_current_or_biased_rows_and_stops_on_ff() {
+    let mut row_sequence = vec![0; 0x20];
+    row_sequence[0x001E] = 0x08;
+    row_sequence[0x0003] = 0xFF;
+
+    let mut horiz_scroll_bytes = vec![0; 0x20];
+    horiz_scroll_bytes[0x000C] = 0x01;
+    horiz_scroll_bytes[0x000D] = 0x20;
+
+    assert_eq!(
+        background_scroll_piece_refresh_seed_loc_3081A(
+            0x0002,
+            0x0001,
+            &row_sequence,
+            &horiz_scroll_bytes,
+            0x0020,
+        ),
+        Some(BackgroundScrollPieceRefreshSeedLoc3081A {
+            row_sequence_offset: 0x001E,
+            row_sequence_entry: 0x08,
+            coarse_scroll_word: 0x0024,
+            reduced_scroll_word: 0x0004,
+            wrap_subtraction_count: 1,
+        }),
+        "ASM loc_3081A should inherit `d0 + $1C` when the camera row moved downward, read the row-sequence byte from `(a2,d0.w)`, load the coarse scroll word from `4(a1,d0.w)`, and keep subtracting `Background_width` until the value fits before `loc_30840`",
+    );
+    assert_eq!(
+        background_scroll_piece_refresh_seed_loc_3081A(
+            0x0003,
+            0x0005,
+            &row_sequence,
+            &horiz_scroll_bytes,
+            0x0020,
+        ),
+        None,
+        "ASM loc_3081A should keep the un-biased current row when the cached row is greater and branch straight to `return_308B4` when `(a2,d0.w)` yields `$FF`",
     );
 }
 

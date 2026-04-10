@@ -7670,6 +7670,15 @@ pub(crate) struct BackgroundScrollPieceRowUploadLoc307B2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshSeedLoc3081A {
+    pub(crate) row_sequence_offset: usize,
+    pub(crate) row_sequence_entry: u8,
+    pub(crate) coarse_scroll_word: u16,
+    pub(crate) reduced_scroll_word: i16,
+    pub(crate) wrap_subtraction_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDispatchLoc3039C {
     pub(crate) computes_shift_data: bool,
     pub(crate) computes_shift_layers: bool,
@@ -8174,6 +8183,55 @@ pub(crate) fn background_scroll_piece_row_upload_loc_307B2(
         next_vdp_row_seed: vdp_row_seed.wrapping_add(0x0080),
         next_dbf_counter: dbf_counter.wrapping_sub(1),
         loops_to_loc_3079_a: dbf_counter != 0,
+    })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_seed_loc_3081A(
+    current_camera_row: i16,
+    cached_previous_camera_row: i16,
+    row_sequence: &[u8],
+    horiz_scroll_bytes: &[u8],
+    background_width: i16,
+) -> Option<BackgroundScrollPieceRefreshSeedLoc3081A> {
+    // ASM loc_3081A (kid.asm:34645): when the cached row differs from the
+    // current `Camera_Y_pos>>5`, the preceding compare reaches this label with
+    // either the current row (scrolling upward) or that row plus `$1C`
+    // (scrolling downward). The label snapshots that row in `d3/d5`, reads the
+    // next row-sequence byte from `(a2,d0.w)`, returns immediately on `$FF`,
+    // then loads the coarse scroll word from `4(a1,d0.w)`, shifts it right by
+    // 3, and keeps subtracting `Background_width` until the reduced word fits
+    // before `loc_30840` seeds the later render state.
+    let row_sequence_offset = if cached_previous_camera_row > current_camera_row {
+        usize::from(current_camera_row as u16)
+    } else {
+        usize::from(current_camera_row.wrapping_add(0x001C) as u16)
+    };
+    let row_sequence_entry = *row_sequence.get(row_sequence_offset)?;
+    if row_sequence_entry == 0xFF {
+        return None;
+    }
+
+    let scroll_word_offset = 4usize.wrapping_add(usize::from(row_sequence_entry));
+    let coarse_scroll_source = u16::from_be_bytes([
+        *horiz_scroll_bytes.get(scroll_word_offset)?,
+        *horiz_scroll_bytes.get(scroll_word_offset.wrapping_add(1))?,
+    ]);
+    let coarse_scroll_word = coarse_scroll_source >> 3;
+    let mut reduced_scroll_word = coarse_scroll_word as i16;
+    let mut wrap_subtraction_count = 0_u16;
+    while background_width <= reduced_scroll_word {
+        reduced_scroll_word = reduced_scroll_word.wrapping_sub(background_width);
+        wrap_subtraction_count = wrap_subtraction_count.wrapping_add(1);
+    }
+
+    Some(BackgroundScrollPieceRefreshSeedLoc3081A {
+        row_sequence_offset,
+        row_sequence_entry,
+        coarse_scroll_word,
+        reduced_scroll_word,
+        wrap_subtraction_count,
     })
 }
 
