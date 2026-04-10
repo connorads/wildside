@@ -44,10 +44,11 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
-    BackgroundScrollEnigmaRowSourceLoc303D4, BackgroundScrollEnigmaRowTableLookupLoc303EA,
-    BackgroundScrollEnigmaRowTransferLoc303D4, BackgroundScrollLowerPassLoopLoc30066,
-    BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
-    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollEnigmaPrimaryCopySetupLoc30426, BackgroundScrollEnigmaRowSourceLoc303D4,
+    BackgroundScrollEnigmaRowTableLookupLoc303EA, BackgroundScrollEnigmaRowTransferLoc303D4,
+    BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
+    BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
+    BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
@@ -86,7 +87,8 @@ use crate::level::{
     apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, background_scroll_enigma_row_table_lookup_loc_303EA,
+    background_row_pointers_loc_11B7A, background_scroll_enigma_primary_copy_setup_loc_30426,
+    background_scroll_enigma_row_table_lookup_loc_303EA,
     background_scroll_enigma_row_transfer_loc_303D4, background_scroll_lower_pass_loop_loc_30066,
     background_scroll_lower_pass_resume_loc_30054, background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_stripe_horizontal_gate_loc_3023C,
@@ -2547,6 +2549,17 @@ fn background_scroll_enigma_row_table_lookup_loc_303ea_biases_desert_rows_and_ma
 }
 
 #[test]
+fn background_scroll_enigma_primary_copy_setup_loc_30426_seeds_the_dbf_counter_to_7() {
+    assert_eq!(
+        background_scroll_enigma_primary_copy_setup_loc_30426(),
+        BackgroundScrollEnigmaPrimaryCopySetupLoc30426 {
+            longword_dbf_counter: 7,
+        },
+        "ASM loc_30426 should reload `d0` with `#7` before the primary `dbf d0,loc_30428` run, so the loop executes 8 inclusive iterations",
+    );
+}
+
+#[test]
 fn background_scroll_enigma_row_transfer_loc_303d4_uses_the_lower_decompression_pair_below_row_1c()
 {
     let background_row_table = [0, 0x12, 0x00];
@@ -2561,6 +2574,7 @@ fn background_scroll_enigma_row_transfer_loc_303d4_uses_the_lower_decompression_
             vdp_autoincrement_word: 3,
             source: BackgroundScrollEnigmaRowSourceLoc303D4::LowerDecompressionBuffer,
             primary_decompression_byte_offset: 0x0480,
+            primary_longword_dbf_counter: 7,
             secondary_decompression_byte_offset: 0x0B80,
             longword_rows: 8,
         }),
@@ -2583,6 +2597,7 @@ fn background_scroll_enigma_row_transfer_loc_303d4_biases_desert_tables_and_uses
             vdp_autoincrement_word: 3,
             source: BackgroundScrollEnigmaRowSourceLoc303D4::LowerDecompressionBuffer,
             primary_decompression_byte_offset: 0,
+            primary_longword_dbf_counter: 7,
             secondary_decompression_byte_offset: 0x0700,
             longword_rows: 8,
         }),
@@ -2598,6 +2613,7 @@ fn background_scroll_enigma_row_transfer_loc_303d4_biases_desert_tables_and_uses
             vdp_autoincrement_word: 3,
             source: BackgroundScrollEnigmaRowSourceLoc303D4::UpperDecompressionBuffer,
             primary_decompression_byte_offset: 0x0700,
+            primary_longword_dbf_counter: 7,
             secondary_decompression_byte_offset: 0x0700,
             longword_rows: 8,
         }),

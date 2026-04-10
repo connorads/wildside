@@ -7663,6 +7663,11 @@ pub(crate) struct BackgroundScrollEnigmaRowTableLookupLoc303EA {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollEnigmaPrimaryCopySetupLoc30426 {
+    pub(crate) longword_dbf_counter: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
     pub(crate) map_header_byte_offset: usize,
     pub(crate) background_row_index: u8,
@@ -7671,6 +7676,7 @@ pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
     pub(crate) vdp_autoincrement_word: u16,
     pub(crate) source: BackgroundScrollEnigmaRowSourceLoc303D4,
     pub(crate) primary_decompression_byte_offset: usize,
+    pub(crate) primary_longword_dbf_counter: u16,
     pub(crate) secondary_decompression_byte_offset: usize,
     pub(crate) longword_rows: u16,
 }
@@ -7965,6 +7971,18 @@ pub(crate) fn background_scroll_enigma_row_table_lookup_loc_303EA(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn background_scroll_enigma_primary_copy_setup_loc_30426()
+-> BackgroundScrollEnigmaPrimaryCopySetupLoc30426 {
+    // ASM loc_30426 (kid.asm:34048): both source-selection paths converge here
+    // and reload `d0` with `#7`, so the following `dbf d0,loc_30428` loop runs
+    // for 8 inclusive iterations.
+    BackgroundScrollEnigmaPrimaryCopySetupLoc30426 {
+        longword_dbf_counter: 7,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
     tile_row: u16,
     background_theme: u16,
@@ -7998,6 +8016,7 @@ pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
             (row_mapping_byte_offset, row_mapping_byte_offset)
         }
     };
+    let primary_copy_setup = background_scroll_enigma_primary_copy_setup_loc_30426();
 
     Some(BackgroundScrollEnigmaRowTransferLoc303D4 {
         map_header_byte_offset,
@@ -8007,6 +8026,7 @@ pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
         vdp_autoincrement_word: table_lookup.vdp_autoincrement_word,
         source,
         primary_decompression_byte_offset,
+        primary_longword_dbf_counter: primary_copy_setup.longword_dbf_counter,
         secondary_decompression_byte_offset,
         longword_rows: 8,
     })
