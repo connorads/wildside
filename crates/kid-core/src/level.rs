@@ -7577,6 +7577,15 @@ pub(crate) struct FgUpdateQueueResetLoc1680 {
     pub(crate) final_cell_next_slot: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollUpperPassLoc2FFE8 {
+    pub(crate) scroll_data_camera_x: i16,
+    pub(crate) original_camera_y: i16,
+    pub(crate) stepped_camera_y: i16,
+    pub(crate) scroll_data_camera_y: i16,
+    pub(crate) loop_iterations: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7591,6 +7600,36 @@ pub(crate) fn reset_fg_update_queues_loc_1680(
         transient_cell_next_slot: 0,
         final_custom_next_slot: fg_plane_update_queue_custom_addr,
         final_cell_next_slot: fg_plane_update_queue_cell_addr,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_upper_pass_loc_2FFE8(
+    camera_x_pos: i16,
+    camera_y_pos: i16,
+    level_height_pixels: i16,
+) -> BackgroundScrollUpperPassLoc2FFE8 {
+    // ASM loc_2FFE8 (kid.asm:33592): snapshot the current camera words into
+    // `$FFFFF82C` and `d7`, subtract `$E0` from `Camera_Y_pos`, then write
+    // `Camera_Y_pos - 8` to `$FFFFF82E` before seeding `d6 = #$1C`.
+    // ASM loc_2FFE8 tail (kid.asm:33600-33606): after biasing the saved `d7`
+    // by `$E0`, clamp the later `dbf d6,loc_30016` pass count to 28 rows when
+    // the bottom sample stays inside the level, otherwise decrement to 27 rows
+    // before branching to `loc_30014`.
+    let stepped_camera_y = camera_y_pos.wrapping_sub(0x00E0);
+    let mut loop_iterations: u16 = 0x001C;
+    let lower_edge_sample = camera_y_pos.wrapping_add(0x00E0);
+    if lower_edge_sample >= level_height_pixels {
+        loop_iterations = loop_iterations.wrapping_sub(1);
+    }
+
+    BackgroundScrollUpperPassLoc2FFE8 {
+        scroll_data_camera_x: camera_x_pos,
+        original_camera_y: camera_y_pos,
+        stepped_camera_y,
+        scroll_data_camera_y: stepped_camera_y.wrapping_sub(8),
+        loop_iterations,
     }
 }
 
