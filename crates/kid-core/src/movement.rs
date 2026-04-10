@@ -388,6 +388,14 @@ pub(crate) struct EndSequenceCreditsDecodeLoc1D97E {
     pub(crate) decode_command: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EndSequenceCreditsUploadLoopLoc1D986 {
+    pub(crate) dbf_seed: u16,
+    pub(crate) iterations: u16,
+    pub(crate) row_indices: Vec<u16>,
+}
+
 #[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsGlyphInitSub1D786 {
@@ -475,6 +483,20 @@ pub(crate) fn end_sequence_credits_decode_loc_1D97E(
         } else {
             0x813E
         },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn end_sequence_credits_upload_loop_loc_1D986() -> EndSequenceCreditsUploadLoopLoc1D986 {
+    // ASM loc_1D986 (kid.asm:33240): after `moveq #$D,d7`, the routine calls
+    // `sub_1D990` before `dbf d7,loc_1D986`, so the upload loop executes
+    // `$D + 1 = 14` passes and visits rows in descending `d7` order.
+    let dbf_seed = 0x000D;
+    EndSequenceCreditsUploadLoopLoc1D986 {
+        dbf_seed,
+        iterations: dbf_seed.wrapping_add(1),
+        row_indices: (0..=dbf_seed).rev().collect(),
     }
 }
 

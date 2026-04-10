@@ -11368,6 +11368,28 @@ fn end_sequence_credits_decode_loc_1d97e_masks_control_bits_and_switches_only_th
 }
 
 #[test]
+fn end_sequence_credits_upload_loop_loc_1d986_runs_fourteen_rows_in_descending_dbf_order() {
+    let upload = crate::movement::end_sequence_credits_upload_loop_loc_1D986();
+
+    assert_eq!(
+        upload.dbf_seed, 0x000D,
+        "ASM loc_1D986 (kid.asm:33240) should seed `d7 = $D` before entering the row upload loop",
+    );
+    assert_eq!(
+        upload.iterations, 0x000E,
+        "ASM loc_1D986 should execute `$D + 1 = 14` calls to `sub_1D990` because `dbf d7,loc_1D986` stops only after decrementing from 0 to -1",
+    );
+    assert_eq!(
+        upload.row_indices,
+        vec![
+            0x000D, 0x000C, 0x000B, 0x000A, 0x0009, 0x0008, 0x0007, 0x0006, 0x0005, 0x0004, 0x0003,
+            0x0002, 0x0001, 0x0000
+        ],
+        "ASM loc_1D986 calls `sub_1D990` before the `dbf`, so the credits rows are uploaded in descending `d7` order from 13 down to 0",
+    );
+}
+
+#[test]
 fn load_end_sequence_credits_glyphs_loc_1d7b0_maps_triples_until_the_zero_x_sentinel() {
     let glyphs = load_end_sequence_credits_glyphs_sub_1D7A8(
         &[0x10, 0xA8, 0x04, 0x20, 0xA4, 0x08, 0x00, 0xFF, 0xFF],
