@@ -7707,6 +7707,13 @@ pub(crate) struct BackgroundScrollPieceRefreshLinearCopyLoc308A6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6 {
+    pub(crate) wrapped_row_window_end: i16,
+    pub(crate) first_pass_dbf_counter: u16,
+    pub(crate) second_pass_dbf_counter: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDispatchLoc3039C {
     pub(crate) computes_shift_data: bool,
     pub(crate) computes_shift_layers: bool,
@@ -8359,6 +8366,24 @@ pub(crate) fn background_scroll_piece_refresh_linear_copy_loc_308A6(
         copied_mapping_words,
         bytes_consumed: 0x29,
     })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_wrap_counter_setup_loc_308B6(
+    wrapped_row_window_end: i16,
+) -> BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6 {
+    // ASM loc_308B6 (kid.asm:34715): when the row window wraps but the tile
+    // phase does not, this setup block snapshots the wrapped `d7` into `d4`,
+    // seeds `d1` with `$28 - d7 - 1` for the first inclusive copy pass, and
+    // loads `d2 = 1` so the shared tail runs exactly one wrapped retry.
+    BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6 {
+        wrapped_row_window_end,
+        first_pass_dbf_counter: 0x0028_u16
+            .wrapping_sub(wrapped_row_window_end as u16)
+            .wrapping_sub(1),
+        second_pass_dbf_counter: 1,
+    }
 }
 
 #[allow(non_snake_case)]

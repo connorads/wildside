@@ -53,7 +53,8 @@ use crate::level::{
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshLinearCopyLoc308A6,
     BackgroundScrollPieceRefreshSeedLoc3081A, BackgroundScrollPieceRefreshVdpSeedLoc30884,
-    BackgroundScrollPieceRefreshWindowSplitLoc3086A, BackgroundScrollPieceRefreshWrapLoc30836,
+    BackgroundScrollPieceRefreshWindowSplitLoc3086A,
+    BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6, BackgroundScrollPieceRefreshWrapLoc30836,
     BackgroundScrollPieceRowDispatchLoc3079A, BackgroundScrollPieceRowDispatchLoc3079ABranch,
     BackgroundScrollPieceRowUploadLoc307B2, BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
@@ -118,6 +119,7 @@ use crate::level::{
     background_scroll_piece_refresh_seed_loc_3081A,
     background_scroll_piece_refresh_vdp_seed_loc_30884,
     background_scroll_piece_refresh_window_split_loc_3086A,
+    background_scroll_piece_refresh_wrap_counter_setup_loc_308B6,
     background_scroll_piece_refresh_wrap_loc_30836, background_scroll_piece_row_dispatch_loc_3079A,
     background_scroll_piece_row_upload_loc_307B2,
     background_scroll_shift_data_second_pass_advance_loc_304A8,
@@ -2752,6 +2754,20 @@ fn background_scroll_piece_refresh_linear_copy_loc_308a6_copies_41_mapping_words
             bytes_consumed: 0x29,
         }),
         "ASM loc_308A6 should clear `d6`, read one layout byte from `(a0)+`, double it into the `(a3,d6.w)` word lookup, and keep copying through the inclusive `dbf d4` count seeded from `#$28`",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_wrap_counter_setup_loc_308b6_splits_the_wrapped_copy_into_two_inclusive_passes()
+ {
+    assert_eq!(
+        background_scroll_piece_refresh_wrap_counter_setup_loc_308B6(0x001D),
+        BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6 {
+            wrapped_row_window_end: 0x001D,
+            first_pass_dbf_counter: 0x000A,
+            second_pass_dbf_counter: 1,
+        },
+        "ASM loc_308B6 should snapshot wrapped `d7` into `d4`, seed `d1` with `$28 - d7 - 1` for the first inclusive pass, and set `d2 = 1` so the shared tail retries exactly once",
     );
 }
 
