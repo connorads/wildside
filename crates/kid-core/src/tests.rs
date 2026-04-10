@@ -19014,6 +19014,20 @@ fn begin_platform_collision_loc_257e_clears_the_collision_scratch_and_reloads_lo
 }
 
 #[test]
+fn load_player_hitbox_loc_2590_preserves_the_current_hitbox_edges_for_platform_scan() {
+    assert_eq!(
+        load_player_hitbox_loc_2590(0x002C, 0x003A, 0x0070, 0x0086),
+        PlayerHitboxLoc2590 {
+            left: 0x002C,
+            right: 0x003A,
+            top: 0x0070,
+            bottom: 0x0086,
+        },
+        "ASM loc_2590 (kid.asm:4478) should copy `Kid_hitbox_left/right/top/bottom` into `d0-d3` unchanged before `loc_25A0` starts testing platform overlap",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),

@@ -14,6 +14,15 @@ pub(crate) struct PlatformCollisionEntryLoc257E {
     pub(crate) kid_gfx_object_addr: u32,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlayerHitboxLoc2590 {
+    pub(crate) left: i16,
+    pub(crate) right: i16,
+    pub(crate) top: i16,
+    pub(crate) bottom: i16,
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AllocatePlatformSlotSub238E {
@@ -146,6 +155,25 @@ pub(crate) fn begin_platform_collision_loc_257E(
         collision_response_word: 0,
         first_platform_slot_pointer_addr: 0xFA8E,
         kid_gfx_object_addr,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn load_player_hitbox_loc_2590(
+    left: i16,
+    right: i16,
+    top: i16,
+    bottom: i16,
+) -> PlayerHitboxLoc2590 {
+    // ASM loc_2590 (kid.asm:4478): seed the platform collision scan from the
+    // current Kid hitbox globals by loading left/right/top/bottom into
+    // `d0`/`d1`/`d2`/`d3` before the linked-list walk at `loc_25A0`.
+    PlayerHitboxLoc2590 {
+        left,
+        right,
+        top,
+        bottom,
     }
 }
 
