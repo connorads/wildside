@@ -1635,6 +1635,22 @@ fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(word: u1
         || horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(collision_nibble)
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_left_hitbox_mask_loc_36AD8(
+    grid: &BlockGrid,
+    left_col: i32,
+    right_col: i32,
+    top_row: i32,
+    bottom_row: i32,
+) -> u16 {
+    // ASM loc_36AD8 / loc_36ADC (kid.asm:38293 / 38296): reset `a4` to each
+    // row start from `a1`, OR every word across the current row, then advance
+    // `a1` by one `Level_width_tiles` row and repeat until the full leftward
+    // hitbox rectangle has been reduced into `d5`.
+    horizontal_collision_scan_rect_mask_loc_369F8(grid, left_col, right_col, top_row, bottom_row)
+}
+
 pub(crate) fn transform_overlap_column_blocked_sub_7bea(
     grid: &BlockGrid,
     x_px: i32,
@@ -1702,10 +1718,16 @@ fn horizontal_collision_scan(
         right_col = i32::from(grid.width_cells).saturating_sub(1);
     }
 
-    let hitbox_blocked = horizontal_collision_scan_rect_mask_loc_369F8(
-        grid, left_col, right_col, top_row, bottom_row,
-    ) & 0x4000
-        != 0;
+    let hitbox_mask = if leading_right {
+        horizontal_collision_scan_rect_mask_loc_369F8(
+            grid, left_col, right_col, top_row, bottom_row,
+        )
+    } else {
+        horizontal_collision_scan_left_hitbox_mask_loc_36AD8(
+            grid, left_col, right_col, top_row, bottom_row,
+        )
+    };
+    let hitbox_blocked = hitbox_mask & 0x4000 != 0;
 
     let lead_column_blocked = if leading_right {
         let lead_col = right_col + 1;
@@ -3458,6 +3480,21 @@ mod tests {
         assert!(
             !horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(0x3000),
             "ASM loc_36ACE should leave `d7` unchanged when the following lead cell has no bit `$4000` set",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_hitbox_mask_loc_36ad8_ors_every_scanned_word_in_the_leftward_body()
+     {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(1 * 4 + 1) * 2] = 0x4000u16.to_be_bytes()[0];
+        data[(2 * 4 + 2) * 2] = 0x6000u16.to_be_bytes()[0];
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        assert_eq!(
+            horizontal_collision_scan_left_hitbox_mask_loc_36AD8(&grid, 1, 2, 1, 2) & 0x7000,
+            0x6000,
+            "ASM loc_36AD8 should preserve later-row blocking words while it replays the inclusive row-major body scan for the leftward rectangle",
         );
     }
 
