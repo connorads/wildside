@@ -4592,6 +4592,32 @@ pub(crate) fn kid_hitbox_solid_scan_expand_right_loc_201C(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidHitboxSolidScanLeftSeedLoc2040 {
+    pub(crate) blocking_index: usize,
+    pub(crate) left_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn kid_hitbox_solid_scan_expand_left_loc_2040(
+    rewind_index: usize,
+    initial_left_px: u16,
+    palette_results: &[u16],
+) -> Option<KidHitboxSolidScanLeftSeedLoc2040> {
+    // ASM loc_2040 (kid.asm:3849-3853): pre-decrement `a1` with `-(a1)` so the
+    // first probe reads the tile immediately left of the rewind point, stop on
+    // the first non-zero `j_Palette_to_VRAM0` result, and only subtract `$10`
+    // from `d1` while the scanned tile still reports zero.
+    let blocking_offset = palette_results.iter().position(|&result| result != 0)?;
+    let blocking_index = rewind_index.checked_sub(blocking_offset + 1)?;
+    let zero_tiles = u16::try_from(blocking_offset).ok()?;
+    Some(KidHitboxSolidScanLeftSeedLoc2040 {
+        blocking_index,
+        left_px: initial_left_px.wrapping_sub(zero_tiles.wrapping_mul(0x0010)),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockType11ReadXPosLoc126BA {
     pub(crate) x_pos: u16,
     pub(crate) bytes_consumed: usize,

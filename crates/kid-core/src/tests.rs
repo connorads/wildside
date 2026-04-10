@@ -50197,3 +50197,32 @@ fn loc_201c_scans_right_until_palette_detects_a_blocking_tile() {
         "ASM loc_201C adds `$F` after seeding `d1 = d2`, so the initial horizontal span covers one inclusive 16-pixel tile",
     );
 }
+
+#[test]
+fn loc_2040_scans_left_with_predecrement_and_only_shrinks_on_zero_tiles() {
+    let immediate_blocker =
+        crate::level::kid_hitbox_solid_scan_expand_left_loc_2040(11, 64, &[0x7000]).expect(
+            "ASM loc_2040 should branch to `loc_2050` on the first non-zero tile to the left",
+        );
+    assert_eq!(
+        immediate_blocker.blocking_index, 10,
+        "ASM loc_2040 uses `move.w -(a1),d0`, so the first read should come from the tile immediately left of the rewind point",
+    );
+    assert_eq!(
+        immediate_blocker.left_px, 64,
+        "ASM loc_2040 should not subtract `$10` from `d1` when the first left tile already blocks",
+    );
+
+    let expanded =
+        crate::level::kid_hitbox_solid_scan_expand_left_loc_2040(11, 64, &[0, 0, 0x6000]).expect(
+            "ASM loc_2040 should keep scanning left until `j_Palette_to_VRAM0` turns non-zero",
+        );
+    assert_eq!(
+        expanded.blocking_index, 8,
+        "ASM loc_2040 should keep pre-decrementing `a1` until the blocking tile is reached",
+    );
+    assert_eq!(
+        expanded.left_px, 32,
+        "ASM loc_2040 subtracts `$10` from `d1` once per zero tile, so two empty columns should move the left edge from pixel 64 to pixel 32",
+    );
+}
