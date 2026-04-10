@@ -1279,6 +1279,22 @@ pub(crate) fn relative_collision_mask_loc_331D2(
     probe_at(grid, sample_x, sample_y).cell.to_word() & 0x7000
 }
 
+/// Mirror the disguised-block filter shared by `loc_331F6`, `loc_33248`, and
+/// the later horizontal scan at `loc_33286`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn relative_collision_word_mask_loc_33248(tile_word: u16) -> u16 {
+    // ASM loc_33248 (kid.asm:37670): `bclr #$F,dN` only enters the block-type
+    // check when bit 15 was set. A surviving `$300` block-type nibble means a
+    // disguised solid-ghost block, so the helper zeroes the word before
+    // keeping only the collision nibble.
+    if (tile_word & 0x8000) != 0 && (tile_word & 0x0F00) == 0x0300 {
+        0
+    } else {
+        tile_word & 0x7000
+    }
+}
+
 #[allow(non_snake_case)]
 pub fn probe_relative_collision_sub_B55C(
     grid: &BlockGrid,

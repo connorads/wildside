@@ -44665,6 +44665,20 @@ fn loc_331d2_masks_only_the_sampled_relative_cell_collision_nibble() {
 }
 
 #[test]
+fn loc_33248_zeroes_disguised_solid_ghost_blocks_before_masking_collision() {
+    assert_eq!(
+        crate::terrain::relative_collision_word_mask_loc_33248(0xB355),
+        0,
+        "ASM loc_33248 (kid.asm:37670) should treat a bit-15 tile with block-type nibble `$300` as non-colliding after the `bclr #$F` / `andi.w #$F00` gate",
+    );
+    assert_eq!(
+        crate::terrain::relative_collision_word_mask_loc_33248(0x6355),
+        0x6000,
+        "ASM loc_33248 should leave ordinary non-blocking words on the `beq` path and keep only their collision nibble",
+    );
+}
+
+#[test]
 fn ice_block_load_bullets_restore_direction_loc_11080_restores_the_original_direction_bits() {
     assert_eq!(
         NativeRuntime::ice_block_load_bullets_restore_direction_loc_11080(0),
