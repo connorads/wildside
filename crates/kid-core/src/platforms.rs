@@ -215,6 +215,31 @@ pub(crate) fn apply_horizontal_platform_push_loc_2686(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PositivePlatformCarryLoc26A2 {
+    pub(crate) carried_x_velocity_fp: i32,
+    pub(crate) touched_right_wall: bool,
+    pub(crate) escalates_to_loc_271_a: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn positive_platform_carry_loc_26A2(
+    platform_x_velocity_fp: i32,
+    left_wall_already_touched: bool,
+) -> PositivePlatformCarryLoc26A2 {
+    // ASM loc_26A2 (kid.asm:4593): after the non-negative `d7` branch, keep
+    // `$A(a2)` only when it is non-negative, otherwise clamp the carried
+    // velocity to zero, set `$FFFFFAA3`, and jump to `loc_271A` only if
+    // `$FFFFFAA2` was already set by the opposite-side branch.
+    PositivePlatformCarryLoc26A2 {
+        carried_x_velocity_fp: platform_x_velocity_fp.max(0),
+        touched_right_wall: true,
+        escalates_to_loc_271_a: left_wall_already_touched,
+    }
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AllocatePlatformSlotSub238E {

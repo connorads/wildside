@@ -19129,6 +19129,19 @@ fn apply_horizontal_platform_push_loc_2686_updates_hitbox_edges_and_branch_direc
 }
 
 #[test]
+fn positive_platform_carry_loc_26a2_clamps_negative_velocity_and_restarts_scan() {
+    assert_eq!(
+        positive_platform_carry_loc_26A2(-0x1_8000, false),
+        PositivePlatformCarryLoc26A2 {
+            carried_x_velocity_fp: 0,
+            touched_right_wall: true,
+            escalates_to_loc_271_a: false,
+        },
+        "ASM loc_26A2 (kid.asm:4593) should clamp negative `$A(a2)` to zero, set `$FFFFFAA3`, and branch back to `loc_2590` when `$FFFFFAA2` is still clear",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
