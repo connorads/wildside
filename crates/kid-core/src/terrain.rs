@@ -1633,6 +1633,9 @@ fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -
                 return 1;
             }
         }
+        // ASM loc_36B0E (kid.asm:38324): if the inclusive reverse `dbf`
+        // finishes without finding a clear word, the routine falls through the
+        // shared epilogue and preserves the seeded `d6=0`.
         0
     } else {
         for &word in words.iter().rev() {
@@ -3532,6 +3535,16 @@ mod tests {
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x0000, 0x5000]),
             1,
             "ASM loc_36B04 should keep pre-decrementing across the following row after a blocked right-edge entry, and the first earlier clear word must flip the result to `d6=1`",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_following_row_class_loc_36b0e_keeps_zero_for_all_blocked_words()
+     {
+        assert_eq!(
+            horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x4000, 0x5000, 0x6000]),
+            0,
+            "ASM loc_36B0E should preserve the seeded `d6=0` when the blocked-entry reverse scan reaches the shared `dbf` epilogue without finding any earlier word that clears bit `$4000`",
         );
     }
 
