@@ -19219,6 +19219,48 @@ fn platform_strip_sprites_loc_24cc_emits_one_row_of_700_series_cells() {
 }
 
 #[test]
+fn platform_strip_sprites_loc_24f0_emits_the_left_cap_before_advancing_mapping_and_x() {
+    assert_eq!(
+        platform_strip_sprites_loc_24F0(
+            PlatformSpriteDispatchLoc244C {
+                screen_x_word: 0x00A0,
+                screen_y_word: 0x0090,
+                width_tiles_minus_one: 2,
+                height_tiles_minus_one: 0,
+                base_tile_word: 0x0500,
+                mapping_addr_word: 0x2468,
+                variant: PlatformSpriteVariantLoc244C::Loc24F0,
+            },
+            0,
+        ),
+        PlatformSpriteStripLoc24F0 {
+            sprites: vec![
+                PlatformSpriteEntryLoc2548 {
+                    y_word: 0x0090,
+                    tile_word: 0x0501,
+                    mapping_word: 0xA468,
+                    x_word: 0x00A0,
+                },
+                PlatformSpriteEntryLoc2548 {
+                    y_word: 0x0090,
+                    tile_word: 0x0502,
+                    mapping_word: 0xA46C,
+                    x_word: 0x00B0,
+                },
+                PlatformSpriteEntryLoc2548 {
+                    y_word: 0x0090,
+                    tile_word: 0x0503,
+                    mapping_word: 0xA470,
+                    x_word: 0x00C0,
+                },
+            ],
+            next_number_sprites: 3,
+        },
+        "ASM loc_24F0 should emit the left cap first with the original mapping word, then advance `a4` and `d4` before the remaining width handling runs",
+    );
+}
+
+#[test]
 fn platform_collision_shift_directions_matter() {
     // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
     // If >> became <<, pixel values would be wildly wrong and collision would fail.

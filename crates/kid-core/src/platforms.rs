@@ -501,3 +501,67 @@ pub(crate) fn platform_strip_sprites_loc_24CC(
         next_number_sprites,
     }
 }
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PlatformSpriteStripLoc24F0 {
+    pub(crate) sprites: Vec<PlatformSpriteEntryLoc2548>,
+    pub(crate) next_number_sprites: u8,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn platform_strip_sprites_loc_24F0(
+    dispatch: PlatformSpriteDispatchLoc244C,
+    number_sprites: u8,
+) -> PlatformSpriteStripLoc24F0 {
+    // ASM loc_24F0 (kid.asm:4400): emit the first platform sprite at the
+    // current mapping word, advance `a4`/`d4`, then branch into the remaining
+    // interior/final sprite handling based on the decremented width counter.
+    let mut sprites = Vec::new();
+    let mut next_number_sprites = number_sprites;
+
+    let left = emit_platform_sprite_loc_2548(
+        dispatch.screen_x_word,
+        dispatch.screen_y_word,
+        dispatch.base_tile_word,
+        dispatch.mapping_addr_word,
+        next_number_sprites,
+    );
+    sprites.push(left.sprite);
+    next_number_sprites = left.next_number_sprites;
+
+    let middle_mapping_word = dispatch.mapping_addr_word.wrapping_add(0x0004);
+    let right_mapping_word = middle_mapping_word.wrapping_add(0x0004);
+    let mut screen_x_word = dispatch.screen_x_word.wrapping_add(0x0010);
+
+    if dispatch.width_tiles_minus_one > 1 {
+        for _ in 0..(dispatch.width_tiles_minus_one - 1) {
+            let emitted = emit_platform_sprite_loc_2548(
+                screen_x_word,
+                dispatch.screen_y_word,
+                dispatch.base_tile_word,
+                middle_mapping_word,
+                next_number_sprites,
+            );
+            sprites.push(emitted.sprite);
+            next_number_sprites = emitted.next_number_sprites;
+            screen_x_word = screen_x_word.wrapping_add(0x0010);
+        }
+    }
+
+    let right = emit_platform_sprite_loc_2548(
+        screen_x_word,
+        dispatch.screen_y_word,
+        dispatch.base_tile_word,
+        right_mapping_word,
+        next_number_sprites,
+    );
+    sprites.push(right.sprite);
+    next_number_sprites = right.next_number_sprites;
+
+    PlatformSpriteStripLoc24F0 {
+        sprites,
+        next_number_sprites,
+    }
+}
