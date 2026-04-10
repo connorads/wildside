@@ -8,6 +8,13 @@ pub(crate) struct ActivePlatformHandleSub2728 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DuplicatePlatformResolutionLoc286A {
+    pub(crate) deallocate_existing_slot: bool,
+    pub(crate) mark_special_platform_loaded: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlatformCollisionEntryLoc257E {
     pub(crate) collision_response_word: u32,
     pub(crate) first_platform_slot_pointer_addr: u16,
@@ -482,6 +489,23 @@ pub(crate) fn find_active_platform_miss_loc_2740() -> Option<usize> {
     // ASM loc_2740 (kid.asm:4662): once the active platform-slot walk reaches
     // a zero link, `moveq #0,d7; rts` reports "no matching slot".
     None
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn resolve_duplicate_platform_load_loc_286A(
+    existing_platform_kind: u8,
+) -> DuplicatePlatformResolutionLoc286A {
+    // ASM loc_2850 / loc_286A (kid.asm:4771): after `sub_2728` finds an
+    // already-active platform for the current loader offset, `tst.b $1F(a3)`
+    // checks its kind byte. Non-negative kinds branch to `loc_286A` and call
+    // `Deallocate_PlatformSlot`, while negative kinds stay active and receive
+    // `st $12(a3)` instead.
+    let existing_is_special = (existing_platform_kind as i8).is_negative();
+    DuplicatePlatformResolutionLoc286A {
+        deallocate_existing_slot: !existing_is_special,
+        mark_special_platform_loaded: existing_is_special,
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]

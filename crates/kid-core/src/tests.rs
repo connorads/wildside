@@ -19498,6 +19498,26 @@ fn deallocate_platform_slot_sub_23b4_jumps_to_loc_6e2_when_the_target_is_missing
 }
 
 #[test]
+fn resolve_duplicate_platform_load_loc_286a_deallocates_scripted_slots_but_marks_special_ones() {
+    assert_eq!(
+        crate::platforms::resolve_duplicate_platform_load_loc_286A(0x02),
+        crate::platforms::DuplicatePlatformResolutionLoc286A {
+            deallocate_existing_slot: true,
+            mark_special_platform_loaded: false,
+        },
+        "ASM loc_286A (kid.asm:4782) should deallocate a duplicate scripted platform slot when `$1F(a3)` is non-negative",
+    );
+    assert_eq!(
+        crate::platforms::resolve_duplicate_platform_load_loc_286A(0x80),
+        crate::platforms::DuplicatePlatformResolutionLoc286A {
+            deallocate_existing_slot: false,
+            mark_special_platform_loaded: true,
+        },
+        "ASM loc_2850 should skip loc_286A for negative `$1F(a3)` kinds and execute `st $12(a3)` to mark the special platform as already loaded",
+    );
+}
+
+#[test]
 fn platform_sprite_dispatch_loc_244c_biases_visible_platforms_and_selects_loc_24c0() {
     assert_eq!(
         platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {
