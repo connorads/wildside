@@ -50314,3 +50314,26 @@ fn loc_20dc_moves_kid_and_the_object_right_by_the_chosen_overlap_plus_one() {
         "ASM loc_20DC finishes with `clr.w $1C(a0)`, forcing the colliding object's X velocity to zero",
     );
 }
+
+#[test]
+fn loc_2106_moves_kid_and_the_object_left_by_the_chosen_overlap_plus_one() {
+    let resolved = crate::level::kid_hitbox_solid_scan_resolve_left_loc_2106(
+        3, 0x0020, 0x0038, 0x0080, 0x9ABC,
+    );
+    assert_eq!(
+        resolved.kid_hitbox_left, 0x001C,
+        "ASM loc_2106 (kid.asm:3931) adds one pixel before subtracting from `Kid_hitbox_left`",
+    );
+    assert_eq!(
+        resolved.kid_hitbox_right, 0x0034,
+        "ASM loc_2106 subtracts the same `d3 + 1` displacement from `Kid_hitbox_right`",
+    );
+    assert_eq!(
+        resolved.object_left, 0x007C,
+        "ASM loc_2106 also subtracts `d3 + 1` from object offset `$1A(a0)`",
+    );
+    assert_eq!(
+        resolved.object_x_velocity, 0,
+        "ASM loc_2106 finishes with `clr.w $1C(a0)`, forcing the colliding object's X velocity to zero",
+    );
+}
