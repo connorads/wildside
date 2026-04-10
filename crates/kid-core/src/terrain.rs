@@ -1328,6 +1328,16 @@ pub(crate) fn relative_collision_word_mask_loc_332D0(tile_word: u16) -> u16 {
     relative_collision_word_mask_shared_disguised_block(tile_word)
 }
 
+/// Mirror the second horizontal-word disguised-block filter in `loc_332EC`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn relative_collision_word_mask_loc_332EC(tile_word: u16) -> u16 {
+    // ASM loc_332EC (kid.asm:37733): after `bclr #$F,d6`, the second
+    // horizontal-scan word applies the same disguised-block gate before
+    // falling through to the shared collision-nibble mask.
+    relative_collision_word_mask_shared_disguised_block(tile_word)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct RelativeCollisionColumnLoc331F6 {
     pub(crate) current_row: u16,

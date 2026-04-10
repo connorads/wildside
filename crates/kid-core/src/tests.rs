@@ -44721,6 +44721,20 @@ fn loc_332d0_zeroes_the_horizontal_row_disguised_block_before_masking_collision(
 }
 
 #[test]
+fn loc_332ec_zeroes_the_second_horizontal_row_disguised_block_before_masking_collision() {
+    assert_eq!(
+        crate::terrain::relative_collision_word_mask_loc_332EC(0xB355),
+        0,
+        "ASM loc_332EC (kid.asm:37733) should apply the same `bclr #$F` / `andi.w #$F00` disguised-block gate to horizontal-scan word `d6` before masking the collision nibble",
+    );
+    assert_eq!(
+        crate::terrain::relative_collision_word_mask_loc_332EC(0x6555),
+        0x6000,
+        "ASM loc_332EC should keep ordinary second-row horizontal words on the fall-through path and preserve only their `$7000` collision nibble",
+    );
+}
+
+#[test]
 fn loc_331f6_reads_the_foot_row_plus_14_and_the_two_rows_above_it() {
     let grid = grid_with_cells(
         8,
