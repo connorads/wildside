@@ -461,12 +461,19 @@ pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
     layout_offset_words: u16,
     active_platforms: &[ActivePlatformHandleSub2728],
 ) -> Option<usize> {
-    // ASM sub_2728 (kid.asm:4649): walk the active platform-slot linked list
-    // in allocation order and stop on the first slot whose `$20(a2)` matches
-    // the current PlatformLoader_Offset word.
-    active_platforms
-        .iter()
-        .position(|platform| platform.layout_offset_words == layout_offset_words)
+    // ASM sub_2728 (kid.asm:4649): `lea (Addr_FirstPlatformSlot).w,a2`
+    // seeds the active-list cursor, then `loc_272C` walks each live slot in
+    // list order until `$20(a2)` matches the current PlatformLoader_Offset.
+    let mut slot_index = 0;
+    while slot_index < active_platforms.len() {
+        // ASM loc_272C (kid.asm:4652): load the current slot link, skip empty
+        // entries, and loop until `cmp.w $20(a2),d5` finds the first match.
+        if active_platforms[slot_index].layout_offset_words == layout_offset_words {
+            return Some(slot_index);
+        }
+        slot_index += 1;
+    }
+    None
 }
 
 #[allow(non_snake_case)]

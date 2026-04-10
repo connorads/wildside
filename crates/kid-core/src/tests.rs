@@ -18981,7 +18981,7 @@ fn find_active_platform_by_layout_offset_sub_2728_returns_the_first_matching_slo
             ],
         ),
         Some(1),
-        "ASM sub_2728 should stop on the first active platform slot whose `$20(a2)` matches the loader offset, leaving later duplicates untouched",
+        "ASM loc_272C (kid.asm:4652) should keep scanning active platform slots until `$20(a2)` matches `d5`, then stop on the first matching slot and leave later duplicates untouched",
     );
 }
 
