@@ -4013,6 +4013,37 @@ fn enemy_layout_reset_and_seek_loc_31f9a_clears_thirty_status_words_via_the_incl
 }
 
 #[test]
+fn enemy_layout_reset_and_seek_loc_31fce_skips_to_the_first_threshold_after_the_axis_selector_word()
+{
+    assert_eq!(
+        enemy_layout_reset_and_seek_loc_31F8E(
+            EnemyLayoutResetAndSeekInputLoc31F8E {
+                enemy_layout_header_addr: 0x0001_2000,
+                enemy_layout_addr: 0x0001_4000,
+                previous_header_threshold: 0x0100,
+                axis_selector_word: 0,
+                camera_x_pos: 0x01FF,
+                camera_y_pos: 0x7FFF,
+            },
+            &[0x0200],
+            &[7],
+        ),
+        Some(EnemyLayoutResetAndSeekLoc31F8E {
+            enemy_status_words: vec![0; 30],
+            loaded_enemy_slot_sentinel: 0xFF,
+            enemy_layout_progress: 0,
+            uses_vertical_axis: false,
+            active_camera_word: 0x01FF,
+            current_header_threshold: 0x0200,
+            previous_header_threshold: 0x0100,
+            enemy_layout_header_addr: 0x0001_2002,
+            enemy_layout_addr: 0x0001_4000,
+        }),
+        "ASM loc_31FCE should take the `beq` path straight from the leading selector word into `addi.l #8,a0`, so the first threshold read comes from the record immediately after the selector while `Camera_X_pos` stays active",
+    );
+}
+
+#[test]
 fn enemy_layout_reset_and_seek_loc_31f8e_clears_status_words_and_advances_until_the_first_threshold_above_the_camera_word()
  {
     assert_eq!(
