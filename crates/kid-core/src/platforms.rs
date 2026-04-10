@@ -269,6 +269,14 @@ pub(crate) struct PlatformLandingLoc26D4 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BottomPlatformCarryLoc26FE {
+    pub(crate) carried_y_velocity_fp: i32,
+    pub(crate) touched_bottom_face: bool,
+    pub(crate) escalates_to_loc_271_a: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn negative_platform_carry_loc_26B6(
     platform_x_velocity_fp: i32,
@@ -324,6 +332,22 @@ pub(crate) fn platform_landing_loc_26D4(
         standing_platform_addr,
         touched_top_face: true,
         escalates_to_loc_271_a: bottom_face_already_touched,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn bottom_platform_carry_loc_26FE(
+    platform_y_velocity_fp: i32,
+    character_movement_is_jump: bool,
+) -> BottomPlatformCarryLoc26FE {
+    // ASM loc_26FE (kid.asm:4628): use the platform's `$E(a2)` velocity plus
+    // the extra `$4000` downward bias, set `$FFFFFAA5`, and skip `loc_271A`
+    // only while `(Character_Movement).w == MoveID_Jump`.
+    BottomPlatformCarryLoc26FE {
+        carried_y_velocity_fp: platform_y_velocity_fp.wrapping_add(0x4000),
+        touched_bottom_face: true,
+        escalates_to_loc_271_a: !character_movement_is_jump,
     }
 }
 

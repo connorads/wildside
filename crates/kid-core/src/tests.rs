@@ -19208,6 +19208,28 @@ fn platform_landing_loc_26d4_moves_kid_onto_the_platform_and_records_support() {
 }
 
 #[test]
+fn bottom_platform_carry_loc_26fe_adds_the_bias_and_only_restarts_during_jump() {
+    assert_eq!(
+        bottom_platform_carry_loc_26FE(0x2_8000, true),
+        BottomPlatformCarryLoc26FE {
+            carried_y_velocity_fp: 0x2_C000,
+            touched_bottom_face: true,
+            escalates_to_loc_271_a: false,
+        },
+        "ASM loc_26FE (kid.asm:4628) should copy `$E(a2)+$4000` into `$2A(a0)`, set `$FFFFFAA5`, and branch back to `loc_2590` while `(Character_Movement).w == MoveID_Jump`",
+    );
+    assert_eq!(
+        bottom_platform_carry_loc_26FE(-0x1_0000, false),
+        BottomPlatformCarryLoc26FE {
+            carried_y_velocity_fp: -0xC000,
+            touched_bottom_face: true,
+            escalates_to_loc_271_a: true,
+        },
+        "ASM loc_26FE should fall through to `loc_271A` for non-jump movement states after setting the bottom-face flag",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
