@@ -96,6 +96,7 @@ use crate::level::{
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_shift_data_second_pass_slot_loc_3048C,
+    background_scroll_shift_data_second_pass_unchanged_loc_304A4,
     background_scroll_shift_data_slot_loc_30452, background_scroll_shift_data_unchanged_loc_30476,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
@@ -2673,6 +2674,21 @@ fn background_scroll_shift_data_second_pass_slot_loc_3048c_mirrors_the_previous_
             branches_to_loc_304_a4: true,
         },
         "ASM loc_3048C should reach `beq.s loc_304A4` only for exact word equality, unlike the earlier `loc_30452` tile-column compare",
+    );
+}
+
+#[test]
+fn background_scroll_shift_data_second_pass_unchanged_loc_304a4_emits_ffff_only_for_exact_word_matches()
+ {
+    assert_eq!(
+        background_scroll_shift_data_second_pass_unchanged_loc_304A4(0x1200, 0x1200),
+        Some(0xFFFF),
+        "ASM loc_304A4 should write `$FFFF` to `(a0)` after `loc_3048C` only when the second-pass compare sees the same full scroll word in both slots",
+    );
+    assert_eq!(
+        background_scroll_shift_data_second_pass_unchanged_loc_304A4(0x1200, 0x11F8),
+        None,
+        "ASM loc_304A4 is only reachable from `beq.s loc_304A4`, so unequal second-pass words must skip the `$FFFF` sentinel and fall through to `sub_304B4`/`loc_304A8` instead",
     );
 }
 

@@ -8095,6 +8095,22 @@ pub(crate) fn background_scroll_shift_data_second_pass_slot_loc_3048C(
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) fn background_scroll_shift_data_second_pass_unchanged_loc_304A4(
+    next_scroll_word: u16,
+    previous_scroll_word: u16,
+) -> Option<u16> {
+    // ASM loc_304A4 (kid.asm:34119): the `beq.s` from `loc_3048C` lands here
+    // only when `cmp.w d5,d2` found the new and previous scroll words equal,
+    // so this arm writes the shared `$FFFF` unchanged sentinel to `(a0)`.
+    if previous_scroll_word == next_scroll_word {
+        Some(0xFFFF)
+    } else {
+        None
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
     tile_row: u16,
     background_theme: u16,
