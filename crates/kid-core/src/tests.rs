@@ -108,7 +108,9 @@ use crate::level::{
 };
 use crate::movement::*;
 use crate::projectiles::{
-    KidProjectileCollisionPassSub1D76, kid_projectile_collision_passes_sub_1D76,
+    KidProjectileCollisionCursorLoc1DCC, KidProjectileCollisionObjectLoc1DCC,
+    KidProjectileCollisionPassSub1D76, first_live_kid_projectile_collision_cursor_loc_1DCC,
+    kid_projectile_collision_passes_sub_1D76,
 };
 use crate::weather::{
     FallingWeatherSlotSub61CA, LevelSpecialEffectsRoutineSub6034, MurderWallWarningInputSub5E02,
@@ -1694,6 +1696,24 @@ fn kid_projectile_hitbox_candidate_sub_226a(
         y_anchor_px,
         mirrored,
         collision_size,
+    }
+}
+
+fn kid_projectile_collision_object_loc_1dcc(
+    deleted: bool,
+    mirrored: bool,
+    collision_index_word: u16,
+    x_anchor_px: i16,
+    y_anchor_px: i16,
+    collision_sizes: Vec<CollisionSizeEntrySub21F8>,
+) -> KidProjectileCollisionObjectLoc1DCC {
+    KidProjectileCollisionObjectLoc1DCC {
+        deleted,
+        mirrored,
+        collision_index_word,
+        x_anchor_px,
+        y_anchor_px,
+        collision_sizes,
     }
 }
 
@@ -42887,6 +42907,46 @@ fn kid_projectile_target_rect_loc_1dbe_adds_the_shared_y_span_after_the_x_branch
             bottom_px: 58,
         },
         "ASM loc_1DBE should keep the same `[y_pos + offset, y_pos + offset + span]` range after the flipped `loc_1DB4` X branch",
+    );
+}
+
+#[test]
+fn first_live_kid_projectile_collision_cursor_loc_1dcc_skips_deleted_entries_and_halves_the_collision_word()
+ {
+    assert_eq!(
+        first_live_kid_projectile_collision_cursor_loc_1DCC(&[
+            kid_projectile_collision_object_loc_1dcc(
+                true,
+                false,
+                0x0002,
+                32,
+                48,
+                vec![collision_size_entry_sub_21f8(-2, 4, -2, 4)],
+            ),
+            kid_projectile_collision_object_loc_1dcc(
+                false,
+                true,
+                0x0006,
+                120,
+                80,
+                vec![
+                    collision_size_entry_sub_21f8(-5, 10, -31, 31),
+                    collision_size_entry_sub_21f8(0, 0, 0, 0),
+                ],
+            ),
+        ]),
+        Some(KidProjectileCollisionCursorLoc1DCC {
+            object_index: 1,
+            collision_size_index: 3,
+            mirrored: true,
+            x_anchor_px: 120,
+            y_anchor_px: 80,
+            collision_sizes: vec![
+                collision_size_entry_sub_21f8(-5, 10, -31, 31),
+                collision_size_entry_sub_21f8(0, 0, 0, 0),
+            ],
+        }),
+        "ASM loc_1DCC should skip deleted gfx objects via `$3D(a2)`, then seed the CollisionSize cursor from `$22(a2)>>1` before the orientation-specific scan starts",
     );
 }
 

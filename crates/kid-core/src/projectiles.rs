@@ -1,4 +1,6 @@
 use super::*;
+#[cfg(test)]
+use crate::combat::CollisionSizeEntrySub21F8;
 use crate::enemies::{archer_adjust_angle, archer_angle_to_player, arrow_velocity_from_angle};
 
 #[cfg(test)]
@@ -40,6 +42,28 @@ pub(crate) struct KidProjectileTargetRectLoc1DBE {
     pub(crate) right_px: i16,
     pub(crate) top_px: i16,
     pub(crate) bottom_px: i16,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct KidProjectileCollisionObjectLoc1DCC {
+    pub(crate) deleted: bool,
+    pub(crate) mirrored: bool,
+    pub(crate) collision_index_word: u16,
+    pub(crate) x_anchor_px: i16,
+    pub(crate) y_anchor_px: i16,
+    pub(crate) collision_sizes: Vec<CollisionSizeEntrySub21F8>,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct KidProjectileCollisionCursorLoc1DCC {
+    pub(crate) object_index: usize,
+    pub(crate) collision_size_index: usize,
+    pub(crate) mirrored: bool,
+    pub(crate) x_anchor_px: i16,
+    pub(crate) y_anchor_px: i16,
+    pub(crate) collision_sizes: Vec<CollisionSizeEntrySub21F8>,
 }
 
 #[cfg(test)]
@@ -96,6 +120,33 @@ pub(crate) fn kid_projectile_target_rect_loc_1DBE(
         top_px,
         bottom_px: top_px.wrapping_add(y_span),
     }
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn first_live_kid_projectile_collision_cursor_loc_1DCC(
+    objects: &[KidProjectileCollisionObjectLoc1DCC],
+) -> Option<KidProjectileCollisionCursorLoc1DCC> {
+    for (object_index, object) in objects.iter().enumerate() {
+        // ASM loc_1DCC (kid.asm:3581-3589): follow the gfx-object list, skip
+        // deleted entries via `tst.b $3D(a2)`, then load `$22(a2)`, halve it,
+        // index `CollisionSize_Index`, and back the cursor up by one 8-byte
+        // slot so `loc_1DF2`/`loc_1E1E` can start with `addq.w #8,a3`.
+        if object.deleted {
+            continue;
+        }
+
+        return Some(KidProjectileCollisionCursorLoc1DCC {
+            object_index,
+            collision_size_index: usize::from(object.collision_index_word >> 1),
+            mirrored: object.mirrored,
+            x_anchor_px: object.x_anchor_px,
+            y_anchor_px: object.y_anchor_px,
+            collision_sizes: object.collision_sizes.clone(),
+        });
+    }
+
+    None
 }
 
 impl NativeRuntime {
