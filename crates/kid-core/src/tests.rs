@@ -55,8 +55,9 @@ use crate::level::{
     BackgroundScrollPieceRefreshSeedLoc3081A, BackgroundScrollPieceRefreshVdpSeedLoc30884,
     BackgroundScrollPieceRefreshWindowSplitLoc3086A,
     BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6, BackgroundScrollPieceRefreshWrapLoc30836,
-    BackgroundScrollPieceRowDispatchLoc3079A, BackgroundScrollPieceRowDispatchLoc3079ABranch,
-    BackgroundScrollPieceRowUploadLoc307B2, BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
+    BackgroundScrollPieceRefreshWrappedCopyLoc308C4, BackgroundScrollPieceRowDispatchLoc3079A,
+    BackgroundScrollPieceRowDispatchLoc3079ABranch, BackgroundScrollPieceRowUploadLoc307B2,
+    BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
@@ -120,8 +121,9 @@ use crate::level::{
     background_scroll_piece_refresh_vdp_seed_loc_30884,
     background_scroll_piece_refresh_window_split_loc_3086A,
     background_scroll_piece_refresh_wrap_counter_setup_loc_308B6,
-    background_scroll_piece_refresh_wrap_loc_30836, background_scroll_piece_row_dispatch_loc_3079A,
-    background_scroll_piece_row_upload_loc_307B2,
+    background_scroll_piece_refresh_wrap_loc_30836,
+    background_scroll_piece_refresh_wrapped_copy_loc_308C4,
+    background_scroll_piece_row_dispatch_loc_3079A, background_scroll_piece_row_upload_loc_307B2,
     background_scroll_shift_data_second_pass_advance_loc_304A8,
     background_scroll_shift_data_second_pass_slot_loc_3048C,
     background_scroll_shift_data_second_pass_unchanged_loc_304A4,
@@ -2768,6 +2770,30 @@ fn background_scroll_piece_refresh_wrap_counter_setup_loc_308b6_splits_the_wrapp
             second_pass_dbf_counter: 1,
         },
         "ASM loc_308B6 should snapshot wrapped `d7` into `d4`, seed `d1` with `$28 - d7 - 1` for the first inclusive pass, and set `d2 = 1` so the shared tail retries exactly once",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_wrapped_copy_loc_308c4_rewinds_by_background_width_between_the_two_passes()
+ {
+    let layout_row: Vec<u8> = (0..0x20).collect();
+    let block_mappings: Vec<u16> = (0..0x20).map(|index| 0x5000 | index).collect();
+
+    assert_eq!(
+        background_scroll_piece_refresh_wrapped_copy_loc_308C4(
+            &layout_row,
+            0x0015,
+            &block_mappings,
+            0x0020,
+            0x001D,
+        ),
+        Some(BackgroundScrollPieceRefreshWrappedCopyLoc308C4 {
+            first_pass_mapping_words: block_mappings[0x15..0x20].to_vec(),
+            second_pass_mapping_words: block_mappings[0x00..0x1E].to_vec(),
+            bytes_consumed: 0x29,
+            final_layout_row_offset: -2,
+        }),
+        "ASM loc_308C4 should consume the first inclusive `dbf d1` span from the current `(a0)+` position, rewind `a0` by `Background_width`, reload `d1` from `d4`, and use `d2 = 1` to execute exactly one wrapped second pass",
     );
 }
 

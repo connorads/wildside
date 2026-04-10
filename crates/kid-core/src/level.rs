@@ -7713,6 +7713,14 @@ pub(crate) struct BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6 {
     pub(crate) second_pass_dbf_counter: u16,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshWrappedCopyLoc308C4 {
+    pub(crate) first_pass_mapping_words: Vec<u16>,
+    pub(crate) second_pass_mapping_words: Vec<u16>,
+    pub(crate) bytes_consumed: usize,
+    pub(crate) final_layout_row_offset: i16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDispatchLoc3039C {
     pub(crate) computes_shift_data: bool,
@@ -8384,6 +8392,53 @@ pub(crate) fn background_scroll_piece_refresh_wrap_counter_setup_loc_308B6(
             .wrapping_sub(1),
         second_pass_dbf_counter: 1,
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_wrapped_copy_loc_308C4(
+    layout_row: &[u8],
+    current_layout_row_offset: i16,
+    block_mappings: &[u16],
+    background_width: i16,
+    wrapped_row_window_end: i16,
+) -> Option<BackgroundScrollPieceRefreshWrappedCopyLoc308C4> {
+    // ASM loc_308C4 (kid.asm:34724): the shared wrapped-copy tail consumes the
+    // first inclusive `dbf d1` run from the current `(a0)+` position, rewinds
+    // `a0` by `Background_width`, reloads `d1` from `d4`, and uses the `d2=1`
+    // seed from loc_308B6 to execute exactly one second wrapped pass before
+    // the final fall-through return.
+    let counters =
+        background_scroll_piece_refresh_wrap_counter_setup_loc_308B6(wrapped_row_window_end);
+    let first_pass_count = usize::from(counters.first_pass_dbf_counter).wrapping_add(1);
+    let first_pass_start = usize::from(current_layout_row_offset as u16);
+    let first_pass_slice =
+        layout_row.get(first_pass_start..first_pass_start.wrapping_add(first_pass_count))?;
+    let first_pass_mapping_words = first_pass_slice
+        .iter()
+        .map(|&mapping_index| block_mappings.get(usize::from(mapping_index)).copied())
+        .collect::<Option<Vec<_>>>()?;
+
+    let wrapped_layout_row_offset = current_layout_row_offset
+        .wrapping_add(first_pass_count as i16)
+        .wrapping_sub(background_width);
+    let second_pass_count = usize::from(counters.wrapped_row_window_end as u16).wrapping_add(1);
+    let second_pass_start = usize::from(wrapped_layout_row_offset as u16);
+    let second_pass_slice =
+        layout_row.get(second_pass_start..second_pass_start.wrapping_add(second_pass_count))?;
+    let second_pass_mapping_words = second_pass_slice
+        .iter()
+        .map(|&mapping_index| block_mappings.get(usize::from(mapping_index)).copied())
+        .collect::<Option<Vec<_>>>()?;
+
+    Some(BackgroundScrollPieceRefreshWrappedCopyLoc308C4 {
+        first_pass_mapping_words,
+        second_pass_mapping_words,
+        bytes_consumed: first_pass_count.wrapping_add(second_pass_count),
+        final_layout_row_offset: wrapped_layout_row_offset
+            .wrapping_add(second_pass_count as i16)
+            .wrapping_sub(background_width),
+    })
 }
 
 #[allow(non_snake_case)]
