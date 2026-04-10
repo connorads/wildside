@@ -536,6 +536,9 @@ pub(crate) fn platform_strip_sprites_loc_24F0(
     let mut screen_x_word = dispatch.screen_x_word.wrapping_add(0x0010);
 
     if dispatch.width_tiles_minus_one > 1 {
+        // ASM loc_2506 (kid.asm:4410): emit the interior span with the same
+        // middle mapping word each time, advance `d4` by 16px after every
+        // sprite, and let DBF repeat exactly `width_tiles_minus_one - 1` times.
         for _ in 0..(dispatch.width_tiles_minus_one - 1) {
             let emitted = emit_platform_sprite_loc_2548(
                 screen_x_word,

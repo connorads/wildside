@@ -19261,6 +19261,47 @@ fn platform_strip_sprites_loc_24f0_emits_the_left_cap_before_advancing_mapping_a
 }
 
 #[test]
+fn platform_strip_sprites_loc_2506_repeats_the_middle_mapping_word_across_interior_tiles() {
+    let result = platform_strip_sprites_loc_24F0(
+        PlatformSpriteDispatchLoc244C {
+            screen_x_word: 0x00A0,
+            screen_y_word: 0x0090,
+            width_tiles_minus_one: 4,
+            height_tiles_minus_one: 0,
+            base_tile_word: 0x0500,
+            mapping_addr_word: 0x2468,
+            variant: PlatformSpriteVariantLoc244C::Loc24F0,
+        },
+        0x10,
+    );
+
+    assert_eq!(
+        result.sprites[1..4],
+        [
+            PlatformSpriteEntryLoc2548 {
+                y_word: 0x0090,
+                tile_word: 0x0512,
+                mapping_word: 0xA46C,
+                x_word: 0x00B0,
+            },
+            PlatformSpriteEntryLoc2548 {
+                y_word: 0x0090,
+                tile_word: 0x0513,
+                mapping_word: 0xA46C,
+                x_word: 0x00C0,
+            },
+            PlatformSpriteEntryLoc2548 {
+                y_word: 0x0090,
+                tile_word: 0x0514,
+                mapping_word: 0xA46C,
+                x_word: 0x00D0,
+            },
+        ],
+        "ASM loc_2506 should keep reusing the middle mapping word while `dbf d1,loc_2506` walks the interior span one 16px cell at a time",
+    );
+}
+
+#[test]
 fn platform_collision_shift_directions_matter() {
     // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
     // If >> became <<, pixel values would be wildly wrong and collision would fail.
