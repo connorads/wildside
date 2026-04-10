@@ -11417,6 +11417,20 @@ fn end_sequence_credits_row_upload_loc_1d9b6_builds_the_expected_vdp_commands_fo
 }
 
 #[test]
+fn end_sequence_credits_row_copy_word_count_loc_1d9ca_is_inclusive_of_dbf_zero() {
+    assert_eq!(
+        crate::movement::end_sequence_credits_row_copy_word_count_loc_1D9CA(0x0000),
+        1,
+        "ASM loc_1D9CA should still copy one row word when `d5=0` because `move.w (a4)+,(a6)` runs before `dbf d5,loc_1D9CA` reaches `-1`",
+    );
+    assert_eq!(
+        crate::movement::end_sequence_credits_row_copy_word_count_loc_1D9CA(0x000D),
+        0x000E,
+        "ASM loc_1D9CA seeds `d5=#$D`, so each credits row upload should transfer 14 words from `Decompression_Buffer` into VRAM before `j_sub_924`",
+    );
+}
+
+#[test]
 fn load_end_sequence_credits_glyphs_loc_1d7b0_maps_triples_until_the_zero_x_sentinel() {
     let glyphs = load_end_sequence_credits_glyphs_sub_1D7A8(
         &[0x10, 0xA8, 0x04, 0x20, 0xA4, 0x08, 0x00, 0xFF, 0xFF],

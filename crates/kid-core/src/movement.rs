@@ -547,6 +547,16 @@ pub(crate) fn end_sequence_credits_row_upload_loc_1D9B6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn end_sequence_credits_row_copy_word_count_loc_1D9CA(d5_seed: u16) -> u16 {
+    // ASM loc_1D9CA (kid.asm:33272): `moveq #$D,d5` seeds the inner row-copy
+    // loop, then `move.w (a4)+,(a6)` executes before `dbf d5,loc_1D9CA`, so
+    // the credits upload always copies `d5 + 1` words from
+    // `Decompression_Buffer` into the VDP data port.
+    d5_seed.wrapping_add(1)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_end_sequence_credits_glyphs_sub_1D7A8(
     script: &[u8],
     mut glyphs: [Option<EndSequenceCreditsGlyphPlacementSub1D7A8>; 6],
