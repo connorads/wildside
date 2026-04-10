@@ -659,6 +659,19 @@ pub(crate) struct EndSequencePanelSetupLoc1D306 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequencePanelScrollLoopLoc1D3A0 {
+    pub(crate) display_refresh_subroutine: &'static str,
+    pub(crate) hibernate_subroutine: &'static str,
+    pub(crate) panel_step_subroutine: &'static str,
+    pub(crate) row_upload_subroutine: &'static str,
+    pub(crate) scroll_counter_seed: u16,
+    pub(crate) scroll_distance_seed: u16,
+    pub(crate) scroll_step: u16,
+    pub(crate) active_iterations: u16,
+    pub(crate) panel_refresh_iterations: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -2256,6 +2269,29 @@ pub(crate) fn end_sequence_panel_setup_loc_1D306() -> EndSequencePanelSetupLoc1D
         panel_toggle_byte: 0x00,
         panel_delta: 0x0118,
         tilemap_row_upload_subroutine: "sub_1CDA8",
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_panel_scroll_loop_loc_1D3A0() -> EndSequencePanelScrollLoopLoc1D3A0 {
+    // ASM loc_1D3A0 (kid.asm:32706): every active pass runs `sub_1DA24`,
+    // hibernates one frame, subtracts 2 from both `Camera_Y_pos` and `d3`, and
+    // decrements `d2` by 2 before `sub_1CC88`. When `d2` reaches zero, the
+    // loop reloads `d2 = 8`, decrements the `sub_1CDA8` row/column seeds, and
+    // uploads the next panel row. Because the top-of-loop `tst.w d3` exits only
+    // on the following pass, the `$E0` seed yields `$E0 / 2 = $70` active
+    // iterations and `$70 / 4 = $1C` row uploads.
+    EndSequencePanelScrollLoopLoc1D3A0 {
+        display_refresh_subroutine: "sub_1DA24",
+        hibernate_subroutine: "j_Hibernate_Object_1Frame",
+        panel_step_subroutine: "sub_1CC88",
+        row_upload_subroutine: "sub_1CDA8",
+        scroll_counter_seed: 0x0008,
+        scroll_distance_seed: 0x00E0,
+        scroll_step: 0x0002,
+        active_iterations: 0x0070,
+        panel_refresh_iterations: 0x001C,
     }
 }
 

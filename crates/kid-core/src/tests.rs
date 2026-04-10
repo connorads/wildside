@@ -26492,6 +26492,48 @@ fn end_sequence_panel_setup_loc_1d306_copies_nine_palette_words_and_seeds_panel_
 }
 
 #[test]
+fn end_sequence_panel_scroll_loop_loc_1d3a0_runs_112_scroll_steps_and_28_row_uploads() {
+    let scroll_loop = crate::boot::end_sequence_panel_scroll_loop_loc_1D3A0();
+
+    assert_eq!(
+        scroll_loop.display_refresh_subroutine, "sub_1DA24",
+        "ASM loc_1D3A0 (kid.asm:32706) should refresh the display through `sub_1DA24` on every active pass",
+    );
+    assert_eq!(
+        scroll_loop.hibernate_subroutine, "j_Hibernate_Object_1Frame",
+        "ASM loc_1D3A0 should hibernate exactly one frame per active pass",
+    );
+    assert_eq!(
+        scroll_loop.panel_step_subroutine, "sub_1CC88",
+        "ASM loc_1D3A0 should step the menu-panel animation after each scroll update",
+    );
+    assert_eq!(
+        scroll_loop.row_upload_subroutine, "sub_1CDA8",
+        "ASM loc_1D3A0 should call `sub_1CDA8` whenever the `d2` cadence counter rolls over",
+    );
+    assert_eq!(
+        scroll_loop.scroll_counter_seed, 0x0008,
+        "ASM loc_1D3A0 should start the cadence counter from `d2 = 8`",
+    );
+    assert_eq!(
+        scroll_loop.scroll_distance_seed, 0x00E0,
+        "ASM loc_1D3A0 should start the remaining vertical distance from `d3 = $E0`",
+    );
+    assert_eq!(
+        scroll_loop.scroll_step, 0x0002,
+        "ASM loc_1D3A0 should subtract 2 from both `Camera_Y_pos` and `d3` per active pass",
+    );
+    assert_eq!(
+        scroll_loop.active_iterations, 0x0070,
+        "ASM loc_1D3A0 should perform `$E0 / 2 = $70` active scroll iterations before the next top-of-loop exit test reaches loc_1D3CA",
+    );
+    assert_eq!(
+        scroll_loop.panel_refresh_iterations, 0x001C,
+        "ASM loc_1D3A0 should trigger `$70 / 4 = $1C` row uploads because `d2` reaches zero every fourth active pass",
+    );
+}
+
+#[test]
 fn end_sequence_stripe_loop_loc_1cde4_steps_ten_display_refreshes_across_column_pairs() {
     let stripe_loop = crate::boot::end_sequence_stripe_loop_loc_1CDE4();
 
