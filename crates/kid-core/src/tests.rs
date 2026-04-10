@@ -27003,6 +27003,24 @@ fn loc_1d226_end_sequence_spawn_loop_seeds_three_falling_sprites_from_word_1d83a
 }
 
 #[test]
+fn loc_1d24a_end_sequence_low_priority_burst_prelude_clears_priority_and_seeds_two_frame_wait() {
+    let prelude = crate::boot::end_sequence_burst_low_priority_prelude_loc_1D24A();
+
+    assert_eq!(
+        prelude.burst_subroutine, "sub_1D86C",
+        "ASM loc_1D24A (kid.asm:32622-32625) should keep calling `sub_1D86C` for each burst spawn",
+    );
+    assert_eq!(
+        prelude.burst_priority, 0,
+        "ASM loc_1D24A clears `d4` before `sub_1D86C`, so these burst sprites should use priority 0 rather than the earlier priority-1 path",
+    );
+    assert_eq!(
+        prelude.wait_seed, 0x0001,
+        "ASM loc_1D24A should seed `d1 = 1` for the following `loc_1D252` wait loop",
+    );
+}
+
+#[test]
 fn prize_10000_points_star_spawn_loc_10b3a_uses_the_first_mapping_only_on_frame_zero() {
     let spawn = prize_10000_points_star_spawn_loc_10B3A(0, 0x0123, 0x0045)
         .expect("frame 0 should spawn the first prize star");

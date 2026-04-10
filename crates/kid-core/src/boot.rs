@@ -2941,6 +2941,28 @@ pub(crate) fn end_sequence_falling_sprite_spawn_loop_loc_1D226()
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceBurstLowPriorityPreludeLoc1D24A {
+    pub(crate) burst_subroutine: &'static str,
+    pub(crate) burst_priority: u8,
+    pub(crate) wait_seed: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_burst_low_priority_prelude_loc_1D24A()
+-> EndSequenceBurstLowPriorityPreludeLoc1D24A {
+    // ASM loc_1D24A (kid.asm:32622-32625): after `moveq #$32,d0`,
+    // clear `d4`, call `sub_1D86C`, then seed `d1 = 1` for the inner
+    // `dbf d1,loc_1D252` wait loop.
+    EndSequenceBurstLowPriorityPreludeLoc1D24A {
+        burst_subroutine: "sub_1D86C",
+        burst_priority: 0,
+        wait_seed: 0x0001,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn prize_10000_points_star_spawn_loc_10B3A(
