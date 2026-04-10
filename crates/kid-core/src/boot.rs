@@ -646,6 +646,13 @@ pub(crate) struct EndSequenceTileFillLoc1DA6A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceVramZeroFillLoc1DA7E {
+    pub(crate) vram_word_addr: u16,
+    pub(crate) fill_word: u16,
+    pub(crate) word_write_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceFadeLoopLoc1D270 {
     pub(crate) loop_seed: u16,
     pub(crate) fade_palette_byte_offset: u16,
@@ -2370,6 +2377,19 @@ pub(crate) fn end_sequence_tile_fill_loc_1DA6A() -> EndSequenceTileFillLoc1DA6A 
     EndSequenceTileFillLoc1DA6A {
         fill_word: 0x0094,
         word_write_count: 0x07FF + 1,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_vram_zero_fill_loc_1DA7E() -> EndSequenceVramZeroFillLoc1DA7E {
+    // ASM loc_1DA7E (kid.asm:33355): `sub_1DA72` first programs
+    // `vdpComm($1280,VRAM,WRITE)`, then seeds `d0=#$F` and `d1=0`, so the
+    // inclusive `move.w d1,(a6); dbf d0,loc_1DA7E` loop clears 16 words.
+    EndSequenceVramZeroFillLoc1DA7E {
+        vram_word_addr: 0x1280,
+        fill_word: 0x0000,
+        word_write_count: 0x000F + 1,
     }
 }
 

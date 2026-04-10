@@ -26612,6 +26612,19 @@ fn end_sequence_tile_fill_loc_1da6a_streams_2048_copies_of_tile_0094() {
 }
 
 #[test]
+fn end_sequence_vram_zero_fill_loc_1da7e_clears_16_words_from_vram_1280() {
+    assert_eq!(
+        crate::boot::end_sequence_vram_zero_fill_loc_1DA7E(),
+        crate::boot::EndSequenceVramZeroFillLoc1DA7E {
+            vram_word_addr: 0x1280,
+            fill_word: 0x0000,
+            word_write_count: 0x0010,
+        },
+        "ASM loc_1DA7E should program `vdpComm($1280,VRAM,WRITE)` and stream `$F + 1` zero words because `move.w d1,(a6)` executes before the inclusive `dbf d0,loc_1DA7E` test",
+    );
+}
+
+#[test]
 fn end_sequence_fade_loop_loc_1d270_runs_eight_palette_darken_passes_before_vram_upload() {
     let fade_loop = crate::boot::end_sequence_fade_loop_loc_1D270();
 
