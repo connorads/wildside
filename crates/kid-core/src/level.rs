@@ -6233,6 +6233,19 @@ pub(crate) fn object_check_in_range_normal_x_loc_320C0(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn object_check_in_range_normal_y_loc_320D8(
+    object_y_pos: i16,
+    camera_y_pos: i16,
+) -> bool {
+    // ASM Object_CheckInRange_NormalRange -> loc_320D8 (kid.asm:37508-37517)
+    // subtracts `Camera_Y_pos` from `y_pos(a3)` in a 16-bit register, then
+    // accepts only the inclusive y window `[-$1A4, $284]` before `rts`.
+    let relative_y = object_y_pos.wrapping_sub(camera_y_pos);
+    (-0x01A4..=0x0284).contains(&relative_y)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
     // ASM loc_11D0C -> loc_11D42 (kid.asm:23917-23923) clears `d1`, tests
     // `($FFFFF896).w`, and only loads `$80008000` into `d1` when that byte is
