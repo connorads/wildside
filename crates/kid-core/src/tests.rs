@@ -53,7 +53,9 @@ use crate::level::{
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshDualWrapBranchLoc30904,
     BackgroundScrollPieceRefreshLinearCopyLoc308A6,
-    BackgroundScrollPieceRefreshRowWrapFirstCopyLoc30942, BackgroundScrollPieceRefreshSeedLoc3081A,
+    BackgroundScrollPieceRefreshRowWrapFirstCopyLoc30942,
+    BackgroundScrollPieceRefreshRowWrapSecondCopyLoc30954,
+    BackgroundScrollPieceRefreshSeedLoc3081A,
     BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE,
     BackgroundScrollPieceRefreshTileWrappedCopyLoc308E8,
     BackgroundScrollPieceRefreshVdpSeedLoc30884, BackgroundScrollPieceRefreshWindowSplitLoc3086A,
@@ -122,6 +124,7 @@ use crate::level::{
     background_scroll_piece_refresh_dual_wrap_branch_loc_30904,
     background_scroll_piece_refresh_linear_copy_loc_308A6,
     background_scroll_piece_refresh_row_wrap_first_copy_loc_30942,
+    background_scroll_piece_refresh_row_wrap_second_copy_loc_30954,
     background_scroll_piece_refresh_seed_loc_3081A,
     background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE,
     background_scroll_piece_refresh_tile_wrapped_copy_loc_308E8,
@@ -3860,6 +3863,36 @@ fn background_scroll_piece_refresh_row_wrap_first_copy_loc_30942_copies_the_pre_
             bytes_consumed: 35,
         }),
         "ASM loc_30942 should copy the inclusive `$28-d7` pre-wrap tail from `(a0)+`, then apply `suba.w (Background_width).w,a0` so the next pass resumes one row higher at the wrapped column",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_row_wrap_second_copy_loc_30954_copies_the_middle_span_then_restores_the_seam_command()
+ {
+    let layout_row: Vec<u8> = (0..96).collect();
+    let block_mappings: Vec<u16> = (0..256)
+        .map(|index| 0x2000_u16.wrapping_add(index))
+        .collect();
+
+    assert_eq!(
+        background_scroll_piece_refresh_row_wrap_second_copy_loc_30954(
+            &layout_row,
+            39,
+            &block_mappings,
+            2,
+            5,
+            0x6A80,
+        ),
+        Some(BackgroundScrollPieceRefreshRowWrapSecondCopyLoc30954 {
+            mapping_words: (39..42)
+                .map(|index| 0x2000_u16.wrapping_add(index as u16))
+                .collect(),
+            seam_vdp_control_word: 0x6A80,
+            seam_vdp_autoincrement_word: 3,
+            next_layout_row_offset: 42,
+            bytes_consumed: 3,
+        }),
+        "ASM loc_30954 should copy the inclusive `d7-d6` middle span after the row rewind, then restore the saved plane-B seam command with autoincrement `#3` before loc_30968 handles the wrapped tile tail",
     );
 }
 

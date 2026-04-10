@@ -7745,6 +7745,15 @@ pub(crate) struct BackgroundScrollPieceRefreshRowWrapFirstCopyLoc30942 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshRowWrapSecondCopyLoc30954 {
+    pub(crate) mapping_words: Vec<u16>,
+    pub(crate) seam_vdp_control_word: u16,
+    pub(crate) seam_vdp_autoincrement_word: u16,
+    pub(crate) next_layout_row_offset: i16,
+    pub(crate) bytes_consumed: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollPieceRefreshWrappedCopyLoc308C4 {
     pub(crate) first_pass_mapping_words: Vec<u16>,
     pub(crate) second_pass_mapping_words: Vec<u16>,
@@ -8586,6 +8595,41 @@ pub(crate) fn background_scroll_piece_refresh_row_wrap_first_copy_loc_30942(
             .wrapping_add(first_pass_count as i16)
             .wrapping_sub(background_width),
         bytes_consumed: first_pass_count,
+    })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_row_wrap_second_copy_loc_30954(
+    layout_row: &[u8],
+    current_layout_row_offset: i16,
+    block_mappings: &[u16],
+    wrapped_tile_window_span: u16,
+    wrapped_row_window_end: i16,
+    seam_vdp_control_word: u16,
+) -> Option<BackgroundScrollPieceRefreshRowWrapSecondCopyLoc30954> {
+    // ASM loc_30954 (kid.asm:34796): after loc_30942 rewinds `a0`, this
+    // inclusive `dbf d7,loc_30954` pass copies the middle span between the row
+    // wrap seam and the tile wrap seam, where loc_30936 reduced `d7` to
+    // `wrapped_row_window_end - wrapped_tile_window_span - 1`. The tail then
+    // restores `d3` and autoincrement `#3` to `(a5)` before loc_30968 copies
+    // the final wrapped-tile segment.
+    let second_pass_count =
+        usize::from((wrapped_row_window_end as u16).wrapping_sub(wrapped_tile_window_span));
+    let second_pass_start = usize::from(current_layout_row_offset as u16);
+    let second_pass_slice =
+        layout_row.get(second_pass_start..second_pass_start.wrapping_add(second_pass_count))?;
+    let mapping_words = second_pass_slice
+        .iter()
+        .map(|&mapping_index| block_mappings.get(usize::from(mapping_index)).copied())
+        .collect::<Option<Vec<_>>>()?;
+
+    Some(BackgroundScrollPieceRefreshRowWrapSecondCopyLoc30954 {
+        mapping_words,
+        seam_vdp_control_word,
+        seam_vdp_autoincrement_word: 3,
+        next_layout_row_offset: current_layout_row_offset.wrapping_add(second_pass_count as i16),
+        bytes_consumed: second_pass_count,
     })
 }
 
