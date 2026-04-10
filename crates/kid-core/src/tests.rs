@@ -26646,6 +26646,28 @@ fn end_sequence_credits_glyph_cache_loc_1d3d0_allocates_six_workers_then_seeds_l
 }
 
 #[test]
+fn end_sequence_hide_glyphs_loc_1d7f0_clears_the_display_flag_for_all_six_cached_workers() {
+    let hide = crate::boot::end_sequence_hide_glyphs_loc_1D7F0();
+
+    assert_eq!(
+        hide.glyph_pointer_table_base, 0xFB72,
+        "ASM sub_1D7E6 should seed `a4` from `$FFFFFB72` before loc_1D7F0 starts walking the cached glyph pointers",
+    );
+    assert_eq!(
+        hide.loop_seed, 0x0005,
+        "ASM sub_1D7E6 should seed `d7 = 5` before the `dbf d7,loc_1D7F0` hide loop",
+    );
+    assert_eq!(
+        hide.hidden_glyphs, 0x0006,
+        "ASM loc_1D7F0 (kid.asm:33034) should clear six cached glyph workers because `dbf d7,loc_1D7F0` counts inclusively from 5 to -1",
+    );
+    assert_eq!(
+        hide.cleared_flag_offset, 0x0013,
+        "ASM loc_1D7F0 should clear each cached worker's display-enable byte via `sf $13(a3)`",
+    );
+}
+
+#[test]
 fn end_sequence_page_break_dispatch_loc_1d40e_branches_to_the_wait_setup_entry() {
     let dispatch = crate::boot::end_sequence_page_break_dispatch_loc_1D40E();
 

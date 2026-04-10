@@ -673,6 +673,15 @@ pub(crate) struct EndSequencePanelScrollLoopLoc1D3A0 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceHideGlyphsLoc1D7F0 {
+    pub(crate) glyph_pointer_table_base: u16,
+    pub(crate) loop_seed: u16,
+    pub(crate) hidden_glyphs: u16,
+    pub(crate) cleared_flag_offset: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsGlyphCacheLoc1D3D0 {
     pub(crate) glyph_count: u16,
     pub(crate) glyph_pointer_table_base: u16,
@@ -2365,6 +2374,21 @@ pub(crate) fn end_sequence_panel_scroll_loop_loc_1D3A0() -> EndSequencePanelScro
         scroll_step: 0x0002,
         active_iterations: 0x0070,
         panel_refresh_iterations: 0x001C,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_hide_glyphs_loc_1D7F0() -> EndSequenceHideGlyphsLoc1D7F0 {
+    // ASM loc_1D7F0 (kid.asm:33034-33037): seed `a4` from `$FFFFFB72`, load
+    // each cached glyph pointer with `move.l (a4)+,a3`, clear the display flag
+    // at `$13(a3)` via `sf`, and let `dbf d7,loc_1D7F0` consume the `d7 = 5`
+    // seed from `sub_1D7E6` for six inclusive passes.
+    EndSequenceHideGlyphsLoc1D7F0 {
+        glyph_pointer_table_base: 0xFB72,
+        loop_seed: 0x0005,
+        hidden_glyphs: 0x0006,
+        cleared_flag_offset: 0x0013,
     }
 }
 
