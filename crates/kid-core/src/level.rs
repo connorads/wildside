@@ -6137,6 +6137,32 @@ pub(crate) fn enemy_layout_reset_and_seek_loc_31F8E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
+    // ASM loc_3200A (kid.asm:37413): clear `d0`, read byte `1(a1)`, and
+    // return zero immediately for empty slots. Positive bytes subtract one,
+    // rotate that slot index right by four bits, OR in the big-endian word
+    // from `unk_3680C`, then force the high bits with `ori.w #$C000,d0`.
+    const ENEMY_LAYOUT_STATUS_LOOKUP_LOC_3200A: [u16; 4] = [0x00F0, 0x01E0, 0x02D0, 0x03C0];
+
+    if entry_status_byte == 0 {
+        return 0;
+    }
+
+    assert!(
+        entry_status_byte < 0x80,
+        "loc_3200A handles only non-negative entry-status bytes",
+    );
+    let slot_index = entry_status_byte.wrapping_sub(1);
+    let lookup = ENEMY_LAYOUT_STATUS_LOOKUP_LOC_3200A
+        .get(usize::from(slot_index))
+        .copied()
+        .expect("loc_3200A lookup covers only the four enemy art slots");
+
+    u16::from(slot_index).rotate_right(4) | lookup | 0xC000
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
     // ASM loc_11D0C -> loc_11D42 (kid.asm:23917-23923) clears `d1`, tests
     // `($FFFFF896).w`, and only loads `$80008000` into `d1` when that byte is

@@ -190,13 +190,14 @@ use crate::level::{
     decode_block_layout_loc_132A6, decompress_to_ram_palette_row_bytes_loc_143CE,
     decompress_to_ram_palette_row_start_loc_143CC, decompress_to_vram_special_return_loc_143B2,
     drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
-    enemy_layout_reset_and_seek_loc_31F8E, fade_palette_span_sub_1C85E,
-    fg_update_queue_cell_mapping_longwords_loc_165E, fg_update_queue_cell_vram_word_loc_1614,
-    fg_update_queue_culled_entry_advance_loc_167A, flagpole_scoreboard_step_sub_C254,
-    initialise_camera_bootstrap_loc_11F48, initialise_evanesc_object_slots_sub_EABC,
-    initialise_fullscreen_palette_fade_sub_73D0, initialise_palette_fade_out_loc_28A6,
-    initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
-    initialise_sprite_frame_state_sub_B52, prepare_background_art_decompress_loc_11EA2,
+    enemy_layout_reset_and_seek_loc_31F8E, enemy_layout_status_word_loc_3200A,
+    fade_palette_span_sub_1C85E, fg_update_queue_cell_mapping_longwords_loc_165E,
+    fg_update_queue_cell_vram_word_loc_1614, fg_update_queue_culled_entry_advance_loc_167A,
+    flagpole_scoreboard_step_sub_C254, initialise_camera_bootstrap_loc_11F48,
+    initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
+    initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
+    initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
+    prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
@@ -4134,6 +4135,30 @@ fn enemy_layout_reset_and_seek_loc_31f8e_clears_status_words_and_advances_until_
             enemy_layout_addr: 0x0001_4028,
         }),
         "ASM loc_31F8E should clear the 30-word enemy-status table, switch to `Camera_Y_pos` when the leading header word is non-zero, then skip each header whose threshold is `<= d1` while advancing `a1` by `count << 3` until the first threshold above the camera word remains",
+    );
+}
+
+#[test]
+fn loc_3200a_clears_zero_entries_and_packs_positive_enemy_art_slots() {
+    assert_eq!(
+        enemy_layout_status_word_loc_3200A(0),
+        0,
+        "ASM loc_3200A should branch to loc_32044 when `1(a1)` is zero and store a cleared status word",
+    );
+    assert_eq!(
+        enemy_layout_status_word_loc_3200A(1),
+        0xC0F0,
+        "ASM loc_3200A should pack slot 0 with the `unk_3680C` word `$00F0` and the forced `$C000` bits",
+    );
+    assert_eq!(
+        enemy_layout_status_word_loc_3200A(2),
+        0xD1E0,
+        "ASM loc_3200A should rotate the decremented slot index right by four bits before OR-ing the `$01E0` table word",
+    );
+    assert_eq!(
+        enemy_layout_status_word_loc_3200A(4),
+        0xF3C0,
+        "ASM loc_3200A should keep using the `unk_3680C` entries through slot 3, producing `$F3C0` for status byte 4",
     );
 }
 
