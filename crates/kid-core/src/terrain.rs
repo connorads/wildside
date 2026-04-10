@@ -1538,6 +1538,31 @@ fn horizontal_collision_scan_rect_mask_loc_369F8(
     mask
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16 {
+    // ASM loc_36A10 (kid.asm:38183): after the body rectangle scan, inspect the
+    // following row from left to right. If the first cell already carries bit
+    // `$4000`, stay on the “all blocked until proven otherwise” path and leave
+    // `d6=0` only when every scanned word keeps bit `$4000` set.
+    if words.is_empty() {
+        return -1;
+    }
+
+    if words[0] & 0x4000 != 0 {
+        for &word in words {
+            if word & 0x4000 == 0 {
+                return 1;
+            }
+        }
+        0
+    } else if words.iter().any(|word| word & 0x4000 != 0) {
+        1
+    } else {
+        -1
+    }
+}
+
 pub(crate) fn transform_overlap_column_blocked_sub_7bea(
     grid: &BlockGrid,
     x_px: i32,
@@ -3239,6 +3264,16 @@ mod tests {
             mask & 0x4000,
             0x4000,
             "ASM loc_369FC should keep OR-ing the same `d5` accumulator as it advances row-major through the rectangle, so a `$4000` hit on the first scanned row must survive even when the final row is empty",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_following_row_class_loc_36a10_keeps_d6_zero_for_all_blocked_rows()
+    {
+        assert_eq!(
+            horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000, 0x5000, 0x6000]),
+            0,
+            "ASM loc_36A10 should stay on the blocking path and leave `d6=0` when every scanned word in the following row keeps bit `$4000` set",
         );
     }
 
