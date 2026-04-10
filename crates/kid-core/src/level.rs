@@ -7600,6 +7600,14 @@ pub(crate) struct BackgroundScrollLowerPassSetupLoc3001E {
     pub(crate) loop_iterations: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollLowerPassResumeLoc30054 {
+    pub(crate) original_camera_y: i16,
+    pub(crate) stepped_camera_y: i16,
+    pub(crate) shift_data_camera_y: i16,
+    pub(crate) loop_iterations: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7685,6 +7693,31 @@ pub(crate) fn background_scroll_lower_pass_setup_loc_3001E(
         stepped_camera_y,
         shift_data_camera_y,
         loop_iterations,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_lower_pass_resume_loc_30054(
+    setup: BackgroundScrollLowerPassSetupLoc3001E,
+) -> BackgroundScrollLowerPassResumeLoc30054 {
+    // ASM loc_30054 (kid.asm:33633): after restoring the saved `d7`, the
+    // wrapped `$FC80` seed branches straight onward; every other case subtracts
+    // `$40` from `Camera_Y_pos` and adds 2 to `d6` before the lower row loop.
+    if setup.stepped_camera_y == -0x0380 {
+        return BackgroundScrollLowerPassResumeLoc30054 {
+            original_camera_y: setup.original_camera_y,
+            stepped_camera_y: setup.stepped_camera_y,
+            shift_data_camera_y: setup.shift_data_camera_y,
+            loop_iterations: setup.loop_iterations,
+        };
+    }
+
+    BackgroundScrollLowerPassResumeLoc30054 {
+        original_camera_y: setup.original_camera_y,
+        stepped_camera_y: setup.stepped_camera_y.wrapping_sub(0x0040),
+        shift_data_camera_y: setup.shift_data_camera_y,
+        loop_iterations: setup.loop_iterations.wrapping_add(2),
     }
 }
 
