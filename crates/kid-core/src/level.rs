@@ -4518,6 +4518,43 @@ pub(crate) fn kid_hitbox_solid_scan_setup_loc_1FB2(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidHitboxSolidScanHitLoc1FEE {
+    pub(crate) tile_word: u16,
+    pub(crate) row_index: u16,
+    pub(crate) col_index: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn kid_hitbox_solid_scan_loc_1FEE(
+    level_layout_words: &[u16],
+    start_index: usize,
+    level_width_tiles: usize,
+    row_count: u16,
+    col_count: u16,
+) -> Option<KidHitboxSolidScanHitLoc1FEE> {
+    // ASM loc_1FEE / loc_1FF2 (kid.asm:3811-3822): scan the hitbox window in
+    // row-major order, mask each layout word with `$7000`, branch out on the
+    // first collision nibble `>= $6000`, otherwise advance to the next row with
+    // `add.w (Level_width_tiles).w,a0` and continue the inclusive DBF loops.
+    for row_index in 0..=row_count {
+        let row_start = start_index + usize::from(row_index) * level_width_tiles;
+        for col_index in 0..=col_count {
+            let tile_word = *level_layout_words.get(row_start + usize::from(col_index))?;
+            if (tile_word & 0x7000) >= 0x6000 {
+                return Some(KidHitboxSolidScanHitLoc1FEE {
+                    tile_word,
+                    row_index,
+                    col_index,
+                });
+            }
+        }
+    }
+
+    None
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockType11ReadXPosLoc126BA {
     pub(crate) x_pos: u16,
     pub(crate) bytes_consumed: usize,

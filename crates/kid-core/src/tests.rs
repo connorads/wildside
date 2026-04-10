@@ -50127,3 +50127,44 @@ fn loc_1fb2_skips_disabled_or_missing_kid_and_seeds_the_hitbox_scan_window() {
         "ASM loc_1FB2 should seed `d2 = (Kid_hitbox_right >> 4) - (Kid_hitbox_left >> 4)` for an inclusive DBF column count",
     );
 }
+
+#[test]
+fn loc_1fee_scans_row_major_until_a_collision_nibble_reaches_6000() {
+    let hit = crate::level::kid_hitbox_solid_scan_loc_1FEE(
+        &[
+            0x1000, 0x5000, 0x2000, 0x0000, 0x2000, 0x7001, 0x4000, 0x0000, 0x2000, 0x3000, 0x6002,
+            0x0000,
+        ],
+        1,
+        4,
+        2,
+        1,
+    )
+    .expect("ASM loc_1FEE should stop at the first qualifying tile");
+    assert_eq!(
+        hit.row_index, 1,
+        "ASM loc_1FEE (kid.asm:3811) should advance one full `Level_width_tiles` row before reloading `a1` from the updated `a0`",
+    );
+    assert_eq!(
+        hit.col_index, 0,
+        "ASM loc_1FF2 should report the first qualifying column in the current row because the inner DBF loop exits immediately on `bge.w loc_2010`",
+    );
+    assert_eq!(
+        hit.tile_word, 0x7001,
+        "ASM loc_1FF2 should branch on any masked collision nibble `>= $6000`, including the `$7000` case",
+    );
+
+    assert_eq!(
+        crate::level::kid_hitbox_solid_scan_loc_1FEE(
+            &[
+                0x1000, 0x5000, 0x2000, 0x0000, 0x2000, 0x3000, 0x4000, 0x0000,
+            ],
+            0,
+            4,
+            1,
+            2,
+        ),
+        None,
+        "ASM loc_1FEE should fall through to loc_200C when every scanned tile masks below `$6000`",
+    );
+}
