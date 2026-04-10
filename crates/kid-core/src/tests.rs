@@ -2372,6 +2372,24 @@ fn background_scroll_lower_pass_loop_loc_30076_routes_non_zero_background_format
 }
 
 #[test]
+fn background_scroll_lower_pass_loop_loc_3007a_restores_both_camera_words_from_the_saved_d7() {
+    let resume = BackgroundScrollLowerPassResumeLoc30054 {
+        original_camera_y: 0x0228,
+        stepped_camera_y: -0x0198,
+        shift_data_camera_y: -0x0178,
+        loop_iterations: 0x001E,
+    };
+
+    let result = background_scroll_lower_pass_loop_loc_30066(resume, 0);
+
+    assert_eq!(
+        (result.final_camera_y, result.final_scroll_data_camera_y),
+        (0x0228, 0x0228),
+        "ASM loc_3007A should restore both `Camera_Y_pos` and `$FFFFF82E` from the saved `d7` before control reaches the `tst.w d7` zero check",
+    );
+}
+
+#[test]
 fn compile_block_debris_sprites_sub_2a4c_steps_fixed_point_records_and_emits_linked_sprites() {
     let mut queue = initialise_scratch_queue_sub_28FC();
     spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 2);

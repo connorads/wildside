@@ -7745,6 +7745,9 @@ pub(crate) fn background_scroll_lower_pass_loop_loc_30066(
     // `Background_format` is zero, otherwise branch to the enigma path.
     // ASM loc_30076 (kid.asm:33648): the non-zero `Background_format` branch
     // runs `bsr.w sub_303BA` before falling through to the shared epilogue.
+    // ASM loc_3007A (kid.asm:33651): the shared lower-pass epilogue resumes
+    // after either renderer and restores `Camera_Y_pos` plus `$FFFFF82E` from
+    // the saved `d7` before testing whether `d7` is zero.
     let renderer = if background_format == 0 {
         BackgroundScrollLowerPassRendererLoc30066::PiecesSub307D8
     } else {
