@@ -6268,9 +6268,10 @@ pub(crate) fn manage_enemy_loading_spawn_object_loc_3691E(
     // ASM loc_3691E (kid.asm:38064-38083) allocates the object slot, looks up
     // the worker pointer via `EnemyLoad_Index + enemy_id * 8`, marks `$10(a0)`
     // high priority with `st`, stores the source layout entry in `$44(a0)`,
-    // then packs `(d6 - d7 - 1)` into `$42(a0)`. `d4 == 1` ORs `$C0` into that
-    // byte and skips the `(a2) = $FFFF` write, `d4 > 1` ORs `$80`, and `d4 < 1`
-    // keeps the raw low byte before writing the loaded sentinel.
+    // then packs `(d6 - d7 - 1)` into `$42(a0)`.
+    // ASM loc_36956 (kid.asm:38084): the `d4 == 1` path ORs `$C0` into `$42(a0)`
+    // and branches straight to `loc_36962`, so it never reaches the later
+    // loaded-sentinel write.
     let base_status_slot = enemy_count.wrapping_sub(loop_counter).wrapping_sub(1) as u8;
     let object_status_slot = match d4_state {
         1 => base_status_slot | 0xC0,

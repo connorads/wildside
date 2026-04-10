@@ -35615,6 +35615,20 @@ fn manage_enemy_loading_loc_3691e_packs_the_status_slot_and_loaded_sentinel_from
 }
 
 #[test]
+fn manage_enemy_loading_loc_36956_ors_c0_and_skips_the_loaded_sentinel_store_for_d4_equal_1() {
+    let spawn = manage_enemy_loading_spawn_object_loc_3691E(0x17, 0x0001_2348, 5, 4, 1);
+
+    assert_eq!(
+        spawn.object_status_slot, 0xC0,
+        "ASM loc_36956 should OR `$C0` into `$42(a0)` when the countdown path leaves `d4 == 1`"
+    );
+    assert_eq!(
+        spawn.enemy_status_word, None,
+        "ASM loc_36956 branches straight to `loc_36962`, so the `d4 == 1` path must skip the later loaded-sentinel write into `(a2)`"
+    );
+}
+
+#[test]
 fn demo_aborts_on_start_press() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::TitleScreen { cursor: 0 };
