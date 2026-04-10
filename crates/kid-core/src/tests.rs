@@ -19099,6 +19099,22 @@ fn vertical_overlap_bottom_exit_loc_265a_uses_the_platform_bottom_edge_only() {
 }
 
 #[test]
+fn vertical_push_magnitude_loc_266a_normalises_negative_pushes_with_word_wraparound() {
+    assert_eq!(
+        vertical_push_magnitude_loc_266A(-19),
+        VerticalPushMagnitudeLoc266A { magnitude_word: 19 },
+        "ASM loc_266A (kid.asm:4571) should negate negative `d6` values before `loc_2672` compares absolute push magnitudes",
+    );
+    assert_eq!(
+        vertical_push_magnitude_loc_266A(i16::MIN),
+        VerticalPushMagnitudeLoc266A {
+            magnitude_word: 0x8000,
+        },
+        "ASM loc_266A keeps the 16-bit `neg.w` overflow case as `$8000`, so the helper must preserve that wraparound word exactly",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),

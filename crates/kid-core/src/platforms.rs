@@ -58,6 +58,12 @@ pub(crate) struct VerticalOverlapResolutionLoc265A {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VerticalPushMagnitudeLoc266A {
+    pub(crate) magnitude_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn horizontal_overlap_resolution_loc_25EE(
     platform_left_px: i16,
@@ -163,6 +169,21 @@ pub(crate) fn vertical_overlap_bottom_exit_loc_265A(
         push_y_px: platform_bottom_px
             .wrapping_sub(player_top_px)
             .wrapping_add(1),
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn vertical_push_magnitude_loc_266A(push_y_px: i16) -> VerticalPushMagnitudeLoc266A {
+    // ASM loc_266A (kid.asm:4571): copy `d6` into `d4`, and when the signed
+    // push is negative run `neg.w d4`. Returning the raw 16-bit word keeps the
+    // original wraparound behaviour for the `$8000` overflow case.
+    VerticalPushMagnitudeLoc266A {
+        magnitude_word: if push_y_px >= 0 {
+            push_y_px as u16
+        } else {
+            push_y_px.wrapping_neg() as u16
+        },
     }
 }
 
