@@ -1612,6 +1612,17 @@ fn horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
     mask
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(word: u16) -> bool {
+    let collision_nibble = word & 0x7000;
+
+    // ASM loc_36ABE (kid.asm:38276): after the inclusive lead-column scan
+    // leaves `a4` on the following row, an exact `$4000` nibble takes the fast
+    // path that increments `d7` before returning to the shared exit.
+    collision_nibble == 0x4000 || collision_nibble & 0x4000 != 0
+}
+
 pub(crate) fn transform_overlap_column_blocked_sub_7bea(
     grid: &BlockGrid,
     x_px: i32,
@@ -1702,10 +1713,20 @@ fn horizontal_collision_scan(
     } else {
         let lead_col = horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col)
             .expect("leftward lead-column scan should only run when the column is in bounds");
-        horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
+        let prefix_blocked = horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
             grid, lead_col, top_row, bottom_row,
         ) & 0x4000
-            != 0
+            != 0;
+        let following_row = bottom_row + 1;
+        let following_cell_blocked = if following_row >= i32::from(grid.height_cells) {
+            false
+        } else {
+            horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(
+                grid.cell_at(lead_col as u16, following_row as u16)
+                    .to_word(),
+            )
+        };
+        prefix_blocked || following_cell_blocked
     };
 
     HorizontalCollisionScan {
@@ -3403,6 +3424,15 @@ mod tests {
             horizontal_collision_scan_left_lead_column_mask_loc_36AAE(&grid, 0, 1, 3) & 0x7000,
             0x5000,
             "ASM loc_36AAE should keep OR-ing the same lead-column accumulator while stepping one `Level_width_tiles` row at a time, so a later-row `$5000` slope must survive the whole inclusive scan",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36abe_treats_exact_4000_as_blocking()
+     {
+        assert!(
+            horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(0x4000),
+            "ASM loc_36ABE should take the exact `$4000` fast path for the following lead cell before the later mixed-kind branch runs",
         );
     }
 
