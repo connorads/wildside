@@ -7700,6 +7700,12 @@ pub(crate) struct BackgroundScrollShiftDataWrapLoopLoc304C2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftDataWrapStoreLoc304CA {
+    pub(crate) reduced_phase_row_word: u16,
+    pub(crate) strip_table_word_offset: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
     pub(crate) map_header_byte_offset: usize,
     pub(crate) background_row_index: u8,
@@ -8177,6 +8183,24 @@ pub(crate) fn background_scroll_shift_data_wrap_loop_loc_304C2(
         seeded_phase_row,
         reduced_phase_row,
         subtraction_count,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_shift_data_wrap_store_loc_304CA(
+    seeded_phase_row: i16,
+    reduced_phase_row: i16,
+) -> BackgroundScrollShiftDataWrapStoreLoc304CA {
+    // ASM loc_304CA (kid.asm:34148): after either wrap loop exits, the shared
+    // tail stores the reduced `d7` word to `(a0)`, masks the original seed in
+    // `d1` with `$3F`, doubles it, and writes that word offset to `2(a0)`.
+    let reduced_phase_row_word = reduced_phase_row as u16;
+    let strip_table_word_offset = ((seeded_phase_row as u16) & 0x003F) << 1;
+
+    BackgroundScrollShiftDataWrapStoreLoc304CA {
+        reduced_phase_row_word,
+        strip_table_word_offset,
     }
 }
 

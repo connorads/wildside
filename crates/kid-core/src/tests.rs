@@ -50,7 +50,8 @@ use crate::level::{
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
     BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
-    BackgroundScrollShiftDataWrapLoopLoc304C2, BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollShiftDataWrapLoopLoc304C2, BackgroundScrollShiftDataWrapStoreLoc304CA,
+    BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
@@ -101,6 +102,7 @@ use crate::level::{
     background_scroll_shift_data_second_pass_unchanged_loc_304A4,
     background_scroll_shift_data_slot_loc_30452, background_scroll_shift_data_unchanged_loc_30476,
     background_scroll_shift_data_wrap_loop_loc_304C2,
+    background_scroll_shift_data_wrap_store_loc_304CA,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2739,6 +2741,19 @@ fn background_scroll_shift_data_wrap_loop_loc_304c2_adds_the_28_row_bias_before_
             subtraction_count: 2,
         },
         "ASM loc_304C2 should seed `d7` with `asr.w #3,4(a0) + $28`, copy that biased row to `d1`, then keep subtracting `d6` until `cmp.w d7,d6` finally makes `bgt.s loc_304CA` true",
+    );
+}
+
+#[test]
+fn background_scroll_shift_data_wrap_store_loc_304ca_stores_the_reduced_row_and_masks_the_original_seed_into_a_word_offset()
+ {
+    assert_eq!(
+        background_scroll_shift_data_wrap_store_loc_304CA(0x0058, 0x0018),
+        BackgroundScrollShiftDataWrapStoreLoc304CA {
+            reduced_phase_row_word: 0x0018,
+            strip_table_word_offset: 0x0030,
+        },
+        "ASM loc_304CA should store the reduced `d7` word to `(a0)`, then use the original `d1` seed for `andi.w #$3F,d1` / `add.w d1,d1` so the strip-table offset comes from the pre-reduction row",
     );
 }
 
