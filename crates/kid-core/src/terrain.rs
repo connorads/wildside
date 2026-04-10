@@ -1500,6 +1500,26 @@ fn horizontal_collision_scan_hitbox_mask_seed_loc_369F6() -> u16 {
     0
 }
 
+#[allow(non_snake_case)]
+fn horizontal_collision_scan_rect_mask_loc_369F8(
+    grid: &BlockGrid,
+    left_col: i32,
+    right_col: i32,
+    top_row: i32,
+    bottom_row: i32,
+) -> u16 {
+    // ASM loc_369F8 (kid.asm:38170): reset `a4` to each row start, OR every
+    // word across that row, advance one row by `Level_width_tiles`, and repeat
+    // until the full hitbox rectangle has been reduced into `d5`.
+    let mut mask = horizontal_collision_scan_hitbox_mask_seed_loc_369F6();
+    for row in top_row..=bottom_row {
+        for col in left_col..=right_col {
+            mask |= grid.cell_at(col as u16, row as u16).to_word();
+        }
+    }
+    mask
+}
+
 pub(crate) fn transform_overlap_column_blocked_sub_7bea(
     grid: &BlockGrid,
     x_px: i32,
@@ -1567,13 +1587,10 @@ fn horizontal_collision_scan(
         right_col = i32::from(grid.width_cells).saturating_sub(1);
     }
 
-    let mut hitbox_mask = horizontal_collision_scan_hitbox_mask_seed_loc_369F6();
-    for row in top_row..=bottom_row {
-        for col in left_col..=right_col {
-            hitbox_mask |= grid.cell_at(col as u16, row as u16).to_word();
-        }
-    }
-    let hitbox_blocked = hitbox_mask & 0x4000 != 0;
+    let hitbox_blocked = horizontal_collision_scan_rect_mask_loc_369F8(
+        grid, left_col, right_col, top_row, bottom_row,
+    ) & 0x4000
+        != 0;
 
     let lead_column_blocked = if leading_right {
         let lead_col = right_col + 1;
@@ -3156,6 +3173,22 @@ mod tests {
             horizontal_collision_scan_hitbox_mask_seed_loc_369F6(),
             0,
             "ASM loc_369F6 is just `moveq #0,d5`, so the rectangle scan must always start from a cleared accumulator",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_rect_mask_loc_369f8_ors_every_word_in_the_hitbox() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(1 * 4 + 1) * 2] = 0x40;
+        data[(2 * 4 + 2) * 2] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let mask = horizontal_collision_scan_rect_mask_loc_369F8(&grid, 1, 2, 1, 2);
+
+        assert_eq!(
+            mask & 0x7000,
+            0x6000,
+            "ASM loc_369F8 should sweep every row of the hitbox rectangle, so a later-row `$6000` solid must survive in the final OR mask after the nested `dbf` loops finish",
         );
     }
 
