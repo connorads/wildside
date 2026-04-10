@@ -6162,6 +6162,40 @@ pub(crate) fn manage_enemy_loading_setup_loc_3682C(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ManageEnemyLoadingStatusBranchLoc36840 {
+    SpawnFresh,
+    SkipAlreadyLoaded,
+    CountDownActiveLoc3685E,
+    CountDownReloadLoc3686E,
+    ForceReloadLoc368A6,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn manage_enemy_loading_status_branch_loc_36840(
+    enemy_status_word: u16,
+) -> ManageEnemyLoadingStatusBranchLoc36840 {
+    // ASM loc_36840 (kid.asm:37978-37989) clears `d4`, reads `(a2)` into `d0`,
+    // and branches by status word: `0` falls into `loc_368A8`, `$FFFF`
+    // skips straight to `loc_36962`, bit 13 routes to `loc_3685E`, bit 14
+    // clear forces `loc_368A6`, and the remaining bit-14-set words continue
+    // into `loc_3686E`.
+    if enemy_status_word == 0 {
+        return ManageEnemyLoadingStatusBranchLoc36840::SpawnFresh;
+    }
+    if enemy_status_word == 0xFFFF {
+        return ManageEnemyLoadingStatusBranchLoc36840::SkipAlreadyLoaded;
+    }
+    if enemy_status_word & 0x2000 != 0 {
+        return ManageEnemyLoadingStatusBranchLoc36840::CountDownActiveLoc3685E;
+    }
+    if enemy_status_word & 0x4000 == 0 {
+        return ManageEnemyLoadingStatusBranchLoc36840::ForceReloadLoc368A6;
+    }
+    ManageEnemyLoadingStatusBranchLoc36840::CountDownReloadLoc3686E
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
