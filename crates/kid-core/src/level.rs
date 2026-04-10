@@ -6272,6 +6272,9 @@ pub(crate) fn manage_enemy_loading_spawn_object_loc_3691E(
     // ASM loc_36956 (kid.asm:38084): the `d4 == 1` path ORs `$C0` into `$42(a0)`
     // and branches straight to `loc_36962`, so it never reaches the later
     // loaded-sentinel write.
+    // ASM loc_3695E (kid.asm:38089): the `d4 < 1` fallthrough and `d4 > 1`
+    // forced-reload path both land here, writing `$FFFF` into `(a2)` after
+    // leaving `$42(a0)` raw or ORed with `$80` respectively.
     let base_status_slot = enemy_count.wrapping_sub(loop_counter).wrapping_sub(1) as u8;
     let object_status_slot = match d4_state {
         1 => base_status_slot | 0xC0,

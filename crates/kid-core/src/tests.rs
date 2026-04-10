@@ -35629,6 +35629,23 @@ fn manage_enemy_loading_loc_36956_ors_c0_and_skips_the_loaded_sentinel_store_for
 }
 
 #[test]
+fn manage_enemy_loading_loc_3695e_writes_ffff_for_fallthrough_and_forced_reload_paths() {
+    let fresh_spawn = manage_enemy_loading_spawn_object_loc_3691E(0x12, 0x0001_2340, 5, 5, 0);
+    let forced_reload = manage_enemy_loading_spawn_object_loc_3691E(0x03, 0x0001_2350, 5, 3, 2);
+
+    assert_eq!(
+        fresh_spawn.enemy_status_word,
+        Some(0xFFFF),
+        "ASM loc_3695E should write `$FFFF` into `(a2)` after the `d4 < 1` fallthrough path"
+    );
+    assert_eq!(
+        forced_reload.enemy_status_word,
+        Some(0xFFFF),
+        "ASM loc_3695E should also write `$FFFF` into `(a2)` after the forced-reload `d4 > 1` path"
+    );
+}
+
+#[test]
 fn demo_aborts_on_start_press() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::TitleScreen { cursor: 0 };
