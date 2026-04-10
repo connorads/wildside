@@ -19178,6 +19178,36 @@ fn negative_platform_carry_commit_loc_26c0_sets_the_left_wall_flag_and_only_esca
 }
 
 #[test]
+fn platform_landing_loc_26d4_moves_kid_onto_the_platform_and_records_support() {
+    assert_eq!(
+        platform_landing_loc_26D4(96, 111, 104, -12, 0xEDBA, false),
+        PlatformLandingLoc26D4 {
+            kid_hitbox_top_px: 84,
+            kid_hitbox_bottom_px: 99,
+            kid_gfx_y_px: 92,
+            kid_y_velocity_fp: 0,
+            standing_platform_addr: 0xEDBA,
+            touched_top_face: true,
+            escalates_to_loc_271_a: false,
+        },
+        "ASM loc_26D4 (kid.asm:4614) should apply the signed `d6` lift to `Kid_hitbox_top/bottom` and `$1E(a0)`, clear `y_vel(a3)`, record `(Addr_PlatformStandingOn).w`, and restart the scan while `$FFFFFAA5` is clear",
+    );
+    assert_eq!(
+        platform_landing_loc_26D4(96, 111, 104, -1, 0xEDBA, true),
+        PlatformLandingLoc26D4 {
+            kid_hitbox_top_px: 95,
+            kid_hitbox_bottom_px: 110,
+            kid_gfx_y_px: 103,
+            kid_y_velocity_fp: 0,
+            standing_platform_addr: 0xEDBA,
+            touched_top_face: true,
+            escalates_to_loc_271_a: true,
+        },
+        "ASM loc_26D4 should jump to `loc_271A` once the opposite-face path has already set `$FFFFFAA5`",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),

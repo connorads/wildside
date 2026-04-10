@@ -257,6 +257,18 @@ pub(crate) struct NegativePlatformCarryCommitLoc26C0 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformLandingLoc26D4 {
+    pub(crate) kid_hitbox_top_px: i16,
+    pub(crate) kid_hitbox_bottom_px: i16,
+    pub(crate) kid_gfx_y_px: i16,
+    pub(crate) kid_y_velocity_fp: i32,
+    pub(crate) standing_platform_addr: u16,
+    pub(crate) touched_top_face: bool,
+    pub(crate) escalates_to_loc_271_a: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn negative_platform_carry_loc_26B6(
     platform_x_velocity_fp: i32,
@@ -286,6 +298,32 @@ pub(crate) fn negative_platform_carry_commit_loc_26C0(
         carried_x_velocity_fp,
         touched_left_wall: true,
         escalates_to_loc_271_a: right_wall_already_touched,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn platform_landing_loc_26D4(
+    kid_hitbox_top_px: i16,
+    kid_hitbox_bottom_px: i16,
+    kid_gfx_y_px: i16,
+    push_y_px: i16,
+    standing_platform_addr: u16,
+    bottom_face_already_touched: bool,
+) -> PlatformLandingLoc26D4 {
+    // ASM loc_26D4 (kid.asm:4614): add the chosen vertical push into
+    // `Kid_hitbox_top/bottom` and `$1E(a0)`. When that push is negative, clear
+    // `y_vel(a3)`, remember `a2` in `(Addr_PlatformStandingOn).w`, set
+    // `$FFFFFAA4`, and escalate to `loc_271A` only if `$FFFFFAA5` was already
+    // set by the opposite-face branch.
+    PlatformLandingLoc26D4 {
+        kid_hitbox_top_px: kid_hitbox_top_px.wrapping_add(push_y_px),
+        kid_hitbox_bottom_px: kid_hitbox_bottom_px.wrapping_add(push_y_px),
+        kid_gfx_y_px: kid_gfx_y_px.wrapping_add(push_y_px),
+        kid_y_velocity_fp: 0,
+        standing_platform_addr,
+        touched_top_face: true,
+        escalates_to_loc_271_a: bottom_face_already_touched,
     }
 }
 
