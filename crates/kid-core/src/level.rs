@@ -6272,6 +6272,20 @@ pub(crate) fn object_check_in_range_active_count_gate_loc_320E2(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn object_check_in_range_wide_load_x_loc_32122(
+    object_x_pos: i16,
+    camera_x_pos: i16,
+) -> bool {
+    // ASM loc_3211A -> loc_32122 (kid.asm:37531-37537) is the relaxed x-window
+    // path taken once `Number_Objects <= $14`: it subtracts `Camera_X_pos`
+    // from `x_pos(a3)` in a 16-bit register and keeps only the inclusive band
+    // `[-$1A4, $2E4]` before the y check.
+    let relative_x = object_x_pos.wrapping_sub(camera_x_pos);
+    (-0x01A4..=0x02E4).contains(&relative_x)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
     // ASM loc_11D0C -> loc_11D42 (kid.asm:23917-23923) clears `d1`, tests
     // `($FFFFF896).w`, and only loads `$80008000` into `d1` when that byte is

@@ -199,8 +199,9 @@ use crate::level::{
     initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
     object_check_in_range_active_count_gate_loc_320E2, object_check_in_range_normal_x_loc_320C0,
-    object_check_in_range_normal_y_loc_320D8, object_out_of_range_delete_tail_loc_320B4,
-    object_out_of_range_positive_slot_loc_320A6, prepare_background_art_decompress_loc_11EA2,
+    object_check_in_range_normal_y_loc_320D8, object_check_in_range_wide_load_x_loc_32122,
+    object_out_of_range_delete_tail_loc_320B4, object_out_of_range_positive_slot_loc_320A6,
+    prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
@@ -4289,6 +4290,26 @@ fn loc_320e2_switches_to_the_tight_active_object_x_window_only_above_14_objects(
             reaches_loc_32102: false,
         },
         "ASM loc_320E2 should branch to `loc_32116` when the tight-window relative x rises above `$244`",
+    );
+}
+
+#[test]
+fn loc_32122_keeps_the_relaxed_x_window_inclusive_before_the_y_check() {
+    assert!(
+        object_check_in_range_wide_load_x_loc_32122(0x0E5C, 0x1000),
+        "ASM loc_32122 should keep the lower inclusive relaxed-window edge `-$1A4` before the y-range checks",
+    );
+    assert!(
+        object_check_in_range_wide_load_x_loc_32122(0x12E4, 0x1000),
+        "ASM loc_32122 should keep the upper inclusive relaxed-window edge `$2E4` before falling through to the y-range checks",
+    );
+    assert!(
+        !object_check_in_range_wide_load_x_loc_32122(0x0E5B, 0x1000),
+        "ASM loc_32122 should branch to `loc_32116` when the relaxed-window relative x drops below `-$1A4`",
+    );
+    assert!(
+        !object_check_in_range_wide_load_x_loc_32122(0x12E5, 0x1000),
+        "ASM loc_32122 should branch to `loc_32116` when the relaxed-window relative x rises above `$2E4`",
     );
 }
 
