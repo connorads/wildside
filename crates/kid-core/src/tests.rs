@@ -198,8 +198,8 @@ use crate::level::{
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
-    object_out_of_range_delete_tail_loc_320B4, object_out_of_range_positive_slot_loc_320A6,
-    prepare_background_art_decompress_loc_11EA2,
+    object_check_in_range_normal_x_loc_320C0, object_out_of_range_delete_tail_loc_320B4,
+    object_out_of_range_positive_slot_loc_320A6, prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
@@ -4204,6 +4204,26 @@ fn loc_320b4_jumps_straight_to_delete_current_object() {
     assert!(
         object_out_of_range_delete_tail_loc_320B4(),
         "ASM loc_320B4 should jump straight to `j_Delete_CurrentObject` once the out-of-range bookkeeping is finished",
+    );
+}
+
+#[test]
+fn loc_320c0_accepts_only_the_inclusive_normal_range_x_window() {
+    assert!(
+        object_check_in_range_normal_x_loc_320C0(0x0E5C, 0x1000),
+        "ASM loc_320C0 should keep objects whose `x_pos(a3) - Camera_X_pos` lands exactly on the lower inclusive edge `-$1A4`",
+    );
+    assert!(
+        object_check_in_range_normal_x_loc_320C0(0x12E4, 0x1000),
+        "ASM loc_320C0 should keep objects whose relative x lands exactly on the upper inclusive edge `$2E4`",
+    );
+    assert!(
+        !object_check_in_range_normal_x_loc_320C0(0x0E5B, 0x1000),
+        "ASM loc_320C0 should branch to `Object_OutOfRange` when relative x drops below `-$1A4`",
+    );
+    assert!(
+        !object_check_in_range_normal_x_loc_320C0(0x12E5, 0x1000),
+        "ASM loc_320C0 should branch to `Object_OutOfRange` when relative x rises above `$2E4`",
     );
 }
 
