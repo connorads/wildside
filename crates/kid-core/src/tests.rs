@@ -48,6 +48,7 @@ use crate::level::{
     BackgroundScrollEnigmaRowTableLookupLoc303EA, BackgroundScrollEnigmaRowTransferLoc303D4,
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
+    BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
@@ -95,6 +96,7 @@ use crate::level::{
     background_scroll_enigma_secondary_longword_copy_loc_30432,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E,
+    background_scroll_shift_data_second_pass_advance_loc_304A8,
     background_scroll_shift_data_second_pass_slot_loc_3048C,
     background_scroll_shift_data_second_pass_unchanged_loc_304A4,
     background_scroll_shift_data_slot_loc_30452, background_scroll_shift_data_unchanged_loc_30476,
@@ -2689,6 +2691,39 @@ fn background_scroll_shift_data_second_pass_unchanged_loc_304a4_emits_ffff_only_
         background_scroll_shift_data_second_pass_unchanged_loc_304A4(0x1200, 0x11F8),
         None,
         "ASM loc_304A4 is only reachable from `beq.s loc_304A4`, so unequal second-pass words must skip the `$FFFF` sentinel and fall through to `sub_304B4`/`loc_304A8` instead",
+    );
+}
+
+#[test]
+fn background_scroll_shift_data_second_pass_advance_loc_304a8_restores_the_accumulator_order_and_consumes_one_dbf_iteration()
+ {
+    assert_eq!(
+        background_scroll_shift_data_second_pass_advance_loc_304A8(
+            0x1200_3456,
+            0x0000_1800,
+            0x0010,
+        ),
+        BackgroundScrollShiftDataSecondPassAdvanceLoc304A8 {
+            next_slot_offset_bytes: 8,
+            next_phase_accumulator: 0x3456_2A00,
+            next_dbf_counter: 0x000F,
+            loops_to_loc_3048_c: true,
+        },
+        "ASM loc_304A8 should `addq.w #8,a0`, `swap d5` back to the accumulator ordering, add the fixed-point step from `d4`, and loop to `loc_3048C` while the inclusive `dbf d3` counter is still non-negative",
+    );
+    assert_eq!(
+        background_scroll_shift_data_second_pass_advance_loc_304A8(
+            0x1200_3456,
+            0x0000_1800,
+            0x0000,
+        ),
+        BackgroundScrollShiftDataSecondPassAdvanceLoc304A8 {
+            next_slot_offset_bytes: 8,
+            next_phase_accumulator: 0x3456_2A00,
+            next_dbf_counter: 0xFFFF,
+            loops_to_loc_3048_c: false,
+        },
+        "ASM loc_304A8 should fall through to `rts` once `dbf d3,loc_3048C` consumes the final zero seed and underflows the counter to `$FFFF`",
     );
 }
 

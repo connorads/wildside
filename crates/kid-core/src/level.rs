@@ -7685,6 +7685,14 @@ pub(crate) struct BackgroundScrollShiftDataSecondPassSlotLoc3048C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftDataSecondPassAdvanceLoc304A8 {
+    pub(crate) next_slot_offset_bytes: u16,
+    pub(crate) next_phase_accumulator: u32,
+    pub(crate) next_dbf_counter: u16,
+    pub(crate) loops_to_loc_3048_c: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
     pub(crate) map_header_byte_offset: usize,
     pub(crate) background_row_index: u8,
@@ -8106,6 +8114,27 @@ pub(crate) fn background_scroll_shift_data_second_pass_unchanged_loc_304A4(
         Some(0xFFFF)
     } else {
         None
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_shift_data_second_pass_advance_loc_304A8(
+    swapped_phase_accumulator: u32,
+    phase_step_fp: u32,
+    dbf_counter: u16,
+) -> BackgroundScrollShiftDataSecondPassAdvanceLoc304A8 {
+    // ASM loc_304A8 (kid.asm:34122): advance `a0` by 8 bytes to the next slot,
+    // `swap d5` back to the accumulator ordering used before `loc_3048C`, add
+    // the fixed-point step from `d4`, then let `dbf d3,loc_3048C` consume one
+    // inclusive iteration before the final `rts`.
+    let restored_phase_accumulator = swapped_phase_accumulator.rotate_left(16);
+
+    BackgroundScrollShiftDataSecondPassAdvanceLoc304A8 {
+        next_slot_offset_bytes: 8,
+        next_phase_accumulator: restored_phase_accumulator.wrapping_add(phase_step_fp),
+        next_dbf_counter: dbf_counter.wrapping_sub(1),
+        loops_to_loc_3048_c: dbf_counter != 0,
     }
 }
 
