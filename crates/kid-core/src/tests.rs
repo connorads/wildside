@@ -198,7 +198,7 @@ use crate::level::{
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
-    prepare_background_art_decompress_loc_11EA2,
+    object_out_of_range_positive_slot_loc_320A6, prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
@@ -4182,6 +4182,19 @@ fn loc_3204e_always_loads_the_enemy_art_palette_before_returning() {
     assert!(
         enemy_layout_finish_loc_3204E(),
         "ASM loc_3204E should always tail-call `Load_EnemyArtPaletteToVRAM` before `rts`, including the empty-batch early exit from loc_32008",
+    );
+}
+
+#[test]
+fn loc_320a6_marks_a_positive_enemy_slot_as_pending_reload_before_delete() {
+    assert_eq!(
+        object_out_of_range_positive_slot_loc_320A6(3),
+        crate::level::ObjectOutOfRangePositiveSlotLoc320A6 {
+            enemy_status_index: 3,
+            enemy_status_word: 0x2168,
+            should_delete_current_object: true,
+        },
+        "ASM loc_320A6 should write `$2168` into `EnemyStatus_Table[d0]` for non-negative `$42(a5)` bytes, then fall through to loc_320B4's delete jump",
     );
 }
 

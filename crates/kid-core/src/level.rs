@@ -6186,6 +6186,29 @@ pub(crate) fn enemy_layout_finish_loc_3204E() -> bool {
     true
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ObjectOutOfRangePositiveSlotLoc320A6 {
+    pub(crate) enemy_status_index: usize,
+    pub(crate) enemy_status_word: u16,
+    pub(crate) should_delete_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn object_out_of_range_positive_slot_loc_320A6(
+    object_status_slot: u8,
+) -> ObjectOutOfRangePositiveSlotLoc320A6 {
+    // ASM loc_320A6 (kid.asm:37487-37492) handles non-negative `$42(a5)` slot
+    // bytes by doubling the byte into a word index, storing `$2168` into the
+    // matching `EnemyStatus_Table` entry, then falling straight into
+    // `loc_320B4` to delete the current object.
+    ObjectOutOfRangePositiveSlotLoc320A6 {
+        enemy_status_index: usize::from(object_status_slot),
+        enemy_status_word: 0x2168,
+        should_delete_current_object: true,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
