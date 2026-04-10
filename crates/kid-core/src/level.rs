@@ -7628,6 +7628,14 @@ pub(crate) struct TransferScrollDataVsramSetupLoc300BA {
     pub(crate) second_vsram_word: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TransferScrollDataDmaTailLoc300D2 {
+    pub(crate) second_vsram_word: i16,
+    pub(crate) dma_source_addr: u32,
+    pub(crate) dma_vram_word_addr: u16,
+    pub(crate) dma_word_count: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7795,6 +7803,22 @@ pub(crate) fn transfer_scroll_data_vsram_setup_loc_300BA(
     TransferScrollDataVsramSetupLoc300BA {
         first_vsram_word: camera_y_pos,
         second_vsram_word,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn transfer_scroll_data_dma_tail_loc_300D2(
+    second_vsram_word: i16,
+) -> TransferScrollDataDmaTailLoc300D2 {
+    // ASM loc_300D2 (kid.asm:33686): stream the second VSRAM word, stop the
+    // Z80, DMA `Horiz_Scroll_Buffer` into VRAM word address `$1400` for
+    // `$380` words, then restart the Z80 before the shared return.
+    TransferScrollDataDmaTailLoc300D2 {
+        second_vsram_word,
+        dma_source_addr: 0xFFFF_7432,
+        dma_vram_word_addr: 0x1400,
+        dma_word_count: 0x0380,
     }
 }
 

@@ -66,20 +66,20 @@ use crate::level::{
     SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E,
     ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA,
     SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
-    TransferScrollDataVsramSetupLoc300BA, apply_background_palette_override_loc_11E04,
-    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, background_scroll_lower_pass_loop_loc_30066,
-    background_scroll_lower_pass_resume_loc_30054, background_scroll_lower_pass_setup_loc_3001E,
-    background_scroll_upper_pass_loc_2FFE8, background_scroll_upper_pass_resume_loc_30014,
-    blend_palette_entry_loc_1538, blend_selected_palette_entries_sub_1536,
-    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
-    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
-    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
-    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
-    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
-    block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    TransferScrollDataDmaTailLoc300D2, TransferScrollDataVsramSetupLoc300BA,
+    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
+    background_scroll_lower_pass_setup_loc_3001E, background_scroll_upper_pass_loc_2FFE8,
+    background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
+    blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
+    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
+    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
+    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
+    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
+    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -113,7 +113,8 @@ use crate::level::{
     step_fullscreen_palette_fade_sub_73D0, step_island_palette_cycle_lower_band_loc_12188,
     step_island_palette_cycle_mid_band_loc_12110, step_island_palette_cycle_primary_band_loc_12098,
     step_palette_fade_out_loc_28C6, swap_forest_background_palette_entries_sub_129AE,
-    terrain_layout_row_pointers_loc_11B40, transfer_scroll_data_vsram_setup_loc_300BA,
+    terrain_layout_row_pointers_loc_11B40, transfer_scroll_data_dma_tail_loc_300D2,
+    transfer_scroll_data_vsram_setup_loc_300BA,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -2429,6 +2430,21 @@ fn transfer_scroll_data_vsram_setup_loc_300ba_quarters_camera_y_unless_no_scroll
             second_vsram_word: 0,
         },
         "ASM loc_300BA should branch around the shifted parallax value and force the shared-tail `d0=0` when `(Background_NoScrollFlag).w` is non-zero",
+    );
+}
+
+#[test]
+fn transfer_scroll_data_dma_tail_loc_300d2_streams_the_second_vsram_word_and_dmas_h_scroll_buffer()
+{
+    assert_eq!(
+        transfer_scroll_data_dma_tail_loc_300D2(0x0049),
+        TransferScrollDataDmaTailLoc300D2 {
+            second_vsram_word: 0x0049,
+            dma_source_addr: 0xFFFF_7432,
+            dma_vram_word_addr: 0x1400,
+            dma_word_count: 0x0380,
+        },
+        "ASM loc_300D2 should write the shared-tail `d0` into the second VSRAM slot, then DMA `Horiz_Scroll_Buffer` to `vdpComm($1400,VRAM,WRITE)` for `$380` words after stopping the Z80",
     );
 }
 
