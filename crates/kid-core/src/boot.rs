@@ -673,6 +673,17 @@ pub(crate) struct EndSequencePanelScrollLoopLoc1D3A0 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceCreditsGlyphCacheLoc1D3D0 {
+    pub(crate) glyph_count: u16,
+    pub(crate) glyph_pointer_table_base: u16,
+    pub(crate) glyph_pointer_slot_offsets_in_write_order: [u16; 6],
+    pub(crate) glyph_init_subroutine: &'static str,
+    pub(crate) platform_layout_label: &'static str,
+    pub(crate) text_script_label: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -2294,6 +2305,25 @@ pub(crate) fn end_sequence_panel_scroll_loop_loc_1D3A0() -> EndSequencePanelScro
         scroll_step: 0x0002,
         active_iterations: 0x0070,
         panel_refresh_iterations: 0x001C,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_credits_glyph_cache_loc_1D3D0() -> EndSequenceCreditsGlyphCacheLoc1D3D0 {
+    // ASM loc_1D3CA / loc_1D3D0 (kid.asm:32726-32739): seed `d0 = 5`, point
+    // `a4` at `$FFFFFB72`, then iterate `dbf d0,loc_1D3D0` while `sub_1D786`
+    // allocates six glyph workers. `lsl.w #2,d7` turns the descending counter
+    // into 4-byte pointer slots written in reverse order: `$14,$10,$C,$8,$4,$0`.
+    // After the cache is full, the routine seeds `(Addr_PlatformLayout).w` from
+    // `unk_1D75A` and starts the text loop at `EndText1`.
+    EndSequenceCreditsGlyphCacheLoc1D3D0 {
+        glyph_count: 0x0006,
+        glyph_pointer_table_base: 0xFB72,
+        glyph_pointer_slot_offsets_in_write_order: [0x0014, 0x0010, 0x000C, 0x0008, 0x0004, 0x0000],
+        glyph_init_subroutine: "sub_1D786",
+        platform_layout_label: "unk_1D75A",
+        text_script_label: "EndText1",
     }
 }
 

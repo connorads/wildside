@@ -26534,6 +26534,37 @@ fn end_sequence_panel_scroll_loop_loc_1d3a0_runs_112_scroll_steps_and_28_row_upl
 }
 
 #[test]
+fn end_sequence_credits_glyph_cache_loc_1d3d0_allocates_six_workers_then_seeds_layout_and_text() {
+    let glyph_cache = crate::boot::end_sequence_credits_glyph_cache_loc_1D3D0();
+
+    assert_eq!(
+        glyph_cache.glyph_count, 0x0006,
+        "ASM loc_1D3D0 (kid.asm:32729) should iterate `dbf d0,loc_1D3D0` from `d0 = 5`, yielding six cached credits glyph workers",
+    );
+    assert_eq!(
+        glyph_cache.glyph_pointer_table_base, 0xFB72,
+        "ASM loc_1D3CA should point `a4` at `$FFFFFB72` before the glyph-cache loop starts",
+    );
+    assert_eq!(
+        glyph_cache.glyph_pointer_slot_offsets_in_write_order,
+        [0x0014, 0x0010, 0x000C, 0x0008, 0x0004, 0x0000],
+        "ASM loc_1D3D0 should write the six glyph pointers in descending `d0` order because `lsl.w #2,d7` converts `5..0` into `$14..$0`",
+    );
+    assert_eq!(
+        glyph_cache.glyph_init_subroutine, "sub_1D786",
+        "ASM loc_1D3D0 should allocate each cached glyph worker through `sub_1D786`",
+    );
+    assert_eq!(
+        glyph_cache.platform_layout_label, "unk_1D75A",
+        "ASM loc_1D3D0 should seed `(Addr_PlatformLayout).w` from `unk_1D75A` once all six glyph workers are cached",
+    );
+    assert_eq!(
+        glyph_cache.text_script_label, "EndText1",
+        "ASM loc_1D3D0 should start the credits text loop from `EndText1` after seeding the glyph layout pointer",
+    );
+}
+
+#[test]
 fn end_sequence_stripe_loop_loc_1cde4_steps_ten_display_refreshes_across_column_pairs() {
     let stripe_loop = crate::boot::end_sequence_stripe_loop_loc_1CDE4();
 
