@@ -7822,6 +7822,15 @@ pub(crate) struct BackgroundScrollForestWaterRippleVisibleBandLoc305D4 {
     pub(crate) affected_scanline_count: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollForestWaterRippleSetupLoc305E6 {
+    pub(crate) start_scanline: u16,
+    pub(crate) target_word_offset_bytes: usize,
+    pub(crate) base_scroll_word: i16,
+    pub(crate) ripple_dbf_counter: u16,
+    pub(crate) ripple_data_byte_offset: usize,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -8458,6 +8467,37 @@ pub(crate) fn background_scroll_forest_water_ripple_visible_band_loc_305D4(
         start_scanline: start_scanline as u16,
         ripple_data_byte_offset: 0,
         affected_scanline_count: affected_scanline_count.min(0x0040) as u16,
+    })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_scroll_forest_water_ripple_setup_loc_305E6(
+    horiz_scroll_buffer: &[u32],
+    start_scanline: u16,
+    affected_scanline_count: u16,
+    ripple_data_byte_offset: u16,
+    time_frames: u16,
+) -> Option<BackgroundScrollForestWaterRippleSetupLoc305E6> {
+    // ASM loc_305E6 (kid.asm:34285): scale `d0` by 4, bias `a0` to the second
+    // word of the selected `Horiz_Scroll_Buffer` longword, cache that word in
+    // `d3`, turn the visible span into an inclusive `dbf` counter with
+    // `subq.w #1,d1`, and bias the ripple-table pointer by `(Time_Frames>>2) &
+    // $3F` after adding the caller's `d2` offset.
+    if affected_scanline_count == 0 {
+        return None;
+    }
+
+    let base_scroll_longword = *horiz_scroll_buffer.get(usize::from(start_scanline))?;
+
+    Some(BackgroundScrollForestWaterRippleSetupLoc305E6 {
+        start_scanline,
+        target_word_offset_bytes: usize::from(start_scanline) * 4 + 2,
+        base_scroll_word: base_scroll_longword as u16 as i16,
+        ripple_dbf_counter: affected_scanline_count.wrapping_sub(1),
+        ripple_data_byte_offset: usize::from(
+            ripple_data_byte_offset.wrapping_add((time_frames >> 2) & 0x003F),
+        ),
     })
 }
 

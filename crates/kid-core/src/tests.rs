@@ -46,6 +46,7 @@ use crate::level::{
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     BackgroundScrollEnigmaPrimaryCopySetupLoc30426, BackgroundScrollEnigmaRowSourceLoc303D4,
     BackgroundScrollEnigmaRowTableLookupLoc303EA, BackgroundScrollEnigmaRowTransferLoc303D4,
+    BackgroundScrollForestWaterRippleSetupLoc305E6,
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
@@ -99,6 +100,7 @@ use crate::level::{
     background_scroll_enigma_row_table_lookup_loc_303EA,
     background_scroll_enigma_row_transfer_loc_303D4,
     background_scroll_enigma_secondary_longword_copy_loc_30432,
+    background_scroll_forest_water_ripple_setup_loc_305E6,
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E,
@@ -2922,6 +2924,30 @@ fn background_scroll_forest_water_ripple_visible_band_loc_305d4_clamps_positive_
         background_scroll_forest_water_ripple_visible_band_loc_305D4(0x00E0),
         None,
         "ASM loc_305D4 should branch to `return_30618` once `$E0-d0` is zero or negative",
+    );
+}
+
+#[test]
+fn background_scroll_forest_water_ripple_setup_loc_305e6_loads_the_base_scroll_word_and_time_phase()
+{
+    let horiz_scroll_buffer = [0xFEDD_0012, 0xBEEF_FFF0, 0x1234_5678];
+
+    assert_eq!(
+        background_scroll_forest_water_ripple_setup_loc_305E6(
+            &horiz_scroll_buffer,
+            0x0001,
+            0x0003,
+            0x0014,
+            0x010C,
+        ),
+        Some(BackgroundScrollForestWaterRippleSetupLoc305E6 {
+            start_scanline: 0x0001,
+            target_word_offset_bytes: 0x0006,
+            base_scroll_word: -0x0010,
+            ripple_dbf_counter: 0x0002,
+            ripple_data_byte_offset: 0x0017,
+        }),
+        "ASM loc_305E6 should point `a0` at the second word of the selected `Horiz_Scroll_Buffer` longword, cache that word in `d3`, turn the visible span into a `dbf` counter with `subq.w #1,d1`, and bias `a1` by `(Time_Frames>>2) & $3F`",
     );
 }
 
