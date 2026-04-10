@@ -52,7 +52,7 @@ use crate::level::{
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRowDispatchLoc3079A,
-    BackgroundScrollPieceRowDispatchLoc3079ABranch,
+    BackgroundScrollPieceRowDispatchLoc3079ABranch, BackgroundScrollPieceRowUploadLoc307B2,
     BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
@@ -112,6 +112,7 @@ use crate::level::{
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E, background_scroll_piece_row_dispatch_loc_3079A,
+    background_scroll_piece_row_upload_loc_307B2,
     background_scroll_shift_data_second_pass_advance_loc_304A8,
     background_scroll_shift_data_second_pass_slot_loc_3048C,
     background_scroll_shift_data_second_pass_unchanged_loc_304A4,
@@ -2616,6 +2617,36 @@ fn background_scroll_piece_row_dispatch_loc_3079a_returns_on_ff_and_only_skips_n
             next_dbf_counter: 0x001C,
         },
         "ASM loc_3079A should reach `bpl.s loc_307B2` only when the loaded scroll longword is non-negative, leaving the row pointer, VDP seed, and DBF counter untouched for the upload path",
+    );
+}
+
+#[test]
+fn background_scroll_piece_row_upload_loc_307b2_packs_the_vdp_command_and_uses_the_swapped_tile_byte_offset()
+ {
+    let layout_row = [0xAA, 0xBB, 0x02, 0xCC];
+    let block_mappings = [0x1000, 0x2000, 0x3568, 0x4000];
+
+    assert_eq!(
+        background_scroll_piece_row_upload_loc_307B2(
+            0x0002_1357,
+            0x0740,
+            &layout_row,
+            0x0120,
+            &block_mappings,
+            0x0040,
+            0x001C,
+        ),
+        Some(BackgroundScrollPieceRowUploadLoc307B2 {
+            vdp_control_word: 0x7757,
+            vdp_autoincrement_word: 3,
+            tile_byte_offset: 0x0002,
+            tile_mapping_word: 0x3568,
+            next_layout_row_offset: 0x0160,
+            next_vdp_row_seed: 0x07C0,
+            next_dbf_counter: 0x001B,
+            loops_to_loc_3079_a: true,
+        }),
+        "ASM loc_307B2 should OR the low scroll word with `($F80 & d2) | $6000`, write autoincrement `3`, `swap d5` so the original high word becomes the `(a0,d5.w)` byte offset, and then advance `a0`/`d2` for the next inclusive `dbf d3,loc_3079A` pass",
     );
 }
 

@@ -7658,6 +7658,18 @@ pub(crate) struct BackgroundScrollPieceRowDispatchLoc3079A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRowUploadLoc307B2 {
+    pub(crate) vdp_control_word: u16,
+    pub(crate) vdp_autoincrement_word: u16,
+    pub(crate) tile_byte_offset: usize,
+    pub(crate) tile_mapping_word: u16,
+    pub(crate) next_layout_row_offset: i16,
+    pub(crate) next_vdp_row_seed: u16,
+    pub(crate) next_dbf_counter: u16,
+    pub(crate) loops_to_loc_3079_a: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDispatchLoc3039C {
     pub(crate) computes_shift_data: bool,
     pub(crate) computes_shift_layers: bool,
@@ -8130,6 +8142,39 @@ pub(crate) fn background_scroll_piece_row_dispatch_loc_3079A(
         next_vdp_row_seed: vdp_row_seed.wrapping_add(0x0080),
         next_dbf_counter: dbf_counter.wrapping_sub(1),
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_row_upload_loc_307B2(
+    background_scroll_longword: u32,
+    vdp_row_seed: u16,
+    layout_row: &[u8],
+    current_layout_row_offset: i16,
+    block_mappings: &[u16],
+    background_width: i16,
+    dbf_counter: u16,
+) -> Option<BackgroundScrollPieceRowUploadLoc307B2> {
+    // ASM loc_307B2 (kid.asm:34604): this upload step masks `d2` with `$F80`,
+    // ORs in `$6000`, merges that with the low scroll word from `d5`, and
+    // writes the resulting plane-B control word plus autoincrement `3`. After
+    // `swap d5`, the original high word becomes the `(a0,d5.w)` byte offset,
+    // whose layout byte is doubled into the `(a3,d6.w)` mapping lookup. The
+    // shared tail then advances `a0` by `Background_width`, adds `$80` to `d2`,
+    // and consumes one inclusive `dbf d3` step before retrying `loc_3079A`.
+    let tile_byte_offset = usize::from((background_scroll_longword >> 16) as u16);
+    let tile_mapping_index = usize::from(*layout_row.get(tile_byte_offset)?);
+
+    Some(BackgroundScrollPieceRowUploadLoc307B2 {
+        vdp_control_word: (background_scroll_longword as u16) | ((vdp_row_seed & 0x0F80) | 0x6000),
+        vdp_autoincrement_word: 3,
+        tile_byte_offset,
+        tile_mapping_word: *block_mappings.get(tile_mapping_index)?,
+        next_layout_row_offset: current_layout_row_offset.wrapping_add(background_width),
+        next_vdp_row_seed: vdp_row_seed.wrapping_add(0x0080),
+        next_dbf_counter: dbf_counter.wrapping_sub(1),
+        loops_to_loc_3079_a: dbf_counter != 0,
+    })
 }
 
 #[allow(non_snake_case)]
