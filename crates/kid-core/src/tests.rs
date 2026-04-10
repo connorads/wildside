@@ -19735,6 +19735,21 @@ fn loc_3217c_loads_the_selected_enemy_art_vram_tile() {
     );
 }
 
+#[test]
+fn loc_32188_pops_the_first_free_gfx_slot_and_splices_it_onto_the_owner_head() {
+    use enemies::{EnemyGfxSlotLinkLoc32188, enemy_gfx_slot_link_loc_32188};
+
+    assert_eq!(
+        enemy_gfx_slot_link_loc_32188(0x00FF_2448, 0x00FF_2494, 0x00FF_2600),
+        EnemyGfxSlotLinkLoc32188 {
+            next_free_gfx_slot: 0x00FF_2494,
+            allocated_slot_next: 0x00FF_2600,
+            owner_gfx_head: 0x00FF_2448,
+        },
+        "ASM loc_32188 should advance `Addr_NextFreeGfxObjectSlot`, copy `0(a3)` into `0(a0)`, and install the popped slot as the new owner head",
+    );
+}
+
 // --- UFO and Tornado flyer tests ---
 
 #[test]

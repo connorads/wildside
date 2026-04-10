@@ -5791,6 +5791,13 @@ pub(crate) struct EnemyArtSlotAssignmentSub36E84 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyGfxSlotLinkLoc32188 {
+    pub(crate) next_free_gfx_slot: u32,
+    pub(crate) allocated_slot_next: u32,
+    pub(crate) owner_gfx_head: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SharedEnemyAttachmentChildSub3BF72 {
     pub(crate) x_pos: i16,
     pub(crate) y_pos: i16,
@@ -6144,6 +6151,24 @@ pub(crate) fn enemy_art_slot_assignment_sub_36E84(
         slot_index,
         palette_line: ENEMY_ART_PALETTE_LINES[usize::from(slot_index)],
         vram_tile: ENEMY_ART_VRAM_TILE_ADDRESSES[usize::from(slot_index)],
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn enemy_gfx_slot_link_loc_32188(
+    free_slot_address: u32,
+    next_free_slot_address: u32,
+    owner_gfx_head: u32,
+) -> EnemyGfxSlotLinkLoc32188 {
+    // ASM loc_32188 (kid.asm:37597-37603): save `a0`, pop the first node from
+    // `Addr_NextFreeGfxObjectSlot`, copy the owner's current `0(a3)` link into
+    // the allocated slot's `0(a0)`, then install that slot as the new
+    // owner-head link at `0(a3)`.
+    EnemyGfxSlotLinkLoc32188 {
+        next_free_gfx_slot: next_free_slot_address,
+        allocated_slot_next: owner_gfx_head,
+        owner_gfx_head: free_slot_address,
     }
 }
 
