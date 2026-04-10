@@ -2570,6 +2570,36 @@ pub(crate) fn classify_kid_object_relation(
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn kid_support_overlap_loc_1F56(
+    kid_hitbox_left: u16,
+    kid_hitbox_right: u16,
+    kid_hitbox_top: u16,
+    kid_hitbox_bottom: u16,
+    candidate_bounds: &[(u16, u16, u16, u16)],
+) -> bool {
+    // ASM sub_1F52 / loc_1F56 (kid.asm:3741-3756): walk the 8-byte support
+    // candidate list, stop on the first zero word, and set `colid_kidbelow`
+    // when any candidate overlaps Kid's hitbox with inclusive left/right/top/
+    // bottom bounds.
+    for &(candidate_left, candidate_right, candidate_top, candidate_bottom) in candidate_bounds {
+        if candidate_left == 0 {
+            return false;
+        }
+        if candidate_left > kid_hitbox_right
+            || candidate_right < kid_hitbox_left
+            || candidate_top > kid_hitbox_bottom
+            || candidate_bottom < kid_hitbox_top
+        {
+            continue;
+        }
+        return true;
+    }
+
+    false
+}
+
 pub(crate) fn opening_level_one_object_counts(
     level_id: LevelId,
     roster_count: u16,

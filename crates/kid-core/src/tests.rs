@@ -50049,3 +50049,28 @@ fn loc_1c240_jumps_to_callback_stored_at_object_offset_44() {
         "ASM loc_1C240 loads callback from object offset $44 = 68 bytes"
     );
 }
+
+#[test]
+fn loc_1f56_sets_kidbelow_only_for_inclusive_support_overlap() {
+    assert!(
+        crate::trace::kid_support_overlap_loc_1F56(
+            100,
+            120,
+            200,
+            220,
+            &[(80, 99, 200, 220), (120, 140, 220, 240), (0, 0, 0, 0),],
+        ),
+        "ASM loc_1F56 (kid.asm:3743) should accept inclusive edge contact once a candidate's left/right/top/bottom words all overlap Kid's hitbox",
+    );
+
+    assert!(
+        !crate::trace::kid_support_overlap_loc_1F56(
+            100,
+            120,
+            200,
+            220,
+            &[(121, 140, 200, 220), (80, 99, 221, 240), (0, 0, 0, 0),],
+        ),
+        "ASM loc_1F56 should keep scanning past non-overlapping candidates and return without `colid_kidbelow` when the zero-word sentinel arrives",
+    );
+}
