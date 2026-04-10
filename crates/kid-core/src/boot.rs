@@ -633,6 +633,16 @@ pub(crate) struct EndSequenceDisplayRefreshSub1D830 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceFadeLoopLoc1D270 {
+    pub(crate) loop_seed: u16,
+    pub(crate) fade_palette_byte_offset: u16,
+    pub(crate) fade_iterations: u16,
+    pub(crate) hibernate_frames: u16,
+    pub(crate) post_loop_vram_word_addr: u16,
+    pub(crate) post_loop_subroutine: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -2187,6 +2197,24 @@ pub(crate) fn end_sequence_display_refresh_sub_1D830(
         panel_toggle_byte,
         left_panel_x,
         right_panel_x,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_fade_loop_loc_1D270() -> EndSequenceFadeLoopLoc1D270 {
+    // ASM loc_1D270 (kid.asm:32637): after `moveq #7,d0`, each loop body loads
+    // `d7 = #$20`, darkens `Palette_Buffer+$20` via `sub_1C85E`, hibernates for
+    // six frames, then `dbf d0,loc_1D270` repeats for `$7 + 1 = 8` fades before
+    // retargeting the VDP command port to `vdpComm($E000,VRAM,WRITE)` and
+    // continuing with `sub_1DA62`.
+    EndSequenceFadeLoopLoc1D270 {
+        loop_seed: 0x0007,
+        fade_palette_byte_offset: 0x0020,
+        fade_iterations: 0x0008,
+        hibernate_frames: 0x0006,
+        post_loop_vram_word_addr: 0xE000,
+        post_loop_subroutine: "sub_1DA62",
     }
 }
 

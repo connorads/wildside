@@ -26408,6 +26408,36 @@ fn end_sequence_display_refresh_sub_1d830_combines_camera_scroll_upload_and_pane
 }
 
 #[test]
+fn end_sequence_fade_loop_loc_1d270_runs_eight_palette_darken_passes_before_vram_upload() {
+    let fade_loop = crate::boot::end_sequence_fade_loop_loc_1D270();
+
+    assert_eq!(
+        fade_loop.loop_seed, 0x0007,
+        "ASM loc_1D270 (kid.asm:32637) should seed `d0` with `$7` before the fade loop",
+    );
+    assert_eq!(
+        fade_loop.fade_palette_byte_offset, 0x0020,
+        "ASM loc_1D270 should reload `d7 = $20` before each `sub_1C85E` call",
+    );
+    assert_eq!(
+        fade_loop.fade_iterations, 0x0008,
+        "ASM loc_1D270 should execute `$7 + 1` inclusive DBF iterations",
+    );
+    assert_eq!(
+        fade_loop.hibernate_frames, 0x0006,
+        "ASM loc_1D270 should hibernate for 6 frames after each palette darken pass",
+    );
+    assert_eq!(
+        fade_loop.post_loop_vram_word_addr, 0xE000,
+        "ASM loc_1D270 should retarget the VDP command port to VRAM word address `$E000` after the loop",
+    );
+    assert_eq!(
+        fade_loop.post_loop_subroutine, "sub_1DA62",
+        "ASM loc_1D270 should hand off to `sub_1DA62` once the eight fades complete",
+    );
+}
+
+#[test]
 fn end_sequence_stripe_loop_loc_1cde4_steps_ten_display_refreshes_across_column_pairs() {
     let stripe_loop = crate::boot::end_sequence_stripe_loop_loc_1CDE4();
 
