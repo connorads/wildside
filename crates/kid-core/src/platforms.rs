@@ -44,6 +44,14 @@ pub(crate) struct VerticalOverlapResolutionLoc261E {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VerticalOverlapResolutionLoc2632 {
+    pub(crate) top_exit_px: i16,
+    pub(crate) bottom_exit_px: i16,
+    pub(crate) push_y_px: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn horizontal_overlap_resolution_loc_25EE(
     platform_left_px: i16,
@@ -106,7 +114,38 @@ pub(crate) fn vertical_overlap_top_exit_loc_261E(
     }
 }
 
-#[cfg(test)]
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn vertical_overlap_resolution_loc_2632(
+    platform_top_px: i16,
+    platform_bottom_px: i16,
+    player_top_px: i16,
+    player_bottom_px: i16,
+) -> VerticalOverlapResolutionLoc2632 {
+    // ASM loc_2632 (kid.asm:4544): when `player_top_px > platform_top_px`
+    // but `player_bottom_px <= platform_bottom_px`, the vertical branch keeps
+    // both escape distances, compares magnitudes via `neg.w d4`, and stores
+    // the smaller-magnitude push in `d6` before the absolute-value stage.
+    let top_exit_px = platform_top_px
+        .wrapping_sub(player_bottom_px)
+        .wrapping_sub(1);
+    let bottom_exit_px = platform_bottom_px
+        .wrapping_sub(player_top_px)
+        .wrapping_add(1);
+    let push_y_px = if top_exit_px.wrapping_neg() < bottom_exit_px {
+        top_exit_px
+    } else {
+        bottom_exit_px
+    };
+    VerticalOverlapResolutionLoc2632 {
+        top_exit_px,
+        bottom_exit_px,
+        push_y_px,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AllocatePlatformSlotSub238E {
     pub(crate) allocated_slot_addr: u16,

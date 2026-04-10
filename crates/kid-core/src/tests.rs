@@ -19068,6 +19068,28 @@ fn vertical_overlap_top_exit_loc_261e_uses_the_platform_top_edge_only() {
 }
 
 #[test]
+fn vertical_overlap_resolution_loc_2632_keeps_the_nearer_vertical_exit_distance() {
+    assert_eq!(
+        vertical_overlap_resolution_loc_2632(100, 139, 110, 125),
+        VerticalOverlapResolutionLoc2632 {
+            top_exit_px: -26,
+            bottom_exit_px: 30,
+            push_y_px: -26,
+        },
+        "ASM loc_2632 (kid.asm:4544) should keep the upward exit in `d6` when `-(platform_top-player_bottom-1)` is still smaller than `platform_bottom-player_top+1`",
+    );
+    assert_eq!(
+        vertical_overlap_resolution_loc_2632(100, 139, 130, 135),
+        VerticalOverlapResolutionLoc2632 {
+            top_exit_px: -36,
+            bottom_exit_px: 10,
+            push_y_px: 10,
+        },
+        "ASM loc_2632 should switch `d6` to the downward exit once the bottom escape has the smaller magnitude",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
