@@ -3104,6 +3104,26 @@ fn projectile_hitbox_sub_226a(
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+pub(crate) fn next_projectile_hitbox_loc_2286(
+    projectiles: &[KidProjectileHitboxCandidateSub226A],
+    cursor: usize,
+) -> Option<(usize, CollisionRectSub1F52)> {
+    // ASM loc_2286 (kid.asm:4098): reload the Kid-projectile gfx-object head
+    // on each pass, skip null/deleted entries by branching back to `loc_226E`
+    // or `loc_2286`, and stop only once a CollisionSize record yields a live
+    // hitbox to compare against the current shooter point.
+    projectiles
+        .iter()
+        .copied()
+        .enumerate()
+        .skip(cursor)
+        .find_map(|(projectile_index, projectile)| {
+            projectile_hitbox_sub_226a(projectile).map(|hitbox| (projectile_index, hitbox))
+        })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
 pub(crate) fn first_shooter_projectile_overlap_sub_226A(
     shooter_points: &[ShooterPointSub219C],
     projectiles: &[KidProjectileHitboxCandidateSub226A],
@@ -3116,11 +3136,10 @@ pub(crate) fn first_shooter_projectile_overlap_sub_226A(
     while let Some((shooter_index, shooter_point)) =
         next_shooter_point_loc_226E(shooter_points, shooter_cursor)
     {
-        for (projectile_index, projectile) in projectiles.iter().copied().enumerate() {
-            let Some(hitbox) = projectile_hitbox_sub_226a(projectile) else {
-                continue;
-            };
-            shooter_cursor = shooter_index + 1;
+        let mut projectile_cursor = 0;
+        while let Some((projectile_index, hitbox)) =
+            next_projectile_hitbox_loc_2286(projectiles, projectile_cursor)
+        {
             if shooter_point.x_px >= hitbox.left_px
                 && shooter_point.x_px < hitbox.right_px
                 && shooter_point.y_px >= hitbox.top_px
@@ -3131,7 +3150,9 @@ pub(crate) fn first_shooter_projectile_overlap_sub_226A(
                     projectile_index,
                 });
             }
+            projectile_cursor = projectile_index + 1;
         }
+        shooter_cursor = shooter_index + 1;
     }
 
     None

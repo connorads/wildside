@@ -2359,6 +2359,31 @@ fn first_shooter_projectile_overlap_sub_226a_skips_zero_collision_entries_and_fi
 }
 
 #[test]
+fn next_projectile_hitbox_loc_2286_skips_zero_collision_entries_until_a_live_hitbox_appears() {
+    assert_eq!(
+        crate::combat::next_projectile_hitbox_loc_2286(
+            &[
+                kid_projectile_hitbox_candidate_sub_226a(
+                    110,
+                    61,
+                    false,
+                    Some(collision_size_entry_sub_21f8(0, 8, -4, 8)),
+                ),
+                kid_projectile_hitbox_candidate_sub_226a(
+                    120,
+                    80,
+                    true,
+                    Some(collision_size_entry_sub_21f8(-5, 10, -31, 31)),
+                ),
+            ],
+            0,
+        ),
+        Some((0x1, collision_rect_sub_1f52(115, 125, 49, 80))),
+        "ASM loc_2286 (kid.asm:4098) loops past entries whose CollisionSize table yields a zero first word, then resumes with the next Kid projectile gfx object",
+    );
+}
+
+#[test]
 fn first_shooter_projectile_overlap_sub_226a_uses_inclusive_left_top_and_exclusive_right_bottom_edges()
  {
     assert_eq!(
