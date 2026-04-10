@@ -52,9 +52,10 @@ use crate::level::{
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshSeedLoc3081A,
-    BackgroundScrollPieceRefreshWindowSplitLoc3086A, BackgroundScrollPieceRefreshWrapLoc30836,
-    BackgroundScrollPieceRowDispatchLoc3079A, BackgroundScrollPieceRowDispatchLoc3079ABranch,
-    BackgroundScrollPieceRowUploadLoc307B2, BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
+    BackgroundScrollPieceRefreshVdpSeedLoc30884, BackgroundScrollPieceRefreshWindowSplitLoc3086A,
+    BackgroundScrollPieceRefreshWrapLoc30836, BackgroundScrollPieceRowDispatchLoc3079A,
+    BackgroundScrollPieceRowDispatchLoc3079ABranch, BackgroundScrollPieceRowUploadLoc307B2,
+    BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
@@ -113,6 +114,7 @@ use crate::level::{
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E, background_scroll_piece_refresh_seed_loc_3081A,
+    background_scroll_piece_refresh_vdp_seed_loc_30884,
     background_scroll_piece_refresh_window_split_loc_3086A,
     background_scroll_piece_refresh_wrap_loc_30836, background_scroll_piece_row_dispatch_loc_3079A,
     background_scroll_piece_row_upload_loc_307B2,
@@ -2719,6 +2721,19 @@ fn background_scroll_piece_refresh_window_split_loc_3086a_wraps_the_row_and_tile
             tile_window_wraps: true,
         },
         "ASM loc_3086A should wrap `d7 = d0 + $28` by `Background_width` when the row span crosses the edge, then wrap `(d2 & $3F) + $28` by `$40` when the tile phase crosses the 64-column boundary",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_vdp_seed_loc_30884_packs_the_masked_tile_column_and_row_bits() {
+    assert_eq!(
+        background_scroll_piece_refresh_vdp_seed_loc_30884(0x0045, 0x001E),
+        BackgroundScrollPieceRefreshVdpSeedLoc30884 {
+            tile_column_offset: 0x000A,
+            vdp_control_word: 0x6F0A,
+            vdp_autoincrement_word: 3,
+        },
+        "ASM loc_30884 should mask `d0` to 6 tile-column bits, double it into the word offset, pack `(d3 << 7) & $F80` under `$6000`, and then emit autoincrement `#3`",
     );
 }
 

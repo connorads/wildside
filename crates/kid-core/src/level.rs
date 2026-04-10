@@ -7694,6 +7694,13 @@ pub(crate) struct BackgroundScrollPieceRefreshWindowSplitLoc3086A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshVdpSeedLoc30884 {
+    pub(crate) tile_column_offset: u16,
+    pub(crate) vdp_control_word: u16,
+    pub(crate) vdp_autoincrement_word: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDispatchLoc3039C {
     pub(crate) computes_shift_data: bool,
     pub(crate) computes_shift_layers: bool,
@@ -8303,6 +8310,26 @@ pub(crate) fn background_scroll_piece_refresh_window_split_loc_3086A(
         tile_column_seed: coarse_scroll_word,
         wrapped_tile_window_span,
         tile_window_wraps,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_vdp_seed_loc_30884(
+    coarse_scroll_word: u16,
+    row_sequence_offset: u16,
+) -> BackgroundScrollPieceRefreshVdpSeedLoc30884 {
+    // ASM loc_30884 (kid.asm:34689): this block masks `d0` down to the low
+    // 6-bit tile column, doubles it into the word address, packs the row bits
+    // from `d3 << 7` under the `$F80` mask, forces plane B with `$6000`, and
+    // then writes the resulting control word followed by autoincrement `#3`.
+    let tile_column_offset = (coarse_scroll_word & 0x003F) << 1;
+    let vdp_control_word = tile_column_offset | 0x6000 | ((row_sequence_offset << 7) & 0x0F80);
+
+    BackgroundScrollPieceRefreshVdpSeedLoc30884 {
+        tile_column_offset,
+        vdp_control_word,
+        vdp_autoincrement_word: 3,
     }
 }
 
