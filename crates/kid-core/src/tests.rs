@@ -27021,6 +27021,36 @@ fn loc_1d24a_end_sequence_low_priority_burst_prelude_clears_priority_and_seeds_t
 }
 
 #[test]
+fn loc_1d252_end_sequence_low_priority_wait_loop_repeats_51_outer_cycles_back_to_loc_1d24a() {
+    let wait_loop = crate::boot::end_sequence_burst_low_priority_wait_loop_loc_1D252();
+
+    assert_eq!(
+        wait_loop.hibernate_subroutine, "j_Hibernate_Object_1Frame",
+        "ASM loc_1D252 (kid.asm:32627-32630) should hibernate once per inner-loop body",
+    );
+    assert_eq!(
+        wait_loop.inner_wait_seed, 0x0001,
+        "ASM loc_1D252 should consume the `d1 = 1` seed prepared at `loc_1D24A`",
+    );
+    assert_eq!(
+        wait_loop.inner_wait_iterations, 0x0002,
+        "ASM loc_1D252's `dbf d1,loc_1D252` should produce `$1 + 1 = 2` hibernation frames per burst",
+    );
+    assert_eq!(
+        wait_loop.outer_loop_seed, 0x0032,
+        "ASM loc_1D252 should inherit `d0 = $32` from the setup immediately before `loc_1D24A`",
+    );
+    assert_eq!(
+        wait_loop.outer_loop_iterations, 0x0033,
+        "ASM loc_1D252's `dbf d0,loc_1D24A` should repeat the low-priority burst prelude `$32 + 1 = $33` times",
+    );
+    assert_eq!(
+        wait_loop.next_outer_label, "loc_1D24A",
+        "ASM loc_1D252 should loop back to `loc_1D24A` until the outer DBF counter expires",
+    );
+}
+
+#[test]
 fn prize_10000_points_star_spawn_loc_10b3a_uses_the_first_mapping_only_on_frame_zero() {
     let spawn = prize_10000_points_star_spawn_loc_10B3A(0, 0x0123, 0x0045)
         .expect("frame 0 should spawn the first prize star");

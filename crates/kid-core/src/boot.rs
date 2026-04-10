@@ -2963,6 +2963,35 @@ pub(crate) fn end_sequence_burst_low_priority_prelude_loc_1D24A()
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceBurstLowPriorityWaitLoopLoc1D252 {
+    pub(crate) hibernate_subroutine: &'static str,
+    pub(crate) inner_wait_seed: u16,
+    pub(crate) inner_wait_iterations: u16,
+    pub(crate) outer_loop_seed: u16,
+    pub(crate) outer_loop_iterations: u16,
+    pub(crate) next_outer_label: &'static str,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_burst_low_priority_wait_loop_loc_1D252()
+-> EndSequenceBurstLowPriorityWaitLoopLoc1D252 {
+    // ASM loc_1D252 (kid.asm:32627-32630): hibernate once per inner-loop
+    // body, let `dbf d1,loc_1D252` consume the `d1 = 1` seed from
+    // `loc_1D24A`, then let `dbf d0,loc_1D24A` consume the `d0 = $32` seed
+    // prepared immediately before `loc_1D24A`.
+    EndSequenceBurstLowPriorityWaitLoopLoc1D252 {
+        hibernate_subroutine: "j_Hibernate_Object_1Frame",
+        inner_wait_seed: 0x0001,
+        inner_wait_iterations: 0x0002,
+        outer_loop_seed: 0x0032,
+        outer_loop_iterations: 0x0033,
+        next_outer_label: "loc_1D24A",
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn prize_10000_points_star_spawn_loc_10B3A(
