@@ -7700,6 +7700,12 @@ pub(crate) struct BackgroundScrollPieceRefreshVdpSeedLoc30884 {
     pub(crate) vdp_autoincrement_word: u16,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshLinearCopyLoc308A6 {
+    pub(crate) copied_mapping_words: Vec<u16>,
+    pub(crate) bytes_consumed: usize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDispatchLoc3039C {
     pub(crate) computes_shift_data: bool,
@@ -8331,6 +8337,28 @@ pub(crate) fn background_scroll_piece_refresh_vdp_seed_loc_30884(
         vdp_control_word,
         vdp_autoincrement_word: 3,
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_linear_copy_loc_308A6(
+    layout_row: &[u8],
+    block_mappings: &[u16],
+) -> Option<BackgroundScrollPieceRefreshLinearCopyLoc308A6> {
+    // ASM loc_308A6 (kid.asm:34704): when neither wrap flag was set, the
+    // caller seeds `d4` with `$28` and this loop clears `d6`, reads one layout
+    // byte from `(a0)+`, doubles it into the block-mapping word offset, copies
+    // that word to `(a6)`, and repeats through the inclusive `dbf d4,loc_308A6`
+    // count for 41 total transfers.
+    let mut copied_mapping_words = Vec::with_capacity(0x29);
+    for &mapping_index in layout_row.get(..0x29)? {
+        copied_mapping_words.push(*block_mappings.get(usize::from(mapping_index))?);
+    }
+
+    Some(BackgroundScrollPieceRefreshLinearCopyLoc308A6 {
+        copied_mapping_words,
+        bytes_consumed: 0x29,
+    })
 }
 
 #[allow(non_snake_case)]

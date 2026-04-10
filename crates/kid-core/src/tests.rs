@@ -51,11 +51,11 @@ use crate::level::{
     BackgroundScrollForestWaterRippleSetupLoc305E6,
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
-    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshSeedLoc3081A,
-    BackgroundScrollPieceRefreshVdpSeedLoc30884, BackgroundScrollPieceRefreshWindowSplitLoc3086A,
-    BackgroundScrollPieceRefreshWrapLoc30836, BackgroundScrollPieceRowDispatchLoc3079A,
-    BackgroundScrollPieceRowDispatchLoc3079ABranch, BackgroundScrollPieceRowUploadLoc307B2,
-    BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
+    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshLinearCopyLoc308A6,
+    BackgroundScrollPieceRefreshSeedLoc3081A, BackgroundScrollPieceRefreshVdpSeedLoc30884,
+    BackgroundScrollPieceRefreshWindowSplitLoc3086A, BackgroundScrollPieceRefreshWrapLoc30836,
+    BackgroundScrollPieceRowDispatchLoc3079A, BackgroundScrollPieceRowDispatchLoc3079ABranch,
+    BackgroundScrollPieceRowUploadLoc307B2, BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
@@ -113,7 +113,9 @@ use crate::level::{
     background_scroll_forest_water_ripple_setup_loc_305E6,
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
-    background_scroll_lower_pass_setup_loc_3001E, background_scroll_piece_refresh_seed_loc_3081A,
+    background_scroll_lower_pass_setup_loc_3001E,
+    background_scroll_piece_refresh_linear_copy_loc_308A6,
+    background_scroll_piece_refresh_seed_loc_3081A,
     background_scroll_piece_refresh_vdp_seed_loc_30884,
     background_scroll_piece_refresh_window_split_loc_3086A,
     background_scroll_piece_refresh_wrap_loc_30836, background_scroll_piece_row_dispatch_loc_3079A,
@@ -2734,6 +2736,22 @@ fn background_scroll_piece_refresh_vdp_seed_loc_30884_packs_the_masked_tile_colu
             vdp_autoincrement_word: 3,
         },
         "ASM loc_30884 should mask `d0` to 6 tile-column bits, double it into the word offset, pack `(d3 << 7) & $F80` under `$6000`, and then emit autoincrement `#3`",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_linear_copy_loc_308a6_copies_41_mapping_words_from_the_layout_row()
+ {
+    let layout_row: Vec<u8> = (0..0x29).collect();
+    let block_mappings: Vec<u16> = (0..0x29).map(|index| 0x4000 | index).collect();
+
+    assert_eq!(
+        background_scroll_piece_refresh_linear_copy_loc_308A6(&layout_row, &block_mappings),
+        Some(BackgroundScrollPieceRefreshLinearCopyLoc308A6 {
+            copied_mapping_words: block_mappings.clone(),
+            bytes_consumed: 0x29,
+        }),
+        "ASM loc_308A6 should clear `d6`, read one layout byte from `(a0)+`, double it into the `(a3,d6.w)` word lookup, and keep copying through the inclusive `dbf d4` count seeded from `#$28`",
     );
 }
 
