@@ -50,7 +50,7 @@ use crate::level::{
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
     BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
-    BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollShiftDataWrapLoopLoc304C2, BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
@@ -100,6 +100,7 @@ use crate::level::{
     background_scroll_shift_data_second_pass_slot_loc_3048C,
     background_scroll_shift_data_second_pass_unchanged_loc_304A4,
     background_scroll_shift_data_slot_loc_30452, background_scroll_shift_data_unchanged_loc_30476,
+    background_scroll_shift_data_wrap_loop_loc_304C2,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2724,6 +2725,20 @@ fn background_scroll_shift_data_second_pass_advance_loc_304a8_restores_the_accum
             loops_to_loc_3048_c: false,
         },
         "ASM loc_304A8 should fall through to `rts` once `dbf d3,loc_3048C` consumes the final zero seed and underflows the counter to `$FFFF`",
+    );
+}
+
+#[test]
+fn background_scroll_shift_data_wrap_loop_loc_304c2_adds_the_28_row_bias_before_reducing_by_background_width()
+ {
+    assert_eq!(
+        background_scroll_shift_data_wrap_loop_loc_304C2(0x0180, 0x0020),
+        BackgroundScrollShiftDataWrapLoopLoc304C2 {
+            seeded_phase_row: 0x0058,
+            reduced_phase_row: 0x0018,
+            subtraction_count: 2,
+        },
+        "ASM loc_304C2 should seed `d7` with `asr.w #3,4(a0) + $28`, copy that biased row to `d1`, then keep subtracting `d6` until `cmp.w d7,d6` finally makes `bgt.s loc_304CA` true",
     );
 }
 

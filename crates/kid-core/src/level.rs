@@ -7693,6 +7693,13 @@ pub(crate) struct BackgroundScrollShiftDataSecondPassAdvanceLoc304A8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftDataWrapLoopLoc304C2 {
+    pub(crate) seeded_phase_row: i16,
+    pub(crate) reduced_phase_row: i16,
+    pub(crate) subtraction_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
     pub(crate) map_header_byte_offset: usize,
     pub(crate) background_row_index: u8,
@@ -8135,6 +8142,41 @@ pub(crate) fn background_scroll_shift_data_second_pass_advance_loc_304A8(
         next_phase_accumulator: restored_phase_accumulator.wrapping_add(phase_step_fp),
         next_dbf_counter: dbf_counter.wrapping_sub(1),
         loops_to_loc_3048_c: dbf_counter != 0,
+    }
+}
+
+fn reduce_background_scroll_phase(seed_phase_row: i16, background_width: i16) -> (i16, u16) {
+    debug_assert!(background_width > 0, "ASM sub_304B4 expects positive width");
+
+    let mut reduced_phase_row = seed_phase_row;
+    let mut subtraction_count = 0_u16;
+
+    while background_width <= reduced_phase_row {
+        reduced_phase_row -= background_width;
+        subtraction_count = subtraction_count.wrapping_add(1);
+    }
+
+    (reduced_phase_row, subtraction_count)
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_shift_data_wrap_loop_loc_304C2(
+    updated_scroll_word: u16,
+    background_width: i16,
+) -> BackgroundScrollShiftDataWrapLoopLoc304C2 {
+    // ASM loc_304C2 (kid.asm:34141): the non-`bgt` entry seeds `d7` from
+    // `asr.w #3,4(a0)` plus `$28`, mirrors that biased row into `d1`, then
+    // keeps subtracting `d6` until `cmp.w d7,d6` sees `d6 > d7` and falls into
+    // `loc_304CA`.
+    let seeded_phase_row = (updated_scroll_word as i16 >> 3) + 0x28;
+    let (reduced_phase_row, subtraction_count) =
+        reduce_background_scroll_phase(seeded_phase_row, background_width);
+
+    BackgroundScrollShiftDataWrapLoopLoc304C2 {
+        seeded_phase_row,
+        reduced_phase_row,
+        subtraction_count,
     }
 }
 
