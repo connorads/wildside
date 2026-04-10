@@ -684,6 +684,23 @@ pub(crate) struct EndSequenceCreditsGlyphCacheLoc1D3D0 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceTextLoopLoc1D3F0 {
+    pub(crate) page_text_subroutine: &'static str,
+    pub(crate) page_break_word: u16,
+    pub(crate) page_break_wait_seed: u16,
+    pub(crate) page_break_wait_iterations: u16,
+    pub(crate) page_break_refresh_subroutine: &'static str,
+    pub(crate) page_break_hide_glyphs_subroutine: &'static str,
+    pub(crate) page_break_fade_subroutine: &'static str,
+    pub(crate) page_break_stripe_subroutine: &'static str,
+    pub(crate) page_break_glyph_load_subroutine: &'static str,
+    pub(crate) page_break_platform_layout_source: &'static str,
+    pub(crate) terminator_word: u16,
+    pub(crate) terminator_branch: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -2324,6 +2341,34 @@ pub(crate) fn end_sequence_credits_glyph_cache_loc_1D3D0() -> EndSequenceCredits
         glyph_init_subroutine: "sub_1D786",
         platform_layout_label: "unk_1D75A",
         text_script_label: "EndText1",
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_text_loop_loc_1D3F0() -> EndSequenceTextLoopLoc1D3F0 {
+    // ASM loc_1D3F0 (kid.asm:32741): read the next big-endian word from `a2`.
+    // Positive words are page entries, so the loop preserves `a2` via `a4`,
+    // calls `sub_1D080` to stream text until the page's `0,0` sentinel, then
+    // resumes at the next word. The `beq.w loc_1D44C` zero-word exit ends the
+    // sequence. The negative `$FFFF` page-break sentinel falls through
+    // `loc_1D404 -> loc_1D412`, waits `$C8 + 1 = $C9` refresh/hibernate pairs,
+    // hides cached glyphs, fades/restores the page, reloads glyphs from
+    // `(Addr_PlatformLayout).w` via `sub_1D7A8`, and loops back for the next
+    // page.
+    EndSequenceTextLoopLoc1D3F0 {
+        page_text_subroutine: "sub_1D080",
+        page_break_word: 0xFFFF,
+        page_break_wait_seed: 0x00C8,
+        page_break_wait_iterations: 0x00C9,
+        page_break_refresh_subroutine: "sub_1D830",
+        page_break_hide_glyphs_subroutine: "sub_1D7E6",
+        page_break_fade_subroutine: "sub_1D800",
+        page_break_stripe_subroutine: "sub_1CDE0",
+        page_break_glyph_load_subroutine: "sub_1D7A8",
+        page_break_platform_layout_source: "Addr_PlatformLayout",
+        terminator_word: 0x0000,
+        terminator_branch: "loc_1D44C",
     }
 }
 

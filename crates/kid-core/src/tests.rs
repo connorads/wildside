@@ -26565,6 +26565,60 @@ fn end_sequence_credits_glyph_cache_loc_1d3d0_allocates_six_workers_then_seeds_l
 }
 
 #[test]
+fn end_sequence_text_loop_loc_1d3f0_dispatches_pages_breaks_and_zero_terminator() {
+    let text_loop = crate::boot::end_sequence_text_loop_loc_1D3F0();
+
+    assert_eq!(
+        text_loop.page_text_subroutine, "sub_1D080",
+        "ASM loc_1D3F0 (kid.asm:32741) should dispatch positive page entries through `sub_1D080`",
+    );
+    assert_eq!(
+        text_loop.page_break_word, 0xFFFF,
+        "ASM loc_1D404 is reached from loc_1D3F0 when the next word is the negative `$FFFF` page-break sentinel",
+    );
+    assert_eq!(
+        text_loop.page_break_wait_seed, 0x00C8,
+        "ASM loc_1D412 should seed `d0 = $C8` before the page-break wait loop",
+    );
+    assert_eq!(
+        text_loop.page_break_wait_iterations, 0x00C9,
+        "ASM loc_1D418 should execute `$C8 + 1 = $C9` `sub_1D830 -> Hibernate_Object_1Frame` refresh pairs before the page refresh continues",
+    );
+    assert_eq!(
+        text_loop.page_break_refresh_subroutine, "sub_1D830",
+        "ASM loc_1D418 should refresh the display via `sub_1D830` on each page-break wait iteration",
+    );
+    assert_eq!(
+        text_loop.page_break_hide_glyphs_subroutine, "sub_1D7E6",
+        "ASM loc_1D418 should hide all cached glyph workers through `sub_1D7E6` before the fade",
+    );
+    assert_eq!(
+        text_loop.page_break_fade_subroutine, "sub_1D800",
+        "ASM loc_1D418 should run `sub_1D800` to fade the previous page out before redrawing",
+    );
+    assert_eq!(
+        text_loop.page_break_stripe_subroutine, "sub_1CDE0",
+        "ASM loc_1D418 should rebuild the page stripes through `sub_1CDE0` after the fade",
+    );
+    assert_eq!(
+        text_loop.page_break_glyph_load_subroutine, "sub_1D7A8",
+        "ASM loc_1D418 should reload glyph placements through `sub_1D7A8` from the saved platform-layout pointer",
+    );
+    assert_eq!(
+        text_loop.page_break_platform_layout_source, "Addr_PlatformLayout",
+        "ASM loc_1D418 should read the current glyph layout from `(Addr_PlatformLayout).w` before calling `sub_1D7A8`",
+    );
+    assert_eq!(
+        text_loop.terminator_word, 0x0000,
+        "ASM loc_1D3F0 should treat a zero word as the end-of-credits terminator",
+    );
+    assert_eq!(
+        text_loop.terminator_branch, "loc_1D44C",
+        "ASM loc_1D3F0 should branch straight to `loc_1D44C` once the zero terminator is reached",
+    );
+}
+
+#[test]
 fn end_sequence_stripe_loop_loc_1cde4_steps_ten_display_refreshes_across_column_pairs() {
     let stripe_loop = crate::boot::end_sequence_stripe_loop_loc_1CDE4();
 
