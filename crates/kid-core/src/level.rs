@@ -7748,6 +7748,9 @@ pub(crate) fn background_scroll_lower_pass_loop_loc_30066(
     // ASM loc_3007A (kid.asm:33651): the shared lower-pass epilogue resumes
     // after either renderer and restores `Camera_Y_pos` plus `$FFFFF82E` from
     // the saved `d7` before testing whether `d7` is zero.
+    // ASM loc_30090 (kid.asm:33659): the tail writes the saved `d7` back to
+    // both camera words and returns; when the preceding zero check succeeds,
+    // `$FFFFFAA8` has already been cleared before this final restore.
     let renderer = if background_format == 0 {
         BackgroundScrollLowerPassRendererLoc30066::PiecesSub307D8
     } else {

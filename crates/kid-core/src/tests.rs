@@ -2390,6 +2390,28 @@ fn background_scroll_lower_pass_loop_loc_3007a_restores_both_camera_words_from_t
 }
 
 #[test]
+fn background_scroll_lower_pass_loop_loc_30090_returns_with_zeroed_shift_seed_only_after_restoring_zero_camera_words()
+ {
+    let resume = BackgroundScrollLowerPassResumeLoc30054 {
+        original_camera_y: 0,
+        stepped_camera_y: -0x0380,
+        shift_data_camera_y: -0x03A0,
+        loop_iterations: 0x001B,
+    };
+
+    assert_eq!(
+        background_scroll_lower_pass_loop_loc_30066(resume, 0),
+        BackgroundScrollLowerPassLoopLoc30066 {
+            renderer: BackgroundScrollLowerPassRendererLoc30066::PiecesSub307D8,
+            final_camera_y: 0,
+            final_scroll_data_camera_y: 0,
+            final_shift_data_camera_y: 0,
+        },
+        "ASM loc_30090 should return after restoring zero `d7` into both camera words, with the preceding zero-check path having already cleared `$FFFFFAA8`",
+    );
+}
+
+#[test]
 fn compile_block_debris_sprites_sub_2a4c_steps_fixed_point_records_and_emits_linked_sprites() {
     let mut queue = initialise_scratch_queue_sub_28FC();
     spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 2);
