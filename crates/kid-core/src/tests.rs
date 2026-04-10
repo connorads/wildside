@@ -44654,6 +44654,17 @@ fn align_player_for_down_hold_sub_7a10_restores_integer_x_when_both_sides_are_bl
 }
 
 #[test]
+fn loc_331d2_masks_only_the_sampled_relative_cell_collision_nibble() {
+    let grid = grid_with_cells(8, 8, &[(3, 4, 0x70, 0x09), (2, 4, 0x60, 0x05)]);
+
+    assert_eq!(
+        crate::terrain::relative_collision_mask_loc_331D2(&grid, 40, 64, 8, 0),
+        0x7000,
+        "ASM loc_331D2 (kid.asm:37627) should add the relative offsets onto `x_pos/y_pos(a3)`, look up exactly that Level_Layout cell through `$FFFF4A04`, and keep only the `$7000` collision nibble",
+    );
+}
+
+#[test]
 fn ice_block_load_bullets_restore_direction_loc_11080_restores_the_original_direction_bits() {
     assert_eq!(
         NativeRuntime::ice_block_load_bullets_restore_direction_loc_11080(0),

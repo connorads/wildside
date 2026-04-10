@@ -133,6 +133,17 @@ impl Cell {
                 | CollisionKind::Spikes
         )
     }
+
+    fn to_word(self) -> u16 {
+        let block_flag = if self.has_block { 0x8000 } else { 0 };
+        let collision_bits = (self.collision as u16) << 12;
+        let block_type_bits = if self.has_block {
+            (self.block_type as u16) << 8
+        } else {
+            0
+        };
+        block_flag | collision_bits | block_type_bits | u16::from(self.skin)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1249,8 +1260,25 @@ pub fn probe_iron_knight_climb_resume_wall(
 /// Mirror the single-cell relative lookup in `sub_B55C`.
 ///
 /// The ROM adds `d7` to `x_pos(a3)` and `d6` to `y_pos(a3)`, converts those
-/// pixel coordinates into a block-row pointer plus cell offset, and returns the
-/// raw collision nibble for exactly that cell.
+/// pixel coordinates into a block-row pointer plus cell offset, and `loc_331D2`
+/// returns the raw collision nibble for exactly that cell.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn relative_collision_mask_loc_331D2(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    x_offset_px: i32,
+    y_offset_px: i32,
+) -> u16 {
+    let sample_x = center_x_px + x_offset_px;
+    let sample_y = foot_y_px + y_offset_px;
+    if sample_x < 0 || sample_y < 0 {
+        return 0;
+    }
+    probe_at(grid, sample_x, sample_y).cell.to_word() & 0x7000
+}
+
 #[allow(non_snake_case)]
 pub fn probe_relative_collision_sub_B55C(
     grid: &BlockGrid,
@@ -1259,12 +1287,15 @@ pub fn probe_relative_collision_sub_B55C(
     x_offset_px: i32,
     y_offset_px: i32,
 ) -> CollisionKind {
-    let sample_x = center_x_px + x_offset_px;
-    let sample_y = foot_y_px + y_offset_px;
-    if sample_x < 0 || sample_y < 0 {
-        return CollisionKind::Empty;
+    match relative_collision_mask_loc_331D2(grid, center_x_px, foot_y_px, x_offset_px, y_offset_px)
+    {
+        0x2000 => CollisionKind::HiddenBlock,
+        0x4000 => CollisionKind::SlopeUp,
+        0x5000 => CollisionKind::SlopeDown,
+        0x6000 => CollisionKind::Solid,
+        0x7000 => CollisionKind::Spikes,
+        _ => CollisionKind::Empty,
     }
-    probe_at(grid, sample_x, sample_y).cell.collision
 }
 
 /// Probe only the player's exact top edge against a side wall.
