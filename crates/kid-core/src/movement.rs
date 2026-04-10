@@ -449,10 +449,11 @@ pub(crate) fn load_end_sequence_credits_glyphs_sub_1D7A8(
     script: &[u8],
     mut glyphs: [Option<EndSequenceCreditsGlyphPlacementSub1D7A8>; 6],
 ) -> [Option<EndSequenceCreditsGlyphPlacementSub1D7A8>; 6] {
-    // ASM sub_1D7A8 (kid.asm:32997): read a sentinel-terminated byte stream
-    // from `a4` as `(x, y, sprite)` triples, stop when the next X byte is
-    // zero, then write each triple into the next cached credits glyph worker
-    // starting at `$FFFFFB76`.
+    // ASM sub_1D7A8 / loc_1D7B0 (kid.asm:32997-33012): read a
+    // sentinel-terminated byte stream from `a4` as `(x, y, sprite)` triples.
+    // `loc_1D7B0` loads the next X byte, exits at `loc_1D7E0` when it is zero,
+    // otherwise advances to the next cached credits glyph worker starting at
+    // `$FFFFFB76` and keeps consuming triples.
     let mut script_offset = 0usize;
     let mut glyph_offset = 0usize;
 
