@@ -6211,6 +6211,15 @@ pub(crate) fn object_out_of_range_positive_slot_loc_320A6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn object_out_of_range_delete_tail_loc_320B4() -> bool {
+    // ASM loc_320B4 (kid.asm:37493) is the shared out-of-range tail used by
+    // both the negative-slot and positive-slot paths: it jumps straight to
+    // `j_Delete_CurrentObject`.
+    true
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
     // ASM loc_11D0C -> loc_11D42 (kid.asm:23917-23923) clears `d1`, tests
     // `($FFFFF896).w`, and only loads `$80008000` into `d1` when that byte is
