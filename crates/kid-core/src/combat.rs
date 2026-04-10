@@ -3032,6 +3032,21 @@ pub(crate) struct ShooterProjectileOverlapSub226A {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+pub(crate) fn next_shooter_point_loc_226E(
+    shooter_points: &[ShooterPointSub219C],
+    cursor: usize,
+) -> Option<(usize, ShooterPointSub219C)> {
+    // ASM loc_226E (kid.asm:4089): read the next shooter-slot link word,
+    // return immediately when it is zero, otherwise copy the slot pointer and
+    // load that slot's `$2/$4` coordinates before entering the projectile scan.
+    shooter_points
+        .get(cursor)
+        .copied()
+        .map(|point| (cursor, point))
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
 pub(crate) fn first_shooter_hit_sub_219C(
     kid_hitbox: CollisionRectSub1F52,
     shooter_points: &[ShooterPointSub219C],
@@ -3097,11 +3112,15 @@ pub(crate) fn first_shooter_projectile_overlap_sub_226A(
     // each live slot scan Kid projectiles until the first overlap. The tests
     // below mirror loc_22A6/loc_22D2's inclusive-left/top and
     // exclusive-right/bottom comparisons.
-    for (shooter_index, shooter_point) in shooter_points.iter().enumerate() {
+    let mut shooter_cursor = 0;
+    while let Some((shooter_index, shooter_point)) =
+        next_shooter_point_loc_226E(shooter_points, shooter_cursor)
+    {
         for (projectile_index, projectile) in projectiles.iter().copied().enumerate() {
             let Some(hitbox) = projectile_hitbox_sub_226a(projectile) else {
                 continue;
             };
+            shooter_cursor = shooter_index + 1;
             if shooter_point.x_px >= hitbox.left_px
                 && shooter_point.x_px < hitbox.right_px
                 && shooter_point.y_px >= hitbox.top_px

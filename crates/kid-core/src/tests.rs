@@ -2299,6 +2299,26 @@ fn loc_21f2_returns_none_when_the_shooter_list_ends_without_a_strict_hit() {
         "ASM loc_21F2 should also return after `loc_21B8` exhausts the shooter list with only strict misses",
     );
 }
+#[test]
+fn next_shooter_point_loc_226e_returns_none_at_the_list_tail_and_loads_the_current_slot_coords() {
+    assert_eq!(
+        crate::combat::next_shooter_point_loc_226E(&[], 0),
+        None,
+        "ASM loc_226E (kid.asm:4089) returns immediately when `move.w $A(a0),d7` reads a zero next-slot word",
+    );
+
+    assert_eq!(
+        crate::combat::next_shooter_point_loc_226E(
+            &[
+                shooter_point_sub_219c(110, 61),
+                shooter_point_sub_219c(140, 80)
+            ],
+            1,
+        ),
+        Some((1, shooter_point_sub_219c(140, 80))),
+        "ASM loc_226E copies the current shooter slot into `a1` and loads its `$2/$4` coordinates before entering the projectile scan",
+    );
+}
 
 #[test]
 fn first_shooter_projectile_overlap_sub_226a_skips_zero_collision_entries_and_finds_the_first_hit()
