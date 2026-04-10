@@ -7678,6 +7678,13 @@ pub(crate) struct BackgroundScrollShiftDataSlotLoc30452 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftDataSecondPassSlotLoc3048C {
+    pub(crate) updated_scroll_word: u16,
+    pub(crate) cached_previous_scroll_word: u16,
+    pub(crate) branches_to_loc_304_a4: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollEnigmaRowTransferLoc303D4 {
     pub(crate) map_header_byte_offset: usize,
     pub(crate) background_row_index: u8,
@@ -8066,6 +8073,23 @@ pub(crate) fn background_scroll_shift_data_unchanged_loc_30476(
         Some(0xFFFF)
     } else {
         None
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_shift_data_second_pass_slot_loc_3048C(
+    next_scroll_word: u16,
+    previous_scroll_word: u16,
+) -> BackgroundScrollShiftDataSecondPassSlotLoc3048C {
+    // ASM loc_3048C (kid.asm:34108): `swap d5` exposes the next scroll word in
+    // the low half, then the routine loads `4(a0)` into `d2`, stores `d5` back
+    // to `4(a0)`, mirrors the old word to `6(a0)`, and branches to `loc_304A4`
+    // only when `cmp.w d5,d2` reports the words are identical.
+    BackgroundScrollShiftDataSecondPassSlotLoc3048C {
+        updated_scroll_word: next_scroll_word,
+        cached_previous_scroll_word: previous_scroll_word,
+        branches_to_loc_304_a4: previous_scroll_word == next_scroll_word,
     }
 }
 

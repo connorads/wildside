@@ -48,7 +48,8 @@ use crate::level::{
     BackgroundScrollEnigmaRowTableLookupLoc303EA, BackgroundScrollEnigmaRowTransferLoc303D4,
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
-    BackgroundScrollShiftDataSlotLoc30452, BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
+    BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
@@ -93,8 +94,9 @@ use crate::level::{
     background_scroll_enigma_row_transfer_loc_303D4,
     background_scroll_enigma_secondary_longword_copy_loc_30432,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
-    background_scroll_lower_pass_setup_loc_3001E, background_scroll_shift_data_slot_loc_30452,
-    background_scroll_shift_data_unchanged_loc_30476,
+    background_scroll_lower_pass_setup_loc_3001E,
+    background_scroll_shift_data_second_pass_slot_loc_3048C,
+    background_scroll_shift_data_slot_loc_30452, background_scroll_shift_data_unchanged_loc_30476,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2648,6 +2650,29 @@ fn background_scroll_shift_data_unchanged_loc_30476_emits_ffff_when_the_tile_col
         background_scroll_shift_data_unchanged_loc_30476(0x0028, 0x002F),
         Some(0xFFFF),
         "ASM loc_30476 should write `$FFFF` to `(a0)` when the logical `>>3` columns still match, because that slot skips `sub_304B4` and falls straight through to loc_3047A",
+    );
+}
+
+#[test]
+fn background_scroll_shift_data_second_pass_slot_loc_3048c_mirrors_the_previous_word_and_only_branches_on_an_exact_match()
+ {
+    assert_eq!(
+        background_scroll_shift_data_second_pass_slot_loc_3048C(0x1200, 0x11F8),
+        BackgroundScrollShiftDataSecondPassSlotLoc3048C {
+            updated_scroll_word: 0x1200,
+            cached_previous_scroll_word: 0x11F8,
+            branches_to_loc_304_a4: false,
+        },
+        "ASM loc_3048C should `swap d5`, store that low word into `4(a0)`, mirror the old `4(a0)` word into `6(a0)`, and only branch to `loc_304A4` when `cmp.w d5,d2` finds an exact word match",
+    );
+    assert_eq!(
+        background_scroll_shift_data_second_pass_slot_loc_3048C(0x1200, 0x1200),
+        BackgroundScrollShiftDataSecondPassSlotLoc3048C {
+            updated_scroll_word: 0x1200,
+            cached_previous_scroll_word: 0x1200,
+            branches_to_loc_304_a4: true,
+        },
+        "ASM loc_3048C should reach `beq.s loc_304A4` only for exact word equality, unlike the earlier `loc_30452` tile-column compare",
     );
 }
 
