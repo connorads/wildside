@@ -7831,6 +7831,13 @@ pub(crate) struct BackgroundScrollForestWaterRippleSetupLoc305E6 {
     pub(crate) ripple_data_byte_offset: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollDesertHeatRippleVisibleBandLoc306C2 {
+    pub(crate) start_scanline: u16,
+    pub(crate) ripple_data_byte_offset: u16,
+    pub(crate) affected_scanline_count: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -8532,6 +8539,47 @@ pub(crate) fn background_scroll_forest_water_ripple_loop_loc_3060A(
     }
 
     Some(updated_scroll_buffer)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_scroll_desert_heat_ripple_visible_band_loc_306C2(
+    map_header_row_count: u8,
+    camera_y_pos: i16,
+) -> Option<BackgroundScrollDesertHeatRippleVisibleBandLoc306C2> {
+    // ASM loc_306C2 / prelude (kid.asm:34451-34477): `d0` starts as the map
+    // header byte from `Addr_MapHeader+$14` multiplied by 8, then subtracts
+    // `(Camera_Y_pos>>2)`. Negative starts branch through the prelude that
+    // clamps the visible window to the first `$10` rows by rebasing `d0=0`,
+    // negating the byte offset into `d2`, and returning only when
+    // `d0 + $10 > 0`; non-negative starts rebuild `d1=$E0-d0`, return on a
+    // non-positive span, clear `d2`, and clamp longer windows to `$10`.
+    let start_scanline =
+        (i16::from(map_header_row_count) << 3).wrapping_sub(((camera_y_pos as u16) >> 2) as i16);
+
+    if start_scanline < 0 {
+        let affected_scanline_count = start_scanline.wrapping_add(0x0010);
+        if affected_scanline_count <= 0 {
+            return None;
+        }
+
+        return Some(BackgroundScrollDesertHeatRippleVisibleBandLoc306C2 {
+            start_scanline: 0,
+            ripple_data_byte_offset: start_scanline.wrapping_neg() as u16,
+            affected_scanline_count: affected_scanline_count as u16,
+        });
+    }
+
+    let affected_scanline_count = 0x00E0_i16.wrapping_sub(start_scanline);
+    if affected_scanline_count <= 0 {
+        return None;
+    }
+
+    Some(BackgroundScrollDesertHeatRippleVisibleBandLoc306C2 {
+        start_scanline: start_scanline as u16,
+        ripple_data_byte_offset: 0,
+        affected_scanline_count: affected_scanline_count.min(0x0010) as u16,
+    })
 }
 
 #[allow(non_snake_case)]

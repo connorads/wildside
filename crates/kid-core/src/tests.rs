@@ -44,6 +44,7 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
+    BackgroundScrollDesertHeatRippleVisibleBandLoc306C2,
     BackgroundScrollEnigmaPrimaryCopySetupLoc30426, BackgroundScrollEnigmaRowSourceLoc303D4,
     BackgroundScrollEnigmaRowTableLookupLoc303EA, BackgroundScrollEnigmaRowTransferLoc303D4,
     BackgroundScrollForestWaterRippleSetupLoc305E6,
@@ -95,7 +96,8 @@ use crate::level::{
     apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
     apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
     apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, background_scroll_enigma_primary_copy_setup_loc_30426,
+    background_row_pointers_loc_11B7A, background_scroll_desert_heat_ripple_visible_band_loc_306C2,
+    background_scroll_enigma_primary_copy_setup_loc_30426,
     background_scroll_enigma_primary_longword_copy_loc_30428,
     background_scroll_enigma_row_table_lookup_loc_303EA,
     background_scroll_enigma_row_transfer_loc_303D4,
@@ -2969,6 +2971,29 @@ fn background_scroll_forest_water_ripple_loop_loc_3060a_writes_signed_ripple_del
         ),
         Some(vec![0xAAAA_1000, 0xBBBB_0105, 0xCCCC_00FE, 0xDDDD_017F]),
         "ASM loc_3060A should sign-extend each ripple byte, add it to the cached base word from `d3`, write only the low word of the current `Horiz_Scroll_Buffer` longword, and advance by one longword per inclusive `dbf` step",
+    );
+}
+
+#[test]
+fn background_scroll_desert_heat_ripple_visible_band_loc_306c2_rebases_negative_starts_and_clamps_positive_spans()
+ {
+    assert_eq!(
+        background_scroll_desert_heat_ripple_visible_band_loc_306C2(0x04, 0x00A8),
+        Some(BackgroundScrollDesertHeatRippleVisibleBandLoc306C2 {
+            start_scanline: 0,
+            ripple_data_byte_offset: 0x000A,
+            affected_scanline_count: 0x0006,
+        }),
+        "ASM loc_306C2 should rebase negative starts to scanline 0, negate the hidden rows into `d2`, and keep only the visible `d0+$10` tail when the prelude branches around the positive-start clamp",
+    );
+    assert_eq!(
+        background_scroll_desert_heat_ripple_visible_band_loc_306C2(0x0A, 0x00A0),
+        Some(BackgroundScrollDesertHeatRippleVisibleBandLoc306C2 {
+            start_scanline: 0x0028,
+            ripple_data_byte_offset: 0x0000,
+            affected_scanline_count: 0x0010,
+        }),
+        "ASM loc_306C2 should clear `d2` and clamp non-negative visible spans to `$10` scanlines before falling into `loc_306D4`",
     );
 }
 
