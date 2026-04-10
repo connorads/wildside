@@ -47,14 +47,14 @@ use crate::level::{
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
     BackgroundScrollStripeLayoutSeedLoc301D8, BackgroundScrollStripeRightWindowLoc301F6,
-    BackgroundScrollStripeRowSelectionLoc301CE, BackgroundScrollUpperPassLoc2FFE8,
-    BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
-    BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504, BlockLayoutEntryWordsLoc133B2,
-    BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E,
-    BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE,
-    BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E,
-    BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C, BlockLayoutRepeatWordsLoc1351E,
-    BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
+    BackgroundScrollStripeRowSelectionLoc301CE, BackgroundScrollStripeVerticalPassLoc301FE,
+    BackgroundScrollUpperPassLoc2FFE8, BackgroundScrollUpperPassResumeLoc30014,
+    BlockLayoutDecodeWordsLoc1354E, BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504,
+    BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E,
+    BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0,
+    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
+    BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
+    BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
     DecompressToVramSpecialReturnLoc143B2, FgPlaneCustomWriteSub1596,
     FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680,
@@ -78,7 +78,8 @@ use crate::level::{
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E, background_scroll_stripe_layout_seed_loc_301D8,
     background_scroll_stripe_right_window_loc_301F6,
-    background_scroll_stripe_row_selection_loc_301CE, background_scroll_upper_pass_loc_2FFE8,
+    background_scroll_stripe_row_selection_loc_301CE,
+    background_scroll_stripe_vertical_pass_loc_301FE, background_scroll_upper_pass_loc_2FFE8,
     background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
     blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
     block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
@@ -2597,6 +2598,32 @@ fn background_scroll_stripe_right_window_loc_301f6_shrinks_the_span_towards_the_
             initial_column_bias: 0x0013,
         },
         "ASM loc_301F6 should reduce `d1` to zero and raise `d2` to `$13` when the masked half-column already sits at the rightmost chunk edge",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_vertical_pass_loc_301fe_builds_the_first_vdp_command_and_wrap_pass() {
+    assert_eq!(
+        background_scroll_stripe_vertical_pass_loc_301FE(0x001D, 0x000C, 0x0056, 0),
+        BackgroundScrollStripeVerticalPassLoc301FE {
+            vdp_command: 0x4EC0_0000,
+            saved_camera_tile_column: 0x0056,
+            second_pass_vdp_command: Some(0x4E80_0000),
+        },
+        "ASM loc_301FE should pack `(d6 & $1F) << 7` plus the half-column bits into the upper VDP command word, save `d7`, and clear only the column bits with `andi.l #$FF80FFFF,d0` for the wraparound second pass",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_vertical_pass_loc_301fe_skips_the_wrap_pass_when_d2_stays_negative() {
+    assert_eq!(
+        background_scroll_stripe_vertical_pass_loc_301FE(0x0003, 0x0005, 0x001A, -1),
+        BackgroundScrollStripeVerticalPassLoc301FE {
+            vdp_command: 0x41D4_0000,
+            saved_camera_tile_column: 0x001A,
+            second_pass_vdp_command: None,
+        },
+        "ASM loc_301FE should branch straight to loc_3023A after the first `sub_3034A` call when `d2` remains negative, leaving no second VDP command to issue",
     );
 }
 

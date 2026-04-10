@@ -8021,6 +8021,37 @@ pub(crate) fn background_scroll_stripe_right_window_loc_301F6(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeVerticalPassLoc301FE {
+    pub(crate) vdp_command: u32,
+    pub(crate) saved_camera_tile_column: u16,
+    pub(crate) second_pass_vdp_command: Option<u32>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_vertical_pass_loc_301FE(
+    tile_row: u16,
+    half_column_mod32: u16,
+    camera_tile_column: u16,
+    initial_column_bias: i16,
+) -> BackgroundScrollStripeVerticalPassLoc301FE {
+    // ASM loc_301FE (kid.asm:33793): fold `d6 & $1F` into bits 7-11, fold the
+    // current half-column into bits 2-6, set bit `$4000`, `swap` the word into
+    // the upper half, clear the low word, and push `d7` before the first
+    // `sub_3034A` call. If `d2 >= 0` after the call, `andi.l #$FF80FFFF,d0`
+    // clears only the column bits for the wraparound second pass.
+    let vram_word = ((tile_row & 0x001F) << 7) | ((half_column_mod32 & 0x001F) << 2) | 0x4000;
+    let vdp_command = u32::from(vram_word) << 16;
+    let second_pass_vdp_command = (initial_column_bias >= 0).then_some(vdp_command & 0xFF80_FFFF);
+
+    BackgroundScrollStripeVerticalPassLoc301FE {
+        vdp_command,
+        saved_camera_tile_column: camera_tile_column,
+        second_pass_vdp_command,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
