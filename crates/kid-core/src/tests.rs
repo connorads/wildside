@@ -26257,6 +26257,16 @@ fn kid_object_invulnerability_gate_loc_1d00_clears_ordinary_collisions_but_keeps
 }
 
 #[test]
+fn kid_object_stomp_object_writeback_loc_1d46_marks_the_enemy_as_kidbelow() {
+    let stomp = crate::trace::kid_object_stomp_object_writeback_loc_1D46();
+
+    assert_eq!(
+        stomp.object_collision_label, "kidbelow",
+        "ASM loc_1D46 (kid.asm:3512) should write `colid_kidbelow` into `$38(a2)` before the player-side stomp writeback at loc_1D4C",
+    );
+}
+
+#[test]
 fn kid_object_invulnerability_gate_loc_1d00_leaves_non_invulnerable_or_large_payload_hits_untouched()
  {
     let vulnerable = crate::trace::kid_object_invulnerability_gate_loc_1D00(false, 0x0010, 0xC063);

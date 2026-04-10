@@ -67,6 +67,12 @@ pub(crate) struct KidObjectInvulnerabilityGateLoc1D00 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidObjectStompObjectWritebackLoc1D46 {
+    pub(crate) object_collision_label: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_object_collision_writeback_loc_1CF2(
     relation: KidObjectRelation,
@@ -83,6 +89,18 @@ pub(crate) fn kid_object_collision_writeback_loc_1CF2(
         player_collision_label: collision_label,
         object_collision_label: collision_label,
         object_collision_flags,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn kid_object_stomp_object_writeback_loc_1D46() -> KidObjectStompObjectWritebackLoc1D46 {
+    // ASM loc_1D46 (kid.asm:3512): when `loc_1CE4` sees
+    // `Character_Movement == MoveID_Jump`, the stomp path first writes
+    // `colid_kidbelow` into the enemy object's `$38(a2)` slot before the
+    // player-side writeback at `loc_1D4C`.
+    KidObjectStompObjectWritebackLoc1D46 {
+        object_collision_label: KidObjectRelation::Below.as_debug_label(),
     }
 }
 
