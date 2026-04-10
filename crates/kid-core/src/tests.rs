@@ -19518,6 +19518,20 @@ fn resolve_duplicate_platform_load_loc_286a_deallocates_scripted_slots_but_marks
 }
 
 #[test]
+fn advance_platform_loader_offset_loc_286e_steps_one_12_byte_layout_record() {
+    assert_eq!(
+        crate::platforms::advance_platform_loader_offset_loc_286E(0x0000),
+        0x000C,
+        "ASM loc_286E (kid.asm:4785) should advance `(PlatformLoader_Offset).w` by one 12-byte platform record after each placement",
+    );
+    assert_eq!(
+        crate::platforms::advance_platform_loader_offset_loc_286E(0xFFF8),
+        0x0004,
+        "ASM loc_286E uses `addi.w`, so the 16-bit platform-loader offset must wrap on overflow",
+    );
+}
+
+#[test]
 fn platform_sprite_dispatch_loc_244c_biases_visible_platforms_and_selects_loc_24c0() {
     assert_eq!(
         platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {

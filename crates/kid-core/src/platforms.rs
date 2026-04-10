@@ -510,6 +510,15 @@ pub(crate) fn resolve_duplicate_platform_load_loc_286A(
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+pub(crate) fn advance_platform_loader_offset_loc_286E(platform_loader_offset: u16) -> u16 {
+    // ASM loc_286E (kid.asm:4785): every exit path from
+    // `Manage_PlatformLoading` advances `(PlatformLoader_Offset).w` by one
+    // 12-byte platform-layout record before returning.
+    platform_loader_offset.wrapping_add(0x000C)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
 pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
     layout_offset_words: u16,
     active_platforms: &[ActivePlatformHandleSub2728],
