@@ -2355,6 +2355,23 @@ fn background_scroll_lower_pass_loop_loc_30066_uses_enigma_renderer_and_preserve
 }
 
 #[test]
+fn background_scroll_lower_pass_loop_loc_30076_routes_non_zero_background_formats_to_the_enigma_renderer()
+ {
+    let resume = BackgroundScrollLowerPassResumeLoc30054 {
+        original_camera_y: 0x0100,
+        stepped_camera_y: -0x02C0,
+        shift_data_camera_y: -0x02E0,
+        loop_iterations: 0x001C,
+    };
+
+    assert_eq!(
+        background_scroll_lower_pass_loop_loc_30066(resume, 1).renderer,
+        BackgroundScrollLowerPassRendererLoc30066::EnigmaSub303BA,
+        "ASM loc_30076 should branch non-zero `Background_format` values to `bsr.w sub_303BA` before falling through to loc_3007A",
+    );
+}
+
+#[test]
 fn compile_block_debris_sprites_sub_2a4c_steps_fixed_point_records_and_emits_linked_sprites() {
     let mut queue = initialise_scratch_queue_sub_28FC();
     spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 2);
