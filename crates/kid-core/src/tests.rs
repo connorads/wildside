@@ -44679,6 +44679,37 @@ fn loc_33248_zeroes_disguised_solid_ghost_blocks_before_masking_collision() {
 }
 
 #[test]
+fn loc_331f6_reads_the_foot_row_plus_14_and_the_two_rows_above_it() {
+    let grid = grid_with_cells(
+        8,
+        8,
+        &[(2, 1, 0x45, 0x01), (2, 2, 0xA3, 0x02), (2, 3, 0x70, 0x03)],
+    );
+
+    let filtered = crate::terrain::relative_collision_column_loc_331F6(&grid, 32, 34, 0, 0);
+    assert_eq!(
+        filtered,
+        crate::terrain::RelativeCollisionColumnLoc331F6 {
+            current_row: 0x7000,
+            one_row_up: 0,
+            two_rows_up: 0x4000,
+        },
+        "ASM loc_331F6 (kid.asm:37642) should sample `y_pos(a3)+$E`, then walk up two `Level_width_tiles` rows, while routing each word through loc_33248 before keeping only the collision nibble",
+    );
+
+    let raw = crate::terrain::relative_collision_column_loc_331F6(&grid, 32, 34, 0, 0x03E7);
+    assert_eq!(
+        raw,
+        crate::terrain::RelativeCollisionColumnLoc331F6 {
+            current_row: 0x7003,
+            one_row_up: 0xA302,
+            two_rows_up: 0x4001,
+        },
+        "ASM loc_331F6 should branch straight to `return_33284` when `d4 == $3E7`, preserving the raw tile words instead of running the loc_33248 filter",
+    );
+}
+
+#[test]
 fn ice_block_load_bullets_restore_direction_loc_11080_restores_the_original_direction_bits() {
     assert_eq!(
         NativeRuntime::ice_block_load_bullets_restore_direction_loc_11080(0),

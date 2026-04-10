@@ -1295,6 +1295,63 @@ pub(crate) fn relative_collision_word_mask_loc_33248(tile_word: u16) -> u16 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RelativeCollisionColumnLoc331F6 {
+    pub(crate) current_row: u16,
+    pub(crate) one_row_up: u16,
+    pub(crate) two_rows_up: u16,
+}
+
+/// Mirror the three-row relative probe in `loc_331F6`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn relative_collision_column_loc_331F6(
+    grid: &BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+    x_offset_px: i32,
+    sentinel_d4: u16,
+) -> RelativeCollisionColumnLoc331F6 {
+    let sample_x = center_x_px + x_offset_px;
+    let sample_y = foot_y_px + 14;
+    if sample_x < 0 || sample_y < 0 {
+        return RelativeCollisionColumnLoc331F6 {
+            current_row: 0,
+            one_row_up: 0,
+            two_rows_up: 0,
+        };
+    }
+
+    let probe = probe_at(grid, sample_x, sample_y);
+    let cell_x = probe.cell_x;
+    let cell_y = probe.cell_y;
+    let current_row = probe.cell.to_word();
+    let one_row_up = if cell_y == 0 {
+        0
+    } else {
+        grid.cell_at(cell_x, cell_y - 1).to_word()
+    };
+    let two_rows_up = if cell_y <= 1 {
+        0
+    } else {
+        grid.cell_at(cell_x, cell_y - 2).to_word()
+    };
+
+    if sentinel_d4 == 0x03E7 {
+        RelativeCollisionColumnLoc331F6 {
+            current_row,
+            one_row_up,
+            two_rows_up,
+        }
+    } else {
+        RelativeCollisionColumnLoc331F6 {
+            current_row: relative_collision_word_mask_loc_33248(current_row),
+            one_row_up: relative_collision_word_mask_loc_33248(one_row_up),
+            two_rows_up: relative_collision_word_mask_loc_33248(two_rows_up),
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 pub fn probe_relative_collision_sub_B55C(
     grid: &BlockGrid,
