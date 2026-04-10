@@ -460,3 +460,44 @@ pub(crate) fn platform_single_sprite_loc_24C0(
         number_sprites,
     )
 }
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PlatformSpriteStripLoc24CC {
+    pub(crate) sprites: Vec<PlatformSpriteEntryLoc2548>,
+    pub(crate) next_number_sprites: u8,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn platform_strip_sprites_loc_24CC(
+    dispatch: PlatformSpriteDispatchLoc244C,
+    number_sprites: u8,
+) -> PlatformSpriteStripLoc24CC {
+    // ASM loc_24CC (kid.asm:4381): set `d2=#$700`, clear `d1`, subtract 2
+    // from `d6`, then fall into loc_24D4/loc_24D8. Because `d1` starts at 0,
+    // the outer DBF loop runs exactly one row while the inner DBF loop emits
+    // `d0 + 1` consecutive 16px-wide cells across that row.
+    let mut sprites = Vec::new();
+    let mut next_number_sprites = number_sprites;
+    let mut screen_x_word = dispatch.screen_x_word;
+    let screen_y_word = dispatch.screen_y_word.wrapping_sub(2);
+
+    for _ in 0..=dispatch.width_tiles_minus_one {
+        let emitted = emit_platform_sprite_loc_2548(
+            screen_x_word,
+            screen_y_word,
+            0x0700,
+            dispatch.mapping_addr_word,
+            next_number_sprites,
+        );
+        sprites.push(emitted.sprite);
+        next_number_sprites = emitted.next_number_sprites;
+        screen_x_word = screen_x_word.wrapping_add(0x0010);
+    }
+
+    PlatformSpriteStripLoc24CC {
+        sprites,
+        next_number_sprites,
+    }
+}

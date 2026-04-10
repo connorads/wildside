@@ -19177,6 +19177,48 @@ fn platform_single_sprite_loc_24c0_emits_one_400_series_platform_sprite() {
 }
 
 #[test]
+fn platform_strip_sprites_loc_24cc_emits_one_row_of_700_series_cells() {
+    assert_eq!(
+        platform_strip_sprites_loc_24CC(
+            PlatformSpriteDispatchLoc244C {
+                screen_x_word: 0x00A0,
+                screen_y_word: 0x0090,
+                width_tiles_minus_one: 2,
+                height_tiles_minus_one: 1,
+                base_tile_word: 0x0500,
+                mapping_addr_word: 0x2468,
+                variant: PlatformSpriteVariantLoc244C::Loc24CC,
+            },
+            0,
+        ),
+        PlatformSpriteStripLoc24CC {
+            sprites: vec![
+                PlatformSpriteEntryLoc2548 {
+                    y_word: 0x008E,
+                    tile_word: 0x0701,
+                    mapping_word: 0xA468,
+                    x_word: 0x00A0,
+                },
+                PlatformSpriteEntryLoc2548 {
+                    y_word: 0x008E,
+                    tile_word: 0x0702,
+                    mapping_word: 0xA468,
+                    x_word: 0x00B0,
+                },
+                PlatformSpriteEntryLoc2548 {
+                    y_word: 0x008E,
+                    tile_word: 0x0703,
+                    mapping_word: 0xA468,
+                    x_word: 0x00C0,
+                },
+            ],
+            next_number_sprites: 3,
+        },
+        "ASM loc_24CC should subtract 2 from `d6`, seed `d2=#$700`, and enter loc_24D4/loc_24D8 for exactly one row of `d0 + 1` 16px-wide cells when `d1` is cleared first",
+    );
+}
+
+#[test]
 fn platform_collision_shift_directions_matter() {
     // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
     // If >> became <<, pixel values would be wildly wrong and collision would fail.
