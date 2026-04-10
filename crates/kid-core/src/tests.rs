@@ -26668,6 +26668,40 @@ fn end_sequence_hide_glyphs_loc_1d7f0_clears_the_display_flag_for_all_six_cached
 }
 
 #[test]
+fn end_sequence_page_fade_outer_loop_loc_1d80c_reloads_the_palette_window_eight_times() {
+    let fade = crate::boot::end_sequence_page_fade_outer_loop_loc_1D80C();
+
+    assert_eq!(
+        fade.outer_loop_seed, 0x0007,
+        "ASM sub_1D800 should seed `d0 = 7` before the outer `dbf d0,loc_1D80C` fade loop",
+    );
+    assert_eq!(
+        fade.outer_loop_iterations, 0x0008,
+        "ASM loc_1D80C (kid.asm:33051) should repeat the fade setup eight times because `dbf d0,loc_1D80C` counts inclusively from 7 to -1",
+    );
+    assert_eq!(
+        fade.fade_palette_byte_offset, 0x0060,
+        "ASM loc_1D80C should reload `d7 = $60` before every `sub_1C85E` fade-setup call",
+    );
+    assert_eq!(
+        fade.fade_setup_subroutine, "sub_1C85E",
+        "ASM loc_1D80C should run `sub_1C85E` once per outer fade pass before reseeding the inner wait loop",
+    );
+    assert_eq!(
+        fade.inner_loop_seed, 0x0003,
+        "ASM loc_1D80C should seed `d1 = 3` immediately before entering the inner `loc_1D814` loop",
+    );
+    assert_eq!(
+        fade.inner_loop_iterations, 0x0004,
+        "ASM loc_1D80C hands `d1 = 3` to the following `dbf d1,loc_1D814`, so each outer fade pass should contain four inner refresh waits",
+    );
+    assert_eq!(
+        fade.inner_loop_entry_label, "loc_1D814",
+        "ASM loc_1D80C should fall straight into the inner wait loop at `loc_1D814` after the palette setup",
+    );
+}
+
+#[test]
 fn end_sequence_page_break_dispatch_loc_1d40e_branches_to_the_wait_setup_entry() {
     let dispatch = crate::boot::end_sequence_page_break_dispatch_loc_1D40E();
 

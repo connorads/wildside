@@ -682,6 +682,18 @@ pub(crate) struct EndSequenceHideGlyphsLoc1D7F0 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequencePageFadeOuterLoopLoc1D80C {
+    pub(crate) outer_loop_seed: u16,
+    pub(crate) outer_loop_iterations: u16,
+    pub(crate) fade_palette_byte_offset: u16,
+    pub(crate) fade_setup_subroutine: &'static str,
+    pub(crate) inner_loop_seed: u16,
+    pub(crate) inner_loop_iterations: u16,
+    pub(crate) inner_loop_entry_label: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsGlyphCacheLoc1D3D0 {
     pub(crate) glyph_count: u16,
     pub(crate) glyph_pointer_table_base: u16,
@@ -2389,6 +2401,26 @@ pub(crate) fn end_sequence_hide_glyphs_loc_1D7F0() -> EndSequenceHideGlyphsLoc1D
         loop_seed: 0x0005,
         hidden_glyphs: 0x0006,
         cleared_flag_offset: 0x0013,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_page_fade_outer_loop_loc_1D80C() -> EndSequencePageFadeOuterLoopLoc1D80C
+{
+    // ASM loc_1D80C (kid.asm:33051-33060): after `sub_1D800` saves registers
+    // and seeds `d0 = 7`, each outer pass reloads `d7 = $60`, calls
+    // `sub_1C85E`, reloads `d1 = 3`, and then enters `loc_1D814`. The closing
+    // `dbf d0,loc_1D80C` therefore repeats the fade setup eight inclusive
+    // times.
+    EndSequencePageFadeOuterLoopLoc1D80C {
+        outer_loop_seed: 0x0007,
+        outer_loop_iterations: 0x0008,
+        fade_palette_byte_offset: 0x0060,
+        fade_setup_subroutine: "sub_1C85E",
+        inner_loop_seed: 0x0003,
+        inner_loop_iterations: 0x0004,
+        inner_loop_entry_label: "loc_1D814",
     }
 }
 
