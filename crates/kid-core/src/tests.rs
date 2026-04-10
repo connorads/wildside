@@ -48,7 +48,8 @@ use crate::level::{
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
     BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
-    BackgroundScrollStripeHorizontalLowerWindowLoc3028E, BackgroundScrollStripeLayoutSeedLoc301D8,
+    BackgroundScrollStripeHorizontalLowerWindowLoc3028E, BackgroundScrollStripeHorizontalPassLoc30296,
+    BackgroundScrollStripeLayoutSeedLoc301D8,
     BackgroundScrollStripeRightWindowLoc301F6, BackgroundScrollStripeRowSelectionLoc301CE,
     BackgroundScrollStripeVerticalPassLoc301FE, BackgroundScrollUpperPassLoc2FFE8,
     BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
@@ -83,6 +84,7 @@ use crate::level::{
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
+    background_scroll_stripe_horizontal_pass_loc_30296,
     background_scroll_stripe_layout_seed_loc_301D8,
     background_scroll_stripe_restore_camera_column_loc_3023A,
     background_scroll_stripe_right_window_loc_301F6,
@@ -2762,6 +2764,34 @@ fn background_scroll_stripe_horizontal_lower_window_loc_3028e_shrinks_the_span_t
             initial_row_bias: 0x000D,
         },
         "ASM loc_3028E should reduce `d1` to zero and raise `d2` to `$D` when the masked half-row already sits at the bottom of the 16-row chunk",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_horizontal_pass_loc_30296_builds_the_first_vdp_command_and_wrap_pass()
+ {
+    assert_eq!(
+        background_scroll_stripe_horizontal_pass_loc_30296(0x0004, 0x0038, 0x012C, 0),
+        BackgroundScrollStripeHorizontalPassLoc30296 {
+            vdp_command: 0x4270_0000,
+            level_width_stride: 0x012C,
+            second_pass_vdp_command: Some(0x4070_0000),
+        },
+        "ASM loc_30296 should pack the even tile row into bits 7-11, fold `(d6 & $3F) << 1` into the command word, seed `a4` from `Level_width_tiles`, and clear only the row bits with `andi.l #$F07EFFFF,d0` for the wraparound second pass",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_horizontal_pass_loc_30296_skips_the_wrap_pass_when_d2_stays_negative()
+ {
+    assert_eq!(
+        background_scroll_stripe_horizontal_pass_loc_30296(0x001F, 0x0003, 0x00F0, -1),
+        BackgroundScrollStripeHorizontalPassLoc30296 {
+            vdp_command: 0x4F06_0000,
+            level_width_stride: 0x00F0,
+            second_pass_vdp_command: None,
+        },
+        "ASM loc_30296 should branch to loc_302E2 after the first `sub_302F6` call when `d2` remains negative, leaving no wraparound VDP command to issue",
     );
 }
 

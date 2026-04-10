@@ -8169,6 +8169,40 @@ pub(crate) fn background_scroll_stripe_horizontal_lower_window_loc_3028E(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeHorizontalPassLoc30296 {
+    pub(crate) vdp_command: u32,
+    pub(crate) level_width_stride: u16,
+    pub(crate) second_pass_vdp_command: Option<u32>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_horizontal_pass_loc_30296(
+    camera_tile_row: u16,
+    render_column: u16,
+    level_width_tiles: u16,
+    initial_row_bias: i16,
+) -> BackgroundScrollStripeHorizontalPassLoc30296 {
+    // ASM loc_30296 (kid.asm:33861): keep only the even tile row with
+    // `andi.w #$FFFE,d3`, mask it to five bits, and shift into bits 7-11.
+    // The horizontal edge contributes `(d6 & $3F) << 1`, then `ori.w #$4000`
+    // and `swap` build the first VDP command. `move.w (Level_width_tiles).w,a4`
+    // seeds the per-row stride for `sub_302F6`, and when `d2 >= 0` after the
+    // first pass the wrap command clears only the row bits with
+    // `andi.l #$F07EFFFF,d0`.
+    let vram_word =
+        (((camera_tile_row & 0x001E) << 7) | ((render_column & 0x003F) << 1)).wrapping_add(0x4000);
+    let vdp_command = u32::from(vram_word) << 16;
+    let second_pass_vdp_command = (initial_row_bias >= 0).then_some(vdp_command & 0xF07E_FFFF);
+
+    BackgroundScrollStripeHorizontalPassLoc30296 {
+        vdp_command,
+        level_width_stride: level_width_tiles,
+        second_pass_vdp_command,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
