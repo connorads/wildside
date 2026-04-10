@@ -2190,6 +2190,15 @@ fn kid_hitbox_from_collision_size_sub_21f8_loc_2228_mirrors_width_back_from_the_
 }
 
 #[test]
+fn kid_hitbox_point_loc_2252_copies_the_kid_anchor_into_all_four_edges() {
+    assert_eq!(
+        crate::combat::kid_hitbox_point_loc_2252(120, 80),
+        collision_rect_sub_1f52(120, 120, 80, 80),
+        "ASM loc_2252 (kid.asm:4075) writes `$1A(a0)` into both horizontal hitbox globals and `$1E(a0)` into both vertical globals when the CollisionSize word is zero",
+    );
+}
+
+#[test]
 fn first_shooter_hit_sub_219c_rejects_edge_equal_contacts() {
     let hitbox = collision_rect_sub_1f52(100, 120, 40, 80);
 

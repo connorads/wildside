@@ -2988,6 +2988,23 @@ pub(crate) struct ShooterPointSub219C {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn kid_hitbox_point_loc_2252(
+    x_anchor_px: i16,
+    y_anchor_px: i16,
+) -> CollisionRectSub1F52 {
+    // ASM loc_2252 (kid.asm:4075): when `sub_21F8` receives a zero collision
+    // word it writes Kid's current `$1A/$1E` anchors into all four hitbox
+    // globals, yielding a one-point rectangle.
+    CollisionRectSub1F52 {
+        left_px: x_anchor_px,
+        right_px: x_anchor_px,
+        top_px: y_anchor_px,
+        bottom_px: y_anchor_px,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidProjectileHitboxCandidateSub226A {
     pub(crate) x_anchor_px: i16,
