@@ -2149,6 +2149,32 @@ fn spawn_block_debris_sub_292e_loc_2988_uses_the_third_direction_velocity_pair()
 }
 
 #[test]
+fn spawn_block_debris_sub_292e_loc_2994_writes_five_records_with_the_shared_position_offsets() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+
+    spawn_block_debris_sub_292E(&mut queue, 0x0132, 0x0086, 3);
+
+    let pieces = scratch_debris_pieces_sub_292E(&queue, 0);
+
+    assert_eq!(
+        pieces.len(),
+        5,
+        "ASM loc_2994 (kid.asm:4920) seeds `d7=#4`, so `dbf d7,loc_2994` must write exactly five debris records before the loop exits",
+    );
+    assert_eq!(
+        pieces.map(|piece| (piece.x_pos_px, piece.y_pos_px)),
+        [
+            (0x0132, 0x0086),
+            (0x0132, 0x008E),
+            (0x013A, 0x008E),
+            (0x013A, 0x0086),
+            (0x0136, 0x008A),
+        ],
+        "ASM loc_2994 should add the shared `unk_29E8`/`unk_29F2` offsets onto `x_pos(a3)` and `y_pos(a3)` in piece order before advancing `a1` by `$10` bytes",
+    );
+}
+
+#[test]
 fn spawn_block_debris_sub_292e_advances_and_wraps_the_scratch_cursor() {
     let mut queue = initialise_scratch_queue_sub_28FC();
 

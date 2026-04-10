@@ -7112,6 +7112,10 @@ fn spawn_block_debris_common_sub_292E(
     // ASM loc_296C (kid.asm:4904): the `d6 == 1` branch swaps in
     // `unk_2A38`/`unk_2A42`, which produces the shallow-left spread used by
     // the second debris direction.
+    // ASM loc_2994 (kid.asm:4920): copy the selected `a6/a2` velocity words
+    // plus the shared `unk_29E8`/`unk_29F2` position offsets into five
+    // consecutive `$10`-byte debris records because `moveq #4,d7` makes the
+    // trailing `dbf d7,loc_2994` run inclusively from 4 down to -1.
     // After the write, decrement `$FFFFFAA0`; if it hit zero, rewind to slot 0
     // and reload the six-slot counter, otherwise advance `$FFFFFA9C` by `$52`.
     let slot_index = queue.next_slot;
