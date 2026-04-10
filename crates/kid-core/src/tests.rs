@@ -19090,6 +19090,15 @@ fn vertical_overlap_resolution_loc_2632_keeps_the_nearer_vertical_exit_distance(
 }
 
 #[test]
+fn vertical_overlap_bottom_exit_loc_265a_uses_the_platform_bottom_edge_only() {
+    assert_eq!(
+        vertical_overlap_bottom_exit_loc_265A(139, 130),
+        VerticalOverlapResolutionLoc265A { push_y_px: 10 },
+        "ASM loc_265A (kid.asm:4561) should skip the mixed vertical compare and set `d6 = platform_bottom-player_top+1` when the player already crosses the platform bottom",
+    );
+}
+
+#[test]
 fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
     assert_eq!(
         allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),

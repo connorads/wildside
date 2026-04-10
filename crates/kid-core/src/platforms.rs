@@ -52,6 +52,12 @@ pub(crate) struct VerticalOverlapResolutionLoc2632 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct VerticalOverlapResolutionLoc265A {
+    pub(crate) push_y_px: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn horizontal_overlap_resolution_loc_25EE(
     platform_left_px: i16,
@@ -146,6 +152,21 @@ pub(crate) fn vertical_overlap_resolution_loc_2632(
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
+pub(crate) fn vertical_overlap_bottom_exit_loc_265A(
+    platform_bottom_px: i16,
+    player_top_px: i16,
+) -> VerticalOverlapResolutionLoc265A {
+    // ASM loc_265A (kid.asm:4561): when the player's feet already extend past
+    // the platform bottom, the routine skips the mixed compare and uses only
+    // the downward escape `d6 = platform_bottom - player_top + 1`.
+    VerticalOverlapResolutionLoc265A {
+        push_y_px: platform_bottom_px
+            .wrapping_sub(player_top_px)
+            .wrapping_add(1),
+    }
+}
+
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AllocatePlatformSlotSub238E {
     pub(crate) allocated_slot_addr: u16,
