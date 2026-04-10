@@ -95,6 +95,7 @@ use crate::level::{
     background_scroll_stripe_restore_camera_column_loc_3023A,
     background_scroll_stripe_right_window_loc_301F6,
     background_scroll_stripe_row_selection_loc_301CE,
+    background_scroll_stripe_vertical_column_transfer_loc_3036A,
     background_scroll_stripe_vertical_column_transfer_loc_30354,
     background_scroll_stripe_vertical_pass_loc_301FE, background_scroll_upper_pass_loc_2FFE8,
     background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
@@ -2810,6 +2811,15 @@ fn background_scroll_stripe_vertical_column_transfer_loc_30354_keeps_clear_bit8_
             tile_longword: 0x1357_2468,
         },
         "ASM loc_30354 should keep non-negative, clear-bit-8 layout words on `(a1,d3.w)`, preserve the masked `(d3 & d4) << 3` longword index, and stream that primary mapping longword to `(a6)` unchanged",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_vertical_column_transfer_loc_3036a_sets_priority_on_both_tile_words() {
+    assert_eq!(
+        background_scroll_stripe_vertical_column_transfer_loc_3036A(0x1357_2468),
+        0x9357_A468,
+        "ASM loc_3036A should OR `$80008000` into the selected primary mapping longword so both 16-bit tile words leave `(a6)` with bit 15 set",
     );
 }
 

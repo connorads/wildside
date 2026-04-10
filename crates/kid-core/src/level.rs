@@ -8228,6 +8228,17 @@ pub(crate) fn background_scroll_stripe_vertical_column_transfer_loc_30354(
     }
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_vertical_column_transfer_loc_3036A(
+    primary_mapping_longword: u32,
+) -> u32 {
+    // ASM loc_3036A (kid.asm:33962): after `btst d2,d3` sees bit 8 set, the
+    // loop keeps the same `(a1,d3.w)` primary-table longword but `or.l d7,d0`
+    // forces bit 15 in both 16-bit tile words by ORing `$80008000`.
+    primary_mapping_longword | 0x8000_8000
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollStripeHorizontalRowTransferLoc3031A {
     pub(crate) tile_words: [u16; 2],
