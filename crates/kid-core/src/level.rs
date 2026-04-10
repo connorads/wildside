@@ -7103,6 +7103,9 @@ fn spawn_block_debris_common_sub_292E(
     // `unk_29E8`/`unk_29F2`, then select one of four signed velocity-table
     // pairs from `unk_29FC`..`unk_2A42` based on `d6`, with any value other
     // than 0/1/2 falling through to the final `unk_2A24`/`unk_2A2E` pair.
+    // ASM loc_297A (kid.asm:4910): the `tst.w d6` zero case swaps in
+    // `unk_2A10`/`unk_2A1A`, giving the steep leftward spread used by the
+    // first debris direction before control falls into `loc_2994`.
     // ASM loc_296C (kid.asm:4904): the `d6 == 1` branch swaps in
     // `unk_2A38`/`unk_2A42`, which produces the shallow-left spread used by
     // the second debris direction.
