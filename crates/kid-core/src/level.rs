@@ -19,6 +19,29 @@ pub(crate) struct FgUpdateQueueCullAdvanceLoc167A {
     pub(crate) next_x_word: Option<u16>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EnemyLayoutResetAndSeekLoc31F8E {
+    pub(crate) enemy_status_words: Vec<u16>,
+    pub(crate) loaded_enemy_slot_sentinel: u8,
+    pub(crate) enemy_layout_progress: u32,
+    pub(crate) uses_vertical_axis: bool,
+    pub(crate) active_camera_word: i16,
+    pub(crate) current_header_threshold: u16,
+    pub(crate) previous_header_threshold: u16,
+    pub(crate) enemy_layout_header_addr: u32,
+    pub(crate) enemy_layout_addr: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyLayoutResetAndSeekInputLoc31F8E {
+    pub(crate) enemy_layout_header_addr: u32,
+    pub(crate) enemy_layout_addr: u32,
+    pub(crate) previous_header_threshold: u16,
+    pub(crate) axis_selector_word: u16,
+    pub(crate) camera_x_pos: i16,
+    pub(crate) camera_y_pos: i16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockCopySetupLoc11C96 {
     pub(crate) dbf_counter: u16,
@@ -6047,6 +6070,59 @@ pub(crate) fn level_load_pointers_loc_11D0C(
         enemy_layout_addr,
         enemy_layout_header_addr: enemy_layout_rom_addr.wrapping_add(4),
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn enemy_layout_reset_and_seek_loc_31F8E(
+    input: EnemyLayoutResetAndSeekInputLoc31F8E,
+    header_thresholds: &[u16],
+    layout_group_counts: &[u16],
+) -> Option<EnemyLayoutResetAndSeekLoc31F8E> {
+    // ASM loc_31F8E (kid.asm:37368): clear 30 words of `EnemyStatus_Table`,
+    // seed `$FFFFF940 = $FF` and `$FFFFF942 = 0`, then choose `Camera_X_pos`
+    // when the leading header word is zero or `Camera_Y_pos` with
+    // `$FFFFF93F = 1` otherwise. After `addi.l #8,a0`, the seek loop keeps
+    // consuming one layout count word per skipped header, advances `a1` by
+    // `count << 3`, and stops at the first threshold strictly above the active
+    // camera word. The stored header pointer rewinds by 8 bytes to the start
+    // of the matched record's pre-threshold word.
+    let (active_camera_word, uses_vertical_axis) = if input.axis_selector_word == 0 {
+        (input.camera_x_pos, false)
+    } else {
+        (input.camera_y_pos, true)
+    };
+
+    let mut header_index = 0usize;
+    let mut skipped_layout_bytes = 0u32;
+    while active_camera_word >= (*header_thresholds.get(header_index)? as i16) {
+        let group_count = u32::from(*layout_group_counts.get(header_index)?);
+        skipped_layout_bytes = skipped_layout_bytes.wrapping_add(group_count << 3);
+        header_index = header_index.wrapping_add(1);
+    }
+
+    let current_header_threshold = *header_thresholds.get(header_index)?;
+    let previous_header_threshold = if header_index == 0 {
+        input.previous_header_threshold
+    } else {
+        *header_thresholds.get(header_index.wrapping_sub(1))?
+    };
+    let matched_header_addr = input
+        .enemy_layout_header_addr
+        .wrapping_add(2)
+        .wrapping_add((header_index as u32).wrapping_mul(8));
+
+    Some(EnemyLayoutResetAndSeekLoc31F8E {
+        enemy_status_words: vec![0; 0x001E],
+        loaded_enemy_slot_sentinel: 0xFF,
+        enemy_layout_progress: 0,
+        uses_vertical_axis,
+        active_camera_word,
+        current_header_threshold,
+        previous_header_threshold,
+        enemy_layout_header_addr: matched_header_addr,
+        enemy_layout_addr: input.enemy_layout_addr.wrapping_add(skipped_layout_bytes),
+    })
 }
 
 #[allow(non_snake_case)]
