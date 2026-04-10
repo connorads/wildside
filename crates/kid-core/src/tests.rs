@@ -19718,6 +19718,23 @@ fn loc_3215e_enemy_art_slot_assignment_matches_second_slot_before_fallback() {
     assert_eq!(fallback.vram_tile, 0x0517);
 }
 
+#[test]
+fn loc_3217c_loads_the_selected_enemy_art_vram_tile() {
+    use enemies::enemy_art_slot_assignment_sub_36E84;
+
+    let first = enemy_art_slot_assignment_sub_36E84(&[0x0022, 0x401C, 0x800D], 0x0022);
+    assert_eq!(
+        first.vram_tile, 0x02FB,
+        "ASM loc_3217C should read the first `EnemyArt_VRAMTileAddresses` word when `d1=0`",
+    );
+
+    let fallback = enemy_art_slot_assignment_sub_36E84(&[0x0022, 0x401C, 0x800D], 0x0007);
+    assert_eq!(
+        fallback.vram_tile, 0x0517,
+        "ASM loc_3217C should double the slot-2 fallback index and load the third `EnemyArt_VRAMTileAddresses` word",
+    );
+}
+
 // --- UFO and Tornado flyer tests ---
 
 #[test]
