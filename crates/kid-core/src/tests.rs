@@ -26579,6 +26579,60 @@ fn end_sequence_page_break_dispatch_loc_1d40e_branches_to_the_wait_setup_entry()
 }
 
 #[test]
+fn end_sequence_page_break_wait_loop_loc_1d418_refreshes_fades_and_reloads_glyphs() {
+    let wait_loop = crate::boot::end_sequence_page_break_wait_loop_loc_1D418();
+
+    assert_eq!(
+        wait_loop.wait_seed, 0x00C8,
+        "ASM loc_1D418 should inherit `d0 = $C8` from loc_1D412 before entering the DBF wait loop",
+    );
+    assert_eq!(
+        wait_loop.wait_iterations, 0x00C9,
+        "ASM loc_1D418 should execute `$C8 + 1 = $C9` `sub_1D830 -> Hibernate_Object_1Frame` refresh pairs before the page refresh continues",
+    );
+    assert_eq!(
+        wait_loop.refresh_subroutine, "sub_1D830",
+        "ASM loc_1D418 should refresh the display via `sub_1D830` on each page-break wait iteration",
+    );
+    assert_eq!(
+        wait_loop.hibernate_subroutine, "j_Hibernate_Object_1Frame",
+        "ASM loc_1D418 should hibernate one frame after each `sub_1D830` refresh",
+    );
+    assert_eq!(
+        wait_loop.hide_glyphs_subroutine, "sub_1D7E6",
+        "ASM loc_1D418 should hide all cached glyph workers through `sub_1D7E6` before the fade",
+    );
+    assert_eq!(
+        wait_loop.fade_subroutine, "sub_1D800",
+        "ASM loc_1D418 should run `sub_1D800` to fade the previous page out before redrawing",
+    );
+    assert_eq!(
+        wait_loop.stripe_subroutine, "sub_1CDE0",
+        "ASM loc_1D418 should rebuild the page stripes through `sub_1CDE0` after the fade",
+    );
+    assert_eq!(
+        wait_loop.palette_buffer_word_offset, 0x0062,
+        "ASM loc_1D418 should patch the longword starting at `Palette_Buffer+$62` before the palette upload",
+    );
+    assert_eq!(
+        wait_loop.palette_buffer_longword, 0x0EEE0EC0,
+        "ASM loc_1D418 should write `$0EEE0EC0` into `Palette_Buffer+$62` before calling `j_Palette_to_VRAM`",
+    );
+    assert_eq!(
+        wait_loop.palette_upload_subroutine, "j_Palette_to_VRAM",
+        "ASM loc_1D418 should upload the patched palette through `j_Palette_to_VRAM`",
+    );
+    assert_eq!(
+        wait_loop.glyph_layout_source, "Addr_PlatformLayout",
+        "ASM loc_1D418 should reload `a4` from `(Addr_PlatformLayout).w` before restoring glyph placements",
+    );
+    assert_eq!(
+        wait_loop.glyph_load_subroutine, "sub_1D7A8",
+        "ASM loc_1D418 should reload glyph placements through `sub_1D7A8` from the saved platform-layout pointer",
+    );
+}
+
+#[test]
 fn end_sequence_text_loop_loc_1d3f0_dispatches_pages_breaks_and_zero_terminator() {
     let text_loop = crate::boot::end_sequence_text_loop_loc_1D3F0();
 

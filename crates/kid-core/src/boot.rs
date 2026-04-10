@@ -691,6 +691,23 @@ pub(crate) struct EndSequencePageBreakDispatchLoc1D40E {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequencePageBreakWaitLoopLoc1D418 {
+    pub(crate) wait_seed: u16,
+    pub(crate) wait_iterations: u16,
+    pub(crate) refresh_subroutine: &'static str,
+    pub(crate) hibernate_subroutine: &'static str,
+    pub(crate) hide_glyphs_subroutine: &'static str,
+    pub(crate) fade_subroutine: &'static str,
+    pub(crate) stripe_subroutine: &'static str,
+    pub(crate) palette_buffer_word_offset: u16,
+    pub(crate) palette_buffer_longword: u32,
+    pub(crate) palette_upload_subroutine: &'static str,
+    pub(crate) glyph_layout_source: &'static str,
+    pub(crate) glyph_load_subroutine: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceTextLoopLoc1D3F0 {
     pub(crate) page_text_subroutine: &'static str,
     pub(crate) page_break_word: u16,
@@ -2363,17 +2380,19 @@ pub(crate) fn end_sequence_text_loop_loc_1D3F0() -> EndSequenceTextLoopLoc1D3F0 
     // hides cached glyphs, fades/restores the page, reloads glyphs from
     // `(Addr_PlatformLayout).w` via `sub_1D7A8`, and loops back for the next
     // page.
+    let page_break_wait_loop = end_sequence_page_break_wait_loop_loc_1D418();
+
     EndSequenceTextLoopLoc1D3F0 {
         page_text_subroutine: "sub_1D080",
         page_break_word: 0xFFFF,
-        page_break_wait_seed: 0x00C8,
-        page_break_wait_iterations: 0x00C9,
-        page_break_refresh_subroutine: "sub_1D830",
-        page_break_hide_glyphs_subroutine: "sub_1D7E6",
-        page_break_fade_subroutine: "sub_1D800",
-        page_break_stripe_subroutine: "sub_1CDE0",
-        page_break_glyph_load_subroutine: "sub_1D7A8",
-        page_break_platform_layout_source: "Addr_PlatformLayout",
+        page_break_wait_seed: page_break_wait_loop.wait_seed,
+        page_break_wait_iterations: page_break_wait_loop.wait_iterations,
+        page_break_refresh_subroutine: page_break_wait_loop.refresh_subroutine,
+        page_break_hide_glyphs_subroutine: page_break_wait_loop.hide_glyphs_subroutine,
+        page_break_fade_subroutine: page_break_wait_loop.fade_subroutine,
+        page_break_stripe_subroutine: page_break_wait_loop.stripe_subroutine,
+        page_break_glyph_load_subroutine: page_break_wait_loop.glyph_load_subroutine,
+        page_break_platform_layout_source: page_break_wait_loop.glyph_layout_source,
         terminator_word: 0x0000,
         terminator_branch: "loc_1D44C",
     }
@@ -2388,6 +2407,34 @@ pub(crate) fn end_sequence_page_break_dispatch_loc_1D40E() -> EndSequencePageBre
     EndSequencePageBreakDispatchLoc1D40E {
         branch_target: "loc_1D412",
         has_padding_nop: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_page_break_wait_loop_loc_1D418() -> EndSequencePageBreakWaitLoopLoc1D418
+{
+    // ASM loc_1D418 (kid.asm:32766-32779): after `loc_1D412` seeds `d0 = $C8`,
+    // the loop repeatedly calls `sub_1D830`, hibernates one frame, and uses
+    // `dbf d0,loc_1D418` for `$C8 + 1 = $C9` refreshes.
+    // ASM loc_1D418 (kid.asm:32771-32779): once the wait expires, hide glyphs
+    // with `sub_1D7E6`, fade via `sub_1D800`, rebuild the stripes with
+    // `sub_1CDE0`, write `$0EEE0EC0` to `Palette_Buffer+$62`, upload the
+    // palette, reload `a4` from `(Addr_PlatformLayout).w`, and call `sub_1D7A8`
+    // before returning to the main text loop.
+    EndSequencePageBreakWaitLoopLoc1D418 {
+        wait_seed: 0x00C8,
+        wait_iterations: 0x00C9,
+        refresh_subroutine: "sub_1D830",
+        hibernate_subroutine: "j_Hibernate_Object_1Frame",
+        hide_glyphs_subroutine: "sub_1D7E6",
+        fade_subroutine: "sub_1D800",
+        stripe_subroutine: "sub_1CDE0",
+        palette_buffer_word_offset: 0x0062,
+        palette_buffer_longword: 0x0EEE0EC0,
+        palette_upload_subroutine: "j_Palette_to_VRAM",
+        glyph_layout_source: "Addr_PlatformLayout",
+        glyph_load_subroutine: "sub_1D7A8",
     }
 }
 
