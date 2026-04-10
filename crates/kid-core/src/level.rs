@@ -7586,6 +7586,12 @@ pub(crate) struct BackgroundScrollUpperPassLoc2FFE8 {
     pub(crate) loop_iterations: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollUpperPassResumeLoc30014 {
+    pub(crate) restored_camera_y: i16,
+    pub(crate) loop_iterations: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7630,6 +7636,20 @@ pub(crate) fn background_scroll_upper_pass_loc_2FFE8(
         stepped_camera_y,
         scroll_data_camera_y: stepped_camera_y.wrapping_sub(8),
         loop_iterations,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_upper_pass_resume_loc_30014(
+    prologue: BackgroundScrollUpperPassLoc2FFE8,
+) -> BackgroundScrollUpperPassResumeLoc30014 {
+    // ASM loc_30014 (kid.asm:33607): pop the saved longword from the stack so
+    // `d7` once again holds the original camera Y before control falls through
+    // to `loc_30016`.
+    BackgroundScrollUpperPassResumeLoc30014 {
+        restored_camera_y: prologue.original_camera_y,
+        loop_iterations: prologue.loop_iterations,
     }
 }
 

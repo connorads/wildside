@@ -44,13 +44,13 @@ use crate::level::{
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
-    BackgroundScrollUpperPassLoc2FFE8, BlockLayoutDecodeWordsLoc1354E, BlockLayoutDispatchLoc132D6,
-    BlockLayoutDispatchLoc13504, BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0,
-    BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470,
-    BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E,
-    BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C,
-    BlockLayoutPropertyWordLoc1337C, BlockLayoutRepeatWordsLoc1351E,
-    BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
+    BackgroundScrollUpperPassLoc2FFE8, BackgroundScrollUpperPassResumeLoc30014,
+    BlockLayoutDecodeWordsLoc1354E, BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504,
+    BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E,
+    BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0,
+    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
+    BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
+    BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
     DecompressToVramSpecialReturnLoc143B2, FgPlaneCustomWriteSub1596,
     FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680,
@@ -68,13 +68,14 @@ use crate::level::{
     apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
     apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
     background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    background_scroll_upper_pass_loc_2FFE8, blend_palette_entry_loc_1538,
-    blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
-    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
-    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
-    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
-    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
-    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    background_scroll_upper_pass_loc_2FFE8, background_scroll_upper_pass_resume_loc_30014,
+    blend_palette_entry_loc_1538, blend_selected_palette_entries_sub_1536,
+    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
+    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
+    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
+    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
+    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
+    block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -2227,6 +2228,21 @@ fn background_scroll_upper_pass_loc_2ffe8_seeds_the_top_window_and_keeps_28_iter
             loop_iterations: 0x001C,
         },
         "ASM loc_2FFE8 should snapshot the original camera words into `$FFFFF82C/d7`, subtract `$E0` from `Camera_Y_pos`, write `Camera_Y_pos-8` to `$FFFFF82E`, and keep `d6=#1C` when `d7+$E0` stays below `Level_height_pixels`",
+    );
+}
+
+#[test]
+fn background_scroll_upper_pass_resume_loc_30014_restores_the_saved_camera_y_after_the_bottom_edge_clamp()
+ {
+    let prologue = background_scroll_upper_pass_loc_2FFE8(0x0040, 0x0300, 0x03D0);
+
+    assert_eq!(
+        background_scroll_upper_pass_resume_loc_30014(prologue),
+        BackgroundScrollUpperPassResumeLoc30014 {
+            restored_camera_y: 0x0300,
+            loop_iterations: 0x001B,
+        },
+        "ASM loc_30014 should restore the saved `d7` camera Y after loc_2FFE8 decrements `d6` for the bottom-edge case where `d7+$E0 >= Level_height_pixels`",
     );
 }
 
