@@ -54,6 +54,7 @@ use crate::level::{
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshLinearCopyLoc308A6,
     BackgroundScrollPieceRefreshSeedLoc3081A,
     BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE,
+    BackgroundScrollPieceRefreshTileWrappedCopyLoc308E8,
     BackgroundScrollPieceRefreshVdpSeedLoc30884, BackgroundScrollPieceRefreshWindowSplitLoc3086A,
     BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6, BackgroundScrollPieceRefreshWrapLoc30836,
     BackgroundScrollPieceRefreshWrappedCopyLoc308C4, BackgroundScrollPieceRowDispatchLoc3079A,
@@ -120,6 +121,7 @@ use crate::level::{
     background_scroll_piece_refresh_linear_copy_loc_308A6,
     background_scroll_piece_refresh_seed_loc_3081A,
     background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE,
+    background_scroll_piece_refresh_tile_wrapped_copy_loc_308E8,
     background_scroll_piece_refresh_vdp_seed_loc_30884,
     background_scroll_piece_refresh_window_split_loc_3086A,
     background_scroll_piece_refresh_wrap_counter_setup_loc_308B6,
@@ -2786,6 +2788,32 @@ fn background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308de_splits_the_
             second_pass_dbf_counter: 1,
         },
         "ASM loc_308DE should snapshot wrapped `d6` into `d4`, seed `d1` with `$28 - d6 - 1` for the first inclusive pass, and set `d2 = 1` so loc_308E8 executes exactly one second pass",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_tile_wrapped_copy_loc_308e8_resets_plane_b_then_continues_without_rewinding_a0()
+ {
+    let layout_row: Vec<u8> = (0..0x40).collect();
+    let block_mappings: Vec<u16> = (0..0x40).map(|index| 0x6000 | index).collect();
+
+    assert_eq!(
+        background_scroll_piece_refresh_tile_wrapped_copy_loc_308E8(
+            &layout_row,
+            0x0003,
+            &block_mappings,
+            0x0024,
+            0x6F0A,
+        ),
+        Some(BackgroundScrollPieceRefreshTileWrappedCopyLoc308E8 {
+            first_pass_mapping_words: block_mappings[0x03..0x07].to_vec(),
+            seam_vdp_control_word: 0x6F0A,
+            seam_vdp_autoincrement_word: 3,
+            second_pass_mapping_words: block_mappings[0x07..0x2C].to_vec(),
+            bytes_consumed: 0x29,
+            final_layout_row_offset: 0x002C,
+        }),
+        "ASM loc_308E8 should consume the first inclusive `dbf d1` span, write `d3` plus autoincrement `#3` to `(a5)`, then continue the second pass from the advanced `(a0)+` position without rewinding by `Background_width`",
     );
 }
 
