@@ -200,7 +200,7 @@ use crate::level::{
     initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
     manage_enemy_loading_count_down_active_loc_3685E, manage_enemy_loading_setup_loc_3682C,
-    manage_enemy_loading_status_branch_loc_36840,
+    manage_enemy_loading_status_branch_loc_36840, manage_enemy_loading_status_word_loc_36900,
     object_check_in_range_active_count_gate_loc_320E2, object_check_in_range_normal_x_loc_320C0,
     object_check_in_range_normal_y_loc_320D8, object_check_in_range_wide_load_x_loc_32122,
     object_check_in_range_wide_load_y_loc_32140, object_out_of_range_delete_tail_loc_320B4,
@@ -35538,6 +35538,25 @@ fn manage_enemy_loading_loc_3685e_only_decrements_non_zero_low_ten_bit_countdown
             decremented_status_word: Some(0x23A6),
         },
         "ASM loc_3685E should decrement `(a2)` in place and skip spawning while the low 10-bit countdown is still non-zero"
+    );
+}
+
+#[test]
+fn manage_enemy_loading_loc_36900_only_bumps_the_enemy_status_word_for_the_d4_equal_1_path() {
+    assert_eq!(
+        manage_enemy_loading_status_word_loc_36900(0x2180, 1),
+        0x2580,
+        "ASM loc_36900 should add `$0400` into `(a2)` before `loc_3690A` when `d4 == 1`"
+    );
+    assert_eq!(
+        manage_enemy_loading_status_word_loc_36900(0x2180, 0),
+        0x2180,
+        "ASM loc_36900 should leave `(a2)` untouched when the earlier status path leaves `d4 < 1`"
+    );
+    assert_eq!(
+        manage_enemy_loading_status_word_loc_36900(0x2180, 2),
+        0x2180,
+        "ASM loc_36900 should also leave `(a2)` untouched for the `loc_368A6` reload path where `d4 > 1`"
     );
 }
 

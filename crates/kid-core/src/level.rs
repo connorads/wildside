@@ -6224,6 +6224,22 @@ pub(crate) fn manage_enemy_loading_count_down_active_loc_3685E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn manage_enemy_loading_status_word_loc_36900(
+    enemy_status_word: u16,
+    d4_state: u8,
+) -> u16 {
+    // ASM loc_36900 (kid.asm:38051-38054) only mutates `(a2)` for the `d4 == 1`
+    // path, bumping the enemy-status word by `$0400` before falling into
+    // `loc_3690A`. All other `d4` states leave the status word untouched.
+    if d4_state == 1 {
+        enemy_status_word.wrapping_add(0x0400)
+    } else {
+        enemy_status_word
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
     // ASM loc_3200A (kid.asm:37413): clear `d0`, read byte `1(a1)`, and
     // return zero immediately for empty slots. Positive bytes subtract one,
