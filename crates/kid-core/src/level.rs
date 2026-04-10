@@ -7655,6 +7655,13 @@ pub(crate) struct TransferScrollDataStormLoopLoc30130 {
     pub(crate) second_h_scroll_word: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TransferScrollDataStormSetupLoc30158 {
+    pub(crate) h_scroll_word_pairs: u16,
+    pub(crate) first_h_scroll_word: i16,
+    pub(crate) second_h_scroll_word: i16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -7878,6 +7885,22 @@ pub(crate) fn transfer_scroll_data_storm_loop_loc_30130(
         h_scroll_word_pairs: 0x00DF + 1,
         first_h_scroll_word: camera_x_pos.wrapping_neg(),
         second_h_scroll_word: storm_scroll_offset,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn transfer_scroll_data_storm_setup_loc_30158(
+    camera_x_pos: i16,
+    storm_scroll_offset: i16,
+) -> TransferScrollDataStormSetupLoc30158 {
+    // ASM loc_30158 (kid.asm:33718): reload plane B's storm upload at
+    // `vdpComm($1400,VRAM,WRITE)`, seed `d1=#$DF`, load `d0=Camera_X_pos`,
+    // load `d2=($FFFFFAD8).w`, then `neg.w d0` before the reversed loop.
+    TransferScrollDataStormSetupLoc30158 {
+        h_scroll_word_pairs: 0x00DF + 1,
+        first_h_scroll_word: storm_scroll_offset,
+        second_h_scroll_word: camera_x_pos.wrapping_neg(),
     }
 }
 
