@@ -1551,6 +1551,9 @@ fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16
 
     if words[0] & 0x4000 != 0 {
         for &word in words {
+            // ASM loc_36A20 (kid.asm:38193): once the entry word is blocked,
+            // keep advancing with `move.w (a1)+,d0`; the first later word that
+            // clears bit `$4000` flips the mixed-row result to `d6=1`.
             if word & 0x4000 == 0 {
                 return 1;
             }
@@ -3274,6 +3277,15 @@ mod tests {
             horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000, 0x5000, 0x6000]),
             0,
             "ASM loc_36A10 should stay on the blocking path and leave `d6=0` when every scanned word in the following row keeps bit `$4000` set",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_following_row_class_loc_36a20_sets_d6_for_mixed_rows() {
+        assert_eq!(
+            horizontal_collision_scan_following_row_class_loc_36A10(&[0x4000, 0x0000, 0x6000]),
+            1,
+            "ASM loc_36A20 should keep scanning after the blocked entry word and return `d6=1` once a later word in the same row clears bit `$4000`",
         );
     }
 
