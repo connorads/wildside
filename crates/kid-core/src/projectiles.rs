@@ -34,6 +34,15 @@ pub(crate) struct KidProjectileTargetXSpanLoc1DB4 {
 }
 
 #[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidProjectileTargetRectLoc1DBE {
+    pub(crate) left_px: i16,
+    pub(crate) right_px: i16,
+    pub(crate) top_px: i16,
+    pub(crate) bottom_px: i16,
+}
+
+#[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) fn kid_projectile_target_x_span_loc_1DB4(
     x_pos: i16,
@@ -61,6 +70,31 @@ pub(crate) fn kid_projectile_target_x_span_loc_1DB4(
             left_px: right_px.wrapping_sub(x_span),
             right_px,
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn kid_projectile_target_rect_loc_1DBE(
+    x_pos: i16,
+    y_pos: i16,
+    x_direction: u8,
+    x_leading_offset: i16,
+    x_span: i16,
+    y_offset: i16,
+    y_span: i16,
+) -> KidProjectileTargetRectLoc1DBE {
+    let x_span =
+        kid_projectile_target_x_span_loc_1DB4(x_pos, x_direction, x_leading_offset, x_span);
+    // ASM loc_1DBE (kid.asm:3574-3578): after either X-span path, load the
+    // leading Y offset into `d2`, add `y_pos(a0)`, copy that to `d3`, then add
+    // the final span so the shared target rectangle runs `[d2, d2 + span]`.
+    let top_px = y_pos.wrapping_add(y_offset);
+    KidProjectileTargetRectLoc1DBE {
+        left_px: x_span.left_px,
+        right_px: x_span.right_px,
+        top_px,
+        bottom_px: top_px.wrapping_add(y_span),
     }
 }
 

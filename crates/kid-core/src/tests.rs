@@ -42867,6 +42867,30 @@ fn kid_projectile_target_x_span_loc_1db4_mirrors_the_leading_offset_when_facing_
 }
 
 #[test]
+fn kid_projectile_target_rect_loc_1dbe_adds_the_shared_y_span_after_the_x_branch() {
+    assert_eq!(
+        crate::projectiles::kid_projectile_target_rect_loc_1DBE(100, 40, 0, 6, 20, -12, 30),
+        crate::projectiles::KidProjectileTargetRectLoc1DBE {
+            left_px: 106,
+            right_px: 126,
+            top_px: 28,
+            bottom_px: 58,
+        },
+        "ASM loc_1DBE should add the leading Y offset to `y_pos(a0)`, copy that value, and add the final Y span after the non-flipped X branch",
+    );
+    assert_eq!(
+        crate::projectiles::kid_projectile_target_rect_loc_1DBE(100, 40, 0xFF, 6, 20, -12, 30),
+        crate::projectiles::KidProjectileTargetRectLoc1DBE {
+            left_px: 74,
+            right_px: 94,
+            top_px: 28,
+            bottom_px: 58,
+        },
+        "ASM loc_1DBE should keep the same `[y_pos + offset, y_pos + offset + span]` range after the flipped `loc_1DB4` X branch",
+    );
+}
+
+#[test]
 fn projectile_hitbox_half_plus_8_not_times() {
     // Projectile 12px away in x — inside `half + 8 = 14` but outside `half * 8 = 48`.
     // If + mutated to *, 12 < 48 would still pass, so use boundary at 13.
