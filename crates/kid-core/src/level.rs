@@ -7641,6 +7641,23 @@ pub(crate) enum TransferScrollDataRendererLoc3039C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BackgroundScrollPieceRowDispatchLoc3079ABranch {
+    Return307B0,
+    ContinueLoc3079A,
+    Branch307B2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRowDispatchLoc3079A {
+    pub(crate) row_selector_byte: u8,
+    pub(crate) background_scroll_longword: i32,
+    pub(crate) branch: BackgroundScrollPieceRowDispatchLoc3079ABranch,
+    pub(crate) next_layout_row_offset: i16,
+    pub(crate) next_vdp_row_seed: u16,
+    pub(crate) next_dbf_counter: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDispatchLoc3039C {
     pub(crate) computes_shift_data: bool,
     pub(crate) computes_shift_layers: bool,
@@ -8063,6 +8080,55 @@ pub(crate) fn transfer_scroll_data_dispatch_loc_3039C(
         computes_shift_data: true,
         computes_shift_layers: true,
         renderer,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_row_dispatch_loc_3079A(
+    row_selector_byte: u8,
+    background_scroll_longword: i32,
+    layout_row_offset: i16,
+    background_width: i16,
+    vdp_row_seed: u16,
+    dbf_counter: u16,
+) -> BackgroundScrollPieceRowDispatchLoc3079A {
+    // ASM loc_3079A (kid.asm:34590): each pass reads the next row-selector
+    // byte from `(a2)+` and returns immediately through `return_307B0` when it
+    // is `$FF`. Otherwise the routine loads the matching `Horiz_Scroll_Data`
+    // longword and only branches to `loc_307B2` when that signed longword is
+    // non-negative; negative entries advance `a0` by `Background_width`, add
+    // `$80` to the row seed in `d2`, and consume one inclusive `dbf d3` step
+    // before retrying `loc_3079A`.
+    if row_selector_byte == 0xFF {
+        return BackgroundScrollPieceRowDispatchLoc3079A {
+            row_selector_byte,
+            background_scroll_longword,
+            branch: BackgroundScrollPieceRowDispatchLoc3079ABranch::Return307B0,
+            next_layout_row_offset: layout_row_offset,
+            next_vdp_row_seed: vdp_row_seed,
+            next_dbf_counter: dbf_counter,
+        };
+    }
+
+    if background_scroll_longword >= 0 {
+        return BackgroundScrollPieceRowDispatchLoc3079A {
+            row_selector_byte,
+            background_scroll_longword,
+            branch: BackgroundScrollPieceRowDispatchLoc3079ABranch::Branch307B2,
+            next_layout_row_offset: layout_row_offset,
+            next_vdp_row_seed: vdp_row_seed,
+            next_dbf_counter: dbf_counter,
+        };
+    }
+
+    BackgroundScrollPieceRowDispatchLoc3079A {
+        row_selector_byte,
+        background_scroll_longword,
+        branch: BackgroundScrollPieceRowDispatchLoc3079ABranch::ContinueLoc3079A,
+        next_layout_row_offset: layout_row_offset.wrapping_add(background_width),
+        next_vdp_row_seed: vdp_row_seed.wrapping_add(0x0080),
+        next_dbf_counter: dbf_counter.wrapping_sub(1),
     }
 }
 

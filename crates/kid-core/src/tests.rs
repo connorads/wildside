@@ -51,7 +51,9 @@ use crate::level::{
     BackgroundScrollForestWaterRippleSetupLoc305E6,
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
-    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
+    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRowDispatchLoc3079A,
+    BackgroundScrollPieceRowDispatchLoc3079ABranch,
+    BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
@@ -109,7 +111,7 @@ use crate::level::{
     background_scroll_forest_water_ripple_setup_loc_305E6,
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
-    background_scroll_lower_pass_setup_loc_3001E,
+    background_scroll_lower_pass_setup_loc_3001E, background_scroll_piece_row_dispatch_loc_3079A,
     background_scroll_shift_data_second_pass_advance_loc_304A8,
     background_scroll_shift_data_second_pass_slot_loc_3048C,
     background_scroll_shift_data_second_pass_unchanged_loc_304A4,
@@ -2559,6 +2561,61 @@ fn transfer_scroll_data_dispatch_loc_3039c_selects_piece_or_enigma_renderers_aft
             renderer: TransferScrollDataRendererLoc3039C::EnigmaSub303BA,
         },
         "ASM loc_3039C should branch to `sub_303BA` instead of the piece renderer pair when `Background_format` is non-zero",
+    );
+}
+
+#[test]
+fn background_scroll_piece_row_dispatch_loc_3079a_returns_on_ff_and_only_skips_negative_scroll_entries()
+ {
+    assert_eq!(
+        background_scroll_piece_row_dispatch_loc_3079A(0xFF, -1, 0x0120, 0x0040, 0x0700, 0x001C),
+        BackgroundScrollPieceRowDispatchLoc3079A {
+            row_selector_byte: 0xFF,
+            background_scroll_longword: -1,
+            branch: BackgroundScrollPieceRowDispatchLoc3079ABranch::Return307B0,
+            next_layout_row_offset: 0x0120,
+            next_vdp_row_seed: 0x0700,
+            next_dbf_counter: 0x001C,
+        },
+        "ASM loc_3079A should branch straight to `return_307B0` as soon as `(a2)+` yields `$FF`, without touching `a0`, `d2`, or the inclusive `dbf d3` counter",
+    );
+    assert_eq!(
+        background_scroll_piece_row_dispatch_loc_3079A(
+            0x08,
+            i32::from_be_bytes([0x80, 0x00, 0x00, 0x00]),
+            0x0120,
+            0x0040,
+            0x0700,
+            0x001C,
+        ),
+        BackgroundScrollPieceRowDispatchLoc3079A {
+            row_selector_byte: 0x08,
+            background_scroll_longword: i32::from_be_bytes([0x80, 0x00, 0x00, 0x00]),
+            branch: BackgroundScrollPieceRowDispatchLoc3079ABranch::ContinueLoc3079A,
+            next_layout_row_offset: 0x0160,
+            next_vdp_row_seed: 0x0780,
+            next_dbf_counter: 0x001B,
+        },
+        "ASM loc_3079A should treat a negative `move.l (a1,d4.w),d5` result as the skip path, advancing `a0` by `Background_width`, adding `$80` to `d2`, and consuming one inclusive `dbf d3` step before retrying the loop",
+    );
+    assert_eq!(
+        background_scroll_piece_row_dispatch_loc_3079A(
+            0x08,
+            0x0000_1234,
+            0x0120,
+            0x0040,
+            0x0700,
+            0x001C
+        ),
+        BackgroundScrollPieceRowDispatchLoc3079A {
+            row_selector_byte: 0x08,
+            background_scroll_longword: 0x0000_1234,
+            branch: BackgroundScrollPieceRowDispatchLoc3079ABranch::Branch307B2,
+            next_layout_row_offset: 0x0120,
+            next_vdp_row_seed: 0x0700,
+            next_dbf_counter: 0x001C,
+        },
+        "ASM loc_3079A should reach `bpl.s loc_307B2` only when the loaded scroll longword is non-negative, leaving the row pointer, VDP seed, and DBF counter untouched for the upload path",
     );
 }
 
