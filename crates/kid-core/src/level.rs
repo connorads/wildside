@@ -7815,6 +7815,13 @@ pub(crate) enum BackgroundScrollThemeDispatchLoc30598 {
     ApplyDesertHeatRipple,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollForestWaterRippleVisibleBandLoc305D4 {
+    pub(crate) start_scanline: u16,
+    pub(crate) ripple_data_byte_offset: u16,
+    pub(crate) affected_scanline_count: u16,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -8431,6 +8438,27 @@ pub(crate) fn background_scroll_theme_dispatch_loc_30598(
     } else {
         BackgroundScrollThemeDispatchLoc30598::Return
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn background_scroll_forest_water_ripple_visible_band_loc_305D4(
+    start_scanline: i16,
+) -> Option<BackgroundScrollForestWaterRippleVisibleBandLoc305D4> {
+    // ASM loc_305D4 (kid.asm:34276): when the prelude's `sub.w d1,d0` stays
+    // non-negative, this path rebuilds `d1` as `$E0-d0`, returns when the
+    // span is non-positive, clears `d2`, and clamps longer visible bands to
+    // `$40` scanlines before falling into `loc_305E6`.
+    let affected_scanline_count = 0x00E0_i16.wrapping_sub(start_scanline);
+    if affected_scanline_count <= 0 {
+        return None;
+    }
+
+    Some(BackgroundScrollForestWaterRippleVisibleBandLoc305D4 {
+        start_scanline: start_scanline as u16,
+        ripple_data_byte_offset: 0,
+        affected_scanline_count: affected_scanline_count.min(0x0040) as u16,
+    })
 }
 
 #[allow(non_snake_case)]

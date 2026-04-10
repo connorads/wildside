@@ -46,9 +46,9 @@ use crate::level::{
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     BackgroundScrollEnigmaPrimaryCopySetupLoc30426, BackgroundScrollEnigmaRowSourceLoc303D4,
     BackgroundScrollEnigmaRowTableLookupLoc303EA, BackgroundScrollEnigmaRowTransferLoc303D4,
-    BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
-    BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
-    BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
+    BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
+    BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
+    BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
@@ -99,6 +99,7 @@ use crate::level::{
     background_scroll_enigma_row_table_lookup_loc_303EA,
     background_scroll_enigma_row_transfer_loc_303D4,
     background_scroll_enigma_secondary_longword_copy_loc_30432,
+    background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_shift_data_second_pass_advance_loc_304A8,
@@ -2902,6 +2903,25 @@ fn background_scroll_theme_dispatch_loc_30598_only_branches_for_forest_and_deser
         background_scroll_theme_dispatch_loc_30598(0x0007),
         BackgroundScrollThemeDispatchLoc30598::Return,
         "ASM loc_30598 should return immediately when `Background_theme` is neither Forest nor Desert",
+    );
+}
+
+#[test]
+fn background_scroll_forest_water_ripple_visible_band_loc_305d4_clamps_positive_spans_to_40_scanlines()
+ {
+    assert_eq!(
+        background_scroll_forest_water_ripple_visible_band_loc_305D4(0x0010),
+        Some(BackgroundScrollForestWaterRippleVisibleBandLoc305D4 {
+            start_scanline: 0x0010,
+            ripple_data_byte_offset: 0,
+            affected_scanline_count: 0x0040,
+        }),
+        "ASM loc_305D4 should keep the positive-start band, clear `d2`, and clamp any visible span longer than `$40` scanlines before falling into `loc_305E6`",
+    );
+    assert_eq!(
+        background_scroll_forest_water_ripple_visible_band_loc_305D4(0x00E0),
+        None,
+        "ASM loc_305D4 should branch to `return_30618` once `$E0-d0` is zero or negative",
     );
 }
 
