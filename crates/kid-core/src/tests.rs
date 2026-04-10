@@ -52,7 +52,8 @@ use crate::level::{
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
-    BackgroundScrollShiftLayersNoScrollFillLoc30502, BackgroundScrollStripeHorizontalGateLoc3023C,
+    BackgroundScrollShiftLayersNoScrollFillLoc30502, BackgroundScrollShiftLayersSetupLoc3050A,
+    BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
     BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
     BackgroundScrollStripeHorizontalPassLoc30296,
@@ -107,6 +108,7 @@ use crate::level::{
     background_scroll_shift_data_wrap_loop_loc_304D8,
     background_scroll_shift_data_wrap_store_loc_304CA,
     background_scroll_shift_layers_no_scroll_fill_loc_30502,
+    background_scroll_shift_layers_setup_loc_3050A,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
@@ -2798,6 +2800,52 @@ fn background_scroll_shift_layers_no_scroll_fill_loc_30502_repeats_negated_camer
             longword_count: 0x00E0,
         },
         "ASM loc_30502 should write the negated `Camera_X_pos` 16.16 longword into `Horiz_Scroll_Buffer` for the inclusive `$DF+1` `dbf` span when `(Background_NoScrollFlag).w` is non-zero",
+    );
+}
+
+#[test]
+fn background_scroll_shift_layers_setup_loc_3050a_resolves_the_row_sequence_and_partial_row_spans()
+{
+    assert_eq!(
+        background_scroll_shift_layers_setup_loc_3050A(
+            2,
+            &[9, 4, 3],
+            &[0x0040, 0x0080, 0x0100, 0x0180],
+            0x0034,
+            0x0123,
+        ),
+        Some(BackgroundScrollShiftLayersSetupLoc3050A {
+            map_order_entry: 3,
+            background_scroll_table_index: 3,
+            row_sequence_byte_offset: 0x0181,
+            block_dbf_counter: 0x001B,
+            negated_camera_x_longword: 0xFEDD_0000,
+            quarter_row_phase: 0x0005,
+            branches_to_loc_3056_a: false,
+            leading_partial_longword_count: Some(0x0003),
+            trailing_partial_longword_count: Some(0x0005),
+        }),
+        "ASM loc_3050A should resolve the current level through `LnkTo_MapOrder_Index` and `LnkTo_BackgroundScroll_Index`, bias the row sequence by logical `Camera_Y_pos>>5`, rebuild `d2` as `-Camera_X_pos` in 16.16, and split a non-zero `(Camera_Y_pos>>2) & 7` phase into leading/trailing partial spans around the main 8-row loop",
+    );
+}
+
+#[test]
+fn background_scroll_shift_layers_setup_loc_3050a_branches_straight_to_loc_3056a_when_the_quarter_row_phase_is_zero()
+ {
+    assert_eq!(
+        background_scroll_shift_layers_setup_loc_3050A(0, &[1], &[0x0020, 0x0060], 0x0020, 0x0040),
+        Some(BackgroundScrollShiftLayersSetupLoc3050A {
+            map_order_entry: 1,
+            background_scroll_table_index: 1,
+            row_sequence_byte_offset: 0x0061,
+            block_dbf_counter: 0x001B,
+            negated_camera_x_longword: 0xFFC0_0000,
+            quarter_row_phase: 0,
+            branches_to_loc_3056_a: true,
+            leading_partial_longword_count: None,
+            trailing_partial_longword_count: None,
+        }),
+        "ASM loc_3050A should branch straight to `loc_3056A` when `(Camera_Y_pos>>2) & 7` is zero, leaving `d4=-1` and skipping the leading/trailing partial-row setup",
     );
 }
 

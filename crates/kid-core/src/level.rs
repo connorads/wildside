@@ -7782,6 +7782,19 @@ pub(crate) struct BackgroundScrollShiftLayersNoScrollFillLoc30502 {
     pub(crate) longword_count: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollShiftLayersSetupLoc3050A {
+    pub(crate) map_order_entry: u8,
+    pub(crate) background_scroll_table_index: usize,
+    pub(crate) row_sequence_byte_offset: usize,
+    pub(crate) block_dbf_counter: u16,
+    pub(crate) negated_camera_x_longword: u32,
+    pub(crate) quarter_row_phase: u16,
+    pub(crate) branches_to_loc_3056_a: bool,
+    pub(crate) leading_partial_longword_count: Option<u16>,
+    pub(crate) trailing_partial_longword_count: Option<u16>,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn reset_fg_update_queues_loc_1680(
@@ -8278,6 +8291,59 @@ pub(crate) fn background_scroll_shift_layers_no_scroll_fill_loc_30502(
         repeated_scroll_longword,
         longword_count: 0x00DF + 1,
     }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_shift_layers_setup_loc_3050A(
+    current_level_id: u16,
+    map_order_index: &[u8],
+    background_scroll_index_offsets: &[u32],
+    camera_y_pos: i16,
+    camera_x_pos: i16,
+) -> Option<BackgroundScrollShiftLayersSetupLoc3050A> {
+    // ASM loc_3050A (kid.asm:34188): reload `a3` with `Horiz_Scroll_Buffer`,
+    // seed `d5=#7`, resolve the level's row-sequence pointer through
+    // `LnkTo_MapOrder_Index` and `LnkTo_BackgroundScroll_Index`, then derive
+    // the row byte offset from logical `Camera_Y_pos>>5`. The setup keeps
+    // `d0=#$1B`, seeds `d4=-1`, rebuilds `d2` as `-Camera_X_pos` in 16.16,
+    // and uses `(Camera_Y_pos>>2) & 7` to decide whether to branch straight to
+    // `loc_3056A` or split the buffer into leading/trailing partial spans
+    // around the 8-row block loop.
+    let map_order_entry = *map_order_index.get(usize::from(current_level_id))?;
+    let background_scroll_table_index = usize::from(map_order_entry);
+    background_scroll_index_offsets.get(background_scroll_table_index)?;
+
+    let row_sequence_byte_offset = usize::try_from(
+        background_scroll_index_offsets[background_scroll_table_index]
+            .wrapping_add(u32::from((camera_y_pos as u16) >> 5)),
+    )
+    .ok()?;
+    let quarter_row_phase = ((camera_y_pos as u16) >> 2) & 0x0007;
+    let branches_to_loc_3056_a = quarter_row_phase == 0;
+    let negated_camera_x_longword = (u32::from(camera_x_pos.wrapping_neg() as u16)) << 16;
+
+    let (leading_partial_longword_count, trailing_partial_longword_count) =
+        if branches_to_loc_3056_a {
+            (None, None)
+        } else {
+            (
+                Some(0x0008_u16.wrapping_sub(quarter_row_phase)),
+                Some(quarter_row_phase),
+            )
+        };
+
+    Some(BackgroundScrollShiftLayersSetupLoc3050A {
+        map_order_entry,
+        background_scroll_table_index,
+        row_sequence_byte_offset,
+        block_dbf_counter: 0x001B,
+        negated_camera_x_longword,
+        quarter_row_phase,
+        branches_to_loc_3056_a,
+        leading_partial_longword_count,
+        trailing_partial_longword_count,
+    })
 }
 
 #[allow(non_snake_case)]
