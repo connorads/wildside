@@ -18852,6 +18852,85 @@ fn allocate_platform_slot_sub_238e_pops_the_free_head_and_pushes_it_active() {
 }
 
 #[test]
+fn deallocate_platform_slot_sub_23b4_walks_the_list_then_recycles_the_matched_slot() {
+    let mut active_links = [
+        PlatformSlotLinkSub23B4 {
+            slot_addr: 0xEDBA,
+            next_slot_addr: 0xEDDC,
+        },
+        PlatformSlotLinkSub23B4 {
+            slot_addr: 0xEDDC,
+            next_slot_addr: 0xEDFE,
+        },
+        PlatformSlotLinkSub23B4 {
+            slot_addr: 0xEDFE,
+            next_slot_addr: 0,
+        },
+    ];
+    let mut first_platform_slot_addr = 0xEDBA;
+    let mut next_free_platform_slot_addr = 0xEE20;
+    let mut number_platforms = 3;
+
+    assert_eq!(
+        deallocate_platform_slot_sub_23B4(
+            &mut active_links,
+            &mut first_platform_slot_addr,
+            &mut next_free_platform_slot_addr,
+            &mut number_platforms,
+            0xEDDC,
+        ),
+        DeallocatePlatformSlotResultSub23B4::Deallocated,
+        "ASM loc_23BA should keep following each active platform slot's word link until the target `a3` is found",
+    );
+    assert_eq!(first_platform_slot_addr, 0xEDBA);
+    assert_eq!(next_free_platform_slot_addr, 0xEDDC);
+    assert_eq!(number_platforms, 2);
+    assert_eq!(
+        active_links,
+        [
+            PlatformSlotLinkSub23B4 {
+                slot_addr: 0xEDBA,
+                next_slot_addr: 0xEDFE,
+            },
+            PlatformSlotLinkSub23B4 {
+                slot_addr: 0xEDDC,
+                next_slot_addr: 0xEE20,
+            },
+            PlatformSlotLinkSub23B4 {
+                slot_addr: 0xEDFE,
+                next_slot_addr: 0,
+            },
+        ],
+        "ASM loc_23CC should splice the matched platform out of the active list, push it onto `(Addr_NextFreePlatformSlot).w`, and leave the rest of the chain intact",
+    );
+}
+
+#[test]
+fn deallocate_platform_slot_sub_23b4_jumps_to_loc_6e2_when_the_target_is_missing() {
+    let mut active_links = [PlatformSlotLinkSub23B4 {
+        slot_addr: 0xEDBA,
+        next_slot_addr: 0,
+    }];
+    let mut first_platform_slot_addr = 0xEDBA;
+    let mut next_free_platform_slot_addr = 0xEE20;
+    let mut number_platforms = 1;
+
+    assert_eq!(
+        deallocate_platform_slot_sub_23B4(
+            &mut active_links,
+            &mut first_platform_slot_addr,
+            &mut next_free_platform_slot_addr,
+            &mut number_platforms,
+            0xEDDC,
+        ),
+        DeallocatePlatformSlotResultSub23B4::MissingSlot {
+            failure_label: "loc_6E2",
+        },
+        "ASM loc_23BA should fall through to loc_23E4's `jmp loc_6E2` once the active platform-slot walk reaches a zero link without finding the target",
+    );
+}
+
+#[test]
 fn platform_collision_shift_directions_matter() {
     // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
     // If >> became <<, pixel values would be wildly wrong and collision would fail.

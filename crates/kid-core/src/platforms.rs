@@ -48,6 +48,68 @@ pub(crate) fn allocate_platform_slot_sub_238E(
     }
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformSlotLinkSub23B4 {
+    pub(crate) slot_addr: u16,
+    pub(crate) next_slot_addr: u16,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DeallocatePlatformSlotResultSub23B4 {
+    Deallocated,
+    MissingSlot { failure_label: &'static str },
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn deallocate_platform_slot_sub_23B4(
+    active_links: &mut [PlatformSlotLinkSub23B4],
+    first_platform_slot_addr: &mut u16,
+    next_free_platform_slot_addr: &mut u16,
+    number_platforms: &mut u16,
+    target_slot_addr: u16,
+) -> DeallocatePlatformSlotResultSub23B4 {
+    // ASM loc_23BA (kid.asm:4236-4241): start from the sentinel that stores
+    // `(Addr_FirstPlatformSlot).w`, follow each slot's word link until the
+    // target `a3` appears, and keep walking on mismatches. loc_23CC then
+    // unlinks the matched slot, pushes it onto `(Addr_NextFreePlatformSlot).w`,
+    // and decrements `(Number_Platforms).w`; loc_23E4 jumps to `loc_6E2` when
+    // the walk reaches a zero link first.
+    let mut previous_index: Option<usize> = None;
+    let mut cursor = *first_platform_slot_addr;
+
+    while cursor != 0 {
+        let Some(current_index) = active_links
+            .iter()
+            .position(|link| link.slot_addr == cursor)
+        else {
+            return DeallocatePlatformSlotResultSub23B4::MissingSlot {
+                failure_label: "loc_6E2",
+            };
+        };
+        if cursor == target_slot_addr {
+            let next_active_addr = active_links[current_index].next_slot_addr;
+            if let Some(previous_slot_index) = previous_index {
+                active_links[previous_slot_index].next_slot_addr = next_active_addr;
+            } else {
+                *first_platform_slot_addr = next_active_addr;
+            }
+            active_links[current_index].next_slot_addr = *next_free_platform_slot_addr;
+            *next_free_platform_slot_addr = target_slot_addr;
+            *number_platforms = number_platforms.wrapping_sub(1);
+            return DeallocatePlatformSlotResultSub23B4::Deallocated;
+        }
+        previous_index = Some(current_index);
+        cursor = active_links[current_index].next_slot_addr;
+    }
+
+    DeallocatePlatformSlotResultSub23B4::MissingSlot {
+        failure_label: "loc_6E2",
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
