@@ -7679,6 +7679,12 @@ pub(crate) struct BackgroundScrollPieceRefreshSeedLoc3081A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshWrapLoc30836 {
+    pub(crate) reduced_scroll_word: i16,
+    pub(crate) wrap_subtraction_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDispatchLoc3039C {
     pub(crate) computes_shift_data: bool,
     pub(crate) computes_shift_layers: bool,
@@ -8219,12 +8225,10 @@ pub(crate) fn background_scroll_piece_refresh_seed_loc_3081A(
         *horiz_scroll_bytes.get(scroll_word_offset.wrapping_add(1))?,
     ]);
     let coarse_scroll_word = coarse_scroll_source >> 3;
-    let mut reduced_scroll_word = coarse_scroll_word as i16;
-    let mut wrap_subtraction_count = 0_u16;
-    while background_width <= reduced_scroll_word {
-        reduced_scroll_word = reduced_scroll_word.wrapping_sub(background_width);
-        wrap_subtraction_count = wrap_subtraction_count.wrapping_add(1);
-    }
+    let BackgroundScrollPieceRefreshWrapLoc30836 {
+        reduced_scroll_word,
+        wrap_subtraction_count,
+    } = background_scroll_piece_refresh_wrap_loc_30836(coarse_scroll_word, background_width);
 
     Some(BackgroundScrollPieceRefreshSeedLoc3081A {
         row_sequence_offset,
@@ -8233,6 +8237,29 @@ pub(crate) fn background_scroll_piece_refresh_seed_loc_3081A(
         reduced_scroll_word,
         wrap_subtraction_count,
     })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_wrap_loc_30836(
+    coarse_scroll_word: u16,
+    background_width: i16,
+) -> BackgroundScrollPieceRefreshWrapLoc30836 {
+    // ASM loc_30836 (kid.asm:34656): once `loc_3081A` seeds `d0` from
+    // `4(a1,d0.w)>>3`, this back-edge keeps subtracting `Background_width` from
+    // that word until `cmp.w d0,a4` reports the reduced value is strictly below
+    // the width, preserving the taken-wrap count along the way.
+    let mut reduced_scroll_word = coarse_scroll_word as i16;
+    let mut wrap_subtraction_count = 0_u16;
+    while background_width <= reduced_scroll_word {
+        reduced_scroll_word = reduced_scroll_word.wrapping_sub(background_width);
+        wrap_subtraction_count = wrap_subtraction_count.wrapping_add(1);
+    }
+
+    BackgroundScrollPieceRefreshWrapLoc30836 {
+        reduced_scroll_word,
+        wrap_subtraction_count,
+    }
 }
 
 #[allow(non_snake_case)]

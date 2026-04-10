@@ -52,8 +52,9 @@ use crate::level::{
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshSeedLoc3081A,
-    BackgroundScrollPieceRowDispatchLoc3079A, BackgroundScrollPieceRowDispatchLoc3079ABranch,
-    BackgroundScrollPieceRowUploadLoc307B2, BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
+    BackgroundScrollPieceRefreshWrapLoc30836, BackgroundScrollPieceRowDispatchLoc3079A,
+    BackgroundScrollPieceRowDispatchLoc3079ABranch, BackgroundScrollPieceRowUploadLoc307B2,
+    BackgroundScrollShiftDataSecondPassAdvanceLoc304A8,
     BackgroundScrollShiftDataSecondPassSlotLoc3048C, BackgroundScrollShiftDataSlotLoc30452,
     BackgroundScrollShiftDataWrapLoopBodyLoc304E0, BackgroundScrollShiftDataWrapLoopLoc304C2,
     BackgroundScrollShiftDataWrapLoopLoc304D8, BackgroundScrollShiftDataWrapStoreLoc304CA,
@@ -112,7 +113,8 @@ use crate::level::{
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
     background_scroll_lower_pass_setup_loc_3001E, background_scroll_piece_refresh_seed_loc_3081A,
-    background_scroll_piece_row_dispatch_loc_3079A, background_scroll_piece_row_upload_loc_307B2,
+    background_scroll_piece_refresh_wrap_loc_30836, background_scroll_piece_row_dispatch_loc_3079A,
+    background_scroll_piece_row_upload_loc_307B2,
     background_scroll_shift_data_second_pass_advance_loc_304A8,
     background_scroll_shift_data_second_pass_slot_loc_3048C,
     background_scroll_shift_data_second_pass_unchanged_loc_304A4,
@@ -2687,6 +2689,19 @@ fn background_scroll_piece_refresh_seed_loc_3081a_uses_current_or_biased_rows_an
         ),
         None,
         "ASM loc_3081A should keep the un-biased current row when the cached row is greater and branch straight to `return_308B4` when `(a2,d0.w)` yields `$FF`",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_wrap_loc_30836_keeps_subtracting_background_width_until_the_word_fits()
+ {
+    assert_eq!(
+        background_scroll_piece_refresh_wrap_loc_30836(0x0091, 0x0020),
+        BackgroundScrollPieceRefreshWrapLoc30836 {
+            reduced_scroll_word: 0x0011,
+            wrap_subtraction_count: 4,
+        },
+        "ASM loc_30836 should keep subtracting `Background_width` from the shifted coarse scroll word until `cmp.w d0,a4` sees a value strictly below the width",
     );
 }
 
