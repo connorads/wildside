@@ -1791,11 +1791,17 @@ fn rom_random_state_matches_get_randomnumber_word_seeded_sequence() {
 #[test]
 fn initialise_scratch_queue_sub_28fc_clears_all_slots_and_rewinds_the_cursor() {
     let queue = initialise_scratch_queue_sub_28FC();
+    let cleared_longwords =
+        (queue.slots.len() * queue.slots[0].len()) / core::mem::size_of::<u32>();
 
     assert_eq!(
         queue.slots.len(),
         6,
         "ASM sub_28FC should seed six `$52`-byte scratch slots at `$FFFFF01E`",
+    );
+    assert_eq!(
+        cleared_longwords, 0x7B,
+        "ASM loc_2906 (kid.asm:4859) should clear exactly 123 longwords from `$FFFFF01E` via the `dbf d7,loc_2906` loop",
     );
     assert!(
         queue

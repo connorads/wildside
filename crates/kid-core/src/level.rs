@@ -6993,9 +6993,10 @@ pub(crate) fn gfx_object_sprite_build_order_loc_14A4(
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn initialise_scratch_queue_sub_28FC() -> ScratchQueueSub28FC {
-    // ASM sub_28FC (kid.asm:4854): clear the `$FFFFF01E` work area as
-    // 6 adjacent `$52`-byte slots, rewind the cursor to slot 0, and reload
-    // the slot counter to `#6`.
+    // ASM sub_28FC / loc_2906 (kid.asm:4854): `move.w #$7A,d7` and the
+    // `dbf d7,loc_2906` loop clear 123 longwords starting at `$FFFFF01E`,
+    // which covers 6 adjacent `$52`-byte scratch slots before the cursor is
+    // rewound to slot 0 and the slot counter is reloaded to `#6`.
     ScratchQueueSub28FC {
         slots: [[0; SUB_28FC_SLOT_STRIDE_BYTES]; SUB_28FC_SLOT_COUNT],
         next_slot: 0,
