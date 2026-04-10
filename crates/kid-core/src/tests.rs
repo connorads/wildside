@@ -26687,6 +26687,68 @@ fn end_sequence_text_loop_loc_1d3f0_dispatches_pages_breaks_and_zero_terminator(
 }
 
 #[test]
+fn end_sequence_terminator_exit_loc_1d450_waits_clears_palette_and_resets_state() {
+    let exit = crate::boot::end_sequence_terminator_exit_loc_1D450();
+
+    assert_eq!(
+        exit.wait_seed, 0x0190,
+        "ASM loc_1D44C should seed `d0 = $190` before the terminating wait loop enters loc_1D450",
+    );
+    assert_eq!(
+        exit.wait_iterations, 0x0191,
+        "ASM loc_1D450 (kid.asm:32784) should execute `$190 + 1 = $191` `sub_1D830 -> Hibernate_Object_1Frame` refresh pairs before blanking the palette",
+    );
+    assert_eq!(
+        exit.refresh_subroutine, "sub_1D830",
+        "ASM loc_1D450 should keep refreshing the display via `sub_1D830` during the final credits hold",
+    );
+    assert_eq!(
+        exit.hibernate_subroutine, "j_Hibernate_Object_1Frame",
+        "ASM loc_1D450 should hibernate one frame after each terminating display refresh",
+    );
+    assert_eq!(
+        exit.palette_clear_dbf_seed, 0x003F,
+        "ASM loc_1D450 should seed the palette-clear DBF loop with `$3F`",
+    );
+    assert_eq!(
+        exit.palette_clear_words, 0x0040,
+        "ASM loc_1D450 should clear `$3F + 1 = $40` palette words before the final upload",
+    );
+    assert_eq!(
+        exit.wait_for_vint_subroutine, "j_WaitForVint",
+        "ASM loc_1D450 should wait for VBlank once after clearing the palette buffer",
+    );
+    assert_eq!(
+        exit.idle_subroutine, "j_Do_Nothing",
+        "ASM loc_1D450 should call `j_Do_Nothing` between the VBlank wait and the palette upload",
+    );
+    assert_eq!(
+        exit.palette_upload_subroutine, "j_Palette_to_VRAM",
+        "ASM loc_1D450 should upload the cleared palette through `j_Palette_to_VRAM` before resetting state",
+    );
+    assert!(
+        exit.sets_unknown_flag_fbce,
+        "ASM loc_1D450 should set `($FFFFFBCE).w` before clearing the neighbouring state words",
+    );
+    assert!(
+        exit.clears_word_fbcc,
+        "ASM loc_1D450 should clear `($FFFFFBCC).w` before returning control",
+    );
+    assert!(
+        exit.clears_game_mode,
+        "ASM loc_1D450 should clear `(Game_Mode).w` before leaving the end sequence",
+    );
+    assert!(
+        exit.clears_number_lives,
+        "ASM loc_1D450 should clear `(Number_Lives).w` before jumping to the callback",
+    );
+    assert_eq!(
+        exit.continuation_pointer_source, "off_7192",
+        "ASM loc_1D450 should finish by jumping through the callback stored in `(off_7192).w`",
+    );
+}
+
+#[test]
 fn end_sequence_stripe_loop_loc_1cde4_steps_ten_display_refreshes_across_column_pairs() {
     let stripe_loop = crate::boot::end_sequence_stripe_loop_loc_1CDE4();
 

@@ -708,6 +708,25 @@ pub(crate) struct EndSequencePageBreakWaitLoopLoc1D418 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceTerminatorExitLoc1D450 {
+    pub(crate) wait_seed: u16,
+    pub(crate) wait_iterations: u16,
+    pub(crate) refresh_subroutine: &'static str,
+    pub(crate) hibernate_subroutine: &'static str,
+    pub(crate) palette_clear_dbf_seed: u16,
+    pub(crate) palette_clear_words: u16,
+    pub(crate) wait_for_vint_subroutine: &'static str,
+    pub(crate) idle_subroutine: &'static str,
+    pub(crate) palette_upload_subroutine: &'static str,
+    pub(crate) sets_unknown_flag_fbce: bool,
+    pub(crate) clears_word_fbcc: bool,
+    pub(crate) clears_game_mode: bool,
+    pub(crate) clears_number_lives: bool,
+    pub(crate) continuation_pointer_source: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceTextLoopLoc1D3F0 {
     pub(crate) page_text_subroutine: &'static str,
     pub(crate) page_break_word: u16,
@@ -2435,6 +2454,34 @@ pub(crate) fn end_sequence_page_break_wait_loop_loc_1D418() -> EndSequencePageBr
         palette_upload_subroutine: "j_Palette_to_VRAM",
         glyph_layout_source: "Addr_PlatformLayout",
         glyph_load_subroutine: "sub_1D7A8",
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_terminator_exit_loc_1D450() -> EndSequenceTerminatorExitLoc1D450 {
+    // ASM loc_1D450 (kid.asm:32784-32798): seed `d0 = $190`, then run the same
+    // `sub_1D830 -> j_Hibernate_Object_1Frame -> dbf` loop for `$190 + 1 =
+    // $191` refreshes before clearing `Palette_Buffer` word-by-word.
+    // ASM loc_1D450 (kid.asm:32789-32798): after zeroing `$3F + 1 = $40` palette
+    // words, the tail waits for VBlank, idles once, uploads the cleared
+    // palette, sets `($FFFFFBCE).w`, clears `($FFFFFBCC).w`, `(Game_Mode).w`,
+    // and `(Number_Lives).w`, then jumps through the callback in `(off_7192).w`.
+    EndSequenceTerminatorExitLoc1D450 {
+        wait_seed: 0x0190,
+        wait_iterations: 0x0191,
+        refresh_subroutine: "sub_1D830",
+        hibernate_subroutine: "j_Hibernate_Object_1Frame",
+        palette_clear_dbf_seed: 0x003F,
+        palette_clear_words: 0x0040,
+        wait_for_vint_subroutine: "j_WaitForVint",
+        idle_subroutine: "j_Do_Nothing",
+        palette_upload_subroutine: "j_Palette_to_VRAM",
+        sets_unknown_flag_fbce: true,
+        clears_word_fbcc: true,
+        clears_game_mode: true,
+        clears_number_lives: true,
+        continuation_pointer_source: "off_7192",
     }
 }
 
