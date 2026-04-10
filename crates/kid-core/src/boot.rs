@@ -633,6 +633,13 @@ pub(crate) struct EndSequenceDisplayRefreshSub1D830 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceHorizontalScrollUploadLoc1DA50 {
+    pub(crate) vram_word_addr: u16,
+    pub(crate) repeated_word: i16,
+    pub(crate) word_write_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceFadeLoopLoc1D270 {
     pub(crate) loop_seed: u16,
     pub(crate) fade_palette_byte_offset: u16,
@@ -2329,6 +2336,22 @@ pub(crate) fn end_sequence_display_refresh_sub_1D830(
         panel_toggle_byte,
         left_panel_x,
         right_panel_x,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_h_scroll_upload_loc_1DA50(
+    camera_x_pos: i16,
+) -> EndSequenceHorizontalScrollUploadLoc1DA50 {
+    // ASM loc_1DA50 (kid.asm:33323): after `move.l #vdpComm($1400,VRAM,WRITE),4(a6)`,
+    // `move.w (Camera_X_pos).w,d7`, `neg.w d7`, and `move.w #$DF,d6`, the loop
+    // writes `d7` twice before `dbf d6,loc_1DA50`, so it fills 448 horizontal-
+    // scroll words at VRAM word address `$1400` with `-Camera_X_pos`.
+    EndSequenceHorizontalScrollUploadLoc1DA50 {
+        vram_word_addr: 0x1400,
+        repeated_word: camera_x_pos.wrapping_neg(),
+        word_write_count: (0x00DFu16 + 1) * 2,
     }
 }
 

@@ -26587,6 +26587,19 @@ fn end_sequence_display_refresh_sub_1d830_combines_camera_scroll_upload_and_pane
 }
 
 #[test]
+fn end_sequence_h_scroll_upload_loc_1da50_repeats_negated_camera_x_across_448_words() {
+    assert_eq!(
+        crate::boot::end_sequence_h_scroll_upload_loc_1DA50(0x0123),
+        crate::boot::EndSequenceHorizontalScrollUploadLoc1DA50 {
+            vram_word_addr: 0x1400,
+            repeated_word: -0x0123,
+            word_write_count: 0x01C0,
+        },
+        "ASM loc_1DA50 should write `-Camera_X_pos` twice per inclusive `dbf d6,loc_1DA50` pass, so `d6=#$DF` fills 448 horizontal-scroll words at `vdpComm($1400,VRAM,WRITE)`",
+    );
+}
+
+#[test]
 fn end_sequence_fade_loop_loc_1d270_runs_eight_palette_darken_passes_before_vram_upload() {
     let fade_loop = crate::boot::end_sequence_fade_loop_loc_1D270();
 
