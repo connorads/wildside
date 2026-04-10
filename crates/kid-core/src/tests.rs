@@ -26438,6 +26438,60 @@ fn end_sequence_fade_loop_loc_1d270_runs_eight_palette_darken_passes_before_vram
 }
 
 #[test]
+fn end_sequence_panel_setup_loc_1d306_copies_nine_palette_words_and_seeds_panel_scroll_state() {
+    let panel_setup = crate::boot::end_sequence_panel_setup_loc_1D306();
+
+    assert_eq!(
+        panel_setup.palette_words_copied, 0x0009,
+        "ASM loc_1D306 (kid.asm:32671) should execute `$8 + 1` palette copies into `Palette_Buffer+$E`",
+    );
+    assert_eq!(
+        panel_setup.first_panel_x, 0x0030,
+        "ASM loc_1D306 should place the left panel worker at x=`$30`",
+    );
+    assert_eq!(
+        panel_setup.first_panel_y, 0x0048,
+        "ASM loc_1D306 should place the left panel worker at y=`$48`",
+    );
+    assert_eq!(
+        panel_setup.second_panel_x, 0x0110,
+        "ASM loc_1D306 should place the right panel worker at x=`$110`",
+    );
+    assert_eq!(
+        panel_setup.second_panel_y, 0x0048,
+        "ASM loc_1D306 should place the right panel worker at y=`$48`",
+    );
+    assert_eq!(
+        panel_setup.stripe_row_seed, 0x001B,
+        "ASM loc_1D306 should seed `d0 = $1B` before the first `sub_1CDA8` row upload",
+    );
+    assert_eq!(
+        panel_setup.stripe_column_seed, 0x001F,
+        "ASM loc_1D306 should seed `d1 = $1F` before the first `sub_1CDA8` column upload",
+    );
+    assert_eq!(
+        panel_setup.scroll_counter_seed, 0x0008,
+        "ASM loc_1D306 should seed `d2 = 8` for the later `loc_1D3A0` refresh cadence",
+    );
+    assert_eq!(
+        panel_setup.scroll_distance_seed, 0x00E0,
+        "ASM loc_1D306 should seed `d3 = $E0` before the vertical panel scroll loop",
+    );
+    assert_eq!(
+        panel_setup.panel_toggle_byte, 0x00,
+        "ASM loc_1D306 should clear the toggle byte with `sf ($FFFFFB5C).w` before panel animation starts",
+    );
+    assert_eq!(
+        panel_setup.panel_delta, 0x0118,
+        "ASM loc_1D306 should store `$118` into the shared panel delta word",
+    );
+    assert_eq!(
+        panel_setup.tilemap_row_upload_subroutine, "sub_1CDA8",
+        "ASM loc_1D306 should call `sub_1CDA8` once after seeding the row and column counters",
+    );
+}
+
+#[test]
 fn end_sequence_stripe_loop_loc_1cde4_steps_ten_display_refreshes_across_column_pairs() {
     let stripe_loop = crate::boot::end_sequence_stripe_loop_loc_1CDE4();
 

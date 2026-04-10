@@ -643,6 +643,22 @@ pub(crate) struct EndSequenceFadeLoopLoc1D270 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequencePanelSetupLoc1D306 {
+    pub(crate) palette_words_copied: u16,
+    pub(crate) first_panel_x: u16,
+    pub(crate) first_panel_y: u16,
+    pub(crate) second_panel_x: u16,
+    pub(crate) second_panel_y: u16,
+    pub(crate) stripe_row_seed: u16,
+    pub(crate) stripe_column_seed: u16,
+    pub(crate) scroll_counter_seed: u16,
+    pub(crate) scroll_distance_seed: u16,
+    pub(crate) panel_toggle_byte: u8,
+    pub(crate) panel_delta: u16,
+    pub(crate) tilemap_row_upload_subroutine: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -2215,6 +2231,31 @@ pub(crate) fn end_sequence_fade_loop_loc_1D270() -> EndSequenceFadeLoopLoc1D270 
         hibernate_frames: 0x0006,
         post_loop_vram_word_addr: 0xE000,
         post_loop_subroutine: "sub_1DA62",
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_panel_setup_loc_1D306() -> EndSequencePanelSetupLoc1D306 {
+    // ASM loc_1D306 (kid.asm:32671): `moveq #8,d0` feeds `dbf d0,loc_1D306`,
+    // so nine palette words copy from `Pal_1C92A` into `Palette_Buffer+$E`.
+    // The label then spawns the two menu-panel workers, seeds their positions,
+    // clears `Camera_Y_pos`, primes `sub_1CDA8` with row `$1B` / column `$1F`,
+    // and initialises the later `loc_1D3A0` scroll state with `d2 = 8`,
+    // `d3 = $E0`, toggle byte 0, and panel delta `$118`.
+    EndSequencePanelSetupLoc1D306 {
+        palette_words_copied: 0x0009,
+        first_panel_x: 0x0030,
+        first_panel_y: 0x0048,
+        second_panel_x: 0x0110,
+        second_panel_y: 0x0048,
+        stripe_row_seed: 0x001B,
+        stripe_column_seed: 0x001F,
+        scroll_counter_seed: 0x0008,
+        scroll_distance_seed: 0x00E0,
+        panel_toggle_byte: 0x00,
+        panel_delta: 0x0118,
+        tilemap_row_upload_subroutine: "sub_1CDA8",
     }
 }
 
