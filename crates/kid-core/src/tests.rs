@@ -43105,6 +43105,31 @@ fn kid_projectile_overlap_branch_loc_1e4a_only_diverts_the_inclusive_null_window
 }
 
 #[test]
+fn kid_projectile_helper_spawn_loc_1e5e_allocates_loc_1f08_and_copies_projectile_coordinates() {
+    assert_eq!(
+        crate::projectiles::kid_projectile_helper_spawn_loc_1E5E(0x0123, 0x0456, 0x0000),
+        crate::projectiles::KidProjectileHelperSpawnLoc1E5E {
+            allocate_object_slot_arg: 0xFFFF,
+            callback_label: "loc_1F08",
+            helper_x_pos: 0x0123,
+            helper_y_pos: 0x0456,
+            target_collision_id: 0x001C,
+        },
+        "ASM loc_1E5E (kid.asm:3642-3650) should allocate with `a0 = $FFFF`, install `loc_1F08`, copy `$1A/$1E(a0)` into the helper payload, and default the collided object to `colid_hurt`",
+    );
+}
+
+#[test]
+fn kid_projectile_helper_spawn_loc_1e5e_overrides_hurt_with_ffff_for_3c_projectiles() {
+    assert_eq!(
+        crate::projectiles::kid_projectile_helper_spawn_loc_1E5E(0x0123, 0x0456, 0x003C)
+            .target_collision_id,
+        0xFFFF,
+        "ASM loc_1E5E should replace the provisional `colid_hurt` write with `$FFFF` when `$3A(a0) == $3C` before falling into `loc_1E94`",
+    );
+}
+
+#[test]
 fn projectile_hitbox_half_plus_8_not_times() {
     // Projectile 12px away in x — inside `half + 8 = 14` but outside `half * 8 = 48`.
     // If + mutated to *, 12 < 48 would still pass, so use boundary at 13.

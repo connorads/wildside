@@ -280,6 +280,41 @@ pub(crate) fn kid_projectile_overlap_branch_loc_1E4A(
     }
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidProjectileHelperSpawnLoc1E5E {
+    pub(crate) allocate_object_slot_arg: u16,
+    pub(crate) callback_label: &'static str,
+    pub(crate) helper_x_pos: u16,
+    pub(crate) helper_y_pos: u16,
+    pub(crate) target_collision_id: u16,
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+pub(crate) fn kid_projectile_helper_spawn_loc_1E5E(
+    projectile_x_pos: u16,
+    projectile_y_pos: u16,
+    projectile_collision_flags_word_3a: u16,
+) -> KidProjectileHelperSpawnLoc1E5E {
+    // ASM loc_1E5E (kid.asm:3642-3653): exchange `a0/a1`, call
+    // `j_Allocate_ObjectSlot` with `a0 = $FFFF`, install `loc_1F08`, then
+    // restore the projectile pointer and copy its `$1A/$1E` coordinates into
+    // the helper's `$44/$46`. The collided object usually gets `colid_hurt`,
+    // but the `$3A(a0) == $3C` special case overwrites that with `$FFFF`.
+    KidProjectileHelperSpawnLoc1E5E {
+        allocate_object_slot_arg: 0xFFFF,
+        callback_label: "loc_1F08",
+        helper_x_pos: projectile_x_pos,
+        helper_y_pos: projectile_y_pos,
+        target_collision_id: if projectile_collision_flags_word_3a == 0x003C {
+            0xFFFF
+        } else {
+            0x001C
+        },
+    }
+}
+
 impl NativeRuntime {
     fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
         projectile.friendly
