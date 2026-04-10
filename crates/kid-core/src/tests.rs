@@ -2198,6 +2198,22 @@ fn spawn_block_debris_sub_292e_advances_and_wraps_the_scratch_cursor() {
 }
 
 #[test]
+fn spawn_block_debris_sub_292e_loc_29de_advances_to_the_next_scratch_slot_while_capacity_remains() {
+    let mut queue = initialise_scratch_queue_sub_28FC();
+
+    spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 1);
+
+    assert_eq!(
+        queue.next_slot, 1,
+        "ASM loc_29DE should advance `$FFFFFA9C` by `$52` to scratch slot 1 when `$FFFFFAA0` stays non-zero after the decrement",
+    );
+    assert_eq!(
+        queue.slots_remaining, 5,
+        "ASM loc_29DE should leave five scratch slots available after the first debris spawn consumes one of the six entries",
+    );
+}
+
+#[test]
 fn compile_block_debris_sprites_sub_2a4c_steps_fixed_point_records_and_emits_linked_sprites() {
     let mut queue = initialise_scratch_queue_sub_28FC();
     spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 2);

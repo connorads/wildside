@@ -7116,8 +7116,11 @@ fn spawn_block_debris_common_sub_292E(
     // plus the shared `unk_29E8`/`unk_29F2` position offsets into five
     // consecutive `$10`-byte debris records because `moveq #4,d7` makes the
     // trailing `dbf d7,loc_2994` run inclusively from 4 down to -1.
-    // After the write, decrement `$FFFFFAA0`; if it hit zero, rewind to slot 0
-    // and reload the six-slot counter, otherwise advance `$FFFFFA9C` by `$52`.
+    // ASM loc_29DE (kid.asm:4942): after the inclusive debris copy loop,
+    // decrement `$FFFFFAA0`; if it remains non-zero, advance `$FFFFFA9C` by
+    // `$52` bytes to the next scratch slot instead of rewinding.
+    // ASM sub_292E epilogue (kid.asm:4938-4941): when the decrement reaches
+    // zero, rewind `$FFFFFA9C` to `$FFFFF01E` and reload `$FFFFFAA0` with `#6`.
     let slot_index = queue.next_slot;
     let slot = &mut queue.slots[slot_index];
     slot.fill(0);
