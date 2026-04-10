@@ -2228,6 +2228,26 @@ fn first_shooter_hit_sub_219c_returns_first_strict_interior_hit() {
 }
 
 #[test]
+fn loc_21b8_keeps_walking_the_shooter_list_until_a_point_is_strictly_inside() {
+    let hitbox = collision_rect_sub_1f52(100, 120, 40, 80);
+
+    assert_eq!(
+        first_shooter_hit_sub_219C(
+            hitbox,
+            &[
+                shooter_point_sub_219c(100, 60),
+                shooter_point_sub_219c(121, 60),
+                shooter_point_sub_219c(110, 39),
+                shooter_point_sub_219c(110, 81),
+                shooter_point_sub_219c(111, 61),
+            ],
+        ),
+        Some(4),
+        "ASM loc_21B8 should keep following the next shooter-slot link after each `ble`/`bge` miss until one point lands strictly inside Kid's hitbox",
+    );
+}
+
+#[test]
 fn first_shooter_projectile_overlap_sub_226a_skips_zero_collision_entries_and_finds_the_first_hit()
 {
     assert_eq!(

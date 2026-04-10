@@ -3010,9 +3010,10 @@ pub(crate) fn first_shooter_hit_sub_219C(
     kid_hitbox: CollisionRectSub1F52,
     shooter_points: &[ShooterPointSub219C],
 ) -> Option<usize> {
-    // ASM sub_219C (kid.asm:3997): walk the shooter-slot linked list and
-    // report only the first point strictly inside Kid's hitbox. Edge-equal
-    // contacts are rejected because the routine skips on `ble` / `bge`.
+    // ASM sub_219C / loc_21B8 (kid.asm:3997-4019): walk the shooter-slot
+    // linked list one slot at a time, skipping forward on every strict miss.
+    // Edge-equal contacts are rejected because the four bounds checks branch
+    // back to `loc_21B8` on `ble` / `bge` rather than accepting equality.
     shooter_points.iter().position(|point| {
         point.x_px > kid_hitbox.left_px
             && point.x_px < kid_hitbox.right_px
