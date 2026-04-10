@@ -46,14 +46,14 @@ use crate::level::{
     BackgroundPaletteFollowupLoc11DF8, BackgroundPaletteOverrideLoc11DF4,
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
-    BackgroundScrollStripeRowSelectionLoc301CE, BackgroundScrollUpperPassLoc2FFE8,
-    BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
-    BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504, BlockLayoutEntryWordsLoc133B2,
-    BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E, BlockLayoutEntryWordsLoc1335E,
-    BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0, BlockLayoutLoopLoc133DE,
-    BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E, BlockLayoutLoopLoc1345E,
-    BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C, BlockLayoutRepeatWordsLoc1351E,
-    BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
+    BackgroundScrollStripeLayoutSeedLoc301D8, BackgroundScrollStripeRowSelectionLoc301CE,
+    BackgroundScrollUpperPassLoc2FFE8, BackgroundScrollUpperPassResumeLoc30014,
+    BlockLayoutDecodeWordsLoc1354E, BlockLayoutDispatchLoc132D6, BlockLayoutDispatchLoc13504,
+    BlockLayoutEntryWordsLoc133B2, BlockLayoutEntryWordsLoc133F0, BlockLayoutEntryWordsLoc1332E,
+    BlockLayoutEntryWordsLoc1335E, BlockLayoutEntryWordsLoc13470, BlockLayoutLoopLoc133A0,
+    BlockLayoutLoopLoc133DE, BlockLayoutLoopLoc1331E, BlockLayoutLoopLoc1342E,
+    BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
+    BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
     DecompressToVramSpecialReturnLoc143B2, FgPlaneCustomWriteSub1596,
     FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680,
@@ -75,15 +75,15 @@ use crate::level::{
     apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
     background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
     background_scroll_lower_pass_loop_loc_30066, background_scroll_lower_pass_resume_loc_30054,
-    background_scroll_lower_pass_setup_loc_3001E, background_scroll_stripe_row_selection_loc_301CE,
-    background_scroll_upper_pass_loc_2FFE8, background_scroll_upper_pass_resume_loc_30014,
-    blend_palette_entry_loc_1538, blend_selected_palette_entries_sub_1536,
-    block_layout_decode_word_run_loc_1354E, block_layout_decrement_decoded_word_loc_13540,
-    block_layout_decrement_words_loc_13544, block_layout_dispatch_loc_132D6,
-    block_layout_dispatch_loc_13504, block_layout_entry_words_loc_133B2,
-    block_layout_entry_words_loc_133F0, block_layout_entry_words_loc_1332E,
-    block_layout_entry_words_loc_1335E, block_layout_entry_words_loc_13470,
-    block_layout_fixed_pattern_repeat_loop_loc_133DE,
+    background_scroll_lower_pass_setup_loc_3001E, background_scroll_stripe_layout_seed_loc_301D8,
+    background_scroll_stripe_row_selection_loc_301CE, background_scroll_upper_pass_loc_2FFE8,
+    background_scroll_upper_pass_resume_loc_30014, blend_palette_entry_loc_1538,
+    blend_selected_palette_entries_sub_1536, block_layout_decode_word_run_loc_1354E,
+    block_layout_decrement_decoded_word_loc_13540, block_layout_decrement_words_loc_13544,
+    block_layout_dispatch_loc_132D6, block_layout_dispatch_loc_13504,
+    block_layout_entry_words_loc_133B2, block_layout_entry_words_loc_133F0,
+    block_layout_entry_words_loc_1332E, block_layout_entry_words_loc_1335E,
+    block_layout_entry_words_loc_13470, block_layout_fixed_pattern_repeat_loop_loc_133DE,
     block_layout_increment_decoded_word_loc_13532, block_layout_long_run_repeat_loop_loc_1342E,
     block_layout_property_words_loc_1337C, block_layout_repeat_current_word_loc_1352A,
     block_layout_repeat_decoded_word_loc_13526, block_layout_repeat_loop_loc_1331E,
@@ -2538,6 +2538,39 @@ fn background_scroll_stripe_row_selection_loc_301ce_switches_odd_rows_to_the_sec
             block_mapping_longword_offset: 1,
         },
         "ASM loc_301CE should branch on the post-`lsr` carry for odd rows and advance both `a1` and `a2` by four bytes to the second longword in the 8-byte mapping pair",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_layout_seed_loc_301d8_loads_the_row_pointer_and_left_window_defaults() {
+    assert_eq!(
+        background_scroll_stripe_layout_seed_loc_301D8(&[0x1000, 0x1800, 0x3000], 0x0002, 0x0016),
+        Some(BackgroundScrollStripeLayoutSeedLoc301D8 {
+            row_pointer: 0x3016,
+            half_column_index: 0x000B,
+            half_column_mod32: 0x000B,
+            branches_to_loc_301_f6: false,
+            copy_columns: Some(0x0014),
+            initial_column_bias: Some(-1),
+        }),
+        "ASM loc_301D8 should read row-pair 2 from `$FFFF4A04`, advance `a3` by `2 * (Camera_X_pos>>4)`, and keep the `< $C` path on `d1=$14` / `d2=-1`",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_layout_seed_loc_301d8_branches_to_loc_301f6_once_the_half_column_reaches_twelve()
+ {
+    assert_eq!(
+        background_scroll_stripe_layout_seed_loc_301D8(&[0x4000, 0x4800], 0x0001, 0x0018),
+        Some(BackgroundScrollStripeLayoutSeedLoc301D8 {
+            row_pointer: 0x4818,
+            half_column_index: 0x000C,
+            half_column_mod32: 0x000C,
+            branches_to_loc_301_f6: true,
+            copy_columns: None,
+            initial_column_bias: None,
+        }),
+        "ASM loc_301D8 should branch away to loc_301F6 as soon as `andi.w #$1F,d0` reaches `$C`, skipping the left-window `moveq #$14,d1` / `moveq #-1,d2` seeds",
     );
 }
 

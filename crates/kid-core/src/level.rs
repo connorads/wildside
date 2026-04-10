@@ -7962,6 +7962,44 @@ pub(crate) fn background_scroll_stripe_row_selection_loc_301CE(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeLayoutSeedLoc301D8 {
+    pub(crate) row_pointer: u16,
+    pub(crate) half_column_index: u16,
+    pub(crate) half_column_mod32: u16,
+    pub(crate) branches_to_loc_301_f6: bool,
+    pub(crate) copy_columns: Option<u16>,
+    pub(crate) initial_column_bias: Option<i16>,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_layout_seed_loc_301D8(
+    row_pointer_table: &[u16],
+    row_pair_index: u16,
+    camera_tile_column: u16,
+) -> Option<BackgroundScrollStripeLayoutSeedLoc301D8> {
+    // ASM loc_301D8 (kid.asm:33772): double the `d0 = d6>>1` row-pair index to
+    // address the word row-pointer table at `$FFFF4A04`, then rebuild `d0`
+    // from `d7>>1` so `a3` advances by `2 * (Camera_X_pos>>4)`. The masked
+    // `andi.w #$1F,d0` half-column selects the left-window fast path
+    // (`d1=$14`, `d2=-1`) until the compare against `$C` branches onward to
+    // `loc_301F6`.
+    let row_pointer = *row_pointer_table.get(usize::from(row_pair_index))?;
+    let half_column_index = camera_tile_column >> 1;
+    let half_column_mod32 = half_column_index & 0x001F;
+    let branches_to_loc_301F6 = half_column_mod32 >= 0x000C;
+
+    Some(BackgroundScrollStripeLayoutSeedLoc301D8 {
+        row_pointer: row_pointer.wrapping_add(half_column_index.wrapping_mul(2)),
+        half_column_index,
+        half_column_mod32,
+        branches_to_loc_301_f6: branches_to_loc_301F6,
+        copy_columns: (!branches_to_loc_301F6).then_some(0x0014),
+        initial_column_bias: (!branches_to_loc_301F6).then_some(-1),
+    })
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
