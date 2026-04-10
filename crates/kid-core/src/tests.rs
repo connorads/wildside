@@ -77,7 +77,8 @@ use crate::level::{
     SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E,
     ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA,
     SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52,
-    TransferScrollDataDmaTailLoc300D2, TransferScrollDataPreludeLoc3038A,
+    TransferScrollDataDispatchLoc3039C, TransferScrollDataDmaTailLoc300D2,
+    TransferScrollDataPreludeLoc3038A, TransferScrollDataRendererLoc3039C,
     TransferScrollDataStormLoc30110, TransferScrollDataStormLoopLoc30130,
     TransferScrollDataStormLoopLoc30172, TransferScrollDataStormSetupLoc30158,
     TransferScrollDataVsramSetupLoc300BA, apply_background_palette_override_loc_11E04,
@@ -140,10 +141,11 @@ use crate::level::{
     step_fullscreen_palette_fade_sub_73D0, step_island_palette_cycle_lower_band_loc_12188,
     step_island_palette_cycle_mid_band_loc_12110, step_island_palette_cycle_primary_band_loc_12098,
     step_palette_fade_out_loc_28C6, swap_forest_background_palette_entries_sub_129AE,
-    terrain_layout_row_pointers_loc_11B40, transfer_scroll_data_dma_tail_loc_300D2,
-    transfer_scroll_data_prelude_loc_3038A, transfer_scroll_data_storm_loc_30110,
-    transfer_scroll_data_storm_loop_loc_30130, transfer_scroll_data_storm_loop_loc_30172,
-    transfer_scroll_data_storm_setup_loc_30158, transfer_scroll_data_vsram_setup_loc_300BA,
+    terrain_layout_row_pointers_loc_11B40, transfer_scroll_data_dispatch_loc_3039C,
+    transfer_scroll_data_dma_tail_loc_300D2, transfer_scroll_data_prelude_loc_3038A,
+    transfer_scroll_data_storm_loc_30110, transfer_scroll_data_storm_loop_loc_30130,
+    transfer_scroll_data_storm_loop_loc_30172, transfer_scroll_data_storm_setup_loc_30158,
+    transfer_scroll_data_vsram_setup_loc_300BA,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -2486,6 +2488,41 @@ fn transfer_scroll_data_prelude_loc_3038a_only_increments_time_frames_outside_se
             next_time_frames: 0x1235,
         }),
         "ASM loc_3038A should `addq.w #1,(Time_Frames).w` before falling through when `Game_Mode` is non-zero",
+    );
+}
+
+#[test]
+fn transfer_scroll_data_dispatch_loc_3039c_returns_after_shift_work_when_upload_guard_is_set() {
+    assert_eq!(
+        transfer_scroll_data_dispatch_loc_3039C(1, 0),
+        TransferScrollDataDispatchLoc3039C {
+            computes_shift_data: true,
+            computes_shift_layers: true,
+            renderer: TransferScrollDataRendererLoc3039C::Return303B8,
+        },
+        "ASM loc_3039C should always run the two background-shift helpers first, then return immediately when `$FFFFFB49` is non-zero",
+    );
+}
+
+#[test]
+fn transfer_scroll_data_dispatch_loc_3039c_selects_piece_or_enigma_renderers_after_shift_work() {
+    assert_eq!(
+        transfer_scroll_data_dispatch_loc_3039C(0, 0),
+        TransferScrollDataDispatchLoc3039C {
+            computes_shift_data: true,
+            computes_shift_layers: true,
+            renderer: TransferScrollDataRendererLoc3039C::PiecesSub30744And307D8,
+        },
+        "ASM loc_3039C should fall through to `bsr.w sub_30744` then `bsr.w sub_307D8` when `$FFFFFB49` is clear and `Background_format` is zero",
+    );
+    assert_eq!(
+        transfer_scroll_data_dispatch_loc_3039C(0, 0xFF),
+        TransferScrollDataDispatchLoc3039C {
+            computes_shift_data: true,
+            computes_shift_layers: true,
+            renderer: TransferScrollDataRendererLoc3039C::EnigmaSub303BA,
+        },
+        "ASM loc_3039C should branch to `sub_303BA` instead of the piece renderer pair when `Background_format` is non-zero",
     );
 }
 

@@ -7634,6 +7634,20 @@ pub(crate) struct TransferScrollDataPreludeLoc3038A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TransferScrollDataRendererLoc3039C {
+    Return303B8,
+    PiecesSub30744And307D8,
+    EnigmaSub303BA,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TransferScrollDataDispatchLoc3039C {
+    pub(crate) computes_shift_data: bool,
+    pub(crate) computes_shift_layers: bool,
+    pub(crate) renderer: TransferScrollDataRendererLoc3039C,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TransferScrollDataDmaTailLoc300D2 {
     pub(crate) second_vsram_word: i16,
     pub(crate) dma_source_addr: u32,
@@ -7868,6 +7882,32 @@ pub(crate) fn transfer_scroll_data_prelude_loc_3038A(
     };
 
     Some(TransferScrollDataPreludeLoc3038A { next_time_frames })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn transfer_scroll_data_dispatch_loc_3039C(
+    background_upload_busy_flag: u8,
+    background_format: u8,
+) -> TransferScrollDataDispatchLoc3039C {
+    // ASM loc_3039C (kid.asm:33990): this entry always runs
+    // `BackgroundScroll_ComputeShiftData` and `BackgroundScroll_ComputeShiftLayers`
+    // first. A non-zero `$FFFFFB49` returns immediately; otherwise
+    // `Background_format == 0` calls the piece-background pair
+    // `sub_30744`/`sub_307D8`, and non-zero formats branch to `sub_303BA`.
+    let renderer = if background_upload_busy_flag != 0 {
+        TransferScrollDataRendererLoc3039C::Return303B8
+    } else if background_format == 0 {
+        TransferScrollDataRendererLoc3039C::PiecesSub30744And307D8
+    } else {
+        TransferScrollDataRendererLoc3039C::EnigmaSub303BA
+    };
+
+    TransferScrollDataDispatchLoc3039C {
+        computes_shift_data: true,
+        computes_shift_layers: true,
+        renderer,
+    }
 }
 
 #[allow(non_snake_case)]
