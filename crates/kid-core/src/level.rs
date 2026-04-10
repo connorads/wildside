@@ -8147,6 +8147,28 @@ pub(crate) fn background_scroll_stripe_horizontal_layout_seed_loc_3026C(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeHorizontalLowerWindowLoc3028E {
+    pub(crate) copy_rows: u16,
+    pub(crate) initial_row_bias: i16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_horizontal_lower_window_loc_3028E(
+    half_row_mod16: u16,
+) -> BackgroundScrollStripeHorizontalLowerWindowLoc3028E {
+    // ASM loc_3028E (kid.asm:33855): once `loc_3026C` branches here, `d0`
+    // already holds `(d5 >> 1) & $F`. The routine mirrors the vertical-path
+    // arithmetic with `moveq #$F,d1; sub.w d0,d1`, then derives the starting
+    // row bias from `moveq #$D,d2; sub.w d1,d2`, which simplifies to
+    // `d2 = d0 - 2`.
+    BackgroundScrollStripeHorizontalLowerWindowLoc3028E {
+        copy_rows: 0x000F_u16.wrapping_sub(half_row_mod16),
+        initial_row_bias: i16::try_from(half_row_mod16).unwrap_or(i16::MAX) - 0x0002,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(

@@ -47,7 +47,8 @@ use crate::level::{
     BackgroundScrollLowerPassLoopLoc30066, BackgroundScrollLowerPassRendererLoc30066,
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
     BackgroundScrollStripeHorizontalGateLoc3023C,
-    BackgroundScrollStripeHorizontalLayoutSeedLoc3026C, BackgroundScrollStripeLayoutSeedLoc301D8,
+    BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
+    BackgroundScrollStripeHorizontalLowerWindowLoc3028E, BackgroundScrollStripeLayoutSeedLoc301D8,
     BackgroundScrollStripeRightWindowLoc301F6, BackgroundScrollStripeRowSelectionLoc301CE,
     BackgroundScrollStripeVerticalPassLoc301FE, BackgroundScrollUpperPassLoc2FFE8,
     BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
@@ -81,6 +82,7 @@ use crate::level::{
     background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_stripe_horizontal_gate_loc_3023C,
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
+    background_scroll_stripe_horizontal_lower_window_loc_3028E,
     background_scroll_stripe_layout_seed_loc_301D8,
     background_scroll_stripe_restore_camera_column_loc_3023A,
     background_scroll_stripe_right_window_loc_301F6,
@@ -2738,6 +2740,31 @@ fn background_scroll_stripe_horizontal_layout_seed_loc_3026c_switches_odd_column
         "ASM loc_30262 / loc_3026C should advance both mapping bases by one word on odd render columns, then branch to loc_3028E as soon as `(d5 >> 1) & $F` reaches `$2`",
     );
 }
+#[test]
+fn background_scroll_stripe_horizontal_lower_window_loc_3028e_starts_the_lower_half_at_row_two() {
+    assert_eq!(
+        background_scroll_stripe_horizontal_lower_window_loc_3028E(0x0002),
+        BackgroundScrollStripeHorizontalLowerWindowLoc3028E {
+            copy_rows: 0x000D,
+            initial_row_bias: 0,
+        },
+        "ASM loc_3028E should turn half-row `$2` into `d1=$D` remaining copies and `d2=0` starting bias for the lower-half window",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_horizontal_lower_window_loc_3028e_shrinks_the_span_towards_the_bottom_edge()
+ {
+    assert_eq!(
+        background_scroll_stripe_horizontal_lower_window_loc_3028E(0x000F),
+        BackgroundScrollStripeHorizontalLowerWindowLoc3028E {
+            copy_rows: 0,
+            initial_row_bias: 0x000D,
+        },
+        "ASM loc_3028E should reduce `d1` to zero and raise `d2` to `$D` when the masked half-row already sits at the bottom of the 16-row chunk",
+    );
+}
+
 #[test]
 fn compile_block_debris_sprites_sub_2a4c_steps_fixed_point_records_and_emits_linked_sprites() {
     let mut queue = initialise_scratch_queue_sub_28FC();
