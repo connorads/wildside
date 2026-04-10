@@ -81,6 +81,16 @@ pub(crate) struct KidObjectStompPlayerWritebackLoc1D4C {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidObjectTypeFourCollisionLoc1D5A {
+    pub(crate) stalls_forever: bool,
+    pub(crate) player_collision_flags: Option<u16>,
+    pub(crate) player_collision_label: Option<&'static str>,
+    pub(crate) object_collision_label: Option<&'static str>,
+    pub(crate) branches_to_invulnerability_gate: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_object_collision_writeback_loc_1CF2(
     relation: KidObjectRelation,
@@ -124,6 +134,36 @@ pub(crate) fn kid_object_stomp_player_writeback_loc_1D4C(
     KidObjectStompPlayerWritebackLoc1D4C {
         player_collision_label: KidObjectRelation::Below.as_debug_label(),
         player_collision_flags: object_collision_flags,
+        branches_to_invulnerability_gate: true,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn kid_object_type_four_collision_loc_1D5A(
+    object_collision_flags: u16,
+) -> KidObjectTypeFourCollisionLoc1D5A {
+    // ASM loc_1D5A (kid.asm:3521): object subtype `4` bypasses the normal
+    // overlap classification, loads the raw `$3A(a2)` flags into `d6`, and
+    // compares that word directly against `$64`.
+    if object_collision_flags < 0x0064 {
+        // ASM loc_1D62 (kid.asm:3525): the disassembly's `blt.s loc_1D62`
+        // self-branch traps the subtype-4 path in a busy loop whenever
+        // `$3A(a2) < $64`, so none of the later `$3A/$38` writeback runs.
+        return KidObjectTypeFourCollisionLoc1D5A {
+            stalls_forever: true,
+            player_collision_flags: None,
+            player_collision_label: None,
+            object_collision_label: None,
+            branches_to_invulnerability_gate: false,
+        };
+    }
+
+    KidObjectTypeFourCollisionLoc1D5A {
+        stalls_forever: false,
+        player_collision_flags: Some(object_collision_flags),
+        player_collision_label: Some(KidObjectRelation::Below.as_debug_label()),
+        object_collision_label: Some(KidObjectRelation::Below.as_debug_label()),
         branches_to_invulnerability_gate: true,
     }
 }

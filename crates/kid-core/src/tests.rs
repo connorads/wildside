@@ -26286,6 +26286,32 @@ fn kid_object_stomp_player_writeback_loc_1d4c_copies_kidbelow_and_enemy_flags_in
 }
 
 #[test]
+fn kid_object_type_four_collision_loc_1d5a_stalls_forever_below_64() {
+    let collision = crate::trace::kid_object_type_four_collision_loc_1D5A(0x0063);
+
+    assert!(
+        collision.stalls_forever,
+        "ASM loc_1D5A (kid.asm:3521) should feed the raw `$3A(a2)` word into the later `$64` compare for object subtype 4",
+    );
+    assert_eq!(
+        collision.player_collision_flags, None,
+        "ASM loc_1D62 (kid.asm:3525) self-branches on `blt.s loc_1D62`, so the subtype-4 path should never reach the later `$3A(a0)` writeback when `$3A(a2) < $64`",
+    );
+    assert_eq!(
+        collision.player_collision_label, None,
+        "ASM loc_1D62 should hang before writing `colid_kidbelow` into `$38(a0)` on the `< $64` path",
+    );
+    assert_eq!(
+        collision.object_collision_label, None,
+        "ASM loc_1D62 should also hang before mirroring `colid_kidbelow` into `$38(a2)` on the `< $64` path",
+    );
+    assert!(
+        !collision.branches_to_invulnerability_gate,
+        "ASM loc_1D62 should not reach `bra.s loc_1D00` once the self-branch is taken",
+    );
+}
+
+#[test]
 fn kid_object_invulnerability_gate_loc_1d00_leaves_non_invulnerable_or_large_payload_hits_untouched()
  {
     let vulnerable = crate::trace::kid_object_invulnerability_gate_loc_1D00(false, 0x0010, 0xC063);
