@@ -4618,6 +4618,39 @@ pub(crate) fn kid_hitbox_solid_scan_expand_left_loc_2040(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidHitboxSolidScanUpSeedLoc2050 {
+    pub(crate) restored_index: usize,
+    pub(crate) row_index: u16,
+    pub(crate) vertical_start_px: u16,
+    pub(crate) vertical_end_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn kid_hitbox_solid_scan_expand_up_loc_2050(
+    start_index_after_left_blocker: usize,
+    level_width_tiles: usize,
+    palette_results: &[u16],
+) -> Option<KidHitboxSolidScanUpSeedLoc2050> {
+    // ASM loc_2050 / loc_2056 (kid.asm:3857-3868): advance one word with
+    // `addq.w #2,a1`, then probe one row up per `suba.w d3,a1` until
+    // `j_Palette_to_VRAM0` returns non-zero. The post-hit `add.w d3,a1`
+    // restores the last zero row, and `sub_1F8E` seeds the low words of
+    // `d1/d2` from that restored row with `d1 = row << 4` and `d2 = d1 - 1`.
+    let blocking_offset = palette_results.iter().position(|&result| result != 0)?;
+    let restored_index = start_index_after_left_blocker
+        .checked_sub(blocking_offset.checked_mul(level_width_tiles)?)?;
+    let row_index = u16::try_from(restored_index / level_width_tiles).ok()?;
+    let vertical_start_px = row_index << 4;
+    Some(KidHitboxSolidScanUpSeedLoc2050 {
+        restored_index,
+        row_index,
+        vertical_start_px,
+        vertical_end_px: vertical_start_px.wrapping_sub(1),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockType11ReadXPosLoc126BA {
     pub(crate) x_pos: u16,
     pub(crate) bytes_consumed: usize,

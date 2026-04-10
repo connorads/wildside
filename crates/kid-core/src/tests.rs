@@ -50226,3 +50226,46 @@ fn loc_2040_scans_left_with_predecrement_and_only_shrinks_on_zero_tiles() {
         "ASM loc_2040 subtracts `$10` from `d1` once per zero tile, so two empty columns should move the left edge from pixel 64 to pixel 32",
     );
 }
+
+#[test]
+fn loc_2050_scans_up_by_level_width_and_restores_the_last_zero_row() {
+    let immediate_blocker =
+        crate::level::kid_hitbox_solid_scan_expand_up_loc_2050(13, 4, &[0x7000])
+            .expect("ASM loc_2050 should branch out as soon as the first row above blocks");
+    assert_eq!(
+        immediate_blocker.restored_index, 13,
+        "ASM loc_2050 should `add.w d3,a1` after the blocking read, restoring the original open tile when the first row above already blocks",
+    );
+    assert_eq!(
+        immediate_blocker.row_index, 3,
+        "ASM loc_2050 passes the restored row through `sub_1F8E`, so index 13 in a 4-tile-wide grid should report row 3",
+    );
+    assert_eq!(
+        immediate_blocker.vertical_start_px, 48,
+        "ASM loc_2050 seeds `d1` from `d6 << 4`, so restored row 3 should start at pixel 48",
+    );
+    assert_eq!(
+        immediate_blocker.vertical_end_px, 47,
+        "ASM loc_2050 copies `d1` into `d2` and immediately `subq.w #1,d2`, leaving the low word one pixel above the restored row start",
+    );
+
+    let expanded =
+        crate::level::kid_hitbox_solid_scan_expand_up_loc_2050(13, 4, &[0, 0, 0x6000])
+            .expect("ASM loc_2050 should keep stepping upward one full row until `j_Palette_to_VRAM0` turns non-zero");
+    assert_eq!(
+        expanded.restored_index, 5,
+        "ASM loc_2050 should subtract exactly one `Level_width_tiles` row per zero tile, then restore to the last zero row before the blocker",
+    );
+    assert_eq!(
+        expanded.row_index, 1,
+        "ASM loc_2050 should derive the restored row index from the row that remained zero immediately below the blocker",
+    );
+    assert_eq!(
+        expanded.vertical_start_px, 16,
+        "ASM loc_2050 seeds `d1` from the restored row index, so row 1 should start at pixel 16",
+    );
+    assert_eq!(
+        expanded.vertical_end_px, 15,
+        "ASM loc_2050 keeps the low word of `d2` at `d1 - 1` before the later downward scan at `loc_2074` extends it",
+    );
+}
