@@ -7713,6 +7713,13 @@ pub(crate) struct BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6 {
     pub(crate) second_pass_dbf_counter: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE {
+    pub(crate) wrapped_tile_window_span: u16,
+    pub(crate) first_pass_dbf_counter: u16,
+    pub(crate) second_pass_dbf_counter: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BackgroundScrollPieceRefreshWrappedCopyLoc308C4 {
     pub(crate) first_pass_mapping_words: Vec<u16>,
@@ -8439,6 +8446,25 @@ pub(crate) fn background_scroll_piece_refresh_wrapped_copy_loc_308C4(
             .wrapping_add(second_pass_count as i16)
             .wrapping_sub(background_width),
     })
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE(
+    wrapped_tile_window_span: u16,
+) -> BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE {
+    // ASM loc_308DE (kid.asm:34736): when the tile phase wraps but the row
+    // window does not, this setup block snapshots wrapped `d6` into `d4`,
+    // seeds `d1` with `$28 - d6 - 1` for the first inclusive copy pass, and
+    // loads `d2 = 1` so loc_308E8 executes exactly one second pass after the
+    // plane-B control-word reset.
+    BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE {
+        wrapped_tile_window_span,
+        first_pass_dbf_counter: 0x0028_u16
+            .wrapping_sub(wrapped_tile_window_span)
+            .wrapping_sub(1),
+        second_pass_dbf_counter: 1,
+    }
 }
 
 #[allow(non_snake_case)]

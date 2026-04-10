@@ -52,8 +52,9 @@ use crate::level::{
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollLowerPassLoopLoc30066,
     BackgroundScrollLowerPassRendererLoc30066, BackgroundScrollLowerPassResumeLoc30054,
     BackgroundScrollLowerPassSetupLoc3001E, BackgroundScrollPieceRefreshLinearCopyLoc308A6,
-    BackgroundScrollPieceRefreshSeedLoc3081A, BackgroundScrollPieceRefreshVdpSeedLoc30884,
-    BackgroundScrollPieceRefreshWindowSplitLoc3086A,
+    BackgroundScrollPieceRefreshSeedLoc3081A,
+    BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE,
+    BackgroundScrollPieceRefreshVdpSeedLoc30884, BackgroundScrollPieceRefreshWindowSplitLoc3086A,
     BackgroundScrollPieceRefreshWrapCounterSetupLoc308B6, BackgroundScrollPieceRefreshWrapLoc30836,
     BackgroundScrollPieceRefreshWrappedCopyLoc308C4, BackgroundScrollPieceRowDispatchLoc3079A,
     BackgroundScrollPieceRowDispatchLoc3079ABranch, BackgroundScrollPieceRowUploadLoc307B2,
@@ -118,6 +119,7 @@ use crate::level::{
     background_scroll_lower_pass_setup_loc_3001E,
     background_scroll_piece_refresh_linear_copy_loc_308A6,
     background_scroll_piece_refresh_seed_loc_3081A,
+    background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE,
     background_scroll_piece_refresh_vdp_seed_loc_30884,
     background_scroll_piece_refresh_window_split_loc_3086A,
     background_scroll_piece_refresh_wrap_counter_setup_loc_308B6,
@@ -2770,6 +2772,20 @@ fn background_scroll_piece_refresh_wrap_counter_setup_loc_308b6_splits_the_wrapp
             second_pass_dbf_counter: 1,
         },
         "ASM loc_308B6 should snapshot wrapped `d7` into `d4`, seed `d1` with `$28 - d7 - 1` for the first inclusive pass, and set `d2 = 1` so the shared tail retries exactly once",
+    );
+}
+
+#[test]
+fn background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308de_splits_the_tile_wrap_copy_into_two_inclusive_passes()
+ {
+    assert_eq!(
+        background_scroll_piece_refresh_tile_wrap_counter_setup_loc_308DE(0x0024),
+        BackgroundScrollPieceRefreshTileWrapCounterSetupLoc308DE {
+            wrapped_tile_window_span: 0x0024,
+            first_pass_dbf_counter: 0x0003,
+            second_pass_dbf_counter: 1,
+        },
+        "ASM loc_308DE should snapshot wrapped `d6` into `d4`, seed `d1` with `$28 - d6 - 1` for the first inclusive pass, and set `d2 = 1` so loc_308E8 executes exactly one second pass",
     );
 }
 
