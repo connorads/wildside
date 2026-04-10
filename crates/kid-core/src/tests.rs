@@ -54346,3 +54346,22 @@ fn loc_2106_moves_kid_and_the_object_left_by_the_chosen_overlap_plus_one() {
         "ASM loc_2106 finishes with `clr.w $1C(a0)`, forcing the colliding object's X velocity to zero",
     );
 }
+
+#[test]
+fn horizontal_collision_scan_right_loc_369c4_flags_an_in_bounds_right_slope_column() {
+    let mut data = vec![0u8; 4 * 4 * 2];
+    let slope_offset = 12;
+    data[slope_offset] = 0x50;
+    let grid = crate::terrain::BlockGrid::from_level_layout(&data, 4, 4);
+
+    let scan = crate::terrain::horizontal_collision_scan_right_sub_36B3C(&grid, 24, 32, 8, 16);
+
+    assert_eq!(
+        scan,
+        crate::terrain::HorizontalCollisionScan {
+            hitbox_blocked: false,
+            lead_column_blocked: true,
+        },
+        "ASM loc_369C4 should scan the in-bounds right lead column before the boundary fallback, so a `$5000` slope there must still block side contact",
+    );
+}

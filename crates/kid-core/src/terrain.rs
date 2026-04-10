@@ -1578,6 +1578,10 @@ fn horizontal_collision_scan(
         if lead_col >= i32::from(grid.width_cells) {
             true
         } else {
+            // ASM loc_369C4 (kid.asm:38139): once the right lead column is still
+            // in bounds, scan that column over the same row span and treat any
+            // bit-$4000 word found by the later `loc_369DE/loc_369EE` checks as
+            // a blocking side contact.
             (top_row..=bottom_row)
                 .any(|row| sets_collision_bit_14(grid.cell_at(lead_col as u16, row as u16)))
         }
@@ -3121,6 +3125,25 @@ mod tests {
                 lead_column_blocked: true,
             },
             "ASM sub_36B3C should return a blocked lead column once the next cell would step beyond Level_width_blocks",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_right_loc_369c4_flags_an_in_bounds_right_slope_column() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        let slope_offset = (1 * 4 + 2) * 2;
+        data[slope_offset] = 0x50;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let scan = horizontal_collision_scan_right_sub_36B3C(&grid, 24, 32, 8, 16);
+
+        assert_eq!(
+            scan,
+            HorizontalCollisionScan {
+                hitbox_blocked: false,
+                lead_column_blocked: true,
+            },
+            "ASM loc_369C4 should scan the in-bounds right lead column before the boundary fallback, so a `$5000` slope there must still block side contact",
         );
     }
 
