@@ -48,8 +48,9 @@ use crate::level::{
     BackgroundScrollLowerPassResumeLoc30054, BackgroundScrollLowerPassSetupLoc3001E,
     BackgroundScrollStripeHorizontalGateLoc3023C,
     BackgroundScrollStripeHorizontalLayoutSeedLoc3026C,
-    BackgroundScrollStripeHorizontalLowerWindowLoc3028E, BackgroundScrollStripeHorizontalPassLoc30296,
-    BackgroundScrollStripeLayoutSeedLoc301D8,
+    BackgroundScrollStripeHorizontalLowerWindowLoc3028E,
+    BackgroundScrollStripeHorizontalPassLoc30296,
+    BackgroundScrollStripeHorizontalRowTransferLoc3031A, BackgroundScrollStripeLayoutSeedLoc301D8,
     BackgroundScrollStripeRightWindowLoc301F6, BackgroundScrollStripeRowSelectionLoc301CE,
     BackgroundScrollStripeVerticalPassLoc301FE, BackgroundScrollUpperPassLoc2FFE8,
     BackgroundScrollUpperPassResumeLoc30014, BlockLayoutDecodeWordsLoc1354E,
@@ -85,6 +86,7 @@ use crate::level::{
     background_scroll_stripe_horizontal_layout_seed_loc_3026C,
     background_scroll_stripe_horizontal_lower_window_loc_3028E,
     background_scroll_stripe_horizontal_pass_loc_30296,
+    background_scroll_stripe_horizontal_row_transfer_loc_3031A,
     background_scroll_stripe_layout_seed_loc_301D8,
     background_scroll_stripe_restore_camera_column_loc_3023A,
     background_scroll_stripe_right_window_loc_301F6,
@@ -2768,8 +2770,7 @@ fn background_scroll_stripe_horizontal_lower_window_loc_3028e_shrinks_the_span_t
 }
 
 #[test]
-fn background_scroll_stripe_horizontal_pass_loc_30296_builds_the_first_vdp_command_and_wrap_pass()
- {
+fn background_scroll_stripe_horizontal_pass_loc_30296_builds_the_first_vdp_command_and_wrap_pass() {
     assert_eq!(
         background_scroll_stripe_horizontal_pass_loc_30296(0x0004, 0x0038, 0x012C, 0),
         BackgroundScrollStripeHorizontalPassLoc30296 {
@@ -2782,8 +2783,7 @@ fn background_scroll_stripe_horizontal_pass_loc_30296_builds_the_first_vdp_comma
 }
 
 #[test]
-fn background_scroll_stripe_horizontal_pass_loc_30296_skips_the_wrap_pass_when_d2_stays_negative()
- {
+fn background_scroll_stripe_horizontal_pass_loc_30296_skips_the_wrap_pass_when_d2_stays_negative() {
     assert_eq!(
         background_scroll_stripe_horizontal_pass_loc_30296(0x001F, 0x0003, 0x00F0, -1),
         BackgroundScrollStripeHorizontalPassLoc30296 {
@@ -2792,6 +2792,18 @@ fn background_scroll_stripe_horizontal_pass_loc_30296_skips_the_wrap_pass_when_d
             second_pass_vdp_command: None,
         },
         "ASM loc_30296 should branch to loc_302E2 after the first `sub_302F6` call when `d2` remains negative, leaving no wraparound VDP command to issue",
+    );
+}
+
+#[test]
+fn background_scroll_stripe_horizontal_row_transfer_loc_3031a_sets_high_priority_on_both_tile_words()
+ {
+    assert_eq!(
+        background_scroll_stripe_horizontal_row_transfer_loc_3031A([0x1357, 0x2468]),
+        BackgroundScrollStripeHorizontalRowTransferLoc3031A {
+            tile_words: [0x9357, 0xA468],
+        },
+        "ASM loc_3031A should OR `$8000` into both mapping words after `btst d2,d3` sees bit 8 set",
     );
 }
 

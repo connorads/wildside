@@ -8204,6 +8204,24 @@ pub(crate) fn background_scroll_stripe_horizontal_pass_loc_30296(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BackgroundScrollStripeHorizontalRowTransferLoc3031A {
+    pub(crate) tile_words: [u16; 2],
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn background_scroll_stripe_horizontal_row_transfer_loc_3031A(
+    mapping_words: [u16; 2],
+) -> BackgroundScrollStripeHorizontalRowTransferLoc3031A {
+    // ASM loc_3031A (kid.asm:33918): after `btst d2,d3` sees bit 8 set, the
+    // routine still indexes the same `(a1,d3.w)` mapping pair but ORs `$8000`
+    // into both emitted words before streaming them to `(a6)`.
+    BackgroundScrollStripeHorizontalRowTransferLoc3031A {
+        tile_words: mapping_words.map(|word| word | 0x8000),
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
