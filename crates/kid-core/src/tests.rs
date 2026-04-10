@@ -44679,6 +44679,20 @@ fn loc_33248_zeroes_disguised_solid_ghost_blocks_before_masking_collision() {
 }
 
 #[test]
+fn loc_33264_zeroes_the_middle_row_disguised_block_before_masking_collision() {
+    assert_eq!(
+        crate::terrain::relative_collision_word_mask_loc_33264(0xB344),
+        0,
+        "ASM loc_33264 (kid.asm:37680) should apply the same `bclr #$F` / `andi.w #$F00` disguised-block gate to `d6` before falling through to the shared collision mask",
+    );
+    assert_eq!(
+        crate::terrain::relative_collision_word_mask_loc_33264(0x6444),
+        0x6000,
+        "ASM loc_33264 should keep ordinary middle-row collision words on the fall-through path and preserve only their `$7000` collision nibble",
+    );
+}
+
+#[test]
 fn loc_331f6_reads_the_foot_row_plus_14_and_the_two_rows_above_it() {
     let grid = grid_with_cells(
         8,

@@ -1295,6 +1295,16 @@ pub(crate) fn relative_collision_word_mask_loc_33248(tile_word: u16) -> u16 {
     }
 }
 
+/// Mirror the middle-word disguised-block filter in `loc_33264`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn relative_collision_word_mask_loc_33264(tile_word: u16) -> u16 {
+    // ASM loc_33264 (kid.asm:37680): after `bclr #$F,d6`, the second sampled
+    // word follows the same disguised-block gate as `loc_33248` before falling
+    // through to the shared collision-nibble mask.
+    relative_collision_word_mask_loc_33248(tile_word)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct RelativeCollisionColumnLoc331F6 {
     pub(crate) current_row: u16,
@@ -1346,7 +1356,7 @@ pub(crate) fn relative_collision_column_loc_331F6(
     } else {
         RelativeCollisionColumnLoc331F6 {
             current_row: relative_collision_word_mask_loc_33248(current_row),
-            one_row_up: relative_collision_word_mask_loc_33248(one_row_up),
+            one_row_up: relative_collision_word_mask_loc_33264(one_row_up),
             two_rows_up: relative_collision_word_mask_loc_33248(two_rows_up),
         }
     }
