@@ -4554,6 +4554,25 @@ pub(crate) fn kid_hitbox_solid_scan_loc_1FEE(
     None
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn palette_to_vram0_blocks_solid_scan_loc_2198(tile_word: u16) -> u16 {
+    // ASM j_Palette_to_VRAM0 / loc_2198 (kid.asm:3978-3989): return zero only
+    // when bit 15 was set before `bclr #$F,d0` and the remaining palette nibble
+    // matches `$300`; every other tile classification falls through to
+    // `loc_2198` and returns one.
+    let bit_15_was_clear = (tile_word & 0x8000) == 0;
+    if bit_15_was_clear {
+        return 1;
+    }
+
+    if (tile_word & 0x0F00) != 0x0300 {
+        return 1;
+    }
+
+    0
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidHitboxSolidScanRightSeedLoc201C {
     pub(crate) rewind_index: usize,

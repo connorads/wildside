@@ -2189,6 +2189,27 @@ fn first_shooter_hit_sub_219c_rejects_edge_equal_contacts() {
 }
 
 #[test]
+fn loc_2198_returns_one_unless_the_high_priority_palette_nibble_is_three() {
+    assert_eq!(
+        crate::level::palette_to_vram0_blocks_solid_scan_loc_2198(0x8300),
+        0,
+        "ASM j_Palette_to_VRAM0 falls through to `moveq #0,d0` only when bit 15 survives the `bclr #$F,d0` test and `andi.w #$F00,d0` leaves `$300`",
+    );
+
+    assert_eq!(
+        crate::level::palette_to_vram0_blocks_solid_scan_loc_2198(0x0300),
+        1,
+        "ASM loc_2198 should return 1 when `bclr #$F,d0` finds bit 15 already clear",
+    );
+
+    assert_eq!(
+        crate::level::palette_to_vram0_blocks_solid_scan_loc_2198(0x8200),
+        1,
+        "ASM loc_2198 should also return 1 when bit 15 was set but the post-`bclr` palette nibble is not `$300`",
+    );
+}
+
+#[test]
 fn first_shooter_hit_sub_219c_returns_first_strict_interior_hit() {
     let hitbox = collision_rect_sub_1f52(100, 120, 40, 80);
 
