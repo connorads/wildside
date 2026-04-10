@@ -2153,7 +2153,7 @@ fn kid_hitbox_from_collision_size_sub_21f8_expands_non_mirrored_entries_from_lef
 }
 
 #[test]
-fn kid_hitbox_from_collision_size_sub_21f8_mirrors_width_back_from_the_anchor_side() {
+fn kid_hitbox_from_collision_size_sub_21f8_loc_2228_mirrors_width_back_from_the_anchor_side() {
     let hitbox = kid_hitbox_from_collision_size_sub_21F8(
         collision_rect_sub_1f52(0, 0, 0, 0),
         120,
@@ -2165,7 +2165,7 @@ fn kid_hitbox_from_collision_size_sub_21f8_mirrors_width_back_from_the_anchor_si
     assert_eq!(
         hitbox,
         collision_rect_sub_1f52(115, 125, 49, 80),
-        "ASM sub_21F8 negates the left offset, anchors the mirrored edge first, then subtracts width to recover the opposite side",
+        "ASM loc_2228 (kid.asm:4054) negates the left offset, anchors the mirrored edge first, then subtracts width to recover the opposite side",
     );
 }
 

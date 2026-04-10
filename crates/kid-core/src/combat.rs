@@ -2956,6 +2956,9 @@ pub(crate) fn kid_hitbox_from_collision_size_sub_21F8(
         let right_px = left_px.saturating_add(collision_size.width_px);
         (left_px, right_px)
     } else {
+        // ASM loc_2228 (kid.asm:4054-4059): negate the stored left offset,
+        // anchor the facing-side edge first, then subtract the width back to
+        // recover the opposite edge.
         let right_px = x_anchor_px.saturating_sub(collision_size.left_offset_px);
         let left_px = right_px.saturating_sub(collision_size.width_px);
         (left_px, right_px)
