@@ -99,20 +99,20 @@ use crate::level::{
     FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
     IslandPaletteCycleMidBandLoc12110, IslandPaletteCyclePrimaryBandLoc12098,
     LateBackgroundPaletteOverrideLoc11E06, LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit,
-    ManageEnemyLoadingStatusBranchLoc36840, PaletteFadeOutInitLoc28A6, PaletteFadeOutStepLoc28C6,
-    PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT,
-    SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA,
-    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, TransferScrollDataDispatchLoc3039C,
-    TransferScrollDataDmaTailLoc300D2, TransferScrollDataPreludeLoc3038A,
-    TransferScrollDataRendererLoc3039C, TransferScrollDataStormLoc30110,
-    TransferScrollDataStormLoopLoc30130, TransferScrollDataStormLoopLoc30172,
-    TransferScrollDataStormSetupLoc30158, TransferScrollDataVsramSetupLoc300BA,
-    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
-    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
-    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
-    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    background_scroll_desert_heat_ripple_loop_loc_306F4,
+    ManageEnemyLoadingCountDownActiveLoc3685E, ManageEnemyLoadingStatusBranchLoc36840,
+    PaletteFadeOutInitLoc28A6, PaletteFadeOutStepLoc28C6, PostLoadObjectRoutineLoc11F96,
+    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
+    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
+    SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
+    SpriteFrameStateSubB52, TransferScrollDataDispatchLoc3039C, TransferScrollDataDmaTailLoc300D2,
+    TransferScrollDataPreludeLoc3038A, TransferScrollDataRendererLoc3039C,
+    TransferScrollDataStormLoc30110, TransferScrollDataStormLoopLoc30130,
+    TransferScrollDataStormLoopLoc30172, TransferScrollDataStormSetupLoc30158,
+    TransferScrollDataVsramSetupLoc300BA, apply_background_palette_override_loc_11E04,
+    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
+    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A, background_scroll_desert_heat_ripple_loop_loc_306F4,
     background_scroll_desert_heat_ripple_setup_loc_306D4,
     background_scroll_desert_heat_ripple_visible_band_loc_306C2,
     background_scroll_enigma_primary_copy_setup_loc_30426,
@@ -199,7 +199,8 @@ use crate::level::{
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
-    manage_enemy_loading_setup_loc_3682C, manage_enemy_loading_status_branch_loc_36840,
+    manage_enemy_loading_count_down_active_loc_3685E, manage_enemy_loading_setup_loc_3682C,
+    manage_enemy_loading_status_branch_loc_36840,
     object_check_in_range_active_count_gate_loc_320E2, object_check_in_range_normal_x_loc_320C0,
     object_check_in_range_normal_y_loc_320D8, object_check_in_range_wide_load_x_loc_32122,
     object_check_in_range_wide_load_y_loc_32140, object_out_of_range_delete_tail_loc_320B4,
@@ -35517,6 +35518,26 @@ fn manage_enemy_loading_loc_36840_classifies_each_enemy_status_word_branch() {
         manage_enemy_loading_status_branch_loc_36840(0x4001),
         ManageEnemyLoadingStatusBranchLoc36840::CountDownReloadLoc3686E,
         "ASM loc_36840 should route bit-14 countdown words to `loc_3686E`"
+    );
+}
+
+#[test]
+fn manage_enemy_loading_loc_3685e_only_decrements_non_zero_low_ten_bit_countdowns() {
+    assert_eq!(
+        manage_enemy_loading_count_down_active_loc_3685E(0x2000),
+        ManageEnemyLoadingCountDownActiveLoc3685E {
+            reaches_spawn_window: true,
+            decremented_status_word: None,
+        },
+        "ASM loc_3685E should fall through to `loc_368A8` once `d0 & $03FF` reaches zero"
+    );
+    assert_eq!(
+        manage_enemy_loading_count_down_active_loc_3685E(0x23A7),
+        ManageEnemyLoadingCountDownActiveLoc3685E {
+            reaches_spawn_window: false,
+            decremented_status_word: Some(0x23A6),
+        },
+        "ASM loc_3685E should decrement `(a2)` in place and skip spawning while the low 10-bit countdown is still non-zero"
     );
 }
 

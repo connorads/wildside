@@ -6196,6 +6196,32 @@ pub(crate) fn manage_enemy_loading_status_branch_loc_36840(
     ManageEnemyLoadingStatusBranchLoc36840::CountDownReloadLoc3686E
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ManageEnemyLoadingCountDownActiveLoc3685E {
+    pub(crate) reaches_spawn_window: bool,
+    pub(crate) decremented_status_word: Option<u16>,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn manage_enemy_loading_count_down_active_loc_3685E(
+    enemy_status_word: u16,
+) -> ManageEnemyLoadingCountDownActiveLoc3685E {
+    // ASM loc_3685E (kid.asm:37991-37996) masks `d0` with `$03FF`; a zero
+    // low-ten-bit countdown falls straight through to `loc_368A8`, otherwise
+    // the ROM decrements `(a2)` in place and skips spawning via `loc_36962`.
+    if enemy_status_word & 0x03FF == 0 {
+        return ManageEnemyLoadingCountDownActiveLoc3685E {
+            reaches_spawn_window: true,
+            decremented_status_word: None,
+        };
+    }
+    ManageEnemyLoadingCountDownActiveLoc3685E {
+        reaches_spawn_window: false,
+        decremented_status_word: Some(enemy_status_word.wrapping_sub(1)),
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
