@@ -44735,6 +44735,20 @@ fn loc_332ec_zeroes_the_second_horizontal_row_disguised_block_before_masking_col
 }
 
 #[test]
+fn loc_33308_keeps_only_the_final_horizontal_row_collision_nibble() {
+    assert_eq!(
+        crate::terrain::relative_collision_nibble_loc_33308(0xF6A5),
+        0x7000,
+        "ASM loc_33308 (kid.asm:37743) should end the horizontal three-word scan with `andi.w #$7000,d7`, dropping the block flag and lower tile bits",
+    );
+    assert_eq!(
+        crate::terrain::relative_collision_nibble_loc_33308(0x0333),
+        0,
+        "ASM loc_33308 should leave a zero collision nibble when the final horizontal word carries no terrain bits in `$7000`",
+    );
+}
+
+#[test]
 fn loc_331f6_reads_the_foot_row_plus_14_and_the_two_rows_above_it() {
     let grid = grid_with_cells(
         8,

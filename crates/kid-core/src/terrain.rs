@@ -1338,6 +1338,15 @@ pub(crate) fn relative_collision_word_mask_loc_332EC(tile_word: u16) -> u16 {
     relative_collision_word_mask_shared_disguised_block(tile_word)
 }
 
+/// Mirror the final horizontal-word collision mask in `loc_33308`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn relative_collision_nibble_loc_33308(tile_word: u16) -> u16 {
+    // ASM loc_33308 (kid.asm:37743): after the `d7` disguised-block gate at
+    // loc_332EC, the horizontal scan ends with `andi.w #$7000,d7`.
+    relative_collision_nibble_loc_33280(tile_word)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct RelativeCollisionColumnLoc331F6 {
     pub(crate) current_row: u16,
