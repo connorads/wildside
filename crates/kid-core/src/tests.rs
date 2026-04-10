@@ -15,19 +15,19 @@ use crate::boot::{
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IntroSequence6LongwordFillLoc1B170,
     IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24, PauseMenuSpriteEntrySub6874,
     copy_sega_screen_palette_loc_12DFE, end_sequence_burst_prelude_loc_1D1D6,
-    end_sequence_burst_sprite_init_sub_1D86C, end_sequence_camera_shake_sub_1D846,
-    end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
-    flag_hud_dma_upload_sub_5DA6, hide_pause_menu_overwritten_sprites_sub_6874,
-    hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    intro_sequence_6_longword_fill_loc_1B170, intro_sequence_6_striped_tile_fill_loc_1B194,
-    intro_sequence_6_tilemap_clear_loc_1B182, prize_10000_points_star_advance_loc_10BCE,
-    prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
-    prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
-    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
-    sega_screen_object_bootstrap_loc_12E48, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
-    step_hud_animation_sub_44DC, title_shell_art_decompress_loc_1BF54,
-    title_shell_art_index_loc_1BF3E, title_shell_vram_fill_loc_1BF70,
-    vdp_upload_32_longwords_sub_44D0,
+    end_sequence_burst_sprite_init_sub_1D86C, end_sequence_burst_wait_loop_loc_1D1DE,
+    end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
+    end_sequence_falling_sprite_init_sub_1D8B4, flag_hud_dma_upload_sub_5DA6,
+    hide_pause_menu_overwritten_sprites_sub_6874, hud_timer_sprite_layout_sub_BD0A,
+    init_hud_animation_frames_sub_44B0, intro_sequence_6_longword_fill_loc_1B170,
+    intro_sequence_6_striped_tile_fill_loc_1B194, intro_sequence_6_tilemap_clear_loc_1B182,
+    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_cleanup_loc_10BE6,
+    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_latch_screen_pos_loc_10B9A,
+    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
+    read_io_port_a10001_flags_sub_6E24, sega_screen_object_bootstrap_loc_12E48,
+    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
+    title_shell_art_decompress_loc_1BF54, title_shell_art_index_loc_1BF3E,
+    title_shell_vram_fill_loc_1BF70, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -26844,6 +26844,36 @@ fn loc_1d1d6_end_sequence_burst_prelude_seeds_priority_one_and_two_wait_frames()
     assert_eq!(
         prelude.wait_iterations, 0x0002,
         "ASM loc_1D1D6 feeds `d1 = 1` into `dbf d1,loc_1D1DE`, so the inner wait loop runs `$1 + 1 = 2` frames",
+    );
+}
+
+#[test]
+fn loc_1d1de_end_sequence_burst_wait_loop_repeats_21_outer_cycles_back_to_loc_1d1d6() {
+    let wait_loop = end_sequence_burst_wait_loop_loc_1D1DE();
+
+    assert_eq!(
+        wait_loop.hibernate_subroutine, "j_Hibernate_Object_1Frame",
+        "ASM loc_1D1DE (kid.asm:32587-32590) should hibernate once per inner-loop body",
+    );
+    assert_eq!(
+        wait_loop.inner_wait_seed, 0x0001,
+        "ASM loc_1D1DE should consume the `d1 = 1` seed prepared at `loc_1D1D6`",
+    );
+    assert_eq!(
+        wait_loop.inner_wait_iterations, 0x0002,
+        "ASM loc_1D1DE's `dbf d1,loc_1D1DE` should produce `$1 + 1 = 2` hibernation frames per burst",
+    );
+    assert_eq!(
+        wait_loop.outer_loop_seed, 0x0014,
+        "ASM loc_1D1DE should inherit `d0 = $14` from `loc_1D1CE` before the outer `dbf`",
+    );
+    assert_eq!(
+        wait_loop.outer_loop_iterations, 0x0015,
+        "ASM loc_1D1DE's `dbf d0,loc_1D1D6` should repeat the burst prelude `$14 + 1 = $15` times",
+    );
+    assert_eq!(
+        wait_loop.next_outer_label, "loc_1D1D6",
+        "ASM loc_1D1DE should loop back to `loc_1D1D6` until the outer DBF counter expires",
     );
 }
 

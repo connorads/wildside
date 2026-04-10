@@ -2777,6 +2777,33 @@ pub(crate) fn end_sequence_burst_prelude_loc_1D1D6() -> EndSequenceBurstPreludeL
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndSequenceBurstWaitLoopLoc1D1DE {
+    pub(crate) hibernate_subroutine: &'static str,
+    pub(crate) inner_wait_seed: u16,
+    pub(crate) inner_wait_iterations: u16,
+    pub(crate) outer_loop_seed: u16,
+    pub(crate) outer_loop_iterations: u16,
+    pub(crate) next_outer_label: &'static str,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_sequence_burst_wait_loop_loc_1D1DE() -> EndSequenceBurstWaitLoopLoc1D1DE {
+    // ASM loc_1D1DE (kid.asm:32587-32590): hibernate once per inner-loop body,
+    // let `dbf d1,loc_1D1DE` consume the `d1 = 1` seed from `loc_1D1D6`, then
+    // let `dbf d0,loc_1D1D6` consume the `d0 = $14` seed from `loc_1D1CE`.
+    EndSequenceBurstWaitLoopLoc1D1DE {
+        hibernate_subroutine: "j_Hibernate_Object_1Frame",
+        inner_wait_seed: 0x0001,
+        inner_wait_iterations: 0x0002,
+        outer_loop_seed: 0x0014,
+        outer_loop_iterations: 0x0015,
+        next_outer_label: "loc_1D1D6",
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn end_sequence_burst_sprite_init_sub_1D86C(
