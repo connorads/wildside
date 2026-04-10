@@ -19105,6 +19105,50 @@ fn deallocate_platform_slot_sub_23b4_jumps_to_loc_6e2_when_the_target_is_missing
 }
 
 #[test]
+fn platform_sprite_dispatch_loc_244c_biases_visible_platforms_and_selects_loc_24c0() {
+    assert_eq!(
+        platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {
+            world_x_px: 0x0120,
+            world_y_px: 0x0090,
+            camera_x_px: 0x0100,
+            camera_y_px: 0x0080,
+            width_px: 0x002F,
+            height_px: 0x001F,
+            mapping_addr_word: 0x2468,
+            render_flags: 0xF4,
+        }),
+        Some(PlatformSpriteDispatchLoc244C {
+            screen_x_word: 0x00A0,
+            screen_y_word: 0x0090,
+            width_tiles_minus_one: 2,
+            height_tiles_minus_one: 1,
+            base_tile_word: 0x0500,
+            mapping_addr_word: 0x2468,
+            variant: PlatformSpriteVariantLoc244C::Loc24C0,
+        }),
+        "ASM loc_244C should bias visible platform coordinates by +$80, derive tile counts from `$1A/$1C >> 4`, seed `d2=#$500`, and dispatch through `off_24AC` using the low nibble of `$1F(a2)`",
+    );
+}
+
+#[test]
+fn platform_sprite_dispatch_loc_244c_culls_platforms_whose_right_edge_is_left_of_camera() {
+    assert_eq!(
+        platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {
+            world_x_px: 0x0070,
+            world_y_px: 0x0090,
+            camera_x_px: 0x0100,
+            camera_y_px: 0x0080,
+            width_px: 0x0010,
+            height_px: 0x001F,
+            mapping_addr_word: 0x1357,
+            render_flags: 0,
+        }),
+        None,
+        "ASM loc_244C should skip the platform and loop back immediately when `d7 + $1A(a2)` stays negative after subtracting `Camera_X_pos`",
+    );
+}
+
+#[test]
 fn platform_collision_shift_directions_matter() {
     // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
     // If >> became <<, pixel values would be wildly wrong and collision would fail.

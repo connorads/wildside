@@ -320,3 +320,83 @@ pub(crate) fn platform_support_check_sub_8ED0(
     player_x_px + support_half_width_px < platform_left_px
         || player_x_px - support_half_width_px > platform_right_px
 }
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformSpriteDispatchInputLoc244C {
+    pub(crate) world_x_px: i16,
+    pub(crate) world_y_px: i16,
+    pub(crate) camera_x_px: i16,
+    pub(crate) camera_y_px: i16,
+    pub(crate) width_px: i16,
+    pub(crate) height_px: i16,
+    pub(crate) mapping_addr_word: u16,
+    pub(crate) render_flags: u8,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PlatformSpriteVariantLoc244C {
+    Loc24CC,
+    Loc24F0,
+    Loc251C,
+    Loc24D4,
+    Loc24C0,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformSpriteDispatchLoc244C {
+    pub(crate) screen_x_word: i16,
+    pub(crate) screen_y_word: i16,
+    pub(crate) width_tiles_minus_one: u16,
+    pub(crate) height_tiles_minus_one: u16,
+    pub(crate) base_tile_word: u16,
+    pub(crate) mapping_addr_word: u16,
+    pub(crate) variant: PlatformSpriteVariantLoc244C,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn platform_sprite_dispatch_loc_244C(
+    input: PlatformSpriteDispatchInputLoc244C,
+) -> Option<PlatformSpriteDispatchLoc244C> {
+    // ASM loc_244C (kid.asm:4329): walk the active platform list, cull against
+    // the `320x224` camera window using the platform width/height words at
+    // `$1A(a2)`/`$1C(a2)`, bias visible positions by `+$80`, set `d2=#$500`,
+    // and dispatch through `off_24AC` using the low nibble of `$1F(a2)`.
+    let relative_x = input.world_x_px.wrapping_sub(input.camera_x_px);
+    if relative_x >= 0x0140 {
+        return None;
+    }
+    if relative_x.wrapping_add(input.width_px) < 0 {
+        return None;
+    }
+
+    let relative_y = input.world_y_px.wrapping_sub(input.camera_y_px);
+    if relative_y >= 0x00E0 {
+        return None;
+    }
+    if relative_y.wrapping_add(input.height_px) < 0 {
+        return None;
+    }
+
+    let variant = match input.render_flags & 0x0F {
+        0 => PlatformSpriteVariantLoc244C::Loc24CC,
+        1 => PlatformSpriteVariantLoc244C::Loc24F0,
+        2 => PlatformSpriteVariantLoc244C::Loc251C,
+        3 => PlatformSpriteVariantLoc244C::Loc24D4,
+        4 => PlatformSpriteVariantLoc244C::Loc24C0,
+        _ => return None,
+    };
+
+    Some(PlatformSpriteDispatchLoc244C {
+        screen_x_word: relative_x.wrapping_add(0x0080),
+        screen_y_word: relative_y.wrapping_add(0x0080),
+        width_tiles_minus_one: (input.width_px >> 4) as u16,
+        height_tiles_minus_one: (input.height_px >> 4) as u16,
+        base_tile_word: 0x0500,
+        mapping_addr_word: input.mapping_addr_word,
+        variant,
+    })
+}
