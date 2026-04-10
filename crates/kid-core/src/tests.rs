@@ -19177,6 +19177,15 @@ fn platform_single_sprite_loc_24c0_emits_one_400_series_platform_sprite() {
 }
 
 #[test]
+fn finish_platform_sprite_list_loc_256e_publishes_the_post_incremented_sprite_pointer() {
+    assert_eq!(
+        finish_platform_sprite_list_loc_256E(0xFFFF_0000 + (3 * 8)),
+        0xFFFF_0018,
+        "ASM loc_256E (kid.asm:4456) should store the post-incremented `a0` back into `Addr_NextSpriteSlot`, so three emitted 8-byte sprites advance the free pointer by `$18`",
+    );
+}
+
+#[test]
 fn platform_strip_sprites_loc_24cc_emits_one_row_of_700_series_cells() {
     assert_eq!(
         platform_strip_sprites_loc_24CC(

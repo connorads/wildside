@@ -446,6 +446,15 @@ pub(crate) fn emit_platform_sprite_loc_2548(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn finish_platform_sprite_list_loc_256E(next_sprite_slot_addr: u32) -> u32 {
+    // ASM loc_256E (kid.asm:4456): `move.l a0,(Addr_NextSpriteSlot).w; rts`.
+    // `a0` already points at the first free 8-byte sprite slot after the
+    // final `loc_2548` write, so the epilogue only publishes that pointer.
+    next_sprite_slot_addr
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn platform_single_sprite_loc_24C0(
     dispatch: PlatformSpriteDispatchLoc244C,
     number_sprites: u8,
