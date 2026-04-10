@@ -19028,6 +19028,18 @@ fn load_player_hitbox_loc_2590_preserves_the_current_hitbox_edges_for_platform_s
 }
 
 #[test]
+fn platform_collision_return_loc_2720_preserves_collision_type_through_the_epilogue() {
+    assert_eq!(
+        platform_collision_return_loc_2720(0x0004),
+        PlatformCollisionReturnLoc2720 {
+            collision_type_word: 0x0004,
+            scratch_bytes_released: 8,
+        },
+        "ASM loc_2720 (kid.asm:4639) should release the 8-byte platform scratch frame and return with the `loc_271A` collision type still set to `$0004`",
+    );
+}
+
+#[test]
 fn horizontal_overlap_resolution_loc_25ee_keeps_the_nearer_exit_distance() {
     assert_eq!(
         horizontal_overlap_resolution_loc_25EE(40, 87, 50, 70),

@@ -25,6 +25,13 @@ pub(crate) struct PlayerHitboxLoc2590 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformCollisionReturnLoc2720 {
+    pub(crate) collision_type_word: u16,
+    pub(crate) scratch_bytes_released: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HorizontalOverlapResolutionLoc25EE {
     pub(crate) left_exit_px: i16,
     pub(crate) right_exit_px: i16,
@@ -61,6 +68,20 @@ pub(crate) struct VerticalOverlapResolutionLoc265A {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VerticalPushMagnitudeLoc266A {
     pub(crate) magnitude_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn platform_collision_return_loc_2720(
+    collision_type_word: u16,
+) -> PlatformCollisionReturnLoc2720 {
+    // ASM loc_2720 (kid.asm:4639): after `loc_271A` writes `#4` into `$38(a0)`,
+    // `Platforms_CheckCollision` releases the 8-byte scratch frame, restores
+    // registers with `movem.l`, and returns without changing the collision type.
+    PlatformCollisionReturnLoc2720 {
+        collision_type_word,
+        scratch_bytes_released: 8,
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
