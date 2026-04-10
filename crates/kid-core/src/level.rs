@@ -4555,6 +4555,43 @@ pub(crate) fn kid_hitbox_solid_scan_loc_1FEE(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidHitboxSolidScanRightSeedLoc201C {
+    pub(crate) rewind_index: usize,
+    pub(crate) tile_column: u16,
+    pub(crate) left_px: u16,
+    pub(crate) right_px: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn kid_hitbox_solid_scan_expand_right_loc_201C(
+    solid_scan_locked_faa6: bool,
+    start_index_after_initial_hit: usize,
+    tile_column_after_rewind: u16,
+    palette_results: &[u16],
+) -> Option<KidHitboxSolidScanRightSeedLoc201C> {
+    // ASM loc_201C (kid.asm:3834-3847): abort to `loc_2156` when `$FFFFFAA6`
+    // is already set; otherwise keep consuming `(a1)+` until
+    // `j_Palette_to_VRAM0` returns non-zero. The post-hit `subq.w #4,a1`
+    // rewinds two words so `sub_1F8E` sees the last zero tile before the
+    // blocking tile, then `d1/d2` seed that tile's inclusive 16-pixel span.
+    if solid_scan_locked_faa6 {
+        return None;
+    }
+
+    let blocking_offset = palette_results.iter().position(|&result| result != 0)?;
+    let blocking_successor = start_index_after_initial_hit.checked_add(blocking_offset + 1)?;
+    let rewind_index = blocking_successor.checked_sub(2)?;
+    let left_px = tile_column_after_rewind << 4;
+    Some(KidHitboxSolidScanRightSeedLoc201C {
+        rewind_index,
+        tile_column: tile_column_after_rewind,
+        left_px,
+        right_px: left_px.wrapping_add(0x000F),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockType11ReadXPosLoc126BA {
     pub(crate) x_pos: u16,
     pub(crate) bytes_consumed: usize,

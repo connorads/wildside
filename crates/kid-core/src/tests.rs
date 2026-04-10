@@ -50168,3 +50168,32 @@ fn loc_1fee_scans_row_major_until_a_collision_nibble_reaches_6000() {
         "ASM loc_1FEE should fall through to loc_200C when every scanned tile masks below `$6000`",
     );
 }
+
+#[test]
+fn loc_201c_scans_right_until_palette_detects_a_blocking_tile() {
+    assert_eq!(
+        crate::level::kid_hitbox_solid_scan_expand_right_loc_201C(true, 9, 4, &[0, 0, 1]),
+        None,
+        "ASM loc_201C (kid.asm:3834) should branch to `loc_2156` before touching `(a1)+` when `$FFFFFAA6` is already set",
+    );
+
+    let seed =
+        crate::level::kid_hitbox_solid_scan_expand_right_loc_201C(false, 9, 4, &[0, 0, 0x6000])
+            .expect("ASM loc_201C should stop once `j_Palette_to_VRAM0` returns non-zero");
+    assert_eq!(
+        seed.rewind_index, 11,
+        "ASM loc_201C should apply `subq.w #4,a1` after the blocking read, rewinding from the post-increment successor to the last zero tile before the blocker",
+    );
+    assert_eq!(
+        seed.tile_column, 4,
+        "ASM loc_201C passes the rewound `a1` through `sub_1F8E`, so the recovered column should stay aligned with the last zero tile before the blocker",
+    );
+    assert_eq!(
+        seed.left_px, 64,
+        "ASM loc_201C seeds `d2` from `d5 << 4`, so column 4 should start at pixel 64",
+    );
+    assert_eq!(
+        seed.right_px, 79,
+        "ASM loc_201C adds `$F` after seeding `d1 = d2`, so the initial horizontal span covers one inclusive 16-pixel tile",
+    );
+}
