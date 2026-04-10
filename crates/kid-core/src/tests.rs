@@ -198,9 +198,9 @@ use crate::level::{
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
     initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
-    object_check_in_range_normal_x_loc_320C0, object_check_in_range_normal_y_loc_320D8,
-    object_out_of_range_delete_tail_loc_320B4, object_out_of_range_positive_slot_loc_320A6,
-    prepare_background_art_decompress_loc_11EA2,
+    object_check_in_range_active_count_gate_loc_320E2, object_check_in_range_normal_x_loc_320C0,
+    object_check_in_range_normal_y_loc_320D8, object_out_of_range_delete_tail_loc_320B4,
+    object_out_of_range_positive_slot_loc_320A6, prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
     reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
@@ -4245,6 +4245,50 @@ fn loc_320d8_accepts_only_the_inclusive_normal_range_y_window() {
     assert!(
         !object_check_in_range_normal_y_loc_320D8(0x1285, 0x1000),
         "ASM loc_320D8 should branch to `Object_OutOfRange` when relative y rises above `$284`",
+    );
+}
+
+#[test]
+fn loc_320e2_switches_to_the_tight_active_object_x_window_only_above_14_objects() {
+    assert_eq!(
+        object_check_in_range_active_count_gate_loc_320E2(0x0014, 0x1000, 0x1000),
+        crate::level::ObjectCheckInRangeActiveCountGateLoc320E2 {
+            uses_tight_window: false,
+            reaches_loc_32102: false,
+        },
+        "ASM loc_320E2 should branch straight to `loc_3211A` when `Number_Objects` is `$14` or less, so the tight x window is not used",
+    );
+    assert_eq!(
+        object_check_in_range_active_count_gate_loc_320E2(0x0015, 0x0EFC, 0x1000),
+        crate::level::ObjectCheckInRangeActiveCountGateLoc320E2 {
+            uses_tight_window: true,
+            reaches_loc_32102: true,
+        },
+        "ASM loc_320E2 should keep the lower inclusive tight-window edge `-$104` and fall through to `loc_32102` once `Number_Objects` exceeds `$14`",
+    );
+    assert_eq!(
+        object_check_in_range_active_count_gate_loc_320E2(0x0015, 0x1244, 0x1000),
+        crate::level::ObjectCheckInRangeActiveCountGateLoc320E2 {
+            uses_tight_window: true,
+            reaches_loc_32102: true,
+        },
+        "ASM loc_320E2 should keep the upper inclusive tight-window edge `$244` on the high-load path",
+    );
+    assert_eq!(
+        object_check_in_range_active_count_gate_loc_320E2(0x0015, 0x0EFB, 0x1000),
+        crate::level::ObjectCheckInRangeActiveCountGateLoc320E2 {
+            uses_tight_window: true,
+            reaches_loc_32102: false,
+        },
+        "ASM loc_320E2 should branch to `loc_32116` when the tight-window relative x drops below `-$104`",
+    );
+    assert_eq!(
+        object_check_in_range_active_count_gate_loc_320E2(0x0015, 0x1245, 0x1000),
+        crate::level::ObjectCheckInRangeActiveCountGateLoc320E2 {
+            uses_tight_window: true,
+            reaches_loc_32102: false,
+        },
+        "ASM loc_320E2 should branch to `loc_32116` when the tight-window relative x rises above `$244`",
     );
 }
 

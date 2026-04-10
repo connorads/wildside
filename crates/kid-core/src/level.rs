@@ -6244,6 +6244,32 @@ pub(crate) fn object_check_in_range_normal_y_loc_320D8(
     (-0x01A4..=0x0284).contains(&relative_y)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ObjectCheckInRangeActiveCountGateLoc320E2 {
+    pub(crate) uses_tight_window: bool,
+    pub(crate) reaches_loc_32102: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn object_check_in_range_active_count_gate_loc_320E2(
+    number_objects: u16,
+    object_x_pos: i16,
+    camera_x_pos: i16,
+) -> ObjectCheckInRangeActiveCountGateLoc320E2 {
+    // ASM loc_320E2 (kid.asm:37519-37530) only takes the tight active-object
+    // window when `Number_Objects > $14`; otherwise it branches to `loc_3211A`.
+    // Inside the tight path, it subtracts `Camera_X_pos` from `x_pos(a3)` and
+    // reaches `loc_32102` only when relative x stays inside `[-$104, $244]`.
+    let uses_tight_window = number_objects > 0x0014;
+    let relative_x = object_x_pos.wrapping_sub(camera_x_pos);
+    let reaches_loc_32102 = uses_tight_window && (-0x0104..=0x0244).contains(&relative_x);
+    ObjectCheckInRangeActiveCountGateLoc320E2 {
+        uses_tight_window,
+        reaches_loc_32102,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
