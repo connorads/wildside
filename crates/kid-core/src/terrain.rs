@@ -1849,6 +1849,8 @@ fn horizontal_collision_scan(
                 != 0
         }
     } else if left_col == 0 {
+        // ASM loc_36C38 (kid.asm:38475): when the doubled left-column offset
+        // is zero, set `d6=1` and skip the `-2(a1)` lead-column read.
         true
     } else {
         let lead_col = horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col)
@@ -3764,6 +3766,24 @@ mod tests {
                 lead_column_blocked: true,
             },
             "ASM sub_36BD6 should return a blocked lead column once the next cell would step beyond the level's left edge",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_loc_36c38_sets_boundary_without_reading_lead_column() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(1 * 4 + 1) * 2] = 0x40;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let scan = horizontal_collision_scan_left_sub_36BD6(&grid, 8, 32, 8, 16);
+
+        assert_eq!(
+            scan,
+            HorizontalCollisionScan {
+                hitbox_blocked: false,
+                lead_column_blocked: true,
+            },
+            "ASM loc_36C38 should turn a zero left-column offset into `d6=1` before the lead-column scan, even when a blocking word exists inside the next in-bounds column",
         );
     }
 
