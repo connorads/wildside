@@ -32990,6 +32990,47 @@ fn boomerang_boss_head_2_wait_loop_loc_38062_branches_to_shared_exit_when_status
 }
 
 #[test]
+fn boomerang_boss_head_2_activation_window_loc_38076_waits_outside_signed_vertical_window() {
+    let above = boomerang_boss_head_2_activation_window_loc_38076(0x003F, 0x0080);
+    let below = boomerang_boss_head_2_activation_window_loc_38076(0x0081, 0x0080);
+
+    assert_eq!(
+        above.next,
+        BoomerangBossHead2ActivationNextLoc38076::WaitLoopLoc38062,
+        "ASM loc_38076 should branch back to loc_38062 when signed Kid Y is less than `y_pos(a3)-$40`",
+    );
+    assert_eq!(
+        below.next,
+        BoomerangBossHead2ActivationNextLoc38076::WaitLoopLoc38062,
+        "ASM loc_38076 should branch back to loc_38062 when signed Kid Y is greater than `y_pos(a3)`",
+    );
+    assert_eq!(
+        (
+            above.kid_within_vertical_window,
+            below.kid_within_vertical_window
+        ),
+        (false, false),
+    );
+}
+
+#[test]
+fn boomerang_boss_head_2_activation_window_loc_38076_continues_inside_signed_vertical_window() {
+    let lower_edge = boomerang_boss_head_2_activation_window_loc_38076(0x0040, 0x0080);
+    let upper_edge = boomerang_boss_head_2_activation_window_loc_38076(0x0080, 0x0080);
+
+    assert_eq!(
+        (lower_edge.next, upper_edge.next),
+        (
+            BoomerangBossHead2ActivationNextLoc38076::ChooseAttackDirection,
+            BoomerangBossHead2ActivationNextLoc38076::ChooseAttackDirection,
+        ),
+        "ASM loc_38076 should treat both vertical compare bounds as inclusive before choosing attack direction",
+    );
+    assert!(lower_edge.kid_within_vertical_window);
+    assert!(upper_edge.kid_within_vertical_window);
+}
+
+#[test]
 fn boss_head_movement_step_sub_39846_only_counts_down_when_delay_has_not_elapsed() {
     let script = [(0x0168, 0, -1), (-1, 0, 0)];
 

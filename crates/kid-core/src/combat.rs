@@ -541,6 +541,18 @@ pub(crate) struct BoomerangBossHead2WaitLoopLoc38062 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossHead2ActivationNextLoc38076 {
+    WaitLoopLoc38062,
+    ChooseAttackDirection,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossHead2ActivationWindowLoc38076 {
+    pub(crate) kid_within_vertical_window: bool,
+    pub(crate) next: BoomerangBossHead2ActivationNextLoc38076,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -1465,6 +1477,29 @@ pub(crate) fn boomerang_boss_head_2_wait_loop_loc_38062(
             BoomerangBossHead2WaitNextLoc38062::CheckKidWindow
         } else {
             BoomerangBossHead2WaitNextLoc38062::SharedCollisionExitLoc39EBE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_2_activation_window_loc_38076(
+    kid_y: u16,
+    head_y: u16,
+) -> BoomerangBossHead2ActivationWindowLoc38076 {
+    // ASM loc_38076 (kid.asm:40436): load Kid/head coordinates, then branch
+    // back to `loc_38062` unless signed Kid Y lies inside the inclusive
+    // `head_y-$40..=head_y` activation window.
+    let lower_y = head_y.wrapping_sub(0x0040);
+    let kid_within_vertical_window =
+        !word_lt_signed(kid_y, lower_y) && !word_gt_signed(kid_y, head_y);
+
+    BoomerangBossHead2ActivationWindowLoc38076 {
+        kid_within_vertical_window,
+        next: if kid_within_vertical_window {
+            BoomerangBossHead2ActivationNextLoc38076::ChooseAttackDirection
+        } else {
+            BoomerangBossHead2ActivationNextLoc38076::WaitLoopLoc38062
         },
     }
 }
