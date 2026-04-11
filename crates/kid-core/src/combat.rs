@@ -1921,6 +1921,8 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
         return if v_int_counter_fff809 & 8 != 0 {
             "LnkTo_unk_C8488-Data_Index"
         } else {
+            // ASM loc_37A38 (kid.asm:39906): when diamond power is active
+            // and `$FFFFF809 & #8` is clear, force the alternate centre map.
             "LnkTo_unk_C84A8-Data_Index"
         };
     }

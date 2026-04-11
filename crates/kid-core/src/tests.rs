@@ -33390,6 +33390,8 @@ fn heady_metal_piece_sprite_sub_37a22_uses_diamond_override_and_directional_buck
         "LnkTo_unk_C8488-Data_Index",
         "ASM sub_37A22 should force `LnkTo_unk_C8488-Data_Index` when diamond power is active and bit 3 is set",
     );
+    // ASM loc_37A38 (kid.asm:39906): active diamond power with
+    // `$FFFFF809 & #8 == 0` selects `LnkTo_unk_C84A8-Data_Index`.
     assert_eq!(
         heady_metal_piece_sprite_sub_37A22(true, 0x00, 0x0040, 0x0040, 0x0050, 0x0050),
         "LnkTo_unk_C84A8-Data_Index",
