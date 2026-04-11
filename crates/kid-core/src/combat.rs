@@ -1904,6 +1904,24 @@ pub(crate) fn heady_metal_palette_cycle_sub_379E8(
     }
 }
 
+const HEADY_METAL_PIECE_SPRITES_OFF_37AE0: [&str; 8] = [
+    "LnkTo_unk_C8488-Data_Index",
+    "LnkTo_unk_C8490-Data_Index",
+    "LnkTo_unk_C8498-Data_Index",
+    "LnkTo_unk_C84A0-Data_Index",
+    "LnkTo_unk_C84A8-Data_Index",
+    "LnkTo_unk_C84B0-Data_Index",
+    "LnkTo_unk_C84B8-Data_Index",
+    "LnkTo_unk_C84C0-Data_Index",
+];
+
+#[allow(non_snake_case)]
+pub(crate) fn heady_metal_piece_sprite_mapping_loc_37AAE(table_index: usize) -> &'static str {
+    // ASM loc_37AAE (kid.asm:39979): copy selected `d2` to `d7`, double it
+    // as a word offset, then load the mapping word from `off_37AE0`.
+    HEADY_METAL_PIECE_SPRITES_OFF_37AE0[table_index]
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_piece_sprite_sub_37A22(
@@ -1936,13 +1954,13 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
         if kid_x < effect_x.saturating_sub(4) {
             // ASM loc_37A8C (kid.asm:39950): below-and-left chooses table
             // index 3, `LnkTo_unk_C84A0-Data_Index`.
-            "LnkTo_unk_C84A0-Data_Index"
+            heady_metal_piece_sprite_mapping_loc_37AAE(3)
         } else if kid_x > effect_x.saturating_add(4) {
             // ASM loc_37A90 (kid.asm:39955): below-and-right chooses table
             // index 5, `LnkTo_unk_C84B0-Data_Index`.
-            "LnkTo_unk_C84B0-Data_Index"
+            heady_metal_piece_sprite_mapping_loc_37AAE(5)
         } else {
-            "LnkTo_unk_C84A8-Data_Index"
+            heady_metal_piece_sprite_mapping_loc_37AAE(4)
         }
     } else if kid_y < effect_y.saturating_sub(4) {
         // ASM loc_37A94 (kid.asm:39960): Kid above `y_pos(a3)-4` enters the
@@ -1950,20 +1968,20 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
         if kid_x < effect_x.saturating_sub(4) {
             // ASM loc_37AA8 (kid.asm:39971): upper-band Kid X left of
             // `x_pos(a3)-4` selects table index 1.
-            "LnkTo_unk_C8490-Data_Index"
+            heady_metal_piece_sprite_mapping_loc_37AAE(1)
         } else if kid_x > effect_x.saturating_add(4) {
             // ASM loc_37AAC (kid.asm:39976): upper-band Kid X right of
             // `x_pos(a3)+4` selects table index 7.
-            "LnkTo_unk_C84C0-Data_Index"
+            heady_metal_piece_sprite_mapping_loc_37AAE(7)
         } else {
-            "LnkTo_unk_C8488-Data_Index"
+            heady_metal_piece_sprite_mapping_loc_37AAE(0)
         }
     } else if kid_x < effect_x.saturating_sub(8) {
         // ASM loc_37A74 (kid.asm:39934): in the middle vertical band, Kid
         // left of `x_pos(a3)-8` selects table index 2.
-        "LnkTo_unk_C8498-Data_Index"
+        heady_metal_piece_sprite_mapping_loc_37AAE(2)
     } else {
-        "LnkTo_unk_C84B8-Data_Index"
+        heady_metal_piece_sprite_mapping_loc_37AAE(6)
     }
 }
 

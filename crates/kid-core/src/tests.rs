@@ -33448,6 +33448,15 @@ fn heady_metal_piece_sprite_loc_37aac_uses_upper_right_bucket() {
 }
 
 #[test]
+fn heady_metal_piece_sprite_loc_37aae_loads_mapping_from_selected_index() {
+    assert_eq!(
+        heady_metal_piece_sprite_mapping_loc_37AAE(7),
+        "LnkTo_unk_C84C0-Data_Index",
+        "ASM loc_37AAE should double the selected index and load the matching `off_37AE0` word",
+    );
+}
+
+#[test]
 fn heady_metal_breakup_step_loc_37710_ignores_anchor_without_collision() {
     let result = heady_metal_breakup_step_sub_37708(true, 0, 12, 9, 0, [None; 13]);
 
