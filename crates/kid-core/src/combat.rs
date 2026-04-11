@@ -487,6 +487,19 @@ pub(crate) struct BoomerangBossHeadAttackWaitLoopLoc37FD6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossHeadAttackAnimationNextLoc37FEA {
+    AwaitAnimationLoc37FD6,
+    SpawnProjectileSub397E4,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossHeadAttackAnimationGateLoc37FEA {
+    pub(crate) attack_animation_done: bool,
+    pub(crate) runs_projectile_spawn_sub_397e4: bool,
+    pub(crate) next: BoomerangBossHeadAttackAnimationNextLoc37FEA,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -1303,6 +1316,26 @@ pub(crate) fn boomerang_boss_head_1_attack_wait_loop_loc_37FD6(
             BoomerangBossHeadAttackWaitNextLoc37FD6::CheckAttackAnimationDoneLoc37FEA
         } else {
             BoomerangBossHeadAttackWaitNextLoc37FD6::SharedCollisionExitLoc39EBE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_1_attack_animation_gate_loc_37FEA(
+    animation_done_byte_18: u8,
+) -> BoomerangBossHeadAttackAnimationGateLoc37FEA {
+    // ASM loc_37FEA (kid.asm:40388): `tst.b $18(a3)` loops back to loc_37FD6
+    // while the attack animation is still active; any nonzero byte calls
+    // `sub_397E4` to spawn the head projectile.
+    let attack_animation_done = animation_done_byte_18 != 0;
+    BoomerangBossHeadAttackAnimationGateLoc37FEA {
+        attack_animation_done,
+        runs_projectile_spawn_sub_397e4: attack_animation_done,
+        next: if attack_animation_done {
+            BoomerangBossHeadAttackAnimationNextLoc37FEA::SpawnProjectileSub397E4
+        } else {
+            BoomerangBossHeadAttackAnimationNextLoc37FEA::AwaitAnimationLoc37FD6
         },
     }
 }

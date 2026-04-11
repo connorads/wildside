@@ -32825,6 +32825,34 @@ fn boomerang_boss_head_1_attack_wait_loop_loc_37fd6_branches_to_shared_exit_on_s
 }
 
 #[test]
+fn boomerang_boss_head_1_attack_animation_gate_loc_37fea_loops_until_animation_finishes() {
+    let result = boomerang_boss_head_1_attack_animation_gate_loc_37FEA(0);
+
+    assert!(!result.attack_animation_done);
+    assert!(!result.runs_projectile_spawn_sub_397e4);
+    assert_eq!(
+        result.next,
+        BoomerangBossHeadAttackAnimationNextLoc37FEA::AwaitAnimationLoc37FD6,
+        "ASM loc_37FEA should branch back to loc_37FD6 while `$18(a3)` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_1_attack_animation_gate_loc_37fea_spawns_projectile_when_done() {
+    let result = boomerang_boss_head_1_attack_animation_gate_loc_37FEA(1);
+
+    assert!(result.attack_animation_done);
+    assert!(
+        result.runs_projectile_spawn_sub_397e4,
+        "ASM loc_37FEA should call `sub_397E4` as soon as `$18(a3)` is nonzero",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHeadAttackAnimationNextLoc37FEA::SpawnProjectileSub397E4,
+    );
+}
+
+#[test]
 fn boss_head_movement_step_sub_39846_only_counts_down_when_delay_has_not_elapsed() {
     let script = [(0x0168, 0, -1), (-1, 0, 0)];
 
