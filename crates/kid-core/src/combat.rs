@@ -887,8 +887,6 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
             "LnkTo_unk_C84A8-Data_Index"
         }
     } else if kid_y < effect_y.saturating_sub(4) {
-        // ASM loc_37A94 (kid.asm:39960): Kid above `y_pos(a3)-4` enters the
-        // upper band, where `x_pos(a3)-4..x_pos(a3)+4` selects index 0.
         if kid_x < effect_x.saturating_sub(4) {
             "LnkTo_unk_C8490-Data_Index"
         } else if kid_x > effect_x.saturating_add(4) {
@@ -1947,6 +1945,8 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
             "LnkTo_unk_C84A8-Data_Index"
         }
     } else if kid_y < effect_y.saturating_sub(4) {
+        // ASM loc_37A94 (kid.asm:39960): Kid above `y_pos(a3)-4` enters the
+        // upper band, where `x_pos(a3)-4..x_pos(a3)+4` selects index 0.
         if kid_x < effect_x.saturating_sub(4) {
             "LnkTo_unk_C8490-Data_Index"
         } else if kid_x > effect_x.saturating_add(4) {
