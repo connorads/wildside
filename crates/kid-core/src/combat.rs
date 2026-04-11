@@ -903,6 +903,8 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
             // `x_pos(a3)-4` selects table index 3.
             "LnkTo_unk_C84A0-Data_Index"
         } else if word_gt_signed(kid_x, effect_x.wrapping_add(4)) {
+            // ASM loc_37B5E (kid.asm:40082): lower-band Kid X right of
+            // `x_pos(a3)+4` selects table index 5.
             "LnkTo_unk_C84B0-Data_Index"
         } else {
             "LnkTo_unk_C84A8-Data_Index"
