@@ -32771,7 +32771,7 @@ fn boomerang_boss_head_1_activation_loc_37f94_faces_left_when_head_is_strictly_r
             Some("stru_39FC6"),
             BoomerangBossHeadActivationNextLoc37F94::AttackAnimationLoc37FC6,
         ),
-        "ASM loc_37F94/loc_37FC2 should clear `x_direction(a3)`, mirror it to `$FFFFFB86`, and start `stru_39FC6` when `head_x > kid_x`",
+        "ASM loc_37F94/loc_37FC2 should clear `x_direction(a3)` when `head_x > kid_x`; ASM loc_37FC6 should mirror it to `$FFFFFB86` and start `stru_39FC6`",
     );
 }
 

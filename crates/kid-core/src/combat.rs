@@ -1241,7 +1241,9 @@ pub(crate) fn boomerang_boss_head_1_activation_loc_37F94(
 ) -> BoomerangBossHeadActivationLoc37F94 {
     // ASM loc_37F94 (kid.asm:40353): branch back to `loc_37F80` unless Kid's
     // signed gfx Y lies in the inclusive `head_y-$40..=head_y` window, then
-    // face left (`0`) only when `head_x > kid_x` before starting `stru_39FC6`.
+    // face left (`0`) only when `head_x > kid_x`.
+    // ASM loc_37FC6 (kid.asm:40374): mirror the chosen `x_direction(a3)` into
+    // `$FFFFFB86` and start attack animation `stru_39FC6`.
     let lower_y = head_y.wrapping_sub(0x0040);
     let kid_within_vertical_window =
         !word_lt_signed(kid_y, lower_y) && !word_gt_signed(kid_y, head_y);
