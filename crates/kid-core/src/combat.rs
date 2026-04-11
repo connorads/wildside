@@ -543,12 +543,15 @@ pub(crate) struct BoomerangBossHead2WaitLoopLoc38062 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoomerangBossHead2ActivationNextLoc38076 {
     WaitLoopLoc38062,
-    ChooseAttackDirection,
+    AttackAnimation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BoomerangBossHead2ActivationWindowLoc38076 {
     pub(crate) kid_within_vertical_window: bool,
+    pub(crate) x_direction: Option<u8>,
+    pub(crate) cached_x_direction_fffffb87: Option<u8>,
+    pub(crate) animation_script_label: Option<&'static str>,
     pub(crate) next: BoomerangBossHead2ActivationNextLoc38076,
 }
 
@@ -1484,7 +1487,9 @@ pub(crate) fn boomerang_boss_head_2_wait_loop_loc_38062(
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_activation_window_loc_38076(
+    kid_x: u16,
     kid_y: u16,
+    head_x: u16,
     head_y: u16,
 ) -> BoomerangBossHead2ActivationWindowLoc38076 {
     // ASM loc_38076 (kid.asm:40436): load Kid/head coordinates, then branch
@@ -1494,13 +1499,31 @@ pub(crate) fn boomerang_boss_head_2_activation_window_loc_38076(
     let kid_within_vertical_window =
         !word_lt_signed(kid_y, lower_y) && !word_gt_signed(kid_y, head_y);
 
+    if !kid_within_vertical_window {
+        return BoomerangBossHead2ActivationWindowLoc38076 {
+            kid_within_vertical_window,
+            x_direction: None,
+            cached_x_direction_fffffb87: None,
+            animation_script_label: None,
+            next: BoomerangBossHead2ActivationNextLoc38076::WaitLoopLoc38062,
+        };
+    }
+
+    // ASM loc_380A4 (kid.asm:40454): the signed `cmp.w d5,d3; bgt` branch
+    // clears `x_direction(a3)` when head 2 is strictly right of Kid; otherwise
+    // the fallthrough path stores `$FF`.
+    let x_direction = if word_gt_signed(head_x, kid_x) {
+        0
+    } else {
+        0xFF
+    };
+
     BoomerangBossHead2ActivationWindowLoc38076 {
         kid_within_vertical_window,
-        next: if kid_within_vertical_window {
-            BoomerangBossHead2ActivationNextLoc38076::ChooseAttackDirection
-        } else {
-            BoomerangBossHead2ActivationNextLoc38076::WaitLoopLoc38062
-        },
+        x_direction: Some(x_direction),
+        cached_x_direction_fffffb87: Some(x_direction),
+        animation_script_label: Some("stru_39FC6"),
+        next: BoomerangBossHead2ActivationNextLoc38076::AttackAnimation,
     }
 }
 

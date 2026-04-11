@@ -32991,8 +32991,8 @@ fn boomerang_boss_head_2_wait_loop_loc_38062_branches_to_shared_exit_when_status
 
 #[test]
 fn boomerang_boss_head_2_activation_window_loc_38076_waits_outside_signed_vertical_window() {
-    let above = boomerang_boss_head_2_activation_window_loc_38076(0x003F, 0x0080);
-    let below = boomerang_boss_head_2_activation_window_loc_38076(0x0081, 0x0080);
+    let above = boomerang_boss_head_2_activation_window_loc_38076(0x0090, 0x003F, 0x0080, 0x0080);
+    let below = boomerang_boss_head_2_activation_window_loc_38076(0x0090, 0x0081, 0x0080, 0x0080);
 
     assert_eq!(
         above.next,
@@ -33011,23 +33011,62 @@ fn boomerang_boss_head_2_activation_window_loc_38076_waits_outside_signed_vertic
         ),
         (false, false),
     );
+    assert_eq!((above.x_direction, below.x_direction), (None, None));
 }
 
 #[test]
 fn boomerang_boss_head_2_activation_window_loc_38076_continues_inside_signed_vertical_window() {
-    let lower_edge = boomerang_boss_head_2_activation_window_loc_38076(0x0040, 0x0080);
-    let upper_edge = boomerang_boss_head_2_activation_window_loc_38076(0x0080, 0x0080);
+    let lower_edge =
+        boomerang_boss_head_2_activation_window_loc_38076(0x0090, 0x0040, 0x0080, 0x0080);
+    let upper_edge =
+        boomerang_boss_head_2_activation_window_loc_38076(0x0090, 0x0080, 0x0080, 0x0080);
 
     assert_eq!(
         (lower_edge.next, upper_edge.next),
         (
-            BoomerangBossHead2ActivationNextLoc38076::ChooseAttackDirection,
-            BoomerangBossHead2ActivationNextLoc38076::ChooseAttackDirection,
+            BoomerangBossHead2ActivationNextLoc38076::AttackAnimation,
+            BoomerangBossHead2ActivationNextLoc38076::AttackAnimation,
         ),
         "ASM loc_38076 should treat both vertical compare bounds as inclusive before choosing attack direction",
     );
     assert!(lower_edge.kid_within_vertical_window);
     assert!(upper_edge.kid_within_vertical_window);
+}
+
+#[test]
+fn boomerang_boss_head_2_activation_loc_380a4_faces_left_when_head_is_strictly_right_of_kid() {
+    let result = boomerang_boss_head_2_activation_window_loc_38076(0x007F, 0x0040, 0x0080, 0x0080);
+
+    assert!(result.kid_within_vertical_window);
+    assert_eq!(
+        (
+            result.x_direction,
+            result.cached_x_direction_fffffb87,
+            result.animation_script_label,
+            result.next,
+        ),
+        (
+            Some(0),
+            Some(0),
+            Some("stru_39FC6"),
+            BoomerangBossHead2ActivationNextLoc38076::AttackAnimation,
+        ),
+        "ASM loc_380A4 should clear `x_direction(a3)` when signed `head_x > kid_x` and mirror that byte to `$FFFFFB87`",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_2_activation_loc_380a4_faces_right_on_equal_or_left_head_x() {
+    let equal = boomerang_boss_head_2_activation_window_loc_38076(0x0080, 0x0080, 0x0080, 0x0080);
+    let left = boomerang_boss_head_2_activation_window_loc_38076(0x0081, 0x0080, 0x0080, 0x0080);
+
+    assert_eq!(
+        (equal.x_direction, left.x_direction),
+        (Some(0xFF), Some(0xFF)),
+        "ASM loc_380A4 should be skipped unless signed `head_x > kid_x`, leaving the fallthrough `$FF` direction",
+    );
+    assert_eq!(equal.cached_x_direction_fffffb87, Some(0xFF));
+    assert_eq!(left.animation_script_label, Some("stru_39FC6"));
 }
 
 #[test]
