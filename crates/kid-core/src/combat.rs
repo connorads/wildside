@@ -1927,6 +1927,9 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
         };
     }
 
+    // ASM loc_37A3E (kid.asm:39913): the non-diamond path snapshots Kid and
+    // worker word positions, then uses `worker_y + 4` / `worker_y - 4` as the
+    // signed vertical band before choosing a sprite-table index.
     if kid_y > effect_y.saturating_add(4) {
         if kid_x < effect_x.saturating_sub(4) {
             "LnkTo_unk_C84A0-Data_Index"
