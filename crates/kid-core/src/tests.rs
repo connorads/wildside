@@ -32790,6 +32790,41 @@ fn boomerang_boss_head_1_activation_loc_37f94_faces_right_on_equal_or_left_head_
 }
 
 #[test]
+fn boomerang_boss_head_1_attack_wait_loop_loc_37fd6_checks_animation_when_status_is_zero() {
+    let result = boomerang_boss_head_1_attack_wait_loop_loc_37FD6(0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(
+        result.runs_movement_wrapper_sub_39952,
+        "ASM loc_37FD6 should run `sub_39952` after hibernating the attack animation frame",
+    );
+    assert_eq!(
+        result.cached_collision_word_fffffb72, 0,
+        "ASM loc_37FD6 should copy zero `d7` into `$FFFFFB72` before falling through",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHeadAttackWaitNextLoc37FD6::CheckAttackAnimationDoneLoc37FEA,
+        "ASM loc_37FD6 should fall through to loc_37FEA when `tst.w d7` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_1_attack_wait_loop_loc_37fd6_branches_to_shared_exit_on_status() {
+    let result = boomerang_boss_head_1_attack_wait_loop_loc_37FD6(0x0001);
+
+    assert_eq!(
+        result.cached_collision_word_fffffb72, 0x0001,
+        "ASM loc_37FD6 should preserve nonzero `d7` in `$FFFFFB72`",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHeadAttackWaitNextLoc37FD6::SharedCollisionExitLoc39EBE,
+        "ASM loc_37FD6 should branch to loc_39EBE instead of testing `$18(a3)` when `d7` is nonzero",
+    );
+}
+
+#[test]
 fn boss_head_movement_step_sub_39846_only_counts_down_when_delay_has_not_elapsed() {
     let script = [(0x0168, 0, -1), (-1, 0, 0)];
 

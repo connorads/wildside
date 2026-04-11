@@ -473,6 +473,20 @@ pub(crate) struct BoomerangBossHeadActivationLoc37F94 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossHeadAttackWaitNextLoc37FD6 {
+    CheckAttackAnimationDoneLoc37FEA,
+    SharedCollisionExitLoc39EBE,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossHeadAttackWaitLoopLoc37FD6 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_movement_wrapper_sub_39952: bool,
+    pub(crate) cached_collision_word_fffffb72: u16,
+    pub(crate) next: BoomerangBossHeadAttackWaitNextLoc37FD6,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -1270,6 +1284,26 @@ pub(crate) fn boomerang_boss_head_1_activation_loc_37F94(
         cached_x_direction_fffffb86: Some(x_direction),
         animation_script_label: Some("stru_39FC6"),
         next: BoomerangBossHeadActivationNextLoc37F94::AttackAnimationLoc37FC6,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_1_attack_wait_loop_loc_37FD6(
+    movement_status_d7: u16,
+) -> BoomerangBossHeadAttackWaitLoopLoc37FD6 {
+    // ASM loc_37FD6 (kid.asm:40379): hibernate one frame after `stru_39FC6`,
+    // run `sub_39952`, mirror `d7` into `$FFFFFB72`, and branch to `loc_39EBE`
+    // on nonzero status before the `$18(a3)` animation-done test at loc_37FEA.
+    BoomerangBossHeadAttackWaitLoopLoc37FD6 {
+        hibernates_one_frame: true,
+        runs_movement_wrapper_sub_39952: true,
+        cached_collision_word_fffffb72: movement_status_d7,
+        next: if movement_status_d7 == 0 {
+            BoomerangBossHeadAttackWaitNextLoc37FD6::CheckAttackAnimationDoneLoc37FEA
+        } else {
+            BoomerangBossHeadAttackWaitNextLoc37FD6::SharedCollisionExitLoc39EBE
+        },
     }
 }
 
