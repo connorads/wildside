@@ -33547,6 +33547,8 @@ fn heady_metal_breakup_step_loc_377f6_uses_high_tier_after_decrementing_scatter_
         result.next_remaining_scatter_frames, 0x015F,
         "ASM loc_377F6 should decrement `$40(a3)` before choosing the final scatter speed tier",
     );
+    // ASM loc_37866 (kid.asm:39622): `Frame_Counter & #2 == 0` calls the
+    // primary `sub_3787C` scatter helper.
     assert_eq!(
         result.scatter_step,
         Some(HeadyMetalScatterStepSub37708 {
@@ -33554,7 +33556,7 @@ fn heady_metal_breakup_step_loc_377f6_uses_high_tier_after_decrementing_scatter_
             d6_x_velocity_delta: -0x0003_0D40,
             d7_velocity_delta: 0x0003_0D40,
         }),
-        "ASM loc_377F6 should choose sub_3787C's primary pattern with the `$30D40` tier when the decremented timer stays above `$15E`",
+        "ASM loc_37866 should call `sub_3787C` with the `$30D40` tier when `Frame_Counter & #2` is zero",
     );
 }
 

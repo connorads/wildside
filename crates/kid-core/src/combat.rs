@@ -2074,6 +2074,8 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
         (-0x0009_27C0, 0x0009_27C0)
     };
 
+    // ASM loc_37866 (kid.asm:39622): mask `Frame_Counter` with `#2`; the
+    // zero-bit path calls `sub_3787C`, otherwise execution branches onward.
     result.scatter_step = Some(HeadyMetalScatterStepSub37708 {
         pattern: if frame_counter & 2 == 0 {
             HeadyMetalScatterPatternSub37708::Primary
