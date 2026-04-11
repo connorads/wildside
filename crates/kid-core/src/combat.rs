@@ -473,6 +473,14 @@ pub(crate) struct HeadyMetalTrackingVelocityLoc37582 {
     pub(crate) y_velocity: i32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HeadyMetalSpawnAnimationLoc3761E {
+    pub(crate) next_piece_counter: u16,
+    pub(crate) selected_animation_label: &'static str,
+    pub(crate) runs_tail_update: bool,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct NormalSpriteChunkLoc12B8 {
@@ -1795,6 +1803,32 @@ pub(crate) fn heady_metal_tracking_velocity_loc_37582(
     HeadyMetalTrackingVelocityLoc37582 {
         x_velocity,
         y_velocity,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_spawn_animation_loc_3761E(
+    piece_counter_before_spawn: u16,
+) -> HeadyMetalSpawnAnimationLoc3761E {
+    let decremented_piece_counter = piece_counter_before_spawn.wrapping_sub(1);
+    let next_piece_counter = if decremented_piece_counter == 0 {
+        0x000A
+    } else {
+        decremented_piece_counter
+    };
+    // ASM loc_3761E (kid.asm:39400): compare the decremented `d2` with `#6`;
+    // counters 6+ initialise the high-count HeadyMetal spawn animation.
+    let selected_animation_label = if decremented_piece_counter >= 6 {
+        "stru_37B98"
+    } else {
+        "stru_37BC0"
+    };
+
+    HeadyMetalSpawnAnimationLoc3761E {
+        next_piece_counter,
+        selected_animation_label,
+        runs_tail_update: true,
     }
 }
 

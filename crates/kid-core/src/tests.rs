@@ -33226,6 +33226,20 @@ fn heady_metal_tracking_velocity_loc_375de_feeds_final_velocity_to_worker_update
 }
 
 #[test]
+fn heady_metal_spawn_animation_loc_3761e_uses_high_animation_for_decremented_counter_six_or_more() {
+    let step = heady_metal_spawn_animation_loc_3761E(7);
+
+    assert_eq!(
+        step.next_piece_counter, 6,
+        "the HeadyMetal spawn gate should store the decremented `$3E(a3)` counter",
+    );
+    assert_eq!(
+        step.selected_animation_label, "stru_37B98",
+        "ASM loc_3761E should run `cmpi.w #6,d2` after decrementing `$3E(a3)` and select `stru_37B98` when `d2 >= 6`",
+    );
+}
+
+#[test]
 fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pattern() {
     let updated = heady_metal_scatter_step_sub_3787C(
         HeadyMetalScatterVelocities {
