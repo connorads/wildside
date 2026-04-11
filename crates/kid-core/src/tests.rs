@@ -33430,6 +33430,15 @@ fn heady_metal_piece_sprite_sub_37a22_uses_diamond_override_and_directional_buck
 }
 
 #[test]
+fn heady_metal_piece_sprite_loc_37aa8_uses_upper_left_bucket() {
+    assert_eq!(
+        heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x003B, 0x003B),
+        "LnkTo_unk_C8490-Data_Index",
+        "ASM loc_37AA8 should choose index 1 when upper-band Kid X is left of `x_pos-4`",
+    );
+}
+
+#[test]
 fn heady_metal_breakup_step_loc_37710_ignores_anchor_without_collision() {
     let result = heady_metal_breakup_step_sub_37708(true, 0, 12, 9, 0, [None; 13]);
 

@@ -1948,6 +1948,8 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
         // ASM loc_37A94 (kid.asm:39960): Kid above `y_pos(a3)-4` enters the
         // upper band, where `x_pos(a3)-4..x_pos(a3)+4` selects index 0.
         if kid_x < effect_x.saturating_sub(4) {
+            // ASM loc_37AA8 (kid.asm:39971): upper-band Kid X left of
+            // `x_pos(a3)-4` selects table index 1.
             "LnkTo_unk_C8490-Data_Index"
         } else if kid_x > effect_x.saturating_add(4) {
             "LnkTo_unk_C84C0-Data_Index"
