@@ -33547,6 +33547,82 @@ fn boomerang_boss_skewer_piece_2_wait_loop_loc_38554_does_not_launch_at_zero() {
 }
 
 #[test]
+fn boomerang_boss_skewer_piece_2_launch_loc_38566_sets_up_right_velocity_and_gravity() {
+    let result = boomerang_boss_skewer_piece_2_launch_loc_38566();
+
+    assert_eq!(
+        result.y_vel, -7,
+        "ASM loc_38566 should set `y_vel(a3)` to `$FFF9` (signed word = -7, upward)",
+    );
+    assert_eq!(
+        result.x_vel, 0xE000,
+        "ASM loc_38566 should set `x_vel(a3)` to `$0000E000` (signed longword = +0xE000, rightward)",
+    );
+    assert_eq!(
+        result.gravity_per_frame, 0x1B58,
+        "ASM loc_38574 should add `$1B58` to `y_vel(a3)` each frame (gravity)",
+    );
+    assert!(
+        result.deletes_below_level_height,
+        "ASM loc_38574 should delete the object when `y_pos > Level_height_pixels`",
+    );
+    assert!(
+        result.loops_back_loc_3858e,
+        "ASM loc_3858E should `bra.s loc_38574` when `y_pos <= Level_height_pixels` (gravity loop-back)",
+    );
+}
+
+#[test]
+fn boomerang_boss_skewer_piece_3_init_loc_38590_sets_gfx_slot_and_sprite() {
+    let result = boomerang_boss_skewer_piece_3_init_loc_38590(0x0300, 0x0400);
+
+    assert_eq!(
+        result.gfx_slot, 0x0101_0002,
+        "ASM loc_38590 should allocate gfx slot `$01010002`",
+    );
+    assert_eq!(
+        result.priority, 1,
+        "ASM loc_38590 should set `priority(a3)` to 1",
+    );
+    assert_eq!(
+        result.object_meta, 0x22,
+        "ASM loc_38590 should set `object_meta(a3)` to `$22`",
+    );
+    assert!(
+        !result.has_kid_collision,
+        "ASM loc_38590 should clear `has_kid_collision(a3)` via `sf`",
+    );
+    assert!(
+        result.display_enabled,
+        "ASM loc_38590 should set `$13(a3)` via `st` (display enabled)",
+    );
+    assert!(
+        result.is_moved,
+        "ASM loc_38590 should set `is_moved(a3)` via `st`",
+    );
+    assert_eq!(
+        result.sprite_label, "LnkTo_unk_C85F0-Data_Index",
+        "ASM loc_38590 should assign sprite `LnkTo_unk_C85F0-Data_Index` (same as piece 2)",
+    );
+    assert_eq!(
+        result.x_pos, 0x0300,
+        "ASM loc_38590 should copy anchor X from `$44(a5)`",
+    );
+    assert_eq!(
+        result.y_pos, 0x0400,
+        "ASM loc_38590 should copy anchor Y from `$46(a5)`",
+    );
+    assert_eq!(
+        result.movement_script_label, "unk_39872",
+        "ASM loc_38590 should load movement script `unk_39872` into `a2`",
+    );
+    assert_eq!(
+        result.movement_script_index, 1,
+        "ASM loc_38590 should start the movement script at `moveq #1,d0`",
+    );
+}
+
+#[test]
 fn boomerang_boss_head_2_attack_wait_loop_loc_380b8_checks_animation_when_status_is_zero() {
     let result = boomerang_boss_head_2_attack_wait_loop_loc_380B8(0);
 
