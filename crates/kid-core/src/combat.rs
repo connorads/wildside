@@ -609,6 +609,35 @@ pub(crate) struct BoomerangBossHead2PostProjectileAnimationGateLoc380EA {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossHead3WaitNextLoc38144 {
+    CheckKidWindow,
+    SharedCollisionExitLoc39EBE,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossHead3WaitLoopLoc38144 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_movement_wrapper_sub_39a7c: bool,
+    pub(crate) cached_collision_word_fffffb76: u16,
+    pub(crate) next: BoomerangBossHead3WaitNextLoc38144,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossHead3ActivationNextLoc38158 {
+    WaitLoopLoc38144,
+    AttackAnimation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossHead3ActivationWindowLoc38158 {
+    pub(crate) kid_within_vertical_window: bool,
+    pub(crate) x_direction: Option<u8>,
+    pub(crate) cached_x_direction_fffffb88: Option<u8>,
+    pub(crate) animation_script_label: Option<&'static str>,
+    pub(crate) next: BoomerangBossHead3ActivationNextLoc38158,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -1542,6 +1571,72 @@ pub(crate) fn boomerang_boss_head_3_init_loc_380F4(
         movement_script_label: "unk_39A1A",
         delay_counter_d0: 1,
         script_index_d1: 1,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_3_wait_loop_loc_38144(
+    movement_status_d7: u16,
+) -> BoomerangBossHead3WaitLoopLoc38144 {
+    // ASM loc_38144 (kid.asm:40510): hibernate one frame, run head 3's
+    // `sub_39A7C` movement wrapper, mirror `d7` into `$FFFFFB76`, and branch
+    // to shared `loc_39EBE` on nonzero status before checking Kid's window.
+    BoomerangBossHead3WaitLoopLoc38144 {
+        hibernates_one_frame: true,
+        runs_movement_wrapper_sub_39a7c: true,
+        cached_collision_word_fffffb76: movement_status_d7,
+        next: if movement_status_d7 == 0 {
+            BoomerangBossHead3WaitNextLoc38144::CheckKidWindow
+        } else {
+            BoomerangBossHead3WaitNextLoc38144::SharedCollisionExitLoc39EBE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_3_activation_window_loc_38158(
+    kid_x: u16,
+    kid_y: u16,
+    head_x: u16,
+    head_y: u16,
+) -> BoomerangBossHead3ActivationWindowLoc38158 {
+    // ASM loc_38158 (kid.asm:40519): load Kid/head coordinates, then branch
+    // back to `loc_38144` unless signed Kid Y lies inside the inclusive
+    // `head_y-$40..=head_y` activation window.
+    let lower_y = head_y.wrapping_sub(0x0040);
+    let kid_within_vertical_window =
+        !word_lt_signed(kid_y, lower_y) && !word_gt_signed(kid_y, head_y);
+
+    if !kid_within_vertical_window {
+        return BoomerangBossHead3ActivationWindowLoc38158 {
+            kid_within_vertical_window,
+            x_direction: None,
+            cached_x_direction_fffffb88: None,
+            animation_script_label: None,
+            next: BoomerangBossHead3ActivationNextLoc38158::WaitLoopLoc38144,
+        };
+    }
+
+    // ASM loc_38186 (kid.asm:40537): the signed `cmp.w d5,d3; bgt` branch
+    // clears `x_direction(a3)` when head 3 is strictly right of Kid; otherwise
+    // the fallthrough path stores `$FF`.
+    let x_direction = if word_gt_signed(head_x, kid_x) {
+        0
+    } else {
+        0xFF
+    };
+
+    // ASM loc_3818A (kid.asm:40540): mirror head 3's selected `x_direction`
+    // byte into `$FFFFFB88`, load `stru_39FC6` into `d7`, then initialise the
+    // attack animation before entering the next wait loop.
+    BoomerangBossHead3ActivationWindowLoc38158 {
+        kid_within_vertical_window,
+        x_direction: Some(x_direction),
+        cached_x_direction_fffffb88: Some(x_direction),
+        animation_script_label: Some("stru_39FC6"),
+        next: BoomerangBossHead3ActivationNextLoc38158::AttackAnimation,
     }
 }
 

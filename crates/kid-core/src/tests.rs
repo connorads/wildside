@@ -33109,6 +33109,125 @@ fn boomerang_boss_head_2_activation_loc_380a4_faces_right_on_equal_or_left_head_
 }
 
 #[test]
+fn boomerang_boss_head_3_wait_loop_loc_38144_checks_kid_window_when_status_is_zero() {
+    let result = boomerang_boss_head_3_wait_loop_loc_38144(0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(
+        result.runs_movement_wrapper_sub_39a7c,
+        "ASM loc_38144 should run `sub_39A7C` after `Hibernate_Object_1Frame`",
+    );
+    assert_eq!(
+        result.cached_collision_word_fffffb76, 0,
+        "ASM loc_38144 should copy zero `d7` into `$FFFFFB76` before falling through",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3WaitNextLoc38144::CheckKidWindow,
+        "ASM loc_38144 should fall through to the Kid-window check when `tst.w d7` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_wait_loop_loc_38144_branches_to_shared_exit_when_status_is_nonzero() {
+    let result = boomerang_boss_head_3_wait_loop_loc_38144(0x0040);
+
+    assert_eq!(
+        result.cached_collision_word_fffffb76, 0x0040,
+        "ASM loc_38144 should preserve nonzero `d7` in `$FFFFFB76`",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3WaitNextLoc38144::SharedCollisionExitLoc39EBE,
+        "ASM loc_38144 should branch to loc_39EBE instead of the Kid-window check when `d7` is nonzero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_activation_window_loc_38158_waits_outside_signed_vertical_window() {
+    // ASM loc_38158: Kid Y < head_y-$40 or Kid Y > head_y → branch back to loc_38144
+    let above = boomerang_boss_head_3_activation_window_loc_38158(0x0090, 0x003F, 0x0080, 0x0080);
+    let below = boomerang_boss_head_3_activation_window_loc_38158(0x0090, 0x0081, 0x0080, 0x0080);
+
+    assert_eq!(
+        above.next,
+        BoomerangBossHead3ActivationNextLoc38158::WaitLoopLoc38144,
+        "ASM loc_38158 should branch back to loc_38144 when signed Kid Y is less than `y_pos(a3)-$40`",
+    );
+    assert_eq!(
+        below.next,
+        BoomerangBossHead3ActivationNextLoc38158::WaitLoopLoc38144,
+        "ASM loc_38158 should branch back to loc_38144 when signed Kid Y is greater than `y_pos(a3)`",
+    );
+    assert_eq!(
+        (
+            above.kid_within_vertical_window,
+            below.kid_within_vertical_window
+        ),
+        (false, false),
+    );
+    assert_eq!((above.x_direction, below.x_direction), (None, None));
+}
+
+#[test]
+fn boomerang_boss_head_3_activation_window_loc_38158_continues_inside_signed_vertical_window() {
+    // ASM loc_38158: inclusive bounds [head_y-$40, head_y] → proceed to direction check
+    let lower_edge =
+        boomerang_boss_head_3_activation_window_loc_38158(0x0090, 0x0040, 0x0080, 0x0080);
+    let upper_edge =
+        boomerang_boss_head_3_activation_window_loc_38158(0x0090, 0x0080, 0x0080, 0x0080);
+
+    assert_eq!(
+        (lower_edge.next, upper_edge.next),
+        (
+            BoomerangBossHead3ActivationNextLoc38158::AttackAnimation,
+            BoomerangBossHead3ActivationNextLoc38158::AttackAnimation,
+        ),
+        "ASM loc_38158 should treat both vertical compare bounds as inclusive before choosing attack direction",
+    );
+    assert!(lower_edge.kid_within_vertical_window);
+    assert!(upper_edge.kid_within_vertical_window);
+}
+
+#[test]
+fn boomerang_boss_head_3_activation_loc_38186_faces_left_when_head_is_strictly_right_of_kid() {
+    // ASM loc_38186: `cmp.w d5,d3; bgt.s` → sf x_direction(a3) when head_x > kid_x
+    let result = boomerang_boss_head_3_activation_window_loc_38158(0x007F, 0x0040, 0x0080, 0x0080);
+
+    assert!(result.kid_within_vertical_window);
+    assert_eq!(
+        (
+            result.x_direction,
+            result.cached_x_direction_fffffb88,
+            result.animation_script_label,
+            result.next,
+        ),
+        (
+            Some(0),
+            Some(0),
+            Some("stru_39FC6"),
+            BoomerangBossHead3ActivationNextLoc38158::AttackAnimation,
+        ),
+        "ASM loc_38186 should clear `x_direction(a3)` when signed `head_x > kid_x`; ASM loc_3818A should mirror that byte to `$FFFFFB88` and start `stru_39FC6`",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_activation_loc_38186_faces_right_on_equal_or_left_head_x() {
+    // ASM loc_38158 fallthrough: `st x_direction(a3)` when head_x <= kid_x
+    let equal = boomerang_boss_head_3_activation_window_loc_38158(0x0080, 0x0080, 0x0080, 0x0080);
+    let left = boomerang_boss_head_3_activation_window_loc_38158(0x0081, 0x0080, 0x0080, 0x0080);
+
+    assert_eq!(
+        (equal.x_direction, left.x_direction),
+        (Some(0xFF), Some(0xFF)),
+        "ASM loc_38186 should be skipped unless signed `head_x > kid_x`, leaving the fallthrough `$FF` direction",
+    );
+    assert_eq!(equal.cached_x_direction_fffffb88, Some(0xFF));
+    assert_eq!(left.animation_script_label, Some("stru_39FC6"));
+}
+
+#[test]
 fn boomerang_boss_head_2_attack_wait_loop_loc_380b8_checks_animation_when_status_is_zero() {
     let result = boomerang_boss_head_2_attack_wait_loop_loc_380B8(0);
 
