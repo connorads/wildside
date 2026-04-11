@@ -32021,6 +32021,31 @@ fn boss_death_timeout_sound_sub_370d2_selects_the_rng_gated_finish_jingle() {
 }
 
 #[test]
+fn boss_death_burst_timeout_loop_gate_loc_3720a_deletes_or_clears_collision_after_hibernate() {
+    let collided = boss_death_burst_timeout_loop_gate_loc_3720A(0x001C);
+    assert_eq!(
+        collided,
+        BossDeathBurstTimeoutLoopGateLoc3720A {
+            hibernate_one_frame: true,
+            next_collision_type: 0x001C,
+            next: BossDeathBurstTimeoutLoopNextLoc3720A::CollisionFinish,
+        },
+        "ASM loc_3720A should hibernate one frame, then branch to loc_371B6 without clearing collision type `$001C`",
+    );
+
+    let continuing = boss_death_burst_timeout_loop_gate_loc_3720A(0x1234);
+    assert_eq!(
+        continuing,
+        BossDeathBurstTimeoutLoopGateLoc3720A {
+            hibernate_one_frame: true,
+            next_collision_type: 0,
+            next: BossDeathBurstTimeoutLoopNextLoc3720A::ContinueTimeoutFinish,
+        },
+        "ASM loc_3720A should clear non-delete collision values before comparing the burst sprite with Kid",
+    );
+}
+
+#[test]
 fn boss_death_burst_finish_sub_3728c_plays_the_final_anim_then_deletes() {
     let finish = boss_death_burst_finish_sub_3728C();
 

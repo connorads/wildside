@@ -281,6 +281,19 @@ pub(crate) struct BossDeathBurstCollisionFinishLoc371B6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BossDeathBurstTimeoutLoopNextLoc3720A {
+    ContinueTimeoutFinish,
+    CollisionFinish,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossDeathBurstTimeoutLoopGateLoc3720A {
+    pub(crate) hibernate_one_frame: bool,
+    pub(crate) next_collision_type: i16,
+    pub(crate) next: BossDeathBurstTimeoutLoopNextLoc3720A,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossDeathBurstFinishSub3728C {
     pub(crate) animation_label: &'static str,
     pub(crate) hibernate_until_anim_finished: bool,
@@ -653,6 +666,29 @@ pub(crate) fn boss_death_burst_homing_step_sub_370D2(
         x_direction,
         x_velocity_delta,
         y_velocity_delta,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_death_burst_timeout_loop_gate_loc_3720A(
+    collision_type: i16,
+) -> BossDeathBurstTimeoutLoopGateLoc3720A {
+    // ASM loc_3720A (kid.asm:39081): after `Hibernate_Object_1Frame`, branch
+    // to loc_371B6 on collision ids `$001C`, `$002C`, or `$FFFF`; otherwise
+    // clear `collision_type(a3)` before comparing against Kid and ground state.
+    if matches!(collision_type, 0x001C | 0x002C | -1) {
+        return BossDeathBurstTimeoutLoopGateLoc3720A {
+            hibernate_one_frame: true,
+            next_collision_type: collision_type,
+            next: BossDeathBurstTimeoutLoopNextLoc3720A::CollisionFinish,
+        };
+    }
+
+    BossDeathBurstTimeoutLoopGateLoc3720A {
+        hibernate_one_frame: true,
+        next_collision_type: 0,
+        next: BossDeathBurstTimeoutLoopNextLoc3720A::ContinueTimeoutFinish,
     }
 }
 
