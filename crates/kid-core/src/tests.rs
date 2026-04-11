@@ -32279,6 +32279,15 @@ fn boss_eye_attack_sprite_sub_37332_matches_sub_37af0_direction_buckets_and_diam
 }
 
 #[test]
+fn boss_eye_attack_sprite_loc_37b0c_uses_signed_word_vertical_compare() {
+    assert_eq!(
+        boss_eye_attack_sprite_sub_37332(false, 0x00, 0x0040, 0x7FFE, 0x0040, 0x7FFF),
+        "LnkTo_unk_C84A8-Data_Index",
+        "ASM loc_37B0C should use signed `cmp.w`/`bgt` for Kid Y against `y_pos(a3)+4`, so `$7FFF > $8002` selects the lower centred bucket",
+    );
+}
+
+#[test]
 fn boss_eye_attack_step_sub_37332_applies_gravity_refreshes_sprite_and_deletes_below_floor() {
     let airborne = boss_eye_attack_step_sub_37332(
         0,

@@ -857,6 +857,18 @@ pub(crate) fn boss_eye_attack_init_sub_37332(
     }
 }
 
+fn i16_word(value: u16) -> i16 {
+    i16::from_be_bytes(value.to_be_bytes())
+}
+
+fn word_lt_signed(lhs: u16, rhs: u16) -> bool {
+    i16_word(lhs) < i16_word(rhs)
+}
+
+fn word_gt_signed(lhs: u16, rhs: u16) -> bool {
+    i16_word(lhs) > i16_word(rhs)
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_attack_sprite_sub_37332(
@@ -880,23 +892,26 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
         };
     }
 
-    if kid_y > effect_y.saturating_add(4) {
-        if kid_x < effect_x.saturating_sub(4) {
+    // ASM loc_37B0C (kid.asm:40040): the non-diamond path snapshots Kid's
+    // gfx-object word coordinates and branches with signed `cmp.w` tests
+    // against `y_pos(a3)+4`, then `y_pos(a3)-4`.
+    if word_gt_signed(kid_y, effect_y.wrapping_add(4)) {
+        if word_lt_signed(kid_x, effect_x.wrapping_sub(4)) {
             "LnkTo_unk_C84A0-Data_Index"
-        } else if kid_x > effect_x.saturating_add(4) {
+        } else if word_gt_signed(kid_x, effect_x.wrapping_add(4)) {
             "LnkTo_unk_C84B0-Data_Index"
         } else {
             "LnkTo_unk_C84A8-Data_Index"
         }
-    } else if kid_y < effect_y.saturating_sub(4) {
-        if kid_x < effect_x.saturating_sub(4) {
+    } else if word_lt_signed(kid_y, effect_y.wrapping_sub(4)) {
+        if word_lt_signed(kid_x, effect_x.wrapping_sub(4)) {
             "LnkTo_unk_C8490-Data_Index"
-        } else if kid_x > effect_x.saturating_add(4) {
+        } else if word_gt_signed(kid_x, effect_x.wrapping_add(4)) {
             "LnkTo_unk_C84C0-Data_Index"
         } else {
             "LnkTo_unk_C8488-Data_Index"
         }
-    } else if kid_x < effect_x.saturating_sub(8) {
+    } else if word_lt_signed(kid_x, effect_x.wrapping_sub(8)) {
         "LnkTo_unk_C8498-Data_Index"
     } else {
         "LnkTo_unk_C84B8-Data_Index"
