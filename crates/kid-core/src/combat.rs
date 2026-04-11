@@ -2056,6 +2056,9 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
     let (d6_x_velocity_delta, d7_velocity_delta) = if timer > 0x015E {
         (-0x0003_0D40, 0x0003_0D40)
     } else if timer > 0x00FA {
+        // ASM loc_3781E (kid.asm:39594): once the high-tier branch is skipped,
+        // compare the decremented `$40(a3)` with `#$FA`; values above it use
+        // the `$493E0` deltas before the still-lower scatter bands.
         (-0x0004_93E0, 0x0004_93E0)
     } else if timer > 0x0096 {
         (-0x0006_1A80, 0x0006_1A80)
