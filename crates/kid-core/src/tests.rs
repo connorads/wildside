@@ -33291,6 +33291,67 @@ fn boomerang_boss_head_3_attack_animation_gate_loc_381ae_spawns_projectile_when_
 }
 
 #[test]
+fn boomerang_boss_head_3_post_projectile_wait_loop_loc_381b8_checks_animation_when_status_is_zero()
+{
+    let result = boomerang_boss_head_3_post_projectile_wait_loop_loc_381B8(0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(
+        result.runs_movement_wrapper_sub_39a7c,
+        "ASM loc_381B8 should run `sub_39A7C` after hibernating the post-projectile animation frame",
+    );
+    assert_eq!(
+        result.cached_collision_word_fffffb76, 0,
+        "ASM loc_381B8 should copy zero `d7` into `$FFFFFB76` before falling through",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3PostProjectileWaitNextLoc381B8::CheckAnimationDone,
+        "ASM loc_381B8 should continue to the post-projectile animation gate when `tst.w d7` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_post_projectile_wait_loop_loc_381b8_branches_to_shared_exit_on_status() {
+    let result = boomerang_boss_head_3_post_projectile_wait_loop_loc_381B8(0x0002);
+
+    assert_eq!(
+        result.cached_collision_word_fffffb76, 0x0002,
+        "ASM loc_381B8 should preserve nonzero `d7` in `$FFFFFB76`",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3PostProjectileWaitNextLoc381B8::SharedCollisionExitLoc39EBE,
+        "ASM loc_381B8 should branch to loc_39EBE instead of testing `$18(a3)` when `d7` is nonzero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_post_projectile_animation_gate_loc_381cc_loops_until_animation_finishes() {
+    let result = boomerang_boss_head_3_post_projectile_animation_gate_loc_381CC(0);
+
+    assert!(!result.post_projectile_animation_done);
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3PostProjectileAnimationNextLoc381CC::AwaitPostProjectileWaitLoc381B8,
+        "ASM loc_381CC should branch back to loc_381B8 while `$18(a3)` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_post_projectile_animation_gate_loc_381cc_returns_to_activation_when_done()
+{
+    let result = boomerang_boss_head_3_post_projectile_animation_gate_loc_381CC(1);
+
+    assert!(result.post_projectile_animation_done);
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3PostProjectileAnimationNextLoc381CC::ReturnToActivationWaitLoc38144,
+        "ASM loc_381CC should branch to loc_38144 when the post-projectile animation byte is nonzero",
+    );
+}
+
+#[test]
 fn boomerang_boss_head_2_attack_wait_loop_loc_380b8_checks_animation_when_status_is_zero() {
     let result = boomerang_boss_head_2_attack_wait_loop_loc_380B8(0);
 
