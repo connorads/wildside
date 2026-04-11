@@ -32701,6 +32701,41 @@ fn boomerang_boss_head_1_init_loc_37f30_seeds_the_anchor_head_and_movement_scrip
 }
 
 #[test]
+fn boomerang_boss_head_1_wait_loop_loc_37f80_checks_kid_window_when_status_is_zero() {
+    let result = boomerang_boss_head_1_wait_loop_loc_37F80(0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(
+        result.runs_movement_wrapper_sub_39952,
+        "ASM loc_37F80 should run `sub_39952` after `Hibernate_Object_1Frame`",
+    );
+    assert_eq!(
+        result.cached_collision_word_fffffb72, 0,
+        "ASM loc_37F80 should copy zero `d7` into `$FFFFFB72` before falling through",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHeadWaitNextLoc37F80::CheckKidWindowLoc37F94,
+        "ASM loc_37F80 should fall through to loc_37F94 when `tst.w d7` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_1_wait_loop_loc_37f80_branches_to_shared_exit_when_status_is_nonzero() {
+    let result = boomerang_boss_head_1_wait_loop_loc_37F80(0x002C);
+
+    assert_eq!(
+        result.cached_collision_word_fffffb72, 0x002C,
+        "ASM loc_37F80 should preserve the nonzero `d7` word from `sub_39952` in `$FFFFFB72`",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHeadWaitNextLoc37F80::SharedCollisionExitLoc39EBE,
+        "ASM loc_37F80 should branch to loc_39EBE instead of loc_37F94 when `d7` is nonzero",
+    );
+}
+
+#[test]
 fn boss_head_movement_step_sub_39846_only_counts_down_when_delay_has_not_elapsed() {
     let script = [(0x0168, 0, -1), (-1, 0, 0)];
 
