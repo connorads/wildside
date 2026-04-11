@@ -32365,7 +32365,7 @@ fn boss_eye_refresh_attack_sprites_sub_37abc_updates_each_live_slot_and_skips_nu
             y_pos: 0x0040,
             sprite_mapping: "LnkTo_unk_C84B0-Data_Index",
         }),
-        "ASM sub_37ABC should refresh the first live `$FFFFFB7E` worker with sub_37AF0's directional mapping",
+        "ASM loc_37AC6 should refresh the first live `$FFFFFB7E` worker with sub_37AF0's directional mapping",
     );
     assert_eq!(
         refreshed[1], None,

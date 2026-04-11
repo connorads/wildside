@@ -933,9 +933,9 @@ pub(crate) fn boss_eye_refresh_attack_sprites_sub_37ABC(
     kid_x: u16,
     kid_y: u16,
 ) -> [Option<BossEyeSpriteRefreshSlotSub37ABC>; 12] {
-    // ASM sub_37ABC (kid.asm:39991): walk the 12 longword worker pointers at
-    // `$FFFFFB7E`, skip null entries, and refresh `addroffset_sprite(a3)` by
-    // calling sub_37AF0 for each live boss-eye child.
+    // ASM loc_37AC6 (kid.asm:39996): load each longword worker pointer from
+    // `$FFFFFB7E`; live entries become `a3`, call `sub_37AF0`, then write the
+    // returned mapping to `addroffset_sprite(a3)`.
     for slot in &mut slots {
         if let Some(worker) = slot.as_mut() {
             worker.sprite_mapping = boss_eye_attack_sprite_sub_37332(
