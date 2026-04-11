@@ -2017,6 +2017,9 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
                         result.piece_slots[piece_index] = Some(piece);
                     }
                     0x0019..=0x0024 => {
+                        // ASM loc_37778 (kid.asm:39548): counters above `$18`
+                        // and `<= $24` allocate `sub_3729E` and `sub_37332`
+                        // at the selected worker's position, then clear `(a1)`.
                         result.spawned_pop_effect_at = Some((piece.x_pos, piece.y_pos));
                         result.spawned_attack_at = Some((piece.x_pos, piece.y_pos));
                         result.piece_slots[piece_index] = None;

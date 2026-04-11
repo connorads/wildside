@@ -33503,21 +33503,21 @@ fn heady_metal_breakup_step_sub_37708_spawns_the_late_pop_pair_and_clears_the_pi
 
     assert_eq!(
         result.next_phase_counter, 25,
-        "ASM sub_37708 should advance into the late breakup range before spawning the paired effects",
+        "ASM loc_37778 should advance into the late breakup range before spawning the paired effects",
     );
     assert_eq!(
         result.spawned_pop_effect_at,
         Some((0x0070, 0x0088)),
-        "ASM sub_37708 should spawn `sub_3729E` from the selected worker's `x_pos/y_pos`",
+        "ASM loc_37778 should spawn `sub_3729E` from the selected worker's `x_pos/y_pos`",
     );
     assert_eq!(
         result.spawned_attack_at,
         Some((0x0070, 0x0088)),
-        "ASM sub_37708 should also spawn `sub_37332` from that same worker position",
+        "ASM loc_37778 should also spawn `sub_37332` from that same worker position",
     );
     assert_eq!(
         result.piece_slots[2], None,
-        "ASM sub_37708 should clear the selected worker pointer after launching the late breakup pair",
+        "ASM loc_37778 should clear the selected worker pointer after launching the late breakup pair",
     );
 }
 
