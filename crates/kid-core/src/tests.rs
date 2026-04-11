@@ -31851,7 +31851,7 @@ fn enemy_death_burst_homing_step_sub_37002_tracks_kid_with_signed_axis_accel() {
             right_and_down.y_velocity_delta
         ),
         (-0x0000_0FA0, 0x0000_0FA0),
-        "ASM loc_3709E..loc_370C0 should subtract or add `$FA0` so velocity always points back toward Kid",
+        "ASM loc_370AA should compare the burst y position with Kid and add `$FA0` when the burst is above or level with Kid",
     );
 }
 

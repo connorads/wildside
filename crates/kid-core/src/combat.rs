@@ -191,6 +191,8 @@ pub(crate) fn enemy_death_burst_homing_step_sub_37002(
     } else {
         (0xFF, homing_accel)
     };
+    // ASM loc_370AA (kid.asm:38947): after horizontal steering, compare
+    // `y_pos(a3)` against Kid's y position and accelerate vertically toward it.
     let y_velocity_delta = if effect_y > kid_y {
         -homing_accel
     } else {
