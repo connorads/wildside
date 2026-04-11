@@ -19837,6 +19837,19 @@ fn loc_36e24_routes_first_slot_forest_enemy_art_through_ram_decompression() {
 }
 
 #[test]
+fn loc_36e38_routes_plain_enemy_art_to_vram_decompression() {
+    use enemies::{
+        EnemyArtDecompressRouteLoc36E24, EnemyFamily, enemy_art_decompress_route_loc_36E24,
+    };
+
+    assert_eq!(
+        enemy_art_decompress_route_loc_36E24(2, false, EnemyFamily::Robot, false),
+        EnemyArtDecompressRouteLoc36E24::Vram,
+        "ASM loc_36E38 (kid.asm:38730) should call `j_DecompressToVRAM` when `d6` is zero after loc_36E2C skips Forest-only RAM decompression",
+    );
+}
+
+#[test]
 fn loc_32188_pops_the_first_free_gfx_slot_and_splices_it_onto_the_owner_head() {
     use enemies::{EnemyGfxSlotLinkLoc32188, enemy_gfx_slot_link_loc_32188};
 
