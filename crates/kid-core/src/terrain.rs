@@ -1855,20 +1855,14 @@ fn horizontal_collision_scan(
     } else {
         let lead_col = horizontal_collision_scan_left_lead_column_index_loc_36AA6(left_col)
             .expect("leftward lead-column scan should only run when the column is in bounds");
-        let prefix_blocked = horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
+        // ASM loc_36C40 (kid.asm:38482): retarget `a4` to `-2(a1)`, then OR
+        // exactly the clamped `d2` row span by stepping one `Level_width_tiles`
+        // row at a time. Unlike the earlier left scan, this path does not
+        // inspect the following row below the hitbox.
+        horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
             grid, lead_col, top_row, bottom_row,
         ) & 0x4000
-            != 0;
-        let following_row = bottom_row + 1;
-        let following_cell_blocked = if following_row >= i32::from(grid.height_cells) {
-            false
-        } else {
-            horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(
-                grid.cell_at(lead_col as u16, following_row as u16)
-                    .to_word(),
-            )
-        };
-        prefix_blocked || following_cell_blocked
+            != 0
     };
 
     HorizontalCollisionScan {
@@ -3802,6 +3796,24 @@ mod tests {
                 lead_column_blocked: false,
             },
             "ASM loc_36BF6 should clamp the bottom row to `Level_height_blocks - 1` before deriving `d2`, so the final in-bounds row still participates in the leftward body scan",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_loc_36c40_ignores_the_following_row() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(2 * 4 + 1) * 2] = 0x40;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let scan = horizontal_collision_scan_left_sub_36BD6(&grid, 40, 32, 8, 16);
+
+        assert_eq!(
+            scan,
+            HorizontalCollisionScan {
+                hitbox_blocked: false,
+                lead_column_blocked: false,
+            },
+            "ASM loc_36C40 should scan only the in-span left lead column via `add.w d4,a4`; a blocking word on the following row below `d2` must not set `d6`",
         );
     }
 
