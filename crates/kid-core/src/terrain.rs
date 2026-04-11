@@ -1790,9 +1790,9 @@ fn horizontal_collision_scan(
     height: i32,
     leading_right: bool,
 ) -> HorizontalCollisionScan {
-    // ASM loc_36B5A (kid.asm:38369): after clamping the bottom row against
-    // `Level_height_blocks`, derive the inclusive row span and base row pointer
-    // for the rightward hitbox and lead-column scans.
+    // ASM loc_36B5A / loc_36BF6 (kid.asm:38369 / 38447): after clamping the
+    // bottom row against `Level_height_blocks`, derive the inclusive row span
+    // and base row pointer for the hitbox and lead-column scans.
     let top_row = pixel_to_cell(foot_y_px - height).max(0);
     let mut bottom_row = pixel_to_cell(foot_y_px - 1).max(0);
     if bottom_row >= i32::from(grid.height_cells) {
@@ -3764,6 +3764,24 @@ mod tests {
                 lead_column_blocked: true,
             },
             "ASM sub_36BD6 should return a blocked lead column once the next cell would step beyond the level's left edge",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_loc_36bf6_clamps_bottom_row_to_level_height() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(3 * 4 + 1) * 2] = 0x40;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let scan = horizontal_collision_scan_left_sub_36BD6(&grid, 24, 80, 8, 32);
+
+        assert_eq!(
+            scan,
+            HorizontalCollisionScan {
+                hitbox_blocked: true,
+                lead_column_blocked: false,
+            },
+            "ASM loc_36BF6 should clamp the bottom row to `Level_height_blocks - 1` before deriving `d2`, so the final in-bounds row still participates in the leftward body scan",
         );
     }
 
