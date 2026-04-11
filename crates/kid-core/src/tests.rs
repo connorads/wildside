@@ -33423,9 +33423,9 @@ fn heady_metal_piece_sprite_sub_37a22_uses_diamond_override_and_directional_buck
         "ASM loc_37A8C should choose index 3 when the lower-band Kid X is left of `x_pos-4`",
     );
     assert_eq!(
-        heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x0050, 0x0050),
+        heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x0045, 0x0045),
         "LnkTo_unk_C84B0-Data_Index",
-        "ASM sub_37A22 should choose the down-right mapping when Kid is below and right of the worker",
+        "ASM loc_37A90 should choose index 5 when the lower-band Kid X is right of `x_pos+4`",
     );
 }
 

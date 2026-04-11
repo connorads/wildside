@@ -1938,6 +1938,8 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
             // index 3, `LnkTo_unk_C84A0-Data_Index`.
             "LnkTo_unk_C84A0-Data_Index"
         } else if kid_x > effect_x.saturating_add(4) {
+            // ASM loc_37A90 (kid.asm:39955): below-and-right chooses table
+            // index 5, `LnkTo_unk_C84B0-Data_Index`.
             "LnkTo_unk_C84B0-Data_Index"
         } else {
             "LnkTo_unk_C84A8-Data_Index"
