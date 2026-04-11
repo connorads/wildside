@@ -33408,6 +33408,11 @@ fn heady_metal_piece_sprite_sub_37a22_uses_diamond_override_and_directional_buck
         "ASM loc_37A3E should stay in the middle Y band and choose index 6 when Kid is not left of `x_pos-8`",
     );
     assert_eq!(
+        heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x0037, 0x0040),
+        "LnkTo_unk_C8498-Data_Index",
+        "ASM loc_37A74 should choose index 2 when the middle-band Kid X is left of `x_pos-8`",
+    );
+    assert_eq!(
         heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x0050, 0x0050),
         "LnkTo_unk_C84B0-Data_Index",
         "ASM sub_37A22 should choose the down-right mapping when Kid is below and right of the worker",

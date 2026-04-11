@@ -1947,6 +1947,8 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
             "LnkTo_unk_C8488-Data_Index"
         }
     } else if kid_x < effect_x.saturating_sub(8) {
+        // ASM loc_37A74 (kid.asm:39934): in the middle vertical band, Kid
+        // left of `x_pos(a3)-8` selects table index 2.
         "LnkTo_unk_C8498-Data_Index"
     } else {
         "LnkTo_unk_C84B8-Data_Index"
