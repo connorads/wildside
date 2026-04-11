@@ -54365,3 +54365,22 @@ fn horizontal_collision_scan_right_loc_369c4_flags_an_in_bounds_right_slope_colu
         "ASM loc_369C4 should scan the in-bounds right lead column before the boundary fallback, so a `$5000` slope there must still block side contact",
     );
 }
+
+#[test]
+fn horizontal_collision_scan_left_loc_36c46_flags_an_in_bounds_left_slope_column() {
+    let mut data = vec![0u8; 4 * 4 * 2];
+    let slope_offset = (2 * 4) * 2;
+    data[slope_offset] = 0x40;
+    let grid = crate::terrain::BlockGrid::from_level_layout(&data, 4, 4);
+
+    let scan = crate::terrain::horizontal_collision_scan_left_sub_36BD6(&grid, 24, 48, 8, 32);
+
+    assert_eq!(
+        scan,
+        crate::terrain::HorizontalCollisionScan {
+            hitbox_blocked: false,
+            lead_column_blocked: true,
+        },
+        "ASM loc_36C46 should OR each in-bounds left lead-column word into `d6` before masking bit `$4000`",
+    );
+}

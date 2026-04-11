@@ -1657,6 +1657,9 @@ fn horizontal_collision_scan_left_lead_column_mask_loc_36AAE(
     // `loc_36AA6`, OR the left lead-column words one row at a time via
     // `add.w (Level_width_tiles).w,a4` so any blocking bit from the scanned
     // prefix survives into the later `andi.w #$4000,d0` test.
+    // ASM loc_36C46 (kid.asm:38486): Robot/Driller/Tank's `sub_36BD6`
+    // reuses the same left lead-column loop for its object body, OR-ing
+    // `(a4)` into `d6` before advancing by one `Level_width_tiles` row.
     let mut mask = 0u16;
     for row in top_row..=bottom_row {
         mask |= grid.cell_at(lead_col as u16, row as u16).to_word();
