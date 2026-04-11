@@ -33263,6 +33263,34 @@ fn boomerang_boss_head_3_attack_wait_loop_loc_3819a_branches_to_shared_exit_on_s
 }
 
 #[test]
+fn boomerang_boss_head_3_attack_animation_gate_loc_381ae_loops_until_animation_finishes() {
+    let result = boomerang_boss_head_3_attack_animation_gate_loc_381AE(0);
+
+    assert!(!result.attack_animation_done);
+    assert!(!result.runs_projectile_spawn_sub_397e4);
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3AttackAnimationNextLoc381AE::AwaitAttackWaitLoopLoc3819A,
+        "ASM loc_381AE should branch back to loc_3819A while `$18(a3)` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_attack_animation_gate_loc_381ae_spawns_projectile_when_done() {
+    let result = boomerang_boss_head_3_attack_animation_gate_loc_381AE(0x80);
+
+    assert!(result.attack_animation_done);
+    assert!(
+        result.runs_projectile_spawn_sub_397e4,
+        "ASM loc_381AE should call `sub_397E4` as soon as `$18(a3)` is nonzero",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3AttackAnimationNextLoc381AE::SpawnProjectileSub397E4,
+    );
+}
+
+#[test]
 fn boomerang_boss_head_2_attack_wait_loop_loc_380b8_checks_animation_when_status_is_zero() {
     let result = boomerang_boss_head_2_attack_wait_loop_loc_380B8(0);
 
