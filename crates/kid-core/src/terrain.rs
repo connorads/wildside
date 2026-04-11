@@ -1563,7 +1563,31 @@ fn horizontal_collision_scan_right_hitbox_mask_loc_36BBE(
 ) -> u16 {
     // ASM loc_36BBE (kid.asm:38416): reset `a4` to the start of the current
     // hitbox row and reload `d0=d3` before each row-width scan.
-    horizontal_collision_scan_rect_mask_loc_369F8(grid, left_col, right_col, top_row, bottom_row)
+    let mut mask = horizontal_collision_scan_hitbox_mask_seed_loc_369F6();
+    for row in top_row..=bottom_row {
+        mask |= horizontal_collision_scan_right_hitbox_row_mask_loc_36BC2(
+            grid, left_col, right_col, row,
+        );
+    }
+    mask
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_right_hitbox_row_mask_loc_36BC2(
+    grid: &BlockGrid,
+    left_col: i32,
+    right_col: i32,
+    row: i32,
+) -> u16 {
+    // ASM loc_36BC2 (kid.asm:38420): OR each word in the current hitbox row
+    // into `d5` via post-increment `(a4)+`, stopping only after the inclusive
+    // `dbf d0` width counter expires.
+    let mut mask = 0u16;
+    for col in left_col..=right_col {
+        mask |= grid.cell_at(col as u16, row as u16).to_word();
+    }
+    mask
 }
 
 #[allow(non_snake_case)]
@@ -3502,6 +3526,23 @@ mod tests {
             mask & 0x7000,
             0x6000,
             "ASM loc_36BBE (kid.asm:38416) should reset `a4` to each row start before the row-width scan, so both columns are checked again on later rows",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_right_hitbox_row_mask_loc_36bc2_ors_the_inclusive_row_width() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(1 * 4 + 1) * 2] = 0x20;
+        data[(1 * 4 + 2) * 2] = 0x40;
+        data[(1 * 4 + 3) * 2] = 0x50;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let mask = horizontal_collision_scan_right_hitbox_row_mask_loc_36BC2(&grid, 1, 3, 1);
+
+        assert_eq!(
+            mask & 0x7000,
+            0x7000,
+            "ASM loc_36BC2 (kid.asm:38420) should OR every word in the inclusive hitbox row before `dbf d0` exits, preserving bits from the first and final scanned columns",
         );
     }
 
