@@ -33522,6 +33522,20 @@ fn heady_metal_breakup_step_sub_37708_spawns_the_late_pop_pair_and_clears_the_pi
 }
 
 #[test]
+fn heady_metal_breakup_step_loc_377bc_waits_for_phase_25_before_final_scatter() {
+    let result = heady_metal_breakup_step_sub_37708(true, 0, 0x0024, 0x0160, 0, [None; 13]);
+
+    assert!(
+        !result.set_has_kid_collision && !result.set_global_hit_latch,
+        "ASM loc_377BC should return while `$3E(a3) < #$25`, before setting `has_kid_collision(a3)` or `($FFFFFB4E).w`",
+    );
+    assert_eq!(
+        result.scatter_step, None,
+        "ASM loc_377BC should skip the final scatter timer and velocity tier selection until the breakup counter reaches `#$25`",
+    );
+}
+
+#[test]
 fn heady_metal_breakup_step_sub_37708_arms_the_final_scatter_with_the_primary_pattern() {
     let result = heady_metal_breakup_step_sub_37708(true, 0, 0x0025, 0x0160, 0, [None; 13]);
 

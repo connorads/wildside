@@ -2030,6 +2030,9 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
         }
     }
 
+    // ASM loc_377BC (kid.asm:39564): reload `$FFFFFB72`, compare `$3E(a3)`
+    // against `#$25`, and return before arming Kid collision or the global
+    // breakup latch until the counter reaches the final scatter phase.
     if result.next_phase_counter < 0x0025 {
         return result;
     }
