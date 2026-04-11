@@ -33142,6 +33142,17 @@ fn heady_metal_apply_piece_velocities_sub_376ec_updates_each_live_worker_slot() 
 }
 
 #[test]
+fn heady_metal_tracking_velocity_loc_37582_aims_right_when_piece_is_not_right_of_kid() {
+    let velocity =
+        heady_metal_tracking_velocity_loc_37582(0x0080, 0x0080, 0x0080, 0x00A8, 4, false);
+
+    assert_eq!(
+        velocity.x_velocity, 0x0000_8000,
+        "ASM loc_37582 should fall through to `move.l #$8000,d6` when `$FFFFFB7A.x_pos <= Kid.gfx_x`",
+    );
+}
+
+#[test]
 fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pattern() {
     let updated = heady_metal_scatter_step_sub_3787C(
         HeadyMetalScatterVelocities {

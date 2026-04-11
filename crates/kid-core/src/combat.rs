@@ -466,6 +466,13 @@ pub(crate) struct HeadyMetalSpriteVelocitySub376EC {
     pub(crate) y_velocity: i32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HeadyMetalTrackingVelocityLoc37582 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct NormalSpriteChunkLoc12B8 {
@@ -1737,6 +1744,48 @@ pub(crate) fn heady_metal_apply_piece_velocities_sub_376EC(
     }
 
     slots
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_tracking_velocity_loc_37582(
+    kid_gfx_x: u16,
+    kid_gfx_y: u16,
+    centre_piece_x: u16,
+    centre_piece_y: u16,
+    anchor_phase_counter: u16,
+    global_velocity_freeze: bool,
+) -> HeadyMetalTrackingVelocityLoc37582 {
+    // ASM loc_37582 (kid.asm:39344): after the one-frame hibernate, compare
+    // `$FFFFFB7A` against Kid's gfx-object position and seed `d6/d7` before
+    // the shared `sub_376EC` worker velocity write.
+    let piece_x = i16::from_ne_bytes(centre_piece_x.to_ne_bytes());
+    let kid_x = i16::from_ne_bytes(kid_gfx_x.to_ne_bytes());
+    let piece_target_y = i16::from_ne_bytes(centre_piece_y.to_ne_bytes()).wrapping_sub(0x0028_i16);
+    let kid_y = i16::from_ne_bytes(kid_gfx_y.to_ne_bytes());
+
+    let mut x_velocity = if piece_x > kid_x {
+        -0x0000_8000
+    } else {
+        0x0000_8000
+    };
+    let mut y_velocity = if piece_target_y > kid_y {
+        -0x0000_5000
+    } else {
+        0x0000_4800
+    };
+
+    if anchor_phase_counter < 4 {
+        x_velocity = 0;
+    }
+    if global_velocity_freeze {
+        x_velocity = 0;
+        y_velocity = 0;
+    }
+
+    HeadyMetalTrackingVelocityLoc37582 {
+        x_velocity,
+        y_velocity,
+    }
 }
 
 #[allow(non_snake_case)]
