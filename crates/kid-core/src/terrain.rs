@@ -1777,6 +1777,9 @@ fn horizontal_collision_scan(
 
     let lead_column_blocked = if leading_right {
         let lead_col = right_col + 1;
+        // ASM loc_36BA0 (kid.asm:38398): compare the right lead-column index
+        // against `Level_width_blocks`; equality means the scan has reached the
+        // level boundary and returns `d6=1` without reading a map word.
         if lead_col >= i32::from(grid.width_cells) {
             true
         } else {
@@ -3328,7 +3331,7 @@ mod tests {
     }
 
     #[test]
-    fn horizontal_collision_scan_right_sub_36b3c_treats_the_right_boundary_as_blocked() {
+    fn horizontal_collision_scan_right_loc_36ba0_treats_the_right_boundary_as_blocked() {
         let data = [0u8; 4 * 4 * 2];
         let grid = BlockGrid::from_level_layout(&data, 4, 4);
 
@@ -3340,7 +3343,7 @@ mod tests {
                 hitbox_blocked: false,
                 lead_column_blocked: true,
             },
-            "ASM sub_36B3C should return a blocked lead column once the next cell would step beyond Level_width_blocks",
+            "ASM loc_36BA0 should set `d6=1` and skip the lead-column scan when `d1 == Level_width_blocks` at the right edge",
         );
     }
 
