@@ -1518,6 +1518,9 @@ pub(crate) fn boomerang_boss_head_2_activation_window_loc_38076(
         0xFF
     };
 
+    // ASM loc_380A8 (kid.asm:40457): mirror head 2's selected `x_direction`
+    // byte into `$FFFFFB87`, load `stru_39FC6` into `d7`, then initialise the
+    // attack animation before entering the next wait loop.
     BoomerangBossHead2ActivationWindowLoc38076 {
         kid_within_vertical_window,
         x_direction: Some(x_direction),

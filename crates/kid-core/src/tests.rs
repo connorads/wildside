@@ -33051,7 +33051,7 @@ fn boomerang_boss_head_2_activation_loc_380a4_faces_left_when_head_is_strictly_r
             Some("stru_39FC6"),
             BoomerangBossHead2ActivationNextLoc38076::AttackAnimation,
         ),
-        "ASM loc_380A4 should clear `x_direction(a3)` when signed `head_x > kid_x` and mirror that byte to `$FFFFFB87`",
+        "ASM loc_380A4 should clear `x_direction(a3)` when signed `head_x > kid_x`; ASM loc_380A8 should mirror that byte to `$FFFFFB87` and start `stru_39FC6`",
     );
 }
 
