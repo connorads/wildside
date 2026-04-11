@@ -19742,6 +19742,25 @@ fn loc_3217c_loads_the_selected_enemy_art_vram_tile() {
 }
 
 #[test]
+fn loc_36ea6_writes_palette_line_slot_word_and_vram_tile_from_selected_enemy_art_slot() {
+    use enemies::enemy_art_slot_assignment_sub_36E84;
+
+    let second = enemy_art_slot_assignment_sub_36E84(&[0x0022, 0x401C, 0x800D], 0x001C);
+    assert_eq!(
+        second.slot_index, 1,
+        "ASM loc_36EA6 (kid.asm:38819) should keep `d4=1` after the masked second header slot matches the enemy id",
+    );
+    assert_eq!(
+        second.palette_line, 2,
+        "ASM loc_36EA6 should write `EnemyArt_PaletteLines[d4]` into `palette_line(a3)`",
+    );
+    assert_eq!(
+        second.vram_tile, 0x0409,
+        "ASM loc_36EA6 should double `d4` and write the selected `EnemyArt_VRAMTileAddresses` word into `vram_tile(a3)`",
+    );
+}
+
+#[test]
 fn loc_36d16_decodes_enemy_art_palette_header_entries() {
     use enemies::{EnemyArtPaletteEntryLoc36D16, enemy_art_palette_entry_loc_36D16};
 

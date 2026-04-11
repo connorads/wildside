@@ -6238,10 +6238,11 @@ pub(crate) fn enemy_art_slot_assignment_sub_36E84(
     enemy_id: u16,
 ) -> EnemyArtSlotAssignmentSub36E84 {
     // ASM sub_36E84 / loc_32146 / loc_3215E / loc_3216C / loc_3217C
-    // (kid.asm:37582-37609) seeds `d1=0`, compares the masked 12-bit enemy id
-    // against the first two header slots, and then uses the selected `d1`
-    // index to load both `palette_line(a3)` and `vram_tile(a3)` from the ROM
-    // art tables before returning.
+    // (kid.asm:37582-37609) mirrors the enemy art slot search used by
+    // loc_36EA6 (kid.asm:38819): seed the slot index at zero, compare the
+    // masked 12-bit enemy id against the first two header slots, then use the
+    // selected index to write `palette_line(a3)`, `$3E(a3)`, and
+    // `vram_tile(a3)` from the ROM art tables.
     const ENEMY_ART_PALETTE_LINES: [u8; 4] = [1, 2, 2, 0];
     const ENEMY_ART_VRAM_TILE_ADDRESSES: [u16; 3] = [0x02FB, 0x0409, 0x0517];
 
