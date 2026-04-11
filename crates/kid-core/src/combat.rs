@@ -514,6 +514,19 @@ pub(crate) struct BoomerangBossHeadPostProjectileWaitLoopLoc37FF4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossHeadPostProjectileAnimationNextLoc38008 {
+    AwaitPostProjectileWaitLoc37FF4,
+    ReturnToActivationWaitLoc37F80,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossHeadPostProjectileAnimationGateLoc38008 {
+    pub(crate) animation_done_byte_18: u8,
+    pub(crate) post_projectile_animation_done: bool,
+    pub(crate) next: BoomerangBossHeadPostProjectileAnimationNextLoc38008,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -1370,6 +1383,26 @@ pub(crate) fn boomerang_boss_head_1_post_projectile_wait_loop_loc_37FF4(
             BoomerangBossHeadPostProjectileWaitNextLoc37FF4::CheckAnimationDone
         } else {
             BoomerangBossHeadPostProjectileWaitNextLoc37FF4::SharedCollisionExitLoc39EBE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_1_post_projectile_animation_gate_loc_38008(
+    animation_done_byte_18: u8,
+) -> BoomerangBossHeadPostProjectileAnimationGateLoc38008 {
+    // ASM loc_38008 (kid.asm:40402): after the post-projectile wait loop,
+    // `tst.b $18(a3)` branches back to loc_37FF4 until the animation finishes;
+    // any nonzero byte returns the head to the activation wait at loc_37F80.
+    let post_projectile_animation_done = animation_done_byte_18 != 0;
+    BoomerangBossHeadPostProjectileAnimationGateLoc38008 {
+        animation_done_byte_18,
+        post_projectile_animation_done,
+        next: if post_projectile_animation_done {
+            BoomerangBossHeadPostProjectileAnimationNextLoc38008::ReturnToActivationWaitLoc37F80
+        } else {
+            BoomerangBossHeadPostProjectileAnimationNextLoc38008::AwaitPostProjectileWaitLoc37FF4
         },
     }
 }

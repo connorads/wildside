@@ -32889,6 +32889,33 @@ fn boomerang_boss_head_1_post_projectile_wait_loop_loc_37ff4_branches_to_shared_
 }
 
 #[test]
+fn boomerang_boss_head_1_post_projectile_animation_gate_loc_38008_loops_until_animation_finishes() {
+    let result = boomerang_boss_head_1_post_projectile_animation_gate_loc_38008(0);
+
+    assert_eq!(result.animation_done_byte_18, 0);
+    assert!(!result.post_projectile_animation_done);
+    assert_eq!(
+        result.next,
+        BoomerangBossHeadPostProjectileAnimationNextLoc38008::AwaitPostProjectileWaitLoc37FF4,
+        "ASM loc_38008 should branch back to loc_37FF4 while `$18(a3)` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_1_post_projectile_animation_gate_loc_38008_returns_to_activation_when_done()
+{
+    let result = boomerang_boss_head_1_post_projectile_animation_gate_loc_38008(0x80);
+
+    assert_eq!(result.animation_done_byte_18, 0x80);
+    assert!(result.post_projectile_animation_done);
+    assert_eq!(
+        result.next,
+        BoomerangBossHeadPostProjectileAnimationNextLoc38008::ReturnToActivationWaitLoc37F80,
+        "ASM loc_38008 should branch back to loc_37F80 once `$18(a3)` is nonzero",
+    );
+}
+
+#[test]
 fn boss_head_movement_step_sub_39846_only_counts_down_when_delay_has_not_elapsed() {
     let script = [(0x0168, 0, -1), (-1, 0, 0)];
 
