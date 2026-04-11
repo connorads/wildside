@@ -780,6 +780,28 @@ pub(crate) struct BoomerangBossSkewerPiece3InitLoc38590 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossSkewerPiece3WaitNextLoc385D2 {
+    WaitLoopLoc385D2,
+    LaunchLoc385E4,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossSkewerPiece3WaitLoopLoc385D2 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_movement_step_sub_39846: bool,
+    pub(crate) next: BoomerangBossSkewerPiece3WaitNextLoc385D2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossSkewerPiece3LaunchLoc385E4 {
+    pub(crate) y_vel: i16,
+    pub(crate) x_vel: i32,
+    pub(crate) gravity_per_frame: i32,
+    pub(crate) deletes_below_level_height: bool,
+    pub(crate) loops_back_loc_3860c: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -2017,6 +2039,46 @@ pub(crate) fn boomerang_boss_skewer_piece_3_init_loc_38590(
         y_pos: anchor_y,
         movement_script_label: "unk_39872",
         movement_script_index: 1,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_skewer_piece_3_wait_loop_loc_385D2(
+    head_death_counter_fb4e: u8,
+) -> BoomerangBossSkewerPiece3WaitLoopLoc385D2 {
+    // ASM loc_385D2 (kid.asm:40804): hibernate one frame, run `sub_39846`
+    // (boss head movement step), then check `cmpi.b #3,($FFFFFB4E).w`.
+    // Loop back to loc_385D2 unless all 3 heads are dead ($FFFFFB4E == 3),
+    // then branch to `loc_385E4` for piece 3 launch.
+    BoomerangBossSkewerPiece3WaitLoopLoc385D2 {
+        hibernates_one_frame: true,
+        runs_movement_step_sub_39846: true,
+        next: if head_death_counter_fb4e == 3 {
+            BoomerangBossSkewerPiece3WaitNextLoc385D2::LaunchLoc385E4
+        } else {
+            BoomerangBossSkewerPiece3WaitNextLoc385D2::WaitLoopLoc385D2
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_skewer_piece_3_launch_loc_385E4()
+-> BoomerangBossSkewerPiece3LaunchLoc385E4 {
+    // ASM loc_385E4 (kid.asm:40812): set y_vel to `$FFF9` (word = -7) and
+    // x_vel to `$FFFF4000` (longword = -0xC000 = -49152, leftward). Then
+    // enter the `loc_385F2` gravity loop: each frame adds `$1B58` to y_vel
+    // (longword), checks `y_pos` against `Level_height_pixels`, and deletes
+    // the object when it falls off-screen. `loc_3860C` (kid.asm:40825) is
+    // the loop-back branch: `bra.s loc_385F2` when
+    // `y_pos <= Level_height_pixels`. Piece 3 launches up-left.
+    BoomerangBossSkewerPiece3LaunchLoc385E4 {
+        y_vel: -7,                        // $FFF9 as signed word
+        x_vel: -0xC000_i32,               // $FFFF4000 as signed longword (leftward)
+        gravity_per_frame: 0x1B58,        // addi.l #$1B58,y_vel(a3)
+        deletes_below_level_height: true, // jmp j_Delete_CurrentObject when y_pos > level_height
+        loops_back_loc_3860c: true,       // bra.s loc_385F2 when y_pos <= level_height
     }
 }
 
