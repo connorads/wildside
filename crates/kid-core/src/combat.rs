@@ -1993,6 +1993,9 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
         result.next_collision_type = 0;
 
         if collision_type == 0x002C {
+            // ASM loc_3772A (kid.asm:39518): increment `$3E(a3)`, use that
+            // counter as a word index into `unk_3795E`, then retarget `a3`
+            // from `$FFFFFB7A` to the selected breakup worker pointer.
             result.next_phase_counter = phase_counter.wrapping_add(1);
             if let Some(&piece_index) =
                 HEADY_METAL_BREAKUP_SEQUENCE_SUB_37708.get(usize::from(result.next_phase_counter))
@@ -2000,6 +2003,8 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
             {
                 match result.next_phase_counter {
                     0x0000..=0x000C => {
+                        // ASM loc_3772A: counters `<= $C` add 2 to `$A(a3)`,
+                        // refresh the object, and play `sfx_Boss_eye_pops`.
                         piece.sprite_word_y += 2;
                         result.played_sound_effect = Some("sfx_Boss_eye_pops");
                         result.piece_slots[piece_index] = Some(piece);

@@ -33440,7 +33440,7 @@ fn heady_metal_breakup_step_sub_37708_advances_the_early_pop_sequence_on_collisi
     );
     assert_eq!(
         result.next_phase_counter, 0,
-        "ASM sub_37708 should wrap `$3E(a3)` from `$FFFF` to 0 on the first valid breakup collision",
+        "ASM loc_3772A should wrap `$3E(a3)` from `$FFFF` to 0 on the first valid breakup collision",
     );
     assert_eq!(
         result.piece_slots[0],
@@ -33449,12 +33449,12 @@ fn heady_metal_breakup_step_sub_37708_advances_the_early_pop_sequence_on_collisi
             x_pos: 0x0044,
             y_pos: 0x0046,
         }),
-        "ASM sub_37708 should add 2 to the selected worker's `$A(a3)` during the opening 13-pop phase",
+        "ASM loc_3772A should add 2 to the selected worker's `$A(a3)` during the opening 13-pop phase",
     );
     assert_eq!(
         result.played_sound_effect,
         Some("sfx_Boss_eye_pops"),
-        "ASM sub_37708 should play `sfx_Boss_eye_pops` during the opening 13-pop phase",
+        "ASM loc_3772A should play `sfx_Boss_eye_pops` during the opening 13-pop phase",
     );
 }
 
