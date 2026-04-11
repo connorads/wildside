@@ -936,6 +936,8 @@ pub(crate) fn boss_eye_refresh_attack_sprites_sub_37ABC(
     // ASM loc_37AC6 (kid.asm:39996): load each longword worker pointer from
     // `$FFFFFB7E`; live entries become `a3`, call `sub_37AF0`, then write the
     // returned mapping to `addroffset_sprite(a3)`.
+    // ASM loc_37AD4 (kid.asm:40003): null pointers branch straight to the
+    // `addq.w #4,a0`/`dbf` loop tail, so sparse tables still scan all 12 slots.
     for slot in &mut slots {
         if let Some(worker) = slot.as_mut() {
             worker.sprite_mapping = boss_eye_attack_sprite_sub_37332(

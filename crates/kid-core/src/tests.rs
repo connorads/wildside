@@ -32369,7 +32369,7 @@ fn boss_eye_refresh_attack_sprites_sub_37abc_updates_each_live_slot_and_skips_nu
     );
     assert_eq!(
         refreshed[1], None,
-        "ASM sub_37ABC should skip null longwords in the fixed `$FFFFFB7E` worker table",
+        "ASM loc_37AD4 should skip null longwords but keep scanning the fixed `$FFFFFB7E` worker table",
     );
     assert_eq!(
         refreshed[2],
