@@ -1931,6 +1931,8 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
     // worker word positions, then uses `worker_y + 4` / `worker_y - 4` as the
     // signed vertical band before choosing a sprite-table index.
     if kid_y > effect_y.saturating_add(4) {
+        // ASM loc_37A78 (kid.asm:39939): Kid below `y_pos(a3)+4` enters the
+        // lower band, where `x_pos(a3)-4..x_pos(a3)+4` selects index 4.
         if kid_x < effect_x.saturating_sub(4) {
             "LnkTo_unk_C84A0-Data_Index"
         } else if kid_x > effect_x.saturating_add(4) {
