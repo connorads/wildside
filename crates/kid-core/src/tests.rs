@@ -19762,6 +19762,32 @@ fn loc_36d16_decodes_enemy_art_palette_header_entries() {
 }
 
 #[test]
+fn loc_36d4e_adds_the_second_palette_pointer_word_for_nonzero_variants() {
+    use enemies::enemy_palette_variant_addend_loc_36D4E;
+
+    assert_eq!(
+        enemy_palette_variant_addend_loc_36D4E(0),
+        0,
+        "ASM loc_36D4E is skipped when the rotated palette variant is zero",
+    );
+    assert_eq!(
+        enemy_palette_variant_addend_loc_36D4E(1),
+        4,
+        "ASM loc_36D4E (kid.asm:38623) should add one longword offset for palette variant 1",
+    );
+    assert_eq!(
+        enemy_palette_variant_addend_loc_36D4E(2),
+        8,
+        "ASM loc_36D4E should supply the second `+4` after variants 2 and 3 run the preceding `addi.w #4,d2`",
+    );
+    assert_eq!(
+        enemy_palette_variant_addend_loc_36D4E(3),
+        8,
+        "ASM loc_36D4E should treat palette variant 3 like variant 2 after the high bits are rotated into `d1`",
+    );
+}
+
+#[test]
 fn loc_32188_pops_the_first_free_gfx_slot_and_splices_it_onto_the_owner_head() {
     use enemies::{EnemyGfxSlotLinkLoc32188, enemy_gfx_slot_link_loc_32188};
 

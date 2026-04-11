@@ -5812,6 +5812,19 @@ pub(crate) fn enemy_art_palette_entry_loc_36D16(
     })
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn enemy_palette_variant_addend_loc_36D4E(palette_variant: u8) -> u16 {
+    // ASM loc_36D4E (kid.asm:38623): variant 1 branches directly here for a
+    // single `addi.w #4,d2`; variants 2 and 3 run the preceding add first,
+    // then fall through here for the second `+4`.
+    match palette_variant & 0x03 {
+        0 => 0,
+        1 => 4,
+        _ => 8,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EnemyArtSlotAssignmentSub36E84 {
     pub(crate) slot_index: u16,
