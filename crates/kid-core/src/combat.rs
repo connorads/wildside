@@ -479,6 +479,10 @@ pub(crate) struct HeadyMetalSpawnAnimationLoc3761E {
     pub(crate) next_piece_counter: u16,
     pub(crate) selected_animation_label: &'static str,
     pub(crate) runs_tail_update: bool,
+    pub(crate) runs_breakup_step_sub_37708: bool,
+    pub(crate) runs_palette_cycle_sub_379_e8: bool,
+    pub(crate) runs_sprite_refresh_sub_37_abc: bool,
+    pub(crate) loops_to_tracking_loc_37582: bool,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -1830,7 +1834,14 @@ pub(crate) fn heady_metal_spawn_animation_loc_3761E(
     HeadyMetalSpawnAnimationLoc3761E {
         next_piece_counter,
         selected_animation_label,
+        // ASM loc_3763A (kid.asm:39412): both animation branches join here,
+        // run the breakup, palette-cycle, and sprite-refresh helpers, then
+        // loop back to the tracking velocity start at `loc_37582`.
         runs_tail_update: true,
+        runs_breakup_step_sub_37708: true,
+        runs_palette_cycle_sub_379_e8: true,
+        runs_sprite_refresh_sub_37_abc: true,
+        loops_to_tracking_loc_37582: true,
     }
 }
 

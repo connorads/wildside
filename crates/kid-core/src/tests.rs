@@ -33254,6 +33254,31 @@ fn heady_metal_spawn_animation_loc_37630_uses_low_animation_after_counter_wrap()
 }
 
 #[test]
+fn heady_metal_spawn_animation_loc_3763a_runs_the_shared_tail_after_animation_selection() {
+    let high_animation = heady_metal_spawn_animation_loc_3761E(7);
+    let low_animation = heady_metal_spawn_animation_loc_3761E(5);
+
+    for step in [high_animation, low_animation] {
+        assert!(
+            step.runs_tail_update,
+            "ASM loc_3763A should be the shared tail reached after either HeadyMetal spawn animation",
+        );
+        assert!(
+            step.runs_breakup_step_sub_37708,
+            "ASM loc_3763A should call `sub_37708` before the palette and sprite refresh helpers",
+        );
+        assert!(
+            step.runs_palette_cycle_sub_379_e8,
+            "ASM loc_3763A should call `sub_379E8` after the breakup step",
+        );
+        assert!(
+            step.runs_sprite_refresh_sub_37_abc && step.loops_to_tracking_loc_37582,
+            "ASM loc_3763A should call `sub_37ABC` and then branch back to `loc_37582`",
+        );
+    }
+}
+
+#[test]
 fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pattern() {
     let updated = heady_metal_scatter_step_sub_3787C(
         HeadyMetalScatterVelocities {
