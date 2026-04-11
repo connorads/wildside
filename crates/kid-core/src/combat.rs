@@ -1764,6 +1764,8 @@ pub(crate) fn heady_metal_tracking_velocity_loc_37582(
     let kid_y = i16::from_ne_bytes(kid_gfx_y.to_ne_bytes());
 
     let mut x_velocity = if piece_x > kid_x {
+        // ASM loc_375AA (kid.asm:39358): `bgt.s loc_375AA` replaces the
+        // default rightward drift with `d6 = #$FFFF8000`.
         -0x0000_8000
     } else {
         0x0000_8000

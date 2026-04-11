@@ -33153,6 +33153,17 @@ fn heady_metal_tracking_velocity_loc_37582_aims_right_when_piece_is_not_right_of
 }
 
 #[test]
+fn heady_metal_tracking_velocity_loc_375aa_aims_left_when_piece_is_right_of_kid() {
+    let velocity =
+        heady_metal_tracking_velocity_loc_37582(0x0080, 0x0080, 0x0081, 0x00A8, 4, false);
+
+    assert_eq!(
+        velocity.x_velocity, -0x0000_8000,
+        "ASM loc_375AA should run after `cmp.w Kid.gfx_x,$FFFFFB7A.x_pos; bgt.s` and set `d6` to `$FFFF8000`",
+    );
+}
+
+#[test]
 fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pattern() {
     let updated = heady_metal_scatter_step_sub_3787C(
         HeadyMetalScatterVelocities {
