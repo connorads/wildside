@@ -19850,6 +19850,28 @@ fn loc_36e38_routes_plain_enemy_art_to_vram_decompression() {
 }
 
 #[test]
+fn loc_36e3e_restores_then_advances_until_three_enemy_art_slots_are_done() {
+    use enemies::{EnemyArtLoadTailLoc36E3E, enemy_art_load_tail_loc_36E3E};
+
+    assert_eq!(
+        enemy_art_load_tail_loc_36E3E(0),
+        EnemyArtLoadTailLoc36E3E {
+            next_slot_index: 1,
+            finished: false,
+        },
+        "ASM loc_36E3E (kid.asm:38733) should restore `d7`, then loc_36E42 increments it and loops while the next slot is not three",
+    );
+    assert_eq!(
+        enemy_art_load_tail_loc_36E3E(2),
+        EnemyArtLoadTailLoc36E3E {
+            next_slot_index: 3,
+            finished: true,
+        },
+        "ASM loc_36E3E should preserve the current slot through decompression so loc_36E42 exits exactly after slot two advances to three",
+    );
+}
+
+#[test]
 fn loc_32188_pops_the_first_free_gfx_slot_and_splices_it_onto_the_owner_head() {
     use enemies::{EnemyGfxSlotLinkLoc32188, enemy_gfx_slot_link_loc_32188};
 

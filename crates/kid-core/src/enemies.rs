@@ -5844,6 +5844,12 @@ pub(crate) enum EnemyArtDecompressRouteLoc36E24 {
     SpecialVram,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyArtLoadTailLoc36E3E {
+    pub(crate) next_slot_index: u16,
+    pub(crate) finished: bool,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn enemy_art_decompress_route_loc_36E24(
@@ -5867,6 +5873,19 @@ pub(crate) fn enemy_art_decompress_route_loc_36E24(
         // ASM loc_36E38 (kid.asm:38730): when neither the Forest RAM path nor
         // the special VRAM decompressor applies, call `j_DecompressToVRAM`.
         EnemyArtDecompressRouteLoc36E24::Vram
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn enemy_art_load_tail_loc_36E3E(slot_index: u16) -> EnemyArtLoadTailLoc36E3E {
+    // ASM loc_36E3E/loc_36E42 (kid.asm:38733-38739): restore the saved
+    // `d7/a1`, increment the restored slot index, and loop back to loc_36D16
+    // until the post-increment value reaches three.
+    let next_slot_index = slot_index.wrapping_add(1);
+    EnemyArtLoadTailLoc36E3E {
+        next_slot_index,
+        finished: next_slot_index == 3,
     }
 }
 
