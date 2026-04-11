@@ -33169,6 +33169,31 @@ fn boomerang_boss_head_2_post_projectile_wait_loop_loc_380d6_branches_to_shared_
 }
 
 #[test]
+fn boomerang_boss_head_2_post_projectile_animation_gate_loc_380ea_loops_until_animation_finishes() {
+    let result = boomerang_boss_head_2_post_projectile_animation_gate_loc_380EA(0);
+
+    assert!(!result.post_projectile_animation_done);
+    assert_eq!(
+        result.next,
+        BoomerangBossHead2PostProjectileAnimationNextLoc380EA::AwaitPostProjectileWaitLoc380D6,
+        "ASM loc_380EA should branch back to loc_380D6 while `$18(a3)` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_2_post_projectile_animation_gate_loc_380ea_returns_to_activation_when_done()
+{
+    let result = boomerang_boss_head_2_post_projectile_animation_gate_loc_380EA(1);
+
+    assert!(result.post_projectile_animation_done);
+    assert_eq!(
+        result.next,
+        BoomerangBossHead2PostProjectileAnimationNextLoc380EA::ReturnToActivationWaitLoc38062,
+        "ASM loc_380EA should branch to loc_38062 when the post-projectile animation byte is nonzero",
+    );
+}
+
+#[test]
 fn boss_head_movement_step_sub_39846_only_counts_down_when_delay_has_not_elapsed() {
     let script = [(0x0168, 0, -1), (-1, 0, 0)];
 
