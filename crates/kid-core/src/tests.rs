@@ -32269,7 +32269,7 @@ fn boss_eye_attack_sprite_sub_37332_matches_sub_37af0_direction_buckets_and_diam
     assert_eq!(
         boss_eye_attack_sprite_sub_37332(true, 0x00, 0x0040, 0x0040, 0x0050, 0x0050),
         "$0E30",
-        "ASM sub_37AF0 should override the directional sprite with `$E30` when diamond power is active and bit 3 is clear",
+        "ASM loc_37B06 should override the directional sprite with `$E30` when diamond power is active and bit 3 is clear",
     );
     assert_eq!(
         boss_eye_attack_sprite_sub_37332(true, 0x08, 0x0040, 0x0040, 0x0050, 0x0050),

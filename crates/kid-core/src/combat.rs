@@ -874,6 +874,8 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
         return if v_int_counter_fff809 & 8 != 0 {
             "$0E20"
         } else {
+            // ASM loc_37B06 (kid.asm:40033): active diamond power with
+            // `$FFFFF809 & #8 == 0` returns the alternate `$E30` sprite word.
             "$0E30"
         };
     }
