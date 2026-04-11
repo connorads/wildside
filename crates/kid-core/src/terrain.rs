@@ -1783,6 +1783,9 @@ fn horizontal_collision_scan(
         if lead_col >= i32::from(grid.width_cells) {
             true
         } else {
+            // ASM loc_36BAA (kid.asm:38405): retarget `a4` to the in-bounds
+            // right lead column, OR one word per scanned row via
+            // `add.w d4,a4`, then keep only bit `$4000` for the lead result.
             // ASM loc_369C4 (kid.asm:38139): once the right lead column is still
             // in bounds, `loc_369CE` reduces that column to one OR mask before
             // the later `loc_369DE/loc_369EE` slope/solid checks decide whether
@@ -3366,7 +3369,7 @@ mod tests {
     }
 
     #[test]
-    fn horizontal_collision_scan_right_loc_369c4_flags_an_in_bounds_right_slope_column() {
+    fn horizontal_collision_scan_right_loc_36baa_flags_an_in_bounds_right_slope_column() {
         let mut data = vec![0u8; 4 * 4 * 2];
         let slope_offset = (1 * 4 + 2) * 2;
         data[slope_offset] = 0x50;
@@ -3380,7 +3383,7 @@ mod tests {
                 hitbox_blocked: false,
                 lead_column_blocked: true,
             },
-            "ASM loc_369C4 should scan the in-bounds right lead column before the boundary fallback, so a `$5000` slope there must still block side contact",
+            "ASM loc_36BAA should scan the in-bounds right lead column before the boundary fallback, so a `$5000` slope there must still block side contact",
         );
     }
 
