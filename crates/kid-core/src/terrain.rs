@@ -1511,6 +1511,20 @@ fn horizontal_collision_scan_column_mask_loc_369CE(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_right_lead_column_mask_loc_36BB2(
+    grid: &BlockGrid,
+    column: i32,
+    top_row: i32,
+    bottom_row: i32,
+) -> u16 {
+    // ASM loc_36BB2 (kid.asm:38410): OR the in-bounds right lead-column words
+    // into `d6`, advancing by `Level_width_tiles` until the inclusive `dbf d0`
+    // loop has consumed the full vertical span.
+    horizontal_collision_scan_column_mask_loc_369CE(grid, column, top_row, bottom_row)
+}
+
+#[allow(non_snake_case)]
 fn horizontal_collision_scan_hitbox_mask_seed_loc_369F6() -> u16 {
     // ASM loc_369F6 (kid.asm:38167): `moveq #0,d5` clears the rectangle-scan
     // accumulator before the nested body sweep starts.
@@ -1783,15 +1797,17 @@ fn horizontal_collision_scan(
         if lead_col >= i32::from(grid.width_cells) {
             true
         } else {
-            // ASM loc_36BAA (kid.asm:38405): retarget `a4` to the in-bounds
-            // right lead column, OR one word per scanned row via
-            // `add.w d4,a4`, then keep only bit `$4000` for the lead result.
+            // ASM loc_36BAA / loc_36BB2 (kid.asm:38405 / 38410): retarget
+            // `a4` to the in-bounds right lead column, OR one word per scanned
+            // row via `add.w d4,a4`, then keep only bit `$4000` for the lead
+            // result.
             // ASM loc_369C4 (kid.asm:38139): once the right lead column is still
             // in bounds, `loc_369CE` reduces that column to one OR mask before
             // the later `loc_369DE/loc_369EE` slope/solid checks decide whether
             // the side contact blocks.
-            horizontal_collision_scan_column_mask_loc_369CE(grid, lead_col, top_row, bottom_row)
-                & 0x4000
+            horizontal_collision_scan_right_lead_column_mask_loc_36BB2(
+                grid, lead_col, top_row, bottom_row,
+            ) & 0x4000
                 != 0
         }
     } else if left_col == 0 {
@@ -3400,6 +3416,22 @@ mod tests {
             mask & 0x7000,
             0x7000,
             "ASM loc_369CE should OR every scanned lead-column word together before the later bit tests, so stacked `$5000`/`$6000` rows keep both collision nibbles in the aggregate mask",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_right_lead_column_mask_loc_36bb2_ors_the_inclusive_column_span() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(1 * 4 + 2) * 2] = 0x50;
+        data[(2 * 4 + 2) * 2] = 0x20;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let mask = horizontal_collision_scan_right_lead_column_mask_loc_36BB2(&grid, 2, 1, 2);
+
+        assert_eq!(
+            mask & 0x7000,
+            0x7000,
+            "ASM loc_36BB2 (kid.asm:38410) should keep OR-ing the right lead-column accumulator across the inclusive `dbf d0` row span, preserving bits from both scanned rows",
         );
     }
 
