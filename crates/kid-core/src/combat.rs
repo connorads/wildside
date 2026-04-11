@@ -1952,6 +1952,8 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
             // `x_pos(a3)-4` selects table index 1.
             "LnkTo_unk_C8490-Data_Index"
         } else if kid_x > effect_x.saturating_add(4) {
+            // ASM loc_37AAC (kid.asm:39976): upper-band Kid X right of
+            // `x_pos(a3)+4` selects table index 7.
             "LnkTo_unk_C84C0-Data_Index"
         } else {
             "LnkTo_unk_C8488-Data_Index"

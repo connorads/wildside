@@ -33439,6 +33439,15 @@ fn heady_metal_piece_sprite_loc_37aa8_uses_upper_left_bucket() {
 }
 
 #[test]
+fn heady_metal_piece_sprite_loc_37aac_uses_upper_right_bucket() {
+    assert_eq!(
+        heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x0045, 0x003B),
+        "LnkTo_unk_C84C0-Data_Index",
+        "ASM loc_37AAC should choose index 7 when upper-band Kid X is right of `x_pos+4`",
+    );
+}
+
+#[test]
 fn heady_metal_breakup_step_loc_37710_ignores_anchor_without_collision() {
     let result = heady_metal_breakup_step_sub_37708(true, 0, 12, 9, 0, [None; 13]);
 
