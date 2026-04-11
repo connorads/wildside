@@ -1409,6 +1409,34 @@ pub(crate) fn boomerang_boss_head_1_post_projectile_animation_gate_loc_38008(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_2_init_loc_38012(
+    anchor_x_44: u16,
+    anchor_y_46: u16,
+) -> BoomerangBossHeadInitLoc37F30 {
+    // ASM loc_38012 (kid.asm:40408): allocate the second BoomerangBoss head
+    // with the same slot/metadata/flags as loc_37F30, cache it at
+    // `$FFFFFB7E`, copy anchor `$44/$46`, and enter `unk_39988` at index 1.
+    BoomerangBossHeadInitLoc37F30 {
+        gfx_slot_base: 0x0104_0002,
+        priority: 1,
+        object_meta: 0x0023,
+        runs_common_boss_init_loc_32146: true,
+        has_kid_collision: false,
+        display_enabled: true,
+        is_moved: true,
+        hit_points: 30,
+        sprite_mapping_label: "LnkTo_unk_C8600-Data_Index",
+        cached_worker_slot_label: "$FFFFFB7E",
+        x_pos: anchor_x_44,
+        y_pos: anchor_y_46,
+        movement_script_label: "unk_39988",
+        delay_counter_d0: 1,
+        script_index_d1: 1,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_step_sub_39846(
     delay_counter_d0: u16,
     current_script_index: usize,
