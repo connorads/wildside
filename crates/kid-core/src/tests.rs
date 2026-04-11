@@ -33133,6 +33133,42 @@ fn boomerang_boss_head_2_attack_animation_gate_loc_380cc_spawns_projectile_when_
 }
 
 #[test]
+fn boomerang_boss_head_2_post_projectile_wait_loop_loc_380d6_checks_animation_when_status_is_zero()
+{
+    let result = boomerang_boss_head_2_post_projectile_wait_loop_loc_380D6(0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(
+        result.runs_movement_wrapper_sub_399e4,
+        "ASM loc_380D6 should run `sub_399E4` after hibernating the post-projectile animation frame",
+    );
+    assert_eq!(
+        result.cached_collision_word_fffffb74, 0,
+        "ASM loc_380D6 should copy zero `d7` into `$FFFFFB74` before falling through",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHead2PostProjectileWaitNextLoc380D6::CheckAnimationDone,
+        "ASM loc_380D6 should continue to the post-projectile animation gate when `tst.w d7` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_2_post_projectile_wait_loop_loc_380d6_branches_to_shared_exit_on_status() {
+    let result = boomerang_boss_head_2_post_projectile_wait_loop_loc_380D6(0x0002);
+
+    assert_eq!(
+        result.cached_collision_word_fffffb74, 0x0002,
+        "ASM loc_380D6 should preserve nonzero `d7` in `$FFFFFB74`",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHead2PostProjectileWaitNextLoc380D6::SharedCollisionExitLoc39EBE,
+        "ASM loc_380D6 should branch to loc_39EBE instead of testing `$18(a3)` when `d7` is nonzero",
+    );
+}
+
+#[test]
 fn boss_head_movement_step_sub_39846_only_counts_down_when_delay_has_not_elapsed() {
     let script = [(0x0168, 0, -1), (-1, 0, 0)];
 
