@@ -33187,6 +33187,18 @@ fn heady_metal_tracking_velocity_loc_375c2_zeros_horizontal_velocity_in_early_ph
 }
 
 #[test]
+fn heady_metal_tracking_velocity_loc_375d4_preserves_velocity_when_freeze_flag_is_clear() {
+    let velocity =
+        heady_metal_tracking_velocity_loc_37582(0x0080, 0x0080, 0x0081, 0x00A9, 4, false);
+
+    assert_eq!(
+        (velocity.x_velocity, velocity.y_velocity),
+        (-0x0000_8000, -0x0000_5000),
+        "ASM loc_375D4 should leave selected `d6/d7` unchanged when `$FFFFFB4F` is clear",
+    );
+}
+
+#[test]
 fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pattern() {
     let updated = heady_metal_scatter_step_sub_3787C(
         HeadyMetalScatterVelocities {

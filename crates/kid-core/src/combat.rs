@@ -1783,6 +1783,8 @@ pub(crate) fn heady_metal_tracking_velocity_loc_37582(
     if anchor_phase_counter < 4 {
         x_velocity = 0;
     }
+    // ASM loc_375D4 (kid.asm:39377): test global HeadyMetal freeze flag
+    // `$FFFFFB4F`; when clear, keep the selected `d6/d7` for the worker update.
     if global_velocity_freeze {
         x_velocity = 0;
         y_velocity = 0;
