@@ -19788,6 +19788,27 @@ fn loc_36d4e_adds_the_second_palette_pointer_word_for_nonzero_variants() {
 }
 
 #[test]
+fn loc_36d52_dereferences_the_variant_adjusted_palette_pointer_offset() {
+    use enemies::enemy_palette_data_index_offset_loc_36D52;
+
+    assert_eq!(
+        enemy_palette_data_index_offset_loc_36D52(0x1200, 0),
+        0x1200,
+        "ASM loc_36D52 (kid.asm:38626) should use the unadjusted `EnemyLoad_Index` palette offset for variant 0",
+    );
+    assert_eq!(
+        enemy_palette_data_index_offset_loc_36D52(0x1200, 1),
+        0x1204,
+        "ASM loc_36D52 should dereference the first alternate palette pointer after loc_36D4E adds one longword",
+    );
+    assert_eq!(
+        enemy_palette_data_index_offset_loc_36D52(0x1200, 2),
+        0x1208,
+        "ASM loc_36D52 should dereference the second alternate palette pointer after variants 2 and 3 add two longwords",
+    );
+}
+
+#[test]
 fn loc_32188_pops_the_first_free_gfx_slot_and_splices_it_onto_the_owner_head() {
     use enemies::{EnemyGfxSlotLinkLoc32188, enemy_gfx_slot_link_loc_32188};
 

@@ -5825,6 +5825,17 @@ pub(crate) fn enemy_palette_variant_addend_loc_36D4E(palette_variant: u8) -> u16
     }
 }
 
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn enemy_palette_data_index_offset_loc_36D52(
+    enemy_load_palette_offset: u16,
+    palette_variant: u8,
+) -> u16 {
+    // ASM loc_36D52 (kid.asm:38626): after the variant-specific `d2` addend,
+    // `move.l (Data_Index,d2.w),a0` dereferences the chosen palette pointer.
+    enemy_load_palette_offset.wrapping_add(enemy_palette_variant_addend_loc_36D4E(palette_variant))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EnemyArtSlotAssignmentSub36E84 {
     pub(crate) slot_index: u16,
