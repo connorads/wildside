@@ -19809,6 +19809,34 @@ fn loc_36d52_dereferences_the_variant_adjusted_palette_pointer_offset() {
 }
 
 #[test]
+fn loc_36e24_routes_first_slot_forest_enemy_art_through_ram_decompression() {
+    use enemies::{
+        EnemyArtDecompressRouteLoc36E24, EnemyFamily, enemy_art_decompress_route_loc_36E24,
+    };
+
+    assert_eq!(
+        enemy_art_decompress_route_loc_36E24(0, true, EnemyFamily::Crab, false),
+        EnemyArtDecompressRouteLoc36E24::ForestRam,
+        "ASM loc_36E24 (kid.asm:38718) should call `j_DecompressToRAM` for the first enemy slot when `Background_theme == Forest`",
+    );
+    assert_eq!(
+        enemy_art_decompress_route_loc_36E24(0, true, EnemyFamily::TarMonster, false),
+        EnemyArtDecompressRouteLoc36E24::ForestTarMonsterRam,
+        "ASM loc_36E24 should preserve the TarMonster-only forest permutation selected just before the shared RAM decompressor call",
+    );
+    assert_eq!(
+        enemy_art_decompress_route_loc_36E24(1, true, EnemyFamily::Crab, true),
+        EnemyArtDecompressRouteLoc36E24::SpecialVram,
+        "ASM loc_36E24 should be skipped for later enemy slots, leaving loc_36E2C to choose the special VRAM decompressor when `d6` is non-zero",
+    );
+    assert_eq!(
+        enemy_art_decompress_route_loc_36E24(0, false, EnemyFamily::Crab, false),
+        EnemyArtDecompressRouteLoc36E24::Vram,
+        "ASM loc_36E24 should be skipped when the background is not Forest, falling through to ordinary VRAM decompression",
+    );
+}
+
+#[test]
 fn loc_32188_pops_the_first_free_gfx_slot_and_splices_it_onto_the_owner_head() {
     use enemies::{EnemyGfxSlotLinkLoc32188, enemy_gfx_slot_link_loc_32188};
 

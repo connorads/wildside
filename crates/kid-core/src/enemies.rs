@@ -5837,6 +5837,38 @@ pub(crate) fn enemy_palette_data_index_offset_loc_36D52(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EnemyArtDecompressRouteLoc36E24 {
+    ForestRam,
+    ForestTarMonsterRam,
+    Vram,
+    SpecialVram,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn enemy_art_decompress_route_loc_36E24(
+    slot_index: u16,
+    background_is_forest: bool,
+    family: EnemyFamily,
+    use_special_vram_palette: bool,
+) -> EnemyArtDecompressRouteLoc36E24 {
+    // ASM loc_36E24 (kid.asm:38718): only the first enemy slot on Forest
+    // backgrounds reaches `j_DecompressToRAM`; TarMonster swaps `a3` to the
+    // alternate forest permutation immediately before this shared call.
+    if slot_index == 0 && background_is_forest {
+        if matches!(family, EnemyFamily::TarMonster) {
+            EnemyArtDecompressRouteLoc36E24::ForestTarMonsterRam
+        } else {
+            EnemyArtDecompressRouteLoc36E24::ForestRam
+        }
+    } else if use_special_vram_palette {
+        EnemyArtDecompressRouteLoc36E24::SpecialVram
+    } else {
+        EnemyArtDecompressRouteLoc36E24::Vram
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EnemyArtSlotAssignmentSub36E84 {
     pub(crate) slot_index: u16,
     pub(crate) palette_line: u8,
