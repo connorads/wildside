@@ -425,6 +425,25 @@ pub(crate) struct BossHeadMovementWrapper {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossHeadInitLoc37F30 {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) runs_common_boss_init_loc_32146: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) display_enabled: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) hit_points: u16,
+    pub(crate) sprite_mapping_label: &'static str,
+    pub(crate) cached_worker_slot_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) movement_script_label: &'static str,
+    pub(crate) delay_counter_d0: u16,
+    pub(crate) script_index_d1: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -1132,6 +1151,34 @@ pub(crate) fn boss_head_projectile_spawn_sub_397E4(
         x_direction: parent_x_direction,
         velocity_word_48,
         animation_script_label: "stru_39FD8",
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_1_init_loc_37F30(
+    anchor_x_44: u16,
+    anchor_y_46: u16,
+) -> BoomerangBossHeadInitLoc37F30 {
+    // ASM loc_37F30 (kid.asm:40325): allocate gfx slot `$01040002`, seed the
+    // first BoomerangBoss head from the anchor's `$44/$46`, cache it in
+    // `$FFFFFB7A`, then enter the `unk_398F0` movement script at index 1.
+    BoomerangBossHeadInitLoc37F30 {
+        gfx_slot_base: 0x0104_0002,
+        priority: 1,
+        object_meta: 0x0023,
+        runs_common_boss_init_loc_32146: true,
+        has_kid_collision: false,
+        display_enabled: true,
+        is_moved: true,
+        hit_points: 30,
+        sprite_mapping_label: "LnkTo_unk_C8600-Data_Index",
+        cached_worker_slot_label: "$FFFFFB7A",
+        x_pos: anchor_x_44,
+        y_pos: anchor_y_46,
+        movement_script_label: "unk_398F0",
+        delay_counter_d0: 1,
+        script_index_d1: 1,
     }
 }
 
