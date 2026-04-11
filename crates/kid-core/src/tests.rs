@@ -32324,6 +32324,15 @@ fn boss_eye_attack_sprite_loc_37b5e_uses_lower_right_bucket() {
 }
 
 #[test]
+fn boss_eye_attack_sprite_loc_37b62_uses_upper_centred_bucket() {
+    assert_eq!(
+        boss_eye_attack_sprite_sub_37332(false, 0x00, 0x0040, 0x0040, 0x0040, 0x003B),
+        "LnkTo_unk_C8488-Data_Index",
+        "ASM loc_37B62 should choose index 0 when Kid is above `y_pos(a3)-4` and horizontally centred",
+    );
+}
+
+#[test]
 fn boss_eye_attack_step_sub_37332_applies_gravity_refreshes_sprite_and_deletes_below_floor() {
     let airborne = boss_eye_attack_step_sub_37332(
         0,
