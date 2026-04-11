@@ -913,6 +913,8 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
         // ASM loc_37B62 (kid.asm:40087): Kid above `y_pos(a3)-4` enters the
         // upper band, where `x_pos(a3)-4..x_pos(a3)+4` selects table index 0.
         if word_lt_signed(kid_x, effect_x.wrapping_sub(4)) {
+            // ASM loc_37B76 (kid.asm:40098): upper-band Kid X left of
+            // `x_pos(a3)-4` selects table index 1.
             "LnkTo_unk_C8490-Data_Index"
         } else if word_gt_signed(kid_x, effect_x.wrapping_add(4)) {
             "LnkTo_unk_C84C0-Data_Index"
