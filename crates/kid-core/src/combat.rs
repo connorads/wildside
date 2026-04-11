@@ -2010,6 +2010,9 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
                         result.piece_slots[piece_index] = Some(piece);
                     }
                     0x000D..=0x0018 => {
+                        // ASM loc_37768 (kid.asm:39540): counters above `$C`
+                        // and `<= $18` subtract 2 from `$A(a3)` before the
+                        // shared object refresh tail.
                         piece.sprite_word_y -= 2;
                         result.piece_slots[piece_index] = Some(piece);
                     }

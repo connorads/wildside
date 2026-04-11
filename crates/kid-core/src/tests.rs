@@ -33459,6 +33459,37 @@ fn heady_metal_breakup_step_sub_37708_advances_the_early_pop_sequence_on_collisi
 }
 
 #[test]
+fn heady_metal_breakup_step_loc_37768_retracts_the_middle_pop_sequence() {
+    let result = heady_metal_breakup_step_sub_37708(true, 0x002C, 12, 0, 0, {
+        let mut pieces = [None; 13];
+        pieces[12] = Some(HeadyMetalBreakupPieceSub37708 {
+            sprite_word_y: 14,
+            x_pos: 0x005A,
+            y_pos: 0x006C,
+        });
+        pieces
+    });
+
+    assert_eq!(
+        result.next_phase_counter, 13,
+        "ASM loc_37768 should handle the first counter above `$C` after loc_3772A advances `$3E(a3)`",
+    );
+    assert_eq!(
+        result.piece_slots[12],
+        Some(HeadyMetalBreakupPieceSub37708 {
+            sprite_word_y: 12,
+            x_pos: 0x005A,
+            y_pos: 0x006C,
+        }),
+        "ASM loc_37768 should subtract 2 from the selected worker's `$A(a3)` for counters `<= $18`",
+    );
+    assert_eq!(
+        result.played_sound_effect, None,
+        "ASM loc_37768 should refresh the worker without replaying `sfx_Boss_eye_pops`",
+    );
+}
+
+#[test]
 fn heady_metal_breakup_step_sub_37708_spawns_the_late_pop_pair_and_clears_the_piece_slot() {
     let result = heady_metal_breakup_step_sub_37708(true, 0x002C, 24, 0, 0, {
         let mut pieces = [None; 13];
