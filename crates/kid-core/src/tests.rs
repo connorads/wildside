@@ -32351,6 +32351,15 @@ fn boss_eye_attack_sprite_loc_37b7a_uses_upper_right_bucket() {
 }
 
 #[test]
+fn boss_eye_attack_sprite_loc_37b7c_loads_mapping_from_selected_index() {
+    assert_eq!(
+        boss_eye_attack_sprite_mapping_loc_37B7C(7),
+        "LnkTo_unk_C84C0-Data_Index",
+        "ASM loc_37B7C should double the selected index and load the matching `off_37AE0` word",
+    );
+}
+
+#[test]
 fn boss_eye_attack_step_sub_37332_applies_gravity_refreshes_sprite_and_deletes_below_floor() {
     let airborne = boss_eye_attack_step_sub_37332(
         0,

@@ -869,6 +869,24 @@ fn word_gt_signed(lhs: u16, rhs: u16) -> bool {
     i16_word(lhs) > i16_word(rhs)
 }
 
+const BOSS_EYE_ATTACK_SPRITES_OFF_37AE0: [&str; 8] = [
+    "LnkTo_unk_C8488-Data_Index",
+    "LnkTo_unk_C8490-Data_Index",
+    "LnkTo_unk_C8498-Data_Index",
+    "LnkTo_unk_C84A0-Data_Index",
+    "LnkTo_unk_C84A8-Data_Index",
+    "LnkTo_unk_C84B0-Data_Index",
+    "LnkTo_unk_C84B8-Data_Index",
+    "LnkTo_unk_C84C0-Data_Index",
+];
+
+#[allow(non_snake_case)]
+pub(crate) fn boss_eye_attack_sprite_mapping_loc_37B7C(table_index: usize) -> &'static str {
+    // ASM loc_37B7C (kid.asm:40106): copy selected `d2` to `d7`, double it
+    // as a word offset, then load the mapping word from `off_37AE0`.
+    BOSS_EYE_ATTACK_SPRITES_OFF_37AE0[table_index]
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_attack_sprite_sub_37332(
@@ -901,13 +919,13 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
         if word_lt_signed(kid_x, effect_x.wrapping_sub(4)) {
             // ASM loc_37B5A (kid.asm:40077): lower-band Kid X left of
             // `x_pos(a3)-4` selects table index 3.
-            "LnkTo_unk_C84A0-Data_Index"
+            boss_eye_attack_sprite_mapping_loc_37B7C(3)
         } else if word_gt_signed(kid_x, effect_x.wrapping_add(4)) {
             // ASM loc_37B5E (kid.asm:40082): lower-band Kid X right of
             // `x_pos(a3)+4` selects table index 5.
-            "LnkTo_unk_C84B0-Data_Index"
+            boss_eye_attack_sprite_mapping_loc_37B7C(5)
         } else {
-            "LnkTo_unk_C84A8-Data_Index"
+            boss_eye_attack_sprite_mapping_loc_37B7C(4)
         }
     } else if word_lt_signed(kid_y, effect_y.wrapping_sub(4)) {
         // ASM loc_37B62 (kid.asm:40087): Kid above `y_pos(a3)-4` enters the
@@ -915,20 +933,20 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
         if word_lt_signed(kid_x, effect_x.wrapping_sub(4)) {
             // ASM loc_37B76 (kid.asm:40098): upper-band Kid X left of
             // `x_pos(a3)-4` selects table index 1.
-            "LnkTo_unk_C8490-Data_Index"
+            boss_eye_attack_sprite_mapping_loc_37B7C(1)
         } else if word_gt_signed(kid_x, effect_x.wrapping_add(4)) {
             // ASM loc_37B7A (kid.asm:40103): upper-band Kid X right of
             // `x_pos(a3)+4` selects table index 7.
-            "LnkTo_unk_C84C0-Data_Index"
+            boss_eye_attack_sprite_mapping_loc_37B7C(7)
         } else {
-            "LnkTo_unk_C8488-Data_Index"
+            boss_eye_attack_sprite_mapping_loc_37B7C(0)
         }
     } else if word_lt_signed(kid_x, effect_x.wrapping_sub(8)) {
         // ASM loc_37B42 (kid.asm:40061): middle vertical band plus signed
         // Kid X left of `x_pos(a3)-8` selects table index 2.
-        "LnkTo_unk_C8498-Data_Index"
+        boss_eye_attack_sprite_mapping_loc_37B7C(2)
     } else {
-        "LnkTo_unk_C84B8-Data_Index"
+        boss_eye_attack_sprite_mapping_loc_37B7C(6)
     }
 }
 
