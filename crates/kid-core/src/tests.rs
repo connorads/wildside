@@ -19742,6 +19742,26 @@ fn loc_3217c_loads_the_selected_enemy_art_vram_tile() {
 }
 
 #[test]
+fn loc_36d16_decodes_enemy_art_palette_header_entries() {
+    use enemies::{EnemyArtPaletteEntryLoc36D16, enemy_art_palette_entry_loc_36D16};
+
+    assert_eq!(
+        enemy_art_palette_entry_loc_36D16(0xC01C),
+        Some(EnemyArtPaletteEntryLoc36D16 {
+            enemy_id: 0x001C,
+            palette_variant: 3,
+            enemy_load_index_offset: 0x00E0,
+        }),
+        "ASM loc_36D16 (kid.asm:38603) should mask the low 12-bit enemy id, multiply it by eight for `EnemyLoad_Index`, and rotate the top two palette bits down",
+    );
+    assert_eq!(
+        enemy_art_palette_entry_loc_36D16(0xFFFF),
+        None,
+        "ASM loc_36D16 should branch to loc_36E42 for a `$FFFF` blank header slot before loading art or palette data",
+    );
+}
+
+#[test]
 fn loc_32188_pops_the_first_free_gfx_slot_and_splices_it_onto_the_owner_head() {
     use enemies::{EnemyGfxSlotLinkLoc32188, enemy_gfx_slot_link_loc_32188};
 

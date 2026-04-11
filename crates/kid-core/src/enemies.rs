@@ -5784,6 +5784,35 @@ pub(crate) fn resolved_enemy_palette(enemy_type_slots: &[u16], object_type: u8) 
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyArtPaletteEntryLoc36D16 {
+    pub(crate) enemy_id: u16,
+    pub(crate) palette_variant: u8,
+    pub(crate) enemy_load_index_offset: u16,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn enemy_art_palette_entry_loc_36D16(
+    raw_slot: u16,
+) -> Option<EnemyArtPaletteEntryLoc36D16> {
+    // ASM loc_36D16 (kid.asm:38603): consume one enemy-layout header word,
+    // treat `$FFFF` as a blank art slot, mask the low 12 bits for
+    // `EnemyLoad_Index`, and rotate the top two bits down for the palette
+    // variant before choosing the palette pointer.
+    if raw_slot == 0xFFFF {
+        return None;
+    }
+
+    let enemy_id = raw_slot & 0x0FFF;
+    Some(EnemyArtPaletteEntryLoc36D16 {
+        enemy_id,
+        palette_variant: u8::try_from(raw_slot.rotate_left(2) & 0x0003)
+            .expect("palette variant is masked to two bits"),
+        enemy_load_index_offset: enemy_id << 3,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EnemyArtSlotAssignmentSub36E84 {
     pub(crate) slot_index: u16,
     pub(crate) palette_line: u8,
