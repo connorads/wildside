@@ -899,6 +899,8 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
         // ASM loc_37B46 (kid.asm:40066): Kid below `y_pos(a3)+4` enters the
         // lower band, where `x_pos(a3)-4..x_pos(a3)+4` selects table index 4.
         if word_lt_signed(kid_x, effect_x.wrapping_sub(4)) {
+            // ASM loc_37B5A (kid.asm:40077): lower-band Kid X left of
+            // `x_pos(a3)-4` selects table index 3.
             "LnkTo_unk_C84A0-Data_Index"
         } else if word_gt_signed(kid_x, effect_x.wrapping_add(4)) {
             "LnkTo_unk_C84B0-Data_Index"
