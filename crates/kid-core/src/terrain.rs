@@ -1971,6 +1971,9 @@ pub fn vertical_collision_scan_down_sub_36C6A(
     // ASM sub_36C6A (kid.asm:38510): derive the row immediately below
     // `y_pos(a3)-1`, reject any row at or beyond `Level_height_blocks`, then
     // OR every cell under the current width span and keep only bit `$4000`.
+    // ASM loc_36C82 (kid.asm:38523): after the row is accepted, load that
+    // row's `$FFFF4A04` pointer and seed the inclusive left/right cell span
+    // from `x_pos(a3) +/- $48(a5)`.
     let row = pixel_to_cell(foot_y_px - 1) + 1;
     vertical_collision_scan_row(grid, center_x_px, half_width, row)
 }
@@ -2146,6 +2149,22 @@ mod tests {
         assert!(
             vertical_collision_scan_down_sub_36C6A(&grid, 40, 32, 16),
             "ASM sub_36C6A should detect any bit-$4000 cell anywhere across the current horizontal span"
+        );
+    }
+
+    #[test]
+    fn vertical_collision_scan_down_loc_36c82_seeds_the_row_and_inclusive_span() {
+        let data = vec![0u8; 5 * 4 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 5, 4);
+        grid.set_cell_at(1, 2, Cell::from_be_bytes(0x40, 0x01));
+
+        assert!(
+            vertical_collision_scan_down_sub_36C6A(&grid, 40, 32, 16),
+            "ASM loc_36C82 (kid.asm:38523) should load row ((y-1)>>4)+1 and seed the inclusive span from `(x-half_width)>>4` through `(x+half_width-1)>>4`"
+        );
+        assert!(
+            !vertical_collision_scan_down_sub_36C6A(&grid, 40, 31, 16),
+            "ASM loc_36C82 should not use the row below until `subq #1; lsr #4; addq #1` advances the accepted row"
         );
     }
 
