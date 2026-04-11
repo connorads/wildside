@@ -694,6 +694,15 @@ pub(crate) fn boss_death_burst_timeout_loop_gate_loc_3720A(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_death_burst_timeout_face_kid_loc_37246(effect_x: u16, kid_x: u16) -> u8 {
+    // ASM loc_3720A/loc_37246 (kid.asm:39094-39103): `cmp.w d5,d3; bgt.s`
+    // only clears `x_direction(a3)` at loc_37246 when the burst is strictly
+    // right of Kid. Equal X falls through the `st x_direction(a3)` path.
+    if effect_x > kid_x { 0 } else { 0xFF }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_finish_sub_3728C() -> BossDeathBurstFinishSub3728C {
     // ASM sub_3728C (kid.asm:39131): switch to `stru_37BFC`, hibernate until
     // that animation ends, then delete the current object.

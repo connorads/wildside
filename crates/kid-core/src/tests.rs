@@ -32046,6 +32046,25 @@ fn boss_death_burst_timeout_loop_gate_loc_3720a_deletes_or_clears_collision_afte
 }
 
 #[test]
+fn boss_death_burst_timeout_face_kid_loc_37246_clears_direction_only_when_right_of_kid() {
+    assert_eq!(
+        boss_death_burst_timeout_face_kid_loc_37246(0x0061, 0x0060),
+        0,
+        "ASM loc_37246 should clear `x_direction(a3)` only when `x_pos(a3)` is strictly greater than Kid's `$1A`",
+    );
+    assert_eq!(
+        boss_death_burst_timeout_face_kid_loc_37246(0x0060, 0x0060),
+        0xFF,
+        "ASM loc_3720A should use strict `bgt.s loc_37246`, so equal X falls through to `st x_direction(a3)`",
+    );
+    assert_eq!(
+        boss_death_burst_timeout_face_kid_loc_37246(0x005F, 0x0060),
+        0xFF,
+        "ASM loc_3720A should set `x_direction(a3)` when the burst is left of Kid before branching to loc_3724A",
+    );
+}
+
+#[test]
 fn boss_death_burst_finish_sub_3728c_plays_the_final_anim_then_deletes() {
     let finish = boss_death_burst_finish_sub_3728C();
 
