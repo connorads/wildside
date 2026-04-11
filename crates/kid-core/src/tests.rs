@@ -33117,7 +33117,7 @@ fn heady_metal_apply_piece_velocities_sub_376ec_updates_each_live_worker_slot() 
             x_velocity: -0x0001_86A0,
             y_velocity: 0x0001_86A0,
         }),
-        "ASM sub_376EC should write `d6/d7` into the first live worker loaded from `$FFFFFB72`",
+        "ASM loc_376F2 should load a live worker pointer from `$FFFFFB72` before `sub_376EC` writes `d6/d7`",
     );
     assert_eq!(
         updated[1], None,

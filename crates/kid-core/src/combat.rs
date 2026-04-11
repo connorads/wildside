@@ -1749,6 +1749,8 @@ pub(crate) fn heady_metal_apply_piece_velocities_sub_376EC(
     // ASM sub_376EC (kid.asm:39483): walk the 17 longword worker pointers at
     // `$FFFFFB72`, skip null entries, and copy `d6/d7` into `x_vel/y_vel(a3)`.
     for slot in &mut slots {
+        // ASM loc_376F2 (kid.asm:39487): load the next longword worker pointer
+        // with `(a4)+`; live pointers become `a3` before the velocity writes.
         if let Some(worker) = slot.as_mut() {
             worker.x_velocity = x_velocity;
             worker.y_velocity = y_velocity;
