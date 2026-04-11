@@ -1630,6 +1630,8 @@ fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -
             // right-to-left with `move.w -(a1),d0`, so the first earlier word
             // that clears bit `$4000` flips the row class to mixed.
             if word & 0x4000 == 0 {
+                // ASM loc_36B1A (kid.asm:38331): the mixed-row exit loads
+                // `d6=1` before returning.
                 return 1;
             }
         }
@@ -3535,6 +3537,15 @@ mod tests {
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x0000, 0x5000]),
             1,
             "ASM loc_36B04 should keep pre-decrementing across the following row after a blocked right-edge entry, and the first earlier clear word must flip the result to `d6=1`",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_following_row_class_loc_36b1a_marks_mixed_rows() {
+        assert_eq!(
+            horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x0000, 0x4000]),
+            1,
+            "ASM loc_36B1A should return `d6=1` when either reverse scan sees both `$4000`-blocked and clear words in the following row",
         );
     }
 
