@@ -294,6 +294,19 @@ pub(crate) struct BossDeathBurstTimeoutLoopGateLoc3720A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossDeathBurstFinalSpawnLoc3724A {
+    pub(crate) worker_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossDeathBurstTimeoutGroundGateLoc3724A {
+    pub(crate) final_spawn: Option<BossDeathBurstFinalSpawnLoc3724A>,
+    pub(crate) finish_animation_label: Option<&'static str>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossDeathBurstFinishSub3728C {
     pub(crate) animation_label: &'static str,
     pub(crate) hibernate_until_anim_finished: bool,
@@ -699,6 +712,38 @@ pub(crate) fn boss_death_burst_timeout_face_kid_loc_37246(effect_x: u16, kid_x: 
     // only clears `x_direction(a3)` at loc_37246 when the burst is strictly
     // right of Kid. Equal X falls through the `st x_direction(a3)` path.
     if effect_x > kid_x { 0 } else { 0xFF }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_death_burst_timeout_ground_gate_loc_3724A(
+    grounded: bool,
+    x_direction: u8,
+    x_pos: u16,
+    y_pos: u16,
+) -> BossDeathBurstTimeoutGroundGateLoc3724A {
+    // ASM loc_3724A (kid.asm:39105): loop back to loc_3720A until `$18(a3)`
+    // is non-zero. Once grounded, allocate a `sub_37002` helper at `y_pos+8`
+    // and at `x_pos-5` for clear `x_direction`, otherwise `x_pos+5`.
+    if !grounded {
+        return BossDeathBurstTimeoutGroundGateLoc3724A {
+            final_spawn: None,
+            finish_animation_label: None,
+        };
+    }
+
+    let x_offset = if x_direction == 0 { -5 } else { 5 };
+    let x_pos = x_pos.wrapping_add_signed(x_offset);
+    let y_pos = y_pos.wrapping_add(8);
+
+    BossDeathBurstTimeoutGroundGateLoc3724A {
+        final_spawn: Some(BossDeathBurstFinalSpawnLoc3724A {
+            worker_label: "sub_37002",
+            x_pos,
+            y_pos,
+        }),
+        finish_animation_label: Some("stru_37BFC"),
+    }
 }
 
 #[allow(non_snake_case)]

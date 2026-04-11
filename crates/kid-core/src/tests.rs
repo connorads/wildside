@@ -32065,6 +32065,40 @@ fn boss_death_burst_timeout_face_kid_loc_37246_clears_direction_only_when_right_
 }
 
 #[test]
+fn boss_death_burst_timeout_ground_gate_loc_3724a_waits_until_grounded_then_spawns_final_helper() {
+    assert_eq!(
+        boss_death_burst_timeout_ground_gate_loc_3724A(false, 0, 0x0044, 0x0046),
+        BossDeathBurstTimeoutGroundGateLoc3724A {
+            final_spawn: None,
+            finish_animation_label: None,
+        },
+        "ASM loc_3724A should branch back to loc_3720A while `$18(a3)` is zero, allocating no helper object",
+    );
+
+    assert_eq!(
+        boss_death_burst_timeout_ground_gate_loc_3724A(true, 0, 0x0044, 0x0046),
+        BossDeathBurstTimeoutGroundGateLoc3724A {
+            final_spawn: Some(BossDeathBurstFinalSpawnLoc3724A {
+                worker_label: "sub_37002",
+                x_pos: 0x003F,
+                y_pos: 0x004E,
+            }),
+            finish_animation_label: Some("stru_37BFC"),
+        },
+        "ASM loc_3724A should spawn `sub_37002` at `x_pos-5,y_pos+8` when `x_direction(a3)` is clear before running sub_3728C",
+    );
+
+    assert_eq!(
+        boss_death_burst_timeout_ground_gate_loc_3724A(true, 0xFF, 0x0044, 0x0046)
+            .final_spawn
+            .expect("grounded loc_3724A should allocate a final helper")
+            .x_pos,
+        0x0049,
+        "ASM loc_37280 should use `x_pos+5` for any non-zero `x_direction(a3)` after loc_3724A allocates the helper",
+    );
+}
+
+#[test]
 fn boss_death_burst_finish_sub_3728c_plays_the_final_anim_then_deletes() {
     let finish = boss_death_burst_finish_sub_3728C();
 
