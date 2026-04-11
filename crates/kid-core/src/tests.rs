@@ -32342,6 +32342,15 @@ fn boss_eye_attack_sprite_loc_37b76_uses_upper_left_bucket() {
 }
 
 #[test]
+fn boss_eye_attack_sprite_loc_37b7a_uses_upper_right_bucket() {
+    assert_eq!(
+        boss_eye_attack_sprite_sub_37332(false, 0x00, 0x0040, 0x0040, 0x0045, 0x003B),
+        "LnkTo_unk_C84C0-Data_Index",
+        "ASM loc_37B7A should choose index 7 when upper-band Kid X is right of `x_pos(a3)+4`",
+    );
+}
+
+#[test]
 fn boss_eye_attack_step_sub_37332_applies_gravity_refreshes_sprite_and_deletes_below_floor() {
     let airborne = boss_eye_attack_step_sub_37332(
         0,
