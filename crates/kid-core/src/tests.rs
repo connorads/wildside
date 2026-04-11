@@ -31797,6 +31797,37 @@ fn enemy_death_burst_init_sub_37002_seeds_the_shared_homing_burst_sprite() {
 }
 
 #[test]
+fn enemy_death_burst_loop_gate_loc_37054_deletes_on_collision_before_countdown() {
+    let gate = enemy_death_burst_loop_gate_loc_37054(0x001C, 0x003C);
+
+    assert_eq!(
+        gate.next,
+        EnemyDeathBurstLoopNextLoc37054::Delete,
+        "ASM loc_37054 should branch to the cleanup tail immediately when `collision_type(a3)` is `$001C`",
+    );
+    assert_eq!(
+        (gate.next_collision_type, gate.next_chase_frames),
+        (0x001C, 0x003C),
+        "ASM loc_37054 checks collision before the later `clr.w collision_type(a3); subq.w #1,d0` path",
+    );
+}
+
+#[test]
+fn enemy_death_burst_loop_gate_loc_37054_clears_collision_and_counts_down() {
+    let gate = enemy_death_burst_loop_gate_loc_37054(0x1234, 2);
+
+    assert_eq!(
+        gate,
+        EnemyDeathBurstLoopGateLoc37054 {
+            next_collision_type: 0,
+            next_chase_frames: 1,
+            next: EnemyDeathBurstLoopNextLoc37054::ChaseKid,
+        },
+        "ASM loc_37054 should clear non-delete collision values, decrement `d0`, and continue to `loc_37078` while the counter is non-zero",
+    );
+}
+
+#[test]
 fn enemy_death_burst_homing_step_sub_37002_tracks_kid_with_signed_axis_accel() {
     let left_and_up = enemy_death_burst_homing_step_sub_37002(0x0040, 0x0080, 0x0060, 0x0040);
     assert_eq!(

@@ -103,6 +103,19 @@ pub(crate) struct EnemyDeathBurstHomingStepSub37002 {
     pub(crate) y_velocity_delta: i32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EnemyDeathBurstLoopNextLoc37054 {
+    ChaseKid,
+    Delete,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyDeathBurstLoopGateLoc37054 {
+    pub(crate) next_collision_type: i16,
+    pub(crate) next_chase_frames: u16,
+    pub(crate) next: EnemyDeathBurstLoopNextLoc37054,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_death_burst_init_sub_37002(
@@ -127,6 +140,38 @@ pub(crate) fn enemy_death_burst_init_sub_37002(
         chase_frames: 0x003C,
         homing_accel: 0x0000_0FA0,
         delete_collision_types: [0x001C, 0x002C, -1],
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn enemy_death_burst_loop_gate_loc_37054(
+    collision_type: i16,
+    chase_frames: u16,
+) -> EnemyDeathBurstLoopGateLoc37054 {
+    // ASM loc_37054 (kid.asm:38915): after one hibernated frame, delete on
+    // collision types `$001C`, `$002C`, or `$FFFF`; otherwise clear
+    // `collision_type(a3)`, decrement `d0`, and continue only when non-zero.
+    let collided = matches!(collision_type, 0x001C | 0x002C | -1);
+    if collided {
+        return EnemyDeathBurstLoopGateLoc37054 {
+            next_collision_type: collision_type,
+            next_chase_frames: chase_frames,
+            next: EnemyDeathBurstLoopNextLoc37054::Delete,
+        };
+    }
+
+    let next_chase_frames = chase_frames.wrapping_sub(1);
+    let next = if next_chase_frames == 0 {
+        EnemyDeathBurstLoopNextLoc37054::Delete
+    } else {
+        EnemyDeathBurstLoopNextLoc37054::ChaseKid
+    };
+
+    EnemyDeathBurstLoopGateLoc37054 {
+        next_collision_type: 0,
+        next_chase_frames,
+        next,
     }
 }
 
