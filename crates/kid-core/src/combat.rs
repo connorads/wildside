@@ -2069,6 +2069,8 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
         // values above `#$64` use the `$7A120` scatter deltas.
         (-0x0007_A120, 0x0007_A120)
     } else {
+        // ASM loc_3785A (kid.asm:39618): timers at or below `#$64` fall
+        // through to the final `$927C0` scatter deltas.
         (-0x0009_27C0, 0x0009_27C0)
     };
 

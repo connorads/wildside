@@ -33616,6 +33616,25 @@ fn heady_metal_breakup_step_loc_37846_uses_low_tier_at_decremented_96() {
 }
 
 #[test]
+fn heady_metal_breakup_step_loc_3785a_uses_final_tier_at_decremented_64() {
+    let result = heady_metal_breakup_step_sub_37708(true, 0, 0x0025, 0x0065, 0, [None; 13]);
+
+    assert_eq!(
+        result.next_remaining_scatter_frames, 0x0064,
+        "ASM loc_3785A should receive the already-decremented `$40(a3)` value after the `#$64` branch is skipped",
+    );
+    assert_eq!(
+        result.scatter_step,
+        Some(HeadyMetalScatterStepSub37708 {
+            pattern: HeadyMetalScatterPatternSub37708::Primary,
+            d6_x_velocity_delta: -0x0009_27C0,
+            d7_velocity_delta: 0x0009_27C0,
+        }),
+        "ASM loc_3785A should fall through to the final `$927C0` tier when the decremented timer is at or below `#$64`",
+    );
+}
+
+#[test]
 fn heady_metal_breakup_step_sub_37708_reveals_the_anchor_pair_before_cleanup_when_the_timer_is_zero()
  {
     let result = heady_metal_breakup_step_sub_37708(true, 0, 0x0025, 0, 0, [None; 13]);
