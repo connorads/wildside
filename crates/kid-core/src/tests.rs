@@ -32288,6 +32288,15 @@ fn boss_eye_attack_sprite_loc_37b0c_uses_signed_word_vertical_compare() {
 }
 
 #[test]
+fn boss_eye_attack_sprite_loc_37b42_uses_middle_left_bucket() {
+    assert_eq!(
+        boss_eye_attack_sprite_sub_37332(false, 0x00, 0x8006, 0x0040, 0x8000, 0x0040),
+        "LnkTo_unk_C8498-Data_Index",
+        "ASM loc_37B42 should select index 2 after signed Kid X is less than `x_pos(a3)-8` in the middle Y band",
+    );
+}
+
+#[test]
 fn boss_eye_attack_step_sub_37332_applies_gravity_refreshes_sprite_and_deletes_below_floor() {
     let airborne = boss_eye_attack_step_sub_37332(
         0,

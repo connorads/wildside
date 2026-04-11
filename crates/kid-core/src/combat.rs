@@ -912,6 +912,8 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
             "LnkTo_unk_C8488-Data_Index"
         }
     } else if word_lt_signed(kid_x, effect_x.wrapping_sub(8)) {
+        // ASM loc_37B42 (kid.asm:40061): middle vertical band plus signed
+        // Kid X left of `x_pos(a3)-8` selects table index 2.
         "LnkTo_unk_C8498-Data_Index"
     } else {
         "LnkTo_unk_C84B8-Data_Index"
