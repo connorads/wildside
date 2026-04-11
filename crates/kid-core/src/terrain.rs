@@ -1993,6 +1993,9 @@ pub fn vertical_collision_scan_up_sub_36CB8(
     // ASM sub_36CB8 (kid.asm:38551): derive the row immediately above the top
     // edge `y_pos(a3)-height`, exit early if it is negative, then OR the
     // current width span and keep only bit `$4000`.
+    // ASM loc_36CCC (kid.asm:38562): after the negative-row `bpl` gate, rows
+    // at or beyond `Level_height_blocks` clear `d6` and return before loading
+    // a row pointer.
     let row = pixel_to_cell(foot_y_px - height) - 1;
     vertical_collision_scan_row(grid, center_x_px, half_width, row)
 }
@@ -2193,7 +2196,7 @@ mod tests {
 
         assert!(
             !vertical_collision_scan_up_sub_36CB8(&grid, 24, 80, 8, 16),
-            "ASM sub_36CB8 should clear d6 once the derived row reaches Level_height_blocks"
+            "ASM loc_36CCC (kid.asm:38562) should clear d6 and return once the derived upward row reaches Level_height_blocks"
         );
     }
 
