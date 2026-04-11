@@ -1987,6 +1987,8 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
         return result;
     }
 
+    // ASM loc_37710 (kid.asm:39509): after `$FFFFFB72` is nonzero, read
+    // `collision_type(a3)` into `d7`; zero branches to the shared tail.
     if collision_type != 0 {
         result.next_collision_type = 0;
 

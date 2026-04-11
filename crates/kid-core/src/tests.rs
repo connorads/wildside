@@ -33408,6 +33408,21 @@ fn heady_metal_piece_sprite_sub_37a22_uses_diamond_override_and_directional_buck
 }
 
 #[test]
+fn heady_metal_breakup_step_loc_37710_ignores_anchor_without_collision() {
+    let result = heady_metal_breakup_step_sub_37708(true, 0, 12, 9, 0, [None; 13]);
+
+    assert_eq!(
+        (result.next_collision_type, result.next_phase_counter),
+        (0, 12),
+        "ASM loc_37710 should branch to the shared tail when the live anchor has zero `collision_type(a3)`",
+    );
+    assert_eq!(
+        result.scatter_step, None,
+        "ASM loc_37710 should not enter the breakup collision handler without a nonzero collision word",
+    );
+}
+
+#[test]
 fn heady_metal_breakup_step_sub_37708_advances_the_early_pop_sequence_on_collision_type_2c() {
     let result = heady_metal_breakup_step_sub_37708(true, 0x002C, 0xFFFF, 0, 0, {
         let mut pieces = [None; 13];
