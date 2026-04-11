@@ -257,6 +257,20 @@ pub(crate) struct BossDeathBurstHomingStepSub370D2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BossDeathBurstLoopNextLoc37148 {
+    ChaseKid,
+    CollisionFinish,
+    TimeoutFinish,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossDeathBurstLoopGateLoc37148 {
+    pub(crate) next_collision_type: i16,
+    pub(crate) next_chase_frames: u16,
+    pub(crate) next: BossDeathBurstLoopNextLoc37148,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossDeathBurstFinishSub3728C {
     pub(crate) animation_label: &'static str,
     pub(crate) hibernate_until_anim_finished: bool,
@@ -550,6 +564,38 @@ pub(crate) fn boss_death_burst_fall_step_sub_370D2(y_velocity: i32) -> i32 {
     // ASM loc_3712E (kid.asm:38995): after each hibernate, add `$2710` to
     // `y_vel(a3)` until the grounded byte `$18(a3)` becomes non-zero.
     y_velocity.saturating_add(0x0000_2710)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_death_burst_loop_gate_loc_37148(
+    collision_type: i16,
+    chase_frames: u16,
+) -> BossDeathBurstLoopGateLoc37148 {
+    // ASM loc_37148 (kid.asm:39002): after each grounded hibernate, branch to
+    // the collision finish on `$001C`, `$002C`, or `$FFFF`; otherwise clear
+    // `collision_type(a3)`, decrement `d0`, and chase Kid while the timer lives.
+    let collided = matches!(collision_type, 0x001C | 0x002C | -1);
+    if collided {
+        return BossDeathBurstLoopGateLoc37148 {
+            next_collision_type: collision_type,
+            next_chase_frames: chase_frames,
+            next: BossDeathBurstLoopNextLoc37148::CollisionFinish,
+        };
+    }
+
+    let next_chase_frames = chase_frames.wrapping_sub(1);
+    let next = if next_chase_frames == 0 {
+        BossDeathBurstLoopNextLoc37148::TimeoutFinish
+    } else {
+        BossDeathBurstLoopNextLoc37148::ChaseKid
+    };
+
+    BossDeathBurstLoopGateLoc37148 {
+        next_collision_type: 0,
+        next_chase_frames,
+        next,
+    }
 }
 
 #[allow(non_snake_case)]

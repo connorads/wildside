@@ -31951,6 +31951,44 @@ fn boss_death_burst_fall_and_homing_sub_370d2_use_grounded_checks_and_slower_acc
 }
 
 #[test]
+fn boss_death_burst_loop_gate_loc_37148_deletes_on_collision_before_countdown() {
+    let gate = boss_death_burst_loop_gate_loc_37148(0x002C, 0x0078);
+
+    assert_eq!(
+        gate.next,
+        BossDeathBurstLoopNextLoc37148::CollisionFinish,
+        "ASM loc_37148 should branch to the collision finish immediately when `collision_type(a3)` is `$002C`",
+    );
+    assert_eq!(
+        (gate.next_collision_type, gate.next_chase_frames),
+        (0x002C, 0x0078),
+        "ASM loc_37148 checks collision before the later `clr.w collision_type(a3); subq.w #1,d0` path",
+    );
+}
+
+#[test]
+fn boss_death_burst_loop_gate_loc_37148_clears_collision_and_counts_down() {
+    let gate = boss_death_burst_loop_gate_loc_37148(0x1234, 2);
+
+    assert_eq!(
+        gate,
+        BossDeathBurstLoopGateLoc37148 {
+            next_collision_type: 0,
+            next_chase_frames: 1,
+            next: BossDeathBurstLoopNextLoc37148::ChaseKid,
+        },
+        "ASM loc_37148 should clear non-delete collision values, decrement `d0`, and continue the grounded homing loop while the counter is non-zero",
+    );
+
+    let timeout = boss_death_burst_loop_gate_loc_37148(0, 1);
+    assert_eq!(
+        timeout.next,
+        BossDeathBurstLoopNextLoc37148::TimeoutFinish,
+        "ASM loc_37148 should fall through to the timeout finish once `subq.w #1,d0` leaves the timer at zero",
+    );
+}
+
+#[test]
 fn boss_death_timeout_sound_sub_370d2_selects_the_rng_gated_finish_jingle() {
     assert_eq!(
         boss_death_timeout_sound_sub_370D2(0x00),
