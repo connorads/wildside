@@ -33398,9 +33398,9 @@ fn heady_metal_piece_sprite_sub_37a22_uses_diamond_override_and_directional_buck
         "ASM sub_37A22 should force `LnkTo_unk_C84A8-Data_Index` when diamond power is active and bit 3 is clear",
     );
     assert_eq!(
-        heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x0040, 0x0030),
+        heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x0040, 0x003B),
         "LnkTo_unk_C8488-Data_Index",
-        "ASM sub_37A22 should choose the upward-facing mapping when Kid is more than 4px above the worker",
+        "ASM loc_37A94 should choose index 0 when Kid is above `y_pos-4` and horizontally centred",
     );
     assert_eq!(
         heady_metal_piece_sprite_sub_37A22(false, 0x00, 0x0040, 0x0040, 0x0038, 0x0040),
