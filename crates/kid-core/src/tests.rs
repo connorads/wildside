@@ -32736,6 +32736,60 @@ fn boomerang_boss_head_1_wait_loop_loc_37f80_branches_to_shared_exit_when_status
 }
 
 #[test]
+fn boomerang_boss_head_1_activation_loc_37f94_waits_outside_the_signed_vertical_window() {
+    let above = boomerang_boss_head_1_activation_loc_37F94(0x0080, 0x003F, 0x0090, 0x0080);
+    let below = boomerang_boss_head_1_activation_loc_37F94(0x0080, 0x0081, 0x0090, 0x0080);
+
+    assert_eq!(
+        above.next,
+        BoomerangBossHeadActivationNextLoc37F94::WaitLoopLoc37F80,
+        "ASM loc_37F94 should branch back to loc_37F80 when signed Kid Y is less than `y_pos(a3)-$40`",
+    );
+    assert_eq!(
+        below.next,
+        BoomerangBossHeadActivationNextLoc37F94::WaitLoopLoc37F80,
+        "ASM loc_37F94 should branch back to loc_37F80 when signed Kid Y is greater than `y_pos(a3)`",
+    );
+    assert_eq!((above.x_direction, below.x_direction), (None, None));
+}
+
+#[test]
+fn boomerang_boss_head_1_activation_loc_37f94_faces_left_when_head_is_strictly_right_of_kid() {
+    let result = boomerang_boss_head_1_activation_loc_37F94(0x007F, 0x0040, 0x0080, 0x0080);
+
+    assert!(result.kid_within_vertical_window);
+    assert_eq!(
+        (
+            result.x_direction,
+            result.cached_x_direction_fffffb86,
+            result.animation_script_label,
+            result.next,
+        ),
+        (
+            Some(0),
+            Some(0),
+            Some("stru_39FC6"),
+            BoomerangBossHeadActivationNextLoc37F94::AttackAnimationLoc37FC6,
+        ),
+        "ASM loc_37F94/loc_37FC2 should clear `x_direction(a3)`, mirror it to `$FFFFFB86`, and start `stru_39FC6` when `head_x > kid_x`",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_1_activation_loc_37f94_faces_right_on_equal_or_left_head_x() {
+    let equal = boomerang_boss_head_1_activation_loc_37F94(0x0080, 0x0080, 0x0080, 0x0080);
+    let left = boomerang_boss_head_1_activation_loc_37F94(0x0081, 0x0080, 0x0080, 0x0080);
+
+    assert_eq!(
+        (equal.x_direction, left.x_direction),
+        (Some(0xFF), Some(0xFF)),
+        "ASM loc_37F94 should set `x_direction(a3)` unless the signed `cmp.w d5,d3; bgt.s loc_37FC2` branch fires",
+    );
+    assert_eq!(equal.animation_script_label, Some("stru_39FC6"));
+    assert_eq!(left.cached_x_direction_fffffb86, Some(0xFF));
+}
+
+#[test]
 fn boss_head_movement_step_sub_39846_only_counts_down_when_delay_has_not_elapsed() {
     let script = [(0x0168, 0, -1), (-1, 0, 0)];
 

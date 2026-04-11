@@ -458,6 +458,21 @@ pub(crate) struct BoomerangBossHeadWaitLoopLoc37F80 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossHeadActivationNextLoc37F94 {
+    WaitLoopLoc37F80,
+    AttackAnimationLoc37FC6,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossHeadActivationLoc37F94 {
+    pub(crate) kid_within_vertical_window: bool,
+    pub(crate) x_direction: Option<u8>,
+    pub(crate) cached_x_direction_fffffb86: Option<u8>,
+    pub(crate) animation_script_label: Option<&'static str>,
+    pub(crate) next: BoomerangBossHeadActivationNextLoc37F94,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -1213,6 +1228,46 @@ pub(crate) fn boomerang_boss_head_1_wait_loop_loc_37F80(
         } else {
             BoomerangBossHeadWaitNextLoc37F80::SharedCollisionExitLoc39EBE
         },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_1_activation_loc_37F94(
+    kid_x: u16,
+    kid_y: u16,
+    head_x: u16,
+    head_y: u16,
+) -> BoomerangBossHeadActivationLoc37F94 {
+    // ASM loc_37F94 (kid.asm:40353): branch back to `loc_37F80` unless Kid's
+    // signed gfx Y lies in the inclusive `head_y-$40..=head_y` window, then
+    // face left (`0`) only when `head_x > kid_x` before starting `stru_39FC6`.
+    let lower_y = head_y.wrapping_sub(0x0040);
+    let kid_within_vertical_window =
+        !word_lt_signed(kid_y, lower_y) && !word_gt_signed(kid_y, head_y);
+
+    if !kid_within_vertical_window {
+        return BoomerangBossHeadActivationLoc37F94 {
+            kid_within_vertical_window,
+            x_direction: None,
+            cached_x_direction_fffffb86: None,
+            animation_script_label: None,
+            next: BoomerangBossHeadActivationNextLoc37F94::WaitLoopLoc37F80,
+        };
+    }
+
+    let x_direction = if word_gt_signed(head_x, kid_x) {
+        0
+    } else {
+        0xFF
+    };
+
+    BoomerangBossHeadActivationLoc37F94 {
+        kid_within_vertical_window,
+        x_direction: Some(x_direction),
+        cached_x_direction_fffffb86: Some(x_direction),
+        animation_script_label: Some("stru_39FC6"),
+        next: BoomerangBossHeadActivationNextLoc37F94::AttackAnimationLoc37FC6,
     }
 }
 
