@@ -32955,6 +32955,41 @@ fn boomerang_boss_head_2_init_loc_38012_seeds_the_second_head_and_movement_scrip
 }
 
 #[test]
+fn boomerang_boss_head_2_wait_loop_loc_38062_checks_kid_window_when_status_is_zero() {
+    let result = boomerang_boss_head_2_wait_loop_loc_38062(0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(
+        result.runs_movement_wrapper_sub_399e4,
+        "ASM loc_38062 should run `sub_399E4` after `Hibernate_Object_1Frame`",
+    );
+    assert_eq!(
+        result.cached_collision_word_fffffb74, 0,
+        "ASM loc_38062 should copy zero `d7` into `$FFFFFB74` before falling through",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHead2WaitNextLoc38062::CheckKidWindow,
+        "ASM loc_38062 should fall through to the Kid-window check when `tst.w d7` is zero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_2_wait_loop_loc_38062_branches_to_shared_exit_when_status_is_nonzero() {
+    let result = boomerang_boss_head_2_wait_loop_loc_38062(0x0040);
+
+    assert_eq!(
+        result.cached_collision_word_fffffb74, 0x0040,
+        "ASM loc_38062 should preserve nonzero `d7` in `$FFFFFB74`",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHead2WaitNextLoc38062::SharedCollisionExitLoc39EBE,
+        "ASM loc_38062 should branch to loc_39EBE instead of the Kid-window check when `d7` is nonzero",
+    );
+}
+
+#[test]
 fn boss_head_movement_step_sub_39846_only_counts_down_when_delay_has_not_elapsed() {
     let script = [(0x0168, 0, -1), (-1, 0, 0)];
 
