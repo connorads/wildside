@@ -1024,6 +1024,46 @@ pub(crate) struct BoomerangBossSkewerPiece9LaunchLoc388D8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossEyePiece1InitLoc38902 {
+    pub(crate) gfx_slot: u32,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) display_enabled: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) sprite_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) initial_frame_byte: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossEyePiece1TrackingNextLoc3893E {
+    TrackingLoopLoc3893E,
+    LaunchLoc38962,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossEyePiece1TrackingLoopLoc3893E {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_orbit_placement_sub_393c8: bool,
+    pub(crate) runs_directional_sprite_sub_37a22: bool,
+    pub(crate) updates_sprite_from_d6: bool,
+    pub(crate) next: BoomerangBossEyePiece1TrackingNextLoc3893E,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossEyePiece1LaunchLoc38962 {
+    pub(crate) runs_detach_step_sub_393b2: bool,
+    pub(crate) y_vel: i16,
+    pub(crate) x_vel: i32,
+    pub(crate) gravity_per_frame: i32,
+    pub(crate) runs_directional_sprite_during_flight: bool,
+    pub(crate) deletes_below_level_height: bool,
+    pub(crate) loops_back_loc_38998: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -2708,6 +2748,79 @@ pub(crate) fn boomerang_boss_skewer_piece_9_launch_loc_388D8()
         gravity_per_frame: 0x1B58,        // addi.l #$1B58,y_vel(a3)
         deletes_below_level_height: true, // jmp j_Delete_CurrentObject when y_pos > level_height
         loops_back_loc_38900: true,       // bra.s loc_388E6 when y_pos <= level_height
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_eye_piece_1_init_loc_38902(
+    anchor_x: u16,
+    anchor_y: u16,
+) -> BoomerangBossEyePiece1InitLoc38902 {
+    // ASM loc_38902 (kid.asm:41081): allocate eye piece 1 with gfx slot
+    // `$01020002`, priority 0, object_meta `$21`. Calls `loc_32146(pc)` for
+    // shared init, clears `has_kid_collision(a3)`, sets `$13(a3)` and
+    // `is_moved(a3)`, assigns sprite `LnkTo_unk_C8488-Data_Index`, copies
+    // anchor from `$44/$46(a5)`, and clears `d0` via `sf` (initial frame byte
+    // for orbit placement sub_393C8).
+    BoomerangBossEyePiece1InitLoc38902 {
+        gfx_slot: 0x0102_0002,
+        priority: 0,
+        object_meta: 0x21,
+        has_kid_collision: false, // sf has_kid_collision(a3)
+        display_enabled: true,    // st $13(a3)
+        is_moved: true,           // st is_moved(a3)
+        sprite_label: "LnkTo_unk_C8488-Data_Index",
+        x_pos: anchor_x,
+        y_pos: anchor_y,
+        initial_frame_byte: 0, // sf d0
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_eye_piece_1_tracking_loop_loc_3893E(
+    breakup_trigger_fb72: u16,
+) -> BoomerangBossEyePiece1TrackingLoopLoc3893E {
+    // ASM loc_3893E (kid.asm:41096): hibernate one frame, load parent pointer
+    // from `($FFFFFB7A).w` into `a2`, load direction byte from `($FFFFFB86).w`
+    // into `d2`, run `sub_393C8` (orbit placement) and `sub_37A22` (directional
+    // sprite selection), store `d6` into `addroffset_sprite(a3)`. Then check
+    // `tst.w ($FFFFFB72).w`: nonzero branches to `loc_38962` (launch); zero
+    // loads `$16(a2)` into `d0` (parent frame byte) and loops back.
+    BoomerangBossEyePiece1TrackingLoopLoc3893E {
+        hibernates_one_frame: true,
+        runs_orbit_placement_sub_393c8: true,
+        runs_directional_sprite_sub_37a22: true,
+        updates_sprite_from_d6: true,
+        next: if breakup_trigger_fb72 != 0 {
+            BoomerangBossEyePiece1TrackingNextLoc3893E::LaunchLoc38962
+        } else {
+            BoomerangBossEyePiece1TrackingNextLoc3893E::TrackingLoopLoc3893E
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_eye_piece_1_launch_loc_38962() -> BoomerangBossEyePiece1LaunchLoc38962
+{
+    // ASM loc_38962 (kid.asm:41109): call `sub_393B2` (detach step — sound
+    // effect, rerank gfx object), set y_vel to `$FFFD` (word = -3) and x_vel
+    // to `$FFFFC000` (longword = -0x4000 = -16384, leftward). Then enter the
+    // `loc_38976` gravity loop: each frame runs `sub_37A22` (directional sprite
+    // update), adds `$7D0` to y_vel (longword), checks `y_pos` against
+    // `Level_height_pixels`, and deletes the object when it falls off-screen.
+    // `loc_38998` (kid.asm:41125) is the loop-back: `bra.s loc_38976` when
+    // `y_pos <= Level_height_pixels`.
+    BoomerangBossEyePiece1LaunchLoc38962 {
+        runs_detach_step_sub_393b2: true,
+        y_vel: -3,                                   // $FFFD as signed word
+        x_vel: -0x4000_i32,                          // $FFFFC000 as signed longword (leftward)
+        gravity_per_frame: 0x7D0,                    // addi.l #$7D0,y_vel(a3)
+        runs_directional_sprite_during_flight: true, // bsr.w sub_37A22 in loc_38976
+        deletes_below_level_height: true, // jmp j_Delete_CurrentObject when y_pos > level_height
+        loops_back_loc_38998: true,       // bra.s loc_38976 when y_pos <= level_height
     }
 }
 
