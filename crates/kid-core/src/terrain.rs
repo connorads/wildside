@@ -1554,6 +1554,20 @@ fn horizontal_collision_scan_rect_mask_loc_369F8(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_right_hitbox_mask_loc_36BBE(
+    grid: &BlockGrid,
+    left_col: i32,
+    right_col: i32,
+    top_row: i32,
+    bottom_row: i32,
+) -> u16 {
+    // ASM loc_36BBE (kid.asm:38416): reset `a4` to the start of the current
+    // hitbox row and reload `d0=d3` before each row-width scan.
+    horizontal_collision_scan_rect_mask_loc_369F8(grid, left_col, right_col, top_row, bottom_row)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_following_row_class_loc_36A10(words: &[u16]) -> i16 {
     // ASM loc_36A10 (kid.asm:38183): after the body rectangle scan, inspect the
     // following row from left to right. If the first cell already carries bit
@@ -1779,7 +1793,7 @@ fn horizontal_collision_scan(
     }
 
     let hitbox_mask = if leading_right {
-        horizontal_collision_scan_rect_mask_loc_369F8(
+        horizontal_collision_scan_right_hitbox_mask_loc_36BBE(
             grid, left_col, right_col, top_row, bottom_row,
         )
     } else {
@@ -3472,6 +3486,22 @@ mod tests {
             mask & 0x4000,
             0x4000,
             "ASM loc_369FC should keep OR-ing the same `d5` accumulator as it advances row-major through the rectangle, so a `$4000` hit on the first scanned row must survive even when the final row is empty",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_right_hitbox_mask_loc_36bbe_resets_each_row_start() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(1 * 4 + 1) * 2] = 0x40;
+        data[(2 * 4 + 2) * 2] = 0x20;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let mask = horizontal_collision_scan_right_hitbox_mask_loc_36BBE(&grid, 1, 2, 1, 2);
+
+        assert_eq!(
+            mask & 0x7000,
+            0x6000,
+            "ASM loc_36BBE (kid.asm:38416) should reset `a4` to each row start before the row-width scan, so both columns are checked again on later rows",
         );
     }
 
