@@ -33240,6 +33240,20 @@ fn heady_metal_spawn_animation_loc_3761e_uses_high_animation_for_decremented_cou
 }
 
 #[test]
+fn heady_metal_spawn_animation_loc_37630_uses_low_animation_after_counter_wrap() {
+    let step = heady_metal_spawn_animation_loc_3761E(1);
+
+    assert_eq!(
+        step.next_piece_counter, 0x000A,
+        "the HeadyMetal spawn gate should reset `$3E(a3)` to `$A` when the decremented counter reaches zero",
+    );
+    assert_eq!(
+        step.selected_animation_label, "stru_37BC0",
+        "ASM loc_37630 should still select `stru_37BC0` after the wrap because `d2` remains zero for the `cmpi.w #6,d2` branch",
+    );
+}
+
+#[test]
 fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pattern() {
     let updated = heady_metal_scatter_step_sub_3787C(
         HeadyMetalScatterVelocities {

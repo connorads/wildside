@@ -1822,6 +1822,8 @@ pub(crate) fn heady_metal_spawn_animation_loc_3761E(
     let selected_animation_label = if decremented_piece_counter >= 6 {
         "stru_37B98"
     } else {
+        // ASM loc_37630 (kid.asm:39408): counters below 6 initialise the
+        // low-count HeadyMetal spawn animation, including the d2=0 wrap case.
         "stru_37BC0"
     };
 
