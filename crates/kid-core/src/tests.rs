@@ -33121,7 +33121,7 @@ fn heady_metal_apply_piece_velocities_sub_376ec_updates_each_live_worker_slot() 
     );
     assert_eq!(
         updated[1], None,
-        "ASM sub_376EC should skip empty worker slots instead of materialising new objects",
+        "ASM loc_37702 should skip empty worker slots and continue the `dbf` loop",
     );
     assert_eq!(
         updated[6],

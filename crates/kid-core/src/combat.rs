@@ -1755,6 +1755,8 @@ pub(crate) fn heady_metal_apply_piece_velocities_sub_376EC(
             worker.x_velocity = x_velocity;
             worker.y_velocity = y_velocity;
         }
+        // ASM loc_37702 (kid.asm:39494): null pointers branch here, then `dbf`
+        // decrements `d5` and continues until all `#$10+1` entries are visited.
     }
 
     slots
