@@ -54403,3 +54403,22 @@ fn horizontal_collision_scan_left_loc_36c52_restarts_each_body_row() {
         "ASM loc_36C52 should restart `a4` from `a1` and reload `d0=d3` for each body row before scanning it",
     );
 }
+
+#[test]
+fn horizontal_collision_scan_left_loc_36c56_scans_the_full_body_row_width() {
+    let mut data = vec![0u8; 4 * 4 * 2];
+    let slope_offset = ((2 * 4) + 2) * 2;
+    data[slope_offset] = 0x40;
+    let grid = crate::terrain::BlockGrid::from_level_layout(&data, 4, 4);
+
+    let scan = crate::terrain::horizontal_collision_scan_left_sub_36BD6(&grid, 32, 48, 16, 16);
+
+    assert_eq!(
+        scan,
+        crate::terrain::HorizontalCollisionScan {
+            hitbox_blocked: true,
+            lead_column_blocked: false,
+        },
+        "ASM loc_36C56 should keep post-incrementing `(a4)+` across the whole body row until `dbf d0` expires",
+    );
+}

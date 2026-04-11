@@ -1532,6 +1532,7 @@ fn horizontal_collision_scan_hitbox_mask_seed_loc_369F6() -> u16 {
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 fn horizontal_collision_scan_rect_mask_loc_369F8(
     grid: &BlockGrid,
     left_col: i32,
@@ -1748,7 +1749,31 @@ fn horizontal_collision_scan_left_hitbox_mask_loc_36AD8(
     // hitbox rectangle has been reduced into `d5`.
     // ASM loc_36C52 (kid.asm:38492): `sub_36BD6` uses the same row restart,
     // copying `a1` into `a4` and reloading `d0=d3` before the per-row OR loop.
-    horizontal_collision_scan_rect_mask_loc_369F8(grid, left_col, right_col, top_row, bottom_row)
+    let mut mask = horizontal_collision_scan_hitbox_mask_seed_loc_369F6();
+    for row in top_row..=bottom_row {
+        mask |= horizontal_collision_scan_left_hitbox_row_mask_loc_36C56(
+            grid, left_col, right_col, row,
+        );
+    }
+    mask
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+fn horizontal_collision_scan_left_hitbox_row_mask_loc_36C56(
+    grid: &BlockGrid,
+    left_col: i32,
+    right_col: i32,
+    row: i32,
+) -> u16 {
+    // ASM loc_36C56 (kid.asm:38496): after `loc_36C52` resets `a4`, OR each
+    // word in the current hitbox row into `d5` via post-increment `(a4)+`
+    // until the inclusive `dbf d0` width counter expires.
+    let mut mask = 0u16;
+    for col in left_col..=right_col {
+        mask |= grid.cell_at(col as u16, row as u16).to_word();
+    }
+    mask
 }
 
 pub(crate) fn transform_overlap_column_blocked_sub_7bea(
