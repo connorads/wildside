@@ -1770,6 +1770,8 @@ pub(crate) fn heady_metal_tracking_velocity_loc_37582(
     } else {
         0x0000_8000
     };
+    // ASM loc_375B0 (kid.asm:39361): compare `centre_piece_y - $28` against
+    // Kid's gfx Y, using `#$4800` unless the signed `bgt.s loc_375BC` fires.
     let mut y_velocity = if piece_target_y > kid_y {
         -0x0000_5000
     } else {

@@ -33164,6 +33164,17 @@ fn heady_metal_tracking_velocity_loc_375aa_aims_left_when_piece_is_right_of_kid(
 }
 
 #[test]
+fn heady_metal_tracking_velocity_loc_375b0_aims_down_when_adjusted_piece_is_not_below_kid() {
+    let velocity =
+        heady_metal_tracking_velocity_loc_37582(0x0080, 0x0080, 0x0080, 0x00A8, 4, false);
+
+    assert_eq!(
+        velocity.y_velocity, 0x0000_4800,
+        "ASM loc_375B0 should compare `$FFFFFB7A.y_pos - $28` with Kid.gfx_y and fall through to `move.l #$4800,d7` when it is <= Kid",
+    );
+}
+
+#[test]
 fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pattern() {
     let updated = heady_metal_scatter_step_sub_3787C(
         HeadyMetalScatterVelocities {
