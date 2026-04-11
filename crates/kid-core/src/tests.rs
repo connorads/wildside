@@ -31946,7 +31946,7 @@ fn boss_death_burst_fall_and_homing_sub_370d2_use_grounded_checks_and_slower_acc
             right_and_down.y_velocity_delta
         ),
         (-0x0000_07D0, 0x0000_07D0),
-        "ASM loc_37192..loc_371B4 should keep steering back toward Kid after landing",
+        "ASM loc_3719E should add `$7D0` to `y_vel(a3)` when the burst is above or level with Kid after landing",
     );
 }
 
