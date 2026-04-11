@@ -33175,6 +33175,18 @@ fn heady_metal_tracking_velocity_loc_375b0_aims_down_when_adjusted_piece_is_not_
 }
 
 #[test]
+fn heady_metal_tracking_velocity_loc_375c2_zeros_horizontal_velocity_in_early_phase() {
+    let velocity =
+        heady_metal_tracking_velocity_loc_37582(0x0080, 0x0080, 0x0081, 0x00A8, 3, false);
+
+    assert_eq!(
+        (velocity.x_velocity, velocity.y_velocity),
+        (0, 0x0000_4800),
+        "ASM loc_375C2 should clear `d6` when `$FFFFFB72.$3E < #4` without clearing `d7`",
+    );
+}
+
+#[test]
 fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pattern() {
     let updated = heady_metal_scatter_step_sub_3787C(
         HeadyMetalScatterVelocities {

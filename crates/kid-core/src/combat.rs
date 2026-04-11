@@ -1778,6 +1778,8 @@ pub(crate) fn heady_metal_tracking_velocity_loc_37582(
         0x0000_4800
     };
 
+    // ASM loc_375C2 (kid.asm:39371): load anchor worker `$FFFFFB72`,
+    // compare `$3E(a2)` with `#4`, and clear `d6` while the counter is < 4.
     if anchor_phase_counter < 4 {
         x_velocity = 0;
     }
