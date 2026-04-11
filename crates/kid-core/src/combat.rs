@@ -2048,6 +2048,9 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
         return result;
     }
 
+    // ASM loc_377F6 (kid.asm:39582): seed the final-scatter deltas, decrement
+    // `$40(a3)`, then use the decremented timer for the `#$15E` high-tier
+    // branch before falling through to the lower tiers.
     result.next_remaining_scatter_frames = remaining_scatter_frames - 1;
     let timer = result.next_remaining_scatter_frames;
     let (d6_x_velocity_delta, d7_velocity_delta) = if timer > 0x015E {

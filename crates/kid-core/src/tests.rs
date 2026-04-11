@@ -33536,7 +33536,7 @@ fn heady_metal_breakup_step_loc_377bc_waits_for_phase_25_before_final_scatter() 
 }
 
 #[test]
-fn heady_metal_breakup_step_sub_37708_arms_the_final_scatter_with_the_primary_pattern() {
+fn heady_metal_breakup_step_loc_377f6_uses_high_tier_after_decrementing_scatter_timer() {
     let result = heady_metal_breakup_step_sub_37708(true, 0, 0x0025, 0x0160, 0, [None; 13]);
 
     assert!(
@@ -33545,7 +33545,7 @@ fn heady_metal_breakup_step_sub_37708_arms_the_final_scatter_with_the_primary_pa
     );
     assert_eq!(
         result.next_remaining_scatter_frames, 0x015F,
-        "ASM sub_37708 should decrement `$40(a3)` before choosing the final scatter speed tier",
+        "ASM loc_377F6 should decrement `$40(a3)` before choosing the final scatter speed tier",
     );
     assert_eq!(
         result.scatter_step,
@@ -33554,7 +33554,7 @@ fn heady_metal_breakup_step_sub_37708_arms_the_final_scatter_with_the_primary_pa
             d6_x_velocity_delta: -0x0003_0D40,
             d7_velocity_delta: 0x0003_0D40,
         }),
-        "ASM sub_37708 should choose sub_3787C's primary pattern with the `$30D40` tier when the decremented timer stays above `$15E`",
+        "ASM loc_377F6 should choose sub_3787C's primary pattern with the `$30D40` tier when the decremented timer stays above `$15E`",
     );
 }
 
