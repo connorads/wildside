@@ -33199,6 +33199,33 @@ fn heady_metal_tracking_velocity_loc_375d4_preserves_velocity_when_freeze_flag_i
 }
 
 #[test]
+fn heady_metal_tracking_velocity_loc_375de_feeds_final_velocity_to_worker_update() {
+    // ASM loc_375DE (kid.asm:39383): enter `sub_376EC` after the optional
+    // `$FFFFFB4F` velocity clear, so every live worker receives final `d6/d7`.
+    let velocity = heady_metal_tracking_velocity_loc_37582(0x0080, 0x0080, 0x0081, 0x00A9, 4, true);
+    let mut slots = [None; 17];
+    slots[0] = Some(HeadyMetalSpriteVelocitySub376EC {
+        x_velocity: 0x1234,
+        y_velocity: -0x5678,
+    });
+
+    let updated = heady_metal_apply_piece_velocities_sub_376EC(
+        slots,
+        velocity.x_velocity,
+        velocity.y_velocity,
+    );
+
+    assert_eq!(
+        updated[0],
+        Some(HeadyMetalSpriteVelocitySub376EC {
+            x_velocity: 0,
+            y_velocity: 0,
+        }),
+        "ASM loc_375DE should enter `sub_376EC` with final `d6/d7`, including the zeroed pair from `$FFFFFB4F`",
+    );
+}
+
+#[test]
 fn heady_metal_scatter_step_sub_3787c_applies_the_primary_five_piece_velocity_pattern() {
     let updated = heady_metal_scatter_step_sub_3787C(
         HeadyMetalScatterVelocities {

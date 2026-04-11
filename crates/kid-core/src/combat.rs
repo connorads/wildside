@@ -1790,6 +1790,8 @@ pub(crate) fn heady_metal_tracking_velocity_loc_37582(
         y_velocity = 0;
     }
 
+    // ASM loc_375DE (kid.asm:39383): both freeze paths join here before
+    // `bsr.w sub_376EC`; return the final `d6/d7` pair for that worker update.
     HeadyMetalTrackingVelocityLoc37582 {
         x_velocity,
         y_velocity,
