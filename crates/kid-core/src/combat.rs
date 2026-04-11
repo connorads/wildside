@@ -2080,6 +2080,8 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
         pattern: if frame_counter & 2 == 0 {
             HeadyMetalScatterPatternSub37708::Primary
         } else {
+            // ASM loc_37876 (kid.asm:39630): nonzero `Frame_Counter & #2`
+            // branches here and calls the alternate `sub_378A2` helper.
             HeadyMetalScatterPatternSub37708::Alternate
         },
         d6_x_velocity_delta,

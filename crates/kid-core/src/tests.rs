@@ -33568,6 +33568,8 @@ fn heady_metal_breakup_step_loc_3781e_uses_mid_high_tier_at_decremented_15e() {
         result.next_remaining_scatter_frames, 0x015E,
         "ASM loc_3781E should receive the already-decremented `$40(a3)` value after the `#$15E` high-tier branch is skipped",
     );
+    // ASM loc_37876 (kid.asm:39630): a nonzero `Frame_Counter & #2` calls
+    // the alternate `sub_378A2` scatter helper.
     assert_eq!(
         result.scatter_step,
         Some(HeadyMetalScatterStepSub37708 {
