@@ -271,6 +271,16 @@ pub(crate) struct BossDeathBurstLoopGateLoc37148 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossDeathBurstCollisionFinishLoc371B6 {
+    pub(crate) collision_type: i16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) animation_label: &'static str,
+    pub(crate) hibernate_until_anim_finished: bool,
+    pub(crate) delete_current_object: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossDeathBurstFinishSub3728C {
     pub(crate) animation_label: &'static str,
     pub(crate) hibernate_until_anim_finished: bool,
@@ -595,6 +605,23 @@ pub(crate) fn boss_death_burst_loop_gate_loc_37148(
         next_collision_type: 0,
         next_chase_frames,
         next,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_death_burst_collision_finish_loc_371B6() -> BossDeathBurstCollisionFinishLoc371B6
+{
+    // ASM loc_371B6 (kid.asm:39048): clear `collision_type(a3)`, both velocity
+    // longwords, play `stru_37BC6`, hibernate until that animation finishes,
+    // then jump to `Delete_CurrentObject`.
+    BossDeathBurstCollisionFinishLoc371B6 {
+        collision_type: 0,
+        x_velocity: 0,
+        y_velocity: 0,
+        animation_label: "stru_37BC6",
+        hibernate_until_anim_finished: true,
+        delete_current_object: true,
     }
 }
 

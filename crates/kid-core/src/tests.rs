@@ -31989,6 +31989,24 @@ fn boss_death_burst_loop_gate_loc_37148_clears_collision_and_counts_down() {
 }
 
 #[test]
+fn boss_death_burst_collision_finish_loc_371b6_clears_motion_and_deletes_after_anim() {
+    let finish = boss_death_burst_collision_finish_loc_371B6();
+
+    assert_eq!(
+        finish,
+        BossDeathBurstCollisionFinishLoc371B6 {
+            collision_type: 0,
+            x_velocity: 0,
+            y_velocity: 0,
+            animation_label: "stru_37BC6",
+            hibernate_until_anim_finished: true,
+            delete_current_object: true,
+        },
+        "ASM loc_371B6 should clear collision and both velocity longwords, run `stru_37BC6` to completion, then delete the object",
+    );
+}
+
+#[test]
 fn boss_death_timeout_sound_sub_370d2_selects_the_rng_gated_finish_jingle() {
     assert_eq!(
         boss_death_timeout_sound_sub_370D2(0x00),
