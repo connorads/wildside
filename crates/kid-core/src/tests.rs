@@ -54384,3 +54384,22 @@ fn horizontal_collision_scan_left_loc_36c46_flags_an_in_bounds_left_slope_column
         "ASM loc_36C46 should OR each in-bounds left lead-column word into `d6` before masking bit `$4000`",
     );
 }
+
+#[test]
+fn horizontal_collision_scan_left_loc_36c52_restarts_each_body_row() {
+    let mut data = vec![0u8; 4 * 4 * 2];
+    let slope_offset = ((2 * 4) + 1) * 2;
+    data[slope_offset] = 0x40;
+    let grid = crate::terrain::BlockGrid::from_level_layout(&data, 4, 4);
+
+    let scan = crate::terrain::horizontal_collision_scan_left_sub_36BD6(&grid, 24, 48, 8, 32);
+
+    assert_eq!(
+        scan,
+        crate::terrain::HorizontalCollisionScan {
+            hitbox_blocked: true,
+            lead_column_blocked: false,
+        },
+        "ASM loc_36C52 should restart `a4` from `a1` and reload `d0=d3` for each body row before scanning it",
+    );
+}

@@ -1746,6 +1746,8 @@ fn horizontal_collision_scan_left_hitbox_mask_loc_36AD8(
     // row start from `a1`, OR every word across the current row, then advance
     // `a1` by one `Level_width_tiles` row and repeat until the full leftward
     // hitbox rectangle has been reduced into `d5`.
+    // ASM loc_36C52 (kid.asm:38492): `sub_36BD6` uses the same row restart,
+    // copying `a1` into `a4` and reloading `d0=d3` before the per-row OR loop.
     horizontal_collision_scan_rect_mask_loc_369F8(grid, left_col, right_col, top_row, bottom_row)
 }
 
