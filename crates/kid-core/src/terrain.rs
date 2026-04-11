@@ -1957,9 +1957,10 @@ fn vertical_collision_scan_row(
         return false;
     }
 
-    // ASM loc_36CAA (kid.asm:38539): OR `(a0)+` for `d5 + 1` cells with DBF,
-    // so the first matching bit-$4000 word anywhere in the inclusive span
-    // survives until the final `andi.w #$4000,d6`.
+    // ASM loc_36CAA (kid.asm:38539) / loc_36D00 (kid.asm:38586): OR `(a0)+`
+    // for `d5 + 1` cells with DBF, so the first matching bit-$4000 word
+    // anywhere in the inclusive span survives until the final
+    // `andi.w #$4000,d6`.
     (left_col..=right_col).any(|col| sets_collision_bit_14(grid.cell_at(col as u16, row as u16)))
 }
 
@@ -2228,6 +2229,22 @@ mod tests {
         assert!(
             !vertical_collision_scan_up_sub_36CB8(&grid, 40, 47, 16, 16),
             "ASM loc_36CD8 should not load the higher row until `subq #1,d4` moves the derived upward row there"
+        );
+    }
+
+    #[test]
+    fn vertical_collision_scan_up_loc_36d00_ors_each_cell_before_masking() {
+        let data = vec![0u8; 6 * 5 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 6, 5);
+        grid.set_cell_at(4, 1, Cell::from_be_bytes(0x40, 0x01));
+
+        assert!(
+            vertical_collision_scan_up_sub_36CB8(&grid, 48, 48, 24, 16),
+            "ASM loc_36D00 (kid.asm:38586) should keep ORing `(a0)+` through the inclusive DBF span before masking bit `$4000`"
+        );
+        assert!(
+            !vertical_collision_scan_up_sub_36CB8(&grid, 48, 48, 8, 16),
+            "ASM loc_36D00 should only see cells inside the span derived by loc_36CD8"
         );
     }
 
