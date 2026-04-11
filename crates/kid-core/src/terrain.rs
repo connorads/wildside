@@ -1641,6 +1641,9 @@ fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -
         0
     } else {
         for &word in words.iter().rev() {
+            // ASM loc_36B24 (kid.asm:38338): the clear-entry path pre-decrements
+            // across the following row until an earlier word sets bit `$4000`,
+            // then branches to the shared mixed-row exit at `loc_36B1A`.
             if word & 0x4000 != 0 {
                 return 1;
             }
@@ -3546,6 +3549,17 @@ mod tests {
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x0000, 0x4000]),
             1,
             "ASM loc_36B1A should return `d6=1` when either reverse scan sees both `$4000`-blocked and clear words in the following row",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_following_row_class_loc_36b24_scans_left_until_blocked() {
+        assert_eq!(
+            horizontal_collision_scan_left_following_row_class_loc_36AF0(
+                &[0x4000, 0x0000, 0x0000,]
+            ),
+            1,
+            "ASM loc_36B24 should keep pre-decrementing from a clear right edge until an earlier `$4000` word branches to the mixed-row `d6=1` exit",
         );
     }
 
