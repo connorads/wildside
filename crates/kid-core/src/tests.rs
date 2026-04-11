@@ -33352,6 +33352,110 @@ fn boomerang_boss_head_3_post_projectile_animation_gate_loc_381cc_returns_to_act
 }
 
 #[test]
+fn boomerang_boss_skewer_piece_1_init_loc_38494_sets_gfx_slot_and_sprite() {
+    let result = boomerang_boss_skewer_piece_1_init_loc_38494(0x0100, 0x0200);
+
+    assert_eq!(
+        result.gfx_slot, 0x0101_0002,
+        "ASM loc_38494 should allocate gfx slot `$01010002`",
+    );
+    assert_eq!(
+        result.priority, 1,
+        "ASM loc_38494 should set `priority(a3)` to 1",
+    );
+    assert_eq!(
+        result.object_meta, 0x22,
+        "ASM loc_38494 should set `object_meta(a3)` to `$22`",
+    );
+    assert!(
+        !result.has_kid_collision,
+        "ASM loc_38494 should clear `has_kid_collision(a3)` with `sf`",
+    );
+    assert!(
+        result.display_enabled,
+        "ASM loc_38494 should set `$13(a3)` (display) with `st`",
+    );
+    assert!(
+        result.is_moved,
+        "ASM loc_38494 should set `is_moved(a3)` with `st`",
+    );
+    assert_eq!(
+        result.sprite_label, "LnkTo_unk_C85F8-Data_Index",
+        "ASM loc_38494 should assign sprite `LnkTo_unk_C85F8-Data_Index`",
+    );
+    assert_eq!(result.x_pos, 0x0100);
+    assert_eq!(result.y_pos, 0x0200);
+    assert_eq!(
+        result.movement_script_label, "unk_39872",
+        "ASM loc_38494 should load movement script `unk_39872` into `a2`",
+    );
+    assert_eq!(
+        result.movement_script_index, 1,
+        "ASM loc_38494 should start the movement script at `moveq #1,d0`",
+    );
+}
+
+#[test]
+fn boomerang_boss_skewer_piece_1_wait_loop_loc_384d6_loops_until_all_heads_dead() {
+    let result = boomerang_boss_skewer_piece_1_wait_loop_loc_384D6(2);
+
+    assert!(result.hibernates_one_frame);
+    assert!(
+        result.runs_movement_step_sub_39846,
+        "ASM loc_384D6 should run `sub_39846` (boss head movement step) each frame",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossSkewerPiece1WaitNextLoc384D6::WaitLoopLoc384D6,
+        "ASM loc_384D6 should loop back when `$FFFFFB4E` is not 3 (only 2 heads dead)",
+    );
+}
+
+#[test]
+fn boomerang_boss_skewer_piece_1_wait_loop_loc_384d6_launches_when_all_3_heads_dead() {
+    let result = boomerang_boss_skewer_piece_1_wait_loop_loc_384D6(3);
+
+    assert_eq!(
+        result.next,
+        BoomerangBossSkewerPiece1WaitNextLoc384D6::LaunchLoc384E8,
+        "ASM loc_384D6 should branch to loc_384E8 when `cmpi.b #3,($FFFFFB4E).w` is equal",
+    );
+}
+
+#[test]
+fn boomerang_boss_skewer_piece_1_wait_loop_loc_384d6_does_not_launch_at_zero() {
+    let result = boomerang_boss_skewer_piece_1_wait_loop_loc_384D6(0);
+
+    assert_eq!(
+        result.next,
+        BoomerangBossSkewerPiece1WaitNextLoc384D6::WaitLoopLoc384D6,
+        "ASM loc_384D6 should loop when no heads have died yet ($FFFFFB4E == 0)",
+    );
+}
+
+#[test]
+fn boomerang_boss_skewer_piece_1_launch_loc_384e8_sets_up_left_velocity_and_gravity() {
+    let result = boomerang_boss_skewer_piece_1_launch_loc_384E8();
+
+    assert_eq!(
+        result.y_vel, -7,
+        "ASM loc_384E8 should set `y_vel(a3)` to `$FFF9` (signed word = -7, upward)",
+    );
+    assert_eq!(
+        result.x_vel, -0xE000,
+        "ASM loc_384E8 should set `x_vel(a3)` to `$FFFF2000` (signed longword = -0xE000, leftward)",
+    );
+    assert_eq!(
+        result.gravity_per_frame, 0x1B58,
+        "ASM loc_384F6 should add `$1B58` to `y_vel(a3)` each frame (gravity)",
+    );
+    assert!(
+        result.deletes_below_level_height,
+        "ASM loc_384F6 should delete the object when `y_pos > Level_height_pixels`",
+    );
+}
+
+#[test]
 fn boomerang_boss_head_2_attack_wait_loop_loc_380b8_checks_animation_when_status_is_zero() {
     let result = boomerang_boss_head_2_attack_wait_loop_loc_380B8(0);
 
