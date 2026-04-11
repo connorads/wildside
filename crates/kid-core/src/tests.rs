@@ -33809,6 +33809,124 @@ fn boomerang_boss_skewer_piece_4_launch_loc_38662_sets_up_right_velocity_and_gra
 }
 
 #[test]
+fn boomerang_boss_skewer_piece_5_init_loc_3868c_sets_gfx_slot_and_sprite() {
+    let result = boomerang_boss_skewer_piece_5_init_loc_3868C(0x0500, 0x0600);
+
+    assert_eq!(
+        result.gfx_slot, 0x0101_0002,
+        "ASM loc_3868C should allocate gfx slot `$01010002`",
+    );
+    assert_eq!(
+        result.priority, 1,
+        "ASM loc_3868C should set `priority(a3)` to 1",
+    );
+    assert_eq!(
+        result.object_meta, 0x22,
+        "ASM loc_3868C should set `object_meta(a3)` to `$22`",
+    );
+    assert!(
+        !result.has_kid_collision,
+        "ASM loc_3868C should clear `has_kid_collision(a3)` via `sf`",
+    );
+    assert!(
+        result.display_enabled,
+        "ASM loc_3868C should set `$13(a3)` via `st` (display enabled)",
+    );
+    assert!(
+        result.is_moved,
+        "ASM loc_3868C should set `is_moved(a3)` via `st`",
+    );
+    assert_eq!(
+        result.sprite_label, "LnkTo_unk_C85F0-Data_Index",
+        "ASM loc_3868C should assign sprite `LnkTo_unk_C85F0-Data_Index` (same as pieces 2-4)",
+    );
+    assert_eq!(
+        result.x_pos, 0x0500,
+        "ASM loc_3868C should copy anchor X from `$44(a5)`",
+    );
+    assert_eq!(
+        result.y_pos, 0x0600,
+        "ASM loc_3868C should copy anchor Y from `$46(a5)`",
+    );
+    assert_eq!(
+        result.movement_script_label, "unk_39872",
+        "ASM loc_3868C should load movement script `unk_39872` into `a2`",
+    );
+    assert_eq!(
+        result.movement_script_index, 1,
+        "ASM loc_3868C should start the movement script at `moveq #1,d0`",
+    );
+}
+
+#[test]
+fn boomerang_boss_skewer_piece_5_wait_loop_loc_386ce_loops_until_all_heads_dead() {
+    // ASM loc_386CE (kid.asm:40888): piece 5 wait loop — hibernate, sub_39846,
+    // cmpi.b #3,($FFFFFB4E).w; beq.s loc_386E0; bra.s loc_386CE
+    let result = boomerang_boss_skewer_piece_5_wait_loop_loc_386CE(2);
+
+    assert!(result.hibernates_one_frame);
+    assert!(result.runs_movement_step_sub_39846);
+    assert_eq!(
+        result.next,
+        BoomerangBossSkewerPiece5WaitNextLoc386CE::WaitLoopLoc386CE,
+        "ASM loc_386CE should loop back when `$FFFFFB4E` != 3 (only 2 heads dead)",
+    );
+}
+
+#[test]
+fn boomerang_boss_skewer_piece_5_wait_loop_loc_386ce_launches_when_all_3_heads_dead() {
+    let result = boomerang_boss_skewer_piece_5_wait_loop_loc_386CE(3);
+
+    assert!(result.hibernates_one_frame);
+    assert!(result.runs_movement_step_sub_39846);
+    assert_eq!(
+        result.next,
+        BoomerangBossSkewerPiece5WaitNextLoc386CE::LaunchLoc386E0,
+        "ASM loc_386CE should branch to loc_386E0 when `cmpi.b #3,($FFFFFB4E).w` is equal",
+    );
+}
+
+#[test]
+fn boomerang_boss_skewer_piece_5_wait_loop_loc_386ce_does_not_launch_at_zero() {
+    let result = boomerang_boss_skewer_piece_5_wait_loop_loc_386CE(0);
+
+    assert_eq!(
+        result.next,
+        BoomerangBossSkewerPiece5WaitNextLoc386CE::WaitLoopLoc386CE,
+        "ASM loc_386CE should loop when no heads have died yet ($FFFFFB4E == 0)",
+    );
+}
+
+#[test]
+fn boomerang_boss_skewer_piece_5_launch_loc_386e0_sets_up_left_velocity_and_gravity() {
+    // ASM loc_386E0 (kid.asm:40896): y_vel=$FFF9, x_vel=$FFFF6000 (leftward).
+    // loc_386EE (kid.asm:40900): gravity loop — addi.l #$1B58,y_vel; check
+    // y_pos vs Level_height_pixels; delete or loop back via loc_38708.
+    let result = boomerang_boss_skewer_piece_5_launch_loc_386E0();
+
+    assert_eq!(
+        result.y_vel, -7,
+        "ASM loc_386E0 should set `y_vel(a3)` to `$FFF9` (signed word = -7, upward)",
+    );
+    assert_eq!(
+        result.x_vel, -0xA000_i32,
+        "ASM loc_386E0 should set `x_vel(a3)` to `$FFFF6000` (signed longword = -0xA000, leftward)",
+    );
+    assert_eq!(
+        result.gravity_per_frame, 0x1B58,
+        "ASM loc_386EE should add `$1B58` to `y_vel(a3)` each frame (gravity)",
+    );
+    assert!(
+        result.deletes_below_level_height,
+        "ASM loc_386EE should delete the object when `y_pos > Level_height_pixels`",
+    );
+    assert!(
+        result.loops_back_loc_38708,
+        "ASM loc_38708 should `bra.s loc_386EE` when `y_pos <= Level_height_pixels` (gravity loop-back)",
+    );
+}
+
+#[test]
 fn boomerang_boss_head_2_attack_wait_loop_loc_380b8_checks_animation_when_status_is_zero() {
     let result = boomerang_boss_head_2_attack_wait_loop_loc_380B8(0);
 

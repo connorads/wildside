@@ -839,6 +839,43 @@ pub(crate) struct BoomerangBossSkewerPiece4LaunchLoc38662 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossSkewerPiece5InitLoc3868C {
+    pub(crate) gfx_slot: u32,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) display_enabled: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) sprite_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) movement_script_label: &'static str,
+    pub(crate) movement_script_index: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossSkewerPiece5WaitNextLoc386CE {
+    WaitLoopLoc386CE,
+    LaunchLoc386E0,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossSkewerPiece5WaitLoopLoc386CE {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_movement_step_sub_39846: bool,
+    pub(crate) next: BoomerangBossSkewerPiece5WaitNextLoc386CE,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossSkewerPiece5LaunchLoc386E0 {
+    pub(crate) y_vel: i16,
+    pub(crate) x_vel: i32,
+    pub(crate) gravity_per_frame: i32,
+    pub(crate) deletes_below_level_height: bool,
+    pub(crate) loops_back_loc_38708: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -2183,6 +2220,74 @@ pub(crate) fn boomerang_boss_skewer_piece_4_launch_loc_38662()
         gravity_per_frame: 0x1B58,        // addi.l #$1B58,y_vel(a3)
         deletes_below_level_height: true, // jmp j_Delete_CurrentObject when y_pos > level_height
         loops_back_loc_3868a: true,       // bra.s loc_38670 when y_pos <= level_height
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_skewer_piece_5_init_loc_3868C(
+    anchor_x: u16,
+    anchor_y: u16,
+) -> BoomerangBossSkewerPiece5InitLoc3868C {
+    // ASM loc_3868C (kid.asm:40871): allocate skewer piece 5 with gfx slot
+    // `$01010002`, priority 1, object_meta `$22`. Calls `loc_32146(pc)` for
+    // shared init, clears `has_kid_collision(a3)`, sets `$13(a3)` and
+    // `is_moved(a3)`, assigns sprite `LnkTo_unk_C85F0-Data_Index` (same as
+    // pieces 2-4), copies anchor from `$44/$46(a5)`, and starts `unk_39872`
+    // script at index 1.
+    BoomerangBossSkewerPiece5InitLoc3868C {
+        gfx_slot: 0x0101_0002,
+        priority: 1,
+        object_meta: 0x22,
+        has_kid_collision: false,
+        display_enabled: true, // st $13(a3)
+        is_moved: true,        // st is_moved(a3)
+        sprite_label: "LnkTo_unk_C85F0-Data_Index",
+        x_pos: anchor_x,
+        y_pos: anchor_y,
+        movement_script_label: "unk_39872",
+        movement_script_index: 1,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_skewer_piece_5_wait_loop_loc_386CE(
+    head_death_counter_fb4e: u8,
+) -> BoomerangBossSkewerPiece5WaitLoopLoc386CE {
+    // ASM loc_386CE (kid.asm:40888): hibernate one frame, run `sub_39846`
+    // (boss head movement step), then check `cmpi.b #3,($FFFFFB4E).w`.
+    // Loop back to loc_386CE unless all 3 heads are dead ($FFFFFB4E == 3),
+    // then branch to `loc_386E0` for piece 5 launch.
+    BoomerangBossSkewerPiece5WaitLoopLoc386CE {
+        hibernates_one_frame: true,
+        runs_movement_step_sub_39846: true,
+        next: if head_death_counter_fb4e == 3 {
+            BoomerangBossSkewerPiece5WaitNextLoc386CE::LaunchLoc386E0
+        } else {
+            BoomerangBossSkewerPiece5WaitNextLoc386CE::WaitLoopLoc386CE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_skewer_piece_5_launch_loc_386E0()
+-> BoomerangBossSkewerPiece5LaunchLoc386E0 {
+    // ASM loc_386E0 (kid.asm:40896): set y_vel to `$FFF9` (word = -7) and
+    // x_vel to `$FFFF6000` (longword = -0xA000 = -40960, leftward). Then
+    // enter the `loc_386EE` gravity loop: each frame adds `$1B58` to y_vel
+    // (longword), checks `y_pos` against `Level_height_pixels`, and deletes
+    // the object when it falls off-screen. `loc_38708` (kid.asm:40909) is
+    // the loop-back branch: `bra.s loc_386EE` when
+    // `y_pos <= Level_height_pixels`. Piece 5 launches up-left (mirrors
+    // piece 4's rightward `$C000`).
+    BoomerangBossSkewerPiece5LaunchLoc386E0 {
+        y_vel: -7,                        // $FFF9 as signed word
+        x_vel: -0xA000_i32,               // $FFFF6000 as signed longword (leftward)
+        gravity_per_frame: 0x1B58,        // addi.l #$1B58,y_vel(a3)
+        deletes_below_level_height: true, // jmp j_Delete_CurrentObject when y_pos > level_height
+        loops_back_loc_38708: true,       // bra.s loc_386EE when y_pos <= level_height
     }
 }
 
