@@ -32955,6 +32955,45 @@ fn boomerang_boss_head_2_init_loc_38012_seeds_the_second_head_and_movement_scrip
 }
 
 #[test]
+fn boomerang_boss_head_3_init_loc_380f4_seeds_the_third_head_and_movement_script() {
+    let result = boomerang_boss_head_3_init_loc_380F4(0x02A0, 0x0124);
+
+    assert_eq!(
+        (
+            result.gfx_slot_base,
+            result.priority,
+            result.object_meta,
+            result.has_kid_collision,
+            result.display_enabled,
+            result.is_moved,
+        ),
+        (0x0104_0002, 1, 0x0023, false, true, true),
+        "ASM loc_380F4 should initialise BoomerangBoss head 3's gfx slot, metadata, collision/display flags, and movement bit",
+    );
+    assert!(result.runs_common_boss_init_loc_32146);
+    assert_eq!(
+        (
+            result.hit_points,
+            result.sprite_mapping_label,
+            result.cached_worker_slot_label,
+        ),
+        (30, "LnkTo_unk_C8600-Data_Index", "$FFFFFB82"),
+        "ASM loc_380F4 should store `BoomerangBoss_HitPointsPerHead`, mapping `LnkTo_unk_C8600`, and cache `a3` at `$FFFFFB82`",
+    );
+    assert_eq!(
+        (
+            result.x_pos,
+            result.y_pos,
+            result.movement_script_label,
+            result.delay_counter_d0,
+            result.script_index_d1,
+        ),
+        (0x02A0, 0x0124, "unk_39A1A", 1, 1),
+        "ASM loc_380F4 should copy anchor `$44/$46`, load `unk_39A1A`, and seed `d0/d1` to 1 before its wait loop",
+    );
+}
+
+#[test]
 fn boomerang_boss_head_2_wait_loop_loc_38062_checks_kid_window_when_status_is_zero() {
     let result = boomerang_boss_head_2_wait_loop_loc_38062(0);
 
