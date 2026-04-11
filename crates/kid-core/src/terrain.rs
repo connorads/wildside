@@ -1957,6 +1957,9 @@ fn vertical_collision_scan_row(
         return false;
     }
 
+    // ASM loc_36CAA (kid.asm:38539): OR `(a0)+` for `d5 + 1` cells with DBF,
+    // so the first matching bit-$4000 word anywhere in the inclusive span
+    // survives until the final `andi.w #$4000,d6`.
     (left_col..=right_col).any(|col| sets_collision_bit_14(grid.cell_at(col as u16, row as u16)))
 }
 
@@ -2148,7 +2151,7 @@ mod tests {
 
         assert!(
             vertical_collision_scan_down_sub_36C6A(&grid, 40, 32, 16),
-            "ASM sub_36C6A should detect any bit-$4000 cell anywhere across the current horizontal span"
+            "ASM loc_36CAA (kid.asm:38539) should OR every `(a0)+` word in the inclusive DBF span before masking bit `$4000`"
         );
     }
 
