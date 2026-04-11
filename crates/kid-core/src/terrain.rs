@@ -1996,6 +1996,9 @@ pub fn vertical_collision_scan_up_sub_36CB8(
     // ASM loc_36CCC (kid.asm:38562): after the negative-row `bpl` gate, rows
     // at or beyond `Level_height_blocks` clear `d6` and return before loading
     // a row pointer.
+    // ASM loc_36CD8 (kid.asm:38570): after the row survives both gates, load
+    // the `$FFFF4A04` row pointer and seed the inclusive span from
+    // `(x_pos-half_width)>>4` through `(x_pos+half_width-1)>>4`.
     let row = pixel_to_cell(foot_y_px - height) - 1;
     vertical_collision_scan_row(grid, center_x_px, half_width, row)
 }
@@ -2209,6 +2212,22 @@ mod tests {
         assert!(
             vertical_collision_scan_up_sub_36CB8(&grid, 40, 48, 16, 16),
             "ASM sub_36CB8 should detect any bit-$4000 cell anywhere across the current horizontal span"
+        );
+    }
+
+    #[test]
+    fn vertical_collision_scan_up_loc_36cd8_seeds_the_row_and_inclusive_span() {
+        let data = vec![0u8; 5 * 5 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 5, 5);
+        grid.set_cell_at(1, 1, Cell::from_be_bytes(0x40, 0x01));
+
+        assert!(
+            vertical_collision_scan_up_sub_36CB8(&grid, 40, 48, 16, 16),
+            "ASM loc_36CD8 (kid.asm:38570) should load row ((y-height)>>4)-1 and scan `(x-half_width)>>4` through `(x+half_width-1)>>4`"
+        );
+        assert!(
+            !vertical_collision_scan_up_sub_36CB8(&grid, 40, 47, 16, 16),
+            "ASM loc_36CD8 should not load the higher row until `subq #1,d4` moves the derived upward row there"
         );
     }
 
