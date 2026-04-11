@@ -1648,6 +1648,9 @@ fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -
                 return 1;
             }
         }
+        // ASM loc_36B2E (kid.asm:38344): once the clear-entry reverse scan
+        // exhausts the inclusive `dbf d3,loc_36B24` loop without finding bit
+        // `$4000`, it loads `d6=-1` for a fully clear following row.
         -1
     }
 }
@@ -3560,6 +3563,16 @@ mod tests {
             ),
             1,
             "ASM loc_36B24 should keep pre-decrementing from a clear right edge until an earlier `$4000` word branches to the mixed-row `d6=1` exit",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_following_row_class_loc_36b2e_returns_negative_one_for_clear_rows()
+     {
+        assert_eq!(
+            horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x0000, 0x0000]),
+            -1,
+            "ASM loc_36B2E should return `d6=-1` when the reverse clear-entry scan reaches the inclusive `dbf` tail without finding bit `$4000`",
         );
     }
 
