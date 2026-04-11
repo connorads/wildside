@@ -2061,6 +2061,8 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
         // the `$493E0` deltas before the still-lower scatter bands.
         (-0x0004_93E0, 0x0004_93E0)
     } else if timer > 0x0096 {
+        // ASM loc_37832 (kid.asm:39602): when the decremented timer is at or
+        // below `#$FA`, values above `#$96` use the `$61A80` scatter deltas.
         (-0x0006_1A80, 0x0006_1A80)
     } else if timer > 0x0064 {
         (-0x0007_A120, 0x0007_A120)
