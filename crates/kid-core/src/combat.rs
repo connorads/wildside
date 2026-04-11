@@ -116,6 +116,14 @@ pub(crate) struct EnemyDeathBurstLoopGateLoc37054 {
     pub(crate) next: EnemyDeathBurstLoopNextLoc37054,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EnemyDeathBurstCleanupLoc370C2 {
+    pub(crate) collision_type: i16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) delete_current_object: bool,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_death_burst_init_sub_37002(
@@ -172,6 +180,19 @@ pub(crate) fn enemy_death_burst_loop_gate_loc_37054(
         next_collision_type: 0,
         next_chase_frames,
         next,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn enemy_death_burst_cleanup_loc_370C2() -> EnemyDeathBurstCleanupLoc370C2 {
+    // ASM loc_370C2 (kid.asm:38961): clear `collision_type(a3)`,
+    // `x_vel(a3)`, and `y_vel(a3)`, then jump to `j_Delete_CurrentObject`.
+    EnemyDeathBurstCleanupLoc370C2 {
+        collision_type: 0,
+        x_velocity: 0,
+        y_velocity: 0,
+        delete_current_object: true,
     }
 }
 

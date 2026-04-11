@@ -31828,6 +31828,22 @@ fn enemy_death_burst_loop_gate_loc_37054_clears_collision_and_counts_down() {
 }
 
 #[test]
+fn enemy_death_burst_cleanup_loc_370c2_clears_motion_before_deleting() {
+    let cleanup = enemy_death_burst_cleanup_loc_370C2();
+
+    assert_eq!(
+        cleanup,
+        EnemyDeathBurstCleanupLoc370C2 {
+            collision_type: 0,
+            x_velocity: 0,
+            y_velocity: 0,
+            delete_current_object: true,
+        },
+        "ASM loc_370C2 should clear collision and both velocity longwords before jumping to `j_Delete_CurrentObject`",
+    );
+}
+
+#[test]
 fn enemy_death_burst_homing_step_sub_37002_tracks_kid_with_signed_axis_accel() {
     let left_and_up = enemy_death_burst_homing_step_sub_37002(0x0040, 0x0080, 0x0060, 0x0040);
     assert_eq!(
@@ -31851,7 +31867,7 @@ fn enemy_death_burst_homing_step_sub_37002_tracks_kid_with_signed_axis_accel() {
             right_and_down.y_velocity_delta
         ),
         (-0x0000_0FA0, 0x0000_0FA0),
-        "ASM loc_370AA should compare the burst y position with Kid and add `$FA0` when the burst is above or level with Kid",
+        "ASM loc_370AA should compare the burst y position with Kid and, through loc_370C0, loop after adding `$FA0` when the burst is above or level with Kid",
     );
 }
 
