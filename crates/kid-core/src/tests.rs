@@ -32392,6 +32392,24 @@ fn boss_eye_refresh_attack_sprites_sub_37abc_updates_each_live_slot_and_skips_nu
 }
 
 #[test]
+fn boss_eye_refresh_attack_sprites_loc_37ac6_refreshes_live_worker_mapping() {
+    let mut slots = [None; 12];
+    slots[0] = Some(BossEyeSpriteRefreshSlotSub37ABC {
+        x_pos: 0x0040,
+        y_pos: 0x0040,
+        sprite_mapping: "stale",
+    });
+
+    let refreshed = boss_eye_refresh_attack_sprites_sub_37ABC(slots, false, 0, 0x0050, 0x0050);
+
+    assert_eq!(
+        refreshed[0].map(|slot| slot.sprite_mapping),
+        Some("LnkTo_unk_C84B0-Data_Index"),
+        "ASM loc_37AC6 should load a live worker pointer and store the returned sprite mapping",
+    );
+}
+
+#[test]
 fn boss_eye_detach_step_sub_393b2_plays_the_pop_sound_and_raises_sprite_order() {
     let result = boss_eye_detach_step_sub_393B2(0x0012);
 
