@@ -379,6 +379,8 @@ impl NativeRuntime {
         // `add.w d5,d7; move.w d7,x_pos(a3)` — moves x_pos first, then
         // `bsr.w sub_B55C; cmpi.w #$6000,d5` probes for solid terrain.
         // If solid: `andi.w #$FFF0,d7; subq.w #1,d7` snaps to tile left edge - 1.
+        // ASM loc_8864 (kid.asm:9682): `bne.w loc_88E6` — not-solid branch
+        // skips wall snap entirely, falls through to y-axis movement.
         // ASM loc_8890 (kid.asm:9700): left-moving mirror — snaps to
         // `(x & $FFF0) + $10` (tile right edge). Both paths fall through to
         // loc_88B6 bounce logic: `subq.w #1,d0` (bounce counter), x_vel decay
@@ -395,6 +397,12 @@ impl NativeRuntime {
                 return false;
             }
 
+            // ASM loc_88D2 (kid.asm:9725): negative x_vel bounce decay.
+            // `cmpi.w #$FFFF,d7; beq.w loc_88DC; addq.w #1,d7` — if x_vel
+            // is -1 (word), skip decay; otherwise add 1 to reduce magnitude.
+            // Positive mirror at loc_88B6: `cmpi.w #1,d7; beq; subq.w #1`.
+            // ASM loc_88DC (kid.asm:9730): `neg.w d7; move.w d7,x_vel(a3);
+            // not.b x_direction(a3)` — negate decayed velocity, flip facing.
             let decayed_x_velocity = if x_velocity > 0x1_0000 {
                 x_velocity - 0x1_0000
             } else if x_velocity < -0x1_0000 {
@@ -405,11 +413,23 @@ impl NativeRuntime {
             projectile.x_velocity = -decayed_x_velocity;
         }
 
+        // ASM loc_88E6 (kid.asm:9735): y-axis movement.
+        // `move.l y_pos(a3),d7; move.l y_vel(a3),d4; bmi.w loc_893C` —
+        // loads y_pos and y_vel, branches to upward path if y_vel < 0.
+        // Downward: adds y_vel, checks tile-boundary crossing to detect floor.
+        // Upward (loc_893C): mirror check for ceiling crossing.
         let y_velocity = projectile.y_velocity;
         let next_y = (i64::from(projectile.y_pos) + i64::from(y_velocity)) as u32;
         projectile.y_pos = next_y;
         let current_x_px = (projectile.x_pos >> 16) as i32;
         let next_y_px = (next_y >> 16) as i32;
+        // ASM loc_8916 (kid.asm:9755): downward floor collision.
+        // `bsr.w sub_B55C; cmpi.w #$6000,d5` probes terrain at new position.
+        // If solid: `andi.w #$FFF0,d7; subq.w #1,d7` snaps y to tile top - 1,
+        // `clr.w $20(a3)` zeroes the bounce counter field, falls to loc_897C
+        // y-bounce: `neg.l d7; asr.l #1,d7` + `asr.l #1,d6; add.l d6,d7` = ¾ rebound.
+        // ASM loc_8958 (kid.asm:9782): upward ceiling collision mirror —
+        // snaps to `(y & $FFF0) + $10`, same ¾ rebound via loc_897C.
         if Self::solid_terrain_at(grid, current_x_px, next_y_px) {
             let snapped_y_px = if y_velocity >= 0 {
                 (next_y_px & !0xF) - 1
@@ -422,8 +442,9 @@ impl NativeRuntime {
                 return false;
             }
 
-            // ASM sub_87B0 (kid.asm:9625): on a floor/ceiling hit, negate the
-            // current y-velocity then keep 3/4 of that rebound speed.
+            // ASM loc_897C (kid.asm:9794): y-bounce rebound speed.
+            // `neg.l d7` negate y_vel, `asr.l #1,d7` → half,
+            // `asr.l #1,d6; add.l d6,d7` → half + quarter = ¾ speed.
             let negated = -y_velocity;
             let half = negated >> 1;
             let quarter = half >> 1;

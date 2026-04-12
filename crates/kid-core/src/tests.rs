@@ -37185,6 +37185,366 @@ fn loc_8852_left_wall_snap_and_bounce_mirror() {
     );
 }
 
+// --- loc_8864: Not-solid branch skips wall snap → y-axis movement ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_8864 (kid.asm:9682): `bne.w loc_88E6` — after sub_B55C probe,
+/// if terrain is NOT solid ($6000), skip wall snap entirely and fall through
+/// to loc_88E6 (y-axis movement). x_pos keeps the raw (x + x_vel) value.
+fn loc_8864_not_solid_skips_wall_snap() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Skull at x=20 moving right at 4px/frame → next_x=24 → col 1 (px 16-31), no wall
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 20 << 16,
+        y_pos: 40 << 16,
+        x_velocity: 0x4_0000,
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    // No solid blocks anywhere — empty grid
+    rt.set_block_grid(bounce_grid(&[]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    assert_eq!(
+        p.x_pos >> 16,
+        24,
+        "ASM loc_8864: not-solid → no snap, x_pos = 20 + 4 = 24"
+    );
+    // x_velocity unchanged (no bounce)
+    assert_eq!(
+        p.x_velocity, 0x4_0000,
+        "ASM loc_8864: not-solid → x_vel unchanged"
+    );
+    // Bounce counter unchanged
+    assert_eq!(
+        p.reaim_countdown,
+        u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        "ASM loc_8864: not-solid → bounce counter untouched"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_8864 (kid.asm:9682): left-moving mirror — `bne.w loc_88E6` at
+/// loc_8890's equivalent position. No solid terrain → x_pos keeps raw value.
+fn loc_8864_left_moving_not_solid_skips_wall_snap() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 40 << 16,
+        y_pos: 40 << 16,
+        x_velocity: -0x3_0000,
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    rt.set_block_grid(bounce_grid(&[]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    assert_eq!(
+        p.x_pos >> 16,
+        37,
+        "ASM loc_8864 mirror: not-solid → x_pos = 40 - 3 = 37"
+    );
+    assert_eq!(
+        p.x_velocity, -0x3_0000,
+        "ASM loc_8864 mirror: not-solid → x_vel unchanged"
+    );
+}
+
+// --- loc_88D2/loc_88DC: Bounce velocity decay + direction reversal ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_88D2 (kid.asm:9725): negative x_vel decay.
+/// `cmpi.w #$FFFF,d7; beq.w loc_88DC; addq.w #1,d7` — when x_vel < -1 (word),
+/// reduce magnitude by 1 before negation. At x_vel == -1, skip decay.
+/// Then loc_88DC: `neg.w d7; move.w d7,x_vel(a3)`.
+fn loc_88D2_negative_vel_decay_skips_at_minus_one() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Skull at x=17 moving left at -1px/frame → next_x=16 → col 1 (px 16-31)
+    // Wall at col 1 → collision
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 17 << 16,
+        y_pos: 40 << 16,
+        x_velocity: -0x1_0000, // -1px/frame (word = $FFFF)
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    rt.set_block_grid(bounce_grid(&[(1, 2), (1, 3)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // ASM loc_88D2: cmpi.w #$FFFF,d7 → equal, skip addq.w → d7 stays $FFFF
+    // loc_88DC: neg.w → $0001, so x_vel becomes +1
+    assert_eq!(
+        p.x_velocity, 0x1_0000,
+        "ASM loc_88D2: -1px hits wall → no decay, neg → +1px"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_88B6/loc_88DC: positive x_vel == 1 decay.
+/// `cmpi.w #1,d7; beq.w loc_88DC; subq.w #1,d7` — at x_vel == 1 (word),
+/// skip decay, then loc_88DC negates → -1.
+fn loc_88DC_positive_vel_one_no_decay() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 14 << 16,
+        y_pos: 40 << 16,
+        x_velocity: 0x1_0000, // +1px/frame (word = $0001)
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    // Wall at col 0 (px 0-15) — skull at x=14 + 1 = 15, still col 0 which is solid
+    rt.set_block_grid(bounce_grid(&[(0, 2), (0, 3), (1, 2), (1, 3)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // ASM loc_88B6: cmpi.w #1,d7 → equal, skip subq → d7 stays 1
+    // loc_88DC: neg.w → $FFFF, x_vel becomes -1
+    assert_eq!(
+        p.x_velocity, -0x1_0000,
+        "ASM loc_88DC: +1px hits wall → no decay, neg → -1px"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_88D2 (kid.asm:9725): negative x_vel with magnitude > 1.
+/// `cmpi.w #$FFFF,d7; bne → addq.w #1,d7` — d7 = -3 (word $FFFD), add 1 → $FFFE (-2).
+/// loc_88DC: neg → $0002 (+2). Confirms decay by 1 for |x_vel| > 1.
+fn loc_88D2_negative_vel_decays_by_one() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 33 << 16,
+        y_pos: 40 << 16,
+        x_velocity: -0x3_0000, // -3px/frame
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    rt.set_block_grid(bounce_grid(&[(1, 2), (1, 3)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // ASM: d7=$FFFD, addq.w #1 → $FFFE, neg.w → $0002
+    assert_eq!(
+        p.x_velocity, 0x2_0000,
+        "ASM loc_88D2: -3px hits wall → decay to |-2|, neg → +2px"
+    );
+}
+
+// --- loc_88E6: Y-axis movement with gravity ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_88E6 (kid.asm:9735): y-axis movement.
+/// `move.l y_pos(a3),d7; move.l y_vel(a3),d4; add.l d4,d6; move.l d6,y_pos(a3)`
+/// — applies y_vel to y_pos. When no tile-boundary crossing detected,
+/// loops back to loc_8810 without snapping.
+fn loc_88E6_y_movement_no_floor_collision() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Skull falling at 2px/frame, y=20. Gravity adds $1000 first → y_vel=$2_1000.
+    // y_pos = 20<<16 + $2_1000 = $16_1000, pixel = $16 = 22. Row 1 (px 16-31), no wall.
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 40 << 16,
+        y_pos: 20 << 16,
+        x_velocity: 0,
+        y_velocity: 0x2_0000, // +2px/frame downward (before gravity)
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    rt.set_block_grid(bounce_grid(&[]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // After gravity: y_vel = $2_0000 + $1000 = $2_1000
+    // y_pos = $14_0000 + $2_1000 = $16_1000 → pixel 22
+    assert_eq!(
+        p.y_pos,
+        (20 << 16) + 0x2_0000 + 0x1000,
+        "ASM loc_88E6: y_pos += y_vel (after gravity)"
+    );
+    assert_eq!(
+        p.y_velocity,
+        0x2_0000 + 0x1000,
+        "ASM loc_88E6: y_vel = original + gravity, no rebound"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_88E6 (kid.asm:9735): upward movement (y_vel < 0).
+/// `bmi.w loc_893C` branches to the upward tile-crossing check.
+/// No ceiling → y_pos updated normally, loops back to loc_8810.
+fn loc_88E6_upward_no_ceiling() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Gravity adds $1000: y_vel = -$2_0000 + $1000 = -$1_F000
+    // y_pos = 30<<16 + (-$1_F000) = $1E_0000 - $1_F000 = $1C_1000 → pixel 28
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 40 << 16,
+        y_pos: 30 << 16,
+        x_velocity: 0,
+        y_velocity: -0x2_0000, // upward (before gravity)
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    rt.set_block_grid(bounce_grid(&[]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    let expected_vel = -0x2_0000_i32 + 0x1000; // -$1_F000
+    assert_eq!(
+        p.y_pos as i64,
+        (30_i64 << 16) + i64::from(expected_vel),
+        "ASM loc_88E6/loc_893C: y_pos += y_vel (after gravity)"
+    );
+    assert_eq!(
+        p.y_velocity, expected_vel,
+        "ASM loc_88E6: y_vel = -$2_0000 + gravity($1000) = -$1_F000"
+    );
+}
+
+// --- loc_8916: Downward floor collision snap + ¾ rebound ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_8916 (kid.asm:9755): downward floor collision.
+/// `bsr.w sub_B55C; cmpi.w #$6000,d5` — probes terrain at new y position.
+/// If solid: `andi.w #$FFF0,d7; subq.w #1,d7` snaps y_pos to tile top - 1.
+/// `clr.w $20(a3)` clears a bounce-related field.
+/// Falls to loc_897C: `neg.l d7; asr.l #1,d7; asr.l #1,d6; add.l d6,d7`
+/// = ¾ rebound speed.
+fn loc_8916_floor_collision_snap_and_rebound() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Gravity adds $1000: y_vel = $4_0000 + $1000 = $4_1000.
+    // y=30 + $4_1000 high word = 30+4 = 34 → row 2 solid.
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 40 << 16,
+        y_pos: 30 << 16,
+        x_velocity: 0,
+        y_velocity: 0x4_0000, // +4px/frame (before gravity)
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    // Solid floor at row 2 (px 32-47)
+    rt.set_block_grid(bounce_grid(&[(2, 2), (3, 2)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // ASM: andi.w #$FFF0,d7 → 34 & 0xFFF0 = 32; subq.w #1 → 31
+    assert_eq!(
+        p.y_pos >> 16,
+        31,
+        "ASM loc_8916: floor snap → (next_y & $FFF0) - 1 = 31"
+    );
+    // After gravity: effective y_vel = $4_1000.
+    // ASM loc_897C: neg.l(-$4_1000) = $4_1000, asr.l #1 → $2_0800,
+    // asr.l #1 → $1_0400, sum = $3_0C00. So rebound = -$3_0C00.
+    let effective_vel: i32 = 0x4_0000 + 0x1000; // $4_1000
+    let negated = -effective_vel;
+    let half = negated >> 1;
+    let quarter = half >> 1;
+    let expected_rebound = half + quarter;
+    assert_eq!(
+        p.y_velocity, expected_rebound,
+        "ASM loc_8916/loc_897C: ¾ rebound of $4_1000"
+    );
+    assert_eq!(
+        p.reaim_countdown,
+        u16::from(JUGGERNAUT_SKULL_BOUNCES - 1),
+        "ASM loc_8916: floor bounce decrements bounce counter"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_8958 (kid.asm:9782): upward ceiling collision — mirror of loc_8916.
+/// `andi.w #$FFF0,d7; addi.w #$10,d7` snaps to tile bottom edge.
+/// Same ¾ rebound via loc_897C but direction reverses (ceiling → downward).
+fn loc_8916_ceiling_collision_snap_and_rebound() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Gravity adds $1000: y_vel = -$4_0000 + $1000 = -$3_F000.
+    // y=33 + (-$3_F000 high word) → 33-3=30? No — let me compute precisely.
+    // y_pos = $21_0000, y_vel after gravity = -$3_F000.
+    // next_y = $21_0000 + (-$3_F000) = $21_0000 - $3_F000 = $1D_1000 → pixel $1D = 29.
+    // Row 1 (px 16-31) → solid ceiling.
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 40 << 16,
+        y_pos: 33 << 16,
+        x_velocity: 0,
+        y_velocity: -0x4_0000, // -4px/frame upward (before gravity)
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    // Solid ceiling at row 1 (px 16-31)
+    rt.set_block_grid(bounce_grid(&[(2, 1), (3, 1)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // ASM loc_8958: andi.w #$FFF0 → 29 & 0xFFF0 = 16; addi.w #$10 → 32
+    assert_eq!(
+        p.y_pos >> 16,
+        32,
+        "ASM loc_8958: ceiling snap → (next_y & $FFF0) + $10 = 32"
+    );
+    // After gravity: effective y_vel = -$3_F000.
+    // ASM loc_897C: neg.l($3_F000) = $3_F000, asr.l #1 → $1_F800,
+    // asr.l #1 → $FC00, sum = $1_F800 + $FC00 = $2_F400.
+    let effective_vel: i32 = -0x4_0000 + 0x1000; // -$3_F000
+    let negated = -effective_vel;
+    let half = negated >> 1;
+    let quarter = half >> 1;
+    let expected_rebound = half + quarter;
+    assert_eq!(
+        p.y_velocity, expected_rebound,
+        "ASM loc_8958/loc_897C: ceiling ¾ rebound of $3_F000"
+    );
+}
+
 // --- loc_7742: Eyeclops standing-still C-press beam ---
 
 #[test]
