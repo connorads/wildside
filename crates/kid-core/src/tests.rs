@@ -29625,6 +29625,224 @@ fn loc_6360_scans_past_active_impact_slots_to_find_free_one() {
     );
 }
 
+// --- loc_6398 / loc_63BE / loc_63C4: offset splash scan + impact slot update loop ---
+
+#[test]
+fn loc_6398_offset_splash_copies_y_plus_c_and_x_to_impact_slot() {
+    // ASM loc_6398 (kid.asm:6379): slope terrain ($4000) offset splash.
+    //   move.w (a0),(a2); addi.w #$C,(a2); move.w 2(a0),2(a2);
+    //   move.w #$600,4(a2); move.l #$FFFFFFFF,(a0);
+    //   addi.b #1,($FFFFFB3D).w; lea 6(a0),a0; dbf d5,loc_6318.
+    // Verify that the +$C y offset is applied and that the impact slot
+    // is initialised with cooldown=6, frame=0 (from the $600 word).
+    let mut collision_rows = empty_weather_collision_rows_sub_61_ca();
+    collision_rows.rows[7][2] = 0x4000; // slope terrain at row 7, col 2
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 100, // (100+$F)>>4 = 7 → row 7
+                x_px: 40,  // 40>>4 = 2 → col 2
+                animation_cooldown: 3,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    // Post-advance: y=104, x=39. Slope terrain → loc_638E scan → loc_6398: y+$C=116.
+    assert_eq!(
+        stepped.impact_slots[0].y_px, 116,
+        "ASM loc_6398: move.w (a0),(a2); addi.w #$C,(a2) — y = 104 + $C = 116"
+    );
+    assert_eq!(
+        stepped.impact_slots[0].x_px, 39,
+        "ASM loc_6398: move.w 2(a0),2(a2) — x copied directly"
+    );
+    assert_eq!(
+        stepped.impact_slots[0].animation_cooldown, 5,
+        "ASM loc_6398: move.w #$600,4(a2) — cooldown=6, then decremented by impact loop"
+    );
+    assert_eq!(
+        stepped.impact_slots[0].animation_frame, 0,
+        "ASM loc_6398: $600 word sets frame=0 (low byte)"
+    );
+}
+
+#[test]
+fn loc_63be_iterates_all_ten_impact_slots() {
+    // ASM loc_63BE (kid.asm:6389): lea ($FFFFFB00).w,a0; moveq #9,d5
+    //   Sets up 10-iteration loop over impact slots.
+    // ASM loc_63C4 (kid.asm:6393): per-slot active check + cooldown + render.
+    // Place active slots in first and last positions; verify both are processed.
+    let mut impact_slots = [WeatherImpactSlotSub61CA::inactive(1, 0); 10];
+    impact_slots[0] = WeatherImpactSlotSub61CA {
+        y_px: 50,
+        x_px: 60,
+        animation_cooldown: 3,
+        animation_frame: 0,
+    };
+    impact_slots[9] = WeatherImpactSlotSub61CA {
+        y_px: 80,
+        x_px: 90,
+        animation_cooldown: 4,
+        animation_frame: 0,
+    };
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [FallingWeatherSlotSub61CA::inactive(6, 0); 5],
+        impact_slots,
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows: empty_weather_collision_rows_sub_61_ca(),
+        starting_number_sprites: 0,
+    });
+
+    // Both slots should be decremented (cooldown -= 1) and rendered.
+    assert_eq!(
+        stepped.impact_slots[0].animation_cooldown, 2,
+        "ASM loc_63C4: slot 0 cooldown decremented from 3 → 2"
+    );
+    assert_eq!(
+        stepped.impact_slots[9].animation_cooldown, 3,
+        "ASM loc_63C4: slot 9 (last) cooldown decremented from 4 → 3"
+    );
+    assert_eq!(
+        stepped.sprites.len(),
+        2,
+        "ASM loc_63BE/loc_63C4: both slot 0 and slot 9 should emit sprites"
+    );
+}
+
+#[test]
+fn loc_63c4_frame1_impact_sprite_uses_a00_link_base() {
+    // ASM loc_63C4 (kid.asm:6393) → loc_6432 (kid.asm:6427):
+    //   clr.w d6; tst.b 5(a0); bne.s loc_642C; ... move.w #$500,d6
+    //   loc_643E: addi.w #$500,d6
+    //   Frame 0: d6 = 0 + $500 = $500. Frame 1: d6 = $500 + $500 = $A00.
+    //   The link base encodes VDP sprite size (2×2 vs 3×3 cells).
+    let mut impact_slots = [WeatherImpactSlotSub61CA::inactive(1, 0); 10];
+    // Frame 0 slot — link should use $500 base.
+    impact_slots[0] = WeatherImpactSlotSub61CA {
+        y_px: 50,
+        x_px: 60,
+        animation_cooldown: 3,
+        animation_frame: 0,
+    };
+    // Frame 1 slot — link should use $A00 base.
+    impact_slots[1] = WeatherImpactSlotSub61CA {
+        y_px: 80,
+        x_px: 90,
+        animation_cooldown: 3,
+        animation_frame: 1,
+    };
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [FallingWeatherSlotSub61CA::inactive(6, 0); 5],
+        impact_slots,
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows: empty_weather_collision_rows_sub_61_ca(),
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(stepped.sprites.len(), 2);
+    // Frame 0: link base $500, first sprite → Number_Sprites=1 → $501
+    assert_eq!(
+        stepped.sprites[0].link, 0x0501,
+        "ASM loc_6432: frame 0 → clr.w d6; addi.w #$500,d6 → base $500"
+    );
+    assert_eq!(
+        stepped.sprites[0].tile_word, 0xA3CD,
+        "ASM loc_6402: frame 0 tile = $A3CD"
+    );
+    // Frame 1: link base $A00, second sprite → Number_Sprites=2 → $A02
+    assert_eq!(
+        stepped.sprites[1].link, 0x0A02,
+        "ASM loc_6432: frame 1 → move.w #$500,d6; addi.w #$500,d6 → base $A00"
+    );
+    assert_eq!(
+        stepped.sprites[1].tile_word, 0xA3D1,
+        "ASM loc_642C: frame 1 tile = $A3D1"
+    );
+}
+
+#[test]
+fn loc_63c4_deactivates_impact_slot_after_frame2() {
+    // ASM loc_63C4 (kid.asm:6393): addi.b #1,5(a0); cmpi.b #2,5(a0); blt.s loc_6402
+    //   move.l #$FFFFFFFF,(a0); move.w #$100,4(a0); bra.s loc_6456
+    // When cooldown expires and frame advances to 2, slot is deactivated.
+    let mut impact_slots = [WeatherImpactSlotSub61CA::inactive(1, 0); 10];
+    impact_slots[0] = WeatherImpactSlotSub61CA {
+        y_px: 50,
+        x_px: 60,
+        animation_cooldown: 1, // will expire this step
+        animation_frame: 1,    // will advance to 2 → deactivate
+    };
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [FallingWeatherSlotSub61CA::inactive(6, 0); 5],
+        impact_slots,
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows: empty_weather_collision_rows_sub_61_ca(),
+        starting_number_sprites: 0,
+    });
+
+    assert!(
+        stepped.impact_slots[0].y_px < 0,
+        "ASM loc_63C4: move.l #$FFFFFFFF,(a0) deactivates slot when frame >= 2"
+    );
+    assert_eq!(
+        stepped.impact_slots[0].animation_cooldown, 1,
+        "ASM loc_63C4: move.w #$100,4(a0) — cooldown=1"
+    );
+    assert_eq!(
+        stepped.impact_slots[0].animation_frame, 0,
+        "ASM loc_63C4: move.w #$100,4(a0) — frame=0"
+    );
+    assert!(
+        stepped.sprites.is_empty(),
+        "ASM loc_63C4: deactivated slot should not emit a sprite"
+    );
+}
+
 // --- Hail period toggle ---
 
 #[test]

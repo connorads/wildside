@@ -912,7 +912,10 @@ pub(crate) fn step_weather_worker_sub_61CA(
         //   tst.w (a2); bmi.s loc_636A; lea 6(a2),a2; bra.s loc_6360
         // loc_636A: move.w (a0),(a2); move.w 2(a0),2(a2); move.w #$600,4(a2)
         //   move.l #$FFFFFFFF,(a0); addi.b #1,($FFFFFB3D).w
-        // For $4000/$5000 terrain (loc_638E): same but addi.w #$C,(a2) after copy.
+        // For $4000/$5000 terrain (loc_638E → loc_6398, kid.asm:6379):
+        //   same scan loop, then move.w (a0),(a2); addi.w #$C,(a2) — y offset +$C.
+        //   move.w 2(a0),2(a2); move.w #$600,4(a2); move.l #$FFFFFFFF,(a0);
+        //   addi.b #1,($FFFFFB3D).w; lea 6(a0),a0; dbf d5,loc_6318.
         if let Some(impact_slot) = output
             .impact_slots
             .iter_mut()
@@ -932,6 +935,16 @@ pub(crate) fn step_weather_worker_sub_61CA(
         output.free_falling_slots = output.free_falling_slots.wrapping_add(1);
     }
 
+    // ASM loc_63BE (kid.asm:6389): lea ($FFFFFB00).w,a0; moveq #9,d5
+    //   Set up impact slot loop: base address $FFFFFB00, 10 iterations (d5=9, dbf).
+    // ASM loc_63C4 (kid.asm:6393): per-slot impact update loop.
+    //   move.w (a0),d7; bmi.w loc_6456       ; inactive → skip
+    //   subi.b #1,4(a0); bne.s loc_6402      ; decrement cooldown, render if nonzero
+    //   subi.w #4,(a0); subi.w #4,2(a0)      ; y -= 4, x -= 4
+    //   move.b #6,4(a0)                      ; reload cooldown = 6
+    //   addi.b #1,5(a0); cmpi.b #2,5(a0)     ; advance frame, check >= 2
+    //   blt.s loc_6402                        ; < 2 → render
+    //   move.l #$FFFFFFFF,(a0); move.w #$100,4(a0); bra.s loc_6456 ; deactivate
     for slot in &mut output.impact_slots {
         if !slot.is_active() {
             continue;
@@ -952,6 +965,10 @@ pub(crate) fn step_weather_worker_sub_61CA(
             }
         }
 
+        // ASM loc_6402 (kid.asm:6410): screen-space conversion + sprite emission.
+        //   loc_6432: link base = $500 (frame 0) or $A00 (frame 1).
+        //   clr.w d6; tst.b 5(a0); bne.s loc_642C; ... loc_643E: addi.w #$500,d6
+        //   Frame 0: 0+$500=$500 (2×2 cells). Frame 1: $500+$500=$A00 (3×3 cells).
         let sprite_y = slot
             .y_px
             .wrapping_sub(input.camera_y_px)
@@ -961,10 +978,15 @@ pub(crate) fn step_weather_worker_sub_61CA(
             .wrapping_sub(input.camera_x_px)
             .wrapping_add(0x0080);
         let frame_index = usize::from(slot.animation_frame.min(1));
+        let link_base: u16 = if slot.animation_frame != 0 {
+            0x0A00
+        } else {
+            0x0500
+        };
         output.number_sprites = output.number_sprites.wrapping_add(1);
         output.sprites.push(WeatherSpriteSub61CA {
             y: u16::from_be_bytes(sprite_y.to_be_bytes()),
-            link: 0x0500u16.wrapping_add(u16::from(output.number_sprites)),
+            link: link_base.wrapping_add(u16::from(output.number_sprites)),
             tile_word: IMPACT_WEATHER_SPRITES_SUB_61CA[frame_index],
             x: u16::from_be_bytes(sprite_x.to_be_bytes()),
         });
