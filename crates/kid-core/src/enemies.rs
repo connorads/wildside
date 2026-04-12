@@ -2788,6 +2788,27 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     // loc_3C026 turnaround. If no floor, stores predicted y_pos at loc_3C242
     // and gravity continues. Native: probe_floor edge detection reverses the
     // walker at cliff edges, preventing the fall state entirely.
+    //
+    // ASM loc_3C276 (kid.asm:43751-43754): falling walker loop top —
+    // tst.w $3A(a5); beq.s loc_3C280; bsr.w sub_3BF72. Identical attachment
+    // check to loc_3C18A/loc_3C03A but in the falling walker loop (entered
+    // via loc_3C266 when a walker walks off an edge). When $3A(a5) is nonzero
+    // (child present), sub_3BF72 syncs the child; when zero, skips to
+    // loc_3C280. Native: walkers never enter the fall state because
+    // probe_floor reverses them at cliff edges.
+    //
+    // ASM loc_3C280 (kid.asm:43756-43758): falling walker hibernate +
+    // remain-active — jsr (j_Hibernate_Object_1Frame).w; bsr.w sub_3C3CE.
+    // Same hibernate + remain-active as loc_3C194/loc_3C044 but in the
+    // falling walker loop. Falls through to loc_3C288. Native: collapsed
+    // into the per-frame step_pacer cycle; walkers don't fall.
+    //
+    // ASM loc_3C288 (kid.asm:43760-43763): falling walker body collision
+    // scan — bsr.w sub_36BD6; tst.w d5; bne.w loc_3C464 deactivation. If
+    // no collision, performs X movement with wall checks (loc_3C2CA snap),
+    // Y movement with floor/ceiling checks and gravity (addi.l #$2000,
+    // capped at $80000). Native: walkers are always grounded; the falling
+    // loop's body scan + gravity are unreachable.
     let look_ahead_x = if moving_right {
         cx + ENEMY_PROBE_HALF_WIDTH
     } else {

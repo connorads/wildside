@@ -54618,6 +54618,121 @@ fn loc_3c220_leftward_walker_floor_check_reverses_at_cliff_edge() {
 }
 
 #[test]
+fn loc_3c276_falling_walker_attachment_check_mirrors_loc_3c18a() {
+    // ASM loc_3C276 (kid.asm:43751-43754): tst.w $3A(a5); beq.s loc_3C280;
+    // bsr.w sub_3BF72 — identical attachment check to loc_3C18A but in the
+    // falling walker loop (entered via loc_3C266). Driller has nonzero $3A(a5)
+    // (child present) so sub_3BF72 syncs the child position; Robot has
+    // $3A(a5)==0 so the check is skipped to loc_3C280.
+    // Native: walkers never enter the fall state (probe_floor reverses at
+    // cliff edges), so the falling attachment check is unreachable. Verify
+    // that the attachment helper produces the same child-sync behaviour.
+    let driller = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Driller,
+        parent_x_pos: 0x0200,
+        parent_y_pos: 0x0100,
+        parent_x_direction: 0xFF, // falling leftward
+        child_y_offset: 0,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0xFF,
+    });
+    assert!(
+        driller.secondary.is_some(),
+        "ASM loc_3C276: Driller has nonzero $3A(a5) → sub_3BF72 produces secondary child in falling walker loop",
+    );
+
+    let robot = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Robot,
+        parent_x_pos: 0x0200,
+        parent_y_pos: 0x0100,
+        parent_x_direction: 0xFF,
+        child_y_offset: 0,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0,
+    });
+    assert!(
+        robot.secondary.is_none(),
+        "ASM loc_3C276: Robot has $3A(a5)==0 → sub_3BF72 skipped to loc_3C280",
+    );
+}
+
+#[test]
+fn loc_3c280_falling_walker_remain_active_check() {
+    // ASM loc_3C280 (kid.asm:43756-43758): jsr (j_Hibernate_Object_1Frame).w;
+    // bsr.w sub_3C3CE — same hibernate + remain-active as loc_3C194/loc_3C044
+    // but in the falling walker loop. Falls through to loc_3C288 (body scan +
+    // gravity movement). Native: walkers never enter the fall state, but
+    // sub_3C3CE logic is the same retain/cull check regardless of walker phase.
+    let bounds = crate::physics::LevelBounds {
+        width_pixels: 640,
+        height_pixels: 448,
+    };
+
+    // Enemy within bounds + low object count → retained
+    assert!(
+        shared_enemy_should_remain_active_sub_3C3CE(
+            0x0080_0000, // x=128px
+            0x00C0_0000, // y=192px
+            bounds,
+            5,
+            100,
+            150,
+        ),
+        "ASM loc_3C280: sub_3C3CE retains falling walker within level bounds",
+    );
+
+    // Enemy far below level → culled (y > level_height + $20)
+    assert!(
+        !shared_enemy_should_remain_active_sub_3C3CE(
+            0x0080_0000,
+            0x01F4_0000_u32, // y=500px, above 448+32=480 threshold
+            bounds,
+            5,
+            100,
+            150,
+        ),
+        "ASM loc_3C280: sub_3C3CE culls falling walker below level bounds",
+    );
+}
+
+#[test]
+fn loc_3c288_falling_walker_reverses_at_cliff_edge_instead_of_falling() {
+    // ASM loc_3C288 (kid.asm:43760-43763): bsr.w sub_36BD6; tst.w d5;
+    // bne.w loc_3C464 — falling walker body collision scan followed by X
+    // movement with wall checks and Y movement with gravity (addi.l #$2000,
+    // capped at $80000). In the ASM, walkers that reach loc_3C266 enter this
+    // loop and fall with gravity until landing or being culled.
+    // Native: probe_floor reverses the walker at the cliff edge (matching
+    // loc_3C220→loc_3C026), so the falling loop at loc_3C288 is never
+    // reached. Verify that walkers on a short platform reverse direction
+    // rather than falling — y_pos stays on the floor.
+    let solid: Vec<(u16, u16)> = (10..20).map(|col| (col, 13)).collect();
+    let grid = grid_with_solid_cells(25, 20, &solid);
+    let mut enemy = make_pacer(EnemyFamily::Robot, 3, 170, 208);
+    enemy.facing = Direction::Left;
+    let start_y = enemy.y_pos;
+
+    for _ in 0..200 {
+        step_pacer(&mut enemy, Some(&grid));
+        if enemy.facing == Direction::Right {
+            break;
+        }
+    }
+
+    assert_eq!(
+        enemy.facing,
+        Direction::Right,
+        "ASM loc_3C288: native reverses at cliff edge instead of entering falling walker loop",
+    );
+    assert_eq!(
+        enemy.y_pos, start_y,
+        "ASM loc_3C288: walker y_pos unchanged — never entered falling state with gravity",
+    );
+}
+
+#[test]
 fn shared_enemy_drive_sound_sub_3c352_starts_the_last_driller_loop_with_playsound2() {
     let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
 
