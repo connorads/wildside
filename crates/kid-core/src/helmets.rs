@@ -1265,6 +1265,105 @@ pub(crate) fn diamond_power_rain_find_nearest_enemy(
     })
 }
 
+/// Result of `diamond_power_rain_compute_tracking_velocity`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct RainTrackingVelocity {
+    /// 32-bit x velocity toward the enemy.
+    pub(crate) x_vel: i32,
+    /// 32-bit y velocity toward the enemy (aimed 8px above).
+    pub(crate) y_vel: i32,
+    /// Shift amount used (d6): floor(log2(distance >> 3)) + 1.
+    pub(crate) shift: u32,
+}
+
+/// ASM loc_3FF3C (kid.asm:45296): tracking velocity computation loop.
+///
+/// After `diamond_power_rain_find_nearest_enemy` finds a target and the
+/// gate at loc_3FF2C validates distance in [8, $40):
+///
+/// 1. `lsr.w #3,d7` — shift distance right by 3
+/// 2. loc_3FF3C loop: `addq.w #1,d6; lsr.w #1,d7; bne.s loc_3FF3C` —
+///    count bits remaining, giving d6 = floor(log2(distance >> 3)) + 1
+/// 3. `move.l x_pos(a3),d0; sub.l $1A(a0),d0; asr.l d6,d0; move.l d0,$26(a0)`
+///    — x_vel = (enemy_x - rain_x) >> d6
+/// 4. `move.l y_pos(a3),d0; subi.l #$80000,d0; sub.l $1E(a0),d0; asr.l d6,d0`
+///    — y_vel = (enemy_y - $80000 - rain_y) >> d6
+///    The $80000 (8 pixels in 16.16 fixed-point) aims slightly above the enemy.
+/// 5. `addq.w #1,$3E(a0)` marks the rain object as tracking.
+///
+/// Returns `None` if distance is outside [8, $40) (loc_3FF2C branches
+/// to loc_3FF6E, resetting the frame counter without engaging tracking).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_rain_compute_tracking_velocity(
+    distance: u16,
+    enemy_x_pos: u32,
+    enemy_y_pos: u32,
+    rain_x_pos: u32,
+    rain_y_pos: u32,
+) -> Option<RainTrackingVelocity> {
+    // ASM loc_3FF2C: cmpi.w #8,d7; bcs.s loc_3FF6E
+    if distance < 8 {
+        return None;
+    }
+    // ASM loc_3FF2C: cmpi.w #$40,d7; bcc.s loc_3FF6E
+    if distance >= 0x40 {
+        return None;
+    }
+    // ASM: moveq #0,d6; lsr.w #3,d7
+    let mut d7 = distance >> 3;
+    let mut d6: u32 = 0;
+    // ASM loc_3FF3C: addq.w #1,d6; lsr.w #1,d7; bne.s loc_3FF3C
+    loop {
+        d6 += 1;
+        d7 >>= 1;
+        if d7 == 0 {
+            break;
+        }
+    }
+    // ASM: move.l x_pos(a3),d0; sub.l $1A(a0),d0; asr.l d6,d0
+    let x_vel = (enemy_x_pos as i32).wrapping_sub(rain_x_pos as i32) >> d6;
+    // ASM: move.l y_pos(a3),d0; subi.l #$80000,d0; sub.l $1E(a0),d0; asr.l d6,d0
+    let y_vel = (enemy_y_pos as i32)
+        .wrapping_sub(0x8_0000)
+        .wrapping_sub(rain_y_pos as i32)
+        >> d6;
+    Some(RainTrackingVelocity {
+        x_vel,
+        y_vel,
+        shift: d6,
+    })
+}
+
+/// ASM loc_3FF70 (kid.asm:45317): non-tracking rain object movement.
+///
+/// loc_3FF6E (kid.asm:45314): entry when no valid tracking target found —
+/// resets d7 to $14 (20 frames until next scan), then falls through to
+/// loc_3FF70.
+///
+/// loc_3FF70: applies movement for non-tracking rain:
+/// - X: 32-bit update: `move.l $1A(a0),d0; add.l $26(a0),d0; add.l a5,d0`
+///   where a5 = Kid x_vel * 3/4 (drift computed at loc_3FE62).
+/// - Y: word-only update: `move.w $1E(a0),d1; add.w $2A(a0),d1`
+///   (no subpixel precision, unlike the tracking path at loc_3FE98 which
+///   uses 32-bit Y).
+///
+/// Returns (new_x_pos_32bit, new_y_pos_word).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_rain_non_tracking_move(
+    rain_x: u32,
+    rain_y: u16,
+    rain_x_vel: u32,
+    rain_y_vel: u16,
+    kid_drift: u32,
+) -> (u32, u16) {
+    // ASM loc_3FF70: move.l $1A(a0),d0; add.l $26(a0),d0; add.l a5,d0
+    let new_x = rain_x.wrapping_add(rain_x_vel).wrapping_add(kid_drift);
+    // ASM loc_3FF70: move.w $1E(a0),d1; add.w $2A(a0),d1
+    let new_y = rain_y.wrapping_add(rain_y_vel);
+    (new_x, new_y)
+}
+
 /// ASM loc_3FA16 through loc_3FA46: compute 8-way octant direction from
 /// the snake head to its target, used by the snake steering loop.
 ///

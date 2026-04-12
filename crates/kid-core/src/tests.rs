@@ -11555,6 +11555,162 @@ fn diamond_power_rain_y_offset_is_8_not_16_loc_3fee2() {
     );
 }
 
+// -----------------------------------------------------------------------
+// Rain tracking velocity computation (loc_3FF3C, loc_3FF2C gate)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_rain_tracking_velocity_distance_in_range_loc_3ff3c() {
+    // ASM loc_3FF2C (kid.asm:45288): gate — distance must be in [8, $40).
+    // ASM loc_3FF3C (kid.asm:45296): lsr.w #3,d7 then count-bits loop.
+    // distance=0x10: d7=0x10>>3=2, loop: d6=1,d7=1; d6=2,d7=0 → shift=2.
+    // x_vel = (enemy_x - rain_x) >> 2, y_vel = (enemy_y - $80000 - rain_y) >> 2.
+    let enemy_x: u32 = 0x0120_0000; // enemy at x=0x120 in 16.16
+    let enemy_y: u32 = 0x0080_0000; // enemy at y=0x80 in 16.16
+    let rain_x: u32 = 0x0100_0000; // rain at x=0x100 in 16.16
+    let rain_y: u32 = 0x0060_0000; // rain at y=0x60 in 16.16
+    let result = helmets::diamond_power_rain_compute_tracking_velocity(
+        0x10, enemy_x, enemy_y, rain_x, rain_y,
+    );
+    let v = result.expect("distance 0x10 is in [8, $40)");
+    assert_eq!(
+        v.shift, 2,
+        "floor(log2(0x10 >> 3)) + 1 = floor(log2(2)) + 1 = 2"
+    );
+    // dx = 0x0020_0000, >> 2 = 0x0008_0000
+    assert_eq!(v.x_vel, 0x0008_0000, "x_vel = (enemy_x - rain_x) >> 2");
+    // dy = 0x0080_0000 - 0x0008_0000 - 0x0060_0000 = 0x0018_0000, >> 2 = 0x0006_0000
+    assert_eq!(
+        v.y_vel, 0x0006_0000,
+        "y_vel = (enemy_y - $80000 - rain_y) >> 2"
+    );
+}
+
+#[test]
+fn diamond_power_rain_tracking_velocity_rejects_too_close_loc_3ff2c() {
+    // ASM loc_3FF2C: cmpi.w #8,d7; bcs.s loc_3FF6E — distance < 8 rejected.
+    let result = helmets::diamond_power_rain_compute_tracking_velocity(
+        7,
+        0x0120_0000,
+        0x0080_0000,
+        0x0100_0000,
+        0x0060_0000,
+    );
+    assert!(result.is_none(), "distance 7 < 8 → no tracking");
+}
+
+#[test]
+fn diamond_power_rain_tracking_velocity_rejects_too_far_loc_3ff2c() {
+    // ASM loc_3FF2C: cmpi.w #$40,d7; bcc.s loc_3FF6E — distance >= $40 rejected.
+    let result = helmets::diamond_power_rain_compute_tracking_velocity(
+        0x40,
+        0x0120_0000,
+        0x0080_0000,
+        0x0100_0000,
+        0x0060_0000,
+    );
+    assert!(result.is_none(), "distance $40 >= $40 → no tracking");
+}
+
+#[test]
+fn diamond_power_rain_tracking_velocity_min_distance_8_shift_1_loc_3ff3c() {
+    // ASM loc_3FF3C: distance=8, d7=8>>3=1, loop: d6=1,d7=0 → shift=1.
+    // Minimum valid distance gives shift=1 (divide by 2) — fastest tracking.
+    let enemy_x: u32 = 0x0110_0000;
+    let rain_x: u32 = 0x0100_0000;
+    let enemy_y: u32 = 0x0070_0000;
+    let rain_y: u32 = 0x0060_0000;
+    let result =
+        helmets::diamond_power_rain_compute_tracking_velocity(8, enemy_x, enemy_y, rain_x, rain_y);
+    let v = result.expect("distance 8 in range");
+    assert_eq!(v.shift, 1, "d7=1 → one iteration → shift=1");
+    // dx = 0x0010_0000, >> 1 = 0x0008_0000
+    assert_eq!(v.x_vel, 0x0008_0000);
+    // dy = 0x0070_0000 - 0x0008_0000 - 0x0060_0000 = 0x0008_0000, >> 1 = 0x0004_0000
+    assert_eq!(v.y_vel, 0x0004_0000);
+}
+
+#[test]
+fn diamond_power_rain_tracking_velocity_max_distance_3f_shift_3_loc_3ff3c() {
+    // ASM loc_3FF3C: distance=$3F (63), d7=$3F>>3=7, loop:
+    // d6=1,d7=3; d6=2,d7=1; d6=3,d7=0 → shift=3.
+    // Maximum valid distance gives shift=3 (divide by 8) — slowest tracking.
+    let result = helmets::diamond_power_rain_compute_tracking_velocity(
+        0x3F,
+        0x0140_0000,
+        0x00A0_0000,
+        0x0100_0000,
+        0x0060_0000,
+    );
+    let v = result.expect("distance $3F in range");
+    assert_eq!(v.shift, 3, "d7=7 → three iterations → shift=3");
+    // dx = 0x0040_0000, >> 3 = 0x0008_0000
+    assert_eq!(v.x_vel, 0x0008_0000);
+}
+
+#[test]
+fn diamond_power_rain_tracking_velocity_negative_direction_loc_3ff3c() {
+    // ASM loc_3FF3C: asr.l d6,d0 — arithmetic shift preserves sign.
+    // Enemy to the left of and below rain → negative x_vel, positive y_vel.
+    let enemy_x: u32 = 0x00E0_0000; // x=0xE0
+    let enemy_y: u32 = 0x00A0_0000; // y=0xA0
+    let rain_x: u32 = 0x0100_0000; // x=0x100
+    let rain_y: u32 = 0x0060_0000; // y=0x60
+    let result = helmets::diamond_power_rain_compute_tracking_velocity(
+        0x10, enemy_x, enemy_y, rain_x, rain_y,
+    );
+    let v = result.expect("distance 0x10 in range");
+    assert_eq!(v.shift, 2);
+    // dx = 0x00E0_0000 - 0x0100_0000 = -0x0020_0000, >> 2 = -0x0008_0000
+    assert_eq!(v.x_vel, -0x0008_0000, "negative x_vel (enemy left of rain)");
+    // dy = 0x00A0_0000 - 0x0008_0000 - 0x0060_0000 = 0x0038_0000, >> 2 = 0x000E_0000
+    assert_eq!(v.y_vel, 0x000E_0000, "positive y_vel (enemy below rain)");
+}
+
+// -----------------------------------------------------------------------
+// Rain non-tracking movement (loc_3FF6E, loc_3FF70)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_rain_non_tracking_move_applies_drift_and_word_y_loc_3ff70() {
+    // ASM loc_3FF70 (kid.asm:45317): x update is 32-bit with drift,
+    // y update is word-only.
+    // Initial rain: x=0x0100_0000, y=0x50, x_vel=0, y_vel=2, drift=0x0001_0000
+    let (new_x, new_y) = helmets::diamond_power_rain_non_tracking_move(
+        0x0100_0000, // rain_x
+        0x50,        // rain_y (word)
+        0,           // x_vel (initially zero for fresh non-tracking rain)
+        2,           // y_vel (ASM: move.w #2,$2A(a0))
+        0x0001_0000, // kid_drift (a5)
+    );
+    // x: 0x0100_0000 + 0 + 0x0001_0000 = 0x0101_0000
+    assert_eq!(new_x, 0x0101_0000, "x drifts with Kid");
+    // y: 0x50 + 2 = 0x52 (word-only, no subpixel)
+    assert_eq!(new_y, 0x52, "y advances by 2 pixels/frame");
+}
+
+#[test]
+fn diamond_power_rain_non_tracking_move_zero_drift_loc_3ff70() {
+    // ASM loc_3FF6E/loc_3FF70: when Kid is stationary, a5=0.
+    // Rain falls straight down with no horizontal drift.
+    let (new_x, new_y) = helmets::diamond_power_rain_non_tracking_move(0x0080_0000, 0x30, 0, 2, 0);
+    assert_eq!(new_x, 0x0080_0000, "no drift when Kid stationary");
+    assert_eq!(new_y, 0x32, "y still falls at 2px/frame");
+}
+
+#[test]
+fn diamond_power_rain_non_tracking_move_negative_drift_loc_3ff70() {
+    // ASM loc_3FE62: a5 = Kid x_vel * 3/4. If Kid moves left,
+    // drift is negative (wrapping u32), rain drifts left too.
+    // Kid x_vel = -0x0004_0000, drift = -0x0004_0000 * 3/4 = -0x0003_0000
+    // As u32: 0xFFFD_0000
+    let kid_drift: u32 = (-0x0003_0000_i32) as u32;
+    let (new_x, _new_y) =
+        helmets::diamond_power_rain_non_tracking_move(0x0080_0000, 0x30, 0, 2, kid_drift);
+    // 0x0080_0000 + 0 + 0xFFFD_0000 = 0x007D_0000
+    assert_eq!(new_x, 0x007D_0000, "rain drifts left with Kid");
+}
+
 #[test]
 fn diamond_power_object_remove_sub_3f5e8_unlinks_the_slot_and_keeps_flags_while_objects_remain() {
     let result = helmets::diamond_power_object_remove_sub_3F5E8(
