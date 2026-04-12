@@ -54230,6 +54230,115 @@ fn loc_3c00c_driller_convergence_y_pos_and_velocities() {
 }
 
 #[test]
+fn loc_3c026_wall_turnaround_clears_velocity_and_faces_right() {
+    // ASM loc_3C026 (kid.asm:43493-43498): rightward wall collision path —
+    //   clr.l x_vel(a3); clr.l y_vel(a3); st x_direction(a3)
+    // In step_pacer, hitting a wall clears velocity implicitly (the return
+    // skips further movement) and reverses direction. A leftward-walking
+    // enemy hitting a wall turns right — matching `st x_direction`.
+    // The mirror loc_3C0D2 does `sf x_direction` (turn left after rightward
+    // collision).
+    let mut solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 13)).collect();
+    for row in 10..13 {
+        solid.push((2, row)); // wall at col 2
+    }
+    let grid = grid_with_solid_cells(20, 15, &solid);
+    // Crab walking left, will hit wall at col 2
+    let mut enemy = make_pacer(EnemyFamily::Crab, 3, 56, 208);
+    assert_eq!(enemy.facing, Direction::Left, "starts facing left");
+
+    // Walk until wall reversal
+    for _ in 0..200 {
+        step_pacer(&mut enemy, Some(&grid));
+        if enemy.facing == Direction::Right {
+            break;
+        }
+    }
+    assert_eq!(
+        enemy.facing,
+        Direction::Right,
+        "ASM loc_3C026: st x_direction — enemy must face right after leftward wall hit",
+    );
+}
+
+#[test]
+fn loc_3c03a_attachment_check_calls_sub_3bf72_when_child_exists() {
+    // ASM loc_3C03A (kid.asm:43500-43503): tst.w $3A(a5); beq.s loc_3C044;
+    // bsr.w sub_3BF72 — when the walker has an active child pointer ($3A!=0),
+    // the attachment position sync runs each frame. When $3A==0 (no child),
+    // it's skipped. Test: Driller (has child) vs Crab (no child).
+    // Driller with child attachment: sub_3BF72 produces a paired layout.
+    let driller = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Driller,
+        parent_x_pos: 0x0100,
+        parent_y_pos: 0x0080,
+        parent_x_direction: 0,
+        child_y_offset: 0,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0,
+    });
+    assert!(
+        driller.secondary.is_some(),
+        "ASM loc_3C03A: Driller has nonzero $3A(a5) → sub_3BF72 produces secondary child",
+    );
+
+    // Crab: no child attachment — sub_3BF72 produces only the primary.
+    let crab = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Crab,
+        parent_x_pos: 0x0100,
+        parent_y_pos: 0x0080,
+        parent_x_direction: 0xFF,
+        child_y_offset: 8,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0,
+    });
+    assert!(
+        crab.secondary.is_none(),
+        "ASM loc_3C03A: Crab has $3A(a5)==0 → sub_3BF72 skipped to loc_3C044",
+    );
+}
+
+#[test]
+fn loc_3c044_remain_active_check_retains_enemy_within_level_bounds() {
+    // ASM loc_3C044 (kid.asm:43505-43508): jsr (j_Hibernate_Object_1Frame).w;
+    // bsr.w sub_3C3CE; jmp (a0) — after hibernate, sub_3C3CE determines
+    // whether the walker should remain active. Enemies within level bounds
+    // and camera range are retained; those outside are culled.
+    let bounds = crate::physics::LevelBounds {
+        width_pixels: 640,
+        height_pixels: 448,
+    };
+
+    // Enemy well within bounds and camera range → retained
+    assert!(
+        shared_enemy_should_remain_active_sub_3C3CE(
+            0x0100_0000, // x=256px
+            0x0080_0000, // y=128px
+            bounds,
+            5, // low object count
+            200,
+            100,
+        ),
+        "ASM loc_3C044: sub_3C3CE retains enemy within level bounds + low load",
+    );
+
+    // Enemy far outside level bounds → culled (x=-48px, below -$20 threshold)
+    assert!(
+        !shared_enemy_should_remain_active_sub_3C3CE(
+            0xFFD0_0000_u32, // x=-48px (signed), below -$20
+            0x0080_0000,
+            bounds,
+            5,
+            200,
+            100,
+        ),
+        "ASM loc_3C044: sub_3C3CE culls enemy outside level bounds",
+    );
+}
+
+#[test]
 fn shared_enemy_drive_sound_sub_3c352_starts_the_last_driller_loop_with_playsound2() {
     let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
 

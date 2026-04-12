@@ -2425,6 +2425,9 @@ pub(crate) fn shared_enemy_should_remain_active_sub_3C3CE(
     camera_x_px: u32,
     camera_y_px: u32,
 ) -> bool {
+    // ASM loc_3C044 / loc_3C0F0 (kid.asm:43505-43508): after the walker
+    // hibernate frame, `bsr.w sub_3C3CE` checks whether the enemy should
+    // remain active before dispatching to the next state via `jmp (a0)`.
     // ASM sub_3C3CE (kid.asm:43901-43955): the shared Diamond/FireDemon/
     // walker retention path first rejects live positions outside
     // [-$20, level+$20] on both axes before applying the camera-relative
@@ -2723,6 +2726,12 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         moving_right,
     );
     if wall.hit {
+        // ASM loc_3C026 (rightward walkers) / loc_3C0D2 (leftward walkers):
+        // clr.l x_vel(a3); clr.l y_vel(a3); st/sf x_direction(a3) — stop
+        // and face the opposite direction after wall collision. The ASM also
+        // bumps a byte counter at $5A(a5) by 4 and deactivates (loc_3C464)
+        // if the counter wraps to zero (i.e. after 64 turnarounds). Native
+        // handles deactivation via the retain/cull check each frame instead.
         // Push out of wall.
         let wall_fp = (wall.wall_x_px as u32) << 16;
         let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
@@ -5958,6 +5967,10 @@ pub(crate) struct SharedEnemyDriveSoundResultSub3C352 {
     pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
 }
 
+// ASM loc_3C03A / loc_3C0E6 (kid.asm:43500-43503): after velocity clear +
+// direction set, `tst.w $3A(a5)` checks whether the enemy has a child
+// attachment pointer; if nonzero, `bsr.w sub_3BF72` syncs the child's
+// position/direction to the parent before the hibernate frame at loc_3C044.
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shared_enemy_attachment_sub_3BF72(
