@@ -27384,7 +27384,8 @@ fn step_murder_wall_reversed_decrements_position() {
         max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
         reversed: true,
     });
-    runtime.step_murder_wall();
+    let mut cam = 0x0100_0000u32; // camera at wall — push won't alter wall
+    runtime.step_murder_wall(&mut cam);
     let wall = runtime.murder_wall.as_ref().unwrap();
     assert_eq!(wall.speed, MURDER_WALL_ACCELERATION);
     // Reversed wall should have LOWER x_pos after stepping
@@ -27404,7 +27405,8 @@ fn step_murder_wall_forward_increments_position() {
         max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
         reversed: false,
     });
-    runtime.step_murder_wall();
+    let mut cam = 0u32;
+    runtime.step_murder_wall(&mut cam);
     let wall = runtime.murder_wall.as_ref().unwrap();
     assert!(
         wall.x_pos > 0x0100_0000,
@@ -27416,7 +27418,8 @@ fn step_murder_wall_forward_increments_position() {
 fn step_murder_wall_noop_when_no_wall() {
     let mut runtime = NativeRuntime::new(manifest());
     assert!(runtime.murder_wall.is_none());
-    runtime.step_murder_wall(); // should not panic
+    let mut cam = 0u32;
+    runtime.step_murder_wall(&mut cam); // should not panic
 }
 
 // --- loc_7316: forward murder wall acceleration + speed clamp ---
@@ -27442,14 +27445,15 @@ fn loc_7316_forward_wall_accelerates_by_0x100_per_frame() {
         max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
         reversed: false,
     });
-    runtime.step_murder_wall();
+    let mut cam = 0u32;
+    runtime.step_murder_wall(&mut cam);
     let wall = runtime.murder_wall.as_ref().unwrap();
     assert_eq!(
         wall.speed, MURDER_WALL_ACCELERATION,
         "ASM loc_7316: first frame speed = $100"
     );
     // Second frame
-    runtime.step_murder_wall();
+    runtime.step_murder_wall(&mut cam);
     let wall = runtime.murder_wall.as_ref().unwrap();
     assert_eq!(
         wall.speed,
@@ -27467,7 +27471,8 @@ fn loc_7316_forward_wall_speed_clamped_to_max() {
         max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
         reversed: false,
     });
-    runtime.step_murder_wall();
+    let mut cam = 0u32;
+    runtime.step_murder_wall(&mut cam);
     let wall = runtime.murder_wall.as_ref().unwrap();
     assert_eq!(
         wall.speed, MURDER_WALL_DEFAULT_MAX_SPEED,
@@ -27497,7 +27502,8 @@ fn loc_7334_forward_wall_position_advances_by_speed() {
         max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
         reversed: false,
     });
-    runtime.step_murder_wall();
+    let mut cam = 0u32;
+    runtime.step_murder_wall(&mut cam);
     let wall = runtime.murder_wall.as_ref().unwrap();
     // After acceleration: speed = 0x1000 + 0x100 = 0x1100
     // x_pos += 0x1100
@@ -27520,7 +27526,8 @@ fn loc_7334_forward_wall_at_max_speed_advances_steadily() {
         max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
         reversed: false,
     });
-    runtime.step_murder_wall();
+    let mut cam = 0u32;
+    runtime.step_murder_wall(&mut cam);
     let wall = runtime.murder_wall.as_ref().unwrap();
     assert_eq!(
         wall.speed, MURDER_WALL_DEFAULT_MAX_SPEED,
@@ -27530,6 +27537,134 @@ fn loc_7334_forward_wall_at_max_speed_advances_steadily() {
         wall.x_pos,
         initial_x + i64::from(MURDER_WALL_DEFAULT_MAX_SPEED),
         "ASM loc_7334: position advances by max_speed"
+    );
+}
+
+// --- loc_7396: reverse murder wall camera push ---
+
+/// ASM loc_7396 (kid.asm:7499–7502): reversed wall reads
+/// `d0 = Camera_X_pos.w - MurderWall_X_pos.w` then branches:
+///   - d0 >= 0 → loc_73B8 (camera ahead, snap camera to wall)
+///   - d0 < 0  → loc_73A0 (camera behind)
+#[test]
+fn loc_7396_reversed_wall_camera_ahead_snaps_camera_to_wall() {
+    // Camera is ahead of (right of) the reversed wall.  The ROM snaps
+    // Camera_X_pos = MurderWall_X_pos via loc_73B8.
+    let (new_cam, new_wall) =
+        physics::reverse_murder_wall_camera_push_loc_7396(0x0120_0000, 0x0100_0000);
+    // Camera integer part should now match wall integer part (0x100 = 256).
+    assert_eq!(
+        new_cam >> 16,
+        0x0100,
+        "ASM loc_73B8: Camera_X_pos.w ← MurderWall_X_pos.w"
+    );
+    // Camera fractional part is preserved.
+    assert_eq!(new_cam & 0xFFFF, 0, "fractional part preserved (was 0)");
+    // Wall unchanged.
+    assert_eq!(new_wall, 0x0100_0000, "wall unchanged by loc_73B8");
+}
+
+/// ASM loc_73A0 (kid.asm:7504–7506): when d0 > -$80 (small gap), do nothing.
+#[test]
+fn loc_73a0_reversed_wall_small_gap_no_adjustment() {
+    // Camera at 200, wall at 250 → d0 = 200 - 250 = -50 > -128 → tolerable.
+    let cam = 0x00C8_4000u32; // 200.25 in FP16.16
+    let wall = 0x00FA_0000i64; // 250.0
+    let (new_cam, new_wall) = physics::reverse_murder_wall_camera_push_loc_7396(cam, wall);
+    assert_eq!(new_cam, cam, "ASM loc_73A0 → loc_73C2: camera unchanged");
+    assert_eq!(new_wall, wall, "ASM loc_73A0 → loc_73C2: wall unchanged");
+}
+
+/// ASM loc_73A0 (kid.asm:7507–7509): when d0 <= -$80 (large gap), clamp
+/// MurderWall_X_pos.w = Camera_X_pos.w + $80.
+#[test]
+fn loc_73a0_reversed_wall_large_gap_clamps_wall_to_camera_plus_0x80() {
+    // Camera at 100, wall at 300 → d0 = 100 - 300 = -200 < -128 → clamp.
+    let cam = 0x0064_0000u32; // 100.0
+    let wall = 0x012C_8000i64; // 300.5 (fractional)
+    let (new_cam, new_wall) = physics::reverse_murder_wall_camera_push_loc_7396(cam, wall);
+    assert_eq!(new_cam, cam, "camera unchanged by clamp path");
+    // Wall integer = camera_px + $80 = 100 + 128 = 228 = 0xE4.
+    assert_eq!(
+        new_wall >> 16,
+        0xE4,
+        "ASM loc_73A0: MurderWall_X_pos.w = Camera_X_pos.w + $80"
+    );
+    // Wall fractional preserved.
+    assert_eq!(new_wall & 0xFFFF, 0x8000, "wall fractional part preserved");
+}
+
+/// ASM loc_73B8 (kid.asm:7512–7514): camera exactly at wall (d0 = 0) still
+/// takes the `bge.s` branch (≥ 0), snapping camera to wall (a no-op).
+#[test]
+fn loc_73b8_camera_exactly_at_wall_is_noop() {
+    let cam = 0x0100_5000u32;
+    let wall = 0x0100_0000i64;
+    let (new_cam, new_wall) = physics::reverse_murder_wall_camera_push_loc_7396(cam, wall);
+    // Camera integer snaps to wall integer (same: 0x100), fractional preserved.
+    assert_eq!(
+        new_cam, 0x0100_5000,
+        "camera integer unchanged (already equal)"
+    );
+    assert_eq!(new_wall, wall, "wall unchanged");
+}
+
+/// ASM loc_73A0 boundary: d0 = -$80 exactly → NOT greater than -$80,
+/// so the clamp path activates (68k `bgt` = branch if greater than).
+#[test]
+fn loc_73a0_boundary_minus_0x80_triggers_clamp() {
+    // Camera at 100, wall at 228 → d0 = 100 - 228 = -128 = -$80.
+    // `cmpi.w #-$80,d0; bgt.w loc_73C2` — bgt means strictly greater,
+    // so d0 == -$80 does NOT branch and the clamp executes.
+    let cam = 0x0064_0000u32; // 100
+    let wall = 0x00E4_0000i64; // 228
+    let (new_cam, new_wall) = physics::reverse_murder_wall_camera_push_loc_7396(cam, wall);
+    // Clamp: wall = camera + $80 = 100 + 128 = 228 → same as before.
+    assert_eq!(new_wall >> 16, 0xE4, "wall clamped to camera + $80");
+    assert_eq!(new_cam, cam, "camera unchanged");
+}
+
+/// ASM loc_7388 (kid.asm:7496–7497): floor clamp — when sub.l drives
+/// MurderWall_X_pos negative, it's clamped to zero.
+#[test]
+fn loc_7388_reversed_wall_floor_clamp_at_zero() {
+    let mut runtime = NativeRuntime::new(manifest());
+    // Wall near left edge, high speed — will overshoot past 0.
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: 0x0000_0080, // almost 0
+        speed: 0x0001_0000, // speed will push past 0
+        max_speed: 0x0002_0000,
+        reversed: true,
+    });
+    let mut cam = 0u32;
+    runtime.step_murder_wall(&mut cam);
+    let wall = runtime.murder_wall.as_ref().unwrap();
+    assert_eq!(
+        wall.x_pos, 0,
+        "ASM loc_7388: reversed wall clamped to 0 when sub.l overshoots"
+    );
+}
+
+/// Integration: reversed wall step + camera push — verify camera tracks wall.
+#[test]
+fn loc_7396_reversed_step_snaps_camera_when_ahead() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: 0x0080_0000, // wall at 128
+        speed: 0x0000_1000,
+        max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+        reversed: true,
+    });
+    // Camera ahead of wall.
+    let mut cam = 0x0090_0000u32; // camera at 144
+    runtime.step_murder_wall(&mut cam);
+    let wall = runtime.murder_wall.as_ref().unwrap();
+    // Wall moved left, camera should have snapped to wall.
+    let wall_px = (wall.x_pos >> 16) as u32;
+    let cam_px = cam >> 16;
+    assert_eq!(
+        cam_px, wall_px,
+        "ASM loc_73B8: camera snapped to reversed wall after step"
     );
 }
 

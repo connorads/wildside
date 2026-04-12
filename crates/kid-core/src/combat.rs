@@ -9146,7 +9146,8 @@ impl NativeRuntime {
         }
 
         // Murder wall: advance and damage player on contact.
-        self.step_murder_wall();
+        // ASM loc_7396/loc_73B8: reversed wall can push camera_x.
+        self.step_murder_wall(&mut slice.camera.x_pos);
         if self.murder_wall_kills_player(slice) && self.progression.invulnerable_frames == 0 {
             self.apply_damage();
             self.opening_slice = Some(*slice);

@@ -2260,14 +2260,13 @@ impl NativeRuntime {
     ///
     /// **Reversed path** (kid.asm:7486–7514): mirrors with `sub.l`.
     ///
-    /// The camera-push logic (loc_7346–loc_7364) and the Hills-of-the-Warrior
-    /// threshold (`d1`) are not yet modelled in native — the camera and wall
-    /// interact only through the kill detection in `murder_wall_kills_player`.
-    // TODO(fidelity): loc_7346–loc_7364 camera push: when the wall overtakes
-    // the camera, the ROM snaps Camera_X_pos = MurderWall_X_pos. When the
-    // camera leads the wall by more than d1 ($80 or $100 for Hills), it
-    // snaps MurderWall_X_pos = Camera_X_pos - d1. Neither snap is modelled.
-    pub(crate) fn step_murder_wall(&mut self) {
+    /// The forward camera-push logic (loc_7346–loc_7364) and the
+    /// Hills-of-the-Warrior threshold (`d1`) are not yet modelled.
+    // TODO(fidelity): loc_7346–loc_7364 forward camera push: when the forward
+    // wall overtakes the camera, the ROM snaps Camera_X_pos = MurderWall_X_pos.
+    // When the camera leads the forward wall by more than d1 ($80 or $100 for
+    // Hills), it snaps MurderWall_X_pos = Camera_X_pos - d1.
+    pub(crate) fn step_murder_wall(&mut self, camera_x: &mut u32) {
         let Some(wall) = self.murder_wall.as_mut() else {
             return;
         };
@@ -2277,6 +2276,16 @@ impl NativeRuntime {
         if wall.reversed {
             // ASM loc_7388 (kid.asm:7495): `sub.l d7,(MurderWall_X_pos).w`
             wall.x_pos -= i64::from(wall.speed);
+            // ASM loc_7388 (kid.asm:7496–7497): `bgt.s loc_7396` / floor clamp
+            // to zero when the reversed wall overshoots the left level edge.
+            if wall.x_pos <= 0 {
+                wall.x_pos = 0;
+            }
+            // ASM loc_7396–loc_73B8 (kid.asm:7499–7514): reverse camera push.
+            let (new_cam, new_wall) =
+                physics::reverse_murder_wall_camera_push_loc_7396(*camera_x, wall.x_pos);
+            *camera_x = new_cam;
+            wall.x_pos = new_wall;
         } else {
             // ASM loc_7334 (kid.asm:7464): `add.l d7,(MurderWall_X_pos).w`
             wall.x_pos += i64::from(wall.speed);

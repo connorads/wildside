@@ -848,6 +848,53 @@ pub fn camera_y_viewport_top_look_adjust_loc_727e(kid_y: i16, camera_y: i16) -> 
     }
 }
 
+/// ASM loc_7396–loc_73B8 (kid.asm:7499–7514): reverse murder wall camera push.
+///
+/// After the reversed wall decelerates leftward, compare camera to wall:
+///
+/// ```asm
+/// loc_7396:
+///   move.w  (Camera_X_pos).w,d0
+///   sub.w   (MurderWall_X_pos).w,d0   ; d0 = camera_px - wall_px
+///   bge.s   loc_73B8                   ; camera ahead → snap camera to wall
+///
+/// loc_73A0:                            ; camera behind wall (d0 < 0)
+///   cmpi.w  #-$80,d0
+///   bgt.w   loc_73C2                   ; small gap → do nothing
+///   move.w  (Camera_X_pos).w,(MurderWall_X_pos).w
+///   addi.w  #$80,(MurderWall_X_pos).w  ; clamp wall = camera + $80
+///   bra.w   loc_73C2
+///
+/// loc_73B8:                            ; camera ahead of wall (d0 >= 0)
+///   move.w  (MurderWall_X_pos).w,(Camera_X_pos).w  ; snap camera to wall
+///   bra.w   *+4                        ; → loc_73C2
+/// ```
+///
+/// Returns `(new_camera_x, new_wall_x)`.  Both values are fixed-point 16.16;
+/// only the integer (high-word) portion is modified, matching the ROM's `.w`
+/// operations.
+pub(crate) fn reverse_murder_wall_camera_push_loc_7396(camera_x: u32, wall_x: i64) -> (u32, i64) {
+    let camera_px = (camera_x >> 16) as i16;
+    let wall_px = (wall_x >> 16) as i16;
+    let d0 = camera_px.wrapping_sub(wall_px);
+
+    if d0 >= 0 {
+        // loc_73B8: camera ahead of (right of) reversed wall — snap camera
+        // leftward to wall position.
+        let new_camera_x = (camera_x & 0xFFFF) | ((wall_px as u16 as u32) << 16);
+        (new_camera_x, wall_x)
+    } else if d0 > -0x80 {
+        // loc_73A0 → loc_73C2: gap within $80 — tolerable, no adjustment.
+        (camera_x, wall_x)
+    } else {
+        // loc_73A0: camera far behind — clamp wall so it stays within $80 of
+        // camera: MurderWall_X_pos.w = Camera_X_pos.w + $80.
+        let new_wall_high = camera_px.wrapping_add(0x80) as u16;
+        let new_wall_x = (wall_x & 0xFFFF) | (i64::from(new_wall_high) << 16);
+        (camera_x, new_wall_x)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
