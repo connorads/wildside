@@ -4417,14 +4417,24 @@ pub(crate) fn grounded_surface_type_sub_8600(
     let mut ice_count = 0u16;
     let mut rubber_count = 0u16;
 
+    // ASM loc_864A–loc_8672 (kid.asm:9477-9500): tile scan loop body.
+    // dbf d1,loc_864A iterates start_col..=end_col inclusive.
     for col in start_col..=end_col {
         let cell = grid.cell_at(col, row);
+        // ASM loc_864A (kid.asm:9477): andi.w #$6000,d0; cmpi.w #$6000,d0
+        // — bits 13-14 both set = collision kinds Solid(6) or Spikes(7).
+        // Increments d4 (solid_count) on match.
         if matches!(
             cell.collision,
             terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
         ) {
             solid_count = solid_count.saturating_add(1);
         }
+        // ASM loc_8658 (kid.asm:9484): move.w (a0)+,d0; bpl.s loc_8672
+        // — bit 15 = has_block flag. If clear, skip block type checks.
+        // andi.w #$F00,d0; cmpi.w #$200,d0 — block_type 2 = Ice → d2++.
+        // ASM loc_866A (kid.asm:9494): cmpi.w #$600,d0 — block_type 6 =
+        // Rubber → d3++.
         if cell.has_block {
             match cell.block_type {
                 terrain::BlockType::Ice => ice_count = ice_count.saturating_add(1),
@@ -4433,14 +4443,21 @@ pub(crate) fn grounded_surface_type_sub_8600(
             }
         }
     }
+    // ASM loc_8672 (kid.asm:9499): dbf d1,loc_864A — loop end.
 
     let mut terrain_type = TerrainType::Normal;
     if ice_count.saturating_mul(2) > solid_count {
         terrain_type = TerrainType::Ice;
     }
-    if solid_count != 0 && rubber_count.saturating_mul(2) >= solid_count {
+    // ASM loc_8680–loc_8688 (kid.asm:9507-9513): add.w d3,d3; cmp.w d4,d3;
+    // blt.s loc_8688; moveq #2,d0 — rubber wins on ties (blt = strict less-
+    // than, so d3*2 >= d4 triggers). No solid_count != 0 guard in the ASM.
+    // ORIGINAL_QUIRK: when all scanned tiles are empty (solid=0, rubber=0),
+    // 0 >= 0 is true so the ASM returns Rubber. Faithfully reproduced.
+    if rubber_count.saturating_mul(2) >= solid_count {
         terrain_type = TerrainType::Rubber;
     }
+    // ASM loc_8688 (kid.asm:9513): move.w d0,($FFFFFA0A).w — store result.
     terrain_type
 }
 

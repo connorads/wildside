@@ -72783,3 +72783,203 @@ fn loc_8626_sub_8600_foot_row_offset() {
         "ASM loc_8626: d2 = (y_pos+1) >> 4 should index the correct foot row"
     );
 }
+
+// sub_8600 tile scan loop + result — loc_864A, loc_8658, loc_866A, loc_8672, loc_8688
+// ---------------------------------------------------------------------------
+
+/// ASM loc_864A (kid.asm:9477): andi.w #$6000,d0; cmpi.w #$6000,d0
+/// — solid/spike counting. Bits 13-14 both set covers collision 6 (Solid)
+/// and 7 (Spikes). Verify spikes are counted in d4 (solid_count) just like
+/// solid tiles.
+#[test]
+fn loc_864a_solid_and_spikes_both_count_as_solid() {
+    // 4-column grid: col 0 = Spikes (collision 7), col 1 = Solid (collision 6).
+    // 0x70 = spikes no-block, 0x60 = solid no-block.
+    // Two solid-class tiles, zero ice/rubber → Normal.
+    let grid = grid_with_cells(4, 4, &[(0, 2, 0x70, 0x00), (1, 2, 0x60, 0x00)]);
+    let surface = grounded_surface_type_sub_8600(&grid, 16, 31, 16);
+    assert_eq!(
+        surface,
+        TerrainType::Normal,
+        "ASM loc_864A: both Solid ($6000) and Spikes ($7000, also $6000-masked) \
+         should increment d4 (solid_count)"
+    );
+}
+
+/// ASM loc_864A (kid.asm:9477): slopes and empty tiles must NOT increment d4.
+/// Collision 4 (SlopeUp) has bits 14-12 = 100, so #$6000 mask gives $4000 ≠ $6000.
+/// With d4=0, the rubber quirk (0 >= 0) fires even though there is ice.
+#[test]
+fn loc_864a_slopes_do_not_count_as_solid() {
+    // col 0 = Solid (0x60), col 1 = SlopeUp (0x40), col 2 = Empty + Ice block (0x82).
+    // d4=1 (only col 0 is solid — SlopeUp $4000 ≠ $6000).
+    // d2=1 (ice from col 2). ice*2=2 > 1 → Ice.
+    // d3=0. rubber*2=0 < 1 → stays Ice.
+    let grid = grid_with_cells(
+        4,
+        4,
+        &[(0, 2, 0x60, 0x00), (1, 2, 0x40, 0x00), (2, 2, 0x82, 0x00)],
+    );
+    let surface = grounded_surface_type_sub_8600(&grid, 16, 31, 24);
+    assert_eq!(
+        surface,
+        TerrainType::Ice,
+        "ASM loc_864A: SlopeUp ($4000) must not pass the #$6000 test, \
+         so d4=1 (only Solid counted) and ice*2=2 > 1"
+    );
+}
+
+/// ASM loc_8658 (kid.asm:9484): bpl.s loc_8672 — bit 15 clear (no block)
+/// skips block type checks entirely. A solid tile without a block contributes
+/// to d4 but not d2 or d3.
+#[test]
+fn loc_8658_no_block_skips_ice_rubber_check() {
+    // 3 solid tiles, 1 with ice block, 2 without blocks.
+    // 0x60 = solid no-block, 0xE2 = solid + Ice block.
+    // d4=3, d2=1 → ice*2=2 < solid=3 → not Ice.
+    // d3=0 → rubber*2=0 < solid=3 → not Rubber. Normal.
+    let grid = grid_with_cells(
+        4,
+        4,
+        &[(0, 2, 0x60, 0x00), (1, 2, 0x60, 0x00), (2, 2, 0xE2, 0x01)],
+    );
+    let surface = grounded_surface_type_sub_8600(&grid, 24, 31, 24);
+    assert_eq!(
+        surface,
+        TerrainType::Normal,
+        "ASM loc_8658: tiles without bit 15 (no block) must skip ice/rubber \
+         counting even if they are solid"
+    );
+}
+
+/// ASM loc_8658 (kid.asm:9484): andi.w #$F00,d0; cmpi.w #$200,d0
+/// — block type 2 (Ice) increments d2. Confirm that an ice block on a
+/// non-solid tile still counts for d2. With d4=0 the rubber quirk fires
+/// (0 >= 0), but adding a solid tile lets ice win.
+#[test]
+fn loc_8658_ice_block_on_non_solid_still_counts() {
+    // 2 tiles: col 0 = solid no-block (0x60), col 1 = non-solid ice block (0x82).
+    // d4=1 (col 0 solid), d2=1 (col 1 ice). ice*2=2 > 1 → Ice.
+    // d3=0. rubber*2=0 < 1 → stays Ice.
+    let grid = grid_with_cells(4, 4, &[(0, 2, 0x60, 0x00), (1, 2, 0x82, 0x00)]);
+    let surface = grounded_surface_type_sub_8600(&grid, 16, 31, 16);
+    assert_eq!(
+        surface,
+        TerrainType::Ice,
+        "ASM loc_8658: ice block type (#$200) on a non-solid tile should \
+         still increment d2 (ice count)"
+    );
+}
+
+/// ASM loc_866A (kid.asm:9494): cmpi.w #$600,d0 — block type 6 (Rubber)
+/// increments d3. Confirm rubber counting when mixed with other block types.
+#[test]
+fn loc_866a_rubber_block_increments_d3() {
+    // 2-column scan: col 0 = solid + Rubber (0xE6), col 1 = solid + Prize (0xE1).
+    // d4=2, d2=0, d3=1. rubber*2=2 >= solid=2 → Rubber.
+    let grid = grid_with_cells(4, 4, &[(0, 2, 0xE6, 0x00), (1, 2, 0xE1, 0x00)]);
+    let surface = grounded_surface_type_sub_8600(&grid, 16, 31, 16);
+    assert_eq!(
+        surface,
+        TerrainType::Rubber,
+        "ASM loc_866A: block type 6 (#$600) must increment d3 (rubber_count)"
+    );
+}
+
+/// ASM loc_866A (kid.asm:9494): non-ice, non-rubber block types (e.g. Prize=1,
+/// Metal=5) should NOT increment d2 or d3. The bne.s at loc_866A falls
+/// through to loc_8672 without touching any counter.
+#[test]
+fn loc_866a_other_block_types_ignored() {
+    // col 0 = solid + Prize (0xE1), col 1 = solid + Metal (0xE5).
+    // d4=2, d2=0, d3=0. rubber*2=0 < solid=2 → should be Normal.
+    // But ORIGINAL_QUIRK: 0 >= 0 only triggers when d4=0 too. Here d4=2,
+    // so rubber*2=0 < 2 → blt taken → stays Normal. Wait, no:
+    // 0 < 2 → blt IS taken → skip rubber. Correct: Normal.
+    let grid = grid_with_cells(4, 4, &[(0, 2, 0xE1, 0x00), (1, 2, 0xE5, 0x00)]);
+    let surface = grounded_surface_type_sub_8600(&grid, 16, 31, 16);
+    assert_eq!(
+        surface,
+        TerrainType::Normal,
+        "ASM loc_866A: Prize (#$100) and Metal (#$500) must not increment d2 or d3"
+    );
+}
+
+/// ASM loc_8672 (kid.asm:9499): dbf d1,loc_864A — loop iterates exactly
+/// (end_col - start_col + 1) times. Verify a single-tile scan (d1=0 after
+/// sub, one iteration) still works correctly.
+#[test]
+fn loc_8672_single_tile_scan() {
+    // Player at x=8, half_width=7 → pixels 1..15 → both in tile col 0.
+    // start_col=0, end_col=0, dbf counter=0 → one iteration.
+    let grid = grid_with_cells(4, 4, &[(0, 2, 0xE6, 0x00)]);
+    let surface = grounded_surface_type_sub_8600(&grid, 8, 31, 7);
+    assert_eq!(
+        surface,
+        TerrainType::Rubber,
+        "ASM loc_8672: dbf with d1=0 should still execute the loop body once"
+    );
+}
+
+/// ASM loc_8672 (kid.asm:9499): multi-tile scan — verify all tiles in the
+/// span contribute to counters.
+#[test]
+fn loc_8672_multi_tile_scan_all_counted() {
+    // 6-column grid, 4 solid ice tiles at cols 1-4, row 2.
+    // Player at x=48, half_width=32 → pixels 16..80 → cols 1..4.
+    // d4=4 (all solid), d2=4 (all ice). ice*2=8 > solid=4 → Ice.
+    let grid = grid_with_cells(
+        6,
+        4,
+        &[
+            (1, 2, 0xE2, 0x01),
+            (2, 2, 0xE2, 0x01),
+            (3, 2, 0xE2, 0x01),
+            (4, 2, 0xE2, 0x01),
+        ],
+    );
+    let surface = grounded_surface_type_sub_8600(&grid, 48, 31, 32);
+    assert_eq!(
+        surface,
+        TerrainType::Ice,
+        "ASM loc_8672: dbf should loop through all 4 columns, \
+         counting 4 solid + 4 ice → ice wins"
+    );
+}
+
+/// ASM loc_8688 (kid.asm:9513): move.w d0,($FFFFFA0A).w — the final result.
+/// When no solid/ice/rubber tiles exist, d4=d2=d3=0. Post-loop: d0=0
+/// (Normal), ice*2=0 NOT > 0 (no Ice), rubber*2=0 >= 0 → d0=2 (Rubber).
+/// ORIGINAL_QUIRK: empty scan returns Rubber because `blt.s` does not
+/// branch when d3 == d4 == 0.
+#[test]
+fn loc_8688_empty_scan_returns_rubber_original_quirk() {
+    // All-empty grid: no solid, no blocks.
+    let grid = grid_with_cells(4, 4, &[]);
+    let surface = grounded_surface_type_sub_8600(&grid, 24, 31, 16);
+    assert_eq!(
+        surface,
+        TerrainType::Rubber,
+        "ASM loc_8688: ORIGINAL_QUIRK — all-empty scan: d4=0,d3=0, \
+         rubber*2=0 >= solid=0 → blt not taken → Rubber"
+    );
+}
+
+/// ASM loc_8688 (kid.asm:9513): rubber overrides ice when both thresholds
+/// are met. The ASM evaluates ice first (loc_8676), then rubber (loc_8680).
+/// Since rubber is checked second, it overwrites ice.
+#[test]
+fn loc_8688_rubber_overrides_ice_when_both_qualify() {
+    // 2 tiles: col 0 = solid + Ice (0xE2), col 1 = solid + Rubber (0xE6).
+    // d4=2 (solid), d2=1 (ice), d3=1 (rubber).
+    // ice*2=2 > solid=2? No (not strict). → stays Normal.
+    // rubber*2=2 >= solid=2? Yes. → Rubber.
+    let grid = grid_with_cells(4, 4, &[(0, 2, 0xE2, 0x00), (1, 2, 0xE6, 0x00)]);
+    let surface = grounded_surface_type_sub_8600(&grid, 16, 31, 16);
+    assert_eq!(
+        surface,
+        TerrainType::Rubber,
+        "ASM loc_8688: rubber check (loc_8680) runs after ice check, \
+         so Rubber overwrites Normal/Ice when d3*2 >= d4"
+    );
+}
