@@ -3546,6 +3546,14 @@ impl NativeRuntime {
     /// sequence: `cmpi.w #Eyeclops; andi.b #$C0,d0; cmpi.b #$C0,d0;
     /// tst.w ($FFFFFAB8); cmpi.w #2,(Number_Diamonds); move.w #$8001`.
     ///
+    /// ASM loc_8D58 (kid.asm:10142): walking-on-platform Eyeclops C-press
+    /// beam — fall-through from Juggernaut skull check (loc_8D2C).  `cmpi.w
+    /// #Eyeclops,(Current_Helmet); bne.s loc_8D72` (not Eyeclops → skip),
+    /// `tst.w ($FFFFFAB8); bne.s loc_8D72` (beam active → skip), `move.w
+    /// #1,($FFFFFAB8)` (arm beam), `move.b x_direction(a3),($FFFFFABE)`
+    /// (latch direction).  Native: same `step_eyeclops_beam` runs every
+    /// frame regardless of standing/walking/platform state.
+    ///
     /// Native runs this check every frame (not just standing-still) and uses
     /// B+C as the held-button gate rather than A+Start.
     /// TODO(fidelity): ASM hard beam gate is A+Start ($C0), native uses B+C.

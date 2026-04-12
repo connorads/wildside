@@ -74784,3 +74784,291 @@ fn loc_8cf8_non_red_stealth_ignores_c_press() {
         "ASM loc_8CF8: cmpi.w #Red_Stealth — non-Red-Stealth clears timer"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ASM loc_8D2 (kid.asm:992) + loc_8D8 (kid.asm:996): sub_8C2 save-player-slot.
+// `tst.b (Current_player); beq.w loc_8D2` selects P1/P2 base address.
+// `moveq #$A,d0; lea (Number_Lives),a1` → loc_8D8: `move.w (a1)+,(a0)+;
+// dbf d0,loc_8D8; rts` copies 11 words from working state to player slot.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8D2 + loc_8D8: save_player_slot copies working state to P1 slot.
+#[test]
+fn loc_8d2_save_player_slot_copies_working_state_to_player_1() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.current_player_index = 0;
+    rt.progression.number_lives = 4;
+    rt.progression.number_hitpoints = 3;
+    rt.progression.diamond_count = 22;
+    rt.current_level = LevelId(7);
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.progression.number_continues = 2;
+    rt.progression.score = 55_000;
+
+    rt.save_player_slot();
+
+    assert_eq!(
+        rt.player_slots[0].lives, 4,
+        "ASM loc_8D8: move.w (a1)+,(a0)+ — lives copied to Player_1_Lives"
+    );
+    assert_eq!(rt.player_slots[0].hitpoints, 3);
+    assert_eq!(rt.player_slots[0].diamonds, 22);
+    assert_eq!(rt.player_slots[0].level_id, LevelId(7));
+    assert_eq!(rt.player_slots[0].form, PlayerForm::Maniaxe);
+    assert_eq!(rt.player_slots[0].continues, 2);
+    assert_eq!(rt.player_slots[0].score, 55_000);
+}
+
+/// ASM loc_8D2: `tst.b (Current_player); beq.w loc_8D2` — player 2 uses
+/// Player_2_Lives base address. Verify save targets the correct slot.
+#[test]
+fn loc_8d2_save_player_slot_selects_player_2_when_current_player_is_1() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Record player 1's initial slot state before any save
+    let p1_lives_before = rt.player_slots[0].lives;
+    let p1_score_before = rt.player_slots[0].score;
+
+    rt.current_player_index = 1;
+    rt.progression.number_lives = 9;
+    rt.progression.score = 99_999;
+    rt.progression.current_form = PlayerForm::Cyclone;
+
+    rt.save_player_slot();
+
+    assert_eq!(
+        rt.player_slots[1].lives, 9,
+        "ASM loc_8D2: player 2 selected via lea (Player_2_Lives),a0"
+    );
+    assert_eq!(rt.player_slots[1].score, 99_999);
+    assert_eq!(rt.player_slots[1].form, PlayerForm::Cyclone);
+    // Player 1 slot must be untouched (same as before save)
+    assert_eq!(
+        rt.player_slots[0].lives, p1_lives_before,
+        "ASM loc_8D2: player 1 slot must remain untouched when saving player 2"
+    );
+    assert_eq!(rt.player_slots[0].score, p1_score_before);
+}
+
+/// ASM loc_8D8: `dbf d0,loc_8D8` loop count is $A (10), so 11 iterations copy
+/// all fields. Verify that repeated saves overwrite prior values.
+#[test]
+fn loc_8d8_save_overwrites_prior_slot_values() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.current_player_index = 0;
+    rt.progression.number_lives = 5;
+    rt.progression.score = 10_000;
+    rt.save_player_slot();
+
+    // Change working state and save again
+    rt.progression.number_lives = 2;
+    rt.progression.score = 20_000;
+    rt.save_player_slot();
+
+    assert_eq!(
+        rt.player_slots[0].lives, 2,
+        "ASM loc_8D8: second save must overwrite first save"
+    );
+    assert_eq!(rt.player_slots[0].score, 20_000);
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8D58 (kid.asm:10142): walking-on-platform Eyeclops C-press beam.
+// Fall-through from Juggernaut skull check (loc_8D2C).
+// `cmpi.w #Eyeclops,(Current_Helmet); bne.s loc_8D72` (skip if not Eyeclops),
+// `tst.w ($FFFFFAB8); bne.s loc_8D72` (beam already active → skip),
+// `move.w #1,($FFFFFAB8)` (arm normal beam),
+// `move.b x_direction(a3),($FFFFFABE)` (latch direction).
+// Native: step_eyeclops_beam runs every frame for all states.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8D58: Eyeclops C-press fires beam when no beam is active.
+#[test]
+fn loc_8d58_eyeclops_c_press_fires_beam_on_platform() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    let mut slice = combat_slice();
+    slice.player.facing = Direction::Right;
+    let input = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_eyeclops_beam(&slice, input);
+    assert!(
+        rt.helmet.eyeclops_beam_active,
+        "ASM loc_8D58: move.w #1,($FFFFFAB8) — beam active after C press"
+    );
+    assert_eq!(
+        rt.helmet.eyeclops_beam_counter, 1,
+        "ASM loc_8D58: normal beam counter = 1 (not $8001 hard beam)"
+    );
+}
+
+/// ASM loc_8D58: `tst.w ($FFFFFAB8); bne.s loc_8D72` — active beam blocks re-fire.
+#[test]
+fn loc_8d58_eyeclops_active_beam_blocks_second_fire() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    let mut slice = combat_slice();
+    slice.player.facing = Direction::Right;
+    // First C press
+    let input1 = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_eyeclops_beam(&slice, input1);
+    // Simulate release then re-press
+    rt.prior_input = FrameInput::default();
+    let input2 = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_eyeclops_beam(&slice, input2);
+    // Beam already active — second press should not reset counter to 1
+    assert!(
+        rt.helmet.eyeclops_beam_active,
+        "ASM loc_8D58: tst.w ($FFFFFAB8) — beam stays active"
+    );
+    assert!(
+        rt.helmet.eyeclops_beam_counter > 1,
+        "ASM loc_8D58: tst.w ($FFFFFAB8); bne.s loc_8D72 — counter increments, no restart"
+    );
+}
+
+/// ASM loc_8D58: `cmpi.w #Eyeclops; bne.s loc_8D72` — non-Eyeclops skips.
+#[test]
+fn loc_8d58_non_eyeclops_skips_beam_activation() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_eyeclops_beam(&slice, input);
+    assert!(
+        !rt.helmet.eyeclops_beam_active,
+        "ASM loc_8D58: cmpi.w #Eyeclops — Juggernaut must not activate beam"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8DA0 (kid.asm:10164): walking-on-platform y tracking after wall
+// collision clear. `move.w (Addr_PlatformStandingOn),a4; move.l $E(a4),
+// y_vel(a3); move.l 6(a4),y_pos(a3); subq.w #1,y_pos(a3)` — snaps Kid to
+// platform_y - 1, copies platform y_vel. Then `bsr.w sub_902A`: EQ → loc_8DD4,
+// d7==2 → Death, NE → detach (clr Addr_PlatformStandingOn, clr y_vel,
+// sub_942A, bra loc_8BF0).
+// Native: apply_platform_collision carries player additively with platform vel.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8DA0: platform y_velocity is applied to grounded player.
+#[test]
+fn loc_8da0_platform_y_velocity_carries_grounded_player() {
+    use crate::platforms::apply_platform_collision;
+
+    let mut platform = make_test_platform(50, 100, 2, 0);
+    platform.y_velocity = -0x1_0000_i32; // moving up 1px/frame
+    let mut slice = make_airborne_slice(50, 99);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+
+    apply_platform_collision(&mut slice, &[platform]);
+
+    assert_eq!(
+        slice.player.y_pos,
+        (99u32 << 16).wrapping_sub(0x1_0000),
+        "ASM loc_8DA0: move.l $E(a4),y_vel(a3) — platform y_vel carries player"
+    );
+}
+
+/// ASM loc_8DA0: platform x_velocity is also carried (before y tracking).
+#[test]
+fn loc_8da0_platform_x_velocity_carries_grounded_player() {
+    use crate::platforms::apply_platform_collision;
+
+    let mut platform = make_test_platform(50, 100, 2, 0);
+    platform.x_velocity = 0x2_0000; // moving right 2px/frame
+    let mut slice = make_airborne_slice(50, 99);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+
+    apply_platform_collision(&mut slice, &[platform]);
+
+    assert_eq!(
+        slice.player.x_pos,
+        (50u32 << 16) + 0x2_0000,
+        "ASM loc_8DA0: platform x_vel carries grounded player horizontally"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8DD4 (kid.asm:10179): walking-on-platform support test.
+// `bsr.w sub_8ED0`: if NE (unsupported) → `move.w #MoveID_Jump; bsr.w
+// sub_B270; bra.w loc_A6F8` (become airborne). If EQ (supported) → loc_8DEA:
+// `move.l ($FFFFFA98),d0; bsr.w sub_942A; bra.w loc_8BF0` (keep walking).
+// Native: platform_support_check_sub_8ED0 returns true when player falls off
+// platform edge; unsupported platforms are skipped in apply_platform_collision.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8DD4: player centred on platform is supported (sub_8ED0 returns EQ).
+#[test]
+fn loc_8dd4_platform_support_check_centred_player_is_supported() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+
+    let platform = make_test_platform(40, 100, 2, 0); // width = 2*16+15 = 47px
+    // Player at x=60, half_width=7: left=53, right=67; platform spans [40..87]
+    let unsupported =
+        platform_support_check_sub_8ED0(Some(&platform), 60u32 << 16, 7, PlayerForm::TheKid, false);
+    assert!(
+        !unsupported,
+        "ASM loc_8DD4: sub_8ED0 returns EQ (supported) when player is centred on platform"
+    );
+}
+
+/// ASM loc_8DD4: player past platform edge is unsupported (sub_8ED0 returns NE).
+/// NE path: `move.w #MoveID_Jump; bsr.w sub_B270; bra.w loc_A6F8`.
+#[test]
+fn loc_8dd4_platform_support_check_player_past_edge_is_unsupported() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+
+    let platform = make_test_platform(40, 100, 2, 0); // right edge = 40 + 47 = 87
+    // Player at x=100, half_width=7: left=93 > 87 → unsupported
+    let unsupported = platform_support_check_sub_8ED0(
+        Some(&platform),
+        100u32 << 16,
+        7,
+        PlayerForm::TheKid,
+        false,
+    );
+    assert!(
+        unsupported,
+        "ASM loc_8DD4: sub_8ED0 returns NE (unsupported) — player has walked off edge"
+    );
+}
+
+/// ASM loc_8DD4: apply_platform_collision skips carry for unsupported platform.
+#[test]
+fn loc_8dd4_unsupported_platform_does_not_carry_player() {
+    use crate::platforms::apply_platform_collision;
+
+    let mut platform = make_test_platform(40, 100, 2, 0); // right edge = 87
+    platform.x_velocity = 0x3_0000;
+    platform.y_velocity = -0x1_0000_i32;
+    // Player far to the right of the platform (unsupported)
+    let initial_x = 120u32 << 16;
+    let initial_y = 99u32 << 16;
+    let mut slice = make_airborne_slice(120, 99);
+    slice.player.on_ground = true;
+    slice.player.y_velocity = 0;
+
+    apply_platform_collision(&mut slice, &[platform]);
+
+    assert_eq!(
+        slice.player.x_pos, initial_x,
+        "ASM loc_8DD4: unsupported → no carry (native skips platform)"
+    );
+    assert_eq!(
+        slice.player.y_pos, initial_y,
+        "ASM loc_8DD4: unsupported → no y carry"
+    );
+}

@@ -10742,6 +10742,16 @@ impl NativeRuntime {
     }
 
     /// Save working state to the current player's slot (ASM sub_8C2).
+    ///
+    /// ASM loc_8D2 (kid.asm:992): entry after player select — `tst.b
+    ///   (Current_player); beq.w loc_8D2` selects Player_1_Lives (P1) or
+    ///   Player_2_Lives (P2) as base address a0.  Then `moveq #$A,d0; lea
+    ///   (Number_Lives),a1`.
+    ///
+    /// ASM loc_8D8 (kid.asm:996): copy loop body — `move.w (a1)+,(a0)+;
+    ///   dbf d0,loc_8D8; rts`.  Copies 11 words (lives, hitpoints, diamonds,
+    ///   level ID, helmet, continues, extra_hitpoint_slots, score[long]) from
+    ///   working Number_Lives into the selected player's save slot.
     pub(crate) fn save_player_slot(&mut self) {
         let slot = &mut self.player_slots[self.current_player_index as usize];
         slot.lives = self.progression.number_lives;

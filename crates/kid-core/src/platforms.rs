@@ -696,6 +696,22 @@ pub(crate) fn apply_platform_collision(
             // `moveq #0,d7 / bra.w Death`.  If y_vel >= 0 (platform moving
             // down or stationary), the ROM clears Addr_PlatformStandingOn and
             // enters walking (sub_942A → loc_8BF0).
+            //
+            // ASM loc_8DA0 (kid.asm:10164): walking-on-platform post-wall-
+            // collision y tracking — `move.w (Addr_PlatformStandingOn),a4;
+            // move.l $E(a4),y_vel(a3); move.l 6(a4),y_pos(a3); subq.w #1,
+            // y_pos(a3)` — snaps y_pos to platform_y - 1, copies y_vel.
+            // Then `bsr.w sub_902A`: if EQ → loc_8DD4 (support check), if
+            // d7==2 → Death, if NE → detach (clr Addr_PlatformStandingOn,
+            // clr y_vel, sub_942A, bra loc_8BF0).
+            //
+            // ASM loc_8DD4 (kid.asm:10179): walking-on-platform support test
+            // — `bsr.w sub_8ED0`: if NE (unsupported) → `move.w #MoveID_Jump;
+            // bsr.w sub_B270; bra.w loc_A6F8` (become airborne).  If EQ
+            // (supported) → loc_8DEA: `move.l ($FFFFFA98),d0; bsr.w sub_942A;
+            // bra.w loc_8BF0` (continue walking on platform).
+            // Native: `platform_support_check_sub_8ED0` decides skip/carry;
+            // unsupported platforms are skipped so Kid falls via gravity.
             // TODO(fidelity): native does not yet detect platform-vs-ceiling
             // crush death.  Upward-moving platforms carry the player without
             // checking for ceiling collision.
