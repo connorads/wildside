@@ -744,15 +744,22 @@ pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 
     // then `cmp.w d1,d0; bcs.s skip; move.w d1,d0`.
     let target = (player - CAMERA_PLAYER_OFFSET).max(0).min(max_pos);
 
-    // ASM loc_7214 (kid.asm:7327): velocity with edge-snap special cases
+    // ASM loc_7214 / loc_72A8 (kid.asm:7327 / 7401): velocity with edge-snap
+    // special cases.  X-axis uses d2/d4, Y-axis uses d3/d4; logic is identical.
     let velocity = if camera <= 4 && target < camera {
-        // Near left/top edge, target is further left/up: nudge at -1
+        // ASM loc_7214 / loc_72A8: near left/top edge, target further left/up
+        // → nudge at -1.  `cmpi.w #4,d4; bgt.s ...; cmp.w d4,d0; bge.s ...;
+        //   moveq #-1,d2` (X) / `moveq #-1,d3` (Y)
         -1
     } else if camera >= max_pos - 4 && target > camera {
-        // Near right/bottom edge, target is further right/down: nudge at +1
+        // ASM loc_7226 / loc_72BA (kid.asm:7337 / 7411): near right/bottom
+        // edge, target further right/down → nudge at +1.
+        // `subq.w #4,d1; cmp.w d1,d4; blt.s ...; cmp.w d4,d0; ble.s ...;
+        //  moveq #1,d2` (X) / `moveq #1,d3` (Y)
         1
     } else {
-        // loc_7234: (target - camera + 4) >> 3
+        // ASM loc_7234 / loc_72C8 (kid.asm:7347 / 7421): normal smooth scroll.
+        // `sub.w Camera_X/Y_pos,d0; addq.w #4,d0; asr.w #3,d0; move.w d0,d2/d3`
         let delta = (target - camera + 4) >> 3;
         delta.clamp(-CAMERA_MAX_STEP, CAMERA_MAX_STEP)
     };
@@ -2500,6 +2507,178 @@ mod proptests {
         let result = update_camera_axis(40, player_y, max_y);
         // target == camera → delta = (0+4)>>3 = 0, no movement
         assert_eq!(result, 40);
+    }
+
+    // --- loc_72A8: Y-axis near-top-edge nudge ---
+
+    /// ASM loc_72A8 (kid.asm:7401): camera near top of level, target below
+    /// camera → nudge down at -1.
+    /// ```asm
+    /// loc_72A8:
+    ///   move.w  (Camera_Y_pos).w,d4  ; d4 = camera_y
+    ///   cmpi.w  #4,d4                ; camera_y > 4?
+    ///   bgt.s   loc_72BA             ; yes → skip
+    ///   cmp.w   d4,d0                ; target >= camera?
+    ///   bge.s   loc_72BA             ; yes → skip
+    ///   moveq   #-1,d3              ; velocity = -1
+    ///   bra.s   loc_72D2
+    /// ```
+    #[test]
+    fn loc_72a8_near_top_edge_nudges_up() {
+        // camera_y=3 (<=4), target_y=0 (< camera) → velocity = -1
+        let result = update_camera_axis(3, 0, 288);
+        assert_eq!(result, 2, "ASM loc_72A8: near top edge → nudge -1");
+    }
+
+    /// loc_72A8: camera_y=4 is still within the ≤4 threshold.
+    #[test]
+    fn loc_72a8_boundary_at_exactly_4() {
+        // camera_y=4 (<=4), target_y=0 (< camera) → velocity = -1
+        let result = update_camera_axis(4, 0, 288);
+        assert_eq!(result, 3, "ASM loc_72A8: camera_y==4 still triggers nudge");
+    }
+
+    /// loc_72A8: camera_y=5 exceeds threshold → falls through to loc_72C8.
+    #[test]
+    fn loc_72a8_camera_at_5_falls_through() {
+        // camera_y=5 (>4), target_y=0 (< camera) → standard path
+        // delta = (0 - 5 + 4) >> 3 = -1 >> 3 = -1 (arithmetic shift of negative)
+        let result = update_camera_axis(5, 0, 288);
+        assert_eq!(result, 4, "ASM loc_72A8: camera_y>4 → standard delta path");
+    }
+
+    /// loc_72A8: camera_y<=4 but target >= camera → no nudge, falls through.
+    #[test]
+    fn loc_72a8_target_ge_camera_no_nudge() {
+        // camera_y=2 (<=4), target_y=2 (== camera) → standard path
+        let player_y = 2 + CAMERA_PLAYER_OFFSET;
+        let result = update_camera_axis(2, player_y, 288);
+        // delta = (2 - 2 + 4) >> 3 = 0
+        assert_eq!(result, 2, "ASM loc_72A8: target==camera → no nudge");
+    }
+
+    // --- loc_72BA: Y-axis near-bottom-edge nudge ---
+
+    /// ASM loc_72BA (kid.asm:7411): camera near bottom of level, target above
+    /// camera → nudge up at +1.
+    /// ```asm
+    /// loc_72BA:
+    ///   subq.w  #4,d1               ; d1 = max_pos - 4
+    ///   cmp.w   d1,d4               ; camera_y < max_pos-4?
+    ///   blt.s   loc_72C8            ; yes → skip
+    ///   cmp.w   d4,d0               ; target <= camera?
+    ///   ble.s   loc_72C8            ; yes → skip
+    ///   moveq   #1,d3              ; velocity = +1
+    ///   bra.s   loc_72D2
+    /// ```
+    #[test]
+    fn loc_72ba_near_bottom_edge_nudges_down() {
+        let max_y = 288;
+        // camera_y = max_y - 3 = 285 (>= max_y-4=284), target = max_y (> camera)
+        let camera = max_y - 3;
+        let player_y = max_y + CAMERA_PLAYER_OFFSET;
+        let result = update_camera_axis(camera, player_y, max_y);
+        assert_eq!(
+            result,
+            camera + 1,
+            "ASM loc_72BA: near bottom edge → nudge +1"
+        );
+    }
+
+    /// loc_72BA: camera_y exactly at max_pos-4 threshold.
+    #[test]
+    fn loc_72ba_boundary_at_max_minus_4() {
+        let max_y = 288;
+        let camera = max_y - 4; // 284, >= max_y-4=284
+        let player_y = max_y + CAMERA_PLAYER_OFFSET; // target = max_y > camera
+        let result = update_camera_axis(camera, player_y, max_y);
+        assert_eq!(
+            result,
+            camera + 1,
+            "ASM loc_72BA: camera==max-4 still triggers"
+        );
+    }
+
+    /// loc_72BA: camera_y below threshold → falls through to loc_72C8.
+    #[test]
+    fn loc_72ba_camera_below_threshold_falls_through() {
+        let max_y = 288;
+        let camera = max_y - 5; // 283, < max_y-4=284
+        let player_y = max_y + CAMERA_PLAYER_OFFSET;
+        let result = update_camera_axis(camera, player_y, max_y);
+        // target = max_y = 288, delta = (288 - 283 + 4) >> 3 = 9 >> 3 = 1
+        assert_eq!(
+            result,
+            camera + 1,
+            "ASM loc_72BA: camera<max-4 → standard delta"
+        );
+    }
+
+    /// loc_72BA: target <= camera → no nudge even when near bottom.
+    #[test]
+    fn loc_72ba_target_le_camera_no_nudge() {
+        let max_y = 288;
+        let camera = max_y - 3; // near bottom
+        let player_y = camera + CAMERA_PLAYER_OFFSET; // target == camera
+        let result = update_camera_axis(camera, player_y, max_y);
+        // delta = (camera - camera + 4) >> 3 = 0
+        assert_eq!(result, camera, "ASM loc_72BA: target==camera → no nudge");
+    }
+
+    // --- loc_72C8: Y-axis normal smooth scroll ---
+
+    /// ASM loc_72C8 (kid.asm:7421): normal case, compute velocity as
+    /// `(target - Camera_Y_pos + 4) >> 3`.
+    /// ```asm
+    /// loc_72C8:
+    ///   sub.w   (Camera_Y_pos).w,d0  ; d0 = target - camera_y
+    ///   addq.w  #4,d0                ; d0 += 4
+    ///   asr.w   #3,d0                ; d0 >>= 3 (arithmetic)
+    ///   move.w  d0,d3                ; d3 = velocity
+    /// ```
+    #[test]
+    fn loc_72c8_smooth_scroll_positive_delta() {
+        let max_y = 288;
+        // camera_y = 50, player such that target = 90 → delta = (90-50+4)>>3 = 5
+        let player_y = 90 + CAMERA_PLAYER_OFFSET;
+        let result = update_camera_axis(50, player_y, max_y);
+        assert_eq!(
+            result, 55,
+            "ASM loc_72C8: positive delta = (90-50+4)>>3 = 5"
+        );
+    }
+
+    /// loc_72C8: negative delta when target is below camera.
+    #[test]
+    fn loc_72c8_smooth_scroll_negative_delta() {
+        let max_y = 288;
+        // camera_y = 100, player such that target = 60
+        // delta = (60-100+4)>>3 = -36>>3 = -5
+        let player_y = 60 + CAMERA_PLAYER_OFFSET;
+        let result = update_camera_axis(100, player_y, max_y);
+        assert_eq!(
+            result, 95,
+            "ASM loc_72C8: negative delta = (60-100+4)>>3 = -5"
+        );
+    }
+
+    /// loc_72C8 → loc_72D2: large delta clamped to +8.
+    #[test]
+    fn loc_72c8_large_positive_clamped_to_8() {
+        let max_y = 288;
+        // camera_y = 10, target = 288 → delta = (288-10+4)>>3 = 35, clamped to 8
+        let player_y = max_y + CAMERA_PLAYER_OFFSET;
+        let result = update_camera_axis(10, player_y, max_y);
+        assert_eq!(result, 18, "ASM loc_72D2: positive delta clamped to 8");
+    }
+
+    /// loc_72C8 → loc_72DA: large negative delta clamped to -8.
+    #[test]
+    fn loc_72c8_large_negative_clamped_to_minus_8() {
+        let max_y = 288;
+        // camera_y = 200, target = 0 → delta = (0-200+4)>>3 = -24, clamped to -8
+        let result = update_camera_axis(200, 0, max_y);
+        assert_eq!(result, 192, "ASM loc_72DA: negative delta clamped to -8");
     }
 
     // --- loc_726C: ceiling look-offset pull-back ---
