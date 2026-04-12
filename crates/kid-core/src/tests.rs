@@ -15137,6 +15137,208 @@ fn form_transform_iron_knight_changes_form_and_hitpoints() {
     );
 }
 
+/// ASM loc_7C76 (kid.asm:8387): `move.w (Current_Helmet).w,d7; beq.w loc_7CD0`
+/// — when the old form is TheKid (d7==0), Kid_Transform skips the reverse
+/// animation phase entirely and branches to loc_7CD0 (put-on-new). The total
+/// flash duration is only the forward phase + 1 entry frame.
+#[test]
+fn loc_7c76_thekid_to_helmet_skips_reverse_animation() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
+
+    runtime.queue_form_change(PlayerForm::Skycutter);
+    runtime.resolve_pending_form_change();
+
+    // TheKid has 0 animation frames (no table entry at off_7EE2[0]).
+    // loc_7C76 branches directly to loc_7CD0 which runs only the forward
+    // Skycutter table (47 frames) + 1 entry frame.
+    assert_eq!(
+        runtime.progression.form_change_flash_frames,
+        47 + 1, // 0 (TheKid reverse) + 47 (Skycutter forward) + 1 (entry)
+        "ASM loc_7C76: TheKid→Skycutter should have no reverse phase (old_frames=0)"
+    );
+}
+
+/// ASM loc_7C76 (kid.asm:8387): `cmp.w (Current_Helmet_Available).w,d7;
+/// bne.w loc_7C96` — when old and new helmet differ, both reverse (loc_7C96 →
+/// loc_7CA6 → loc_7CBE loop) and forward (loc_7CD0 → loc_7D0A → loc_7D22 loop)
+/// animation phases run.
+#[test]
+fn loc_7c76_different_helmet_runs_both_phases() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    // First transform to Cyclone
+    runtime.queue_form_change(PlayerForm::Cyclone);
+    runtime.resolve_pending_form_change();
+    assert_eq!(runtime.progression.current_form, PlayerForm::Cyclone);
+
+    // Now transform Cyclone → IronKnight (different helmets)
+    runtime.queue_form_change(PlayerForm::IronKnight);
+    runtime.resolve_pending_form_change();
+
+    // Cyclone reverse (72) + IronKnight forward (81) + 1 entry frame
+    assert_eq!(
+        runtime.progression.form_change_flash_frames,
+        (72 + 81 + 1) as u8,
+        "ASM loc_7C76: Cyclone→IronKnight should run both reverse and forward phases"
+    );
+}
+
+/// ASM loc_7C96 (kid.asm:8399): `addq.w #1,d7; add.w d7,d7; lea off_7EE2(pc),a0;
+/// move.w (a0,d7.w),d7; subq.w #2,d7; add.w d7,a0` — indexes the old helmet's
+/// animation table end via off_7EE2, then iterates backward through loc_7CA6.
+/// The reverse phase frame count equals the old helmet's transform_anim_frames.
+#[test]
+fn loc_7c96_reverse_phase_uses_old_helmet_table() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    // Transform to RedStealth first
+    runtime.queue_form_change(PlayerForm::RedStealth);
+    runtime.resolve_pending_form_change();
+
+    // RedStealth → Eyeclops
+    runtime.queue_form_change(PlayerForm::Eyeclops);
+    runtime.resolve_pending_form_change();
+
+    // RedStealth reverse (54 from stru_7F5A) + Eyeclops forward (93) + 1
+    assert_eq!(
+        runtime.progression.form_change_flash_frames,
+        (54 + 93 + 1) as u8,
+        "ASM loc_7C96: reverse phase should use RedStealth's 54-frame table (stru_7F5A)"
+    );
+}
+
+/// ASM loc_7CA6 (kid.asm:8407): `move.w -(a0),d7; bmi.w loc_7CD0` — the inner
+/// reverse-animation loop reads entries backward. Each entry's high byte is a
+/// repeat count consumed by loc_7CBE's `dbf d0,loc_7CBE` loop. The sum of all
+/// repeat counts for a helmet equals transform_anim_frames(). Verify this for
+/// every helmet with a table.
+#[test]
+fn loc_7ca6_reverse_loop_frame_counts_match_animation_tables() {
+    // ASM stru_7EFA..stru_808A: each anim_frame's first field is the repeat count.
+    // loc_7CA6 reads them backward; loc_7CBE loops `d0` times calling j_sub_8E0.
+    // The net effect is that each entry contributes its repeat-count to the total.
+    let expected: &[(PlayerForm, u8)] = &[
+        (PlayerForm::TheKid, 0),      // no table at off_7EE2[0]
+        (PlayerForm::Skycutter, 47),  // stru_7EFA: 8+4+4+4+4+2+2+2+3+3+3+3+5
+        (PlayerForm::Cyclone, 72),    // stru_7F30: 16+4+8+4+4+4+4+8+4+16
+        (PlayerForm::RedStealth, 54), // stru_7F5A: 4+8+4+4+2+2+3+3+4+4+3+5+8
+        (PlayerForm::Eyeclops, 93),   // stru_7F90: 24+4+12+4+6+4+4+4+4+4+8+4+8+3
+        (PlayerForm::Juggernaut, 33), // stru_7FCA
+        (PlayerForm::IronKnight, 81), // stru_7FF8
+        (PlayerForm::Berzerker, 51),  // stru_803A
+        (PlayerForm::Maniaxe, 45),    // stru_8064
+        (PlayerForm::Micromax, 59),   // stru_808A
+    ];
+
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    for &(form, expected_frames) in expected {
+        // Transform from TheKid → form, so old_frames=0
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.queue_form_change(form);
+        runtime.resolve_pending_form_change();
+
+        let actual = runtime.progression.form_change_flash_frames;
+        // total = 0 (TheKid reverse) + expected_frames (forward) + 1 (entry)
+        assert_eq!(
+            actual,
+            expected_frames.saturating_add(1),
+            "ASM loc_7CA6/loc_7CBE: {form:?} animation table frame count mismatch"
+        );
+    }
+}
+
+/// ASM loc_7CBE (kid.asm:8418): `movem.l d0-a5,-(sp); jsr (j_sub_8E0).w;
+/// movem.l (sp)+,d0-a5; dbf d0,loc_7CBE` — frame-wait loop calling j_sub_8E0
+/// (VBlank/Hibernate) for each animation frame. Native doesn't run a coroutine;
+/// the hibernate is modelled by form_change_flash_frames countdown which
+/// suppresses gameplay_hibernating_for_transform(). Verify the countdown
+/// correctly blocks gameplay.
+#[test]
+fn loc_7cbe_hibernate_loop_suppresses_gameplay() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    runtime.queue_form_change(PlayerForm::IronKnight);
+    runtime.resolve_pending_form_change();
+
+    let flash = runtime.progression.form_change_flash_frames;
+    assert!(flash > 0, "flash should be active");
+    assert!(
+        runtime.gameplay_hibernating_for_transform(),
+        "ASM loc_7CBE: j_sub_8E0 hibernate loop should suppress gameplay"
+    );
+
+    // After enough frames the hibernate lifts
+    for _ in 0..flash {
+        runtime.step_frame(FrameInput::default());
+    }
+    assert!(
+        !runtime.gameplay_hibernating_for_transform(),
+        "ASM loc_7CBE: after all hibernate frames, gameplay should resume"
+    );
+}
+
+/// ASM loc_7CD0 (kid.asm:8426): `move.w (Current_Helmet_Available).w,
+/// (Current_Helmet).w; beq.w loc_7E14` — sets Current_Helmet to the target.
+/// When transforming from a helmet to TheKid (damage path), the forward phase
+/// has 0 frames (TheKid has no table), so only reverse + 1 entry frame.
+#[test]
+fn loc_7cd0_helmet_to_thekid_only_reverse_phase() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    // First become Maniaxe
+    runtime.queue_form_change(PlayerForm::Maniaxe);
+    runtime.resolve_pending_form_change();
+    assert_eq!(runtime.progression.current_form, PlayerForm::Maniaxe);
+
+    // Now damage strips helmet → transform to TheKid
+    runtime.queue_form_change(PlayerForm::TheKid);
+    runtime.resolve_pending_form_change();
+
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::TheKid,
+        "ASM loc_7CD0: Current_Helmet should be set to target (TheKid)"
+    );
+    // Maniaxe reverse (45) + TheKid forward (0, beq.w loc_7E14 skips) + 1 entry = 46
+    assert_eq!(
+        runtime.progression.form_change_flash_frames, 46,
+        "ASM loc_7CD0: helmet→TheKid should have only reverse phase"
+    );
+}
+
+/// ASM loc_7CD0 (kid.asm:8426): when Current_Helmet_Available != 0,
+/// `sub_E1334` is called and the per-helmet transform sound from unk_7ED8 plays
+/// before the forward animation at loc_7D0A. Verify the form is correctly set
+/// and hitpoints updated via sub_7EB2 for the new helmet.
+#[test]
+fn loc_7cd0_sets_hitpoints_for_new_helmet() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.extra_hitpoint_slots = 1;
+
+    runtime.queue_form_change(PlayerForm::Juggernaut);
+    runtime.resolve_pending_form_change();
+
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::Juggernaut,
+        "ASM loc_7CD0: current form should be the new helmet"
+    );
+    // sub_7EB2: unk_7EC2[Juggernaut=5] = 3, + extra_hitpoint_slots(1) = 4
+    assert_eq!(
+        runtime.progression.number_hitpoints, 4,
+        "ASM loc_7CD0 → sub_7EB2: hitpoints = base(3) + extra_slots(1)"
+    );
+}
+
 #[test]
 fn transform_overlap_column_blocked_sub_7bea_scans_upward_for_bit_14_tiles() {
     let grid = grid_with_cells(8, 8, &[(2, 3, 0x60, 0x00)]);

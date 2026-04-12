@@ -7863,6 +7863,16 @@ impl NativeRuntime {
         };
         let old_form = self.progression.current_form;
         self.progression.current_form = form;
+        // ASM loc_7C76 (kid.asm:8387): `move.w (Current_Helmet).w,d7` — main
+        // dispatch after sub_7C1C GFX deletion. Three paths:
+        //   d7==0 (TheKid): `beq.w loc_7CD0` — skip reverse animation, go to
+        //     put-on-new phase directly.
+        //   d7==Current_Helmet_Available (same helmet): play sfx_Replenish_Health,
+        //     `bra.w loc_7E14` — skip both animation phases, jump to cleanup.
+        //   d7!=Current_Helmet_Available: fall through to loc_7C96 for reverse.
+        // Native collapses these into the frame counter formula below.
+        // TODO(fidelity): ASM same-helmet replenish path (loc_7C76 → loc_7E14)
+        // has no animation frames; native computes old_frames+new_frames+1.
         self.progression.number_hitpoints =
             transform_hitpoints_sub_7eb2(form, self.progression.extra_hitpoint_slots);
         // ASM Kid_Transform calls sub_B41C which sets per-helmet half-width.
@@ -7872,10 +7882,26 @@ impl NativeRuntime {
         if width_delta != 0 {
             self.progression.form_width_delta = width_delta;
         }
-        // Per-helmet transform duration from ASM Kid_Transform tables
-        // (kid.asm:8369-8607, stru_7EFA..stru_808A). Two phases:
-        // Phase 1 (reverse old helmet) + Phase 2 (forward new helmet).
-        // TheKid has no table, so only one phase runs.
+        // ASM loc_7C96 (kid.asm:8399): `addq.w #1,d7; add.w d7,d7` — remove-
+        // old-helmet animation setup. Indexes off_7EE2[old_helmet] to find the
+        // end of the old helmet's animation table, then iterates backwards.
+        //
+        // ASM loc_7CA6 (kid.asm:8407): `move.w -(a0),d7; bmi.w loc_7CD0` —
+        // inner loop reading animation entries in reverse. Each entry has a repeat
+        // count (high byte) and function index (low byte, into off_7D34 dispatch).
+        // The $FFFF sentinel terminates and falls through to loc_7CD0.
+        //
+        // ASM loc_7CBE (kid.asm:8418): `jsr (j_sub_8E0).w; dbf d0,loc_7CBE` —
+        // per-frame Hibernate wait loop inside the reverse animation. Calls
+        // j_sub_8E0 (VBlank/palette DMA) `d0+1` times, then returns to loc_7CA6
+        // for the next entry. Native doesn't run a coroutine; the total repeat
+        // counts are pre-summed into form_change_flash_frames.
+        //
+        // ASM loc_7CD0 (kid.asm:8426): `move.w (Current_Helmet_Available).w,
+        // (Current_Helmet).w` — put-on-new-helmet phase. Sets Current_Helmet to
+        // the target, plays per-helmet transform sound (unk_7ED8), then walks
+        // the new helmet's off_7EE2 table forward via loc_7D0A/loc_7D22.
+        // Native sets current_form above; frame counting below covers both phases.
         let old_frames = transform_anim_frames(old_form);
         let new_frames = transform_anim_frames(form);
         // +1 for the Kid_Transform entry frame (sub_7C1C + palette save +
