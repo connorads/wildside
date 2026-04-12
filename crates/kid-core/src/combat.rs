@@ -572,6 +572,21 @@ pub(crate) struct ShishkaBagelHead2InitLoc39598 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead2WaitNextLoc3960E {
+    CheckKidWindowLoc3962C,
+    SharedCollisionExitLoc39EBE,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead2WaitLoopLoc3960E {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_shishka_movement_sub_398bc: bool,
+    pub(crate) runs_bagel_movement_sub_39d4a: bool,
+    pub(crate) cached_collision_word_fffffb74: u16,
+    pub(crate) next: ShishkaBagelHead2WaitNextLoc3960E,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoomerangBossHeadWaitNextLoc37F80 {
     CheckKidWindowLoc37F94,
     SharedCollisionExitLoc39EBE,
@@ -2678,6 +2693,35 @@ pub(crate) fn shishka_bagel_head_2_init_loc_39598(
         movement_script_label,
         delay_counter_d0: 1,
         script_index_d1: 0,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_2_wait_loop_loc_3960E(
+    variant_d2: u16,
+    movement_status_d7: u16,
+) -> ShishkaBagelHead2WaitLoopLoc3960E {
+    // ASM loc_3960E (kid.asm:42217): head 2 wait loop — hibernate one frame,
+    // then branch on d2: d2==0 calls sub_398BC (ShishkaBoss movement),
+    // d2!=0 falls through to loc_3961C → bsr.w sub_39D4A (BagelBrothers movement).
+    //
+    // ASM loc_3961C (kid.asm:42225): BagelBrothers path — bsr.w sub_39D4A.
+    //
+    // ASM loc_39620 (kid.asm:42228): convergence point — move.w d7,($FFFFFB74).w,
+    // tst.w d7, beq.s loc_3962C (activation window check),
+    // bra.w loc_39EBE (shared collision exit) when d7 nonzero.
+    let is_shishka = variant_d2 == 0;
+    ShishkaBagelHead2WaitLoopLoc3960E {
+        hibernates_one_frame: true,
+        runs_shishka_movement_sub_398bc: is_shishka,
+        runs_bagel_movement_sub_39d4a: !is_shishka,
+        cached_collision_word_fffffb74: movement_status_d7,
+        next: if movement_status_d7 == 0 {
+            ShishkaBagelHead2WaitNextLoc3960E::CheckKidWindowLoc3962C
+        } else {
+            ShishkaBagelHead2WaitNextLoc3960E::SharedCollisionExitLoc39EBE
+        },
     }
 }
 

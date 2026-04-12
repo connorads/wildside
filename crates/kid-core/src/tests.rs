@@ -33075,6 +33075,51 @@ fn shishka_bagel_head_2_init_loc_39598_bagel_variant() {
 }
 
 #[test]
+fn shishka_bagel_head_2_wait_loop_loc_3960e_shishka_zero_status() {
+    // ASM loc_3960E (kid.asm:42217): d2==0 (ShishkaBoss) → bsr.w sub_398BC.
+    // ASM loc_39620 (kid.asm:42228): d7==0 → beq.s loc_3962C (activation window).
+    let result = shishka_bagel_head_2_wait_loop_loc_3960E(0, 0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(result.runs_shishka_movement_sub_398bc);
+    assert!(!result.runs_bagel_movement_sub_39d4a);
+    assert_eq!(result.cached_collision_word_fffffb74, 0);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2WaitNextLoc3960E::CheckKidWindowLoc3962C,
+        "ASM loc_39620: tst.w d7; beq.s loc_3962C when d7==0",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_wait_loop_loc_3960e_bagel_zero_status() {
+    // ASM loc_3960E+loc_3961C: d2!=0 → bsr.w sub_39D4A (BagelBrothers path)
+    let result = shishka_bagel_head_2_wait_loop_loc_3960E(1, 0);
+
+    assert!(!result.runs_shishka_movement_sub_398bc);
+    assert!(result.runs_bagel_movement_sub_39d4a);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2WaitNextLoc3960E::CheckKidWindowLoc3962C,
+        "ASM loc_3961C: BagelBrothers path converges at loc_39620 with zero d7",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_wait_loop_loc_3960e_nonzero_collision_exit() {
+    // ASM loc_39620: move.w d7,($FFFFFB74).w; tst.w d7;
+    // bra.w loc_39EBE on nonzero
+    let result = shishka_bagel_head_2_wait_loop_loc_3960E(0, 0x0007);
+
+    assert_eq!(result.cached_collision_word_fffffb74, 0x0007);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2WaitNextLoc3960E::SharedCollisionExitLoc39EBE,
+        "ASM loc_39620: tst.w d7; bra.w loc_39EBE on nonzero d7",
+    );
+}
+
+#[test]
 fn boss_eye_orbit_sub_393c8_loc_393de_applies_right_table_offset_and_y_shift() {
     // ASM loc_393DE (kid.asm:41970): common path after table selection in sub_393C8.
     // When d2==0, beq.s loc_393DE skips the word_3940C load and uses word_39416[0]=$FFF4=-12.
