@@ -57965,7 +57965,10 @@ fn process_block_effects_teleporter_no_op_without_block_list() {
 }
 
 #[test]
-fn align_player_for_down_hold_sub_7a10_shifts_right_when_left_probe_is_blocked() {
+fn loc_7a60_left_probe_blocked_snaps_right_to_tile_boundary() {
+    // ASM loc_7A60 (kid.asm:8126): when x_pos - $E < 0 or left probe finds
+    // $4000, snap x to `((x-14) & $FFF0) + $10 + 14`. Grid col 1 at y=4
+    // is solid, blocking the left probe from x=32.
     let grid = grid_with_cells(8, 8, &[(1, 4, 0x60, 0)]);
 
     let alignment = align_player_for_down_hold_sub_7A10(&grid, 32 << 16, 64 << 16, 128);
@@ -57976,12 +57979,32 @@ fn align_player_for_down_hold_sub_7a10_shifts_right_when_left_probe_is_blocked()
             x_pos: 46 << 16,
             blocked: false,
         },
-        "ASM sub_7A10 should snap Kid right to the next safe 14px clearance when the left probe cell is occupied",
+        "ASM loc_7A60: left blocked → snap right to next tile boundary + half_width",
     );
 }
 
 #[test]
-fn align_player_for_down_hold_sub_7a10_shifts_left_when_right_probe_is_blocked() {
+fn loc_7a60_left_out_of_bounds_snaps_right() {
+    // ASM loc_7A60 (kid.asm:8126): when x_pos - $E < 0 (bmi.w loc_7A60),
+    // the left edge is past the level boundary → snap right.
+    let grid = grid_with_cells(8, 8, &[]);
+
+    let alignment = align_player_for_down_hold_sub_7A10(&grid, 10 << 16, 64 << 16, 128);
+
+    assert_eq!(
+        alignment,
+        DownHoldAlignmentSub7A10 {
+            x_pos: 14 << 16,
+            blocked: false,
+        },
+        "ASM loc_7A60: x - 14 < 0 → snap right to ((10-14) & !0xF) + 16 + 14 = 14",
+    );
+}
+
+#[test]
+fn loc_7a98_right_probe_blocked_snaps_left() {
+    // ASM loc_7A98 (kid.asm:8149): right probe finds $4000 or x + $E >=
+    // Level_width_pixels → snap left by `(x+14) & $F + 1`.
     let grid = grid_with_cells(8, 8, &[(2, 4, 0x60, 0)]);
 
     let alignment = align_player_for_down_hold_sub_7A10(&grid, 32 << 16, 64 << 16, 128);
@@ -57992,12 +58015,15 @@ fn align_player_for_down_hold_sub_7a10_shifts_left_when_right_probe_is_blocked()
             x_pos: 17 << 16,
             blocked: false,
         },
-        "ASM sub_7A10 should snap Kid left by the low nibble plus one when the right probe cell is occupied",
+        "ASM loc_7A98: right blocked → snap left by low nibble + 1",
     );
 }
 
 #[test]
-fn align_player_for_down_hold_sub_7a10_restores_integer_x_when_both_sides_are_blocked() {
+fn loc_7a90_both_sides_blocked_restores_original_x() {
+    // ASM loc_7A90 (kid.asm:8143): `move.w (sp)+,x_pos(a3); moveq #1,d7;
+    // rts` — neither left-snap nor right-snap found clearance, so restore
+    // the original integer x_pos (subpixel discarded) and return blocked.
     let grid = grid_with_cells(8, 8, &[(1, 4, 0x60, 0), (3, 4, 0x60, 0)]);
 
     let alignment = align_player_for_down_hold_sub_7A10(&grid, (32 << 16) | 0x8000, 64 << 16, 128);
@@ -58008,7 +58034,27 @@ fn align_player_for_down_hold_sub_7a10_restores_integer_x_when_both_sides_are_bl
             x_pos: 32 << 16,
             blocked: true,
         },
-        "ASM sub_7A10 should restore the original integer X when neither side can provide the required 14px clearance",
+        "ASM loc_7A90: both sides blocked → restore integer x, blocked=true",
+    );
+}
+
+#[test]
+fn loc_7a90_right_snap_fails_left_recheck() {
+    // ASM loc_7A90 via loc_7A98 (kid.asm:8149→8143): right probe blocked,
+    // snap left, but the left re-probe at the snapped position also finds
+    // a wall → fall through to loc_7A90 (bra.s) and restore original x.
+    let grid = grid_with_cells(8, 8, &[(1, 4, 0x60, 0), (3, 4, 0x60, 0)]);
+
+    let alignment = align_player_for_down_hold_sub_7A10(&grid, 46 << 16, 64 << 16, 128);
+
+    assert!(
+        alignment.blocked,
+        "ASM loc_7A90: right blocked, left re-probe also blocked → restore and return blocked",
+    );
+    assert_eq!(
+        alignment.x_pos,
+        46 << 16,
+        "ASM loc_7A90: restored x_pos should be the original integer value",
     );
 }
 

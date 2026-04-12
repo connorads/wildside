@@ -4314,6 +4314,10 @@ pub(crate) fn align_player_for_down_hold_sub_7A10(
     y_pos: u32,
     level_width_pixels: u16,
 ) -> DownHoldAlignmentSub7A10 {
+    // ASM sub_7A10 (kid.asm:8099): checks whether Kid has 14px clearance on
+    // both sides for the crouch/down-hold pose. Probes left then right; if
+    // either side is occupied or out-of-bounds, snaps to the nearest tile
+    // boundary and re-probes. Returns d7=0 (clear) or d7=1 (blocked).
     let original_x_px = (x_pos >> 16) as i32;
     let foot_y_px = (y_pos >> 16) as i32;
     let mut aligned_x_px = original_x_px;
@@ -4333,17 +4337,27 @@ pub(crate) fn align_player_for_down_hold_sub_7A10(
     };
 
     if original_x_px - half_width < 0 || occupied(original_x_px, -half_width) {
+        // ASM loc_7A60 (kid.asm:8126): left probe blocked — snap x_pos right
+        // to the next tile boundary: `andi.w #$FFF0,d7; addi.w #$10,d7;
+        // add.w d4,d7`. Then probe the right side from the new position.
         aligned_x_px = ((original_x_px - half_width) & !0xF) + 0x10 + half_width;
         if aligned_x_px + half_width >= level_width_px || occupied(aligned_x_px, half_width) {
+            // ASM loc_7A90 (kid.asm:8143): right side also blocked after snap
+            // — `move.w (sp)+,x_pos(a3); moveq #1,d7; rts`. Restore original
+            // x_pos and return blocked.
             return DownHoldAlignmentSub7A10 {
                 x_pos: (original_x_px.max(0) as u32) << 16,
                 blocked: true,
             };
         }
     } else if original_x_px + half_width >= level_width_px || occupied(original_x_px, half_width) {
+        // ASM loc_7A98 (kid.asm:8149): right probe blocked — snap x_pos left
+        // by `(x+14) & $F + 1` pixels. Then probe the left side.
         let adjust = ((original_x_px + half_width) & 0xF) + 1;
         aligned_x_px -= adjust;
         if aligned_x_px - half_width < 0 || occupied(aligned_x_px, -half_width) {
+            // ASM loc_7A90 (kid.asm:8143): left side also blocked after snap
+            // — restore original x_pos and return blocked.
             return DownHoldAlignmentSub7A10 {
                 x_pos: (original_x_px.max(0) as u32) << 16,
                 blocked: true,
@@ -4351,6 +4365,8 @@ pub(crate) fn align_player_for_down_hold_sub_7A10(
         }
     }
 
+    // ASM loc_7AC6 (kid.asm:8168): both sides clear — `addq.w #2,sp;
+    // moveq #0,d7; rts`. Discard saved x_pos, return unblocked.
     DownHoldAlignmentSub7A10 {
         x_pos: (aligned_x_px.max(0) as u32) << 16,
         blocked: false,
