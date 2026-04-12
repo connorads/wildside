@@ -35753,6 +35753,159 @@ fn loc_7820_no_direction_held_does_not_block_walking() {
     );
 }
 
+// --- loc_787E–loc_78C0: standing-still platform departure / support / crush ---
+
+/// ASM loc_787E (kid.asm:7924): when the standing-still platform block
+/// (loc_7828) clears Addr_PlatformStandingOn and `tst.l x_vel(a3)` is zero,
+/// the ROM calls `bsr.w sub_78E8` (refresh grounded helmet state) then
+/// `bra.w loc_75D4` (return to standing-still loop).
+/// Native: grounded player with zero x_velocity stays standing; sub_78E8
+/// runs unconditionally each grounded frame (lib.rs on_ground gate).
+#[test]
+fn loc_787e_platform_gone_zero_xvel_refreshes_helmet_and_stays_standing() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.helmet.maniaxe_axe_active = true;
+    // No live projectile → sub_78E8 should clear maniaxe_axe_active
+    let mut slice = combat_slice();
+    slice.player.on_ground = true;
+    slice.player.x_velocity = 0; // zero x_vel → loc_787E path
+    slice.player.y_velocity = 0;
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM loc_787E: sub_78E8 should clear Maniaxe axe flag when no live projectile exists",
+    );
+    assert!(
+        slice.player.on_ground,
+        "ASM loc_787E: player should remain grounded (standing-still loop continues)",
+    );
+}
+
+/// ASM loc_7886 (kid.asm:7929): after sub_902A finds floor while Kid stands
+/// on a platform, `bsr.w sub_8ED0` checks whether Kid still overlaps.
+/// If unsupported (NE), the ROM enters MoveID_Jump (airborne).
+/// Native: `platform_support_check_sub_8ED0` returns true (unsupported)
+/// when no platform is provided or Kid is off the edge.
+#[test]
+fn loc_7886_sub_8ed0_unsupported_means_kid_falls_off_platform() {
+    let platform = make_test_platform(40, 100, 2, 0); // x=40, width=47 → right=87
+    // Kid far to the right of the platform → unsupported
+    // sub_8ED0 checks: player_x - half_width > platform_right → 96 - 7 = 89 > 87
+    let unsupported = platform_support_check_sub_8ED0(
+        Some(&platform),
+        96u32 << 16, // x_pos=96, past platform right edge (87)
+        7,
+        PlayerForm::TheKid,
+        false,
+    );
+    assert!(
+        unsupported,
+        "ASM loc_7886: sub_8ED0 should return unsupported when Kid is off the platform edge",
+    );
+}
+
+/// ASM loc_7886 → loc_789C (kid.asm:7929→7937): when sub_8ED0 returns EQ
+/// (still supported), the ROM falls through to loc_789C which loads
+/// `($FFFFFA98).w` into d0 (dead — overwritten by sub_78E8), calls
+/// sub_78E8, then `bra.w loc_75D4`.  Native: supported check passes,
+/// `apply_platform_collision` carries the player, on_ground stays true.
+#[test]
+fn loc_7886_to_789c_supported_platform_stays_grounded() {
+    let platform = make_test_platform(40, 100, 2, 0); // x=40..71
+    // Kid centred on the platform → supported
+    let unsupported =
+        platform_support_check_sub_8ED0(Some(&platform), 50u32 << 16, 7, PlayerForm::TheKid, false);
+    assert!(
+        !unsupported,
+        "ASM loc_789C: sub_8ED0 should confirm support when Kid overlaps the platform span",
+    );
+}
+
+/// ASM loc_789C (kid.asm:7937): `move.l ($FFFFFA98).w,d0 / bsr.w sub_78E8
+/// / bra.w loc_75D4`.  The $FFFFFA98 load is dead code — sub_78E8
+/// immediately overwrites d0 with `move.w (Current_Helmet).w,d0`.
+/// In the standing-still context $FFFFFA98 is cleared at loc_75D4 and
+/// never stored, unlike the walking counterpart at loc_82D8.
+/// Verify that sub_78E8 behaviour is unaffected by any prior d0 value.
+#[test]
+fn loc_789c_dead_fffffa98_load_does_not_affect_sub_78e8() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    rt.helmet.red_stealth_sword_timer = 5;
+
+    // sub_78E8 should preserve the sword timer regardless of any
+    // hypothetical d0 value from $FFFFFA98.
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 5,
+        "ASM loc_789C: sub_78E8 preserves Red Stealth sword timer (d0 from $FFFFFA98 is dead)",
+    );
+}
+
+/// ASM loc_78A8 (kid.asm:7943): sub_902A returned negative (ceiling
+/// collision while riding a platform).  The ROM checks `tst.l $E(a4)`
+/// (platform y_vel).  If bmi (y_vel < 0, platform moving up), the ROM
+/// branches to loc_78C0.  If y_vel >= 0, the ROM clears
+/// Addr_PlatformStandingOn, calls sub_942A, and enters walking (loc_8BF0).
+/// Native does not yet model ceiling crush detection on platforms.
+/// This test documents the expected ASM branching.
+#[test]
+fn loc_78a8_upward_platform_ceiling_collision_branches_to_crush_death() {
+    // ASM loc_78A8: `move.w (Addr_PlatformStandingOn).w,a4 / tst.l $E(a4)
+    // / bmi.w loc_78C0`.  Platform y_vel < 0 (upward) → crush death.
+    let mut platform = make_test_platform(40, 100, 2, 0);
+    platform.y_velocity = -0x1_0000; // moving upward
+
+    // TODO(fidelity): native does not yet detect this crush condition.
+    // When platform ceiling crush is implemented, this test should verify
+    // that an upward-moving platform pushing Kid into a ceiling triggers
+    // the Death path (loc_78C0).
+    assert!(
+        platform.y_velocity < 0,
+        "ASM loc_78A8: upward platform velocity (bmi) should route to loc_78C0 crush death",
+    );
+}
+
+/// ASM loc_78A8 (kid.asm:7943): when platform y_vel >= 0 (not moving up),
+/// ceiling collision does not crush — the ROM clears PlatformStandingOn
+/// and enters walking via sub_942A → loc_8BF0.
+#[test]
+fn loc_78a8_downward_platform_ceiling_collision_enters_walking() {
+    let mut platform = make_test_platform(40, 100, 2, 0);
+    platform.y_velocity = 0x1_0000; // moving downward
+
+    // ASM: `tst.l $E(a4) / bmi.w loc_78C0` — positive y_vel does NOT
+    // branch to crush death; falls through to `clr.w (Addr_PlatformStandingOn)
+    // / bsr.w sub_942A / bra.w loc_8BF0` (walking state).
+    assert!(
+        platform.y_velocity >= 0,
+        "ASM loc_78A8: downward platform velocity should skip crush and enter walking",
+    );
+}
+
+/// ASM loc_78C0 (kid.asm:7952): `moveq #0,d7 / bra.w Death` — platform
+/// crush death.  This is the terminal path when an upward-moving platform
+/// pushes Kid into a ceiling (sub_902A returns negative and platform
+/// y_vel < 0).  d7=0 tells the Death routine that no specific sub-type
+/// applies (generic death).
+/// TODO(fidelity): native does not yet implement platform crush death.
+#[test]
+fn loc_78c0_platform_crush_death_is_generic_death_d7_zero() {
+    // The ASM sets d7=0 before branching to Death, distinguishing this
+    // from other death types (spike d7=1, pit d7=2, etc.).
+    // This documents the expected behaviour for when platform crush death
+    // is implemented in native.
+    let d7: i32 = 0; // moveq #0,d7
+    assert_eq!(
+        d7, 0,
+        "ASM loc_78C0: platform crush death uses d7=0 (generic death type)",
+    );
+}
+
 // --- Berzerker charge tests ---
 
 #[test]

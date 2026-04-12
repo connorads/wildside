@@ -659,8 +659,14 @@ pub(crate) fn apply_platform_collision(
     let player_left = player_x_px - PLAYER_HALF_WIDTH;
     let player_right = player_x_px + PLAYER_HALF_WIDTH;
 
-    // If player is already on ground, check if they're riding a platform and
-    // carry them along with the platform's velocity.
+    // ASM loc_7886 (kid.asm:7929): after sub_902A finds floor while Kid
+    // stands on a platform, the ROM calls sub_8ED0 to check whether Kid's
+    // hitbox still overlaps the platform span.  If unsupported (NE), the ROM
+    // sets MoveID_Jump / sub_B270 / loc_A6F8 — Kid becomes airborne.  If
+    // supported (EQ), the ROM continues to loc_789C (stay standing).
+    // Native mirrors this via the `platform_support_check_sub_8ED0` call
+    // below: unsupported platforms are skipped (Kid gets no carry velocity,
+    // eventually falls off via normal gravity/floor logic).
     if slice.player.on_ground {
         for platform in platforms {
             if platform.x_velocity == 0 && platform.y_velocity == 0 {
@@ -683,6 +689,17 @@ pub(crate) fn apply_platform_collision(
                 continue;
             }
 
+            // ASM loc_78A8 (kid.asm:7943): when sub_902A returns negative
+            // (ceiling collision while being carried by a platform), the ROM
+            // checks the platform's y_vel ($E(a4)).  If y_vel < 0 (platform
+            // moving upward), Kid is crushed → loc_78C0 (kid.asm:7952):
+            // `moveq #0,d7 / bra.w Death`.  If y_vel >= 0 (platform moving
+            // down or stationary), the ROM clears Addr_PlatformStandingOn and
+            // enters walking (sub_942A → loc_8BF0).
+            // TODO(fidelity): native does not yet detect platform-vs-ceiling
+            // crush death.  Upward-moving platforms carry the player without
+            // checking for ceiling collision.
+            //
             // Carry player with platform velocity
             slice.player.x_pos = (i64::from(slice.player.x_pos) + i64::from(platform.x_velocity))
                 .clamp(0, i64::from(u32::MAX)) as u32;

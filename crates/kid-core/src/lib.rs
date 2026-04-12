@@ -2141,6 +2141,16 @@ impl NativeRuntime {
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LiftPlatform;
         }
 
+        // ASM loc_787E (kid.asm:7924): when the standing-still platform block
+        // (loc_7828) clears Addr_PlatformStandingOn and x_vel is zero, the ROM
+        // calls sub_78E8 then returns to loc_75D4.
+        // ASM loc_789C (kid.asm:7937): when sub_902A finds floor and sub_8ED0
+        // confirms platform support, the ROM loads $FFFFFA98 into d0 (dead —
+        // immediately overwritten by sub_78E8's `move.w (Current_Helmet),d0`),
+        // calls sub_78E8, and returns to loc_75D4.
+        // Native runs sub_78E8 unconditionally each grounded frame, covering
+        // both the "platform gone" (loc_787E) and "platform supported"
+        // (loc_789C) paths.
         if slice.player.on_ground {
             self.refresh_grounded_helmet_state_sub_78E8();
         }
