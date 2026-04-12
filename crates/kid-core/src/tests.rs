@@ -11883,6 +11883,192 @@ fn diamond_power_init_wall_of_death_timer_is_1200_loc_40006() {
     );
 }
 
+// ── WallOfDeath main per-slot (loc_40026, loc_40044, loc_40060) ─────────────
+
+#[test]
+fn wall_of_death_slot_rightward_movement_loc_40026() {
+    // ASM loc_40026: when reached_right_edge=false and d0 < $139,
+    // addq.w #8,$3E(a0) increments x_offset, then sprite compiled at old d0.
+    let mut slot = helmets::WallOfDeathSlot {
+        x_offset: 0x50,
+        y_offset: 0x0D,
+        reached_right_edge: false,
+        size_index: 6,
+    };
+    let result = helmets::diamond_power_main_wall_of_death_slot(
+        &mut slot, 0x100, 0x80, 100, // timer positive
+    );
+    // x_offset should have been incremented by 8
+    assert_eq!(slot.x_offset, 0x58, "ASM loc_40026: addq.w #8,$3E(a0)");
+    assert!(!slot.reached_right_edge, "flag stays false when d0 < $139");
+    // Sprite compiled at old x_offset (0x50)
+    match result {
+        helmets::WallOfDeathSlotAction::Visible { world_x, .. } => {
+            // ASM loc_4006E: d0 + camera_x = 0x50 + 0x100 = 0x150
+            assert_eq!(world_x, 0x150, "sprite uses old x_offset + camera_x");
+        }
+        _ => panic!("expected Visible"),
+    }
+}
+
+#[test]
+fn wall_of_death_slot_sets_flag_at_right_edge_loc_40026() {
+    // ASM loc_40026: when d0 >= $139, st $42(a0) sets reached_right_edge.
+    // Then falls through to loc_40044 → loc_40060 (net x_offset change: +8-8=0).
+    let mut slot = helmets::WallOfDeathSlot {
+        x_offset: 0x139,
+        y_offset: 0x0D,
+        reached_right_edge: false,
+        size_index: 6,
+    };
+    let result = helmets::diamond_power_main_wall_of_death_slot(&mut slot, 0x100, 0x80, 100);
+    // +8 from rightward, -8 from loc_40060 leftward → net 0
+    assert_eq!(slot.x_offset, 0x139, "net x_offset unchanged at edge");
+    assert!(slot.reached_right_edge, "ASM: st $42(a0) at right edge");
+    assert!(matches!(
+        result,
+        helmets::WallOfDeathSlotAction::Visible { .. }
+    ));
+}
+
+#[test]
+fn wall_of_death_slot_leftward_clears_flag_loc_40060() {
+    // ASM loc_40060: when reached_right_edge=true and d0 <= 7,
+    // sf $42(a0) clears the flag. subq.w #8,$3E(a0) decrements x_offset.
+    let mut slot = helmets::WallOfDeathSlot {
+        x_offset: 5,
+        y_offset: 0x0D,
+        reached_right_edge: true,
+        size_index: 6,
+    };
+    let result = helmets::diamond_power_main_wall_of_death_slot(&mut slot, 0x100, 0x80, 100);
+    // ASM loc_40060: subq.w #8,$3E(a0)
+    assert_eq!(slot.x_offset, -3, "ASM loc_40060: subq.w #8,$3E(a0)");
+    // ASM: cmpi.w #7,d0 — old d0=5 <= 7, so sf $42(a0)
+    assert!(
+        !slot.reached_right_edge,
+        "ASM loc_40060: sf $42(a0) when d0<=7"
+    );
+    assert!(matches!(
+        result,
+        helmets::WallOfDeathSlotAction::Visible { .. }
+    ));
+}
+
+#[test]
+fn wall_of_death_slot_leftward_keeps_flag_when_above_7_loc_40060() {
+    // ASM loc_40060: when d0 > 7, bgt.s loc_4006E skips clearing the flag.
+    let mut slot = helmets::WallOfDeathSlot {
+        x_offset: 0x50,
+        y_offset: 0x0D,
+        reached_right_edge: true,
+        size_index: 6,
+    };
+    let _result = helmets::diamond_power_main_wall_of_death_slot(&mut slot, 0x100, 0x80, 100);
+    assert_eq!(slot.x_offset, 0x48, "ASM loc_40060: subq.w #8");
+    assert!(slot.reached_right_edge, "flag stays true when d0 > 7");
+}
+
+#[test]
+fn wall_of_death_slot_fadeout_removes_at_negative_size_loc_40044() {
+    // ASM loc_40044: when timer < 0 and (timer & 7) == 0,
+    // subq.w #1,$24(a0). If size goes negative → sub_3F5E8 (Removed).
+    let mut slot = helmets::WallOfDeathSlot {
+        x_offset: 0x50,
+        y_offset: 0x0D,
+        reached_right_edge: true,
+        size_index: 0, // will become 0xFFFF (i.e. -1 as i16)
+    };
+    // Timer must be negative and (timer & 7) == 0
+    let result = helmets::diamond_power_main_wall_of_death_slot(
+        &mut slot, 0x100, 0x80, -8, // -8 & 7 == 0
+    );
+    assert_eq!(
+        result,
+        helmets::WallOfDeathSlotAction::Removed,
+        "ASM loc_40044: size < 0 → sub_3F5E8"
+    );
+}
+
+#[test]
+fn wall_of_death_slot_fadeout_decrements_size_loc_40044() {
+    // ASM loc_40044: timer < 0 and (timer & 7) == 0 → subq.w #1,$24(a0).
+    // If size >= 0 after decrement → continues to loc_40060.
+    let mut slot = helmets::WallOfDeathSlot {
+        x_offset: 0x50,
+        y_offset: 0x0D,
+        reached_right_edge: true,
+        size_index: 3,
+    };
+    let result = helmets::diamond_power_main_wall_of_death_slot(
+        &mut slot, 0x100, 0x80, -16, // -16 & 7 == 0
+    );
+    assert_eq!(slot.size_index, 2, "ASM loc_40044: subq.w #1,$24(a0)");
+    assert!(
+        matches!(result, helmets::WallOfDeathSlotAction::Visible { .. }),
+        "size still >= 0 → sprite compiled"
+    );
+}
+
+#[test]
+fn wall_of_death_slot_fadeout_skips_on_non_8th_frame_loc_40044() {
+    // ASM loc_40044: andi.w #7,d7; bne.s loc_40060 — skip when not 8th frame.
+    let mut slot = helmets::WallOfDeathSlot {
+        x_offset: 0x50,
+        y_offset: 0x0D,
+        reached_right_edge: true,
+        size_index: 3,
+    };
+    let result = helmets::diamond_power_main_wall_of_death_slot(
+        &mut slot, 0x100, 0x80, -5, // -5 & 7 == 3, not 0
+    );
+    // Size should NOT be decremented
+    assert_eq!(slot.size_index, 3, "size unchanged on non-8th frame");
+    assert!(matches!(
+        result,
+        helmets::WallOfDeathSlotAction::Visible { .. }
+    ));
+}
+
+#[test]
+fn wall_of_death_slot_sprite_compile_loc_4006e() {
+    // ASM loc_4006E: verify full sprite compilation output.
+    // d0=0x50, d1=0x0D, camera_x=0x100, camera_y=0x80, size_index=6
+    let mut slot = helmets::WallOfDeathSlot {
+        x_offset: 0x50,
+        y_offset: 0x0D,
+        reached_right_edge: true,
+        size_index: 6,
+    };
+    let result = helmets::diamond_power_main_wall_of_death_slot(&mut slot, 0x100, 0x80, 100);
+    match result {
+        helmets::WallOfDeathSlotAction::Visible {
+            world_x,
+            world_y,
+            vram_attr,
+            y,
+            size_byte,
+            pattern,
+            x,
+        } => {
+            // world_x = d0 + camera_x = 0x50 + 0x100 = 0x150
+            assert_eq!(world_x, 0x150, "ASM: d0 + d3");
+            // world_y = d1 + camera_y = 0x0D + 0x80 = 0x8D
+            assert_eq!(world_y, 0x8D, "ASM: d1 + d4");
+            // sprite_x = d0 + 0x7F - size = 0x50 + 0x7F - 6 = 0xC9
+            assert_eq!(x, 0xC9, "ASM: d0 + $7F - d6");
+            // sprite_y = d1 + 0x7F - size = 0x0D + 0x7F - 6 = 0x86
+            assert_eq!(y, 0x86, "ASM: d1 + $7F - d6");
+            // vram_attr = 6*4 + 0x1144 = 24 + 0x1144 = 0x115C
+            assert_eq!(vram_attr, 0x115C, "ASM: d6*4 + $1144");
+            // word_4020E[6] = DIAMOND_SPRITE_ATTR_TABLE[6] = (0x05, 0x86F6)
+            assert_eq!(size_byte, 0x05, "ASM: word_4020E size_byte");
+            assert_eq!(pattern, 0x86F6, "ASM: word_4020E pattern");
+        }
+        _ => panic!("expected Visible"),
+    }
+}
+
 #[test]
 fn diamond_power_object_remove_sub_3f5e8_unlinks_the_slot_and_keeps_flags_while_objects_remain() {
     let result = helmets::diamond_power_object_remove_sub_3F5E8(

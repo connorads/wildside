@@ -1543,6 +1543,162 @@ pub(crate) fn diamond_power_init_wall_of_death() -> WallOfDeathInitResult {
     }
 }
 
+/// Result of processing a single WallOfDeath slot in the main loop.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum WallOfDeathSlotAction {
+    /// Slot on-screen — sprite compiled into a2 buffer.
+    /// ASM loc_4009C: writes (Y, size_byte, link, pattern, X).
+    Visible {
+        /// $1A(a0) — world X (x_offset + camera_x).
+        world_x: i16,
+        /// $1E(a0) — world Y (y_offset + camera_y).
+        world_y: i16,
+        /// $22(a0) — VRAM attribute word.
+        vram_attr: u16,
+        /// Sprite buffer Y.
+        y: u16,
+        /// size_byte from word_4020E.
+        size_byte: u8,
+        /// pattern from word_4020E.
+        pattern: u16,
+        /// Sprite buffer X.
+        x: u16,
+    },
+    /// Slot removed during fade-out (size < 0 after decrement).
+    /// ASM loc_40044: bsr.w sub_3F5E8.
+    Removed,
+}
+
+/// ASM DiamondPower_Main_WallOfDeath (kid.asm:45390) per-slot processing.
+///
+/// Called once per slot in the linked list. The outer loop decrements
+/// Diamond_power_timer and loads camera coordinates before iterating.
+///
+/// loc_40026 (kid.asm:45399): per-slot entry — load d0 = $3E(a0) (x_offset),
+///   d1 = $40(a0) (y_offset). Check $42(a0) (reached_right_edge).
+///
+///   If NOT reached_right_edge:
+///     addq.w #8,$3E(a0) — move slot rightward.
+///     cmpi.w #$139,d0 — if old x_offset >= $139, st $42(a0) sets flag,
+///     then falls through to loc_40044.
+///     If old x_offset < $139, jumps to loc_4006E (sprite compile).
+///
+/// loc_40044 (kid.asm:45410): timer expiry / fade-out —
+///   If Diamond_power_timer >= 0 → loc_40060.
+///   If timer < 0 AND (timer & 7) == 0: subq.w #1,$24(a0).
+///     If size < 0 → sub_3F5E8 (remove), skip to next slot.
+///     Else → loc_40060.
+///   If (timer & 7) != 0 → loc_40060.
+///
+/// loc_40060 (kid.asm:45422): leftward movement —
+///   subq.w #8,$3E(a0) — move slot leftward.
+///   cmpi.w #7,d0 — if old x_offset <= 7, sf $42(a0) clears flag.
+///   Falls through to loc_4006E (sprite compile).
+///
+/// loc_4006E: sprite compilation — screen coords from d0 + camera, centre
+///   by size_index, VRAM attr = size_index*4 + $1144, compile into buffer.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_main_wall_of_death_slot(
+    slot: &mut WallOfDeathSlot,
+    camera_x: i16,
+    camera_y: i16,
+    diamond_power_timer: i16,
+) -> WallOfDeathSlotAction {
+    // ASM loc_40026: move.w $3E(a0),d0; move.w $40(a0),d1
+    let d0 = slot.x_offset;
+    let d1 = slot.y_offset;
+
+    // ASM: tst.b $42(a0); bne.s loc_40044
+    if !slot.reached_right_edge {
+        // ASM: addq.w #8,$3E(a0)
+        slot.x_offset = slot.x_offset.wrapping_add(8);
+        // ASM: cmpi.w #$139,d0; blt.s loc_4006E
+        if d0 < 0x139 {
+            // Jump straight to sprite compile with old d0
+            return wall_of_death_compile_sprite(slot, d0, d1, camera_x, camera_y);
+        }
+        // ASM: st $42(a0) — reached right edge
+        slot.reached_right_edge = true;
+        // Falls through to loc_40044
+    }
+
+    // ASM loc_40044: tst.w (Diamond_power_timer).w; bpl.s loc_40060
+    if diamond_power_timer < 0 {
+        // ASM: move.w (Diamond_power_timer).w,d7; andi.w #7,d7; bne.s loc_40060
+        if (diamond_power_timer & 7) == 0 {
+            // ASM: subq.w #1,$24(a0); bpl.s loc_40060
+            slot.size_index = slot.size_index.wrapping_sub(1);
+            if (slot.size_index as i16) < 0 {
+                // ASM: bsr.w sub_3F5E8; bra.s loc_400B0
+                return WallOfDeathSlotAction::Removed;
+            }
+        }
+    }
+
+    // ASM loc_40060: subq.w #8,$3E(a0)
+    slot.x_offset = slot.x_offset.wrapping_sub(8);
+    // ASM: cmpi.w #7,d0; bgt.s loc_4006E
+    if d0 <= 7 {
+        // ASM: sf $42(a0)
+        slot.reached_right_edge = false;
+    }
+
+    // ASM loc_4006E: sprite compilation
+    wall_of_death_compile_sprite(slot, d0, d1, camera_x, camera_y)
+}
+
+/// Shared sprite compilation for WallOfDeath slots (ASM loc_4006E through loc_4009C).
+///
+/// d0 = old x_offset, d1 = y_offset, d3 = Camera_X_pos, d4 = Camera_Y_pos.
+#[cfg_attr(not(test), allow(dead_code))]
+fn wall_of_death_compile_sprite(
+    slot: &WallOfDeathSlot,
+    d0: i16,
+    d1: i16,
+    camera_x: i16,
+    camera_y: i16,
+) -> WallOfDeathSlotAction {
+    // ASM loc_4006E: move.w d0,d5; add.w d3,d5; move.w d5,$1A(a0)
+    let world_x = d0.wrapping_add(camera_x);
+    // ASM: move.w d1,d5; add.w d4,d5; move.w d5,$1E(a0)
+    let world_y = d1.wrapping_add(camera_y);
+
+    // ASM: addi.w #$7F,d0; addi.w #$7F,d1
+    let mut sprite_x = d0.wrapping_add(0x7F);
+    let mut sprite_y = d1.wrapping_add(0x7F);
+
+    // ASM: move.w $24(a0),d6; sub.w d6,d0; sub.w d6,d1
+    let d6 = slot.size_index;
+    sprite_x = sprite_x.wrapping_sub(d6 as i16);
+    sprite_y = sprite_y.wrapping_sub(d6 as i16);
+
+    // ASM: add.w d6,d6; add.w d6,d6 — d6 *= 4 (table byte index)
+    let table_byte_index = (d6 as usize).wrapping_mul(4);
+
+    // ASM: move.w d6,d5; addi.w #$1144,d5
+    let vram_attr = (table_byte_index as u16).wrapping_add(0x1144);
+
+    // ASM loc_4009C: compile sprite into buffer
+    let entry_index = table_byte_index / 4;
+    let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
+        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
+    } else {
+        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
+    };
+
+    WallOfDeathSlotAction::Visible {
+        world_x,
+        world_y,
+        vram_attr,
+        y: sprite_y as u16,
+        size_byte,
+        pattern,
+        x: sprite_x as u16,
+    }
+}
+
 /// ASM loc_3FA16 through loc_3FA46: compute 8-way octant direction from
 /// the snake head to its target, used by the snake steering loop.
 ///
