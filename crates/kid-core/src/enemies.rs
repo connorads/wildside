@@ -2713,6 +2713,11 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     enemy.y_velocity = 0;
 
     // Apply horizontal movement.
+    // ASM loc_3C1DE (kid.asm:43684-43686): no-collision X path in the leftward
+    // walker loop — move.l d2,x_pos(a3) stores the predicted position when the
+    // displacement doesn't cross a tile boundary (bcc.s) or d6==0 (no floor
+    // status). The rightward mirror is loc_3C0C6. Native stores the predicted
+    // x_pos unconditionally then corrects via probe_wall if a collision is found.
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
 
     let cx = (enemy.x_pos >> 16) as i32;
@@ -2772,6 +2777,17 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     // (no solid floor) and bit 1 not set (no wall) → st $6E(a5), bra loc_3C0D2
     // turnaround. This catches the "cliff with no wall to cling to" case.
     // Native: also covered by the probe_floor edge check below.
+    //
+    // ASM loc_3C1E4 (kid.asm:43688-43696): Y-axis movement entry in the
+    // leftward walker loop — loads y_pos, adds y_vel, computes pixel
+    // displacement, branches to loc_3C220 when >= 0 (moving down). Native
+    // doesn't apply Y velocity to walkers; probe_floor keeps them grounded.
+    //
+    // ASM loc_3C220 (kid.asm:43713-43725): downward Y movement floor check —
+    // sub_36C6A scans for floor; if found, snaps y_pos and branches to
+    // loc_3C026 turnaround. If no floor, stores predicted y_pos at loc_3C242
+    // and gravity continues. Native: probe_floor edge detection reverses the
+    // walker at cliff edges, preventing the fall state entirely.
     let look_ahead_x = if moving_right {
         cx + ENEMY_PROBE_HALF_WIDTH
     } else {

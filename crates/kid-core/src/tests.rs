@@ -54533,6 +54533,91 @@ fn loc_3c19c_leftward_walker_body_scan_continues_on_clear_path() {
 }
 
 #[test]
+fn loc_3c1de_leftward_walker_no_wall_stores_predicted_x() {
+    // ASM loc_3C1DE (kid.asm:43684-43686): move.l d2,x_pos(a3) — when the
+    // leftward walker's X displacement doesn't cross a tile boundary (bcc.s)
+    // or d6==0, the predicted position is stored directly. The rightward
+    // mirror is loc_3C0C6. Native: step_pacer stores the predicted x_pos at
+    // line 2716 and only corrects if probe_wall detects a hit.
+    // Test: Fire_Demon walking left on flat floor — no wall → x_pos decreases.
+    let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 13)).collect();
+    let grid = grid_with_solid_cells(20, 15, &solid);
+    let mut enemy = make_pacer(EnemyFamily::FireDemon, 3, 200, 208);
+    enemy.facing = Direction::Left;
+    let start_x = enemy.x_pos;
+
+    step_pacer(&mut enemy, Some(&grid));
+
+    assert_eq!(
+        enemy.facing,
+        Direction::Left,
+        "ASM loc_3C1DE: no wall collision → walker stays leftward",
+    );
+    assert!(
+        enemy.x_pos < start_x,
+        "ASM loc_3C1DE: predicted x_pos stored (walker advanced leftward)",
+    );
+}
+
+#[test]
+fn loc_3c1e4_leftward_walker_y_axis_stays_grounded_on_flat_floor() {
+    // ASM loc_3C1E4 (kid.asm:43688-43696): Y-axis movement entry in the
+    // leftward walker loop — loads y_pos, adds y_vel, computes displacement.
+    // When y_vel==0 (walker on flat floor), displacement is 0, which is >= 0,
+    // so it branches to loc_3C220. loc_3C220 computes tile distance; with
+    // zero displacement bcc.s goes to loc_3C242 (no floor crossing), then
+    // gravity at loc_3C246 adds $2000 to y_vel capped at $80000.
+    // Native: step_pacer sets y_velocity=0 each frame and uses probe_floor
+    // instead of ASM's gravity/snap system, so Y doesn't change.
+    // Test: Spinning_Twins walking left on flat floor — y_pos unchanged.
+    let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 13)).collect();
+    let grid = grid_with_solid_cells(20, 15, &solid);
+    let mut enemy = make_pacer(EnemyFamily::SpinningTwins, 3, 200, 208);
+    enemy.facing = Direction::Left;
+    let start_y = enemy.y_pos;
+
+    step_pacer(&mut enemy, Some(&grid));
+
+    assert_eq!(
+        enemy.y_pos, start_y,
+        "ASM loc_3C1E4: y_vel==0 → displacement 0 → loc_3C220 bcc.s loc_3C242 no-op; native y_pos unchanged",
+    );
+}
+
+#[test]
+fn loc_3c220_leftward_walker_floor_check_reverses_at_cliff_edge() {
+    // ASM loc_3C220 (kid.asm:43713-43725): downward Y movement floor check —
+    // when displacement >= 0, compute tile alignment distance, check tile
+    // boundary crossing, call sub_36C6A floor scan. If floor found, snap
+    // y_pos and branch to loc_3C026 (turnaround to rightward). If no floor,
+    // store predicted y_pos at loc_3C242 and gravity continues until the
+    // walker eventually lands. The rightward mirror is at loc_3C04E+$26
+    // (inline Y movement after rightward X dispatch).
+    // Native: probe_floor at the look-ahead position detects no ground at
+    // the cliff edge → reverse_enemy_direction, matching loc_3C220→loc_3C026.
+    // Test: Diamond walking left on a short platform reverses at the edge.
+    let solid: Vec<(u16, u16)> = (10..20).map(|col| (col, 13)).collect();
+    // Floor only cols 10-19 (px 160-319). No floor before col 10.
+    let grid = grid_with_solid_cells(20, 15, &solid);
+    let mut enemy = make_pacer(EnemyFamily::Diamond, 3, 170, 208);
+    enemy.facing = Direction::Left;
+
+    // Walk left until the cliff reversal triggers.
+    for _ in 0..200 {
+        step_pacer(&mut enemy, Some(&grid));
+        if enemy.facing == Direction::Right {
+            break;
+        }
+    }
+
+    assert_eq!(
+        enemy.facing,
+        Direction::Right,
+        "ASM loc_3C220: sub_36C6A floor scan finds no floor → loc_3C026 turnaround to rightward",
+    );
+}
+
+#[test]
 fn shared_enemy_drive_sound_sub_3c352_starts_the_last_driller_loop_with_playsound2() {
     let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
 
