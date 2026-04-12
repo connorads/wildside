@@ -1086,14 +1086,27 @@ pub(crate) fn step_level_special_effects_sub_6048(
     {
         state.hail_period_timer = state.hail_period_timer.wrapping_sub(1);
         if state.hail_period_timer == 0 {
+            // ASM loc_619C (kid.asm:6163): addi.w #$258,($FFFFFB52).w;
+            // eori.b #$FF,($FFFFFB54).w — when inactive→active the pre-set
+            // $258 is added to give $4B0; when active→inactive only the $258
+            // from loc_619C applies.
             state.hail_period_timer = if state.hail_active { 0x0258 } else { 0x04B0 };
             state.hail_active = !state.hail_active;
         }
 
-        if !state.hail_active && state.snow_slot_count != 5 {
+        // ASM loc_61A8 (kid.asm:6167): tst.b ($FFFFFB54).w; bne.s loc_61BC
+        // — active period always falls through to sub_61CA.
+        // Inactive period: cmpi.b #5,($FFFFFB3D).w; beq.s return_61C0
+        // — full slots (5) skip sub_61CA entirely.
+        if state.hail_active {
+            // ASM loc_61BC (kid.asm:6174): bsr.w sub_61CA
+            state.call_snow_worker = true;
+        } else if state.snow_slot_count != 5 {
             state.snow_spawn_cooldown = 2;
+            // ASM loc_61BC (kid.asm:6174): bsr.w sub_61CA
+            state.call_snow_worker = true;
         }
-        state.call_snow_worker = true;
+        // else: ASM beq.s return_61C0 — inactive with all 5 slots, no sub_61CA
     }
 
     state.weather_mode_byte = 4;

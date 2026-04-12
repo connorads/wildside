@@ -28274,6 +28274,136 @@ fn sub_6048_snow_cycle_toggles_inactive_and_requests_spawn_when_slots_available(
         stepped.snow_spawn_cooldown, 2,
         "ASM sub_6048 should write `2` to `($FFFFFB3C).w` when snow is inactive and fewer than five slots are live"
     );
+    assert!(
+        stepped.call_snow_worker,
+        "ASM loc_61BC (kid.asm:6174): bsr.w sub_61CA — inactive period with available slots still calls the snow worker"
+    );
+}
+
+#[test]
+fn loc_61a8_inactive_full_slots_skips_snow_worker() {
+    // ASM loc_61A8 (kid.asm:6167): tst.b ($FFFFFB54).w; bne.s loc_61BC
+    // When hail_active is false: cmpi.b #5,($FFFFFB3D).w; beq.s return_61C0
+    // — all 5 slots occupied means sub_61CA is NOT called.
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x0874,
+            level_special_effects: 3,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false,
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 10,
+            hail_period_timer: 5,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 5,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0; 8],
+        [0; 15],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    assert!(
+        !stepped.call_snow_worker,
+        "ASM loc_61A8: beq.s return_61C0 — inactive period with all 5 snow slots must NOT call sub_61CA"
+    );
+    assert_eq!(
+        stepped.snow_spawn_cooldown, 9,
+        "ASM loc_61A8: snow_spawn_cooldown should be unchanged when snow_slot_count == 5"
+    );
+}
+
+#[test]
+fn loc_61a8_active_period_calls_snow_worker_without_spawn_request() {
+    // ASM loc_61A8 (kid.asm:6167): tst.b ($FFFFFB54).w; bne.s loc_61BC
+    // When hail_active is true, jump straight to loc_61BC (sub_61CA) without
+    // touching snow_spawn_cooldown.
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x0874,
+            level_special_effects: 3,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false,
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 10,
+            hail_period_timer: 5,
+            hail_active: true,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 3,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0; 8],
+        [0; 15],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    assert!(
+        stepped.call_snow_worker,
+        "ASM loc_61BC (kid.asm:6174): bsr.w sub_61CA — active period always calls the snow worker"
+    );
+    assert_eq!(
+        stepped.snow_spawn_cooldown, 9,
+        "ASM loc_61A8: active period does not modify snow_spawn_cooldown"
+    );
+}
+
+#[test]
+fn loc_619c_toggle_from_inactive_adds_258_to_preset_258() {
+    // ASM loc_619C (kid.asm:6163): addi.w #$258,($FFFFFB52).w
+    // When hail_active is false at timer expiry, the code first sets timer=$258
+    // then loc_619C adds another $258, giving $4B0 total for the active period.
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x0874,
+            level_special_effects: 3,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false,
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 10,
+            hail_period_timer: 1,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 2,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0; 8],
+        [0; 15],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    assert!(
+        stepped.hail_active,
+        "ASM loc_619C: eori.b #$FF,($FFFFFB54).w toggles inactive→active"
+    );
+    assert_eq!(
+        stepped.hail_period_timer, 0x04B0,
+        "ASM loc_619C: inactive→active period = $258 (preset) + $258 (loc_619C) = $4B0"
+    );
 }
 
 #[test]
