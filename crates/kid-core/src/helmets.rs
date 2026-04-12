@@ -1176,6 +1176,95 @@ pub(crate) fn diamond_power_snake_find_target(
     }
 }
 
+/// Result of `diamond_power_rain_find_nearest_enemy`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct RainNearestEnemy {
+    /// Manhattan distance to nearest on-screen enemy.
+    pub(crate) distance: u16,
+    /// Target enemy x_pos (world coordinates).
+    pub(crate) x: i16,
+    /// Target enemy y_pos (world coordinates).
+    pub(crate) y: i16,
+}
+
+/// ASM loc_3FEE2 (kid.asm:45253): rain tracking enemy scan.
+///
+/// Called from loc_3FEBC when a non-tracking rain object's timer expires
+/// and tracking is enabled ($FFFFF5B9 != 0, i.e. TrackingRain).
+///
+/// Iterates the enemy linked list ($FFFFF86A), for each enemy:
+///   — load x/y, subtract 8 from y (vs 16 for snake)
+///   — cull off-screen: x in [-8, $148), y in [$10, $F0) after camera
+///   — loc_3FF16 (kid.asm:45272): abs(dx) after sub.w d0,d5; bge.s; neg.w d5
+///   — loc_3FF1C (kid.asm:45277): abs(dy) after sub.w d1,d6; bge.s; neg.w d6,
+///     then add.w d5,d6 for Manhattan distance, cmp.w d6,d7 tracks nearest
+///
+/// Returns the nearest on-screen enemy, or None if no enemies visible.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_rain_find_nearest_enemy(
+    rain_x: i16,
+    rain_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+    enemies: &[SnakeTargetCandidate],
+) -> Option<RainNearestEnemy> {
+    // ASM loc_3FEBC: d0 = rain $1A(a0) - Camera_X_pos, d1 = rain $1E(a0) - Camera_Y_pos
+    let screen_rain_x = rain_x.wrapping_sub(camera_x);
+    let screen_rain_y = rain_y.wrapping_sub(camera_y);
+
+    // ASM: moveq #-1,d7 — initial "no target" sentinel
+    let mut best_dist: u16 = 0xFFFF;
+    let mut best_target: Option<(i16, i16)> = None;
+
+    // ASM loc_3FEE2: iterate enemy linked list ($FFFFF86A)
+    for enemy in enemies {
+        // ASM loc_3FEE2: move.w $1A(a1),d5; move.w $1E(a1),d6; subi.w #8,d6
+        let ex = enemy.x_pos;
+        let ey = enemy.y_pos.wrapping_sub(8);
+
+        // ASM: sub.w (Camera_X_pos).w,d5
+        let screen_ex = ex.wrapping_sub(camera_x);
+        // ASM: cmpi.w #$FFF8,d5; blt.s loc_3FF26
+        if screen_ex < -8 {
+            continue;
+        }
+        // ASM: cmpi.w #$148,d5; bge.s loc_3FF26
+        if screen_ex >= 0x148 {
+            continue;
+        }
+        // ASM: sub.w (Camera_Y_pos).w,d6
+        let screen_ey = ey.wrapping_sub(camera_y);
+        // ASM: cmpi.w #$10,d6; blt.s loc_3FF26
+        if screen_ey < 0x10 {
+            continue;
+        }
+        // ASM: cmpi.w #$F0,d6; bge.s loc_3FF26
+        if screen_ey >= 0xF0 {
+            continue;
+        }
+
+        // ASM loc_3FF16: sub.w d0,d5; bge.s loc_3FF16; neg.w d5
+        let dx = (screen_ex.wrapping_sub(screen_rain_x)).unsigned_abs();
+        // ASM loc_3FF1C: sub.w d1,d6; bge.s loc_3FF1C; neg.w d6
+        let dy = (screen_ey.wrapping_sub(screen_rain_y)).unsigned_abs();
+
+        // ASM loc_3FF1C: add.w d5,d6; cmp.w d6,d7; bcs.s loc_3FF26
+        let dist = dx.wrapping_add(dy);
+        if best_dist < dist {
+            continue;
+        }
+        best_dist = dist;
+        best_target = Some((enemy.x_pos, enemy.y_pos));
+    }
+
+    best_target.map(|(x, y)| RainNearestEnemy {
+        distance: best_dist,
+        x,
+        y,
+    })
+}
+
 /// ASM loc_3FA16 through loc_3FA46: compute 8-way octant direction from
 /// the snake head to its target, used by the snake steering loop.
 ///

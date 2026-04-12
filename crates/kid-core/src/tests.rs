@@ -11460,6 +11460,101 @@ fn diamond_power_main_rain_spawns_and_iterates_objects_loc_3fe62_loc_3fe90() {
     }
 }
 
+// -----------------------------------------------------------------------
+// Rain tracking enemy scan (loc_3FEE2, loc_3FF16, loc_3FF1C)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_rain_find_nearest_enemy_picks_closest_loc_3fee2_loc_3ff16_loc_3ff1c() {
+    // ASM loc_3FEE2 (kid.asm:45253): iterate enemy linked list, for each:
+    // load x/y, subtract 8 from y, cull off-screen, compute Manhattan distance.
+    // ASM loc_3FF16 (kid.asm:45272): abs(dx) = |enemy_screen_x - rain_screen_x|
+    // ASM loc_3FF1C (kid.asm:45277): abs(dy) = |enemy_screen_y - rain_screen_y|,
+    // then add for Manhattan distance, track nearest.
+    let cam_x: i16 = 0x80;
+    let cam_y: i16 = 0x40;
+    let rain_x: i16 = 0x100; // screen-relative: 0x100-0x80 = 0x80
+    let rain_y: i16 = 0x80; // screen-relative: 0x80-0x40 = 0x40
+    let enemies = [
+        // Enemy A: screen (0xA0, 0x70) after y-8 offset → dx=0x20, dy=0x30 → dist=0x50
+        helmets::SnakeTargetCandidate {
+            x_pos: 0x120,
+            y_pos: 0xB8, // (0xB8-8)-0x40 = 0x70
+        },
+        // Enemy B: screen (0x90, 0x50) after y-8 offset → dx=0x10, dy=0x10 → dist=0x20
+        helmets::SnakeTargetCandidate {
+            x_pos: 0x110,
+            y_pos: 0x98, // (0x98-8)-0x40 = 0x50
+        },
+    ];
+    let result =
+        helmets::diamond_power_rain_find_nearest_enemy(rain_x, rain_y, cam_x, cam_y, &enemies);
+    let target = result.expect("should find nearest enemy");
+    // ASM loc_3FF1C: enemy B is nearer (dist=0x20 < 0x50)
+    assert_eq!(target.x, 0x110, "nearest enemy x_pos");
+    assert_eq!(target.y, 0x98, "nearest enemy y_pos");
+    assert_eq!(target.distance, 0x20, "Manhattan distance |dx|+|dy|");
+}
+
+#[test]
+fn diamond_power_rain_find_nearest_returns_none_when_no_enemies_loc_3fee2() {
+    // ASM loc_3FEBC: move.l ($FFFFF86A).w,d6; beq.s loc_3FF2C
+    // — empty enemy list skips the loc_3FEE2 loop entirely.
+    // d7 stays at $FFFF (sentinel), so no target found.
+    let result = helmets::diamond_power_rain_find_nearest_enemy(0x100, 0x80, 0x80, 0x40, &[]);
+    assert!(result.is_none(), "no enemies → None");
+}
+
+#[test]
+fn diamond_power_rain_find_nearest_culls_offscreen_enemies_loc_3fee2() {
+    // ASM loc_3FEE2: screen bounds cull:
+    // x in [-8, $148), y in [$10, $F0) after camera subtraction and y-8 offset.
+    let cam_x: i16 = 0;
+    let cam_y: i16 = 0;
+    let enemies = [
+        // x too far left: screen_x = -9 < -8
+        helmets::SnakeTargetCandidate {
+            x_pos: -9,
+            y_pos: 0x80,
+        },
+        // x too far right: screen_x = 0x148 >= 0x148
+        helmets::SnakeTargetCandidate {
+            x_pos: 0x148,
+            y_pos: 0x80,
+        },
+        // y too high: (0x17-8)=0xF < 0x10
+        helmets::SnakeTargetCandidate {
+            x_pos: 0x80,
+            y_pos: 0x17,
+        },
+        // y too low: (0xF8-8)=0xF0 >= 0xF0
+        helmets::SnakeTargetCandidate {
+            x_pos: 0x80,
+            y_pos: 0xF8,
+        },
+    ];
+    let result = helmets::diamond_power_rain_find_nearest_enemy(0x80, 0x80, cam_x, cam_y, &enemies);
+    assert!(result.is_none(), "all enemies off-screen → None");
+}
+
+#[test]
+fn diamond_power_rain_y_offset_is_8_not_16_loc_3fee2() {
+    // ASM loc_3FEE2: subi.w #8,d6 — rain uses y-8 offset (snake uses y-16).
+    // Enemy at y_pos=0x18: screen_ey = (0x18-8)-0 = 0x10 → exactly at threshold (included).
+    // If the offset were 16: screen_ey = (0x18-16)-0 = 0x02 < 0x10 → would be culled.
+    let cam_x: i16 = 0;
+    let cam_y: i16 = 0;
+    let enemies = [helmets::SnakeTargetCandidate {
+        x_pos: 0x80,
+        y_pos: 0x18,
+    }];
+    let result = helmets::diamond_power_rain_find_nearest_enemy(0x80, 0x80, cam_x, cam_y, &enemies);
+    assert!(
+        result.is_some(),
+        "y_pos=0x18 visible with y-8 offset (screen_ey=0x10)"
+    );
+}
+
 #[test]
 fn diamond_power_object_remove_sub_3f5e8_unlinks_the_slot_and_keeps_flags_while_objects_remain() {
     let result = helmets::diamond_power_object_remove_sub_3F5E8(
