@@ -14,6 +14,7 @@ use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IntroSequence6LongwordFillLoc1B170,
     IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24, PauseMenuSpriteEntrySub6874,
+    RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, RAM_CLEAR_START_ADDR_LOC_5FE,
     copy_sega_screen_palette_loc_12DFE, end_sequence_burst_camera_loop_loc_1D1EC,
     end_sequence_burst_prelude_loc_1D1D6, end_sequence_burst_sprite_init_sub_1D86C,
     end_sequence_burst_wait_loop_loc_1D1DE, end_sequence_camera_shake_sub_1D846,
@@ -28,7 +29,8 @@ use crate::boot::{
     sega_screen_object_bootstrap_loc_12E48, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
     step_hud_animation_sub_44DC, title_shell_art_decompress_loc_1BF54,
     title_shell_art_index_loc_1BF3E, title_shell_vram_fill_loc_1BF70,
-    vdp_game_init_register_commands_loc_5E6, vdp_upload_32_longwords_sub_44D0,
+    validate_options_after_ram_clear_loc_5FE, vdp_game_init_register_commands_loc_5E6,
+    vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -65435,5 +65437,137 @@ fn step_hud_animation_sub_44dc_diamond_table_wraps_at_ff_sentinel_cites_loc_460a
     assert_eq!(
         step.next_state.diamond_frame_offset_fb5d, 0,
         "ASM loc_460A: diamond frame offset should wrap back to 0 on $FF sentinel",
+    );
+}
+
+// ---------------------------------------------------------------------------
+// loc_5FE / loc_604 — GameProgram RAM clear + options validation
+// ---------------------------------------------------------------------------
+
+/// ASM loc_5FE (kid.asm:757): RAM clear starts at Sprite_Table ($FFFF0000).
+/// `move.w #$3FFF,d0` + dbf = $4000 longwords = $10000 bytes (64 KB).
+#[test]
+fn loc_5fe_ram_clear_dimensions_match_asm() {
+    assert_eq!(
+        RAM_CLEAR_START_ADDR_LOC_5FE, 0xFFFF_0000,
+        "ASM loc_5FE: `lea (Sprite_Table).l,a0` — clear starts at $FFFF0000"
+    );
+    assert_eq!(
+        RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, 0x4000,
+        "ASM loc_5FE/loc_604: `move.w #$3FFF,d0; dbf` loops $4000 times, clearing $10000 bytes"
+    );
+    assert_eq!(
+        RAM_CLEAR_LONGWORD_COUNT_LOC_5FE * 4,
+        0x10000,
+        "ASM loc_604: 64 KB cleared covers entire work RAM ($FFFF0000–$FFFFFFFF)"
+    );
+}
+
+/// ASM loc_604 (kid.asm:761–763): after the clear loop, `cmpi.w #5,d7; bls.s loc_61C`
+/// keeps the saved options longword when Controls (low word) is in 0–5.
+#[test]
+fn loc_604_options_validation_keeps_valid_controls() {
+    // Controls = 0 (minimum valid)
+    assert_eq!(
+        validate_options_after_ram_clear_loc_5FE(0x0000_0000),
+        0x0000_0000,
+        "ASM loc_604: Controls=0 is valid, options preserved"
+    );
+    // Controls = 5 (maximum valid), with 2PController=$FF and Speed=$FF set
+    let options = 0xFFFF_0005u32;
+    assert_eq!(
+        validate_options_after_ram_clear_loc_5FE(options),
+        options,
+        "ASM loc_604: Controls=5 is valid (`bls.s` branches), non-zero upper bytes preserved"
+    );
+    // Controls = 3 (mid-range), Speed=$FF
+    let options = 0x00FF_0003u32;
+    assert_eq!(
+        validate_options_after_ram_clear_loc_5FE(options),
+        options,
+        "ASM loc_604: Controls=3 is valid, options preserved"
+    );
+}
+
+/// ASM loc_604 (kid.asm:764–768): when Controls > 5, `move.l #0,...` resets
+/// the entire 4-byte options longword to zero (Default_Options=0).
+#[test]
+fn loc_604_options_validation_resets_invalid_controls() {
+    // Controls = 6 (just above valid range)
+    assert_eq!(
+        validate_options_after_ram_clear_loc_5FE(0x0000_0006),
+        0,
+        "ASM loc_604: Controls=6 exceeds valid range, reset to Default_Options=0"
+    );
+    // Controls = $FFFF (maximum invalid), with other options set
+    assert_eq!(
+        validate_options_after_ram_clear_loc_5FE(0xFFFF_FFFF),
+        0,
+        "ASM loc_604: Controls=$FFFF is invalid, entire longword reset to 0"
+    );
+    // Controls = $0100 (high byte set but low byte zero — but the word is $0100 = 256 > 5)
+    assert_eq!(
+        validate_options_after_ram_clear_loc_5FE(0x0000_0100),
+        0,
+        "ASM loc_604: `cmpi.w #5,d7` compares the full 16-bit word, $100 > 5 → reset"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// loc_607A — Palette_Buffer → Palette_Buffer_2 copy in sub_6048
+// ---------------------------------------------------------------------------
+
+/// ASM loc_607A (kid.asm:6062): storm fade copies Palette_Buffer into
+/// Palette_Buffer_2 via `move.w (a0)+,(a1)+; dbf d0,loc_607A` with d0=$1F
+/// (32 words = 64 bytes = 4 palette lines).  The native port models this as
+/// `WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2`.  Verify the op is
+/// emitted when the storm fade countdown is active (non-zero) and frame > $4B0.
+#[test]
+fn loc_607a_storm_fade_emits_palette_buffer_copy_to_buffer2() {
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x04B1, // past 20-second threshold
+            level_special_effects: 2,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false,
+            fade_countdown: 8, // non-zero triggers the copy path
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 0,
+            hail_period_timer: 0,
+            hail_active: false,
+            snow_spawn_cooldown: 0,
+            snow_slot_count: 0,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0xAAA, 0xBBB, 0xCCC, 0xDDD, 0xEEE, 0x123, 0x456],
+        [0; 15],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    assert!(
+        stepped
+            .palette_ops
+            .contains(&WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2),
+        "ASM loc_607A: storm fade with non-zero countdown must emit CopyPaletteBufferToBuffer2 \
+         (32-word copy from Palette_Buffer to Palette_Buffer_2)"
+    );
+    // loc_6090 immediately follows with the same copy to Buffer3
+    assert!(
+        stepped
+            .palette_ops
+            .contains(&WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer3),
+        "ASM loc_6090: immediately after loc_607A, the same loop copies to Palette_Buffer_3"
+    );
+    assert_eq!(
+        stepped.palette_ops[0],
+        WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2,
+        "ASM loc_607A: buffer2 copy must be the first palette op (before buffer3 and storm overlay)"
     );
 }

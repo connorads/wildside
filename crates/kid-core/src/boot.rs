@@ -60,6 +60,47 @@ pub(crate) fn vdp_game_init_register_commands_loc_5E6() -> [u16; 19] {
     commands
 }
 
+/// ASM loc_5FE (kid.asm:757): RAM clear entry in GameProgram, immediately after
+/// VDP register init.  Saves `Options_Suboption_2PController` longword ($FFFFFDC8,
+/// 4 bytes covering 2PController / Speed / Controls) into d7, then:
+/// ```asm
+/// loc_5FE:
+///   move.w #$3FFF,d0      ; 16384 iterations (longwords)
+///   moveq  #0,d1
+/// loc_604:
+///   move.l d1,(a0)+        ; clear 4 bytes
+///   dbf    d0,loc_604       ; loop $3FFF+1 = $10000 longwords = 64 KB
+///   move.l d7,(Options_Suboption_2PController).w  ; restore saved options
+///   cmpi.w #5,d7
+///   bls.s  loc_61C          ; valid (0–5) → keep
+///   move.l #0,(Options_Suboption_2PController).w  ; invalid → reset
+/// ```
+/// Returns the validated options longword.  In the native port, Rust struct
+/// initialisation zeroes all state; this function models only the options
+/// preserve-and-validate logic that survives the RAM clear.
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn validate_options_after_ram_clear_loc_5FE(saved_options_longword: u32) -> u32 {
+    // ASM loc_604 (kid.asm:761): `move.l d1,(a0)+; dbf d0,loc_604` clears
+    // $10000 longwords (64 KB) from Sprite_Table ($FFFF0000).
+    // After restore, `cmpi.w #5,d7; bls.s loc_61C` validates the low word
+    // (Options_Suboption_Controls).  The .w comparison tests only the bottom
+    // 16 bits of d7 as an unsigned value.
+    let controls_word = (saved_options_longword & 0xFFFF) as u16;
+    if controls_word <= 5 {
+        saved_options_longword
+    } else {
+        0 // Default_Options = 0
+    }
+}
+
+/// RAM clear dimensions from loc_5FE/loc_604.
+#[allow(dead_code)]
+pub(crate) const RAM_CLEAR_START_ADDR_LOC_5FE: u32 = 0xFFFF_0000; // Sprite_Table
+/// `move.w #$3FFF,d0` + dbf = $3FFF+1 = $4000 longwords = $10000 bytes.
+#[allow(dead_code)]
+pub(crate) const RAM_CLEAR_LONGWORD_COUNT_LOC_5FE: u32 = 0x4000;
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {

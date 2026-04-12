@@ -591,10 +591,21 @@ pub(crate) fn special_effect_unknown_outer_pass_loc_14E42(
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum WeatherPaletteOpSub6048 {
+    /// ASM loc_607A (kid.asm:6062): `move.w (a0)+,(a1)+; dbf d0,loc_607A`
+    /// copies 32 words ($1F+1) from `Palette_Buffer` to `Palette_Buffer_2`
+    /// (64 bytes = 4 palette lines × 16 colours).
     CopyPaletteBufferToBuffer2,
+    /// ASM loc_6090 (kid.asm:6069): identical copy loop from `Palette_Buffer`
+    /// to `Palette_Buffer_3`.
     CopyPaletteBufferToBuffer3,
-    WritePaletteBuffer { start_word: u8, words: Vec<u16> },
-    WritePaletteBuffer3 { start_word: u8, words: Vec<u16> },
+    WritePaletteBuffer {
+        start_word: u8,
+        words: Vec<u16>,
+    },
+    WritePaletteBuffer3 {
+        start_word: u8,
+        words: Vec<u16>,
+    },
 }
 
 const FALLING_WEATHER_SLOT_COUNT_SUB_61CA: usize = 5;
