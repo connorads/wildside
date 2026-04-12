@@ -479,6 +479,36 @@ pub(crate) struct ShishkaBagelHead1WaitLoopLoc394E8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead1ActivationNextLoc39506 {
+    WaitLoopLoc394E8,
+    AttackAnimationLoc39548,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead1ActivationWindowLoc39506 {
+    pub(crate) kid_within_vertical_window: bool,
+    pub(crate) x_direction: Option<u8>,
+    pub(crate) cached_x_direction_fffffb86: Option<u8>,
+    pub(crate) animation_script_label: Option<&'static str>,
+    pub(crate) next: ShishkaBagelHead1ActivationNextLoc39506,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead1AttackWaitNextLoc39548 {
+    CheckAttackAnimationDoneLoc39566,
+    SharedCollisionExitLoc39EBE,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead1AttackWaitLoopLoc39548 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_shishka_movement_sub_398bc: bool,
+    pub(crate) runs_bagel_movement_sub_39bf8: bool,
+    pub(crate) cached_collision_word_fffffb72: u16,
+    pub(crate) next: ShishkaBagelHead1AttackWaitNextLoc39548,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoomerangBossHeadWaitNextLoc37F80 {
     CheckKidWindowLoc37F94,
     SharedCollisionExitLoc39EBE,
@@ -2566,6 +2596,81 @@ pub(crate) fn shishka_bagel_head_1_wait_loop_loc_394E8(
             ShishkaBagelHead1WaitNextLoc394E8::CheckKidWindowLoc39506
         } else {
             ShishkaBagelHead1WaitNextLoc394E8::SharedCollisionExitLoc39EBE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_1_activation_window_loc_39506(
+    kid_x: u16,
+    kid_y: u16,
+    head_x: u16,
+    head_y: u16,
+) -> ShishkaBagelHead1ActivationWindowLoc39506 {
+    // ASM loc_39506 (kid.asm:42109): load Kid gfx coordinates from
+    // `(Addr_GfxObject_Kid).w`, check signed Kid Y within inclusive
+    // `[head_y-$40, head_y]` activation window, branch back to `loc_394E8`
+    // wait loop if outside.
+    let lower_y = head_y.wrapping_sub(0x0040);
+    let kid_within_vertical_window =
+        !word_lt_signed(kid_y, lower_y) && !word_gt_signed(kid_y, head_y);
+
+    if !kid_within_vertical_window {
+        return ShishkaBagelHead1ActivationWindowLoc39506 {
+            kid_within_vertical_window,
+            x_direction: None,
+            cached_x_direction_fffffb86: None,
+            animation_script_label: None,
+            next: ShishkaBagelHead1ActivationNextLoc39506::WaitLoopLoc394E8,
+        };
+    }
+
+    // ASM loc_39534 (kid.asm:42127): `sf x_direction(a3)` — clear direction
+    // to 0 when head 1 is strictly right of Kid (`cmp.w d5,d3; bgt.s`).
+    // Fallthrough at kid.asm:42123 stores `$FF` via `st x_direction(a3)`.
+    let x_direction = if word_gt_signed(head_x, kid_x) {
+        0
+    } else {
+        0xFF
+    };
+
+    // ASM loc_39538 (kid.asm:42130): mirror selected `x_direction(a3)` byte
+    // into `($FFFFFB86).w`, load `stru_39FC6` into `d7`, call
+    // `j_Init_Animation` to start the attack animation.
+    ShishkaBagelHead1ActivationWindowLoc39506 {
+        kid_within_vertical_window,
+        x_direction: Some(x_direction),
+        cached_x_direction_fffffb86: Some(x_direction),
+        animation_script_label: Some("stru_39FC6"),
+        next: ShishkaBagelHead1ActivationNextLoc39506::AttackAnimationLoc39548,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_1_attack_wait_loop_loc_39548(
+    variant_d2: u16,
+    movement_status_d7: u16,
+) -> ShishkaBagelHead1AttackWaitLoopLoc39548 {
+    // ASM loc_39548 (kid.asm:42135): hibernate one frame after `stru_39FC6`,
+    // then branch on d2: d2==0 calls `sub_398BC` (ShishkaBoss movement),
+    // d2!=0 falls through to loc_39556 → `bsr.w sub_39BF8` (BagelBrothers
+    // movement).
+    //
+    // ASM loc_3955A (kid.asm:42146): convergence — `move.w d7,($FFFFFB72).w`,
+    // `tst.w d7`, `beq.s loc_39566` (check animation done),
+    // `bra.w loc_39EBE` (shared collision exit) when d7 nonzero.
+    let is_shishka = variant_d2 == 0;
+    ShishkaBagelHead1AttackWaitLoopLoc39548 {
+        hibernates_one_frame: true,
+        runs_shishka_movement_sub_398bc: is_shishka,
+        runs_bagel_movement_sub_39bf8: !is_shishka,
+        cached_collision_word_fffffb72: movement_status_d7,
+        next: if movement_status_d7 == 0 {
+            ShishkaBagelHead1AttackWaitNextLoc39548::CheckAttackAnimationDoneLoc39566
+        } else {
+            ShishkaBagelHead1AttackWaitNextLoc39548::SharedCollisionExitLoc39EBE
         },
     }
 }
