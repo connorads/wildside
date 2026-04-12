@@ -11684,6 +11684,164 @@ fn diamond_power_main_circle_of_doom_slot_decrements_angle_loc_3f81a() {
     );
 }
 
+// DiamondPower_Main_CircleOfDoom linked-list traversal tail (loc_3F8AA)
+
+#[test]
+fn diamond_power_main_circle_of_doom_linked_list_traversal_loc_3f8aa() {
+    // ASM loc_3F8AA: move.l 4(a0),d0; bne.w loc_3F81A; rts
+    // After processing one slot, loads the next-slot pointer from offset 4.
+    // Nonzero → continue loop (back to loc_3F81A); zero → return.
+    // Both the removal path (loc_3F87A → sub_3F5E8 → bra.s loc_3F8AA)
+    // and the compile-sprite path (loc_3F880 fallthrough) converge here.
+    // In native, the caller iterates the Vec — verify that processing
+    // multiple slots produces independent results (no cross-slot leakage).
+    let mut slots = helmets::diamond_power_init_circle_of_doom_sub_3F7D0();
+    assert_eq!(slots.len(), 8);
+
+    let r0 = helmets::diamond_power_main_circle_of_doom_slot(&mut slots[0], 100, 200, 0, 0);
+    let r1 = helmets::diamond_power_main_circle_of_doom_slot(&mut slots[1], 100, 200, 0, 0);
+    // Each slot processes independently — different angles yield different positions.
+    // ASM loc_3F8AA: the loop continues via 4(a0) nonzero to loc_3F81A.
+    assert_ne!(
+        r0.screen_x, r1.screen_x,
+        "ASM loc_3F8AA: consecutive slots produce different X (different angles)"
+    );
+    assert!(!r0.removed, "ASM loc_3F8AA: first slot not removed");
+    assert!(!r1.removed, "ASM loc_3F8AA: second slot not removed");
+
+    // Verify removed slot still reaches loc_3F8AA (via loc_3F87A → sub_3F5E8):
+    slots[2].status = 1;
+    let r2 = helmets::diamond_power_main_circle_of_doom_slot(&mut slots[2], 100, 200, 0, 0);
+    assert!(
+        r2.removed,
+        "ASM loc_3F8AA: removal path (loc_3F87A) converges to loc_3F8AA"
+    );
+}
+
+// DiamondPower_Init_Snake (loc_3F92A, loc_3F946)
+
+#[test]
+fn diamond_power_init_snake_allocates_6_slots_at_kid_position_loc_3f92a_loc_3f946() {
+    // ASM loc_3F92A: bsr.w Allocate_DiamondPowerObjectSlot — 6 slots (d1=5..0)
+    // ASM loc_3F946: each slot gets Kid x/y as position, size from table,
+    // trail buffer filled with Kid x/y.
+    let result = helmets::diamond_power_init_snake(
+        6,     // d4 = wander speed (MiniSnake)
+        0x300, // d5 = movement speed
+        &helmets::SNAKE_INIT_DATA_MINI,
+        0x1E0, // timer
+        0x120, // kid_x
+        0x80,  // kid_y
+    );
+
+    assert_eq!(
+        result.slots.len(),
+        6,
+        "ASM loc_3F91C: moveq #5,d1 → 6 slots"
+    );
+
+    // ASM loc_3F946: move.w d6,$1A(a0); move.w d7,$1E(a0)
+    for (i, slot) in result.slots.iter().enumerate() {
+        assert_eq!(slot.x_pos, 0x120, "slot {i}: ASM loc_3F946 x_pos = kid_x");
+        assert_eq!(slot.y_pos, 0x80, "slot {i}: ASM loc_3F946 y_pos = kid_y");
+    }
+
+    // ASM loc_3F946: move.w (a2)+,$24(a0) — diamond sizes from init table
+    assert_eq!(
+        result.slots[0].diamond_size, 4,
+        "ASM loc_3F946: MiniSnake size[0]=4"
+    );
+    assert_eq!(
+        result.slots[1].diamond_size, 3,
+        "ASM loc_3F946: MiniSnake size[1]=3"
+    );
+    assert_eq!(
+        result.slots[2].diamond_size, 2,
+        "ASM loc_3F946: MiniSnake size[2]=2"
+    );
+    assert_eq!(
+        result.slots[3].diamond_size, 1,
+        "ASM loc_3F946: MiniSnake size[3]=1"
+    );
+    assert_eq!(
+        result.slots[4].diamond_size, 1,
+        "ASM loc_3F946: MiniSnake size[4]=1"
+    );
+    assert_eq!(
+        result.slots[5].diamond_size, 1,
+        "ASM loc_3F946: MiniSnake size[5]=1"
+    );
+}
+
+#[test]
+fn diamond_power_init_snake_trail_filled_with_kid_position_loc_3f946() {
+    // ASM loc_3F946: lea $40(a0),a1; 3x move.w d6,(a1)+; move.w d7,(a1)+
+    // Trail buffer at $40-$4A stores 3 copies of (kid_x, kid_y).
+    let result = helmets::diamond_power_init_snake(
+        6,
+        0x300,
+        &helmets::SNAKE_INIT_DATA_MINI,
+        0x1E0,
+        200,
+        150,
+    );
+
+    for (i, slot) in result.slots.iter().enumerate() {
+        assert_eq!(
+            slot.trail,
+            [(200, 150), (200, 150), (200, 150)],
+            "slot {i}: ASM loc_3F946 trail buffer filled with kid x/y"
+        );
+    }
+}
+
+#[test]
+fn diamond_power_init_snake_first_slot_stores_head_data_loc_3f92a() {
+    // ASM loc_3F92A: cmpi.w #5,d1; bne.s loc_3F946 — first slot (d1==5)
+    // stores head pointer at $FFFFF5B4, timer $40 at $3E(a0),
+    // wander speed d4 at $2E(a0), movement speed d5 at $30(a0).
+    let result = helmets::diamond_power_init_snake(
+        0x10,  // d4 = wander speed (SwiftMiniSnake)
+        0x480, // d5 = movement speed
+        &helmets::SNAKE_INIT_DATA_SWIFT_MINI,
+        0x4B0, // timer
+        100,
+        200,
+    );
+
+    assert_eq!(
+        result.head_timer, 0x40,
+        "ASM loc_3F92A: move.w #$40,$3E(a0)"
+    );
+    assert_eq!(
+        result.wander_speed, 0x10,
+        "ASM loc_3F92A: move.w d4,$2E(a0)"
+    );
+    assert_eq!(
+        result.movement_speed, 0x480,
+        "ASM loc_3F92A: move.w d5,$30(a0)"
+    );
+    assert_eq!(
+        result.power_timer, 0x4B0,
+        "ASM: Diamond_power_timer set by variant"
+    );
+}
+
+#[test]
+fn diamond_power_init_snake_death_snake_sizes_loc_3f946() {
+    // ASM DiamondPower_InitData_DeathSnake (kid.asm:44651): [6,6,5,4,3,2]
+    // ASM loc_3F946: move.w (a2)+,$24(a0) reads sizes in order.
+    let result =
+        helmets::diamond_power_init_snake(6, 0x400, &helmets::SNAKE_INIT_DATA_DEATH, 0x4B0, 0, 0);
+
+    let sizes: Vec<u16> = result.slots.iter().map(|s| s.diamond_size).collect();
+    assert_eq!(
+        sizes,
+        vec![6, 6, 5, 4, 3, 2],
+        "ASM loc_3F946: DeathSnake sizes from DiamondPower_InitData_DeathSnake"
+    );
+}
+
 // -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------

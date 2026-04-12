@@ -917,11 +917,120 @@ pub(crate) fn diamond_power_main_circle_of_doom_slot(
     let new_angle_upper = angle_upper.wrapping_sub(4);
     slot.angle = (new_angle_upper as u32) << 16 | angle_lower as u32;
 
+    // ASM loc_3F8AA: move.l 4(a0),d0; bne.w loc_3F81A; rts
+    // The linked-list traversal tail: loads the next-slot pointer from offset 4
+    // of the current slot. Nonzero continues the loop (back to loc_3F81A);
+    // zero terminates. Both the removal path (loc_3F87A → sub_3F5E8 → bra.s
+    // loc_3F8AA) and the compile-sprite path (loc_3F880 fallthrough) converge
+    // here. In native code the caller iterates the slot Vec, so this
+    // linked-list plumbing is implicit.
     CircleOfDoomSpriteResult {
         screen_x,
         screen_y,
         half_size,
         removed: false,
+    }
+}
+
+/// A single snake diamond-power slot.
+/// ASM: each slot occupies the standard DP-object layout, with:
+///   $1A(a0): x_pos (word)
+///   $1E(a0): y_pos (word)
+///   $24(a0): diamond size (word, from init-data table)
+///   $2E(a0): wander speed d4 (word, first slot only)
+///   $30(a0): movement speed d5 (word, first slot only)
+///   $3E(a0): timer $40 (word, first slot only)
+///   $40(a0)-$4A(a0): 3 trail positions (x,y,x,y,x,y)
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SnakeSlot {
+    pub(crate) x_pos: i16,
+    pub(crate) y_pos: i16,
+    /// Diamond size from the variant's init-data table.
+    pub(crate) diamond_size: u16,
+    /// Trail buffer: 3 previous positions (x,y pairs).
+    pub(crate) trail: [(i16, i16); 3],
+}
+
+/// Result of `diamond_power_init_snake`: the full snake state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SnakeInitResult {
+    pub(crate) slots: Vec<SnakeSlot>,
+    /// Timer stored at $3E(a0) of the head slot ($40).
+    pub(crate) head_timer: u16,
+    /// Wander speed stored at $2E(a0) of the head slot (d4).
+    pub(crate) wander_speed: u16,
+    /// Movement speed stored at $30(a0) of the head slot (d5).
+    pub(crate) movement_speed: u16,
+    /// Diamond power timer value written to (Diamond_power_timer).w.
+    pub(crate) power_timer: u16,
+}
+
+/// Init-data tables for each snake variant.
+/// ASM: DiamondPower_InitData_SwiftMiniSnake (kid.asm:44598),
+///      DiamondPower_InitData_MiniSnake (kid.asm:44610),
+///      DiamondPower_InitData_DeathSnake (kid.asm:44651).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const SNAKE_INIT_DATA_SWIFT_MINI: [u16; 6] = [5, 4, 3, 2, 1, 1];
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const SNAKE_INIT_DATA_MINI: [u16; 6] = [4, 3, 2, 1, 1, 1];
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const SNAKE_INIT_DATA_DEATH: [u16; 6] = [6, 6, 5, 4, 3, 2];
+
+/// ASM DiamondPower_Init_Snake (kid.asm:44621, loc_3F91C).
+///
+/// Shared init for all three snake variants (SwiftMiniSnake, MiniSnake,
+/// DeathSnake). Allocates 6 slots (d1 counts 5..0), each at Kid's position
+/// with diamond sizes from the variant's init-data table and a 3-position
+/// trail buffer filled with Kid's coordinates.
+///
+/// Parameters mirror the ASM registers at entry:
+///   d4 = wander speed ($10 for swift, 6 for mini/death)
+///   d5 = movement speed ($480/$300/$400)
+///   init_data = 6-entry size table
+///   power_timer = value for (Diamond_power_timer).w
+///   kid_x, kid_y = Kid's current position
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_init_snake(
+    wander_speed: u16,
+    movement_speed: u16,
+    init_data: &[u16; 6],
+    power_timer: u16,
+    kid_x: i16,
+    kid_y: i16,
+) -> SnakeInitResult {
+    // ASM loc_3F91C: move.l (Addr_GfxObject_Kid).w,a3; moveq #5,d1
+    let mut slots = Vec::with_capacity(6);
+
+    for i in 0..6u16 {
+        // ASM loc_3F92A: bsr.w Allocate_DiamondPowerObjectSlot
+        // (allocation is implicit in native — we just create the slot)
+
+        // ASM loc_3F946: store Kid x/y, read size from table, fill trail
+        // move.w d6,$1A(a0) — x_pos = kid_x
+        // move.w d7,$1E(a0) — y_pos = kid_y
+        // move.w (a2)+,$24(a0) — diamond size from init table
+        // lea $40(a0),a1 — trail buffer at offset $40
+        // 3x move.w d6,(a1)+; move.w d7,(a1)+
+        let slot = SnakeSlot {
+            x_pos: kid_x,
+            y_pos: kid_y,
+            diamond_size: init_data[i as usize],
+            trail: [(kid_x, kid_y); 3],
+        };
+        slots.push(slot);
+    }
+
+    // ASM loc_3F92A: first slot (d1==5) stores head pointer at $FFFFF5B4,
+    // timer $40 at $3E(a0), d4 at $2E(a0), d5 at $30(a0)
+    SnakeInitResult {
+        slots,
+        head_timer: 0x40,
+        wander_speed,
+        movement_speed,
+        power_timer,
     }
 }
 
