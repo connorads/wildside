@@ -3519,6 +3519,10 @@ impl NativeRuntime {
             return;
         }
 
+        // ASM loc_7742 (kid.asm:7815): cmpi.w #Eyeclops,(Current_Helmet) /
+        //   bne.s loc_7772 / tst.w ($FFFFFAB8) / bne.s loc_7772 /
+        //   move.w #1,($FFFFFAB8) / move.b x_direction(a3),($FFFFFABE) /
+        //   Init_Animation stru_8B36 / PlaySound sfx_Eyeclops_normal_lightbeam
         // C rising edge fires beam (one at a time)
         let c_pressed = input.c && !self.prior_input.c;
         if c_pressed && !self.helmet.eyeclops_beam_active {
@@ -3642,6 +3646,20 @@ impl NativeRuntime {
     }
 
     /// Juggernaut skull shot: C fires a skull projectile with gravity arc.
+    ///
+    /// ASM loc_7718 (kid.asm:7800): standing-still C-press gate —
+    ///   cmpi.w #Juggernaut,(Current_Helmet) / bne.s loc_7742 /
+    ///   tst.b is_animated(a3) / bne.s loc_7772 /
+    ///   cmpi.w #8,($FFFFFB70) / bge.w loc_7772 /
+    ///   jsr (j_Allocate_ObjectSlot) → loc_7738
+    /// `$FFFFFB70` is the live skull count (incremented at kid.asm:9626,
+    ///   decremented at kid.asm:9813); native counts `active_skulls` inline.
+    /// `is_animated(a3)` gates on Kid not being mid-animation; native runs
+    ///   this every frame so the gate is implicit (animations don't press C).
+    ///
+    /// ASM loc_7738 (kid.asm:7810): move.l #sub_86FA,4(a0) / bra.s loc_7772 —
+    ///   assigns the allocated object slot to the skull worker (`sub_86FA`).
+    ///   Native models the 3-frame hibernate via `juggernaut_skull_delay_frames`.
     pub(crate) fn step_juggernaut_skull(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Juggernaut {
             self.helmet.juggernaut_skull_delay_frames = 0;
@@ -3675,8 +3693,8 @@ impl NativeRuntime {
             return;
         }
 
-        // ASM loc_8D2C (kid.asm:10136) checks the shared live-skull count
-        // before it allocates the deferred `sub_86FA` worker.
+        // ASM loc_7718 (kid.asm:7800): cmpi.w #8,($FFFFFB70) / bge.w loc_7772
+        // ASM loc_8D2C (kid.asm:10136) checks the same shared live-skull count.
         let active_skulls = self
             .projectiles
             .iter()
@@ -3686,8 +3704,9 @@ impl NativeRuntime {
             return;
         }
 
-        // ASM sub_86FA (kid.asm:9568) hibernates for three frames while the
-        // firing worker tracks Kid, then spawns `sub_87B0`.
+        // ASM loc_7738 (kid.asm:7810): move.l #sub_86FA,4(a0) — assigns the
+        // skull worker. sub_86FA (kid.asm:9568) hibernates for three frames
+        // while tracking Kid, then spawns `sub_87B0`.
         self.helmet.juggernaut_skull_delay_frames = JUGGERNAUT_SKULL_STARTUP_FRAMES;
     }
 

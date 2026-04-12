@@ -35365,6 +35365,184 @@ fn juggernaut_non_juggernaut_form_no_skull() {
     assert!(rt.projectiles.is_empty());
 }
 
+// --- loc_7718/loc_7738: Juggernaut standing-still C-press gate ---
+
+#[test]
+/// ASM loc_7718 (kid.asm:7800): cmpi.w #Juggernaut,(Current_Helmet) / bne.s loc_7742 —
+/// non-Juggernaut forms fall through to Eyeclops check, never arm a skull.
+fn loc_7718_non_juggernaut_skips_to_loc_7742() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_juggernaut_skull(&slice, input);
+
+    assert_eq!(
+        rt.helmet.juggernaut_skull_delay_frames, 0,
+        "ASM loc_7718: bne.s loc_7742 — non-Juggernaut must not arm skull worker"
+    );
+    assert!(rt.projectiles.is_empty());
+}
+
+#[test]
+/// ASM loc_7718 (kid.asm:7800): cmpi.w #8,($FFFFFB70) / bge.w loc_7772 —
+/// when 8 skulls are already active, C press is rejected.
+fn loc_7718_max_skull_limit_rejects_ninth() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    let slice = combat_slice();
+
+    // Spawn 8 skulls (fire + tick through the 3-frame delay each time)
+    for _ in 0..8 {
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
+        rt.step_juggernaut_skull(&slice, input);
+        rt.prior_input = input;
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+        rt.prior_input = FrameInput::default();
+    }
+    assert_eq!(rt.projectiles.len(), 8);
+
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_juggernaut_skull(&slice, input);
+
+    assert_eq!(
+        rt.helmet.juggernaut_skull_delay_frames, 0,
+        "ASM loc_7718: bge.w loc_7772 — 9th skull C press must be rejected"
+    );
+}
+
+#[test]
+/// ASM loc_7718 + loc_7738 (kid.asm:7800-7812): Juggernaut with < 8 active
+/// skulls allocates slot (loc_7718) then assigns sub_86FA (loc_7738).
+/// Native models this as arming `juggernaut_skull_delay_frames`.
+fn loc_7738_juggernaut_c_press_arms_sub_86fa() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_juggernaut_skull(&slice, input);
+
+    assert_eq!(
+        rt.helmet.juggernaut_skull_delay_frames, 3,
+        "ASM loc_7738: move.l #sub_86FA,4(a0) — native arms 3-frame delay for skull worker"
+    );
+    assert!(
+        rt.projectiles.is_empty(),
+        "ASM sub_86FA hibernates before spawning sub_87B0"
+    );
+}
+
+// --- loc_7742: Eyeclops standing-still C-press beam ---
+
+#[test]
+/// ASM loc_7742 (kid.asm:7815): cmpi.w #Eyeclops,(Current_Helmet) / bne.s loc_7772 /
+///   tst.w ($FFFFFAB8) / bne.s loc_7772 / move.w #1,($FFFFFAB8) /
+///   move.b x_direction(a3),($FFFFFABE) — C press fires normal beam, sets
+///   beam counter to 1, latches facing direction.
+fn loc_7742_eyeclops_c_press_sets_beam_counter_to_one() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    let mut slice = combat_slice();
+    slice.player.facing = Direction::Right;
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_eyeclops_beam(&slice, input);
+
+    assert!(
+        rt.helmet.eyeclops_beam_active,
+        "ASM loc_7742: tst.w ($FFFFFAB8) was zero — beam must activate"
+    );
+    assert_eq!(
+        rt.helmet.eyeclops_beam_counter, 1,
+        "ASM loc_7742: move.w #1,($FFFFFAB8) — normal beam counter is 1"
+    );
+    assert!(
+        !rt.helmet.eyeclops_beam_hard,
+        "ASM loc_7742: normal C-press path sets $FFFFFAB8=1, not $8001 (hard)"
+    );
+    assert_eq!(rt.projectiles.len(), 1);
+    assert!(
+        rt.projectiles[0].x_velocity > 0,
+        "ASM loc_7742: move.b x_direction(a3),($FFFFFABE) — beam direction must match facing"
+    );
+}
+
+#[test]
+/// ASM loc_7742 (kid.asm:7818): tst.w ($FFFFFAB8) / bne.s loc_7772 —
+/// if beam is already active, a second C press is blocked.
+fn loc_7742_eyeclops_beam_active_blocks_refire() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    rt.helmet.eyeclops_beam_active = true;
+    rt.helmet.eyeclops_beam_counter = 1;
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: EYECLOPS_BEAM_SPEED,
+        y_velocity: 0,
+        lifetime: 30,
+        friendly: true,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        ..Default::default()
+    });
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_eyeclops_beam(&slice, input);
+
+    assert_eq!(
+        rt.projectiles.len(),
+        1,
+        "ASM loc_7742: bne.s loc_7772 — active beam must block refire"
+    );
+}
+
+#[test]
+/// ASM loc_7742 (kid.asm:7821): move.b x_direction(a3),($FFFFFABE) —
+/// beam direction is latched from Kid's facing at fire time.
+fn loc_7742_eyeclops_beam_latches_left_direction() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    let mut slice = combat_slice();
+    slice.player.facing = Direction::Left;
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_eyeclops_beam(&slice, input);
+
+    assert_eq!(
+        rt.projectiles[0].x_velocity, -EYECLOPS_BEAM_SPEED,
+        "ASM loc_7742: move.b x_direction(a3),($FFFFFABE) — left-facing beam must go left"
+    );
+}
+
 // --- Berzerker charge tests ---
 
 #[test]
