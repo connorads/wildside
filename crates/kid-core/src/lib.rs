@@ -1627,9 +1627,17 @@ impl NativeRuntime {
         if left_edge < 0 {
             let cleared_x = half_width;
             let right_edge = cleared_x + half_width;
+            // ASM loc_7BB6 (kid.asm:8287): `move.w 2(sp),d7; bsr.w sub_7BEA;
+            // beq.s loc_7B9E` — shared right-column probe entry. Reached from
+            // both the negative-left-edge snap (loc_7B5A) and the left-blocked
+            // snap-right (loc_7BA4). Probes right_edge column upward; if clear
+            // → loc_7B9E (success). If blocked → loc_7BC0 (restore & fail).
             return if terrain::transform_overlap_column_blocked_sub_7bea(
                 grid, right_edge, foot_y_px, rows_up,
             ) {
+                // ASM loc_7BC0 (kid.asm:8292): `moveq #1,d7; addq.w #4,sp;
+                // move.l d0,x_pos(a3); move.l d1,y_pos(a3); rts` — both
+                // snaps failed, restore original position and return blocked.
                 None
             } else {
                 Some(cleared_x)
@@ -1645,6 +1653,8 @@ impl NativeRuntime {
             // next tile boundary + half_width, then check the right column.
             let cleared_x = (left_edge & !0xF) + 16 + half_width;
             let right_edge = cleared_x + half_width;
+            // Falls through to loc_7BB6 (kid.asm:8287) — right-column probe
+            // after snap. loc_7BC0 if still blocked.
             return if terrain::transform_overlap_column_blocked_sub_7bea(
                 grid, right_edge, foot_y_px, rows_up,
             ) {
@@ -1675,6 +1685,8 @@ impl NativeRuntime {
             return None;
         }
         let left_edge = cleared_x - half_width;
+        // ASM loc_7BCE cont. (kid.asm:8307–8310): `bsr.w sub_7BEA; beq.s loc_7B9E;
+        // bra.s loc_7BC0` — if left probe after snap-left also blocked → loc_7BC0.
         if terrain::transform_overlap_column_blocked_sub_7bea(grid, left_edge, foot_y_px, rows_up) {
             None
         } else {

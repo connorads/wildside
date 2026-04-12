@@ -1799,16 +1799,22 @@ pub(crate) fn transform_overlap_column_blocked_sub_7bea(
         return false;
     }
 
+    // ASM loc_7C02 (kid.asm:8327): `move.w (a4),d6; andi.w #$4000,d6;
+    // bne.w loc_7C18; suba.w (Level_width_tiles).w,a4; dbf d7,loc_7C02`
+    // — scan loop: read tile, check wall bit ($4000), move up one row, repeat.
     for _ in 0..=rows_up {
         if row >= 0
             && row < i32::from(grid.height_cells)
             && sets_collision_bit_14(grid.cell_at(column as u16, row as u16))
         {
+            // ASM loc_7C18 (kid.asm:8337): `moveq #1,d7; rts` — wall found,
+            // return blocked (non-zero d7 = column is obstructed).
             return true;
         }
         row -= 1;
     }
 
+    // ASM sub_7BEA exit (kid.asm:8333): `moveq #0,d7; rts` — all rows clear.
     false
 }
 

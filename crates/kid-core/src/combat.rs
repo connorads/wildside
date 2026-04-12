@@ -7878,8 +7878,13 @@ impl NativeRuntime {
         // TheKid has no table, so only one phase runs.
         let old_frames = transform_anim_frames(old_form);
         let new_frames = transform_anim_frames(form);
-        // +1 for the Kid_Transform entry frame (sub_7C1C palette save +
+        // +1 for the Kid_Transform entry frame (sub_7C1C + palette save +
         // condition checks + initial Hibernate) before the animation loop starts.
+        // ASM loc_7C24 (kid.asm:8350): `move.l 4(a0),d7; beq.w loc_7C3A;
+        // move.l d7,a0; move.l $C(a0),a0; jsr Delete_Object_a0; bra.s loc_7C24`
+        // — sub_7C1C walks the linked object list at $FFFFF862, deleting each
+        // child's GFX object ($C(a0)) before transform. Native doesn't model
+        // linked GFX child objects, so this is a no-op here.
         self.progression.form_change_flash_frames = (old_frames + new_frames + 1) as u8;
         // ASM zeroes velocity at end of transform (kid.asm:8599-8600)
         if let Some(ref mut slice) = self.opening_slice {

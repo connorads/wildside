@@ -15151,6 +15151,52 @@ fn transform_overlap_column_blocked_sub_7bea_scans_upward_for_bit_14_tiles() {
     );
 }
 
+/// ASM loc_7C02 (kid.asm:8327): `move.w (a4),d6; andi.w #$4000,d6;
+/// bne.w loc_7C18; suba.w Level_width_tiles,a4; dbf d7,loc_7C02` — the
+/// tile-scan loop inside sub_7BEA. Reads each tile's collision word and
+/// checks bit $4000 (wall-class collision). Walks upward one row per
+/// iteration until dbf exhausts the count or a wall is found.
+#[test]
+fn loc_7c02_scan_loop_walks_upward_checking_each_row_for_bit_4000() {
+    // Wall at (2, 2), foot at row 4, rows_up=2 → scans rows 4,3,2.
+    // Row 2 has the wall → blocked.
+    let grid = grid_with_cells(8, 8, &[(2, 2, 0x40, 0x00)]);
+    assert!(
+        terrain::transform_overlap_column_blocked_sub_7bea(&grid, 32, 79, 2),
+        "loc_7C02: scan loop should reach row 2 when rows_up=2 and find the $4000 wall"
+    );
+
+    // Same wall, but rows_up=1 → scans rows 4,3 only. Row 2 not reached.
+    assert!(
+        !terrain::transform_overlap_column_blocked_sub_7bea(&grid, 32, 79, 1),
+        "loc_7C02: scan loop with rows_up=1 should not reach the wall at row 2"
+    );
+}
+
+/// ASM loc_7C18 (kid.asm:8337): `moveq #1,d7; rts` — early exit from the
+/// loc_7C02 scan loop when `andi.w #$4000,d6; bne.w loc_7C18` detects a
+/// wall tile. Returns non-zero d7 (blocked) immediately.
+#[test]
+fn loc_7c18_wall_found_returns_blocked_immediately() {
+    // Wall on the foot row itself — hit on the very first iteration.
+    let grid = grid_with_cells(8, 8, &[(2, 4, 0x40, 0x00)]);
+    assert!(
+        terrain::transform_overlap_column_blocked_sub_7bea(&grid, 32, 79, 0),
+        "loc_7C18: wall on foot row should return blocked even with rows_up=0"
+    );
+}
+
+/// ASM loc_7C02 exit (kid.asm:8333): `moveq #0,d7; rts` — all rows
+/// scanned without finding bit $4000. Returns zero (clear).
+#[test]
+fn loc_7c02_all_rows_clear_returns_unblocked() {
+    let grid = grid_with_cells(8, 8, &[]);
+    assert!(
+        !terrain::transform_overlap_column_blocked_sub_7bea(&grid, 32, 79, 3),
+        "loc_7C02: empty grid should scan all rows_up+1 iterations and return clear"
+    );
+}
+
 #[test]
 fn juggernaut_wall_scan_sub_96e8_uses_the_right_facing_probe_window() {
     let grid = grid_with_cells(8, 8, &[(2, 3, 0x60, 0x00), (3, 3, 0x70, 0x00)]);
@@ -15290,6 +15336,105 @@ fn loc_7b5a_negative_left_edge_snaps_to_half_width() {
     assert_eq!(
         cleared_x, 7,
         "loc_7B5A: x_pos should snap to half_width (7) when left edge is off-screen"
+    );
+}
+
+/// ASM loc_7BB6 (kid.asm:8287): shared right-column probe entry point.
+/// After loc_7B5A snaps x to half_width (negative left edge), loc_7BB6
+/// probes column at `2*half_width` upward for `rows_up` rows via sub_7BEA.
+/// If clear → loc_7B9E (success with snapped x). If blocked → loc_7BC0.
+#[test]
+fn loc_7bb6_negative_left_edge_right_column_probe_succeeds_when_clear() {
+    let mut runtime = NativeRuntime::new(manifest());
+    // No walls — right column probe should pass.
+    runtime.set_block_grid(grid_with_cells(8, 8, &[]));
+    let mut slice = OpeningSliceState::new(default_bounds());
+    // IronKnight half_width=7. x=3 → left_edge=-4 < 0. Snap x=7.
+    // Right column probed at 2*7=14, tile col 0 — clear.
+    slice.player.x_pos = 3 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let result = runtime.resolve_transform_overlap_sub_7b30(&slice, PlayerForm::IronKnight);
+    assert_eq!(
+        result,
+        Some(7),
+        "loc_7BB6: right column clear after negative-left-edge snap → loc_7B9E success"
+    );
+}
+
+/// ASM loc_7BB6 (kid.asm:8287): same path but right column is blocked.
+/// After loc_7BA4 snaps right from a left-blocked position, loc_7BB6
+/// probes the new right edge. If sub_7BEA finds a wall → loc_7BC0.
+#[test]
+fn loc_7bb6_left_blocked_snap_right_then_right_also_blocked_returns_none() {
+    let mut runtime = NativeRuntime::new(manifest());
+    // Walls on both sides of x=28: left col 1 and right col 2.
+    // After loc_7BA4 snap-right: cleared_x = (21 & !0xF)+16+7 = 39.
+    // Right edge = 39+7 = 46, tile col 2 — blocked. → loc_7BC0.
+    runtime.set_block_grid(grid_with_cells(
+        8,
+        8,
+        &[(1, 4, 0x40, 0x00), (2, 4, 0x40, 0x00)],
+    ));
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 28 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let result = runtime.resolve_transform_overlap_sub_7b30(&slice, PlayerForm::IronKnight);
+    assert_eq!(
+        result, None,
+        "loc_7BB6 → loc_7BC0: both columns blocked after snap → return None (blocked)"
+    );
+}
+
+/// ASM loc_7BC0 (kid.asm:8292): `moveq #1,d7; addq.w #4,sp; move.l d0,
+/// x_pos(a3); move.l d1,y_pos(a3); rts` — when all snap attempts fail,
+/// sub_7B30 restores the original x_pos/y_pos from d0/d1 and returns
+/// blocked. In native this is the `None` return path.
+#[test]
+fn loc_7bc0_both_snaps_fail_returns_none_position_unchanged() {
+    let mut runtime = NativeRuntime::new(manifest());
+    // Block left col 3 and right col 5 around x=68 (half_width=7).
+    // left_edge=61→col 3 blocked→snap right to (48+16+7)=71→right=78→col 4 clear.
+    // That would succeed. Instead, block col 4 too.
+    runtime.set_block_grid(grid_with_cells(
+        8,
+        8,
+        &[(3, 4, 0x40, 0x00), (4, 4, 0x40, 0x00)],
+    ));
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 68 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let result = runtime.resolve_transform_overlap_sub_7b30(&slice, PlayerForm::IronKnight);
+    assert_eq!(
+        result, None,
+        "loc_7BC0: left blocked, snap-right also blocked → restore original pos and return None"
+    );
+}
+
+/// ASM loc_7BC0 via loc_7BCE (kid.asm:8300→8292): when the right edge is
+/// off-level or blocked, sub_7B30 snaps left. If that left probe also
+/// fails, it branches to loc_7BC0. Tests the loc_7BCE→loc_7BC0 path.
+#[test]
+fn loc_7bc0_right_boundary_snap_left_also_blocked() {
+    let mut runtime = NativeRuntime::new(manifest());
+    // Juggernaut half_width=23, 3-tile-wide level (48px).
+    // x=40: left_edge=17→col 1 (clear), right_edge=63 >= 48 → loc_7BCE.
+    // cleared_x = (63 & !0xF)-1-23 = 48-1-23 = 24.
+    // left_snap = 24-23 = 1→col 0. Wall at col 0 → blocked → loc_7BC0.
+    runtime.set_block_grid(grid_with_cells(3, 8, &[(0, 4, 0x40, 0x00)]));
+    let mut slice = OpeningSliceState::new(LevelBounds {
+        width_pixels: 48,
+        height_pixels: 128,
+    });
+    slice.player.x_pos = 40 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let result = runtime.resolve_transform_overlap_sub_7b30(&slice, PlayerForm::Juggernaut);
+    assert_eq!(
+        result, None,
+        "loc_7BC0 via loc_7BCE: right off-level, snap-left blocked → None"
     );
 }
 
@@ -15523,6 +15668,38 @@ fn loc_7b12_successful_transform_enters_kid_transform() {
     assert_eq!(
         runtime.progression.pending_form, None,
         "ASM loc_7B12: pending_form consumed by Kid_Transform"
+    );
+}
+
+/// ASM loc_7C24 (kid.asm:8350): `move.l 4(a0),d7; beq.w loc_7C3A;
+/// move.l d7,a0; move.l $C(a0),a0; jsr Delete_Object_a0; bra.s loc_7C24`
+/// — sub_7C1C walks the linked object list rooted at $FFFFF862, deleting
+/// each child's GFX object before Kid_Transform proceeds. Native doesn't
+/// model linked GFX child objects, so sub_7C1C is a no-op. This test
+/// verifies that a successful transform path (which calls sub_7C1C in ASM)
+/// doesn't require child object deletion in native.
+#[test]
+fn loc_7c24_sub_7c1c_child_object_deletion_is_visual_only_noop() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(8, 8, &[]));
+    runtime.progression.pending_form = Some(PlayerForm::IronKnight);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 64 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    // In ASM, Kid_Transform calls sub_7C1C (which contains the loc_7C24
+    // linked-list loop) before palette operations. Native skips this
+    // because GFX child objects are not modelled. Transform should succeed.
+    let entered_death = runtime.handle_pending_form_change_sub_7acc(&mut slice);
+
+    assert!(
+        !entered_death,
+        "loc_7C24: transform should succeed without needing child object deletion"
+    );
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::IronKnight,
+        "loc_7C24: Kid_Transform should complete even though sub_7C1C is a native no-op"
     );
 }
 
