@@ -737,7 +737,11 @@ pub fn update_camera(
 /// ```
 /// Native: edge-snap branches then `(target - camera + 4) >> 3` clamped to ±8.
 pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 {
-    // ASM loc_720E (kid.asm:7322): target = max(0, min(max_pos, player - $A0))
+    // ASM loc_720E (kid.asm:7322) / loc_7266 (kid.asm:7372): target clamp.
+    // X-axis: loc_720E clamps to [0, Level_width - $140].
+    // Y-axis: loc_7266 clamps to [0, Level_height - $E0].
+    // Both use the same pattern: `subi.w #offset,d0; bcc.s skip; moveq #0,d0`
+    // then `cmp.w d1,d0; bcs.s skip; move.w d1,d0`.
     let target = (player - CAMERA_PLAYER_OFFSET).max(0).min(max_pos);
 
     // ASM loc_7214 (kid.asm:7327): velocity with edge-snap special cases
@@ -754,6 +758,57 @@ pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 
     };
 
     (camera + velocity).max(0).min(max_pos)
+}
+
+/// ASM loc_726C (kid.asm:7377): Y-axis look-offset pull-back at level ceiling.
+///
+/// When the camera target Y is clamped to 0 (Kid near the top of the level)
+/// and Kid's current Y is above their previous-frame Y (`$FFFFFA2E`), the ROM
+/// decrements the look-down accumulator (`$FFFFFB58`) by 2. This prevents the
+/// look-down offset from lingering when Kid is jumping upward near the level
+/// ceiling.
+///
+/// ```asm
+/// loc_726C:
+///   move.w  $1E(a0),d7          ; d7 = kid_y
+///   tst.w   d0                   ; target_y == 0?
+///   bne.s   loc_727E             ; no → skip
+///   cmp.w   ($FFFFFA2E).w,d7    ; kid_y vs last_kid_y
+///   bge.s   loc_727E             ; kid_y >= last → skip
+///   subq.w  #2,($FFFFFB58).w    ; y_look_offset -= 2
+/// ```
+///
+/// Returns the adjustment to apply to `y_look_offset` (0 or -2).
+pub fn camera_y_ceiling_look_adjust_loc_726c(target_y: i32, kid_y: i16, last_kid_y: i16) -> i16 {
+    if target_y == 0 && kid_y < last_kid_y {
+        -2
+    } else {
+        0
+    }
+}
+
+/// ASM loc_727E (kid.asm:7385): Y-axis look-offset pull-back near viewport top.
+///
+/// When Kid is within 32 pixels of the top of the camera viewport
+/// (`kid_y - Camera_Y_pos < $20`), the ROM decrements the look-down
+/// accumulator (`$FFFFFB58`) by 1. This keeps the camera from getting stuck
+/// looking down when Kid is high on screen.
+///
+/// ```asm
+/// loc_727E:
+///   sub.w   (Camera_Y_pos).w,d7  ; d7 = kid_y - camera_y
+///   cmpi.w  #$20,d7              ; < 32?
+///   bge.s   loc_728C             ; no → skip
+///   subq.w  #1,($FFFFFB58).w    ; y_look_offset -= 1
+/// ```
+///
+/// Returns the adjustment to apply to `y_look_offset` (0 or -1).
+pub fn camera_y_viewport_top_look_adjust_loc_727e(kid_y: i16, camera_y: i16) -> i16 {
+    if kid_y.wrapping_sub(camera_y) < 0x20 {
+        -1
+    } else {
+        0
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2416,5 +2471,94 @@ mod proptests {
         let result = update_camera_axis(camera, player, max_pos);
         // camera >= max_pos-4 && target > camera → nudge +1
         assert_eq!(result, camera + 1);
+    }
+
+    // --- loc_7266: Y-axis target upper clamp ---
+
+    /// ASM loc_7266 (kid.asm:7372): target_y clamped to Level_height - $E0.
+    /// Same pattern as X-axis loc_720E but for Y. Verify the Y max_pos
+    /// computation uses VIEWPORT_HEIGHT ($E0 = 224).
+    #[test]
+    fn loc_7266_y_target_clamped_to_max_pos() {
+        // Level height 512: max camera Y = 512 - 224 = 288
+        let level_height = 512;
+        let max_y = level_height - VIEWPORT_HEIGHT;
+        assert_eq!(max_y, 288);
+        // Kid far below level bottom: target would exceed max_y → clamped
+        let player_y = max_y + CAMERA_PLAYER_OFFSET + 100; // well past max
+        let result = update_camera_axis(0, player_y, max_y);
+        // Camera starts at 0, target clamped to 288, delta = (288+4)>>3 = 36 → clamped to 8
+        assert_eq!(result, 8);
+    }
+
+    /// loc_7266 fallthrough: target_y < max_pos is kept unchanged.
+    #[test]
+    fn loc_7266_y_target_below_max_passes_through() {
+        let max_y = 288;
+        // Kid at y=200: target = 200 - 160 = 40, well below max_y
+        let player_y = 200;
+        let result = update_camera_axis(40, player_y, max_y);
+        // target == camera → delta = (0+4)>>3 = 0, no movement
+        assert_eq!(result, 40);
+    }
+
+    // --- loc_726C: ceiling look-offset pull-back ---
+
+    /// ASM loc_726C (kid.asm:7377): when target_y == 0 and kid_y < last_kid_y,
+    /// return -2 (decrement look-offset by 2).
+    #[test]
+    fn loc_726c_ceiling_and_rising_returns_minus_2() {
+        // target_y clamped to 0, Kid moved upward (100 → 80)
+        let adj = camera_y_ceiling_look_adjust_loc_726c(0, 80, 100);
+        assert_eq!(adj, -2);
+    }
+
+    /// loc_726C: target_y != 0 → no adjustment even if kid is rising.
+    #[test]
+    fn loc_726c_nonzero_target_returns_zero() {
+        let adj = camera_y_ceiling_look_adjust_loc_726c(10, 80, 100);
+        assert_eq!(adj, 0);
+    }
+
+    /// loc_726C: target_y == 0 but kid_y >= last_kid_y → no adjustment.
+    #[test]
+    fn loc_726c_not_rising_returns_zero() {
+        // Kid stationary or falling
+        let adj = camera_y_ceiling_look_adjust_loc_726c(0, 100, 100);
+        assert_eq!(adj, 0);
+        let adj = camera_y_ceiling_look_adjust_loc_726c(0, 110, 100);
+        assert_eq!(adj, 0);
+    }
+
+    // --- loc_727E: viewport-top look-offset pull-back ---
+
+    /// ASM loc_727E (kid.asm:7385): when kid_y - camera_y < $20 (32),
+    /// return -1 (decrement look-offset by 1).
+    #[test]
+    fn loc_727e_near_viewport_top_returns_minus_1() {
+        // Kid at y=50, camera at y=40: delta = 10 < 32 → -1
+        let adj = camera_y_viewport_top_look_adjust_loc_727e(50, 40);
+        assert_eq!(adj, -1);
+    }
+
+    /// loc_727E: kid_y - camera_y == 31 → still triggers (< 32).
+    #[test]
+    fn loc_727e_delta_31_returns_minus_1() {
+        let adj = camera_y_viewport_top_look_adjust_loc_727e(71, 40);
+        assert_eq!(adj, -1);
+    }
+
+    /// loc_727E: kid_y - camera_y == 32 → no adjustment (>= $20).
+    #[test]
+    fn loc_727e_delta_32_returns_zero() {
+        let adj = camera_y_viewport_top_look_adjust_loc_727e(72, 40);
+        assert_eq!(adj, 0);
+    }
+
+    /// loc_727E: kid_y well below camera → no adjustment.
+    #[test]
+    fn loc_727e_kid_below_camera_returns_zero() {
+        let adj = camera_y_viewport_top_look_adjust_loc_727e(200, 40);
+        assert_eq!(adj, 0);
     }
 }

@@ -4041,6 +4041,12 @@ impl OpeningSliceState {
     /// Camera follows player using the real sub_71E4 follow algorithm.
     /// `y_look_offset` is the down-look accumulator ($FFFFFB58): when >= 30,
     /// shifts the camera target downward by that many pixels.
+    ///
+    /// The Y-axis path in sub_71E4 has two look-offset pull-back branches
+    /// (loc_726C, loc_727E) that modify `$FFFFFB58` before the loc_728C offset
+    /// application. Those adjustments are applied once per frame in the game
+    /// tick (lib.rs) before this function is called, so `y_look_offset` arrives
+    /// already adjusted.
     pub(crate) fn update_camera_follow(&mut self, y_look_offset: i16) {
         let player_x_px = (self.player.x_pos >> 16) as i32;
         let mut player_y_px = (self.player.y_pos >> 16) as i32;

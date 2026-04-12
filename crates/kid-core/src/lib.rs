@@ -151,6 +151,9 @@ pub struct NativeRuntime {
     /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
     /// and grounded, -8 per frame on release, clamped to [0, 30].
     y_look_offset: i16,
+    /// ASM $FFFFFA2E: Kid's y_pos from the previous camera-follow invocation.
+    /// Used by loc_726C to detect upward motion near the level ceiling.
+    camera_last_kid_y: i16,
     /// Set to true when player takes damage during current level (for no-hit bonus).
     level_damage_taken: bool,
     /// Exact per-frame damage latch, mirroring ROM `Just_received_damage`.
@@ -820,6 +823,7 @@ impl NativeRuntime {
             options_menu_panel_delta: 0x0118,
             level_timer: LevelTimer::new(),
             y_look_offset: 0,
+            camera_last_kid_y: 0,
             level_damage_taken: false,
             just_received_damage: false,
             level_prize_collected: false,
@@ -1813,6 +1817,29 @@ impl NativeRuntime {
                 || self.helmet.cyclone_flying
                 || self.helmet.iron_knight_climbing
                 || self.helmet.micromax_stuck;
+
+            // ASM loc_726C/loc_727E (kid.asm:7377/7385): Y-axis look-offset
+            // pull-back adjustments run once per frame inside sub_71E4, before
+            // the loc_728C offset application.  Applied here so the adjusted
+            // y_look_offset is used by whichever physics branch calls
+            // update_camera_follow below.
+            {
+                let kid_y = (slice.player.y_pos >> 16) as i16;
+                let cam_y = (slice.camera.y_pos >> 16) as i16;
+                let max_y = i32::from(slice.level_bounds.height_pixels) - physics::VIEWPORT_HEIGHT;
+                let target_y = (i32::from(kid_y) - physics::CAMERA_PLAYER_OFFSET)
+                    .max(0)
+                    .min(max_y);
+                self.y_look_offset += physics::camera_y_ceiling_look_adjust_loc_726c(
+                    target_y,
+                    kid_y,
+                    self.camera_last_kid_y,
+                );
+                self.y_look_offset +=
+                    physics::camera_y_viewport_top_look_adjust_loc_727e(kid_y, cam_y);
+                self.camera_last_kid_y = kid_y;
+            }
+
             if iron_knight_climb_step == IronKnightClimbStep::AttachHibernate {
                 // ORIGINAL_QUIRK: `loc_A276` seeds wall-climb state, then
                 // `Hibernate_Object_1Frame` stops Kid immediately. The attach
