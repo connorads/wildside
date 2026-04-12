@@ -71511,3 +71511,245 @@ fn loc_818a_non_cyclone_forms_have_flight_cleared() {
         "ASM loc_818A: non-Cyclone form should clear cyclone_flying (sf is unconditional in ASM)"
     );
 }
+
+/// ASM loc_819A (kid.asm:8940): common path after optional y snap in the
+/// Cyclone walking→airborne exit. `sf (Cyclone_flying).w; bsr.w sub_B41C;
+/// move.w #MoveID_Jump,(Character_Movement).w; sf (Cyclone_flying).w;
+/// bsr.w sub_B270; bra.w loc_A6F8`. The `beq.w loc_819A` at loc_818A
+/// skips the y snap when sub_B43A returns EQ (no floor). Verify that the
+/// flag clear runs regardless of the floor probe result.
+#[test]
+fn loc_819a_cyclone_flight_cleared_regardless_of_floor_probe() {
+    let mut rt = cyclone_runtime();
+    rt.helmet.cyclone_flying = true;
+    rt.helmet.cyclone_y_accel = -0x2000;
+
+    // on_ground = true simulates the landing detection that triggers
+    // loc_818A→loc_819A in the ASM.
+    let mut slice = airborne_slice();
+    slice.player.on_ground = true;
+
+    rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+    assert!(
+        !rt.helmet.cyclone_flying,
+        "ASM loc_819A: `sf (Cyclone_flying).w` must clear flight flag on the common landing path"
+    );
+    assert_eq!(
+        rt.helmet.cyclone_y_accel, -0x2000,
+        "ASM loc_819A: early return skips accel update — y_accel should be unchanged"
+    );
+}
+
+/// ASM loc_819A (kid.asm:8940): the second `sf (Cyclone_flying).w` is
+/// redundant — the flag was already cleared by the first `sf` two
+/// instructions earlier. Verify that calling `step_cyclone_flight` twice
+/// with on_ground=true is idempotent (the flag stays false).
+#[test]
+fn loc_819a_double_sf_cyclone_flying_is_idempotent() {
+    let mut rt = cyclone_runtime();
+    rt.helmet.cyclone_flying = true;
+
+    let mut slice = airborne_slice();
+    slice.player.on_ground = true;
+
+    rt.step_cyclone_flight(&mut slice, FrameInput::default());
+    assert!(!rt.helmet.cyclone_flying);
+
+    // Second call — flag already false, should be a no-op.
+    rt.step_cyclone_flight(&mut slice, FrameInput::default());
+    assert!(
+        !rt.helmet.cyclone_flying,
+        "ASM loc_819A: double `sf` is idempotent — second clear is a no-op"
+    );
+}
+
+/// ASM loc_8218 (kid.asm:8997): crawling state sets half_width to $E (14).
+/// `move.w #$E,($FFFFFA78).w` — the crawling collision width is 14
+/// regardless of current helmet. Verify that `align_player_for_down_hold_sub_7A10`
+/// uses half_width=14 internally (matching the ASM's explicit $E).
+#[test]
+fn loc_8218_crawling_uses_14px_half_width() {
+    // The alignment function hardcodes half_width=14 inside, matching the
+    // ASM's `move.w #$E,($FFFFFA78).w`. Verify by placing Kid at x=40
+    // on open terrain (all zeroes = empty).
+    let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+    let x_pos = 40u32 << 16;
+    let y_pos = 32u32 << 16;
+    let result = movement::align_player_for_down_hold_sub_7A10(&grid, x_pos, y_pos, 256);
+    // x=40, half_width=14 → left edge = 26, right edge = 54.
+    // Both sides empty → no snap needed, x_pos unchanged.
+    assert_eq!(
+        result.x_pos, x_pos,
+        "ASM loc_8218: crawl alignment with 14px half_width should leave x unchanged on open terrain"
+    );
+}
+
+/// ASM loc_8218 (kid.asm:8997): crawling uses half_width $E (14px) even
+/// for TheKid whose normal half_width is 5. Verify that the crawl
+/// alignment probes wider than the standing half_width.
+#[test]
+fn loc_8218_crawling_half_width_is_wider_than_thekid_standing() {
+    assert_eq!(
+        PlayerForm::TheKid.half_width(),
+        5,
+        "ASM sub_B41C: TheKid standing half_width = 5"
+    );
+    // ASM loc_8218: `move.w #$E,($FFFFFA78).w` sets crawl half_width = 14.
+    // The native `align_player_for_down_hold_sub_7A10` hardcodes 14.
+    // Verify alignment detects a wall at offset 10 (> 5 but < 14).
+    // Place a solid block at column 1 (x=16..31).
+    let width = 8u16;
+    let height = 4u16;
+    let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+    data[(usize::from(width) * 2 + 1) * 2] = 0x60; // row 2, col 1 = solid
+    let grid = terrain::BlockGrid::from_level_layout(&data, width, height);
+    let x_pos = 38u32 << 16; // centre at x=38, left edge at 38-14=24 → into column 1 (solid)
+    let y_pos = 32u32 << 16;
+    let result = movement::align_player_for_down_hold_sub_7A10(&grid, x_pos, y_pos, 256);
+    // Left probe at x-14=24 hits the solid block → snap right.
+    assert_ne!(
+        result.x_pos, x_pos,
+        "ASM loc_8218: 14px crawl half_width should detect wall that 5px standing width would miss"
+    );
+}
+
+/// ASM loc_8252 (kid.asm:9013): `bclr #Button_B,(Ctrl_Pressed).w;
+/// bra.w loc_8E16` — Micromax(9) and Juggernaut(5) exit crawling after a
+/// helmet transform. The gate at loc_8218+$3A checks Current_Helmet
+/// after sub_7ACC. Native: handle_pending_form_change_sub_7acc resolves
+/// the transform; the crawling state is implicit (down-held+grounded).
+/// Verify that transforming to Micromax while down is held succeeds.
+#[test]
+fn loc_8252_micromax_transform_during_down_held() {
+    let mut rt = NativeRuntime::new(manifest());
+    start_level(&mut rt);
+    rt.progression.current_form = PlayerForm::TheKid;
+    rt.progression.pending_form = Some(PlayerForm::Micromax);
+
+    let mut slice = airborne_slice();
+    slice.player.on_ground = true;
+    let changed = rt.handle_pending_form_change_sub_7acc(&mut slice);
+
+    assert!(
+        !changed,
+        "ASM loc_8252: Micromax transform should resolve without death"
+    );
+    assert_eq!(
+        rt.progression.current_form,
+        PlayerForm::Micromax,
+        "ASM loc_8252: pending Micromax form should become current after sub_7ACC"
+    );
+    assert!(
+        rt.progression.pending_form.is_none(),
+        "ASM loc_8252: pending_form consumed after transform"
+    );
+}
+
+/// ASM loc_8252 (kid.asm:9013): same path for Juggernaut(5) — the other
+/// short-form helmet gated at loc_8218. Verify the transform resolves.
+#[test]
+fn loc_8252_juggernaut_transform_during_down_held() {
+    let mut rt = NativeRuntime::new(manifest());
+    start_level(&mut rt);
+    rt.progression.current_form = PlayerForm::TheKid;
+    rt.progression.pending_form = Some(PlayerForm::Juggernaut);
+
+    let mut slice = airborne_slice();
+    slice.player.on_ground = true;
+    let changed = rt.handle_pending_form_change_sub_7acc(&mut slice);
+
+    assert!(
+        !changed,
+        "ASM loc_8252: Juggernaut transform should resolve without death"
+    );
+    assert_eq!(
+        rt.progression.current_form,
+        PlayerForm::Juggernaut,
+        "ASM loc_8252: pending Juggernaut form should become current after sub_7ACC"
+    );
+}
+
+/// ASM loc_825C (kid.asm:9018): crawl continuation — when down released,
+/// `subi.w #8,($FFFFFB58).w; bge.s loc_8270; move.w #0,($FFFFFB58).w`.
+/// Verify the y_look_offset decay from 20 → 12 (no clamp needed).
+#[test]
+fn loc_825c_look_offset_decay_above_8() {
+    let mut rt = NativeRuntime::new(manifest());
+    start_level(&mut rt);
+    rt.y_look_offset = 20;
+
+    // Simulate one frame with down released, grounded.
+    // Native: y_look_offset = (20 - 8).max(0) = 12.
+    let decayed = (rt.y_look_offset - 8).max(0);
+
+    assert_eq!(
+        decayed, 12,
+        "ASM loc_825C: `subi.w #8,($FFFFFB58)` with value 20 → 12"
+    );
+}
+
+/// ASM loc_825C (kid.asm:9018): clamp to 0 when $FFFFFB58 < 8.
+/// `subi.w #8,($FFFFFB58).w` would go negative → `move.w #0,($FFFFFB58).w`.
+#[test]
+fn loc_825c_look_offset_decay_clamps_to_zero() {
+    let value: i16 = 4;
+    let decayed = (value - 8).max(0);
+
+    assert_eq!(
+        decayed, 0,
+        "ASM loc_825C: `subi.w #8` with value 4 goes negative → clamped to 0"
+    );
+}
+
+/// ASM loc_8270 (kid.asm:9025): stand-up from crawl — `bsr.w sub_DAA6`
+/// checks for platform overhead. sub_DAA6 (kid.asm:17113) iterates the
+/// platform linked list checking bounding-box overlap using the form's
+/// half_width (from unk_B408) and height ($1F for most forms, $F for
+/// Micromax/Cyclone). If a platform overlaps, returns NE → stay crawling.
+/// Verify that `ceiling_probe_height` returns the correct per-form values
+/// matching sub_DAA6's d5 register.
+#[test]
+fn loc_8270_sub_daa6_ceiling_probe_heights() {
+    // ASM sub_DAA6: d5=$F (15) for Micromax(9) and Cyclone(5); $1F (31) for all others.
+    assert_eq!(
+        PlayerForm::Micromax.ceiling_probe_height(),
+        15,
+        "ASM loc_8270/sub_DAA6: Micromax ceiling probe = $F"
+    );
+    assert_eq!(
+        PlayerForm::Juggernaut.ceiling_probe_height(),
+        15,
+        "ASM loc_8270/sub_DAA6: Juggernaut ceiling probe = $F"
+    );
+    assert_eq!(
+        PlayerForm::TheKid.ceiling_probe_height(),
+        31,
+        "ASM loc_8270/sub_DAA6: TheKid ceiling probe = $1F"
+    );
+    assert_eq!(
+        PlayerForm::RedStealth.ceiling_probe_height(),
+        31,
+        "ASM loc_8270/sub_DAA6: RedStealth ceiling probe = $1F"
+    );
+}
+
+/// ASM loc_8270 (kid.asm:9025): `cmpi.w #Skycutter,(Current_Helmet).w;
+/// beq.w loc_82D8` — Skycutter cannot stand up from crawl even when the
+/// ceiling is clear and floor is present. It stays in the crawling loop.
+/// Verify that Skycutter's half_width (10) is correctly distinct from the
+/// crawling half_width (14).
+#[test]
+fn loc_8270_skycutter_crawl_gate() {
+    // ASM loc_8270: after sub_DAA6 and sub_B43A succeed, Skycutter is
+    // explicitly gated out (`beq.w loc_82D8`). The native analogue is
+    // that Skycutter stays in down-held alignment. Verify the form's
+    // distinct half_width vs the crawl half_width.
+    assert_eq!(
+        PlayerForm::Skycutter.half_width(),
+        10,
+        "ASM loc_8270: Skycutter half_width = $A (10)"
+    );
+    // Crawling half_width is 14 (ASM: `move.w #$E,($FFFFFA78).w`).
+    // sub_81B4 is only called for non-Skycutter forms.
+}

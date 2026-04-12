@@ -1702,6 +1702,11 @@ impl NativeRuntime {
         // ASM sub_7ACC (kid.asm:8178): when `Check_Helmet_Change` is set, try
         // sub_7B30's space-clear using the target helmet hitbox. If it fails,
         // Kid drops the queued helmet, while any already-helmeted form dies.
+        // ASM loc_8252 (kid.asm:9013): in crawling state (loc_8218), after
+        // sub_7ACC returns NE, Micromax(9) and Juggernaut(5) exit crawling
+        // via `bclr #Button_B; bra.w loc_8E16`; other forms continue
+        // crawling. Native: no separate crawling state, so transforms
+        // resolve uniformly here.
         //
         // ASM loc_7AD6 (kid.asm:8185): `cmpi.w #6,($FFFFFA56).w; beq.w loc_7B12`
         // — if Character_Movement == 6 (uphill-downhill/slope), skip the
@@ -2121,16 +2126,33 @@ impl NativeRuntime {
             slice.update_camera_follow(self.y_look_offset);
         }
 
-        // ASM loc_7650 (kid.asm:7741–7746): when `Ctrl_Down_Held` is false,
-        // `subi.w #8,($FFFFFB58)` decrements the look offset, clamped to 0.
-        // Y look-ahead accumulator ($FFFFFB58): +1/frame while grounded+down,
-        // -8/frame on release, clamped to [0, 30].
+        // ASM loc_8218 (kid.asm:8997): crawling state entry — sets
+        // `Character_Movement = MoveID_Crawling`, calls sub_71E4 (camera
+        // follow), hibernates 1 frame, sets half_width = $E (14px), runs
+        // Character_CheckCollision, saves x/y to $FFFFFA2C/$FFFFFA2E, then
+        // sub_7ACC (helmet change check). Native: the crawling state is not
+        // a separate movement ID — down-held+grounded is handled inline.
+        //
+        // ASM loc_825C (kid.asm:9018): crawl continuation — if down still
+        // held (`tst.b (Ctrl_Down_Held)`), branch to loc_82D8 (crawl loop).
+        // If released, `subi.w #8,($FFFFFB58)` decrements the look offset,
+        // clamped to 0, then falls through to loc_8270 (stand-up check).
+        //
+        // ASM loc_7650 (kid.asm:7741–7746): same offset decay in other
+        // movement states. Native merges both paths here.
         if input.down && slice.player.on_ground {
             self.y_look_offset = (self.y_look_offset + 1).min(30);
         } else if self.y_look_offset > 0 {
             self.y_look_offset = (self.y_look_offset - 8).max(0);
         }
 
+        // ASM loc_8270 (kid.asm:9025): stand-up from crawl — `bsr.w
+        // sub_DAA6` checks for platform overhead (returns NE → can't stand),
+        // `moveq #-$11,d7; bsr.w sub_B43A` floor probe, Skycutter gate,
+        // then `bsr.w sub_81B4` wall escape. Native: physics handles floor
+        // probe implicitly; sub_81B4 is crawl_wall_escape_sub_81B4;
+        // sub_DAA6 is ceiling_probe_height (platform-overhead not yet
+        // modelled as a separate stand-up gate — TODO(fidelity)).
         if input.down
             && slice.player.on_ground
             && !matches!(

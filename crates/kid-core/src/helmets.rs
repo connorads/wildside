@@ -3005,8 +3005,9 @@ impl NativeRuntime {
         // Landing clears flight.
         // ASM loc_818A (kid.asm:8934): walking→airborne exit when floor
         // vanishes. `moveq #-$11,d7; bsr.w sub_B43A` probes floor; if
-        // found, `addi.w #$10,y_pos(a3)` snaps y down. Then `sf
-        // (Cyclone_flying).w; bsr.w sub_B41C` (half-width); `move.w
+        // found, `addi.w #$10,y_pos(a3)` snaps y down.
+        // ASM loc_819A (kid.asm:8940): common path after optional y snap:
+        // `sf (Cyclone_flying).w; bsr.w sub_B41C` (half-width); `move.w
         // #MoveID_Jump,(Character_Movement).w; sf (Cyclone_flying).w;
         // bsr.w sub_B270; bra.w loc_A6F8`. The double `sf` is redundant
         // in ASM. Native: on_ground detection in the physics loop handles
