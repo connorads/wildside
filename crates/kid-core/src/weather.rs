@@ -877,6 +877,18 @@ pub(crate) fn step_weather_worker_sub_61CA(
         output.kid_collision_timer = Some(0x0028);
     }
 
+    // ASM loc_6318 (kid.asm:6322): per-slot terrain collision loop — d5=4 (5 iters).
+    //   lea ($FFFFFB00).w,a2  ; impact slot base
+    //   clr.b d0               ; boundary-crossing flag (set but unused in splash path)
+    //   move.w (a0),d7; bmi.s loc_6384  ; inactive → skip
+    //   move.w 2(a0),d6                 ; x_px
+    //   addi.w #$F,d7; lsr.w #4,d7; add.w d7,d7  ; row = (y+$F)>>4, word offset
+    //   lea ($FFFF4A04).l,a4; move.w (a4,d7.w),a4 ; row pointer from collision map
+    //   move.w d6,d7; addi.w #$F,d7; lsr.w #4,d7  ; col_ceil = (x+$F)>>4
+    //   lsr.w #4,d6                                ; col_floor = x>>4
+    //   cmp.w d6,d7; beq.s loc_6348; st d0         ; set flag if crosses boundary
+    // The boundary flag (d0) is computed but never consumed in the splash path —
+    // it appears to be dead code in the original ROM.
     for slot in &mut output.falling_slots {
         if !slot.is_active() {
             continue;
@@ -885,12 +897,22 @@ pub(crate) fn step_weather_worker_sub_61CA(
         let row_index =
             usize::from(u16::from_be_bytes(slot.y_px.to_be_bytes()).wrapping_add(0x000F) >> 4);
         let col_floor = usize::from(u16::from_be_bytes(slot.x_px.to_be_bytes()) >> 4);
+        // ASM loc_6348 (kid.asm:6341): add.w d6,d6; add.w d6,a4; move.w (a4)+,d7;
+        //   andi.w #$7000,d7; beq.s loc_6384      ; terrain_kind == 0 → no collision
+        //   cmpi.w #$4000,d7; beq.s loc_638E       ; slope terrain → offset splash
+        //   cmpi.w #$5000,d7; beq.s loc_638E       ; slope terrain → offset splash
+        //   (fall through to loc_6360)              ; normal terrain → direct splash
         let collision_word = input.collision_rows.word_at(row_index, col_floor);
         let terrain_kind = collision_word & 0x7000;
         if terrain_kind == 0 {
             continue;
         }
 
+        // ASM loc_6360 (kid.asm:6352): scan impact slots for first free (y < 0).
+        //   tst.w (a2); bmi.s loc_636A; lea 6(a2),a2; bra.s loc_6360
+        // loc_636A: move.w (a0),(a2); move.w 2(a0),2(a2); move.w #$600,4(a2)
+        //   move.l #$FFFFFFFF,(a0); addi.b #1,($FFFFFB3D).w
+        // For $4000/$5000 terrain (loc_638E): same but addi.w #$C,(a2) after copy.
         if let Some(impact_slot) = output
             .impact_slots
             .iter_mut()

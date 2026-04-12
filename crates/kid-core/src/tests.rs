@@ -29373,6 +29373,258 @@ fn loc_630c_iterates_all_five_slots() {
     );
 }
 
+// --- loc_6318 / loc_6348 / loc_6360: terrain collision → splash conversion ---
+
+#[test]
+fn loc_6318_skips_inactive_falling_slot_in_terrain_check() {
+    // ASM loc_6318 (kid.asm:6322): move.w (a0),d7; bmi.s loc_6384
+    // Inactive falling slot (y < 0) branches straight to loc_6384 (next slot).
+    // No tile lookup occurs — impact slots remain untouched.
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows: empty_weather_collision_rows_sub_61_ca(),
+        starting_number_sprites: 0,
+    });
+
+    assert!(
+        stepped.impact_slots.iter().all(|s| s.y_px < 0),
+        "ASM loc_6318: inactive falling slots (y < 0) should skip terrain check entirely"
+    );
+    assert_eq!(
+        stepped.free_falling_slots, 0,
+        "ASM loc_6318: no slots deactivated → free count unchanged"
+    );
+}
+
+#[test]
+fn loc_6348_skips_slot_over_empty_terrain() {
+    // ASM loc_6348 (kid.asm:6341): andi.w #$7000,d7; beq.s loc_6384
+    // When the tile word's terrain kind is 0, no splash occurs — slot continues falling.
+    // Collision row for row 5, col 12 = 0x0000 (empty).
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 64,
+                x_px: 200,
+                animation_cooldown: 3,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows: empty_weather_collision_rows_sub_61_ca(),
+        starting_number_sprites: 0,
+    });
+
+    // Post-advance: y=68, x=199. row=(68+15)>>4=5, col=199>>4=12.
+    // Tile at [5][12] = 0 → terrain_kind = 0 → beq.s loc_6384 (skip).
+    assert!(
+        stepped.falling_slots[0].y_px >= 0,
+        "ASM loc_6348: terrain_kind == 0 branches to loc_6384 — slot stays active"
+    );
+    assert!(
+        stepped.impact_slots.iter().all(|s| s.y_px < 0),
+        "ASM loc_6348: no terrain → no impact slot created"
+    );
+}
+
+#[test]
+fn loc_6360_converts_falling_slot_to_normal_splash() {
+    // ASM loc_6360 (kid.asm:6352): normal terrain (not $4000/$5000) →
+    //   scan impact slots for first free, copy y/x directly, type=$600,
+    //   deactivate falling slot, increment free_falling_slots.
+    // Terrain kind $1000 (solid ground) triggers the normal splash path.
+    let mut collision_rows = empty_weather_collision_rows_sub_61_ca();
+    // Post-advance: y=68, x=31. row=(68+15)>>4=5, col=31>>4=1.
+    collision_rows.rows[5][1] = 0x1000;
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 64,
+                x_px: 32,
+                animation_cooldown: 3,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    assert!(
+        stepped.falling_slots[0].y_px < 0,
+        "ASM loc_6360/loc_636A: move.l #$FFFFFFFF,(a0) deactivates the falling slot"
+    );
+    assert_eq!(
+        stepped.free_falling_slots, 1,
+        "ASM loc_6360/loc_636A: addi.b #1,($FFFFFB3D).w increments free count"
+    );
+    // Normal splash: y copied directly (no $C offset, unlike loc_638E).
+    assert_eq!(
+        stepped.impact_slots[0].y_px, 68,
+        "ASM loc_6360/loc_636A: move.w (a0),(a2) — impact y = falling y (post-advance)"
+    );
+    assert_eq!(
+        stepped.impact_slots[0].x_px, 31,
+        "ASM loc_6360/loc_636A: move.w 2(a0),2(a2) — impact x = falling x (post-advance)"
+    );
+}
+
+#[test]
+fn loc_6348_routes_slope_terrain_to_offset_splash() {
+    // ASM loc_6348 (kid.asm:6347–6350): cmpi.w #$4000,d7; beq.s loc_638E;
+    //   cmpi.w #$5000,d7; beq.s loc_638E — slope terrain adds $C to impact y.
+    // Verify $5000 terrain follows the same offset path as $4000.
+    let mut collision_rows = empty_weather_collision_rows_sub_61_ca();
+    collision_rows.rows[5][1] = 0x5000;
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 64,
+                x_px: 32,
+                animation_cooldown: 3,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    // Post-advance: y=68, x=31. $5000 terrain → loc_638E: addi.w #$C,(a2) → y=80.
+    assert_eq!(
+        stepped.impact_slots[0].y_px, 80,
+        "ASM loc_6348→loc_638E: $5000 slope terrain adds $C to impact y"
+    );
+    assert_eq!(
+        stepped.impact_slots[0].x_px, 31,
+        "ASM loc_638E: move.w 2(a0),2(a2) — x copied without offset"
+    );
+    assert!(
+        stepped.falling_slots[0].y_px < 0,
+        "ASM loc_638E: move.l #$FFFFFFFF,(a0) deactivates falling slot"
+    );
+    assert_eq!(
+        stepped.free_falling_slots, 1,
+        "ASM loc_638E: addi.b #1,($FFFFFB3D).w increments free count"
+    );
+}
+
+#[test]
+fn loc_6360_scans_past_active_impact_slots_to_find_free_one() {
+    // ASM loc_6360 (kid.asm:6352–6356): tst.w (a2); bmi.s loc_636A;
+    //   lea 6(a2),a2; bra.s loc_6360 — scan loop skips active impact slots.
+    // Place terrain hit with first 3 impact slots occupied; splash should
+    // land in slot index 3.
+    let mut collision_rows = empty_weather_collision_rows_sub_61_ca();
+    collision_rows.rows[5][1] = 0x2000;
+
+    let mut impact_slots = [WeatherImpactSlotSub61CA::inactive(1, 0); 10];
+    // Occupy first 3 impact slots.
+    for slot in impact_slots.iter_mut().take(3) {
+        *slot = WeatherImpactSlotSub61CA {
+            y_px: 10,
+            x_px: 10,
+            animation_cooldown: 6,
+            animation_frame: 0,
+        };
+    }
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 64,
+                x_px: 32,
+                animation_cooldown: 3,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots,
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    // First 3 impact slots are active (from setup, then decremented during step).
+    // The new splash should land in impact slot index 3.
+    assert_eq!(
+        stepped.impact_slots[3].y_px, 68,
+        "ASM loc_6360: scan loop should skip occupied slots and land in first free one"
+    );
+    assert_eq!(
+        stepped.impact_slots[3].x_px, 31,
+        "ASM loc_6360: splash x = falling slot x (post-advance)"
+    );
+}
+
 // --- Hail period toggle ---
 
 #[test]
