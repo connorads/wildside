@@ -338,13 +338,17 @@ fn apply_air_holding_right(vel: i32, table: &AirSpeedTable) -> i32 {
         // Moving left while holding right: turn with air_turn_accel ($10)
         vel + table.air_turn_accel
     } else {
-        // Moving right — cap at hard limit first
+        // ASM loc_8536 (kid.asm:9327): cmpi.l #$38000,d0; ble.s loc_8544;
+        // move.l #$38000,d0 — hard cap positive velocity at AIR_HARD_CAP.
         let vel = vel.min(AIR_HARD_CAP);
         if vel < table.max_air_speed {
-            // Below max air speed: accelerate
+            // ASM loc_8544 (kid.asm:9332): cmp.l (a0),d0; bge.s loc_8554;
+            // add.l 4(a0),d0 — below max, accelerate by air_accel, clamp to max.
             (vel + table.air_accel).min(table.max_air_speed)
         } else {
-            // At or above max air speed: decelerate towards it
+            // ASM loc_8554 (kid.asm:9344): sub.l 8(a0),d0; cmp.l (a0),d0;
+            // bge.s return_855E; move.l (a0),d0 — at/above max, decelerate
+            // by air_above_max_decel, clamp floor to max.
             (vel - table.air_above_max_decel).max(table.max_air_speed)
         }
     }
@@ -356,14 +360,20 @@ fn apply_air_holding_left(vel: i32, table: &AirSpeedTable) -> i32 {
         // Moving right while holding left: turn with air_turn_accel ($10)
         vel - table.air_turn_accel
     } else {
-        // Moving left — cap at hard limit first
+        // ASM loc_857C (kid.asm:9372): neg.l d0; cmpi.l #$38000,d0;
+        // ble.s loc_858C; move.l #$38000,d0 — negate to positive,
+        // hard cap at AIR_HARD_CAP. Mirror of loc_8536.
         let abs_vel = vel.saturating_neg().min(AIR_HARD_CAP);
         if abs_vel < table.max_air_speed {
-            // Below max air speed: accelerate
+            // ASM loc_858C (kid.asm:9378): cmp.l (a0),d0; bge.s loc_859E;
+            // add.l 4(a0),d0 — below max, accelerate by air_accel, clamp
+            // to max, then neg.l d0 restores negative sign. Mirror of loc_8544.
             let next_abs = (abs_vel + table.air_accel).min(table.max_air_speed);
             -next_abs
         } else {
-            // At or above max air speed: decelerate towards it
+            // ASM loc_859E (kid.asm:9393): sub.l 8(a0),d0 — at/above max,
+            // decelerate by air_above_max_decel, clamp floor to max,
+            // then neg.l d0. Mirror of loc_8554.
             let next_abs = (abs_vel - table.air_above_max_decel).max(table.max_air_speed);
             -next_abs
         }

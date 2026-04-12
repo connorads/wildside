@@ -72332,3 +72332,243 @@ fn loc_8524_no_input_decelerates_preserving_facing() {
         "ASM loc_8524: no input preserves facing Direction::Right"
     );
 }
+
+// sub_8506 right-holding velocity cap and acceleration — loc_8536, loc_8544, loc_8554
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8536 (kid.asm:9327): right-facing, right-held, vel positive and
+/// above AIR_HARD_CAP ($38000). `cmpi.l #$38000,d0; ble.s loc_8544;
+/// move.l #$38000,d0` — velocity clamped to hard cap before acceleration.
+#[test]
+fn loc_8536_hard_cap_clamps_velocity() {
+    let above_cap = physics::AIR_HARD_CAP + 0x1000;
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        above_cap,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    // After clamping to $38000, vel > max_air_speed ($10000) → loc_8554 decel
+    // by air_above_max_decel ($1000): result = $38000 - $1000 = $37000.
+    assert_eq!(
+        vel,
+        physics::AIR_HARD_CAP - physics::AIR_NORMAL.air_above_max_decel,
+        "ASM loc_8536: velocity above AIR_HARD_CAP ($38000) must be clamped before decel"
+    );
+}
+
+/// ASM loc_8536 (kid.asm:9327): right-facing, right-held, vel exactly at
+/// AIR_HARD_CAP. `cmpi.l #$38000,d0; ble.s loc_8544` — BLE branches because
+/// d0 == $38000, so no clamping occurs; falls through to loc_8544 → loc_8554.
+#[test]
+fn loc_8536_at_hard_cap_passes_through() {
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        physics::AIR_HARD_CAP,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    // At $38000, above max ($10000) → loc_8554: $38000 - $1000 = $37000
+    assert_eq!(
+        vel,
+        physics::AIR_HARD_CAP - physics::AIR_NORMAL.air_above_max_decel,
+        "ASM loc_8536: vel == AIR_HARD_CAP passes BLE, enters loc_8554 decel path"
+    );
+}
+
+/// ASM loc_8544 (kid.asm:9332): right-facing, right-held, vel positive and
+/// below max_air_speed. `cmp.l (a0),d0; bge.s loc_8554; add.l 4(a0),d0` —
+/// accelerate by air_accel, clamp to max_air_speed if exceeded.
+#[test]
+fn loc_8544_below_max_accelerates() {
+    let initial_vel = 0x8000; // below AIR_NORMAL.max_air_speed ($10000)
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        initial_vel,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        vel,
+        initial_vel + physics::AIR_NORMAL.air_accel,
+        "ASM loc_8544: below max, accelerate by air_accel ($1000)"
+    );
+}
+
+/// ASM loc_8544 (kid.asm:9332): acceleration would overshoot max_air_speed.
+/// `add.l 4(a0),d0; cmp.l (a0),d0; ble.s return_8552; move.l (a0),d0` —
+/// result clamped to max_air_speed.
+#[test]
+fn loc_8544_accel_clamps_to_max() {
+    // vel = max - 1 so adding air_accel overshoots
+    let initial_vel = physics::AIR_NORMAL.max_air_speed - 1;
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        initial_vel,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        vel,
+        physics::AIR_NORMAL.max_air_speed,
+        "ASM loc_8544: accel overshooting max must clamp to max_air_speed ($10000)"
+    );
+}
+
+/// ASM loc_8554 (kid.asm:9344): right-facing, right-held, vel at/above
+/// max_air_speed. `sub.l 8(a0),d0; cmp.l (a0),d0; bge.s return_855E;
+/// move.l (a0),d0` — decelerate by air_above_max_decel, clamp floor to max.
+#[test]
+fn loc_8554_above_max_decelerates() {
+    let initial_vel = 0x2_0000; // above max_air_speed ($10000)
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        initial_vel,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        vel,
+        initial_vel - physics::AIR_NORMAL.air_above_max_decel,
+        "ASM loc_8554: above max, decelerate by air_above_max_decel ($1000)"
+    );
+}
+
+/// ASM loc_8554 (kid.asm:9344): decel would undershoot max_air_speed.
+/// `sub.l 8(a0),d0; cmp.l (a0),d0; bge.s return_855E; move.l (a0),d0` —
+/// clamp floor to max_air_speed.
+#[test]
+fn loc_8554_decel_clamps_to_max() {
+    // vel = max + 1 so subtracting air_above_max_decel undershoots
+    let initial_vel = physics::AIR_NORMAL.max_air_speed + 1;
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        initial_vel,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        vel,
+        physics::AIR_NORMAL.max_air_speed,
+        "ASM loc_8554: decel undershooting max must clamp to max_air_speed ($10000)"
+    );
+}
+
+// sub_8506 left-holding velocity cap and acceleration — loc_857C, loc_858C
+// ---------------------------------------------------------------------------
+
+/// ASM loc_857C (kid.asm:9372): left-facing, left-held, vel negative with
+/// magnitude above AIR_HARD_CAP. `neg.l d0; cmpi.l #$38000,d0; ble.s loc_858C;
+/// move.l #$38000,d0` — abs velocity clamped to hard cap. Mirror of loc_8536.
+#[test]
+fn loc_857c_hard_cap_clamps_negative_velocity() {
+    let below_neg_cap = -(physics::AIR_HARD_CAP + 0x1000); // magnitude > $38000
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        below_neg_cap,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    // Clamped to abs $38000, above max → loc_859E decel: $38000 - $1000 = $37000, negated
+    assert_eq!(
+        vel,
+        -(physics::AIR_HARD_CAP - physics::AIR_NORMAL.air_above_max_decel),
+        "ASM loc_857C: negative vel magnitude above AIR_HARD_CAP must be clamped"
+    );
+}
+
+/// ASM loc_857C (kid.asm:9372): left-facing, left-held, vel exactly at
+/// negative AIR_HARD_CAP. BLE branches (equal), no clamping needed.
+#[test]
+fn loc_857c_at_hard_cap_passes_through() {
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        -physics::AIR_HARD_CAP,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    // abs $38000, above max → decel: -($38000 - $1000) = -$37000
+    assert_eq!(
+        vel,
+        -(physics::AIR_HARD_CAP - physics::AIR_NORMAL.air_above_max_decel),
+        "ASM loc_857C: vel == -AIR_HARD_CAP passes BLE, enters decel path"
+    );
+}
+
+/// ASM loc_858C (kid.asm:9378): left-facing, left-held, abs vel below
+/// max_air_speed. `cmp.l (a0),d0; bge.s loc_859E; add.l 4(a0),d0` —
+/// accelerate by air_accel, clamp to max, then neg.l d0. Mirror of loc_8544.
+#[test]
+fn loc_858c_below_max_accelerates_left() {
+    let initial_vel = -0x8000; // abs below max ($10000)
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        initial_vel,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        vel,
+        -(0x8000 + physics::AIR_NORMAL.air_accel),
+        "ASM loc_858C: below max, accelerate leftward by air_accel ($1000)"
+    );
+}
+
+/// ASM loc_858C (kid.asm:9378): left-side acceleration clamped to max.
+/// `add.l 4(a0),d0; cmp.l (a0),d0; ble.s loc_859A; move.l (a0),d0` then
+/// `neg.l d0` — result is -max_air_speed. Mirror of loc_8544 clamping.
+#[test]
+fn loc_858c_accel_clamps_to_max_left() {
+    let initial_vel = -(physics::AIR_NORMAL.max_air_speed - 1);
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        initial_vel,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        vel,
+        -physics::AIR_NORMAL.max_air_speed,
+        "ASM loc_858C: accel overshooting max must clamp to -max_air_speed"
+    );
+}
