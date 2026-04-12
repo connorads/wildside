@@ -64869,3 +64869,138 @@ fn step_hud_animation_sub_44dc_life_icon_no_upload_when_not_expired_cites_loc_45
         "ASM loc_4546: life frame offset should be preserved when counter is not expired",
     );
 }
+
+#[test]
+fn step_hud_animation_sub_44dc_clock_frame_upload_cites_loc_45da() {
+    // ASM loc_45DA (kid.asm:5663): when the clock countdown ($FFFFFA5A) expires,
+    // read the frame index byte from AniArt_Clock, sign-extend to word, index
+    // into off_45CE (3 art pointers at $80-byte stride into ArtUnc_4812), set VDP
+    // write command for VRAM $46A0, then call sub_44D0 to upload 128 bytes.
+    //
+    // AniArt_Clock table: $48,0, 6,4, 6,8, 6,4, $FF,$FF
+    // Set clock countdown to 1 (expires this frame), offset 0 → advance to pair
+    // at index 2 → speed=6, frame_byte=0x04.
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 5,
+        coin_frame_offset_fb60: 0,
+        life_countdown_fb59: 5,
+        life_frame_offset_fb5e: 0,
+        clock_countdown_fb5a: 1,
+        clock_frame_offset_fb5f: 0,
+        diamond_countdown_fb58: 5,
+        diamond_frame_offset_fb5d: 0,
+        flag_countdown_fb5c: 5,
+        flag_frame_offset_fb61: 0,
+    });
+
+    // ASM loc_45DA: frame_table_byte_offset selects which $80-byte art chunk
+    // from ArtUnc_4812.  AniArt_Clock[2]=0x04 → off_45CE index 4 → 2nd frame.
+    assert_eq!(
+        step.clock_upload,
+        Some(HudFrameUploadSub44DC {
+            asset_label: "ArtUnc_4812",
+            vram_word_address: 0x46A0,
+            frame_table_byte_offset: 0x04,
+        }),
+        "ASM loc_45DA: clock counter expiry should produce a frame upload targeting VRAM $46A0",
+    );
+    assert_eq!(
+        step.next_state.clock_countdown_fb5a, 6,
+        "ASM loc_45DA: clock countdown should reload from the speed byte (6)",
+    );
+    assert_eq!(
+        step.next_state.clock_frame_offset_fb5f, 2,
+        "ASM loc_45DA: clock frame offset should advance by 2",
+    );
+
+    // Other channels should not fire
+    assert!(step.coin_upload.is_none());
+    assert!(step.life_upload.is_none());
+    assert!(step.diamond_upload.is_none());
+    assert!(step.flag_upload.is_none());
+}
+
+#[test]
+fn step_hud_animation_sub_44dc_diamond_countdown_and_advance_cites_loc_45ee_and_loc_460a() {
+    // ASM loc_45EE (kid.asm:5670): store clock countdown result to $FFFFFA5A,
+    // then load diamond countdown from $FFFFFA58, sign-extend, decrement.  When
+    // the counter reaches zero, load diamond frame offset from $FFFFFA5D, advance
+    // by 2, fall through to loc_460A.
+    //
+    // ASM loc_460A (kid.asm:5681): diamond animation script read — reads byte
+    // from unk_461C at index.  If $FF → reset to 0, loop.  If positive → delay,
+    // fall through to loc_4626 for DMA via sub_5D4A.
+    //
+    // DIAMOND_TABLE (unk_461C): 6,0, 6,4, 6,8, 6,$C, $FF,$FF
+    // Set diamond countdown to 1, offset 0 → advance to index 2 → speed=6,
+    // frame_byte=0x04.
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 5,
+        coin_frame_offset_fb60: 0,
+        life_countdown_fb59: 5,
+        life_frame_offset_fb5e: 0,
+        clock_countdown_fb5a: 5,
+        clock_frame_offset_fb5f: 0,
+        diamond_countdown_fb58: 1,
+        diamond_frame_offset_fb5d: 0,
+        flag_countdown_fb5c: 5,
+        flag_frame_offset_fb61: 0,
+    });
+
+    // ASM loc_460A → loc_4626 → sub_5D4A: DMA upload to VRAM $DD40
+    assert!(
+        step.diamond_upload.is_some(),
+        "ASM loc_460A: diamond counter expiry should produce a DMA upload",
+    );
+    assert_eq!(
+        step.next_state.diamond_countdown_fb58, 6,
+        "ASM loc_45EE: diamond countdown should reload from the speed byte (6)",
+    );
+    assert_eq!(
+        step.next_state.diamond_frame_offset_fb5d, 2,
+        "ASM loc_45EE: diamond frame offset should advance by 2",
+    );
+
+    // Other channels should not fire
+    assert!(step.coin_upload.is_none());
+    assert!(step.life_upload.is_none());
+    assert!(step.clock_upload.is_none());
+    assert!(step.flag_upload.is_none());
+}
+
+#[test]
+fn step_hud_animation_sub_44dc_diamond_table_wraps_at_ff_sentinel_cites_loc_460a() {
+    // ASM loc_460A (kid.asm:5681): when the diamond script byte is $FF (negative
+    // after sign-extend), reset offset to 0 via `moveq #0,d7; move.b d7,($FFFFFA5D).w`
+    // and loop back to loc_460A.  This wraps the diamond table.
+    //
+    // DIAMOND_TABLE (unk_461C): 6,0, 6,4, 6,8, 6,$C, $FF,$FF
+    // Last valid pair is at offset 6 (speed=6, frame=0x0C).  Set offset to 6
+    // with countdown 1 → advance to offset 8 → hits $FF → wraps to 0 →
+    // speed=6, frame=0x00.
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 5,
+        coin_frame_offset_fb60: 0,
+        life_countdown_fb59: 5,
+        life_frame_offset_fb5e: 0,
+        clock_countdown_fb5a: 5,
+        clock_frame_offset_fb5f: 0,
+        diamond_countdown_fb58: 1,
+        diamond_frame_offset_fb5d: 6,
+        flag_countdown_fb5c: 5,
+        flag_frame_offset_fb61: 0,
+    });
+
+    assert!(
+        step.diamond_upload.is_some(),
+        "ASM loc_460A: diamond table wrap should still produce a DMA upload",
+    );
+    assert_eq!(
+        step.next_state.diamond_countdown_fb58, 6,
+        "ASM loc_460A: after wrapping, diamond countdown should be 6 (first speed byte)",
+    );
+    assert_eq!(
+        step.next_state.diamond_frame_offset_fb5d, 0,
+        "ASM loc_460A: diamond frame offset should wrap back to 0 on $FF sentinel",
+    );
+}

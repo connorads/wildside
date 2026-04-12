@@ -323,6 +323,16 @@ pub(crate) fn step_hud_animation_sub_44DC(
             CLOCK_TABLE,
             0xFF,
         );
+    // ASM loc_45EE (kid.asm:5670): store clock countdown result to $FFFFFA5A,
+    // then load diamond countdown from $FFFFFA58, sign-extend, decrement.  If
+    // nonzero → skip to loc_4630 (flag section).  If zero → load diamond frame
+    // offset from $FFFFFA5D, advance by 2, fall through to loc_460A.
+    //
+    // ASM loc_460A (kid.asm:5681): diamond animation script read — reads byte
+    // from unk_461C at script index.  If $FF sentinel → reset offset to 0 and
+    // loop (bra.s loc_460A).  If positive → delay byte, fall through to
+    // loc_4626 which reads the art frame index and calls sub_5D4A (DMA to VRAM
+    // $DD40).
     let (diamond_countdown_fb58, diamond_frame_offset_fb5d, diamond_frame) =
         step_hud_animation_pair_table(
             state.diamond_countdown_fb58,
@@ -370,6 +380,11 @@ pub(crate) fn step_hud_animation_sub_44DC(
             vram_word_address: 0x4620,
             frame_table_byte_offset,
         }),
+        // ASM loc_45DA (kid.asm:5663): clock art frame load — reads the frame
+        // index byte from AniArt_Clock, sign-extends to word, indexes into
+        // off_45CE (3 art pointers at $80-byte stride into ArtUnc_4812), sets
+        // VDP write command for VRAM $46A0, then calls sub_44D0 to upload 128
+        // bytes of tile data.
         clock_upload: clock_frame.map(|frame_table_byte_offset| HudFrameUploadSub44DC {
             asset_label: "ArtUnc_4812",
             vram_word_address: 0x46A0,
