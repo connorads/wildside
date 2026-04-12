@@ -27108,6 +27108,113 @@ fn sub_5e02_returns_early_when_wall_is_far_from_camera() {
     );
 }
 
+/// ASM loc_5E24 (kid.asm:5853): forward (non-reversed) murder wall collision.
+/// `addi.w #$30,d0; sub.w (Kid_hitbox_left).w,d0; blt.s loc_5E3A` — when
+/// wall_x + $30 < Kid_hitbox_left the branch is taken and no push fields are
+/// set.  When >= 0, `move.w #$30,$3A(a0)` sets push_animation_offset and
+/// falls through to loc_5E34.
+#[test]
+fn loc_5e24_forward_wall_no_overlap_skips_push_fields() {
+    // Wall at $50, Kid hitbox_left at $90 → $50 + $30 - $90 = -$10 < 0 → blt taken
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0050,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0090,
+        kid_hitbox_right_px: 0x00A0,
+        camera_x_px: 0x0060,
+        camera_y_px: 0,
+        animation_timer: 3,
+        animation_frame: 0,
+        starting_number_sprites: 0,
+    });
+    assert_eq!(
+        render.push_animation_offset, None,
+        "ASM loc_5E24: blt.s loc_5E3A should skip push_animation_offset when overlap < 0"
+    );
+    assert_eq!(
+        render.push_animation_timer, None,
+        "ASM loc_5E24: blt.s loc_5E3A should also skip loc_5E34 (push_animation_timer)"
+    );
+}
+
+/// ASM loc_5E34 (kid.asm:5859): `move.w #4,$38(a0)` — set push animation
+/// timer to 4.  Reached by fall-through from loc_5E24 (forward) or direct
+/// branch from the reversed path (`ble.s loc_5E34`).
+#[test]
+fn loc_5e34_sets_push_timer_on_forward_overlap() {
+    // Wall at $60, Kid hitbox_left at $80 → $60 + $30 - $80 = $10 >= 0 → no skip
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0060,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0080,
+        kid_hitbox_right_px: 0x0090,
+        camera_x_px: 0x0070,
+        camera_y_px: 0,
+        animation_timer: 4,
+        animation_frame: 0,
+        starting_number_sprites: 0,
+    });
+    assert_eq!(
+        render.push_animation_offset,
+        Some(0x30),
+        "ASM loc_5E24 fall-through: move.w #$30,$3A(a0) should set push_animation_offset"
+    );
+    assert_eq!(
+        render.push_animation_timer,
+        Some(4),
+        "ASM loc_5E34: move.w #4,$38(a0) should set push_animation_timer to 4"
+    );
+}
+
+/// ASM loc_5E3A (kid.asm:5862): camera distance check before sprite emission.
+/// `move.w (Camera_X_pos).w,d3; sub.w (MurderWall_X_pos).w,d3` then
+/// `cmpi.w #$30,d3; blt.s loc_5E52; rts`.  When camera - wall >= $30 (or
+/// negated for reversed), the routine returns without emitting sprites.
+#[test]
+fn loc_5e3a_camera_distance_exactly_at_threshold_returns_early() {
+    // Camera at $60, wall at $30 → d3 = $30 → NOT < $30 → rts (early return)
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0030,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0200,
+        kid_hitbox_right_px: 0x0210,
+        camera_x_px: 0x0060,
+        camera_y_px: 0,
+        animation_timer: 2,
+        animation_frame: 0,
+        starting_number_sprites: 5,
+    });
+    assert!(
+        render.sprites.is_empty(),
+        "ASM loc_5E3A: cmpi.w #$30,d3 — exactly $30 should NOT branch to loc_5E52, so rts with no sprites"
+    );
+}
+
+#[test]
+fn loc_5e3a_camera_distance_just_below_threshold_emits_sprites() {
+    // Camera at $5F, wall at $30 → d3 = $2F → < $30 → blt.s loc_5E52 (emit)
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0030,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0200,
+        kid_hitbox_right_px: 0x0210,
+        camera_x_px: 0x005F,
+        camera_y_px: 0,
+        animation_timer: 2,
+        animation_frame: 0,
+        starting_number_sprites: 5,
+    });
+    assert_eq!(
+        render.sprites.len(),
+        24,
+        "ASM loc_5E3A: d3=$2F < $30 should branch to loc_5E52 and emit 24 warning sprites"
+    );
+}
+
 #[test]
 fn sub_6034_returns_without_dispatch_for_none_or_lava_effects() {
     assert_eq!(

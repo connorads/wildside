@@ -77,20 +77,27 @@ pub(crate) fn compile_murder_wall_warning_sprites_sub_5E02(
     }
 
     if input.murder_wall_reversed {
+        // ASM kid.asm:5847: addi.w #$110,d0; sub.w (Kid_hitbox_right).w,d0; ble.s loc_5E34
         let overlap =
             i32::from(input.murder_wall_x_px) + 0x110 - i32::from(input.kid_hitbox_right_px);
         if overlap <= 0 {
+            // ASM loc_5E34: move.w #4,$38(a0) — set push animation timer
             render.push_animation_timer = Some(4);
         }
     } else {
+        // ASM loc_5E24: addi.w #$30,d0; sub.w (Kid_hitbox_left).w,d0; blt.s loc_5E3A
         let overlap =
             i32::from(input.murder_wall_x_px) + 0x30 - i32::from(input.kid_hitbox_left_px);
         if overlap >= 0 {
             render.push_animation_offset = Some(0x30);
+            // ASM loc_5E34 (fall-through): move.w #4,$38(a0)
             render.push_animation_timer = Some(4);
         }
     }
 
+    // ASM loc_5E3A: move.w (Camera_X_pos).w,d3; sub.w (MurderWall_X_pos).w,d3;
+    // tst.b (MurderWall_reversed).w; beq.s loc_5E4A; neg.w d3
+    // cmpi.w #$30,d3; blt.s loc_5E52; rts
     let mut relative_wall_x = i32::from(input.camera_x_px) - i32::from(input.murder_wall_x_px);
     if input.murder_wall_reversed {
         relative_wall_x = -relative_wall_x;
