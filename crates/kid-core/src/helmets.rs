@@ -3770,6 +3770,13 @@ impl NativeRuntime {
         // ASM loc_7738 (kid.asm:7810): move.l #sub_86FA,4(a0) — assigns the
         // skull worker. sub_86FA (kid.asm:9568) hibernates for three frames
         // while tracking Kid, then spawns `sub_87B0`.
+        //
+        // ASM loc_874C (kid.asm:9591): `move.l $1A(a2),x_pos(a3)` — copies
+        // Kid's position and facing to the skull GFX object each frame during
+        // the 3-frame delay (`moveq #3,d0` at kid.asm:9597). The position
+        // tracking is visual-only; native reads player position at spawn time.
+        // `tst.b ($FFFFFA6C); bne.w loc_874C` at kid.asm:9583 skips companion
+        // GFX init when the companion already exists — also visual-only.
         self.helmet.juggernaut_skull_delay_frames = JUGGERNAUT_SKULL_STARTUP_FRAMES;
     }
 

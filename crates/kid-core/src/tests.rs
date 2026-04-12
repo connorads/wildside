@@ -36677,6 +36677,153 @@ fn loc_7738_juggernaut_c_press_arms_sub_86fa() {
     );
 }
 
+// --- loc_874C: Juggernaut skull worker position tracking (sub_86FA) ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_874C (kid.asm:9591): `move.l $1A(a2),x_pos(a3); move.l $1E(a2),y_pos(a3);
+/// move.b $16(a2),x_direction(a3)` — copies Kid's position and facing to the skull
+/// GFX object. Native reads player position at spawn time (delay reaching 0).
+/// Verify spawn position matches Kid's position at the moment of projectile creation.
+fn loc_874C_skull_spawns_at_kid_position() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0064_0000; // 100 px
+    slice.player.y_pos = 0x00C8_0000; // 200 px
+    slice.player.facing = Direction::Right;
+
+    // Arm the skull worker
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_juggernaut_skull(&slice, input);
+    assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 3);
+
+    // Tick through the 3-frame delay, moving Kid each frame
+    rt.prior_input = input;
+    slice.player.x_pos = 0x0078_0000; // 120 px (Kid moved)
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    assert!(rt.projectiles.is_empty());
+
+    rt.prior_input = FrameInput::default();
+    slice.player.x_pos = 0x008C_0000; // 140 px
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    assert!(rt.projectiles.is_empty());
+
+    // Third tick: delay reaches 0, projectile spawned using FINAL position
+    slice.player.x_pos = 0x00A0_0000; // 160 px
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    assert_eq!(
+        rt.projectiles.len(),
+        1,
+        "skull should spawn after 3-frame delay"
+    );
+
+    // Spawn position should be based on the final player position (160px),
+    // not the initial position (100px) — matching ASM loc_874C/loc_879A
+    // which copies Kid position every frame of the delay.
+    let expected_x = ((160 + JUGGERNAUT_SKULL_OFFSET_X) as u32) << 16;
+    let expected_y = ((200 + JUGGERNAUT_SKULL_OFFSET_Y) as u32) << 16;
+    assert_eq!(
+        rt.projectiles[0].x_pos, expected_x,
+        "ASM loc_874C: skull x should use Kid's position at spawn time, not at C press",
+    );
+    assert_eq!(
+        rt.projectiles[0].y_pos, expected_y,
+        "ASM loc_874C: skull y should use Kid's initial y (unchanged in this test)",
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_874C (kid.asm:9594): `move.b $16(a2),x_direction(a3)` — skull inherits
+/// Kid's facing. When facing left, x_velocity is negative and offset is mirrored.
+fn loc_874C_skull_direction_mirrors_kid_facing() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+
+    let mut slice = combat_slice();
+    slice.player.facing = Direction::Left;
+
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_juggernaut_skull(&slice, input);
+
+    // Tick through 3-frame delay
+    rt.prior_input = input;
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    rt.prior_input = FrameInput::default();
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+
+    assert_eq!(rt.projectiles.len(), 1);
+    assert_eq!(
+        rt.projectiles[0].x_velocity, -JUGGERNAUT_SKULL_X_SPEED,
+        "ASM loc_874C: left-facing Kid should spawn skull with negative x velocity",
+    );
+    // X offset should be to the left of Kid
+    let player_x = slice.player.x_pos;
+    assert!(
+        rt.projectiles[0].x_pos < player_x,
+        "ASM loc_874C: left-facing skull x offset should be behind (left of) Kid",
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_874C (kid.asm:9591-9597): `moveq #3,d0` — the skull worker uses
+/// a 3-frame counter before spawning sub_87B0. Native models this via
+/// `juggernaut_skull_delay_frames = JUGGERNAUT_SKULL_STARTUP_FRAMES (3)`.
+/// `tst.b ($FFFFFA6C); bne.w loc_874C` at kid.asm:9583 skips companion GFX
+/// init when companion already exists — visual-only, no native equivalent.
+fn loc_874C_three_frame_delay_before_spawn() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    let slice = combat_slice();
+
+    // Arm
+    rt.step_juggernaut_skull(
+        &slice,
+        FrameInput {
+            c: true,
+            ..FrameInput::default()
+        },
+    );
+    assert_eq!(
+        rt.helmet.juggernaut_skull_delay_frames, 3,
+        "ASM loc_874C: moveq #3,d0 — 3-frame delay counter",
+    );
+
+    // Tick 1
+    rt.prior_input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 2);
+    assert!(rt.projectiles.is_empty(), "no spawn during delay");
+
+    // Tick 2
+    rt.prior_input = FrameInput::default();
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 1);
+    assert!(rt.projectiles.is_empty(), "no spawn during delay");
+
+    // Tick 3 — spawn
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 0);
+    assert_eq!(
+        rt.projectiles.len(),
+        1,
+        "ASM loc_874C: sub_87B0 should spawn on the third delay tick",
+    );
+}
+
 // --- loc_7742: Eyeclops standing-still C-press beam ---
 
 #[test]
