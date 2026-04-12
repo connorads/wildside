@@ -100,6 +100,26 @@ pub(crate) const RAM_CLEAR_START_ADDR_LOC_5FE: u32 = 0xFFFF_0000; // Sprite_Tabl
 #[allow(dead_code)]
 pub(crate) const RAM_CLEAR_LONGWORD_COUNT_LOC_5FE: u32 = 0x4000;
 
+/// ASM loc_61C (kid.asm:774): VRAM clear entry — `move.l #vdpComm($0000,VRAM,WRITE),4(a6)`
+/// sets the VDP write address to VRAM $0000, then loc_62A loops.
+///
+/// ASM loc_62A (kid.asm:779): `move.l d1,(a6); dbf d0,loc_62A` — inner VRAM
+/// clear loop.  d0=$3FFF (from `move.w #$3FFF,d0`), d1=0 (from `moveq #0,d1`).
+/// Each iteration writes one zero longword (4 bytes) to the VDP data port;
+/// $3FFF+1 = $4000 longwords = $10000 bytes = the full 64 KB VRAM.
+///
+/// After the VRAM clear, loc_61C continues with VSRAM clear (2 words at
+/// VSRAM $0000) and hscroll clear (2 words at VRAM $1400), then
+/// `move.w #$FFFF,($FFFFFC32).w` and `jsr (j_StopMusic)`.
+///
+/// In the native port, Rust struct initialisation zeroes all tile/scroll state;
+/// this constant documents the original dimensions for parity tests.
+#[allow(dead_code)]
+pub(crate) const VRAM_CLEAR_VRAM_ADDR_LOC_61C: u16 = 0x0000;
+/// `move.w #$3FFF,d0` + dbf = $4000 longwords = $10000 bytes (full 64 KB VRAM).
+#[allow(dead_code)]
+pub(crate) const VRAM_CLEAR_LONGWORD_COUNT_LOC_62A: u32 = 0x4000;
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {

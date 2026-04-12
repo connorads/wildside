@@ -831,6 +831,29 @@ pub(crate) fn step_weather_worker_sub_61CA(
         }
     }
 
+    // ASM loc_62CE (kid.asm:6293): moveq #4,d5; move.l (Addr_GfxObject_Kid).w,a5;
+    // move.l a1,a0 — sets up 5-slot collision scan (d5=4, dbf).
+    //
+    // ASM loc_62D6 (kid.asm:6298): per-slot Kid hitbox overlap test.
+    //   move.w (a0),d0        ; slot y_px
+    //   bmi.s  loc_630C       ; inactive (y < 0) → next slot
+    //   addi.w #2,d0          ; top edge = y + 2
+    //   cmp.w  (Kid_hitbox_top).w,d0
+    //   blt.s  loc_630C       ; above Kid → skip
+    //   addi.w #$C,d0         ; bottom edge = y + 2 + $C = y + $E
+    //   cmp.w  (Kid_hitbox_bottom).w,d0
+    //   bgt.s  loc_630C       ; below Kid → skip
+    //   move.w 2(a0),d0       ; slot x_px
+    //   addi.w #2,d0          ; left edge = x + 2
+    //   cmp.w  (Kid_hitbox_right).w,d0
+    //   bgt.s  loc_630C       ; right of Kid → skip
+    //   addi.w #$C,d0         ; right edge = x + 2 + $C = x + $E
+    //   cmp.w  (Kid_hitbox_left).w,d0
+    //   blt.s  loc_630C       ; left of Kid → skip
+    //   move.w #$28,$38(a5)   ; hit! set push timer on Kid
+    //
+    // ASM loc_630C (kid.asm:6316): lea 6(a0),a0; dbf d5,loc_62D6 — advance
+    // to next slot (6 bytes per entry) and loop.
     for slot in &output.falling_slots {
         if !slot.is_active() {
             continue;

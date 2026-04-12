@@ -29093,6 +29093,286 @@ fn loc_626c_blocked_second_tile_prevents_spawn_when_crossing_boundary() {
     );
 }
 
+// --- loc_62D6 / loc_630C: snow-Kid hitbox collision loop ---
+
+#[test]
+fn loc_62d6_sets_kid_collision_timer_when_slot_overlaps_kid_hitbox() {
+    // ASM loc_62D6 (kid.asm:6298): per-slot Kid hitbox overlap test.
+    // Post-advance: y=100, x=49 → particle box [102..114] x [51..63].
+    // Kid hitbox top=100, bottom=120, left=40, right=70 → overlap.
+    // ASM: move.w #$28,$38(a5) — sets push timer to $28.
+    let collision_rows = empty_weather_collision_rows_sub_61_ca();
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99, // high, no spawn
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 96,
+                x_px: 51,
+                animation_cooldown: 6,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 100,
+        kid_hitbox_bottom_px: 120,
+        kid_hitbox_left_px: 40,
+        kid_hitbox_right_px: 70,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.kid_collision_timer,
+        Some(0x0028),
+        "ASM loc_62D6: overlapping slot should set Kid push timer to $28"
+    );
+}
+
+#[test]
+fn loc_62d6_skips_inactive_slot() {
+    // ASM loc_62D6 (kid.asm:6299–6300): move.w (a0),d0; bmi.s loc_630C
+    // When y_px < 0 (inactive), branch immediately to loc_630C (next slot).
+    let collision_rows = empty_weather_collision_rows_sub_61_ca();
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 0,
+        kid_hitbox_bottom_px: 999,
+        kid_hitbox_left_px: 0,
+        kid_hitbox_right_px: 999,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.kid_collision_timer, None,
+        "ASM loc_62D6: inactive slots (y < 0) branch to loc_630C without testing hitbox"
+    );
+}
+
+#[test]
+fn loc_62d6_skips_slot_above_kid_hitbox() {
+    // ASM loc_62D6 (kid.asm:6301–6303): addi.w #2,d0; cmp.w (Kid_hitbox_top).w,d0; blt.s loc_630C
+    // slot y=10 → y+2=12, Kid top=100 → 12 < 100 → skip.
+    let collision_rows = empty_weather_collision_rows_sub_61_ca();
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 10,
+                x_px: 50,
+                animation_cooldown: 6,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 100,
+        kid_hitbox_bottom_px: 120,
+        kid_hitbox_left_px: 40,
+        kid_hitbox_right_px: 70,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.kid_collision_timer, None,
+        "ASM loc_62D6: slot above Kid (y+2 < hitbox_top) branches to loc_630C"
+    );
+}
+
+#[test]
+fn loc_62d6_skips_slot_below_kid_hitbox() {
+    // ASM loc_62D6 (kid.asm:6304–6306): addi.w #$C,d0; cmp.w (Kid_hitbox_bottom).w,d0; bgt.s loc_630C
+    // Post-advance: y=114. y+2=116, y+$E=128 > Kid bottom=120 → skip.
+    let collision_rows = empty_weather_collision_rows_sub_61_ca();
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 110,
+                x_px: 50,
+                animation_cooldown: 6,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 100,
+        kid_hitbox_bottom_px: 120,
+        kid_hitbox_left_px: 40,
+        kid_hitbox_right_px: 70,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.kid_collision_timer, None,
+        "ASM loc_62D6: slot below Kid (y+$E > hitbox_bottom) branches to loc_630C"
+    );
+}
+
+#[test]
+fn loc_62d6_skips_slot_right_of_kid_hitbox() {
+    // ASM loc_62D6 (kid.asm:6307–6310): move.w 2(a0),d0; addi.w #2,d0;
+    // cmp.w (Kid_hitbox_right).w,d0; bgt.s loc_630C
+    // Post-advance: y=100, x=79. y+2=102, y+$E=114 — inside Kid y range.
+    // x+2=81 > Kid right=70 → skip at the right-edge check.
+    let collision_rows = empty_weather_collision_rows_sub_61_ca();
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 96,
+                x_px: 80,
+                animation_cooldown: 6,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 100,
+        kid_hitbox_bottom_px: 120,
+        kid_hitbox_left_px: 40,
+        kid_hitbox_right_px: 70,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.kid_collision_timer, None,
+        "ASM loc_62D6: slot right of Kid (x+2 > hitbox_right) branches to loc_630C"
+    );
+}
+
+#[test]
+fn loc_62d6_skips_slot_left_of_kid_hitbox() {
+    // ASM loc_62D6 (kid.asm:6311–6313): addi.w #$C,d0; cmp.w (Kid_hitbox_left).w,d0; blt.s loc_630C
+    // Post-advance: y=100, x=19. y+2=102, y+$E=114 — inside Kid y range.
+    // x+2=21, x+$E=33 < Kid left=40 → skip at the left-edge check.
+    let collision_rows = empty_weather_collision_rows_sub_61_ca();
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 96,
+                x_px: 20,
+                animation_cooldown: 6,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 100,
+        kid_hitbox_bottom_px: 120,
+        kid_hitbox_left_px: 40,
+        kid_hitbox_right_px: 70,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.kid_collision_timer, None,
+        "ASM loc_62D6: slot left of Kid (x+$E < hitbox_left) branches to loc_630C"
+    );
+}
+
+#[test]
+fn loc_630c_iterates_all_five_slots() {
+    // ASM loc_630C (kid.asm:6316): lea 6(a0),a0; dbf d5,loc_62D6
+    // d5=4 (moveq #4,d5 at loc_62CE) → 5 iterations.
+    // Place overlapping slot in position 4 (last) to confirm all 5 are checked.
+    // Note: slot advances y+=4, x-=1 before collision, so input y=96, x=51
+    // → post-advance y=100, x=50 → particle box [102..114] x [52..64].
+    let collision_rows = empty_weather_collision_rows_sub_61_ca();
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA {
+                y_px: 96,
+                x_px: 51,
+                animation_cooldown: 6,
+                animation_frame: 0,
+            },
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 100,
+        kid_hitbox_bottom_px: 120,
+        kid_hitbox_left_px: 40,
+        kid_hitbox_right_px: 70,
+        random_byte: 0,
+        collision_rows,
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.kid_collision_timer,
+        Some(0x0028),
+        "ASM loc_630C: dbf d5,loc_62D6 iterates all 5 slots — last slot overlap detected"
+    );
+}
+
 // --- Hail period toggle ---
 
 #[test]
@@ -65972,6 +66252,31 @@ fn loc_5e6_vdp_game_init_writes_19_register_commands() {
             "ASM loc_5E6: command {i} should target register ${expected_reg:02X}"
         );
     }
+}
+
+/// ASM loc_62A (kid.asm:779): inner loop of the VRAM clear at loc_61C.
+/// `move.l d1,(a6); dbf d0,loc_62A` with d0=$3FFF and d1=0 writes $4000
+/// zero longwords ($10000 bytes) to the VDP data port, clearing the full
+/// 64 KB VRAM.  The native port zeroes tile/scroll state via Rust struct
+/// initialisation; this test documents the original dimensions.
+#[test]
+fn loc_62a_vram_clear_dimensions() {
+    assert_eq!(
+        crate::boot::VRAM_CLEAR_VRAM_ADDR_LOC_61C,
+        0x0000,
+        "ASM loc_61C: vdpComm($0000,VRAM,WRITE) targets VRAM address 0"
+    );
+    assert_eq!(
+        crate::boot::VRAM_CLEAR_LONGWORD_COUNT_LOC_62A,
+        0x4000,
+        "ASM loc_62A: dbf with d0=$3FFF loops $4000 times, clearing $10000 bytes (64 KB VRAM)"
+    );
+    // Verify the loop covers the full 64 KB VRAM (Mega Drive VRAM size)
+    assert_eq!(
+        crate::boot::VRAM_CLEAR_LONGWORD_COUNT_LOC_62A * 4,
+        0x10000,
+        "ASM loc_62A: $4000 longwords × 4 bytes = $10000 = full 64 KB VRAM"
+    );
 }
 
 #[test]
