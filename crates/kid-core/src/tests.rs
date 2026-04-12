@@ -11842,6 +11842,201 @@ fn diamond_power_init_snake_death_snake_sizes_loc_3f946() {
     );
 }
 
+// DiamondPower_Main_Snake trail update (loc_3F978)
+
+#[test]
+fn diamond_power_snake_trail_update_shifts_positions_loc_3f978() {
+    // ASM loc_3F978: for each slot except the last, trail[0] → position,
+    // trail shifts down, next slot's position → trail[2].
+    let mut slots = vec![
+        helmets::SnakeSlot {
+            x_pos: 100,
+            y_pos: 200,
+            diamond_size: 4,
+            trail: [(110, 210), (120, 220), (130, 230)],
+        },
+        helmets::SnakeSlot {
+            x_pos: 150,
+            y_pos: 250,
+            diamond_size: 3,
+            trail: [(160, 260), (170, 270), (180, 280)],
+        },
+        helmets::SnakeSlot {
+            x_pos: 190,
+            y_pos: 290,
+            diamond_size: 2,
+            trail: [(200, 300), (210, 310), (220, 320)],
+        },
+    ];
+
+    helmets::diamond_power_snake_update_trails(&mut slots);
+
+    // ASM loc_3F978: slot 0 gets trail[0] as position
+    assert_eq!(
+        slots[0].x_pos, 110,
+        "ASM loc_3F978: move.w (a3),$1A(a0) — trail[0].x → x_pos"
+    );
+    assert_eq!(
+        slots[0].y_pos, 210,
+        "ASM loc_3F978: move.w 2(a3),$1E(a0) — trail[0].y → y_pos"
+    );
+    // trail shifted: [1]→[0], [2]→[1], next.pos→[2]
+    assert_eq!(
+        slots[0].trail[0],
+        (120, 220),
+        "ASM loc_3F978: trail[1]→trail[0]"
+    );
+    assert_eq!(
+        slots[0].trail[1],
+        (130, 230),
+        "ASM loc_3F978: trail[2]→trail[1]"
+    );
+    assert_eq!(
+        slots[0].trail[2],
+        (150, 250),
+        "ASM loc_3F978: move.w $1A(a1),(a3)+ — next slot pos → trail[2]"
+    );
+
+    // ASM loc_3F978: slot 1 similarly updated
+    assert_eq!(
+        slots[1].x_pos, 160,
+        "ASM loc_3F978: slot 1 trail[0].x → x_pos"
+    );
+    assert_eq!(
+        slots[1].y_pos, 260,
+        "ASM loc_3F978: slot 1 trail[0].y → y_pos"
+    );
+    assert_eq!(
+        slots[1].trail[2],
+        (190, 290),
+        "ASM loc_3F978: slot 1 trail[2] = next slot pos"
+    );
+
+    // ASM loc_3F978: last slot unchanged (beq.s loc_3F9A2 exits loop)
+    assert_eq!(
+        slots[2].x_pos, 190,
+        "ASM loc_3F978: tail slot position unchanged"
+    );
+    assert_eq!(
+        slots[2].y_pos, 290,
+        "ASM loc_3F978: tail slot position unchanged"
+    );
+    assert_eq!(
+        slots[2].trail,
+        [(200, 300), (210, 310), (220, 320)],
+        "ASM loc_3F978: tail trail unchanged"
+    );
+}
+
+#[test]
+fn diamond_power_snake_trail_single_slot_noop_loc_3f978() {
+    // ASM loc_3F978: move.l 4(a0),d1; beq.s loc_3F9A2
+    // — single slot has null next pointer, loop body never executes.
+    let mut slots = vec![helmets::SnakeSlot {
+        x_pos: 50,
+        y_pos: 60,
+        diamond_size: 1,
+        trail: [(70, 80), (90, 100), (110, 120)],
+    }];
+    helmets::diamond_power_snake_update_trails(&mut slots);
+    assert_eq!(slots[0].x_pos, 50, "ASM loc_3F978: single slot — no update");
+    assert_eq!(
+        slots[0].trail[0],
+        (70, 80),
+        "ASM loc_3F978: single slot — trail unchanged"
+    );
+}
+
+// DiamondPower_Main_Snake target finding (loc_3F9A2, loc_3F9C2)
+
+#[test]
+fn diamond_power_snake_find_target_nearest_enemy_loc_3f9a2_loc_3f9c2() {
+    // ASM loc_3F9A2: load head screen position, scan enemies.
+    // ASM loc_3F9C2: per-enemy on-screen check + Manhattan distance.
+    // Two enemies on-screen: pick the nearest by Manhattan distance.
+    let head_x = 0x100;
+    let head_y = 0x80;
+    let cam_x = 0x80;
+    let cam_y = 0x20;
+
+    let enemies = vec![
+        // Enemy A: screen (0xA0, 0x50) — Manhattan to head screen (0x80,0x60) = 0x20+0x10=0x30
+        helmets::SnakeTargetCandidate {
+            x_pos: 0x120,
+            y_pos: 0x80,
+        },
+        // Enemy B: screen (0x70, 0x58) — closer: |0x70-0x80|+|0x58-0x60| = 0x10+0x08=0x18
+        helmets::SnakeTargetCandidate {
+            x_pos: 0xF0,
+            y_pos: 0x88,
+        },
+    ];
+    let result = helmets::diamond_power_snake_find_target(
+        head_x, head_y, cam_x, cam_y, &enemies, 0x200, 0x100,
+    );
+    // ASM loc_3F9C2: enemy B is nearer, selected as target
+    assert_eq!(result.x, 0xF0, "ASM loc_3F9C2: nearest enemy x selected");
+    assert_eq!(result.y, 0x88, "ASM loc_3F9C2: nearest enemy y selected");
+}
+
+#[test]
+fn diamond_power_snake_find_target_defaults_to_kid_loc_3f9a2() {
+    // ASM loc_3FA0C: cmpi.w #$FFFF,d3; bne.s loc_3FA16
+    // — d3 stays $FFFF when no on-screen enemy found, defaults to Kid.
+    let result = helmets::diamond_power_snake_find_target(
+        0x100,
+        0x80,
+        0x80,
+        0x20,
+        &[], // no enemies
+        0x200,
+        0x150,
+    );
+    assert_eq!(result.x, 0x200, "ASM loc_3FA0C: no enemies → Kid x");
+    assert_eq!(result.y, 0x150, "ASM loc_3FA0C: no enemies → Kid y");
+}
+
+#[test]
+fn diamond_power_snake_find_target_culls_offscreen_loc_3f9c2() {
+    // ASM loc_3F9C2: enemies outside screen bounds are skipped.
+    // Screen bounds: x in [-8, 328), y in [16, 240) after camera subtraction.
+    let cam_x = 0;
+    let cam_y = 0;
+    let enemies = vec![
+        // x screen = -9 → culled by cmpi.w #$FFF8,d4; blt.s
+        helmets::SnakeTargetCandidate {
+            x_pos: -9,
+            y_pos: 0x30,
+        },
+        // x screen = 0x148 → culled by cmpi.w #$148,d4; bge.s
+        helmets::SnakeTargetCandidate {
+            x_pos: 0x148,
+            y_pos: 0x30,
+        },
+        // y screen = 0x0F (after -$10) → culled by cmpi.w #$10,d5; blt.s
+        helmets::SnakeTargetCandidate {
+            x_pos: 0x80,
+            y_pos: 0x1F,
+        },
+        // y screen = 0xF0 (after -$10) → culled by cmpi.w #$F0,d5; bge.s
+        helmets::SnakeTargetCandidate {
+            x_pos: 0x80,
+            y_pos: 0x100,
+        },
+    ];
+    let result =
+        helmets::diamond_power_snake_find_target(0x80, 0x80, cam_x, cam_y, &enemies, 0x200, 0x200);
+    // All enemies culled → defaults to Kid
+    assert_eq!(
+        result.x, 0x200,
+        "ASM loc_3F9C2: all enemies off-screen → Kid x"
+    );
+    assert_eq!(
+        result.y, 0x200,
+        "ASM loc_3F9C2: all enemies off-screen → Kid y"
+    );
+}
+
 // -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------

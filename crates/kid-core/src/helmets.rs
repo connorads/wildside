@@ -1034,6 +1034,147 @@ pub(crate) fn diamond_power_init_snake(
     }
 }
 
+/// ASM DiamondPower_Main_Snake trail update loop (kid.asm:44658, loc_3F978).
+///
+/// Iterates the snake's slot list from head to tail. For each slot except
+/// the last, the visible position is shifted from trail[0], the trail buffer
+/// is shifted down by one entry, and the next slot's current position fills
+/// trail[2]. The last slot (4(a0)==0 → no successor) is left unchanged.
+///
+/// ASM loc_3F978:
+///   move.l a1,a0; move.l 4(a0),d1; beq.s loc_3F9A2
+///   — follow linked list; exit when next pointer is null
+///   lea $40(a0),a3
+///   move.w (a3),$1A(a0); move.w 2(a3),$1E(a0)
+///   — copy trail[0] → x_pos, y_pos
+///   move.l 4(a3),(a3)+; move.l 4(a3),(a3)+
+///   — shift trail[1]→[0], trail[2]→[1]
+///   move.w $1A(a1),(a3)+; move.w $1E(a1),(a3)+
+///   — copy next slot's current position → trail[2]
+///   bra.s loc_3F978
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_snake_update_trails(slots: &mut [SnakeSlot]) {
+    // ASM loc_3F978: iterate pairs (current, next) in order
+    for i in 0..slots.len().saturating_sub(1) {
+        // ASM: move.w (a3),$1A(a0); move.w 2(a3),$1E(a0)
+        // — trail[0] becomes the slot's visible position
+        let (tx, ty) = slots[i].trail[0];
+        slots[i].x_pos = tx;
+        slots[i].y_pos = ty;
+
+        // ASM: move.l 4(a3),(a3)+; move.l 4(a3),(a3)+
+        // — shift trail entries down: [1]→[0], [2]→[1]
+        slots[i].trail[0] = slots[i].trail[1];
+        slots[i].trail[1] = slots[i].trail[2];
+
+        // ASM: move.w $1A(a1),(a3)+; move.w $1E(a1),(a3)+
+        // — next slot's current position fills trail[2]
+        let next_pos = (slots[i + 1].x_pos, slots[i + 1].y_pos);
+        slots[i].trail[2] = next_pos;
+    }
+}
+
+/// An on-screen enemy position for the snake target scan.
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SnakeTargetCandidate {
+    pub(crate) x_pos: i16,
+    pub(crate) y_pos: i16,
+}
+
+/// Result of `diamond_power_snake_find_target`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SnakeTarget {
+    /// Target x_pos (from nearest enemy, or Kid if none on-screen).
+    pub(crate) x: i16,
+    /// Target y_pos (from nearest enemy, or Kid if none on-screen).
+    pub(crate) y: i16,
+}
+
+/// ASM loc_3F9A2 + loc_3F9C2: snake target selection after trail update.
+///
+/// loc_3F9A2 (kid.asm:44673): decrements Diamond_power_timer, loads the
+/// head slot's screen-relative position, then scans the enemy list for
+/// the nearest on-screen enemy by Manhattan distance.
+///
+/// loc_3F9C2 (kid.asm:44684): per-enemy proximity scan:
+///   — load enemy x/y, subtract 16 from y
+///   — cull off-screen: x in [-8, $148), y in [$10, $F0)
+///   — compute |dx| + |dy| Manhattan distance to head
+///   — track nearest (smallest distance in d3)
+///
+/// If no on-screen enemy found (d3 remains $FFFF), defaults to Kid.
+///
+/// Returns the target position (enemy or Kid).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_snake_find_target(
+    head_x: i16,
+    head_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+    enemies: &[SnakeTargetCandidate],
+    kid_x: i16,
+    kid_y: i16,
+) -> SnakeTarget {
+    // ASM loc_3F9A2: d0 = head_x - Camera_X_pos, d1 = head_y - Camera_Y_pos
+    let screen_head_x = head_x.wrapping_sub(camera_x);
+    let screen_head_y = head_y.wrapping_sub(camera_y);
+
+    // ASM: moveq #-1,d3 — initial "no target" sentinel
+    let mut best_dist: i16 = -1;
+    let mut best_target: Option<(i16, i16)> = None;
+
+    // ASM loc_3F9C2: iterate enemy linked list ($FFFFF86A)
+    for enemy in enemies {
+        // ASM: move.w $1A(a1),d4; move.w $1E(a1),d5; subi.w #$10,d5
+        let ex = enemy.x_pos;
+        let ey = enemy.y_pos.wrapping_sub(0x10);
+
+        // ASM: sub.w (Camera_X_pos).w,d4; screen-relative X
+        let screen_ex = ex.wrapping_sub(camera_x);
+        // ASM: cmpi.w #$FFF8,d4; blt.s loc_3FA06
+        if screen_ex < -8 {
+            continue;
+        }
+        // ASM: cmpi.w #$148,d4; bge.s loc_3FA06
+        if screen_ex >= 0x148 {
+            continue;
+        }
+        // ASM: sub.w (Camera_Y_pos).w,d5
+        let screen_ey = ey.wrapping_sub(camera_y);
+        // ASM: cmpi.w #$10,d5; blt.s loc_3FA06
+        if screen_ey < 0x10 {
+            continue;
+        }
+        // ASM: cmpi.w #$F0,d5; bge.s loc_3FA06
+        if screen_ey >= 0xF0 {
+            continue;
+        }
+
+        // ASM: sub.w d0,d4; bge.s loc_3F9F6; neg.w d4
+        let dx = (screen_ex.wrapping_sub(screen_head_x)).abs();
+        // ASM: sub.w d1,d5; bge.s loc_3F9FC; neg.w d5
+        let dy = (screen_ey.wrapping_sub(screen_head_y)).abs();
+
+        // ASM: add.w d4,d5; cmp.w d5,d3; bcs.s loc_3FA06
+        let dist = dx.wrapping_add(dy);
+        // ASM: cmp.w d5,d3 — unsigned compare (bcs = below/carry set)
+        if (best_dist as u16) < (dist as u16) {
+            continue;
+        }
+        best_dist = dist;
+        best_target = Some((enemy.x_pos, enemy.y_pos));
+    }
+
+    // ASM loc_3FA0C: cmpi.w #$FFFF,d3; bne.s loc_3FA16
+    // — if no enemy found, use Kid
+    match best_target {
+        Some((x, y)) => SnakeTarget { x, y },
+        None => SnakeTarget { x: kid_x, y: kid_y },
+    }
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
