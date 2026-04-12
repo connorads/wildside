@@ -3351,6 +3351,11 @@ impl NativeRuntime {
     /// ASM loc_76B0: cmpi.w #Red_Stealth,(Current_Helmet) / bne skip /
     ///   tst.b (Red_Stealth_sword_swing) / bne skip / init animation stru_8B3C /
     ///   allocate object sub_868E / st (Red_Stealth_sword_swing)
+    ///
+    /// ASM loc_8CF8 (kid.asm:10117): walking-state duplicate — `cmpi.w
+    ///   #Red_Stealth; tst.b (Red_Stealth_sword_swing); bne.w loc_8D72`,
+    ///   init animation stru_8B3C, allocate sub_868E worker,
+    ///   `st (Red_Stealth_sword_swing)`. Same gate as loc_76B0.
     pub(crate) fn step_red_stealth_sword(&mut self, input: FrameInput) {
         if self.progression.current_form != PlayerForm::RedStealth {
             self.helmet.red_stealth_sword_timer = 0;
@@ -3535,6 +3540,12 @@ impl NativeRuntime {
     /// ASM loc_7606 (kid.asm:7722–7739): the ROM's standing-still state checks
     /// `Eyeclops`, `andi.b #$C0,d0` (A+Start held), `$FFFFFAB8` (beam active),
     /// and `Number_Diamonds >= 2` before arming the hard beam with `$8001`.
+    ///
+    /// ASM loc_8C26 (kid.asm:10058): walking-state duplicate of loc_7606 —
+    /// `bsr.w sub_7428` (Juggernaut 5-way), then same Eyeclops hard beam
+    /// sequence: `cmpi.w #Eyeclops; andi.b #$C0,d0; cmpi.b #$C0,d0;
+    /// tst.w ($FFFFFAB8); cmpi.w #2,(Number_Diamonds); move.w #$8001`.
+    ///
     /// Native runs this check every frame (not just standing-still) and uses
     /// B+C as the held-button gate rather than A+Start.
     /// TODO(fidelity): ASM hard beam gate is A+Start ($C0), native uses B+C.
@@ -3616,6 +3627,12 @@ impl NativeRuntime {
     /// ASM loc_76E4: cmpi.w #Maniaxe,(Current_Helmet) / bne skip /
     ///   tst.b (Maniaxe_throwing_axe) / bne skip / allocate ManiaxeAxe_Init /
     ///   init animation stru_8B4E / st (Maniaxe_throwing_axe)
+    ///
+    /// ASM loc_8CB6 (kid.asm:10100): walking-state duplicate — `bclr
+    ///   #Button_C,(Ctrl_Pressed); beq.w loc_8D72` (skip if C not pressed),
+    ///   `cmpi.w #Maniaxe; tst.b (Maniaxe_throwing_axe); bne.w loc_8D72`,
+    ///   allocate ManiaxeAxe_Init, `clr.l x_vel(a3)`, `st Maniaxe_throwing_axe`.
+    ///   Native: same logic; the `clr.l x_vel` is a visual stop (not modelled).
     ///
     /// ASM loc_8A42 (kid.asm:9862): `add.w $26(a0),d7; move.w d7,x_vel(a3)` —
     ///   axe velocity = base_speed (±5) + Kid x_vel high word. moveq #$C,d0

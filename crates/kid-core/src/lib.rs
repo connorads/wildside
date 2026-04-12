@@ -1850,6 +1850,10 @@ impl NativeRuntime {
             player_before_iron_knight_climb,
             slice.player,
         );
+        // ASM loc_8CB6 (kid.asm:10100): walking-state C-press → Maniaxe axe throw.
+        // ASM loc_8CF8 (kid.asm:10117): walking-state C-press → Red Stealth sword.
+        // ASM loc_8C26 (kid.asm:10058): walking-state sub_7428 + Eyeclops hard beam.
+        // Native runs all three every frame, not only in the walking state.
         self.step_red_stealth_sword(input);
         self.step_eyeclops_beam(&slice, input);
         self.step_maniaxe_axe(&slice, input);
@@ -2143,6 +2147,10 @@ impl NativeRuntime {
         // If released, `subi.w #8,($FFFFFB58)` decrements the look offset,
         // clamped to 0, then falls through to loc_8270 (stand-up check).
         //
+        // ASM loc_8C12 (kid.asm:10051): walking-state version —
+        // `tst.b (Ctrl_Down_Held); bne.s loc_8C26` skips decrement when down
+        // held; `subi.w #8,($FFFFFB58); bge.s loc_8C26` decrements, clamp to 0.
+        //
         // ASM loc_7650 (kid.asm:7741–7746): same offset decay in other
         // movement states. Native merges both paths here.
         if input.down && slice.player.on_ground {
@@ -2177,6 +2185,15 @@ impl NativeRuntime {
         // stand-up — `clr.w ($FFFFF8F0)` (walk accumulator), `bclr
         // #Button_B,(Ctrl_Pressed)`, `bra.w loc_8E3E`. Visual-only: the
         // walk accumulator and sprite dispatch at loc_8E3E are not modelled.
+        //
+        // ASM loc_8C70 (kid.asm:10079): walking-state crawl transition —
+        // `bclr #Button_B,(Ctrl_Pressed); bne.w loc_A426` (jump dispatch),
+        // then `tst.b (Ctrl_Down_Held); beq.s loc_8CB6` (skip if down not
+        // held), `tst.b (KidGrabbedByHand); bne.w loc_8CB6` (skip if hand-
+        // grabbed), `addq.w #1,($FFFFFB58)`, helmet != Micromax(9) and
+        // != Juggernaut(5), `bsr.w sub_7A10` (overhead clearance), then
+        // MoveID_Crawling → loc_8218. Native: down-held + on_ground +
+        // form check + sub_7A10 alignment merged here.
         if input.down
             && slice.player.on_ground
             && !matches!(

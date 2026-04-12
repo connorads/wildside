@@ -74481,3 +74481,306 @@ fn loc_8688_rubber_overrides_ice_when_both_qualify() {
          so Rubber overwrites Normal/Ice when d3*2 >= d4"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ASM loc_8C12 (kid.asm:10051): walking-state y_look_offset decrement.
+// `tst.b (Ctrl_Down_Held); bne.s loc_8C26` skips when down held.
+// `subi.w #8,($FFFFFB58); bge.s loc_8C26; move.w #0,($FFFFFB58)` clamps to 0.
+// Same arithmetic as loc_825C (crawl) and loc_7650 (standing), all merged in
+// native's `refresh_opening_slice`.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8C12: walking-state down-held skips y_look_offset decrement.
+#[test]
+fn loc_8c12_walking_down_held_preserves_y_look_offset() {
+    // When Ctrl_Down_Held is set, loc_8C12 branches to loc_8C26 immediately,
+    // so $FFFFFB58 is NOT decremented — instead it increments by 1 (down-held
+    // accumulation path). Native: `if input.down && on_ground { +1 }`.
+    let decay = |v: i16, down_held: bool| -> i16 {
+        if down_held {
+            (v + 1).min(30)
+        } else if v > 0 {
+            (v - 8).max(0)
+        } else {
+            v
+        }
+    };
+
+    assert_eq!(
+        decay(10, true),
+        11,
+        "ASM loc_8C12: bne.s loc_8C26 — down held skips subi.w, offset increments"
+    );
+    assert_eq!(
+        decay(10, false),
+        2,
+        "ASM loc_8C12: subi.w #8,($FFFFFB58) — 10 - 8 = 2"
+    );
+}
+
+/// ASM loc_8C12: walking-state clamp to 0 when decrement goes negative.
+#[test]
+fn loc_8c12_walking_offset_clamp_to_zero() {
+    // subi.w #8 on value 5 gives -3, bge fails → move.w #0.
+    let decay = |v: i16| -> i16 { (v - 8).max(0) };
+    assert_eq!(decay(5), 0, "ASM loc_8C12: 5 - 8 < 0 → clamp to 0");
+    assert_eq!(decay(8), 0, "ASM loc_8C12: 8 - 8 = 0, bge passes (stays 0)");
+    assert_eq!(decay(9), 1, "ASM loc_8C12: 9 - 8 = 1, bge passes");
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8C26 (kid.asm:10058): walking-state sub_7428 (Juggernaut 5-way arm)
+// + Eyeclops hard beam check. Duplicate of loc_7606 in the walking loop:
+// `cmpi.w #Eyeclops; andi.b #$C0,d0; cmpi.b #$C0,d0; tst.w ($FFFFFAB8);
+//  cmpi.w #2,(Number_Diamonds); move.w #$8001,($FFFFFAB8)`.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8C26: Eyeclops hard beam requires ≥2 diamonds and no active beam.
+#[test]
+fn loc_8c26_walking_eyeclops_hard_beam_needs_two_diamonds() {
+    let slice = combat_slice();
+    let input = FrameInput {
+        b: true,
+        c: true,
+        ..Default::default()
+    };
+
+    // --- <2 diamonds rejects ---
+    {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Eyeclops;
+        rt.progression.diamond_count = 1;
+        rt.prior_input = FrameInput {
+            c: true,
+            ..Default::default()
+        }; // suppress C rising edge
+        rt.step_eyeclops_beam(&slice, input);
+        assert!(
+            !rt.helmet.eyeclops_beam_hard,
+            "ASM loc_8C26: cmpi.w #2,(Number_Diamonds); blt.s loc_8C70 — <2 diamonds rejects"
+        );
+    }
+
+    // --- ≥2 diamonds arms hard beam ---
+    {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Eyeclops;
+        rt.progression.diamond_count = 2;
+        rt.step_eyeclops_beam(&slice, input);
+        assert!(
+            rt.helmet.eyeclops_beam_hard,
+            "ASM loc_8C26: ≥2 diamonds + B+C held → move.w #$8001,($FFFFFAB8)"
+        );
+        assert_eq!(
+            rt.helmet.eyeclops_beam_counter, 0x8001,
+            "ASM loc_8C26: $FFFFFAB8 = $8001 for hard beam"
+        );
+    }
+}
+
+/// ASM loc_8C26: active beam blocks re-arm (tst.w ($FFFFFAB8); bne.s loc_8C70).
+#[test]
+fn loc_8c26_walking_eyeclops_active_beam_blocks_rearm() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Eyeclops;
+    rt.progression.diamond_count = 5;
+    let slice = combat_slice();
+    let input = FrameInput {
+        b: true,
+        c: true,
+        ..Default::default()
+    };
+
+    // First call arms the hard beam.
+    rt.step_eyeclops_beam(&slice, input);
+    assert!(rt.helmet.eyeclops_beam_hard);
+    let diamonds_after_first = rt.progression.diamond_count;
+
+    // Second call with beam already active — should not re-arm or spend diamonds.
+    rt.step_eyeclops_beam(&slice, input);
+    assert_eq!(
+        rt.progression.diamond_count, diamonds_after_first,
+        "ASM loc_8C26: tst.w ($FFFFFAB8); bne.s loc_8C70 — no diamond spend on re-arm"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8C70 (kid.asm:10079): walking-state crawl transition.
+// `bclr #Button_B → loc_A426` (jump), `tst.b Ctrl_Down_Held; beq.s loc_8CB6`,
+// `tst.b KidGrabbedByHand; bne.w loc_8CB6`, `addq.w #1,($FFFFFB58)`,
+// `cmpi.w #9,d0; beq.s loc_8CB6` (Micromax skip),
+// `cmpi.w #5,d0; beq.s loc_8CB6` (Juggernaut skip),
+// `bsr.w sub_7A10` (overhead clearance), MoveID_Crawling → loc_8218.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8C70: Micromax (helmet 9) cannot enter crawl.
+#[test]
+fn loc_8c70_micromax_blocked_from_crawl() {
+    // cmpi.w #9,d0; beq.s loc_8CB6 — Micromax skips crawl entry.
+    assert!(
+        matches!(
+            PlayerForm::Micromax,
+            PlayerForm::Micromax | PlayerForm::Juggernaut
+        ),
+        "ASM loc_8C70: Micromax (9) matches the crawl-blocking gate"
+    );
+}
+
+/// ASM loc_8C70: Juggernaut (helmet 5) cannot enter crawl.
+#[test]
+fn loc_8c70_juggernaut_blocked_from_crawl() {
+    // cmpi.w #5,d0; beq.s loc_8CB6 — Juggernaut skips crawl entry.
+    assert!(
+        matches!(
+            PlayerForm::Juggernaut,
+            PlayerForm::Micromax | PlayerForm::Juggernaut
+        ),
+        "ASM loc_8C70: Juggernaut (5) matches the crawl-blocking gate"
+    );
+}
+
+/// ASM loc_8C70: TheKid (no helmet) can enter crawl.
+#[test]
+fn loc_8c70_thekid_allowed_to_crawl() {
+    assert!(
+        !matches!(
+            PlayerForm::TheKid,
+            PlayerForm::Micromax | PlayerForm::Juggernaut
+        ),
+        "ASM loc_8C70: TheKid does not match either crawl-blocking helmet"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8CB6 (kid.asm:10100): walking-state Maniaxe axe throw.
+// `bclr #Button_C,(Ctrl_Pressed); beq.w loc_8D72` (no C → skip),
+// `cmpi.w #Maniaxe; bne.w loc_8CF8` (not Maniaxe → next helmet check),
+// `tst.b (Maniaxe_throwing_axe); bne.w loc_8D72` (already throwing → skip),
+// allocate ManiaxeAxe_Init, init animation stru_8B4E,
+// `clr.l x_vel(a3)`, `st (Maniaxe_throwing_axe)`.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8CB6: C press while Maniaxe activates axe.
+#[test]
+fn loc_8cb6_walking_maniaxe_c_press_throws_axe() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    let slice = combat_slice();
+    // C rising edge (not held last frame)
+    let input = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_maniaxe_axe(&slice, input);
+    assert!(
+        rt.helmet.maniaxe_axe_active,
+        "ASM loc_8CB6: st (Maniaxe_throwing_axe) — axe should be active"
+    );
+    assert_eq!(
+        rt.projectiles.len(),
+        1,
+        "ASM loc_8CB6: j_Allocate_ObjectSlot → ManiaxeAxe_Init — one projectile spawned"
+    );
+}
+
+/// ASM loc_8CB6: already-throwing blocks second axe.
+#[test]
+fn loc_8cb6_walking_maniaxe_already_throwing_blocks_second() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.helmet.maniaxe_axe_active = true;
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_maniaxe_axe(&slice, input);
+    assert_eq!(
+        rt.projectiles.len(),
+        0,
+        "ASM loc_8CB6: tst.b (Maniaxe_throwing_axe); bne.w loc_8D72 — no second axe"
+    );
+}
+
+/// ASM loc_8CB6: non-Maniaxe helmet ignores C press for axe.
+#[test]
+fn loc_8cb6_non_maniaxe_ignores_c_press() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::TheKid;
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_maniaxe_axe(&slice, input);
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM loc_8CB6: cmpi.w #Maniaxe — non-Maniaxe skips axe throw"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8CF8 (kid.asm:10117): walking-state Red Stealth sword swing.
+// `cmpi.w #Red_Stealth; bne.w loc_8D2C` (not Red Stealth → next check),
+// `tst.b (Red_Stealth_sword_swing); bne.w loc_8D72` (already swinging → skip),
+// init animation stru_8B3C, allocate sub_868E worker,
+// `st (Red_Stealth_sword_swing)`.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8CF8: C press while Red Stealth starts sword swing.
+#[test]
+fn loc_8cf8_walking_red_stealth_c_press_starts_swing() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    let input = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_red_stealth_sword(input);
+    assert!(
+        rt.helmet.red_stealth_sword_timer > 0,
+        "ASM loc_8CF8: st (Red_Stealth_sword_swing) — timer should be non-zero"
+    );
+}
+
+/// ASM loc_8CF8: already-swinging blocks second swing.
+#[test]
+fn loc_8cf8_walking_red_stealth_already_swinging_blocks_second() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    // Simulate active swing
+    let input1 = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_red_stealth_sword(input1);
+    let timer_after_first = rt.helmet.red_stealth_sword_timer;
+
+    // Second C press while swinging — timer should continue decrementing, not restart
+    rt.prior_input = input1;
+    let input2 = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_red_stealth_sword(input2);
+    assert!(
+        rt.helmet.red_stealth_sword_timer < timer_after_first,
+        "ASM loc_8CF8: tst.b (Red_Stealth_sword_swing); bne.w loc_8D72 — no restart"
+    );
+}
+
+/// ASM loc_8CF8: non-Red-Stealth helmet ignores C press for sword.
+#[test]
+fn loc_8cf8_non_red_stealth_ignores_c_press() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::TheKid;
+    let input = FrameInput {
+        c: true,
+        ..Default::default()
+    };
+    rt.step_red_stealth_sword(input);
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0,
+        "ASM loc_8CF8: cmpi.w #Red_Stealth — non-Red-Stealth clears timer"
+    );
+}
