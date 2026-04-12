@@ -1030,12 +1030,20 @@ pub(crate) fn step_level_special_effects_sub_6048(
         return state;
     }
 
+    // ASM loc_60EE (kid.asm:6108): Mountain thunder guard —
+    // cmpi.w #WeatherID_Storm_and_Hail,(Level_Special_Effects).w; bgt.s loc_6172
+    // cmpi.w #Mountain,(Background_theme).w; bne.s loc_6172
+    // cmpi.w #$5DC,d6; bls.w loc_61C2
+    // subi.w #1,($FFFFFADC).w; bmi.s loc_613E; bne.s loc_6172
     if state.level_special_effects <= 3
         && state.background_theme_is_mountain
         && state.frame_counter > 0x05DC
     {
         state.thunder_timer = state.thunder_timer.wrapping_sub(1);
         if state.thunder_timer == 0 {
+            // ASM loc_60EE fall-through (kid.asm:6118): timer==0 → play thunder,
+            // load flash palette (LnkTo_Pal_7B86C) into Palette_Buffer[0] and
+            // Palette_Buffer+$32 via loc_6136 copy loop.
             state.play_thunder_sound = true;
             state
                 .palette_ops
@@ -1043,6 +1051,8 @@ pub(crate) fn step_level_special_effects_sub_6048(
                     start_word: 0,
                     words: vec![thunder_flash_palette[0]],
                 });
+            // ASM loc_6136 (kid.asm:6128): `move.w (a0)+,(a1)+; dbf d0,loc_6136`
+            // with d0=6 — copies 7 words of flash palette to Palette_Buffer+$32.
             state
                 .palette_ops
                 .push(WeatherPaletteOpSub6048::WritePaletteBuffer {
@@ -1050,6 +1060,10 @@ pub(crate) fn step_level_special_effects_sub_6048(
                     words: thunder_flash_palette[1..].to_vec(),
                 });
         } else if state.thunder_timer == -27 {
+            // ASM loc_613E (kid.asm:6134): cmpi.w #$FFE5,($FFFFFADC).w; bne.s loc_6172
+            // Reseed timer: move.w #$F7,($FFFFFADC).w; random & $F5 subtracted.
+            // Load calm palette (LnkTo_Pal_7B85C) into Palette_Buffer[0] and
+            // Palette_Buffer+$32 via loc_616C copy loop (same pattern as loc_6136).
             state.thunder_timer = 0x00F7 - i16::from(random_byte & 0xF5);
             state
                 .palette_ops

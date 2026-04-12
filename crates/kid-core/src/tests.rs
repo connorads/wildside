@@ -28051,6 +28051,147 @@ fn sub_6048_negative_thunder_timer_reseeds_and_loads_calm_palette() {
     );
 }
 
+// loc_60EE — Mountain thunder guard: non-Mountain background skips thunder block
+#[test]
+fn loc_60ee_non_mountain_skips_thunder_block() {
+    // ASM loc_60EE (kid.asm:6108): cmpi.w #Mountain,(Background_theme).w; bne.s loc_6172
+    // When background is not Mountain, the entire thunder decrement/flash/calm
+    // block is skipped even though frame_counter > $5DC and weather is Storm.
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x05DD,
+            level_special_effects: 2,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false, // not Mountain → skip
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 1, // would hit zero if decremented
+            hail_period_timer: 7,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 1,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0; 8],
+        [0; 15],
+        [0xAAA, 0xAAB, 0xAAC, 0xAAD, 0xAAE, 0xAAF, 0xAB0],
+        [0; 7],
+        0,
+    );
+
+    assert_eq!(
+        stepped.thunder_timer, 1,
+        "ASM loc_60EE: non-Mountain background should skip the thunder decrement entirely"
+    );
+    assert!(
+        !stepped.play_thunder_sound,
+        "ASM loc_60EE: non-Mountain should not trigger j_PlaySound"
+    );
+    assert!(
+        stepped.palette_ops.is_empty(),
+        "ASM loc_60EE: non-Mountain should emit no palette ops"
+    );
+}
+
+// loc_60EE — Mountain thunder guard: frame_counter <= $5DC routes to loc_61C2
+#[test]
+fn loc_60ee_frame_counter_below_threshold_routes_to_weather_mode() {
+    // ASM loc_60EE (kid.asm:6113): cmpi.w #$5DC,d6; bls.w loc_61C2
+    // When frame_counter <= $5DC (25 seconds), skip thunder and set weather_mode_byte=4.
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x05DC, // exactly $5DC → bls taken
+            level_special_effects: 2,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: true,
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 1,
+            hail_period_timer: 7,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 1,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0; 8],
+        [0; 15],
+        [0xAAA; 7],
+        [0; 7],
+        0,
+    );
+
+    assert_eq!(
+        stepped.thunder_timer, 1,
+        "ASM loc_60EE: frame_counter <= $5DC should not decrement the thunder timer"
+    );
+    assert_eq!(
+        stepped.weather_mode_byte, 4,
+        "ASM loc_60EE→loc_61C2: frame_counter at threshold should set weather_mode_byte=4"
+    );
+    assert!(
+        stepped.palette_ops.is_empty(),
+        "ASM loc_60EE→loc_61C2: no palette ops when frame_counter at thunder threshold"
+    );
+}
+
+// loc_613E — negative thunder timer that is not the -27 sentinel skips palette reload
+#[test]
+fn loc_613e_negative_timer_not_sentinel_skips_palette() {
+    // ASM loc_613E (kid.asm:6134): cmpi.w #$FFE5,($FFFFFADC).w; bne.s loc_6172
+    // When thunder_timer is negative but not exactly -27 ($FFE5), neither the
+    // flash palette (timer==0) nor the calm palette (timer==-27) is loaded.
+    // The timer at -10 (after decrement from -9) should produce no ops.
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x05DD,
+            level_special_effects: 2,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: true,
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: -9, // decrements to -10, which is not -27
+            hail_period_timer: 7,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 1,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0; 8],
+        [0; 15],
+        [0xAAA; 7],
+        [0xBBB; 7],
+        0,
+    );
+
+    assert_eq!(
+        stepped.thunder_timer, -10,
+        "ASM loc_60EE: timer should decrement from -9 to -10"
+    );
+    assert!(
+        !stepped.play_thunder_sound,
+        "ASM loc_613E: negative timer not at sentinel should not play thunder"
+    );
+    assert!(
+        stepped.palette_ops.is_empty(),
+        "ASM loc_613E: bne.s loc_6172 skips palette reload when timer != $FFE5"
+    );
+}
+
 #[test]
 fn sub_6048_snow_cycle_toggles_to_active_and_calls_sub_61ca() {
     let stepped = step_level_special_effects_sub_6048(
