@@ -1006,6 +1006,14 @@ pub(crate) fn activate_enemies_with_rng(
     // Most enemies despawn on spawn-point exit. Flyers keep their live object
     // around longer; the Level 1 Dragon continues drifting after its layout
     // anchor scrolls behind the camera.
+    // ASM loc_3C46E (kid.asm:43965-44020): the shared deactivation routine
+    // entered via loc_3C436 trampoline. Reads object_meta, dispatches
+    // SpinningTwins to loc_3BC56, Driller/Tank to loc_3C494 (drive sound
+    // stop with refcount decrement and optional PlaySound2), then falls
+    // through to loc_3C4C0 which decrements Number_of_Enemy, updates
+    // EnemyStatus_Table from $42(a5), and calls j_Delete_CurrentObject.
+    // Native handles deactivation by dropping the enemy from the active
+    // list; sound cleanup is managed separately by the sound system.
     let active_enemy_count = active.len();
     active.retain(|enemy| {
         enemy_should_remain_active(
@@ -2435,6 +2443,10 @@ pub(crate) fn shared_enemy_should_remain_active_sub_3C3CE(
     // walker retention path first rejects live positions outside
     // [-$20, level+$20] on both axes before applying the camera-relative
     // medium-load or heavy-load culling boxes.
+    // ASM loc_3C436 (kid.asm:43936-43937): `bra.w loc_3C46E` — all four
+    // level-bounds checks and both camera-relative culling boxes branch
+    // here when the enemy falls outside the retention zone. loc_3C436 is
+    // a trampoline to loc_3C46E (the full deactivation routine).
     let x_pos = (x_pos as i32) >> 16;
     let y_pos = (y_pos as i32) >> 16;
     let level_x_max = i32::from(level_bounds.width_pixels) + 0x20;
@@ -6202,6 +6214,11 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
         };
     }
 
+    // ASM loc_3C3BE (kid.asm:43886-43889): convergence point after the
+    // optional j_PlaySound — `move.l d5,a4; addi.b #1,(a4,d7.w)` restores
+    // the $FFFFFA34 base and increments the shared refcount unconditionally.
+    // The sound plays only when refcount was zero (loc_3C39C tst.b check);
+    // the increment always executes regardless.
     SharedEnemyDriveSoundResultSub3C352 {
         next_previous_motion_active: false,
         next_refcount: refcount.wrapping_add(1),

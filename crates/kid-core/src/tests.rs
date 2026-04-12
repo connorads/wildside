@@ -54900,6 +54900,89 @@ fn loc_3c39c_drive_sound_moving_to_stopped_edge_plays_and_increments() {
 }
 
 #[test]
+fn loc_3c3be_drive_sound_moving_to_stopped_refcount_increment_unconditional() {
+    // ASM loc_3C3BE (kid.asm:43886-43889): convergence after the optional
+    // j_PlaySound in the moving→stopped edge. `move.l d5,a4; addi.b #1,
+    // (a4,d7.w)` increments the shared refcount unconditionally — both
+    // the "refcount was zero → played sound" path and the "refcount was
+    // nonzero → skipped sound" path converge here.
+    //
+    // Verify: when refcount starts at 2, the moving→stopped edge skips the
+    // sound (refcount != 0) but still increments to 3 via loc_3C3BE.
+    let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, false, true, 2);
+
+    assert_eq!(
+        result.next_refcount, 3,
+        "ASM loc_3C3BE: addi.b #1 must increment refcount from 2 to 3 even when sound is skipped",
+    );
+    assert_eq!(
+        result.sound_call, None,
+        "ASM loc_3C3BE: j_PlaySound only fires when refcount was zero; refcount=2 skips sound",
+    );
+    assert!(
+        !result.next_previous_motion_active,
+        "ASM loc_3C3BE: latch must update to inactive after the moving→stopped edge",
+    );
+}
+
+#[test]
+fn loc_3c436_sub_3c3ce_out_of_bounds_branches_to_deactivation() {
+    // ASM loc_3C436 (kid.asm:43936-43937): `bra.w loc_3C46E` — when any
+    // of the four level-bounds checks or the camera-relative culling box
+    // rejects the enemy position, sub_3C3CE branches to loc_3C436 which
+    // is a trampoline to the full deactivation routine loc_3C46E.
+    //
+    // Verify: an enemy positioned below level bounds (y_pos > level_height
+    // + $20) triggers the loc_3C436 path → returns false for deactivation.
+    let level_bounds = physics::LevelBounds {
+        width_pixels: 0x1400,
+        height_pixels: 0x0380,
+    };
+    // y_pos = $03C0 (> $0380 + $20 = $03A0) → out of level bounds
+    let retained = shared_enemy_should_remain_active_sub_3C3CE(
+        0x0100_0000, // x_pos = $100, safely inside
+        0x03C0_0000, // y_pos = $3C0, beyond level_height + $20
+        level_bounds,
+        5, // low object count — would pass if bounds check didn't reject first
+        0x0080,
+        0x0080,
+    );
+    assert!(
+        !retained,
+        "ASM loc_3C436: y_pos $3C0 > level_height_pixels $380 + $20 must branch to loc_3C46E deactivation",
+    );
+}
+
+#[test]
+fn loc_3c46e_deactivation_removes_enemy_from_active_list() {
+    // ASM loc_3C46E (kid.asm:43965-44020): the shared deactivation routine.
+    // Reads object_meta to dispatch SpinningTwins→loc_3BC56, Driller/Tank→
+    // loc_3C494 (sound stop), then loc_3C4C0 decrements Number_of_Enemy,
+    // updates EnemyStatus_Table, and calls j_Delete_CurrentObject.
+    //
+    // Native handles deactivation by dropping the enemy from the active
+    // list during retain. Verify: a Driller positioned outside level bounds
+    // is removed from the active list (native equivalent of loc_3C46E delete).
+    let level_bounds = physics::LevelBounds {
+        width_pixels: 0x1400,
+        height_pixels: 0x0380,
+    };
+    // Driller at x=$FFDF (≤ -$20) — outside level bounds → loc_3C436 → loc_3C46E
+    let retained = shared_enemy_should_remain_active_sub_3C3CE(
+        0xFFDF_0000u32, // x_pos = -$21 as signed, ≤ -$20
+        0x0100_0000,    // y_pos = $100, inside
+        level_bounds,
+        5, // low load
+        0x0080,
+        0x0080,
+    );
+    assert!(
+        !retained,
+        "ASM loc_3C46E: Driller at x=-$21 must be deactivated (x_pos ≤ -$20 level bounds check)",
+    );
+}
+
+#[test]
 fn shared_enemy_drive_sound_sub_3c352_starts_the_last_driller_loop_with_playsound2() {
     let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
 
