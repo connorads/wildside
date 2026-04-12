@@ -1,6 +1,12 @@
 use super::*;
 use kid_data::{DiamondHudDmaTransferSub5D4A, diamond_hud_dma_transfer_sub_5D4A};
 
+// ASM loc_454 (kid.asm:513): final `bra.w returnFromException` in the M68k
+// exception vector table (Vector58, exception ID $37).  The entire vector table
+// (BusError through Vector64) loads an identifier into d0 and executes `rte`.
+// The source port does not emulate the 68k exception mechanism — these vectors
+// are hardware infrastructure with no gameplay effect.
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {
@@ -299,6 +305,11 @@ pub(crate) fn step_hud_animation_sub_44DC(
         COIN_TABLE,
         0xFF,
     );
+    // ASM loc_4546 (kid.asm:5592): store coin result to $FB5B, then load life
+    // icon countdown from $FFFFFA59, sign-extend, decrement.  If nonzero → skip
+    // to loc_459A (clock).  If zero → load life frame offset from $FFFFFA5E,
+    // advance by 2, walk AniArt_LifeIcon table (wrap on $FF sentinel via
+    // loc_455E), then fall through to loc_4586 for the art frame load.
     let (life_countdown_fb59, life_frame_offset_fb5e, life_frame) = step_hud_animation_pair_table(
         state.life_countdown_fb59,
         state.life_frame_offset_fb5e,
@@ -349,6 +360,11 @@ pub(crate) fn step_hud_animation_sub_44DC(
             vram_word_address: 0x4720,
             frame_table_byte_offset,
         }),
+        // ASM loc_4586 (kid.asm:5622): life icon art frame load — reads the
+        // frame index byte from AniArt_LifeIcon, sign-extends to word, indexes
+        // into off_457A (3 art pointers at $80-byte stride into ArtUnc_4692),
+        // sets VDP write command for VRAM $4620, then calls sub_44D0 to upload
+        // 128 bytes of tile data.
         life_upload: life_frame.map(|frame_table_byte_offset| HudFrameUploadSub44DC {
             asset_label: "ArtUnc_4692",
             vram_word_address: 0x4620,

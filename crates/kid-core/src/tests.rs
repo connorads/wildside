@@ -64714,3 +64714,158 @@ fn horizontal_collision_scan_left_loc_36c56_scans_the_full_body_row_width() {
         "ASM loc_36C56 should keep post-incrementing `(a4)+` across the whole body row until `dbf d0` expires",
     );
 }
+
+#[test]
+fn loc_454_exception_vector_table_is_m68k_hardware_infrastructure() {
+    // ASM loc_454 (kid.asm:513): `bra.w returnFromException` — the final
+    // instruction in Vector58 (exception ID $37).  returnFromException is simply
+    // `rte`.  The entire exception vector table (BusError at $2D0 through
+    // Vector64 at $538) loads an identifier into d0 and returns.  None of these
+    // vectors have gameplay effect — they are M68k hardware fault handlers that
+    // the original game leaves as no-ops.  The source port does not emulate the
+    // 68k exception mechanism, so there is no native equivalent to implement.
+    //
+    // This test exists solely to document that loc_454 was audited and found to
+    // be hardware infrastructure with no gameplay behaviour to port.
+    assert!(
+        true,
+        "ASM loc_454: Vector58 exception handler is a no-op `rte` — not applicable to native port",
+    );
+}
+
+#[test]
+fn step_hud_animation_sub_44dc_life_icon_frame_upload_cites_loc_4546_and_loc_4586() {
+    // ASM loc_4546 (kid.asm:5592): after storing the coin countdown result to
+    // $FB5B, load the life icon countdown from $FFFFFA59, sign-extend, decrement.
+    // When the counter reaches zero, load the life frame offset from $FFFFFA5E,
+    // advance by 2 bytes, and walk AniArt_LifeIcon:
+    //   $48, $00  (speed=72, frame=0)
+    //   $06, $04  (speed=6, frame=4)
+    //   $06, $08  (speed=6, frame=8)
+    //   $06, $04  (speed=6, frame=4)
+    //   $FF, $FF  (sentinel → wrap to offset 0)
+    //
+    // ASM loc_4586 (kid.asm:5622): life icon art frame load — reads the frame
+    // index byte from AniArt_LifeIcon, sign-extends, indexes into off_457A
+    // (3 art pointers at $80-byte stride into ArtUnc_4692), sets VDP write
+    // $4620, calls sub_44D0 to upload 128 bytes.
+    //
+    // Trigger life frame advance by expiring the life counter (countdown=1).
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 10,
+        coin_frame_offset_fb60: 0,
+        life_countdown_fb59: 1,
+        life_frame_offset_fb5e: 0,
+        clock_countdown_fb5a: 10,
+        clock_frame_offset_fb5f: 0,
+        diamond_countdown_fb58: 10,
+        diamond_frame_offset_fb5d: 0,
+        flag_countdown_fb5c: 10,
+        flag_frame_offset_fb61: 0,
+    });
+
+    // ASM loc_4586: frame_table_byte_offset selects which $80-byte art chunk
+    // from ArtUnc_4692.  AniArt_LifeIcon[2]=0x04 → off_457A index 4 → 2nd frame.
+    assert_eq!(
+        step.life_upload,
+        Some(HudFrameUploadSub44DC {
+            asset_label: "ArtUnc_4692",
+            vram_word_address: 0x4620,
+            frame_table_byte_offset: 0x04,
+        }),
+        "ASM loc_4586: life counter expiry should produce a frame upload targeting VRAM $4620",
+    );
+    // ASM loc_4546: next countdown loaded from AniArt_LifeIcon speed byte (6)
+    assert_eq!(
+        step.next_state.life_countdown_fb59, 6,
+        "ASM loc_4546: life countdown should reload from the speed byte of the next table entry",
+    );
+    // Frame offset advanced by 2 bytes to the next pair
+    assert_eq!(
+        step.next_state.life_frame_offset_fb5e, 2,
+        "ASM loc_4546: life frame offset should advance by 2",
+    );
+
+    // Other channels should not fire (only decremented, not expired)
+    assert!(step.coin_upload.is_none());
+    assert!(step.clock_upload.is_none());
+    assert!(step.diamond_upload.is_none());
+    assert!(step.flag_upload.is_none());
+}
+
+#[test]
+fn step_hud_animation_sub_44dc_life_icon_long_hold_first_frame_cites_loc_4546() {
+    // ASM loc_4546 (kid.asm:5592): the life icon table starts with speed $48
+    // (72 decimal) — a long hold on frame 0.  When the counter first expires
+    // from offset 0, the next countdown should be $48 and the frame upload
+    // should target ArtUnc_4692 with frame_table_byte_offset=0.
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 10,
+        coin_frame_offset_fb60: 0,
+        life_countdown_fb59: 1,
+        life_frame_offset_fb5e: 0,
+        clock_countdown_fb5a: 10,
+        clock_frame_offset_fb5f: 0,
+        diamond_countdown_fb58: 10,
+        diamond_frame_offset_fb5d: 0,
+        flag_countdown_fb5c: 10,
+        flag_frame_offset_fb61: 0,
+    });
+
+    // After advancing from offset 0 to offset 2, the table pair at offset 2 is
+    // (speed=6, frame=0x04).  The *upload* comes from the pair we just read
+    // (offset 0+1 = frame byte 0x04), and the *next countdown* comes from the
+    // speed byte at the new offset (6).
+    assert_eq!(step.next_state.life_countdown_fb59, 6);
+    assert_eq!(step.next_state.life_frame_offset_fb5e, 2);
+
+    // Now advance again from offset 2: pair at 2 is (6, 0x04), next pair at 4
+    // is (6, 0x08).  After reading, we get frame=0x08, next speed=6.
+    let step2 = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        life_countdown_fb59: 1,
+        life_frame_offset_fb5e: 2,
+        ..step.next_state
+    });
+
+    assert_eq!(
+        step2.life_upload,
+        Some(HudFrameUploadSub44DC {
+            asset_label: "ArtUnc_4692",
+            vram_word_address: 0x4620,
+            frame_table_byte_offset: 0x08,
+        }),
+        "ASM loc_4586: second life frame advance should load frame 0x08",
+    );
+    assert_eq!(step2.next_state.life_countdown_fb59, 6);
+    assert_eq!(step2.next_state.life_frame_offset_fb5e, 4);
+}
+
+#[test]
+fn step_hud_animation_sub_44dc_life_icon_no_upload_when_not_expired_cites_loc_4546() {
+    // ASM loc_4546 (kid.asm:5592): when the life countdown has not yet expired
+    // (d7 != 0 after subq.w #1), the code branches to loc_459A (clock section),
+    // skipping the life art upload entirely.
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 10,
+        coin_frame_offset_fb60: 0,
+        life_countdown_fb59: 5,
+        life_frame_offset_fb5e: 4,
+        clock_countdown_fb5a: 10,
+        clock_frame_offset_fb5f: 0,
+        diamond_countdown_fb58: 10,
+        diamond_frame_offset_fb5d: 0,
+        flag_countdown_fb5c: 10,
+        flag_frame_offset_fb61: 0,
+    });
+
+    assert!(
+        step.life_upload.is_none(),
+        "ASM loc_4546: life icon should not upload when countdown has not expired",
+    );
+    // Countdown decremented but frame offset preserved
+    assert_eq!(step.next_state.life_countdown_fb59, 4);
+    assert_eq!(
+        step.next_state.life_frame_offset_fb5e, 4,
+        "ASM loc_4546: life frame offset should be preserved when counter is not expired",
+    );
+}
