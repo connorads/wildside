@@ -32619,6 +32619,63 @@ fn boss_eye_counter_orbit_placement_sub_39420_increments_order_after_nonzero_fra
 }
 
 #[test]
+fn boss_eye_orbit_sub_393c8_loc_393de_applies_right_table_offset_and_y_shift() {
+    // ASM loc_393DE (kid.asm:41970): common path after table selection in sub_393C8.
+    // When d2==0, beq.s loc_393DE skips the word_3940C load and uses word_39416[0]=$FFF4=-12.
+    // loc_393DE: add.w $1A(a2),d7 → x_pos; move.w $1E(a2) → y_pos; subi.w #$25 → y_pos.
+    let result = boss_eye_orbit_placement_sub_393C8(0x0180, 0x00C0, 0x0EE0, 0, 5, 5, 0x0008);
+
+    assert_eq!(
+        result.x_pos,
+        0x0174, // 0x0180 + (-12) = 0x0174
+        "ASM loc_393DE: add.w $1A(a2),d7 should add word_39416[0]=$FFF4 to parent X",
+    );
+    assert_eq!(
+        result.y_pos,
+        0x009B, // 0x00C0 - 0x25 = 0x009B
+        "ASM loc_393DE: subi.w #$25,y_pos(a3) should subtract $25 from parent Y",
+    );
+}
+
+#[test]
+fn boss_eye_orbit_sub_393c8_loc_39406_calls_sub_ff6_after_nonzero_to_different_frame_change() {
+    // ASM loc_39406 (kid.asm:41986): jsr (j_sub_FF6).w — convergence of both
+    // the subq.w #1,$A(a3) path (d0!=0, frame changed) and the addq.w #1,$A(a3)
+    // path (d0==0, frame changed) in sub_393C8. Both reach loc_39406 to rerank.
+    // Exercise the subq path: d0=3 (nonzero), current_frame=7 (different).
+    let result = boss_eye_orbit_placement_sub_393C8(0x0200, 0x0100, 0x0EE6, 0, 3, 7, 0x0020);
+
+    assert_eq!(
+        result.next_sprite_word_y_adjust, 0x001F,
+        "ASM sub_393C8 subq.w #1,$A(a3): d0=3 nonzero and frame changed → decrement",
+    );
+    assert!(
+        result.rerank_gfx_object,
+        "ASM loc_39406: jsr (j_sub_FF6).w must fire after the frame-change adjustment path",
+    );
+}
+
+#[test]
+fn boss_eye_counter_orbit_sub_39420_loc_39436_applies_right_table_offset_and_y_shift() {
+    // ASM loc_39436 (kid.asm:42017): common path after table selection in sub_39420.
+    // When d2==0, beq.s loc_39436 skips the word_39464 load and uses word_3946E[0]=$000C=12.
+    // loc_39436: add.w $1A(a2),d7 → x_pos; move.w $1E(a2) → y_pos; subi.w #$25 → y_pos.
+    let result =
+        boss_eye_counter_orbit_placement_sub_39420(0x0180, 0x00C0, 0x0EE0, 0, 5, 5, 0x0008);
+
+    assert_eq!(
+        result.x_pos,
+        0x018C, // 0x0180 + 12 = 0x018C
+        "ASM loc_39436: add.w $1A(a2),d7 should add word_3946E[0]=$000C to parent X",
+    );
+    assert_eq!(
+        result.y_pos,
+        0x009B, // 0x00C0 - 0x25 = 0x009B
+        "ASM loc_39436: subi.w #$25,y_pos(a3) should subtract $25 from parent Y",
+    );
+}
+
+#[test]
 fn boss_head_projectile_spawn_sub_397e4_uses_loc_3a0d2_and_spawns_24px_left_for_clear_x_direction()
 {
     let result = boss_head_projectile_spawn_sub_397E4(0x0200, 0x0100, 0, 0);

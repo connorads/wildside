@@ -2345,6 +2345,10 @@ pub(crate) fn boss_eye_orbit_placement_sub_393C8(
             (sprite_word_y_adjust.wrapping_sub(1), true)
         };
 
+    // ASM loc_393DE (kid.asm:41970): add.w $1A(a2),d7 → x_pos; move.w $1E(a2)
+    // → y_pos; subi.w #$25 → y_pos; cmp.b $16(a2),d0 gates frame-change path.
+    // ASM loc_39406 (kid.asm:41986): jsr (j_sub_FF6).w — convergence point
+    // reached by both the subq.w (d0!=0) and addq.w (d0==0) frame-change paths.
     BossEyeOrbitPlacementSub393C8 {
         x_pos: parent_x.wrapping_add_signed(x_offset),
         y_pos: parent_y.wrapping_sub(0x0025),
@@ -2384,6 +2388,9 @@ pub(crate) fn boss_eye_counter_orbit_placement_sub_39420(
             (sprite_word_y_adjust.wrapping_add(1), true)
         };
 
+    // ASM loc_39436 (kid.asm:42017): add.w $1A(a2),d7 → x_pos; move.w $1E(a2)
+    // → y_pos; subi.w #$25 → y_pos; cmp.b $16(a2),d0 gates frame-change path.
+    // Mirrors loc_393DE in sub_393C8 but with swapped +1/-1 adjustment sense.
     BossEyeCounterOrbitPlacementSub39420 {
         x_pos: parent_x.wrapping_add_signed(x_offset),
         y_pos: parent_y.wrapping_sub(0x0025),
