@@ -2809,6 +2809,25 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     // Y movement with floor/ceiling checks and gravity (addi.l #$2000,
     // capped at $80000). Native: walkers are always grounded; the falling
     // loop's body scan + gravity are unreachable.
+    //
+    // ASM loc_3C2D0 (kid.asm:43791-43813): falling walker Y-axis movement
+    // entry — move.l y_pos(a3),d0; add.l y_vel(a3),d1; sub.w d0,d1;
+    // bge.s loc_3C30C. When displacement < 0 (moving upward), checks
+    // ceiling via sub_36CB8; if ceiling found, snaps y_pos and clears
+    // y_vel. When displacement >= 0, falls through to loc_3C30C (floor
+    // check). Native: unreachable — walkers never enter fall state.
+    //
+    // ASM loc_3C30C (kid.asm:43816-43828): falling walker downward Y floor
+    // check — sub_36C6A floor scan; if found, snaps y_pos and branches to
+    // loc_3C0D2 (leftward turnaround). If no floor, falls through to
+    // loc_3C32E. Native: unreachable — walkers reverse at cliff edges
+    // before falling, so the in-air floor search never runs.
+    //
+    // ASM loc_3C32E (kid.asm:43831-43832): falling walker no-Y-collision
+    // path — move.l d2,y_pos(a3) stores predicted position. Falls through
+    // to loc_3C332 gravity (addi.l #$2000, capped $80000), then loops
+    // back to loc_3C276. Native: unreachable — probe_floor cliff-edge
+    // reversal prevents the falling walker loop entirely.
     let look_ahead_x = if moving_right {
         cx + ENEMY_PROBE_HALF_WIDTH
     } else {

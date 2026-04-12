@@ -54733,6 +54733,91 @@ fn loc_3c288_falling_walker_reverses_at_cliff_edge_instead_of_falling() {
 }
 
 #[test]
+fn loc_3c2d0_falling_walker_y_movement_entry_unreachable_in_native() {
+    // ASM loc_3C2D0 (kid.asm:43791-43813): falling walker Y-axis movement
+    // entry — move.l y_pos(a3),d0; add.l y_vel(a3),d1; sub.w d0,d1;
+    // bge.s loc_3C30C. When displacement < 0 (moving upward), does ceiling
+    // check via sub_36CB8; when >= 0, falls through to loc_3C30C floor check.
+    // Native: walkers never enter the fall state because probe_floor reverses
+    // them at cliff edges. Verify y_vel stays 0 (no gravity accumulation from
+    // the falling walker loop's addi.l #$2000 at loc_3C332).
+    let solid: Vec<(u16, u16)> = (10..20).map(|col| (col, 13)).collect();
+    let grid = grid_with_solid_cells(25, 20, &solid);
+    let mut enemy = make_pacer(EnemyFamily::Robot, 3, 170, 208);
+    enemy.facing = Direction::Left;
+
+    for _ in 0..200 {
+        step_pacer(&mut enemy, Some(&grid));
+    }
+
+    assert_eq!(
+        enemy.y_velocity, 0,
+        "ASM loc_3C2D0: y_vel must stay 0 — walker never enters falling loop with gravity",
+    );
+}
+
+#[test]
+fn loc_3c30c_falling_walker_floor_check_unreachable_in_native() {
+    // ASM loc_3C30C (kid.asm:43816-43828): falling walker downward Y floor
+    // check — sub_36C6A scans for floor; if found, snaps y_pos and branches
+    // to loc_3C0D2 (leftward turnaround). If no floor, falls through to
+    // loc_3C32E. Native: walkers reverse at cliff edges before falling, so
+    // this in-air floor search is unreachable. Verify that a walker on a
+    // short platform reverses direction rather than overshooting and landing.
+    let solid: Vec<(u16, u16)> = (10..15).map(|col| (col, 13)).collect();
+    let grid = grid_with_solid_cells(25, 20, &solid);
+    let mut enemy = make_pacer(EnemyFamily::Robot, 3, 176, 208);
+    enemy.facing = Direction::Right;
+    let start_y = enemy.y_pos;
+
+    let mut reversed = false;
+    for _ in 0..200 {
+        step_pacer(&mut enemy, Some(&grid));
+        if enemy.facing == Direction::Left {
+            reversed = true;
+            break;
+        }
+    }
+
+    assert!(
+        reversed,
+        "ASM loc_3C30C: walker must reverse at cliff edge, not fall and search for floor",
+    );
+    assert_eq!(
+        enemy.y_pos, start_y,
+        "ASM loc_3C30C: y_pos unchanged — walker reversed before falling off platform",
+    );
+}
+
+#[test]
+fn loc_3c32e_falling_walker_no_y_collision_path_unreachable_in_native() {
+    // ASM loc_3C32E (kid.asm:43831-43832): falling walker no-Y-collision
+    // path — move.l d2,y_pos(a3) stores predicted y position. Falls through
+    // to loc_3C332 gravity (addi.l #$2000, capped $80000) then loops back
+    // to loc_3C276. Native: probe_floor reversal prevents the falling loop.
+    // Verify that a Driller on a narrow platform reverses and never
+    // accumulates y_vel from the falling walker gravity loop.
+    let solid: Vec<(u16, u16)> = (10..14).map(|col| (col, 13)).collect();
+    let grid = grid_with_solid_cells(25, 20, &solid);
+    let mut enemy = make_pacer(EnemyFamily::Driller, 3, 176, 208);
+    enemy.facing = Direction::Right;
+    let start_y = enemy.y_pos;
+
+    for _ in 0..200 {
+        step_pacer(&mut enemy, Some(&grid));
+    }
+
+    assert_eq!(
+        enemy.y_velocity, 0,
+        "ASM loc_3C32E: y_vel must stay 0 — no gravity from falling walker loop",
+    );
+    assert_eq!(
+        enemy.y_pos, start_y,
+        "ASM loc_3C32E: y_pos unchanged — walker never stored predicted y from fall",
+    );
+}
+
+#[test]
 fn shared_enemy_drive_sound_sub_3c352_starts_the_last_driller_loop_with_playsound2() {
     let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
 
