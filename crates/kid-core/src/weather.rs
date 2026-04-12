@@ -71,6 +71,12 @@ pub(crate) fn compile_murder_wall_warning_sprites_sub_5E02(
         return render;
     }
 
+    // ASM loc_5E94 (kid.asm:5901): subi.b #1,($FFFFFAC0).w; bne.s loc_5E94;
+    // move.b #5,($FFFFFAC0).w; addi.b #1,($FFFFFABF).w; andi.b #3,($FFFFFABF).w
+    // When the animation countdown reaches zero, reset to 5 and advance the
+    // 2-bit pattern frame index.  At loc_5E94 itself, read the current frame,
+    // double it, sign-extend, index unk_5DFA for the tile pattern word, load
+    // Addr_NextSpriteSlot, and branch on MurderWall_reversed.
     if render.animation_timer == 0 {
         render.animation_timer = 5;
         render.animation_frame = render.animation_frame.wrapping_add(1) & 3;
@@ -121,6 +127,14 @@ pub(crate) fn compile_murder_wall_warning_sprites_sub_5E02(
     let base_y = 0x80_i32 - i32::from(input.camera_y_px % 0x30);
     let pattern = MURDER_WALL_PATTERN_SUB_5E02[usize::from(render.animation_frame & 3)];
 
+    // ASM loc_5EB2 (kid.asm:5912): non-reversed first column — 6 iterations
+    // (d0=5, dbf), each emitting 2 sprites with tile offsets +0 and +9,
+    // advancing y by $18 each sprite.  After the loop: restore base_y,
+    // advance x by $18, reload d0=5 for the second column.
+    // ASM loc_5F0C (kid.asm:5938): non-reversed second column — same 6x2
+    // loop with tile offsets +$12 and +$1B.  After loop, stores a0 back to
+    // Addr_NextSpriteSlot.  Reversed equivalents: loc_5F6A (col 1: +$812/+$81B)
+    // and loc_5FCA (col 2: +$809/+$800).
     for column in 0..2 {
         let tile_offsets: [u16; 2] = if input.murder_wall_reversed {
             if column == 0 {

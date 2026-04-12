@@ -27264,6 +27264,176 @@ fn loc_5e66_y_position_uses_remainder_not_quotient() {
     );
 }
 
+/// ASM loc_5E94 (kid.asm:5901): after the animation countdown tick, read
+/// `($FFFFFABF).w` as frame index, `add.b d2,d2; ext.w d2` to double and
+/// sign-extend, then `lea unk_5DFA(pc),a1; move.w (a1,d2.w),d3` to load the
+/// tile pattern word from the 4-entry table.  Each frame index selects a
+/// different base pattern: frame 0 → $A2FB, 1 → $A31F, 2 → $A343, 3 → $A367.
+#[test]
+fn loc_5e94_animation_counter_selects_pattern_from_unk_5dfa() {
+    // animation_timer=1 means it will decrement to 0, triggering reload to 5
+    // and advancing animation_frame from 0 to 1.  Frame 1 → pattern $A31F.
+    // Non-reversed column 1, tile offset +0 → sprite tile_word = $A31F.
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0010,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0200,
+        kid_hitbox_right_px: 0x0210,
+        camera_x_px: 0x0020,
+        camera_y_px: 0,
+        animation_timer: 1,
+        animation_frame: 0,
+        starting_number_sprites: 0,
+    });
+    assert_eq!(
+        render.animation_timer, 5,
+        "ASM loc_5E94: subi.b #1 reached zero → move.b #5,($FFFFFAC0).w"
+    );
+    assert_eq!(
+        render.animation_frame, 1,
+        "ASM loc_5E94: addi.b #1,($FFFFFABF).w; andi.b #3 → frame 0+1=1"
+    );
+    // unk_5DFA[1] = $A31F; first sprite in non-reversed col 1 has offset +0
+    assert_eq!(
+        render.sprites[0].tile_word, 0xA31F,
+        "ASM loc_5E94: lea unk_5DFA(pc),a1; move.w (a1,d2.w),d3 — frame 1 selects pattern $A31F"
+    );
+
+    // Verify all four pattern entries by testing frame 3 wrapping to 0
+    let render_wrap = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0010,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0200,
+        kid_hitbox_right_px: 0x0210,
+        camera_x_px: 0x0020,
+        camera_y_px: 0,
+        animation_timer: 1,
+        animation_frame: 3,
+        starting_number_sprites: 0,
+    });
+    assert_eq!(
+        render_wrap.animation_frame, 0,
+        "ASM loc_5E94: andi.b #3 wraps frame 3+1=4 → 0"
+    );
+    // unk_5DFA[0] = $A2FB
+    assert_eq!(
+        render_wrap.sprites[0].tile_word, 0xA2FB,
+        "ASM loc_5E94: frame 0 selects pattern $A2FB from unk_5DFA"
+    );
+}
+
+/// ASM loc_5EB2 (kid.asm:5912): non-reversed first-column sprite loop.
+/// `moveq #5,d0` → 6 iterations (dbf), each emitting 2 sprites:
+///   - first sprite: tile_word = pattern + 0, at current y
+///   - second sprite: tile_word = pattern + 9, at y + $18
+///
+/// Each pair advances y by $18 twice ($30 total per pair iteration).
+/// After the loop: `move.w d4,d7` restores base_y, `addi.w #$18,d6` advances x.
+#[test]
+fn loc_5eb2_non_reversed_first_column_sprite_layout() {
+    // frame=2 (no timer tick, timer=3) → pattern = unk_5DFA[2] = $A343
+    // camera_x=0x0028, wall_x=0x0020 → d3=8, x=$80-8=$78
+    // camera_y=0 → base_y=$80
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0020,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0200,
+        kid_hitbox_right_px: 0x0210,
+        camera_x_px: 0x0028,
+        camera_y_px: 0,
+        animation_timer: 3,
+        animation_frame: 2,
+        starting_number_sprites: 0,
+    });
+    // First column: sprites 0..11 (6 pairs), all at x=$78
+    // Pair 0: sprites[0] y=$80 tile=$A343+0=$A343, sprites[1] y=$98 tile=$A343+9=$A34C
+    // Pair 1: sprites[2] y=$B0 tile=$A343, sprites[3] y=$C8 tile=$A34C
+    assert_eq!(
+        render.sprites.len(),
+        24,
+        "2 columns × 6 pairs × 2 sprites = 24"
+    );
+    for i in 0..12 {
+        assert_eq!(
+            render.sprites[i].x, 0x0078,
+            "ASM loc_5EB2: all first-column sprites share x = $80 - d3"
+        );
+    }
+    // Check tile offset alternation: even indices +0, odd indices +9
+    assert_eq!(
+        render.sprites[0].tile_word, 0xA343,
+        "ASM loc_5EB2: first sprite tile = pattern + 0"
+    );
+    assert_eq!(
+        render.sprites[1].tile_word, 0xA34C,
+        "ASM loc_5EB2: second sprite tile = pattern + 9 (addi.w #9,d2)"
+    );
+    // Y spacing: $18 between consecutive sprites
+    assert_eq!(render.sprites[0].y, 0x0080, "base_y = $80");
+    assert_eq!(render.sprites[1].y, 0x0098, "base_y + $18");
+    assert_eq!(render.sprites[2].y, 0x00B0, "base_y + $30");
+    assert_eq!(
+        render.sprites[11].y,
+        0x0080 + 11 * 0x18,
+        "last first-column sprite y"
+    );
+    // Link counter: $0A00 + incrementing Number_Sprites
+    assert_eq!(render.sprites[0].link, 0x0A01, "first link = $A00 + 1");
+    assert_eq!(render.sprites[11].link, 0x0A0C, "12th link = $A00 + 12");
+}
+
+/// ASM loc_5F0C (kid.asm:5938): non-reversed second-column sprite loop.
+/// After loc_5EB2's loop: `move.w d4,d7` resets y to base_y,
+/// `addi.w #$18,d6` advances x by $18.  Then `moveq #5,d0` for 6 more
+/// iterations, each emitting 2 sprites with tile offsets +$12 and +$1B.
+/// After the loop: `move.l a0,(Addr_NextSpriteSlot).w` stores the updated
+/// sprite pointer.
+#[test]
+fn loc_5f0c_non_reversed_second_column_tile_offsets_and_y_reset() {
+    // Same setup as loc_5eb2 test: frame=2 → pattern=$A343, x=$78, base_y=$80
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0020,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0200,
+        kid_hitbox_right_px: 0x0210,
+        camera_x_px: 0x0028,
+        camera_y_px: 0,
+        animation_timer: 3,
+        animation_frame: 2,
+        starting_number_sprites: 0,
+    });
+    // Second column: sprites 12..23, all at x = $78 + $18 = $90
+    for i in 12..24 {
+        assert_eq!(
+            render.sprites[i].x, 0x0090,
+            "ASM loc_5F0C: second-column sprites at x = first_col_x + $18"
+        );
+    }
+    // Y resets to base_y ($80) at start of second column
+    assert_eq!(
+        render.sprites[12].y, 0x0080,
+        "ASM loc_5F0C: move.w d4,d7 resets y to base_y before second column"
+    );
+    // Tile offsets: +$12 and +$1B alternating
+    assert_eq!(
+        render.sprites[12].tile_word, 0xA355,
+        "ASM loc_5F0C: first second-column sprite tile = pattern + $12 ($A343 + $12 = $A355)"
+    );
+    assert_eq!(
+        render.sprites[13].tile_word, 0xA35E,
+        "ASM loc_5F0C: second second-column sprite tile = pattern + $1B ($A343 + $1B = $A35E)"
+    );
+    // Final sprite count: 24 sprites total
+    assert_eq!(
+        render.number_sprites, 24,
+        "ASM loc_5F0C: after both columns, Number_Sprites advanced by 24"
+    );
+}
+
 #[test]
 fn sub_6034_returns_without_dispatch_for_none_or_lava_effects() {
     assert_eq!(
