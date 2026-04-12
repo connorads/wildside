@@ -2828,6 +2828,11 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     // to loc_3C332 gravity (addi.l #$2000, capped $80000), then loops
     // back to loc_3C276. Native: unreachable — probe_floor cliff-edge
     // reversal prevents the falling walker loop entirely.
+    //
+    // ASM loc_3C34A (kid.asm:43841-43843): falling walker gravity cap
+    // convergence — move.l d0,y_vel(a3); bra.w loc_3C276. Stores the
+    // (potentially capped) y_vel and loops back to the falling walker
+    // loop top. Native: unreachable — walkers never enter fall state.
     let look_ahead_x = if moving_right {
         cx + ENEMY_PROBE_HALF_WIDTH
     } else {
@@ -6161,6 +6166,11 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
         };
     };
 
+    // ASM loc_3C372 (kid.asm:43861-43872): motion_active ($19(a3)) is
+    // nonzero — stopped→moving edge. Checks previous_motion_active
+    // ($6A(a5)); if already active, skip (loc_3C3C6). Otherwise
+    // subi.b #1 on shared refcount at $FFFFFA34+d7; when counter
+    // reaches zero, plays sound via j_PlaySound2 using byte_3C46C[d6].
     if motion_active {
         if previous_motion_active {
             return SharedEnemyDriveSoundResultSub3C352 {
@@ -6179,6 +6189,11 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
         };
     }
 
+    // ASM loc_3C39C (kid.asm:43875-43889): motion_active ($19(a3)) is
+    // zero — moving→stopped edge. Checks previous_motion_active
+    // ($6A(a5)); if already stopped, skip (loc_3C3C6). Otherwise
+    // plays sound via j_PlaySound using byte_3C46C[d6] when shared
+    // refcount at $FFFFFA34+d7 is zero, then addi.b #1 increments it.
     if !previous_motion_active {
         return SharedEnemyDriveSoundResultSub3C352 {
             next_previous_motion_active: false,

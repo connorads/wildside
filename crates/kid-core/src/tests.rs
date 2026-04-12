@@ -54818,6 +54818,88 @@ fn loc_3c32e_falling_walker_no_y_collision_path_unreachable_in_native() {
 }
 
 #[test]
+fn loc_3c34a_falling_walker_gravity_cap_convergence_unreachable_in_native() {
+    // ASM loc_3C34A (kid.asm:43841-43843): falling walker gravity cap
+    // convergence — move.l d0,y_vel(a3); bra.w loc_3C276. After the
+    // gravity increment at loc_3C332 (addi.l #$2000, cap at $80000),
+    // this label stores the result and loops back. Native: walkers
+    // reverse at cliff edges via probe_floor, never entering the fall
+    // state. Verify y_vel stays 0 and y_pos is unchanged.
+    let solid: Vec<(u16, u16)> = (10..14).map(|col| (col, 13)).collect();
+    let grid = grid_with_solid_cells(25, 20, &solid);
+    let mut enemy = make_pacer(EnemyFamily::Robot, 3, 176, 208);
+    enemy.facing = Direction::Left;
+    let start_y = enemy.y_pos;
+
+    for _ in 0..200 {
+        step_pacer(&mut enemy, Some(&grid));
+    }
+
+    assert_eq!(
+        enemy.y_velocity, 0,
+        "ASM loc_3C34A: y_vel must stay 0 — gravity cap store never reached",
+    );
+    assert_eq!(
+        enemy.y_pos, start_y,
+        "ASM loc_3C34A: y_pos unchanged — walker reversed before needing gravity",
+    );
+}
+
+#[test]
+fn loc_3c372_drive_sound_stopped_to_moving_edge_decrements_and_plays() {
+    // ASM loc_3C372 (kid.asm:43861-43872): when motion_active ($19(a3))
+    // is nonzero and previous_motion_active ($6A(a5)) is zero, this is
+    // the stopped→moving edge. subi.b #1 on the shared refcount at
+    // ($FFFFFA34+d7); when the counter wraps to zero, j_PlaySound2 is
+    // called with byte_3C46C[d6]. Verify Driller edge with refcount=1
+    // triggers PlaySound2(DrillMoving).
+    let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
+
+    assert_eq!(
+        result.next_refcount, 0,
+        "ASM loc_3C372: refcount must be decremented from 1 to 0",
+    );
+    assert_eq!(
+        result.sound_call,
+        Some(SharedEnemyDriveSoundCallSub3C352::PlaySound2(
+            SharedEnemyDriveSoundEffectSub3C352::DrillMoving,
+        )),
+        "ASM loc_3C372: PlaySound2 with DrillMoving when refcount reaches zero",
+    );
+    assert!(
+        result.next_previous_motion_active,
+        "ASM loc_3C372: latch must update to active after edge",
+    );
+}
+
+#[test]
+fn loc_3c39c_drive_sound_moving_to_stopped_edge_plays_and_increments() {
+    // ASM loc_3C39C (kid.asm:43875-43889): when motion_active ($19(a3))
+    // is zero and previous_motion_active ($6A(a5)) is nonzero, this is
+    // the moving→stopped edge. If shared refcount at ($FFFFFA34+d7) is
+    // zero, j_PlaySound is called with byte_3C46C[d6]; then addi.b #1
+    // increments the counter. Verify Tank edge with refcount=0 triggers
+    // PlaySound(TankDriving) and increments to 1.
+    let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Tank, false, true, 0);
+
+    assert_eq!(
+        result.next_refcount, 1,
+        "ASM loc_3C39C: refcount must be incremented from 0 to 1",
+    );
+    assert_eq!(
+        result.sound_call,
+        Some(SharedEnemyDriveSoundCallSub3C352::PlaySound(
+            SharedEnemyDriveSoundEffectSub3C352::TankDriving,
+        )),
+        "ASM loc_3C39C: PlaySound with TankDriving when refcount was zero",
+    );
+    assert!(
+        !result.next_previous_motion_active,
+        "ASM loc_3C39C: latch must update to inactive after edge",
+    );
+}
+
+#[test]
 fn shared_enemy_drive_sound_sub_3c352_starts_the_last_driller_loop_with_playsound2() {
     let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
 
