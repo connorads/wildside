@@ -14,18 +14,20 @@ use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IntroSequence6LongwordFillLoc1B170,
     IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24,
-    PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C, PauseMenuGateLoc687C,
-    PauseMenuPlaneColumnLayout, PauseMenuSpriteEntrySub6874, RAM_CLEAR_LONGWORD_COUNT_LOC_5FE,
-    RAM_CLEAR_START_ADDR_LOC_5FE, copy_sega_screen_palette_loc_12DFE,
-    end_sequence_burst_camera_loop_loc_1D1EC, end_sequence_burst_prelude_loc_1D1D6,
-    end_sequence_burst_sprite_init_sub_1D86C, end_sequence_burst_wait_loop_loc_1D1DE,
-    end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
-    end_sequence_falling_sprite_init_sub_1D8B4, flag_hud_dma_upload_sub_5DA6,
-    hide_pause_menu_overwritten_sprites_sub_6874, hud_timer_sprite_layout_sub_BD0A,
-    init_hud_animation_frames_sub_44B0, intro_sequence_6_longword_fill_loc_1B170,
-    intro_sequence_6_striped_tile_fill_loc_1B194, intro_sequence_6_tilemap_clear_loc_1B182,
-    pause_menu_art_total_bytes_loc_690C, pause_menu_gate_loc_687C,
-    pause_menu_plane_column_layout_loc_693A, prize_10000_points_star_advance_loc_10BCE,
+    PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C, PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C,
+    PAUSE_MENU_Y_OFFSET_LOC_6948, PauseMenuGateLoc687C, PauseMenuPlaneColumnLayout,
+    PauseMenuSpriteEntrySub6874, RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, RAM_CLEAR_START_ADDR_LOC_5FE,
+    copy_sega_screen_palette_loc_12DFE, end_sequence_burst_camera_loop_loc_1D1EC,
+    end_sequence_burst_prelude_loc_1D1D6, end_sequence_burst_sprite_init_sub_1D86C,
+    end_sequence_burst_wait_loop_loc_1D1DE, end_sequence_camera_shake_sub_1D846,
+    end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
+    flag_hud_dma_upload_sub_5DA6, hide_pause_menu_overwritten_sprites_sub_6874,
+    hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
+    intro_sequence_6_longword_fill_loc_1B170, intro_sequence_6_striped_tile_fill_loc_1B194,
+    intro_sequence_6_tilemap_clear_loc_1B182, pause_menu_art_total_bytes_loc_690C,
+    pause_menu_gate_loc_687C, pause_menu_plane_column_layout_loc_693A,
+    pause_menu_tile_save_plan_loc_695C, pause_menu_tile_save_row_vdp_read_cmd_loc_695C,
+    pause_menu_tile_save_wrap_column_reset_loc_69AE, prize_10000_points_star_advance_loc_10BCE,
     prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
     prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
     prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
@@ -1103,6 +1105,161 @@ fn loc_693a_wrap_split_always_totals_16_words() {
             );
         }
     }
+}
+
+#[test]
+fn loc_695c_row_count_is_5() {
+    // ASM kid.asm:6660: `moveq #4,d5` — dbf iterates d5+1 = 5 times.
+    assert_eq!(
+        PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C, 5,
+        "ASM loc_695C: d5=4 → 5 rows saved into Decompression_Buffer"
+    );
+}
+
+#[test]
+fn loc_6948_y_offset_is_0x40() {
+    // ASM kid.asm:6656: `addi.w #$40,d7` — menu top sits $40 pixels below camera.
+    assert_eq!(
+        PAUSE_MENU_Y_OFFSET_LOC_6948, 0x40,
+        "ASM loc_6948: d7 = Camera_Y_pos + $40"
+    );
+}
+
+#[test]
+fn loc_695c_vdp_read_cmd_at_origin() {
+    // Camera_Y_pos=0, tile_col=$C, row 0:
+    // y_pixel = 0 + $40 + 0 = $40
+    // plane_row = ($40 >> 3) & $1F = 8
+    // row_byte_offset = 8 << 7 = $400
+    // col_byte_offset = $C * 2 = $18
+    // vram_addr = $400 + $18 = $418
+    // VDP read cmd = $0418_0000
+    let cmd = pause_menu_tile_save_row_vdp_read_cmd_loc_695C(0, 0x0C, 0);
+    assert_eq!(
+        cmd, 0x0418_0000,
+        "ASM loc_695C: Camera_Y=0, tile_col=$C, row 0 → VRAM addr $0418"
+    );
+}
+
+#[test]
+fn loc_695c_rows_advance_by_8_pixels() {
+    // ASM kid.asm:6687: `addi.w #8,d7` — each row is 8 pixels (1 tile) apart.
+    // Camera_Y=0, tile_col=0, rows 0 and 1:
+    // Row 0: y=$40 → plane_row=8, offset=$400 → cmd=$0400_0000
+    // Row 1: y=$48 → plane_row=9, offset=$480 → cmd=$0480_0000
+    let cmd0 = pause_menu_tile_save_row_vdp_read_cmd_loc_695C(0, 0, 0);
+    let cmd1 = pause_menu_tile_save_row_vdp_read_cmd_loc_695C(0, 0, 1);
+    assert_eq!(cmd0, 0x0400_0000);
+    assert_eq!(cmd1, 0x0480_0000);
+    assert_eq!(
+        (cmd1 >> 16) - (cmd0 >> 16),
+        0x80,
+        "ASM loc_695C: consecutive rows are $80 bytes (128) apart in nametable"
+    );
+}
+
+#[test]
+fn loc_695c_plane_row_wraps_at_32() {
+    // ASM loc_695C: `andi.w #$1F,d3` wraps to 32-row plane height.
+    // Camera_Y=$C0, tile_col=0, row 0:
+    // y_pixel = $C0 + $40 = $100, plane_row = ($100 >> 3) & $1F = $20 & $1F = 0
+    // → wraps to row 0 of nametable.
+    let cmd = pause_menu_tile_save_row_vdp_read_cmd_loc_695C(0xC0, 0, 0);
+    assert_eq!(
+        cmd >> 16,
+        0,
+        "ASM loc_695C: plane_row wraps at 32 via andi.w #$1F"
+    );
+}
+
+#[test]
+fn loc_69ae_column_reset_clears_column_bits() {
+    // ASM loc_69AE (kid.asm:6703): `andi.l #$FF80FFFF,d0`
+    // Clears bits 6-0 of the high word (column byte offset within 128-byte row).
+    let original = 0x0418_0000_u32; // row $400 + column $18
+    let reset = pause_menu_tile_save_wrap_column_reset_loc_69AE(original);
+    assert_eq!(
+        reset, 0x0400_0000,
+        "ASM loc_69AE: andi.l #$FF80FFFF clears column offset, keeps row"
+    );
+}
+
+#[test]
+fn loc_69ae_column_reset_preserves_row_offset() {
+    // With a high row offset — ensure only column bits are cleared.
+    let original = 0x0F7E_0000_u32; // row $F00 + column $7E
+    let reset = pause_menu_tile_save_wrap_column_reset_loc_69AE(original);
+    assert_eq!(
+        reset, 0x0F00_0000,
+        "ASM loc_69AE: row offset $F00 preserved, column $7E cleared"
+    );
+}
+
+#[test]
+fn loc_695c_plan_non_wrapped_has_5_rows_no_segments() {
+    // Camera_X=0 → tile_col=$C, no wrap. All 5 rows should have wrap_segments=None.
+    let plan = pause_menu_tile_save_plan_loc_695C(0, 0);
+    assert_eq!(plan.len(), 5);
+    for (i, row) in plan.iter().enumerate() {
+        assert_eq!(
+            row.wrap_segments, None,
+            "ASM loc_695C: non-wrapped row {i} should read 8 longwords straight"
+        );
+    }
+}
+
+#[test]
+fn loc_69a0_wrapped_plan_splits_each_row() {
+    // Camera_X=$128 → tile_col=$31, wrap_split=(15, 1).
+    // ASM loc_69A0 (kid.asm:6692-6698): unpacks d2 into first_words (d1)
+    // and wrapped_words (d4) for the split read.
+    let plan = pause_menu_tile_save_plan_loc_695C(0x128, 0);
+    for (i, row) in plan.iter().enumerate() {
+        let (first_words, _second_cmd, wrapped_words) = row
+            .wrap_segments
+            .unwrap_or_else(|| panic!("ASM loc_69A0: row {i} should be wrapped"));
+        assert_eq!(
+            first_words, 15,
+            "ASM loc_69A0: d1 = $40 - $31 = $F (15 words before plane edge)"
+        );
+        assert_eq!(
+            wrapped_words, 1,
+            "ASM loc_69A0: d4 = $10 - $F = 1 (1 word after wrap)"
+        );
+    }
+}
+
+#[test]
+fn loc_69ae_wrapped_second_cmd_resets_column() {
+    // ASM loc_69AE: after first segment, column reset for second segment.
+    let plan = pause_menu_tile_save_plan_loc_695C(0x128, 0);
+    let row = &plan[0];
+    let (_, second_cmd, _) = row.wrap_segments.unwrap();
+    // Original cmd has column $31*2 = $62, reset should clear to 0.
+    let original_col = (row.vdp_read_cmd >> 16) & 0x7F;
+    assert_eq!(original_col, 0x62, "tile_col=$31 → col_byte_offset=$62");
+    let reset_col = (second_cmd >> 16) & 0x7F;
+    assert_eq!(
+        reset_col, 0,
+        "ASM loc_69AE: andi.l #$FF80FFFF clears column for second segment"
+    );
+}
+
+#[test]
+fn loc_695c_plan_all_rows_address_different_plane_rows() {
+    // Each of the 5 rows should target a distinct nametable row
+    // (unless the 32-row plane wraps, but with camera_y=0 + $40 = row 8,
+    // rows 8..12 are all distinct).
+    let plan = pause_menu_tile_save_plan_loc_695C(0, 0);
+    let plane_rows: Vec<u16> = plan
+        .iter()
+        .map(|r| ((r.vdp_read_cmd >> 16) as u16 >> 7) & 0x1F)
+        .collect();
+    assert_eq!(
+        plane_rows,
+        vec![8, 9, 10, 11, 12],
+        "ASM loc_695C: 5 consecutive plane rows starting at (($40>>3)&$1F) = 8"
+    );
 }
 
 #[test]

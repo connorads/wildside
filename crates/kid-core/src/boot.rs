@@ -822,6 +822,134 @@ pub(crate) fn pause_menu_plane_column_layout_loc_693A(
     }
 }
 
+/// Number of rows saved by the pause menu tile-save loop at loc_695C.
+///
+/// ASM kid.asm:6660: `moveq #4,d5` — `dbf d5,loc_695C` iterates 5 times (0..=4).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C: u16 = 5;
+
+/// Y-pixel offset added to Camera_Y_pos before the row loop at loc_6948/loc_695C.
+///
+/// ASM kid.asm:6656: `addi.w #$40,d7` — menu sits $40 pixels below camera top.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const PAUSE_MENU_Y_OFFSET_LOC_6948: u16 = 0x40;
+
+/// Compute the VDP VRAM read command for one row of the pause menu tile save.
+///
+/// ASM loc_695C (kid.asm:6664-6674): per-row address computation within the
+/// 5-row save loop.
+/// ```text
+///   move.w d7,d3          ; d7 = Camera_Y_pos + $40 + row*8
+///   lsr.w  #3,d3          ; pixel → tile row
+///   andi.w #$1F,d3        ; wrap to 32-row plane height
+///   lsl.w  #7,d3          ; × 128 bytes = nametable row byte offset
+///   move.w d6,d0          ; d6 = tile_col * 2 (column byte offset)
+///   add.w  d3,d0          ; combine row + column
+///   ori.w  #0,d0          ; no-op (read mode, not $4000 for write)
+///   swap   d0             ; high word = VRAM address
+///   move.w #0,d0          ; low word = 0 → VDP read command
+///   move.l d0,4(a6)       ; send to VDP control port
+/// ```
+///
+/// Returns the 32-bit VDP read command (`(vram_addr << 16) | 0x0000`).
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_menu_tile_save_row_vdp_read_cmd_loc_695C(
+    camera_y_pos: u16,
+    tile_col: u16,
+    row: u16,
+) -> u32 {
+    // ASM loc_6948: d7 = Camera_Y_pos + $40
+    // ASM loc_695C: d7 advances by 8 each row (addi.w #8,d7 at kid.asm:6687)
+    let y_pixel = camera_y_pos
+        .wrapping_add(PAUSE_MENU_Y_OFFSET_LOC_6948)
+        .wrapping_add(row.wrapping_mul(8));
+
+    // ASM loc_695C: lsr.w #3,d3; andi.w #$1F,d3; lsl.w #7,d3
+    let plane_row = (y_pixel >> 3) & 0x1F;
+    let row_byte_offset = plane_row << 7;
+
+    // ASM loc_6948: add.w d0,d0 doubles tile_col to byte offset, stored in d6
+    let col_byte_offset = tile_col.wrapping_mul(2);
+
+    // ASM loc_695C: add.w d3,d0; ori.w #0,d0; swap d0; move.w #0,d0
+    let vram_addr = row_byte_offset.wrapping_add(col_byte_offset);
+    u32::from(vram_addr) << 16
+}
+
+/// Compute the column-reset VDP read command for the wrapped second segment.
+///
+/// ASM loc_69AE (kid.asm:6703): after reading the first segment of a
+/// plane-edge-wrapped row, the column offset is cleared to read the
+/// remaining words from column 0 of the same plane row.
+/// ```text
+///   andi.l #$FF80FFFF,d0  ; clear bits 6-0 of high word (column byte offset)
+///   move.l d0,4(a6)       ; set new VDP read address at column 0
+/// ```
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_menu_tile_save_wrap_column_reset_loc_69AE(vdp_read_cmd: u32) -> u32 {
+    // ASM loc_69AE: andi.l #$FF80FFFF,d0
+    // High word bits 6-0 are the column byte offset within the 128-byte row.
+    // Clearing them resets to column 0 while preserving the row address.
+    vdp_read_cmd & 0xFF80_FFFF
+}
+
+/// Describes one row of the pause menu tile save, including VDP addresses
+/// and word counts for both segments of a potentially wrapped read.
+///
+/// ASM loc_695C-loc_69C0 (kid.asm:6664-6712): each of the 5 rows either
+/// reads 8 longwords straight (16 words, non-wrapped) or splits into two
+/// word-read loops (loc_69A0/loc_69AE + loc_69C0) when the menu wraps
+/// around the 64-tile plane edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PauseMenuTileSaveRow {
+    /// VDP read command for the start of this row.
+    pub(crate) vdp_read_cmd: u32,
+    /// When `None`: non-wrapped — 8 longword reads (16 words) via `move.l (a6),(a1)+`.
+    /// When `Some((first_words, second_cmd, second_words))`: wrapped read.
+    /// `first_words` word-reads from `vdp_read_cmd`, then `second_cmd` (column-reset)
+    /// for `second_words` word-reads. Total always = 16 words.
+    pub(crate) wrap_segments: Option<(u16, u32, u16)>,
+}
+
+/// Compute the full 5-row tile save plan for the pause menu.
+///
+/// ASM loc_695C (kid.asm:6664-6712): combines the per-row VDP address
+/// computation with the wrap layout from loc_693A to produce a complete
+/// read plan. The ROM saves these tiles into `Decompression_Buffer` so
+/// they can be restored when the menu closes.
+///
+/// - `loc_695C`: row address + dispatch (non-wrapped vs wrapped)
+/// - `loc_69A0`: wrapped setup — unpack d2 into (first_words, wrapped_words)
+/// - `loc_69AE`: first-segment word-read loop + column reset
+/// - `loc_69C0`: second-segment word-read loop
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_menu_tile_save_plan_loc_695C(
+    camera_x_pos: u16,
+    camera_y_pos: u16,
+) -> [PauseMenuTileSaveRow; 5] {
+    let layout = pause_menu_plane_column_layout_loc_693A(camera_x_pos);
+
+    core::array::from_fn(|i| {
+        let row = i as u16;
+        let vdp_read_cmd =
+            pause_menu_tile_save_row_vdp_read_cmd_loc_695C(camera_y_pos, layout.tile_col, row);
+
+        let wrap_segments = layout.wrap_split.map(|(first_words, wrapped_words)| {
+            // ASM loc_69AE: after reading first_words, column-reset for second segment
+            let second_cmd = pause_menu_tile_save_wrap_column_reset_loc_69AE(vdp_read_cmd);
+            (first_words, second_cmd, wrapped_words)
+        });
+
+        PauseMenuTileSaveRow {
+            vdp_read_cmd,
+            wrap_segments,
+        }
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IoPortFlagsSub6E24 {
     pub(crate) bit_7_clear_flag: bool,
