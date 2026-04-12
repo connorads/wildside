@@ -28542,6 +28542,189 @@ fn sub_61ca_promotes_terrain_hit_into_an_impact_slot_with_the_slope_offset() {
     );
 }
 
+// --- loc_61E2 / loc_620C / loc_6212: per-slot falling weather update ---
+
+#[test]
+fn loc_61e2_advances_active_slot_y_x_and_animation_cooldown() {
+    // ASM loc_61E2 (kid.asm:6199): addi.w #4,(a0); subi.w #1,2(a0); subi.b #1,4(a0)
+    // Active slot: y += 4, x -= 1, animation_cooldown -= 1. Inactive slots skipped.
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            FallingWeatherSlotSub61CA {
+                y_px: 100,
+                x_px: 200,
+                animation_cooldown: 4,
+                animation_frame: 2,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows: empty_weather_collision_rows_sub_61_ca(),
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.falling_slots[0].y_px, 104,
+        "ASM loc_61E2: addi.w #4,(a0) — y advances by 4 each frame"
+    );
+    assert_eq!(
+        stepped.falling_slots[0].x_px, 199,
+        "ASM loc_61E2: subi.w #1,2(a0) — x decreases by 1 each frame"
+    );
+    assert_eq!(
+        stepped.falling_slots[0].animation_cooldown, 3,
+        "ASM loc_61E2: subi.b #1,4(a0) — animation cooldown decrements"
+    );
+    assert_eq!(
+        stepped.falling_slots[0].animation_frame, 2,
+        "ASM loc_61E2: bne.s loc_6212 — nonzero cooldown skips frame advance"
+    );
+    // Inactive slot 1 must remain unchanged
+    assert_eq!(
+        stepped.falling_slots[1],
+        FallingWeatherSlotSub61CA::inactive(6, 0),
+        "ASM loc_61E2: tst.w (a0); bmi.s loc_621C — inactive slots are skipped"
+    );
+}
+
+#[test]
+fn loc_620c_advances_animation_frame_and_wraps_at_5() {
+    // ASM loc_620C (kid.asm:6211): addi.b #1,5(a0) — advance animation frame.
+    // When frame >= 5, ASM sets 5(a0)=$FF then +1 wraps to 0.
+    // Test both normal advance (frame 2→3) and wrap (frame 5→0).
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            // Slot 0: cooldown=1 → expires, frame 2 → 3
+            FallingWeatherSlotSub61CA {
+                y_px: 50,
+                x_px: 100,
+                animation_cooldown: 1,
+                animation_frame: 2,
+            },
+            // Slot 1: cooldown=1 → expires, frame 5 → 0 (wrap)
+            FallingWeatherSlotSub61CA {
+                y_px: 50,
+                x_px: 100,
+                animation_cooldown: 1,
+                animation_frame: 5,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows: empty_weather_collision_rows_sub_61_ca(),
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.falling_slots[0].animation_cooldown, 6,
+        "ASM loc_61E2: move.b #6,4(a0) — cooldown reloads to 6 on expiry"
+    );
+    assert_eq!(
+        stepped.falling_slots[0].animation_frame, 3,
+        "ASM loc_620C: addi.b #1,5(a0) — frame 2 advances to 3"
+    );
+    assert_eq!(
+        stepped.falling_slots[1].animation_cooldown, 6,
+        "ASM loc_61E2: cooldown reloads to 6 for second slot too"
+    );
+    assert_eq!(
+        stepped.falling_slots[1].animation_frame, 0,
+        "ASM loc_620C: cmpi.b #5,5(a0); blt.s loc_620C; move.b #$FF,5(a0) — frame 5 wraps to 0"
+    );
+}
+
+#[test]
+fn loc_6212_deactivates_slot_past_bottom_or_left_edge() {
+    // ASM loc_6212 (kid.asm:6214): cmp.w (a0),d1; blt.s loc_6226 — y > delete_bottom.
+    // cmp.w 2(a0),d0; bgt.s loc_6226 — x < delete_left.
+    // delete_bottom = camera_y + $E0, delete_left = camera_x - $10.
+    let camera_x: i16 = 100;
+    let camera_y: i16 = 50;
+    let delete_bottom = camera_y.wrapping_add(0x00E0); // 274
+    let delete_left = camera_x.wrapping_sub(0x0010); // 84
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: camera_x,
+        camera_y_px: camera_y,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots: [
+            // Slot 0: y just past bottom edge → deactivated
+            FallingWeatherSlotSub61CA {
+                y_px: delete_bottom + 1, // 275: past bottom
+                x_px: 150,
+                animation_cooldown: 3,
+                animation_frame: 1,
+            },
+            // Slot 1: x just past left edge → deactivated
+            FallingWeatherSlotSub61CA {
+                y_px: 100,
+                x_px: delete_left - 1, // 83: past left
+                animation_cooldown: 3,
+                animation_frame: 2,
+            },
+            // Slot 2: within bounds → stays active
+            FallingWeatherSlotSub61CA {
+                y_px: 100,
+                x_px: 150,
+                animation_cooldown: 3,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ],
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows: empty_weather_collision_rows_sub_61_ca(),
+        starting_number_sprites: 0,
+    });
+
+    // After loc_61E2 movement: slot0 y=275+4=279, slot1 x=83-1=82, slot2 y=104 x=149
+    assert!(
+        stepped.falling_slots[0].y_px < 0,
+        "ASM loc_6212: cmp.w (a0),d1; blt.s loc_6226 — slot past bottom edge deactivated"
+    );
+    assert!(
+        stepped.falling_slots[1].y_px < 0,
+        "ASM loc_6212: cmp.w 2(a0),d0; bgt.s loc_6226 — slot past left edge deactivated"
+    );
+    assert!(
+        stepped.falling_slots[2].y_px >= 0,
+        "ASM loc_6212: slot within camera bounds stays active"
+    );
+    assert_eq!(
+        stepped.free_falling_slots, 2,
+        "ASM loc_6212→loc_6226: addi.b #1,($FFFFFB3D).w — free count incremented for each deactivated slot"
+    );
+}
+
 // --- Hail period toggle ---
 
 #[test]

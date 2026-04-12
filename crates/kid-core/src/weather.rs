@@ -744,16 +744,21 @@ pub(crate) fn step_weather_worker_sub_61CA(
     let delete_bottom_px = input.camera_y_px.wrapping_add(0x00E0);
     let delete_left_px = input.camera_x_px.wrapping_sub(0x0010);
 
+    // ASM loc_61E2 (kid.asm:6199): per-slot loop — tst.w (a0); bmi.s loc_621C
+    // skips inactive slots, then advances y/x and decrements animation counter.
     for slot in &mut output.falling_slots {
         if !slot.is_active() {
             continue;
         }
 
+        // ASM loc_61E2: addi.w #4,(a0); subi.w #1,2(a0); subi.b #1,4(a0)
         slot.y_px = slot.y_px.wrapping_add(4);
         slot.x_px = slot.x_px.wrapping_sub(1);
         slot.animation_cooldown = slot.animation_cooldown.wrapping_sub(1);
         if slot.animation_cooldown == 0 {
             slot.animation_cooldown = 6;
+            // ASM loc_620C (kid.asm:6211): addi.b #1,5(a0) — advance frame.
+            // When frame >= 5, ASM sets 5(a0)=$FF then falls through to +1 = 0.
             slot.animation_frame = if slot.animation_frame >= 5 {
                 0
             } else {
@@ -761,6 +766,8 @@ pub(crate) fn step_weather_worker_sub_61CA(
             };
         }
 
+        // ASM loc_6212 (kid.asm:6214): cmp.w (a0),d1; blt.s loc_6226;
+        // cmp.w 2(a0),d0; bgt.s loc_6226 — off-screen check deactivates slot.
         if delete_bottom_px < slot.y_px || delete_left_px > slot.x_px {
             slot.clear_position();
             output.free_falling_slots = output.free_falling_slots.wrapping_add(1);
