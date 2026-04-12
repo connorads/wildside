@@ -4891,6 +4891,7 @@ fn tank_shooting_spawn_worker_now_sub_3c4f8() -> bool {
         child_counter_word_4e: 0,
         child_timer_word_54: 0,
         parent_x_pos: 0,
+        walker_x_pos: 0,
         kid_x_pos: 0,
         parent_x_direction: 0,
         parent_flag_15: false,
@@ -6374,7 +6375,11 @@ pub(crate) struct SharedEnemyRobotHelperInputSub3C4F8 {
     pub(crate) child_state_word_40: u16,
     pub(crate) child_counter_word_4e: u16,
     pub(crate) child_timer_word_54: u16,
+    /// ASM loc_3C56A: `x_pos(a4)` — the turret child's X position.
     pub(crate) parent_x_pos: u16,
+    /// ASM loc_3C5FC: `x_pos(a3)` — the walker's own X position, used when
+    /// `$40(a3)==2` selects the alternate direction-check path.
+    pub(crate) walker_x_pos: u16,
     pub(crate) kid_x_pos: u16,
     pub(crate) parent_x_direction: u8,
     pub(crate) parent_flag_15: bool,
@@ -6430,6 +6435,11 @@ pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
                 {
                     return result;
                 }
+                // ASM loc_3C554 (kid.asm:44066-44072): cmpi.w #2,$40(a3);
+                // beq.w loc_3C5FC — $40==2 skips the random gate entirely
+                // and uses x_pos(a3) for direction check. Otherwise
+                // j_Get_RandomNumber; cmpi.w #$A,d7; ble loc_3C56A — only
+                // proceed when random <= $A.
                 if input.child_state_word_40 != 2 && input.random_word > 0x000A {
                     return result;
                 }
@@ -6438,12 +6448,25 @@ pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
                     return result;
                 }
 
-                // ASM loc_3C56A/loc_3C58E points the helper at Kid: if the
-                // current facing already matches Kid's side, branch straight to
-                // `Enemy03_Robot_Shoot`; otherwise queue the turn sequence.
-                let kid_is_to_right = input.parent_x_pos < input.kid_x_pos;
+                // ASM loc_3C56A (kid.asm:44075-44084): uses x_pos(a4) for
+                // the direction check. loc_3C5FC (kid.asm:44138-44157):
+                // uses x_pos(a3) — the walker's own position — when
+                // $40(a3)==2.
+                let x_for_check = if input.child_state_word_40 == 2 {
+                    input.walker_x_pos // ASM loc_3C5FC: x_pos(a3)
+                } else {
+                    input.parent_x_pos // ASM loc_3C56A: x_pos(a4)
+                };
+
+                // ASM loc_3C588 (kid.asm:44087-44089): bmi.s path — when
+                // x_pos < Kid_x (entity is left of Kid), tst.b $16(a4);
+                // bne.s loc_3C5EE — facing right already means facing Kid,
+                // so branch to Robot_Shoot. The non-bmi path (entity
+                // right of or at Kid) mirrors: beq.s loc_3C5EE when
+                // $16(a4)==0 (facing left, towards Kid).
+                let entity_left_of_kid = (x_for_check as i16) < (input.kid_x_pos as i16);
                 let parent_faces_right = input.parent_x_direction != 0;
-                let facing_matches_kid = if kid_is_to_right {
+                let facing_matches_kid = if entity_left_of_kid {
                     parent_faces_right
                 } else {
                     !parent_faces_right
@@ -6480,6 +6503,12 @@ pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
             if phase == 2 {
                 result.next_parent_x_direction ^= 0xFF;
             }
+            // ASM loc_3C5C4 (kid.asm:44108-44113): or.w d7,$4E(a5) stores
+            // the incremented phase; add.w d7,d7 doubles it as a word
+            // offset into off_3C5F6 → $22(a4). Timer reset to 9.
+            // off_3C5F6: [LnkTo_unk_C8338, LnkTo_unk_C8340, LnkTo_unk_C8338]
+            //   phase 1 → offset 2 → C8340 (ROBOT_ATTACK_MAPPING_B)
+            //   phase 2 → offset 4 → C8338 (ROBOT_ATTACK_MAPPING_A)
             result.next_child_counter_word_4e |= phase;
             result.next_parent_mapping = match phase {
                 1 => ROBOT_ATTACK_MAPPING_B_SUB_3C4F8,

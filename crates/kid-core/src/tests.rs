@@ -55041,6 +55041,7 @@ fn shared_enemy_robot_helper_sub_3c4f8_spawns_loc_3b730_for_the_firing_rock_tank
         child_counter_word_4e: 0,
         child_timer_word_54: 0,
         parent_x_pos: 0,
+        walker_x_pos: 0,
         kid_x_pos: 0,
         parent_x_direction: 0,
         parent_flag_15: true,
@@ -55055,6 +55056,10 @@ fn shared_enemy_robot_helper_sub_3c4f8_spawns_loc_3b730_for_the_firing_rock_tank
 
 #[test]
 fn shared_enemy_robot_helper_sub_3c4f8_arms_the_robot_turn_sequence_when_kid_is_behind_it() {
+    // ASM loc_3C554 (kid.asm:44066): $40(a3)==2 skips the random gate and
+    // falls to loc_3C5FC which uses x_pos(a3) (walker_x_pos) for the
+    // direction check. Walker at 0x0120, Kid at 0x0140, direction 0 (facing
+    // left) → walker is left of Kid but faces away → arm turn sequence.
     let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
         helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
         parent_mapping: ROBOT_IDLE_MAPPING_SUB_3C4F8,
@@ -55062,7 +55067,8 @@ fn shared_enemy_robot_helper_sub_3c4f8_arms_the_robot_turn_sequence_when_kid_is_
         child_state_word_40: 2,
         child_counter_word_4e: 0,
         child_timer_word_54: 0,
-        parent_x_pos: 0x0120,
+        parent_x_pos: 0x0200,
+        walker_x_pos: 0x0120,
         kid_x_pos: 0x0140,
         parent_x_direction: 0,
         parent_flag_15: true,
@@ -55084,6 +55090,10 @@ fn shared_enemy_robot_helper_sub_3c4f8_arms_the_robot_turn_sequence_when_kid_is_
 
 #[test]
 fn shared_enemy_robot_helper_sub_3c4f8_branches_to_robot_shoot_when_kid_is_already_in_front() {
+    // ASM loc_3C56A (kid.asm:44075-44084): $40(a3)==1 uses x_pos(a4)
+    // (parent_x_pos) for direction check. Turret at 0x0100, Kid at 0x0140,
+    // direction 0xFF (facing right) → turret left of Kid, already facing
+    // Kid → loc_3C588 bne.s loc_3C5EE → branch to Robot_Shoot.
     let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
         helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
         parent_mapping: ROBOT_IDLE_MAPPING_SUB_3C4F8,
@@ -55092,6 +55102,7 @@ fn shared_enemy_robot_helper_sub_3c4f8_branches_to_robot_shoot_when_kid_is_alrea
         child_counter_word_4e: 0,
         child_timer_word_54: 0,
         parent_x_pos: 0x0100,
+        walker_x_pos: 0x0100,
         kid_x_pos: 0x0140,
         parent_x_direction: 0xFF,
         parent_flag_15: true,
@@ -55111,6 +55122,110 @@ fn shared_enemy_robot_helper_sub_3c4f8_branches_to_robot_shoot_when_kid_is_alrea
         ),
         (ROBOT_IDLE_MAPPING_SUB_3C4F8, true, 0, 0),
         "ASM sub_3C4F8 should leave the helper state untouched on the direct shoot path"
+    );
+}
+
+#[test]
+fn loc_3c554_random_gate_rejects_high_random_when_state_is_not_2() {
+    // ASM loc_3C554 (kid.asm:44066-44072): cmpi.w #2,$40(a3); beq.w loc_3C5FC
+    // — when $40(a3)!=2, the random gate fires: j_Get_RandomNumber; cmpi.w
+    // #$A,d7; ble.s loc_3C56A. If random > $A the helper returns immediately
+    // without arming the turn sequence or branching to Robot_Shoot.
+    let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
+        parent_mapping: ROBOT_IDLE_MAPPING_SUB_3C4F8,
+        parent_state_word_32: 9,
+        child_state_word_40: 1,
+        child_counter_word_4e: 0,
+        child_timer_word_54: 0,
+        parent_x_pos: 0x0100,
+        walker_x_pos: 0x0100,
+        kid_x_pos: 0x0140,
+        parent_x_direction: 0,
+        parent_flag_15: true,
+        random_word: 0x000B,
+    });
+
+    assert_eq!(
+        (
+            result.branch_to_robot_shoot,
+            result.next_parent_mapping,
+            result.next_child_counter_word_4e,
+            result.next_child_timer_word_54,
+        ),
+        (false, ROBOT_IDLE_MAPPING_SUB_3C4F8, 0, 0),
+        "ASM loc_3C554: random=$B > $A should cause early return with no state changes"
+    );
+}
+
+#[test]
+fn loc_3c588_child_left_of_kid_facing_away_arms_turn() {
+    // ASM loc_3C588 (kid.asm:44087-44089): when x_pos(a4) < Kid_x (bmi.s
+    // loc_3C588), tst.b $16(a4) checks whether the turret already faces Kid.
+    // $16(a4)==0 (facing left, away from Kid who is to the right) does NOT
+    // branch to loc_3C5EE → falls through to loc_3C58E to arm the turn.
+    let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
+        parent_mapping: ROBOT_IDLE_MAPPING_SUB_3C4F8,
+        parent_state_word_32: 9,
+        child_state_word_40: 1,
+        child_counter_word_4e: 0,
+        child_timer_word_54: 0,
+        parent_x_pos: 0x0100,
+        walker_x_pos: 0x0100,
+        kid_x_pos: 0x0140,
+        parent_x_direction: 0,
+        parent_flag_15: true,
+        random_word: 0x0005,
+    });
+
+    assert!(!result.branch_to_robot_shoot);
+    assert_eq!(
+        (
+            result.next_parent_mapping,
+            result.next_parent_flag_15,
+            result.next_child_counter_word_4e,
+            result.next_child_timer_word_54,
+        ),
+        (ROBOT_ATTACK_MAPPING_A_SUB_3C4F8, false, 0xFF00, 8),
+        "ASM loc_3C588 → loc_3C58E: turret left of Kid facing left (away) should arm the turn sequence with st $4E, sf $15, timer=9, mapping=C8338, then loc_3C5A2 burns one frame"
+    );
+}
+
+#[test]
+fn loc_3c5c4_phase_1_table_lookup_selects_mapping_b() {
+    // ASM loc_3C5C4 (kid.asm:44108-44113): or.w d7,$4E(a5) stores the
+    // incremented phase counter; add.w d7,d7 doubles it for word offset
+    // into off_3C5F6. Phase 1 → offset 2 → LnkTo_unk_C8340 (MAPPING_B).
+    // Timer resets to 9.
+    //
+    // Feed the helper mid-sequence: $4E=$FF00 (armed, low byte=0 → next
+    // phase=1), $54=1 (about to expire this call).
+    let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
+        parent_mapping: ROBOT_ATTACK_MAPPING_A_SUB_3C4F8,
+        parent_state_word_32: 9,
+        child_state_word_40: 1,
+        child_counter_word_4e: 0xFF00,
+        child_timer_word_54: 1,
+        parent_x_pos: 0x0100,
+        walker_x_pos: 0x0100,
+        kid_x_pos: 0x0140,
+        parent_x_direction: 0,
+        parent_flag_15: false,
+        random_word: 0,
+    });
+
+    assert_eq!(
+        (
+            result.next_parent_mapping,
+            result.next_child_counter_word_4e,
+            result.next_child_timer_word_54,
+            result.next_parent_x_direction,
+            result.branch_to_robot_shoot,
+        ),
+        (ROBOT_ATTACK_MAPPING_B_SUB_3C4F8, 0xFF01, 9, 0, false),
+        "ASM loc_3C5C4: phase 1 → off_3C5F6[2]=LnkTo_unk_C8340, or.w #1 into $4E, timer=9, no direction flip"
     );
 }
 
