@@ -2210,10 +2210,16 @@ impl NativeRuntime {
         }
 
         // ASM loc_7FC (kid.asm:915): `jsr (j_sub_F7E0).l; bsr.w sub_6034`
-        // — Mode_Level mid-loop calls shooter slot tick (sub_F730 via the
+        // �� Mode_Level mid-loop calls shooter slot tick (sub_F730 via the
         // j_sub_F7E0 trampoline) then dispatches level special effects
         // (storm/hail weather via sub_6034). Both are skipped when
         // $FFFFFB49 is set (paused); native gates on gameplay_slice_active.
+        //
+        // ASM loc_806 (kid.asm:919): `jsr (j_sub_F096).l` — shooter block
+        // scan. Detects new shooter blocks entering Kid's ±3-col / -5..+2-row
+        // window when Kid crosses a block boundary, registers them for the
+        // 22-frame fire-and-expire cycle driven by sub_F730. Native merges
+        // both scan (sub_F096) and tick (sub_F730) into step_shooter_blocks.
         self.step_shooter_blocks(&slice);
 
         // Weather: hail spawns falling projectiles, lava geysers erupt

@@ -7980,6 +7980,21 @@ impl NativeRuntime {
         // None of these affect gameplay state — they only update sprite
         // mappings, palette buffer entries, and child GFX object visibility.
         // Native covers their duration contribution via transform_anim_frames.
+        //
+        // TheKid (helmet 0) has no animation table — off_7EE2[0] points to
+        // sub_80BC (kid.asm:8817), which fills Palette_Buffer+$62 with 12
+        // words of $FFF (white). ASM loc_80C8 (kid.asm:8823): inner loop
+        // `move.w d6,(a2)+; dbf d7,loc_80C8`. Visual-only palette flash.
+        //
+        // ASM loc_80E8 (kid.asm:8842): inner copy loop of sub_80D0 —
+        // `move.w (a4)+,(a2)+; dbf d7,loc_80E8` copies 12 palette words
+        // from the helmet-indexed off_80F2 table into Palette_Buffer+$62.
+        // Visual-only; called by loc_7D5A and loc_7D80 dispatch handlers.
+        //
+        // ASM loc_811E (kid.asm:8873): inner copy loop of sub_8106 —
+        // `move.w (a4)+,(a2)+; dbf d7,loc_811E` copies 15 palette words
+        // from the helmet-indexed off_8128 table into Palette_Buffer+$62.
+        // Visual-only; called by loc_7D44 dispatch handler.
         // Clear ability state on form change
         self.helmet.reset();
     }

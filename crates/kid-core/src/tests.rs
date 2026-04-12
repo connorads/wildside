@@ -71350,3 +71350,164 @@ fn loc_7a02_unreachable_iron_knight_animation_reset() {
         "ASM loc_7A02: dead code — IK animation reset at $79C6 is never reached",
     );
 }
+
+/// ASM loc_806 (kid.asm:919): `jsr (j_sub_F096).l` — Mode_Level calls
+/// the shooter block scan after weather (sub_6034). sub_F096 detects new
+/// shooter blocks entering Kid's ±3-col / -5..+2-row window when Kid
+/// crosses a block boundary, registering them for the 22-frame
+/// fire-and-expire cycle. Native merges scan (sub_F096) and tick
+/// (sub_F730) into step_shooter_blocks. Verify that crossing a column
+/// boundary triggers shooter registration.
+#[test]
+fn loc_806_shooter_scan_registers_block_on_column_crossing() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.set_block_grid(grid_with_shooter_blocks(&[(10, 5, 0x02)]));
+    runtime.block_state.shooter_last_scanned_col = 6;
+    runtime.block_state.shooter_last_scanned_row = 5;
+
+    let mut slice = shooter_test_slice(0, 0);
+    // Kid at block col 7 — entering col = 7+3 = 10 (where the shooter is)
+    slice.player.x_pos = (7 * 16) << 16;
+    slice.player.y_pos = (5 * 16) << 16;
+
+    runtime.step_shooter_blocks(&slice);
+
+    assert_eq!(
+        runtime.block_state.shooter_blocks.len(),
+        1,
+        "ASM loc_806 → sub_F096: column crossing should register the shooter block at (10,5)"
+    );
+    assert_eq!(runtime.block_state.shooter_blocks[0].col, 10);
+    assert_eq!(runtime.block_state.shooter_blocks[0].row, 5);
+}
+
+/// ASM loc_806 (kid.asm:919): verify that the scan does NOT register
+/// blocks when Kid stays within the same block column (sub_F096 only
+/// scans the entering edge on boundary crossings).
+#[test]
+fn loc_806_shooter_scan_no_registration_without_boundary_crossing() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.set_block_grid(grid_with_shooter_blocks(&[(10, 5, 0x02)]));
+    // Same col/row as current — no crossing
+    runtime.block_state.shooter_last_scanned_col = 7;
+    runtime.block_state.shooter_last_scanned_row = 5;
+
+    let mut slice = shooter_test_slice(0, 0);
+    slice.player.x_pos = (7 * 16) << 16;
+    slice.player.y_pos = (5 * 16) << 16;
+
+    runtime.step_shooter_blocks(&slice);
+
+    assert!(
+        runtime.block_state.shooter_blocks.is_empty(),
+        "ASM loc_806 → sub_F096: no boundary crossing means no shooter scan"
+    );
+}
+
+/// ASM loc_80C8 (kid.asm:8823): `move.w d6,(a2)+; dbf d7,loc_80C8` —
+/// inner loop of sub_80BC fills 12 words ($B+1 from moveq #$B,d7) of
+/// Palette_Buffer+$62 with $FFF (white). sub_80BC is TheKid's entry in
+/// the off_7EE2 transform animation table (helmet 0 has no frame-by-frame
+/// animation, just a white flash). Visual-only; verify transform still
+/// completes when TheKid is the source helmet (exercises the sub_80BC
+/// code path in ASM).
+#[test]
+fn loc_80c8_sub_80bc_thekid_palette_flash_visual_only() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.queue_form_change(PlayerForm::Skycutter);
+    runtime.resolve_pending_form_change();
+
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::Skycutter,
+        "ASM loc_80C8: TheKid→Skycutter transform should complete (sub_80BC palette flash is visual-only)"
+    );
+}
+
+/// ASM loc_80E8 (kid.asm:8842): `move.w (a4)+,(a2)+; dbf d7,loc_80E8`
+/// — sub_80D0 inner copy loop writes 12 helmet-indexed palette words from
+/// off_80F2 into Palette_Buffer+$62. Called by loc_7D5A (dispatch 8) and
+/// loc_7D80 (dispatch 0). Visual-only; verify transform completes for a
+/// helmet that uses dispatch 8 entries (Cyclone stru_7F30).
+#[test]
+fn loc_80e8_sub_80d0_palette_copy_visual_only() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.queue_form_change(PlayerForm::Cyclone);
+    runtime.resolve_pending_form_change();
+
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::Cyclone,
+        "ASM loc_80E8: sub_80D0 12-word palette copy is visual-only — transform should complete"
+    );
+}
+
+/// ASM loc_811E (kid.asm:8873): `move.w (a4)+,(a2)+; dbf d7,loc_811E`
+/// — sub_8106 inner copy loop writes 15 helmet-indexed palette words from
+/// off_8128 into Palette_Buffer+$62. Called by loc_7D44 (dispatch 4).
+/// Visual-only; verify transform completes for a helmet that uses dispatch
+/// 4 entries (Skycutter stru_7EFA has mode=4).
+#[test]
+fn loc_811e_sub_8106_palette_copy_15_words_visual_only() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.queue_form_change(PlayerForm::Skycutter);
+    runtime.resolve_pending_form_change();
+
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::Skycutter,
+        "ASM loc_811E: sub_8106 15-word palette copy is visual-only — transform should complete"
+    );
+}
+
+/// ASM loc_818A (kid.asm:8934): Cyclone walking→airborne exit path.
+/// `moveq #-$11,d7; bsr.w sub_B43A` probes floor; if found, snap y down
+/// by $10. Then `sf (Cyclone_flying).w; bsr.w sub_B41C; move.w
+/// #MoveID_Jump,(Character_Movement).w; sf (Cyclone_flying).w; bsr.w
+/// sub_B270; bra.w loc_A6F8`. Native: step_cyclone_flight clears
+/// cyclone_flying when on_ground. Verify landing clears Cyclone flight.
+#[test]
+fn loc_818a_cyclone_flight_cleared_on_landing() {
+    let mut rt = cyclone_runtime();
+    rt.helmet.cyclone_flying = true;
+    rt.helmet.cyclone_y_accel = 0x800;
+
+    let mut slice = airborne_slice();
+    slice.player.on_ground = true;
+
+    rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+    assert!(
+        !rt.helmet.cyclone_flying,
+        "ASM loc_818A: `sf (Cyclone_flying).w` — landing must clear Cyclone flight flag"
+    );
+}
+
+/// ASM loc_818A (kid.asm:8934): the double `sf (Cyclone_flying).w` in ASM
+/// is redundant (same flag cleared twice). Verify that non-Cyclone forms
+/// always have cyclone_flying = false (the flag would be a no-op for other
+/// helmets in the shared walking→airborne exit at loc_818A).
+#[test]
+fn loc_818a_non_cyclone_forms_have_flight_cleared() {
+    let mut rt = NativeRuntime::new(manifest());
+    start_level(&mut rt);
+    rt.progression.current_form = PlayerForm::RedStealth;
+    rt.helmet.cyclone_flying = true; // force stale state
+
+    let mut slice = airborne_slice();
+
+    rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+    assert!(
+        !rt.helmet.cyclone_flying,
+        "ASM loc_818A: non-Cyclone form should clear cyclone_flying (sf is unconditional in ASM)"
+    );
+}
