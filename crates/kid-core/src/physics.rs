@@ -683,9 +683,64 @@ pub fn update_camera(
 /// Single-axis camera follow: target = player - $A0, clamped to [0, max_pos],
 /// delta = (target - camera + 4) >> 3, clamped to [-8, 8]. Special edge
 /// behaviour when camera is near boundary.
+///
+/// The X-axis instance maps to kid.asm:7314-7364 inside sub_71E4:
+///
+/// **Target clamp (loc_720E, kid.asm:7322)**:
+/// ```asm
+///   move.w (Level_width_pixels).w,d1   ; d1 = level width
+///   subi.w #$140,d1                     ; d1 = max camera X
+///   move.w $1A(a0),d0                   ; d0 = Kid screen X
+///   subi.w #$A0,d0                      ; d0 = target
+///   bcc.s  loc_720E                     ; if >= 0, skip floor
+///   moveq  #0,d0                        ; floor at 0
+/// loc_720E:
+///   cmp.w  d1,d0                        ; target vs max?
+///   bcs.s  loc_7214                     ; if < max, keep
+///   move.w d1,d0                        ; cap at max
+/// ```
+/// Native: `(player - CAMERA_PLAYER_OFFSET).max(0).min(max_pos)`
+///
+/// **Velocity logic (loc_7214, kid.asm:7327)**:
+/// ```asm
+/// loc_7214:
+///   move.w (Camera_X_pos).w,d4
+///   cmpi.w #4,d4          ; near left edge?
+///   bgt.s  loc_7226
+///   cmp.w  d4,d0          ; target < camera?
+///   bge.s  loc_7226
+///   moveq  #-1,d2         ; nudge left
+///   bra.s  loc_723E
+/// loc_7226:
+///   subq.w #4,d1          ; max_pos - 4
+///   cmp.w  d1,d4          ; near right edge?
+///   blt.s  loc_7234
+///   cmp.w  d4,d0          ; target > camera?
+///   ble.s  loc_7234
+///   moveq  #1,d2          ; nudge right
+///   bra.s  loc_723E
+/// loc_7234:
+///   sub.w  (Camera_X_pos).w,d0  ; delta = target - camera
+///   addq.w #4,d0                ; + 4 bias
+///   asr.w  #3,d0                ; >> 3
+///   move.w d0,d2
+/// loc_723E:
+///   cmpi.w #8,d2           ; clamp to [-8, 8]
+///   blt.s  loc_7246
+///   moveq  #8,d2
+/// loc_7246:
+///   cmpi.w #$FFF8,d2
+///   bgt.s  loc_724E
+///   moveq  #-8,d2
+/// loc_724E:
+///   add.w  d2,(Camera_X_pos).w
+/// ```
+/// Native: edge-snap branches then `(target - camera + 4) >> 3` clamped to ±8.
 pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 {
+    // ASM loc_720E (kid.asm:7322): target = max(0, min(max_pos, player - $A0))
     let target = (player - CAMERA_PLAYER_OFFSET).max(0).min(max_pos);
 
+    // ASM loc_7214 (kid.asm:7327): velocity with edge-snap special cases
     let velocity = if camera <= 4 && target < camera {
         // Near left/top edge, target is further left/up: nudge at -1
         -1
@@ -693,6 +748,7 @@ pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 
         // Near right/bottom edge, target is further right/down: nudge at +1
         1
     } else {
+        // loc_7234: (target - camera + 4) >> 3
         let delta = (target - camera + 4) >> 3;
         delta.clamp(-CAMERA_MAX_STEP, CAMERA_MAX_STEP)
     };
@@ -1137,6 +1193,98 @@ mod tests {
         // Player at far right
         let (cx, _) = update_camera(max_x, 0, i32::from(bounds.width_pixels), 160, &bounds);
         assert!(cx <= max_x);
+    }
+
+    /// ASM loc_720E (kid.asm:7322): `cmp.w d1,d0; bcs.s loc_7214; move.w d1,d0`
+    /// — target is capped at max_pos (level_width - $140).  When player_x - $A0
+    /// exceeds max_pos, target is clamped down.
+    #[test]
+    fn loc_720e_target_clamped_to_max_pos() {
+        // level_width = 1920, max_pos = 1920 - 320 = 1600
+        let bounds = LevelBounds {
+            width_pixels: 1920,
+            height_pixels: 896,
+        };
+        let max_pos = i32::from(bounds.width_pixels) - VIEWPORT_WIDTH; // 1600
+        // Player far right: player_x = 2000, target = 2000 - 160 = 1840 > 1600
+        // Camera at max_pos already, so delta = (1600 - 1600 + 4) >> 3 = 0
+        let result = update_camera_axis(max_pos, 2000, max_pos);
+        assert_eq!(
+            result, max_pos,
+            "ASM loc_720E: target exceeding max_pos should be clamped"
+        );
+    }
+
+    /// ASM loc_720E (kid.asm:7319-7320): `subi.w #$A0,d0; bcc.s loc_720E;
+    /// moveq #0,d0` — when player_x < $A0, the subtraction underflows (carry
+    /// clear fails), so target is floored at 0.  loc_720E then checks the
+    /// upper bound but it's already within range.
+    #[test]
+    fn loc_720e_target_floored_at_zero() {
+        // Player at x=50, target = 50 - 160 = -110 → floored to 0
+        // Camera at 10, delta = (0 - 10 + 4) >> 3 = -6/8 = 0 (integer)
+        // Actually (0 - 10 + 4) = -6, >> 3 = -1 (arithmetic shift)
+        let result = update_camera_axis(10, 50, 1600);
+        assert_eq!(
+            result, 9,
+            "ASM loc_720E: target below 0 floored, camera moves left by 1"
+        );
+    }
+
+    /// ASM loc_7214 (kid.asm:7327-7334): near-left-edge snap.
+    /// When Camera_X_pos <= 4 and target < camera, velocity = -1.
+    #[test]
+    fn loc_7214_near_left_edge_nudge_minus_one() {
+        // camera = 3 (<= 4), target = 0 (< camera) → velocity = -1
+        let result = update_camera_axis(3, 0, 1600);
+        assert_eq!(
+            result, 2,
+            "ASM loc_7214: near left edge with target<camera → nudge -1"
+        );
+    }
+
+    /// ASM loc_7226 (kid.asm:7337-7344): near-right-edge snap.
+    /// When Camera_X_pos >= max_pos - 4 and target > camera, velocity = +1.
+    #[test]
+    fn loc_7214_near_right_edge_nudge_plus_one() {
+        let max_pos = 1600;
+        // camera = 1597 (>= 1600 - 4 = 1596), target = 1600 (> camera)
+        // Player needs to produce target = 1600 → player = 1600 + 160 = 1760
+        let result = update_camera_axis(1597, 1760, max_pos);
+        assert_eq!(
+            result, 1598,
+            "ASM loc_7226: near right edge with target>camera → nudge +1"
+        );
+    }
+
+    /// ASM loc_7234 (kid.asm:7347-7351): normal smooth scroll path.
+    /// `sub.w Camera_X_pos,d0; addq.w #4,d0; asr.w #3,d0` → delta clamped ±8.
+    #[test]
+    fn loc_7214_smooth_scroll_delta() {
+        // camera = 100, player = 300, target = 300 - 160 = 140
+        // delta = (140 - 100 + 4) >> 3 = 44 >> 3 = 5
+        let result = update_camera_axis(100, 300, 1600);
+        assert_eq!(
+            result, 105,
+            "ASM loc_7234: smooth scroll delta = (target - camera + 4) >> 3"
+        );
+    }
+
+    /// ASM loc_723E/loc_7246 (kid.asm:7353-7361): velocity clamped to [-8, 8].
+    #[test]
+    fn loc_7214_velocity_clamped_to_plus_minus_8() {
+        // Large positive delta: camera=0, player=1000, target=840
+        // delta = (840 - 0 + 4) >> 3 = 105, clamped to 8
+        let result_pos = update_camera_axis(0, 1000, 1600);
+        assert_eq!(result_pos, 8, "ASM loc_723E: positive delta clamped to 8");
+
+        // Large negative delta: camera=800, player=0, target=0
+        // delta = (0 - 800 + 4) >> 3 = -99, clamped to -8
+        let result_neg = update_camera_axis(800, 0, 1600);
+        assert_eq!(
+            result_neg, 792,
+            "ASM loc_7246: negative delta clamped to -8"
+        );
     }
 
     #[test]

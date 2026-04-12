@@ -138,6 +138,18 @@ pub(crate) const VRAM_CLEAR_VRAM_ADDR_LOC_700: u16 = 0x0000;
 #[allow(dead_code)]
 pub(crate) const VRAM_CLEAR_LONGWORD_COUNT_LOC_70E: u32 = 0x4000;
 
+/// ASM loc_720 (kid.asm:844): `move.w d1,(a0)+; dbf d0,loc_720` — Sprite_Table
+/// clear loop in the game-restart path (loc_6E2).  After the VRAM clear at
+/// loc_700/loc_70E, loads `lea (Sprite_Table).l,a0` and clears `$7DE0+1 = $7DE1`
+/// (32225) zero words.  `d0=$7DE0` from `move.w #$7DE0,d0`, `d1=0` from
+/// `moveq #0,d1`.  This zeroes the 64 450-byte sprite table buffer at $FFFF0000
+/// before reinitialising object/gfx slots.
+///
+/// In the native port, Rust struct initialisation zeroes all sprite state; this
+/// constant documents the original loop dimensions for parity tests.
+#[allow(dead_code)]
+pub(crate) const SPRITE_TABLE_CLEAR_WORD_COUNT_LOC_720: u32 = 0x7DE1; // $7DE0 + 1 (dbf)
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {

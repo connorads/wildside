@@ -67528,6 +67528,26 @@ fn loc_700_loc_70e_second_vram_clear_matches_first() {
     );
 }
 
+/// ASM loc_720 (kid.asm:844): `move.w d1,(a0)+; dbf d0,loc_720` — Sprite_Table
+/// clear loop.  `lea (Sprite_Table).l,a0; move.w #$7DE0,d0; moveq #0,d1` then
+/// loops $7DE0+1 = $7DE1 = 32225 zero-word writes, clearing the sprite table
+/// buffer before reinitialising object and gfx-object slots.
+#[test]
+fn loc_720_sprite_table_clear_dimensions() {
+    // d0=$7DE0, dbf iterates d0+1 times = $7DE1
+    assert_eq!(
+        crate::boot::SPRITE_TABLE_CLEAR_WORD_COUNT_LOC_720,
+        0x7DE1,
+        "ASM loc_720: dbf with d0=$7DE0 iterates $7DE1 times",
+    );
+    // $7DE1 words × 2 bytes = $FBC2 = 64450 bytes
+    assert_eq!(
+        crate::boot::SPRITE_TABLE_CLEAR_WORD_COUNT_LOC_720 * 2,
+        0xFBC2,
+        "ASM loc_720: $7DE1 words × 2 bytes = $FBC2 = 64450 bytes of sprite table",
+    );
+}
+
 #[test]
 fn loc_454_exception_vector_table_is_m68k_hardware_infrastructure() {
     // ASM loc_454 (kid.asm:513): `bra.w returnFromException` — the final
