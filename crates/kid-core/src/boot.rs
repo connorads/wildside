@@ -795,6 +795,13 @@ pub(crate) struct PauseMenuPlaneColumnLayout {
 ///   moveq  #$10,d2; sub.w d1,d2   ; d2 = words after wrap
 ///   swap d2; move.w d1,d2; swap d2 ; pack (d1, $10-d1) into d2
 /// ```
+///
+/// The ROM duplicates this exact computation at loc_69D2 (kid.asm:6716-6724)
+/// for the text-write phase. loc_69D2 is the non-wrapped branch (d1=8, d2=-1,
+/// `bra.s restart_text`) and loc_69EC (kid.asm:6727-6734) is the wrapped
+/// branch (`$40-d0` / `$10-first` / swap-pack). Both produce identical
+/// `tile_col` and `wrap_split` values — the difference is what happens after:
+/// tile save reads from VDP, text write writes to VDP with `ori.w #$4000`.
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_menu_plane_column_layout_loc_693A(
@@ -945,6 +952,142 @@ pub(crate) fn pause_menu_tile_save_plan_loc_695C(
 
         PauseMenuTileSaveRow {
             vdp_read_cmd,
+            wrap_segments,
+        }
+    })
+}
+
+/// Pause menu text selection at `restart_text` (kid.asm:6741-6745).
+///
+/// ASM:
+/// ```text
+///   cmpi.w #1,(Number_Lives).w   ; lives > 1?
+///   bgt.s  +                     ; yes → Restart Round
+///   lea    (MapUnc_PauseMenu_GiveUp).l,a1
+///   bra.s  ++
+/// + lea    (MapUnc_PauseMenu_Restart).l,a1
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PauseMenuTextSelectionRestartText {
+    /// Number_Lives <= 1 — player cannot restart, only give up.
+    GiveUp,
+    /// Number_Lives > 1 — player can restart the round.
+    RestartRound,
+}
+
+/// Select the pause menu text mapping based on remaining lives.
+///
+/// ASM `restart_text` (kid.asm:6741-6745): `cmpi.w #1,(Number_Lives).w;
+/// bgt.s +` — if lives > 1, use "Restart Round" mappings; otherwise "Give Up".
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_menu_text_selection_restart_text(
+    number_lives: u16,
+) -> PauseMenuTextSelectionRestartText {
+    if number_lives > 1 {
+        PauseMenuTextSelectionRestartText::RestartRound
+    } else {
+        PauseMenuTextSelectionRestartText::GiveUp
+    }
+}
+
+/// Compute the VDP VRAM write command for one row of the pause menu text write.
+///
+/// ASM loc_6A1E (kid.asm:6750-6760): per-row address computation within the
+/// 5-row text write loop. Identical to `pause_menu_tile_save_row_vdp_read_cmd_loc_695C`
+/// except `ori.w #$4000,d0` sets the VDP write bit (vs `ori.w #0` for read).
+/// ```text
+///   move.w d7,d3          ; d7 = Camera_Y_pos + $40 + row*8
+///   lsr.w  #3,d3          ; pixel → tile row
+///   andi.w #$1F,d3        ; wrap to 32-row plane height
+///   lsl.w  #7,d3          ; × 128 bytes = nametable row byte offset
+///   move.w d6,d0          ; d6 = tile_col * 2 (column byte offset)
+///   add.w  d3,d0          ; combine row + column
+///   ori.w  #$4000,d0      ; VDP WRITE mode
+///   swap   d0             ; high word = VRAM address + write flag
+///   move.w #0,d0          ; low word = 0 → VDP write command
+///   move.l d0,4(a6)       ; send to VDP control port
+/// ```
+///
+/// Returns the 32-bit VDP write command (`((vram_addr | $4000) << 16) | 0x0000`).
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(
+    camera_y_pos: u16,
+    tile_col: u16,
+    row: u16,
+) -> u32 {
+    // ASM restart_text: d7 = Camera_Y_pos + $40
+    // ASM loc_6A1E: d7 advances by 8 each row (addi.w #8,d7 at kid.asm:6771)
+    let y_pixel = camera_y_pos
+        .wrapping_add(PAUSE_MENU_Y_OFFSET_LOC_6948)
+        .wrapping_add(row.wrapping_mul(8));
+
+    // ASM loc_6A1E: lsr.w #3,d3; andi.w #$1F,d3; lsl.w #7,d3
+    let plane_row = (y_pixel >> 3) & 0x1F;
+    let row_byte_offset = plane_row << 7;
+
+    // ASM restart_text: add.w d0,d0 doubles tile_col to byte offset, stored in d6
+    let col_byte_offset = tile_col.wrapping_mul(2);
+
+    // ASM loc_6A1E: add.w d3,d0; ori.w #$4000,d0; swap d0; move.w #0,d0
+    let vram_addr = row_byte_offset.wrapping_add(col_byte_offset);
+    u32::from(vram_addr | 0x4000) << 16
+}
+
+/// Describes one row of the pause menu text write, including VDP addresses
+/// and word counts for both segments of a potentially wrapped write.
+///
+/// ASM loc_6A1E-loc_6A76 (kid.asm:6750-6795): each of the 5 rows either
+/// writes 8 longwords straight (16 words, non-wrapped) or splits into two
+/// word-write loops (loc_6A5A/loc_6A64 + loc_6A76) when the menu wraps
+/// around the 64-tile plane edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PauseMenuTextWriteRow {
+    /// VDP write command for the start of this row.
+    pub(crate) vdp_write_cmd: u32,
+    /// When `None`: non-wrapped — 8 longword writes (16 words) via `move.l (a1)+,(a6)`.
+    /// When `Some((first_words, second_cmd, second_words))`: wrapped write.
+    /// `first_words` word-writes from `vdp_write_cmd`, then `second_cmd` (column-reset
+    /// with $4000 write bit) for `second_words` word-writes. Total always = 16 words.
+    pub(crate) wrap_segments: Option<(u16, u32, u16)>,
+}
+
+/// Compute the full 5-row text write plan for the pause menu.
+///
+/// ASM loc_69D2–loc_6A76 (kid.asm:6716-6795): combines the column layout
+/// (loc_69D2/loc_69EC — identical to loc_693A) with per-row VDP write
+/// addresses (loc_6A1E — `ori.w #$4000` for write mode) to produce a
+/// complete write plan for the pause menu text mappings.
+///
+/// - `loc_69D2`: column layout + dispatch (non-wrapped vs loc_69EC wrapped)
+/// - `loc_69EC`: wrapped layout — same as loc_693A
+/// - `loc_6A1E`: per-row VDP write address + dispatch (non-wrapped vs loc_6A5A)
+/// - `loc_6A5A`: wrapped setup — unpack d2 into (first_words, wrapped_words)
+/// - `loc_6A64`: first-segment word-write loop + column reset (`andi.l #$FF80FFFF`)
+/// - `loc_6A76`: second-segment word-write loop
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_menu_text_write_plan_loc_69D2(
+    camera_x_pos: u16,
+    camera_y_pos: u16,
+) -> [PauseMenuTextWriteRow; 5] {
+    // ASM loc_69D2/loc_69EC: identical column layout to loc_693A.
+    let layout = pause_menu_plane_column_layout_loc_693A(camera_x_pos);
+
+    core::array::from_fn(|i| {
+        let row = i as u16;
+        let vdp_write_cmd =
+            pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(camera_y_pos, layout.tile_col, row);
+
+        let wrap_segments = layout.wrap_split.map(|(first_words, wrapped_words)| {
+            // ASM loc_6A64: after writing first_words, column-reset for second segment.
+            // andi.l #$FF80FFFF,d0 — identical to loc_69AE in the tile save path.
+            let second_cmd = pause_menu_tile_save_wrap_column_reset_loc_69AE(vdp_write_cmd);
+            (first_words, second_cmd, wrapped_words)
+        });
+
+        PauseMenuTextWriteRow {
+            vdp_write_cmd,
             wrap_segments,
         }
     })

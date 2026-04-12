@@ -16,7 +16,8 @@ use crate::boot::{
     IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24,
     PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C, PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C,
     PAUSE_MENU_Y_OFFSET_LOC_6948, PauseMenuGateLoc687C, PauseMenuPlaneColumnLayout,
-    PauseMenuSpriteEntrySub6874, RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, RAM_CLEAR_START_ADDR_LOC_5FE,
+    PauseMenuSpriteEntrySub6874, PauseMenuTextSelectionRestartText,
+    RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, RAM_CLEAR_START_ADDR_LOC_5FE,
     copy_sega_screen_palette_loc_12DFE, end_sequence_burst_camera_loop_loc_1D1EC,
     end_sequence_burst_prelude_loc_1D1D6, end_sequence_burst_sprite_init_sub_1D86C,
     end_sequence_burst_wait_loop_loc_1D1DE, end_sequence_camera_shake_sub_1D846,
@@ -26,7 +27,9 @@ use crate::boot::{
     intro_sequence_6_longword_fill_loc_1B170, intro_sequence_6_striped_tile_fill_loc_1B194,
     intro_sequence_6_tilemap_clear_loc_1B182, pause_menu_art_total_bytes_loc_690C,
     pause_menu_gate_loc_687C, pause_menu_plane_column_layout_loc_693A,
-    pause_menu_tile_save_plan_loc_695C, pause_menu_tile_save_row_vdp_read_cmd_loc_695C,
+    pause_menu_text_selection_restart_text, pause_menu_text_write_plan_loc_69D2,
+    pause_menu_text_write_row_vdp_write_cmd_loc_6A1E, pause_menu_tile_save_plan_loc_695C,
+    pause_menu_tile_save_row_vdp_read_cmd_loc_695C,
     pause_menu_tile_save_wrap_column_reset_loc_69AE, prize_10000_points_star_advance_loc_10BCE,
     prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
     prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
@@ -1259,6 +1262,149 @@ fn loc_695c_plan_all_rows_address_different_plane_rows() {
         plane_rows,
         vec![8, 9, 10, 11, 12],
         "ASM loc_695C: 5 consecutive plane rows starting at (($40>>3)&$1F) = 8"
+    );
+}
+
+#[test]
+fn loc_69d2_column_layout_matches_loc_693a() {
+    // ASM loc_69D2 (kid.asm:6716-6724): identical column layout computation to
+    // loc_693A (kid.asm:6645-6652). Both compute ((Camera_X_pos + $60) >> 3) & $3F
+    // and split at tile_col > $30. The function pause_menu_plane_column_layout_loc_693A
+    // covers both — verify a few representative values.
+    let layout_origin = pause_menu_plane_column_layout_loc_693A(0);
+    assert_eq!(layout_origin.tile_col, 0x0C);
+    assert!(
+        layout_origin.wrap_split.is_none(),
+        "loc_69D2: tile_col=$C <= $30 → no wrap"
+    );
+
+    // loc_69EC (kid.asm:6727-6734): wrapping case, same as loc_693A.
+    let layout_wrap = pause_menu_plane_column_layout_loc_693A(0x128);
+    assert_eq!(layout_wrap.tile_col, 0x31);
+    assert_eq!(
+        layout_wrap.wrap_split,
+        Some((0x0F, 0x01)),
+        "loc_69EC: tile_col=$31 → 15 words before edge, 1 after wrap"
+    );
+}
+
+#[test]
+fn restart_text_gives_up_when_lives_le_1() {
+    // ASM restart_text (kid.asm:6741): cmpi.w #1,(Number_Lives).w; bgt.s +
+    // Lives=0 → Give Up, Lives=1 → Give Up, Lives=2 → Restart Round.
+    assert_eq!(
+        pause_menu_text_selection_restart_text(0),
+        PauseMenuTextSelectionRestartText::GiveUp,
+        "ASM restart_text: 0 lives → Give Up"
+    );
+    assert_eq!(
+        pause_menu_text_selection_restart_text(1),
+        PauseMenuTextSelectionRestartText::GiveUp,
+        "ASM restart_text: 1 life → Give Up (cmpi.w #1 + bgt.s means > 1 required)"
+    );
+    assert_eq!(
+        pause_menu_text_selection_restart_text(2),
+        PauseMenuTextSelectionRestartText::RestartRound,
+        "ASM restart_text: 2 lives → Restart Round"
+    );
+    assert_eq!(
+        pause_menu_text_selection_restart_text(99),
+        PauseMenuTextSelectionRestartText::RestartRound,
+        "ASM restart_text: many lives → Restart Round"
+    );
+}
+
+#[test]
+fn loc_6a1e_vdp_write_cmd_at_origin() {
+    // ASM loc_6A1E (kid.asm:6750-6760): Camera_Y_pos=0, tile_col=$C, row=0.
+    // d7 = 0 + $40 = $40 → d3 = ($40 >> 3) & $1F = 8 → row_offset = 8 << 7 = $400.
+    // d6 = $C * 2 = $18.  d0 = $400 + $18 = $418.
+    // ori.w #$4000 → $4418.  swap → $44180000.
+    let cmd = pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(0, 0x0C, 0);
+    assert_eq!(
+        cmd, 0x4418_0000,
+        "ASM loc_6A1E: VDP write cmd = row $400 + col $18 + $4000 write bit"
+    );
+}
+
+#[test]
+fn loc_6a1e_write_cmd_differs_from_695c_read_cmd_by_0x4000() {
+    // ASM loc_6A1E uses `ori.w #$4000` vs loc_695C `ori.w #0`.
+    // The write command should be exactly $4000_0000 higher than the read command.
+    let read_cmd = pause_menu_tile_save_row_vdp_read_cmd_loc_695C(0, 0x0C, 0);
+    let write_cmd = pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(0, 0x0C, 0);
+    assert_eq!(
+        write_cmd,
+        read_cmd | 0x4000_0000,
+        "ASM: write cmd = read cmd | $4000 in high word"
+    );
+}
+
+#[test]
+fn loc_6a1e_rows_advance_by_8_pixels() {
+    // ASM loc_6A1E: addi.w #8,d7 advances y by 8 pixels each row,
+    // same as loc_695C for tile save.
+    let cmd0 = pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(0, 0, 0);
+    let cmd1 = pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(0, 0, 1);
+    // Row 0: plane_row = ($40>>3)&$1F = 8. Row 1: plane_row = ($48>>3)&$1F = 9.
+    // Difference: 1 row × 128 bytes = $80, shifted left 16 = $0080_0000.
+    assert_eq!(
+        cmd1 - cmd0,
+        0x0080_0000,
+        "ASM loc_6A1E: consecutive rows differ by one plane row ($80 bytes)"
+    );
+}
+
+#[test]
+fn loc_69d2_text_write_plan_non_wrapped_has_5_rows() {
+    // ASM loc_69D2 + loc_6A1E (kid.asm:6716-6772): 5 rows (d5=4, dbf),
+    // no wrapping at camera origin.
+    let plan = pause_menu_text_write_plan_loc_69D2(0, 0);
+    assert_eq!(plan.len(), 5, "ASM loc_6A1E: d5=4 → 5 text write rows");
+    for (i, row) in plan.iter().enumerate() {
+        assert!(
+            row.wrap_segments.is_none(),
+            "ASM loc_69D2: camera_x=0 → no plane-edge wrap (row {i})"
+        );
+        // Verify write bit is set
+        assert_ne!(
+            row.vdp_write_cmd & 0x4000_0000,
+            0,
+            "ASM loc_6A1E: VDP write bit must be set (row {i})"
+        );
+    }
+}
+
+#[test]
+fn loc_69ec_wrapped_text_write_plan_splits_each_row() {
+    // ASM loc_69EC (kid.asm:6727-6734): wrapping case.
+    // Camera_X_pos=$128 → tile_col=$31, first_words=$F, wrapped_words=$1.
+    let plan = pause_menu_text_write_plan_loc_69D2(0x128, 0);
+    for (i, row) in plan.iter().enumerate() {
+        let (first, _second_cmd, wrapped) = row
+            .wrap_segments
+            .unwrap_or_else(|| panic!("ASM loc_69EC: camera_x=$128 → wrap expected (row {i})"));
+        assert_eq!(first, 0x0F, "ASM loc_6A5A: first_words=$F (row {i})");
+        assert_eq!(wrapped, 0x01, "ASM loc_6A76: wrapped_words=$1 (row {i})");
+    }
+}
+
+#[test]
+fn loc_6a64_wrapped_second_cmd_clears_column_preserves_write_bit() {
+    // ASM loc_6A64 (kid.asm:6787): andi.l #$FF80FFFF,d0 — same column reset
+    // as loc_69AE but operating on a write command (has $4000 bit set).
+    let plan = pause_menu_text_write_plan_loc_69D2(0x128, 0);
+    let (_first, second_cmd, _wrapped) = plan[0].wrap_segments.unwrap();
+    // Column bits cleared, but $4000 write bit and row offset preserved.
+    assert_eq!(
+        second_cmd & 0x007F_0000,
+        0,
+        "ASM loc_6A64: column byte offset cleared in second segment"
+    );
+    assert_ne!(
+        second_cmd & 0x4000_0000,
+        0,
+        "ASM loc_6A64: $4000 write bit preserved after column reset"
     );
 }
 
