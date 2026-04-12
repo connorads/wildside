@@ -33496,6 +33496,133 @@ fn shishka_bagel_head_3_wait_loop_loc_39746_nonzero_collision_exit() {
 }
 
 #[test]
+fn shishka_bagel_head_3_activation_loc_39752_waits_outside_signed_vertical_window() {
+    // ASM loc_39752 (kid.asm:42361): Kid Y < head_y-$40 or Kid Y > head_y
+    // → branch back to loc_39734 wait loop
+    let above = shishka_bagel_head_3_activation_window_loc_39752(0x0090, 0x003F, 0x0080, 0x0080);
+    let below = shishka_bagel_head_3_activation_window_loc_39752(0x0090, 0x0081, 0x0080, 0x0080);
+
+    assert_eq!(
+        above.next,
+        ShishkaBagelHead3ActivationNextLoc39752::WaitLoopLoc39734,
+        "ASM loc_39752: blt.s loc_39734 when signed Kid Y < head_y-$40",
+    );
+    assert_eq!(
+        below.next,
+        ShishkaBagelHead3ActivationNextLoc39752::WaitLoopLoc39734,
+        "ASM loc_39752: bgt.s loc_39734 when signed Kid Y > head_y",
+    );
+    assert!(!above.kid_within_vertical_window);
+    assert!(!below.kid_within_vertical_window);
+    assert_eq!((above.x_direction, below.x_direction), (None, None));
+}
+
+#[test]
+fn shishka_bagel_head_3_activation_loc_39752_proceeds_inside_signed_vertical_window() {
+    // ASM loc_39752: inclusive bounds [head_y-$40, head_y] → direction check
+    let lower_edge =
+        shishka_bagel_head_3_activation_window_loc_39752(0x0090, 0x0040, 0x0080, 0x0080);
+    let upper_edge =
+        shishka_bagel_head_3_activation_window_loc_39752(0x0090, 0x0080, 0x0080, 0x0080);
+
+    assert_eq!(
+        (lower_edge.next, upper_edge.next),
+        (
+            ShishkaBagelHead3ActivationNextLoc39752::AttackAnimationLoc39794,
+            ShishkaBagelHead3ActivationNextLoc39752::AttackAnimationLoc39794,
+        ),
+        "ASM loc_39752: both vertical compare bounds are inclusive",
+    );
+    assert!(lower_edge.kid_within_vertical_window);
+    assert!(upper_edge.kid_within_vertical_window);
+}
+
+#[test]
+fn shishka_bagel_head_3_activation_loc_39780_faces_left_when_head_right_of_kid() {
+    // ASM loc_39780 (kid.asm:42379): `cmp.w d5,d3; bgt.s loc_39780` →
+    // `sf x_direction(a3)` clears direction to 0 when head_x > kid_x
+    let result = shishka_bagel_head_3_activation_window_loc_39752(0x007F, 0x0040, 0x0080, 0x0080);
+
+    assert!(result.kid_within_vertical_window);
+    assert_eq!(
+        (
+            result.x_direction,
+            result.cached_x_direction_fffffb88,
+            result.animation_script_label,
+            result.next,
+        ),
+        (
+            Some(0),
+            Some(0),
+            Some("stru_39FC6"),
+            ShishkaBagelHead3ActivationNextLoc39752::AttackAnimationLoc39794,
+        ),
+        "ASM loc_39780: sf x_direction(a3) when head_x > kid_x; loc_39784: mirror to $FFFFFB88, start stru_39FC6",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_3_activation_loc_39784_faces_right_on_equal_or_left_head_x() {
+    // ASM loc_39784 (kid.asm:42382): fallthrough `st x_direction(a3)` → $FF
+    // when head_x <= kid_x, then mirror to $FFFFFB88 and start stru_39FC6
+    let equal = shishka_bagel_head_3_activation_window_loc_39752(0x0080, 0x0080, 0x0080, 0x0080);
+    let left = shishka_bagel_head_3_activation_window_loc_39752(0x0081, 0x0080, 0x0080, 0x0080);
+
+    assert_eq!(
+        (equal.x_direction, left.x_direction),
+        (Some(0xFF), Some(0xFF)),
+        "ASM loc_39780 skipped: st x_direction(a3) stores $FF when head_x <= kid_x",
+    );
+    assert_eq!(equal.cached_x_direction_fffffb88, Some(0xFF));
+    assert_eq!(left.animation_script_label, Some("stru_39FC6"));
+}
+
+#[test]
+fn shishka_bagel_head_3_attack_wait_loc_39794_shishka_zero_status() {
+    // ASM loc_39794 (kid.asm:42387): hibernate, tst.w d2 → beq sub_398BC,
+    // d7→$FFFFFB76, beq.s loc_397B2 (check animation done)
+    let result = shishka_bagel_head_3_attack_wait_loop_loc_39794(0, 0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(result.runs_shishka_movement_sub_398bc);
+    assert!(!result.runs_bagel_movement_sub_39eb4);
+    assert_eq!(result.cached_collision_word_fffffb76, 0);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead3AttackWaitNextLoc39794::CheckAttackAnimationDoneLoc397B2,
+        "ASM loc_39794: zero d7 → beq.s loc_397B2 to check animation done",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_3_attack_wait_loc_39794_bagel_zero_status() {
+    // ASM loc_39794+loc_397A2: d2!=0 → bsr.w sub_39EB4 (BagelBrothers path)
+    let result = shishka_bagel_head_3_attack_wait_loop_loc_39794(1, 0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(!result.runs_shishka_movement_sub_398bc);
+    assert!(result.runs_bagel_movement_sub_39eb4);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead3AttackWaitNextLoc39794::CheckAttackAnimationDoneLoc397B2,
+    );
+}
+
+#[test]
+fn shishka_bagel_head_3_attack_wait_loc_39794_nonzero_collision_exit() {
+    // ASM loc_397A6: move.w d7,($FFFFFB76).w; tst.w d7;
+    // bra.w loc_39EBE on nonzero
+    let result = shishka_bagel_head_3_attack_wait_loop_loc_39794(0, 0x0005);
+
+    assert_eq!(result.cached_collision_word_fffffb76, 0x0005);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead3AttackWaitNextLoc39794::SharedCollisionExitLoc39EBE,
+        "ASM loc_397A6: tst.w d7; bra.w loc_39EBE on nonzero d7",
+    );
+}
+
+#[test]
 fn boss_eye_orbit_sub_393c8_loc_393de_applies_right_table_offset_and_y_shift() {
     // ASM loc_393DE (kid.asm:41970): common path after table selection in sub_393C8.
     // When d2==0, beq.s loc_393DE skips the word_3940C load and uses word_39416[0]=$FFF4=-12.

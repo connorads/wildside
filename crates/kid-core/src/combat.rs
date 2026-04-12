@@ -695,6 +695,36 @@ pub(crate) struct ShishkaBagelHead3WaitLoopLoc39734 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead3ActivationNextLoc39752 {
+    WaitLoopLoc39734,
+    AttackAnimationLoc39794,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead3ActivationWindowLoc39752 {
+    pub(crate) kid_within_vertical_window: bool,
+    pub(crate) x_direction: Option<u8>,
+    pub(crate) cached_x_direction_fffffb88: Option<u8>,
+    pub(crate) animation_script_label: Option<&'static str>,
+    pub(crate) next: ShishkaBagelHead3ActivationNextLoc39752,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead3AttackWaitNextLoc39794 {
+    CheckAttackAnimationDoneLoc397B2,
+    SharedCollisionExitLoc39EBE,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead3AttackWaitLoopLoc39794 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_shishka_movement_sub_398bc: bool,
+    pub(crate) runs_bagel_movement_sub_39eb4: bool,
+    pub(crate) cached_collision_word_fffffb76: u16,
+    pub(crate) next: ShishkaBagelHead3AttackWaitNextLoc39794,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoomerangBossHeadWaitNextLoc37F80 {
     CheckKidWindowLoc37F94,
     SharedCollisionExitLoc39EBE,
@@ -3058,6 +3088,84 @@ pub(crate) fn shishka_bagel_head_3_wait_loop_loc_39734(
             ShishkaBagelHead3WaitNextLoc39734::CheckKidWindowLoc39752
         } else {
             ShishkaBagelHead3WaitNextLoc39734::SharedCollisionExitLoc39EBE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_3_activation_window_loc_39752(
+    kid_x: u16,
+    kid_y: u16,
+    head_x: u16,
+    head_y: u16,
+) -> ShishkaBagelHead3ActivationWindowLoc39752 {
+    // ASM loc_39752 (kid.asm:42361): load Kid gfx coordinates from
+    // `(Addr_GfxObject_Kid).w`, check signed Kid Y within inclusive
+    // `[head_y-$40, head_y]` activation window, branch back to `loc_39734`
+    // wait loop if outside.
+    let lower_y = head_y.wrapping_sub(0x0040);
+    let kid_within_vertical_window =
+        !word_lt_signed(kid_y, lower_y) && !word_gt_signed(kid_y, head_y);
+
+    if !kid_within_vertical_window {
+        return ShishkaBagelHead3ActivationWindowLoc39752 {
+            kid_within_vertical_window,
+            x_direction: None,
+            cached_x_direction_fffffb88: None,
+            animation_script_label: None,
+            next: ShishkaBagelHead3ActivationNextLoc39752::WaitLoopLoc39734,
+        };
+    }
+
+    // ASM loc_39780 (kid.asm:42379): `sf x_direction(a3)` — clear direction
+    // to 0 when head 3 is strictly right of Kid (`cmp.w d5,d3; bgt.s`).
+    // Fallthrough at kid.asm:42375 stores `$FF` via `st x_direction(a3)`.
+    let x_direction = if word_gt_signed(head_x, kid_x) {
+        0
+    } else {
+        0xFF
+    };
+
+    // ASM loc_39784 (kid.asm:42382): mirror selected `x_direction(a3)` byte
+    // into `($FFFFFB88).w`, load `stru_39FC6` into `d7`, call
+    // `j_Init_Animation` to start the attack animation.
+    ShishkaBagelHead3ActivationWindowLoc39752 {
+        kid_within_vertical_window,
+        x_direction: Some(x_direction),
+        cached_x_direction_fffffb88: Some(x_direction),
+        animation_script_label: Some("stru_39FC6"),
+        next: ShishkaBagelHead3ActivationNextLoc39752::AttackAnimationLoc39794,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_3_attack_wait_loop_loc_39794(
+    variant_d2: u16,
+    movement_status_d7: u16,
+) -> ShishkaBagelHead3AttackWaitLoopLoc39794 {
+    // ASM loc_39794 (kid.asm:42387): hibernate one frame after `stru_39FC6`,
+    // then branch on d2: d2==0 calls `sub_398BC` (ShishkaBoss movement),
+    // d2!=0 falls through to loc_397A2 → `bsr.w sub_39EB4` (BagelBrothers
+    // movement).
+    //
+    // ASM loc_397A2 (kid.asm:42395): `bsr.w sub_39EB4` — BagelBrothers
+    // movement subroutine call, reached when d2!=0 (`tst.w d2; bne.s`).
+    //
+    // ASM loc_397A6 (kid.asm:42398): convergence — `move.w d7,($FFFFFB76).w`,
+    // `tst.w d7`, `beq.s loc_397B2` (check animation done),
+    // `bra.w loc_39EBE` (shared collision exit) when d7 nonzero.
+    let is_shishka = variant_d2 == 0;
+    ShishkaBagelHead3AttackWaitLoopLoc39794 {
+        hibernates_one_frame: true,
+        runs_shishka_movement_sub_398bc: is_shishka,
+        runs_bagel_movement_sub_39eb4: !is_shishka,
+        cached_collision_word_fffffb76: movement_status_d7,
+        next: if movement_status_d7 == 0 {
+            ShishkaBagelHead3AttackWaitNextLoc39794::CheckAttackAnimationDoneLoc397B2
+        } else {
+            ShishkaBagelHead3AttackWaitNextLoc39794::SharedCollisionExitLoc39EBE
         },
     }
 }
