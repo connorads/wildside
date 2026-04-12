@@ -32996,6 +32996,85 @@ fn shishka_bagel_head_1_post_projectile_anim_gate_loc_3958e_done_returns() {
 }
 
 #[test]
+fn shishka_bagel_head_2_init_loc_39598_shishkaboss_variant() {
+    // ASM loc_39598 (kid.asm:42182): when d2==0 (ShishkaBoss), beq.s loc_395B4
+    // leaves d0=$22. loc_395B4 stores into object_meta, bset #7, jsr loc_32146.
+    // loc_39608: ShishkaBoss_HitPointsPerHead=$14 overwrites initial $3E=$1E.
+    let result = shishka_bagel_head_2_init_loc_39598(0x0280, 0x0160, 0);
+
+    assert_eq!(
+        (
+            result.gfx_slot_base,
+            result.priority,
+            result.object_meta_base
+        ),
+        (0x0104_0002, 0, 0x0022),
+        "ASM loc_39598: gfx slot $01040002, priority 0, object_meta $22 for ShishkaBoss",
+    );
+    assert!(
+        result.sets_object_meta_bit_f,
+        "ASM loc_395B4: bset #7,object_meta(a3) must set bit F of the stored word",
+    );
+    assert!(result.runs_common_boss_init_loc_32146);
+    assert_eq!(
+        (
+            result.has_kid_collision,
+            result.display_enabled,
+            result.is_moved
+        ),
+        (false, true, true),
+        "ASM loc_395B4: sf has_kid_collision, st $13, st is_moved",
+    );
+    assert_eq!(
+        result.initial_field_3e, 0x001E,
+        "ASM loc_395B4: move.w #$1E,$3E(a3) — initial value before HP override",
+    );
+    assert_eq!(
+        (result.hit_points, result.movement_script_label),
+        (0x0014, "unk_39872"),
+        "ASM loc_39608: ShishkaBoss_HitPointsPerHead=$14, movement script unk_39872",
+    );
+    assert_eq!(
+        (result.x_pos, result.y_pos),
+        (0x0280, 0x0160),
+        "ASM loc_395B4: anchor $44/$46 copied to x_pos/y_pos",
+    );
+    assert_eq!(
+        (result.cached_worker_slot_label, result.sprite_mapping_label),
+        ("$FFFFFB7E", "LnkTo_unk_C8600-Data_Index"),
+        "ASM loc_395B4: cache a3 at $FFFFFB7E, sprite LnkTo_unk_C8600",
+    );
+    assert_eq!(
+        (result.delay_counter_d0, result.script_index_d1),
+        (1, 0),
+        "ASM loc_395B4: moveq #1,d0 and move.w #0,d1 seed the movement script",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_init_loc_39598_bagel_variant() {
+    // ASM loc_39598 (kid.asm:42182): when d2!=0 (BagelBrothers), d0=$24 is loaded
+    // before falling through to loc_395B4. Uses unk_39C2E with
+    // BagelBrothers_HitPointsPerHead=$1E (same as initial $3E value).
+    let result = shishka_bagel_head_2_init_loc_39598(0x0300, 0x0180, 1);
+
+    assert_eq!(
+        result.object_meta_base, 0x0024,
+        "ASM loc_39598: move.w #$24,d0 when d2!=0 (BagelBrothers)",
+    );
+    assert_eq!(
+        (result.hit_points, result.movement_script_label),
+        (0x001E, "unk_39C2E"),
+        "ASM loc_395B4: BagelBrothers_HitPointsPerHead=$1E, movement script unk_39C2E",
+    );
+    assert_eq!(
+        (result.x_pos, result.y_pos),
+        (0x0300, 0x0180),
+        "ASM loc_395B4: anchor positions forwarded from parent's $44/$46",
+    );
+}
+
+#[test]
 fn boss_eye_orbit_sub_393c8_loc_393de_applies_right_table_offset_and_y_shift() {
     // ASM loc_393DE (kid.asm:41970): common path after table selection in sub_393C8.
     // When d2==0, beq.s loc_393DE skips the word_3940C load and uses word_39416[0]=$FFF4=-12.

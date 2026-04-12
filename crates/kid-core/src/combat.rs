@@ -551,6 +551,27 @@ pub(crate) struct ShishkaBagelHead1PostProjectileAnimGateLoc3958E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead2InitLoc39598 {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority: u8,
+    pub(crate) object_meta_base: u16,
+    pub(crate) sets_object_meta_bit_f: bool,
+    pub(crate) runs_common_boss_init_loc_32146: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) display_enabled: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) initial_field_3e: u16,
+    pub(crate) hit_points: u16,
+    pub(crate) sprite_mapping_label: &'static str,
+    pub(crate) cached_worker_slot_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) movement_script_label: &'static str,
+    pub(crate) delay_counter_d0: u16,
+    pub(crate) script_index_d1: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoomerangBossHeadWaitNextLoc37F80 {
     CheckKidWindowLoc37F94,
     SharedCollisionExitLoc39EBE,
@@ -2605,6 +2626,53 @@ pub(crate) fn shishka_bagel_head_1_init_loc_39478(
         hit_points,
         sprite_mapping_label: "LnkTo_unk_C8600-Data_Index",
         cached_worker_slot_label: "$FFFFFB7A",
+        x_pos: anchor_x_44,
+        y_pos: anchor_y_46,
+        movement_script_label,
+        delay_counter_d0: 1,
+        script_index_d1: 0,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_2_init_loc_39598(
+    anchor_x_44: u16,
+    anchor_y_46: u16,
+    variant_d2: u16,
+) -> ShishkaBagelHead2InitLoc39598 {
+    // ASM loc_39598 (kid.asm:42182): head 2 init for ShishkaBoss/BagelBrothers.
+    // Allocates gfx slot $01040002, priority 0. Selects object_meta $22 (d2==0,
+    // ShishkaBoss) or $24 (d2!=0, BagelBrothers) then falls through to loc_395B4.
+    //
+    // ASM loc_395B4 (kid.asm:42191): head 2 setup fallthrough — stores d0 into
+    // object_meta(a3), bset #7, jsr loc_32146, sf has_kid_collision, st $13,
+    // st is_moved, move.w #$1E,$3E(a3), LnkTo_unk_C8600 sprite, cache a3 at
+    // $FFFFFB7E, copy anchor $44/$46. Then branch on d2: unk_39872 +
+    // ShishkaBoss_HitPointsPerHead ($14) when d2==0, unk_39C2E +
+    // BagelBrothers_HitPointsPerHead ($1E) when d2!=0.
+    //
+    // ASM loc_39608 (kid.asm:42214): ShishkaBoss HP path — move.w
+    // #ShishkaBoss_HitPointsPerHead,$3E(a3), overwriting the initial $1E.
+    let (object_meta_base, hit_points, movement_script_label) = if variant_d2 == 0 {
+        (0x0022_u16, 0x0014_u16, "unk_39872")
+    } else {
+        (0x0024, 0x001E, "unk_39C2E")
+    };
+
+    ShishkaBagelHead2InitLoc39598 {
+        gfx_slot_base: 0x0104_0002,
+        priority: 0,
+        object_meta_base,
+        sets_object_meta_bit_f: true,
+        runs_common_boss_init_loc_32146: true,
+        has_kid_collision: false,
+        display_enabled: true,
+        is_moved: true,
+        initial_field_3e: 0x001E,
+        hit_points,
+        sprite_mapping_label: "LnkTo_unk_C8600-Data_Index",
+        cached_worker_slot_label: "$FFFFFB7E",
         x_pos: anchor_x_44,
         y_pos: anchor_y_46,
         movement_script_label,
