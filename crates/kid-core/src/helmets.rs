@@ -1387,6 +1387,132 @@ pub(crate) fn diamond_power_snake_steer(
     }
 }
 
+/// Diamond-power sprite attribute table.
+/// ASM word_4020E (kid.asm:45605): 10 entries of (size_byte, pattern_word),
+/// stored as 4-byte pairs. Indexed by `diamond_size * 4`.
+///
+/// Each entry's first byte is the VDP sprite size field and the word at
+/// offset +2 is the base pattern index.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const DIAMOND_SPRITE_ATTR_TABLE: [(u8, u16); 10] = [
+    (0x00, 0x86EA), // d6=0x00
+    (0x00, 0x86EB), // d6=0x04
+    (0x00, 0x86EC), // d6=0x08
+    (0x00, 0x86ED), // d6=0x0C
+    (0x05, 0x86EE), // d6=0x10
+    (0x05, 0x86F2), // d6=0x14
+    (0x05, 0x86F6), // d6=0x18
+    (0x05, 0x8231), // d6=0x1C
+    (0x00, 0x822D), // d6=0x20
+    (0x05, 0xE6FA), // d6=0x24
+];
+
+/// Result of processing a single snake slot in the sprite compilation loop.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SnakeSlotSpriteAction {
+    /// Slot produced a visible sprite entry (Y, size_byte, pattern, X).
+    Visible {
+        y: u16,
+        size_byte: u8,
+        pattern: u16,
+        x: u16,
+    },
+    /// Slot off-screen or not yet ready — no sprite emitted.
+    Skipped,
+    /// Slot size reached zero during fade-out — slot should be removed.
+    Removed,
+}
+
+/// ASM loc_3FB20 through loc_3FB88 (kid.asm:44848–44893): per-slot sprite
+/// compilation for DiamondPower_Main_Snake.
+///
+/// loc_3FB20: fade-out check — when `Diamond_power_timer < 0`, every 16 frames
+/// (`Time_Frames & $F == 0`) decrements `$24(a0)` (diamond_size). If size
+/// reaches zero, calls `sub_3F5E8` (deallocate) and skips to `loc_3FB88`.
+///
+/// loc_3FB3E: sprite compilation — computes screen position from slot world
+/// coords + camera offsets (d3=$7F-Camera_X, d4=$7F-Camera_Y), centres by
+/// subtracting diamond_size, bounds-checks x,y in `(0, $1E0)`, and writes
+/// the sprite entry (Y, size+link, pattern, X) to the buffer.
+///
+/// loc_3FB88: linked-list traversal tail — `move.l 4(a0),d0; bne.s loc_3FB20;
+/// rts`. In native code the caller iterates the slot Vec, so this is implicit.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_snake_slot_sprite(
+    slot: &mut SnakeSlot,
+    camera_x: i16,
+    camera_y: i16,
+    power_timer: i16,
+    time_frames: u16,
+) -> SnakeSlotSpriteAction {
+    // ASM: d3 = $7F - Camera_X_pos; d4 = $7F - Camera_Y_pos
+    let d3 = 0x7Fi16.wrapping_sub(camera_x);
+    let d4 = 0x7Fi16.wrapping_sub(camera_y);
+
+    // ASM loc_3FB20: tst.w (Diamond_power_timer).w; bge.s loc_3FB3E
+    if power_timer < 0 {
+        // ASM: move.w (Time_Frames).w,d1; andi.w #$F,d1; bne.s loc_3FB3E
+        if time_frames & 0xF == 0 {
+            // ASM: subq.w #1,$24(a0); bne.s loc_3FB3E
+            slot.diamond_size = slot.diamond_size.wrapping_sub(1);
+            if slot.diamond_size == 0 {
+                // ASM: bsr.w sub_3F5E8; bra.s loc_3FB88
+                return SnakeSlotSpriteAction::Removed;
+            }
+        }
+    }
+
+    // ASM loc_3FB3E: screen position = world pos + camera offset
+    let d0 = slot.x_pos.wrapping_add(d3);
+    let d1 = slot.y_pos.wrapping_add(d4);
+
+    // ASM: sub.w d6,d0; sub.w d6,d1 — centre by diamond_size
+    let d6 = slot.diamond_size as i16;
+    let x = d0.wrapping_sub(d6);
+    let y = d1.wrapping_sub(d6);
+
+    // ASM: add.w d6,d6; add.w d6,d6 — d6 *= 4 (table index)
+    let table_index = (slot.diamond_size as usize).wrapping_mul(4);
+
+    // ASM: d5 = d6 + $1144; move.w d5,$22(a0) — pattern stored in slot
+    // (VDP attribute, not used in native rendering pipeline)
+
+    // ASM: bounds check — x in (0, $1E0), y in (0, $1E0)
+    // tst.w d0; ble.s loc_3FB88
+    if x <= 0 {
+        return SnakeSlotSpriteAction::Skipped;
+    }
+    // cmpi.w #$1E0,d0; bge.s loc_3FB88
+    if x >= 0x1E0 {
+        return SnakeSlotSpriteAction::Skipped;
+    }
+    // tst.w d1; ble.s loc_3FB88
+    if y <= 0 {
+        return SnakeSlotSpriteAction::Skipped;
+    }
+    // cmpi.w #$1E0,d1; bge.s loc_3FB88
+    if y >= 0x1E0 {
+        return SnakeSlotSpriteAction::Skipped;
+    }
+
+    // ASM: look up sprite attributes from word_4020E
+    let entry_index = table_index / 4;
+    let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
+        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
+    } else {
+        // Out-of-range sizes use last entry (defensive; ASM doesn't bounds-check)
+        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
+    };
+
+    SnakeSlotSpriteAction::Visible {
+        y: y as u16,
+        size_byte,
+        pattern,
+        x: x as u16,
+    }
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {

@@ -12247,6 +12247,155 @@ fn diamond_power_snake_steer_same_octant_diagonal_axis_swap_loc_3fa84() {
 }
 
 // -----------------------------------------------------------------------
+// Snake slot sprite compilation (loc_3FB20, loc_3FB3E, loc_3FB88)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_snake_slot_sprite_visible_loc_3fb3e() {
+    // ASM loc_3FB3E: compile sprite for a slot within screen bounds.
+    // Screen pos = world_pos + ($7F - camera). With camera=0, d3=d4=$7F.
+    // x = (100 + $7F) - 3 = 224, y = (80 + $7F) - 3 = 204.
+    // diamond_size=3, table index=3 → (0x00, 0x86ED).
+    let mut slot = helmets::SnakeSlot {
+        x_pos: 100,
+        y_pos: 80,
+        diamond_size: 3,
+        trail: [(0, 0); 3],
+    };
+    let result = helmets::diamond_power_snake_slot_sprite(&mut slot, 0, 0, 10, 0);
+    assert_eq!(
+        result,
+        helmets::SnakeSlotSpriteAction::Visible {
+            y: 204,
+            size_byte: 0x00,
+            pattern: 0x86ED,
+            x: 224,
+        },
+        "ASM loc_3FB3E: visible slot should produce sprite entry with word_4020E[3] attributes"
+    );
+}
+
+#[test]
+fn diamond_power_snake_slot_sprite_offscreen_left_loc_3fb3e() {
+    // ASM loc_3FB3E: tst.w d0; ble.s loc_3FB88 — off-screen left skips sprite.
+    let mut slot = helmets::SnakeSlot {
+        x_pos: -200,
+        y_pos: 80,
+        diamond_size: 3,
+        trail: [(0, 0); 3],
+    };
+    let result = helmets::diamond_power_snake_slot_sprite(&mut slot, 0, 0, 10, 0);
+    assert_eq!(
+        result,
+        helmets::SnakeSlotSpriteAction::Skipped,
+        "ASM loc_3FB3E: x <= 0 should skip to loc_3FB88"
+    );
+}
+
+#[test]
+fn diamond_power_snake_slot_sprite_offscreen_bottom_loc_3fb3e() {
+    // ASM loc_3FB3E: cmpi.w #$1E0,d1; bge.s loc_3FB88 — off-screen bottom.
+    let mut slot = helmets::SnakeSlot {
+        x_pos: 100,
+        y_pos: 500,
+        diamond_size: 1,
+        trail: [(0, 0); 3],
+    };
+    let result = helmets::diamond_power_snake_slot_sprite(&mut slot, 0, 0, 10, 0);
+    assert_eq!(
+        result,
+        helmets::SnakeSlotSpriteAction::Skipped,
+        "ASM loc_3FB3E: y >= $1E0 should skip to loc_3FB88"
+    );
+}
+
+#[test]
+fn diamond_power_snake_slot_sprite_fade_shrink_loc_3fb20() {
+    // ASM loc_3FB20: timer < 0 AND Time_Frames & $F == 0 → subq.w #1,$24.
+    // Size 4 → 3, still > 0 so falls through to loc_3FB3E for sprite compile.
+    let mut slot = helmets::SnakeSlot {
+        x_pos: 100,
+        y_pos: 80,
+        diamond_size: 4,
+        trail: [(0, 0); 3],
+    };
+    let result = helmets::diamond_power_snake_slot_sprite(&mut slot, 0, 0, -1, 0x10);
+    assert_eq!(slot.diamond_size, 3, "ASM loc_3FB20: subq.w #1,$24(a0)");
+    // Should still produce a visible sprite (size 3 → table index 3)
+    assert!(
+        matches!(result, helmets::SnakeSlotSpriteAction::Visible { .. }),
+        "ASM loc_3FB20: nonzero size after decrement falls through to loc_3FB3E"
+    );
+}
+
+#[test]
+fn diamond_power_snake_slot_sprite_fade_remove_loc_3fb20() {
+    // ASM loc_3FB20: timer < 0, Time_Frames & $F == 0, size was 1 → becomes 0.
+    // bsr.w sub_3F5E8; bra.s loc_3FB88 — deallocate and skip.
+    let mut slot = helmets::SnakeSlot {
+        x_pos: 100,
+        y_pos: 80,
+        diamond_size: 1,
+        trail: [(0, 0); 3],
+    };
+    let result = helmets::diamond_power_snake_slot_sprite(&mut slot, 0, 0, -1, 0x20);
+    assert_eq!(
+        result,
+        helmets::SnakeSlotSpriteAction::Removed,
+        "ASM loc_3FB20: size reaching 0 calls sub_3F5E8 and skips to loc_3FB88"
+    );
+}
+
+#[test]
+fn diamond_power_snake_slot_sprite_fade_skipped_frame_loc_3fb20() {
+    // ASM loc_3FB20: timer < 0 but Time_Frames & $F != 0 → no shrink,
+    // falls through to loc_3FB3E. Size unchanged.
+    let mut slot = helmets::SnakeSlot {
+        x_pos: 100,
+        y_pos: 80,
+        diamond_size: 4,
+        trail: [(0, 0); 3],
+    };
+    let result = helmets::diamond_power_snake_slot_sprite(&mut slot, 0, 0, -1, 0x13);
+    assert_eq!(
+        slot.diamond_size, 4,
+        "ASM loc_3FB20: Time_Frames & $F != 0 skips decrement"
+    );
+    assert!(
+        matches!(result, helmets::SnakeSlotSpriteAction::Visible { .. }),
+        "ASM loc_3FB20: non-shrink frame still compiles sprite at loc_3FB3E"
+    );
+}
+
+#[test]
+fn diamond_power_snake_slot_sprite_positive_timer_no_fade_loc_3fb20() {
+    // ASM loc_3FB20: tst.w (Diamond_power_timer).w; bge.s loc_3FB3E
+    // Timer >= 0 → skip fade logic entirely, go straight to sprite compile.
+    let mut slot = helmets::SnakeSlot {
+        x_pos: 100,
+        y_pos: 80,
+        diamond_size: 2,
+        trail: [(0, 0); 3],
+    };
+    let result = helmets::diamond_power_snake_slot_sprite(&mut slot, 0, 0, 0, 0x00);
+    assert_eq!(
+        slot.diamond_size, 2,
+        "ASM loc_3FB20: timer >= 0 bypasses fade, size unchanged"
+    );
+    // diamond_size=2, table index=2 → (0x00, 0x86EC)
+    assert_eq!(
+        result,
+        helmets::SnakeSlotSpriteAction::Visible {
+            y: (80 + 0x7F - 2) as u16,
+            size_byte: 0x00,
+            pattern: 0x86EC,
+            x: (100 + 0x7F - 2) as u16,
+        },
+        "ASM loc_3FB3E: positive timer compiles sprite directly"
+    );
+}
+
+// -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------
 
