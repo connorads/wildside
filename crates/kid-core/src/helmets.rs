@@ -1577,6 +1577,118 @@ pub(crate) fn diamond_power_init_extra_hp_life(is_extra_life: bool) -> ExtraHPLi
     ExtraHPLifeInitResult { slots }
 }
 
+/// Single slot from Invulnerability / SamuraiHaze init.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct InvulnHazeSlot {
+    pub(crate) radius: u16,         // $3E(a0) — byte from init data
+    pub(crate) radius_frac: u16,    // $40(a0) — always 0
+    pub(crate) y_offset: i16,       // $46(a0) — sign-extended byte
+    pub(crate) phase: u16,          // $42(a0) — byte from init data
+    pub(crate) rotation_speed: u16, // $48(a0) — byte from init data
+}
+
+/// Result of `diamond_power_init_invuln_haze`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct InvulnHazeInitResult {
+    pub(crate) slots: Vec<InvulnHazeSlot>,
+    pub(crate) diamond_power_timer: u16,
+}
+
+/// ASM DiamondPower_Init_Invulnerability (loc_3FC78) /
+///     DiamondPower_Init_SamuraiHaze (loc_3FC82).
+///
+/// loc_3FC78: `st (KidIsInvulnerable).w; lea DiamondPower_InitData_Invulnerability(pc),a1; bra.s loc_3FC8A`
+/// loc_3FC82: `st (SamuraiHazeActive).w; lea DiamondPower_InitData_SamuraiHaze(pc),a1`
+///
+/// loc_3FC8A (kid.asm:45006): common entry — `moveq #9,d1` (10 slots via dbf).
+///
+/// loc_3FC8C (kid.asm:45010): allocation loop —
+///   `bsr.w Allocate_DiamondPowerObjectSlot`
+///   `moveq #0,d3; move.b (a1)+,d3; move.w d3,$3E(a0)` — radius from table
+///   `clr.w $40(a0)` — radius fraction = 0
+///   `move.b (a1)+,d3; ext.w d3; move.w d3,$46(a0)` — y_offset (sign-extended byte)
+///   `moveq #0,d3; move.b (a1)+,d3; move.w d3,$42(a0)` — phase from table
+///   `move.b (a1)+,d3; move.w d3,$48(a0)` — rotation speed from table
+///   `move.w #0,$22(a0)` — clear field $22
+///   `dbf d1,loc_3FC8C` — loop 10 times
+///   `move.w #$1E0,(Diamond_power_timer).w` — timer = 480
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_init_invuln_haze(is_invulnerability: bool) -> InvulnHazeInitResult {
+    // ASM DiamondPower_InitData_Invulnerability (kid.asm:45043) /
+    //     DiamondPower_InitData_SamuraiHaze (kid.asm:45030):
+    // 10 entries × 4 bytes: (radius, y_offset, phase, rotation_speed)
+    #[rustfmt::skip]
+    const SAMURAI_HAZE_DATA: [[i8; 4]; 10] = [
+        [0x0C, -0x24, 0x00, 0x02],
+        [0x0C, -0x24, -0x80i8, 0x02], // $80 as signed = -128
+        [0x0C, 0x04,  -0x80i8, 0x02],
+        [0x0C, 0x04,  0x00, 0x02],
+        [0x15, -0x1A, 0x20, 0x02],
+        [0x15, -0x1A, -0x60i8, 0x02], // $A0 = -96
+        [0x15, -0x06, 0x60, 0x02],
+        [0x15, -0x06, -0x20i8, 0x02], // $E0 = -32
+        [0x18, -0x10, 0x40, 0x02],
+        [0x18, -0x10, -0x40i8, 0x02], // $C0 = -64
+    ];
+    #[rustfmt::skip]
+    const INVULNERABILITY_DATA: [[i8; 4]; 10] = [
+        [0x0C, -0x24, 0x00, 0x06],
+        [0x0C, -0x24, -0x80i8, 0x06],
+        [0x0C, 0x04,  0x40, 0x06],
+        [0x0C, 0x04,  -0x40i8, 0x06], // $C0 = -64
+        [0x15, -0x1A, 0x10, 0x06],
+        [0x15, -0x1A, -0x70i8, 0x06], // $90 = -112
+        [0x15, -0x06, 0x30, 0x06],
+        [0x15, -0x06, -0x50i8, 0x06], // $B0 = -80
+        [0x18, -0x10, 0x20, 0x06],
+        [0x18, -0x10, -0x60i8, 0x06], // $A0 = -96
+    ];
+
+    let data = if is_invulnerability {
+        &INVULNERABILITY_DATA
+    } else {
+        &SAMURAI_HAZE_DATA
+    };
+
+    // ASM loc_3FC8A: moveq #9,d1 → 10 slots
+    let mut slots = Vec::with_capacity(10);
+
+    // ASM loc_3FC8C: allocation loop
+    for entry in data {
+        // moveq #0,d3; move.b (a1)+,d3 → unsigned byte for radius
+        let radius = entry[0] as u8 as u16;
+        // move.b (a1)+,d3; ext.w d3 → sign-extended byte for y_offset
+        let y_offset = entry[1] as i16;
+        // moveq #0,d3; move.b (a1)+,d3 → unsigned byte for phase
+        let phase = entry[2] as u8 as u16;
+        // move.b (a1)+,d3 → note: d3 still has prior upper byte from ext.w,
+        // but move.w d3,$48(a0) writes only the low word. The byte is loaded
+        // with moveq #0,d3 clearing first... actually: the ASM does NOT do
+        // moveq #0 before the 4th byte — it does `move.b (a1)+,d3` then
+        // `move.w d3,$48(a0)`. But d3 was cleared by the prior `moveq #0,d3`
+        // at the phase step and only the low byte is overwritten by move.b,
+        // so the upper byte of d3.w is 0. Result: unsigned byte.
+        let rotation_speed = entry[3] as u8 as u16;
+
+        slots.push(InvulnHazeSlot {
+            radius,
+            radius_frac: 0, // clr.w $40(a0)
+            y_offset,
+            phase,
+            rotation_speed,
+        });
+    }
+
+    // ASM: move.w #$1E0,(Diamond_power_timer).w
+    InvulnHazeInitResult {
+        slots,
+        diamond_power_timer: 0x1E0, // 480
+    }
+}
+
 /// Per-slot update action from `diamond_power_main_extra_hp_life_slot`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -1671,7 +1783,9 @@ pub(crate) fn diamond_power_main_extra_hp_life_slot(
         slot.radius = ((new_radius_hi as u32) << 16) | (slot.radius & 0xFFFF);
         // ASM: bge.s loc_3FC56 — if radius_hi >= 0 (unsigned sub didn't go negative)
         if (new_radius_hi as i16) < 0 {
-            // Slot converged: award HP or life
+            // Slot converged: award HP or life, then cleanup.
+            // ASM loc_3FC4E: type=7 → addq.w #1,(Number_Lives).w
+            // ASM loc_3FC4C/loc_3FC52: bra.w sub_3F63C (dealloc slot).
             // ASM: cmpi.w #7,$24(a0); beq.s loc_3FC4E
             if slot.power_type == 7 {
                 // ExtraLife: addq.w #1,(Number_Lives).w

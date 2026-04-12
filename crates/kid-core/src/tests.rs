@@ -12600,6 +12600,111 @@ fn diamond_power_main_extra_hp_life_converge_awards_life_loc_3fc4e() {
     );
 }
 
+#[test]
+fn diamond_power_converge_cleanup_loc_3fc52() {
+    // ASM loc_3FC52 (kid.asm:44977): convergence after awarding HP or life.
+    // Both the HP path (loc_3FC4C → loc_3FC52) and life path (loc_3FC4E →
+    // loc_3FC52) reach `bra.w sub_3F63C` which deallocates the slot.
+    // In native code, this is represented by the `Converged` return variant.
+    //
+    // Verify both type=7 and type=8 reach the convergence point.
+    for (power_type, label) in [(7u16, "ExtraLife"), (8, "ExtraHitPoint")] {
+        let mut slot = helmets::ExtraHPLifeSlot {
+            radius: 0x0001_0000, // upper word = 1, subtracting 6 → negative
+            angle: 0x0000_0000,
+            power_type,
+        };
+        let result = helmets::diamond_power_main_extra_hp_life_slot(
+            &mut slot, 100, 80, 0, 0, 0x40, // contracting phase
+            0,
+        );
+        assert!(
+            matches!(result, helmets::ExtraHPLifeSlotAction::Converged { .. }),
+            "ASM loc_3FC52: {label} convergence → bra.w sub_3F63C"
+        );
+    }
+}
+
+#[test]
+fn diamond_power_init_invulnerability_loc_3fc8a_loc_3fc8c() {
+    // ASM loc_3FC8A (kid.asm:45006): common Invulnerability/SamuraiHaze init
+    // entry — moveq #9,d1 (10 slots via dbf).
+    // ASM loc_3FC8C (kid.asm:45010): allocation loop — reads 4 bytes per slot
+    // from DiamondPower_InitData_Invulnerability (kid.asm:45043).
+    let result = helmets::diamond_power_init_invuln_haze(true);
+    assert_eq!(
+        result.slots.len(),
+        10,
+        "ASM loc_3FC8A: moveq #9,d1 → 10 slots"
+    );
+    assert_eq!(
+        result.diamond_power_timer, 0x1E0,
+        "ASM loc_3FC8C: move.w #$1E0,(Diamond_power_timer).w"
+    );
+
+    // First slot: radius=$0C, y_offset=-$24, phase=$00, rotation_speed=$06
+    let s0 = &result.slots[0];
+    assert_eq!(s0.radius, 0x0C, "ASM loc_3FC8C: slot 0 radius");
+    assert_eq!(
+        s0.y_offset, -0x24,
+        "ASM loc_3FC8C: slot 0 y_offset (sign-extended)"
+    );
+    assert_eq!(s0.phase, 0x00, "ASM loc_3FC8C: slot 0 phase");
+    assert_eq!(s0.rotation_speed, 6, "ASM loc_3FC8C: slot 0 rotation_speed");
+    assert_eq!(s0.radius_frac, 0, "ASM loc_3FC8C: clr.w $40(a0)");
+
+    // Third slot (index 2): radius=$0C, y_offset=$04, phase=$40, rotation_speed=$06
+    let s2 = &result.slots[2];
+    assert_eq!(s2.radius, 0x0C, "ASM loc_3FC8C: slot 2 radius");
+    assert_eq!(
+        s2.y_offset, 0x04,
+        "ASM loc_3FC8C: slot 2 y_offset (positive)"
+    );
+    assert_eq!(s2.phase, 0x40, "ASM loc_3FC8C: slot 2 phase");
+    assert_eq!(s2.rotation_speed, 6, "ASM loc_3FC8C: slot 2 rotation_speed");
+
+    // Last slot (index 9): radius=$18, y_offset=-$10, phase=$A0, rotation_speed=$06
+    let s9 = &result.slots[9];
+    assert_eq!(s9.radius, 0x18, "ASM loc_3FC8C: slot 9 radius");
+    assert_eq!(s9.y_offset, -0x10, "ASM loc_3FC8C: slot 9 y_offset");
+    assert_eq!(
+        s9.phase, 0xA0,
+        "ASM loc_3FC8C: slot 9 phase ($A0 zero-extended)"
+    );
+    assert_eq!(s9.rotation_speed, 6, "ASM loc_3FC8C: slot 9 rotation_speed");
+}
+
+#[test]
+fn diamond_power_init_samurai_haze_loc_3fc8a_loc_3fc8c() {
+    // ASM DiamondPower_Init_SamuraiHaze (loc_3FC82): st (SamuraiHazeActive).w,
+    // then falls through to loc_3FC8A/loc_3FC8C with SamuraiHaze init data.
+    // DiamondPower_InitData_SamuraiHaze (kid.asm:45030): rotation_speed=2.
+    let result = helmets::diamond_power_init_invuln_haze(false);
+    assert_eq!(result.slots.len(), 10, "ASM loc_3FC8A: 10 slots");
+    assert_eq!(result.diamond_power_timer, 0x1E0);
+
+    // First slot: radius=$0C, y_offset=-$24, phase=$00, rotation_speed=$02
+    let s0 = &result.slots[0];
+    assert_eq!(s0.radius, 0x0C);
+    assert_eq!(s0.y_offset, -0x24);
+    assert_eq!(s0.phase, 0x00);
+    assert_eq!(
+        s0.rotation_speed, 2,
+        "SamuraiHaze rotation_speed=2 (vs Invuln=6)"
+    );
+
+    // Slot 1: phase=$80 (zero-extended = 128)
+    assert_eq!(
+        result.slots[1].phase, 0x80,
+        "ASM loc_3FC8C: $80 zero-extended"
+    );
+    // Slot 4: radius=$15, y_offset=-$1A, phase=$20
+    let s4 = &result.slots[4];
+    assert_eq!(s4.radius, 0x15);
+    assert_eq!(s4.y_offset, -0x1A);
+    assert_eq!(s4.phase, 0x20);
+}
+
 // -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------
