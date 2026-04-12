@@ -35635,6 +35635,138 @@ fn red_stealth_sword_no_hit_when_out_of_range() {
     );
 }
 
+// --- sub_868E sword worker lifecycle: loc_86CE, loc_86D8, loc_86E8, loc_86EC ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_86CE (kid.asm:9541): `add.w $1A(a0),d7; move.w d7,x_pos(a3)` — the
+/// common x-position store after the facing branch. d7=$1C when x_direction==0
+/// (Right in native), d7=-$1C when flipped. Verifies the offset sign matches.
+fn loc_86CE_sword_anchor_x_offset_sign() {
+    let mut slice = combat_slice();
+    // Right-facing: offset positive (ahead)
+    slice.player.facing = Direction::Right;
+    let (rx, _) = red_stealth_swing_anchor_sub_868E(&slice.player);
+    let player_x = slice.player.x_pos;
+    assert!(
+        rx > player_x,
+        "ASM loc_86CE: right-facing sword x ({rx:#X}) must be ahead of player x ({player_x:#X})",
+    );
+    // Left-facing: offset negative (behind in world coords)
+    slice.player.facing = Direction::Left;
+    let (lx, _) = red_stealth_swing_anchor_sub_868E(&slice.player);
+    assert!(
+        lx < player_x,
+        "ASM loc_86CE: left-facing sword x ({lx:#X}) must be behind player x ({player_x:#X})",
+    );
+    // Symmetry: right offset == left offset mirrored around player
+    let r_delta = rx.wrapping_sub(player_x);
+    let l_delta = player_x.wrapping_sub(lx);
+    assert_eq!(
+        r_delta, l_delta,
+        "ASM loc_86CE: right/left X offsets must be symmetric",
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_86D8 (kid.asm:9546): `moveq #3,d0` then `dbf d0,loc_86D8` = 4
+/// iterations. Each iteration hibernates one frame and checks collision_type.
+/// Native models this as RED_STEALTH_ACTIVE_FRAMES=4 ticks of sword_is_active().
+fn loc_86D8_sword_active_for_four_frames() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    // Set timer directly to the active-phase start value
+    rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+
+    let mut active_count = 0u8;
+    while rt.sword_is_active() {
+        active_count += 1;
+        rt.step_red_stealth_sword(FrameInput::default());
+    }
+
+    assert_eq!(
+        active_count, 4,
+        "ASM loc_86D8: dbf d0 with d0=3 gives 4 active frames, not 3",
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_86E8 (kid.asm:9552): `jmp Delete_CurrentObject` — reached when the
+/// dbf loop falls through (d0=-1, no collision). In native, the timer reaches 0
+/// and sword_is_active() returns false, ending all hit processing.
+fn loc_86E8_sword_expires_after_active_frames() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    // Set timer to 1 (last active frame)
+    rt.helmet.red_stealth_sword_timer = 1;
+    assert!(rt.sword_is_active());
+
+    // Tick once — timer becomes 0
+    rt.step_red_stealth_sword(FrameInput::default());
+
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0,
+        "ASM loc_86E8: timer should reach 0 after final active frame",
+    );
+    assert!(
+        !rt.sword_is_active(),
+        "ASM loc_86E8: sword_is_active() must be false once timer expires (Delete_CurrentObject)",
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_86EC (kid.asm:9556): `collision_type(a3)` non-zero → play
+/// sfx_Red_Stealth_hitting_a_target → bra.s loc_86E8 (delete). In native,
+/// process_sword_hits detects the overlap and deals damage. The hit sound is
+/// visual-only; the behavioural part is the damage application.
+fn loc_86EC_sword_collision_damages_enemy() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+    let slice = combat_slice();
+
+    // Place enemy exactly at the sword anchor (guaranteed overlap)
+    let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
+    rt.active_enemies
+        .push(test_enemy(EnemyFamily::Goat, sx, sy, 3));
+
+    rt.process_sword_hits(&slice);
+
+    assert_eq!(
+        rt.active_enemies[0].hit_points, 2,
+        "ASM loc_86EC: collision_type non-zero path must damage the enemy",
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_86EC → loc_86E8: after the hit sound, the sword object is deleted.
+/// In native, damage is applied but the timer continues ticking. Verify that
+/// a hit does NOT prematurely end the swing (native checks every active frame,
+/// unlike ASM which deletes on first contact).
+fn loc_86EC_hit_does_not_end_active_frames() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+    let slice = combat_slice();
+
+    let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
+    rt.active_enemies
+        .push(test_enemy(EnemyFamily::Goat, sx, sy, 5));
+
+    rt.process_sword_hits(&slice);
+
+    // Timer should still be active (native doesn't delete on first hit)
+    assert!(
+        rt.sword_is_active(),
+        "native sword stays active after a hit (ASM deletes on first contact — \
+         native checks every frame instead)",
+    );
+}
+
 #[test]
 fn red_stealth_floor_impact_sub_b000_breaks_smash_blocks_and_bounces_kid() {
     let mut grid = grid_with_floor_at_row(10);

@@ -534,9 +534,11 @@ pub(crate) const SKYCUTTER_MAX_UPWARD_VEL: i32 = -0x7_8000;
 // === RedStealth ===
 
 /// RedStealth sword: C press spawns a melee hitbox 28px ahead, 10px up
-/// from the player. 8 frames startup, 3 frames active. One swing at a time.
+/// from the player. 8 frames startup, 4 frames active. One swing at a time.
+/// ASM sub_868E (kid.asm:9522): `move.w #8,-(sp); jsr Hibernate_Object` = 8 startup.
+/// ASM loc_86D8 (kid.asm:9546): `moveq #3,d0` + `dbf d0,loc_86D8` = 4 active iterations.
 pub(crate) const RED_STEALTH_STARTUP_FRAMES: u8 = 8;
-pub(crate) const RED_STEALTH_ACTIVE_FRAMES: u8 = 3;
+pub(crate) const RED_STEALTH_ACTIVE_FRAMES: u8 = 4;
 pub(crate) const RED_STEALTH_REACH_X: i32 = 28;
 pub(crate) const RED_STEALTH_OFFSET_Y: i32 = -10;
 pub(crate) const RED_STEALTH_HIT_HALF: i32 = 8;

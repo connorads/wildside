@@ -8,6 +8,11 @@ pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u
     // position, subtracts 10px from Y, then offsets X by 28px toward the
     // active facing. Native `Direction::Right` mirrors the clear x-direction
     // player pose used by the existing Red Stealth combat path.
+    //
+    // ASM loc_86CE (kid.asm:9541): `add.w $1A(a0),d7; move.w d7,x_pos(a3)`.
+    // Before this label, d7=$1C (28) if `$16(a0)==0` (beq taken = default
+    // facing = Right in native terms) or d7=-$1C if flipped. loc_86CE is the
+    // common path that adds Kid's x_pos to d7 and stores it on the sword.
     let x_offset_px = if player.facing == Direction::Right {
         RED_STEALTH_REACH_X
     } else {
@@ -3357,6 +3362,12 @@ impl NativeRuntime {
     }
 
     /// Returns true if the sword hitbox is active (past startup, within active frames).
+    /// ASM loc_86D8 (kid.asm:9546): each iteration of the `dbf d0,loc_86D8` loop
+    /// hibernates one frame and checks `collision_type(a3)`. Native models this
+    /// as `timer > 0 && timer <= ACTIVE_FRAMES`.
+    /// ASM loc_86E8 (kid.asm:9552): `jmp Delete_CurrentObject` — reached when
+    /// the loop exhausts (no collision). Native: `timer` reaches 0 →
+    /// `sword_is_active()` returns false, ending hit checks.
     pub(crate) fn sword_is_active(&self) -> bool {
         self.helmet.red_stealth_sword_timer > 0
             && self.helmet.red_stealth_sword_timer <= RED_STEALTH_ACTIVE_FRAMES
@@ -3364,6 +3375,10 @@ impl NativeRuntime {
 
     /// Check sword hitbox against active enemies during active frames.
     /// Damages hit enemies and removes dead ones.
+    /// ASM loc_86EC (kid.asm:9556): `collision_type(a3)` non-zero → play
+    /// `sfx_Red_Stealth_hitting_a_target`, then `bra.s loc_86E8` (delete).
+    /// Native processes the hit (damage/kill) and continues checking each
+    /// active frame — the ASM deletes on first contact per swing.
     pub(crate) fn process_sword_hits(&mut self, slice: &OpeningSliceState) {
         if !self.sword_is_active() {
             return;
