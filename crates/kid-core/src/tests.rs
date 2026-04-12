@@ -11376,7 +11376,44 @@ fn diamond_power_object_remove_sub_3f5e8_unlinks_the_slot_and_keeps_flags_while_
             samurai_haze_active: true,
             kid_is_invulnerable: true,
         },
-        "ASM sub_3F5E8 should unlink the removed slot, prepend it to `Addr_NextFreeDPObjectSlot`, and keep the three global flags set while `Addr_FirstDPObjectSlot` stays non-null"
+        "ASM loc_3F5EC: traversal loop finds predecessor; loc_3F5F8 skips tail update because removed slot is not Addr_LastDPObjectSlot"
+    );
+}
+
+/// ASM loc_3F60C: when the removed slot IS `Addr_LastDPObjectSlot` and the
+/// predecessor is not the sentinel, `move.l a1,(Addr_LastDPObjectSlot).w`
+/// updates the tail pointer to the predecessor.
+#[test]
+fn diamond_power_object_remove_sub_3f5e8_updates_last_pointer_when_tail_removed_loc_3f60c() {
+    // Remove the tail slot (0xF344) while 0xF2AC remains.
+    // ASM loc_3F5EC traverses past 0xF2AC to find 0xF344; loc_3F5F8 detects
+    // it equals Addr_LastDPObjectSlot; a1 (predecessor 0xF2AC) is not the
+    // sentinel, so loc_3F60C stores 0xF2AC as the new Addr_LastDPObjectSlot.
+    let result = helmets::diamond_power_object_remove_sub_3F5E8(
+        helmets::DiamondPowerObjectListsSub3F5E8 {
+            active_slots: vec![0xF2AC, 0xF344],
+            free_slots: vec![0xF390],
+            last_active_slot: Some(0xF344),
+            diamond_power_active: true,
+            five_way_shot_ready: false,
+            samurai_haze_active: false,
+            kid_is_invulnerable: false,
+        },
+        0xF344,
+    );
+
+    assert_eq!(
+        result,
+        helmets::DiamondPowerObjectListsSub3F5E8 {
+            active_slots: vec![0xF2AC],
+            free_slots: vec![0xF344, 0xF390],
+            last_active_slot: Some(0xF2AC),
+            diamond_power_active: true,
+            five_way_shot_ready: false,
+            samurai_haze_active: false,
+            kid_is_invulnerable: false,
+        },
+        "ASM loc_3F60C: predecessor becomes new Addr_LastDPObjectSlot when tail is removed"
     );
 }
 
@@ -11406,7 +11443,7 @@ fn diamond_power_object_remove_sub_3f5e8_clears_shared_flags_when_the_last_slot_
             samurai_haze_active: false,
             kid_is_invulnerable: false,
         },
-        "ASM sub_3F5E8 loc_3F62E should clear `FiveWayShotReady`, `SamuraiHazeActive`, and `KidIsInvulnerable` only after the last active diamond-power slot is removed"
+        "ASM loc_3F5F8: removed slot IS Addr_LastDPObjectSlot and predecessor IS sentinel ($FFFFF5A0), so clr.l Addr_LastDPObjectSlot; loc_3F62E clears shared flags when list empties"
     );
 }
 

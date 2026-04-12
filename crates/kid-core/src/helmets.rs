@@ -647,8 +647,10 @@ pub(crate) fn diamond_power_object_remove_sub_3F5E8(
     mut lists: DiamondPowerObjectListsSub3F5E8,
     remove_slot: u16,
 ) -> DiamondPowerObjectListsSub3F5E8 {
-    // ASM sub_3F5E8 walks the active linked list from the sentinel at
-    // `$FFFFF5A0`, unlinks `a0`, then prepends it to the free list.
+    // ASM loc_3F5EC: traversal loop — `move.l 4(a1),d0; cmp.l d0,a0;
+    // beq.s loc_3F5F8; move.l d0,a1; bra.s loc_3F5EC` walks the singly-
+    // linked active list from the sentinel ($FFFFF5A0) to find the
+    // predecessor of `a0`.
     let remove_index = lists
         .active_slots
         .iter()
@@ -657,12 +659,17 @@ pub(crate) fn diamond_power_object_remove_sub_3F5E8(
     lists.active_slots.remove(remove_index);
     lists.free_slots.insert(0, remove_slot);
 
+    // ASM loc_3F5F8: `cmp.l (Addr_LastDPObjectSlot).w,a0; bne.s loc_3F610`
+    // checks whether the removed slot was the tail. If the predecessor is
+    // the sentinel, `clr.l (Addr_LastDPObjectSlot).w`; otherwise
+    // ASM loc_3F60C: `move.l a1,(Addr_LastDPObjectSlot).w` updates the
+    // tail pointer to the predecessor.
     if lists.last_active_slot == Some(remove_slot) {
         lists.last_active_slot = lists.active_slots.last().copied();
     }
 
-    // ASM `tst.l (Addr_FirstDPObjectSlot).w; sne (Diamond_power_active).w`.
-    // If no active slots remain, it also clears the three shared flags.
+    // ASM loc_3F610: `tst.l (Addr_FirstDPObjectSlot).w; sne (Diamond_power_active).w`.
+    // If no active slots remain, it also clears the three shared flags (loc_3F62E).
     lists.diamond_power_active = !lists.active_slots.is_empty();
     if !lists.diamond_power_active {
         lists.five_way_shot_ready = false;
