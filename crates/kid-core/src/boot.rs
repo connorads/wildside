@@ -1093,6 +1093,236 @@ pub(crate) fn pause_menu_text_write_plan_loc_69D2(
     })
 }
 
+/// VDP write commands for the pause menu arrow cursor indicators.
+///
+/// ASM loc_6A84 (kid.asm:6799-6826): after drawing the pause menu text, this
+/// routine clears Up/Down from `Ctrl_Pressed`, resets `Pause_Option` to 0, and
+/// computes two VDP VRAM write commands for the arrow cursor positions:
+/// - `upper_arrow_cmd`: at pixel row `Camera_Y_pos + $48` (the "Continue" line)
+/// - `lower_arrow_cmd`: at pixel row `Camera_Y_pos + $58` (the "Restart/Give Up" line)
+///
+/// Both use column `Camera_X_pos + $68` (the right edge of the menu text area).
+///
+/// ```text
+///   move.w (Camera_X_pos).w,d0     ; column pixel position
+///   addi.w #$68,d0                 ; offset to arrow column
+///   lsr.w  #3,d0                   ; pixel → tile column
+///   andi.w #$3F,d0                 ; wrap to 64-tile plane width
+///   add.w  d0,d0                   ; tile → byte offset (×2)
+///   move.w d0,d1                   ; d1 = same column byte offset
+///   ; --- upper arrow (d0): Camera_Y + $48 ---
+///   move.w (Camera_Y_pos).w,d3
+///   addi.w #$48,d3
+///   lsr.w  #3,d3; andi.w #$1F,d3; lsl.w #7,d3
+///   add.w  d3,d0
+///   ori.w  #$4000,d0; swap d0; move.w #0,d0
+///   ; --- lower arrow (d1): Camera_Y + $58 ---
+///   move.w (Camera_Y_pos).w,d3
+///   addi.w #$58,d3
+///   lsr.w  #3,d3; andi.w #$1F,d3; lsl.w #7,d3
+///   add.w  d3,d1
+///   ori.w  #$4000,d1; swap d1; move.w #0,d1
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PauseMenuArrowCursorCmdsLoc6A84 {
+    /// VDP write command for the upper arrow position (Camera_Y + $48).
+    pub(crate) upper_arrow_cmd: u32,
+    /// VDP write command for the lower arrow position (Camera_Y + $58).
+    pub(crate) lower_arrow_cmd: u32,
+}
+
+/// Compute the VDP write commands for the pause menu arrow cursor positions.
+///
+/// ASM loc_6A84 (kid.asm:6799-6826): both arrows share the same column
+/// (`Camera_X_pos + $68` → tile → byte offset) but differ in row:
+/// `$48` for upper, `$58` for lower.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_menu_arrow_cursor_cmds_loc_6A84(
+    camera_x_pos: u16,
+    camera_y_pos: u16,
+) -> PauseMenuArrowCursorCmdsLoc6A84 {
+    // ASM loc_6A84: addi.w #$68,d0; lsr.w #3,d0; andi.w #$3F,d0; add.w d0,d0
+    let col_byte_offset = {
+        let tile_col = (camera_x_pos.wrapping_add(0x68) >> 3) & 0x3F;
+        tile_col * 2
+    };
+
+    // Helper: compute VDP write command for a given Y pixel offset.
+    // ASM: addi.w #offset,d3; lsr.w #3,d3; andi.w #$1F,d3; lsl.w #7,d3;
+    //      add.w d3,d0; ori.w #$4000,d0; swap d0; move.w #0,d0
+    let vdp_write_cmd = |y_offset: u16| -> u32 {
+        let plane_row = (camera_y_pos.wrapping_add(y_offset) >> 3) & 0x1F;
+        let row_byte_offset = plane_row << 7;
+        let vram_addr = row_byte_offset.wrapping_add(col_byte_offset);
+        u32::from(vram_addr | 0x4000) << 16
+    };
+
+    PauseMenuArrowCursorCmdsLoc6A84 {
+        upper_arrow_cmd: vdp_write_cmd(0x48),
+        lower_arrow_cmd: vdp_write_cmd(0x58),
+    }
+}
+
+/// Result of a pause loop cursor-move action.
+///
+/// ASM Game_Paused_Loop (kid.asm:6829-6857): when Up or Down is pressed and
+/// the cursor can move, the loop writes two tile words to the arrow positions
+/// and updates `Pause_Option`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PauseMenuCursorMove {
+    /// Tile word written to the upper arrow VDP address.
+    pub(crate) upper_arrow_tile: u16,
+    /// Tile word written to the lower arrow VDP address.
+    pub(crate) lower_arrow_tile: u16,
+    /// New value of `Pause_Option` after the move.
+    pub(crate) new_pause_option: u8,
+}
+
+/// Arrow tile constants used by the pause menu cursor.
+///
+/// ASM Game_Paused_Loop (kid.asm:6839-6856):
+/// - `$867C`: the arrow-present tile (points at the selected option)
+/// - `$8678`: the arrow-absent tile (blank / no arrow)
+const PAUSE_ARROW_PRESENT_TILE: u16 = 0x867C;
+const PAUSE_ARROW_ABSENT_TILE: u16 = 0x8678;
+
+/// Handle the Down button press inside the pause loop.
+///
+/// ASM loc_6B0E (kid.asm:6846-6857):
+/// ```text
+///   bclr  #Button_Down,(Ctrl_Pressed).w
+///   beq.s Game_Paused_ChkStart     ; not pressed → skip
+///   tst.b (Pause_Option).w
+///   bne.s Game_Paused_ChkStart     ; already on restart → skip
+///   ; move cursor down
+///   move.l d0,4(a6)               ; upper arrow VDP cmd
+///   move.w #$8678,(a6)            ; clear upper arrow
+///   move.l d1,4(a6)               ; lower arrow VDP cmd
+///   move.w #$867C,(a6)            ; draw lower arrow
+///   addi.b #1,(Pause_Option).w    ; Pause_Option = 1
+/// ```
+///
+/// Returns `Some(move)` if the cursor moved down, `None` if the button
+/// was not pressed or the cursor was already at the bottom.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_loop_down_handler_loc_6B0E(
+    down_pressed: bool,
+    pause_option: u8,
+) -> Option<PauseMenuCursorMove> {
+    // ASM loc_6B0E: bclr #Button_Down; beq.s skip; tst.b Pause_Option; bne.s skip
+    if !down_pressed || pause_option != 0 {
+        return None;
+    }
+    // ASM loc_6B0E: move.w #$8678 to upper, #$867C to lower, addi.b #1
+    Some(PauseMenuCursorMove {
+        upper_arrow_tile: PAUSE_ARROW_ABSENT_TILE,
+        lower_arrow_tile: PAUSE_ARROW_PRESENT_TILE,
+        new_pause_option: pause_option.wrapping_add(1),
+    })
+}
+
+/// Handle the Up button press inside the pause loop.
+///
+/// ASM Game_Paused_Loop (kid.asm:6832-6843):
+/// ```text
+///   bclr  #Button_Up,(Ctrl_Pressed).w
+///   beq.s loc_6B0E                 ; not pressed → check Down
+///   tst.b (Pause_Option).w
+///   beq.s Game_Paused_ChkStart     ; already on continue → skip
+///   ; move cursor up
+///   move.l d0,4(a6)               ; upper arrow VDP cmd
+///   move.w #$867C,(a6)            ; draw upper arrow
+///   move.l d1,4(a6)               ; lower arrow VDP cmd
+///   move.w #$8678,(a6)            ; clear lower arrow
+///   subi.b #1,(Pause_Option).w    ; Pause_Option = 0
+/// ```
+///
+/// Returns `Some(move)` if the cursor moved up, `None` if the button
+/// was not pressed or the cursor was already at the top.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_loop_up_handler_game_paused_loop(
+    up_pressed: bool,
+    pause_option: u8,
+) -> Option<PauseMenuCursorMove> {
+    // ASM Game_Paused_Loop: bclr #Button_Up; beq.s loc_6B0E; tst.b Pause_Option; beq.s skip
+    if !up_pressed || pause_option == 0 {
+        return None;
+    }
+    // ASM: move.w #$867C to upper, #$8678 to lower, subi.b #1
+    Some(PauseMenuCursorMove {
+        upper_arrow_tile: PAUSE_ARROW_PRESENT_TILE,
+        lower_arrow_tile: PAUSE_ARROW_ABSENT_TILE,
+        new_pause_option: pause_option.wrapping_sub(1),
+    })
+}
+
+/// Result of the Start button press inside the pause loop.
+///
+/// ASM Game_Paused_ChkStart (kid.asm:6859-6878): when Start is pressed, the
+/// outcome depends on `Pause_Option`:
+/// - 0 → continue game (unpause, fall through to tile restore at loc_6B68)
+/// - non-zero → restart/give up: decrement `Number_Lives`, then either
+///   restart the level (lives remaining) or set `Game_Paused = 3` at loc_6B62
+///   (last life → game over path).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PauseMenuStartResult {
+    /// Start not pressed — continue the pause loop.
+    NotPressed,
+    /// `Pause_Option == 0` → continue game (unpause).
+    ContinueGame,
+    /// `Pause_Option != 0`, lives remaining after decrement → restart level.
+    RestartLevel {
+        /// `Number_Lives` after the `subi.w #1` decrement.
+        remaining_lives: u16,
+    },
+    /// ASM loc_6B62 (kid.asm:6877): `Pause_Option != 0` and `Number_Lives - 1 == 0`
+    /// → last life lost, set `Game_Paused = 3` (game over / "bummer" voice path).
+    LastLifeGameOver,
+}
+
+/// Handle the Start button press inside the pause loop.
+///
+/// ASM Game_Paused_ChkStart + loc_6B62 (kid.asm:6859-6878):
+/// ```text
+///   bclr  #Button_Start,(Ctrl_Pressed).w
+///   beq.s Game_Paused_Loop         ; not pressed → loop
+///   tst.b (Pause_Option).w
+///   beq.s loc_6B68                 ; option 0 → continue game
+///   ; restart / give up
+///   subi.w #1,(Number_Lives).w
+///   beq.s  loc_6B62               ; lives == 0 → last life
+///   ; lives > 0 → restart level ...
+/// loc_6B62:
+///   move.b #3,(Game_Paused).w      ; signal game over path
+/// ```
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_loop_start_handler_chk_start(
+    start_pressed: bool,
+    pause_option: u8,
+    number_lives: u16,
+) -> PauseMenuStartResult {
+    // ASM: bclr #Button_Start; beq.s Game_Paused_Loop
+    if !start_pressed {
+        return PauseMenuStartResult::NotPressed;
+    }
+    // ASM: tst.b (Pause_Option).w; beq.s loc_6B68
+    if pause_option == 0 {
+        return PauseMenuStartResult::ContinueGame;
+    }
+    // ASM: subi.w #1,(Number_Lives).w; beq.s loc_6B62
+    let remaining = number_lives.wrapping_sub(1);
+    if remaining == 0 {
+        // ASM loc_6B62: move.b #3,(Game_Paused).w
+        PauseMenuStartResult::LastLifeGameOver
+    } else {
+        PauseMenuStartResult::RestartLevel {
+            remaining_lives: remaining,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IoPortFlagsSub6E24 {
     pub(crate) bit_7_clear_flag: bool,
@@ -5964,6 +6194,7 @@ impl NativeRuntime {
 }
 
 #[cfg(test)]
+#[allow(non_snake_case)]
 mod tests {
     use super::*;
 
@@ -7010,6 +7241,173 @@ mod tests {
                 .count(),
             0,
             "ASM loc_1B7BA exits on `cmpi.w #$FFFF,d0; beq.s return_1B7DE`, so the sentinel must never become a write target"
+        );
+    }
+
+    // ── loc_6A84: pause menu arrow cursor VDP commands ──────────────
+
+    #[test]
+    fn loc_6A84_arrow_cmds_at_origin_camera() {
+        // ASM loc_6A84: Camera_X=0, Camera_Y=0
+        // Column: (0+$68)>>3 = $D, &$3F = $D, *2 = $1A
+        // Upper row: (0+$48)>>3 = 9, &$1F = 9, <<7 = $480; $480+$1A = $49A
+        //   VDP cmd = ($49A | $4000) << 16 = $449A_0000
+        // Lower row: (0+$58)>>3 = $B, &$1F = $B, <<7 = $580; $580+$1A = $59A
+        //   VDP cmd = ($59A | $4000) << 16 = $459A_0000
+        let cmds = pause_menu_arrow_cursor_cmds_loc_6A84(0, 0);
+        assert_eq!(cmds.upper_arrow_cmd, 0x449A_0000);
+        assert_eq!(cmds.lower_arrow_cmd, 0x459A_0000);
+    }
+
+    #[test]
+    fn loc_6A84_arrow_cmds_wrap_plane_row() {
+        // ASM loc_6A84: Camera_Y=$D8 — upper row pixel = $D8+$48 = $120
+        //   ($120 >> 3) = $24, & $1F = 4, << 7 = $200
+        // Lower row pixel = $D8+$58 = $130
+        //   ($130 >> 3) = $26, & $1F = 6, << 7 = $300
+        // Column: Camera_X=$100 → ($100+$68)>>3 = $2D, &$3F = $2D, *2 = $5A
+        let cmds = pause_menu_arrow_cursor_cmds_loc_6A84(0x100, 0xD8);
+        let upper_vram = 0x200 + 0x5A;
+        let lower_vram = 0x300 + 0x5A;
+        assert_eq!(cmds.upper_arrow_cmd, ((upper_vram | 0x4000) as u32) << 16);
+        assert_eq!(cmds.lower_arrow_cmd, ((lower_vram | 0x4000) as u32) << 16);
+    }
+
+    #[test]
+    fn loc_6A84_upper_and_lower_differ_only_in_row() {
+        // ASM loc_6A84: both commands share the same column byte offset;
+        // only the row component ($48 vs $58) differs.
+        for cam_x in [0u16, 0x80, 0x1F0] {
+            for cam_y in [0u16, 0x40, 0xF0] {
+                let cmds = pause_menu_arrow_cursor_cmds_loc_6A84(cam_x, cam_y);
+                // Column bits are in the low 7 bits of the VRAM address (high word)
+                let upper_col = (cmds.upper_arrow_cmd >> 16) & 0x7F;
+                let lower_col = (cmds.lower_arrow_cmd >> 16) & 0x7F;
+                assert_eq!(
+                    upper_col, lower_col,
+                    "ASM loc_6A84: d0 and d1 share the same column byte offset"
+                );
+                // Low word is always 0
+                assert_eq!(cmds.upper_arrow_cmd & 0xFFFF, 0);
+                assert_eq!(cmds.lower_arrow_cmd & 0xFFFF, 0);
+            }
+        }
+    }
+
+    // ── loc_6B0E: pause loop down-button handler ────────────────────
+
+    #[test]
+    fn loc_6B0E_down_pressed_at_option_0_moves_cursor_down() {
+        // ASM loc_6B0E: Down pressed, Pause_Option == 0 → move cursor down
+        let result = pause_loop_down_handler_loc_6B0E(true, 0);
+        let m = result.expect("ASM loc_6B0E: cursor should move when Down pressed at option 0");
+        assert_eq!(
+            m.upper_arrow_tile, PAUSE_ARROW_ABSENT_TILE,
+            "ASM loc_6B0E: move.w #$8678,(a6) clears the upper arrow"
+        );
+        assert_eq!(
+            m.lower_arrow_tile, PAUSE_ARROW_PRESENT_TILE,
+            "ASM loc_6B0E: move.w #$867C,(a6) draws the lower arrow"
+        );
+        assert_eq!(
+            m.new_pause_option, 1,
+            "ASM loc_6B0E: addi.b #1,(Pause_Option).w"
+        );
+    }
+
+    #[test]
+    fn loc_6B0E_down_pressed_at_option_1_does_nothing() {
+        // ASM loc_6B0E: tst.b (Pause_Option).w; bne.s Game_Paused_ChkStart
+        assert!(
+            pause_loop_down_handler_loc_6B0E(true, 1).is_none(),
+            "ASM loc_6B0E: already at option 1 → skip"
+        );
+    }
+
+    #[test]
+    fn loc_6B0E_down_not_pressed_does_nothing() {
+        // ASM loc_6B0E: bclr #Button_Down; beq.s Game_Paused_ChkStart
+        assert!(
+            pause_loop_down_handler_loc_6B0E(false, 0).is_none(),
+            "ASM loc_6B0E: Down not pressed → skip"
+        );
+    }
+
+    #[test]
+    fn game_paused_loop_up_pressed_at_option_1_moves_cursor_up() {
+        // ASM Game_Paused_Loop (kid.asm:6832-6843): Up pressed, Pause_Option != 0
+        let result = pause_loop_up_handler_game_paused_loop(true, 1);
+        let m = result.expect("cursor should move when Up pressed at option 1");
+        assert_eq!(
+            m.upper_arrow_tile, PAUSE_ARROW_PRESENT_TILE,
+            "ASM Game_Paused_Loop: move.w #$867C,(a6) draws the upper arrow"
+        );
+        assert_eq!(
+            m.lower_arrow_tile, PAUSE_ARROW_ABSENT_TILE,
+            "ASM Game_Paused_Loop: move.w #$8678,(a6) clears the lower arrow"
+        );
+        assert_eq!(
+            m.new_pause_option, 0,
+            "ASM Game_Paused_Loop: subi.b #1,(Pause_Option).w"
+        );
+    }
+
+    #[test]
+    fn game_paused_loop_up_pressed_at_option_0_does_nothing() {
+        // ASM Game_Paused_Loop: tst.b (Pause_Option).w; beq.s Game_Paused_ChkStart
+        assert!(
+            pause_loop_up_handler_game_paused_loop(true, 0).is_none(),
+            "already at option 0 → skip"
+        );
+    }
+
+    // ── loc_6B62 + Game_Paused_ChkStart: start handler ─────────────
+
+    #[test]
+    fn chk_start_not_pressed_returns_not_pressed() {
+        // ASM Game_Paused_ChkStart: bclr #Button_Start; beq.s Game_Paused_Loop
+        assert_eq!(
+            pause_loop_start_handler_chk_start(false, 0, 3),
+            PauseMenuStartResult::NotPressed,
+        );
+    }
+
+    #[test]
+    fn chk_start_option_0_continues_game() {
+        // ASM Game_Paused_ChkStart: tst.b (Pause_Option).w; beq.s loc_6B68
+        assert_eq!(
+            pause_loop_start_handler_chk_start(true, 0, 3),
+            PauseMenuStartResult::ContinueGame,
+        );
+    }
+
+    #[test]
+    fn chk_start_option_1_with_multiple_lives_restarts_level() {
+        // ASM: subi.w #1,(Number_Lives).w; result != 0 → restart
+        let result = pause_loop_start_handler_chk_start(true, 1, 3);
+        assert_eq!(
+            result,
+            PauseMenuStartResult::RestartLevel { remaining_lives: 2 },
+        );
+    }
+
+    #[test]
+    fn loc_6B62_last_life_triggers_game_over() {
+        // ASM loc_6B62 (kid.asm:6877): subi.w #1,(Number_Lives).w; beq.s loc_6B62
+        // → move.b #3,(Game_Paused).w
+        assert_eq!(
+            pause_loop_start_handler_chk_start(true, 1, 1),
+            PauseMenuStartResult::LastLifeGameOver,
+            "ASM loc_6B62: last life → Game_Paused = 3"
+        );
+    }
+
+    #[test]
+    fn chk_start_option_1_with_two_lives_restarts_with_one() {
+        // ASM: Number_Lives=2, subi.w #1 → 1 (not zero), restart
+        assert_eq!(
+            pause_loop_start_handler_chk_start(true, 1, 2),
+            PauseMenuStartResult::RestartLevel { remaining_lives: 1 },
         );
     }
 }
