@@ -1147,6 +1147,11 @@ impl NativeRuntime {
             self.refresh_active_roster();
             self.step_pending_prize_diamond_awards();
             self.step_pending_sound_effects();
+            // ASM loc_892 (kid.asm:956): Mode_Level rendering tail join point.
+            // When $FFFFFB49 (paused), skip j_DiamondPower_CompileSprites and
+            // Make_SpritesFromPlatforms but still run j_sub_30194 (HUD sprites),
+            // j_loc_3038A (scroll data transfer / Time_Frames), sub_14C0
+            // (palette fade). All three tail calls are visual/VDP — not modelled.
             // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
             if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
                 && gameplay_slice_active

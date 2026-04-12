@@ -3611,6 +3611,21 @@ impl NativeRuntime {
     /// ASM loc_76E4: cmpi.w #Maniaxe,(Current_Helmet) / bne skip /
     ///   tst.b (Maniaxe_throwing_axe) / bne skip / allocate ManiaxeAxe_Init /
     ///   init animation stru_8B4E / st (Maniaxe_throwing_axe)
+    ///
+    /// ASM loc_8A42 (kid.asm:9862): `add.w $26(a0),d7; move.w d7,x_vel(a3)` —
+    ///   axe velocity = base_speed (±5) + Kid x_vel high word. moveq #$C,d0
+    ///   sets turnaround counter to 12.
+    /// TODO(fidelity): native uses fixed base speed; ASM adds Kid's x_vel word.
+    ///
+    /// ASM loc_8A52 (kid.asm:9868): main flight loop body —
+    ///   `jsr Hibernate_Object_1Frame; tst.b $18(a3); beq loc_8A74` —
+    ///   1-frame hibernate, check animation-done flag. If set, reinit animation
+    ///   (stru_8B86) and play sfx_Maniaxe_throw_axe (visual/audio loop).
+    ///
+    /// ASM loc_8A74 (kid.asm:9879): `subq.w #1,d0; bne loc_8A84` —
+    ///   decrement turnaround counter. At zero: `not.b x_direction(a3);
+    ///   not.b $17(a3); moveq #$C,d0` — flip direction, flip render, reset
+    ///   counter. Native: `maniaxe_turnaround` decrement + velocity reversal.
     pub(crate) fn step_maniaxe_axe(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Maniaxe {
             self.helmet.maniaxe_axe_active = false;

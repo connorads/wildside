@@ -357,6 +357,15 @@ impl NativeRuntime {
     /// gravity each frame. Then horizontal movement with tile-boundary wall detection:
     /// right-moving → loc_8852, left-moving → loc_8890, each probes sub_B55C for
     /// solid terrain and snaps/bounces on contact.
+    ///
+    /// ASM loc_89A8 (kid.asm:9815): skull explosion/deletion path — reached when
+    /// bounce budget exhausted (loc_899C subq.w d0 → 0) or from anim-done/collision.
+    /// `sf is_moved(a3); clr.b $12(a3); clr.b palette_line(a3)` — clear visual fields.
+    /// `moveq #sfx_Juggernaut_skull_explode,d0; jsr j_PlaySound` — play explosion SFX.
+    /// `Init_Animation stru_8BDE; Hibernate_UntilAnimFinished; Delete_CurrentObject`.
+    /// Native: `return false` removes from projectile list (sound/animation visual-only).
+    /// loc_899C also decrements $FFFFFB70 (live skull count) — native counts active
+    /// skulls inline via `projectiles.iter().filter(is_juggernaut_skull_projectile)`.
     #[allow(non_snake_case)]
     fn step_juggernaut_skull_sub_87B0(
         projectile: &mut EnemyProjectile,

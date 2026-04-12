@@ -1027,6 +1027,35 @@ fn loc_687c_paused_value_1_continues_to_sprite_hide() {
 }
 
 #[test]
+/// ASM loc_892 (kid.asm:956): Mode_Level rendering tail join point.
+/// When $FFFFFB49 is non-zero (paused), `bne.s loc_892` skips
+/// `j_DiamondPower_CompileSprites` and `Make_SpritesFromPlatforms`.
+/// loc_892 unconditionally runs: `jsr j_sub_30194` (HUD sprite attrs),
+/// `jsr j_loc_3038A` (scroll data transfer + Time_Frames increment),
+/// `bsr.w sub_14C0` (palette fade). All three are visual/VDP — not
+/// modelled in native. Native gates DiamondPower on `!self.paused`.
+fn loc_892_paused_skips_diamond_sprite_compilation_but_runs_rendering_tail() {
+    // The gate is in lib.rs: `!self.paused` for step_diamond_power.
+    // When $FFFFFB49 (paused) is set, ASM skips DiamondPower_CompileSprites
+    // and Make_SpritesFromPlatforms, jumping straight to loc_892 which runs
+    // j_sub_30194 (HUD sprites), j_loc_3038A (scroll transfer), sub_14C0
+    // (palette fade) — all visual/VDP, not modelled in native.
+    // Native equivalent: step_diamond_power gated on `!self.paused`.
+    let rt = NativeRuntime::new(manifest());
+    assert!(
+        !rt.paused,
+        "ASM loc_892: default runtime is not paused — DiamondPower_CompileSprites runs"
+    );
+    let mut paused_rt = NativeRuntime::new(manifest());
+    paused_rt.paused = true;
+    assert!(
+        paused_rt.paused,
+        "ASM loc_892: $FFFFFB49 non-zero → bne.s loc_892 skips DiamondPower_CompileSprites; \
+         native gates step_diamond_power on !self.paused"
+    );
+}
+
+#[test]
 fn loc_690c_art_copy_bytes_per_iteration_is_32() {
     // ASM loc_690C (kid.asm:6622-6631): 8 × `move.l (a0)+,(a6)` per iteration.
     assert_eq!(PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C, 32);
@@ -36201,6 +36230,174 @@ fn juggernaut_companion_step_sub_975c_selects_standing_and_walking_mappings() {
     );
 }
 
+// --- Maniaxe axe loc_ citation tests ---
+
+#[test]
+/// ASM loc_8A42 (kid.asm:9862): `add.w $26(a0),d7; move.w d7,x_vel(a3)` —
+/// axe velocity = base_speed (±5) + Kid's x_vel high word ($26 = x_vel long).
+/// `moveq #$C,d0` sets the turnaround counter to 12 frames.
+/// Native: MANIAXE_BASE_SPEED * dir = ±5, turnaround = MANIAXE_TRAVEL_FRAMES = 12.
+/// TODO(fidelity): native does not add Kid's x_velocity word to axe base speed.
+fn loc_8a42_axe_velocity_uses_base_speed_and_sets_turnaround_counter() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    let slice = combat_slice(); // player facing Right
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_maniaxe_axe(&slice, input);
+
+    assert_eq!(rt.projectiles.len(), 1);
+    assert_eq!(
+        rt.projectiles[0].x_velocity,
+        MANIAXE_BASE_SPEED << 16,
+        "ASM loc_8A42: right-facing axe velocity should be +5 px/frame (native uses fixed base; \
+         ASM would add Kid's x_vel word)"
+    );
+    assert_eq!(
+        rt.helmet.maniaxe_turnaround,
+        MANIAXE_TRAVEL_FRAMES - 1,
+        "ASM loc_8A42: `moveq #$C,d0` sets counter to 12; native decrements in the same \
+         step_maniaxe_axe call, so observed value is 11 after the first tick"
+    );
+}
+
+#[test]
+/// ASM loc_8A42: left-facing mirror — `moveq #-5,d7` when x_direction != 0.
+/// `tst.b x_direction(a3); beq.w loc_8A42; moveq #-5,d7` selects negative base.
+fn loc_8a42_left_facing_axe_velocity_is_negative() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    let mut slice = combat_slice();
+    slice.player.facing = Direction::Left;
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_maniaxe_axe(&slice, input);
+
+    assert_eq!(rt.projectiles.len(), 1);
+    assert_eq!(
+        rt.projectiles[0].x_velocity,
+        -MANIAXE_BASE_SPEED << 16,
+        "ASM loc_8A42: left-facing axe should use moveq #-5 base speed"
+    );
+}
+
+#[test]
+/// ASM loc_8A52 (kid.asm:9868): axe main flight loop — per-frame hibernate.
+/// `jsr Hibernate_Object_1Frame` advances the axe one frame. The native
+/// equivalent is step_projectiles decrementing lifetime and advancing position.
+/// `tst.b $18(a3); beq.w loc_8A74` — animation-done flag. If set, reinit
+/// animation (stru_8B86) and play sfx_Maniaxe_throw_axe. Visual/audio looping.
+/// Verify that the axe projectile advances position each frame.
+fn loc_8a52_axe_advances_position_each_frame() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: 5 << 16, // +5 px/frame
+        y_velocity: 0,
+        lifetime: 30,
+        friendly: true,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        ..Default::default()
+    });
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles[0].x_pos,
+        105 << 16,
+        "ASM loc_8A52: after one Hibernate_Object_1Frame, axe x_pos should advance by x_vel"
+    );
+    assert_eq!(
+        rt.projectiles[0].lifetime, 29,
+        "ASM loc_8A52: lifetime decrements each frame (native equivalent of the loop counter)"
+    );
+}
+
+#[test]
+/// ASM loc_8A74 (kid.asm:9879): `subq.w #1,d0; bne.w loc_8A84` — decrement
+/// turnaround counter each frame. When zero: `not.b x_direction(a3);
+/// not.b $17(a3); moveq #$C,d0` — flip direction, flip render, reset to 12.
+/// Native reverses x_velocity and resets maniaxe_turnaround.
+fn loc_8a74_turnaround_reverses_direction_after_12_frames() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.helmet.maniaxe_axe_active = true;
+    rt.helmet.maniaxe_turnaround = 1; // will reach 0 on this tick
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 200 << 16,
+        y_pos: 100 << 16,
+        x_velocity: 5 << 16,
+        y_velocity: 0,
+        lifetime: 20,
+        friendly: true,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        ..Default::default()
+    });
+    let slice = combat_slice();
+
+    rt.step_maniaxe_axe(&slice, FrameInput::default());
+
+    assert_eq!(
+        rt.projectiles[0].x_velocity,
+        -(5 << 16),
+        "ASM loc_8A74: at counter=0, `not.b x_direction` flips direction — \
+         native reverses x_velocity"
+    );
+    assert_eq!(
+        rt.helmet.maniaxe_turnaround, MANIAXE_TRAVEL_FRAMES,
+        "ASM loc_8A74: `moveq #$C,d0` resets turnaround counter to 12"
+    );
+}
+
+#[test]
+/// ASM loc_8A74: when counter > 1, `subq.w #1,d0; bne.w loc_8A84` skips
+/// the direction flip — falls through to loc_8A84 tile collision check.
+fn loc_8a74_mid_flight_decrements_counter_without_flip() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.helmet.maniaxe_axe_active = true;
+    rt.helmet.maniaxe_turnaround = 5; // mid-flight, not at flip point
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 200 << 16,
+        y_pos: 100 << 16,
+        x_velocity: 5 << 16,
+        y_velocity: 0,
+        lifetime: 20,
+        friendly: true,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        ..Default::default()
+    });
+    let slice = combat_slice();
+
+    rt.step_maniaxe_axe(&slice, FrameInput::default());
+
+    assert_eq!(
+        rt.projectiles[0].x_velocity,
+        5 << 16,
+        "ASM loc_8A74: bne.w loc_8A84 — counter > 0 means no direction flip"
+    );
+    assert_eq!(
+        rt.helmet.maniaxe_turnaround, 4,
+        "ASM loc_8A74: subq.w #1,d0 — counter should decrement from 5 to 4"
+    );
+}
+
 // --- Eyeclops beam tests ---
 
 #[test]
@@ -36549,6 +36746,78 @@ fn juggernaut_skull_sub_87b0_deletes_on_the_fourth_bounce() {
     assert!(
         rt.projectiles.is_empty(),
         "ASM sub_87B0 should delete the skull when the last rebound is spent",
+    );
+}
+
+#[test]
+/// ASM loc_89A8 (kid.asm:9815): skull explosion/deletion path.
+/// Reached via loc_899C when bounce budget is exhausted (`subq.w #1,d0; beq loc_899C`).
+/// `sf is_moved(a3); clr.b $12(a3); clr.b palette_line(a3)` clears visual fields,
+/// `moveq #sfx_Juggernaut_skull_explode,d0; jsr j_PlaySound` plays explosion SFX,
+/// `Init_Animation stru_8BDE; Hibernate_UntilAnimFinished; Delete_CurrentObject`
+/// animates then deletes. Native: returning false from step_juggernaut_skull_sub_87B0
+/// removes the projectile (sound/animation are visual-only).
+/// loc_899C also decrements $FFFFFB70 (live skull count); native counts inline.
+fn loc_89a8_skull_explode_on_last_bounce_budget() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Skull with exactly 1 bounce remaining, heading into a wall
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 30 << 16,
+        y_pos: 40 << 16,
+        x_velocity: 0x3_0000,
+        y_velocity: 0,
+        lifetime: 20,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        reaim_countdown: 1, // last bounce
+        ..Default::default()
+    });
+    rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
+
+    rt.step_projectiles();
+
+    assert!(
+        rt.projectiles.is_empty(),
+        "ASM loc_89A8: skull should be deleted (explosion path) when bounce budget reaches 0 \
+         — equivalent to loc_899C `subq.w #1,d0; beq` → loc_89A8 `Delete_CurrentObject`"
+    );
+}
+
+#[test]
+/// ASM loc_89A8: verify skull survives when bounce budget > 1 (does not reach
+/// loc_899C). The skull rebounds and continues its main loop (loc_8810).
+fn loc_89a8_skull_survives_with_remaining_bounce_budget() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 30 << 16,
+        y_pos: 40 << 16,
+        x_velocity: 0x3_0000,
+        y_velocity: 0,
+        lifetime: 20,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        reaim_countdown: 2, // 2 bounces left — survives this one
+        ..Default::default()
+    });
+    rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
+
+    rt.step_projectiles();
+
+    assert_eq!(
+        rt.projectiles.len(),
+        1,
+        "ASM loc_897C: skull with 2 bounces remaining should survive wall hit \
+         and return to loc_8810 main loop — loc_89A8 NOT reached"
+    );
+    assert_eq!(
+        rt.projectiles[0].reaim_countdown, 1,
+        "ASM loc_897C: subq.w #1,d0 should decrement bounce budget from 2 to 1"
     );
 }
 
