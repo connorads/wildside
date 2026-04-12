@@ -35649,6 +35649,141 @@ fn boomerang_boss_head_2_eye_piece_4_launch_loc_38eba_sets_rightward_velocity_an
 }
 
 #[test]
+fn boomerang_boss_head_3_eye_piece_3_init_loc_38ef2_allocates_priority_1_with_sub_393c8() {
+    // ASM loc_38EF2 (kid.asm:41561): head 3 eye piece 3 init — $01030002,
+    // priority 1 (secondary wave), sub_393C8 orbit.
+    let result = boomerang_boss_head_3_eye_piece_3_init_loc_38EF2(0x0120, 0x0080);
+
+    assert_eq!(
+        result.gfx_slot, 0x0103_0002,
+        "ASM loc_38EF2 should load gfx slot `$01030002` (same as other priority-1 eye pieces)",
+    );
+    assert_eq!(
+        result.priority, 1,
+        "ASM loc_38EF2 should set `priority(a3)` to 1 (secondary wave)",
+    );
+    assert_eq!(
+        result.object_meta, 0x21,
+        "ASM loc_38EF2 should set `object_meta(a3)` to `$21`",
+    );
+    assert!(
+        !result.has_kid_collision,
+        "ASM loc_38EF2 should clear `has_kid_collision(a3)` via `sf`",
+    );
+    assert!(
+        result.display_enabled,
+        "ASM loc_38EF2 should set `$13(a3)` (display enabled) via `st`",
+    );
+    assert!(
+        result.is_moved,
+        "ASM loc_38EF2 should set `is_moved(a3)` via `st`",
+    );
+    assert_eq!(
+        result.sprite_label, "LnkTo_unk_C8488-Data_Index",
+        "ASM loc_38EF2 should assign sprite `LnkTo_unk_C8488-Data_Index`",
+    );
+    assert_eq!(
+        result.x_pos, 0x0120,
+        "ASM loc_38EF2 should copy `$44(a5)` into `x_pos(a3)`",
+    );
+    assert_eq!(
+        result.y_pos, 0x0080,
+        "ASM loc_38EF2 should copy `$46(a5)` into `y_pos(a3)`",
+    );
+    assert_eq!(
+        result.initial_frame_byte, 0,
+        "ASM loc_38EF2 should clear `d0` via `sf` (initial frame byte for sub_393C8)",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38f2e_loops_when_breakup_zero() {
+    // ASM loc_38F2E (kid.asm:41576): tracking loop — sub_393C8 + sub_37A22,
+    // tst.w ($FFFFFB76) == 0 → loop back.
+    let result = boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38F2E(0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(
+        result.runs_orbit_placement_sub_393c8,
+        "ASM loc_38F2E should call `sub_393C8` for orbit placement (head 3's piece 3)",
+    );
+    assert!(
+        result.runs_directional_sprite_sub_37a22,
+        "ASM loc_38F2E should call `sub_37A22` for directional sprite selection",
+    );
+    assert!(
+        result.updates_sprite_from_d6,
+        "ASM loc_38F2E should store `d6` into `addroffset_sprite(a3)`",
+    );
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3EyePiece3TrackingNextLoc38F2E::TrackingLoopLoc38F2E,
+        "ASM loc_38F2E should loop back when `$FFFFFB76` is zero (no breakup)",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38f2e_launches_when_breakup_nonzero() {
+    // ASM loc_38F2E: tst.w ($FFFFFB76) != 0 → bne.s loc_38F52 (launch).
+    let result = boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38F2E(1);
+
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3EyePiece3TrackingNextLoc38F2E::LaunchLoc38F52,
+        "ASM loc_38F2E should branch to loc_38F52 (launch) when `$FFFFFB76` is nonzero",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38f2e_launches_for_any_nonzero() {
+    // ASM loc_38F2E: `tst.w` tests the full word — any nonzero value triggers launch.
+    let result = boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38F2E(0x8000);
+
+    assert_eq!(
+        result.next,
+        BoomerangBossHead3EyePiece3TrackingNextLoc38F2E::LaunchLoc38F52,
+        "ASM loc_38F2E should launch for any nonzero `$FFFFFB76` value (word test)",
+    );
+}
+
+#[test]
+fn boomerang_boss_head_3_eye_piece_3_launch_loc_38f52_sets_leftward_velocity_and_gravity() {
+    // ASM loc_38F52 (kid.asm:41589): sub_393B2, y_vel=$FFFD, x_vel=#$FFFFC000.
+    // loc_38F66 (kid.asm:41594): gravity loop — sub_37A22, addi.l #$7D0,y_vel;
+    // check y_pos vs Level_height_pixels; delete or loop back via loc_38F88.
+    let result = boomerang_boss_head_3_eye_piece_3_launch_loc_38F52();
+
+    assert!(
+        result.runs_detach_step_sub_393b2,
+        "ASM loc_38F52 should call `sub_393B2` (detach step) before setting velocity",
+    );
+    assert_eq!(
+        result.y_vel, -3,
+        "ASM loc_38F52 should set `y_vel(a3)` to `$FFFD` (signed word = -3, upward)",
+    );
+    assert_eq!(
+        result.x_vel, -0x4000_i32,
+        "ASM loc_38F52 should set `x_vel(a3)` to `$FFFFC000` (signed longword = -0x4000, leftward — mirrors piece 4's rightward at loc_38FEA)",
+    );
+    assert_eq!(
+        result.gravity_per_frame, 0x7D0,
+        "ASM loc_38F66 should add `$7D0` to `y_vel(a3)` each frame (gravity)",
+    );
+    assert!(
+        result.runs_directional_sprite_during_flight,
+        "ASM loc_38F66 should call `sub_37A22` each frame to update directional sprite",
+    );
+    assert!(
+        result.deletes_below_level_height,
+        "ASM loc_38F66 should delete the object when `y_pos > Level_height_pixels`",
+    );
+    assert!(
+        result.loops_back_loc_38f88,
+        "ASM loc_38F88 should `bra.s loc_38F66` when `y_pos <= Level_height_pixels` (gravity loop-back)",
+    );
+}
+
+#[test]
 fn boomerang_boss_head_2_attack_wait_loop_loc_380b8_checks_animation_when_status_is_zero() {
     let result = boomerang_boss_head_2_attack_wait_loop_loc_380B8(0);
 
