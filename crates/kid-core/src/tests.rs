@@ -54339,6 +54339,93 @@ fn loc_3c044_remain_active_check_retains_enemy_within_level_bounds() {
 }
 
 #[test]
+fn loc_3c04e_rightward_walker_terrain_dispatch_continues_on_flat_floor() {
+    // ASM loc_3C04E (kid.asm:43511-43542): rightward walker terrain dispatch —
+    //   bsr.w sub_3C4F8; bsr.w sub_36972; tst.w d6; bmi.w loc_3C17A
+    // When d6 < 0 (solid floor found), the walker skips all edge/wall checks
+    // and continues walking rightward via loc_3C17A (clr.l y_vel; move.l $50,x_vel;
+    // addq.w #1,y_pos). The mirror leftward dispatch is loc_3C0FA.
+    // Test: Robot walking right on flat floor stays rightward.
+    let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 13)).collect();
+    let grid = grid_with_solid_cells(20, 15, &solid);
+    let mut enemy = make_pacer(EnemyFamily::Robot, 3, 100, 208);
+    enemy.facing = Direction::Right;
+    let start_x = enemy.x_pos;
+
+    step_pacer(&mut enemy, Some(&grid));
+
+    assert_eq!(
+        enemy.facing,
+        Direction::Right,
+        "ASM loc_3C04E: d6 < 0 (floor found) → loc_3C17A continues rightward",
+    );
+    assert!(
+        enemy.x_pos > start_x,
+        "ASM loc_3C04E: walker advanced rightward after sub_36972 terrain scan",
+    );
+}
+
+#[test]
+fn loc_3c0a6_floor_edge_turnaround_reverses_rightward_walker() {
+    // ASM loc_3C0A6 (kid.asm:43545-43549): btst #0,d7; beq.s loc_3C0B4;
+    //   st $6E(a5); bra.w loc_3C0D2
+    // When sub_36972 sets bit 0 of d7 (floor edge detected ahead), the walker
+    // marks edge flag $6E and turnarounds to face left via loc_3C0D2 (sf x_direction).
+    // Native: probe_floor(look_ahead_x).on_ground == false → reverse_enemy_direction.
+    // Test: Crab walking right reaches a cliff edge and reverses to face left.
+    let solid: Vec<(u16, u16)> = (0..10).map(|col| (col, 13)).collect();
+    // Floor only cols 0-9 (px 0-159). No floor from col 10 onward.
+    let grid = grid_with_solid_cells(20, 15, &solid);
+    let mut enemy = make_pacer(EnemyFamily::Crab, 3, 140, 208);
+    enemy.facing = Direction::Right;
+
+    // Walk right until the edge reversal triggers.
+    for _ in 0..200 {
+        step_pacer(&mut enemy, Some(&grid));
+        if enemy.facing == Direction::Left {
+            break;
+        }
+    }
+
+    assert_eq!(
+        enemy.facing,
+        Direction::Left,
+        "ASM loc_3C0A6: floor edge (bit 0 of d7) → st $6E(a5), bra loc_3C0D2 turnaround left",
+    );
+}
+
+#[test]
+fn loc_3c0b4_no_floor_no_wall_cliff_turnaround() {
+    // ASM loc_3C0B4 (kid.asm:43552-43558): tst.w d6; bmi.s loc_3C0C6;
+    //   btst #1,d7; bne.s loc_3C0C6; st $6E(a5); bra.w loc_3C0D2
+    // Reached when bit 0 (floor edge) is not set but d6 >= 0 (no solid floor
+    // detected) and bit 1 (wall) is not set. The walker has no floor and no
+    // wall to cling to → turnaround via loc_3C0D2. The mirror leftward path
+    // is loc_3C160 → loc_3C026.
+    // Native: probe_floor(look_ahead_x).on_ground == false → reverse.
+    // Test: Tank walking right on a narrow platform — floor ends abruptly.
+    let solid: Vec<(u16, u16)> = (5..8).map(|col| (col, 13)).collect();
+    // Only 3 cells of floor (cols 5-7, px 80-127).
+    let grid = grid_with_solid_cells(20, 15, &solid);
+    let mut enemy = make_pacer(EnemyFamily::Tank, 3, 96, 208);
+    enemy.facing = Direction::Right;
+
+    // Walk right until the cliff reversal triggers.
+    for _ in 0..200 {
+        step_pacer(&mut enemy, Some(&grid));
+        if enemy.facing == Direction::Left {
+            break;
+        }
+    }
+
+    assert_eq!(
+        enemy.facing,
+        Direction::Left,
+        "ASM loc_3C0B4: d6 >= 0, bit 1 not set → cliff turnaround via loc_3C0D2",
+    );
+}
+
+#[test]
 fn shared_enemy_drive_sound_sub_3c352_starts_the_last_driller_loop_with_playsound2() {
     let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
 

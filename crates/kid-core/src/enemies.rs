@@ -2747,7 +2747,21 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         return;
     }
 
-    // Edge probe: reverse if there's no floor ahead.
+    // ASM loc_3C04E (kid.asm:43511-43542) / loc_3C0FA (kid.asm:43585-43609):
+    // rightward/leftward walker terrain dispatch after sub_3C4F8 + sub_36972/
+    // sub_36A58. The ASM computes displacement, aligns to 16px grid, and checks
+    // d7 flags (bit 0=floor edge, bit 1=wall, bit 2=hurt) plus d6 (floor
+    // status) to decide: continue walking (loc_3C17A/loc_3C266), snap position
+    // (loc_3C0C6/loc_3C172), or turnaround (loc_3C0A6→loc_3C0D2 /
+    // loc_3C152→loc_3C026). Native collapses these into probe_floor.
+    //
+    // ASM loc_3C0A6 (kid.asm:43545-43549): btst #0,d7 — floor edge bit set →
+    // st $6E(a5), bra loc_3C0D2 turnaround. Native: !probe_floor().on_ground.
+    //
+    // ASM loc_3C0B4 (kid.asm:43552-43558): no floor edge bit, but d6 >= 0
+    // (no solid floor) and bit 1 not set (no wall) → st $6E(a5), bra loc_3C0D2
+    // turnaround. This catches the "cliff with no wall to cling to" case.
+    // Native: also covered by the probe_floor edge check below.
     let look_ahead_x = if moving_right {
         cx + ENEMY_PROBE_HALF_WIDTH
     } else {
