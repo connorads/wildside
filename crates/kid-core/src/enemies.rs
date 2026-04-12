@@ -5975,14 +5975,19 @@ pub(crate) fn shared_enemy_attachment_sub_3BF72(
     } = input;
 
     if matches!(family, EnemyFamily::Driller) {
-        // ASM sub_3BF72 / loc_3BFD4 (kid.asm:43444-43483): Driller keeps a
+        // ASM sub_3BF72 / loc_3BFD4 (kid.asm:43464-43487): Driller keeps a
         // paired child layout centred on the parent, with asymmetric 23/24px
         // X offsets and opposing `$8000` tread velocities.
+        // ASM loc_3C000: nonzero x_direction → subi.w #$17,x_pos(a4); addi.w #$18,$1A(a2)
+        // ASM zero direction: subi.w #$18,x_pos(a4); addi.w #$17,$1A(a2); bra.s loc_3C00C
         let (primary_x, secondary_x) = if parent_x_direction == 0 {
             (parent_x_pos - 0x18, parent_x_pos + 0x17)
         } else {
+            // ASM loc_3C000: right-facing Driller offsets
             (parent_x_pos - 0x17, parent_x_pos + 0x18)
         };
+        // ASM loc_3C00C: convergence — copy y_pos to both objects, set
+        // x_vel=$FFFF8000 for primary (a4) and x_vel=$8000 for secondary (a2)
         return SharedEnemyAttachmentLayoutSub3BF72 {
             primary: SharedEnemyAttachmentChildSub3BF72 {
                 x_pos: primary_x,
@@ -6001,6 +6006,7 @@ pub(crate) fn shared_enemy_attachment_sub_3BF72(
 
     // ASM sub_3BF72 (kid.asm:43425-43443): shared child sprite copies the
     // parent's world position, then subtracts the child's `$46(a4)` Y offset.
+    // ASM loc_3BFA0: move.b x_direction(a3),$16(a4) — default direction copy
     let mut primary_x_pos = parent_x_pos;
     let primary_y_pos = parent_y_pos - child_y_offset;
     let mut primary_x_direction = parent_x_direction;

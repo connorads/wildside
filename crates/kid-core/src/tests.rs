@@ -54118,6 +54118,118 @@ fn shared_enemy_attachment_sub_3bf72_driller_spawns_the_paired_treads() {
 }
 
 #[test]
+fn loc_3bfa0_default_direction_copy_for_non_robot_non_driller() {
+    // ASM loc_3BFA0: move.b x_direction(a3),$16(a4) — default path for
+    // enemies that are neither Robot nor Driller (e.g. Diamond, Crab,
+    // Tank, SpinningTwins). Also reached by Robot when $38(a4)==$800 or
+    // $40(a3)==0 via beq.s branches at loc_3BFA8.
+    let result = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Crab,
+        parent_x_pos: 0x0200,
+        parent_y_pos: 0x00A0,
+        parent_x_direction: 0xFF,
+        child_y_offset: 0x0008,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0,
+    });
+
+    assert_eq!(
+        result.primary.x_direction,
+        Some(0xFF),
+        "ASM loc_3BFA0: x_direction(a3)=$FF must be copied to child $16(a4)",
+    );
+    assert_eq!(
+        result.primary.x_pos, 0x0200,
+        "ASM loc_3BFA0: x_pos mirrors parent"
+    );
+    assert_eq!(
+        result.primary.y_pos, 0x0098,
+        "ASM sub_3BF72: y_pos = parent_y - child_y_offset ($A0 - $08 = $98)",
+    );
+
+    // Robot with $38(a4)==$800 falls through to loc_3BFA0
+    let robot_default = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Robot,
+        parent_x_pos: 0x0100,
+        parent_y_pos: 0x0060,
+        parent_x_direction: 0,
+        child_y_offset: 0x0010,
+        robot_parent_state: 1,
+        robot_child_mapping: 0x0800,
+        child_x_direction: 0xFF,
+    });
+    assert_eq!(
+        robot_default.primary.x_direction,
+        Some(0),
+        "ASM loc_3BFA8: cmpi.w #$800,$38(a4) beq.s loc_3BFA0 — Robot with mapping $800 copies parent direction",
+    );
+}
+
+#[test]
+fn loc_3c000_driller_nonzero_direction_offsets() {
+    // ASM loc_3C000: nonzero x_direction(a3) →
+    //   subi.w #$17,x_pos(a4)   → primary_x = parent - $17
+    //   addi.w #$18,$1A(a2)     → secondary_x = parent + $18
+    let result = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Driller,
+        parent_x_pos: 0x0180,
+        parent_y_pos: 0x0050,
+        parent_x_direction: 0xFF,
+        child_y_offset: 0,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0,
+    });
+
+    assert_eq!(
+        result.primary.x_pos,
+        0x0180 - 0x17,
+        "ASM loc_3C000: subi.w #$17,x_pos(a4) for nonzero x_direction",
+    );
+    let secondary = result.secondary.expect("Driller must have secondary");
+    assert_eq!(
+        secondary.x_pos,
+        0x0180 + 0x18,
+        "ASM loc_3C000: addi.w #$18,$1A(a2) for nonzero x_direction",
+    );
+}
+
+#[test]
+fn loc_3c00c_driller_convergence_y_pos_and_velocities() {
+    // ASM loc_3C00C: convergence after direction-specific X offsets:
+    //   move.w d5,y_pos(a4)           → primary y = parent y
+    //   move.w d5,$1E(a2)             → secondary y = parent y
+    //   move.l #$FFFF8000,$26(a4)     → primary x_vel = -$8000
+    //   move.l #$8000,$26(a2)         → secondary x_vel = +$8000
+    let result = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Driller,
+        parent_x_pos: 0x00C0,
+        parent_y_pos: 0x00B0,
+        parent_x_direction: 0xFF,
+        child_y_offset: 0,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0,
+    });
+
+    assert_eq!(
+        result.primary.y_pos, 0x00B0,
+        "ASM loc_3C00C: move.w d5,y_pos(a4)",
+    );
+    assert_eq!(
+        result.primary.x_velocity, -0x8000_i32,
+        "ASM loc_3C00C: move.l #$FFFF8000,$26(a4)",
+    );
+    let secondary = result.secondary.expect("Driller must have secondary");
+    assert_eq!(secondary.y_pos, 0x00B0, "ASM loc_3C00C: move.w d5,$1E(a2)",);
+    assert_eq!(
+        secondary.x_velocity, 0x8000,
+        "ASM loc_3C00C: move.l #$8000,$26(a2)",
+    );
+}
+
+#[test]
 fn shared_enemy_drive_sound_sub_3c352_starts_the_last_driller_loop_with_playsound2() {
     let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
 
