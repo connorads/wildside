@@ -61690,6 +61690,110 @@ fn horizontal_collision_scan_left_loc_36c52_restarts_each_body_row() {
 }
 
 #[test]
+fn deactivation_drive_sound_loc_3c4a2_skips_refcount_when_previous_motion_active() {
+    // ASM loc_3C4A2 (kid.asm:43987-43989): when $19(a3)==0 (not moving),
+    // tst.b $6A(a5) checks previous_motion_active.  If nonzero (was moving),
+    // branches to loc_3C4C0 without touching the shared refcount.
+    use crate::enemies::{
+        DeactivationDriveSoundResultLoc3C494, EnemyFamily,
+        deactivation_drive_sound_cleanup_loc_3C494,
+    };
+    let result = deactivation_drive_sound_cleanup_loc_3C494(EnemyFamily::Driller, false, true, 3);
+    assert_eq!(
+        result,
+        DeactivationDriveSoundResultLoc3C494 {
+            next_refcount: 3,
+            sound_call: None,
+        },
+        "ASM loc_3C4A2: $19==0, $6A!=0 must skip the refcount decrement at loc_3C4A8",
+    );
+}
+
+#[test]
+fn deactivation_drive_sound_loc_3c4a8_decrements_refcount_when_previous_inactive() {
+    // ASM loc_3C4A8 (kid.asm:43991-43997): shared refcount decrement path.
+    // lea ($FFFFFA34).w,a4; subi.b #1,(a4,d7.w); bne.s loc_3C4C0.
+    // When counter reaches zero, plays j_PlaySound2 with byte_3C46C[d6].
+    // Reached when $6A(a5)==0 (previous_motion_active clear).
+    use crate::enemies::{
+        DeactivationDriveSoundResultLoc3C494, EnemyFamily, SharedEnemyDriveSoundCallSub3C352,
+        SharedEnemyDriveSoundEffectSub3C352, deactivation_drive_sound_cleanup_loc_3C494,
+    };
+    // $19==0, $6A==0, refcount==1 → decrement to 0, play sound
+    let result = deactivation_drive_sound_cleanup_loc_3C494(EnemyFamily::Tank, false, false, 1);
+    assert_eq!(
+        result,
+        DeactivationDriveSoundResultLoc3C494 {
+            next_refcount: 0,
+            sound_call: Some(SharedEnemyDriveSoundCallSub3C352::PlaySound2(
+                SharedEnemyDriveSoundEffectSub3C352::TankDriving,
+            )),
+        },
+        "ASM loc_3C4A8: refcount 1→0 must trigger PlaySound2 with Tank sfx from byte_3C46C[1]",
+    );
+}
+
+#[test]
+fn deactivation_drive_sound_loc_3c4a8_no_sound_when_refcount_stays_nonzero() {
+    // ASM loc_3C4A8: subi.b #1,(a4,d7.w); bne.s loc_3C4C0 — when the
+    // decremented refcount is nonzero, skip the j_PlaySound2 call.
+    use crate::enemies::{
+        DeactivationDriveSoundResultLoc3C494, EnemyFamily,
+        deactivation_drive_sound_cleanup_loc_3C494,
+    };
+    let result = deactivation_drive_sound_cleanup_loc_3C494(EnemyFamily::Driller, true, false, 3);
+    assert_eq!(
+        result,
+        DeactivationDriveSoundResultLoc3C494 {
+            next_refcount: 2,
+            sound_call: None,
+        },
+        "ASM loc_3C4A8: refcount 3→2 (nonzero) must branch past j_PlaySound2 to loc_3C4C0",
+    );
+}
+
+#[test]
+fn deactivation_status_update_loc_3c4e6_writes_respawn_marker_for_positive_slot() {
+    // ASM loc_3C4E6 (kid.asm:44013-44017): when $42(a5) bit 7 is clear
+    // (bpl.s), doubles d0 as word offset and writes $2168 into
+    // EnemyStatus_Table[d0].  $2168 is the respawn marker used by both
+    // loc_3C4E6 (deactivation) and loc_320A6 (out-of-range).
+    use crate::enemies::{DeactivationStatusActionLoc3C4C0, deactivation_status_update_loc_3C4C0};
+    let action = deactivation_status_update_loc_3C4C0(0x05);
+    assert_eq!(
+        action,
+        DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+        "ASM loc_3C4E6: positive slot $05 must write $2168 at EnemyStatus_Table index 5",
+    );
+}
+
+#[test]
+fn deactivation_status_update_loc_3c4c0_subtracts_spawn_counter_for_bit6_set() {
+    // ASM loc_3C4C0 (kid.asm:44003-44010): when $42(a5) has bit 7 AND bit 6
+    // set, masks to 6-bit index and subtracts $400 from the status word.
+    use crate::enemies::{DeactivationStatusActionLoc3C4C0, deactivation_status_update_loc_3C4C0};
+    let action = deactivation_status_update_loc_3C4C0(0xC3); // bits 7+6 set, index=3
+    assert_eq!(
+        action,
+        DeactivationStatusActionLoc3C4C0::SubtractSpawnCounter { index: 3 },
+        "ASM loc_3C4C0: slot $C3 (bits 7+6 set) must subtract $400 at index 3",
+    );
+}
+
+#[test]
+fn deactivation_status_update_loc_3c4c0_deletes_only_for_bit7_set_bit6_clear() {
+    // ASM loc_3C4C0: btst #6,d0; beq.s loc_3C4F4 — when bit 7 is set but
+    // bit 6 is clear, no EnemyStatus_Table update; jumps straight to delete.
+    use crate::enemies::{DeactivationStatusActionLoc3C4C0, deactivation_status_update_loc_3C4C0};
+    let action = deactivation_status_update_loc_3C4C0(0x82); // bit 7 set, bit 6 clear
+    assert_eq!(
+        action,
+        DeactivationStatusActionLoc3C4C0::DeleteOnly,
+        "ASM loc_3C4C0: slot $82 (bit 7 set, bit 6 clear) must skip table update and delete",
+    );
+}
+
+#[test]
 fn horizontal_collision_scan_left_loc_36c56_scans_the_full_body_row_width() {
     let mut data = vec![0u8; 4 * 4 * 2];
     let slope_offset = ((2 * 4) + 2) * 2;

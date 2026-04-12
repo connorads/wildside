@@ -1012,6 +1012,14 @@ pub(crate) fn activate_enemies_with_rng(
     // stop with refcount decrement and optional PlaySound2), then falls
     // through to loc_3C4C0 which decrements Number_of_Enemy, updates
     // EnemyStatus_Table from $42(a5), and calls j_Delete_CurrentObject.
+    //
+    // loc_3C4A2 (kid.asm:43987): $19(a3)==0 path — tests $6A(a5);
+    // if nonzero skips sound (bne.s loc_3C4C0), else falls to loc_3C4A8.
+    // loc_3C4A8 (kid.asm:43991): subi.b #1,(a4,d7.w) refcount decrement;
+    // plays j_PlaySound2 with byte_3C46C[d6] when counter reaches zero.
+    // loc_3C4E6 (kid.asm:44013): positive $42(a5) slot writes $2168 into
+    // EnemyStatus_Table[d0] as the respawn marker.
+    //
     // Native handles deactivation by dropping the enemy from the active
     // list; sound cleanup is managed separately by the sound system.
     let active_enemy_count = active.len();
@@ -6223,6 +6231,125 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
         next_previous_motion_active: false,
         next_refcount: refcount.wrapping_add(1),
         sound_call: (refcount == 0).then_some(SharedEnemyDriveSoundCallSub3C352::PlaySound(effect)),
+    }
+}
+
+/// Result of the deactivation-time drive sound cleanup at loc_3C494.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DeactivationDriveSoundResultLoc3C494 {
+    pub(crate) next_refcount: u8,
+    pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
+}
+
+/// ASM loc_3C494 (kid.asm:43979-43997): deactivation-time drive sound cleanup
+/// for Driller/Tank enemies.  Reached from loc_3C46E's object_meta dispatch
+/// when d7 matches objid_Driller or objid_RockTank/objid_RockTank_shooting.
+///
+/// The routine checks two flags — `$19(a3)` (motion_active) and `$6A(a5)`
+/// (previous_motion_active) — to decide whether to decrement the shared drive
+/// sound refcount at `$FFFFFA34+d7`.
+///
+/// - loc_3C4A2 (kid.asm:43987): `$19(a3)==0` path — tests `$6A(a5)`;
+///   if nonzero skips sound cleanup (`bne.s loc_3C4C0`), otherwise falls
+///   through to loc_3C4A8.
+/// - loc_3C4A8 (kid.asm:43991): shared refcount decrement path —
+///   `lea ($FFFFFA34).w,a4; subi.b #1,(a4,d7.w)`.  When counter reaches
+///   zero, plays `j_PlaySound2` with `byte_3C46C[d6]` (Drill or Tank sfx).
+///
+/// In both `$19` states the gate is the same: `$6A != 0` → skip sound.
+/// So the deactivation sound cleanup runs iff `$6A(a5) == 0`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn deactivation_drive_sound_cleanup_loc_3C494(
+    family: EnemyFamily,
+    motion_active: bool,
+    previous_motion_active: bool,
+    refcount: u8,
+) -> DeactivationDriveSoundResultLoc3C494 {
+    let Some(effect) = (match family {
+        EnemyFamily::Driller => Some(SharedEnemyDriveSoundEffectSub3C352::DrillMoving),
+        EnemyFamily::Tank | EnemyFamily::TankShooting => {
+            Some(SharedEnemyDriveSoundEffectSub3C352::TankDriving)
+        }
+        _ => None,
+    }) else {
+        return DeactivationDriveSoundResultLoc3C494 {
+            next_refcount: refcount,
+            sound_call: None,
+        };
+    };
+
+    // ASM loc_3C494: tst.b $19(a3); beq.s loc_3C4A2
+    // Both paths check $6A(a5) and skip if nonzero.
+    if motion_active {
+        // $19 != 0: tst.b $6A(a5); bne.s loc_3C4C0; bra.s loc_3C4A8
+        if previous_motion_active {
+            return DeactivationDriveSoundResultLoc3C494 {
+                next_refcount: refcount,
+                sound_call: None,
+            };
+        }
+    } else {
+        // ASM loc_3C4A2: $19 == 0: tst.b $6A(a5); bne.s loc_3C4C0
+        if previous_motion_active {
+            return DeactivationDriveSoundResultLoc3C494 {
+                next_refcount: refcount,
+                sound_call: None,
+            };
+        }
+    }
+
+    // ASM loc_3C4A8: lea ($FFFFFA34).w,a4; subi.b #1,(a4,d7.w); bne.s loc_3C4C0
+    let next_refcount = refcount.wrapping_sub(1);
+    DeactivationDriveSoundResultLoc3C494 {
+        next_refcount,
+        sound_call: (next_refcount == 0)
+            .then_some(SharedEnemyDriveSoundCallSub3C352::PlaySound2(effect)),
+    }
+}
+
+/// Result of the deactivation status table update at loc_3C4C0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DeactivationStatusActionLoc3C4C0 {
+    /// loc_3C4E6: bit 7 clear (positive slot) — write `$2168` to
+    /// `EnemyStatus_Table[d0]`.
+    WriteRespawnMarker { index: usize },
+    /// Bit 7 set + bit 6 set — subtract `$400` from `EnemyStatus_Table[d0 & $3F]`.
+    SubtractSpawnCounter { index: usize },
+    /// Bit 7 set + bit 6 clear — no table update, just delete.
+    DeleteOnly,
+}
+
+/// ASM loc_3C4C0 (kid.asm:43999-44020): deactivation status table update.
+/// After decrementing `Number_of_Enemy`, reads `$42(a5)` and dispatches:
+///
+/// - `bpl.s loc_3C4E6`: bit 7 clear → positive slot.
+///   loc_3C4E6 (kid.asm:44013): `add.w d0,d0; lea (EnemyStatus_Table).w,a0;
+///   move.w #$2168,d7; move.w d7,(a0,d0.w)` writes the respawn marker.
+///
+/// - Bit 7 set + bit 6 set → `andi.w #$3F,d0; add.w d0,d0;
+///   subi.w #$400,(a0,d0.w)` decrements the spawn counter.
+///
+/// - Bit 7 set + bit 6 clear → falls straight to loc_3C4F4 (delete).
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn deactivation_status_update_loc_3C4C0(
+    object_status_slot: u8,
+) -> DeactivationStatusActionLoc3C4C0 {
+    // ASM: moveq #0,d0; move.b $42(a5),d0; bpl.s loc_3C4E6
+    if object_status_slot & 0x80 == 0 {
+        // ASM loc_3C4E6: add.w d0,d0 → word index; move.w #$2168,(a0,d0.w)
+        return DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+            index: usize::from(object_status_slot),
+        };
+    }
+    // ASM: btst #6,d0; beq.s loc_3C4F4
+    if object_status_slot & 0x40 == 0 {
+        return DeactivationStatusActionLoc3C4C0::DeleteOnly;
+    }
+    // ASM: andi.w #$3F,d0; add.w d0,d0; subi.w #$400,(a0,d0.w)
+    DeactivationStatusActionLoc3C4C0::SubtractSpawnCounter {
+        index: usize::from(object_status_slot & 0x3F),
     }
 }
 
