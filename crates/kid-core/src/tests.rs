@@ -12396,6 +12396,211 @@ fn diamond_power_snake_slot_sprite_positive_timer_no_fade_loc_3fb20() {
 }
 
 // -----------------------------------------------------------------------
+// DiamondPower_Init_ExtraHitPoint / ExtraLife (loc_3FB96, loc_3FB9A)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_init_extra_hp_creates_10_slots_with_type_8_loc_3fb96() {
+    // ASM loc_3FB96 (kid.asm:44904): moveq #0,d3; moveq #9,d1 — 10 slots.
+    // ASM loc_3FB9A (kid.asm:44908): radius=$400000, angle spacing=$199999, type=d2.
+    // DiamondPower_Init_ExtraHitPoint (loc_3FB90): d2=8.
+    let result = helmets::diamond_power_init_extra_hp_life(false);
+    assert_eq!(
+        result.slots.len(),
+        10,
+        "ASM loc_3FB96: d1=9, dbf → 10 slots"
+    );
+    for slot in &result.slots {
+        assert_eq!(
+            slot.radius, 0x0040_0000,
+            "ASM loc_3FB9A: move.l #$400000,$3E(a0)"
+        );
+        assert_eq!(
+            slot.power_type, 8,
+            "ASM loc_3FB9A: ExtraHitPoint → d2=8 → $24(a0)"
+        );
+    }
+    // First angle = 0, each subsequent += $199999
+    assert_eq!(
+        result.slots[0].angle, 0x0000_0000,
+        "ASM loc_3FB9A: d3 starts at 0"
+    );
+    assert_eq!(
+        result.slots[1].angle, 0x0019_9999,
+        "ASM loc_3FB9A: addi.l #$199999,d3"
+    );
+    assert_eq!(
+        result.slots[9].angle,
+        0x0019_9999u32.wrapping_mul(9),
+        "ASM loc_3FB9A: 10th slot angle = 9 * $199999"
+    );
+}
+
+#[test]
+fn diamond_power_init_extra_life_creates_10_slots_with_type_7_loc_3fb9a() {
+    // ASM DiamondPower_Init_ExtraLife (loc_3FB94): d2=7.
+    // Falls through to loc_3FB96/loc_3FB9A.
+    let result = helmets::diamond_power_init_extra_hp_life(true);
+    assert_eq!(result.slots.len(), 10, "ASM loc_3FB96: 10 slots");
+    for slot in &result.slots {
+        assert_eq!(
+            slot.power_type, 7,
+            "ASM loc_3FB9A: ExtraLife → d2=7 → $24(a0)"
+        );
+    }
+}
+
+#[test]
+fn diamond_power_init_extra_hp_life_angle_spacing_is_uniform_loc_3fb9a() {
+    // ASM loc_3FB9A: addi.l #$199999,d3 gives uniform ~36° spacing (10 slots = full circle).
+    let result = helmets::diamond_power_init_extra_hp_life(false);
+    for i in 1..result.slots.len() {
+        let delta = result.slots[i]
+            .angle
+            .wrapping_sub(result.slots[i - 1].angle);
+        assert_eq!(
+            delta,
+            0x0019_9999,
+            "ASM loc_3FB9A: consecutive angle delta = $199999 (slot {} → {})",
+            i - 1,
+            i
+        );
+    }
+}
+
+// -----------------------------------------------------------------------
+// DiamondPower_Main_ExtraHPLife per-slot (loc_3FBE4)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_main_extra_hp_life_expanding_phase_loc_3fbe4() {
+    // ASM loc_3FBE4 (kid.asm:44932): when Diamond_power_timer < $40,
+    // radius.hi += 2, angle.hi -= 2 (expanding orbit).
+    let mut slot = helmets::ExtraHPLifeSlot {
+        radius: 0x0040_0000,
+        angle: 0x0019_9999, // upper word = $19
+        power_type: 8,
+    };
+    let result = helmets::diamond_power_main_extra_hp_life_slot(
+        &mut slot, 100,  // kid_x
+        80,   // kid_y
+        0,    // camera_x
+        0,    // camera_y
+        0x10, // timer < $40: expanding
+        0,    // extra_hitpoint_slots
+    );
+    // Radius upper word: $40 + 2 = $42
+    assert_eq!(
+        slot.radius >> 16,
+        0x42,
+        "ASM loc_3FBE4: addq.w #2,$3E(a0) in expanding phase"
+    );
+    // Angle upper word: $19 - 2 = $17
+    assert_eq!(
+        slot.angle >> 16,
+        0x17,
+        "ASM loc_3FBE4: subq.w #2,$42(a0) in expanding phase"
+    );
+    assert!(
+        matches!(result, helmets::ExtraHPLifeSlotAction::Visible { .. }),
+        "ASM loc_3FC56: expanding phase compiles sprite"
+    );
+}
+
+#[test]
+fn diamond_power_main_extra_hp_life_contracting_phase_loc_3fc2a() {
+    // ASM loc_3FC2A: when Diamond_power_timer >= $40,
+    // angle.hi += 1, radius.hi -= 6 (contracting orbit).
+    let mut slot = helmets::ExtraHPLifeSlot {
+        radius: 0x0030_0000, // upper word = $30
+        angle: 0x0019_9999,  // upper word = $19
+        power_type: 8,
+    };
+    let result = helmets::diamond_power_main_extra_hp_life_slot(
+        &mut slot, 100, 80, 0, 0, 0x40, // timer = $40: contracting
+        0,
+    );
+    // Radius upper word: $30 - 6 = $2A
+    assert_eq!(
+        slot.radius >> 16,
+        0x2A,
+        "ASM loc_3FC2A: subq.w #6,$3E(a0) in contracting phase"
+    );
+    // Angle upper word: $19 + 1 = $1A
+    assert_eq!(
+        slot.angle >> 16,
+        0x1A,
+        "ASM loc_3FC2A: addq.w #1,$42(a0) in contracting phase"
+    );
+    assert!(
+        matches!(result, helmets::ExtraHPLifeSlotAction::Visible { .. }),
+        "ASM loc_3FC56: contracting phase with positive radius compiles sprite"
+    );
+}
+
+#[test]
+fn diamond_power_main_extra_hp_life_converge_awards_hp_loc_3fbe4() {
+    // ASM loc_3FBE4: when radius goes negative in contracting phase,
+    // type=8 (ExtraHP) awards HP if extra_hitpoint_slots < 4.
+    let mut slot = helmets::ExtraHPLifeSlot {
+        radius: 0x0003_0000, // upper word = 3, subtracting 6 → -3 (negative)
+        angle: 0x0000_0000,
+        power_type: 8,
+    };
+    let result = helmets::diamond_power_main_extra_hp_life_slot(
+        &mut slot, 100, 80, 0, 0, 0x40, 2, // extra_hitpoint_slots=2, under cap of 4
+    );
+    assert_eq!(
+        result,
+        helmets::ExtraHPLifeSlotAction::Converged {
+            awarded_hp: true,
+            awarded_life: false,
+        },
+        "ASM loc_3FBE4: type=8, extra_hitpoint_slots<4 → award HP"
+    );
+}
+
+#[test]
+fn diamond_power_main_extra_hp_life_converge_hp_capped_loc_3fbe4() {
+    // ASM: cmpi.w #4,(Extra_hitpoint_slots).w; bge.s loc_3FC4C — cap at 4.
+    let mut slot = helmets::ExtraHPLifeSlot {
+        radius: 0x0003_0000,
+        angle: 0x0000_0000,
+        power_type: 8,
+    };
+    let result = helmets::diamond_power_main_extra_hp_life_slot(
+        &mut slot, 100, 80, 0, 0, 0x40, 4, // at cap
+    );
+    assert_eq!(
+        result,
+        helmets::ExtraHPLifeSlotAction::Converged {
+            awarded_hp: false,
+            awarded_life: false,
+        },
+        "ASM loc_3FBE4: type=8, extra_hitpoint_slots>=4 → skip HP award"
+    );
+}
+
+#[test]
+fn diamond_power_main_extra_hp_life_converge_awards_life_loc_3fc4e() {
+    // ASM loc_3FC4E: cmpi.w #7,$24(a0); beq.s loc_3FC4E → addq.w #1,(Number_Lives).w
+    let mut slot = helmets::ExtraHPLifeSlot {
+        radius: 0x0002_0000, // goes negative after -6
+        angle: 0x0000_0000,
+        power_type: 7, // ExtraLife
+    };
+    let result = helmets::diamond_power_main_extra_hp_life_slot(&mut slot, 100, 80, 0, 0, 0x40, 0);
+    assert_eq!(
+        result,
+        helmets::ExtraHPLifeSlotAction::Converged {
+            awarded_hp: false,
+            awarded_life: true,
+        },
+        "ASM loc_3FC4E: type=7 → award extra life"
+    );
+}
+
+// -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------
 

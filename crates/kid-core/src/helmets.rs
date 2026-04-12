@@ -1513,6 +1513,198 @@ pub(crate) fn diamond_power_snake_slot_sprite(
     }
 }
 
+/// State of a single ExtraHitPoint/ExtraLife diamond-power object slot.
+/// ASM fields: $3E(a0)=radius (longword), $42(a0)=angle (longword),
+/// $24(a0)=power_type (word: 8=ExtraHP, 7=ExtraLife), $22(a0)=unused (word).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ExtraHPLifeSlot {
+    /// ASM $3E(a0): radius in 16.16 fixed-point (longword). Initial $400000.
+    pub(crate) radius: u32,
+    /// ASM $42(a0): angle (longword). Upper word is the 8-bit angle for sub_40236.
+    pub(crate) angle: u32,
+    /// ASM $24(a0): power type — 8 = ExtraHitPoint, 7 = ExtraLife.
+    pub(crate) power_type: u16,
+}
+
+/// Result of `diamond_power_init_extra_hp_life`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ExtraHPLifeInitResult {
+    pub(crate) slots: Vec<ExtraHPLifeSlot>,
+}
+
+/// ASM DiamondPower_Init_ExtraHitPoint (loc_3FB90) / DiamondPower_Init_ExtraLife (loc_3FB94).
+///
+/// loc_3FB90: `moveq #8,d2; bra.s loc_3FB96` — ExtraHitPoint sets type=8.
+/// loc_3FB94: `moveq #7,d2` — ExtraLife sets type=7, falls through.
+///
+/// loc_3FB96 (kid.asm:44904): common entry — `moveq #0,d3; moveq #9,d1`.
+///   d3=0 (initial angle), d1=9 (loop counter → 10 slots).
+///
+/// loc_3FB9A (kid.asm:44908): allocation loop —
+///   `bsr.w Allocate_DiamondPowerObjectSlot`
+///   `move.l #$400000,$3E(a0)` — radius = $400000
+///   `move.l d3,$42(a0)` — angle = d3
+///   `addi.l #$199999,d3` — advance angle by $199999 (~1/10 of $1000000)
+///   `move.w d2,$24(a0)` — power type
+///   `move.w #0,$22(a0)` — clear field $22
+///   `dbf d1,loc_3FB9A` — loop 10 times
+///   `clr.w (Diamond_power_timer).w` — reset timer to 0
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_init_extra_hp_life(is_extra_life: bool) -> ExtraHPLifeInitResult {
+    // ASM loc_3FB90/loc_3FB94: d2 = 8 (ExtraHP) or 7 (ExtraLife)
+    let d2: u16 = if is_extra_life { 7 } else { 8 };
+
+    // ASM loc_3FB96: moveq #0,d3; moveq #9,d1
+    let mut d3: u32 = 0;
+    let count = 10u16; // d1=9 → dbf loops 10 times
+
+    let mut slots = Vec::with_capacity(count as usize);
+
+    // ASM loc_3FB9A: allocation loop
+    for _ in 0..count {
+        slots.push(ExtraHPLifeSlot {
+            radius: 0x0040_0000, // move.l #$400000,$3E(a0)
+            angle: d3,           // move.l d3,$42(a0)
+            power_type: d2,      // move.w d2,$24(a0)
+        });
+        d3 = d3.wrapping_add(0x0019_9999); // addi.l #$199999,d3
+    }
+    // ASM: clr.w (Diamond_power_timer).w — caller is responsible for clearing timer
+
+    ExtraHPLifeInitResult { slots }
+}
+
+/// Per-slot update action from `diamond_power_main_extra_hp_life_slot`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ExtraHPLifeSlotAction {
+    /// Slot produced a visible sprite. ASM loc_3FC56: sprite compiled into buffer.
+    Visible {
+        y: u16,
+        size_byte: u8,
+        pattern: u16,
+        x: u16,
+    },
+    /// Slot converged (radius < 0): award HP or life. ASM bra.w sub_3F63C.
+    Converged {
+        /// True if ExtraHitPoint was awarded (type=8, cap not reached).
+        awarded_hp: bool,
+        /// True if ExtraLife was awarded (type=7).
+        awarded_life: bool,
+    },
+}
+
+/// ASM DiamondPower_Main_ExtraHPLife (kid.asm:44920).
+///
+/// Caller sets up:
+///   `addq.w #1,(Diamond_power_timer).w` — caller increments timer
+///   d3 = $7F - Camera_X_pos, d4 = $7F - Camera_Y_pos
+///   a3 = Addr_GfxObject_Kid
+///
+/// loc_3FBE4 (kid.asm:44932): per-object loop body —
+///   `move.l d0,a0` — a0 = slot
+///   `move.l $3E(a0),d5; lsr.l #8,d5; lsr.l #1,d5` — d5 = radius >> 9
+///   `move.w $42(a0),d0; bsr.w sub_40236` — (cos, sin) from angle
+///   `muls.w d5,d0; swap d0; asr.w #5,d0` — x_offset = cos * d5 >> 21
+///   `add.w x_pos(a3),d0; add.w d3,d0` — screen x
+///   `muls.w d5,d1; swap d1; asr.w #5,d1; neg.w d1` — y_offset
+///   `add.w y_pos(a3),d1; subi.w #$10,d1; add.w d4,d1` — screen y
+///   Timer < $40: `addq.w #2,$3E(a0); subq.w #2,$42(a0)` (expanding)
+///   Timer >= $40 (loc_3FC2A): `addq.w #1,$42(a0); subq.w #6,$3E(a0)`
+///     if radius < 0: award HP/life, bra.w sub_3F63C (remove)
+///   loc_3FC56: compile sprite from word_4020E
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_main_extra_hp_life_slot(
+    slot: &mut ExtraHPLifeSlot,
+    kid_x: i16,
+    kid_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+    diamond_power_timer: u16,
+    extra_hitpoint_slots: u16,
+) -> ExtraHPLifeSlotAction {
+    use crate::boot::sin_cos_sub_40236;
+
+    // ASM: d3 = $7F - Camera_X_pos; d4 = $7F - Camera_Y_pos
+    let d3 = 0x7Fi16.wrapping_sub(camera_x);
+    let d4 = 0x7Fi16.wrapping_sub(camera_y);
+
+    // ASM loc_3FBE4: move.l $3E(a0),d5; lsr.l #8,d5; lsr.l #1,d5
+    let d5 = (slot.radius >> 9) as u16;
+
+    // ASM: move.w $42(a0),d0 — upper word of angle longword
+    let angle = (slot.angle >> 16) as u8;
+    let (cos, sin) = sin_cos_sub_40236(angle);
+
+    // ASM: muls.w d5,d0; swap d0; asr.w #5,d0; add.w x_pos(a3),d0; add.w d3,d0
+    let x_offset = ((cos as i32 * d5 as i32) >> 16) as i16 >> 5;
+    let screen_x = kid_x.wrapping_add(x_offset).wrapping_add(d3);
+
+    // ASM: muls.w d5,d1; swap d1; asr.w #5,d1; neg.w d1;
+    //      add.w y_pos(a3),d1; subi.w #$10,d1; add.w d4,d1
+    let y_offset = -(((sin as i32 * d5 as i32) >> 16) as i16 >> 5);
+    let screen_y = kid_y
+        .wrapping_add(y_offset)
+        .wrapping_sub(0x10)
+        .wrapping_add(d4);
+
+    // ASM: move.w $24(a0),d6 — sprite index
+    let d6 = slot.power_type;
+
+    // ASM: cmpi.w #$40,(Diamond_power_timer).w; bge.s loc_3FC2A
+    if diamond_power_timer < 0x40 {
+        // Phase 1: expanding — addq.w #2,$3E(a0); subq.w #2,$42(a0)
+        let radius_hi = (slot.radius >> 16) as u16;
+        slot.radius = ((radius_hi.wrapping_add(2) as u32) << 16) | (slot.radius & 0xFFFF);
+        let angle_hi = (slot.angle >> 16) as u16;
+        slot.angle = ((angle_hi.wrapping_sub(2) as u32) << 16) | (slot.angle & 0xFFFF);
+    } else {
+        // Phase 2: contracting (loc_3FC2A) — addq.w #1,$42(a0); subq.w #6,$3E(a0)
+        let angle_hi = (slot.angle >> 16) as u16;
+        slot.angle = ((angle_hi.wrapping_add(1) as u32) << 16) | (slot.angle & 0xFFFF);
+        let radius_hi = (slot.radius >> 16) as u16;
+        let new_radius_hi = radius_hi.wrapping_sub(6);
+        slot.radius = ((new_radius_hi as u32) << 16) | (slot.radius & 0xFFFF);
+        // ASM: bge.s loc_3FC56 — if radius_hi >= 0 (unsigned sub didn't go negative)
+        if (new_radius_hi as i16) < 0 {
+            // Slot converged: award HP or life
+            // ASM: cmpi.w #7,$24(a0); beq.s loc_3FC4E
+            if slot.power_type == 7 {
+                // ExtraLife: addq.w #1,(Number_Lives).w
+                return ExtraHPLifeSlotAction::Converged {
+                    awarded_hp: false,
+                    awarded_life: true,
+                };
+            }
+            // ExtraHitPoint: cmpi.w #4,(Extra_hitpoint_slots).w; bge.s loc_3FC4C
+            let awarded_hp = extra_hitpoint_slots < 4;
+            return ExtraHPLifeSlotAction::Converged {
+                awarded_hp,
+                awarded_life: false,
+            };
+        }
+    }
+
+    // ASM loc_3FC56: compile sprite — add.w d6,d6; add.w d6,d6; lea word_4020E(pc),a1
+    let entry_index = d6 as usize;
+    let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
+        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
+    } else {
+        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
+    };
+
+    ExtraHPLifeSlotAction::Visible {
+        y: screen_y as u16,
+        size_byte,
+        pattern,
+        x: screen_x as u16,
+    }
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
