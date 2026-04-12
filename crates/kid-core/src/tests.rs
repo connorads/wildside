@@ -69890,3 +69890,229 @@ fn micromax_sub_78e8_clears_stale_flags_loc_7962() {
         "ASM loc_7962: Micromax path should still clear Red Stealth timer via sub_DB22",
     );
 }
+
+// --- loc_7982: Micromax idle sprite store (common exit of loc_7962) ---
+
+/// ASM loc_7982 (kid.asm:8032): `move.w d1,addroffset_sprite(a3) / rts`.
+/// Common exit point for the Micromax idle animation's two-frame sprite
+/// selection (loc_7962). After choosing d1 based on walk accumulator mod 8
+/// (>= 5 → LnkTo_unk_ABDE0, < 5 → LnkTo_unk_ABEA6), loc_7982 stores
+/// the result and returns.
+///
+/// Visual-only — native does not model the walk accumulator or sprite
+/// selection. Verify that sub_78E8 for Micromax has no gameplay side effects
+/// beyond sub_DB22 flag clearing.
+#[test]
+fn micromax_sub_78e8_no_gameplay_side_effects_loc_7982() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Micromax;
+    rt.helmet.eyeclops_beam_active = false;
+    rt.helmet.eyeclops_beam_counter = 0;
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    // loc_7982 is pure visual — no gameplay state changed beyond sub_DB22.
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM loc_7982: Micromax sprite store path should not set Maniaxe flag",
+    );
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0,
+        "ASM loc_7982: Micromax sprite store path should not set Red Stealth timer",
+    );
+    assert!(
+        !rt.helmet.eyeclops_beam_active,
+        "ASM loc_7982: Micromax sprite store path should not set Eyeclops beam",
+    );
+}
+
+// --- loc_7988: Juggernaut standing-still animation gate in sub_78E8 ---
+
+/// ASM loc_7988 (kid.asm:8037): `tst.b is_animated(a3) / beq.w loc_7998 /
+/// tst.b $18(a3) / beq.w loc_79A2`. Juggernaut standing-still dispatch:
+/// - Not animated → loc_7998 (set default sprite) → loc_79A2 (companion).
+/// - Animated + $18 clear → loc_79A2 (companion only, keep anim playing).
+/// - Animated + $18 set → loc_7998 (reset sprite) → loc_79A2 (companion).
+///
+/// Native: Juggernaut falls to the `_ => {}` arm of sub_78E8's match.
+/// The is_animated/$18 gate is visual-only (sprite selection for the skull
+/// deploy/retract animation). sub_975C (companion step) is modelled as a
+/// standalone pure function, not called in the frame tick.
+#[test]
+fn juggernaut_sub_78e8_clears_stale_flags_loc_7988() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    rt.helmet.maniaxe_axe_active = true;
+    rt.helmet.red_stealth_sword_timer = 0x20;
+
+    // Juggernaut (helmet=5) branches to loc_7988 in the ROM, which gates
+    // on is_animated/$18 before reaching the companion step (loc_79A2).
+    // None of those paths touch Maniaxe/RedStealth flags — those are
+    // only cleared at loc_794C, which Juggernaut bypasses entirely.
+    // Native: sub_DB22 clears them unconditionally.
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM loc_7988: Juggernaut standing path should clear Maniaxe flag via sub_DB22",
+    );
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0,
+        "ASM loc_7988: Juggernaut standing path should clear Red Stealth timer via sub_DB22",
+    );
+}
+
+// --- loc_7998: Juggernaut default standing sprite + clear is_animated ---
+
+/// ASM loc_7998 (kid.asm:8043): `move.w #(LnkTo_unk_C0246-Data_Index),
+/// addroffset_sprite(a3) / sf is_animated(a3)`. Sets the Juggernaut
+/// default standing sprite and clears the animation flag. Falls through
+/// to loc_79A2 for the companion step.
+///
+/// Native: Juggernaut's `_ => {}` arm doesn't need explicit sprite
+/// assignment or is_animated clear — these are visual-only. The sub_DB22
+/// call handles flag cleanup.
+#[test]
+fn juggernaut_sub_78e8_preserves_juggernaut_specific_state_loc_7998() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    rt.helmet.juggernaut_skull_delay_frames = 5;
+
+    // loc_7998 sets the default sprite and clears is_animated, then falls
+    // through to loc_79A2 (companion step). Neither path touches the skull
+    // delay counter — that's managed by the skull spawn system.
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert_eq!(
+        rt.helmet.juggernaut_skull_delay_frames, 5,
+        "ASM loc_7998: Juggernaut default sprite path should not touch skull delay counter",
+    );
+}
+
+// --- loc_79A2: Juggernaut companion step (sub_975C) ---
+
+/// ASM loc_79A2 (kid.asm:8047): `move.l ($FFFFF862).w,a4 / bsr.w sub_975C
+/// / rts`. Every Juggernaut standing-still path converges here to step the
+/// companion visual (the floating skull). The companion object ($FFFFF862)
+/// is loaded into a4 for sub_975C.
+///
+/// Native: `juggernaut_companion_step_sub_975C` is a pure function that
+/// determines the companion visual state. It runs when
+/// `Character_Movement == MoveID_Standingstill` and selects the standing
+/// mapping `LnkTo_unk_BEDF0-Data_Index`.
+#[test]
+fn juggernaut_companion_step_standing_mapping_loc_79a2() {
+    // ASM loc_79A2 → sub_975C: when standing still and no block/overlap/down,
+    // the companion gets the standing mapping.
+    let state = helmets::JuggernautCompanionStateSub975C {
+        byte_15_active: false,
+        byte_18_active: false,
+        blocked_latch: false,
+    };
+    let step = helmets::juggernaut_companion_step_sub_975C(
+        state, false, // wall_scan_blocked
+        false, // object_overlap
+        false, // down_held
+        0,     // character_movement = MoveID_Standingstill
+        0,     // walking_table_byte_offset (unused when standing)
+    );
+    assert_eq!(
+        step.visual,
+        helmets::JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEDF0-Data_Index"),
+        "ASM loc_79A2 → sub_975C: standing Juggernaut companion should use standing mapping",
+    );
+}
+
+/// ASM loc_79A2 (kid.asm:8047): when the Juggernaut animation is still
+/// playing (is_animated=true, $18=0), loc_7988 skips loc_7998 and branches
+/// directly to loc_79A2. The companion step runs regardless of the sprite
+/// animation gate above it.
+#[test]
+fn juggernaut_companion_step_runs_even_during_animation_loc_79a2() {
+    // Even when the skull deploy/retract animation is mid-cycle
+    // (byte_15_active=true, byte_18_active=false), sub_975C preserves the
+    // current companion visual without changing the latch.
+    let state = helmets::JuggernautCompanionStateSub975C {
+        byte_15_active: true,
+        byte_18_active: false,
+        blocked_latch: false,
+    };
+    let step = helmets::juggernaut_companion_step_sub_975C(
+        state, false, // wall_scan_blocked
+        false, // object_overlap
+        false, // down_held
+        0,     // character_movement = MoveID_Standingstill
+        0,     // walking_table_byte_offset
+    );
+    assert_eq!(
+        step.visual,
+        helmets::JuggernautCompanionVisualSub975C::PreserveCurrent,
+        "ASM loc_79A2 → sub_975C: mid-animation companion should preserve current visual",
+    );
+    assert!(
+        step.byte_15_active,
+        "ASM loc_79A2 → sub_975C: byte_15 should stay active during animation",
+    );
+}
+
+// --- loc_79AC: Skycutter standing-still flipboard visual (sub_98F2) ---
+
+/// ASM loc_79AC (kid.asm:8053): `bsr.w sub_98F2 / rts`. Skycutter
+/// (helmet=1) standing-still dispatch goes directly to the flipboard
+/// visual step, bypassing the loc_794C default-sprite path entirely.
+/// sub_98F2 handles the flipboard deploy/retract animation and sprite
+/// selection.
+///
+/// Native: `step_skycutter_flipboard` runs independently each frame
+/// (before physics), so the sub_78E8 Skycutter branch is visual-only.
+/// Verify that sub_78E8 for Skycutter doesn't corrupt flipboard state
+/// beyond sub_DB22's reset.
+#[test]
+fn skycutter_sub_78e8_flipboard_not_corrupted_loc_79ac() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Skycutter;
+
+    // Skycutter with no flipboard active: sub_78E8 should not start one.
+    rt.helmet.skycutter_flipboard = 0;
+    rt.helmet.skycutter_on_board = false;
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert_eq!(
+        rt.helmet.skycutter_flipboard, 0,
+        "ASM loc_79AC: sub_78E8 should not start a flipboard animation",
+    );
+    assert!(
+        !rt.helmet.skycutter_on_board,
+        "ASM loc_79AC: sub_78E8 should not change board mount state",
+    );
+}
+
+/// ASM loc_79AC (kid.asm:8053): in the ROM, Skycutter's sub_78E8 branch
+/// goes straight to sub_98F2 which reads/updates the flipboard counter.
+/// Native sub_DB22 clears the flipboard counter and on_board flag, matching
+/// the ROM's loc_794C path (which Skycutter bypasses — but sub_98F2 would
+/// reinitialise the visual from the counter anyway).
+#[test]
+fn skycutter_sub_78e8_sub_db22_clears_flipboard_loc_79ac() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Skycutter;
+    rt.helmet.skycutter_flipboard = 0x0F;
+    rt.helmet.skycutter_on_board = true;
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    // sub_DB22 clears all helmet state including flipboard.
+    // In the ROM, loc_79AC would call sub_98F2 which reads the counter
+    // to determine visual state — but since step_skycutter_flipboard
+    // runs independently, the sub_DB22 reset is the correct native
+    // behaviour for the sub_78E8 path.
+    assert_eq!(
+        rt.helmet.skycutter_flipboard, 0,
+        "ASM loc_79AC: sub_DB22 should clear flipboard counter in sub_78E8 path",
+    );
+    assert!(
+        !rt.helmet.skycutter_on_board,
+        "ASM loc_79AC: sub_DB22 should clear on_board flag in sub_78E8 path",
+    );
+}

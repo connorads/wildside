@@ -2836,10 +2836,29 @@ impl NativeRuntime {
         // helmet pose unless the form-specific grounded action is still live.
         //
         // Inner branches by helmet ID:
-        //   loc_7920 (kid.asm:7991): Skycutter (helmet=4) — if is_animated(a3),
+        //   loc_7988 (kid.asm:8037): Juggernaut (helmet=5) — `tst.b
+        //     is_animated(a3) / beq loc_7998 / tst.b $18(a3) / beq loc_79A2`.
+        //     If not animated → loc_7998 (default sprite + companion step).
+        //     Animated + $18 clear → loc_79A2 (companion step only, keep anim).
+        //     Animated + $18 set → fall through to loc_7998 (anim done, reset).
+        //     Native: Juggernaut falls to `_ => {}` — companion step (sub_975C)
+        //     is visual-only and modelled as a standalone pure function.
+        //   loc_7998 (kid.asm:8043): Juggernaut default standing sprite —
+        //     `move.w #(LnkTo_unk_C0246-Data_Index),addroffset_sprite(a3) /
+        //     sf is_animated(a3)`. Visual-only sprite + animation-flag clear.
+        //     Falls through to loc_79A2 for companion step.
+        //   loc_79A2 (kid.asm:8047): Juggernaut companion step — `move.l
+        //     ($FFFFF862).w,a4 / bsr.w sub_975C`. Every Juggernaut standing-
+        //     still path converges here. Native: sub_975C modelled as pure fn
+        //     `juggernaut_companion_step_sub_975C`; not called in frame tick
+        //     (visual-only).
+        //   loc_79AC (kid.asm:8053): Skycutter (helmet=1) — `bsr.w sub_98F2 /
+        //     rts`. Calls the flipboard visual step directly, bypassing the
+        //     loc_794C default-sprite path. Native: flipboard managed by
+        //     `step_skycutter_flipboard` which runs independently each frame.
+        //   loc_7920 (kid.asm:7991): Eyeclops (helmet=4) — if is_animated(a3),
         //     rts (keep current animation); else fall through to loc_794C.
-        //     Native: Skycutter flipboard state is managed by step_skycutter_flipboard;
-        //     sub_78E8's Skycutter branch is visual-only (sprite selection).
+        //     Native: Eyeclops beam state cleanup runs in the Eyeclops match arm.
         //   loc_7932 (kid.asm:7999): Red Stealth (helmet=3) — if
         //     Red_Stealth_sword_swing && $18(a3), rts (keep swing animation);
         //     else loc_794C. Native: preserves red_stealth_sword_timer when > 0.
@@ -2851,6 +2870,9 @@ impl NativeRuntime {
         //     accumulator ($FFFFF8F0) mod 8, pick between two sprite frames
         //     (>= 5 → LnkTo_unk_ABDE0, < 5 → LnkTo_unk_ABEA6). Visual-only;
         //     native does not model the Micromax idle animation cycle.
+        //   loc_7982 (kid.asm:8032): Micromax idle sprite store — `move.w
+        //     d1,addroffset_sprite(a3) / rts`. Common exit for loc_7962's
+        //     two-frame sprite selection. Visual-only.
         let previous_maniaxe_axe_active = self.helmet.maniaxe_axe_active;
         let previous_red_stealth_sword_timer = self.helmet.red_stealth_sword_timer;
         self.clear_special_movement_state_sub_DB22();
