@@ -12158,6 +12158,95 @@ fn diamond_power_snake_octant_target_directly_below_loc_3fa46() {
 }
 
 // -----------------------------------------------------------------------
+// Snake steering (loc_3FA50 through loc_3FAD4)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_snake_steer_different_octant_positive_short_loc_3fa6a() {
+    // ASM loc_3FA50: target octant 3, current octant 1 (angle $20 → octant 1).
+    // diff = 3 - 1 = 2, positive and < 4 → add turn_rate (loc_3FACC).
+    // ASM loc_3FACC: $3E += $2E → $20 + $10 = $30.
+    let result = helmets::diamond_power_snake_steer(3, 10, 10, 0x20, 0x10);
+    assert_eq!(
+        result,
+        helmets::SnakeSteerResult::Adjusted(0x30),
+        "ASM loc_3FACC: positive diff < 4 adds turn_rate"
+    );
+}
+
+#[test]
+fn diamond_power_snake_steer_different_octant_positive_long_wrap() {
+    // ASM loc_3FA50: target octant 1, current octant 5 (angle $A0 → octant 5).
+    // diff = 1 - 5 = -4, negative and >= -4 → subtract turn_rate (loc_3FAC2).
+    // ASM loc_3FA6A: cmpi.w #$FFFC,d3; bge.s loc_3FAC2.
+    // $A0 - $10 = $90.
+    let result = helmets::diamond_power_snake_steer(1, 10, 10, 0xA0, 0x10);
+    assert_eq!(
+        result,
+        helmets::SnakeSteerResult::Adjusted(0x90),
+        "ASM loc_3FA6A: diff == -4, subtract turn_rate"
+    );
+}
+
+#[test]
+fn diamond_power_snake_steer_negative_diff_beyond_minus4_loc_3fa6a() {
+    // ASM loc_3FA6A: target octant 0, current octant 5 (angle $A0).
+    // diff = 0 - 5 = -5, < -4 → add turn_rate (loc_3FACC).
+    // $A0 + $10 = $B0.
+    let result = helmets::diamond_power_snake_steer(0, 10, 10, 0xA0, 0x10);
+    assert_eq!(
+        result,
+        helmets::SnakeSteerResult::Adjusted(0xB0),
+        "ASM loc_3FA6A: diff < -4 wraps around, add turn_rate"
+    );
+}
+
+#[test]
+fn diamond_power_snake_steer_positive_diff_ge4_subtract() {
+    // ASM: target octant 6, current octant 1 (angle $20).
+    // diff = 6 - 1 = 5, >= 4 → subtract turn_rate (loc_3FAC2).
+    // $20 - $10 = $10.
+    let result = helmets::diamond_power_snake_steer(6, 10, 10, 0x20, 0x10);
+    assert_eq!(
+        result,
+        helmets::SnakeSteerResult::Adjusted(0x10),
+        "ASM loc_3FAC2: diff >= 4, subtract turn_rate"
+    );
+}
+
+#[test]
+fn diamond_power_snake_steer_same_octant_zero_displacement_loc_3fa72() {
+    // ASM loc_3FA72: d3 == d4 (same octant), d0|d1 == 0 → loc_3FAD4 unchanged.
+    // Octant 2: angle with bits 7:5 = 010 → angle in [$40, $5F].
+    let result = helmets::diamond_power_snake_steer(2, 0, 0, 0x40, 0x10);
+    assert_eq!(
+        result,
+        helmets::SnakeSteerResult::Unchanged,
+        "ASM loc_3FA72: same octant, zero displacement → unchanged"
+    );
+}
+
+#[test]
+fn diamond_power_snake_steer_same_octant_diagonal_axis_swap_loc_3fa84() {
+    // ASM loc_3FA84: same octant, nonzero displacement, diagonal octant.
+    // Octant 2 is diagonal ($66 bit 2 set), so d0/d1 are swapped before
+    // the ratio comparison. Using angle $50 (octant 2, sub_octant=$10).
+    // With abs_dx=10, abs_dy=20 — after swap: d0=20, d1=10.
+    // d4_ratio = ((10/2) << 16) / 20 = (5 << 16) / 20 = $4000 = 16384.
+    // Sub-octant = $50 & $1F = $10 = 16; sin_table[16] = $187D.
+    // sin_val/2 = $0C3E; d0_trig = $0C3E << 16 = $0C3E0000.
+    // cos_idx = ($80 - $20) / 2 = 48; sin_table[48] = $3B20.
+    // d0_tan = $0C3E0000 / $3B20 = $3504 = 13572.
+    // Octant 2, bit 0 clear → no swap. cmp $3504 <= $4000 → add turn_rate.
+    let result = helmets::diamond_power_snake_steer(2, 10, 20, 0x50, 0x06);
+    assert_eq!(
+        result,
+        helmets::SnakeSteerResult::Adjusted(0x50 + 0x06),
+        "ASM loc_3FA84: diagonal octant axis swap, add turn_rate"
+    );
+}
+
+// -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------
 

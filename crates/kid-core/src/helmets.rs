@@ -1,4 +1,5 @@
 use super::*;
+use crate::constants::SINE_TABLE_WORD_402B0;
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -1235,6 +1236,155 @@ pub(crate) fn diamond_power_snake_octant(
     }
 
     d3
+}
+
+/// Angle-steering result from `diamond_power_snake_steer`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SnakeSteerResult {
+    /// Angle was adjusted (turn toward target or speed-based correction).
+    Adjusted(u16),
+    /// Angle unchanged (same octant, target at same position as head).
+    Unchanged,
+}
+
+/// ASM loc_3FA50 through loc_3FAD4 (kid.asm:44753–44822): steer the snake
+/// head's angle toward the target octant, with speed control when already
+/// aimed correctly.
+///
+/// loc_3FA50: extract current octant from angle (`($3E >> 5) & 7`), compare
+/// to target octant d3. If equal, branch to loc_3FA72 speed control.
+///
+/// loc_3FA6A (kid.asm:44766): negative octant difference path —
+/// `cmpi.w #$FFFC,d3; bge.s loc_3FAC2` — when diff in [-4, -1], subtract
+/// turn_rate (shortest counter-clockwise); when diff < -4, add turn_rate
+/// (shorter clockwise wrap).
+///
+/// loc_3FA72 (kid.asm:44772): same-octant speed control — `move.w d0,d5;
+/// or.w d1,d5; beq.s loc_3FAD4` skips adjustment when target==head. Otherwise
+/// loads angle into d5, negates if octant bit 0 set, then falls through to
+/// loc_3FA84 for trig-based speed comparison.
+///
+/// loc_3FA84 (kid.asm:44781): diagonal octant axis swap — `moveq #$66,d6;
+/// btst d3,d6; beq.s loc_3FA8C; exg d0,d1`. For diagonal octants (bits
+/// 1,2,5,6 of $66), swaps abs_dx/abs_dy before computing the ratio
+/// `(abs_dy/2 << 16) / abs_dx` vs trig-table tangent to decide whether to
+/// add or subtract turn_rate.
+///
+/// Returns the updated angle word, or `Unchanged` when loc_3FAD4 is reached
+/// without modification (same octant, zero displacement).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_snake_steer(
+    target_octant: u16,
+    abs_dx: u16,
+    abs_dy: u16,
+    current_angle: u16,
+    turn_rate: u16,
+) -> SnakeSteerResult {
+    // ASM loc_3FA50: d4 = ($3E(a0) >> 5) & 7 — current octant from angle
+    let current_octant = (current_angle >> 5) & 7;
+
+    // ASM: cmp.w d3,d4; beq.s loc_3FA72
+    if target_octant == current_octant {
+        // ASM loc_3FA72: move.w d0,d5; or.w d1,d5; beq.s loc_3FAD4
+        if abs_dx == 0 && abs_dy == 0 {
+            return SnakeSteerResult::Unchanged;
+        }
+
+        // ASM: move.w $3E(a0),d5
+        let mut d5 = current_angle;
+        // ASM: btst #0,d3; beq.s loc_3FA84; neg.w d5
+        if target_octant & 1 != 0 {
+            d5 = d5.wrapping_neg();
+        }
+
+        // ASM loc_3FA84: moveq #$66,d6; btst d3,d6; beq.s loc_3FA8C; exg d0,d1
+        let diagonal_mask: u32 = 0x66; // bits 1,2,5,6
+        let (d0, d1) = if (diagonal_mask >> target_octant) & 1 != 0 {
+            (abs_dy, abs_dx)
+        } else {
+            (abs_dx, abs_dy)
+        };
+
+        // ASM loc_3FA8C: d4 = ((d1/2) << 16) / d0 — displacement ratio
+        // M68K DIVU: if quotient >= $10000, overflow leaves register unchanged
+        // (low word was 0 before DIVU since value was swap'd from high word).
+        if d0 == 0 {
+            // Avoid division by zero — ASM would trap, but in practice d0|d1!=0
+            // and the diagonal swap ensures d0 is the larger component.
+            return SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate));
+        }
+        let d4_full = (((d1 as u32) / 2) << 16) / (d0 as u32);
+        let d4_ratio: u16 = if d4_full >= 0x10000 {
+            0
+        } else {
+            d4_full as u16
+        };
+
+        // ASM: andi.w #$1F,d5; add.w d5,d5
+        let sub_octant = (d5 & 0x1F) as usize;
+        let sin_idx = sub_octant * 2; // word offset
+
+        // ASM: move.w (a1,d5.w),d0; lsr.w #1,d0; swap d0
+        let sin_val = SINE_TABLE_WORD_402B0[sub_octant];
+        let d0_trig = ((sin_val as u32) / 2) << 16;
+
+        // ASM: neg.w d5; addi.w #$80,d5; move.w (a1,d5.w),d1
+        let cos_idx = (0x80u16.wrapping_sub(sin_idx as u16)) / 2;
+        let cos_val = SINE_TABLE_WORD_402B0[cos_idx as usize];
+
+        // ASM: divu.w d1,d0 — tangent approximation
+        // Same M68K DIVU overflow semantics: unchanged register → low word 0.
+        let d0_full = if cos_val == 0 {
+            0xFFFF_FFFF_u32 // overflow guaranteed
+        } else {
+            d0_trig / (cos_val as u32)
+        };
+        let d0_tan: u16 = if d0_full >= 0x10000 {
+            0
+        } else {
+            d0_full as u16
+        };
+
+        // ASM: btst #0,d3; beq.s loc_3FABE; exg d0,d4
+        let (cmp_a, cmp_b) = if target_octant & 1 != 0 {
+            (d4_ratio, d0_tan) // swapped
+        } else {
+            (d0_tan, d4_ratio)
+        };
+
+        // ASM loc_3FABE: cmp.w d4,d0; ble.s loc_3FACC
+        if cmp_a <= cmp_b {
+            // loc_3FACC: add turn_rate
+            SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate))
+        } else {
+            // loc_3FAC2: subtract turn_rate
+            SnakeSteerResult::Adjusted(current_angle.wrapping_sub(turn_rate))
+        }
+    } else {
+        // ASM: sub.w d4,d3 — octant difference
+        let diff = (target_octant as i16).wrapping_sub(current_octant as i16);
+
+        if diff < 0 {
+            // ASM loc_3FA6A: cmpi.w #$FFFC,d3; bge.s loc_3FAC2; bra.s loc_3FACC
+            if diff >= -4 {
+                // Shortest path: subtract turn_rate
+                SnakeSteerResult::Adjusted(current_angle.wrapping_sub(turn_rate))
+            } else {
+                // Wrap around: add turn_rate
+                SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate))
+            }
+        } else {
+            // ASM: cmpi.w #4,d3; bge.s loc_3FAC2; bra.s loc_3FACC
+            if diff >= 4 {
+                // Wrap around: subtract turn_rate
+                SnakeSteerResult::Adjusted(current_angle.wrapping_sub(turn_rate))
+            } else {
+                // Shortest path: add turn_rate
+                SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate))
+            }
+        }
+    }
 }
 
 impl NativeRuntime {
