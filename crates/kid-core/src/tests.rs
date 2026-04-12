@@ -32699,6 +32699,74 @@ fn shishka_bagel_head_1_init_loc_39478_bagel_variant() {
 }
 
 #[test]
+fn shishka_bagel_head_1_wait_loop_loc_394e8_shishka_zero_status() {
+    // ASM loc_394E8 (kid.asm:42091): d2==0 (ShishkaBoss) → bsr.w sub_398BC.
+    // ASM loc_394FA (kid.asm:42102): d7==0 → beq.s loc_39506 (activation window).
+    let result = shishka_bagel_head_1_wait_loop_loc_394E8(0, 0);
+
+    assert!(
+        result.hibernates_one_frame,
+        "ASM loc_394E8: jsr (j_Hibernate_Object_1Frame).w before movement check",
+    );
+    assert!(
+        result.runs_shishka_movement_sub_398bc,
+        "ASM loc_394E8: tst.w d2; bne.s loc_394F6 — d2==0 calls sub_398BC",
+    );
+    assert!(
+        !result.runs_bagel_movement_sub_39bf8,
+        "ASM loc_394E8: ShishkaBoss path must not call sub_39BF8",
+    );
+    assert_eq!(
+        result.cached_collision_word_fffffb72, 0,
+        "ASM loc_394FA: move.w d7,($FFFFFB72).w stores zero status",
+    );
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead1WaitNextLoc394E8::CheckKidWindowLoc39506,
+        "ASM loc_394FA: tst.w d7; beq.s loc_39506 when d7==0",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_1_wait_loop_loc_394f6_bagel_zero_status() {
+    // ASM loc_394E8 (kid.asm:42091): d2!=0 (BagelBrothers) → bne.s loc_394F6.
+    // ASM loc_394F6 (kid.asm:42099): bsr.w sub_39BF8.
+    // ASM loc_394FA (kid.asm:42102): d7==0 → beq.s loc_39506.
+    let result = shishka_bagel_head_1_wait_loop_loc_394E8(1, 0);
+
+    assert!(
+        !result.runs_shishka_movement_sub_398bc,
+        "ASM loc_394F6: BagelBrothers path must not call sub_398BC",
+    );
+    assert!(
+        result.runs_bagel_movement_sub_39bf8,
+        "ASM loc_394F6: bsr.w sub_39BF8 for BagelBrothers variant",
+    );
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead1WaitNextLoc394E8::CheckKidWindowLoc39506,
+        "ASM loc_394FA: d7==0 falls through to activation window check",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_1_wait_loop_loc_394fa_nonzero_collision_exit() {
+    // ASM loc_394FA (kid.asm:42102): move.w d7,($FFFFFB72).w; tst.w d7;
+    // bne → bra.w loc_39EBE (shared collision exit) when d7 nonzero.
+    let result = shishka_bagel_head_1_wait_loop_loc_394E8(0, 0x0003);
+
+    assert_eq!(
+        result.cached_collision_word_fffffb72, 0x0003,
+        "ASM loc_394FA: move.w d7,($FFFFFB72).w must store nonzero status",
+    );
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead1WaitNextLoc394E8::SharedCollisionExitLoc39EBE,
+        "ASM loc_394FA: tst.w d7; bra.w loc_39EBE on nonzero d7",
+    );
+}
+
+#[test]
 fn boss_eye_orbit_sub_393c8_loc_393de_applies_right_table_offset_and_y_shift() {
     // ASM loc_393DE (kid.asm:41970): common path after table selection in sub_393C8.
     // When d2==0, beq.s loc_393DE skips the word_3940C load and uses word_39416[0]=$FFF4=-12.
