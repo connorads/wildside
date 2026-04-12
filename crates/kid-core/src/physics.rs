@@ -252,6 +252,17 @@ pub const JUMP_AIR_PROFILES: [JumpAirProfile; 10] = [
 /// air control ignores walk/run distinction — there is a single max speed,
 /// a single acceleration, and the only state that matters is direction.
 ///
+/// ASM loc_8518 (kid.asm:9309): facing-right branch — checks Ctrl_Left_Held
+/// first (turn to face left → loc_8572), then Ctrl_Right_Held (forward
+/// acceleration → loc_852C), then no-input decel → loc_85AC. The mirrored
+/// loc_8560 path (facing left) checks Ctrl_Right_Held first. Native collapses
+/// both facing paths: `input.right` → right accel, `input.left` → left accel,
+/// neither → decel. Direction flip is implicit in the returned facing.
+///
+/// ASM loc_8524 (kid.asm:9316): facing-right, left not held — checks
+/// Ctrl_Right_Held. If held → fall through to loc_852C (accelerate right).
+/// If not held → `beq.w loc_85AC` (decelerate, no input).
+///
 /// Returns `(new_x_vel, new_facing)`.
 pub fn update_air_horizontal_velocity(
     x_vel: i32,
@@ -259,11 +270,14 @@ pub fn update_air_horizontal_velocity(
     input: HorizontalInput,
     table: &AirSpeedTable,
 ) -> (i32, Direction) {
+    // ASM loc_8518/loc_8560: facing-dependent input priority collapses to
+    // direction-based dispatch since both L+R cannot be held simultaneously.
     if input.right {
         (apply_air_holding_right(x_vel, table), Direction::Right)
     } else if input.left {
         (apply_air_holding_left(x_vel, table), Direction::Left)
     } else {
+        // ASM loc_8524/loc_856C: neither direction held → loc_85AC decel.
         (air_decelerate(x_vel, table), facing)
     }
 }
