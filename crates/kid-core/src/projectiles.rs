@@ -350,6 +350,13 @@ impl NativeRuntime {
         cell.has_block && cell.collision != terrain::CollisionKind::Empty
     }
 
+    /// ASM loc_8810 (kid.asm:9653): skull projectile main loop.
+    /// `jsr Hibernate_Object_1Frame; tst.b $19(a3); bne loc_899C` — checks
+    /// animation-done flag (delete if set). `tst.w collision_type(a3); bne loc_899C`
+    /// — checks object collision (delete if hit). `addi.l #$1000,y_vel(a3)` applies
+    /// gravity each frame. Then horizontal movement with tile-boundary wall detection:
+    /// right-moving → loc_8852, left-moving → loc_8890, each probes sub_B55C for
+    /// solid terrain and snaps/bounces on contact.
     #[allow(non_snake_case)]
     fn step_juggernaut_skull_sub_87B0(
         projectile: &mut EnemyProjectile,
@@ -368,6 +375,14 @@ impl NativeRuntime {
         let next_x_px = (next_x >> 16) as i32;
         let current_y_px = (original_y >> 16) as i32;
 
+        // ASM loc_8852 (kid.asm:9674): right-moving tile-boundary wall check.
+        // `add.w d5,d7; move.w d7,x_pos(a3)` — moves x_pos first, then
+        // `bsr.w sub_B55C; cmpi.w #$6000,d5` probes for solid terrain.
+        // If solid: `andi.w #$FFF0,d7; subq.w #1,d7` snaps to tile left edge - 1.
+        // ASM loc_8890 (kid.asm:9700): left-moving mirror — snaps to
+        // `(x & $FFF0) + $10` (tile right edge). Both paths fall through to
+        // loc_88B6 bounce logic: `subq.w #1,d0` (bounce counter), x_vel decay
+        // by ±1, `neg.w d7; not.b x_direction` reverses direction.
         if Self::solid_terrain_at(grid, next_x_px, current_y_px) {
             let snapped_x_px = if x_velocity >= 0 {
                 (next_x_px & !0xF) - 1

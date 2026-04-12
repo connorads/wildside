@@ -36824,6 +36824,367 @@ fn loc_874C_three_frame_delay_before_spawn() {
     );
 }
 
+// --- loc_876A: Juggernaut skull worker per-frame tick (sub_86FA active loop) ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_876A (kid.asm:9599): `jsr Hibernate_Object_1Frame; subq.w #1,d0;
+/// bne.w loc_879A` — each frame of the 3-frame delay decrements the counter.
+/// When d0 reaches 0, the skull worker allocates a sub_87B0 projectile at Kid's
+/// current position. Verify the countdown ticks and spawn occurs on the right frame.
+fn loc_876A_skull_worker_per_frame_countdown() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    // C press arms the 3-frame delay
+    rt.step_juggernaut_skull(&slice, input);
+    assert_eq!(
+        rt.helmet.juggernaut_skull_delay_frames, 3,
+        "ASM loc_876A: moveq #3,d0 — counter starts at 3"
+    );
+
+    // Frame 1: subq.w #1,d0 → d0=2, bne → skip spawn
+    rt.prior_input = input;
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 2);
+    assert!(
+        rt.projectiles.is_empty(),
+        "ASM loc_876A: d0=2 (NE) — no spawn yet"
+    );
+
+    // Frame 2: subq.w #1,d0 → d0=1, bne → skip spawn
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 1);
+    assert!(
+        rt.projectiles.is_empty(),
+        "ASM loc_876A: d0=1 (NE) — no spawn yet"
+    );
+
+    // Frame 3: subq.w #1,d0 → d0=0, EQ → fall through to spawn
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    assert_eq!(
+        rt.helmet.juggernaut_skull_delay_frames, 0,
+        "ASM loc_876A: d0=0 — counter exhausted"
+    );
+    assert_eq!(
+        rt.projectiles.len(),
+        1,
+        "ASM loc_876A: d0=0 (EQ) → allocate sub_87B0 projectile"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_876A (kid.asm:9603-9608): after counter reaches 0, the skull worker
+/// copies `x_pos(a3), y_pos(a3), x_direction(a3)` to the new sub_87B0 object's
+/// $44/$46/$48 fields. Verify the spawned projectile inherits Kid's position.
+fn loc_876A_spawn_copies_kid_position_to_projectile() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    let mut slice = combat_slice();
+    slice.player.x_pos = 200 << 16;
+    slice.player.y_pos = 300 << 16;
+    slice.player.facing = Direction::Right;
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_juggernaut_skull(&slice, input);
+    rt.prior_input = input;
+    // Tick through 3 delay frames
+    for _ in 0..3 {
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+    }
+
+    assert_eq!(rt.projectiles.len(), 1);
+    let expected_x = ((200 + JUGGERNAUT_SKULL_OFFSET_X) as u32) << 16;
+    let expected_y = ((300 + JUGGERNAUT_SKULL_OFFSET_Y) as u32) << 16;
+    assert_eq!(
+        rt.projectiles[0].x_pos, expected_x,
+        "ASM loc_876A: spawned projectile x should include facing offset from Kid"
+    );
+    assert_eq!(
+        rt.projectiles[0].y_pos, expected_y,
+        "ASM loc_876A: spawned projectile y should be 8px above Kid"
+    );
+}
+
+// --- loc_87A0: Skull worker post-spawn visual tracking (visual-only) ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_87A0 (kid.asm:9614): `move.l $1E(a2),y_pos(a3); tst.b $18(a3);
+/// beq.s loc_876A; jmp Delete_CurrentObject` — after spawning sub_87B0, the
+/// skull worker continues copying Kid y_pos each frame until animation completes.
+/// This is visual-only (GFX tracking); native does not model the companion GFX
+/// object. Verify that the native spawn is unaffected by this visual-only phase
+/// — the projectile exists and the delay counter is fully consumed.
+fn loc_87A0_post_spawn_visual_tracking_not_modelled() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    // Arm and tick through 3-frame delay
+    rt.step_juggernaut_skull(&slice, input);
+    rt.prior_input = input;
+    for _ in 0..3 {
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+    }
+
+    assert_eq!(rt.projectiles.len(), 1, "projectile spawned after delay");
+    assert_eq!(
+        rt.helmet.juggernaut_skull_delay_frames, 0,
+        "ASM loc_87A0: post-spawn visual tracking phase is visual-only; \
+         native delay counter should be 0 after spawn"
+    );
+
+    // A subsequent tick with no C press should not re-arm or create duplicates
+    rt.prior_input = FrameInput::default();
+    rt.step_juggernaut_skull(&slice, FrameInput::default());
+    assert_eq!(
+        rt.projectiles.len(),
+        1,
+        "ASM loc_87A0: post-spawn loop doesn't produce additional projectiles"
+    );
+}
+
+// --- loc_87EC: sub_87B0 initial position + velocity setup ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_87EC (kid.asm:9641): `move.w d7,x_vel(a3); add.w d6,x_pos(a3)` —
+/// after direction branch, d7=4 (right) or -4 (left), d6=$1A (right) or -$1A
+/// (left). Stores x_vel and adds facing-dependent x offset to x_pos.
+/// Verify right-facing spawn: x_vel=+4px, x_offset=+26px.
+fn loc_87EC_right_facing_skull_initial_velocity_and_offset() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    let mut slice = combat_slice();
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 200 << 16;
+    slice.player.facing = Direction::Right;
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_juggernaut_skull(&slice, input);
+    rt.prior_input = input;
+    for _ in 0..3 {
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+    }
+
+    assert_eq!(rt.projectiles.len(), 1);
+    assert_eq!(
+        rt.projectiles[0].x_velocity, JUGGERNAUT_SKULL_X_SPEED,
+        "ASM loc_87EC: right-facing → moveq #4,d7 → x_vel = +4px/frame (0x4_0000)"
+    );
+    let expected_x = ((100 + 26) as u32) << 16; // d6=$1A=26
+    assert_eq!(
+        rt.projectiles[0].x_pos, expected_x,
+        "ASM loc_87EC: right-facing → moveq #$1A,d6 → x_pos += 26px"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_87EC (kid.asm:9638-9641): left-facing branch sets d7=-4, d6=-$1A.
+/// `move.w d7,x_vel(a3)` → x_vel=-4px, `add.w d6,x_pos(a3)` → x_pos -= 26px.
+fn loc_87EC_left_facing_skull_initial_velocity_and_offset() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Juggernaut;
+    let mut slice = combat_slice();
+    slice.player.x_pos = 100 << 16;
+    slice.player.y_pos = 200 << 16;
+    slice.player.facing = Direction::Left;
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_juggernaut_skull(&slice, input);
+    rt.prior_input = input;
+    for _ in 0..3 {
+        rt.step_juggernaut_skull(&slice, FrameInput::default());
+    }
+
+    assert_eq!(rt.projectiles.len(), 1);
+    assert_eq!(
+        rt.projectiles[0].x_velocity, -JUGGERNAUT_SKULL_X_SPEED,
+        "ASM loc_87EC: left-facing → moveq #-$4,d7 → x_vel = -4px/frame"
+    );
+    let expected_x = ((100 - 26) as u32) << 16; // d6=-$1A=-26
+    assert_eq!(
+        rt.projectiles[0].x_pos, expected_x,
+        "ASM loc_87EC: left-facing → moveq #-$1A,d6 → x_pos -= 26px"
+    );
+}
+
+// --- loc_8810: Skull projectile main loop (gravity + collision checks) ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_8810 (kid.asm:9659): `addi.l #$1000,y_vel(a3)` — gravity applied
+/// every frame of the skull main loop. Verify cumulative gravity over 3 frames.
+fn loc_8810_skull_gravity_accumulates_each_frame() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 50 << 16,
+        y_pos: 50 << 16,
+        x_velocity: JUGGERNAUT_SKULL_X_SPEED,
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        ..Default::default()
+    });
+
+    rt.step_projectiles();
+    assert_eq!(
+        rt.projectiles[0].y_velocity, JUGGERNAUT_SKULL_GRAVITY,
+        "ASM loc_8810: frame 1 → y_vel = $1000"
+    );
+
+    rt.step_projectiles();
+    assert_eq!(
+        rt.projectiles[0].y_velocity,
+        JUGGERNAUT_SKULL_GRAVITY * 2,
+        "ASM loc_8810: frame 2 → y_vel = $2000"
+    );
+
+    rt.step_projectiles();
+    assert_eq!(
+        rt.projectiles[0].y_velocity,
+        JUGGERNAUT_SKULL_GRAVITY * 3,
+        "ASM loc_8810: frame 3 → y_vel = $3000"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_8810 (kid.asm:9660-9663): `move.w x_pos(a3),d6; move.w d6,d5;
+/// move.w x_vel(a3),d7; bmi.w loc_887A` — horizontal movement dispatches based
+/// on x_vel sign: positive → right-moving path, negative → left-moving path.
+/// Verify a right-moving skull advances x_pos by x_vel when no wall is hit.
+fn loc_8810_right_moving_skull_no_wall() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 20 << 16, // mid-tile, far from boundary
+        y_pos: 20 << 16,
+        x_velocity: 0x2_0000, // 2 px/frame (won't cross tile boundary at col 2)
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        ..Default::default()
+    });
+
+    rt.step_projectiles();
+
+    // After gravity: y_vel = $1000; x should advance by 2px
+    let expected_x = (20 + 2) << 16;
+    assert_eq!(
+        rt.projectiles[0].x_pos >> 16,
+        expected_x >> 16,
+        "ASM loc_8810: right-moving, no wall → x_pos += x_vel"
+    );
+}
+
+// --- loc_8852: Right-moving tile-boundary wall snap + bounce ---
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_8852 (kid.asm:9674): `add.w d5,d7; move.w d7,x_pos(a3)` — moves
+/// x_pos by x_vel. `bsr.w sub_B55C; cmpi.w #$6000,d5` probes for solid.
+/// If solid: `andi.w #$FFF0,d7; subq.w #1,d7` snaps to (tile_left - 1).
+/// Then loc_88B6: `subq.w #1,d0` decrements bounce counter, decays x_vel by 1,
+/// reverses direction via `neg.w d7; not.b x_direction`.
+fn loc_8852_right_wall_snap_and_bounce() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Skull at x=30 moving right at 4px/frame → next_x=34 → col 2 (px 32-47)
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 30 << 16,
+        y_pos: 40 << 16,
+        x_velocity: 0x4_0000, // 4 px/frame
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    // Solid wall at col 2, rows 2-3 (covers y=40 at row 2)
+    rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // ASM: andi.w #$FFF0,d7 → 34 & 0xFFF0 = 32; subq.w #1,d7 → 31
+    assert_eq!(
+        p.x_pos >> 16,
+        31,
+        "ASM loc_8852: right-wall snap → (next_x & $FFF0) - 1 = 31"
+    );
+    // ASM loc_88B6: x_vel was 4, decay by 1 → 3, neg → -3
+    assert_eq!(
+        p.x_velocity, -0x3_0000,
+        "ASM loc_8852/loc_88B6: decay 4→3, reverse → -3px/frame"
+    );
+    assert_eq!(
+        p.reaim_countdown,
+        u16::from(JUGGERNAUT_SKULL_BOUNCES - 1),
+        "ASM loc_88B6: subq.w #1,d0 — bounce counter decremented"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+/// ASM loc_8890 (kid.asm:9700): left-moving mirror of loc_8852.
+/// `sub.w d7,d5; move.w d5,x_pos(a3)` → probe → if solid:
+/// `andi.w #$FFF0,d7; addi.w #$10,d7` snaps to tile right edge.
+fn loc_8852_left_wall_snap_and_bounce_mirror() {
+    let mut rt = NativeRuntime::new(manifest());
+    // Skull at x=33 moving left at -4px/frame → next_x=29 → col 1 (px 16-31)
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 33 << 16,
+        y_pos: 40 << 16,
+        x_velocity: -0x4_0000, // -4 px/frame
+        y_velocity: 0,
+        lifetime: 10,
+        friendly: true,
+        gravity: JUGGERNAUT_SKULL_GRAVITY,
+        reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+        ..Default::default()
+    });
+    // Solid wall at col 1, rows 2-3
+    rt.set_block_grid(bounce_grid(&[(1, 2), (1, 3)]));
+
+    rt.step_projectiles();
+
+    let p = &rt.projectiles[0];
+    // ASM loc_8890: andi.w #$FFF0,d7 → 29 & 0xFFF0 = 16; addi.w #$10 → 32
+    assert_eq!(
+        p.x_pos >> 16,
+        32,
+        "ASM loc_8890: left-wall snap → (next_x & $FFF0) + $10 = 32"
+    );
+    // ASM loc_88B6: x_vel was -4, |x_vel|=4, decay → 3, neg → +3
+    assert_eq!(
+        p.x_velocity, 0x3_0000,
+        "ASM loc_8890/loc_88B6: decay |-4|→3, reverse → +3px/frame"
+    );
+}
+
 // --- loc_7742: Eyeclops standing-still C-press beam ---
 
 #[test]

@@ -201,6 +201,15 @@ pub(crate) fn juggernaut_companion_step_sub_975C(
 pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u32, u32, i32) {
     // ASM sub_87B0 (kid.asm:9625): the spawned skull starts 8px above Kid and
     // 26px toward the current facing, with `x_vel=±4px/frame`.
+    //
+    // ASM loc_87EC (kid.asm:9641): `move.w d7,x_vel(a3); add.w d6,x_pos(a3)`
+    // — after the direction branch (d7=4/d6=$1A for right, d7=-4/d6=-$1A for
+    // left), stores x_vel and adds the facing-dependent x offset to x_pos.
+    // Then `bsr.w sub_B55C` does an initial terrain probe (d0=4 height);
+    // `cmpi.w #$6000,d5; beq.w loc_899C` — if the spawn position is inside
+    // solid terrain, the skull is immediately deleted. Native does not model
+    // this initial terrain probe; the first frame of step_juggernaut_skull_sub_87B0
+    // handles the case implicitly via its per-frame solid check.
     let x_offset_px = if player.facing == Direction::Right {
         JUGGERNAUT_SKULL_OFFSET_X
     } else {
@@ -3730,6 +3739,10 @@ impl NativeRuntime {
         }
 
         if self.helmet.juggernaut_skull_delay_frames > 0 {
+            // ASM loc_876A (kid.asm:9599): `jsr Hibernate_Object_1Frame; subq.w #1,d0;
+            // bne.w loc_879A` — per-frame tick of the skull worker (sub_86FA). Decrements
+            // the 3-frame counter each frame; when d0 reaches 0, falls through to allocate
+            // a sub_87B0 projectile object with Kid's current position/facing.
             self.helmet.juggernaut_skull_delay_frames -= 1;
             if self.helmet.juggernaut_skull_delay_frames == 0 {
                 let (x_pos, y_pos, x_velocity) =
@@ -3777,6 +3790,13 @@ impl NativeRuntime {
         // tracking is visual-only; native reads player position at spawn time.
         // `tst.b ($FFFFFA6C); bne.w loc_874C` at kid.asm:9583 skips companion
         // GFX init when the companion already exists — also visual-only.
+        //
+        // ASM loc_87A0 (kid.asm:9614): `move.l $1E(a2),y_pos(a3); tst.b $18(a3);
+        // beq.s loc_876A; jmp Delete_CurrentObject` — after spawn, the skull
+        // worker continues copying Kid's y_pos to the skull GFX each frame and
+        // loops (loc_876A) until the GFX animation completes ($18 flag), then
+        // deletes itself. This post-spawn tracking is visual-only; native does
+        // not model the companion GFX object lifecycle.
         self.helmet.juggernaut_skull_delay_frames = JUGGERNAUT_SKULL_STARTUP_FRAMES;
     }
 
