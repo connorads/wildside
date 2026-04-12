@@ -2209,7 +2209,11 @@ impl NativeRuntime {
             self.refresh_grounded_helmet_state_sub_78E8();
         }
 
-        // Shooter blocks: fire projectiles periodically
+        // ASM loc_7FC (kid.asm:915): `jsr (j_sub_F7E0).l; bsr.w sub_6034`
+        // — Mode_Level mid-loop calls shooter slot tick (sub_F730 via the
+        // j_sub_F7E0 trampoline) then dispatches level special effects
+        // (storm/hail weather via sub_6034). Both are skipped when
+        // $FFFFFB49 is set (paused); native gates on gameplay_slice_active.
         self.step_shooter_blocks(&slice);
 
         // Weather: hail spawns falling projectiles, lava geysers erupt

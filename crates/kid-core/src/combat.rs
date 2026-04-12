@@ -7912,7 +7912,32 @@ impl NativeRuntime {
         // child's GFX object ($C(a0)) before transform. Native doesn't model
         // linked GFX child objects, so this is a no-op here.
         self.progression.form_change_flash_frames = (old_frames + new_frames + 1) as u8;
-        // ASM zeroes velocity at end of transform (kid.asm:8599-8600)
+        // ASM loc_7E26 (kid.asm:8564): `move.b (a4,d0.w),d0; jsr (sub_E1330).l;
+        // jsr (sub_E1338).l` — index unk_7ECC[Foreground_theme] (or
+        // MusicSpeed_Murderwall if MurderWall_flag set) for the post-transform
+        // music speed byte, then queue it via sub_E1330 and reset via sub_E1338.
+        // Sound-only; native doesn't drive the GEMS sound driver.
+        //
+        // ASM loc_7E48 (kid.asm:8575): cleanup after the optional
+        // sfx_Voice_bummer (TheKid only). `bsr.w sub_80D0` (palette load),
+        // `bsr.w sub_B41C` (set half-width from d0=1), `bsr.w sub_DB22`
+        // (clear Maniaxe/RedStealth/Berzerker flags), `clr.w ($FFFFFB70).w`
+        // (reset walk accumulator), then reset both Kid and companion GFX
+        // objects' sprite/visibility fields. Native covers half-width via
+        // form_width_delta, flag clearing via helmet.reset(), and walk
+        // accumulator implicitly.
+        //
+        // ASM loc_7E8C (kid.asm:8594): `st $13(a4)` — show companion GFX
+        // object for Skycutter (direct beq.s) and Juggernaut (which sets
+        // companion sprite to LnkTo_unk_BEDF0 before falling through).
+        // Visual-only; native doesn't model per-frame companion GFX objects.
+        //
+        // ASM loc_7E90 (kid.asm:8597): `sf (Check_Helmet_Change).w;
+        // clr.l x_vel(a3); clr.l y_vel(a3); sf (Currently_transforming).w`
+        // — clear transform-in-progress flags and zero both velocity longwords.
+        // Then restore 3 palette words from the stack and rts via $44(a5).
+        // Native zeroes velocity below; pending_form.take() above clears the
+        // transform request; form_change_flash_frames drives the flash overlay.
         if let Some(ref mut slice) = self.opening_slice {
             slice.player.x_velocity = 0;
             slice.player.y_velocity = 0;
