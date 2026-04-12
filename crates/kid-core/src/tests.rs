@@ -33202,6 +33202,153 @@ fn shishka_bagel_head_2_activation_loc_3965e_faces_right_on_equal_or_left_head_x
 }
 
 #[test]
+fn shishka_bagel_head_2_attack_wait_loc_3966e_shishka_zero_status() {
+    // ASM loc_3966E (kid.asm:42261): hibernate, tst.w d2 → beq sub_398BC,
+    // d7→$FFFFFB74, beq.s loc_3968C (check animation done)
+    let result = shishka_bagel_head_2_attack_wait_loop_loc_3966E(0, 0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(result.runs_shishka_movement_sub_398bc);
+    assert!(!result.runs_bagel_movement_sub_39d4a);
+    assert_eq!(result.cached_collision_word_fffffb74, 0);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2AttackWaitNextLoc3966E::CheckAttackAnimationDoneLoc3968C,
+        "ASM loc_3966E: zero d7 → beq.s loc_3968C to check animation done",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_attack_wait_loc_3966e_bagel_zero_status() {
+    // ASM loc_3966E+loc_3967C: d2!=0 → bsr.w sub_39D4A (BagelBrothers path)
+    let result = shishka_bagel_head_2_attack_wait_loop_loc_3966E(1, 0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(!result.runs_shishka_movement_sub_398bc);
+    assert!(result.runs_bagel_movement_sub_39d4a);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2AttackWaitNextLoc3966E::CheckAttackAnimationDoneLoc3968C,
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_attack_wait_loc_3966e_nonzero_collision_exit() {
+    // ASM loc_39680: move.w d7,($FFFFFB74).w; tst.w d7;
+    // bra.w loc_39EBE on nonzero
+    let result = shishka_bagel_head_2_attack_wait_loop_loc_3966E(0, 0x0005);
+
+    assert_eq!(result.cached_collision_word_fffffb74, 0x0005);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2AttackWaitNextLoc3966E::SharedCollisionExitLoc39EBE,
+        "ASM loc_39680: tst.w d7; bra.w loc_39EBE on nonzero d7",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_attack_anim_gate_loc_3968c_not_done() {
+    // ASM loc_3968C (kid.asm:42279): tst.b $18(a3); beq.s loc_3966E
+    // Animation not done ($18==0) → loop back to attack wait
+    let result = shishka_bagel_head_2_attack_anim_gate_loc_3968C(0);
+
+    assert!(!result.attack_animation_done);
+    assert!(!result.runs_projectile_spawn_sub_397e4);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2AttackAnimGateNextLoc3968C::AttackWaitLoopLoc3966E,
+        "ASM loc_3968C: $18==0 → beq.s loc_3966E to continue attack wait loop",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_attack_anim_gate_loc_3968c_done_spawns_projectile() {
+    // ASM loc_3968C (kid.asm:42279): tst.b $18(a3); bne → bsr.w sub_397E4
+    // Animation done ($18!=0) → spawn projectile, then post-projectile wait
+    let result = shishka_bagel_head_2_attack_anim_gate_loc_3968C(1);
+
+    assert!(result.attack_animation_done);
+    assert!(result.runs_projectile_spawn_sub_397e4);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2AttackAnimGateNextLoc3968C::SpawnProjectileSub397E4,
+        "ASM loc_3968C: $18!=0 → bsr.w sub_397E4 to spawn head 2 projectile",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_post_projectile_wait_loc_39696_shishka_zero_status() {
+    // ASM loc_39696 (kid.asm:42284): hibernate, tst.w d2 → beq sub_398BC,
+    // d7→$FFFFFB74, beq.s loc_396B4 (check animation done)
+    let result = shishka_bagel_head_2_post_projectile_wait_loop_loc_39696(0, 0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(result.runs_shishka_movement_sub_398bc);
+    assert!(!result.runs_bagel_movement_sub_39d4a);
+    assert_eq!(result.cached_collision_word_fffffb74, 0);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2PostProjectileWaitNextLoc39696::CheckAnimationDoneLoc396B4,
+        "ASM loc_39696: zero d7 → beq.s loc_396B4 to check animation done",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_post_projectile_wait_loc_39696_bagel_zero_status() {
+    // ASM loc_39696+loc_396A4 (kid.asm:42284+42292): d2!=0 → bsr.w sub_39D4A
+    let result = shishka_bagel_head_2_post_projectile_wait_loop_loc_39696(1, 0);
+
+    assert!(result.hibernates_one_frame);
+    assert!(!result.runs_shishka_movement_sub_398bc);
+    assert!(result.runs_bagel_movement_sub_39d4a);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2PostProjectileWaitNextLoc39696::CheckAnimationDoneLoc396B4,
+        "ASM loc_396A4: BagelBrothers path converges at loc_396A8 with zero d7",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_post_projectile_wait_loc_39696_nonzero_collision_exit() {
+    // ASM loc_396A8: move.w d7,($FFFFFB74).w; tst.w d7;
+    // bra.w loc_39EBE on nonzero
+    let result = shishka_bagel_head_2_post_projectile_wait_loop_loc_39696(0, 0x0003);
+
+    assert_eq!(result.cached_collision_word_fffffb74, 0x0003);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2PostProjectileWaitNextLoc39696::SharedCollisionExitLoc39EBE,
+        "ASM loc_396A8: tst.w d7; bra.w loc_39EBE on nonzero d7",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_post_projectile_anim_gate_loc_396b4_not_done() {
+    // ASM loc_396B4 (kid.asm:42302): tst.b $18(a3); beq.s loc_39696
+    let result = shishka_bagel_head_2_post_projectile_anim_gate_loc_396B4(0);
+
+    assert!(!result.post_projectile_animation_done);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2PostProjectileAnimGateNextLoc396B4::AwaitPostProjectileWaitLoc39696,
+        "ASM loc_396B4: $18==0 → beq.s loc_39696 to continue post-projectile wait",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_2_post_projectile_anim_gate_loc_396b4_done_returns() {
+    // ASM loc_396B4 (kid.asm:42302): tst.b $18(a3); bne → bra.w loc_3960E
+    let result = shishka_bagel_head_2_post_projectile_anim_gate_loc_396B4(1);
+
+    assert!(result.post_projectile_animation_done);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead2PostProjectileAnimGateNextLoc396B4::ReturnToActivationWaitLoc3960E,
+        "ASM loc_396B4: $18!=0 → bra.w loc_3960E to return to head 2 activation wait",
+    );
+}
+
+#[test]
 fn boss_eye_orbit_sub_393c8_loc_393de_applies_right_table_offset_and_y_shift() {
     // ASM loc_393DE (kid.asm:41970): common path after table selection in sub_393C8.
     // When d2==0, beq.s loc_393DE skips the word_3940C load and uses word_39416[0]=$FFF4=-12.

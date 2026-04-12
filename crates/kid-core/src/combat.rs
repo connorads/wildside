@@ -602,6 +602,63 @@ pub(crate) struct ShishkaBagelHead2ActivationWindowLoc3962C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead2AttackWaitNextLoc3966E {
+    CheckAttackAnimationDoneLoc3968C,
+    SharedCollisionExitLoc39EBE,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead2AttackWaitLoopLoc3966E {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_shishka_movement_sub_398bc: bool,
+    pub(crate) runs_bagel_movement_sub_39d4a: bool,
+    pub(crate) cached_collision_word_fffffb74: u16,
+    pub(crate) next: ShishkaBagelHead2AttackWaitNextLoc3966E,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead2AttackAnimGateNextLoc3968C {
+    AttackWaitLoopLoc3966E,
+    SpawnProjectileSub397E4,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead2AttackAnimGateLoc3968C {
+    pub(crate) animation_done_byte_18: u8,
+    pub(crate) attack_animation_done: bool,
+    pub(crate) runs_projectile_spawn_sub_397e4: bool,
+    pub(crate) next: ShishkaBagelHead2AttackAnimGateNextLoc3968C,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead2PostProjectileWaitNextLoc39696 {
+    CheckAnimationDoneLoc396B4,
+    SharedCollisionExitLoc39EBE,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead2PostProjectileWaitLoopLoc39696 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_shishka_movement_sub_398bc: bool,
+    pub(crate) runs_bagel_movement_sub_39d4a: bool,
+    pub(crate) cached_collision_word_fffffb74: u16,
+    pub(crate) next: ShishkaBagelHead2PostProjectileWaitNextLoc39696,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead2PostProjectileAnimGateNextLoc396B4 {
+    AwaitPostProjectileWaitLoc39696,
+    ReturnToActivationWaitLoc3960E,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead2PostProjectileAnimGateLoc396B4 {
+    pub(crate) animation_done_byte_18: u8,
+    pub(crate) post_projectile_animation_done: bool,
+    pub(crate) next: ShishkaBagelHead2PostProjectileAnimGateNextLoc396B4,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoomerangBossHeadWaitNextLoc37F80 {
     CheckKidWindowLoc37F94,
     SharedCollisionExitLoc39EBE,
@@ -2784,6 +2841,112 @@ pub(crate) fn shishka_bagel_head_2_activation_window_loc_3962C(
         cached_x_direction_fffffb87: Some(x_direction),
         animation_script_label: Some("stru_39FC6"),
         next: ShishkaBagelHead2ActivationNextLoc3962C::AttackAnimationLoc3966E,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_2_attack_wait_loop_loc_3966E(
+    variant_d2: u16,
+    movement_status_d7: u16,
+) -> ShishkaBagelHead2AttackWaitLoopLoc3966E {
+    // ASM loc_3966E (kid.asm:42261): hibernate one frame after `stru_39FC6`,
+    // then branch on d2: d2==0 calls `sub_398BC` (ShishkaBoss movement),
+    // d2!=0 falls through to loc_3967C → `bsr.w sub_39D4A` (BagelBrothers
+    // movement).
+    //
+    // ASM loc_3967C (kid.asm:42269): `bsr.w sub_39D4A` — BagelBrothers
+    // movement subroutine call, reached when d2!=0 (`tst.w d2; bne.s`).
+    //
+    // ASM loc_39680 (kid.asm:42272): convergence — `move.w d7,($FFFFFB74).w`,
+    // `tst.w d7`, `beq.s loc_3968C` (check animation done),
+    // `bra.w loc_39EBE` (shared collision exit) when d7 nonzero.
+    let is_shishka = variant_d2 == 0;
+    ShishkaBagelHead2AttackWaitLoopLoc3966E {
+        hibernates_one_frame: true,
+        runs_shishka_movement_sub_398bc: is_shishka,
+        runs_bagel_movement_sub_39d4a: !is_shishka,
+        cached_collision_word_fffffb74: movement_status_d7,
+        next: if movement_status_d7 == 0 {
+            ShishkaBagelHead2AttackWaitNextLoc3966E::CheckAttackAnimationDoneLoc3968C
+        } else {
+            ShishkaBagelHead2AttackWaitNextLoc3966E::SharedCollisionExitLoc39EBE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_2_attack_anim_gate_loc_3968C(
+    animation_done_byte_18: u8,
+) -> ShishkaBagelHead2AttackAnimGateLoc3968C {
+    // ASM loc_3968C (kid.asm:42279): `tst.b $18(a3)` loops back to loc_3966E
+    // while the attack animation is still active; nonzero byte calls
+    // `sub_397E4` to spawn the head 2 projectile before the post-projectile
+    // wait loop at loc_39696.
+    let attack_animation_done = animation_done_byte_18 != 0;
+    ShishkaBagelHead2AttackAnimGateLoc3968C {
+        animation_done_byte_18,
+        attack_animation_done,
+        runs_projectile_spawn_sub_397e4: attack_animation_done,
+        next: if attack_animation_done {
+            ShishkaBagelHead2AttackAnimGateNextLoc3968C::SpawnProjectileSub397E4
+        } else {
+            ShishkaBagelHead2AttackAnimGateNextLoc3968C::AttackWaitLoopLoc3966E
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_2_post_projectile_wait_loop_loc_39696(
+    variant_d2: u16,
+    movement_status_d7: u16,
+) -> ShishkaBagelHead2PostProjectileWaitLoopLoc39696 {
+    // ASM loc_39696 (kid.asm:42284): post-projectile wait loop — hibernate one
+    // frame, branch on d2: d2==0 calls `sub_398BC` (ShishkaBoss movement),
+    // d2!=0 falls through to loc_396A4 → `bsr.w sub_39D4A` (BagelBrothers
+    // movement). Structurally mirrors the attack wait loop at loc_3966E but
+    // runs after `sub_397E4` has spawned the head 2 projectile.
+    //
+    // ASM loc_396A4 (kid.asm:42292): `bsr.w sub_39D4A` — BagelBrothers
+    // movement subroutine call in the post-projectile wait loop, reached
+    // when d2!=0 (`tst.w d2; bne.s`).
+    //
+    // ASM loc_396A8 (kid.asm:42295): convergence — `move.w d7,($FFFFFB74).w`,
+    // `tst.w d7`, `beq.s loc_396B4` (check animation done),
+    // `bra.w loc_39EBE` (shared collision exit) when d7 nonzero.
+    let is_shishka = variant_d2 == 0;
+    ShishkaBagelHead2PostProjectileWaitLoopLoc39696 {
+        hibernates_one_frame: true,
+        runs_shishka_movement_sub_398bc: is_shishka,
+        runs_bagel_movement_sub_39d4a: !is_shishka,
+        cached_collision_word_fffffb74: movement_status_d7,
+        next: if movement_status_d7 == 0 {
+            ShishkaBagelHead2PostProjectileWaitNextLoc39696::CheckAnimationDoneLoc396B4
+        } else {
+            ShishkaBagelHead2PostProjectileWaitNextLoc39696::SharedCollisionExitLoc39EBE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_2_post_projectile_anim_gate_loc_396B4(
+    animation_done_byte_18: u8,
+) -> ShishkaBagelHead2PostProjectileAnimGateLoc396B4 {
+    // ASM loc_396B4 (kid.asm:42302): `tst.b $18(a3)` loops back to loc_39696
+    // while the post-projectile animation is still active; nonzero byte returns
+    // the head to the activation wait loop at loc_3960E (`bra.w loc_3960E`).
+    let post_projectile_animation_done = animation_done_byte_18 != 0;
+    ShishkaBagelHead2PostProjectileAnimGateLoc396B4 {
+        animation_done_byte_18,
+        post_projectile_animation_done,
+        next: if post_projectile_animation_done {
+            ShishkaBagelHead2PostProjectileAnimGateNextLoc396B4::ReturnToActivationWaitLoc3960E
+        } else {
+            ShishkaBagelHead2PostProjectileAnimGateNextLoc396B4::AwaitPostProjectileWaitLoc39696
+        },
     }
 }
 
