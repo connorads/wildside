@@ -11476,6 +11476,215 @@ fn diamond_power_object_reset_sub_3f63c_clears_heads_and_flags_but_keeps_the_sta
 }
 
 // -----------------------------------------------------------------------
+// DiamondPower_CompileSprites (loc_3F7AE)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_compile_sprites_empty_buffer_returns_unchanged_count() {
+    // ASM DiamondPower_CompileSprites: when buffer start == end (a0==a1),
+    // returns immediately without touching Number_Sprites.
+    let (sprites, count) = helmets::diamond_power_compile_sprites_sub_3F798(&[], 5);
+    assert!(sprites.is_empty(), "empty buffer produces no sprites");
+    assert_eq!(count, 5, "sprite count unchanged on empty buffer");
+}
+
+#[test]
+fn diamond_power_compile_sprites_adjusts_link_and_masks_pattern_loc_3f7ae() {
+    // ASM loc_3F7AE: inner loop copies Y, adjusts size+link by adding
+    // running sprite count (d2), masks pattern bit 15, copies X.
+    // Two entries: initial sprite count = 3.
+    let buffer = [
+        [0x0080u16, 0x0500, 0x8123, 0x00A0], // Y=$80, size+link=$500, pattern=$8123 (bit 15 set), X=$A0
+        [0x0090, 0x0600, 0x0456, 0x00B0], // Y=$90, size+link=$600, pattern=$456 (bit 15 clear), X=$B0
+    ];
+    let (sprites, count) = helmets::diamond_power_compile_sprites_sub_3F798(&buffer, 3);
+
+    assert_eq!(sprites.len(), 2);
+    // First entry: d2 increments to 4; size_link = $500 + 4 = $504
+    assert_eq!(sprites[0].y, 0x0080, "ASM loc_3F7AE: Y word copied");
+    assert_eq!(
+        sprites[0].size_link, 0x0504,
+        "ASM loc_3F7AE: size+link adjusted by d2=4"
+    );
+    assert_eq!(
+        sprites[0].pattern, 0x0123,
+        "ASM loc_3F7AE: andi.w #$7FFF clears bit 15"
+    );
+    assert_eq!(sprites[0].x, 0x00A0, "ASM loc_3F7AE: X word copied");
+
+    // Second entry: d2 increments to 5; size_link = $600 + 5 = $605
+    assert_eq!(sprites[1].y, 0x0090);
+    assert_eq!(
+        sprites[1].size_link, 0x0605,
+        "ASM loc_3F7AE: size+link adjusted by d2=5"
+    );
+    assert_eq!(
+        sprites[1].pattern, 0x0456,
+        "ASM loc_3F7AE: pattern unchanged when bit 15 already clear"
+    );
+    assert_eq!(sprites[1].x, 0x00B0);
+
+    assert_eq!(count, 5, "ASM: Number_Sprites updated to final d2");
+}
+
+// -----------------------------------------------------------------------
+// DiamondPower_Init_CircleOfDoom (loc_3F7E6)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_init_circle_of_doom_allocates_8_slots_with_evenly_spaced_angles_loc_3f7e6() {
+    // ASM DiamondPower_Init_CircleOfDoom (loc_3F7D0):
+    // d1=8, d2=($10000/8)<<8=$200000, d3=0, d0=$00210000.
+    // ASM loc_3F7E6: loop allocates 8 slots:
+    //   $3E(a0) = d0 = $00210000 (radius),
+    //   $40(a0) = 0 (shrink flag),
+    //   $42(a0) = d3 (angle), d3 += $200000.
+    let slots = helmets::diamond_power_init_circle_of_doom_sub_3F7D0();
+    assert_eq!(slots.len(), 8, "ASM loc_3F7E6: dbf d1 loops 8 times");
+
+    // All slots share the same initial radius $00210000
+    for (i, slot) in slots.iter().enumerate() {
+        assert_eq!(
+            slot.radius, 0x0021_0000,
+            "slot {i}: ASM move.l d0,$3E(a0) stores $00210000"
+        );
+        assert_eq!(slot.shrink_flag, 0, "slot {i}: ASM clr.w $40(a0)");
+        assert_eq!(slot.status, 0, "slot {i}: freshly allocated, status=0");
+    }
+
+    // Angles: 0, $200000, $400000, ..., $E00000
+    for i in 0..8u32 {
+        assert_eq!(
+            slots[i as usize].angle,
+            i * 0x20_0000,
+            "slot {i}: ASM loc_3F7E6 angle = d3, step $200000"
+        );
+    }
+}
+
+// -----------------------------------------------------------------------
+// DiamondPower_Main_CircleOfDoom per-slot (loc_3F81A)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_main_circle_of_doom_slot_position_uses_sin_cos_loc_3f81a() {
+    // ASM loc_3F81A: d5 = radius >> 8; angle from $42.w (upper word);
+    // cos/sin from sub_40236; x = cos*d5>>16>>6 + kid_x; y = -(sin*d5>>16>>6) + kid_y - $10.
+    // Use angle=0 (cos≈$3FFE, sin=0) so x offset is positive, y offset is 0.
+    let mut slot = helmets::CircleOfDoomSlot {
+        radius: 0x0021_0000, // d5 = $2100
+        shrink_flag: 0,
+        angle: 0x0000_0000, // angle word = 0
+        status: 0,
+    };
+    let result = helmets::diamond_power_main_circle_of_doom_slot(&mut slot, 100, 200, 0, 0);
+
+    // cos(0) ≈ $3FFE, sin(0) = 0
+    // x_offset = ($3FFE * $2100) >> 16 >> 6 = ($83F_BBFE >> 16) >> 6 = $83F >> 6 = $20 = 32
+    // y_offset = -(0 * $2100 >> 16 >> 6) = 0; world_y = 200 + 0 - $10 = 184
+    assert_eq!(
+        result.screen_x,
+        100 + 32 + 0x7F, // world_x + d3 ($7F - camera_x=0)
+        "ASM loc_3F81A: cos(0)*radius >> 22 + kid_x + screen_offset"
+    );
+    assert_eq!(
+        result.screen_y,
+        184 + 0x7F, // world_y + d4
+        "ASM loc_3F81A: y = kid_y - $10 + screen_offset (sin=0)"
+    );
+    assert!(!result.removed, "slot should not be removed on first tick");
+}
+
+#[test]
+fn diamond_power_main_circle_of_doom_slot_shrinks_radius_loc_3f81a() {
+    // ASM loc_3F81A: subi.l #$400,$3E(a0); when d5>>1 < $C, also
+    // subi.l #$19000,$3E(a0). Initial radius $00210000 → d5=$2100,
+    // size_index = $21/2 = $10 = 16 ≥ $C, so only $400 subtracted.
+    let mut slot = helmets::CircleOfDoomSlot {
+        radius: 0x0021_0000,
+        shrink_flag: 0,
+        angle: 0x0000_0000,
+        status: 0,
+    };
+    let result = helmets::diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0, 0, 0);
+    assert!(!result.removed);
+    assert_eq!(
+        slot.radius,
+        0x0021_0000 - 0x400,
+        "ASM: subi.l #$400,$3E(a0) — slow shrink when size_index >= $C"
+    );
+}
+
+#[test]
+fn diamond_power_main_circle_of_doom_slot_fast_shrink_when_small_loc_3f81a() {
+    // ASM: when $3E.w >> 1 < $C (radius upper word < $18), both $400 and
+    // $19000 are subtracted. Set radius so upper word = $16 → index = $B < $C.
+    let mut slot = helmets::CircleOfDoomSlot {
+        radius: 0x0016_0000 + 0x1_9400, // ensure it stays positive after both subs
+        shrink_flag: 0,
+        angle: 0x0000_0000,
+        status: 0,
+    };
+    let initial = slot.radius;
+    let result = helmets::diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0, 0, 0);
+    assert!(!result.removed);
+    assert_eq!(
+        slot.radius,
+        initial - 0x400 - 0x19000,
+        "ASM: both subi.l #$400 and subi.l #$19000 when size_index < $C"
+    );
+}
+
+#[test]
+fn diamond_power_main_circle_of_doom_slot_removes_when_radius_depleted_loc_3f81a() {
+    // ASM: when $3E - $400 - $19000 < 0, slot is removed via sub_3F5E8.
+    let mut slot = helmets::CircleOfDoomSlot {
+        radius: 0x0001_0000, // small radius, upper word = 1, index = 0 < $C
+        shrink_flag: 0,
+        angle: 0x0000_0000,
+        status: 0,
+    };
+    let result = helmets::diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0, 0, 0);
+    assert!(
+        result.removed,
+        "ASM loc_3F87A: radius goes negative → sub_3F5E8 removes slot"
+    );
+}
+
+#[test]
+fn diamond_power_main_circle_of_doom_slot_removes_when_status_nonzero_loc_3f81a() {
+    // ASM: tst.w $38(a0); bne.s loc_3F87A — nonzero status triggers removal.
+    let mut slot = helmets::CircleOfDoomSlot {
+        radius: 0x0021_0000,
+        shrink_flag: 0,
+        angle: 0x0000_0000,
+        status: 1,
+    };
+    let result = helmets::diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0, 0, 0);
+    assert!(
+        result.removed,
+        "ASM loc_3F81A: nonzero $38(a0) triggers removal"
+    );
+}
+
+#[test]
+fn diamond_power_main_circle_of_doom_slot_decrements_angle_loc_3f81a() {
+    // ASM: subq.w #4,$42(a0) — decrements the angle upper word by 4 each frame.
+    let mut slot = helmets::CircleOfDoomSlot {
+        radius: 0x0021_0000,
+        shrink_flag: 0,
+        angle: 0x0020_0000, // upper word = $20
+        status: 0,
+    };
+    helmets::diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0, 0, 0);
+    assert_eq!(
+        slot.angle >> 16,
+        0x1C,
+        "ASM: subq.w #4,$42(a0) decrements angle upper word from $20 to $1C"
+    );
+}
+
+// -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------
 

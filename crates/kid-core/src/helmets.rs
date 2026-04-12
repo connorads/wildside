@@ -697,6 +697,234 @@ pub(crate) fn diamond_power_object_reset_sub_3F63C(
     lists
 }
 
+/// A single VDP sprite entry as compiled by DiamondPower_CompileSprites.
+/// ASM sprite table format: Y (word), size+link (word), pattern (word), X (word).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CompiledDpSprite {
+    pub(crate) y: u16,
+    pub(crate) size_link: u16,
+    pub(crate) pattern: u16,
+    pub(crate) x: u16,
+}
+
+/// ASM DiamondPower_CompileSprites (kid.asm:44441, loc_3F798).
+/// Copies diamond-power sprite entries from the DP sprite buffer into the VDP
+/// sprite table, adjusting each entry's link byte by adding the running sprite
+/// count and masking the pattern's high bit.
+///
+/// ASM loc_3F7AE: inner loop — for each 8-byte entry:
+///   `move.w (a1)+,(a2)+` copies Y;
+///   `addq.w #1,d2; add.w d2,d0; move.w d0,(a2)+` adjusts size+link;
+///   `andi.w #$7FFF,d0; move.w d0,(a2)+` masks pattern bit 15;
+///   `move.w (a1)+,(a2)+` copies X;
+///   loops until a1 reaches a0 (buffer end).
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_compile_sprites_sub_3F798(
+    buffer: &[[u16; 4]],
+    initial_sprite_count: u8,
+) -> (Vec<CompiledDpSprite>, u8) {
+    // ASM: if buffer empty (a0 == a1), return immediately.
+    if buffer.is_empty() {
+        return (Vec::new(), initial_sprite_count);
+    }
+    let mut d2 = initial_sprite_count as u16;
+    let mut out = Vec::with_capacity(buffer.len());
+    for entry in buffer {
+        // ASM loc_3F7AE: copy Y word
+        let y = entry[0];
+        // addq.w #1,d2; add.w d2,d0 — adjust link by running count
+        d2 = d2.wrapping_add(1);
+        let size_link = entry[1].wrapping_add(d2);
+        // andi.w #$7FFF,d0 — clear pattern high bit
+        let pattern = entry[2] & 0x7FFF;
+        // copy X word
+        let x = entry[3];
+        out.push(CompiledDpSprite {
+            y,
+            size_link,
+            pattern,
+            x,
+        });
+    }
+    (out, d2 as u8)
+}
+
+/// State of a single Circle-of-Doom diamond-power object slot.
+/// ASM fields: $3E(a0)=radius (longword), $40(a0)=shrink flag (word),
+/// $42(a0)=angle (longword), $38(a0)=status (word).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CircleOfDoomSlot {
+    /// ASM $3E(a0): radius in 8.8 fixed point (longword). Upper word is the
+    /// integer radius used for position calculation; lower 16 bits are fractional.
+    pub(crate) radius: u32,
+    /// ASM $40(a0): cleared to 0 on init (word).
+    pub(crate) shrink_flag: u16,
+    /// ASM $42(a0): angle in 16.16 fixed point (longword). Upper word is the
+    /// 8-bit angle fed to sub_40236; lower 16 bits are fractional.
+    pub(crate) angle: u32,
+    /// ASM $38(a0): status word — nonzero triggers sub_3F5E8 (removal).
+    pub(crate) status: u16,
+}
+
+/// ASM DiamondPower_Init_CircleOfDoom (kid.asm:44469, loc_3F7D0).
+/// Allocates 8 diamond-power object slots with evenly-spaced angles.
+///
+/// d1=8 (count), d2 = ($10000 / 8) << 8 = $2000 << 8 = $200000 (angle step),
+/// d3 starts at 0 (first angle), d0 = $00210000 (gfx ID, unused in native).
+///
+/// ASM loc_3F7E6: allocation loop — for each slot:
+///   `bsr.w Allocate_DiamondPowerObjectSlot` allocates;
+///   `move.l d0,$3E(a0)` stores gfx ID as initial radius (=$00210000);
+///   `clr.w $40(a0)` clears shrink flag;
+///   `move.l d3,$42(a0)` stores angle;
+///   `add.l d2,d3` advances angle by step;
+///   `dbf d1,loc_3F7E6` loops 8 times (d1=7 after subq).
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_init_circle_of_doom_sub_3F7D0() -> Vec<CircleOfDoomSlot> {
+    let count: u16 = 8;
+    // ASM: divu.w d1,d2 → $10000 / 8 = $2000; lsl.l #8,d2 → $200000
+    let angle_step: u32 = (0x10000u32 / count as u32) << 8;
+    // ASM: moveq #$21,d0; swap d0; clr.w d0 → d0 = $00210000
+    let initial_radius: u32 = 0x0021_0000;
+    let mut d3: u32 = 0;
+    let mut slots = Vec::with_capacity(count as usize);
+    for _ in 0..count {
+        slots.push(CircleOfDoomSlot {
+            radius: initial_radius,
+            shrink_flag: 0,
+            angle: d3,
+            status: 0,
+        });
+        d3 = d3.wrapping_add(angle_step);
+    }
+    slots
+}
+
+/// Radius-to-sprite-size lookup table.
+/// ASM byte_3F8B4 (kid.asm:44560): 28 entries indexed by `$3E(a0).w >> 1`.
+/// Each entry is the pixel half-size for the diamond sprite at that radius.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const CIRCLE_OF_DOOM_SIZE_TABLE: [u8; 28] = [
+    0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+];
+
+/// Per-slot position and size result from DiamondPower_Main_CircleOfDoom.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CircleOfDoomSpriteResult {
+    /// Screen X after camera offset (d0 + d3 in ASM).
+    pub(crate) screen_x: i16,
+    /// Screen Y after camera offset (d1 + d4 in ASM).
+    pub(crate) screen_y: i16,
+    /// Sprite half-size from byte_3F8B4 table.
+    pub(crate) half_size: u8,
+    /// Whether the slot was removed (status nonzero or radius depleted).
+    pub(crate) removed: bool,
+}
+
+/// ASM DiamondPower_Main_CircleOfDoom (kid.asm:44490) per-slot processing.
+///
+/// For each slot in the linked list starting at Addr_FirstDPObjectSlot:
+///
+/// ASM loc_3F81A: per-slot body —
+///   d5 = $3E(a0) >> 8 (radius integer part);
+///   angle = $42(a0).w (upper word of angle longword);
+///   (cos, sin) = sub_40236(angle);
+///   x = (cos * d5) >> 16 >> 6 + kid_x;
+///   y = -(sin * d5) >> 16 >> 6 + kid_y - $10;
+///   half_size = byte_3F8B4[$3E(a0).w >> 1];
+///   if $38(a0) != 0 → call sub_3F5E8 (remove slot);
+///   else shrink radius: $3E -= $400; if $3E.w >> 1 < $C → $3E -= $19000;
+///     if $3E < 0 → remove slot;
+///   angle -= 4 ($42 subq.w #4);
+///   next slot via 4(a0).
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_main_circle_of_doom_slot(
+    slot: &mut CircleOfDoomSlot,
+    kid_x: i16,
+    kid_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+) -> CircleOfDoomSpriteResult {
+    use crate::boot::sin_cos_sub_40236;
+
+    // ASM: d3 = $7F - Camera_X_pos; d4 = $7F - Camera_Y_pos
+    let d3 = 0x7Fi16.wrapping_sub(camera_x);
+    let d4 = 0x7Fi16.wrapping_sub(camera_y);
+
+    // ASM loc_3F81A: d5 = $3E(a0) >> 8 (lsr.l #8,d5)
+    let d5 = (slot.radius >> 8) as u16;
+
+    // ASM: angle = upper word of $42(a0) — move.w $42(a0),d0
+    let angle = (slot.angle >> 16) as u8;
+    let (cos, sin) = sin_cos_sub_40236(angle);
+
+    // ASM: muls.w d5,d0; swap d0; asr.w #6,d0; add.w x_pos(a3),d0
+    let x_offset = ((cos as i32 * d5 as i32) >> 16) as i16 >> 6;
+    let world_x = kid_x.wrapping_add(x_offset);
+    // ASM: move.w d0,$1A(a0); add.w d3,d0 — screen X
+    let screen_x = world_x.wrapping_add(d3);
+
+    // ASM: muls.w d5,d1; swap d1; asr.w #6,d1; neg.w d1; add.w y_pos(a3),d1; subi.w #$10,d1
+    let y_offset = -(((sin as i32 * d5 as i32) >> 16) as i16 >> 6);
+    let world_y = kid_y.wrapping_add(y_offset).wrapping_sub(0x10);
+    // ASM: move.w d1,$1E(a0); add.w d4,d1 — screen Y
+    let screen_y = world_y.wrapping_add(d4);
+
+    // ASM: d5 = $3E(a0).w (upper word); d6 = byte_3F8B4[d5 >> 1]
+    let radius_word = (slot.radius >> 16) as u16;
+    let size_index = (radius_word >> 1) as usize;
+    let half_size = if size_index < CIRCLE_OF_DOOM_SIZE_TABLE.len() {
+        CIRCLE_OF_DOOM_SIZE_TABLE[size_index]
+    } else {
+        *CIRCLE_OF_DOOM_SIZE_TABLE.last().unwrap()
+    };
+
+    // ASM: tst.w $38(a0); bne.s loc_3F87A (remove)
+    if slot.status != 0 {
+        return CircleOfDoomSpriteResult {
+            screen_x,
+            screen_y,
+            half_size,
+            removed: true,
+        };
+    }
+
+    // ASM: subi.l #$400,$3E(a0) — shrink radius
+    slot.radius = slot.radius.wrapping_sub(0x400);
+    // ASM: cmpi.w #$C,d5 — compare upper word >> 1 to $C
+    if size_index < 0xC {
+        // ASM: subi.l #$19000,$3E(a0); bge.s loc_3F880
+        slot.radius = slot.radius.wrapping_sub(0x19000);
+        if (slot.radius as i32) < 0 {
+            return CircleOfDoomSpriteResult {
+                screen_x,
+                screen_y,
+                half_size,
+                removed: true,
+            };
+        }
+    }
+
+    // ASM: subq.w #4,$42(a0) — decrement angle
+    let angle_upper = (slot.angle >> 16) as u16;
+    let angle_lower = slot.angle as u16;
+    let new_angle_upper = angle_upper.wrapping_sub(4);
+    slot.angle = (new_angle_upper as u32) << 16 | angle_lower as u32;
+
+    CircleOfDoomSpriteResult {
+        screen_x,
+        screen_y,
+        half_size,
+        removed: false,
+    }
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
