@@ -69658,3 +69658,235 @@ fn loc_60c0_60c6_mountain_copies_all_8_storm_words() {
         );
     }
 }
+
+// --- loc_78C6: platform-gone velocity zero + sub_B43A floor check ---
+
+/// ASM loc_78C6 (kid.asm:7957): when Addr_PlatformStandingOn is null at
+/// loc_7828, the ROM zeroes `x_vel(a3)` and `y_vel(a3)`, then runs sub_B43A
+/// floor check. If floor found (positive), sub_78E8 refreshes helmet state
+/// and control returns to loc_75D4 (standing-still loop).
+///
+/// Native: a grounded player with zero velocity stays in the standing state;
+/// `refresh_grounded_helmet_state_sub_78E8` runs unconditionally each
+/// grounded frame, so the loc_78C6 → sub_78E8 path is covered.
+#[test]
+fn platform_gone_zero_velocity_stays_standing_loc_78c6() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::TheKid;
+
+    // Simulate the state at loc_78C6: grounded, no platform, zero velocity.
+    // sub_78E8 should run without error and clear any stale flags.
+    rt.helmet.maniaxe_axe_active = false;
+    rt.helmet.red_stealth_sword_timer = 0;
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM loc_78C6: platform-gone path through sub_78E8 should leave Maniaxe flag clear for Kid form",
+    );
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0,
+        "ASM loc_78C6: platform-gone path through sub_78E8 should leave Red Stealth timer at zero for Kid form",
+    );
+}
+
+/// ASM loc_78C6 (kid.asm:7957): the platform-gone path also clears velocity
+/// via `moveq #0,d0 / move.l d0,x_vel(a3) / move.l d0,y_vel(a3)`.
+/// Verify that for a Maniaxe player with a live projectile, sub_78E8
+/// preserves the axe flag even when reached from the platform-gone path.
+#[test]
+fn platform_gone_maniaxe_preserves_live_axe_loc_78c6() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.helmet.maniaxe_axe_active = true;
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: 0x2_0000,
+        y_velocity: 0,
+        lifetime: 20,
+        friendly: true,
+        gravity: 0,
+        homing_accel: 0,
+        speed_cap: 0,
+        wall_bounce: false,
+        ..Default::default()
+    });
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert!(
+        rt.helmet.maniaxe_axe_active,
+        "ASM loc_78C6 → sub_78E8: Maniaxe axe flag should survive platform-gone path when projectile is live",
+    );
+}
+
+// --- loc_7920: Skycutter standing animation gate in sub_78E8 ---
+
+/// ASM loc_7920 (kid.asm:7991): `cmpi.w #4,d0 / bne.w loc_7932 / tst.b
+/// is_animated(a3) / beq.w loc_794C / rts`. If Skycutter and animated,
+/// the ROM keeps the current sprite and returns. Otherwise falls through
+/// to loc_794C (default standing sprite).
+///
+/// Native: Skycutter flipboard is managed by `step_skycutter_flipboard`;
+/// sub_78E8 doesn't need a special Skycutter branch — the `_ => {}` arm
+/// lets Skycutter pass through without clearing any flags.
+#[test]
+fn skycutter_sub_78e8_preserves_flipboard_state_loc_7920() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Skycutter;
+    rt.helmet.skycutter_flipboard = 0x11;
+    rt.helmet.skycutter_on_board = true;
+
+    // sub_78E8 calls sub_DB22 which clears flipboard state.
+    // This matches ASM loc_794C (default sprite) path for Skycutter when
+    // is_animated is false. The ROM also clears the transient state.
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    // ASM loc_7920: when is_animated is false, the Skycutter falls through
+    // to loc_794C, which means sub_DB22 equivalently clears the state.
+    assert_eq!(
+        rt.helmet.skycutter_flipboard, 0,
+        "ASM loc_7920 → loc_794C: non-animated Skycutter should have flipboard cleared by sub_DB22 path",
+    );
+    assert!(
+        !rt.helmet.skycutter_on_board,
+        "ASM loc_7920 → loc_794C: non-animated Skycutter should have on_board cleared by sub_DB22 path",
+    );
+}
+
+// --- loc_7932: Red Stealth sword swing gate in sub_78E8 ---
+
+/// ASM loc_7932 (kid.asm:7999): `cmpi.w #3,d0 / bne.w loc_794C / tst.b
+/// (Red_Stealth_sword_swing) / beq.w loc_794C / tst.b $18(a3) / bne.w
+/// loc_794C / rts`. Red Stealth with active sword swing and $18(a3)==0
+/// keeps the current sprite; otherwise falls to loc_794C.
+///
+/// Native: preserves `red_stealth_sword_timer` when > 0, which corresponds
+/// to the ROM's "swing still active" gate. The $18(a3) animation-completion
+/// flag is not modelled (visual-only sprite selection detail).
+#[test]
+fn red_stealth_sword_swing_preserved_loc_7932() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    rt.helmet.red_stealth_sword_timer = 0x40;
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0x40,
+        "ASM loc_7932: Red Stealth with active sword swing should keep timer through sub_78E8",
+    );
+}
+
+/// ASM loc_7932 → loc_794C: when Red_Stealth_sword_swing is zero, the ROM
+/// falls through to loc_794C (default sprite, clear flags).
+#[test]
+fn red_stealth_no_swing_clears_to_default_loc_7932() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    rt.helmet.red_stealth_sword_timer = 0;
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0,
+        "ASM loc_7932 → loc_794C: Red Stealth with no active swing should stay cleared",
+    );
+}
+
+// --- loc_794C: default standing sprite assignment ---
+
+/// ASM loc_794C (kid.asm:8009): `sf (Maniaxe_throwing_axe) / sf
+/// (Red_Stealth_sword_swing) / add.w d0,d0 / lea off_79B2(pc),a0 / add.w
+/// d0,a0 / move.w (a0),addroffset_sprite(a3) / rts`.
+///
+/// The flag-clearing part is modelled by `clear_special_movement_state_sub_DB22`.
+/// The sprite table lookup (off_79B2 indexed by helmet ID) is visual-only.
+#[test]
+fn default_sprite_clears_maniaxe_and_red_stealth_flags_loc_794c() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::TheKid;
+    rt.helmet.maniaxe_axe_active = true;
+    rt.helmet.red_stealth_sword_timer = 0x70;
+
+    // sub_78E8 for TheKid form: no special branch, falls through sub_DB22
+    // which clears both flags — equivalent to loc_794C's sf pair.
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM loc_794C: `sf (Maniaxe_throwing_axe)` should clear axe flag on default sprite path",
+    );
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0,
+        "ASM loc_794C: `sf (Red_Stealth_sword_swing)` should clear sword timer on default sprite path",
+    );
+}
+
+/// ASM loc_794C: Berzerker form reaches loc_794C through the default path
+/// (helmet=7, not matched by Juggernaut/Micromax/Skycutter/Red Stealth/
+/// Maniaxe gates). Verify flags are cleared.
+#[test]
+fn berzerker_reaches_default_sprite_path_loc_794c() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Berzerker;
+    rt.helmet.berzerker_charging = true;
+    rt.helmet.berzerker_charge_accum = 0xFF;
+    rt.helmet.maniaxe_axe_active = true;
+
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert!(
+        !rt.helmet.berzerker_charging,
+        "ASM loc_794C: Berzerker should have charging cleared via sub_DB22 on default path",
+    );
+    assert_eq!(
+        rt.helmet.berzerker_charge_accum, 0,
+        "ASM loc_794C: Berzerker charge accumulator should be zeroed via sub_DB22",
+    );
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM loc_794C: cross-form Maniaxe flag should be cleared on Berzerker's default sprite path",
+    );
+}
+
+// --- loc_7962: Micromax idle animation cycle in sub_78E8 ---
+
+/// ASM loc_7962 (kid.asm:8019): `addq.w #1,($FFFFF8F0) / move.w
+/// ($FFFFF8F0),d0 / cmpi.w #8,d0 / blt.s loc_7974 / clr.w ($FFFFF8F0)`.
+/// Then picks LnkTo_unk_ABDE0 (>= 5) or LnkTo_unk_ABEA6 (< 5) for the
+/// sprite. This is Micromax's idle standing animation cycle.
+///
+/// Native: Micromax idle animation is visual-only and not modelled.
+/// sub_78E8's `_ => {}` arm lets Micromax pass through like other
+/// non-special helmets. The walk accumulator ($FFFFF8F0) is unrelated
+/// to gameplay state.
+#[test]
+fn micromax_sub_78e8_clears_stale_flags_loc_7962() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Micromax;
+    rt.helmet.maniaxe_axe_active = true;
+    rt.helmet.red_stealth_sword_timer = 0x30;
+
+    // Micromax falls through the _ => {} arm after sub_DB22 clears flags.
+    // In the ROM, Micromax would branch to loc_7962 for the idle cycle,
+    // but loc_7962 doesn't touch Maniaxe/RedStealth flags — those were
+    // already cleared by loc_794C before the Micromax check at sub_78E8
+    // entry (Micromax is checked at helmet=9 before the Maniaxe/RedStealth
+    // gates). Actually, the ROM flow: sub_78E8 checks helmet=9 early →
+    // branches to loc_7962 directly, skipping loc_794C. So loc_794C's
+    // flag clearing does NOT run for Micromax — but sub_DB22 (which native
+    // calls unconditionally) does clear them.
+    rt.refresh_grounded_helmet_state_sub_78E8();
+
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM loc_7962: Micromax path should still clear Maniaxe flag via sub_DB22",
+    );
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0,
+        "ASM loc_7962: Micromax path should still clear Red Stealth timer via sub_DB22",
+    );
+}

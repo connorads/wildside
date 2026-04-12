@@ -2144,12 +2144,19 @@ impl NativeRuntime {
         // ASM loc_787E (kid.asm:7924): when the standing-still platform block
         // (loc_7828) clears Addr_PlatformStandingOn and x_vel is zero, the ROM
         // calls sub_78E8 then returns to loc_75D4.
+        // ASM loc_78C6 (kid.asm:7957): when Addr_PlatformStandingOn is null at
+        // loc_7828, the ROM zeroes x_vel/y_vel, runs sub_B43A floor check:
+        //   bmi → loc_BC80 (no floor, death/fall state)
+        //   beq → loc_B5F6 (no solid/spikes cell, drop 1px)
+        //   positive → sub_78E8 + loop back to loc_75D4 (standing-still).
+        // Native: grounded flag already set; velocity is zero from the movement
+        // system; sub_78E8 runs unconditionally below.
         // ASM loc_789C (kid.asm:7937): when sub_902A finds floor and sub_8ED0
         // confirms platform support, the ROM loads $FFFFFA98 into d0 (dead —
         // immediately overwritten by sub_78E8's `move.w (Current_Helmet),d0`),
         // calls sub_78E8, and returns to loc_75D4.
         // Native runs sub_78E8 unconditionally each grounded frame, covering
-        // both the "platform gone" (loc_787E) and "platform supported"
+        // the "platform gone" (loc_787E/loc_78C6) and "platform supported"
         // (loc_789C) paths.
         if slice.player.on_ground {
             self.refresh_grounded_helmet_state_sub_78E8();

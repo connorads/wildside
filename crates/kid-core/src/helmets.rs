@@ -2834,6 +2834,23 @@ impl NativeRuntime {
     pub(crate) fn refresh_grounded_helmet_state_sub_78E8(&mut self) {
         // ASM sub_78E8 (kid.asm:7973): grounded frames reset the default
         // helmet pose unless the form-specific grounded action is still live.
+        //
+        // Inner branches by helmet ID:
+        //   loc_7920 (kid.asm:7991): Skycutter (helmet=4) — if is_animated(a3),
+        //     rts (keep current animation); else fall through to loc_794C.
+        //     Native: Skycutter flipboard state is managed by step_skycutter_flipboard;
+        //     sub_78E8's Skycutter branch is visual-only (sprite selection).
+        //   loc_7932 (kid.asm:7999): Red Stealth (helmet=3) — if
+        //     Red_Stealth_sword_swing && $18(a3), rts (keep swing animation);
+        //     else loc_794C. Native: preserves red_stealth_sword_timer when > 0.
+        //   loc_794C (kid.asm:8009): default standing sprite — sf Maniaxe_throwing_axe,
+        //     sf Red_Stealth_sword_swing, index off_79B2[helmet_id] for sprite.
+        //     Native: clear_special_movement_state_sub_DB22 clears the flags;
+        //     sprite selection is visual-only.
+        //   loc_7962 (kid.asm:8019): Micromax (helmet=9) — increment walk
+        //     accumulator ($FFFFF8F0) mod 8, pick between two sprite frames
+        //     (>= 5 → LnkTo_unk_ABDE0, < 5 → LnkTo_unk_ABEA6). Visual-only;
+        //     native does not model the Micromax idle animation cycle.
         let previous_maniaxe_axe_active = self.helmet.maniaxe_axe_active;
         let previous_red_stealth_sword_timer = self.helmet.red_stealth_sword_timer;
         self.clear_special_movement_state_sub_DB22();
