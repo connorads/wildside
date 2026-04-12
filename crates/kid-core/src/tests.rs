@@ -33623,6 +33623,86 @@ fn shishka_bagel_head_3_attack_wait_loc_39794_nonzero_collision_exit() {
 }
 
 #[test]
+fn shishka_bagel_head_3_post_projectile_wait_loc_397bc_shishka_zero_status() {
+    // ASM loc_397BC (kid.asm:42410): hibernate, tst.w d2 → beq sub_398BC,
+    // d7→$FFFFFB76, beq.s loc_397DA (check animation done)
+    let result = shishka_bagel_head_3_post_projectile_wait_loop_loc_397bc(0, 0);
+
+    assert!(
+        result.hibernates_one_frame,
+        "ASM loc_397BC: jsr (j_Hibernate_Object_1Frame).w before movement check",
+    );
+    assert!(
+        result.runs_shishka_movement_sub_398bc,
+        "ASM loc_397BC: tst.w d2; d2==0 calls sub_398BC",
+    );
+    assert!(
+        !result.runs_bagel_movement_sub_39eb4,
+        "ASM loc_397BC: ShishkaBoss path must not call sub_39EB4",
+    );
+    assert_eq!(result.cached_collision_word_fffffb76, 0);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead3PostProjectileWaitNextLoc397BC::CheckAnimationDoneLoc397DA,
+        "ASM loc_397CE: zero d7 → beq.s loc_397DA to check animation done",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_3_post_projectile_wait_loc_397bc_bagel_zero_status() {
+    // ASM loc_397BC+loc_397CA: d2!=0 → bsr.w sub_39EB4 (BagelBrothers path)
+    let result = shishka_bagel_head_3_post_projectile_wait_loop_loc_397bc(1, 0);
+
+    assert!(result.runs_bagel_movement_sub_39eb4);
+    assert!(!result.runs_shishka_movement_sub_398bc);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead3PostProjectileWaitNextLoc397BC::CheckAnimationDoneLoc397DA,
+        "ASM loc_397CE: zero d7 → beq.s loc_397DA",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_3_post_projectile_wait_loc_397bc_nonzero_collision_exit() {
+    // ASM loc_397CE: move.w d7,($FFFFFB76).w; tst.w d7;
+    // bra.w loc_39EBE on nonzero
+    let result = shishka_bagel_head_3_post_projectile_wait_loop_loc_397bc(0, 0x0007);
+
+    assert_eq!(result.cached_collision_word_fffffb76, 0x0007);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead3PostProjectileWaitNextLoc397BC::SharedCollisionExitLoc39EBE,
+        "ASM loc_397CE: tst.w d7; bra.w loc_39EBE on nonzero d7",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_3_post_projectile_anim_gate_loc_397da_not_done() {
+    // ASM loc_397DA (kid.asm:42428): tst.b $18(a3); beq.s loc_397BC
+    let result = shishka_bagel_head_3_post_projectile_anim_gate_loc_397da(0);
+
+    assert!(!result.post_projectile_animation_done);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead3PostProjectileAnimGateNextLoc397DA::AwaitPostProjectileWaitLoc397BC,
+        "ASM loc_397DA: zero $18(a3) loops back to loc_397BC",
+    );
+}
+
+#[test]
+fn shishka_bagel_head_3_post_projectile_anim_gate_loc_397da_done() {
+    // ASM loc_397DA: nonzero $18(a3) → bra.w loc_39734 (return to wait loop)
+    let result = shishka_bagel_head_3_post_projectile_anim_gate_loc_397da(1);
+
+    assert!(result.post_projectile_animation_done);
+    assert_eq!(
+        result.next,
+        ShishkaBagelHead3PostProjectileAnimGateNextLoc397DA::ReturnToWaitLoopLoc39734,
+        "ASM loc_397DA: nonzero $18(a3) returns to loc_39734 wait loop",
+    );
+}
+
+#[test]
 fn boss_eye_orbit_sub_393c8_loc_393de_applies_right_table_offset_and_y_shift() {
     // ASM loc_393DE (kid.asm:41970): common path after table selection in sub_393C8.
     // When d2==0, beq.s loc_393DE skips the word_3940C load and uses word_39416[0]=$FFF4=-12.

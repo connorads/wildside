@@ -725,6 +725,34 @@ pub(crate) struct ShishkaBagelHead3AttackWaitLoopLoc39794 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead3PostProjectileWaitNextLoc397BC {
+    CheckAnimationDoneLoc397DA,
+    SharedCollisionExitLoc39EBE,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead3PostProjectileWaitLoopLoc397BC {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_shishka_movement_sub_398bc: bool,
+    pub(crate) runs_bagel_movement_sub_39eb4: bool,
+    pub(crate) cached_collision_word_fffffb76: u16,
+    pub(crate) next: ShishkaBagelHead3PostProjectileWaitNextLoc397BC,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead3PostProjectileAnimGateNextLoc397DA {
+    AwaitPostProjectileWaitLoc397BC,
+    ReturnToWaitLoopLoc39734,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead3PostProjectileAnimGateLoc397DA {
+    pub(crate) animation_done_byte_18: u8,
+    pub(crate) post_projectile_animation_done: bool,
+    pub(crate) next: ShishkaBagelHead3PostProjectileAnimGateNextLoc397DA,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoomerangBossHeadWaitNextLoc37F80 {
     CheckKidWindowLoc37F94,
     SharedCollisionExitLoc39EBE,
@@ -3166,6 +3194,59 @@ pub(crate) fn shishka_bagel_head_3_attack_wait_loop_loc_39794(
             ShishkaBagelHead3AttackWaitNextLoc39794::CheckAttackAnimationDoneLoc397B2
         } else {
             ShishkaBagelHead3AttackWaitNextLoc39794::SharedCollisionExitLoc39EBE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_3_post_projectile_wait_loop_loc_397bc(
+    variant_d2: u16,
+    movement_status_d7: u16,
+) -> ShishkaBagelHead3PostProjectileWaitLoopLoc397BC {
+    // ASM loc_397BC (kid.asm:42410): post-projectile wait loop — hibernate one
+    // frame, branch on d2: d2==0 calls `sub_398BC` (ShishkaBoss movement),
+    // d2!=0 falls through to loc_397CA → `bsr.w sub_39EB4` (BagelBrothers
+    // movement). Structurally mirrors the attack wait loop at loc_39794 but
+    // runs after `sub_397E4` has spawned the head 3 projectile.
+    //
+    // ASM loc_397CA (kid.asm:42418): `bsr.w sub_39EB4` — BagelBrothers
+    // movement subroutine call in the post-projectile wait loop, reached
+    // when d2!=0 (`tst.w d2; bne.s`).
+    //
+    // ASM loc_397CE (kid.asm:42421): convergence — `move.w d7,($FFFFFB76).w`,
+    // `tst.w d7`, `beq.s loc_397DA` (check animation done),
+    // `bra.w loc_39EBE` (shared collision exit) when d7 nonzero.
+    let is_shishka = variant_d2 == 0;
+    ShishkaBagelHead3PostProjectileWaitLoopLoc397BC {
+        hibernates_one_frame: true,
+        runs_shishka_movement_sub_398bc: is_shishka,
+        runs_bagel_movement_sub_39eb4: !is_shishka,
+        cached_collision_word_fffffb76: movement_status_d7,
+        next: if movement_status_d7 == 0 {
+            ShishkaBagelHead3PostProjectileWaitNextLoc397BC::CheckAnimationDoneLoc397DA
+        } else {
+            ShishkaBagelHead3PostProjectileWaitNextLoc397BC::SharedCollisionExitLoc39EBE
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_3_post_projectile_anim_gate_loc_397da(
+    animation_done_byte_18: u8,
+) -> ShishkaBagelHead3PostProjectileAnimGateLoc397DA {
+    // ASM loc_397DA (kid.asm:42428): `tst.b $18(a3)` loops back to loc_397BC
+    // while the post-projectile animation is still active; nonzero byte returns
+    // the head to the wait loop at loc_39734 (`bra.w loc_39734`).
+    let post_projectile_animation_done = animation_done_byte_18 != 0;
+    ShishkaBagelHead3PostProjectileAnimGateLoc397DA {
+        animation_done_byte_18,
+        post_projectile_animation_done,
+        next: if post_projectile_animation_done {
+            ShishkaBagelHead3PostProjectileAnimGateNextLoc397DA::ReturnToWaitLoopLoc39734
+        } else {
+            ShishkaBagelHead3PostProjectileAnimGateNextLoc397DA::AwaitPostProjectileWaitLoc397BC
         },
     }
 }
