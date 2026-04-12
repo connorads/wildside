@@ -54426,6 +54426,113 @@ fn loc_3c0b4_no_floor_no_wall_cliff_turnaround() {
 }
 
 #[test]
+fn loc_3c18a_leftward_walking_loop_attachment_check() {
+    // ASM loc_3C18A (kid.asm:43648-43651): tst.w $3A(a5); beq.s loc_3C194;
+    // bsr.w sub_3BF72 — identical attachment check to loc_3C03A but in the
+    // leftward walking loop (reached via loc_3C25E after gravity update).
+    // When $3A(a5) is nonzero (child present), sub_3BF72 syncs the child;
+    // when zero, it's skipped straight to loc_3C194.
+    // Test: Driller (has child) produces paired layout; Robot (no child) skips.
+    let driller = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Driller,
+        parent_x_pos: 0x0200,
+        parent_y_pos: 0x0100,
+        parent_x_direction: 0xFF, // facing left (leftward walking loop)
+        child_y_offset: 0,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0xFF,
+    });
+    assert!(
+        driller.secondary.is_some(),
+        "ASM loc_3C18A: Driller has nonzero $3A(a5) → sub_3BF72 produces secondary child in leftward walking loop",
+    );
+
+    // Robot: no child attachment — sub_3BF72 produces only the primary.
+    let robot = shared_enemy_attachment_sub_3BF72(SharedEnemyAttachmentInputSub3BF72 {
+        family: EnemyFamily::Robot,
+        parent_x_pos: 0x0200,
+        parent_y_pos: 0x0100,
+        parent_x_direction: 0xFF,
+        child_y_offset: 0,
+        robot_parent_state: 0,
+        robot_child_mapping: 0,
+        child_x_direction: 0,
+    });
+    assert!(
+        robot.secondary.is_none(),
+        "ASM loc_3C18A: Robot has $3A(a5)==0 → sub_3BF72 skipped to loc_3C194",
+    );
+}
+
+#[test]
+fn loc_3c194_leftward_walking_loop_remain_active_check() {
+    // ASM loc_3C194 (kid.asm:43653-43655): jsr (j_Hibernate_Object_1Frame).w;
+    // bsr.w sub_3C3CE — same hibernate + remain-active as loc_3C044 but in the
+    // leftward walking loop; falls through to loc_3C19C (body collision scan)
+    // instead of dispatching via `jmp (a0)`. Enemies within bounds are retained.
+    let bounds = crate::physics::LevelBounds {
+        width_pixels: 640,
+        height_pixels: 448,
+    };
+
+    // Enemy within bounds + low object count → retained
+    assert!(
+        shared_enemy_should_remain_active_sub_3C3CE(
+            0x0080_0000, // x=128px
+            0x00C0_0000, // y=192px
+            bounds,
+            5,
+            100,
+            150,
+        ),
+        "ASM loc_3C194: sub_3C3CE retains leftward walker within level bounds",
+    );
+
+    // Enemy far below level → culled (y > level_height + $20)
+    assert!(
+        !shared_enemy_should_remain_active_sub_3C3CE(
+            0x0080_0000,
+            0x01F4_0000_u32, // y=500px, above 448+32=480 threshold
+            bounds,
+            5,
+            100,
+            150,
+        ),
+        "ASM loc_3C194: sub_3C3CE culls leftward walker below level bounds",
+    );
+}
+
+#[test]
+fn loc_3c19c_leftward_walker_body_scan_continues_on_clear_path() {
+    // ASM loc_3C19C (kid.asm:43657-43660): bsr.w sub_36B3C; tst.w d5;
+    // bne.w loc_3C464 — secondary body collision scan in the leftward walking
+    // loop. sub_36B3C scans the walker's body rectangle for overlapping
+    // collision cells. If d5==0 (no overlap), the walker continues with the
+    // leftward displacement calculation. If d5!=0, deactivates via loc_3C464.
+    // Native: probe_wall check covers this — no wall hit means the walker
+    // continues leftward.
+    // Test: Robot walking left on flat floor with no walls continues leftward.
+    let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 13)).collect();
+    let grid = grid_with_solid_cells(20, 15, &solid);
+    let mut enemy = make_pacer(EnemyFamily::Robot, 3, 200, 208);
+    enemy.facing = Direction::Left;
+    let start_x = enemy.x_pos;
+
+    step_pacer(&mut enemy, Some(&grid));
+
+    assert_eq!(
+        enemy.facing,
+        Direction::Left,
+        "ASM loc_3C19C: d5==0 (no body collision) → walker continues leftward",
+    );
+    assert!(
+        enemy.x_pos < start_x,
+        "ASM loc_3C19C: walker advanced leftward after sub_36B3C body scan found no collision",
+    );
+}
+
+#[test]
 fn shared_enemy_drive_sound_sub_3c352_starts_the_last_driller_loop_with_playsound2() {
     let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
 

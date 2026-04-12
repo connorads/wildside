@@ -2428,6 +2428,9 @@ pub(crate) fn shared_enemy_should_remain_active_sub_3C3CE(
     // ASM loc_3C044 / loc_3C0F0 (kid.asm:43505-43508): after the walker
     // hibernate frame, `bsr.w sub_3C3CE` checks whether the enemy should
     // remain active before dispatching to the next state via `jmp (a0)`.
+    // ASM loc_3C194 (kid.asm:43653-43655): same hibernate + sub_3C3CE in the
+    // leftward walking loop, but falls through to loc_3C19C (body collision
+    // scan) instead of dispatching via `jmp (a0)`.
     // ASM sub_3C3CE (kid.asm:43901-43955): the shared Diamond/FireDemon/
     // walker retention path first rejects live positions outside
     // [-$20, level+$20] on both axes before applying the camera-relative
@@ -2754,6 +2757,13 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     // status) to decide: continue walking (loc_3C17A/loc_3C266), snap position
     // (loc_3C0C6/loc_3C172), or turnaround (loc_3C0A6→loc_3C0D2 /
     // loc_3C152→loc_3C026). Native collapses these into probe_floor.
+    //
+    // ASM loc_3C19C (kid.asm:43657-43660): secondary body collision scan entry
+    // in the leftward walking loop — `bsr.w sub_36B3C; tst.w d5; bne.w
+    // loc_3C464`. After loc_3C194 hibernate + remain-active, sub_36B3C scans
+    // the walker's body rectangle for overlapping collision cells; if d5
+    // (scan result) is nonzero, the walker deactivates. Native covers this
+    // via the probe_wall check above.
     //
     // ASM loc_3C0A6 (kid.asm:43545-43549): btst #0,d7 — floor edge bit set →
     // st $6E(a5), bra loc_3C0D2 turnaround. Native: !probe_floor().on_ground.
@@ -5985,6 +5995,9 @@ pub(crate) struct SharedEnemyDriveSoundResultSub3C352 {
 // direction set, `tst.w $3A(a5)` checks whether the enemy has a child
 // attachment pointer; if nonzero, `bsr.w sub_3BF72` syncs the child's
 // position/direction to the parent before the hibernate frame at loc_3C044.
+// ASM loc_3C18A (kid.asm:43648-43651): identical attachment check in the
+// leftward walking loop — reached via loc_3C25E after gravity update,
+// runs once per frame before hibernate at loc_3C194.
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shared_enemy_attachment_sub_3BF72(
