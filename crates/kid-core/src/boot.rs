@@ -1390,6 +1390,132 @@ pub(crate) fn pause_loop_start_handler_chk_start(
     }
 }
 
+/// Result of the pause menu exit after tile restore completes.
+///
+/// ASM loc_6C0A (kid.asm:6958-6983): after `Pause_RestorePalette`, the routine
+/// branches on `Game_Paused`:
+/// - `== 3` → last life game over: play "bummer" voice, set Kid dying
+///   (`$38(a4) = 4`, `$3A(a4) = $30`), set `Number_Lives = 1`, clear
+///   `Game_Paused`.
+/// - `!= 3` → normal unpause at loc_6C3E: clear `Game_Paused`, call
+///   `sub_E1338`, reload Eyeclops beam art via `off_Load_EyclopsBeamArt`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PauseMenuUnpauseExitLoc6C0A {
+    /// ASM loc_6C0A, Game_Paused == 3: last life lost during pause menu.
+    /// Play sfx_Voice_bummer, set Kid action = 4 / param = $30, lives = 1.
+    LastLifeGameOver {
+        /// Kid object `$38` field — ASM: `move.w #4,$38(a4)`.
+        kid_action: u16,
+        /// Kid object `$3A` field — ASM: `move.w #$30,$3A(a4)`.
+        kid_action_param: u16,
+        /// ASM: `move.w #1,(Number_Lives).w`.
+        number_lives: u16,
+    },
+    /// ASM loc_6C3E (kid.asm:6976): normal unpause path.
+    /// Clears `Game_Paused`, calls `sub_E1338`, reloads Eyeclops beam art.
+    NormalUnpause,
+}
+
+/// Determine the pause menu exit path after tile restore and palette restore.
+///
+/// ASM loc_6C0A (kid.asm:6958):
+/// ```text
+///   bsr.w  Pause_RestorePalette
+///   cmpi.b #3,(Game_Paused).w
+///   bne.s  loc_6C3E
+///   ; last life game over path
+///   moveq  #sfx_Voice_bummer,d0
+///   jsr    (j_PlaySound).l
+///   move.l (Addr_GfxObject_Kid).w,a4
+///   move.w #4,$38(a4)
+///   move.w #$30,$3A(a4)
+///   move.w #1,(Number_Lives).w
+///   sf     (Game_Paused).w
+///   rts
+/// loc_6C3E:
+///   sf     (Game_Paused).w
+///   jsr    (sub_E1338).l
+///   lea    (off_Load_EyclopsBeamArt).l,a0
+///   move.l (a0),a0
+///   jsr    (a0)
+///   rts
+/// ```
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_menu_unpause_exit_loc_6C0A(game_paused: u8) -> PauseMenuUnpauseExitLoc6C0A {
+    // ASM loc_6C0A: cmpi.b #3,(Game_Paused).w; bne.s loc_6C3E
+    if game_paused == 3 {
+        // ASM loc_6C0A game-over path: move.w #4,$38(a4); move.w #$30,$3A(a4);
+        // move.w #1,(Number_Lives).w; sf (Game_Paused).w
+        PauseMenuUnpauseExitLoc6C0A::LastLifeGameOver {
+            kid_action: 4,
+            kid_action_param: 0x30,
+            number_lives: 1,
+        }
+    } else {
+        // ASM loc_6C3E: sf (Game_Paused).w; jsr (sub_E1338).l;
+        // lea (off_Load_EyclopsBeamArt).l,a0; move.l (a0),a0; jsr (a0)
+        PauseMenuUnpauseExitLoc6C0A::NormalUnpause
+    }
+}
+
+/// Darken a palette buffer by halving each RGB channel independently.
+///
+/// ASM Pause_DarkenPalette / loc_6C70 (kid.asm:7001-7036):
+/// ```text
+///   ; First span: 15 colours (d7=$E) starting at Palette_Buffer[0]
+/// loc_6C70:
+///   move.w (a4),d6       ; d6 = original word
+///   move.w d6,d5
+///   andi.w #$F,d6        ; blue channel
+///   lsr.w  #1,d6         ; blue >>= 1
+///   move.w d5,d4
+///   andi.w #$F0,d4       ; green channel
+///   lsr.w  #1,d4         ; green >>= 1 (spills into blue nibble)
+///   andi.w #$F0,d4       ; mask back to green position
+///   andi.w #$F00,d5      ; red channel
+///   lsr.w  #1,d5         ; red >>= 1 (spills into green nibble)
+///   andi.w #$F00,d5      ; mask back to red position
+///   or.w   d4,d5
+///   or.w   d5,d6
+///   move.w d6,(a4)+
+///   dbf    d7,loc_6C70
+///   addq.w #2,a4         ; skip one word (colour 15 of first palette line)
+///   moveq  #$2F,d7       ; 48 colours
+/// loc_6C9E:              ; identical halving loop for remaining 48 colours
+///   ...
+/// ```
+///
+/// Layout: darkens colours 0–14 of the first palette line, skips colour 15,
+/// then darkens all 48 colours of palette lines 1–3.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_darken_palette_loc_6C70(palette_buffer: &mut [u16; 0x40]) {
+    // ASM loc_6C70: inner halving — each 4-bit channel is independently halved
+    // via lsr.w #1 + mask.
+    fn halve_colour(word: u16) -> u16 {
+        // ASM: andi.w #$F,d6; lsr.w #1,d6
+        let blue = (word & 0x000F) >> 1;
+        // ASM: andi.w #$F0,d4; lsr.w #1,d4; andi.w #$F0,d4
+        let green = ((word & 0x00F0) >> 1) & 0x00F0;
+        // ASM: andi.w #$F00,d5; lsr.w #1,d5; andi.w #$F00,d5
+        let red = ((word & 0x0F00) >> 1) & 0x0F00;
+        red | green | blue
+    }
+
+    // First span: 15 colours (d7=$E → 15 iterations)
+    // ASM: lea (Palette_Buffer).l,a4; moveq #$E,d7
+    for word in palette_buffer[..15].iter_mut() {
+        *word = halve_colour(*word);
+    }
+    // ASM: addq.w #2,a4 — skip colour 15 (index 15)
+    // Second span: 48 colours (d7=$2F → 48 iterations)
+    // ASM: moveq #$2F,d7; loc_6C9E identical loop
+    for word in palette_buffer[16..].iter_mut() {
+        *word = halve_colour(*word);
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IoPortFlagsSub6E24 {
     pub(crate) bit_7_clear_flag: bool,
@@ -7476,5 +7602,138 @@ mod tests {
             pause_loop_start_handler_chk_start(true, 1, 2),
             PauseMenuStartResult::RestartLevel { remaining_lives: 1 },
         );
+    }
+
+    // ── loc_6C0A + loc_6C3E: pause menu unpause exit ─────────────────
+
+    #[test]
+    fn loc_6C0A_game_paused_3_triggers_last_life_game_over() {
+        // ASM loc_6C0A (kid.asm:6958): cmpi.b #3,(Game_Paused).w; bne.s loc_6C3E
+        // When Game_Paused == 3 (set by loc_6B62), the kid dies.
+        let result = pause_menu_unpause_exit_loc_6C0A(3);
+        match result {
+            PauseMenuUnpauseExitLoc6C0A::LastLifeGameOver {
+                kid_action,
+                kid_action_param,
+                number_lives,
+            } => {
+                assert_eq!(kid_action, 4, "ASM loc_6C0A: move.w #4,$38(a4)");
+                assert_eq!(kid_action_param, 0x30, "ASM loc_6C0A: move.w #$30,$3A(a4)");
+                assert_eq!(number_lives, 1, "ASM loc_6C0A: move.w #1,(Number_Lives).w");
+            }
+            other => panic!("expected LastLifeGameOver, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn loc_6C3E_game_paused_not_3_triggers_normal_unpause() {
+        // ASM loc_6C3E (kid.asm:6976): sf (Game_Paused).w; jsr (sub_E1338).l;
+        // lea (off_Load_EyclopsBeamArt).l,a0; move.l (a0),a0; jsr (a0)
+        // Any value other than 3 takes the normal unpause path.
+        for game_paused in [1u8, 2, 4, 0xFF] {
+            assert_eq!(
+                pause_menu_unpause_exit_loc_6C0A(game_paused),
+                PauseMenuUnpauseExitLoc6C0A::NormalUnpause,
+                "ASM loc_6C0A: Game_Paused={game_paused} → bne.s loc_6C3E"
+            );
+        }
+    }
+
+    #[test]
+    fn loc_6C0A_both_paths_clear_game_paused() {
+        // Both paths end with `sf (Game_Paused).w` — the native port clears
+        // the paused flag. This test documents that both branches share the
+        // same post-condition (Game_Paused = 0) even though the enum doesn't
+        // carry it — the caller is responsible for clearing the flag.
+        // Game_Paused==3 path (loc_6C0A):
+        assert!(matches!(
+            pause_menu_unpause_exit_loc_6C0A(3),
+            PauseMenuUnpauseExitLoc6C0A::LastLifeGameOver { .. }
+        ));
+        // Game_Paused!=3 path (loc_6C3E):
+        assert!(matches!(
+            pause_menu_unpause_exit_loc_6C0A(1),
+            PauseMenuUnpauseExitLoc6C0A::NormalUnpause
+        ));
+    }
+
+    // ── loc_6C70 / Pause_DarkenPalette: palette halving ──────────────
+
+    #[test]
+    fn loc_6C70_halves_each_rgb_channel_independently() {
+        // ASM loc_6C70 (kid.asm:7001): each 4-bit channel is halved via lsr #1.
+        // BGR word $ECA → blue=$A>>1=5, green=$C0>>1&$F0=$60, red=$E00>>1&$F00=$700
+        // → $765
+        let mut buf = [0u16; 0x40];
+        buf[0] = 0x0ECA;
+        pause_darken_palette_loc_6C70(&mut buf);
+        assert_eq!(
+            buf[0], 0x0765,
+            "ASM loc_6C70: $ECA → blue=$A>>1=5, green=$C>>1=6, red=$E>>1=7"
+        );
+    }
+
+    #[test]
+    fn loc_6C70_odd_channels_truncate_low_bit() {
+        // ASM: lsr.w #1 on an odd nibble value drops the low bit.
+        // $111 → blue=1>>1=0, green=$10>>1&$F0=$00, red=$100>>1&$F00=$000 → $000
+        let mut buf = [0u16; 0x40];
+        buf[0] = 0x0111;
+        pause_darken_palette_loc_6C70(&mut buf);
+        assert_eq!(
+            buf[0], 0x0000,
+            "ASM loc_6C70: $111 each channel has value 1 → >>1 = 0"
+        );
+    }
+
+    #[test]
+    fn loc_6C70_skips_colour_15_of_first_palette_line() {
+        // ASM Pause_DarkenPalette: first loop d7=$E (15 colours), then addq.w #2,a4
+        // skips colour 15, then d7=$2F (48 colours from index 16 onward).
+        let mut buf = [0x0EEE_u16; 0x40];
+        let sentinel = 0x0ABC_u16;
+        buf[15] = sentinel;
+        pause_darken_palette_loc_6C70(&mut buf);
+        assert_eq!(
+            buf[15], sentinel,
+            "ASM Pause_DarkenPalette: colour 15 is skipped (addq.w #2,a4)"
+        );
+        // Verify adjacent colours WERE darkened
+        assert_eq!(buf[14], 0x0777, "colour 14 should be darkened");
+        assert_eq!(buf[16], 0x0777, "colour 16 should be darkened");
+    }
+
+    #[test]
+    fn loc_6C70_darkens_all_64_colours_except_15() {
+        // ASM: 15 + skip + 48 = 63 darkened out of 64 total.
+        let mut buf = [0x0EEE_u16; 0x40];
+        pause_darken_palette_loc_6C70(&mut buf);
+        for (i, &val) in buf.iter().enumerate() {
+            if i == 15 {
+                assert_eq!(val, 0x0EEE, "colour 15 unchanged");
+            } else {
+                assert_eq!(val, 0x0777, "colour {i} should be halved");
+            }
+        }
+    }
+
+    #[test]
+    fn loc_6C70_zero_palette_stays_zero() {
+        // ASM: 0 >> 1 = 0 for all channels.
+        let mut buf = [0u16; 0x40];
+        pause_darken_palette_loc_6C70(&mut buf);
+        for (i, &val) in buf.iter().enumerate() {
+            assert_eq!(val, 0, "zero stays zero at index {i}");
+        }
+    }
+
+    #[test]
+    fn loc_6C70_max_value_halves_correctly() {
+        // ASM: $FFF → blue=$F>>1=7, green=$F0>>1&$F0=$70, red=$F00>>1&$F00=$700
+        // → $777
+        let mut buf = [0x0FFF_u16; 0x40];
+        pause_darken_palette_loc_6C70(&mut buf);
+        assert_eq!(buf[0], 0x0777, "$FFF → $777");
+        assert_eq!(buf[63], 0x0777, "last colour also darkened");
     }
 }
