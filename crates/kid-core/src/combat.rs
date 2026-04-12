@@ -322,6 +322,63 @@ pub(crate) struct FireDemonFragmentCollisionStep {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossHeadDeathAnimSequenceLoc39EE2 {
+    /// 8 animation scripts played in order, each with hibernate-until-finished.
+    pub(crate) animation_scripts: [&'static str; 8],
+    /// Direction is flipped (eori.b #$FF) after scripts 0, 2, 4, 6.
+    pub(crate) direction_flip_after_scripts: [bool; 8],
+    pub(crate) played_sound_effect: &'static str,
+    pub(crate) death_spin_counter_d0: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossHeadDeathSpinLoopLoc39F7A {
+    /// 4 animation scripts per iteration, each with hibernate-until-finished.
+    pub(crate) animation_scripts: [&'static str; 4],
+    /// Direction is flipped (eori.b #$FF) after scripts 0 and 2.
+    pub(crate) direction_flip_after_scripts: [bool; 4],
+    pub(crate) loop_count_d0: u16,
+    pub(crate) delete_current_object: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FireDemonFragmentMovementNextLoc3A134 {
+    /// $40(a3) == 0: clear x_vel, switch to stru_3A1D6, enter fade loop at loc_3A14E.
+    FadeLoopLoc3A14E,
+    /// $40(a3) != 0: decrement $40, call sub_3A1A6, loop back to loc_3A134.
+    ContinueMovementLoc3A168,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FireDemonFragmentMovementStepLoc3A134 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) horizontal_counter_40: u16,
+    pub(crate) clears_x_vel: bool,
+    pub(crate) fade_animation_label: Option<&'static str>,
+    pub(crate) next_horizontal_counter_40: u16,
+    pub(crate) runs_collision_check_sub_3a1a6: bool,
+    pub(crate) next: FireDemonFragmentMovementNextLoc3A134,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FireDemonFragmentFadeNextLoc3A14E {
+    /// $42(a3) == 0: delete the object.
+    DeleteCurrentObject,
+    /// $42(a3) != 0: decrement $42, call sub_3A172, loop back to loc_3A14E.
+    ContinueFadeLoc3A15E,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FireDemonFragmentFadeStepLoc3A14E {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) fade_counter_42: u16,
+    pub(crate) delete_current_object: bool,
+    pub(crate) next_fade_counter_42: u16,
+    pub(crate) runs_collision_check_sub_3a172: bool,
+    pub(crate) next: FireDemonFragmentFadeNextLoc3A14E,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossEyePopEffectInitSub3729E {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -6428,6 +6485,120 @@ pub(crate) fn fire_demon_fragment_collision_step_sub_3A1A6(
     }
 
     result
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_head_death_anim_sequence_loc_39EE2() -> BossHeadDeathAnimSequenceLoc39EE2 {
+    // ASM loc_39EE2 (kid.asm:43004): boss head death animation — plays 8
+    // animation scripts with `j_Hibernate_UntilAnimFinished` between each.
+    // `eori.b #$FF,x_direction(a3)` flips the direction after scripts at
+    // indices 0, 2, 4, 6 (i.e. after stru_39FEE, stru_3A016, stru_3A03A,
+    // stru_3A062). After the 8th animation, plays `sfx_Boss_dies` and loads
+    // `d0=#$A` as the loop counter for the subsequent `loc_39F7A` spin loop.
+    BossHeadDeathAnimSequenceLoc39EE2 {
+        animation_scripts: [
+            "stru_39FEE", // 6-frame reverse sweep
+            "stru_3A004", // 6-frame forward sweep
+            "stru_3A016", // 4-frame reverse sweep
+            "stru_3A028", // 4-frame forward sweep
+            "stru_3A03A", // 2-frame reverse sweep (5 frames)
+            "stru_3A050", // 2-frame forward sweep (4 frames)
+            "stru_3A062", // 2-frame reverse sweep (4 frames)
+            "stru_3A074", // 2-frame forward sweep (4 frames)
+        ],
+        direction_flip_after_scripts: [true, false, true, false, true, false, true, false],
+        played_sound_effect: "sfx_Boss_dies",
+        death_spin_counter_d0: 0x000A,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_head_death_spin_loop_loc_39F7A(
+    loop_counter_d0: u16,
+) -> BossHeadDeathSpinLoopLoc39F7A {
+    // ASM loc_39F7A (kid.asm:43039): each iteration plays 4 animation scripts
+    // with `j_Hibernate_UntilAnimFinished`, flipping direction after indices 0
+    // and 2 via `eori.b #$FF,x_direction(a3)`. After each set of 4,
+    // `subq.w #1,d0` decrements the counter and loops back on `bne.s loc_39F7A`.
+    // When d0 reaches 0, falls through to `j_Delete_CurrentObject`.
+    BossHeadDeathSpinLoopLoc39F7A {
+        animation_scripts: [
+            "stru_3A086", // 1-frame reverse sweep (5 frames)
+            "stru_3A09C", // 1-frame forward sweep (4 frames)
+            "stru_3A0AE", // 1-frame reverse sweep (4 frames)
+            "stru_3A0C0", // 1-frame forward sweep (4 frames)
+        ],
+        direction_flip_after_scripts: [true, false, true, false],
+        loop_count_d0: loop_counter_d0,
+        delete_current_object: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_fragment_movement_step_loc_3A134(
+    horizontal_counter_40: u16,
+) -> FireDemonFragmentMovementStepLoc3A134 {
+    // ASM loc_3A134 (kid.asm:43185): hibernate one frame, then test `$40(a3)`.
+    // If zero: `clr.l x_vel(a3)`, switch to `stru_3A1D6`, enter fade loop at
+    // `loc_3A14E`. If nonzero: fall through to `loc_3A168` — `subq.w #1,$40(a3)`,
+    // `bsr.w sub_3A1A6` (collision check), then loop back to `loc_3A134`.
+    if horizontal_counter_40 == 0 {
+        FireDemonFragmentMovementStepLoc3A134 {
+            hibernates_one_frame: true,
+            horizontal_counter_40,
+            clears_x_vel: true,
+            fade_animation_label: Some("stru_3A1D6"),
+            next_horizontal_counter_40: 0,
+            runs_collision_check_sub_3a1a6: false,
+            next: FireDemonFragmentMovementNextLoc3A134::FadeLoopLoc3A14E,
+        }
+    } else {
+        // ASM loc_3A168 (kid.asm:43206): `subq.w #1,$40(a3)`, `bsr.w sub_3A1A6`,
+        // `bra.s loc_3A134`.
+        FireDemonFragmentMovementStepLoc3A134 {
+            hibernates_one_frame: true,
+            horizontal_counter_40,
+            clears_x_vel: false,
+            fade_animation_label: None,
+            next_horizontal_counter_40: horizontal_counter_40.wrapping_sub(1),
+            runs_collision_check_sub_3a1a6: true,
+            next: FireDemonFragmentMovementNextLoc3A134::ContinueMovementLoc3A168,
+        }
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_fragment_fade_step_loc_3A14E(
+    fade_counter_42: u16,
+) -> FireDemonFragmentFadeStepLoc3A14E {
+    // ASM loc_3A14E (kid.asm:43193): hibernate one frame, then test `$42(a3)`.
+    // If zero: `j_Delete_CurrentObject`. If nonzero: fall through to
+    // `loc_3A15E` — `subq.w #1,$42(a3)`, `bsr.w sub_3A172`, `bra.s loc_3A14E`.
+    if fade_counter_42 == 0 {
+        FireDemonFragmentFadeStepLoc3A14E {
+            hibernates_one_frame: true,
+            fade_counter_42,
+            delete_current_object: true,
+            next_fade_counter_42: 0,
+            runs_collision_check_sub_3a172: false,
+            next: FireDemonFragmentFadeNextLoc3A14E::DeleteCurrentObject,
+        }
+    } else {
+        // ASM loc_3A15E (kid.asm:43200): `subq.w #1,$42(a3)`, `bsr.w sub_3A172`,
+        // `bra.s loc_3A14E`.
+        FireDemonFragmentFadeStepLoc3A14E {
+            hibernates_one_frame: true,
+            fade_counter_42,
+            delete_current_object: false,
+            next_fade_counter_42: fade_counter_42.wrapping_sub(1),
+            runs_collision_check_sub_3a172: true,
+            next: FireDemonFragmentFadeNextLoc3A14E::ContinueFadeLoc3A15E,
+        }
+    }
 }
 
 #[allow(non_snake_case)]

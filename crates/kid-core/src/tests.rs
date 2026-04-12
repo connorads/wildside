@@ -38330,6 +38330,170 @@ fn fire_demon_fragment_collision_step_sub_3a1a6_clears_matching_collision_withou
 }
 
 #[test]
+fn boss_head_death_anim_sequence_loc_39ee2_plays_8_scripts_with_direction_flips() {
+    // ASM loc_39EE2 (kid.asm:43004): plays 8 animation sequences with
+    // hibernate-until-finished between each, flipping x_direction after
+    // the 1st, 3rd, 5th, and 7th scripts.
+    let result = boss_head_death_anim_sequence_loc_39EE2();
+
+    assert_eq!(
+        result.animation_scripts[0], "stru_39FEE",
+        "ASM loc_39EE2 should start with `stru_39FEE` (6-frame reverse sweep)",
+    );
+    assert_eq!(
+        result.animation_scripts[1], "stru_3A004",
+        "ASM loc_39EE2 second animation should be `stru_3A004` (6-frame forward sweep)",
+    );
+    assert!(
+        result.direction_flip_after_scripts[0],
+        "ASM loc_39EE2 should flip direction (eori.b #$FF) after the first animation",
+    );
+    assert!(
+        !result.direction_flip_after_scripts[1],
+        "ASM loc_39EE2 should NOT flip direction after the second animation",
+    );
+    assert_eq!(
+        result.played_sound_effect, "sfx_Boss_dies",
+        "ASM loc_39EE2 should play `sfx_Boss_dies` after all 8 animations complete",
+    );
+    assert_eq!(
+        result.death_spin_counter_d0, 0x000A,
+        "ASM loc_39EE2 should set d0=#$A as the loop counter for the subsequent death spin",
+    );
+}
+
+#[test]
+fn boss_head_death_spin_loop_loc_39f7a_plays_4_scripts_per_iteration_then_deletes() {
+    // ASM loc_39F7A (kid.asm:43039): each iteration plays 4 animation scripts,
+    // flipping direction after the 1st and 3rd. `subq.w #1,d0` loops, then
+    // `j_Delete_CurrentObject` on d0==0.
+    let result = boss_head_death_spin_loop_loc_39F7A(0x000A);
+
+    assert_eq!(
+        result.animation_scripts,
+        ["stru_3A086", "stru_3A09C", "stru_3A0AE", "stru_3A0C0"],
+        "ASM loc_39F7A should play the 1-frame sweep animation scripts in order",
+    );
+    assert_eq!(
+        result.direction_flip_after_scripts,
+        [true, false, true, false],
+        "ASM loc_39F7A should flip direction after scripts 0 and 2 each iteration",
+    );
+    assert_eq!(
+        result.loop_count_d0, 0x000A,
+        "ASM loc_39F7A should receive the d0=#$A counter from loc_39EE2",
+    );
+    assert!(
+        result.delete_current_object,
+        "ASM loc_39F7A should delete the object after the spin loop completes",
+    );
+}
+
+#[test]
+fn fire_demon_fragment_movement_step_loc_3a134_transitions_to_fade_when_counter_zero() {
+    // ASM loc_3A134 (kid.asm:43185): when $40(a3)==0, clear x_vel, switch to
+    // stru_3A1D6, and enter the fade loop at loc_3A14E.
+    let result = fire_demon_fragment_movement_step_loc_3A134(0);
+
+    assert!(
+        result.hibernates_one_frame,
+        "ASM loc_3A134 should hibernate one frame before checking the counter",
+    );
+    assert!(
+        result.clears_x_vel,
+        "ASM loc_3A134 should clear x_vel when $40(a3) reaches zero",
+    );
+    assert_eq!(
+        result.fade_animation_label,
+        Some("stru_3A1D6"),
+        "ASM loc_3A134 should switch to `stru_3A1D6` animation when entering fade loop",
+    );
+    assert!(
+        !result.runs_collision_check_sub_3a1a6,
+        "ASM loc_3A134 should not run sub_3A1A6 on the zero-counter path",
+    );
+    assert_eq!(
+        result.next,
+        FireDemonFragmentMovementNextLoc3A134::FadeLoopLoc3A14E,
+        "ASM loc_3A134 should transition to fade loop loc_3A14E when $40==0",
+    );
+}
+
+#[test]
+fn fire_demon_fragment_movement_step_loc_3a134_decrements_and_loops_when_counter_nonzero() {
+    // ASM loc_3A168 (kid.asm:43206): subq.w #1,$40(a3), bsr.w sub_3A1A6,
+    // bra.s loc_3A134.
+    let result = fire_demon_fragment_movement_step_loc_3A134(0x0032);
+
+    assert_eq!(
+        result.next_horizontal_counter_40, 0x0031,
+        "ASM loc_3A168 should decrement $40(a3) from $32 to $31",
+    );
+    assert!(
+        result.runs_collision_check_sub_3a1a6,
+        "ASM loc_3A168 should call sub_3A1A6 for collision checking during movement",
+    );
+    assert!(
+        !result.clears_x_vel,
+        "ASM loc_3A168 should not clear x_vel while the horizontal counter is nonzero",
+    );
+    assert_eq!(
+        result.next,
+        FireDemonFragmentMovementNextLoc3A134::ContinueMovementLoc3A168,
+        "ASM loc_3A168 should loop back to loc_3A134 after decrementing",
+    );
+}
+
+#[test]
+fn fire_demon_fragment_fade_step_loc_3a14e_deletes_when_counter_zero() {
+    // ASM loc_3A14E (kid.asm:43193): when $42(a3)==0, j_Delete_CurrentObject.
+    let result = fire_demon_fragment_fade_step_loc_3A14E(0);
+
+    assert!(
+        result.hibernates_one_frame,
+        "ASM loc_3A14E should hibernate one frame before checking the fade counter",
+    );
+    assert!(
+        result.delete_current_object,
+        "ASM loc_3A14E should delete the fragment when $42(a3) reaches zero",
+    );
+    assert!(
+        !result.runs_collision_check_sub_3a172,
+        "ASM loc_3A14E should not run sub_3A172 on the delete path",
+    );
+    assert_eq!(
+        result.next,
+        FireDemonFragmentFadeNextLoc3A14E::DeleteCurrentObject,
+        "ASM loc_3A14E should branch to Delete_CurrentObject when $42==0",
+    );
+}
+
+#[test]
+fn fire_demon_fragment_fade_step_loc_3a14e_decrements_and_loops_when_counter_nonzero() {
+    // ASM loc_3A15E (kid.asm:43200): subq.w #1,$42(a3), bsr.w sub_3A172,
+    // bra.s loc_3A14E.
+    let result = fire_demon_fragment_fade_step_loc_3A14E(0x00C8);
+
+    assert_eq!(
+        result.next_fade_counter_42, 0x00C7,
+        "ASM loc_3A15E should decrement $42(a3) from $C8 to $C7",
+    );
+    assert!(
+        result.runs_collision_check_sub_3a172,
+        "ASM loc_3A15E should call sub_3A172 for collision checking during fade",
+    );
+    assert!(
+        !result.delete_current_object,
+        "ASM loc_3A15E should not delete the fragment while the fade counter is nonzero",
+    );
+    assert_eq!(
+        result.next,
+        FireDemonFragmentFadeNextLoc3A14E::ContinueFadeLoc3A15E,
+        "ASM loc_3A15E should loop back to loc_3A14E after decrementing",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
