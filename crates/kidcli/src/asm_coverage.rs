@@ -195,7 +195,11 @@ fn scan_dir_for_citations(
             // Find all sub_XXXX and loc_XXXX references
             for line in content.lines() {
                 let mut rest = line;
-                while let Some(idx) = rest.find("sub_").or_else(|| rest.find("loc_")) {
+                while let Some(idx) = [rest.find("sub_"), rest.find("loc_")]
+                    .into_iter()
+                    .flatten()
+                    .min()
+                {
                     let prefix = &rest[idx..idx + 4];
                     let after = &rest[idx + 4..];
                     let hex_len = after.chars().take_while(|c| c.is_ascii_hexdigit()).count();
