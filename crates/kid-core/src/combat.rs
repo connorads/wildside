@@ -444,6 +444,26 @@ pub(crate) struct BoomerangBossHeadInitLoc37F30 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead1InitLoc39478 {
+    pub(crate) gfx_slot_base: u32,
+    pub(crate) priority: u8,
+    pub(crate) object_meta_base: u16,
+    pub(crate) sets_object_meta_bit_f: bool,
+    pub(crate) runs_common_boss_init_loc_32146: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) display_enabled: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) hit_points: u16,
+    pub(crate) sprite_mapping_label: &'static str,
+    pub(crate) cached_worker_slot_label: &'static str,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) movement_script_label: &'static str,
+    pub(crate) delay_counter_d0: u16,
+    pub(crate) script_index_d1: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoomerangBossHeadWaitNextLoc37F80 {
     CheckKidWindowLoc37F94,
     SharedCollisionExitLoc39EBE,
@@ -2385,6 +2405,9 @@ pub(crate) fn boss_eye_counter_orbit_placement_sub_39420(
         } else if previous_parent_frame_d0 == 0 {
             (sprite_word_y_adjust.wrapping_sub(1), true)
         } else {
+            // ASM loc_3945A (kid.asm:42030): addq.w #1,$A(a3) — when d0 is nonzero
+            // and the parent's frame byte $16(a2) has changed, increment the sprite
+            // word then fall through to loc_3945E → jsr (j_sub_FF6).w for reranking.
             (sprite_word_y_adjust.wrapping_add(1), true)
         };
 
@@ -2458,6 +2481,48 @@ pub(crate) fn boomerang_boss_head_1_init_loc_37F30(
         movement_script_label: "unk_398F0",
         delay_counter_d0: 1,
         script_index_d1: 1,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_1_init_loc_39478(
+    anchor_x_44: u16,
+    anchor_y_46: u16,
+    variant_d2: u16,
+) -> ShishkaBagelHead1InitLoc39478 {
+    // ASM loc_39478 (kid.asm:42057): shared ShishkaBoss/BagelBrothers head 1 init.
+    // Allocates gfx slot $01040002, priority 0. Selects object_meta $22 (d2==0,
+    // ShishkaBoss) or $24 (d2!=0, BagelBrothers) then bset #7 on the stored word.
+    //
+    // ASM loc_39494 (kid.asm:42066): fallthrough after object_meta selection.
+    // Stores d0 into object_meta(a3), bset #7, jsr loc_32146, sf has_kid_collision,
+    // st $13, st is_moved, LnkTo_unk_C8600 sprite, cache a3 at $FFFFFB7A,
+    // copy anchor $44/$46, then branch on d2: unk_39872 + ShishkaBoss HP ($14)
+    // when d2==0, unk_39AB2 + BagelBrothers HP ($1E) when d2!=0.
+    let (object_meta_base, hit_points, movement_script_label) = if variant_d2 == 0 {
+        (0x0022_u16, 0x0014_u16, "unk_39872")
+    } else {
+        (0x0024, 0x001E, "unk_39AB2")
+    };
+
+    ShishkaBagelHead1InitLoc39478 {
+        gfx_slot_base: 0x0104_0002,
+        priority: 0,
+        object_meta_base,
+        sets_object_meta_bit_f: true,
+        runs_common_boss_init_loc_32146: true,
+        has_kid_collision: false,
+        display_enabled: true,
+        is_moved: true,
+        hit_points,
+        sprite_mapping_label: "LnkTo_unk_C8600-Data_Index",
+        cached_worker_slot_label: "$FFFFFB7A",
+        x_pos: anchor_x_44,
+        y_pos: anchor_y_46,
+        movement_script_label,
+        delay_counter_d0: 1,
+        script_index_d1: 0,
     }
 }
 
