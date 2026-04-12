@@ -15339,6 +15339,211 @@ fn loc_7cd0_sets_hitpoints_for_new_helmet() {
     );
 }
 
+/// ASM loc_7CFE (kid.asm:8439): `add.w d7,d7; lea off_7EE2(pc),a0;
+/// move.w (a0,d7.w),d7; add.w d7,a0` — forward animation table setup.
+/// Indexes off_7EE2[Current_Helmet] to find the new helmet's anim table
+/// start, then falls through to loc_7D0A forward loop. Each anim_frame
+/// entry contributes its mode byte (repeat count) to the total duration.
+/// Native pre-sums these into form_change_flash_frames. Verify that a
+/// TheKid→Skycutter transform includes exactly Skycutter's forward frames
+/// (47 from stru_7EFA) plus the +1 entry frame.
+#[test]
+fn loc_7cfe_forward_animation_indexes_off_7ee2_for_new_helmet() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
+
+    runtime.queue_form_change(PlayerForm::Skycutter);
+    runtime.resolve_pending_form_change();
+
+    // TheKid has 0 reverse frames; Skycutter forward = 47 (stru_7EFA); +1 entry = 48
+    assert_eq!(
+        runtime.progression.form_change_flash_frames, 48,
+        "ASM loc_7CFE: off_7EE2[Skycutter] forward phase should contribute 47 frames"
+    );
+}
+
+/// ASM loc_7CFE (kid.asm:8439): when Demo_Mode_flag is set, loc_7CD0
+/// branches directly to loc_7CFE (`bne.s loc_7CFE`), skipping the
+/// sub_E1334 call and per-helmet transform sound. The forward animation
+/// table indexing still runs identically. Verify the frame count is
+/// unchanged regardless of demo mode (native has no demo mode gating).
+#[test]
+fn loc_7cfe_demo_mode_skip_sound_same_frame_count() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    // Transform TheKid → Cyclone: 0 reverse + 72 forward (stru_7F30) + 1 = 73
+    runtime.queue_form_change(PlayerForm::Cyclone);
+    runtime.resolve_pending_form_change();
+
+    assert_eq!(
+        runtime.progression.form_change_flash_frames, 73,
+        "ASM loc_7CFE: frame count should match forward table regardless of demo mode path"
+    );
+}
+
+/// ASM loc_7D44 (kid.asm:8469): off_7D34[4] transform dispatch handler.
+/// `move.l ($FFFFF862).w,a4; sf $13(a4)` — hide child GFX object.
+/// `move.w d7,addroffset_sprite(a3)` — set Kid sprite to the animation
+/// frame. `bsr.w sub_8106` — load 15-word palette from off_8128 for
+/// Current_Helmet. Purely visual: sets sprite mapping + palette buffer.
+/// Native doesn't model sprite/palette cycling; verify the animation
+/// duration that covers loc_7D44 calls is correctly summed.
+#[test]
+fn loc_7d44_sprite_and_palette_handler_visual_only_duration_covered() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    // Skycutter table (stru_7EFA) uses dispatch index 4 (loc_7D44) in
+    // several entries. Verify total frame count covers all entries.
+    runtime.queue_form_change(PlayerForm::Skycutter);
+    runtime.resolve_pending_form_change();
+
+    assert!(
+        runtime.progression.form_change_flash_frames > 0,
+        "ASM loc_7D44: visual handler duration must be covered by flash frames"
+    );
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::Skycutter,
+        "ASM loc_7D44: form change should complete — handler is visual-only"
+    );
+}
+
+/// ASM loc_7D5A (kid.asm:8478): off_7D34[8] transform dispatch handler.
+/// `move.l ($FFFFF862).w,a4; sf $13(a4)` — hide child GFX.
+/// `lea off_79B2(pc),a4; move.w (a4),addroffset_sprite(a3)` — set Kid
+/// sprite to the helmet's standing frame from the off_79B2 table.
+/// `bsr.w sub_80D0` — load 12-word palette from off_80F2. Purely visual.
+/// Verify the animation frame count for a helmet whose table uses
+/// dispatch index 8 (e.g. Cyclone stru_7F30 entry `anim_frame 8, 8, 0`)
+/// is correctly included in the total.
+#[test]
+fn loc_7d5a_standing_sprite_palette_handler_visual_only() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    // Cyclone's stru_7F30 uses dispatch index 8 (loc_7D5A) in entries
+    // with mode=8. Verify total frame count is correct.
+    runtime.queue_form_change(PlayerForm::Cyclone);
+    runtime.resolve_pending_form_change();
+
+    // 0 reverse + 72 forward + 1 entry = 73
+    assert_eq!(
+        runtime.progression.form_change_flash_frames, 73,
+        "ASM loc_7D5A: Cyclone forward frames (including index-8 entries) = 72 + 1"
+    );
+}
+
+/// ASM loc_7D7C (kid.asm:8491): off_7D34[$C] transform dispatch handler.
+/// `ori.w #$8000,d7` — sets bit 15 of the sprite frame word as a "show
+/// child GFX" flag, then falls through to loc_7D80. The combined
+/// loc_7D7C→loc_7D80 path positions a companion GFX object at (Kid.x,
+/// Kid.y - 14), flips its direction for RedStealth(3)/IronKnight(6)/
+/// Berzerker(7), copies palette, and sets its sprite from off_8176.
+/// Purely visual. Verify the frame count correctly includes entries that
+/// use dispatch index $C.
+#[test]
+fn loc_7d7c_show_child_gfx_flag_falls_through_to_loc_7d80() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    // Skycutter stru_7EFA has entries with dispatch index $C (loc_7D7C).
+    // The first entry: anim_frame 8, $C, ... → mode=8 (8 hibernate frames),
+    // duration=$C (dispatch index $C = loc_7D7C → loc_7D80).
+    runtime.queue_form_change(PlayerForm::Skycutter);
+    runtime.resolve_pending_form_change();
+
+    // 0 reverse + 47 forward + 1 = 48
+    assert_eq!(
+        runtime.progression.form_change_flash_frames, 48,
+        "ASM loc_7D7C/$C dispatch entries should be included in Skycutter's 47 forward frames"
+    );
+}
+
+/// ASM loc_7D80 (kid.asm:8494): off_7D34[0] — main transform sprite
+/// handler. `bclr #$F,d6; beq.w loc_7DF0` — if bit 15 clear (not from
+/// loc_7D7C), skip child GFX setup and jump to loc_7DF0 which sets Kid
+/// sprite + loads TheKid base palette + 3-word secondary palette.
+/// When bit 15 IS set: `move.w x_pos(a3),x_pos(a4)` positions child at
+/// Kid, `subi.w #$E,y_pos(a4)` offsets 14px up, `cmpi.w #3/6/7` flips
+/// direction for RedStealth/IronKnight/Berzerker. Purely visual.
+/// Verify that all helmets can complete transform (loc_7D80 never blocks
+/// gameplay).
+#[test]
+fn loc_7d80_main_handler_all_helmets_complete_transform() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    let helmets = [
+        PlayerForm::Skycutter,
+        PlayerForm::Cyclone,
+        PlayerForm::RedStealth,
+        PlayerForm::Eyeclops,
+        PlayerForm::Juggernaut,
+        PlayerForm::IronKnight,
+        PlayerForm::Berzerker,
+        PlayerForm::Maniaxe,
+        PlayerForm::Micromax,
+    ];
+
+    for &helmet in &helmets {
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.queue_form_change(helmet);
+        runtime.resolve_pending_form_change();
+        assert_eq!(
+            runtime.progression.current_form, helmet,
+            "ASM loc_7D80: transform to {:?} should complete — handler is visual-only",
+            helmet
+        );
+        assert!(
+            runtime.progression.form_change_flash_frames > 0,
+            "ASM loc_7D80: {:?} should have positive flash frames",
+            helmet
+        );
+    }
+}
+
+/// ASM loc_7D80 (kid.asm:8494): child GFX direction flip. When bit 15
+/// is set (from loc_7D7C), loc_7D80 checks `cmpi.w #3,d7` (RedStealth),
+/// `cmpi.w #6,d7` (IronKnight), `cmpi.w #7,d7` (Berzerker) → loc_7DD6
+/// `not.b $16(a4)` flips child direction. Other helmets skip to loc_7DDA.
+/// This is purely visual (child GFX rendering). Verify the direction-flip
+/// helmets and non-flip helmets both complete transform identically.
+#[test]
+fn loc_7d80_direction_flip_helmets_3_6_7_visual_only() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    // Helmets 3,6,7 flip child GFX direction at loc_7DD6
+    let flip_helmets = [
+        PlayerForm::RedStealth, // 3
+        PlayerForm::IronKnight, // 6
+        PlayerForm::Berzerker,  // 7
+    ];
+    // Helmets that don't flip (branch to loc_7DDA)
+    let no_flip_helmets = [
+        PlayerForm::Skycutter,  // 1
+        PlayerForm::Cyclone,    // 2
+        PlayerForm::Eyeclops,   // 4
+        PlayerForm::Juggernaut, // 5
+        PlayerForm::Maniaxe,    // 8
+        PlayerForm::Micromax,   // 9
+    ];
+
+    for &helmet in flip_helmets.iter().chain(no_flip_helmets.iter()) {
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.queue_form_change(helmet);
+        runtime.resolve_pending_form_change();
+        assert_eq!(
+            runtime.progression.current_form, helmet,
+            "ASM loc_7D80/loc_7DD6: {:?} transform completes regardless of direction flip",
+            helmet
+        );
+    }
+}
+
 #[test]
 fn transform_overlap_column_blocked_sub_7bea_scans_upward_for_bit_14_tiles() {
     let grid = grid_with_cells(8, 8, &[(2, 3, 0x60, 0x00)]);

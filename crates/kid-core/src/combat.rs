@@ -7921,6 +7921,40 @@ impl NativeRuntime {
         // ASM uses per-helmet sprite+palette cycling tables for a spinning
         // animation. Currently renders as a flash overlay. Needs ROM sprite
         // tile extraction for real visuals.
+        //
+        // ASM loc_7CFE (kid.asm:8439): `add.w d7,d7; lea off_7EE2(pc),a0;
+        // move.w (a0,d7.w),d7; add.w d7,a0` — forward animation table setup.
+        // Indexes off_7EE2[Current_Helmet] to find the new helmet's animation
+        // table start, then falls through to loc_7D0A forward loop. Each entry
+        // is 4 bytes: anim_frame(mode, duration, spriteframe). The mode byte
+        // (high byte of first word) is the hibernate repeat count; the duration
+        // byte (low byte) is the dispatch index into off_7D34. Native pre-sums
+        // repeat counts into form_change_flash_frames above.
+        //
+        // ASM off_7D34 dispatch table (kid.asm:8463): 4 visual-only handlers
+        // called per animation entry during both reverse and forward phases:
+        //
+        //   off_7D34[0] = loc_7D80 (kid.asm:8494): main handler — set Kid
+        //     sprite from d6 (low 15 bits). If bit 15 set (from loc_7D7C),
+        //     position child GFX at Kid (x, y-14), flip direction for
+        //     RedStealth/IronKnight/Berzerker, copy palette. Then load TheKid
+        //     base palette (sub_80D0 with d7=0) and 3-word secondary palette
+        //     (sub_813C from off_8162[Current_Helmet]).
+        //
+        //   off_7D34[4] = loc_7D44 (kid.asm:8469): hide child GFX ($13=0),
+        //     set Kid sprite (addroffset_sprite = d7), load 15-word palette
+        //     via sub_8106(Current_Helmet) from off_8128.
+        //
+        //   off_7D34[8] = loc_7D5A (kid.asm:8478): hide child GFX, set Kid
+        //     sprite to standing frame from off_79B2[Current_Helmet], load
+        //     12-word palette via sub_80D0(Current_Helmet) from off_80F2.
+        //
+        //   off_7D34[$C] = loc_7D7C (kid.asm:8491): `ori.w #$8000,d7` — set
+        //     bit 15 ("show child GFX" flag), then fall through to loc_7D80.
+        //
+        // None of these affect gameplay state — they only update sprite
+        // mappings, palette buffer entries, and child GFX object visibility.
+        // Native covers their duration contribution via transform_anim_frames.
         // Clear ability state on form change
         self.helmet.reset();
     }
