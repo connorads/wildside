@@ -587,6 +587,21 @@ pub(crate) struct ShishkaBagelHead2WaitLoopLoc3960E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShishkaBagelHead2ActivationNextLoc3962C {
+    WaitLoopLoc3960E,
+    AttackAnimationLoc3966E,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShishkaBagelHead2ActivationWindowLoc3962C {
+    pub(crate) kid_within_vertical_window: bool,
+    pub(crate) x_direction: Option<u8>,
+    pub(crate) cached_x_direction_fffffb87: Option<u8>,
+    pub(crate) animation_script_label: Option<&'static str>,
+    pub(crate) next: ShishkaBagelHead2ActivationNextLoc3962C,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BoomerangBossHeadWaitNextLoc37F80 {
     CheckKidWindowLoc37F94,
     SharedCollisionExitLoc39EBE,
@@ -2722,6 +2737,53 @@ pub(crate) fn shishka_bagel_head_2_wait_loop_loc_3960E(
         } else {
             ShishkaBagelHead2WaitNextLoc3960E::SharedCollisionExitLoc39EBE
         },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shishka_bagel_head_2_activation_window_loc_3962C(
+    kid_x: u16,
+    kid_y: u16,
+    head_x: u16,
+    head_y: u16,
+) -> ShishkaBagelHead2ActivationWindowLoc3962C {
+    // ASM loc_3962C (kid.asm:42235): load Kid gfx coordinates from
+    // `(Addr_GfxObject_Kid).w`, check signed Kid Y within inclusive
+    // `[head_y-$40, head_y]` activation window, branch back to `loc_3960E`
+    // wait loop if outside.
+    let lower_y = head_y.wrapping_sub(0x0040);
+    let kid_within_vertical_window =
+        !word_lt_signed(kid_y, lower_y) && !word_gt_signed(kid_y, head_y);
+
+    if !kid_within_vertical_window {
+        return ShishkaBagelHead2ActivationWindowLoc3962C {
+            kid_within_vertical_window,
+            x_direction: None,
+            cached_x_direction_fffffb87: None,
+            animation_script_label: None,
+            next: ShishkaBagelHead2ActivationNextLoc3962C::WaitLoopLoc3960E,
+        };
+    }
+
+    // ASM loc_3965A (kid.asm:42253): `sf x_direction(a3)` — clear direction
+    // to 0 when head 2 is strictly right of Kid (`cmp.w d5,d3; bgt.s`).
+    // Fallthrough at kid.asm:42249 stores `$FF` via `st x_direction(a3)`.
+    let x_direction = if word_gt_signed(head_x, kid_x) {
+        0
+    } else {
+        0xFF
+    };
+
+    // ASM loc_3965E (kid.asm:42256): mirror selected `x_direction(a3)` byte
+    // into `($FFFFFB87).w`, load `stru_39FC6` into `d7`, call
+    // `j_Init_Animation` to start the attack animation.
+    ShishkaBagelHead2ActivationWindowLoc3962C {
+        kid_within_vertical_window,
+        x_direction: Some(x_direction),
+        cached_x_direction_fffffb87: Some(x_direction),
+        animation_script_label: Some("stru_39FC6"),
+        next: ShishkaBagelHead2ActivationNextLoc3962C::AttackAnimationLoc3966E,
     }
 }
 
