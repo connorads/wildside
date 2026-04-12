@@ -32951,6 +32951,55 @@ fn iron_knight_c_press_attaches_to_wall_from_grounded_walk() {
     );
 }
 
+/// ASM loc_7696: `add.w d6,d7 / bmi.w loc_7772` — if the probed x
+/// coordinate goes negative the routine skips the wall probe entirely.
+#[test]
+fn iron_knight_loc_7696_bounds_check_negative_x_skips_attach() {
+    let mut rt = iron_knight_runtime_with_wall();
+    let mut slice = airborne_slice();
+    // Place Kid at x=0 facing left so half_width+1 offset goes negative.
+    slice.player.x_pos = 0;
+    slice.player.y_pos = 32 << 16;
+    slice.player.facing = Direction::Left;
+    slice.player.on_ground = true;
+
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_iron_knight_climb(&mut slice, input);
+
+    assert!(
+        !rt.helmet.iron_knight_climbing,
+        "ASM loc_7696: bmi branch — negative probe x must skip wall attach"
+    );
+}
+
+/// ASM loc_7696: `cmp.w (Level_width_pixels).w,d7 / bge.w loc_7772` —
+/// if the probed x is at or beyond the level width, skip wall attach.
+#[test]
+fn iron_knight_loc_7696_bounds_check_beyond_level_width_skips_attach() {
+    let mut rt = iron_knight_runtime_with_wall();
+    let mut slice = airborne_slice();
+    // Place Kid at far right edge facing right so probe x >= level width.
+    // Level width is 4096 pixels (from airborne_slice's LevelBounds).
+    slice.player.x_pos = 4095 << 16;
+    slice.player.y_pos = 32 << 16;
+    slice.player.facing = Direction::Right;
+    slice.player.on_ground = true;
+
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_iron_knight_climb(&mut slice, input);
+
+    assert!(
+        !rt.helmet.iron_knight_climbing,
+        "ASM loc_7696: bge Level_width_pixels branch — probe x beyond level width must skip wall attach"
+    );
+}
+
 #[test]
 fn iron_knight_no_attach_without_wall() {
     let mut rt = NativeRuntime::new(manifest());
@@ -34250,6 +34299,9 @@ fn combat_slice() -> OpeningSliceState {
 // --- RedStealth sword tests ---
 
 #[test]
+/// ASM loc_76B0: cmpi.w #Red_Stealth,(Current_Helmet) / tst.b (Red_Stealth_sword_swing) /
+/// bne skip / st (Red_Stealth_sword_swing) — C press while Red Stealth with no active swing
+/// starts the sword swing timer.
 fn red_stealth_c_press_starts_sword_swing() {
     let mut rt = NativeRuntime::new(manifest());
     rt.progression.current_form = PlayerForm::RedStealth;
@@ -34260,7 +34312,10 @@ fn red_stealth_c_press_starts_sword_swing() {
 
     rt.step_red_stealth_sword(input);
 
-    assert!(rt.helmet.red_stealth_sword_timer > 0);
+    assert!(
+        rt.helmet.red_stealth_sword_timer > 0,
+        "ASM loc_76B0: st (Red_Stealth_sword_swing) — C press must start the swing",
+    );
 }
 
 #[test]
@@ -34279,6 +34334,42 @@ fn red_stealth_swing_anchor_sub_868e_offsets_the_spawn_from_kid() {
         red_stealth_swing_anchor_sub_868E(&slice.player),
         (0x0064_0000, 0x00F6_0000),
         "ASM sub_868E should mirror the 28px X offset when the native facing flips left",
+    );
+}
+
+#[test]
+/// ASM loc_76B0: `tst.b (Red_Stealth_sword_swing) / bne.w loc_76E4` —
+/// if the sword swing flag is already set, a new C press is ignored.
+fn red_stealth_loc_76b0_already_swinging_blocks_new_swing() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::RedStealth;
+    // Start a swing
+    rt.step_red_stealth_sword(FrameInput {
+        c: true,
+        ..FrameInput::default()
+    });
+    let initial_timer = rt.helmet.red_stealth_sword_timer;
+    assert!(initial_timer > 0);
+
+    // Tick one frame so timer decrements
+    rt.prior_input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_red_stealth_sword(FrameInput::default());
+    let after_tick = rt.helmet.red_stealth_sword_timer;
+
+    // Press C again while still swinging — should NOT restart timer
+    rt.prior_input = FrameInput::default();
+    rt.step_red_stealth_sword(FrameInput {
+        c: true,
+        ..FrameInput::default()
+    });
+
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer,
+        after_tick.saturating_sub(1),
+        "ASM loc_76B0: bne skip — second C press during active swing must not restart timer"
     );
 }
 
@@ -34627,6 +34718,9 @@ fn kid_airborne_visual_sub_b270_uses_generic_airborne_table_for_the_kid() {
 // --- Maniaxe axe tests ---
 
 #[test]
+/// ASM loc_76E4: cmpi.w #Maniaxe,(Current_Helmet) / tst.b (Maniaxe_throwing_axe) /
+/// bne skip / allocate ManiaxeAxe_Init / st (Maniaxe_throwing_axe) — C press
+/// while Maniaxe with no active axe spawns the thrown axe projectile.
 fn maniaxe_c_press_throws_axe() {
     let mut rt = NativeRuntime::new(manifest());
     rt.progression.current_form = PlayerForm::Maniaxe;
@@ -34638,12 +34732,17 @@ fn maniaxe_c_press_throws_axe() {
 
     rt.step_maniaxe_axe(&slice, input);
 
-    assert!(rt.helmet.maniaxe_axe_active);
+    assert!(
+        rt.helmet.maniaxe_axe_active,
+        "ASM loc_76E4: st (Maniaxe_throwing_axe) — C press must activate axe"
+    );
     assert_eq!(rt.projectiles.len(), 1);
     assert!(rt.projectiles[0].x_velocity > 0, "axe should move right");
 }
 
 #[test]
+/// ASM loc_76E4: `tst.b (Maniaxe_throwing_axe) / bne.w loc_7772` — if the
+/// throwing flag is already set, a new C press is ignored (one axe at a time).
 fn maniaxe_no_double_throw() {
     let mut rt = NativeRuntime::new(manifest());
     rt.progression.current_form = PlayerForm::Maniaxe;
@@ -34658,7 +34757,7 @@ fn maniaxe_no_double_throw() {
 
     assert!(
         rt.projectiles.is_empty(),
-        "should not throw while axe is active"
+        "ASM loc_76E4: bne skip — must not throw while axe is already active"
     );
 }
 

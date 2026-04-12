@@ -3055,6 +3055,10 @@ impl NativeRuntime {
         // ROM walking state `loc_7664` and jump state `kid_flip` both allow a
         // raw C edge to enter wall climbing when Iron Knight is pressed against
         // a wall in the facing direction.
+        // ASM loc_7696: add.w d6,d7 / bmi skip / cmp.w Level_width_pixels,d7 /
+        //   bge skip / bsr.w sub_922C / beq skip / bra.w loc_A276
+        //   — offset x_pos by half_width+1 (direction-adjusted), bounds-check,
+        //   wall-probe, then enter wall climb if hit.
         if c_pressed
             && !self.helmet.iron_knight_climbing
             && let Some(ref grid) = self.block_grid
@@ -3282,6 +3286,9 @@ impl NativeRuntime {
     }
 
     /// Step RedStealth sword swing: C press starts swing, hitbox active after startup.
+    /// ASM loc_76B0: cmpi.w #Red_Stealth,(Current_Helmet) / bne skip /
+    ///   tst.b (Red_Stealth_sword_swing) / bne skip / init animation stru_8B3C /
+    ///   allocate object sub_868E / st (Red_Stealth_sword_swing)
     pub(crate) fn step_red_stealth_sword(&mut self, input: FrameInput) {
         if self.progression.current_form != PlayerForm::RedStealth {
             self.helmet.red_stealth_sword_timer = 0;
@@ -3525,6 +3532,9 @@ impl NativeRuntime {
     }
 
     /// Step Maniaxe thrown axe: boomerang projectile that reverses after 12 frames.
+    /// ASM loc_76E4: cmpi.w #Maniaxe,(Current_Helmet) / bne skip /
+    ///   tst.b (Maniaxe_throwing_axe) / bne skip / allocate ManiaxeAxe_Init /
+    ///   init animation stru_8B4E / st (Maniaxe_throwing_axe)
     pub(crate) fn step_maniaxe_axe(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Maniaxe {
             self.helmet.maniaxe_axe_active = false;
