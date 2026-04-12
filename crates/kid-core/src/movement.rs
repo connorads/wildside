@@ -4397,8 +4397,18 @@ pub(crate) fn grounded_surface_type_sub_8600(
     // ASM sub_8600 (kid.asm:9445): scan the foot row under Kid's full width,
     // count solid/spike support cells, then promote ice only on a strict
     // majority while rubber wins ties.
+    //
+    // ASM kid.asm:9449-9452: d0 = x_pos - half_width, bpl.s loc_8616;
+    // moveq #0,d0 — clamp left edge to 0.
     let min_x_px = (player_x_px - half_width_px).max(0);
+    // ASM loc_8616 (kid.asm:9454): d1 = x_pos + half_width, cmp.w
+    // Level_width_pixels,d1; blt.s loc_8626; move.w Level_width_pixels,d1;
+    // subq.w #1,d1 — clamp right edge to level width - 1.
     let max_x_px = (player_x_px + half_width_px).clamp(0, grid.width_pixels().saturating_sub(1));
+    // ASM loc_8626 (kid.asm:9461): lsr.w #4,d0; lsr.w #4,d1; sub.w d0,d1 —
+    // convert pixel edges to tile columns, d1 becomes column count (loop
+    // counter for dbf). Then compute foot row: d2 = (y_pos+1) >> 4, index
+    // into row pointer table at $FFFF4A04, add start column offset.
     let start_col = (min_x_px / 16).max(0) as u16;
     let end_col = (max_x_px / 16).max(0) as u16;
     let row = ((player_y_px + 1).max(0) / 16) as u16;

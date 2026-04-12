@@ -72572,3 +72572,214 @@ fn loc_858c_accel_clamps_to_max_left() {
         "ASM loc_858C: accel overshooting max must clamp to -max_air_speed"
     );
 }
+
+// sub_8506 left-holding acceleration body — loc_8590
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8590 (kid.asm:9382): left-facing, left-held, abs vel below max.
+/// `add.l 4(a0),d0` — accelerate abs velocity by air_accel. `cmp.l (a0),d0;
+/// ble.s loc_859A` — still ≤ max? keep result. `move.l (a0),d0` — clamp to
+/// max. `neg.l d0; rts` restores negative sign. Mirror of loc_8544 body.
+#[test]
+fn loc_8590_left_accel_below_max_adds_air_accel() {
+    let initial_vel = -0x4000; // abs $4000 < max $10000
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        initial_vel,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        vel,
+        -(0x4000 + physics::AIR_NORMAL.air_accel),
+        "ASM loc_8590: add.l 4(a0),d0 should accelerate abs vel by air_accel ($1000)"
+    );
+}
+
+/// ASM loc_8590 (kid.asm:9382): acceleration result exactly equals max.
+/// `add.l 4(a0),d0; cmp.l (a0),d0; ble.s loc_859A` — BLE taken (equal),
+/// no clamping needed. Covers the exact-boundary condition.
+#[test]
+fn loc_8590_left_accel_reaching_max_exactly() {
+    let initial_vel = -(physics::AIR_NORMAL.max_air_speed - physics::AIR_NORMAL.air_accel);
+    let (vel, _) = physics::update_air_horizontal_velocity(
+        initial_vel,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        vel,
+        -physics::AIR_NORMAL.max_air_speed,
+        "ASM loc_8590: accel landing exactly at max should pass BLE (equal)"
+    );
+}
+
+// sub_8506 no-input deceleration — loc_85B8, loc_85C0
+// ---------------------------------------------------------------------------
+
+/// ASM loc_85B8 (kid.asm:9412): positive vel, no input held.
+/// `sub.l $C(a0),d0` — subtract air_no_input_decel. Result still positive
+/// → `bmi.s loc_85C0` not taken, rts with reduced velocity.
+#[test]
+fn loc_85b8_positive_vel_decelerates_by_no_input_decel() {
+    let vel = 0x8000; // well above decel threshold
+    let (result, _) = physics::update_air_horizontal_velocity(
+        vel,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        result,
+        vel - physics::AIR_NORMAL.air_no_input_decel,
+        "ASM loc_85B8: sub.l $C(a0),d0 should reduce positive vel by air_no_input_decel ($1800)"
+    );
+}
+
+/// ASM loc_85B8 (kid.asm:9412): positive vel exactly equal to decel amount.
+/// `sub.l $C(a0),d0` yields 0 → BMI not taken (0 is non-negative), rts with 0.
+#[test]
+fn loc_85b8_positive_vel_at_decel_boundary_reaches_zero() {
+    let vel = physics::AIR_NORMAL.air_no_input_decel; // $1800
+    let (result, _) = physics::update_air_horizontal_velocity(
+        vel,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        result, 0,
+        "ASM loc_85B8: vel == air_no_input_decel should decelerate to exactly 0"
+    );
+}
+
+/// ASM loc_85C0 (kid.asm:9418): positive vel below decel threshold.
+/// `sub.l $C(a0),d0` crosses zero (result < 0) → `bmi.s loc_85C0` taken.
+/// `moveq #0,d0; rts` — snap to zero instead of going negative.
+#[test]
+fn loc_85c0_positive_vel_snaps_to_zero_on_sign_change() {
+    let vel = physics::AIR_NORMAL.air_no_input_decel - 1; // $17FF
+    let (result, _) = physics::update_air_horizontal_velocity(
+        vel,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        result, 0,
+        "ASM loc_85C0: sub crossing zero must snap to 0 via moveq #0,d0"
+    );
+}
+
+/// ASM loc_85C0 (kid.asm:9418): negative vel below decel threshold (mirror).
+/// `add.l $C(a0),d0` crosses zero → `bpl.s loc_85C0` taken. Same zero snap.
+#[test]
+fn loc_85c0_negative_vel_snaps_to_zero_on_sign_change() {
+    let vel = -(physics::AIR_NORMAL.air_no_input_decel - 1); // -$17FF
+    let (result, _) = physics::update_air_horizontal_velocity(
+        vel,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        result, 0,
+        "ASM loc_85C0: add crossing zero must snap to 0 via moveq #0,d0 (negative mirror)"
+    );
+}
+
+// sub_8600 edge clamping and tile conversion — loc_8616, loc_8626
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8616 (kid.asm:9454): right-edge clamping in sub_8600.
+/// `add.w x_pos(a3),d1; cmp.w Level_width_pixels,d1; blt.s loc_8626;
+/// move.w Level_width_pixels,d1; subq.w #1,d1` — if right edge exceeds
+/// level width, clamp to width - 1. Verify the native `.clamp()` matches.
+#[test]
+fn loc_8616_sub_8600_clamps_right_edge_to_level_width() {
+    // 3-column grid → width_pixels = 48. Player at x=40, half_width=16 →
+    // right edge = 56 > 48, should clamp to 47.
+    let grid = grid_with_cells(3, 4, &[(0, 2, 0x60, 0x00), (2, 2, 0x60, 0x00)]);
+    // With player near right boundary, sub_8600 should still scan valid
+    // columns without panicking, and the clamped right edge means col 2
+    // (tile at pixel 32..47) is the last scanned column.
+    let surface = grounded_surface_type_sub_8600(&grid, 40, 31, 16);
+    assert_eq!(
+        surface,
+        TerrainType::Normal,
+        "ASM loc_8616: right edge clamped to level width - 1 should scan without panic"
+    );
+}
+
+/// ASM loc_8616 (kid.asm:9454): right edge exactly at level width boundary.
+/// `cmp.w Level_width_pixels,d1; blt.s loc_8626` — BLT not taken when
+/// d1 == width, so clamp applies (d1 = width - 1).
+#[test]
+fn loc_8616_sub_8600_at_exact_boundary() {
+    // 4-column grid → width_pixels = 64. Player at x=48, half_width=16 →
+    // right edge = 64 == width → BLT not taken → clamp to 63.
+    let grid = grid_with_cells(4, 4, &[(3, 2, 0x60, 0x00)]);
+    let surface = grounded_surface_type_sub_8600(&grid, 48, 31, 16);
+    assert_eq!(
+        surface,
+        TerrainType::Normal,
+        "ASM loc_8616: right edge == level width must be clamped to width - 1"
+    );
+}
+
+/// ASM loc_8626 (kid.asm:9461): tile conversion and scan loop setup.
+/// `lsr.w #4,d0; lsr.w #4,d1` converts pixel edges to tile columns.
+/// `sub.w d0,d1` gives column span (dbf counter). Verify that a player
+/// spanning exactly two tile columns scans both.
+#[test]
+fn loc_8626_sub_8600_scans_correct_tile_columns() {
+    // 4-column grid, solid ice at cols 1 and 2, row 2. Player at x=32
+    // with half_width=16 spans pixels 16..48 → tiles 1..2 (two columns).
+    let grid = grid_with_cells(4, 4, &[(1, 2, 0xE2, 0x01), (2, 2, 0xE2, 0x01)]);
+    let surface = grounded_surface_type_sub_8600(&grid, 32, 31, 16);
+    assert_eq!(
+        surface,
+        TerrainType::Ice,
+        "ASM loc_8626: lsr.w #4 tile conversion should scan both ice columns → ice surface"
+    );
+}
+
+/// ASM loc_8626 (kid.asm:9461): foot row calculation.
+/// `d2 = y_pos + 1; lsr.w #4,d2` — the +1 offset means y_pos at a tile
+/// boundary (e.g. 31) puts the foot row at tile 2 ((31+1)/16 = 2).
+#[test]
+fn loc_8626_sub_8600_foot_row_offset() {
+    // Row 1 is solid rubber, row 2 is empty. y_pos=15 → foot row = (15+1)/16 = 1.
+    let grid = grid_with_cells(4, 4, &[(1, 1, 0xE6, 0x01)]);
+    let surface = grounded_surface_type_sub_8600(&grid, 24, 15, 8);
+    assert_eq!(
+        surface,
+        TerrainType::Rubber,
+        "ASM loc_8626: d2 = (y_pos+1) >> 4 should index the correct foot row"
+    );
+}

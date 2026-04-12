@@ -366,8 +366,11 @@ fn apply_air_holding_left(vel: i32, table: &AirSpeedTable) -> i32 {
         let abs_vel = vel.saturating_neg().min(AIR_HARD_CAP);
         if abs_vel < table.max_air_speed {
             // ASM loc_858C (kid.asm:9378): cmp.l (a0),d0; bge.s loc_859E;
-            // add.l 4(a0),d0 — below max, accelerate by air_accel, clamp
-            // to max, then neg.l d0 restores negative sign. Mirror of loc_8544.
+            // fall through to loc_8590 — below max, accelerate.
+            // ASM loc_8590 (kid.asm:9382): add.l 4(a0),d0; cmp.l (a0),d0;
+            // ble.s loc_859A; move.l (a0),d0 — accelerate by air_accel,
+            // clamp to max. Then neg.l d0 restores negative sign. Mirror
+            // of loc_8544.
             let next_abs = (abs_vel + table.air_accel).min(table.max_air_speed);
             -next_abs
         } else {
@@ -382,13 +385,22 @@ fn apply_air_holding_left(vel: i32, table: &AirSpeedTable) -> i32 {
 
 /// Airborne deceleration towards zero when no direction is held (loc_85AC).
 /// Snaps to zero on sign change.
+///
+/// ASM loc_85AC (kid.asm:9404): `tst.l d0; bpl.s loc_85B8` — branch on sign.
+/// Negative vel: `add.l $C(a0),d0; bpl.s loc_85C0; rts` — add decel, if
+/// result crosses zero → snap. Positive vel:
+/// ASM loc_85B8 (kid.asm:9412): `sub.l $C(a0),d0; bmi.s loc_85C0; rts` —
+/// subtract decel, if result crosses zero → snap.
+/// ASM loc_85C0 (kid.asm:9418): `moveq #0,d0; rts` — zero-snap target.
 fn air_decelerate(vel: i32, table: &AirSpeedTable) -> i32 {
     if vel > 0 {
+        // ASM loc_85B8: sub.l $C(a0),d0; bmi.s loc_85C0; rts
         let next = vel - table.air_no_input_decel;
-        if next < 0 { 0 } else { next }
+        if next < 0 { 0 } else { next } // loc_85C0: moveq #0,d0
     } else if vel < 0 {
+        // ASM loc_85AC fall-through: add.l $C(a0),d0; bpl.s loc_85C0; rts
         let next = vel + table.air_no_input_decel;
-        if next > 0 { 0 } else { next }
+        if next > 0 { 0 } else { next } // loc_85C0: moveq #0,d0
     } else {
         0
     }
