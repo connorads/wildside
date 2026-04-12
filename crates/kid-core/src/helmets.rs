@@ -1807,6 +1807,174 @@ pub(crate) fn diamond_power_init_five_way_shot(
     }
 }
 
+/// Result of processing a single FiveWayShot slot in the main loop.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FiveWayShotSlotAction {
+    /// Slot on-screen — sprite compiled into a2 buffer.
+    /// ASM loc_401BA: writes (Y, size_byte, link, pattern, X).
+    Visible {
+        /// $1A(a0) — world X (screen_x + camera_x).
+        world_x: i16,
+        /// $1E(a0) — world Y (screen_y + camera_y).
+        world_y: i16,
+        /// $22(a0) — VRAM attribute word.
+        vram_attr: u16,
+        /// Sprite buffer Y.
+        y: u16,
+        /// size_byte from word_4020E.
+        size_byte: u8,
+        /// pattern from word_4020E.
+        pattern: u16,
+        /// Sprite buffer X.
+        x: u16,
+    },
+    /// Slot removed during fade-out (size < 0 after decrement).
+    /// ASM loc_4019A: bsr.w sub_3F5E8.
+    Removed,
+}
+
+/// ASM DiamondPower_Main_FiveWayShot (kid.asm:45513) per-slot processing.
+///
+/// Called once per slot in the linked list. The outer loop decrements
+/// Diamond_power_timer and loads camera coordinates before iterating.
+///
+/// loc_4014C (kid.asm:45522): per-slot entry — load d0 = $3E(a0) (screen_x),
+///   d1 = $40(a0) (screen_y). `add.w $26(a0),d0` — advance X by x_vel.
+///   `bpl.s loc_40166` — if result >= 0, skip left-edge bounce.
+///   `tst.w $26(a0); bge.s loc_40166` — if x_vel >= 0, skip.
+///   `neg.w $26(a0)` — negate x_vel (bounce off left edge).
+///
+/// loc_40166 (kid.asm:45532): right-edge bounce —
+///   `cmpi.w #$140,d0; blt.s loc_40176` — if d0 < 320, skip.
+///   `tst.w $26(a0); ble.s loc_40176` — if x_vel <= 0, skip.
+///   `neg.w $26(a0)` — negate x_vel (bounce off right edge).
+///
+/// loc_40176 (kid.asm:45539): store updated screen_x, process Y —
+///   `move.w d0,$3E(a0)` — store screen_x.
+///   `add.w $2A(a0),d1` — advance Y by y_vel.
+///   Top bounce: if d1 < 0 AND y_vel < 0, negate y_vel.
+///   Bottom bounce (loc_4018A): if d1 >= $E0 (224) AND y_vel > 0, negate y_vel.
+///   loc_4019A: store screen_y. Timer check: if timer < 0 AND (timer & 7) == 0,
+///   decrement size_index. If size < 0, remove slot. Otherwise compile sprite.
+///
+/// loc_401BA: sprite compilation — world coords = screen + camera, centre by
+///   size_index, VRAM attr = size_index*4 + $1144, compile into buffer.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_main_five_way_shot_slot(
+    slot: &mut FiveWayShotSlot,
+    camera_x: i16,
+    camera_y: i16,
+    diamond_power_timer: i16,
+) -> FiveWayShotSlotAction {
+    // ASM loc_4014C: move.w $3E(a0),d0; move.w $40(a0),d1
+    let mut d0 = slot.screen_x;
+    let mut d1 = slot.screen_y;
+
+    // ASM: add.w $26(a0),d0
+    d0 = d0.wrapping_add(slot.x_vel);
+
+    // ASM: bpl.s loc_40166; tst.w $26(a0); bge.s loc_40166; neg.w $26(a0)
+    // Left-edge bounce: if d0 < 0 AND x_vel < 0, negate x_vel
+    if d0 < 0 && slot.x_vel < 0 {
+        slot.x_vel = slot.x_vel.wrapping_neg();
+    }
+
+    // ASM loc_40166: cmpi.w #$140,d0; blt.s loc_40176; tst.w $26(a0); ble.s loc_40176; neg.w $26(a0)
+    // Right-edge bounce: if d0 >= 320 AND x_vel > 0, negate x_vel
+    if d0 >= 0x140 && slot.x_vel > 0 {
+        slot.x_vel = slot.x_vel.wrapping_neg();
+    }
+
+    // ASM loc_40176: move.w d0,$3E(a0)
+    slot.screen_x = d0;
+
+    // ASM: add.w $2A(a0),d1
+    d1 = d1.wrapping_add(slot.y_vel);
+
+    // ASM: bpl.s loc_4018A; tst.w $2A(a0); bge.s loc_4018A; neg.w $2A(a0)
+    // Top-edge bounce: if d1 < 0 AND y_vel < 0, negate y_vel
+    if d1 < 0 && slot.y_vel < 0 {
+        slot.y_vel = slot.y_vel.wrapping_neg();
+    }
+
+    // ASM loc_4018A: cmpi.w #$E0,d1; blt.s loc_4019A; tst.w $2A(a0); ble.s loc_4019A; neg.w $2A(a0)
+    // Bottom-edge bounce: if d1 >= 224 AND y_vel > 0, negate y_vel
+    if d1 >= 0xE0 && slot.y_vel > 0 {
+        slot.y_vel = slot.y_vel.wrapping_neg();
+    }
+
+    // ASM loc_4019A: move.w d1,$40(a0)
+    slot.screen_y = d1;
+
+    // ASM: tst.w (Diamond_power_timer).w; bpl.s loc_401BA
+    if diamond_power_timer < 0 {
+        // ASM: move.w (Diamond_power_timer).w,d7; andi.w #7,d7; bne.s loc_401BA
+        if (diamond_power_timer & 7) == 0 {
+            // ASM: subq.w #1,$24(a0); bpl.s loc_401BA
+            slot.size_index = slot.size_index.wrapping_sub(1);
+            if (slot.size_index as i16) < 0 {
+                // ASM: bsr.w sub_3F5E8; bra.s loc_401FC
+                return FiveWayShotSlotAction::Removed;
+            }
+        }
+    }
+
+    // ASM loc_401BA: sprite compilation
+    five_way_shot_compile_sprite(slot, d0, d1, camera_x, camera_y)
+}
+
+/// Shared sprite compilation for FiveWayShot slots (ASM loc_401BA through loc_401FC).
+///
+/// d0 = screen_x, d1 = screen_y, d3 = Camera_X_pos, d4 = Camera_Y_pos.
+#[cfg_attr(not(test), allow(dead_code))]
+fn five_way_shot_compile_sprite(
+    slot: &FiveWayShotSlot,
+    d0: i16,
+    d1: i16,
+    camera_x: i16,
+    camera_y: i16,
+) -> FiveWayShotSlotAction {
+    // ASM loc_401BA: move.w d0,d5; add.w d3,d5; move.w d5,$1A(a0)
+    let world_x = d0.wrapping_add(camera_x);
+    // ASM: move.w d1,d5; add.w d4,d5; move.w d5,$1E(a0)
+    let world_y = d1.wrapping_add(camera_y);
+
+    // ASM: addi.w #$7F,d0; addi.w #$7F,d1
+    let mut sprite_x = d0.wrapping_add(0x7F);
+    let mut sprite_y = d1.wrapping_add(0x7F);
+
+    // ASM: move.w $24(a0),d6; sub.w d6,d0; sub.w d6,d1
+    let d6 = slot.size_index;
+    sprite_x = sprite_x.wrapping_sub(d6 as i16);
+    sprite_y = sprite_y.wrapping_sub(d6 as i16);
+
+    // ASM: add.w d6,d6; add.w d6,d6 — d6 *= 4 (table byte index)
+    let table_byte_index = (d6 as usize).wrapping_mul(4);
+
+    // ASM: move.w d6,d5; addi.w #$1144,d5
+    let vram_attr = (table_byte_index as u16).wrapping_add(0x1144);
+
+    // ASM: compile sprite into buffer
+    let entry_index = table_byte_index / 4;
+    let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
+        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
+    } else {
+        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
+    };
+
+    FiveWayShotSlotAction::Visible {
+        world_x,
+        world_y,
+        vram_attr,
+        y: sprite_y as u16,
+        size_byte,
+        pattern,
+        x: sprite_x as u16,
+    }
+}
+
 /// ASM loc_3FA16 through loc_3FA46: compute 8-way octant direction from
 /// the snake head to its target, used by the snake steering loop.
 ///

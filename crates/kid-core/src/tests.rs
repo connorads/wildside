@@ -11988,6 +11988,212 @@ fn five_way_shot_init_size_and_timer_loc_400f4() {
     );
 }
 
+// ── FiveWayShot main per-slot (loc_4014C, loc_40166, loc_40176) ─────────────
+
+#[test]
+fn five_way_shot_slot_moves_by_velocity_loc_4014c() {
+    // ASM loc_4014C: add.w $26(a0),d0 — screen_x += x_vel
+    // ASM loc_40176: add.w $2A(a0),d1 — screen_y += y_vel
+    let mut slot = helmets::FiveWayShotSlot {
+        screen_x: 0x80,
+        screen_y: 0x40,
+        x_vel: 6,
+        y_vel: -4,
+        size_index: 5,
+    };
+    let _ = helmets::diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 10);
+    assert_eq!(slot.screen_x, 0x86, "ASM loc_4014C: screen_x += x_vel (6)");
+    assert_eq!(slot.screen_y, 0x3C, "ASM loc_40176: screen_y += y_vel (-4)");
+}
+
+#[test]
+fn five_way_shot_slot_bounces_left_edge_loc_4014c() {
+    // ASM loc_4014C: when d0 + x_vel < 0 AND x_vel < 0, neg.w $26(a0).
+    let mut slot = helmets::FiveWayShotSlot {
+        screen_x: 2,
+        screen_y: 0x40,
+        x_vel: -6,
+        y_vel: 0,
+        size_index: 5,
+    };
+    let _ = helmets::diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 10);
+    // d0 = 2 + (-6) = -4 < 0, x_vel was -6, so negated to 6
+    assert_eq!(slot.x_vel, 6, "ASM loc_4014C: neg.w $26(a0) left bounce");
+    assert_eq!(
+        slot.screen_x, -4,
+        "ASM loc_40176: d0 stored as-is after bounce"
+    );
+}
+
+#[test]
+fn five_way_shot_slot_bounces_right_edge_loc_40166() {
+    // ASM loc_40166: cmpi.w #$140,d0; blt.s skip; tst.w $26(a0); ble.s skip; neg.w $26(a0)
+    let mut slot = helmets::FiveWayShotSlot {
+        screen_x: 0x13E,
+        screen_y: 0x40,
+        x_vel: 8,
+        y_vel: 0,
+        size_index: 5,
+    };
+    let _ = helmets::diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 10);
+    // d0 = 0x13E + 8 = 0x146 >= 0x140, x_vel=8 > 0, so negated to -8
+    assert_eq!(slot.x_vel, -8, "ASM loc_40166: neg.w $26(a0) right bounce");
+}
+
+#[test]
+fn five_way_shot_slot_no_bounce_when_vel_already_correct_loc_40166() {
+    // ASM loc_40166: if x_vel <= 0 when at right edge, no bounce (ble.s skip).
+    let mut slot = helmets::FiveWayShotSlot {
+        screen_x: 0x13E,
+        screen_y: 0x40,
+        x_vel: -8, // already heading left
+        y_vel: 0,
+        size_index: 5,
+    };
+    let _ = helmets::diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 10);
+    // d0 = 0x13E + (-8) = 0x136 < 0x140, no bounce triggered
+    assert_eq!(
+        slot.x_vel, -8,
+        "ASM loc_40166: no bounce, vel already negative"
+    );
+}
+
+#[test]
+fn five_way_shot_slot_bounces_top_edge_loc_40176() {
+    // ASM loc_40176: after storing X, add.w $2A(a0),d1; bpl.s loc_4018A;
+    // tst.w $2A(a0); bge.s loc_4018A; neg.w $2A(a0)
+    let mut slot = helmets::FiveWayShotSlot {
+        screen_x: 0x80,
+        screen_y: 2,
+        x_vel: 0,
+        y_vel: -4,
+        size_index: 5,
+    };
+    let _ = helmets::diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 10);
+    // d1 = 2 + (-4) = -2 < 0, y_vel was -4, so negated to 4
+    assert_eq!(slot.y_vel, 4, "ASM loc_40176: neg.w $2A(a0) top bounce");
+}
+
+#[test]
+fn five_way_shot_slot_bounces_bottom_edge_loc_4018a() {
+    // ASM loc_4018A: cmpi.w #$E0,d1; blt.s loc_4019A; tst.w $2A(a0); ble.s; neg.w $2A(a0)
+    let mut slot = helmets::FiveWayShotSlot {
+        screen_x: 0x80,
+        screen_y: 0xDE,
+        x_vel: 0,
+        y_vel: 4,
+        size_index: 5,
+    };
+    let _ = helmets::diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 10);
+    // d1 = 0xDE + 4 = 0xE2 >= 0xE0, y_vel=4 > 0, so negated to -4
+    assert_eq!(slot.y_vel, -4, "ASM loc_4018A: neg.w $2A(a0) bottom bounce");
+}
+
+#[test]
+fn five_way_shot_slot_fadeout_removes_at_negative_size_loc_4019a() {
+    // ASM loc_4019A: when timer < 0 AND (timer & 7) == 0, subq.w #1,$24(a0).
+    // If size goes negative, sub_3F5E8 removes the slot.
+    let mut slot = helmets::FiveWayShotSlot {
+        screen_x: 0x80,
+        screen_y: 0x40,
+        x_vel: 0,
+        y_vel: 0,
+        size_index: 0,
+    };
+    let result = helmets::diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, -8); // -8 & 7 == 0
+    assert_eq!(
+        result,
+        helmets::FiveWayShotSlotAction::Removed,
+        "ASM loc_4019A: bsr.w sub_3F5E8 when size underflows"
+    );
+}
+
+#[test]
+fn five_way_shot_slot_fadeout_decrements_size_loc_4019a() {
+    // ASM loc_4019A: subq.w #1,$24(a0); bpl.s loc_401BA — size decremented but >= 0, continue.
+    let mut slot = helmets::FiveWayShotSlot {
+        screen_x: 0x80,
+        screen_y: 0x40,
+        x_vel: 0,
+        y_vel: 0,
+        size_index: 3,
+    };
+    let result = helmets::diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, -16); // -16 & 7 == 0
+    assert!(
+        matches!(result, helmets::FiveWayShotSlotAction::Visible { .. }),
+        "ASM loc_4019A: size decremented to 2, still visible"
+    );
+    assert_eq!(slot.size_index, 2, "ASM loc_4019A: subq.w #1,$24(a0)");
+}
+
+#[test]
+fn five_way_shot_slot_fadeout_skips_on_non_8th_frame_loc_4019a() {
+    // ASM loc_4019A: andi.w #7,d7; bne.s loc_401BA — skip decrement when (timer & 7) != 0.
+    let mut slot = helmets::FiveWayShotSlot {
+        screen_x: 0x80,
+        screen_y: 0x40,
+        x_vel: 0,
+        y_vel: 0,
+        size_index: 1,
+    };
+    let result = helmets::diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, -3); // -3 & 7 == 5 != 0
+    assert!(
+        matches!(result, helmets::FiveWayShotSlotAction::Visible { .. }),
+        "ASM loc_4019A: non-8th frame, no decrement"
+    );
+    assert_eq!(slot.size_index, 1, "ASM loc_4019A: size unchanged");
+}
+
+#[test]
+fn five_way_shot_slot_sprite_compile_loc_401ba() {
+    // ASM loc_401BA: world coords = screen + camera, centred by size_index,
+    // VRAM attr = size_index*4 + $1144.
+    let mut slot = helmets::FiveWayShotSlot {
+        screen_x: 0x80,
+        screen_y: 0x40,
+        x_vel: 0,
+        y_vel: 0,
+        size_index: 5,
+    };
+    let result = helmets::diamond_power_main_five_way_shot_slot(&mut slot, 0x100, 0x80, 10);
+    match result {
+        helmets::FiveWayShotSlotAction::Visible {
+            world_x,
+            world_y,
+            vram_attr,
+            y,
+            x,
+            ..
+        } => {
+            // ASM: d5 = d0 + d3; move.w d5,$1A(a0)
+            assert_eq!(
+                world_x, 0x180,
+                "ASM loc_401BA: world_x = screen_x + camera_x"
+            );
+            // ASM: d5 = d1 + d4; move.w d5,$1E(a0)
+            assert_eq!(
+                world_y, 0xC0,
+                "ASM loc_401BA: world_y = screen_y + camera_y"
+            );
+            // ASM: d6=5, d6*4=20, $1144 + 20 = $1158
+            assert_eq!(
+                vram_attr, 0x1158,
+                "ASM loc_401BA: vram_attr = size*4 + $1144"
+            );
+            // ASM: d0 = $80 + $7F - 5 = $FA; d1 = $40 + $7F - 5 = $BA
+            assert_eq!(
+                x, 0xFA_u16,
+                "ASM loc_401BA: sprite_x = screen_x + $7F - size"
+            );
+            assert_eq!(
+                y, 0xBA_u16,
+                "ASM loc_401BA: sprite_y = screen_y + $7F - size"
+            );
+        }
+        other => panic!("Expected Visible, got {other:?}"),
+    }
+}
+
 // ── WallOfDeath main per-slot (loc_40026, loc_40044, loc_40060) ─────────────
 
 #[test]
