@@ -25129,6 +25129,36 @@ fn trap_platform_up_move_step_loc_4230_exact_clamp_boundary() {
 }
 
 #[test]
+fn trap_platform_up_post_rise_step_loc_4270_continues_when_flag_zero() {
+    // ASM loc_4270 (kid.asm:5358): tst.b $12(a3); beq.s loc_4270
+    assert_eq!(
+        trap_platform_up_post_rise_step_loc_4270(0x00),
+        TrapPlatformUpPostRiseActionLoc4270::ContinueWaiting,
+        "when deactivation flag is zero, the ROM loops back to loc_4270",
+    );
+}
+
+#[test]
+fn trap_platform_up_post_rise_step_loc_4270_deletes_when_flag_set() {
+    // ASM loc_4270 (kid.asm:5358): nonzero → Deallocate_PlatformSlot + Delete_CurrentObject
+    assert_eq!(
+        trap_platform_up_post_rise_step_loc_4270(0xFF),
+        TrapPlatformUpPostRiseActionLoc4270::Delete,
+        "when deactivation flag is nonzero, the ROM deallocates and deletes",
+    );
+}
+
+#[test]
+fn trap_platform_up_post_rise_step_loc_4270_any_nonzero_triggers_delete() {
+    // ASM tst.b: any nonzero byte triggers the branch-not-taken path
+    assert_eq!(
+        trap_platform_up_post_rise_step_loc_4270(0x01),
+        TrapPlatformUpPostRiseActionLoc4270::Delete,
+        "even flag=1 (minimal nonzero) triggers deletion",
+    );
+}
+
+#[test]
 fn platform_collision_shift_directions_matter() {
     // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
     // If >> became <<, pixel values would be wildly wrong and collision would fail.
@@ -58745,7 +58775,9 @@ fn init_hud_animation_frames_sub_44b0_sets_five_indices() {
 
 #[test]
 fn vdp_upload_32_longwords_sub_44d0_copies_all_bytes() {
-    // ASM sub_44D0 (kid.asm:5533-5539): move.w #$1F,d6; dbf loop: move.l (a4)+,(a6)
+    // ASM sub_44D0 (kid.asm:5533): move.w #$1F,d6
+    // ASM loc_44D4 (kid.asm:5536): move.l (a4)+,(a6); dbf d6,loc_44D4
+    // loc_44D4 is the inner loop body — each iteration transfers one longword.
     // Copies 32 longwords (128 bytes) from source to destination.
     let data: [u8; 128] = core::array::from_fn(|i| i as u8);
 
@@ -58764,6 +58796,43 @@ fn vdp_upload_32_longwords_sub_44d0_copies_all_bytes() {
             i, chunk[0], chunk[1], chunk[2], chunk[3]
         );
     }
+}
+
+#[test]
+fn step_hud_animation_sub_44dc_coin_frame_upload_cites_loc_4534() {
+    // ASM loc_4534 (kid.asm:5585): when the coin countdown expires, read the
+    // frame index byte from AniArt_Coin, sign-extend, index into off_451C
+    // (6 art pointers at $80-byte stride into ArtUnc_4992), set VDP write
+    // command for VRAM $4720, then call sub_44D0 to upload 128 bytes.
+    // Here we trigger a coin frame advance by expiring the coin counter.
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 1,
+        coin_frame_offset_fb60: 0,
+        life_countdown_fb59: 10,
+        life_frame_offset_fb5e: 0,
+        clock_countdown_fb5a: 10,
+        clock_frame_offset_fb5f: 0,
+        diamond_countdown_fb58: 10,
+        diamond_frame_offset_fb5d: 0,
+        flag_countdown_fb5c: 10,
+        flag_frame_offset_fb61: 0,
+    });
+
+    // ASM loc_4534: frame_table_byte_offset selects which $80-byte art chunk
+    // from ArtUnc_4992. AniArt_Coin[2]=0x04 → off_451C index 4 → 2nd frame.
+    assert_eq!(
+        step.coin_upload,
+        Some(HudFrameUploadSub44DC {
+            asset_label: "ArtUnc_4992",
+            vram_word_address: 0x4720,
+            frame_table_byte_offset: 0x04,
+        }),
+        "ASM loc_4534: coin counter expiry should produce a frame upload targeting VRAM $4720",
+    );
+    // Next countdown loaded from AniArt_Coin speed byte (6)
+    assert_eq!(step.next_state.coin_countdown_fb5b, 6);
+    // Frame offset advanced by 2 bytes to the next pair
+    assert_eq!(step.next_state.coin_frame_offset_fb60, 2);
 }
 
 #[test]

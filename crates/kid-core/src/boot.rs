@@ -107,7 +107,9 @@ pub(crate) struct HudAnimationFramesSub44B0 {
 }
 
 /// ASM sub_44D0 (kid.asm:5533): copy 32 longwords (128 bytes) from ROM to VDP.
-/// ASM: move.w #$1F,d6; dbf loop: move.l (a4)+,(a6)
+/// ASM: move.w #$1F,d6; loc_44D4: move.l (a4)+,(a6); dbf d6,loc_44D4
+/// loc_44D4 (kid.asm:5536) is the inner loop body — each iteration transfers
+/// one longword from the source art pointer (a4) to the VDP data port (a6).
 /// Used for uploading animation art to VDP RAM during HUD rendering.
 #[allow(non_snake_case)]
 #[allow(dead_code)]
@@ -337,6 +339,11 @@ pub(crate) fn step_hud_animation_sub_44DC(
             flag_countdown_fb5c,
             flag_frame_offset_fb61,
         },
+        // ASM loc_4534 (kid.asm:5585): coin art frame load — reads frame index
+        // byte from AniArt_Coin script, sign-extends to word, indexes into
+        // off_451C (6 art pointers at $80-byte stride into ArtUnc_4992), sets
+        // VDP write command for VRAM $4720, then calls sub_44D0 to upload 128
+        // bytes of tile data.
         coin_upload: coin_frame.map(|frame_table_byte_offset| HudFrameUploadSub44DC {
             asset_label: "ArtUnc_4992",
             vram_word_address: 0x4720,

@@ -1209,3 +1209,35 @@ pub(crate) fn trap_platform_up_move_step_loc_4230(
         continue_moving: relative_y > -0xE0,
     }
 }
+
+/// Per-frame action for the TrapPlatformUp post-rise wait state.
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TrapPlatformUpPostRiseActionLoc4270 {
+    /// Deactivation flag still zero — continue waiting.
+    ContinueWaiting,
+    /// Deactivated flag set — deallocate slot and delete object.
+    Delete,
+}
+
+/// TrapPlatformUp post-rise wait: after the platform has risen far enough
+/// above Kid (platform Y - Kid Y <= -$E0), velocity is cleared and the
+/// sub-pixel field set to $800. This loop hibernates each frame and polls
+/// the deactivation flag at `$12(a3)`.
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn trap_platform_up_post_rise_step_loc_4270(
+    deactivated_flag: u8,
+) -> TrapPlatformUpPostRiseActionLoc4270 {
+    // ASM loc_4270 (kid.asm:5358): jsr Hibernate, then:
+    //   tst.b  $12(a3)
+    //   beq.s  loc_4270            ; zero → keep waiting
+    //   ; nonzero → fall through to TrapPlatformUp_Delete
+    //   bsr.w  Deallocate_PlatformSlot
+    //   jmp    Delete_CurrentObject(pc)
+    if deactivated_flag != 0 {
+        TrapPlatformUpPostRiseActionLoc4270::Delete
+    } else {
+        TrapPlatformUpPostRiseActionLoc4270::ContinueWaiting
+    }
+}
