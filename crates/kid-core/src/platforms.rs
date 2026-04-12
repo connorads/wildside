@@ -700,6 +700,27 @@ pub(crate) fn apply_platform_collision(
             // crush death.  Upward-moving platforms carry the player without
             // checking for ceiling collision.
             //
+            // ASM loc_8306 (kid.asm:9077): crawling-on-platform y tracking —
+            // `move.w (Addr_PlatformStandingOn).w,a4; move.l $E(a4),y_vel(a3);
+            // move.l 6(a4),y_pos(a3); subq.w #1,y_pos(a3)` — snaps Kid's
+            // y_pos to platform top minus 1, copies platform y_vel. Then
+            // `bsr.w sub_902A`: if d7==2 → Death (loc_837C crush); if NE
+            // (ceiling hit) → detach + re-enter crawl (loc_8218); if EQ →
+            // loc_833E floor/edge check.
+            // Native: platform carry applies velocity additively rather than
+            // snapping to platform_y - 1; the sub_902A ceiling/crush branch
+            // is a TODO(fidelity) above.
+            //
+            // ASM loc_833E (kid.asm:9093): crawl-on-platform floor/edge
+            // check — `bsr.w sub_8ED0` (platform support test): if EQ
+            // (supported) → loc_8370 (continue crawling with $FFFFFA98
+            // accumulated velocity). If NE (unsupported), `bsr.w sub_B43A`
+            // floor probe: if floor → loc_818A (walking→airborne exit); else
+            // detach + re-enter crawl (loc_8218).
+            // Native: `platform_support_check_sub_8ED0` (below) mirrors
+            // sub_8ED0; unsupported platforms are skipped (no carry), so Kid
+            // falls off via normal gravity.
+            //
             // Carry player with platform velocity
             slice.player.x_pos = (i64::from(slice.player.x_pos) + i64::from(platform.x_velocity))
                 .clamp(0, i64::from(u32::MAX)) as u32;
@@ -771,6 +792,8 @@ pub(crate) fn platform_support_check_sub_8ED0(
     // ASM sub_8ED0 (kid.asm:10282): if no active platform is recorded, set
     // `collision_type=4` and return unsupported. Otherwise, check whether
     // Kid's centre ± active half-width still overlaps the platform span.
+    // Called from loc_833E (kid.asm:9093) during crawl-on-platform and from
+    // loc_7886 (kid.asm:7929) during standing-on-platform.
     let Some(platform) = platform else {
         return true;
     };

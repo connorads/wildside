@@ -2153,6 +2153,25 @@ impl NativeRuntime {
         // probe implicitly; sub_81B4 is crawl_wall_escape_sub_81B4;
         // sub_DAA6 is ceiling_probe_height (platform-overhead not yet
         // modelled as a separate stand-up gate — TODO(fidelity)).
+        //
+        // ASM loc_8298 (kid.asm:9038): when sub_B43A finds floor (EQ),
+        // `bsr.w sub_B41C` restores the standing half_width from unk_B408
+        // (e.g. TheKid=5, Skycutter=10). Falls through to loc_829C which
+        // clears Button_B and dispatches: Skycutter → walking (sub_942A →
+        // loc_8BF0), others → loc_82BA.
+        // Native: collision half_width always comes from
+        // `PlayerForm::half_width()`, so the sub_B41C restore is implicit.
+        //
+        // ASM loc_82BA (kid.asm:9050): non-Skycutter path after stand-up —
+        // `tst.l x_vel(a3)`: if non-zero, `bsr.w sub_78E8` then `bra.w
+        // loc_75D4` (standing loop); if zero → loc_82CA.
+        // Native: `refresh_grounded_helmet_state_sub_78E8` runs every
+        // grounded frame (below), covering both x_vel paths.
+        //
+        // ASM loc_82CA (kid.asm:9057): zero-velocity idle entry from crawl
+        // stand-up — `clr.w ($FFFFF8F0)` (walk accumulator), `bclr
+        // #Button_B,(Ctrl_Pressed)`, `bra.w loc_8E3E`. Visual-only: the
+        // walk accumulator and sprite dispatch at loc_8E3E are not modelled.
         if input.down
             && slice.player.on_ground
             && !matches!(

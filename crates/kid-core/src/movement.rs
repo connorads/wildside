@@ -4431,7 +4431,8 @@ pub(crate) fn crawl_wall_escape_sub_81B4(
 ) -> CrawlWallEscapeSub81B4 {
     // ASM loc_8270 (kid.asm:9025): called from the crawl stand-up path via
     // `bsr.w sub_81B4`. If sub_81B4 returns NE (blocked), stay crawling
-    // (loc_82D8). If EQ (escaped), proceed to loc_829C (stand up).
+    // (loc_82D8). If EQ (escaped), fall through to loc_8298 (`bsr.w
+    // sub_B41C` half-width restore) then loc_829C (stand up dispatch).
     // ASM sub_81B4 (kid.asm:8952): probe one row 16px above the feet at
     // `x_pos ± half_width`, take the first non-solid side, and snap the player
     // flush to that tile boundary. Only return blocked when both side probes

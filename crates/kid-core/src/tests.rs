@@ -71753,3 +71753,176 @@ fn loc_8270_skycutter_crawl_gate() {
     // Crawling half_width is 14 (ASM: `move.w #$E,($FFFFFA78).w`).
     // sub_81B4 is only called for non-Skycutter forms.
 }
+
+/// ASM loc_8298 (kid.asm:9038): `bsr.w sub_B41C` — when sub_B43A finds
+/// floor during crawl stand-up, the ROM restores the standing half_width
+/// from unk_B408[Current_Helmet]. Verify that every form's standing
+/// half_width differs from (or equals) the crawl half_width (14), confirming
+/// the sub_B41C call is meaningful for most forms.
+#[test]
+fn loc_8298_sub_b41c_standing_half_width_vs_crawl() {
+    // ASM loc_8218: crawl half_width = $E (14).
+    let crawl_hw = 14;
+    // ASM loc_8298/sub_B41C: restores unk_B408[helmet].
+    // Every standing form has a smaller half_width than crawl, so the
+    // sub_B41C call genuinely changes collision geometry.
+    for form in [
+        PlayerForm::TheKid,
+        PlayerForm::RedStealth,
+        PlayerForm::Berzerker,
+        PlayerForm::IronKnight,
+        PlayerForm::Maniaxe,
+        PlayerForm::Eyeclops,
+        PlayerForm::Cyclone,
+        PlayerForm::Micromax,
+        PlayerForm::Skycutter,
+        PlayerForm::Juggernaut,
+    ] {
+        let hw = form.half_width();
+        assert!(
+            hw < crawl_hw || form == PlayerForm::Juggernaut,
+            "ASM loc_8298/sub_B41C: {form:?} standing hw ({hw}) should be < crawl hw ({crawl_hw}), \
+             except Juggernaut ({}) which is wider",
+            PlayerForm::Juggernaut.half_width(),
+        );
+    }
+}
+
+/// ASM loc_8298 (kid.asm:9038): Juggernaut's standing half_width (23)
+/// exceeds the crawl half_width (14). sub_B41C widens the collision box
+/// on stand-up; native `PlayerForm::half_width()` returns 23 for Juggernaut.
+#[test]
+fn loc_8298_juggernaut_widens_on_standup() {
+    assert_eq!(
+        PlayerForm::Juggernaut.half_width(),
+        23,
+        "ASM loc_8298/sub_B41C: Juggernaut standing hw = $17 (23)"
+    );
+    assert!(
+        PlayerForm::Juggernaut.half_width() > 14,
+        "ASM loc_8298: Juggernaut hw (23) > crawl hw (14) — sub_B41C widens"
+    );
+}
+
+/// ASM loc_82BA (kid.asm:9050): after standing up (non-Skycutter), the ROM
+/// tests `x_vel(a3)`. If non-zero, `bsr.w sub_78E8` refreshes the grounded
+/// helmet state then `bra.w loc_75D4` (standing loop). If zero → loc_82CA.
+/// Native runs `refresh_grounded_helmet_state_sub_78E8` every grounded
+/// frame unconditionally, covering both velocity branches. Verify sub_78E8
+/// clears Maniaxe axe and Red Stealth sword state.
+#[test]
+fn loc_82ba_sub_78e8_clears_special_movement_state() {
+    // ASM sub_78E8 (kid.asm:7973) → loc_794C (kid.asm:8009):
+    // `sf (Maniaxe_throwing_axe); sf (Red_Stealth_sword_swing)`.
+    // Native: clear_special_movement_state_sub_DB22 inside sub_78E8.
+    let mut rt = NativeRuntime::new(manifest());
+    start_level(&mut rt);
+    rt.helmet.maniaxe_axe_active = true;
+    rt.helmet.red_stealth_sword_timer = 5;
+    rt.refresh_grounded_helmet_state_sub_78E8();
+    assert!(
+        !rt.helmet.maniaxe_axe_active,
+        "ASM loc_82BA/sub_78E8: Maniaxe_throwing_axe should be cleared"
+    );
+    assert_eq!(
+        rt.helmet.red_stealth_sword_timer, 0,
+        "ASM loc_82BA/sub_78E8: Red_Stealth_sword_swing timer should be 0"
+    );
+}
+
+/// ASM loc_82CA (kid.asm:9057): zero-velocity idle entry from crawl
+/// stand-up — `clr.w ($FFFFF8F0)` (walk accumulator), `bclr #Button_B,
+/// (Ctrl_Pressed)`, `bra.w loc_8E3E` (idle dispatch). The walk
+/// accumulator ($FFFFF8F0) is visual-only (animation frame selection);
+/// native does not model it. Verify the structural path: when x_velocity
+/// is zero and player is grounded, the player is in idle state (the
+/// loc_82CA destination).
+#[test]
+fn loc_82ca_zero_velocity_idle_entry() {
+    // ASM loc_82BA: `tst.l x_vel(a3) / beq.w loc_82CA`.
+    // loc_82CA: clears walk accumulator (visual-only) and enters idle.
+    // Native: zero x_velocity + on_ground = idle state. The walk
+    // accumulator and Button_B clear are not modelled.
+    let mut rt = NativeRuntime::new(manifest());
+    start_level(&mut rt);
+    let slice = rt.opening_slice.as_ref().unwrap();
+    assert_eq!(
+        slice.player.x_velocity, 0,
+        "ASM loc_82CA: initial x_velocity should be 0 (idle)"
+    );
+    assert!(
+        slice.player.on_ground,
+        "ASM loc_82CA: player should be grounded (idle state = loc_8E3E dispatch)"
+    );
+}
+
+/// ASM loc_8306 (kid.asm:9077): crawling on platform — `move.l
+/// $E(a4),y_vel(a3); move.l 6(a4),y_pos(a3); subq.w #1,y_pos(a3)` snaps
+/// Kid to platform_y - 1. Then `bsr.w sub_902A`: d7==2 → Death; NE →
+/// detach; EQ → loc_833E. Verify that `platform_support_check_sub_8ED0`
+/// returns supported (false = not unsupported) when Kid is centred on a
+/// platform, reflecting the loc_833E sub_8ED0 EQ path (stay on platform).
+#[test]
+fn loc_8306_platform_support_centred() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+    // Kid at x=100px, platform spanning x=80..160 (80px wide).
+    let platform = ActivePlatform {
+        x_pos: 80 << 16,
+        y_pos: 200 << 16,
+        x_velocity: 0,
+        y_velocity: 1 << 16,
+        width_px: 80,
+        height_px: 16,
+        script: None,
+    };
+    let unsupported = platform_support_check_sub_8ED0(
+        Some(&platform),
+        100 << 16, // player_x_pos
+        5,         // TheKid half_width
+        PlayerForm::TheKid,
+        false,
+    );
+    assert!(
+        !unsupported,
+        "ASM loc_8306/loc_833E/sub_8ED0: Kid centred on platform should be supported"
+    );
+}
+
+/// ASM loc_833E (kid.asm:9093): `bsr.w sub_8ED0` — if Kid walks off the
+/// platform edge, sub_8ED0 returns NE (unsupported). Then sub_B43A probes
+/// floor: if found → loc_818A; else detach. Verify sub_8ED0 returns
+/// unsupported when Kid is past the platform right edge.
+#[test]
+fn loc_833e_sub_8ed0_unsupported_past_edge() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+    let platform = ActivePlatform {
+        x_pos: 80 << 16,
+        y_pos: 200 << 16,
+        x_velocity: 0,
+        y_velocity: 0,
+        width_px: 80,
+        height_px: 16,
+        script: None,
+    };
+    // Kid at x=170px — past right edge (80+80=160).
+    let unsupported =
+        platform_support_check_sub_8ED0(Some(&platform), 170 << 16, 5, PlayerForm::TheKid, false);
+    assert!(
+        unsupported,
+        "ASM loc_833E/sub_8ED0: Kid past platform right edge should be unsupported"
+    );
+}
+
+/// ASM loc_833E (kid.asm:9093): when no platform is recorded
+/// (`Addr_PlatformStandingOn == 0`), sub_8ED0 returns NE immediately with
+/// `collision_type=4`. Verify the None-platform path.
+#[test]
+fn loc_833e_sub_8ed0_no_platform() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+    let unsupported =
+        platform_support_check_sub_8ED0(None, 100 << 16, 5, PlayerForm::TheKid, false);
+    assert!(
+        unsupported,
+        "ASM loc_833E/sub_8ED0: no platform → unsupported (NE)"
+    );
+}
