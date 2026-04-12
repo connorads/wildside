@@ -992,6 +992,21 @@ pub(crate) fn step_weather_worker_sub_61CA(
         });
     }
 
+    // ASM loc_6462 (kid.asm:6447): per-slot falling weather sprite rendering.
+    //   move.w (a0),d7; bmi.s loc_64AE          ; inactive (y < 0) → skip
+    //   move.w 2(a0),d6                          ; x from slot
+    //   sub.w Camera_Y_pos,d7; addi.w #$80,d7   ; world → screen Y
+    //   sub.w Camera_X_pos,d6; addi.w #$80,d6   ; world → screen X
+    //   move.l Addr_NextSpriteSlot,a4            ; sprite output pointer
+    //   move.w d6,6(a4); move.w d7,0(a4)        ; store screen x/y
+    //   move.w 4(a0),d0; andi.w #$FF,d0         ; animation_frame byte (offset 5)
+    //   add.w d0,d0; move.w unk_64BC(pc,d0.w),4(a4)  ; tile from lookup table
+    //   move.w #$500,d6                          ; link base = $500 (1×1 cell)
+    //   addq.b #1,Number_Sprites; add.b Number_Sprites,d6
+    //   move.w d6,2(a4)                          ; store link
+    //   lea 8(a4),a4; move.l a4,Addr_NextSpriteSlot
+    // ASM loc_64AE (kid.asm:6469): lea 6(a0),a0; dbf d5,loc_6462; rts
+    //   Advance to next falling slot (6 bytes each), loop 5 slots (d5=4, dbf).
     for slot in &output.falling_slots {
         if !slot.is_active() {
             continue;

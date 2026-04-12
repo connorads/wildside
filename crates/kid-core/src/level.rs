@@ -1007,6 +1007,19 @@ pub(crate) fn decompress_to_vram_buffer_rollover_loc_1432C(
         .collect()
 }
 
+// ASM loc_64D0 (kid.asm:6502): dead code in the ROM — an orphan nibble-
+// interleaving routine identical to loc_14348/loc_1434A below.  It sits between
+// `sub_61CA`'s rts (kid.asm:6472) and `Init_Timer_and_Bonus_Flags`
+// (kid.asm:6551) with no reachable entry point (no label, no branch, no jump
+// table).  The preceding bytes ($43F9 $FFFF0280 $7200) decode to
+// `clr.w ($FFFF0280).l; moveq #0,d1` — setup for the same 16×16
+// nibble-pack loop that `DecompressToVRAM_Special` uses at loc_14348.
+// A second phase at loc_6504 reads remap indices from a4 into $FFFF0380,
+// mirroring loc_14382's palette-table lookup.  Both phases match
+// `decompress_special_palette_row_bytes_loc_1434A` and
+// `decompress_to_vram_special_word_transfer_loc_14382` below, so no separate
+// native implementation is needed.
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_special_palette_row_start_loc_14348(

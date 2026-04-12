@@ -29843,6 +29843,189 @@ fn loc_63c4_deactivates_impact_slot_after_frame2() {
     );
 }
 
+#[test]
+fn loc_6462_renders_active_falling_slot_with_correct_screen_coords_and_tile() {
+    // ASM loc_6462 (kid.asm:6447): sub.w Camera_Y_pos,d7; addi.w #$80,d7
+    //   sub.w Camera_X_pos,d6; addi.w #$80,d6
+    //   move.w 4(a0),d0; andi.w #$FF,d0; add.w d0,d0
+    //   move.w unk_64BC(pc,d0.w),4(a4) — tile lookup by animation_frame
+    //   move.w #$500,d6; addq.b #1,Number_Sprites; add.b Number_Sprites,d6
+    let mut falling_slots = [FallingWeatherSlotSub61CA::inactive(6, 0); 5];
+    falling_slots[0] = FallingWeatherSlotSub61CA {
+        y_px: 200,
+        x_px: 300,
+        animation_cooldown: 3,
+        animation_frame: 2, // unk_64BC[2] = $A3BD
+    };
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 100,
+        camera_y_px: 50,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots,
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows: empty_weather_collision_rows_sub_61_ca(),
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.sprites.len(),
+        1,
+        "ASM loc_6462: one active falling slot should emit exactly one sprite"
+    );
+    let sprite = &stepped.sprites[0];
+    // After loc_61E2 advances: y_px = 200+4=204, x_px = 300-1=299
+    // screen_y = 204 - 50 + 0x80 = 282
+    let expected_y: i16 = 204_i16.wrapping_sub(50).wrapping_add(0x0080);
+    assert_eq!(
+        sprite.y,
+        u16::from_be_bytes(expected_y.to_be_bytes()),
+        "ASM loc_6462: sub.w Camera_Y_pos,d7; addi.w #$80,d7"
+    );
+    // screen_x = 299 - 100 + 0x80 = 327
+    let expected_x: i16 = 299_i16.wrapping_sub(100).wrapping_add(0x0080);
+    assert_eq!(
+        sprite.x,
+        u16::from_be_bytes(expected_x.to_be_bytes()),
+        "ASM loc_6462: sub.w Camera_X_pos,d6; addi.w #$80,d6"
+    );
+    assert_eq!(
+        sprite.tile_word, 0xA3BD,
+        "ASM loc_6462: unk_64BC[2] = $A3BD for animation_frame=2"
+    );
+    // link = $500 + number_sprites(1) = $501
+    assert_eq!(
+        sprite.link, 0x0501,
+        "ASM loc_6462: move.w #$500,d6; addq.b #1,Number_Sprites; add.b Number_Sprites,d6"
+    );
+}
+
+#[test]
+fn loc_64ae_skips_inactive_falling_slot_and_iterates_all_five() {
+    // ASM loc_64AE (kid.asm:6469): lea 6(a0),a0; dbf d5,loc_6462
+    //   Inactive slots (y < 0) branch from loc_6462's bmi.s directly to
+    //   loc_64AE, advancing a0 by 6 without emitting a sprite.
+    //   The loop runs all 5 slots (d5=4, dbf).
+    let mut falling_slots = [FallingWeatherSlotSub61CA::inactive(6, 0); 5];
+    // Only the last slot (index 4) is active — verifies the loop reaches it
+    falling_slots[4] = FallingWeatherSlotSub61CA {
+        y_px: 100,
+        x_px: 100,
+        animation_cooldown: 3,
+        animation_frame: 0, // unk_64BC[0] = $A3B5
+    };
+
+    let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+        camera_x_px: 0,
+        camera_y_px: 0,
+        spawn_cooldown: 99,
+        free_falling_slots: 0,
+        falling_slots,
+        impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+        kid_hitbox_top_px: 9999,
+        kid_hitbox_bottom_px: 9999,
+        kid_hitbox_left_px: 9999,
+        kid_hitbox_right_px: 9999,
+        random_byte: 0,
+        collision_rows: empty_weather_collision_rows_sub_61_ca(),
+        starting_number_sprites: 0,
+    });
+
+    assert_eq!(
+        stepped.sprites.len(),
+        1,
+        "ASM loc_64AE: only the last active slot should emit a sprite — \
+         dbf d5,loc_6462 iterates all 5 falling slots"
+    );
+    assert_eq!(
+        stepped.sprites[0].tile_word, 0xA3B5,
+        "ASM loc_6462: unk_64BC[0] = $A3B5 for animation_frame=0"
+    );
+}
+
+#[test]
+fn loc_6462_each_animation_frame_selects_correct_tile_from_unk_64bc() {
+    // ASM loc_6462 (kid.asm:6447): unk_64BC lookup table —
+    //   [$A3B5, $A3B9, $A3BD, $A3C1, $A3C5, $A3C9] for frames 0–5.
+    //   In practice frames wrap at 5 (loc_620C), so only 0–4 are used.
+    let expected_tiles: [u16; 5] = [0xA3B5, 0xA3B9, 0xA3BD, 0xA3C1, 0xA3C5];
+    for (frame, expected_tile) in expected_tiles.iter().enumerate() {
+        let mut falling_slots = [FallingWeatherSlotSub61CA::inactive(6, 0); 5];
+        falling_slots[0] = FallingWeatherSlotSub61CA {
+            y_px: 10,
+            x_px: 10,
+            animation_cooldown: 3,
+            animation_frame: frame as u8,
+        };
+
+        let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+            camera_x_px: 0,
+            camera_y_px: 0,
+            spawn_cooldown: 99,
+            free_falling_slots: 0,
+            falling_slots,
+            impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+            kid_hitbox_top_px: 9999,
+            kid_hitbox_bottom_px: 9999,
+            kid_hitbox_left_px: 9999,
+            kid_hitbox_right_px: 9999,
+            random_byte: 0,
+            collision_rows: empty_weather_collision_rows_sub_61_ca(),
+            starting_number_sprites: 0,
+        });
+
+        assert_eq!(
+            stepped.sprites[0].tile_word, *expected_tile,
+            "ASM loc_6462: unk_64BC[{frame}] should be ${expected_tile:04X}"
+        );
+    }
+}
+
+#[test]
+fn loc_64d0_dead_code_nibble_interleave_matches_loc_14348_algorithm() {
+    // ASM loc_64D0 (kid.asm:6502): dead code in the ROM — identical nibble-
+    // interleaving algorithm to loc_14348/loc_1434A in DecompressToVRAM_Special.
+    //   moveq #0,d2
+    //   move.b (a0,d1.w),d3; lsl.b #4,d3; or.b (a0,d2.w),d3; move.b d3,(a1)+
+    //   16×16 nested loop packs high nibble from row d1, low nibble from col d2.
+    // Verify the existing decompress_special_palette_row_bytes_loc_1434A
+    // produces the same result as a direct translation of loc_64D0's loop.
+    let permutation: [u8; 16] = [
+        0, 1, 0x0B, 0x0C, 0x0D, 6, 0x0A, 9, 0x0D, 7, 0x0E, 2, 3, 4, 8, 0x0F,
+    ];
+
+    // Reproduce loc_64D0: for each row d1 in 0..16, emit 16 bytes by packing
+    // permutation[d1] << 4 | permutation[d2] for d2 in 0..16.
+    let mut expected = Vec::with_capacity(256);
+    for row in 0u16..16 {
+        let row_bytes =
+            crate::level::decompress_special_palette_row_bytes_loc_1434A(&permutation, row, 15);
+        expected.extend_from_slice(&row_bytes);
+    }
+
+    // Direct translation of the ASM loop for cross-check
+    let mut direct = Vec::with_capacity(256);
+    for d1 in 0usize..16 {
+        for d2 in 0usize..16 {
+            let high = permutation[d1] << 4;
+            let low = permutation[d2];
+            direct.push(high | low);
+        }
+    }
+
+    assert_eq!(
+        expected, direct,
+        "ASM loc_64D0: the dead-code nibble interleave loop at kid.asm:6502 \
+         must match decompress_special_palette_row_bytes_loc_1434A"
+    );
+}
+
 // --- Hail period toggle ---
 
 #[test]
