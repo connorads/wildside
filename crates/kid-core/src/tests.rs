@@ -13,24 +13,27 @@ use crate::blocks::{
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IntroSequence6LongwordFillLoc1B170,
-    IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24, PauseMenuGateLoc687C,
-    PauseMenuSpriteEntrySub6874, RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, RAM_CLEAR_START_ADDR_LOC_5FE,
-    copy_sega_screen_palette_loc_12DFE, end_sequence_burst_camera_loop_loc_1D1EC,
-    end_sequence_burst_prelude_loc_1D1D6, end_sequence_burst_sprite_init_sub_1D86C,
-    end_sequence_burst_wait_loop_loc_1D1DE, end_sequence_camera_shake_sub_1D846,
-    end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
-    flag_hud_dma_upload_sub_5DA6, hide_pause_menu_overwritten_sprites_sub_6874,
-    hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    intro_sequence_6_longword_fill_loc_1B170, intro_sequence_6_striped_tile_fill_loc_1B194,
-    intro_sequence_6_tilemap_clear_loc_1B182, pause_menu_gate_loc_687C,
-    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_cleanup_loc_10BE6,
-    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_latch_screen_pos_loc_10B9A,
-    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
-    read_io_port_a10001_flags_sub_6E24, sega_screen_object_bootstrap_loc_12E48,
-    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
-    title_shell_art_decompress_loc_1BF54, title_shell_art_index_loc_1BF3E,
-    title_shell_vram_fill_loc_1BF70, validate_options_after_ram_clear_loc_5FE,
-    vdp_game_init_register_commands_loc_5E6, vdp_upload_32_longwords_sub_44D0,
+    IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24,
+    PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C, PauseMenuGateLoc687C,
+    PauseMenuPlaneColumnLayout, PauseMenuSpriteEntrySub6874, RAM_CLEAR_LONGWORD_COUNT_LOC_5FE,
+    RAM_CLEAR_START_ADDR_LOC_5FE, copy_sega_screen_palette_loc_12DFE,
+    end_sequence_burst_camera_loop_loc_1D1EC, end_sequence_burst_prelude_loc_1D1D6,
+    end_sequence_burst_sprite_init_sub_1D86C, end_sequence_burst_wait_loop_loc_1D1DE,
+    end_sequence_camera_shake_sub_1D846, end_sequence_display_refresh_sub_1D830,
+    end_sequence_falling_sprite_init_sub_1D8B4, flag_hud_dma_upload_sub_5DA6,
+    hide_pause_menu_overwritten_sprites_sub_6874, hud_timer_sprite_layout_sub_BD0A,
+    init_hud_animation_frames_sub_44B0, intro_sequence_6_longword_fill_loc_1B170,
+    intro_sequence_6_striped_tile_fill_loc_1B194, intro_sequence_6_tilemap_clear_loc_1B182,
+    pause_menu_art_total_bytes_loc_690C, pause_menu_gate_loc_687C,
+    pause_menu_plane_column_layout_loc_693A, prize_10000_points_star_advance_loc_10BCE,
+    prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
+    prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
+    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
+    sega_screen_object_bootstrap_loc_12E48, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
+    step_hud_animation_sub_44DC, title_shell_art_decompress_loc_1BF54,
+    title_shell_art_index_loc_1BF3E, title_shell_vram_fill_loc_1BF70,
+    validate_options_after_ram_clear_loc_5FE, vdp_game_init_register_commands_loc_5E6,
+    vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -1016,6 +1019,90 @@ fn loc_687c_paused_value_1_continues_to_sprite_hide() {
         PauseMenuGateLoc687C::PausedContinueToSpriteHide,
         "ASM loc_687C: Game_Paused=2 → falls through to loc_6894 sprite hiding"
     );
+}
+
+#[test]
+fn loc_690c_art_copy_bytes_per_iteration_is_32() {
+    // ASM loc_690C (kid.asm:6622-6631): 8 × `move.l (a0)+,(a6)` per iteration.
+    assert_eq!(PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C, 32);
+}
+
+#[test]
+fn loc_690c_total_bytes_scales_with_header_word() {
+    // ASM kid.asm:6617-6619: `move.w (a0)+,d0; subq.w #1,d0` then
+    // `dbf d0,loc_690C` — header_word iterations of 32 bytes each.
+    assert_eq!(pause_menu_art_total_bytes_loc_690C(1), 32);
+    assert_eq!(pause_menu_art_total_bytes_loc_690C(4), 128);
+    // header_word=0 means zero iterations (dbf with d0=-1 exits immediately).
+    assert_eq!(pause_menu_art_total_bytes_loc_690C(0), 0);
+}
+
+#[test]
+fn loc_693a_camera_at_origin_no_plane_wrap() {
+    // ASM kid.asm:6633-6643: Camera_X_pos=0 → d0 = ($60 >> 3) & $3F = $C.
+    // $C <= $30 → no wrapping, d1=8 longword reads, d2=-1.
+    let layout = pause_menu_plane_column_layout_loc_693A(0);
+    assert_eq!(
+        layout,
+        PauseMenuPlaneColumnLayout {
+            tile_col: 0x0C,
+            wrap_split: None,
+        },
+        "ASM loc_6894: Camera_X_pos=0 → tile_col=$C, no plane-edge wrap"
+    );
+}
+
+#[test]
+fn loc_693a_camera_near_plane_edge_triggers_wrap() {
+    // ASM loc_693A (kid.asm:6645-6652): when tile_col > $30, wrapping splits
+    // the 16-word-per-row read into two parts.
+    // Camera_X_pos=$100 → d0 = (($100 + $60) >> 3) & $3F = ($160 >> 3) & $3F
+    //                    = $2C & $3F = $2C. $2C <= $30 → no wrap.
+    let layout_no_wrap = pause_menu_plane_column_layout_loc_693A(0x100);
+    assert_eq!(layout_no_wrap.wrap_split, None);
+
+    // Camera_X_pos=$120 → d0 = (($120 + $60) >> 3) & $3F = ($180 >> 3) & $3F
+    //                    = $30 & $3F = $30. $30 <= $30 → still no wrap.
+    let layout_boundary = pause_menu_plane_column_layout_loc_693A(0x120);
+    assert_eq!(
+        layout_boundary,
+        PauseMenuPlaneColumnLayout {
+            tile_col: 0x30,
+            wrap_split: None,
+        },
+        "ASM: tile_col=$30 is the last non-wrapping position (cmpi.w #$30,d0; bgt.s)"
+    );
+
+    // Camera_X_pos=$128 → d0 = (($128 + $60) >> 3) & $3F = ($188 >> 3) & $3F
+    //                    = $31 & $3F = $31. $31 > $30 → loc_693A wrapping.
+    // d1 = $40 - $31 = $F (15 words before edge), d2 = $10 - $F = 1 (after).
+    let layout_wrap = pause_menu_plane_column_layout_loc_693A(0x128);
+    assert_eq!(
+        layout_wrap,
+        PauseMenuPlaneColumnLayout {
+            tile_col: 0x31,
+            wrap_split: Some((0x0F, 0x01)),
+        },
+        "ASM loc_693A: tile_col=$31 → 15 words before plane edge, 1 after wrap"
+    );
+}
+
+#[test]
+fn loc_693a_wrap_split_always_totals_16_words() {
+    // ASM loc_693A: first_words + wrapped_words = $10 (16) for any wrapping
+    // camera position. The non-wrapping path reads 8 longwords = 16 words.
+    for camera_x in (0..=0xFFFF_u16).step_by(8) {
+        let layout = pause_menu_plane_column_layout_loc_693A(camera_x);
+        if let Some((first, wrapped)) = layout.wrap_split {
+            assert_eq!(
+                first + wrapped,
+                0x10,
+                "ASM loc_693A: split must total $10 words (camera_x={:#06X}, tile_col={:#04X})",
+                camera_x,
+                layout.tile_col,
+            );
+        }
+    }
 }
 
 #[test]

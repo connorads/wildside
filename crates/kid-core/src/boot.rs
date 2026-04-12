@@ -730,14 +730,94 @@ pub(crate) fn pause_menu_gate_loc_687C(game_paused: u8) -> PauseMenuGateLoc687C 
 pub(crate) fn hide_pause_menu_overwritten_sprites_sub_6874(
     sprites: &mut [PauseMenuSpriteEntrySub6874],
 ) {
-    // ASM sub_6874 / loc_68AC (kid.asm:6575): when the pause menu overwrites
-    // VRAM tiles `$676..=$68E`, scan the `$51` sprite entries and clear the
-    // Y word for any sprite whose masked tile index (`tile_word & $7FF`)
-    // falls inside that inclusive range.
+    // ASM loc_68AC–loc_68C0 (kid.asm:6600-6611): scan sprite entries and clear
+    // the Y word for any whose masked tile index falls inside the pause-menu
+    // VRAM range `$676..=$68E`. Sprites outside the range skip the clear via
+    // `blt.s loc_68C0` / `bgt.s loc_68C0` (the advance-and-loop label).
+    // loc_68C0: `addq.w #8,a0; dbf d3,loc_68AC` — advance to next 8-byte
+    // sprite entry and loop for all $51 entries, then fall through to DMA
+    // the updated Sprite_Table to VDP and load pause menu art.
     for sprite in sprites {
         let masked_tile = sprite.vram_tile_word & 0x07FF;
         if (0x0676..=0x068E).contains(&masked_tile) {
             sprite.y_pos = 0;
+        }
+    }
+}
+
+/// Number of bytes per iteration of the pause menu art copy inner loop.
+/// ASM loc_690C (kid.asm:6622-6631): 8 × `move.l (a0)+,(a6)` = 32 bytes per
+/// iteration, copying uncompressed tile art to VDP data port.
+pub(crate) const PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C: u32 = 8 * 4;
+
+/// Compute the total byte count for the pause menu uncompressed art DMA.
+///
+/// ASM kid.asm:6617-6631: reads a word count from the art header
+/// (`move.w (a0)+,d0; subq.w #1,d0`), then `dbf d0,loc_690C` copies
+/// `header_word` iterations of 32 bytes each to VRAM starting at `$CEC0`
+/// (tile index `$676 × $20`).
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_menu_art_total_bytes_loc_690C(header_word: u16) -> u32 {
+    // loc_690C inner loop: 8 longwords (32 bytes) per iteration, `header_word`
+    // iterations total (dbf with initial `subq #1` means count = header_word).
+    u32::from(header_word) * PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C
+}
+
+/// Layout for the pause menu's plane-tile save/restore, describing how many
+/// word-reads per row and whether the menu wraps around the plane edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PauseMenuPlaneColumnLayout {
+    /// Tile column of the menu's left edge within the 64-tile-wide plane A.
+    pub(crate) tile_col: u16,
+    /// When `None`: menu fits entirely (d2 = -1 flag, 8 longword reads per row).
+    /// When `Some((first_words, wrapped_words))`: menu wraps around the plane
+    /// edge; `first_words` word-reads before the edge, `wrapped_words` after.
+    /// Total always equals 16 words per row.
+    pub(crate) wrap_split: Option<(u16, u16)>,
+}
+
+/// Compute the pause menu tile column and plane-edge wrapping layout.
+///
+/// ASM kid.asm:6633-6652 (loc_6894 flow, between art load and plane tile save):
+/// ```text
+///   move.w (Camera_X_pos).w,d0
+///   addi.w #$60,d0        ; menu offset from camera
+///   lsr.w  #3,d0          ; pixel → tile column
+///   andi.w #$3F,d0        ; wrap to 64-tile plane width
+///   cmpi.w #$30,d0        ; fits without wrapping?
+///   bgt.s  loc_693A       ; no → wrapping case
+///   moveq  #8,d1          ; 8 longword reads (= 16 words) per row
+///   moveq  #-1,d2         ; flag: no split
+///   bra.s  loc_6948
+/// loc_693A:               ; wrapping case
+///   moveq  #$40,d1; sub.w d0,d1   ; d1 = words before plane edge
+///   moveq  #$10,d2; sub.w d1,d2   ; d2 = words after wrap
+///   swap d2; move.w d1,d2; swap d2 ; pack (d1, $10-d1) into d2
+/// ```
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn pause_menu_plane_column_layout_loc_693A(
+    camera_x_pos: u16,
+) -> PauseMenuPlaneColumnLayout {
+    // ASM: d0 = ((Camera_X_pos + $60) >> 3) & $3F
+    let tile_col = (camera_x_pos.wrapping_add(0x60) >> 3) & 0x3F;
+
+    if tile_col <= 0x30 {
+        // No wrapping: d1=8 (longword reads), d2=-1 (no-split flag).
+        // 8 longword reads = 16 word-width nametable entries per row.
+        PauseMenuPlaneColumnLayout {
+            tile_col,
+            wrap_split: None,
+        }
+    } else {
+        // ASM loc_693A: menu wraps around the 64-tile plane edge.
+        // d1 = $40 - d0 (word-reads before edge), d2 = $10 - d1 (after wrap).
+        let first_words = 0x40_u16.wrapping_sub(tile_col);
+        let wrapped_words = 0x10_u16.wrapping_sub(first_words);
+        PauseMenuPlaneColumnLayout {
+            tile_col,
+            wrap_split: Some((first_words, wrapped_words)),
         }
     }
 }
