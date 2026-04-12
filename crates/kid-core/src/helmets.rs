@@ -1468,6 +1468,81 @@ pub(crate) fn diamond_power_rain_screen_cull_and_compile(
     (vram_attr, RainSlotSpriteAction::Removed)
 }
 
+/// Single slot from WallOfDeath init.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct WallOfDeathSlot {
+    /// $3E(a0) — x offset relative to camera. Starts at 0 for slot 0,
+    /// decreases by 8 for each subsequent slot.
+    pub(crate) x_offset: i16,
+    /// $40(a0) — y offset relative to camera. Starts at $D for slot 0,
+    /// increases by $16 for each subsequent slot.
+    pub(crate) y_offset: i16,
+    /// $42(a0) — has-reached-right-edge flag. Cleared (false) on init.
+    pub(crate) reached_right_edge: bool,
+    /// $24(a0) — size index for sprite lookup. Initialised to 6.
+    pub(crate) size_index: u16,
+}
+
+/// Result of `diamond_power_init_wall_of_death`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct WallOfDeathInitResult {
+    pub(crate) slots: Vec<WallOfDeathSlot>,
+    /// Diamond_power_timer set to $4B0 (1200).
+    pub(crate) diamond_power_timer: u16,
+}
+
+/// ASM DiamondPower_Init_WallOfDeath (kid.asm:45368, loc_3FFE4).
+///
+/// `moveq #9,d1; moveq #0,d2; moveq #$D,d3` — 10 slots, x starts at 0,
+/// y starts at $D.
+///
+/// loc_3FFEA (kid.asm:45373): allocation loop —
+///   `bsr.w Allocate_DiamondPowerObjectSlot`
+///   `move.w d2,$3E(a0)` — x_offset = d2
+///   `move.w d3,$40(a0)` — y_offset = d3
+///   `sf $42(a0)` — clear reached-right-edge flag
+///   `move.w #6,$24(a0)` — size index = 6
+///   `subq.w #8,d2` — next x_offset -= 8
+///
+/// loc_40002 (kid.asm:45381): `addi.w #$16,d3` — next y_offset += $16 (22)
+///
+/// loc_40006 (kid.asm:45384): `dbf d1,loc_3FFEA` — loop 10 times.
+///   `move.w #$4B0,(Diamond_power_timer).w` — set timer to 1200.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_init_wall_of_death() -> WallOfDeathInitResult {
+    // ASM: moveq #9,d1 — 10 slots via dbf
+    let count = 10u16;
+    // ASM: moveq #0,d2 — initial x offset
+    let mut d2: i16 = 0;
+    // ASM: moveq #$D,d3 — initial y offset
+    let mut d3: i16 = 0x0D;
+
+    let mut slots = Vec::with_capacity(count as usize);
+
+    // ASM loc_3FFEA: allocation loop
+    for _ in 0..count {
+        slots.push(WallOfDeathSlot {
+            x_offset: d2,              // move.w d2,$3E(a0)
+            y_offset: d3,              // move.w d3,$40(a0)
+            reached_right_edge: false, // sf $42(a0)
+            size_index: 6,             // move.w #6,$24(a0)
+        });
+        d2 -= 8; // subq.w #8,d2
+        // ASM loc_40002: addi.w #$16,d3
+        d3 += 0x16;
+        // ASM loc_40006: dbf d1,loc_3FFEA
+    }
+
+    // ASM: move.w #$4B0,(Diamond_power_timer).w
+    WallOfDeathInitResult {
+        slots,
+        diamond_power_timer: 0x4B0, // 1200
+    }
+}
+
 /// ASM loc_3FA16 through loc_3FA46: compute 8-way octant direction from
 /// the snake head to its target, used by the snake steering loop.
 ///

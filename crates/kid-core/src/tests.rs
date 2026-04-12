@@ -11816,6 +11816,73 @@ fn diamond_power_rain_screen_cull_boundary_y_exactly_168_loc_3ff90_loc_3ffca() {
     );
 }
 
+// ── WallOfDeath init (loc_3FFEA, loc_40002, loc_40006) ──────────────────────
+
+#[test]
+fn diamond_power_init_wall_of_death_allocates_10_slots_loc_3ffea() {
+    // ASM DiamondPower_Init_WallOfDeath (kid.asm:45368):
+    // moveq #9,d1 → 10 slots via dbf.
+    let result = helmets::diamond_power_init_wall_of_death();
+    assert_eq!(
+        result.slots.len(),
+        10,
+        "ASM loc_3FFEA: dbf with d1=9 loops 10 times"
+    );
+}
+
+#[test]
+fn diamond_power_init_wall_of_death_x_offsets_decrease_by_8_loc_3ffea() {
+    // ASM loc_3FFEA: move.w d2,$3E(a0); subq.w #8,d2
+    // d2 starts at 0, decreases by 8 each iteration.
+    let result = helmets::diamond_power_init_wall_of_death();
+    let x_offsets: Vec<i16> = result.slots.iter().map(|s| s.x_offset).collect();
+    assert_eq!(
+        x_offsets,
+        vec![0, -8, -16, -24, -32, -40, -48, -56, -64, -72],
+        "ASM loc_3FFEA: d2 starts 0, subq.w #8 each iteration"
+    );
+}
+
+#[test]
+fn diamond_power_init_wall_of_death_y_offsets_increase_by_22_loc_40002() {
+    // ASM loc_40002: addi.w #$16,d3
+    // d3 starts at $D (13), increases by $16 (22) each iteration.
+    let result = helmets::diamond_power_init_wall_of_death();
+    let y_offsets: Vec<i16> = result.slots.iter().map(|s| s.y_offset).collect();
+    assert_eq!(
+        y_offsets,
+        vec![0x0D, 0x23, 0x39, 0x4F, 0x65, 0x7B, 0x91, 0xA7, 0xBD, 0xD3],
+        "ASM loc_40002: d3 starts $D, addi.w #$16 each iteration"
+    );
+}
+
+#[test]
+fn diamond_power_init_wall_of_death_flags_and_size_loc_3ffea() {
+    // ASM loc_3FFEA: sf $42(a0) — all slots start with reached_right_edge=false.
+    // ASM loc_3FFEA: move.w #6,$24(a0) — all slots start with size_index=6.
+    let result = helmets::diamond_power_init_wall_of_death();
+    for (i, slot) in result.slots.iter().enumerate() {
+        assert!(
+            !slot.reached_right_edge,
+            "ASM loc_3FFEA: sf $42(a0) — slot {i} should be false"
+        );
+        assert_eq!(
+            slot.size_index, 6,
+            "ASM loc_3FFEA: move.w #6,$24(a0) — slot {i} should be 6"
+        );
+    }
+}
+
+#[test]
+fn diamond_power_init_wall_of_death_timer_is_1200_loc_40006() {
+    // ASM loc_40006: after dbf loop, move.w #$4B0,(Diamond_power_timer).w
+    let result = helmets::diamond_power_init_wall_of_death();
+    assert_eq!(
+        result.diamond_power_timer, 0x4B0,
+        "ASM loc_40006: Diamond_power_timer = $4B0 (1200)"
+    );
+}
+
 #[test]
 fn diamond_power_object_remove_sub_3f5e8_unlinks_the_slot_and_keeps_flags_while_objects_remain() {
     let result = helmets::diamond_power_object_remove_sub_3F5E8(
