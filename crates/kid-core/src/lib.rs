@@ -1671,11 +1671,23 @@ impl NativeRuntime {
         // ASM sub_7ACC (kid.asm:8178): when `Check_Helmet_Change` is set, try
         // sub_7B30's space-clear using the target helmet hitbox. If it fails,
         // Kid drops the queued helmet, while any already-helmeted form dies.
+        //
+        // ASM loc_7AD6 (kid.asm:8185): `cmpi.w #6,($FFFFFA56).w; beq.w loc_7B12`
+        // — if Character_Movement == 6 (uphill-downhill/slope), skip the
+        // sub_7B30 overlap check entirely and jump straight to Kid_Transform.
+        // TODO(fidelity): native always runs sub_7B30; slope bypass not modelled.
+        //
+        // ASM loc_7B0A (kid.asm:8202): short-form helmets (Micromax=9,
+        // Juggernaut=5) keep d6=$10; others get d6=$20 via `addi.w #$10,d6`.
+        // Native: `ceiling_probe_height()` returns 15 vs 31, producing the
+        // same rows_up values in `resolve_transform_overlap_sub_7b30`.
         if let Some(aligned_x) = self
             .block_grid
             .as_ref()
             .and_then(|_| self.resolve_transform_overlap_sub_7b30(slice, target_form))
         {
+            // ASM loc_7B12 (kid.asm:8206): `bra.w Kid_Transform` — sub_7B30
+            // returned 0 (space clear), proceed with the helmet transform.
             slice.player.x_pos = (aligned_x as u32) << 16;
             self.resolve_pending_form_change();
             self.apply_form_width_overlap_fixup(slice);
@@ -1688,6 +1700,10 @@ impl NativeRuntime {
             return false;
         }
 
+        // ASM loc_7B1A (kid.asm:8213): sub_7B30 returned non-zero (blocked).
+        // `tst.w (Current_Helmet).w` — if helmeted, `bra.w Death` (crush).
+        // ASM loc_7B28 (kid.asm:8220): if unhelmeted Kid, `sf (Check_Helmet_Change).w`
+        // — cancel the pending transform silently and return d7=0.
         self.progression.pending_form = None;
         if self.progression.current_form == PlayerForm::TheKid {
             return false;

@@ -15292,6 +15292,211 @@ fn pending_form_change_sub_7acc_kills_blocked_helmeted_forms() {
 }
 
 // -----------------------------------------------------------------------
+// sub_7ACC inner branch citations (loc_7AD6 through loc_7B28)
+// -----------------------------------------------------------------------
+
+/// ASM loc_7AD6 (kid.asm:8185): `cmpi.w #6,($FFFFFA56).w; beq.w loc_7B12`
+/// — when Character_Movement == 6 (uphill-downhill), the overlap check
+/// (sub_7B30) is skipped entirely and the transform proceeds unconditionally.
+/// Native does not yet model this slope bypass.
+/// TODO(fidelity): native always runs sub_7B30; slope bypass not modelled.
+#[test]
+fn loc_7ad6_slope_bypass_is_documented_as_todo_fidelity() {
+    // Verify that the native path still runs sub_7B30 even when the transform
+    // would be blocked — proving the slope bypass is not yet implemented.
+    // When the TODO(fidelity) is resolved, this test should be updated to
+    // show that slope state skips the overlap check.
+    let mut runtime = NativeRuntime::new(manifest());
+    // Fully walled-in: both left and right columns blocked
+    runtime.set_block_grid(grid_with_cells(
+        8,
+        8,
+        &[(0, 4, 0x60, 0x00), (1, 4, 0x60, 0x00), (2, 4, 0x60, 0x00)],
+    ));
+    runtime.progression.pending_form = Some(PlayerForm::IronKnight);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 24 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let entered_death = runtime.handle_pending_form_change_sub_7acc(&mut slice);
+
+    // Native: Kid form → cancel (loc_7B28 path), no death
+    assert!(
+        !entered_death,
+        "ASM loc_7AD6: native (no slope bypass) should cancel for TheKid, not die"
+    );
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::TheKid,
+        "ASM loc_7AD6: transform should be cancelled since sub_7B30 blocks"
+    );
+    assert_eq!(
+        runtime.progression.pending_form, None,
+        "ASM loc_7AD6: pending_form cleared after blocked transform"
+    );
+}
+
+/// ASM loc_7B0A (kid.asm:8202): Micromax (helmet 9) and Juggernaut (helmet 5)
+/// skip the `addi.w #$10,d6` instruction, keeping d6=$10 (short form).
+/// All other helmets get d6=$20 (tall form). This determines how many rows
+/// sub_7B30 probes upward for wall overlap.
+///
+/// Native: `ceiling_probe_height()` returns 15 for short forms and 31 for
+/// tall forms; +1 produces $10/$20, matching ASM d6 exactly.
+#[test]
+fn loc_7b0a_short_forms_skip_height_addition() {
+    // Short forms: Micromax and Juggernaut → d6=$10
+    for form in [PlayerForm::Micromax, PlayerForm::Juggernaut] {
+        let d6 = form.ceiling_probe_height() + 1;
+        assert_eq!(
+            d6, 0x10,
+            "ASM loc_7B0A: {form:?} should keep d6=$10 (short form, no addi.w #$10)"
+        );
+    }
+    // Tall forms: all others add $10 → d6=$20
+    for form in [
+        PlayerForm::TheKid,
+        PlayerForm::Cyclone,
+        PlayerForm::RedStealth,
+        PlayerForm::Eyeclops,
+        PlayerForm::Skycutter,
+        PlayerForm::IronKnight,
+        PlayerForm::Berzerker,
+        PlayerForm::Maniaxe,
+    ] {
+        let d6 = form.ceiling_probe_height() + 1;
+        assert_eq!(
+            d6, 0x20,
+            "ASM loc_7B0A: {form:?} should get d6=$20 after addi.w #$10,d6"
+        );
+    }
+}
+
+/// ASM loc_7B12 (kid.asm:8206): `bra.w Kid_Transform` — the successful
+/// transform path. Reached when sub_7B30 returns 0 (space is clear) or
+/// when Character_Movement == 6 (slope bypass at loc_7AD6).
+///
+/// Native: `resolve_pending_form_change()` applies the transform, sets
+/// flash frames, and updates the current form.
+#[test]
+fn loc_7b12_successful_transform_enters_kid_transform() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(8, 8, &[]));
+    runtime.progression.pending_form = Some(PlayerForm::Cyclone);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 64 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let entered_death = runtime.handle_pending_form_change_sub_7acc(&mut slice);
+
+    assert!(
+        !entered_death,
+        "ASM loc_7B12: clear sub_7B30 should branch to Kid_Transform, not Death"
+    );
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::Cyclone,
+        "ASM loc_7B12: Kid_Transform should set current_form to the target"
+    );
+    assert!(
+        runtime.progression.form_change_flash_frames > 0,
+        "ASM loc_7B12: Kid_Transform should start the flash coroutine"
+    );
+    assert_eq!(
+        runtime.progression.pending_form, None,
+        "ASM loc_7B12: pending_form consumed by Kid_Transform"
+    );
+}
+
+/// ASM loc_7B1A (kid.asm:8213): sub_7B30 returned non-zero (blocked).
+/// `tst.w (Current_Helmet).w` — if Current_Helmet != 0 (wearing a helmet),
+/// `moveq #0,d7; bra.w Death` — crush death.
+///
+/// Native: sets hitpoints to 0 and begins death windup.
+#[test]
+fn loc_7b1a_blocked_helmeted_form_dies() {
+    let mut runtime = NativeRuntime::new(manifest());
+    // Wall on both sides — sub_7B30 cannot clear space
+    runtime.set_block_grid(grid_with_cells(
+        8,
+        8,
+        &[(1, 4, 0x60, 0x00), (2, 4, 0x60, 0x00)],
+    ));
+    runtime.progression.current_form = PlayerForm::RedStealth;
+    runtime.progression.number_hitpoints = PlayerForm::RedStealth.max_hitpoints();
+    runtime.progression.pending_form = Some(PlayerForm::IronKnight);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 28 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let entered_death = runtime.handle_pending_form_change_sub_7acc(&mut slice);
+
+    assert!(
+        entered_death,
+        "ASM loc_7B1A: helmeted form blocked by sub_7B30 should branch to Death"
+    );
+    assert_eq!(
+        runtime.progression.number_hitpoints, 0,
+        "ASM loc_7B1A: `moveq #0,d7` before Death zeroes hitpoints"
+    );
+    assert_eq!(
+        runtime.progression.pending_form, None,
+        "ASM loc_7B1A: pending_form cleared before death"
+    );
+    assert!(
+        matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::DeathWindup { .. }
+        ),
+        "ASM loc_7B1A: should enter death windup"
+    );
+}
+
+/// ASM loc_7B28 (kid.asm:8220): sub_7B30 blocked and Current_Helmet == 0
+/// (unhelmeted Kid). `sf (Check_Helmet_Change).w` — clear the pending
+/// transform flag. `moveq #0,d7; rts` — return without death.
+///
+/// Native: clears `pending_form` and returns false (no death).
+#[test]
+fn loc_7b28_unhelmeted_kid_cancels_blocked_transform() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(
+        8,
+        8,
+        &[(1, 4, 0x60, 0x00), (2, 4, 0x60, 0x00)],
+    ));
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.progression.pending_form = Some(PlayerForm::IronKnight);
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 28 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let entered_death = runtime.handle_pending_form_change_sub_7acc(&mut slice);
+
+    assert!(
+        !entered_death,
+        "ASM loc_7B28: unhelmeted Kid should not die when blocked"
+    );
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::TheKid,
+        "ASM loc_7B28: current_form unchanged — transform cancelled"
+    );
+    assert_eq!(
+        runtime.progression.pending_form, None,
+        "ASM loc_7B28: `sf (Check_Helmet_Change).w` clears pending_form"
+    );
+    assert_eq!(
+        runtime.progression.form_change_flash_frames, 0,
+        "ASM loc_7B28: no flash — transform was never applied"
+    );
+    assert!(
+        matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+        "ASM loc_7B28: player stays alive"
+    );
+}
+
+// -----------------------------------------------------------------------
 // MiniHoppingSkull hopper behaviour
 // -----------------------------------------------------------------------
 
