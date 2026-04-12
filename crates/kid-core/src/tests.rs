@@ -12038,6 +12038,126 @@ fn diamond_power_snake_find_target_culls_offscreen_loc_3f9c2() {
 }
 
 // -----------------------------------------------------------------------
+// Snake octant direction — loc_3FA36, loc_3FA40, loc_3FA46
+// -----------------------------------------------------------------------
+
+/// ASM loc_3FA36/loc_3FA40/loc_3FA46: octant direction from head to target.
+///
+/// The octant encoding maps relative (dx, dy) from head to target into a
+/// 3-bit index (0–7) used for snake steering. The index encodes:
+///   bit 2: 0 = target above/level, 6 = target below
+///   bit 1: XOR'd when dx < 0
+///   bit 0: set when |dy| < |dx| (more horizontal), then flipped when bit 1 clear
+#[test]
+fn diamond_power_snake_octant_target_right_above_diagonal_loc_3fa36() {
+    // Target is right and above head: dx > 0, dy > 0 (head_y > target_y - $10)
+    // dx = 0x30, dy = 0x20 → |dy| < |dx| → d3 starts 0, no bit flip for dx>=0
+    // loc_3FA40: |dy|(0x20) < |dx|(0x30) → d3 += 1 → d3 = 1
+    // loc_3FA46: bit 1 clear → d3 ^= 1 → d3 = 0
+    let octant = helmets::diamond_power_snake_octant(
+        0x130, // target_x
+        0x100, // target_y (target_y - $10 = 0xF0)
+        0x100, // head_x   (dx = 0x30)
+        0x110, // head_y   (dy = head_y - 0xF0 = 0x20)
+    );
+    assert_eq!(
+        octant, 0,
+        "ASM loc_3FA36: target right-above, more horizontal → octant 0"
+    );
+}
+
+#[test]
+fn diamond_power_snake_octant_target_right_above_steep_loc_3fa40() {
+    // Target right and above, |dy| >= |dx|: vertical-dominant
+    // dx = 0x10, dy = 0x30 → d3 starts 0
+    // loc_3FA40: |dy|(0x30) >= |dx|(0x10) → no +1 → d3 = 0
+    // loc_3FA46: bit 1 clear → d3 ^= 1 → d3 = 1
+    let octant = helmets::diamond_power_snake_octant(
+        0x110, // target_x
+        0x0E0, // target_y (target_y - $10 = 0xD0)
+        0x100, // head_x   (dx = 0x10)
+        0x100, // head_y   (dy = head_y - 0xD0 = 0x30)
+    );
+    assert_eq!(
+        octant, 1,
+        "ASM loc_3FA40: target right-above, more vertical → octant 1"
+    );
+}
+
+#[test]
+fn diamond_power_snake_octant_target_left_above_loc_3fa36() {
+    // Target left and above: dx < 0, dy > 0
+    // dx = -0x30, dy = 0x20
+    // loc_3FA36: dx < 0 → d3 ^= 2 → d3 = 2, |dx| = 0x30
+    // loc_3FA40: |dy|(0x20) < |dx|(0x30) → d3 += 1 → d3 = 3
+    // loc_3FA46: bit 1 set → no flip → d3 = 3
+    let octant = helmets::diamond_power_snake_octant(
+        0x0D0, // target_x
+        0x100, // target_y (target_y - $10 = 0xF0)
+        0x100, // head_x   (dx = -0x30)
+        0x110, // head_y   (dy = 0x20)
+    );
+    assert_eq!(
+        octant, 3,
+        "ASM loc_3FA36: target left-above, more horizontal → octant 3"
+    );
+}
+
+#[test]
+fn diamond_power_snake_octant_target_left_below_loc_3fa46() {
+    // Target left and below: dx < 0, dy < 0 (head_y < target_y - $10)
+    // dx = -0x20, dy = -0x30 → d3 = 6 (below), |dy| = 0x30
+    // loc_3FA36: dx < 0 → d3 ^= 2 → d3 = 4, |dx| = 0x20
+    // loc_3FA40: |dy|(0x30) >= |dx|(0x20) → no +1 → d3 = 4
+    // loc_3FA46: bit 1 clear → d3 ^= 1 → d3 = 5
+    let octant = helmets::diamond_power_snake_octant(
+        0x0E0, // target_x
+        0x150, // target_y (target_y - $10 = 0x140)
+        0x100, // head_x   (dx = -0x20)
+        0x110, // head_y   (dy = 0x110 - 0x140 = -0x30)
+    );
+    assert_eq!(
+        octant, 5,
+        "ASM loc_3FA46: target left-below, more vertical → octant 5"
+    );
+}
+
+#[test]
+fn diamond_power_snake_octant_target_below_right_horizontal_loc_3fa40() {
+    // Target right and below, |dy| < |dx|
+    // dx = 0x40, dy = -0x10 → d3 = 6 (below), |dy| = 0x10
+    // loc_3FA36: dx >= 0 → no flip → d3 = 6
+    // loc_3FA40: |dy|(0x10) < |dx|(0x40) → d3 += 1 → d3 = 7
+    // loc_3FA46: bit 1 set → no flip → d3 = 7
+    let octant = helmets::diamond_power_snake_octant(
+        0x140, // target_x
+        0x120, // target_y (target_y - $10 = 0x110)
+        0x100, // head_x   (dx = 0x40)
+        0x100, // head_y   (dy = 0x100 - 0x110 = -0x10)
+    );
+    assert_eq!(
+        octant, 7,
+        "ASM loc_3FA40: target right-below, more horizontal → octant 7"
+    );
+}
+
+#[test]
+fn diamond_power_snake_octant_target_directly_below_loc_3fa46() {
+    // Target directly below: dx = 0, dy < 0
+    // d3 = 6 (below), |dy| > 0, |dx| = 0
+    // loc_3FA36: dx = 0 → bpl taken → no flip → d3 = 6
+    // loc_3FA40: |dy| >= |dx|(0) → no +1 → d3 = 6
+    // loc_3FA46: bit 1 set → no flip → d3 = 6
+    let octant = helmets::diamond_power_snake_octant(
+        0x100, // target_x
+        0x150, // target_y (target_y - $10 = 0x140)
+        0x100, // head_x   (dx = 0)
+        0x100, // head_y   (dy = 0x100 - 0x140 = -0x40)
+    );
+    assert_eq!(octant, 6, "ASM loc_3FA46: target directly below → octant 6");
+}
+
+// -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------
 

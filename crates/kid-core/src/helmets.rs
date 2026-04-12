@@ -1175,6 +1175,68 @@ pub(crate) fn diamond_power_snake_find_target(
     }
 }
 
+/// ASM loc_3FA16 through loc_3FA46: compute 8-way octant direction from
+/// the snake head to its target, used by the snake steering loop.
+///
+/// loc_3FA16 (kid.asm:44724): compute relative dx/dy from head to target,
+/// initialise octant base d3=0. If dy (head_y - (target_y-$10)) < 0: d3=6,
+/// negate dy.
+///
+/// loc_3FA36 (kid.asm:44737): tst.w d0; bpl.s loc_3FA40; eori.w #2,d3;
+/// neg.w d0 — if dx (target_x - head_x) < 0, flip bit 1 of octant and
+/// take |dx|.
+///
+/// loc_3FA40 (kid.asm:44743): cmp.w d0,d1; bge.s loc_3FA46; addq.w #1,d3
+/// — if |dy| < |dx| (more horizontal), add 1 to octant.
+///
+/// loc_3FA46 (kid.asm:44748): btst #1,d3; bne.s loc_3FA50; eori.w #1,d3
+/// — when bit 1 is clear, flip bit 0 (corrects axis alignment encoding).
+///
+/// Returns a 3-bit octant index (0–7).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_snake_octant(
+    target_x: i16,
+    target_y: i16,
+    head_x: i16,
+    head_y: i16,
+) -> u16 {
+    // ASM loc_3FA16: d0 = x_pos(a3) - $1A(a0) = target_x - head_x
+    let dx_raw = target_x.wrapping_sub(head_x);
+    // ASM: d1 = y_pos(a3) - $10; sub.w $1E(a0),d1; neg.w d1
+    //    = head_y - (target_y - $10)
+    let dy_raw = head_y.wrapping_sub(target_y.wrapping_sub(0x10));
+
+    // ASM: moveq #0,d3; tst.w d1; bpl.s loc_3FA36
+    let mut d3: u16 = 0;
+    let abs_dy = if dy_raw < 0 {
+        // ASM: moveq #6,d3; neg.w d1
+        d3 = 6;
+        (dy_raw as u16).wrapping_neg() as i16
+    } else {
+        dy_raw
+    };
+
+    // ASM loc_3FA36: tst.w d0; bpl.s loc_3FA40; eori.w #2,d3; neg.w d0
+    let abs_dx = if dx_raw < 0 {
+        d3 ^= 2;
+        (dx_raw as u16).wrapping_neg() as i16
+    } else {
+        dx_raw
+    };
+
+    // ASM loc_3FA40: cmp.w d0,d1; bge.s loc_3FA46; addq.w #1,d3
+    if abs_dy < abs_dx {
+        d3 = d3.wrapping_add(1);
+    }
+
+    // ASM loc_3FA46: btst #1,d3; bne.s loc_3FA50; eori.w #1,d3
+    if d3 & 2 == 0 {
+        d3 ^= 1;
+    }
+
+    d3
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
