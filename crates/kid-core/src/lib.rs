@@ -1613,10 +1613,16 @@ impl NativeRuntime {
         // sub_7B30 converts: d6==$10 → d5=0 rows, else d5=1 row.
         let probe_height = target_form.ceiling_probe_height() + 1;
         let mut rows_up = if probe_height == 0x10 { 0 } else { 1 };
+        // ASM loc_7B48 (kid.asm:8241): `move.w y_pos(a3),d4; andi.w #$F,d4;
+        // cmpi.w #$F,d4; beq.w loc_7B5A; addq.w #1,d5` — if foot pixel is
+        // NOT tile-aligned (y_pos & $F != $F), add one extra row to scan.
         if foot_y_px & 0xF != 0xF {
             rows_up += 1;
         }
 
+        // ASM loc_7B5A (kid.asm:8248): `move.w x_pos(a3),d6; sub.w d7,d6;
+        // bpl.w loc_7B74` — compute left_edge = x_pos - half_width. If
+        // negative (off-screen left), snap x to half_width and check right.
         let left_edge = x_px - half_width;
         if left_edge < 0 {
             let cleared_x = half_width;
@@ -1630,7 +1636,13 @@ impl NativeRuntime {
             };
         }
 
+        // ASM loc_7B74 (kid.asm:8259): `move.w d6,d4; move.w 2(sp),d7;
+        // bsr.w sub_7BEA; bne.w loc_7BA4` — left edge non-negative; probe
+        // left column for walls. If blocked, jump to loc_7BA4 (snap right).
         if terrain::transform_overlap_column_blocked_sub_7bea(grid, left_edge, foot_y_px, rows_up) {
+            // ASM loc_7BA4 (kid.asm:8279): `andi.w #$FFF0,d4; addi.w #$10,d4;
+            // add.w (sp),d4; move.w d4,x_pos(a3)` — snap x_pos right to the
+            // next tile boundary + half_width, then check the right column.
             let cleared_x = (left_edge & !0xF) + 16 + half_width;
             let right_edge = cleared_x + half_width;
             return if terrain::transform_overlap_column_blocked_sub_7bea(
@@ -1642,15 +1654,22 @@ impl NativeRuntime {
             };
         }
 
+        // ASM loc_7B74 continued (kid.asm:8264–8271): left clear — probe right
+        // column. `cmp.w (Level_width_pixels).w,d6; bge.w loc_7BCE` — if right
+        // edge >= level width, snap left. Otherwise sub_7BEA on right column.
         let right_edge = x_px + half_width;
         if right_edge < grid.width_pixels()
             && !terrain::transform_overlap_column_blocked_sub_7bea(
                 grid, right_edge, foot_y_px, rows_up,
             )
         {
+            // ASM loc_7B9E (kid.asm:8273): `moveq #0,d7; addq.w #4,sp; rts`
+            // — both columns clear, return success with position unchanged.
             return Some(x_px);
         }
 
+        // ASM loc_7BCE (kid.asm:8300): right column blocked or off-level —
+        // snap x_pos left: `(right_edge & $FFF0) - 1 - half_width`.
         let cleared_x = (right_edge & !0xF) - 1 - half_width;
         if cleared_x < 0 {
             return None;

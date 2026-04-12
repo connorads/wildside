@@ -15218,6 +15218,124 @@ fn resolve_transform_overlap_sub_7b30_pushes_left_from_the_right_boundary() {
     );
 }
 
+/// ASM loc_7B48 (kid.asm:8241): `cmpi.w #$10,d6; beq.w loc_7B48; moveq #1,d5`
+/// — tall forms start with rows_up=1, short forms with rows_up=0. Then
+/// `y_pos & $F != $F` adds +1 more. This test places a wall one row above
+/// the foot tile: Micromax (short, tile-aligned) scans only the foot tile
+/// and passes, while IronKnight (tall) scans one row up and hits the wall.
+#[test]
+fn loc_7b48_short_form_tile_aligned_scans_fewer_rows_than_tall() {
+    // Wall at tile (2, 3) — one row above foot tile row 4.
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(8, 8, &[(2, 3, 0x40, 0x00)]));
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 40 << 16;
+    // y=79: 79/16=4 (foot tile row 4), 79 & 0xF = 0xF (tile-aligned)
+    slice.player.y_pos = 79 << 16;
+
+    // Micromax: ceiling_probe_height=15, probe_height=16=$10 → rows_up=0.
+    // Scans only foot row 4 → clear on both sides → Some(40).
+    let short = runtime
+        .resolve_transform_overlap_sub_7b30(&slice, PlayerForm::Micromax)
+        .expect("short form (rows_up=0) should not scan the wall one row above");
+    assert_eq!(short, 40);
+
+    // IronKnight: ceiling_probe_height=31, probe_height=32=$20 → rows_up=1.
+    // Scans foot row 4 + row 3 → wall at (2,3) blocks left column.
+    let tall = runtime.resolve_transform_overlap_sub_7b30(&slice, PlayerForm::IronKnight);
+    // Left blocked → loc_7BA4 snaps right; whether it returns Some or None
+    // depends on the right column, but it must differ from the short result.
+    assert_ne!(
+        tall,
+        Some(40),
+        "tall form (rows_up=1) should detect the wall at row 3 that short form misses"
+    );
+}
+
+/// ASM loc_7B48 continued: when `y_pos & $F != $F`, `addq.w #1,d5` adds an
+/// extra scan row. Even Micromax (short) with non-aligned y gets rows_up=1,
+/// reaching the wall that tile-aligned y=79 avoided.
+#[test]
+fn loc_7b48_non_aligned_y_adds_extra_scan_row() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(8, 8, &[(2, 3, 0x40, 0x00)]));
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 40 << 16;
+    // y=78: 78/16=4 (still foot tile row 4), but 78 & 0xF = 0xE (not aligned)
+    slice.player.y_pos = 78 << 16;
+
+    let result = runtime.resolve_transform_overlap_sub_7b30(&slice, PlayerForm::Micromax);
+    assert_ne!(
+        result,
+        Some(40),
+        "Micromax with non-aligned y should get rows_up=1 and detect the wall at row 3"
+    );
+}
+
+/// ASM loc_7B5A (kid.asm:8248): `move.w x_pos(a3),d6; sub.w d7,d6;
+/// bpl.w loc_7B74` — when left_edge (x - half_width) is negative, snap
+/// x_pos to half_width and probe only the right column at 2*half_width.
+#[test]
+fn loc_7b5a_negative_left_edge_snaps_to_half_width() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(8, 8, &[]));
+    let mut slice = OpeningSliceState::new(default_bounds());
+    // IronKnight half_width=7. x=3 → left_edge = 3-7 = -4 < 0.
+    slice.player.x_pos = 3 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let cleared_x = runtime
+        .resolve_transform_overlap_sub_7b30(&slice, PlayerForm::IronKnight)
+        .expect("loc_7B5A: negative left edge with open right column should succeed");
+    assert_eq!(
+        cleared_x, 7,
+        "loc_7B5A: x_pos should snap to half_width (7) when left edge is off-screen"
+    );
+}
+
+/// ASM loc_7B74 → loc_7B9E (kid.asm:8259→8273): left column clear, right
+/// column clear — both probes pass, return original x_pos unchanged.
+/// `moveq #0,d7; addq.w #4,sp; rts` at loc_7B9E.
+#[test]
+fn loc_7b9e_both_columns_clear_returns_original_position() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_cells(8, 8, &[]));
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 60 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let cleared_x = runtime
+        .resolve_transform_overlap_sub_7b30(&slice, PlayerForm::IronKnight)
+        .expect("loc_7B9E: both columns clear should return success");
+    assert_eq!(
+        cleared_x, 60,
+        "loc_7B9E: position should be unchanged when no walls block either column"
+    );
+}
+
+/// ASM loc_7BA4 (kid.asm:8279): left column blocked → snap right:
+/// `andi.w #$FFF0,d4; addi.w #$10,d4; add.w (sp),d4; move.w d4,x_pos(a3)`
+/// Computes `(left_edge & $FFF0) + $10 + half_width`.
+#[test]
+fn loc_7ba4_left_blocked_snaps_right_to_next_tile_plus_half_width() {
+    let mut runtime = NativeRuntime::new(manifest());
+    // Wall at tile (1, 4): left column of a player at x=28, half_width=7
+    // left_edge = 28-7 = 21, tile col = 21/16 = 1. Wall blocks it.
+    runtime.set_block_grid(grid_with_cells(8, 8, &[(1, 4, 0x40, 0x00)]));
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 28 << 16;
+    slice.player.y_pos = 79 << 16;
+
+    let cleared_x = runtime
+        .resolve_transform_overlap_sub_7b30(&slice, PlayerForm::IronKnight)
+        .expect("loc_7BA4: left blocked with clear right should snap right");
+    // (21 & !0xF) + 16 + 7 = 16 + 16 + 7 = 39
+    assert_eq!(
+        cleared_x, 39,
+        "loc_7BA4: cleared_x = (left_edge & $FFF0) + $10 + half_width = (16) + 16 + 7 = 39"
+    );
+}
+
 #[test]
 fn pending_form_change_sub_7acc_applies_the_transform_after_clearing_space() {
     let mut runtime = NativeRuntime::new(manifest());
