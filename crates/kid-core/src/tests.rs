@@ -38285,6 +38285,173 @@ fn boss_head_movement_wrapper_sub_39eb4_runs_sub_39d54_before_shared_collision_h
 }
 
 #[test]
+fn boss_collision_palette_sub_3a292_hit_with_collision_1c_decrements_hp_and_flashes() {
+    // ASM loc_3A2C0 (kid.asm:43356): collision_type=$1C always hits regardless
+    // of Berzerker_charging. move.b #$A,d1; sfx; subi.w #1,$3E(a3).
+    let result = boss_collision_palette_sub_3A292(0x1C, false, 0, 5);
+
+    assert!(
+        result.collision_type_cleared,
+        "ASM sub_3A292 should clear collision_type(a3) when nonzero",
+    );
+    assert!(
+        result.hit,
+        "ASM loc_3A2C0: collision_type $1C should always be accepted as a hit",
+    );
+    assert_eq!(
+        result.played_sound_effect,
+        Some("sfx_Big_Hopping_Skull_groan"),
+        "ASM loc_3A2C0: moveq #sfx_Big_Hopping_Skull_groan,d0; jsr (j_PlaySound).l",
+    );
+    assert_eq!(
+        result.next_hit_points, 4,
+        "ASM loc_3A2C0: subi.w #1,$3E(a3) should decrement HP from 5 to 4",
+    );
+    assert_eq!(
+        result.next_flash_timer, 9,
+        "ASM loc_3A2C0: move.b #$A,d1 sets flash to 10; loc_3A2E0 subq.b #1,d1 decrements to 9",
+    );
+    assert_eq!(
+        result.next_palette_line, 3,
+        "ASM loc_3A2E0: flash timer nonzero → move.b #3,palette_line(a3)",
+    );
+    assert!(
+        !result.head_dead,
+        "ASM loc_3A2F4: HP still positive → clr.w d7; rts (alive)",
+    );
+}
+
+#[test]
+fn boss_collision_palette_sub_3a292_hit_with_collision_2c() {
+    // ASM loc_3A2C0: collision_type=$2C is the second always-accepted weapon ID.
+    let result = boss_collision_palette_sub_3A292(0x2C, false, 0, 3);
+
+    assert!(result.hit, "ASM loc_3A2C0: $2C should hit");
+    assert_eq!(result.next_hit_points, 2);
+    assert!(!result.head_dead);
+}
+
+#[test]
+fn boss_collision_palette_sub_3a292_berzerker_collision_20_hits_only_when_charging() {
+    // ASM sub_3A292: cmpi.w #$20,d7; beq.s loc_3A2C0 — only reached when
+    // tst.b (Berzerker_charging).w is nonzero.
+    let not_charging = boss_collision_palette_sub_3A292(0x20, false, 0, 5);
+    assert!(
+        !not_charging.hit,
+        "ASM sub_3A292: $20 without Berzerker_charging should skip to loc_3A2E0",
+    );
+    assert_eq!(
+        not_charging.next_hit_points, 5,
+        "HP should be unchanged when not hit",
+    );
+
+    let charging = boss_collision_palette_sub_3A292(0x20, true, 0, 5);
+    assert!(
+        charging.hit,
+        "ASM loc_3A2C0: $20 with Berzerker_charging should be accepted as a hit",
+    );
+    assert_eq!(charging.next_hit_points, 4);
+}
+
+#[test]
+fn boss_collision_palette_sub_3a292_berzerker_collision_24_hits_only_when_charging() {
+    // ASM sub_3A292: cmpi.w #$24,d7; beq.s loc_3A2C0
+    let not_charging = boss_collision_palette_sub_3A292(0x24, false, 0, 5);
+    assert!(!not_charging.hit);
+
+    let charging = boss_collision_palette_sub_3A292(0x24, true, 0, 5);
+    assert!(charging.hit);
+    assert_eq!(charging.next_hit_points, 4);
+}
+
+#[test]
+fn boss_collision_palette_sub_3a292_unknown_collision_type_ignored() {
+    // ASM sub_3A292: bne.s loc_3A2E0 — any collision type not in {$1C,$2C,$20,$24}
+    // is consumed but does not damage.
+    let result = boss_collision_palette_sub_3A292(0x10, true, 0, 5);
+
+    assert!(
+        result.collision_type_cleared,
+        "collision_type still consumed"
+    );
+    assert!(!result.hit);
+    assert_eq!(result.next_hit_points, 5);
+}
+
+#[test]
+fn boss_collision_palette_sub_3a292_no_collision_preserves_flash_timer() {
+    // ASM sub_3A292: move.w collision_type(a3),d7; beq.w loc_3A2E0 — zero
+    // collision skips straight to flash timer processing.
+    let result = boss_collision_palette_sub_3A292(0, false, 5, 10);
+
+    assert!(
+        !result.collision_type_cleared,
+        "ASM sub_3A292: collision_type==0 → beq.w loc_3A2E0, no clr.w",
+    );
+    assert!(!result.hit);
+    assert_eq!(
+        result.next_flash_timer, 4,
+        "ASM loc_3A2E0: subq.b #1,d1 should decrement flash timer from 5 to 4",
+    );
+    assert_eq!(
+        result.next_palette_line, 3,
+        "ASM loc_3A2E0: flash timer nonzero → palette_line=3",
+    );
+}
+
+#[test]
+fn boss_collision_palette_sub_3a292_flash_timer_zero_sets_normal_palette() {
+    // ASM loc_3A2EE (kid.asm:43374): tst.b d1; beq.s loc_3A2EE →
+    // move.b #2,palette_line(a3).
+    let result = boss_collision_palette_sub_3A292(0, false, 0, 10);
+
+    assert_eq!(
+        result.next_flash_timer, 0,
+        "ASM loc_3A2EE: flash timer already zero, stays zero",
+    );
+    assert_eq!(
+        result.next_palette_line, 2,
+        "ASM loc_3A2EE: move.b #2,palette_line(a3) — normal boss palette",
+    );
+    assert!(!result.head_dead);
+}
+
+#[test]
+fn boss_collision_palette_sub_3a292_hit_kills_when_hp_reaches_zero() {
+    // ASM loc_3A2C0 → loc_3A2FA: subi.w #1,$3E(a3); cmpi.w #0,$3E(a3);
+    // ble.w loc_3A2FA → swap d1; move.w #1,d7; move.b #3,palette_line(a3).
+    let result = boss_collision_palette_sub_3A292(0x1C, false, 0, 1);
+
+    assert!(result.hit);
+    assert_eq!(
+        result.next_hit_points, 0,
+        "ASM loc_3A2C0: HP 1 → 0 after subi.w #1",
+    );
+    assert!(
+        result.head_dead,
+        "ASM loc_3A2FA: HP <= 0 → move.w #1,d7 (dead)",
+    );
+    assert_eq!(
+        result.next_palette_line, 3,
+        "ASM loc_3A2FA: move.b #3,palette_line(a3) on death",
+    );
+    assert_eq!(
+        result.next_flash_timer, 0x0A,
+        "ASM loc_3A2C0: flash timer set to $A before death branch (not decremented)",
+    );
+}
+
+#[test]
+fn boss_collision_palette_sub_3a292_hit_kills_when_hp_negative() {
+    // ASM loc_3A2FA: ble.w — also triggers when HP goes below zero.
+    let result = boss_collision_palette_sub_3A292(0x2C, false, 0, 0);
+
+    assert!(result.hit);
+    assert_eq!(result.next_hit_points, -1);
+    assert!(result.head_dead, "ASM loc_3A2FA: HP < 0 → dead");
+}
+
+#[test]
 fn fire_demon_fragment_collision_step_sub_3a172_clears_matching_collision_into_delete_animation() {
     let result = fire_demon_fragment_collision_step_sub_3A172(0x002C);
 

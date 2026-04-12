@@ -404,6 +404,31 @@ pub(crate) struct FireDemonFragmentDecelStepLoc3A24C {
     pub(crate) next: FireDemonFragmentDecelNextLoc3A24C,
 }
 
+/// Result of `sub_3A292` — shared boss collision/palette helper.
+///
+/// Called as a tail-call by all boss head movement wrappers (`sub_398BC`,
+/// `sub_39952`, `sub_399E4`, `sub_39A7C`, `sub_39BF8`, `sub_39D4A`,
+/// `sub_39EB4`).  Checks `collision_type(a3)` against accepted weapon IDs,
+/// decrements HP on hit, manages the palette-flash timer, and returns
+/// whether the head is dead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossCollisionPaletteSub3A292 {
+    /// Whether `collision_type(a3)` was consumed (cleared to 0).
+    pub(crate) collision_type_cleared: bool,
+    /// Whether the head was hit this frame (loc_3A2C0 path taken).
+    pub(crate) hit: bool,
+    /// Sound effect queued on hit.
+    pub(crate) played_sound_effect: Option<&'static str>,
+    /// `$3E(a3)` after potential decrement.
+    pub(crate) next_hit_points: i16,
+    /// Flash timer byte (d1 low byte) after processing.
+    pub(crate) next_flash_timer: u8,
+    /// `palette_line(a3)` written.
+    pub(crate) next_palette_line: u8,
+    /// d7 return: 0 = alive, 1 = dead.
+    pub(crate) head_dead: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossEyePopEffectInitSub3729E {
     pub(crate) gfx_slot_base: u32,
@@ -6511,6 +6536,77 @@ pub(crate) fn fire_demon_fragment_collision_step_sub_3A1A6(
     }
 
     result
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boss_collision_palette_sub_3A292(
+    collision_type: u16,
+    berzerker_charging: bool,
+    flash_timer_d1: u8,
+    hit_points_3e: i16,
+) -> BossCollisionPaletteSub3A292 {
+    // ASM sub_3A292 (kid.asm:43339): shared boss collision/palette helper.
+    // Entry: swap d1 brings flash timer from high word to low byte.
+    // Checks collision_type(a3): $1C/$2C always hit; $20/$24 only when
+    // Berzerker_charging is set; anything else is ignored.
+    let mut flash = flash_timer_d1;
+    let mut hp = hit_points_3e;
+    let mut hit = false;
+    let mut cleared = false;
+    let mut sfx: Option<&'static str> = None;
+
+    if collision_type != 0 {
+        cleared = true;
+        // ASM: cmpi.w #$1C,d7; beq.s loc_3A2C0 / cmpi.w #$2C,d7; beq.s loc_3A2C0
+        let direct_hit = collision_type == 0x1C || collision_type == 0x2C;
+        // ASM: tst.b (Berzerker_charging).w; beq.s loc_3A2E0
+        // cmpi.w #$20,d7; beq.s loc_3A2C0 / cmpi.w #$24,d7; beq.s loc_3A2C0
+        let berzerker_hit =
+            berzerker_charging && (collision_type == 0x20 || collision_type == 0x24);
+        hit = direct_hit || berzerker_hit;
+    }
+
+    if hit {
+        // ASM loc_3A2C0 (kid.asm:43356): move.b #$A,d1; play sfx; subi.w #1,$3E(a3).
+        flash = 0x0A;
+        sfx = Some("sfx_Big_Hopping_Skull_groan");
+        hp -= 1;
+    }
+
+    if hit && hp <= 0 {
+        // ASM loc_3A2FA: swap d1; move.w #1,d7; move.b #3,palette_line(a3); rts.
+        return BossCollisionPaletteSub3A292 {
+            collision_type_cleared: cleared,
+            hit,
+            played_sound_effect: sfx,
+            next_hit_points: hp,
+            next_flash_timer: flash,
+            next_palette_line: 3,
+            head_dead: true,
+        };
+    }
+
+    // ASM loc_3A2E0 (kid.asm:43366): tst.b d1; beq.s loc_3A2EE.
+    let palette_line = if flash != 0 {
+        // subq.b #1,d1; move.b #3,palette_line(a3)
+        flash -= 1;
+        3
+    } else {
+        // ASM loc_3A2EE (kid.asm:43374): move.b #2,palette_line(a3).
+        2
+    };
+
+    // ASM loc_3A2F4: swap d1; clr.w d7; rts.
+    BossCollisionPaletteSub3A292 {
+        collision_type_cleared: cleared,
+        hit,
+        played_sound_effect: sfx,
+        next_hit_points: hp,
+        next_flash_timer: flash,
+        next_palette_line: palette_line,
+        head_dead: false,
+    }
 }
 
 #[allow(non_snake_case)]
