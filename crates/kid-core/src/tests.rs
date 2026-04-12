@@ -12706,6 +12706,194 @@ fn diamond_power_init_samurai_haze_loc_3fc8a_loc_3fc8c() {
 }
 
 // -----------------------------------------------------------------------
+// DiamondPower_Main_InvulnAndHaze frame + per-slot
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_invuln_haze_frame_active_while_timer_positive_loc_3fd28() {
+    // ASM DiamondPower_Main_InvulnAndHaze (kid.asm:45056): subq.w #1 → timer
+    // goes from $1E0 to $1DF. loc_3FD28: neg.w $1DF = $FE21 (negative),
+    // clamp to 0. loc_3FD2E: lsr.w #2 → fade = 0.
+    let mut timer: i16 = 0x1E0;
+    let result = helmets::diamond_power_invuln_haze_frame(&mut timer);
+    assert_eq!(timer, 0x1DF, "ASM: subq.w #1");
+    assert_eq!(
+        result,
+        helmets::InvulnHazeFrameAction::Active { fade: 0 },
+        "ASM loc_3FD28: positive timer → fade = 0"
+    );
+}
+
+#[test]
+fn diamond_power_invuln_haze_frame_fade_when_timer_negative_loc_3fd28() {
+    // Timer = 0: after subq → -1. neg.w → 1. bpl → keep. lsr #2 → 0.
+    let mut timer: i16 = 0;
+    let result = helmets::diamond_power_invuln_haze_frame(&mut timer);
+    assert_eq!(timer, -1);
+    assert_eq!(
+        result,
+        helmets::InvulnHazeFrameAction::Active { fade: 0 },
+        "ASM loc_3FD28: timer=-1, neg=1, lsr #2 → 0"
+    );
+
+    // Timer = -5: after subq → -6. neg.w → 6. lsr #2 → 1.
+    let mut timer: i16 = -5;
+    let result = helmets::diamond_power_invuln_haze_frame(&mut timer);
+    assert_eq!(timer, -6);
+    assert_eq!(
+        result,
+        helmets::InvulnHazeFrameAction::Active { fade: 1 },
+        "ASM loc_3FD28: timer=-6, neg=6, lsr #2 → 1"
+    );
+}
+
+#[test]
+fn diamond_power_invuln_haze_frame_expired_below_threshold_loc_3fd28() {
+    // Timer = -$1B: after subq → -$1C. cmpi.w #-$1B → -$1C < -$1B → Expired.
+    let mut timer: i16 = -0x1B;
+    let result = helmets::diamond_power_invuln_haze_frame(&mut timer);
+    assert_eq!(timer, -0x1C);
+    assert_eq!(
+        result,
+        helmets::InvulnHazeFrameAction::Expired,
+        "ASM: cmpi.w #-$1B,d7; bge.s — timer below threshold → sub_3F63C"
+    );
+}
+
+#[test]
+fn diamond_power_invuln_haze_frame_boundary_at_minus_1b_loc_3fd28() {
+    // Timer = -$1A: after subq → -$1B. cmpi.w #-$1B → -$1B >= -$1B → Active.
+    // neg.w $1B = ... wait. d7 = -$1B (as i16 = 0xFFE5). neg.w → $1B = 27.
+    // lsr #2 → 6.
+    let mut timer: i16 = -0x1A;
+    let result = helmets::diamond_power_invuln_haze_frame(&mut timer);
+    assert_eq!(timer, -0x1B);
+    assert_eq!(
+        result,
+        helmets::InvulnHazeFrameAction::Active { fade: 6 },
+        "ASM loc_3FD28: timer=-$1B (boundary), neg=$1B=27, lsr #2 → 6"
+    );
+}
+
+#[test]
+fn diamond_power_invuln_haze_slot_sprite_rotation_when_no_fade_loc_3fd4c() {
+    // ASM loc_3FD4C: tst.w d7; bne.s loc_3FD5A — when fade==0, update angle.
+    // $42(a0) += $48(a0) → phase += rotation_speed.
+    let mut slot = helmets::InvulnHazeSlot {
+        radius: 0x18,
+        radius_frac: 0,
+        y_offset: -0x10,
+        phase: 0x20,
+        rotation_speed: 6,
+    };
+    let _ = helmets::diamond_power_invuln_haze_slot_sprite(&mut slot, 0, 100, 80, 0, 0);
+    assert_eq!(
+        slot.phase, 0x26,
+        "ASM loc_3FD4C: phase += rotation_speed when fade==0"
+    );
+}
+
+#[test]
+fn diamond_power_invuln_haze_slot_sprite_no_rotation_when_fading_loc_3fd4c() {
+    // ASM loc_3FD4C: tst.w d7; bne.s loc_3FD5A — when fade!=0, skip angle update.
+    let mut slot = helmets::InvulnHazeSlot {
+        radius: 0x18,
+        radius_frac: 0,
+        y_offset: -0x10,
+        phase: 0x20,
+        rotation_speed: 6,
+    };
+    let _ = helmets::diamond_power_invuln_haze_slot_sprite(&mut slot, 1, 100, 80, 0, 0);
+    assert_eq!(
+        slot.phase, 0x20,
+        "ASM loc_3FD4C: phase unchanged when fade!=0"
+    );
+}
+
+#[test]
+fn diamond_power_invuln_haze_slot_sprite_skipped_when_fade_exceeds_size_loc_3fd8e() {
+    // ASM loc_3FD8E: sub.w d7,d6; bmi.s loc_3FDD2 — skip if size - fade < 0.
+    // With a large fade (e.g. 6), all size table entries (max 5) will be < fade.
+    let mut slot = helmets::InvulnHazeSlot {
+        radius: 0x18,
+        radius_frac: 0,
+        y_offset: -0x10,
+        phase: 0,
+        rotation_speed: 6,
+    };
+    let result = helmets::diamond_power_invuln_haze_slot_sprite(&mut slot, 6, 100, 80, 0, 0);
+    assert_eq!(
+        result,
+        helmets::InvulnHazeSpriteAction::Skipped,
+        "ASM loc_3FD8E: fade=6 exceeds max size table entry (5)"
+    );
+}
+
+#[test]
+fn diamond_power_invuln_haze_slot_sprite_small_sprite_loc_3fd4c() {
+    // When the computed size (d6 after sub) is small (0-2), table_index < $C → small sprite.
+    // Use phase=0 (cos=max, sin≈0) → sin_offset + $18 ≈ $18, size_index = $18>>2 = 6,
+    // byte_3FDDC[6] = 3. With fade=2: d6 = 3-2 = 1. table_index = 1*4 = 4 < $C → small.
+    let mut slot = helmets::InvulnHazeSlot {
+        radius: 0x18,
+        radius_frac: 0,
+        y_offset: -0x10,
+        phase: 0,
+        rotation_speed: 6,
+    };
+    let result = helmets::diamond_power_invuln_haze_slot_sprite(&mut slot, 2, 100, 80, 0, 0);
+    match result {
+        helmets::InvulnHazeSpriteAction::SmallSprite { .. } => {}
+        other => panic!(
+            "ASM loc_3FD4C: expected SmallSprite for d6=1 (table_index=4 < $C), got {other:?}"
+        ),
+    }
+}
+
+#[test]
+fn diamond_power_invuln_haze_slot_sprite_large_sprite_loc_3fdc2() {
+    // When d6 >= 3, table_index >= $C → large sprite path (loc_3FDC2).
+    // Use phase=0, fade=0. sin_offset + $18 ≈ $18, size_index=6, byte_3FDDC[6]=3.
+    // d6 = 3-0 = 3. table_index = 3*4 = $C → large.
+    let mut slot = helmets::InvulnHazeSlot {
+        radius: 0x18,
+        radius_frac: 0,
+        y_offset: -0x10,
+        phase: 0,
+        rotation_speed: 6,
+    };
+    let result = helmets::diamond_power_invuln_haze_slot_sprite(&mut slot, 0, 100, 80, 0, 0);
+    match result {
+        helmets::InvulnHazeSpriteAction::LargeSprite {
+            size_byte, pattern, ..
+        } => {
+            // Entry 3 in DIAMOND_SPRITE_ATTR_TABLE: (0x00, 0x86ED)
+            assert_eq!(
+                size_byte, 0x00,
+                "ASM loc_3FDC2: size byte from word_4020E entry 3"
+            );
+            assert_eq!(
+                pattern, 0x86ED,
+                "ASM loc_3FDC2: pattern from word_4020E entry 3"
+            );
+        }
+        other => {
+            panic!("ASM loc_3FDC2: expected LargeSprite for d6=3 (table_index=$C), got {other:?}")
+        }
+    }
+}
+
+#[test]
+fn diamond_power_invuln_haze_size_table_matches_asm_byte_3fddc() {
+    // ASM byte_3FDDC (kid.asm:45148): 12 entries.
+    assert_eq!(
+        helmets::INVULN_HAZE_SIZE_TABLE,
+        [1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5],
+        "ASM byte_3FDDC: size lookup table must match ROM data"
+    );
+}
+
+// -----------------------------------------------------------------------
 // Prize content dispatch
 // -----------------------------------------------------------------------
 

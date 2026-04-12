@@ -1819,6 +1819,198 @@ pub(crate) fn diamond_power_main_extra_hp_life_slot(
     }
 }
 
+/// Result of the per-frame timer check in `DiamondPower_Main_InvulnAndHaze`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum InvulnHazeFrameAction {
+    /// Timer < -$1B → call sub_3F63C (dealloc all slots). ASM `bsr.w sub_3F63C; rts`.
+    Expired,
+    /// Timer >= -$1B → continue with per-slot processing. `fade` is the shrink
+    /// parameter passed to each slot (d7 after neg/clamp/lsr).
+    Active { fade: u16 },
+}
+
+/// ASM DiamondPower_Main_InvulnAndHaze (kid.asm:45056) frame-level timer logic.
+///
+/// Decrements `Diamond_power_timer`, then:
+///
+/// - If timer < -$1B: all slots expired → return `Expired` (caller deallocs).
+///
+/// - loc_3FD28 (kid.asm:45065): `neg.w d7` — negate the timer value.
+///   `bpl.s loc_3FD2E` — if result >= 0, keep it; otherwise clamp to 0.
+///
+/// - loc_3FD2E (kid.asm:45070): `lsr.w #2,d7` — divide by 4 to get fade amount.
+///   The fade is 0 while timer is positive (diamonds are fully visible and
+///   rotating); once timer goes negative the fade grows, shrinking sprites
+///   until the power expires.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_invuln_haze_frame(timer: &mut i16) -> InvulnHazeFrameAction {
+    // ASM: subq.w #1,(Diamond_power_timer).w
+    *timer = timer.wrapping_sub(1);
+    let d7 = *timer;
+
+    // ASM: cmpi.w #-$1B,d7; bge.s loc_3FD28
+    if d7 < -0x1B {
+        return InvulnHazeFrameAction::Expired;
+    }
+
+    // ASM loc_3FD28: neg.w d7; bpl.s loc_3FD2E; moveq #0,d7
+    let d7 = (-(d7 as i32)) as i16;
+    let d7 = if d7 < 0 { 0u16 } else { d7 as u16 };
+
+    // ASM loc_3FD2E: lsr.w #2,d7
+    let fade = d7 >> 2;
+
+    InvulnHazeFrameAction::Active { fade }
+}
+
+/// Per-slot sprite result from `diamond_power_invuln_haze_slot_sprite`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum InvulnHazeSpriteAction {
+    /// Small sprite (table index < $C / entry < 3): write to a4 buffer.
+    /// 4 words: Y, size_link word, pattern word, X.
+    SmallSprite {
+        y: u16,
+        size_link: u16,
+        pattern: u16,
+        x: u16,
+    },
+    /// Large sprite (table index >= $C / entry >= 3): write to a2 buffer.
+    /// Format: Y word, size byte, pattern word, X word (link managed by caller).
+    LargeSprite {
+        y: u16,
+        size_byte: u8,
+        pattern: u16,
+        x: u16,
+    },
+    /// Sprite invisible (size - fade < 0). ASM: `sub.w d7,d6; bmi.s loc_3FDD2`.
+    Skipped,
+}
+
+/// Invuln/Haze size lookup table.
+/// ASM byte_3FDDC (kid.asm:45148): 12 entries indexed by the clamped
+/// `(sin_offset + $18) >> 2` value (0–11). Maps depth-based sin offset
+/// to sprite half-size.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const INVULN_HAZE_SIZE_TABLE: [u8; 12] = [1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5];
+
+/// ASM loc_3FD4C through loc_3FDD2 (kid.asm:45082–45146): per-slot sprite
+/// compilation for DiamondPower_Main_InvulnAndHaze.
+///
+/// loc_3FD4C (kid.asm:45082): per-slot entry —
+///   `move.l d0,a0` — a0 = slot pointer.
+///   `tst.w d7; bne.s loc_3FD5A` — when fade == 0 (timer still positive),
+///   update angle: `$42(a0) += $48(a0)` (phase += rotation_speed).
+///
+///   Polar-to-screen via sub_40236:
+///   - d5 = `move.l $3E(a0)` >> 9 (radius with fraction, shifted).
+///   - cos from sub_40236 → x_offset = `(cos * d5) >> 21 + kid_x + ($7F - cam_x)`.
+///   - sin from sub_40236 → size index = `((sin * d5) >> 21 + $18)`, clamped [0, $B].
+///   - d6 = byte_3FDDC[size_index] - fade; if < 0 → Skipped.
+///   - Screen Y from slot y_offset ($46) + kid_y + ($7F - cam_y).
+///   - Centre by subtracting d6 from both x and y.
+///   - d6 * 4 → index into word_4020E:
+///     < $C → SmallSprite (a4 buffer); >= $C → LargeSprite (a2 buffer).
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_invuln_haze_slot_sprite(
+    slot: &mut InvulnHazeSlot,
+    fade: u16,
+    kid_x: i16,
+    kid_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+) -> InvulnHazeSpriteAction {
+    use crate::boot::sin_cos_sub_40236;
+
+    // ASM loc_3FD2E: d3 = $7F - Camera_X_pos; d4 = $7F - Camera_Y_pos
+    let d3 = 0x7Fi16.wrapping_sub(camera_x);
+    let d4 = 0x7Fi16.wrapping_sub(camera_y);
+
+    // ASM loc_3FD4C: tst.w d7; bne.s loc_3FD5A — only update angle when fade == 0
+    if fade == 0 {
+        // ASM: move.w $48(a0),d1; add.w d1,$42(a0)
+        slot.phase = slot.phase.wrapping_add(slot.rotation_speed);
+    }
+
+    // ASM loc_3FD5A: move.l $3E(a0),d5; lsr.l #8,d5; lsr.l #1,d5
+    // $3E is radius (word), $40 is radius_frac (word) — longword read combines them.
+    let radius_long = ((slot.radius as u32) << 16) | (slot.radius_frac as u32);
+    let d5 = (radius_long >> 9) as u16;
+
+    // ASM: move.w $42(a0),d0; bsr.w sub_40236
+    let angle = slot.phase as u8;
+    let (cos, sin) = sin_cos_sub_40236(angle);
+
+    // ASM: muls.w d5,d0; swap d0; asr.w #5,d0; add.w x_pos(a3),d0; add.w d3,d0
+    let x_offset = ((cos as i32 * d5 as i32) >> 16) as i16 >> 5;
+    let mut screen_x = kid_x.wrapping_add(x_offset).wrapping_add(d3);
+
+    // ASM: muls.w d5,d1; swap d1; asr.w #5,d1; addi.w #$18,d1
+    let sin_offset = ((sin as i32 * d5 as i32) >> 16) as i16 >> 5;
+    let mut size_index = sin_offset.wrapping_add(0x18);
+
+    // ASM: bpl.s loc_3FD84; moveq #0,d1
+    if size_index < 0 {
+        size_index = 0;
+    }
+
+    // ASM loc_3FD84: lsr.w #2,d1; cmpi.w #$B,d1; ble.s loc_3FD8E; moveq #$B,d1
+    let mut size_index = (size_index as u16) >> 2;
+    if size_index > 0xB {
+        size_index = 0xB;
+    }
+
+    // ASM loc_3FD8E: moveq #0,d6; move.b byte_3FDDC(pc,d1.w),d6; sub.w d7,d6
+    let raw_size = INVULN_HAZE_SIZE_TABLE[size_index as usize] as i16;
+    let d6 = raw_size - fade as i16;
+
+    // ASM: bmi.s loc_3FDD2 — invisible if size - fade < 0
+    if d6 < 0 {
+        return InvulnHazeSpriteAction::Skipped;
+    }
+    let d6 = d6 as u16;
+
+    // ASM: move.w $46(a0),d1; add.w y_pos(a3),d1; add.w d4,d1
+    let mut screen_y = slot.y_offset.wrapping_add(kid_y).wrapping_add(d4);
+
+    // ASM: sub.w d6,d0; sub.w d6,d1 — centre sprite by size
+    screen_x = screen_x.wrapping_sub(d6 as i16);
+    screen_y = screen_y.wrapping_sub(d6 as i16);
+
+    // ASM: add.w d6,d6; add.w d6,d6 — d6 *= 4 (table byte index)
+    let table_index = (d6 as usize) * 4;
+
+    // ASM: lea word_4020E(pc),a1; cmpi.w #$C,d6
+    let entry_index = table_index / 4;
+    let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
+        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
+    } else {
+        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
+    };
+
+    if table_index < 0xC {
+        // ASM: small sprite path → a4 buffer
+        // move.w (a1,d6.w),(a4)+ — full size_link word
+        let size_link = (size_byte as u16) << 8; // low byte is link, filled by caller
+        InvulnHazeSpriteAction::SmallSprite {
+            y: screen_y as u16,
+            size_link,
+            pattern,
+            x: screen_x as u16,
+        }
+    } else {
+        // ASM loc_3FDC2: large sprite path → a2 buffer
+        InvulnHazeSpriteAction::LargeSprite {
+            y: screen_y as u16,
+            size_byte,
+            pattern,
+            x: screen_x as u16,
+        }
+    }
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
