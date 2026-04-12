@@ -114,6 +114,10 @@ pub struct NativeRuntime {
     sound_test_play_pending: bool,
     /// Cached Sega screen art and palette data (loaded once, reused each frame).
     sega_screen_data: Option<vdp::SegaScreenData>,
+    /// Cached intro sequence art/tilemap/palette for sub_1B850 segments.
+    intro_sub_1b850_data: Option<vdp::IntroSub1B850Data>,
+    /// Cached title screen art/tilemap/palette for sub_1B2A4.
+    title_screen_data: Option<vdp::TitleScreenData>,
     /// Software VDP state for non-gameplay screens (Sega logo, intro, title).
     /// Populated each frame during boot modes so the VDP renderer can produce
     /// accurate frames; `None` during gameplay where the pre-extracted asset
@@ -758,6 +762,8 @@ struct PendingStompBounce {
 impl NativeRuntime {
     pub fn new(assets: AssetManifest) -> Self {
         let sega_screen_data = vdp::load_sega_screen_data(&assets).ok();
+        let intro_sub_1b850_data = vdp::load_intro_sub_1b850_data(&assets).ok();
+        let title_screen_data = vdp::load_title_screen_data(&assets).ok();
         let mut runtime = Self {
             assets,
             frame_index: 0,
@@ -810,6 +816,8 @@ impl NativeRuntime {
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,
             sega_screen_data,
+            intro_sub_1b850_data,
+            title_screen_data,
             vdp_state: None,
             z80_stop_request_depth: 0,
             z80_guard_sr: 0x2500,
@@ -977,7 +985,14 @@ impl NativeRuntime {
                 .sega_screen_data
                 .as_ref()
                 .map(|data| vdp::build_sega_screen_vdp(data, *elapsed)),
-            // TODO(fidelity): add IntroSequence, TitleScreen VDP state
+            BootState::IntroSequence { segment, .. } => self
+                .intro_sub_1b850_data
+                .as_ref()
+                .map(|data| vdp::build_intro_sequence_vdp(data, *segment)),
+            BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => self
+                .title_screen_data
+                .as_ref()
+                .map(vdp::build_title_screen_vdp),
             _ => None,
         };
     }
