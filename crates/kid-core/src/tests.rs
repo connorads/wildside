@@ -27815,7 +27815,7 @@ fn sub_6048_before_20_seconds_only_sets_weather_mode_byte() {
             call_snow_worker: true,
             palette_ops: vec![WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2],
         },
-        [0; 7],
+        [0; 8],
         [0; 15],
         [0; 7],
         [0; 7],
@@ -27858,7 +27858,7 @@ fn sub_6048_non_mountain_fade_copies_buffers_and_loads_storm_background() {
             call_snow_worker: false,
             palette_ops: Vec::new(),
         },
-        [0x111, 0x222, 0x333, 0x444, 0x555, 0x666, 0x777],
+        [0x111, 0x222, 0x333, 0x444, 0x555, 0x666, 0x777, 0x888],
         [0; 15],
         [0; 7],
         [0; 7],
@@ -27917,7 +27917,7 @@ fn sub_6048_mountain_fade_overlays_storm_background_and_foreground() {
             call_snow_worker: false,
             palette_ops: Vec::new(),
         },
-        [1, 2, 3, 4, 5, 6, 7],
+        [1, 2, 3, 4, 5, 6, 7, 8],
         [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
         [0; 7],
         [0; 7],
@@ -27933,20 +27933,22 @@ fn sub_6048_mountain_fade_overlays_storm_background_and_foreground() {
         vec![
             WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2,
             WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer3,
+            // ASM loc_60C0: first word → Palette_Buffer_3[0]
             WeatherPaletteOpSub6048::WritePaletteBuffer3 {
                 start_word: 0,
                 words: vec![1],
             },
+            // ASM loc_60C6: remaining 7 words (d0=6, dbf) → Palette_Buffer_3+$32
             WeatherPaletteOpSub6048::WritePaletteBuffer3 {
                 start_word: 0x19,
-                words: vec![2, 3, 4, 5, 6, 7],
+                words: vec![2, 3, 4, 5, 6, 7, 8],
             },
             WeatherPaletteOpSub6048::WritePaletteBuffer3 {
                 start_word: 1,
                 words: vec![10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
             },
         ],
-        "ASM sub_6048 should route the first Mountain storm word to `Palette_Buffer_3[0]`, the next six words to `$32`, then overlay the 15-word Mountain foreground palette at `Palette_Buffer_3+2`"
+        "ASM sub_6048 should route the first Mountain storm word to `Palette_Buffer_3[0]`, the next seven words to `$32`, then overlay the 15-word Mountain foreground palette at `Palette_Buffer_3+2`"
     );
 }
 
@@ -27972,7 +27974,7 @@ fn sub_6048_thunder_timer_zero_plays_sound_and_loads_flash_palette() {
             call_snow_worker: false,
             palette_ops: Vec::new(),
         },
-        [0; 7],
+        [0; 8],
         [0; 15],
         [0xAAA, 0xAAB, 0xAAC, 0xAAD, 0xAAE, 0xAAF, 0xAB0],
         [0; 7],
@@ -28022,7 +28024,7 @@ fn sub_6048_negative_thunder_timer_reseeds_and_loads_calm_palette() {
             call_snow_worker: false,
             palette_ops: Vec::new(),
         },
-        [0; 7],
+        [0; 8],
         [0; 15],
         [0; 7],
         [0x0B1, 0x0B2, 0x0B3, 0x0B4, 0x0B5, 0x0B6, 0x0B7],
@@ -28071,7 +28073,7 @@ fn sub_6048_snow_cycle_toggles_to_active_and_calls_sub_61ca() {
             call_snow_worker: false,
             palette_ops: Vec::new(),
         },
-        [0; 7],
+        [0; 8],
         [0; 15],
         [0; 7],
         [0; 7],
@@ -28115,7 +28117,7 @@ fn sub_6048_snow_cycle_toggles_inactive_and_requests_spawn_when_slots_available(
             call_snow_worker: false,
             palette_ops: Vec::new(),
         },
-        [0; 7],
+        [0; 8],
         [0; 15],
         [0; 7],
         [0; 7],
@@ -65544,7 +65546,7 @@ fn loc_607a_storm_fade_emits_palette_buffer_copy_to_buffer2() {
             call_snow_worker: false,
             palette_ops: Vec::new(),
         },
-        [0xAAA, 0xBBB, 0xCCC, 0xDDD, 0xEEE, 0x123, 0x456],
+        [0xAAA, 0xBBB, 0xCCC, 0xDDD, 0xEEE, 0x123, 0x456, 0x789],
         [0; 15],
         [0; 7],
         [0; 7],
@@ -65570,4 +65572,189 @@ fn loc_607a_storm_fade_emits_palette_buffer_copy_to_buffer2() {
         WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2,
         "ASM loc_607A: buffer2 copy must be the first palette op (before buffer3 and storm overlay)"
     );
+}
+
+// ---------------------------------------------------------------------------
+// loc_60AA — non-Mountain storm palette copy loop in sub_6048
+// ---------------------------------------------------------------------------
+
+/// ASM loc_60AA (kid.asm:6078): non-Mountain path copies 7 words (d0=6, dbf)
+/// from the saved storm palette to `Palette_Buffer_3+$32`, then clears
+/// `Palette_Buffer_3[0]` to 0 and decrements `($FFFFFADA).w` by 4.
+/// Only the first 7 of the 8-word palette source are consumed.
+#[test]
+fn loc_60aa_non_mountain_copies_7_storm_words_and_clears_bg() {
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x04B1,
+            level_special_effects: 2,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false,
+            fade_countdown: 8,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 0,
+            hail_period_timer: 0,
+            hail_active: false,
+            snow_spawn_cooldown: 0,
+            snow_slot_count: 0,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xFF],
+        [0; 15],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    // loc_60AA: 7 words at start_word $19, 8th word unused
+    let storm_write = stepped
+        .palette_ops
+        .iter()
+        .find(|op| {
+            matches!(
+                op,
+                WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                    start_word: 0x19,
+                    ..
+                }
+            )
+        })
+        .expect("ASM loc_60AA: must emit a WritePaletteBuffer3 at start_word $19");
+    if let WeatherPaletteOpSub6048::WritePaletteBuffer3 { words, .. } = storm_write {
+        assert_eq!(
+            words,
+            &vec![0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7],
+            "ASM loc_60AA: d0=6 dbf copies exactly 7 words; the 8th word ($FF) must not appear"
+        );
+    }
+
+    // Background colour cleared to 0
+    let bg_clear = stepped
+        .palette_ops
+        .iter()
+        .find(|op| {
+            matches!(
+                op,
+                WeatherPaletteOpSub6048::WritePaletteBuffer3 { start_word: 0, .. }
+            )
+        })
+        .expect("ASM loc_60AA: must clear Palette_Buffer_3[0]");
+    if let WeatherPaletteOpSub6048::WritePaletteBuffer3 { words, .. } = bg_clear {
+        assert_eq!(
+            words,
+            &vec![0u16],
+            "ASM loc_60AA: `move.w #0,(Palette_Buffer_3).l` clears the background colour"
+        );
+    }
+
+    assert_eq!(
+        stepped.fade_countdown, 4,
+        "ASM loc_60AA: `subq.w #4,($FFFFFADA).w` decrements fade countdown from 8 to 4"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// loc_60C0/loc_60C6 — Mountain storm palette copy in sub_6048
+// ---------------------------------------------------------------------------
+
+/// ASM loc_60C0 (kid.asm:6088): Mountain path — first word from saved storm
+/// palette goes directly to `Palette_Buffer_3[0]` (`move.w (a0)+,(Palette_Buffer_3).l`).
+/// ASM loc_60C6 (kid.asm:6092): remaining 7 words (d0=6, dbf) go to
+/// `Palette_Buffer_3+$32`.  All 8 words of the source are consumed.
+#[test]
+fn loc_60c0_60c6_mountain_copies_all_8_storm_words() {
+    let stepped = step_level_special_effects_sub_6048(
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x04B1,
+            level_special_effects: 2,
+            foreground_theme_is_mountain: true,
+            background_theme_is_mountain: true,
+            fade_countdown: 8,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 0,
+            hail_period_timer: 0,
+            hail_active: false,
+            snow_spawn_cooldown: 0,
+            snow_slot_count: 0,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        },
+        [0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7],
+        [
+            0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD,
+            0xFE,
+        ],
+        [0; 7],
+        [0; 7],
+        0,
+    );
+
+    // loc_60C0: first word → Palette_Buffer_3[0]
+    let bg_word = stepped
+        .palette_ops
+        .iter()
+        .find(|op| {
+            matches!(
+                op,
+                WeatherPaletteOpSub6048::WritePaletteBuffer3 { start_word: 0, .. }
+            )
+        })
+        .expect("ASM loc_60C0: must emit WritePaletteBuffer3 at start_word 0");
+    if let WeatherPaletteOpSub6048::WritePaletteBuffer3 { words, .. } = bg_word {
+        assert_eq!(
+            words,
+            &vec![0xB0u16],
+            "ASM loc_60C0: `move.w (a0)+,(Palette_Buffer_3).l` routes first word to bg slot"
+        );
+    }
+
+    // loc_60C6: remaining 7 words → Palette_Buffer_3+$32
+    let storm_body = stepped
+        .palette_ops
+        .iter()
+        .find(|op| {
+            matches!(
+                op,
+                WeatherPaletteOpSub6048::WritePaletteBuffer3 {
+                    start_word: 0x19,
+                    ..
+                }
+            )
+        })
+        .expect("ASM loc_60C6: must emit WritePaletteBuffer3 at start_word $19");
+    if let WeatherPaletteOpSub6048::WritePaletteBuffer3 { words, .. } = storm_body {
+        assert_eq!(
+            words,
+            &vec![0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7],
+            "ASM loc_60C6: d0=6 dbf copies 7 words (all remaining from the 8-word source)"
+        );
+    }
+
+    // Foreground overlay at Palette_Buffer_3+2 (loc_60E0 loop)
+    let fg_overlay = stepped
+        .palette_ops
+        .iter()
+        .find(|op| {
+            matches!(
+                op,
+                WeatherPaletteOpSub6048::WritePaletteBuffer3 { start_word: 1, .. }
+            )
+        })
+        .expect("ASM loc_60C6 path: must emit foreground overlay at start_word 1");
+    if let WeatherPaletteOpSub6048::WritePaletteBuffer3 { words, .. } = fg_overlay {
+        assert_eq!(
+            words.len(),
+            15,
+            "ASM loc_60E0: `moveq #$E,d0` dbf copies 15 Mountain foreground palette words"
+        );
+    }
 }

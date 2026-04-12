@@ -954,7 +954,7 @@ pub(crate) struct WeatherSpecialEffectsStepSub6048 {
 #[allow(dead_code)]
 pub(crate) fn step_level_special_effects_sub_6048(
     mut state: WeatherSpecialEffectsStepSub6048,
-    saved_storm_palette: [u16; 7],
+    saved_storm_palette: [u16; 8],
     mountain_storm_foreground_palette: [u16; 15],
     thunder_flash_palette: [u16; 7],
     thunder_calm_palette: [u16; 7],
@@ -984,6 +984,8 @@ pub(crate) fn step_level_special_effects_sub_6048(
             .push(WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer3);
 
         if state.foreground_theme_is_mountain {
+            // ASM loc_60C0 (kid.asm:6088): Mountain path — first word from
+            // saved storm palette goes to Palette_Buffer_3[0].
             state.pending_palette_mask_0 = -1;
             state
                 .palette_ops
@@ -991,6 +993,8 @@ pub(crate) fn step_level_special_effects_sub_6048(
                     start_word: 0,
                     words: vec![saved_storm_palette[0]],
                 });
+            // ASM loc_60C6 (kid.asm:6092): `move.w (a0)+,(a1)+; dbf d0,loc_60C6`
+            // with d0=6 — copies 7 remaining words to Palette_Buffer_3+$32.
             state
                 .palette_ops
                 .push(WeatherPaletteOpSub6048::WritePaletteBuffer3 {
@@ -1004,11 +1008,14 @@ pub(crate) fn step_level_special_effects_sub_6048(
                     words: mountain_storm_foreground_palette.to_vec(),
                 });
         } else {
+            // ASM loc_60AA (kid.asm:6078): non-Mountain path —
+            // `move.w (a0)+,(a1)+; dbf d0,loc_60AA` with d0=6 copies 7 words
+            // to Palette_Buffer_3+$32, then clears Palette_Buffer_3[0].
             state
                 .palette_ops
                 .push(WeatherPaletteOpSub6048::WritePaletteBuffer3 {
                     start_word: 0x19,
-                    words: saved_storm_palette.to_vec(),
+                    words: saved_storm_palette[..7].to_vec(),
                 });
             state
                 .palette_ops
