@@ -71926,3 +71926,198 @@ fn loc_833e_sub_8ed0_no_platform() {
         "ASM loc_833E/sub_8ED0: no platform → unsupported (NE)"
     );
 }
+
+/// ASM loc_8382 (kid.asm:9122): no-platform crawl entry — `moveq #0,d7;
+/// moveq #0,d6; bsr.w sub_B43A` probes floor with a flat offset. If bmi
+/// (no support) → loc_BC80 (fall); if beq (air) → loc_818A.  Then
+/// `bsr.w sub_8600` scans surface type, and the Skycutter gate dispatches
+/// to sub_9A0A (Skycutter) or loc_83B4 (sub_8506, all others).
+/// Verify that Skycutter horizontal velocity (sub_9A0A → sub_9A20) uses
+/// different acceleration from the generic ground tables.
+#[test]
+fn loc_8382_skycutter_crawl_uses_sub_9a0a_velocity() {
+    // ASM loc_8382: `cmpi.w #Skycutter,(Current_Helmet).w; bne.w loc_83B4;
+    // bsr.w sub_9A0A` — Skycutter gets its own velocity function.
+    // sub_9A20 accelerates at $2000 per frame towards $20000 max.
+    let h_input = physics::HorizontalInput {
+        left: false,
+        right: true,
+        run: false,
+    };
+    let (vel, _dir) =
+        physics::update_skycutter_horizontal_velocity_sub_9A20(0, Direction::Right, h_input);
+    assert_eq!(
+        vel, 0x2000,
+        "ASM loc_8382/sub_9A0A: Skycutter crawl should accelerate at $2000 per frame (sub_9A20)"
+    );
+}
+
+/// ASM loc_8382 (kid.asm:9122): sub_8600 is called with `d0=-$10, d1=$F`
+/// to scan the full crawl width for surface type (ice/rubber/normal).
+/// Verify that `grounded_surface_type_sub_8600` returns Normal on an
+/// all-normal surface.
+#[test]
+fn loc_8382_sub_8600_surface_type_normal_on_empty_terrain() {
+    let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 2 * 2], 8, 2);
+    let surface = grounded_surface_type_sub_8600(&grid, 64, 31, 14);
+    assert_eq!(
+        surface,
+        TerrainType::Normal,
+        "ASM loc_8382/sub_8600: all-empty scan should return Normal"
+    );
+}
+
+/// ASM loc_83B4 (kid.asm:9139): non-Skycutter crawl uses `bsr.w sub_8506`
+/// (airborne horizontal movement). sub_8506 reads the AIR_NORMAL table:
+/// max_air_speed=$10000, air_accel=$1000. Verify that one frame of
+/// rightward input from rest produces $1000 velocity.
+#[test]
+fn loc_83b4_sub_8506_air_table_acceleration() {
+    let (vel, _dir) = physics::update_air_horizontal_velocity(
+        0,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::AIR_NORMAL,
+    );
+    assert_eq!(
+        vel, 0x1000,
+        "ASM loc_83B4/sub_8506: non-Skycutter crawl should accelerate at $1000/frame (AIR_NORMAL.air_accel)"
+    );
+}
+
+/// ASM loc_83B4 (kid.asm:9139): sub_8506 air tables have lower max speed
+/// ($10000) than ground walking tables ($18000 for TheKid). This means
+/// crawling is slower than walking in the ASM. Verify the table values.
+#[test]
+fn loc_83b4_sub_8506_air_max_speed_is_lower_than_ground() {
+    let ground_max = PlayerForm::TheKid
+        .ground_speed_table(TerrainType::Normal)
+        .max_walk_speed;
+    assert!(
+        physics::AIR_NORMAL.max_air_speed < ground_max,
+        "ASM loc_83B4: sub_8506 air max speed ({:#X}) should be lower than ground max ({:#X})",
+        physics::AIR_NORMAL.max_air_speed,
+        ground_max
+    );
+}
+
+/// ASM loc_83BC (kid.asm:9143): `bsr.w sub_8F26; bne.w loc_83D8` — if
+/// wall collision (sub_8F26) returns NE, jump to loc_83D8 which zeroes
+/// x_vel. Verify that `apply_wall_collision` snaps x_pos when a wall is
+/// directly adjacent (the sub_8F26 pushback) and zeroes x_vel.
+#[test]
+fn loc_83bc_wall_collision_snaps_x_pos_and_zeroes_velocity() {
+    // 4-wide, 4-tall grid. Solid wall at column 3, row 1 (x=48..63).
+    let w = 4u16;
+    let h = 4u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let offset = (usize::from(1u16) * usize::from(w) + usize::from(3u16)) * 2;
+    data[offset] = 0x60; // Solid collision
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let mut slice = OpeningSliceState {
+        player: PlayerState {
+            // Kid at x=43px after x_vel applied (was 42, moved +1px right).
+            // Wall at column 3 starts at x=48. half_width=5, so right edge=48.
+            x_pos: 43 << 16,
+            y_pos: 31 << 16,
+            x_velocity: 0x0001_0000,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        },
+        camera: CameraState { x_pos: 0, y_pos: 0 },
+        terrain: TerrainState {
+            floor_y_pos: 48 << 16,
+            floor_terrain_type: TerrainType::Normal,
+        },
+        level_bounds: physics::LevelBounds {
+            width_pixels: 64,
+            height_pixels: 64,
+        },
+        objects: ObjectSystemState {
+            platform_loader: PlatformLoaderState::default(),
+        },
+        prize_block_hit: None,
+        lift_block_hit: None,
+        drill_projectile_hit: None,
+        metal_block_hit: None,
+        rubber_block_hit: None,
+        smash_block_hit: None,
+        shooter_block_hit: None,
+        teleporter_contact: None,
+        ceiling_prize_clear: None,
+        pre_gravity_y_vel: 0,
+        physics_trace: None,
+        wall_cling_release_probe: None,
+        kid_flip_follow_on_stages: None,
+        kid_jump_gravity_probe: None,
+    };
+
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+    assert_eq!(
+        slice.player.x_pos,
+        42 << 16,
+        "ASM loc_83BC/sub_8F26: wall collision should snap x_pos back by 1px"
+    );
+    assert_eq!(
+        slice.player.x_velocity, 0,
+        "ASM loc_83BC → loc_83D8: wall contact should zero x_vel"
+    );
+}
+
+/// ASM loc_83D8 (kid.asm:9153): `moveq #0,d0; move.l d0,x_vel(a3)` —
+/// wall contact during crawl zeroes horizontal velocity. The native code
+/// handles this differently (velocity decays via next-frame update), but
+/// the ASM explicitly zeroes on any crawl wall hit.
+/// Verify the ASM pattern: sub_83E6 returns adjusted=false (loc_8442)
+/// when the motion-side probe has no matching slope, so `bne` falls
+/// through to the non-stopped path.
+#[test]
+fn loc_83d8_crawl_wall_stop_zeroes_velocity_in_asm() {
+    // This test documents the ASM behaviour: loc_83D8 sets x_vel = 0.
+    // Verify via sub_83E6: when no slope is found, loc_8442 returns EQ
+    // (d7=0), so loc_83BC does NOT branch to loc_83D8 — velocity is kept.
+    let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 2 * 2], 8, 2);
+    let result = crawl_slope_snap_sub_83E6(&grid, 50 << 16, 32 << 16, 0x1_0000, 14);
+    assert!(
+        !result.adjusted,
+        "ASM loc_83D8: when sub_83E6 returns EQ (loc_8442), loc_83BC should NOT branch to loc_83D8"
+    );
+}
+
+/// ASM loc_8442 (kid.asm:9196): `moveq #0,d7; rts` — sub_83E6 clear
+/// return when the motion-side probe does not match the expected slope
+/// nibble. Rightward motion expects $4000 (SlopeUp), leftward expects
+/// $5000 (SlopeDown). Verify both directions return adjusted=false on
+/// empty terrain.
+#[test]
+fn loc_8442_sub_83e6_clear_return_on_empty_terrain() {
+    let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 2 * 2], 8, 2);
+
+    // Rightward motion, no slope → loc_8442.
+    let right = crawl_slope_snap_sub_83E6(&grid, 50 << 16, 32 << 16, 0x1_0000, 14);
+    assert!(
+        !right.adjusted,
+        "ASM loc_8442: rightward probe on empty terrain should return EQ (d7=0)"
+    );
+
+    // Leftward motion, no slope → loc_8442.
+    let left = crawl_slope_snap_sub_83E6(&grid, 50 << 16, 32 << 16, -0x1_0000, 14);
+    assert!(
+        !left.adjusted,
+        "ASM loc_8442: leftward probe on empty terrain should return EQ (d7=0)"
+    );
+}

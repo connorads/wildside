@@ -3036,12 +3036,25 @@ impl OpeningSliceState {
                     self.terrain.floor_terrain_type,
                 )
             } else if form == PlayerForm::Skycutter {
+                // ASM loc_8382 (kid.asm:9122): no-platform crawl entry —
+                // `cmpi.w #Skycutter,(Current_Helmet).w; bne.w loc_83B4;
+                // bsr.w sub_9A0A`. Skycutter uses sub_9A0A (which falls
+                // through to sub_9A20) for crawl horizontal velocity.
+                // Native: same Skycutter branch here covers both walking
+                // and crawling.
                 physics::update_skycutter_horizontal_velocity_sub_9A20(
                     self.player.x_velocity,
                     self.player.facing,
                     h_input,
                 )
             } else {
+                // ASM loc_83B4 (kid.asm:9139): non-Skycutter crawl uses
+                // `bsr.w sub_8506` (airborne horizontal tables), NOT the
+                // ground walking tables. Native uses ground tables for all
+                // grounded movement uniformly.
+                // TODO(fidelity): crawling should use sub_8506 air tables
+                // (physics::update_air_horizontal_velocity) instead of
+                // ground speed tables when the player is crawling.
                 physics::update_horizontal_velocity(
                     self.player.x_velocity,
                     self.player.facing,
@@ -4487,6 +4500,20 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
     x_velocity: i32,
     half_width: i32,
 ) -> CrawlSlopeSnapSub83E6 {
+    // ASM loc_83BC (kid.asm:9143): after velocity update, `bsr.w sub_8F26`
+    // (wall collision). If NE (wall hit) → loc_83D8 (zero x_vel). If EQ
+    // (no wall), `bsr.w sub_83E6` (slope snap). If NE → loc_83D8 (zero
+    // x_vel). Otherwise load x_vel, `bsr.w sub_8446` (walk sprite), back
+    // to loc_8218. Native: wall collision is `apply_wall_collision`;
+    // sub_83E6 exists as this function but is not yet integrated into the
+    // crawl frame loop.
+    //
+    // ASM loc_83D8 (kid.asm:9153): wall/slope stop — `moveq #0,d0;
+    // move.l d0,x_vel(a3); bsr.w sub_8446; bra.w loc_8218`. Zeroes
+    // x_vel on wall contact or slope snap. Native: wall collision already
+    // snaps x_pos (sub_8F26 pushback) but does not separately zero x_vel
+    // for the crawl path — the velocity update next frame handles decay.
+    //
     // ASM sub_83E6 (kid.asm:9163): when crawling without a direct wall hit,
     // inspect the motion-side foot cell. Rightward or neutral motion accepts
     // only `$4000` slope-up and nudges left by the low nibble + 1; leftward
@@ -4523,6 +4550,10 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
         };
     }
 
+    // ASM loc_8442 (kid.asm:9196): clear return — `moveq #0,d7; rts`.
+    // Motion-side probe did not match the expected slope nibble ($4000
+    // rightward / $5000 leftward), so no snap is applied and the caller
+    // (loc_83BC) sees EQ (not blocked).
     CrawlSlopeSnapSub83E6 {
         x_pos: original_x_pos,
         adjusted: false,
