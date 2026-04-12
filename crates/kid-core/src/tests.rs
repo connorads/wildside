@@ -11883,6 +11883,111 @@ fn diamond_power_init_wall_of_death_timer_is_1200_loc_40006() {
     );
 }
 
+// ── FiveWayShot init (loc_400DE, loc_400F4, loc_40110) ──────────────────────
+
+#[test]
+fn five_way_shot_init_allocates_5_slots_loc_400f4() {
+    // ASM DiamondPower_Init_FiveWayShot (kid.asm:45461):
+    // moveq #4,d1 → 5 slots via dbf.
+    let result = helmets::diamond_power_init_five_way_shot(0x100, 0x80, 0, 0, false);
+    assert_eq!(
+        result.slots.len(),
+        5,
+        "ASM loc_400F4: dbf with d1=4 loops 5 times"
+    );
+}
+
+#[test]
+fn five_way_shot_init_screen_position_loc_400de() {
+    // ASM loc_400DE: d2 = x_pos - Camera_X_pos + d4; d3 = y_pos - Camera_Y_pos
+    // When x_direction == 0 (facing right), d4 = +$20.
+    let result = helmets::diamond_power_init_five_way_shot(0x100, 0x80, 0x40, 0x20, false);
+    // screen_x = 0x100 - 0x40 + 0x20 = 0xE0
+    // screen_y = 0x80 - 0x20 = 0x60
+    for (i, slot) in result.slots.iter().enumerate() {
+        assert_eq!(
+            slot.screen_x, 0xE0,
+            "ASM loc_400DE: slot {i} screen_x = kid_x - cam_x + $20"
+        );
+        assert_eq!(
+            slot.screen_y, 0x60,
+            "ASM loc_400DE: slot {i} screen_y = kid_y - cam_y"
+        );
+    }
+}
+
+#[test]
+fn five_way_shot_init_screen_position_facing_left_loc_400de() {
+    // ASM loc_400DE: when x_direction != 0, d4 is negated to -$20.
+    let result = helmets::diamond_power_init_five_way_shot(0x100, 0x80, 0x40, 0x20, true);
+    // screen_x = 0x100 - 0x40 + (-0x20) = 0xA0
+    for slot in &result.slots {
+        assert_eq!(
+            slot.screen_x, 0xA0,
+            "ASM loc_400DE: neg.w d4 when x_direction nonzero"
+        );
+    }
+}
+
+#[test]
+fn five_way_shot_init_x_velocities_facing_right_loc_40110() {
+    // ASM loc_400F4/loc_40110: x_vel from word_40124, NOT negated when
+    // x_direction == 0 (beq.s loc_40110 skips neg.w).
+    let result = helmets::diamond_power_init_five_way_shot(0, 0, 0, 0, false);
+    let x_vels: Vec<i16> = result.slots.iter().map(|s| s.x_vel).collect();
+    assert_eq!(
+        x_vels,
+        vec![6, 7, 8, 7, 6],
+        "ASM loc_40110: word_40124 x velocities, unmirrored"
+    );
+}
+
+#[test]
+fn five_way_shot_init_x_velocities_facing_left_loc_40110() {
+    // ASM loc_400F4: when x_direction != 0, neg.w d4 mirrors x velocities.
+    let result = helmets::diamond_power_init_five_way_shot(0, 0, 0, 0, true);
+    let x_vels: Vec<i16> = result.slots.iter().map(|s| s.x_vel).collect();
+    assert_eq!(
+        x_vels,
+        vec![-6, -7, -8, -7, -6],
+        "ASM loc_400F4: neg.w d4 when x_direction nonzero"
+    );
+}
+
+#[test]
+fn five_way_shot_init_y_velocities_loc_40110() {
+    // ASM loc_40110: move.w (a5)+,$2A(a0) — y_vel from word_40124,
+    // never direction-mirrored.
+    let result = helmets::diamond_power_init_five_way_shot(0, 0, 0, 0, false);
+    let y_vels: Vec<i16> = result.slots.iter().map(|s| s.y_vel).collect();
+    assert_eq!(
+        y_vels,
+        vec![-4, -2, 0, 2, 4],
+        "ASM loc_40110: word_40124 y velocities, fan pattern"
+    );
+    // Y velocities should be identical regardless of facing direction
+    let result_left = helmets::diamond_power_init_five_way_shot(0, 0, 0, 0, true);
+    let y_vels_left: Vec<i16> = result_left.slots.iter().map(|s| s.y_vel).collect();
+    assert_eq!(y_vels, y_vels_left, "y velocities unaffected by direction");
+}
+
+#[test]
+fn five_way_shot_init_size_and_timer_loc_400f4() {
+    // ASM loc_400F4: move.w #5,$24(a0) — all slots have size_index = 5.
+    // ASM loc_40110: move.w #$50,(Diamond_power_timer).w — timer = 80.
+    let result = helmets::diamond_power_init_five_way_shot(0, 0, 0, 0, false);
+    for (i, slot) in result.slots.iter().enumerate() {
+        assert_eq!(
+            slot.size_index, 5,
+            "ASM loc_400F4: move.w #5,$24(a0) — slot {i}"
+        );
+    }
+    assert_eq!(
+        result.diamond_power_timer, 0x50,
+        "ASM loc_40110: Diamond_power_timer = $50 (80)"
+    );
+}
+
 // ── WallOfDeath main per-slot (loc_40026, loc_40044, loc_40060) ─────────────
 
 #[test]

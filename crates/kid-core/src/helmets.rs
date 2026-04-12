@@ -1699,6 +1699,114 @@ fn wall_of_death_compile_sprite(
     }
 }
 
+/// Velocity table for FiveWayShot slots (ASM word_40124, kid.asm:45501).
+///
+/// Each entry is (x_vel_hi, y_vel_hi) — written to the high word of x_vel/y_vel.
+/// The 5 slots form a fan: upward-left, upward, straight, downward, downward-right
+/// (when Kid faces right; mirrored when facing left).
+const FIVE_WAY_SHOT_VELOCITY_TABLE: [(i16, i16); 5] = [
+    (6, -4), // dc.w 6, $FFFC
+    (7, -2), // dc.w 7, $FFFE
+    (8, 0),  // dc.w 8, 0
+    (7, 2),  // dc.w 7, 2
+    (6, 4),  // dc.w 6, 4
+];
+
+/// Single slot from FiveWayShot init.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FiveWayShotSlot {
+    /// $3E(a0) — screen-relative x position (Kid x - camera x + offset).
+    pub(crate) screen_x: i16,
+    /// $40(a0) — screen-relative y position (Kid y - camera y).
+    pub(crate) screen_y: i16,
+    /// $26(a0) high word — screen-space x velocity per frame.
+    pub(crate) x_vel: i16,
+    /// $2A(a0) high word — screen-space y velocity per frame.
+    pub(crate) y_vel: i16,
+    /// $24(a0) — size index for sprite lookup. Initialised to 5.
+    pub(crate) size_index: u16,
+}
+
+/// Result of `diamond_power_init_five_way_shot`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FiveWayShotInitResult {
+    pub(crate) slots: Vec<FiveWayShotSlot>,
+    /// Diamond_power_timer set to $50 (80).
+    pub(crate) diamond_power_timer: u16,
+}
+
+/// ASM DiamondPower_Init_FiveWayShot (kid.asm:45461).
+///
+/// `moveq #4,d1` — 5 slots via dbf. `move.w #$20,d4` — initial x offset.
+/// `tst.b x_direction(a3); beq.s loc_400DE; neg.w d4` — negate offset
+/// when x_direction is nonzero (Kid facing left).
+///
+/// loc_400DE (kid.asm:45474): compute screen-relative spawn position —
+///   `move.w x_pos(a3),d2; sub.w (Camera_X_pos).w,d2; add.w d4,d2` — screen X
+///   `move.w y_pos(a3),d3; sub.w (Camera_Y_pos).w,d3` — screen Y
+///   `lea word_40124(pc),a5` — load velocity table pointer.
+///
+/// loc_400F4 (kid.asm:45482): per-slot allocation loop —
+///   `bsr.w Allocate_DiamondPowerObjectSlot`
+///   `move.w #5,$24(a0)` — size_index = 5
+///   `move.w d2,$3E(a0)` — screen_x
+///   `move.w d3,$40(a0)` — screen_y
+///   `move.w (a5)+,d4` — load x_vel from table
+///   `tst.b x_direction(a3); beq.s loc_40110; neg.w d4` — mirror x_vel
+///
+/// loc_40110 (kid.asm:45492): store velocities and loop —
+///   `move.w d4,$26(a0)` — x_vel high word
+///   `move.w (a5)+,$2A(a0)` — y_vel high word
+///   `dbf d1,loc_400F4` — loop 5 times
+///   `move.w #$50,(Diamond_power_timer).w` — timer = 80.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_init_five_way_shot(
+    kid_x: i16,
+    kid_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+    x_direction_nonzero: bool,
+) -> FiveWayShotInitResult {
+    // ASM: move.w #$20,d4; tst.b x_direction(a3); beq.s loc_400DE; neg.w d4
+    let offset: i16 = if x_direction_nonzero { -0x20 } else { 0x20 };
+
+    // ASM loc_400DE: screen-relative spawn position
+    // move.w x_pos(a3),d2; sub.w (Camera_X_pos).w,d2; add.w d4,d2
+    let screen_x = kid_x.wrapping_sub(camera_x).wrapping_add(offset);
+    // move.w y_pos(a3),d3; sub.w (Camera_Y_pos).w,d3
+    let screen_y = kid_y.wrapping_sub(camera_y);
+
+    let mut slots = Vec::with_capacity(5);
+
+    // ASM loc_400F4: per-slot allocation loop (moveq #4,d1 → 5 iterations)
+    for &(raw_x_vel, y_vel) in &FIVE_WAY_SHOT_VELOCITY_TABLE {
+        // ASM: move.w (a5)+,d4; tst.b x_direction(a3); beq.s loc_40110; neg.w d4
+        let x_vel = if x_direction_nonzero {
+            raw_x_vel.wrapping_neg()
+        } else {
+            raw_x_vel
+        };
+
+        // ASM loc_40110: move.w d4,$26(a0); move.w (a5)+,$2A(a0)
+        slots.push(FiveWayShotSlot {
+            screen_x,      // move.w d2,$3E(a0)
+            screen_y,      // move.w d3,$40(a0)
+            x_vel,         // move.w d4,$26(a0)
+            y_vel,         // move.w (a5)+,$2A(a0)
+            size_index: 5, // move.w #5,$24(a0)
+        });
+    }
+
+    // ASM: move.w #$50,(Diamond_power_timer).w
+    FiveWayShotInitResult {
+        slots,
+        diamond_power_timer: 0x50, // 80
+    }
+}
+
 /// ASM loc_3FA16 through loc_3FA46: compute 8-way octant direction from
 /// the snake head to its target, used by the snake steering loop.
 ///
