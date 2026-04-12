@@ -15,6 +15,7 @@ mod scenario;
 pub mod terrain;
 mod trace;
 pub(crate) mod types;
+pub mod vdp;
 mod weather;
 
 use combat::{PendingSoundEffect, QueuedSoundEffect};
@@ -111,6 +112,13 @@ pub struct NativeRuntime {
     blocks_hit_this_frame: u8,
     /// Sound test play pending (consumed each frame).
     sound_test_play_pending: bool,
+    /// Cached Sega screen art and palette data (loaded once, reused each frame).
+    sega_screen_data: Option<vdp::SegaScreenData>,
+    /// Software VDP state for non-gameplay screens (Sega logo, intro, title).
+    /// Populated each frame during boot modes so the VDP renderer can produce
+    /// accurate frames; `None` during gameplay where the pre-extracted asset
+    /// pipeline handles rendering.
+    vdp_state: Option<vdp::VdpState>,
     /// ASM sub_914 / sub_924 nest counter at `$FFFFF805`: active Z80 stop
     /// requests. Zero means the Z80 bus may run; non-zero keeps it halted.
     #[allow(dead_code)]
@@ -746,6 +754,7 @@ struct PendingStompBounce {
 
 impl NativeRuntime {
     pub fn new(assets: AssetManifest) -> Self {
+        let sega_screen_data = vdp::load_sega_screen_data(&assets).ok();
         let mut runtime = Self {
             assets,
             frame_index: 0,
@@ -797,6 +806,8 @@ impl NativeRuntime {
             rom_random: RomRandomState::default(),
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,
+            sega_screen_data,
+            vdp_state: None,
             z80_stop_request_depth: 0,
             z80_guard_sr: 0x2500,
             z80_running: true,
@@ -882,6 +893,7 @@ impl NativeRuntime {
         };
         runtime.reload_block_grid_for_level(LevelId(0));
         runtime.load_platform_script_table();
+        runtime.update_vdp_state();
         runtime
     }
 
@@ -953,8 +965,28 @@ impl NativeRuntime {
         self.block_grid_source = BlockGridSource::Manual;
     }
 
+    /// Rebuild VDP state based on the current boot phase.
+    /// Called once per frame after `step_boot_state`.
+    fn update_vdp_state(&mut self) {
+        self.vdp_state = match &self.boot_state {
+            BootState::SegaScreen { elapsed } => self
+                .sega_screen_data
+                .as_ref()
+                .map(|data| vdp::build_sega_screen_vdp(data, *elapsed)),
+            // TODO(fidelity): add IntroSequence, TitleScreen VDP state
+            _ => None,
+        };
+    }
+
     pub fn block_grid(&self) -> Option<&terrain::BlockGrid> {
         self.block_grid.as_ref()
+    }
+
+    /// Returns the current VDP state for non-gameplay screen rendering.
+    /// `Some` during Sega screen, intro sequences, and title screen;
+    /// `None` during gameplay where the pre-extracted asset pipeline renders.
+    pub fn vdp_state(&self) -> Option<&vdp::VdpState> {
+        self.vdp_state.as_ref()
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
@@ -1007,6 +1039,7 @@ impl NativeRuntime {
         let frame_started_in_level_entry =
             matches!(self.boot_state, BootState::StartingLevel { .. });
         self.step_boot_state(input, start_pressed);
+        self.update_vdp_state();
         if frame_started_in_sega_screen
             && matches!(self.boot_state, BootState::IntroSequence { .. })
         {

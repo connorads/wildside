@@ -9,8 +9,7 @@ use kid_data::{DiamondHudDmaTransferSub5D4A, diamond_hud_dma_transfer_sub_5D4A};
 
 /// ASM VDPGameInitValues (kid.asm:550-570): 19 bytes of per-register init data.
 /// Each byte is the low byte of a VDP register command ($80xx–$92xx).
-#[allow(dead_code)]
-const VDP_GAME_INIT_VALUES: [u8; 19] = [
+pub(crate) const VDP_GAME_INIT_VALUES: [u8; 19] = [
     0x14, // $8014 — HInt on, enable HV counter read
     0x74, // $8174 — display on, VInt on, DMA on, PAL off
     0x00, // $8200 — Scroll A address $0000

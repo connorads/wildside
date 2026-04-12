@@ -295,13 +295,23 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         eprintln!("Recording enabled: press F10 to save the current bundle and exit.");
     }
 
-    let scene = build_scene(
-        &trace,
-        debug_overlay_visible,
-        Some(&session_assets.level_visuals),
-        runtime.block_grid(),
-    );
-    render_scene(&scene, &mut frame);
+    if let Some(vdp) = runtime.vdp_state() {
+        let snapshot = kid_md::VdpSnapshot {
+            registers: vdp.registers,
+            vram: vdp.vram.clone(),
+            cram: vdp.cram.clone(),
+            vsram: vdp.vsram.clone(),
+        };
+        kid_md::render_vdp_into(&snapshot, &mut frame);
+    } else {
+        let scene = build_scene(
+            &trace,
+            debug_overlay_visible,
+            Some(&session_assets.level_visuals),
+            runtime.block_grid(),
+        );
+        render_scene(&scene, &mut frame);
+    }
     texture
         .update(None, &frame, (FRAME_WIDTH as usize) * 3)
         .map_err(|error| anyhow!("failed to update SDL texture: {error}"))?;
@@ -522,13 +532,25 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             trace.clone()
         };
 
-        let scene = build_scene(
-            &render_trace,
-            debug_overlay_visible,
-            Some(&session_assets.level_visuals),
-            runtime.block_grid(),
-        );
-        render_scene(&scene, &mut frame);
+        if let Some(vdp) = runtime.vdp_state() {
+            // Non-gameplay mode with VDP state: render directly using the
+            // proven software VDP renderer for pixel-accurate output.
+            let snapshot = kid_md::VdpSnapshot {
+                registers: vdp.registers,
+                vram: vdp.vram.clone(),
+                cram: vdp.cram.clone(),
+                vsram: vdp.vsram.clone(),
+            };
+            kid_md::render_vdp_into(&snapshot, &mut frame);
+        } else {
+            let scene = build_scene(
+                &render_trace,
+                debug_overlay_visible,
+                Some(&session_assets.level_visuals),
+                runtime.block_grid(),
+            );
+            render_scene(&scene, &mut frame);
+        }
 
         // Apply fade overlay: darken all pixels by fade_alpha/255
         if fade_alpha > 0 {
