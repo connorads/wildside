@@ -2554,6 +2554,10 @@ fn be_bytes_to_longwords_sub_C3DA(bytes: &[u8]) -> Result<Vec<u32>> {
 }
 
 fn dma_source_register_words(source_address: u32) -> [u16; 3] {
+    // ASM loc_5D6C (kid.asm:5782): programme VDP registers $95/$96/$97 with
+    // the DMA source address.  `d0 = source >> 1`; low byte → `$9500|d1`,
+    // mid byte → `$9600|d1`, high byte → `$9700|d0`.  Same sequence appears
+    // in sub_5DA6 for the flag DMA.
     let shifted = source_address >> 1;
     [
         0x9500 | ((shifted as u16) & 0x00FF),
@@ -7344,6 +7348,34 @@ AddrTbl_LevelNames:   ;1A842
                 .to_string()
                 .contains("expects a 4-byte selector into `off_7B0AC`"),
             "the failure should explain the longword selector requirement from ASM sub_5D4A",
+        );
+    }
+
+    #[test]
+    fn loc_5d6c_dma_source_registers_match_asm_bit_packing() {
+        // ASM loc_5D6C (kid.asm:5782): the DMA source address register
+        // programming sequence inside sub_5D4A.  Given `unk_99FCA` + 2 =
+        // `$0009_9FCC`, `d0 = $0009_9FCC >> 1 = $0004_CFE6`:
+        //   $9500 | (d0 & $FF)       = $95E6   (low byte)
+        //   $9600 | ((d0 >> 8) & $FF) = $96CF   (mid byte)
+        //   $9700 | ((d0 >> 16) & $FF) = $9704  (high byte)
+        let transfer = diamond_hud_dma_transfer_sub_5D4A(0)
+            .expect("first diamond frame selector should be valid");
+
+        assert_eq!(
+            transfer.dma_source_registers,
+            [0x95E6, 0x96CF, 0x9704],
+            "ASM loc_5D6C should pack source address $0009_9FCC into VDP registers $95/$96/$97",
+        );
+
+        // Verify the last entry too — different address, same bit-packing
+        // logic.  `unk_9A5D0` + 2 = `$0009_A5D2`, shifted = `$0004_D2E9`.
+        let last = diamond_hud_dma_transfer_sub_5D4A(0x000C)
+            .expect("last diamond frame selector should be valid");
+        assert_eq!(
+            last.dma_source_registers,
+            [0x95E9, 0x96D2, 0x9704],
+            "ASM loc_5D6C bit-packing should be consistent across all `off_7B0AC` entries",
         );
     }
 

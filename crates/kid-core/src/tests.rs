@@ -58953,6 +58953,66 @@ fn flag_hud_dma_upload_sub_5da6_targets_the_flag_vram_slot() {
 }
 
 #[test]
+fn loc_4680_flag_art_frame_load_indexes_off_4668_via_frame_byte() {
+    // ASM loc_4680 (kid.asm:5748): when the flag countdown expires, the
+    // animation script advances by 2 bytes.  The second byte is the frame
+    // table byte offset that indexes into `off_4668` (6 pointers at
+    // `ANIART_FLAG_SIZE` = `$280`-byte stride into `ArtUnc_4C92`).
+    // AniArt_Flag[4..5] = (6, 0x08) → speed 6, frame offset 0x08 (3rd frame).
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 10,
+        coin_frame_offset_fb60: 0,
+        life_countdown_fb59: 10,
+        life_frame_offset_fb5e: 0,
+        clock_countdown_fb5a: 10,
+        clock_frame_offset_fb5f: 0,
+        diamond_countdown_fb58: 10,
+        diamond_frame_offset_fb5d: 0,
+        flag_countdown_fb5c: 1,
+        flag_frame_offset_fb61: 2,
+    });
+
+    assert_eq!(
+        step.flag_upload,
+        Some(FlagHudDmaUploadSub44DC {
+            asset_label: "ArtUnc_4C92",
+            vram_byte_address: 0xD340,
+            frame_table_byte_offset: 0x08,
+        }),
+        "ASM loc_4680 should read frame byte 0x08 from AniArt_Flag and target VRAM $D340 via sub_5DA6",
+    );
+}
+
+#[test]
+fn loc_468c_flag_countdown_stored_from_speed_byte() {
+    // ASM loc_468C (kid.asm:5754): `move.b d7,($FFFFFA5C).w` stores the
+    // speed byte (d7) read from AniArt_Flag as the next flag countdown.
+    // AniArt_Flag[4] = 6 → flag_countdown_fb5c should be set to 6 after
+    // the flag animation advances from offset 2 to offset 4.
+    let step = step_hud_animation_sub_44DC(HudAnimationStateSub44DC {
+        coin_countdown_fb5b: 10,
+        coin_frame_offset_fb60: 0,
+        life_countdown_fb59: 10,
+        life_frame_offset_fb5e: 0,
+        clock_countdown_fb5a: 10,
+        clock_frame_offset_fb5f: 0,
+        diamond_countdown_fb58: 10,
+        diamond_frame_offset_fb5d: 0,
+        flag_countdown_fb5c: 1,
+        flag_frame_offset_fb61: 2,
+    });
+
+    assert_eq!(
+        step.next_state.flag_countdown_fb5c, 6,
+        "ASM loc_468C should store the speed byte from AniArt_Flag[4] = 6 as the next flag countdown",
+    );
+    assert_eq!(
+        step.next_state.flag_frame_offset_fb61, 4,
+        "flag frame offset should advance from 2 to 4 after the flag pair table steps forward",
+    );
+}
+
+#[test]
 fn step_hud_animation_sub_44dc_keeps_existing_offsets_when_no_counter_expires() {
     let state = HudAnimationStateSub44DC {
         coin_countdown_fb5b: 5,

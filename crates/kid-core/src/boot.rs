@@ -162,6 +162,11 @@ pub(crate) struct FlagHudDmaUploadSub44DC {
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn flag_hud_dma_upload_sub_5DA6(frame_table_byte_offset: u8) -> FlagHudDmaUploadSub44DC {
+    // ASM loc_4680 (kid.asm:5748): read the art frame byte from `(a4)`,
+    // sign-extend to word, index into `off_4668` (6 longword pointers at
+    // `ANIART_FLAG_SIZE` = `$280`-byte stride into `ArtUnc_4C92`), then call
+    // sub_5DA6 for the DMA upload.
+    //
     // ASM sub_5DA6 (kid.asm:5803): stop Z80, configure a DMA of
     // `ANIART_FLAG_SIZE` bytes from `a1`, and write it to VRAM byte `$D340`.
     // `sub_44DC` selects the source frame by advancing the byte offset inside
@@ -394,6 +399,10 @@ pub(crate) fn step_hud_animation_sub_44DC(
             diamond_hud_dma_transfer_sub_5D4A(u16::from(frame_table_byte_offset))
                 .expect("ASM sub_44DC only emits selectors from `unk_461C` that fit sub_5D4A")
         }),
+        // ASM loc_468C (kid.asm:5754): `move.b d7,($FFFFFA5C).w; rts` — store
+        // the speed byte (d7) from `AniArt_Flag` as the next flag countdown.
+        // The native equivalent is the `flag_countdown_fb5c` field returned by
+        // `step_hud_animation_pair_table`.
         flag_upload: flag_frame.map(flag_hud_dma_upload_sub_5DA6),
     }
 }
