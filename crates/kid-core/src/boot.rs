@@ -1546,6 +1546,43 @@ pub(crate) fn pause_darken_palette_loc_6C70(palette_buffer: &mut [u16; 0x40]) {
     }
 }
 
+/// ASM loc_7508 (kid.asm:7652–7660): at level start, the Kid object entry
+/// point loads a helmet-specific palette into palette line 3.
+///
+/// `move.w (Current_Helmet).w,d0; add.w d0,d0` indexes the `off_80F2` table
+/// (10 word offsets, one per helmet) to find a Data_Index pointer.  That
+/// pointer references 12 words of BGR palette data copied to
+/// `Palette_Buffer+$62` (palette line 3, colours $31–$3C):
+///
+/// ```text
+/// lea (Data_Index).l,a0          ; base ROM asset pointer table
+/// lea off_80F2(pc),a1            ; per-helmet palette offset table
+/// add.w (a1,d0.w),a0             ; a0 → helmet palette data
+/// move.l (a0),a0                 ; dereference Data_Index entry
+/// lea (Palette_Buffer+$62).l,a1  ; dest = palette line 3 + $22
+/// moveq #$B,d0                   ; 12 words ($B+1)
+/// ```
+///
+/// ASM loc_7526 (kid.asm:7662–7664) is the inner loop:
+/// `move.w (a0)+,(a1)+; dbf d0,loc_7526`.
+///
+/// The native port does not model CRAM palette buffers at the rendering level,
+/// so this function documents the table structure for auditing.
+///
+/// Returns `(dest_word_offset, word_count)`.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const fn helmet_palette_copy_params_loc_7508() -> (usize, usize) {
+    // Palette_Buffer+$62 = byte offset $62 / 2 = word offset $31.
+    // 12 words = $B+1 (dbf counter $B = 12 iterations).
+    (0x31, 12)
+}
+
+/// Number of entries in the ASM `off_80F2` helmet palette offset table
+/// (kid.asm:8850–8859).  One entry per helmet ID (0=TheKid through
+/// 9=Micromax).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const HELMET_PALETTE_TABLE_ENTRIES_LOC_7508: usize = 10;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IoPortFlagsSub6E24 {
     pub(crate) bit_7_clear_flag: bool,

@@ -11185,10 +11185,12 @@ impl NativeRuntime {
                 camera_y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
             };
         };
+        // ASM loc_7526 (kid.asm:7674–7676): Kid gfx object setup —
+        // `move.w (PlayerStart_X_pos).w,x_pos(a3)`.
         let kid_x_pos = u32::from(header.player_start_x) << 16;
-        // The ASM applies `subq.w #1,y_pos` when placing the player sprite,
-        // putting the player 1 pixel above the header value (into the floor
-        // cell above, not the empty cell below).
+        // ASM loc_7526 (kid.asm:7675–7676): `move.w (PlayerStart_Y_pos).w,
+        // y_pos(a3); subq.w #1,y_pos(a3)` — places Kid 1 pixel above the
+        // header spawn Y (into the floor cell above, not the empty cell below).
         let kid_y_pos = u32::from(header.player_start_y.saturating_sub(1)) << 16;
         // Camera snaps to screen boundary: floor(pos / screen_size) * screen_size
         // This matches the ASM at Load_InGame (divu.w #$140 / mulu.w #$140).

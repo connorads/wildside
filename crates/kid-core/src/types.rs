@@ -756,6 +756,8 @@ impl PlayerForm {
     }
 
     /// Per-form collision half-width from ASM unk_B408 table (kid.asm:14307).
+    /// Called via sub_B41C at level start (loc_757E, kid.asm:7689) and during
+    /// helmet transform (sub_7ACC, kid.asm:8188).
     /// Used by sub_8F26 (wall collision) and GfxObjects_Collision.
     pub(crate) fn half_width(self) -> i32 {
         match self {

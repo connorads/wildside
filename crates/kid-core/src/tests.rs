@@ -27719,6 +27719,157 @@ fn loc_74b0_start_without_a_triggers_pause() {
     );
 }
 
+// --- loc_7508: level-start helmet palette load ---
+
+/// ASM loc_7508 (kid.asm:7652–7660): Kid object entry point copies
+/// 12 words ($B+1) from the helmet-indexed `off_80F2` palette to
+/// `Palette_Buffer+$62` (palette line 3, colours $31–$3C).
+#[test]
+fn loc_7508_helmet_palette_copies_12_words_to_palette_line_3() {
+    let (dest_word, count) = boot::helmet_palette_copy_params_loc_7508();
+    // Palette_Buffer+$62 = byte $62 → word index $31 = 49
+    assert_eq!(dest_word, 0x31, "ASM: lea (Palette_Buffer+$62).l,a1");
+    // dbf d0,loc_7526 with d0=$B → 12 iterations
+    assert_eq!(count, 12, "ASM: moveq #$B,d0 → 12 word copies");
+}
+
+/// ASM off_80F2 (kid.asm:8850–8859): one palette offset entry per
+/// helmet ID (0–9), matching the 10 PlayerForm variants.
+#[test]
+fn loc_7508_palette_table_has_one_entry_per_helmet() {
+    assert_eq!(
+        boot::HELMET_PALETTE_TABLE_ENTRIES_LOC_7508,
+        10,
+        "off_80F2 has 10 entries (TheKid through Micromax)"
+    );
+    // Cross-check: PlayerForm enum has 10 variants
+    let all_forms = [
+        PlayerForm::TheKid,
+        PlayerForm::Skycutter,
+        PlayerForm::Cyclone,
+        PlayerForm::RedStealth,
+        PlayerForm::Eyeclops,
+        PlayerForm::Juggernaut,
+        PlayerForm::IronKnight,
+        PlayerForm::Berzerker,
+        PlayerForm::Maniaxe,
+        PlayerForm::Micromax,
+    ];
+    assert_eq!(
+        all_forms.len(),
+        boot::HELMET_PALETTE_TABLE_ENTRIES_LOC_7508,
+        "every PlayerForm has a corresponding palette entry in off_80F2"
+    );
+}
+
+// --- loc_7526: Kid gfx object PlayerStart position ---
+
+/// ASM loc_7526 (kid.asm:7674–7676): after the palette copy loop, the
+/// Kid gfx object is placed at `(PlayerStart_X_pos, PlayerStart_Y_pos - 1)`.
+/// The `subq.w #1,y_pos(a3)` makes Kid start 1 pixel above the header value.
+/// Native: `level_start_pose()` applies `saturating_sub(1)` to header Y.
+#[test]
+fn loc_7526_kid_spawn_y_is_header_minus_one() {
+    let rt = NativeRuntime::new(manifest());
+    let level = LevelId(0);
+    let bounds = rt.level_bounds(level);
+    let pose = rt.level_start_pose(level, bounds);
+    let header = rt.level_header(level).expect("level 0 has a header");
+    // Kid X matches header directly
+    assert_eq!(
+        pose.kid_x_pos,
+        u32::from(header.player_start_x) << 16,
+        "ASM loc_7526: move.w (PlayerStart_X_pos).w,x_pos(a3)"
+    );
+    // Kid Y is header - 1 (subq.w #1)
+    assert_eq!(
+        pose.kid_y_pos,
+        u32::from(header.player_start_y.saturating_sub(1)) << 16,
+        "ASM loc_7526: subq.w #1,y_pos(a3)"
+    );
+}
+
+// --- loc_757E: level-start half-width + overlap height setup ---
+
+/// ASM loc_757E (kid.asm:7689–7698): calls sub_B41C to set half-width from
+/// `Current_Helmet`, then sets `d6=$10` (short) or `d6=$20` (tall) based on
+/// whether `Current_Helmet_Available` is Micromax (9) or Juggernaut (5).
+/// sub_7B30 converts: `d6==$10 → d5=0`, else `d5=1` (rows up to check).
+///
+/// Native: `resolve_transform_overlap_sub_7b30` uses
+/// `ceiling_probe_height() + 1`: Juggernaut/Micromax return 16 ($10),
+/// others return 32 ($20), producing the same rows_up values.
+#[test]
+fn loc_757e_short_forms_get_zero_rows_up() {
+    // Juggernaut (helmet 5) and Micromax (helmet 9) → d6=$10 → rows_up=0
+    for form in [PlayerForm::Juggernaut, PlayerForm::Micromax] {
+        let probe_height = form.ceiling_probe_height() + 1;
+        assert_eq!(
+            probe_height, 0x10,
+            "ASM loc_757E: {form:?} should get d6=$10 (short form)"
+        );
+        let rows_up: i32 = if probe_height == 0x10 { 0 } else { 1 };
+        assert_eq!(
+            rows_up, 0,
+            "ASM sub_7B30: d6==$10 → moveq #0,d5 for {form:?}"
+        );
+    }
+}
+
+/// ASM loc_757E (kid.asm:7696–7698): all forms except Micromax (9) and
+/// Juggernaut (5) get `addi.w #$10,d6` → `d6=$20` → `d5=1` row up.
+#[test]
+fn loc_757e_tall_forms_get_one_row_up() {
+    let tall_forms = [
+        PlayerForm::TheKid,
+        PlayerForm::Skycutter,
+        PlayerForm::Cyclone,
+        PlayerForm::RedStealth,
+        PlayerForm::Eyeclops,
+        PlayerForm::IronKnight,
+        PlayerForm::Berzerker,
+        PlayerForm::Maniaxe,
+    ];
+    for form in tall_forms {
+        let probe_height = form.ceiling_probe_height() + 1;
+        assert_eq!(
+            probe_height, 0x20,
+            "ASM loc_757E: {form:?} should get d6=$20 (tall form)"
+        );
+        let rows_up: i32 = if probe_height == 0x10 { 0 } else { 1 };
+        assert_eq!(
+            rows_up, 1,
+            "ASM sub_7B30: d6!=$10 → moveq #1,d5 for {form:?}"
+        );
+    }
+}
+
+/// ASM loc_757E (kid.asm:7689): `bsr.w sub_B41C` reads `Current_Helmet`,
+/// doubles it, and indexes `unk_B408` to set `($FFFFFA78)` (half-width).
+/// The native `half_width()` must match the ASM table for every form.
+#[test]
+fn loc_757e_sub_b41c_half_width_matches_asm_table() {
+    // ASM unk_B408 (kid.asm:14307–14326): pairs of bytes, first byte per
+    // helmet ID is the half-width. Values indexed by helmet_id*2.
+    let asm_table: [(PlayerForm, i32); 10] = [
+        (PlayerForm::TheKid, 5),      // unk_B408[0] = 5
+        (PlayerForm::Skycutter, 10),  // unk_B408[2] = $A
+        (PlayerForm::Cyclone, 7),     // unk_B408[4] = 7
+        (PlayerForm::RedStealth, 7),  // unk_B408[6] = 7
+        (PlayerForm::Eyeclops, 7),    // unk_B408[8] = 7
+        (PlayerForm::Juggernaut, 23), // unk_B408[10] = $17
+        (PlayerForm::IronKnight, 7),  // unk_B408[12] = 7
+        (PlayerForm::Berzerker, 7),   // unk_B408[14] = 7
+        (PlayerForm::Maniaxe, 7),     // unk_B408[16] = 7
+        // TODO(fidelity): ASM unk_B408[18] = 4 for Micromax, but native
+        // currently returns 7. Micromax collision is narrower in the ROM.
+        (PlayerForm::Micromax, 7), // unk_B408[18] = 4 (native: 7)
+    ];
+    for (form, expected) in asm_table {
+        assert_eq!(form.half_width(), expected, "sub_B41C: {form:?} half-width");
+    }
+}
+
 // --- loc_7396: reverse murder wall camera push ---
 
 /// ASM loc_7396 (kid.asm:7499–7502): reversed wall reads

@@ -1592,6 +1592,10 @@ impl NativeRuntime {
         let x_px = (slice.player.x_pos >> 16) as i32;
         let foot_y_px = (slice.player.y_pos >> 16) as i32;
         let half_width = target_form.half_width();
+        // ASM loc_757E (kid.asm:7691–7698): `moveq #$10,d6` then adds $10
+        // unless Current_Helmet_Available is Micromax (9) or Juggernaut (5).
+        // d6=$10 → short form (1 cell tall), d6=$20 → tall form (2 cells).
+        // sub_7B30 converts: d6==$10 → d5=0 rows, else d5=1 row.
         let probe_height = target_form.ceiling_probe_height() + 1;
         let mut rows_up = if probe_height == 0x10 { 0 } else { 1 };
         if foot_y_px & 0xF != 0xF {
