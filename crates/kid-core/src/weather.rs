@@ -774,15 +774,31 @@ pub(crate) fn step_weather_worker_sub_61CA(
         }
     }
 
+    // ASM loc_623A (kid.asm:6232): subq.b #1,($FFFFFB3C).w; bne.w loc_62CE
+    // Decrement spawn cooldown. When zero: reload to $25, subtract random 0–15
+    // jitter, then check free_falling_slots before scanning for an inactive slot.
+    // TODO(fidelity): ASM calls j_Get_RandomNumber_byte here and again at
+    // loc_626C — two independent RNG draws. Native reuses one `random_byte` for
+    // both cooldown jitter and spawn X position.
     output.spawn_cooldown = output.spawn_cooldown.wrapping_sub(1);
     if output.spawn_cooldown == 0 {
         output.spawn_cooldown = 0x25u8.wrapping_sub(input.random_byte & 0x0F);
         if output.free_falling_slots != 0 {
+            // ASM loc_625E (kid.asm:6244): move.w (a0),d0; bmi.s loc_626C
+            // Scan slots for the first inactive one (y_px < 0). If all active,
+            // bra.s loc_62CE skips spawning entirely.
             for slot in &mut output.falling_slots {
                 if slot.is_active() {
                     continue;
                 }
 
+                // ASM loc_626C (kid.asm:6252): spawn a new falling weather particle.
+                // jsr Get_RandomNumber_byte; andi.w #$FF,d7; add.w Camera_X_pos,d7;
+                // addi.w #$28,d7 → spawn_x. Camera_Y_pos → spawn_y.
+                // Then tile collision check: row = (spawn_y+$F)>>4, col = spawn_x>>4.
+                // First tile: word & $F must be 0. If spawn crosses a tile boundary
+                // (col_ceil != col_floor), second tile: word & $FF must also be 0.
+                // loc_62C2: store spawn_y/spawn_x to slot, decrement free count.
                 let spawn_x_px = input
                     .camera_x_px
                     .wrapping_add(i16::from(input.random_byte))
