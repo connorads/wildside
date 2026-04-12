@@ -28,7 +28,7 @@ use crate::boot::{
     sega_screen_object_bootstrap_loc_12E48, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
     step_hud_animation_sub_44DC, title_shell_art_decompress_loc_1BF54,
     title_shell_art_index_loc_1BF3E, title_shell_vram_fill_loc_1BF70,
-    vdp_upload_32_longwords_sub_44D0,
+    vdp_game_init_register_commands_loc_5E6, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -26996,32 +26996,32 @@ fn sub_5e02_emits_forward_warning_strip_and_push_state() {
     assert_eq!(
         render.sprites[0],
         MurderWallWarningSpriteSub5E02 {
-            y: 0x007E,
+            y: 0x0080,
             link: 0x0A11,
             tile_word: 0xA367,
             x: 0x0060,
         },
-        "ASM sub_5E02 should start the forward warning strip at `x=$80-d3`, `y=$80-(Camera_Y_pos/$30)` with the selected base tile"
+        "ASM loc_5E66: forward strip starts at x=$80-d3, y=$80-(Camera_Y_pos%$30) with the selected base tile"
     );
     assert_eq!(
         render.sprites[1],
         MurderWallWarningSpriteSub5E02 {
-            y: 0x0096,
+            y: 0x0098,
             link: 0x0A12,
             tile_word: 0xA370,
             x: 0x0060,
         },
-        "ASM sub_5E02 should emit the second forward tile in the first column at base tile + 9"
+        "ASM loc_5E66: second forward tile in first column at y+$18, base tile + 9"
     );
     assert_eq!(
         render.sprites[12],
         MurderWallWarningSpriteSub5E02 {
-            y: 0x007E,
+            y: 0x0080,
             link: 0x0A1D,
             tile_word: 0xA379,
             x: 0x0078,
         },
-        "ASM sub_5E02 should restart Y and advance X by `$18` for the second warning column"
+        "ASM loc_5E66: second column restarts Y at base_y, advances X by $18"
     );
 }
 
@@ -27060,22 +27060,22 @@ fn sub_5e02_emits_reversed_warning_strip_without_forward_push_offset() {
     assert_eq!(
         render.sprites[0],
         MurderWallWarningSpriteSub5E02 {
-            y: 0x007F,
+            y: 0x0080,
             link: 0x0A01,
             tile_word: 0xAB31,
             x: 0x0198,
         },
-        "ASM sub_5E02 should offset the reversed warning strip by `$812` from the selected base tile"
+        "ASM loc_5E66: reversed strip starts at y=$80-(Camera_Y_pos%$30), tile offset $812"
     );
     assert_eq!(
         render.sprites[12],
         MurderWallWarningSpriteSub5E02 {
-            y: 0x007F,
+            y: 0x0080,
             link: 0x0A0D,
             tile_word: 0xAB28,
             x: 0x01B0,
         },
-        "ASM sub_5E02 should use the reversed second-column tile order `$809/$800`"
+        "ASM loc_5E66: reversed second column uses tile order $809/$800"
     );
 }
 
@@ -27212,6 +27212,55 @@ fn loc_5e3a_camera_distance_just_below_threshold_emits_sprites() {
         render.sprites.len(),
         24,
         "ASM loc_5E3A: d3=$2F < $30 should branch to loc_5E52 and emit 24 warning sprites"
+    );
+}
+
+/// ASM loc_5E64 (kid.asm:5884): `sub.w d3,d6` — non-reversed path sets
+/// sprite X to `$80 - camera_distance`.  d3 is the camera-to-wall distance
+/// (Camera_X - MurderWall_X), d6 starts at `$80`.
+#[test]
+fn loc_5e64_non_reversed_x_position() {
+    // Camera at $58, wall at $40 → d3 = $18 → X = $80 - $18 = $68
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0040,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0200,
+        kid_hitbox_right_px: 0x0210,
+        camera_x_px: 0x0058,
+        camera_y_px: 0,
+        animation_timer: 2,
+        animation_frame: 0,
+        starting_number_sprites: 0,
+    });
+    assert_eq!(
+        render.sprites[0].x, 0x0068,
+        "ASM loc_5E64: sub.w d3,d6 — X should be $80 - $18 = $68 for non-reversed wall"
+    );
+}
+
+/// ASM loc_5E66 (kid.asm:5887): Y-position uses the REMAINDER of
+/// `Camera_Y_pos / $30` (via DIVU + SWAP), not the quotient.
+/// `d7 = $80 - (Camera_Y_pos % $30)`.
+#[test]
+fn loc_5e66_y_position_uses_remainder_not_quotient() {
+    // Camera_Y = $45 (69). 69 % 48 = 21 = $15. base_y = $80 - $15 = $6B.
+    // If the bug (using quotient) were present: 69/48 = 1, base_y = $7F.
+    let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+        murder_wall_enabled: true,
+        murder_wall_x_px: 0x0010,
+        murder_wall_reversed: false,
+        kid_hitbox_left_px: 0x0200,
+        kid_hitbox_right_px: 0x0210,
+        camera_x_px: 0x0020,
+        camera_y_px: 0x0045,
+        animation_timer: 2,
+        animation_frame: 0,
+        starting_number_sprites: 0,
+    });
+    assert_eq!(
+        render.sprites[0].y, 0x006B,
+        "ASM loc_5E66: DIVU+SWAP gives remainder; y = $80 - ($45 % $30) = $80 - $15 = $6B"
     );
 }
 
@@ -64880,6 +64929,53 @@ fn horizontal_collision_scan_left_loc_36c56_scans_the_full_body_row_width() {
         },
         "ASM loc_36C56 should keep post-incrementing `(a4)+` across the whole body row until `dbf d0` expires",
     );
+}
+
+/// ASM loc_5E6 (kid.asm:749): VDP register init loop writes 19 register
+/// commands ($8014, $8174, $8200, ..., $9200) to the VDP control port.
+/// Each command is `$8000 + register_index*$100 + value_byte`.
+#[test]
+fn loc_5e6_vdp_game_init_writes_19_register_commands() {
+    let commands = vdp_game_init_register_commands_loc_5E6();
+    assert_eq!(
+        commands.len(),
+        19,
+        "ASM loc_5E6: dbf with d0=$12 loops 19 times"
+    );
+    // First register: $80 | $14 = $8014 (HInt on, HV counter read)
+    assert_eq!(
+        commands[0], 0x8014,
+        "ASM loc_5E6: first VDP command should be $8014 (HInt on)"
+    );
+    // Second register: $81 | $74 = $8174 (display on, VInt on, DMA on)
+    assert_eq!(
+        commands[1], 0x8174,
+        "ASM loc_5E6: second VDP command should be $8174 (display on, VInt, DMA)"
+    );
+    // Scroll B address: register $84, value $07 → $8407
+    assert_eq!(
+        commands[4], 0x8407,
+        "ASM loc_5E6: register $84 should set Scroll B to $E000"
+    );
+    // VDP auto-increment: register $8F, value $02 → $8F02
+    assert_eq!(
+        commands[15], 0x8F02,
+        "ASM loc_5E6: register $8F should set auto-increment to 2 bytes"
+    );
+    // Last register: $92 | $00 = $9200
+    assert_eq!(
+        commands[18], 0x9200,
+        "ASM loc_5E6: last VDP command should be $9200 (Window V)"
+    );
+    // Verify sequential register numbering: each command's high byte advances by 1
+    for (i, &cmd) in commands.iter().enumerate() {
+        let expected_reg = 0x80 + i as u8;
+        assert_eq!(
+            (cmd >> 8) as u8,
+            expected_reg,
+            "ASM loc_5E6: command {i} should target register ${expected_reg:02X}"
+        );
+    }
 }
 
 #[test]

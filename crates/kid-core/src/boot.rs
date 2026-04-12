@@ -7,6 +7,59 @@ use kid_data::{DiamondHudDmaTransferSub5D4A, diamond_hud_dma_transfer_sub_5D4A};
 // The source port does not emulate the 68k exception mechanism — these vectors
 // are hardware infrastructure with no gameplay effect.
 
+/// ASM VDPGameInitValues (kid.asm:550-570): 19 bytes of per-register init data.
+/// Each byte is the low byte of a VDP register command ($80xx–$92xx).
+#[allow(dead_code)]
+const VDP_GAME_INIT_VALUES: [u8; 19] = [
+    0x14, // $8014 — HInt on, enable HV counter read
+    0x74, // $8174 — display on, VInt on, DMA on, PAL off
+    0x00, // $8200 — Scroll A address $0000
+    0x00, // $8300 — Window address $0000
+    0x07, // $8407 — Scroll B address $E000
+    0x08, // $8508 — Sprite table address $1000
+    0x00, // $8600 — null
+    0x00, // $8700 — background colour pal 0 colour 0
+    0x00, // $8800 — null
+    0x00, // $8900 — null
+    0x00, // $8A00 — HInt timing 0 scanlines
+    0x03, // $8B03 — ext int off, VScroll full, HScroll per-pixel
+    0x81, // $8C81 — 40-cell mode, no shadow/highlight, no interlace
+    0x05, // $8D05 — HScroll table address $1400
+    0x00, // $8E00 — null
+    0x02, // $8F02 — VDP auto-increment 2 bytes
+    0x01, // $9001 — 64×32 cell scroll size
+    0x00, // $9100 — Window H left side, base point 0
+    0x00, // $9200 — Window V upside, base point 0
+];
+
+/// ASM loc_5E6 (kid.asm:749): VDP register init loop in GameProgram.
+/// ```asm
+/// lea VDPGameInitValues(pc),a0
+/// moveq #$12,d0          ; 19 registers ($80–$92)
+/// move.w #$8000,d1
+/// loc_5E6:
+///   move.b (a0)+,d1      ; low byte = init value
+///   move.w d1,4(a6)      ; write to VDP control port
+///   addi.w #$100,d1      ; advance to next register
+///   dbf d0,loc_5E6
+/// ```
+/// Returns the 19 register command words written to the VDP control port.
+/// The source port does not write to real VDP hardware, but the register
+/// values inform initial VDP state (scroll addresses, display mode, etc.).
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn vdp_game_init_register_commands_loc_5E6() -> [u16; 19] {
+    let mut commands = [0u16; 19];
+    let mut reg_base: u16 = 0x8000;
+    for (i, &value) in VDP_GAME_INIT_VALUES.iter().enumerate() {
+        // ASM loc_5E6: move.b (a0)+,d1 — overwrite low byte of d1
+        commands[i] = reg_base | u16::from(value);
+        // ASM: addi.w #$100,d1 — next register
+        reg_base = reg_base.wrapping_add(0x100);
+    }
+    commands
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {

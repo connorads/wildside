@@ -106,12 +106,19 @@ pub(crate) fn compile_murder_wall_warning_sprites_sub_5E02(
         return render;
     }
 
+    // ASM loc_5E52 (kid.asm:5875): move.w #$80,d6
+    // Reversed path: addi.w #$110,d6; add.w d3,d6 → $190 + d3
+    // ASM loc_5E64 (kid.asm:5884): sub.w d3,d6 — non-reversed X = $80 - camera_distance
     let mut x = if input.murder_wall_reversed {
         0x190 + relative_wall_x
     } else {
         0x80 - relative_wall_x
     };
-    let base_y = 0x80 - i32::from(input.camera_y_px / 0x30);
+    // ASM loc_5E66 (kid.asm:5887): move.w #$80,d7; clr.l d5;
+    // move.w (Camera_Y_pos).w,d5; divu.w #$30,d5; swap d5; sub.w d5,d7
+    // DIVU puts quotient in low word, remainder in high word; SWAP moves
+    // remainder to low word.  So d7 = $80 - (Camera_Y_pos % $30).
+    let base_y = 0x80_i32 - i32::from(input.camera_y_px % 0x30);
     let pattern = MURDER_WALL_PATTERN_SUB_5E02[usize::from(render.animation_frame & 3)];
 
     for column in 0..2 {
