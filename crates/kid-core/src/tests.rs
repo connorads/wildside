@@ -35543,6 +35543,216 @@ fn loc_7742_eyeclops_beam_latches_left_direction() {
     );
 }
 
+// --- loc_779C–loc_7820: standing-still horizontal walk/turn gate ---
+
+/// Build an 8×6 grid with a solid wall column at `wall_col` (rows 1-3) and
+/// a floor at row 4.  Player body spans rows 2-3 when standing on the floor.
+fn standing_still_wall_grid(wall_col: u16) -> terrain::BlockGrid {
+    let w = 8u16;
+    let h = 6u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Floor at row 4
+    for col in 0..w {
+        let offset = (4 * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60; // Solid
+        data[offset + 1] = 0x01;
+    }
+    // Wall column (rows 1-3)
+    for row in 1..4u16 {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(wall_col)) * 2;
+        data[offset] = 0x60; // Solid
+        data[offset + 1] = 0x01;
+    }
+    terrain::BlockGrid::from_level_layout(&data, w, h)
+}
+
+/// ASM loc_779C (kid.asm:7842): `tst.b (Ctrl_Right_Held) / beq.s loc_77E6 /
+/// add.w d0,d7 / addq.w #1,d7 / bsr.w sub_922C` — when pressing right into
+/// a solid wall, `sub_922C` returns NE (wall found), the ROM executes
+/// `sf x_direction(a3)` (face right) and branches to loc_7828 (stay standing).
+#[test]
+fn loc_779c_right_held_wall_found_faces_right_and_holds() {
+    let grid = standing_still_wall_grid(5); // wall at col 5 (x=80)
+    // TheKid half_width=5, edge = x + 6.  At x=74 edge=80 → col 5 → solid.
+    let hit = terrain::probe_wall(&grid, 74, 63, 5, 31, true);
+    assert!(
+        hit.hit,
+        "ASM loc_779C: sub_922C should return NE (wall) when right edge lands on solid col 5"
+    );
+}
+
+/// ASM loc_77E6 (kid.asm:7871): `tst.b (Ctrl_Left_Held) / beq.s loc_7828 /
+/// sub.w d0,d7 / subq.w #1,d7 / bsr.w sub_922C` — left-press mirror of
+/// loc_779C.  Wall found → `st x_direction(a3)` (face left), loc_7828.
+#[test]
+fn loc_77e6_left_held_wall_found_faces_left_and_holds() {
+    let grid = standing_still_wall_grid(2); // wall at col 2 (x=32..47)
+    // At x=38, left edge = 38 - 5 - 1 = 32 → col 2 → solid.
+    // probe_wall uses edge_x = center - half_width (no -1 for left), but
+    // probe_wall_column does center - half_width - 1.  probe_wall checks
+    // center - half_width = 38 - 5 = 33 → col 2 → solid.
+    let hit = terrain::probe_wall(&grid, 38, 63, 5, 31, false);
+    assert!(
+        hit.hit,
+        "ASM loc_77E6: sub_922C should return NE (wall) when left edge lands on solid col 2"
+    );
+}
+
+/// ASM loc_779C → loc_77C2 (kid.asm:7857): when `sub_922C` returns EQ (no
+/// wall), the ROM falls through to loc_77C2 which checks helmet bitmask
+/// `#%1011000101`.  For TheKid (bit 0 set), `btst d7,d6 / bne loc_7820`
+/// immediately enters walking state.  Native: `probe_wall` returns no hit,
+/// `should_hold_standing_still` returns false → walking proceeds.
+#[test]
+fn loc_77c2_no_wall_right_allows_walking() {
+    let grid = standing_still_wall_grid(7); // wall far away at col 7
+    // At x=40, right edge = 40 + 6 = 46 → col 2 → empty.
+    let hit = terrain::probe_wall(&grid, 40, 63, 5, 31, true);
+    assert!(
+        !hit.hit,
+        "ASM loc_779C → loc_77C2: sub_922C should return EQ (no wall) when right is clear"
+    );
+}
+
+/// ASM loc_77E6 → loc_77FC (kid.asm:7882): left-press mirror of loc_77C2.
+/// No wall on left → loc_77FC → bitmask check → loc_7820 for TheKid.
+#[test]
+fn loc_77fc_no_wall_left_allows_walking() {
+    let grid = standing_still_wall_grid(0); // wall at col 0
+    // At x=40, left edge = 40 - 5 = 35 → col 2 → empty (wall is at col 0).
+    let hit = terrain::probe_wall(&grid, 40, 63, 5, 31, false);
+    assert!(
+        !hit.hit,
+        "ASM loc_77E6 → loc_77FC: sub_922C should return EQ (no wall) when left is clear"
+    );
+}
+
+/// ASM loc_77C2 (kid.asm:7857): `move.w (Current_Helmet),d7 /
+/// move.w #%1011000101,d6 / btst d7,d6 / bne loc_7820` — helmets with the
+/// corresponding bit set skip the `sub_B55C` ledge probe and go straight to
+/// loc_7820 (enter walking).  Bitmask bits: 0=Kid, 2=Cyclone, 6=IronKnight,
+/// 7=Berzerker, 9=Micromax.
+#[test]
+fn loc_77c2_helmet_bitmask_identifies_walk_through_helmets() {
+    let bitmask: u16 = 0b10_1100_0101; // %1011000101
+    let walk_through = [
+        PlayerForm::TheKid,
+        PlayerForm::Cyclone,
+        PlayerForm::IronKnight,
+        PlayerForm::Berzerker,
+        PlayerForm::Micromax,
+    ];
+    let ledge_probe = [
+        PlayerForm::Skycutter,
+        PlayerForm::RedStealth,
+        PlayerForm::Eyeclops,
+        PlayerForm::Juggernaut,
+        PlayerForm::Maniaxe,
+    ];
+
+    for form in walk_through {
+        assert_ne!(
+            bitmask & (1 << form.helmet_id()),
+            0,
+            "ASM loc_77C2: btst d7,d6 should be set for {:?} (id={}), routing to loc_7820",
+            form,
+            form.helmet_id()
+        );
+    }
+    for form in ledge_probe {
+        assert_eq!(
+            bitmask & (1 << form.helmet_id()),
+            0,
+            "ASM loc_77C2: btst d7,d6 should be clear for {:?} (id={}), falling through to sub_B55C",
+            form,
+            form.helmet_id()
+        );
+    }
+}
+
+/// ASM loc_77C2 (kid.asm:7864): for helmets NOT in the bitmask, the ROM
+/// probes `sub_B55C` with `(1,-1)` and checks `cmpi.w #$4000,d5`.  $4000 is
+/// `CollisionKind::SlopeUp`.  If found, `sf x_direction / bra loc_7828`
+/// (face right, stay standing).  Otherwise loc_7820 (enter walking).
+#[test]
+fn loc_77c2_sub_b55c_slope_up_blocks_right_walk() {
+    let w = 8u16;
+    let h = 6u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Floor at row 4
+    for col in 0..w {
+        let offset = (4 * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60;
+        data[offset + 1] = 0x01;
+    }
+    // Slope-up block ($40) at col 4, row 3 (one row above floor, one col right)
+    let offset = (3 * usize::from(w) + 4) * 2;
+    data[offset] = 0x40; // collision type 4 = SlopeUp ($4000)
+    data[offset + 1] = 0x01;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Player at x=48 (col 3 centre), foot at y=63.
+    // sub_B55C(1, -1) probes at (x+1, y-1) = (49, 62) → col 3, row 3 → empty.
+    // But if player is at x=63: probe at (64, 62) → col 4, row 3 → SlopeUp.
+    let kind = terrain::probe_relative_collision_sub_B55C(&grid, 63, 63, 1, -1);
+    assert_eq!(
+        kind,
+        terrain::CollisionKind::SlopeUp,
+        "ASM loc_77C2: sub_B55C(1,-1) should return $4000 (SlopeUp) when slope block is adjacent"
+    );
+}
+
+/// ASM loc_77FC (kid.asm:7889): left-press mirror — `sub_B55C` with `(-1,-1)`,
+/// checks `cmpi.w #$5000,d5`.  $5000 is `CollisionKind::SlopeDown`.
+#[test]
+fn loc_77fc_sub_b55c_slope_down_blocks_left_walk() {
+    let w = 8u16;
+    let h = 6u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Floor at row 4
+    for col in 0..w {
+        let offset = (4 * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60;
+        data[offset + 1] = 0x01;
+    }
+    // Slope-down block ($50) at col 2, row 3
+    let offset = (3 * usize::from(w) + 2) * 2;
+    data[offset] = 0x50; // collision type 5 = SlopeDown ($5000)
+    data[offset + 1] = 0x01;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Player at x=48 (col 3), foot at y=63.
+    // sub_B55C(-1, -1) probes at (47, 62) → col 2, row 3 → SlopeDown.
+    let kind = terrain::probe_relative_collision_sub_B55C(&grid, 48, 63, -1, -1);
+    assert_eq!(
+        kind,
+        terrain::CollisionKind::SlopeDown,
+        "ASM loc_77FC: sub_B55C(-1,-1) should return $5000 (SlopeDown) when slope block is adjacent"
+    );
+}
+
+/// ASM loc_7820 (kid.asm:7896): `clr.w ($FFFFF8F0) / bra.w loc_8D72` — when
+/// neither wall nor ledge blocks movement, the ROM clears the walk accumulator
+/// and enters the walking main loop.  This is the fallthrough for: no direction
+/// held, or direction held with clear path and bitmask-included helmet.
+#[test]
+fn loc_7820_no_direction_held_does_not_block_walking() {
+    // When no direction is held, loc_779C's `tst.b (Ctrl_Right_Held) / beq.s
+    // loc_77E6` falls through to `tst.b (Ctrl_Left_Held) / beq.s loc_7828`.
+    // With neither held the ROM continues to loc_7828 (platform standing), not
+    // loc_7820.  The walk-entry path only triggers when a direction IS held but
+    // no wall/ledge blocks it.  Verify that probe_wall on an empty grid returns
+    // no hit — the native equivalent of "clear path → walking proceeds".
+    let data = vec![0u8; 8 * 6 * 2];
+    let grid = terrain::BlockGrid::from_level_layout(&data, 8, 6);
+    let hit_r = terrain::probe_wall(&grid, 48, 63, 5, 31, true);
+    let hit_l = terrain::probe_wall(&grid, 48, 63, 5, 31, false);
+    assert!(
+        !hit_r.hit && !hit_l.hit,
+        "ASM loc_7820: empty grid must allow walking in both directions"
+    );
+}
+
 // --- Berzerker charge tests ---
 
 #[test]

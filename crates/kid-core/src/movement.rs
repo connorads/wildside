@@ -2593,6 +2593,31 @@ impl OpeningSliceState {
         });
     }
 
+    /// ASM loc_779C (kid.asm:7842): standing-still horizontal movement gate.
+    ///
+    /// The ROM checks `tst.b (Maniaxe_throwing_axe) / bne.w loc_7828` — if
+    /// Maniaxe has an active axe, skip all walk checks (stay standing on
+    /// platform). Then loads half-width (`$FFFFFA78`) and `x_pos(a3)`.
+    ///
+    /// Right held (loc_779C+8): `add.w d0,d7 / addq.w #1,d7 / bsr.w sub_922C`
+    /// — probes one column at x + half_width + 1. If wall found (NE), face
+    /// right (`sf x_direction`) and continue standing (loc_7828).
+    ///
+    /// Left held (loc_77E6, kid.asm:7871): mirror — `sub.w d0,d7 / subq.w #1,d7
+    /// / bsr.w sub_922C`. If wall found, face left (`st x_direction`), loc_7828.
+    ///
+    /// No wall → loc_77C2 (right) / loc_77FC (left): helmet bitmask
+    /// `#%1011000101` (bits 0,2,6,7,9 = Kid, Cyclone, IronKnight, Berzerker,
+    /// Micromax) → loc_7820 (enter walking). For other helmets, `sub_B55C`
+    /// probes (1,-1)/(−1,-1) for ledge block ($4000/$5000); if found, face
+    /// direction and stay standing, otherwise loc_7820.
+    ///
+    /// loc_7820 (kid.asm:7896): `clr.w ($FFFFF8F0) / bra.w loc_8D72` — clears
+    /// walk accumulator and enters walking state.
+    ///
+    /// TODO(fidelity): native uses `probe_wall` (3-point) instead of `sub_922C`
+    /// (full column scan). The Maniaxe axe-throwing gate and the loc_77C2/77FC
+    /// `sub_B55C` ledge probe for non-bitmask helmets are not yet modelled.
     fn should_hold_standing_still(
         &mut self,
         input: FrameInput,
@@ -2609,9 +2634,13 @@ impl OpeningSliceState {
             return false;
         };
 
+        // ASM loc_779C: sf/st x_direction(a3) — face the held direction even
+        // when blocked by a wall.
         self.player.facing = direction;
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
+        // ASM loc_779C/loc_77E6: sub_922C single-column wall scan at the
+        // player's leading edge.  Native approximates with 3-point probe_wall.
         terrain::probe_wall(
             grid,
             x_px,
