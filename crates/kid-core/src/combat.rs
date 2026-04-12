@@ -379,6 +379,32 @@ pub(crate) struct FireDemonFragmentFadeStepLoc3A14E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FireDemonFragmentDecelNextLoc3A24C {
+    /// $40(a3) reached 0 after decrement: j_Delete_CurrentObject.
+    DeleteLifetimeExpired,
+    /// x_pos(a3) <= 0: j_Delete_CurrentObject.
+    DeleteOutOfBoundsLeft,
+    /// x_pos(a3) > Level_width_pixels: j_Delete_CurrentObject.
+    DeleteOutOfBoundsRight,
+    /// Bounds OK: bsr.w sub_3A1A6, bra.s loc_3A24C.
+    ContinueDecelLoc3A24C,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FireDemonFragmentDecelStepLoc3A24C {
+    pub(crate) hibernates_one_frame: bool,
+    /// d0 byte persisted from init: nonzero = originally leftward, zero = originally rightward.
+    pub(crate) direction_byte_d0: u8,
+    /// Signed 32-bit deceleration applied to x_vel: +$7D0 (leftward fragment) or -$7D0 (rightward).
+    pub(crate) x_vel_delta: i32,
+    /// $40(a3) after subq.w #1.
+    pub(crate) next_horizontal_counter_40: u16,
+    pub(crate) delete_current_object: bool,
+    pub(crate) runs_collision_check_sub_3a1a6: bool,
+    pub(crate) next: FireDemonFragmentDecelNextLoc3A24C,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossEyePopEffectInitSub3729E {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -6598,6 +6624,85 @@ pub(crate) fn fire_demon_fragment_fade_step_loc_3A14E(
             runs_collision_check_sub_3a172: true,
             next: FireDemonFragmentFadeNextLoc3A14E::ContinueFadeLoc3A15E,
         }
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_fragment_decel_step_loc_3A24C(
+    direction_byte_d0: u8,
+    horizontal_counter_40: u16,
+    x_pos: u16,
+    level_width_pixels: u16,
+) -> FireDemonFragmentDecelStepLoc3A24C {
+    // ASM loc_3A24C (kid.asm:43300): hibernate one frame, then `tst.b d0`.
+    // d0 is the high byte of the initial x_vel word — nonzero means the fragment
+    // was launched leftward, zero means rightward.
+    //
+    // loc_3A24C: `tst.b d0; beq.s loc_3A25E; addi.l #$7D0,x_vel(a3); bra.s loc_3A266`
+    // loc_3A25E: `addi.l #-$7D0,x_vel(a3)` — rightward fragment deceleration.
+    // loc_3A266: `subq.w #1,$40(a3); bne.s loc_3A270; jmp (j_Delete_CurrentObject).w`
+    // loc_3A270: `cmpi.w #0,x_pos(a3); bgt.s loc_3A27C; jmp (j_Delete_CurrentObject).w`
+    // loc_3A27C: `cmp.w (Level_width_pixels).w,x_pos(a3); ble.s loc_3A28A; jmp (j_Delete_CurrentObject).w`
+    // loc_3A28A: `bsr.w sub_3A1A6; bra.s loc_3A24C`
+    let x_vel_delta = if direction_byte_d0 != 0 {
+        // ASM loc_3A24C: leftward fragment — add $7D0 (pull rightward to decelerate)
+        0x7D0_i32
+    } else {
+        // ASM loc_3A25E: rightward fragment — subtract $7D0 (pull leftward to decelerate)
+        -0x7D0_i32
+    };
+
+    let next_counter = horizontal_counter_40.wrapping_sub(1);
+
+    // ASM loc_3A266: subq.w #1,$40(a3); bne.s loc_3A270
+    if next_counter == 0 {
+        return FireDemonFragmentDecelStepLoc3A24C {
+            hibernates_one_frame: true,
+            direction_byte_d0,
+            x_vel_delta,
+            next_horizontal_counter_40: 0,
+            delete_current_object: true,
+            runs_collision_check_sub_3a1a6: false,
+            next: FireDemonFragmentDecelNextLoc3A24C::DeleteLifetimeExpired,
+        };
+    }
+
+    // ASM loc_3A270: cmpi.w #0,x_pos(a3); bgt.s loc_3A27C
+    if (x_pos as i16) <= 0 {
+        return FireDemonFragmentDecelStepLoc3A24C {
+            hibernates_one_frame: true,
+            direction_byte_d0,
+            x_vel_delta,
+            next_horizontal_counter_40: next_counter,
+            delete_current_object: true,
+            runs_collision_check_sub_3a1a6: false,
+            next: FireDemonFragmentDecelNextLoc3A24C::DeleteOutOfBoundsLeft,
+        };
+    }
+
+    // ASM loc_3A27C: cmp.w (Level_width_pixels).w,d5; ble.s loc_3A28A
+    if (x_pos as i16) > (level_width_pixels as i16) {
+        return FireDemonFragmentDecelStepLoc3A24C {
+            hibernates_one_frame: true,
+            direction_byte_d0,
+            x_vel_delta,
+            next_horizontal_counter_40: next_counter,
+            delete_current_object: true,
+            runs_collision_check_sub_3a1a6: false,
+            next: FireDemonFragmentDecelNextLoc3A24C::DeleteOutOfBoundsRight,
+        };
+    }
+
+    // ASM loc_3A28A: bsr.w sub_3A1A6; bra.s loc_3A24C
+    FireDemonFragmentDecelStepLoc3A24C {
+        hibernates_one_frame: true,
+        direction_byte_d0,
+        x_vel_delta,
+        next_horizontal_counter_40: next_counter,
+        delete_current_object: false,
+        runs_collision_check_sub_3a1a6: true,
+        next: FireDemonFragmentDecelNextLoc3A24C::ContinueDecelLoc3A24C,
     }
 }
 

@@ -38494,6 +38494,104 @@ fn fire_demon_fragment_fade_step_loc_3a14e_decrements_and_loops_when_counter_non
 }
 
 #[test]
+fn fire_demon_fragment_decel_step_loc_3a24c_leftward_fragment_decelerates_rightward() {
+    // ASM loc_3A24C (kid.asm:43300): tst.b d0; d0=$FF (leftward) → addi.l #$7D0,x_vel.
+    // loc_3A266: subq.w #1,$40 → $018F, bounds OK, sub_3A1A6, loop.
+    let result = fire_demon_fragment_decel_step_loc_3A24C(0xFF, 0x0190, 0x0100, 0x0500);
+
+    assert!(
+        result.hibernates_one_frame,
+        "ASM loc_3A24C should hibernate one frame before the direction test",
+    );
+    assert_eq!(
+        result.x_vel_delta, 0x7D0,
+        "ASM loc_3A24C: d0 nonzero (leftward fragment) should add +$7D0 to x_vel",
+    );
+    assert_eq!(
+        result.next_horizontal_counter_40, 0x018F,
+        "ASM loc_3A266: subq.w #1,$40 should decrement from $190 to $18F",
+    );
+    assert!(
+        result.runs_collision_check_sub_3a1a6,
+        "ASM loc_3A28A should call sub_3A1A6 before looping back",
+    );
+    assert!(!result.delete_current_object);
+    assert_eq!(
+        result.next,
+        FireDemonFragmentDecelNextLoc3A24C::ContinueDecelLoc3A24C,
+        "ASM loc_3A28A: bra.s loc_3A24C — should loop back for next decel frame",
+    );
+}
+
+#[test]
+fn fire_demon_fragment_decel_step_loc_3a25e_rightward_fragment_decelerates_leftward() {
+    // ASM loc_3A25E (kid.asm:43308): d0==0 (rightward) → addi.l #-$7D0,x_vel.
+    let result = fire_demon_fragment_decel_step_loc_3A24C(0x00, 0x0190, 0x0100, 0x0500);
+
+    assert_eq!(
+        result.x_vel_delta, -0x7D0,
+        "ASM loc_3A25E: d0 zero (rightward fragment) should add -$7D0 to x_vel",
+    );
+    assert_eq!(
+        result.next_horizontal_counter_40, 0x018F,
+        "ASM loc_3A266: subq.w #1,$40 should decrement from $190 to $18F",
+    );
+    assert_eq!(
+        result.next,
+        FireDemonFragmentDecelNextLoc3A24C::ContinueDecelLoc3A24C,
+    );
+}
+
+#[test]
+fn fire_demon_fragment_decel_step_loc_3a266_deletes_on_lifetime_expiry() {
+    // ASM loc_3A266 (kid.asm:43311): subq.w #1,$40; bne.s loc_3A270.
+    // When $40==1, subq gives 0, so bne is not taken → j_Delete_CurrentObject.
+    let result = fire_demon_fragment_decel_step_loc_3A24C(0xFF, 0x0001, 0x0100, 0x0500);
+
+    assert_eq!(
+        result.next_horizontal_counter_40, 0x0000,
+        "ASM loc_3A266: subq.w #1 on $40=$0001 should yield zero",
+    );
+    assert!(
+        result.delete_current_object,
+        "ASM loc_3A266: bne not taken → j_Delete_CurrentObject",
+    );
+    assert!(!result.runs_collision_check_sub_3a1a6);
+    assert_eq!(
+        result.next,
+        FireDemonFragmentDecelNextLoc3A24C::DeleteLifetimeExpired,
+    );
+}
+
+#[test]
+fn fire_demon_fragment_decel_step_loc_3a266_deletes_out_of_bounds_left() {
+    // ASM loc_3A270 (kid.asm:43317): cmpi.w #0,x_pos(a3); bgt.s loc_3A27C.
+    // x_pos==0 → bgt not taken → delete.
+    let result = fire_demon_fragment_decel_step_loc_3A24C(0xFF, 0x0190, 0x0000, 0x0500);
+
+    assert!(result.delete_current_object);
+    assert_eq!(
+        result.next,
+        FireDemonFragmentDecelNextLoc3A24C::DeleteOutOfBoundsLeft,
+        "ASM loc_3A270: x_pos=0 is not >0 (signed), so fragment is deleted",
+    );
+}
+
+#[test]
+fn fire_demon_fragment_decel_step_loc_3a266_deletes_out_of_bounds_right() {
+    // ASM loc_3A27C (kid.asm:43323): cmp.w (Level_width_pixels).w,d5; ble.s loc_3A28A.
+    // x_pos > level_width → ble not taken → delete.
+    let result = fire_demon_fragment_decel_step_loc_3A24C(0x00, 0x0190, 0x0501, 0x0500);
+
+    assert!(result.delete_current_object);
+    assert_eq!(
+        result.next,
+        FireDemonFragmentDecelNextLoc3A24C::DeleteOutOfBoundsRight,
+        "ASM loc_3A27C: x_pos $501 > level_width $500, so fragment is deleted",
+    );
+}
+
+#[test]
 fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
     let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
