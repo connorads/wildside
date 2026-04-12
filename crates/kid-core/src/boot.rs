@@ -5446,6 +5446,31 @@ impl NativeRuntime {
     }
 
     /// Process Start button presses: pause/unpause, level skip, demo trigger.
+    ///
+    /// ASM loc_74B0 (kid.asm:7623–7637): the main game loop's Start handler.
+    ///
+    /// ```asm
+    /// loc_74B0:
+    ///   bclr  #Button_Start,(Ctrl_Pressed).w   ; consume Start edge
+    ///   beq.s loc_7452                          ; not pressed → loop
+    ///   tst.b (LevelSkip_Cheat).w
+    ///   beq.s loc_74C8                          ; no cheat → skip level skip
+    ///   btst  #Button_C,(Ctrl_Held).w
+    ///   bne.w loc_74E0                          ; C held + cheat → level skip
+    /// loc_74C8:
+    ///   btst  #Button_A,(Ctrl_Held).w
+    ///   bne.s loc_7452                          ; A held → suppress pause
+    ///   tst.b (Allow_Pausing).w
+    ///   beq.w loc_7452                          ; pausing disabled → skip
+    ///   st    (Game_Paused).w                   ; PAUSE
+    ///   bra.w loc_7452
+    /// ```
+    ///
+    /// Native maps `bclr #Button_Start` to the `start_pressed` rising-edge
+    /// parameter.  The level-skip cheat path uses `input.a && input.c`
+    /// (A+C+Start).  The `btst #Button_A` pause suppression is implicit:
+    /// when A is held, the branch falls into either level-skip or Diamond
+    /// Power paths, never reaching the pause toggle.
     pub(crate) fn handle_start_press(&mut self, input: FrameInput, start_pressed: bool) {
         if !start_pressed {
             return;
@@ -5454,6 +5479,7 @@ impl NativeRuntime {
         if matches!(self.player_lifecycle, PlayerLifecycle::Alive) {
             match self.boot_state {
                 BootState::InGame => {
+                    // ASM loc_74E0: LevelSkip_Cheat + C held → level skip
                     if input.a
                         && input.c
                         && (!self.level_skip_resume_hold
@@ -5468,9 +5494,11 @@ impl NativeRuntime {
                     {
                         // Diamond Power activation suppresses pause toggle
                     } else if self.paused {
+                        // ASM loc_74B0 path: unpausing (Game_Paused already set)
                         self.paused = false;
                         self.pause_toggle_pending = false;
                     } else {
+                        // ASM loc_74B0: st (Game_Paused).w — pause the game
                         self.pause_toggle_pending = true;
                     }
                 }

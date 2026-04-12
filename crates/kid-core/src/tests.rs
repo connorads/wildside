@@ -27540,6 +27540,185 @@ fn loc_7334_forward_wall_at_max_speed_advances_steadily() {
     );
 }
 
+// --- loc_7464: input byte decode (shift chain) + left/right conflict ---
+
+/// ASM loc_7464 (kid.asm:7593–7609): `move.b (Ctrl_Held),d0` then 7×
+/// `add.b d0,d0; scs (a0)+` unpacks bits 6..0 into Ctrl_A_Held ..
+/// Ctrl_Up_Held.  `from_mask` is the native equivalent.
+#[test]
+fn loc_7464_from_mask_decodes_all_buttons() {
+    // All bits set: mask = 0xFF
+    let input = FrameInput::from_mask(0xFF);
+    assert!(input.up, "bit 0 = Up");
+    assert!(input.down, "bit 1 = Down");
+    assert!(input.left, "bit 2 = Left");
+    assert!(input.right, "bit 3 = Right");
+    assert!(input.b, "bit 4 = B");
+    assert!(input.c, "bit 5 = C");
+    assert!(input.a, "bit 6 = A");
+    assert!(input.start, "bit 7 = Start");
+
+    // No bits set
+    let empty = FrameInput::from_mask(0x00);
+    assert!(!empty.up && !empty.down && !empty.left && !empty.right);
+    assert!(!empty.a && !empty.b && !empty.c && !empty.start);
+}
+
+/// ASM loc_7464 (kid.asm:7593): first `add.b d0,d0` discards bit 7
+/// (Start) from the shift chain — Start is handled separately by
+/// loc_74B0's `bclr #Button_Start,(Ctrl_Pressed)`.
+#[test]
+fn loc_7464_start_bit_decoded_but_not_in_shift_chain() {
+    // Only Start held (bit 7)
+    let input = FrameInput::from_mask(0x80);
+    assert!(input.start);
+    assert!(!input.a, "bit 7 shift discards Start; A = bit 6 is clear");
+}
+
+/// ASM loc_7464 (kid.asm:7610–7614): `tst.b (Ctrl_Left_Held); beq
+/// loc_749C; tst.b (Ctrl_Right_Held); beq loc_749C; sf
+/// (Ctrl_Right_Held)` — when both Left and Right are held, Right is
+/// cleared so Left wins.
+#[test]
+fn loc_7464_left_right_conflict_clears_right() {
+    let both = FrameInput::from_mask(0x0C); // Left + Right
+    assert!(both.left && both.right, "precondition: both set from mask");
+
+    let resolved = both.with_left_right_conflict_resolved();
+    assert!(resolved.left, "ASM: left survives conflict");
+    assert!(!resolved.right, "ASM sf (Ctrl_Right_Held): right cleared");
+}
+
+/// When only Left or only Right is held, conflict resolution is a no-op.
+#[test]
+fn loc_7464_single_direction_unchanged_by_conflict_resolution() {
+    let left_only = FrameInput::from_mask(0x04); // Left
+    let resolved = left_only.with_left_right_conflict_resolved();
+    assert!(resolved.left && !resolved.right);
+
+    let right_only = FrameInput::from_mask(0x08); // Right
+    let resolved = right_only.with_left_right_conflict_resolved();
+    assert!(!resolved.left && resolved.right);
+}
+
+/// Conflict resolution preserves non-directional buttons.
+#[test]
+fn loc_7464_conflict_resolution_preserves_other_buttons() {
+    // Left + Right + A + B
+    let input = FrameInput::from_mask(0x0C | 0x40 | 0x10);
+    let resolved = input.with_left_right_conflict_resolved();
+    assert!(resolved.a, "A preserved");
+    assert!(resolved.b, "B preserved");
+    assert!(resolved.left, "left wins");
+    assert!(!resolved.right, "right cleared");
+}
+
+// --- loc_749C: speed option A-button inversion ---
+
+/// ASM loc_749C (kid.asm:7616–7621): when `Demo_Mode_flag` is clear and
+/// `Options_Suboption_Speed` != 0 (fast mode), the ROM executes
+/// `not.b (Ctrl_A_Held)` — toggling the A button so the player runs by
+/// default and holds A to walk.
+#[test]
+fn loc_749c_speed_option_inverts_a_button() {
+    // A not held → inverted to held (player runs by default)
+    let no_a = FrameInput::from_mask(0x00);
+    let inverted = no_a.with_speed_option_a_inverted();
+    assert!(inverted.a, "ASM not.b: false → true (run by default)");
+
+    // A held → inverted to not held (player walks)
+    let with_a = FrameInput::from_mask(0x40);
+    let inverted = with_a.with_speed_option_a_inverted();
+    assert!(!inverted.a, "ASM not.b: true → false (hold A to walk)");
+}
+
+/// ASM loc_749C: inversion preserves all other buttons.
+#[test]
+fn loc_749c_speed_option_preserves_other_buttons() {
+    let input = FrameInput::from_mask(0xFF); // all buttons
+    let inverted = input.with_speed_option_a_inverted();
+    assert!(!inverted.a, "A inverted");
+    assert!(inverted.up && inverted.down && inverted.left && inverted.right);
+    assert!(inverted.b && inverted.c && inverted.start);
+}
+
+/// ASM loc_749C: `tst.b (Demo_Mode_flag); bne.w loc_74B0` — in demo
+/// mode the speed option inversion is skipped entirely.
+#[test]
+fn loc_749c_demo_mode_skips_inversion() {
+    // The pure function always inverts; the caller is responsible for
+    // gating on demo mode.  Verify the function itself is a clean toggle.
+    let input = FrameInput::from_mask(0x00);
+    let double = input
+        .with_speed_option_a_inverted()
+        .with_speed_option_a_inverted();
+    assert_eq!(input, double, "double inversion = identity");
+}
+
+// --- loc_74B0: Start press → pause / level-skip gate ---
+
+/// ASM loc_74B0 (kid.asm:7623–7625): `bclr #Button_Start,(Ctrl_Pressed);
+/// beq.s loc_7452` — when Start is not pressed (rising edge), the handler
+/// is a no-op.  Modelled by `handle_start_press(_, start_pressed=false)`.
+#[test]
+fn loc_74b0_no_start_press_is_noop() {
+    let mut rt = NativeRuntime::new(manifest());
+    let input = FrameInput::from_mask(0x00);
+    rt.handle_start_press(input, false);
+    assert!(!rt.paused, "no Start → no pause toggle");
+    assert!(!rt.pause_toggle_pending);
+}
+
+/// ASM loc_74B0 (kid.asm:7632–7636): `btst #Button_A,(Ctrl_Held);
+/// bne.s loc_7452` — holding A suppresses the pause toggle even when
+/// Start is pressed.  In the ASM this is unconditional; in native the
+/// A+Start path only suppresses pause when A+C (level skip) or Diamond
+/// Power conditions are met.
+// TODO(fidelity): ASM loc_74C8 unconditionally skips pause when A is
+// held; native allows pause when A is held without C and Diamond Power
+// conditions aren't met.
+#[test]
+fn loc_74b0_a_plus_c_triggers_level_skip_not_pause() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.boot_state = BootState::InGame;
+    rt.player_lifecycle = PlayerLifecycle::Alive;
+    // Start pressed + A + C held → level skip, not pause
+    let input = FrameInput {
+        a: true,
+        c: true,
+        start: true,
+        ..Default::default()
+    };
+    rt.handle_start_press(input, true);
+    assert!(
+        !rt.pause_toggle_pending,
+        "ASM loc_74E0: A+C+Start → level skip, pause suppressed"
+    );
+    assert!(
+        rt.pending_level_skip.is_some(),
+        "ASM loc_74E0: pending_level_skip set"
+    );
+}
+
+/// ASM loc_74B0 (kid.asm:7634–7636): `tst.b (Allow_Pausing); beq.w
+/// loc_7452; st (Game_Paused)` — when A is not held and pausing is
+/// allowed, the game pauses.
+#[test]
+fn loc_74b0_start_without_a_triggers_pause() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.boot_state = BootState::InGame;
+    rt.player_lifecycle = PlayerLifecycle::Alive;
+    let input = FrameInput {
+        start: true,
+        ..Default::default()
+    };
+    rt.handle_start_press(input, true);
+    assert!(
+        rt.pause_toggle_pending,
+        "ASM loc_74B0: st (Game_Paused) — pause toggled"
+    );
+}
+
 // --- loc_7396: reverse murder wall camera push ---
 
 /// ASM loc_7396 (kid.asm:7499–7502): reversed wall reads

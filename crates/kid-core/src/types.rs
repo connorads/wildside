@@ -845,6 +845,18 @@ pub struct FrameInput {
 }
 
 impl FrameInput {
+    /// Decode a raw controller byte into individual button flags.
+    ///
+    /// ASM loc_7464 (kid.asm:7593–7609): the ROM unpacks `Ctrl_Held` into
+    /// seven consecutive flag bytes (`Ctrl_A_Held` .. `Ctrl_Up_Held`) via
+    /// repeated `add.b d0,d0; scs (a0)+` — each left-shift moves the next
+    /// bit into carry, and `scs` sets the target byte to $FF when carry is
+    /// set.  The first shift discards bit 7 (Start, handled separately by
+    /// loc_74B0's `bclr`).  The final `sne (a0)` sets `Ctrl_Up_Held` from
+    /// the Z flag of the last shift result.
+    ///
+    /// Native uses direct bit-mask tests instead of the serial shift chain,
+    /// producing the same boolean result per button.
     pub fn from_mask(mask: u8) -> Self {
         Self {
             up: mask & (1 << 0) != 0,
@@ -855,6 +867,21 @@ impl FrameInput {
             c: mask & (1 << 5) != 0,
             a: mask & (1 << 6) != 0,
             start: mask & (1 << 7) != 0,
+        }
+    }
+
+    /// ASM loc_7464 (kid.asm:7610–7614): after the shift chain, the ROM
+    /// checks `tst.b (Ctrl_Left_Held)` + `tst.b (Ctrl_Right_Held)` — when
+    /// both are held simultaneously, `sf (Ctrl_Right_Held)` clears right so
+    /// left wins.  Returns a new `FrameInput` with the conflict resolved.
+    pub fn with_left_right_conflict_resolved(self) -> Self {
+        if self.left && self.right {
+            Self {
+                right: false,
+                ..self
+            }
+        } else {
+            self
         }
     }
 
@@ -885,6 +912,16 @@ impl FrameInput {
             mask |= 1 << 7;
         }
         mask
+    }
+
+    /// ASM loc_749C (kid.asm:7616–7621): when `Demo_Mode_flag` is clear and
+    /// `Options_Suboption_Speed` is non-zero (fast mode), the ROM inverts
+    /// `Ctrl_A_Held` with `not.b`.  This makes the player run by default and
+    /// hold A to walk — a speed option convenience toggle.
+    ///
+    /// Returns a new `FrameInput` with the A button inverted.
+    pub fn with_speed_option_a_inverted(self) -> Self {
+        Self { a: !self.a, ..self }
     }
 }
 
