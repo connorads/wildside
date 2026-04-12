@@ -2897,6 +2897,19 @@ impl NativeRuntime {
                         self.progression.invulnerable_frames.max(1);
                 }
                 DiamondPowerType::SlashingRain | DiamondPowerType::TrackingRain => {
+                    // ASM loc_3FE62 (kid.asm:45204): rain main loop preamble —
+                    // d3=$7F-Camera_X, d4=$7F-Camera_Y screen offsets,
+                    // a5=Kid x_vel*3/4 (drift for non-tracking rain),
+                    // d7=Time_Frames&7 (tracking check cadence), then
+                    // iterates diamond power object linked list via loc_3FE90.
+                    //
+                    // ASM loc_3FE90 (kid.asm:45221): per-object loop entry —
+                    // tst.w $3E(a0): nonzero → loc_3FE98 (tracking: apply own
+                    // velocities), zero → loc_3FEBC (not yet tracking: check
+                    // frame timing, search enemies, possibly start tracking).
+                    //
+                    // TODO(fidelity): native uses simplified projectile spawning;
+                    // ASM uses linked-list DP object pool with tracking state.
                     // Rain projectiles from top of screen every 4 frames
                     if self.progression.diamond_power_frames.is_multiple_of(4)
                         && self.projectiles.len() < MAX_PROJECTILES
@@ -3064,6 +3077,10 @@ impl NativeRuntime {
             _ => {}
         }
 
+        // ASM loc_3FDFE (kid.asm:45172): shared init epilogue for
+        // DiamondPower_Init_TrackingRain/SlashingRain — clr.w ($FFFFF5C0).w
+        // resets active rain object count to 0. Native has no explicit count
+        // (projectile list length serves as the equivalent).
         self.progression.diamond_power_frames = diamond_power_duration(power);
     }
 

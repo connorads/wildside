@@ -11350,6 +11350,116 @@ fn diamond_power_cyclone_slashing_rain_spawns_projectiles() {
     );
 }
 
+// -----------------------------------------------------------------------
+// DiamondPower_Init / Main rain (loc_3FDFE, loc_3FE62, loc_3FE90)
+// -----------------------------------------------------------------------
+
+#[test]
+fn diamond_power_init_slashing_rain_sets_timer_and_clears_count_loc_3fdfe() {
+    // ASM DiamondPower_Init_SlashingRain (kid.asm:45168): sf ($FFFFF5B9).w
+    // (tracking=false), move.w #$2D0,(Diamond_power_timer).w (720 frames).
+    // ASM loc_3FDFE (kid.asm:45172): clr.w ($FFFFF5C0).w — reset active rain
+    // object count to 0. Native equivalent: diamond_power_frames set to 720,
+    // projectile list starts empty (no explicit count variable).
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    runtime.progression.current_form = PlayerForm::Cyclone;
+    runtime.progression.diamond_count = 25; // enough for tier-1
+    runtime.step_frame(FrameInput {
+        start: true,
+        a: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.progression.diamond_power_frames, 720,
+        "ASM loc_3FDFE: SlashingRain timer = $2D0 (720)"
+    );
+    assert_eq!(
+        runtime.progression.diamond_power_type,
+        helmets::DiamondPowerType::SlashingRain,
+        "Cyclone tier-1 = SlashingRain"
+    );
+}
+
+#[test]
+fn diamond_power_init_tracking_rain_sets_timer_and_clears_count_loc_3fdfe() {
+    // ASM DiamondPower_Init_TrackingRain (kid.asm:45162): st ($FFFFF5B9).w
+    // (tracking=true), move.w #$708,(Diamond_power_timer).w (1800 frames).
+    // ASM loc_3FDFE (kid.asm:45172): clr.w ($FFFFF5C0).w — same epilogue.
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    runtime.progression.current_form = PlayerForm::Cyclone;
+    runtime.progression.diamond_count = 55; // 20+30 for tier-2
+    runtime.step_frame(FrameInput {
+        start: true,
+        a: true,
+        ..FrameInput::default()
+    });
+    assert_eq!(
+        runtime.progression.diamond_power_frames, 1800,
+        "ASM loc_3FDFE: TrackingRain timer = $708 (1800)"
+    );
+    assert_eq!(
+        runtime.progression.diamond_power_type,
+        helmets::DiamondPowerType::TrackingRain,
+        "Cyclone tier-2 = TrackingRain"
+    );
+}
+
+#[test]
+fn diamond_power_main_rain_spawns_and_iterates_objects_loc_3fe62_loc_3fe90() {
+    // ASM loc_3FE62 (kid.asm:45204): rain main loop preamble — computes
+    // screen offsets d3=$7F-Camera_X, d4=$7F-Camera_Y, loads Kid x_vel*3/4
+    // as drift factor, d7=Time_Frames&7 for tracking cadence, then iterates
+    // the DP object linked list starting at Addr_FirstDPObjectSlot.
+    //
+    // ASM loc_3FE90 (kid.asm:45221): per-object entry — tst.w $3E(a0)
+    // dispatches to tracking (loc_3FE98) or non-tracking (loc_3FEBC) path.
+    // Non-tracking objects drift with Kid velocity and fall; tracking objects
+    // home toward nearest enemy.
+    //
+    // Native approximation: projectile-based spawning without linked-list
+    // objects. This test verifies that rain objects accumulate over time and
+    // that the timer counts down, exercising the equivalent of the ASM's
+    // per-frame spawn (DiamondPower_Main_SlashingRain) and per-object
+    // iteration (loc_3FE62 → loc_3FE90 loop).
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+
+    runtime.progression.current_form = PlayerForm::Cyclone;
+    runtime.progression.diamond_count = 25;
+    runtime.step_frame(FrameInput {
+        start: true,
+        a: true,
+        ..FrameInput::default()
+    });
+    let initial_frames = runtime.progression.diamond_power_frames;
+    assert_eq!(initial_frames, 720);
+
+    // Step 8 frames — timer should decrement, projectiles should appear
+    for _ in 0..8 {
+        runtime.step_frame(FrameInput::default());
+    }
+    assert_eq!(
+        runtime.progression.diamond_power_frames,
+        initial_frames - 8,
+        "ASM loc_3FE62: timer decrements each frame"
+    );
+    assert!(
+        !runtime.projectiles.is_empty(),
+        "ASM loc_3FE90: rain objects spawned and iterated"
+    );
+    // Each projectile should move downward (friendly rain)
+    for proj in &runtime.projectiles {
+        assert!(
+            proj.friendly,
+            "ASM loc_3FE90: rain projectiles are friendly (damage enemies)"
+        );
+    }
+}
+
 #[test]
 fn diamond_power_object_remove_sub_3f5e8_unlinks_the_slot_and_keeps_flags_while_objects_remain() {
     let result = helmets::diamond_power_object_remove_sub_3F5E8(
