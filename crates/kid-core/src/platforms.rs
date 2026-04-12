@@ -1096,3 +1096,116 @@ pub(crate) fn platform_strip_sprites_loc_251C(
         next_number_sprites,
     }
 }
+
+// ---------------------------------------------------------------------------
+// SoftPlatform / TrapPlatformDown / TrapPlatformUp script routines
+// ---------------------------------------------------------------------------
+
+/// Per-frame action for the SoftPlatform settled wait state.
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SoftPlatformSettledActionLoc4160 {
+    /// Kid is still standing on this platform — stay in settled wait.
+    StaySettled,
+    /// Kid left or switched platforms — return to `SoftPlatform_WaitLoop`.
+    ReturnToWaitLoop,
+}
+
+/// SoftPlatform settled wait: after the bounce loop restores the platform to
+/// its original y position and clears velocity, this state hibernates one
+/// frame per iteration and checks whether Kid is still standing on this
+/// specific platform.
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn soft_platform_settled_step_loc_4160(
+    platform_standing_on: u16,
+    this_platform_addr: u16,
+) -> SoftPlatformSettledActionLoc4160 {
+    // ASM loc_4160 (kid.asm:5242): jsr Hibernate, then:
+    //   move.w (Addr_PlatformStandingOn).w,d7
+    //   beq.s  SoftPlatform_WaitLoop        ; zero → no platform
+    //   cmp.w  a3,d7
+    //   bne.s  SoftPlatform_WaitLoop        ; different platform
+    //   bra.s  loc_4160                     ; same → keep settled
+    if platform_standing_on == 0 || platform_standing_on != this_platform_addr {
+        SoftPlatformSettledActionLoc4160::ReturnToWaitLoop
+    } else {
+        SoftPlatformSettledActionLoc4160::StaySettled
+    }
+}
+
+/// Per-frame action for the TrapPlatformDown post-fall wait state.
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TrapPlatformDownPostFallActionLoc41EE {
+    /// Platform not yet deactivated — continue waiting.
+    ContinueWaiting,
+    /// Deactivated flag set — deallocate slot and delete object.
+    Delete,
+}
+
+/// TrapPlatformDown post-fall wait: after the platform has fallen off-screen
+/// (platform Y - Kid screen Y >= $E0), velocity is cleared and the sub-pixel
+/// field set to $800. This loop hibernates each frame and polls the
+/// deactivation flag at `$12(a3)`.
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn trap_platform_down_post_fall_step_loc_41EE(
+    deactivated_flag: u8,
+) -> TrapPlatformDownPostFallActionLoc41EE {
+    // ASM loc_41EE (kid.asm:5304): jsr Hibernate, then:
+    //   tst.b  $12(a3)
+    //   beq.s  loc_41EE            ; zero → keep waiting
+    //   ; nonzero → fall through to TrapPlatformDown_Delete
+    if deactivated_flag != 0 {
+        TrapPlatformDownPostFallActionLoc41EE::Delete
+    } else {
+        TrapPlatformDownPostFallActionLoc41EE::ContinueWaiting
+    }
+}
+
+/// Per-frame result of the TrapPlatformUp move loop.
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TrapPlatformUpMoveStepLoc4230 {
+    /// Updated y velocity after deceleration (clamped to -$40000).
+    pub(crate) new_y_velocity: i32,
+    /// `true` while the platform is still rising (platform Y - Kid Y > -$E0).
+    pub(crate) continue_moving: bool,
+}
+
+/// TrapPlatformUp move loop step: after hibernating and applying the current
+/// velocity to the platform position (`TrapPlatformUp_Move`), this routine
+/// decelerates upward velocity by $4000 per frame (clamped to -$40000) and
+/// checks whether the platform has risen far enough above Kid to exit.
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(non_snake_case)]
+pub(crate) fn trap_platform_up_move_step_loc_4230(
+    y_velocity: i32,
+    platform_y_px: i16,
+    kid_y_px: i16,
+) -> TrapPlatformUpMoveStepLoc4230 {
+    // ASM loc_4230 (kid.asm:5341): after Hibernate + TrapPlatformUp_Move:
+    //   move.l $E(a3),d7
+    //   subi.l #$4000,d7
+    //   cmpi.l #-$40000,d7
+    //   bgt.w  +
+    //   move.l #-$40000,d7
+    // +
+    //   move.l d7,$E(a3)          ; store clamped velocity
+    //   move.w 6(a3),d7           ; platform y_pos word
+    //   sub.w  $1E(a2),d7         ; subtract Kid y_pos word
+    //   cmpi.w #-$E0,d7
+    //   bgt.s  loc_4230           ; still close → keep moving
+    let decelerated = y_velocity.wrapping_sub(0x4000);
+    let clamped = if decelerated > -0x40000_i32 {
+        decelerated
+    } else {
+        -0x40000_i32
+    };
+    let relative_y = platform_y_px.wrapping_sub(kid_y_px);
+    TrapPlatformUpMoveStepLoc4230 {
+        new_y_velocity: clamped,
+        continue_moving: relative_y > -0xE0,
+    }
+}

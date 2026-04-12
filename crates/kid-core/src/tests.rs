@@ -25001,6 +25001,133 @@ fn platform_strip_sprites_loc_253e_skips_the_middle_loop_for_a_two_tile_column()
     );
 }
 
+// ---------------------------------------------------------------------------
+// SoftPlatform / TrapPlatformDown / TrapPlatformUp script routine tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn soft_platform_settled_step_loc_4160_stays_settled_when_kid_stands_on_this_platform() {
+    // ASM loc_4160 (kid.asm:5242): cmp.w a3,d7 matches → bra.s loc_4160
+    assert_eq!(
+        soft_platform_settled_step_loc_4160(0x1234, 0x1234),
+        SoftPlatformSettledActionLoc4160::StaySettled,
+        "when Addr_PlatformStandingOn equals this platform's address, the ROM loops back to loc_4160",
+    );
+}
+
+#[test]
+fn soft_platform_settled_step_loc_4160_returns_to_wait_when_no_platform() {
+    // ASM loc_4160: beq.s SoftPlatform_WaitLoop (zero → Kid stepped off)
+    assert_eq!(
+        soft_platform_settled_step_loc_4160(0x0000, 0x1234),
+        SoftPlatformSettledActionLoc4160::ReturnToWaitLoop,
+        "zero Addr_PlatformStandingOn means Kid is not standing on any platform",
+    );
+}
+
+#[test]
+fn soft_platform_settled_step_loc_4160_returns_to_wait_when_different_platform() {
+    // ASM loc_4160: cmp.w a3,d7; bne.s SoftPlatform_WaitLoop
+    assert_eq!(
+        soft_platform_settled_step_loc_4160(0x5678, 0x1234),
+        SoftPlatformSettledActionLoc4160::ReturnToWaitLoop,
+        "Kid standing on a different platform should return to SoftPlatform_WaitLoop",
+    );
+}
+
+#[test]
+fn trap_platform_down_post_fall_step_loc_41ee_continues_when_flag_clear() {
+    // ASM loc_41EE (kid.asm:5304): tst.b $12(a3); beq.s loc_41EE
+    assert_eq!(
+        trap_platform_down_post_fall_step_loc_41EE(0x00),
+        TrapPlatformDownPostFallActionLoc41EE::ContinueWaiting,
+        "zero deactivation flag keeps the platform in the post-fall wait loop",
+    );
+}
+
+#[test]
+fn trap_platform_down_post_fall_step_loc_41ee_deletes_when_flag_set() {
+    // ASM loc_41EE: tst.b $12(a3) nonzero → TrapPlatformDown_Delete
+    assert_eq!(
+        trap_platform_down_post_fall_step_loc_41EE(0xFF),
+        TrapPlatformDownPostFallActionLoc41EE::Delete,
+        "nonzero deactivation flag falls through to TrapPlatformDown_Delete",
+    );
+}
+
+#[test]
+fn trap_platform_down_post_fall_step_loc_41ee_any_nonzero_byte_triggers_delete() {
+    // Verify that any nonzero value (not just $FF) triggers deletion
+    assert_eq!(
+        trap_platform_down_post_fall_step_loc_41EE(0x01),
+        TrapPlatformDownPostFallActionLoc41EE::Delete,
+        "tst.b tests the whole byte — $01 is nonzero and should trigger delete",
+    );
+}
+
+#[test]
+fn trap_platform_up_move_step_loc_4230_decelerates_by_0x4000_per_frame() {
+    // ASM loc_4230 (kid.asm:5341): subi.l #$4000,d7
+    // Start with velocity 0 (just stepped on), Kid at y=200, platform at y=190
+    let result = trap_platform_up_move_step_loc_4230(0, 190, 200);
+    assert_eq!(
+        result.new_y_velocity, -0x4000,
+        "first frame: 0 - $4000 = -$4000",
+    );
+    assert!(
+        result.continue_moving,
+        "190 - 200 = -10, which is > -$E0 (-224), so continue",
+    );
+}
+
+#[test]
+fn trap_platform_up_move_step_loc_4230_clamps_velocity_to_negative_0x40000() {
+    // ASM loc_4230: cmpi.l #-$40000,d7; bgt.w +; move.l #-$40000,d7
+    let result = trap_platform_up_move_step_loc_4230(-0x3C001, 100, 200);
+    assert_eq!(
+        result.new_y_velocity, -0x40000,
+        "velocity past the cap should clamp to -$40000",
+    );
+}
+
+#[test]
+fn trap_platform_up_move_step_loc_4230_does_not_clamp_when_above_minimum() {
+    // Velocity -$38000 minus $4000 = -$3C000, which is > -$40000
+    let result = trap_platform_up_move_step_loc_4230(-0x38000, 100, 200);
+    assert_eq!(
+        result.new_y_velocity, -0x3C000,
+        "-$38000 - $4000 = -$3C000, above the -$40000 floor",
+    );
+}
+
+#[test]
+fn trap_platform_up_move_step_loc_4230_exits_when_far_above_kid() {
+    // ASM: cmpi.w #-$E0,d7; bgt.s loc_4230 — exit when platform_y - kid_y <= -$E0
+    // platform at y=0, Kid at y=224 → relative = 0 - 224 = -224 = -$E0
+    let result = trap_platform_up_move_step_loc_4230(-0x10000, 0, 224);
+    assert!(
+        !result.continue_moving,
+        "0 - 224 = -224 = -$E0, which is NOT > -$E0, so exit"
+    );
+}
+
+#[test]
+fn trap_platform_up_move_step_loc_4230_continues_when_just_above_threshold() {
+    // platform at y=1, Kid at y=224 → relative = 1 - 224 = -223 = -$DF
+    let result = trap_platform_up_move_step_loc_4230(-0x10000, 1, 224);
+    assert!(result.continue_moving, "1 - 224 = -223 > -224, so continue");
+}
+
+#[test]
+fn trap_platform_up_move_step_loc_4230_exact_clamp_boundary() {
+    // Velocity exactly at -$40000 minus $4000 = -$44000 → should clamp to -$40000
+    let result = trap_platform_up_move_step_loc_4230(-0x40000, 100, 200);
+    assert_eq!(
+        result.new_y_velocity, -0x40000,
+        "-$40000 - $4000 = -$44000, clamped back to -$40000",
+    );
+}
+
 #[test]
 fn platform_collision_shift_directions_matter() {
     // Mutant: lines 80, 91, 92 — replace >> with << in pixel extraction
