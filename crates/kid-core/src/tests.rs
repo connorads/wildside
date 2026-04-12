@@ -29989,19 +29989,22 @@ fn loc_6462_each_animation_frame_selects_correct_tile_from_unk_64bc() {
 
 #[test]
 fn loc_64d0_dead_code_nibble_interleave_matches_loc_14348_algorithm() {
-    // ASM loc_64D0 (kid.asm:6502): dead code in the ROM — identical nibble-
-    // interleaving algorithm to loc_14348/loc_1434A in DecompressToVRAM_Special.
-    //   moveq #0,d2
-    //   move.b (a0,d1.w),d3; lsl.b #4,d3; or.b (a0,d2.w),d3; move.b d3,(a1)+
+    // ASM loc_64D0 (kid.asm:6502) / loc_64D2 (kid.asm:6505): dead code in the
+    // ROM — identical nibble-interleaving algorithm to loc_14348/loc_1434A in
+    // DecompressToVRAM_Special.
+    //   loc_64D0: moveq #0,d2                     (reset column index)
+    //   loc_64D2: move.b (a0,d1.w),d3; lsl.b #4,d3; or.b (a0,d2.w),d3;
+    //             move.b d3,(a1)+; addq.w #1,d2; cmpi.w #$10,d2; bne.s loc_64D2
     //   16×16 nested loop packs high nibble from row d1, low nibble from col d2.
     // Verify the existing decompress_special_palette_row_bytes_loc_1434A
-    // produces the same result as a direct translation of loc_64D0's loop.
+    // produces the same result as a direct translation of loc_64D0/loc_64D2's
+    // loop.
     let permutation: [u8; 16] = [
         0, 1, 0x0B, 0x0C, 0x0D, 6, 0x0A, 9, 0x0D, 7, 0x0E, 2, 3, 4, 8, 0x0F,
     ];
 
-    // Reproduce loc_64D0: for each row d1 in 0..16, emit 16 bytes by packing
-    // permutation[d1] << 4 | permutation[d2] for d2 in 0..16.
+    // Reproduce loc_64D0/loc_64D2: for each row d1 in 0..16, emit 16 bytes by
+    // packing permutation[d1] << 4 | permutation[d2] for d2 in 0..16.
     let mut expected = Vec::with_capacity(256);
     for row in 0u16..16 {
         let row_bytes =
@@ -30021,9 +30024,45 @@ fn loc_64d0_dead_code_nibble_interleave_matches_loc_14348_algorithm() {
 
     assert_eq!(
         expected, direct,
-        "ASM loc_64D0: the dead-code nibble interleave loop at kid.asm:6502 \
-         must match decompress_special_palette_row_bytes_loc_1434A"
+        "ASM loc_64D0/loc_64D2: the dead-code nibble interleave loop at \
+         kid.asm:6502-6515 must match decompress_special_palette_row_bytes_loc_1434A"
     );
+}
+
+#[test]
+fn loc_64d2_inner_column_loop_packs_one_row_of_16_nibble_pairs() {
+    // ASM loc_64D2 (kid.asm:6505): inner column loop body for the dead-code
+    // nibble interleave.  For a single row d1, iterates d2 from 0 to 15:
+    //   move.b (a0,d1.w),d3; lsl.b #4,d3; or.b (a0,d2.w),d3; move.b d3,(a1)+
+    // Verify that decompress_special_palette_row_bytes_loc_1434A (the live
+    // equivalent at loc_1434A) produces the expected packed bytes for row 0.
+    let permutation: [u8; 16] = [
+        0, 1, 0x0B, 0x0C, 0x0D, 6, 0x0A, 9, 0x0D, 7, 0x0E, 2, 3, 4, 8, 0x0F,
+    ];
+    let row_bytes =
+        crate::level::decompress_special_palette_row_bytes_loc_1434A(&permutation, 0, 15);
+
+    // Row 0: high nibble = permutation[0] = 0, so each byte = permutation[d2].
+    assert_eq!(row_bytes.len(), 16);
+    for (col, &byte) in row_bytes.iter().enumerate() {
+        assert_eq!(
+            byte, permutation[col],
+            "ASM loc_64D2: row 0, col {col}: high nibble 0 | low nibble {:#04X} = {:#04X}",
+            permutation[col], permutation[col],
+        );
+    }
+
+    // Row 5: high nibble = permutation[5] = 6, so each byte = 0x60 | permutation[d2].
+    let row5_bytes =
+        crate::level::decompress_special_palette_row_bytes_loc_1434A(&permutation, 5, 15);
+    for (col, &byte) in row5_bytes.iter().enumerate() {
+        assert_eq!(
+            byte,
+            (6 << 4) | permutation[col],
+            "ASM loc_64D2: row 5, col {col}: high nibble $60 | low nibble {:#04X}",
+            permutation[col],
+        );
+    }
 }
 
 // --- Hail period toggle ---

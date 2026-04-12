@@ -1014,6 +1014,14 @@ pub(crate) fn decompress_to_vram_buffer_rollover_loc_1432C(
 // table).  The preceding bytes ($43F9 $FFFF0280 $7200) decode to
 // `clr.w ($FFFF0280).l; moveq #0,d1` — setup for the same 16×16
 // nibble-pack loop that `DecompressToVRAM_Special` uses at loc_14348.
+//
+// ASM loc_64D2 (kid.asm:6505): the inner column loop body —
+//   move.b (a0,d1.w),d3; lsl.b #4,d3; or.b (a0,d2.w),d3; move.b d3,(a1)+
+//   addq.w #1,d2; cmpi.w #$10,d2; bne.s loc_64D2
+// Packs permutation[d1] into the high nibble, permutation[d2] into the low
+// nibble, for each column d2 in 0..16 within the current row d1.  Identical
+// to the inner loop at loc_1434A in DecompressToVRAM_Special.
+//
 // A second phase at loc_6504 reads remap indices from a4 into $FFFF0380,
 // mirroring loc_14382's palette-table lookup.  Both phases match
 // `decompress_special_palette_row_bytes_loc_1434A` and
