@@ -1276,6 +1276,15 @@ pub(crate) struct PlayerSlot {
 
 impl Default for PlayerSlot {
     fn default() -> Self {
+        // ASM loc_65C (kid.asm:793-819): new-game init for both player slots.
+        //   move.w #3,(Player_1_Lives).w        → lives = 3
+        //   clr.l  (Player_1_Score).w           → score = 0
+        //   clr.w  (Player_1_Helmet).w          → form = TheKid (0)
+        //   move.w #2,(Player_1_Hitpoints).w    → hitpoints = 2
+        //   move.w #3,(Player_1_Continues).w    → continues = 3
+        //   move.w #$FFFF,(Player_1_OneTimePrizes).w
+        //   (identical block for Player_2_*)
+        // level_id comes from MapHeader_BaseAddress which is 0 at cold boot.
         Self {
             lives: 3,
             hitpoints: PlayerForm::TheKid.max_hitpoints(),

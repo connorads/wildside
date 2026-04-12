@@ -5419,6 +5419,12 @@ impl NativeRuntime {
                 | BootState::InGame
                 | BootState::DemoPlay { .. }
         ) {
+            // ASM loc_65C (kid.asm:793): new-game init — clears Game_Mode,
+            // Check_Helmet_Change, Demo_Mode_flag, Two_player_flag, resets
+            // Player_1/2 lives=3, hitpoints=2, continues=3, score=0,
+            // helmet=0 (TheKid), and sets $FFFFFC36 (timer-init flag).
+            // The native equivalent resets progression and lifecycle state
+            // every frame the boot machine hasn't yet entered gameplay.
             self.opening_slice = None;
             self.progression.current_form = PlayerForm::TheKid;
             self.progression.pending_form = None;

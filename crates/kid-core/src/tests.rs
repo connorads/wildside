@@ -67335,6 +67335,44 @@ fn loc_604_options_validation_resets_invalid_controls() {
 }
 
 // ---------------------------------------------------------------------------
+// loc_65C — new-game player slot + progression init
+// ---------------------------------------------------------------------------
+
+/// ASM loc_65C (kid.asm:793-819): new-game init writes identical values into
+/// both Player_1_* and Player_2_* RAM slots: lives=3, hitpoints=2, score=0,
+/// helmet=0, continues=3, OneTimePrizes=$FFFF, level_id=MapHeader_BaseAddress.
+/// Verify `PlayerSlot::default()` matches these values exactly.
+#[test]
+fn loc_65c_player_slot_default_matches_asm_new_game_init() {
+    let slot = PlayerSlot::default();
+
+    assert_eq!(slot.lives, 3, "ASM loc_65C: move.w #3,(Player_1_Lives).w");
+    assert_eq!(
+        slot.hitpoints, 2,
+        "ASM loc_65C: move.w #2,(Player_1_Hitpoints).w"
+    );
+    assert_eq!(slot.score, 0, "ASM loc_65C: clr.l (Player_1_Score).w");
+    assert_eq!(
+        slot.form,
+        PlayerForm::TheKid,
+        "ASM loc_65C: clr.w (Player_1_Helmet).w — helmet 0 = TheKid"
+    );
+    assert_eq!(
+        slot.continues, 3,
+        "ASM loc_65C: move.w #3,(Player_1_Continues).w"
+    );
+    assert_eq!(
+        slot.diamonds, 0,
+        "ASM loc_65C: diamond count starts at zero (no explicit write — RAM-cleared)"
+    );
+    assert_eq!(
+        slot.level_id,
+        LevelId(0),
+        "ASM loc_65C: move.w (MapHeader_BaseAddress).l,(Player_1_LevelID).w — level 0 at cold boot"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // loc_607A — Palette_Buffer → Palette_Buffer_2 copy in sub_6048
 // ---------------------------------------------------------------------------
 
