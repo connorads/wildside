@@ -4119,7 +4119,13 @@ pub fn decode_enigma(data: &[u8], base_tile_word: u16) -> Result<Vec<u16>> {
     let header = parse_enigma_header_eni_dec(data, base_tile_word)?;
     let mut incrementing_value = header.incrementing_value;
     let common_value = header.common_value;
-    let mut bits = EnigmaBitReader::new(header.bitstream);
+    // ASM loc_13570: the original 68k decoder transiently reads 1-2 bytes
+    // past the Enigma payload during bit-buffer refills, then backs up the
+    // pointer after hitting the terminator. Pad with zero bytes to emulate
+    // the flat ROM read-ahead margin that extracted file slices lack.
+    let mut padded_bitstream = header.bitstream.to_vec();
+    padded_bitstream.extend_from_slice(&[0; 2]);
+    let mut bits = EnigmaBitReader::new(&padded_bitstream);
     bits.refill_word_sub_13618()?;
     let mut output = Vec::new();
 
@@ -5759,7 +5765,7 @@ AddrTbl_LevelNames:   ;1A842
             &[
                 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, // header
                 0xE1, 0x55, 0x7F, 0x80,
-                0x00, // command 7,count 0; inline 0x2AA; terminator; refill tail byte
+                // command 7,count 0; inline 0x2AA; terminator
             ],
             0,
         )
