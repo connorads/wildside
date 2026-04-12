@@ -120,6 +120,24 @@ pub(crate) const VRAM_CLEAR_VRAM_ADDR_LOC_61C: u16 = 0x0000;
 #[allow(dead_code)]
 pub(crate) const VRAM_CLEAR_LONGWORD_COUNT_LOC_62A: u32 = 0x4000;
 
+/// ASM loc_700 (kid.asm:832): second VRAM clear entry in the game-restart path
+/// (loc_6E2).  Structurally identical to loc_61C: `move.l #vdpComm($0000,VRAM,WRITE),4(a6)`
+/// followed by the inner loop at loc_70E.
+///
+/// ASM loc_70E (kid.asm:837): `move.l d1,(a6); dbf d0,loc_70E` — inner loop of
+/// the second VRAM clear.  d0=$3FFF, d1=0 — same parameters as loc_62A.
+/// The ROM clears VRAM twice: once at initial boot (loc_61C/loc_62A) and again
+/// every time the game restarts via loc_6E2, which first conditionally runs
+/// Pal_FadeOut then re-clears all 64 KB of VRAM.
+///
+/// In the native port, Rust struct initialisation handles the equivalent reset;
+/// these constants document that the second clear uses identical dimensions.
+#[allow(dead_code)]
+pub(crate) const VRAM_CLEAR_VRAM_ADDR_LOC_700: u16 = 0x0000;
+/// `move.w #$3FFF,d0` + dbf = $4000 longwords = $10000 bytes (full 64 KB VRAM).
+#[allow(dead_code)]
+pub(crate) const VRAM_CLEAR_LONGWORD_COUNT_LOC_70E: u32 = 0x4000;
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {

@@ -67500,6 +67500,34 @@ fn loc_62a_vram_clear_dimensions() {
     );
 }
 
+/// ASM loc_700 (kid.asm:832): second VRAM clear in the game-restart path
+/// (loc_6E2).  After conditionally running Pal_FadeOut, loc_700 clears all
+/// 64 KB VRAM using the same parameters as the boot-time loc_61C/loc_62A.
+///
+/// ASM loc_70E (kid.asm:837): inner loop — `move.l d1,(a6); dbf d0,loc_70E`.
+/// d0=$3FFF (dbf loops $4000 times), d1=0.
+#[test]
+fn loc_700_loc_70e_second_vram_clear_matches_first() {
+    // loc_700 targets the same VRAM address as loc_61C
+    assert_eq!(
+        crate::boot::VRAM_CLEAR_VRAM_ADDR_LOC_700,
+        crate::boot::VRAM_CLEAR_VRAM_ADDR_LOC_61C,
+        "ASM loc_700: second VRAM clear targets same address ($0000) as loc_61C",
+    );
+    // loc_70E loops the same count as loc_62A
+    assert_eq!(
+        crate::boot::VRAM_CLEAR_LONGWORD_COUNT_LOC_70E,
+        crate::boot::VRAM_CLEAR_LONGWORD_COUNT_LOC_62A,
+        "ASM loc_70E: second VRAM clear loop count ($4000) matches loc_62A",
+    );
+    // Both clear the full 64 KB VRAM
+    assert_eq!(
+        crate::boot::VRAM_CLEAR_LONGWORD_COUNT_LOC_70E * 4,
+        0x10000,
+        "ASM loc_70E: $4000 longwords × 4 bytes = $10000 = full 64 KB VRAM",
+    );
+}
+
 #[test]
 fn loc_454_exception_vector_table_is_m68k_hardware_infrastructure() {
     // ASM loc_454 (kid.asm:513): `bra.w returnFromException` — the final
