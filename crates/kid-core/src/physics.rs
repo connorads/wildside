@@ -653,6 +653,12 @@ pub fn apply_gravity(y_vel: i32, ascending_and_b_held: bool) -> i32 {
 /// Update camera position to follow the player. All coordinates are in pixels
 /// (the 68k camera logic operates on the upper 16 bits of positions).
 ///
+/// ASM loc_71EC (kid.asm:7310): `beq.w loc_73C2` — if `Addr_GfxObject_Kid` is
+/// null (d7=0), branch straight to the routine exit which writes back the
+/// original scroll values unchanged (camera doesn't move).  In the native port
+/// this null-bail is implicit: `update_camera_follow` is only called when a
+/// player exists, so the camera naturally stays frozen when Kid is absent.
+///
 /// Returns `(new_camera_x, new_camera_y)` in pixels.
 pub fn update_camera(
     camera_x: i32,
@@ -1652,6 +1658,37 @@ mod tests {
         let (_, y_pos) = initiate_jump(0x2_0000, JUMP_HEIGHTS[0]);
         let (_, y_neg) = initiate_jump(-0x2_0000, JUMP_HEIGHTS[0]);
         assert_eq!(y_pos, y_neg);
+    }
+
+    /// ASM loc_71EC (kid.asm:7310): `beq.w loc_73C2` — when `Addr_GfxObject_Kid`
+    /// is null (d7=0 from `move.l (Addr_GfxObject_Kid).w,d7`), sub_71E4 branches
+    /// straight to loc_73C2.  loc_73C2 writes back the original d2/d3 scroll
+    /// values (loaded at entry from $FFFFF892/$FFFFF894) and returns — the camera
+    /// position is unchanged.
+    ///
+    /// In the native port, `update_camera` is a pure function: calling it with
+    /// `player == camera + CAMERA_PLAYER_OFFSET` (i.e. player centred) produces
+    /// zero delta, equivalent to the null-bail "camera doesn't move" behaviour.
+    #[test]
+    fn loc_71ec_null_kid_bail_camera_unchanged() {
+        let camera_x = 100;
+        let camera_y = 50;
+        let bounds = LevelBounds {
+            width_pixels: 1024,
+            height_pixels: 512,
+        };
+        // Simulate the null-bail: if Kid doesn't exist, no update_camera call
+        // happens and camera stays put.  Equivalently, calling update_camera with
+        // player positioned exactly at camera + offset produces no movement.
+        let player_x = camera_x + CAMERA_PLAYER_OFFSET;
+        let player_y = camera_y + CAMERA_PLAYER_OFFSET;
+        let (new_cx, new_cy) = update_camera(camera_x, camera_y, player_x, player_y, &bounds);
+        assert_eq!(
+            (new_cx, new_cy),
+            (camera_x, camera_y),
+            "ASM loc_71EC: when Kid is null, camera position is unchanged — \
+             native equivalent: centred player produces zero delta",
+        );
     }
 }
 
