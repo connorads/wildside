@@ -11712,6 +11712,111 @@ fn diamond_power_rain_non_tracking_move_negative_drift_loc_3ff70() {
 }
 
 #[test]
+fn diamond_power_rain_screen_cull_visible_centre_screen_loc_3ff90_loc_3ffca() {
+    // ASM loc_3FF90: screen coords well within bounds → loc_3FFCA visible.
+    // d0=0xA0 (>0, <$1C8), d1=0xB0 (>$68, <=$168), size=6.
+    // After centering: d0=0xA0-6=0x9A, d1=0xB0-6=0xAA.
+    // Table index = 6*4 = 24 = 0x18 → entry 6 = (0x05, 0x86F6).
+    // VRAM attr = 24 + 0x1144 = 0x115C.
+    let (vram, action) = helmets::diamond_power_rain_screen_cull_and_compile(0xA0, 0xB0, 6);
+    assert_eq!(vram, 0x115C, "ASM loc_3FF90: d5 = d6*4 + $1144");
+    assert_eq!(
+        action,
+        helmets::RainSlotSpriteAction::Visible {
+            y: 0xAA,
+            size_byte: 0x05,
+            pattern: 0x86F6,
+            x: 0x9A,
+        },
+        "ASM loc_3FFCA: on-screen rain sprite compiled"
+    );
+}
+
+#[test]
+fn diamond_power_rain_screen_cull_removed_x_too_low_loc_3ff90_loc_3ffc0() {
+    // ASM loc_3FF90: tst.w d0; ble.s loc_3FFC0 — d0 <= 0 means off-screen left.
+    // screen_x=3, size=4 → centred d0 = 3-4 = -1 ≤ 0 → Removed.
+    let (_, action) = helmets::diamond_power_rain_screen_cull_and_compile(3, 0xB0, 4);
+    assert_eq!(
+        action,
+        helmets::RainSlotSpriteAction::Removed,
+        "ASM loc_3FFC0: X ≤ 0 removes rain slot"
+    );
+}
+
+#[test]
+fn diamond_power_rain_screen_cull_removed_x_too_high_loc_3ff90_loc_3ffc0() {
+    // ASM: cmpi.w #$1C8,d0; bge.s loc_3FFC0 — d0 >= $1C8 off-screen right.
+    // screen_x=0x1CA, size=1 → centred d0 = 0x1C9 ≥ 0x1C8 → Removed.
+    let (_, action) = helmets::diamond_power_rain_screen_cull_and_compile(0x1CA, 0xB0, 1);
+    assert_eq!(
+        action,
+        helmets::RainSlotSpriteAction::Removed,
+        "ASM loc_3FFC0: X ≥ $1C8 removes rain slot"
+    );
+}
+
+#[test]
+fn diamond_power_rain_screen_cull_removed_y_too_low_loc_3ff90_loc_3ffc0() {
+    // ASM: cmpi.w #$68,d1; ble.s loc_3FFC0 — d1 <= $68 off-screen top.
+    // screen_y=0x6A, size=3 → centred d1 = 0x67 ≤ 0x68… actually 0x67 < 0x68 so ble triggers.
+    // Use screen_y=0x6B, size=3 → d1 = 0x68 = $68, ble (≤) → Removed.
+    let (_, action) = helmets::diamond_power_rain_screen_cull_and_compile(0xA0, 0x6B, 3);
+    assert_eq!(
+        action,
+        helmets::RainSlotSpriteAction::Removed,
+        "ASM loc_3FFC0: Y ≤ $68 removes rain slot"
+    );
+}
+
+#[test]
+fn diamond_power_rain_screen_cull_removed_y_too_high_loc_3ff90_loc_3ffc0() {
+    // ASM: cmpi.w #$168,d1; ble.s loc_3FFCA — d1 > $168 falls through to loc_3FFC0.
+    // screen_y=0x16A, size=0 → centred d1 = 0x16A > 0x168 → Removed.
+    let (_, action) = helmets::diamond_power_rain_screen_cull_and_compile(0xA0, 0x16A, 0);
+    assert_eq!(
+        action,
+        helmets::RainSlotSpriteAction::Removed,
+        "ASM loc_3FFC0: Y > $168 removes rain slot"
+    );
+}
+
+#[test]
+fn diamond_power_rain_screen_cull_boundary_just_visible_loc_3ff90_loc_3ffca() {
+    // Exact boundary: d0=1 (>0 passes tst.w/ble), d1=0x69 (>$68 passes ble).
+    // size=0 → no centering offset. Table entry 0 = (0x00, 0x86EA).
+    // VRAM attr = 0 + 0x1144 = 0x1144.
+    let (vram, action) = helmets::diamond_power_rain_screen_cull_and_compile(1, 0x69, 0);
+    assert_eq!(vram, 0x1144);
+    assert_eq!(
+        action,
+        helmets::RainSlotSpriteAction::Visible {
+            y: 0x69,
+            size_byte: 0x00,
+            pattern: 0x86EA,
+            x: 1,
+        },
+        "ASM loc_3FFCA: boundary values just inside screen"
+    );
+}
+
+#[test]
+fn diamond_power_rain_screen_cull_boundary_y_exactly_168_loc_3ff90_loc_3ffca() {
+    // ASM: cmpi.w #$168,d1; ble.s loc_3FFCA — d1 == $168 is ≤, so visible.
+    let (_, action) = helmets::diamond_power_rain_screen_cull_and_compile(0x80, 0x168, 0);
+    assert_eq!(
+        action,
+        helmets::RainSlotSpriteAction::Visible {
+            y: 0x168,
+            size_byte: 0x00,
+            pattern: 0x86EA,
+            x: 0x80,
+        },
+        "ASM loc_3FFCA: Y exactly $168 is visible (ble includes equal)"
+    );
+}
+
+#[test]
 fn diamond_power_object_remove_sub_3f5e8_unlinks_the_slot_and_keeps_flags_while_objects_remain() {
     let result = helmets::diamond_power_object_remove_sub_3F5E8(
         helmets::DiamondPowerObjectListsSub3F5E8 {

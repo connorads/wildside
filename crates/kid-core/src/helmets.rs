@@ -1364,6 +1364,110 @@ pub(crate) fn diamond_power_rain_non_tracking_move(
     (new_x, new_y)
 }
 
+/// Result of rain sprite screen-cull and compilation at loc_3FF90.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum RainSlotSpriteAction {
+    /// Slot on-screen — sprite compiled into a2 buffer.
+    /// ASM loc_3FFCA: writes (Y, size_byte, link, pattern, X).
+    Visible {
+        y: u16,
+        size_byte: u8,
+        pattern: u16,
+        x: u16,
+    },
+    /// Slot off-screen — removed via sub_3F5E8 and active count decremented.
+    /// ASM loc_3FFC0: bsr.w sub_3F5E8; subq.w #1,($FFFFF5C0).w
+    Removed,
+}
+
+/// ASM loc_3FF90 (kid.asm:45329): rain sprite screen-cull and compilation.
+///
+/// Shared entry point for both tracking (from loc_3FE98 via `bra.w loc_3FF90`)
+/// and non-tracking (fallthrough from loc_3FF70) rain paths.
+///
+/// Inputs: d0 = screen X (world X.hi + camera offset d3),
+///         d1 = screen Y (world Y + camera offset d4),
+///         $24(a0) = diamond_size.
+///
+/// loc_3FF90: load d6 = $24(a0); sub d6 from d0,d1 (centre sprite);
+///   d6 *= 4 (table byte index); compute VRAM attr d5 = d6 + $1144,
+///   store in $22(a0).
+///
+/// Screen bounds (asymmetric — tighter Y range than snake):
+///   d0 in (0, $1C8), d1 in ($68, $168).
+///   If outside → loc_3FFC0 (remove + decrement count).
+///   If inside → loc_3FFCA (compile sprite).
+///
+/// loc_3FFC0 (kid.asm:45348): off-screen path — `bsr.w sub_3F5E8` removes
+///   the slot from the linked list, `subq.w #1,($FFFFF5C0).w` decrements
+///   the active rain object count. Falls through to loc_3FFDA (next element).
+///
+/// loc_3FFCA (kid.asm:45354): on-screen path — writes sprite entry into a2
+///   buffer: `move.w d1,(a2)+` (Y), `move.b (a1,d6.w),(a2)+` (size_byte
+///   from word_4020E), `addq.b #1,d2; move.b d2,(a2)+` (link counter),
+///   `move.w 2(a1,d6.w),(a2)+` (pattern from word_4020E), `move.w d0,(a2)+`
+///   (X). Falls through to loc_3FFDA.
+///
+/// Returns the VRAM attribute word ($22) as a side-effect field, plus the
+/// sprite action.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_rain_screen_cull_and_compile(
+    screen_x: i16,
+    screen_y: i16,
+    diamond_size: u16,
+) -> (u16, RainSlotSpriteAction) {
+    // ASM loc_3FF90: move.w $24(a0),d6
+    let d6 = diamond_size as i16;
+
+    // ASM: sub.w d6,d0; sub.w d6,d1 — centre sprite
+    let d0 = screen_x.wrapping_sub(d6);
+    let d1 = screen_y.wrapping_sub(d6);
+
+    // ASM: add.w d6,d6; add.w d6,d6 — d6 *= 4 (table byte index)
+    let table_index = (diamond_size as usize).wrapping_mul(4);
+
+    // ASM: move.w d6,d5; addi.w #$1144,d5; move.w d5,$22(a0)
+    let vram_attr = (table_index as u16).wrapping_add(0x1144);
+
+    // ASM: screen bounds check
+    // tst.w d0; ble.s loc_3FFC0
+    if d0 <= 0 {
+        return (vram_attr, RainSlotSpriteAction::Removed);
+    }
+    // cmpi.w #$1C8,d0; bge.s loc_3FFC0
+    if d0 >= 0x1C8 {
+        return (vram_attr, RainSlotSpriteAction::Removed);
+    }
+    // cmpi.w #$68,d1; ble.s loc_3FFC0
+    if d1 <= 0x68 {
+        return (vram_attr, RainSlotSpriteAction::Removed);
+    }
+    // cmpi.w #$168,d1; ble.s loc_3FFCA
+    if d1 <= 0x168 {
+        // ASM loc_3FFCA: on-screen — compile sprite
+        let entry_index = table_index / 4;
+        let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
+            DIAMOND_SPRITE_ATTR_TABLE[entry_index]
+        } else {
+            *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
+        };
+
+        return (
+            vram_attr,
+            RainSlotSpriteAction::Visible {
+                y: d1 as u16,
+                size_byte,
+                pattern,
+                x: d0 as u16,
+            },
+        );
+    }
+
+    // d1 > $168 — falls through to loc_3FFC0 (off-screen below)
+    (vram_attr, RainSlotSpriteAction::Removed)
+}
+
 /// ASM loc_3FA16 through loc_3FA46: compute 8-way octant direction from
 /// the snake head to its target, used by the snake steering loop.
 ///
