@@ -10754,6 +10754,13 @@ impl NativeRuntime {
     }
 
     /// Load a player slot into working state (ASM sub_8A4).
+    ///
+    /// ASM loc_8B4 (kid.asm:972): fall-through after `tst.b (Current_player);
+    ///   beq loc_8B4` selects Player_1_Lives or Player_2_Lives base address.
+    ///   Then `moveq #$A,d0; lea (Number_Lives),a1; move.w (a0)+,(a1)+;
+    ///   dbf d0,loc_8BA` — copies 11 words (lives, hitpoints, diamonds,
+    ///   level ID, helmet, continues, extra_hitpoint_slots, score[long]) from
+    ///   the selected player slot into the working Number_Lives region.
     pub(crate) fn load_player_slot(&mut self) {
         let slot = &self.player_slots[self.current_player_index as usize];
         self.progression.number_lives = slot.lives;

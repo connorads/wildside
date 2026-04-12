@@ -36398,6 +36398,163 @@ fn loc_8a74_mid_flight_decrements_counter_without_flip() {
     );
 }
 
+/// ASM loc_8ABC (kid.asm:9905): `tst.w collision_type(a3); beq.s loc_8A52` —
+/// when collision_type != 0, axe hit an enemy. Play sfx_Maniaxe_hitting_enemy,
+/// `jmp Delete_CurrentObject`. Native: `process_friendly_projectile_hits`
+/// removes the consumed projectile from the list.
+#[test]
+fn maniaxe_axe_consumed_on_enemy_hit_loc_8abc() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+
+    // Spawn a friendly axe projectile
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: 5 << 16,
+        y_velocity: 0,
+        lifetime: 20,
+        friendly: true,
+        ..Default::default()
+    });
+
+    // Spawn an enemy at the exact same position (guaranteed overlap)
+    rt.active_enemies
+        .push(test_enemy(EnemyFamily::Dragon, 100 << 16, 100 << 16, 1));
+    rt.active_enemy_roster = rt
+        .active_enemies
+        .iter()
+        .map(ActiveEnemy::snapshot)
+        .collect();
+
+    rt.process_friendly_projectile_hits();
+
+    assert!(
+        rt.projectiles.is_empty(),
+        "ASM loc_8ABC: axe should be deleted after hitting an enemy (collision_type != 0)"
+    );
+}
+
+/// ASM loc_8ABC: when axe hits an enemy with >1 HP, the enemy survives but
+/// the axe is still consumed (ASM `jmp Delete_CurrentObject` runs regardless
+/// of whether the enemy died).
+#[test]
+fn maniaxe_axe_consumed_even_if_enemy_survives_loc_8abc() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: 5 << 16,
+        y_velocity: 0,
+        lifetime: 20,
+        friendly: true,
+        ..Default::default()
+    });
+
+    rt.active_enemies
+        .push(test_enemy(EnemyFamily::Dragon, 100 << 16, 100 << 16, 3));
+    rt.active_enemy_roster = rt
+        .active_enemies
+        .iter()
+        .map(ActiveEnemy::snapshot)
+        .collect();
+
+    rt.process_friendly_projectile_hits();
+
+    assert!(
+        rt.projectiles.is_empty(),
+        "ASM loc_8ABC: axe is always consumed on hit — `jmp Delete_CurrentObject` is unconditional"
+    );
+    assert_eq!(
+        rt.active_enemies.len(),
+        1,
+        "ASM loc_8ABC: enemy with >1 HP survives the hit"
+    );
+    assert_eq!(
+        rt.active_enemies[0].hit_points, 2,
+        "ASM loc_8ABC: enemy HP decremented by 1"
+    );
+}
+
+/// ASM loc_8ACC (kid.asm:9913): axe hits solid block — `clr.w x_vel(a3);
+/// clr.b $12(a3); clr.b palette_line(a3)`, play sfx, animate stru_8BDE,
+/// delete. Native uses lifetime expiry instead.
+/// TODO(fidelity): native Maniaxe axe ignores solid terrain contact.
+#[test]
+fn maniaxe_axe_solid_terrain_not_modelled_loc_8acc() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_maniaxe_axe(&slice, input);
+    assert_eq!(rt.projectiles.len(), 1);
+    let axe = &rt.projectiles[0];
+    // The ASM axe checks `andi.w #$7000,d7; cmpi.w #$6000,d7` (Solid collision)
+    // each frame. Native axe has no terrain_kill flag — it relies on lifetime.
+    assert!(
+        !axe.terrain_kill,
+        "ASM loc_8ACC: TODO(fidelity) — native axe does not check solid terrain; \
+         ASM destroys axe with stru_8BDE explosion animation on solid-block contact"
+    );
+}
+
+/// ASM loc_8AF2 (kid.asm:9925): `jmp Delete_CurrentObject` — axe deletion
+/// after solid-block explosion or out-of-bounds. Native: lifetime expiry
+/// removes the projectile from the list.
+#[test]
+fn maniaxe_axe_deleted_on_lifetime_expiry_loc_8af2() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.projectiles.push(EnemyProjectile {
+        x_pos: 100 << 16,
+        y_pos: 100 << 16,
+        x_velocity: 5 << 16,
+        y_velocity: 0,
+        lifetime: 0, // already expired — removed on next step
+        friendly: true,
+        ..Default::default()
+    });
+
+    rt.step_projectiles();
+
+    assert!(
+        rt.projectiles.is_empty(),
+        "ASM loc_8AF2: `jmp Delete_CurrentObject` — native equivalent is lifetime=0 removal"
+    );
+}
+
+/// ASM loc_8B32 (kid.asm:9954): `moveq #1,d7; rts` — true return of
+/// ManiaxeAxe_CheckOutOfBounds (sub_8AF6). Checks camera-relative bounds:
+/// x in [cam_x - $10, cam_x + $160], y in [cam_y - $10, cam_y + $100].
+/// Native uses lifetime counter instead. Verify the lifetime bounds give
+/// finite axe range analogous to ASM camera bounds.
+#[test]
+fn maniaxe_axe_bounded_lifetime_loc_8b32() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    let slice = combat_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_maniaxe_axe(&slice, input);
+    assert_eq!(rt.projectiles.len(), 1);
+    let lifetime = rt.projectiles[0].lifetime;
+    // ASM uses camera bounds [$160 + $10 = $170 = 368px wide], but native uses
+    // a fixed lifetime. The lifetime must be finite (nonzero and bounded).
+    assert!(
+        lifetime > 0 && lifetime < 200,
+        "ASM loc_8B32: axe should have a finite bounded lifetime (got {lifetime}); \
+         ASM uses camera-relative bounds check instead"
+    );
+}
+
 // --- Eyeclops beam tests ---
 
 #[test]
@@ -48838,6 +48995,78 @@ fn save_load_player_slot_round_trips() {
     assert_eq!(runtime.progression.score, 42_000);
     assert_eq!(runtime.progression.diamond_count, 30);
     assert_eq!(runtime.progression.current_form, PlayerForm::Skycutter);
+}
+
+/// ASM loc_8B4 (kid.asm:972): sub_8A4 fall-through for player 1 — `moveq #$A,d0;
+/// lea (Number_Lives),a1; move.w (a0)+,(a1)+; dbf d0,loc_8BA` copies 11 words
+/// (lives, hitpoints, diamonds, level ID, helmet, continues, extra_hitpoint_slots,
+/// score[long]) from Player_1_Lives into the working Number_Lives region.
+/// Player 2 uses `lea (Player_2_Lives),a0` before the same loop.
+#[test]
+fn load_player_slot_selects_correct_player_loc_8b4() {
+    let mut runtime = NativeRuntime::new(manifest());
+
+    // Set up distinct values in each player slot
+    runtime.player_slots[0].lives = 3;
+    runtime.player_slots[0].diamonds = 10;
+    runtime.player_slots[0].score = 1000;
+    runtime.player_slots[0].form = PlayerForm::Maniaxe;
+
+    runtime.player_slots[1].lives = 7;
+    runtime.player_slots[1].diamonds = 50;
+    runtime.player_slots[1].score = 9999;
+    runtime.player_slots[1].form = PlayerForm::Eyeclops;
+
+    // Load player 1 (index 0) — ASM: `beq loc_8B4` when Current_player == 0
+    runtime.current_player_index = 0;
+    runtime.load_player_slot();
+    assert_eq!(
+        runtime.progression.number_lives, 3,
+        "ASM loc_8B4: player 1 selected via `beq.w loc_8B4` — lives from Player_1_Lives"
+    );
+    assert_eq!(runtime.progression.diamond_count, 10);
+    assert_eq!(runtime.progression.score, 1000);
+    assert_eq!(runtime.progression.current_form, PlayerForm::Maniaxe);
+
+    // Load player 2 (index 1) — ASM: `lea (Player_2_Lives),a0`
+    runtime.current_player_index = 1;
+    runtime.load_player_slot();
+    assert_eq!(
+        runtime.progression.number_lives, 7,
+        "ASM loc_8B4: player 2 selected via Player_2_Lives base — lives differ from player 1"
+    );
+    assert_eq!(runtime.progression.diamond_count, 50);
+    assert_eq!(runtime.progression.score, 9999);
+    assert_eq!(runtime.progression.current_form, PlayerForm::Eyeclops);
+}
+
+/// ASM sub_8A4 / loc_8B4: the `dbf d0,loc_8BA` loop copies exactly 11 words,
+/// covering lives through score. Verify all fields are loaded.
+#[test]
+fn load_player_slot_copies_all_fields_loc_8b4() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.player_slots[0].lives = 2;
+    runtime.player_slots[0].hitpoints = 4;
+    runtime.player_slots[0].diamonds = 15;
+    runtime.player_slots[0].level_id = LevelId(42);
+    runtime.player_slots[0].form = PlayerForm::Cyclone;
+    runtime.player_slots[0].continues = 3;
+    runtime.player_slots[0].score = 12345;
+
+    runtime.current_player_index = 0;
+    runtime.load_player_slot();
+
+    assert_eq!(runtime.progression.number_lives, 2, "lives");
+    assert_eq!(runtime.progression.number_hitpoints, 4, "hitpoints");
+    assert_eq!(runtime.progression.diamond_count, 15, "diamonds");
+    assert_eq!(runtime.current_level, LevelId(42), "level ID");
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::Cyclone,
+        "helmet"
+    );
+    assert_eq!(runtime.progression.number_continues, 3, "continues");
+    assert_eq!(runtime.progression.score, 12345, "score");
 }
 
 #[test]

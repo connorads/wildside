@@ -3431,6 +3431,11 @@ impl NativeRuntime {
     }
 
     /// Check friendly projectiles (Eyeclops beam, Maniaxe axe) against enemies.
+    ///
+    /// ASM loc_8ABC (kid.asm:9905): `tst.w collision_type(a3); beq.s loc_8A52` — when
+    ///   collision_type is non-zero the axe hit an enemy. Play sfx_Maniaxe_hitting_enemy,
+    ///   then `jmp Delete_CurrentObject`. Native: consumed projectile is removed from
+    ///   `self.projectiles` via `projectile_consumed` indices.
     pub(crate) fn process_friendly_projectile_hits(&mut self) {
         let mut kill_indices = Vec::new();
         let mut projectile_consumed = Vec::new();
@@ -3626,6 +3631,23 @@ impl NativeRuntime {
     ///   decrement turnaround counter. At zero: `not.b x_direction(a3);
     ///   not.b $17(a3); moveq #$C,d0` — flip direction, flip render, reset
     ///   counter. Native: `maniaxe_turnaround` decrement + velocity reversal.
+    ///
+    /// ASM loc_8ACC (kid.asm:9913): axe hits solid block (`andi.w #$7000,d7;
+    ///   cmpi.w #$6000,d7; beq loc_8ACC`) — clear x_vel, play sfx, animate
+    ///   stru_8BDE explosion, `jmp Delete_CurrentObject`. Native: lifetime
+    ///   expiry removes projectile; no per-frame solid-terrain check.
+    /// TODO(fidelity): native Maniaxe axe ignores solid terrain. ASM destroys
+    ///   the axe with an explosion animation on solid-block contact.
+    ///
+    /// ASM loc_8AF2 (kid.asm:9925): `jmp Delete_CurrentObject` — reached after
+    ///   solid-block explosion animation (loc_8ACC) or out-of-bounds check
+    ///   (ManiaxeAxe_CheckOutOfBounds). Native: lifetime expiry.
+    ///
+    /// ASM loc_8B32 (kid.asm:9954): `moveq #1,d7; rts` — true return of
+    ///   ManiaxeAxe_CheckOutOfBounds (sub_8AF6). Camera-relative bounds:
+    ///   x in [cam_x - $10, cam_x + $160], y in [cam_y - $10, cam_y + $100].
+    ///   Native: uses fixed lifetime instead of camera-relative bounds check.
+    /// TODO(fidelity): native lifetime differs from ASM camera-relative bounds.
     pub(crate) fn step_maniaxe_axe(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Maniaxe {
             self.helmet.maniaxe_axe_active = false;
