@@ -55230,6 +55230,113 @@ fn loc_3c5c4_phase_1_table_lookup_selects_mapping_b() {
 }
 
 #[test]
+fn loc_3c5d8_phase_complete_inits_animation_and_branches_to_robot_shoot() {
+    // ASM loc_3C5D8 (kid.asm:44116-44126): when phase counter reaches 3
+    // (> 2), the turn sequence completes — st $15(a4), clr.w $4E(a5),
+    // init stru_3A716 on the parent, then falls through to loc_3C5EE:
+    // move.l (sp)+,d7; bra.w Enemy03_Robot_Shoot. The pop removes the
+    // caller's return address, so sub_3C4F8 tail-jumps to Robot_Shoot.
+    //
+    // Setup: $4E=$FF02 (armed, low byte=2 → next phase=3 > 2), $54=1
+    // (about to expire this call so the phase counter is inspected).
+    let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
+        parent_mapping: ROBOT_ATTACK_MAPPING_A_SUB_3C4F8,
+        parent_state_word_32: 9,
+        child_state_word_40: 1,
+        child_counter_word_4e: 0xFF02,
+        child_timer_word_54: 1,
+        parent_x_pos: 0x0100,
+        walker_x_pos: 0x0100,
+        kid_x_pos: 0x0140,
+        parent_x_direction: 0xFF,
+        parent_flag_15: false,
+        random_word: 0,
+    });
+
+    assert_eq!(
+        (
+            result.next_parent_flag_15,
+            result.next_child_counter_word_4e,
+            result.initialised_parent_animation_stru_3_a716,
+            result.branch_to_robot_shoot,
+        ),
+        (true, 0, true, true),
+        "ASM loc_3C5D8: phase > 2 → st $15, clr.w $4E, init stru_3A716, then loc_3C5EE tail-jumps to Robot_Shoot"
+    );
+}
+
+#[test]
+fn loc_3c612_turret_left_of_kid_facing_right_branches_to_shoot() {
+    // ASM loc_3C612 (kid.asm:44148-44150): reached from the loc_3C5FC
+    // path when $40(a3)==2 and x_pos(a3) < Kid_x (bmi.s loc_3C612).
+    // tst.b $16(a4); bne.s loc_3C5EE — turret facing right ($FF) when
+    // left of Kid means already facing Kid → branch to Robot_Shoot.
+    let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
+        parent_mapping: ROBOT_IDLE_MAPPING_SUB_3C4F8,
+        parent_state_word_32: 9,
+        child_state_word_40: 2,
+        child_counter_word_4e: 0,
+        child_timer_word_54: 0,
+        parent_x_pos: 0x0200, // parent_x_pos unused when $40==2
+        walker_x_pos: 0x0100, // walker left of Kid
+        kid_x_pos: 0x0140,
+        parent_x_direction: 0xFF, // facing right → towards Kid
+        parent_flag_15: true,
+        random_word: 0x1234, // bypassed when $40==2
+    });
+
+    assert!(
+        result.branch_to_robot_shoot,
+        "ASM loc_3C612: turret left of Kid facing right should branch to Robot_Shoot via loc_3C5EE"
+    );
+    assert_eq!(
+        (
+            result.next_child_counter_word_4e,
+            result.next_child_timer_word_54
+        ),
+        (0, 0),
+        "ASM loc_3C612: helper state should remain untouched on the shoot path"
+    );
+}
+
+#[test]
+fn loc_3c618_turret_left_of_kid_facing_left_arms_turn_via_loc_3c5fc() {
+    // ASM loc_3C618 (kid.asm:44152-44157): reached from loc_3C5FC when
+    // $40(a3)==2 and the turret is left of Kid but facing left (away).
+    // loc_3C612: tst.b $16(a4)==0 falls through to loc_3C618 which arms
+    // the helper: st $4E(a5), sf $15(a4), timer=9, mapping=C8338, then
+    // bra.w loc_3C5A2 (which burns one frame immediately).
+    let result = shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
+        helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
+        parent_mapping: ROBOT_IDLE_MAPPING_SUB_3C4F8,
+        parent_state_word_32: 9,
+        child_state_word_40: 2,
+        child_counter_word_4e: 0,
+        child_timer_word_54: 0,
+        parent_x_pos: 0x0200, // unused when $40==2
+        walker_x_pos: 0x0100, // walker left of Kid
+        kid_x_pos: 0x0140,
+        parent_x_direction: 0, // facing left → away from Kid
+        parent_flag_15: true,
+        random_word: 0x1234, // bypassed when $40==2
+    });
+
+    assert!(!result.branch_to_robot_shoot);
+    assert_eq!(
+        (
+            result.next_parent_mapping,
+            result.next_parent_flag_15,
+            result.next_child_counter_word_4e,
+            result.next_child_timer_word_54,
+        ),
+        (ROBOT_ATTACK_MAPPING_A_SUB_3C4F8, false, 0xFF00, 8),
+        "ASM loc_3C618: st $4E, sf $15, timer=9, mapping=C8338, then loc_3C5A2 burns one frame → timer=8"
+    );
+}
+
+#[test]
 fn homing_y_target_offset_is_16px_above_player() {
     // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
     // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

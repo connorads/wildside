@@ -6464,6 +6464,10 @@ pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
                 // so branch to Robot_Shoot. The non-bmi path (entity
                 // right of or at Kid) mirrors: beq.s loc_3C5EE when
                 // $16(a4)==0 (facing left, towards Kid).
+                // ASM loc_3C612 (kid.asm:44148-44150): identical check in
+                // the loc_3C5FC ($40==2) path — bmi.s to loc_3C612: tst.b
+                // $16(a4); bne.s loc_3C5EE when turret left of Kid and
+                // already facing right (towards Kid).
                 let entity_left_of_kid = (x_for_check as i16) < (input.kid_x_pos as i16);
                 let parent_faces_right = input.parent_x_direction != 0;
                 let facing_matches_kid = if entity_left_of_kid {
@@ -6476,6 +6480,11 @@ pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
                     return result;
                 }
 
+                // ASM loc_3C618 (kid.asm:44152-44157): arms the helper
+                // phase — identical to loc_3C58E: st $4E(a5), sf $15(a4),
+                // timer=9, mapping=C8338, then bra.w loc_3C5A2. Reached
+                // from the loc_3C5FC ($40==2) path when the turret is not
+                // already facing Kid.
                 result.next_child_counter_word_4e |= 0xFF00;
                 result.next_parent_flag_15 = false;
                 result.next_child_timer_word_54 = 9;
@@ -6493,10 +6502,15 @@ pub(crate) fn shared_enemy_robot_helper_sub_3C4F8(
             }
 
             let phase = (result.next_child_counter_word_4e & 0x00FF).wrapping_add(1);
+            // ASM loc_3C5D8 (kid.asm:44116-44126): phase > 2 completes the
+            // turn sequence — st $15(a4), clr.w $4E(a5), init stru_3A716 on
+            // parent, then falls through to loc_3C5EE which pops the return
+            // address and bra.w Enemy03_Robot_Shoot.
             if phase > 2 {
                 result.next_parent_flag_15 = true;
                 result.next_child_counter_word_4e = 0;
                 result.initialised_parent_animation_stru_3_a716 = true;
+                result.branch_to_robot_shoot = true;
                 return result;
             }
 
