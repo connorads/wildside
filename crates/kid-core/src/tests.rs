@@ -28,8 +28,8 @@ use crate::boot::{
     intro_sequence_6_tilemap_clear_loc_1B182, pause_menu_art_total_bytes_loc_690C,
     pause_menu_gate_loc_687C, pause_menu_plane_column_layout_loc_693A,
     pause_menu_text_selection_restart_text, pause_menu_text_write_plan_loc_69D2,
-    pause_menu_text_write_row_vdp_write_cmd_loc_6A1E, pause_menu_tile_save_plan_loc_695C,
-    pause_menu_tile_save_row_vdp_read_cmd_loc_695C,
+    pause_menu_text_write_row_vdp_write_cmd_loc_6A1E, pause_menu_tile_restore_plan_loc_6B68,
+    pause_menu_tile_save_plan_loc_695C, pause_menu_tile_save_row_vdp_read_cmd_loc_695C,
     pause_menu_tile_save_wrap_column_reset_loc_69AE, prize_10000_points_star_advance_loc_10BCE,
     prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
     prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
@@ -1405,6 +1405,106 @@ fn loc_6a64_wrapped_second_cmd_clears_column_preserves_write_bit() {
         second_cmd & 0x4000_0000,
         0,
         "ASM loc_6A64: $4000 write bit preserved after column reset"
+    );
+}
+
+#[test]
+fn loc_6b68_tile_restore_plan_non_wrapped_has_5_rows() {
+    // ASM loc_6B68 + loc_6B90 + loc_6BA4 (kid.asm:6880-6934): 5 rows (d5=4, dbf),
+    // no wrapping at camera origin. Reads from Decompression_Buffer, writes to VDP.
+    // loc_6B90: d5=4, d7=Camera_Y_pos+$40, d6=tile_col*2 — same setup as text write.
+    // loc_6BA4: per-row VDP write address identical to loc_6A1E (ori.w #$4000).
+    let plan = pause_menu_tile_restore_plan_loc_6B68(0, 0);
+    assert_eq!(plan.len(), 5, "ASM loc_6B90: d5=4 → 5 tile restore rows");
+    for (i, row) in plan.iter().enumerate() {
+        assert!(
+            row.wrap_segments.is_none(),
+            "ASM loc_6B68: camera_x=0 → no plane-edge wrap (row {i})"
+        );
+        // loc_6BA4: VDP write bit must be set (ori.w #$4000)
+        assert_ne!(
+            row.vdp_write_cmd & 0x4000_0000,
+            0,
+            "ASM loc_6BA4: VDP write bit must be set (row {i})"
+        );
+    }
+}
+
+#[test]
+fn loc_6b82_wrapped_tile_restore_plan_splits_each_row() {
+    // ASM loc_6B82 (kid.asm:6893-6900): wrapping case — identical computation to
+    // loc_693A wrap. d1 = $40 - d0 (first_words), d2 = $10 - d1 (wrapped_words),
+    // swap d2; move.w d1,d2; swap d2.
+    // Camera_X_pos=$128 → tile_col=$31, first_words=$F, wrapped_words=$1.
+    let plan = pause_menu_tile_restore_plan_loc_6B68(0x128, 0);
+    for (i, row) in plan.iter().enumerate() {
+        let (first, _second_cmd, wrapped) = row
+            .wrap_segments
+            .unwrap_or_else(|| panic!("ASM loc_6B82: camera_x=$128 → wrap expected (row {i})"));
+        assert_eq!(first, 0x0F, "ASM loc_6BEA: first_words=$F (row {i})");
+        assert_eq!(wrapped, 0x01, "ASM loc_6BFC: wrapped_words=$1 (row {i})");
+    }
+}
+
+#[test]
+fn loc_6ba4_tile_restore_vdp_write_cmd_matches_text_write() {
+    // ASM loc_6BA4 (kid.asm:6911-6921): per-row VDP write address computation
+    // is identical to loc_6A1E (text write). Both use ori.w #$4000 for VRAM write.
+    // The tile restore plan should produce the same VDP commands as the text write plan.
+    let restore = pause_menu_tile_restore_plan_loc_6B68(0, 0x80);
+    let text = pause_menu_text_write_plan_loc_69D2(0, 0x80);
+    for (i, (r, t)) in restore.iter().zip(text.iter()).enumerate() {
+        assert_eq!(
+            r.vdp_write_cmd, t.vdp_write_cmd,
+            "ASM loc_6BA4 vs loc_6A1E: VDP write cmd must match (row {i})"
+        );
+    }
+}
+
+#[test]
+fn loc_6bea_wrapped_second_cmd_clears_column_preserves_write_bit() {
+    // ASM loc_6BEA (kid.asm:6948): andi.l #$FF80FFFF,d0 — same column reset
+    // as loc_69AE/loc_6A64 but in the tile restore path.
+    let plan = pause_menu_tile_restore_plan_loc_6B68(0x128, 0);
+    let (_first, second_cmd, _wrapped) = plan[0].wrap_segments.unwrap();
+    // Column bits cleared, but $4000 write bit and row offset preserved.
+    assert_eq!(
+        second_cmd & 0x007F_0000,
+        0,
+        "ASM loc_6BEA: column byte offset cleared in second segment"
+    );
+    assert_ne!(
+        second_cmd & 0x4000_0000,
+        0,
+        "ASM loc_6BEA: $4000 write bit preserved after column reset"
+    );
+}
+
+#[test]
+fn loc_6b90_tile_restore_rows_advance_by_8_pixels() {
+    // ASM loc_6BA4 (kid.asm:6932): addi.w #8,d7 advances y by 8 pixels each row,
+    // same as loc_695C for tile save and loc_6A1E for text write.
+    // loc_6B90: d7 = Camera_Y_pos + $40, d6 = tile_col * 2.
+    let plan = pause_menu_tile_restore_plan_loc_6B68(0, 0);
+    // Row 0: plane_row = ($40>>3)&$1F = 8. Row 1: plane_row = ($48>>3)&$1F = 9.
+    // Difference: 1 row × 128 bytes = $80, shifted left 16 = $0080_0000.
+    assert_eq!(
+        plan[1].vdp_write_cmd - plan[0].vdp_write_cmd,
+        0x0080_0000,
+        "ASM loc_6B90/loc_6BA4: each row advances by $80 (128 bytes = 1 plane row)"
+    );
+}
+
+#[test]
+fn loc_6ba4_first_row_vdp_write_cmd_at_origin() {
+    // ASM loc_6BA4 (kid.asm:6911-6921): at camera origin, first row address:
+    // d7 = 0 + $40 = $40. d3 = ($40 >> 3) & $1F = 8. row_offset = 8 << 7 = $400.
+    // tile_col = $C, d6 = $C * 2 = $18. vram_addr = $400 + $18 = $418.
+    // ori.w #$4000 → $4418. swap → $44180000.
+    let plan = pause_menu_tile_restore_plan_loc_6B68(0, 0);
+    assert_eq!(
+        plan[0].vdp_write_cmd, 0x4418_0000,
+        "ASM loc_6BA4: first row VDP write cmd = $44180000"
     );
 }
 
