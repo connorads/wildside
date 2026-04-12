@@ -1690,6 +1690,32 @@ pub(crate) struct BoomerangBossHead3EyePiece5LaunchLoc392E2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BoomerangBossHead3EyePiece6TrackingNextLoc39356 {
+    TrackingLoopLoc39356,
+    LaunchLoc3937A,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossHead3EyePiece6TrackingLoopLoc39356 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_orbit_placement_sub_39420: bool,
+    pub(crate) runs_directional_sprite_sub_37a22: bool,
+    pub(crate) updates_sprite_from_d6: bool,
+    pub(crate) next: BoomerangBossHead3EyePiece6TrackingNextLoc39356,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BoomerangBossHead3EyePiece6LaunchLoc3937A {
+    pub(crate) runs_detach_step_sub_393b2: bool,
+    pub(crate) y_vel: i16,
+    pub(crate) x_vel: i32,
+    pub(crate) gravity_per_frame: i32,
+    pub(crate) runs_directional_sprite_during_flight: bool,
+    pub(crate) deletes_below_level_height: bool,
+    pub(crate) loops_back_loc_393b0: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
     pub(crate) priority: u8,
@@ -4636,6 +4662,55 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_5_launch_loc_392E2()
         runs_directional_sprite_during_flight: true, // bsr.w sub_37A22 in loc_392F6
         deletes_below_level_height: true, // jmp j_Delete_CurrentObject when y_pos > level_height
         loops_back_loc_39318: true,       // bra.s loc_392F6 when y_pos <= level_height
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_3_eye_piece_6_tracking_loop_loc_39356(
+    breakup_trigger_fb76: u16,
+) -> BoomerangBossHead3EyePiece6TrackingLoopLoc39356 {
+    // ASM loc_39356 (kid.asm:41912): hibernate one frame, load parent pointer
+    // from `($FFFFFB82).w` into `a2`, load direction byte from `($FFFFFB88).w`
+    // into `d2`, run `sub_39420` (orbit placement — mirrors piece 5's
+    // sub_393C8) and `sub_37A22` (directional sprite selection), store `d6`
+    // into `addroffset_sprite(a3)`. Then check `tst.w ($FFFFFB76).w`: nonzero
+    // branches to `loc_3937A` (launch); zero loads `$16(a2)` into `d0`
+    // (parent frame byte) and loops back.
+    BoomerangBossHead3EyePiece6TrackingLoopLoc39356 {
+        hibernates_one_frame: true,
+        runs_orbit_placement_sub_39420: true,
+        runs_directional_sprite_sub_37a22: true,
+        updates_sprite_from_d6: true,
+        next: if breakup_trigger_fb76 != 0 {
+            BoomerangBossHead3EyePiece6TrackingNextLoc39356::LaunchLoc3937A
+        } else {
+            BoomerangBossHead3EyePiece6TrackingNextLoc39356::TrackingLoopLoc39356
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn boomerang_boss_head_3_eye_piece_6_launch_loc_3937A()
+-> BoomerangBossHead3EyePiece6LaunchLoc3937A {
+    // ASM loc_3937A (kid.asm:41925): call `sub_393B2` (detach step — sound
+    // effect, rerank gfx object), set y_vel to `$FFFD` (word = -3) and x_vel
+    // to `#$4000` (longword = +0x4000 = +16384, rightward — mirrors eye
+    // piece 5's leftward direction at loc_392E2). Then enter the `loc_3938E`
+    // (kid.asm:41930) gravity loop: each frame runs `sub_37A22` (directional
+    // sprite update), adds `$7D0` to y_vel (longword), checks `y_pos` against
+    // `Level_height_pixels`, and deletes the object when it falls off-screen.
+    // `loc_393B0` (kid.asm:41941) is the loop-back: `bra.s loc_3938E` when
+    // `y_pos <= Level_height_pixels`.
+    BoomerangBossHead3EyePiece6LaunchLoc3937A {
+        runs_detach_step_sub_393b2: true,
+        y_vel: -3,                                   // $FFFD as signed word
+        x_vel: 0x4000_i32,                           // $4000 as signed longword (rightward)
+        gravity_per_frame: 0x7D0,                    // addi.l #$7D0,y_vel(a3)
+        runs_directional_sprite_during_flight: true, // bsr.w sub_37A22 in loc_3938E
+        deletes_below_level_height: true, // jmp j_Delete_CurrentObject when y_pos > level_height
+        loops_back_loc_393b0: true,       // bra.s loc_3938E when y_pos <= level_height
     }
 }
 
