@@ -10934,6 +10934,13 @@ impl NativeRuntime {
             return slice;
         };
         let mut grid = base_grid.clone();
+        // ASM loc_75C0 (kid.asm:7700–7701): `bsr.w sub_7B30` resolves wall
+        // overlaps at the spawn position.  The full sub_7B30 transform-overlap
+        // check is not needed at spawn (the player always starts as a known
+        // form); native uses a simpler wall-probe pair instead.
+        // loc_75C0 also sets `$22(a1) = LnkTo_unk_BEDF0-Data_Index` when
+        // Current_Helmet == Juggernaut — this is a visual sprite-mapping
+        // override with no gameplay effect (not modelled in native).
         Self::resolve_spawn_wall_overlap(&mut slice, &grid);
 
         if let Some((trace, _)) = settle_trace.as_mut() {

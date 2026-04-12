@@ -627,6 +627,7 @@ pub(crate) fn juggernaut_five_way_shot_ready_sub_7428(
 ) -> bool {
     // ASM sub_7428 (kid.asm:7569): only Juggernaut with Start+A held and at
     // least 5 diamonds may arm `FiveWayShotReady`.
+    // Called from loc_7606 (kid.asm:7720) during standing-still state.
     current_form == PlayerForm::Juggernaut && input.start && input.a && diamond_count >= 5
 }
 
@@ -3446,6 +3447,13 @@ impl NativeRuntime {
     }
 
     /// Step Eyeclops beam: C press fires a horizontal beam projectile.
+    ///
+    /// ASM loc_7606 (kid.asm:7722–7739): the ROM's standing-still state checks
+    /// `Eyeclops`, `andi.b #$C0,d0` (A+Start held), `$FFFFFAB8` (beam active),
+    /// and `Number_Diamonds >= 2` before arming the hard beam with `$8001`.
+    /// Native runs this check every frame (not just standing-still) and uses
+    /// B+C as the held-button gate rather than A+Start.
+    /// TODO(fidelity): ASM hard beam gate is A+Start ($C0), native uses B+C.
     pub(crate) fn step_eyeclops_beam(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Eyeclops {
             self.helmet.eyeclops_beam_active = false;

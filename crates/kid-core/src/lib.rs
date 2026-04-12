@@ -1841,6 +1841,12 @@ impl NativeRuntime {
                 );
                 self.y_look_offset +=
                     physics::camera_y_viewport_top_look_adjust_loc_727e(kid_y, cam_y);
+                // ASM loc_75D4 (kid.asm:7712–7714):
+                //   move.w x_pos(a3),($FFFFFA2C).w
+                //   move.w y_pos(a3),($FFFFFA2E).w
+                // Stores Kid's current position for camera follow reference.
+                // Native only models the Y component ($FFFFFA2E); the X
+                // counterpart ($FFFFFA2C) is not consumed by any camera logic.
                 self.camera_last_kid_y = kid_y;
             }
 
@@ -2053,6 +2059,8 @@ impl NativeRuntime {
             slice.update_camera_follow(self.y_look_offset);
         }
 
+        // ASM loc_7650 (kid.asm:7741–7746): when `Ctrl_Down_Held` is false,
+        // `subi.w #8,($FFFFFB58)` decrements the look offset, clamped to 0.
         // Y look-ahead accumulator ($FFFFFB58): +1/frame while grounded+down,
         // -8/frame on release, clamped to [0, 30].
         if input.down && slice.player.on_ground {
@@ -2156,6 +2164,9 @@ impl NativeRuntime {
 
         self.process_block_effects(&mut slice);
         self.collect_floating_items(&mut slice);
+        // ASM loc_75D4 (kid.asm:7715): `bsr.w sub_7ACC` — check pending
+        // helmet transform after collision processing.  In native, this runs
+        // for all movement states (the ROM calls it from each state handler).
         if self.handle_pending_form_change_sub_7acc(&mut slice) {
             return;
         }
