@@ -13,8 +13,8 @@ use crate::blocks::{
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IntroSequence6LongwordFillLoc1B170,
-    IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24, PauseMenuSpriteEntrySub6874,
-    RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, RAM_CLEAR_START_ADDR_LOC_5FE,
+    IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24, PauseMenuGateLoc687C,
+    PauseMenuSpriteEntrySub6874, RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, RAM_CLEAR_START_ADDR_LOC_5FE,
     copy_sega_screen_palette_loc_12DFE, end_sequence_burst_camera_loop_loc_1D1EC,
     end_sequence_burst_prelude_loc_1D1D6, end_sequence_burst_sprite_init_sub_1D86C,
     end_sequence_burst_wait_loop_loc_1D1DE, end_sequence_camera_shake_sub_1D846,
@@ -22,15 +22,15 @@ use crate::boot::{
     flag_hud_dma_upload_sub_5DA6, hide_pause_menu_overwritten_sprites_sub_6874,
     hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
     intro_sequence_6_longword_fill_loc_1B170, intro_sequence_6_striped_tile_fill_loc_1B194,
-    intro_sequence_6_tilemap_clear_loc_1B182, prize_10000_points_star_advance_loc_10BCE,
-    prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
-    prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
-    prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
-    sega_screen_object_bootstrap_loc_12E48, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
-    step_hud_animation_sub_44DC, title_shell_art_decompress_loc_1BF54,
-    title_shell_art_index_loc_1BF3E, title_shell_vram_fill_loc_1BF70,
-    validate_options_after_ram_clear_loc_5FE, vdp_game_init_register_commands_loc_5E6,
-    vdp_upload_32_longwords_sub_44D0,
+    intro_sequence_6_tilemap_clear_loc_1B182, pause_menu_gate_loc_687C,
+    prize_10000_points_star_advance_loc_10BCE, prize_10000_points_star_cleanup_loc_10BE6,
+    prize_10000_points_star_dispatch_loc_10B76, prize_10000_points_star_latch_screen_pos_loc_10B9A,
+    prize_10000_points_star_spawn_loc_10B3A, prize_10000_points_star_step_loc_10B74,
+    read_io_port_a10001_flags_sub_6E24, sega_screen_object_bootstrap_loc_12E48,
+    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
+    title_shell_art_decompress_loc_1BF54, title_shell_art_index_loc_1BF3E,
+    title_shell_vram_fill_loc_1BF70, validate_options_after_ram_clear_loc_5FE,
+    vdp_game_init_register_commands_loc_5E6, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{
@@ -976,6 +976,45 @@ fn sub_6874_hides_only_sprites_whose_masked_tiles_overlap_pause_menu_vram() {
     assert_eq!(
         sprites[3].y_pos, 0x0086,
         "ASM sub_6874 should leave sprites above tile $68E visible",
+    );
+}
+
+#[test]
+fn loc_687c_not_paused_returns_immediately() {
+    // ASM sub_6874 (kid.asm:6575): tst.b (Game_Paused).w; bne.s loc_687C; rts
+    // When Game_Paused == 0, sub_6874 returns before reaching loc_687C.
+    assert_eq!(
+        pause_menu_gate_loc_687C(0),
+        PauseMenuGateLoc687C::NotPaused,
+        "ASM sub_6874: Game_Paused=0 → rts before loc_687C"
+    );
+}
+
+#[test]
+fn loc_687c_paused_value_3_returns_after_palette_darken() {
+    // ASM loc_687C (kid.asm:6581-6587): after Pause_DarkenPalette + Palette_to_VRAM
+    // + sub_E1334, cmpi.b #3,(Game_Paused).w; bne.s loc_6894; rts
+    // When Game_Paused == 3 (unpause signal), returns before sprite hiding.
+    assert_eq!(
+        pause_menu_gate_loc_687C(3),
+        PauseMenuGateLoc687C::UnpausingReturn,
+        "ASM loc_687C: Game_Paused=3 → rts after palette darken (unpausing)"
+    );
+}
+
+#[test]
+fn loc_687c_paused_value_1_continues_to_sprite_hide() {
+    // ASM loc_687C: Game_Paused=1 (normal pause) → bne.s loc_6894 → sprite hiding.
+    assert_eq!(
+        pause_menu_gate_loc_687C(1),
+        PauseMenuGateLoc687C::PausedContinueToSpriteHide,
+        "ASM loc_687C: Game_Paused=1 → falls through to loc_6894 sprite hiding"
+    );
+    // Game_Paused=2 (another non-3 value) also continues.
+    assert_eq!(
+        pause_menu_gate_loc_687C(2),
+        PauseMenuGateLoc687C::PausedContinueToSpriteHide,
+        "ASM loc_687C: Game_Paused=2 → falls through to loc_6894 sprite hiding"
     );
 }
 
