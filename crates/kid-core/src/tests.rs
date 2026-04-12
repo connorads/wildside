@@ -27419,6 +27419,120 @@ fn step_murder_wall_noop_when_no_wall() {
     runtime.step_murder_wall(); // should not panic
 }
 
+// --- loc_7316: forward murder wall acceleration + speed clamp ---
+
+/// ASM loc_7316 (kid.asm:7454–7462): forward (non-reversed) path accelerates
+/// speed by $100/frame and clamps to max_speed.
+/// ```asm
+/// loc_7316:
+///   addi.w  #$80,d1              ; camera-push threshold (not modelled)
+///   addi.l  #$100,(MurderWall_speed).w
+///   move.l  (MurderWall_speed).w,d7
+///   cmp.l   (MurderWall_max_speed).w,d7
+///   blt.s   loc_7334
+///   move.l  (MurderWall_max_speed).w,d7
+///   move.l  d7,(MurderWall_speed).w
+/// ```
+#[test]
+fn loc_7316_forward_wall_accelerates_by_0x100_per_frame() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: 0,
+        speed: 0,
+        max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+        reversed: false,
+    });
+    runtime.step_murder_wall();
+    let wall = runtime.murder_wall.as_ref().unwrap();
+    assert_eq!(
+        wall.speed, MURDER_WALL_ACCELERATION,
+        "ASM loc_7316: first frame speed = $100"
+    );
+    // Second frame
+    runtime.step_murder_wall();
+    let wall = runtime.murder_wall.as_ref().unwrap();
+    assert_eq!(
+        wall.speed,
+        MURDER_WALL_ACCELERATION * 2,
+        "ASM loc_7316: second frame speed = $200"
+    );
+}
+
+#[test]
+fn loc_7316_forward_wall_speed_clamped_to_max() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: 0,
+        speed: MURDER_WALL_DEFAULT_MAX_SPEED - 1,
+        max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+        reversed: false,
+    });
+    runtime.step_murder_wall();
+    let wall = runtime.murder_wall.as_ref().unwrap();
+    assert_eq!(
+        wall.speed, MURDER_WALL_DEFAULT_MAX_SPEED,
+        "ASM loc_7316: speed clamped at max_speed when accel would exceed"
+    );
+}
+
+// --- loc_7334: forward murder wall position advance ---
+
+/// ASM loc_7334 (kid.asm:7463–7468): `add.l d7,(MurderWall_X_pos).w` then
+/// clamp to `Camera_max_X_pos`.
+/// ```asm
+/// loc_7334:
+///   add.l   d7,(MurderWall_X_pos).w
+///   move.w  (Camera_max_X_pos).w,d0
+///   cmp.w   (MurderWall_X_pos).w,d0
+///   bgt.s   loc_7346
+///   move.w  d0,(MurderWall_X_pos).w
+/// ```
+#[test]
+fn loc_7334_forward_wall_position_advances_by_speed() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let initial_x: i64 = 0x0050_0000;
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: initial_x,
+        speed: 0x1000,
+        max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+        reversed: false,
+    });
+    runtime.step_murder_wall();
+    let wall = runtime.murder_wall.as_ref().unwrap();
+    // After acceleration: speed = 0x1000 + 0x100 = 0x1100
+    // x_pos += 0x1100
+    let expected_speed = 0x1000 + MURDER_WALL_ACCELERATION;
+    assert_eq!(wall.speed, expected_speed);
+    assert_eq!(
+        wall.x_pos,
+        initial_x + i64::from(expected_speed),
+        "ASM loc_7334: x_pos += accelerated speed"
+    );
+}
+
+#[test]
+fn loc_7334_forward_wall_at_max_speed_advances_steadily() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let initial_x: i64 = 0x0050_0000;
+    runtime.murder_wall = Some(MurderWallState {
+        x_pos: initial_x,
+        speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+        max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+        reversed: false,
+    });
+    runtime.step_murder_wall();
+    let wall = runtime.murder_wall.as_ref().unwrap();
+    assert_eq!(
+        wall.speed, MURDER_WALL_DEFAULT_MAX_SPEED,
+        "ASM loc_7316: already at max, speed unchanged"
+    );
+    assert_eq!(
+        wall.x_pos,
+        initial_x + i64::from(MURDER_WALL_DEFAULT_MAX_SPEED),
+        "ASM loc_7334: position advances by max_speed"
+    );
+}
+
 // --- Murder wall init with non-zero camera ---
 
 #[test]

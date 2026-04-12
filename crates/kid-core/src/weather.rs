@@ -2231,14 +2231,54 @@ fn advance_lava_fireball(fireball: &mut LavaFireball) {
 }
 
 impl NativeRuntime {
+    /// Advance the murder wall one frame: accelerate then move.
+    ///
+    /// **Forward path** (non-reversed, kid.asm:7447–7478):
+    /// ```asm
+    /// ; loc_72E2 gates on MurderWall_flag → falls through to forward/reversed
+    ///   clr.l   d1
+    ///   tst.b   (MurderWall_reversed).w
+    ///   bne.s   loc_736E               ; reversed path
+    ///   cmpi.w  #L_Hills_of_the_Warrior_1,(Current_LevelID).w
+    ///   bne.s   loc_7316
+    ///   move.w  #$80,d1               ; Hills: extra camera-push threshold
+    /// loc_7316:                        ; ← kid.asm:7454
+    ///   addi.w  #$80,d1               ; d1 = $80 (normal) or $100 (Hills)
+    ///   addi.l  #$100,(MurderWall_speed).w
+    ///   move.l  (MurderWall_speed).w,d7
+    ///   cmp.l   (MurderWall_max_speed).w,d7
+    ///   blt.s   loc_7334
+    ///   move.l  (MurderWall_max_speed).w,d7
+    ///   move.l  d7,(MurderWall_speed).w
+    /// loc_7334:                        ; ← kid.asm:7463
+    ///   add.l   d7,(MurderWall_X_pos).w
+    ///   move.w  (Camera_max_X_pos).w,d0
+    ///   cmp.w   (MurderWall_X_pos).w,d0
+    ///   bgt.s   loc_7346
+    ///   move.w  d0,(MurderWall_X_pos).w  ; clamp to level bound
+    /// ```
+    ///
+    /// **Reversed path** (kid.asm:7486–7514): mirrors with `sub.l`.
+    ///
+    /// The camera-push logic (loc_7346–loc_7364) and the Hills-of-the-Warrior
+    /// threshold (`d1`) are not yet modelled in native — the camera and wall
+    /// interact only through the kill detection in `murder_wall_kills_player`.
+    // TODO(fidelity): loc_7346–loc_7364 camera push: when the wall overtakes
+    // the camera, the ROM snaps Camera_X_pos = MurderWall_X_pos. When the
+    // camera leads the wall by more than d1 ($80 or $100 for Hills), it
+    // snaps MurderWall_X_pos = Camera_X_pos - d1. Neither snap is modelled.
     pub(crate) fn step_murder_wall(&mut self) {
         let Some(wall) = self.murder_wall.as_mut() else {
             return;
         };
+        // ASM loc_7316 (kid.asm:7456) / loc_736E (kid.asm:7487):
+        // `addi.l #$100,(MurderWall_speed).w` then clamp to max_speed.
         wall.speed = (wall.speed + MURDER_WALL_ACCELERATION).min(wall.max_speed);
         if wall.reversed {
+            // ASM loc_7388 (kid.asm:7495): `sub.l d7,(MurderWall_X_pos).w`
             wall.x_pos -= i64::from(wall.speed);
         } else {
+            // ASM loc_7334 (kid.asm:7464): `add.l d7,(MurderWall_X_pos).w`
             wall.x_pos += i64::from(wall.speed);
         }
     }

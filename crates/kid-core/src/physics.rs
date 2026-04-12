@@ -764,7 +764,37 @@ pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 
         delta.clamp(-CAMERA_MAX_STEP, CAMERA_MAX_STEP)
     };
 
+    // ASM loc_724E (kid.asm:7363) / loc_72E2 (kid.asm:7437): apply velocity.
+    // X-axis: `add.w d2,(Camera_X_pos).w`
+    // Y-axis: `add.w d3,(Camera_Y_pos).w`
+    // Native clamps result to [0, max_pos]; the ROM relies on unsigned
+    // saturation from the earlier target clamp to stay in bounds.
     (camera + velocity).max(0).min(max_pos)
+}
+
+/// ASM loc_72E2 (kid.asm:7437–7444): background parallax scroll.
+///
+/// After applying camera Y velocity, the ROM computes background-layer scroll
+/// positions by dividing camera coordinates by 4:
+/// ```asm
+/// loc_72E2:
+///   add.w   d3,(Camera_Y_pos).w
+///   move.l  (Camera_X_pos).w,d0
+///   lsr.l   #2,d0
+///   move.l  d0,(Camera_BG_X_pos).w
+///   move.l  (Camera_Y_pos).w,d0
+///   lsr.l   #2,d0
+///   move.l  d0,(Camera_BG_Y_pos).w
+/// ```
+///
+/// The native port does not maintain `Camera_BG_X/Y_pos` because background
+/// rendering uses a separate scroll register pipeline.  The 1:4 ratio is
+/// implicit in the VDP scroll setup.
+// TODO(fidelity): BG parallax ratio is currently hardcoded in rendering;
+// if a level ever uses a non-1:4 ratio this function would need to supply it.
+#[cfg(test)]
+pub(crate) fn camera_bg_scroll_loc_72e2(camera_x: u32, camera_y: u32) -> (u32, u32) {
+    (camera_x >> 2, camera_y >> 2)
 }
 
 /// ASM loc_726C (kid.asm:7377): Y-axis look-offset pull-back at level ceiling.
@@ -2739,5 +2769,48 @@ mod proptests {
     fn loc_727e_kid_below_camera_returns_zero() {
         let adj = camera_y_viewport_top_look_adjust_loc_727e(200, 40);
         assert_eq!(adj, 0);
+    }
+
+    // --- loc_72E2: camera Y velocity apply + BG parallax scroll ---
+
+    /// ASM loc_72E2 (kid.asm:7437): `add.w d3,(Camera_Y_pos).w` —
+    /// apply clamped Y velocity.  This is the Y-axis counterpart of
+    /// loc_724E (`add.w d2,(Camera_X_pos).w`).  Verified via
+    /// `update_camera_axis` which returns `camera + velocity`.
+    #[test]
+    fn loc_72e2_applies_y_velocity_positive() {
+        // camera_y=50, target=90 → delta = (90-50+4)>>3 = 5 → new = 55
+        let result = update_camera_axis(50, 90 + CAMERA_PLAYER_OFFSET, 288);
+        assert_eq!(result, 55, "ASM loc_72E2: camera_y += positive velocity");
+    }
+
+    #[test]
+    fn loc_72e2_applies_y_velocity_negative() {
+        // camera_y=100, target=60 → delta = (60-100+4)>>3 = -5 → new = 95
+        let result = update_camera_axis(100, 60 + CAMERA_PLAYER_OFFSET, 288);
+        assert_eq!(result, 95, "ASM loc_72E2: camera_y += negative velocity");
+    }
+
+    /// ASM loc_72E2 (kid.asm:7439–7444): BG parallax = camera / 4.
+    /// ```asm
+    ///   move.l  (Camera_X_pos).w,d0
+    ///   lsr.l   #2,d0
+    ///   move.l  d0,(Camera_BG_X_pos).w
+    ///   move.l  (Camera_Y_pos).w,d0
+    ///   lsr.l   #2,d0
+    ///   move.l  d0,(Camera_BG_Y_pos).w
+    /// ```
+    #[test]
+    fn loc_72e2_bg_parallax_divides_by_4() {
+        let (bg_x, bg_y) = camera_bg_scroll_loc_72e2(0x0100_0000, 0x0080_0000);
+        assert_eq!(bg_x, 0x0040_0000, "ASM loc_72E2: BG_X = Camera_X >> 2");
+        assert_eq!(bg_y, 0x0020_0000, "ASM loc_72E2: BG_Y = Camera_Y >> 2");
+    }
+
+    #[test]
+    fn loc_72e2_bg_parallax_zero() {
+        let (bg_x, bg_y) = camera_bg_scroll_loc_72e2(0, 0);
+        assert_eq!(bg_x, 0, "ASM loc_72E2: zero camera → zero BG");
+        assert_eq!(bg_y, 0);
     }
 }
