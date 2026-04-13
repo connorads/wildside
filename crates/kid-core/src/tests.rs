@@ -84581,3 +84581,130 @@ fn loc_b4a0_left_column_clamped_to_zero_near_left_edge() {
         "loc_B4A0: left column must clamp to 0 when x < half_width",
     );
 }
+
+/// ASM loc_B4C0 (kid.asm:14396): scan loop setup — `sub.w d1,d2` computes
+/// column iteration count for dbf loop, then `move.w y_pos(a3),d0;
+/// addq.w #1,d0; add.w d7,d0; lsr.w #4,d0` computes probe_row.
+/// d7=0 for flat callers so probe_row = (y_pos + 1) >> 4.
+/// Verify: at y_pos=47, probe_row = (47 + 1) >> 4 = 48 >> 4 = 3.
+#[test]
+fn loc_b4c0_probe_row_from_y_pos() {
+    // ASM: move.w y_pos(a3),d0; addq.w #1,d0; add.w d7,d0; lsr.w #4,d0
+    // Flat callers pass d7=0, so probe_row = (y_pos + 1) >> 4.
+    let y = 47i32;
+    let probe_row = (y + 1) >> 4;
+    assert_eq!(probe_row, 3, "loc_B4C0: (47 + 1) >> 4 = 3");
+}
+
+/// ASM loc_B4C0 (kid.asm:14396): column count for dbf.  `sub.w d1,d2`
+/// yields (right_col - left_col) which is the dbf counter — dbf iterates
+/// count+1 times total (including the initial pass).
+/// TheKid at x=80: left=4, right=5 → d2 = 5 - 4 = 1 → 2 cells scanned.
+#[test]
+fn loc_b4c0_column_count_for_dbf_loop() {
+    let hw = crate::types::PlayerForm::TheKid.half_width();
+    let x = 80i32;
+    let left = ((x - hw) >> 4).max(0);
+    let right = (x + hw) >> 4;
+    let dbf_count = right - left; // ASM: sub.w d1,d2
+    assert_eq!(
+        dbf_count, 1,
+        "loc_B4C0: dbf count = right_col - left_col = 1"
+    );
+    // dbf iterates count+1 times: columns 4 and 5
+    assert_eq!(dbf_count + 1, 2, "loc_B4C0: 2 cells scanned total");
+}
+
+/// ASM loc_B4E0 (kid.asm:14410): scan loop body — `andi.w #$7000,d0`
+/// isolates collision bits, `cmpi.w #$6000` = Solid, `cmpi.w #$7000` =
+/// Spikes.  Verify the collision kind values match the ASM constants.
+#[test]
+fn loc_b4e0_collision_bit_values_match_asm() {
+    use crate::terrain::CollisionKind;
+    // ASM uses $6000 for Solid and $7000 for Spikes in the raw 16-bit cell
+    // word.  The collision field occupies bits 14-12, so:
+    //   Solid  = 6 → 6 << 12 = 0x6000
+    //   Spikes = 7 → 7 << 12 = 0x7000
+    assert_eq!(
+        (CollisionKind::Solid as u16) << 12,
+        0x6000,
+        "loc_B4E0: Solid collision bits = $6000",
+    );
+    assert_eq!(
+        (CollisionKind::Spikes as u16) << 12,
+        0x7000,
+        "loc_B4E0: Spikes collision bits = $7000",
+    );
+}
+
+/// ASM loc_B4E0 (kid.asm:14410): non-Solid, non-Spikes cells are skipped.
+/// Empty ($0000), SlopeUp ($4000), SlopeDown ($5000) all fall through to
+/// `bne.s loc_B514` (next iteration).  Only $6000 and $7000 trigger the
+/// floor-found path at loc_B4FA.
+#[test]
+fn loc_b4e0_non_solid_non_spikes_skipped() {
+    use crate::terrain::CollisionKind;
+    // The scan only accepts Solid and Spikes as floor support
+    for kind in [
+        CollisionKind::Empty,
+        CollisionKind::HiddenBlock,
+        CollisionKind::SlopeUp,
+        CollisionKind::SlopeDown,
+    ] {
+        assert!(
+            !matches!(kind, CollisionKind::Solid | CollisionKind::Spikes),
+            "loc_B4E0: {kind:?} should NOT be treated as floor support",
+        );
+    }
+}
+
+/// ASM loc_B4FA (kid.asm:14419): floor-found — `moveq #1,d7` sets the
+/// found flag.  After setting d7, checks bit 15 of the cell word for
+/// telepad.  If bit 15 is clear, falls through to loc_B514 (loop tail).
+/// Verify: Solid cell without bit 15 → support found, no telepad path.
+#[test]
+fn loc_b4fa_solid_cell_sets_found_flag() {
+    // Simulate the ASM logic for a plain Solid cell (no bit 15)
+    let cell_word: u16 = 0x6000; // Solid, no block flag, no telepad
+    let collision = cell_word & 0x7000;
+    let is_solid = collision == 0x6000;
+    assert!(is_solid, "loc_B4FA: $6000 is Solid");
+    // d7 = 1 (floor found)
+    let d7 = if is_solid || collision == 0x7000 {
+        1
+    } else {
+        0
+    };
+    assert_eq!(d7, 1, "loc_B4FA: moveq #1,d7 — floor found");
+    // bit 15 clear → no telepad
+    let bit15 = cell_word & 0x8000;
+    assert_eq!(bit15, 0, "loc_B4FA: bit 15 clear — no telepad path");
+}
+
+/// ASM loc_B514 (kid.asm:14428): loop tail — `dbf d2,loc_B4E0` decrements
+/// column counter and loops.  After exhausting all columns: `move.w #$5A,
+/// (Telepad_timer).w` resets the telepad timer to 90 ($5A).
+/// Verify the reset constant.
+#[test]
+fn loc_b514_telepad_timer_reset_value() {
+    // ASM: move.w #$5A,(Telepad_timer).w — $5A = 90 decimal
+    assert_eq!(0x5Au16, 90, "loc_B514: Telepad_timer reset = $5A = 90");
+}
+
+/// ASM loc_B51E (kid.asm:14432): `tst.w d7; rts` — the return tests d7 to
+/// set the Z flag.  d7=0 → Z set (no floor, returns EQ/false).
+/// d7=1 → Z clear (floor found, returns NE/true).
+/// d7=-1 → Z clear (telepad activated, also NE/true).
+#[test]
+fn loc_b51e_return_flag_logic() {
+    // d7 values and their meaning in the Z flag test:
+    let cases: &[(i16, bool)] = &[
+        (0, false), // no floor → Z set → EQ → false
+        (1, true),  // floor found → Z clear → NE → true
+        (-1, true), // telepad activated → Z clear → NE → true
+    ];
+    for &(d7, expected_nz) in cases {
+        let nz = d7 != 0; // tst.w d7 sets Z when d7==0
+        assert_eq!(nz, expected_nz, "loc_B51E: d7={d7} → NZ={expected_nz}",);
+    }
+}

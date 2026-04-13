@@ -3744,13 +3744,24 @@ impl OpeningSliceState {
     ) -> bool {
         let x_int = (self.player.x_pos >> 16) as i16 as i32;
         let y_int = (self.player.y_pos >> 16) as i16 as i32;
-        let probe_row = ((y_int + 1) >> 4).max(0) as u16;
         // ASM loc_B4A0: left_col = (x_pos - d1) >> 4; loc_B4B2: bpl.s (clamp ≥ 0)
         let left_col = ((x_int - collision_hw) >> 4).max(0) as u16;
         // ASM loc_B4B2: right_col = (x_pos + d1) >> 4; cmp Level_width_blocks
         let right_col = ((x_int + collision_hw) >> 4)
             .max(0)
             .min(grid.width_cells as i32 - 1) as u16;
+        // ASM loc_B4C0 (kid.asm:14396): scan loop setup — sub.w d1,d2 (column
+        // count for dbf), row lookup via (y_pos + 1 + d7) >> 4 into row-pointer
+        // table at $FFFF4A04, index to left_col.  moveq #0,d7 clears found flag.
+        let probe_row = ((y_int + 1) >> 4).max(0) as u16;
+        // ASM loc_B4E0 (kid.asm:14410): scan loop body — move.w (a0)+,d0;
+        // andi.w #$7000,d0; cmpi.w #$6000,d0 (Solid); cmpi.w #$7000,d0 (Spikes).
+        // ASM loc_B4FA (kid.asm:14419): floor found — moveq #1,d7; then checks
+        // bit 15 + block type $400 for telepad.  Telepad countdown not yet native.
+        // ASM loc_B514 (kid.asm:14428): loop tail — dbf d2,loc_B4E0; after loop
+        // resets Telepad_timer to $5A (90).
+        // ASM loc_B51E (kid.asm:14432): tst.w d7; rts — return NZ if any Solid
+        // or Spikes cell found, Z if none.
         (left_col..=right_col).any(|col| {
             matches!(
                 grid.cell_at(col, probe_row).collision,
