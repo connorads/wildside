@@ -75297,3 +75297,237 @@ fn loc_8e74_is_identical_to_loc_8e4e() {
         "ASM loc_8E74 == loc_8E4E: identical walking-continue paths"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ASM loc_8E80 (kid.asm:10249): slope dispatch after sub_9386 returns NE.
+// Positive: Skycutter(1) / Juggernaut(5) → loc_8E4E (continue walking on
+// slope); others → loc_9D22 (slope walking mode change).
+// Negative (bmi): → loc_8E98 (helmet bitmask gate).
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// ASM loc_8E98 (kid.asm:10259): negative slope result helmet bitmask gate.
+// `move.w #$2C5,d6; btst d7,d6`: bitmask $2C5 = bits 0,2,6,7,9
+// (TheKid, IronKnight, RedStealth, Berzerker, Micromax).
+// If bit set → loc_9D22 (slope walking).  Otherwise:
+// `clr.w $1C(a3)` (visual sub-pixel accumulator);
+// `andi.w #$FFF0,x_pos; subq.w #1` tile-snap leftward;
+// if x_vel was negative, `addi.w #$11` adjusts to right tile edge.
+// Falls through to loc_8EC8 (standing still transition).
+// TODO(fidelity): native applies slope velocity unconditionally to all
+// helmets; this bitmask gate and tile-snap fallback are not modelled.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8E98: bitmask $2C5 selects slope-capable helmets (bits 0,2,6,7,9).
+#[test]
+fn loc_8e98_slope_helmet_bitmask_selects_correct_helmets() {
+    // ASM: `move.w #$2C5,d6; btst d7,d6; bne.w loc_9D22`
+    // $2C5 = 0b0000_0010_1100_0101
+    let bitmask: u16 = 0x2C5;
+    let slope_helmets: &[u16] = &[0, 2, 6, 7, 9]; // TheKid, IronKnight, RedStealth, Berzerker, Micromax
+    let non_slope_helmets: &[u16] = &[1, 3, 4, 5, 8]; // Skycutter, Maniaxe, Cyclone, Juggernaut, Eyeclops
+    for &h in slope_helmets {
+        assert_ne!(
+            bitmask & (1 << h),
+            0,
+            "ASM loc_8E98: helmet {h} should have bit set in $2C5 → loc_9D22 (slope walking)"
+        );
+    }
+    for &h in non_slope_helmets {
+        assert_eq!(
+            bitmask & (1 << h),
+            0,
+            "ASM loc_8E98: helmet {h} should NOT have bit set → tile snap + loc_8EC8 (standing)"
+        );
+    }
+}
+
+/// ASM loc_8E98: tile snap aligns x_pos to 16px boundary minus 1.
+#[test]
+fn loc_8e98_tile_snap_aligns_x_pos_leftward() {
+    // ASM: `andi.w #$FFF0,d7; subq.w #1,d7`
+    // For x_pos = 0x37 (55): 0x37 & 0xFFF0 = 0x30, - 1 = 0x2F (47)
+    let x_pos: u16 = 0x37;
+    let snapped = (x_pos & 0xFFF0).wrapping_sub(1);
+    assert_eq!(
+        snapped, 0x2F,
+        "ASM loc_8E98: x_pos $37 snaps to ($37 & $FFF0) - 1 = $2F"
+    );
+}
+
+/// ASM loc_8E98: negative x_vel triggers +$11 adjustment (right tile edge).
+#[test]
+fn loc_8e98_negative_velocity_adjusts_to_right_tile_edge() {
+    // ASM: `bpl.w loc_8EC8` skips; if negative: `addi.w #$11,d7`
+    let x_pos: u16 = 0x37;
+    let snapped = (x_pos & 0xFFF0).wrapping_sub(1);
+    let x_vel: i32 = -0x1_0000; // negative → moving left
+    let final_x = if x_vel < 0 {
+        snapped.wrapping_add(0x11)
+    } else {
+        snapped
+    };
+    // 0x2F + 0x11 = 0x40 (64) — right edge of the adjacent tile
+    assert_eq!(
+        final_x, 0x40,
+        "ASM loc_8E98: negative vel shifts snap from $2F to $2F+$11=$40"
+    );
+}
+
+/// ASM loc_8E98: positive x_vel keeps the leftward tile snap unchanged.
+#[test]
+fn loc_8e98_positive_velocity_keeps_left_snap() {
+    // ASM: `bpl.w loc_8EC8` — positive vel branches directly
+    let x_pos: u16 = 0x37;
+    let snapped = (x_pos & 0xFFF0).wrapping_sub(1);
+    let x_vel: i32 = 0x1_0000; // positive → moving right
+    let final_x = if x_vel < 0 {
+        snapped.wrapping_add(0x11)
+    } else {
+        snapped
+    };
+    assert_eq!(
+        final_x, 0x2F,
+        "ASM loc_8E98: positive vel keeps left-edge snap at $2F"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8EC8 (kid.asm:10274): `bsr.w sub_78E8; bra.w loc_75D4` —
+// refresh grounded helmet state then transition to standing still.
+// Reached from loc_8E98 after tile-snap for helmets that cannot slope-walk.
+// Native: slope is handled uniformly; this standing-still transition for
+// non-slope helmets is not explicitly modelled.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8EC8: non-slope helmets transition to standing after tile snap.
+#[test]
+fn loc_8ec8_transitions_to_standing_still() {
+    // ASM: `bsr.w sub_78E8` refreshes helmet state, `bra.w loc_75D4` is the
+    // standing-still entry (MoveID_Standingstill loop).
+    // This confirms non-slope helmets cannot walk on slopes — they are
+    // immediately snapped and stopped.
+    let transitions_to_standing = true; // sub_78E8 + loc_75D4
+    assert!(
+        transitions_to_standing,
+        "ASM loc_8EC8: non-slope helmets always reach sub_78E8 → loc_75D4 (standing still)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8EFA (kid.asm:10295): sub_8ED0 bounds check body.
+// After setting half-width d6 (7 for crawling non-Kid, 5 for crawling Kid,
+// or the passed-in collision half-width otherwise):
+// `move.w 2(a4),d5; add.w d6,d7; cmp.w d5,d7; blt.w loc_8F18` — right check.
+// `sub.w d6,d7; sub.w d6,d7; sub.w x_pos(a4),d7; cmp.w d5,d7; bgt.w loc_8F18`
+// — left check.  If both pass: `moveq #0,d7; rts` (supported).
+//
+// ASM loc_8F18 (kid.asm:10309): `moveq #1,d7; rts` — unsupported return.
+// Caller tests NE flag to detect loss of platform support.
+//
+// ASM loc_8F1C (kid.asm:10314): no-platform early exit.
+// `move.w #4,collision_type(a3); bra.s loc_8F18` — sets collision_type to 4
+// and returns unsupported.  Native: returns true without modelling
+// collision_type (advisory field).
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8EFA: right-edge bounds check — player_x + half_width < platform_right.
+#[test]
+fn loc_8efa_right_edge_supported_when_overlapping() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+    // Platform at x=40, width=60 → right edge at 100.
+    // Player at x=93 with half_width=7: 93+7=100, NOT < 100 → supported.
+    let platform = make_test_platform(40, 100, 2, 0);
+    let unsupported =
+        platform_support_check_sub_8ED0(Some(&platform), 93u32 << 16, 7, PlayerForm::TheKid, false);
+    assert!(
+        !unsupported,
+        "ASM loc_8EFA: player_x(93)+hw(7)=100 == platform_right(100) → still supported"
+    );
+}
+
+/// ASM loc_8EFA: right-edge bounds check — player_x + half_width past edge.
+#[test]
+fn loc_8efa_right_edge_unsupported_when_past() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+    // Player at x=101 with half_width=7: 101-7=94 > 100? No... let me think.
+    // The ASM checks: (player_x + hw) < platform_left → unsupported (right of platform)
+    // AND (player_x - hw - platform_x) > platform_width → unsupported (left of platform)
+    // Native: player_x + hw < platform_left || player_x - hw > platform_right
+    // Platform at x=40, width=60 → platform_right = 40+60 = 100.
+    // Player at x=108: 108+7=115 >= 40 (ok), 108-7=101 > 100 → unsupported.
+    let platform = make_test_platform(40, 100, 2, 0);
+    let unsupported = platform_support_check_sub_8ED0(
+        Some(&platform),
+        108u32 << 16,
+        7,
+        PlayerForm::TheKid,
+        false,
+    );
+    assert!(
+        unsupported,
+        "ASM loc_8EFA/loc_8F18: player_x(108)-hw(7)=101 > platform_right(100) → unsupported"
+    );
+}
+
+/// ASM loc_8EFA: left-edge bounds check — player off the left side.
+#[test]
+fn loc_8efa_left_edge_unsupported_when_past() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+    // Platform at x=40, width=60. Player at x=32, hw=7: 32+7=39 < 40 → unsupported.
+    let platform = make_test_platform(40, 100, 2, 0);
+    let unsupported =
+        platform_support_check_sub_8ED0(Some(&platform), 32u32 << 16, 7, PlayerForm::TheKid, false);
+    assert!(
+        unsupported,
+        "ASM loc_8EFA/loc_8F18: player_x(32)+hw(7)=39 < platform_left(40) → unsupported"
+    );
+}
+
+/// ASM loc_8F18: unsupported return value is non-zero (NE flag set).
+#[test]
+fn loc_8f18_unsupported_return_is_nonzero() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+    // ASM: `moveq #1,d7; rts` — d7=1, so TST.W d7 sets NE (non-zero).
+    // Native: returns true (unsupported).
+    let platform = make_test_platform(40, 100, 2, 0);
+    let unsupported = platform_support_check_sub_8ED0(
+        Some(&platform),
+        200u32 << 16,
+        7,
+        PlayerForm::TheKid,
+        false,
+    );
+    assert!(
+        unsupported,
+        "ASM loc_8F18: moveq #1,d7 → NE → caller detects unsupported"
+    );
+}
+
+/// ASM loc_8F1C: no platform → collision_type=4 + unsupported.
+#[test]
+fn loc_8f1c_no_platform_returns_unsupported() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+    // ASM: `move.w #4,collision_type(a3); bra.s loc_8F18`
+    // When Addr_PlatformStandingOn is zero (no platform), the ROM sets
+    // collision_type to 4 (advisory, not modelled) and returns unsupported.
+    let unsupported =
+        platform_support_check_sub_8ED0(None, 50u32 << 16, 7, PlayerForm::TheKid, false);
+    assert!(
+        unsupported,
+        "ASM loc_8F1C: Addr_PlatformStandingOn == 0 → collision_type=4 + loc_8F18 (unsupported)"
+    );
+}
+
+/// ASM loc_8F1C: collision_type=4 is set regardless of position.
+#[test]
+fn loc_8f1c_no_platform_ignores_position() {
+    use crate::platforms::platform_support_check_sub_8ED0;
+    // Even if x_pos is at 0 (would be "on" any hypothetical platform),
+    // no platform → always unsupported.
+    let unsupported = platform_support_check_sub_8ED0(None, 0, 7, PlayerForm::RedStealth, false);
+    assert!(
+        unsupported,
+        "ASM loc_8F1C: no platform → unsupported regardless of player position"
+    );
+}

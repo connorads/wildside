@@ -2381,6 +2381,28 @@ impl OpeningSliceState {
                 // `move.l x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0` —
                 // continue walking with current velocity.
                 //
+                // ASM loc_8E80 (kid.asm:10249): slope dispatch after sub_9386 NE.
+                // Positive: Skycutter(1)/Juggernaut(5) → loc_8E4E (continue walking);
+                // others → loc_9D22 (slope walking mode).
+                // Negative (bmi): → loc_8E98 (kid.asm:10259) helmet bitmask gate.
+                //
+                // ASM loc_8E98 (kid.asm:10259): negative slope result path.
+                // `move.w #$2C5,d6; btst d7,d6`: helmet bitmask $2C5 = bits
+                // 0,2,6,7,9 (TheKid, IronKnight, RedStealth, Berzerker, Micromax).
+                // If set → loc_9D22 (slope walking).  Others (Skycutter, Maniaxe,
+                // Cyclone, Juggernaut, Eyeclops): `clr.w $1C(a3)` (visual sub-pixel
+                // accumulator), tile-snap x_pos to `(x_pos & $FFF0) - 1`, then
+                // adjust by `+$11` if x_vel was negative (rightward tile edge).
+                // Falls through to loc_8EC8.
+                // TODO(fidelity): native applies slope velocity mirroring
+                // unconditionally to all helmets; the ASM's per-helmet bitmask
+                // gate ($2C5) and tile-snap fallback are not modelled.
+                //
+                // ASM loc_8EC8 (kid.asm:10274): `bsr.w sub_78E8; bra.w loc_75D4`
+                // — refresh grounded helmet state and transition to standing still.
+                // Reached from loc_8E98 after the tile-snap for helmets that
+                // cannot slope-walk.
+                //
                 // ASM loc_8E5A (kid.asm:10234): wall collision dispatch.
                 // `bmi.w loc_8E74` — if sub_8F26 returned negative, continue
                 // walking (loc_8E74 = loc_8E4E equivalent).

@@ -811,10 +811,25 @@ pub(crate) fn platform_support_check_sub_8ED0(
     // Kid's centre ± active half-width still overlaps the platform span.
     // Called from loc_833E (kid.asm:9093) during crawl-on-platform and from
     // loc_7886 (kid.asm:7929) during standing-on-platform.
+    //
+    // ASM loc_8F1C (kid.asm:10314): no-platform path — `move.w #4,
+    // collision_type(a3); bra.s loc_8F18`.  Sets collision_type to 4 then
+    // returns unsupported.  Native: returns true (unsupported) without
+    // modelling collision_type.
     let Some(platform) = platform else {
         return true;
     };
 
+    // ASM loc_8EFA (kid.asm:10295): bounds check body.
+    // `move.w 2(a4),d5` loads platform width; `add.w d6,d7; cmp.w d5,d7`
+    // tests player_x + half_width against platform right edge.
+    // `sub.w d6,d7; sub.w d6,d7; sub.w x_pos(a4),d7; cmp.w d5,d7`
+    // tests player_x - half_width against platform left edge.
+    // If either comparison is out-of-bounds → loc_8F18 (unsupported).
+    // If both pass → `moveq #0,d7; rts` (supported, EQ).
+    //
+    // ASM loc_8F18 (kid.asm:10309): unsupported return — `moveq #1,d7; rts`.
+    // Caller tests NE to detect loss of support.
     let support_half_width_px = if crawling {
         if current_form == PlayerForm::TheKid {
             5
