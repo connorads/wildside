@@ -1,0 +1,29 @@
+[files]
+extend-exclude = ["third_party/", "*.lock"]
+
+[default.extend-words]
+# Hex addresses and ASM labels (BA, DAA, DBE, ABD, AFE, EDE, FO, PN)
+BA = "BA"
+ba = "ba"
+DAA = "DAA"
+daa = "daa"
+DBE = "DBE"
+dbe = "dbe"
+ABD = "ABD"
+abd = "abd"
+AFE = "AFE"
+afe = "afe"
+EDE = "EDE"
+FO = "FO"
+PN = "PN"
+
+# Original ROM labels preserved faithfully
+damge = "damge"
+entrys = "entrys"
+Ded = "Ded"
+
+# Crate names
+ratatui = "ratatui"
+
+# Hardware/audio terms
+nd = "nd"

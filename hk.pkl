@@ -24,9 +24,18 @@ hooks {
             }
             ["check-merge-conflict"] = (Builtins.check_merge_conflict) {}
             ["cargo-fmt"] = (Builtins.cargo_fmt) {}
+            ["typos"] {
+                exclude = binary_excludes + List("*.lock")
+                fix = "typos --write-changes"
+                check = "typos"
+            }
             ["cargo-clippy"] {
                 glob = List("crates/**/*.rs", "tests/**/*.rs", "Cargo.toml", "Cargo.lock")
                 check = "scripts/quiet-on-success.sh cargo clippy --workspace --all-targets -- -D warnings"
+            }
+            ["cargo-deny"] {
+                glob = List("**/Cargo.toml", "Cargo.lock", "deny.toml")
+                check = "scripts/quiet-on-success.sh cargo deny check"
             }
             ["cargo-check-no-warnings"] {
                 glob = List("crates/**/*.rs", "tests/**/*.rs", "Cargo.toml", "Cargo.lock", ".mise.toml")

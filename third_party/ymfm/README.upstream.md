@@ -122,4 +122,3 @@ And chips with extended addressing may also have `read_status_hi()` and `read_da
 
 For writes, almost all chips have an address register and a data register, and so you can reliably count on there being a `write_address()` and `write_data()` method as well.
 If the chip supports extended addressing, it may also have `write_address_hi()` and `write_data_hi()`.
-
