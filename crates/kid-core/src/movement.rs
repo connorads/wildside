@@ -4297,21 +4297,34 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         form,
         PlayerForm::RedStealth | PlayerForm::Eyeclops | PlayerForm::Maniaxe
     ) {
+        // ASM loc_9E6C (kid.asm:12091): special form slope convergence.
+        // SlopeDown ($FA26=$FF): addi.l #$1000,d7; bpl loc_9E88 (keep
+        // advanced when ≥0); else force d7=$1000.
+        // SlopeUp ($FA26=0): subi.l #$1000,d7; bmi loc_9EA4 (keep
+        // advanced when <0); else force d7=-$1000.
         let next_x_vel = if slope_descends_right {
+            // ASM loc_9E6C: d7 = x_vel + $1000
             let advanced = x_vel + SPECIAL_FORM_SLOPE_STEP_FP;
             if advanced >= 0 {
-                SPECIAL_FORM_SLOPE_STEP_FP
-            } else {
+                // ASM loc_9E88: bpl branch — keep natural result
                 advanced
+            } else {
+                // ASM: move.l #$1000,d7 — force positive (downhill)
+                SPECIAL_FORM_SLOPE_STEP_FP
             }
         } else {
+            // ASM loc_9E94: d7 = x_vel - $1000
             let advanced = x_vel - SPECIAL_FORM_SLOPE_STEP_FP;
             if advanced < 0 {
-                -SPECIAL_FORM_SLOPE_STEP_FP
-            } else {
+                // ASM loc_9EA4: bmi branch — keep natural result
                 advanced
+            } else {
+                // ASM: move.l #$FFFFF000,d7 — force negative (downhill)
+                -SPECIAL_FORM_SLOPE_STEP_FP
             }
         };
+        // ASM loc_9E88: sf x_direction (SlopeDown → Right)
+        // ASM loc_9EA4: st x_direction (SlopeUp → Left)
         let next_facing = if next_x_vel >= 0 {
             Direction::Right
         } else {
