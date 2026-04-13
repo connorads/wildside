@@ -1,3 +1,4 @@
+#![allow(unsafe_code)] // FFI wrapper — unsafe is the whole point
 use std::ffi::c_void;
 
 const YM2612_INPUT_CLOCK_HZ: u32 = 7_670_454;

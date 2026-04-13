@@ -33,6 +33,85 @@ thiserror = "2.0.12"
 ratatui = "0.29"
 crossterm = "0.28"
 
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+
+# --- Permanent allows (emulator domain) ---
+
+# Casts — emulator code does intentional width/sign/wrap casts everywhere
+cast-lossless             = "allow"
+cast-possible-truncation  = "allow"
+cast-precision-loss       = "allow"
+cast-sign-loss            = "allow"
+cast-possible-wrap        = "allow"
+
+# Naming — hardware register names, coordinate pairs, hex addresses
+module-name-repetitions   = "allow"
+similar-names             = "allow"
+unreadable-literal        = "allow"
+struct-field-names         = "allow"
+
+# Documentation — register names in doc comments trigger doc_markdown
+doc-markdown              = "allow"
+missing-errors-doc        = "allow"
+missing-panics-doc        = "allow"
+
+# Low signal in this codebase
+must-use-candidate        = "allow"
+wildcard-imports          = "allow"
+struct-excessive-bools    = "allow"
+match-same-arms           = "allow"   # intentional in dispatch tables
+items-after-statements    = "allow"   # common in test code
+bool-to-int-with-if       = "allow"   # idiomatic for bit manipulation
+too-many-lines            = "allow"   # faithful ASM translations
+float-cmp                 = "allow"   # emulator fixed-point comparisons
+
+# --- TODO(tighten): auto-fixable ---
+assigning-clones                   = "allow"
+needless-lifetimes                 = "allow"
+elidable-lifetime-names            = "allow"
+uninlined-format-args              = "allow"
+redundant-closure-for-method-calls = "allow"
+semicolon-if-nothing-returned      = "allow"
+manual-let-else                    = "allow"
+cloned-instead-of-copied           = "allow"
+explicit-iter-loop                 = "allow"
+needless-pass-by-value             = "allow"
+unnecessary-wraps                  = "allow"
+map-unwrap-or                      = "allow"
+used-underscore-binding            = "allow"
+
+# --- TODO(tighten): needs manual review / new pedantic lints ---
+collapsible-else-if                = "allow"
+comparison-chain                   = "allow"
+ignore-without-reason              = "allow"
+large-types-passed-by-value        = "allow"
+manual-midpoint                    = "allow"
+no-effect-underscore-binding       = "allow"
+redundant-else                     = "allow"
+verbose-bit-mask                   = "allow"
+fn-params-excessive-bools          = "allow"
+needless-raw-string-hashes         = "allow"
+single-char-pattern                = "allow"
+unchecked-time-subtraction         = "allow"
+unnecessary-debug-formatting       = "allow"
+return-self-not-must-use           = "allow"
+single-match-else                  = "allow"
+if-not-else                        = "allow"
+match-wildcard-for-single-variants = "allow"
+trivially-copy-pass-by-ref         = "allow"
+allow-attributes-without-reason    = "allow"
+ref-option                         = "allow"
+unused-self                        = "allow"
+option-if-let-else                 = "allow"
+format-push-string                 = "allow"
+needless-continue                  = "allow"
+checked-duration-since             = "allow"
+case-sensitive-file-extension-comparisons = "allow"
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+
 [profile.release]
 opt-level = 3
 lto = "thin"
