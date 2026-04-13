@@ -640,6 +640,10 @@ fn decelerate(vel: i32, table: &SpeedTable) -> i32 {
 /// 2. `y_vel = -(jump_height * factor) << 4`
 /// 3. `x_vel = x_vel * 3/4`  (asr #1, copy, asr #1, add)
 pub fn initiate_jump(x_vel: i32, jump_height: u16) -> (i32, i32) {
+    // ASM loc_A44A (kid.asm:12792): entry after `bpl.s` / `neg.l d1` —
+    // d1 = abs(x_vel). The remaining arithmetic computes jump height from
+    // horizontal speed: `lsl.l #4,d1; swap d1; addi.w #$100,d1;
+    // mulu.w d1,d0; lsl.l #4,d0; neg.l d0` → y_vel = -(height * factor) << 4.
     let abs_vel = if x_vel >= 0 { x_vel } else { -x_vel } as u32;
 
     // lsl.l #4, d1 — multiply by 16
@@ -1971,6 +1975,31 @@ mod tests {
         let (result, _) =
             update_air_horizontal_velocity(vel, Direction::Right, right_walk(), &AIR_NORMAL);
         assert_eq!(result, vel - AIR_NORMAL.air_above_max_decel);
+    }
+
+    /// ASM loc_A44A (kid.asm:12792): after `bpl.s` / `neg.l d1`, d1 holds
+    /// abs(x_vel).  The remaining chain `lsl.l #4; swap; addi.w #$100;
+    /// mulu.w; lsl.l #4; neg.l` computes the upward launch velocity.
+    /// This test verifies a concrete running-jump scenario end-to-end.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A44A_abs_x_vel_jump_height_scaling() {
+        // x_vel = -0x2_0000 (moving left at walk speed)
+        // After neg: abs = 0x2_0000
+        // lsl #4: 0x20_0000, swap: 0x0020
+        // +$100 = 0x0120
+        // mulu 0x42 * 0x120 = 0x4A40
+        // lsl #4: 0x4_A400
+        // neg: -0x4_A400
+        let (_, y_vel) = initiate_jump(-0x2_0000, JUMP_HEIGHTS[0]);
+        assert_eq!(
+            y_vel, -0x4_A400,
+            "loc_A44A: negative x_vel should produce same y_vel as positive"
+        );
+
+        // Verify against positive x_vel (same abs)
+        let (_, y_vel_pos) = initiate_jump(0x2_0000, JUMP_HEIGHTS[0]);
+        assert_eq!(y_vel, y_vel_pos);
     }
 
     // -- initiate_jump negative x_vel sign --

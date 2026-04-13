@@ -545,6 +545,8 @@ pub(crate) fn iron_knight_climb_visual_sub_A3BC(
     // climb pose accumulator `d3`, wrap the upper/lower limits across the
     // 0..$BF cycle, then bucket `d3 >> 2` through `unk_A3F0/off_A420`.
     let next = i32::from(pose_accum) + (y_velocity >> 13);
+    // ASM loc_A3DA (kid.asm:12707): `move.w #$BF,d7` — if accumulated
+    // position goes negative (bmi at loc_A3CA), wrap to $BF (top of cycle).
     let pose_accum = if next < 0 {
         0x00BF
     } else if next >= 0x00BF {
@@ -553,6 +555,11 @@ pub(crate) fn iron_knight_climb_visual_sub_A3BC(
         next as u16
     };
 
+    // ASM loc_A3DE (kid.asm:12710): `move.w d7,d3; asr.w #2,d7;
+    // move.b unk_A3F0(pc,d7.w),d7; ext.w d7;
+    // move.w off_A420(pc,d7.w),addroffset_sprite(a3)` — bucket the
+    // accumulator into one of three sprite poses via the unk_A3F0 lookup
+    // table: 0..15→pose C (bottom), 16..31→pose B (mid), 32+→pose A (top).
     let sprite_mapping = match pose_accum >> 2 {
         0..=15 => "LnkTo_unk_C209E-Data_Index",
         16..=31 => "LnkTo_unk_C1E18-Data_Index",
@@ -3272,7 +3279,13 @@ impl NativeRuntime {
         // Apply acceleration to velocity
         slice.player.y_velocity += i32::from(self.helmet.iron_knight_climb_accel);
 
-        // Clamp velocity to climb/fall limits.
+        // ASM loc_A3A6 (kid.asm:12679): `cmpi.l #$40000,d7; blt.s loc_A3B4;
+        // move.l #$40000,d7` — cap downward velocity at $40000.
+        // ASM loc_A38E..loc_A3A6: `cmpi.l #$FFFE8000,d7; bgt.s loc_A3A6;
+        // move.l #$FFFE8000,d7` — cap upward velocity at -$18000.
+        // ASM loc_A3B4 (kid.asm:12684): `move.l d7,y_vel(a3); tst.w d6; rts`
+        // — store clamped velocity; d6 flags whether C was pressed (used by
+        // caller to decide sound / climb boost path).
         slice.player.y_velocity = slice
             .player
             .y_velocity

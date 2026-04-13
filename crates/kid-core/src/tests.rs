@@ -34421,6 +34421,135 @@ fn loc_A382_below_cap_drift_not_clamped() {
     );
 }
 
+/// ASM loc_A3A6 (kid.asm:12679): `cmpi.l #$40000,d7; blt.s loc_A3B4;
+/// move.l #$40000,d7` — downward velocity is capped at $40000 during
+/// Iron Knight wall climb.  After many frames of passive sliding, the
+/// integrated y_vel must not exceed this ceiling.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A3A6_downward_velocity_capped_at_40000() {
+    let mut rt = iron_knight_runtime_with_wall();
+    rt.helmet.iron_knight_climbing = true;
+    rt.helmet.iron_knight_climb_accel = IRON_KNIGHT_MAX_SLIDE_ACCEL;
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 154 << 16;
+    slice.player.y_pos = 32 << 16;
+    slice.player.facing = Direction::Right;
+    // Set y_vel just below cap so one frame of accel pushes past it
+    slice.player.y_velocity = IRON_KNIGHT_MAX_FALL_VEL - 0x100;
+
+    rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+    assert_eq!(
+        slice.player.y_velocity, IRON_KNIGHT_MAX_FALL_VEL,
+        "loc_A3A6: downward velocity should be clamped to $40000"
+    );
+}
+
+/// ASM loc_A3B4 (kid.asm:12684): `move.l d7,y_vel(a3); tst.w d6; rts`
+/// — store the clamped velocity into y_vel.  When velocity is within
+/// bounds, it is stored as-is (no clamping).  This test also verifies
+/// the upward cap path (loc_A38E..loc_A3A6 at $FFFE8000).
+#[test]
+#[allow(non_snake_case)]
+fn loc_A3B4_store_velocity_within_bounds() {
+    let mut rt = iron_knight_runtime_with_wall();
+    rt.helmet.iron_knight_climbing = true;
+    rt.helmet.iron_knight_climb_accel = 0;
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 154 << 16;
+    slice.player.y_pos = 32 << 16;
+    slice.player.facing = Direction::Right;
+    slice.player.y_velocity = 0x1_0000; // within bounds
+
+    rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+    // After step: accel = 0 + $80 = $80, y_vel = $10000 + $80 = $10080
+    let expected = 0x1_0000 + i32::from(IRON_KNIGHT_SLIDE_DRIFT);
+    assert_eq!(
+        slice.player.y_velocity, expected,
+        "loc_A3B4: velocity within bounds should be stored without clamping"
+    );
+}
+
+/// ASM loc_A3B4 upward cap: when C-press boost drives velocity past
+/// -$18000, clamp kicks in (loc_A38E path).
+#[test]
+#[allow(non_snake_case)]
+fn loc_A3B4_upward_velocity_capped_at_FFFE8000() {
+    let mut rt = iron_knight_runtime_with_wall();
+    rt.helmet.iron_knight_climbing = true;
+    rt.helmet.iron_knight_climb_accel = IRON_KNIGHT_MIN_ACCEL;
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 154 << 16;
+    slice.player.y_pos = 32 << 16;
+    slice.player.facing = Direction::Right;
+    // Set y_vel close to upward cap
+    slice.player.y_velocity = IRON_KNIGHT_MAX_CLIMB_VEL + 0x100;
+
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_iron_knight_climb(&mut slice, input);
+
+    assert_eq!(
+        slice.player.y_velocity, IRON_KNIGHT_MAX_CLIMB_VEL,
+        "loc_A3B4: upward velocity should be clamped to -$18000"
+    );
+}
+
+/// ASM loc_A3DA (kid.asm:12707): `move.w #$BF,d7` — when the climb pose
+/// accumulator underflows (goes negative from a large upward y_vel delta),
+/// it wraps to $BF so the animation cycle is seamless.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A3DA_pose_accumulator_wraps_negative_to_BF() {
+    // pose_accum=2, y_vel=-0x8_0000 → delta = -0x8_0000 >> 13 = -64
+    // next = 2 + (-64) = -62 → negative → wrap to $BF
+    let result = iron_knight_climb_visual_sub_A3BC(2, -0x8_0000);
+    assert_eq!(
+        result.pose_accum, 0x00BF,
+        "loc_A3DA: negative accumulator wraps to $BF"
+    );
+    // $BF >> 2 = 47, which is >= 32 → top pose bucket
+    assert_eq!(
+        result.sprite_mapping, "LnkTo_unk_C1B92-Data_Index",
+        "loc_A3DA: wrapped $BF falls into top pose bucket (unk_A3F0 entry = 4)"
+    );
+}
+
+/// ASM loc_A3DE (kid.asm:12710): sprite lookup via `unk_A3F0` table.
+/// Accumulator >> 2 buckets into three zones: 0..15 → pose C (bottom),
+/// 16..31 → pose B (mid), 32..47 → pose A (top).
+#[test]
+#[allow(non_snake_case)]
+fn loc_A3DE_sprite_lookup_three_buckets() {
+    // Bottom bucket: pose_accum=0x20 → 0x20>>2=8 → entry in 0..15
+    let bottom = iron_knight_climb_visual_sub_A3BC(0x20, 0);
+    assert_eq!(
+        bottom.sprite_mapping, "LnkTo_unk_C209E-Data_Index",
+        "loc_A3DE: accumulator 0x20 (bucket 8) → bottom pose"
+    );
+
+    // Mid bucket: pose_accum=0x50 → 0x50>>2=20 → entry in 16..31
+    let mid = iron_knight_climb_visual_sub_A3BC(0x50, 0);
+    assert_eq!(
+        mid.sprite_mapping, "LnkTo_unk_C1E18-Data_Index",
+        "loc_A3DE: accumulator 0x50 (bucket 20) → mid pose"
+    );
+
+    // Top bucket: pose_accum=0xA0 → 0xA0>>2=40 → entry >= 32
+    let top = iron_knight_climb_visual_sub_A3BC(0xA0, 0);
+    assert_eq!(
+        top.sprite_mapping, "LnkTo_unk_C1B92-Data_Index",
+        "loc_A3DE: accumulator 0xA0 (bucket 40) → top pose"
+    );
+}
+
 #[test]
 fn iron_knight_landing_on_metal_block_bounces_without_destroying_it() {
     let mut runtime = NativeRuntime::new(manifest());
