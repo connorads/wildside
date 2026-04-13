@@ -446,6 +446,10 @@ pub(crate) fn skycutter_visual_step_sub_98F2(
     // counter `$11`. With no transient pose active, the routine advances the
     // helper-board animation script `unk_96AC`, rolls `$FFFFFA0C`, and picks
     // the `off_99FE` mapping unless crawling forces `LnkTo_unk_A94AC`.
+    //
+    // Called from sub_942A walking dispatch at loc_9472 (kid.asm:10902):
+    // `cmpi.w #1,d1 / bne.w loc_9484 / bsr.w sub_98F2 / rts` — Skycutter
+    // is the only helmet that dispatches to sub_98F2 during walking.
     const SCRIPT: [(u8, u8); 18] = [
         (0, 6),
         (1, 0x0A),
@@ -2832,6 +2836,16 @@ impl NativeRuntime {
         // the per-form transient action flags: Cyclone flight, Skycutter's
         // flipboard/on-board latch, Red Stealth's downward slash, Maniaxe's
         // thrown-axe state, and Berzerker / Iron Knight special motion.
+        //
+        // Also covers sub_942A walking-animation dispatch flag clearing:
+        // ASM loc_9454 (kid.asm:10891): `sf (Maniaxe_throwing_axe).w` —
+        //   unconditionally clears the axe flag unless the Maniaxe early-
+        //   return at sub_942A+$16 kept it (helmet==8 && flag && $18(a3)).
+        //   Native: maniaxe_axe_active = false below.
+        // ASM loc_9472 (kid.asm:10902): `sf (Red_Stealth_sword_swing).w` —
+        //   unconditionally clears the sword flag unless the Red Stealth
+        //   early-return at loc_9454+$10 kept it (helmet==3 && flag && $18).
+        //   Native: red_stealth_sword_timer = 0 below.
         self.helmet.cyclone_flying = false;
         self.helmet.skycutter_on_board = false;
         self.helmet.skycutter_flipboard = 0;

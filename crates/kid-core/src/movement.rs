@@ -2379,7 +2379,14 @@ impl OpeningSliceState {
                 // If EQ (no wall) → `bsr.w sub_9386; bne.w loc_8E80` slope check.
                 // If both pass (no wall, no slope) → loc_8E4E (kid.asm:10228):
                 // `move.l x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0` —
-                // continue walking with current velocity.
+                // continue walking with current velocity.  sub_942A internals:
+                //   loc_9454 (kid.asm:10891): clear Maniaxe axe flag, Red Stealth guard.
+                //   loc_9472 (kid.asm:10902): clear Red Stealth flag, Skycutter sub_98F2.
+                //   loc_9484 (kid.asm:10910): Juggernaut speed→animation lookup.
+                //   loc_949C (kid.asm:10919): swap/rol abs(x_vel) → animation increment.
+                //   loc_94AA (kid.asm:10927): animation counter mod $600, frame select.
+                // Native: flag clearing in clear_special_movement_state_sub_DB22 and
+                // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
                 // ASM loc_8E80 (kid.asm:10249): slope dispatch after sub_9386 NE.
                 // Positive: Skycutter(1)/Juggernaut(5) → loc_8E4E (continue walking);
