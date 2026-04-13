@@ -79996,3 +79996,273 @@ fn sub_9a20_reverse_run_clamp_loc_9ACA() {
     );
     assert_eq!(vel, -0x4_0000, "ASM loc_9ACA: clamp at -$40000 run cap");
 }
+
+// --- loc_9AF2: sub_9A0A speed table terrain selection (rubber) ---
+
+/// ASM loc_9AF2 (kid.asm:11680): terrain type 1 selects rubber table.
+/// `cmpi.w #1,d2; bne.s loc_9AFC; lea unk_9CCE(pc),a0`.
+/// After loc_9AE0 loads default normal table (unk_9C0A) and checks d2==2
+/// (ice/unk_9C7A), loc_9AF2 checks d2==1 → rubber table (unk_9CCE).
+/// Native: `ground_speed_table(TerrainType::Rubber)` returns RUBBER_* tables.
+#[test]
+#[allow(non_snake_case)]
+fn speed_table_terrain_rubber_select_loc_9AF2() {
+    // Terrain type 1 → rubber table. TheKid on rubber has walk_accel=$200
+    // (unk_9CCE offset $04), distinct from normal ($1000) and ice ($2000).
+    let table = PlayerForm::TheKid.ground_speed_table(TerrainType::Rubber);
+    assert_eq!(
+        table,
+        &physics::RUBBER_KID,
+        "ASM loc_9AF2: d2==1 → unk_9CCE (rubber)"
+    );
+    assert_eq!(
+        table.walk_accel, 0x200,
+        "ASM loc_9AF2: rubber kid walk_accel=$200"
+    );
+}
+
+/// ASM loc_9AF2: terrain type 0 (normal) skips both ice and rubber branches.
+/// `cmpi.w #2,d2; bne.s loc_9AF2` (not ice) then `cmpi.w #1,d2; bne.s loc_9AFC`
+/// (not rubber) → default unk_9C0A stays.
+#[test]
+#[allow(non_snake_case)]
+fn speed_table_terrain_normal_skips_loc_9AF2() {
+    let table = PlayerForm::TheKid.ground_speed_table(TerrainType::Normal);
+    assert_eq!(
+        table,
+        &physics::NORMAL_KID,
+        "ASM loc_9AF2: d2==0 skips rubber check, default unk_9C0A"
+    );
+    assert_eq!(
+        table.walk_accel, 0x1000,
+        "ASM loc_9AF2: normal kid walk_accel=$1000"
+    );
+}
+
+// --- loc_9AFC: Micromax table offset ($1C) ---
+
+/// ASM loc_9AFC (kid.asm:11685): Micromax helmet advances table pointer by $1C.
+/// `cmpi.w #Micromax,(Current_Helmet).w; bne.s loc_9B08; lea $1C(a0),a0`.
+/// $1C = 28 bytes = 7 longs = one complete sub-table. Selects the Micromax
+/// variant within the current terrain table.
+/// Native: `ground_speed_table(Micromax, terrain)` returns *_MICROMAX table.
+#[test]
+#[allow(non_snake_case)]
+fn speed_table_micromax_offset_loc_9AFC() {
+    // Micromax on normal terrain: walk_accel=$800 (unk_9C0A+$1C+$04).
+    let table = PlayerForm::Micromax.ground_speed_table(TerrainType::Normal);
+    assert_eq!(
+        table,
+        &physics::NORMAL_MICROMAX,
+        "ASM loc_9AFC: Micromax → lea $1C(a0),a0"
+    );
+    assert_eq!(
+        table.walk_accel, 0x800,
+        "ASM loc_9AFC: normal micromax walk_accel=$800"
+    );
+}
+
+/// ASM loc_9AFC: Micromax on ice terrain.
+/// loc_9AE0 d2==2 → unk_9C7A (ice), then loc_9AFC lea $1C → ice micromax.
+#[test]
+#[allow(non_snake_case)]
+fn speed_table_micromax_ice_loc_9AFC() {
+    let table = PlayerForm::Micromax.ground_speed_table(TerrainType::Ice);
+    assert_eq!(
+        table,
+        &physics::ICE_MICROMAX,
+        "ASM loc_9AFC: ice + Micromax → unk_9C7A+$1C"
+    );
+    assert_eq!(
+        table.walk_accel, 0x1000,
+        "ASM loc_9AFC: ice micromax walk_accel=$1000"
+    );
+}
+
+// --- loc_9B08: Juggernaut table offset ($38) ---
+
+/// ASM loc_9B08 (kid.asm:11690): Juggernaut helmet advances table pointer by $38.
+/// `cmpi.w #Juggernaut,(Current_Helmet).w; bne.s loc_9B14; lea $38(a0),a0`.
+/// $38 = 56 bytes = 14 longs = two sub-tables. Selects the Juggernaut variant.
+/// Native: `ground_speed_table(Juggernaut, terrain)` returns *_JUGGERNAUT table.
+#[test]
+#[allow(non_snake_case)]
+fn speed_table_juggernaut_offset_loc_9B08() {
+    // Juggernaut on normal terrain: walk_accel=$2000 (unk_9C0A+$38+$04).
+    let table = PlayerForm::Juggernaut.ground_speed_table(TerrainType::Normal);
+    assert_eq!(
+        table,
+        &physics::NORMAL_JUGGERNAUT,
+        "ASM loc_9B08: Juggernaut → lea $38(a0),a0"
+    );
+    assert_eq!(
+        table.walk_accel, 0x2000,
+        "ASM loc_9B08: normal juggernaut walk_accel=$2000"
+    );
+}
+
+/// ASM loc_9B08: Juggernaut on rubber terrain.
+/// loc_9AF2 d2==1 → unk_9CCE (rubber), then loc_9B08 lea $38 → rubber juggernaut.
+#[test]
+#[allow(non_snake_case)]
+fn speed_table_juggernaut_rubber_loc_9B08() {
+    let table = PlayerForm::Juggernaut.ground_speed_table(TerrainType::Rubber);
+    assert_eq!(
+        table,
+        &physics::RUBBER_JUGGERNAUT,
+        "ASM loc_9B08: rubber + Juggernaut → unk_9CCE+$38"
+    );
+    assert_eq!(
+        table.walk_accel, 0x400,
+        "ASM loc_9B08: rubber juggernaut walk_accel=$400"
+    );
+}
+
+// --- loc_9B14: direction dispatch entry ---
+
+/// ASM loc_9B14 (kid.asm:11695): direction dispatch after table selection.
+/// `tst.b x_direction(a3); bne.s loc_9B7E`. x_direction==0 (right) → check
+/// left/right held. x_direction!=0 (left) → loc_9B7E (left-facing logic).
+/// Facing right + holding left → `st x_direction(a3)` (flip to left) + loc_9B90.
+/// Native: `update_horizontal_velocity` takes `facing` and `input`, returns
+/// new facing. Facing right + left held → returns Direction::Left.
+#[test]
+#[allow(non_snake_case)]
+fn direction_dispatch_facing_right_hold_left_flips_loc_9B14() {
+    // Facing right, holding left: ASM `st x_direction(a3); bra.s loc_9B90`.
+    let (_vel, dir) = physics::update_horizontal_velocity(
+        0x1_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        dir,
+        Direction::Left,
+        "ASM loc_9B14: facing right + left held → st x_direction → left"
+    );
+}
+
+/// ASM loc_9B14: facing left + right held → `sf x_direction(a3)` (flip to right)
+/// at loc_9B7E, then `bra.s loc_9B2E` (forward acceleration right).
+/// Native: returns Direction::Right.
+#[test]
+#[allow(non_snake_case)]
+fn direction_dispatch_facing_left_hold_right_flips_loc_9B14() {
+    let (_vel, dir) = physics::update_horizontal_velocity(
+        -0x1_0000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        dir,
+        Direction::Right,
+        "ASM loc_9B14/loc_9B7E: facing left + right held → sf x_direction → right"
+    );
+}
+
+/// ASM loc_9B14: facing right, no directional input → facing unchanged.
+/// `tst.b x_direction(a3); bne.s loc_9B7E` falls through (right).
+/// `tst.b (Ctrl_Left_Held).w; beq.s loc_9B26` → loc_9B26.
+/// `tst.b (Ctrl_Right_Held).w; beq.w loc_9BEE` → decelerate, no flip.
+#[test]
+#[allow(non_snake_case)]
+fn direction_dispatch_facing_right_no_input_keeps_facing_loc_9B14() {
+    let (_vel, dir) = physics::update_horizontal_velocity(
+        0x1_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        dir,
+        Direction::Right,
+        "ASM loc_9B14: facing right + no input → facing unchanged"
+    );
+}
+
+// --- loc_9B26: facing right, forward/decelerate branch ---
+
+/// ASM loc_9B26 (kid.asm:11706): facing right, left not held.
+/// `tst.b (Ctrl_Right_Held).w; beq.w loc_9BEE` — right not held → decelerate.
+/// loc_9BEE: `sub.l 8(a0),d0` (walk_run_decel), snap to zero on sign change.
+/// Native: `decelerate(vel, table)` subtracts walk_run_decel.
+#[test]
+#[allow(non_snake_case)]
+fn facing_right_no_direction_decelerates_loc_9B26() {
+    // Facing right, moving right, no input → decelerate by walk_run_decel ($2800).
+    let (vel, _) = physics::update_horizontal_velocity(
+        0x1_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel,
+        0x1_0000 - 0x2800,
+        "ASM loc_9B26→loc_9BEE: no right held → sub.l 8(a0),d0 decel"
+    );
+}
+
+/// ASM loc_9B26: right held → falls through to loc_9B2E (forward acceleration).
+/// loc_9B2E..loc_9B44: walking right, below walk cap, `add.l 4(a0),d0`.
+/// Native: `apply_holding_right` with walk_accel.
+#[test]
+#[allow(non_snake_case)]
+fn facing_right_hold_right_accelerates_loc_9B26() {
+    // Facing right, holding right, below walk cap → accelerate by walk_accel ($1000).
+    let (vel, _) = physics::update_horizontal_velocity(
+        0,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel, 0x1000,
+        "ASM loc_9B26→loc_9B2E: right held → add.l 4(a0),d0 walk accel"
+    );
+}
+
+/// ASM loc_9B26→loc_9BEE: deceleration snaps to zero on sign change.
+/// `sub.l 8(a0),d0; bmi.w loc_9C06` → `moveq #0,d0; rts`.
+/// Native: `decelerate` returns 0 when decel overshoots.
+#[test]
+#[allow(non_snake_case)]
+fn facing_right_decel_snaps_zero_loc_9B26() {
+    // Small rightward velocity, decel ($2800) would overshoot → snap to 0.
+    let (vel, _) = physics::update_horizontal_velocity(
+        0x1000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel, 0,
+        "ASM loc_9B26→loc_9BEE→loc_9C06: decel overshoot → moveq #0,d0"
+    );
+}
