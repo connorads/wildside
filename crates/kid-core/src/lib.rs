@@ -1383,6 +1383,27 @@ impl NativeRuntime {
         player_after: PlayerState,
         slice: &OpeningSliceState,
     ) {
+        // sub_AF10 (kid.asm:13750): kid_flip wall scan — called at
+        // kid_flip entry (`bsr.w sub_AF10; beq.w loc_AD34`). Scans the
+        // player's leading-edge column for wall tiles across the full
+        // body height.
+        //   loc_AF2E (kid.asm:13760): helmet-size merge point. d5=$F
+        //   for Micromax/Juggernaut (16px body), $1F for others (32px).
+        //   `sub.w d5,d6` → d6 = top of body. `asr.w #4` both → row
+        //   indices. `sub.w d6,d7` → row count. Load row pointer from
+        //   $4A04, add FA78+1 column offset (negated if FA72≠0).
+        //   loc_AF52 (kid.asm:13774): column resolve — `add.w x_pos,d6;
+        //   asr.w #4,d6; add.w d6,d6; add.w d6,a4` → tile pointer.
+        //   loc_AF5C (kid.asm:13780): scan loop — `move.w (a4),d6;
+        //   andi.w #$7000,d6; cmpi.w #$6000,d6; bge loc_AF76` — if
+        //   wall ($6000+) → hit. Else `add.w Level_width_tiles,a4;
+        //   dbf d7,loc_AF5C` — step down one row, repeat.
+        //   loc_AF76 (kid.asm:13791): `moveq #1,d7; rts` — wall found.
+        //   Fall-through: `moveq #0,d7; rts` — no wall in column.
+        // Native: `probe_wall` (3-point body scan) covers the same
+        // column. The 3-point probe at y-8, y-h/2, y-h+8 samples every
+        // tile row for 32px bodies; for Micromax (16px) the points
+        // collapse to fewer distinct rows but still cover the column.
         let wall_probe = self.block_grid.as_ref().map(|grid| {
             terrain::probe_wall(
                 grid,

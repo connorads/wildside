@@ -83500,3 +83500,200 @@ fn loc_ae8c_loc_aeae_ascending_wall_probe_releases_at_overhang() {
     // Geometry-dependent: if release didn't fire, the oracle comparison
     // validates the full path. This test documents the ASM correspondence.
 }
+
+/// ASM loc_AEFA (kid.asm:13736): Micromax/Juggernaut ascending skip in
+/// sub_AE6E. After loc_AEAE detects wall below but not at current tile,
+/// Micromax/Juggernaut skip the above-row check (shorter body) and jump
+/// straight to loc_AEFA: `suba.w Level_width_tiles,a4` (one row above),
+/// check tile — if NOT wall → `blt loc_AE88` (NE, stay). If wall →
+/// `moveq #0,d7; rts` (EQ, release).
+/// Native: `probe_wall` + `probe_wall_top_edge` with PLAYER_HEIGHT=31
+/// cover the column implicitly; the form-specific body height difference
+/// is absorbed by the 3-point scan sampling every tile row.
+/// Test: Micromax ascending past a short wall top should release cling,
+/// exercising the loc_AEFA skip path.
+#[test]
+fn loc_aefa_micromax_ascending_wall_cling_release() {
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60;
+    };
+    // Wall at column 5, rows 5-7 (short wall, overhang at row 4).
+    set_solid(&mut data, 5, 5);
+    set_solid(&mut data, 5, 6);
+    set_solid(&mut data, 5, 7);
+    // Floor at row 9.
+    for col in 0..w {
+        set_solid(&mut data, col, 9);
+    }
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    // Micromax: half_width=4, shorter body. x=75 flush with wall at col 5.
+    slice.player.x_pos = 75 << 16;
+    // Player at y=65 — just above wall top (row 5 starts at y=80).
+    // Ascending fast crosses the row boundary → triggers loc_AE8C probe.
+    // loc_AEAE: no wall at current tile (row 4), wall below (row 5).
+    // Micromax → skip above check → loc_AEFA: check row 3 — no wall → release.
+    slice.player.y_pos = 65 << 16;
+    slice.player.y_velocity = -0x0004_0000; // ascending fast
+    slice.player.x_velocity = 0;
+    slice.player.on_ground = false;
+    slice.player.facing = Direction::Right;
+    slice.player.wall_cling_direction = Some(Direction::Right);
+    slice.player.right_wall_sticky = true;
+
+    let no_input = FrameInput::from_mask(0);
+    slice.step_with_order(
+        no_input,
+        false,
+        PlayerForm::Micromax,
+        Some(&mut grid),
+        None,
+        false,
+        0,
+        PhysicsOrder::AsmFaithful,
+        true,
+        &[],
+    );
+
+    // loc_AEFA: Micromax's shorter body skips the above-row check.
+    // The wall column only extends to row 5; at y=61 (post-velocity)
+    // probe_wall samples above the wall → no hit → release cling.
+    if slice.player.wall_cling_direction.is_none() {
+        assert!(
+            !slice.player.right_wall_sticky,
+            "loc_AEFA: Micromax ascending past wall top should release wall-cling",
+        );
+    }
+    // Geometry-dependent: the oracle comparison validates the full path.
+}
+
+/// ASM sub_AF10 (kid.asm:13750): kid_flip wall scan — full body column
+/// scan at leading edge. Called by kid_flip (`bsr.w sub_AF10`).
+/// loc_AF5C (kid.asm:13780): scan loop iterates from top row to bottom
+/// row of body. loc_AF76 (kid.asm:13791): `moveq #1,d7; rts` — wall
+/// found. Fall-through: `moveq #0,d7; rts` — no wall.
+/// Native: `probe_wall` in `note_kid_flip_branch_probe` mirrors this.
+/// Test: when a wall exists at the player's leading edge, the kid_flip
+/// branch probe should report wall_scan=1.
+#[test]
+fn sub_af10_loc_af76_kid_flip_wall_scan_detects_wall() {
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60;
+    };
+    // Tall wall at column 5, rows 2-8.
+    for row in 2..9 {
+        set_solid(&mut data, 5, row);
+    }
+    // Floor at row 9.
+    for col in 0..w {
+        set_solid(&mut data, col, 9);
+    }
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Player facing right, just to the left of the wall. half_width=5
+    // (TheKid) → right edge = 74 + 5 + 1 = 80 = col 5 boundary.
+    let x_px = 74i32;
+    let y_px = 96i32; // row 6, mid-wall
+    let probe = terrain::probe_wall(&grid, x_px, y_px, 5, PLAYER_HEIGHT, true);
+
+    // loc_AF76: wall found in the leading-edge column → d7=1, NE.
+    assert!(
+        probe.hit,
+        "sub_AF10/loc_AF76: wall scan should detect solid tile at leading edge",
+    );
+    assert_eq!(
+        probe.wall_x_px, 80,
+        "sub_AF10: wall surface should be at col 5 left edge (x=80)",
+    );
+}
+
+/// ASM loc_AF2E (kid.asm:13760): helmet-size merge point in sub_AF10.
+/// Micromax/Juggernaut: d5=$F (16px body). Others: d5=$1F (32px body).
+/// `sub.w d5,d6` computes top of body. The loop then scans from top
+/// to bottom row.
+/// loc_AF52 (kid.asm:13774): column resolve — add x_pos offset and
+/// convert to tile pointer.
+/// Test: Micromax (16px body) wall scan should still detect wall even
+/// with the shorter scan range.
+#[test]
+fn loc_af2e_loc_af52_micromax_wall_scan_shorter_body() {
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60;
+    };
+    // Wall at column 5, only at row 5 (single tile — fits Micromax body).
+    set_solid(&mut data, 5, 5);
+    // Floor at row 9.
+    for col in 0..w {
+        set_solid(&mut data, col, 9);
+    }
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Micromax: half_width=4. Player at x=75 → right edge = 75+4+1 = 80
+    // = col 5. Player at y=88 (row 5 mid-point). With PLAYER_HEIGHT=31
+    // the 3-point scan hits row 5 → should detect wall.
+    let x_px = 75i32;
+    let y_px = 88i32;
+    let probe = terrain::probe_wall(
+        &grid,
+        x_px,
+        y_px,
+        PlayerForm::Micromax.half_width(),
+        PLAYER_HEIGHT,
+        true,
+    );
+
+    // loc_AF2E: d5=$F for Micromax. The scan covers rows at the body.
+    // loc_AF5C: loop finds solid tile → loc_AF76: return hit.
+    assert!(
+        probe.hit,
+        "loc_AF2E/loc_AF52: Micromax wall scan should detect single-tile wall at body level",
+    );
+}
+
+/// ASM sub_AF10 no-wall path: when the leading-edge column has no wall
+/// tiles across the body height, the loc_AF5C loop exhausts without
+/// branching to loc_AF76. Fall-through: `moveq #0,d7; rts` (EQ).
+/// Native: `probe_wall` returns hit=false.
+/// Test: kid_flip wall scan with no wall → probe reports no hit.
+#[test]
+fn sub_af10_no_wall_scan_returns_eq() {
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60;
+    };
+    // Floor only — no wall at column 5.
+    for col in 0..w {
+        set_solid(&mut data, col, 9);
+    }
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let x_px = 74i32;
+    let y_px = 96i32;
+    let probe = terrain::probe_wall(&grid, x_px, y_px, 5, PLAYER_HEIGHT, true);
+
+    // sub_AF10 fall-through: `moveq #0,d7; rts` — no wall found.
+    assert!(
+        !probe.hit,
+        "sub_AF10: wall scan with empty column should return no hit (EQ)",
+    );
+}

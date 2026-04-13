@@ -2983,8 +2983,16 @@ impl OpeningSliceState {
         //   tile at leading edge. If wall ($6000+) → return NE (stay cling).
         //   Check tile one row BELOW: if NOT wall → return NE.
         //   For non-Micromax/non-Juggernaut, extra row above check.
-        //   If all rows clear: `moveq #0,d7; rts` (EQ) → release cling.
-        // Native: `probe_wall` + `probe_wall_top_edge` cover these checks.
+        // loc_AEFA (kid.asm:13736): Micromax/Juggernaut ascending skip —
+        //   mirrors loc_AE5A for the ascending case. Short helmets skip
+        //   the above-row check and jump straight here: `suba.w
+        //   Level_width_tiles,a4` (one row above current), check tile —
+        //   if NOT wall → `blt loc_AE88` (NE, stay cling). If wall →
+        //   `moveq #0,d7; rts` (EQ, release). Normal-height helmets
+        //   fall through after their own above-row check, so a4 is
+        //   already one row higher — loc_AEFA then checks TWO rows above.
+        //   Native: `probe_wall` (3-point body scan) + `probe_wall_top_edge`
+        //   cover the full column implicitly regardless of helmet height.
         let x_px = (self.player.x_pos >> 16) as i32;
         let moving_right = direction == Direction::Right;
         if terrain::probe_wall(
