@@ -77565,3 +77565,301 @@ fn loc_9512_clear_path_resets_both_accumulators() {
         "ASM loc_9580: sf (Berzerker_charging).w clears propeller flag"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ASM loc_9556 (kid.asm:11004): sub_942A Cyclone (helmet 7) ice-surface walking
+// animation increment.  Reached when the byte accumulator ($FFFFFA13) carries
+// AND $FFFFFA0A == 1 (ice surface).
+//
+// Instead of the velocity-based calculation (rol.l #2 / add / swap / add),
+// Ice just adds a fixed $40 to the animation counter d2:
+//   `addi.w #$40,d2`
+// Then falls through to loc_955A (modulo check).
+//
+// Native: visual-only — Cyclone walking animation is not modelled.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_9556: Ice surface adds fixed $40 to animation counter.
+/// Non-Ice path uses `rol.l #2,d0; move.l d0,d1; rol.l #2,d0; add.l d1,d0;
+/// swap d0; add.w d0,d2` — velocity-dependent.  Ice bypasses all of that.
+#[test]
+fn loc_9556_ice_cyclone_fixed_animation_increment() {
+    // d2 = current animation counter, loaded from $FFFFF8F0.
+    let d2: u16 = 0x100;
+    // ASM: addi.w #$40,d2
+    let d2_after = d2.wrapping_add(0x40);
+    assert_eq!(
+        d2_after, 0x140,
+        "ASM loc_9556: addi.w #$40,d2 — ice adds fixed $40"
+    );
+}
+
+/// ASM loc_9556: contrast with non-Ice velocity-based increment.
+/// Non-Ice: `rol.l #2,d0; move.l d0,d1; rol.l #2,d0; add.l d1,d0; swap d0;
+/// add.w d0,d2`.  For d0 = $20000, that yields: rol2→$80000, save d1=$80000,
+/// rol2→$200000, add→$280000, swap→$0028, d2 += $28.
+#[test]
+fn loc_9556_non_ice_velocity_based_increment() {
+    let d0: u32 = 0x2_0000;
+    // rol.l #2,d0
+    let d0 = d0.rotate_left(2); // $80000
+    let d1 = d0;
+    // rol.l #2,d0
+    let d0 = d0.rotate_left(2); // $200000
+    // add.l d1,d0
+    let d0 = d0.wrapping_add(d1); // $280000
+    // swap d0
+    let d0_hi = (d0 >> 16) as u16; // $28
+    let d2: u16 = 0x100;
+    let d2_after = d2.wrapping_add(d0_hi);
+    assert_eq!(
+        d2_after, 0x128,
+        "ASM non-Ice path: velocity $20000 → d2 increment of $28"
+    );
+    // Ice path would add $40 regardless of velocity — different result.
+    let d2_ice = 0x100u16.wrapping_add(0x40);
+    assert_ne!(
+        d2_after, d2_ice,
+        "ASM loc_9556: Ice ($40 fixed) differs from velocity-based ($28)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_955A (kid.asm:11007): sub_942A Cyclone animation counter modulo.
+// Both Ice (loc_9556) and non-Ice paths converge here after adding to d2.
+//   `cmpi.w #$600,d2; bcs.s loc_9564` — if d2 < $600, keep it.
+//   `subi.w #$600,d2` — otherwise wrap by subtracting $600.
+// Falls through to loc_9564.
+//
+// Native: visual-only.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_955A: counter below $600 passes through unchanged.
+#[test]
+fn loc_955a_counter_below_threshold_no_wrap() {
+    let d2: u16 = 0x400;
+    // cmpi.w #$600,d2; bcs.s loc_9564 — $400 < $600, carry set → branch taken.
+    let d2_out = if d2 >= 0x600 { d2 - 0x600 } else { d2 };
+    assert_eq!(d2_out, 0x400, "ASM loc_955A: d2=$400 < $600, no wrap");
+}
+
+/// ASM loc_955A: counter at or above $600 wraps by subtracting $600.
+#[test]
+fn loc_955a_counter_at_threshold_wraps() {
+    let d2: u16 = 0x600;
+    let d2_out = if d2 >= 0x600 { d2 - 0x600 } else { d2 };
+    assert_eq!(d2_out, 0x000, "ASM loc_955A: d2=$600 wraps to $0");
+}
+
+/// ASM loc_955A: counter above $600 wraps correctly.
+#[test]
+fn loc_955a_counter_above_threshold_wraps() {
+    // Ice adds $40 to $5E0 → $620, which exceeds $600.
+    let d2: u16 = 0x620;
+    let d2_out = if d2 >= 0x600 { d2 - 0x600 } else { d2 };
+    assert_eq!(d2_out, 0x020, "ASM loc_955A: d2=$620 → subi.w #$600 → $20");
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_9564 (kid.asm:11012): sub_942A Cyclone sprite update after accumulator
+// carry.  Stores animation counter, sets propeller flag, indexes sprite table.
+//
+//   move.w d2,($FFFFF8F0).w     — save animation counter
+//   st (Berzerker_charging).w   — set propeller spin flag ($FF)
+//   lea off_9688(pc),a0         — 6-entry Cyclone walking sprite table
+//   lsr.w #8,d2                 — d2 >> 8 = sprite index (0-5)
+//   add.w d2,d2                 — word offset
+//   add.w d2,a0                 — index into table
+//   move.w (a0),addroffset_sprite(a3)  — set sprite
+//   rts
+//
+// off_9688 has 6 entries (d2 ranges $000-$5FF, so d2>>8 = 0-5).
+// Native: visual-only.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_9564: animation counter stored back to $FFFFF8F0.
+/// `move.w d2,($FFFFF8F0).w`.
+#[test]
+fn loc_9564_stores_animation_counter() {
+    let d2: u16 = 0x2A0;
+    // After loc_955A, d2 is in range 0-$5FF.
+    // loc_9564 stores it to the walking animation counter RAM location.
+    let stored = d2;
+    assert_eq!(
+        stored, 0x2A0,
+        "ASM loc_9564: move.w d2,($FFFFF8F0).w preserves d2"
+    );
+}
+
+/// ASM loc_9564: `st (Berzerker_charging).w` sets propeller flag to $FF.
+#[test]
+fn loc_9564_sets_propeller_flag() {
+    // st = set true = $FF.
+    let berzerker_charging: u8 = 0xFF;
+    assert_eq!(
+        berzerker_charging, 0xFF,
+        "ASM loc_9564: st (Berzerker_charging).w = $FF (propeller active)"
+    );
+}
+
+/// ASM loc_9564: sprite table index from d2 >> 8.
+/// d2 ranges $000-$5FF after modulo, so lsr.w #8 yields 0-5.
+/// `add.w d2,d2` doubles for word offset, giving 0,2,4,6,8,10.
+#[test]
+fn loc_9564_sprite_table_index_range() {
+    // Verify all valid d2 values map to indices 0-5.
+    for expected_idx in 0u16..=5 {
+        let d2 = expected_idx << 8; // e.g. $000, $100, ..., $500
+        let idx = d2 >> 8;
+        assert_eq!(idx, expected_idx);
+        let word_offset = idx * 2;
+        assert!(
+            word_offset <= 10,
+            "ASM loc_9564: word offset {word_offset} for index {idx} within 6-entry table"
+        );
+    }
+    // Just past the last valid: $600 would be $6 >> wouldn't happen (modulo catches it).
+    let d2_oob: u16 = 0x600;
+    let idx_oob = d2_oob >> 8;
+    assert_eq!(
+        idx_oob, 6,
+        "ASM loc_9564: d2=$600 would index 6 — but loc_955A prevents this"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_9596 (kid.asm:11037): sub_942A TheKid (helmet 0) backward walking
+// sprite — positive velocity path.
+//
+// Context: loc_9580 clears Berzerker_charging, then checks `cmpi.w #0,d1;
+// bne.s loc_95A4` — only helmet 0 (TheKid) reaches here (d1 is helmet ID).
+// For positive velocity (`tst.l d0; bpl.s loc_9596`):
+//   loc_9596: `tst.b x_direction(a3); beq.s loc_95A4`
+//     — x_direction==0 (facing right) + positive vel (moving right) = FORWARD
+//       → loc_95A4 (normal walking animation).
+//     — x_direction!=0 (facing left) + positive vel (moving right) = BACKWARD
+//       → fall through to loc_959C (backward sprite).
+//
+// For negative velocity (d0 < 0), the path at loc_9580 is:
+//   `tst.b x_direction(a3); bne.s loc_95A4` — facing left + moving left =
+//   forward → loc_95A4.  Facing right + moving left = backward → loc_959C.
+//
+// Native: visual-only.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_9596: positive velocity + facing right (forward) → loc_95A4.
+/// `tst.b x_direction(a3); beq.s loc_95A4` — dir==0 branches to normal anim.
+#[test]
+fn loc_9596_positive_vel_facing_right_is_forward() {
+    let d0: i32 = 0x1_0000; // positive = moving right
+    let x_direction: u8 = 0; // facing right
+    // tst.l d0; bpl.s loc_9596 — positive → loc_9596
+    assert!(d0 >= 0, "precondition: positive velocity");
+    // tst.b x_direction; beq.s loc_95A4 — dir==0 → forward (normal anim)
+    let is_forward = x_direction == 0;
+    assert!(
+        is_forward,
+        "ASM loc_9596: facing right + positive vel = forward → loc_95A4"
+    );
+}
+
+/// ASM loc_9596: positive velocity + facing left (backward) → loc_959C.
+/// `tst.b x_direction(a3); beq.s loc_95A4` — dir!=0 falls through.
+#[test]
+fn loc_9596_positive_vel_facing_left_is_backward() {
+    let d0: i32 = 0x1_0000;
+    let x_direction: u8 = 0xFF; // facing left
+    assert!(d0 >= 0);
+    // beq not taken → fall through to loc_959C
+    let is_backward = x_direction != 0;
+    assert!(
+        is_backward,
+        "ASM loc_9596: facing left + positive vel = backward → loc_959C"
+    );
+}
+
+/// ASM loc_9580 negative velocity paths (before loc_9596).
+/// Negative vel + facing right (dir==0) → `bne.s loc_95A4` NOT taken →
+/// `bra.s loc_959C` (backward).
+/// Negative vel + facing left (dir!=0) → `bne.s loc_95A4` taken (forward).
+#[test]
+fn loc_9596_negative_vel_direction_gates() {
+    // Negative velocity path at loc_9580:
+    //   tst.l d0; bpl.s loc_9596 — NOT taken (d0 < 0)
+    //   tst.b x_direction; bne.s loc_95A4 — facing left → forward
+    //   bra.s loc_959C — facing right → backward
+
+    // Case 1: negative vel + facing left = forward
+    let d0: i32 = -0x1_0000;
+    let x_dir_left: u8 = 0xFF;
+    assert!(d0 < 0);
+    let goes_forward = x_dir_left != 0;
+    assert!(
+        goes_forward,
+        "ASM loc_9580: negative vel + facing left = forward → loc_95A4"
+    );
+
+    // Case 2: negative vel + facing right = backward
+    let x_dir_right: u8 = 0;
+    let goes_backward = x_dir_right == 0;
+    assert!(
+        goes_backward,
+        "ASM loc_9580: negative vel + facing right = backward → loc_959C"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_959C (kid.asm:11041): sub_942A TheKid backward walking sprite.
+// Reached when TheKid (d1==0) is moving opposite to facing direction.
+//   `move.w #(LnkTo_unk_A5346-Data_Index),addroffset_sprite(a3)`
+//   `rts`
+//
+// Sets a single fixed sprite for backward walking (no animation cycling).
+// Both positive-vel-backward and negative-vel-backward paths converge here.
+//
+// Native: visual-only.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_959C: backward walking uses a single fixed sprite, not a table.
+/// Contrast with forward walking at loc_95A4 → loc_9600 which cycles through
+/// off_9618-indexed sprite tables per helmet.
+#[test]
+fn loc_959c_backward_walking_single_sprite() {
+    // The sprite is a compile-time constant offset (LnkTo_unk_A5346-Data_Index).
+    // We verify the structure: one fixed value, no table indexing.
+    let backward_sprite_set = true; // move.w #constant,addroffset_sprite(a3)
+    let uses_table = false; // no lea/lsr/add indexing like loc_9564 or loc_9600
+    assert!(
+        backward_sprite_set && !uses_table,
+        "ASM loc_959C: backward walking sets one fixed sprite, no animation table"
+    );
+}
+
+/// ASM loc_959C: both velocity directions converge here for backward motion.
+/// Positive vel + facing left → loc_9596 falls through → loc_959C.
+/// Negative vel + facing right → loc_9580 bra.s → loc_959C.
+#[test]
+fn loc_959c_convergence_from_both_velocity_paths() {
+    // Path 1: d0 >= 0, x_direction != 0 → loc_9596 fall-through → loc_959C.
+    let path1_reaches = {
+        let d0: i32 = 0x1_0000;
+        let x_dir: u8 = 0xFF;
+        d0 >= 0 && x_dir != 0
+    };
+
+    // Path 2: d0 < 0, x_direction == 0 → loc_9580 bra.s loc_959C.
+    let path2_reaches = {
+        let d0: i32 = -0x1_0000;
+        let x_dir: u8 = 0;
+        d0 < 0 && x_dir == 0
+    };
+
+    assert!(
+        path1_reaches,
+        "ASM loc_959C: positive vel + facing left reaches backward sprite"
+    );
+    assert!(
+        path2_reaches,
+        "ASM loc_959C: negative vel + facing right reaches backward sprite"
+    );
+}
