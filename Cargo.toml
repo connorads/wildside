@@ -66,22 +66,14 @@ bool-to-int-with-if       = "allow"   # idiomatic for bit manipulation
 too-many-lines            = "allow"   # faithful ASM translations
 float-cmp                 = "allow"   # emulator fixed-point comparisons
 
-# --- TODO(tighten): auto-fixable ---
+# --- TODO(tighten): not auto-fixable ---
 assigning-clones                   = "allow"
 needless-lifetimes                 = "allow"
 elidable-lifetime-names            = "allow"
-uninlined-format-args              = "allow"
-redundant-closure-for-method-calls = "allow"
-semicolon-if-nothing-returned      = "allow"
 manual-let-else                    = "allow"
-cloned-instead-of-copied           = "allow"
-explicit-iter-loop                 = "allow"
 needless-pass-by-value             = "allow"
 unnecessary-wraps                  = "allow"
-map-unwrap-or                      = "allow"
 used-underscore-binding            = "allow"
-
-# --- TODO(tighten): needs manual review / new pedantic lints ---
 collapsible-else-if                = "allow"
 comparison-chain                   = "allow"
 ignore-without-reason              = "allow"
@@ -91,8 +83,6 @@ no-effect-underscore-binding       = "allow"
 redundant-else                     = "allow"
 verbose-bit-mask                   = "allow"
 fn-params-excessive-bools          = "allow"
-needless-raw-string-hashes         = "allow"
-single-char-pattern                = "allow"
 unchecked-time-subtraction         = "allow"
 unnecessary-debug-formatting       = "allow"
 return-self-not-must-use           = "allow"

@@ -74,9 +74,10 @@ pub(super) fn push_game_hud(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
 ) {
-    let max_hp = PlayerForm::from_helmet_id(trace.current_helmet_id)
-        .map(PlayerForm::max_hitpoints)
-        .unwrap_or_else(|| PlayerForm::TheKid.max_hitpoints()) as i32;
+    let max_hp = PlayerForm::from_helmet_id(trace.current_helmet_id).map_or_else(
+        || PlayerForm::TheKid.max_hitpoints(),
+        PlayerForm::max_hitpoints,
+    ) as i32;
     for i in 0..max_hp {
         let pip_tile = if (i as u16) < trace.number_hitpoints {
             level_visuals.hud.hitpoint_tiles[0]

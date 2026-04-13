@@ -1873,13 +1873,13 @@ pub(crate) fn pause_darken_palette_loc_6C70(palette_buffer: &mut [u16; 0x40]) {
 
     // First span: 15 colours (d7=$E → 15 iterations)
     // ASM: lea (Palette_Buffer).l,a4; moveq #$E,d7
-    for word in palette_buffer[..15].iter_mut() {
+    for word in &mut palette_buffer[..15] {
         *word = halve_colour(*word);
     }
     // ASM: addq.w #2,a4 — skip colour 15 (index 15)
     // Second span: 48 colours (d7=$2F → 48 iterations)
     // ASM: moveq #$2F,d7; loc_6C9E identical loop
-    for word in palette_buffer[16..].iter_mut() {
+    for word in &mut palette_buffer[16..] {
         *word = halve_colour(*word);
     }
 }
@@ -7118,8 +7118,7 @@ mod tests {
             let expected_x = 0x010C_u16 as i16 - (expected_counter * 8) as i16;
             assert_eq!(
                 x_pos, expected_x,
-                "ASM loc_1BB44 with counter={} should use effective counter={} for x_pos={}",
-                initial_counter, expected_counter, expected_x,
+                "ASM loc_1BB44 with counter={initial_counter} should use effective counter={expected_counter} for x_pos={expected_x}",
             );
         }
     }

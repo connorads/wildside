@@ -61,16 +61,14 @@ pub(super) struct ReleaseGateFieldFocus {
 fn compact_release_gate_step_name(step_name: &str) -> String {
     step_name
         .split_once(':')
-        .map(|(_, tail)| tail)
-        .unwrap_or(step_name)
+        .map_or(step_name, |(_, tail)| tail)
         .to_owned()
 }
 
 fn checkpoint_family(checkpoint: &str) -> &str {
     checkpoint
         .split_once('@')
-        .map(|(head, _)| head)
-        .unwrap_or(checkpoint)
+        .map_or(checkpoint, |(head, _)| head)
 }
 
 pub(super) fn extract_release_gate_failed_field(detail: &str) -> Option<String> {
@@ -139,7 +137,7 @@ pub(super) fn extract_release_gate_scenario_level_id(step_name: &str) -> Option<
     let start = scenario.find(marker)? + marker.len();
     let digits = scenario[start..]
         .chars()
-        .take_while(|ch| ch.is_ascii_digit())
+        .take_while(char::is_ascii_digit)
         .collect::<String>();
     if digits.is_empty() {
         return None;
@@ -150,7 +148,7 @@ pub(super) fn extract_release_gate_scenario_level_id(step_name: &str) -> Option<
     if !is_valid_level_id(bcd) {
         return None;
     }
-    Some(format!("{:#04x}", bcd))
+    Some(format!("{bcd:#04x}"))
 }
 
 pub(super) fn latest_release_gate_failed_fields(repo_root: &Path) -> Vec<ReleaseGateFieldFocus> {

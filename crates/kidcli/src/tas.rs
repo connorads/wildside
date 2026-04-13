@@ -57,8 +57,7 @@ pub fn parse_bk2_from_reader<R: Read + std::io::Seek>(
 
     let slug = Path::new(&source_label)
         .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "tas".into())
+        .map_or_else(|| "tas".into(), |s| s.to_string_lossy().into_owned())
         .replace(
             |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
             "_",
@@ -416,7 +415,7 @@ pub fn verify_tas(
     // Per-frame CRC comparison (fast divergence detection)
     let native_crcs: Vec<u32> = native_trace
         .iter()
-        .map(|f| f.authoritative_crc32())
+        .map(kid_core::NativeTraceFrame::authoritative_crc32)
         .collect();
     if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay)
         && !oracle.frame_crcs.is_empty()
@@ -548,12 +547,10 @@ fn state_boot_summary(state: &OracleState) -> String {
     let boot_phase = state.boot_phase.as_deref().unwrap_or("in_game");
     let elapsed = state
         .boot_phase_elapsed
-        .map(|value| value.to_string())
-        .unwrap_or_else(|| "-".into());
+        .map_or_else(|| "-".into(), |value| value.to_string());
     let menu = state
         .main_menu_option
-        .map(|value| value.to_string())
-        .unwrap_or_else(|| "-".into());
+        .map_or_else(|| "-".into(), |value| value.to_string());
     format!(
         "mode={:#06x} phase={} elapsed={} title_ready={} menu={} kid=({:#010x},{:#010x}) objects={}/{} lives={} hp={}",
         state.game_mode,
@@ -742,7 +739,7 @@ pub fn bisect_tas(
         );
         let native_crcs: Vec<u32> = native_trace
             .iter()
-            .map(|f| f.authoritative_crc32())
+            .map(kid_core::NativeTraceFrame::authoritative_crc32)
             .collect();
 
         // Run oracle for full CRC arrays
@@ -840,8 +837,7 @@ pub fn bisect_tas(
         .iter()
         .rev()
         .find(|cp| cp.frame_index < first_coarse_frame)
-        .map(|cp| cp.frame_index)
-        .unwrap_or(start);
+        .map_or(start, |cp| cp.frame_index);
 
     println!(
         "  phase 1 result: first divergence at checkpoint frame_{first_coarse_frame}, searching {prev_checkpoint}..{first_coarse_frame}"

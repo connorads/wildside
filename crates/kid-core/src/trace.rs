@@ -1117,8 +1117,7 @@ impl NativeRuntime {
         let latched_floor_y_px = self
             .opening_slice
             .as_ref()
-            .map(|slice| (slice.terrain.floor_y_pos >> 16) as i32)
-            .unwrap_or(y_px);
+            .map_or(y_px, |slice| (slice.terrain.floor_y_pos >> 16) as i32);
 
         Some(format!(
             "latched_ground={}/latched_floor_y={}/y_vel={:#010x}/left={}/center={}/right={}/hitbox={}",
@@ -1251,14 +1250,13 @@ impl NativeRuntime {
         }
 
         let probe = self.last_kid_frame_collision_handoff_probe?;
-        let pending_form = probe
-            .pending_form
-            .map(|form| format!("{:#06x}", form.helmet_id()))
-            .unwrap_or_else(|| String::from("none"));
+        let pending_form = probe.pending_form.map_or_else(
+            || String::from("none"),
+            |form| format!("{:#06x}", form.helmet_id()),
+        );
         let pending_level_skip = probe
             .pending_level_skip
-            .map(|level| format!("{:#04x}", level.0))
-            .unwrap_or_else(|| String::from("none"));
+            .map_or_else(|| String::from("none"), |level| format!("{:#04x}", level.0));
         let stomp_enemy = match (
             probe.stomp_enemy_object_type,
             probe.stomp_enemy_x_pos,
@@ -2280,16 +2278,13 @@ impl NativeRuntime {
         // and HUD/state). An additional palette-rotation object is
         // allocated for Mountain (fg=7), Cave (fg=8), or Island (bg=4)
         // themes. The native roster already includes the player.
-        let extra = self
-            .level_header(self.current_level)
-            .map(|h| {
-                if h.level_theme == 7 || h.level_theme == 8 || h.background_theme == 4 {
-                    1u16
-                } else {
-                    0
-                }
-            })
-            .unwrap_or(0);
+        let extra = self.level_header(self.current_level).map_or(0, |h| {
+            if h.level_theme == 7 || h.level_theme == 8 || h.background_theme == 4 {
+                1u16
+            } else {
+                0
+            }
+        });
         (roster_count + 2 + extra, roster_count + 2 + extra)
     }
 
@@ -2516,9 +2511,7 @@ fn kid_object_support_candidate(
     let y_overlap_px =
         player_bounds.bottom.min(object_bounds.bottom) - player_bounds.top.max(object_bounds.top);
     let relation = classify_kid_object_relation(player_bounds, object_bounds);
-    let relation_label = relation
-        .map(KidObjectRelation::as_debug_label)
-        .unwrap_or("none");
+    let relation_label = relation.map_or("none", KidObjectRelation::as_debug_label);
     let support = relation == Some(KidObjectRelation::Below);
     Some(KidObjectSupportCandidate {
         abs_top_gap_px: top_gap_px.abs(),

@@ -134,14 +134,12 @@ pub(super) fn check_walk_right_assertions(
         .checkpoints
         .iter()
         .find(|cp| cp.label == "level_settle")
-        .map(|cp| cp.frame_index)
-        .unwrap_or(60);
+        .map_or(60, |cp| cp.frame_index);
     let end_idx = scenario
         .checkpoints
         .iter()
         .find(|cp| cp.label == "walk_end")
-        .map(|cp| cp.frame_index)
-        .unwrap_or(scenario.frame_count.saturating_sub(1));
+        .map_or(scenario.frame_count.saturating_sub(1), |cp| cp.frame_index);
 
     // Skip if player died during the walk — death resets position
     let player_died = (settle_idx..=end_idx).any(|i| {
@@ -183,8 +181,7 @@ pub(super) fn check_jump_assertions(
         .checkpoints
         .iter()
         .find(|cp| cp.label == "level_settle")
-        .map(|cp| cp.frame_index)
-        .unwrap_or(60);
+        .map_or(60, |cp| cp.frame_index);
 
     // Find first frame after settle where B (jump) is pressed
     let first_jump_frame = scenario

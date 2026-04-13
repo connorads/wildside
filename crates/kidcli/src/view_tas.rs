@@ -581,8 +581,7 @@ impl ViewTasApp {
         let first_divergence = self
             .comparison
             .first_divergence
-            .map(|frame| frame.to_string())
-            .unwrap_or_else(|| String::from("none"));
+            .map_or_else(|| String::from("none"), |frame| frame.to_string());
         let native_crc = native_frame.authoritative_crc32();
         let oracle_crc = self
             .comparison
@@ -720,8 +719,7 @@ impl ViewTasApp {
             .comparison
             .native_trace
             .get(frame_index)
-            .map(|frame| frame.current_level.0)
-            .unwrap_or(0);
+            .map_or(0, |frame| frame.current_level.0);
         annotate_diff(
             &mut composite_rgb,
             diff_width,

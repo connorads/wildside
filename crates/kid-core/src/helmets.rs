@@ -186,11 +186,10 @@ pub(crate) fn juggernaut_companion_step_sub_975C(
             "LnkTo_unk_BF58E-Data_Index",
         ];
         let table_index = usize::from(walking_table_byte_offset >> 1);
-        WALK_TABLE
-            .get(table_index)
-            .copied()
-            .map(JuggernautCompanionVisualSub975C::SetMapping)
-            .unwrap_or(JuggernautCompanionVisualSub975C::None)
+        WALK_TABLE.get(table_index).copied().map_or(
+            JuggernautCompanionVisualSub975C::None,
+            JuggernautCompanionVisualSub975C::SetMapping,
+        )
     } else {
         JuggernautCompanionVisualSub975C::None
     };
@@ -4120,13 +4119,13 @@ impl NativeRuntime {
                         && self.projectiles.len() < MAX_PROJECTILES
                     {
                         let slice = self.opening_slice.as_ref();
-                        let cam_x = slice.map(|s| s.camera.x_pos).unwrap_or(0);
+                        let cam_x = slice.map_or(0, |s| s.camera.x_pos);
                         // Random-ish X across screen width (320px)
                         let offset = ((self.progression.diamond_power_frames as u32)
                             .wrapping_mul(137))
                             % 320;
                         let rain_x = (cam_x as i64 + ((offset as i64) << 16)) as u32;
-                        let rain_y = slice.map(|s| s.camera.y_pos).unwrap_or(0);
+                        let rain_y = slice.map_or(0, |s| s.camera.y_pos);
                         self.projectiles.push(EnemyProjectile {
                             x_pos: rain_x,
                             y_pos: rain_y,
@@ -4148,9 +4147,7 @@ impl NativeRuntime {
                         == diamond_power_duration(DiamondPowerType::FiveWayShot) - 1
                     {
                         let slice = self.opening_slice.as_ref();
-                        let (px, py) = slice
-                            .map(|s| (s.player.x_pos, s.player.y_pos))
-                            .unwrap_or((0, 0));
+                        let (px, py) = slice.map_or((0, 0), |s| (s.player.x_pos, s.player.y_pos));
                         let spreads: [(i32, i32); 5] = [
                             (0x4_0000, -0x2_0000),  // far right, up
                             (0x2_0000, -0x3_0000),  // right, steep up
@@ -4185,9 +4182,9 @@ impl NativeRuntime {
                         && self.projectiles.len() < MAX_PROJECTILES
                     {
                         let slice = self.opening_slice.as_ref();
-                        let (px, py, facing) = slice
-                            .map(|s| (s.player.x_pos, s.player.y_pos, s.player.facing))
-                            .unwrap_or((0, 0, Direction::Right));
+                        let (px, py, facing) = slice.map_or((0, 0, Direction::Right), |s| {
+                            (s.player.x_pos, s.player.y_pos, s.player.facing)
+                        });
                         let speed =
                             if self.progression.diamond_power_type == DiamondPowerType::MiniSnake {
                                 0x3_0000 // 0x300 scaled

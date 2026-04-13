@@ -5876,7 +5876,7 @@ mod chunk_06 {
         );
 
         assert_eq!(
-            relation.map(|relation| relation.as_debug_label()),
+            relation.map(crate::trace::KidObjectRelation::as_debug_label),
             Some("kidright"),
             "ASM loc_1CD2 (kid.asm:3460) should store `colid_kidright` when the right-side penetration wins the overlap comparison",
         );
@@ -5900,7 +5900,7 @@ mod chunk_06 {
         );
 
         assert_eq!(
-            relation.map(|relation| relation.as_debug_label()),
+            relation.map(crate::trace::KidObjectRelation::as_debug_label),
             Some("kidleft"),
             "ASM loc_1CD8 (kid.asm:3465) should store `colid_kidleft` when the left-side penetration wins the overlap comparison",
         );
@@ -5924,7 +5924,7 @@ mod chunk_06 {
         );
 
         assert_eq!(
-            relation.map(|relation| relation.as_debug_label()),
+            relation.map(crate::trace::KidObjectRelation::as_debug_label),
             Some("kidbelow"),
             "ASM loc_1CDE (kid.asm:3470) should store `colid_kidbelow` when the top-side penetration wins the overlap comparison",
         );
@@ -5948,7 +5948,7 @@ mod chunk_06 {
         );
 
         assert_eq!(
-            relation.map(|relation| relation.as_debug_label()),
+            relation.map(crate::trace::KidObjectRelation::as_debug_label),
             Some("kidabove"),
             "ASM loc_1CE4 (kid.asm:3475) should store `colid_kidabove` when the bottom-side penetration wins the overlap comparison before the later jump-state gate",
         );

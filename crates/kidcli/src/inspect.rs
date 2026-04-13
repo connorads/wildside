@@ -9,7 +9,7 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
         .ok_or_else(|| anyhow!("level 0x{level_id:02X} not found in asset manifest"))?;
     let bundle = load_level_asset_bundle(manifest, level_id)?;
 
-    println!("level: 0x{:02X}", level_id);
+    println!("level: 0x{level_id:02X}");
     if let Some(name) = &level.display_name {
         println!("name: {name}");
     }
@@ -18,7 +18,7 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
         println!("resource level: 0x{effective_resource_level_id:02X}");
     }
     if let Some(title_text_id) = level.title_text_id {
-        println!("title text id: 0x{:02X}", title_text_id);
+        println!("title text id: 0x{title_text_id:02X}");
     }
     println!("resource paths: {}", level.resource_paths.join(", "));
     if let Some(header) = &bundle.parsed_header {
@@ -105,8 +105,9 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
         let primary_slots = enemy_layout
             .segments
             .first()
-            .map(|segment| segment.enemy_type_slots.as_slice())
-            .unwrap_or(enemy_layout.enemy_type_slots.as_slice());
+            .map_or(enemy_layout.enemy_type_slots.as_slice(), |segment| {
+                segment.enemy_type_slots.as_slice()
+            });
         for (slot_index, slot) in primary_slots.iter().enumerate() {
             println!(
                 "enemy slot {}: {}",
@@ -1147,13 +1148,13 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
     fs::create_dir_all(out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
 
-    let filename = format!("{:02X}.bin", level_id);
+    let filename = format!("{level_id:02X}.bin");
     let layout_path = out_dir.join(&filename);
     fs::write(&layout_path, &layout_data)
         .with_context(|| format!("failed to write {}", layout_path.display()))?;
 
     // Dump the Block List (prize/ghost/teleporter/hidden entries)
-    let block_list_path = out_dir.join(format!("{:02X}.blocklist.bin", level_id));
+    let block_list_path = out_dir.join(format!("{level_id:02X}.blocklist.bin"));
     fs::write(&block_list_path, &block_list_data)
         .with_context(|| format!("failed to write {}", block_list_path.display()))?;
 
@@ -1167,7 +1168,7 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
         "data_bytes": usize::from(width_blocks) * usize::from(height_blocks) * 2,
         "dump_bytes": layout_data.len(),
     });
-    let meta_path = out_dir.join(format!("{:02X}.json", level_id));
+    let meta_path = out_dir.join(format!("{level_id:02X}.json"));
     fs::write(&meta_path, serde_json::to_string_pretty(&meta)?)
         .with_context(|| format!("failed to write {}", meta_path.display()))?;
 

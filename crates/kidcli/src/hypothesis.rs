@@ -194,7 +194,7 @@ pub fn test_hypothesis(
             let matches = n as i64 == o;
             evidence.insert(
                 "comparison".into(),
-                format!("native={:#010x} oracle={:#010x} match={}", n, o, matches),
+                format!("native={n:#010x} oracle={o:#010x} match={matches}"),
             );
             println!(
                 "  comparison at frame {}: native={:#010x} oracle={:#010x} {}",

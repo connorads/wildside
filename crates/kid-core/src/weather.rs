@@ -2363,7 +2363,7 @@ impl NativeRuntime {
 
     pub(crate) fn init_weather(&mut self, level_id: LevelId) {
         let header = self.level_header(level_id);
-        self.weather.weather_type = header.map(|h| h.weather_flags).unwrap_or(0);
+        self.weather.weather_type = header.map_or(0, |h| h.weather_flags);
         self.weather.hail_active = false;
         self.weather.hail_spawn_timer = 0;
         self.weather.hail_period_timer = 0;
@@ -2482,7 +2482,7 @@ impl NativeRuntime {
 
     pub(crate) fn init_murder_wall(&mut self, level_id: LevelId, camera_x: u32) {
         let header = self.level_header(level_id);
-        let flags = header.map(|h| h.murder_wall_flags).unwrap_or(0);
+        let flags = header.map_or(0, |h| h.murder_wall_flags);
         if flags & 0b10 != 0 {
             let reversed = flags & 0b01 != 0;
             let max_speed = if level_id.0 == 0x08 {

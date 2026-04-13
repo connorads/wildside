@@ -346,7 +346,7 @@ fn native_object_debug(native_frame: Option<&kid_core::NativeTraceFrame>) -> Str
         match object.kind {
             kid_core::NativeObjectKind::Player => {}
             kid_core::NativeObjectKind::Enemy { object_type } => {
-                entries.push(format_native_enemy_debug(object_type, object))
+                entries.push(format_native_enemy_debug(object_type, object));
             }
             kid_core::NativeObjectKind::Platform { kind, subtype } => entries.push(format!(
                 "platform_{kind:02X}:{subtype:02X}@{:#010x},{:#010x}",
@@ -436,7 +436,7 @@ fn format_native_enemy_debug(object_type: u8, object: &kid_core::NativeObjectSna
         object.shared_walker_patrol_short_next,
     ) {
         (Some(state), Some(timer), short_next) => {
-            let short_next = short_next.map(u8::from).unwrap_or(0);
+            let short_next = short_next.map_or(0, u8::from);
             format!(" walker={state:#06x}/{timer:#06x}/short={short_next}")
         }
         _ => String::new(),

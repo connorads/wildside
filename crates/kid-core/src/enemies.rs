@@ -6667,12 +6667,9 @@ impl NativeRuntime {
         let level_bounds = self.level_bounds(self.current_level);
         let enemy_layout = self.enemy_layout(self.current_level).cloned();
         let platform_layout = self.platform_layout(self.current_level).cloned();
-        let blank_top_rows = self
-            .level_header(self.current_level)
-            .map(|header| {
-                terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
-            })
-            .unwrap_or(0);
+        let blank_top_rows = self.level_header(self.current_level).map_or(0, |header| {
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
+        });
         if let Some(enemy_layout) = enemy_layout.as_ref() {
             if self.enemy_loading_enabled() {
                 activate_enemies_with_rng(

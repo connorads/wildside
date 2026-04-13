@@ -336,7 +336,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                     }
                 }
                 Event::ControllerDeviceRemoved { .. } => {
-                    controller = controller.filter(|gamepad| gamepad.attached());
+                    controller = controller.filter(sdl2::controller::GameController::attached);
                     if controller.is_none() {
                         controller = open_first_controller(&game_controller)?;
                     }
@@ -375,7 +375,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
                             "play-native recording does not support reset/warp debug controls (R/N/P)"
                         );
                     }
-                    reset_runtime = true
+                    reset_runtime = true;
                 }
                 // Debug: N = next level, P = previous level
                 Event::KeyDown {
@@ -555,7 +555,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         // Apply fade overlay: darken all pixels by fade_alpha/255
         if fade_alpha > 0 {
             let inv = 255 - u16::from(fade_alpha);
-            for pixel in frame.iter_mut() {
+            for pixel in &mut frame {
                 *pixel = (u16::from(*pixel) * inv / 255) as u8;
             }
             if fading_in {
@@ -583,7 +583,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
             && trace.frame_index.is_multiple_of(2)
         {
             // Slight dimming to indicate invulnerability
-            for pixel in frame.iter_mut() {
+            for pixel in &mut frame {
                 *pixel = (*pixel as u16 * 180 / 255) as u8;
             }
         }
@@ -1119,7 +1119,7 @@ impl SfxEngine {
         let mut samples = vec![0.0f32; sample_count];
         self.active_tones.retain_mut(|tone| {
             let phase_inc = tone.frequency / SFX_SAMPLE_RATE;
-            for sample in samples.iter_mut() {
+            for sample in &mut samples {
                 if tone.remaining_samples == 0 {
                     return false;
                 }

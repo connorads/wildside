@@ -3721,13 +3721,11 @@ mod chunk_03 {
             runtime.resolve_pending_form_change();
             assert_eq!(
                 runtime.progression.current_form, helmet,
-                "ASM loc_7D80: transform to {:?} should complete — handler is visual-only",
-                helmet
+                "ASM loc_7D80: transform to {helmet:?} should complete — handler is visual-only"
             );
             assert!(
                 runtime.progression.form_change_flash_frames > 0,
-                "ASM loc_7D80: {:?} should have positive flash frames",
-                helmet
+                "ASM loc_7D80: {helmet:?} should have positive flash frames"
             );
         }
     }
@@ -3765,8 +3763,7 @@ mod chunk_03 {
             runtime.resolve_pending_form_change();
             assert_eq!(
                 runtime.progression.current_form, helmet,
-                "ASM loc_7D80/loc_7DD6: {:?} transform completes regardless of direction flip",
-                helmet
+                "ASM loc_7D80/loc_7DD6: {helmet:?} transform completes regardless of direction flip"
             );
         }
     }

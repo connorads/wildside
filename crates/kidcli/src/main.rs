@@ -1995,7 +1995,7 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
                     }
                 }
                 sdl2::event::Event::ControllerDeviceRemoved { .. } => {
-                    controller = controller.filter(|gamepad| gamepad.attached());
+                    controller = controller.filter(sdl2::controller::GameController::attached);
                     if controller.is_none() {
                         controller = open_first_controller(&game_controller)?;
                     }

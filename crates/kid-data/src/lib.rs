@@ -1386,7 +1386,7 @@ pub fn parse_platform_scripts(contents: &str) -> PlatformScriptTable {
         // Parse ptfm_move line
         if let Some(args) = trimmed.strip_prefix("ptfm_move") {
             let args = args.trim();
-            let parts: Vec<&str> = args.split(',').map(|s| s.trim()).collect();
+            let parts: Vec<&str> = args.split(',').map(str::trim).collect();
             if parts.len() == 3
                 && let (Some(duration), Some(x_vel), Some(y_vel)) = (
                     parse_asm_integer(parts[0]),
@@ -3861,8 +3861,7 @@ fn export_decoded_all_levels(manifest: &AssetManifest) -> Result<Vec<DecodedLeve
         let preview_width = level
             .header_metadata
             .as_ref()
-            .map(|h| usize::from(h.width_screens) * 40)
-            .unwrap_or(256);
+            .map_or(256, |h| usize::from(h.width_screens) * 40);
         let output_dir_rel = decoded_level_output_dir(level_id);
         let output_dir = manifest.output_root.join(&output_dir_rel);
         fs::create_dir_all(&output_dir)
@@ -4536,7 +4535,7 @@ fn find_enemy_source_path(manifest: &AssetManifest, symbolic_name: &str) -> Opti
 fn normalise_enemy_name(value: &str) -> String {
     value
         .chars()
-        .filter(|character| character.is_ascii_alphanumeric())
+        .filter(char::is_ascii_alphanumeric)
         .map(|character| character.to_ascii_lowercase())
         .collect()
 }
@@ -4814,10 +4813,7 @@ fn split_title_card_layout(
         return Ok((layout_rows, None));
     }
     let level_number_destination = layout_rows.pop().ok_or_else(|| {
-        anyhow!(
-            "missing level number destination for levnamhdr on line {}",
-            line_number
-        )
+        anyhow!("missing level number destination for levnamhdr on line {line_number}")
     })?;
     Ok((layout_rows, Some(level_number_destination)))
 }
@@ -4834,9 +4830,9 @@ fn parse_dc_b_bytes(data: &str, line_number: usize) -> Result<Vec<u8>> {
             continue;
         }
         let value = parse_numeric_value(token)
-            .with_context(|| format!("failed to parse dc.b token on line {}", line_number))?;
+            .with_context(|| format!("failed to parse dc.b token on line {line_number}"))?;
         let byte = u8::try_from(value)
-            .map_err(|_| anyhow!("dc.b byte out of range on line {}: {}", line_number, token))?;
+            .map_err(|_| anyhow!("dc.b byte out of range on line {line_number}: {token}"))?;
         bytes.push(byte);
     }
     Ok(bytes)
@@ -4856,38 +4852,38 @@ fn parse_asm_label(line: &str) -> Option<&str> {
 
 fn parse_asm_byte_string(token: &str, line_number: usize) -> Result<Vec<u8>> {
     if !token.ends_with('"') {
-        bail!("unterminated string on line {}", line_number);
+        bail!("unterminated string on line {line_number}");
     }
     let mut bytes = Vec::new();
     let mut chars = token[1..token.len() - 1].chars().peekable();
     while let Some(ch) = chars.next() {
         if ch != '\\' {
             let byte = u8::try_from(u32::from(ch))
-                .map_err(|_| anyhow!("non-byte character in string on line {}", line_number))?;
+                .map_err(|_| anyhow!("non-byte character in string on line {line_number}"))?;
             bytes.push(byte);
             continue;
         }
         let escaped = chars
             .next()
-            .ok_or_else(|| anyhow!("truncated escape on line {}", line_number))?;
+            .ok_or_else(|| anyhow!("truncated escape on line {line_number}"))?;
         match escaped {
             '0' => bytes.push(0),
             'x' => {
                 let high = chars
                     .next()
-                    .ok_or_else(|| anyhow!("truncated hex escape on line {}", line_number))?;
+                    .ok_or_else(|| anyhow!("truncated hex escape on line {line_number}"))?;
                 let low = chars
                     .next()
-                    .ok_or_else(|| anyhow!("truncated hex escape on line {}", line_number))?;
+                    .ok_or_else(|| anyhow!("truncated hex escape on line {line_number}"))?;
                 let hex = format!("{high}{low}");
                 let value = u8::from_str_radix(&hex, 16).with_context(|| {
-                    format!("invalid hex escape \\x{hex} on line {}", line_number)
+                    format!("invalid hex escape \\x{hex} on line {line_number}")
                 })?;
                 bytes.push(value);
             }
             '\\' => bytes.push(b'\\'),
             '"' => bytes.push(b'"'),
-            other => bail!("unsupported escape \\{} on line {}", other, line_number),
+            other => bail!("unsupported escape \\{other} on line {line_number}"),
         }
     }
     Ok(bytes)

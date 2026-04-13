@@ -938,8 +938,7 @@ pub(crate) fn refresh_source_port_frontier_handoff_from_latest_evidence(
         return Ok(());
     }
     let next_cycle = load_goal_ledger_if_present(repo_root, AutonomyGoal::SourcePortFrontier)?
-        .map(|ledger| ledger.cycles_run.saturating_add(1))
-        .unwrap_or(1);
+        .map_or(1, |ledger| ledger.cycles_run.saturating_add(1));
     let cycle = evaluate_source_port_frontier_cycle(repo_root, next_cycle, routines_per_task)?;
     let Some(task) = cycle.task_package else {
         return Ok(());
@@ -977,15 +976,13 @@ fn case_queue_candidate_progress_marker(candidate: &CaseQueueCandidate) -> Strin
         candidate.status.as_str(),
         candidate
             .first_bad_frame
-            .map(|frame| frame.to_string())
-            .unwrap_or_else(|| "none".to_owned()),
+            .map_or_else(|| "none".to_owned(), |frame| frame.to_string()),
         candidate.first_bad_field.as_deref().unwrap_or("none"),
         case_queue_gate_status(candidate),
         candidate.frame_end.saturating_sub(candidate.frame_start),
         candidate
             .failure_class
-            .map(|class| class.as_str())
-            .unwrap_or("unknown")
+            .map_or("unknown", CaseFailureClass::as_str)
     )
 }
 
@@ -1087,9 +1084,7 @@ fn source_port_frontier_progress_fingerprint(
         frontier.status,
         frontier.frontier_frame,
         frontier.authoritative_clean_through,
-        delegated_goal
-            .map(AutonomyGoal::slug)
-            .unwrap_or("tas-frontier"),
+        delegated_goal.map_or("tas-frontier", AutonomyGoal::slug),
         delegated_target.unwrap_or("none"),
         lane_fingerprint.unwrap_or("none")
     )
@@ -1223,10 +1218,7 @@ fn apply_stalled_recovery(
     task.evidence.push(EvidenceItem {
         label: "stalled-fingerprint".to_owned(),
         status: "repeated".to_owned(),
-        detail: format!(
-            "{} repeated stalled cycles for fingerprint {}",
-            repeated_stalls, fingerprint
-        ),
+        detail: format!("{repeated_stalls} repeated stalled cycles for fingerprint {fingerprint}"),
         artefact_path: Some(PathBuf::from(".cache/autonomy/source-port-frontier")),
     });
     task.recovery_mode = Some(RecoveryMode::StalledFingerprint);
@@ -1351,7 +1343,7 @@ fn evaluate_source_port_frontier_cycle(
                         task,
                         Some(AutonomyGoal::GameplayBacklog),
                         Some(first_label.clone()),
-                        Some(format!("gameplay-backlog:{}", first_label)),
+                        Some(format!("gameplay-backlog:{first_label}")),
                         summary,
                     )
                 } else {
@@ -1469,8 +1461,7 @@ fn evaluate_source_port_frontier_cycle(
                         recovery_step: Some(RecoveryStep::PivotToNextLane),
                         stalled_repetition_count: Some(repeated_cycles),
                         pivot_reason: Some(format!(
-                            "case-queue delegated fingerprint repeated for {} stalled cycles; pivot to gameplay-backlog (next: {})",
-                            repeated_cycles, first_label
+                            "case-queue delegated fingerprint repeated for {repeated_cycles} stalled cycles; pivot to gameplay-backlog (next: {first_label})"
                         )),
                         next_fallback_goal: Some(AutonomyGoal::GameplayBacklog),
                         ..backlog_task
@@ -1492,8 +1483,7 @@ fn evaluate_source_port_frontier_cycle(
                             recovery_step: Some(RecoveryStep::PivotToNextLane),
                             stalled_repetition_count: Some(repeated_cycles),
                             pivot_reason: Some(format!(
-                                "case-queue stalled {} cycles; all sub_ covered, pivot to proactive-verification ({})",
-                                repeated_cycles, target
+                                "case-queue stalled {repeated_cycles} cycles; all sub_ covered, pivot to proactive-verification ({target})"
                             )),
                             next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
                             ..pv_task
@@ -1511,8 +1501,7 @@ fn evaluate_source_port_frontier_cycle(
                             recovery_step: Some(RecoveryStep::PivotToNextLane),
                             stalled_repetition_count: Some(repeated_cycles),
                             pivot_reason: Some(format!(
-                                "case-queue stalled {} cycles; all sub_ covered, proactive-verification exhausted, pivot to sweep-parity",
-                                repeated_cycles
+                                "case-queue stalled {repeated_cycles} cycles; all sub_ covered, proactive-verification exhausted, pivot to sweep-parity"
                             )),
                             next_fallback_goal: Some(AutonomyGoal::SweepParity),
                             ..sweep_task
@@ -1548,8 +1537,7 @@ fn evaluate_source_port_frontier_cycle(
                         repeated_cycles,
                         RecoveryStep::RefreshEvidence,
                         format!(
-                            "sweep-parity delegated fingerprint repeated for {} stalled cycles; narrow the next run to release-gate evidence refresh instead of another broad lane replay",
-                            repeated_cycles
+                            "sweep-parity delegated fingerprint repeated for {repeated_cycles} stalled cycles; narrow the next run to release-gate evidence refresh instead of another broad lane replay"
                         ),
                         Some(AutonomyGoal::SweepParity),
                     );
@@ -1574,8 +1562,7 @@ fn evaluate_source_port_frontier_cycle(
                         recovery_step: Some(RecoveryStep::PivotToNextLane),
                         stalled_repetition_count: Some(repeated_cycles),
                         pivot_reason: Some(format!(
-                            "backlog-issue stalled {} cycles; pivot to proactive-verification ({})",
-                            repeated_cycles, target
+                            "backlog-issue stalled {repeated_cycles} cycles; pivot to proactive-verification ({target})"
                         )),
                         next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
                         ..pv_task
@@ -1587,8 +1574,7 @@ fn evaluate_source_port_frontier_cycle(
                         repeated_cycles,
                         RecoveryStep::ReverifyCurrentLane,
                         format!(
-                            "delegated fingerprint repeated for {} stalled cycles; proactive-verification exhausted, re-verify current lane",
-                            repeated_cycles
+                            "delegated fingerprint repeated for {repeated_cycles} stalled cycles; proactive-verification exhausted, re-verify current lane"
                         ),
                         delegated_goal,
                     );
@@ -1932,13 +1918,12 @@ fn source_port_frontier_gameplay_backlog_task(
     let (subsystem, label, asm_file, line_number, priority) = &routines[0];
     let batch_size = routines.len();
     let delegation_reason = format!(
-        "TAS frontier closed, no actionable case-queue; delegated to gameplay-backlog ({} uncovered sub_ labels)",
-        total_uncovered
+        "TAS frontier closed, no actionable case-queue; delegated to gameplay-backlog ({total_uncovered} uncovered sub_ labels)"
     );
 
     let (title, summary, done_criteria, target_routines) = if batch_size == 1 {
         (
-            format!("Implement ASM routine {} ({})", label, subsystem),
+            format!("Implement ASM routine {label} ({subsystem})"),
             format!(
                 "{} is authoritative-clean through frame {}; implement {} from {} line {}.",
                 frontier.recording,
@@ -1963,7 +1948,7 @@ fn source_port_frontier_gameplay_backlog_task(
         };
         let routine_list: Vec<String> = routines
             .iter()
-            .map(|(sub, lbl, file, line, _)| format!("{} ({}, {}:{})", lbl, sub, file, line))
+            .map(|(sub, lbl, file, line, _)| format!("{lbl} ({sub}, {file}:{line})"))
             .collect();
         let tr: Vec<TargetRoutine> = routines
             .iter()
@@ -1975,7 +1960,7 @@ fn source_port_frontier_gameplay_backlog_task(
             })
             .collect();
         (
-            format!("Implement {} ASM routines ({})", batch_size, subsystem_desc),
+            format!("Implement {batch_size} ASM routines ({subsystem_desc})"),
             format!(
                 "{} is authoritative-clean through frame {}; implement {} routines: {}.",
                 frontier.recording,
@@ -1997,7 +1982,7 @@ fn source_port_frontier_gameplay_backlog_task(
     // Collect unique ASM files for sources
     let mut asm_sources: Vec<String> = routines
         .iter()
-        .map(|(_, _, file, ..)| format!(".cache/upstream/kid-chameleon-disasm/{}", file))
+        .map(|(_, _, file, ..)| format!(".cache/upstream/kid-chameleon-disasm/{file}"))
         .collect();
     asm_sources.sort();
     asm_sources.dedup();
@@ -2011,7 +1996,7 @@ fn source_port_frontier_gameplay_backlog_task(
     subsystems.dedup();
     let mut commands: Vec<String> = subsystems
         .iter()
-        .map(|s| format!("kidcli asm-coverage --uncovered --subsystem {}", s))
+        .map(|s| format!("kidcli asm-coverage --uncovered --subsystem {s}"))
         .collect();
     commands.push("mise run verify-slice-fast".to_owned());
     commands.push("kidcli asm-coverage --update".to_owned());
@@ -2044,8 +2029,7 @@ fn source_port_frontier_gameplay_backlog_task(
                 label: "uncovered-routine".to_owned(),
                 status: priority.as_deref().unwrap_or("unranked").to_owned(),
                 detail: format!(
-                    "{} in {} line {} ({} uncovered sub_ remain)",
-                    label, asm_file, line_number, total_uncovered
+                    "{label} in {asm_file} line {line_number} ({total_uncovered} uncovered sub_ remain)"
                 ),
                 artefact_path: Some(PathBuf::from("docs/source-port/asm-coverage.yaml")),
             },
@@ -2289,10 +2273,9 @@ fn evaluate_gameplay_backlog_cycle(
 
     let (title, summary_text, done_criteria, target_routines) = if batch_size == 1 {
         (
-            format!("Implement ASM routine {} ({})", label, subsystem),
+            format!("Implement ASM routine {label} ({subsystem})"),
             format!(
-                "Uncovered sub_ label {} in {} (line {}). Read the ASM, write a failing test, implement, run verify-slice-fast.",
-                label, asm_file, line_number
+                "Uncovered sub_ label {label} in {asm_file} (line {line_number}). Read the ASM, write a failing test, implement, run verify-slice-fast."
             ),
             vec![
                 format!("Native code cites {} with a passing test.", label),
@@ -2311,7 +2294,7 @@ fn evaluate_gameplay_backlog_cycle(
         };
         let routine_list: Vec<String> = batch
             .iter()
-            .map(|(sub, lbl, file, line, _)| format!("{} ({}, {}:{})", lbl, sub, file, line))
+            .map(|(sub, lbl, file, line, _)| format!("{lbl} ({sub}, {file}:{line})"))
             .collect();
         let tr: Vec<TargetRoutine> = batch
             .iter()
@@ -2323,7 +2306,7 @@ fn evaluate_gameplay_backlog_cycle(
             })
             .collect();
         (
-            format!("Implement {} ASM routines ({})", batch_size, subsystem_desc),
+            format!("Implement {batch_size} ASM routines ({subsystem_desc})"),
             format!(
                 "{} uncovered routines to implement: {}.",
                 batch_size,
@@ -2344,7 +2327,7 @@ fn evaluate_gameplay_backlog_cycle(
     // Collect unique ASM files for sources
     let mut asm_sources: Vec<String> = batch
         .iter()
-        .map(|(_, _, file, ..)| format!(".cache/upstream/kid-chameleon-disasm/{}", file))
+        .map(|(_, _, file, ..)| format!(".cache/upstream/kid-chameleon-disasm/{file}"))
         .collect();
     asm_sources.sort();
     asm_sources.dedup();
@@ -2358,7 +2341,7 @@ fn evaluate_gameplay_backlog_cycle(
     cmd_subsystems.dedup();
     let mut commands: Vec<String> = cmd_subsystems
         .iter()
-        .map(|s| format!("kidcli asm-coverage --uncovered --subsystem {}", s))
+        .map(|s| format!("kidcli asm-coverage --uncovered --subsystem {s}"))
         .collect();
     commands.push("mise run verify-slice-fast".to_owned());
     commands.push("kidcli asm-coverage --update".to_owned());
@@ -2403,7 +2386,7 @@ fn evaluate_gameplay_backlog_cycle(
         target_routines,
     };
 
-    let progress_fingerprint = format!("gameplay-backlog:{}", label);
+    let progress_fingerprint = format!("gameplay-backlog:{label}");
     let task = TaskPackage {
         progress_fingerprint: progress_fingerprint.clone(),
         ..task
@@ -2624,7 +2607,7 @@ fn proactive_verification_report(
     target: &str,
     task: TaskPackage,
 ) -> CycleReport {
-    let fingerprint = format!("proactive-verification:{}:{}", strategy_name, target);
+    let fingerprint = format!("proactive-verification:{strategy_name}:{target}");
     let task = TaskPackage {
         generated_at: autonomy_timestamp(),
         cycle,
@@ -2644,7 +2627,7 @@ fn proactive_verification_report(
             id: CapabilityId::ProactiveVerificationTask,
             title: "Proactive verification".to_owned(),
             status: CapabilityStatus::Ready,
-            summary: format!("Strategy: {}, target: {}", strategy_name, target),
+            summary: format!("Strategy: {strategy_name}, target: {target}"),
         }],
     }
 }
@@ -2770,7 +2753,7 @@ fn try_enemy_family_audit_strategy(
             let asm_file = sub
                 .asm_source
                 .clone()
-                .unwrap_or_else(|| format!("code/enemy/{}.asm", family));
+                .unwrap_or_else(|| format!("code/enemy/{family}.asm"));
             let target_routines: Vec<TargetRoutine> = sub
                 .labels
                 .iter()
@@ -2785,10 +2768,9 @@ fn try_enemy_family_audit_strategy(
 
             let task = TaskPackage {
                 capability: CapabilityId::ProactiveVerificationTask,
-                title: format!("Audit enemy family {} against ASM", family),
+                title: format!("Audit enemy family {family} against ASM"),
                 summary: format!(
-                    "Enemy family {} has zero loc_ citations. Read the ASM, compare to Rust, write tests for divergences, fix bugs.",
-                    family
+                    "Enemy family {family} has zero loc_ citations. Read the ASM, compare to Rust, write tests for divergences, fix bugs."
                 ),
                 generated_at: String::new(),
                 cycle: 0,
@@ -2912,7 +2894,7 @@ fn try_loc_coverage_drive_strategy(
 
     let task = TaskPackage {
         capability: CapabilityId::ProactiveVerificationTask,
-        title: format!("Audit {} loc_ labels in {}", batch_size, best_subsystem),
+        title: format!("Audit {batch_size} loc_ labels in {best_subsystem}"),
         summary: format!(
             "{} uncovered loc_ labels in {} (total uncovered: {}). Read the ASM for each, compare to native code, write tests.",
             batch_size,
@@ -3023,13 +3005,9 @@ fn try_loc_promotion_strategy(
 
     let task = TaskPackage {
         capability: CapabilityId::ProactiveVerificationTask,
-        title: format!(
-            "Promote {} test-cited loc_ labels in {}",
-            batch_size, best_subsystem
-        ),
+        title: format!("Promote {batch_size} test-cited loc_ labels in {best_subsystem}"),
         summary: format!(
-            "{} loc_ labels in {} already have test citations but no implementation citations. Read the ASM, add the missing implementation citations or code-path coverage, and refresh asm coverage.",
-            batch_size, best_subsystem
+            "{batch_size} loc_ labels in {best_subsystem} already have test citations but no implementation citations. Read the ASM, add the missing implementation citations or code-path coverage, and refresh asm coverage."
         ),
         generated_at: String::new(),
         cycle: 0,
@@ -3563,7 +3541,7 @@ fn load_untriaged_recordings(
             frame_count: manifest
                 .get("scenario")
                 .and_then(|scenario| scenario.get("frame_count"))
-                .and_then(|value| value.as_u64())
+                .and_then(serde_json::Value::as_u64)
                 .unwrap_or(0) as usize,
             has_transcript: bundle_root.join("transcript.txt").is_file(),
             has_notes: bundle_root.join("notes.txt").is_file(),
@@ -3666,8 +3644,9 @@ fn case_queue_score(
         Some(CaseFailureClass::Advisory) | None => 0,
     };
     let frames_to_failure = first_failure
-        .map(|failure| failure.frame_index.saturating_sub(checkpoint_frame))
-        .unwrap_or(frame_end.saturating_sub(checkpoint_frame));
+        .map_or(frame_end.saturating_sub(checkpoint_frame), |failure| {
+            failure.frame_index.saturating_sub(checkpoint_frame)
+        });
     let locality = match frames_to_failure {
         0..=60 => 120,
         61..=120 => 80,
@@ -3751,8 +3730,7 @@ fn rank_reason(candidate: &CaseQueueCandidate) -> String {
 
 fn repo_relative_path(repo_root: &Path, path: &Path) -> PathBuf {
     path.strip_prefix(repo_root)
-        .map(|relative| relative.to_path_buf())
-        .unwrap_or_else(|_| path.to_path_buf())
+        .map_or_else(|_| path.to_path_buf(), std::path::Path::to_path_buf)
 }
 
 fn case_queue_task(
@@ -3789,8 +3767,7 @@ fn case_queue_task(
             candidate.source_slug,
             candidate
                 .first_bad_frame
-                .map(|frame| frame.to_string())
-                .unwrap_or_else(|| "unknown".to_owned()),
+                .map_or_else(|| "unknown".to_owned(), |frame| frame.to_string()),
             candidate.first_bad_field.as_deref().unwrap_or("unknown"),
             if candidate.autonomy_ready {
                 "the hybrid gate allows a focused patch"
@@ -3826,8 +3803,7 @@ fn case_queue_task(
                         "failure_class={}, subsystems={}, window={}f",
                         candidate
                             .failure_class
-                            .map(|class| class.as_str())
-                            .unwrap_or("unknown"),
+                            .map_or("unknown", CaseFailureClass::as_str),
                         candidate.likely_subsystems.len(),
                         candidate.frame_end - candidate.frame_start
                     ),
@@ -5012,10 +4988,10 @@ fn latest_release_gate_failure_detail(repo_root: &Path, target: &str) -> Option<
             .map(|parent| parent.join(timestamp).join("report.json"))?;
         Some(candidate)
     };
-    let freshness = report_path
-        .as_ref()
-        .map(|report_path| format!(" (timestamp {timestamp}, report={})", report_path.display()))
-        .unwrap_or_else(|| format!(" (timestamp {timestamp})"));
+    let freshness = report_path.as_ref().map_or_else(
+        || format!(" (timestamp {timestamp})"),
+        |report_path| format!(" (timestamp {timestamp}, report={})", report_path.display()),
+    );
     Some((format!("{name}: {detail}{freshness}"), latest_path))
 }
 
@@ -5025,10 +5001,10 @@ fn release_gate_focus_evidence(repo_root: &Path, target: &str) -> Option<(String
     let failed_field = extract_release_gate_failed_field(&detail)?;
     let (summary, report_path, timestamp) =
         latest_state_sweep_focus_summary(repo_root, &failed_focus, &failed_field)?;
-    let freshness = timestamp
-        .as_deref()
-        .map(|timestamp| format!(" (timestamp {timestamp}, report={report_path})"))
-        .unwrap_or_else(|| format!(" (report={report_path})"));
+    let freshness = timestamp.as_deref().map_or_else(
+        || format!(" (report={report_path})"),
+        |timestamp| format!(" (timestamp {timestamp}, report={report_path})"),
+    );
     Some((format!("{summary}{freshness}"), PathBuf::from(report_path)))
 }
 
@@ -5126,13 +5102,11 @@ fn release_gate_focus_entry_matches(
     let target_matches = entry
         .get("target")
         .and_then(serde_json::Value::as_str)
-        .map(|target| target == focus.target)
-        .unwrap_or(false);
+        .is_some_and(|target| target == focus.target);
     let step_matches = entry
         .get("step_name")
         .and_then(serde_json::Value::as_str)
-        .map(|step_name| step_name == focus.step_name)
-        .unwrap_or(false);
+        .is_some_and(|step_name| step_name == focus.step_name);
     let checkpoint_matches = match (
         entry.get("checkpoint").and_then(serde_json::Value::as_str),
         focus.checkpoint.as_deref(),
@@ -5919,8 +5893,7 @@ fn render_source_port_next_agent_note(frontier: &FrontierContext, task: &TaskPac
         moves.push(format!(
             "Do not reopen TAS-frontier work; continue through delegated lane `{}`.",
             task.delegated_goal
-                .map(AutonomyGoal::slug)
-                .unwrap_or("source-port-frontier")
+                .map_or("source-port-frontier", AutonomyGoal::slug)
         ));
         if let Some(target) = task.delegated_target.as_deref() {
             moves.push(format!(
@@ -5993,8 +5966,7 @@ status: {status}
                 "The TAS frontier is closed through frame {}; the next loop is delegated to {}{}.",
                 frontier.authoritative_clean_through,
                 task.delegated_goal
-                    .map(AutonomyGoal::slug)
-                    .unwrap_or("source-port-frontier"),
+                    .map_or("source-port-frontier", AutonomyGoal::slug),
                 task.delegated_target
                     .as_deref()
                     .map(|target| format!(" ({target})"))

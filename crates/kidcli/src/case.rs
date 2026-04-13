@@ -1606,7 +1606,7 @@ fn write_case_summary(
         .ok();
     }
     if let Some(blocked_reason) = verify.blocked_reason.as_ref() {
-        writeln!(&mut summary, "blocked_reason: {}", blocked_reason).ok();
+        writeln!(&mut summary, "blocked_reason: {blocked_reason}").ok();
     }
     writeln!(
         &mut summary,
@@ -1863,9 +1863,7 @@ fn deterministic_seed(label: &str) -> u64 {
 }
 
 fn format_option<T: ToString>(value: Option<T>) -> String {
-    value
-        .map(|value| value.to_string())
-        .unwrap_or_else(|| String::from("none"))
+    value.map_or_else(|| String::from("none"), |value| value.to_string())
 }
 
 #[cfg(test)]

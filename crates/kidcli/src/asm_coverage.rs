@@ -202,7 +202,7 @@ fn scan_dir_for_citations(
                 {
                     let prefix = &rest[idx..idx + 4];
                     let after = &rest[idx + 4..];
-                    let hex_len = after.chars().take_while(|c| c.is_ascii_hexdigit()).count();
+                    let hex_len = after.chars().take_while(char::is_ascii_hexdigit).count();
                     if hex_len > 0 {
                         let label = format!("{}{}", prefix, &after[..hex_len]);
                         citations.entry(label).or_default().insert(relative.clone());
@@ -591,7 +591,7 @@ pub(crate) fn run_asm_coverage(
     let subsystems: BTreeMap<&str, &SubsystemCoverage> = map
         .subsystems
         .iter()
-        .filter(|(name, _)| subsystem_filter.map(|f| name.contains(f)).unwrap_or(true))
+        .filter(|(name, _)| subsystem_filter.is_none_or(|f| name.contains(f)))
         .map(|(name, sub)| (name.as_str(), sub))
         .collect();
 

@@ -74,9 +74,7 @@ fn verify_native_bootstrap_trace(trace: &[NativeTraceFrame]) -> Result<()> {
 
     if first_title_index >= first_starting_level_index {
         bail!(
-            "native bootstrap reached hidden level entry before title (title frame {}, starting-level frame {})",
-            first_title_index,
-            first_starting_level_index
+            "native bootstrap reached hidden level entry before title (title frame {first_title_index}, starting-level frame {first_starting_level_index})"
         );
     }
 
@@ -408,8 +406,7 @@ pub(crate) fn verify_progress_two_transitions(capture: &GameplayCapture) -> Resu
     let distinct_levels = distinct_level_sequence(&capture.states);
     if distinct_levels.len() < 3 {
         bail!(
-            "progress_two_transitions saw only {:?}; expected at least three distinct level ids",
-            distinct_levels
+            "progress_two_transitions saw only {distinct_levels:?}; expected at least three distinct level ids"
         );
     }
     if level_2_settle.current_level_id != 0x0002 || level_2_settle.game_mode != 0x000C {
@@ -473,8 +470,7 @@ pub(crate) fn verify_soak_level_10m(capture: &GameplayCapture) -> Result<()> {
     let distinct_levels = distinct_level_sequence(&capture.states);
     if distinct_levels.len() < 8 {
         bail!(
-            "soak_level_10m visited only {:?}; expected broad transition coverage",
-            distinct_levels
+            "soak_level_10m visited only {distinct_levels:?}; expected broad transition coverage"
         );
     }
 

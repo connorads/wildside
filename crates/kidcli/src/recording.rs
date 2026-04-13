@@ -412,12 +412,11 @@ pub(crate) fn verify_recording(
         &native_dir,
         &native_frames,
         &oracle.frames,
-        recording.manifest.start.warp_level.unwrap_or_else(|| {
-            replay_trace
-                .last()
-                .map(|frame| frame.current_level.0)
-                .unwrap_or(0)
-        }),
+        recording
+            .manifest
+            .start
+            .warp_level
+            .unwrap_or_else(|| replay_trace.last().map_or(0, |frame| frame.current_level.0)),
     )?;
     let oracle_frame_match = frame_diffs
         .iter()

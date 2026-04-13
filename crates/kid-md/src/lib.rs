@@ -1492,13 +1492,13 @@ impl MdBus {
     fn write_vdp_data_raw(&mut self, value: u16) {
         match self.vdp.data_port_code & 0x0F {
             0x01 => {
-                Self::write_vdp_word_slice(&mut self.vdp.vram, self.vdp.data_port_address, value)
+                Self::write_vdp_word_slice(&mut self.vdp.vram, self.vdp.data_port_address, value);
             }
             0x03 => {
-                Self::write_vdp_word_slice(&mut self.vdp.cram, self.vdp.data_port_address, value)
+                Self::write_vdp_word_slice(&mut self.vdp.cram, self.vdp.data_port_address, value);
             }
             0x05 => {
-                Self::write_vdp_word_slice(&mut self.vdp.vsram, self.vdp.data_port_address, value)
+                Self::write_vdp_word_slice(&mut self.vdp.vsram, self.vdp.data_port_address, value);
             }
             _ => {}
         }

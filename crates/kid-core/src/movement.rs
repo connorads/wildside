@@ -4233,16 +4233,18 @@ impl OpeningSliceState {
                         // placeholder HiddenBlock cell still in Level_Layout.
                         block_list.and_then(|bl| bl.hidden_block_reveal_sub_E3C6(entry))
                     })
-                    .map(|reveal| reveal.cell)
-                    .unwrap_or_else(|| {
-                        // Fallback for native-only fixtures that do not carry a
-                        // full ROM Block List entry: preserve the existing block
-                        // type/skin and only flip the collision to Solid.
-                        let block_flag: u8 = if probe.cell.has_block { 0x80 } else { 0 };
-                        let block_type_bits = probe.cell.block_type as u8 & 0x0F;
-                        let new_hi = block_flag | 0x60 | block_type_bits;
-                        terrain::Cell::from_be_bytes(new_hi, probe.cell.skin)
-                    });
+                    .map_or_else(
+                        || {
+                            // Fallback for native-only fixtures that do not carry a
+                            // full ROM Block List entry: preserve the existing block
+                            // type/skin and only flip the collision to Solid.
+                            let block_flag: u8 = if probe.cell.has_block { 0x80 } else { 0 };
+                            let block_type_bits = probe.cell.block_type as u8 & 0x0F;
+                            let new_hi = block_flag | 0x60 | block_type_bits;
+                            terrain::Cell::from_be_bytes(new_hi, probe.cell.skin)
+                        },
+                        |reveal| reveal.cell,
+                    );
                 grid.set_cell_at(probe.cell_x, probe.cell_y, revealed_cell);
 
                 // If the hidden block contains a prize, dispatch it

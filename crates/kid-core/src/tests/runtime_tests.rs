@@ -5273,8 +5273,14 @@ mod chunk_09 {
 
         assert_eq!(trace1.len(), trace2.len(), "trace lengths differ");
 
-        let crcs1: Vec<u32> = trace1.iter().map(|f| f.authoritative_crc32()).collect();
-        let crcs2: Vec<u32> = trace2.iter().map(|f| f.authoritative_crc32()).collect();
+        let crcs1: Vec<u32> = trace1
+            .iter()
+            .map(crate::types::NativeTraceFrame::authoritative_crc32)
+            .collect();
+        let crcs2: Vec<u32> = trace2
+            .iter()
+            .map(crate::types::NativeTraceFrame::authoritative_crc32)
+            .collect();
         assert_eq!(crcs1, crcs2, "determinism violation: CRC arrays differ");
 
         for (i, (a, b)) in trace1.iter().zip(trace2.iter()).enumerate() {
@@ -5319,8 +5325,14 @@ mod chunk_09 {
 
         assert_eq!(trace1.len(), trace2.len());
 
-        let crcs1: Vec<u32> = trace1.iter().map(|f| f.authoritative_crc32()).collect();
-        let crcs2: Vec<u32> = trace2.iter().map(|f| f.authoritative_crc32()).collect();
+        let crcs1: Vec<u32> = trace1
+            .iter()
+            .map(crate::types::NativeTraceFrame::authoritative_crc32)
+            .collect();
+        let crcs2: Vec<u32> = trace2
+            .iter()
+            .map(crate::types::NativeTraceFrame::authoritative_crc32)
+            .collect();
         assert_eq!(
             crcs1, crcs2,
             "determinism violation: CRC arrays differ on active gameplay"

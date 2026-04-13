@@ -162,7 +162,7 @@ pub(crate) fn diagnose_frame(
         } else {
             0.0
         };
-        println!("{:<20} {:>8}  {:>9.1}%", layer_name, layer_pixels, pct);
+        println!("{layer_name:<20} {layer_pixels:>8}  {pct:>9.1}%");
 
         if save_layers {
             let path = output_dir.join(format!(
@@ -449,10 +449,10 @@ pub(super) fn diff_golden_frames(
     let mut diffs = Vec::new();
 
     for (i, (old, new)) in old_frames.iter().zip(new_frames.iter()).enumerate() {
-        let cp_label = checkpoints
-            .get(i)
-            .map(|cp| format!("{}/{}", scenario_slug, cp.label))
-            .unwrap_or_else(|| format!("{scenario_slug}/checkpoint_{i}"));
+        let cp_label = checkpoints.get(i).map_or_else(
+            || format!("{scenario_slug}/checkpoint_{i}"),
+            |cp| format!("{}/{}", scenario_slug, cp.label),
+        );
 
         macro_rules! check_field {
             ($field:ident) => {

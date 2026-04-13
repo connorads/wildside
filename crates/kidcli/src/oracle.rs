@@ -416,7 +416,7 @@ fn patch_jgenesis_cpu_registers(jgenesis_dir: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let patch = r#"
+    let patch = r"
     /// M68K program counter.
     #[must_use]
     pub fn m68k_pc(&self) -> u32 {
@@ -440,7 +440,7 @@ fn patch_jgenesis_cpu_registers(jgenesis_dir: &Path) -> Result<()> {
     pub fn m68k_status_register(&self) -> u16 {
         self.0.m68k.status_register()
     }
-"#;
+";
 
     // Insert before the final closing brace of impl<'emu> GenesisDebugView
     let patched = if let Some(pos) = contents.rfind('}') {

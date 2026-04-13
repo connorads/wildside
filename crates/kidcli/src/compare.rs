@@ -300,8 +300,7 @@ fn annotate_gameplay_checkpoint_failure(
     let from_frame = native_capture
         .checkpoints
         .first()
-        .map(|state| state.frame_index)
-        .unwrap_or(0);
+        .map_or(0, |state| state.frame_index);
     let Some(first_drift) =
         find_gameplay_live_drifts(native_capture, oracle_capture, scenario, from_frame)
             .into_iter()
@@ -729,28 +728,22 @@ pub(crate) fn gameplay_field_value(state: &GameplayState, field: &str) -> String
         "kid_y_pos" => format!("{:08X}", state.kid_y_pos),
         "kid_x_vel" => state
             .kid_x_vel
-            .map(|value| format!("{value:08X}"))
-            .unwrap_or_else(|| String::from("none")),
+            .map_or_else(|| String::from("none"), |value| format!("{value:08X}")),
         "kid_y_vel" => state
             .kid_y_vel
-            .map(|value| format!("{value:08X}"))
-            .unwrap_or_else(|| String::from("none")),
+            .map_or_else(|| String::from("none"), |value| format!("{value:08X}")),
         "character_movement" => state
             .character_movement
-            .map(|value| format!("{value:04X}"))
-            .unwrap_or_else(|| String::from("none")),
+            .map_or_else(|| String::from("none"), |value| format!("{value:04X}")),
         "kid_collision_type" => state
             .kid_collision_type
-            .map(|value| format!("{value:04X}"))
-            .unwrap_or_else(|| String::from("none")),
+            .map_or_else(|| String::from("none"), |value| format!("{value:04X}")),
         "invulnerable_frames" => state
             .invulnerable_frames
-            .map(|value| value.to_string())
-            .unwrap_or_else(|| String::from("none")),
+            .map_or_else(|| String::from("none"), |value| value.to_string()),
         "just_received_damage" => state
             .just_received_damage
-            .map(|value| value.to_string())
-            .unwrap_or_else(|| String::from("none")),
+            .map_or_else(|| String::from("none"), |value| value.to_string()),
         "number_objects" => state.number_objects.to_string(),
         "number_gfx_objects" => state.number_gfx_objects.to_string(),
         _ => String::from("<unknown>"),
@@ -941,8 +934,7 @@ fn gameplay_phase_distance(
 
 fn optional_i32_abs_diff(left: Option<i32>, right: Option<i32>) -> u32 {
     left.zip(right)
-        .map(|(left, right)| left.abs_diff(right))
-        .unwrap_or(u32::MAX)
+        .map_or(u32::MAX, |(left, right)| left.abs_diff(right))
 }
 
 pub(crate) fn run_port_loop(

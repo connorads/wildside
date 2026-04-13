@@ -24,7 +24,7 @@ impl TuiDebugger {
     pub(crate) fn new(native_trace: Vec<NativeTraceFrame>, oracle: &OracleManifest) -> Self {
         let native_crcs: Vec<u32> = native_trace
             .iter()
-            .map(|f| f.authoritative_crc32())
+            .map(kid_core::NativeTraceFrame::authoritative_crc32)
             .collect();
         let first_divergence = find_first_crc_mismatch(&native_crcs, &oracle.frame_crcs);
         Self {
@@ -166,14 +166,12 @@ impl TuiDebugger {
             Line::from(format!(
                 "kid_x_vel: {}",
                 f.kid_x_velocity
-                    .map(|v| format!("{v:#010x}"))
-                    .unwrap_or_else(|| "-".into())
+                    .map_or_else(|| "-".into(), |v| format!("{v:#010x}"))
             )),
             Line::from(format!(
                 "kid_y_vel: {}",
                 f.kid_y_velocity
-                    .map(|v| format!("{v:#010x}"))
-                    .unwrap_or_else(|| "-".into())
+                    .map_or_else(|| "-".into(), |v| format!("{v:#010x}"))
             )),
             Line::from(format!(
                 "camera: ({:#010x}, {:#010x})",
@@ -225,14 +223,12 @@ impl TuiDebugger {
                     Line::from(format!(
                         "kid_x_vel: {}",
                         s.kid_x_vel
-                            .map(|v| format!("{v:#010x}"))
-                            .unwrap_or_else(|| "-".into())
+                            .map_or_else(|| "-".into(), |v| format!("{v:#010x}"))
                     )),
                     Line::from(format!(
                         "kid_y_vel: {}",
                         s.kid_y_vel
-                            .map(|v| format!("{v:#010x}"))
-                            .unwrap_or_else(|| "-".into())
+                            .map_or_else(|| "-".into(), |v| format!("{v:#010x}"))
                     )),
                     Line::from(format!(
                         "camera: ({:#010x}, {:#010x})",

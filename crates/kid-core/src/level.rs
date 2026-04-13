@@ -11938,8 +11938,7 @@ impl NativeRuntime {
 
         let max_steps = settle_trace
             .as_ref()
-            .map(|(_, max_steps)| *max_steps)
-            .unwrap_or(180)
+            .map_or(180, |(_, max_steps)| *max_steps)
             .min(180);
         for frame in 0..max_steps {
             let prev_player = (slice.player.x_pos, slice.player.y_pos);
@@ -12204,24 +12203,24 @@ impl NativeRuntime {
                 number_objects: 15,
                 number_gfx_objects: 14,
             },
-            _ => self
-                .level_header(level_id)
-                .map(|header| LevelSkipHoldPose {
-                    kid_x_pos: u32::from(header.player_start_x) << 16,
-                    kid_y_pos: u32::from(header.player_start_y) << 16,
-                    camera_x_pos: 0,
-                    camera_y_pos: 0,
-                    number_objects: 4,
-                    number_gfx_objects: 4,
-                })
-                .unwrap_or(LevelSkipHoldPose {
+            _ => self.level_header(level_id).map_or(
+                LevelSkipHoldPose {
                     kid_x_pos: 0x0020_0000,
                     kid_y_pos: OPENING_GROUNDED_KID_Y_POS,
                     camera_x_pos: 0,
                     camera_y_pos: 0,
                     number_objects: 4,
                     number_gfx_objects: 4,
-                }),
+                },
+                |header| LevelSkipHoldPose {
+                    kid_x_pos: u32::from(header.player_start_x) << 16,
+                    kid_y_pos: u32::from(header.player_start_y) << 16,
+                    camera_x_pos: 0,
+                    camera_y_pos: 0,
+                    number_objects: 4,
+                    number_gfx_objects: 4,
+                },
+            ),
         }
     }
 
@@ -12659,14 +12658,15 @@ impl NativeRuntime {
     }
 
     pub(crate) fn level_bounds(&self, level_id: LevelId) -> LevelBounds {
-        self.level_header(level_id)
-            .map(|header| LevelBounds {
-                width_pixels: u16::from(header.width_screens) * 320,
-                height_pixels: u16::from(header.height_screens) * 224,
-            })
-            .unwrap_or(LevelBounds {
+        self.level_header(level_id).map_or(
+            LevelBounds {
                 width_pixels: 320,
                 height_pixels: 224,
-            })
+            },
+            |header| LevelBounds {
+                width_pixels: u16::from(header.width_screens) * 320,
+                height_pixels: u16::from(header.height_screens) * 224,
+            },
+        )
     }
 }

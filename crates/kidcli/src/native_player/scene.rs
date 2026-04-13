@@ -445,7 +445,7 @@ fn build_sound_test_scene(track: u8) -> Scene {
         2,
     ));
 
-    let track_label = format!("TRACK: {:02X}", track);
+    let track_label = format!("TRACK: {track:02X}");
     let label_w = track_label.len() as i32 * 8 * 2;
     commands.push(text(
         (FRAME_WIDTH as i32 - label_w) / 2,
@@ -1054,8 +1054,7 @@ pub(super) fn background_colour(level_visuals: &NativeLevelVisuals) -> [u8; 3] {
         .background
         .colours
         .first()
-        .map(|colour| [colour.red, colour.green, colour.blue])
-        .unwrap_or(SKY_COLOUR)
+        .map_or(SKY_COLOUR, |colour| [colour.red, colour.green, colour.blue])
 }
 
 pub(super) fn object_rect(
@@ -1539,7 +1538,7 @@ fn build_game_scene_filtered(
             let title_x = (FRAME_WIDTH as i32 - title_w) / 2;
             let title_y = (FRAME_HEIGHT as i32) / 2 - 24;
             let seconds_left = (countdown / 60).min(9);
-            let timer_line = format!("{}", seconds_left);
+            let timer_line = format!("{seconds_left}");
             let timer_w = timer_line.len() as i32 * 8 * 3;
             let timer_x = (FRAME_WIDTH as i32 - timer_w) / 2;
             let count_line = format!("{} CONTINUES LEFT", trace.number_continues);

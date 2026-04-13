@@ -350,7 +350,7 @@ fn format_field_level_preview(level_ids: &[String]) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     if level_ids.len() <= PREVIEW_LIMIT {
-        format!(" [{}]", preview)
+        format!(" [{preview}]")
     } else {
         format!(
             " [{preview}, +{} more]",
@@ -595,8 +595,7 @@ pub(crate) fn run_sweep_with_options(
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| "unknown".into());
+        .map_or_else(|| "unknown".into(), |s| s.trim().to_string());
     let telemetry_path = repo_root.join(".cache/metrics/sweep-telemetry.jsonl");
     if let Ok(mut telemetry_file) = fs::OpenOptions::new()
         .create(true)
@@ -768,7 +767,7 @@ fn sweep_single_level(
             diff_images: Vec::new(),
             error: Some(format!(
                 "oracle warp broken: game_mode={:#06x}",
-                oracle.states.first().map(|s| s.game_mode).unwrap_or(0)
+                oracle.states.first().map_or(0, |s| s.game_mode)
             )),
             divergence_summary: divergence_summary_with(DivergenceCategory::OracleLimitation),
         });
@@ -1573,7 +1572,7 @@ fn warm_oracle_cache(
     // Group levels into batches for parallel oracle runs.
     // Oracle processes are I/O-heavy (emulator), so parallelism helps.
     let batch_size = std::thread::available_parallelism()
-        .map(|n| n.get())
+        .map(std::num::NonZero::get)
         .unwrap_or(4)
         .min(8); // cap at 8 to avoid thrashing
 
@@ -3681,7 +3680,7 @@ mod tests {
         let diffs = diff_golden_frames("idle_level_00", &old, &new, &checkpoints);
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].field, "score");
-        assert!(diffs[0].old_value.contains("0"));
+        assert!(diffs[0].old_value.contains('0'));
         assert!(diffs[0].new_value.contains("100"));
     }
 

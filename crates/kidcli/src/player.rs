@@ -619,7 +619,7 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                     }
                 }
                 Event::ControllerDeviceRemoved { .. } => {
-                    controller = controller.filter(|gamepad| gamepad.attached());
+                    controller = controller.filter(sdl2::controller::GameController::attached);
                     if controller.is_none() {
                         controller = open_first_controller(&game_controller)?;
                     }
@@ -915,8 +915,7 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
                     let current = pending_value.unwrap_or_else(|| {
                         runtime
                             .as_ref()
-                            .map(|rt| (cheat.read)(&rt.game_state()))
-                            .unwrap_or(0)
+                            .map_or(0, |rt| (cheat.read)(&rt.game_state()))
                     });
                     let next = if menu_left {
                         if current <= min { max } else { current - 1 }
@@ -983,7 +982,7 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
         }
 
         let debug_game_state = match screen {
-            ScreenState::DebugMenu { .. } => runtime.as_ref().map(|rt| rt.game_state()),
+            ScreenState::DebugMenu { .. } => runtime.as_ref().map(kid_md::MdRuntime::game_state),
             _ => None,
         };
         apply_overlay(
@@ -1393,9 +1392,10 @@ fn error_view_from_rom_error(
         RomError::TooSmall => ErrorView {
             title: String::from("ROM is too small"),
             lines: vec![
-                supplied
-                    .map(|path| format!("File: {}", path.display()))
-                    .unwrap_or_else(|| String::from("The detected ROM is incomplete.")),
+                supplied.map_or_else(
+                    || String::from("The detected ROM is incomplete."),
+                    |path| format!("File: {}", path.display()),
+                ),
                 String::from("Expected a full Mega Drive ROM image."),
             ],
         },

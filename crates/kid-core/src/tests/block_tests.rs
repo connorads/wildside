@@ -76,11 +76,10 @@ fn manifest_with_tough_skull() -> AssetManifest {
 }
 
 fn setup_stomp_against_first_active_enemy(runtime: &mut NativeRuntime) {
-    let (enemy_x_pos, enemy_y_pos) = runtime
-        .active_enemies
-        .first()
-        .map(|enemy| (enemy.x_pos, enemy.y_pos))
-        .unwrap_or_else(|| panic!("expected an active enemy"));
+    let (enemy_x_pos, enemy_y_pos) = runtime.active_enemies.first().map_or_else(
+        || panic!("expected an active enemy"),
+        |enemy| (enemy.x_pos, enemy.y_pos),
+    );
 
     if let Some(ref mut slice) = runtime.opening_slice {
         slice.player.x_pos = enemy_x_pos;
