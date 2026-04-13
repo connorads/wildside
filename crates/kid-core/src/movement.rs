@@ -2952,6 +2952,15 @@ impl OpeningSliceState {
             return false;
         }
 
+        // sub_AE6E (kid.asm:13683): ascending wall-cling overhang probe.
+        //   `move.w y_pos(a3),d7; move.w d7,d6; sub.w ($FB5C),d6; neg.w d6`
+        //   — d6 = upward displacement since last FB5C snapshot.
+        //   `addq.w #1,d7; neg.w d7; andi.w #$F,d7` — distance to next
+        //   tile boundary above.
+        //   `cmp.w d6,d7; blt loc_AE8C` — if displacement > distance,
+        //   a tile row was crossed → probe the wall.
+        // loc_AE88 (kid.asm:13694): `moveq #1,d7; rts` — no tile-row
+        //   crossing, return NE (continue wall-cling loop).
         let y_px = (self.player.y_pos >> 16) as i32;
         let upward_displacement = pre_vertical_y_px - y_px;
         let distance_to_tile = (-(y_px + 1)) & 0xF;
@@ -2964,6 +2973,18 @@ impl OpeningSliceState {
         // On that release frame, the sticky wall hold contributes a 1px x-pos
         // shimmy and clears the cling state, which is exactly the demo-1
         // frame-2723 frontier behaviour.
+        //
+        // loc_AE8C (kid.asm:13699): ascending wall probe path (tile row
+        //   was crossed). `move.w y_pos(a3),d7; asr.w #4,d7; add.w d7,d7`
+        //   — compute row pointer into tile map. Load column pointer from
+        //   level row table ($4A04), add FA78+1 offset (negated if FA72≠0).
+        // loc_AEAE (kid.asm:13711): column tile check — mirror of loc_AE0E
+        //   for ascending case. `add.w x_pos(a3),d7; asr.w #4,d7` — resolve
+        //   tile at leading edge. If wall ($6000+) → return NE (stay cling).
+        //   Check tile one row BELOW: if NOT wall → return NE.
+        //   For non-Micromax/non-Juggernaut, extra row above check.
+        //   If all rows clear: `moveq #0,d7; rts` (EQ) → release cling.
+        // Native: `probe_wall` + `probe_wall_top_edge` cover these checks.
         let x_px = (self.player.x_pos >> 16) as i32;
         let moving_right = direction == Direction::Right;
         if terrain::probe_wall(
@@ -3054,6 +3075,22 @@ impl OpeningSliceState {
         // Native omits the tile-row crossing gate: wall probes run every
         // descending frame. This is equivalent because the probes would
         // pass on non-crossing frames anyway (same tile = same wall data).
+        //
+        // loc_AE0E (kid.asm:13644): wall tile column check in sub_ADB8.
+        //   `add.w x_pos(a3),d7; asr.w #4,d7; add.w d7,d7; add.w d7,a4`
+        //   — resolve tile at player's leading edge column.
+        //   `andi.w #$7000,d7; cmpi.w #$6000,d7; bge.s loc_ADEC`
+        //   — if current tile is wall ($6000+), return NE (stay clinging).
+        //   Then check tile one row above: if NOT wall, return NE.
+        //   For non-Micromax/non-Juggernaut helmets, also check tile one
+        //   row below the current — if wall, return NE.
+        // loc_AE5A (kid.asm:13669): Micromax/Juggernaut skip the extra
+        //   below-row check (shorter body). Check tile further below:
+        //   `add.w Level_width_tiles,a4; andi.w #$7000; cmpi.w #$6000`
+        //   — if NOT wall, return NE. Otherwise `moveq #0,d7; rts` (EQ)
+        //   → wall has ended, release cling.
+        // Native: `probe_wall` (3-point body scan) + `probe_wall_top_edge`
+        // cover the same column checks without the per-row iteration.
         if terrain::probe_wall(
             grid,
             x_px,

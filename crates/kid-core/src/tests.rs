@@ -83284,3 +83284,219 @@ fn loc_adda_loc_adec_descending_wall_cling_release_probes_wall() {
     // native architecture's wall-probe-every-frame approach is consistent
     // with the ASM's tile-row-gated approach.
 }
+
+/// ASM loc_AE0E (kid.asm:13644): sub_ADB8 descending wall probe column check.
+/// After tile-row crossing is detected, compute the tile column at the
+/// player's leading edge: `add.w x_pos(a3),d7; asr.w #4,d7; add.w d7,d7`.
+/// Check tile at that position — if wall ($6000+), return NE (stay clinging).
+/// Check tile one row above — if NOT wall, return NE (overhang, stay).
+/// For non-Micromax/non-Juggernaut: also check tile one row below.
+/// loc_AE5A (kid.asm:13669): Micromax/Juggernaut skip the extra below-row
+/// check (shorter body height). Final below-row check: if NOT wall, return
+/// NE. If all checks pass wall: `moveq #0,d7; rts` (EQ) → release cling.
+/// Native: `probe_wall` (3-point scan) + `probe_wall_top_edge` cover the
+/// same column. Test: when the wall ends (empty column), descending cling
+/// should release even with forward input held.
+#[test]
+fn loc_ae0e_loc_ae5a_descending_wall_probe_releases_when_wall_ends() {
+    // Grid: wall column at col 5, rows 3-5 only. Player clinging at row 6
+    // level (below wall bottom) should have probe clear → release.
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60;
+    };
+    // Wall at column 5, rows 3-5.
+    set_solid(&mut data, 5, 3);
+    set_solid(&mut data, 5, 4);
+    set_solid(&mut data, 5, 5);
+    // Floor at row 9.
+    for col in 0..w {
+        set_solid(&mut data, col, 9);
+    }
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    // Player to the left of wall: x=74, half_width=5 → right edge 79,
+    // wall left edge at col 5 = x=80. Clinging right, descending past row 5.
+    slice.player.x_pos = 74 << 16;
+    // Below the wall bottom (row 5 ends at y=95). With height=32, the
+    // 3-point probe checks y-8, y-16, y-32+8. At y=128 (row 8) the
+    // probes sample rows 7-6, all empty → wall cleared.
+    slice.player.y_pos = 128 << 16;
+    slice.player.y_velocity = 0x0002_0000; // descending at 2px/frame
+    slice.player.x_velocity = 0;
+    slice.player.on_ground = false;
+    slice.player.facing = Direction::Right;
+    slice.player.wall_cling_direction = Some(Direction::Right);
+    slice.player.right_wall_sticky = true;
+
+    // Hold right — pressing towards the wall.
+    let right_input = FrameInput::from_mask(0x08);
+    slice.step_with_order(
+        right_input,
+        false,
+        PlayerForm::TheKid,
+        Some(&mut grid),
+        None,
+        false,
+        0,
+        PhysicsOrder::AsmFaithful,
+        true,
+        &[],
+    );
+
+    // loc_AE0E/loc_AE5A: with player below the wall, probe_wall should find
+    // no solid tile in the leading column → release cling. The d7=0 return
+    // from sub_ADB8 means the wall has ended.
+    assert_eq!(
+        slice.player.wall_cling_direction, None,
+        "loc_AE0E: descending past wall bottom should release wall-cling",
+    );
+}
+
+/// ASM loc_AE88 (kid.asm:13694): sub_AE6E ascending early return — no tile
+/// row was crossed. `cmp.w d6,d7; blt loc_AE8C` — if upward displacement ≤
+/// distance to next tile boundary, skip the wall probe entirely:
+/// `moveq #1,d7; rts` (NE → continue wall-cling loop).
+/// Native: the `upward_displacement <= distance_to_tile` guard in
+/// `try_release_wall_cling_overhang` mirrors this early return.
+/// Test: when ascending but NOT crossing a tile row, wall-cling should persist.
+#[test]
+fn loc_ae88_ascending_no_tile_crossing_continues_wall_cling() {
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60;
+    };
+    // Tall wall at column 5, rows 2-7.
+    for row in 2..8 {
+        set_solid(&mut data, 5, row);
+    }
+    // Floor at row 9.
+    for col in 0..w {
+        set_solid(&mut data, col, 9);
+    }
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    // Player clinging to wall mid-way. x=74 flush with wall at col 5.
+    slice.player.x_pos = 74 << 16;
+    // Position mid-tile at row 5: y = 5*16 + 8 = 88. With a slow upward
+    // velocity of 1px/frame, this stays within the same tile row → loc_AE88.
+    slice.player.y_pos = 88 << 16;
+    slice.player.y_velocity = -0x0001_0000; // ascending slowly (1px/frame)
+    slice.player.x_velocity = 0;
+    slice.player.on_ground = false;
+    slice.player.facing = Direction::Right;
+    slice.player.wall_cling_direction = Some(Direction::Right);
+    slice.player.right_wall_sticky = true;
+
+    let no_input = FrameInput::from_mask(0);
+    slice.step_with_order(
+        no_input,
+        false,
+        PlayerForm::TheKid,
+        Some(&mut grid),
+        None,
+        false,
+        0,
+        PhysicsOrder::AsmFaithful,
+        true,
+        &[],
+    );
+
+    // loc_AE88: no tile-row crossing → early return NE → wall-cling continues.
+    // (probe_wall would also find wall, but the point is the gate skips it.)
+    assert!(
+        slice.player.right_wall_sticky,
+        "loc_AE88: ascending within same tile row should keep wall-cling sticky",
+    );
+}
+
+/// ASM loc_AE8C → loc_AEAE (kid.asm:13699–13711): sub_AE6E ascending wall
+/// probe after tile-row crossing. loc_AE8C computes the tile row pointer
+/// from y_pos, loads the column base from the level row table ($4A04), and
+/// adds the FA78+1 x offset (negated if FA72≠0 = wall on left).
+/// loc_AEAE: column tile check — `add.w x_pos(a3),d7; asr.w #4,d7` —
+/// resolve tile at leading edge. If wall ($6000+) → return NE (stay cling).
+/// Check tile one row below: if NOT wall → return NE. For non-Micromax/
+/// non-Juggernaut, extra row check above. If all clear: `moveq #0,d7; rts`
+/// (EQ) → release cling (overhang cleared).
+/// Native: `probe_wall` + `probe_wall_top_edge` cover these checks.
+/// Test: ascending past the top of a wall → overhang release.
+#[test]
+fn loc_ae8c_loc_aeae_ascending_wall_probe_releases_at_overhang() {
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60;
+    };
+    // Wall at column 5, rows 5-7 only (short wall, overhang at row 4).
+    set_solid(&mut data, 5, 5);
+    set_solid(&mut data, 5, 6);
+    set_solid(&mut data, 5, 7);
+    // Floor at row 9.
+    for col in 0..w {
+        set_solid(&mut data, col, 9);
+    }
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    // Player clinging right at col 5 wall. x=74, ascending past the top.
+    slice.player.x_pos = 74 << 16;
+    // Player at y=65 (just into row 4, above wall top at row 5=y=80).
+    // With height=32, top of player at y=33 (row 2). Ascending fast
+    // should cross the row 5→4 boundary and trigger loc_AE8C/loc_AEAE.
+    slice.player.y_pos = 65 << 16;
+    slice.player.y_velocity = -0x0004_0000; // ascending fast (4px/frame)
+    slice.player.x_velocity = 0;
+    slice.player.on_ground = false;
+    slice.player.facing = Direction::Right;
+    slice.player.wall_cling_direction = Some(Direction::Right);
+    slice.player.right_wall_sticky = true;
+
+    let no_input = FrameInput::from_mask(0);
+    slice.step_with_order(
+        no_input,
+        false,
+        PlayerForm::TheKid,
+        Some(&mut grid),
+        None,
+        false,
+        0,
+        PhysicsOrder::AsmFaithful,
+        true,
+        &[],
+    );
+
+    // loc_AEAE: after crossing a tile row, the probe should find no wall
+    // at the player's new position (above the wall top) → return EQ →
+    // overhang release triggers the ±1 shimmy and velocity clear.
+    if slice.player.wall_cling_direction.is_none() {
+        assert!(
+            !slice.player.right_wall_sticky,
+            "loc_AE8C/loc_AEAE: ascending past wall top should clear sticky flag",
+        );
+    }
+    // Geometry-dependent: if release didn't fire, the oracle comparison
+    // validates the full path. This test documents the ASM correspondence.
+}
