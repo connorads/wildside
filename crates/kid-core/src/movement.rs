@@ -2953,12 +2953,16 @@ impl OpeningSliceState {
             return false;
         }
 
-        // ASM loc_AB0A (kid.asm:13372): wall-cling overhang snap exit.
-        // `add.w d7,x_pos(a3)` where d7=+1 ($FA72=0, wall on right) or
-        // d7=-1 ($FA72≠0, wall on left). Then `clr.l y_vel(a3)`.
-        // `tst.b ($FFFFFA6A); bne.w loc_A6F8` — if on Skycutter board,
-        // loop back to jump-loop top (stay airborne). Else `bsr.w sub_DB22;
-        // bra.w loc_8BF0` — clear special state, enter walking.
+        // ASM loc_AB22 → loc_AB4A (kid.asm:13381–13400): ascending wall-cling
+        // overhang snap exit (y_vel < 0 path from loc_AAC8).
+        // loc_AB22: `bsr.w sub_AE6E` (overhang probe); NE → kid_flip.
+        //   Snap y_pos to tile bottom: `andi.w #$FFF0,d7; addi.w #$F,d7`.
+        //   `clr.w $20(a3)` — zero sub-pixel.
+        //   d7=+1 ($FA72=0, wall on right), d7=-1 ($FA72≠0, wall on left).
+        // loc_AB4A: `add.w d7,x_pos(a3); clr.l y_vel(a3)`.
+        //   `tst.b ($FFFFFA6A); bne.w loc_A6F8` — if on Skycutter board,
+        //   loop back to jump-loop top. Else `bsr.w sub_DB22; bra.w loc_8BF0`.
+        // Mirror of loc_AB0A (descending path) — same shimmy + exit sequence.
         // Native: the ±1 shimmy is the same +/- 0x0001_0000 below; the
         // $FA6A gate is advisory (Skycutter board state managed per-frame);
         // sub_DB22 runs at the grounded transition boundary.
@@ -3168,9 +3172,15 @@ impl OpeningSliceState {
         let probe = if direct_probe.cell.is_solid_floor() {
             direct_probe
         } else if self.player.y_velocity >= 0 && self.player.jump_buffer_frames > 0 {
-            // ASM pull-up path (loc_ABA4) searches downward from roughly 20px
-            // above the current feet position and snaps onto the first solid
-            // ledge it finds while the wall-cling jump request is still live.
+            // ASM pull-up path (loc_ABA4 → loc_ABD4 → loc_ABF0):
+            // loc_ABA4 (kid.asm:13422): compute x offset, probe sub_B55C,
+            //   check tile + tile-above for solid ($7000 ≥ $6000).
+            // loc_ABD4 (kid.asm:13439): adjacent tile check — offset a2 by
+            //   ±2 (x_direction=0 → -2, ≠0 → +2), check solid.
+            // loc_ABF0 (kid.asm:13449): floor scan loop — walk down rows:
+            //   `add.w (Level_width_tiles),a4; addi.w #$10,d6; check ($7000
+            //   ≥ $6000); blt.s loc_ABF0`. First solid → snap y.
+            // Native: `find_floor_below` replaces the loc_ABF0 row-walk.
             let search_start_y_px = y_px.saturating_sub(0x14) & !0xF;
             let Some(surface_y_px) = terrain::find_floor_below(grid, probe_x_px, search_start_y_px)
             else {

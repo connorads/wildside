@@ -622,8 +622,12 @@ pub(crate) const MICROMAX_STUCK_GRAVITY: i32 = 0x600;
 /// Micromax max fall speed before peeling off surface.
 pub(crate) const MICROMAX_STUCK_MAX_FALL: i32 = 0x1_0000;
 /// Micromax detach Y velocity: -4.0 FP (strong upward kick).
+/// Shared by platform-grab detach (loc_A6AE, kid.asm:13013) and kid_flip
+/// wall-cling B-press (loc_AC42, kid.asm:13474): `move.l #$FFFC0000,y_vel`.
 pub(crate) const MICROMAX_DETACH_Y_VEL: i32 = -0x4_0000;
 /// Micromax detach X speed: 2.0 FP (kick away from surface).
+/// loc_A6AE + loc_AC42: `move.l #$FFFE0000,d7; tst.b ($FA72); beq skip;
+/// neg.l d7` — direction depends on which side the wall is on.
 pub(crate) const MICROMAX_DETACH_X_SPEED: i32 = 0x2_0000;
 
 // === Murder wall ===

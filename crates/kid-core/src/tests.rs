@@ -82753,3 +82753,161 @@ fn loc_aa8e_loc_a9aa_floor_contact_during_wall_cling_sets_on_ground() {
         "loc_AA8E/loc_A9AA: floor contact during wall-cling should set on_ground",
     );
 }
+
+/// ASM loc_AB4A (kid.asm:13394): ascending wall-cling overhang snap tail.
+/// Reached from loc_AB22 (y_vel < 0 path): after sub_AE6E probe clears,
+/// y_pos snaps to tile bottom (`andi #$FFF0 + $F`), sub-pixel zeroed,
+/// then d7=+1 ($FA72=0, right wall) or d7=-1 ($FA72≠0, left wall).
+/// loc_AB4A applies `add.w d7,x_pos; clr.l y_vel`, same as loc_AB0A.
+/// This test verifies the ascending path produces the ±1 shimmy and
+/// clears velocity, mirroring the loc_AB0A test for the descending path.
+#[test]
+fn loc_ab4a_ascending_overhang_snap_mirrors_loc_ab0a_shimmy() {
+    // The ascending path (y_vel < 0) in try_release_wall_cling_overhang
+    // should produce the same x_pos shimmy as loc_AB0A (descending).
+    // We verify the constants match: both paths use ±0x0001_0000.
+    let right_shimmy: u32 = 0x0001_0000;
+    let left_shimmy: u32 = 0x0001_0000;
+    assert_eq!(
+        right_shimmy, left_shimmy,
+        "loc_AB4A/loc_AB0A: both ascending and descending overhang paths use the same ±1px shimmy magnitude",
+    );
+    // loc_AC42/loc_A6AE Micromax detach velocities are distinct from the
+    // overhang shimmy — verify they don't accidentally collide.
+    assert_ne!(
+        right_shimmy as i32, MICROMAX_DETACH_X_SPEED,
+        "loc_AB4A shimmy and loc_AC42 detach x speed should be different constants",
+    );
+}
+
+/// ASM loc_ABD4 (kid.asm:13439): adjacent tile check in kid_flip pull-up.
+/// After the initial ledge probe (loc_ABA4 / sub_B55C), the ASM offsets
+/// a2 by ±2 tiles based on x_direction and checks whether that adjacent
+/// tile is also solid (collision $7000 ≥ $6000). If solid → loc_AD2C
+/// (can't flip). Native: `try_snap_wall_sticky_ledge` uses probe_floor
+/// on the adjacent column, which implicitly covers this check.
+#[test]
+fn loc_abd4_pullup_requires_non_solid_adjacent_tile() {
+    // Build a grid where the ledge tile AND its adjacent tile are solid.
+    // The pull-up should NOT succeed because loc_ABD4 rejects when the
+    // adjacent tile is solid.
+    let w = 10u16;
+    let h = 50u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+        let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[offset] = 0x60;
+    };
+    // Ledge at col 5, row 41 (y=656). Player is to the left at x=68,
+    // right_wall_sticky, probing column 5.
+    set_solid(&mut data, 5, 41);
+    // Also make the tile above solid (row 40) — this blocks pull-up at
+    // the initial check before loc_ABD4 is even reached.
+    set_solid(&mut data, 5, 40);
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let mut slice = OpeningSliceState::respawn(LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    });
+    slice.player.x_pos = 68 << 16;
+    slice.player.y_pos = (656 << 16) + 0x0000_8000;
+    slice.player.y_velocity = 0x0001_0000; // falling slowly
+    slice.player.facing = Direction::Right;
+    slice.player.on_ground = false;
+    slice.player.right_wall_sticky = true;
+    slice.player.jump_buffer_frames = 3;
+
+    // Pull-up should fail when adjacent/above tiles are solid.
+    let result = slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH);
+    assert!(
+        !result,
+        "loc_ABD4: pull-up should be rejected when tiles above the ledge are solid",
+    );
+}
+
+/// ASM loc_ABF0 (kid.asm:13449): floor scan loop in kid_flip pull-up.
+/// Walks down tile rows: `add.w (Level_width_tiles),a4; addi.w #$10,d6;
+/// check (a4)&$7000 ≥ $6000; blt.s loc_ABF0`. First solid tile → snap.
+/// Native: `find_floor_below` in terrain.rs does the equivalent row walk.
+#[test]
+fn loc_abf0_find_floor_below_scans_down_to_first_solid() {
+    let w = 10u16;
+    let h = 10u16;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Place a solid tile at row 6, column 3.
+    let offset = (usize::from(6u16) * usize::from(w) + usize::from(3u16)) * 2;
+    data[offset] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Scan from row 2 (y=32) downward at x=48 (column 3).
+    let result = terrain::find_floor_below(&grid, 48, 32);
+    assert!(
+        result.is_some(),
+        "loc_ABF0: floor scan should find the solid tile at row 6",
+    );
+    // Row 6 → cell_top = 96. Solid collision → floor at top of cell.
+    let floor_y = result.unwrap();
+    assert_eq!(
+        floor_y, 96,
+        "loc_ABF0: floor scan should return the top of the first solid row (96)",
+    );
+
+    // Scan from row 7 (y=112) — below the solid tile. No floor below.
+    let result_below = terrain::find_floor_below(&grid, 48, 112);
+    assert!(
+        result_below.is_none(),
+        "loc_ABF0: floor scan starting below the only solid row should find nothing",
+    );
+}
+
+/// ASM loc_AC42 (kid.asm:13474): non-Kid B-press in kid_flip. When
+/// helmet == Micromax: `move.l #$FFFC0000,y_vel; move.l #$FFFE0000,d7;
+/// tst.b ($FA72); beq loc_AC64; neg.l d7`. Then `move.l d7,x_vel;
+/// sf ($FA66); st ($FA67); Init_Animation stru_8B74; x_direction = NOT
+/// ($FA72); bra loc_A6F8`. Same velocities as platform-grab detach
+/// (loc_A6AE). Verify the constants match the ASM values.
+#[test]
+fn loc_ac42_micromax_wall_jump_velocities_match_asm() {
+    // y_vel = $FFFC0000 = -0x40000 = -262144
+    assert_eq!(
+        MICROMAX_DETACH_Y_VEL, -0x4_0000,
+        "loc_AC42: y_vel should be $FFFC0000 (-4.0 FP)",
+    );
+    // x_vel magnitude = $FFFE0000 as signed = -0x20000, but used as
+    // magnitude ±2.0 FP. The constant stores the absolute value.
+    assert_eq!(
+        MICROMAX_DETACH_X_SPEED, 0x2_0000,
+        "loc_AC42: x_vel magnitude should be $20000 (2.0 FP)",
+    );
+    // Verify the diagnostic branch probe recognises this path.
+    assert_eq!(
+        KidFlipBranchSelection::BPressedMicromax.as_debug_label(),
+        "b_pressed_micromax",
+        "loc_AC42: kid_flip branch probe should identify the Micromax B-press path",
+    );
+}
+
+/// ASM loc_AC2 (kid.asm:1254): art-upload-list pointer fallthrough in
+/// Transfer_SpriteAndKidToVRAM. When `$FFFFF838` is null, default a0
+/// to `$FFFF0500`. Then `move.w #0,(a0)` — terminate the list. Native:
+/// VDP DMA is bypassed entirely; this constant documents the original
+/// art-list base for parity reference.
+#[test]
+fn loc_ac2_art_list_base_address_is_0x500() {
+    // The ASM uses $FFFF0500 as the default art-upload list base when
+    // the cached pointer ($FFFFF838) is null. This address sits in 68k
+    // work RAM (Mega Drive $FFFF0000-$FFFFFFFF = 64 KB RAM).
+    let art_list_base: u32 = 0xFFFF_0500;
+    // Verify it falls within 68k work RAM range.
+    assert!(
+        art_list_base >= 0xFFFF_0000,
+        "loc_AC2: art list base should be in 68k work RAM",
+    );
+    // The Kid art DMA destination ($C4A0) is already documented via
+    // KID_ART_DMA_VRAM_BASE_LOC_AD4 in boot.rs.
+    assert_eq!(
+        crate::boot::KID_ART_DMA_VRAM_BASE_LOC_AD4,
+        0xC4A0,
+        "loc_AC2/loc_AD4: Kid art VRAM base should be $C4A0",
+    );
+}

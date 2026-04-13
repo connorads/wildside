@@ -157,8 +157,11 @@ pub(crate) const SPRITE_TABLE_CLEAR_WORD_COUNT_LOC_720: u32 = 0x7DE1; // $7DE0 +
 ///      of the 68k-side Sprite_Table buffer to VDP VRAM address $1000.
 ///   3. Start Z80
 ///   4. Stop Z80 again (for Kid art DMA at loc_AD4)
-///   5. If `$FFFFFB49` (art-upload-skip flag) is set → loc_B36 (skip art).
-///   6. Otherwise loop at loc_AD4: read (length, source) pairs from
+///   5. loc_AC2 (kid.asm:1254): if `$FFFFF838` (art-list pointer) is null,
+///      default a0 to `$FFFF0500`.  Write terminator `move.w #0,(a0)`,
+///      then reset a0 to `$FFFF0500` for the DMA loop.
+///   6. If `$FFFFFB49` (art-upload-skip flag) is set → loc_B36 (skip art).
+///   7. Otherwise loop at loc_AD4: read (length, source) pairs from
 ///      `$FFFF0500`, DMA each tile run to VRAM starting at $C4A0.
 ///
 /// In the native port, rendering bypasses VDP entirely — sprite attributes

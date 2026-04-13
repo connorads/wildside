@@ -1401,6 +1401,10 @@ impl NativeRuntime {
         } else if b_pressed {
             match self.progression.current_form {
                 PlayerForm::TheKid => KidFlipBranchSelection::BPressedTheKid,
+                // ASM loc_AC42 (kid.asm:13474): non-Kid B-press in kid_flip.
+                // Micromax: y_vel=$FFFC0000, x_vel=±$FFFE0000, flip direction,
+                // init stru_8B74, bra loc_A6F8. Same velocities as loc_A6AE
+                // (platform-grab detach).
                 PlayerForm::Micromax => KidFlipBranchSelection::BPressedMicromax,
                 _ if player_before.on_ground => KidFlipBranchSelection::BPressedGroundedLaunch,
                 _ => KidFlipBranchSelection::BPressedFallthrough,

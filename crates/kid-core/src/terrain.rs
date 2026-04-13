@@ -1009,6 +1009,12 @@ pub fn probe_floor(grid: &BlockGrid, x_px: i32, foot_y_px: i32) -> FloorProbe {
 /// Used during entry animation to find where the player should land.
 /// Returns the pixel Y of the floor surface (interpolated for slopes)
 /// of the first solid cell below `start_y_px`.
+///
+/// ASM loc_ABF0 (kid.asm:13449): floor scan loop in kid_flip pull-up —
+/// `add.w (Level_width_tiles),a4; addi.w #$10,d6; move.w (a4),d7;
+/// andi.w #$7000,d7; cmpi.w #$6000,d7; blt.s loc_ABF0`.  Walks down
+/// tile rows until a solid cell is found.  Native: same row-walk with
+/// `is_solid_floor()` instead of the $7000/$6000 bitmask test.
 pub fn find_floor_below(grid: &BlockGrid, x_px: i32, start_y_px: i32) -> Option<i32> {
     let col = pixel_to_cell(x_px).max(0) as u16;
     let start_row = pixel_to_cell(start_y_px).max(0) as u16;
