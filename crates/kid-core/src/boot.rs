@@ -150,6 +150,29 @@ pub(crate) const VRAM_CLEAR_LONGWORD_COUNT_LOC_70E: u32 = 0x4000;
 #[allow(dead_code)]
 pub(crate) const SPRITE_TABLE_CLEAR_WORD_COUNT_LOC_720: u32 = 0x7DE1; // $7DE0 + 1 (dbf)
 
+/// ASM loc_A70 (kid.asm:1242): VBlank sprite-table DMA within
+/// `Transfer_SpriteAndKidToVRAM` (sub_A5C).  Sequence:
+///   1. Stop Z80
+///   2. `dma68kToVDP Sprite_Table,$1000,$280,VRAM` — DMA 640 bytes ($280)
+///      of the 68k-side Sprite_Table buffer to VDP VRAM address $1000.
+///   3. Start Z80
+///   4. Stop Z80 again (for Kid art DMA at loc_AD4)
+///   5. If `$FFFFFB49` (art-upload-skip flag) is set → loc_B36 (skip art).
+///   6. Otherwise loop at loc_AD4: read (length, source) pairs from
+///      `$FFFF0500`, DMA each tile run to VRAM starting at $C4A0.
+///
+/// In the native port, rendering bypasses VDP entirely — sprite attributes
+/// feed directly into the software renderer.  This constant documents the
+/// original DMA destination address for parity reference.
+#[allow(dead_code)]
+pub(crate) const SPRITE_TABLE_DMA_VRAM_DEST_LOC_A70: u16 = 0x1000;
+/// DMA transfer length in bytes at loc_A70: $280 = 640 bytes (160 sprites × 4 words).
+#[allow(dead_code)]
+pub(crate) const SPRITE_TABLE_DMA_LENGTH_BYTES_LOC_A70: u16 = 0x0280;
+/// Kid art DMA destination in VRAM at loc_AD4 (within the loc_A70 art-upload loop).
+#[allow(dead_code)]
+pub(crate) const KID_ART_DMA_VRAM_BASE_LOC_AD4: u16 = 0xC4A0;
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {

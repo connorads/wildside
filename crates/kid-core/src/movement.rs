@@ -2243,6 +2243,18 @@ impl OpeningSliceState {
                 }
                 kid_flip_follow_on_stages.after_press_away = self.kid_flip_follow_on_stage_state();
 
+                // ASM loc_A73A (kid.asm:13055): airborne physics sequence entry.
+                // `bsr.w sub_7ACC` (helmet-change check) → `bsr.w
+                // Character_CheckCollision` → store x_pos/y_pos to
+                // $FFFFFA2C/$FFFFFA2E.  Native: sub_7ACC runs at end-of-frame
+                // (handle_pending_form_change_sub_7acc); Character_CheckCollision
+                // + pos store handled by camera-follow / block-effects pipeline.
+                //
+                // ASM loc_A74E (kid.asm:13061): `bsr.w sub_B084; bsr.w sub_B168;
+                // bsr.w sub_A4EE` — horizontal accel, gravity, then GfxObjects
+                // collision dispatch.  Native decomposes into steps 1–2 below
+                // plus the sub_A4EE comment block.
+                //
                 // Step 1: sub_B084 — horizontal velocity only (no x_pos update).
                 // Suppressed during wall-cling (ASM loc_AA22 never calls sub_B084).
                 let horizontal_step_applied = if self.player.wall_cling_direction.is_some() {
@@ -2322,6 +2334,11 @@ impl OpeningSliceState {
                 // in each axis. The $14/$18 crush paths are not yet ported (they
                 // require GfxObjects_Collision compound detection).
 
+                // ASM loc_A75A (kid.asm:13066): `bsr.w sub_902A; bne.w loc_A8F6`
+                // — floor/ceiling check.  NE means contact: positive (bpl) →
+                // loc_A912 (landed transition), negative (bmi) → ceiling hit,
+                // clear combat flags, skip to loc_A762 (wall check).
+                //
                 // Step 3: sub_902A — apply y_pos += y_vel, then floor/ceiling collision.
                 // ASM runs sub_902A (vertical) before sub_8F26 (horizontal), so floor
                 // probes see old x_pos. This is critical at ledge edges: with old x_pos
@@ -2391,6 +2408,12 @@ impl OpeningSliceState {
                     return;
                 }
 
+                // ASM loc_A762 (kid.asm:13070): `bsr.w sub_8F26; bne.w loc_A8DE`
+                // — wall collision check in the jump loop.  NE means contact:
+                // positive → loc_A8DE sets $FFFFFA72 (wall-cling side) and
+                // enters wall-cling (loc_A9E4). Negative (bmi) → loc_A76A
+                // (glancing, continue to input dispatch sub_7428).
+                //
                 // Step 4: sub_8F26 — apply x_pos += x_vel, then wall collision.
                 //
                 // ASM loc_8E3E (kid.asm:10222): `bsr.w sub_8F26; bne.w loc_8E5A`

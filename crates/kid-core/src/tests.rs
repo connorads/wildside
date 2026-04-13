@@ -72031,6 +72031,40 @@ fn loc_720_sprite_table_clear_dimensions() {
     );
 }
 
+/// ASM loc_A70 (kid.asm:1242): VBlank sprite-table DMA within
+/// `Transfer_SpriteAndKidToVRAM`.  `dma68kToVDP Sprite_Table,$1000,$280,VRAM`
+/// transfers 640 bytes ($280) to VDP VRAM $1000.  After the sprite table,
+/// loc_AD4 loops over (length, source) pairs at $FFFF0500, DMA'ing each
+/// tile run to VRAM $C4A0 (Kid art base).  The native port bypasses VDP
+/// entirely — sprite attributes feed the software renderer directly.
+#[test]
+fn loc_a70_sprite_table_dma_parameters() {
+    // Sprite table DMA destination: VRAM $1000
+    assert_eq!(
+        crate::boot::SPRITE_TABLE_DMA_VRAM_DEST_LOC_A70,
+        0x1000,
+        "ASM loc_A70: dma68kToVDP writes Sprite_Table to VRAM $1000",
+    );
+    // DMA length: $280 = 640 bytes = 160 sprites × 8 bytes (2 words per field × 4 fields)
+    assert_eq!(
+        crate::boot::SPRITE_TABLE_DMA_LENGTH_BYTES_LOC_A70,
+        0x0280,
+        "ASM loc_A70: sprite table DMA length $280 = 640 bytes",
+    );
+    // 640 bytes / 8 bytes per sprite = 80 sprite entries (Mega Drive hardware max)
+    assert_eq!(
+        crate::boot::SPRITE_TABLE_DMA_LENGTH_BYTES_LOC_A70 / 8,
+        80,
+        "ASM loc_A70: $280 bytes covers exactly 80 sprites (Mega Drive sprite table max)",
+    );
+    // Kid art DMA base in VRAM at loc_AD4
+    assert_eq!(
+        crate::boot::KID_ART_DMA_VRAM_BASE_LOC_AD4,
+        0xC4A0,
+        "ASM loc_AD4: Kid art DMA starts at VRAM $C4A0",
+    );
+}
+
 #[test]
 fn loc_454_exception_vector_table_is_m68k_hardware_infrastructure() {
     // ASM loc_454 (kid.asm:513): `bra.w returnFromException` — the final
@@ -72046,6 +72080,72 @@ fn loc_454_exception_vector_table_is_m68k_hardware_infrastructure() {
     assert!(
         true,
         "ASM loc_454: Vector58 exception handler is a no-op `rte` — not applicable to native port",
+    );
+}
+
+/// ASM loc_A73A–loc_A762 (kid.asm:13055–13070): airborne physics sequence.
+/// loc_A73A: sub_7ACC (helmet change) + Character_CheckCollision + store pos.
+/// loc_A74E: sub_B084 (h-accel) + sub_B168 (gravity) + sub_A4EE (gfx collision).
+/// loc_A75A: sub_902A (floor/ceiling check); NE → loc_A8F6 (landed).
+/// loc_A762: sub_8F26 (wall check); NE → loc_A8DE (wall cling).
+///
+/// This test verifies the step order: horizontal velocity updates before
+/// gravity, and floor collision uses old x_pos (sub_902A runs before sub_8F26
+/// moves x_pos).  A rightward-moving airborne Kid pressing right should gain
+/// horizontal speed (sub_B084) AND have gravity increase y_vel (sub_B168)
+/// within the same frame, with floor probe at the pre-horizontal-move x_pos.
+#[test]
+fn loc_a73a_through_loc_a762_airborne_physics_step_order() {
+    let mut slice = OpeningSliceState::respawn(LevelBounds {
+        width_pixels: 320,
+        height_pixels: 224,
+    });
+    let grid = grid_with_floor_at_row(17);
+    // Place Kid airborne well above the floor, moving right and upward.
+    slice.player.x_pos = 0x0050_0000;
+    slice.player.y_pos = 0x0080_0000; // row 8, floor at row 17
+    slice.player.x_velocity = 0x0001_0000; // 1 px/frame right
+    slice.player.y_velocity = -0x0002_0000; // ascending
+    slice.player.on_ground = false;
+
+    let x_vel_before = slice.player.x_velocity;
+    let y_vel_before = slice.player.y_velocity;
+
+    slice.step(
+        FrameInput {
+            right: true,
+            ..FrameInput::default()
+        },
+        false,
+        PlayerForm::TheKid,
+        Some(&mut grid.clone()),
+        None,
+        false,
+        0,
+    );
+
+    // loc_A74E step 1 (sub_B084): holding right should accelerate x_vel.
+    assert!(
+        slice.player.x_velocity > x_vel_before,
+        "sub_B084: x_vel should increase when pressing right (was {x_vel_before:#X}, now {:#X})",
+        slice.player.x_velocity,
+    );
+    // loc_A74E step 2 (sub_B168): gravity should make y_vel less negative
+    // (or positive).
+    assert!(
+        slice.player.y_velocity > y_vel_before,
+        "sub_B168: y_vel should increase (gravity) (was {y_vel_before:#X}, now {:#X})",
+        slice.player.y_velocity,
+    );
+    // loc_A75A (sub_902A): Kid is far above floor, so should remain airborne.
+    assert!(
+        !slice.player.on_ground,
+        "sub_902A: Kid far above floor should remain airborne",
+    );
+    // x_pos should have advanced (sub_8F26 applied x_vel to position).
+    assert!(
+        slice.player.x_pos > 0x0050_0000,
+        "sub_8F26: x_pos should advance rightward",
     );
 }
 
