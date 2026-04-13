@@ -81202,3 +81202,224 @@ fn slope_post_velocity_cap_passthrough_loc_9F32() {
         "ASM loc_9F32: velocity $5000 within ±$40000 cap, passthrough"
     );
 }
+
+// --- loc_9FBC: post-slope right wall y-snap (sub_A4EE chunk) ---
+
+/// ASM loc_9FBC (kid.asm:12277): after slope movement + sub_A254 Y-snap, if
+/// the player's current tile is Solid ($6000) or x_vel ≥ 0, snap y_pos to
+/// tile boundary and continue walking via sub_942A → loc_8BF0.
+///
+/// `move.w y_pos(a3),d0; andi.w #$FFF0,d0` — align to tile top.
+/// `tst.w x_vel(a3); bmi.s loc_9FCE` — if x_vel < 0, skip +16.
+/// `addi.w #$10,d0` — if x_vel ≥ 0, add 16 (next tile below).
+///
+/// This path fires when the player walks off a SlopeUp tile rightward onto
+/// a Solid tile. The velocity feeding into this path is positive (rightward),
+/// so the +16 branch is taken: y = (y & $FFF0) + $10 - 1 = next tile top - 1.
+///
+/// Native: apply_wall_collision + apply_floor_collision handle the equivalent
+/// snap. This test verifies the velocity state that feeds loc_9FBC.
+#[test]
+#[allow(non_snake_case)]
+fn slope_right_wall_y_snap_positive_vel_loc_9FBC() {
+    // Walking right on SlopeUp from $6000 (below uphill_cap $8000).
+    // Uphill accel $1000 → $6000 + $1000 = $7000.
+    let (vel, facing) = update_level_one_slope_ground_velocity(
+        0x0000_6000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    assert_eq!(
+        vel, 0x7000,
+        "ASM loc_9FBC: positive x_vel ($7000) takes the +16 y-snap branch"
+    );
+    assert_eq!(
+        facing,
+        Direction::Left,
+        "ASM loc_9FBC: SlopeUp rightward → facing Left (uphill convention)"
+    );
+}
+
+// --- loc_9FCE: post-slope y-snap store + walking dispatch ---
+
+/// ASM loc_9FCE (kid.asm:12284): fall-through from loc_9FBC when x_vel < 0.
+/// `subq.w #1,d0; move.w d0,y_pos(a3); move.l x_vel(a3),d0; clr.l y_vel(a3);
+/// bsr.w sub_942A; bra.w loc_8BF0`.
+///
+/// When moving left on SlopeUp (downhill), x_vel is negative. loc_9FBC skips
+/// the +16 add, so y = (y & $FFF0) - 1. This test verifies the negative
+/// velocity state feeding the no-add branch.
+#[test]
+#[allow(non_snake_case)]
+fn slope_right_wall_y_snap_negative_vel_loc_9FCE() {
+    // SlopeUp, no input, starting at x_vel = -$2000.
+    // canonical = x_vel = -$2000 (SlopeUp: no negation).
+    // No input → neutral path: -$2000 ≥ neutral_target (-$8000) →
+    // subtract neutral_decel $2000 → -$4000. -$4000 ≥ -$8000 → keep.
+    // unconvert: x_vel = -$4000.
+    //
+    // ASM: negative x_vel at loc_9FBC causes `tst.w x_vel; bmi.s loc_9FCE`
+    // to skip the +16, so y = (y & $FFF0) - 1. Then loc_9FCE stores y_pos,
+    // clears y_vel, and dispatches sub_942A.
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        -0x0000_2000,
+        Direction::Left,
+        HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    assert_eq!(
+        vel, -0x0000_4000,
+        "ASM loc_9FCE: negative x_vel (-$4000) takes the no-add y-snap branch"
+    );
+}
+
+// --- loc_9FE4: SlopeUp right-edge pixel threshold check ---
+
+/// ASM loc_9FE4 (kid.asm:12293): when current tile is SlopeUp ($4000) and
+/// x_vel ≥ 0 (moving right), check pixel offset within tile vs threshold.
+/// `tst.w x_vel(a3); bmi.s loc_A048` — skip if moving left.
+/// `move.w x_pos(a3),d0; andi.w #$F,d0` — pixel offset 0..15.
+/// `moveq #8,d1` — threshold = 8 for most helmets.
+/// `cmpi.w #Micromax,(Current_Helmet).w; bne.s loc_9FFE; moveq #$A,d1`
+/// — Micromax uses threshold 10.
+///
+/// This guards the right edge of a SlopeUp tile: if the player walks far
+/// enough right, check for a wall above-right. Micromax is wider so the
+/// threshold is larger.
+///
+/// Test: Micromax on SlopeUp, walking right. The velocity function produces
+/// a positive x_vel identical to Kid's shared table (Micromax uses its own
+/// table). The threshold difference is position-level, not velocity-level.
+#[test]
+#[allow(non_snake_case)]
+fn slope_up_micromax_threshold_differs_from_kid_loc_9FE4() {
+    // Kid on SlopeUp, walk right from $4000.
+    let (kid_vel, _) = update_level_one_slope_ground_velocity(
+        0x0000_4000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    // Micromax on SlopeUp, walk right from $4000.
+    let (mm_vel, _) = update_level_one_slope_ground_velocity(
+        0x0000_4000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::Micromax,
+        TerrainType::Normal,
+    );
+    // Both produce positive velocity (rightward on SlopeUp = uphill).
+    assert!(
+        kid_vel > 0,
+        "ASM loc_9FE4: Kid positive vel feeds right-edge check (threshold=8)"
+    );
+    assert!(
+        mm_vel > 0,
+        "ASM loc_9FE4: Micromax positive vel feeds right-edge check (threshold=10)"
+    );
+    // Micromax uses its own slope table with different accel, so velocities
+    // may differ. Both are positive, which is the condition for loc_9FE4.
+    assert_ne!(
+        kid_vel, mm_vel,
+        "ASM loc_9FE4: Micromax slope table differs from Kid's"
+    );
+}
+
+// --- loc_9FFE: above-right tile check after threshold ---
+
+/// ASM loc_9FFE (kid.asm:12303): `cmp.w d1,d0; ble.s loc_A048` — if pixel
+/// offset ≤ threshold, skip wall check. Otherwise look up tile at (col+1,
+/// row-1) in Level_Layout. If Solid ($6000) or col+1 ≥ Level_width_blocks
+/// → loc_A036 (x-snap).
+///
+/// This prevents the player from poking past a wall at the top-right of a
+/// SlopeUp tile. The check only fires when x_vel > 0 AND pixel offset >
+/// threshold. A player at low velocity stays within the threshold.
+///
+/// Test: verify that at walk cap, SlopeUp velocity is below the per-frame
+/// displacement that would exceed the 8px threshold in a single step.
+#[test]
+#[allow(non_snake_case)]
+fn slope_up_walk_cap_stays_within_threshold_loc_9FFE() {
+    // SlopeUp walk uphill cap = $8000 (0.5 px/frame in 16.16 fixed point).
+    // At cap, per-frame displacement = $8000 >> 16 = 0 whole pixels.
+    // So the player's pixel offset within a tile advances by < 1px per frame,
+    // meaning the threshold check (loc_9FFE) is evaluated incrementally.
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        0x0000_8000, // at uphill cap
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    assert_eq!(
+        vel, 0x8000,
+        "ASM loc_9FFE: at uphill cap, velocity stays clamped — threshold check is incremental"
+    );
+}
+
+// --- loc_A036: x-snap at slope right edge near wall ---
+
+/// ASM loc_A036 (kid.asm:12325): `move.w x_pos(a3),d0; andi.w #$FFF0,d0;
+/// or.w d1,d0; move.w d0,x_pos(a3); bsr.w sub_A254`.
+/// Snaps x_pos to (tile_left | threshold) and re-snaps Y via sub_A254.
+///
+/// Reached when loc_9FFE finds a Solid tile above-right or col+1 ≥ level
+/// width. The snap prevents the player from walking into the wall.
+///
+/// SlopeDown mirror: loc_A128 (kid.asm:12415) does the same for left-edge
+/// with threshold 8 (or 6 for Micromax).
+///
+/// Test: verify that run-speed slope velocity (higher than walk cap) is
+/// correctly computed, as it increases the chance of hitting the threshold.
+#[test]
+#[allow(non_snake_case)]
+fn slope_up_run_speed_feeds_x_snap_path_loc_A036() {
+    // Running right on SlopeUp from $10000. Run uphill cap = $10000,
+    // accel = $2000. $10000 + $2000 = $12000 > cap → clamp to $10000.
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        0x0001_0000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: true,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    assert_eq!(
+        vel, 0x0001_0000,
+        "ASM loc_A036: run uphill at cap — higher velocity increases x-snap likelihood"
+    );
+}

@@ -2447,6 +2447,31 @@ impl OpeningSliceState {
                     // Native equivalent: compute slope_floor_y from x_px directly,
                     // checking both the current cell row AND one row below/above
                     // to handle tile boundary crossings during horizontal movement.
+                    //
+                    // After sub_A254, the ASM checks the Level_Layout tile at the
+                    // player's current position for wall transitions:
+                    //
+                    // SlopeUp path ($FFFFFA26=0, right wall check):
+                    //   loc_9FBC (kid.asm:12277): tile is Solid ($6000) or x_vel ≥ 0
+                    //     → y_pos = (y_pos & $FFF0) + [16 if x_vel ≥ 0] - 1,
+                    //     clear y_vel, dispatch sub_942A walking.
+                    //   loc_9FCE (kid.asm:12284): loc_9FBC tail — subq.w #1,d0;
+                    //     move.w d0,y_pos; clr.l y_vel; bsr sub_942A; bra loc_8BF0.
+                    //   loc_9FE4 (kid.asm:12293): tile is SlopeUp ($4000), moving
+                    //     right — check pixel offset vs threshold (8, or 10 for
+                    //     Micromax). If past threshold, check tile above-right.
+                    //   loc_9FFE (kid.asm:12303): pixel offset > threshold — look up
+                    //     tile at (col+1, row-1). If Solid or at level edge → loc_A036.
+                    //   loc_A036 (kid.asm:12325): x_pos = (x_pos & $FFF0) | threshold;
+                    //     bsr sub_A254 (re-snap Y).
+                    //
+                    // SlopeDown path ($FFFFFA26=$FF, left wall check via loc_A04C):
+                    //   Mirror of above with loc_A0B4/loc_A0C6/loc_A0DC/loc_A0F6/loc_A128.
+                    //
+                    // Native: apply_wall_collision (probe-based) handles wall stopping;
+                    // the slope Y-snap below handles sub_A254. The tile-type wall guard
+                    // (loc_9FE4/loc_9FFE/loc_A036) is not explicitly modelled — the
+                    // probe-based wall check achieves equivalent clamping.
                     if self.player.on_ground {
                         let x_px = (self.player.x_pos >> 16) as i32;
                         let y_px = (self.player.y_pos >> 16) as i32;
