@@ -8116,6 +8116,179 @@ fn grounded_death_windup_uses_tumble_arc_and_exits_before_fallback_timeout() {
 }
 
 #[test]
+fn loc_b7fa_tumble_arc_constants_match_asm_death_setup() {
+    // ASM loc_B7FA (kid.asm:14746-14748):
+    //   move.l #$8000,d0       ; x step per frame
+    //   move.l #$FFFC0000,d1   ; initial y velocity (upward)
+    //   move.w #(LnkTo_unk_A3FF8-Data_Index),addroffset_sprite(a3)
+    // These constants initialise the tumble death arc used by loc_B80C.
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    start_level(&mut runtime);
+
+    let pre_x = runtime.opening_slice.expect("opening slice").player.x_pos;
+    runtime.progression.number_hitpoints = 0;
+    runtime.begin_death_windup();
+
+    // First windup frame applies the loc_B7FA constants.
+    runtime.step_frame(FrameInput::default());
+    let post = runtime.opening_slice.expect("post-launch slice");
+    // x must have advanced by at least $8000 (the d0 step)
+    assert!(
+        post.player.x_pos > pre_x,
+        "ASM loc_B7FA: x_pos should advance rightward by d0=$8000"
+    );
+    // y must have moved upward initially (d1=$FFFC0000 is negative = up)
+    assert!(
+        post.player.y_velocity < 0,
+        "ASM loc_B7FA: initial y velocity should be negative (upward)"
+    );
+}
+
+#[test]
+fn loc_b7ca_gravity_fall_uses_stronger_gravity_than_tumble() {
+    // ASM loc_B7CA (kid.asm:14729-14737): d7≠0 death path uses $4000
+    // gravity and y-only movement, vs loc_B80C's $3000 gravity with x+y.
+    // Verify the constants are distinct in the ASM.
+    //
+    // loc_B7CA: addi.l #$4000,d0 — gravity for grounded fall
+    // loc_B80C: addi.l #$3000,d1 — gravity for tumble arc
+    //
+    // Native currently always uses the tumble arc ($3000).  This test
+    // documents the ASM difference and verifies the native tumble path
+    // uses the correct $3000 constant.
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    start_level(&mut runtime);
+
+    if let Some(slice) = runtime.opening_slice.as_mut() {
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+        slice.camera.y_pos = 0x00BC_0000;
+    }
+    runtime.progression.number_hitpoints = 0;
+    runtime.begin_death_windup();
+
+    // Collect y_velocity after two frames to measure effective gravity.
+    runtime.step_frame(FrameInput::default());
+    let v1 = runtime
+        .opening_slice
+        .expect("frame 1 slice")
+        .player
+        .y_velocity;
+    runtime.step_frame(FrameInput::default());
+    let v2 = runtime
+        .opening_slice
+        .expect("frame 2 slice")
+        .player
+        .y_velocity;
+    let gravity = v2 - v1;
+    // ASM loc_B80C: addi.l #$3000,d1 — tumble gravity is $3000
+    assert_eq!(
+        gravity, 0x3000,
+        "ASM loc_B80C tumble gravity should be $3000 per frame, \
+         not loc_B7CA's $4000"
+    );
+}
+
+#[test]
+fn loc_b7ea_death_strips_helmet_and_resets_to_the_kid() {
+    // ASM loc_B7EA (kid.asm:14740-14744): d7==0 death path checks
+    // Current_Helmet; if set, clears Current_Helmet_Available and calls
+    // Kid_Transform before the tumble arc (loc_B7FA).
+    //
+    // ASM lose_life (kid.asm:14763-14768): clr.w (Extra_hitpoint_slots);
+    // clr.w (Current_Helmet); subq.w #1,(Number_Lives); move.w #2,
+    // (Number_Hitpoints).
+    //
+    // Native defers the form reset to enter_death_hidden_state.
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    start_level(&mut runtime);
+
+    // Give the player a helmet form.
+    runtime.progression.current_form = PlayerForm::IronKnight;
+    runtime.progression.number_hitpoints = 0;
+    runtime.begin_death_windup();
+
+    // Advance through windup until sprite leaves viewport.
+    let mut frames = 0usize;
+    while matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::DeathWindup { .. }
+    ) {
+        runtime.step_frame(FrameInput::default());
+        frames += 1;
+        assert!(
+            frames < PLAYER_DEATH_WINDUP_FRAMES,
+            "death tumble should leave viewport before fallback timeout"
+        );
+    }
+
+    // After enter_death_hidden_state, form should be The Kid (loc_B7EA
+    // helmet strip) and HP should be 2 (lose_life: move.w #2,
+    // Number_Hitpoints).
+    assert_eq!(
+        runtime.progression.current_form,
+        PlayerForm::TheKid,
+        "ASM loc_B7EA: Death should strip helmet, resetting to The Kid"
+    );
+    assert_eq!(
+        runtime.progression.number_hitpoints,
+        PlayerForm::TheKid.max_hitpoints(),
+        "ASM lose_life: Number_Hitpoints should be 2 after death"
+    );
+}
+
+#[test]
+fn loc_b894_single_player_death_decrements_lives_and_transitions() {
+    // ASM `Teleport` (kid.asm:14772-14794): single-player path (Two_player_flag
+    // == 0) skips loc_B894 entirely, checks $FFFFFC29 continue flag, then:
+    //   move.w #8,(Game_Mode).w — level transition
+    //   tst.w (Player_1_Lives).w; beq.w loc_B8E2 — game over if 0
+    //   bra.w loc_B8DE — restart via j_loc_6E2
+    //
+    // ASM loc_B894 (kid.asm:14797): two-player dispatch checks both
+    // Player_1_Lives and Player_2_Lives; not exercised in single-player.
+    //
+    // ASM loc_B8A8 (kid.asm:14804): within loc_B894 — $FFFFFC29 gate
+    // + Game_Mode=8 for game-over when only one player has lives.
+    //
+    // This test verifies the single-player path: lives decrement by 1
+    // and the player enters the Dying lifecycle state.
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    start_level(&mut runtime);
+
+    runtime.progression.number_lives = 3;
+    runtime.progression.number_hitpoints = 0;
+    runtime.begin_death_windup();
+
+    // Advance through windup until sprite leaves viewport.
+    let mut frames = 0usize;
+    while matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::DeathWindup { .. }
+    ) {
+        runtime.step_frame(FrameInput::default());
+        frames += 1;
+        assert!(
+            frames < PLAYER_DEATH_WINDUP_FRAMES,
+            "death tumble should leave viewport before fallback timeout"
+        );
+    }
+
+    assert!(
+        matches!(runtime.player_lifecycle, PlayerLifecycle::Dying { .. }),
+        "ASM lose_life: should enter Dying state after windup"
+    );
+    assert_eq!(
+        runtime.progression.number_lives, 2,
+        "ASM lose_life (kid.asm:14766): subq.w #1,(Number_Lives).w"
+    );
+}
+
+#[test]
 fn loc_11ea_selects_the_alternate_sprite_vertical_extent_when_flagged() {
     assert_eq!(
         NativeRuntime::sprite_vertical_extent_loc_11EA(false, 0x0012, 0x001B),

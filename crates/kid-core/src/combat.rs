@@ -8466,15 +8466,38 @@ impl NativeRuntime {
     }
 
     fn build_death_shell_snapshot(&self, slice: OpeningSliceState) -> LevelSkipTransitionState {
+        // ASM `Death` (kid.asm:14714-14760) has two death animation paths
+        // selected by d7:
+        //
+        // d7 != 0 → loc_B7CA: gravity-only fall using current y_vel with
+        //   $4000 gravity per frame, y-axis only (no x movement).  Only
+        //   loc_9142 (sub_902A pit-death) sets d7=1.
+        //
+        // d7 == 0 → loc_B7EA: strip helmet if any (clr.w
+        //   Current_Helmet_Available; bsr.w Kid_Transform), then fall
+        //   through to loc_B7FA which launches the tumble arc:
+        //   d0=$8000 (x step), d1=$FFFC0000 (initial y velocity),
+        //   death sprite = LnkTo_unk_A3FF8.
+        //
+        // Both paths loop via j_sub_8E0 until $19(a3) signals the sprite
+        // is offscreen, then branch to `lose_life`.
+        //
+        // Native always uses the loc_B7FA/loc_B80C tumble arc — the
+        // loc_B7CA gravity-fall path is not yet differentiated.
+        // TODO(fidelity): loc_B7CA gravity-fall uses $4000 per frame
+        // (not $3000) and moves y-only; pit-death should use this path.
         let mut frozen_player = slice.player;
+        // ASM loc_B7FA (kid.asm:14746): move.l #$FFFC0000,d1
         let mut death_y_velocity = -0x0004_0000;
 
         loop {
+            // ASM loc_B80C (kid.asm:14751): add.l d0,x_pos(a3)
             frozen_player.x_pos = frozen_player.x_pos.wrapping_add(0x0000_8000);
             frozen_player.y_pos = frozen_player.y_pos.wrapping_add_signed(death_y_velocity);
             if !Self::death_sprite_still_visible(frozen_player, slice.camera) {
                 break;
             }
+            // ASM loc_B80C: addi.l #$3000,d1 (tumble gravity)
             death_y_velocity = death_y_velocity.saturating_add(0x0000_3000);
         }
 
@@ -8529,13 +8552,17 @@ impl NativeRuntime {
                 if remaining_frames == PLAYER_DEATH_WINDUP_FRAMES
         );
         if first_windup_frame {
-            // ASM `Death` (kid.asm:14714-14731) uses the same tumble launch on
-            // grounded and airborne deaths. loc_B80C checks visibility on the
-            // current pose, then increments d1 by $3000 before applying the
-            // tumble step, so the first visible windup frame already moves by
+            // ASM loc_B7FA (kid.asm:14746): move.l #$8000,d0; move.l
+            // #$FFFC0000,d1 — tumble arc launch.  loc_B80C checks
+            // visibility, then increments d1 by $3000 before applying the
+            // step, so the first visible frame already moves by
             // x += $00008000 and y += initial_d1 + $3000.
+            // NOTE: loc_B7CA (kid.asm:14729) is the alternate d7≠0 path
+            // that uses $4000 gravity and y-only; not yet differentiated.
             slice.player.on_ground = false;
+            // ASM loc_B7FA: move.l #$8000,d0
             slice.player.x_velocity = 0x0000_8000;
+            // ASM loc_B7FA: move.l #$FFFC0000,d1
             slice.player.y_velocity = -0x0004_0000;
         }
         if let Some(camera_lock) = self.death_camera_lock {
@@ -8560,9 +8587,16 @@ impl NativeRuntime {
     }
 
     pub(crate) fn enter_death_hidden_state(&mut self) {
+        // ASM loc_B7EA (kid.asm:14740): d7==0 death path strips the helmet
+        // before the tumble arc — `tst.w (Current_Helmet).w; beq.w loc_B7FA;
+        // clr.w (Current_Helmet_Available).w; bsr.w Kid_Transform`.
+        // Native defers the form reset to this function (post-windup) rather
+        // than doing it before the visible tumble.
         self.progression.current_form = PlayerForm::TheKid;
         self.progression.pending_form = None;
+        // ASM `lose_life` (kid.asm:14763): move.w #2,(Number_Hitpoints).w
         self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        // ASM `lose_life` (kid.asm:14766): subq.w #1,(Number_Lives).w
         self.progression.number_lives = self.progression.number_lives.saturating_sub(1);
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
@@ -8572,6 +8606,22 @@ impl NativeRuntime {
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.ghost_groups.clear();
         self.death_camera_lock = None;
+        // ASM `Teleport` (kid.asm:14772-14794) then dispatches:
+        //   tst.b (Two_player_flag).w; bne.w loc_B894
+        // Single-player falls through to the Game_Mode=8 level-transition
+        // path at loc_B8DE.
+        //
+        // ASM loc_B894 (kid.asm:14797): two-player dispatch — checks
+        //   Player_1_Lives and Player_2_Lives to decide which player
+        //   continues or whether to game-over.
+        //
+        // ASM loc_B8A8 (kid.asm:14804): within loc_B894 — when only one
+        //   player has lives remaining, checks $FFFFFC29 (continue flag);
+        //   if clear, sets Game_Mode=8 for game-over screen, then jumps
+        //   to loc_B8DE (j_loc_6E2 level restart).
+        //
+        // Native: two-player mode is not yet fully implemented; the
+        // single-player path is always taken.
         self.player_lifecycle = PlayerLifecycle::Dying {
             remaining_frames: PLAYER_DEATH_HIDE_FRAMES,
         };
