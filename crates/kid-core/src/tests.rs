@@ -79463,3 +79463,324 @@ fn sub_98f2_priority_bands_loc_997E() {
         "ASM loc_997E: accum*2=$E0 >= $AA → $134"
     );
 }
+
+// --- loc_99E6: sub_98F2 board priority store + on_board y-offset ---
+
+/// ASM loc_99E6 (kid.asm:11547): `move.w d7,$22(a2)` stores the priority
+/// word into the board helper object's field $22. The priority word is
+/// selected from the three bands above: $12C, $130, or $134.
+/// Native: `board_priority_word` field in `SkycutterVisualStepSub98F2`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_board_priority_store_loc_99E6() {
+    // Verify the priority word is stored in the returned step — this is the
+    // native equivalent of `move.w d7,$22(a2)` at loc_99E6.
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 0,
+            motion_timer: 10,
+            motion_script_index: Some(1),
+            roll_accum: 0x00,
+        },
+        false,
+        false,
+    );
+    assert_eq!(
+        step.board_priority_word, 0x012C,
+        "ASM loc_99E6: move.w d7,$22(a2) — lowest band $12C stored"
+    );
+}
+
+/// ASM loc_99E6 (kid.asm:11549): `tst.b ($FFFFFA6A).w; beq.w loc_99F8;
+/// subi.w #$1A,$1E(a2)`. When on_board is set, the board object's y_pos
+/// is offset by -$1A (26 pixels). When clear, no offset.
+/// Native: `board_y_offset_px: if state.on_board { -0x1A } else { 0 }`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_on_board_y_offset_loc_99E6() {
+    // on_board = true → subi.w #$1A,$1E(a2).
+    let step_on = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: true,
+            facing: Direction::Right,
+            motion_phase: 0,
+            motion_timer: 10,
+            motion_script_index: Some(1),
+            roll_accum: 0x00,
+        },
+        false,
+        false,
+    );
+    assert_eq!(
+        step_on.board_y_offset_px, -0x1A,
+        "ASM loc_99E6: on_board set → subi.w #$1A,$1E(a2)"
+    );
+
+    // on_board = false → beq.w loc_99F8, skip the subtract.
+    let step_off = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 0,
+            motion_timer: 10,
+            motion_script_index: Some(1),
+            roll_accum: 0x00,
+        },
+        false,
+        false,
+    );
+    assert_eq!(
+        step_off.board_y_offset_px, 0,
+        "ASM loc_99E6: on_board clear → beq.w loc_99F8, no offset"
+    );
+}
+
+// --- loc_99F8: sub_98F2 exit ---
+
+/// ASM loc_99F8 (kid.asm:11553): `movem.l (sp)+,a0-a2; rts`. Common exit
+/// for sub_98F2 — restores registers and returns. Both the on_board path
+/// (through loc_99E6) and the skip path (beq.w loc_99F8) converge here.
+/// Native: return from `skycutter_visual_step_sub_98F2`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_exit_loc_99F8_on_board_path() {
+    // Exercise the on_board=true path that goes through loc_99E6 → loc_99F8.
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: true,
+            facing: Direction::Left,
+            motion_phase: 3,
+            motion_timer: 5,
+            motion_script_index: Some(4),
+            roll_accum: 0x40,
+        },
+        true,
+        false,
+    );
+    // After loc_99E6 stores priority and adjusts y, loc_99F8 returns.
+    // Verify both priority and y-offset are set (proving loc_99E6 executed
+    // before loc_99F8 exit).
+    assert_eq!(
+        step.board_y_offset_px, -0x1A,
+        "ASM loc_99F8: on_board path reaches exit after loc_99E6 y-offset"
+    );
+    assert!(
+        step.board_priority_word != 0,
+        "ASM loc_99F8: priority word set before exit"
+    );
+}
+
+/// ASM loc_99F8 (kid.asm:11553): skip path — `beq.w loc_99F8` when
+/// on_board is clear skips the y-offset subtract and exits directly.
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_exit_loc_99F8_skip_path() {
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 2,
+            motion_timer: 8,
+            motion_script_index: Some(3),
+            roll_accum: 0x20,
+        },
+        false,
+        false,
+    );
+    assert_eq!(
+        step.board_y_offset_px, 0,
+        "ASM loc_99F8: beq.w loc_99F8 skip path — no y-offset"
+    );
+}
+
+// --- loc_9A14: sub_9A0A helmet gate (Skycutter only) ---
+
+/// ASM loc_9A14 (kid.asm:11578): `move.w (Current_Helmet).w,d3;
+/// cmpi.w #1,d3; bne.w loc_9AE0`. sub_9A0A is called for walking/crawling
+/// horizontal velocity. Only Skycutter (helmet 1) falls through to
+/// sub_9A20; all other helmets branch to loc_9AE0 (speed table lookup).
+/// Native: caller checks `PlayerForm::Skycutter` and dispatches to
+/// `update_skycutter_horizontal_velocity_sub_9A20`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a0a_skycutter_gate_loc_9A14_skycutter_uses_sub_9a20() {
+    // Skycutter (helmet 1): falls through loc_9A14 to sub_9A20.
+    // sub_9A20 uses fixed $2000 acceleration, not speed tables.
+    let (vel, dir) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        0,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+    );
+    assert_eq!(
+        vel, 0x2000,
+        "ASM loc_9A14: Skycutter falls through to sub_9A20 — $2000 accel"
+    );
+    assert_eq!(dir, Direction::Right);
+}
+
+/// ASM loc_9A14: non-Skycutter helmets branch to loc_9AE0 for speed table
+/// lookup. Native: non-Skycutter helmets use `update_horizontal_velocity`
+/// with table-based acceleration instead of sub_9A20's fixed constants.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a0a_non_skycutter_gate_loc_9A14_uses_speed_tables() {
+    // Non-Skycutter (e.g. TheKid, helmet 0): bne.w loc_9AE0 → speed tables.
+    // The normal kid table has walk_accel = $1800 (not $2000).
+    let (vel, _dir) = physics::update_horizontal_velocity(
+        0,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_ne!(
+        vel, 0x2000,
+        "ASM loc_9A14: non-Skycutter → loc_9AE0 speed tables, not $2000"
+    );
+}
+
+// --- loc_9A32: sub_9A20 forward walk/run without reverse input ---
+
+/// ASM loc_9A32 (kid.asm:11597): forward-facing, no opposite direction held.
+/// `tst.b (Ctrl_A_Held).w; bne.s loc_9A6E` — A not held path:
+/// `cmpi.l #$20000,d0; bge.s loc_9A56; addi.l #$2000,d0; cmpi.l #$20000,d0;
+/// ble.s return_9A54; move.l #$20000,d0`. Accelerates at $2000 per frame
+/// towards cruise speed $20000.
+/// Native: `if x_vel < 0x2_0000 { (x_vel + 0x2000).min(0x2_0000) }`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_forward_walk_accel_loc_9A32() {
+    // Start below cruise speed, A not held — accelerate by $2000.
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        0x1_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+    );
+    assert_eq!(
+        vel, 0x1_2000,
+        "ASM loc_9A32: addi.l #$2000,d0 — accelerate from $10000 to $12000"
+    );
+}
+
+/// ASM loc_9A32: acceleration clamps at cruise speed $20000.
+/// `cmpi.l #$20000,d0; ble.s return_9A54; move.l #$20000,d0`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_forward_walk_clamp_loc_9A32() {
+    // Just below cruise speed — $2000 step would overshoot, clamp to $20000.
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        0x1_F000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+    );
+    assert_eq!(vel, 0x2_0000, "ASM loc_9A32: clamp at $20000 cruise speed");
+}
+
+/// ASM loc_9A32: A held path — `bne.s loc_9A6E; addi.l #$4000,d0;
+/// cmpi.l #$40000,d0; ble.s return; move.l #$40000,d0`.
+/// Accelerates at $4000 per frame towards run cap $40000.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_forward_run_accel_loc_9A32_a_held() {
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        0x1_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: true,
+        },
+    );
+    assert_eq!(
+        vel, 0x1_4000,
+        "ASM loc_9A32/loc_9A6E: A held → addi.l #$4000,d0"
+    );
+}
+
+// --- loc_9A56: sub_9A20 deceleration from above cruise speed ---
+
+/// ASM loc_9A56 (kid.asm:11611): `cmpi.l #$40000,d0; bgt.s loc_9A66;
+/// subi.l #$2000,d0; rts`. When velocity is above cruise ($20000) but
+/// at or below run cap ($40000), decelerate by $2000 per frame.
+/// Native: `else if x_vel <= 0x4_0000 { x_vel - 0x2000 }`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_decel_above_cruise_loc_9A56() {
+    // At $30000 (above cruise, below run cap): decelerate by $2000.
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        0x3_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+    );
+    assert_eq!(
+        vel, 0x2_E000,
+        "ASM loc_9A56: subi.l #$2000,d0 — decel from $30000 to $2E000"
+    );
+}
+
+/// ASM loc_9A56: exactly at run cap $40000 — decelerate by $2000.
+/// `cmpi.l #$40000,d0; bgt.s loc_9A66` — $40000 is NOT greater, so
+/// falls through to the subi.l.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_decel_at_run_cap_loc_9A56() {
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        0x4_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+    );
+    assert_eq!(
+        vel, 0x3_E000,
+        "ASM loc_9A56: at $40000 (not bgt) → subi.l #$2000 → $3E000"
+    );
+}
+
+/// ASM loc_9A56 → loc_9A66: above run cap ($40000) — clamp to $40000.
+/// `cmpi.l #$40000,d0; bgt.s loc_9A66; ... loc_9A66: move.l #$40000,d0`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_clamp_above_run_cap_loc_9A56() {
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        0x5_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+    );
+    assert_eq!(
+        vel, 0x4_0000,
+        "ASM loc_9A56/loc_9A66: above $40000 → clamp to $40000"
+    );
+}
