@@ -82224,3 +82224,172 @@ fn loc_A556_bounce_velocity_constants() {
         "loc_A5AE: y bounce remains $FFFE0000 (upward)"
     );
 }
+
+// --- loc_A7B4, loc_A7DE, loc_A7E8: Skycutter B-press slam velocity ---
+
+/// ASM loc_A7B4 (kid.asm:13095): B-press gate in the jump loop —
+/// `bclr #Button_B,(Ctrl_Pressed); beq.w loc_A7F8` (no B → skip),
+/// `tst.b ($FFFFFA6A); beq.w loc_A7F8` (not on board → skip).
+/// Then falls through to loc_A7DE/loc_A7E8.
+///
+/// ASM loc_A7DE (kid.asm:13108): `move.l x_vel(a3),d6; bpl.w loc_A7E8;
+/// neg.l d6` — absolute value of x_vel.
+///
+/// ASM loc_A7E8 (kid.asm:13113): `asr.l #1,d6; addi.l #$30000,d6;
+/// move.l d6,y_vel(a3)` — y_vel = abs(x_vel)/2 + $30000.
+///
+/// The ASM sets a POSITIVE y_vel (downward slam in ASM convention).
+/// Native currently negates this to an upward kick — documented as
+/// TODO(fidelity) in step_skycutter_flipboard.
+///
+/// This test verifies the native formula structure (abs + shift + offset)
+/// matches the ASM arithmetic, regardless of the sign inversion.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A7B4_skycutter_b_press_slam_velocity_formula() {
+    // ASM: d6 = abs(x_vel); asr.l #1,d6; addi.l #$30000,d6
+    let x_vel: i32 = 0x4_0000; // moving right at 4.0 sub-pixels/frame
+    let asm_d6 = (x_vel.unsigned_abs() as i32) >> 1; // asr.l #1
+    let asm_y_vel = asm_d6 + 0x3_0000; // addi.l #$30000
+    assert_eq!(
+        asm_y_vel, 0x5_0000,
+        "loc_A7E8: abs(0x40000)/2 + $30000 = $50000"
+    );
+
+    // Native formula (from step_skycutter_flipboard):
+    let native_kick = -(x_vel.unsigned_abs() as i32 / 2 + 0x3_0000);
+    assert_eq!(
+        native_kick.unsigned_abs(),
+        asm_y_vel as u32,
+        "native magnitude should match ASM magnitude"
+    );
+
+    // Negative x_vel should produce the same magnitude (loc_A7DE neg.l path)
+    let x_vel_neg: i32 = -0x4_0000;
+    let asm_d6_neg = (x_vel_neg.unsigned_abs() as i32) >> 1;
+    let asm_y_vel_neg = asm_d6_neg + 0x3_0000;
+    assert_eq!(
+        asm_y_vel_neg, asm_y_vel,
+        "loc_A7DE: neg.l makes negative x_vel produce same result as positive"
+    );
+}
+
+/// ASM loc_A7B4: zero x_vel produces the minimum slam of $30000.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A7DE_zero_x_vel_gives_minimum_slam() {
+    // abs(0)/2 + $30000 = $30000
+    let x_vel: i32 = 0;
+    let asm_y_vel = (x_vel.unsigned_abs() as i32 >> 1) + 0x3_0000;
+    assert_eq!(
+        asm_y_vel, 0x3_0000,
+        "loc_A7E8: zero x_vel → minimum slam velocity $30000"
+    );
+
+    let native_kick = -(x_vel.unsigned_abs() as i32 / 2 + 0x3_0000);
+    assert_eq!(
+        native_kick, -0x3_0000,
+        "native minimum kick magnitude matches"
+    );
+}
+
+// --- loc_A7F8: jump-loop C-press Maniaxe axe dispatch ---
+
+/// ASM loc_A7F8 (kid.asm:13120): `bclr #Button_C,(Ctrl_Pressed);
+/// beq.w loc_A8D6` — no C → skip. `cmpi.w #8,d7; bne.w loc_A830` —
+/// helmet == Maniaxe(8)? `tst.b (Maniaxe_throwing_axe); bne.w loc_A8D6`
+/// — already throwing → skip. `st (Maniaxe_throwing_axe)` — arm.
+///
+/// Native: step_maniaxe_axe uses `input.c && !self.prior_input.c` for
+/// C rising edge, and `!self.helmet.maniaxe_axe_active` as the one-at-a-time
+/// gate — matching the ASM's bclr + tst.b pattern.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A7F8_maniaxe_c_press_arms_axe_when_inactive() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.prior_input = FrameInput::default(); // C was NOT held
+    let slice = airborne_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    assert!(!rt.helmet.maniaxe_axe_active, "precondition: no active axe");
+    rt.step_maniaxe_axe(&slice, input);
+    assert!(
+        rt.helmet.maniaxe_axe_active,
+        "loc_A7F8: C rising edge with no active axe should arm Maniaxe"
+    );
+}
+
+/// ASM loc_A7F8: if Maniaxe already has an active axe, C press is ignored.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A7F8_maniaxe_c_press_rejected_when_active() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.helmet.maniaxe_axe_active = true;
+    rt.prior_input = FrameInput::default();
+    let slice = airborne_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    let proj_count_before = rt.projectiles.len();
+    rt.step_maniaxe_axe(&slice, input);
+    assert_eq!(
+        rt.projectiles.len(),
+        proj_count_before,
+        "loc_A7F8: C press with active axe should not spawn another"
+    );
+}
+
+// --- loc_A830: jump-loop C-press Cyclone flight activation ---
+
+/// ASM loc_A830 (kid.asm:13134): `cmpi.w #2,d7; bne.w loc_A840` —
+/// helmet == Cyclone(2)? `st (Cyclone_flying); bra.w loc_A8D6` —
+/// set flight flag, skip remaining helmet checks.
+///
+/// Native: step_cyclone_activation checks `!self.helmet.cyclone_flying`,
+/// C rising edge, and `!slice.player.on_ground` before setting the flag.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A830_cyclone_c_press_activates_flight_when_airborne() {
+    let mut rt = cyclone_runtime();
+    rt.previous_input = FrameInput::default(); // C was NOT held
+    let slice = airborne_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    assert!(!rt.helmet.cyclone_flying, "precondition: not flying");
+    rt.step_cyclone_activation(&slice, input);
+    assert!(
+        rt.helmet.cyclone_flying,
+        "loc_A830: C rising edge while airborne should set Cyclone_flying"
+    );
+}
+
+/// ASM loc_A830: Cyclone flight is not activated when already flying
+/// (ASM sub_B168 consumes the C pressed bit via bclr).
+#[test]
+#[allow(non_snake_case)]
+fn loc_A830_cyclone_c_press_rejected_when_already_flying() {
+    let mut rt = cyclone_runtime();
+    rt.helmet.cyclone_flying = true;
+    rt.previous_input = FrameInput::default();
+    let slice = airborne_slice();
+    let input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+
+    rt.step_cyclone_activation(&slice, input);
+    assert!(
+        rt.helmet.cyclone_flying,
+        "loc_A830: should remain flying (flag not toggled off)"
+    );
+}

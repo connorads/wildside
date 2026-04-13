@@ -2950,6 +2950,13 @@ impl NativeRuntime {
             return;
         }
 
+        // ASM loc_A840 (kid.asm:13141): jump-loop C-press Skycutter dispatch.
+        //   `cmpi.w #1,d7; bne.w loc_A87A` — helmet == Skycutter? If yes:
+        //   `tst.b ($FFFFFA6A); beq.w loc_A864` — if NOT on board → loc_A864.
+        //   If on board: y_pos top check + sub_B43A floor probe; if safe,
+        //   skip (already airborne on board). Otherwise `move.b #1,($FFFFFA69)`
+        //   → trigger flipboard deploy + sfx_Skycutter_flipboard.
+        //   Native: same `step_skycutter_flipboard` C-press logic.
         // C button rising edge → deploy/retract flipboard
         let c_pressed = input.c && !self.prior_input.c;
         if c_pressed && self.helmet.skycutter_flipboard == 0 {
@@ -3002,7 +3009,23 @@ impl NativeRuntime {
                 slice.player.y_velocity = SKYCUTTER_MAX_UPWARD_VEL;
             }
 
-            // B button press while on board: upward kick
+            // ASM loc_A7B4 (kid.asm:13095): B-press gate in the jump loop.
+            //   `bclr #Button_B,(Ctrl_Pressed); beq.w loc_A7F8` — B rising edge.
+            //   `tst.b ($FFFFFA6A); beq.w loc_A7F8` — must be on Skycutter board.
+            //   `moveq #-$21,d7; move.l d7,d6; add.w y_pos(a3),d6; bmi.w loc_A7DE`
+            //   — if y_pos near top of level, dive immediately.
+            //   `bsr.w sub_B43A; beq.w loc_A7F8` — floor probe; no floor → skip.
+            //
+            // ASM loc_A7DE (kid.asm:13108): slam velocity entry.
+            //   `move.l x_vel(a3),d6; bpl.w loc_A7E8; neg.l d6` — abs(x_vel).
+            //
+            // ASM loc_A7E8 (kid.asm:13113): velocity calculation.
+            //   `asr.l #1,d6; addi.l #$30000,d6; move.l d6,y_vel(a3)` —
+            //   y_vel = abs(x_vel)/2 + $30000 (DOWNWARD in ASM convention).
+            //
+            // TODO(fidelity): ASM sets y_vel positive (downward slam), native
+            // negates to upward kick. The ASM also gates on sub_B43A floor probe
+            // and y_pos-near-top check, which native omits.
             let b_pressed = input.b && !self.prior_input.b;
             if b_pressed {
                 let kick = -(slice.player.x_velocity.unsigned_abs() as i32 / 2 + 0x3_0000);
@@ -3097,6 +3120,13 @@ impl NativeRuntime {
     }
 
     /// ASM kid_flip (loc_ACB0): C rising edge activates flight when airborne.
+    ///
+    /// ASM loc_A830 (kid.asm:13134): jump-loop C-press dispatch for Cyclone.
+    /// `cmpi.w #2,d7; bne.w loc_A840` — helmet == Cyclone? If yes:
+    /// `st (Cyclone_flying); bra.w loc_A8D6` — set flying flag and skip
+    /// remaining helmet checks. Native: `step_cyclone_activation` runs after
+    /// physics as a separate per-frame step function.
+    ///
     /// Runs AFTER physics, so flight takes effect on the next frame. Uses
     /// `bclr #Button_C,(Ctrl_Pressed)` which is consumed by sub_B168 when
     /// already flying — so only activates when cyclone_flying is false.
@@ -3708,10 +3738,17 @@ impl NativeRuntime {
             return;
         }
 
-        // ASM loc_7742 (kid.asm:7815): cmpi.w #Eyeclops,(Current_Helmet) /
-        //   bne.s loc_7772 / tst.w ($FFFFFAB8) / bne.s loc_7772 /
+        // ASM loc_7742 (kid.asm:7815): standing-still C-press normal beam:
+        //   cmpi.w #Eyeclops,(Current_Helmet) / bne.s loc_7772 /
+        //   tst.w ($FFFFFAB8) / bne.s loc_7772 /
         //   move.w #1,($FFFFFAB8) / move.b x_direction(a3),($FFFFFABE) /
         //   Init_Animation stru_8B36 / PlaySound sfx_Eyeclops_normal_lightbeam
+        //
+        // ASM loc_A8A6 (kid.asm:13173): jump-loop C-press Eyeclops normal beam.
+        //   `cmpi.w #Eyeclops,(Current_Helmet); bne.s loc_A8D6` — not Eyeclops
+        //   → skip. `tst.w ($FFFFFAB8); bne.s loc_A8D6` — beam active → skip.
+        //   `move.w #1,($FFFFFAB8); move.b x_direction(a3),($FFFFFABE)` — arm
+        //   normal beam, latch direction.  Native: same `step_eyeclops_beam`.
         // C rising edge fires beam (one at a time)
         let c_pressed = input.c && !self.prior_input.c;
         if c_pressed && !self.helmet.eyeclops_beam_active {
@@ -3728,6 +3765,13 @@ impl NativeRuntime {
     /// ASM loc_76E4: cmpi.w #Maniaxe,(Current_Helmet) / bne skip /
     ///   tst.b (Maniaxe_throwing_axe) / bne skip / allocate ManiaxeAxe_Init /
     ///   init animation stru_8B4E / st (Maniaxe_throwing_axe)
+    ///
+    /// ASM loc_A7F8 (kid.asm:13120): jump-loop C-press dispatch entry.
+    ///   `bclr #Button_C,(Ctrl_Pressed); beq.w loc_A8D6` — no C → skip all.
+    ///   `cmpi.w #8,d7; bne.w loc_A830` — helmet == Maniaxe? If yes:
+    ///   `tst.b (Maniaxe_throwing_axe); bne.w loc_A8D6` — already active → skip.
+    ///   `st (Maniaxe_throwing_axe); allocate ManiaxeAxe_Init; Init_Animation
+    ///   stru_8B60`. Native: same `step_maniaxe_axe` runs every frame.
     ///
     /// ASM loc_8CB6 (kid.asm:10100): walking-state duplicate — `bclr
     ///   #Button_C,(Ctrl_Pressed); beq.w loc_8D72` (skip if C not pressed),
@@ -3873,6 +3917,12 @@ impl NativeRuntime {
     }
 
     /// Juggernaut skull shot: C fires a skull projectile with gravity arc.
+    ///
+    /// ASM loc_A87A (kid.asm:13162): jump-loop C-press Juggernaut dispatch.
+    ///   `cmpi.w #Juggernaut,(Current_Helmet); bne.w loc_A8A6` — not Juggernaut
+    ///   → skip to Eyeclops. `tst.b is_animated(a3); bne.w loc_A8D6` — animated
+    ///   → skip. `cmpi.w #8,($FFFFFB70); bge.w loc_A8D6` — ≥8 skulls → skip.
+    ///   Allocate object slot with `sub_86FA`. Native: same `step_juggernaut_skull`.
     ///
     /// ASM loc_7718 (kid.asm:7800): standing-still C-press gate —
     ///   cmpi.w #Juggernaut,(Current_Helmet) / bne.s loc_7742 /
