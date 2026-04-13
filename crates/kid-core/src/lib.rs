@@ -2064,6 +2064,8 @@ impl NativeRuntime {
             // sequence: `bsr.w sub_AF7A; bne.w loc_A762`. Runs after
             // sub_B000 (Red Stealth floor impact) and before sub_DB22.
             // Checks after physics so we know the player just touched a floor cell.
+            // Not-IK or velocity < $48000 (without prior flag) → loc_AFD0
+            // (kid.asm:13830): `moveq #0,d7; rts` — no break, return 0.
             if self.progression.current_form == PlayerForm::IronKnight
                 && slice.player.on_ground
                 && pre_physics_y_velocity > 0
@@ -2073,12 +2075,18 @@ impl NativeRuntime {
                 let hw = self.progression.current_form.half_width();
                 if let Some(ref mut grid) = self.block_grid {
                     let probe = terrain::probe_floor_hitbox(grid, px, py, hw);
+                    // ASM loc_AF96 (kid.asm:13808): active break path — `st
+                    // (Iron_Knight_block_breaker).w`, save regs, `bsr.w
+                    // sub_BBE2` to probe for a block, then dispatch through
+                    // off_AFD8 jump table.  On hit: `move.l #$FFFF8000,
+                    // y_vel(a3); moveq #1,d7; rts`.  No block or block ID
+                    // > 5 → loc_AFCA (kid.asm:13826): restore regs, fall
+                    // through to loc_AFD0 (`moveq #0,d7; rts`).
                     if probe.on_ground && probe.cell.has_block {
                         match probe.cell.block_type {
-                            // ASM sub_AF7A/off_AFD8 routes floor-smashed blocks
-                            // to the same directional destroy helpers the
-                            // block coroutines use, then kicks Iron Knight
-                            // back upward.
+                            // ASM loc_AFF0 (kid.asm:13854): off_AFD8 block
+                            // type 0 (Smash) handler — `moveq #2,d6; jmp
+                            // (j_Block_LoadSmashBits).l`.
                             terrain::BlockType::Smash => {
                                 grid.set_cell_at(
                                     probe.cell_x,

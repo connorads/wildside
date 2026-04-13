@@ -53,9 +53,14 @@ pub(crate) fn red_stealth_floor_impact_sub_B000(
     foot_y_px: i32,
 ) -> RedStealthFloorImpactSubB000 {
     // ASM sub_B000 (kid.asm:13864): only Red Stealth with a live sword swing
-    // samples `sub_B55C` at `(x_pos(a3), y_pos(a3)+1)`. Solid block types
-    // `$0..$5` all force `y_vel(a3)=-$38000`; Smash/Prize/Ice and Metal route
-    // to their block helpers, while SolidGhost and Teleporter only bounce.
+    // samples `sub_B55C` at `(x_pos(a3), y_pos(a3)+1)`.  Not Red Stealth or
+    // no swing → loc_B080 (`moveq #0,d7; rts`).  Direction branch:
+    // `moveq #0,d7; tst.b x_direction(a3); beq.w loc_B01E; neg.w d7` — d7
+    // is always 0 (x offset), so the neg is a no-op.
+    // ASM loc_B01E (kid.asm:13874): `moveq #1,d6; bsr.w sub_B55C` — probes
+    // one pixel below foot with x_offset=0, y_offset=1.  If bit 15 of tile
+    // word is clear → loc_B080.  Otherwise dispatches block type via
+    // off_B058, sets `y_vel(a3)=-$38000`, returns d7=1.
     let none = RedStealthFloorImpactSubB000 {
         kind: RedStealthFloorImpactKindSubB000::None,
         block_col: 0,

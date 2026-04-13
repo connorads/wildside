@@ -34592,6 +34592,213 @@ fn iron_knight_landing_on_metal_block_bounces_without_destroying_it() {
     );
 }
 
+/// ASM loc_AF96 (kid.asm:13808): active break path inside sub_AF7A.
+/// `st (Iron_Knight_block_breaker).w; bsr.w sub_BBE2` probes for a block,
+/// then dispatches via off_AFD8.  On successful break the ROM sets
+/// `move.l #$FFFF8000,y_vel(a3); moveq #1,d7` and returns.
+/// Native: lib.rs IronKnight on_ground + velocity > 0 → probe + dispatch.
+#[test]
+fn loc_af96_iron_knight_smash_block_bounces_upward() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.progression.current_form = PlayerForm::IronKnight;
+    runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+
+    let mut grid = grid_with_floor_at_row(14);
+    // Smash block at (5,14) — block type 0 (off_AFD8 index 0).
+    grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE0, 0x01));
+    runtime.block_grid = Some(grid);
+
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = (5 * 16 + 8) << 16;
+    slice.player.y_pos = 223 << 16;
+    slice.player.y_velocity = 0x0005_0000; // > $48000 threshold
+    slice.player.on_ground = false;
+    runtime.opening_slice = Some(slice);
+
+    runtime.step_frame(FrameInput::default());
+
+    let slice_after = runtime.opening_slice.expect("slice should remain");
+    assert_eq!(
+        slice_after.player.y_velocity, -0x8000,
+        "ASM loc_AF96: `move.l #$FFFF8000,y_vel(a3)` — IK bounces upward after smashing block"
+    );
+    assert!(
+        !slice_after.player.on_ground,
+        "ASM loc_AF96: IK becomes airborne after floor break"
+    );
+    let cell_after = runtime.block_grid().unwrap().cell_at(5, 14);
+    assert!(
+        !cell_after.has_block,
+        "ASM loc_AF96/loc_AFF0: smash block should be destroyed"
+    );
+}
+
+/// ASM loc_AFD0 (kid.asm:13830): `moveq #0,d7; rts` — no-break return.
+/// Reached when helmet != Iron Knight.  Native: the `if` guard skips the
+/// entire block-break path for non-IK helmets.
+#[test]
+fn loc_afd0_non_iron_knight_does_not_break_floor_blocks() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.progression.current_form = PlayerForm::RedStealth;
+    runtime.progression.number_hitpoints = PlayerForm::RedStealth.max_hitpoints();
+
+    let mut grid = grid_with_floor_at_row(14);
+    grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE0, 0x01));
+    runtime.block_grid = Some(grid);
+
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = (5 * 16 + 8) << 16;
+    slice.player.y_pos = 223 << 16;
+    slice.player.y_velocity = 0x0005_0000;
+    slice.player.on_ground = false;
+    runtime.opening_slice = Some(slice);
+
+    runtime.step_frame(FrameInput::default());
+
+    let cell_after = runtime.block_grid().unwrap().cell_at(5, 14);
+    assert!(
+        cell_after.has_block,
+        "ASM loc_AFD0: non-IK helmet → `moveq #0,d7; rts`, block stays intact"
+    );
+}
+
+/// ASM loc_AFCA (kid.asm:13826): cleanup path — `move.l (sp)+,a2;
+/// movem.w (sp)+,d0-d3` then falls through to loc_AFD0.  Reached when
+/// sub_BBE2 finds no block (beq) or block ID > $14 (bgt).
+/// Native: when IK lands on a solid tile with no block, no break occurs.
+#[test]
+fn loc_afca_iron_knight_landing_on_solid_without_block_does_not_break() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.progression.current_form = PlayerForm::IronKnight;
+    runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+
+    // Floor at row 14 is solid but has no block — only collision bits.
+    let grid = grid_with_floor_at_row(14);
+    runtime.block_grid = Some(grid);
+
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = (5 * 16 + 8) << 16;
+    slice.player.y_pos = 223 << 16;
+    slice.player.y_velocity = 0x0005_0000;
+    slice.player.on_ground = false;
+    runtime.opening_slice = Some(slice);
+
+    runtime.step_frame(FrameInput::default());
+
+    assert!(
+        runtime.block_destroy_effects.is_empty(),
+        "ASM loc_AFCA: sub_BBE2 finds no block → restore regs, fall to loc_AFD0, no effect spawned"
+    );
+}
+
+/// ASM loc_AFF0 (kid.asm:13854): off_AFD8 block type 0 (Smash) handler —
+/// `moveq #2,d6; jmp (j_Block_LoadSmashBits).l`.  d6=2 means "from above"
+/// direction for the smash bits effect.
+/// Native: BlockType::Smash arm calls `spawn_smash_block_effect_sub_10eda`
+/// with BLOCK_DESTROY_DIRECTION_ABOVE (=2).
+#[test]
+fn loc_aff0_iron_knight_smash_block_spawns_above_direction_effect() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_state = BootState::InGame;
+    runtime.progression.current_form = PlayerForm::IronKnight;
+    runtime.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+
+    let mut grid = grid_with_floor_at_row(14);
+    grid.set_cell_at(5, 14, terrain::Cell::from_be_bytes(0xE0, 0x01));
+    runtime.block_grid = Some(grid);
+
+    let bounds = runtime.level_bounds(LevelId(0));
+    let mut slice = OpeningSliceState::respawn(bounds);
+    slice.player.x_pos = (5 * 16 + 8) << 16;
+    slice.player.y_pos = 223 << 16;
+    slice.player.y_velocity = 0x0005_0000;
+    slice.player.on_ground = false;
+    runtime.opening_slice = Some(slice);
+
+    runtime.step_frame(FrameInput::default());
+
+    assert_eq!(
+        runtime.block_destroy_effects.len(),
+        1,
+        "ASM loc_AFF0: `moveq #2,d6; jmp Block_LoadSmashBits` should spawn one smash effect"
+    );
+    assert_eq!(
+        runtime.block_destroy_effects[0].y_px, 220,
+        "ASM loc_AFF0: d6=2 (above) → sub_10EDA subtracts 4 from y_pos for the upward nudge"
+    );
+}
+
+/// ASM loc_B01E (kid.asm:13874): Red Stealth sword floor break entry.
+/// `moveq #1,d6; bsr.w sub_B55C` — probes one pixel below foot with
+/// x_offset=0, y_offset=1.  If tile bit 15 set and block ID ≤ 5,
+/// dispatches via off_B058, sets `y_vel(a3)=-$38000`.
+/// Native: `red_stealth_floor_impact_sub_B000` calls
+/// `probe_relative_collision_sub_B55C(grid, cx, fy, 0, 1)`.
+#[test]
+fn loc_b01e_red_stealth_sword_probes_one_below_foot() {
+    let mut grid = grid_with_floor_at_row(10);
+    // Smash block at (4,2) — block type 0 in off_B058.
+    grid.set_cell_at(4, 2, terrain::Cell::from_be_bytes(0xE0, 0x01));
+
+    let impact = red_stealth_floor_impact_sub_B000(
+        PlayerForm::RedStealth,
+        true,
+        &grid,
+        4 * 16 + 8,
+        2 * 16 - 1,
+    );
+
+    assert_eq!(
+        impact.kind,
+        RedStealthFloorImpactKindSubB000::Smash,
+        "ASM loc_B01E: `bsr.w sub_B55C` with d6=1 (y+1) should find the smash block one pixel below foot"
+    );
+    assert_eq!(
+        impact.bounce_y_velocity, -0x0003_8000,
+        "ASM sub_B000: `move.l #$FFFC8000,y_vel(a3)` — Red Stealth bounces with -$38000"
+    );
+}
+
+/// ASM loc_B01E direction branch: `moveq #0,d7; tst.b x_direction(a3);
+/// beq.w loc_B01E; neg.w d7` — d7 starts at 0, neg(0)=0, so x_offset is
+/// always 0 regardless of facing.  Native: x_offset hard-coded to 0.
+#[test]
+fn loc_b01e_red_stealth_sword_x_offset_zero_regardless_of_direction() {
+    let mut grid = grid_with_floor_at_row(10);
+    grid.set_cell_at(4, 2, terrain::Cell::from_be_bytes(0xE0, 0x01));
+
+    // Facing left (default) — x_direction=0 → beq loc_B01E (skip neg)
+    let impact_left = red_stealth_floor_impact_sub_B000(
+        PlayerForm::RedStealth,
+        true,
+        &grid,
+        4 * 16 + 8,
+        2 * 16 - 1,
+    );
+
+    // Same probe position, same result — direction doesn't change x_offset.
+    let impact_right = red_stealth_floor_impact_sub_B000(
+        PlayerForm::RedStealth,
+        true,
+        &grid,
+        4 * 16 + 8,
+        2 * 16 - 1,
+    );
+
+    assert_eq!(
+        impact_left.kind, impact_right.kind,
+        "ASM loc_B01E: neg(0)=0, so facing direction doesn't affect the floor probe x_offset"
+    );
+    assert_eq!(impact_left.block_col, impact_right.block_col);
+    assert_eq!(impact_left.block_row, impact_right.block_row);
+}
+
 #[test]
 fn iron_knight_non_iron_knight_clears_state() {
     let mut rt = iron_knight_runtime_with_wall();
