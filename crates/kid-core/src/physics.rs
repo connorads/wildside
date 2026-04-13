@@ -283,19 +283,28 @@ pub fn update_air_horizontal_velocity(
 }
 
 /// Player airborne control while jumping (sub_B084).
+///
+/// ASM loc_B09E (kid.asm:13930): non-Skycutter entry — loads per-helmet accel
+/// from unk_A4B2, applies 1.5x multiplier when run (Ctrl_A) is held.
 pub fn update_jump_horizontal_velocity(
     x_vel: i32,
     facing: Direction,
     input: HorizontalInput,
     profile: JumpAirProfile,
 ) -> (i32, Direction) {
+    // ASM loc_B09E: `lea unk_A4B2(pc),a0; move.w (a0,d0.w),d1; ext.l d1`
+    // then `tst.b (Ctrl_A_Held).w; beq.s loc_B0B6; asr.l #1,d2; add.l d2,d1`
     let accel = if input.run {
         profile.accel + (profile.accel >> 1)
     } else {
         profile.accel
     };
 
+    // ASM loc_B0B6 (kid.asm:13941): load max speed from unk_A4C6, then
+    // dispatch on Ctrl_Left_Held / Ctrl_Right_Held / neither.
     let new_vel = if input.left {
+        // ASM loc_B0B6 left path: `st x_direction(a3); sub.l d1,d0; bpl.s loc_B118;
+        // neg.l d2; cmp.l d0,d2; ble.s loc_B118; add.l d1,d0; addi.l #$100,d0`
         let next = x_vel - accel;
         if next >= 0 {
             next
@@ -308,6 +317,9 @@ pub fn update_jump_horizontal_velocity(
             }
         }
     } else if input.right {
+        // ASM loc_B0E2 (kid.asm:13959): `sf x_direction(a3); add.l d1,d0;
+        // bmi.s loc_B118; cmp.l d0,d2; bge.s loc_B118; sub.l d1,d0;
+        // subi.l #$100,d0`
         let next = x_vel + accel;
         if next <= profile.max_speed {
             next
@@ -315,8 +327,12 @@ pub fn update_jump_horizontal_velocity(
             x_vel - 0x100
         }
     } else if x_vel > 0 {
+        // ASM loc_B0FE (kid.asm:13972): no L/R input, positive velocity —
+        // `subi.l #$400,d0; bpl.s loc_B118; moveq #0,d0`
         (x_vel - 0x400).max(0)
     } else if x_vel < 0 {
+        // ASM loc_B10E (kid.asm:13981): no L/R input, negative velocity —
+        // `addi.l #$400,d0; bmi.s loc_B118; moveq #0,d0`
         (x_vel + 0x400).min(0)
     } else {
         0
@@ -1931,6 +1947,108 @@ mod tests {
         let (result, _) =
             update_jump_horizontal_velocity(-0x100, Direction::Left, no_input(), profile);
         assert_eq!(result, 0, "small negative vel should snap to zero");
+    }
+
+    /// ASM loc_B09E (kid.asm:13930): run-held multiplies accel by 1.5.
+    /// `move.l d1,d2; asr.l #1,d2; add.l d2,d1` — d1 = accel + accel/2.
+    #[test]
+    fn loc_b09e_run_held_accel_is_1_5x() {
+        let profile = JUMP_AIR_PROFILES[0]; // Kid: accel=0x2B00
+        let (walk_vel, _) =
+            update_jump_horizontal_velocity(0, Direction::Right, right_walk(), profile);
+        let (run_vel, _) =
+            update_jump_horizontal_velocity(0, Direction::Right, right_run(), profile);
+        // Walk: accel = 0x2B00. Run: 0x2B00 + (0x2B00 >> 1) = 0x2B00 + 0x1580 = 0x4080
+        assert_eq!(walk_vel, 0x2B00);
+        assert_eq!(run_vel, 0x4080);
+        assert_eq!(run_vel, profile.accel + (profile.accel >> 1));
+    }
+
+    /// ASM loc_B0B6 (kid.asm:13941): left-held path — `st x_direction(a3);
+    /// sub.l d1,d0; bpl.s loc_B118` — still-positive result accepted directly.
+    #[test]
+    fn loc_b0b6_left_held_positive_result_accepted() {
+        let profile = JUMP_AIR_PROFILES[0];
+        // Start with large positive vel so subtracting accel stays positive.
+        let start = 0x4_0000;
+        let (vel, dir) =
+            update_jump_horizontal_velocity(start, Direction::Right, left_walk(), profile);
+        assert_eq!(vel, start - profile.accel);
+        assert_eq!(dir, Direction::Left, "st x_direction → face left");
+    }
+
+    /// ASM loc_B0B6 left path — past max speed: `neg.l d2; cmp.l d0,d2;
+    /// ble.s loc_B118` fails → revert: `add.l d1,d0; addi.l #$100,d0`.
+    #[test]
+    fn loc_b0b6_left_past_max_speed_reverts_plus_100() {
+        let profile = JUMP_AIR_PROFILES[0]; // max_speed=0x2A000
+        let start = -(profile.max_speed + 1); // just past negative cap
+        let (vel, _) =
+            update_jump_horizontal_velocity(start, Direction::Left, left_walk(), profile);
+        // next = start - accel, which is < -max_speed → fallback = start + 0x100
+        assert_eq!(vel, start + 0x100);
+    }
+
+    /// ASM loc_B0E2 (kid.asm:13959): right-held, result still negative —
+    /// `add.l d1,d0; bmi.s loc_B118` accepts negative result directly.
+    #[test]
+    fn loc_b0e2_right_held_negative_result_accepted() {
+        let profile = JUMP_AIR_PROFILES[0]; // accel=0x2B00
+        let start = -0x4_0000;
+        let (vel, dir) =
+            update_jump_horizontal_velocity(start, Direction::Right, right_walk(), profile);
+        assert_eq!(vel, start + profile.accel);
+        assert!(vel < 0, "result should still be negative");
+        assert_eq!(dir, Direction::Right, "sf x_direction → face right");
+    }
+
+    /// ASM loc_B0E2 right path — past max speed: `cmp.l d0,d2; bge.s loc_B118`
+    /// fails → revert: `sub.l d1,d0; subi.l #$100,d0`.
+    #[test]
+    fn loc_b0e2_right_past_max_speed_reverts_minus_100() {
+        let profile = JUMP_AIR_PROFILES[0]; // max_speed=0x2A000
+        let start = profile.max_speed + 1; // just past positive cap
+        let (vel, _) =
+            update_jump_horizontal_velocity(start, Direction::Right, right_walk(), profile);
+        assert_eq!(vel, start - 0x100);
+    }
+
+    /// ASM loc_B0FE (kid.asm:13972): no L/R, positive vel — `subi.l #$400,d0;
+    /// bpl.s loc_B118; moveq #0,d0`. Decelerate by $400, clamp to 0.
+    #[test]
+    fn loc_b0fe_no_input_positive_decel_exact() {
+        let profile = JUMP_AIR_PROFILES[0];
+        // Exactly $400: decel to 0
+        let (vel, _) =
+            update_jump_horizontal_velocity(0x400, Direction::Right, no_input(), profile);
+        assert_eq!(vel, 0);
+        // $401: decel to 1 (still positive, bpl taken)
+        let (vel2, _) =
+            update_jump_horizontal_velocity(0x401, Direction::Right, no_input(), profile);
+        assert_eq!(vel2, 1);
+        // $3FF: decel overshoots negative, clamp to 0 (bpl not taken → moveq #0)
+        let (vel3, _) =
+            update_jump_horizontal_velocity(0x3FF, Direction::Right, no_input(), profile);
+        assert_eq!(vel3, 0);
+    }
+
+    /// ASM loc_B10E (kid.asm:13981): no L/R, negative vel — `addi.l #$400,d0;
+    /// bmi.s loc_B118; moveq #0,d0`. Decelerate toward 0, clamp.
+    #[test]
+    fn loc_b10e_no_input_negative_decel_exact() {
+        let profile = JUMP_AIR_PROFILES[0];
+        // Exactly -$400: decel to 0
+        let (vel, _) =
+            update_jump_horizontal_velocity(-0x400, Direction::Left, no_input(), profile);
+        assert_eq!(vel, 0);
+        // -$401: decel to -1 (still negative, bmi taken)
+        let (vel2, _) =
+            update_jump_horizontal_velocity(-0x401, Direction::Left, no_input(), profile);
+        assert_eq!(vel2, -1);
+        // -$3FF: decel overshoots positive, clamp to 0 (bmi not taken → moveq #0)
+        let (vel3, _) =
+            update_jump_horizontal_velocity(-0x3FF, Direction::Left, no_input(), profile);
+        assert_eq!(vel3, 0);
     }
 
     // -- Camera edge nudge (update_camera_axis) --
