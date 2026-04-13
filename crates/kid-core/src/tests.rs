@@ -105,10 +105,13 @@ use crate::level::{
     BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
     DecompressToVramSpecialReturnLoc143B2, EnemyLayoutResetAndSeekInputLoc31F8E,
-    EnemyLayoutResetAndSeekLoc31F8E, FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC,
-    FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC, FLAGPOLE_HOLO_TILEMAP_COLS_LOC_C188,
-    FLAGPOLE_HOLO_TILEMAP_PAD_LOC_C190, FLAGPOLE_HOLO_TILEMAP_ROWS_LOC_C186,
-    FLAGPOLE_PALETTE_BACKUP_COUNT_LOC_C1AA, FgPlaneCustomWriteSub1596,
+    EnemyLayoutResetAndSeekLoc31F8E, FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC,
+    FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC, FLAGPOLE_FADE_STEP_LOC_C1D0,
+    FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC, FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC,
+    FLAGPOLE_HOLO_TILEMAP_COLS_LOC_C188, FLAGPOLE_HOLO_TILEMAP_PAD_LOC_C190,
+    FLAGPOLE_HOLO_TILEMAP_ROWS_LOC_C186, FLAGPOLE_PALETTE_BACKUP_COUNT_LOC_C1AA,
+    FLAGPOLE_SCOREBOARD_BUDGET_PER_FRAME_LOC_C21E, FLAGPOLE_SCREEN_HEIGHT_OFFSET_LOC_C1EE,
+    FLAGPOLE_SCREEN_WIDTH_OFFSET_LOC_C1EE, FgPlaneCustomWriteSub1596,
     FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680,
     FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
     ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
@@ -215,6 +218,7 @@ use crate::level::{
     enemy_layout_status_word_loc_3200A, enemy_layout_status_word_with_negative_sentinel_loc_32036,
     fade_palette_span_sub_1C85E, fg_update_queue_cell_mapping_longwords_loc_165E,
     fg_update_queue_cell_vram_word_loc_1614, fg_update_queue_culled_entry_advance_loc_167A,
+    flagpole_fade_step_loc_C1D0, flagpole_scoreboard_cursor_loc_C1EE,
     flagpole_scoreboard_step_sub_C254, initialise_camera_bootstrap_loc_11F48,
     initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
     initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
@@ -2264,6 +2268,189 @@ fn loc_C1BC_holo_palette_load_matches_asm() {
     assert!(
         end_word <= 64,
         "load must stay within 64-word Palette_Buffer_3"
+    );
+}
+
+/// ASM loc_C1D0 (kid.asm:15765): flagpole hologram fade-out loop body.
+/// `subi.w #$10,($FFFFF876).w; bmi.s loc_C1EE` — subtract $10 from fade
+/// progress each frame; when negative the fade is complete.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1D0_fade_step_decrement_matches_asm() {
+    assert_eq!(
+        FLAGPOLE_FADE_STEP_LOC_C1D0, 0x10,
+        "ASM loc_C1D0: subi.w #$10 per frame"
+    );
+}
+
+/// ASM loc_C1D0: starting from $100 (seeded by loc_C1BC setup), the fade
+/// runs for exactly 17 frames: 16 non-final frames ($100,$F0,...,$10) plus
+/// the final frame where $10 - $10 = $0 is non-negative, then $0 - $10
+/// wraps to $FFF0 which is negative → done.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1D0_fade_loop_frame_count() {
+    let mut progress: u16 = 0x0100;
+    let mut frames = 0u32;
+    loop {
+        let step = flagpole_fade_step_loc_C1D0(progress);
+        frames += 1;
+        if step.done {
+            break;
+        }
+        progress = step.fade_progress;
+    }
+    // $100 / $10 = 16 non-final frames, plus 1 final frame = 17 total
+    assert_eq!(
+        frames, 17,
+        "ASM loc_C1D0: fade from $100 by $10 takes 17 frames"
+    );
+}
+
+/// ASM loc_C1D0: the very last non-final step has progress $10 → $10 - $10
+/// = $0 which is non-negative, so the loop continues one more time.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1D0_fade_step_zero_is_not_done() {
+    let step = flagpole_fade_step_loc_C1D0(0x10);
+    assert!(
+        !step.done,
+        "ASM loc_C1D0: progress $10 - $10 = 0, bmi not taken"
+    );
+    assert_eq!(step.fade_progress, 0x00);
+}
+
+/// ASM loc_C1D0: progress $0 → $0 - $10 = $FFF0 (negative) → done.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1D0_fade_step_underflow_is_done() {
+    let step = flagpole_fade_step_loc_C1D0(0x00);
+    assert!(
+        step.done,
+        "ASM loc_C1D0: progress $0 - $10 wraps negative, bmi taken"
+    );
+    assert_eq!(step.fade_progress, 0xFFF0_u16);
+}
+
+/// ASM loc_C1DC (kid.asm:15770): palette mask values written each
+/// non-final fade frame.
+/// `move.l #$8000FFFF,($FFFFF888).w` and `move.l #$FFFF0000,($FFFFF88C).w`.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1DC_fade_palette_masks_match_asm() {
+    assert_eq!(
+        FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC, 0x8000_FFFF,
+        "ASM loc_C1DC: pending_palette_0 = $8000FFFF"
+    );
+    assert_eq!(
+        FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC, 0xFFFF_0000,
+        "ASM loc_C1DC: pending_palette_1 = $FFFF0000"
+    );
+}
+
+/// ASM loc_C1DC: non-final fade steps reseed both palette masks;
+/// final step (bmi taken) does not refresh them.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1DC_masks_seeded_only_when_not_done() {
+    // Non-final: masks are refreshed
+    let step = flagpole_fade_step_loc_C1D0(0x0100);
+    assert!(!step.done);
+    assert_eq!(
+        step.pending_palette_0_mask,
+        FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC
+    );
+    assert_eq!(
+        step.pending_palette_1_mask,
+        FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC
+    );
+
+    // Final: bmi branches directly to loc_C1EE, masks not rewritten
+    let step = flagpole_fade_step_loc_C1D0(0x00);
+    assert!(step.done);
+    assert_eq!(
+        step.pending_palette_0_mask, 0,
+        "done step should not reseed palette 0 mask"
+    );
+    assert_eq!(
+        step.pending_palette_1_mask, 0,
+        "done step should not reseed palette 1 mask"
+    );
+}
+
+/// ASM loc_C1EE (kid.asm:15776): screen tile bounds for scoreboard reveal.
+/// Camera at (0,0) → 320×224 pixels → tiles (0,0) to (19,13) → col_span=19,
+/// row_span=13. `$13F` = 319, `$DF` = 223.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1EE_screen_offsets_match_asm() {
+    assert_eq!(
+        FLAGPOLE_SCREEN_WIDTH_OFFSET_LOC_C1EE, 0x013F,
+        "ASM loc_C1EE: addi.w #$13F,d2 (319 pixels)"
+    );
+    assert_eq!(
+        FLAGPOLE_SCREEN_HEIGHT_OFFSET_LOC_C1EE, 0x00DF,
+        "ASM loc_C1EE: addi.w #$DF,d3 (223 pixels)"
+    );
+}
+
+/// ASM loc_C1EE: camera at origin → tile bounds 0..19 cols, 0..13 rows.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1EE_cursor_at_origin() {
+    let cursor = flagpole_scoreboard_cursor_loc_C1EE(0, 0);
+    // (0 + $13F) >> 4 = $13F >> 4 = 19; 19 - 0 = 19 columns
+    assert_eq!(cursor.col, 0);
+    assert_eq!(cursor.row, 0);
+    assert_eq!(cursor.remaining_cols_in_row, 19);
+    assert_eq!(cursor.row_width, 19);
+    // (0 + $DF) >> 4 = $DF >> 4 = 13; 13 - 0 = 13 rows
+    assert_eq!(cursor.remaining_rows, 13);
+    assert_eq!(cursor.row_start_col, 0);
+}
+
+/// ASM loc_C1EE: camera at pixel (256, 128) → tiles (16, 8) to (35, 21).
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1EE_cursor_at_offset() {
+    let cursor = flagpole_scoreboard_cursor_loc_C1EE(256, 128);
+    // col_start = 256 >> 4 = 16
+    // col_end = (256 + 319) >> 4 = 575 >> 4 = 35
+    // row_start = 128 >> 4 = 8
+    // row_end = (128 + 223) >> 4 = 351 >> 4 = 21
+    assert_eq!(cursor.col, 16);
+    assert_eq!(cursor.row, 8);
+    assert_eq!(cursor.remaining_cols_in_row, 19, "35 - 16 = 19 columns");
+    assert_eq!(cursor.remaining_rows, 13, "21 - 8 = 13 rows");
+    assert_eq!(cursor.row_start_col, 16);
+}
+
+/// ASM loc_C21E (kid.asm:15794): per-frame tile budget for scoreboard reveal.
+/// `moveq #$C,d7` = 12.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C21E_scoreboard_budget_matches_asm() {
+    assert_eq!(
+        FLAGPOLE_SCOREBOARD_BUDGET_PER_FRAME_LOC_C21E, 0x0C,
+        "ASM loc_C21E: moveq #$C,d7 (budget 12 per frame)"
+    );
+}
+
+/// ASM loc_C228 (kid.asm:15799): inner reveal loop processes tiles until
+/// budget exhausts or all rows are done. With budget=12, empty tiles cost 2
+/// each, so up to 6 empty tiles per frame before budget goes negative.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C228_budget_exhaustion_empty_tiles() {
+    // Empty tile costs budget_delta=2 per sub_C254 step. Starting budget=12,
+    // after 6 tiles: 12 - 6*2 = 0, one more step: 0 - 2 = -2 → exhausted.
+    // So 7 empty tiles exhaust the budget.
+    let budget = FLAGPOLE_SCOREBOARD_BUDGET_PER_FRAME_LOC_C21E;
+    let empty_cost: i16 = 2;
+    let tiles_before_exhaustion = (budget / empty_cost) + 1;
+    assert_eq!(
+        tiles_before_exhaustion, 7,
+        "ASM loc_C228: 7 empty tiles exhaust budget 12 (cost 2 each)"
     );
 }
 

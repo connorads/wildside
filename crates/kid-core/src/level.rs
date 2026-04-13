@@ -424,6 +424,16 @@ pub(crate) struct FlagpoleScoreboardStepSubC254 {
     pub(crate) finished: bool,
 }
 
+/// ASM loc_C1D0 / loc_C1DC (kid.asm:15765): one iteration of the flagpole
+/// hologram fade-out loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FlagpoleFadeStepLocC1D0 {
+    pub(crate) fade_progress: u16,
+    pub(crate) pending_palette_0_mask: u32,
+    pub(crate) pending_palette_1_mask: u32,
+    pub(crate) done: bool,
+}
+
 /// ASM loc_C056 (kid.asm:15646): object field offsets cleared during
 /// `CharacterCollision_TouchFlagpole`.
 ///
@@ -522,6 +532,94 @@ pub(crate) const FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC: u16 = 0x0E; // 15 wo
 /// ASM loc_C1BC: destination byte offset within `Palette_Buffer_3`.
 #[allow(dead_code)]
 pub(crate) const FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC: u16 = 0x42;
+
+/// ASM loc_C1D0 (kid.asm:15765): flagpole hologram fade-out loop body.
+/// ```text
+/// loc_C1D0:
+///   jsr   (j_Hibernate_Object_1Frame).w
+///   subi.w #$10,($FFFFF876).w
+///   bmi.s  loc_C1EE
+/// ```
+/// Each iteration hibernates one frame then decrements the shared fade
+/// progress word by `$10`. When the result goes negative the fade is
+/// complete and control falls through to `loc_C1EE` for the scoreboard
+/// tile-bounds calculation.
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_FADE_STEP_LOC_C1D0: u16 = 0x10;
+
+/// ASM loc_C1DC (kid.asm:15770): flagpole fade palette mask setup.
+/// ```text
+/// loc_C1DC:
+///   move.l #$8000FFFF,($FFFFF888).w
+///   move.l #$FFFF0000,($FFFFF88C).w
+///   bra.s  loc_C1D0
+/// ```
+/// Seeds the two pending palette masks before each fade frame.
+/// `$8000FFFF` covers the first palette half (top bit + lower 16 bits);
+/// `$FFFF0000` covers the second palette half (upper 16 bits).
+/// Entered both as the initial fall-through from `loc_C1BC` setup and
+/// as the loop-back target from `loc_C1D0` while fade progress ≥ 0.
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC: u32 = 0x8000_FFFF;
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC: u32 = 0xFFFF_0000;
+
+/// ASM loc_C1EE (kid.asm:15776): post-fade screen tile bounds for
+/// scoreboard reveal.
+/// ```text
+/// loc_C1EE:
+///   move.w (Camera_X_pos).w,d0
+///   move.w d0,d2
+///   addi.w #$13F,d2          ; d2 = cam_x + 319
+///   move.w (Camera_Y_pos).w,d1
+///   move.w d1,d3
+///   addi.w #$DF,d3           ; d3 = cam_y + 223
+///   lsr.w  #4,d0             ; pixel → tile
+///   lsr.w  #4,d1
+///   lsr.w  #4,d2
+///   lsr.w  #4,d3
+///   sub.w  d0,d2             ; column span
+///   move.w d2,$44(a5)        ; remaining_cols_in_row
+///   move.w d2,$46(a5)        ; row_width (backup)
+///   sub.w  d1,d3             ; row span
+///   move.w d3,$48(a5)        ; remaining_rows
+///   move.w d0,$4A(a5)        ; row_start_col
+/// ```
+/// Converts camera pixel rectangle (320×224) into tile coordinates and
+/// stores the cursor fields that `sub_C254` walks during the reveal.
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_SCREEN_WIDTH_OFFSET_LOC_C1EE: u16 = 0x013F; // 319
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_SCREEN_HEIGHT_OFFSET_LOC_C1EE: u16 = 0x00DF; // 223
+
+/// ASM loc_C21E (kid.asm:15794): scoreboard reveal outer loop (per-frame).
+/// ```text
+/// loc_C21E:
+///   jsr   (j_Hibernate_Object_1Frame).w
+///   move.l (FGUpdateQueueCustom_NextSlot).w,a0
+///   moveq  #$C,d7             ; budget = 12 per frame
+/// ```
+/// Each frame reloads the queue write pointer and resets the per-frame
+/// tile budget to `$C` (12) before entering the inner loop at `loc_C228`.
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_SCOREBOARD_BUDGET_PER_FRAME_LOC_C21E: i16 = 0x0C;
+
+/// ASM loc_C228 (kid.asm:15799): scoreboard reveal inner loop (per-tile).
+/// ```text
+/// loc_C228:
+///   bsr.w  sub_C254
+///   bmi.s  Score_Board        ; remaining_rows < 0 → done
+///   tst.w  d7
+///   bge.s  loc_C228           ; budget ≥ 0 → next tile
+///   move.l a0,(FGUpdateQueueCustom_NextSlot).w
+///   bra.s  loc_C21E           ; next frame
+/// ```
+/// Calls `sub_C254` per tile; the `bmi` tests `$48(a5)` (remaining_rows)
+/// via the N flag set by `sub_C254`'s final `subq.w #1,$48(a5)`.
+/// When budget `d7` exhausts, the queue slot is saved and the next frame
+/// begins at `loc_C21E`.
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_SCOREBOARD_INNER_ENTRY_LOC_C228: u32 = 0xC228;
 
 pub(crate) const SUB_28FC_SLOT_COUNT: usize = 6;
 pub(crate) const SUB_28FC_SLOT_STRIDE_BYTES: usize = 0x52;
@@ -10511,6 +10609,65 @@ pub(crate) fn drain_fg_update_queue_custom_sub_1596(
         });
     }
     writes
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn flagpole_fade_step_loc_C1D0(fade_progress: u16) -> FlagpoleFadeStepLocC1D0 {
+    // ASM loc_C1D0 (kid.asm:15765): subtract $10 from $FFFFF876. If the
+    // result is negative (bmi), the fade is complete and we branch to
+    // loc_C1EE. Otherwise loc_C1DC reseeds both pending palette masks and
+    // loops back.
+    let new_progress = fade_progress.wrapping_sub(FLAGPOLE_FADE_STEP_LOC_C1D0);
+    let done = (new_progress as i16) < 0;
+    FlagpoleFadeStepLocC1D0 {
+        fade_progress: new_progress,
+        // ASM loc_C1DC (kid.asm:15770): palette masks written each non-final
+        // frame. When done (bmi taken), the masks are NOT refreshed — the ROM
+        // branches directly to loc_C1EE.
+        pending_palette_0_mask: if done {
+            0
+        } else {
+            FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC
+        },
+        pending_palette_1_mask: if done {
+            0
+        } else {
+            FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC
+        },
+        done,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn flagpole_scoreboard_cursor_loc_C1EE(
+    camera_x: u16,
+    camera_y: u16,
+) -> FlagpoleScoreboardCursorSubC254 {
+    // ASM loc_C1EE (kid.asm:15776): convert camera pixel rectangle into
+    // tile coordinates for the scoreboard reveal walk.
+    let col_start = camera_x >> 4;
+    let col_end = (camera_x.wrapping_add(FLAGPOLE_SCREEN_WIDTH_OFFSET_LOC_C1EE)) >> 4;
+    let row_start = camera_y >> 4;
+    let row_end = (camera_y.wrapping_add(FLAGPOLE_SCREEN_HEIGHT_OFFSET_LOC_C1EE)) >> 4;
+
+    let col_span = col_end.wrapping_sub(col_start);
+    let row_span = row_end.wrapping_sub(row_start);
+
+    // $44(a5) = remaining_cols_in_row = col_span
+    // $46(a5) = row_width (backup)    = col_span
+    // $48(a5) = remaining_rows        = row_span
+    // $4A(a5) = row_start_col         = col_start
+    FlagpoleScoreboardCursorSubC254 {
+        col: col_start,
+        row: row_start,
+        remaining_cols_in_row: col_span as i16,
+        row_width: col_span as i16,
+        remaining_rows: row_span as i16,
+        row_start_col: col_start,
+        budget: FLAGPOLE_SCOREBOARD_BUDGET_PER_FRAME_LOC_C21E,
+    }
 }
 
 #[allow(non_snake_case)]
