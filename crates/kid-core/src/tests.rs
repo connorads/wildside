@@ -121,7 +121,9 @@ use crate::level::{
     LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, ManageEnemyLoadingCountDownActiveLoc3685E,
     ManageEnemyLoadingSpawnObjectLoc3691E, ManageEnemyLoadingStatusBranchLoc36840,
     PaletteFadeOutInitLoc28A6, PaletteFadeOutStepLoc28C6, PostLoadObjectRoutineLoc11F96,
-    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
+    RotatePaletteLavaWaterDelayLoc1223A, SCOREBOARD_DIGIT_CLEAR_BASES_LOC_C2F4,
+    SCOREBOARD_DIGIT_CLEAR_HIBERNATE_FRAMES_LOC_C2F4, SCOREBOARD_DIGIT_CLEAR_ROW_COUNT_LOC_C2F4,
+    SCOREBOARD_DIGIT_CLEAR_STEP_COUNT_LOC_C2F2, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
     ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
     SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
     SpriteFrameStateSubB52, TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056,
@@ -130,7 +132,7 @@ use crate::level::{
     TransferScrollDataDmaTailLoc300D2, TransferScrollDataPreludeLoc3038A,
     TransferScrollDataRendererLoc3039C, TransferScrollDataStormLoc30110,
     TransferScrollDataStormLoopLoc30130, TransferScrollDataStormLoopLoc30172,
-    TransferScrollDataStormSetupLoc30158, TransferScrollDataVsramSetupLoc300BA,
+    TransferScrollDataStormSetupLoc30158, TransferScrollDataVsramSetupLoc300BA, VdpVramWriteCmd,
     apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
     apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
     apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
@@ -233,19 +235,19 @@ use crate::level::{
     prepare_background_art_decompress_loc_11EA2,
     prepare_followup_background_art_decompress_loc_11EF2,
     prepare_foreground_art_decompress_loc_11E60, prepare_mountain_background_art_loc_11EC4,
-    reset_fg_update_queues_loc_1680, scratch_debris_pieces_sub_292E,
-    select_background_art_permutation_loc_11E8A, select_background_art_permutation_loc_11E96,
-    select_foreground_art_permutation_loc_11E48, select_foreground_art_permutation_loc_11E54,
-    shared_vram_art_decompresses_loc_11EFA, should_process_fg_update_queue_cell_loc_15D2,
-    spawn_block_debris_loc_2928, spawn_block_debris_sub_292E,
-    step_fullscreen_palette_fade_sub_73D0, step_island_palette_cycle_lower_band_loc_12188,
-    step_island_palette_cycle_mid_band_loc_12110, step_island_palette_cycle_primary_band_loc_12098,
-    step_palette_fade_out_loc_28C6, swap_forest_background_palette_entries_sub_129AE,
-    terrain_layout_row_pointers_loc_11B40, transfer_scroll_data_dispatch_loc_3039C,
-    transfer_scroll_data_dma_tail_loc_300D2, transfer_scroll_data_prelude_loc_3038A,
-    transfer_scroll_data_storm_loc_30110, transfer_scroll_data_storm_loop_loc_30130,
-    transfer_scroll_data_storm_loop_loc_30172, transfer_scroll_data_storm_setup_loc_30158,
-    transfer_scroll_data_vsram_setup_loc_300BA,
+    reset_fg_update_queues_loc_1680, scoreboard_digit_vdp_clear_sub_C346,
+    scratch_debris_pieces_sub_292E, select_background_art_permutation_loc_11E8A,
+    select_background_art_permutation_loc_11E96, select_foreground_art_permutation_loc_11E48,
+    select_foreground_art_permutation_loc_11E54, shared_vram_art_decompresses_loc_11EFA,
+    should_process_fg_update_queue_cell_loc_15D2, spawn_block_debris_loc_2928,
+    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
+    step_island_palette_cycle_lower_band_loc_12188, step_island_palette_cycle_mid_band_loc_12110,
+    step_island_palette_cycle_primary_band_loc_12098, step_palette_fade_out_loc_28C6,
+    swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
+    transfer_scroll_data_dispatch_loc_3039C, transfer_scroll_data_dma_tail_loc_300D2,
+    transfer_scroll_data_prelude_loc_3038A, transfer_scroll_data_storm_loc_30110,
+    transfer_scroll_data_storm_loop_loc_30130, transfer_scroll_data_storm_loop_loc_30172,
+    transfer_scroll_data_storm_setup_loc_30158, transfer_scroll_data_vsram_setup_loc_300BA,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -2533,6 +2535,8 @@ fn loc_C10A_completion_time_exactly_255_not_clamped() {
 }
 
 #[test]
+/// ASM sub_C254 → bit-15 block path (before loc_C288): selects `unk_C2EA`,
+/// subtracts 6, advances column.
 fn sub_c254_uses_the_block_tile_pair_and_advances_within_the_row() {
     let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
     grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0xE1, 0x00));
@@ -2574,6 +2578,8 @@ fn sub_c254_uses_the_block_tile_pair_and_advances_within_the_row() {
 }
 
 #[test]
+/// ASM loc_C288 (kid.asm:15844): non-block path loads `unk_C2C2`, tests bit 14.
+/// No bit 14 → `subq.w #2,d7; bra.s loc_C2A4` — empty tile, budget_delta=2.
 fn sub_c254_uses_the_empty_tile_pair_for_non_bit14_cells() {
     let grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
 
@@ -2614,6 +2620,9 @@ fn sub_c254_uses_the_empty_tile_pair_for_non_bit14_cells() {
 }
 
 #[test]
+/// ASM loc_C296 (kid.asm:15852): bit 14 set → `andi.w #$3000,d3; rol.w #7,d3`
+/// picks collision variant from `unk_C2CA`. loc_C2A4 (kid.asm:15859): common
+/// tail copies 8 bytes, wraps to next row when `$44(a5)` underflows.
 fn sub_c254_uses_the_collision_table_and_wraps_to_the_next_row() {
     let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
     grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x70, 0x00));
@@ -2651,6 +2660,99 @@ fn sub_c254_uses_the_collision_table_and_wraps_to_the_next_row() {
             finished: true,
         },
         "ASM sub_C254 should use the final `unk_C2CA` pair for `$7000` spike tiles, then wrap to `$4A(a5)` / next row when `$44(a5)` underflows and report a negative post-step budget",
+    );
+}
+
+/// ASM loc_C2F2 (kid.asm:15925): digit-clear animation constants — 8 steps,
+/// 4-frame hibernate, 3 digit groups.
+#[test]
+fn loc_c2f2_digit_clear_animation_has_correct_loop_parameters() {
+    assert_eq!(
+        SCOREBOARD_DIGIT_CLEAR_STEP_COUNT_LOC_C2F2, 8,
+        "ASM loc_C2F2: `cmpi.w #8,d0; bne.s loc_C2F4` → 8 iterations"
+    );
+    assert_eq!(
+        SCOREBOARD_DIGIT_CLEAR_HIBERNATE_FRAMES_LOC_C2F4, 4,
+        "ASM loc_C2F4: `move.w #4,-(sp); jsr (j_Hibernate_Object).w` → 4-frame delay"
+    );
+    assert_eq!(
+        SCOREBOARD_DIGIT_CLEAR_BASES_LOC_C2F4,
+        [0x02FB, 0x0409, 0x0517],
+        "ASM loc_C2F4: three `bsr.s sub_C346` calls with d1=$2FB, $409, $517"
+    );
+    assert_eq!(
+        SCOREBOARD_DIGIT_CLEAR_ROW_COUNT_LOC_C2F4, 0x010E,
+        "ASM loc_C2F4: all three calls pass d2=$10E (270 rows)"
+    );
+}
+
+/// ASM sub_C346 (kid.asm:15963): VRAM-clear for first digit group at step 0.
+/// `d1 = ($2FB << 3 + 0) << 2 = $5F60`. First VDP cmd: addr=$5F60, CD bits
+/// from `rol.w #2` → `($5F60 & $3FFF) | $4000 = $5F60`, CD = `($5F60 >> 14) & 3 = 1`.
+#[test]
+fn sub_c346_first_digit_group_step_0_produces_correct_first_vdp_cmd() {
+    let cmds = scoreboard_digit_vdp_clear_sub_C346(0x02FB, 0, 0x010E);
+    assert_eq!(cmds.len(), 0x010E, "dbf loops d2 times after subq.w #1");
+    // First address: ($2FB * 8 + 0) * 4 = $17D8 * 4 = $5F60
+    // But $5F60 as u16 = 0x5F60
+    // CD bits: rotate_left(0x5F60, 2) & 3 = 0x7D81 & 3 = 1
+    // addr_field: (0x5F60 & 0x3FFF) | 0x4000 = 0x5F60
+    // control: 0x5F60_0001
+    assert_eq!(
+        cmds[0],
+        VdpVramWriteCmd {
+            control: 0x5F60_0001,
+            data: 0,
+        },
+        "ASM sub_C346 loc_C34E: first write for base=$2FB, step=0"
+    );
+    // Second address: $5F60 + $20 = $5F80
+    // CD bits: rotate_left(0x5F80, 2) & 3 = 0x7E01 & 3 = 1
+    // addr_field: (0x5F80 & 0x3FFF) | 0x4000 = 0x5F80
+    assert_eq!(
+        cmds[1],
+        VdpVramWriteCmd {
+            control: 0x5F80_0001,
+            data: 0,
+        },
+        "ASM sub_C346 loc_C34E: second write advances by $20"
+    );
+}
+
+/// ASM sub_C346: step 7 offsets the start address by 7 tile patterns.
+/// `d1 = ($2FB << 3 + 7) << 2 = ($17D8 + 7) << 2 = $17DF << 2 = $5F7C`.
+#[test]
+fn sub_c346_step_7_shifts_start_address() {
+    let cmds = scoreboard_digit_vdp_clear_sub_C346(0x02FB, 7, 1);
+    // ($2FB * 8 + 7) * 4 = ($17D8 + 7) * 4 = $17DF * 4 = $5F7C
+    // CD bits: rotate_left(0x5F7C, 2) & 3 = 0x7DF1 & 3 = 1
+    // addr_field: (0x5F7C & 0x3FFF) | 0x4000 = 0x5F7C
+    assert_eq!(
+        cmds[0],
+        VdpVramWriteCmd {
+            control: 0x5F7C_0001,
+            data: 0,
+        },
+        "ASM sub_C346: d0=7 shifts VRAM start by 7*4=28 bytes"
+    );
+}
+
+/// ASM sub_C346: CD bits change when address crosses a $4000 boundary.
+/// Third digit group base=$517: `($517 << 3 + 0) << 2 = $A2E0 (wraps u16)`.
+#[test]
+fn sub_c346_third_digit_group_cd_bits_reflect_upper_address() {
+    let cmds = scoreboard_digit_vdp_clear_sub_C346(0x0517, 0, 1);
+    // ($517 * 8) * 4 = $28B8 * 4 = $A2E0, but as u16 wrapping: $A2E0
+    // CD bits: rotate_left(0xA2E0, 2) & 3 = 0x8B82 & 3 = 2
+    // addr_field: (0xA2E0 & 0x3FFF) | 0x4000 = 0x62E0
+    // control: 0x62E0_0002
+    assert_eq!(
+        cmds[0],
+        VdpVramWriteCmd {
+            control: 0x62E0_0002,
+            data: 0,
+        },
+        "ASM sub_C346: base=$517 → CD=2 because address bit 15 is set"
     );
 }
 
