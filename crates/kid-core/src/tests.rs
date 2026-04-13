@@ -1773,6 +1773,64 @@ fn sub_bd0a_leaves_the_existing_layout_untouched_while_the_timer_is_frozen() {
     );
 }
 
+/// ASM loc_BD40 (kid.asm:15307): when `track_kid=true` and timer is not frozen,
+/// computes screen-relative position for the two seconds-digit sprites.
+/// d5 = kid_x - Camera_X + $80, d6 = kid_y - Camera_Y - $2C + $80.
+/// Minutes and separator hidden at x=1.  Seconds-tens at (d5-7, d6),
+/// seconds-ones at (d5+1, d6).  Uses unk_BD8A offsets [-7, +1].
+#[test]
+fn loc_bd40_kid_tracking_screen_relative_seconds_digits() {
+    // Kid at (0x0200, 0x0100), camera at (0x0180, 0x0080).
+    // Screen x = 0x200 - 0x180 + 0x80 = 0x100.
+    // Screen y = 0x100 - 0x80 - 0x2C + 0x80 = 0xD4.
+    let seeded = HudTimerSpriteLayoutSubBD0A {
+        minutes: HudTimerSpritePositionSubBD0A {
+            y_pos: 0x0090,
+            x_pos: 0x0090,
+        },
+        separator: HudTimerSpritePositionSubBD0A {
+            y_pos: 0x0090,
+            x_pos: 0x0098,
+        },
+        seconds_tens: HudTimerSpritePositionSubBD0A {
+            y_pos: 0x0090,
+            x_pos: 0x009D,
+        },
+        seconds_ones: HudTimerSpritePositionSubBD0A {
+            y_pos: 0x0090,
+            x_pos: 0x00A5,
+        },
+    };
+
+    let layout =
+        hud_timer_sprite_layout_sub_BD0A(seeded, true, false, 0x0200, 0x0100, 0x0180, 0x0080);
+
+    // loc_BD40: minutes and separator hidden at x=1, y preserved from seed.
+    assert_eq!(layout.minutes.x_pos, 1, "loc_BD40: minutes hidden at x=1");
+    assert_eq!(
+        layout.separator.x_pos, 1,
+        "loc_BD40: separator hidden at x=1"
+    );
+    // Seconds-tens: x = 0x100 - 7 = 0xF9, y = 0xD4.
+    assert_eq!(
+        layout.seconds_tens,
+        HudTimerSpritePositionSubBD0A {
+            y_pos: 0x00D4,
+            x_pos: 0x00F9,
+        },
+        "loc_BD40: seconds-tens at kid_screen_x + unk_BD8A[-7]"
+    );
+    // Seconds-ones: x = 0x100 + 1 = 0x101, y = 0xD4.
+    assert_eq!(
+        layout.seconds_ones,
+        HudTimerSpritePositionSubBD0A {
+            y_pos: 0x00D4,
+            x_pos: 0x0101,
+        },
+        "loc_BD40: seconds-ones at kid_screen_x + unk_BD8A[+1]"
+    );
+}
+
 #[test]
 fn sub_c254_uses_the_block_tile_pair_and_advances_within_the_row() {
     let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);

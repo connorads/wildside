@@ -430,10 +430,17 @@ pub(crate) fn hud_timer_sprite_layout_sub_BD0A(
         };
     }
 
+    // ASM loc_BD38 (kid.asm:15301): `tst.b ($FFFFFB4B).w; beq.s loc_BD40; rts`
+    // — if the timer-frozen flag is set, return the layout unchanged.
     if timer_frozen {
         return layout;
     }
 
+    // ASM loc_BD40 (kid.asm:15307): Kid-tracking timer sprite positioning.
+    // `move.l (Addr_GfxObject_Kid).w,a2; move.w $1A(a2),d5; sub.w (Camera_X_pos).w,d5;
+    //  addi.w #$80,d5` → screen-x.  Same for y with `$1E(a2)`, Camera_Y_pos, `subi.w #$2C`,
+    //  `addi.w #$80`.  Hides minute/separator at x=1, pins seconds digits at
+    //  `kid_screen_x + unk_BD8A[-7, +1]`.
     let kid_screen_x = kid_x_pos.wrapping_sub(camera_x_pos).wrapping_add(0x0080);
     let kid_screen_y = kid_y_pos
         .wrapping_sub(camera_y_pos)
