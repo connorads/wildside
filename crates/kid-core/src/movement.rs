@@ -2339,6 +2339,52 @@ impl OpeningSliceState {
                 // loc_A912 (landed transition), negative (bmi) → ceiling hit,
                 // clear combat flags, skip to loc_A762 (wall check).
                 //
+                // loc_A912 (kid.asm:13211): landed transition dispatch —
+                //   clr.b $FA69, compare Current_Helmet (d7) loaded at
+                //   loc_A7B4 (kid.asm:13096).
+                //   d7 < 2 (TheKid/Skycutter): $FA6A (on-board) set →
+                //     sub_BB54 (block break + clr y_vel) + loc_A762;
+                //     $FA6A clear → loc_A94E (normal landing).
+                //   d7 ≥ 2 → loc_A92E.
+                //
+                // loc_A92E (kid.asm:13221): d7 ≥ 2 helmet landing gate —
+                //   d7 == 2 (Cyclone): $FA6A set → loc_A762 (exit);
+                //     $FA6A clear → sub_BB54 + loc_A762.
+                //   d7 > 2 → loc_A942.
+                //
+                // loc_A942 (kid.asm:13229): helmets 3+ (Red Stealth through
+                //   Micromax) on jump-loop floor contact: `move.w #4,
+                //   collision_type(a3); bra.w loc_A6F8` — set collision_type=4
+                //   and loop back to jump-loop top (stay airborne). The
+                //   collision_type=4 is consumed by j_GfxObjects_Collision on
+                //   the next iteration. Native: apply_floor_collision handles
+                //   landing uniformly; the per-helmet collision_type gate is
+                //   not modelled (advisory only).
+                //
+                // loc_A94E (kid.asm:13236): normal landing sequence for
+                //   TheKid/Skycutter (not on board) — sub_B000 (Red Stealth
+                //   floor impact), sub_AF7A (Iron Knight floor break),
+                //   sub_DB22 (clear special movement state), bclr Button_B +
+                //   Button_C. If Iron_Knight: play sfx_Jump_on_enemy.
+                //   Falls through to loc_A984.
+                //
+                // loc_A984 (kid.asm:13251): post-landing velocity dispatch —
+                //   Skycutter or x_vel ≠ 0 → loc_A99E (enter walking);
+                //   else sub_78E8 + loc_75D4 (standing still).
+                //
+                // loc_A99E (kid.asm:13260): landing→walking entry — `move.l
+                //   x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0`. Native:
+                //   on_ground=true with nonzero x_vel enters the walking
+                //   branch on the next frame; sub_942A animation dispatch is
+                //   visual-only (covered by refresh_grounded_helmet_state).
+                //
+                // Native architecture: apply_floor_collision sets on_ground
+                // for all helmets uniformly. The ASM's per-helmet dispatch
+                // (loc_A912/loc_A92E/loc_A942) and the explicit sub_DB22 +
+                // sub_78E8 calls at landing (loc_A94E/loc_A984) are folded
+                // into the grounded-frame path: sub_AF7A runs at lib.rs
+                // post-physics, sub_78E8 runs every grounded frame.
+                //
                 // Step 3: sub_902A — apply y_pos += y_vel, then floor/ceiling collision.
                 // ASM runs sub_902A (vertical) before sub_8F26 (horizontal), so floor
                 // probes see old x_pos. This is critical at ledge edges: with old x_pos

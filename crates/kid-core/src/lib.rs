@@ -2025,6 +2025,9 @@ impl NativeRuntime {
                 self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
             }
             // ASM sub_AF7A: IronKnight breaks floor blocks on landing.
+            // Called from loc_A94E (kid.asm:13239) in the jump-loop landing
+            // sequence: `bsr.w sub_AF7A; bne.w loc_A762`. Runs after
+            // sub_B000 (Red Stealth floor impact) and before sub_DB22.
             // Checks after physics so we know the player just touched a floor cell.
             if self.progression.current_form == PlayerForm::IronKnight
                 && slice.player.on_ground

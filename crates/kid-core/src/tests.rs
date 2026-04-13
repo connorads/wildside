@@ -82393,3 +82393,147 @@ fn loc_A830_cyclone_c_press_rejected_when_already_flying() {
         "loc_A830: should remain flying (flag not toggled off)"
     );
 }
+
+/// ASM loc_A912 (kid.asm:13211) → loc_A94E (kid.asm:13236) → loc_A984
+/// (kid.asm:13251) → loc_A99E (kid.asm:13260): jump-loop landing dispatch.
+///
+/// When TheKid (d7=0) lands on floor with nonzero x_vel and $FA6A=0 (not on
+/// Skycutter board), the ASM path is: loc_A912 → (d7<2) → loc_A94E →
+/// sub_B000 (NE=no Red Stealth) → sub_AF7A (NE=no IK floor break) →
+/// sub_DB22 → clear B+C → (not Iron Knight) → loc_A984 → (x_vel≠0) →
+/// loc_A99E: `move.l x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0` — enter
+/// walking with preserved x_vel.
+///
+/// Native: apply_floor_collision sets on_ground=true and zeroes y_vel on
+/// landing. x_vel is preserved, entering the walking branch next frame.
+#[test]
+fn loc_a94e_through_loc_a99e_landing_preserves_x_vel_enters_walking() {
+    let mut slice = OpeningSliceState::respawn(LevelBounds {
+        width_pixels: 320,
+        height_pixels: 224,
+    });
+    let mut grid = grid_with_floor_at_row(14);
+    // Place Kid 1px above the floor surface (row 14 = y 224, contact at 223).
+    slice.player.x_pos = 0x0050_0000;
+    slice.player.y_pos = 0x00DE_0000; // y=222, just above row-14 floor (223)
+    slice.player.x_velocity = 0x0001_8000; // 1.5 px/frame rightward
+    slice.player.y_velocity = 0x0002_0000; // descending
+    slice.player.on_ground = false;
+
+    let x_vel_before = slice.player.x_velocity;
+
+    slice.step(
+        FrameInput {
+            right: true,
+            ..FrameInput::default()
+        },
+        false,
+        PlayerForm::TheKid,
+        Some(&mut grid),
+        None,
+        false,
+        0,
+    );
+
+    // loc_A94E path: Kid should have landed.
+    assert!(
+        slice.player.on_ground,
+        "loc_A94E: descending Kid near floor should land (on_ground=true)",
+    );
+    // loc_A984/loc_A99E: x_vel preserved for walking entry.
+    assert!(
+        slice.player.x_velocity != 0,
+        "loc_A99E: x_vel should be preserved on landing for walking dispatch (was {x_vel_before:#X}, now {:#X})",
+        slice.player.x_velocity,
+    );
+    // y_vel zeroed on landing (sub_902A clr.l y_vel path).
+    assert_eq!(
+        slice.player.y_velocity, 0,
+        "loc_A94E: y_vel should be zeroed on landing",
+    );
+}
+
+/// ASM loc_A984 (kid.asm:13251): when x_vel == 0 and helmet is not
+/// Skycutter, the landing dispatch takes the standing-still path:
+/// `bsr.w sub_78E8; bra.w loc_75D4`.
+///
+/// Native: on_ground=true with zero x_vel — the grounded frame runs
+/// refresh_grounded_helmet_state_sub_78E8 and stays in standing-still.
+#[test]
+fn loc_a984_zero_x_vel_landing_enters_standing_still() {
+    let mut slice = OpeningSliceState::respawn(LevelBounds {
+        width_pixels: 320,
+        height_pixels: 224,
+    });
+    let mut grid = grid_with_floor_at_row(14);
+    slice.player.x_pos = 0x0050_0000;
+    slice.player.y_pos = 0x00DE_0000;
+    slice.player.x_velocity = 0; // zero horizontal — standing path
+    slice.player.y_velocity = 0x0002_0000; // descending
+    slice.player.on_ground = false;
+
+    slice.step(
+        FrameInput::default(),
+        false,
+        PlayerForm::TheKid,
+        Some(&mut grid),
+        None,
+        false,
+        0,
+    );
+
+    assert!(slice.player.on_ground, "loc_A984: Kid should land on floor",);
+    assert_eq!(
+        slice.player.x_velocity, 0,
+        "loc_A984: x_vel should remain zero (standing-still path via sub_78E8 + loc_75D4)",
+    );
+    assert_eq!(
+        slice.player.y_velocity, 0,
+        "loc_A984: y_vel zeroed on landing",
+    );
+}
+
+/// ASM loc_A92E (kid.asm:13221) → loc_A942 (kid.asm:13229): helmets 3+
+/// (d7 > 2) on jump-loop floor contact set `collision_type=4` and branch
+/// back to loc_A6F8 (stay airborne one more iteration). The collision_type
+/// is consumed by j_GfxObjects_Collision on the next loop pass.
+///
+/// Native: apply_floor_collision does not distinguish per-helmet; all
+/// helmets that contact a floor surface transition to on_ground=true.
+/// The ASM's collision_type=4 gate for helmets 3+ is advisory only —
+/// this test documents the difference.
+#[test]
+fn loc_a92e_loc_a942_helmets_3_plus_land_uniformly_in_native() {
+    // In the ASM, Red Stealth (d7=3) would set collision_type=4 and stay
+    // airborne via loc_A942. Native lands all helmets the same way.
+    let mut slice = OpeningSliceState::respawn(LevelBounds {
+        width_pixels: 320,
+        height_pixels: 224,
+    });
+    let mut grid = grid_with_floor_at_row(14);
+    slice.player.x_pos = 0x0050_0000;
+    slice.player.y_pos = 0x00DE_0000;
+    slice.player.x_velocity = 0x0001_0000;
+    slice.player.y_velocity = 0x0002_0000;
+    slice.player.on_ground = false;
+
+    slice.step(
+        FrameInput {
+            right: true,
+            ..FrameInput::default()
+        },
+        false,
+        PlayerForm::RedStealth,
+        Some(&mut grid),
+        None,
+        false,
+        0,
+    );
+
+    // Native: Red Stealth lands like any other helmet.
+    // ASM: loc_A92E → loc_A942 would set collision_type=4 and loop.
+    assert!(
+        slice.player.on_ground,
+        "loc_A942: native lands Red Stealth uniformly (ASM would set collision_type=4)",
+    );
+}
