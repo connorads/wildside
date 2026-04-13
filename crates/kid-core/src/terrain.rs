@@ -2012,8 +2012,26 @@ pub fn vertical_collision_scan_up_sub_36CB8(
 
 /// Check for a ceiling above the player's hitbox.
 ///
-/// Probes both horizontal edges at the top of the hitbox.
-/// Only `Solid` cells count as ceilings.
+/// ASM sub_914A (kid.asm:10559): scans ALL tiles across the player's width
+/// at the ceiling row. The loop at loc_9188 reads each tile word, extracts
+/// collision bits (`andi.w #$7000,d7`), and branches on:
+///   - `$6000` (Solid) → loc_91AC hit handler
+///   - `$7000` (Spikes) → loc_91A6 (`move.w #colid_kidbelow,collision_type`)
+///     then falls through to loc_91AC
+///
+/// loc_919E (`dbf d5,loc_9188`) continues the loop; on exhaustion, falls
+/// through to loc_9204 which evaluates the hit/Rubber flags.
+///
+/// loc_91AC sets the hit flag (`st 1(sp)`) and records the first-hit tile
+/// address in `$FFFFFB6C`. It then checks for Rubber blocks at loc_91C0
+/// (`andi.w #$F00; asr.w #6; cmpi.w #$18` = block_type 6) and dispatches
+/// the rubber jiggle effect via `j_loc_10DA4`, setting the Rubber flag
+/// (`_st 0(sp)`) so sub_914A returns d7=-1 (bounce) instead of d7=1 (stop).
+///
+/// Native simplification: probes only the two horizontal edges (not the
+/// full tile span), checks `Solid | HiddenBlock` (not Spikes), and returns
+/// on the first hit. The full-width scan and Spikes detection are
+/// TODO(fidelity).
 pub fn probe_ceiling(
     grid: &BlockGrid,
     center_x_px: i32,

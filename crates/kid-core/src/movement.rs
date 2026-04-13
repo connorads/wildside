@@ -3893,9 +3893,13 @@ impl OpeningSliceState {
                         self.shooter_block_hit = Some((probe.cell_x, probe.cell_y));
                     }
                     terrain::BlockType::Rubber => {
-                        // ASM sub_902A -> sub_914A -> loc_91F6/loc_10DA4:
-                        // ceiling contact with rubber also spawns the jiggle
-                        // effect without deleting the block.
+                        // ASM loc_91AC/loc_91C0 (kid.asm:10599/10607):
+                        // sub_914A hit handler checks for Rubber blocks —
+                        // `andi.w #$F00,d7; asr.w #6,d7; cmpi.w #$18,d7`
+                        // (block_type 6 * 4 = $18). On match, sets Rubber
+                        // flag `_st 0(sp)` and calls `j_loc_10DA4` to spawn
+                        // the jiggle effect. sub_914A then returns d7=-1
+                        // so sub_902A bounces via loc_9130.
                         self.rubber_block_hit = Some((probe.cell_x, probe.cell_y));
                     }
                     _ => {}

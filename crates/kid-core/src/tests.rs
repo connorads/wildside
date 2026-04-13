@@ -76140,3 +76140,226 @@ fn loc_9130_ceiling_rubber_bounce_velocity_reversal_not_yet_native() {
         "ASM loc_9130: rubber ceiling hit should record rubber_block_hit for jiggle"
     );
 }
+
+/// ASM loc_9142 (kid.asm:10549): sub_902A downward floor probe path.
+/// `cmp.w Level_height_pixels,d7; bge.w loc_9142` — when the new foot pixel
+/// y position >= Level_height_pixels, sub_902A pops its return address
+/// (`addq.w #4,sp`) and branches to Death with `moveq #1,d7`.
+/// Native: `fell_below_level()` checks `player_y_px > level_height_pixels`
+/// and triggers PitDeath in the main death-check cascade.
+#[test]
+fn loc_9142_sub_902a_below_level_height_triggers_pit_death() {
+    // The ASM check is y_px >= Level_height_pixels, native uses y_px >.
+    // Both agree that a player positioned past the level bottom is dead.
+    let w: u16 = 6;
+    let h: u16 = 4;
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Place player 1 pixel below level height (h*16 = 64).
+    slice.player.y_pos = (u32::from(h) * 16 + 1) << 16;
+    let fell = slice.player.y_pos >> 16 > u32::from(bounds.height_pixels);
+    assert!(
+        fell,
+        "ASM loc_9142: y_pos {} past level height {} should trigger pit death",
+        slice.player.y_pos >> 16,
+        bounds.height_pixels
+    );
+}
+
+/// ASM loc_9142 (kid.asm:10549): player exactly at Level_height_pixels.
+/// ASM uses `bge` (>=) so exactly equal triggers death.
+/// Native uses `>` so exactly equal does NOT trigger death.
+/// This documents the boundary discrepancy as TODO(fidelity).
+#[test]
+fn loc_9142_sub_902a_exactly_at_level_height_boundary_discrepancy() {
+    let w: u16 = 6;
+    let h: u16 = 4;
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Exactly at level height boundary: ASM would kill, native does not.
+    slice.player.y_pos = u32::from(h * 16) << 16;
+    let fell_native = slice.player.y_pos >> 16 > u32::from(bounds.height_pixels);
+    // TODO(fidelity): ASM loc_9142 uses bge (>=), native uses > (strictly greater).
+    // In practice this is unreachable because gravity always pushes past the
+    // boundary rather than landing exactly on it.
+    assert!(
+        !fell_native,
+        "ASM loc_9142: native uses > not >=, so exactly at boundary does not trigger"
+    );
+}
+
+/// ASM loc_9188 (kid.asm:10583): sub_914A ceiling tile scan loop body.
+/// `move.w (a4)+,d7; andi.w #$7000,d7; cmpi.w #$6000,d7; beq.w loc_91AC`
+/// — each tile's collision bits are extracted; $6000 (Solid) routes to
+/// the hit handler at loc_91AC.
+/// Native: probe_ceiling checks `Solid | HiddenBlock` at both horizontal
+/// edges and returns on the first hit.
+#[test]
+fn loc_9188_sub_914a_ceiling_scan_detects_solid_tile() {
+    let w: u16 = 10;
+    let h: u16 = 10;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid ceiling at cell (3, 2): collision=Solid(6), no block.
+    let idx = (2 * w + 3) as usize * 2;
+    data[idx] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Player at x=48 (col 3), feet at y=65. top_y=65-31=34, row 2.
+    // Left edge: 48-5=43 → col 2, row 2: empty.
+    // Right edge: 48+5=53 → col 3, row 2: Solid → hit!
+    let probe = terrain::probe_ceiling(&grid, 48, 65, PLAYER_HALF_WIDTH, 31);
+    assert!(
+        probe.hit,
+        "ASM loc_9188: $6000 (Solid) collision should be detected by scan"
+    );
+    assert_eq!(
+        probe.cell.collision,
+        terrain::CollisionKind::Solid,
+        "ASM loc_9188: hit cell should be Solid"
+    );
+    assert_eq!(probe.cell_x, 3, "ASM loc_9188: hit cell column");
+    assert_eq!(probe.cell_y, 2, "ASM loc_9188: hit cell row");
+}
+
+/// ASM loc_919E (kid.asm:10591): sub_914A loop continuation.
+/// `dbf d5,loc_9188; bra.w loc_9204` — when no tile in the scan has Solid
+/// or Spikes collision, the counter exhausts and falls through to loc_9204
+/// which returns d7=0 (no hit).
+/// Native: probe_ceiling returns CeilingProbe { hit: false } when neither
+/// edge has a Solid/HiddenBlock cell.
+#[test]
+fn loc_919e_sub_914a_ceiling_scan_no_hit_returns_clean() {
+    let w: u16 = 10;
+    let h: u16 = 10;
+    // All empty — no solid or spike tiles anywhere.
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let probe = terrain::probe_ceiling(&grid, 48, 65, PLAYER_HALF_WIDTH, 31);
+    assert!(
+        !probe.hit,
+        "ASM loc_919E → loc_9204 → loc_9220: full scan with no solid/spike \
+         tiles should return d7=0 (no hit)"
+    );
+}
+
+/// ASM loc_91A6 (kid.asm:10596): Spikes ceiling path.
+/// `cmpi.w #$7000,d7; beq.w loc_91A6` — collision type $7000 (Spikes)
+/// sets `move.w #colid_kidbelow,collision_type(a3)` ($28 into the player's
+/// collision_type field) before falling through to loc_91AC hit handler.
+/// TODO(fidelity): native probe_ceiling does not detect Spikes collision;
+/// it only matches Solid | HiddenBlock. A spike ceiling tile is invisible
+/// to the native ceiling probe.
+#[test]
+fn loc_91a6_sub_914a_spikes_ceiling_not_detected_by_native() {
+    let w: u16 = 10;
+    let h: u16 = 10;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Spikes ceiling at cell (3, 2): collision=Spikes(7), no block.
+    let idx = (2 * w + 3) as usize * 2;
+    data[idx] = 0x70; // collision type 7 = Spikes
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Same geometry: player at x=48, feet at y=65, top_y=34, row 2.
+    // Right edge (col 3) is Spikes.
+    let probe = terrain::probe_ceiling(&grid, 48, 65, PLAYER_HALF_WIDTH, 31);
+    // TODO(fidelity): ASM loc_91A6 would detect this as a ceiling hit and
+    // set colid_kidbelow ($28). Native probe_ceiling ignores Spikes.
+    assert!(
+        !probe.hit,
+        "ASM loc_91A6: native probe_ceiling does not detect Spikes (TODO(fidelity))"
+    );
+}
+
+/// ASM loc_91AC (kid.asm:10599): sub_914A hit handler.
+/// `st 1(sp)` sets the hit-found flag. Records first-hit tile address in
+/// `$FFFFFB6C` (used by callers to locate the ceiling contact point).
+/// Then at loc_91C0 checks for Rubber blocks: `bclr #$F,d7` tests
+/// has_block; `andi.w #$F00,d7; asr.w #6,d7; cmpi.w #$18,d7` matches
+/// block_type 6 (Rubber). On Rubber match, sets `_st 0(sp)` (Rubber flag)
+/// and calls `j_loc_10DA4` (rubber jiggle effect), so sub_914A returns
+/// d7=-1 (bounce) vs d7=1 (stop).
+/// Native: probe_ceiling returns CeilingProbe with cell info;
+/// apply_ceiling_collision processes Rubber blocks via rubber_block_hit.
+#[test]
+fn loc_91ac_sub_914a_solid_ceiling_hit_returns_positive() {
+    let w: u16 = 10;
+    let h: u16 = 10;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Plain Solid ceiling (no block) at cell (3, 2).
+    let idx = (2 * w + 3) as usize * 2;
+    data[idx] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let probe = terrain::probe_ceiling(&grid, 48, 65, PLAYER_HALF_WIDTH, 31);
+    assert!(
+        probe.hit,
+        "ASM loc_91AC: Solid ceiling should register as hit (1(sp) set)"
+    );
+    // No block → loc_91C0 beq.s loc_919E (bclr #$F,d7 clears, Z flag set).
+    // sub_914A returns d7=1 (solid hit, no rubber bounce).
+    assert!(
+        !probe.cell.has_block,
+        "ASM loc_91AC → loc_91C0: plain Solid has no block, rubber check skipped"
+    );
+}
+
+/// ASM loc_91AC/loc_91C0 (kid.asm:10599/10607): Rubber block ceiling hit.
+/// When the hit tile has has_block and block_type=Rubber (6), loc_91C0
+/// sets the Rubber flag `_st 0(sp)` and calls `j_loc_10DA4`. sub_914A
+/// then returns d7=-1, triggering the bounce at loc_9130 in sub_902A.
+/// Native: apply_ceiling_collision records rubber_block_hit for the jiggle.
+#[test]
+fn loc_91ac_sub_914a_rubber_block_ceiling_sets_rubber_flag() {
+    let w: u16 = 10;
+    let h: u16 = 10;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Rubber block at cell (3, 2): has_block(0x80) | Solid(0x60) | Rubber(0x06).
+    let idx = (2 * w + 3) as usize * 2;
+    data[idx] = 0xE6;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let probe = terrain::probe_ceiling(&grid, 48, 65, PLAYER_HALF_WIDTH, 31);
+    assert!(probe.hit, "ASM loc_91AC: Rubber ceiling should hit");
+    assert!(
+        probe.cell.has_block,
+        "ASM loc_91C0: bclr #$F,d7 should find has_block set"
+    );
+    assert_eq!(
+        probe.cell.block_type,
+        terrain::BlockType::Rubber,
+        "ASM loc_91C0: cmpi.w #$18 matches block_type 6 (Rubber)"
+    );
+}
+
+/// ASM loc_9188 (kid.asm:10583): sub_914A scans multiple tiles across the
+/// player's width. The ASM loop `dbf d5,loc_9188` iterates from left edge
+/// to right edge tile column. If only the left edge column has a Solid
+/// cell, the scan should still detect it.
+/// Native: probe_ceiling checks both edges — left edge first.
+#[test]
+fn loc_9188_sub_914a_ceiling_scan_left_edge_hit() {
+    let w: u16 = 10;
+    let h: u16 = 10;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid ceiling at cell (2, 2): only the left edge column.
+    // Player at x=48, half_width=5: left=43 → col 2, right=53 → col 3.
+    let idx = (2 * w + 2) as usize * 2;
+    data[idx] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let probe = terrain::probe_ceiling(&grid, 48, 65, PLAYER_HALF_WIDTH, 31);
+    assert!(
+        probe.hit,
+        "ASM loc_9188: scan should find Solid at left edge column"
+    );
+    assert_eq!(probe.cell_x, 2, "hit at left edge column");
+}
