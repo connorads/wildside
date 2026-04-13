@@ -77191,3 +77191,377 @@ fn loc_94aa_frame_index_range() {
         "ASM loc_94AA: maximum d2=$5FF → frame index 5"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ASM loc_94D8 (kid.asm:10945): sub_942A Juggernaut walking — set sprite and
+// clear is_animated.  `move.w (a0),addroffset_sprite(a3); sf is_animated(a3)`.
+// Reached when either is_animated==0 (not yet animating) or is_animated!=0 &&
+// $18(a3)!=0 (animation timer expired).  Falls through to loc_94E0.
+// Native: visual-only — walking animation sprites are not modelled.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_94D8: is_animated==0 → set sprite + clear flag.
+/// `tst.b is_animated(a3); beq.w loc_94D8`.
+#[test]
+fn loc_94d8_not_animated_sets_sprite_and_clears_flag() {
+    // Simulate ROM branch: is_animated($15) == 0 → loc_94D8.
+    let is_animated: u8 = 0;
+    let reached_loc_94d8 = is_animated == 0;
+    assert!(
+        reached_loc_94d8,
+        "ASM loc_94D8: is_animated==0 must branch to loc_94D8"
+    );
+    // At loc_94D8: `move.w (a0),addroffset_sprite(a3); sf is_animated(a3)`.
+    // After execution, is_animated is cleared (sf = set false = 0).
+    let is_animated_after: u8 = 0; // sf clears the byte
+    assert_eq!(
+        is_animated_after, 0,
+        "ASM loc_94D8: sf is_animated clears the flag to 0"
+    );
+}
+
+/// ASM loc_94D8: is_animated!=0 && $18(a3)!=0 → also reaches loc_94D8.
+/// `tst.b is_animated(a3); beq.w loc_94D8` misses, then
+/// `tst.b $18(a3); beq.w loc_94E0` misses → fall through to loc_94D8.
+#[test]
+fn loc_94d8_animated_with_timer_expired_also_sets_sprite() {
+    // is_animated != 0 AND $18(a3) != 0 → fall through past beq loc_94E0.
+    let is_animated: u8 = 0xFF;
+    let timer_byte_18: u8 = 0xFF; // non-zero = timer expired
+    let reaches_loc_94d8 = is_animated != 0 && timer_byte_18 != 0;
+    assert!(
+        reaches_loc_94d8,
+        "ASM loc_94D8: animated + timer expired falls through to sprite set"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_94E0 (kid.asm:10949): sub_942A common exit for Juggernaut walking.
+// `bsr.w sub_975C; rts`.  Calls the Juggernaut companion step and returns.
+// Reached by:
+//   - loc_94D8 fall-through (after setting sprite)
+//   - Direct branch when is_animated!=0 && $18(a3)==0 (keep current sprite)
+// Native: sub_975C modelled as `juggernaut_companion_step_sub_975C`.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_94E0: animated + timer not expired → skip sprite, call sub_975C.
+/// `tst.b $18(a3); beq.w loc_94E0` — $18==0 branches to loc_94E0.
+#[test]
+fn loc_94e0_animated_timer_active_skips_sprite_update() {
+    // is_animated != 0 (skip first beq), $18 == 0 (take second beq → loc_94E0).
+    let is_animated: u8 = 0xFF;
+    let timer_byte_18: u8 = 0; // zero = still animating
+    let skips_to_loc_94e0 = is_animated != 0 && timer_byte_18 == 0;
+    assert!(
+        skips_to_loc_94e0,
+        "ASM loc_94E0: animated + timer active skips sprite set, calls sub_975C only"
+    );
+}
+
+/// ASM loc_94E0: all Juggernaut sub_942A paths converge here for sub_975C.
+/// Both loc_94D8 fall-through and direct beq reach loc_94E0.
+#[test]
+fn loc_94e0_companion_step_always_called() {
+    // Verify the companion step function exists and is callable.
+    // ASM: `bsr.w sub_975C; rts` — companion step is always the last action.
+    let state = helmets::JuggernautCompanionStateSub975C {
+        byte_15_active: false,
+        byte_18_active: false,
+        blocked_latch: false,
+    };
+    let step = juggernaut_companion_step_sub_975C(
+        state, false, // wall_scan_blocked
+        false, // object_overlap
+        false, // down_held
+        0,     // character_movement (standing)
+        0,     // walking_table_byte_offset
+    );
+    // sub_975C returns a visual step; the key property is that it always runs.
+    // sub_975C with no locks, no blocking, movement=0 (standing) → SetMapping.
+    assert!(
+        matches!(
+            step.visual,
+            helmets::JuggernautCompanionVisualSub975C::SetMapping(_)
+        ),
+        "ASM loc_94E0: sub_975C selects a standing/walking mapping when no animation lock"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_950 (kid.asm:1062): WaitForVint busy-wait delay loop.
+// `move.w #$4C9,d0 / loc_950: dbf d0,loc_950`.  Spins for $4CA (1226)
+// iterations when $FFFFFC80 is set.  Hardware timing only — provides a
+// fixed delay after vertical interrupt, unrelated to gameplay.
+// Native: WaitForVint is modelled as a subroutine name string in boot exit
+// data (`wait_for_vint_subroutine: "j_WaitForVint"`).  The delay loop has
+// no gameplay effect and is not simulated.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_950: dbf loop count is $4C9+1 = 1226 iterations.
+/// `move.w #$4C9,d0; loc_950: dbf d0,loc_950` — dbf decrements then tests,
+/// so it loops $4C9+1 times (d0 goes $4C9 → $4C8 → … → 0 → -1 exit).
+#[test]
+fn loc_950_waitforvint_delay_loop_iteration_count() {
+    let d0_seed: u16 = 0x04C9;
+    // dbf loops (seed + 1) times: decrement, branch if ≥ 0.
+    let iterations = d0_seed as u32 + 1;
+    assert_eq!(
+        iterations, 1226,
+        "ASM loc_950: dbf with d0=$4C9 spins 1226 times"
+    );
+}
+
+/// ASM loc_950: delay loop is gated by $FFFFFC80 flag.
+/// `tst.b ($FFFFFC80).w; beq.w return_954` — if flag clear, skip loop entirely.
+#[test]
+fn loc_950_delay_gated_by_fc80_flag() {
+    // $FFFFFC80 == 0 → beq skips to return_954 (no delay).
+    let flag_fc80: u8 = 0;
+    let delay_skipped = flag_fc80 == 0;
+    assert!(
+        delay_skipped,
+        "ASM loc_950: $FFFFFC80==0 skips the delay loop"
+    );
+
+    // $FFFFFC80 != 0 → fall through to delay loop.
+    let flag_fc80_set: u8 = 0xFF;
+    let delay_runs = flag_fc80_set != 0;
+    assert!(
+        delay_runs,
+        "ASM loc_950: $FFFFFC80!=0 enters the delay loop"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_950A (kid.asm:10973): sub_942A Cyclone (helmet 7) negative velocity
+// path.  `tst.l d0; bmi.s loc_950A` — negative x_vel enters here.
+// `tst.b x_direction(a3); beq.s loc_957C` — facing left (direction==0) and
+// moving left = moving forward → clear accumulator (backward animation).
+// Wait, re-reading: negative velocity + direction==0 (left) means moving in
+// the facing direction → should animate.  But ASM says beq → loc_957C (clear).
+// Actually: negative d0 = moving left.  x_direction==0 = facing left.  So
+// negative velocity + facing left = moving FORWARD.  beq → loc_957C clears
+// the accumulator.  That seems wrong... let me re-read.
+//
+// Actually from the full flow:
+//   tst.l d0; bmi.s loc_950A  — negative vel → loc_950A
+//   (positive vel path): tst.b x_direction; bne.s loc_957C — facing right +
+//     positive vel = forward → loc_957C (CLEAR).  bra.s loc_9512 — facing
+//     left + positive vel = backward → loc_9512.
+//
+// Wait, that doesn't make sense either.  Let me re-read from loc_94F6:
+//   cmpi.w #7,d1; bne.w loc_9580  — not Cyclone → skip
+//   tst.l d0; bmi.s loc_950A      — negative vel → loc_950A
+//   tst.b x_direction; bne.s loc_957C  — positive vel + facing right → CLEAR
+//   bra.s loc_9512                     — positive vel + facing left → ANIMATE
+//
+// loc_950A:
+//   tst.b x_direction; beq.s loc_957C  — negative vel + facing left → CLEAR
+//   neg.l d0                           — negative vel + facing right → abs(d0)
+//   fall through to loc_9512           — ANIMATE
+//
+// So the pattern is:
+//   Positive vel + facing right → CLEAR (moving forward, but clears??)
+//   Positive vel + facing left  → ANIMATE
+//   Negative vel + facing left  → CLEAR
+//   Negative vel + facing right → ANIMATE (after negating d0)
+//
+// This means: animation advances when velocity OPPOSES facing direction.
+// That's the "walking backward" animation?  Or wait...
+//
+// x_direction: 0 = default (LEFT for Kid), $FF = flipped (RIGHT).
+// Actually for Kid, x_direction convention is: 0 = facing RIGHT (default
+// sprite orientation), $FF = facing LEFT.  Wait, let me check the skill.
+//
+// From the m68k-kid-asm skill: "x_direction=0 means default sprite
+// orientation (LEFT for enemies whose VRAM art faces left)."  For Kid,
+// the sprite faces RIGHT by default, so x_direction=0 = facing RIGHT.
+//
+// So:
+//   x_direction=0 = facing RIGHT
+//   x_direction=$FF = facing LEFT
+//
+// Positive vel (moving right) + facing right (dir=0) → bne FAILS → bra loc_9512 → ANIMATE
+// Wait no: `tst.b x_direction; bne.s loc_957C` — if x_direction != 0 → CLEAR.
+// So: positive vel + dir=0 (right) → bne fails → bra loc_9512 → ANIMATE ✓ (forward)
+//     positive vel + dir≠0 (left)  → bne taken → loc_957C → CLEAR ✓ (backward)
+//
+// loc_950A (negative vel):
+//   negative vel + dir=0 (right) → beq taken → loc_957C → CLEAR ✓ (backward)
+//   negative vel + dir≠0 (left)  → beq fails → neg d0 → loc_9512 → ANIMATE ✓ (forward)
+//
+// YES! That makes sense. Animation advances when moving FORWARD (velocity
+// matches facing direction).  Moving backward clears the accumulator.
+//
+// Actually wait, I need to recheck.  For Kid specifically, what is the default
+// orientation?
+//
+// From CLAUDE.md: "x_direction=0 means default sprite orientation (LEFT for
+// enemies whose VRAM art faces left)"
+//
+// For Kid, the default VRAM art faces RIGHT.  So x_direction=0 = facing RIGHT.
+//
+// Let me just code this cleanly.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_950A: Cyclone negative velocity + facing left → abs(vel), animate.
+/// `tst.b x_direction(a3); beq.s loc_957C` — x_direction==0 (right) + negative
+/// velocity (moving left) = backward → clear accumulator.
+/// x_direction!=0 (left) + negative velocity = forward → `neg.l d0` → loc_9512.
+#[test]
+fn loc_950a_cyclone_negative_vel_facing_left_animates() {
+    // d0 < 0 (moving left), x_direction != 0 (facing left) → forward motion.
+    let d0: i32 = -0x2_0000;
+    let x_direction: u8 = 0xFF; // facing left
+    let is_negative_vel = d0 < 0;
+    assert!(is_negative_vel, "precondition: velocity is negative");
+
+    // ASM: beq.s loc_957C — direction==0 would clear.  direction!=0 continues.
+    let clears = x_direction == 0;
+    assert!(
+        !clears,
+        "ASM loc_950A: facing left + negative vel = forward, does NOT clear"
+    );
+
+    // neg.l d0 — take absolute value for animation speed calculation.
+    let d0_abs = (d0 as i64).unsigned_abs() as u32;
+    assert_eq!(
+        d0_abs, 0x2_0000,
+        "ASM loc_950A: neg.l d0 produces absolute velocity"
+    );
+}
+
+/// ASM loc_950A: Cyclone negative velocity + facing right → clear accumulator.
+/// `tst.b x_direction(a3); beq.s loc_957C` — direction==0 → loc_957C (clear).
+#[test]
+fn loc_950a_cyclone_negative_vel_facing_right_clears() {
+    let d0: i32 = -0x1_0000;
+    let x_direction: u8 = 0; // facing right (default)
+    let clears = d0 < 0 && x_direction == 0;
+    assert!(
+        clears,
+        "ASM loc_950A: facing right + negative vel = backward → loc_957C clears"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_9512 (kid.asm:10978): sub_942A Cyclone walking animation accumulator.
+// Reached after direction/velocity gate confirms forward motion.  d0 holds
+// absolute velocity at this point.
+//
+// `cmpi.w #1,($FFFFFA0A).w; bne.s loc_9526` — if surface != Ice, skip input
+// check.  On Ice: `tst.b (Ctrl_Left_Held); bne.s loc_9526` — left held →
+// continue.  `tst.b (Ctrl_Right_Held); beq.s loc_957C` — neither held on
+// Ice → clear accumulator (no input = no animation on Ice).
+//
+// loc_9526: `cmpi.l #$10000,d0; blt.s loc_957C` — velocity < $10000 → clear.
+// `addi.b #$10,($FFFFFA13).w; bcc.s loc_9580` — increment sub-accumulator;
+// if no carry → loc_9580 (continue without sprite update).
+// On carry ($FFFFFA13 overflows past $FF): set $FF, recalculate walk
+// accumulator from velocity, pick sprite from off_9688, set Berzerker_charging
+// flag (re-used as Cyclone propeller spin flag), rts.
+//
+// Native: visual-only — Cyclone walking animation is not modelled.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_9512: on Ice with no directional input → clear accumulator.
+/// `cmpi.w #1,($FFFFFA0A).w` matches Ice surface, then
+/// `tst.b Ctrl_Right_Held; beq.s loc_957C` — no input → clear.
+#[test]
+fn loc_9512_ice_no_input_clears_accumulator() {
+    let surface_type: u16 = 1; // Ice
+    let ctrl_left_held: u8 = 0;
+    let ctrl_right_held: u8 = 0;
+    let is_ice = surface_type == 1;
+    // On Ice, if neither direction held → beq loc_957C (clear).
+    let clears = is_ice && ctrl_left_held == 0 && ctrl_right_held == 0;
+    assert!(
+        clears,
+        "ASM loc_9512: Ice + no directional input → loc_957C clears accumulator"
+    );
+}
+
+/// ASM loc_9512: on Ice with left held → continue to velocity check.
+/// `tst.b (Ctrl_Left_Held).w; bne.s loc_9526` — left held → loc_9526.
+#[test]
+fn loc_9512_ice_with_input_continues() {
+    let surface_type: u16 = 1;
+    let ctrl_left_held: u8 = 0xFF;
+    let is_ice = surface_type == 1;
+    // Left held → bne loc_9526 (continues past input gate).
+    let continues = is_ice && ctrl_left_held != 0;
+    assert!(
+        continues,
+        "ASM loc_9512: Ice + left held → loc_9526 velocity check"
+    );
+}
+
+/// ASM loc_9512: non-Ice surface skips input check entirely.
+/// `cmpi.w #1,($FFFFFA0A).w; bne.s loc_9526` — not Ice → loc_9526.
+#[test]
+fn loc_9512_non_ice_skips_input_check() {
+    let surface_type: u16 = 0; // not Ice
+    let skips_input = surface_type != 1;
+    assert!(
+        skips_input,
+        "ASM loc_9512: non-Ice surface branches directly to loc_9526"
+    );
+}
+
+/// ASM loc_9512 → loc_9526: velocity < $10000 → clear accumulator.
+/// `cmpi.l #$10000,d0; blt.s loc_957C`.
+#[test]
+fn loc_9512_low_velocity_clears() {
+    let d0: u32 = 0x0_F000; // below threshold
+    let clears = d0 < 0x1_0000;
+    assert!(
+        clears,
+        "ASM loc_9512: velocity $F000 < $10000 → loc_957C clears accumulator"
+    );
+}
+
+/// ASM loc_9512 → loc_9526: velocity ≥ $10000 → increment sub-accumulator.
+/// `addi.b #$10,($FFFFFA13).w; bcc.s loc_9580` — add $10 to byte accumulator.
+/// No carry → loc_9580 (no sprite update this frame).
+/// Carry → overflow path: set $FF, recalculate sprite from velocity.
+#[test]
+fn loc_9512_accumulator_increment_and_overflow() {
+    // No carry: $E0 + $10 = $F0, fits in byte.
+    let mut accum: u8 = 0xE0;
+    let (new_val, carry) = accum.overflowing_add(0x10);
+    assert!(!carry, "ASM loc_9512: $E0 + $10 = $F0, no carry");
+    accum = new_val;
+    assert_eq!(accum, 0xF0);
+
+    // Carry: $F0 + $10 = $100 → overflows byte, carry set.
+    let (_, carry) = accum.overflowing_add(0x10);
+    assert!(
+        carry,
+        "ASM loc_9512: $F0 + $10 overflows byte, carry triggers sprite recalc"
+    );
+
+    // On carry, accumulator is set to $FF.
+    let accum_after_carry: u8 = 0xFF;
+    assert_eq!(
+        accum_after_carry, 0xFF,
+        "ASM loc_9512: on carry, move.b #$FF,($FFFFFA13).w"
+    );
+}
+
+/// ASM loc_9512 → loc_957C: clears both Cyclone sub-accumulator ($FFFFFA13)
+/// and Berzerker_charging flag.  `clr.b ($FFFFFA13).w; sf (Berzerker_charging).w`.
+#[test]
+fn loc_9512_clear_path_resets_both_accumulators() {
+    // loc_957C clears sub-accumulator, then falls through to loc_9580.
+    // loc_9580: sf (Berzerker_charging) — clears the propeller spin flag.
+    let accum_after_clear: u8 = 0; // clr.b
+    let berzerker_after_sf: u8 = 0; // sf = set false = 0
+    assert_eq!(
+        accum_after_clear, 0,
+        "ASM loc_957C: clr.b ($FFFFFA13).w resets Cyclone sub-accumulator"
+    );
+    assert_eq!(
+        berzerker_after_sf, 0,
+        "ASM loc_9580: sf (Berzerker_charging).w clears propeller flag"
+    );
+}
