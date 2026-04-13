@@ -105,7 +105,10 @@ use crate::level::{
     BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
     BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
-    DecompressToVramSpecialReturnLoc143B2, EnemyLayoutResetAndSeekInputLoc31F8E,
+    DecompressToVramSpecialReturnLoc143B2, EOL_NUMBER_DIGIT_COUNT_LOC_C466,
+    EOL_NUMBER_DISPLAY_FLAG_LOC_C466, EOL_NUMBER_GFX_SPEC_LOC_C466,
+    EOL_NUMBER_INITIAL_PATTERN_LOC_C466, EOL_NUMBER_PALETTE_LOC_C466, EOL_NUMBER_PRIORITY_LOC_C466,
+    EOL_NUMBER_SLOT_ARRAY_OFFSET_LOC_C466, EnemyLayoutResetAndSeekInputLoc31F8E,
     EnemyLayoutResetAndSeekLoc31F8E, FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC,
     FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC, FLAGPOLE_FADE_STEP_LOC_C1D0,
     FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC, FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC,
@@ -124,7 +127,10 @@ use crate::level::{
     PaletteFadeOutInitLoc28A6, PaletteFadeOutStepLoc28C6, PostLoadObjectRoutineLoc11F96,
     RotatePaletteLavaWaterDelayLoc1223A, SCOREBOARD_DIGIT_CLEAR_BASES_LOC_C2F4,
     SCOREBOARD_DIGIT_CLEAR_HIBERNATE_FRAMES_LOC_C2F4, SCOREBOARD_DIGIT_CLEAR_ROW_COUNT_LOC_C2F4,
-    SCOREBOARD_DIGIT_CLEAR_STEP_COUNT_LOC_C2F2, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
+    SCOREBOARD_DIGIT_CLEAR_STEP_COUNT_LOC_C2F2, SPRITE_SCATTER_CENTRE_LOC_C436,
+    SPRITE_SCATTER_ENTRY_COUNT_LOC_C428, SPRITE_SCATTER_ENTRY_STRIDE_LOC_C428,
+    SPRITE_SCATTER_TABLE_X_OFFSET_LOC_C428, SPRITE_SCATTER_VISIBLE_MAX_LOC_C436,
+    SPRITE_SCATTER_VISIBLE_MIN_LOC_C436, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
     ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
     SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
     SpriteFrameStateSubB52, TILE_FADE_BUFFER_LONGWORDS_LOC_C38A, TILE_FADE_COLUMN_TABLE_UNK_C418,
@@ -244,15 +250,16 @@ use crate::level::{
     select_background_art_permutation_loc_11E96, select_foreground_art_permutation_loc_11E48,
     select_foreground_art_permutation_loc_11E54, shared_vram_art_decompresses_loc_11EFA,
     should_process_fg_update_queue_cell_loc_15D2, spawn_block_debris_loc_2928,
-    spawn_block_debris_sub_292E, step_fullscreen_palette_fade_sub_73D0,
-    step_island_palette_cycle_lower_band_loc_12188, step_island_palette_cycle_mid_band_loc_12110,
-    step_island_palette_cycle_primary_band_loc_12098, step_palette_fade_out_loc_28C6,
-    swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
-    tile_fade_mask_column_sub_C3F6, tile_fade_mask_step_sub_C3DA,
-    transfer_scroll_data_dispatch_loc_3039C, transfer_scroll_data_dma_tail_loc_300D2,
-    transfer_scroll_data_prelude_loc_3038A, transfer_scroll_data_storm_loc_30110,
-    transfer_scroll_data_storm_loop_loc_30130, transfer_scroll_data_storm_loop_loc_30172,
-    transfer_scroll_data_storm_setup_loc_30158, transfer_scroll_data_vsram_setup_loc_300BA,
+    spawn_block_debris_sub_292E, sprite_scatter_step_loc_C436,
+    step_fullscreen_palette_fade_sub_73D0, step_island_palette_cycle_lower_band_loc_12188,
+    step_island_palette_cycle_mid_band_loc_12110, step_island_palette_cycle_primary_band_loc_12098,
+    step_palette_fade_out_loc_28C6, swap_forest_background_palette_entries_sub_129AE,
+    terrain_layout_row_pointers_loc_11B40, tile_fade_mask_column_sub_C3F6,
+    tile_fade_mask_step_sub_C3DA, transfer_scroll_data_dispatch_loc_3039C,
+    transfer_scroll_data_dma_tail_loc_300D2, transfer_scroll_data_prelude_loc_3038A,
+    transfer_scroll_data_storm_loc_30110, transfer_scroll_data_storm_loop_loc_30130,
+    transfer_scroll_data_storm_loop_loc_30172, transfer_scroll_data_storm_setup_loc_30158,
+    transfer_scroll_data_vsram_setup_loc_300BA,
 };
 use crate::movement::*;
 use crate::projectiles::{
@@ -2922,6 +2929,134 @@ fn sub_c3da_step_4_masks_four_odd_columns() {
     assert_eq!(buf[0x14], 0xF0, "ASM sub_C3DA: col $29 → byte 20, AND $F0");
     // col $2D: offset $16=22, $F0
     assert_eq!(buf[0x16], 0xF0, "ASM sub_C3DA: col $2D → byte 22, AND $F0");
+}
+
+// ── loc_C428: sprite scatter (kid.asm:16082) ───────────────────────────────
+
+/// ASM loc_C428 (kid.asm:16082): sprite scatter constants match the
+/// disassembly — 10 entries at stride 8 from sprite table base + 6.
+#[test]
+fn loc_c428_sprite_scatter_constants() {
+    assert_eq!(
+        SPRITE_SCATTER_TABLE_X_OFFSET_LOC_C428, 0xFFFF_0006,
+        "ASM loc_C428: lea ($FFFF0006).l,a0 → x-position word of first sprite"
+    );
+    assert_eq!(
+        SPRITE_SCATTER_ENTRY_COUNT_LOC_C428, 10,
+        "ASM loc_C428: moveq #9,d0 → dbf loops 10 times"
+    );
+    assert_eq!(
+        SPRITE_SCATTER_ENTRY_STRIDE_LOC_C428, 8,
+        "ASM loc_C452: addq.w #8,a0 → 8-byte stride per sprite entry"
+    );
+}
+
+/// ASM loc_C436 (kid.asm:16089): visible bounds and centre threshold.
+#[test]
+fn loc_c436_sprite_scatter_bounds_and_centre() {
+    assert_eq!(
+        SPRITE_SCATTER_VISIBLE_MIN_LOC_C436, 0x0070,
+        "ASM loc_C436: cmpi.w #$70,d2; ble.s loc_C452"
+    );
+    assert_eq!(
+        SPRITE_SCATTER_VISIBLE_MAX_LOC_C436, 0x01D0,
+        "ASM loc_C436: cmpi.w #$1D0,d2; bge.s loc_C452"
+    );
+    assert_eq!(
+        SPRITE_SCATTER_CENTRE_LOC_C436, 0x0120,
+        "ASM loc_C436: cmpi.w #$120,d2; bge.s loc_C450"
+    );
+}
+
+/// ASM loc_C436/loc_C450 (kid.asm:16089-16103): sprites left of centre are
+/// decremented, sprites right of centre (or at centre) are incremented.
+#[test]
+fn loc_c436_sprite_scatter_nudges_toward_edges() {
+    let mut xs: [u16; 10] = [0x0100, 0x0140, 0x0120, 0x0071, 0x01CF, 0, 0, 0, 0, 0];
+    let any = sprite_scatter_step_loc_C436(&mut xs);
+    assert!(any, "ASM loc_C436: at least one sprite in visible range");
+    // $100 < $120 → subq → $FF
+    assert_eq!(xs[0], 0x00FF, "ASM loc_C436: subq.w #1,(a0) for x < $120");
+    // $140 >= $120 → addq → $141
+    assert_eq!(xs[1], 0x0141, "ASM loc_C450: addq.w #1,(a0) for x >= $120");
+    // $120 >= $120 → addq → $121
+    assert_eq!(xs[2], 0x0121, "ASM loc_C450: addq.w #1,(a0) for x == $120");
+    // $71 > $70 → subq → $70
+    assert_eq!(
+        xs[3], 0x0070,
+        "ASM loc_C436: $71 is just inside visible range"
+    );
+    // $1CF < $1D0 → addq → $1D0
+    assert_eq!(
+        xs[4], 0x01D0,
+        "ASM loc_C450: $1CF is just inside visible range"
+    );
+}
+
+/// ASM loc_C452 (kid.asm:16105): out-of-range sprites are untouched.
+/// `d2 <= $70` or `d2 >= $1D0` → branch directly to loc_C452, no nudge.
+#[test]
+fn loc_c452_out_of_range_sprites_not_nudged() {
+    let mut xs: [u16; 10] = [0x0070, 0x01D0, 0x0000, 0xFFFF, 0, 0, 0, 0, 0, 0];
+    let any = sprite_scatter_step_loc_C436(&mut xs);
+    assert!(
+        !any,
+        "ASM loc_C452: no sprite in visible range → d1 stays 0"
+    );
+    assert_eq!(xs[0], 0x0070, "ASM loc_C436: $70 ble → skip");
+    assert_eq!(xs[1], 0x01D0, "ASM loc_C436: $1D0 bge → skip");
+    assert_eq!(xs[2], 0x0000, "ASM loc_C436: $0000 ble → skip");
+    assert_eq!(xs[3], 0xFFFF, "ASM loc_C436: $FFFF bge → skip (unsigned)");
+}
+
+/// ASM loc_C428: scatter completes when all sprites exit visible range.
+/// Simulates multiple passes until `d1=0` triggers `j_Delete_CurrentObject`.
+#[test]
+fn loc_c428_scatter_terminates_when_all_sprites_exit_visible_range() {
+    // Two sprites just inside visible range, one step from exiting
+    let mut xs: [u16; 10] = [0x0071, 0x01CF, 0, 0, 0, 0, 0, 0, 0, 0];
+    // Pass 1: $71 → $70, $1CF → $1D0
+    assert!(sprite_scatter_step_loc_C436(&mut xs), "pass 1 should nudge");
+    // Pass 2: $70 ble → skip, $1D0 bge → skip → d1=0
+    assert!(
+        !sprite_scatter_step_loc_C436(&mut xs),
+        "pass 2 should terminate"
+    );
+}
+
+// ── loc_C466: Object_EOL_Number init (kid.asm:16118) ───────────────────────
+
+/// ASM loc_C466 (kid.asm:16118): EOL number gfx object init constants.
+#[test]
+fn loc_c466_eol_number_init_constants() {
+    assert_eq!(
+        EOL_NUMBER_DIGIT_COUNT_LOC_C466, 7,
+        "ASM Object_EOL_Number: moveq #6,d7 → dbf loops 7 times"
+    );
+    assert_eq!(
+        EOL_NUMBER_GFX_SPEC_LOC_C466, 0x0200_0004,
+        "ASM loc_C466: move.l #$2000004,a1 → gfx object allocation spec"
+    );
+    assert_eq!(
+        EOL_NUMBER_DISPLAY_FLAG_LOC_C466, 0xFF,
+        "ASM loc_C466: st $13(a1) → display flag enabled ($FF)"
+    );
+    assert_eq!(
+        EOL_NUMBER_PRIORITY_LOC_C466, 2,
+        "ASM loc_C466: move.b #2,$11(a1) → priority/layer"
+    );
+    assert_eq!(
+        EOL_NUMBER_PALETTE_LOC_C466, 1,
+        "ASM loc_C466: move.b #1,$10(a1) → palette line"
+    );
+    assert_eq!(
+        EOL_NUMBER_INITIAL_PATTERN_LOC_C466, 0x0517,
+        "ASM loc_C466: move.w #$517,$24(a1) → initial sprite VRAM pattern"
+    );
+    assert_eq!(
+        EOL_NUMBER_SLOT_ARRAY_OFFSET_LOC_C466, 0x0044,
+        "ASM Object_EOL_Number: lea $44(a5),a4 → slot pointers start at $44"
+    );
 }
 
 fn imported_early_start_boot_script() -> Vec<u8> {

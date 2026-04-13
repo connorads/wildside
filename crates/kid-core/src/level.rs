@@ -10924,6 +10924,136 @@ pub(crate) fn tile_fade_mask_step_sub_C3DA(buf: &mut [u8], step: u16, row_count:
     tile_fade_mask_column_sub_C3F6(buf, col3, dbf_count.wrapping_add(1));
 }
 
+/// ASM loc_C428 (kid.asm:16082): end-of-level sprite scatter object routine.
+///
+/// Each frame hibernates, then iterates over 10 sprite table entries (stride 8
+/// bytes starting at `$FFFF0006`, the x-position word of each VDP sprite).
+/// Sprites in the visible range (`$71`–`$1CF`) are nudged outward: those left
+/// of screen centre (`$120`) are decremented, those right are incremented.
+/// When no sprite remains in visible range, `d1` stays 0 and the object
+/// self-deletes via `j_Delete_CurrentObject`.
+///
+/// ```text
+/// loc_C428:
+///   jsr    (j_Hibernate_Object_1Frame).w
+///   lea    ($FFFF0006).l,a0
+///   moveq  #9,d0
+///   moveq  #0,d1
+/// loc_C436:
+///   move.w (a0),d2
+///   cmpi.w #$70,d2
+///   ble.s  loc_C452
+///   cmpi.w #$1D0,d2
+///   bge.s  loc_C452
+///   moveq  #1,d1
+///   cmpi.w #$120,d2
+///   bge.s  loc_C450
+///   subq.w #1,(a0)
+///   bra.s  loc_C452
+/// loc_C450:
+///   addq.w #1,(a0)
+/// loc_C452:
+///   addq.w #8,a0
+///   dbf    d0,loc_C436
+///   tst.w  d1
+///   bne.s  loc_C428
+///   jmp    (j_Delete_CurrentObject).w
+/// ```
+#[allow(dead_code)]
+pub(crate) const SPRITE_SCATTER_TABLE_X_OFFSET_LOC_C428: u32 = 0xFFFF_0006;
+#[allow(dead_code)]
+pub(crate) const SPRITE_SCATTER_ENTRY_COUNT_LOC_C428: u16 = 10;
+#[allow(dead_code)]
+pub(crate) const SPRITE_SCATTER_ENTRY_STRIDE_LOC_C428: u16 = 8;
+/// ASM loc_C436: lower visible bound — `cmpi.w #$70,d2; ble.s loc_C452`.
+#[allow(dead_code)]
+pub(crate) const SPRITE_SCATTER_VISIBLE_MIN_LOC_C436: u16 = 0x0070;
+/// ASM loc_C436: upper visible bound — `cmpi.w #$1D0,d2; bge.s loc_C452`.
+#[allow(dead_code)]
+pub(crate) const SPRITE_SCATTER_VISIBLE_MAX_LOC_C436: u16 = 0x01D0;
+/// ASM loc_C436: screen centre threshold — `cmpi.w #$120,d2; bge.s loc_C450`.
+/// Sprites left of centre are nudged left (subq), right of centre nudged right
+/// (addq at loc_C450).
+#[allow(dead_code)]
+pub(crate) const SPRITE_SCATTER_CENTRE_LOC_C436: u16 = 0x0120;
+
+/// Pure function modelling one pass of the sprite scatter loop (loc_C436–
+/// loc_C452). Takes a mutable slice of 10 sprite x-positions and returns
+/// whether any sprite was nudged (i.e. whether the outer loop at loc_C428
+/// should repeat).
+///
+/// Each visible sprite (`$71`–`$1CF` exclusive of bounds) is nudged ±1 from
+/// centre (`$120`). Out-of-range sprites are skipped.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn sprite_scatter_step_loc_C436(x_positions: &mut [u16; 10]) -> bool {
+    // ASM loc_C436: d1 tracks whether any sprite was nudged this pass.
+    let mut any_nudged = false;
+    for x in x_positions.iter_mut() {
+        let val = *x;
+        // ASM loc_C436: cmpi.w #$70,d2; ble.s loc_C452
+        if val <= SPRITE_SCATTER_VISIBLE_MIN_LOC_C436 {
+            continue;
+        }
+        // ASM loc_C436: cmpi.w #$1D0,d2; bge.s loc_C452
+        if val >= SPRITE_SCATTER_VISIBLE_MAX_LOC_C436 {
+            continue;
+        }
+        // ASM loc_C436: moveq #1,d1 — at least one sprite was in range
+        any_nudged = true;
+        if val >= SPRITE_SCATTER_CENTRE_LOC_C436 {
+            // ASM loc_C450: addq.w #1,(a0)
+            *x = val.wrapping_add(1);
+        } else {
+            // ASM loc_C436: subq.w #1,(a0)
+            *x = val.wrapping_sub(1);
+        }
+    }
+    any_nudged
+}
+
+/// ASM Object_EOL_Number (kid.asm:16114): end-of-level number display object.
+///
+/// loc_C466 (kid.asm:16118) is the init loop that allocates 7 gfx object slots
+/// for the 7-digit number display. Each slot is configured with:
+/// - gfx spec `$2000004` for `j_Allocate_GfxObjectSlot_a1`
+/// - display flag `$13(a1)` = `$FF` (enabled via `st`)
+/// - `$11(a1)` = 2 (priority/layer)
+/// - `$10(a1)` = 1 (palette line)
+/// - `$24(a1)` = `$517` (initial sprite pattern/VRAM offset)
+///
+/// Slot pointers are stored at `$44(a5)` through `$60(a5)` (7 × 4 bytes).
+///
+/// ```text
+/// Object_EOL_Number:
+///   lea    $44(a5),a4
+///   moveq  #6,d7
+/// loc_C466:
+///   move.l #$2000004,a1
+///   jsr    (j_Allocate_GfxObjectSlot_a1).w
+///   move.l a1,(a4)+
+///   st     $13(a1)
+///   move.b #2,$11(a1)
+///   move.b #1,$10(a1)
+///   move.w #$517,$24(a1)
+///   dbf    d7,loc_C466
+/// ```
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_DIGIT_COUNT_LOC_C466: u16 = 7;
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_GFX_SPEC_LOC_C466: u32 = 0x0200_0004;
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_DISPLAY_FLAG_LOC_C466: u8 = 0xFF;
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_PRIORITY_LOC_C466: u8 = 2;
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_PALETTE_LOC_C466: u8 = 1;
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_INITIAL_PATTERN_LOC_C466: u16 = 0x0517;
+/// Offset within the parent object (`a5`) where slot pointers start.
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_SLOT_ARRAY_OFFSET_LOC_C466: u16 = 0x0044;
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {
