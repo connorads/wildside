@@ -76363,3 +76363,221 @@ fn loc_9188_sub_914a_ceiling_scan_left_edge_hit() {
     );
     assert_eq!(probe.cell_x, 2, "hit at left edge column");
 }
+
+/// ASM loc_9212 (kid.asm:10641): sub_914A result evaluation — no-rubber path.
+/// After loop exhaustion, loc_9204 checks 0(sp) (rubber bounce flag). When
+/// clear (no rubber), falls through to loc_9212: `tst.b 1(sp)`.
+///   - 1(sp) set → d7=1 (normal ceiling hit), `addq.w #2,sp; rts`
+///   - 1(sp) clear → loc_9220: d7=0 (no hit), `addq.w #2,sp; rts`
+///
+/// Native: probe_ceiling returns CeilingProbe { hit: true/false } depending on
+/// whether any Solid/HiddenBlock tile was found at either edge.
+#[test]
+fn loc_9212_sub_914a_result_no_rubber_solid_hit() {
+    // Solid ceiling at edge → hit=true (1(sp) set path at loc_9212)
+    let w: u16 = 8;
+    let h: u16 = 8;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid at col 3, row 2
+    data[(2 * usize::from(w) + 3) * 2] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Player x=48 (right edge col 3), feet at 65, top_y=34 → row 2
+    let probe = terrain::probe_ceiling(&grid, 48, 65, PLAYER_HALF_WIDTH, 31);
+    assert!(
+        probe.hit,
+        "ASM loc_9212: 1(sp) set → d7=1 (ceiling hit, no rubber)"
+    );
+}
+
+/// ASM loc_9212 → loc_9220 (kid.asm:10641→10649): sub_914A result, no rubber,
+/// no hit. When 0(sp) is clear AND 1(sp) is clear, loc_9212 branches to
+/// loc_9220: `moveq #0,d7; addq.w #2,sp; rts` — clean no-hit return.
+/// Native: probe_ceiling returns CeilingProbe { hit: false }.
+#[test]
+fn loc_9212_sub_914a_result_no_rubber_no_hit() {
+    // All-empty ceiling → hit=false (1(sp) clear path through loc_9212 → loc_9220)
+    let w: u16 = 8;
+    let h: u16 = 8;
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let probe = terrain::probe_ceiling(&grid, 48, 65, PLAYER_HALF_WIDTH, 31);
+    assert!(
+        !probe.hit,
+        "ASM loc_9212 → loc_9220: 1(sp) clear → d7=0 (no ceiling hit)"
+    );
+}
+
+/// ASM loc_9226 (kid.asm:10655): sub_914A early exit for negative head row.
+/// `asr.w #4,d7; bmi.w loc_9226` — when the ceiling probe row is above the
+/// level top (negative), the ROM returns d7=1 (treat as ceiling hit) via
+/// `moveq #1,d7; addq.w #2,sp; rts`.
+/// TODO(fidelity): native probe_ceiling returns no-hit for OOB rows because
+/// `probe_at` returns Empty for out-of-bounds coordinates. The ROM explicitly
+/// treats above-level as a ceiling hit to prevent upward escape.
+#[test]
+fn loc_9226_sub_914a_above_level_returns_hit_in_rom() {
+    let w: u16 = 4;
+    let h: u16 = 4;
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Player feet at y=10, height=31 → top_y = 10-31 = -21 → row negative.
+    // ROM: bmi.w loc_9226 → d7=1 (hit). Native: returns no-hit.
+    let probe = terrain::probe_ceiling(&grid, 32, 10, PLAYER_HALF_WIDTH, 31);
+    // TODO(fidelity): native does not treat above-level as ceiling hit
+    assert!(
+        !probe.hit,
+        "ASM loc_9226: native returns no-hit for above-level (TODO(fidelity))"
+    );
+}
+
+/// ASM loc_9288 (kid.asm:10693): sub_922C height adjustment merge point.
+/// After checking crawling/Micromax/Juggernaut/specific sprite, the short-
+/// height forms skip `subi.w #$10,d7` (extra 16px head clearance), merging at
+/// loc_9288: `asr.w #4,d7; sub.w d7,d5` converts head row to tile and computes
+/// scan count. Then `_sf 0(sp); sf 1(sp)` clears hit/rubber stack flags.
+/// Native: probe_wall_column receives adjusted `height` from caller; the
+/// pixel→tile conversion is `pixel_to_cell(foot_y_px - height)`.
+#[test]
+fn loc_9288_sub_922c_short_height_scan_range() {
+    // Build grid: solid wall at col 3, row 0 only (near top of level).
+    let w: u16 = 6;
+    let h: u16 = 4;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    data[3 * 2] = 0x60; // col 3, row 0: Solid
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Full height (31px): edge_x = 40+7+1 = 48 → col 3.
+    // top_row = pixel_to_cell(47-31) = pixel_to_cell(16) = 1. Scans rows 2,1.
+    // Row 0 solid not reached.
+    let full = terrain::probe_wall_column(&grid, 40, 47, 7, 31, true);
+    // edge_x = 40+7+1 = 48 → col 3. top_row = pixel_to_cell(47-31) = pixel_to_cell(16) = 1.
+    // Scans rows 2,1 — row 0 solid not reached.
+    assert!(
+        !full.hit,
+        "ASM loc_9288: full 31px height scan does not reach row 0"
+    );
+
+    // Short height (15px, like crawling): top_row = pixel_to_cell(47-15) = pixel_to_cell(32) = 2.
+    // Scans only rows 2 — even further from row 0.
+    let short = terrain::probe_wall_column(&grid, 40, 47, 7, 15, true);
+    assert!(
+        !short.hit,
+        "ASM loc_9288: short 15px height scan covers fewer rows"
+    );
+
+    // Extended height (48px): top_row = pixel_to_cell(47-48) = pixel_to_cell(-1) → clamped to 0.
+    // Scans rows 2,1,0 — finds solid at row 0.
+    let tall = terrain::probe_wall_column(&grid, 40, 47, 7, 48, true);
+    assert!(
+        tall.hit,
+        "ASM loc_9288: taller height scan reaches row 0 where solid lives"
+    );
+    assert_eq!(tall.cell_y, 0, "ASM loc_9288: hit at row 0");
+}
+
+/// ASM loc_9294 (kid.asm:10699): sub_922C wall tile scan loop body.
+/// `move.w (a4),d7; andi.w #$7000,d7` extracts collision bits from the current
+/// tile. `cmpi.w #$6000,d7; beq.w loc_92BC` routes Solid ($6000) to the hit
+/// handler. `cmpi.w #$7000,d7; beq.w loc_92B6` routes Spikes ($7000) to set
+/// collision_type=$28 before hitting.
+/// Native: `matches!(cell.collision, CollisionKind::Solid | CollisionKind::Spikes)`.
+#[test]
+fn loc_9294_sub_922c_scan_detects_solid_tile() {
+    let w: u16 = 6;
+    let h: u16 = 4;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid at col 3, row 1
+    data[(usize::from(w) + 3) * 2] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // edge_x = 40+7+1 = 48 → col 3
+    let probe = terrain::probe_wall_column(&grid, 40, 47, 7, 31, true);
+    assert!(
+        probe.hit,
+        "ASM loc_9294: $6000 (Solid) collision detected in scan"
+    );
+    assert_eq!(
+        probe.cell.collision,
+        terrain::CollisionKind::Solid,
+        "ASM loc_9294: hit cell is Solid"
+    );
+    assert_eq!(probe.cell_x, 3, "ASM loc_9294: hit column");
+    assert_eq!(probe.cell_y, 1, "ASM loc_9294: hit row");
+}
+
+/// ASM loc_9294 (kid.asm:10699): Spikes detection path.
+/// `cmpi.w #$7000,d7; beq.w loc_92B6` — Spikes collision ($7000) also triggers
+/// the hit handler (via loc_92B6 → loc_92BC).
+/// Native: probe_wall_column matches `CollisionKind::Spikes`.
+#[test]
+fn loc_9294_sub_922c_scan_detects_spikes_tile() {
+    let w: u16 = 6;
+    let h: u16 = 4;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Spikes at col 3, row 1: collision=7 in bits 14-12 = 0x70
+    data[(usize::from(w) + 3) * 2] = 0x70;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let probe = terrain::probe_wall_column(&grid, 40, 47, 7, 31, true);
+    assert!(
+        probe.hit,
+        "ASM loc_9294: $7000 (Spikes) collision detected in scan"
+    );
+    assert_eq!(
+        probe.cell.collision,
+        terrain::CollisionKind::Spikes,
+        "ASM loc_9294: hit cell is Spikes"
+    );
+}
+
+/// ASM loc_92AA (kid.asm:10707): sub_922C wall scan loop continuation.
+/// `suba.w Level_width_tiles,a4; dbf d5,loc_9294` — moves up one row in the
+/// level layout and continues the scan. On loop exhaustion, `bra.w loc_9318`
+/// evaluates hit/Rubber/Berzerker flags.
+/// Native: `for row in (top_row..=foot_row).rev()` iterates top-to-bottom but
+/// the scan direction doesn't affect which rows are visited.
+#[test]
+fn loc_92aa_sub_922c_scan_iterates_all_rows_in_range() {
+    let w: u16 = 6;
+    let h: u16 = 6;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid only at col 3, row 1 (top of body scan range).
+    // No solid at rows 2-3.
+    data[(usize::from(w) + 3) * 2] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Feet at y=63 (row 3), height=47 → top_row = pixel_to_cell(63-47)
+    // = pixel_to_cell(16) = 1. Scan rows 3,2,1.
+    // edge_x = 40+7+1 = 48 → col 3
+    let probe = terrain::probe_wall_column(&grid, 40, 63, 7, 47, true);
+    assert!(
+        probe.hit,
+        "ASM loc_92AA: loop reaches row 1 at top of scan range"
+    );
+    assert_eq!(
+        probe.cell_y, 1,
+        "ASM loc_92AA: solid found at topmost scanned row"
+    );
+}
+
+/// ASM loc_92AA → loc_9318 (kid.asm:10707→10754): loop exhaustion path.
+/// When `dbf d5,loc_9294` exhausts without finding Solid/Spikes, execution
+/// falls through to `bra.w loc_9318` which evaluates the result flags. With
+/// both 0(sp) and 1(sp) clear, returns d7=0 (no hit).
+/// Native: probe_wall_column returns WallProbe { hit: false }.
+#[test]
+fn loc_92aa_sub_922c_loop_exhaustion_returns_no_hit() {
+    let w: u16 = 6;
+    let h: u16 = 4;
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2]; // all empty
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let probe = terrain::probe_wall_column(&grid, 40, 47, 7, 31, true);
+    assert!(
+        !probe.hit,
+        "ASM loc_92AA → loc_9318: no Solid/Spikes in column → d7=0 (no hit)"
+    );
+}

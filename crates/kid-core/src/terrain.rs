@@ -1158,6 +1158,21 @@ pub fn probe_wall(
 /// Unlike `probe_wall`, this does not sample three body points. It probes the
 /// exact edge column at `half_width + 1` and scans every 16px row from the
 /// player's feet upward through the requested body height.
+///
+/// ASM loc_9288 (kid.asm:10693): height adjustment merge point. Crawling,
+/// Micromax, and Juggernaut skip `subi.w #$10,d7` (extra 16px head clearance).
+/// Then `asr.w #4,d7; sub.w d7,d5` converts head pixel row to tile offset and
+/// computes the scan row count. Native: caller passes the adjusted `height`.
+///
+/// ASM loc_9294 (kid.asm:10699): scan loop body. `move.w (a4),d7; andi.w
+/// #$7000,d7` extracts collision bits. `$6000` (Solid) → loc_92BC hit handler.
+/// `$7000` (Spikes) → loc_92B6 sets `collision_type=$28` then falls through to
+/// loc_92BC. Native: `matches!(cell.collision, Solid | Spikes)`.
+///
+/// ASM loc_92AA (kid.asm:10707): loop continuation. `suba.w Level_width_tiles,
+/// a4` moves up one row. `dbf d5,loc_9294` continues; on exhaustion `bra.w
+/// loc_9318` evaluates hit/Rubber/Berzerker flags. Native: `for row in
+/// (top_row..=foot_row).rev()`.
 pub fn probe_wall_column(
     grid: &BlockGrid,
     center_x_px: i32,
@@ -2020,7 +2035,15 @@ pub fn vertical_collision_scan_up_sub_36CB8(
 ///     then falls through to loc_91AC
 ///
 /// loc_919E (`dbf d5,loc_9188`) continues the loop; on exhaustion, falls
-/// through to loc_9204 which evaluates the hit/Rubber flags.
+/// through to loc_9204 which evaluates the hit/Rubber flags:
+///   - loc_9204: `_tst.b 0(sp)` — rubber bounce flag set → d7=-1 (bounce)
+///   - loc_9212: `tst.b 1(sp)` — no rubber, check hit flag:
+///     - 1(sp) set → d7=1 (normal ceiling hit)
+///     - 1(sp) clear → loc_9220: d7=0 (no hit)
+///
+/// loc_9226: early exit when head row is negative (above level top):
+/// `asr.w #4,d7; bmi.w loc_9226` → d7=1 (treat as ceiling hit).
+/// TODO(fidelity): native returns no-hit for OOB rows instead.
 ///
 /// loc_91AC sets the hit flag (`st 1(sp)`) and records the first-hit tile
 /// address in `$FFFFFB6C`. It then checks for Rubber blocks at loc_91C0
