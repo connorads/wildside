@@ -80266,3 +80266,210 @@ fn facing_right_decel_snaps_zero_loc_9B26() {
         "ASM loc_9B26→loc_9BEE→loc_9C06: decel overshoot → moveq #0,d0"
     );
 }
+
+// --- loc_9B4E: facing right, holding right, no run, below walk cap ---
+
+/// ASM loc_9B4E (kid.asm:11729): facing right, holding right, no run, moving
+/// right, below walk speed cap. `add.l 4(a0),d0` (walk_accel), then clamp:
+/// `cmp.l (a0),d0; bcs.w return_9B5A; move.l (a0),d0`.
+/// Native: `(vel + table.walk_accel).min(table.max_walk_speed)`.
+#[test]
+#[allow(non_snake_case)]
+fn walk_right_below_cap_accelerates_loc_9B4E() {
+    // vel = $10000, walk_accel = $1000, cap = $20000 → $11000.
+    let (vel, _) = physics::update_horizontal_velocity(
+        0x1_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel,
+        0x1_0000 + 0x1000,
+        "ASM loc_9B4E: add.l 4(a0),d0 walk accel below cap"
+    );
+}
+
+/// ASM loc_9B4E clamp path: velocity just below walk cap, acceleration would
+/// exceed it. `cmp.l (a0),d0; bcs return_9B5A` fails → `move.l (a0),d0`.
+/// Native: `.min(table.max_walk_speed)` clamps.
+#[test]
+#[allow(non_snake_case)]
+fn walk_right_at_cap_clamps_loc_9B4E() {
+    // vel = $1F800 ($20000 - $800), walk_accel = $1000 → would be $20800,
+    // clamped to $20000.
+    let (vel, _) = physics::update_horizontal_velocity(
+        0x1_F800,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel,
+        0x2_0000, // max_walk_speed
+        "ASM loc_9B4E: clamp at (a0) when accel overshoots walk cap"
+    );
+}
+
+// --- loc_9B5C: facing right, holding right, no run, moving left ---
+
+/// ASM loc_9B5C (kid.asm:11739): facing right, holding right, no run, but
+/// moving left. `add.l $C(a0),d0; rts` — turn_brake towards zero.
+/// Native: `vel + table.turn_brake`.
+#[test]
+#[allow(non_snake_case)]
+fn walk_right_moving_left_turn_brake_loc_9B5C() {
+    // vel = -$10000, turn_brake = $2000 → -$E000.
+    let (vel, _) = physics::update_horizontal_velocity(
+        -0x1_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel,
+        -0x1_0000 + 0x2000,
+        "ASM loc_9B5C: add.l $C(a0),d0 turn_brake"
+    );
+}
+
+// --- loc_9B78: facing right, holding right+run, moving left ---
+
+/// ASM loc_9B78 (kid.asm:11757): facing right, holding right+run, but moving
+/// left. `add.l $18(a0),d0; rts` — strong_brake towards zero.
+/// Native: `vel + table.strong_brake`.
+#[test]
+#[allow(non_snake_case)]
+fn run_right_moving_left_strong_brake_loc_9B78() {
+    // vel = -$10000, strong_brake = $3000 → -$D000.
+    let (vel, _) = physics::update_horizontal_velocity(
+        -0x1_0000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: true,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel,
+        -0x1_0000 + 0x3000,
+        "ASM loc_9B78: add.l $18(a0),d0 strong_brake"
+    );
+}
+
+// --- loc_9B8A: facing left, direction dispatch ---
+
+/// ASM loc_9B8A (kid.asm:11770): facing left, right not held.
+/// `tst.b (Ctrl_Left_Held).w; beq.s loc_9BEE` — left not held → decelerate.
+/// Native: `update_horizontal_velocity` with no input → `decelerate`.
+#[test]
+#[allow(non_snake_case)]
+fn facing_left_no_input_decelerates_loc_9B8A() {
+    // Facing left, moving left, no input → decelerate by walk_run_decel ($2800).
+    let (vel, dir) = physics::update_horizontal_velocity(
+        -0x1_0000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel,
+        -0x1_0000 + 0x2800,
+        "ASM loc_9B8A→loc_9BEE: no left held → add.l 8(a0),d0 decel"
+    );
+    assert_eq!(dir, Direction::Left, "facing preserved when no input");
+}
+
+/// ASM loc_9B8A: left held → falls through to loc_9B90 (forward acceleration left).
+/// Native: `apply_holding_left` accelerates leftward.
+#[test]
+#[allow(non_snake_case)]
+fn facing_left_hold_left_accelerates_loc_9B8A() {
+    // Facing left, holding left, from stopped → walk_accel leftward.
+    let (vel, dir) = physics::update_horizontal_velocity(
+        0,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    // vel=0 → bpl → loc_9BC8: `sub.l $18(a0),d0` (strong_brake as initial push).
+    assert_eq!(
+        vel,
+        -0x3000, // 0 - strong_brake
+        "ASM loc_9B8A→loc_9B90→loc_9BC8: stopped + left held → sub.l $18(a0),d0"
+    );
+    assert_eq!(dir, Direction::Left, "facing left preserved");
+}
+
+// --- loc_9BAC: facing left, holding left, no run, below run cap ---
+
+/// ASM loc_9BAC (kid.asm:11789): facing left, holding left, no run, moving
+/// left, above walk cap but below run cap. `cmp.l (a0),d1; ble.s loc_9BB6`
+/// fails (d1 > walk_cap) → `add.l 8(a0),d0; rts` decelerate towards walk cap.
+/// Native: `vel + table.walk_run_decel`.
+#[test]
+#[allow(non_snake_case)]
+fn walk_left_above_walk_cap_decelerates_loc_9BAC() {
+    // vel = -$28000 (abs $28000 > walk_cap $20000, < run_cap $38000).
+    // walk_run_decel = $2800 → vel + $2800 = -$25800.
+    let (vel, _) = physics::update_horizontal_velocity(
+        -0x2_8000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel,
+        -0x2_8000 + 0x2800,
+        "ASM loc_9BAC: add.l 8(a0),d0 walk_run_decel towards walk cap"
+    );
+}
+
+/// ASM loc_9BAC → loc_9BB6: below walk cap → `sub.l 4(a0),d0` accelerate
+/// leftward. Clamp at `-max_walk_speed`. Mirror of loc_9B4E.
+#[test]
+#[allow(non_snake_case)]
+fn walk_left_below_cap_accelerates_loc_9BAC() {
+    // vel = -$10000, walk_accel = $1000 → -$11000.
+    let (vel, _) = physics::update_horizontal_velocity(
+        -0x1_0000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel,
+        -0x1_0000 - 0x1000,
+        "ASM loc_9BAC→loc_9BB6: sub.l 4(a0),d0 walk accel left"
+    );
+}
