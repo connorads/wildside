@@ -163,6 +163,9 @@ pub(crate) const SPRITE_TABLE_CLEAR_WORD_COUNT_LOC_720: u32 = 0x7DE1; // $7DE0 +
 ///   6. If `$FFFFFB49` (art-upload-skip flag) is set → loc_B36 (skip art).
 ///   7. Otherwise loop at loc_AD4: read (length, source) pairs from
 ///      `$FFFF0500`, DMA each tile run to VRAM starting at $C4A0.
+///      loc_B24 (kid.asm:1294) is the loop tail: write the assembled VDP
+///      command via `$FFFFF800`, advance the VRAM destination pointer
+///      (`add.w d0,d2; add.w d0,d2`), and branch back to loc_AD4.
 ///
 /// In the native port, rendering bypasses VDP entirely — sprite attributes
 /// feed directly into the software renderer.  This constant documents the

@@ -311,6 +311,11 @@ pub(crate) fn kid_airborne_visual_sub_B270(
         };
     }
 
+    // ASM loc_B284 (kid.asm:14140): non-Eyeclops path — checks the global
+    // animation lock `$FFFFFA66`. If set, return immediately (preserve current
+    // visual). `tst.b ($FFFFFA66).w; beq.w loc_B28E; rts`
+    // The second condition covers `$FFFFFA67` (airborne latch): if set AND
+    // `$18(a3)` (on_ground) is zero, also return early (loc_B28E..loc_B2A0).
     if input.global_lock_active || (input.airborne_latch_active && !input.on_ground) {
         return KidAirborneVisualStepSubB270 {
             visual: KidAirborneVisualKindSubB270::PreserveCurrent,
@@ -3134,16 +3139,23 @@ impl NativeRuntime {
                 self.helmet.cyclone_y_accel = CYCLONE_ACCEL_MIN;
             }
         } else {
-            // Not thrusting: cap descent acceleration
+            // ASM loc_B23A (kid.asm:14104): flying button not pressed — cap
+            // descent acceleration at $1200 so Cyclone drifts down gently.
+            // `cmpi.w #$1200,d7; ble.w loc_B246; move.w #$1200,d7`
             if self.helmet.cyclone_y_accel > CYCLONE_ACCEL_MAX_DESCENT {
                 self.helmet.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT;
             }
         }
 
-        // Apply acceleration to velocity
+        // ASM loc_B246 (kid.asm:14109): store acceleration back to
+        // Cyclone_YAcceleration, sign-extend to long (`ext.l d7`), add to
+        // y_vel(a3). `move.w d7,(Cyclone_YAcceleration).w; ext.l d7;
+        // add.l y_vel(a3),d7`
         slice.player.y_velocity += i32::from(self.helmet.cyclone_y_accel);
 
-        // Clamp velocity to rise/fall limits.
+        // ASM loc_B25E (kid.asm:14119): upward speed cap at -$30000 (3 px/frame).
+        // `cmpi.l #-$30000,d7; bgt.s loc_B26C; move.l #-$30000,d7`
+        // Downward cap checked just before at loc_B246+8: $28000 (2.5 px/frame).
         slice.player.y_velocity = slice
             .player
             .y_velocity
