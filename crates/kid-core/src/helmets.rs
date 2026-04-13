@@ -3176,7 +3176,11 @@ impl NativeRuntime {
             return IronKnightClimbStep::None;
         }
 
-        // Landing stops climb
+        // ASM loc_A338 (kid.asm:12637): after sub_902A applies y_vel and
+        // detects floor (d7=1), `cmpi.w #2,d7; bge.s loc_A330` continues
+        // climbing only for ceiling hits (d7>=2). Floor landing (d7<2)
+        // falls through to `sub_78E8; bra.w loc_75D4` → dismount.
+        // Native: on_ground is set by the physics step that applies y_vel.
         if slice.player.on_ground {
             self.helmet.iron_knight_climbing = false;
             self.helmet.iron_knight_climb_accel = 0;
@@ -3211,7 +3215,15 @@ impl NativeRuntime {
             return IronKnightClimbStep::ExitHibernate;
         }
 
-        // Check wall still exists
+        // ASM loc_A2F6→loc_A30A→loc_A328 (kid.asm:12610–12628): probes
+        // the wall at (half_width+1, -$18) via sub_B55C. If d5==$6000
+        // (Solid), calls sub_902A to apply y_vel + check floor/ceiling.
+        // loc_A328: `bsr.w sub_902A; bne.w loc_A338` — non-zero d7 means
+        // a surface interaction (floor d7=1 or ceiling d7=2).
+        // loc_A330 (kid.asm:12632): `bsr.w sub_A3BC; bra.w loc_A28A` —
+        // no collision: advance climb animation, loop back to main climb.
+        // Native: wall check via probe_iron_knight_climb_resume_wall;
+        // sub_902A physics handled by caller; sub_A3BC pose at end.
         if let Some(ref grid) = self.block_grid {
             let facing_right = slice.player.facing == Direction::Right;
             let px = (slice.player.x_pos >> 16) as i32;
@@ -3248,7 +3260,10 @@ impl NativeRuntime {
                 self.helmet.iron_knight_climb_accel = IRON_KNIGHT_MIN_ACCEL;
             }
         } else {
-            // Cap slide-down acceleration
+            // ASM loc_A382 (kid.asm:12666): C not pressed — passive cap.
+            // `cmpi.w #$1800,d7; ble.w loc_A38E; move.w #$1800,d7`
+            // Caps Cyclone_YAcceleration at $1800 so natural slide-down
+            // acceleration doesn't exceed the boost magnitude.
             if self.helmet.iron_knight_climb_accel > IRON_KNIGHT_MAX_SLIDE_ACCEL {
                 self.helmet.iron_knight_climb_accel = IRON_KNIGHT_MAX_SLIDE_ACCEL;
             }

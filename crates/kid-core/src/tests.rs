@@ -34290,6 +34290,137 @@ fn iron_knight_landing_stops_climb() {
     assert!(!rt.helmet.iron_knight_climbing, "landing should end climb");
 }
 
+/// ASM loc_A338 (kid.asm:12637): after sub_902A detects floor (d7=1),
+/// `cmpi.w #2,d7; bge.s loc_A330` does NOT branch (1 < 2), so the ROM
+/// falls through to `sub_78E8; bra.w loc_75D4` → dismount from wall.
+/// Native: on_ground=true triggers the landing-stops-climb path.
+///
+/// Also validates loc_A328 (kid.asm:12628): sub_902A returned d7!=0
+/// (floor hit), so `bne.w loc_A338` branches into the landing check.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A338_floor_landing_dismounts_wall_climb() {
+    let mut rt = iron_knight_runtime_with_wall();
+    rt.helmet.iron_knight_climbing = true;
+    rt.helmet.iron_knight_climb_accel = 0x100; // mid-slide
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 154 << 16;
+    slice.player.y_pos = 32 << 16;
+    slice.player.facing = Direction::Right;
+    // Simulate sub_902A detecting floor: on_ground set by physics step.
+    slice.player.on_ground = true;
+
+    rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+    assert!(
+        !rt.helmet.iron_knight_climbing,
+        "loc_A338: d7=1 (floor) < 2 → dismount"
+    );
+    assert_eq!(
+        rt.helmet.iron_knight_climb_accel, 0,
+        "dismount should reset climb acceleration"
+    );
+    assert_eq!(
+        rt.helmet.iron_knight_climb_pose_accum, 0,
+        "dismount should reset climb pose accumulator"
+    );
+}
+
+/// ASM loc_A330 (kid.asm:12632): when sub_902A returns d7=0 (no floor/ceiling
+/// collision), `beq` at loc_A328 falls through to loc_A330:
+/// `bsr.w sub_A3BC; bra.w loc_A28A` — advance climb animation and loop.
+/// Native: wall still present + not on_ground → ResumeClimb, which
+/// advances the sub_A3BC pose accumulator and loops the climb state.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A330_no_collision_continues_climb_with_animation() {
+    let mut rt = iron_knight_runtime_with_wall();
+    rt.helmet.iron_knight_climbing = true;
+    rt.helmet.iron_knight_climb_accel = 0;
+    rt.helmet.iron_knight_climb_pose_accum = 0x30;
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 154 << 16;
+    slice.player.y_pos = 32 << 16;
+    slice.player.facing = Direction::Right;
+    // Non-zero y_vel so sub_A3BC's `(y_vel << 3) >> 16` delta is nonzero.
+    slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL; // -0x4000
+    slice.player.on_ground = false;
+
+    let result = rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+    assert!(
+        rt.helmet.iron_knight_climbing,
+        "loc_A330: no collision → continue climbing"
+    );
+    assert!(
+        matches!(result, IronKnightClimbStep::ResumeClimb),
+        "loc_A330: should return ResumeClimb for animation loop"
+    );
+    // sub_A3BC should have updated the pose accumulator: post-step y_vel
+    // includes drift, and the visual function shifts that into pose delta.
+    let post_y_vel = slice.player.y_velocity;
+    let expected_pose = iron_knight_climb_visual_sub_A3BC(0x30, post_y_vel).pose_accum;
+    assert_eq!(
+        rt.helmet.iron_knight_climb_pose_accum, expected_pose,
+        "loc_A330: sub_A3BC should advance pose accumulator from post-step y_vel"
+    );
+}
+
+/// ASM loc_A382 (kid.asm:12666): when C is NOT pressed during wall climb,
+/// `Get_RandomNumber_wordC` caps Cyclone_YAcceleration at $1800.
+/// `cmpi.w #$1800,d7; ble.w loc_A38E; move.w #$1800,d7`.
+/// After many frames of drift (+$80 each), acceleration saturates at $1800.
+///
+/// Native: iron_knight_climb_accel capped at IRON_KNIGHT_MAX_SLIDE_ACCEL.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A382_passive_slide_cap_at_1800() {
+    let mut rt = iron_knight_runtime_with_wall();
+    rt.helmet.iron_knight_climbing = true;
+    // Set accel just below cap
+    rt.helmet.iron_knight_climb_accel = IRON_KNIGHT_MAX_SLIDE_ACCEL - 1;
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 154 << 16;
+    slice.player.y_pos = 32 << 16;
+    slice.player.facing = Direction::Right;
+    slice.player.y_velocity = 0;
+
+    // No C press — drift +$80 should push past $1800, then cap kicks in
+    rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+    assert_eq!(
+        rt.helmet.iron_knight_climb_accel, IRON_KNIGHT_MAX_SLIDE_ACCEL,
+        "loc_A382: passive drift should be capped at $1800"
+    );
+}
+
+/// ASM loc_A382 complement: when accel is already below $1800 and drift
+/// doesn't push it over, the cap is not applied (ble branch taken).
+#[test]
+#[allow(non_snake_case)]
+fn loc_A382_below_cap_drift_not_clamped() {
+    let mut rt = iron_knight_runtime_with_wall();
+    rt.helmet.iron_knight_climbing = true;
+    rt.helmet.iron_knight_climb_accel = 0;
+
+    let mut slice = airborne_slice();
+    slice.player.x_pos = 154 << 16;
+    slice.player.y_pos = 32 << 16;
+    slice.player.facing = Direction::Right;
+    slice.player.y_velocity = 0;
+
+    rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+    // After one frame: accel = 0 + $80 = $80, well below $1800
+    assert_eq!(
+        rt.helmet.iron_knight_climb_accel, IRON_KNIGHT_SLIDE_DRIFT,
+        "loc_A382: below cap, drift should apply normally without clamping"
+    );
+}
+
 #[test]
 fn iron_knight_landing_on_metal_block_bounces_without_destroying_it() {
     let mut runtime = NativeRuntime::new(manifest());
@@ -76922,6 +77053,31 @@ fn loc_9402_slope_down_one_row_below_detected() {
         floor_y, 84,
         "ASM loc_9402: SlopeDown surface at x=52, row 5 → cell_top(80) + 4 = 84"
     );
+}
+
+/// ASM loc_A268 (kid.asm:12563): SlopeDown branch of sub_A254.
+/// `move.w ($FA24).w,d0; add.w x_pos(a3),d0; move.w d0,y_pos(a3)`.
+/// For SlopeDown ($5000), the floor surface RISES with increasing x_within_cell:
+/// y = cell_top + x_within_cell. This is the mirror of the SlopeUp path
+/// (sub_A254 entry: `sub.w x_pos(a3),d0` at kid.asm:12558).
+///
+/// Verify across several x positions within a single cell to confirm the
+/// per-pixel linear ramp.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A268_slope_down_y_increases_with_x() {
+    let cell_top = 48; // row 3
+
+    // x_within_cell = x_px & 0x0F; floor_y = cell_top + x_within_cell
+    for x_offset in 0..=15 {
+        let x_px = 64 + x_offset; // col 4, varying within-cell offset
+        let floor_y = terrain::slope_floor_y_pub(terrain::CollisionKind::SlopeDown, cell_top, x_px);
+        assert_eq!(
+            floor_y,
+            cell_top + x_offset,
+            "loc_A268: SlopeDown at x_px={x_px} should give cell_top({cell_top}) + {x_offset}"
+        );
+    }
 }
 
 /// ASM loc_9426 (kid.asm:10868): sub_9386 no-slope return. After checking

@@ -931,8 +931,10 @@ fn slope_floor_y(collision: CollisionKind, cell_top_y: i32, x_px: i32) -> i32 {
         // surface rises as X increases.
         // y = cell_top + 15 - x_within_cell
         CollisionKind::SlopeUp => cell_top_y + 15 - x_within_cell,
-        // ASM `sub_9386` / `sub_A254`: `$5000` stores `y - x`, so the
-        // surface falls as X increases.
+        // ASM `sub_9386` / `sub_A254` loc_A268 (kid.asm:12563): `$5000`
+        // stores `y - x`, so the surface falls as X increases.
+        // loc_A268: `move.w ($FA24).w,d0; add.w x_pos(a3),d0;
+        // move.w d0,y_pos(a3)` — SlopeDown adds x_pos to the constant.
         // y = cell_top + x_within_cell
         CollisionKind::SlopeDown => cell_top_y + x_within_cell,
         _ => cell_top_y,
