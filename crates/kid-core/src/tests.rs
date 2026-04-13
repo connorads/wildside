@@ -105,9 +105,11 @@ use crate::level::{
     BlockLayoutLoopLoc1345E, BlockLayoutLoopLoc1347C, BlockLayoutPropertyWordLoc1337C,
     BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
-    DecompressToVramSpecialReturnLoc143B2, EOL_NUMBER_DIGIT_COUNT_LOC_C466,
+    DecompressToVramSpecialReturnLoc143B2, EOL_NUMBER_DIGIT_COUNT_LOC_C48C,
+    EOL_NUMBER_DIGIT_COUNT_LOC_C466, EOL_NUMBER_DIGIT_SPACING_LOC_C4E2,
     EOL_NUMBER_DISPLAY_FLAG_LOC_C466, EOL_NUMBER_GFX_SPEC_LOC_C466,
-    EOL_NUMBER_INITIAL_PATTERN_LOC_C466, EOL_NUMBER_PALETTE_LOC_C466, EOL_NUMBER_PRIORITY_LOC_C466,
+    EOL_NUMBER_INITIAL_PATTERN_LOC_C466, EOL_NUMBER_MAX_VALUE_LOC_C48C,
+    EOL_NUMBER_PALETTE_LOC_C466, EOL_NUMBER_PRIORITY_LOC_C466,
     EOL_NUMBER_SLOT_ARRAY_OFFSET_LOC_C466, EnemyLayoutResetAndSeekInputLoc31F8E,
     EnemyLayoutResetAndSeekLoc31F8E, FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC,
     FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC, FLAGPOLE_FADE_STEP_LOC_C1D0,
@@ -124,25 +126,26 @@ use crate::level::{
     IslandPaletteCyclePrimaryBandLoc12098, LateBackgroundPaletteOverrideLoc11E06,
     LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, ManageEnemyLoadingCountDownActiveLoc3685E,
     ManageEnemyLoadingSpawnObjectLoc3691E, ManageEnemyLoadingStatusBranchLoc36840,
-    PaletteFadeOutInitLoc28A6, PaletteFadeOutStepLoc28C6, PostLoadObjectRoutineLoc11F96,
-    RotatePaletteLavaWaterDelayLoc1223A, SCOREBOARD_DIGIT_CLEAR_BASES_LOC_C2F4,
-    SCOREBOARD_DIGIT_CLEAR_HIBERNATE_FRAMES_LOC_C2F4, SCOREBOARD_DIGIT_CLEAR_ROW_COUNT_LOC_C2F4,
-    SCOREBOARD_DIGIT_CLEAR_STEP_COUNT_LOC_C2F2, SPRITE_SCATTER_CENTRE_LOC_C436,
-    SPRITE_SCATTER_ENTRY_COUNT_LOC_C428, SPRITE_SCATTER_ENTRY_STRIDE_LOC_C428,
-    SPRITE_SCATTER_TABLE_X_OFFSET_LOC_C428, SPRITE_SCATTER_VISIBLE_MAX_LOC_C436,
-    SPRITE_SCATTER_VISIBLE_MIN_LOC_C436, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
-    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
-    SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, TILE_FADE_BUFFER_LONGWORDS_LOC_C38A, TILE_FADE_COLUMN_TABLE_UNK_C418,
-    TILE_FADE_HIBERNATE_FRAMES_LOC_C392, TILE_FADE_MASK_COLUMNS_SUB_C3DA,
-    TILE_FADE_STEP_COUNT_LOC_C392, TILE_FADE_VRAM_ADDRESS_SUB_C378,
-    TILE_FADE_WRITE_ITERATIONS_LOC_C3BA, TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056,
-    TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
-    TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070, TransferScrollDataDispatchLoc3039C,
-    TransferScrollDataDmaTailLoc300D2, TransferScrollDataPreludeLoc3038A,
-    TransferScrollDataRendererLoc3039C, TransferScrollDataStormLoc30110,
-    TransferScrollDataStormLoopLoc30130, TransferScrollDataStormLoopLoc30172,
-    TransferScrollDataStormSetupLoc30158, TransferScrollDataVsramSetupLoc300BA, VdpVramWriteCmd,
+    POWERS_OF_TEN_LOC_C48C, PaletteFadeOutInitLoc28A6, PaletteFadeOutStepLoc28C6,
+    PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A,
+    SCOREBOARD_DIGIT_CLEAR_BASES_LOC_C2F4, SCOREBOARD_DIGIT_CLEAR_HIBERNATE_FRAMES_LOC_C2F4,
+    SCOREBOARD_DIGIT_CLEAR_ROW_COUNT_LOC_C2F4, SCOREBOARD_DIGIT_CLEAR_STEP_COUNT_LOC_C2F2,
+    SPRITE_SCATTER_CENTRE_LOC_C436, SPRITE_SCATTER_ENTRY_COUNT_LOC_C428,
+    SPRITE_SCATTER_ENTRY_STRIDE_LOC_C428, SPRITE_SCATTER_TABLE_X_OFFSET_LOC_C428,
+    SPRITE_SCATTER_VISIBLE_MAX_LOC_C436, SPRITE_SCATTER_VISIBLE_MIN_LOC_C436, SUB_28FC_SLOT_COUNT,
+    SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
+    ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA,
+    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, TILE_FADE_BUFFER_LONGWORDS_LOC_C38A,
+    TILE_FADE_COLUMN_TABLE_UNK_C418, TILE_FADE_HIBERNATE_FRAMES_LOC_C392,
+    TILE_FADE_MASK_COLUMNS_SUB_C3DA, TILE_FADE_STEP_COUNT_LOC_C392,
+    TILE_FADE_VRAM_ADDRESS_SUB_C378, TILE_FADE_WRITE_ITERATIONS_LOC_C3BA,
+    TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056, TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6,
+    TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070, TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070,
+    TransferScrollDataDispatchLoc3039C, TransferScrollDataDmaTailLoc300D2,
+    TransferScrollDataPreludeLoc3038A, TransferScrollDataRendererLoc3039C,
+    TransferScrollDataStormLoc30110, TransferScrollDataStormLoopLoc30130,
+    TransferScrollDataStormLoopLoc30172, TransferScrollDataStormSetupLoc30158,
+    TransferScrollDataVsramSetupLoc300BA, VdpVramWriteCmd,
     apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
     apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
     apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
@@ -228,6 +231,7 @@ use crate::level::{
     drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
     enemy_layout_finish_loc_3204E, enemy_layout_reset_and_seek_loc_31F8E,
     enemy_layout_status_word_loc_3200A, enemy_layout_status_word_with_negative_sentinel_loc_32036,
+    eol_extract_digit_loc_C4CE, eol_number_digit_loc_C4AE, eol_number_digits_loc_C48C,
     fade_palette_span_sub_1C85E, fg_update_queue_cell_mapping_longwords_loc_165E,
     fg_update_queue_cell_vram_word_loc_1614, fg_update_queue_culled_entry_advance_loc_167A,
     flagpole_fade_step_loc_C1D0, flagpole_scoreboard_cursor_loc_C1EE,
@@ -3056,6 +3060,180 @@ fn loc_c466_eol_number_init_constants() {
     assert_eq!(
         EOL_NUMBER_SLOT_ARRAY_OFFSET_LOC_C466, 0x0044,
         "ASM Object_EOL_Number: lea $44(a5),a4 → slot pointers start at $44"
+    );
+}
+
+// ── loc_C48C: Object_EOL_Number display loop (kid.asm:16128) ──────────────
+
+/// ASM loc_C48C (kid.asm:16128): display loop constants — max value clamp,
+/// digit count, digit spacing, and PowersOfTen divisor table.
+#[test]
+fn loc_c48c_eol_number_display_loop_constants() {
+    // ASM loc_C48C: cmpi.l #9999999,d6
+    assert_eq!(
+        EOL_NUMBER_MAX_VALUE_LOC_C48C, 9_999_999,
+        "ASM loc_C48C: cmpi.l #9999999,d6 → clamp ceiling"
+    );
+    // ASM loc_C4E2+10: cmpi.w #7,d7
+    assert_eq!(
+        EOL_NUMBER_DIGIT_COUNT_LOC_C48C, 7,
+        "ASM loc_C48C: 7 digits (millions → ones)"
+    );
+    // ASM loc_C4E2: mulu.w #$C,d0
+    assert_eq!(
+        EOL_NUMBER_DIGIT_SPACING_LOC_C4E2, 12,
+        "ASM loc_C4E2: mulu.w #$C,d0 → 12px per digit"
+    );
+    // ASM PowersOfTen (kid.asm:16196): 7 entries from 10^6 to 10^0
+    assert_eq!(
+        POWERS_OF_TEN_LOC_C48C,
+        [1_000_000, 100_000, 10_000, 1_000, 100, 10, 1],
+        "ASM PowersOfTen: dc.l table from 1000000 down to 1"
+    );
+}
+
+/// ASM loc_C48C (kid.asm:16128): values above 9999999 are clamped.
+#[test]
+fn loc_c48c_eol_number_clamp_overflow() {
+    // 10_000_000 exceeds max → clamped to 9999999, all digits visible
+    let digits = eol_number_digits_loc_C48C(10_000_000);
+    assert_eq!(
+        digits,
+        [
+            Some(9),
+            Some(9),
+            Some(9),
+            Some(9),
+            Some(9),
+            Some(9),
+            Some(9)
+        ],
+        "ASM loc_C48C: move.l #9999999,d6 when input > max"
+    );
+}
+
+// ── loc_C4AE: per-digit dispatch (kid.asm:16139) ─────────────────────────
+
+/// ASM loc_C4AE (kid.asm:16139): digit extraction for a value with all
+/// significant digits (1234567).
+#[test]
+fn loc_c4ae_eol_digit_all_significant() {
+    let digits = eol_number_digits_loc_C48C(1_234_567);
+    assert_eq!(
+        digits,
+        [
+            Some(1),
+            Some(2),
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            Some(7)
+        ],
+        "ASM loc_C4AE: each digit extracted via loc_C4CE repeated subtraction"
+    );
+}
+
+// ── loc_C4C0: show digit 0 (kid.asm:16149) ───────────────────────────────
+
+/// ASM loc_C4C0 (kid.asm:16149): trailing zeros after a significant digit
+/// display as 0, and the ones place (digit_index=6) always shows 0.
+#[test]
+fn loc_c4c0_eol_trailing_and_ones_zero() {
+    // 1_000_000: millions=1, then six trailing zeros all visible
+    let digits = eol_number_digits_loc_C48C(1_000_000);
+    assert_eq!(
+        digits,
+        [
+            Some(1),
+            Some(0),
+            Some(0),
+            Some(0),
+            Some(0),
+            Some(0),
+            Some(0)
+        ],
+        "ASM loc_C4C0: trailing zeros shown after leading significant digit"
+    );
+    // 0: all blanked except ones place
+    let digits = eol_number_digits_loc_C48C(0);
+    assert_eq!(
+        digits,
+        [None, None, None, None, None, None, Some(0)],
+        "ASM loc_C4C0: cmpi.w #6,d7; beq.s loc_C4C0 → ones place always shows 0"
+    );
+}
+
+// ── loc_C4C8: leading zero suppression (kid.asm:16154) ────────────────────
+
+/// ASM loc_C4C8 (kid.asm:16154): leading zeros are blanked (clr.w $22(a0))
+/// until the first non-zero digit appears.
+#[test]
+fn loc_c4c8_eol_leading_zero_suppression() {
+    // 42: only tens and ones visible, rest blanked
+    let digits = eol_number_digits_loc_C48C(42);
+    assert_eq!(
+        digits,
+        [None, None, None, None, None, Some(4), Some(2)],
+        "ASM loc_C4C8: tst.w d2; beq.s loc_C4C8 → blank before first significant"
+    );
+    // 100_000: hundred-thousands through ones visible
+    let digits = eol_number_digits_loc_C48C(100_000);
+    assert_eq!(
+        digits,
+        [None, Some(1), Some(0), Some(0), Some(0), Some(0), Some(0)],
+        "ASM loc_C4C8: millions blanked, then loc_C4C0 for trailing zeros"
+    );
+}
+
+// ── loc_C4CE: digit extraction via repeated subtraction (kid.asm:16159) ───
+
+/// ASM loc_C4CE/loc_C4D2 (kid.asm:16159–16166): extract digit by repeated
+/// subtraction: `d1=-1; loop: d1++, d6-=d0, bpl loop; d6+=d0`.
+#[test]
+fn loc_c4ce_eol_extract_digit_repeated_subtraction() {
+    // 7_654_321 / 1_000_000 → digit=7, remainder=654_321
+    let (digit, rem) = eol_extract_digit_loc_C4CE(7_654_321, 1_000_000);
+    assert_eq!(digit, 7, "ASM loc_C4D2: 7 subtractions of 1000000");
+    assert_eq!(rem, 654_321, "ASM loc_C4D2: add.l d0,d6 restores remainder");
+
+    // 9 / 10 → digit=0, remainder=9
+    let (digit, rem) = eol_extract_digit_loc_C4CE(9, 10);
+    assert_eq!(digit, 0, "ASM loc_C4CE: value < power → digit 0");
+    assert_eq!(rem, 9, "remainder unchanged when digit is 0");
+
+    // 1 / 1 → digit=1, remainder=0
+    let (digit, rem) = eol_extract_digit_loc_C4CE(1, 1);
+    assert_eq!(digit, 1, "ASM loc_C4D2: ones place extraction");
+    assert_eq!(rem, 0, "ones place leaves 0 remainder");
+}
+
+/// ASM loc_C4AE (kid.asm:16139): single-digit dispatch decisions.
+#[test]
+fn loc_c4ae_eol_digit_dispatch_cases() {
+    // remainder >= power → Some(digit) via loc_C4CE
+    assert_eq!(
+        eol_number_digit_loc_C4AE(500_000, 100_000, 1, false),
+        Some(5),
+        "ASM loc_C4AE: cmp.l d0,d6; bge.s loc_C4CE"
+    );
+    // remainder < power, ones place → Some(0) via loc_C4C0
+    assert_eq!(
+        eol_number_digit_loc_C4AE(0, 1, 6, false),
+        Some(0),
+        "ASM loc_C4C0: cmpi.w #6,d7; beq.s loc_C4C0"
+    );
+    // remainder < power, not ones, leading seen → Some(0) via loc_C4C0
+    assert_eq!(
+        eol_number_digit_loc_C4AE(0, 100, 4, true),
+        Some(0),
+        "ASM loc_C4C0: trailing zero after significant digit"
+    );
+    // remainder < power, not ones, no leading → None via loc_C4C8
+    assert_eq!(
+        eol_number_digit_loc_C4AE(0, 100_000, 1, false),
+        None,
+        "ASM loc_C4C8: tst.w d2; beq.s loc_C4C8 → blank"
     );
 }
 

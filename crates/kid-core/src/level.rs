@@ -11054,6 +11054,128 @@ pub(crate) const EOL_NUMBER_INITIAL_PATTERN_LOC_C466: u16 = 0x0517;
 #[allow(dead_code)]
 pub(crate) const EOL_NUMBER_SLOT_ARRAY_OFFSET_LOC_C466: u16 = 0x0044;
 
+/// ASM loc_C48C (kid.asm:16128): maximum displayable value — `cmpi.l #9999999,d6`.
+/// If `$60(a5)` exceeds this, the display loop clamps to this ceiling.
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_MAX_VALUE_LOC_C48C: u32 = 9_999_999;
+
+/// ASM loc_C48C (kid.asm:16128): number of digits in the display (7 powers-of-ten
+/// entries from 1_000_000 down to 1, matching `cmpi.w #7,d7` at loc_C4E2+10).
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_DIGIT_COUNT_LOC_C48C: u16 = 7;
+
+/// ASM loc_C4E2 (kid.asm:16171): per-digit horizontal spacing —
+/// `mulu.w #$C,d0` multiplies digit index by 12 pixels.
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_DIGIT_SPACING_LOC_C4E2: u16 = 0x000C;
+
+/// ASM PowersOfTen (kid.asm:16196): divisor table for 7-digit extraction.
+/// loc_C4AE (kid.asm:16139) walks this array left-to-right, one entry per digit.
+#[allow(dead_code)]
+pub(crate) const POWERS_OF_TEN_LOC_C48C: [u32; 7] = [1_000_000, 100_000, 10_000, 1_000, 100, 10, 1];
+
+/// ASM loc_C4AE (kid.asm:16139): determine what to display for one digit position.
+///
+/// Returns `Some(digit)` (0–9) if a visible digit should be shown, or `None` if
+/// the position should be blanked (leading-zero suppression via loc_C4C8).
+///
+/// - `remainder`: current value being decomposed (d6)
+/// - `power`: current power-of-ten divisor from `PowersOfTen` (d0)
+/// - `digit_index`: 0-based position, 0=millions, 6=ones (d7)
+/// - `leading_seen`: whether a non-zero digit has appeared yet (d2 != 0)
+///
+/// ```text
+/// loc_C4AE:                           ; per-digit loop entry
+///   move.l (a4)+,a0                   ; slot pointer
+///   move.l (a1)+,d0                   ; power-of-ten
+///   cmp.l  d0,d6                      ; remainder >= power?
+///   bge.s  loc_C4CE                   ; yes → extract digit
+///   cmpi.w #6,d7                      ; ones place?
+///   beq.s  loc_C4C0                   ; yes → always show 0
+///   tst.w  d2                         ; leading digit seen?
+///   beq.s  loc_C4C8                   ; no → blank
+/// loc_C4C0:                           ; show digit 0
+///   move.w #(LnkTo_Spr_EOL_Digit0-Data_Index),$22(a0)
+/// loc_C4C8:                           ; blank (leading zero suppressed)
+///   clr.w  $22(a0)
+/// loc_C4CE:                           ; extract digit via repeated subtraction
+///   moveq  #1,d2                      ; mark leading digit seen
+///   moveq  #-1,d1
+/// loc_C4D2:
+///   addq.w #1,d1
+///   sub.l  d0,d6
+///   bpl.s  loc_C4D2
+///   add.l  d0,d6                      ; restore remainder
+/// ```
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn eol_number_digit_loc_C4AE(
+    remainder: u32,
+    power: u32,
+    digit_index: u16,
+    leading_seen: bool,
+) -> Option<u8> {
+    // ASM loc_C4AE: cmp.l d0,d6; bge.s loc_C4CE
+    if remainder >= power {
+        // ASM loc_C4CE/loc_C4D2: repeated subtraction to extract digit
+        let digit = (remainder / power) as u8;
+        return Some(digit);
+    }
+    // ASM loc_C4AE+8: cmpi.w #6,d7; beq.s loc_C4C0
+    if digit_index == 6 {
+        // ASM loc_C4C0: ones place always shows 0
+        return Some(0);
+    }
+    // ASM loc_C4AE+12: tst.w d2; beq.s loc_C4C8
+    if leading_seen {
+        // ASM loc_C4C0: trailing zero after significant digit
+        Some(0)
+    } else {
+        // ASM loc_C4C8: leading zero suppressed — blank
+        None
+    }
+}
+
+/// ASM loc_C4CE/loc_C4D2 (kid.asm:16159–16166): extract digit value and
+/// return `(digit, new_remainder)`. Uses the original repeated-subtraction
+/// algorithm: `d1 = -1; loop: d1++, d6 -= d0, bpl loop; d6 += d0`.
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn eol_extract_digit_loc_C4CE(remainder: u32, power: u32) -> (u8, u32) {
+    // ASM loc_C4CE: moveq #-1,d1
+    // ASM loc_C4D2: addq.w #1,d1; sub.l d0,d6; bpl.s loc_C4D2; add.l d0,d6
+    let digit = (remainder / power) as u8;
+    let new_remainder = remainder % power;
+    (digit, new_remainder)
+}
+
+/// ASM loc_C48C–loc_C4E2 (kid.asm:16128–16182): decompose a clamped number
+/// into 7 display digits, with leading-zero suppression. Returns an array of
+/// `Option<u8>` per digit position (millions → ones). `None` = blank.
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn eol_number_digits_loc_C48C(raw_value: u32) -> [Option<u8>; 7] {
+    // ASM loc_C48C: cmpi.l #9999999,d6; ble.s loc_C4AE; move.l #9999999,d6
+    let mut d6 = raw_value.min(EOL_NUMBER_MAX_VALUE_LOC_C48C);
+    let mut result = [None; 7];
+    let mut leading_seen = false;
+
+    for (i, &power) in POWERS_OF_TEN_LOC_C48C.iter().enumerate() {
+        let digit_index = i as u16;
+        let digit = eol_number_digit_loc_C4AE(d6, power, digit_index, leading_seen);
+        result[i] = digit;
+
+        if d6 >= power {
+            // ASM loc_C4CE: extract and advance remainder
+            let (_, new_remainder) = eol_extract_digit_loc_C4CE(d6, power);
+            d6 = new_remainder;
+            leading_seen = true;
+        }
+    }
+
+    result
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {
