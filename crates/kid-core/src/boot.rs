@@ -6732,8 +6732,24 @@ impl NativeRuntime {
                     // ($36/$3A/$3E longwords) for every object except `a5`
                     // (current), before falling through to loc_D074 which deletes
                     // all objects and sets up the score/game-over screen.
+                    //
+                    // loc_D074 hibernates $24 frames (for loc_C2F2 fade-out),
+                    // then loc_D0AA (kid.asm:16356) iterates Addr_FirstGfxObjectSlot:
+                    //   move.l d0,a3; _move.l 0(a3),d0; move.l d0,-(sp)
+                    //   cmp.l (Addr_GfxObject_Kid).w,a3; beq.s loc_D0BC
+                    //   jsr (j_loc_1078).w        — delete non-Kid GFX objects
+                    // loc_D0BC (kid.asm:16364): move.l (sp)+,d0; bne.s loc_D0AA
+                    //   — loop tail: pop saved next-pointer, continue if non-null.
+                    //
+                    // loc_D0C0 (kid.asm:16368) then sets up the score screen:
+                    //   hibernate 1 frame, st $FFFFFB49, clr Time_Frames,
+                    //   clr MurderWall_flag, allocate loc_C326 + loc_C428 objects,
+                    //   decompress TtlCrdLetters to VRAM $8120 and unk_E06B5
+                    //   to VRAM $A2E0, then palette copy loops loc_D11C/loc_D12E.
+                    //
                     // Native: object collision state is not carried across
                     // lifecycle transitions, so the per-object clear is implicit.
+                    // GFX object cleanup and palette loading are visual-only.
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: PLAYER_GAME_OVER_HOLD_FRAMES,
                     };

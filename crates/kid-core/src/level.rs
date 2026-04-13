@@ -11367,6 +11367,69 @@ pub(crate) fn eol_extra_life_bounce_step_loc_C60C(
     (new_x, new_y, xv, yv)
 }
 
+// ── loc_D0AA–loc_D0C0: game-over GFX cleanup + score screen setup ──────
+//
+// After loc_D074 deletes all objects and hibernates $24 frames for the
+// loc_C2F2 fade-out, the ASM enters a GFX-object cleanup loop:
+//
+// loc_D0AA (kid.asm:16356): loop body — walk Addr_FirstGfxObjectSlot linked
+//   list; for each GFX object that is NOT Addr_GfxObject_Kid, call
+//   j_loc_1078 to unlink and free it.
+// loc_D0BC (kid.asm:16364): loop tail — pop saved next-pointer from stack;
+//   bne.s loc_D0AA continues while the list has entries.
+//
+// loc_D0C0 (kid.asm:16368): score screen setup entry (also reached directly
+//   when Addr_FirstGfxObjectSlot is null).  Sequence:
+//   1. Hibernate 1 frame
+//   2. st ($FFFFFB49).w — set score-display flag
+//   3. clr.w (Time_Frames).w
+//   4. clr.b (MurderWall_flag).w
+//   5. Allocate object → loc_C326 (bonus-stage digit-clear)
+//   6. Allocate object → loc_C428 (sprite scatter)
+//   7. Decompress Addr_TtlCrdLetters to VRAM $8120
+//   8. Decompress LnkTo_unk_E06B5 to VRAM $A2E0
+//   9. Palette copy loops (loc_D11C, loc_D12E)
+
+/// ASM loc_D0C0 (kid.asm:16368): VRAM target for TtlCrdLetters decompress.
+/// `move.w #$8120,d0; jsr (j_DecompressToVRAM).l`
+#[allow(dead_code)]
+pub(crate) const GAME_OVER_VRAM_LETTERS_LOC_D0C0: u16 = 0x8120;
+
+/// ASM loc_D0C0 (kid.asm:16382): VRAM target for unk_E06B5 decompress.
+/// `move.w #$A2E0,d0; jsr (j_DecompressToVRAM).l`
+#[allow(dead_code)]
+pub(crate) const GAME_OVER_VRAM_DIGITS_LOC_D0C0: u16 = 0xA2E0;
+
+/// ASM loc_D0C0 (kid.asm:16351): hibernate $24 frames before GFX cleanup.
+/// `move.w #$24,-(sp); jsr (j_Hibernate_Object).w`
+#[allow(dead_code)]
+pub(crate) const GAME_OVER_FADEOUT_HIBERNATE_FRAMES_LOC_D074: u16 = 0x24;
+
+// ── loc_D11C / loc_D12E: score screen palette copy loops ────────────────
+
+/// ASM loc_D11C (kid.asm:16389): word count for Pal_D02A → Palette_Buffer+$42.
+/// `moveq #$E,d0` → dbf loops $E+1 = 15 times.  Writes 15 colours into
+/// palette line 2 starting at colour index 1 (byte offset $42 = line 2 base
+/// $40 + 2 bytes).
+#[allow(dead_code)]
+pub(crate) const GAME_OVER_PAL_LINE2_WORD_COUNT_LOC_D11C: u16 = 15;
+
+/// ASM loc_D11C: destination byte offset within Palette_Buffer.
+/// `lea (Palette_Buffer+$42).l,a1`
+#[allow(dead_code)]
+pub(crate) const GAME_OVER_PAL_LINE2_DEST_OFFSET_LOC_D11C: u16 = 0x42;
+
+/// ASM loc_D12E (kid.asm:16396): word count for Pal_D048 → Palette_Buffer+$22.
+/// `moveq #4,d0` → dbf loops $4+1 = 5 times.  Writes 5 colours into palette
+/// line 1 starting at colour index 1 (byte offset $22 = line 1 base $20 + 2).
+#[allow(dead_code)]
+pub(crate) const GAME_OVER_PAL_LINE1_WORD_COUNT_LOC_D12E: u16 = 5;
+
+/// ASM loc_D12E: destination byte offset within Palette_Buffer.
+/// `lea (Palette_Buffer+$22).l,a1`
+#[allow(dead_code)]
+pub(crate) const GAME_OVER_PAL_LINE1_DEST_OFFSET_LOC_D12E: u16 = 0x22;
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {
