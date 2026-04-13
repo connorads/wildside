@@ -3303,6 +3303,45 @@ impl NativeRuntime {
 
     /// Micromax wall/ceiling stick: auto-attach on contact while airborne,
     /// reduced gravity while stuck, B press detaches with kick velocity.
+    ///
+    /// ASM loc_A5EA (kid.asm:12952): platform-grab entry — init animation
+    /// stru_8B6A, `bclr #Button_B,(Ctrl_Pressed)`, `clr.l ($FFFFFA98)`
+    /// (gravity accumulator), `move.b ($FFFFFAA3),($FFFFFA72)` (copy approach
+    /// direction).  Reached from loc_A6F8 (kid.asm:13050–13052): after the
+    /// jump-state hibernate, if `($FFFFFA96) != 0` (a platform object wrote
+    /// its address during collision) AND `Current_Helmet == Micromax`, the ASM
+    /// re-enters the grab loop.
+    ///
+    /// ASM loc_A606 (kid.asm:12960): main grab loop — `bsr.w sub_71E4`
+    /// (camera), hibernate, check `Addr_PlatformStandingOn`, then ride the
+    /// platform's velocity: `x_vel = platform.$A`, `y_vel = ($FFFFFA98) +
+    /// platform.$E` where `($FFFFFA98) += $800` each frame (gravity
+    /// accumulator).  `bsr.w sub_902A` (floor check) — NE: clear $FFFFFA96,
+    /// bra loc_A8F6.
+    ///
+    /// ASM loc_A656 (kid.asm:12981): if sub_902A returned EQ (no floor),
+    /// `bsr.w sub_8F26` (wall check).  NE: clear $FFFFFA96, bra loc_A8DE
+    /// (enter wall-cling).  EQ: fall through to loc_A666 bounds check.
+    ///
+    /// ASM loc_A666 (kid.asm:12988): bounds check — `cmp.w platform.y_pos,
+    /// Kid.y_pos; blt loc_A6F8` (too high, detach). Then `(Kid.y_pos - $F)
+    /// vs (platform.y_pos + platform.$1C); bgt loc_A6F8` (too low, detach).
+    /// If in range, check directional input for facing change: if $FFFFFA72
+    /// set → loc_A69E (right input path), else check Ctrl_Left_Held →
+    /// `st x_direction` (face left), bra loc_A6F8.
+    ///
+    /// ASM loc_A69E (kid.asm:13006): right-input detach mirror — if
+    /// `Ctrl_Right_Held`, `sf x_direction` (face right), bra loc_A6F8.
+    /// Falls through to loc_A6AE (B-press jump-off): y_vel=$FFFC0000,
+    /// x_vel=$FFFE0000 (negated if $FFFFFA72 set), `x_direction = NOT
+    /// ($FFFFFA72)`.
+    ///
+    /// Native architectural difference: the ASM uses a platform-object
+    /// reference ($FFFFFA96) set by platform collision code; native uses
+    /// terrain probes (ceiling/wall) to detect and maintain stick state.
+    /// The grab loop's gravity accumulator ($800/frame) differs from
+    /// native's MICROMAX_STUCK_GRAVITY (0x600) because the ASM value
+    /// includes platform y_vel contribution.
     pub(crate) fn step_micromax_stick(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
         // Only active for Micromax form
         if self.progression.current_form != PlayerForm::Micromax {
@@ -3311,10 +3350,16 @@ impl NativeRuntime {
         }
 
         // Already stuck: handle slide and detach
+        // ASM loc_A606 main loop: each frame applies gravity + platform vel,
+        // then checks floor/wall/bounds.  loc_A6AE: B-press jump-off.
         if self.helmet.micromax_stuck {
             let b_pressed = input.b && !self.prior_input.b;
             if b_pressed {
-                // Detach: kick upward and away
+                // ASM loc_A6AE (kid.asm:13013): `bclr #Button_B,(Ctrl_Pressed);
+                // beq loc_A6F4` (no press → loop). On press:
+                // `move.l #$FFFC0000,y_vel; move.l #$FFFE0000,d7; tst.b
+                // ($FFFFFA72); beq loc_A6D0; neg.l d7` — x kick direction
+                // depends on approach side. `x_direction = NOT($FFFFFA72)`.
                 self.helmet.micromax_stuck = false;
                 slice.player.y_velocity = MICROMAX_DETACH_Y_VEL;
                 // Reverse facing direction
@@ -3331,7 +3376,9 @@ impl NativeRuntime {
                 return;
             }
 
-            // While stuck: apply reduced gravity (slowly peels off)
+            // ASM loc_A606: `($FFFFFA98) += $800` per frame, then y_vel =
+            // accumulator + platform.y_vel.  Native approximation: fixed
+            // MICROMAX_STUCK_GRAVITY (0x600) without platform vel component.
             slice.player.y_velocity += MICROMAX_STUCK_GRAVITY;
             if slice.player.y_velocity > MICROMAX_STUCK_MAX_FALL {
                 // Peeled off
@@ -3342,7 +3389,9 @@ impl NativeRuntime {
             // Zero horizontal velocity while stuck (player can't walk)
             slice.player.x_velocity = 0;
 
-            // Check surface still exists
+            // ASM loc_A656/loc_A666: after sub_902A (floor) and sub_8F26
+            // (wall) checks, bounds-check Kid against the platform's Y extent.
+            // Native: terrain probe replaces the platform-object bounds check.
             if let Some(ref grid) = self.block_grid {
                 let px = (slice.player.x_pos >> 16) as i32;
                 let py = (slice.player.y_pos >> 16) as i32;
@@ -3356,7 +3405,9 @@ impl NativeRuntime {
             return;
         }
 
-        // Not stuck: try to attach while airborne
+        // ASM loc_A5EA: entry point — reached from loc_A6F8 when $FFFFFA96
+        // (platform-grab address) is set and helmet == Micromax.  Native:
+        // attach on terrain contact while airborne instead.
         if slice.player.on_ground {
             return;
         }

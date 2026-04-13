@@ -34694,6 +34694,122 @@ fn micromax_non_micromax_clears_stuck() {
     assert!(!rt.helmet.micromax_stuck, "form change should clear stuck");
 }
 
+/// ASM loc_A606 (kid.asm:12960): main grab loop accumulates gravity each
+/// frame via `($FFFFFA98) += $800`.  Native applies MICROMAX_STUCK_GRAVITY
+/// (0x600) per frame while stuck.  After enough frames, y_velocity exceeds
+/// MICROMAX_STUCK_MAX_FALL and Micromax peels off (micromax_stuck cleared).
+#[test]
+fn micromax_stuck_gravity_accumulates_and_peels_off() {
+    let mut rt = micromax_runtime_with_ceiling();
+    rt.helmet.micromax_stuck = true;
+    let mut slice = airborne_slice();
+    slice.player.x_pos = (3 * 16 + 8) << 16;
+    slice.player.y_pos = 62 << 16;
+    slice.player.y_velocity = 0;
+
+    // One frame: gravity increases
+    rt.step_micromax_stick(&mut slice, FrameInput::default());
+    assert!(rt.helmet.micromax_stuck, "still stuck after one frame");
+    assert_eq!(
+        slice.player.y_velocity, MICROMAX_STUCK_GRAVITY,
+        "one frame of gravity"
+    );
+
+    // Accumulate until peel-off: from 0, need > MICROMAX_STUCK_MAX_FALL
+    let frames_to_peel = (MICROMAX_STUCK_MAX_FALL / MICROMAX_STUCK_GRAVITY) + 1;
+    // Reset for clean count
+    rt.helmet.micromax_stuck = true;
+    slice.player.y_velocity = 0;
+    for _ in 0..frames_to_peel {
+        if !rt.helmet.micromax_stuck {
+            break;
+        }
+        rt.step_micromax_stick(&mut slice, FrameInput::default());
+    }
+    assert!(
+        !rt.helmet.micromax_stuck,
+        "should peel off after enough gravity frames"
+    );
+}
+
+/// ASM loc_A69E (kid.asm:13006) + loc_A6AE (kid.asm:13013): B-press
+/// detach kicks left when facing left.  Mirror of right-facing test
+/// `micromax_b_press_detaches_with_kick`.  ASM: `move.l #$FFFE0000,d7;
+/// tst.b ($FFFFFA72); beq loc_A6D0; neg.l d7` — direction depends on
+/// approach side.
+#[test]
+fn micromax_b_press_detach_left_facing_kicks_right() {
+    let mut rt = micromax_runtime_with_ceiling();
+    rt.helmet.micromax_stuck = true;
+    let mut slice = airborne_slice();
+    slice.player.x_pos = (3 * 16 + 8) << 16;
+    slice.player.y_pos = 62 << 16;
+    slice.player.facing = Direction::Left;
+
+    let input = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    rt.step_micromax_stick(&mut slice, input);
+
+    assert!(!rt.helmet.micromax_stuck, "should detach on B press");
+    assert_eq!(
+        slice.player.y_velocity, MICROMAX_DETACH_Y_VEL,
+        "upward kick"
+    );
+    assert_eq!(
+        slice.player.facing,
+        Direction::Right,
+        "facing reversed to right"
+    );
+    assert_eq!(
+        slice.player.x_velocity, MICROMAX_DETACH_X_SPEED,
+        "kick rightward (positive) after facing reversal"
+    );
+}
+
+/// ASM loc_A5EA (kid.asm:12952): entry guard — Micromax only attaches
+/// when airborne with y_vel >= 0.  Grounded Micromax must not stick even
+/// if terrain probe would hit.
+#[test]
+fn micromax_does_not_stick_when_grounded() {
+    let mut rt = micromax_runtime_with_ceiling();
+    let mut slice = airborne_slice();
+    slice.player.x_pos = (3 * 16 + 8) << 16;
+    slice.player.y_pos = 62 << 16;
+    slice.player.y_velocity = 0x1_0000;
+    slice.player.on_ground = true; // grounded
+
+    rt.step_micromax_stick(&mut slice, FrameInput::default());
+
+    assert!(
+        !rt.helmet.micromax_stuck,
+        "grounded Micromax should not enter stick state"
+    );
+}
+
+/// ASM loc_A656 (kid.asm:12981) + loc_A666 (kid.asm:12988): while stuck,
+/// if the surface disappears (no ceiling, no wall on either side), Micromax
+/// detaches.  Native: terrain probes replace the ASM platform bounds check.
+#[test]
+fn micromax_detaches_when_surface_disappears() {
+    // Start stuck with a ceiling, then move to a position with no surface
+    let mut rt = micromax_runtime_with_ceiling();
+    rt.helmet.micromax_stuck = true;
+    let mut slice = airborne_slice();
+    // Position far from the solid block at col 3, row 2
+    slice.player.x_pos = (10 * 16 + 8) << 16; // col 10, no block
+    slice.player.y_pos = 62 << 16;
+    slice.player.y_velocity = 0;
+
+    rt.step_micromax_stick(&mut slice, FrameInput::default());
+
+    assert!(
+        !rt.helmet.micromax_stuck,
+        "should detach when no surface in range"
+    );
+}
+
 #[test]
 fn skycutter_on_board_skips_normal_gravity_in_step() {
     let bounds = LevelBounds {
