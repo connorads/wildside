@@ -105,19 +105,23 @@ use crate::level::{
     BlockLayoutRepeatWordsLoc1351E, BlockLayoutRepeatWordsLoc13514, BlockLayoutTerminateLoc134BA,
     DecompressToRamChunkSetupLoc143EA, DecompressToRamPaletteRowStartLoc143CC,
     DecompressToVramSpecialReturnLoc143B2, EnemyLayoutResetAndSeekInputLoc31F8E,
-    EnemyLayoutResetAndSeekLoc31F8E, FgPlaneCustomWriteSub1596, FgUpdateQueueCullAdvanceLoc167A,
-    FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680, FlagpoleScoreboardCursorSubC254,
-    FlagpoleScoreboardStepSubC254, ForegroundArtDecompressLoc11E60,
-    ForegroundArtPermutationLoc11E48, ForegroundPaletteOverrideLoc11D8E,
-    FullscreenPaletteFadeSub73D0, IslandPaletteCycleLowerBandLoc12188,
-    IslandPaletteCycleMidBandLoc12110, IslandPaletteCyclePrimaryBandLoc12098,
-    LateBackgroundPaletteOverrideLoc11E06, LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit,
-    ManageEnemyLoadingCountDownActiveLoc3685E, ManageEnemyLoadingSpawnObjectLoc3691E,
-    ManageEnemyLoadingStatusBranchLoc36840, PaletteFadeOutInitLoc28A6, PaletteFadeOutStepLoc28C6,
-    PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT,
-    SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
-    ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA,
-    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056,
+    EnemyLayoutResetAndSeekLoc31F8E, FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC,
+    FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC, FLAGPOLE_HOLO_TILEMAP_COLS_LOC_C188,
+    FLAGPOLE_HOLO_TILEMAP_PAD_LOC_C190, FLAGPOLE_HOLO_TILEMAP_ROWS_LOC_C186,
+    FLAGPOLE_PALETTE_BACKUP_COUNT_LOC_C1AA, FgPlaneCustomWriteSub1596,
+    FgUpdateQueueCullAdvanceLoc167A, FgUpdateQueueCustomEntrySub1596, FgUpdateQueueResetLoc1680,
+    FlagpoleScoreboardCursorSubC254, FlagpoleScoreboardStepSubC254,
+    ForegroundArtDecompressLoc11E60, ForegroundArtPermutationLoc11E48,
+    ForegroundPaletteOverrideLoc11D8E, FullscreenPaletteFadeSub73D0,
+    IslandPaletteCycleLowerBandLoc12188, IslandPaletteCycleMidBandLoc12110,
+    IslandPaletteCyclePrimaryBandLoc12098, LateBackgroundPaletteOverrideLoc11E06,
+    LevelCameraBootstrapLoc11F48, LinkedObjectSlotInit, ManageEnemyLoadingCountDownActiveLoc3685E,
+    ManageEnemyLoadingSpawnObjectLoc3691E, ManageEnemyLoadingStatusBranchLoc36840,
+    PaletteFadeOutInitLoc28A6, PaletteFadeOutStepLoc28C6, PostLoadObjectRoutineLoc11F96,
+    RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
+    ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
+    SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
+    SpriteFrameStateSubB52, TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056,
     TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
     TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070, TransferScrollDataDispatchLoc3039C,
     TransferScrollDataDmaTailLoc300D2, TransferScrollDataPreludeLoc3038A,
@@ -2163,6 +2167,103 @@ fn loc_C0B6_gfx_cleanup_entry_address_matches_asm() {
     assert_eq!(
         TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6, 0xC0B6,
         "ASM loc_C0B6: gfx object cleanup loop entry address"
+    );
+}
+
+/// ASM loc_C186 (kid.asm:15734): hologram tilemap upload — outer row loop.
+/// `moveq #$1B,d1` = 28 rows; `moveq #$27,d0` = 40 words per row.
+/// 40 data words + 24 zero-pad words = 64 words = 128 bytes per nametable row.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C186_holo_tilemap_row_count_matches_asm() {
+    // d1=$1B → dbf iterates $1B+1 = 28 rows
+    assert_eq!(
+        FLAGPOLE_HOLO_TILEMAP_ROWS_LOC_C186, 0x1B,
+        "ASM loc_C186: outer loop count d1=$1B (28 rows)"
+    );
+    let total_rows = FLAGPOLE_HOLO_TILEMAP_ROWS_LOC_C186 as usize + 1;
+    assert_eq!(total_rows, 28, "28 tilemap rows for plane B at $E000");
+}
+
+/// ASM loc_C188 (kid.asm:15737): inner tilemap word copy loop.
+/// `move.w (a0)+,(a6); dbf d0,loc_C188` with d0=$27 = 40 words.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C188_holo_tilemap_cols_match_asm() {
+    assert_eq!(
+        FLAGPOLE_HOLO_TILEMAP_COLS_LOC_C188, 0x27,
+        "ASM loc_C188: inner copy count d0=$27 (40 words)"
+    );
+    let data_cols = FLAGPOLE_HOLO_TILEMAP_COLS_LOC_C188 as usize + 1;
+    let pad_cols = FLAGPOLE_HOLO_TILEMAP_PAD_LOC_C190 as usize + 1;
+    assert_eq!(
+        data_cols + pad_cols,
+        64,
+        "40 data + 24 pad = 64 columns = one nametable row stride"
+    );
+}
+
+/// ASM loc_C190 (kid.asm:15742): zero-padding loop per tilemap row.
+/// `move.w #0,(a6); dbf d0,loc_C190` with d0=$17 = 24 zero words.
+/// Columns 40–63 are zeroed so the full 128-byte nametable row is written.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C190_holo_tilemap_pad_matches_asm() {
+    assert_eq!(
+        FLAGPOLE_HOLO_TILEMAP_PAD_LOC_C190, 0x17,
+        "ASM loc_C190: zero-pad count d0=$17 (24 words)"
+    );
+    // Total bytes written per row = (40 + 24) × 2 = 128 = nametable row stride
+    let total_words = (FLAGPOLE_HOLO_TILEMAP_COLS_LOC_C188 as usize + 1)
+        + (FLAGPOLE_HOLO_TILEMAP_PAD_LOC_C190 as usize + 1);
+    assert_eq!(
+        total_words * 2,
+        128,
+        "128 bytes per row matches VDP nametable stride"
+    );
+}
+
+/// ASM loc_C1AA (kid.asm:15750): palette backup before hologram display.
+/// `moveq #$1F,d0` → 32 longword iterations = 64 words = 128 bytes.
+/// Copies the full `Palette_Buffer` into `Palette_Buffer_2`.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1AA_palette_backup_count_matches_asm() {
+    assert_eq!(
+        FLAGPOLE_PALETTE_BACKUP_COUNT_LOC_C1AA, 0x1F,
+        "ASM loc_C1AA: palette backup count d0=$1F (32 longwords)"
+    );
+    let longwords = FLAGPOLE_PALETTE_BACKUP_COUNT_LOC_C1AA as usize + 1;
+    assert_eq!(
+        longwords * 4,
+        128,
+        "32 longwords × 4 bytes = 128 bytes = full 64-word palette"
+    );
+}
+
+/// ASM loc_C1BC (kid.asm:15757): hologram palette load.
+/// `moveq #$E,d0` → 15 word iterations from `Pal_D00C` to
+/// `Palette_Buffer_3+$42` (word index 33).
+#[test]
+#[allow(non_snake_case)]
+fn loc_C1BC_holo_palette_load_matches_asm() {
+    assert_eq!(
+        FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC, 0x0E,
+        "ASM loc_C1BC: holo palette word count d0=$E (15 words)"
+    );
+    assert_eq!(
+        FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC, 0x42,
+        "ASM loc_C1BC: destination byte offset $42 within Palette_Buffer_3"
+    );
+    // $42 / 2 = word index 33, so the 15 words occupy indices 33..47
+    let start_word = FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC as usize / 2;
+    let end_word = start_word + (FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC as usize + 1);
+    assert_eq!(start_word, 33, "palette load starts at word index 33");
+    assert_eq!(end_word, 48, "palette load ends at word index 48");
+    // Palette_Buffer_3 is 64 words (indices 0..63), so 48 is within bounds
+    assert!(
+        end_word <= 64,
+        "load must stay within 64-word Palette_Buffer_3"
     );
 }
 

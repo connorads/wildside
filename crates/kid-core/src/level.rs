@@ -475,6 +475,54 @@ pub(crate) const TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070: u16 = 0x24;
 #[allow(dead_code)]
 pub(crate) const TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6: u32 = 0xC0B6;
 
+/// ASM loc_C186 (kid.asm:15734): hologram tilemap upload — outer row loop.
+/// After `EniDec` decodes `MapEni_CC0E` into `Decompression_Buffer`, the ROM
+/// writes the decoded tilemap to plane B at VRAM `$E000`:
+/// ```text
+/// move.l #vdpComm($E000,VRAM,WRITE),4(a6)
+/// moveq  #$1B,d1                ; 28 rows (0..$1B inclusive via dbf)
+/// lea    (Decompression_Buffer).l,a0
+/// loc_C186:
+///   moveq  #$27,d0              ; 40 words per row
+/// ```
+/// Each row copies 40 tilemap words then pads 24 zero words to fill the
+/// 64-column nametable stride (40 + 24 = 64 words = 128 bytes per row).
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_HOLO_TILEMAP_ROWS_LOC_C186: u16 = 0x1B; // 28 rows (dbf)
+
+/// ASM loc_C188 (kid.asm:15737): inner tilemap word copy loop.
+/// `move.w (a0)+,(a6); dbf d0,loc_C188` — copies 40 decoded tilemap words
+/// per row to the VDP data port.
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_HOLO_TILEMAP_COLS_LOC_C188: u16 = 0x27; // 40 words (dbf)
+
+/// ASM loc_C190 (kid.asm:15742): zero-padding loop per tilemap row.
+/// `move.w #0,(a6); dbf d0,loc_C190` — writes 24 zero words to fill the
+/// remaining columns (64 − 40 = 24) in each nametable row, then
+/// `dbf d1,loc_C186` loops back for the next row.
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_HOLO_TILEMAP_PAD_LOC_C190: u16 = 0x17; // 24 zero words (dbf)
+
+/// ASM loc_C1AA (kid.asm:15750): palette backup before hologram screen.
+/// `moveq #$1F,d0; lea (Palette_Buffer).l,a0; lea (Palette_Buffer_2).l,a1;
+/// loc_C1AA: move.l (a0)+,(a1)+; dbf d0,loc_C1AA`.
+/// Copies 32 longwords (64 words = 128 bytes) — the full palette —
+/// from `Palette_Buffer` to `Palette_Buffer_2`.
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_PALETTE_BACKUP_COUNT_LOC_C1AA: u16 = 0x1F; // 32 longwords (dbf)
+
+/// ASM loc_C1BC (kid.asm:15757): hologram palette load.
+/// `moveq #$E,d0; lea Pal_D00C(pc),a0; lea (Palette_Buffer_3+$42).l,a1;
+/// loc_C1BC: move.w (a0)+,(a1)+; dbf d0,loc_C1BC`.
+/// Copies 15 words from `Pal_D00C` into `Palette_Buffer_3` at byte offset
+/// `$42` (word index 33).
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC: u16 = 0x0E; // 15 words (dbf)
+
+/// ASM loc_C1BC: destination byte offset within `Palette_Buffer_3`.
+#[allow(dead_code)]
+pub(crate) const FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC: u16 = 0x42;
+
 pub(crate) const SUB_28FC_SLOT_COUNT: usize = 6;
 pub(crate) const SUB_28FC_SLOT_STRIDE_BYTES: usize = 0x52;
 const SPRITE_TABLE_ADDR_SUB_B52: u32 = 0xFFFF_0000;
