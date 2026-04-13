@@ -929,6 +929,68 @@ impl FrameInput {
     pub fn with_speed_option_a_inverted(self) -> Self {
         Self { a: !self.a, ..self }
     }
+
+    /// ASM Permute_ABCButtons (sub_CCE, kid.asm:1458): remaps A/B/C buttons
+    /// based on the player's control scheme setting (`Options_Suboption_Controls`).
+    /// Scheme 0 = default (no permutation, early return at `return_D7C`).
+    /// Schemes 1–5 are dispatched via a `jmp loc_CE8(pc,d7.w)` branch table
+    /// (ASM loc_CE8, kid.asm:1468) — five `bra.s` entries, one per scheme.
+    ///
+    /// Each scheme extracts A/B/C bits from `d0` via `bclr`, accumulates the
+    /// remapped bits into `d6`, then merges with `or.b d6,d0` at `loc_D7A`.
+    /// The routine also gates on `Demo_Mode_flag` — in demo mode it returns
+    /// immediately (native: caller gates on demo mode).
+    ///
+    /// Bit layout (from `from_mask`): bit 4 = B, bit 5 = C, bit 6 = A.
+    ///
+    /// | Scheme | ASM entry | Mapping              |
+    /// |--------|-----------|----------------------|
+    /// | 1      | loc_CF2   | B↔C (bit4↔bit5)     |
+    /// | 2      | loc_D0A   | A↔B (bit6↔bit4)     |
+    /// | 3      | loc_D22   | A→B, B→C, C→A       |
+    /// | 4      | loc_D44   | A→C, B→A, C→B       |
+    /// | 5      | loc_D66   | A↔C (bit6↔bit5)     |
+    ///
+    /// Returns `self` unchanged for scheme 0 or any out-of-range value.
+    pub fn with_abc_buttons_permuted(self, scheme: u8) -> Self {
+        match scheme {
+            // ASM loc_CF2 (kid.asm:1480): `bclr #4,d0 → bset #5,d6` then
+            // loc_CFC (kid.asm:1485): `bclr #5,d0 → bset #4,d6` — swap B↔C.
+            1 => Self {
+                b: self.c,
+                c: self.b,
+                ..self
+            },
+            // ASM loc_D0A (kid.asm:1492): `bclr #6→bset #4; bclr #4→bset #6` — swap A↔B.
+            2 => Self {
+                a: self.b,
+                b: self.a,
+                ..self
+            },
+            // ASM loc_D22 (kid.asm:1504): A→B, B→C, C→A (3-way rotate).
+            3 => Self {
+                a: self.c,
+                b: self.a,
+                c: self.b,
+                ..self
+            },
+            // ASM loc_D44 (kid.asm:1521): A→C, B→A, C→B (reverse rotate).
+            4 => Self {
+                a: self.b,
+                b: self.c,
+                c: self.a,
+                ..self
+            },
+            // ASM loc_D66 (kid.asm:1538): `bclr #6→bset #5; bclr #5→bset #6` — swap A↔C.
+            5 => Self {
+                a: self.c,
+                c: self.a,
+                ..self
+            },
+            // Scheme 0 or invalid — no permutation (ASM: `beq.w return_D7C`).
+            _ => self,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

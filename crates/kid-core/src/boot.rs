@@ -6724,6 +6724,16 @@ impl NativeRuntime {
                         remaining_frames: remaining_frames - 1,
                     };
                 } else if self.progression.number_lives == 0 {
+                    // ASM lose_life (kid.asm:14764): `subq.w #1,(Number_Lives).w;
+                    // beq.w loc_D052` — when lives reach zero, branch to loc_D052
+                    // (kid.asm:16325) which sets `$FFFFFB4B` (timer-frozen flag)
+                    // via `st`, then enters the loc_D05A (kid.asm:16330) loop:
+                    // iterate the object linked list clearing collision fields
+                    // ($36/$3A/$3E longwords) for every object except `a5`
+                    // (current), before falling through to loc_D074 which deletes
+                    // all objects and sets up the score/game-over screen.
+                    // Native: object collision state is not carried across
+                    // lifecycle transitions, so the per-object clear is implicit.
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: PLAYER_GAME_OVER_HOLD_FRAMES,
                     };

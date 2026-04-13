@@ -87787,3 +87787,254 @@ fn loc_BB2_level_skip_cheat_activation() {
         "loc_B98: P2 must hold Right ($10) — cmpi.b #$10"
     );
 }
+
+// --- Permute_ABCButtons (sub_CCE): control scheme button remapping ---
+
+/// ASM loc_CE8 (kid.asm:1468): branch table base for Permute_ABCButtons.
+/// Scheme 0 (`Options_Suboption_Controls == 0`) returns immediately via
+/// `beq.w return_D7C` — no remapping applied.
+#[test]
+fn loc_ce8_scheme_0_identity() {
+    let input = FrameInput::from_mask(0xFF);
+    let permuted = input.with_abc_buttons_permuted(0);
+    assert_eq!(
+        input, permuted,
+        "scheme 0 should be identity (no permutation)"
+    );
+}
+
+/// ASM loc_CE8: out-of-range scheme values should also be identity.
+#[test]
+fn loc_ce8_invalid_scheme_identity() {
+    let input = FrameInput::from_mask(0x70); // A+B+C
+    assert_eq!(
+        input,
+        input.with_abc_buttons_permuted(6),
+        "scheme 6 (invalid) should be identity"
+    );
+    assert_eq!(
+        input,
+        input.with_abc_buttons_permuted(255),
+        "scheme 255 (invalid) should be identity"
+    );
+}
+
+/// ASM loc_CF2 (kid.asm:1480): scheme 1 swaps B↔C.
+/// `bclr #4,d0 → bset #5,d6` (B→C), then loc_CFC (kid.asm:1485):
+/// `bclr #5,d0 → bset #4,d6` (C→B).
+#[test]
+fn loc_cf2_scheme1_swap_b_c() {
+    // Only B set → should become only C
+    let b_only = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    let result = b_only.with_abc_buttons_permuted(1);
+    assert!(!result.b, "B should be cleared");
+    assert!(result.c, "C should be set (was B)");
+    assert!(!result.a, "A untouched");
+
+    // Only C set → should become only B
+    let c_only = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    let result = c_only.with_abc_buttons_permuted(1);
+    assert!(result.b, "B should be set (was C)");
+    assert!(!result.c, "C should be cleared");
+
+    // Both B+C → both still set (swap is symmetric)
+    let bc = FrameInput {
+        b: true,
+        c: true,
+        ..FrameInput::default()
+    };
+    let result = bc.with_abc_buttons_permuted(1);
+    assert!(result.b && result.c, "B+C swap should preserve both");
+}
+
+/// ASM loc_CFC (kid.asm:1485): scheme 1 preserves non-ABC buttons.
+#[test]
+fn loc_cfc_scheme1_preserves_dpad_start() {
+    let input = FrameInput {
+        up: true,
+        left: true,
+        start: true,
+        b: true,
+        ..FrameInput::default()
+    };
+    let result = input.with_abc_buttons_permuted(1);
+    assert!(result.up, "up preserved");
+    assert!(result.left, "left preserved");
+    assert!(result.start, "start preserved");
+    assert!(!result.down, "down still false");
+    assert!(!result.right, "right still false");
+}
+
+/// ASM loc_D0A (kid.asm:1492): scheme 2 swaps A↔B.
+#[test]
+fn loc_d0a_scheme2_swap_a_b() {
+    let a_only = FrameInput {
+        a: true,
+        ..FrameInput::default()
+    };
+    let result = a_only.with_abc_buttons_permuted(2);
+    assert!(!result.a, "A cleared");
+    assert!(result.b, "B set (was A)");
+    assert!(!result.c, "C untouched");
+
+    let b_only = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    let result = b_only.with_abc_buttons_permuted(2);
+    assert!(result.a, "A set (was B)");
+    assert!(!result.b, "B cleared");
+}
+
+/// ASM loc_D22 (kid.asm:1504): scheme 3 rotates A→B, B→C, C→A.
+#[test]
+fn loc_d22_scheme3_rotate_a_b_c() {
+    let a_only = FrameInput {
+        a: true,
+        ..FrameInput::default()
+    };
+    let result = a_only.with_abc_buttons_permuted(3);
+    assert!(!result.a, "A cleared");
+    assert!(result.b, "B set (was A)");
+    assert!(!result.c, "C clear");
+
+    let b_only = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    let result = b_only.with_abc_buttons_permuted(3);
+    assert!(!result.b, "B cleared");
+    assert!(result.c, "C set (was B)");
+    assert!(!result.a, "A clear");
+
+    let c_only = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    let result = c_only.with_abc_buttons_permuted(3);
+    assert!(!result.c, "C cleared");
+    assert!(result.a, "A set (was C)");
+    assert!(!result.b, "B clear");
+}
+
+/// ASM loc_D44 (kid.asm:1521): scheme 4 reverse-rotates A→C, B→A, C→B.
+#[test]
+fn loc_d44_scheme4_reverse_rotate() {
+    let a_only = FrameInput {
+        a: true,
+        ..FrameInput::default()
+    };
+    let result = a_only.with_abc_buttons_permuted(4);
+    assert!(!result.a, "A cleared");
+    assert!(!result.b, "B clear");
+    assert!(result.c, "C set (was A)");
+
+    let b_only = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    let result = b_only.with_abc_buttons_permuted(4);
+    assert!(result.a, "A set (was B)");
+    assert!(!result.b, "B cleared");
+    assert!(!result.c, "C clear");
+
+    let c_only = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    let result = c_only.with_abc_buttons_permuted(4);
+    assert!(!result.a, "A clear");
+    assert!(result.b, "B set (was C)");
+    assert!(!result.c, "C cleared");
+}
+
+/// ASM loc_D66 (kid.asm:1538): scheme 5 swaps A↔C.
+#[test]
+fn loc_d66_scheme5_swap_a_c() {
+    let a_only = FrameInput {
+        a: true,
+        ..FrameInput::default()
+    };
+    let result = a_only.with_abc_buttons_permuted(5);
+    assert!(!result.a, "A cleared");
+    assert!(result.c, "C set (was A)");
+    assert!(!result.b, "B untouched");
+
+    let c_only = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    let result = c_only.with_abc_buttons_permuted(5);
+    assert!(result.a, "A set (was C)");
+    assert!(!result.c, "C cleared");
+}
+
+/// ASM Permute_ABCButtons: scheme 3 applied 3 times should be identity
+/// (3-way rotation has period 3).
+#[test]
+fn permute_abc_scheme3_triple_application_identity() {
+    let input = FrameInput::from_mask(0x70); // A+B+C all set
+    let once = input.with_abc_buttons_permuted(3);
+    let twice = once.with_abc_buttons_permuted(3);
+    let thrice = twice.with_abc_buttons_permuted(3);
+    assert_eq!(input, thrice, "3-way rotate applied 3× should be identity");
+}
+
+/// ASM Permute_ABCButtons: scheme 4 applied 3 times should be identity
+/// (reverse 3-way rotation also has period 3).
+#[test]
+fn permute_abc_scheme4_triple_application_identity() {
+    let input = FrameInput::from_mask(0x50); // A+B set, C clear
+    let thrice = input
+        .with_abc_buttons_permuted(4)
+        .with_abc_buttons_permuted(4)
+        .with_abc_buttons_permuted(4);
+    assert_eq!(
+        input, thrice,
+        "reverse rotate applied 3× should be identity"
+    );
+}
+
+/// ASM Permute_ABCButtons: scheme 3 then scheme 4 should be identity
+/// (they are inverses).
+#[test]
+fn permute_abc_scheme3_and_scheme4_are_inverses() {
+    let input = FrameInput::from_mask(0x40); // only A
+    let round_trip = input
+        .with_abc_buttons_permuted(3)
+        .with_abc_buttons_permuted(4);
+    assert_eq!(input, round_trip, "scheme 3 + scheme 4 = identity");
+
+    let input2 = FrameInput::from_mask(0x30); // B+C
+    let round_trip2 = input2
+        .with_abc_buttons_permuted(3)
+        .with_abc_buttons_permuted(4);
+    assert_eq!(input2, round_trip2, "scheme 3 + scheme 4 = identity (B+C)");
+}
+
+/// ASM loc_D052 (kid.asm:16325): game-over entry from lose_life. When
+/// `Number_Lives` reaches zero, `beq.w loc_D052` branches here: `st
+/// ($FFFFFB4B).w` freezes the HUD timer, then the loc_D05A (kid.asm:16330)
+/// loop clears collision longwords ($36/$3A/$3E) for every object except
+/// `a5`.  Native: timer freeze is modelled by `PlayerLifecycle::GameOver`;
+/// object collision state does not persist across lifecycle transitions.
+#[test]
+fn loc_d052_game_over_sets_timer_frozen() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.number_lives = 0;
+    runtime.player_lifecycle = PlayerLifecycle::Dying {
+        remaining_frames: 1,
+    };
+    runtime.step_frame(FrameInput::default());
+    assert!(
+        matches!(runtime.player_lifecycle, PlayerLifecycle::GameOver { .. }),
+        "ASM loc_D052: number_lives==0 after last dying frame should enter GameOver"
+    );
+}
