@@ -231,15 +231,15 @@ use crate::level::{
     drain_fg_update_queue_custom_sub_1596, empty_collision_row_loc_11B28,
     enemy_layout_finish_loc_3204E, enemy_layout_reset_and_seek_loc_31F8E,
     enemy_layout_status_word_loc_3200A, enemy_layout_status_word_with_negative_sentinel_loc_32036,
-    eol_extract_digit_loc_C4CE, eol_number_digit_loc_C4AE, eol_number_digits_loc_C48C,
-    fade_palette_span_sub_1C85E, fg_update_queue_cell_mapping_longwords_loc_165E,
-    fg_update_queue_cell_vram_word_loc_1614, fg_update_queue_culled_entry_advance_loc_167A,
-    flagpole_fade_step_loc_C1D0, flagpole_scoreboard_cursor_loc_C1EE,
-    flagpole_scoreboard_step_sub_C254, initialise_camera_bootstrap_loc_11F48,
-    initialise_evanesc_object_slots_sub_EABC, initialise_fullscreen_palette_fade_sub_73D0,
-    initialise_palette_fade_out_loc_28A6, initialise_scratch_queue_sub_28FC,
-    initialise_shooter_object_slots_sub_F06A, initialise_sprite_frame_state_sub_B52,
-    manage_enemy_loading_allocate_slot_hint_loc_3690A,
+    eol_extra_life_bounce_step_loc_C60C, eol_extract_digit_loc_C4CE, eol_number_digit_loc_C4AE,
+    eol_number_digits_loc_C48C, eol_object_position_step_loc_C5A2, fade_palette_span_sub_1C85E,
+    fg_update_queue_cell_mapping_longwords_loc_165E, fg_update_queue_cell_vram_word_loc_1614,
+    fg_update_queue_culled_entry_advance_loc_167A, flagpole_fade_step_loc_C1D0,
+    flagpole_scoreboard_cursor_loc_C1EE, flagpole_scoreboard_step_sub_C254,
+    initialise_camera_bootstrap_loc_11F48, initialise_evanesc_object_slots_sub_EABC,
+    initialise_fullscreen_palette_fade_sub_73D0, initialise_palette_fade_out_loc_28A6,
+    initialise_scratch_queue_sub_28FC, initialise_shooter_object_slots_sub_F06A,
+    initialise_sprite_frame_state_sub_B52, manage_enemy_loading_allocate_slot_hint_loc_3690A,
     manage_enemy_loading_count_down_active_loc_3685E, manage_enemy_loading_setup_loc_3682C,
     manage_enemy_loading_spawn_object_loc_3691E, manage_enemy_loading_status_branch_loc_36840,
     manage_enemy_loading_status_word_loc_36900, object_check_in_range_active_count_gate_loc_320E2,
@@ -3234,6 +3234,182 @@ fn loc_c4ae_eol_digit_dispatch_cases() {
         eol_number_digit_loc_C4AE(0, 100_000, 1, false),
         None,
         "ASM loc_C4C8: tst.w d2; beq.s loc_C4C8 → blank"
+    );
+}
+
+// ── loc_C564: EOL number-variant sprite setup (kid.asm:16218) ─────────────
+
+/// ASM loc_C564 (kid.asm:16218): 2-player arrow indicator uses palette 1
+/// and VRAM tile $409. Object_EOL_Text (kid.asm:16227) uses palette 2 and
+/// $517. Both fall through to loc_C592 for common init.
+#[test]
+fn loc_c564_eol_number_variant_constants() {
+    use crate::level::{
+        EOL_COMMON_DISPLAY_FLAG_LOC_C592, EOL_COMMON_PRIORITY_LOC_C592,
+        EOL_NUMBER_VARIANT_PALETTE_LOC_C564, EOL_NUMBER_VARIANT_VRAM_TILE_LOC_C564,
+        EOL_TEXT_PALETTE_LOC_C57C, EOL_TEXT_VRAM_TILE_LOC_C57C,
+    };
+    // ASM loc_C564: move.b #1,palette_line(a3)
+    assert_eq!(
+        EOL_NUMBER_VARIANT_PALETTE_LOC_C564, 1,
+        "ASM loc_C564: palette line 1 for number-variant"
+    );
+    // ASM loc_C564: move.w #$409,vram_tile(a3)
+    assert_eq!(
+        EOL_NUMBER_VARIANT_VRAM_TILE_LOC_C564, 0x0409,
+        "ASM loc_C564: VRAM tile $409"
+    );
+    // ASM Object_EOL_Text: move.b #2,palette_line(a3)
+    assert_eq!(
+        EOL_TEXT_PALETTE_LOC_C57C, 2,
+        "ASM Object_EOL_Text: palette line 2"
+    );
+    // ASM Object_EOL_Text: move.w #$517,vram_tile(a3)
+    assert_eq!(
+        EOL_TEXT_VRAM_TILE_LOC_C57C, 0x0517,
+        "ASM Object_EOL_Text: VRAM tile $517"
+    );
+    // ASM loc_C592: st $13(a3) — display flag $FF
+    assert_eq!(
+        EOL_COMMON_DISPLAY_FLAG_LOC_C592, 0xFF,
+        "ASM loc_C592: st $13(a3) → display enabled"
+    );
+    // ASM loc_C592: move.b #1,priority(a3)
+    assert_eq!(EOL_COMMON_PRIORITY_LOC_C592, 1, "ASM loc_C592: priority 1");
+}
+
+// ── loc_C5A2: EOL object position-update loop (kid.asm:16238) ─────────────
+
+/// ASM loc_C5A2 (kid.asm:16238): position += velocity each frame. When
+/// timer hits zero, velocity is cleared and position holds.
+#[test]
+fn loc_c5a2_eol_object_position_step_normal() {
+    // Timer > 1: velocity applied, timer decremented
+    let (x, y, t, cleared) = eol_object_position_step_loc_C5A2(0x58, 0x100, 8, -2, 0x1C);
+    assert_eq!(x, 0x60, "ASM loc_C5A2: x_pos += x_vel");
+    assert_eq!(y, 0xFE, "ASM loc_C5A2: y_pos += y_vel");
+    assert_eq!(t, 0x1B, "ASM loc_C5A2: subq.w #1,$46(a5)");
+    assert!(
+        !cleared,
+        "ASM loc_C5A2: timer still running, vel not cleared"
+    );
+}
+
+#[test]
+fn loc_c5a2_eol_object_position_step_timer_expires() {
+    // Timer == 1 → reaches 0, velocity cleared
+    let (x, y, t, cleared) = eol_object_position_step_loc_C5A2(0x58, 0x100, 8, -2, 1);
+    assert_eq!(x, 0x60, "ASM loc_C5A2: final velocity step applied");
+    assert_eq!(y, 0xFE, "ASM loc_C5A2: final y velocity step applied");
+    assert_eq!(t, 0, "ASM loc_C5A2: timer reached 0");
+    assert!(cleared, "ASM loc_C5A2: clr.w $6C(a5); clr.w $70(a5)");
+}
+
+// ── loc_C5DE: EOL extra-life bounce (kid.asm:16257) ───────────────────────
+
+/// ASM loc_C5DE (kid.asm:16257): extra-life icon initial parameters.
+#[test]
+fn loc_c5de_eol_extra_life_initial_constants() {
+    use crate::level::{
+        EOL_EXTRA_LIFE_INITIAL_X_LOC_C5DE, EOL_EXTRA_LIFE_INITIAL_X_VEL_LOC_C5DE,
+        EOL_EXTRA_LIFE_INITIAL_Y_LOC_C5DE, EOL_EXTRA_LIFE_INITIAL_Y_VEL_LOC_C5DE,
+        EOL_EXTRA_LIFE_PALETTE_LOC_C5DE, EOL_EXTRA_LIFE_PRIORITY_LOC_C5DE,
+        EOL_EXTRA_LIFE_VRAM_TILE_LOC_C5DE,
+    };
+    // ASM loc_C5DE: moveq #-$40,d0
+    assert_eq!(
+        EOL_EXTRA_LIFE_INITIAL_X_LOC_C5DE, -0x40,
+        "ASM loc_C5DE: x = -$40"
+    );
+    // ASM loc_C5DE: moveq #0,d1
+    assert_eq!(EOL_EXTRA_LIFE_INITIAL_Y_LOC_C5DE, 0, "ASM loc_C5DE: y = 0");
+    // ASM loc_C5DE: moveq #2,d2
+    assert_eq!(
+        EOL_EXTRA_LIFE_INITIAL_X_VEL_LOC_C5DE, 2,
+        "ASM loc_C5DE: x_vel = 2"
+    );
+    // ASM loc_C5DE: moveq #4,d3
+    assert_eq!(
+        EOL_EXTRA_LIFE_INITIAL_Y_VEL_LOC_C5DE, 4,
+        "ASM loc_C5DE: y_vel = 4"
+    );
+    // ASM loc_C5DE: move.b #2,palette_line(a3)
+    assert_eq!(
+        EOL_EXTRA_LIFE_PALETTE_LOC_C5DE, 2,
+        "ASM loc_C5DE: palette 2"
+    );
+    // ASM loc_C5DE: move.b #1,priority(a3)
+    assert_eq!(
+        EOL_EXTRA_LIFE_PRIORITY_LOC_C5DE, 1,
+        "ASM loc_C5DE: priority 1"
+    );
+    // ASM loc_C5DE: move.w #$517,vram_tile(a3)
+    assert_eq!(
+        EOL_EXTRA_LIFE_VRAM_TILE_LOC_C5DE, 0x0517,
+        "ASM loc_C5DE: VRAM $517"
+    );
+}
+
+/// ASM loc_C60C–loc_C644 (kid.asm:16270–16299): bounce loop reverses
+/// velocity at bounds. X bounces in [-8, $D0], Y in [8, $D8].
+#[test]
+fn loc_c60c_eol_extra_life_bounce_interior() {
+    // Interior movement: no boundary hit
+    let (x, y, xv, yv) = eol_extra_life_bounce_step_loc_C60C(0x40, 0x40, 2, 4);
+    assert_eq!(
+        (x, y, xv, yv),
+        (0x42, 0x44, 2, 4),
+        "ASM loc_C60C: interior step, no bounce"
+    );
+}
+
+#[test]
+fn loc_c60c_eol_extra_life_bounce_x_left_boundary() {
+    // X crosses left bound -8, moving left → negate
+    let (x, _y, xv, _yv) = eol_extra_life_bounce_step_loc_C60C(-7, 0x40, -2, 4);
+    assert_eq!(x, -9, "ASM loc_C60C: x went past -8");
+    assert_eq!(xv, 2, "ASM loc_C60C+4: neg.w d2 when x < -8 and d2 < 0");
+}
+
+#[test]
+fn loc_c60c_eol_extra_life_bounce_x_right_boundary() {
+    // X crosses right bound $D0, moving right → negate
+    let (x, _y, xv, _yv) = eol_extra_life_bounce_step_loc_C60C(0xD0, 0x40, 2, 4);
+    assert_eq!(x, 0xD2, "ASM loc_C61E: x went past $D0");
+    assert_eq!(xv, -2, "ASM loc_C61E: neg.w d2 when x > $D0 and d2 > 0");
+}
+
+#[test]
+fn loc_c60c_eol_extra_life_bounce_y_top_boundary() {
+    // Y crosses top bound 8, moving up → negate
+    let (_x, y, _xv, yv) = eol_extra_life_bounce_step_loc_C60C(0x40, 9, 2, -4);
+    assert_eq!(y, 5, "ASM loc_C62A: y went past 8");
+    assert_eq!(yv, 4, "ASM loc_C62A: neg.w d3 when y < 8 and d3 < 0");
+}
+
+#[test]
+fn loc_c60c_eol_extra_life_bounce_y_bottom_boundary() {
+    // Y crosses bottom bound $D8, moving down → negate
+    let (_x, y, _xv, yv) = eol_extra_life_bounce_step_loc_C60C(0x40, 0xD8, 2, 4);
+    assert_eq!(y, 0xDC, "ASM loc_C638: y went past $D8");
+    assert_eq!(yv, -4, "ASM loc_C638: neg.w d3 when y > $D8 and d3 > 0");
+}
+
+/// ASM loc_C60C: velocity NOT negated when already moving away from boundary.
+#[test]
+fn loc_c60c_eol_extra_life_bounce_no_double_negate() {
+    // x < -8 but moving right (positive) → no negate
+    let (_x, _y, xv, _yv) = eol_extra_life_bounce_step_loc_C60C(-9, 0x40, 2, 4);
+    assert_eq!(
+        xv, 2,
+        "ASM loc_C60C+8: tst.w d2; bpl.s → skip negate when moving right"
+    );
+
+    // x > $D0 but moving left (negative) → no negate
+    let (_x, _y, xv, _yv) = eol_extra_life_bounce_step_loc_C60C(0xD2, 0x40, -2, 4);
+    assert_eq!(
+        xv, -2,
+        "ASM loc_C61E+4: tst.w d2; bmi.s → skip negate when moving left"
     );
 }
 
@@ -30627,6 +30803,75 @@ fn loc_b98_readjoypad_level_skip_cheat_always_armed_in_native() {
     assert!(
         rt.pending_level_skip.is_some(),
         "ASM loc_B98: LevelSkip_Cheat should be armed (native skips word_7190 gate)"
+    );
+}
+
+/// ASM loc_C4E (kid.asm:1404): ReadJoypad edge detection —
+/// `eor.b d1,d0; and.b (Ctrl_1).w,d0; or.b d0,(Ctrl_1_Pressed).w`
+/// computes newly-pressed bits by XOR-ing current held with previous
+/// held, AND-ing with current. Native: `input.start && !previous_input.start`.
+/// Also `move.b (Ctrl_1).w,(Ctrl_1_Held).w` latches held state for next frame.
+/// loc_C9C (kid.asm:1426) routes Ctrl_1 → Ctrl (1P default path).
+///
+/// Pause toggle is deferred: the press arms `pause_toggle_pending`, which
+/// becomes visible on the next frame's trace. This test checks that held
+/// Start (1→1) does NOT re-arm the toggle — only a rising edge (0→1) does.
+#[test]
+fn loc_c4e_readjoypad_edge_detection_newly_pressed() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_floor_at_row(17));
+    start_level(&mut rt);
+
+    // Frame 1: idle — no Start
+    let _f1 = rt.step_frame(FrameInput::default());
+
+    // Frame 2: press Start → rising edge → arms pause_toggle_pending
+    let f2 = rt.step_frame(FrameInput {
+        start: true,
+        ..Default::default()
+    });
+    assert!(
+        !f2.paused,
+        "ASM loc_C4E: pause_toggle_pending is deferred, not visible this frame"
+    );
+
+    // Frame 3: Start still held (1→1) → no new edge → toggle applied from
+    // previous frame, but no new toggle armed
+    let f3 = rt.step_frame(FrameInput {
+        start: true,
+        ..Default::default()
+    });
+    assert!(
+        f3.paused,
+        "ASM loc_C4E: deferred pause now visible; held (1→1) does not re-arm"
+    );
+
+    // Frame 4: Start still held → stays paused (no new edge, no toggle)
+    let f4 = rt.step_frame(FrameInput {
+        start: true,
+        ..Default::default()
+    });
+    assert!(
+        f4.paused,
+        "ASM loc_C4E: Start held (1→1) → no new edge, pause remains"
+    );
+
+    // Frame 5: release Start → no rising edge → stays paused
+    let f5 = rt.step_frame(FrameInput::default());
+    assert!(
+        f5.paused,
+        "ASM loc_C4E: Start released (1→0) → no rising edge, pause remains"
+    );
+
+    // Frame 6: press Start again → rising edge → immediate unpause
+    // (handle_start_press: when already paused, sets self.paused = false directly)
+    let f6 = rt.step_frame(FrameInput {
+        start: true,
+        ..Default::default()
+    });
+    assert!(
+        !f6.paused,
+        "ASM loc_C4E: Start newly pressed while paused → immediate unpause"
     );
 }
 

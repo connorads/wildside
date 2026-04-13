@@ -1056,6 +1056,12 @@ impl NativeRuntime {
         self.maybe_begin_pending_level_skip_resume();
         self.maybe_finish_level_skip_resume();
         let freeze_demo_auto_timeout_snapshot = self.demo_auto_timeout_freeze_gameplay_frame;
+        // ASM loc_C4E (kid.asm:1404): ReadJoypad edge detection —
+        // `eor.b d1,d0; and.b (Ctrl_1).w,d0; or.b d0,(Ctrl_1_Pressed).w`
+        // computes newly-pressed bits, then copies held state:
+        // `move.b (Ctrl_1).w,(Ctrl_1_Held).w`. Native equivalent: compare
+        // current `input` fields against `self.previous_input` for rising
+        // edges, then store `self.previous_input = input` at frame end.
         let start_pressed = input.start && !self.previous_input.start;
         let apply_pending_pause_toggle = self.pause_toggle_pending;
         self.pause_toggle_pending = false;
@@ -1254,6 +1260,9 @@ impl NativeRuntime {
         let trace = self.trace_frame();
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.prior_input = self.previous_input;
+        // ASM loc_C4E (kid.asm:1410): `move.b (Ctrl_1).w,(Ctrl_1_Held).w` —
+        // latch current held state for next-frame edge detection. Also
+        // loc_C9C: route Ctrl_1_Held/Pressed → Ctrl_Held/Pressed (1P default).
         self.previous_input = input;
         if matches!(self.boot_state, BootState::LevelSkipHold)
             && let Some(transition) = self.level_skip_transition.as_mut()

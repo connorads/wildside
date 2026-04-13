@@ -11176,6 +11176,197 @@ pub(crate) fn eol_number_digits_loc_C48C(raw_value: u32) -> [Option<u8>; 7] {
     result
 }
 
+/// ASM loc_C564 (kid.asm:16218): EOL number-variant sprite object setup.
+/// Used for 2-player arrow indicators — palette line 1 (yellow), VRAM tile
+/// `$409`. Differs from `Object_EOL_Text` which uses palette line 2 and
+/// VRAM tile `$517`.
+///
+/// ```text
+/// loc_C564:
+///   move.l #$2000004,a3
+///   jsr    (j_Load_GfxObjectSlot).w
+///   move.b #1,palette_line(a3)     ; palette 1 (yellow)
+///   move.w #$409,vram_tile(a3)     ; VRAM tile base
+///   bra.s  loc_C592                ; fall through to common init
+/// ```
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_VARIANT_PALETTE_LOC_C564: u8 = 1;
+#[allow(dead_code)]
+pub(crate) const EOL_NUMBER_VARIANT_VRAM_TILE_LOC_C564: u16 = 0x0409;
+
+/// ASM Object_EOL_Text (kid.asm:16227): standard EOL text sprite object.
+/// Palette line 2, VRAM tile `$517`. Falls through to loc_C592 for common init.
+///
+/// ```text
+/// Object_EOL_Text:
+///   move.l #$2000004,a3
+///   jsr    (j_Load_GfxObjectSlot).w
+///   move.b #2,palette_line(a3)     ; palette 2
+///   move.w #$517,vram_tile(a3)     ; VRAM tile base
+/// ```
+#[allow(dead_code)]
+pub(crate) const EOL_TEXT_PALETTE_LOC_C57C: u8 = 2;
+#[allow(dead_code)]
+pub(crate) const EOL_TEXT_VRAM_TILE_LOC_C57C: u16 = 0x0517;
+
+/// ASM loc_C592 (kid.asm:16233): common EOL object init shared by loc_C564
+/// and Object_EOL_Text. Sets display flag, priority, and sprite address.
+///
+/// ```text
+/// loc_C592:
+///   st     $13(a3)                 ; display enabled ($FF)
+///   move.b #1,priority(a3)         ; priority 1
+///   move.w $44(a5),addroffset_sprite(a3)  ; sprite link from parent
+/// ```
+#[allow(dead_code)]
+pub(crate) const EOL_COMMON_DISPLAY_FLAG_LOC_C592: u8 = 0xFF;
+#[allow(dead_code)]
+pub(crate) const EOL_COMMON_PRIORITY_LOC_C592: u8 = 1;
+
+/// ASM loc_C5A2 (kid.asm:16238): EOL object position-update loop.
+/// Each frame: hibernate, add velocity to position, add camera offset for
+/// screen coords. When timer `$46(a5)` reaches zero, clear velocity and
+/// continue looping (object drifts to rest then holds position).
+///
+/// ```text
+/// loc_C5A2:
+///   jsr    (j_Hibernate_Object_1Frame).w
+///   move.w $64(a5),d0
+///   add.w  $6C(a5),d0              ; x_pos += x_vel
+///   move.w d0,$64(a5)
+///   add.w  (Camera_X_pos).w,d0     ; screen x = local x + camera
+///   move.w d0,x_pos(a3)
+///   move.w $68(a5),d1
+///   add.w  $70(a5),d1              ; y_pos += y_vel
+///   move.w d1,$68(a5)
+///   add.w  (Camera_Y_pos).w,d1     ; screen y = local y + camera
+///   move.w d1,y_pos(a3)
+///   subq.w #1,$46(a5)              ; timer--
+///   bne.s  loc_C5A2                ; loop while timer > 0
+///   clr.w  $6C(a5)                 ; x_vel = 0
+///   clr.w  $70(a5)                 ; y_vel = 0
+///   bra.s  loc_C5A2                ; continue looping at rest
+/// ```
+///
+/// Pure model of one frame's position update (no hibernation/camera).
+/// Returns `(new_x, new_y, new_timer, velocity_cleared)`.
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn eol_object_position_step_loc_C5A2(
+    x: i16,
+    y: i16,
+    x_vel: i16,
+    y_vel: i16,
+    timer: u16,
+) -> (i16, i16, u16, bool) {
+    let new_x = x.wrapping_add(x_vel);
+    let new_y = y.wrapping_add(y_vel);
+    let new_timer = timer.wrapping_sub(1);
+    if new_timer == 0 {
+        // ASM loc_C5A2+26: clr.w $6C(a5); clr.w $70(a5)
+        (new_x, new_y, 0, true)
+    } else {
+        (new_x, new_y, new_timer, false)
+    }
+}
+
+/// ASM loc_C5DE (kid.asm:16257): EOL extra-life bounce display.
+/// Allocates a gfx slot, sets palette 2, priority 1, VRAM `$517`,
+/// `LnkTo_Spr_EOL_ExtraLife` sprite, then enters a bouncing loop
+/// (loc_C60C) with initial params `d0=-$40, d1=0, d2=2, d3=4`.
+///
+/// ```text
+/// loc_C5DE:
+///   move.l #$2000004,a3
+///   jsr    (j_Load_GfxObjectSlot).w
+///   st     $13(a3)
+///   move.b #2,palette_line(a3)
+///   move.b #1,priority(a3)
+///   move.w #$517,vram_tile(a3)
+///   move.w #(LnkTo_Spr_EOL_ExtraLife-Data_Index),addroffset_sprite(a3)
+///   moveq  #-$40,d0               ; x = -64
+///   moveq  #0,d1                  ; y = 0
+///   moveq  #2,d2                  ; x_vel = 2
+///   moveq  #4,d3                  ; y_vel = 4
+/// ```
+#[allow(dead_code)]
+pub(crate) const EOL_EXTRA_LIFE_PALETTE_LOC_C5DE: u8 = 2;
+#[allow(dead_code)]
+pub(crate) const EOL_EXTRA_LIFE_PRIORITY_LOC_C5DE: u8 = 1;
+#[allow(dead_code)]
+pub(crate) const EOL_EXTRA_LIFE_VRAM_TILE_LOC_C5DE: u16 = 0x0517;
+#[allow(dead_code)]
+pub(crate) const EOL_EXTRA_LIFE_INITIAL_X_LOC_C5DE: i16 = -0x40;
+#[allow(dead_code)]
+pub(crate) const EOL_EXTRA_LIFE_INITIAL_Y_LOC_C5DE: i16 = 0;
+#[allow(dead_code)]
+pub(crate) const EOL_EXTRA_LIFE_INITIAL_X_VEL_LOC_C5DE: i16 = 2;
+#[allow(dead_code)]
+pub(crate) const EOL_EXTRA_LIFE_INITIAL_Y_VEL_LOC_C5DE: i16 = 4;
+
+/// ASM loc_C60C–loc_C644 (kid.asm:16270–16299): bouncing-ball loop for the
+/// extra-life icon. Each axis bounces between bounds: x in [-8, $D0],
+/// y in [8, $D8]. Velocity is negated on boundary contact.
+///
+/// ```text
+/// loc_C60C:
+///   add.w  d2,d0                   ; x += x_vel
+///   cmpi.w #$FFF8,d0               ; x >= -8?
+///   bge.s  loc_C61E
+///   tst.w  d2; bpl.s loc_C61E      ; only negate if moving left
+///   neg.w  d2
+/// loc_C61E:
+///   cmpi.w #$D0,d0                 ; x <= $D0?
+///   ble.s  loc_C62A
+///   tst.w  d2; bmi.s loc_C62A      ; only negate if moving right
+///   neg.w  d2
+/// loc_C62A:
+///   add.w  d3,d1                   ; y += y_vel
+///   cmpi.w #8,d1                   ; y >= 8?
+///   bge.s  loc_C638
+///   tst.w  d3; bpl.s loc_C638
+///   neg.w  d3
+/// loc_C638:
+///   cmpi.w #$D8,d1                 ; y <= $D8?
+///   ble.s  loc_C644
+///   tst.w  d3; bmi.s loc_C644
+///   neg.w  d3
+/// ```
+///
+/// Pure model of one bounce frame. Returns `(new_x, new_y, new_x_vel, new_y_vel)`.
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn eol_extra_life_bounce_step_loc_C60C(
+    x: i16,
+    y: i16,
+    x_vel: i16,
+    y_vel: i16,
+) -> (i16, i16, i16, i16) {
+    let new_x = x.wrapping_add(x_vel);
+    let mut xv = x_vel;
+    // ASM loc_C60C+4: cmpi.w #$FFF8,d0; bge.s loc_C61E; tst.w d2; bpl.s loc_C61E; neg.w d2
+    if new_x < -8 && xv < 0 {
+        xv = -xv;
+    }
+    // ASM loc_C61E: cmpi.w #$D0,d0; ble.s loc_C62A; tst.w d2; bmi.s loc_C62A; neg.w d2
+    if new_x > 0xD0 && xv > 0 {
+        xv = -xv;
+    }
+
+    let new_y = y.wrapping_add(y_vel);
+    let mut yv = y_vel;
+    // ASM loc_C62A: cmpi.w #8,d1; bge.s loc_C638; tst.w d3; bpl.s loc_C638; neg.w d3
+    if new_y < 8 && yv < 0 {
+        yv = -yv;
+    }
+    // ASM loc_C638: cmpi.w #$D8,d1; ble.s loc_C644; tst.w d3; bmi.s loc_C644; neg.w d3
+    if new_y > 0xD8 && yv > 0 {
+        yv = -yv;
+    }
+
+    (new_x, new_y, xv, yv)
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {
