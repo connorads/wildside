@@ -12,8 +12,8 @@ use crate::blocks::{
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
-    HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IntroSequence6LongwordFillLoc1B170,
-    IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24,
+    HudHitpointSpriteSubBDC0, HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A,
+    IntroSequence6LongwordFillLoc1B170, IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24,
     PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C, PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C,
     PAUSE_MENU_Y_OFFSET_LOC_6948, PauseMenuGateLoc687C, PauseMenuPlaneColumnLayout,
     PauseMenuSpriteEntrySub6874, PauseMenuTextSelectionRestartText,
@@ -25,11 +25,12 @@ use crate::boot::{
     flag_hud_dma_upload_sub_5DA6, hide_pause_menu_overwritten_sprites_sub_6874,
     hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
     intro_sequence_6_longword_fill_loc_1B170, intro_sequence_6_striped_tile_fill_loc_1B194,
-    intro_sequence_6_tilemap_clear_loc_1B182, pause_menu_art_total_bytes_loc_690C,
-    pause_menu_gate_loc_687C, pause_menu_plane_column_layout_loc_693A,
-    pause_menu_text_selection_restart_text, pause_menu_text_write_plan_loc_69D2,
-    pause_menu_text_write_row_vdp_write_cmd_loc_6A1E, pause_menu_tile_restore_plan_loc_6B68,
-    pause_menu_tile_save_plan_loc_695C, pause_menu_tile_save_row_vdp_read_cmd_loc_695C,
+    intro_sequence_6_tilemap_clear_loc_1B182, make_hud_hitpoint_layout_sub_BDC0,
+    pause_menu_art_total_bytes_loc_690C, pause_menu_gate_loc_687C,
+    pause_menu_plane_column_layout_loc_693A, pause_menu_text_selection_restart_text,
+    pause_menu_text_write_plan_loc_69D2, pause_menu_text_write_row_vdp_write_cmd_loc_6A1E,
+    pause_menu_tile_restore_plan_loc_6B68, pause_menu_tile_save_plan_loc_695C,
+    pause_menu_tile_save_row_vdp_read_cmd_loc_695C,
     pause_menu_tile_save_wrap_column_reset_loc_69AE, prize_10000_points_star_advance_loc_10BCE,
     prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
     prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
@@ -1829,6 +1830,135 @@ fn loc_bd40_kid_tracking_screen_relative_seconds_digits() {
         },
         "loc_BD40: seconds-ones at kid_screen_x + unk_BD8A[+1]"
     );
+}
+
+/// ASM loc_BE0C (kid.asm:15408) + loc_BE20 (kid.asm:15419): The Kid with 2 HP
+/// and max_slots=2 produces a single full-hitpoint sprite (tile $822D).
+/// The loop: d4+=1, d2+=0x10 (x=$90), d1-=2 (→0), d0-=2 (→0, ≥0 → loc_BE20).
+/// loc_BE20: write tile $822D at y=$A4, x=$90. d1≤0 → exit loop.
+#[test]
+fn loc_be0c_and_loc_be20_single_full_hitpoint_sprite() {
+    let sprites = make_hud_hitpoint_layout_sub_BDC0(2, 2, false, 0, false);
+    assert_eq!(sprites.len(), 1);
+    assert_eq!(
+        sprites[0],
+        HudHitpointSpriteSubBDC0 {
+            y_pos: 0x00A4,
+            x_pos: 0x0090,
+            tile: 0x822D,
+            visible: true,
+        },
+        "loc_BE0C/loc_BE20: single full sprite at x=$90, y=$A4, tile=$822D"
+    );
+}
+
+/// ASM loc_BE0C (kid.asm:15408): Iron Knight with 5 HP and max_slots=5
+/// (HelmetHitpoint_Table[IronKnight]=5, Extra_hitpoint_slots=0).
+/// Iteration 1: d2=$90, d1=3, d0=3 → ≥0 → loc_BE20 ($822D), d1>0 loop.
+/// Iteration 2: d2=$A0, d1=1, d0=1 → ≥0 → loc_BE20 ($822D), d1>0 loop.
+/// Iteration 3: d2=$B0, d1=-1, d0=-1 → loc_BE34 → d1<0 → loc_BE4C (hidden $822D).
+#[test]
+fn loc_be0c_iron_knight_5hp_produces_two_full_one_hidden_half() {
+    let sprites = make_hud_hitpoint_layout_sub_BDC0(5, 5, false, 0, false);
+    assert_eq!(sprites.len(), 3, "5 HP / 5 max → 3 sprites");
+    assert_eq!(sprites[0].tile, 0x822D, "first: full");
+    assert!(sprites[0].visible);
+    assert_eq!(sprites[1].tile, 0x822D, "second: full");
+    assert!(sprites[1].visible);
+    // Third is the odd-HP hidden half (loc_BE4C)
+    assert_eq!(sprites[2].tile, 0x822D, "third: hidden half tile");
+    assert!(!sprites[2].visible, "loc_BE4C: hidden because d1<0");
+}
+
+/// ASM loc_BE08 (kid.asm:15405): y-position for all hitpoint sprites is $A4.
+/// Verified across multiple sprites: every entry has y_pos=0x00A4.
+#[test]
+fn loc_be08_all_hitpoint_sprites_use_y_a4() {
+    // Iron Knight max HP = 5, extra slots = 2 → max_slots = 7
+    let sprites = make_hud_hitpoint_layout_sub_BDC0(7, 7, false, 0, false);
+    assert!(!sprites.is_empty());
+    for (i, s) in sprites.iter().enumerate() {
+        assert_eq!(
+            s.y_pos, 0x00A4,
+            "loc_BE08: sprite {i} y-position must be $A4"
+        );
+    }
+}
+
+/// ASM loc_BE06 (kid.asm:15402): `sub.w d3,d2` — when $FFFFFB49 (hud_slide)
+/// is set, the base x-position slides left by min(Time_Frames, $50).
+/// With time_frames=0x30, base x = $80 - $30 = $50, first sprite x = $50 + $10 = $60.
+#[test]
+fn loc_be06_hud_slide_shifts_hitpoint_x_left() {
+    let no_slide = make_hud_hitpoint_layout_sub_BDC0(2, 2, false, 0, false);
+    let with_slide = make_hud_hitpoint_layout_sub_BDC0(2, 2, true, 0x0030, false);
+
+    assert_eq!(no_slide[0].x_pos, 0x0090, "no slide: x = $80 + $10");
+    assert_eq!(
+        with_slide[0].x_pos, 0x0060,
+        "loc_BE06: x = ($80 - $30) + $10 = $60"
+    );
+}
+
+/// ASM loc_BE06 (kid.asm:15399-15403): Time_Frames is capped at $50 before
+/// subtracting from d2.  `cmpi.w #$50,d3; ble.s loc_BE06; moveq #$50,d3`.
+/// With time_frames=0x80 (> $50), effective slide = $50.
+#[test]
+fn loc_be06_slide_caps_at_0x50() {
+    let capped = make_hud_hitpoint_layout_sub_BDC0(2, 2, true, 0x0080, false);
+    // Base x = $80 - $50 = $30, first sprite x = $30 + $10 = $40.
+    assert_eq!(
+        capped[0].x_pos, 0x0040,
+        "loc_BE06: slide capped at $50 → x = $40"
+    );
+}
+
+/// ASM loc_BE20 (kid.asm:15419): x-positions spaced $10 apart.
+/// With 6 HP and 6 max_slots: 3 full sprites at x=$90, $A0, $B0.
+#[test]
+fn loc_be20_x_positions_spaced_0x10_apart() {
+    let sprites = make_hud_hitpoint_layout_sub_BDC0(6, 6, false, 0, false);
+    assert_eq!(sprites.len(), 3, "6 HP / 6 max → 3 sprites");
+    assert_eq!(sprites[0].x_pos, 0x0090);
+    assert_eq!(sprites[1].x_pos, 0x00A0);
+    assert_eq!(sprites[2].x_pos, 0x00B0);
+}
+
+/// ASM sub_BDC0: when `Currently_transforming` is set, jumps to loc_BE82
+/// without emitting any hitpoint sprites.
+#[test]
+fn sub_bdc0_transforming_produces_no_sprites() {
+    let sprites = make_hud_hitpoint_layout_sub_BDC0(5, 5, false, 0, true);
+    assert!(
+        sprites.is_empty(),
+        "sub_BDC0: Currently_transforming → no hitpoint sprites"
+    );
+}
+
+/// ASM Make_SpriteAttr_HUD: 3 HP with 4 max_slots.
+/// Iteration 1: d0=1 (≥0) → loc_BE20 full $822D. d1=2 > 0 → loop.
+/// Iteration 2: d0=-1 → loc_BE34. d1=0, not <0 → visible half $822E. d1≤0 → exit.
+#[test]
+fn sub_bdc0_3hp_4slots_produces_full_then_half() {
+    let sprites = make_hud_hitpoint_layout_sub_BDC0(3, 4, false, 0, false);
+    assert_eq!(sprites.len(), 2);
+    assert_eq!(sprites[0].tile, 0x822D, "first: full");
+    assert!(sprites[0].visible);
+    assert_eq!(sprites[1].tile, 0x822E, "second: half (loc_BE34)");
+    assert!(sprites[1].visible);
+}
+
+/// ASM Make_SpriteAttr_HUD: 0 HP with 4 max_slots produces 2 empty sprites.
+/// Iteration 1: d0=-2 (<-1) → loc_BE5C. d1=2 ≥0 → visible $822F. d1>0 → loop.
+/// Iteration 2: d0=-4 → loc_BE5C. d1=0, ≥0 → visible $822F. d1≤0 → exit.
+#[test]
+fn sub_bdc0_0hp_4slots_produces_two_empty_sprites() {
+    let sprites = make_hud_hitpoint_layout_sub_BDC0(0, 4, false, 0, false);
+    assert_eq!(sprites.len(), 2);
+    assert_eq!(sprites[0].tile, 0x822F, "first: empty");
+    assert!(sprites[0].visible);
+    assert_eq!(sprites[1].tile, 0x822F, "second: empty");
+    assert!(sprites[1].visible);
 }
 
 #[test]

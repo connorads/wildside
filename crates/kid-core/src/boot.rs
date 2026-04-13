@@ -455,6 +455,134 @@ pub(crate) fn hud_timer_sprite_layout_sub_BD0A(
     layout
 }
 
+/// A single hitpoint sprite entry as built by `Make_SpriteAttr_HUD` (sub_BDC0).
+///
+/// Each entry is 8 bytes in the VDP sprite table: y-pos(2), size+link(2), tile(2), x-pos(2).
+/// - Tile `$822D` = full (2 HP filled), `$822E` = half (1 HP filled), `$822F` = empty (0 HP).
+/// - `visible=true` means `size=$04` (1×1 sprite shown); `false` means `size=$00` (hidden).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub(crate) struct HudHitpointSpriteSubBDC0 {
+    pub(crate) y_pos: u16,
+    pub(crate) x_pos: u16,
+    pub(crate) tile: u16,
+    pub(crate) visible: bool,
+}
+
+/// ASM Make_SpriteAttr_HUD / sub_BDC0 (kid.asm:15382): builds hitpoint sprite
+/// entries for the HUD.  Returns an empty vec when `currently_transforming` is
+/// true (the ASM jumps straight to loc_BE82).
+///
+/// The loop at loc_BE0C iterates over `max_slots / 2` positions (each sprite
+/// represents 2 HP).  `d0` (current HP) and `d1` (max HP slots) both decrement
+/// by 2 per iteration.  The first `x` is `$80 + $10 = $90` (loc_BE0C adds $10
+/// before the first sprite write).  When `hud_slide_active` ($FFFFFB49), the
+/// base `x` slides left by `min(time_frames, $50)` (loc_BE06).
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn make_hud_hitpoint_layout_sub_BDC0(
+    number_hitpoints: u16,
+    max_hitpoint_slots: u16,
+    hud_slide_active: bool,
+    time_frames: u16,
+    currently_transforming: bool,
+) -> Vec<HudHitpointSpriteSubBDC0> {
+    // ASM sub_BDC0: `tst.b (Currently_transforming).w; bne.w loc_BE82`
+    if currently_transforming {
+        return Vec::new();
+    }
+
+    let mut d0 = number_hitpoints as i16;
+    let mut d1 = max_hitpoint_slots as i16;
+
+    // ASM: `move.w #$80,d2` — base x-position.
+    let mut d2: u16 = 0x0080;
+
+    // ASM loc_BE06 (kid.asm:15402): `sub.w d3,d2` — slide HUD left by
+    // min(Time_Frames, $50) when $FFFFFB49 is set.
+    if hud_slide_active {
+        let d3 = time_frames.min(0x0050);
+        d2 = d2.wrapping_sub(d3);
+    }
+
+    // ASM loc_BE08 (kid.asm:15405): `move.w #$A4,d3` — y-position for all
+    // hitpoint sprites.
+    let y: u16 = 0x00A4;
+
+    let mut sprites = Vec::new();
+
+    // ASM loc_BE0C (kid.asm:15408): main loop.
+    // `addq.w #1,d4` (link — not modelled); `addi.w #$10,d2` (x spacing);
+    // `subq.w #2,d1; subq.w #2,d0`.
+    loop {
+        d2 = d2.wrapping_add(0x0010);
+        d1 -= 2;
+        d0 -= 2;
+
+        if d0 >= 0 {
+            // ASM loc_BE20 (kid.asm:15419): full hitpoint — tile $822D, visible.
+            // `move.w d3,(a2)+; move.b #4,(a2)+; … move.w #$822D,(a2)+; move.w d2,(a2)+`
+            sprites.push(HudHitpointSpriteSubBDC0 {
+                y_pos: y,
+                x_pos: d2,
+                tile: 0x822D,
+                visible: true,
+            });
+            if d1 <= 0 {
+                break;
+            }
+        } else if d0 == -1 {
+            // ASM loc_BE34: half hitpoint.
+            if d1 < 0 {
+                // loc_BE4C: hidden half — size=$00, tile=$822D. `bra.s loc_BE82`.
+                sprites.push(HudHitpointSpriteSubBDC0 {
+                    y_pos: y,
+                    x_pos: d2,
+                    tile: 0x822D,
+                    visible: false,
+                });
+                break;
+            } else {
+                // Visible half — tile $822E.
+                sprites.push(HudHitpointSpriteSubBDC0 {
+                    y_pos: y,
+                    x_pos: d2,
+                    tile: 0x822E,
+                    visible: true,
+                });
+                if d1 <= 0 {
+                    break;
+                }
+            }
+        } else {
+            // ASM loc_BE5C: empty hitpoint.
+            if d1 < 0 {
+                // loc_BE74: hidden empty — size=$00, tile=$822F. Falls through to loc_BE82.
+                sprites.push(HudHitpointSpriteSubBDC0 {
+                    y_pos: y,
+                    x_pos: d2,
+                    tile: 0x822F,
+                    visible: false,
+                });
+                break;
+            } else {
+                // Visible empty — tile $822F.
+                sprites.push(HudHitpointSpriteSubBDC0 {
+                    y_pos: y,
+                    x_pos: d2,
+                    tile: 0x822F,
+                    visible: true,
+                });
+                if d1 <= 0 {
+                    break;
+                }
+            }
+        }
+    }
+
+    sprites
+}
+
 fn step_hud_animation_pair_table(
     countdown: u8,
     frame_offset: u8,
