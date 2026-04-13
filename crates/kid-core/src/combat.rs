@@ -8620,6 +8620,19 @@ impl NativeRuntime {
         //   if clear, sets Game_Mode=8 for game-over screen, then jumps
         //   to loc_B8DE (j_loc_6E2 level restart).
         //
+        // ASM loc_B8BA (kid.asm:14811): both players still have lives —
+        //   `tst.b ($FFFFFC29).w; bne.w loc_B8DE` (continue flag gate),
+        //   `move.w #8,(Game_Mode).w` (level transition),
+        //   `not.b (Current_player).w` (swap active player 0↔$FF),
+        //   `bra.w loc_B8DE` (j_loc_6E2 restart). The NOT.b swaps the
+        //   current player so the other player takes over.
+        //
+        // ASM loc_B8D0 (kid.asm:14819): P1 dead (Player_1_Lives==0),
+        //   P2 still alive — `tst.w (Player_2_Lives).w; beq.w loc_B8E2`
+        //   (both dead → game over via j_EntryPoint),
+        //   `st (Current_player).w` (force P2 active),
+        //   `bra.s loc_B8A8` (check continue flag + restart).
+        //
         // Native: two-player mode is not yet fully implemented; the
         // single-player path is always taken.
         self.player_lifecycle = PlayerLifecycle::Dying {

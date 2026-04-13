@@ -136,6 +136,14 @@ pub struct NativeRuntime {
     #[allow(dead_code)]
     z80_running: bool,
     /// ASM OptionScreen_Input `Option_2PInput`: false = one controller, true = two.
+    ///
+    /// ASM ReadJoypad (kid.asm:1332): routes Ctrl_Held/Ctrl_Pressed to
+    /// per-player variables depending on this flag and Current_player:
+    ///   - loc_B8C (kid.asm:1342): default path (1P mode or Current_player==0)
+    ///     stores `Ctrl_Held → Ctrl_1_Held`, `Ctrl_Pressed → Ctrl_1_Pressed`.
+    ///   - 2P + Current_player!=0: stores to Ctrl_2_Held/Ctrl_2_Pressed.
+    ///
+    /// Native: single FrameInput consumed directly — no per-player routing.
     options_two_player_two_controllers: bool,
     /// ASM OptionScreen_Input `Options_Suboption_Controls`: 0..=5.
     options_controls_scheme: u8,

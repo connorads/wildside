@@ -2362,6 +2362,19 @@ impl OpeningSliceState {
                 // in each axis. The $14/$18 crush paths are not yet ported (they
                 // require GfxObjects_Collision compound detection).
                 //
+                // ASM loc_B978 (kid.asm:14919): sub_A4EE solid-floor landing path —
+                //   reached when sub_B55C returns $6000 (solid) after the compound
+                //   collision dismount (loc_B9A2 right / loc_BA5A left). Sequence:
+                //   `clr.w $20(a3)` (clear collision_type),
+                //   `andi.w #$FFF0,y_pos(a3)` (snap y to 16px grid),
+                //   `subq.w #1,y_pos(a3)` (one pixel above surface),
+                //   then dispatch: x_vel==0 → `bsr.w sub_78E8; bra.w loc_75D4`
+                //   (standing still), x_vel!=0 → `bsr.w sub_942A; bra.w loc_8BF0`
+                //   (walking animation). Native: floor snap handled by
+                //   apply_floor_collision; collision_type clearing is implicit
+                //   (native doesn't use the field); sub_78E8/sub_942A paths
+                //   covered by grounded per-frame refresh.
+                //
                 // ASM loc_B598 (kid.asm:14492): ceiling collision push-down loop
                 // inside an unreferenced code block between sub_A4EE chunks.
                 // `lea (Addr_FirstGfxObjectSlot+2).w,a2; jsr (j_GfxObjects_Collision).w;

@@ -5549,6 +5549,13 @@ impl NativeRuntime {
     ///   bra.w loc_7452
     /// ```
     ///
+    /// The `LevelSkip_Cheat` flag is armed by ReadJoypad's loc_B98
+    /// (kid.asm:1346): after storing per-player controller state,
+    /// `tst.w (word_7190); cmpi.b #$C0,(Ctrl_1_Held); cmpi.b #$10,
+    /// (Ctrl_2_Held)` — if word_7190 (debug mode) is set AND P1 holds
+    /// A+B ($C0) AND P2 holds Right ($10), `st (LevelSkip_Cheat)`.
+    /// Native: the cheat is always armed (no word_7190 gate).
+    ///
     /// Native maps `bclr #Button_Start` to the `start_pressed` rising-edge
     /// parameter.  The level-skip cheat path uses `input.a && input.c`
     /// (A+C+Start).  The `btst #Button_A` pause suppression is implicit:

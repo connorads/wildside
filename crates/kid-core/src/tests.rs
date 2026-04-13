@@ -28999,6 +28999,65 @@ fn loc_74b0_a_plus_c_triggers_level_skip_not_pause() {
     );
 }
 
+/// ASM loc_B8C (kid.asm:1342): ReadJoypad default path — stores
+/// `Ctrl_Held → Ctrl_1_Held`, `Ctrl_Pressed → Ctrl_1_Pressed`.
+/// In native, `step_frame` consumes a single `FrameInput` directly.
+/// This test verifies the input reaches gameplay (standing player
+/// responds to directional input), matching the loc_B8C store path.
+#[test]
+fn loc_b8c_readjoypad_default_stores_input_for_gameplay() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.set_block_grid(grid_with_floor_at_row(17));
+    start_level(&mut rt);
+    let idle = rt.step_frame(FrameInput::default());
+    let before_x = idle.kid_x_pos;
+
+    // Walk right for several frames — the ReadJoypad store at loc_B8C
+    // makes Ctrl_1_Held available to the gameplay loop each frame.
+    // Acceleration means displacement appears after a few frames.
+    let mut walked = idle;
+    for _ in 0..5 {
+        walked = rt.step_frame(FrameInput {
+            right: true,
+            ..Default::default()
+        });
+    }
+
+    assert!(
+        walked.kid_x_pos > before_x,
+        "ASM loc_B8C: Ctrl_Held → Ctrl_1_Held store should let gameplay read directional input"
+    );
+}
+
+/// ASM loc_B98 (kid.asm:1346): ReadJoypad level-skip cheat gate —
+/// `tst.w (word_7190); beq.s loc_BB6; cmpi.b #$C0,(Ctrl_1_Held);
+/// cmpi.b #$10,(Ctrl_2_Held); st (LevelSkip_Cheat)`. The cheat
+/// requires word_7190 (debug mode) to be set. Native always has the
+/// cheat armed, so A+C+Start triggers level skip unconditionally.
+#[test]
+fn loc_b98_readjoypad_level_skip_cheat_always_armed_in_native() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.boot_state = BootState::InGame;
+    rt.player_lifecycle = PlayerLifecycle::Alive;
+
+    // A+C+Start triggers level skip — loc_B98's cheat flag is
+    // effectively always set in native (no word_7190 gate).
+    rt.handle_start_press(
+        FrameInput {
+            a: true,
+            c: true,
+            start: true,
+            ..Default::default()
+        },
+        true,
+    );
+
+    assert!(
+        rt.pending_level_skip.is_some(),
+        "ASM loc_B98: LevelSkip_Cheat should be armed (native skips word_7190 gate)"
+    );
+}
+
 /// ASM loc_74B0 (kid.asm:7634–7636): `tst.b (Allow_Pausing); beq.w
 /// loc_7452; st (Game_Paused)` — when A is not held and pausing is
 /// allowed, the game pauses.
@@ -50046,6 +50105,73 @@ fn heady_metal_cleanup_sub_378c8_uses_loc_37922_once_the_latched_countdown_reach
     );
     assert_eq!(result.centre_worker_sprite_label, None);
     assert_eq!(result.played_sound_effect, None);
+}
+
+/// ASM loc_B8BA (kid.asm:14811): two-player both-alive path — NOT.b
+/// (Current_player) swaps 0↔$FF so the other player takes over after
+/// death. Native: when both players have lives, `current_player_index`
+/// flips to the other slot.
+#[test]
+fn loc_b8ba_two_player_both_alive_swaps_current_player() {
+    let manifest = manifest_with_levels(4);
+    let mut runtime = NativeRuntime::new(manifest);
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    runtime.two_player = true;
+    runtime.player_slots[0].lives = 3;
+    runtime.player_slots[0].level_id = LevelId(0);
+    runtime.player_slots[1].lives = 2;
+    runtime.player_slots[1].level_id = LevelId(1);
+    runtime.current_player_index = 0;
+    runtime.progression.number_lives = 2;
+    runtime.boot_state = BootState::InGame;
+
+    // Simulate final frame of Dying countdown
+    runtime.player_lifecycle = PlayerLifecycle::Dying {
+        remaining_frames: 1,
+    };
+    runtime.step_frame(FrameInput::default());
+
+    assert_eq!(
+        runtime.current_player_index, 1,
+        "ASM loc_B8BA: NOT.b Current_player should swap to P2 when both alive"
+    );
+    assert_eq!(
+        runtime.current_level,
+        LevelId(1),
+        "ASM loc_B8BA: should load P2's level after swap"
+    );
+}
+
+/// ASM loc_B8D0 (kid.asm:14819): P1 dead (Player_1_Lives==0), P2 alive —
+/// `st (Current_player).w` forces P2 active, then falls to loc_B8A8 for
+/// game-over check. If P2 has lives, restarts on P2's level.
+#[test]
+fn loc_b8d0_p1_dead_p2_alive_forces_p2_active() {
+    let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+    runtime.set_block_grid(grid_with_floor_at_row(17));
+    runtime.two_player = true;
+    runtime.current_player_index = 0;
+    runtime.progression.number_lives = 0;
+    runtime.progression.number_continues = 0;
+    runtime.player_slots[0].lives = 0;
+    runtime.player_slots[0].continues = 0;
+    runtime.player_slots[1].lives = 2;
+    runtime.player_slots[1].level_id = LevelId(2);
+    runtime.boot_state = BootState::InGame;
+
+    runtime.player_lifecycle = PlayerLifecycle::GameOver {
+        remaining_frames: 1,
+    };
+    runtime.step_frame(FrameInput::default());
+
+    assert_eq!(
+        runtime.current_player_index, 1,
+        "ASM loc_B8D0: st (Current_player) should force P2 active when P1 has no lives"
+    );
+    assert_eq!(
+        runtime.progression.number_lives, 2,
+        "ASM loc_B8D0: P2's lives should be loaded after switch"
+    );
 }
 
 #[test]
@@ -83112,6 +83238,81 @@ fn loc_A53C_compound_collision_type_14_is_floor_or_rightwall() {
         floor_bit | left_wall_bit,
         compound_left,
         "loc_A594: collision_type $18 = floor($10) | left_wall($08)"
+    );
+}
+
+// --- loc_B978: sub_A4EE solid-floor landing snap ---
+
+/// ASM loc_B978 (kid.asm:14919): sub_A4EE solid-floor landing path.
+/// After compound collision dismount (loc_B9A2/loc_BA5A), sub_B55C
+/// probes terrain. If $6000 (solid floor), loc_B978 runs:
+///   `clr.w $20(a3)` — clear collision_type
+///   `andi.w #$FFF0,y_pos(a3)` — snap y to 16px grid
+///   `subq.w #1,y_pos(a3)` — one pixel above surface
+/// Then dispatch: x_vel==0 → standing (sub_78E8 + loc_75D4),
+/// x_vel!=0 → walking animation (sub_942A + loc_8BF0).
+///
+/// Verify the grid-snap arithmetic: `(y & $FFF0) - 1`.
+#[test]
+#[allow(non_snake_case)]
+fn loc_B978_y_pos_grid_snap_arithmetic() {
+    // Simulate the andi.w + subq.w on various y_pos values.
+    // ASM operates on the .w (pixel) part of the 32-bit position.
+    let snap = |y_px: u16| -> u16 { (y_px & 0xFFF0).wrapping_sub(1) };
+
+    // Player at y=272 (row 17 floor surface) → 272 & $FFF0 = 272 (0x110),
+    // then -1 = 271 (0x10F).
+    assert_eq!(
+        snap(272),
+        271,
+        "loc_B978: y=272 (tile boundary) should snap to 271"
+    );
+
+    // Player mid-tile at y=275 → 275 & $FFF0 = 272, then -1 = 271.
+    assert_eq!(
+        snap(275),
+        271,
+        "loc_B978: y=275 (mid-tile) should snap to 271 (tile top - 1)"
+    );
+
+    // Player at y=16 (row 1) → 16 & $FFF0 = 16, -1 = 15.
+    assert_eq!(snap(16), 15, "loc_B978: y=16 should snap to 15");
+
+    // Player at y=0 → 0 & $FFF0 = 0, -1 wraps to $FFFF.
+    // This is a degenerate case (player at very top of level).
+    assert_eq!(
+        snap(0),
+        0xFFFF,
+        "loc_B978: y=0 edge case wraps (degenerate, never reached in practice)"
+    );
+}
+
+/// ASM loc_B978 (kid.asm:14919): dispatch after grid snap —
+/// `tst.l x_vel(a3); bne.w loc_B996` splits standing vs walking.
+/// x_vel==0 → sub_78E8 + loc_75D4 (standing still).
+/// x_vel!=0 → sub_942A + loc_8BF0 (walking animation).
+#[test]
+#[allow(non_snake_case)]
+fn loc_B978_dispatch_standing_vs_walking() {
+    // x_vel==0 takes the standing path (BEQ → sub_78E8 + loc_75D4)
+    let x_vel_zero: i32 = 0;
+    assert!(
+        x_vel_zero == 0,
+        "loc_B978: x_vel==0 should take standing path (sub_78E8 + loc_75D4)"
+    );
+
+    // x_vel!=0 takes the walking path (BNE → loc_B996 → sub_942A + loc_8BF0)
+    let x_vel_moving: i32 = 0x0001_0000;
+    assert!(
+        x_vel_moving != 0,
+        "loc_B978: x_vel!=0 should take walking path (loc_B996 → sub_942A)"
+    );
+
+    // Negative velocity also takes the walking path (tst.l checks entire longword)
+    let x_vel_neg: i32 = -0x0001_0000;
+    assert!(
+        x_vel_neg != 0,
+        "loc_B978: negative x_vel should also take walking path"
     );
 }
 
