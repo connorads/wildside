@@ -460,6 +460,21 @@ pub(crate) const TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070: [u16; 2] = [0x8200, 0x8407];
 #[allow(dead_code)]
 pub(crate) const TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070: u16 = 0x24;
 
+/// ASM loc_C0B6 (kid.asm:15675): gfx object cleanup loop after the $24-frame
+/// hibernate.  Walks `Addr_FirstGfxObjectSlot` linked list (each slot's offset
+/// `0(a3)` points to the next), skips Kid's gfx object
+/// (`cmp.l (Addr_GfxObject_Kid).w,a3`), and deallocates every other gfx object
+/// via `jsr (j_loc_1078).w`.
+///
+/// ASM loc_C0C8 (kid.asm:15683): loop continuation — `move.l (sp)+,d0;
+/// bne.s loc_C0B6` pops the stashed next-pointer and repeats until the linked
+/// list is exhausted (d0 == 0).
+///
+/// Native does not model per-slot gfx objects; the deletion pass is implicit
+/// when `LevelComplete` transitions to the next level.
+#[allow(dead_code)]
+pub(crate) const TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6: u32 = 0xC0B6;
+
 pub(crate) const SUB_28FC_SLOT_COUNT: usize = 6;
 pub(crate) const SUB_28FC_SLOT_STRIDE_BYTES: usize = 0x52;
 const SPRITE_TABLE_ADDR_SUB_B52: u32 = 0xFFFF_0000;

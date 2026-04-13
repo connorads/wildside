@@ -5764,7 +5764,10 @@ impl NativeRuntime {
             // advance the demo stream again on the visible handoff frame.
             return Some(self.demo_buffered_input.unwrap_or_default());
         }
-        // Auto-end after DEMO_MAX_FRAMES
+        // ASM loc_C0A (kid.asm:1380): demo counter ($FFFFFBC2) reaches $3F2 →
+        // `move.w #$82A,($FFFFFBCC); clr.w Current_LevelID; jsr StopMusic;
+        // jmp j_loc_6E2`.  Native defers the title-return to
+        // `finish_demo_auto_timeout_return` via `demo_auto_timeout_return_pending`.
         if Self::demo_timeout_counter(frame_counter, use_demo_2) >= demo::DEMO_MAX_FRAMES {
             self.demo_auto_timeout_return_pending = true;
             self.demo_auto_timeout_freeze_gameplay_frame = use_demo_2;

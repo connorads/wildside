@@ -7849,7 +7849,15 @@ impl NativeRuntime {
             }
 
             // Speed bonus: 10,000 points if completion time <= threshold.
-            // ASM completion time = 180 - remaining + (clocks_collected * 180), capped at 255.
+            //
+            // ASM loc_C0CC (kid.asm:15687): reconstruct remaining seconds from
+            // `Time_Seconds_low_digit + Time_Seconds_high_digit*$A +
+            // Time_Minutes*$3C`, then `neg.w d0; addi.w #$B4,d0` →
+            // elapsed = 180 - remaining.  `Clocks_collected * $B4` is added.
+            //
+            // ASM loc_C10A (kid.asm:15707): `cmpi.w #$FF,d0; ble.s loc_C10A;
+            // move.w #$FF,d0` caps the value at 255, then
+            // `move.b d0,(Level_completion_time).w` stores the result.
             if level_idx < SPEED_BONUS_TABLE.len() {
                 let threshold = SPEED_BONUS_TABLE[level_idx];
                 if threshold > 0 {

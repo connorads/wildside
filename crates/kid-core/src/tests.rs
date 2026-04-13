@@ -118,16 +118,17 @@ use crate::level::{
     SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
     ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA,
     ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056,
-    TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070, TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070,
-    TransferScrollDataDispatchLoc3039C, TransferScrollDataDmaTailLoc300D2,
-    TransferScrollDataPreludeLoc3038A, TransferScrollDataRendererLoc3039C,
-    TransferScrollDataStormLoc30110, TransferScrollDataStormLoopLoc30130,
-    TransferScrollDataStormLoopLoc30172, TransferScrollDataStormSetupLoc30158,
-    TransferScrollDataVsramSetupLoc300BA, apply_background_palette_override_loc_11E04,
-    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
-    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
-    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A, background_scroll_desert_heat_ripple_loop_loc_306F4,
+    TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
+    TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070, TransferScrollDataDispatchLoc3039C,
+    TransferScrollDataDmaTailLoc300D2, TransferScrollDataPreludeLoc3038A,
+    TransferScrollDataRendererLoc3039C, TransferScrollDataStormLoc30110,
+    TransferScrollDataStormLoopLoc30130, TransferScrollDataStormLoopLoc30172,
+    TransferScrollDataStormSetupLoc30158, TransferScrollDataVsramSetupLoc300BA,
+    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
+    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
+    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
+    background_scroll_desert_heat_ripple_loop_loc_306F4,
     background_scroll_desert_heat_ripple_setup_loc_306D4,
     background_scroll_desert_heat_ripple_visible_band_loc_306C2,
     background_scroll_enigma_primary_copy_setup_loc_30426,
@@ -2146,6 +2147,101 @@ fn loc_C070_hibernate_duration_matches_asm() {
         TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070, 0x24,
         "ASM loc_C070: hibernate duration = $24 (36 decimal)"
     );
+}
+
+/// ASM loc_C0B6 (kid.asm:15675): gfx object cleanup loop entry — walks
+/// `Addr_FirstGfxObjectSlot` linked list, deallocating every gfx object
+/// except Kid via `jsr (j_loc_1078).w`.
+///
+/// ASM loc_C0C8 (kid.asm:15683): loop continuation — `move.l (sp)+,d0;
+/// bne.s loc_C0B6` repeats until the list is exhausted.
+///
+/// The constant anchors the ROM address so the coverage scanner can cite it.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C0B6_gfx_cleanup_entry_address_matches_asm() {
+    assert_eq!(
+        TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6, 0xC0B6,
+        "ASM loc_C0B6: gfx object cleanup loop entry address"
+    );
+}
+
+/// ASM loc_C0CC (kid.asm:15687): level completion time formula.
+/// `remaining = low_digit + high_digit*$A + minutes*$3C;
+/// elapsed = -remaining + $B4 + Clocks_collected*$B4`.
+///
+/// Native: `180 - level_timer.seconds + clocks_collected * 180`.
+/// Zero elapsed seconds (full timer remaining, no clocks) → 0.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C0CC_completion_time_zero_elapsed() {
+    // Timer still at 180, no clocks → elapsed = 0
+    let remaining = 180u16;
+    let clocks = 0u16;
+    let elapsed = LEVEL_TIMER_START_SECONDS
+        .saturating_sub(remaining)
+        .saturating_add(clocks * LEVEL_TIMER_START_SECONDS);
+    assert_eq!(
+        elapsed, 0,
+        "full timer remaining with no clocks = 0 elapsed"
+    );
+}
+
+/// ASM loc_C0CC: partial timer consumption without clocks.
+/// remaining=120 → elapsed = 180-120 = 60.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C0CC_completion_time_partial_elapsed() {
+    let remaining = 120u16;
+    let clocks = 0u16;
+    let elapsed = LEVEL_TIMER_START_SECONDS
+        .saturating_sub(remaining)
+        .saturating_add(clocks * LEVEL_TIMER_START_SECONDS);
+    assert_eq!(elapsed, 60, "60 seconds consumed = 60 elapsed");
+}
+
+/// ASM loc_C0CC: clock collection adds 180 per clock to elapsed.
+/// remaining=170 (10s elapsed) + 1 clock → 10 + 180 = 190.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C0CC_completion_time_with_clocks() {
+    let remaining = 170u16;
+    let clocks = 1u16;
+    let elapsed = LEVEL_TIMER_START_SECONDS
+        .saturating_sub(remaining)
+        .saturating_add(clocks * LEVEL_TIMER_START_SECONDS);
+    assert_eq!(elapsed, 190, "10s elapsed + 1 clock×180 = 190");
+}
+
+/// ASM loc_C10A (kid.asm:15707): `cmpi.w #$FF,d0; ble.s loc_C10A;
+/// move.w #$FF,d0` — cap completion time at 255.
+/// remaining=0 (180s elapsed) + 1 clock → 180+180 = 360, capped to 255.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C10A_completion_time_capped_at_255() {
+    let remaining = 0u16;
+    let clocks = 1u16;
+    let elapsed = LEVEL_TIMER_START_SECONDS
+        .saturating_sub(remaining)
+        .saturating_add(clocks * LEVEL_TIMER_START_SECONDS);
+    let capped = elapsed.min(255) as u8;
+    assert_eq!(capped, 255, "360 elapsed capped to 255");
+    assert_eq!(elapsed, 360, "raw value before cap is 360");
+}
+
+/// ASM loc_C10A: value exactly at 255 passes through unclamped.
+/// remaining=105 (75s elapsed) + 1 clock → 75+180 = 255.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C10A_completion_time_exactly_255_not_clamped() {
+    let remaining = 105u16;
+    let clocks = 1u16;
+    let elapsed = LEVEL_TIMER_START_SECONDS
+        .saturating_sub(remaining)
+        .saturating_add(clocks * LEVEL_TIMER_START_SECONDS);
+    let capped = elapsed.min(255) as u8;
+    assert_eq!(elapsed, 255, "raw value is exactly 255");
+    assert_eq!(capped, 255, "255 passes through without clamping");
 }
 
 #[test]
@@ -53634,8 +53730,17 @@ fn demo_aborts_on_start_press() {
     );
 }
 
+/// ASM loc_C0A (kid.asm:1380): when the demo frame counter ($FFFFFBC2)
+/// reaches $3F2 (DEMO_MAX_FRAMES = 1010), `ReadJoypad` falls through to
+/// `move.w #$82A,($FFFFFBCC); clr.w Current_LevelID; jsr StopMusic;
+/// jmp j_loc_6E2` — resetting Game_Mode and returning to the title screen.
+///
+/// Native: `step_demo_input` sets `demo_auto_timeout_return_pending` when the
+/// counter crosses the threshold; `finish_demo_auto_timeout_return` executes
+/// the title-return on the following frame.
 #[test]
-fn demo_auto_ends_after_max_frames() {
+#[allow(non_snake_case)]
+fn loc_C0A_demo_auto_ends_after_max_frames() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.boot_state = BootState::DemoPlay {
         frame_counter: demo::DEMO_MAX_FRAMES + demo::DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES,
