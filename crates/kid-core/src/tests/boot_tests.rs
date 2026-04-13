@@ -1998,6 +1998,25 @@ mod chunk_01 {
         );
     }
 
+    /// ASM loc_D150 (kid.asm:16409): game-over fade target clear loop.
+    /// `moveq #$1F,d0` drives 32 `clr.l (a1)+` iterations over
+    /// `Palette_Buffer_3`, clearing the complete 128-byte fade target buffer.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D150_game_over_palette_clear_count_matches_asm() {
+        assert_eq!(
+            crate::level::GAME_OVER_PALETTE_CLEAR_COUNT_LOC_D150,
+            0x1F,
+            "ASM loc_D150: palette clear count d0=$1F (32 longwords)"
+        );
+        let longwords = crate::level::GAME_OVER_PALETTE_CLEAR_COUNT_LOC_D150 as usize + 1;
+        assert_eq!(
+            longwords * 4,
+            128,
+            "32 clr.l stores x 4 bytes = full Palette_Buffer_3"
+        );
+    }
+
     /// ASM loc_C1D0 (kid.asm:15765): flagpole hologram fade-out loop body.
     /// `subi.w #$10,($FFFFF876).w; bmi.s loc_C1EE` — subtract $10 from fade
     /// progress each frame; when negative the fade is complete.

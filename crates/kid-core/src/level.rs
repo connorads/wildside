@@ -11438,6 +11438,14 @@ pub(crate) const GAME_OVER_PAL_LINE1_DEST_OFFSET_LOC_D12E: u16 = 0x22;
 #[allow(dead_code)]
 pub(crate) const GAME_OVER_PALETTE_BACKUP_COUNT_LOC_D142: u16 = 0x1F;
 
+/// ASM loc_D150 (kid.asm:16409): game-over fade target clear loop.
+/// `moveq #$1F,d0; lea (Palette_Buffer_3).l,a1;
+/// loc_D150: clr.l (a1)+; dbf d0,loc_D150`.
+/// Clears 32 longwords (64 words = 128 bytes) in `Palette_Buffer_3` before
+/// seeding the fade progress word at `$FFFFF876`.
+#[allow(dead_code)]
+pub(crate) const GAME_OVER_PALETTE_CLEAR_COUNT_LOC_D150: u16 = 0x1F;
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {
