@@ -79784,3 +79784,215 @@ fn sub_9a20_clamp_above_run_cap_loc_9A56() {
         "ASM loc_9A56/loc_9A66: above $40000 → clamp to $40000"
     );
 }
+
+// --- loc_9A84: sub_9A20 reverse entry (facing left) ---
+
+/// ASM loc_9A84 (kid.asm:11631): facing left, right held → face right,
+/// branch to loc_9A32 (forward walk). `tst.b (Ctrl_Right_Held).w; beq.s
+/// loc_9A90; sf x_direction(a3); bra.s loc_9A32`. Right input while facing
+/// left flips direction and uses the forward acceleration path.
+/// Native: `Direction::Left` + `input.right` → `facing_right=true`, returns
+/// `Direction::Right`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_reverse_right_held_flips_direction_loc_9A84() {
+    // Facing left, holding right: should flip to right and accelerate forward.
+    let (vel, dir) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        0x1_0000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+    );
+    assert_eq!(
+        dir,
+        Direction::Right,
+        "ASM loc_9A84: sf x_direction — face right"
+    );
+    assert_eq!(
+        vel, 0x1_2000,
+        "ASM loc_9A84 → loc_9A32: bra.s loc_9A32 — forward accel at $2000"
+    );
+}
+
+/// ASM loc_9A84: facing left, right NOT held → fall through to loc_9A90
+/// (reverse deceleration). `tst.b (Ctrl_Right_Held).w; beq.s loc_9A90`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_reverse_no_right_falls_to_decel_loc_9A84() {
+    // Facing left, no direction held: should decelerate towards -$20000.
+    let (vel, dir) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        -0x1_0000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+    );
+    assert_eq!(dir, Direction::Left, "ASM loc_9A84: no flip, stays left");
+    assert_eq!(
+        vel, -0x1_2000,
+        "ASM loc_9A84 → loc_9A90: decel by $2000 towards -$20000"
+    );
+}
+
+// --- loc_9A90: sub_9A20 reverse decel without A held ---
+
+/// ASM loc_9A90 (kid.asm:11638): reverse path, A not held, vel > -$20000.
+/// `tst.b (Ctrl_A_Held).w; bne.s loc_9ACA; cmpi.l #$FFFE0000,d0;
+/// ble.s loc_9AB2; subi.l #$2000,d0; cmpi.l #$FFFE0000,d0;
+/// bge.s return_9ADE; move.l #$FFFE0000,d0`.
+/// Decelerates at $2000 per frame towards cruise -$20000.
+/// Native: `x_vel > -0x2_0000 → (x_vel - 0x2000).max(-0x2_0000)`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_reverse_decel_towards_cruise_loc_9A90() {
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        -0x1_0000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+    );
+    assert_eq!(
+        vel, -0x1_2000,
+        "ASM loc_9A90: subi.l #$2000,d0 — decel from -$10000 to -$12000"
+    );
+}
+
+/// ASM loc_9A90: clamp at cruise speed -$20000 when $2000 step overshoots.
+/// `cmpi.l #$FFFE0000,d0; bge.s return; move.l #$FFFE0000,d0`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_reverse_decel_clamp_at_cruise_loc_9A90() {
+    // Just above -$20000 — step would overshoot, clamp.
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        -0x1_F000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+    );
+    assert_eq!(
+        vel, -0x2_0000,
+        "ASM loc_9A90: clamp at -$20000 cruise speed"
+    );
+}
+
+// --- loc_9AB2: sub_9A20 reverse at/beyond cruise, decel towards zero ---
+
+/// ASM loc_9AB2 (kid.asm:11648): vel at/below -$20000, above -$40000.
+/// `cmpi.l #$FFFC0000,d0; blt.s loc_9AC2; addi.l #$2000,d0; rts`.
+/// Decelerates by adding $2000 (towards zero).
+/// Native: `x_vel >= -0x4_0000 → x_vel + 0x2000`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_reverse_above_cruise_decel_loc_9AB2() {
+    // At -$30000 (between -$20000 and -$40000): add $2000.
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        -0x3_0000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+    );
+    assert_eq!(
+        vel, -0x2_E000,
+        "ASM loc_9AB2: addi.l #$2000,d0 — decel from -$30000 to -$2E000"
+    );
+}
+
+/// ASM loc_9AB2: exactly at -$40000 — not BLT, falls through to addi.l.
+/// `cmpi.l #$FFFC0000,d0; blt.s loc_9AC2` — -$40000 is NOT less than
+/// -$40000, so decelerate by $2000.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_reverse_at_run_cap_decel_loc_9AB2() {
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        -0x4_0000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+    );
+    assert_eq!(
+        vel, -0x3_E000,
+        "ASM loc_9AB2: at -$40000 (not blt) → addi.l #$2000 → -$3E000"
+    );
+}
+
+// --- loc_9AC2: sub_9A20 reverse hard clamp below -$40000 ---
+
+/// ASM loc_9AC2 (kid.asm:11655): vel < -$40000 → clamp to -$40000.
+/// `move.l #$FFFC0000,d0; rts`.
+/// Native: `-0x4_0000`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_reverse_clamp_below_run_cap_loc_9AC2() {
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        -0x5_0000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+    );
+    assert_eq!(
+        vel, -0x4_0000,
+        "ASM loc_9AC2: below -$40000 → clamp to -$40000"
+    );
+}
+
+// --- loc_9ACA: sub_9A20 reverse A-held fast deceleration ---
+
+/// ASM loc_9ACA (kid.asm:11660): A held, reverse path.
+/// `subi.l #$4000,d0; cmpi.l #$FFFC0000,d0; bge.s return_9ADE;
+/// move.l #$FFFC0000,d0`. Decelerates at $4000 per frame towards -$40000.
+/// Native: `(x_vel - 0x4000).max(-0x4_0000)`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_reverse_run_accel_loc_9ACA() {
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        -0x1_0000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: true,
+        },
+    );
+    assert_eq!(
+        vel, -0x1_4000,
+        "ASM loc_9ACA: subi.l #$4000,d0 — run accel from -$10000 to -$14000"
+    );
+}
+
+/// ASM loc_9ACA: A held clamp at -$40000.
+/// `cmpi.l #$FFFC0000,d0; bge.s return; move.l #$FFFC0000,d0`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9a20_reverse_run_clamp_loc_9ACA() {
+    // Near -$40000 — $4000 step would overshoot, clamp.
+    let (vel, _) = physics::update_skycutter_horizontal_velocity_sub_9A20(
+        -0x3_E000,
+        Direction::Left,
+        physics::HorizontalInput {
+            left: true,
+            right: false,
+            run: true,
+        },
+    );
+    assert_eq!(vel, -0x4_0000, "ASM loc_9ACA: clamp at -$40000 run cap");
+}
