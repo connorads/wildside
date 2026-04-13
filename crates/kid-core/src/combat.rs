@@ -7311,6 +7311,16 @@ impl NativeRuntime {
             return;
         };
 
+        // ASM loc_B6DA (kid.asm:14621): Jump_On_Enemy bounce tail.
+        //   move.l  d7,y_vel(a3)        — store bounce y_vel (d7 is $FFFC0000
+        //     unless $FA6A on-board, then 0; native always uses STOMP_BOUNCE_VELOCITY)
+        //   move.l  x_vel(a3),d7        — d7 = current x_vel
+        //   sub.l   d7,x_pos(a3)        — rewind x_pos by one frame of x movement
+        //   asr.l   #1,d7               — d7 = x_vel / 2 (arithmetic shift)
+        //   add.l   d7,x_vel(a3)        — x_vel += x_vel/2 (net: 1.5× original)
+        //   bclr    #$E,d6              — test+clear bit 14 of object_meta
+        //   bne.w   Check_for_recent_damge — bit 14 set → also take damage after stomp
+        //   rts
         let current_x_velocity = slice.player.x_velocity;
         slice.player.x_pos =
             (pending.anchor_x_pos & 0xFFFF_0000) | (slice.player.x_pos & 0x0000_FFFF);
@@ -8043,6 +8053,25 @@ impl NativeRuntime {
     }
 
     pub(crate) fn apply_damage(&mut self) {
+        // ASM loc_B700 (kid.asm:14638): entered from Check_for_recent_damge when
+        // Just_received_damage is clear.  Loads HelmetHitpoint_Table[Current_Helmet]
+        // + Extra_hitpoint_slots → max HP.  Forces Number_Hitpoints ≥ 1, then caps
+        // it to max (loc_B722).  Sets NoHit_Bonus_Flag + Just_received_damage,
+        // decrements HP.  If HP == 0 → loc_B786 (lose helmet or die).
+        //
+        // ASM loc_B722 (kid.asm:14650): HP cap — `cmp.w (Number_Hitpoints).w,d7;
+        // bge.s loc_B72C; move.w d7,(Number_Hitpoints).w`.  Ensures current HP
+        // never exceeds max for the current helmet + extra slots.  Native handles
+        // this implicitly: HP is set via transform_hitpoints_sub_7eb2 on form
+        // change and extra HP awards are capped at 4 slots (loc_3FBE4).
+        //
+        // ASM loc_B73C/loc_B750/loc_B764/loc_B778 (kid.asm:14661-14696): damage
+        // sound dispatch.  Selects one of four "ouch" SFX based on enemy type (d5):
+        //   d5 == $50 → sfx_Voice_ouch_1 ($6B, original recording)
+        //   d5 == $40 → sfx_Voice_ouch_2 ($6C, slowed down)
+        //   d5 == $30 → sfx_Voice_ouch_3 ($6D, slowed down)
+        //   else      → sfx_Voice_ouch   ($61, default)
+        // Native does not yet implement sound.
         self.level_damage_taken = true;
         self.just_received_damage = true;
         // Clear wall-grab so the player isn't stuck to the wall during invulnerability

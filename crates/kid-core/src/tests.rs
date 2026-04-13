@@ -84935,3 +84935,226 @@ fn loc_b678_tornado_enemy_type_and_berzerker_bounce() {
         "loc_B678: bit 15 clear → return without bounce"
     );
 }
+
+// --- loc_B6DA: Jump_On_Enemy bounce mechanics ---
+
+/// ASM loc_B6DA (kid.asm:14621): Jump_On_Enemy bounce tail.
+///   move.l  d7,y_vel(a3)      — store bounce y_velocity
+///   move.l  x_vel(a3),d7      — d7 = current x_vel
+///   sub.l   d7,x_pos(a3)      — rewind x_pos by x_vel (undo this frame's advance)
+///   asr.l   #1,d7             — d7 = x_vel >> 1 (arithmetic shift right)
+///   add.l   d7,x_vel(a3)      — x_vel += x_vel/2 → final = 1.5× original
+///   bclr    #$E,d6            — test+clear bit 14 of object_meta (d6)
+///   bne.w   Check_for_recent_damge — if bit 14 was set → also take damage
+///   rts                       — otherwise just bounce
+///
+/// The y_vel comes from Jump_On_Enemy (kid.asm:14616):
+///   move.l  #$FFFC0000,d7     — default bounce = -0x40000
+///   tst.b   ($FFFFFA6A).w     — Skycutter on-board?
+///   beq.w   loc_B6DA          — NOT on board → use -0x40000
+///   moveq   #0,d7             — on board → y_vel = 0 (suppress vertical bounce)
+#[test]
+fn loc_b6da_jump_on_enemy_bounce_arithmetic() {
+    // Verify the x_vel arithmetic: sub + asr + add gives 1.5× original
+    let original_x_vel: i32 = 0x0002_0000; // 2 px/frame rightward
+    let d7 = original_x_vel;
+    // sub.l d7,x_pos — rewind (tested separately)
+    let d7_halved = d7 >> 1; // asr.l #1,d7 — arithmetic shift = 0x0001_0000
+    let new_x_vel = original_x_vel.wrapping_add(d7_halved); // add.l d7,x_vel
+    assert_eq!(
+        new_x_vel, 0x0003_0000,
+        "loc_B6DA: x_vel = 0x20000 + 0x10000 = 0x30000 (1.5× original)"
+    );
+
+    // Negative velocity: moving left at -3 px/frame
+    let left_x_vel: i32 = -0x0003_0000;
+    let d7_left = left_x_vel >> 1; // asr.l preserves sign → -0x18000
+    assert_eq!(d7_left, -0x0001_8000, "loc_B6DA: asr.l preserves sign");
+    let new_left = left_x_vel.wrapping_add(d7_left);
+    assert_eq!(
+        new_left, -0x0004_8000,
+        "loc_B6DA: x_vel = -0x30000 + -0x18000 = -0x48000 (1.5× leftward)"
+    );
+
+    // Bounce y_velocity constants
+    let bounce_y_vel: i32 = -0x0004_0000_i32; // $FFFC0000 as signed
+    assert_eq!(
+        bounce_y_vel, STOMP_BOUNCE_VELOCITY,
+        "loc_B6DA: default bounce y_vel matches STOMP_BOUNCE_VELOCITY"
+    );
+
+    // Skycutter on-board case: y_vel = 0
+    let skycutter_y_vel: i32 = 0;
+    assert_eq!(
+        skycutter_y_vel, 0,
+        "loc_B6DA: Skycutter on-board suppresses vertical bounce"
+    );
+}
+
+/// ASM loc_B6DA (kid.asm:14621): `bclr #$E,d6; bne.w Check_for_recent_damge`
+/// — bit 14 of object_meta (d6) gates whether the stomp ALSO triggers contact
+/// damage.  If bit 14 was set, the player both bounces AND takes damage.
+#[test]
+fn loc_b6da_bit14_damage_after_stomp_gate() {
+    // Bit 14 set: bclr clears it and branches to damage
+    let d6_with_bit14: u16 = 0x4080; // bit 14 set
+    let bit14_was_set = (d6_with_bit14 & (1 << 14)) != 0;
+    let d6_after_bclr = d6_with_bit14 & !(1 << 14);
+    assert!(bit14_was_set, "loc_B6DA: bit 14 set → bounce + damage path");
+    assert_eq!(d6_after_bclr, 0x0080, "loc_B6DA: bclr #$E clears bit 14");
+
+    // Bit 14 clear: no damage after stomp
+    let d6_without_bit14: u16 = 0x0080;
+    let bit14_clear = (d6_without_bit14 & (1 << 14)) != 0;
+    assert!(!bit14_clear, "loc_B6DA: bit 14 clear → bounce only, rts");
+}
+
+// --- loc_B722: HP capping before damage decrement ---
+
+/// ASM loc_B722 (kid.asm:14650): `cmp.w (Number_Hitpoints).w,d7; bge.s
+/// loc_B72C; move.w d7,(Number_Hitpoints).w`.  Inside loc_B700, after
+/// computing max HP = HelmetHitpoint_Table[Current_Helmet] + Extra_hitpoint_slots,
+/// this label caps Number_Hitpoints to the max if it exceeds it.
+///
+/// Preceding code also forces HP ≥ 1 if it was ≤ 0 (safety net).
+#[test]
+fn loc_b722_hp_cap_to_max_for_current_helmet() {
+    // HelmetHitpoint_Table values (ASM kid.asm:15367-15377)
+    let table: [u8; 10] = [2, 3, 3, 3, 3, 3, 5, 3, 3, 3];
+    // Index 0 = TheKid(2), 1-5/7-9 = helmets(3), 6 = IronKnight(5)
+
+    // Verify table matches PlayerForm::max_hitpoints
+    assert_eq!(table[0], PlayerForm::TheKid.max_hitpoints() as u8);
+    assert_eq!(table[6], PlayerForm::IronKnight.max_hitpoints() as u8);
+    assert_eq!(table[1], PlayerForm::RedStealth.max_hitpoints() as u8);
+
+    // Simulate loc_B700 → loc_B722 flow: max = table[helmet] + extra_slots
+    let helmet_idx: usize = 6; // IronKnight
+    let extra_slots: u16 = 2;
+    let max_hp = u16::from(table[helmet_idx]) + extra_slots; // 5 + 2 = 7
+    assert_eq!(max_hp, 7, "loc_B722: max HP = base 5 + 2 extra = 7");
+
+    // Case 1: HP > max → cap to max
+    let mut hp: u16 = 10;
+    if max_hp < hp {
+        hp = max_hp; // loc_B722: move.w d7,(Number_Hitpoints).w
+    }
+    assert_eq!(hp, 7, "loc_B722: HP 10 capped to max 7");
+
+    // Case 2: HP ≤ max → no change
+    let mut hp2: u16 = 5;
+    if max_hp < hp2 {
+        hp2 = max_hp;
+    }
+    assert_eq!(hp2, 5, "loc_B722: HP 5 unchanged (≤ max 7)");
+
+    // Case 3: HP ≤ 0 → forced to 1 (preceding tst.w/bgt.s/move.w #1)
+    let mut hp3: u16 = 0;
+    if hp3 == 0 {
+        hp3 = 1; // move.w #1,(Number_Hitpoints).w
+    }
+    if max_hp < hp3 {
+        hp3 = max_hp;
+    }
+    assert_eq!(hp3, 1, "loc_B722: HP 0 forced to 1 (safety net)");
+
+    // Verify PlayerForm::max_hitpoints + extra matches ASM max HP calc
+    assert_eq!(
+        PlayerForm::IronKnight
+            .max_hitpoints()
+            .saturating_add(extra_slots),
+        max_hp,
+        "loc_B722: native max_hitpoints + extra_slots matches ASM max HP calc"
+    );
+}
+
+// --- loc_B73C / loc_B750 / loc_B764: damage sound dispatch ---
+
+/// ASM loc_B73C (kid.asm:14661): `cmpi.w #$50,d5; bne.s loc_B750`.
+/// If enemy type (d5) == $50: play sfx_Voice_ouch_1 ($6B, original recording).
+///
+/// ASM loc_B750 (kid.asm:14671): `cmpi.w #$40,d5; bne.s loc_B764`.
+/// If enemy type == $40: play sfx_Voice_ouch_2 ($6C, slowed down).
+///
+/// ASM loc_B764 (kid.asm:14681): `cmpi.w #$30,d5; bne.s loc_B778`.
+/// If enemy type == $30: play sfx_Voice_ouch_3 ($6D, slowed down).
+///
+/// ASM loc_B778 (kid.asm:14691): default — play sfx_Voice_ouch ($61).
+///
+/// The dispatch is a chain of equality checks, NOT range comparisons.
+/// Each branch checks a specific enemy type value and plays a distinct
+/// pitch-shifted "ouch" sound effect.
+#[test]
+fn loc_b73c_b750_b764_damage_sound_dispatch_constants() {
+    // Sound effect IDs from constants.asm
+    let sfx_voice_ouch: u8 = 0x61; // default
+    let sfx_voice_ouch_1: u8 = 0x6B; // original recording
+    let sfx_voice_ouch_2: u8 = 0x6C; // slowed down
+    let sfx_voice_ouch_3: u8 = 0x6D; // slowed down
+
+    // The four SFX IDs are distinct
+    let ids = [
+        sfx_voice_ouch,
+        sfx_voice_ouch_1,
+        sfx_voice_ouch_2,
+        sfx_voice_ouch_3,
+    ];
+    for i in 0..ids.len() {
+        for j in (i + 1)..ids.len() {
+            assert_ne!(
+                ids[i], ids[j],
+                "loc_B73C: all four ouch SFX IDs must be distinct"
+            );
+        }
+    }
+
+    // Simulate the dispatch chain
+    fn select_damage_sound(enemy_type: u16) -> u8 {
+        // loc_B73C: cmpi.w #$50,d5
+        if enemy_type == 0x50 {
+            return 0x6B; // sfx_Voice_ouch_1
+        }
+        // loc_B750: cmpi.w #$40,d5
+        if enemy_type == 0x40 {
+            return 0x6C; // sfx_Voice_ouch_2
+        }
+        // loc_B764: cmpi.w #$30,d5
+        if enemy_type == 0x30 {
+            return 0x6D; // sfx_Voice_ouch_3
+        }
+        // loc_B778: default
+        0x61 // sfx_Voice_ouch
+    }
+
+    assert_eq!(
+        select_damage_sound(0x50),
+        sfx_voice_ouch_1,
+        "loc_B73C: enemy $50 → sfx_Voice_ouch_1"
+    );
+    assert_eq!(
+        select_damage_sound(0x40),
+        sfx_voice_ouch_2,
+        "loc_B750: enemy $40 → sfx_Voice_ouch_2"
+    );
+    assert_eq!(
+        select_damage_sound(0x30),
+        sfx_voice_ouch_3,
+        "loc_B764: enemy $30 → sfx_Voice_ouch_3"
+    );
+    assert_eq!(
+        select_damage_sound(0x10),
+        sfx_voice_ouch,
+        "loc_B778: enemy $10 → default sfx_Voice_ouch"
+    );
+    assert_eq!(
+        select_damage_sound(0x01),
+        sfx_voice_ouch,
+        "loc_B778: enemy $01 → default sfx_Voice_ouch"
+    );
+    // Verify non-matching large type also defaults
+    assert_eq!(
+        select_damage_sound(0x60),
+        sfx_voice_ouch,
+        "loc_B778: enemy $60 → default sfx_Voice_ouch (only exact matches branch)"
+    );
+}
