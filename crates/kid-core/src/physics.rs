@@ -441,19 +441,23 @@ pub const JUMP_HEIGHTS: [u16; 10] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Gravity constants — kid.asm:14060-14088
+// Gravity constants — kid.asm:14060-14088 (sub_B168 normal gravity path)
 // ---------------------------------------------------------------------------
 
 /// Gravity applied per frame when descending or when ascending without B held.
+/// ASM loc_B1E0 (kid.asm:14066): `addi.l #$4000,d7`.
 pub const GRAVITY_NORMAL: i32 = 0x4000;
 
 /// Gravity applied per frame when ascending with B (jump) held.
+/// ASM loc_B1E8 (kid.asm:14071): `addi.l #$2000,d7`.
 pub const GRAVITY_JUMP_HELD: i32 = 0x2000;
 
 /// Terminal downward velocity.
+/// ASM loc_B1EE (kid.asm:14074): `cmpi.l #$80000,d7; ble.s loc_B200`.
 pub const MAX_FALL_SPEED: i32 = 0x8_0000;
 
 /// Terminal upward velocity (negative = upward).
+/// ASM loc_B200 (kid.asm:14081): `cmpi.l #$FFF80000,d7; bge.s loc_B20E`.
 pub const MAX_RISE_SPEED: i32 = -0x8_0000; // 0xFFF8_0000 as i32
 
 // ---------------------------------------------------------------------------
@@ -700,15 +704,27 @@ pub fn initiate_jump(x_vel: i32, jump_height: u16) -> (i32, i32) {
 
 /// Apply one frame of gravity to vertical velocity.
 ///
+/// ASM loc_B1D4 (kid.asm:14060): normal gravity entry — loads y_vel, branches
+/// on sign (`bpl.s loc_B1E0`) and B-held (`tst.b Ctrl_B_Held; bne.s loc_B1E8`).
+/// loc_B1E0: default gravity `addi.l #$4000,d7`.
+/// loc_B1E8: B-held gravity `addi.l #$2000,d7`.
+/// loc_B1EE: falling cap `cmpi.l #$80000,d7; ble.s loc_B200; move.l #$80000,d7`.
+/// loc_B200: rising cap `cmpi.l #$FFF80000,d7; bge.s loc_B20E; move.l #$FFF80000,d7`.
+/// loc_B20E: store `move.l d7,y_vel(a3); rts`.
+///
 /// `ascending_and_b_held`: true when y_vel < 0 AND the jump button is held,
 /// giving the variable-height jump feel.
 pub fn apply_gravity(y_vel: i32, ascending_and_b_held: bool) -> i32 {
+    // ASM loc_B1D4: `bpl.s loc_B1E0` — when y_vel >= 0 (descending), always
+    // use normal gravity. When ascending (y_vel < 0), check B held.
     let gravity = if ascending_and_b_held {
-        GRAVITY_JUMP_HELD
+        GRAVITY_JUMP_HELD // ASM loc_B1E8: addi.l #$2000,d7
     } else {
-        GRAVITY_NORMAL
+        GRAVITY_NORMAL // ASM loc_B1E0: addi.l #$4000,d7
     };
     let next = y_vel.saturating_add(gravity);
+    // ASM loc_B1EE/loc_B200: clamp to [MAX_RISE_SPEED, MAX_FALL_SPEED]
+    // ASM loc_B20E: move.l d7,y_vel(a3); rts
     next.clamp(MAX_RISE_SPEED, MAX_FALL_SPEED)
 }
 
@@ -1332,6 +1348,77 @@ mod tests {
         // Even extreme upward velocity is clamped
         let extreme = apply_gravity(i32::MIN / 2, false);
         assert_eq!(extreme, MAX_RISE_SPEED);
+    }
+
+    /// ASM loc_B1E0 (kid.asm:14066): descending uses default gravity.
+    /// `bpl.s loc_B1E0` — when y_vel >= 0 the sign bit is clear (positive),
+    /// so the branch is taken and `addi.l #$4000,d7` applies unconditionally.
+    /// In native, the caller ensures `ascending_and_b_held` is false when
+    /// y_vel >= 0, mirroring the ASM `bpl.s` guard.
+    #[test]
+    fn loc_b1e0_descending_uses_normal_gravity() {
+        // y_vel = +$1_0000 (descending): bpl.s taken → loc_B1E0 adds $4000
+        let result = apply_gravity(0x1_0000, false);
+        assert_eq!(result, 0x1_0000 + 0x4000);
+        // y_vel = 0 (apex): bpl.s still taken (zero is non-negative)
+        let result_zero = apply_gravity(0, false);
+        assert_eq!(result_zero, 0x4000);
+    }
+
+    /// ASM loc_B1E0 (kid.asm:14066): ascending without B held also uses $4000.
+    /// When y_vel < 0, bpl.s is NOT taken, but `tst.b (Ctrl_B_Held)` is zero
+    /// so `bne.s loc_B1E8` is NOT taken → falls through to loc_B1E0.
+    #[test]
+    fn loc_b1e0_ascending_b_released_uses_normal_gravity() {
+        let result = apply_gravity(-0x2_0000, false);
+        assert_eq!(result, -0x2_0000 + 0x4000);
+    }
+
+    /// ASM loc_B1E8 (kid.asm:14071): ascending with B held uses weaker $2000.
+    /// `tst.b (Ctrl_B_Held); bne.s loc_B1E8` — B is held so branch taken,
+    /// `addi.l #$2000,d7` gives the variable-height jump feel.
+    #[test]
+    fn loc_b1e8_ascending_b_held_uses_jump_held_gravity() {
+        let result = apply_gravity(-0x2_0000, true);
+        assert_eq!(result, -0x2_0000 + 0x2000);
+    }
+
+    /// ASM loc_B1EE (kid.asm:14074): falling speed cap at $80000.
+    /// `cmpi.l #$80000,d7; ble.s loc_B200` — when d7 > $80000, clamp to $80000
+    /// then branch to loc_B20E to store.
+    #[test]
+    fn loc_b1ee_falling_speed_capped_at_max() {
+        // Just below cap: $7_C000 + $4000 = $8_0000 = MAX_FALL_SPEED (not clamped)
+        let at_boundary = apply_gravity(0x7_C000, false);
+        assert_eq!(at_boundary, 0x8_0000);
+        // Above cap: $8_0000 + $4000 would be $8_4000, clamped to $8_0000
+        let above = apply_gravity(0x8_0000, false);
+        assert_eq!(above, MAX_FALL_SPEED);
+    }
+
+    /// ASM loc_B200 (kid.asm:14081): rising speed cap at $FFF80000.
+    /// `cmpi.l #$FFF80000,d7; bge.s loc_B20E` — when d7 < $FFF80000, clamp.
+    #[test]
+    fn loc_b200_rising_speed_capped_at_max() {
+        // Just above cap: result after gravity still above MIN
+        let at_boundary = apply_gravity(MAX_RISE_SPEED, true);
+        assert_eq!(at_boundary, MAX_RISE_SPEED + GRAVITY_JUMP_HELD);
+        // Way below cap: clamped to MAX_RISE_SPEED ($FFF80000)
+        let extreme = apply_gravity(i32::MIN / 2, true);
+        assert_eq!(extreme, MAX_RISE_SPEED);
+    }
+
+    /// ASM loc_B20E (kid.asm:14086): store result — `move.l d7,y_vel(a3); rts`.
+    /// All paths through loc_B1D4..loc_B20E converge here. Verify the mid-range
+    /// case where neither cap triggers — the raw add is stored directly.
+    #[test]
+    fn loc_b20e_mid_range_stored_directly() {
+        // y_vel = 0: result = $4000, well within [-$80000, $80000]
+        let result = apply_gravity(0, false);
+        assert_eq!(result, 0x4000);
+        // y_vel = -$4_0000 with B held: -$4_0000 + $2000 = -$3_E000
+        let result_asc = apply_gravity(-0x4_0000, true);
+        assert_eq!(result_asc, -0x3_E000);
     }
 
     // -- Camera tests --
