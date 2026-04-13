@@ -80473,3 +80473,351 @@ fn walk_left_below_cap_accelerates_loc_9BAC() {
         "ASM loc_9BAC→loc_9BB6: sub.l 4(a0),d0 walk accel left"
     );
 }
+
+// --- loc_9BFC: decelerate moving right (no direction held) ---
+
+/// ASM loc_9BFC (kid.asm:11843): no direction held, moving right.
+/// `sub.l 8(a0),d0` subtracts walk_run_decel. Result positive → rts.
+/// Reached from loc_9BEE: `tst.l d0; bpl.s loc_9BFC`.
+/// Native: `decelerate(vel, table)` — vel > 0 branch.
+#[test]
+#[allow(non_snake_case)]
+fn decelerate_moving_right_subtracts_walk_run_decel_loc_9BFC() {
+    // vel = $18000, walk_run_decel = $2800 → $15800 (still positive → rts).
+    let (vel, dir) = physics::update_horizontal_velocity(
+        0x1_8000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel,
+        0x1_8000 - 0x2800,
+        "ASM loc_9BFC: sub.l 8(a0),d0 = $18000 - $2800"
+    );
+    assert_eq!(dir, Direction::Right, "facing preserved when no input");
+}
+
+/// ASM loc_9BFC → loc_9C06 (kid.asm:11843→11849): decel overshoots zero.
+/// `sub.l 8(a0),d0; bmi.w loc_9C06` → `moveq #0,d0; rts`.
+/// Native: `decelerate` snaps to zero when next < 0.
+#[test]
+#[allow(non_snake_case)]
+fn decelerate_moving_right_snaps_to_zero_loc_9BFC() {
+    // vel = $1000, walk_run_decel = $2800 → would be -$1800, bmi → 0.
+    let (vel, _) = physics::update_horizontal_velocity(
+        0x1000,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel, 0,
+        "ASM loc_9BFC→loc_9C06: sub.l overshoots → moveq #0,d0"
+    );
+}
+
+/// ASM loc_9BFC: decel exactly reaches zero. `sub.l 8(a0),d0` = 0, not
+/// negative → rts (does NOT branch to loc_9C06). The `bmi` test means
+/// vel=walk_run_decel → next=0 → stays 0 without the snap path.
+/// Native: `decelerate` returns 0 (next < 0 is false, next = 0).
+#[test]
+#[allow(non_snake_case)]
+fn decelerate_moving_right_exact_zero_loc_9BFC() {
+    let (vel, _) = physics::update_horizontal_velocity(
+        physics::NORMAL_KID.walk_run_decel,
+        Direction::Right,
+        physics::HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        &physics::NORMAL_KID,
+    );
+    assert_eq!(
+        vel, 0,
+        "ASM loc_9BFC: exact decel to zero — bmi not taken, result is 0"
+    );
+}
+
+// --- loc_9D2E: slope walking y_vel mirror (sub_A4EE chunk) ---
+
+/// ASM loc_9D2E (kid.asm:11948): `move.l d0,y_vel(a3)`. On slopes the
+/// canonical velocity (negated for SlopeUp at loc_9D22) is copied to y_vel
+/// so the player moves diagonally along the 45° surface.
+/// SlopeUp: y_vel = -x_vel (right = up). SlopeDown: y_vel = +x_vel.
+/// Native: `self.player.y_velocity = -self.player.x_velocity` / `= x_velocity`.
+///
+/// Also sets `move.w #6,($FFFFFA56).w` (MoveID 6) and clears Berzerker_charging.
+/// Tested indirectly via the slope velocity function which determines x_vel;
+/// the y_vel mirror is applied in the movement step.
+#[test]
+#[allow(non_snake_case)]
+fn slope_y_vel_mirror_slope_up_loc_9D2E() {
+    // SlopeUp ($FA26=0): loc_9D22 does `neg.l d0` before loc_9D2E stores to y_vel.
+    // So y_vel = -x_vel. With x_vel positive (rightward), y_vel becomes negative (upward).
+    let (new_vel, _) = update_level_one_slope_ground_velocity(
+        0x0001_0000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    // The function returns the updated x_vel. The y_vel mirroring
+    // (loc_9D2E: `move.l d0,y_vel(a3)`) happens in the caller.
+    // Here we verify the velocity update uses the SlopeUp walk table.
+    // Canonical vel for SlopeUp with right held = uphill accel path.
+    assert!(
+        new_vel > 0,
+        "ASM loc_9D2E: SlopeUp + right held → x_vel stays positive (y_vel = -x_vel applied by caller)"
+    );
+}
+
+/// ASM loc_9D2E: SlopeDown path. `tst.b ($FFFFFA26).w; bne.s loc_9D2E` —
+/// $FA26=$FF skips the `neg.l d0`, so y_vel = +x_vel (rightward = downward).
+/// Starting with leftward velocity (uphill on `\`), canonical = +$4000.
+#[test]
+#[allow(non_snake_case)]
+fn slope_y_vel_mirror_slope_down_loc_9D2E() {
+    // x_vel = -$4000 (leftward = uphill on SlopeDown).
+    // canonical_vel = -(-$4000) = +$4000. Uphill walk path adds accel.
+    // Result x_vel stays negative (leftward), y_vel = +x_vel (upward).
+    let (new_vel, _) = update_level_one_slope_ground_velocity(
+        -0x0000_4000,
+        Direction::Left,
+        HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeDown,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    assert!(
+        new_vel < 0,
+        "ASM loc_9D2E: SlopeDown + left uphill → x_vel negative (y_vel = +x_vel by caller)"
+    );
+}
+
+// --- loc_9D58: helmet dispatch for slope velocity tables ---
+
+/// ASM loc_9D58 (kid.asm:11959): helmet dispatch. Eyeclops, Red Stealth,
+/// Maniaxe → `beq.w loc_9E6C` (simplified ±$1000 convergence).
+/// Others → `lea unk_9EB0(pc),a0` (shared table).
+/// Micromax → `lea unk_9EE4(pc),a0` (Micromax-specific table).
+/// Native: `if matches!(form, RedStealth | Eyeclops | Maniaxe)` branch.
+#[test]
+#[allow(non_snake_case)]
+fn slope_helmet_dispatch_eyeclops_uses_simplified_path_loc_9D58() {
+    // Eyeclops at rest on SlopeUp → loc_9E6C converges to -$1000.
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        0,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::Eyeclops,
+        TerrainType::Normal,
+    );
+    assert_eq!(
+        vel, -0x1000,
+        "ASM loc_9D58: Eyeclops → beq.w loc_9E6C → converge to -$1000 on SlopeUp"
+    );
+}
+
+/// ASM loc_9D58: Maniaxe also branches to loc_9E6C.
+#[test]
+#[allow(non_snake_case)]
+fn slope_helmet_dispatch_maniaxe_uses_simplified_path_loc_9D58() {
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        0,
+        Direction::Left,
+        HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeDown,
+        PlayerForm::Maniaxe,
+        TerrainType::Normal,
+    );
+    assert_eq!(
+        vel, 0x1000,
+        "ASM loc_9D58: Maniaxe → beq.w loc_9E6C → converge to +$1000 on SlopeDown"
+    );
+}
+
+/// ASM loc_9D58: TheKid falls through to `lea unk_9EB0(pc),a0` and uses
+/// the shared slope table. Walk uphill cap = $8000, accel = $1000.
+#[test]
+#[allow(non_snake_case)]
+fn slope_helmet_dispatch_kid_uses_shared_table_loc_9D58() {
+    // TheKid on SlopeUp, holding right (uphill), below cap.
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        0x0000_4000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    // Canonical vel = +$4000. Uphill walk accel = $1000. → $5000.
+    assert_eq!(
+        vel, 0x5000,
+        "ASM loc_9D58: TheKid → lea unk_9EB0 → walk uphill accel $1000"
+    );
+}
+
+// --- loc_9D86: A-button table offset selection ---
+
+/// ASM loc_9D86 (kid.asm:11971): `lea $14(a0),a1` loads walk sub-table base.
+/// `tst.b (Ctrl_A_Held).w; beq.s loc_9D94` — A not held → walk table.
+/// `lea $10(a1),a1` — A held → advance to run sub-table (4 longs further).
+/// Native: `if input.run` selects RUN vs WALK cap/accel constants.
+#[test]
+#[allow(non_snake_case)]
+fn slope_a_button_selects_run_table_loc_9D86() {
+    // Walk uphill cap = $8000, run uphill cap = $10000.
+    // At vel=$C000 (above walk cap but below run cap), walk decelerates, run accelerates.
+    let (walk_vel, _) = update_level_one_slope_ground_velocity(
+        0x0000_C000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    let (run_vel, _) = update_level_one_slope_ground_velocity(
+        0x0000_C000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: true,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    // Walk: above walk cap ($8000) → brake path (sub.l 8(a0),d0 = $4000 brake).
+    // $C000 - $4000 = $8000.
+    assert_eq!(
+        walk_vel, 0x8000,
+        "ASM loc_9D86: A not held → walk sub-table → brake to walk cap"
+    );
+    // Run: below run cap ($10000) → accel (add.l 4(a1),d0 = $2000).
+    // $C000 + $2000 = $E000.
+    assert_eq!(
+        run_vel, 0xE000,
+        "ASM loc_9D86: A held → lea $10(a1) run sub-table → accel towards run cap"
+    );
+}
+
+// --- loc_9DAA: slope input canonicalisation + dispatch ---
+
+/// ASM loc_9DAA (kid.asm:11986): after canonicalising d0/d1/d2 by $FFFFFA26,
+/// dispatches: d1 (forward) → loc_9DC0 (uphill accel), d2 (backward) →
+/// loc_9DF2, neither → loc_9E2E (neutral decel towards $10(a0) target).
+///
+/// SlopeUp ($FA26=0): d1=Right, d2=Left. Neither held → loc_9E2E neutral.
+/// Native: `uphill_pressed`/`downhill_pressed` both false → neutral decel path.
+#[test]
+#[allow(non_snake_case)]
+fn slope_no_input_neutral_decel_loc_9DAA() {
+    // No directional input on SlopeUp. Neutral target = -$8000, decel = $2000.
+    // Starting at 0 → add $2000 (towards -$8000) but clamp: 0 - $2000 = -$2000.
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        0,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    // Canonical vel = 0. neutral_target = -$8000. vel < target? No (0 > -$8000).
+    // → loc_9E42 path: sub.l $C(a0),d0 = 0 - $2000 = -$2000.
+    // -$2000 >= -$8000? Yes → use -$2000.
+    assert_eq!(
+        vel, -0x2000,
+        "ASM loc_9DAA→loc_9E2E: no input → neutral decel by $2000 towards -$8000 target"
+    );
+}
+
+/// ASM loc_9DAA: forward direction held → loc_9DC0 (uphill acceleration).
+/// SlopeUp + right held = uphill. d1 = Ctrl_Right_Held (non-zero) → bne.s loc_9DC0.
+#[test]
+#[allow(non_snake_case)]
+fn slope_forward_input_uphill_accel_loc_9DAA() {
+    // SlopeUp, right held, no run. Canonical vel = +$4000. Below walk uphill cap $8000.
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        0x0000_4000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    // loc_9DC0→loc_9DD4: vel <= cap → add accel ($1000), clamp at cap.
+    assert_eq!(
+        vel, 0x5000,
+        "ASM loc_9DAA: d1 non-zero → bne.s loc_9DC0 → uphill walk accel"
+    );
+}
+
+/// ASM loc_9DAA: backward direction held → loc_9DF2 (downhill acceleration).
+/// SlopeUp + left held = downhill. d2 = Ctrl_Left_Held (non-zero) → bne.s loc_9DF2.
+#[test]
+#[allow(non_snake_case)]
+fn slope_backward_input_downhill_accel_loc_9DAA() {
+    // SlopeUp, left held (downhill), no run. vel = 0. Canonical vel = 0.
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        0,
+        Direction::Right,
+        HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    // loc_9DF2: vel >= 0 → sub.l $C(a1),d0 twice = 0 - $4000 = -$4000.
+    assert_eq!(
+        vel, -0x4000,
+        "ASM loc_9DAA: d2 non-zero → bne.s loc_9DF2 → downhill double-decel"
+    );
+}
