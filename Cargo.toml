@@ -66,38 +66,12 @@ bool-to-int-with-if       = "allow"   # idiomatic for bit manipulation
 too-many-lines            = "allow"   # faithful ASM translations
 float-cmp                 = "allow"   # emulator fixed-point comparisons
 
-# --- TODO(tighten): not auto-fixable ---
-assigning-clones                   = "allow"
-needless-lifetimes                 = "allow"
-elidable-lifetime-names            = "allow"
-manual-let-else                    = "allow"
-needless-pass-by-value             = "allow"
-unnecessary-wraps                  = "allow"
+# _root: TempDir drop guards are intentionally underscore-prefixed but used
 used-underscore-binding            = "allow"
-collapsible-else-if                = "allow"
-comparison-chain                   = "allow"
-ignore-without-reason              = "allow"
-large-types-passed-by-value        = "allow"
-manual-midpoint                    = "allow"
-no-effect-underscore-binding       = "allow"
-redundant-else                     = "allow"
-verbose-bit-mask                   = "allow"
-fn-params-excessive-bools          = "allow"
-unchecked-time-subtraction         = "allow"
-unnecessary-debug-formatting       = "allow"
-return-self-not-must-use           = "allow"
-single-match-else                  = "allow"
-if-not-else                        = "allow"
-match-wildcard-for-single-variants = "allow"
-trivially-copy-pass-by-ref         = "allow"
+# Every workspace-level allow triggers this lint; noise
 allow-attributes-without-reason    = "allow"
-ref-option                         = "allow"
-unused-self                        = "allow"
-option-if-let-else                 = "allow"
-format-push-string                 = "allow"
-needless-continue                  = "allow"
-checked-duration-since             = "allow"
-case-sensitive-file-extension-comparisons = "allow"
+# Game engine APIs with multiple independent bool flags
+fn-params-excessive-bools          = "allow"
 
 [workspace.lints.rust]
 unsafe_code = "warn"

@@ -352,7 +352,7 @@ impl ViewTasApp {
 
         loop {
             for event in events.poll_iter() {
-                if self.handle_event(event) {
+                if self.handle_event(&event) {
                     return Ok(());
                 }
                 needs_redraw = true;
@@ -392,7 +392,7 @@ impl ViewTasApp {
         }
     }
 
-    fn handle_event(&mut self, event: Event) -> bool {
+    fn handle_event(&mut self, event: &Event) -> bool {
         match event {
             Event::Quit { .. } => true,
             Event::KeyDown {
@@ -541,10 +541,10 @@ impl ViewTasApp {
             .get(frame_index)
             .map(NativeTraceFrame::authoritative_crc32);
         let oracle_crc = self.comparison.oracle.frame_crcs.get(frame_index).copied();
-        if native_crc != oracle_crc {
-            FrameStatus::Diverge
-        } else {
+        if native_crc == oracle_crc {
             FrameStatus::Match
+        } else {
+            FrameStatus::Diverge
         }
     }
 
@@ -595,7 +595,7 @@ impl ViewTasApp {
         let lines = self.footer_lines(
             frame_index,
             status,
-            input_summary,
+            &input_summary,
             native_crc,
             oracle_crc,
             frame_diff,
@@ -623,7 +623,7 @@ impl ViewTasApp {
         &self,
         frame_index: usize,
         status: FrameStatus,
-        input_summary: String,
+        input_summary: &str,
         native_crc: u32,
         oracle_crc: u32,
         frame_diff: FrameDiff,

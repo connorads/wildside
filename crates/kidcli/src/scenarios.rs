@@ -478,7 +478,7 @@ impl Scenario {
         }
     }
 
-    pub fn script(self) -> Result<Vec<u8>> {
+    pub fn script(self) -> Vec<u8> {
         let mut script = vec![0; self.frame_count().saturating_add(1)];
         match self {
             Self::BootTitleIdle10s => {}
@@ -504,15 +504,15 @@ impl Scenario {
                 apply_range(&mut script, 720, 723, 1 << 4);
             }
         }
-        Ok(script)
+        script
     }
 
     /// Convert a static scenario into the runtime DynamicScenario representation.
     #[cfg(test)]
-    pub fn to_dynamic(self) -> Result<DynamicScenario> {
-        Ok(DynamicScenario {
+    pub fn to_dynamic(self) -> DynamicScenario {
+        DynamicScenario {
             slug: self.slug().to_string(),
-            script: self.script()?,
+            script: self.script(),
             frame_count: self.frame_count(),
             checkpoints: self
                 .checkpoints()
@@ -523,7 +523,7 @@ impl Scenario {
                 })
                 .collect(),
             warp_to_level: None,
-        })
+        }
     }
 }
 
@@ -567,7 +567,7 @@ impl GameplayScenario {
         }
     }
 
-    pub fn script(self) -> Result<Vec<u8>> {
+    pub fn script(self) -> Vec<u8> {
         let mut script = vec![0; self.frame_count().saturating_add(1)];
         apply_boot_to_level_1(&mut script);
         match self {
@@ -615,7 +615,7 @@ impl GameplayScenario {
                 }
             }
         }
-        Ok(script)
+        script
     }
 
     pub fn to_dynamic_window(
@@ -664,7 +664,7 @@ impl GameplayScenario {
             }
         }
 
-        let mut script = self.script()?;
+        let mut script = self.script();
         script.truncate(frame_end.saturating_add(2));
 
         Ok(DynamicScenario {
@@ -683,10 +683,10 @@ impl GameplayScenario {
     }
 
     /// Convert a static gameplay scenario into the runtime DynamicScenario representation.
-    pub fn to_dynamic(self) -> Result<DynamicScenario> {
-        Ok(DynamicScenario {
+    pub fn to_dynamic(self) -> DynamicScenario {
+        DynamicScenario {
             slug: self.slug().to_string(),
-            script: self.script()?,
+            script: self.script(),
             frame_count: self.frame_count(),
             checkpoints: self
                 .checkpoints()
@@ -697,7 +697,7 @@ impl GameplayScenario {
                 })
                 .collect(),
             warp_to_level: None,
-        })
+        }
     }
 }
 
@@ -740,9 +740,7 @@ mod tests {
 
     #[test]
     fn move_right_scenario_holds_right_for_five_seconds() {
-        let script = Scenario::BootTitleStartLevel1MoveRight5s
-            .script()
-            .expect("scenario script should build");
+        let script = Scenario::BootTitleStartLevel1MoveRight5s.script();
         assert_eq!(script[719], 0);
         assert_eq!(script[720], 1 << 3);
         assert_eq!(script[1_019], 1 << 3);
@@ -751,9 +749,7 @@ mod tests {
 
     #[test]
     fn start_level_scenario_presses_start_during_boot_path() {
-        let script = Scenario::BootTitleStartLevel1
-            .script()
-            .expect("scenario script should build");
+        let script = Scenario::BootTitleStartLevel1.script();
         assert_eq!(script[33], 0x80);
         assert_eq!(script[178], 0x80);
         assert_eq!(script[360], 0x80);
@@ -762,9 +758,7 @@ mod tests {
 
     #[test]
     fn death_respawn_level_1_script_reuses_walk_only_opening_baseline() {
-        let script = GameplayScenario::DeathRespawnLevel1
-            .script()
-            .expect("scenario script should build");
+        let script = GameplayScenario::DeathRespawnLevel1.script();
         assert_eq!(script[460], 0x80);
         assert_eq!(script[462], 0);
         assert_eq!(script[600], 1 << 3);
@@ -772,9 +766,7 @@ mod tests {
 
     #[test]
     fn gameplay_regression_pause_resume_scenario_pauses_and_resumes() {
-        let script = GameplayScenario::PauseResumeLevel1
-            .script()
-            .expect("gameplay scenario script should build");
+        let script = GameplayScenario::PauseResumeLevel1.script();
         assert_eq!(script[840], 0x80);
         assert_eq!(script[920], 0x80);
         assert_eq!(script[980] & (1 << 4), 1 << 4);
@@ -782,9 +774,7 @@ mod tests {
 
     #[test]
     fn gameplay_progress_scenario_holds_right_and_run() {
-        let script = GameplayScenario::ProgressTwoTransitions
-            .script()
-            .expect("gameplay scenario script should build");
+        let script = GameplayScenario::ProgressTwoTransitions.script();
         assert_eq!(script[720] & (1 << 3), 1 << 3);
         assert_eq!(script[900], (1 << 5) | (1 << 6) | 0x80);
         assert_eq!(script[2_700], (1 << 3) | (1 << 5) | (1 << 6) | 0x80);
@@ -792,9 +782,7 @@ mod tests {
 
     #[test]
     fn walk_right_scenario_holds_right_for_three_seconds() {
-        let script = Scenario::WalkRight3s
-            .script()
-            .expect("scenario script should build");
+        let script = Scenario::WalkRight3s.script();
         assert_eq!(script[719], 0);
         assert_eq!(script[720], 1 << 3);
         assert_eq!(script[899], 1 << 3);
@@ -803,9 +791,7 @@ mod tests {
 
     #[test]
     fn level_1_enemy_window_scenario_tracks_the_first_enemy_slice() {
-        let script = Scenario::Level1EnemyWindow
-            .script()
-            .expect("scenario script should build");
+        let script = Scenario::Level1EnemyWindow.script();
         assert_eq!(script[719], 0);
         assert_eq!(script[720], 1 << 3);
         assert_eq!(script[899], 1 << 3);
@@ -827,9 +813,7 @@ mod tests {
 
     #[test]
     fn jump_from_standstill_scenario_presses_jump_briefly() {
-        let script = Scenario::JumpFromStandstill
-            .script()
-            .expect("scenario script should build");
+        let script = Scenario::JumpFromStandstill.script();
         assert_eq!(script[719], 0);
         assert_eq!(script[720], 1 << 4);
         assert_eq!(script[723], 1 << 4);
@@ -864,9 +848,7 @@ mod tests {
 
     #[test]
     fn gameplay_death_scenario_keeps_the_death_window_free_of_start_presses() {
-        let script = GameplayScenario::DeathRespawnLevel1
-            .script()
-            .expect("gameplay scenario script should build");
+        let script = GameplayScenario::DeathRespawnLevel1.script();
         assert_eq!(script[1_400] & 0x80, 0);
         assert_eq!(script[1_460] & 0x80, 0);
         assert_eq!(script[1_520] & 0x80, 0);
@@ -1019,9 +1001,7 @@ mod tests {
 
     #[test]
     fn scenario_to_dynamic_preserves_slug_and_checkpoints() {
-        let dynamic = Scenario::BootTitleStartLevel1
-            .to_dynamic()
-            .expect("to_dynamic");
+        let dynamic = Scenario::BootTitleStartLevel1.to_dynamic();
         assert_eq!(dynamic.slug, "boot_title_start_level1");
         assert_eq!(dynamic.frame_count, 720);
         assert_eq!(dynamic.checkpoints.len(), 3);
@@ -1031,9 +1011,7 @@ mod tests {
 
     #[test]
     fn gameplay_scenario_to_dynamic_preserves_slug_and_checkpoints() {
-        let dynamic = GameplayScenario::PauseResumeLevel1
-            .to_dynamic()
-            .expect("to_dynamic");
+        let dynamic = GameplayScenario::PauseResumeLevel1.to_dynamic();
         assert_eq!(dynamic.slug, "pause_resume_level1");
         assert_eq!(dynamic.frame_count, 1_120);
         assert_eq!(dynamic.checkpoints.len(), 4);
@@ -1041,9 +1019,7 @@ mod tests {
 
     #[test]
     fn gameplay_progress_scenario_reaches_level_2_live_tail() {
-        let dynamic = GameplayScenario::ProgressTwoTransitions
-            .to_dynamic()
-            .expect("to_dynamic");
+        let dynamic = GameplayScenario::ProgressTwoTransitions.to_dynamic();
         assert_eq!(dynamic.frame_count, 3_301);
         assert_eq!(dynamic.checkpoints.len(), 6);
         assert_eq!(dynamic.checkpoints[4].label, "level_2_settle");

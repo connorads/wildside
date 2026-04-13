@@ -134,7 +134,7 @@ fn capture_buttons_for_frame(script: &[u8], frame_index: usize) -> u8 {
 
 pub(crate) fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<ScenarioCapture> {
     let mut runtime = MdRuntime::new(rom_bytes)?;
-    let script = scenario.script()?;
+    let script = scenario.script();
     let checkpoints = scenario.checkpoints();
     let mut checkpoint_index = 0usize;
     let mut samples = Vec::with_capacity(scenario.frame_count() * AUDIO_FRAME_SAMPLES * 2);
@@ -256,8 +256,8 @@ pub(crate) fn capture_scenario(rom_bytes: &[u8], scenario: Scenario) -> Result<S
 pub(crate) fn capture_native_states_for_scenario(
     manifest: &AssetManifest,
     scenario: Scenario,
-) -> Result<Vec<CapturedState>> {
-    let script = scenario.script()?;
+) -> Vec<CapturedState> {
+    let script = scenario.script();
     let checkpoints = scenario.checkpoints();
     let trace = run_native_script_for_scenario(manifest, &script, scenario);
     let mut checkpoint_index = 0usize;
@@ -289,7 +289,7 @@ pub(crate) fn capture_native_states_for_scenario(
         }
     }
 
-    Ok(states)
+    states
 }
 
 pub(crate) fn capture_gameplay_scenario(
@@ -298,7 +298,7 @@ pub(crate) fn capture_gameplay_scenario(
 ) -> Result<GameplayCapture> {
     capture_dynamic_gameplay_scenario(
         rom_bytes,
-        &scenario.to_dynamic()?,
+        &scenario.to_dynamic(),
         scenario.uses_level_skip_cheat(),
     )
 }
@@ -397,13 +397,16 @@ pub(crate) fn capture_native_gameplay_scenario(
         );
     }
 
-    capture_native_dynamic_gameplay_scenario(manifest, &scenario.to_dynamic()?)
+    Ok(capture_native_dynamic_gameplay_scenario(
+        manifest,
+        &scenario.to_dynamic(),
+    ))
 }
 
 pub(crate) fn capture_native_dynamic_gameplay_scenario(
     manifest: &AssetManifest,
     scenario: &DynamicScenario,
-) -> Result<GameplayCapture> {
+) -> GameplayCapture {
     let checkpoints = &scenario.checkpoints;
     let trace = run_native_script_dynamic(manifest, &scenario.script, scenario.frame_count);
     let mut checkpoint_index = 0usize;
@@ -425,13 +428,13 @@ pub(crate) fn capture_native_dynamic_gameplay_scenario(
         states.push(state);
     }
 
-    Ok(GameplayCapture {
+    GameplayCapture {
         scenario: format!("native_{}", scenario.slug),
         frame_count: scenario.frame_count,
         missed_vblank_frames: 0,
         states,
         checkpoints: captured_checkpoints,
-    })
+    }
 }
 
 pub(crate) fn gameplay_state_from_native_trace(snapshot: &NativeTraceFrame) -> GameplayState {
@@ -681,13 +684,14 @@ pub(crate) fn read_wav_f32(path: &Path) -> Result<Vec<f32>> {
 
 pub(crate) fn sha1_hex(bytes: &[u8]) -> String {
     use sha1::Digest;
+    use std::fmt::Write;
 
     let mut hasher = sha1::Sha1::new();
     hasher.update(bytes);
     let digest = hasher.finalize();
     let mut hex = String::with_capacity(digest.len() * 2);
     for byte in digest {
-        hex.push_str(&format!("{byte:02x}"));
+        let _ = write!(hex, "{byte:02x}");
     }
     hex
 }
@@ -740,9 +744,7 @@ mod tests {
 
     #[test]
     fn capture_uses_current_frame_script_input() {
-        let script = Scenario::BootTitleStartLevel1
-            .script()
-            .expect("scenario script should build");
+        let script = Scenario::BootTitleStartLevel1.script();
 
         assert_eq!(capture_buttons_for_frame(&script, 359), 0);
         assert_eq!(capture_buttons_for_frame(&script, 360), 0x80);

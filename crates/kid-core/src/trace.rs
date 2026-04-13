@@ -1064,7 +1064,7 @@ impl NativeRuntime {
             let snapshot = enemy.snapshot();
             if let Some(bounds) = enemy_collision_bounds_px(&snapshot)
                 && let Some(candidate) = kid_object_support_candidate(
-                    format!(
+                    &format!(
                         "enemy_{:02X}#{:02}",
                         enemy.family.object_type(),
                         enemy.layout_index
@@ -1082,7 +1082,7 @@ impl NativeRuntime {
         for (platform_index, platform) in self.active_platforms.iter().enumerate() {
             let bounds = platform_collision_bounds_px(*platform);
             if let Some(candidate) = kid_object_support_candidate(
-                format!("platform_{platform_index:02}"),
+                &format!("platform_{platform_index:02}"),
                 player_x_px,
                 player_foot_y_px,
                 player_bounds,
@@ -2491,13 +2491,13 @@ fn player_lifecycle_debug_label(lifecycle: PlayerLifecycle) -> &'static str {
 }
 
 fn kid_object_support_candidate(
-    label: String,
+    label: &str,
     player_x_px: i32,
     player_foot_y_px: i32,
     player_bounds: ObjectBoundsPx,
     object_bounds: ObjectBoundsPx,
 ) -> Option<KidObjectSupportCandidate> {
-    let object_centre_x_px = (object_bounds.left + object_bounds.right) / 2;
+    let object_centre_x_px = object_bounds.left.midpoint(object_bounds.right);
     let dx_px = object_centre_x_px - player_x_px;
     let top_gap_px = player_foot_y_px - object_bounds.top;
     if dx_px.abs() > KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX

@@ -310,7 +310,7 @@ impl KeyboardBindings {
         }
     }
 
-    fn from_file(file: KeyboardBindingsFile) -> Self {
+    fn from_file(file: &KeyboardBindingsFile) -> Self {
         let defaults = Self::default();
         Self {
             up: parse_key_name(&file.up).unwrap_or(defaults.up),
@@ -516,9 +516,9 @@ const OPTIONS_ITEMS: [OptionsItem; 16] = [
     OptionsItem::Back,
 ];
 
-pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
+pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
     let (mut settings, settings_warning) = load_settings()?;
-    settings.apply_cli_overrides(&options);
+    settings.apply_cli_overrides(options);
     let launch = resolve_launch_state(repo_root, options.rom.clone())?;
 
     let sdl = sdl2::init().map_err(|error| anyhow!("failed to init SDL: {error}"))?;
@@ -565,10 +565,7 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
         .event_pump()
         .map_err(|error| anyhow!("failed to create SDL event pump: {error}"))?;
     let mut controller = open_first_controller(&game_controller)?;
-    let audio_queue = audio
-        .as_ref()
-        .and_then(|audio| open_audio_queue(audio).transpose())
-        .transpose()?;
+    let audio_queue = audio.as_ref().and_then(open_audio_queue);
 
     if let Some(warning) = &settings_warning {
         eprintln!("{warning}");
@@ -1010,8 +1007,8 @@ pub fn run_player(repo_root: &Path, options: PlayOptions) -> Result<()> {
         }
 
         let elapsed = frame_started.elapsed();
-        if elapsed < FRAME_TIME {
-            thread::sleep(FRAME_TIME - elapsed);
+        if let Some(remaining) = FRAME_TIME.checked_sub(elapsed) {
+            thread::sleep(remaining);
         }
     }
 
@@ -1448,7 +1445,7 @@ fn load_settings() -> Result<(PlayerSettings, Option<String>)> {
             music_volume: file.audio.music_volume.min(100),
             sfx_volume: file.audio.sfx_volume.min(100),
             mute: file.audio.mute,
-            bindings: KeyboardBindings::from_file(file.keyboard),
+            bindings: KeyboardBindings::from_file(&file.keyboard),
         },
         None,
     ))
@@ -1582,18 +1579,17 @@ fn apply_window_settings(
     Ok(())
 }
 
-fn open_audio_queue(audio: &AudioSubsystem) -> Result<Option<AudioQueue<f32>>> {
+fn open_audio_queue(audio: &AudioSubsystem) -> Option<AudioQueue<f32>> {
     let desired = sdl2::audio::AudioSpecDesired {
         freq: Some(AUDIO_SAMPLE_RATE as i32),
         channels: Some(2),
         samples: Some(1024),
     };
-    let queue = match audio.open_queue::<f32, _>(None, &desired) {
-        Ok(queue) => queue,
-        Err(_) => return Ok(None),
+    let Ok(queue) = audio.open_queue::<f32, _>(None, &desired) else {
+        return None;
     };
     queue.resume();
-    Ok(Some(queue))
+    Some(queue)
 }
 
 fn open_first_controller(

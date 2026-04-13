@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use super::*;
 use crate::scenarios::DynamicScenario;
 
@@ -34,7 +36,7 @@ pub(crate) fn compare_native_oracle(
     fs::create_dir_all(&oracle_dir)
         .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
 
-    let script = scenario.script()?;
+    let script = scenario.script();
     let native_trace = run_native_script_for_scenario(manifest, &script, scenario);
     let native_states = capture_native_checkpoint_states(&native_trace, scenario)?;
     fs::write(
@@ -105,7 +107,7 @@ pub(crate) fn compare_native_gameplay_window(
         &window.slug,
         scenario,
         || capture_dynamic_gameplay_scenario(&rom_bytes, &window, scenario.uses_level_skip_cheat()),
-        || capture_native_dynamic_gameplay_scenario(manifest, &window),
+        || Ok(capture_native_dynamic_gameplay_scenario(manifest, &window)),
         || capture_native_dynamic_gameplay_frame_evidence(manifest, &window),
     )?;
     println!(
@@ -317,12 +319,12 @@ fn annotate_gameplay_checkpoint_failure(
         first_drift.differing_fields.join(", ")
     );
     if let Some(summary) = gameplay_state_debug_summary(&first_drift.native) {
-        context.push_str(&format!("; native context: {summary}"));
+        let _ = write!(context, "; native context: {summary}");
     }
     if let Some(phase_shift) =
         gameplay_phase_shift_hint(native_capture, oracle_capture, first_drift.frame_index)
     {
-        context.push_str(&format!("; {phase_shift}"));
+        let _ = write!(context, "; {phase_shift}");
     }
     message.push_str(&context);
     anyhow!(message)
@@ -332,7 +334,7 @@ pub(crate) fn capture_native_gameplay_frame_evidence(
     manifest: &AssetManifest,
     scenario: GameplayScenario,
 ) -> Result<Vec<GameplayFrameEvidence>> {
-    let script = scenario.script()?;
+    let script = scenario.script();
     let trace = run_native_script_for_gameplay(manifest, &script, scenario);
     render_gameplay_frame_evidence(manifest, &trace, scenario.checkpoints())
 }

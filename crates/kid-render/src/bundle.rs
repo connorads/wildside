@@ -197,7 +197,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     }
 
     let player = load_player_visuals(manifest)?;
-    let enemies = load_enemy_visuals(manifest)?;
+    let enemies = load_enemy_visuals(manifest);
     let flag = load_flag_visuals(manifest, &fg_palette)?;
     let platforms = load_platform_visuals(manifest, foreground_theme)?;
 
@@ -2399,7 +2399,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
     },
 ];
 
-fn load_enemy_visuals(manifest: &AssetManifest) -> Result<EnemyVisuals> {
+fn load_enemy_visuals(manifest: &AssetManifest) -> EnemyVisuals {
     let mut families = std::collections::HashMap::new();
     for spec in ENEMY_FAMILIES {
         let palette = match load_ingame_palette_asset(manifest, spec.palette_path, spec.art_path) {
@@ -2436,7 +2436,7 @@ fn load_enemy_visuals(manifest: &AssetManifest) -> Result<EnemyVisuals> {
             },
         );
     }
-    Ok(EnemyVisuals { families })
+    EnemyVisuals { families }
 }
 
 fn load_platform_visuals(

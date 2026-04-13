@@ -1116,10 +1116,10 @@ impl ControllerPortState {
     fn write_ctrl(&mut self, value: u8) {
         self.last_ctrl_write = value;
         self.maybe_set_th();
-        self.cycles_until_th_high = if !ctrl_bit_set(value, CONTROLLER_TH_BIT) {
-            CONTROLLER_TH_HIGH_DELAY_CYCLES
-        } else {
+        self.cycles_until_th_high = if ctrl_bit_set(value, CONTROLLER_TH_BIT) {
             0
+        } else {
+            CONTROLLER_TH_HIGH_DELAY_CYCLES
         };
     }
 
@@ -2343,8 +2343,8 @@ fn ctrl_bit_set(value: u8, bit: u8) -> bool {
 
 impl AddressBus for MdBus {
     fn copy_from(&mut self, other: &Self) {
-        self.rom = other.rom.clone();
-        self.work_ram = other.work_ram.clone();
+        self.rom.clone_from(&other.rom);
+        self.work_ram.clone_from(&other.work_ram);
         self.z80_shared.replace(other.z80_shared.borrow().clone());
         self.ym2612_shadow.borrow_mut().reset();
         {

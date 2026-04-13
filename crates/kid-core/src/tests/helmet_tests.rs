@@ -6710,7 +6710,7 @@ mod chunk_08 {
     }
 
     #[test]
-    #[ignore] // values were never correct on main — need oracle re-derivation
+    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_keeps_oracle_slope_runup_before_frame_936() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -6745,7 +6745,7 @@ mod chunk_08 {
     }
 
     #[test]
-    #[ignore] // values were never correct on main — need oracle re-derivation
+    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_slope_jump_stays_within_oracle_tolerance_through_frame_945() {
         let mut runtime = cached_generated_runtime();
         runtime.set_trace_physics(true);
@@ -6803,7 +6803,7 @@ mod chunk_08 {
     }
 
     #[test]
-    #[ignore] // values were never correct on main — need oracle re-derivation
+    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_does_not_auto_jump_off_the_frame_989_landing() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -6828,7 +6828,7 @@ mod chunk_08 {
     }
 
     #[test]
-    #[ignore] // values were never correct on main — need oracle re-derivation
+    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_waits_until_frame_990_to_land() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -6858,7 +6858,7 @@ mod chunk_08 {
     }
 
     #[test]
-    #[ignore] // values were never correct on main — need oracle re-derivation
+    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_keeps_flat_runup_grounded_through_frame_1012() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();
@@ -6900,7 +6900,7 @@ mod chunk_08 {
     }
 
     #[test]
-    #[ignore] // values were never correct on main — need oracle re-derivation
+    #[ignore = "need oracle re-derivation"]
     fn death_respawn_level_1_stays_alive_past_frame_1161() {
         let mut runtime = cached_generated_runtime();
         let script = death_respawn_level_1_script();

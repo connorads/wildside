@@ -542,17 +542,16 @@ pub(crate) fn make_hud_hitpoint_layout_sub_BDC0(
                     visible: false,
                 });
                 break;
-            } else {
-                // Visible half — tile $822E.
-                sprites.push(HudHitpointSpriteSubBDC0 {
-                    y_pos: y,
-                    x_pos: d2,
-                    tile: 0x822E,
-                    visible: true,
-                });
-                if d1 <= 0 {
-                    break;
-                }
+            }
+            // Visible half — tile $822E.
+            sprites.push(HudHitpointSpriteSubBDC0 {
+                y_pos: y,
+                x_pos: d2,
+                tile: 0x822E,
+                visible: true,
+            });
+            if d1 <= 0 {
+                break;
             }
         } else {
             // ASM loc_BE5C: empty hitpoint.
@@ -565,17 +564,16 @@ pub(crate) fn make_hud_hitpoint_layout_sub_BDC0(
                     visible: false,
                 });
                 break;
-            } else {
-                // Visible empty — tile $822F.
-                sprites.push(HudHitpointSpriteSubBDC0 {
-                    y_pos: y,
-                    x_pos: d2,
-                    tile: 0x822F,
-                    visible: true,
-                });
-                if d1 <= 0 {
-                    break;
-                }
+            }
+            // Visible empty — tile $822F.
+            sprites.push(HudHitpointSpriteSubBDC0 {
+                y_pos: y,
+                x_pos: d2,
+                tile: 0x822F,
+                visible: true,
+            });
+            if d1 <= 0 {
+                break;
             }
         }
     }
@@ -5708,6 +5706,10 @@ impl NativeRuntime {
     /// Handle demo playback input override and exit conditions.
     /// Returns `Some(input)` with the (possibly overridden) input to continue,
     /// or `None` if the frame was fully handled (early return with trace).
+    #[allow(
+        clippy::unnecessary_wraps,
+        reason = "Option return used by test callers"
+    )]
     pub(crate) fn step_demo_input(
         &mut self,
         input: FrameInput,
@@ -8093,7 +8095,9 @@ mod tests {
                 assert_eq!(kid_action_param, 0x30, "ASM loc_6C0A: move.w #$30,$3A(a4)");
                 assert_eq!(number_lives, 1, "ASM loc_6C0A: move.w #1,(Number_Lives).w");
             }
-            other => panic!("expected LastLifeGameOver, got {other:?}"),
+            other @ PauseMenuUnpauseExitLoc6C0A::NormalUnpause => {
+                panic!("expected LastLifeGameOver, got {other:?}")
+            }
         }
     }
 

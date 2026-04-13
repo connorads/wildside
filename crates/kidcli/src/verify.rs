@@ -22,7 +22,7 @@ pub(crate) struct OracleComparison {
 
 pub(crate) fn verify_native_bootstrap(manifest: &AssetManifest) -> Result<()> {
     let scenario = Scenario::BootTitleStartLevel1;
-    let script = scenario.script()?;
+    let script = scenario.script();
     let trace = run_native_script_for_scenario(manifest, &script, scenario);
     verify_native_bootstrap_trace(&trace)?;
 
@@ -569,7 +569,7 @@ pub(crate) fn capture_oracle_pair(
         .with_context(|| format!("failed to create {}", oracle_dir.display()))?;
 
     let native = capture_scenario(rom_bytes, scenario)?;
-    let native_states = capture_native_states_for_scenario(manifest, scenario)?;
+    let native_states = capture_native_states_for_scenario(manifest, scenario);
     let native = ScenarioCapture {
         states: native_states,
         ..native

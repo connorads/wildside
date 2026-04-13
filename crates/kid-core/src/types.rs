@@ -880,6 +880,7 @@ impl FrameInput {
     /// checks `tst.b (Ctrl_Left_Held)` + `tst.b (Ctrl_Right_Held)` — when
     /// both are held simultaneously, `sf (Ctrl_Right_Held)` clears right so
     /// left wins.  Returns a new `FrameInput` with the conflict resolved.
+    #[must_use]
     pub fn with_left_right_conflict_resolved(self) -> Self {
         if self.left && self.right {
             Self {
@@ -926,6 +927,7 @@ impl FrameInput {
     /// hold A to walk — a speed option convenience toggle.
     ///
     /// Returns a new `FrameInput` with the A button inverted.
+    #[must_use]
     pub fn with_speed_option_a_inverted(self) -> Self {
         Self { a: !self.a, ..self }
     }
@@ -952,6 +954,7 @@ impl FrameInput {
     /// | 5      | loc_D66   | A↔C (bit6↔bit5)     |
     ///
     /// Returns `self` unchanged for scheme 0 or any out-of-range value.
+    #[must_use]
     pub fn with_abc_buttons_permuted(self, scheme: u8) -> Self {
         match scheme {
             // ASM loc_CF2 (kid.asm:1480): `bclr #4,d0 → bset #5,d6` then

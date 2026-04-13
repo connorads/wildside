@@ -1,46 +1,27 @@
 use super::*;
 use scenarios::{prize_block_scenario, stomp_enemy_scenario, walk_right_scenario};
 
-pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Result<SweepReport> {
+pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> SweepReport {
     let timestamp = chrono_timestamp();
     let mut results = Vec::with_capacity(levels.len());
 
     for &level_id in levels {
         println!("gameplay sweep level {level_id:#04x}...");
-        let result = sweep_gameplay_single_level(manifest, level_id);
-        match result {
-            Ok(r) => {
-                let status = if r.passed { "PASS" } else { "FAIL" };
-                let diff_count = if r.state_diffs.is_empty() {
-                    String::new()
-                } else {
-                    format!(" ({} assertion failures)", r.state_diffs.len())
-                };
-                println!("  {status}{diff_count}");
-                for d in &r.state_diffs {
-                    println!(
-                        "    {}: {} = {} (expected {})",
-                        d.checkpoint, d.field, d.native_value, d.oracle_value
-                    );
-                }
-                results.push(r);
-            }
-            Err(e) => {
-                println!("  ERROR: {e:#}");
-                results.push(LevelSweepResult {
-                    level_id,
-                    slug: format!("gameplay_{level_id:02x}"),
-                    tier: SweepTier::Gameplay,
-                    passed: false,
-                    state_diffs: Vec::new(),
-                    mae: None,
-                    pixel_mismatches: None,
-                    diff_images: Vec::new(),
-                    error: Some(format!("{e:#}")),
-                    divergence_summary: divergence_summary_with(DivergenceCategory::Authoritative),
-                });
-            }
+        let r = sweep_gameplay_single_level(manifest, level_id);
+        let status = if r.passed { "PASS" } else { "FAIL" };
+        let diff_count = if r.state_diffs.is_empty() {
+            String::new()
+        } else {
+            format!(" ({} assertion failures)", r.state_diffs.len())
+        };
+        println!("  {status}{diff_count}");
+        for d in &r.state_diffs {
+            println!(
+                "    {}: {} = {} (expected {})",
+                d.checkpoint, d.field, d.native_value, d.oracle_value
+            );
         }
+        results.push(r);
     }
 
     let passed = results.iter().filter(|r| r.passed).count();
@@ -66,10 +47,10 @@ pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Res
 
     println!("\ngameplay sweep complete: {passed} passed, {failed} failed, {errors} errors");
 
-    Ok(report)
+    report
 }
 
-fn sweep_gameplay_single_level(manifest: &AssetManifest, level_id: u8) -> Result<LevelSweepResult> {
+fn sweep_gameplay_single_level(manifest: &AssetManifest, level_id: u8) -> LevelSweepResult {
     let mut all_diffs = Vec::new();
 
     // Run walk_right scenario (300 frames = 5 seconds)
@@ -105,7 +86,7 @@ fn sweep_gameplay_single_level(manifest: &AssetManifest, level_id: u8) -> Result
 
     let passed = all_diffs.is_empty();
 
-    Ok(LevelSweepResult {
+    LevelSweepResult {
         level_id,
         slug: format!("gameplay_{level_id:02x}"),
         tier: SweepTier::Gameplay,
@@ -120,7 +101,7 @@ fn sweep_gameplay_single_level(manifest: &AssetManifest, level_id: u8) -> Result
         } else {
             divergence_summary_with(DivergenceCategory::Authoritative)
         },
-    })
+    }
 }
 
 /// Self-consistency assertion: player X position increases monotonically

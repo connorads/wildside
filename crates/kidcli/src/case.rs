@@ -363,7 +363,7 @@ fn derive_case_bundle(
             CaseSource::GameplayScenario {
                 slug: gameplay.slug().to_string(),
             },
-            gameplay.to_dynamic()?,
+            gameplay.to_dynamic(),
         )
     } else {
         let record_dir = if let Some(slug) = options.recording_slug.as_deref() {
@@ -465,7 +465,7 @@ fn generate_case_branches(
             frame_end: loaded.manifest.frame_start + script.len(),
             checkpoint_frame: loaded.manifest.checkpoint_frame,
             checkpoint_label: loaded.manifest.checkpoint_label.clone(),
-            scenario: build_branch_scenario(&loaded.manifest, &script)?,
+            scenario: build_branch_scenario(&loaded.manifest, &script),
             prefix_script: loaded.manifest.prefix_script.clone(),
             continuation_script: script.clone(),
             branches: Vec::new(),
@@ -635,9 +635,9 @@ fn reduce_case_bundle(
         }
     }
 
-    loaded.continuation_script = working.clone();
+    loaded.continuation_script.clone_from(&working);
     loaded.frame_end = loaded.frame_start + working.len();
-    loaded.scenario = build_branch_scenario(&loaded, &working)?;
+    loaded.scenario = build_branch_scenario(&loaded, &working);
     let verify = run_case_verification(
         repo_root,
         rom_path,
@@ -665,7 +665,7 @@ fn preserves_failure_signature(
     continuation_script: &[u8],
     signature: &CaseFailure,
 ) -> Result<bool> {
-    let scenario = build_branch_scenario(loaded, continuation_script)?;
+    let scenario = build_branch_scenario(loaded, continuation_script);
     let verify = run_case_verification(
         repo_root,
         rom_path,
@@ -787,7 +787,7 @@ fn run_case_verification(
 
             (
                 extract_semantic_native_states(&native_trace, &verification.scenario.checkpoints)?,
-                extract_semantic_oracle_states(&oracle)?,
+                extract_semantic_oracle_states(&oracle),
             )
         }
         VerificationBackend::GameplayCapture => {
@@ -800,7 +800,7 @@ fn run_case_verification(
                 gameplay.uses_level_skip_cheat(),
             )?;
             let native_capture =
-                capture_native_dynamic_gameplay_scenario(manifest, &verification.scenario)?;
+                capture_native_dynamic_gameplay_scenario(manifest, &verification.scenario);
             (
                 extract_semantic_gameplay_states(&native_capture.checkpoints),
                 extract_semantic_gameplay_states(&oracle_capture.checkpoints),
@@ -899,7 +899,7 @@ fn extract_semantic_native_states(
     Ok(states)
 }
 
-fn extract_semantic_oracle_states(oracle: &OracleManifest) -> Result<Vec<SemanticGameState>> {
+fn extract_semantic_oracle_states(oracle: &OracleManifest) -> Vec<SemanticGameState> {
     let mut states = oracle.states.clone();
     states.sort_by_key(|state| state.frame_index);
     let mut out = Vec::with_capacity(states.len());
@@ -909,7 +909,7 @@ fn extract_semantic_oracle_states(oracle: &OracleManifest) -> Result<Vec<Semanti
         previous = Some(semantic.clone());
         out.push(semantic);
     }
-    Ok(out)
+    out
 }
 
 fn extract_semantic_gameplay_states(states: &[GameplayState]) -> Vec<SemanticGameState> {
@@ -1334,23 +1334,23 @@ fn first_semantic_failure(
     compare_field(
         native.frame_index,
         "world.game_mode",
-        native.world.game_mode,
-        oracle.world.game_mode,
+        &native.world.game_mode,
+        &oracle.world.game_mode,
     )
     .or_else(|| {
         compare_field(
             native.frame_index,
             "camera.x_pos",
-            native.camera.x_pos,
-            oracle.camera.x_pos,
+            &native.camera.x_pos,
+            &oracle.camera.x_pos,
         )
     })
     .or_else(|| {
         compare_field(
             native.frame_index,
             "camera.y_pos",
-            native.camera.y_pos,
-            oracle.camera.y_pos,
+            &native.camera.y_pos,
+            &oracle.camera.y_pos,
         )
     })
     .or_else(|| {
@@ -1424,18 +1424,18 @@ fn first_semantic_failure(
 fn compare_field<T: ToString + PartialEq>(
     frame_index: usize,
     field: &str,
-    native: T,
-    oracle: T,
+    native: &T,
+    oracle: &T,
 ) -> Option<CaseFailure> {
-    if native != oracle {
+    if native == oracle {
+        None
+    } else {
         Some(CaseFailure {
             frame_index,
             field: field.to_string(),
             native_value: native.to_string(),
             oracle_value: oracle.to_string(),
         })
-    } else {
-        None
     }
 }
 
@@ -1445,15 +1445,15 @@ fn compare_opt_field<T: ToString + PartialEq>(
     native: Option<T>,
     oracle: Option<T>,
 ) -> Option<CaseFailure> {
-    if native != oracle {
+    if native == oracle {
+        None
+    } else {
         Some(CaseFailure {
             frame_index,
             field: field.to_string(),
             native_value: format_option(native),
             oracle_value: format_option(oracle),
         })
-    } else {
-        None
     }
 }
 
@@ -1463,15 +1463,15 @@ fn compare_vec_field<T: Serialize + PartialEq>(
     native: &[T],
     oracle: &[T],
 ) -> Option<CaseFailure> {
-    if native != oracle {
+    if native == oracle {
+        None
+    } else {
         Some(CaseFailure {
             frame_index,
             field: field.to_string(),
             native_value: serde_json::to_string(native).unwrap_or_else(|_| String::from("[]")),
             oracle_value: serde_json::to_string(oracle).unwrap_or_else(|_| String::from("[]")),
         })
-    } else {
-        None
     }
 }
 
@@ -1759,11 +1759,11 @@ fn canonicalise_case_manifest(mut manifest: CaseBundleManifest) -> Result<CaseBu
 fn build_branch_scenario(
     manifest: &CaseBundleManifest,
     continuation_script: &[u8],
-) -> Result<DynamicScenario> {
+) -> DynamicScenario {
     let mut script = manifest.prefix_script.clone();
     script.extend_from_slice(continuation_script);
     let frame_end = manifest.frame_start + continuation_script.len();
-    Ok(DynamicScenario {
+    DynamicScenario {
         slug: format!("{}_branch", manifest.scenario_slug),
         frame_count: frame_end,
         script,
@@ -1774,7 +1774,7 @@ fn build_branch_scenario(
             })
             .collect(),
         warp_to_level: manifest.scenario.warp_to_level,
-    })
+    }
 }
 
 fn synthesize_branch_script(rng: &mut BranchRng, frame_count: usize) -> (Vec<u8>, Vec<String>) {
@@ -1911,7 +1911,7 @@ mod tests {
     fn build_branch_scenario_replaces_only_continuation_window() {
         let manifest = sample_case_manifest();
         let continuation = vec![MASK_RIGHT; 4];
-        let scenario = build_branch_scenario(&manifest, &continuation).expect("branch scenario");
+        let scenario = build_branch_scenario(&manifest, &continuation);
         assert_eq!(scenario.frame_count, 14);
         assert_eq!(scenario.script.len(), 14);
         assert_eq!(&scenario.script[10..], &[MASK_RIGHT; 4]);
@@ -2054,9 +2054,7 @@ mod tests {
         let source = CaseSource::GameplayScenario {
             slug: String::from("death_respawn_level1"),
         };
-        let base = GameplayScenario::DeathRespawnLevel1
-            .to_dynamic()
-            .expect("gameplay scenario");
+        let base = GameplayScenario::DeathRespawnLevel1.to_dynamic();
 
         let verification = build_case_verification_scenario(&source, &base, 720, 900)
             .expect("verification scenario");

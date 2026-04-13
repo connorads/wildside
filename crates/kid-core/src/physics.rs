@@ -409,16 +409,18 @@ fn apply_air_holding_left(vel: i32, table: &AirSpeedTable) -> i32 {
 /// subtract decel, if result crosses zero → snap.
 /// ASM loc_85C0 (kid.asm:9418): `moveq #0,d0; rts` — zero-snap target.
 fn air_decelerate(vel: i32, table: &AirSpeedTable) -> i32 {
-    if vel > 0 {
-        // ASM loc_85B8: sub.l $C(a0),d0; bmi.s loc_85C0; rts
-        let next = vel - table.air_no_input_decel;
-        if next < 0 { 0 } else { next } // loc_85C0: moveq #0,d0
-    } else if vel < 0 {
-        // ASM loc_85AC fall-through: add.l $C(a0),d0; bpl.s loc_85C0; rts
-        let next = vel + table.air_no_input_decel;
-        if next > 0 { 0 } else { next } // loc_85C0: moveq #0,d0
-    } else {
-        0
+    match vel.cmp(&0) {
+        std::cmp::Ordering::Greater => {
+            // ASM loc_85B8: sub.l $C(a0),d0; bmi.s loc_85C0; rts
+            let next = vel - table.air_no_input_decel;
+            if next < 0 { 0 } else { next } // loc_85C0: moveq #0,d0
+        }
+        std::cmp::Ordering::Less => {
+            // ASM loc_85AC fall-through: add.l $C(a0),d0; bpl.s loc_85C0; rts
+            let next = vel + table.air_no_input_decel;
+            if next > 0 { 0 } else { next } // loc_85C0: moveq #0,d0
+        }
+        std::cmp::Ordering::Equal => 0,
     }
 }
 
@@ -638,14 +640,16 @@ fn apply_holding_left(vel: i32, run: bool, table: &SpeedTable) -> i32 {
 /// Decelerate towards zero when no direction is held (loc_9BEE). Snap to zero
 /// on sign change.
 fn decelerate(vel: i32, table: &SpeedTable) -> i32 {
-    if vel > 0 {
-        let next = vel - table.walk_run_decel;
-        if next < 0 { 0 } else { next }
-    } else if vel < 0 {
-        let next = vel + table.walk_run_decel;
-        if next > 0 { 0 } else { next }
-    } else {
-        0
+    match vel.cmp(&0) {
+        std::cmp::Ordering::Greater => {
+            let next = vel - table.walk_run_decel;
+            if next < 0 { 0 } else { next }
+        }
+        std::cmp::Ordering::Less => {
+            let next = vel + table.walk_run_decel;
+            if next > 0 { 0 } else { next }
+        }
+        std::cmp::Ordering::Equal => 0,
     }
 }
 

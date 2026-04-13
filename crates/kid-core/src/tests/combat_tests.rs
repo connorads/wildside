@@ -935,7 +935,9 @@ mod chunk_03 {
                     "ASM loc_401BA: sprite_y = screen_y + $7F - size"
                 );
             }
-            other => panic!("Expected Visible, got {other:?}"),
+            other @ helmets::FiveWayShotSlotAction::Removed => {
+                panic!("Expected Visible, got {other:?}")
+            }
         }
     }
 
@@ -963,7 +965,7 @@ mod chunk_03 {
                 // ASM loc_4006E: d0 + camera_x = 0x50 + 0x100 = 0x150
                 assert_eq!(world_x, 0x150, "sprite uses old x_offset + camera_x");
             }
-            _ => panic!("expected Visible"),
+            helmets::WallOfDeathSlotAction::Removed => panic!("expected Visible"),
         }
     }
 
@@ -1121,7 +1123,7 @@ mod chunk_03 {
                 assert_eq!(size_byte, 0x05, "ASM: word_4020E size_byte");
                 assert_eq!(pattern, 0x86F6, "ASM: word_4020E pattern");
             }
-            _ => panic!("expected Visible"),
+            helmets::WallOfDeathSlotAction::Removed => panic!("expected Visible"),
         }
     }
 
@@ -4826,7 +4828,7 @@ mod chunk_03 {
         enemy.y_pos = (104 << 16) as u32; // Y position where probe will hit row 6
 
         let initial_facing = enemy.facing;
-        let _initial_vel = enemy.x_velocity;
+        // initial x_velocity captured before probe
 
         step_active_enemies(
             std::slice::from_mut(&mut enemy),

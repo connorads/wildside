@@ -1686,7 +1686,7 @@ pub(crate) fn diamond_power_main_wall_of_death_slot(
     // ASM loc_40044: tst.w (Diamond_power_timer).w; bpl.s loc_40060
     if diamond_power_timer < 0 {
         // ASM: move.w (Diamond_power_timer).w,d7; andi.w #7,d7; bne.s loc_40060
-        if (diamond_power_timer & 7) == 0 {
+        if diamond_power_timer.trailing_zeros() >= 3 {
             // ASM: subq.w #1,$24(a0); bpl.s loc_40060
             slot.size_index = slot.size_index.wrapping_sub(1);
             if (slot.size_index as i16) < 0 {
@@ -1970,7 +1970,7 @@ pub(crate) fn diamond_power_main_five_way_shot_slot(
     // ASM: tst.w (Diamond_power_timer).w; bpl.s loc_401BA
     if diamond_power_timer < 0 {
         // ASM: move.w (Diamond_power_timer).w,d7; andi.w #7,d7; bne.s loc_401BA
-        if (diamond_power_timer & 7) == 0 {
+        if diamond_power_timer.trailing_zeros() >= 3 {
             // ASM: subq.w #1,$24(a0); bpl.s loc_401BA
             slot.size_index = slot.size_index.wrapping_sub(1);
             if (slot.size_index as i16) < 0 {
@@ -2311,7 +2311,7 @@ pub(crate) fn diamond_power_snake_slot_sprite(
     // ASM loc_3FB20: tst.w (Diamond_power_timer).w; bge.s loc_3FB3E
     if power_timer < 0 {
         // ASM: move.w (Time_Frames).w,d1; andi.w #$F,d1; bne.s loc_3FB3E
-        if time_frames & 0xF == 0 {
+        if time_frames.trailing_zeros() >= 4 {
             // ASM: subq.w #1,$24(a0); bne.s loc_3FB3E
             slot.diamond_size = slot.diamond_size.wrapping_sub(1);
             if slot.diamond_size == 0 {

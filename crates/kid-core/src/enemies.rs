@@ -1257,57 +1257,55 @@ pub(crate) fn step_active_enemies_with_rng(
                     step_orca(enemy, block_grid, player_x_pos);
                 } else if matches!(enemy.family, EnemyFamily::SpinningTwins) {
                     step_spinning_twins(enemy, block_grid, player_x_pos, player_y_pos);
-                } else {
-                    if matches!(enemy.family, EnemyFamily::DragonWalking) {
-                        if let Some(ref mut projs) = projectiles {
-                            step_dragon_walking(enemy, block_grid, projs, player_x_pos);
-                        } else {
-                            step_dragon_walking(enemy, block_grid, &mut Vec::new(), player_x_pos);
-                        }
-                    } else if matches!(enemy.family, EnemyFamily::Driller) {
-                        // Driller.asm loc_3BE78: drills through Smash/Ice blocks while pacing.
-                        let cells = step_driller(enemy, block_grid);
-                        drilled_blocks.extend(cells);
+                } else if matches!(enemy.family, EnemyFamily::DragonWalking) {
+                    if let Some(ref mut projs) = projectiles {
+                        step_dragon_walking(enemy, block_grid, projs, player_x_pos);
                     } else {
-                        // Crab: player-proximity freeze callback (Crab.asm loc_3B0BE-loc_3B174).
-                        // Check freeze before stepping; if frozen, skip movement.
-                        if matches!(enemy.family, EnemyFamily::Crab) {
-                            step_crab_freeze(enemy, player_x_pos, player_facing, player_x_velocity);
-                            if enemy.crab_frozen {
-                                continue; // skip pacer walk while frozen
-                            }
+                        step_dragon_walking(enemy, block_grid, &mut Vec::new(), player_x_pos);
+                    }
+                } else if matches!(enemy.family, EnemyFamily::Driller) {
+                    // Driller.asm loc_3BE78: drills through Smash/Ice blocks while pacing.
+                    let cells = step_driller(enemy, block_grid);
+                    drilled_blocks.extend(cells);
+                } else {
+                    // Crab: player-proximity freeze callback (Crab.asm loc_3B0BE-loc_3B174).
+                    // Check freeze before stepping; if frozen, skip movement.
+                    if matches!(enemy.family, EnemyFamily::Crab) {
+                        step_crab_freeze(enemy, player_x_pos, player_facing, player_x_velocity);
+                        if enemy.crab_frozen {
+                            continue; // skip pacer walk while frozen
                         }
-                        step_pacer(enemy, block_grid);
-                        // Goat: player-tracking callback (Goat.asm loc_3CC18).
-                        // If player is >32px away, turn to face them.
-                        if matches!(enemy.family, EnemyFamily::Goat)
-                            && let Some(px) = player_x_pos
-                        {
-                            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
-                            if dx.abs() > 0x20 {
-                                enemy.facing = if dx > 0 {
-                                    Direction::Right
-                                } else {
-                                    Direction::Left
-                                };
-                            }
+                    }
+                    step_pacer(enemy, block_grid);
+                    // Goat: player-tracking callback (Goat.asm loc_3CC18).
+                    // If player is >32px away, turn to face them.
+                    if matches!(enemy.family, EnemyFamily::Goat)
+                        && let Some(px) = player_x_pos
+                    {
+                        let dx = (px as i64 - enemy.x_pos as i64) >> 16;
+                        if dx.abs() > 0x20 {
+                            enemy.facing = if dx > 0 {
+                                Direction::Right
+                            } else {
+                                Direction::Left
+                            };
                         }
-                        // Scorpion: tracking callback (Scorpion.asm loc_3DD7E).
-                        // Within 170px: face toward player (unless tracking-locked),
-                        // boost speed to $38000 if enemy_level > 1 (HP > 3).
-                        // Outside 170px: reset speed to base $18000, clear tracking lock
-                        // if player is airborne.
-                        if matches!(enemy.family, EnemyFamily::Scorpion) {
-                            step_scorpion_tracking(enemy, player_x_pos, player_y_pos);
-                        }
-                        // ASM Tank_Shooting.asm loc_3C50E/loc_3B730: only the
-                        // shooting tank variant emits bullets, and only on the
-                        // turret animation gate.
-                        if matches!(enemy.family, EnemyFamily::TankShooting)
-                            && let Some(ref mut projs) = projectiles
-                        {
-                            step_tank_shooting_fire(enemy, projs);
-                        }
+                    }
+                    // Scorpion: tracking callback (Scorpion.asm loc_3DD7E).
+                    // Within 170px: face toward player (unless tracking-locked),
+                    // boost speed to $38000 if enemy_level > 1 (HP > 3).
+                    // Outside 170px: reset speed to base $18000, clear tracking lock
+                    // if player is airborne.
+                    if matches!(enemy.family, EnemyFamily::Scorpion) {
+                        step_scorpion_tracking(enemy, player_x_pos, player_y_pos);
+                    }
+                    // ASM Tank_Shooting.asm loc_3C50E/loc_3B730: only the
+                    // shooting tank variant emits bullets, and only on the
+                    // turret animation gate.
+                    if matches!(enemy.family, EnemyFamily::TankShooting)
+                        && let Some(ref mut projs) = projectiles
+                    {
+                        step_tank_shooting_fire(enemy, projs);
                     }
                 }
             }
@@ -4234,11 +4232,11 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
             enemy.y_velocity = 0;
             enemy.x_velocity = 0;
             enemy.on_ground = true;
-            if enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL {
+            if enemy.shared_walker_state == SHARED_WALKER_STATE_PATROL {
+                enemy.shared_walker_debug_branch = Some("airborne_land_patrol");
+            } else {
                 enemy.shared_walker_state = SHARED_WALKER_STATE_COOLDOWN;
                 enemy.shared_walker_debug_branch = Some("airborne_land_cooldown");
-            } else {
-                enemy.shared_walker_debug_branch = Some("airborne_land_patrol");
             }
             return;
         }
@@ -4458,7 +4456,9 @@ pub(crate) fn step_spinning_twins(
         }
         SpinningTwinsPhase::Walking => {
             // Apply gravity while airborne until grounded, then walk as pacer
-            if !enemy.on_ground {
+            if enemy.on_ground {
+                step_pacer(enemy, block_grid);
+            } else {
                 enemy.y_velocity += SPINNING_TWINS_GRAVITY;
                 enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
                 // Check floor
@@ -4472,8 +4472,6 @@ pub(crate) fn step_spinning_twins(
                         enemy.on_ground = true;
                     }
                 }
-            } else {
-                step_pacer(enemy, block_grid);
             }
         }
     }

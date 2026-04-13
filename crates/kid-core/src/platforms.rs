@@ -590,7 +590,7 @@ impl PlatformLoaderState {
     }
 
     pub(crate) fn active_platforms(
-        &self,
+        self,
         layout: &PlatformLayout,
         window: ActivationWindow,
     ) -> Vec<NativeObjectSnapshot> {

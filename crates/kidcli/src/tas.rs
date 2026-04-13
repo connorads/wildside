@@ -36,26 +36,26 @@ const GENESIS_BUTTON_MAP: &[(&str, u8)] = &[
 pub fn parse_bk2(path: &Path) -> Result<Bk2Import> {
     let file = std::fs::File::open(path)
         .with_context(|| format!("failed to open BK2 file: {}", path.display()))?;
-    parse_bk2_from_reader(file, path.display().to_string())
+    parse_bk2_from_reader(file, &path.display().to_string())
 }
 
 /// Parse from any `Read + Seek` source (allows testing with in-memory ZIPs).
 pub fn parse_bk2_from_reader<R: Read + std::io::Seek>(
     reader: R,
-    source_label: String,
+    source_label: &str,
 ) -> Result<Bk2Import> {
     let mut archive =
         zip::ZipArchive::new(reader).with_context(|| format!("invalid ZIP: {source_label}"))?;
 
     // Read and validate header
-    let header_text = read_zip_entry(&mut archive, "Header.txt", &source_label)?;
-    validate_header(&header_text, &source_label)?;
+    let header_text = read_zip_entry(&mut archive, "Header.txt", source_label)?;
+    validate_header(&header_text, source_label)?;
 
     // Parse input log
-    let input_text = read_zip_entry(&mut archive, "Input Log.txt", &source_label)?;
+    let input_text = read_zip_entry(&mut archive, "Input Log.txt", source_label)?;
     let script = parse_input_log(&input_text)?;
 
-    let slug = Path::new(&source_label)
+    let slug = Path::new(source_label)
         .file_stem()
         .map_or_else(|| "tas".into(), |s| s.to_string_lossy().into_owned())
         .replace(
@@ -774,31 +774,29 @@ pub fn bisect_tas(
         )?;
 
         if !oracle.frame_crcs.is_empty() {
-            match first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start) {
-                Some(frame_idx) => {
-                    println!();
-                    println!("  RESULT: first CRC divergence at frame {frame_idx}");
-                    if let Some(native_frame) = native_trace.get(frame_idx) {
-                        println!(
-                            "    native: mode={:#06x} level={:02x} kid=({:#010x},{:#010x}) vel=({:?},{:?})",
-                            native_frame.game_mode_value,
-                            native_frame.current_level.0,
-                            native_frame.kid_x_pos.unwrap_or(0),
-                            native_frame.kid_y_pos.unwrap_or(0),
-                            native_frame.kid_x_velocity,
-                            native_frame.kid_y_velocity,
-                        );
-                    }
-                    return Ok(());
-                }
-                None => {
+            if let Some(frame_idx) =
+                first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start)
+            {
+                println!();
+                println!("  RESULT: first CRC divergence at frame {frame_idx}");
+                if let Some(native_frame) = native_trace.get(frame_idx) {
                     println!(
-                        "  PASS: all {} frames match by CRC",
-                        native_crcs.len().min(oracle.frame_crcs.len())
+                        "    native: mode={:#06x} level={:02x} kid=({:#010x},{:#010x}) vel=({:?},{:?})",
+                        native_frame.game_mode_value,
+                        native_frame.current_level.0,
+                        native_frame.kid_x_pos.unwrap_or(0),
+                        native_frame.kid_y_pos.unwrap_or(0),
+                        native_frame.kid_x_velocity,
+                        native_frame.kid_y_velocity,
                     );
-                    return Ok(());
                 }
+                return Ok(());
             }
+            println!(
+                "  PASS: all {} frames match by CRC",
+                native_crcs.len().min(oracle.frame_crcs.len())
+            );
+            return Ok(());
         }
     }
 
@@ -824,12 +822,9 @@ pub fn bisect_tas(
         frontier_kind,
     )?;
 
-    let first_coarse_frame = match coarse.first_auth_frame {
-        Some(f) => f,
-        None => {
-            println!("  PASS: no authoritative divergences in frames {start}..{end}");
-            return Ok(());
-        }
+    let Some(first_coarse_frame) = coarse.first_auth_frame else {
+        println!("  PASS: no authoritative divergences in frames {start}..{end}");
+        return Ok(());
     };
 
     // Find the checkpoint before the divergent one
@@ -998,7 +993,7 @@ mod tests {
     fn parse_empty_input_produces_empty_script() {
         let input_log = standard_input_log(&[]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2").expect("parse_bk2");
         assert_eq!(import.total_frames, 0);
         assert!(import.script.is_empty());
     }
@@ -1007,7 +1002,7 @@ mod tests {
     fn parse_idle_frame_produces_zero_mask() {
         let input_log = standard_input_log(&["|..|............|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2").expect("parse_bk2");
         assert_eq!(import.total_frames, 1);
         assert_eq!(import.script[0], 0);
     }
@@ -1017,7 +1012,7 @@ mod tests {
         // Start is column index 7 in P1 section: U D L R A B C S
         let input_log = standard_input_log(&["|..|.......S....|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2").expect("parse_bk2");
         assert_eq!(import.script[0], 0x80); // bit 7 = Start
     }
 
@@ -1026,7 +1021,7 @@ mod tests {
         // Right is column index 3: U D L R
         let input_log = standard_input_log(&["|..|...R........|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2").expect("parse_bk2");
         assert_eq!(import.script[0], 1 << 3); // bit 3 = Right
     }
 
@@ -1035,7 +1030,7 @@ mod tests {
         // B is column index 5 in P1 section: U D L R A B C S
         let input_log = standard_input_log(&["|..|.....B......|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2").expect("parse_bk2");
         assert_eq!(import.script[0], 1 << 4); // bit 4 = B (jump)
     }
 
@@ -1044,7 +1039,7 @@ mod tests {
         // C is column index 6 in P1 section: U D L R A B C S
         let input_log = standard_input_log(&["|..|......C.....|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2").expect("parse_bk2");
         assert_eq!(import.script[0], 1 << 5); // bit 5 = C (run)
     }
 
@@ -1053,7 +1048,7 @@ mod tests {
         // A is column index 4 in P1 section: U D L R A B C S
         let input_log = standard_input_log(&["|..|....A.......|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2").expect("parse_bk2");
         assert_eq!(import.script[0], 1 << 6); // bit 6 = A
     }
 
@@ -1062,7 +1057,7 @@ mod tests {
         // Right + B + Start: U D L R A B C S
         let input_log = standard_input_log(&["|..|...R.B.S....|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2").expect("parse_bk2");
         let expected = (1 << 3) | (1 << 4) | (1 << 7); // Right + B + Start
         assert_eq!(import.script[0], expected);
     }
@@ -1075,7 +1070,7 @@ mod tests {
             "|..|...R........|............|", // Right
         ]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2").expect("parse_bk2");
         assert_eq!(import.total_frames, 3);
         assert_eq!(import.script[0], 0);
         assert_eq!(import.script[1], 0x80);
@@ -1087,7 +1082,7 @@ mod tests {
         // Up + Down + Left
         let input_log = standard_input_log(&["|..|UDL.........|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into()).expect("parse_bk2");
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2").expect("parse_bk2");
         let expected = (1 << 0) | (1 << 1) | (1 << 2); // Up + Down + Left
         assert_eq!(import.script[0], expected);
     }
@@ -1097,7 +1092,7 @@ mod tests {
         let header = "Platform SNES\nGameName SomeGame\n";
         let input_log = standard_input_log(&[]);
         let bk2 = build_test_bk2(header, &input_log);
-        let result = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2".into());
+        let result = parse_bk2_from_reader(Cursor::new(bk2), "test.bk2");
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("unsupported platform"), "got: {err}");
@@ -1105,7 +1100,7 @@ mod tests {
 
     #[test]
     fn reject_malformed_zip() {
-        let result = parse_bk2_from_reader(Cursor::new(vec![0, 1, 2, 3]), "bad.bk2".into());
+        let result = parse_bk2_from_reader(Cursor::new(vec![0, 1, 2, 3]), "bad.bk2");
         assert!(result.is_err());
     }
 
@@ -1113,7 +1108,7 @@ mod tests {
     fn slug_sanitised_from_filename() {
         let input_log = standard_input_log(&["|..|............|............|"]);
         let bk2 = build_test_bk2(GENESIS_HEADER, &input_log);
-        let import = parse_bk2_from_reader(Cursor::new(bk2), "Kid Chameleon (Any%) v2.bk2".into())
+        let import = parse_bk2_from_reader(Cursor::new(bk2), "Kid Chameleon (Any%) v2.bk2")
             .expect("parse_bk2");
         assert_eq!(import.slug, "Kid_Chameleon__Any___v2");
     }

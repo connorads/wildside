@@ -84,16 +84,19 @@ impl ScriptRunner {
         }
     }
 
+    #[must_use]
     pub fn warp_to_level(mut self, level: u8) -> Self {
         self.warp_to_level = Some(level);
         self
     }
 
+    #[must_use]
     pub fn physics_order(mut self, order: PhysicsOrder) -> Self {
         self.physics_order = Some(order);
         self
     }
 
+    #[must_use]
     pub fn trace_physics(mut self) -> Self {
         self.trace_physics = true;
         self

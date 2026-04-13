@@ -8,7 +8,7 @@ pub(crate) fn capture_frames(
     level_id: u8,
     frame_indices: &[usize],
     output_dir: &Path,
-    filter: &native_player::LayerFilter,
+    filter: native_player::LayerFilter,
 ) -> Result<()> {
     use native_player::{
         NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered, load_session_assets,
@@ -121,7 +121,7 @@ pub(crate) fn diagnose_frame(
         false,
         Some(&level_visuals),
         Some(&block_grid),
-        &LayerFilter::default(),
+        LayerFilter::default(),
     );
     let mut full_rgb = vec![0u8; pixel_count * 3];
     render_scene(&full_scene, &mut full_rgb);
@@ -152,7 +152,7 @@ pub(crate) fn diagnose_frame(
             false,
             Some(&level_visuals),
             Some(&block_grid),
-            &filter,
+            filter,
         );
         let mut layer_rgb = vec![0u8; pixel_count * 3];
         render_scene(&scene, &mut layer_rgb);
@@ -365,7 +365,9 @@ pub(crate) fn golden_diff(
         }
 
         let passed = level_diffs.is_empty();
-        if !passed {
+        if passed {
+            println!("golden diff {level_id:#04x}: PASS");
+        } else {
             total_diffs += level_diffs.len();
             println!(
                 "golden diff {level_id:#04x}: FAIL ({} field changes)",
@@ -377,8 +379,6 @@ pub(crate) fn golden_diff(
                     d.checkpoint, d.field, d.old_value, d.new_value
                 );
             }
-        } else {
-            println!("golden diff {level_id:#04x}: PASS");
         }
 
         results.push(LevelSweepResult {

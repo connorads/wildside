@@ -486,7 +486,7 @@ pub(crate) fn run_sweep_with_options(
 ) -> Result<SweepReport> {
     // Gameplay tier: self-consistency only, no oracle needed.
     if tier == SweepTier::Gameplay {
-        return run_gameplay_sweep(manifest, levels);
+        return Ok(run_gameplay_sweep(manifest, levels));
     }
 
     let rom_bytes = fs::read(rom_path)
@@ -497,7 +497,9 @@ pub(crate) fn run_sweep_with_options(
 
     // Warm-cache-only: populate oracle cache in parallel, skip native runs.
     if options.warm_cache_only {
-        return warm_oracle_cache(&rom_bytes, rom_path, repo_root, &env, levels);
+        return Ok(warm_oracle_cache(
+            &rom_bytes, rom_path, repo_root, &env, levels,
+        ));
     }
 
     let timestamp = chrono_timestamp();
@@ -633,7 +635,7 @@ pub(crate) fn run_sweep_with_options(
         .with_context(|| format!("failed to write {}", report_path.display()))?;
     append_sweep_history(
         repo_root,
-        SweepHistoryEntry {
+        &SweepHistoryEntry {
             timestamp: report.timestamp.clone(),
             tier,
             levels_requested: levels.len(),
@@ -735,20 +737,19 @@ fn sweep_single_level(
 
     // Run oracle (with caching)
     let cache_key = OracleCacheKey::from_scenario(rom_bytes, &scenario, backend.name());
-    let oracle = match load_cached_oracle(&cache_key, repo_root) {
-        Some(cached) => cached,
-        None => {
-            // Write scenario file for oracle
-            let scenario_file = level_dir.join("scenario.json");
-            fs::write(&scenario_file, serde_json::to_vec_pretty(&scenario)?)
-                .with_context(|| format!("failed to write {}", scenario_file.display()))?;
+    let oracle = if let Some(cached) = load_cached_oracle(&cache_key, repo_root) {
+        cached
+    } else {
+        // Write scenario file for oracle
+        let scenario_file = level_dir.join("scenario.json");
+        fs::write(&scenario_file, serde_json::to_vec_pretty(&scenario)?)
+            .with_context(|| format!("failed to write {}", scenario_file.display()))?;
 
-            let oracle_dir = level_dir.join("oracle");
-            fs::create_dir_all(&oracle_dir)?;
-            let oracle = backend.run_scenario(rom_path, &scenario_file, &oracle_dir, None)?;
-            let _ = store_oracle_cache(&cache_key, repo_root, &oracle, &oracle_dir);
-            oracle
-        }
+        let oracle_dir = level_dir.join("oracle");
+        fs::create_dir_all(&oracle_dir)?;
+        let oracle = backend.run_scenario(rom_path, &scenario_file, &oracle_dir, None)?;
+        let _ = store_oracle_cache(&cache_key, repo_root, &oracle, &oracle_dir);
+        oracle
     };
 
     // Detect broken oracle warps: if the oracle's game_mode is clearly invalid
@@ -834,7 +835,11 @@ fn sweep_single_level(
         for entry in fs::read_dir(&level_dir)? {
             let entry = entry?;
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with("diff_") && name.ends_with(".png") {
+            if name.starts_with("diff_")
+                && std::path::Path::new(&name)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("png"))
+            {
                 diff_images.push(entry.path().to_string_lossy().to_string());
             }
         }
@@ -1563,7 +1568,7 @@ fn warm_oracle_cache(
     repo_root: &Path,
     env: &OracleEnvironment,
     levels: &[u8],
-) -> Result<SweepReport> {
+) -> SweepReport {
     let timestamp = chrono_timestamp();
     let mut cached = 0usize;
     let mut ran = 0usize;
@@ -1649,7 +1654,7 @@ fn warm_oracle_cache(
         "\nwarm-cache complete: {cached} already cached, {ran} newly cached, {errored} errors"
     );
 
-    Ok(SweepReport {
+    SweepReport {
         timestamp,
         kid_core_hash: None,
         levels: Vec::new(),
@@ -1659,7 +1664,7 @@ fn warm_oracle_cache(
         divergence_summary: DivergenceSummary::default(),
         field_summary: Vec::new(),
         release_gate_focus: Vec::new(),
-    })
+    }
 }
 
 /// Compute a SHA-1 hash of kid-core source files.
@@ -1713,7 +1718,7 @@ fn chrono_timestamp() -> String {
 // Frame capture/diagnosis/golden functions: see frames.rs
 // Gameplay sweep scenarios: see gameplay.rs
 
-fn append_sweep_history(repo_root: &Path, entry: SweepHistoryEntry) -> Result<()> {
+fn append_sweep_history(repo_root: &Path, entry: &SweepHistoryEntry) -> Result<()> {
     let metrics_dir = repo_root.join(".cache/metrics");
     fs::create_dir_all(&metrics_dir)
         .with_context(|| format!("failed to create {}", metrics_dir.display()))?;
@@ -1762,17 +1767,16 @@ pub(crate) fn run_sweep_compare(
 
         // Run oracle once (shared between both orderings)
         let cache_key = OracleCacheKey::from_scenario(&rom_bytes, &scenario, backend.name());
-        let oracle = match load_cached_oracle(&cache_key, repo_root) {
-            Some(cached) => cached,
-            None => {
-                let scenario_file = level_dir.join("scenario.json");
-                fs::write(&scenario_file, serde_json::to_vec_pretty(&scenario)?)?;
-                let oracle_dir = level_dir.join("oracle");
-                fs::create_dir_all(&oracle_dir)?;
-                let oracle = backend.run_scenario(rom_path, &scenario_file, &oracle_dir, None)?;
-                let _ = store_oracle_cache(&cache_key, repo_root, &oracle, &oracle_dir);
-                oracle
-            }
+        let oracle = if let Some(cached) = load_cached_oracle(&cache_key, repo_root) {
+            cached
+        } else {
+            let scenario_file = level_dir.join("scenario.json");
+            fs::write(&scenario_file, serde_json::to_vec_pretty(&scenario)?)?;
+            let oracle_dir = level_dir.join("oracle");
+            fs::create_dir_all(&oracle_dir)?;
+            let oracle = backend.run_scenario(rom_path, &scenario_file, &oracle_dir, None)?;
+            let _ = store_oracle_cache(&cache_key, repo_root, &oracle, &oracle_dir);
+            oracle
         };
 
         // Run native with GravityFirst (current)
@@ -2613,7 +2617,7 @@ mod tests {
             }],
         };
 
-        append_sweep_history(temp_dir.path(), entry).expect("append history");
+        append_sweep_history(temp_dir.path(), &entry).expect("append history");
 
         let history_path = temp_dir.path().join(".cache/metrics/sweep-history.jsonl");
         let line = std::fs::read_to_string(&history_path).expect("history jsonl");

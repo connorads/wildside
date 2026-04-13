@@ -7804,6 +7804,7 @@ impl NativeRuntime {
         })
     }
 
+    #[allow(clippy::unused_self, reason = "semantically a method on game state")]
     pub(crate) fn fell_below_level(&self, slice: &OpeningSliceState) -> bool {
         let player_y_px = slice.player.y_pos >> 16;
         player_y_px > u32::from(slice.level_bounds.height_pixels)
@@ -8124,7 +8125,7 @@ impl NativeRuntime {
         self.death_camera_lock = self.opening_slice.map(|slice| slice.camera);
         self.death_shell_snapshot = self
             .opening_slice
-            .map(|slice| self.build_death_shell_snapshot(slice));
+            .map(|slice| self.build_death_shell_snapshot(&slice));
         self.player_lifecycle = PlayerLifecycle::DeathWindup {
             remaining_frames: PLAYER_DEATH_WINDUP_FRAMES,
         };
@@ -8485,7 +8486,7 @@ impl NativeRuntime {
         )
     }
 
-    fn build_death_shell_snapshot(&self, slice: OpeningSliceState) -> LevelSkipTransitionState {
+    fn build_death_shell_snapshot(&self, slice: &OpeningSliceState) -> LevelSkipTransitionState {
         // ASM `Death` (kid.asm:14714-14760) has two death animation paths
         // selected by d7:
         //
@@ -8739,16 +8740,16 @@ pub(crate) fn kid_hitbox_from_collision_size_sub_21F8(
         return previous_hitbox;
     }
 
-    let (left_px, right_px) = if !mirrored {
-        let left_px = x_anchor_px.saturating_add(collision_size.left_offset_px);
-        let right_px = left_px.saturating_add(collision_size.width_px);
-        (left_px, right_px)
-    } else {
+    let (left_px, right_px) = if mirrored {
         // ASM loc_2228 (kid.asm:4054-4059): negate the stored left offset,
         // anchor the facing-side edge first, then subtract the width back to
         // recover the opposite edge.
         let right_px = x_anchor_px.saturating_sub(collision_size.left_offset_px);
         let left_px = right_px.saturating_sub(collision_size.width_px);
+        (left_px, right_px)
+    } else {
+        let left_px = x_anchor_px.saturating_add(collision_size.left_offset_px);
+        let right_px = left_px.saturating_add(collision_size.width_px);
         (left_px, right_px)
     };
     // ASM loc_2232 (kid.asm:4060-4069): both facing branches rejoin here to
@@ -8890,20 +8891,20 @@ fn projectile_hitbox_sub_226a(
         return None;
     }
 
-    let (left_px, right_px) = if !projectile.mirrored {
-        // ASM loc_22A6: use the stored left offset directly, then add width.
-        let left_px = projectile
-            .x_anchor_px
-            .saturating_add(collision_size.left_offset_px);
-        let right_px = left_px.saturating_add(collision_size.width_px);
-        (left_px, right_px)
-    } else {
+    let (left_px, right_px) = if projectile.mirrored {
         // ASM loc_22D2: negate the left offset for mirrored sprites, anchor
         // that edge first, then subtract width back toward the facing side.
         let right_px = projectile
             .x_anchor_px
             .saturating_sub(collision_size.left_offset_px);
         let left_px = right_px.saturating_sub(collision_size.width_px);
+        (left_px, right_px)
+    } else {
+        // ASM loc_22A6: use the stored left offset directly, then add width.
+        let left_px = projectile
+            .x_anchor_px
+            .saturating_add(collision_size.left_offset_px);
+        let right_px = left_px.saturating_add(collision_size.width_px);
         (left_px, right_px)
     };
     let top_px = projectile
@@ -9002,17 +9003,17 @@ pub(crate) fn juggernaut_support_overlap_sub_9832(
                 break;
             }
 
-            let (left_px, right_px) = if !candidate.mirrored {
-                let left_px = candidate
-                    .x_anchor_px
-                    .saturating_add(collision_size.left_offset_px);
-                let right_px = left_px.saturating_add(collision_size.width_px);
-                (left_px, right_px)
-            } else {
+            let (left_px, right_px) = if candidate.mirrored {
                 let right_px = candidate
                     .x_anchor_px
                     .saturating_sub(collision_size.left_offset_px);
                 let left_px = right_px.saturating_sub(collision_size.width_px);
+                (left_px, right_px)
+            } else {
+                let left_px = candidate
+                    .x_anchor_px
+                    .saturating_add(collision_size.left_offset_px);
+                let right_px = left_px.saturating_add(collision_size.width_px);
                 (left_px, right_px)
             };
             let top_px = candidate

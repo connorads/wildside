@@ -113,7 +113,7 @@ pub(crate) fn build_scene(
         debug_overlay_visible,
         level_visuals,
         block_grid,
-        &LayerFilter::default(),
+        LayerFilter::default(),
     )
 }
 
@@ -122,7 +122,7 @@ pub(crate) fn build_scene_filtered(
     debug_overlay_visible: bool,
     level_visuals: Option<&NativeLevelVisuals>,
     block_grid: Option<&BlockGrid>,
-    filter: &LayerFilter,
+    filter: LayerFilter,
 ) -> Scene {
     match trace.game_mode {
         GameMode::InGame | GameMode::DemoPlay => build_game_scene_filtered(
@@ -1084,7 +1084,7 @@ fn build_game_scene_filtered(
     debug_overlay_visible: bool,
     level_visuals: &NativeLevelVisuals,
     block_grid: Option<&BlockGrid>,
-    filter: &LayerFilter,
+    filter: LayerFilter,
 ) -> Scene {
     let background = background_colour(level_visuals);
     let mut commands = Vec::new();

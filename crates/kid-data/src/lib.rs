@@ -902,7 +902,7 @@ fn export_split_bundle_into(
                 output_root.join("constants.asm").display()
             )
         })?,
-    )?;
+    );
     let ram_variables = parse_ram_variables(
         &fs::read_to_string(output_root.join("variables.asm")).with_context(|| {
             format!(
@@ -919,7 +919,7 @@ fn export_split_bundle_into(
         source_root: source_root.to_path_buf(),
         output_root: output_root.to_path_buf(),
         map_order,
-        levels: merge_level_catalogues(level_names, level_title_cards, level_files),
+        levels: merge_level_catalogues(level_names, &level_title_cards, level_files),
         constants,
         ram_variables,
         enemy_sources: collect_asset_files(&output_root.join("code/enemy"))?,
@@ -1460,7 +1460,7 @@ fn parse_platform_script_ref(value: &str) -> PlatformScriptRef {
 
 fn merge_level_catalogues(
     names: BTreeMap<u8, (u8, String)>,
-    title_cards: BTreeMap<u8, LevelTitleCard>,
+    title_cards: &BTreeMap<u8, LevelTitleCard>,
     files: BTreeMap<u8, Vec<String>>,
 ) -> Vec<LevelRecord> {
     let mut by_level = BTreeMap::new();
@@ -4203,10 +4203,7 @@ struct EnigmaHeaderEniDec<'a> {
     bitstream: &'a [u8],
 }
 
-fn parse_enigma_header_eni_dec<'a>(
-    data: &'a [u8],
-    base_tile_word: u16,
-) -> Result<EnigmaHeaderEniDec<'a>> {
+fn parse_enigma_header_eni_dec(data: &[u8], base_tile_word: u16) -> Result<EnigmaHeaderEniDec<'_>> {
     // ASM EniDec (kid.asm:25837): byte 0 is packet length, byte 1 selects the
     // enabled high-flag bits for sub_13588, words 1/2 are base-tile-relative
     // incrementing/common seeds, and the next word seeds d5 for loc_134EA.
@@ -4920,7 +4917,7 @@ fn parse_map_order(contents: &str) -> Result<Vec<u8>> {
     Ok(map_order)
 }
 
-fn parse_named_values(contents: &str) -> Result<Vec<NamedValue>> {
+fn parse_named_values(contents: &str) -> Vec<NamedValue> {
     let mut values = Vec::new();
     for line in contents.lines() {
         let trimmed = line.trim();
@@ -4931,9 +4928,8 @@ fn parse_named_values(contents: &str) -> Result<Vec<NamedValue>> {
         let Some((name, value)) = assignment.split_once('=') else {
             continue;
         };
-        let value = match parse_numeric_value(value.trim()) {
-            Ok(value) => value,
-            Err(_) => continue,
+        let Ok(value) = parse_numeric_value(value.trim()) else {
+            continue;
         };
         values.push(NamedValue {
             name: name.trim().to_owned(),
@@ -4941,7 +4937,7 @@ fn parse_named_values(contents: &str) -> Result<Vec<NamedValue>> {
             comment: comment.map(str::to_owned),
         });
     }
-    Ok(values)
+    values
 }
 
 fn parse_ram_variables(contents: &str) -> Result<Vec<RamVariable>> {

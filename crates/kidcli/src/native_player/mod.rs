@@ -188,7 +188,7 @@ pub(crate) fn load_session_assets(
     Ok((assets.level_visuals, assets.block_grid))
 }
 
-pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -> Result<()> {
+pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) -> Result<()> {
     let initial_level_id = options.warp_level.unwrap_or(0x00);
     let mut session_assets = load_native_session_assets(manifest, initial_level_id)?;
     let sdl = sdl2::init().map_err(|error| anyhow!("failed to init SDL: {error}"))?;
@@ -275,7 +275,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
     }
     let mut sfx_engine = SfxEngine::new();
 
-    let mut runtime = initialise_runtime(manifest, &session_assets, &options);
+    let mut runtime = initialise_runtime(manifest, &session_assets, options);
     let mut trace = runtime.trace_frame();
     #[allow(unused_assignments)]
     let mut prev_trace = trace.clone();
@@ -419,7 +419,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
 
         if reset_runtime {
             session_assets = load_native_session_assets(manifest, initial_level_id)?;
-            runtime = initialise_runtime(manifest, &session_assets, &options);
+            runtime = initialise_runtime(manifest, &session_assets, options);
             trace = runtime.trace_frame();
             current_level_id = trace.current_level.0;
             level_card_frames_remaining = 0;
@@ -603,14 +603,14 @@ pub fn run_native_player(manifest: &AssetManifest, options: NativePlayOptions) -
         level_card_frames_remaining = level_card_frames_remaining.saturating_sub(1);
 
         let elapsed = frame_started.elapsed();
-        if elapsed < FRAME_TIME {
-            thread::sleep(FRAME_TIME - elapsed);
+        if let Some(remaining) = FRAME_TIME.checked_sub(elapsed) {
+            thread::sleep(remaining);
         }
     }
 
     save_native_recording_bundle(
         manifest,
-        &options,
+        options,
         recorded_script,
         recorded_trace,
         recorded_audio,
@@ -2628,7 +2628,7 @@ mod tests {
             false,
             Some(&visuals),
             None,
-            &LayerFilter::solo("effects"),
+            LayerFilter::solo("effects"),
         );
 
         let sprite_count = scene
@@ -2681,7 +2681,7 @@ mod tests {
                 false,
                 Some(&visuals),
                 None,
-                &LayerFilter::solo("effects"),
+                LayerFilter::solo("effects"),
             );
 
             assert_eq!(
@@ -2747,7 +2747,7 @@ mod tests {
                 false,
                 Some(&visuals),
                 None,
-                &LayerFilter::solo("effects"),
+                LayerFilter::solo("effects"),
             );
             let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
             render_scene(&scene, &mut rgb);
@@ -2831,7 +2831,7 @@ mod tests {
                 false,
                 Some(&visuals),
                 None,
-                &LayerFilter::solo("effects"),
+                LayerFilter::solo("effects"),
             );
             let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
             render_scene(&scene, &mut rgb);

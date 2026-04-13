@@ -682,7 +682,7 @@ pub(crate) fn probe_native_scenario(
     frame_start: Option<usize>,
     frame_end: Option<usize>,
 ) -> Result<()> {
-    let script = scenario.script()?;
+    let script = scenario.script();
     let trace = run_native_script_for_scenario(manifest, &script, scenario);
     let final_frame = trace
         .last()
@@ -756,7 +756,7 @@ pub(crate) fn probe_native_gameplay_scenario(
     frame_start: Option<usize>,
     frame_end: Option<usize>,
 ) -> Result<()> {
-    let script = scenario.script()?;
+    let script = scenario.script();
     let trace = if trace_physics {
         run_native_script_for_gameplay_with_trace(manifest, &script, scenario)
     } else {

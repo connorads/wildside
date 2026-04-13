@@ -3573,18 +3573,16 @@ impl OpeningSliceState {
             return;
         }
 
-        let branch = if !self.player.on_ground {
-            if self.player.just_jumped {
-                KidJumpGravityBranch::AirborneJustJumpedHold
-            } else if custom_gravity {
-                KidJumpGravityBranch::AirborneCustomGravity
-            } else if self.player.y_velocity < 0 && input.b {
-                KidJumpGravityBranch::AirborneHeldJumpGravity
-            } else {
-                KidJumpGravityBranch::AirborneDefaultGravity
-            }
-        } else {
+        let branch = if self.player.on_ground {
             KidJumpGravityBranch::GroundedHold
+        } else if self.player.just_jumped {
+            KidJumpGravityBranch::AirborneJustJumpedHold
+        } else if custom_gravity {
+            KidJumpGravityBranch::AirborneCustomGravity
+        } else if self.player.y_velocity < 0 && input.b {
+            KidJumpGravityBranch::AirborneHeldJumpGravity
+        } else {
+            KidJumpGravityBranch::AirborneDefaultGravity
         };
 
         // Airborne: apply gravity to y_vel only
@@ -3595,7 +3593,10 @@ impl OpeningSliceState {
         // flight physics. Falls through to loc_B19C for Skycutter/normal gravity.
         // Native: `custom_gravity` flag covers Cyclone, Skycutter, IronKnight, and
         // Micromax overrides; helmet-specific gravity runs before this function.
-        if !self.player.on_ground {
+        if self.player.on_ground {
+            self.player.y_velocity = 0;
+            self.player.just_jumped = false;
+        } else {
             if jump_pressed {
                 self.player.jump_buffer_frames = JUMP_BUFFER_FRAMES;
             } else if self.player.jump_buffer_frames > 0 {
@@ -3608,9 +3609,6 @@ impl OpeningSliceState {
                 self.player.y_velocity =
                     physics::apply_gravity(self.player.y_velocity, ascending_and_b_held);
             }
-        } else {
-            self.player.y_velocity = 0;
-            self.player.just_jumped = false;
         }
 
         self.kid_jump_gravity_probe = Some(KidJumpGravityProbe {
@@ -3883,7 +3881,10 @@ impl OpeningSliceState {
             return;
         }
 
-        if !self.player.on_ground {
+        if self.player.on_ground {
+            self.player.y_velocity = 0;
+            self.player.just_jumped = false;
+        } else {
             if jump_pressed {
                 self.player.jump_buffer_frames = JUMP_BUFFER_FRAMES;
             } else if self.player.jump_buffer_frames > 0 {
@@ -3900,9 +3901,6 @@ impl OpeningSliceState {
             }
             let next_y = i64::from(self.player.y_pos) + i64::from(self.player.y_velocity);
             self.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
-        } else {
-            self.player.y_velocity = 0;
-            self.player.just_jumped = false;
         }
     }
 
@@ -3947,7 +3945,10 @@ impl OpeningSliceState {
         }
 
         // Airborne: apply position from current velocity (no gravity yet)
-        if !self.player.on_ground {
+        if self.player.on_ground {
+            self.player.y_velocity = 0;
+            self.player.just_jumped = false;
+        } else {
             if jump_pressed {
                 self.player.jump_buffer_frames = JUMP_BUFFER_FRAMES;
             } else if self.player.jump_buffer_frames > 0 {
@@ -3959,9 +3960,6 @@ impl OpeningSliceState {
             // Position update only — gravity is deferred
             let next_y = i64::from(self.player.y_pos) + i64::from(self.player.y_velocity);
             self.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
-        } else {
-            self.player.y_velocity = 0;
-            self.player.just_jumped = false;
         }
     }
 
@@ -4544,13 +4542,13 @@ impl OpeningSliceState {
                     // already on the ground (y_vel=0, no tile crossing), sub_902A
                     // exits early via loc_913A without touching y_pos. So we
                     // only clear sub-pixel on actual landings (airborne→grounded).
-                    if !was_on_ground {
-                        // New landing: clear sub-pixel (sub_902A clr.w $20(a3))
-                        self.player.y_pos = floor_y_fp & 0xFFFF_0000;
-                    } else {
+                    if was_on_ground {
                         // Already grounded: preserve sub-pixel (sub_902A exits early)
                         self.player.y_pos =
                             (floor_y_fp & 0xFFFF_0000) | (self.player.y_pos & 0x0000_FFFF);
+                    } else {
+                        // New landing: clear sub-pixel (sub_902A clr.w $20(a3))
+                        self.player.y_pos = floor_y_fp & 0xFFFF_0000;
                     }
                     let incoming_y_velocity = self.player.y_velocity;
                     if rubber_rebound {

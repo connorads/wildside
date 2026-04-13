@@ -478,7 +478,10 @@ fn classify_citations(cited_in: &[String]) -> CitationBreakdown {
     for citation in cited_in {
         if citation.ends_with("/tests.rs") || citation.contains("/tests/") {
             breakdown.tests.push(citation.clone());
-        } else if citation.ends_with(".md") {
+        } else if std::path::Path::new(citation)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
+        {
             breakdown.docs.push(citation.clone());
         } else if citation.contains("/src/") {
             breakdown.implementation.push(citation.clone());

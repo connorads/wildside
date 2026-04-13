@@ -6276,7 +6276,7 @@ pub(crate) fn level_load_pointers_loc_11D0C(
     // `Addr_ThemeMappings`, then reloads `a1` from `(a0)+` and uses
     // `move.l (a1)+,(Addr_EnemyLayout).w` followed by `move.l a1,(Addr_EnemyLayoutHeader).w`.
     assert!(
-        theme_mapping_table_offset_bytes & 3 == 0,
+        theme_mapping_table_offset_bytes.trailing_zeros() >= 2,
         "theme mapping offset must stay aligned to the ROM's longword table",
     );
     let theme_mapping_index_entry = usize::from(theme_mapping_table_offset_bytes >> 2);
@@ -6428,7 +6428,7 @@ pub(crate) fn manage_enemy_loading_count_down_active_loc_3685E(
     // ASM loc_3685E (kid.asm:37991-37996) masks `d0` with `$03FF`; a zero
     // low-ten-bit countdown falls straight through to `loc_368A8`, otherwise
     // the ROM decrements `(a2)` in place and skips spawning via `loc_36962`.
-    if enemy_status_word & 0x03FF == 0 {
+    if enemy_status_word.trailing_zeros() >= 10 {
         return ManageEnemyLoadingCountDownActiveLoc3685E {
             reaches_spawn_window: true,
             decremented_status_word: None,
@@ -10272,13 +10272,13 @@ pub(crate) fn background_scroll_stripe_horizontal_gate_loc_3023C(
     // by `$28` tiles and drops the pass if that would reach or exceed
     // `Level_width_tiles`. The shared tail at `loc_302E8` always latches the
     // current camera X/Y words back into `$FFFFF82C/$FFFFF82E`.
-    let render_column = if current_camera_tile_column == saved_camera_tile_column {
-        None
-    } else if current_camera_tile_column < saved_camera_tile_column {
-        Some(current_camera_tile_column)
-    } else {
-        let right_edge_column = current_camera_tile_column.wrapping_add(0x0028);
-        (right_edge_column < level_width_tiles).then_some(right_edge_column)
+    let render_column = match current_camera_tile_column.cmp(&saved_camera_tile_column) {
+        std::cmp::Ordering::Equal => None,
+        std::cmp::Ordering::Less => Some(current_camera_tile_column),
+        std::cmp::Ordering::Greater => {
+            let right_edge_column = current_camera_tile_column.wrapping_add(0x0028);
+            (right_edge_column < level_width_tiles).then_some(right_edge_column)
+        }
     };
 
     BackgroundScrollStripeHorizontalGateLoc3023C {
@@ -12054,6 +12054,7 @@ impl NativeRuntime {
         }
     }
 
+    #[allow(clippy::unused_self, reason = "semantically a method")]
     pub(crate) fn try_settle_on_spawn_support(
         &self,
         slice: &mut OpeningSliceState,

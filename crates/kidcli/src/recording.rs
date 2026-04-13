@@ -1007,14 +1007,16 @@ fn run_git<const N: usize>(args: [&str; N]) -> Option<String> {
 }
 
 fn recording_command(slug: &str, start: RecordingStart) -> String {
+    use std::fmt::Write;
+
     let mut command = String::from("cargo run --release -p kidcli -- play-native");
     if let Some(level) = start.warp_level {
-        command.push_str(&format!(" --warp-level {level:02X}"));
+        let _ = write!(command, " --warp-level {level:02X}");
     }
     if start.settled {
         command.push_str(" --settled");
     }
-    command.push_str(&format!(" --record {slug}"));
+    let _ = write!(command, " --record {slug}");
     command
 }
 

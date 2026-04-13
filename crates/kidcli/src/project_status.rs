@@ -218,9 +218,8 @@ fn load_tas_frontier(repo_root: &Path) -> Result<TasFrontierStatus> {
 }
 
 fn next_agent_note_status(note_path: &Path, active_slug: &str) -> String {
-    let contents = match fs::read_to_string(note_path) {
-        Ok(contents) => contents,
-        Err(_) => return "missing".to_owned(),
+    let Ok(contents) = fs::read_to_string(note_path) else {
+        return "missing".to_owned();
     };
     match extract_frontmatter_slug(&contents).as_deref() {
         Some(slug) if slug == active_slug => "current".to_owned(),
@@ -307,9 +306,6 @@ fn load_top_open_items(
             system: system.to_owned(),
             summary: summary.to_owned(),
         });
-        if items.len() >= limit {
-            continue;
-        }
     }
     items.sort_by(|left, right| {
         fn priority_rank(priority: &str) -> u8 {

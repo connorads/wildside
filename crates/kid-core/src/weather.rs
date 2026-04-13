@@ -725,6 +725,7 @@ pub(crate) struct WeatherWorkerOutputSub61CA {
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+#[allow(clippy::needless_pass_by_value, reason = "test callers pass by value")]
 pub(crate) fn step_weather_worker_sub_61CA(
     input: WeatherWorkerInputSub61CA,
 ) -> WeatherWorkerOutputSub61CA {

@@ -819,7 +819,7 @@ pub(crate) fn run_autonomous_loop(
                 summary: capability.summary.clone(),
             })
             .collect();
-        ledger.blocker = cycle.blocker.clone();
+        ledger.blocker.clone_from(&cycle.blocker);
         write_json(&ledger_path, &ledger)?;
 
         if emit_json {
@@ -1120,7 +1120,12 @@ fn source_port_recent_matching_stall_count(repo_root: &Path, fingerprint: &str) 
         .filter(|path| {
             path.file_name()
                 .and_then(|name| name.to_str())
-                .is_some_and(|name| name.starts_with("cycle-") && name.ends_with(".json"))
+                .is_some_and(|name| {
+                    name.starts_with("cycle-")
+                        && std::path::Path::new(name)
+                            .extension()
+                            .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
+                })
         })
         .collect::<Vec<_>>();
     cycle_paths.sort();
@@ -1300,7 +1305,7 @@ fn evaluate_source_port_frontier_cycle(
                     Some(format!("ready-backlog:{}", issue.id)),
                     summary,
                 )
-            } else if let Some(gate_failure) = select_release_gate_blocker(repo_root)? {
+            } else if let Some(gate_failure) = select_release_gate_blocker(repo_root) {
                 let task = source_port_frontier_release_gate_task(frontier, &note, &gate_failure);
                 let summary = format!(
                     "TAS frontier {} is closed through frame {}; delegated to failing release-gate step {} ({}).",
@@ -1321,32 +1326,7 @@ fn evaluate_source_port_frontier_cycle(
                 )
             } else {
                 let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
-                if !uncovered.is_empty() {
-                    let batch_size = (routines_per_task as usize).min(uncovered.len());
-                    let batch = &uncovered[..batch_size];
-                    let first_label = &batch[0].1;
-                    let task = source_port_frontier_gameplay_backlog_task(
-                        frontier,
-                        &note,
-                        batch,
-                        uncovered.len(),
-                    );
-                    let summary = format!(
-                        "TAS frontier {} is closed through frame {}; no actionable case-queue, delegated to gameplay-backlog ({} uncovered sub_ labels, batch of {}, first: {}).",
-                        frontier.slug,
-                        frontier.authoritative_clean_through,
-                        uncovered.len(),
-                        batch_size,
-                        first_label
-                    );
-                    (
-                        task,
-                        Some(AutonomyGoal::GameplayBacklog),
-                        Some(first_label.clone()),
-                        Some(format!("gameplay-backlog:{first_label}")),
-                        summary,
-                    )
-                } else {
+                if uncovered.is_empty() {
                     let pv_report =
                         evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
                     if let Some(pv_task) = pv_report.task_package {
@@ -1401,6 +1381,31 @@ fn evaluate_source_port_frontier_cycle(
                             summary,
                         )
                     }
+                } else {
+                    let batch_size = (routines_per_task as usize).min(uncovered.len());
+                    let batch = &uncovered[..batch_size];
+                    let first_label = &batch[0].1;
+                    let task = source_port_frontier_gameplay_backlog_task(
+                        frontier,
+                        &note,
+                        batch,
+                        uncovered.len(),
+                    );
+                    let summary = format!(
+                        "TAS frontier {} is closed through frame {}; no actionable case-queue, delegated to gameplay-backlog ({} uncovered sub_ labels, batch of {}, first: {}).",
+                        frontier.slug,
+                        frontier.authoritative_clean_through,
+                        uncovered.len(),
+                        batch_size,
+                        first_label
+                    );
+                    (
+                        task,
+                        Some(AutonomyGoal::GameplayBacklog),
+                        Some(first_label.clone()),
+                        Some(format!("gameplay-backlog:{first_label}")),
+                        summary,
+                    )
                 }
             }
         }
@@ -1441,32 +1446,7 @@ fn evaluate_source_port_frontier_cycle(
             Some(AutonomyGoal::CaseQueue) => {
                 // Stalled case-queue: pivot to gameplay-backlog if uncovered routines exist
                 let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
-                if !uncovered.is_empty() {
-                    let batch_size = (routines_per_task as usize).min(uncovered.len());
-                    let batch = &uncovered[..batch_size];
-                    let first_label = batch[0].1.clone();
-                    let backlog_task = source_port_frontier_gameplay_backlog_task(
-                        frontier,
-                        &note,
-                        batch,
-                        uncovered.len(),
-                    );
-                    task_package = TaskPackage {
-                        generated_at: autonomy_timestamp(),
-                        cycle,
-                        progress_fingerprint: base_progress_fingerprint.clone(),
-                        delegated_goal: Some(AutonomyGoal::GameplayBacklog),
-                        delegated_target: Some(first_label.clone()),
-                        recovery_mode: Some(RecoveryMode::StalledFingerprint),
-                        recovery_step: Some(RecoveryStep::PivotToNextLane),
-                        stalled_repetition_count: Some(repeated_cycles),
-                        pivot_reason: Some(format!(
-                            "case-queue delegated fingerprint repeated for {repeated_cycles} stalled cycles; pivot to gameplay-backlog (next: {first_label})"
-                        )),
-                        next_fallback_goal: Some(AutonomyGoal::GameplayBacklog),
-                        ..backlog_task
-                    };
-                } else {
+                if uncovered.is_empty() {
                     // All sub_ covered; try proactive verification before sweep-parity
                     let pv_report =
                         evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
@@ -1507,6 +1487,31 @@ fn evaluate_source_port_frontier_cycle(
                             ..sweep_task
                         };
                     }
+                } else {
+                    let batch_size = (routines_per_task as usize).min(uncovered.len());
+                    let batch = &uncovered[..batch_size];
+                    let first_label = batch[0].1.clone();
+                    let backlog_task = source_port_frontier_gameplay_backlog_task(
+                        frontier,
+                        &note,
+                        batch,
+                        uncovered.len(),
+                    );
+                    task_package = TaskPackage {
+                        generated_at: autonomy_timestamp(),
+                        cycle,
+                        progress_fingerprint: base_progress_fingerprint.clone(),
+                        delegated_goal: Some(AutonomyGoal::GameplayBacklog),
+                        delegated_target: Some(first_label.clone()),
+                        recovery_mode: Some(RecoveryMode::StalledFingerprint),
+                        recovery_step: Some(RecoveryStep::PivotToNextLane),
+                        stalled_repetition_count: Some(repeated_cycles),
+                        pivot_reason: Some(format!(
+                            "case-queue delegated fingerprint repeated for {repeated_cycles} stalled cycles; pivot to gameplay-backlog (next: {first_label})"
+                        )),
+                        next_fallback_goal: Some(AutonomyGoal::GameplayBacklog),
+                        ..backlog_task
+                    };
                 }
             }
             Some(AutonomyGoal::SweepParity) => {
@@ -1587,7 +1592,9 @@ fn evaluate_source_port_frontier_cycle(
     } else {
         base_progress_fingerprint
     };
-    task_package.progress_fingerprint = progress_fingerprint.clone();
+    task_package
+        .progress_fingerprint
+        .clone_from(&progress_fingerprint);
     let selected_task = task_ready.then(|| task_package.clone());
     let blocker = selected_task
         .as_ref()
@@ -2089,15 +2096,12 @@ fn note_status_for_frontier(
     note_path: &Path,
     active_slug: &str,
 ) -> (NextAgentNoteStatus, Option<String>, String) {
-    let contents = match fs::read_to_string(note_path) {
-        Ok(contents) => contents,
-        Err(_) => {
-            return (
-                NextAgentNoteStatus::Missing,
-                None,
-                "no next-agent note present for the active frontier".to_owned(),
-            );
-        }
+    let Ok(contents) = fs::read_to_string(note_path) else {
+        return (
+            NextAgentNoteStatus::Missing,
+            None,
+            "no next-agent note present for the active frontier".to_owned(),
+        );
     };
     let frontmatter_slug = extract_frontmatter_slug(&contents);
     match frontmatter_slug.as_deref() {
@@ -2573,7 +2577,7 @@ fn evaluate_proactive_verification_cycle(
                 targets,
             } if *enabled => {
                 if let Some(report) =
-                    try_mutation_testing_strategy(repo_root, cycle, output_dir, targets)?
+                    try_mutation_testing_strategy(repo_root, cycle, output_dir, targets)
                 {
                     return Ok(report);
                 }
@@ -2643,9 +2647,8 @@ fn try_root_cause_backlog_strategy(
         .iter()
         .find(|issue| issue.summary.to_ascii_lowercase().contains(&marker_lower));
 
-    let issue = match ready_issue {
-        Some(issue) => issue,
-        None => return Ok(None),
+    let Some(issue) = ready_issue else {
+        return Ok(None);
     };
 
     let impl_target = match issue.system.as_str() {
@@ -3068,7 +3071,7 @@ fn try_mutation_testing_strategy(
     cycle: u32,
     output_dir: &str,
     targets: &[MutationTarget],
-) -> Result<Option<CycleReport>> {
+) -> Option<CycleReport> {
     // Sort by tier, then pick first module without outcomes.json.
     let mut sorted: Vec<&MutationTarget> = targets.iter().collect();
     sorted.sort_by_key(|t| t.tier);
@@ -3138,16 +3141,16 @@ fn try_mutation_testing_strategy(
                 target_routines: None,
             };
 
-            return Ok(Some(proactive_verification_report(
+            return Some(proactive_verification_report(
                 cycle,
                 "mutation-testing",
                 module_stem,
                 task,
-            )));
+            ));
         }
     }
 
-    Ok(None)
+    None
 }
 
 /// Collect uncovered sub_ labels from asm-coverage, sorted by priority then subsystem gap.
@@ -3218,8 +3221,8 @@ fn collect_uncovered_sub_labels(
 
     // Sort: explicit priority first, then open backlog signals, then subsystem/name.
     uncovered.sort_by(|a, b| {
-        fn priority_rank(p: &Option<String>) -> u8 {
-            match p.as_deref() {
+        fn priority_rank(p: Option<&String>) -> u8 {
+            match p.map(String::as_str) {
                 Some("high") => 0,
                 Some("medium") => 1,
                 Some("low") => 2,
@@ -3238,8 +3241,8 @@ fn collect_uncovered_sub_labels(
                 || (subsystem == "kid_main" && has_core_signal);
             if matches_backlog_signal { 0 } else { 1 }
         }
-        priority_rank(&a.4)
-            .cmp(&priority_rank(&b.4))
+        priority_rank(a.4.as_ref())
+            .cmp(&priority_rank(b.4.as_ref()))
             .then_with(|| {
                 subsystem_signal_rank(&a.0, &backlog_issues)
                     .cmp(&subsystem_signal_rank(&b.0, &backlog_issues))
@@ -3330,8 +3333,8 @@ fn collect_loc_labels(
 
     // Sort: explicit priority first, then open backlog signals, then subsystem/name.
     candidates.sort_by(|a, b| {
-        fn priority_rank(p: &Option<String>) -> u8 {
-            match p.as_deref() {
+        fn priority_rank(p: Option<&String>) -> u8 {
+            match p.map(String::as_str) {
                 Some("high") => 0,
                 Some("medium") => 1,
                 Some("low") => 2,
@@ -3350,8 +3353,8 @@ fn collect_loc_labels(
                 || (subsystem == "kid_main" && has_core_signal);
             if matches_backlog_signal { 0 } else { 1 }
         }
-        priority_rank(&a.priority)
-            .cmp(&priority_rank(&b.priority))
+        priority_rank(a.priority.as_ref())
+            .cmp(&priority_rank(b.priority.as_ref()))
             .then_with(|| {
                 subsystem_signal_rank(&a.subsystem, &backlog_issues)
                     .cmp(&subsystem_signal_rank(&b.subsystem, &backlog_issues))
@@ -4117,7 +4120,7 @@ fn source_port_frontier_ready_backlog_issue_task(
     task
 }
 
-fn select_release_gate_blocker(repo_root: &Path) -> Result<Option<ReleaseGateFailureCandidate>> {
+fn select_release_gate_blocker(repo_root: &Path) -> Option<ReleaseGateFailureCandidate> {
     #[derive(Deserialize)]
     struct GateReport {
         #[serde(default)]
@@ -4151,15 +4154,15 @@ fn select_release_gate_blocker(repo_root: &Path) -> Result<Option<ReleaseGateFai
             .into_iter()
             .find(|step| step.status.eq_ignore_ascii_case("failed"))
         {
-            return Ok(Some(ReleaseGateFailureCandidate {
+            return Some(ReleaseGateFailureCandidate {
                 target: target.to_owned(),
                 step_name: step.name,
                 detail: step.detail,
-            }));
+            });
         }
     }
 
-    Ok(None)
+    None
 }
 
 fn source_port_frontier_release_gate_task(

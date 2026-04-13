@@ -508,17 +508,14 @@ pub(super) fn push_enemy_sprite(
     level_visuals: &NativeLevelVisuals,
     object_type: u8,
 ) {
-    let enemy_visuals = match level_visuals.enemies.families.get(&object_type) {
-        Some(vis) => vis,
-        None => {
-            let colour = if object.damage_flash {
-                ENEMY_FLASH_COLOUR
-            } else {
-                enemy_family_colour(object_type)
-            };
-            commands.push(object_rect(object, trace, 16, 16, colour));
-            return;
-        }
+    let Some(enemy_visuals) = level_visuals.enemies.families.get(&object_type) else {
+        let colour = if object.damage_flash {
+            ENEMY_FLASH_COLOUR
+        } else {
+            enemy_family_colour(object_type)
+        };
+        commands.push(object_rect(object, trace, 16, 16, colour));
+        return;
     };
 
     let frame = select_enemy_frame(trace, enemy_visuals, object);

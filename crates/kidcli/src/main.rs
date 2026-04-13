@@ -726,7 +726,7 @@ fn main() -> Result<()> {
             let repo_root = current_dir()?;
             run_player(
                 &repo_root,
-                PlayOptions {
+                &PlayOptions {
                     rom,
                     fullscreen,
                     scale,
@@ -776,7 +776,7 @@ fn main() -> Result<()> {
             };
             run_native_player(
                 &manifest,
-                NativePlayOptions {
+                &NativePlayOptions {
                     fullscreen,
                     scale,
                     debug_overlay,
@@ -1353,7 +1353,7 @@ fn main() -> Result<()> {
                 .as_deref()
                 .map(native_player::LayerFilter::solo)
                 .unwrap_or_default();
-            sweep::capture_frames(&manifest, level_id, &frame_indices, &output, &filter)?;
+            sweep::capture_frames(&manifest, level_id, &frame_indices, &output, filter)?;
         }
         Commands::VerifyTas {
             rom,
@@ -1969,10 +1969,7 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
         .event_pump()
         .map_err(|error| anyhow!("failed to create SDL event pump: {error}"))?;
     let mut controller = open_first_controller(&game_controller)?;
-    let audio_queue = audio
-        .as_ref()
-        .and_then(|audio| open_audio_queue(audio).transpose())
-        .transpose()?;
+    let audio_queue = audio.as_ref().and_then(open_audio_queue);
     let frame_time = Duration::from_micros(16_667);
     let mut frame_index = 0usize;
     const AUDIO_SAMPLE_RATE: u32 = 44_100;
@@ -2033,8 +2030,8 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
         canvas.present();
 
         let elapsed = frame_started.elapsed();
-        if elapsed < frame_time {
-            thread::sleep(frame_time - elapsed);
+        if let Some(remaining) = frame_time.checked_sub(elapsed) {
+            thread::sleep(remaining);
         }
         frame_index = frame_index.saturating_add(1);
     }
@@ -2042,18 +2039,17 @@ fn run_sdl(rom_bytes: &[u8], scale: u32, autostart_level: bool) -> Result<()> {
     Ok(())
 }
 
-fn open_audio_queue(audio: &sdl2::AudioSubsystem) -> Result<Option<sdl2::audio::AudioQueue<f32>>> {
+fn open_audio_queue(audio: &sdl2::AudioSubsystem) -> Option<sdl2::audio::AudioQueue<f32>> {
     let desired = sdl2::audio::AudioSpecDesired {
         freq: Some(44_100),
         channels: Some(2),
         samples: Some(1024),
     };
-    let queue = match audio.open_queue::<f32, _>(None, &desired) {
-        Ok(queue) => queue,
-        Err(_) => return Ok(None),
+    let Ok(queue) = audio.open_queue::<f32, _>(None, &desired) else {
+        return None;
     };
     queue.resume();
-    Ok(Some(queue))
+    Some(queue)
 }
 
 fn open_first_controller(

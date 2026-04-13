@@ -9,6 +9,10 @@ use crate::sweep::{
 
 /// Run native and oracle side-by-side, print per-frame divergences.
 #[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::fn_params_excessive_bools,
+    reason = "game engine API with multiple independent toggles"
+)]
 pub fn run_tas_diff(
     repo_root: &Path,
     rom_path: &Path,
