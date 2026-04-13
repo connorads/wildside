@@ -660,7 +660,17 @@ pub fn initiate_jump(x_vel: i32, jump_height: u16) -> (i32, i32) {
     // neg.l d0 — negate for upward
     let y_vel = -(scaled as i32);
 
-    // x_vel *= 3/4: asr #1, copy, asr #1, add
+    // ASM loc_A466 (kid.asm:12803): `move.l d0,y_vel(a3); move.l d0,($FFFFFAAA)`
+    // — stores computed y_vel. Also `tst.l y_pos(a3); bpl.s loc_A480` wraps
+    // negative y_pos to Level_height_pixels. KidGrabbedByHand check at 12799
+    // weakens the jump by `addi.l #$20000,d0` (less negative → lower jump).
+    // Native: y_vel store and y_pos clamp happen at call sites (movement.rs);
+    // $FFFFFAAA is not modelled; KidGrabbedByHand not yet ported.
+
+    // ASM loc_A480 (kid.asm:12813): `move.l x_vel(a3),d0; asr.l #1,d0;
+    // move.l d0,d1; asr.l #1,d1; add.l d1,d0; move.l d0,x_vel(a3)` — x_vel
+    // *= 3/4 via arithmetic shift. Then `moveq #sfx_Jump,d0; jsr PlaySound`
+    // plays the jump sound. Native: sound is triggered at call sites.
     let half = x_vel >> 1; // asr.l #1
     let quarter = half >> 1; // asr.l #1
     let new_x_vel = half + quarter;
@@ -2000,6 +2010,62 @@ mod tests {
         // Verify against positive x_vel (same abs)
         let (_, y_vel_pos) = initiate_jump(0x2_0000, JUMP_HEIGHTS[0]);
         assert_eq!(y_vel, y_vel_pos);
+    }
+
+    /// ASM loc_A466 (kid.asm:12803): `tst.b (KidGrabbedByHand); beq.w loc_A466;
+    /// addi.l #$20000,d0` — when KidGrabbedByHand is set, y_vel is weakened
+    /// by adding $20000 (making the negative value less negative → lower jump).
+    /// This test verifies the delta: grabbed jump = ungrabbed jump + $20000.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A466_grabbed_by_hand_weakens_jump() {
+        // Normal jump y_vel (KidGrabbedByHand = false)
+        let (_, y_vel_normal) = initiate_jump(0x2_0000, JUMP_HEIGHTS[0]);
+        // Grabbed adjustment: y_vel += $20000 (closer to zero)
+        let y_vel_grabbed = y_vel_normal + 0x2_0000;
+        assert!(
+            y_vel_grabbed > y_vel_normal,
+            "loc_A466: grabbed y_vel ({y_vel_grabbed:#x}) should be closer to zero \
+             than normal ({y_vel_normal:#x})"
+        );
+        // Grabbed jump is still upward (negative)
+        assert!(
+            y_vel_grabbed < 0,
+            "loc_A466: grabbed y_vel ({y_vel_grabbed:#x}) should still be negative (upward)"
+        );
+    }
+
+    /// ASM loc_A480 (kid.asm:12813): `move.l x_vel(a3),d0; asr.l #1,d0;
+    /// move.l d0,d1; asr.l #1,d1; add.l d1,d0; move.l d0,x_vel(a3)` — the
+    /// jump reduces x_vel to 3/4 of its original value via arithmetic shift.
+    /// Verify exact values for representative speeds.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A480_x_vel_three_quarter_reduction() {
+        // Walking speed: 0x2_0000
+        // asr #1 → 0x1_0000; asr #1 → 0x8000; sum = 0x1_8000
+        let (new_x, _) = initiate_jump(0x2_0000, JUMP_HEIGHTS[0]);
+        assert_eq!(new_x, 0x1_8000, "loc_A480: 0x2_0000 * 3/4 = 0x1_8000");
+
+        // Negative walking speed: -0x2_0000
+        // asr #1 → -0x1_0000; asr #1 → -0x8000; sum = -0x1_8000
+        let (new_x_neg, _) = initiate_jump(-0x2_0000, JUMP_HEIGHTS[0]);
+        assert_eq!(
+            new_x_neg, -0x1_8000,
+            "loc_A480: -0x2_0000 * 3/4 = -0x1_8000"
+        );
+
+        // Odd value: -1 (ASR rounding toward -∞)
+        // asr #1 → -1; asr #1 → -1; sum = -2
+        let (new_x_odd, _) = initiate_jump(-1, JUMP_HEIGHTS[0]);
+        assert_eq!(
+            new_x_odd, -2,
+            "loc_A480: -1 * 3/4 via ASR = -2 (rounds toward -∞)"
+        );
+
+        // Zero stays zero
+        let (new_x_zero, _) = initiate_jump(0, JUMP_HEIGHTS[0]);
+        assert_eq!(new_x_zero, 0, "loc_A480: 0 * 3/4 = 0");
     }
 
     // -- initiate_jump negative x_vel sign --

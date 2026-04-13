@@ -2303,6 +2303,25 @@ impl OpeningSliceState {
                     }
                 }
 
+                // ASM sub_A4EE (kid.asm:12867) runs here (between sub_B168 and
+                // sub_902A). It tentatively applies both velocities to position,
+                // calls j_GfxObjects_Collision, then dispatches on collision_type:
+                //   - loc_A532 (kid.asm:12888): collision_type == 0 or unrecognised
+                //     → restore old x_pos/y_pos and return (position update deferred
+                //     to the subsequent sub_902A + sub_8F26 passes).
+                //   - loc_A53C (kid.asm:12894): collision_type == $14 (floor+right-wall
+                //     compound) → kill Kid unless Juggernaut or Skycutter.
+                //   - loc_A556 (kid.asm:12903): Juggernaut/Skycutter survive $14 —
+                //     clear collision_type, set x_vel=y_vel=$FFFE0000, reposition
+                //     Kid from the tile address cached in $FFFFFB6C.
+                //   - loc_A594: collision_type == $18 (floor+left-wall compound) →
+                //     same kill/bounce logic mirrored for the left side.
+                // Native: the decomposed probe architecture (separate floor/ceiling
+                // and wall passes) eliminates the compound collision_type. The
+                // loc_A532 restore is implicit — position is applied incrementally
+                // in each axis. The $14/$18 crush paths are not yet ported (they
+                // require GfxObjects_Collision compound detection).
+
                 // Step 3: sub_902A — apply y_pos += y_vel, then floor/ceiling collision.
                 // ASM runs sub_902A (vertical) before sub_8F26 (horizontal), so floor
                 // probes see old x_pos. This is critical at ledge edges: with old x_pos

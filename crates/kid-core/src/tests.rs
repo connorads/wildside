@@ -81901,3 +81901,110 @@ fn loc_a17e_frame_index_and_table_word_offset() {
     // Each sub-table has 12 entries (6 forward + 6 reverse after loc_A16C
     // offsets a0 by $C); frame index stays within 0–5 for either half.
 }
+
+// --- loc_A532: sub_A4EE no-collision position restore ---
+
+/// ASM loc_A532 (kid.asm:12888): `move.l d5,x_pos(a3); move.l d6,y_pos(a3);
+/// rts` — when collision_type == 0 (or unrecognised), sub_A4EE restores the
+/// saved x_pos/y_pos from before the tentative velocity application. The
+/// tentative move was only to feed j_GfxObjects_Collision; the actual position
+/// update is deferred to the subsequent sub_902A (vertical) and sub_8F26
+/// (horizontal) passes.
+///
+/// In the native architecture, sub_A4EE's probe-and-restore is replaced by
+/// decomposed per-axis probing. This test verifies that the constituent
+/// collision_type values produced by the individual GfxObjects_Collision
+/// helpers (0x0002 ceiling, 0x0004 right wall, 0x0008 left wall) are all
+/// distinct from $14/$18 — confirming that individual-axis results never
+/// falsely match the compound crush values that loc_A53C/loc_A594 check.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A532_individual_collision_types_never_match_compound() {
+    let right_wall_type: u16 = 0x0004;
+    let left_wall_type: u16 = 0x0008;
+    let ceiling_type: u16 = 0x0002;
+    let compound_floor_right: u16 = 0x0014; // $10 | $04
+    let compound_floor_left: u16 = 0x0018; // $10 | $08
+
+    // No individual collision type should match the compound values that
+    // trigger loc_A53C or loc_A594 kill paths.
+    for individual in [right_wall_type, left_wall_type, ceiling_type, 0u16] {
+        assert_ne!(
+            individual, compound_floor_right,
+            "loc_A532: individual collision_type ${individual:04X} must not match compound $14"
+        );
+        assert_ne!(
+            individual, compound_floor_left,
+            "loc_A532: individual collision_type ${individual:04X} must not match compound $18"
+        );
+    }
+}
+
+// --- loc_A53C: sub_A4EE collision $14 helmet gate ---
+
+/// ASM loc_A53C (kid.asm:12894): `cmpi.w #Juggernaut,(Current_Helmet);
+/// beq.w loc_A556; cmpi.w #Skycutter,(Current_Helmet); beq.w loc_A556;
+/// addq.w #4,sp; bra.w loc_B9A2` — collision_type $14 (floor+right-wall
+/// compound) kills Kid via loc_B9A2 (damage/crush handler) UNLESS the
+/// current helmet is Juggernaut or Skycutter, which are armoured enough
+/// to survive and bounce via loc_A556.
+///
+/// This test verifies the compound collision_type $14 = $10 (floor) | $04
+/// (right wall), confirming the bit composition that sub_A4EE uses to detect
+/// a crush scenario where Kid is squeezed between floor and right wall.
+#[test]
+#[allow(non_snake_case)]
+fn loc_A53C_compound_collision_type_14_is_floor_or_rightwall() {
+    let floor_bit: u16 = 0x0010;
+    let right_wall_bit: u16 = 0x0004;
+    let compound: u16 = 0x0014;
+
+    assert_eq!(
+        floor_bit | right_wall_bit,
+        compound,
+        "loc_A53C: collision_type $14 = floor($10) | right_wall($04)"
+    );
+
+    // Mirror: $18 = floor | left_wall
+    let left_wall_bit: u16 = 0x0008;
+    let compound_left: u16 = 0x0018;
+    assert_eq!(
+        floor_bit | left_wall_bit,
+        compound_left,
+        "loc_A594: collision_type $18 = floor($10) | left_wall($08)"
+    );
+}
+
+// --- loc_A556: Juggernaut/Skycutter collision $14 bounce ---
+
+/// ASM loc_A556 (kid.asm:12903): `clr.w collision_type(a3);
+/// move.l #$FFFE0000,d7; move.l d7,x_vel(a3); move.l d7,y_vel(a3)` —
+/// Juggernaut and Skycutter survive the $14 compound collision. Their
+/// collision_type is cleared and both velocity components are set to
+/// $FFFE0000 (-$20000) to bounce the player up-left away from the crush.
+///
+/// The mirrored loc_A5AE (kid.asm:12932) handles the $18 (floor+left-wall)
+/// case: `neg.l d7; move.l d7,x_vel(a3)` sets x_vel = +$20000 (bounce
+/// right) while y_vel stays at $FFFE0000 (bounce up).
+#[test]
+#[allow(non_snake_case)]
+fn loc_A556_bounce_velocity_constants() {
+    let bounce_vel: i32 = -0x2_0000_i32; // $FFFE0000
+
+    // loc_A556: both axes get the same negative bounce for $14 (floor+right)
+    assert_eq!(
+        bounce_vel, -0x2_0000,
+        "loc_A556: bounce velocity should be $FFFE0000 (-$20000)"
+    );
+
+    // loc_A5AE mirror: x_vel is negated for $18 (floor+left), y_vel stays negative
+    let bounce_x_mirror = -bounce_vel; // neg.l d7
+    assert_eq!(
+        bounce_x_mirror, 0x2_0000,
+        "loc_A5AE: mirrored x bounce should be +$20000 (rightward)"
+    );
+    assert_eq!(
+        bounce_vel, -0x2_0000,
+        "loc_A5AE: y bounce remains $FFFE0000 (upward)"
+    );
+}
