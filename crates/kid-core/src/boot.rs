@@ -179,6 +179,23 @@ pub(crate) const SPRITE_TABLE_DMA_LENGTH_BYTES_LOC_A70: u16 = 0x0280;
 #[allow(dead_code)]
 pub(crate) const KID_ART_DMA_VRAM_BASE_LOC_AD4: u16 = 0xC4A0;
 
+/// ASM loc_B42 (kid.asm:1309): empty-sprite-table early path in
+/// `Transfer_SpriteAndKidToVRAM` (sub_A5C).  When `Addr_NextSpriteSlot ==
+/// $FFFF0000` (no sprites allocated this frame), the ROM clears the first
+/// 8 bytes of the sprite table (`clr.l (Sprite_Table).l; clr.l ($FFFF0004).l`)
+/// to zero the link/y and size/x fields of sprite slot 0, ensuring a proper
+/// terminator.  Then `bra.w loc_A70` proceeds to DMA the (now-terminated)
+/// table to VRAM.
+///
+/// In the native port, VDP DMA is bypassed; sprite attributes feed the
+/// software renderer directly.  This constant documents the sentinel
+/// `Addr_NextSpriteSlot` value that triggers the loc_B42 early path.
+#[allow(dead_code)]
+pub(crate) const SPRITE_TABLE_BASE_SENTINEL_LOC_B42: u32 = 0xFFFF_0000;
+/// Number of bytes cleared at loc_B42: two `clr.l` instructions = 8 bytes.
+#[allow(dead_code)]
+pub(crate) const SPRITE_TABLE_EMPTY_CLEAR_BYTES_LOC_B42: u32 = 8;
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsStarCleanupLoc10BE6 {

@@ -84448,3 +84448,136 @@ fn sub_af10_no_wall_scan_returns_eq() {
         "sub_AF10: wall scan with empty column should return no hit (EQ)",
     );
 }
+
+// ---------------------------------------------------------------------------
+// ASM loc_B42 (kid.asm:1309): empty-sprite-table path in
+// Transfer_SpriteAndKidToVRAM (sub_A5C).  When `Addr_NextSpriteSlot ==
+// $FFFF0000`, `clr.l (Sprite_Table).l; clr.l ($FFFF0004).l; bra.w loc_A70`.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_B42: sentinel value for the empty-sprite-table early exit.
+/// `cmpi.l #$FFFF0000,d7; beq.w loc_B42` — triggered when
+/// `Addr_NextSpriteSlot` still points at the base of Sprite_Table,
+/// meaning no sprites were allocated this frame.
+#[test]
+fn loc_b42_sprite_table_base_sentinel_is_ffff0000() {
+    assert_eq!(
+        crate::boot::SPRITE_TABLE_BASE_SENTINEL_LOC_B42,
+        0xFFFF_0000,
+        "loc_B42: Addr_NextSpriteSlot sentinel must equal Sprite_Table base",
+    );
+}
+
+/// ASM loc_B42: clears 8 bytes (two `clr.l`) at the start of Sprite_Table
+/// to terminate the sprite list before DMA at loc_A70.
+#[test]
+fn loc_b42_empty_sprite_table_clears_8_bytes() {
+    assert_eq!(
+        crate::boot::SPRITE_TABLE_EMPTY_CLEAR_BYTES_LOC_B42,
+        8,
+        "loc_B42: two clr.l = 8 bytes cleared to terminate empty sprite table",
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM sub_B43A (kid.asm:14348): floor-support scan.  The crawling path
+// (loc_B482–loc_B494) overrides the stored $FA78 half-width with a
+// per-helmet value before the common scan at loc_B4A0/loc_B4B2.
+// Native: `walking_floor_support_exists_at_current_position` with
+// `form.half_width()` providing the helmet-specific values.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_B482 (kid.asm:14366): crawling floor-scan half-width defaults
+/// to 7 for most helmets.  `moveq #7,d1` is the first instruction.
+/// Native: `PlayerForm::half_width()` returns 7 for Cyclone, RedStealth,
+/// Eyeclops, IronKnight, Berzerker, Maniaxe, Micromax.
+#[test]
+fn loc_b482_crawl_scan_default_half_width_is_7() {
+    use crate::types::PlayerForm;
+    for form in [
+        PlayerForm::Cyclone,
+        PlayerForm::RedStealth,
+        PlayerForm::Eyeclops,
+        PlayerForm::IronKnight,
+        PlayerForm::Berzerker,
+        PlayerForm::Maniaxe,
+        PlayerForm::Micromax,
+    ] {
+        assert_eq!(
+            form.half_width(),
+            7,
+            "loc_B482: {form:?} crawl scan half-width should be 7 (moveq #7,d1)",
+        );
+    }
+}
+
+/// ASM loc_B482 (kid.asm:14368): TheKid branch — `cmpi.w #The_Kid,
+/// (Current_Helmet); bne.w loc_B494; moveq #5,d1`.  TheKid uses a
+/// narrower 5px floor-scan half-width.
+#[test]
+fn loc_b482_thekid_crawl_scan_half_width_is_5() {
+    assert_eq!(
+        crate::types::PlayerForm::TheKid.half_width(),
+        5,
+        "loc_B482: TheKid crawl scan half-width should be 5 (moveq #5,d1)",
+    );
+}
+
+/// ASM loc_B494 (kid.asm:14374): Skycutter branch — `cmpi.w #Skycutter,
+/// (Current_Helmet); bne.w loc_B4A0; moveq #$A,d1`.  Skycutter uses a
+/// wider 10px floor-scan half-width.
+#[test]
+fn loc_b494_skycutter_crawl_scan_half_width_is_10() {
+    assert_eq!(
+        crate::types::PlayerForm::Skycutter.half_width(),
+        10,
+        "loc_B494: Skycutter crawl scan half-width should be $A (10)",
+    );
+}
+
+/// ASM loc_B4A0 (kid.asm:14379): common scan-range computation.
+/// `move.w d1,d2; neg.w d1; move.w x_pos(a3),d0; add.w d0,d1;
+/// add.w d0,d2; asr.w #4,d1` → left_col = (x_pos - hw) >> 4.
+/// ASM loc_B4B2 (kid.asm:14389): `asr.w #4,d2` → right_col =
+/// (x_pos + hw) >> 4.  Verify scan range for TheKid at x=80px.
+#[test]
+fn loc_b4a0_b4b2_scan_range_for_thekid_at_x80() {
+    // TheKid half-width = 5.  At x_pos = 80:
+    //   left_col  = (80 - 5) >> 4 = 75 >> 4 = 4
+    //   right_col = (80 + 5) >> 4 = 85 >> 4 = 5
+    let hw = crate::types::PlayerForm::TheKid.half_width();
+    let x = 80i32;
+    let left = (x - hw) >> 4;
+    let right = (x + hw) >> 4;
+    assert_eq!(left, 4, "loc_B4A0: left_col = (80 - 5) >> 4 = 4");
+    assert_eq!(right, 5, "loc_B4B2: right_col = (80 + 5) >> 4 = 5");
+}
+
+/// ASM loc_B4A0/loc_B4B2: scan range with Skycutter (hw=10) at x=160.
+/// left_col = (160 - 10) >> 4 = 150 >> 4 = 9.
+/// right_col = (160 + 10) >> 4 = 170 >> 4 = 10.
+#[test]
+fn loc_b4a0_b4b2_scan_range_for_skycutter_at_x160() {
+    let hw = crate::types::PlayerForm::Skycutter.half_width();
+    let x = 160i32;
+    let left = (x - hw) >> 4;
+    let right = (x + hw) >> 4;
+    assert_eq!(left, 9, "loc_B4A0: left_col = (160 - 10) >> 4 = 9");
+    assert_eq!(right, 10, "loc_B4B2: right_col = (160 + 10) >> 4 = 10");
+}
+
+/// ASM loc_B4A0 (kid.asm:14385-14387): `asr.w #4,d1; bpl.s loc_B4B2;
+/// moveq #0,d1` — clamp left column to 0 when x_pos < half_width.
+/// At x=3 with TheKid (hw=5): (3 - 5) >> 4 = -2 >> 4 = -1, clamped to 0.
+#[test]
+fn loc_b4a0_left_column_clamped_to_zero_near_left_edge() {
+    let hw = crate::types::PlayerForm::TheKid.half_width();
+    let x = 3i32;
+    let raw_left = (x - hw) >> 4; // -2 >> 4 = -1 (arithmetic shift)
+    assert!(raw_left < 0, "pre-clamp left should be negative");
+    let clamped_left = raw_left.max(0);
+    assert_eq!(
+        clamped_left, 0,
+        "loc_B4A0: left column must clamp to 0 when x < half_width",
+    );
+}

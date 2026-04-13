@@ -3720,6 +3720,23 @@ impl OpeningSliceState {
         }
     }
 
+    /// ASM sub_B43A (kid.asm:14348): floor-support scan across player width.
+    ///
+    /// `collision_hw` is the scan half-width in pixels.  The caller provides
+    /// `form.half_width()` which mirrors the ASM's per-helmet dispatch:
+    ///
+    /// - ASM loc_B482 (kid.asm:14366): crawling path overrides `$FA78` with
+    ///   helmet-specific values: `moveq #7,d1` (default), then:
+    /// - ASM loc_B494 (kid.asm:14374): `cmpi.w #Skycutter,(Current_Helmet)`
+    ///   → `moveq #$A,d1` (10).  TheKid → `moveq #5,d1`.
+    /// - ASM loc_B4A0 (kid.asm:14379): common entry — `move.w d1,d2; neg.w d1;
+    ///   move.w x_pos(a3),d0; add.w d0,d1; add.w d0,d2; asr.w #4,d1`
+    ///   → left_col = (x_pos - hw) >> 4.
+    /// - ASM loc_B4B2 (kid.asm:14389): `asr.w #4,d2` → right_col = (x_pos + hw)
+    ///   >> 4; clamp to `Level_width_blocks - 1`.
+    ///
+    /// Non-crawling callers enter at loc_B4A0 directly with `d1 = ($FFFFFA78).w`
+    /// (the stored half-width from sub_B41C / unk_B408 table).
     fn walking_floor_support_exists_at_current_position(
         &self,
         grid: &terrain::BlockGrid,
@@ -3728,7 +3745,9 @@ impl OpeningSliceState {
         let x_int = (self.player.x_pos >> 16) as i16 as i32;
         let y_int = (self.player.y_pos >> 16) as i16 as i32;
         let probe_row = ((y_int + 1) >> 4).max(0) as u16;
+        // ASM loc_B4A0: left_col = (x_pos - d1) >> 4; loc_B4B2: bpl.s (clamp ≥ 0)
         let left_col = ((x_int - collision_hw) >> 4).max(0) as u16;
+        // ASM loc_B4B2: right_col = (x_pos + d1) >> 4; cmp Level_width_blocks
         let right_col = ((x_int + collision_hw) >> 4)
             .max(0)
             .min(grid.width_cells as i32 - 1) as u16;

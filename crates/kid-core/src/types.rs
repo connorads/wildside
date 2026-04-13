@@ -759,6 +759,10 @@ impl PlayerForm {
     /// Called via sub_B41C at level start (loc_757E, kid.asm:7689) and during
     /// helmet transform (sub_7ACC, kid.asm:8188).
     /// Used by sub_8F26 (wall collision) and GfxObjects_Collision.
+    ///
+    /// Also used as the crawling floor-scan half-width override at
+    /// ASM loc_B482 (kid.asm:14366): `moveq #7,d1` (default), TheKid→5,
+    /// ASM loc_B494 (kid.asm:14374): Skycutter→10 (`moveq #$A,d1`).
     pub(crate) fn half_width(self) -> i32 {
         match self {
             Self::TheKid => 5,
