@@ -2194,6 +2194,16 @@ impl OpeningSliceState {
                 // (y_pos + 1) / 16 across player width BEFORE any velocity/position
                 // updates. If no Solid/Spikes cell found → loc_B5F6: y_pos += 1px,
                 // transition to Jump, skip sub_9A0A/sub_8F26 entirely.
+                //
+                // ASM loc_8E06 (kid.asm:10203): no-platform Skycutter walking entry.
+                // `moveq #0,d7; moveq #0,d6; bsr.w sub_B43A` flat floor probe:
+                // bmi → loc_BC80 (off-level death), beq → loc_B5F6 (no support →
+                // airborne). Falls through to loc_8E16: sub_8600 surface scan,
+                // sub_9A0A Skycutter velocity, velocity-zero → loc_8DFC standing,
+                // non-zero → loc_8E3E wall/slope dispatch.
+                // Native: this sub_B43A floor probe is the same check below;
+                // Skycutter velocity is `update_horizontal_velocity_only` →
+                // `update_skycutter_horizontal_velocity_sub_9A20`.
                 let grounded_slope_before = self
                     .grounded_slope_collision(block_grid.as_deref())
                     .filter(|_| on_ground_before);
@@ -2363,6 +2373,27 @@ impl OpeningSliceState {
                 }
 
                 // Step 4: sub_8F26 — apply x_pos += x_vel, then wall collision.
+                //
+                // ASM loc_8E3E (kid.asm:10222): `bsr.w sub_8F26; bne.w loc_8E5A`
+                // — wall collision check.  If NE (wall hit) → loc_8E5A dispatch.
+                // If EQ (no wall) → `bsr.w sub_9386; bne.w loc_8E80` slope check.
+                // If both pass (no wall, no slope) → loc_8E4E (kid.asm:10228):
+                // `move.l x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0` —
+                // continue walking with current velocity.
+                //
+                // ASM loc_8E5A (kid.asm:10234): wall collision dispatch.
+                // `bmi.w loc_8E74` — if sub_8F26 returned negative, continue
+                // walking (loc_8E74 = loc_8E4E equivalent).
+                // If positive: `cmpi.w #Skycutter; beq.s loc_8E4E` — Skycutter
+                // keeps walking. Others: `move.w #MoveID_Standingstill; bsr.w
+                // sub_78E8; bra.w loc_75D4` — transition to standing still.
+                // Native: apply_wall_collision snaps x_pos and zeroes x_vel
+                // uniformly; the Skycutter/non-Skycutter MoveID distinction is
+                // visual-only (not modelled).
+                //
+                // ASM loc_8E74 (kid.asm:10243): `move.l x_vel(a3),d0; bsr.w
+                // sub_942A; bra.w loc_8BF0` — continue walking after wall
+                // collision with negative return (same as loc_8E4E).
                 self.apply_x_velocity_to_position();
 
                 let pre_collision_x = self.player.x_pos;

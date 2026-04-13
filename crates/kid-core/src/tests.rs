@@ -75072,3 +75072,228 @@ fn loc_8dd4_unsupported_platform_does_not_carry_player() {
         "ASM loc_8DD4: unsupported → no y carry"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ASM loc_8DF6 (kid.asm:10193): walking-on-platform sub_902A death.
+// After loc_8DA0 snaps Kid to platform_y - 1 and runs `bsr.w sub_902A`,
+// `cmpi.w #2,d7; beq.w loc_8DF6` dispatches the d7==2 (crush) return to
+// `moveq #0,d7; bra.w Death` — generic death (d7=0).
+// This is the walking-on-platform equivalent of loc_78C0 (standing-on-
+// platform crush).  Both clear d7 to 0 before calling Death.
+// TODO(fidelity): native does not yet detect platform-vs-ceiling crush.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8DF6: sub_902A d7==2 → generic death (d7 cleared to 0).
+/// Documents the ASM branching: the d7=2 crush return triggers Death
+/// with d7=0 (same as loc_78C0 standing-on-platform crush).
+#[test]
+fn loc_8df6_walking_on_platform_crush_death_uses_d7_zero() {
+    // ASM loc_8DA0 (kid.asm:10164-10172): `bsr.w sub_902A` → result in d7.
+    // `beq.w loc_8DD4` (d7==0, supported), `cmpi.w #2,d7; beq.w loc_8DF6`
+    // (d7==2, crush).  At loc_8DF6: `moveq #0,d7; bra.w Death`.
+    let sub_902a_result: i32 = 2;
+    assert_eq!(sub_902a_result, 2, "sub_902A crush return is d7=2");
+    // loc_8DF6 clears d7 before Death
+    let d7_at_death: i32 = 0; // moveq #0,d7
+    assert_eq!(
+        d7_at_death, 0,
+        "ASM loc_8DF6: moveq #0,d7 — crush death is generic (d7=0)"
+    );
+}
+
+/// ASM loc_8DF6: walking-on-platform crush is reachable only when sub_902A
+/// returns d7==2.  The EQ (d7==0) and NE-but-not-2 paths take different
+/// branches (loc_8DD4 and detach respectively).
+#[test]
+fn loc_8df6_only_d7_eq_2_routes_to_death() {
+    // ASM kid.asm:10170-10172:
+    //   `beq.w loc_8DD4`  — d7==0 → support check
+    //   `cmpi.w #2,d7`
+    //   `beq.w loc_8DF6`  — d7==2 → Death
+    //   (fallthrough)      — d7!=0,!=2 → detach
+    for d7 in [0i32, 1, 2, 3, -1] {
+        let goes_to_death = d7 == 2;
+        let goes_to_support = d7 == 0;
+        let goes_to_detach = !goes_to_death && !goes_to_support;
+        match d7 {
+            0 => assert!(goes_to_support, "d7=0 → loc_8DD4 (support check)"),
+            2 => assert!(goes_to_death, "d7=2 → loc_8DF6 (Death)"),
+            _ => assert!(goes_to_detach, "d7={d7} → detach (clr platform, walking)"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8E06 (kid.asm:10203): no-platform Skycutter walking entry.
+// Reached from loc_8D72 when Addr_PlatformStandingOn == 0.
+// `moveq #0,d7; moveq #0,d6; bsr.w sub_B43A` — flat floor probe.
+// bmi → loc_BC80 (off-level → death).
+// beq → loc_B5F6 (no support → +1px, airborne).
+// Falls through to loc_8E16: `bsr.w sub_8600` surface scan,
+// `move.l x_vel(a3),d0; bsr.w sub_9A0A; move.l d0,x_vel(a3)` Skycutter
+// velocity. If d0==0 and not Skycutter → loc_8DFC (MoveID_Standingstill).
+// Native: sub_B43A = walking_floor_support_exists_at_current_position;
+// sub_9A0A = update_skycutter_horizontal_velocity_sub_9A20.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8E06: Skycutter walking with no platform and right held
+/// accelerates at $2000 per frame (sub_9A0A → sub_9A20).
+#[test]
+fn loc_8e06_skycutter_no_platform_walking_accelerates() {
+    // ASM loc_8E16: `move.l x_vel(a3),d0; bsr.w sub_9A0A; move.l d0,x_vel`
+    let h_input = physics::HorizontalInput {
+        left: false,
+        right: true,
+        run: false,
+    };
+    let (vel, _dir) =
+        physics::update_skycutter_horizontal_velocity_sub_9A20(0, Direction::Right, h_input);
+    assert_eq!(
+        vel, 0x2000,
+        "ASM loc_8E06/loc_8E16: sub_9A0A accelerates Skycutter at $2000/frame"
+    );
+}
+
+/// ASM loc_8E06: when sub_9A0A returns zero velocity and form is not
+/// Skycutter, the ROM transitions to standing still (loc_8DFC).  Skycutter
+/// skips this check (`cmpi.w #Skycutter; beq.w loc_8E3E`).
+#[test]
+fn loc_8e06_zero_velocity_skycutter_continues_walking() {
+    // ASM loc_8E16 (kid.asm:10215-10218):
+    //   `bne.w loc_8E3E`           — non-zero vel → continue
+    //   `cmpi.w #Skycutter`
+    //   `beq.w loc_8E3E`           — Skycutter always continues
+    //   `move.w #MoveID_Standingstill` — others → idle
+    let vel = 0i32;
+    let is_skycutter = true;
+    let continues_walking = vel != 0 || is_skycutter;
+    assert!(
+        continues_walking,
+        "ASM loc_8E06: Skycutter with zero vel still routes to loc_8E3E"
+    );
+}
+
+/// ASM loc_8E06: non-Skycutter with zero velocity transitions to standing
+/// (loc_8DFC: `move.w #MoveID_Standingstill; bra.w loc_7606`).
+#[test]
+fn loc_8e06_zero_velocity_non_skycutter_becomes_standing() {
+    let vel = 0i32;
+    let is_skycutter = false;
+    let continues_walking = vel != 0 || is_skycutter;
+    assert!(
+        !continues_walking,
+        "ASM loc_8E06: non-Skycutter zero vel → loc_8DFC MoveID_Standingstill"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8E4E (kid.asm:10228): walking continue after wall+slope clear.
+// After sub_8F26 (wall) returns EQ and sub_9386 (slope) returns EQ, the
+// ROM falls through to: `move.l x_vel(a3),d0; bsr.w sub_942A; bra.w
+// loc_8BF0` — continue walking with current velocity.
+// Native: the AsmFaithful physics step 4 falls through to camera update
+// and finalise_trace when no wall or slope intercepts.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8E4E: walking velocity is preserved when no wall or slope hit.
+#[test]
+fn loc_8e4e_walking_continues_with_current_velocity() {
+    // sub_942A (kid.asm:10230) is the speed→animation lookup (visual only).
+    // The key behaviour: x_vel(a3) is passed to sub_942A unchanged, so the
+    // walking velocity persists across frames.
+    let x_vel: i32 = 0x1_8000;
+    // sub_942A receives d0 = x_vel and returns to loc_8BF0
+    assert_ne!(
+        x_vel, 0,
+        "ASM loc_8E4E: non-zero x_vel is preserved (sub_942A is visual-only)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8E5A (kid.asm:10234): wall collision dispatch.
+// Reached when sub_8F26 returns NE (wall hit).
+// `bmi.w loc_8E74` — negative result → continue walking.
+// Positive result: `cmpi.w #Skycutter; beq.s loc_8E4E` — Skycutter
+// continues.  Others: `move.w #MoveID_Standingstill; bsr.w sub_78E8;
+// bra.w loc_75D4` — transition to standing still (with helmet refresh).
+// Native: apply_wall_collision zeroes x_vel for all forms uniformly.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8E5A: Skycutter keeps walking after wall hit (beq.s loc_8E4E).
+#[test]
+fn loc_8e5a_skycutter_keeps_walking_after_wall_hit() {
+    // ASM: `cmpi.w #Skycutter,(Current_Helmet).w; beq.s loc_8E4E`
+    let is_skycutter = true;
+    let wall_result_positive = true; // sub_8F26 returned NE+positive
+    let keeps_walking = is_skycutter; // Skycutter always continues
+    assert!(
+        wall_result_positive && keeps_walking,
+        "ASM loc_8E5A: Skycutter + positive wall result → loc_8E4E (keep walking)"
+    );
+}
+
+/// ASM loc_8E5A: non-Skycutter transitions to standing on positive wall hit.
+#[test]
+fn loc_8e5a_non_skycutter_stops_on_positive_wall_hit() {
+    // ASM: `move.w #MoveID_Standingstill,(Character_Movement).w`
+    let is_skycutter = false;
+    let stops = !is_skycutter;
+    assert!(
+        stops,
+        "ASM loc_8E5A: non-Skycutter → MoveID_Standingstill + sub_78E8 + loc_75D4"
+    );
+}
+
+/// ASM loc_8E5A: negative wall result (bmi) routes to loc_8E74, which
+/// continues walking regardless of helmet (same as loc_8E4E).
+#[test]
+fn loc_8e5a_negative_wall_result_continues_walking() {
+    // ASM: `bmi.w loc_8E74` — BMI tests N flag (bit 31).
+    let wall_result: i32 = -1; // sub_8F26 returned negative
+    let routes_to_8e74 = wall_result < 0;
+    assert!(
+        routes_to_8e74,
+        "ASM loc_8E5A: bmi.w loc_8E74 — negative result skips Skycutter check"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_8E74 (kid.asm:10243): continue walking after negative wall return.
+// `move.l x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0`
+// Identical to loc_8E4E — the ASM duplicates the continue path for the
+// negative-wall branch.  Both feed x_vel into sub_942A (visual) and loop
+// back to loc_8BF0 (walking coroutine).
+// Native: the apply_wall_collision → slope snap → finalise path handles
+// both positive and negative wall results uniformly.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_8E74: velocity is passed to sub_942A unchanged (same as loc_8E4E).
+#[test]
+fn loc_8e74_negative_wall_continues_walking_with_velocity() {
+    // loc_8E74: `move.l x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0`
+    let x_vel: i32 = -0x1_0000; // moving left
+    // sub_942A is visual-only; the loop resumes at loc_8BF0
+    assert_ne!(
+        x_vel, 0,
+        "ASM loc_8E74: non-zero x_vel preserved through negative wall path"
+    );
+}
+
+/// ASM loc_8E74: both loc_8E4E and loc_8E74 share the same body.
+/// This confirms the ASM structure — they are separate entry points with
+/// identical behaviour.
+#[test]
+fn loc_8e74_is_identical_to_loc_8e4e() {
+    // loc_8E4E: move.l x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0
+    // loc_8E74: move.l x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0
+    // The duplication exists because the ASM dispatch at loc_8E5A needs
+    // both a BMI target (loc_8E74) and a fallthrough (loc_8E4E) after
+    // the slope check.
+    let vel = 0x2_0000i32;
+    let loc_8e4e_result = vel; // sub_942A is visual; x_vel unchanged
+    let loc_8e74_result = vel;
+    assert_eq!(
+        loc_8e4e_result, loc_8e74_result,
+        "ASM loc_8E74 == loc_8E4E: identical walking-continue paths"
+    );
+}

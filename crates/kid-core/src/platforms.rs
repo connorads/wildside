@@ -702,7 +702,8 @@ pub(crate) fn apply_platform_collision(
             // move.l $E(a4),y_vel(a3); move.l 6(a4),y_pos(a3); subq.w #1,
             // y_pos(a3)` — snaps y_pos to platform_y - 1, copies y_vel.
             // Then `bsr.w sub_902A`: if EQ → loc_8DD4 (support check), if
-            // d7==2 → Death, if NE → detach (clr Addr_PlatformStandingOn,
+            // d7==2 → loc_8DF6 (kid.asm:10193): `moveq #0,d7; bra.w Death`
+            // (platform crush death), if NE → detach (clr Addr_PlatformStandingOn,
             // clr y_vel, sub_942A, bra loc_8BF0).
             //
             // ASM loc_8DD4 (kid.asm:10179): walking-on-platform support test
