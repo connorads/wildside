@@ -80821,3 +80821,157 @@ fn slope_backward_input_downhill_accel_loc_9DAA() {
         "ASM loc_9DAA: d2 non-zero → bne.s loc_9DF2 → downhill double-decel"
     );
 }
+
+// --- loc_9DE4: uphill, above cap → brake towards max_speed ---
+
+/// ASM loc_9DE4 (kid.asm:12017): uphill path when canonical vel exceeds the
+/// uphill cap. `sub.l 8(a0),d0` (brake $4000); `cmp.l (a0),d0; ble.s
+/// loc_9DEE` — if still above max_speed, clamp to max_speed.
+///
+/// SlopeUp, right held (uphill), walk. vel=$10000 above walk_uphill_cap $8000.
+/// loc_9DD4: cmp.l (a1=$8000),d0=$10000 → bgt.s loc_9DE4.
+/// loc_9DE4: d0 = $10000 - $4000 = $C000; $C000 ≤ $40000 → skip clamp.
+#[test]
+#[allow(non_snake_case)]
+fn slope_uphill_above_cap_brake_loc_9DE4() {
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        0x0001_0000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    assert_eq!(
+        vel, 0xC000,
+        "ASM loc_9DE4: sub.l 8(a0),d0 = $10000 - $4000 = $C000, below max_speed → no clamp"
+    );
+}
+
+// --- loc_9DEE: uphill fall-through after accel clamp ---
+
+/// ASM loc_9DEE (kid.asm:12023): `bra.w loc_9E5C`. Common exit from uphill
+/// processing. Reached when loc_9DD4 accel overshoots the uphill cap and
+/// clamps: `add.l 4(a1),d0; cmp.l (a1),d0; ble.s loc_9DEE; move.l (a1),d0;
+/// bra.s loc_9DEE`.
+///
+/// SlopeUp, right held (uphill), walk. vel=$7800, below walk_uphill_cap $8000.
+/// loc_9DD4: add.l $1000 → $8800; $8800 > $8000 → clamp to $8000. bra.s loc_9DEE.
+#[test]
+#[allow(non_snake_case)]
+fn slope_uphill_accel_clamp_at_cap_loc_9DEE() {
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        0x0000_7800,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    assert_eq!(
+        vel, 0x8000,
+        "ASM loc_9DD4→loc_9DEE: accel $7800+$1000=$8800 > cap $8000 → clamp to $8000"
+    );
+}
+
+// --- loc_9E08: downhill, vel < 0, above downhill_cap → decel ---
+
+/// ASM loc_9E08 (kid.asm:12037): downhill path when canonical vel is negative
+/// but not yet below the downhill cap. `cmp.l 8(a1),d0; blt.s loc_9E1E` —
+/// if not below cap: `sub.l $C(a1),d0` (downhill_accel), clamp at cap.
+///
+/// SlopeUp, left held (downhill), walk. vel=-$4000.
+/// loc_9DF2: vel < 0 → bmi.s loc_9E08.
+/// loc_9E08: -$4000 ≥ -$18000 (walk_downhill_cap) → not blt.
+/// sub.l $2000 → -$6000. -$6000 ≥ -$18000 → bge → done.
+#[test]
+#[allow(non_snake_case)]
+fn slope_downhill_above_cap_decel_loc_9E08() {
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        -0x4000,
+        Direction::Right,
+        HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    assert_eq!(
+        vel, -0x6000,
+        "ASM loc_9E08: sub.l $C(a1),d0 = -$4000 - $2000 = -$6000, above cap"
+    );
+}
+
+// --- loc_9E1E: downhill, below downhill_cap → brake towards -max_speed ---
+
+/// ASM loc_9E1E (kid.asm:12047): downhill path when canonical vel is below the
+/// downhill cap (exceeding cap magnitude). `add.l 8(a0),d0` (brake $4000);
+/// `cmp.l 4(a0),d0; bge.s loc_9E5C` — if still below -max_speed, clamp.
+///
+/// SlopeUp, left held (downhill), walk. vel=-$20000.
+/// loc_9E08: -$20000 < -$18000 (walk_downhill_cap) → blt.s loc_9E1E.
+/// loc_9E1E: -$20000 + $4000 = -$1C000. -$1C000 ≥ -$40000 → bge → done.
+#[test]
+#[allow(non_snake_case)]
+fn slope_downhill_below_cap_brake_loc_9E1E() {
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        -0x0002_0000,
+        Direction::Right,
+        HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    assert_eq!(
+        vel, -0x1_C000,
+        "ASM loc_9E1E: add.l 8(a0),d0 = -$20000 + $4000 = -$1C000, above -max_speed"
+    );
+}
+
+// --- loc_9E4C: neutral decel facing update ---
+
+/// ASM loc_9E4C (kid.asm:12072): facing update after neutral deceleration.
+/// `move.b ($FFFFFA26).w,d1; tst.l d0; bpl.s loc_9E58; eori.b #$FF,d1`.
+/// Sets x_direction from slope flag XOR'd when canonical vel is negative.
+/// Reached from both loc_9E2E (below target) and loc_9E42 (above target).
+///
+/// SlopeUp, no input, vel=-$10000 (below neutral_target -$8000).
+/// loc_9E2E: -$10000 < -$8000 → not bge. add.l $2000 → -$E000.
+/// -$E000 ≤ -$8000 → ble.s loc_9E4C. Result: -$E000.
+#[test]
+#[allow(non_snake_case)]
+fn slope_neutral_below_target_accel_loc_9E4C() {
+    let (vel, _) = update_level_one_slope_ground_velocity(
+        -0x0001_0000,
+        Direction::Right,
+        HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        },
+        terrain::CollisionKind::SlopeUp,
+        PlayerForm::TheKid,
+        TerrainType::Normal,
+    );
+    // loc_9E2E: d0=-$10000 < d1=-$8000 → add $2000 → -$E000.
+    // -$E000 ≤ -$8000 → loc_9E4C (facing update) → loc_9E5C (unconvert).
+    assert_eq!(
+        vel, -0xE000,
+        "ASM loc_9E2E→loc_9E4C: neutral decel from -$10000 by $2000 = -$E000"
+    );
+}
