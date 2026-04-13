@@ -366,8 +366,14 @@ pub(crate) const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 419;
 /// ASM: Continue countdown: 28 initial pause + 291 countdown = 319 frames.
 pub(crate) const CONTINUE_COUNTDOWN_FRAMES: usize = 319;
 pub(crate) const PLAYER_LEVEL_ADVANCE_RESPAWN_SETTLE_FRAMES: usize = 401;
-// ASM: Just_received_damage flag cleared by flicker object (loc_BC54):
-// outer loop dbf d3 with d3=$A (11 iterations), 6 frames per iteration = 66 frames.
+// ASM loc_BC34 (kid.asm:15181): damage-flash thread spawned by sub_7196 at
+// priority $FFFC.  loc_BC40 waits for Just_received_damage, then loc_BC56
+// through loc_BC6E run the flash cycle: sub_80BC (white) + 2-frame hold
+// (loc_BC5C, dbf d2 with d2=1) + sub_80D0 (helmet palette) + 4-frame hold
+// (loc_BC6E, dbf d2 with d2=3), outer loop dbf d3 with d3=$A (11 iterations).
+// 11 × (2 + 4) = 66 frames, then `sf Just_received_damage` and back to loc_BC40.
+// Native models the gameplay effect (invulnerability window) with this constant;
+// the palette cycling is visual-only.
 pub(crate) const PLAYER_DAMAGE_INVULNERABLE_FRAMES: usize = 66;
 
 // === Collision / activation ===

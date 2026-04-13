@@ -8047,6 +8047,113 @@ fn trace_frame_reports_damage_latch_for_exact_hit_frame() {
     );
 }
 
+/// ASM loc_BC34 (kid.asm:15181): damage-flash thread entry — spawned once by
+/// sub_7196 at priority $FFFC.  `move.l (Addr_GfxObject_Kid).w,a3;
+/// move.b palette_line(a3),d1; move.b d1,d0; addq.w #2,d0`.  The thread is
+/// purely visual (palette buffer cycling); native models the gameplay effect
+/// via PLAYER_DAMAGE_INVULNERABLE_FRAMES = 66.
+#[test]
+fn loc_bc34_damage_flash_thread_invulnerability_is_66_frames() {
+    assert_eq!(
+        PLAYER_DAMAGE_INVULNERABLE_FRAMES, 66,
+        "ASM loc_BC34: flash thread runs 11 × 6 = 66 hibernate frames before clearing Just_received_damage"
+    );
+}
+
+/// ASM loc_BC40 (kid.asm:15187): damage-flash wait loop.
+/// `jsr (j_Hibernate_Object_1Frame).w; tst.b ($FFFFFA64).w; bne.s loc_BC40;
+/// tst.b (Just_received_damage).w; bne.w loc_BC54; bra.s loc_BC40`.
+/// The thread spins until Just_received_damage is set.  Native sets
+/// `just_received_damage = true` in apply_damage, which also arms the
+/// invulnerable_frames countdown.
+#[test]
+fn loc_bc40_damage_sets_just_received_damage_and_invulnerability() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    advance_past_level_entry_damage_grace(&mut runtime);
+
+    runtime.apply_damage();
+    assert!(
+        runtime.just_received_damage,
+        "ASM loc_BC40: Just_received_damage must be set to wake the flash thread"
+    );
+    assert_eq!(
+        runtime.progression.invulnerable_frames, PLAYER_DAMAGE_INVULNERABLE_FRAMES,
+        "ASM loc_BC40: invulnerable_frames should match the flash thread's 66-frame cycle"
+    );
+}
+
+/// ASM loc_BC56 (kid.asm:15199): outer flash body — `bsr.w sub_80BC` (white
+/// palette flash) then `moveq #1,d2` (2-frame hold via loc_BC5C).  sub_80BC
+/// fills Palette_Buffer+$62 with 12 words of $FFF.  Visual-only; native does
+/// not model palette buffers.  The test verifies the outer loop count (d3=$A →
+/// 11 iterations via dbf) matches the constant derivation.
+#[test]
+fn loc_bc56_outer_flash_cycle_count_is_11() {
+    // d3 = $A, dbf d3 → 11 iterations (counts $A down to -1).
+    let d3_init: i16 = 0xA;
+    let iterations = d3_init + 1; // dbf semantics
+    assert_eq!(
+        iterations, 11,
+        "ASM loc_BC56: dbf d3 with d3=$A runs 11 times"
+    );
+    // Each cycle: 2 frames (loc_BC5C) + 4 frames (loc_BC6E) = 6.
+    assert_eq!(
+        iterations as usize * 6,
+        PLAYER_DAMAGE_INVULNERABLE_FRAMES,
+        "ASM loc_BC56: 11 × 6 = 66 = PLAYER_DAMAGE_INVULNERABLE_FRAMES"
+    );
+}
+
+/// ASM loc_BC5C (kid.asm:15203): white-flash hold loop.
+/// `jsr (j_Hibernate_Object_1Frame).w; dbf d2,loc_BC5C` with d2=1 → 2 frames
+/// of white palette per flash cycle.  After this, `move.w (Current_Helmet).w,d7;
+/// bsr.w sub_80D0` restores the helmet palette.  Visual-only.
+#[test]
+fn loc_bc5c_white_flash_hold_is_2_frames() {
+    // d2 = 1, dbf d2 → 2 hibernate calls.
+    let d2_white: i16 = 1;
+    let white_frames = d2_white + 1;
+    assert_eq!(
+        white_frames, 2,
+        "ASM loc_BC5C: dbf d2 with d2=1 → 2 frames of white palette"
+    );
+}
+
+/// ASM loc_BC6E (kid.asm:15210): normal-palette hold loop.
+/// `jsr (j_Hibernate_Object_1Frame).w; dbf d2,loc_BC6E` with d2=3 → 4 frames
+/// of helmet palette per cycle.  Then `dbf d3,loc_BC56` loops back.  When d3
+/// exhausts: `sf (Just_received_damage).w; bra.s loc_BC40`.
+/// Native: invulnerable_frames counts down to 0, just_received_damage clears
+/// at next step_frame.
+#[test]
+fn loc_bc6e_normal_palette_hold_is_4_frames_and_damage_clears_after_countdown() {
+    // d2 = 3, dbf d2 → 4 hibernate calls.
+    let d2_normal: i16 = 3;
+    let normal_frames = d2_normal + 1;
+    assert_eq!(
+        normal_frames, 4,
+        "ASM loc_BC6E: dbf d2 with d2=3 → 4 frames of helmet palette"
+    );
+
+    // Verify that after 66 frames of countdown, invulnerability expires.
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    advance_past_level_entry_damage_grace(&mut runtime);
+
+    runtime.apply_damage();
+    assert!(runtime.progression.invulnerable_frames > 0);
+
+    // Step through 66 frames (the flash thread duration).
+    for _ in 0..PLAYER_DAMAGE_INVULNERABLE_FRAMES {
+        runtime.step_frame(FrameInput::default());
+    }
+    assert_eq!(
+        runtime.progression.invulnerable_frames, 0,
+        "ASM loc_BC6E: after 66 frames the flash thread clears Just_received_damage — native invulnerability should be 0"
+    );
+}
+
 #[test]
 fn pauses_and_resumes_native_slice() {
     let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());

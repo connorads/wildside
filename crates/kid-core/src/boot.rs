@@ -6397,6 +6397,9 @@ impl NativeRuntime {
 
         match self.player_lifecycle {
             PlayerLifecycle::Alive => {
+                // ASM loc_BC5C/loc_BC6E (kid.asm:15203/15210): the damage-flash
+                // thread hibernates 2+4 frames per cycle, 11 cycles = 66 frames.
+                // Native models this as a simple countdown.
                 if self.progression.invulnerable_frames > 0 {
                     self.progression.invulnerable_frames -= 1;
                 }

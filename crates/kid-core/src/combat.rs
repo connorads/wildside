@@ -8073,6 +8073,10 @@ impl NativeRuntime {
         //   else      → sfx_Voice_ouch   ($61, default)
         // Native does not yet implement sound.
         self.level_damage_taken = true;
+        // ASM loc_BC40 (kid.asm:15187): the damage-flash thread polls
+        // Just_received_damage each hibernate; setting it here wakes the
+        // thread which runs the 66-frame palette flash cycle (loc_BC56–
+        // loc_BC6E) before clearing the flag.
         self.just_received_damage = true;
         // Clear wall-grab so the player isn't stuck to the wall during invulnerability
         if let Some(slice) = self.opening_slice.as_mut() {
