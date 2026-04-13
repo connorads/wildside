@@ -1203,6 +1203,13 @@ pub fn probe_wall(
 /// ASM loc_9338 (kid.asm:10771): no-hit return. Both stack flags clear →
 /// `moveq #0,d7; addq.w #2,sp; rts` (EQ = no wall). Native: probe returns
 /// `hit: false`.
+///
+/// ASM loc_9380 (kid.asm:10799): sub_922C OOB column guard. Entry converts
+/// the probe x coordinate to a column via `asr.w #4,d7`: if negative (`bmi.w
+/// loc_9380`) or greater than `Level_width_tiles` (`bgt.w loc_9380`), jumps
+/// to `moveq #1,d7; addq.w #2,sp; rts` — returning NE (hit=true, treat as
+/// wall). TODO(fidelity): native returns `hit: false` for OOB via the
+/// `edge_x < 0 || edge_x >= grid.width_pixels()` guard.
 pub fn probe_wall_column(
     grid: &BlockGrid,
     center_x_px: i32,

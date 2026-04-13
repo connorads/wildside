@@ -3355,6 +3355,24 @@ impl OpeningSliceState {
         true
     }
 
+    /// ASM sub_9386 (kid.asm:10809): slope floor probe. Called after sub_8F26
+    /// returns EQ (no wall). Probes via `sub_B55C` with d7=0, d6=0. Branches:
+    ///
+    /// - d5==$4000 (SlopeUp at current row): stores slope constant in $FFFFFA24,
+    ///   clears $FFFFFA26, returns d7=-1 (NE, negative = slope found).
+    /// - loc_93AE (kid.asm:10824): d5==$5000 (SlopeDown at current row). Height
+    ///   = `neg((x_pos & $FFF0) + $F - y_pos)`. Sets $FFFFFA26=$FF, returns d7=-1.
+    /// - loc_93D4 (kid.asm:10838): neither slope at current row → checks one row
+    ///   below via `add.w Level_width_tiles,a4; move.w (a4),d7`. If $4000 (SlopeUp),
+    ///   height = `(x_pos & $FFF0) + $10 + y_pos`, clears $FFFFFA26, returns d7=1.
+    /// - loc_9402 (kid.asm:10854): next-row $5000 (SlopeDown). Height =
+    ///   `neg((x_pos & $FFF0) - 1 - y_pos)`. Sets $FFFFFA26=$FF, returns d7=1.
+    /// - loc_9426 (kid.asm:10868): no slope at either row. `moveq #0,d7; rts` (EQ).
+    ///
+    /// Native: simplified to probe_floor at player position — checks collision
+    /// kind for SlopeUp/SlopeDown. The one-row-below fallback (loc_93D4/loc_9402)
+    /// is handled by the `row_offset in [0, -1, 1]` loop in the walking state's
+    /// Y-snap code rather than in this function.
     pub(crate) fn grounded_slope_collision(
         &self,
         block_grid: Option<&terrain::BlockGrid>,

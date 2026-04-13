@@ -76776,3 +76776,186 @@ fn loc_9338_no_hit_return_eq() {
         "ASM loc_9338: d7=0 (EQ) — no Solid/Spikes found, scan exhausted cleanly"
     );
 }
+
+/// ASM loc_9380 (kid.asm:10799): sub_922C OOB column guard. At sub_922C
+/// entry, `asr.w #4,d7` converts the probe x coordinate to a column index.
+/// If negative (`bmi.w loc_9380`) or greater than `Level_width_tiles`
+/// (`bgt.w loc_9380`), jumps to `moveq #1,d7; addq.w #2,sp; rts` —
+/// returning NE (hit=true, treat as impassable wall).
+///
+/// TODO(fidelity): native returns `hit: false` for OOB columns via the
+/// `edge_x < 0 || edge_x >= grid.width_pixels()` guard. The ROM treats
+/// level edges as solid walls while native treats them as open space.
+#[test]
+fn loc_9380_oob_column_returns_no_hit_in_native() {
+    let w: u16 = 4;
+    let h: u16 = 4;
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Probe at the left boundary: center_x=0, half_width=7, moving_left
+    // edge_x = 0 - 7 - 1 = -8 → OOB.
+    // ASM: column = -8 >> 4 = -1 → bmi → loc_9380 → d7=1 (hit).
+    // Native: edge_x < 0 → hit: false.
+    let probe_left = terrain::probe_wall_column(&grid, 0, 47, 7, 31, false);
+    assert!(
+        !probe_left.hit,
+        "ASM loc_9380: ROM returns d7=1 (hit) for negative column; \
+         native returns hit=false (known fidelity gap)"
+    );
+
+    // Probe past the right boundary: center_x=63 (4*16-1), half_width=7,
+    // moving_right → edge_x = 63 + 7 + 1 = 71 ≥ 64 → OOB.
+    // ASM: column = 71 >> 4 = 4 > Level_width_tiles(4) → bgt → loc_9380.
+    let probe_right = terrain::probe_wall_column(&grid, 63, 47, 7, 31, true);
+    assert!(
+        !probe_right.hit,
+        "ASM loc_9380: ROM returns d7=1 (hit) for column > width; \
+         native returns hit=false (known fidelity gap)"
+    );
+}
+
+/// ASM loc_93AE (kid.asm:10824): sub_9386 SlopeDown at current tile row.
+/// After sub_B55C returns d5 != $4000 (not SlopeUp), `cmpi.w #$5000,d5`
+/// tests for SlopeDown. On match:
+///   `move.w x_pos(a3),d7; andi.w #$FFF0,d7; addi.w #$F,d7`
+///   `sub.w y_pos(a3),d7; neg.w d7` → height = y_pos - (tile_left + 15)
+///   `move.w d7,($FFFFFA24)` stores slope constant
+///   `st ($FFFFFA26)` marks as descending-right slope
+///   `moveq #-1,d7; rts` — returns NE (slope found at current row)
+///
+/// Native: grounded_slope_collision returns Some(SlopeDown).
+#[test]
+fn loc_93ae_slope_down_at_current_row_detected() {
+    let w: u16 = 8;
+    let h: u16 = 8;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Place SlopeDown ($5000) at col 3, row 4.
+    let offset = (usize::from(w) * 4 + 3) * 2;
+    data[offset] = 0x50;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Player at pixel x=52 (col 3, x_within_cell=4), y=64 (row 4 top).
+    // probe_floor at (52, 64) should find the SlopeDown tile at row 4.
+    let probe = terrain::probe_floor(&grid, 52, 64);
+    assert_eq!(
+        probe.cell.collision,
+        terrain::CollisionKind::SlopeDown,
+        "ASM loc_93AE: sub_B55C returns d5=$5000 for SlopeDown tile at current row"
+    );
+}
+
+/// ASM loc_93D4 (kid.asm:10838): sub_9386 fallthrough when current row has
+/// no slope. `add.w Level_width_tiles,a4` advances to one row below, then
+/// `move.w (a4),d7; andi.w #$7000,d7; cmpi.w #$4000,d7` tests for SlopeUp.
+/// On match:
+///   `move.w x_pos(a3),d7; andi.w #$FFF0,d7; addi.w #$10,d7`
+///   `add.w y_pos(a3),d7` → height = (tile_left + 16) + y_pos
+///   `sf ($FFFFFA26)` clears slope direction (ascending-right)
+///   `moveq #1,d7; rts` — returns NE positive (slope found one row below)
+///
+/// Native: the `row_offset in [0, -1, 1]` loop in walking state Y-snap
+/// handles the one-row-below fallback.
+#[test]
+fn loc_93d4_slope_up_one_row_below_detected() {
+    let w: u16 = 8;
+    let h: u16 = 8;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Place SlopeUp ($4000) at col 3, row 5 (one row below player).
+    let offset = (usize::from(w) * 5 + 3) * 2;
+    data[offset] = 0x40;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Player at pixel y=64 (row 4), x=52 (col 3). Current row has no slope.
+    // ASM sub_9386 would check one row below (row 5) and find SlopeUp.
+    // Native: probe_floor at y=64 lands in row 4 (empty), but the walking
+    // code's row_offset=1 iteration checks row 5 and finds SlopeUp.
+    let cell_below = grid.cell_at(3, 5);
+    assert_eq!(
+        cell_below.collision,
+        terrain::CollisionKind::SlopeUp,
+        "ASM loc_93D4: one row below has $4000 (SlopeUp)"
+    );
+    // slope_floor_y_pub for SlopeUp: cell_top + 15 - x_within_cell
+    let cell_top = 5 * 16; // row 5 top = 80
+    let x_px = 52;
+    let floor_y = terrain::slope_floor_y_pub(terrain::CollisionKind::SlopeUp, cell_top, x_px);
+    // x_within_cell = 52 & 0x0F = 4; floor_y = 80 + 15 - 4 = 91
+    assert_eq!(
+        floor_y, 91,
+        "ASM loc_93D4: SlopeUp surface at x=52, row 5 → cell_top(80) + 15 - 4 = 91"
+    );
+}
+
+/// ASM loc_9402 (kid.asm:10854): sub_9386 next-row-below SlopeDown. After
+/// loc_93D4's `cmpi.w #$4000,d7` fails, `cmpi.w #$5000,d7` tests the
+/// next-row tile for SlopeDown. On match:
+///   `move.w x_pos(a3),d7; andi.w #$FFF0,d7; subq.w #1,d7`
+///   `sub.w y_pos(a3),d7; neg.w d7` → height = y_pos - (tile_left - 1)
+///   `st ($FFFFFA26)` marks descending-right
+///   `moveq #1,d7; rts` — returns NE positive (slope found one row below)
+///
+/// Native: same row_offset loop handles SlopeDown one row below.
+#[test]
+fn loc_9402_slope_down_one_row_below_detected() {
+    let w: u16 = 8;
+    let h: u16 = 8;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Place SlopeDown ($5000) at col 3, row 5 (one row below player).
+    let offset = (usize::from(w) * 5 + 3) * 2;
+    data[offset] = 0x50;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Verify the tile one row below has SlopeDown.
+    let cell_below = grid.cell_at(3, 5);
+    assert_eq!(
+        cell_below.collision,
+        terrain::CollisionKind::SlopeDown,
+        "ASM loc_9402: one row below has $5000 (SlopeDown)"
+    );
+    // slope_floor_y_pub for SlopeDown: cell_top + x_within_cell
+    let cell_top = 5 * 16; // row 5 top = 80
+    let x_px = 52;
+    let floor_y = terrain::slope_floor_y_pub(terrain::CollisionKind::SlopeDown, cell_top, x_px);
+    // x_within_cell = 52 & 0x0F = 4; floor_y = 80 + 4 = 84
+    assert_eq!(
+        floor_y, 84,
+        "ASM loc_9402: SlopeDown surface at x=52, row 5 → cell_top(80) + 4 = 84"
+    );
+}
+
+/// ASM loc_9426 (kid.asm:10868): sub_9386 no-slope return. After checking
+/// current row and one row below, neither has $4000 or $5000 collision.
+/// `moveq #0,d7; rts` — returns EQ (no slope found).
+///
+/// Native: probe_floor at a non-slope tile returns a collision kind that is
+/// neither SlopeUp nor SlopeDown, so grounded_slope_collision returns None.
+#[test]
+fn loc_9426_no_slope_returns_eq() {
+    let w: u16 = 8;
+    let h: u16 = 8;
+    // All empty tiles — no slope anywhere.
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Player at pixel x=52, y=64 (row 4, col 3). No slope tiles in grid.
+    // ASM sub_9386: sub_B55C returns d5 != $4000 and != $5000, then
+    // one row below also has neither → falls through to loc_9426.
+    let probe = terrain::probe_floor(&grid, 52, 64);
+    assert!(
+        !matches!(
+            probe.cell.collision,
+            terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
+        ),
+        "ASM loc_9426: d7=0 (EQ) — no slope at current row, no slope below"
+    );
+    // Also verify one row below (row 5) is not a slope.
+    let cell_below = grid.cell_at(3, 5);
+    assert!(
+        !matches!(
+            cell_below.collision,
+            terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
+        ),
+        "ASM loc_9426: next row down also has no slope — clean EQ return"
+    );
+}
