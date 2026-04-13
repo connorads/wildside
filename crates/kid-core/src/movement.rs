@@ -2231,7 +2231,21 @@ impl OpeningSliceState {
                     after_wall: entry_stage,
                 };
 
-                // ASM loc_AA9C: pressing away from wall exits wall-cling.
+                // ASM loc_AA9C (kid.asm:13334): wall-cling direction dispatch.
+                // `tst.b ($FFFFFA72); bne.w loc_AAB8` — if $FA72 set (wall
+                // on left), branch to loc_AAB8. Else fall through: check
+                // Ctrl_Left_Held → loc_AD34 (detach), Ctrl_Right_Held → loc_AAC8
+                // (towards wall), neither → kid_flip.
+                //
+                // loc_AAB8 (kid.asm:13344): right-held mirror for $FA72 set
+                // (wall on left). `tst.b (Ctrl_Right_Held); bne.w loc_AD34`
+                // (detach if pressing away), `tst.b (Ctrl_Left_Held); beq.w
+                // kid_flip` (towards wall → loc_AAC8, neither → kid_flip).
+                //
+                // Native collapses both branches: wall_cling_direction
+                // encodes $FA72 (Right = wall on right / $FA72=0, Left = wall
+                // on left / $FA72=$FF). "Pressing away" maps to the loc_AD34
+                // detach path; no held direction falls through to kid_flip.
                 if let Some(dir) = self.player.wall_cling_direction {
                     let pressing_away = match dir {
                         Direction::Right => input.left,
@@ -2389,6 +2403,20 @@ impl OpeningSliceState {
                 // ASM runs sub_902A (vertical) before sub_8F26 (horizontal), so floor
                 // probes see old x_pos. This is critical at ledge edges: with old x_pos
                 // the probe still finds ground, preventing a 1-frame-early fall.
+                //
+                // ASM loc_AA8E (kid.asm:13329): wall-cling loop continuation after
+                // the Micromax sticky check. `move.w y_pos(a3),($FFFFFB5C).w` saves
+                // y_pos before `bsr.w sub_902A`. The saved value is read later at
+                // loc_AAC8: `move.w ($FFFFFB5C).w,d7` for the overhang tile-row
+                // snap (sub_ADB8/sub_AE6E use it as the pre-sub_902A reference).
+                // `bne.w loc_AD68` — if sub_902A returned NE (floor or ceiling
+                // contact), branch to loc_AD68 which dispatches: negative (ceiling)
+                // → clear flags + bra loc_A762 (wall check); positive (floor) →
+                // loc_AD7C landing dispatch. Native: `pre_vertical_y_px` captures
+                // the same pre-vertical y_pos; apply_floor_collision is the sub_902A
+                // equivalent; floor/ceiling results feed into the wall-cling release
+                // probes (try_release_wall_cling_overhang, try_release_descending_
+                // wall_cling_into_run) which consume pre_vertical_y_px.
                 let pre_vertical_y_px = (self.player.y_pos >> 16) as i32;
                 self.apply_y_velocity_to_position();
 
@@ -2459,6 +2487,28 @@ impl OpeningSliceState {
                 // positive → loc_A8DE sets $FFFFFA72 (wall-cling side) and
                 // enters wall-cling (loc_A9E4). Negative (bmi) → loc_A76A
                 // (glancing, continue to input dispatch sub_7428).
+                //
+                // loc_A9E4 enters the self-contained wall-cling loop at loc_AA22
+                // (kid.asm:13303). Each iteration: clear Addr_PlatformStandingOn,
+                // sub_71E4, Hibernate_Object_1Frame, then check platform:
+                //
+                // loc_A9AA (kid.asm:13266): platform landing during wall-cling.
+                //   `tst.b ($FFFFFA6A); beq.w loc_A9BE` — if $FA6A (on_board)
+                //   set: `clr.l y_vel; clr.w (Addr_PlatformStandingOn); bra.w
+                //   loc_A74E` — clear velocity, drop platform, re-enter jump
+                //   loop airborne. This keeps Skycutter wall-cling from
+                //   "landing" on a moving platform while board-mounted.
+                //
+                // loc_A9BE (kid.asm:13274): wall-cling landing exit (not on
+                //   board). `bclr B,C; bsr.w sub_DB22` — clear jump/special
+                //   pressed + special movement state. Then `move.w d7,a4;
+                //   move.l x_vel(a3),d7; sub.l $A(a4),d7; move.l d7,($FFFFFA98);
+                //   clr.w ($FFFFFA0A); bra.w loc_8D72` — compute landing velocity
+                //   from wall data offset, store to gravity accumulator, transition
+                //   to walking. Native: platform landing during wall-cling is
+                //   handled by apply_floor_collision setting on_ground; the
+                //   explicit $FA6A/$FA98 branches are advisory (Skycutter board
+                //   state and gravity accumulator are managed per-frame).
                 //
                 // Step 4: sub_8F26 — apply x_pos += x_vel, then wall collision.
                 //
@@ -2903,6 +2953,15 @@ impl OpeningSliceState {
             return false;
         }
 
+        // ASM loc_AB0A (kid.asm:13372): wall-cling overhang snap exit.
+        // `add.w d7,x_pos(a3)` where d7=+1 ($FA72=0, wall on right) or
+        // d7=-1 ($FA72≠0, wall on left). Then `clr.l y_vel(a3)`.
+        // `tst.b ($FFFFFA6A); bne.w loc_A6F8` — if on Skycutter board,
+        // loop back to jump-loop top (stay airborne). Else `bsr.w sub_DB22;
+        // bra.w loc_8BF0` — clear special state, enter walking.
+        // Native: the ±1 shimmy is the same +/- 0x0001_0000 below; the
+        // $FA6A gate is advisory (Skycutter board state managed per-frame);
+        // sub_DB22 runs at the grounded transition boundary.
         match direction {
             Direction::Right => self.player.x_pos = self.player.x_pos.wrapping_add(0x0001_0000),
             Direction::Left => self.player.x_pos = self.player.x_pos.wrapping_sub(0x0001_0000),
@@ -2965,6 +3024,10 @@ impl OpeningSliceState {
             return false;
         }
 
+        // ASM loc_AB0A (kid.asm:13372) shimmy: same ±1 x_pos adjustment
+        // as the ascending overhang path (see try_release_wall_cling_overhang).
+        // `add.w d7,x_pos; clr.l y_vel; tst.b ($FFFFFA6A); bne loc_A6F8;
+        // bsr sub_DB22; bra loc_8BF0`.
         match direction {
             Direction::Right => self.player.x_pos = self.player.x_pos.wrapping_add(0x0001_0000),
             Direction::Left => self.player.x_pos = self.player.x_pos.wrapping_sub(0x0001_0000),
