@@ -76581,3 +76581,198 @@ fn loc_92aa_sub_922c_loop_exhaustion_returns_no_hit() {
         "ASM loc_92AA → loc_9318: no Solid/Spikes in column → d7=0 (no hit)"
     );
 }
+
+/// ASM loc_92DE (kid.asm:10729): Berzerker gate for non-Rubber block
+/// interaction. After loc_92BC sets the hit flag on a Solid/Spikes tile and
+/// finds `has_block` set with block_type ≠ Rubber ($18), the ROM gates the
+/// block handler dispatch behind:
+///   `tst.b (Berzerker_charging).w; beq.s loc_92AA` — skip if not charging
+///   `cmpi.w #MoveID_Jump,(Character_Movement).w; beq.s loc_92AA` — skip if jumping
+/// Only a charging, non-jumping Berzerker reaches loc_92EC to break the block.
+///
+/// Native: probe_wall_column always returns hit + cell info regardless of
+/// Berzerker state. The block interaction gate is handled separately at the
+/// caller level (`berzerker_break_wall_block`).
+/// TODO(fidelity): native allows any helmet to trigger block interactions on
+/// wall contact; the ROM restricts non-Rubber interactions to Berzerker charge.
+#[test]
+fn loc_92de_berzerker_gate_non_rubber_block_preserved_in_probe() {
+    let w: u16 = 6;
+    let h: u16 = 4;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid + has_block + Smash (block_type=0) at col 3, row 1.
+    // Cell format: [has_block(1) collision(3) block_type(4)] [skin(8)]
+    // has_block=1, collision=6 (Solid), block_type=0 (Smash) → 0xE0
+    data[(usize::from(w) + 3) * 2] = 0xE0;
+    data[(usize::from(w) + 3) * 2 + 1] = 0x01;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // edge_x = 40+7+1 = 48 → col 3
+    let probe = terrain::probe_wall_column(&grid, 40, 47, 7, 31, true);
+    assert!(
+        probe.hit,
+        "ASM loc_92DE: probe detects Solid+block wall regardless of Berzerker state"
+    );
+    assert!(
+        probe.cell.has_block,
+        "ASM loc_92DE: hit cell preserves has_block flag for caller dispatch"
+    );
+    assert_eq!(
+        probe.cell.block_type,
+        terrain::BlockType::Smash,
+        "ASM loc_92DE: hit cell preserves block_type for caller to gate via Berzerker check"
+    );
+}
+
+/// ASM loc_92EC (kid.asm:10735): block interaction dispatch setup. Reached
+/// from either Rubber (block_type 6, $18 after `asr.w #6`) via `_st 0(sp);
+/// bra.w loc_92EC`, or non-Rubber via loc_92DE Berzerker gate. Saves
+/// registers, then `lea off_933E(pc),a2; move.l (a2,d7.w),a2` indexes the
+/// block handler table by block_type * 4:
+///   off_933E[0] = j_Block_LoadSmashBits (Smash/block_type 0)
+///   off_933E[1] = j_Block_LoadSmashBits (Prize/block_type 1)
+///   off_933E[2] = j_IceBlock_SmashAndLoadBullets (Ice/block_type 2)
+///   off_933E[6] = j_loc_10DA4 (Rubber/block_type 6 — jiggle effect)
+/// Then `tst.l x_vel(a3); bpl.w loc_930E; moveq #1,d6` sets d6=3 (right) or
+/// d6=1 (left) for the handler's facing direction argument.
+///
+/// Native: probe_wall_column returns cell with block_type; caller dispatches
+/// based on probe.cell.block_type (e.g. BlockType::Rubber, BlockType::Smash).
+#[test]
+fn loc_92ec_block_type_preserved_for_caller_dispatch() {
+    let w: u16 = 6;
+    let h: u16 = 4;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid + has_block + Rubber (block_type=6) at col 3, row 2.
+    // has_block=1, collision=6 (Solid), block_type=6 (Rubber) → 0xE6
+    data[(usize::from(w) * 2 + 3) * 2] = 0xE6;
+    data[(usize::from(w) * 2 + 3) * 2 + 1] = 0x02;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let probe = terrain::probe_wall_column(&grid, 40, 47, 7, 31, true);
+    assert!(probe.hit, "ASM loc_92EC: Rubber block wall detected");
+    assert_eq!(
+        probe.cell.block_type,
+        terrain::BlockType::Rubber,
+        "ASM loc_92EC: block_type=Rubber available for off_933E[6] dispatch at caller"
+    );
+    assert!(
+        probe.cell.has_block,
+        "ASM loc_92EC: has_block flag set so caller knows to dispatch block handler"
+    );
+
+    // Verify both scan directions preserve block info.
+    // ROM uses x_vel sign to set d6 direction: bpl → d6=3 (right), else d6=1 (left).
+    // Left-moving: edge_x = 56-7-1 = 48 → col 3.
+    let probe_left = terrain::probe_wall_column(&grid, 56, 47, 7, 31, false);
+    assert!(
+        probe_left.hit,
+        "ASM loc_92EC: left-moving scan also detects block"
+    );
+    assert_eq!(
+        probe_left.cell.block_type,
+        terrain::BlockType::Rubber,
+        "ASM loc_92EC: block_type preserved regardless of scan direction (d6 arg)"
+    );
+}
+
+/// ASM loc_930E (kid.asm:10747): block handler execution + scan continuation.
+/// `jsr (a2)` calls the block handler, then `movem.w (sp)+,d0-d7;
+/// move.l (sp)+,a4; bra.s loc_92AA` restores all registers and continues the
+/// upward scan. This means the ROM processes ALL block-bearing tiles in the
+/// column, not just the first.
+///
+/// Native simplification: probe_wall_column returns on the first Solid/Spikes
+/// hit. When multiple block tiles exist in the scan column, only the lowest
+/// (first scanned from feet upward) is returned. The caller handles one block
+/// interaction per probe call.
+#[test]
+fn loc_930e_rom_continues_scan_native_returns_first_hit() {
+    let w: u16 = 6;
+    let h: u16 = 6;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Two Solid+block tiles in the same column at different rows.
+    // Row 3 (lower): Solid + Smash (0xE0)
+    data[(usize::from(w) * 3 + 3) * 2] = 0xE0;
+    // Row 1 (upper): Solid + Ice (block_type=2) (0xE2)
+    data[(usize::from(w) + 3) * 2] = 0xE2;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    // Feet at y=79 (row 4), height=63 → top_row = pixel_to_cell(79-63) = 1.
+    // ROM scans rows 4,3,2,1. Finds Smash at row 3 first (bottom-up),
+    // dispatches handler at loc_930E, then continues to find Ice at row 1.
+    // Native returns the first hit (row 3) only.
+    let probe = terrain::probe_wall_column(&grid, 40, 79, 7, 63, true);
+    assert!(probe.hit, "ASM loc_930E: first hit found");
+    assert_eq!(
+        probe.cell_y, 3,
+        "ASM loc_930E: native returns lowest (first-scanned) hit; ROM would continue to row 1"
+    );
+    assert_eq!(
+        probe.cell.block_type,
+        terrain::BlockType::Smash,
+        "ASM loc_930E: first hit is Smash at row 3"
+    );
+}
+
+/// ASM loc_9326 (kid.asm:10762): sub_922C hit-with-no-rubber return path.
+/// After scan exhaustion at loc_9318, `_tst.b 0(sp)` checks the rubber flag
+/// (set by Rubber block detection at loc_92BC). If clear (no rubber), falls
+/// to loc_9326: `tst.b 1(sp)` checks the hit flag. If set:
+///   `sf (Berzerker_charging).w` — clears the Berzerker charge state
+///   `moveq #1,d7; addq.w #2,sp; rts` — return NE (wall found)
+///
+/// Native: probe_wall_column returns `hit: true`. The Berzerker_charging
+/// clear is not performed in the probe — it is managed separately by
+/// `step_berzerker_charge` and `berzerker_break_wall_block`.
+/// TODO(fidelity): ROM clears berzerker_charging on ANY wall hit (not just
+/// Berzerker block-break); native only clears it via charge lifecycle.
+#[test]
+fn loc_9326_hit_return_ne_wall_found() {
+    let w: u16 = 6;
+    let h: u16 = 4;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Plain Solid (no block) at col 3, row 2. No Rubber → loc_9326 path.
+    data[(usize::from(w) * 2 + 3) * 2] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let probe = terrain::probe_wall_column(&grid, 40, 47, 7, 31, true);
+    assert!(
+        probe.hit,
+        "ASM loc_9326: d7=1 (NE) — wall found, no rubber bounce"
+    );
+    assert_eq!(
+        probe.cell.collision,
+        terrain::CollisionKind::Solid,
+        "ASM loc_9326: plain Solid wall (no block) takes the non-rubber return path"
+    );
+    assert!(
+        !probe.cell.has_block,
+        "ASM loc_9326: no block → no block handler dispatch, straight to return"
+    );
+}
+
+/// ASM loc_9338 (kid.asm:10771): sub_922C no-hit return path. After scan
+/// exhaustion, loc_9318 checks rubber flag (clear), loc_9326 checks hit flag
+/// (clear), falls to loc_9338: `moveq #0,d7; addq.w #2,sp; rts` — return
+/// EQ (no wall found).
+///
+/// Native: probe_wall_column returns `hit: false`.
+#[test]
+fn loc_9338_no_hit_return_eq() {
+    let w: u16 = 6;
+    let h: u16 = 4;
+    // All Slope ($4000) tiles — collision nibble 4 is not Solid/Spikes,
+    // so the scan loop body at loc_9294 skips them and the loop exhausts.
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    for i in 0..(usize::from(w) * usize::from(h)) {
+        data[i * 2] = 0x40; // collision=4 (UpRight slope)
+    }
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let probe = terrain::probe_wall_column(&grid, 40, 47, 7, 31, true);
+    assert!(
+        !probe.hit,
+        "ASM loc_9338: d7=0 (EQ) — no Solid/Spikes found, scan exhausted cleanly"
+    );
+}

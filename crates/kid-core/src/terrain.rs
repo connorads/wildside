@@ -1173,6 +1173,36 @@ pub fn probe_wall(
 /// a4` moves up one row. `dbf d5,loc_9294` continues; on exhaustion `bra.w
 /// loc_9318` evaluates hit/Rubber/Berzerker flags. Native: `for row in
 /// (top_row..=foot_row).rev()`.
+///
+/// ASM loc_92DE (kid.asm:10729): Berzerker gate for non-Rubber block
+/// interaction. After loc_92BC sets the hit flag and detects a block that is
+/// NOT Rubber ($18), `tst.b (Berzerker_charging); beq.s loc_92AA` skips if
+/// not charging. `cmpi.w #MoveID_Jump,(Character_Movement); beq.s loc_92AA`
+/// skips if jumping. Only a charging, non-jumping Berzerker reaches loc_92EC.
+/// TODO(fidelity): native dispatches block interactions at the caller level
+/// without this gate — any helmet can trigger Smash/Ice block effects on wall
+/// contact.
+///
+/// ASM loc_92EC (kid.asm:10735): block interaction dispatch. Saves registers,
+/// loads handler from `off_933E[block_type*4]` (`lea off_933E(pc),a2;
+/// move.l (a2,d7.w),a2`), calls `j_Get_XY_From_LevelLayoutAddress`, then
+/// checks `tst.l x_vel(a3); bpl.w loc_930E; moveq #1,d6` (d6=3 right, d6=1
+/// left for the handler's direction arg). Native: caller reads
+/// `probe.cell.block_type` after the scan.
+///
+/// ASM loc_930E (kid.asm:10747): `jsr (a2)` executes the block handler, then
+/// `movem.w (sp)+,d0-d7; move.l (sp)+,a4; bra.s loc_92AA` restores state and
+/// continues scanning. The ROM processes ALL blocks in the column; native
+/// returns on the first Solid/Spikes hit.
+///
+/// ASM loc_9326 (kid.asm:10762): hit-with-no-rubber return. `tst.b 1(sp)`
+/// confirms hit flag set, then `sf (Berzerker_charging)` clears the charge
+/// before returning `moveq #1,d7` (NE = wall found). Native: probe returns
+/// `hit: true`; berzerker_charging is managed separately.
+///
+/// ASM loc_9338 (kid.asm:10771): no-hit return. Both stack flags clear →
+/// `moveq #0,d7; addq.w #2,sp; rts` (EQ = no wall). Native: probe returns
+/// `hit: false`.
 pub fn probe_wall_column(
     grid: &BlockGrid,
     center_x_px: i32,
