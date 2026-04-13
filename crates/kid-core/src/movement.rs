@@ -2472,6 +2472,28 @@ impl OpeningSliceState {
                     // the slope Y-snap below handles sub_A254. The tile-type wall guard
                     // (loc_9FE4/loc_9FFE/loc_A036) is not explicitly modelled — the
                     // probe-based wall check achieves equivalent clamping.
+                    //
+                    // After wall checks, ASM falls through to slope walking animation
+                    // dispatch (loc_A13A–loc_A17E, visual-only):
+                    //
+                    //   loc_A13A (kid.asm:12422): helmet-indexed sprite table lookup.
+                    //     d7 = Current_Helmet << 2; a0 = off_A190[d7] (sprite table).
+                    //     d0 = x_vel; d2 = $FFFFF8F0 (walk accumulator); d1 = x_direction.
+                    //     If $FFFFFA26 != 0 (SlopeDown): eori.b #$FF,d1; neg.l d0 —
+                    //     canonicalise direction/velocity relative to slope.
+                    //   loc_A15C (kid.asm:12434): direction branch.
+                    //     d1 == 0 (facing with slope): d0 = $40 (walk) or $50 (run,
+                    //     Ctrl_A_Held). d1 != 0 → loc_A16C.
+                    //   loc_A16C (kid.asm:12444): reverse-direction sprite offset.
+                    //     lea $C(a0),a0 — skip 6 forward-facing entries; d0 = $40.
+                    //   loc_A172 (kid.asm:12448): accumulator advance + wrap.
+                    //     d2 += d0; if d2 >= $600: d2 -= $600.
+                    //   loc_A17E (kid.asm:12454): apply frame.
+                    //     $FFFFF8F0 = d2; frame = d2 >> 8 (0–5); addroffset_sprite =
+                    //     (a0 + frame*2). bra.w loc_9D22.
+                    //
+                    // Native: visual-only — slope walk animation sprites and the
+                    // $FFFFF8F0 accumulator are not modelled.
                     if self.player.on_ground {
                         let x_px = (self.player.x_pos >> 16) as i32;
                         let y_px = (self.player.y_pos >> 16) as i32;

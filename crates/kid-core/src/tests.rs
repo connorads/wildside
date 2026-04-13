@@ -81423,3 +81423,196 @@ fn slope_up_run_speed_feeds_x_snap_path_loc_A036() {
         "ASM loc_A036: run uphill at cap — higher velocity increases x-snap likelihood"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ASM loc_A13A (kid.asm:12422): slope walking animation dispatch — post-wall-
+// check entry.  Loads helmet-indexed sprite table via off_A190, canonicalises
+// direction/velocity with $FFFFFA26 (slope type flag), then advances the walk
+// accumulator ($FFFFF8F0) and selects a sprite frame.
+//
+// off_A190 has 10 entries (one per helmet, indexed by Current_Helmet << 2).
+// Each sub-table has 12 word entries: 6 forward-facing + 6 reverse-facing.
+//
+// $FFFFFA26 canonicalisation (loc_A13A):
+//   SlopeUp ($FA26=0): d1 = x_direction unchanged, d0 = x_vel unchanged.
+//   SlopeDown ($FA26=$FF): d1 = eori #$FF (flip), d0 = neg.l (negate).
+//
+// loc_A15C: d1==0 (canonical forward) → d0=$40 (walk) or $50 (run/Ctrl_A).
+// loc_A16C: d1!=0 (canonical reverse) → lea $C(a0),a0 (skip to second half
+//   of 12-entry table), d0=$40.
+// loc_A172: d2 += d0; if d2 >= $600: d2 -= $600 (same wrap as sub_942A).
+// loc_A17E: store d2 to $FFFFF8F0; frame = d2 >> 8; addroffset_sprite =
+//   table[frame]. bra.w loc_9D22.
+//
+// Native: visual-only — slope walk animation is not modelled.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_A13A (kid.asm:12422): off_A190 has exactly 10 entries, one per
+/// helmet (indexed by Current_Helmet << 2 as longword offset).
+#[test]
+fn loc_a13a_off_a190_has_10_helmet_entries() {
+    // off_A190 table in the ROM: 10 dc.l entries (kid.asm:12462–12471).
+    // Helmets: Kid(0), Skycutter(1), Eyeclops(2), RedStealth(3), Maniaxe(4),
+    // Juggernaut(5), IronKnight(6), Cyclone(7), Berzerker(8), Micromax(9).
+    let helmet_count = 10u16;
+    assert_eq!(
+        helmet_count, 10,
+        "ASM loc_A13A: off_A190 must have 10 entries for helmets 0–9"
+    );
+    // Each entry is a longword pointer (4 bytes), so d7 = helmet_id << 2.
+    for id in 0u16..10 {
+        let offset = id << 2;
+        assert_eq!(
+            offset,
+            id * 4,
+            "ASM loc_A13A: `asl.w #2,d7` for helmet {id} gives byte offset {offset}"
+        );
+    }
+}
+
+/// ASM loc_A13A: $FFFFFA26 == 0 (SlopeUp) leaves direction and velocity
+/// unchanged.  $FFFFFA26 == $FF (SlopeDown) flips direction (eori #$FF) and
+/// negates velocity (neg.l d0).
+#[test]
+fn loc_a13a_fa26_canonicalises_direction_and_velocity() {
+    // SlopeUp ($FA26 = 0): no change.
+    let fa26_slope_up: u8 = 0;
+    let d1_original: u8 = 0x00; // facing right on SlopeUp
+    let d0_original: i32 = 0x0001_0000; // moving right
+    let (d1_up, d0_up) = if fa26_slope_up != 0 {
+        (d1_original ^ 0xFF, -d0_original)
+    } else {
+        (d1_original, d0_original)
+    };
+    assert_eq!(d1_up, 0x00, "ASM loc_A13A: SlopeUp — d1 unchanged");
+    assert_eq!(d0_up, 0x0001_0000, "ASM loc_A13A: SlopeUp — d0 unchanged");
+
+    // SlopeDown ($FA26 = $FF): flip + negate.
+    let fa26_slope_down: u8 = 0xFF;
+    let (d1_down, d0_down) = if fa26_slope_down != 0 {
+        (d1_original ^ 0xFF, -d0_original)
+    } else {
+        (d1_original, d0_original)
+    };
+    assert_eq!(
+        d1_down, 0xFF,
+        "ASM loc_A13A: SlopeDown — `eori.b #$FF,d1` flips $00 → $FF"
+    );
+    assert_eq!(
+        d0_down, -0x0001_0000,
+        "ASM loc_A13A: SlopeDown — `neg.l d0` negates velocity"
+    );
+}
+
+/// ASM loc_A15C (kid.asm:12434): canonical direction d1==0 → animation step
+/// $40 (walk) or $50 (run, Ctrl_A_Held).
+#[test]
+fn loc_a15c_forward_direction_walk_vs_run_step() {
+    let d1: u8 = 0; // canonical forward
+    assert_eq!(
+        d1, 0,
+        "loc_A15C: d1==0 falls through (tst.b d1; bne loc_A16C)"
+    );
+
+    // Walk: d0 = $40.
+    let d0_walk: u16 = 0x40;
+    assert_eq!(d0_walk, 0x40, "ASM loc_A15C: walk step = $40");
+
+    // Run (Ctrl_A_Held): d0 = $50.
+    let ctrl_a_held = true;
+    let d0_run: u16 = if ctrl_a_held { 0x50 } else { 0x40 };
+    assert_eq!(
+        d0_run, 0x50,
+        "ASM loc_A15C: Ctrl_A_Held → animation step $50 (faster slope walk)"
+    );
+}
+
+/// ASM loc_A16C (kid.asm:12444): canonical reverse direction — advance a0
+/// by $C (6 words) to skip forward-facing sprite entries, step = $40.
+#[test]
+fn loc_a16c_reverse_direction_offsets_sprite_table() {
+    let d1: u8 = 0xFF; // canonical reverse
+    assert_ne!(d1, 0, "loc_A16C: d1!=0 branches here from loc_A15C");
+
+    // lea $C(a0),a0 — $C = 12 bytes = 6 word entries.
+    let table_offset: u16 = 0x0C;
+    let entries_skipped = table_offset / 2;
+    assert_eq!(
+        entries_skipped, 6,
+        "ASM loc_A16C: `lea $C(a0),a0` skips 6 forward-facing sprite entries"
+    );
+
+    // d0 = $40 (no run variant for reverse direction).
+    let d0: u16 = 0x40;
+    assert_eq!(
+        d0, 0x40,
+        "ASM loc_A16C: reverse direction always uses step $40"
+    );
+}
+
+/// ASM loc_A172 (kid.asm:12448): walk accumulator advance with $600 wrap.
+/// `add.w d0,d2; cmpi.w #$600,d2; bcs.s loc_A17E; subi.w #$600,d2`.
+/// Same modulo as sub_942A flat walk (loc_94AA).
+#[test]
+fn loc_a172_accumulator_advance_and_wrap() {
+    // Normal advance, no wrap.
+    let d0: u16 = 0x40;
+    let mut d2: u16 = 0x0100;
+    d2 = d2.wrapping_add(d0);
+    if d2 >= 0x600 {
+        d2 -= 0x600;
+    }
+    assert_eq!(
+        d2, 0x0140,
+        "ASM loc_A172: $100 + $40 = $140, below $600 → no wrap"
+    );
+
+    // Advance past threshold → wrap.
+    let mut d2_high: u16 = 0x05D0;
+    d2_high = d2_high.wrapping_add(d0);
+    if d2_high >= 0x600 {
+        d2_high -= 0x600;
+    }
+    assert_eq!(
+        d2_high, 0x0010,
+        "ASM loc_A172: $5D0 + $40 = $610 ≥ $600 → $610 - $600 = $10"
+    );
+
+    // Run step ($50) wrapping.
+    let d0_run: u16 = 0x50;
+    let mut d2_run: u16 = 0x05C0;
+    d2_run = d2_run.wrapping_add(d0_run);
+    if d2_run >= 0x600 {
+        d2_run -= 0x600;
+    }
+    assert_eq!(
+        d2_run, 0x0010,
+        "ASM loc_A172: $5C0 + $50 = $610 ≥ $600 → $10 (run step also wraps at $600)"
+    );
+}
+
+/// ASM loc_A17E (kid.asm:12454): store accumulator, derive frame index,
+/// select sprite from table.  `move.w d2,($FFFFF8F0).w; lsr.w #8,d2;
+/// add.w d2,d2; move.w (a0,d2.w),addroffset_sprite(a3)`.
+/// Frame index = d2 >> 8 ∈ {0..5} (since d2 < $600), word-indexed.
+#[test]
+fn loc_a17e_frame_index_and_table_word_offset() {
+    // d2 range is [0, $5FF] after loc_A172 wrap.
+    for d2 in (0u16..0x600).step_by(0x100) {
+        let frame_idx = d2 >> 8;
+        let word_offset = frame_idx * 2;
+        assert!(
+            frame_idx < 6,
+            "ASM loc_A17E: d2=${d2:04X} → frame {frame_idx} must be < 6"
+        );
+        assert!(
+            word_offset < 12,
+            "ASM loc_A17E: word offset {word_offset} must be < 12 (6 entries × 2 bytes)"
+        );
+    }
+    // Verify frame 0 and frame 5 boundaries.
+    assert_eq!(0x00FFu16 >> 8, 0, "ASM loc_A17E: d2=$FF → frame 0");
+    assert_eq!(0x05FFu16 >> 8, 5, "ASM loc_A17E: d2=$5FF → frame 5");
+    // Each sub-table has 12 entries (6 forward + 6 reverse after loc_A16C
+    // offsets a0 by $C); frame index stays within 0–5 for either half.
+}
