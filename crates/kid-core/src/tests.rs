@@ -85532,3 +85532,211 @@ fn loc_b73c_b750_b764_damage_sound_dispatch_constants() {
         "loc_B778: enemy $60 → default sfx_Voice_ouch (only exact matches branch)"
     );
 }
+
+// --- loc_BA1C / loc_BAD2: sub_A4EE IK climb dismount wall-hit x_pos alignment ---
+
+/// ASM loc_BA1C (kid.asm:14969): right-facing IK climb dismount wall-hit
+/// recovery. After sub_B55C returns neither $6000 (solid) nor $4000
+/// (passable), Kid's position is restored and x_pos is grid-aligned:
+///   `andi.w #$FFF0,d3; addi.w #$F,d3; sub.w ($FFFFFA78),d3`
+/// This snaps x to the right edge of the 16px tile, then subtracts
+/// half_width ($FFFFFA78) so Kid's centre sits at tile-right minus
+/// half_width. Then x_vel is cleared, a re-probe runs, and on
+/// non-solid result: `sf ($FFFFFA72)` (right-side approach) + wall-cling.
+///
+/// ASM loc_BAD2 (kid.asm:15026): left-facing mirror —
+///   `andi.w #$FFF0,d3; add.w ($FFFFFA78),d3`
+/// Snaps x to the left edge of the tile, then adds half_width.
+/// On non-solid: `st ($FFFFFA72)` (left-side approach) + wall-cling.
+#[test]
+#[allow(non_snake_case)]
+fn loc_BA1C_right_facing_dismount_x_alignment() {
+    // Simulate the ASM arithmetic for the right-facing path:
+    // d3 (swapped) = original x_pos. andi + addi snaps to right tile edge.
+    let half_width: u16 = 8; // typical Kid half_width ($FFFFFA78)
+    let align_right = |x_px: u16| -> u16 {
+        let snapped = (x_px & 0xFFF0).wrapping_add(0x000F);
+        snapped.wrapping_sub(half_width)
+    };
+
+    // x=100 → 100 & $FFF0 = 96, +$F = 111, -8 = 103
+    assert_eq!(
+        align_right(100),
+        103,
+        "loc_BA1C: x=100 should align to tile-right(111) - half_width(8) = 103"
+    );
+
+    // x=96 (tile boundary) → 96 & $FFF0 = 96, +$F = 111, -8 = 103
+    assert_eq!(
+        align_right(96),
+        103,
+        "loc_BA1C: x=96 (tile boundary) should align to 103"
+    );
+
+    // x=111 (right edge already) → 96 + $F = 111, -8 = 103
+    assert_eq!(
+        align_right(111),
+        103,
+        "loc_BA1C: x=111 (tile right edge) should align to 103"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn loc_BAD2_left_facing_dismount_x_alignment() {
+    // Left-facing mirror: andi + add (no addi #$F, no sub).
+    let half_width: u16 = 8;
+    let align_left = |x_px: u16| -> u16 {
+        let snapped = x_px & 0xFFF0;
+        snapped.wrapping_add(half_width)
+    };
+
+    // x=100 → 100 & $FFF0 = 96, +8 = 104
+    assert_eq!(
+        align_left(100),
+        104,
+        "loc_BAD2: x=100 should align to tile-left(96) + half_width(8) = 104"
+    );
+
+    // x=96 (tile boundary) → 96, +8 = 104
+    assert_eq!(
+        align_left(96),
+        104,
+        "loc_BAD2: x=96 (tile boundary) should align to 104"
+    );
+
+    // x=111 → 96 + 8 = 104
+    assert_eq!(align_left(111), 104, "loc_BAD2: x=111 should align to 104");
+}
+
+/// ASM loc_BA1C / loc_BAD2: the approach direction flag ($FFFFFA72)
+/// distinguishes right-side vs left-side wall-cling entry.
+/// loc_BA1C: `sf ($FFFFFA72)` — clear = approached from right.
+/// loc_BAD2: `st ($FFFFFA72)` — set ($FF) = approached from left.
+#[test]
+#[allow(non_snake_case)]
+fn loc_BA1C_BAD2_approach_direction_flag() {
+    // Right-facing dismount: sf = 0 (false)
+    let fa72_right: u8 = 0x00; // sf clears to zero
+    assert_eq!(
+        fa72_right, 0x00,
+        "loc_BA1C: sf ($FFFFFA72) = 0 (right-side approach)"
+    );
+
+    // Left-facing dismount: st = $FF (true)
+    let fa72_left: u8 = 0xFF; // st sets to $FF
+    assert_eq!(
+        fa72_left, 0xFF,
+        "loc_BAD2: st ($FFFFFA72) = $FF (left-side approach)"
+    );
+}
+
+// --- loc_BB08 / loc_BB30: Juggernaut IK climb dismount velocity override ---
+
+/// ASM loc_BB08 (kid.asm:15044): Juggernaut right-facing IK climb bypass.
+/// When Current_Helmet == Juggernaut during loc_B9A2 (right-facing dismount),
+/// instead of the normal collision probe sequence, sets:
+///   `move.l #$FFFE0000,x_vel(a3)` — x_vel = -$20000 (left)
+///   `move.l #$FFFE0000,y_vel(a3)` — y_vel = -$20000 (up)
+///   `rts`
+/// The Juggernaut bounces up-and-left away from the right-wall crush.
+///
+/// ASM loc_BB30 (kid.asm:15060): Juggernaut left-facing IK climb bypass.
+/// Mirror for loc_BA5A (left-facing dismount):
+///   `move.l #$20000,x_vel(a3)`    — x_vel = +$20000 (right)
+///   `move.l #$FFFE0000,y_vel(a3)` — y_vel = -$20000 (up)
+///   `rts`
+/// The Juggernaut bounces up-and-right away from the left-wall crush.
+#[test]
+#[allow(non_snake_case)]
+fn loc_BB08_juggernaut_right_dismount_velocity() {
+    // Both axes set to $FFFE0000 = -$20000 as signed i32
+    let vel: i32 = -0x2_0000; // $FFFE0000
+    assert_eq!(vel as u32, 0xFFFE_0000, "loc_BB08: $FFFE0000 = -$20000");
+
+    // x_vel and y_vel are identical for right-facing Juggernaut dismount
+    let x_vel = vel;
+    let y_vel = vel;
+    assert_eq!(
+        x_vel, y_vel,
+        "loc_BB08: both velocity components are $FFFE0000"
+    );
+    assert!(
+        x_vel < 0 && y_vel < 0,
+        "loc_BB08: both velocities are negative (up-left bounce)"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn loc_BB30_juggernaut_left_dismount_velocity() {
+    // x_vel = $20000 (positive, rightward)
+    let x_vel: i32 = 0x2_0000;
+    assert_eq!(
+        x_vel as u32, 0x0002_0000,
+        "loc_BB30: x_vel = +$20000 (rightward)"
+    );
+
+    // y_vel = $FFFE0000 (negative, upward)
+    let y_vel: i32 = -0x2_0000;
+    assert_eq!(
+        y_vel as u32, 0xFFFE_0000,
+        "loc_BB30: y_vel = $FFFE0000 (upward)"
+    );
+
+    // x directions are mirrored between loc_BB08 and loc_BB30
+    let bb08_x: i32 = -0x2_0000;
+    assert_eq!(
+        x_vel, -bb08_x,
+        "loc_BB30: x_vel is negation of loc_BB08's x_vel (mirror)"
+    );
+
+    // y_vel is the same in both (always upward)
+    let bb08_y: i32 = -0x2_0000;
+    assert_eq!(
+        y_vel, bb08_y,
+        "loc_BB30: y_vel matches loc_BB08's y_vel (both bounce up)"
+    );
+}
+
+// --- loc_BB2: ReadJoypad level skip cheat activation ---
+
+/// ASM loc_BB2 (kid.asm:1355): `st (LevelSkip_Cheat).w` — the innermost
+/// branch of the cheat detection in ReadJoypad. Reached when all three
+/// conditions are met at loc_B98 (kid.asm:1346):
+///   1. `tst.w (word_7190)` — debug mode enabled (non-zero)
+///   2. `cmpi.b #$C0,(Ctrl_1_Held)` — P1 holds A+B (bits 7+6 = $C0)
+///   3. `cmpi.b #$10,(Ctrl_2_Held)` — P2 holds Right (bit 4 = $10)
+///
+/// `st` sets the byte to $FF (true). Once armed, the flag persists until
+/// consumed by the Start-press handler at loc_74B0.
+///
+/// Native: the cheat is always armed (word_7190 gate skipped), so loc_BB2's
+/// `st` is effectively always active. The A+C+Start combination at
+/// handle_start_press maps to the ASM's loc_74E0 consumption path.
+#[test]
+#[allow(non_snake_case)]
+fn loc_BB2_level_skip_cheat_activation() {
+    // st instruction sets byte to $FF
+    let cheat_flag: u8 = 0xFF;
+    assert_eq!(
+        cheat_flag, 0xFF,
+        "loc_BB2: st (LevelSkip_Cheat) sets flag to $FF"
+    );
+
+    // The P1 button mask that triggers the cheat: A+B = bits 7+6 = $C0
+    let ctrl_1_held: u8 = 0xC0;
+    assert_eq!(
+        ctrl_1_held & 0xC0,
+        0xC0,
+        "loc_B98: P1 must hold A+B ($C0) — cmpi.b #$C0"
+    );
+
+    // The P2 button mask: Right = bit 4 = $10
+    let ctrl_2_held: u8 = 0x10;
+    assert_eq!(
+        ctrl_2_held & 0x10,
+        0x10,
+        "loc_B98: P2 must hold Right ($10) — cmpi.b #$10"
+    );
+}

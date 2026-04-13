@@ -5553,7 +5553,8 @@ impl NativeRuntime {
     /// (kid.asm:1346): after storing per-player controller state,
     /// `tst.w (word_7190); cmpi.b #$C0,(Ctrl_1_Held); cmpi.b #$10,
     /// (Ctrl_2_Held)` — if word_7190 (debug mode) is set AND P1 holds
-    /// A+B ($C0) AND P2 holds Right ($10), `st (LevelSkip_Cheat)`.
+    /// A+B ($C0) AND P2 holds Right ($10), loc_BB2 (kid.asm:1355):
+    /// `st (LevelSkip_Cheat)` sets the flag to $FF.
     /// Native: the cheat is always armed (no word_7190 gate).
     ///
     /// Native maps `bclr #Button_Start` to the `start_pressed` rising-edge

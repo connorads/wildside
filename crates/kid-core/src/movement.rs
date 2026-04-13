@@ -2362,6 +2362,37 @@ impl OpeningSliceState {
                 // in each axis. The $14/$18 crush paths are not yet ported (they
                 // require GfxObjects_Collision compound detection).
                 //
+                // ASM loc_B9A2 (kid.asm:14935): right-facing IK climb dismount entry.
+                // Calls sub_DB22, clears collision_type/$1C/$20, then checks helmet:
+                //   - loc_BB08 (kid.asm:15044): Juggernaut bypass — sets
+                //     x_vel=y_vel=$FFFE0000 (-$20000) and returns immediately.
+                //   - Non-Juggernaut: bclr B/C pressed, sf has_level_collision,
+                //     compute target y from $FFFFFB6C tile address, first sub_B55C
+                //     probe. $6000 → loc_B978 (land). $4000 → loc_9D58 (jump).
+                //     Other → loc_BA1C (kid.asm:14969): wall-hit recovery — restore
+                //     y_pos from d3, snap x to 16px grid: `andi.w #$FFF0,d3;
+                //     addi.w #$F,d3; sub.w ($FFFFFA78),d3` (right edge minus
+                //     half_width), clear x_vel, re-probe sub_B55C. $6000 → land.
+                //     Else: sf $FFFFFA72 (approach from right), st has_level_collision,
+                //     sub_B270 + bra loc_AA22 (enter wall-cling loop).
+                //
+                // ASM loc_BA5A (kid.asm:14992): left-facing mirror of loc_B9A2.
+                //   - loc_BB30 (kid.asm:15060): Juggernaut bypass — x_vel=+$20000,
+                //     y_vel=$FFFE0000, rts (bounce right-and-up).
+                //   - Non-Juggernaut: same flow, but target y uses `sub.w d2,d1;
+                //     neg.w d1` (mirror offset), first sub_B55C checks $5000 for
+                //     passable (not $4000). Other → loc_BAD2 (kid.asm:15026):
+                //     wall-hit recovery — restore y_pos, snap x: `andi.w #$FFF0,d3;
+                //     add.w ($FFFFFA78),d3` (left edge plus half_width), clear x_vel,
+                //     re-probe sub_B55C. $6000 → land. Else: st $FFFFFA72 (approach
+                //     from left), st has_level_collision, sub_B270 + bra loc_AA22.
+                //
+                // Native: IK climb dismount is folded into the decomposed collision
+                // passes. The Juggernaut velocity overrides (loc_BB08/loc_BB30) map
+                // to the compound collision bounce constants already documented at
+                // loc_A556. The wall-hit grid-snap paths (loc_BA1C/loc_BAD2) are
+                // handled by apply_wall_collision's tile-boundary alignment.
+                //
                 // ASM loc_B978 (kid.asm:14919): sub_A4EE solid-floor landing path —
                 //   reached when sub_B55C returns $6000 (solid) after the compound
                 //   collision dismount (loc_B9A2 right / loc_BA5A left). Sequence:
