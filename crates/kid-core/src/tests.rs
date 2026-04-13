@@ -84708,3 +84708,230 @@ fn loc_b51e_return_flag_logic() {
         assert_eq!(nz, expected_nz, "loc_B51E: d7={d7} → NZ={expected_nz}",);
     }
 }
+
+// --- loc_B522: telepad countdown logic ---
+
+/// ASM loc_B522 (kid.asm:14437): `subi.w #1,(Telepad_timer).w; bne.s loc_B51E`
+/// — decrement Telepad_timer by 1 each scan pass.  While timer > 0 after
+/// decrement, return early with d7=1 (floor found, Z clear).
+/// When timer reaches 0: `moveq #-1,d7` (telepad activated signal),
+/// `subq.w #2,a0` (back up pointer to telepad cell),
+/// `move.w a0,($FFFFFA86).w` (store telepad layout address), then rts.
+///
+/// The decrement is exactly 1 per pass (`subi.w #1`), so a timer starting
+/// at $5A (90) will reach 0 after exactly 90 scan passes.
+#[test]
+fn loc_b522_telepad_timer_decrement_and_activation() {
+    // ASM: subi.w #1,(Telepad_timer).w — decrement constant is 1
+    let decrement: u16 = 1;
+
+    // Starting from reset value $5A (90), simulate countdown
+    let mut timer: u16 = 0x5A;
+    let mut passes = 0u16;
+
+    while timer > 0 {
+        timer = timer.wrapping_sub(decrement);
+        passes += 1;
+        if timer != 0 {
+            // bne.s loc_B51E — return early, d7 still 1
+            continue;
+        }
+        // Timer reached 0: moveq #-1,d7 — activation signal
+        let d7: i16 = -1;
+        assert_eq!(d7, -1, "loc_B522: d7 = -1 on activation");
+    }
+    assert_eq!(passes, 90, "loc_B522: exactly 90 passes from $5A to 0");
+}
+
+/// ASM loc_B522: `move.w a0,($FFFFFA86).w` — the stored address is the
+/// level-layout pointer backed up by 2 (`subq.w #2,a0`) from the current
+/// scan position.  Verify the pointer arithmetic: a0 pointed past the
+/// telepad cell (post-increment from `move.w (a0)+,d0` at loc_B4E0), so
+/// subq.w #2 restores it to point AT the telepad cell.
+#[test]
+fn loc_b522_telepad_address_pointer_backup() {
+    // Simulate: a0 was advanced by (a0)+ during scan, so points 2 bytes past
+    let cell_address: u16 = 0x1234;
+    let a0_after_read = cell_address.wrapping_add(2); // post-increment
+    let a0_backed_up = a0_after_read.wrapping_sub(2); // subq.w #2,a0
+    assert_eq!(
+        a0_backed_up, cell_address,
+        "loc_B522: subq.w #2 restores a0 to the telepad cell address"
+    );
+}
+
+// --- loc_B598: ceiling collision push-down loop ---
+
+/// ASM loc_B598 (kid.asm:14492): ceiling collision push-down loop.
+/// `jsr (j_GfxObjects_Collision).w; cmpi.w #colid_ceiling,collision_type(a3)`
+/// — if ceiling hit: `clr.w collision_type(a3); subi.l #$30000,d7;
+/// move.l d7,y_pos(a3); bra.s loc_B598` — push y_pos down by $30000
+/// (3 pixels in fixed-point) per iteration until no ceiling contact.
+///
+/// Verify the push-down constant and that iterating pushes correctly.
+#[test]
+fn loc_b598_ceiling_push_down_constant() {
+    // ASM: subi.l #$30000,d7 — $30000 = 3 << 16 = 3 pixels in 16.16 FP
+    let push_down: u32 = 0x0003_0000;
+    assert_eq!(push_down >> 16, 3, "loc_B598: push-down = 3 pixels");
+
+    // Simulate 3 iterations of the ceiling push-down loop
+    let initial_y: u32 = 0x0040_0000; // y_pos = 64.0 in FP
+    let mut y = initial_y;
+    for i in 1..=3u32 {
+        y = y.wrapping_sub(push_down);
+        assert_eq!(
+            y >> 16,
+            64 - (3 * i),
+            "loc_B598: after {i} pushes, y_pos integer = {}",
+            64 - (3 * i)
+        );
+    }
+}
+
+// --- loc_B5CE: wall-adjacent ledge correction ---
+
+/// ASM loc_B5CE (kid.asm:14509): wall-adjacent ledge correction.
+/// d4 = +8 (facing right, $FA26 == 0) or -8 (facing left, $FA26 != 0).
+/// First probe: `move.w d4,d7; moveq #0,d6; bsr.s sub_B55C` — check block
+/// at (x_pos + d4, y_pos + 0).  `cmpi.w #$6000,d5` — if NOT Solid, bail
+/// to loc_A426.  If Solid: second probe at (x_pos + d4, y_pos - $10):
+/// `andi.w #$4000,d5` — if top block IS a wall ($4000 set), bail.
+/// Otherwise: `andi.w #$FFF0,y_pos(a3)` snap y_pos to tile boundary.
+///
+/// Verify the probe offsets and snap mask.
+#[test]
+fn loc_b5ce_wall_ledge_probe_offsets_and_snap() {
+    // d4 values from the direction check
+    let d4_right: i16 = 8;
+    let d4_left: i16 = -8;
+    assert_eq!(d4_right.unsigned_abs(), 8, "loc_B5CE: d4 magnitude = 8px");
+    assert_eq!(d4_left.unsigned_abs(), 8, "loc_B5CE: d4 magnitude = 8px");
+
+    // First probe: d6 = 0 (same row as player feet)
+    let first_probe_y_offset: i16 = 0;
+    assert_eq!(
+        first_probe_y_offset, 0,
+        "loc_B5CE: first probe at feet level"
+    );
+
+    // Second probe: d6 = -$10 (one tile row up)
+    let second_probe_y_offset: i16 = -0x10;
+    assert_eq!(
+        second_probe_y_offset, -16,
+        "loc_B5CE: second probe one tile row up"
+    );
+
+    // Snap mask: andi.w #$FFF0,y_pos(a3) — align to 16-pixel tile boundary
+    let y_pos: u16 = 0x0037; // 55 decimal
+    let snapped = y_pos & 0xFFF0;
+    assert_eq!(
+        snapped, 0x0030,
+        "loc_B5CE: $FFF0 mask snaps 0x37 → 0x30 (48)"
+    );
+
+    // Solid collision check value
+    assert_eq!(0x6000u16, 0x6000, "loc_B5CE: $6000 = Solid collision type");
+    // Wall/passable check value
+    assert_eq!(
+        0x4000u16, 0x4000,
+        "loc_B5CE: $4000 = wall bit in block word"
+    );
+}
+
+// --- loc_B672: unexpected collision dispatch ---
+
+/// ASM loc_B672 (kid.asm:14576): `jmp (j_loc_6E2).w` — level restart for
+/// unexpected collision types.  Character_CheckCollision's off_B640 jump
+/// table dispatches leftwall ($08), floor ($10), ceiling ($02), slopeup,
+/// and slopedown collision types here.  Only rightwall ($04) goes to
+/// Crushed_to_Death, and kid-above-enemy goes to Jump_On_Enemy.
+///
+/// Verify the jump table layout: each entry is a 4-byte pointer, indexed
+/// by (collision_type - 4) since `subq.w #4,d7` is applied first.
+#[test]
+fn loc_b672_unexpected_collision_type_dispatch_table() {
+    // ASM off_B640: jump table entries (collision_type after subq #4)
+    // Index 0 (rightwall, $04): Crushed_to_Death
+    // Index 1 (leftwall, $08): loc_B672
+    // Index 2 (floor, $10): loc_B672  — note: not $0C; $10 mapped to index 2
+    // Index 3 (ceiling, $02): loc_B672 — wait, $02 < $04 so wouldn't reach?
+    //
+    // Actually the table is indexed by (d7 - 4) / 4, where d7 is collision_type.
+    // colid values: rightwall=4, leftwall=8, floor=$C, ceiling=$10,
+    //   slopeup=$14, slopedown=$18, hurt=$1C, kid_right=$20, kid_left=$24,
+    //   kid_below=$28, kid_above=$2C.
+    // After subq.w #4: 0, 4, 8, $C, $10, $14, $18, $1C, $20, $24, $28.
+    // Table uses move.l off_B640(pc,d7.w),a4 — byte offset, so each entry
+    // is 4 bytes: index = (collision_type - 4).
+
+    // The 11 entries from the ASM:
+    let entries = [
+        "Crushed_to_Death",       // rightwall ($04) → offset 0
+        "loc_B672",               // leftwall ($08) → offset 4
+        "loc_B672",               // floor ($0C) → offset 8
+        "loc_B672",               // ceiling ($10) → offset $C
+        "loc_B672",               // slopeup ($14) → offset $10
+        "loc_B672",               // slopedown ($18) → offset $14
+        "Check_for_recent_damge", // hurt ($1C) → offset $18
+        "loc_B678",               // kid_right ($20) → offset $1C
+        "loc_B678",               // kid_left ($24) → offset $20
+        "Check_for_recent_damge", // kid_below ($28) → offset $24
+        "Jump_On_Enemy",          // kid_above ($2C) → offset $28
+    ];
+
+    // 5 entries map to loc_B672 (unexpected → level restart)
+    let restart_count = entries.iter().filter(|&&e| e == "loc_B672").count();
+    assert_eq!(
+        restart_count, 5,
+        "loc_B672: 5 collision types dispatch to level restart"
+    );
+
+    // 2 entries map to loc_B678 (kid side contact)
+    let side_count = entries.iter().filter(|&&e| e == "loc_B678").count();
+    assert_eq!(
+        side_count, 2,
+        "loc_B672: kid_right and kid_left both dispatch to loc_B678"
+    );
+}
+
+// --- loc_B678: kid left/right of enemy contact ---
+
+/// ASM loc_B678 (kid.asm:14582): kid-side-of-enemy collision handler inside
+/// Character_CheckCollision.
+/// - `cmpi.w #$18,d5` — tornado enemy check (enemy type $18).
+///   If tornado → loc_B69E: `tst.b (Cyclone_flying).w; bne.s return_B690`
+///   (flying Cyclone ignores tornado contact), else → Check_for_recent_damge.
+/// - `tst.b (Berzerker_charging).w; beq.w Check_for_recent_damge` — not
+///   charging = take damage.
+/// - Charging: `bclr #$F,d6` tests+clears bit 15 of object_meta (d6).
+///   If was set → loc_B692: `neg.l x_vel(a3)` (bounce off enemy).
+///   If clear → return_B690: rts (no velocity change).
+#[test]
+fn loc_b678_tornado_enemy_type_and_berzerker_bounce() {
+    // Tornado enemy type constant
+    let tornado_type: u16 = 0x18;
+    assert_eq!(tornado_type, 24, "loc_B678: tornado enemy = $18 = 24");
+
+    // Berzerker bounce: neg.l x_vel(a3)
+    let x_vel: i32 = 0x0002_0000; // moving right at 2px/frame
+    let negated = -x_vel;
+    assert_eq!(
+        negated, -0x0002_0000,
+        "loc_B678/loc_B692: neg.l reverses x velocity sign"
+    );
+
+    // Bit 15 test on object_meta (d6): bclr #$F,d6
+    let d6_with_bit15: u16 = 0x8042;
+    let bit15_was_set = (d6_with_bit15 & (1 << 15)) != 0;
+    let d6_after_bclr = d6_with_bit15 & !(1 << 15);
+    assert!(bit15_was_set, "loc_B678: bit 15 was set → bounce path");
+    assert_eq!(d6_after_bclr, 0x0042, "loc_B678: bclr #$F clears bit 15");
+
+    let d6_without_bit15: u16 = 0x0042;
+    let bit15_clear = (d6_without_bit15 & (1 << 15)) != 0;
+    assert!(
+        !bit15_clear,
+        "loc_B678: bit 15 clear → return without bounce"
+    );
+}

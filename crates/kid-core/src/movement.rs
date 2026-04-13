@@ -2361,6 +2361,27 @@ impl OpeningSliceState {
                 // loc_A532 restore is implicit — position is applied incrementally
                 // in each axis. The $14/$18 crush paths are not yet ported (they
                 // require GfxObjects_Collision compound detection).
+                //
+                // ASM loc_B598 (kid.asm:14492): ceiling collision push-down loop
+                // inside an unreferenced code block between sub_A4EE chunks.
+                // `lea (Addr_FirstGfxObjectSlot+2).w,a2; jsr (j_GfxObjects_Collision).w;
+                // cmpi.w #colid_ceiling,collision_type(a3); bne.w loc_A6F8` — if
+                // ceiling hit, clear collision_type, `subi.l #$30000,d7` (push
+                // y_pos down 3px), `move.l d7,y_pos(a3); bra.s loc_B598` — loop
+                // until no ceiling. On exit: jump to loc_A6F8 (main loop top).
+                // Native: apply_ceiling_collision handles ceiling snapping in a
+                // single pass rather than iterative push-down.
+                //
+                // ASM loc_B5CE (kid.asm:14509): wall-adjacent ledge correction
+                // in the same unreferenced block, reached after ceiling loop exit.
+                // `tst.l y_vel(a3); bmi.w loc_A426` — ascending = skip.
+                // d4 = +8 or -8 based on $FFFFFA26 (facing direction flag).
+                // `move.w d4,d7; moveq #0,d6; bsr.s sub_B55C` — probe block at
+                // player's feet in facing direction. If $6000 (Solid): probe one
+                // row up (`moveq #-$10,d6; bsr.w sub_B55C`). If that block is
+                // NOT $4000 (passable): `andi.w #$FFF0,y_pos(a3)` snap y_pos to
+                // tile boundary, then `bra.w loc_A426`. Native: wall collision
+                // handles ledge alignment via apply_wall_collision's snap logic.
 
                 // ASM loc_A75A (kid.asm:13066): `bsr.w sub_902A; bne.w loc_A8F6`
                 // — floor/ceiling check.  NE means contact: positive (bpl) →
@@ -3758,6 +3779,16 @@ impl OpeningSliceState {
         // andi.w #$7000,d0; cmpi.w #$6000,d0 (Solid); cmpi.w #$7000,d0 (Spikes).
         // ASM loc_B4FA (kid.asm:14419): floor found — moveq #1,d7; then checks
         // bit 15 + block type $400 for telepad.  Telepad countdown not yet native.
+        // ASM loc_B522 (kid.asm:14437): telepad countdown —
+        // `subi.w #1,(Telepad_timer).w; bne.s loc_B51E` decrements the timer
+        // and returns early (d7 still 1, floor found) while timer > 0.
+        // When timer reaches 0: `moveq #-1,d7; subq.w #2,a0` backs up a0 to
+        // the telepad cell, `move.w a0,($FFFFFA86).w` stores the level-layout
+        // address of the telepad block, then returns (d7=-1, NZ = true).
+        // The stored address is later consumed by loc_BC80 (kid.asm:15219)
+        // which reads $FFFFFA86 to locate the telepad destination.
+        // Native: telepad countdown not yet implemented; the telepad path
+        // at loc_B522 is a TODO(fidelity) deferred until telepad levels.
         // ASM loc_B514 (kid.asm:14428): loop tail — dbf d2,loc_B4E0; after loop
         // resets Telepad_timer to $5A (90).
         // ASM loc_B51E (kid.asm:14432): tst.w d7; rts — return NZ if any Solid

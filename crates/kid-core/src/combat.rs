@@ -7745,6 +7745,28 @@ impl NativeRuntime {
         {
             return None;
         }
+        // ASM loc_B678 (kid.asm:14582): kid-left/right-of-enemy dispatch inside
+        // Character_CheckCollision. `cmpi.w #$18,d5` — if enemy is tornado
+        // ($18), branch to loc_B69E which checks Cyclone_flying: if flying,
+        // ignore contact (rts); otherwise fall through to Check_for_recent_damge.
+        // If not tornado: `tst.b (Berzerker_charging).w; beq.w Check_for_recent_damge`
+        // — if NOT berzerker charging, take damage normally.
+        // If berzerker IS charging: `bclr #$F,d6; bne.w loc_B692` — bit 15 of
+        // object_meta flags whether to negate x_vel on hit. loc_B692:
+        // `move.l x_vel(a3),d7; neg.l d7; move.l d7,x_vel(a3); rts` — bounce.
+        // Bit 15 clear → return_B690 (rts, no velocity change).
+        // Native: berzerker_charging immunity is handled here; the tornado
+        // and velocity-negation sub-paths are not yet implemented.
+        //
+        // ASM loc_B672 (kid.asm:14576): unexpected collision type dispatch.
+        // Character_CheckCollision's off_B640 jump table maps leftwall, floor,
+        // ceiling, slopeup, and slopedown collision_type values (which
+        // "shouldn't happen here") to loc_B672: `jmp (j_loc_6E2).w` — restart
+        // the current level. Only rightwall maps to Crushed_to_Death, and
+        // kid-above-enemy maps to Jump_On_Enemy. Native: the decomposed
+        // collision architecture never produces these compound collision types
+        // in the character-vs-object context, so the restart fallback is moot.
+        //
         // Berzerker charging is immune to contact damage (they damage enemies instead)
         if self.helmet.berzerker_charging {
             return None;
