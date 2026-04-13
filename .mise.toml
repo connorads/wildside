@@ -5,6 +5,8 @@ hk = "1.38.0"
 pkl = "0.31.0"
 # SDL2 0.38.0's CMakeLists.txt needs cmake_minimum_required < 3.5 compat (dropped in cmake 4.x)
 cmake = "3.30.9"
+typos = "1"
+"cargo:cargo-deny" = "0"
 
 [tasks.fmt]
 run = "cargo fmt --all"
