@@ -964,7 +964,8 @@ impl FrameInput {
                 c: self.b,
                 ..self
             },
-            // ASM loc_D0A (kid.asm:1492): `bclr #6→bset #4; bclr #4→bset #6` — swap A↔B.
+            // ASM loc_D0A (kid.asm:1492): `bclr #6,d0; bset #4,d6` maps A→B.
+            // ASM loc_D14 (kid.asm:1497): `bclr #4,d0; bset #6,d6` maps B→A.
             2 => Self {
                 a: self.b,
                 b: self.a,

@@ -14468,9 +14468,9 @@ mod chunk_12 {
         assert!(!result.right, "right still false");
     }
 
-    /// ASM loc_D0A (kid.asm:1492): scheme 2 swaps A↔B.
+    /// ASM loc_D0A (kid.asm:1492): scheme 2 maps A→B.
     #[test]
-    fn loc_d0a_scheme2_swap_a_b() {
+    fn loc_d0a_scheme2_maps_a_to_b() {
         let a_only = FrameInput {
             a: true,
             ..FrameInput::default()
@@ -14479,7 +14479,12 @@ mod chunk_12 {
         assert!(!result.a, "A cleared");
         assert!(result.b, "B set (was A)");
         assert!(!result.c, "C untouched");
+    }
 
+    /// ASM loc_D14 (kid.asm:1497): scheme 2 maps B→A after loc_D0A handles
+    /// the A bit. The tail clears bit 4 and restores it into bit 6 through d6.
+    #[test]
+    fn loc_d14_scheme2_maps_b_to_a() {
         let b_only = FrameInput {
             b: true,
             ..FrameInput::default()
