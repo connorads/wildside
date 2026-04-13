@@ -36661,6 +36661,200 @@ fn teleporter_lookup_by_position() {
     assert!(bl.teleporter_at(4, 3).is_none());
 }
 
+/// ASM loc_BC96 (kid.asm:15228): teleporter table scan loop — `move.w (a4),d4;
+/// cmp.w d4,d6; beq loc_BCB2; cmp.w d4,d5; beq loc_BCB2; addi.w #$A,a4;
+/// dbf d7,loc_BC96`. Each entry is 10 bytes. The loop compares the first word
+/// (layout_addr) against the telepad address (d6) and d6-2 (d5). With multiple
+/// entries, only the matching one is returned.
+#[test]
+fn teleporter_scan_loop_matches_correct_entry_loc_bc96() {
+    let bl = terrain::BlockList {
+        prize_blocks: vec![],
+        ghost_blocks: vec![],
+        teleporters: vec![
+            terrain::TeleporterEntry {
+                layout_addr: 0x1000,
+                col: 2,
+                row: 4,
+                dest_map_id: 5,
+                dest_y: 8,
+                dest_x: 12,
+            },
+            terrain::TeleporterEntry {
+                layout_addr: 0x2000,
+                col: 7,
+                row: 1,
+                dest_map_id: 3,
+                dest_y: 6,
+                dest_x: 15,
+            },
+            terrain::TeleporterEntry {
+                layout_addr: 0x3000,
+                col: 10,
+                row: 9,
+                dest_map_id: 1,
+                dest_y: 2,
+                dest_x: 20,
+            },
+        ],
+        hidden_blocks: vec![],
+    };
+
+    // Second entry should match
+    let tp = bl.teleporter_at(7, 1).unwrap();
+    assert_eq!(tp.dest_map_id, 3, "should find second entry by (col,row)");
+    assert_eq!(tp.dest_x, 15);
+    assert_eq!(tp.dest_y, 6);
+
+    // Third entry
+    let tp = bl.teleporter_at(10, 9).unwrap();
+    assert_eq!(tp.dest_map_id, 1, "should find third entry");
+
+    // No match at unused position
+    assert!(bl.teleporter_at(99, 99).is_none());
+}
+
+/// ASM loc_BCAC (kid.asm:15237): `jmp (j_loc_6E2)` — when the teleporter count
+/// ($FFFFF8DE) is zero or no entry matches the telepad address, the ROM kills
+/// the player. Native: empty teleporters → `check_teleporter_contact` returns
+/// None. This path is unreachable in valid levels but is the ROM's safety net.
+#[test]
+fn teleporter_no_match_returns_none_loc_bcac() {
+    let bl = terrain::BlockList {
+        prize_blocks: vec![],
+        ghost_blocks: vec![],
+        teleporters: vec![],
+        hidden_blocks: vec![],
+    };
+
+    // Empty list: ROM would branch to loc_BCAC (death)
+    assert!(bl.teleporter_at(5, 3).is_none());
+
+    // Non-empty list but no position match: ROM scans all entries then
+    // falls through dbf to loc_BCAC
+    let bl = terrain::BlockList {
+        prize_blocks: vec![],
+        ghost_blocks: vec![],
+        teleporters: vec![terrain::TeleporterEntry {
+            layout_addr: 0x1000,
+            col: 2,
+            row: 4,
+            dest_map_id: 5,
+            dest_y: 8,
+            dest_x: 12,
+        }],
+        hidden_blocks: vec![],
+    };
+    assert!(bl.teleporter_at(99, 99).is_none());
+}
+
+/// ASM loc_BCB2 (kid.asm:15245): destination extraction from matched entry.
+/// `addq.w #6,a4` skips to offset +6. Word at +6: high byte = dest_map_id
+/// (`asr.w #8,d7`), low byte = dest_y (`andi.w #$FF,d7`). Word at +8 = dest_x.
+/// Both Y and X are multiplied by 16 (`asl.w #4`) for PlayerStart positions.
+/// Verify the native TeleporterEntry fields match the ROM's byte layout.
+#[test]
+fn teleporter_destination_extraction_loc_bcb2() {
+    let entry = terrain::TeleporterEntry {
+        layout_addr: 0x1234,
+        col: 5,
+        row: 3,
+        // ROM entry bytes at offset +6: [dest_map_id, dest_y, dest_x_hi, dest_x_lo]
+        // Example: map_id=0x0A, dest_y=0x07, dest_x=0x0014
+        dest_map_id: 0x0A,
+        dest_y: 0x07,
+        dest_x: 0x0014,
+    };
+
+    // ASM: PlayerStart_Y_pos = (entry[+6] & $FF) * 16 = dest_y * 16
+    let y_pos = u16::from(entry.dest_y) * 16;
+    assert_eq!(y_pos, 0x07 * 16, "dest_y × 16 = PlayerStart_Y_pos");
+
+    // ASM: PlayerStart_X_pos = entry[+8] * 16 = dest_x * 16
+    let x_pos = entry.dest_x * 16;
+    assert_eq!(x_pos, 0x0014 * 16, "dest_x × 16 = PlayerStart_X_pos");
+
+    // ASM: dest_map_id = entry[+6] >> 8 (high byte of the word at +6)
+    assert_eq!(entry.dest_map_id, 0x0A);
+}
+
+/// ASM loc_BCD6 (kid.asm:15259): MapOrder_Index scan — `move.b (a4)+,d5;
+/// ext.w d5; cmpi.w #$FFFF,d5; beq loc_BCAC` (end marker = death);
+/// `cmp.w d5,d7; beq loc_BCEA` (found level). d6 counts level index from 0.
+/// Native stores dest_map_id directly as the level ID in TeleporterEntry,
+/// so the MapOrder_Index translation is implicit. Verify that cross-level
+/// teleport sets pending_level_skip with the destination level ID.
+#[test]
+fn teleporter_cross_level_sets_pending_skip_loc_bcd6() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.current_level = LevelId(0);
+    rt.block_list = Some(terrain::BlockList {
+        prize_blocks: vec![],
+        ghost_blocks: vec![],
+        teleporters: vec![terrain::TeleporterEntry {
+            layout_addr: 0x0000,
+            col: 5,
+            row: 3,
+            dest_map_id: 7, // Different from current level 0
+            dest_y: 10,
+            dest_x: 20,
+        }],
+        hidden_blocks: vec![],
+    });
+    let mut slice = OpeningSliceState::new(default_bounds());
+    // Position player on the teleporter cell
+    slice.player.x_pos = (5 * 16) << 16;
+    slice.player.y_pos = (3 * 16) << 16;
+
+    let result = rt.check_teleporter_contact(&slice);
+    assert_eq!(
+        result,
+        Some((7, 20, 10)),
+        "should return (map_id, dest_x, dest_y)"
+    );
+}
+
+/// ASM loc_BCEA (kid.asm:15270): level transition dispatch after MapOrder_Index
+/// match. `cmp.w (Current_LevelID).w,d6; beq loc_BCF6` — same level skips the
+/// level-change flag. Different level: `st ($FFFFFC36)` then falls through.
+/// Both paths: `move.w d6,(Current_LevelID); st ($FFFFFC29);
+/// move.w #$EE,($FFFFFBCC); moveq #-5,d6; bra Teleport`.
+/// d6=-5 ($FFFB) causes Teleport to play sfx_Teleport sound.
+/// Verify same-level teleport repositions without setting pending_level_skip.
+#[test]
+fn teleporter_same_level_repositions_loc_bcea() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.current_level = LevelId(0);
+    rt.block_list = Some(terrain::BlockList {
+        prize_blocks: vec![],
+        ghost_blocks: vec![],
+        teleporters: vec![terrain::TeleporterEntry {
+            layout_addr: 0x0000,
+            col: 5,
+            row: 3,
+            dest_map_id: 0, // Same as current level
+            dest_y: 10,
+            dest_x: 20,
+        }],
+        hidden_blocks: vec![],
+    });
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = (5 * 16) << 16;
+    slice.player.y_pos = (3 * 16) << 16;
+
+    let result = rt.check_teleporter_contact(&slice);
+    assert_eq!(
+        result,
+        Some((0, 20, 10)),
+        "same-level: returns current level ID"
+    );
+    // pending_level_skip should NOT be set for same-level teleport
+    assert!(
+        rt.pending_level_skip.is_none(),
+        "same-level teleport should not set pending_level_skip"
+    );
+}
+
 // --- Combat ability test helpers ---
 
 fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveEnemy {

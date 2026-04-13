@@ -782,6 +782,14 @@ impl BlockList {
     }
 
     /// Look up a teleporter at a given cell position.
+    ///
+    /// ASM loc_BC96 (kid.asm:15228): scan loop `move.w (a4),d4; cmp.w d4,d6;
+    /// beq loc_BCB2; addi.w #$A,a4; dbf d7,loc_BC96`. The ROM matches by
+    /// layout_addr (d6 = $FFFFFA86 telepad address, also d5 = d6-2 for the
+    /// adjacent cell). Native matches by (col, row) which is equivalent since
+    /// each block-list entry uniquely maps layout_addr ↔ (col, row).
+    /// No match → loc_BCAC: `jmp (j_loc_6E2)` (lose life — unreachable in
+    /// practice since the telepad entry was placed by the level designer).
     pub fn teleporter_at(&self, col: u16, row: u16) -> Option<&TeleporterEntry> {
         self.teleporters
             .iter()

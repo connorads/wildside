@@ -7866,11 +7866,19 @@ impl NativeRuntime {
     }
 
     /// Check if the player is standing on a teleporter block and return the destination.
+    ///
+    /// ASM loc_BC80 (kid.asm:15219): telepad destination lookup entry.
+    /// `move.w ($FFFFF8DE).w,d7; beq loc_BCAC` — load teleporter count from
+    /// block list header; zero count → loc_BCAC (j_loc_6E2 = lose life).
+    /// Native: empty teleporters vec → return None (death path unreachable).
     pub(crate) fn check_teleporter_contact(
         &self,
         slice: &OpeningSliceState,
     ) -> Option<(u8, u16, u8)> {
         let block_list = self.block_list.as_ref()?;
+        // ASM loc_BCAC (kid.asm:15237): `jmp (j_loc_6E2)` — no teleporter
+        // entries means no match is possible; ASM kills player, native
+        // returns None (the teleporter contact path is simply not taken).
         if block_list.teleporters.is_empty() {
             return None;
         }
@@ -9392,7 +9400,24 @@ impl NativeRuntime {
             return true;
         }
 
-        // Teleporter: stepping on a teleporter block warps the player
+        // Teleporter: stepping on a teleporter block warps the player.
+        // ASM loc_BCB2 (kid.asm:15245): destination extraction — `addq.w #6,a4`
+        // skips to offset +6 of the matched 10-byte entry. Word at +6:
+        // high byte = dest_map_id (`asr.w #8,d7`), low byte = dest_y
+        // (`andi.w #$FF,d7; asl.w #4,d7` → PlayerStart_Y_pos). Word at +8:
+        // dest_x (`asl.w #4,d7` → PlayerStart_X_pos). Both positions are in
+        // 16-pixel blocks (asl #4 = ×16).
+        // ASM loc_BCD6 (kid.asm:15259): MapOrder_Index scan loop — `move.b
+        // (a4)+,d5; ext.w d5; cmpi.w #$FFFF,d5; beq loc_BCAC` (end = death);
+        // `cmp.w d5,d7; beq loc_BCEA` (found target level). d6 counts the
+        // level index from 0. Native stores dest_map_id directly as a level
+        // ID, so the MapOrder_Index scan is implicit.
+        // ASM loc_BCEA (kid.asm:15270): level transition — `cmp.w
+        // (Current_LevelID).w,d6; beq loc_BCF6` (same level skips flag set);
+        // different level: `st ($FFFFFC36)` (level-change flag). Then
+        // `move.w d6,(Current_LevelID)`, `st ($FFFFFC29)`,
+        // `move.w #$EE,($FFFFFBCC)` (yellow teleport warp colour),
+        // `moveq #-5,d6; bra Teleport` (d6=-5 triggers sfx_Teleport sound).
         if let Some((dest_map, dest_x, dest_y)) = self.check_teleporter_contact(slice) {
             self.opening_slice = Some(*slice);
             // Same-level teleport: reposition. Cross-level: trigger level skip.
