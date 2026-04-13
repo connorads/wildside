@@ -79033,3 +79033,433 @@ fn loc_9882_iterates_multiple_entries_per_object() {
         "ASM loc_9882: first entry misses (bgt.s loc_9882 loops), second entry hits → bra.s loc_98DE"
     );
 }
+
+// --- loc_98E6: sub_9832 common exit (register restore + tst.w d7) ---
+
+/// ASM loc_98E6 (kid.asm:11443): common exit of sub_9832.
+/// `movem.l (sp)+,a2-a3; movem.l (sp)+,d0-d3; tst.w d7; rts`.
+/// Both loc_98E4 (d7=0, no overlap) and loc_98DE (d7=1, overlap) converge
+/// here. The `tst.w d7` sets condition codes so the caller can branch on
+/// EQ (no overlap) vs NE (overlap).
+/// Native: the bool return from `juggernaut_support_overlap_sub_9832`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_9832_common_exit_loc_98E6_returns_false_when_no_overlap() {
+    // ASM loc_98E4 → loc_98E6: moveq #0,d7 → tst.w d7 → EQ (no overlap).
+    // An empty candidate list means no objects to scan → d7=0.
+    assert!(
+        !juggernaut_support_overlap_sub_9832(100, 80, &[]),
+        "ASM loc_98E6: empty candidates → loc_98E4 moveq #0,d7 → tst.w d7 EQ → false"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn sub_9832_common_exit_loc_98E6_returns_true_when_overlap() {
+    // ASM loc_98DE → loc_98E6: moveq #1,d7 → tst.w d7 → NE (overlap).
+    // A candidate whose AABB fully contains Kid's support rect → d7=1.
+    assert!(
+        juggernaut_support_overlap_sub_9832(
+            100,
+            80,
+            &[support_overlap_candidate_sub_9832(
+                100,
+                60,
+                false,
+                true,
+                vec![collision_size_entry_sub_21f8(-40, 80, -20, 30)],
+            )],
+        ),
+        "ASM loc_98E6: AABB overlap → loc_98DE moveq #1,d7 → tst.w d7 NE → true"
+    );
+}
+
+// --- loc_992A: sub_98F2 flipboard sprite index via off_993A ---
+
+/// ASM loc_992A (kid.asm:11474): `move.b d7,($FFFFFA69).w; asr.w #3,d7;
+/// add.w d7,d7; move.w off_993A(pc,d7.w),addroffset_sprite(a3); rts`.
+/// After the counter is stored, d7 >> 3 indexes the 4-entry sprite table
+/// at off_993A. Counter $0F → d7=$0F → $0F>>3=1 → off_993A[1].
+/// Native: `skycutter_flipboard_sprite_mapping_sub_98F2(next_counter)`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_flipboard_sprite_index_loc_992A_counter_0f() {
+    // Counter starts at $0D, step +2 → $0F. $0F>>3=1 → off_993A[1]
+    // = LnkTo_unk_AA5B4-Data_Index.
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0x0D,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 0,
+            motion_timer: 5,
+            motion_script_index: Some(1),
+            roll_accum: 0,
+        },
+        false,
+        false,
+    );
+
+    assert_eq!(step.state.flipboard_counter, 0x0F);
+    assert_eq!(
+        step.player_sprite_mapping,
+        Some("LnkTo_unk_AA5B4-Data_Index"),
+        "ASM loc_992A: counter $0F → asr.w #3 = 1 → off_993A[1] = LnkTo_unk_AA5B4"
+    );
+    // Board sprite is None during transient flipboard pose
+    assert_eq!(step.board_sprite_mapping, None);
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_flipboard_sprite_index_loc_992A_counter_03() {
+    // Counter starts at $01, step +2 → $03. $03>>3=0 → off_993A[0]
+    // = LnkTo_unk_AA3AE-Data_Index.
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0x01,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 2,
+            motion_timer: 10,
+            motion_script_index: Some(3),
+            roll_accum: 0x40,
+        },
+        false,
+        false,
+    );
+
+    assert_eq!(step.state.flipboard_counter, 0x03);
+    assert_eq!(
+        step.player_sprite_mapping,
+        Some("LnkTo_unk_AA3AE-Data_Index"),
+        "ASM loc_992A: counter $03 → asr.w #3 = 0 → off_993A[0] = LnkTo_unk_AA3AE"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_flipboard_sprite_index_loc_992A_counter_19() {
+    // Counter starts at $17, step +2 → $19. $19>>3=3 → off_993A[3]
+    // = LnkTo_unk_AA3AE-Data_Index (table wraps: 0,1,1,0).
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0x17,
+            on_board: true,
+            facing: Direction::Left,
+            motion_phase: 1,
+            motion_timer: 3,
+            motion_script_index: Some(5),
+            roll_accum: 0x20,
+        },
+        false,
+        false,
+    );
+
+    assert_eq!(step.state.flipboard_counter, 0x19);
+    assert_eq!(
+        step.player_sprite_mapping,
+        Some("LnkTo_unk_AA3AE-Data_Index"),
+        "ASM loc_992A: counter $19 → asr.w #3 = 3 → off_993A[3] = LnkTo_unk_AA3AE"
+    );
+}
+
+// --- loc_996A: sub_98F2 animation script data read ---
+
+/// ASM loc_996A (kid.asm:11504): `move.b (a0)+,d6; move.b (a0)+,($FFFFFA0D).w;
+/// move.l a0,($FFFFFA0E).w`. Reads the next (phase, timer) pair from the
+/// animation script at the current pointer position, then advances the pointer.
+/// Reached when `$FFFFFA0D` (motion_timer) counts down to 0.
+/// Native: `state.motion_phase = phase; state.motion_timer = timer;
+/// state.motion_script_index = next_index`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_script_data_read_loc_996A_advances_script() {
+    // Timer expired (motion_timer=1, decremented to 0 → read next entry).
+    // Script index 0 → reads SCRIPT[0] = (0, 6), advances to index 1.
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 5,
+            motion_timer: 1,
+            motion_script_index: Some(0),
+            roll_accum: 0,
+        },
+        false,
+        false,
+    );
+
+    assert_eq!(
+        step.state.motion_phase, 0,
+        "ASM loc_996A: move.b (a0)+,d6 — SCRIPT[0] phase = 0"
+    );
+    assert_eq!(
+        step.state.motion_timer, 6,
+        "ASM loc_996A: move.b (a0)+,($FFFFFA0D) — SCRIPT[0] timer = 6"
+    );
+    assert_eq!(
+        step.state.motion_script_index,
+        Some(1),
+        "ASM loc_996A: move.l a0,($FFFFFA0E) — pointer advanced to next entry"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_script_data_read_loc_996A_mid_script() {
+    // Script index 5 → reads SCRIPT[5] = (5, 0x0A), advances to index 6.
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 4,
+            motion_timer: 0,
+            motion_script_index: Some(5),
+            roll_accum: 0x30,
+        },
+        false,
+        false,
+    );
+
+    assert_eq!(
+        step.state.motion_phase, 5,
+        "ASM loc_996A: SCRIPT[5] phase = 5"
+    );
+    assert_eq!(
+        step.state.motion_timer, 0x0A,
+        "ASM loc_996A: SCRIPT[5] timer = $0A"
+    );
+    assert_eq!(step.state.motion_script_index, Some(6));
+}
+
+/// ASM loc_9968 (kid.asm:11501): `move.l a1,a0` — pointer falls outside
+/// `unk_96AC..unk_96D0` bounds → reset to `unk_96AC` start (SCRIPT[0]).
+/// Native: `SCRIPT.get(index)` returns None → wraps to SCRIPT[0].
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_script_data_read_loc_996A_wraps_at_end() {
+    // Script index past end (e.g. 18 = SCRIPT.len()) → wraps to SCRIPT[0].
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 5,
+            motion_timer: 1,
+            motion_script_index: Some(18),
+            roll_accum: 0x50,
+        },
+        false,
+        false,
+    );
+
+    assert_eq!(
+        step.state.motion_phase, 0,
+        "ASM loc_9968 → loc_996A: wrapped to SCRIPT[0] phase = 0"
+    );
+    assert_eq!(step.state.motion_timer, 6);
+    assert_eq!(
+        step.state.motion_script_index,
+        Some(1),
+        "ASM loc_996A: pointer reset to start, advanced past first entry"
+    );
+}
+
+// --- loc_9974: sub_98F2 A-button speed modifier ---
+
+/// ASM loc_9974 (kid.asm:11509): `moveq #$10,d7; tst.b (Ctrl_A_Held).w;
+/// beq.s loc_997E; moveq #$20,d7`. Base rotation speed is $10; holding A
+/// doubles it to $20.
+/// Native: `if a_held { 0x20 } else { 0x10 }`.
+#[test]
+fn sub_98f2_a_button_speed_loc_9974_not_held() {
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 0,
+            motion_timer: 10,
+            motion_script_index: Some(1),
+            roll_accum: 0,
+        },
+        false, // a_held = false
+        false,
+    );
+
+    assert_eq!(
+        step.state.roll_accum, 0x10,
+        "ASM loc_9974: A not held → moveq #$10,d7 → beq.s loc_997E → add.b $10"
+    );
+}
+
+#[test]
+fn sub_98f2_a_button_speed_loc_9974_held() {
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 0,
+            motion_timer: 10,
+            motion_script_index: Some(1),
+            roll_accum: 0,
+        },
+        true, // a_held = true
+        false,
+    );
+
+    assert_eq!(
+        step.state.roll_accum, 0x20,
+        "ASM loc_9974: A held → moveq #$20,d7 → add.b $20"
+    );
+}
+
+// --- loc_997E: sub_98F2 rotation accumulator + phase clamp ---
+
+/// ASM loc_997E (kid.asm:11515): `add.b d7,($FFFFFA0C).w; cmpi.w #6,d6;
+/// bcs.s loc_998A; moveq #0,d6`. Adds rotation speed to accumulator,
+/// then clamps motion_phase to 0..5 (phases ≥6 reset to 0).
+/// Native: `roll_accum.wrapping_add(...)` and `motion_phase.min(5)`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_rotation_accum_loc_997E_wraps() {
+    // roll_accum = $F0 + $10 = $00 (wrapping u8 add).
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 2,
+            motion_timer: 5,
+            motion_script_index: Some(3),
+            roll_accum: 0xF0,
+        },
+        false,
+        false,
+    );
+
+    assert_eq!(
+        step.state.roll_accum, 0x00,
+        "ASM loc_997E: add.b $10,$F0 wraps to $00"
+    );
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_rotation_accum_loc_997E_a_held_wraps() {
+    // roll_accum = $F0 + $20 = $10 (wrapping u8 add with A held).
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 1,
+            motion_timer: 5,
+            motion_script_index: Some(2),
+            roll_accum: 0xF0,
+        },
+        true,
+        false,
+    );
+
+    assert_eq!(
+        step.state.roll_accum, 0x10,
+        "ASM loc_997E: add.b $20,$F0 wraps to $10"
+    );
+}
+
+/// ASM loc_997E (kid.asm:11517): `cmpi.w #6,d6; bcs.s loc_998A; moveq #0,d6`.
+/// Phase values 0-5 pass through; ≥6 resets to 0.
+/// Native: `motion_phase.min(5)`.
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_phase_clamp_loc_997E_in_range() {
+    // motion_phase = 5 (max valid) → stays 5.
+    let step = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 5,
+            motion_timer: 10,
+            motion_script_index: Some(1),
+            roll_accum: 0,
+        },
+        false,
+        false,
+    );
+
+    // The board mapping should use phase 5 (the last valid off_99FE entry).
+    assert!(
+        step.player_sprite_mapping.is_some(),
+        "ASM loc_997E: phase 5 < 6 → bcs.s loc_998A (no clamp), valid sprite mapping"
+    );
+}
+
+/// ASM loc_997E: priority word thresholds. `add.b d5,d5` doubles the
+/// accumulator, then three threshold checks: <$55 → $12C, <$AA → $130,
+/// else → $134. Tests the three distinct priority bands.
+#[test]
+#[allow(non_snake_case)]
+fn sub_98f2_priority_bands_loc_997E() {
+    // Band 1: roll_accum*2 < $55 → $12C. accum=$10 → *2=$20.
+    let step1 = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 0,
+            motion_timer: 10,
+            motion_script_index: Some(1),
+            roll_accum: 0x00,
+        },
+        false,
+        false,
+    );
+    assert_eq!(
+        step1.board_priority_word, 0x012C,
+        "ASM loc_997E: accum*2=$20 < $55 → $12C"
+    );
+
+    // Band 2: $55 <= roll_accum*2 < $AA → $130. accum=$30 → +$10=$40 → *2=$80.
+    let step2 = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 0,
+            motion_timer: 10,
+            motion_script_index: Some(1),
+            roll_accum: 0x30,
+        },
+        false,
+        false,
+    );
+    assert_eq!(
+        step2.board_priority_word, 0x0130,
+        "ASM loc_997E: accum*2=$80, $55<=$80<$AA → $130"
+    );
+
+    // Band 3: roll_accum*2 >= $AA → $134. accum=$60 → +$10=$70 → *2=$E0.
+    let step3 = skycutter_visual_step_sub_98F2(
+        SkycutterVisualStateSub98F2 {
+            flipboard_counter: 0,
+            on_board: false,
+            facing: Direction::Right,
+            motion_phase: 0,
+            motion_timer: 10,
+            motion_script_index: Some(1),
+            roll_accum: 0x60,
+        },
+        false,
+        false,
+    );
+    assert_eq!(
+        step3.board_priority_word, 0x0134,
+        "ASM loc_997E: accum*2=$E0 >= $AA → $134"
+    );
+}
