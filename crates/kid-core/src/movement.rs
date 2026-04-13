@@ -2242,10 +2242,24 @@ impl OpeningSliceState {
                 // (detach if pressing away), `tst.b (Ctrl_Left_Held); beq.w
                 // kid_flip` (towards wall → loc_AAC8, neither → kid_flip).
                 //
+                // loc_AD34 (kid.asm:13553): press-away detach. `sf is_animated;
+                // sf $FA66; sf $FA67` — clear combat flags. Then check $FA72:
+                //   $FA72≠0 (wall on left): `tst.b Ctrl_Left_Held; beq
+                //   loc_A76A; subq.w #1,x_pos` — shimmy -1 if ALSO holding
+                //   towards-wall (simultaneous L+R).
+                //   $FA72=0 (wall on right) → loc_AD58.
+                //
+                // loc_AD58 (kid.asm:13565): mirror for wall on right.
+                // `tst.b Ctrl_Right_Held; beq loc_A76A; addq.w #1,x_pos` —
+                // shimmy +1 if ALSO holding towards-wall (simultaneous L+R).
+                //
                 // Native collapses both branches: wall_cling_direction
                 // encodes $FA72 (Right = wall on right / $FA72=0, Left = wall
                 // on left / $FA72=$FF). "Pressing away" maps to the loc_AD34
                 // detach path; no held direction falls through to kid_flip.
+                // DEVIATION: native omits the ±1 simultaneous-L+R shimmy
+                // from loc_AD34/loc_AD58 (rare edge case, both directions
+                // held at once during wall-cling detach).
                 if let Some(dir) = self.player.wall_cling_direction {
                     let pressing_away = match dir {
                         Direction::Right => input.left,
@@ -2410,9 +2424,33 @@ impl OpeningSliceState {
                 // loc_AAC8: `move.w ($FFFFFB5C).w,d7` for the overhang tile-row
                 // snap (sub_ADB8/sub_AE6E use it as the pre-sub_902A reference).
                 // `bne.w loc_AD68` — if sub_902A returned NE (floor or ceiling
-                // contact), branch to loc_AD68 which dispatches: negative (ceiling)
-                // → clear flags + bra loc_A762 (wall check); positive (floor) →
-                // loc_AD7C landing dispatch. Native: `pre_vertical_y_px` captures
+                // contact), branch to loc_AD68 which dispatches:
+                //
+                // loc_AD68 (kid.asm:13572): `bpl loc_AD7C` — positive (floor
+                //   contact) → loc_AD7C. Negative (ceiling): `sf $FA66; sf
+                //   $FA67; sf is_animated; bra loc_A762` (clear combat flags,
+                //   continue to wall check).
+                //
+                // loc_AD7C (kid.asm:13580): floor contact landing dispatch.
+                //   `clr.b $FA69` (clear flipboard deploy trigger).
+                //   `cmpi.w #2,d7; bge loc_AD98` — d7<2 (TheKid/Skycutter):
+                //   `tst.b $FA6A; beq loc_A94E` (not on board → normal
+                //   landing), else `bsr sub_BB54; bra loc_AA9C` (block break
+                //   + back to wall-cling loop).
+                //
+                // loc_AD98 (kid.asm:13590): d7≥2 helmet dispatch.
+                //   `bne loc_ADAC` — d7>2 → loc_ADAC.
+                //   d7==2 (Cyclone): `tst.b $FA6A; bne loc_AA9C` (on board →
+                //   wall-cling loop), else `bsr sub_BB54; bra loc_AA9C`
+                //   (block break + wall-cling loop).
+                //
+                // loc_ADAC (kid.asm:13598): d7>2 (Red Stealth through
+                //   Micromax). `move.w #4,collision_type(a3); bra loc_AA22`
+                //   — set collision_type=4 (solid touch), continue wall-cling
+                //   loop. Native: apply_floor_collision handles landing
+                //   uniformly; per-helmet collision_type gate is advisory.
+                //
+                // Native: `pre_vertical_y_px` captures
                 // the same pre-vertical y_pos; apply_floor_collision is the sub_902A
                 // equivalent; floor/ceiling results feed into the wall-cling release
                 // probes (try_release_wall_cling_overhang, try_release_descending_
@@ -3000,9 +3038,22 @@ impl OpeningSliceState {
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
         let moving_right = direction == Direction::Right;
-        // ASM loc_AA9C/loc_AD34: while descending in wall-cling, holding back
-        // into the wall exits cling with a 1px shimmy once the wall/top-edge
-        // probes both clear, so the next frame can re-enter jump air-accel.
+        // ASM loc_AAC8 (kid.asm:13350): towards-wall + descending dispatch.
+        // `tst.l y_vel; bmi loc_AB22` (ascending → overhang). Falls through
+        // to `bsr.w sub_ADB8` — descending tile-row crossing check.
+        //
+        // sub_ADB8 (kid.asm:13609): compute snap offset based on helmet:
+        //   d5=$F for Micromax/Juggernaut (loc_ADDA, kid.asm:13620),
+        //   d5=$1F for other helmets.
+        // loc_ADDA: `sub.w d5,d7; move.w d7,d5; move.w d5,($FFFFFB5C);
+        //   andi.w #$F,d5; cmp.w d6,d5; blt loc_ADF0` — if fractional
+        //   part < delta, a tile row was crossed → loc_ADF0 (wall probe).
+        // loc_ADEC (kid.asm:13628): `moveq #1,d7; rts` — no tile-row
+        //   crossing, return NE → caller continues kid_flip loop.
+        //
+        // Native omits the tile-row crossing gate: wall probes run every
+        // descending frame. This is equivalent because the probes would
+        // pass on non-crossing frames anyway (same tile = same wall data).
         if terrain::probe_wall(
             grid,
             x_px,
