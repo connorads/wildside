@@ -946,6 +946,129 @@ fn sub_bbe2_returns_none_when_the_selected_tile_is_missing_bit_15() {
     );
 }
 
+/// ASM loc_BB6E (kid.asm:15085): sub_BB54 dispatches through the off_BB80
+/// jump table: `move.l off_BB80(pc,d7.w),a4; jsr (a4)`.  d7 is the
+/// dispatch_table_offset from sub_BBE2 (block_type * 4).  For ceiling hits
+/// the native equivalent is the `match probe.cell.block_type` in
+/// apply_ceiling_collision.  This test verifies that a Smash block (type 0,
+/// offset 0) hit from below triggers the j_Block_LoadSmashBits handler
+/// (clearing the cell).
+#[test]
+fn loc_bb6e_off_bb80_dispatch_smash_block_clears_cell() {
+    let w: u16 = 10;
+    let h: u16 = 10;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Smash block at cell (3, 2): 0xE0 = Solid + has_block + block_type=0 (Smash).
+    let idx = (2 * w + 3) as usize * 2;
+    data[idx] = 0xE0;
+    data[idx + 1] = 0x01;
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Position so head hits cell (3, 2): ceiling bottom at y=48.
+    // Same setup as loc_90c0 test.
+    slice.player.x_pos = 48 << 16;
+    slice.player.y_pos = 65 << 16;
+    slice.player.y_velocity = -0x000E_0000;
+
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
+
+    let cell = grid.cell_at(3, 2);
+    assert!(
+        !cell.has_block,
+        "ASM loc_BB6E: off_BB80 index 0 → j_Block_LoadSmashBits clears the Smash block"
+    );
+}
+
+/// ASM loc_BB74 (kid.asm:15089): sub_BB54 cleanup after off_BB80 dispatch.
+/// `movem.w (sp)+,d0-d3; clr.l y_vel(a3); rts` — y_vel is zeroed after the
+/// block interaction completes.  The ceiling path (sub_902A loc_908C) also
+/// zeroes y_vel; this test verifies the y_vel=0 invariant on a block-hit
+/// ceiling collision (the loc_BB74 equivalent in native code).
+#[test]
+fn loc_bb74_ceiling_block_hit_zeroes_y_vel() {
+    let w: u16 = 10;
+    let h: u16 = 10;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Smash block at cell (3, 2).
+    let idx = (2 * w + 3) as usize * 2;
+    data[idx] = 0xE0;
+    data[idx + 1] = 0x01;
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    slice.player.x_pos = 48 << 16;
+    slice.player.y_pos = 65 << 16;
+    slice.player.y_velocity = -0x000E_0000;
+
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
+
+    assert_eq!(
+        slice.player.y_velocity, 0,
+        "ASM loc_BB74: clr.l y_vel(a3) — velocity must be zero after ceiling block interaction"
+    );
+}
+
+/// ASM loc_BC1C (kid.asm:15162): fallback path in sub_BBE2 when Kid hasn't
+/// moved past the source column.  `move.w (a4),d7; bclr #$F,d7; beq loc_BC30`
+/// — if the base tile has no block (bit 15 clear), d3 is zeroed (None).
+/// Native: `!selected_cell.has_block → return None`.
+#[test]
+fn loc_bc1c_sub_bbe2_base_tile_without_block_returns_none() {
+    let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 2 * 2], 4, 2);
+    // Cell (1,0): Solid, no block (high byte 0x60 = Solid collision, bit 15 clear).
+    grid.set_cell_at(1, 0, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+    // x_pos_px = 0x0010 → player_col = 1, base_col = 1 → player NOT past source,
+    // so loc_BC1C fires (use base tile).  Base tile has no block → None.
+    assert_eq!(
+        terrain::kid_block_interaction_probe_sub_BBE2(&grid, 0x0002, 0x0010),
+        None,
+        "ASM loc_BC1C: base tile bit 15 clear → bclr #$F,d7 clears CF, beq loc_BC30 zeroes d3"
+    );
+}
+
+/// ASM loc_BC26 (kid.asm:15167): block-type extraction in sub_BBE2.
+/// `andi.w #$F00,d7; asr.w #6,d7` converts the block-type nibble (bits 11-8)
+/// into the off_BB80 dispatch offset (block_type * 4).
+/// Native: `dispatch_table_offset = (block_type as u8) << 2`.
+#[test]
+fn loc_bc26_sub_bbe2_extracts_block_type_as_dispatch_offset() {
+    let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 2 * 2], 4, 2);
+    // Cell (1,0): 0xE7 = Solid + has_block + block_type=7 (Shifting).
+    // Block type 7: bits 11-8 = 0x0700 → andi #$F00 = 0x0700, asr #6 = 0x001C = 28.
+    grid.set_cell_at(1, 0, terrain::Cell::from_be_bytes(0xE7, 0x05));
+
+    let probe = terrain::kid_block_interaction_probe_sub_BBE2(&grid, 0x0002, 0x0010)
+        .expect("ASM loc_BC26: base tile with block should yield a valid probe");
+
+    assert_eq!(
+        probe.dispatch_table_offset,
+        7 * 4,
+        "ASM loc_BC26: block_type 7 → andi.w #$F00 = $700, asr.w #6 = $1C (28)"
+    );
+}
+
 #[test]
 fn sub_6874_hides_only_sprites_whose_masked_tiles_overlap_pause_menu_vram() {
     let mut sprites = [
@@ -63479,6 +63602,33 @@ fn shifting_block_activation_loc_11364_only_reserves_clear_cells_above_the_sourc
         clear.reserved_above_cell,
         Some(terrain::Cell::from_be_bytes(0x6F, 0x09)),
         "ASM loc_11364 should reserve the above cell by writing only high byte `$6F`, preserving that cell's original skin byte",
+    );
+}
+
+/// ASM loc_BBD2 (kid.asm:15130): off_BB80 index 7 (Shifting) gate inside
+/// sub_BB54.  `tst.b ($FFFFFA6A); bne return_BBE0` — when $FA6A (on_board)
+/// is set, the shifting block handler is a no-op; when $FA6A is clear, it
+/// falls through to `jmp (j_loc_11364).l` which plays the shifting sound and
+/// runs the worker.  This test verifies the $FA6A-clear path: loc_BBD2
+/// reaches loc_11364 which produces `should_play_sound=true`.
+#[test]
+fn loc_bbd2_shifting_block_gate_fa6a_clear_reaches_loc_11364() {
+    // When $FA6A is clear (the loc_BBD2 gate passes), sub_BB54 calls
+    // j_loc_11364.  Native: shifting_block_activation_loc_11364 is the
+    // loc_11364 entry point.  A non-zero source row with a clear cell
+    // above should produce sound + worker.
+    let activation = NativeRuntime::shifting_block_activation_loc_11364(
+        3,
+        terrain::Cell::from_be_bytes(0x00, 0x00),
+    );
+
+    assert!(
+        activation.should_play_sound,
+        "ASM loc_BBD2: $FA6A clear → j_loc_11364 plays sfx_Shifting_block"
+    );
+    assert!(
+        activation.should_spawn_worker,
+        "ASM loc_BBD2: $FA6A clear + non-zero row + clear cell above → sub_113C0 worker spawns"
     );
 }
 

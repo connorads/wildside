@@ -269,10 +269,19 @@ pub(crate) fn kid_block_interaction_probe_sub_BBE2(
         }
     }
 
+    // ASM loc_BC1C (kid.asm:15162): fallback when player hasn't crossed the
+    // source column (or right-hand tile wasn't Solid/$6000).  Reads the base
+    // tile word: `move.w (a4),d7; bclr #$F,d7; beq.w loc_BC30` — bit 15
+    // (has_block) clear means no block, zero d3 and return (None).
     if !selected_cell.has_block {
         return None;
     }
 
+    // ASM loc_BC26 (kid.asm:15167): extract block-type nibble into the
+    // off_BB80 dispatch-table byte offset.  `andi.w #$F00,d7; asr.w #6,d7`
+    // isolates bits 11-8 then shifts right by 6, yielding block_type * 4.
+    // `tst.w d3; rts` — sets Z flag for the caller (beq = "no block found"
+    // when d3 was zeroed at loc_BC30; bne = valid block when d3 is nonzero).
     Some(KidBlockInteractionProbeSubBBE2 {
         selected_layout_addr,
         selected_col,

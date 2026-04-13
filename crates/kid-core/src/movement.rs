@@ -4264,6 +4264,12 @@ impl OpeningSliceState {
             }
 
             // Prize/smash/lift block headbutt: hitting from below.
+            // ASM loc_BB6E (kid.asm:15085): in sub_BB54 (floor-landing block
+            // break), after sub_BBE2 probes for a block, `move.l
+            // off_BB80(pc,d7.w),a4; jsr (a4)` dispatches to a per-block-type
+            // handler.  The ceiling path (sub_914A) uses its own dispatch, but
+            // both share the same block-type taxonomy.  The native match below
+            // covers both paths.
             if !deferred_prize_ceiling_cell
                 && probe.cell.collision == terrain::CollisionKind::Solid
                 && probe.cell.has_block
@@ -4348,6 +4354,13 @@ impl OpeningSliceState {
                         // of clearing the block immediately.
                         self.shooter_block_hit = Some((probe.cell_x, probe.cell_y));
                     }
+                    // ASM loc_BBD2 (kid.asm:15130): off_BB80 index 7 (Shifting).
+                    // `tst.b ($FFFFFA6A); bne return_BBE0` — if $FA6A (on_board)
+                    // is set, no-op; otherwise `jmp (j_loc_11364).l` triggers the
+                    // shifting block sound + worker.  Native: shifting block
+                    // activation is handled per-frame in apply_shifting_blocks
+                    // (standing on block), not per-landing.  The $FA6A gate means
+                    // Skycutter on_board landings do NOT trigger shifting blocks.
                     terrain::BlockType::Rubber => {
                         // ASM loc_91AC/loc_91C0 (kid.asm:10599/10607):
                         // sub_914A hit handler checks for Rubber blocks —
@@ -4367,8 +4380,9 @@ impl OpeningSliceState {
             self.player.y_pos = (new_y.max(0) as u32) << 16;
             // ASM sub_902A ceiling path (loc_908C): clr.l y_vel(a3) then
             // clr.w $20(a3) (zero sub-pixel). y_pos is already pixel-aligned
-            // from the << 16 above (sub-pixel zeroed). sub_BB54 also re-zeros
-            // y_vel at line 15092.
+            // from the << 16 above (sub-pixel zeroed).
+            // ASM loc_BB74 (kid.asm:15089): sub_BB54 cleanup also clears
+            // y_vel — `movem.w (sp)+,d0-d3; clr.l y_vel(a3); rts`.
             //
             // TODO(fidelity): ASM loc_9130 (kid.asm:10534): `neg.l d6;
             // move.l d6,y_vel(a3); moveq #-1,d7; rts` — when sub_914A
