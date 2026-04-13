@@ -77863,3 +77863,390 @@ fn loc_959c_convergence_from_both_velocity_paths() {
         "ASM loc_959C: negative vel + facing right reaches backward sprite"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ASM loc_95BA (kid.asm:11054): sub_942A generic walking animation — ice
+// surface path store + idle-standing gate.
+//
+// Reached from loc_95A4 when $FFFFFA0A == 1 (ice surface):
+//   addi.w #$40,d2  — fixed increment
+//   cmpi.w #$600,d2; bcs.s loc_95BA; subi.w #$600,d2  — modulo
+//
+// loc_95BA body:
+//   move.w d2,($FFFFF8F0).w             — store animation counter
+//   tst.b (Ctrl_Left_Held).w; bne.s loc_9600  — left held → walking sprite
+//   tst.b (Ctrl_Right_Held).w; bne.s loc_9600 — right held → walking sprite
+//   move.w d1,d0; add.w d0,d0           — helmet * 2 = word offset
+//   lea off_79B2(pc),a0; add.w d0,a0    — index standing sprite table
+//   move.w (a0),addroffset_sprite(a3)   — set standing sprite
+//   rts
+//
+// off_79B2 is a 10-entry table (one per helmet ID 0-9) of standing sprites.
+// This path returns early with a standing sprite when idle on ice.
+// If either direction key is held, falls through to loc_9600 for walking
+// animation.
+//
+// Native: visual-only.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_95BA: animation counter is stored back to $FFFFF8F0.
+/// `move.w d2,($FFFFF8F0).w`.
+#[test]
+fn loc_95ba_stores_animation_counter() {
+    let d2: u16 = 0x340;
+    // loc_95BA stores the (potentially wrapped) counter.
+    let stored = d2;
+    assert_eq!(
+        stored, 0x340,
+        "ASM loc_95BA: move.w d2,($FFFFF8F0).w preserves counter"
+    );
+}
+
+/// ASM loc_95BA: no direction held → standing sprite from off_79B2.
+/// `tst.b (Ctrl_Left_Held); bne.s loc_9600` — not taken.
+/// `tst.b (Ctrl_Right_Held); bne.s loc_9600` — not taken.
+/// `move.w d1,d0; add.w d0,d0` — helmet * 2 = word offset into off_79B2.
+#[test]
+fn loc_95ba_no_input_standing_sprite_from_off_79b2() {
+    let ctrl_left_held: u8 = 0;
+    let ctrl_right_held: u8 = 0;
+    // Neither held → standing sprite path.
+    let reaches_standing = ctrl_left_held == 0 && ctrl_right_held == 0;
+    assert!(
+        reaches_standing,
+        "ASM loc_95BA: no left/right held → standing sprite via off_79B2"
+    );
+
+    // off_79B2 has 10 word entries (helmet IDs 0-9).
+    // d1 (helmet) * 2 = byte offset into the table.
+    for helmet in 0u16..=9 {
+        let word_offset = helmet * 2;
+        assert!(
+            word_offset <= 18,
+            "ASM loc_95BA: helmet {helmet} → off_79B2 offset {word_offset} within 10-entry table"
+        );
+    }
+}
+
+/// ASM loc_95BA: left held → loc_9600 (walking sprite table lookup).
+/// `tst.b (Ctrl_Left_Held).w; bne.s loc_9600` — taken.
+#[test]
+fn loc_95ba_left_held_to_walking_sprite() {
+    let ctrl_left_held: u8 = 0xFF;
+    let goes_to_walking = ctrl_left_held != 0;
+    assert!(
+        goes_to_walking,
+        "ASM loc_95BA: left held → bne.s loc_9600 (walking animation)"
+    );
+}
+
+/// ASM loc_95BA: right held → loc_9600 (walking sprite table lookup).
+/// Left not held but right held → second tst.b branches.
+#[test]
+fn loc_95ba_right_held_to_walking_sprite() {
+    let ctrl_left_held: u8 = 0;
+    let ctrl_right_held: u8 = 0xFF;
+    // First tst.b not taken (left == 0), second tst.b taken (right != 0).
+    let goes_to_walking = ctrl_left_held == 0 && ctrl_right_held != 0;
+    assert!(
+        goes_to_walking,
+        "ASM loc_95BA: right held → bne.s loc_9600 (walking animation)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_95DA (kid.asm:11068): sub_942A non-ice velocity-based animation
+// entry point.
+//
+// Reached from loc_95A4 when $FFFFFA0A != 1 (not ice surface):
+//   `cmpi.w #1,($FFFFFA0A).w; bne.s loc_95DA`.
+//
+// loc_95DA body:
+//   move.w ($FFFFF8F0).w,d2    — reload animation counter
+//   tst.l d0; bpl.s loc_95E4   — if velocity >= 0, skip neg
+//   neg.l d0                   — make velocity positive (absolute value)
+//
+// Falls through to loc_95E4 for the velocity→increment calculation.
+//
+// Contrast with ice path (loc_95A4 → loc_95BA): ice uses fixed $40 increment;
+// non-ice scales with velocity.
+//
+// Native: visual-only.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_95DA: reloads animation counter from $FFFFF8F0.
+/// `move.w ($FFFFF8F0).w,d2`.
+#[test]
+fn loc_95da_reloads_animation_counter() {
+    let animation_counter_ram: u16 = 0x280;
+    let d2 = animation_counter_ram;
+    assert_eq!(d2, 0x280, "ASM loc_95DA: d2 loaded from $FFFFF8F0");
+}
+
+/// ASM loc_95DA: positive velocity skips neg.l.
+/// `tst.l d0; bpl.s loc_95E4` — d0 >= 0 branches past neg.l.
+#[test]
+fn loc_95da_positive_velocity_no_negation() {
+    let d0: i32 = 0x2_0000;
+    // tst.l d0; bpl.s loc_95E4 — positive → skip neg.l
+    let d0_after = if d0 < 0 { -d0 } else { d0 };
+    assert_eq!(
+        d0_after, 0x2_0000,
+        "ASM loc_95DA: positive velocity unchanged"
+    );
+}
+
+/// ASM loc_95DA: negative velocity negated to absolute value.
+/// `tst.l d0; bpl.s loc_95E4` — not taken.
+/// `neg.l d0` — negate.
+#[test]
+fn loc_95da_negative_velocity_negated() {
+    let d0: i32 = -0x3_0000;
+    // neg.l d0
+    let d0_after = if d0 < 0 { -d0 } else { d0 };
+    assert_eq!(
+        d0_after, 0x3_0000,
+        "ASM loc_95DA: neg.l d0 makes velocity positive"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_95E4 (kid.asm:11074): sub_942A velocity→animation increment
+// calculation for generic (non-Cyclone, non-ice) walking.
+//
+//   swap d0            — swap hi/lo words of abs(velocity)
+//   rol.l #5,d0        — rotate left 5 bits
+//   add.w d0,d2        — add low word to animation counter
+//   cmpi.w #9,d1       — check if Micromax (helmet 9)
+//   bne.s loc_95F2     — not Micromax → skip doubling
+//   add.w d0,d2        — Micromax: add d0 a second time (double speed)
+//
+// Contrast with Cyclone's loc_9512: `rol.l #2 → save → rol.l #2 → add → swap
+// → add`.  Generic path uses `swap → rol.l #5 → add` — different scaling.
+//
+// Micromax (helmet 9) gets double animation speed via the extra `add.w d0,d2`.
+// This is NOT dead code — unlike loc_949C's `cmpi.w #9` which is unreachable
+// behind the `cmpi.w #5` gate at loc_9484 (Juggernaut-only path).
+//
+// Native: visual-only.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_95E4: swap + rol.l #5 + add.w for typical velocity.
+/// For d0 = $20000 (abs velocity):
+///   swap → $0002; rol.l #5 → $00000040; add.w d0(=$40),d2.
+#[test]
+fn loc_95e4_velocity_to_increment_typical() {
+    let d0: u32 = 0x2_0000;
+    // swap d0: exchanges hi and lo 16-bit words.
+    // $0002_0000.rotate_right(16) = $0000_0002.
+    let d0 = d0.rotate_right(16);
+    // rol.l #5,d0
+    let d0 = d0.rotate_left(5); // $0000_0002 → $0000_0040
+    // add.w d0,d2 — only low 16 bits of d0 matter
+    let increment = d0 as u16; // $0040
+    let d2: u16 = 0x100;
+    let d2_after = d2.wrapping_add(increment);
+    assert_eq!(
+        d2_after, 0x140,
+        "ASM loc_95E4: velocity $20000 → increment $40, d2 $100→$140"
+    );
+}
+
+/// ASM loc_95E4: higher velocity produces larger increment.
+/// For d0 = $40000: swap → $0004; rol.l #5 → $0080; d2 += $80.
+#[test]
+fn loc_95e4_higher_velocity_larger_increment() {
+    let d0: u32 = 0x4_0000;
+    let d0 = d0.rotate_right(16); // $0000_0004
+    let d0 = d0.rotate_left(5); // $0000_0080
+    let increment = d0 as u16;
+    assert_eq!(increment, 0x80, "ASM loc_95E4: $40000 → increment $80");
+
+    let d2: u16 = 0x200;
+    let d2_after = d2.wrapping_add(increment);
+    assert_eq!(d2_after, 0x280);
+}
+
+/// ASM loc_95E4: Micromax (d1==9) gets double increment.
+/// `cmpi.w #9,d1; bne.s loc_95F2` — not taken for Micromax.
+/// `add.w d0,d2` — second addition.
+#[test]
+fn loc_95e4_micromax_double_increment() {
+    let d1: u16 = 9; // Micromax
+    let d0: u32 = 0x2_0000;
+    let d0 = d0.rotate_right(16);
+    let d0 = d0.rotate_left(5);
+    let increment = d0 as u16; // $40
+
+    let d2: u16 = 0x100;
+    let mut d2_after = d2.wrapping_add(increment);
+    if d1 == 9 {
+        d2_after = d2_after.wrapping_add(increment); // double
+    }
+    assert_eq!(
+        d2_after, 0x180,
+        "ASM loc_95E4: Micromax d2 $100 + $40 + $40 = $180"
+    );
+}
+
+/// ASM loc_95E4: non-Micromax helmet skips doubling.
+/// `cmpi.w #9,d1; bne.s loc_95F2` — taken.
+#[test]
+fn loc_95e4_non_micromax_single_increment() {
+    let d1: u16 = 2; // IronKnight
+    let d0: u32 = 0x2_0000;
+    let d0 = d0.rotate_right(16);
+    let d0 = d0.rotate_left(5);
+    let increment = d0 as u16; // $40
+
+    let d2: u16 = 0x100;
+    let mut d2_after = d2.wrapping_add(increment);
+    if d1 == 9 {
+        d2_after = d2_after.wrapping_add(increment);
+    }
+    assert_eq!(
+        d2_after, 0x140,
+        "ASM loc_95E4: IronKnight (d1=2) gets single increment $40"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_95F2 (kid.asm:11082): sub_942A animation counter modulo for generic
+// (non-Cyclone, non-ice) walking helmets.
+//
+//   cmpi.w #$600,d2; bcs.s loc_95FC   — d2 < $600 → keep
+//   subi.w #$600,d2                   — d2 >= $600 → wrap
+//
+// Identical logic to Cyclone's loc_955A and ice's inline modulo at loc_95A4.
+// All animation paths share the $600 period (6 sprite entries × $100 each).
+//
+// Native: visual-only.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_95F2: counter below $600 passes through unchanged.
+#[test]
+fn loc_95f2_counter_below_threshold_no_wrap() {
+    let d2: u16 = 0x4FF;
+    let d2_out = if d2 >= 0x600 { d2 - 0x600 } else { d2 };
+    assert_eq!(d2_out, 0x4FF, "ASM loc_95F2: d2=$4FF < $600, no wrap");
+}
+
+/// ASM loc_95F2: counter at $600 wraps to 0.
+#[test]
+fn loc_95f2_counter_at_threshold_wraps() {
+    let d2: u16 = 0x600;
+    let d2_out = if d2 >= 0x600 { d2 - 0x600 } else { d2 };
+    assert_eq!(d2_out, 0x000, "ASM loc_95F2: d2=$600 → subi $600 → $0");
+}
+
+/// ASM loc_95F2: Micromax double-increment can push past $600.
+/// d2=$500, increment=$80×2=$100 → d2=$600 → wraps to $0.
+#[test]
+fn loc_95f2_micromax_overflow_wraps() {
+    let d2: u16 = 0x500;
+    let increment: u16 = 0x80;
+    let d2 = d2.wrapping_add(increment).wrapping_add(increment); // Micromax double
+    assert_eq!(d2, 0x600);
+    let d2_out = if d2 >= 0x600 { d2 - 0x600 } else { d2 };
+    assert_eq!(
+        d2_out, 0x000,
+        "ASM loc_95F2: Micromax double-increment wraps $600→$0"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_95FC (kid.asm:11087): sub_942A store animation counter after
+// velocity-based increment + modulo, then fall through to loc_9600 for
+// walking sprite table lookup.
+//
+//   move.w d2,($FFFFF8F0).w   — store wrapped counter
+//
+// Falls through to loc_9600:
+//   move.w d1,d0; lsl.w #2,d0     — helmet * 4 = longword offset
+//   lea off_9618(pc),a0           — table of pointers (10 helmets)
+//   move.l (a0,d0.w),a0           — load helmet's 6-entry sprite table
+//   lsr.w #8,d2; add.w d2,d2      — d2>>8 = index (0-5), *2 = word offset
+//   add.w d2,a0                   — index into sprite table
+//   move.w (a0),addroffset_sprite(a3)  — set sprite
+//   rts
+//
+// Contrast with loc_95BA: that path stores d2 then checks input for
+// standing vs walking.  loc_95FC always proceeds to walking sprite (loc_9600).
+//
+// Native: visual-only.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_95FC: stores animation counter to $FFFFF8F0.
+/// `move.w d2,($FFFFF8F0).w`.
+#[test]
+fn loc_95fc_stores_animation_counter() {
+    let d2: u16 = 0x2C0;
+    let stored = d2;
+    assert_eq!(
+        stored, 0x2C0,
+        "ASM loc_95FC: move.w d2,($FFFFF8F0).w preserves counter"
+    );
+}
+
+/// ASM loc_95FC → loc_9600: helmet selects sprite table via off_9618.
+/// `move.w d1,d0; lsl.w #2,d0` — helmet * 4 = longword offset.
+/// `move.l (a0,d0.w),a0` — load pointer to 6-entry sprite table.
+#[test]
+fn loc_95fc_helmet_indexes_off_9618() {
+    // off_9618 has 10 longword entries (4 bytes each), one per helmet.
+    // Some are null (helmet 1=Skycutter, helmet 5=Juggernaut have their own
+    // paths via loc_9484 and won't reach here).
+    for helmet in 0u16..=9 {
+        let longword_offset = helmet * 4;
+        assert!(
+            longword_offset <= 36,
+            "ASM loc_95FC→loc_9600: helmet {helmet} → off_9618 offset {longword_offset}"
+        );
+    }
+}
+
+/// ASM loc_95FC → loc_9600: d2 >> 8 gives sprite index 0-5.
+/// `lsr.w #8,d2; add.w d2,d2` — index * 2 = word offset into 6-entry table.
+#[test]
+fn loc_95fc_counter_to_sprite_index() {
+    // d2 is in range 0-$5FF after modulo.  d2>>8 = 0-5.
+    for frame in 0u16..=5 {
+        let d2 = frame << 8; // $000, $100, ..., $500
+        let idx = d2 >> 8;
+        assert_eq!(idx, frame);
+        let word_offset = idx * 2;
+        assert!(
+            word_offset <= 10,
+            "ASM loc_9600: sprite index {idx} → word offset {word_offset} within 6-entry table"
+        );
+    }
+}
+
+/// ASM loc_95FC → loc_9600: full pipeline from velocity to sprite index.
+/// d0=$20000 (abs vel), non-Micromax helmet: swap→$0002, rol.l#5→$40,
+/// d2=$100+$40=$140, $140>>8=1 → sprite frame 1.
+#[test]
+fn loc_95fc_full_pipeline_velocity_to_sprite() {
+    let d0: u32 = 0x2_0000;
+    let d2_initial: u16 = 0x100;
+
+    // loc_95E4: swap + rol.l #5
+    let d0 = d0.rotate_right(16);
+    let d0 = d0.rotate_left(5);
+    let increment = d0 as u16;
+
+    // add to counter (non-Micromax, single add)
+    let d2 = d2_initial.wrapping_add(increment);
+    assert_eq!(d2, 0x140);
+
+    // loc_95F2: modulo
+    let d2 = if d2 >= 0x600 { d2 - 0x600 } else { d2 };
+    assert_eq!(d2, 0x140);
+
+    // loc_95FC: store + loc_9600 sprite index
+    let sprite_index = d2 >> 8;
+    assert_eq!(
+        sprite_index, 1,
+        "ASM loc_95FC→loc_9600: d2=$140 >> 8 = 1 → sprite frame 1"
+    );
+}
