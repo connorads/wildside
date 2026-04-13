@@ -1406,10 +1406,20 @@ impl NativeRuntime {
                 // init stru_8B74, bra loc_A6F8. Same velocities as loc_A6AE
                 // (platform-grab detach).
                 PlayerForm::Micromax => KidFlipBranchSelection::BPressedMicromax,
+                // ASM loc_AC88 (kid.asm:13495): non-Kid/non-Micromax B-press
+                // in kid_flip. `tst.b ($FFFFFA6A); beq loc_AD2C` — if on
+                // Skycutter board: floor probe (sub_B43A) or y near top →
+                // loc_ACA4 (`move.l #$30000,y_vel` — board dive). Otherwise
+                // fall through to loc_AD2C (no action). In practice only
+                // Skycutter can have $FA6A set, so other helmets always skip.
+                // Native: step_skycutter_flipboard B-press handles the dive.
                 _ if player_before.on_ground => KidFlipBranchSelection::BPressedGroundedLaunch,
                 _ => KidFlipBranchSelection::BPressedFallthrough,
             }
         } else if c_pressed {
+            // ASM loc_ACB0 (kid.asm:13510): kid_flip C-press dispatch.
+            // Cyclone → st (Cyclone_flying). Maniaxe → loc_ACCC: axe throw.
+            // Skycutter → loc_AD00/loc_AD26: flipboard deploy. Others → skip.
             match self.progression.current_form {
                 PlayerForm::Cyclone => KidFlipBranchSelection::CPressedCyclone,
                 PlayerForm::Maniaxe => KidFlipBranchSelection::CPressedManiaxe,

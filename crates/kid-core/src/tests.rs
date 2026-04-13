@@ -82911,3 +82911,159 @@ fn loc_ac2_art_list_base_address_is_0x500() {
         "loc_AC2/loc_AD4: Kid art VRAM base should be $C4A0",
     );
 }
+
+/// ASM loc_AC88 (kid.asm:13495): kid_flip B-press for non-Kid/non-Micromax.
+/// `tst.b ($FFFFFA6A); beq loc_AD2C` — gate on Skycutter on_board flag.
+/// When on board + airborne, B rising edge triggers a board dive via
+/// loc_ACA4 (kid.asm:13505): `move.l #$30000,y_vel`. During wall-cling
+/// x_vel is 0, so native abs(x_vel)/2 + $30000 = $30000 — matching ASM.
+/// Verify that the B-press kick with zero x_vel produces exactly $30000.
+#[test]
+fn loc_ac88_wall_cling_board_dive_matches_flat_30000() {
+    let mut rt = skycutter_runtime();
+    rt.helmet.skycutter_on_board = true;
+    rt.prior_input = FrameInput::default(); // B not held last frame
+    let mut slice = airborne_slice();
+    // Wall-cling suppresses horizontal velocity.
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+
+    let b_input = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    rt.step_skycutter_flipboard(&mut slice, b_input);
+
+    // Native: kick = -(abs(0)/2 + 0x30000) = -0x30000.
+    // ASM loc_ACA4: y_vel = $30000 (downward in ASM convention, but native
+    // uses negative = upward). The magnitude must match $30000.
+    let expected_magnitude: i32 = 0x3_0000;
+    assert_eq!(
+        slice.player.y_velocity, -expected_magnitude,
+        "loc_AC88/loc_ACA4: wall-cling B-press with zero x_vel should produce -$30000",
+    );
+}
+
+/// ASM loc_AC88 (kid.asm:13495): only fires when $FA6A (on_board) is set.
+/// Without on_board, the B-press should have no effect — verify the gate.
+#[test]
+fn loc_ac88_b_press_no_effect_without_on_board() {
+    let mut rt = skycutter_runtime();
+    rt.helmet.skycutter_on_board = false;
+    rt.prior_input = FrameInput::default();
+    let mut slice = airborne_slice();
+    slice.player.x_velocity = 0;
+    let original_y_vel = slice.player.y_velocity;
+
+    let b_input = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    rt.step_skycutter_flipboard(&mut slice, b_input);
+
+    // On_board is false, so the Skycutter flight physics block (including
+    // the B-press kick) should not execute at all.
+    assert_eq!(
+        slice.player.y_velocity, original_y_vel,
+        "loc_AC88: B-press without on_board should not alter y_vel",
+    );
+}
+
+/// ASM loc_ACCC (kid.asm:13519): kid_flip C-press Maniaxe axe throw.
+/// `cmpi.w #Maniaxe; bne loc_AD00` — helmet == Maniaxe? If yes:
+/// `tst.b (Maniaxe_throwing_axe); bne loc_AD2C` — skip if active.
+/// `st (Maniaxe_throwing_axe); allocate ManiaxeAxe_Init; Init_Animation
+/// stru_8B60`. Verify that step_maniaxe_axe activates axe on C rising
+/// edge and blocks a second throw while active.
+#[test]
+fn loc_accc_maniaxe_c_press_throws_axe_and_blocks_second() {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Maniaxe;
+    rt.prior_input = FrameInput::default(); // C not held last frame
+
+    let bounds = LevelBounds {
+        width_pixels: 4096,
+        height_pixels: 512,
+    };
+    let slice = OpeningSliceState::new(bounds);
+
+    assert!(!rt.helmet.maniaxe_axe_active, "axe should start inactive");
+
+    // C rising edge → throw axe
+    let c_input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_maniaxe_axe(&slice, c_input);
+    assert!(
+        rt.helmet.maniaxe_axe_active,
+        "loc_ACCC: C press should activate Maniaxe axe",
+    );
+
+    // Second C press while axe is active → no second projectile
+    rt.prior_input = FrameInput::default(); // reset so C is rising again
+    let initial_projectile_count = rt.projectiles.len();
+    rt.step_maniaxe_axe(&slice, c_input);
+    assert_eq!(
+        rt.projectiles.len(),
+        initial_projectile_count,
+        "loc_ACCC: second C press while axe active should not spawn another projectile",
+    );
+}
+
+/// ASM loc_AD00 (kid.asm:13533): kid_flip C-press Skycutter flipboard deploy.
+/// `cmpi.w #Skycutter; bne loc_AD2C` — helmet == Skycutter? If yes:
+/// `tst.b ($FA6A); beq loc_AD26` — NOT on board → deploy flipboard.
+/// loc_AD26 (kid.asm:13545): `move.b #1,($FA69)` — set flipboard deploy
+/// trigger. Verify that C press starts the flipboard counter.
+#[test]
+fn loc_ad00_skycutter_c_press_deploys_flipboard() {
+    let mut rt = skycutter_runtime();
+    rt.helmet.skycutter_on_board = false;
+    rt.prior_input = FrameInput::default();
+    let mut slice = airborne_slice();
+
+    assert_eq!(
+        rt.helmet.skycutter_flipboard, 0,
+        "flipboard counter should start at 0",
+    );
+
+    // C rising edge → deploy flipboard (loc_AD26: set $FA69 = 1)
+    let c_input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_skycutter_flipboard(&mut slice, c_input);
+
+    assert!(
+        rt.helmet.skycutter_flipboard > 0,
+        "loc_AD00/loc_AD26: C press should start flipboard deploy counter",
+    );
+}
+
+/// ASM loc_AD00 (kid.asm:13533): when already on board, the ASM gates
+/// flipboard deploy on sub_B43A floor probe + y_pos top check. If floor
+/// exists, skip (bne loc_AD2C). Native omits this gate — C press always
+/// starts the counter. Verify the native behaviour (counter starts even
+/// when on board).
+#[test]
+fn loc_ad00_skycutter_c_press_while_on_board_starts_counter() {
+    let mut rt = skycutter_runtime();
+    rt.helmet.skycutter_on_board = true;
+    rt.prior_input = FrameInput::default();
+    let mut slice = airborne_slice();
+
+    let c_input = FrameInput {
+        c: true,
+        ..FrameInput::default()
+    };
+    rt.step_skycutter_flipboard(&mut slice, c_input);
+
+    // Native: always starts the counter. ASM would gate on floor probe.
+    // TODO(fidelity): native omits the sub_B43A floor probe gate from
+    // loc_AD00 — document the known divergence.
+    assert!(
+        rt.helmet.skycutter_flipboard > 0,
+        "loc_AD00: native C press should start counter even when on board",
+    );
+}

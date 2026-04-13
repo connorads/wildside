@@ -2956,6 +2956,16 @@ impl NativeRuntime {
         //   If on board: y_pos top check + sub_B43A floor probe; if safe,
         //   skip (already airborne on board). Otherwise `move.b #1,($FFFFFA69)`
         //   → trigger flipboard deploy + sfx_Skycutter_flipboard.
+        //
+        // ASM loc_AD00 (kid.asm:13533): kid_flip (wall-cling) C-press
+        //   Skycutter dispatch — same logic as loc_A840 but from wall-cling:
+        //   `cmpi.w #Skycutter; bne.w loc_AD2C` — helmet == Skycutter? If yes:
+        //   `tst.b ($FFFFFA6A); beq.w loc_AD26` — NOT on board → deploy.
+        //   If on board: `moveq #-$21,d7; add.w y_pos,d6; bmi loc_AD2C`
+        //   (near top → skip), `bsr.w sub_B43A; bne loc_AD2C` (floor → skip).
+        //   loc_AD26 (kid.asm:13545): `move.b #1,($FFFFFA69)` — set flipboard
+        //   deploy trigger ($FA69). Native: unified C-press logic below.
+        //
         //   Native: same `step_skycutter_flipboard` C-press logic.
         // C button rising edge → deploy/retract flipboard
         let c_pressed = input.c && !self.prior_input.c;
@@ -3022,6 +3032,13 @@ impl NativeRuntime {
             // ASM loc_A7E8 (kid.asm:13113): velocity calculation.
             //   `asr.l #1,d6; addi.l #$30000,d6; move.l d6,y_vel(a3)` —
             //   y_vel = abs(x_vel)/2 + $30000 (DOWNWARD in ASM convention).
+            //
+            // ASM loc_AC88 (kid.asm:13495): kid_flip (wall-cling) B-press for
+            //   non-Kid/non-Micromax. `tst.b ($FFFFFA6A); beq loc_AD2C` — only
+            //   fires when on Skycutter board. Same sub_B43A floor probe + y_pos
+            //   top check. loc_ACA4 (kid.asm:13505): `move.l #$30000,y_vel` —
+            //   flat $30000 board dive (no x_vel component, since wall-cling
+            //   suppresses horizontal velocity → abs(0)/2 + $30000 = $30000).
             //
             // TODO(fidelity): ASM sets y_vel positive (downward slam), native
             // negates to upward kick. The ASM also gates on sub_B43A floor probe
@@ -3772,6 +3789,13 @@ impl NativeRuntime {
     ///   `tst.b (Maniaxe_throwing_axe); bne.w loc_A8D6` — already active → skip.
     ///   `st (Maniaxe_throwing_axe); allocate ManiaxeAxe_Init; Init_Animation
     ///   stru_8B60`. Native: same `step_maniaxe_axe` runs every frame.
+    ///
+    /// ASM loc_ACCC (kid.asm:13519): kid_flip (wall-cling) C-press dispatch.
+    ///   `cmpi.w #Maniaxe; bne.w loc_AD00` — helmet == Maniaxe? If yes:
+    ///   `tst.b (Maniaxe_throwing_axe); bne.w loc_AD2C` — already active → skip.
+    ///   `st (Maniaxe_throwing_axe); allocate ManiaxeAxe_Init; Init_Animation
+    ///   stru_8B60; bra loc_AD2C`. Same logic as loc_A7F8 (jump-loop) and
+    ///   loc_8CB6 (walking). Native: unified `step_maniaxe_axe` runs every frame.
     ///
     /// ASM loc_8CB6 (kid.asm:10100): walking-state duplicate — `bclr
     ///   #Button_C,(Ctrl_Pressed); beq.w loc_8D72` (skip if C not pressed),
