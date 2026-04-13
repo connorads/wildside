@@ -75531,3 +75531,270 @@ fn loc_8f1c_no_platform_ignores_position() {
         "ASM loc_8F1C: no platform → unsupported regardless of player position"
     );
 }
+
+// ── sub_8F26 wall collision: boundary clamps and rubber bounce ──────────
+
+/// ASM loc_8F86 (kid.asm:10359): when moving right and the projected right
+/// edge >= Level_width_pixels, sub_8F26 clears x_vel, snaps x_pos back,
+/// and returns EQ (no wall hit). Native: grid probe returns no-hit past
+/// level bounds, so apply_wall_collision leaves x_vel and wall-cling
+/// unchanged. The x_pos clamp to level width is a TODO(fidelity).
+#[test]
+fn loc_8f86_right_boundary_no_wall_cling() {
+    let w: u16 = 5;
+    let h: u16 = 5;
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Place player near the right edge of the level, moving right.
+    // Level is 80px wide; player at x=74 with half_width=5 → right_edge=79.
+    // x_vel = 0x2_0000 (2px/frame) would push past level width.
+    slice.player.x_pos = 74 << 16;
+    slice.player.y_pos = 40 << 16;
+    slice.player.x_velocity = 0x0002_0000;
+
+    // Simulate apply_x_velocity_to_position (private) inline.
+    let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
+    slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+    // No wall exists, so no wall-cling should be entered.
+    assert_eq!(
+        slice.player.wall_cling_direction, None,
+        "ASM loc_8F86: right boundary should not enter wall-cling"
+    );
+    assert!(
+        !slice.player.right_wall_sticky,
+        "ASM loc_8F86: right boundary should not set right_wall_sticky"
+    );
+}
+
+/// ASM loc_8FF8 (kid.asm:10404): when moving left and the projected left
+/// edge < 0, sub_8F26 clears x_vel, snaps x_pos back, and returns with
+/// d6=0 (EQ). Native: apply_x_velocity_to_position clamps x_pos to 0.
+#[test]
+fn loc_8ff8_left_boundary_no_wall_cling() {
+    let w: u16 = 5;
+    let h: u16 = 5;
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Player near the left edge, moving left fast enough to cross 0.
+    slice.player.x_pos = 2 << 16;
+    slice.player.y_pos = 40 << 16;
+    slice.player.x_velocity = -0x0003_0000;
+
+    // Simulate apply_x_velocity_to_position (private) inline.
+    let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
+    slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+    // x_pos should be clamped to 0 (apply_x_velocity_to_position clamp).
+    assert_eq!(
+        slice.player.x_pos, 0,
+        "ASM loc_8FF8: left boundary should clamp x_pos to 0"
+    );
+    assert_eq!(
+        slice.player.wall_cling_direction, None,
+        "ASM loc_8FF8: left boundary should not enter wall-cling"
+    );
+    assert!(
+        !slice.player.left_wall_sticky,
+        "ASM loc_8FF8: left boundary should not set left_wall_sticky"
+    );
+}
+
+/// ASM loc_8FAC (kid.asm:10376): left-moving entry point of sub_8F26.
+/// When x_vel < 0, sub_8F26 branches to the mirrored left-moving path.
+/// Verify that a left-moving player hits a solid wall and gets snapped.
+#[test]
+fn loc_8fac_left_moving_wall_collision_snaps_and_zeroes_vel() {
+    let w: u16 = 5;
+    let h: u16 = 5;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid wall column at cell (1, row) for rows 1-3.
+    for row in 1..=3 {
+        let offset = (row * w + 1) as usize * 2;
+        data[offset] = 0x60; // collision=6 (Solid)
+    }
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Post-velocity x_pos = 36 (cell 2). vel=-0x1_0000 → inferred old_px=37.
+    // old left_edge = 37-5 = 32, distance_to_tile = 32 & 0xF = 0.
+    // displacement = 1 > 0 → tile boundary guard passes.
+    // Probe: new left_edge = 36-5 = 31 → cell 1 (solid wall).
+    slice.player.x_pos = 36 << 16;
+    slice.player.y_pos = 24 << 16;
+    slice.player.x_velocity = -0x0001_0000;
+
+    let x_before = slice.player.x_pos;
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+    // Wall hit should zero velocity and snap x_pos.
+    assert_eq!(
+        slice.player.x_velocity, 0,
+        "ASM loc_8FAC: left-moving wall hit should zero x_vel"
+    );
+    assert_ne!(
+        slice.player.x_pos, x_before,
+        "ASM loc_8FAC: left-moving wall hit should snap x_pos"
+    );
+    assert!(
+        slice.player.left_wall_sticky,
+        "ASM loc_8FAC: airborne left-moving wall hit should set left_wall_sticky"
+    );
+}
+
+/// ASM loc_8F98 (kid.asm:10368): rubber bounce velocity threshold.
+/// `cmpi.l #$8000,d6; blt.w loc_901E` — if incoming velocity magnitude
+/// is below $8000, skip the rebound (x_vel stays zero). At or above
+/// $8000, negate and store as rebound velocity.
+#[test]
+fn loc_8f98_rubber_bounce_below_threshold_no_rebound() {
+    let w: u16 = 5;
+    let h: u16 = 5;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Rubber wall at cell (2, 1): has_block=1, collision=Solid(6), block_type=Rubber(6)
+    let idx = (w + 2) as usize * 2;
+    data[idx] = 0xE6;
+    data[idx + 1] = 0x00;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // x_pos=27 is the post-velocity position. vel=$7FFF → inferred old_px=26
+    // (0x1B0000 - 0x7FFF = 0x1A8001, >>16 = 26). right_edge=31, distance=0,
+    // displacement=1 > 0 → tile boundary guard passes. Probe hits rubber at
+    // cell (2,1). Saved velocity $7FFF < $8000 → no rebound.
+    slice.player.x_pos = 27 << 16;
+    slice.player.y_pos = 24 << 16;
+    slice.player.x_velocity = 0x0000_7FFF;
+
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+    assert_eq!(
+        slice.player.x_velocity, 0,
+        "ASM loc_8F98: velocity below $8000 should not rebound — stays zero"
+    );
+}
+
+/// ASM loc_8F98: velocity exactly at $8000 threshold DOES rebound.
+#[test]
+fn loc_8f98_rubber_bounce_at_threshold_rebounds() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let w: u16 = 5;
+    let h: u16 = 5;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let idx = (w + 2) as usize * 2;
+    data[idx] = 0xE6;
+    data[idx + 1] = 0x00;
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // x_pos=27 post-velocity. vel=$8000 → inferred old_px=26. Same geometry
+    // as below-threshold test. Saved velocity $8000 >= $8000 → rebound.
+    slice.player.x_pos = 27 << 16;
+    slice.player.y_pos = 24 << 16;
+    slice.player.x_velocity = 0x0000_8000;
+
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+    runtime.process_block_effects(&mut slice);
+
+    assert_eq!(
+        slice.player.x_velocity, -0x0000_8000,
+        "ASM loc_8F98: velocity at $8000 threshold should rebound with negated value"
+    );
+    assert_eq!(
+        slice.player.wall_cling_direction, None,
+        "ASM loc_8F98: rubber bounce should not enter wall-cling"
+    );
+}
+
+/// ASM loc_900A (kid.asm:10413): left-moving rubber bounce mirror.
+/// `neg.l d6; cmpi.l #$8000,d6; blt.w loc_901E; move.l d6,x_vel`.
+/// Verify left-moving rubber wall hit with sufficient speed rebounds right.
+#[test]
+fn loc_900a_left_moving_rubber_bounce_rebounds_right() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let w: u16 = 5;
+    let h: u16 = 5;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Rubber wall at cell (1, 2): has_block=1, collision=Solid(6), block_type=Rubber(6)
+    for row in 1..=3 {
+        let idx = (row * w + 1) as usize * 2;
+        data[idx] = 0xE6;
+        data[idx + 1] = 0x00;
+    }
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Post-velocity x_pos=36. vel=-0x1_0000 → inferred old_px=37.
+    // old left_edge=32, distance=0, displacement=1 > 0 → guard passes.
+    // Probe: new left_edge=31 → cell 1 (rubber wall). Speed |vel|=$10000
+    // >= $8000 → rebound to positive.
+    slice.player.x_pos = 36 << 16;
+    slice.player.y_pos = 40 << 16;
+    slice.player.x_velocity = -0x0001_0000;
+
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+    runtime.process_block_effects(&mut slice);
+
+    assert_eq!(
+        slice.player.x_velocity, 0x0001_0000,
+        "ASM loc_900A: left-moving rubber bounce should rebound with positive velocity"
+    );
+    assert_eq!(
+        slice.player.wall_cling_direction, None,
+        "ASM loc_900A: rubber bounce should not enter wall-cling"
+    );
+}
+
+/// ASM loc_8FE (kid.asm:1015): sub_8E0 second half — Transfer_ScrollDataToVRAM,
+/// sub_1596 (custom FG queue drain), Make_SpriteAttr_HUD. Native models
+/// sub_1596 as drain_fg_update_queue_custom_sub_1596; VDP DMA and HUD
+/// sprite generation are in the rendering pipeline.
+/// This test validates the sub_1596 drain that loc_8FE calls.
+#[test]
+fn loc_8fe_sub_8e0_drains_custom_fg_queue_via_sub_1596() {
+    // sub_1596 is already tested in sub_1596_drains_each_custom_fg_entry_
+    // into_two_vdp_writes. This test verifies the loc_8FE entry point
+    // context: sub_8E0 calls sub_1596 after Transfer_ScrollDataToVRAM and
+    // before Make_SpriteAttr_HUD. The drain function must handle an empty
+    // queue gracefully (the common case when no block effects are pending).
+    let mut pending_queue: Option<Vec<FgUpdateQueueCustomEntrySub1596>> = None;
+    let writes = drain_fg_update_queue_custom_sub_1596(&mut pending_queue);
+    assert!(
+        writes.is_empty(),
+        "ASM loc_8FE → sub_1596: empty queue should produce no VDP writes"
+    );
+    assert!(
+        pending_queue.is_none(),
+        "ASM loc_8FE → sub_1596: queue should remain None when nothing was pending"
+    );
+}

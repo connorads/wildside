@@ -3544,6 +3544,25 @@ impl OpeningSliceState {
         // Suppressed when wall_sticky is set (first frame after wall hit needs
         // re-probe even though x_vel=0; subsequent wall-cling frames with
         // x_vel=0 are handled earlier in the jump loop).
+        //
+        // ASM loc_8FAC (kid.asm:10376): left-moving entry — `bmi.w loc_8FAC`.
+        // When x_vel < 0, sub_8F26 branches to the mirrored left-moving path:
+        // add negative x_vel to x_pos, check left boundary (bmi → loc_8FF8),
+        // sub_922C wall probe, snap + bounce via loc_900A. Native collapses
+        // both directions into moving_right/moving_left branches below.
+        //
+        // TODO(fidelity): ASM loc_8F86 (kid.asm:10359) clamps x_pos when
+        // right edge >= Level_width_pixels: `clr.l x_vel; sub.w d0,d4;
+        // sub.w d4,x_pos; clr.w $1C; moveq #0,d7; rts`. Native relies on
+        // grid probe returning no-hit past level bounds instead of explicit
+        // clamping, and apply_x_velocity_to_position clamps to u32::MAX
+        // rather than Level_width_pixels.
+        //
+        // TODO(fidelity): ASM loc_8FF8 (kid.asm:10404) clamps x_pos when
+        // left edge < 0: `clr.l x_vel; sub.w d0,d4; add.w d4,x_pos;
+        // clr.w $1C; moveq #0,d6; rts`. Native apply_x_velocity_to_position
+        // clamps to 0 (matching left boundary) but does not also zero x_vel
+        // the way the ASM does inside sub_8F26.
         let wall_stuck = (moving_right && self.player.right_wall_sticky)
             || (moving_left && self.player.left_wall_sticky);
         if !wall_stuck {
@@ -3563,6 +3582,7 @@ impl OpeningSliceState {
                     return;
                 }
             } else {
+                // ASM loc_8FAC (kid.asm:10376): left-moving mirror of above.
                 let displacement = old_px - new_px;
                 let left_edge = old_px - collision_hw;
                 let distance_to_tile = left_edge & 0xF;
@@ -3646,6 +3666,12 @@ impl OpeningSliceState {
                 self.player.wall_cling_direction = None;
                 self.player.right_wall_sticky = false;
                 self.player.left_wall_sticky = false;
+                // ASM loc_8F98 (kid.asm:10368): right-moving rubber bounce —
+                // `cmpi.l #$8000,d6; blt.w loc_901E; neg.l d6; move.l d6,x_vel`.
+                // If saved velocity magnitude >= $8000, negate and store as
+                // rebound. Below threshold → zero (already cleared above).
+                // ASM loc_900A (kid.asm:10413): left-moving mirror — `neg.l d6;
+                // cmpi.l #$8000,d6; blt.w loc_901E; move.l d6,x_vel`.
                 if incoming_x_velocity.unsigned_abs() >= 0x0000_8000 {
                     self.player.x_velocity = -incoming_x_velocity;
                 }

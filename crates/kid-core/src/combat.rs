@@ -7897,6 +7897,14 @@ impl NativeRuntime {
         // for the next entry. Native doesn't run a coroutine; the total repeat
         // counts are pre-summed into form_change_flash_frames.
         //
+        // ASM loc_8FE (kid.asm:1015): second half of sub_8E0 —
+        // `jsr j_Transfer_ScrollDataToVRAM; bsr.w sub_1596;
+        // jsr j_Make_SpriteAttr_HUD; move.b #1,($FFFFFAD6).w; rts`.
+        // Transfers scroll/tile data to VDP, drains custom FG update queue
+        // (sub_1596), and builds HUD sprite attributes. Native models sub_1596
+        // as drain_fg_update_queue_custom_sub_1596; the VDP DMA and HUD sprite
+        // generation are handled by the rendering pipeline outside kid-core.
+        //
         // ASM loc_7CD0 (kid.asm:8426): `move.w (Current_Helmet_Available).w,
         // (Current_Helmet).w` — put-on-new-helmet phase. Sets Current_Helmet to
         // the target, plays per-helmet transform sound (unk_7ED8), then walks
