@@ -53,6 +53,7 @@ use crate::helmets::{
     red_stealth_swing_anchor_sub_868E, skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
+    BONUS_DIGIT_CLEAR_BASE_LOC_C328, BONUS_DIGIT_CLEAR_ROW_COUNT_LOC_C328,
     BackgroundArtDecompressLoc11EA2, BackgroundArtPermutationLoc11E8A,
     BackgroundFollowupArtDecompressLoc11EC4, BackgroundFollowupArtDecompressLoc11EF2,
     BackgroundFollowupArtPermutationLoc11EC4, BackgroundFollowupArtSourceLoc11EC4,
@@ -126,7 +127,10 @@ use crate::level::{
     SCOREBOARD_DIGIT_CLEAR_STEP_COUNT_LOC_C2F2, SUB_28FC_SLOT_COUNT, SUB_292E_SLOT_ACTIVE_OFFSET,
     ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C, ScratchDebrisSpriteSub2A4C,
     SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA, ShooterObjectSlotsSubF06A,
-    SpriteFrameStateSubB52, TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056,
+    SpriteFrameStateSubB52, TILE_FADE_BUFFER_LONGWORDS_LOC_C38A, TILE_FADE_COLUMN_TABLE_UNK_C418,
+    TILE_FADE_HIBERNATE_FRAMES_LOC_C392, TILE_FADE_MASK_COLUMNS_SUB_C3DA,
+    TILE_FADE_STEP_COUNT_LOC_C392, TILE_FADE_VRAM_ADDRESS_SUB_C378,
+    TILE_FADE_WRITE_ITERATIONS_LOC_C3BA, TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056,
     TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
     TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070, TransferScrollDataDispatchLoc3039C,
     TransferScrollDataDmaTailLoc300D2, TransferScrollDataPreludeLoc3038A,
@@ -244,6 +248,7 @@ use crate::level::{
     step_island_palette_cycle_lower_band_loc_12188, step_island_palette_cycle_mid_band_loc_12110,
     step_island_palette_cycle_primary_band_loc_12098, step_palette_fade_out_loc_28C6,
     swap_forest_background_palette_entries_sub_129AE, terrain_layout_row_pointers_loc_11B40,
+    tile_fade_mask_column_sub_C3F6, tile_fade_mask_step_sub_C3DA,
     transfer_scroll_data_dispatch_loc_3039C, transfer_scroll_data_dma_tail_loc_300D2,
     transfer_scroll_data_prelude_loc_3038A, transfer_scroll_data_storm_loc_30110,
     transfer_scroll_data_storm_loop_loc_30130, transfer_scroll_data_storm_loop_loc_30172,
@@ -2754,6 +2759,169 @@ fn sub_c346_third_digit_group_cd_bits_reflect_upper_address() {
         },
         "ASM sub_C346: base=$517 → CD=2 because address bit 15 is set"
     );
+}
+
+/// ASM loc_C326 (kid.asm:15946): bonus-stage digit-clear uses a single digit
+/// group at `$625` with `$48` rows, vs the main scoreboard's 3 groups of `$10E`.
+#[test]
+fn loc_c326_bonus_digit_clear_has_correct_parameters() {
+    assert_eq!(
+        BONUS_DIGIT_CLEAR_BASE_LOC_C328, 0x0625,
+        "ASM loc_C328: `move.w #$625,d1` → single bonus digit group"
+    );
+    assert_eq!(
+        BONUS_DIGIT_CLEAR_ROW_COUNT_LOC_C328, 0x0048,
+        "ASM loc_C328: `move.w #$48,d2` → 72 rows (vs main $10E=270)"
+    );
+    // Reuses the same 8-step / 4-frame loop and sub_C346 as loc_C2F2
+    assert_eq!(SCOREBOARD_DIGIT_CLEAR_STEP_COUNT_LOC_C2F2, 8);
+    assert_eq!(SCOREBOARD_DIGIT_CLEAR_HIBERNATE_FRAMES_LOC_C2F4, 4);
+}
+
+/// ASM loc_C326: bonus digit-clear calls sub_C346 with base=$625, step=0.
+/// `d1 = ($625 << 3 + 0) << 2 = $3128 << 2 = $C4A0` (wraps u16).
+#[test]
+fn loc_c326_bonus_digit_group_sub_c346_produces_correct_vdp_cmd() {
+    let cmds = scoreboard_digit_vdp_clear_sub_C346(
+        BONUS_DIGIT_CLEAR_BASE_LOC_C328,
+        0,
+        BONUS_DIGIT_CLEAR_ROW_COUNT_LOC_C328,
+    );
+    assert_eq!(cmds.len(), 0x0048, "dbf loops $48 times");
+    // ($625 * 8 + 0) * 4 = $3128 * 4 = $C4A0
+    // CD bits: rotate_left(0xC4A0, 2) & 3 = 0x1283 & 3 = 3
+    // addr_field: (0xC4A0 & 0x3FFF) | 0x4000 = 0x44A0
+    assert_eq!(
+        cmds[0],
+        VdpVramWriteCmd {
+            control: 0x44A0_0003,
+            data: 0,
+        },
+        "ASM loc_C328: bonus base=$625 → addr=$C4A0, CD=3"
+    );
+}
+
+/// ASM sub_C378 (kid.asm:15989): tile-fade animation constants.
+#[test]
+fn sub_c378_tile_fade_has_correct_loop_parameters() {
+    assert_eq!(
+        TILE_FADE_VRAM_ADDRESS_SUB_C378, 0xF000,
+        "ASM sub_C378: `vdpComm($F000,VRAM,READ)` → read from VRAM $F000"
+    );
+    assert_eq!(
+        TILE_FADE_BUFFER_LONGWORDS_LOC_C38A, 0x0400,
+        "ASM loc_C38A: `move.w #$3FF,d0; dbf` → $400 longwords = $1000 bytes"
+    );
+    assert_eq!(
+        TILE_FADE_STEP_COUNT_LOC_C392, 16,
+        "ASM loc_C392: `cmpi.w #$10,d0; bne.s` → 16 steps"
+    );
+    assert_eq!(
+        TILE_FADE_HIBERNATE_FRAMES_LOC_C392, 2,
+        "ASM loc_C392: `move.w #2,-(sp); jsr (j_Hibernate_Object).w`"
+    );
+    assert_eq!(
+        TILE_FADE_MASK_COLUMNS_SUB_C3DA, 0x0080,
+        "ASM loc_C392: `move.w #$80,d2` → 128 rows per mask pass"
+    );
+    assert_eq!(
+        TILE_FADE_WRITE_ITERATIONS_LOC_C3BA, 0x0080,
+        "ASM loc_C3BA: `move.w #$7F,d3; dbf` → $80 iterations × 8 longwords"
+    );
+}
+
+/// ASM unk_C418 (kid.asm:16064): column table has 16 entries matching the
+/// disassembly byte sequence.
+#[test]
+fn unk_c418_column_table_matches_disassembly() {
+    assert_eq!(TILE_FADE_COLUMN_TABLE_UNK_C418.len(), 16);
+    assert_eq!(
+        TILE_FADE_COLUMN_TABLE_UNK_C418,
+        [
+            0x00, 0x12, 0x02, 0x10, 0x09, 0x1B, 0x0B, 0x19, 0x01, 0x13, 0x03, 0x11, 0x08, 0x1A,
+            0x0A, 0x18
+        ],
+        "ASM unk_C418: 16-byte column offset table"
+    );
+}
+
+/// ASM sub_C3F6 (kid.asm:16045): even selector → AND $0F (clear high nibble).
+/// `d3=0` → byte offset 0, mask=$0F. Buffer byte $AA → $0A.
+#[test]
+fn sub_c3f6_even_selector_clears_high_nibble() {
+    let mut buf = vec![0xAA; 0x40];
+    // d3=0 (even): lsr #1 → offset=0, carry=0, mask=$0F
+    tile_fade_mask_column_sub_C3F6(&mut buf, 0, 2);
+    assert_eq!(
+        buf[0x00], 0x0A,
+        "ASM sub_C3F6: even → AND $0F clears high nibble"
+    );
+    assert_eq!(buf[0x20], 0x0A, "ASM sub_C3F6 loc_C408: second row at +$20");
+    assert_eq!(buf[0x01], 0xAA, "adjacent byte untouched");
+}
+
+/// ASM sub_C3F6: odd selector → AND $F0 (clear low nibble).
+/// `d3=1` → byte offset 0, mask=$F0. Buffer byte $AB → $A0.
+#[test]
+fn sub_c3f6_odd_selector_clears_low_nibble() {
+    let mut buf = vec![0xAB; 0x40];
+    // d3=1 (odd): lsr #1 → offset=0, carry=1, mask=$F0
+    tile_fade_mask_column_sub_C3F6(&mut buf, 1, 2);
+    assert_eq!(
+        buf[0x00], 0xA0,
+        "ASM sub_C3F6: odd → AND $F0 clears low nibble"
+    );
+    assert_eq!(buf[0x20], 0xA0, "ASM sub_C3F6 loc_C408: second row at +$20");
+}
+
+/// ASM sub_C3F6: larger selector offsets into the buffer correctly.
+/// `d3=$12` (even, 18): lsr → offset=9, mask=$0F.
+#[test]
+fn sub_c3f6_large_even_selector_offsets_correctly() {
+    let mut buf = vec![0xFF; 0x40];
+    tile_fade_mask_column_sub_C3F6(&mut buf, 0x12, 1);
+    assert_eq!(buf[9], 0x0F, "ASM sub_C3F6: d3=$12 → offset 9, AND $0F");
+    assert_eq!(buf[8], 0xFF, "byte 8 untouched");
+    assert_eq!(buf[10], 0xFF, "byte 10 untouched");
+}
+
+/// ASM sub_C3DA (kid.asm:16029): step 0 masks 4 columns from table[0]=$00.
+/// Columns: $00, $04, $20, $24 — all even → AND $0F (clear high nibbles).
+#[test]
+fn sub_c3da_step_0_masks_four_columns() {
+    // Need buffer large enough for $80 rows × $20 bytes = $1000 bytes
+    let mut buf = vec![0xFF_u8; 0x1000];
+    tile_fade_mask_step_sub_C3DA(&mut buf, 0, 0x0080);
+    // table[0] = $00. Columns: $00, $04, $20, $24 — all even.
+    // Even → offset = d3/2, mask = $0F
+    // col $00: offset 0, $0F
+    assert_eq!(buf[0x00], 0x0F, "ASM sub_C3DA: col $00 → byte 0, AND $0F");
+    // col $04: offset 2, $0F
+    assert_eq!(buf[0x02], 0x0F, "ASM sub_C3DA: col $04 → byte 2, AND $0F");
+    // col $20: offset $10=16, $0F
+    assert_eq!(buf[0x10], 0x0F, "ASM sub_C3DA: col $20 → byte 16, AND $0F");
+    // col $24: offset $12=18, $0F
+    assert_eq!(buf[0x12], 0x0F, "ASM sub_C3DA: col $24 → byte 18, AND $0F");
+    // Untouched bytes
+    assert_eq!(buf[0x01], 0xFF, "byte 1 untouched");
+}
+
+/// ASM sub_C3DA: step 4 (table[4]=$09) mixes odd and even selectors.
+/// Base $09 (odd), +4=$0D (odd), +$1C=$29 (odd), +4=$2D (odd) — all odd.
+#[test]
+fn sub_c3da_step_4_masks_four_odd_columns() {
+    let mut buf = vec![0xFF_u8; 0x1000];
+    tile_fade_mask_step_sub_C3DA(&mut buf, 4, 0x0080);
+    // table[4] = $09. Columns: $09, $0D, $29, $2D — all odd.
+    // Odd → offset = d3/2 (integer), mask = $F0
+    // col $09: offset 4, $F0
+    assert_eq!(buf[0x04], 0xF0, "ASM sub_C3DA: col $09 → byte 4, AND $F0");
+    // col $0D: offset 6, $F0
+    assert_eq!(buf[0x06], 0xF0, "ASM sub_C3DA: col $0D → byte 6, AND $F0");
+    // col $29: offset $14=20, $F0
+    assert_eq!(buf[0x14], 0xF0, "ASM sub_C3DA: col $29 → byte 20, AND $F0");
+    // col $2D: offset $16=22, $F0
+    assert_eq!(buf[0x16], 0xF0, "ASM sub_C3DA: col $2D → byte 22, AND $F0");
 }
 
 fn imported_early_start_boot_script() -> Vec<u8> {
