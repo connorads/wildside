@@ -329,6 +329,10 @@ pub(crate) fn kid_airborne_visual_sub_B270(
     }
 
     if input.cyclone_flying {
+        // ASM loc_B2A0 (kid.asm:14154): Cyclone flight animation accumulator.
+        // `neg.w d7; addi.w #$2000,d7; asl.w #2,d7; lsr.w #8,d7` computes a
+        // phase delta from Cyclone_YAcceleration, adds to the accumulator at
+        // `$FFFFF8F0`.  If the result >= $300, wraps by subtracting $300.
         let mut phase_word = (0i16)
             .wrapping_sub(input.cyclone_y_accel)
             .wrapping_add(0x2000) as u16;
@@ -338,6 +342,9 @@ pub(crate) fn kid_airborne_visual_sub_B270(
         if phase_word >= 0x0300 {
             phase_word = phase_word.wrapping_sub(0x0300);
         }
+        // ASM loc_B2CA (kid.asm:14168): store phase to $FFFFF8F0, then
+        // `asr.w #8,d7; add.w d7,d7; add.w d7,d7` = phase_word>>8 * 4 indexes
+        // into three Cyclone spinning frames via LnkTo offsets.
         let mapping = kid_data::cyclone_flight_sprite_mapping_sub_B270(phase_word >> 8)
             .expect("ASM sub_B270 Cyclone phase should stay within 0..=2");
         return KidAirborneVisualStepSubB270 {
@@ -351,6 +358,11 @@ pub(crate) fn kid_airborne_visual_sub_B270(
         };
     }
 
+    // ASM loc_B2DE (kid.asm:14180): non-Cyclone path checks helmet == #5
+    // (Juggernaut).  `bsr.w sub_975C` runs the companion cloud animation.
+    // If `is_animated(a3)` is set and Kid is airborne (`$18(a3)` == 0),
+    // preserve current visual.  If on ground, `sf is_animated(a3)` clears it
+    // and falls through to loc_B304.
     let mut next_is_animated = input.is_animated;
     if input.helmet_id == PlayerForm::Juggernaut.helmet_id()
         && input.juggernaut_companion_animation_active
@@ -381,6 +393,10 @@ pub(crate) fn kid_airborne_visual_sub_B270(
         };
     }
 
+    // ASM loc_B304 (kid.asm:14192): common airborne mapping dispatch.
+    // `cmpi.w #1,d7` (Skycutter) → loc_B3B2 special path.  Otherwise
+    // `lsl.w #3,d7; lea off_B3B8(pc),a4; add.w d7,a4` indexes the 4-entry
+    // per-helmet table.  Then checks Maniaxe throwing axe active.
     if input.helmet_id == PlayerForm::Maniaxe.helmet_id()
         && input.maniaxe_throwing_axe
         && !input.on_ground
@@ -396,6 +412,14 @@ pub(crate) fn kid_airborne_visual_sub_B270(
         };
     }
 
+    // ASM loc_B334 (kid.asm:14208): `sf (Maniaxe_throwing_axe).w` clears axe
+    // flag, then loads threshold from `($FFFFFAAA).w`, computes `y_vel(a3)<<2`.
+    // `bpl.s loc_B350` splits negative (ascending) vs positive (descending).
+    // Negative: `cmp.l d7,d6; ble loc_B3A8` → state 0 if below threshold,
+    // else state 1 (`addq.w #2,a4`).
+    // ASM loc_B350 (kid.asm:14220): positive branch — `addq.w #4,a4` (state 2),
+    // then `cmp.l d7,d6; ble loc_B3A8` → state 2 if below threshold, else
+    // `addq.w #2,a4` (state 3) + Red Stealth C-held slash check.
     let scaled_y_velocity = input.y_velocity.wrapping_shl(2);
     let state_index = if scaled_y_velocity < 0 {
         if scaled_y_velocity > input.jump_threshold {

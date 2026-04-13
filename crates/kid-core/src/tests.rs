@@ -36891,6 +36891,175 @@ fn kid_airborne_visual_sub_b270_loc_b284_global_lock_preserves_current() {
     );
 }
 
+/// ASM loc_B2CA (kid.asm:14168): Cyclone flight accumulator store + sprite
+/// mapping lookup.  When phase_word stays below $300 (no wrapping), the value
+/// is stored directly.  `asr.w #8,d7` → frame index 0 for phase in $000..$0FF.
+/// `add.w d7,d7; add.w d7,d7` = *4 word offset into three Cyclone spin frames.
+#[test]
+fn kid_airborne_visual_loc_b2ca_cyclone_phase_below_wrap_threshold() {
+    // cyclone_y_accel = $2000 → neg = -$2000, +$2000 = 0, <<2 = 0, >>8 = 0.
+    // phase delta = 0, accum stays at $00A0.  $00A0 < $0300 → no wrap (loc_B2CA
+    // reached directly).  $00A0 >> 8 = 0 → first Cyclone spin frame.
+    let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+        helmet_id: PlayerForm::Cyclone.helmet_id(),
+        is_animated: false,
+        on_ground: false,
+        global_lock_active: false,
+        airborne_latch_active: false,
+        cyclone_flying: true,
+        cyclone_y_accel: 0x2000,
+        cyclone_frame_accum: 0x00A0,
+        juggernaut_companion_animation_active: false,
+        maniaxe_throwing_axe: false,
+        y_velocity: 0,
+        jump_threshold: 0,
+        c_held: false,
+        red_stealth_sword_swing: 0,
+    });
+
+    assert_eq!(
+        step.visual,
+        KidAirborneVisualKindSubB270::UseMapping("LnkTo_unk_BA55A-Data_Index"),
+        "ASM loc_B2CA: phase $00A0 >> 8 = 0 → first Cyclone spin frame",
+    );
+    assert_eq!(
+        step.next_cyclone_frame_accum, 0x00A0,
+        "ASM loc_B2CA: move.w d7,($FFFFF8F0).w stores the unwrapped phase",
+    );
+}
+
+/// ASM loc_B2DE (kid.asm:14180): Juggernaut companion animation path.  When
+/// helmet == #5 and companion animation is active, `bsr.w sub_975C` runs the
+/// cloud.  If `is_animated(a3)` is set and Kid is on ground (`$18(a3)` != 0),
+/// `sf is_animated(a3)` clears it and falls through to loc_B304's common table.
+#[test]
+fn kid_airborne_visual_loc_b2de_juggernaut_companion_on_ground_clears_animated() {
+    let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+        helmet_id: PlayerForm::Juggernaut.helmet_id(),
+        is_animated: true,
+        on_ground: true,
+        global_lock_active: false,
+        airborne_latch_active: false,
+        cyclone_flying: false,
+        cyclone_y_accel: 0,
+        cyclone_frame_accum: 0,
+        juggernaut_companion_animation_active: true,
+        maniaxe_throwing_axe: false,
+        y_velocity: 0x0000_1000,
+        jump_threshold: 0x0001_0000,
+        c_held: false,
+        red_stealth_sword_swing: 0,
+    });
+
+    assert!(
+        !step.next_is_animated,
+        "ASM loc_B2DE: sf is_animated(a3) — Juggernaut on ground clears animated flag",
+    );
+    // Falls through to loc_B304 common table. y_vel $1000 << 2 = $4000 > 0,
+    // $4000 <= threshold $1_0000<<2 = $4_0000 → state_index 2.
+    // Juggernaut (helmet 5) state 2 = second entry pair.
+    assert_eq!(
+        step.visual,
+        KidAirborneVisualKindSubB270::UseMapping("LnkTo_unk_BFD26-Data_Index"),
+        "ASM loc_B304: falls through to common table with state_index=2 for Juggernaut",
+    );
+}
+
+/// ASM loc_B304 (kid.asm:14192): common airborne mapping dispatch.  For
+/// Berzerker (helmet #7), `lsl.w #3,d7` = $38, indexes off_B3B8 to the
+/// Berzerker row.  With y_vel strongly negative (ascending fast, below
+/// threshold), state_index = 0 → first Berzerker airborne frame.
+#[test]
+fn kid_airborne_visual_loc_b304_berzerker_ascending_fast_uses_state_0() {
+    let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+        helmet_id: PlayerForm::Berzerker.helmet_id(),
+        is_animated: false,
+        on_ground: false,
+        global_lock_active: false,
+        airborne_latch_active: false,
+        cyclone_flying: false,
+        cyclone_y_accel: 0,
+        cyclone_frame_accum: 0,
+        juggernaut_companion_animation_active: false,
+        maniaxe_throwing_axe: false,
+        // y_vel << 2 = -$40000, threshold = -$40000 → d6 <= d7 → state 0
+        y_velocity: -0x0001_0000,
+        jump_threshold: -0x0004_0000,
+        c_held: false,
+        red_stealth_sword_swing: 0,
+    });
+
+    assert_eq!(
+        step.visual,
+        KidAirborneVisualKindSubB270::UseMapping("LnkTo_unk_B007C-Data_Index"),
+        "ASM loc_B304: Berzerker state 0 = first airborne frame (strong ascent)",
+    );
+    assert!(!step.next_maniaxe_throwing_axe);
+}
+
+/// ASM loc_B334 (kid.asm:14208): negative y_vel (ascending) above threshold →
+/// state_index 1 (`addq.w #2,a4`).  Eyeclops (helmet #4) ascending moderately:
+/// y_vel = -$1000, threshold at -$4_0000.  y_vel<<2 = -$4000, which is > d7
+/// (threshold) → `addq.w #2,a4` → state 1.
+#[test]
+fn kid_airborne_visual_loc_b334_eyeclops_ascending_moderate_uses_state_1() {
+    let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+        helmet_id: PlayerForm::Eyeclops.helmet_id(),
+        is_animated: false,
+        on_ground: false,
+        global_lock_active: false,
+        airborne_latch_active: false,
+        cyclone_flying: false,
+        cyclone_y_accel: 0,
+        cyclone_frame_accum: 0,
+        juggernaut_companion_animation_active: false,
+        maniaxe_throwing_axe: false,
+        // y_vel<<2 = -$4000 (negative, bpl fails → loc_B334 negative branch).
+        // d7 (threshold) = -$4_0000. d6 (-$4000) > d7 (-$4_0000) → state 1.
+        y_velocity: -0x0000_1000,
+        jump_threshold: -0x0004_0000,
+        c_held: false,
+        red_stealth_sword_swing: 0,
+    });
+
+    assert_eq!(
+        step.visual,
+        KidAirborneVisualKindSubB270::UseMapping("LnkTo_unk_B772E-Data_Index"),
+        "ASM loc_B334: Eyeclops state 1 (ascending moderate, above threshold)",
+    );
+}
+
+/// ASM loc_B350 (kid.asm:14220): positive y_vel branch — `addq.w #4,a4`
+/// advances to state 2.  If d6 <= d7 (threshold), stays at state 2.  IronKnight
+/// descending slowly: y_vel = $1000, threshold = $4_0000.  y_vel<<2 = $4000
+/// (positive → loc_B350), $4000 <= $4_0000 → state 2.
+#[test]
+fn kid_airborne_visual_loc_b350_iron_knight_descending_slow_uses_state_2() {
+    let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+        helmet_id: PlayerForm::IronKnight.helmet_id(),
+        is_animated: false,
+        on_ground: false,
+        global_lock_active: false,
+        airborne_latch_active: false,
+        cyclone_flying: false,
+        cyclone_y_accel: 0,
+        cyclone_frame_accum: 0,
+        juggernaut_companion_animation_active: false,
+        maniaxe_throwing_axe: false,
+        // y_vel<<2 = $4000 (positive → loc_B350). $4000 <= $4_0000 → state 2.
+        y_velocity: 0x0000_1000,
+        jump_threshold: 0x0004_0000,
+        c_held: false,
+        red_stealth_sword_swing: 0,
+    });
+
+    assert_eq!(
+        step.visual,
+        KidAirborneVisualKindSubB270::UseMapping("LnkTo_unk_C26D0-Data_Index"),
+        "ASM loc_B350: IronKnight state 2 (descending slow, below threshold)",
+    );
+}
+
 // --- Maniaxe axe tests ---
 
 #[test]
