@@ -11430,6 +11430,14 @@ pub(crate) const GAME_OVER_PAL_LINE1_WORD_COUNT_LOC_D12E: u16 = 5;
 #[allow(dead_code)]
 pub(crate) const GAME_OVER_PAL_LINE1_DEST_OFFSET_LOC_D12E: u16 = 0x22;
 
+/// ASM loc_D142 (kid.asm:16403): game-over palette backup loop.
+/// `moveq #$1F,d0; lea (Palette_Buffer).l,a0; lea (Palette_Buffer_2).l,a1;
+/// loc_D142: move.l (a0)+,(a1)+; dbf d0,loc_D142`.
+/// Copies 32 longwords (64 words = 128 bytes) from `Palette_Buffer` to
+/// `Palette_Buffer_2` before the fade target buffer is cleared at `loc_D150`.
+#[allow(dead_code)]
+pub(crate) const GAME_OVER_PALETTE_BACKUP_COUNT_LOC_D142: u16 = 0x1F;
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {

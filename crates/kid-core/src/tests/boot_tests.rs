@@ -1979,6 +1979,25 @@ mod chunk_01 {
         );
     }
 
+    /// ASM loc_D142 (kid.asm:16403): game-over palette backup loop.
+    /// `moveq #$1F,d0` drives 32 longword iterations from `Palette_Buffer` to
+    /// `Palette_Buffer_2`, copying the complete 128-byte palette buffer.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D142_game_over_palette_backup_count_matches_asm() {
+        assert_eq!(
+            crate::level::GAME_OVER_PALETTE_BACKUP_COUNT_LOC_D142,
+            0x1F,
+            "ASM loc_D142: palette backup count d0=$1F (32 longwords)"
+        );
+        let longwords = crate::level::GAME_OVER_PALETTE_BACKUP_COUNT_LOC_D142 as usize + 1;
+        assert_eq!(
+            longwords * 4,
+            128,
+            "32 longwords x 4 bytes = full Palette_Buffer"
+        );
+    }
+
     /// ASM loc_C1D0 (kid.asm:15765): flagpole hologram fade-out loop body.
     /// `subi.w #$10,($FFFFF876).w; bmi.s loc_C1EE` — subtract $10 from fade
     /// progress each frame; when negative the fade is complete.
