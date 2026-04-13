@@ -424,6 +424,42 @@ pub(crate) struct FlagpoleScoreboardStepSubC254 {
     pub(crate) finished: bool,
 }
 
+/// ASM loc_C056 (kid.asm:15646): object field offsets cleared during
+/// `CharacterCollision_TouchFlagpole`.
+///
+/// The loop at loc_C056 iterates the object linked list (`Addr_FirstObjectSlot`)
+/// and clears three longword fields per object (except the current `a5`):
+/// ```text
+/// loc_C056: _move.l 0(a0),d0; beq.s loc_C070; move.l d0,a0
+///           cmp.l a5,a0; beq.s loc_C056   ; skip self
+///           clr.l $36(a0); clr.l $3A(a0); clr.l $3E(a0)
+///           bra.s loc_C056
+/// ```
+/// `$36`/`$3A` are x/y velocity; `$3E` is an auxiliary link/state pointer.
+/// Clearing them freezes all other objects before the deletion pass at loc_C070.
+#[allow(dead_code)]
+pub(crate) const TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056: [u16; 3] = [0x36, 0x3A, 0x3E];
+
+/// ASM loc_C070 (kid.asm:15658): VDP register commands written during the
+/// `CharacterCollision_TouchFlagpole` post-cleanup.
+///
+/// ```text
+/// jsr (j_Delete_AllButCurrentObject).w
+/// st ($FFFFFB6A).w                     ; flagpole-touched flag
+/// move.w #$8200,4(a6)                  ; Scroll A name table base = $0000
+/// move.w #$8407,4(a6)                  ; Scroll B name table base = $E000
+/// clr.w (Level_Special_Effects).w      ; disable weather
+/// ```
+/// These two VDP writes reset the scroll plane addresses for the scoreboard
+/// reveal sequence.  The hibernate of `$24` (36) frames follows.
+#[allow(dead_code)]
+pub(crate) const TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070: [u16; 2] = [0x8200, 0x8407];
+
+/// ASM loc_C070: hibernate duration (frames) before gfx object cleanup.
+/// `move.w #$24,-(sp); jsr (j_Hibernate_Object).w`.
+#[allow(dead_code)]
+pub(crate) const TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070: u16 = 0x24;
+
 pub(crate) const SUB_28FC_SLOT_COUNT: usize = 6;
 pub(crate) const SUB_28FC_SLOT_STRIDE_BYTES: usize = 0x52;
 const SPRITE_TABLE_ADDR_SUB_B52: u32 = 0xFFFF_0000;

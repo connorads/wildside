@@ -583,6 +583,163 @@ pub(crate) fn make_hud_hitpoint_layout_sub_BDC0(
     sprites
 }
 
+/// HUD timer digit tile IDs as written by loc_BEE8 (kid.asm:15505).
+///
+/// After `Decrease_Time_Left` updates the three digit counters, loc_BEE8
+/// converts each digit to a VRAM tile ID by adding `$86BA`:
+/// ```text
+/// move.w (Time_Seconds_low_digit).w,d0; addi.w #$86BA,d0; move.w d0,$34(a0)
+/// move.w (Time_Seconds_high_digit).w,d0; addi.w #$86BA,d0; move.w d0,$2C(a0)
+/// move.w (Time_Minutes).w,d0; addi.w #$86BA,d0; move.w d0,$1C(a0)
+/// ```
+/// The tile base `$86BA` addresses the digit font in VRAM: digit 0 → tile
+/// `$86BA`, digit 1 → `$86BB`, … digit 9 → `$86C3`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HudTimerDigitTilesLocBEE8 {
+    /// Tile ID for the minutes digit (stored at `$1C(a0)`).
+    pub(crate) minutes_tile: u16,
+    /// Tile ID for the seconds tens digit (stored at `$2C(a0)`).
+    pub(crate) seconds_tens_tile: u16,
+    /// Tile ID for the seconds ones digit (stored at `$34(a0)`).
+    pub(crate) seconds_ones_tile: u16,
+}
+
+/// ASM loc_BEE8 (kid.asm:15505): convert timer digit values to VRAM tile IDs.
+///
+/// Each of `Time_Minutes`, `Time_Seconds_high_digit`, `Time_Seconds_low_digit`
+/// is a single BCD-ish digit (0–9 for seconds digits, 0–5 for seconds tens,
+/// 0–9 for minutes).  The tile ID is simply `digit + $86BA`.
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn hud_timer_digit_tiles_loc_BEE8(
+    time_minutes: u16,
+    time_seconds_high_digit: u16,
+    time_seconds_low_digit: u16,
+) -> HudTimerDigitTilesLocBEE8 {
+    // ASM loc_BEE8: addi.w #$86BA,d0 for each digit.
+    HudTimerDigitTilesLocBEE8 {
+        minutes_tile: time_minutes.wrapping_add(0x86BA),
+        seconds_tens_tile: time_seconds_high_digit.wrapping_add(0x86BA),
+        seconds_ones_tile: time_seconds_low_digit.wrapping_add(0x86BA),
+    }
+}
+
+/// Result of `End_Decrease_Time_Left` low-time check (kid.asm:15518).
+///
+/// After writing digit tiles, End_Decrease_Time_Left checks whether the
+/// timer is at or below 0:29 (minutes==0 && seconds_tens<=2).  If so,
+/// `sub_BD0A` is called with `d7=1` to switch timer sprites to Kid-tracking
+/// mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HudTimerLowTimeCheckEndDecreaseTimeLeft {
+    /// Whether the timer is low enough to track Kid (`d7=1` path).
+    pub(crate) track_kid: bool,
+}
+
+/// ASM End_Decrease_Time_Left (kid.asm:15518): low-time detection.
+///
+/// ```text
+/// tst.w (Time_Minutes).w; bne.w loc_BF2A
+/// cmpi.w #2,(Time_Seconds_high_digit).w; bgt.w loc_BF2A
+/// moveq #1,d7; bsr.w sub_BD0A
+/// ```
+/// Returns `track_kid=true` when minutes==0 and seconds_tens<=2 (i.e. ≤29s).
+#[allow(dead_code)]
+pub(crate) fn hud_timer_low_time_check_end_decrease_time_left(
+    time_minutes: u16,
+    time_seconds_high_digit: u16,
+) -> HudTimerLowTimeCheckEndDecreaseTimeLeft {
+    // ASM: tst.w (Time_Minutes).w; bne.w loc_BF2A → skip if minutes != 0
+    // cmpi.w #2,(Time_Seconds_high_digit).w; bgt.w loc_BF2A → skip if tens > 2
+    let track_kid = time_minutes == 0 && time_seconds_high_digit <= 2;
+    HudTimerLowTimeCheckEndDecreaseTimeLeft { track_kid }
+}
+
+/// Tile ID pair for a two-digit HUD number, as computed by
+/// `calc_display_number` (kid.asm:15568).
+///
+/// Used by loc_BF2A for both the lives count and diamond count displays.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HudDisplayNumberTilesCalcDisplayNumber {
+    /// Tile ID for the tens digit (high word of d1).
+    pub(crate) tens_tile: u16,
+    /// Tile ID for the ones digit (low word of d1).
+    pub(crate) ones_tile: u16,
+}
+
+/// ASM calc_display_number (kid.asm:15568): convert a 0–99 number to tile IDs.
+///
+/// ```text
+/// move.w #$86BA,d6; move.w d6,d1; swap d1; move.w d6,d1
+/// cmpi.w #$A,d0; bge.s split_double_digit
+/// add.w d0,d1; swap d1; addi.w #$B,d1; swap d1; rts
+/// split_double_digit: divu.w #$A,d0; add.l d0,d1; rts
+/// ```
+///
+/// For values < 10: ones = `$86BA + value`, tens = `$86BA + $B` (blank tile).
+/// For values >= 10: `divu.w #$A` puts quotient in low word, remainder in
+/// high word; `add.l` adds both halves to the `$86BA86BA` base.
+#[allow(dead_code)]
+pub(crate) fn calc_display_number(value: u16) -> HudDisplayNumberTilesCalcDisplayNumber {
+    let base: u16 = 0x86BA;
+    if value < 10 {
+        // ASM: add.w d0,d1 (ones); swap; addi.w #$B,d1 (tens = blank)
+        HudDisplayNumberTilesCalcDisplayNumber {
+            tens_tile: base.wrapping_add(0x0B),
+            ones_tile: base.wrapping_add(value),
+        }
+    } else {
+        // ASM: divu.w #$A,d0 → quotient in d0.w, remainder in d0[31:16]
+        // add.l d0,d1 where d1 = $86BA_86BA
+        let quotient = value / 10;
+        let remainder = value % 10;
+        HudDisplayNumberTilesCalcDisplayNumber {
+            tens_tile: base.wrapping_add(quotient),
+            ones_tile: base.wrapping_add(remainder),
+        }
+    }
+}
+
+/// ASM loc_BF2A (kid.asm:15526): lives display clamp and update.
+///
+/// ```text
+/// move.w (Number_Lives).w,d0; cmpi.w #100,d0; blt.s life_display
+/// moveq #99,d0; move.w d0,(Number_Lives).w
+/// ```
+/// Clamps lives to 99 before display.  Returns the clamped value.
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn hud_lives_clamp_loc_BF2A(number_lives: u16) -> u16 {
+    // ASM loc_BF2A: cmpi.w #100,d0; blt.s life_display; moveq #99,d0
+    if number_lives >= 100 {
+        99
+    } else {
+        number_lives
+    }
+}
+
+/// ASM loc_C03A (kid.asm:15628): hide flagpole sprites on boss levels.
+///
+/// `Flagpole_Boss` allocates two gfx objects for the flagpole.  At the end,
+/// it checks the current level against the four boss level IDs:
+/// ```text
+/// cmpi.w #Boss1_LevelID,(Current_LevelID).w; beq.s loc_C03A
+/// cmpi.w #Boss2_LevelID,(Current_LevelID).w; beq.s loc_C03A
+/// cmpi.w #Boss3_LevelID,(Current_LevelID).w; beq.s loc_C03A
+/// cmpi.w #Boss4_LevelID,(Current_LevelID).w; bne.s return_C046
+/// loc_C03A: sf $13(a4); sf $13(a3); st $3D(a4)
+/// ```
+/// On boss levels, both flagpole objects are hidden (`$13`=0 disables
+/// rendering) and the first object's `$3D` flag is set (boss-mode marker).
+///
+/// Boss level IDs: $10, $1E, $2A, $33.
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn is_boss_level_loc_C03A(level_id: u16) -> bool {
+    // ASM: Boss1_LevelID=$10, Boss2_LevelID=$1E, Boss3_LevelID=$2A, Boss4_LevelID=$33
+    matches!(level_id, 0x10 | 0x1E | 0x2A | 0x33)
+}
+
 fn step_hud_animation_pair_table(
     countdown: u8,
     frame_offset: u8,

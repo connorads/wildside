@@ -11,26 +11,28 @@ use crate::blocks::{
     ShooterLeftSupportProbeLoc11448,
 };
 use crate::boot::{
-    FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudFrameUploadSub44DC,
-    HudHitpointSpriteSubBDC0, HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A,
-    IntroSequence6LongwordFillLoc1B170, IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24,
+    FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudDisplayNumberTilesCalcDisplayNumber,
+    HudFrameUploadSub44DC, HudHitpointSpriteSubBDC0, HudTimerDigitTilesLocBEE8,
+    HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, IntroSequence6LongwordFillLoc1B170,
+    IntroSequence6WordFillLoc1B182, IoPortFlagsSub6E24,
     PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C, PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C,
     PAUSE_MENU_Y_OFFSET_LOC_6948, PauseMenuGateLoc687C, PauseMenuPlaneColumnLayout,
     PauseMenuSpriteEntrySub6874, PauseMenuTextSelectionRestartText,
-    RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, RAM_CLEAR_START_ADDR_LOC_5FE,
+    RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, RAM_CLEAR_START_ADDR_LOC_5FE, calc_display_number,
     copy_sega_screen_palette_loc_12DFE, end_sequence_burst_camera_loop_loc_1D1EC,
     end_sequence_burst_prelude_loc_1D1D6, end_sequence_burst_sprite_init_sub_1D86C,
     end_sequence_burst_wait_loop_loc_1D1DE, end_sequence_camera_shake_sub_1D846,
     end_sequence_display_refresh_sub_1D830, end_sequence_falling_sprite_init_sub_1D8B4,
     flag_hud_dma_upload_sub_5DA6, hide_pause_menu_overwritten_sprites_sub_6874,
-    hud_timer_sprite_layout_sub_BD0A, init_hud_animation_frames_sub_44B0,
-    intro_sequence_6_longword_fill_loc_1B170, intro_sequence_6_striped_tile_fill_loc_1B194,
-    intro_sequence_6_tilemap_clear_loc_1B182, make_hud_hitpoint_layout_sub_BDC0,
-    pause_menu_art_total_bytes_loc_690C, pause_menu_gate_loc_687C,
-    pause_menu_plane_column_layout_loc_693A, pause_menu_text_selection_restart_text,
-    pause_menu_text_write_plan_loc_69D2, pause_menu_text_write_row_vdp_write_cmd_loc_6A1E,
-    pause_menu_tile_restore_plan_loc_6B68, pause_menu_tile_save_plan_loc_695C,
-    pause_menu_tile_save_row_vdp_read_cmd_loc_695C,
+    hud_lives_clamp_loc_BF2A, hud_timer_digit_tiles_loc_BEE8,
+    hud_timer_low_time_check_end_decrease_time_left, hud_timer_sprite_layout_sub_BD0A,
+    init_hud_animation_frames_sub_44B0, intro_sequence_6_longword_fill_loc_1B170,
+    intro_sequence_6_striped_tile_fill_loc_1B194, intro_sequence_6_tilemap_clear_loc_1B182,
+    is_boss_level_loc_C03A, make_hud_hitpoint_layout_sub_BDC0, pause_menu_art_total_bytes_loc_690C,
+    pause_menu_gate_loc_687C, pause_menu_plane_column_layout_loc_693A,
+    pause_menu_text_selection_restart_text, pause_menu_text_write_plan_loc_69D2,
+    pause_menu_text_write_row_vdp_write_cmd_loc_6A1E, pause_menu_tile_restore_plan_loc_6B68,
+    pause_menu_tile_save_plan_loc_695C, pause_menu_tile_save_row_vdp_read_cmd_loc_695C,
     pause_menu_tile_save_wrap_column_reset_loc_69AE, prize_10000_points_star_advance_loc_10BCE,
     prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
     prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
@@ -115,16 +117,17 @@ use crate::level::{
     PostLoadObjectRoutineLoc11F96, RotatePaletteLavaWaterDelayLoc1223A, SUB_28FC_SLOT_COUNT,
     SUB_292E_SLOT_ACTIVE_OFFSET, ScratchDebrisPieceSub292E, ScratchDebrisRenderSub2A4C,
     ScratchDebrisSpriteSub2A4C, SharedVramArtDecompressLoc11EFA, SharedVramArtSourceLoc11EFA,
-    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, TransferScrollDataDispatchLoc3039C,
-    TransferScrollDataDmaTailLoc300D2, TransferScrollDataPreludeLoc3038A,
-    TransferScrollDataRendererLoc3039C, TransferScrollDataStormLoc30110,
-    TransferScrollDataStormLoopLoc30130, TransferScrollDataStormLoopLoc30172,
-    TransferScrollDataStormSetupLoc30158, TransferScrollDataVsramSetupLoc300BA,
-    apply_background_palette_override_loc_11E04, apply_background_palette_override_loc_11E12,
-    apply_foreground_palette_override_loc_11D9E, apply_foreground_palette_override_loc_11DAC,
-    apply_mountain_weather_override_loc_11EEA, apply_pending_palette_fade_sub_14C0,
-    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
-    background_scroll_desert_heat_ripple_loop_loc_306F4,
+    ShooterObjectSlotsSubF06A, SpriteFrameStateSubB52, TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056,
+    TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070, TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070,
+    TransferScrollDataDispatchLoc3039C, TransferScrollDataDmaTailLoc300D2,
+    TransferScrollDataPreludeLoc3038A, TransferScrollDataRendererLoc3039C,
+    TransferScrollDataStormLoc30110, TransferScrollDataStormLoopLoc30130,
+    TransferScrollDataStormLoopLoc30172, TransferScrollDataStormSetupLoc30158,
+    TransferScrollDataVsramSetupLoc300BA, apply_background_palette_override_loc_11E04,
+    apply_background_palette_override_loc_11E12, apply_foreground_palette_override_loc_11D9E,
+    apply_foreground_palette_override_loc_11DAC, apply_mountain_weather_override_loc_11EEA,
+    apply_pending_palette_fade_sub_14C0, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A, background_scroll_desert_heat_ripple_loop_loc_306F4,
     background_scroll_desert_heat_ripple_setup_loc_306D4,
     background_scroll_desert_heat_ripple_visible_band_loc_306C2,
     background_scroll_enigma_primary_copy_setup_loc_30426,
@@ -1959,6 +1962,190 @@ fn sub_bdc0_0hp_4slots_produces_two_empty_sprites() {
     assert!(sprites[0].visible);
     assert_eq!(sprites[1].tile, 0x822F, "second: empty");
     assert!(sprites[1].visible);
+}
+
+/// ASM loc_BEE8 (kid.asm:15505): timer digit 0 → tile $86BA (base).
+/// `move.w (Time_Minutes).w,d0; addi.w #$86BA,d0` for each digit.
+#[test]
+#[allow(non_snake_case)]
+fn loc_BEE8_timer_digits_zero_produce_base_tiles() {
+    let tiles = hud_timer_digit_tiles_loc_BEE8(0, 0, 0);
+    assert_eq!(
+        tiles,
+        HudTimerDigitTilesLocBEE8 {
+            minutes_tile: 0x86BA,
+            seconds_tens_tile: 0x86BA,
+            seconds_ones_tile: 0x86BA,
+        },
+        "ASM loc_BEE8: digit 0 + $86BA = $86BA for all three positions"
+    );
+}
+
+/// ASM loc_BEE8: time 9:59 → minutes tile $86C3, tens tile $86BF, ones tile $86C3.
+#[test]
+#[allow(non_snake_case)]
+fn loc_BEE8_timer_digits_959_produce_correct_tiles() {
+    let tiles = hud_timer_digit_tiles_loc_BEE8(9, 5, 9);
+    assert_eq!(tiles.minutes_tile, 0x86BA + 9, "minutes digit 9");
+    assert_eq!(tiles.seconds_tens_tile, 0x86BA + 5, "seconds tens digit 5");
+    assert_eq!(tiles.seconds_ones_tile, 0x86BA + 9, "seconds ones digit 9");
+}
+
+/// ASM End_Decrease_Time_Left (kid.asm:15518): 1:00 remaining → no tracking.
+/// `tst.w (Time_Minutes).w; bne.w loc_BF2A` — minutes != 0, skip.
+#[test]
+fn end_decrease_time_left_1min_does_not_track_kid() {
+    let result = hud_timer_low_time_check_end_decrease_time_left(1, 0);
+    assert!(
+        !result.track_kid,
+        "ASM End_Decrease_Time_Left: minutes=1 → bne.w loc_BF2A, no Kid tracking"
+    );
+}
+
+/// ASM End_Decrease_Time_Left: 0:29 remaining → track Kid.
+/// `tst.w (Time_Minutes).w` → 0 (fall through); `cmpi.w #2,(Time_Seconds_high_digit).w`
+/// → 2, not greater, fall through to `moveq #1,d7; bsr.w sub_BD0A`.
+#[test]
+fn end_decrease_time_left_0min_29sec_tracks_kid() {
+    let result = hud_timer_low_time_check_end_decrease_time_left(0, 2);
+    assert!(
+        result.track_kid,
+        "ASM End_Decrease_Time_Left: minutes=0, tens=2 → track Kid (d7=1)"
+    );
+}
+
+/// ASM End_Decrease_Time_Left: 0:30 remaining → tens=3 > 2, no tracking.
+/// `cmpi.w #2,(Time_Seconds_high_digit).w; bgt.w loc_BF2A`.
+#[test]
+fn end_decrease_time_left_0min_30sec_does_not_track_kid() {
+    let result = hud_timer_low_time_check_end_decrease_time_left(0, 3);
+    assert!(
+        !result.track_kid,
+        "ASM End_Decrease_Time_Left: tens=3 > 2 → bgt.w loc_BF2A"
+    );
+}
+
+/// ASM loc_BF2A (kid.asm:15526): clamp 100 lives to 99.
+/// `cmpi.w #100,d0; blt.s life_display; moveq #99,d0`.
+#[test]
+#[allow(non_snake_case)]
+fn loc_BF2A_clamps_100_lives_to_99() {
+    assert_eq!(
+        hud_lives_clamp_loc_BF2A(100),
+        99,
+        "ASM loc_BF2A: 100 lives clamped to 99"
+    );
+    assert_eq!(
+        hud_lives_clamp_loc_BF2A(50),
+        50,
+        "ASM loc_BF2A: 50 lives unchanged"
+    );
+}
+
+/// ASM calc_display_number (kid.asm:15568): single digit (value < 10).
+/// `add.w d0,d1` → ones = $86BA + value; `addi.w #$B,d1` → tens = $86C5 (blank).
+#[test]
+fn calc_display_number_single_digit_uses_blank_tens() {
+    let tiles = calc_display_number(7);
+    assert_eq!(
+        tiles,
+        HudDisplayNumberTilesCalcDisplayNumber {
+            tens_tile: 0x86BA + 0x0B,
+            ones_tile: 0x86BA + 7,
+        },
+        "ASM calc_display_number: 7 → blank tens ($86C5), ones $86C1"
+    );
+}
+
+/// ASM calc_display_number: double digit (value >= 10).
+/// `divu.w #$A,d0; add.l d0,d1` — quotient in low word, remainder in high.
+#[test]
+fn calc_display_number_double_digit_splits_correctly() {
+    let tiles = calc_display_number(42);
+    assert_eq!(
+        tiles,
+        HudDisplayNumberTilesCalcDisplayNumber {
+            tens_tile: 0x86BA + 4,
+            ones_tile: 0x86BA + 2,
+        },
+        "ASM calc_display_number: 42 → tens $86BE (4), ones $86BC (2)"
+    );
+}
+
+/// ASM calc_display_number: boundary value 10.
+/// `divu.w #$A,d0` → quotient=1, remainder=0.
+#[test]
+fn calc_display_number_boundary_10() {
+    let tiles = calc_display_number(10);
+    assert_eq!(tiles.tens_tile, 0x86BA + 1, "tens digit = 1");
+    assert_eq!(tiles.ones_tile, 0x86BA, "ones digit = 0");
+}
+
+/// ASM calc_display_number: value 0 → blank tens, zero ones.
+#[test]
+fn calc_display_number_zero() {
+    let tiles = calc_display_number(0);
+    assert_eq!(tiles.tens_tile, 0x86BA + 0x0B, "tens = blank ($86C5)");
+    assert_eq!(tiles.ones_tile, 0x86BA, "ones = digit 0 ($86BA)");
+}
+
+/// ASM loc_C03A (kid.asm:15628): boss levels hide the flagpole.
+/// Boss1=$10, Boss2=$1E, Boss3=$2A, Boss4=$33.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C03A_boss_levels_hide_flagpole() {
+    assert!(is_boss_level_loc_C03A(0x10), "Boss1_LevelID=$10");
+    assert!(is_boss_level_loc_C03A(0x1E), "Boss2_LevelID=$1E");
+    assert!(is_boss_level_loc_C03A(0x2A), "Boss3_LevelID=$2A");
+    assert!(is_boss_level_loc_C03A(0x33), "Boss4_LevelID=$33");
+}
+
+/// ASM loc_C03A: non-boss levels do not hide the flagpole.
+/// `bne.s return_C046` — falls through to rts without executing loc_C03A.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C03A_non_boss_levels_do_not_hide_flagpole() {
+    assert!(!is_boss_level_loc_C03A(0x00), "Level 0 is not a boss");
+    assert!(!is_boss_level_loc_C03A(0x11), "Level $11 is not a boss");
+    assert!(!is_boss_level_loc_C03A(0x34), "Level $34 is not a boss");
+    assert!(!is_boss_level_loc_C03A(0x68), "Level $68 is not a boss");
+}
+
+/// ASM loc_C056 (kid.asm:15646): object field offsets cleared by
+/// `CharacterCollision_TouchFlagpole` loop: `$36`, `$3A`, `$3E`.
+/// `clr.l $36(a0); clr.l $3A(a0); clr.l $3E(a0)`.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C056_clear_offsets_match_asm() {
+    assert_eq!(
+        TOUCH_FLAGPOLE_CLEAR_OFFSETS_LOC_C056,
+        [0x36, 0x3A, 0x3E],
+        "ASM loc_C056: clr.l offsets $36, $3A, $3E"
+    );
+}
+
+/// ASM loc_C070 (kid.asm:15658): VDP register commands for scroll plane reset.
+/// `move.w #$8200,4(a6)` → Scroll A base $0000;
+/// `move.w #$8407,4(a6)` → Scroll B base $E000.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C070_vdp_commands_match_asm() {
+    assert_eq!(
+        TOUCH_FLAGPOLE_VDP_CMDS_LOC_C070,
+        [0x8200, 0x8407],
+        "ASM loc_C070: VDP cmds $8200 (Scroll A=$0000) and $8407 (Scroll B=$E000)"
+    );
+}
+
+/// ASM loc_C070: hibernate $24 = 36 frames before gfx object cleanup.
+/// `move.w #$24,-(sp); jsr (j_Hibernate_Object).w`.
+#[test]
+#[allow(non_snake_case)]
+fn loc_C070_hibernate_duration_matches_asm() {
+    assert_eq!(
+        TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070, 0x24,
+        "ASM loc_C070: hibernate duration = $24 (36 decimal)"
+    );
 }
 
 #[test]
