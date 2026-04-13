@@ -78489,3 +78489,547 @@ fn loc_9754_first_solid_short_circuits() {
         "ASM loc_9754: beq.w loc_9754 exits on first solid — second is never scanned"
     );
 }
+
+// --- loc_976C: sub_975C unlocked entry (clear byte_15, blocked_latch set) ---
+
+/// ASM loc_976C (kid.asm:11292): `sf $15(a4)` clears byte_15_active. When
+/// `$FFFFFA6C` is set (blocked_latch=true) and all three predicates (wall scan,
+/// object overlap, down held) are false, the path falls through to `stru_9812`
+/// (raise animation) and `sf ($FFFFFA6C)` clears the latch.
+/// Native: `state.blocked_latch == true && !blocked` → InitAnimation("stru_9812"),
+/// blocked_latch set to false.
+#[test]
+fn loc_976c_blocked_latch_set_no_predicates_raises_companion() {
+    // ASM: loc_976C → tst.b ($FFFFFA6C) [set] → fall through → sub_96E8 [no wall]
+    // → sub_9832 [no overlap] → tst.b Ctrl_Down_Held [not held] → stru_9812.
+    let step = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: true,
+        },
+        false, // wall_scan_blocked
+        false, // object_overlap
+        false, // down_held
+        0,
+        0,
+    );
+    assert_eq!(
+        step.visual,
+        JuggernautCompanionVisualSub975C::InitAnimation("stru_9812"),
+        "ASM loc_976C: when blocked_latch set and no wall/overlap/down, should init stru_9812 raise animation"
+    );
+    assert!(
+        !step.blocked_latch,
+        "ASM loc_976C: sf ($FFFFFA6C) should clear the blocked latch after raise animation"
+    );
+    assert!(
+        !step.byte_15_active,
+        "ASM loc_976C: sf $15(a4) should clear byte_15_active on entry"
+    );
+}
+
+/// ASM loc_976C (kid.asm:11292): when blocked_latch is set but wall scan finds
+/// a solid, `sub_96E8` returns NE → `bne.w loc_97FE` skips the animation and
+/// preserves the latch.
+/// Native: `state.blocked_latch == true && blocked` → None visual, latch stays true.
+#[test]
+fn loc_976c_blocked_latch_set_wall_blocks_skips_animation() {
+    let step = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: true,
+        },
+        true, // wall_scan_blocked — sub_96E8 returns NE
+        false,
+        false,
+        0,
+        0,
+    );
+    assert_eq!(
+        step.visual,
+        JuggernautCompanionVisualSub975C::None,
+        "ASM loc_976C: wall scan hit (sub_96E8 NE) → bne.w loc_97FE, no animation change"
+    );
+    assert!(
+        step.blocked_latch,
+        "ASM loc_976C: latch stays set when wall blocks the raise path"
+    );
+}
+
+/// ASM loc_976C (kid.asm:11292): object overlap (sub_9832 NE) also blocks the
+/// raise path, even when wall scan passes.
+#[test]
+fn loc_976c_blocked_latch_set_object_overlap_blocks() {
+    let step = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: true,
+        },
+        false,
+        true, // object_overlap — sub_9832 returns NE
+        false,
+        0,
+        0,
+    );
+    assert_eq!(
+        step.visual,
+        JuggernautCompanionVisualSub975C::None,
+        "ASM loc_976C: object overlap (sub_9832 NE) → bne.w loc_97FE, no animation"
+    );
+    assert!(
+        step.blocked_latch,
+        "ASM loc_976C: latch stays set when object overlaps"
+    );
+}
+
+/// ASM loc_976C (kid.asm:11292): Ctrl_Down_Held also blocks the raise path.
+#[test]
+fn loc_976c_blocked_latch_set_down_held_blocks() {
+    let step = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: true,
+        },
+        false,
+        false,
+        true, // down_held — tst.b (Ctrl_Down_Held) returns NE
+        0,
+        0,
+    );
+    assert_eq!(
+        step.visual,
+        JuggernautCompanionVisualSub975C::None,
+        "ASM loc_976C: down held → bne.w loc_97FE, no animation"
+    );
+}
+
+// --- loc_97A6: sub_975C blocked_latch clear path ---
+
+/// ASM loc_97A6 (kid.asm:11310): when `$FFFFFA6C` is clear and wall scan
+/// returns NE, `bne.w loc_97BE` → init `stru_981C` (lower animation), set latch.
+/// Native: `!state.blocked_latch && blocked` → InitAnimation("stru_981C").
+#[test]
+fn loc_97a6_unblocked_wall_scan_hit_lowers_companion() {
+    let step = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: false,
+        },
+        true, // wall_scan_blocked — sub_96E8 NE at loc_97A6
+        false,
+        false,
+        0,
+        0,
+    );
+    assert_eq!(
+        step.visual,
+        JuggernautCompanionVisualSub975C::InitAnimation("stru_981C"),
+        "ASM loc_97A6 → loc_97BE: wall found → stru_981C lower animation"
+    );
+    assert!(
+        step.blocked_latch,
+        "ASM loc_97A6 → loc_97BE: st ($FFFFFA6C) sets the blocked latch"
+    );
+}
+
+/// ASM loc_97A6 (kid.asm:11310): object overlap also triggers loc_97BE.
+#[test]
+fn loc_97a6_unblocked_object_overlap_lowers_companion() {
+    let step = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: false,
+        },
+        false,
+        true, // object_overlap — sub_9832 NE
+        false,
+        0,
+        0,
+    );
+    assert_eq!(
+        step.visual,
+        JuggernautCompanionVisualSub975C::InitAnimation("stru_981C"),
+        "ASM loc_97A6: sub_9832 NE → bne.w loc_97BE → stru_981C"
+    );
+}
+
+/// ASM loc_97A6 (kid.asm:11310): down held with no wall/overlap still triggers
+/// loc_97BE because `tst.b (Ctrl_Down_Held)` is checked last — `beq.w loc_97D4`
+/// only fires when NOT held.
+#[test]
+fn loc_97a6_unblocked_down_held_lowers_companion() {
+    let step = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: false,
+        },
+        false,
+        false,
+        true, // down_held
+        0,
+        0,
+    );
+    assert_eq!(
+        step.visual,
+        JuggernautCompanionVisualSub975C::InitAnimation("stru_981C"),
+        "ASM loc_97A6: down held → fall through to loc_97BE → stru_981C"
+    );
+}
+
+/// ASM loc_97A6 (kid.asm:11310): when all predicates pass (no wall, no overlap,
+/// no down), `beq.w loc_97D4` branches to standing/walking mapping selection.
+/// With MoveID_Walking and byte offset 6 → `off_9826[3]` = LnkTo_unk_BF282.
+#[test]
+fn loc_97a6_unblocked_no_predicates_walking_selects_from_table() {
+    let step = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: false,
+        },
+        false,
+        false,
+        false,
+        2, // MoveID_Walking
+        6, // byte offset → off_9826[3]
+    );
+    assert_eq!(
+        step.visual,
+        JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BF282-Data_Index"),
+        "ASM loc_97A6 → loc_97D4 → loc_97E8: walking with offset 6 → off_9826[3]"
+    );
+    assert!(
+        !step.blocked_latch,
+        "ASM loc_97A6: latch stays clear when no predicates block"
+    );
+}
+
+// --- loc_97FE: sub_975C common exit (position/direction sync) ---
+
+/// ASM loc_97FE (kid.asm:11341): `move.l x_pos(a3),x_pos(a4);
+/// move.l y_pos(a3),y_pos(a4); move.b x_direction(a3),$16(a4); rts`.
+/// Every path through sub_975C converges here — the companion sprite always
+/// tracks Kid's position and direction. Native: the function returns a step
+/// struct; the caller applies the position sync. This test verifies that ALL
+/// code paths produce a valid return (i.e., reach loc_97FE) rather than
+/// diverging or panicking.
+#[test]
+fn loc_97fe_all_paths_converge_to_common_exit() {
+    // ASM loc_976C path (blocked_latch set, predicates block → bne.w loc_97FE)
+    let step_a = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: true,
+        },
+        true,
+        false,
+        false,
+        0,
+        0,
+    );
+    // ASM loc_976C path → stru_9812 → bra.w loc_97FE
+    let step_b = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: true,
+        },
+        false,
+        false,
+        false,
+        0,
+        0,
+    );
+    // ASM loc_97A6 → loc_97BE → bra.w loc_97FE
+    let step_c = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: false,
+        },
+        true,
+        false,
+        false,
+        0,
+        0,
+    );
+    // ASM loc_97D4 → bra.w loc_97FE (standing)
+    let step_d = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: false,
+        },
+        false,
+        false,
+        false,
+        0,
+        0,
+    );
+    // ASM loc_97E8 → fall through to loc_97FE (walking)
+    let step_e = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: false,
+        },
+        false,
+        false,
+        false,
+        2,
+        2,
+    );
+    // ASM sub_975C entry → byte_15 set, byte_18 clear → beq.w loc_97FE
+    let step_f = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: true,
+            byte_18_active: false,
+            blocked_latch: false,
+        },
+        false,
+        false,
+        false,
+        0,
+        0,
+    );
+
+    // All paths must produce a valid step — no panic, no divergence.
+    // The position/direction sync (loc_97FE) is implicit in native's return.
+    assert_eq!(step_a.visual, JuggernautCompanionVisualSub975C::None);
+    assert_eq!(
+        step_b.visual,
+        JuggernautCompanionVisualSub975C::InitAnimation("stru_9812")
+    );
+    assert_eq!(
+        step_c.visual,
+        JuggernautCompanionVisualSub975C::InitAnimation("stru_981C")
+    );
+    assert_eq!(
+        step_d.visual,
+        JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEDF0-Data_Index")
+    );
+    assert_eq!(
+        step_e.visual,
+        JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEF76-Data_Index")
+    );
+    assert_eq!(
+        step_f.visual,
+        JuggernautCompanionVisualSub975C::PreserveCurrent,
+        "ASM loc_97FE: early-exit path (byte_15 locked) also reaches the position sync"
+    );
+}
+
+/// ASM loc_97FE (kid.asm:11341): the non-movement path (movement ID != 0 and
+/// != 2) falls through to loc_97FE with no mapping change.
+/// `bne.w loc_97FE` at loc_97E8 exits without setting `$22(a4)`.
+#[test]
+fn loc_97fe_non_standing_non_walking_movement_produces_no_visual() {
+    let step = juggernaut_companion_step_sub_975C(
+        JuggernautCompanionStateSub975C {
+            byte_15_active: false,
+            byte_18_active: false,
+            blocked_latch: false,
+        },
+        false,
+        false,
+        false,
+        4, // MoveID_Jump (neither Standingstill=0 nor Walking=2)
+        0,
+    );
+    assert_eq!(
+        step.visual,
+        JuggernautCompanionVisualSub975C::None,
+        "ASM loc_97E8 → bne.w loc_97FE: non-walking/standing movement produces no visual update"
+    );
+}
+
+// --- loc_985A: sub_9832 object list iteration ---
+
+/// ASM loc_985A (kid.asm:11380): `move.l 4(a2),d4; beq.w loc_98E4` — follow
+/// the linked list via the next-pointer at offset 4. Zero pointer terminates
+/// the list and returns d7=0 (no overlap). `tst.b $3D(a2); bne.s loc_985A`
+/// skips deleted objects (active=false in native).
+/// Native: `for candidate in candidates { if !candidate.active { continue; } … }`.
+#[test]
+fn loc_985a_skips_deleted_objects_and_terminates_on_null() {
+    // Three candidates: first deleted, second deleted, third active but no overlap.
+    assert!(
+        !juggernaut_support_overlap_sub_9832(
+            100,
+            80,
+            &[
+                support_overlap_candidate_sub_9832(
+                    100,
+                    80,
+                    false,
+                    false,
+                    vec![collision_size_entry_sub_21f8(-10, 20, -15, 30),]
+                ),
+                support_overlap_candidate_sub_9832(
+                    100,
+                    80,
+                    false,
+                    false,
+                    vec![collision_size_entry_sub_21f8(-10, 20, -15, 30),]
+                ),
+                support_overlap_candidate_sub_9832(
+                    500,
+                    500,
+                    false,
+                    true, // active but far away
+                    vec![collision_size_entry_sub_21f8(-2, 4, -2, 4)],
+                ),
+            ],
+        ),
+        "ASM loc_985A: deleted objects ($3D(a2) != 0) are skipped; far-away active object has no overlap → d7=0"
+    );
+}
+
+/// ASM loc_985A (kid.asm:11380): empty candidate list → immediate return false
+/// (the linked list head's next pointer is null → beq.w loc_98E4 → d7=0).
+#[test]
+fn loc_985a_empty_list_returns_no_overlap() {
+    assert!(
+        !juggernaut_support_overlap_sub_9832(100, 80, &[]),
+        "ASM loc_985A: null next-pointer on first iteration → beq.w loc_98E4 → d7=0"
+    );
+}
+
+/// ASM loc_985A (kid.asm:11380): after a collision size entry with
+/// `left_offset=0` (zero first word), the scan continues to the next object
+/// in the linked list (bne.s loc_985A from loc_9882/loc_98B0's beq.s loc_985A).
+#[test]
+fn loc_985a_zero_sentinel_advances_to_next_object() {
+    // First object: active, has a zero-sentinel entry (left_offset=0) immediately.
+    // Second object: active, has a real overlapping box.
+    assert!(
+        juggernaut_support_overlap_sub_9832(
+            100,
+            80,
+            &[
+                support_overlap_candidate_sub_9832(
+                    100,
+                    80,
+                    false,
+                    true,
+                    vec![collision_size_entry_sub_21f8(0, 20, -15, 30)], // zero sentinel
+                ),
+                support_overlap_candidate_sub_9832(
+                    100,
+                    80,
+                    false,
+                    true,
+                    vec![collision_size_entry_sub_21f8(-10, 20, -15, 30)],
+                ),
+            ],
+        ),
+        "ASM loc_985A: zero first word terminates that object's boxes → loop back to loc_985A for next object"
+    );
+}
+
+// --- loc_9882: sub_9832 non-mirrored collision box scan ---
+
+/// ASM loc_9882 (kid.asm:11394): non-mirrored box scan. `addq.w #8,a3` advances
+/// to next 8-byte entry. `move.w (a3),d4; beq.s loc_985A` — zero terminates.
+/// `add.w $1A(a2),d4` adds x_pos to left_offset. Then four comparison gates:
+/// `cmp.w d1,d4; bgt.s loc_9882` (left > kid_right → skip),
+/// `add.w 2(a3),d4; cmp.w d0,d4; blt.s loc_9882` (right < kid_left → skip),
+/// `move.w 4(a3),d5; add.w $1E(a2),d5; cmp.w d3,d5; bgt.s loc_9882` (top > kid_bottom → skip),
+/// `add.w 6(a3),d5; cmp.w d2,d5; blt.s loc_9882` (bottom < kid_top → skip).
+/// All four pass → bra.s loc_98DE → d7=1 (overlap).
+/// Native: non-mirrored branch of the collision_sizes loop.
+#[test]
+fn loc_9882_non_mirrored_box_overlap_detected() {
+    // Kid at (100, 80). Support rect: x=[60,140], y=[49,65].
+    // Object at x=110, y=55 with box (-5, 20, -10, 25) → object box [105,125] x [45,70].
+    // Overlap exists.
+    assert!(
+        juggernaut_support_overlap_sub_9832(
+            100,
+            80,
+            &[support_overlap_candidate_sub_9832(
+                110,
+                55,
+                false,
+                true,
+                vec![collision_size_entry_sub_21f8(-5, 20, -10, 25)],
+            )],
+        ),
+        "ASM loc_9882: all four AABB gates pass → bra.s loc_98DE → d7=1"
+    );
+}
+
+/// ASM loc_9882 (kid.asm:11394): left edge of box > kid_right → `bgt.s loc_9882`
+/// skips to next entry.
+#[test]
+fn loc_9882_box_left_exceeds_kid_right_skips() {
+    // Kid at (100, 80). kid_right = 100 + 0x28 = 140.
+    // Object at x=200 with box (0, 10, -10, 25) → left edge = 200 > 140.
+    assert!(
+        !juggernaut_support_overlap_sub_9832(
+            100,
+            80,
+            &[support_overlap_candidate_sub_9832(
+                200,
+                80,
+                false,
+                true,
+                vec![collision_size_entry_sub_21f8(0, 10, -10, 25)],
+            )],
+        ),
+        "ASM loc_9882: cmp.w d1,d4; bgt.s → left(200) > kid_right(140) skips entry"
+    );
+}
+
+/// ASM loc_9882 (kid.asm:11394): right edge < kid_left → `blt.s loc_9882`.
+#[test]
+fn loc_9882_box_right_less_than_kid_left_skips() {
+    // Kid at (100, 80). kid_left = 100 - 0x28 = 60.
+    // Object at x=20 with box (0, 10, -10, 25) → right edge = 20 + 10 = 30 < 60.
+    assert!(
+        !juggernaut_support_overlap_sub_9832(
+            100,
+            80,
+            &[support_overlap_candidate_sub_9832(
+                20,
+                80,
+                false,
+                true,
+                vec![collision_size_entry_sub_21f8(0, 10, -10, 25)],
+            )],
+        ),
+        "ASM loc_9882: add.w 2(a3),d4; cmp.w d0,d4; blt.s → right(30) < kid_left(60)"
+    );
+}
+
+/// ASM loc_9882 (kid.asm:11394): iterates multiple boxes per object. First box
+/// misses, second box overlaps.
+#[test]
+fn loc_9882_iterates_multiple_entries_per_object() {
+    // Kid at (100, 80). First box far right, second box overlapping.
+    assert!(
+        juggernaut_support_overlap_sub_9832(
+            100,
+            80,
+            &[support_overlap_candidate_sub_9832(
+                100,
+                70,
+                false,
+                true,
+                vec![
+                    collision_size_entry_sub_21f8(80, 10, -5, 10), // far right, no overlap
+                    collision_size_entry_sub_21f8(-5, 10, -5, 10), // overlaps
+                ],
+            )],
+        ),
+        "ASM loc_9882: first entry misses (bgt.s loc_9882 loops), second entry hits → bra.s loc_98DE"
+    );
+}
