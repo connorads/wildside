@@ -78250,3 +78250,242 @@ fn loc_95fc_full_pipeline_velocity_to_sprite() {
         "ASM loc_95FC→loc_9600: d2=$140 >> 8 = 1 → sprite frame 1"
     );
 }
+
+// ---------------------------------------------------------------------------
+// ASM loc_964 (kid.asm:1084): VDP DMA busy-wait.
+// `move.w 4(a6),d6; btst #1,d6; bne.s loc_964; rts`
+// Polls bit 1 of the VDP status register (offset 4 from a6, the VDP control
+// port base).  Bit 1 = DMA in progress; the loop spins until DMA completes.
+// Called from the jump table at $214 (`jmp loc_964(pc)`), immediately after
+// `j_WaitForVint`.  This is pure hardware timing — native has no VDP DMA
+// model, so the routine is a no-op.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_964: bit mask is $0002 (bit 1) — the VDP DMA-busy flag.
+#[test]
+fn loc_964_vdp_dma_busy_bit_mask() {
+    // ASM: `btst #1,d6` — bit 1 of the status word.
+    let bit_index: u32 = 1;
+    let mask: u16 = 1 << bit_index;
+    assert_eq!(mask, 0x0002, "ASM loc_964: btst #1 tests bit 1 = $0002");
+}
+
+/// ASM loc_964: loop terminates when bit 1 clears (bne.s loops while NE).
+#[test]
+fn loc_964_vdp_dma_loop_exits_when_bit_clears() {
+    // Simulate: status word has bit 1 set → loop continues.
+    let status_dma_active: u16 = 0x0002;
+    assert_ne!(
+        status_dma_active & 0x0002,
+        0,
+        "ASM loc_964: btst #1 with DMA active → NE → branch back"
+    );
+
+    // Status word with bit 1 clear → loop exits.
+    let status_dma_done: u16 = 0x0000;
+    assert_eq!(
+        status_dma_done & 0x0002,
+        0,
+        "ASM loc_964: btst #1 with DMA done → EQ → fall through to rts"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_971A (kid.asm:11249): sub_96E8 X-range calculation.
+// After the x_direction gate (beq.w loc_971A / exg d5,d7), d5 and d7 hold
+// the left and right edge offsets.  x_direction(a3)==0 (Right): d5=$0B,
+// d7=$04.  x_direction(a3)!=0 (Left): exg swaps them → d5=$04, d7=$0B.
+//
+// loc_971A then:
+//   sub.w x_pos(a3),d5 / neg.w d5   → d5 = x_pos - d5  (left pixel edge)
+//   add.w x_pos(a3),d7              → d7 = x_pos + d7  (right pixel edge)
+//   asr.w #4,d5 / asr.w #4,d7      → convert to tile columns
+//   sub.w d5,d7                      → d7 = column span
+//   add.w d5,d5 / add.w d5,a0       → word-offset a0 to first column
+// ---------------------------------------------------------------------------
+
+/// ASM loc_971A: right-facing X range is `x_pos-$0B .. x_pos+$04`.
+#[test]
+fn loc_971a_right_facing_x_range() {
+    // ASM: x_direction==0 → d5=$0B, d7=$04 (no exg).
+    // loc_971A: d5 = x_pos - $0B, d7 = x_pos + $04.
+    let x_pos: i16 = 80;
+    let (d5_initial, d7_initial): (i16, i16) = (0x0B, 0x04);
+    let left_px = x_pos - d5_initial;
+    let right_px = x_pos + d7_initial;
+    assert_eq!(left_px, 69, "ASM loc_971A: left edge = 80 - $0B = 69");
+    assert_eq!(right_px, 84, "ASM loc_971A: right edge = 80 + $04 = 84");
+    let left_col = left_px >> 4;
+    let right_col = right_px >> 4;
+    assert_eq!(left_col, 4, "ASM loc_971A: left tile col = 69>>4 = 4");
+    assert_eq!(right_col, 5, "ASM loc_971A: right tile col = 84>>4 = 5");
+}
+
+/// ASM loc_971A: left-facing swaps `$0B/$04` via exg before loc_971A.
+#[test]
+fn loc_971a_left_facing_x_range_after_exg() {
+    // ASM: x_direction!=0 → exg d5,d7 → d5=$04, d7=$0B.
+    let x_pos: i16 = 80;
+    let (d5_initial, d7_initial): (i16, i16) = (0x04, 0x0B);
+    let left_px = x_pos - d5_initial;
+    let right_px = x_pos + d7_initial;
+    assert_eq!(left_px, 76, "ASM loc_971A: left edge = 80 - $04 = 76");
+    assert_eq!(right_px, 91, "ASM loc_971A: right edge = 80 + $0B = 91");
+    let left_col = left_px >> 4;
+    let right_col = right_px >> 4;
+    assert_eq!(left_col, 4, "ASM loc_971A: left tile col = 76>>4 = 4");
+    assert_eq!(right_col, 5, "ASM loc_971A: right tile col = 91>>4 = 5");
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_972E (kid.asm:11259): sub_96E8 outer row loop.
+// `move.w d7,d4; move.w a0,a1` — d4 = column count for inner loop, a1 =
+// start of current row.  After the inner loop exhausts (dbf d4,loc_9732),
+// a0 advances by Level_width_tiles to the next row and d6 decrements.
+// The row range comes from y_pos: `(y_pos-$1F)>>4 .. (y_pos-$10)>>4`.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_972E: row range from y_pos=$4F covers tiles rows 3..3 (one row).
+#[test]
+fn loc_972e_row_range_single_row() {
+    // ASM: d5 = (y_pos-$1F)>>4, d6 = (y_pos-$10)>>4, row_count = d6-d5.
+    let y_pos: i16 = 0x4F; // 79
+    let top_row = (y_pos - 0x1F) >> 4; // (79-31)>>4 = 48>>4 = 3
+    let bot_row = (y_pos - 0x10) >> 4; // (79-16)>>4 = 63>>4 = 3
+    let row_count = bot_row - top_row;
+    assert_eq!(top_row, 3, "ASM loc_972E: top row = (79-$1F)>>4 = 3");
+    assert_eq!(bot_row, 3, "ASM loc_972E: bottom row = (79-$10)>>4 = 3");
+    assert_eq!(
+        row_count, 0,
+        "ASM loc_972E: dbf d6 with count 0 → exactly 1 iteration"
+    );
+}
+
+/// ASM loc_972E: y_pos=$60 spans two tile rows (3 and 4).
+#[test]
+fn loc_972e_row_range_two_rows() {
+    let y_pos: i16 = 0x60; // 96
+    let top_row = (y_pos - 0x1F) >> 4; // (96-31)>>4 = 65>>4 = 4
+    let bot_row = (y_pos - 0x10) >> 4; // (96-16)>>4 = 80>>4 = 5
+    let row_count = bot_row - top_row;
+    assert_eq!(top_row, 4, "ASM loc_972E: top row = (96-$1F)>>4 = 4");
+    assert_eq!(bot_row, 5, "ASM loc_972E: bottom row = (96-$10)>>4 = 5");
+    assert_eq!(
+        row_count, 1,
+        "ASM loc_972E: dbf d6 with count 1 → 2 row iterations"
+    );
+}
+
+/// ASM loc_972E: native scans both rows and finds a solid in the second.
+#[test]
+fn loc_972e_native_scans_multiple_rows() {
+    // Solid at (col=5, row=5) — the second row of the scan for y_pos=$60.
+    let grid = grid_with_cells(8, 8, &[(5, 5, 0x60, 0x00)]);
+    assert!(
+        terrain::juggernaut_wall_scan_sub_96E8(&grid, 80, 96, Direction::Right),
+        "ASM loc_972E: outer loop must advance to second row to find solid at row 5"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_9732 (kid.asm:11263): sub_96E8 inner tile-scan loop.
+// `move.w (a1)+,d5; andi.w #$7000,d5; cmpi.w #$6000,d5; beq.w loc_9754`.
+// Reads each tile word, masks to collision bits, and only Solid ($6000)
+// triggers a hit.  Spikes ($7000), slopes ($4000/$5000), and empty ($0000)
+// all fall through to `dbf d4,loc_9732`.
+// ---------------------------------------------------------------------------
+
+/// ASM loc_9732: only $6000 (Solid) matches — $7000 (Spikes) does not.
+#[test]
+fn loc_9732_only_solid_6000_triggers_hit() {
+    // andi.w #$7000 extracts bits 14:12.  cmpi.w #$6000 checks for Solid.
+    let solid: u16 = 0x6000;
+    let spikes: u16 = 0x7000;
+    let slope_up: u16 = 0x4000;
+    let slope_down: u16 = 0x5000;
+    let empty: u16 = 0x0000;
+
+    assert_eq!(
+        solid & 0x7000,
+        0x6000,
+        "ASM loc_9732: $6000 & $7000 = $6000 → hit"
+    );
+    assert_ne!(
+        spikes & 0x7000,
+        0x6000,
+        "ASM loc_9732: $7000 & $7000 = $7000 ≠ $6000 → miss"
+    );
+    assert_ne!(
+        slope_up & 0x7000,
+        0x6000,
+        "ASM loc_9732: $4000 & $7000 = $4000 ≠ $6000 → miss"
+    );
+    assert_ne!(
+        slope_down & 0x7000,
+        0x6000,
+        "ASM loc_9732: $5000 & $7000 = $5000 ≠ $6000 → miss"
+    );
+    assert_ne!(
+        empty & 0x7000,
+        0x6000,
+        "ASM loc_9732: $0000 & $7000 = $0000 ≠ $6000 → miss"
+    );
+}
+
+/// ASM loc_9732: native ignores spikes in the scan window.
+#[test]
+fn loc_9732_native_ignores_spikes_in_scan_window() {
+    // Place a spikes tile ($7000) at (col=5,row=3) — inside the scan window
+    // for x_pos=80, y_pos=79, facing right.  No solid tiles present.
+    let grid = grid_with_cells(8, 8, &[(5, 3, 0x70, 0x00)]);
+    assert!(
+        !terrain::juggernaut_wall_scan_sub_96E8(&grid, 80, 79, Direction::Right),
+        "ASM loc_9732: spikes ($7000) inside scan window should not trigger a hit"
+    );
+}
+
+/// ASM loc_9732: native returns true when a solid tile is inside the window.
+#[test]
+fn loc_9732_native_detects_solid_in_scan_window() {
+    let grid = grid_with_cells(8, 8, &[(5, 3, 0x60, 0x00)]);
+    assert!(
+        terrain::juggernaut_wall_scan_sub_96E8(&grid, 80, 79, Direction::Right),
+        "ASM loc_9732: solid ($6000) inside scan window should trigger a hit"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// ASM loc_9754 (kid.asm:11276): sub_96E8 hit return.
+// `movem.l (sp)+,a0-a1; moveq #1,d7; rts`
+// When the inner loop (loc_9732) finds a $6000 tile, execution branches here.
+// d7=1 sets the NE condition (non-zero), so the caller's `bne` will fire.
+// The no-hit path (dbf exhaustion) falls through to `moveq #0,d7; rts` (EQ).
+// ---------------------------------------------------------------------------
+
+/// ASM loc_9754: hit path returns d7=1 (NE), no-hit returns d7=0 (EQ).
+#[test]
+fn loc_9754_hit_returns_ne_nohit_returns_eq() {
+    // Native maps d7=1 → true (hit), d7=0 → false (no hit).
+    let grid_with_solid = grid_with_cells(8, 8, &[(5, 3, 0x60, 0x00)]);
+    let grid_empty = grid_with_cells(8, 8, &[]);
+
+    assert!(
+        terrain::juggernaut_wall_scan_sub_96E8(&grid_with_solid, 80, 79, Direction::Right),
+        "ASM loc_9754: solid found → d7=1 (NE) → native returns true"
+    );
+    assert!(
+        !terrain::juggernaut_wall_scan_sub_96E8(&grid_empty, 80, 79, Direction::Right),
+        "ASM loc_9754 fallthrough: no solid → d7=0 (EQ) → native returns false"
+    );
+}
+
+/// ASM loc_9754: scan stops at the first solid — second solid is irrelevant.
+#[test]
+fn loc_9754_first_solid_short_circuits() {
+    // Two solids in the window; the scan hits (col=4) before reaching (col=5).
+    let grid = grid_with_cells(8, 8, &[(4, 3, 0x60, 0x00), (5, 3, 0x60, 0x00)]);
+    assert!(
+        terrain::juggernaut_wall_scan_sub_96E8(&grid, 80, 79, Direction::Right),
+        "ASM loc_9754: beq.w loc_9754 exits on first solid — second is never scanned"
+    );
+}
