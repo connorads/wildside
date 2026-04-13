@@ -1,0 +1,7 @@
+too-many-lines-threshold = 100
+too-many-arguments-threshold = 7
+cognitive-complexity-threshold = 25
+type-complexity-threshold = 250
+max-fn-params-bools = 3
+max-struct-bools = 3
+disallowed-names = ["foo", "bar", "baz", "quux"]
