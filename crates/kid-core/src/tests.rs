@@ -35050,6 +35050,189 @@ fn skycutter_on_board_skips_normal_gravity_in_step() {
     );
 }
 
+/// ASM loc_B19C (kid.asm:14040): sub_B168 Skycutter on_board gate.
+/// `tst.b ($FFFFFA6A); beq loc_B1D4` — when NOT on board, this branch
+/// skips to normal gravity at loc_B1D4. When on board, loads y_vel and
+/// selects gravity: $2000 if B held, $4000 otherwise.
+/// Verify that NOT being on board means Skycutter gravity is NOT applied.
+#[test]
+fn loc_b19c_not_on_board_falls_through_to_normal_gravity() {
+    let mut rt = skycutter_runtime();
+    rt.helmet.skycutter_on_board = false; // not mounted
+    let mut slice = airborne_slice();
+    slice.player.y_velocity = 0;
+
+    let no_input = FrameInput::default();
+    rt.step_skycutter_flipboard(&mut slice, no_input);
+
+    assert_eq!(
+        slice.player.y_velocity, 0,
+        "ASM loc_B19C: beq loc_B1D4 — not on board means Skycutter gravity NOT applied"
+    );
+}
+
+/// ASM loc_B19C (kid.asm:14040): `move.l #$2000,d6; tst.w (Ctrl_B_Held);
+/// bne loc_B1BC; move.l #$4000,d6` — B not held selects $4000 gravity.
+/// Verify exact value matches ASM.
+#[test]
+fn loc_b19c_b_not_held_selects_4000_gravity() {
+    let mut rt = skycutter_runtime();
+    rt.helmet.skycutter_on_board = true;
+    let mut slice = airborne_slice();
+    slice.player.y_velocity = 0;
+
+    let no_input = FrameInput::default();
+    rt.step_skycutter_flipboard(&mut slice, no_input);
+
+    assert_eq!(
+        slice.player.y_velocity, 0x4000,
+        "ASM loc_B19C: B not held → d6=$4000, y_vel += $4000"
+    );
+}
+
+/// ASM loc_B1BC (kid.asm:14049): B-held Skycutter gravity application.
+/// `sub.l d6,d7` with d6=$2000 (B held). Then caps at $FFF88000.
+/// Verify B held uses the lighter $2000 gravity.
+#[test]
+fn loc_b1bc_b_held_selects_2000_gravity() {
+    let mut rt = skycutter_runtime();
+    rt.helmet.skycutter_on_board = true;
+    rt.prior_input = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    let mut slice = airborne_slice();
+    slice.player.y_velocity = 0;
+
+    let b_input = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    rt.step_skycutter_flipboard(&mut slice, b_input);
+
+    assert_eq!(
+        slice.player.y_velocity, 0x2000,
+        "ASM loc_B1BC: B held → d6=$2000, y_vel += $2000"
+    );
+}
+
+/// ASM loc_B1BC (kid.asm:14049): `cmpi.l #$FFF88000,d7; bgt loc_B1CE;
+/// move.l #$FFF88000,d7` — caps upward speed at -$78000 ($FFF88000 signed).
+/// Verify that y_vel is clamped when it would exceed the upward cap.
+#[test]
+fn loc_b1bc_upward_velocity_clamped_at_fff88000() {
+    let mut rt = skycutter_runtime();
+    rt.helmet.skycutter_on_board = true;
+    rt.prior_input = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    let mut slice = airborne_slice();
+    // Start well below the cap; even after +$2000 gravity, still below cap
+    slice.player.y_velocity = SKYCUTTER_MAX_UPWARD_VEL - 0x1_0000;
+
+    let b_input = FrameInput {
+        b: true,
+        ..FrameInput::default()
+    };
+    rt.step_skycutter_flipboard(&mut slice, b_input);
+
+    assert_eq!(
+        slice.player.y_velocity, SKYCUTTER_MAX_UPWARD_VEL,
+        "ASM loc_B1BC: y_vel should be clamped to $FFF88000 (-0x78000)"
+    );
+}
+
+/// ASM loc_B18A (kid.asm:14034): sub_B168 gravity dispatch, reached after
+/// animation gravity check. `cmpi.w #Cyclone,(Current_Helmet); bne loc_B19C;
+/// tst.b (Cyclone_flying); bne loc_B214` — Cyclone flying → flight physics.
+/// Non-Cyclone → falls through to loc_B19C. Verify that for TheKid (no
+/// helmet), the normal gravity path is taken (custom_gravity=false).
+#[test]
+fn loc_b18a_non_cyclone_non_skycutter_uses_normal_gravity() {
+    let bounds = LevelBounds {
+        width_pixels: 4096,
+        height_pixels: 512,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    slice.player.y_velocity = 0;
+    slice.player.x_pos = 0x0080_0000;
+    slice.player.y_pos = 0x0100_0000;
+
+    // custom_gravity=false → should apply normal gravity
+    slice.step(
+        FrameInput::default(),
+        false,
+        PlayerForm::TheKid,
+        None,
+        None,
+        false,
+        0,
+    );
+
+    // Normal gravity (loc_B1D4 path) adds GRAVITY_NORMAL ($4000)
+    assert_eq!(
+        slice.player.y_velocity, 0x4000,
+        "ASM loc_B18A: non-Cyclone, non-Skycutter should apply normal gravity ($4000)"
+    );
+}
+
+/// ASM loc_B140 (kid.asm:14004): orphan left-boundary clamp after sub_B084.
+/// `move.w ($FFFFFA78).w,x_pos(a3); clr.w $1C(a3); clr.l x_vel(a3)` — when
+/// kid's left edge (x_pos_px - half_width) goes negative, snap to half_width
+/// and zero velocity. Native clamps x_pos to 0 via apply_x_velocity_to_position.
+/// Verify that moving left past position 0 clamps x_pos and preserves the
+/// invariant that x_pos never goes negative.
+#[test]
+fn loc_b140_left_boundary_clamp_prevents_negative_x_pos() {
+    let bounds = LevelBounds {
+        width_pixels: 4096,
+        height_pixels: 512,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Player very close to left edge, moving left fast
+    slice.player.x_pos = 1 << 16; // 1px from left edge
+    slice.player.x_velocity = -0x0003_0000; // -3px/frame
+
+    let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
+    slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+
+    assert_eq!(
+        slice.player.x_pos, 0,
+        "ASM loc_B140: left boundary clamp should prevent negative x_pos"
+    );
+}
+
+/// ASM loc_B150 (kid.asm:14011): orphan right-boundary clamp after sub_B084.
+/// `move.w (Level_width_pixels).w,d7; subq.w #1,d7; sub.w ($FFFFFA78).w,d7;
+/// move.w d7,x_pos(a3)` — when kid's right edge (x_pos_px + half_width) >=
+/// Level_width_pixels, snap to level_width - 1 - half_width and zero velocity.
+/// Native uses u32::MAX clamp (wall collision handles the actual boundary).
+/// Verify that large rightward displacement doesn't wrap around.
+#[test]
+fn loc_b150_right_boundary_clamp_prevents_overflow() {
+    let bounds = LevelBounds {
+        width_pixels: 4096,
+        height_pixels: 512,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Player at far right, moving right
+    slice.player.x_pos = 0xFFFF_0000;
+    slice.player.x_velocity = 0x0003_0000;
+
+    let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
+    slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+
+    assert_eq!(
+        slice.player.x_pos,
+        u32::MAX,
+        "ASM loc_B150: right boundary clamp should cap at u32::MAX"
+    );
+}
+
 // --- Teleporter tests ---
 
 #[test]

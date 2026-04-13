@@ -3007,19 +3007,28 @@ impl NativeRuntime {
         }
 
         // While on board: override gravity with Skycutter flight physics
+        // ASM loc_B19C (kid.asm:14040): sub_B168 Skycutter on_board check.
+        // `tst.b ($FFFFFA6A); beq loc_B1D4` — if not on board, fall through to
+        // normal gravity at loc_B1D4. When on board: `move.l y_vel(a3),d7;
+        // move.l #$2000,d6; tst.w (Ctrl_B_Held); bne loc_B1BC; move.l #$4000,d6`
+        // — selects lighter gravity ($2000) when B held, heavier ($4000) otherwise.
+        //
+        // ASM loc_B1BC (kid.asm:14049): B-held Skycutter gravity application.
+        // `sub.l d6,d7` — subtracts gravity from y_vel (ROM positive=down, so
+        // subtracting makes kid rise). `cmpi.l #$FFF88000,d7; bgt loc_B1CE;
+        // move.l #$FFF88000,d7` — caps upward speed at $FFF88000 (-$78000).
+        // Native adds gravity (positive=down convention inverted) and clamps.
         if self.helmet.skycutter_on_board && !slice.player.on_ground {
             let gravity = if input.b {
                 SKYCUTTER_GRAVITY_B_HELD
             } else {
                 SKYCUTTER_GRAVITY_NO_B
             };
-            // In the original, the gravity is subtracted (y_vel is positive=down,
-            // and the board makes you fall more slowly). But looking at the ASM:
-            // sub.l d6,d7 where d7=y_vel and d6=gravity. Since positive y_vel=down
-            // in the original game and we use negative y_vel=up, this adds gravity
-            // (descent) rather than subtracting.
+            // ASM sub.l d6,d7: ROM subtracts (positive y_vel = down), native adds
+            // (positive y_vel = down in our convention too, but Skycutter gravity
+            // constants are positive to slow descent).
             slice.player.y_velocity += gravity;
-            // Clamp max upward speed
+            // ASM loc_B1BC: clamp at $FFF88000 (-$78000 = SKYCUTTER_MAX_UPWARD_VEL)
             if slice.player.y_velocity < SKYCUTTER_MAX_UPWARD_VEL {
                 slice.player.y_velocity = SKYCUTTER_MAX_UPWARD_VEL;
             }

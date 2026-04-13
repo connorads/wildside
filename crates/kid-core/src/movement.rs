@@ -3523,6 +3523,13 @@ impl OpeningSliceState {
         };
 
         // Airborne: apply gravity to y_vel only
+        // ASM loc_B18A (kid.asm:14034): sub_B168 gravity dispatch — reached when
+        // $FA66 (is_animated) is clear OR animation gravity ($600/frame) exceeded
+        // $10000 cap. Checks `cmpi.w #Cyclone,(Current_Helmet); bne loc_B19C;
+        // tst.b (Cyclone_flying); bne loc_B214` — Cyclone flying gets its own
+        // flight physics. Falls through to loc_B19C for Skycutter/normal gravity.
+        // Native: `custom_gravity` flag covers Cyclone, Skycutter, IronKnight, and
+        // Micromax overrides; helmet-specific gravity runs before this function.
         if !self.player.on_ground {
             if jump_pressed {
                 self.player.jump_buffer_frames = JUMP_BUFFER_FRAMES;
@@ -3565,6 +3572,21 @@ impl OpeningSliceState {
     }
 
     /// Apply x_vel to x_pos only. ASM sub_8F26 runs after sub_902A.
+    ///
+    /// ASM loc_B140 (kid.asm:14004): orphan left-boundary clamp after sub_B084.
+    /// `move.w ($FFFFFA78).w,x_pos(a3); clr.w $1C(a3); clr.l x_vel(a3)` — snaps
+    /// x_pos pixel word to half_width, zeroes sub-pixel and x_vel. Triggered when
+    /// `x_pos_px - half_width < 0` (kid's left edge past level left boundary).
+    ///
+    /// ASM loc_B150 (kid.asm:14011): orphan right-boundary clamp after sub_B084.
+    /// `move.w (Level_width_pixels).w,d7; subq.w #1,d7; sub.w ($FFFFFA78).w,d7;
+    /// move.w d7,x_pos(a3); clr.w $1C(a3); clr.l x_vel(a3)` — snaps x_pos pixel
+    /// word to `level_width - 1 - half_width`, zeroes sub-pixel and x_vel.
+    /// Triggered when `x_pos_px + half_width >= Level_width_pixels`.
+    ///
+    /// Native uses a simpler `clamp(0, u32::MAX)` — the half_width-aware boundary
+    /// clamping is handled by wall collision probes (`apply_wall_collision`), which
+    /// snap x_pos inward when the hitbox extends past level edges.
     fn apply_x_velocity_to_position(&mut self) {
         let next_x = i64::from(self.player.x_pos) + i64::from(self.player.x_velocity);
         self.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
