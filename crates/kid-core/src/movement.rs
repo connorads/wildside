@@ -3576,13 +3576,15 @@ impl OpeningSliceState {
                 let displacement = new_px - old_px;
                 let right_edge = old_px + collision_hw;
                 let distance_to_tile = (-(right_edge + 1)) & 0xF;
-                // ASM: cmp.w d0,d4 / ble (skip when displacement <= distance).
-                // Includes distance=0 case (player at tile boundary, no crossing).
+                // ASM loc_9022 (kid.asm:10425): `cmp.w d0,d4; ble.w loc_9022`
+                // — skip when displacement <= distance. loc_9022 is the
+                // clean `moveq #0,d7; rts` exit (no wall collision).
                 if displacement <= distance_to_tile {
                     return;
                 }
             } else {
                 // ASM loc_8FAC (kid.asm:10376): left-moving mirror of above.
+                // `cmp.w d0,d4; ble.w loc_9022` — same loc_9022 clean exit.
                 let displacement = old_px - new_px;
                 let left_edge = old_px - collision_hw;
                 let distance_to_tile = left_edge & 0xF;
@@ -3689,6 +3691,8 @@ impl OpeningSliceState {
                 });
             }
         } else {
+            // ASM loc_9022 (kid.asm:10425): `beq.w loc_9022` after sub_922C
+            // — probe found no wall, return d7=0 (no collision).
             self.player.right_wall_sticky = false;
             self.player.left_wall_sticky = false;
         }
@@ -3707,10 +3711,17 @@ impl OpeningSliceState {
             return;
         }
 
-        // ASM sub_902A upward path only probes the ceiling if the current
-        // movement actually crosses the next tile boundary above the head.
-        // Without this guard, we keep re-hitting the same ceiling tile every
-        // frame while still near it, producing a false multi-frame latch.
+        // ASM loc_90C0 (kid.asm:10492): upward path tile-boundary guard.
+        // `move.w d7,d0; andi.w #$F,d0; cmp.w d0,d4; ble.w loc_913A`
+        // — only probe ceiling if upward displacement crosses next tile
+        // boundary above head. loc_913A is the `moveq #0,d7; rts` no-hit
+        // exit. Without this guard, we keep re-hitting the same ceiling tile
+        // every frame while still near it, producing a false multi-frame latch.
+        //
+        // ASM loc_908C (kid.asm:10476): height adjustment before loc_90C0.
+        // Crawling, Micromax, and Juggernaut use shorter height (`subi.w #$F`
+        // only), all others get full height (`subi.w #$10` extra). Native
+        // encodes this in ceiling_probe_height() per form.
         let collision_height = form.ceiling_probe_height();
         let old_y_pos = self
             .player
@@ -3728,6 +3739,15 @@ impl OpeningSliceState {
         let x_px = (self.player.x_pos >> 16) as i32;
         let y_px = (self.player.y_pos >> 16) as i32;
 
+        // TODO(fidelity): ASM loc_90F6 (kid.asm:10512): when the ceiling
+        // probe row goes negative (above level top), sub_902A checks
+        // $FFFFFA6A (skycutter_on_board). If NOT on board: `clr.l y_vel;
+        // snap y_pos; clr.w $20; moveq #0,d7; rts` — normal stop.
+        // If on board → loc_9114 (kid.asm:10524): `move.b #1,($FFFFFA69)`
+        // (flipboard deploy trigger), snap y_pos, set y_vel=$30000
+        // (push downward), return 0. Native doesn't distinguish the
+        // Skycutter ceiling bounce; probe_ceiling returns no-hit for
+        // out-of-bounds rows and the path falls through to no-op.
         let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, collision_height);
 
         if probe.hit {
@@ -3889,6 +3909,12 @@ impl OpeningSliceState {
             // clr.w $20(a3) (zero sub-pixel). y_pos is already pixel-aligned
             // from the << 16 above (sub-pixel zeroed). sub_BB54 also re-zeros
             // y_vel at line 15092.
+            //
+            // TODO(fidelity): ASM loc_9130 (kid.asm:10534): `neg.l d6;
+            // move.l d6,y_vel(a3); moveq #-1,d7; rts` — when sub_914A
+            // returns negative (rubber ceiling), sub_902A reverses y_vel
+            // instead of zeroing it. Native always zeroes here; rubber
+            // ceiling bounce is not implemented.
             self.player.y_velocity = 0;
         }
     }

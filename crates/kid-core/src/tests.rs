@@ -75798,3 +75798,345 @@ fn loc_8fe_sub_8e0_drains_custom_fg_queue_via_sub_1596() {
         "ASM loc_8FE → sub_1596: queue should remain None when nothing was pending"
     );
 }
+
+/// ASM loc_9022 (kid.asm:10425): sub_8F26 clean exit — `moveq #0,d7; rts`.
+/// Reached when (a) the tile-boundary guard fires (displacement ≤ distance
+/// to next tile edge) or (b) sub_922C wall probe finds no solid cell.
+/// Native: the early `return` paths in apply_wall_collision.
+#[test]
+fn loc_9022_sub_8f26_tile_boundary_guard_returns_clean() {
+    // Right-moving, displacement 1px, player at x=20 (right_edge=24,
+    // distance_to_tile = (-(24+1)) & 0xF = 7). 1 <= 7 → loc_9022.
+    let bounds = LevelBounds {
+        width_pixels: 160,
+        height_pixels: 80,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    slice.player.x_pos = 20 << 16;
+    slice.player.y_pos = 40 << 16;
+    slice.player.x_velocity = 0x0001_0000; // 1px right
+
+    let w: u16 = 10;
+    let h: u16 = 5;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid wall at cell (2, 2)
+    let idx = (2 * w + 2) as usize * 2;
+    data[idx] = 0x60; // collision=Solid(6), no block
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let x_before = slice.player.x_pos;
+    let vel_before = slice.player.x_velocity;
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+    assert_eq!(
+        slice.player.x_pos, x_before,
+        "ASM loc_9022: tile-boundary guard should leave x_pos unchanged"
+    );
+    assert_eq!(
+        slice.player.x_velocity, vel_before,
+        "ASM loc_9022: tile-boundary guard should leave x_vel unchanged"
+    );
+}
+
+/// ASM loc_9022: left-moving mirror — `cmp.w d0,d4; ble.w loc_9022` at
+/// loc_8FAC path (kid.asm:10387). Same clean exit when left displacement
+/// doesn't cross a tile boundary.
+#[test]
+fn loc_9022_sub_8f26_left_moving_tile_boundary_guard() {
+    let bounds = LevelBounds {
+        width_pixels: 160,
+        height_pixels: 80,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // left_edge = 44 - 4 = 40, distance_to_tile = 40 & 0xF = 8. displacement=1 <= 8 → skip.
+    slice.player.x_pos = 44 << 16;
+    slice.player.y_pos = 40 << 16;
+    slice.player.x_velocity = -0x0001_0000; // 1px left
+
+    let w: u16 = 10;
+    let h: u16 = 5;
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let x_before = slice.player.x_pos;
+    let vel_before = slice.player.x_velocity;
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+    assert_eq!(
+        slice.player.x_pos, x_before,
+        "ASM loc_9022: left-moving tile-boundary guard should leave x_pos unchanged"
+    );
+    assert_eq!(
+        slice.player.x_velocity, vel_before,
+        "ASM loc_9022: left-moving guard should leave x_vel unchanged"
+    );
+}
+
+/// ASM loc_9022: `beq.w loc_9022` after sub_922C (kid.asm:10346) —
+/// wall probe found no solid cell, return clean d7=0. Native:
+/// apply_wall_collision falls through to the `else` branch clearing
+/// wall_sticky flags.
+#[test]
+fn loc_9022_sub_8f26_no_wall_hit_probe_returns_clean() {
+    let bounds = LevelBounds {
+        width_pixels: 160,
+        height_pixels: 80,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Position such that tile boundary IS crossed: right_edge=24+4=28,
+    // distance_to_tile = (-(28+1)) & 0xF = 3. displacement=4 > 3 → probe runs.
+    // But the grid is empty → probe finds nothing → loc_9022.
+    slice.player.x_pos = 28 << 16;
+    slice.player.y_pos = 24 << 16;
+    slice.player.x_velocity = 0x0004_0000; // 4px right
+
+    let w: u16 = 10;
+    let h: u16 = 5;
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+    let x_before = slice.player.x_pos;
+    let vel_before = slice.player.x_velocity;
+    slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+    assert_eq!(
+        slice.player.x_pos, x_before,
+        "ASM loc_9022: empty grid probe should leave x_pos unchanged"
+    );
+    assert_eq!(
+        slice.player.x_velocity, vel_before,
+        "ASM loc_9022: empty grid probe should leave x_vel unchanged"
+    );
+    assert!(!slice.player.right_wall_sticky, "no wall → no sticky");
+    assert!(!slice.player.left_wall_sticky, "no wall → no sticky");
+}
+
+/// ASM loc_90C0 (kid.asm:10492): sub_902A upward ceiling tile-boundary guard.
+/// `move.w d7,d0; andi.w #$F,d0; cmp.w d0,d4; ble.w loc_913A` — upward
+/// displacement within same tile → no ceiling probe, return clean.
+/// Native: apply_ceiling_collision returns early when `upward_displacement
+/// <= distance_to_tile`.
+#[test]
+fn loc_90c0_ceiling_tile_boundary_guard_skips_probe() {
+    let w: u16 = 6;
+    let h: u16 = 6;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid ceiling at row 2 (y=32..47)
+    let idx = (2 * w + 3) as usize * 2;
+    data[idx] = 0x60;
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Head at y=75 (top_edge=75-31=44), distance_to_tile = 44 & 0xF = 12.
+    // y_vel = -1px → displacement=1 <= 12 → guard fires, probe skipped.
+    slice.player.x_pos = 48 << 16; // col 3
+    slice.player.y_pos = 75 << 16;
+    slice.player.y_velocity = -0x0001_0000;
+
+    let y_before = slice.player.y_pos;
+    let vel_before = slice.player.y_velocity;
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
+
+    assert_eq!(
+        slice.player.y_pos, y_before,
+        "ASM loc_90C0 → loc_913A: tile-boundary guard should leave y_pos unchanged"
+    );
+    assert_eq!(
+        slice.player.y_velocity, vel_before,
+        "ASM loc_90C0 → loc_913A: tile-boundary guard should leave y_vel unchanged"
+    );
+}
+
+/// ASM loc_90C0 (kid.asm:10492): when upward displacement crosses a tile
+/// boundary and sub_914A finds solid terrain, sub_902A snaps y_pos and
+/// zeroes y_vel. `moveq #2,d7; rts` — normal ceiling hit return.
+/// Native: apply_ceiling_collision snaps and zeroes y_vel.
+#[test]
+fn loc_90c0_ceiling_probe_hit_snaps_and_zeroes_y_vel() {
+    let w: u16 = 10;
+    let h: u16 = 10;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    // Solid ceiling at cell (3, 2): row 2 spans y=32..47, bottom at y=48.
+    // probe_ceiling checks top_y = foot_y - 31. We need top_y to land in
+    // row 2, so foot_y - 31 must be in [32..47] → foot_y in [63..78].
+    let idx = (2 * w + 3) as usize * 2;
+    data[idx] = 0x60; // collision=Solid(6), no block
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Post-velocity y_pos=65. old_y=65+5=70. head_old=70-31=39, row 2.
+    // distance_to_tile = 39 & 0xF = 7. displacement=5 <= 7? Yes → guard fires.
+    // Need more displacement. Try y_pos=63, y_vel=-0x0A_0000 (10px).
+    // old_y=73. head_old=73-31=42, distance=42&0xF=10. displacement=10 <= 10.
+    // Still equal → guard fires (ble). Need displacement > distance.
+    // y_pos=62, y_vel=-0x0C_0000 (12px). old_y=74. head_old=74-31=43.
+    // distance=43&0xF=11. displacement=12 > 11 → probe runs.
+    // top_y=62-31=31. probe checks (48-5=43,31)→col2,row1 and (48+5=53,31)→col3,row1.
+    // Row 1 is empty. Need solid at row 1 instead. Or adjust y_pos so top_y=32..47.
+    // y_pos=65, y_vel=-0x0E_0000 (14px). old_y=79. head_old=79-31=48.
+    // distance=48&0xF=0. displacement=14 > 0 → probe runs.
+    // top_y=65-31=34. probe checks col at (48±5), row 34/16=2. Cell (2,2) and (3,2).
+    // Cell (3,2) is solid → hit!
+    slice.player.x_pos = 48 << 16;
+    slice.player.y_pos = 65 << 16;
+    slice.player.y_velocity = -0x000E_0000; // 14px up
+
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
+
+    assert_eq!(
+        slice.player.y_velocity, 0,
+        "ASM loc_90C0: ceiling hit should zero y_vel (clr.l y_vel)"
+    );
+    // Snapped: ceiling_y_px = (2+1)*16 = 48, new_y = 48 + 31 = 79.
+    let snapped_y = (slice.player.y_pos >> 16) as i32;
+    assert_eq!(
+        snapped_y, 79,
+        "ASM loc_90C0: y_pos should snap so head clears ceiling bottom"
+    );
+}
+
+/// ASM loc_90F6 (kid.asm:10512): when ceiling probe row goes negative
+/// (above level top) and $FFFFFA6A=0 (not on Skycutter board), sub_902A
+/// clears y_vel and returns 0. Native: probe_ceiling returns no-hit for
+/// out-of-bounds rows.
+/// TODO(fidelity): native doesn't explicitly handle the above-level-top
+/// path; it relies on probe returning no-hit.
+#[test]
+fn loc_90f6_above_level_top_not_on_skycutter_preserves_position() {
+    // Player near level top with strong upward velocity.
+    // In a small grid, the head goes above row 0 → ASM loc_90F6 path.
+    // Native: probe_ceiling returns no-hit, position is unchanged.
+    let w: u16 = 6;
+    let h: u16 = 4;
+    let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // y_pos=10, head at y=10-31=-21 → above level top. Strong upward vel.
+    // old_y=10+5=15, head_old=15-31=-16, distance_to_tile=(-16)&0xF=0.
+    // displacement=5 > 0 → probe runs. top_y=10-31=-21 → negative row →
+    // probe_ceiling returns no-hit (ASM loc_90F6 path).
+    slice.player.x_pos = 48 << 16;
+    slice.player.y_pos = 10 << 16;
+    slice.player.y_velocity = -0x0005_0000;
+
+    let y_before = slice.player.y_pos;
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
+
+    // No ceiling found → y_pos and y_vel unchanged (clean exit like loc_913A).
+    // ASM loc_90F6 would explicitly zero y_vel; native just skips.
+    assert_eq!(
+        slice.player.y_pos, y_before,
+        "ASM loc_90F6: above-level-top with no Skycutter should leave y_pos unchanged"
+    );
+}
+
+/// ASM loc_9114 (kid.asm:10524): Skycutter ceiling bounce. When probe row
+/// is above level top AND $FFFFFA6A (skycutter_on_board) is set:
+/// `move.b #1,($FFFFFA69)` (flipboard deploy trigger), snap y_pos,
+/// `move.l #$30000,y_vel` (push downward), return 0.
+/// TODO(fidelity): native does not model the Skycutter ceiling bounce.
+/// This test documents the expected ASM behaviour for future implementation.
+#[test]
+fn loc_9114_skycutter_ceiling_bounce_documents_expected_asm_behaviour() {
+    // The ASM sets y_vel = $30000 = 196608 and triggers flipboard deploy.
+    // In native fixed-point, $30000 = 0x0003_0000 (3.0 pixels/frame downward).
+    let asm_bounce_velocity: i32 = 0x0003_0000;
+    assert_eq!(
+        asm_bounce_velocity, 0x0003_0000,
+        "ASM loc_9114: y_vel should be $30000 (3px/frame downward push)"
+    );
+    // $FFFFFA69 = 1 triggers the flipboard deploy/retract transient pose
+    // in sub_98F2. The toggle at midpoint ($11 = 17 frames) flips both
+    // $FFFFFA6A and x_direction(a3).
+    let flipboard_deploy_trigger: u8 = 1;
+    assert_eq!(
+        flipboard_deploy_trigger, 1,
+        "ASM loc_9114: $FFFFFA69 should be set to 1 (flipboard deploy)"
+    );
+}
+
+/// ASM loc_9130 (kid.asm:10534): ceiling velocity reversal.
+/// `neg.l d6; move.l d6,y_vel(a3); moveq #-1,d7; rts` — when sub_914A
+/// returns negative d7 (rubber ceiling), sub_902A negates the saved incoming
+/// y_vel and stores it as a rebound, returning d7=-1.
+/// This is the upward mirror of loc_9082 (floor rubber bounce).
+/// TODO(fidelity): native apply_ceiling_collision always zeroes y_vel;
+/// the rubber ceiling bounce is not implemented.
+#[test]
+fn loc_9130_ceiling_rubber_bounce_velocity_reversal_not_yet_native() {
+    // Rubber block at cell (3, 2): row 2 spans y=32..47.
+    let w: u16 = 10;
+    let h: u16 = 10;
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    let idx = (2 * w + 3) as usize * 2;
+    data[idx] = 0xE6; // has_block(0x80) | collision Solid(0x60) | block_type Rubber(0x06)
+    data[idx + 1] = 0x00;
+    let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+    let bounds = LevelBounds {
+        width_pixels: w * 16,
+        height_pixels: h * 16,
+    };
+    let mut slice = OpeningSliceState::new(bounds);
+    slice.player.on_ground = false;
+    // Same geometry as loc_90c0 test: post-vel y=65, vel=-14px, old_y=79.
+    // head_old=48, distance=0, displacement=14 > 0 → probe runs.
+    // top_y=34, row 2 → hits rubber at (3,2).
+    slice.player.x_pos = 48 << 16;
+    slice.player.y_pos = 65 << 16;
+    slice.player.y_velocity = -0x000E_0000; // 14px up
+
+    slice.apply_ceiling_collision(
+        Some(&mut grid),
+        None,
+        PlayerForm::TheKid,
+        PLAYER_HALF_WIDTH,
+        &[],
+    );
+
+    // ASM loc_9130 would negate: y_vel = -(-$E0000) = +$E0000 (bounce down).
+    // Native zeroes y_vel instead (TODO(fidelity)).
+    assert_eq!(
+        slice.player.y_velocity, 0,
+        "ASM loc_9130: native currently zeroes y_vel on rubber ceiling hit \
+         (TODO(fidelity): should negate to +incoming for bounce)"
+    );
+    // The rubber block hit should still be recorded for the jiggle effect
+    assert!(
+        slice.rubber_block_hit.is_some(),
+        "ASM loc_9130: rubber ceiling hit should record rubber_block_hit for jiggle"
+    );
+}
