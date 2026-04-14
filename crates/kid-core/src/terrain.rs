@@ -813,6 +813,8 @@ impl BlockList {
         // list at `$FFFFF8EC` by the current Level_Layout address in `a2`.
         // ASM loc_E38E (kid.asm:17831): after the stride seed, `a0` is the
         // first entry, `a1` is one past `count*8`, and `a4` starts at `a0`.
+        // ASM loc_E3A0 (kid.asm:17839): compare the target word from `a2`
+        // with the current entry word and return only on an exact match.
         self.hidden_blocks
             .binary_search_by_key(&layout_addr, |entry| entry.layout_addr)
             .ok()
@@ -2979,6 +2981,48 @@ mod tests {
             BlockList::hidden_block_search_initial_stride_bytes_loc_E386(3),
             16,
             "ASM loc_E38E receives the stride doubled once for a three-entry hidden-block list",
+        );
+    }
+
+    #[test]
+    fn hidden_block_search_loc_e3a0_returns_only_exact_layout_match() {
+        let bl = BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![
+                HiddenBlockEntry {
+                    layout_addr: 0x0010,
+                    col: 2,
+                    row: 0,
+                    block_type: 0x01,
+                    block_setting: 0x00,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0028,
+                    col: 5,
+                    row: 1,
+                    block_type: 0x04,
+                    block_setting: 0x07,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0040,
+                    col: 8,
+                    row: 2,
+                    block_type: 0x0C,
+                    block_setting: 0x02,
+                },
+            ],
+        };
+
+        let found = bl
+            .hidden_block_by_layout_addr_sub_E37A(0x0028)
+            .expect("ASM loc_E3A0 should return when `cmp.w (a4),d0` finds equality");
+
+        assert_eq!(found.col, 5);
+        assert!(
+            bl.hidden_block_by_layout_addr_sub_E37A(0x0029).is_none(),
+            "ASM loc_E3A0 only exits through loc_E3C0 on an exact layout-address match",
         );
     }
 
