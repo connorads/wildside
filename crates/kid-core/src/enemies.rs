@@ -419,6 +419,25 @@ pub(crate) struct MiniHoppingSkullTerrainContact {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullSlopeDownWait {
+    Left,
+    Right,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullSlopeDownContact {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) x_direction: u8,
+    pub(crate) sprite: &'static str,
+    pub(crate) dbf_counter: u16,
+    pub(crate) wait_frames: u8,
+    pub(crate) wait: MiniHoppingSkullSlopeDownWait,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullGroundWaitSprite {
     SlopeUpRight,
 }
@@ -3311,6 +3330,37 @@ pub(crate) fn mini_hopping_skull_terrain_contact_loc_3ead8(
         is_animated: false,
         has_level_collision: false,
         route,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_slopedown_contact_loc_3ed6c(
+    x_velocity: i32,
+) -> MiniHoppingSkullSlopeDownContact {
+    // ASM Mini_Hopping_Skull.asm loc_3ED6C: after `sub_3F3A6` snaps to the
+    // slope-down surface, `tst.w x_vel(a3)` tests the high word. Negative
+    // velocity clears both velocities and enters loc_3ED80's left wait; a
+    // non-negative high word jumps to loc_3EEB2's right wait setup.
+    if x_velocity < 0 {
+        MiniHoppingSkullSlopeDownContact {
+            x_velocity: 0,
+            y_velocity: 0,
+            x_direction: 0x00,
+            sprite: "LnkTo_unk_C8030",
+            dbf_counter: 0x0014,
+            wait_frames: 21,
+            wait: MiniHoppingSkullSlopeDownWait::Left,
+        }
+    } else {
+        MiniHoppingSkullSlopeDownContact {
+            x_velocity: 0,
+            y_velocity: 0,
+            x_direction: 0xFF,
+            sprite: "LnkTo_unk_C8010",
+            dbf_counter: 0x0014,
+            wait_frames: 21,
+            wait: MiniHoppingSkullSlopeDownWait::Right,
+        }
     }
 }
 
@@ -7904,6 +7954,41 @@ mod tests {
                 route: MiniHoppingSkullTerrainContactRoute::SlopeUpPositiveXVelocity,
             },
             "ASM Mini_Hopping_Skull.asm loc_3EAD8 clears both velocity components after slope-up contact with positive `x_vel(a3)`"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_slopedown_contact_matches_loc_3ed6c_x_velocity_gate() {
+        assert_eq!(
+            mini_hopping_skull_slopedown_contact_loc_3ed6c(-0x0001_0000),
+            MiniHoppingSkullSlopeDownContact {
+                x_velocity: 0,
+                y_velocity: 0,
+                x_direction: 0x00,
+                sprite: "LnkTo_unk_C8030",
+                dbf_counter: 0x0014,
+                wait_frames: 21,
+                wait: MiniHoppingSkullSlopeDownWait::Left,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3ED6C should clear velocities and enter loc_3ED80 when `tst.w x_vel(a3)` is negative"
+        );
+        assert_eq!(
+            mini_hopping_skull_slopedown_contact_loc_3ed6c(0),
+            MiniHoppingSkullSlopeDownContact {
+                x_velocity: 0,
+                y_velocity: 0,
+                x_direction: 0xFF,
+                sprite: "LnkTo_unk_C8010",
+                dbf_counter: 0x0014,
+                wait_frames: 21,
+                wait: MiniHoppingSkullSlopeDownWait::Right,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3ED6C should jump to loc_3EEB2 for a zero high word"
+        );
+        assert_eq!(
+            mini_hopping_skull_slopedown_contact_loc_3ed6c(0x0001_0000).wait,
+            MiniHoppingSkullSlopeDownWait::Right,
+            "ASM Mini_Hopping_Skull.asm loc_3ED6C should jump to loc_3EEB2 for positive X velocity"
         );
     }
 
