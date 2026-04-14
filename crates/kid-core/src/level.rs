@@ -12466,6 +12466,22 @@ pub(crate) fn level_sprite_strip_bottom_row_lower_clamp_loc_E744(bottom_world_y:
     (bottom_world_y >> 4).max(0)
 }
 
+/// ASM loc_E74A (kid.asm:18434): cap the already non-negative bottom terrain
+/// probe row to `Level_height_blocks - 1` before seeding the vertical collision
+/// scan at `loc_E756`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_bottom_row_upper_clamp_loc_E74A(
+    bottom_tile_row: i16,
+    level_height_blocks: i16,
+) -> i16 {
+    if bottom_tile_row < level_height_blocks {
+        bottom_tile_row
+    } else {
+        level_height_blocks.wrapping_sub(1)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,

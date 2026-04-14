@@ -7203,6 +7203,28 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E74A (kid.asm:18434): the bottom probe row has already been
+    /// clamped to zero; this label only caps rows at `Level_height_blocks - 1`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E74A_caps_bottom_probe_row_to_last_level_row() {
+        assert_eq!(
+            crate::level::level_sprite_strip_bottom_row_upper_clamp_loc_E74A(0x0006, 0x0010),
+            0x0006,
+            "ASM loc_E74A should keep bottom rows below Level_height_blocks unchanged"
+        );
+        assert_eq!(
+            crate::level::level_sprite_strip_bottom_row_upper_clamp_loc_E74A(0x0010, 0x0010),
+            0x000F,
+            "ASM loc_E74A should clamp equality to the final valid level row"
+        );
+        assert_eq!(
+            crate::level::level_sprite_strip_bottom_row_upper_clamp_loc_E74A(0x001A, 0x0010),
+            0x000F,
+            "ASM loc_E74A should clamp rows beyond Level_height_blocks to the final valid level row"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
