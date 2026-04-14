@@ -12603,6 +12603,38 @@ pub(crate) struct EyeclopsHardBeamZeroWidthSpritesLocE7E0 {
     pub(crate) collision_probe_screen_y: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsHardBeamZeroWidthDirectionLocE7F4 {
+    pub(crate) sprite_x: i16,
+    pub(crate) collision_probe_screen_x: i16,
+    pub(crate) tile_attr_mask: u16,
+}
+
+/// ASM loc_E7F4 (kid.asm:18508): the non-zero `$FFFFFABE` hard-beam latch
+/// flips the zero-width strip by subtracting `$10` from `d0`, copying that
+/// adjusted X into `d6`, and ORing `$0800` into each sprite tile word.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_zero_width_direction_loc_E7F4(
+    source_x: i16,
+    direction_latch_nonzero: bool,
+) -> EyeclopsHardBeamZeroWidthDirectionLocE7F4 {
+    if direction_latch_nonzero {
+        let adjusted_x = source_x.wrapping_sub(0x0010);
+        EyeclopsHardBeamZeroWidthDirectionLocE7F4 {
+            sprite_x: adjusted_x,
+            collision_probe_screen_x: adjusted_x,
+            tile_attr_mask: 0x0800,
+        }
+    } else {
+        EyeclopsHardBeamZeroWidthDirectionLocE7F4 {
+            sprite_x: source_x,
+            collision_probe_screen_x: source_x.wrapping_add(0x0010),
+            tile_attr_mask: 0,
+        }
+    }
+}
+
 /// ASM loc_E7E0 (kid.asm:18497): for the zero-width hard beam, adjust `d0/d6`
 /// from the direction latch, set `d5` to `d1 - 4`, then emit three size-4
 /// sprites at `d1 - 8`, `d1`, and `d1 + 8`.
@@ -12614,12 +12646,8 @@ pub(crate) fn eyeclops_hard_beam_zero_width_sprites_loc_E7E0(
     link: u8,
     direction_latch_nonzero: bool,
 ) -> EyeclopsHardBeamZeroWidthSpritesLocE7E0 {
-    let (sprite_x, collision_probe_screen_x, tile_attr_mask) = if direction_latch_nonzero {
-        let adjusted_x = source_x.wrapping_sub(0x0010);
-        (adjusted_x, adjusted_x, 0x0800)
-    } else {
-        (source_x, source_x.wrapping_add(0x0010), 0)
-    };
+    let direction =
+        eyeclops_hard_beam_zero_width_direction_loc_E7F4(source_x, direction_latch_nonzero);
     let collision_probe_screen_y = base_y.wrapping_sub(0x0004);
     let first_y = base_y.wrapping_sub(0x0008);
     let second_y = base_y;
@@ -12634,26 +12662,26 @@ pub(crate) fn eyeclops_hard_beam_zero_width_sprites_loc_E7E0(
                 y_pos: first_y,
                 size: 4,
                 link: first_link,
-                tile_word: 0x868E | tile_attr_mask,
-                x_pos: sprite_x,
+                tile_word: 0x868E | direction.tile_attr_mask,
+                x_pos: direction.sprite_x,
             },
             LevelSpriteStripEntryLocE692 {
                 y_pos: second_y,
                 size: 4,
                 link: second_link,
-                tile_word: 0x8692 | tile_attr_mask,
-                x_pos: sprite_x,
+                tile_word: 0x8692 | direction.tile_attr_mask,
+                x_pos: direction.sprite_x,
             },
             LevelSpriteStripEntryLocE692 {
                 y_pos: third_y,
                 size: 4,
                 link: third_link,
-                tile_word: 0x968E | tile_attr_mask,
-                x_pos: sprite_x,
+                tile_word: 0x968E | direction.tile_attr_mask,
+                x_pos: direction.sprite_x,
             },
         ],
         next_link: third_link,
-        collision_probe_screen_x,
+        collision_probe_screen_x: direction.collision_probe_screen_x,
         collision_probe_screen_y,
     }
 }

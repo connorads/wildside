@@ -7382,6 +7382,34 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E7F4 (kid.asm:18508): the flipped zero-width hard beam rewinds
+    /// `d0` by `$10`, copies that to `d6`, and sets tile attr bit `$0800`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E7F4_flips_zero_width_hard_beam_direction_setup() {
+        let clear = crate::level::eyeclops_hard_beam_zero_width_direction_loc_E7F4(0x0120, false);
+        assert_eq!(
+            clear,
+            crate::level::EyeclopsHardBeamZeroWidthDirectionLocE7F4 {
+                sprite_x: 0x0120,
+                collision_probe_screen_x: 0x0130,
+                tile_attr_mask: 0,
+            },
+            "ASM loc_E7E0 fall-through should keep d0 as sprite X and set d6=d0+$10 before the zero-width writer"
+        );
+
+        let flipped = crate::level::eyeclops_hard_beam_zero_width_direction_loc_E7F4(0x0120, true);
+        assert_eq!(
+            flipped,
+            crate::level::EyeclopsHardBeamZeroWidthDirectionLocE7F4 {
+                sprite_x: 0x0110,
+                collision_probe_screen_x: 0x0110,
+                tile_attr_mask: 0x0800,
+            },
+            "ASM loc_E7F4 should subtract `$10` from d0, copy it into d6, and seed d4 with `$0800`"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
