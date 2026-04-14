@@ -8294,6 +8294,15 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_slot_loc_f31c_loads_the_long_sleep_timer() {
+        assert_eq!(
+            NativeRuntime::shooter_slot_sleep_frames_loc_F31C(),
+            0x32,
+            "ASM loc_F31C (kid.asm:19909) should load timer byte 8(a0) with `$32` before the shared redraw tail"
+        );
+    }
+
+    #[test]
     fn shooter_headbutt_center_worker_runs_sub_114c0_timeline() {
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));

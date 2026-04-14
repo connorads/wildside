@@ -1611,6 +1611,14 @@ impl NativeRuntime {
         delta_y >= 0
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_slot_sleep_frames_loc_F31C() -> u8 {
+        // ASM loc_F31C (kid.asm:19909): the shooter slot's timer byte is
+        // loaded with `$32` before returning to the shared redraw tail.
+        0x32
+    }
+
     fn shooter_deleted_tile_for_sub_114c0(skin: u8) -> terrain::Cell {
         terrain::Cell::from_be_bytes(0xEF, skin)
     }
