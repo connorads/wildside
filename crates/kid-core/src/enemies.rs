@@ -1794,6 +1794,28 @@ pub(crate) const UFO_ACCELERATION: i32 = 0x400;
 pub(crate) const UFO_TERMINAL_VELOCITY: i32 = 0x18000;
 pub(crate) const UFO_PATTERN_FRAMES: u16 = 60;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoMotionCommand {
+    pub(crate) x_acceleration: i32,
+    pub(crate) target_x_velocity: i32,
+    pub(crate) y_acceleration: i32,
+    pub(crate) target_y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_double_acceleration_loc_34e10(
+    mut command: UfoMotionCommand,
+    double_acceleration: bool,
+) -> UfoMotionCommand {
+    if double_acceleration {
+        // ASM UFO.asm loc_34E10: non-zero `$4E(a5)` doubles d0 and d2 only.
+        command.x_acceleration = command.x_acceleration.saturating_mul(2);
+        command.y_acceleration = command.y_acceleration.saturating_mul(2);
+    }
+    command
+}
+
 pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     // Apply acceleration to velocity (clamped to terminal)
     enemy.x_velocity = (enemy.x_velocity + enemy.x_acceleration)
@@ -6468,6 +6490,32 @@ mod tests {
         assert!(
             (0x003C..=0x00BB).contains(&delay),
             "ASM Emo_Rock.asm loc_361F4 clears bit 7 before adding the `$3C` base delay, so the hover seed must stay within 60..187 frames"
+        );
+    }
+
+    #[test]
+    fn ufo_motion_scaling_matches_loc_34e10_acceleration_gate() {
+        let command = UfoMotionCommand {
+            x_acceleration: -0x1000,
+            target_x_velocity: -0x20000,
+            y_acceleration: 0x0800,
+            target_y_velocity: 0x18000,
+        };
+
+        assert_eq!(
+            ufo_double_acceleration_loc_34e10(command, false),
+            command,
+            "ASM UFO.asm loc_34E10 falls through without changing d0/d2 when `$4E(a5)` is zero"
+        );
+        assert_eq!(
+            ufo_double_acceleration_loc_34e10(command, true),
+            UfoMotionCommand {
+                x_acceleration: -0x2000,
+                target_x_velocity: -0x20000,
+                y_acceleration: 0x1000,
+                target_y_velocity: 0x18000,
+            },
+            "ASM UFO.asm loc_34E10 doubles acceleration registers d0/d2 while leaving target speed d1/d3 unchanged"
         );
     }
 
