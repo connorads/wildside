@@ -2164,6 +2164,15 @@ pub(crate) struct EndSequenceTextLoopLoc1D3F0 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ContinueScreenOptionalFadeLocD372 {
+    pub(crate) score_object_fades: bool,
+    pub(crate) bonus_object_fades: bool,
+    pub(crate) display_timer_seed: u16,
+    pub(crate) falling_velocity: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -3928,6 +3937,26 @@ pub(crate) fn end_sequence_text_loop_loc_1D3F0() -> EndSequenceTextLoopLoc1D3F0 
         page_break_platform_layout_source: page_break_wait_loop.glyph_layout_source,
         terminator_word: 0x0000,
         terminator_branch: "loc_1D44C",
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn continue_screen_optional_fade_loc_D372(
+    score_object_present: bool,
+    bonus_object_present: bool,
+) -> ContinueScreenOptionalFadeLocD372 {
+    // ASM loc_D372 (kid.asm:16539): after the first countdown expires, the
+    // optional score object at `$44(a5)` has already been handled if present.
+    // This label checks the optional bonus object at `$48(a5)` independently:
+    // null branches straight on, non-null writes display timer `$1000` and
+    // velocity `1`. Native does not keep these visual EOL object slots, so this
+    // helper documents the decision before the lifecycle timeout returns title.
+    ContinueScreenOptionalFadeLocD372 {
+        score_object_fades: score_object_present,
+        bonus_object_fades: bonus_object_present,
+        display_timer_seed: 0x1000,
+        falling_velocity: 1,
     }
 }
 

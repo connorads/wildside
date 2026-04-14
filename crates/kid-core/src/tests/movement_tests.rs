@@ -14807,4 +14807,29 @@ mod chunk_12 {
             "ASM loc_D350 input path should bypass the countdown tail and enter continue respawn"
         );
     }
+
+    /// ASM loc_D372 (kid.asm:16539): the optional bonus object pointer at
+    /// `$48(a5)` is tested even when the prior score object pointer was null.
+    /// A present object receives display timer `$1000` and falling velocity `1`.
+    #[test]
+    fn loc_d372_bonus_object_fades_even_when_score_object_is_absent() {
+        let fade = crate::boot::continue_screen_optional_fade_loc_D372(false, true);
+
+        assert!(
+            !fade.score_object_fades,
+            "ASM loc_D372 should be reachable after the score-object null branch"
+        );
+        assert!(
+            fade.bonus_object_fades,
+            "ASM loc_D372 should still fade the bonus object when `$48(a5)` is non-null"
+        );
+        assert_eq!(
+            fade.display_timer_seed, 0x1000,
+            "ASM loc_D372 writes `$1000` to `$46(a0)`"
+        );
+        assert_eq!(
+            fade.falling_velocity, 1,
+            "ASM loc_D372 writes `#1` to `$6C(a0)`"
+        );
+    }
 }
