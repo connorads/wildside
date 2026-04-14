@@ -526,6 +526,21 @@ pub(crate) enum MiniHoppingSkullLeftLandingLoopDecision {
     },
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullLandingLoopDecision {
+    ContinueWait {
+        next_dbf_counter: u16,
+    },
+    BeginRelaunchArc {
+        y_velocity: i32,
+        x_velocity: i32,
+        is_moved: bool,
+        has_level_collision: bool,
+        next_loop: &'static str,
+    },
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -3632,6 +3647,64 @@ pub(crate) fn mini_hopping_skull_left_hop_scream_worker_allocation_loc_3edc0()
         allocation_selector: 0xA000,
         routine: "sub_3F3F0",
         delay_frames: 15,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_landing_collision_route_loc_3ee12(
+    collision_type: u16,
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3EE12: clear `collision_type(a3)`, hibernate
+    // one frame, call `sub_3F29A`, then dispatch by collision order:
+    // kid-above and `colid_hurt` go through the same damage branch as `loc_3EE64`,
+    // side contact routes via `loc_3EE5A`, below contact queues the scream worker.
+    match collision_type {
+        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+        MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+        }
+        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
+            if berzerker_charging {
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+            } else {
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+            }
+        }
+        MINI_SKULL_COLID_GROUND_KIDBELOW => {
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+        }
+        _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_landing_tail_loc_3ee7c(
+    dbf_counter: u16,
+    is_boosted: bool,
+) -> MiniHoppingSkullLandingLoopDecision {
+    // ASM Mini_Hopping_Skull.asm loc_3EE7C: DBCC loop first (`dbf d1`). On fallthrough,
+    // seed airborne relaunch velocities and set movement/collision flags, then jump to
+    // `loc_3EA88`.
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+    if next_dbf_counter != 0xFFFF {
+        return MiniHoppingSkullLandingLoopDecision::ContinueWait { next_dbf_counter };
+    }
+
+    let mut y_velocity = 0xFFFC8000u32 as i32;
+    let mut x_velocity = 0xFFFE8000u32 as i32;
+    if is_boosted {
+        // ASM loc_3EEA6 (`tst.w $40(a3)` + `addi`) bumps both speeds negative.
+        y_velocity = y_velocity.wrapping_add(-0x1_0000);
+        x_velocity = x_velocity.wrapping_add(-0x4000);
+    }
+
+    MiniHoppingSkullLandingLoopDecision::BeginRelaunchArc {
+        y_velocity,
+        x_velocity,
+        is_moved: true,
+        has_level_collision: true,
+        next_loop: "loc_3EA88",
     }
 }
 
@@ -8903,6 +8976,93 @@ mod tests {
                 sprite: "LnkTo_unk_C8038",
             },
             "ASM Mini_Hopping_Skull.asm loc_3EDF8 uses signed compares (`cmp.w`) to treat `0x8000` as negative when comparing Kid and skull X"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_landing_collision_route_matches_loc_3ee12() {
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3ee12(0, false,),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3EE12 should continue when no collision is reported"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3ee12(
+                MINI_SKULL_COLID_GROUND_KIDABOVE,
+                false,
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EE12 routes `colid_kidabove` to the damage path (`loc_3EE64`)"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3ee12(
+                MINI_SKULL_COLID_GROUND_HURT,
+                false,
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EE12 routes `colid_hurt` to the same damage path as `loc_3EE64`"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3ee12(
+                MINI_SKULL_COLID_GROUND_KIDLEFT,
+                false,
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3EE5A falls through to worker allocation when `Berzerker_charging` is clear"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3ee12(
+                MINI_SKULL_COLID_GROUND_KIDRIGHT,
+                true,
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EE5A jumps to loc_3F262 when `Berzerker_charging` is set"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3ee12(
+                MINI_SKULL_COLID_GROUND_KIDBELOW,
+                false,
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3EE44 queues the scream-worker routine on `colid_kidbelow`"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3ee12(0x0123, false),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3EE12 ignores non-Kid collision IDs"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_landing_tail_matches_loc_3ee7c_and_boost() {
+        assert_eq!(
+            mini_hopping_skull_landing_tail_loc_3ee7c(0x0014, false),
+            MiniHoppingSkullLandingLoopDecision::ContinueWait {
+                next_dbf_counter: 0x0013,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EE7C should consume the DBF counter before relaunching"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_tail_loc_3ee7c(0x0000, false),
+            MiniHoppingSkullLandingLoopDecision::BeginRelaunchArc {
+                y_velocity: 0xFFFC8000u32 as i32,
+                x_velocity: 0xFFFE8000u32 as i32,
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EE7C seeds base airborne velocities and movement/collision flags"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_tail_loc_3ee7c(0x0000, true),
+            MiniHoppingSkullLandingLoopDecision::BeginRelaunchArc {
+                y_velocity: 0xFFFB8000u32 as i32,
+                x_velocity: 0xFFFE4000u32 as i32,
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EEA6 adds `-$10000` and `-$4000` when `$40(a3)` is non-zero"
         );
     }
 
