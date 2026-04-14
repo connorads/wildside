@@ -26,6 +26,7 @@ const MINI_SKULL_COLID_RIGHTWALL: u16 = 0x0004;
 const MINI_SKULL_COLID_LEFTWALL: u16 = 0x0008;
 const MINI_SKULL_COLID_FLOOR: u16 = 0x000C;
 const MINI_SKULL_COLID_CEILING: u16 = 0x0010;
+const MINI_SKULL_COLID_SLOPEUP: u16 = 0x0014;
 const MINI_SKULL_COLID_HURT: u16 = 0x001C;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -37,6 +38,23 @@ pub(crate) enum MiniHoppingSkullCollisionDispatch {
     CeilingHit,
     HurtOrWeapon,
     SlopeOrOtherTerrain,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullTerrainContactRoute {
+    NotSlopeUp,
+    SlopeUpNonPositiveXVelocity,
+    SlopeUpPositiveXVelocity,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullTerrainContact {
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) route: MiniHoppingSkullTerrainContactRoute,
 }
 
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
@@ -2676,6 +2694,30 @@ pub(crate) fn mini_hopping_skull_collision_dispatch_loc_3eab2(
         MiniHoppingSkullCollisionDispatch::CeilingHit
     } else {
         MiniHoppingSkullCollisionDispatch::SlopeOrOtherTerrain
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_terrain_contact_loc_3ead8(
+    collision_type: u16,
+    x_velocity: i32,
+) -> MiniHoppingSkullTerrainContact {
+    let route = if collision_type != MINI_SKULL_COLID_SLOPEUP {
+        MiniHoppingSkullTerrainContactRoute::NotSlopeUp
+    } else if x_velocity <= 0 {
+        MiniHoppingSkullTerrainContactRoute::SlopeUpNonPositiveXVelocity
+    } else {
+        MiniHoppingSkullTerrainContactRoute::SlopeUpPositiveXVelocity
+    };
+
+    // ASM Mini_Hopping_Skull.asm loc_3EAD8: terrain contact clears
+    // `is_moved(a3)`, `is_animated(a3)`, and `has_level_collision(a3)`
+    // before the slope-up-specific velocity gate.
+    MiniHoppingSkullTerrainContact {
+        is_moved: false,
+        is_animated: false,
+        has_level_collision: false,
+        route,
     }
 }
 
@@ -5726,9 +5768,43 @@ mod tests {
             "ASM Mini_Hopping_Skull.asm loc_3EAB2 sends hurt-or-above collision to loc_3F1B8 before terrain checks"
         );
         assert_eq!(
-            mini_hopping_skull_collision_dispatch_loc_3eab2(0x0014),
+            mini_hopping_skull_collision_dispatch_loc_3eab2(MINI_SKULL_COLID_SLOPEUP),
             MiniHoppingSkullCollisionDispatch::SlopeOrOtherTerrain,
             "ASM Mini_Hopping_Skull.asm loc_3EAB2 falls through to loc_3EAD8 for slope-up collision"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_terrain_contact_matches_loc_3ead8_flag_clear_and_slope_gate() {
+        assert_eq!(
+            mini_hopping_skull_terrain_contact_loc_3ead8(MINI_SKULL_COLID_CEILING, 0),
+            MiniHoppingSkullTerrainContact {
+                is_moved: false,
+                is_animated: false,
+                has_level_collision: false,
+                route: MiniHoppingSkullTerrainContactRoute::NotSlopeUp,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EAD8 clears live movement flags before branching away from non-slope-up terrain"
+        );
+        assert_eq!(
+            mini_hopping_skull_terrain_contact_loc_3ead8(MINI_SKULL_COLID_SLOPEUP, 0),
+            MiniHoppingSkullTerrainContact {
+                is_moved: false,
+                is_animated: false,
+                has_level_collision: false,
+                route: MiniHoppingSkullTerrainContactRoute::SlopeUpNonPositiveXVelocity,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EAD8/sub_3F366 sends zero or negative `x_vel(a3)` to loc_3EC32"
+        );
+        assert_eq!(
+            mini_hopping_skull_terrain_contact_loc_3ead8(MINI_SKULL_COLID_SLOPEUP, 1),
+            MiniHoppingSkullTerrainContact {
+                is_moved: false,
+                is_animated: false,
+                has_level_collision: false,
+                route: MiniHoppingSkullTerrainContactRoute::SlopeUpPositiveXVelocity,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EAD8 clears both velocity components after slope-up contact with positive `x_vel(a3)`"
         );
     }
 
