@@ -6788,6 +6788,24 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D9E6 (kid.asm:17044): the saved next GFX-object pointer is
+    /// restored from the stack and the cleanup loop continues only while it is
+    /// non-zero.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D9E6_end_credits_gfx_cleanup_branches_on_saved_next_pointer() {
+        assert_eq!(
+            crate::level::end_credits_gfx_cleanup_next_loc_D9E6(0x0300_0000),
+            Some(0x0300_0000),
+            "ASM loc_D9E6 should branch back to loc_D9D4 when the saved next GFX pointer is non-zero"
+        );
+        assert_eq!(
+            crate::level::end_credits_gfx_cleanup_next_loc_D9E6(0),
+            None,
+            "ASM loc_D9E6 should fall through to loc_D9EA when the saved next GFX pointer is null"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

@@ -11731,6 +11731,17 @@ pub(crate) fn end_credits_deleted_gfx_objects_loc_D9D4(
         .collect()
 }
 
+/// ASM loc_D9E6 (kid.asm:17044): after either deleting the current GFX object
+/// or skipping `Addr_GfxObject_Kid`, pop the saved next pointer and branch
+/// back to `loc_D9D4` only when that pointer is non-zero.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_gfx_cleanup_next_loc_D9E6(
+    saved_next_gfx_object_addr: u32,
+) -> Option<u32> {
+    std::num::NonZeroU32::new(saved_next_gfx_object_addr).map(std::num::NonZeroU32::get)
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
