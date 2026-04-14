@@ -131,6 +131,37 @@ pub(crate) fn lion_init_facing_dispatch_loc_3e030(facing: Direction) -> LionFaci
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionTrackingGate {
+    Hold,
+    TrackKid,
+    ClearLatchAndTrackKid,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_tracking_gate_loc_3e054(
+    lion_x_word: u16,
+    kid_x_word: u16,
+    range_latch_set: bool,
+) -> LionTrackingGate {
+    let lion_x = i16::from_ne_bytes(lion_x_word.to_ne_bytes());
+    let kid_x = i16::from_ne_bytes(kid_x_word.to_ne_bytes());
+    let delta = lion_x.wrapping_sub(kid_x);
+    // ASM Lion.asm loc_3E054: after the close [-$3F,+$40] band has been
+    // rejected, clear `$4E(a5)` only outside the wider [-$9F,+$9F] band.
+    // While `$4E(a5)` is clear, fall straight through to the facing update.
+    if !range_latch_set {
+        return LionTrackingGate::TrackKid;
+    }
+
+    if (-0x9F..=0x9F).contains(&delta) {
+        LionTrackingGate::Hold
+    } else {
+        LionTrackingGate::ClearLatchAndTrackKid
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -6318,6 +6349,29 @@ mod tests {
             lion_init_facing_dispatch_loc_3e030(Direction::Right),
             LionFacingDispatch::RightPacing,
             "ASM Lion.asm loc_3E030 should send set `x_direction(a3)` to loc_3E392"
+        );
+    }
+
+    #[test]
+    fn lion_tracking_gate_matches_loc_3e054_latched_outer_band() {
+        assert_eq!(
+            lion_tracking_gate_loc_3e054(0x0100 + 0x0041, 0x0100, true),
+            LionTrackingGate::Hold,
+            "ASM Lion.asm loc_3E054 should keep current facing while `$4E(a5)` is set and d4 is below +$A0"
+        );
+        assert_eq!(
+            lion_tracking_gate_loc_3e054(0x0100 - 0x0040, 0x0100, true),
+            LionTrackingGate::Hold,
+            "ASM Lion.asm loc_3E054 should keep current facing while `$4E(a5)` is set and d4 is above -$A0"
+        );
+    }
+
+    #[test]
+    fn lion_tracking_gate_matches_loc_3e054_clear_latch_bypass() {
+        assert_eq!(
+            lion_tracking_gate_loc_3e054(0x0100 + 0x0041, 0x0100, false),
+            LionTrackingGate::TrackKid,
+            "ASM Lion.asm loc_3E054 should fall through to the facing update immediately when `$4E(a5)` is clear"
         );
     }
 
