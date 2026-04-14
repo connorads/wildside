@@ -2789,16 +2789,26 @@ pub(crate) fn mini_hopping_skull_ground_wait_collision_loc_3eb0e(
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
         MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
-            if berzerker_charging {
-                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
-            } else {
-                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
-            }
+            mini_hopping_skull_side_contact_loc_3eb56(berzerker_charging)
         }
         MINI_SKULL_COLID_GROUND_KIDBELOW => {
             MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
         }
         _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_side_contact_loc_3eb56(
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3EB56: side contact tests the global
+    // `Berzerker_charging` byte; clear branches back to loc_3EB40's contact
+    // damage worker, non-clear jumps to loc_3F262 to kill the skull.
+    if berzerker_charging {
+        MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+    } else {
+        MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
     }
 }
 
@@ -5973,6 +5983,20 @@ mod tests {
             mini_hopping_skull_ground_wait_collision_loc_3eb0e(MINI_SKULL_COLID_SLOPEUP, false),
             MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
             "ASM Mini_Hopping_Skull.asm loc_3EB0E ignores unrecognised collision IDs during the grounded wait loop"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_side_contact_matches_loc_3eb56_berzerker_gate() {
+        assert_eq!(
+            mini_hopping_skull_side_contact_loc_3eb56(false),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3EB56 should branch to loc_3EB40 when `Berzerker_charging` is clear"
+        );
+        assert_eq!(
+            mini_hopping_skull_side_contact_loc_3eb56(true),
+            MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EB56 should jump to loc_3F262 while `Berzerker_charging` is set"
         );
     }
 
