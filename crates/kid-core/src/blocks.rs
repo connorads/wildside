@@ -250,6 +250,13 @@ pub(crate) struct ShooterCenterWorkerGateLoc1146E {
     pub(crate) should_queue_center_worker: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterCollisionRightBottomBlocksLocF580 {
+    pub(crate) right_block: i16,
+    pub(crate) bottom_block: i16,
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
@@ -863,8 +870,12 @@ impl NativeRuntime {
         // rectangles per visible shooter edge inside that window.
         let left_block = (((i32::from(kid_hitbox.left_px)) >> 4) - 1).max(0) as i16;
         let top_block = Self::shooter_collision_top_block_loc_F574(kid_hitbox.top_px);
-        let right_block = ((i32::from(kid_hitbox.right_px) + 0x0F) >> 4) as i16 + 1;
-        let bottom_block = ((i32::from(kid_hitbox.bottom_px) + 0x0F) >> 4) as i16 + 1;
+        let right_bottom = Self::shooter_collision_right_bottom_blocks_loc_F580(
+            kid_hitbox.right_px,
+            kid_hitbox.bottom_px,
+        );
+        let right_block = right_bottom.right_block;
+        let bottom_block = right_bottom.bottom_block;
         let mut rects = Vec::new();
 
         for &(col, row, directions) in shooter_blocks {
@@ -960,6 +971,26 @@ impl NativeRuntime {
         // expanded top block, and negative word results are clamped to zero
         // before the right and bottom block bounds are derived.
         (((i32::from(kid_hitbox_top_px)) >> 4) - 1).max(0) as i16
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_collision_right_bottom_blocks_loc_F580(
+        kid_hitbox_right_px: i16,
+        kid_hitbox_bottom_px: i16,
+    ) -> ShooterCollisionRightBottomBlocksLocF580 {
+        // ASM loc_F580 (kid.asm:20210): add `$F` to the right and bottom
+        // hitbox words, logically shift each word right by four, then expand
+        // the resulting block bounds by one.
+        let right_block =
+            ((kid_hitbox_right_px as u16).wrapping_add(0x000F) >> 4).wrapping_add(1) as i16;
+        let bottom_block =
+            ((kid_hitbox_bottom_px as u16).wrapping_add(0x000F) >> 4).wrapping_add(1) as i16;
+
+        ShooterCollisionRightBottomBlocksLocF580 {
+            right_block,
+            bottom_block,
+        }
     }
 
     // Oracle-backed sub_1007A timing for demo 0x1B:

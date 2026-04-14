@@ -6880,6 +6880,26 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_collision_right_bottom_blocks_loc_f580_expands_after_logical_word_shift() {
+        assert_eq!(
+            NativeRuntime::shooter_collision_right_bottom_blocks_loc_F580(0x0060, 0x0070),
+            crate::blocks::ShooterCollisionRightBottomBlocksLocF580 {
+                right_block: 7,
+                bottom_block: 8,
+            },
+            "ASM loc_F580 should compute `(hitbox + $F) >> 4` and then add one block to both right and bottom bounds",
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_right_bottom_blocks_loc_F580(-0x0010, -0x0010),
+            crate::blocks::ShooterCollisionRightBottomBlocksLocF580 {
+                right_block: 0x1000,
+                bottom_block: 0x1000,
+            },
+            "ASM loc_F580 should use logical `lsr.w`, not arithmetic shift, after the wrapping 16-bit add",
+        );
+    }
+
+    #[test]
     fn shooter_block_fires_all_four_directions() {
         // Skin byte 0x0F = all directions (up + right + down + left)
         let mut rt = NativeRuntime::new(manifest());
