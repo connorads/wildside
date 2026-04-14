@@ -3787,6 +3787,38 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_E1522_queues_selected_command_and_one_low_payload_byte() {
+        let write = sound_driver_write_command_and_byte_loc_E1522(0x3E, 0x10, 0xA5);
+
+        assert_eq!(
+            write,
+            SoundDriverWriteCommandAndByte {
+                begin_write: SoundDriverBeginWriteSubE143A {
+                    command_head_address: 0xA00036,
+                    ring_buffer_address: 0xA01A40,
+                    write_index: 0x3E,
+                    interrupt_mask: 0x0700,
+                    requests_z80_bus: true,
+                    waits_for_bus_grant: true,
+                },
+                command_write: SoundDriverWriteCommandSubE1482 {
+                    queued_bytes: [0xFF, 0x10],
+                    next_write_index: 0x00,
+                },
+                payload_write: SoundDriverWriteByteSubE148E {
+                    queued_byte: 0xA5,
+                    next_write_index: 0x01,
+                    committed_write_index: 0x01,
+                },
+                releases_z80_bus: true,
+                restores_previous_sr: true,
+            },
+            "ASM loc_E1522 should queue caller-selected command `$10` through sub_E1482, then queue only the low byte from `8(a6)` before the loc_E1470 cleanup",
+        );
+    }
+
+    #[test]
     fn sound_driver_write_sub_e151c_queues_ff10_and_the_sound_id() {
         let write = sound_driver_write_sub_E151C(0x3F, 0xA5);
 

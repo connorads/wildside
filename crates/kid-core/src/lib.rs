@@ -781,14 +781,15 @@ pub(crate) fn sound_driver_write_pointer_sub_E14AC(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn sound_driver_write_sub_E151C(
+pub(crate) fn sound_driver_write_command_and_byte_loc_E1522(
     command_head_byte: u8,
+    command_byte: u8,
     sound_id: u8,
 ) -> SoundDriverWriteCommandAndByte {
-    // ASM sub_E151C (kid.asm:49766): enter the shared Z80/GEMS write section,
-    // queue `FF 10` through sub_E1482, then queue the low byte from `8(a6)`
-    // through sub_E148E before releasing the bus in loc_E1470.
-    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, 0x10);
+    // ASM loc_E1522 (kid.asm:49770): after the caller selects `d0`, queue the
+    // `FF,<command>` pair through sub_E1482, then queue only the low byte from
+    // `8(a6)` through sub_E148E before releasing the Z80 bus in loc_E1470.
+    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, command_byte);
     SoundDriverWriteCommandAndByte {
         begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
         command_write,
@@ -800,21 +801,24 @@ pub(crate) fn sound_driver_write_sub_E151C(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E151C(
+    command_head_byte: u8,
+    sound_id: u8,
+) -> SoundDriverWriteCommandAndByte {
+    // ASM sub_E151C (kid.asm:49766): enter the shared Z80/GEMS write section,
+    // load command `$10`, then fall through to loc_E1522 for the payload write.
+    sound_driver_write_command_and_byte_loc_E1522(command_head_byte, 0x10, sound_id)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_sub_E153E(
     command_head_byte: u8,
     sound_id: u8,
 ) -> SoundDriverWriteCommandAndByte {
     // ASM sub_E153E (kid.asm:49796): enter the shared Z80/GEMS write section,
-    // queue `FF 12` through sub_E1482, then queue the low byte from `8(a6)`
-    // through sub_E148E before releasing the bus in loc_E1470.
-    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, 0x12);
-    SoundDriverWriteCommandAndByte {
-        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
-        command_write,
-        payload_write: sound_driver_write_byte_sub_E148E(command_write.next_write_index, sound_id),
-        releases_z80_bus: true,
-        restores_previous_sr: true,
-    }
+    // load command `$12`, then branch to loc_E1522 for the payload write.
+    sound_driver_write_command_and_byte_loc_E1522(command_head_byte, 0x12, sound_id)
 }
 
 #[derive(Debug, Clone, Copy)]
