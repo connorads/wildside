@@ -15073,4 +15073,30 @@ mod chunk_12 {
             "ASM loc_D876 should write `-1` to `$FFFFF88C`"
         );
     }
+
+    /// ASM loc_D882 (kid.asm:16958): the end-credits fade underflow tail sets
+    /// `$FFFFFBCE`, clears `$FFFFFBCC`, writes `Game_Mode=$30`, and jumps to
+    /// the shared `loc_6E2` mode reset.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D882_end_credits_tail_enters_end_sequence_mode() {
+        let tail = crate::level::end_credits_tail_loc_D882();
+
+        assert!(
+            tail.enters_end_sequence,
+            "ASM loc_D882 should set `$FFFFFBCE` via `st`"
+        );
+        assert_eq!(
+            tail.fade_colour_word, 0,
+            "ASM loc_D882 should clear `$FFFFFBCC`"
+        );
+        assert_eq!(
+            tail.game_mode, 0x0030,
+            "ASM loc_D882 should write `$30` to `Game_Mode`"
+        );
+        assert_eq!(
+            tail.tail_jump, "loc_6E2",
+            "ASM loc_D882 should jump to the shared mode reset tail"
+        );
+    }
 }

@@ -11624,6 +11624,28 @@ pub(crate) fn end_credits_fade_loopback_loc_D876() -> (u32, u32) {
     (u32::MAX, u32::MAX)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndCreditsTailLocD882 {
+    pub(crate) enters_end_sequence: bool,
+    pub(crate) fade_colour_word: u16,
+    pub(crate) game_mode: u16,
+    pub(crate) tail_jump: &'static str,
+}
+
+/// ASM loc_D882 (kid.asm:16958): once the end-credits fade progress underflows,
+/// set `$FFFFFBCE`, clear `$FFFFFBCC`, switch `Game_Mode` to `$30`, and jump
+/// through the shared `loc_6E2` mode-reset tail.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_tail_loc_D882() -> EndCreditsTailLocD882 {
+    EndCreditsTailLocD882 {
+        enters_end_sequence: true,
+        fade_colour_word: 0,
+        game_mode: 0x0030,
+        tail_jump: "loc_6E2",
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
