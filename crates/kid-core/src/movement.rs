@@ -1123,10 +1123,9 @@ pub(crate) fn allocate_object_and_gfx_links_sub_E02(
     object_slot_address: u32,
     gfx_slot_address: u32,
 ) -> ObjectGfxLinksSubE02 {
-    // ASM sub_E02 (kid.asm:1622): `Allocate_ObjectSlot` leaves the new object
-    // in `a0`, `Allocate_GfxObjectSlot_a1` leaves the gfx object in `a1`,
-    // then the routine cross-links them through object `$36(a0)` and gfx
-    // `$C(a1)` before returning.
+    // ASM sub_E02 / loc_E0C (kid.asm:1622, 1627): `Allocate_ObjectSlot`
+    // leaves the new object in `a0`, `Allocate_GfxObjectSlot_a1` leaves the
+    // gfx object in `a1`, then loc_E0C writes `a1` into object `$36(a0)`.
     ObjectGfxLinksSubE02 {
         object_slot_address,
         gfx_slot_address,

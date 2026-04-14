@@ -6341,7 +6341,7 @@ mod chunk_03 {
         );
         assert_eq!(
             links.object_to_gfx_link, 0x00FF_9000,
-            "ASM sub_E02 should write the allocated gfx slot pointer into object `$36(a0)`",
+            "ASM loc_E0C should write the allocated gfx slot pointer into object `$36(a0)`",
         );
     }
 
