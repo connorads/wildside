@@ -9045,6 +9045,30 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EC52 (kid.asm:19111): only a zero age word at `$8(a0)` enters
+    /// the bullet allocation loop; that path centres the stored block col/row
+    /// in pixels and preserves `$6(a0)` as the direction bitfield.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EC52_loads_only_zero_age_evanescent_objects() {
+        assert_eq!(
+            crate::level::evanescent_bullet_load_candidate_loc_EC52(0x04A6, 7, 12, 0b1010, 0,),
+            Some(crate::level::EvanescentBulletLoadCandidateLocEC52 {
+                layout_word_addr: 0x04A6,
+                block_x_px: 120,
+                block_y_px: 200,
+                direction_bits: 0b1010,
+            }),
+            "ASM loc_EC52 should turn `$2/$4(a0)` block coords into centred pixel coords with `lsl #4; addq #8` before the direction loop"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_load_candidate_loc_EC52(0x04A6, 7, 12, 0b1010, 1,),
+            None,
+            "ASM loc_EC52 should branch to loc_ECA6 without loading bullets whenever `$8(a0)` is non-zero"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

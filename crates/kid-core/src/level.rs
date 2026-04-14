@@ -896,6 +896,15 @@ pub(crate) enum EvanescentBulletCellScanLocEB62 {
     TriggerEvanescentBlock,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletLoadCandidateLocEC52 {
+    pub(crate) layout_word_addr: u16,
+    pub(crate) block_x_px: u16,
+    pub(crate) block_y_px: u16,
+    pub(crate) direction_bits: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8425,6 +8434,31 @@ pub(crate) fn evanescent_bullet_cell_scan_loc_EB62(
     } else {
         EvanescentBulletCellScanLocEB62::Continue
     }
+}
+
+/// ASM loc_EC52 (kid.asm:19111): process the current evanescent object only
+/// when its age word `$8(a0)` is zero. The ROM converts stored block col/row at
+/// `$2/$4(a0)` to centred pixel coordinates via `lsl #4; addq #8`, then hands
+/// `$6(a0)` direction bits to the bullet allocation loop.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_load_candidate_loc_EC52(
+    layout_word_addr: u16,
+    block_col: u16,
+    block_row: u16,
+    direction_bits: u16,
+    age: u16,
+) -> Option<EvanescentBulletLoadCandidateLocEC52> {
+    if age != 0 {
+        return None;
+    }
+
+    Some(EvanescentBulletLoadCandidateLocEC52 {
+        layout_word_addr,
+        block_x_px: block_col.wrapping_mul(16).wrapping_add(8),
+        block_y_px: block_row.wrapping_mul(16).wrapping_add(8),
+        direction_bits,
+    })
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,
