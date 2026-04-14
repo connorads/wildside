@@ -441,6 +441,7 @@ pub(crate) struct SoundDriverUploadSubE13DA {
     pub(crate) destination_start: u32,
     pub(crate) destination_end_exclusive: u32,
     pub(crate) driver_bytes: Vec<u8>,
+    pub(crate) driver_copy_iterations: usize,
     pub(crate) zero_fill_len: usize,
     pub(crate) requests_z80_reset: bool,
     pub(crate) stops_z80: bool,
@@ -650,6 +651,9 @@ pub(crate) fn sound_driver_upload_sub_E13DA(
     // ASM sub_E13DA (kid.asm:49599): assert Z80 reset, stop the Z80 bus,
     // copy `sound/GEMS_Sounddriver.bin` into `$A00000`, then zero-fill the
     // remainder of `$A00000..$A02000` before restoring `a1`.
+    // ASM loc_E1400 (kid.asm:49610): `move.b (a0)+,(a1)+; dbf d0,loc_E1400`
+    // runs for the inclusive count seeded from `GEMS_Sounddriver_End -
+    // GEMS_Sounddriver - 1`, so it copies exactly the driver byte length.
     let source_relative_path = "sound/GEMS_Sounddriver.bin";
     let driver_bytes = fs::read(manifest.source_root.join(source_relative_path))?;
     let z80_ram_len = 0x2000usize;
@@ -658,6 +662,7 @@ pub(crate) fn sound_driver_upload_sub_E13DA(
         source_relative_path,
         destination_start: 0xA00000,
         destination_end_exclusive: 0xA02000,
+        driver_copy_iterations: driver_bytes.len(),
         driver_bytes,
         zero_fill_len,
         requests_z80_reset: true,
