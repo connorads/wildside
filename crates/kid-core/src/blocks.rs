@@ -1741,6 +1741,8 @@ impl NativeRuntime {
             // ASM loc_F0D8 (kid.asm:19649): scan rows from `kid_y_block-5`,
             // clamped to zero, through the later `kid_y_block+2` lower bound.
             let start_row = (kid_block_row - 5).max(0) as u16;
+            // ASM loc_F0E0 (kid.asm:19655): build the inclusive bottom row as
+            // `kid_y_block+2`, clamping to `Level_height_blocks-1`.
             let end_row = (kid_block_row + 2).min(max_row) as u16;
             for row in start_row..=end_row {
                 let cell = grid.cell_at(entering_col, row);
