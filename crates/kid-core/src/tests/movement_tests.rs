@@ -717,6 +717,45 @@ mod chunk_11 {
     }
 
     #[test]
+    fn loc_e2a8_initialises_hidden_block_reveal_gfx_fields_and_offsets_flipped_x() {
+        assert_eq!(
+            crate::movement::hidden_block_reveal_gfx_init_loc_E2A8(
+                0x0012,
+                0x0007,
+                0xFFFF_A8B4,
+                0xE304,
+                0x1114,
+                0,
+            ),
+            crate::movement::HiddenBlockRevealGfxInitLocE2A8 {
+                flag_13: 0xFF,
+                palette_line: 0,
+                block_col: 0x0012,
+                block_row: 0x0007,
+                layout_word_addr: 0xFFFF_A8B4,
+                animation_seed: 0xE304,
+                sprite_mapping: 0x1114,
+                x_tile_for_position: 0x0012,
+            },
+            "ASM loc_E2A8 should copy parent `$44/$46/$48/$4C/$4E` fields, set `$13(a3)`, clear `palette_line(a3)`, and leave `d4=d1` when `x_direction(a3)` is zero",
+        );
+
+        assert_eq!(
+            crate::movement::hidden_block_reveal_gfx_init_loc_E2A8(
+                0x0012,
+                0x0007,
+                0xFFFF_A8B4,
+                0xE304,
+                0x1114,
+                0xFF,
+            )
+            .x_tile_for_position,
+            0x0013,
+            "ASM loc_E2A8 should run `addq.w #1,d4` before loc_E2D2 when `x_direction(a3)` is non-zero",
+        );
+    }
+
+    #[test]
     fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
         assert_eq!(
             crate::level::indoor_rubber_block_source_words_loc_14506(

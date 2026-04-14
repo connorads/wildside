@@ -1239,6 +1239,19 @@ pub(crate) struct HiddenBlockRevealGfxLoadLocE29A {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockRevealGfxInitLocE2A8 {
+    pub(crate) flag_13: u8,
+    pub(crate) palette_line: u8,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) layout_word_addr: u32,
+    pub(crate) animation_seed: u16,
+    pub(crate) sprite_mapping: u16,
+    pub(crate) x_tile_for_position: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockJumpSnapLocE1FE {
     pub(crate) y_velocity_fp: i32,
     pub(crate) y_subpixel: u16,
@@ -1460,6 +1473,37 @@ pub(crate) fn hidden_block_reveal_gfx_load_loc_E29A(
     HiddenBlockRevealGfxLoadLocE29A {
         gfx_load_arg: 0x00FF_0004,
         gfx_slot_addr: parent_gfx_slot_addr,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_reveal_gfx_init_loc_E2A8(
+    block_col: u16,
+    block_row: u16,
+    layout_word_addr: u32,
+    animation_seed: u16,
+    sprite_mapping: u16,
+    x_direction: u8,
+) -> HiddenBlockRevealGfxInitLocE2A8 {
+    // ASM loc_E2A8 (kid.asm:17740): mark byte `$13(a3)`, clear
+    // `palette_line(a3)`, copy `$44/$46/$48/$4C/$4E(a5)`, then add one block
+    // to the X tile only when the gfx object's `x_direction` byte is non-zero.
+    let x_tile_for_position = if x_direction == 0 {
+        block_col
+    } else {
+        block_col.wrapping_add(1)
+    };
+
+    HiddenBlockRevealGfxInitLocE2A8 {
+        flag_13: 0xFF,
+        palette_line: 0,
+        block_col,
+        block_row,
+        layout_word_addr,
+        animation_seed,
+        sprite_mapping,
+        x_tile_for_position,
     }
 }
 
