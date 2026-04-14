@@ -14926,4 +14926,55 @@ mod chunk_12 {
             "ASM loc_D418 falls through to `move.w #$100,($FFFFF876).w`"
         );
     }
+
+    /// ASM loc_D428 (kid.asm:16599): each continue-timeout title-return fade
+    /// frame subtracts `$10` from `$FFFFF876`; non-negative results reseed both
+    /// pending shadow-palette longwords to `-1`, while the negative underflow
+    /// frame exits without rewriting them.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D428_continue_timeout_title_fade_reseeds_masks_until_underflow() {
+        let first = crate::boot::continue_timeout_title_fade_step_loc_D428(0x0100, 0, 0);
+
+        assert_eq!(
+            first.fade_progress, 0x00F0,
+            "ASM loc_D428 subtracts `$10` from the `$0100` fade seed on the first frame"
+        );
+        assert_eq!(
+            first.pending_palette_0_mask,
+            u32::MAX,
+            "ASM loc_D428 non-final frames write `-1` to the first shadow-palette longword"
+        );
+        assert_eq!(
+            first.pending_palette_1_mask,
+            u32::MAX,
+            "ASM loc_D428 non-final frames write `-1` to the second shadow-palette longword"
+        );
+        assert!(
+            !first.return_to_title,
+            "ASM loc_D428 should keep fading while the post-subtract word is non-negative"
+        );
+
+        let final_step = crate::boot::continue_timeout_title_fade_step_loc_D428(
+            0x0000,
+            0x1234_5678,
+            0x9ABC_DEF0,
+        );
+        assert_eq!(
+            final_step.fade_progress, 0xFFF0,
+            "ASM loc_D428 wraps negative when `$0000 - $10` underflows"
+        );
+        assert_eq!(
+            final_step.pending_palette_0_mask, 0x1234_5678,
+            "ASM loc_D428 underflow exits before refreshing the first shadow-palette longword"
+        );
+        assert_eq!(
+            final_step.pending_palette_1_mask, 0x9ABC_DEF0,
+            "ASM loc_D428 underflow exits before refreshing the second shadow-palette longword"
+        );
+        assert!(
+            final_step.return_to_title,
+            "ASM loc_D428 should return to the title-reset tail once the fade word is negative"
+        );
+    }
 }

@@ -2199,6 +2199,15 @@ pub(crate) struct ContinueTimeoutTitlePaletteClearLocD418 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ContinueTimeoutTitleFadeStepLocD428 {
+    pub(crate) fade_progress: u16,
+    pub(crate) pending_palette_0_mask: u32,
+    pub(crate) pending_palette_1_mask: u32,
+    pub(crate) return_to_title: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -4031,6 +4040,36 @@ pub(crate) fn continue_timeout_title_palette_clear_loc_D418()
         palette_clear_dbf_seed: 0x003F,
         palette_clear_words: 0x0040,
         fade_progress_seed: 0x0100,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn continue_timeout_title_fade_step_loc_D428(
+    fade_progress: u16,
+    pending_palette_0_mask: u32,
+    pending_palette_1_mask: u32,
+) -> ContinueTimeoutTitleFadeStepLocD428 {
+    // ASM loc_D428 (kid.asm:16599): each title-return fade frame waits for
+    // VBlank, idles once, uploads the palette, runs the palette fade helper,
+    // then subtracts `$10` from `$FFFFF876`. Non-negative results rewrite both
+    // shadow palette longwords to `-1`; a negative result exits without
+    // refreshing them.
+    let fade_progress = fade_progress.wrapping_sub(0x0010);
+    if (fade_progress as i16) < 0 {
+        return ContinueTimeoutTitleFadeStepLocD428 {
+            fade_progress,
+            pending_palette_0_mask,
+            pending_palette_1_mask,
+            return_to_title: true,
+        };
+    }
+
+    ContinueTimeoutTitleFadeStepLocD428 {
+        fade_progress,
+        pending_palette_0_mask: u32::MAX,
+        pending_palette_1_mask: u32::MAX,
+        return_to_title: false,
     }
 }
 
