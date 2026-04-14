@@ -2467,8 +2467,17 @@ pub(crate) fn ufo_apply_acceleration_axis_loc_3501e(
     acceleration: i32,
 ) -> i32 {
     // ASM UFO.asm loc_3501E: negative-branch accelerant path in
-    // `Enemy_HandleAcceleration` keeps the accelerated value when it stays above
-    // target and clamps to target when it would cross or equal it.
+    // `Enemy_HandleAcceleration` follows `loc_35044`.
+    ufo_apply_acceleration_axis_loc_35044(current_velocity, target_velocity, acceleration)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_apply_acceleration_axis_loc_35044(
+    current_velocity: i32,
+    target_velocity: i32,
+    acceleration: i32,
+) -> i32 {
+    // ASM UFO.asm loc_35044: keep the accelerated value while it stays above the target.
     let next_velocity = current_velocity.saturating_add(acceleration);
     if next_velocity > target_velocity {
         next_velocity
@@ -7520,6 +7529,20 @@ mod tests {
             ufo_apply_acceleration_axis_loc_3501e(0x0800, 0x0700, -0x0200),
             0x0700,
             "ASM UFO.asm loc_3501E clamps to target when the next value would undershoot"
+        );
+    }
+
+    #[test]
+    fn ufo_apply_acceleration_axis_matches_loc_35044() {
+        assert_eq!(
+            ufo_apply_acceleration_axis_loc_35044(0x0300, 0x0180, -0x0100),
+            0x0200,
+            "ASM UFO.asm loc_35044 keeps accelerating on the negative branch"
+        );
+        assert_eq!(
+            ufo_apply_acceleration_axis_loc_35044(0x0300, 0x0201, -0x0100),
+            0x0201,
+            "ASM UFO.asm loc_35044 clamps to target when the next value would pass below"
         );
     }
 
