@@ -9662,6 +9662,23 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F86E (kid.asm:20546): the final packed queue word combines the
+    /// masked row bits with the packed X bits via OR.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F86E_ors_masked_row_bits_with_packed_x_bits() {
+        assert_eq!(
+            crate::level::animated_solid_block_row_queue_word_loc_F86E(0x0A00, 0x0040),
+            0x0A40,
+            "ASM loc_F86E should combine row bits and X bits using OR"
+        );
+        assert_eq!(
+            crate::level::animated_solid_block_row_queue_word_loc_F86E(0x0C00, 0x0018),
+            0x0C18,
+            "ASM loc_F86E should preserve packed X bits while keeping masked row bits"
+        );
+    }
+
     /// ASM loc_F85A (kid.asm:20528): each DBF iteration writes `$E304` to the
     /// current Level_Layout cell, queues VDP data only for visible rows, then
     /// advances by one row through `Level_width_tiles`.

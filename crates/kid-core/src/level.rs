@@ -987,6 +987,17 @@ pub(crate) fn animated_solid_block_row_hi_bits_masked_loc_F86A(block_row_hi_bits
     block_row_hi_bits & 0x0F00
 }
 
+/// ASM loc_F86E (kid.asm:20546): combine the masked row bits with packed x bits
+/// before queueing the FG update entry.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_row_queue_word_loc_F86E(
+    masked_row_hi_bits: u16,
+    packed_cell_x_bits: u16,
+) -> u16 {
+    masked_row_hi_bits | packed_cell_x_bits
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleSpriteWordsLocF41E {
@@ -9232,8 +9243,10 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
         if (input.camera_top_row..=input.camera_bottom_row).contains(&row) {
             let row_hi_bits = animated_solid_block_row_hi_bits_loc_F866(row);
             let row_hi_bits = animated_solid_block_row_hi_bits_masked_loc_F86A(row_hi_bits);
+            let vram_word_address =
+                animated_solid_block_row_queue_word_loc_F86E(row_hi_bits, input.packed_cell_x_bits);
             custom_queue_entries.push(FgUpdateQueueCustomEntrySub1596 {
-                vram_word_address: row_hi_bits | input.packed_cell_x_bits,
+                vram_word_address,
                 first_longword: input.mapping_longwords[0],
                 second_longword: input.mapping_longwords[1],
             });
