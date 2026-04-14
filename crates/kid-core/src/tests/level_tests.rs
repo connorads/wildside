@@ -8443,6 +8443,52 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EA3E (kid.asm:18770): decrement `$8(a2)` first. Only a timer
+    /// of one is restored to one and allowed to test the signed layout byte's
+    /// low nibble before falling through to `loc_EA5A`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EA3E_evanescent_removal_gate_requires_timer_and_negative_low_nibble() {
+        let waiting = crate::level::evanescent_block_removal_gate_loc_EA3E(3, 0x8C);
+        assert_eq!(
+            waiting,
+            crate::level::EvanescentBlockRemovalGateLocEA3E {
+                next_timer: 2,
+                should_try_remove_block: false,
+            },
+            "ASM loc_EA3E should branch to loc_EAAA after any non-zero post-decrement timer"
+        );
+
+        let wrapped = crate::level::evanescent_block_removal_gate_loc_EA3E(0, 0x8C);
+        assert_eq!(
+            wrapped.next_timer, 0xFFFF,
+            "ASM loc_EA3E should use word wrapping before the BNE test"
+        );
+        assert!(
+            !wrapped.should_try_remove_block,
+            "ASM loc_EA3E should not inspect the layout byte when the wrapped timer is non-zero"
+        );
+
+        let solid = crate::level::evanescent_block_removal_gate_loc_EA3E(1, 0x8C);
+        assert_eq!(
+            solid,
+            crate::level::EvanescentBlockRemovalGateLocEA3E {
+                next_timer: 1,
+                should_try_remove_block: true,
+            },
+            "ASM loc_EA3E should restore the timer to one and continue only for negative layout bytes with low nibble < `$D`"
+        );
+
+        assert!(
+            !crate::level::evanescent_block_removal_gate_loc_EA3E(1, 0x7C).should_try_remove_block,
+            "ASM loc_EA3E should branch away when `move.b (a1),d0` is non-negative"
+        );
+        assert!(
+            !crate::level::evanescent_block_removal_gate_loc_EA3E(1, 0x8D).should_try_remove_block,
+            "ASM loc_EA3E should branch away when the low nibble is `$D` or higher"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

@@ -760,6 +760,13 @@ pub(crate) struct HiddenBlockPrizeRevealScanTailLocE48E {
     pub(crate) loops_to_sub_e446: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBlockRemovalGateLocEA3E {
+    pub(crate) next_timer: u16,
+    pub(crate) should_try_remove_block: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -7916,6 +7923,31 @@ pub(crate) fn hidden_block_prize_reveal_scan_tail_loc_E48E(
         next_layout_word_addr: layout_word_addr.wrapping_add(level_width_tiles),
         next_dbf_counter,
         loops_to_sub_e446: next_dbf_counter != 0xFFFF,
+    }
+}
+
+/// ASM loc_EA3E (kid.asm:18770): decrement the evanescent object's timer at
+/// `$8(a2)`. Only the exact `1 -> 0` transition restores the timer to one and
+/// inspects the pointed Level_Layout byte; removal continues to `loc_EA5A`
+/// only when that byte is negative and its low nibble is less than `$D`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_block_removal_gate_loc_EA3E(
+    timer: u16,
+    layout_cell_hi_byte: u8,
+) -> EvanescentBlockRemovalGateLocEA3E {
+    let decremented_timer = timer.wrapping_sub(1);
+    if decremented_timer != 0 {
+        return EvanescentBlockRemovalGateLocEA3E {
+            next_timer: decremented_timer,
+            should_try_remove_block: false,
+        };
+    }
+
+    EvanescentBlockRemovalGateLocEA3E {
+        next_timer: 1,
+        should_try_remove_block: (layout_cell_hi_byte as i8) < 0
+            && (layout_cell_hi_byte & 0x0F) < 0x0D,
     }
 }
 
