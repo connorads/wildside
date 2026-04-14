@@ -162,6 +162,33 @@ pub(crate) fn lion_tracking_gate_loc_3e054(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLatchClearResult {
+    pub(crate) range_latch_set: bool,
+    pub(crate) facing: Direction,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_clear_tracking_latch_loc_3e066(
+    lion_x_word: u16,
+    kid_x_word: u16,
+) -> LionLatchClearResult {
+    let lion_x = i16::from_ne_bytes(lion_x_word.to_ne_bytes());
+    let kid_x = i16::from_ne_bytes(kid_x_word.to_ne_bytes());
+    let delta = lion_x.wrapping_sub(kid_x);
+    // ASM Lion.asm loc_3E066: `sf $4E(a5)` clears the tracking latch before
+    // the same signed `d4 = lion_x - kid_x` value selects the Lion's facing.
+    LionLatchClearResult {
+        range_latch_set: false,
+        facing: if delta < 0 {
+            Direction::Right
+        } else {
+            Direction::Left
+        },
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -6372,6 +6399,26 @@ mod tests {
             lion_tracking_gate_loc_3e054(0x0100 + 0x0041, 0x0100, false),
             LionTrackingGate::TrackKid,
             "ASM Lion.asm loc_3E054 should fall through to the facing update immediately when `$4E(a5)` is clear"
+        );
+    }
+
+    #[test]
+    fn lion_clear_tracking_latch_matches_loc_3e066() {
+        assert_eq!(
+            lion_clear_tracking_latch_loc_3e066(0x0200, 0x0300),
+            LionLatchClearResult {
+                range_latch_set: false,
+                facing: Direction::Right,
+            },
+            "ASM Lion.asm loc_3E066 should clear `$4E(a5)` and keep negative d4 facing toward Kid on the right"
+        );
+        assert_eq!(
+            lion_clear_tracking_latch_loc_3e066(0x0300, 0x0200),
+            LionLatchClearResult {
+                range_latch_set: false,
+                facing: Direction::Left,
+            },
+            "ASM Lion.asm loc_3E066 should clear `$4E(a5)` and keep non-negative d4 facing toward Kid on the left"
         );
     }
 
