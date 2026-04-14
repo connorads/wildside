@@ -810,6 +810,18 @@ pub(crate) enum EvanescentShooterCellScanLocF1DE {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterFrameScanStartLocF25C {
+    pub(crate) left_block_col: u16,
+    pub(crate) right_block_col: u16,
+    pub(crate) top_block_row: u16,
+    pub(crate) bottom_block_row: u16,
+    pub(crate) sprite_link_word: u16,
+    pub(crate) first_active_slot_addr: u32,
+    pub(crate) should_scan_active_slots: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8435,6 +8447,32 @@ pub(crate) fn evanescent_shooter_second_scan_right_neighbour_mark_loc_F224(
             stored_local_word
         },
         shifted_direction_bits,
+    }
+}
+
+/// ASM loc_F25C (kid.asm:19832): seed the visible shooter scan from the
+/// integer camera words. The ROM scans a 21-column by 15-row block window,
+/// keeps the current sprite count in the low byte of `$0500`, and skips the
+/// active-list scan entirely when `$FFFFF8C2` is zero.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_frame_scan_start_loc_F25C(
+    camera_x_word: u16,
+    camera_y_word: u16,
+    number_sprites: u8,
+    first_active_slot_addr: u32,
+) -> ShooterFrameScanStartLocF25C {
+    let left_block_col = camera_x_word >> 4;
+    let top_block_row = camera_y_word >> 4;
+
+    ShooterFrameScanStartLocF25C {
+        left_block_col,
+        right_block_col: left_block_col.wrapping_add(0x14),
+        top_block_row,
+        bottom_block_row: top_block_row.wrapping_add(0x0E),
+        sprite_link_word: 0x0500 | u16::from(number_sprites),
+        first_active_slot_addr,
+        should_scan_active_slots: first_active_slot_addr != 0,
     }
 }
 

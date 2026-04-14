@@ -8830,6 +8830,33 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F25C (kid.asm:19832): the visible shooter pass derives the
+    /// block-space camera window from `Camera_X/Y_pos`, seeds the sprite link
+    /// word as `$0500 | Number_Sprites`, and only scans when `$FFFFF8C2` is set.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F25C_seeds_the_visible_shooter_scan_window_and_sprite_counter() {
+        assert_eq!(
+            crate::level::shooter_frame_scan_start_loc_F25C(0x0123, 0x00B7, 0x2A, 0xFFFF_E7F2,),
+            crate::level::ShooterFrameScanStartLocF25C {
+                left_block_col: 0x0012,
+                right_block_col: 0x0026,
+                top_block_row: 0x000B,
+                bottom_block_row: 0x0019,
+                sprite_link_word: 0x052A,
+                first_active_slot_addr: 0xFFFF_E7F2,
+                should_scan_active_slots: true,
+            },
+            "ASM loc_F25C should scan camera blocks `[x..x+$14]` and `[y..y+$E]` and preserve Number_Sprites in `$0500`'s low byte"
+        );
+
+        assert!(
+            !crate::level::shooter_frame_scan_start_loc_F25C(0, 0, 0x7F, 0)
+                .should_scan_active_slots,
+            "ASM loc_F25C should branch directly to loc_F2B0 when the active shooter list head is zero"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
