@@ -910,6 +910,13 @@ pub(crate) struct ShooterVisibleRightCellUpdateLocF3BC {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterVisibleDownGateLocF3CC {
+    pub(crate) shifted_direction_bits: u16,
+    pub(crate) down_direction_set: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8787,6 +8794,20 @@ pub(crate) fn shooter_visible_right_cell_update_loc_F3BC(
         queue_block_col: block_col.wrapping_add(1),
         queue_block_row: block_row,
         queue_layout_word: right_cell_layout_word,
+    }
+}
+
+/// ASM loc_F3CC (kid.asm:19999): after the right visible-neighbour bit has
+/// been consumed, shift the direction word once more. Carry set enters the
+/// down-neighbour update at `loc_F3D6`; carry clear skips to `loc_F3EA`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_visible_down_gate_loc_F3CC(
+    direction_bits_after_right_check: u16,
+) -> ShooterVisibleDownGateLocF3CC {
+    ShooterVisibleDownGateLocF3CC {
+        shifted_direction_bits: direction_bits_after_right_check >> 1,
+        down_direction_set: (direction_bits_after_right_check & 1) != 0,
     }
 }
 

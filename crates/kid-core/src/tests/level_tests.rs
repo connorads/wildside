@@ -9219,6 +9219,31 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F3CC (kid.asm:19999): after the right-neighbour path, the ROM
+    /// shifts once more; carry set enters the down-cell write and carry clear
+    /// skips to the left-neighbour gate at `loc_F3EA`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F3CC_consumes_the_visible_down_direction_bit() {
+        assert_eq!(
+            crate::level::shooter_visible_down_gate_loc_F3CC(0b0011),
+            crate::level::ShooterVisibleDownGateLocF3CC {
+                shifted_direction_bits: 0b0001,
+                down_direction_set: true,
+            },
+            "ASM loc_F3CC should expose the down-neighbour carry after one `lsr.w #1,d0`"
+        );
+
+        assert_eq!(
+            crate::level::shooter_visible_down_gate_loc_F3CC(0b0010),
+            crate::level::ShooterVisibleDownGateLocF3CC {
+                shifted_direction_bits: 0b0001,
+                down_direction_set: false,
+            },
+            "ASM loc_F3CC should branch to loc_F3EA when the shifted-out down bit is clear"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
