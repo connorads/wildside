@@ -617,6 +617,13 @@ pub(crate) struct HiddenBlockRevealSubE3C6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockPrizeRevealScanStartLocE3E4 {
+    pub(crate) target_layout_addr: u16,
+    pub(crate) preincrement_cursor_addr: u32,
+    pub(crate) first_prize_record_addr: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockColumnUpdateSubE446 {
     pub(crate) layout_addr: u16,
     pub(crate) col: u16,
@@ -883,6 +890,22 @@ impl BlockList {
             cell: Cell::from_be_bytes((cell_word >> 8) as u8, cell_word as u8),
             sprite_mapping,
         })
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn hidden_block_prize_reveal_scan_start_loc_E3E4(
+        prize_block_list_base_addr: u32,
+        entry: &HiddenBlockEntry,
+    ) -> HiddenBlockPrizeRevealScanStartLocE3E4 {
+        // ASM loc_E3E4 (kid.asm:17883): save `a0`, load the prize-block list
+        // base from `$FFFFF8D4`, copy the current hidden-block layout word into
+        // `d3`, then subtract 8 so the following loop starts on record 0.
+        HiddenBlockPrizeRevealScanStartLocE3E4 {
+            target_layout_addr: entry.layout_addr,
+            preincrement_cursor_addr: prize_block_list_base_addr.wrapping_sub(8),
+            first_prize_record_addr: prize_block_list_base_addr,
+        }
     }
 
     #[allow(non_snake_case)]
@@ -3154,6 +3177,32 @@ mod tests {
             .expect("ASM sub_E3C6 should pick the disguised prize tile set when the prize entry is flagged negative");
         assert_eq!(disguised_prize.cell, Cell::from_be_bytes(0xE1, 0x05));
         assert_eq!(disguised_prize.sprite_mapping, 0x1058);
+    }
+
+    #[test]
+    fn loc_e3e4_hidden_block_prize_reveal_seeds_preincrement_scan() {
+        let entry = HiddenBlockEntry {
+            layout_addr: 0x0018,
+            col: 4,
+            row: 1,
+            block_type: 0x01,
+            block_setting: 0x04,
+        };
+
+        let scan = BlockList::hidden_block_prize_reveal_scan_start_loc_E3E4(0xFFFF_3B24, &entry);
+
+        assert_eq!(
+            scan.target_layout_addr, 0x0018,
+            "ASM loc_E3E4 should copy the hidden-block layout word from `(a4)` into `d3` before scanning prizes",
+        );
+        assert_eq!(
+            scan.preincrement_cursor_addr, 0xFFFF_3B1C,
+            "ASM loc_E3E4 should subtract 8 from the `$FFFFF8D4` prize-list base so the next pre-increment reaches record 0",
+        );
+        assert_eq!(
+            scan.first_prize_record_addr, 0xFFFF_3B24,
+            "ASM loc_E3E4 should preserve the actual first prize record after seeding the pre-increment cursor",
+        );
     }
 
     #[test]
