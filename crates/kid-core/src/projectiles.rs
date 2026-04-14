@@ -513,6 +513,9 @@ impl NativeRuntime {
                     p.reaim_countdown -= 1;
                 }
             }
+            // ASM loc_3E192: after lifecycle checks, this label drives per-frame
+            // lion projectile homing adjustments and then loops back for the next
+            // frame unless collision/terrain branches are taken.
             // Homing: accelerate toward player (per-projectile accel from ASM).
             if p.homing_accel != 0 {
                 if let (Some(px), Some(py)) = (player_x, player_y) {

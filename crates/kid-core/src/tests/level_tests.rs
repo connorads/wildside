@@ -14911,6 +14911,34 @@ mod chunk_10 {
     }
 
     #[test]
+    fn lion_projectile_loc_3e192_homing_entry_applies_dx_and_dy_sign_and_loops() {
+        // ASM loc_3E192: when no collision branch diverts the projectile, the
+        // homing block runs and the routine loops back to this label each frame.
+        let mut rt = NativeRuntime::new(manifest());
+        // At exact X match, dx == 0 maps to the "not greater" branch.
+        // At exact Y target (player_y-16), dy == 0 maps to the `beq.s loc_3E192` path.
+        let mut proj = make_projectile(50, 84);
+        proj.homing_accel = 0x1000;
+        proj.speed_cap = 0x6_0000;
+        rt.projectiles.push(proj);
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 50 << 16;
+        slice.player.y_pos = 100 << 16; // target = 84
+        rt.opening_slice = Some(slice);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles[0].x_velocity, -0x1000,
+            "loc_3E192 should keep the homing loop and use negative accel when dx <= 0",
+        );
+        assert_eq!(
+            rt.projectiles[0].y_velocity, -0x1000,
+            "loc_3E192 with dy = 0 should hit the `beq.w loc_3E192` branch path",
+        );
+    }
+
+    #[test]
     fn homing_accelerates_toward_player_on_both_axes() {
         // Player far right and below → both axes should get positive accel.
         // Player far left and above → both axes should get negative accel.
