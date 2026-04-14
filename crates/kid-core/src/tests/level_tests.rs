@@ -7121,7 +7121,7 @@ mod chunk_02 {
         assert_eq!(
             crate::level::first_platform_ceiling_overlap_loc_DAE8(probe, &terminated_slots),
             None,
-            "ASM loc_DAE8 should return no overlap on the zero platform-link word before reading later RAM slots"
+            "ASM loc_DB1A should return d7=0 on the zero platform-link word before reading later RAM slots"
         );
     }
 

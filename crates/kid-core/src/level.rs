@@ -11965,6 +11965,8 @@ pub(crate) struct PlatformBoundsLocDAE8 {
 /// link sentinel, skipping entries only when one of the signed `bgt`/`blt`
 /// separation checks proves the platform rectangle cannot overlap Kid's
 /// `loc_DAD6` probe rectangle.
+/// ASM loc_DB1A (kid.asm:17160): if the scan reaches the zero link sentinel,
+/// restore the saved registers and return `d7=0`; native returns `None`.
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn first_platform_ceiling_overlap_loc_DAE8(
