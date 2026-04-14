@@ -372,7 +372,13 @@ pub(crate) enum MiniHoppingSkullGroundWaitTail {
         next_dbf_counter: u16,
     },
     SwitchToLeftGroundWaitSetup,
+    SwitchToRightGroundWaitSetup,
     BeginRightHopWindup {
+        sprite: &'static str,
+        dbf_counter: u16,
+        wait_frames: u8,
+    },
+    BeginLeftHopWindup {
         sprite: &'static str,
         dbf_counter: u16,
         wait_frames: u8,
@@ -3187,6 +3193,32 @@ pub(crate) fn mini_hopping_skull_ground_wait_tail_loc_3eb78(
     } else {
         MiniHoppingSkullGroundWaitTail::BeginRightHopWindup {
             sprite: "LnkTo_unk_C8038",
+            dbf_counter: 0x000A,
+            wait_frames: 11,
+        }
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_left_ground_wait_tail_loc_3ecb2(
+    dbf_counter: u16,
+    kid_x_word: u16,
+    skull_x_word: u16,
+) -> MiniHoppingSkullGroundWaitTail {
+    // ASM Mini_Hopping_Skull.asm loc_3ECB2: `dbf d1` consumes the inclusive
+    // left-grounded wait counter first. Only the `$FFFF` fall-through compares
+    // Kid X against skull X as signed words; Kid to the right returns to
+    // loc_3EB00, otherwise the short left-hop windup uses `LnkTo_unk_C8018`.
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+    if next_dbf_counter != 0xFFFF {
+        return MiniHoppingSkullGroundWaitTail::ContinueWait { next_dbf_counter };
+    }
+
+    if (kid_x_word as i16) > (skull_x_word as i16) {
+        MiniHoppingSkullGroundWaitTail::SwitchToRightGroundWaitSetup
+    } else {
+        MiniHoppingSkullGroundWaitTail::BeginLeftHopWindup {
+            sprite: "LnkTo_unk_C8018",
             dbf_counter: 0x000A,
             wait_frames: 11,
         }
@@ -7305,6 +7337,45 @@ mod tests {
             mini_hopping_skull_ground_wait_tail_loc_3eb78(0x0000, 0x8000, 0x7FFF),
             MiniHoppingSkullGroundWaitTail::SwitchToLeftGroundWaitSetup,
             "ASM Mini_Hopping_Skull.asm loc_3EB78 uses signed word comparison, so `$8000` is less than `$7FFF`"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_left_ground_wait_tail_matches_loc_3ecb2_dbf_and_x_compare() {
+        assert_eq!(
+            mini_hopping_skull_left_ground_wait_tail_loc_3ecb2(0x0014, 24, 32),
+            MiniHoppingSkullGroundWaitTail::ContinueWait {
+                next_dbf_counter: 0x0013,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3ECB2 should loop while `dbf d1` leaves a non-$FFFF counter"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_ground_wait_tail_loc_3ecb2(0x0000, 33, 32),
+            MiniHoppingSkullGroundWaitTail::SwitchToRightGroundWaitSetup,
+            "ASM Mini_Hopping_Skull.asm loc_3ECB2 should branch to loc_3EB00 when Kid X is greater than skull X"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_ground_wait_tail_loc_3ecb2(0x0000, 32, 32),
+            MiniHoppingSkullGroundWaitTail::BeginLeftHopWindup {
+                sprite: "LnkTo_unk_C8018",
+                dbf_counter: 0x000A,
+                wait_frames: 11,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3ECB2 should start the left-hop windup when Kid X is equal to skull X"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_ground_wait_tail_loc_3ecb2(0x0000, 31, 32),
+            MiniHoppingSkullGroundWaitTail::BeginLeftHopWindup {
+                sprite: "LnkTo_unk_C8018",
+                dbf_counter: 0x000A,
+                wait_frames: 11,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3ECB2 should start the left-hop windup when Kid X is less than skull X"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_ground_wait_tail_loc_3ecb2(0x0000, 0x7FFF, 0x8000),
+            MiniHoppingSkullGroundWaitTail::SwitchToRightGroundWaitSetup,
+            "ASM Mini_Hopping_Skull.asm loc_3ECB2 uses signed word comparison, so `$7FFF` is greater than `$8000`"
         );
     }
 
