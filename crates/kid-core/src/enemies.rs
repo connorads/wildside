@@ -218,6 +218,14 @@ pub(crate) struct MiniHoppingSkullScreamWorkerAllocation {
     pub(crate) delay_frames: u8,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullRelaunchTail {
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) next_loop: &'static str,
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -3060,6 +3068,19 @@ pub(crate) fn mini_hopping_skull_right_hop_scream_worker_allocation_loc_3ebc4(
         routine: "sub_3F3F0",
         delay_frames: 15,
     })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26() -> MiniHoppingSkullRelaunchTail
+{
+    // ASM Mini_Hopping_Skull.asm loc_3EC26: after loc_3EBFC has seeded the
+    // rightward hop velocities, this shared tail sets `is_moved(a3)` and
+    // `has_level_collision(a3)`, then branches back to the airborne loop.
+    MiniHoppingSkullRelaunchTail {
+        is_moved: true,
+        has_level_collision: true,
+        next_loop: "loc_3EA88",
+    }
 }
 
 pub(crate) fn step_hopper(
@@ -6740,6 +6761,19 @@ mod tests {
             ),
             None,
             "ASM Mini_Hopping_Skull.asm loc_3EBC4 is skipped by the charging-Berzerker side-contact branch"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_right_hop_relaunch_tail_matches_loc_3ec26_flags() {
+        assert_eq!(
+            mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26(),
+            MiniHoppingSkullRelaunchTail {
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EC26 should re-enable movement and level collision before returning to loc_3EA88"
         );
     }
 
