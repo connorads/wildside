@@ -5248,10 +5248,7 @@ pub(crate) fn drips_collision_dispatch_loc_33550(
         };
     }
     if (collision_type & 0x8000) != 0 {
-        return DripsCollisionDispatchLoc33550 {
-            collision_type: 0,
-            contact_flag: 1,
-        };
+        return drips_collision_contact_result_loc_33576();
     }
 
     let adjusted = collision_type.wrapping_sub(0x001C);
@@ -5264,8 +5261,10 @@ pub(crate) fn drips_collision_dispatch_loc_33550(
 
     let contact_flag = match collision_type {
         0x001C => drips_collision_table_first_contact_loc_3356e(),
-        0x002C => 1,
-        0x0020 | 0x0024 if berzerker_charging => 1,
+        0x002C => drips_collision_contact_result_loc_33576().contact_flag,
+        0x0020 | 0x0024 if berzerker_charging => {
+            drips_collision_contact_result_loc_33576().contact_flag
+        }
         _ => 0,
     };
     DripsCollisionDispatchLoc33550 {
@@ -5279,6 +5278,16 @@ pub(crate) fn drips_collision_table_first_contact_loc_3356e() -> u16 {
     // ASM Drips.asm loc_3356E: the first dispatch-table branch is the
     // `$1C` collision slot and resolves to a contact result.
     1
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_collision_contact_result_loc_33576() -> DripsCollisionDispatchLoc33550 {
+    // ASM Drips.asm loc_33576: clear `collision_type(a3)`, set d5 to 1,
+    // and return to the caller.
+    DripsCollisionDispatchLoc33550 {
+        collision_type: 0,
+        contact_flag: 1,
+    }
 }
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
@@ -6598,6 +6607,26 @@ mod tests {
                 contact_flag: 1,
             },
             "ASM Drips.asm loc_3356E is reached from loc_33550 after clearing `collision_type(a3)`"
+        );
+    }
+
+    #[test]
+    fn drips_collision_contact_result_matches_loc_33576() {
+        assert_eq!(
+            drips_collision_contact_result_loc_33576(),
+            DripsCollisionDispatchLoc33550 {
+                collision_type: 0,
+                contact_flag: 1,
+            },
+            "ASM Drips.asm loc_33576 clears `collision_type(a3)`, moves 1 into d5, and returns"
+        );
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0xFFFF, false),
+            DripsCollisionDispatchLoc33550 {
+                collision_type: 0,
+                contact_flag: 1,
+            },
+            "ASM Drips.asm loc_33576 is also the negative collision word contact path"
         );
     }
 
