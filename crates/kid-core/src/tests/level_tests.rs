@@ -9806,6 +9806,37 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EEE4 (kid.asm:19410): moving-left collision gates on bit 14; age
+    /// two or higher always interacts, while younger ages continue only if the
+    /// `$1000` moving-left direction bit remains set.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EEE4_moving_left_collision_gate_uses_age_and_direction_bit() {
+        assert_eq!(
+            crate::level::shooter_object_moving_left_collision_gate_loc_EEE4(1, 0x5000),
+            crate::level::ShooterObjectMovingLeftNextLocEEE4::ContinueMovingLeft,
+            "ASM loc_EEE4 should continue for young ages when bit 14 and `$1000` are both set"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_left_collision_gate_loc_EEE4(1, 0x4000),
+            crate::level::ShooterObjectMovingLeftNextLocEEE4::InteractLevelLayout,
+            "ASM loc_EEE4 should interact for young ages when bit 14 is set but `$1000` is clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_left_collision_gate_loc_EEE4(2, 0x5000),
+            crate::level::ShooterObjectMovingLeftNextLocEEE4::InteractLevelLayout,
+            "ASM loc_EEE4 should interact at age 2 even when the `$1000` moving-left bit remains set"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_left_collision_gate_loc_EEE4(3, 0x1000),
+            crate::level::ShooterObjectMovingLeftNextLocEEE4::ContinueMovingLeft,
+            "ASM loc_EEE4 should skip the age and `$1000` tests when bit 14 is clear"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

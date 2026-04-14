@@ -1072,6 +1072,13 @@ pub(crate) struct ShooterObjectMovingLeftGateLocEED6 {
     pub(crate) layout_word_addr: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterObjectMovingLeftNextLocEEE4 {
+    ContinueMovingLeft,
+    InteractLevelLayout,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -9024,6 +9031,24 @@ pub(crate) fn shooter_object_moving_left_gate_loc_EED6(
             state_word: age_after_increment,
             layout_word_addr: current_layout_word_addr,
         }
+    }
+}
+
+/// ASM loc_EEE4 (kid.asm:19410): moving-left collision first requires bit 14.
+/// Ages two and above interact immediately; younger ages interact unless the
+/// moving-left `$1000` direction bit is still present.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_left_collision_gate_loc_EEE4(
+    state_word: u16,
+    selected_layout_word: u16,
+) -> ShooterObjectMovingLeftNextLocEEE4 {
+    if (selected_layout_word & 0x4000) == 0 {
+        ShooterObjectMovingLeftNextLocEEE4::ContinueMovingLeft
+    } else if state_word >= 2 || (selected_layout_word & 0x1000) == 0 {
+        ShooterObjectMovingLeftNextLocEEE4::InteractLevelLayout
+    } else {
+        ShooterObjectMovingLeftNextLocEEE4::ContinueMovingLeft
     }
 }
 
