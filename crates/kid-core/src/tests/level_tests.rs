@@ -6442,6 +6442,31 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D85E (kid.asm:16939): clear `Palette_Buffer_3` with 64 word
+    /// stores, then seed `$FFFFF876` to `$0100` before the end-credits fade
+    /// loop.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D85E_end_credits_clears_the_full_fade_target() {
+        let mut fade_target = [0x0EEE_u16; 0x40];
+
+        let fade_progress = crate::level::end_credits_palette_clear_loc_D85E(&mut fade_target);
+
+        assert!(
+            fade_target.iter().all(|word| *word == 0),
+            "ASM loc_D85E should write d1=0 to every Palette_Buffer_3 word"
+        );
+        assert_eq!(
+            fade_target.len(),
+            0x40,
+            "ASM loc_D85E uses d0=$3F, so the inclusive DBF loop clears 64 words"
+        );
+        assert_eq!(
+            fade_progress, 0x0100,
+            "ASM loc_D85E falls through to `move.w #$100,($FFFFF876).w`"
+        );
+    }
+
     /// ASM loc_D770 (kid.asm:16855): `d4` starts as the active EOL number's
     /// remaining amount, then is clamped down to `d2` unless it is already
     /// smaller before the score update at `loc_D77E`.

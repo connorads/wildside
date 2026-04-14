@@ -11563,6 +11563,17 @@ pub(crate) fn end_credits_palette_backup_loc_D84E(palette_buffer: [u16; 0x40]) -
     palette_buffer
 }
 
+/// ASM loc_D85E (kid.asm:16939): final-level end-credits fade target clear.
+/// `moveq #$3F,d0; moveq #0,d1` followed by
+/// `move.w d1,(a0)+; dbf d0,loc_D85E` clears all 64 words in
+/// `Palette_Buffer_3`, then seeds `$FFFFF876` with `$0100`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_palette_clear_loc_D85E(palette_buffer_3: &mut [u16; 0x40]) -> u16 {
+    palette_buffer_3.fill(0);
+    0x0100
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
