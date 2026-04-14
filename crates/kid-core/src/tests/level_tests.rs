@@ -8288,6 +8288,37 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
+    /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
+    /// slot to the next before clearing the final `$A(a0)` word.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EAC6_links_the_sub_EABC_evanescent_free_list_until_dbf_exits() {
+        let slots = crate::level::initialise_evanesc_object_slots_sub_EABC();
+
+        assert_eq!(
+            slots.evanescent_slots.len(),
+            0x28,
+            "ASM loc_EAC6 starts with d0=$26, so the inclusive DBF loop writes links for 39 slots plus one terminal slot"
+        );
+        assert_eq!(
+            slots.evanescent_slots[0],
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBDA,
+                next_slot_addr: 0xFFFF_EBE6,
+            },
+            "ASM loc_EAC6 should write `$A(a0)=a0+$0C` before advancing a0"
+        );
+        assert_eq!(
+            slots.evanescent_slots[0x27],
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EDAE,
+                next_slot_addr: 0,
+            },
+            "ASM loc_EAC6 should clear `$A(a0)` only after DBF falls through from the last linked slot"
+        );
+    }
+
     /// ASM loc_E07A (kid.asm:17395): load the hidden/prize block metadata base
     /// from `$FFFFF8D4`, preserve the current layout word pointer in `d4`, and
     /// bias `a0` by `-8` before the pre-increment scan.

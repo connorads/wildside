@@ -7769,6 +7769,8 @@ pub(crate) fn initialise_evanesc_object_slots_sub_EABC() -> EvanescShooterObject
     // ASM sub_EABC (kid.asm:18834): seed the evanescent-object free list at
     // `$FFFFEBDA` as 40 contiguous `$0C`-byte slots whose `$A(a0)` word points
     // to the next slot, then clear `Addr_FirstEvanescObjectSlot`.
+    // ASM loc_EAC6 (kid.asm:18839): the inclusive `dbf d0` loop starts with
+    // `d0=$26`, so it writes 39 next links before clearing the 40th slot.
     let mut evanescent_slots = Vec::with_capacity(EVANESCENT_OBJECT_SLOT_COUNT_SUB_EABC);
     let mut slot_addr = EVANESCENT_OBJECT_RAM_ADDR_SUB_EABC;
     for slot_index in 0..EVANESCENT_OBJECT_SLOT_COUNT_SUB_EABC {
