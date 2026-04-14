@@ -3200,6 +3200,50 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_E51A (kid.asm:18052): each short-beam table entry emits a VDP
+    /// sprite, increments `Number_Sprites`, places that byte into the low link
+    /// byte, and mirrors X by subtracting both the table X offset and the
+    /// width bucket derived from the size word.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E51A_eyeclops_beam_sprite_loop_emits_table_entries_and_mirrors_x() {
+        let right = helmets::eyeclops_beam_sprites_loc_E51A("unk_E570", 0x00B2, 0x0091, 0, 0, 0)
+            .expect("ASM loc_E512 dispatches d7=0 to unk_E570 before loc_E51A");
+
+        assert_eq!(
+            right.number_sprites, 4,
+            "ASM loc_E51A should increment Number_Sprites once per unk_E570 entry before the `$8000` sentinel",
+        );
+        assert_eq!(
+            right.sprites[0],
+            helmets::EyeclopsBeamSpriteLocE51A {
+                y: 0x0081,
+                size_link: 0x0501,
+                tile_word: 0xE676,
+                x: 0x00B2,
+            },
+            "ASM loc_E51A should add the first entry's signed Y offset and link sprite #1",
+        );
+        assert_eq!(
+            right.sprites[2].x, 0x00BA,
+            "ASM loc_E51A non-mirrored X should add the table X offset to screen X",
+        );
+
+        let left =
+            helmets::eyeclops_beam_sprites_loc_E51A("unk_E570", 0x005E, 0x0069, 0xFF, 0x0800, 5)
+                .expect("ASM loc_E512 dispatches d7=0 to unk_E570 before loc_E51A");
+        assert_eq!(
+            left.sprites[0],
+            helmets::EyeclopsBeamSpriteLocE51A {
+                y: 0x0059,
+                size_link: 0x0506,
+                tile_word: 0xEE76,
+                x: 0x004E,
+            },
+            "ASM loc_E51A mirrored X should subtract the table X offset and the size-derived width bucket",
+        );
+    }
+
     #[test]
     fn eyeclops_c_press_fires_beam_right() {
         let mut rt = NativeRuntime::new(manifest());

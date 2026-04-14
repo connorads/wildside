@@ -30,6 +30,22 @@ pub(crate) struct EyeclopsBeamTableDispatchLocE512 {
     pub(crate) table_label: &'static str,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsBeamSpriteLocE51A {
+    pub(crate) y: u16,
+    pub(crate) size_link: u16,
+    pub(crate) tile_word: u16,
+    pub(crate) x: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EyeclopsBeamSpritesLocE51A {
+    pub(crate) sprites: Vec<EyeclopsBeamSpriteLocE51A>,
+    pub(crate) number_sprites: u8,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn eyeclops_beam_render_setup_loc_E4B2(
@@ -112,6 +128,94 @@ pub(crate) fn eyeclops_beam_table_dispatch_loc_E512(
         pc_table_byte_offset: beam_segment_index.wrapping_shl(2),
         table_label,
     })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn eyeclops_beam_sprites_loc_E51A(
+    table_label: &str,
+    screen_x_word: u16,
+    screen_y_word: u16,
+    latched_x_direction: u8,
+    tile_flip_bit: u16,
+    starting_number_sprites: u8,
+) -> Option<EyeclopsBeamSpritesLocE51A> {
+    // ASM loc_E51A (kid.asm:18052): consume `(y,size,tile,x)` words from the
+    // `off_E560` table until `$8000`, add the biased beam origin, update the
+    // VDP link byte from `Number_Sprites`, OR in d4's flip bit, and for
+    // mirrored beams subtract both table X and the sprite width bucket.
+    let entries = match table_label {
+        "unk_E570" => &EYECLOPS_BEAM_TABLE_UNK_E570[..],
+        _ => return None,
+    };
+
+    let mut number_sprites = starting_number_sprites;
+    let mut sprites = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let y = screen_y_word.wrapping_add(i16_bits(entry.y_offset));
+        let sprite_width = ((entry.size_word >> 7) & 0x0018).wrapping_add(8);
+        number_sprites = number_sprites.wrapping_add(1);
+        let size_link = (entry.size_word & 0xFF00).wrapping_add(u16::from(number_sprites));
+        let tile_word = entry.tile_word | tile_flip_bit;
+        let x = if latched_x_direction == 0 {
+            screen_x_word.wrapping_add(i16_bits(entry.x_offset))
+        } else {
+            screen_x_word
+                .wrapping_sub(i16_bits(entry.x_offset))
+                .wrapping_sub(sprite_width)
+        };
+        sprites.push(EyeclopsBeamSpriteLocE51A {
+            y,
+            size_link,
+            tile_word,
+            x,
+        });
+    }
+
+    Some(EyeclopsBeamSpritesLocE51A {
+        sprites,
+        number_sprites,
+    })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy)]
+struct EyeclopsBeamTableEntryLocE51A {
+    y_offset: i16,
+    size_word: u16,
+    tile_word: u16,
+    x_offset: i16,
+}
+
+const EYECLOPS_BEAM_TABLE_UNK_E570: [EyeclopsBeamTableEntryLocE51A; 4] = [
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: -0x10,
+        size_word: 0x0500,
+        tile_word: 0xE676,
+        x_offset: 0,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE67E,
+        x_offset: 0,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE682,
+        x_offset: 8,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 8,
+        size_word: 0x0500,
+        tile_word: 0xF676,
+        x_offset: 0,
+    },
+];
+
+fn i16_bits(value: i16) -> u16 {
+    u16::from_ne_bytes(value.to_ne_bytes())
 }
 
 #[allow(non_snake_case)]
