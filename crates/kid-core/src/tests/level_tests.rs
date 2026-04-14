@@ -8969,6 +8969,34 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F302 (kid.asm:19900): after `sub_F536` accepts Kid in range,
+    /// byte `$9(a0)` is decremented; non-zero countdowns force `$A(a0)=2`,
+    /// while out-of-range and zero-countdown paths continue through `loc_F386`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F302_rewinds_to_state_2_while_kid_remains_in_range() {
+        assert_eq!(
+            crate::level::shooter_expired_slot_range_countdown_loc_F302(false, 7),
+            crate::level::ShooterExpiredSlotRangeCountdownLocF302::ContinueFrame { next_delay: 7 },
+            "ASM loc_F302 should branch to loc_F386 before `subq.b #1,9(a0)` when sub_F536 returns zero"
+        );
+
+        assert_eq!(
+            crate::level::shooter_expired_slot_range_countdown_loc_F302(true, 1),
+            crate::level::ShooterExpiredSlotRangeCountdownLocF302::ContinueFrame { next_delay: 0 },
+            "ASM loc_F302 should continue through loc_F386 when the decremented range delay reaches zero"
+        );
+
+        assert_eq!(
+            crate::level::shooter_expired_slot_range_countdown_loc_F302(true, 3),
+            crate::level::ShooterExpiredSlotRangeCountdownLocF302::RewindToState2 {
+                next_delay: 2,
+                next_state_word: 2,
+            },
+            "ASM loc_F302 should write word `#2` to `$A(a0)` while Kid remains in range and `$9(a0)` is still non-zero"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

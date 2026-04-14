@@ -859,6 +859,18 @@ pub(crate) struct ShooterExpiredSlotEraseCellLocF2EE {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterExpiredSlotRangeCountdownLocF302 {
+    ContinueFrame {
+        next_delay: u8,
+    },
+    RewindToState2 {
+        next_delay: u8,
+        next_state_word: u16,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8591,6 +8603,31 @@ pub(crate) fn shooter_expired_slot_erase_cell_loc_F2EE(
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_expired_slot_seed_range_delay_loc_F2F8() -> u8 {
     0x0A
+}
+
+/// ASM loc_F302 (kid.asm:19900): state 5 calls `sub_F536`; if Kid is outside
+/// range it immediately resumes `loc_F386`. When Kid is in range, byte `$9(a0)`
+/// is decremented; zero also resumes the frame, while non-zero rewinds `$A(a0)`
+/// to state 2 for the next expired-slot dispatch.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_expired_slot_range_countdown_loc_F302(
+    player_in_range: bool,
+    delay: u8,
+) -> ShooterExpiredSlotRangeCountdownLocF302 {
+    if !player_in_range {
+        return ShooterExpiredSlotRangeCountdownLocF302::ContinueFrame { next_delay: delay };
+    }
+
+    let next_delay = delay.wrapping_sub(1);
+    if next_delay == 0 {
+        ShooterExpiredSlotRangeCountdownLocF302::ContinueFrame { next_delay }
+    } else {
+        ShooterExpiredSlotRangeCountdownLocF302::RewindToState2 {
+            next_delay,
+            next_state_word: 2,
+        }
+    }
 }
 
 #[allow(non_snake_case)]
