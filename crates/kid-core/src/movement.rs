@@ -1281,6 +1281,13 @@ pub(crate) struct HiddenBlockRevealBounceLocE34C {
     pub(crate) follows_offset_position_setup: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockRevealBounceLocE35A {
+    pub(crate) y_pos_after_hibernates: [u16; 4],
+    pub(crate) final_y_pos_px: u16,
+    pub(crate) hibernate_frames: u16,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockJumpSnapLocE1FE {
@@ -1615,6 +1622,26 @@ pub(crate) fn hidden_block_reveal_offset_bounce_up_loc_E34C(
         final_y_pos_px: y_pos,
         hibernate_frames: 4,
         follows_offset_position_setup: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_reveal_offset_bounce_down_loc_E35A(
+    initial_y_pos_px: u16,
+) -> HiddenBlockRevealBounceLocE35A {
+    // ASM loc_E35A (kid.asm:17802): after the offset worker's upward bob,
+    // add two pixels, hibernate one frame, then DBF back for four total passes.
+    let mut y_pos = initial_y_pos_px;
+    let mut y_pos_after_hibernates = [0; 4];
+    for y_pos_after_hibernate in &mut y_pos_after_hibernates {
+        y_pos = y_pos.wrapping_add(2);
+        *y_pos_after_hibernate = y_pos;
+    }
+    HiddenBlockRevealBounceLocE35A {
+        y_pos_after_hibernates,
+        final_y_pos_px: y_pos,
+        hibernate_frames: 4,
     }
 }
 
