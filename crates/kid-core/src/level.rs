@@ -1117,6 +1117,12 @@ pub(crate) struct ShooterObjectPredecessorLocEFB4 {
     pub(crate) scanned_links: usize,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ShooterObjectSpliceLocEFC2 {
+    pub(crate) slots: Vec<LinkedObjectSlotInit>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -9213,6 +9219,29 @@ pub(crate) fn shooter_object_predecessor_scan_loc_EFB4(
     }
 
     None
+}
+
+/// ASM loc_EFC2 (kid.asm:19511): after `loc_EFB4` finds the predecessor in
+/// `a3`, splice the current shooter object out by copying `$A(a0)` into
+/// `$A(a3)`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_splice_predecessor_loc_EFC2(
+    active_slots: &[LinkedObjectSlotInit],
+    predecessor_slot_addr: u32,
+    target_slot_addr: u32,
+) -> Option<ShooterObjectSpliceLocEFC2> {
+    let mut slots = active_slots.to_vec();
+    let target_next_slot_addr = slots
+        .iter()
+        .find(|slot| slot.slot_addr == target_slot_addr)?
+        .next_slot_addr;
+    let predecessor = slots
+        .iter_mut()
+        .find(|slot| slot.slot_addr == predecessor_slot_addr)?;
+    predecessor.next_slot_addr = target_next_slot_addr;
+
+    Some(ShooterObjectSpliceLocEFC2 { slots })
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,

@@ -10053,6 +10053,63 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EFC2 (kid.asm:19511): the predecessor found in `a3` receives
+    /// the removed shooter object's saved `$A(a0)` successor.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EFC2_splices_the_shooter_predecessor_over_the_removed_slot() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E9FA,
+                next_slot_addr: 0xFFFF_EA06,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EA06,
+                next_slot_addr: 0xFFFF_EA12,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EA12,
+                next_slot_addr: 0xFFFF_EA1E,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EA1E,
+                next_slot_addr: 0,
+            },
+        ];
+
+        let spliced = crate::level::shooter_object_splice_predecessor_loc_EFC2(
+            &active_slots,
+            0xFFFF_EA06,
+            0xFFFF_EA12,
+        )
+        .expect("ASM loc_EFC2 should have both predecessor and target shooter slots");
+
+        assert_eq!(
+            spliced,
+            crate::level::ShooterObjectSpliceLocEFC2 {
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E9FA,
+                        next_slot_addr: 0xFFFF_EA06,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EA06,
+                        next_slot_addr: 0xFFFF_EA1E,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EA12,
+                        next_slot_addr: 0xFFFF_EA1E,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EA1E,
+                        next_slot_addr: 0,
+                    },
+                ],
+            },
+            "ASM loc_EFC2 should only copy `$A(a0)` into `$A(a3)`; the removed slot keeps its old link until loc_EFC8 pushes it to the free list"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
