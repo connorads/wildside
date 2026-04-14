@@ -11553,6 +11553,18 @@ pub(crate) fn eol_title_return_fade_loc_D734(initial_progress: u16) -> EolTitleR
     }
 }
 
+/// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
+/// remaining amount from the active number object's `$60` field and clamps the
+/// transfer chunk to `d2` before falling through to `loc_D77E`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eol_score_counter_transfer_chunk_loc_D770(
+    remaining_amount: u32,
+    transfer_chunk: u32,
+) -> u32 {
+    remaining_amount.min(transfer_chunk)
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {

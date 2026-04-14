@@ -6418,6 +6418,24 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D770 (kid.asm:16855): `d4` starts as the active EOL number's
+    /// remaining amount, then is clamped down to `d2` unless it is already
+    /// smaller before the score update at `loc_D77E`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D770_eol_score_counter_clamps_transfer_to_remaining_or_chunk() {
+        assert_eq!(
+            crate::level::eol_score_counter_transfer_chunk_loc_D770(0x80, 0x28),
+            0x28,
+            "ASM loc_D770 should use d2 while the remaining EOL counter is at least the current chunk"
+        );
+        assert_eq!(
+            crate::level::eol_score_counter_transfer_chunk_loc_D770(0x10, 0x28),
+            0x10,
+            "ASM loc_D770 should clamp d4 to the smaller remaining amount before loc_D77E"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
