@@ -2913,6 +2913,24 @@ pub(crate) fn mini_hopping_skull_scream_worker_allocation_loc_3eb40(
     })
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_right_hop_scream_worker_allocation_loc_3ebc4(
+    route: MiniHoppingSkullGroundWaitCollisionRoute,
+) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
+    if route != MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker {
+        return None;
+    }
+
+    // ASM Mini_Hopping_Skull.asm loc_3EBC4: the right-hop windup contact path
+    // mirrors the grounded contact worker allocation: swap a0/a4, allocate with
+    // selector `$A000`, install `sub_3F3F0` at slot +4, then restore a0/a4.
+    Some(MiniHoppingSkullScreamWorkerAllocation {
+        allocation_selector: 0xA000,
+        routine: "sub_3F3F0",
+        delay_frames: 15,
+    })
+}
+
 pub(crate) fn step_hopper(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
@@ -6319,6 +6337,35 @@ mod tests {
             ),
             None,
             "ASM Mini_Hopping_Skull.asm loc_3EB40 is skipped by the charging-Berzerker side-contact branch"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_right_hop_scream_worker_allocation_matches_loc_3ebc4() {
+        assert_eq!(
+            mini_hopping_skull_right_hop_scream_worker_allocation_loc_3ebc4(
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+            ),
+            Some(MiniHoppingSkullScreamWorkerAllocation {
+                allocation_selector: 0xA000,
+                routine: "sub_3F3F0",
+                delay_frames: 15,
+            }),
+            "ASM Mini_Hopping_Skull.asm loc_3EBC4 should allocate the `sub_3F3F0` contact worker with selector `$A000`"
+        );
+        assert_eq!(
+            mini_hopping_skull_right_hop_scream_worker_allocation_loc_3ebc4(
+                MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+            ),
+            None,
+            "ASM Mini_Hopping_Skull.asm loc_3EBC4 is skipped when the windup collision decrements skull HP"
+        );
+        assert_eq!(
+            mini_hopping_skull_right_hop_scream_worker_allocation_loc_3ebc4(
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+            ),
+            None,
+            "ASM Mini_Hopping_Skull.asm loc_3EBC4 is skipped by the charging-Berzerker side-contact branch"
         );
     }
 
