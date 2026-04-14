@@ -6455,6 +6455,35 @@ mod chunk_03 {
         );
     }
 
+    /// ASM loc_E0C2 (kid.asm:17422): subtype-$0A hidden blocks reveal the
+    /// layout byte, index `unk_E11E` by byte 7, allocate four `loc_E304`
+    /// workers, and set `$50/$52` offsets on workers 2-4 after allocation.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E0C2_hidden_block_reveal_spawns_four_offset_burst_workers() {
+        let workers = hidden_block_reveal_workers_loc_E0C2(0x0007, 0x0002, 0x0003, 0x00FF_4A48);
+
+        let sprite_mappings = workers.map(|worker| worker.worker.sprite_mapping);
+        assert_eq!(
+            sprite_mappings,
+            [0x10EC, 0x1100, 0x110C, 0x1120],
+            "ASM loc_E0C2 should shift byte 7 by three and consume four words from the selected `unk_E11E` entry",
+        );
+
+        let offsets = workers.map(|worker| (worker.x_pos_offset_px, worker.y_pos_offset_px));
+        assert_eq!(
+            offsets,
+            [(0, 0), (8, 0), (0, 8), (8, 8)],
+            "ASM loc_E0C2 should write `$50=8` to the second worker, `$52=8` to the third, and both offsets to the fourth",
+        );
+        assert!(
+            workers
+                .iter()
+                .all(|worker| worker.revealed_layout_byte == 0x60),
+            "ASM loc_E0C2 should reveal the hidden block by writing `#$60` to `(a2)` before spawning workers",
+        );
+    }
+
     #[test]
     fn hidden_block_reveal_worker_sub_e1d4_reveals_the_layout_byte_and_seeds_loc_e282() {
         let worker = hidden_block_reveal_worker_sub_E1D4(0x0002, 0x0003, 0x00FF_4A48, 0x1114);

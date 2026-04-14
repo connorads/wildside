@@ -1163,6 +1163,15 @@ pub(crate) struct HiddenBlockRevealWorkerSubE0F8 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockRevealWorkerLocE0C2 {
+    pub(crate) revealed_layout_byte: u8,
+    pub(crate) worker: HiddenBlockRevealWorkerSubE0F8,
+    pub(crate) x_pos_offset_px: u16,
+    pub(crate) y_pos_offset_px: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockRevealWorkerSubE1D4 {
     pub(crate) revealed_layout_byte: u8,
     pub(crate) allocation_spec: u16,
@@ -1252,6 +1261,48 @@ pub(crate) fn hidden_block_reveal_worker_sub_E0F8(
         layout_word_addr,
         sprite_mapping,
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_reveal_workers_loc_E0C2(
+    layout_variant: u8,
+    block_col: u16,
+    block_row: u16,
+    layout_word_addr: u32,
+) -> [HiddenBlockRevealWorkerLocE0C2; 4] {
+    const SPRITE_MAPPINGS_UNK_E11E: [[u16; 4]; 16] = [
+        [0x10E4, 0x10F4, 0x1104, 0x1114],
+        [0x10EC, 0x10FC, 0x1104, 0x1114],
+        [0x10E4, 0x10F8, 0x1104, 0x1118],
+        [0x10EC, 0x1100, 0x1104, 0x1118],
+        [0x10E4, 0x10F4, 0x110C, 0x111C],
+        [0x10EC, 0x10FC, 0x110C, 0x111C],
+        [0x10E4, 0x10F8, 0x110C, 0x1120],
+        [0x10EC, 0x1100, 0x110C, 0x1120],
+        [0x10E8, 0x10F4, 0x1108, 0x1114],
+        [0x10F0, 0x10FC, 0x1108, 0x1114],
+        [0x10E8, 0x10F8, 0x1108, 0x1118],
+        [0x10F0, 0x1100, 0x1108, 0x1118],
+        [0x10E8, 0x10F4, 0x1110, 0x111C],
+        [0x10F0, 0x10FC, 0x1110, 0x111C],
+        [0x10E8, 0x10F8, 0x1110, 0x1120],
+        [0x10F0, 0x1100, 0x1110, 0x1120],
+    ];
+    const OFFSETS: [(u16, u16); 4] = [(0, 0), (8, 0), (0, 8), (8, 8)];
+
+    let sprite_mappings = SPRITE_MAPPINGS_UNK_E11E[usize::from(layout_variant & 0x0F)];
+    std::array::from_fn(|index| HiddenBlockRevealWorkerLocE0C2 {
+        revealed_layout_byte: 0x60,
+        worker: hidden_block_reveal_worker_sub_E0F8(
+            block_col,
+            block_row,
+            layout_word_addr,
+            sprite_mappings[index],
+        ),
+        x_pos_offset_px: OFFSETS[index].0,
+        y_pos_offset_px: OFFSETS[index].1,
+    })
 }
 
 #[allow(non_snake_case)]
