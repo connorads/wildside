@@ -1,6 +1,36 @@
 use super::*;
 use crate::constants::SINE_TABLE_WORD_402B0;
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsBeamRenderSetupLocE4B2 {
+    pub(crate) beam_counter: u16,
+    pub(crate) x_offset_px: i16,
+    pub(crate) y_offset_px: i16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn eyeclops_beam_render_setup_loc_E4B2(
+    beam_counter: u16,
+    latched_x_direction: u8,
+) -> EyeclopsBeamRenderSetupLocE4B2 {
+    // ASM loc_E4B2 (kid.asm:18008): subq.w #1,d7; d0=$12; d1=-$0F;
+    // `tst.b ($FFFFFABE).w` keeps that positive offset for a zero latch,
+    // otherwise `neg.w d0`. The latched x-direction byte mirrors Kid's
+    // `x_direction` at fire time.
+    let x_offset_px = if latched_x_direction == 0 {
+        0x12
+    } else {
+        -0x12
+    };
+    EyeclopsBeamRenderSetupLocE4B2 {
+        beam_counter: beam_counter.wrapping_sub(1),
+        x_offset_px,
+        y_offset_px: -0x0F,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u32) {

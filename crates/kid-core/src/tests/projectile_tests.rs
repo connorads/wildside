@@ -3077,6 +3077,38 @@ mod chunk_06 {
 
     // --- Eyeclops beam tests ---
 
+    /// ASM loc_E4B2 (kid.asm:18008): an active Eyeclops beam decrements `d7`,
+    /// seeds `d0=$12` and `d1=-$0F`, then negates `d0` only when the latched
+    /// `$FFFFFABE` direction byte is non-zero.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E4B2_eyeclops_beam_render_setup_decrements_counter_and_latches_side() {
+        let right = helmets::eyeclops_beam_render_setup_loc_E4B2(0x8001, 0);
+        assert_eq!(
+            right.beam_counter, 0x8000,
+            "ASM loc_E4B2 should subq.w #1,d7 before choosing beam segment shape"
+        );
+        assert_eq!(
+            (right.x_offset_px, right.y_offset_px),
+            (0x12, -0x0F),
+            "ASM loc_E4B2 should keep d0=$12 and d1=-$0F when `$FFFFFABE` is zero"
+        );
+
+        let left = helmets::eyeclops_beam_render_setup_loc_E4B2(0, 0xFF);
+        assert_eq!(
+            left.beam_counter, 0xFFFF,
+            "ASM loc_E4B2 uses word arithmetic, so decrementing zero wraps before the BMI path"
+        );
+        assert_eq!(
+            left.x_offset_px, -0x12,
+            "ASM loc_E4B2 should negate d0 when the latched x-direction byte is non-zero"
+        );
+        assert_eq!(
+            left.y_offset_px, -0x0F,
+            "ASM loc_E4B2 should leave d1 at -$0F regardless of beam direction"
+        );
+    }
+
     #[test]
     fn eyeclops_c_press_fires_beam_right() {
         let mut rt = NativeRuntime::new(manifest());
