@@ -7304,6 +7304,28 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E07A (kid.asm:17395): load the hidden/prize block metadata base
+    /// from `$FFFFF8D4`, preserve the current layout word pointer in `d4`, and
+    /// bias `a0` by `-8` before the pre-increment scan.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E07A_hidden_block_evanescent_scan_biases_cursor_before_first_record() {
+        let scan = crate::level::hidden_block_evanescent_scan_start_loc_E07A(0x0001_2400, 0x03A6);
+
+        assert_eq!(
+            scan.preincrement_cursor_addr, 0x0001_23F8,
+            "ASM loc_E07A should subtract 8 from the metadata cursor before the next scan adds 8"
+        );
+        assert_eq!(
+            scan.first_record_addr, 0x0001_2400,
+            "ASM loc_E07A should make the first scan add land on the first 8-byte metadata record"
+        );
+        assert_eq!(
+            scan.layout_word_addr, 0x03A6,
+            "ASM loc_E07A should compare records against the current layout word pointer copied from a2"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

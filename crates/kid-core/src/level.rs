@@ -708,6 +708,14 @@ pub(crate) struct ShooterObjectSlotsLocDF50 {
     pub(crate) shooter_slots: Vec<LinkedObjectSlotInit>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
+    pub(crate) preincrement_cursor_addr: u32,
+    pub(crate) first_record_addr: u32,
+    pub(crate) layout_word_addr: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -7775,6 +7783,23 @@ pub(crate) fn initialise_shooter_object_slots_loc_DF50() -> ShooterObjectSlotsLo
         next_free_shooter_object_slot_addr: SHOOTER_OBJECT_RAM_ADDR_LOC_DF50,
         first_shooter_object_slot_addr: 0,
         shooter_slots,
+    }
+}
+
+/// ASM loc_E07A (kid.asm:17395): load the hidden/prize block list base from
+/// `$FFFFF8D4`, copy the current layout word pointer from `a2` into `d4`, then
+/// subtract 8 from `a0` so the following scan pre-increments onto the
+/// first 8-byte metadata record before comparing `(a0)` with `d4`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_evanescent_scan_start_loc_E07A(
+    hidden_block_list_base_addr: u32,
+    layout_word_addr: u16,
+) -> HiddenBlockEvanescentScanStartLocE07A {
+    HiddenBlockEvanescentScanStartLocE07A {
+        preincrement_cursor_addr: hidden_block_list_base_addr.wrapping_sub(8),
+        first_record_addr: hidden_block_list_base_addr,
+        layout_word_addr,
     }
 }
 
