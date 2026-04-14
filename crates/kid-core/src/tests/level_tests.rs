@@ -7630,6 +7630,38 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E8DE (kid.asm:18613): the wide hard-beam writer doubles `d7`,
+    /// backs `d1` up by four plus that doubled value, stores `d5`, and emits
+    /// the first size-`$0C` sprite before seeding the middle `DBF` counter.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E8DE_writes_wide_hard_beam_leading_sprite() {
+        let first = crate::level::eyeclops_hard_beam_wide_first_write_loc_E8DE(
+            4, 0x0080, 7, 0x0130, 0x0800,
+        );
+
+        assert_eq!(
+            first.first_sprite,
+            crate::level::LevelSpriteStripEntryLocE692 {
+                y_pos: 0x0074,
+                size: 0x0C,
+                link: 8,
+                tile_word: 0x8E8E,
+                x_pos: 0x0130,
+            },
+            "ASM loc_E8DE should write y=`d1-4-(d7*2)`, size `$0C`, incremented link, and `$868E|d4`"
+        );
+        assert_eq!(
+            (first.next_y, first.next_link, first.middle_loop_counter),
+            (0x007C, 8, 1),
+            "ASM loc_E8DE should advance d1 by eight, leave d2 at the written link, and seed d3=(d7>>1)-1"
+        );
+        assert_eq!(
+            first.collision_probe_screen_y, 0x0074,
+            "ASM loc_E8DE should store the leading y position in d5 for loc_E948"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

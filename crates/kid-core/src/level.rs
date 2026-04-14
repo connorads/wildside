@@ -12874,6 +12874,48 @@ pub(crate) fn eyeclops_hard_beam_wide_setup_loc_E8A6(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsHardBeamWideFirstWriteLocE8DE {
+    pub(crate) first_sprite: LevelSpriteStripEntryLocE692,
+    pub(crate) middle_loop_counter: u16,
+    pub(crate) next_y: i16,
+    pub(crate) next_link: u8,
+    pub(crate) collision_probe_screen_y: i16,
+}
+
+/// ASM loc_E8DE (kid.asm:18613): wider hard beams double `d7`, back `d1`
+/// up by four plus that doubled width, store this as `d5`, then emit the
+/// leading size-`$0C` sprite with tile `$868E | d4`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_wide_first_write_loc_E8DE(
+    beam_counter: u16,
+    base_y: i16,
+    link: u8,
+    sprite_x: i16,
+    tile_attr_mask: u16,
+) -> EyeclopsHardBeamWideFirstWriteLocE8DE {
+    let doubled_counter = beam_counter.wrapping_mul(2) as i16;
+    let first_y = base_y.wrapping_sub(0x0004).wrapping_sub(doubled_counter);
+    let next_y = first_y.wrapping_add(0x0008);
+    let next_link = link.wrapping_add(1);
+    let middle_loop_counter = (beam_counter >> 1).wrapping_sub(1);
+
+    EyeclopsHardBeamWideFirstWriteLocE8DE {
+        first_sprite: LevelSpriteStripEntryLocE692 {
+            y_pos: first_y,
+            size: 0x0C,
+            link: next_link,
+            tile_word: 0x868E | tile_attr_mask,
+            x_pos: sprite_x,
+        },
+        middle_loop_counter,
+        next_y,
+        next_link,
+        collision_probe_screen_y: first_y,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
