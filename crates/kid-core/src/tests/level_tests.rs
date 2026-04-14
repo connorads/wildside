@@ -7255,6 +7255,29 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E786 (kid.asm:18460): the reversed-strip adjacent scan moves to
+    /// the column to the right, rejects the level-width boundary, and advances
+    /// the collision pointer by one word before `loc_E790` decides whether to
+    /// call `sub_E446` again.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E786_reversed_strip_selects_right_adjacent_column() {
+        assert_eq!(
+            crate::level::level_sprite_strip_right_adjacent_column_loc_E786(7, 0x808E, 16),
+            Some(crate::level::LevelSpriteStripRightAdjacentColumnLocE786 {
+                tile_column: 8,
+                collision_cell_addr: 0x8090,
+            }),
+            "ASM loc_E786 should increment d1 and add two bytes to a2 for the right-adjacent terrain column"
+        );
+
+        assert_eq!(
+            crate::level::level_sprite_strip_right_adjacent_column_loc_E786(15, 0x80DE, 16),
+            None,
+            "ASM loc_E786 should branch to loc_E79C when the incremented column reaches Level_width_blocks"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

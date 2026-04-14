@@ -12513,6 +12513,33 @@ pub(crate) fn level_sprite_strip_collision_scan_seed_loc_E756(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripRightAdjacentColumnLocE786 {
+    pub(crate) tile_column: i16,
+    pub(crate) collision_cell_addr: u16,
+}
+
+/// ASM loc_E786 (kid.asm:18460): when `$FFFFFABE` selects the reversed strip
+/// path, scan the right-adjacent terrain column by incrementing `d1`, rejecting
+/// columns at `Level_width_blocks`, then advancing `a2` by one collision word.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_right_adjacent_column_loc_E786(
+    tile_column: i16,
+    collision_cell_addr: u16,
+    level_width_blocks: i16,
+) -> Option<LevelSpriteStripRightAdjacentColumnLocE786> {
+    let adjacent_tile_column = tile_column.wrapping_add(1);
+    if adjacent_tile_column >= level_width_blocks {
+        return None;
+    }
+
+    Some(LevelSpriteStripRightAdjacentColumnLocE786 {
+        tile_column: adjacent_tile_column,
+        collision_cell_addr: collision_cell_addr.wrapping_add(2),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
