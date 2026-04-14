@@ -2007,6 +2007,12 @@ pub(crate) fn ufo_off_screen_gate_loc_34f6e(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_clear_on_screen_latch_loc_34f88() -> bool {
+    // ASM UFO.asm loc_34F88: the off-screen tail clears `$50(a5)` with `sf`.
+    false
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 fn fixed_integer_word(pos: u32) -> i16 {
     (pos >> 16) as u16 as i16
 }
@@ -7254,6 +7260,14 @@ mod tests {
                 clear_latch_tail: true,
             },
             "ASM UFO.asm loc_34F6E plays the hover-stop sound only when the decrement reaches zero"
+        );
+    }
+
+    #[test]
+    fn ufo_clear_on_screen_latch_matches_loc_34f88() {
+        assert!(
+            !ufo_clear_on_screen_latch_loc_34f88(),
+            "ASM UFO.asm loc_34F88 clears `$50(a5)` with `sf` after the off-screen count/sound gate"
         );
     }
 
