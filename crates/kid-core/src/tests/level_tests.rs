@@ -7016,6 +7016,48 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E6D8 (kid.asm:18382): only a post-loop counter of `$FFF8`
+    /// skips the partial middle sprite. Other negative counters are shifted
+    /// left twice and added into `d1` before writing a size `$0F` sprite.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E6D8_remainder_strip_emits_partial_chunk_unless_exact_boundary() {
+        let partial =
+            crate::level::level_sprite_strip_remainder_loc_E6D8(0xFFFE, 0x0088, 7, 0x0130, 0x0800);
+
+        assert_eq!(
+            partial.remainder_sprite,
+            Some(crate::level::LevelSpriteStripEntryLocE692 {
+                y_pos: 0x0080,
+                size: 0x0F,
+                link: 8,
+                tile_word: 0xEE7E,
+                x_pos: 0x0130,
+            }),
+            "ASM loc_E6D8 should shift d3 left twice, so `$FFFE` offsets d1 by -8 before the sprite write"
+        );
+        assert_eq!(
+            partial.next_y, 0x00A0,
+            "ASM loc_E6D8 should add `$20` to d1 after emitting the partial chunk"
+        );
+        assert_eq!(
+            partial.next_link, 8,
+            "ASM loc_E6D8 should increment d2 only when the partial chunk is emitted"
+        );
+
+        let exact_boundary =
+            crate::level::level_sprite_strip_remainder_loc_E6D8(0xFFF8, 0x00A8, 9, 0x0130, 0);
+        assert_eq!(
+            exact_boundary.remainder_sprite, None,
+            "ASM loc_E6D8 should skip the partial sprite when d3 is exactly `$FFF8`"
+        );
+        assert_eq!(
+            (exact_boundary.next_y, exact_boundary.next_link),
+            (0x00A8, 9),
+            "ASM loc_E6D8 should leave d1 and d2 unchanged on the exact-boundary branch"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

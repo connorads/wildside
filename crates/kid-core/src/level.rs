@@ -12311,6 +12311,50 @@ pub(crate) fn level_sprite_strip_middle_loop_loc_E6BC(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripRemainderLocE6D8 {
+    pub(crate) remainder_sprite: Option<LevelSpriteStripEntryLocE692>,
+    pub(crate) next_y: i16,
+    pub(crate) next_link: u8,
+}
+
+/// ASM loc_E6D8 (kid.asm:18382): a remainder counter of `$FFF8` means the
+/// middle chunks ended exactly on a `$20` boundary. Other negative counters
+/// are shifted left twice, added into `d1`, then emitted as one size `$0F`
+/// sprite with tile `$E67E | d4`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_remainder_loc_E6D8(
+    remainder_counter: u16,
+    y_pos: i16,
+    link: u8,
+    source_x: i16,
+    tile_attr_mask: u16,
+) -> LevelSpriteStripRemainderLocE6D8 {
+    if remainder_counter == 0xFFF8 {
+        return LevelSpriteStripRemainderLocE6D8 {
+            remainder_sprite: None,
+            next_y: y_pos,
+            next_link: link,
+        };
+    }
+
+    let adjusted_y = y_pos.wrapping_add(remainder_counter.wrapping_shl(2) as i16);
+    let next_link = link.wrapping_add(1);
+
+    LevelSpriteStripRemainderLocE6D8 {
+        remainder_sprite: Some(LevelSpriteStripEntryLocE692 {
+            y_pos: adjusted_y,
+            size: 0x0F,
+            link: next_link,
+            tile_word: 0xE67E | tile_attr_mask,
+            x_pos: source_x,
+        }),
+        next_y: adjusted_y.wrapping_add(0x0020),
+        next_link,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
