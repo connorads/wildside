@@ -9557,6 +9557,27 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F528 (kid.asm:20155): after the negative-direction visible
+    /// sprite checks, the ROM loads the active slot successor and either
+    /// resumes the active-slot scan or commits the frame.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F528_continues_or_commits_after_negative_visible_shooter_scan() {
+        assert_eq!(
+            crate::level::shooter_visible_negative_scan_tail_loc_F528(0xFFFF_E81C),
+            crate::level::ShooterVisibleNegativeScanTailLocF528::ContinueScan {
+                next_slot_addr: 0xFFFF_E81C,
+            },
+            "ASM loc_F528 should continue the active-slot scan when `$C(a0)` is non-zero"
+        );
+
+        assert_eq!(
+            crate::level::shooter_visible_negative_scan_tail_loc_F528(0),
+            crate::level::ShooterVisibleNegativeScanTailLocF528::CommitFrame,
+            "ASM loc_F528 should commit the frame when `$C(a0)` is zero"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

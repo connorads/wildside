@@ -1012,6 +1012,13 @@ pub(crate) struct ShooterVisibleLeftSpriteInputLocF4E6 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterVisibleNegativeScanTailLocF528 {
+    ContinueScan { next_slot_addr: u32 },
+    CommitFrame,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -9087,6 +9094,21 @@ pub(crate) fn shooter_visible_left_sprite_loc_F4E6(
         } else {
             None
         },
+    }
+}
+
+/// ASM loc_F528 (kid.asm:20155): after the negative-direction visible sprite
+/// checks, load the active slot's `$C(a0)` successor. A non-zero link resumes
+/// the active-slot loop; zero commits the frame through the shared tail.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_visible_negative_scan_tail_loc_F528(
+    next_slot_addr: u32,
+) -> ShooterVisibleNegativeScanTailLocF528 {
+    if next_slot_addr != 0 {
+        ShooterVisibleNegativeScanTailLocF528::ContinueScan { next_slot_addr }
+    } else {
+        ShooterVisibleNegativeScanTailLocF528::CommitFrame
     }
 }
 
