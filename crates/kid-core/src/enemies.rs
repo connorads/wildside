@@ -320,6 +320,26 @@ pub(crate) fn lion_post_fire_wait_dispatch_loc_3e0f4(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionChargeDirectionDispatch {
+    LeftCharge,
+    RightCharge,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_direction_dispatch_loc_3e11e(
+    facing: Direction,
+) -> LionChargeDirectionDispatch {
+    // ASM Lion.asm loc_3E11E: `tst.b x_direction(a3); beq.w loc_3E566;
+    // bra.w loc_3E3B2`. Clear x_direction selects the Lion's left-facing
+    // charge loop; set x_direction selects the right-facing charge loop.
+    match facing {
+        Direction::Left => LionChargeDirectionDispatch::LeftCharge,
+        Direction::Right => LionChargeDirectionDispatch::RightCharge,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -7290,6 +7310,20 @@ mod tests {
                 animation_script: "saved_lion_charge_animation",
             },
             "ASM Lion.asm loc_3E0F4 should restore the animation script saved in `$62(a5)` when `$18(a3)` is set"
+        );
+    }
+
+    #[test]
+    fn lion_charge_direction_dispatch_matches_loc_3e11e() {
+        assert_eq!(
+            lion_charge_direction_dispatch_loc_3e11e(Direction::Left),
+            LionChargeDirectionDispatch::LeftCharge,
+            "ASM Lion.asm loc_3E11E should branch clear x_direction to loc_3E566"
+        );
+        assert_eq!(
+            lion_charge_direction_dispatch_loc_3e11e(Direction::Right),
+            LionChargeDirectionDispatch::RightCharge,
+            "ASM Lion.asm loc_3E11E should branch set x_direction to loc_3E3B2"
         );
     }
 
