@@ -5803,7 +5803,7 @@ pub(crate) fn drips_vertical_bounds_contact_flag_loc_335b0(
         y_pos_word.wrapping_add(8) >= level_height_pixels
     };
     if out_of_bounds {
-        1
+        drips_bounds_contact_result_loc_335d4()
     } else {
         drips_bounds_no_contact_result_loc_335d0()
     }
@@ -5813,6 +5813,12 @@ pub(crate) fn drips_vertical_bounds_contact_flag_loc_335b0(
 pub(crate) fn drips_bounds_no_contact_result_loc_335d0() -> u16 {
     // ASM Drips.asm loc_335D0: the in-bounds return tail moves 0 into d5.
     0
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_bounds_contact_result_loc_335d4() -> u16 {
+    // ASM Drips.asm loc_335D4: the out-of-bounds return tail moves 1 into d5.
+    1
 }
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
@@ -7501,6 +7507,25 @@ mod tests {
             drips_vertical_bounds_contact_flag_loc_335b0(0x0008, -0x0000_3000, 0x0100),
             drips_bounds_no_contact_result_loc_335d0(),
             "ASM Drips.asm loc_335D0 is reached after the upward probe remains in bounds"
+        );
+    }
+
+    #[test]
+    fn drips_bounds_contact_result_matches_loc_335d4() {
+        assert_eq!(
+            drips_bounds_contact_result_loc_335d4(),
+            1,
+            "ASM Drips.asm loc_335D4 moves 1 into d5 for the out-of-bounds return tail"
+        );
+        assert_eq!(
+            drips_vertical_bounds_contact_flag_loc_335b0(0x00F8, 0x0000_3000, 0x0100),
+            drips_bounds_contact_result_loc_335d4(),
+            "ASM Drips.asm loc_335D4 is reached when the downward probe reaches Level_height_pixels"
+        );
+        assert_eq!(
+            drips_vertical_bounds_contact_flag_loc_335b0(0x0007, -0x0000_3000, 0x0100),
+            drips_bounds_contact_result_loc_335d4(),
+            "ASM Drips.asm loc_335D4 is reached when the upward probe becomes signed-negative"
         );
     }
 
