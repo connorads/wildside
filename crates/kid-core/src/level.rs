@@ -998,6 +998,21 @@ pub(crate) fn animated_solid_block_row_queue_word_loc_F86E(
     masked_row_hi_bits | packed_cell_x_bits
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_vertical_rows_loc_F872(
+    queue_word: u16,
+    mapping_longwords: [u32; 2],
+) -> FgUpdateQueueCustomEntrySub1596 {
+    // ASM loc_F872 (kid.asm:20547): swap `d2`, then copy two longwords from
+    // `a5` into this queued custom FG entry.
+    FgUpdateQueueCustomEntrySub1596 {
+        vram_word_address: queue_word,
+        first_longword: mapping_longwords[0],
+        second_longword: mapping_longwords[1],
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleSpriteWordsLocF41E {
@@ -9245,11 +9260,10 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
             let row_hi_bits = animated_solid_block_row_hi_bits_masked_loc_F86A(row_hi_bits);
             let vram_word_address =
                 animated_solid_block_row_queue_word_loc_F86E(row_hi_bits, input.packed_cell_x_bits);
-            custom_queue_entries.push(FgUpdateQueueCustomEntrySub1596 {
+            custom_queue_entries.push(animated_solid_block_vertical_rows_loc_F872(
                 vram_word_address,
-                first_longword: input.mapping_longwords[0],
-                second_longword: input.mapping_longwords[1],
-            });
+                input.mapping_longwords,
+            ));
         }
 
         row = row.wrapping_add(1);

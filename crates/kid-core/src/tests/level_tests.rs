@@ -9679,6 +9679,25 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F872 (kid.asm:20547): once a vertical animated-solid row is in
+    /// range, the routine swaps d2 and copies the two source longwords into the
+    /// queued custom FG entry.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F872_copies_queued_animated_solid_mapping_longwords() {
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_rows_loc_F872(
+                0x0A40,
+                [0x1111_2222, 0x3333_4444],
+            ),
+            crate::level::FgUpdateQueueCustomEntrySub1596 {
+                vram_word_address: 0x0A40,
+                first_longword: 0x1111_2222,
+                second_longword: 0x3333_4444,
+            }
+        );
+    }
+
     /// ASM loc_F85A (kid.asm:20528): each DBF iteration writes `$E304` to the
     /// current Level_Layout cell, queues VDP data only for visible rows, then
     /// advances by one row through `Level_width_tiles`.
