@@ -9301,6 +9301,92 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F41E (kid.asm:20042): the negative-direction visible sprite
+    /// path converts the prepared state offset to `d1*4+$2AB`, consumes the
+    /// upward bit, checks `col,row-1` against the visible block window, then
+    /// emits `(screen_y, ++a5, tile, screen_x)`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F41E_emits_the_visible_upward_shooter_sprite_inside_the_window() {
+        assert_eq!(
+            crate::level::shooter_visible_up_sprite_loc_F41E(
+                crate::level::ShooterVisibleUpSpriteInputLocF41E {
+                    direction_bits: 0b1001,
+                    prepared_state_offset_word: 0x0002,
+                    block_col: 0x0012,
+                    block_row: 0x000B,
+                    left_block_col: 0x0004,
+                    right_block_col: 0x0018,
+                    top_block_row: 0x0002,
+                    bottom_block_row: 0x0010,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0x0507,
+                },
+            ),
+            crate::level::ShooterVisibleUpSpriteLocF41E {
+                shifted_direction_bits: 0b0100,
+                sprite_words: Some(crate::level::ShooterVisibleSpriteWordsLocF41E {
+                    screen_y: 0x00C0,
+                    sprite_link_word: 0x0508,
+                    tile_word: 0x02B3,
+                    screen_x: 0x00A0,
+                }),
+            },
+            "ASM loc_F41E should emit the upward sprite with screen coordinates `(block*16 - camera + $80)` and increment the sprite link word"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F41E_skips_when_the_upward_bit_is_clear_or_row_is_outside_window() {
+        assert_eq!(
+            crate::level::shooter_visible_up_sprite_loc_F41E(
+                crate::level::ShooterVisibleUpSpriteInputLocF41E {
+                    direction_bits: 0b1000,
+                    prepared_state_offset_word: 0x0002,
+                    block_col: 0x0012,
+                    block_row: 0x000B,
+                    left_block_col: 0x0004,
+                    right_block_col: 0x0018,
+                    top_block_row: 0x0002,
+                    bottom_block_row: 0x0010,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0x0507,
+                },
+            ),
+            crate::level::ShooterVisibleUpSpriteLocF41E {
+                shifted_direction_bits: 0b0100,
+                sprite_words: None,
+            },
+            "ASM loc_F41E should branch to loc_F462 after `lsr.w #1,d0` when the upward bit is clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_visible_up_sprite_loc_F41E(
+                crate::level::ShooterVisibleUpSpriteInputLocF41E {
+                    direction_bits: 0b1001,
+                    prepared_state_offset_word: 0xFFFB,
+                    block_col: 0x0012,
+                    block_row: 0x0000,
+                    left_block_col: 0x0004,
+                    right_block_col: 0x0018,
+                    top_block_row: 0x0000,
+                    bottom_block_row: 0x0010,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0000,
+                    sprite_link_word: 0x05FF,
+                },
+            ),
+            crate::level::ShooterVisibleUpSpriteLocF41E {
+                shifted_direction_bits: 0b0100,
+                sprite_words: None,
+            },
+            "ASM loc_F41E should treat `row-1` as signed word `$FFFF`, so a top-row upward sprite is above the visible window"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
