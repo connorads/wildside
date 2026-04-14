@@ -12355,6 +12355,36 @@ pub(crate) fn level_sprite_strip_remainder_loc_E6D8(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripTailLocE6F8 {
+    pub(crate) tail_sprite: LevelSpriteStripEntryLocE692,
+    pub(crate) next_link: u8,
+}
+
+/// ASM loc_E6F8 (kid.asm:18396): write the trailing cap sprite at the current
+/// `d1`, using size `$0D`, the next sprite link, and tile `$F676 | d4`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_tail_loc_E6F8(
+    y_pos: i16,
+    link: u8,
+    source_x: i16,
+    tile_attr_mask: u16,
+) -> LevelSpriteStripTailLocE6F8 {
+    let next_link = link.wrapping_add(1);
+
+    LevelSpriteStripTailLocE6F8 {
+        tail_sprite: LevelSpriteStripEntryLocE692 {
+            y_pos,
+            size: 0x0D,
+            link: next_link,
+            tile_word: 0xF676 | tile_attr_mask,
+            x_pos: source_x,
+        },
+        next_link,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,

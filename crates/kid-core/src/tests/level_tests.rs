@@ -7058,6 +7058,31 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E6F8 (kid.asm:18396): the terrain strip always finishes by
+    /// writing a trailing size `$0D` sprite with tile `$F676|d4` and the next
+    /// sprite-table link.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E6F8_tail_strip_emits_final_cap_sprite() {
+        let tail = crate::level::level_sprite_strip_tail_loc_E6F8(0x00A0, 8, 0x0130, 0x0800);
+
+        assert_eq!(
+            tail.tail_sprite,
+            crate::level::LevelSpriteStripEntryLocE692 {
+                y_pos: 0x00A0,
+                size: 0x0D,
+                link: 9,
+                tile_word: 0xFE76,
+                x_pos: 0x0130,
+            },
+            "ASM loc_E6F8 should write y, size `$0D`, incremented link, `$F676|d4`, and x into the final sprite slot"
+        );
+        assert_eq!(
+            tail.next_link, 9,
+            "ASM loc_E6F8 should leave d2 at the link byte written into the final sprite"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
