@@ -3590,12 +3590,12 @@ mod chunk_01 {
 
     #[test]
     #[allow(non_snake_case)]
-    fn loc_E136C_z80_handshake_runs_45_iteration_delay_for_nonzero_status() {
+    fn loc_E1392_z80_handshake_runs_45_iteration_delay_for_nonzero_status() {
         let handshake = sound_driver_z80_handshake_loc_E136C(0x80);
 
         assert_eq!(
             handshake.delay_iterations, 0x45,
-            "ASM loc_E136C seeds `d0=$44`, so the `dbf` delay lasts `$44+1` iterations when `$A01A21` is non-zero",
+            "ASM loc_E1392 seeds `d0=$44`, so the `dbf` delay lasts `$44+1` iterations when `$A01A21` is non-zero",
         );
         assert!(
             handshake.releases_z80_bus,

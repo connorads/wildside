@@ -574,6 +574,8 @@ pub(crate) fn sound_driver_z80_handshake_loc_E136C(
     // ASM loc_E136C (kid.asm:49540): after requesting `$A11100=$0100`, spin
     // until bit 0 clears, write `1` to `$A01A20`, read `$A01A21`, release
     // `$A11100`, and only burn the `$44` DBF delay when the read byte is non-zero.
+    // ASM loc_E1392 (kid.asm:49550): `dbf d0,loc_E1392` uses the inclusive
+    // DBF count, so `moveq #$44,d0` burns `$44 + 1` delay iterations.
     SoundDriverZ80HandshakeLocE136C {
         bus_request_register: 0xA11100,
         bus_latch_register: 0xA01A20,
