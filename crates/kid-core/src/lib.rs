@@ -523,6 +523,16 @@ pub(crate) struct SoundDriverWriteCommandAndTwoBytes {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverWriteCommandAndThreeBytes {
+    pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
+    pub(crate) command_write: SoundDriverWriteCommandSubE1482,
+    pub(crate) payload_writes: [SoundDriverWriteByteSubE148E; 3],
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) restores_previous_sr: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlaneClearPassSetupLoc1698 {
     pub(crate) target_addr: u32,
     pub(crate) dbf_seed: u16,
@@ -908,6 +918,36 @@ pub(crate) fn sound_driver_write_command_01_two_bytes_loc_E15A4(
         first_payload as u8,
         second_payload as u8,
     )
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_05_three_bytes_loc_E15AC(
+    command_head_byte: u8,
+    first_payload: u32,
+    second_payload: u32,
+) -> SoundDriverWriteCommandAndThreeBytes {
+    // ASM loc_E15AC (kid.asm:49879): enter sub_E143A, queue command `$05`,
+    // write the low bytes from `8(a6)` and `$C(a6)`, then `asr.l #8,d0`
+    // using the `$C(a6)` value and write that shifted low byte as a third
+    // payload before loc_E1470 releases the Z80 bus.
+    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, 0x05);
+    let first_write =
+        sound_driver_write_byte_sub_E148E(command_write.next_write_index, first_payload as u8);
+    let second_write =
+        sound_driver_write_byte_sub_E148E(first_write.committed_write_index, second_payload as u8);
+    let shifted_second_payload = ((second_payload as i32) >> 8) as u8;
+    let third_write = sound_driver_write_byte_sub_E148E(
+        second_write.committed_write_index,
+        shifted_second_payload,
+    );
+    SoundDriverWriteCommandAndThreeBytes {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        command_write,
+        payload_writes: [first_write, second_write, third_write],
+        releases_z80_bus: true,
+        restores_previous_sr: true,
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

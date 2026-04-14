@@ -4025,6 +4025,47 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_E15AC_selects_command_05_and_writes_shifted_second_payload_byte() {
+        let write =
+            sound_driver_write_command_05_three_bytes_loc_E15AC(0x3C, 0x55667788, 0xA1B2C3D4);
+
+        assert_eq!(
+            write.command_write,
+            SoundDriverWriteCommandSubE1482 {
+                queued_bytes: [0xFF, 0x05],
+                next_write_index: 0x3E,
+            },
+            "ASM loc_E15AC should queue command `$05` through sub_E1482 before any payload byte",
+        );
+        assert_eq!(
+            write.payload_writes,
+            [
+                SoundDriverWriteByteSubE148E {
+                    queued_byte: 0x88,
+                    next_write_index: 0x3F,
+                    committed_write_index: 0x3F,
+                },
+                SoundDriverWriteByteSubE148E {
+                    queued_byte: 0xD4,
+                    next_write_index: 0x00,
+                    committed_write_index: 0x00,
+                },
+                SoundDriverWriteByteSubE148E {
+                    queued_byte: 0xC3,
+                    next_write_index: 0x01,
+                    committed_write_index: 0x01,
+                },
+            ],
+            "ASM loc_E15AC should write low byte from `8(a6)`, low byte from `$C(a6)`, then the low byte after `asr.l #8,d0` of `$C(a6)`",
+        );
+        assert!(
+            write.releases_z80_bus && write.restores_previous_sr,
+            "ASM loc_E15AC should finish through loc_E1470 after the third payload write",
+        );
+    }
+
+    #[test]
     fn rom_random_state_matches_get_randomnumber_byte_seeded_sequence() {
         // ASM Init_RNG / Get_RandomNumber_byte (kid.asm:1106-1204).
         let mut rng = RomRandomState::default();
