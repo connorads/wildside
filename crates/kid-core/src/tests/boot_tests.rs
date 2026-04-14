@@ -2856,6 +2856,27 @@ mod chunk_01 {
         );
     }
 
+    /// ASM loc_D47E (kid.asm:16635): the digit allocation loop divides the
+    /// remaining completion time by 10 each pass, uses the previous remainder as
+    /// the sprite digit, then subtracts `$C` from d2 before `dbf d6,loc_D47E`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D47E_level_skip_completion_time_loop_keeps_quotient_for_next_digit() {
+        let sprites = level_skip_completion_time_digit_sprites_loc_D468(true, 7, 0x0200, 0x0040)
+            .expect("ASM loc_D47E should run three allocation-loop iterations");
+
+        assert_eq!(
+            sprites.map(|sprite| sprite.digit),
+            [7, 0, 0],
+            "ASM loc_D47E should emit ones, then quotient digits after each `divu.w #$A,d3`"
+        );
+        assert_eq!(
+            sprites.map(|sprite| sprite.x_pos),
+            [0x031C, 0x0310, 0x0304],
+            "ASM loc_D47E should keep subtracting `$C` from d2 between DBF iterations"
+        );
+    }
+
     /// ASM loc_D468 (kid.asm:16626): `tst.b (LevelSkip_Cheat).w; beq.s loc_D4CE`
     /// skips the three digit allocations entirely when the cheat flag is clear.
     #[test]

@@ -11092,6 +11092,9 @@ pub(crate) struct LevelSkipCompletionTimeDigitSpriteLocD468 {
 /// before the normal EOL text path. `d3` starts from the byte
 /// `Level_completion_time`; each `divu.w #$A,d3` stores the remainder digit
 /// through `Spr_EOL_Digits_Index`, then keeps the quotient for the next sprite.
+/// ASM loc_D47E (kid.asm:16635): this is the allocation loop body; `d6=#2`
+/// makes `dbf d6,loc_D47E` run three times while `subi.w #$C,d2` moves the
+/// next digit sprite left.
 /// Sprites are placed right-to-left at camera X + `$11C`, `$110`, `$104` and
 /// share camera Y + `$D4`, display flag `$FF`, priority `$02`, palette `$01`,
 /// and VRAM tile `$517`.
