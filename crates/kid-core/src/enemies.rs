@@ -206,6 +206,23 @@ pub(crate) fn lion_track_kid_nonnegative_delta_facing_loc_3e06a(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_track_kid_negative_delta_facing_loc_3e074(
+    lion_x_word: u16,
+    kid_x_word: u16,
+) -> Direction {
+    let lion_x = i16::from_ne_bytes(lion_x_word.to_ne_bytes());
+    let kid_x = i16::from_ne_bytes(kid_x_word.to_ne_bytes());
+    let delta = lion_x.wrapping_sub(kid_x);
+    // ASM Lion.asm loc_3E074: the negative `d4 = lion_x - kid_x` branch
+    // executes `st x_direction(a3)`, selecting the right-facing orientation.
+    if delta < 0 {
+        Direction::Right
+    } else {
+        Direction::Left
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
@@ -6657,6 +6674,20 @@ mod tests {
             lion_track_kid_nonnegative_delta_facing_loc_3e06a(0x0200, 0x0200),
             Direction::Left,
             "ASM Lion.asm loc_3E06A should also clear x_direction when signed d4 is zero"
+        );
+    }
+
+    #[test]
+    fn lion_track_kid_facing_matches_loc_3e074_negative_delta() {
+        assert_eq!(
+            lion_track_kid_negative_delta_facing_loc_3e074(0x0200, 0x0300),
+            Direction::Right,
+            "ASM Lion.asm loc_3E074 should store x_direction when signed d4 = lion_x - kid_x is negative"
+        );
+        assert_eq!(
+            lion_track_kid_negative_delta_facing_loc_3e074(0x7FFF, 0x8000),
+            Direction::Right,
+            "ASM Lion.asm loc_3E074 inherits 68k signed-word comparison semantics across the sign boundary"
         );
     }
 
