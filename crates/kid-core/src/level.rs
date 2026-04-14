@@ -11767,6 +11767,33 @@ pub(crate) fn end_credits_hundred_k_trip_setup_loc_D9EA() -> EndCreditsHundredKT
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndCreditsHundredKTripPaletteSetupLocDA16 {
+    pub(crate) palette_buffer_2: [u16; 0x40],
+    pub(crate) palette_buffer_3: [u16; 0x40],
+    pub(crate) fade_progress: u16,
+}
+
+/// ASM loc_DA16 (kid.asm:17059): copy each of the 64 `Palette_Buffer` words
+/// into `Palette_Buffer_2`, subtract `$0888` from the copied word, store that
+/// darkened word into `Palette_Buffer_3`, then seed `$FFFFF876` with `$0100`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_hundred_k_trip_palette_setup_loc_DA16(
+    palette_buffer: [u16; 0x40],
+) -> EndCreditsHundredKTripPaletteSetupLocDA16 {
+    let mut palette_buffer_3 = [0; 0x40];
+    for (target_word, source_word) in palette_buffer_3.iter_mut().zip(palette_buffer) {
+        *target_word = source_word.wrapping_sub(0x0888);
+    }
+
+    EndCreditsHundredKTripPaletteSetupLocDA16 {
+        palette_buffer_2: palette_buffer,
+        palette_buffer_3,
+        fade_progress: 0x0100,
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.

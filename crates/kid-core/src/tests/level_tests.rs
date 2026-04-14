@@ -6836,6 +6836,42 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DA16 (kid.asm:17059): copy all 64 source palette words into
+    /// `Palette_Buffer_2`, store each word minus `$0888` into
+    /// `Palette_Buffer_3`, then seed the shared fade progress word to `$0100`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DA16_end_credits_hundred_k_trip_copies_and_darkens_full_palette() {
+        let palette = std::array::from_fn(|index| {
+            if index == 0 {
+                0x0007
+            } else {
+                0x1000 + index as u16
+            }
+        });
+
+        let setup = crate::level::end_credits_hundred_k_trip_palette_setup_loc_DA16(palette);
+
+        assert_eq!(
+            setup.palette_buffer_2, palette,
+            "ASM loc_DA16 should copy every Palette_Buffer word into Palette_Buffer_2 before darkening d1"
+        );
+        assert_eq!(
+            setup.palette_buffer_3[0],
+            0x0007u16.wrapping_sub(0x0888),
+            "ASM loc_DA16 uses subi.w, so low source words should wrap in Palette_Buffer_3"
+        );
+        assert_eq!(
+            setup.palette_buffer_3[0x3F],
+            palette[0x3F].wrapping_sub(0x0888),
+            "ASM loc_DA16 seeds d0=$3F, so the inclusive DBF loop must process the final palette word"
+        );
+        assert_eq!(
+            setup.fade_progress, 0x0100,
+            "ASM loc_DA16 should fall through to `move.w #$100,($FFFFF876).w` after the 64-word loop"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
