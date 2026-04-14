@@ -16,6 +16,13 @@ pub(crate) struct EyeclopsBeamScreenOriginLocE4C4 {
     pub(crate) screen_y_word: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsBeamMirroredAnchorLocE50A {
+    pub(crate) anchor_x_word: u16,
+    pub(crate) tile_flip_bit: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn eyeclops_beam_render_setup_loc_E4B2(
@@ -61,6 +68,21 @@ pub(crate) fn eyeclops_beam_screen_origin_loc_E4C4(
     EyeclopsBeamScreenOriginLocE4C4 {
         screen_x_word,
         screen_y_word,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn eyeclops_beam_mirrored_anchor_loc_E50A(
+    screen_x_word: u16,
+    beam_segment_index: u16,
+) -> EyeclopsBeamMirroredAnchorLocE50A {
+    // ASM loc_E50A (kid.asm:18042): restore `a1` from beam screen X, subtract
+    // `d5 = $10 + (d7 << 3)`, then set the sprite tile horizontal flip bit.
+    let segment_span = 0x0010_u16.wrapping_add(beam_segment_index.wrapping_shl(3));
+    EyeclopsBeamMirroredAnchorLocE50A {
+        anchor_x_word: screen_x_word.wrapping_sub(segment_span),
+        tile_flip_bit: 0x0800,
     }
 }
 

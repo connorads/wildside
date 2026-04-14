@@ -3152,6 +3152,24 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_E50A (kid.asm:18042): mirrored Eyeclops beams subtract the
+    /// segment span from the already biased screen X and set bit `$0800` on
+    /// every tile word emitted by the following sprite table loop.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E50A_eyeclops_beam_mirrored_anchor_subtracts_segment_span_and_sets_flip() {
+        let anchor = helmets::eyeclops_beam_mirrored_anchor_loc_E50A(0x00C0, 3);
+
+        assert_eq!(
+            anchor.anchor_x_word, 0x0098,
+            "ASM loc_E50A should subtract `$10 + (d7 << 3)` from the beam screen X",
+        );
+        assert_eq!(
+            anchor.tile_flip_bit, 0x0800,
+            "ASM loc_E50A should seed d4 with the horizontal tile flip bit",
+        );
+    }
+
     #[test]
     fn eyeclops_c_press_fires_beam_right() {
         let mut rt = NativeRuntime::new(manifest());
