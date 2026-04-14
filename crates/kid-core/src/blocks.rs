@@ -1715,6 +1715,10 @@ impl NativeRuntime {
         let previous_row = self.block_state.shooter_last_scanned_row;
         let mut pending_entries = Vec::new();
         let mut queue_scan = |col: u16, row: u16, skin: u8| {
+            // ASM loc_F106 (kid.asm:19673): a raw shooter candidate pops one
+            // free slot, pushes it to the active list, then stores the layout
+            // address, column, row, and direction bits. Native works on decoded
+            // grid cells and queues the same entry shape before ticking slots.
             let already_registered = self
                 .block_state
                 .shooter_blocks

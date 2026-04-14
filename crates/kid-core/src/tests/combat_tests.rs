@@ -8107,6 +8107,32 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_f106_queues_shooter_candidate_slot_state() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x0A)]));
+        runtime.projectiles.clear();
+        runtime.block_state.shooter_last_scanned_col = 1;
+        runtime.block_state.shooter_last_scanned_row = 4;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (4 * 16) << 16;
+        runtime.step_shooter_blocks(&slice);
+
+        assert_eq!(
+            runtime.block_state.shooter_blocks,
+            vec![ShooterBlockEntry {
+                col: 5,
+                row: 4,
+                directions: 0x0A,
+                age: 1,
+            }],
+            "ASM loc_F106 should allocate the candidate shooter slot with its column, row, and direction bits before sub_F730 ticks it"
+        );
+    }
+
+    #[test]
     fn shooter_block_sub_f096_keeps_per_slot_cadence_until_the_worker_expires() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
