@@ -7278,6 +7278,19 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E7A8 (kid.asm:18479): rejected strip paths do not clear or
+    /// allocate anything here; they branch straight into the shared visible
+    /// object sprite pass at `loc_E99C`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E7A8_exits_to_visible_object_sprite_pass() {
+        assert_eq!(
+            crate::level::level_sprite_strip_exit_loc_E7A8(),
+            crate::level::LevelSpriteStripExitLocE7A8::ContinueToVisibleObjectSpritePass,
+            "ASM loc_E7A8 should only `bra.w loc_E99C` after earlier code has left the sprite globals as-is"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

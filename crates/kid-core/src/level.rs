@@ -12540,6 +12540,20 @@ pub(crate) fn level_sprite_strip_right_adjacent_column_loc_E786(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LevelSpriteStripExitLocE7A8 {
+    ContinueToVisibleObjectSpritePass,
+}
+
+/// ASM loc_E7A8 (kid.asm:18479): all rejected strip paths branch directly to
+/// `loc_E99C`, leaving the current sprite globals to seed the visible object
+/// sprite pass.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_exit_loc_E7A8() -> LevelSpriteStripExitLocE7A8 {
+    LevelSpriteStripExitLocE7A8::ContinueToVisibleObjectSpritePass
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
