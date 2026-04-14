@@ -1050,6 +1050,21 @@ pub(crate) struct ShooterObjectSpriteTailLocEE52 {
     pub(crate) tile_word: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterObjectMovingUpNextLocEE80 {
+    ContinueMovingUp,
+    InteractLevelLayout,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterObjectMovingUpGateLocEE80 {
+    pub(crate) state_word: u16,
+    pub(crate) layout_word_addr: u16,
+    pub(crate) next_step: ShooterObjectMovingUpNextLocEE80,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8934,6 +8949,39 @@ pub(crate) fn shooter_object_moving_right_sprite_tail_loc_EE52(
         sprite_x_offset: 0,
         sprite_y_offset: -4,
         tile_word: 0x8A96,
+    }
+}
+
+/// ASM loc_EE80 (kid.asm:19367): when the moving-up shooter age reaches four,
+/// clear `$8(a0)` and subtract `Level_width_tiles` from the layout pointer.
+/// The following collision gate interacts for bit-14 cells while age is below
+/// two; older ages require the moving-up `$2000` directional bit.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_up_gate_loc_EE80(
+    age_after_increment: u16,
+    current_layout_word_addr: u16,
+    level_width_tiles: u16,
+    selected_layout_word: u16,
+) -> ShooterObjectMovingUpGateLocEE80 {
+    let (state_word, layout_word_addr) = if age_after_increment == 4 {
+        (0, current_layout_word_addr.wrapping_sub(level_width_tiles))
+    } else {
+        (age_after_increment, current_layout_word_addr)
+    };
+
+    let next_step = if (selected_layout_word & 0x4000) == 0 {
+        ShooterObjectMovingUpNextLocEE80::ContinueMovingUp
+    } else if state_word < 2 || (selected_layout_word & 0x2000) != 0 {
+        ShooterObjectMovingUpNextLocEE80::InteractLevelLayout
+    } else {
+        ShooterObjectMovingUpNextLocEE80::ContinueMovingUp
+    };
+
+    ShooterObjectMovingUpGateLocEE80 {
+        state_word,
+        layout_word_addr,
+        next_step,
     }
 }
 

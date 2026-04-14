@@ -9706,6 +9706,45 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EE80 (kid.asm:19367): moving-up shooters reset the age word every
+    /// fourth frame, step the layout pointer up by `Level_width_tiles`, then use
+    /// the selected layout word's bit 14, age, and `$2000` bit to decide whether
+    /// to interact with the level layout.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EE80_moving_up_resets_fourth_frame_and_gates_collision() {
+        assert_eq!(
+            crate::level::shooter_object_moving_up_gate_loc_EE80(4, 0x04A6, 0x0028, 0x4000),
+            crate::level::ShooterObjectMovingUpGateLocEE80 {
+                state_word: 0,
+                layout_word_addr: 0x047E,
+                next_step: crate::level::ShooterObjectMovingUpNextLocEE80::InteractLevelLayout,
+            },
+            "ASM loc_EE80 should reset age 4 before the compare, subtract Level_width_tiles from `(a0)`, then interact because age 0 is below 2"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_up_gate_loc_EE80(2, 0x04A6, 0x0028, 0x4000)
+                .next_step,
+            crate::level::ShooterObjectMovingUpNextLocEE80::ContinueMovingUp,
+            "ASM loc_EE80 should continue at age 2 when bit 14 is set but `$2000` is clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_up_gate_loc_EE80(3, 0x04A6, 0x0028, 0x6000)
+                .next_step,
+            crate::level::ShooterObjectMovingUpNextLocEE80::InteractLevelLayout,
+            "ASM loc_EE80 should interact at age 2 or higher only when the `$2000` directional bit remains set"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_up_gate_loc_EE80(1, 0x04A6, 0x0028, 0x2000)
+                .next_step,
+            crate::level::ShooterObjectMovingUpNextLocEE80::ContinueMovingUp,
+            "ASM loc_EE80 should branch to loc_EEAC when bit 14 is clear, even if `$2000` is set"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
