@@ -9594,6 +9594,40 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F83E (kid.asm:20514): the vertical animated-solid block setup
+    /// culls off-camera columns and rows, but accepts rows as high as
+    /// `camera_top-7` before precomputing the packed cell-X bits.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F83E_sets_up_visible_vertical_animated_blocks() {
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_setup_loc_F83E(
+                0x0021, 0x0019, 0x0010, 0x0020, 0x0024, 0x002E,
+            ),
+            crate::level::AnimatedSolidBlockVerticalSetupLocF83E::Visible {
+                packed_cell_x_bits: 0x0004,
+                start_row: 0x0019,
+            },
+            "ASM loc_F83E should accept `start_row-camera_top == -7` and keep `(col << 2) & $7C` for loc_F85A"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_setup_loc_F83E(
+                0x0021, 0x0018, 0x0010, 0x0020, 0x0024, 0x002E,
+            ),
+            crate::level::AnimatedSolidBlockVerticalSetupLocF83E::CulledLayoutOnly,
+            "ASM loc_F83E should branch to loc_F886 when `start_row-camera_top <= -8`"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_setup_loc_F83E(
+                0x0025, 0x0021, 0x0010, 0x0020, 0x0024, 0x002E,
+            ),
+            crate::level::AnimatedSolidBlockVerticalSetupLocF83E::CulledLayoutOnly,
+            "ASM loc_F83E should branch to loc_F886 when the source column is right of the camera window"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

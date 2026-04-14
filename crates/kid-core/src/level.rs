@@ -941,6 +941,16 @@ pub(crate) struct AnimatedSolidBlockTailLocF836 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AnimatedSolidBlockVerticalSetupLocF83E {
+    Visible {
+        packed_cell_x_bits: u16,
+        start_row: u16,
+    },
+    CulledLayoutOnly,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleSpriteWordsLocF41E {
     pub(crate) screen_y: u16,
     pub(crate) sprite_link_word: u16,
@@ -9131,6 +9141,36 @@ pub(crate) fn animated_solid_block_horizontal_tail_loc_F836(
     AnimatedSolidBlockTailLocF836 {
         restored_d6: swapped_d6.rotate_left(16),
         restored_d7: swapped_d7.rotate_left(16),
+    }
+}
+
+/// ASM loc_F83E (kid.asm:20514): vertical animated-solid blocks render only
+/// when the source column is inside `[camera_x, camera_x+$14]`, the starting
+/// row is not below `camera_y+$E`, and `start_row-camera_y > -8`. The accepted
+/// path precomputes `(d0 << 2) & $7C` for the per-row custom queue entries.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_vertical_setup_loc_F83E(
+    start_col: u16,
+    start_row: u16,
+    camera_left_col: u16,
+    camera_top_row: u16,
+    camera_right_col: u16,
+    camera_bottom_row: u16,
+) -> AnimatedSolidBlockVerticalSetupLocF83E {
+    if start_col > camera_right_col || start_col < camera_left_col || start_row > camera_bottom_row
+    {
+        return AnimatedSolidBlockVerticalSetupLocF83E::CulledLayoutOnly;
+    }
+
+    let row_delta = start_row.wrapping_sub(camera_top_row) as i16;
+    if row_delta <= -8 {
+        return AnimatedSolidBlockVerticalSetupLocF83E::CulledLayoutOnly;
+    }
+
+    AnimatedSolidBlockVerticalSetupLocF83E::Visible {
+        packed_cell_x_bits: (start_col << 2) & 0x007C,
+        start_row,
     }
 }
 
