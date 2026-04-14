@@ -9472,6 +9472,91 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F4E6 (kid.asm:20127): the negative-direction visible sprite
+    /// path consumes the left bit, checks `col-1,row` against the visible
+    /// block window, then emits `(screen_y, ++a5, d1+$814, screen_x)`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F4E6_emits_the_visible_left_shooter_sprite_inside_the_window() {
+        assert_eq!(
+            crate::level::shooter_visible_left_sprite_loc_F4E6(
+                crate::level::ShooterVisibleLeftSpriteInputLocF4E6 {
+                    direction_bits: 0b1001,
+                    prepared_state_offset_word: 0x0002,
+                    block_col: 0x0012,
+                    block_row: 0x000B,
+                    left_block_col: 0x0004,
+                    right_block_col: 0x0018,
+                    top_block_row: 0x0002,
+                    bottom_block_row: 0x0010,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0x0507,
+                },
+            ),
+            crate::level::ShooterVisibleLeftSpriteLocF4E6 {
+                shifted_direction_bits: 0b0100,
+                sprite_words: Some(crate::level::ShooterVisibleSpriteWordsLocF41E {
+                    screen_y: 0x00D0,
+                    sprite_link_word: 0x0508,
+                    tile_word: 0x0AC7,
+                    screen_x: 0x0090,
+                }),
+            },
+            "ASM loc_F4E6 should emit the left sprite with col-1 screen coordinates and tile word `d1+$814`"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F4E6_skips_when_the_left_bit_is_clear_or_column_is_outside_window() {
+        assert_eq!(
+            crate::level::shooter_visible_left_sprite_loc_F4E6(
+                crate::level::ShooterVisibleLeftSpriteInputLocF4E6 {
+                    direction_bits: 0b1000,
+                    prepared_state_offset_word: 0x0002,
+                    block_col: 0x0012,
+                    block_row: 0x000B,
+                    left_block_col: 0x0004,
+                    right_block_col: 0x0018,
+                    top_block_row: 0x0002,
+                    bottom_block_row: 0x0010,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0x0507,
+                },
+            ),
+            crate::level::ShooterVisibleLeftSpriteLocF4E6 {
+                shifted_direction_bits: 0b0100,
+                sprite_words: None,
+            },
+            "ASM loc_F4E6 should skip the sprite emit after `lsr.w #1,d0` when the left bit is clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_visible_left_sprite_loc_F4E6(
+                crate::level::ShooterVisibleLeftSpriteInputLocF4E6 {
+                    direction_bits: 0b1001,
+                    prepared_state_offset_word: 0x0002,
+                    block_col: 0x0004,
+                    block_row: 0x000B,
+                    left_block_col: 0x0004,
+                    right_block_col: 0x0018,
+                    top_block_row: 0x0002,
+                    bottom_block_row: 0x0010,
+                    camera_x_word: 0x0000,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0x0507,
+                },
+            ),
+            crate::level::ShooterVisibleLeftSpriteLocF4E6 {
+                shifted_direction_bits: 0b0100,
+                sprite_words: None,
+            },
+            "ASM loc_F4E6 should skip when `col-1` is left of the visible block window"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

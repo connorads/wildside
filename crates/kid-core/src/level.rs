@@ -989,6 +989,29 @@ pub(crate) struct ShooterVisibleDownSpriteInputLocF4A4 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterVisibleLeftSpriteLocF4E6 {
+    pub(crate) shifted_direction_bits: u16,
+    pub(crate) sprite_words: Option<ShooterVisibleSpriteWordsLocF41E>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterVisibleLeftSpriteInputLocF4E6 {
+    pub(crate) direction_bits: u16,
+    pub(crate) prepared_state_offset_word: u16,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) left_block_col: u16,
+    pub(crate) right_block_col: u16,
+    pub(crate) top_block_row: u16,
+    pub(crate) bottom_block_row: u16,
+    pub(crate) camera_x_word: u16,
+    pub(crate) camera_y_word: u16,
+    pub(crate) sprite_link_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -9010,6 +9033,53 @@ pub(crate) fn shooter_visible_down_sprite_loc_F4A4(
                     .wrapping_add(0x12AB),
                 screen_x: input
                     .block_col
+                    .wrapping_shl(4)
+                    .wrapping_sub(input.camera_x_word)
+                    .wrapping_add(0x0080),
+            })
+        } else {
+            None
+        },
+    }
+}
+
+/// ASM loc_F4E6 (kid.asm:20127): after the down visible-sprite check, shift
+/// the direction word once more. Carry set emits the left-neighbour sprite at
+/// `(col-1,row)` using tile word `d1+$814`; carry clear skips the emit path.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_visible_left_sprite_loc_F4E6(
+    input: ShooterVisibleLeftSpriteInputLocF4E6,
+) -> ShooterVisibleLeftSpriteLocF4E6 {
+    let shifted_direction_bits = input.direction_bits >> 1;
+    if (input.direction_bits & 1) == 0 {
+        return ShooterVisibleLeftSpriteLocF4E6 {
+            shifted_direction_bits,
+            sprite_words: None,
+        };
+    }
+
+    let sprite_block_col = input.block_col.wrapping_sub(1);
+    let in_visible_window = (sprite_block_col as i16) >= (input.left_block_col as i16)
+        && (sprite_block_col as i16) <= (input.right_block_col as i16)
+        && (input.block_row as i16) >= (input.top_block_row as i16)
+        && (input.block_row as i16) <= (input.bottom_block_row as i16);
+
+    ShooterVisibleLeftSpriteLocF4E6 {
+        shifted_direction_bits,
+        sprite_words: if in_visible_window {
+            Some(ShooterVisibleSpriteWordsLocF41E {
+                screen_y: input
+                    .block_row
+                    .wrapping_shl(4)
+                    .wrapping_sub(input.camera_y_word)
+                    .wrapping_add(0x0080),
+                sprite_link_word: input.sprite_link_word.wrapping_add(1),
+                tile_word: input
+                    .prepared_state_offset_word
+                    .wrapping_mul(4)
+                    .wrapping_add(0x0ABF),
+                screen_x: sprite_block_col
                     .wrapping_shl(4)
                     .wrapping_sub(input.camera_x_word)
                     .wrapping_add(0x0080),
