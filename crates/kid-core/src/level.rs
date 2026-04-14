@@ -893,6 +893,13 @@ pub(crate) struct ShooterExpiredSlotFreeListPushLocF364 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterVisibleRightGateLocF3B2 {
+    pub(crate) shifted_direction_bits: u16,
+    pub(crate) right_direction_set: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8730,6 +8737,21 @@ pub(crate) fn shooter_expired_slot_push_free_list_loc_F364(
         next_active_slot_to_process_addr: saved_next_active_slot_addr,
         slots,
     })
+}
+
+/// ASM loc_F3B2 (kid.asm:19985): after the upward visible-neighbour bit has
+/// been consumed, shift the direction word once more. Carry set falls through
+/// to the right-neighbour update at `loc_F3BC`; carry clear skips to
+/// `loc_F3CC`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_visible_right_gate_loc_F3B2(
+    direction_bits_after_up_check: u16,
+) -> ShooterVisibleRightGateLocF3B2 {
+    ShooterVisibleRightGateLocF3B2 {
+        shifted_direction_bits: direction_bits_after_up_check >> 1,
+        right_direction_set: (direction_bits_after_up_check & 1) != 0,
+    }
 }
 
 #[allow(non_snake_case)]

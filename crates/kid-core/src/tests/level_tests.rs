@@ -9158,6 +9158,31 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F3B2 (kid.asm:19985): the visible-neighbour updater shifts the
+    /// post-up-check direction word once; carry set falls through to the right
+    /// cell write, while carry clear skips directly to the down-bit gate.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F3B2_consumes_the_visible_right_direction_bit() {
+        assert_eq!(
+            crate::level::shooter_visible_right_gate_loc_F3B2(0b0011),
+            crate::level::ShooterVisibleRightGateLocF3B2 {
+                shifted_direction_bits: 0b0001,
+                right_direction_set: true,
+            },
+            "ASM loc_F3B2 should expose the right-neighbour carry after one `lsr.w #1,d0`"
+        );
+
+        assert_eq!(
+            crate::level::shooter_visible_right_gate_loc_F3B2(0b0010),
+            crate::level::ShooterVisibleRightGateLocF3B2 {
+                shifted_direction_bits: 0b0001,
+                right_direction_set: false,
+            },
+            "ASM loc_F3B2 should branch to loc_F3CC when the shifted-out right bit is clear"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
