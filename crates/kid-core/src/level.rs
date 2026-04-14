@@ -841,6 +841,12 @@ pub(crate) struct EvanescentBulletHitboxScanInputLocEAE4 {
     pub(crate) level_width_pixels: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletBottomClampLocEAF8 {
+    pub(crate) bottom_px: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8208,10 +8214,10 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
     }
 
     let top_px = i32::from(input.kid_hitbox_top).saturating_sub(1).max(0);
-    let bottom_bound_px = i32::from(input.level_height_pixels.saturating_sub(1));
-    let bottom_px = (i32::from(input.kid_hitbox_bottom) + 1)
-        .min(bottom_bound_px)
-        .max(0);
+    let bottom_px = i32::from(
+        evanescent_bullet_bottom_clamp_loc_EAF8(input.kid_hitbox_bottom, input.level_height_pixels)
+            .bottom_px,
+    );
     let left_px = i32::from(input.kid_hitbox_left).saturating_sub(1).max(0);
     let right_bound_px = i32::from(input.level_width_pixels.saturating_sub(1));
     let right_px = (i32::from(input.kid_hitbox_right) + 1)
@@ -8245,6 +8251,22 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
         row_dbf_counter: bottom_row.wrapping_sub(top_row),
         col_dbf_counter: right_col.wrapping_sub(left_col),
         found_evanescent_block,
+    }
+}
+
+/// ASM loc_EAF8 (kid.asm:18866): expand Kid's bottom hitbox edge by one
+/// pixel, then clamp it to `Level_height_pixels - 1` before the row conversion
+/// at `loc_EB0C`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_bottom_clamp_loc_EAF8(
+    kid_hitbox_bottom: u16,
+    level_height_pixels: u16,
+) -> EvanescentBulletBottomClampLocEAF8 {
+    EvanescentBulletBottomClampLocEAF8 {
+        bottom_px: kid_hitbox_bottom
+            .saturating_add(1)
+            .min(level_height_pixels.saturating_sub(1)),
     }
 }
 

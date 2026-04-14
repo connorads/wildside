@@ -8832,6 +8832,24 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EAF8 (kid.asm:18866): `addq.w #1,d1` keeps the expanded bottom
+    /// edge when it is still below `Level_height_pixels`; otherwise the ROM
+    /// stores `Level_height_pixels - 1` in `d1`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EAF8_clamps_the_expanded_bottom_edge_to_level_height_minus_one() {
+        assert_eq!(
+            crate::level::evanescent_bullet_bottom_clamp_loc_EAF8(30, 64),
+            crate::level::EvanescentBulletBottomClampLocEAF8 { bottom_px: 31 },
+            "ASM loc_EAF8 should keep `Kid_hitbox_bottom + 1` when it is strictly below Level_height_pixels"
+        );
+        assert_eq!(
+            crate::level::evanescent_bullet_bottom_clamp_loc_EAF8(63, 64),
+            crate::level::EvanescentBulletBottomClampLocEAF8 { bottom_px: 63 },
+            "ASM loc_EAF8 should clamp to Level_height_pixels - 1 once the expanded bottom reaches or exceeds the level height"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
