@@ -11511,6 +11511,17 @@ pub(crate) fn eol_title_return_palette_backup_loc_D718(palette_buffer: [u16; 0x4
     palette_buffer
 }
 
+/// ASM loc_D726 (kid.asm:16831): end-of-level title-return fade target clear.
+/// `moveq #$3F,d0; lea (Palette_Buffer_3).l,a0;
+/// loc_D726: move.w #0,(a0)+; dbf d0,loc_D726`.
+/// Clears all 64 words in `Palette_Buffer_3` before seeding `$FFFFF876` with
+/// `$0100` for the title-return fade.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eol_title_return_palette_clear_loc_D726(palette_buffer_3: &mut [u16; 0x40]) {
+    palette_buffer_3.fill(0);
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {

@@ -6375,6 +6375,27 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D726 (kid.asm:16831): after the palette backup, the EOL
+    /// title-return fade clears `Palette_Buffer_3` with an inclusive 64-word DBF
+    /// loop and then seeds the shared fade progress word to `$0100`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D726_eol_title_return_clears_the_full_fade_target() {
+        let mut palette_buffer_3 =
+            core::array::from_fn(|index| 0x0200_u16.wrapping_add(index as u16));
+
+        crate::level::eol_title_return_palette_clear_loc_D726(&mut palette_buffer_3);
+
+        assert!(
+            palette_buffer_3.iter().all(|word| *word == 0),
+            "ASM loc_D726 should clear all 64 Palette_Buffer_3 words"
+        );
+        assert_eq!(
+            palette_buffer_3[0x3F], 0,
+            "ASM loc_D726 must include the final DBF zero-slot word"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
