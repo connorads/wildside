@@ -1252,6 +1252,14 @@ pub(crate) struct HiddenBlockRevealGfxInitLocE2A8 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockRevealPositionLocE2D2 {
+    pub(crate) x_pos_px: u16,
+    pub(crate) y_pos_px: u16,
+    pub(crate) bounce_loop_seed: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockJumpSnapLocE1FE {
     pub(crate) y_velocity_fp: i32,
     pub(crate) y_subpixel: u16,
@@ -1504,6 +1512,22 @@ pub(crate) fn hidden_block_reveal_gfx_init_loc_E2A8(
         animation_seed,
         sprite_mapping,
         x_tile_for_position,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_reveal_position_loc_E2D2(
+    x_tile_for_position: u16,
+    block_row: u16,
+) -> HiddenBlockRevealPositionLocE2D2 {
+    // ASM loc_E2D2 (kid.asm:17753): shift the selected block column and row
+    // left four bits into gfx-object pixel `x_pos/y_pos`, then seed `d3=#3`
+    // for each inclusive four-pass bounce loop.
+    HiddenBlockRevealPositionLocE2D2 {
+        x_pos_px: x_tile_for_position.wrapping_shl(4),
+        y_pos_px: block_row.wrapping_shl(4),
+        bounce_loop_seed: 3,
     }
 }
 

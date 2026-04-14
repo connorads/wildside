@@ -756,6 +756,19 @@ mod chunk_11 {
     }
 
     #[test]
+    fn loc_e2d2_converts_hidden_block_reveal_tiles_to_pixels_and_seeds_bounce_loops() {
+        assert_eq!(
+            crate::movement::hidden_block_reveal_position_loc_E2D2(0x0013, 0x0007),
+            crate::movement::HiddenBlockRevealPositionLocE2D2 {
+                x_pos_px: 0x0130,
+                y_pos_px: 0x0070,
+                bounce_loop_seed: 3,
+            },
+            "ASM loc_E2D2 should left-shift the selected X tile and row by four into `x_pos/y_pos`, then seed `d3=#3` so each following `dbf` bounce loop hibernates four frames",
+        );
+    }
+
+    #[test]
     fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
         assert_eq!(
             crate::level::indoor_rubber_block_source_words_loc_14506(
