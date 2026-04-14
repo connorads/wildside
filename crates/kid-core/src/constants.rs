@@ -361,7 +361,8 @@ pub(crate) const SPRITE_VISIBILITY_BOTTOM_MARGIN_PX: i32 = 0x80;
 pub(crate) const SPRITE_VISIBILITY_TOP_MARGIN_PX: i32 = 0x80;
 pub(crate) const SPRITE_VISIBILITY_RIGHT_MARGIN_PX: i32 = 0x40;
 pub(crate) const SPRITE_VISIBILITY_LEFT_MARGIN_PX: i32 = 0x40;
-/// ASM: Game Over display holds for 0x1A3 (419) frames.
+/// ASM: Game Over display holds for 0x1A3 (419) frames, including the
+/// loc_D15E score-fade hibernate tail before the EOL score objects are live.
 pub(crate) const PLAYER_GAME_OVER_HOLD_FRAMES: usize = 419;
 /// ASM: Continue countdown: 28 initial pause + 291 countdown = 319 frames.
 pub(crate) const CONTINUE_COUNTDOWN_FRAMES: usize = 319;

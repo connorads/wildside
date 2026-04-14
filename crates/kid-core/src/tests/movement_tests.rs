@@ -14640,4 +14640,33 @@ mod chunk_12 {
             "ASM loc_D052: number_lives==0 after last dying frame should enter GameOver"
         );
     }
+
+    /// ASM loc_D15E (kid.asm:16416): the game-over score fade hibernates for
+    /// one frame, subtracts `$10` from `$FFFFF876`, and reaches the allocation
+    /// handoff when the post-subtract value equals `$70`.
+    #[test]
+    fn loc_d15e_game_over_score_fade_reaches_exit_after_nine_frames() {
+        let mut counter = 0x0100_u16;
+        let mut frames = 0;
+        loop {
+            counter = counter.wrapping_sub(0x0010);
+            frames += 1;
+            if counter == 0x0070 {
+                break;
+            }
+        }
+
+        assert_eq!(
+            frames, 9,
+            "ASM loc_D15E should hibernate 9 frames before `$FFFFF876` reaches $70"
+        );
+        assert_eq!(
+            counter, 0x0070,
+            "ASM loc_D15E exits exactly on cmpi.w #$70,($FFFFF876).w"
+        );
+        assert!(
+            PLAYER_GAME_OVER_HOLD_FRAMES > frames,
+            "native game-over hold should include the loc_D15E score-fade tail"
+        );
+    }
 }
