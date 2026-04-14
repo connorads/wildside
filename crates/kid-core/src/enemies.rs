@@ -5076,6 +5076,41 @@ pub(crate) fn drips_idle_loop_loc_33516() -> DripsIdleLoopLoc33516 {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsVelocityDeltasLoc33526 {
+    pub(crate) x_delta: i32,
+    pub(crate) y_delta: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_velocity_deltas_loc_33526(
+    child_byte_44: u8,
+    child_byte_45: u8,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> DripsVelocityDeltasLoc33526 {
+    // ASM Drips.asm loc_33526: clear d7/d6, only copy `x_vel(a3)` and
+    // `y_vel(a3)` when `$44(a5)` is non-zero, then double both deltas when
+    // `$45(a5)` is also non-zero.
+    if child_byte_44 == 0 {
+        DripsVelocityDeltasLoc33526 {
+            x_delta: 0,
+            y_delta: 0,
+        }
+    } else if child_byte_45 == 0 {
+        DripsVelocityDeltasLoc33526 {
+            x_delta: x_velocity,
+            y_delta: y_velocity,
+        }
+    } else {
+        DripsVelocityDeltasLoc33526 {
+            x_delta: x_velocity.wrapping_mul(2),
+            y_delta: y_velocity.wrapping_mul(2),
+        }
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -6275,6 +6310,34 @@ mod tests {
                 loops_forever: true,
             },
             "ASM Drips.asm loc_33516 hibernates for one frame, checks object range, then branches back to itself"
+        );
+    }
+
+    #[test]
+    fn drips_velocity_deltas_match_loc_33526_child_state_gates() {
+        assert_eq!(
+            drips_velocity_deltas_loc_33526(0, 0xFF, 0x0000_3000, -0x0000_2000),
+            DripsVelocityDeltasLoc33526 {
+                x_delta: 0,
+                y_delta: 0,
+            },
+            "ASM Drips.asm loc_33526 leaves d7/d6 clear when `$44(a5)` is zero, even if `$45(a5)` is set"
+        );
+        assert_eq!(
+            drips_velocity_deltas_loc_33526(1, 0, 0x0000_3000, -0x0000_2000),
+            DripsVelocityDeltasLoc33526 {
+                x_delta: 0x0000_3000,
+                y_delta: -0x0000_2000,
+            },
+            "ASM Drips.asm loc_33526 copies x/y velocity once when `$44(a5)` is set and `$45(a5)` is clear"
+        );
+        assert_eq!(
+            drips_velocity_deltas_loc_33526(1, 1, 0x0000_3000, -0x0000_2000),
+            DripsVelocityDeltasLoc33526 {
+                x_delta: 0x0000_6000,
+                y_delta: -0x0000_4000,
+            },
+            "ASM Drips.asm loc_33526 doubles d7/d6 with `add.l` when both child state bytes are set"
         );
     }
 
