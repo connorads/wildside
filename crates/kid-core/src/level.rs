@@ -11742,6 +11742,31 @@ pub(crate) fn end_credits_gfx_cleanup_next_loc_D9E6(
     std::num::NonZeroU32::new(saved_next_gfx_object_addr).map(std::num::NonZeroU32::get)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndCreditsHundredKTripSetupLocD9EA {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) allocated_object_callback: &'static str,
+    pub(crate) sets_flag_fb49: bool,
+    pub(crate) palette_loop_word_count: usize,
+    pub(crate) palette_loop_entry_label: &'static str,
+}
+
+/// ASM loc_D9EA (kid.asm:17048): after GFX cleanup, hibernate for one frame,
+/// allocate the `sub_C378` worker, set `$FFFFFB49`, and seed `d0=$3F` with
+/// `a0/a1/a2` pointing at the three palette buffers before falling into
+/// `loc_DA16`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_hundred_k_trip_setup_loc_D9EA() -> EndCreditsHundredKTripSetupLocD9EA {
+    EndCreditsHundredKTripSetupLocD9EA {
+        hibernates_one_frame: true,
+        allocated_object_callback: "sub_C378",
+        sets_flag_fb49: true,
+        palette_loop_word_count: 0x40,
+        palette_loop_entry_label: "loc_DA16",
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.

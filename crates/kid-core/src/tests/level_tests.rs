@@ -6806,6 +6806,36 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D9EA (kid.asm:17048): after the GFX-object list is exhausted,
+    /// hibernate one frame, allocate `sub_C378`, set `$FFFFFB49`, and prepare
+    /// the full 64-word palette setup loop at `loc_DA16`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D9EA_end_credits_hundred_k_trip_seeds_palette_setup() {
+        let setup = crate::level::end_credits_hundred_k_trip_setup_loc_D9EA();
+
+        assert!(
+            setup.hibernates_one_frame,
+            "ASM loc_D9EA should call j_Hibernate_Object_1Frame before allocating the transition worker"
+        );
+        assert_eq!(
+            setup.allocated_object_callback, "sub_C378",
+            "ASM loc_D9EA should allocate the Hundred K trip transition worker"
+        );
+        assert!(
+            setup.sets_flag_fb49,
+            "ASM loc_D9EA should set $FFFFFB49 before the palette buffers are prepared"
+        );
+        assert_eq!(
+            setup.palette_loop_word_count, 0x40,
+            "ASM loc_D9EA seeds d0=$3F, so the DBF loop at loc_DA16 covers 64 palette words"
+        );
+        assert_eq!(
+            setup.palette_loop_entry_label, "loc_DA16",
+            "ASM loc_D9EA should fall through to the palette copy/darken loop"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
