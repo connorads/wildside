@@ -9041,6 +9041,60 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F35E (kid.asm:19940): after the predecessor scan, splice the
+    /// expired visible shooter slot out by copying `$C(a0)` into `$C(a3)`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F35E_splices_the_expired_visible_shooter_out_of_the_active_list() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E7F2,
+                next_slot_addr: 0xFFFF_E800,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E800,
+                next_slot_addr: 0xFFFF_E80E,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E80E,
+                next_slot_addr: 0xFFFF_E81C,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E81C,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::shooter_expired_slot_splice_predecessor_loc_F35E(
+                &active_slots,
+                0xFFFF_E800,
+                0xFFFF_E80E,
+            ),
+            Some(crate::level::ShooterExpiredSlotSpliceLocF35E {
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E7F2,
+                        next_slot_addr: 0xFFFF_E800,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E800,
+                        next_slot_addr: 0xFFFF_E81C,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E80E,
+                        next_slot_addr: 0xFFFF_E81C,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E81C,
+                        next_slot_addr: 0,
+                    },
+                ],
+            }),
+            "ASM loc_F35E should only rewrite the predecessor `$C` link; loc_F364 reuses the target's old link before pushing it free"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

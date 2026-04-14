@@ -877,6 +877,12 @@ pub(crate) struct ShooterExpiredSlotPredecessorScanLocF350 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ShooterExpiredSlotSpliceLocF35E {
+    pub(crate) slots: Vec<LinkedObjectSlotInit>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
@@ -8667,6 +8673,29 @@ pub(crate) fn shooter_expired_slot_predecessor_scan_loc_F350(
     }
 
     None
+}
+
+/// ASM loc_F35E (kid.asm:19940): after `loc_F350` finds the predecessor in
+/// `a3`, unlink the expired visible shooter slot by copying `$C(a0)` into
+/// `$C(a3)`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_expired_slot_splice_predecessor_loc_F35E(
+    active_slots: &[LinkedObjectSlotInit],
+    predecessor_slot_addr: u32,
+    target_slot_addr: u32,
+) -> Option<ShooterExpiredSlotSpliceLocF35E> {
+    let mut slots = active_slots.to_vec();
+    let target_next_slot_addr = slots
+        .iter()
+        .find(|slot| slot.slot_addr == target_slot_addr)?
+        .next_slot_addr;
+    let predecessor = slots
+        .iter_mut()
+        .find(|slot| slot.slot_addr == predecessor_slot_addr)?;
+    predecessor.next_slot_addr = target_next_slot_addr;
+
+    Some(ShooterExpiredSlotSpliceLocF35E { slots })
 }
 
 #[allow(non_snake_case)]
