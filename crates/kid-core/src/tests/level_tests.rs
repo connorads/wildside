@@ -6467,6 +6467,57 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D86C (kid.asm:16946): each end-credits fade loop hibernates
+    /// one frame, decrements `$FFFFF876`, and only exits when that word becomes
+    /// negative.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D86C_end_credits_fade_reseeds_masks_until_underflow() {
+        let first = crate::level::end_credits_fade_step_loc_D86C(0x0100, 0, 0);
+
+        assert_eq!(
+            first.hibernate_frames, 1,
+            "ASM loc_D86C begins each fade step with `Hibernate_Object_1Frame`"
+        );
+        assert_eq!(
+            first.fade_progress, 0x00FF,
+            "ASM loc_D86C subtracts one from the `$0100` fade seed on the first frame"
+        );
+        assert_eq!(
+            first.pending_palette_0_mask,
+            u32::MAX,
+            "ASM loc_D86C non-final frames fall through the loop-back path and write `-1` to `$FFFFF888`"
+        );
+        assert_eq!(
+            first.pending_palette_1_mask,
+            u32::MAX,
+            "ASM loc_D86C non-final frames fall through the loop-back path and write `-1` to `$FFFFF88C`"
+        );
+        assert!(
+            !first.enter_end_sequence,
+            "ASM loc_D86C should keep fading while the post-subtract word is non-negative"
+        );
+
+        let final_step =
+            crate::level::end_credits_fade_step_loc_D86C(0x0000, 0x1234_5678, 0x9ABC_DEF0);
+        assert_eq!(
+            final_step.fade_progress, 0xFFFF,
+            "ASM loc_D86C wraps negative when `$0000 - 1` underflows"
+        );
+        assert_eq!(
+            final_step.pending_palette_0_mask, 0x1234_5678,
+            "ASM loc_D86C underflow exits before refreshing `$FFFFF888`"
+        );
+        assert_eq!(
+            final_step.pending_palette_1_mask, 0x9ABC_DEF0,
+            "ASM loc_D86C underflow exits before refreshing `$FFFFF88C`"
+        );
+        assert!(
+            final_step.enter_end_sequence,
+            "ASM loc_D86C should enter the end sequence only after the fade progress word is negative"
+        );
+    }
+
     /// ASM loc_D770 (kid.asm:16855): `d4` starts as the active EOL number's
     /// remaining amount, then is clamped down to `d2` unless it is already
     /// smaller before the score update at `loc_D77E`.

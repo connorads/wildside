@@ -11574,6 +11574,47 @@ pub(crate) fn end_credits_palette_clear_loc_D85E(palette_buffer_3: &mut [u16; 0x
     0x0100
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndCreditsFadeStepLocD86C {
+    pub(crate) hibernate_frames: u16,
+    pub(crate) fade_progress: u16,
+    pub(crate) pending_palette_0_mask: u32,
+    pub(crate) pending_palette_1_mask: u32,
+    pub(crate) enter_end_sequence: bool,
+}
+
+/// ASM loc_D86C (kid.asm:16946): final-level end-credits fade step.
+/// Each loop hibernates one frame, subtracts one from `$FFFFF876`, and exits
+/// to the end-sequence tail only after the word underflows negative.
+/// Non-negative frames fall through the loop-back path, which writes `-1` to
+/// both pending palette masks.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_fade_step_loc_D86C(
+    fade_progress: u16,
+    pending_palette_0_mask: u32,
+    pending_palette_1_mask: u32,
+) -> EndCreditsFadeStepLocD86C {
+    let fade_progress = fade_progress.wrapping_sub(1);
+    if (fade_progress as i16) < 0 {
+        return EndCreditsFadeStepLocD86C {
+            hibernate_frames: 1,
+            fade_progress,
+            pending_palette_0_mask,
+            pending_palette_1_mask,
+            enter_end_sequence: true,
+        };
+    }
+
+    EndCreditsFadeStepLocD86C {
+        hibernate_frames: 1,
+        fade_progress,
+        pending_palette_0_mask: u32::MAX,
+        pending_palette_1_mask: u32::MAX,
+        enter_end_sequence: false,
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
