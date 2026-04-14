@@ -2197,6 +2197,23 @@ pub(crate) fn ufo_beam_load_tick_loc_34fd6(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoBeamClearLoc34FFE {
+    pub(crate) ufo_shooting_latch: bool,
+    pub(crate) global_shooting_flag: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_beam_clear_shooting_state_loc_34ffe() -> UfoBeamClearLoc34FFE {
+    // ASM UFO.asm loc_34FFE: when `$48(a5)` reaches zero, clear `$46(a5)` and
+    // `Some_UFO_Shooting`.
+    UfoBeamClearLoc34FFE {
+        ufo_shooting_latch: false,
+        global_shooting_flag: false,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_start_loc_34eec() -> UfoBeamStartLoc34Eec {
     // ASM UFO.asm loc_34EEC: targeted shooting starts the shared UFO beam
@@ -2231,6 +2248,13 @@ pub(crate) fn step_ufo_beam(
             ufo_beam_load_tick_loc_34fd6(true, enemy.ufo_beam_segments, enemy.ufo_beam_interval);
         enemy.ufo_beam_segments = tick.next_beam_segments;
         enemy.ufo_beam_interval = tick.next_beam_interval;
+        if tick.clear_ufo_shooting_state {
+            let clear = ufo_beam_clear_shooting_state_loc_34ffe();
+            if !clear.ufo_shooting_latch {
+                enemy.ufo_beam_segments = 0;
+            }
+            let _ = clear.global_shooting_flag;
+        }
 
         if tick.spawn_beam_segment {
             projectiles.push(EnemyProjectile {
@@ -2418,10 +2442,11 @@ fn acceleration_for_target(
 }
 
 fn apply_acceleration_axis(current_velocity: i32, target_velocity: i32, acceleration: i32) -> i32 {
-    let next_velocity = current_velocity.saturating_add(acceleration);
     if acceleration >= 0 {
+        let next_velocity = current_velocity.saturating_add(acceleration);
         next_velocity.min(target_velocity)
     } else {
+        let next_velocity = current_velocity.saturating_add(acceleration);
         next_velocity.max(target_velocity)
     }
 }
@@ -7455,6 +7480,18 @@ mod tests {
                 clear_ufo_shooting_state: true,
             },
             "ASM UFO.asm loc_34FD6 enters loc_34FFE when the segment countdown reaches zero"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_clear_state_matches_loc_34ffe() {
+        assert_eq!(
+            ufo_beam_clear_shooting_state_loc_34ffe(),
+            UfoBeamClearLoc34FFE {
+                ufo_shooting_latch: false,
+                global_shooting_flag: false,
+            },
+            "ASM UFO.asm loc_34FFE clears `$46(a5)` and `Some_UFO_Shooting`"
         );
     }
 
