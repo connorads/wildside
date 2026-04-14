@@ -6387,6 +6387,32 @@ mod chunk_03 {
         assert_eq!(window.vertical_reach_px, 0x0020);
     }
 
+    #[test]
+    fn loc_e1fe_hidden_block_jump_snap_clears_vertical_motion_and_sets_bottom_edge() {
+        let snap = crate::movement::hidden_block_jump_snap_loc_E1FE(0x0040, 0x0002);
+
+        assert_eq!(
+            snap.y_velocity_fp, 0,
+            "ASM loc_E1FE should clear `y_vel(a3)` before snapping Kid onto the revealed hidden block",
+        );
+        assert_eq!(
+            snap.y_subpixel, 0,
+            "ASM loc_E1FE should clear `$20(a3)` after deriving the snapped block row",
+        );
+        assert_eq!(
+            snap.kid_hitbox_bottom_px, 0x006F,
+            "ASM loc_E1FE should compute `Kid_hitbox_bottom = (((d6 + 1) << 4) + (a5)) - 1`",
+        );
+        assert_eq!(
+            snap.y_pos_px, 0x006F,
+            "ASM loc_E1FE should copy the same bottom edge into `y_pos(a3)`",
+        );
+        assert_eq!(
+            snap.top_candidate_px, 0x0060,
+            "ASM loc_E1FE should subtract `$F` from the bottom edge before the helmet branch to loc_E236",
+        );
+    }
+
     /// ASM loc_E000 (kid.asm:17347): after `sub_DFB0`/`loc_DFEE` have selected
     /// and shifted Kid's horizontal jump probe, the ROM clamps a negative
     /// start column to zero before computing the inclusive scan count.

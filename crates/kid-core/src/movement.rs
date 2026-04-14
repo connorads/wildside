@@ -1230,6 +1230,16 @@ pub(crate) struct HiddenBlockType4RevealPairLocE19E {
     pub(crate) restored_sprite_mapping: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockJumpSnapLocE1FE {
+    pub(crate) y_velocity_fp: i32,
+    pub(crate) y_subpixel: u16,
+    pub(crate) y_pos_px: u16,
+    pub(crate) kid_hitbox_bottom_px: u16,
+    pub(crate) top_candidate_px: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_jump_window_sub_DFB0(
@@ -1430,6 +1440,31 @@ pub(crate) fn hidden_block_type4_reveal_pair_loc_E1BC(
         restored_block_col: block_col,
         restored_layout_word_addr: layout_word_addr,
         restored_sprite_mapping: sprite_mapping,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_jump_snap_loc_E1FE(
+    block_row_base_px: u16,
+    d6: u16,
+) -> HiddenBlockJumpSnapLocE1FE {
+    // ASM loc_E1FE (kid.asm:17635): after a hidden block jump reveal, clear
+    // Kid's `y_vel` and `$20(a3)`, then place Kid on the block row bottom:
+    // `(((d6 + 1) << 4) + (a5)) - 1`. The shared top candidate subtracts
+    // `$F`; loc_E236 stores it after the helmet-specific adjustment.
+    let bottom = d6
+        .wrapping_add(1)
+        .wrapping_shl(4)
+        .wrapping_add(block_row_base_px)
+        .wrapping_sub(1);
+
+    HiddenBlockJumpSnapLocE1FE {
+        y_velocity_fp: 0,
+        y_subpixel: 0,
+        y_pos_px: bottom,
+        kid_hitbox_bottom_px: bottom,
+        top_candidate_px: bottom.wrapping_sub(0x000F),
     }
 }
 
