@@ -4726,6 +4726,37 @@ pub(crate) fn drips_wait_timer_loc_3340e(random_byte: u8, kid_x_word: u16) -> u1
     u16::from_be_bytes([shifted_bytes[0], shifted_bytes[1] ^ kid_x_low_byte])
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsSplashResetLoc33488 {
+    pub(crate) drop_is_moved: bool,
+    pub(crate) drop_status_flag: bool,
+    pub(crate) drop_collision_type: u16,
+    pub(crate) drop_y_pos: u32,
+    pub(crate) surface_child_status_flag: bool,
+    pub(crate) surface_child_x_pos: u32,
+    pub(crate) surface_child_y_pos: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_splash_reset_loc_33488(
+    drop_x_pos: u32,
+    drop_y_pos: u32,
+) -> DripsSplashResetLoc33488 {
+    // ASM Drips.asm loc_33488: clear `$14(a1)` and `collision_type(a1)`,
+    // add `$A` to the integer Y word, then copy the drop position into `a2`.
+    let adjusted_drop_y_pos = drop_y_pos.wrapping_add(0x000A_0000);
+    DripsSplashResetLoc33488 {
+        drop_is_moved: false,
+        drop_status_flag: false,
+        drop_collision_type: 0,
+        drop_y_pos: adjusted_drop_y_pos,
+        surface_child_status_flag: true,
+        surface_child_x_pos: drop_x_pos,
+        surface_child_y_pos: adjusted_drop_y_pos,
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -5872,6 +5903,23 @@ mod tests {
             spawn_wait_timer(EnemyFamily::Drips, 0, 0x0123_0000, &mut rng),
             0x0013,
             "ASM Drips.asm loc_3340E mixes the first ROM RNG byte `$C0` with Kid integer X low byte `$23`"
+        );
+    }
+
+    #[test]
+    fn drips_splash_reset_matches_loc_33488_child_writeback() {
+        assert_eq!(
+            drips_splash_reset_loc_33488(0x0123_4000, 0x00F6_8000),
+            DripsSplashResetLoc33488 {
+                drop_is_moved: false,
+                drop_status_flag: false,
+                drop_collision_type: 0,
+                drop_y_pos: 0x0100_8000,
+                surface_child_status_flag: true,
+                surface_child_x_pos: 0x0123_4000,
+                surface_child_y_pos: 0x0100_8000,
+            },
+            "ASM Drips.asm loc_33488 clears the falling child, adds 10px to its Y word, and copies the adjusted x/y to the surface child"
         );
     }
 
