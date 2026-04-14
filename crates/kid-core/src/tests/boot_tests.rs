@@ -3568,6 +3568,33 @@ mod chunk_01 {
 
     #[test]
     #[allow(non_snake_case)]
+    fn loc_E15E8_queues_command_17_and_three_low_byte_payloads() {
+        let write = sound_driver_write_command_17_three_bytes_loc_E15E8(
+            0x3E,
+            0x1234_56A1,
+            0xFFFF_FFB2,
+            0x0000_01C3,
+        );
+
+        assert_eq!(
+            write,
+            SoundDriverWriteCommandAndThreeBytes {
+                begin_write: sound_driver_begin_write_sub_E143A(0x3E),
+                command_write: sound_driver_write_command_sub_E1482(0x3E, 0x17),
+                payload_writes: [
+                    sound_driver_write_byte_sub_E148E(0x00, 0xA1),
+                    sound_driver_write_byte_sub_E148E(0x01, 0xB2),
+                    sound_driver_write_byte_sub_E148E(0x02, 0xC3),
+                ],
+                releases_z80_bus: true,
+                restores_previous_sr: true,
+            },
+            "ASM loc_E15E8 should queue `FF 17` then only the low bytes from `8(a6)`, `$C(a6)`, and `$10(a6)` while preserving the 6-bit ring wrap",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
     fn loc_E136C_z80_handshake_releases_bus_without_delay_when_status_is_zero() {
         let handshake = sound_driver_z80_handshake_loc_E136C(0);
 

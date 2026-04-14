@@ -986,6 +986,33 @@ pub(crate) fn sound_driver_write_command_07_two_bytes_loc_E15D8(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_17_three_bytes_loc_E15E8(
+    command_head_byte: u8,
+    first_payload: u32,
+    second_payload: u32,
+    third_payload: u32,
+) -> SoundDriverWriteCommandAndThreeBytes {
+    // ASM loc_E15E8 (kid.asm:49910): enter sub_E143A, queue command `$17`,
+    // then write the low bytes from `8(a6)`, `$C(a6)`, and `$10(a6)` through
+    // three consecutive sub_E148E calls before loc_E1470 releases the Z80 bus.
+    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, 0x17);
+    let first_write =
+        sound_driver_write_byte_sub_E148E(command_write.next_write_index, first_payload as u8);
+    let second_write =
+        sound_driver_write_byte_sub_E148E(first_write.committed_write_index, second_payload as u8);
+    let third_write =
+        sound_driver_write_byte_sub_E148E(second_write.committed_write_index, third_payload as u8);
+    SoundDriverWriteCommandAndThreeBytes {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        command_write,
+        payload_writes: [first_write, second_write, third_write],
+        releases_z80_bus: true,
+        restores_previous_sr: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sound_driver_write_command_0E_two_bytes_loc_E15E0(
     command_head_byte: u8,
     first_payload: u32,
