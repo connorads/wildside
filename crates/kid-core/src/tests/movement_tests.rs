@@ -15052,4 +15052,25 @@ mod chunk_12 {
             "ASM loc_D44C exits through `bra.w Teleport`"
         );
     }
+
+    /// ASM loc_D876 (kid.asm:16951): the end-credits fade loop-back writes
+    /// `moveq #-1,d0` into both pending palette mask longwords at `$FFFFF888`
+    /// and `$FFFFF88C` before looping back to `loc_D86C`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D876_end_credits_fade_loopback_reseeds_both_palette_masks() {
+        let (pending_palette_0_mask, pending_palette_1_mask) =
+            crate::level::end_credits_fade_loopback_loc_D876();
+
+        assert_eq!(
+            pending_palette_0_mask,
+            u32::MAX,
+            "ASM loc_D876 should write `-1` to `$FFFFF888`"
+        );
+        assert_eq!(
+            pending_palette_1_mask,
+            u32::MAX,
+            "ASM loc_D876 should write `-1` to `$FFFFF88C`"
+        );
+    }
 }

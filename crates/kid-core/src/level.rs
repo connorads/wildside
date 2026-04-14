@@ -11615,6 +11615,15 @@ pub(crate) fn end_credits_fade_step_loc_D86C(
     }
 }
 
+/// ASM loc_D876 (kid.asm:16951): the final-level end-credits fade loop-back
+/// writes `-1` to both pending palette mask longwords before returning to the
+/// one-frame hibernate/subtract loop at `loc_D86C`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_fade_loopback_loc_D876() -> (u32, u32) {
+    (u32::MAX, u32::MAX)
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
