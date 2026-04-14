@@ -720,6 +720,35 @@ fn lion_projectile_bounce_iterations_continue_loc_3e2c0(remaining_bounces: &mut 
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum LionProjectileOutOfRangeLoc3E314 {
+    KeepAlive,
+    Delete,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_projectile_owner_token_mismatch_loc_3e30e(active_projectile_count: u8) -> u8 {
+    // ASM Lion.asm loc_3E30E: when `$71(a5)` does not match `$71(a0)`,
+    // decrement the owner's active-projecile counter (`$5B(a0)`) with byte wrap.
+    active_projectile_count.wrapping_sub(1)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_projectile_screen_range_delete_loc_3e314(
+    owner_token_matches: bool,
+    in_camera_box: bool,
+) -> LionProjectileOutOfRangeLoc3E314 {
+    // ASM Lion.asm loc_3E314: this path is reached after owner-match plus
+    // the `sub_3E2CE` camera-box test. If outside bounds, delete the
+    // projectile.
+    if owner_token_matches && !in_camera_box {
+        LionProjectileOutOfRangeLoc3E314::Delete
+    } else {
+        LionProjectileOutOfRangeLoc3E314::KeepAlive
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[allow(clippy::manual_range_contains)]
 pub(crate) fn lion_projectile_bounce_velocities_loc_3e266(
     x_velocity: i32,
@@ -870,5 +899,38 @@ mod loc_3e266_tests {
         }
         assert_eq!(iterations, 16);
         assert_eq!(remaining_bounces, -1);
+    }
+
+    #[test]
+    fn loc_3e30e_decrements_owner_projectile_count_with_wrap() {
+        assert_eq!(
+            super::lion_projectile_owner_token_mismatch_loc_3e30e(4),
+            3,
+            "ASM Lion.asm loc_3E30E should reduce a live owner count by one"
+        );
+        assert_eq!(
+            super::lion_projectile_owner_token_mismatch_loc_3e30e(0),
+            255,
+            "ASM Lion.asm loc_3E30E is byte arithmetic and wraps on underflow"
+        );
+    }
+
+    #[test]
+    fn loc_3e314_deletes_when_owner_token_matches_and_projectile_is_offscreen() {
+        assert_eq!(
+            super::lion_projectile_screen_range_delete_loc_3e314(true, false),
+            super::LionProjectileOutOfRangeLoc3E314::Delete,
+            "ASM Lion.asm loc_3E314 should delete only when owner matches and the object exits the camera box"
+        );
+        assert_eq!(
+            super::lion_projectile_screen_range_delete_loc_3e314(true, true),
+            super::LionProjectileOutOfRangeLoc3E314::KeepAlive,
+            "in-range owner-matched projectiles should stay alive"
+        );
+        assert_eq!(
+            super::lion_projectile_screen_range_delete_loc_3e314(false, false),
+            super::LionProjectileOutOfRangeLoc3E314::KeepAlive,
+            "owner mismatch routes through loc_3E30E first, not loc_3E314"
+        );
     }
 }
