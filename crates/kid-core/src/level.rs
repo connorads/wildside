@@ -814,6 +814,33 @@ pub(crate) struct EvanescentSpriteScanReturnLocEAB2 {
     pub(crate) number_sprites: u8,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EvanescentBulletHitboxScanLocEAE4 {
+    SkipToLoadBullets,
+    Scan {
+        top_row: u16,
+        bottom_row: u16,
+        left_col: u16,
+        right_col: u16,
+        row_dbf_counter: u16,
+        col_dbf_counter: u16,
+        found_evanescent_block: bool,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletHitboxScanInputLocEAE4 {
+    pub(crate) skip_scan_flag: bool,
+    pub(crate) kid_hitbox_top: u16,
+    pub(crate) kid_hitbox_bottom: u16,
+    pub(crate) kid_hitbox_left: u16,
+    pub(crate) kid_hitbox_right: u16,
+    pub(crate) level_height_pixels: u16,
+    pub(crate) level_width_pixels: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8163,6 +8190,61 @@ pub(crate) fn evanescent_sprite_scan_return_loc_EAB2(
     EvanescentSpriteScanReturnLocEAB2 {
         next_sprite_slot_addr: sprite_cursor_addr,
         number_sprites: sprite_count,
+    }
+}
+
+/// ASM loc_EAE4 (kid.asm:18858): unless the `$FFFFFA64` flag is set, expand
+/// Kid's hitbox by one pixel on each side, clamp it to level pixel bounds,
+/// convert to inclusive tile rows/columns, and scan for bit-15 block cells
+/// whose block type is `$A` before falling through to the bullet loader.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
+    input: EvanescentBulletHitboxScanInputLocEAE4,
+    grid: &terrain::BlockGrid,
+) -> EvanescentBulletHitboxScanLocEAE4 {
+    if input.skip_scan_flag {
+        return EvanescentBulletHitboxScanLocEAE4::SkipToLoadBullets;
+    }
+
+    let top_px = i32::from(input.kid_hitbox_top).saturating_sub(1).max(0);
+    let bottom_bound_px = i32::from(input.level_height_pixels.saturating_sub(1));
+    let bottom_px = (i32::from(input.kid_hitbox_bottom) + 1)
+        .min(bottom_bound_px)
+        .max(0);
+    let left_px = i32::from(input.kid_hitbox_left).saturating_sub(1).max(0);
+    let right_bound_px = i32::from(input.level_width_pixels.saturating_sub(1));
+    let right_px = (i32::from(input.kid_hitbox_right) + 1)
+        .min(right_bound_px)
+        .max(0);
+
+    let top_row = u16::try_from(top_px >> 4).expect("clamped top row should fit in u16");
+    let bottom_row = u16::try_from(bottom_px >> 4).expect("clamped bottom row should fit in u16");
+    let left_col = u16::try_from(left_px >> 4).expect("clamped left col should fit in u16");
+    let right_col = u16::try_from(right_px >> 4).expect("clamped right col should fit in u16");
+
+    let mut found_evanescent_block = false;
+    for row in top_row..=bottom_row {
+        for col in left_col..=right_col {
+            let cell = grid.cell_at(col, row);
+            if cell.has_block && cell.block_type == terrain::BlockType::Evanescent {
+                found_evanescent_block = true;
+                break;
+            }
+        }
+        if found_evanescent_block {
+            break;
+        }
+    }
+
+    EvanescentBulletHitboxScanLocEAE4::Scan {
+        top_row,
+        bottom_row,
+        left_col,
+        right_col,
+        row_dbf_counter: bottom_row.wrapping_sub(top_row),
+        col_dbf_counter: right_col.wrapping_sub(left_col),
+        found_evanescent_block,
     }
 }
 

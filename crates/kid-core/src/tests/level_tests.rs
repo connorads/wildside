@@ -8794,6 +8794,94 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EAE4 (kid.asm:18858): the scan expands Kid's hitbox by one
+    /// pixel, clamps those expanded bounds to the level, converts them to
+    /// inclusive tile counters, and only treats bit-15 block type `$A` cells as
+    /// evanescent bullet-loader hits.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EAE4_expands_the_kid_hitbox_window_and_detects_evanescent_blocks() {
+        let mut data = vec![0; 4 * 4 * 2];
+        let evanescent_offset = (4 + 1) * 2;
+        data[evanescent_offset] = 0xEA;
+        let grid = terrain::BlockGrid::from_level_layout(&data, 4, 4);
+
+        assert_eq!(
+            crate::level::evanescent_bullet_hitbox_scan_loc_EAE4(
+                crate::level::EvanescentBulletHitboxScanInputLocEAE4 {
+                    skip_scan_flag: false,
+                    kid_hitbox_top: 0,
+                    kid_hitbox_bottom: 15,
+                    kid_hitbox_left: 0,
+                    kid_hitbox_right: 15,
+                    level_height_pixels: 64,
+                    level_width_pixels: 64,
+                },
+                &grid,
+            ),
+            crate::level::EvanescentBulletHitboxScanLocEAE4::Scan {
+                top_row: 0,
+                bottom_row: 1,
+                left_col: 0,
+                right_col: 1,
+                row_dbf_counter: 1,
+                col_dbf_counter: 1,
+                found_evanescent_block: true,
+            },
+            "ASM loc_EAE4 should clamp top/left after subtracting one pixel, include bottom/right after adding one pixel, and branch when `bclr #$F` finds block type `$A`"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
+        let mut data = vec![0; 4 * 4 * 2];
+        let clear_bit15_evanescent_offset = (4 + 1) * 2;
+        data[clear_bit15_evanescent_offset] = 0x6A;
+        let grid = terrain::BlockGrid::from_level_layout(&data, 4, 4);
+
+        assert_eq!(
+            crate::level::evanescent_bullet_hitbox_scan_loc_EAE4(
+                crate::level::EvanescentBulletHitboxScanInputLocEAE4 {
+                    skip_scan_flag: false,
+                    kid_hitbox_top: 0,
+                    kid_hitbox_bottom: 15,
+                    kid_hitbox_left: 0,
+                    kid_hitbox_right: 15,
+                    level_height_pixels: 64,
+                    level_width_pixels: 64,
+                },
+                &grid,
+            ),
+            crate::level::EvanescentBulletHitboxScanLocEAE4::Scan {
+                top_row: 0,
+                bottom_row: 1,
+                left_col: 0,
+                right_col: 1,
+                row_dbf_counter: 1,
+                col_dbf_counter: 1,
+                found_evanescent_block: false,
+            },
+            "ASM loc_EAE4 should require `bclr #$F,d0` to see the block flag before the `$0A00` type comparison can hit"
+        );
+        assert_eq!(
+            crate::level::evanescent_bullet_hitbox_scan_loc_EAE4(
+                crate::level::EvanescentBulletHitboxScanInputLocEAE4 {
+                    skip_scan_flag: true,
+                    kid_hitbox_top: 0,
+                    kid_hitbox_bottom: 15,
+                    kid_hitbox_left: 0,
+                    kid_hitbox_right: 15,
+                    level_height_pixels: 64,
+                    level_width_pixels: 64,
+                },
+                &grid,
+            ),
+            crate::level::EvanescentBulletHitboxScanLocEAE4::SkipToLoadBullets,
+            "ASM loc_EAE4 should branch directly to loc_EB6E when `$FFFFFA64` is non-zero"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
