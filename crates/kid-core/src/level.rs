@@ -950,6 +950,28 @@ pub(crate) enum AnimatedSolidBlockVerticalSetupLocF83E {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockVerticalRowsLocF85A {
+    pub(crate) layout_writes: Vec<(u32, u16)>,
+    pub(crate) custom_queue_entries: Vec<FgUpdateQueueCustomEntrySub1596>,
+    pub(crate) final_layout_addr: u32,
+    pub(crate) final_row: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockVerticalRowsInputLocF85A {
+    pub(crate) start_layout_addr: u32,
+    pub(crate) start_row: u16,
+    pub(crate) dbf_row_counter: u16,
+    pub(crate) level_width_tiles: u16,
+    pub(crate) camera_top_row: u16,
+    pub(crate) camera_bottom_row: u16,
+    pub(crate) packed_cell_x_bits: u16,
+    pub(crate) mapping_longwords: [u32; 2],
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleSpriteWordsLocF41E {
     pub(crate) screen_y: u16,
@@ -9171,6 +9193,43 @@ pub(crate) fn animated_solid_block_vertical_setup_loc_F83E(
     AnimatedSolidBlockVerticalSetupLocF83E::Visible {
         packed_cell_x_bits: (start_col << 2) & 0x007C,
         start_row,
+    }
+}
+
+/// ASM loc_F85A (kid.asm:20528): the vertical animated-solid block loop writes
+/// `$E304` to each Level_Layout row, emits a custom foreground-plane queue
+/// entry only for rows inside `[camera_y, camera_y+$E]`, then increments `d1`
+/// and advances `a4` by `Level_width_tiles` before DBF repeats.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
+    input: AnimatedSolidBlockVerticalRowsInputLocF85A,
+) -> AnimatedSolidBlockVerticalRowsLocF85A {
+    let iterations = usize::from(input.dbf_row_counter.wrapping_add(1));
+    let mut layout_writes = Vec::with_capacity(iterations);
+    let mut custom_queue_entries = Vec::new();
+    let mut layout_addr = input.start_layout_addr;
+    let mut row = input.start_row;
+
+    for _ in 0..iterations {
+        layout_writes.push((layout_addr, 0xE304));
+        if (input.camera_top_row..=input.camera_bottom_row).contains(&row) {
+            custom_queue_entries.push(FgUpdateQueueCustomEntrySub1596 {
+                vram_word_address: ((row << 8) & 0x0F00) | input.packed_cell_x_bits,
+                first_longword: input.mapping_longwords[0],
+                second_longword: input.mapping_longwords[1],
+            });
+        }
+
+        row = row.wrapping_add(1);
+        layout_addr = layout_addr.wrapping_add(u32::from(input.level_width_tiles));
+    }
+
+    AnimatedSolidBlockVerticalRowsLocF85A {
+        layout_writes,
+        custom_queue_entries,
+        final_layout_addr: layout_addr,
+        final_row: row,
     }
 }
 

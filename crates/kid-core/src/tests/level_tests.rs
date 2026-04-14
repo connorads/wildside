@@ -9628,6 +9628,55 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F85A (kid.asm:20528): each DBF iteration writes `$E304` to the
+    /// current Level_Layout cell, queues VDP data only for visible rows, then
+    /// advances by one row through `Level_width_tiles`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F85A_writes_vertical_animated_block_rows_and_visible_queue_entries() {
+        let rows = crate::level::animated_solid_block_vertical_rows_loc_F85A(
+            crate::level::AnimatedSolidBlockVerticalRowsInputLocF85A {
+                start_layout_addr: 0xFFFF_A652,
+                start_row: 0x001F,
+                dbf_row_counter: 3,
+                level_width_tiles: 0x0050,
+                camera_top_row: 0x0020,
+                camera_bottom_row: 0x0021,
+                packed_cell_x_bits: 0x0004,
+                mapping_longwords: [0x1111_2222, 0x3333_4444],
+            },
+        );
+
+        assert_eq!(
+            rows.layout_writes,
+            vec![
+                (0xFFFF_A652, 0xE304),
+                (0xFFFF_A6A2, 0xE304),
+                (0xFFFF_A6F2, 0xE304),
+                (0xFFFF_A742, 0xE304),
+            ],
+            "ASM loc_F85A should write `$E304` before each visibility check and advance a4 by Level_width_tiles"
+        );
+        assert_eq!(
+            rows.custom_queue_entries,
+            vec![
+                crate::level::FgUpdateQueueCustomEntrySub1596 {
+                    vram_word_address: 0x0004,
+                    first_longword: 0x1111_2222,
+                    second_longword: 0x3333_4444,
+                },
+                crate::level::FgUpdateQueueCustomEntrySub1596 {
+                    vram_word_address: 0x0104,
+                    first_longword: 0x1111_2222,
+                    second_longword: 0x3333_4444,
+                },
+            ],
+            "ASM loc_F85A should queue only rows within the inclusive camera Y window using `((row << 8) & $F00) | packed_x`"
+        );
+        assert_eq!(rows.final_row, 0x0023);
+        assert_eq!(rows.final_layout_addr, 0xFFFF_A792);
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
