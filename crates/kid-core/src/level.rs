@@ -12263,6 +12263,53 @@ pub(crate) fn level_sprite_strip_first_write_loc_E692(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripMiddleLoopLocE6BC {
+    pub(crate) middle_sprites: Vec<LevelSpriteStripEntryLocE692>,
+    pub(crate) remainder_counter: u16,
+    pub(crate) next_y: i16,
+    pub(crate) next_link: u8,
+}
+
+/// ASM loc_E6BC (kid.asm:18368): subtract eight from the remaining strip
+/// counter before each test. Non-negative results emit a full middle sprite
+/// with size `$0F`, tile `$E67E | d4`, then advance `d1` by `$20`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_middle_loop_loc_E6BC(
+    mut remaining_span_counter: u16,
+    mut y_pos: i16,
+    mut link: u8,
+    source_x: i16,
+    tile_attr_mask: u16,
+) -> LevelSpriteStripMiddleLoopLocE6BC {
+    let mut middle_sprites = Vec::new();
+
+    loop {
+        remaining_span_counter = remaining_span_counter.wrapping_sub(8);
+        if (remaining_span_counter as i16) < 0 {
+            break;
+        }
+
+        link = link.wrapping_add(1);
+        middle_sprites.push(LevelSpriteStripEntryLocE692 {
+            y_pos,
+            size: 0x0F,
+            link,
+            tile_word: 0xE67E | tile_attr_mask,
+            x_pos: source_x,
+        });
+        y_pos = y_pos.wrapping_add(0x0020);
+    }
+
+    LevelSpriteStripMiddleLoopLocE6BC {
+        middle_sprites,
+        remainder_counter: remaining_span_counter,
+        next_y: y_pos,
+        next_link: link,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,

@@ -6982,6 +6982,40 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E6BC (kid.asm:18368): the middle loop subtracts eight before
+    /// testing the counter. Each non-negative pass writes a size `$0F` sprite
+    /// with tile `$E67E|d4`, advances `d1` by `$20`, then repeats.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E6BC_middle_strip_loop_emits_full_32px_chunks() {
+        let write =
+            crate::level::level_sprite_strip_middle_loop_loc_E6BC(14, 0x0068, 6, 0x0130, 0x0800);
+
+        assert_eq!(
+            write.middle_sprites,
+            vec![crate::level::LevelSpriteStripEntryLocE692 {
+                y_pos: 0x0068,
+                size: 0x0F,
+                link: 7,
+                tile_word: 0xEE7E,
+                x_pos: 0x0130,
+            }],
+            "ASM loc_E6BC should emit one full middle chunk before the second subtract makes d3 negative"
+        );
+        assert_eq!(
+            write.remainder_counter, 0xFFFE,
+            "ASM loc_E6BC should leave the negative post-subtract d3 for the remainder handler"
+        );
+        assert_eq!(
+            write.next_y, 0x0088,
+            "ASM loc_E6BC should add `$20` to d1 after each emitted middle chunk"
+        );
+        assert_eq!(
+            write.next_link, 7,
+            "ASM loc_E6BC should increment d2 exactly once for the emitted middle sprite"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
