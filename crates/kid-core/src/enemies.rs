@@ -3476,6 +3476,33 @@ pub(crate) fn mini_hopping_skull_left_ground_wait_collision_loc_3ec48(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
+    collision_type: u16,
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3ECCC: the left-hop windup loop clears
+    // `collision_type(a3)`, hibernates one frame, polls `sub_3F29A`, then
+    // dispatches by ordered Kid/hurt collision comparisons before the DBF tail.
+    match collision_type {
+        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+        MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+        }
+        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
+            if berzerker_charging {
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+            } else {
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+            }
+        }
+        MINI_SKULL_COLID_GROUND_KIDBELOW => {
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+        }
+        _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_scream_worker_allocation_loc_3eb40(
     route: MiniHoppingSkullGroundWaitCollisionRoute,
 ) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
@@ -8070,6 +8097,60 @@ mod tests {
             ),
             MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
             "ASM Mini_Hopping_Skull.asm loc_3EC48 ignores unrecognised collision IDs during the left grounded wait loop"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_left_hop_windup_collision_matches_loc_3eccc_compare_order() {
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3eccc(0, false),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3ECCC should continue the DBF windup when `collision_type(a3)` stays zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
+                MINI_SKULL_COLID_GROUND_KIDABOVE,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3ECCC sends `colid_kidabove` to the HP decrement branch"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
+                MINI_SKULL_COLID_GROUND_HURT,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3ECCC sends `colid_hurt` to the same HP decrement branch"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
+                MINI_SKULL_COLID_GROUND_KIDLEFT,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3ECCC treats non-charging side contact as contact damage"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
+                MINI_SKULL_COLID_GROUND_KIDRIGHT,
+                true
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3ECCC routes charging Berzerker side contact to the skull kill path"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
+                MINI_SKULL_COLID_GROUND_KIDBELOW,
+                true
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3ECCC sends `colid_kidbelow` to contact damage before considering Berzerker charge"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3eccc(MINI_SKULL_COLID_SLOPEUP, false),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3ECCC ignores unrecognised collision IDs during the left-hop windup loop"
         );
     }
 
