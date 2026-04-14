@@ -12826,6 +12826,54 @@ pub(crate) fn eyeclops_hard_beam_one_width_sprites_loc_E842(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsHardBeamWideSetupLocE8A6 {
+    pub(crate) span_px: i16,
+    pub(crate) sprite_x: i16,
+    pub(crate) collision_probe_screen_x: i16,
+    pub(crate) tile_attr_mask: u16,
+}
+
+/// ASM loc_E8A6 (kid.asm:18589): wider hard beams convert `d7` to an 8px
+/// span. Forward beams probe at `d0 + span + $10` while drawing from
+/// `d0 + span - $10` and reject at `$1C0`; flipped beams draw and probe at
+/// `d0 - span - $10`, set `$0800`, and reject at or left of `$60`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_wide_setup_loc_E8A6(
+    beam_counter: u16,
+    source_x: i16,
+    direction_latch_nonzero: bool,
+) -> Option<EyeclopsHardBeamWideSetupLocE8A6> {
+    let span_px = beam_counter.wrapping_shl(3) as i16;
+    if direction_latch_nonzero {
+        let sprite_x = source_x.wrapping_sub(span_px).wrapping_sub(0x0010);
+        if sprite_x <= 0x0060 {
+            return None;
+        }
+
+        Some(EyeclopsHardBeamWideSetupLocE8A6 {
+            span_px,
+            sprite_x,
+            collision_probe_screen_x: sprite_x,
+            tile_attr_mask: 0x0800,
+        })
+    } else {
+        let collision_probe_screen_x = source_x.wrapping_add(span_px).wrapping_add(0x0010);
+        let sprite_x = source_x.wrapping_add(span_px).wrapping_sub(0x0010);
+        if sprite_x >= 0x01C0 {
+            return None;
+        }
+
+        Some(EyeclopsHardBeamWideSetupLocE8A6 {
+            span_px,
+            sprite_x,
+            collision_probe_screen_x,
+            tile_attr_mask: 0,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,

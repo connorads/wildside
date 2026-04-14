@@ -7583,6 +7583,53 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E8A6 (kid.asm:18589): wider hard beams scale `d7` by eight,
+    /// then choose either the forward `d6=d0+span+$10` setup or the flipped
+    /// `d0=d0-span-$10; d6=d0; d4=$0800` setup before the off-screen checks.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E8A6_sets_up_wide_hard_beam_direction_and_bounds() {
+        let forward = crate::level::eyeclops_hard_beam_wide_setup_loc_E8A6(4, 0x0120, false)
+            .expect(
+                "ASM loc_E8A6 should accept forward wide beams before adjusted d0 reaches `$1C0`",
+            );
+        assert_eq!(
+            forward,
+            crate::level::EyeclopsHardBeamWideSetupLocE8A6 {
+                span_px: 0x0020,
+                sprite_x: 0x0130,
+                collision_probe_screen_x: 0x0150,
+                tile_attr_mask: 0,
+            },
+            "ASM loc_E8A6 forward path should draw from d0+span-$10, probe at d0+span+$10, and clear d4"
+        );
+
+        let flipped = crate::level::eyeclops_hard_beam_wide_setup_loc_E8A6(4, 0x0120, true).expect(
+            "ASM loc_E8CA should accept flipped wide beams while adjusted d0 is greater than `$60`",
+        );
+        assert_eq!(
+            flipped,
+            crate::level::EyeclopsHardBeamWideSetupLocE8A6 {
+                span_px: 0x0020,
+                sprite_x: 0x00F0,
+                collision_probe_screen_x: 0x00F0,
+                tile_attr_mask: 0x0800,
+            },
+            "ASM loc_E8A6 flipped branch should draw and probe from d0-span-$10 and seed d4 with `$0800`"
+        );
+
+        assert_eq!(
+            crate::level::eyeclops_hard_beam_wide_setup_loc_E8A6(4, 0x01B0, false),
+            None,
+            "ASM loc_E8A6 should branch to loc_E988 when the forward adjusted d0 is greater than or equal to `$1C0`"
+        );
+        assert_eq!(
+            crate::level::eyeclops_hard_beam_wide_setup_loc_E8A6(4, 0x0090, true),
+            None,
+            "ASM loc_E8CA should branch to loc_E988 when the flipped adjusted d0 is less than or equal to `$60`"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
