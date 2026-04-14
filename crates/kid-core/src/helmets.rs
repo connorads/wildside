@@ -23,6 +23,13 @@ pub(crate) struct EyeclopsBeamMirroredAnchorLocE50A {
     pub(crate) tile_flip_bit: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsBeamTableDispatchLocE512 {
+    pub(crate) pc_table_byte_offset: u16,
+    pub(crate) table_label: &'static str,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn eyeclops_beam_render_setup_loc_E4B2(
@@ -84,6 +91,27 @@ pub(crate) fn eyeclops_beam_mirrored_anchor_loc_E50A(
         anchor_x_word: screen_x_word.wrapping_sub(segment_span),
         tile_flip_bit: 0x0800,
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn eyeclops_beam_table_dispatch_loc_E512(
+    beam_segment_index: u16,
+) -> Option<EyeclopsBeamTableDispatchLocE512> {
+    // ASM loc_E512 (kid.asm:18047): `d5 = d7 << 2` indexes the four longword
+    // pointers in `off_E560`, selecting one of the short-beam sprite tables.
+    let table_label = match beam_segment_index {
+        0 => "unk_E570",
+        1 => "unk_E596",
+        2 => "unk_E5C4",
+        3 => "unk_E5FA",
+        _ => return None,
+    };
+
+    Some(EyeclopsBeamTableDispatchLocE512 {
+        pc_table_byte_offset: beam_segment_index.wrapping_shl(2),
+        table_label,
+    })
 }
 
 #[allow(non_snake_case)]

@@ -3170,6 +3170,36 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_E512 (kid.asm:18047): after the beam segment counter survives
+    /// the `< 4` gate, the ROM shifts it left by two and reads the matching
+    /// longword from `off_E560`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E512_eyeclops_beam_dispatches_through_four_longword_table_entries() {
+        let dispatches = [
+            helmets::eyeclops_beam_table_dispatch_loc_E512(0),
+            helmets::eyeclops_beam_table_dispatch_loc_E512(1),
+            helmets::eyeclops_beam_table_dispatch_loc_E512(2),
+            helmets::eyeclops_beam_table_dispatch_loc_E512(3),
+        ];
+
+        assert_eq!(
+            dispatches.map(|dispatch| dispatch.map(|entry| entry.pc_table_byte_offset)),
+            [Some(0), Some(4), Some(8), Some(12)],
+            "ASM loc_E512 should use `d7 << 2` as the byte offset into off_E560",
+        );
+        assert_eq!(
+            dispatches.map(|dispatch| dispatch.map(|entry| entry.table_label)),
+            [
+                Some("unk_E570"),
+                Some("unk_E596"),
+                Some("unk_E5C4"),
+                Some("unk_E5FA"),
+            ],
+            "ASM loc_E512 should select the four short-beam sprite tables in order",
+        );
+    }
+
     #[test]
     fn eyeclops_c_press_fires_beam_right() {
         let mut rt = NativeRuntime::new(manifest());
