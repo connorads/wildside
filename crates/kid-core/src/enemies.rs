@@ -2443,11 +2443,21 @@ fn acceleration_for_target(
 
 fn apply_acceleration_axis(current_velocity: i32, target_velocity: i32, acceleration: i32) -> i32 {
     if acceleration >= 0 {
-        let next_velocity = current_velocity.saturating_add(acceleration);
-        next_velocity.min(target_velocity)
+        ufo_apply_acceleration_axis_loc_3502a(current_velocity, target_velocity, acceleration)
     } else {
         ufo_apply_acceleration_axis_loc_3501e(current_velocity, target_velocity, acceleration)
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_apply_acceleration_axis_loc_3502a(
+    current_velocity: i32,
+    target_velocity: i32,
+    acceleration: i32,
+) -> i32 {
+    // ASM UFO.asm loc_3502A: add positive acceleration and cap to desired axis speed.
+    let next_velocity = current_velocity.saturating_add(acceleration);
+    next_velocity.min(target_velocity)
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -7510,6 +7520,20 @@ mod tests {
             ufo_apply_acceleration_axis_loc_3501e(0x0800, 0x0700, -0x0200),
             0x0700,
             "ASM UFO.asm loc_3501E clamps to target when the next value would undershoot"
+        );
+    }
+
+    #[test]
+    fn ufo_apply_acceleration_axis_matches_loc_3502a() {
+        assert_eq!(
+            ufo_apply_acceleration_axis_loc_3502a(0x0800, 0x1000, 0x0100),
+            0x0900,
+            "ASM UFO.asm loc_3502A keeps accelerating on the positive branch while below target"
+        );
+        assert_eq!(
+            ufo_apply_acceleration_axis_loc_3502a(0x0800, 0x0400, 0x0100),
+            0x0400,
+            "ASM UFO.asm loc_3502A caps velocity to target when the next value would exceed it"
         );
     }
 
