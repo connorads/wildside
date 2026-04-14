@@ -1079,6 +1079,21 @@ pub(crate) enum ShooterObjectMovingLeftNextLocEEE4 {
     InteractLevelLayout,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterObjectMovingDownNextLocEF2E {
+    ContinueMovingDown,
+    InteractLevelLayout,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterObjectMovingDownGateLocEF2E {
+    pub(crate) state_word: u16,
+    pub(crate) layout_word_addr: u16,
+    pub(crate) next_step: ShooterObjectMovingDownNextLocEF2E,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -9064,6 +9079,37 @@ pub(crate) fn shooter_object_moving_left_sprite_tail_loc_EEFE(
         sprite_x_offset: -8,
         sprite_y_offset: -4,
         tile_word: 0x8296,
+    }
+}
+
+/// ASM loc_EF2E (kid.asm:19441): moving-down shooters reset `$8(a0)` to zero
+/// every fourth positive age and add `Level_width_tiles` to the layout pointer.
+/// The following collision gate interacts for bit-14 cells when age is two or
+/// above, or for younger ages only when the moving-down `$2000` bit remains set.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_down_gate_loc_EF2E(
+    age_after_increment: u16,
+    current_layout_word_addr: u16,
+    level_width_tiles: u16,
+    selected_layout_word: u16,
+) -> ShooterObjectMovingDownGateLocEF2E {
+    let (state_word, layout_word_addr) = if age_after_increment == 4 {
+        (0, current_layout_word_addr.wrapping_add(level_width_tiles))
+    } else {
+        (age_after_increment, current_layout_word_addr)
+    };
+
+    ShooterObjectMovingDownGateLocEF2E {
+        state_word,
+        layout_word_addr,
+        next_step: if (selected_layout_word & 0x4000) == 0 {
+            ShooterObjectMovingDownNextLocEF2E::ContinueMovingDown
+        } else if state_word >= 2 || (selected_layout_word & 0x2000) != 0 {
+            ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout
+        } else {
+            ShooterObjectMovingDownNextLocEF2E::ContinueMovingDown
+        },
     }
 }
 

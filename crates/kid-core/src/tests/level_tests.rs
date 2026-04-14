@@ -9894,6 +9894,44 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EF2E (kid.asm:19441): moving-down shooters reset every fourth
+    /// positive age, advance the layout pointer by one row, then interact with
+    /// bit-14 cells at age two or higher or with the `$2000` down bit set.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EF2E_moving_down_resets_fourth_frame_and_uses_down_collision_gate() {
+        assert_eq!(
+            crate::level::shooter_object_moving_down_gate_loc_EF2E(4, 0x04A6, 0x0040, 0x6000),
+            crate::level::ShooterObjectMovingDownGateLocEF2E {
+                state_word: 0,
+                layout_word_addr: 0x04E6,
+                next_step: crate::level::ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout,
+            },
+            "ASM loc_EF2E should clear `$8(a0)`, add Level_width_tiles to `(a0)`, and interact for young down-bit cells"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_down_gate_loc_EF2E(2, 0x04A6, 0x0040, 0x4000)
+                .next_step,
+            crate::level::ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout,
+            "ASM loc_EF2E should interact at age 2 or higher when bit 14 is set"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_down_gate_loc_EF2E(1, 0x04A6, 0x0040, 0x4000)
+                .next_step,
+            crate::level::ShooterObjectMovingDownNextLocEF2E::ContinueMovingDown,
+            "ASM loc_EF2E should continue for young bit-14 cells when `$2000` is clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_down_gate_loc_EF2E(4, 0xFFFE, 0x0004, 0x0000)
+                .layout_word_addr,
+            0x0002,
+            "ASM loc_EF2E uses 16-bit wrapping for `add.w Level_width_tiles,(a0)`"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
