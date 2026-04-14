@@ -10008,6 +10008,51 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EFB4 (kid.asm:19504): starting from
+    /// `Addr_FirstShooterObjectSlot`, repeatedly read `$A(a3)` until that
+    /// successor link equals the shooter object being removed.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EFB4_finds_shooter_active_list_predecessor() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EA12,
+                next_slot_addr: 0,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E9FA,
+                next_slot_addr: 0xFFFF_EA06,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EA06,
+                next_slot_addr: 0xFFFF_EA12,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::shooter_object_predecessor_scan_loc_EFB4(
+                &active_slots,
+                0xFFFF_E9FA,
+                0xFFFF_EA12,
+            ),
+            Some(crate::level::ShooterObjectPredecessorLocEFB4 {
+                predecessor_slot_addr: 0xFFFF_EA06,
+                scanned_links: 2,
+            }),
+            "ASM loc_EFB4 should follow `$A` link order, not physical slot order, until `$A(a3)` equals `a0`"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_predecessor_scan_loc_EFB4(
+                &active_slots,
+                0xFFFF_E9FA,
+                0xFFFF_EA1E,
+            ),
+            None,
+            "ASM loc_EFB4 has no splice predecessor when the linked active list reaches a zero successor first"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
