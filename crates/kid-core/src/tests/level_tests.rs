@@ -7058,6 +7058,73 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DAE8 (kid.asm:17139): the platform scan follows active links
+    /// until a zero word, skips signed separating misses, and treats edge
+    /// contact as overlap because it only skips on `bgt`/`blt`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DAE8_platform_ceiling_scan_stops_on_sentinel_and_finds_first_overlap() {
+        let probe = crate::level::platform_ceiling_probe_hitbox_loc_DAD6(
+            PlayerForm::TheKid,
+            0x0120,
+            0x0060,
+        );
+        let platform_slots = [
+            Some(crate::level::PlatformBoundsLocDAE8 {
+                left_px: 0x0126,
+                top_px: 0x0040,
+                width_px: 0x0010,
+                height_px: 0x0010,
+            }),
+            Some(crate::level::PlatformBoundsLocDAE8 {
+                left_px: 0x0110,
+                top_px: 0x0061,
+                width_px: 0x0020,
+                height_px: 0x0010,
+            }),
+            Some(crate::level::PlatformBoundsLocDAE8 {
+                left_px: 0x0125,
+                top_px: 0x0041,
+                width_px: 0,
+                height_px: 0,
+            }),
+            Some(crate::level::PlatformBoundsLocDAE8 {
+                left_px: 0x011B,
+                top_px: 0x0041,
+                width_px: 0x0008,
+                height_px: 0x0008,
+            }),
+        ];
+
+        assert_eq!(
+            crate::level::first_platform_ceiling_overlap_loc_DAE8(probe, &platform_slots),
+            Some(2),
+            "ASM loc_DAE8 should skip earlier horizontal/vertical misses, then accept inclusive edge contact"
+        );
+
+        let terminated_slots = [
+            Some(crate::level::PlatformBoundsLocDAE8 {
+                left_px: 0x0140,
+                top_px: 0x0041,
+                width_px: 0x0010,
+                height_px: 0x0010,
+            }),
+            None,
+            Some(crate::level::PlatformBoundsLocDAE8 {
+                left_px: 0x011B,
+                top_px: 0x0041,
+                width_px: 0x0008,
+                height_px: 0x0008,
+            }),
+        ];
+
+        assert_eq!(
+            crate::level::first_platform_ceiling_overlap_loc_DAE8(probe, &terminated_slots),
+            None,
+            "ASM loc_DAE8 should return no overlap on the zero platform-link word before reading later RAM slots"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

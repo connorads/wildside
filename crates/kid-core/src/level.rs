@@ -11953,6 +11953,50 @@ pub(crate) fn platform_ceiling_probe_hitbox_loc_DAD6(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformBoundsLocDAE8 {
+    pub(crate) left_px: i32,
+    pub(crate) top_px: i32,
+    pub(crate) width_px: i32,
+    pub(crate) height_px: i32,
+}
+
+/// ASM loc_DAE8 (kid.asm:17139): walk active platform slots until the zero
+/// link sentinel, skipping entries only when one of the signed `bgt`/`blt`
+/// separation checks proves the platform rectangle cannot overlap Kid's
+/// `loc_DAD6` probe rectangle.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn first_platform_ceiling_overlap_loc_DAE8(
+    kid_probe: PlatformCeilingProbeHitboxLocDAD6,
+    platform_slots: &[Option<PlatformBoundsLocDAE8>],
+) -> Option<usize> {
+    for (slot_index, platform_slot) in platform_slots.iter().enumerate() {
+        let platform = (*platform_slot)?;
+        if platform.left_px > kid_probe.right_px {
+            continue;
+        }
+
+        let platform_right_px = platform.left_px + platform.width_px;
+        if platform_right_px < kid_probe.left_px {
+            continue;
+        }
+
+        if platform.top_px > kid_probe.bottom_px {
+            continue;
+        }
+
+        let platform_bottom_px = platform.top_px + platform.height_px;
+        if platform_bottom_px < kid_probe.top_px {
+            continue;
+        }
+
+        return Some(slot_index);
+    }
+
+    None
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
