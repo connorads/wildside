@@ -6784,7 +6784,7 @@ mod chunk_09 {
     fn shooter_player_in_range_sub_f536_rejects_just_outside_window() {
         assert!(
             !NativeRuntime::shooter_player_in_range_sub_F536((6 * 16) << 16, (9 * 16) << 16, 1, 3),
-            "ASM sub_F536 should reject source columns left of `kid_x_block-4`",
+            "ASM loc_F564 should return zero for source columns left of `kid_x_block-4`",
         );
         assert!(
             !NativeRuntime::shooter_player_in_range_sub_F536(
@@ -6793,11 +6793,11 @@ mod chunk_09 {
                 11,
                 12
             ),
-            "ASM sub_F536 should reject source columns right of `kid_x_block+4`",
+            "ASM loc_F564 should return zero for source columns right of `kid_x_block+4`",
         );
         assert!(
             !NativeRuntime::shooter_player_in_range_sub_F536((6 * 16) << 16, (9 * 16) << 16, 2, 2),
-            "ASM sub_F536 should reject source rows above `kid_y_block-6`",
+            "ASM loc_F564 should return zero for source rows above `kid_y_block-6`",
         );
         assert!(
             !NativeRuntime::shooter_player_in_range_sub_F536(
@@ -6806,7 +6806,7 @@ mod chunk_09 {
                 10,
                 13
             ),
-            "ASM sub_F536 should reject source rows below `kid_y_block+3`",
+            "ASM loc_F564 should return zero for source rows below `kid_y_block+3`",
         );
     }
 

@@ -1594,6 +1594,8 @@ impl NativeRuntime {
         // source col and `kid_y_block-6 .. kid_y_block+3` contains the source
         // row. The comparisons are inclusive because the ROM uses `bgt`/`bmi`
         // after subtracting the shooter coordinates.
+        // ASM loc_F564 (kid.asm:20187): every failed `bgt`/`bmi` range test
+        // returns zero in `d0`.
         let mut delta_x = ((player_x_pos >> 16) as i32 >> 4) - 4 - i32::from(shooter_col);
         if delta_x > 0 {
             return false;
