@@ -5563,6 +5563,38 @@ pub(crate) fn drips_collision_no_contact_result_loc_33584(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DripsRightBoundsNextLoc33588 {
+    ContactLoc335D4,
+    CheckLeftLoc335AA,
+    CheckVerticalLoc335B0,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_right_bounds_gate_loc_33588(
+    has_level_collision_byte_19: bool,
+    x_pos_word: i16,
+    x_velocity: i32,
+    level_width_pixels: i16,
+) -> DripsRightBoundsNextLoc33588 {
+    // ASM Drips.asm loc_33588: `$19(a3)` short-circuits to d5=1. Non-negative
+    // `x_vel(a3)` probes `x_pos(a3)+8` against `Level_width_pixels`; negative
+    // X velocity falls through to the left-edge gate at loc_335AA.
+    if has_level_collision_byte_19 {
+        return DripsRightBoundsNextLoc33588::ContactLoc335D4;
+    }
+    if x_velocity < 0 {
+        return DripsRightBoundsNextLoc33588::CheckLeftLoc335AA;
+    }
+
+    if x_pos_word.wrapping_add(8) >= level_width_pixels {
+        DripsRightBoundsNextLoc33588::ContactLoc335D4
+    } else {
+        DripsRightBoundsNextLoc33588::CheckVerticalLoc335B0
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -7097,6 +7129,30 @@ mod tests {
                 contact_flag: 0,
             },
             "ASM Drips.asm loc_33584 is the `$28` dispatch-table no-contact slot after the collision word is cleared"
+        );
+    }
+
+    #[test]
+    fn drips_right_bounds_gate_matches_loc_33588() {
+        assert_eq!(
+            drips_right_bounds_gate_loc_33588(true, 0x0020, 0x0000_3000, 0x0100),
+            DripsRightBoundsNextLoc33588::ContactLoc335D4,
+            "ASM Drips.asm loc_33588 sends non-zero `$19(a3)` directly to d5=1"
+        );
+        assert_eq!(
+            drips_right_bounds_gate_loc_33588(false, 0x0020, -0x0000_3000, 0x0100),
+            DripsRightBoundsNextLoc33588::CheckLeftLoc335AA,
+            "ASM Drips.asm loc_33588 branches to loc_335AA when `x_vel(a3)` is negative"
+        );
+        assert_eq!(
+            drips_right_bounds_gate_loc_33588(false, 0x00F8, 0x0000_3000, 0x0100),
+            DripsRightBoundsNextLoc33588::ContactLoc335D4,
+            "ASM Drips.asm loc_33588 treats `x_pos(a3)+8 >= Level_width_pixels` as contact"
+        );
+        assert_eq!(
+            drips_right_bounds_gate_loc_33588(false, 0x00F7, 0x0000_3000, 0x0100),
+            DripsRightBoundsNextLoc33588::CheckVerticalLoc335B0,
+            "ASM Drips.asm loc_33588 continues to loc_335B0 while the right probe is still inside the level"
         );
     }
 
