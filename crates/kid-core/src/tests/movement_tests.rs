@@ -851,6 +851,31 @@ mod chunk_11 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_E386_hidden_block_search_stride_scales_by_count_minus_one() {
+        assert_eq!(
+            crate::terrain::BlockList::hidden_block_search_initial_stride_bytes_loc_E386(1),
+            8,
+            "ASM loc_E386 should keep the initial one-record stride when `count-1` shifts to zero immediately",
+        );
+        assert_eq!(
+            crate::terrain::BlockList::hidden_block_search_initial_stride_bytes_loc_E386(3),
+            16,
+            "ASM loc_E386 should double the stride once for a three-entry hidden-block list",
+        );
+        assert_eq!(
+            crate::terrain::BlockList::hidden_block_search_initial_stride_bytes_loc_E386(8),
+            32,
+            "ASM loc_E386 uses `count-1`, so an eight-entry list starts from a four-record byte stride",
+        );
+        assert_eq!(
+            crate::terrain::BlockList::hidden_block_search_initial_stride_bytes_loc_E386(9),
+            64,
+            "ASM loc_E386 should double again only after `count-1` reaches the next power-of-two threshold",
+        );
+    }
+
+    #[test]
     fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
         assert_eq!(
             crate::level::indoor_rubber_block_source_words_loc_14506(

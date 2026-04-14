@@ -819,6 +819,24 @@ impl BlockList {
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn hidden_block_search_initial_stride_bytes_loc_E386(
+        hidden_block_count: u16,
+    ) -> u16 {
+        // ASM loc_E386 (kid.asm:17824): starting from `d0=count-1` and
+        // `d1=8`, halve d0 and double the byte stride until d0 shifts to zero.
+        let mut remaining = hidden_block_count.wrapping_sub(1);
+        let mut stride_bytes = 8u16;
+        loop {
+            remaining >>= 1;
+            if remaining == 0 {
+                return stride_bytes;
+            }
+            stride_bytes = stride_bytes.wrapping_mul(2);
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn hidden_block_reveal_sub_E3C6(
         &self,
         entry: &HiddenBlockEntry,
