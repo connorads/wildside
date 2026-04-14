@@ -158,6 +158,8 @@ pub(crate) fn eyeclops_beam_sprites_loc_E51A(
         let size_link = (entry.size_word & 0xFF00).wrapping_add(u16::from(number_sprites));
         let tile_word = entry.tile_word | tile_flip_bit;
         let x = if latched_x_direction == 0 {
+            // ASM loc_E54E (kid.asm:18078): clear `$FFFFFABE` stores
+            // `d0 + (a0)+` directly, with no width compensation.
             screen_x_word.wrapping_add(i16_bits(entry.x_offset))
         } else {
             screen_x_word

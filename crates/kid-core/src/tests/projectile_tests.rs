@@ -3244,6 +3244,25 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_E54E (kid.asm:18078): when `$FFFFFABE` is clear, the short
+    /// Eyeclops beam stores `d0 + table_x_offset` directly as each sprite X.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E54E_eyeclops_beam_non_mirrored_x_adds_table_offset_without_width_bias() {
+        let right = helmets::eyeclops_beam_sprites_loc_E51A("unk_E570", 0x00B2, 0x0091, 0, 0, 0)
+            .expect("ASM loc_E512 dispatches d7=0 to unk_E570 before loc_E51A");
+
+        assert_eq!(
+            right
+                .sprites
+                .iter()
+                .map(|sprite| sprite.x)
+                .collect::<Vec<_>>(),
+            vec![0x00B2, 0x00B2, 0x00BA, 0x00B2],
+            "ASM loc_E54E should add `(a0)+` to d5 and store it, with no sprite-width subtraction on the clear `$FFFFFABE` path",
+        );
+    }
+
     #[test]
     fn eyeclops_c_press_fires_beam_right() {
         let mut rt = NativeRuntime::new(manifest());
