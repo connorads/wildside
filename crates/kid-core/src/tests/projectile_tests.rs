@@ -1945,6 +1945,7 @@ mod chunk_06 {
                 height_pixels: 512,
             },
             slice.player.x_pos,
+            slice.player.y_pos,
             &rt.killed_enemies,
         );
 

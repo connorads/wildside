@@ -41,6 +41,10 @@ fn manifest_with_nearby_skull() -> AssetManifest {
 
 fn setup_stomp_scenario(runtime: &mut NativeRuntime, stomp: bool) {
     if let Some(ref mut slice) = runtime.opening_slice {
+        // ASM Mini_Hopping_Skull.asm loc_3E9D0 gates activation on Kid being
+        // level with or below the layout point before the live skull spawns.
+        slice.player.x_pos = 0x0120_0000;
+        slice.player.y_pos = 0x00E0_0000;
         slice.camera.x_pos = 0;
         slice.camera.y_pos = 0;
     }
@@ -2199,6 +2203,8 @@ mod chunk_04 {
 
         // Activate enemy
         if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
         }
@@ -2233,6 +2239,8 @@ mod chunk_04 {
 
         // Activate enemy
         if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
         }
@@ -2287,6 +2295,8 @@ mod chunk_04 {
         start_level(&mut runtime);
 
         if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
             slice.camera.x_pos = 0;
             slice.camera.y_pos = 0;
         }
@@ -4774,6 +4784,7 @@ mod chunk_04 {
                 height_pixels: 512,
             },
             200 << 16,
+            100 << 16,
             &HashSet::new(),
         );
         assert_eq!(active.len(), 3, "Shishkaboss should spawn 3 heads");
@@ -4819,6 +4830,7 @@ mod chunk_04 {
                 height_pixels: 512,
             },
             200 << 16,
+            100 << 16,
             &HashSet::new(),
         );
         assert_eq!(active2.len(), 1);

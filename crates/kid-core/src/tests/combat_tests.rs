@@ -4664,6 +4664,7 @@ mod chunk_03 {
                 height_pixels: 512,
             },
             0,
+            0,
             &HashSet::new(),
         );
 
@@ -4944,6 +4945,7 @@ mod chunk_03 {
                 height_pixels: 512,
             },
             0,
+            271 << 16,
             &HashSet::new(),
         );
         assert_eq!(
@@ -4995,6 +4997,7 @@ mod chunk_03 {
                 height_pixels: 512,
             },
             0,
+            271 << 16,
             &HashSet::new(),
         );
 
@@ -5117,6 +5120,7 @@ mod chunk_03 {
             OPENING_GROUNDED_CAMERA_Y_FP >> 16,
             level_bounds,
             0,
+            271 << 16,
             &HashSet::new(),
         );
 
@@ -5615,6 +5619,7 @@ mod chunk_03 {
                 height_pixels: 512,
             },
             0,
+            271 << 16,
             &HashSet::new(),
         );
 

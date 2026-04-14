@@ -972,6 +972,7 @@ pub(crate) fn activate_enemies(
     camera_y_px: u32,
     level_bounds: physics::LevelBounds,
     player_x: u32,
+    player_y: u32,
     killed: &std::collections::HashSet<(usize, usize)>,
 ) {
     let mut rng = RomRandomState::default();
@@ -983,6 +984,7 @@ pub(crate) fn activate_enemies(
         camera_y_px,
         level_bounds,
         player_x,
+        player_y,
         0,
         killed,
         &mut rng,
@@ -998,6 +1000,7 @@ pub(crate) fn activate_enemies_with_rng(
     camera_y_px: u32,
     level_bounds: physics::LevelBounds,
     player_x: u32,
+    player_y: u32,
     blank_top_rows: u16,
     killed: &std::collections::HashSet<(usize, usize)>,
     rng: &mut RomRandomState,
@@ -1042,6 +1045,12 @@ pub(crate) fn activate_enemies_with_rng(
         if !window.contains(object_x, object_y) {
             continue;
         }
+        let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
+        if matches!(family, EnemyFamily::MiniHoppingSkull)
+            && !mini_hopping_skull_spawn_gate_loc_3e9d0(object_x, object_y, player_x, player_y)
+        {
+            continue;
+        }
         if active
             .iter()
             .any(|e| e.segment_index == view.segment_index && e.layout_index == index)
@@ -1052,7 +1061,6 @@ pub(crate) fn activate_enemies_with_rng(
         if killed.contains(&(view.segment_index, index)) {
             continue;
         }
-        let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
         // ASM init routines copy the layout word at offset +2 straight into
         // enemy_level(a3). Dragon Flying is the exception: it reuses the same
         // layout word as a script variant selector instead of HP scaling.
@@ -2551,6 +2559,21 @@ fn mini_hopping_skull_should_remain_active(
         && relative_x <= right_margin
         && relative_y >= -top_margin
         && relative_y <= bottom_margin
+}
+
+fn mini_hopping_skull_spawn_gate_loc_3e9d0(
+    object_x_px: u32,
+    object_y_px: u32,
+    player_x_pos: u32,
+    player_y_pos: u32,
+) -> bool {
+    // ASM Mini_Hopping_Skull.asm loc_3E9D0: hibernate until
+    // `kid_x-layout_x` is in [-$50,$50] and `kid_y-layout_y` is in [0,$A0].
+    let player_x_px = (player_x_pos as i32) >> 16;
+    let player_y_px = (player_y_pos as i32) >> 16;
+    let dx = player_x_px - object_x_px as i32;
+    let dy = player_y_px - object_y_px as i32;
+    (-0x50..=0x50).contains(&dx) && (0..=0xA0).contains(&dy)
 }
 
 fn mini_hopping_skull_snap_slopeup_x(grid: &terrain::BlockGrid, x_px: i32, y_px: i32) -> u32 {
@@ -5505,6 +5528,42 @@ mod tests {
     }
 
     #[test]
+    fn mini_hopping_skull_spawn_gate_matches_loc_3e9d0_edges() {
+        // ASM Mini_Hopping_Skull.asm loc_3E9D0 keeps hibernating outside
+        // Kid-relative X [-$50,$50] and Y [0,$A0] from the layout point.
+        assert!(mini_hopping_skull_spawn_gate_loc_3e9d0(
+            200,
+            100,
+            120 << 16,
+            100 << 16
+        ));
+        assert!(mini_hopping_skull_spawn_gate_loc_3e9d0(
+            200,
+            100,
+            280 << 16,
+            260 << 16
+        ));
+        assert!(!mini_hopping_skull_spawn_gate_loc_3e9d0(
+            200,
+            100,
+            119 << 16,
+            100 << 16
+        ));
+        assert!(!mini_hopping_skull_spawn_gate_loc_3e9d0(
+            200,
+            100,
+            200 << 16,
+            99 << 16
+        ));
+        assert!(!mini_hopping_skull_spawn_gate_loc_3e9d0(
+            200,
+            100,
+            200 << 16,
+            261 << 16
+        ));
+    }
+
+    #[test]
     fn mini_hopping_skull_hp_tier_boost_matches_loc_3ebfc() {
         let grid = mini_hopping_skull_test_grid();
         let mut enemy = mini_hopping_skull_test_enemy();
@@ -6678,6 +6737,7 @@ impl NativeRuntime {
                     camera_y_px,
                     level_bounds,
                     slice.player.x_pos,
+                    slice.player.y_pos,
                     blank_top_rows,
                     &self.killed_enemies,
                     &mut self.rom_random,
