@@ -956,6 +956,14 @@ pub(crate) struct EvanescentBulletRecycleFreeListPushLocECD8 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EvanescentBulletActionDispatchLocED04 {
+    ProcessAction { action_byte: u8 },
+    ContinueActiveScan { next_active_slot_addr: u32 },
+    ProcessShooterObjects,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8663,6 +8671,35 @@ pub(crate) fn evanescent_bullet_recycle_free_list_push_loc_ECD8(
         next_active_slot_to_process_addr: saved_next_active_slot_addr,
         slots,
     })
+}
+
+const EVANESCENT_BULLET_ACTION_TABLE_UNK_ECEC: [u8; 24] = [
+    0x00, 0x81, 0x04, 0x81, 0x04, 0x81, 0x04, 0x81, 0x04, 0x81, 0x04, 0x81, 0x04, 0x83, 0x00, 0x80,
+    0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x00,
+];
+
+/// ASM loc_ED04 (kid.asm:19208): for a non-expiring evanescent object, index
+/// `unk_ECEC` by the pre-increment age word still in `d0`. A non-zero byte
+/// dispatches to `loc_ED16`; a zero byte skips work and follows `$A(a0)` to
+/// either the next active evanescent object or `Process_ShooterObjects`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_action_dispatch_loc_ED04(
+    age_before_increment: u16,
+    next_active_slot_addr: u32,
+) -> Option<EvanescentBulletActionDispatchLocED04> {
+    let action_byte =
+        *EVANESCENT_BULLET_ACTION_TABLE_UNK_ECEC.get(usize::from(age_before_increment))?;
+    if action_byte != 0 {
+        return Some(EvanescentBulletActionDispatchLocED04::ProcessAction { action_byte });
+    }
+    if next_active_slot_addr != 0 {
+        Some(EvanescentBulletActionDispatchLocED04::ContinueActiveScan {
+            next_active_slot_addr,
+        })
+    } else {
+        Some(EvanescentBulletActionDispatchLocED04::ProcessShooterObjects)
+    }
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,

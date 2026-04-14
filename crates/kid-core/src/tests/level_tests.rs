@@ -9394,6 +9394,49 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_ED04 (kid.asm:19208): the ROM indexes `unk_ECEC` with the
+    /// pre-increment age word. Non-zero bytes branch to `loc_ED16`; zero bytes
+    /// skip the evanescent action and follow `$A(a0)`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_ED04_dispatches_from_the_evanescent_action_table() {
+        assert_eq!(
+            crate::level::evanescent_bullet_action_dispatch_loc_ED04(1, 0xFFFF_E91A),
+            Some(
+                crate::level::EvanescentBulletActionDispatchLocED04::ProcessAction {
+                    action_byte: 0x81,
+                }
+            ),
+            "ASM loc_ED04 should branch to loc_ED16 when `unk_ECEC[age]` is non-zero"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_action_dispatch_loc_ED04(13, 0),
+            Some(
+                crate::level::EvanescentBulletActionDispatchLocED04::ProcessAction {
+                    action_byte: 0x83,
+                }
+            ),
+            "ASM loc_ED04 should preserve the exact action byte; age 13 uses `$83`, enabling the later collision-overlay path"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_action_dispatch_loc_ED04(14, 0xFFFF_E91A),
+            Some(
+                crate::level::EvanescentBulletActionDispatchLocED04::ContinueActiveScan {
+                    next_active_slot_addr: 0xFFFF_E91A,
+                }
+            ),
+            "ASM loc_ED04 should continue at loc_EC52 when a zero action byte still has a next active slot"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_action_dispatch_loc_ED04(23, 0),
+            Some(crate::level::EvanescentBulletActionDispatchLocED04::ProcessShooterObjects),
+            "ASM loc_ED04 should fall through to Process_ShooterObjects when the zero action byte is also the active-list tail"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
