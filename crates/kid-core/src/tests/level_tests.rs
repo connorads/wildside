@@ -9324,6 +9324,76 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_ECD8 (kid.asm:19173): the aged evanescent slot is recycled by
+    /// writing the old free-list head into `$A(a0)`, then making `a0` the new
+    /// `Addr_NextFreeEvanescObjectSlot`; the saved successor in `d0` controls
+    /// whether the active-list scan continues.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_ECD8_pushes_the_recycled_evanescent_slot_to_the_free_list() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E90A,
+                next_slot_addr: 0xFFFF_E91A,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E91A,
+                next_slot_addr: 0xFFFF_E92A,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E92A,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::evanescent_bullet_recycle_free_list_push_loc_ECD8(
+                &active_slots,
+                0xFFFF_E91A,
+                0xFFFF_E92A,
+                0xFFFF_E980,
+            ),
+            Some(crate::level::EvanescentBulletRecycleFreeListPushLocECD8 {
+                first_free_slot_addr: 0xFFFF_E91A,
+                should_continue_active_scan: true,
+                next_active_slot_to_process_addr: 0xFFFF_E92A,
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E90A,
+                        next_slot_addr: 0xFFFF_E91A,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E91A,
+                        next_slot_addr: 0xFFFF_E980,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E92A,
+                        next_slot_addr: 0,
+                    },
+                ],
+            }),
+            "ASM loc_ECD8 should recycle `a0` by linking it to the previous free-list head and continue at loc_EC52 when saved d0 is non-zero"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_recycle_free_list_push_loc_ECD8(
+                &active_slots,
+                0xFFFF_E92A,
+                0,
+                0xFFFF_E980,
+            )
+            .map(|result| {
+                (
+                    result.first_free_slot_addr,
+                    result.should_continue_active_scan,
+                    result.next_active_slot_to_process_addr,
+                )
+            }),
+            Some((0xFFFF_E92A, false, 0)),
+            "ASM loc_ECD8 should fall through to Process_ShooterObjects when saved d0 is zero"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

@@ -947,6 +947,15 @@ pub(crate) struct EvanescentBulletRecycleSpliceLocECD2 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletRecycleFreeListPushLocECD8 {
+    pub(crate) first_free_slot_addr: u32,
+    pub(crate) should_continue_active_scan: bool,
+    pub(crate) next_active_slot_to_process_addr: u32,
+    pub(crate) slots: Vec<LinkedObjectSlotInit>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8627,6 +8636,33 @@ pub(crate) fn evanescent_bullet_recycle_splice_predecessor_loc_ECD2(
     predecessor.next_slot_addr = target_next_slot_addr;
 
     Some(EvanescentBulletRecycleSpliceLocECD2 { slots })
+}
+
+/// ASM loc_ECD8 (kid.asm:19173): after either the head removal path or the
+/// predecessor splice, push the aged evanescent slot onto
+/// `Addr_NextFreeEvanescObjectSlot`. The saved `$A(a0)` value in `d0` decides
+/// whether the active evanescent scan continues at `loc_EC52` or falls through
+/// to `Process_ShooterObjects`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_recycle_free_list_push_loc_ECD8(
+    active_slots: &[LinkedObjectSlotInit],
+    target_slot_addr: u32,
+    saved_next_active_slot_addr: u32,
+    first_free_slot_addr: u32,
+) -> Option<EvanescentBulletRecycleFreeListPushLocECD8> {
+    let mut slots = active_slots.to_vec();
+    let target = slots
+        .iter_mut()
+        .find(|slot| slot.slot_addr == target_slot_addr)?;
+    target.next_slot_addr = first_free_slot_addr;
+
+    Some(EvanescentBulletRecycleFreeListPushLocECD8 {
+        first_free_slot_addr: target_slot_addr,
+        should_continue_active_scan: saved_next_active_slot_addr != 0,
+        next_active_slot_to_process_addr: saved_next_active_slot_addr,
+        slots,
+    })
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,
