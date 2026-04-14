@@ -15246,6 +15246,50 @@ mod chunk_10 {
     }
 
     #[test]
+    fn lion_projectile_loc_3e2a8_loops_until_collision_resolves() {
+        // ASM loc_3E2A8 runs the wall-bounce correction repeatedly while the
+        // projectile is still inside a colliding block.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut proj = make_projectile(20, 15);
+        proj.x_velocity = 0x14_0000;
+        proj.y_velocity = 0x05_0000;
+        proj.wall_bounce = true;
+        rt.projectiles.push(proj);
+
+        let w = 10u16;
+        let h = 10u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // First touched slope cell: (2,1).
+        data[(usize::from(w) + 2) * 2] = 0xC0;
+        // Keep looping by making the first post-bounce cell (0,2) another slope.
+        data[(2 * usize::from(w)) * 2] = 0xC0;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        rt.set_block_grid(grid);
+
+        rt.step_projectiles();
+
+        let p = &rt.projectiles[0];
+        assert_eq!(
+            p.x_pos >> 16,
+            0,
+            "loc_3E2A8 should keep iterating if collision persists, not stop after first bounce"
+        );
+        assert_eq!(
+            p.y_pos >> 16,
+            10,
+            "loc_3E2A8 should end on the resolved second-iteration position"
+        );
+        assert_eq!(
+            p.x_velocity, -0x14_0000,
+            "Second correction in loc_3E2A8 should set the resolved x-velocity"
+        );
+        assert_eq!(
+            p.y_velocity, -0x05_0000,
+            "Second correction in loc_3E2A8 should set the resolved y-velocity"
+        );
+    }
+
+    #[test]
     fn reaim_adjusts_arrow_angle_when_countdown_reaches_zero() {
         // ASM loc_342D6: every reaim_interval frames, adjust angle toward player.
         // Kills: reaim_interval > 0 (line 23), reaim_countdown == 0 (line 24),

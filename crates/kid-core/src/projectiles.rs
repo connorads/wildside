@@ -592,17 +592,22 @@ impl NativeRuntime {
             if p.wall_bounce
                 && let Some(g) = grid
             {
-                let px_i = (p.x_pos >> 16) as i32;
-                let py_i = (p.y_pos >> 16) as i32;
-                let col = terrain::pixel_to_cell(px_i).max(0) as u16;
-                let row = terrain::pixel_to_cell(py_i).max(0) as u16;
-                let cell = g.cell_at(col, row);
-                if cell.has_block && cell.collision != terrain::CollisionKind::Empty {
-                    // Undo the move
+                let mut remaining_bounces = 0x0Fu16;
+                while remaining_bounces > 0 {
+                    let px_i = (p.x_pos >> 16) as i32;
+                    let py_i = (p.y_pos >> 16) as i32;
+                    let col = terrain::pixel_to_cell(px_i).max(0) as u16;
+                    let row = terrain::pixel_to_cell(py_i).max(0) as u16;
+                    let cell = g.cell_at(col, row);
+                    if !cell.has_block || cell.collision == terrain::CollisionKind::Empty {
+                        break;
+                    }
+
+                    // Undo the move.
                     p.x_pos = (p.x_pos as i64 - i64::from(p.x_velocity)) as u32;
                     p.y_pos = (p.y_pos as i64 - i64::from(p.y_velocity)) as u32;
 
-                    // Determine bounce axis: probe horizontally and vertically
+                    // Determine bounce axis: probe horizontally and vertically.
                     let prev_px = (p.x_pos >> 16) as i32;
                     let prev_py = (p.y_pos >> 16) as i32;
                     let next_cx = prev_px + (p.x_velocity >> 16);
@@ -627,10 +632,8 @@ impl NativeRuntime {
                         if p.x_velocity >= 0 { 0x04 } else { 0x08 }
                     } else if v_blocked {
                         if p.y_velocity >= 0 { 0x0C } else { 0x10 }
-                    } else if cell.collision == terrain::CollisionKind::SlopeUp {
-                        0x14
                     } else {
-                        0x18
+                        terrain_collision_id_from_cell_loc_3e2a8(cell)
                     };
 
                     let (x_velocity, y_velocity) = if h_blocked && v_blocked {
@@ -653,9 +656,22 @@ impl NativeRuntime {
                     p.x_velocity = x_velocity;
                     p.y_velocity = y_velocity;
 
-                    // Re-apply movement with bounced velocity
+                    // Re-apply movement with bounced velocity.
                     p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
                     p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+
+                    if let (Some(owner), Some(camera)) = (p.owner, camera) {
+                        let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
+                        let screen_y = ((p.y_pos >> 16) as i32) - ((camera.y_pos >> 16) as i32);
+                        let in_camera_box = (-0x40..=0x180).contains(&screen_x)
+                            && (-0x40..=0x120).contains(&screen_y);
+                        if !in_camera_box {
+                            released_owners.push(owner);
+                            return false;
+                        }
+                    }
+
+                    remaining_bounces -= 1;
                 }
             }
             true
@@ -727,6 +743,15 @@ pub(crate) fn lion_projectile_bounce_velocities_loc_3e29e(
         y_velocity
     };
     (bounced_x_velocity, x_velocity)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn terrain_collision_id_from_cell_loc_3e2a8(cell: terrain::Cell) -> u16 {
+    match cell.collision {
+        terrain::CollisionKind::SlopeUp => 0x14,
+        terrain::CollisionKind::SlopeDown => 0x18,
+        _ => 0,
+    }
 }
 
 #[cfg(test)]
