@@ -8293,6 +8293,26 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_slot_loc_f828_advances_past_offscreen_prefix_cells() {
+        let span = NativeRuntime::shooter_horizontal_span_loc_F808(10, 12, 4, 18, 8, 7, 5);
+
+        assert_eq!(
+            NativeRuntime::shooter_horizontal_span_columns_loc_F828(8, 5),
+            vec![8, 9, 10, 11, 12],
+            "ASM loc_F828 should increment `d0` and DBF back through the full horizontal shooter span"
+        );
+        assert_eq!(span.restored_cols, vec![8, 9, 10, 11, 12]);
+        assert_eq!(
+            span.sprite_cells
+                .iter()
+                .map(|cell| cell.col)
+                .collect::<Vec<_>>(),
+            vec![10, 11, 12],
+            "ASM loc_F828 (kid.asm:20498) should keep iterating after offscreen cells so the onscreen suffix still queues FG updates"
+        );
+    }
+
+    #[test]
     fn shooter_slot_tick_sub_f730_advances_the_zero_state_into_the_negative_visibility_ladder() {
         assert_eq!(
             NativeRuntime::shooter_slot_tick_sub_F730(1, 0, 4, 6),
