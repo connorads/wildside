@@ -6387,17 +6387,17 @@ mod chunk_03 {
         assert_eq!(window.vertical_reach_px, 0x0020);
     }
 
-    /// ASM loc_DFEE (kid.asm:17338): after `sub_DFB0` has selected the
-    /// horizontal reach words, the ROM converts Kid's pixel bounds to block
-    /// columns, clamps a negative start to zero, and computes `d1 -= d0`.
+    /// ASM loc_E000 (kid.asm:17347): after `sub_DFB0`/`loc_DFEE` have selected
+    /// and shifted Kid's horizontal jump probe, the ROM clamps a negative
+    /// start column to zero before computing the inclusive scan count.
     #[test]
     #[allow(non_snake_case)]
-    fn loc_DFEE_hidden_block_jump_scan_clamps_negative_start_and_counts_from_zero() {
+    fn loc_E000_hidden_block_jump_scan_clamps_negative_start_and_counts_from_zero() {
         let scan = hidden_block_jump_horizontal_scan_loc_DFEE(0x0003, 0x0010, 0x001F, 0x0020);
 
         assert_eq!(
             scan.start_col, 0,
-            "ASM loc_DFEE should clamp the arithmetic-shifted negative left edge to block column zero"
+            "ASM loc_E000 should clamp the arithmetic-shifted negative left edge to block column zero"
         );
         assert_eq!(
             scan.end_col, 0x0002,

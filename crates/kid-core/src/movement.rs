@@ -1209,11 +1209,12 @@ pub(crate) fn hidden_block_jump_horizontal_scan_loc_DFEE(
 ) -> HiddenBlockJumpHorizontalScanLocDFEE {
     // ASM loc_DFEE (kid.asm:17338): negate the left reach, add Kid's word X
     // position to both horizontal bounds, subtract one from the right edge,
-    // arithmetic-shift both to block columns, clamp a negative start to zero,
-    // then cap only an end column greater than `Level_width_blocks`.
+    // then arithmetic-shift both to block columns.
     let left_edge_px = left_reach_px.wrapping_neg().wrapping_add(kid_x_pos_px);
     let right_edge_px = right_reach_px.wrapping_add(kid_x_pos_px).wrapping_sub(1);
 
+    // ASM loc_E000 (kid.asm:17347): after `asr.w #4,d0`, a negative start
+    // column is clamped to zero before the right edge is considered.
     let mut start_col = left_edge_px >> 4;
     if start_col < 0 {
         start_col = 0;
