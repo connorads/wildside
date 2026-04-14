@@ -9573,6 +9573,44 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_ED98 (kid.asm:19269): the shared evanescent layout rewrite
+    /// writes `d1` through the saved layout pointer, queues x/y/word for the
+    /// foreground cell updater, then branches by the saved `$A(a0)` link.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_ED98_writes_the_layout_word_and_queues_the_fg_cell_update() {
+        assert_eq!(
+            crate::level::evanescent_bullet_layout_write_loc_ED98(
+                0x04A6,
+                7,
+                12,
+                0x602F,
+                0xFFFF_E91A,
+            ),
+            crate::level::EvanescentBulletLayoutWriteLocED98 {
+                layout_word_addr: 0x04A6,
+                final_layout_word: 0x602F,
+                queued_cell: crate::level::FgUpdateQueueCellLocED98 {
+                    block_col: 7,
+                    block_row: 12,
+                    layout_word: 0x602F,
+                },
+                next_step:
+                    crate::level::EvanescentBulletLayoutWriteNextLocED98::ContinueActiveScan {
+                        next_active_slot_addr: 0xFFFF_E91A,
+                    },
+            },
+            "ASM loc_ED98 should queue the same x/y/d1 triple written into the level layout before continuing at loc_EC52"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_layout_write_loc_ED98(0x04A6, 7, 12, 0xE33C, 0)
+                .next_step,
+            crate::level::EvanescentBulletLayoutWriteNextLocED98::ProcessShooterObjects,
+            "ASM loc_ED98 should fall through to Process_ShooterObjects when `$A(a0)` is zero"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

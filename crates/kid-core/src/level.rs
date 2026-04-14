@@ -1002,6 +1002,30 @@ pub(crate) enum EvanescentBulletActionLocED16 {
     },
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FgUpdateQueueCellLocED98 {
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) layout_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EvanescentBulletLayoutWriteNextLocED98 {
+    ContinueActiveScan { next_active_slot_addr: u32 },
+    ProcessShooterObjects,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletLayoutWriteLocED98 {
+    pub(crate) layout_word_addr: u16,
+    pub(crate) final_layout_word: u16,
+    pub(crate) queued_cell: FgUpdateQueueCellLocED98,
+    pub(crate) next_step: EvanescentBulletLayoutWriteNextLocED98,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8793,6 +8817,37 @@ pub(crate) fn evanescent_bullet_collision_overlay_loc_ED7C(
     theme_collision_byte: u8,
 ) -> u16 {
     u16::from(theme_collision_byte).rotate_right(4) | u16::from(terrain_layout_byte)
+}
+
+/// ASM loc_ED98 (kid.asm:19269): write the selected layout word `d1` through
+/// the saved `(a0)` level-layout pointer, append `$2(a0)`, `$4(a0)`, and `d1`
+/// to `FGPlane_UpdateQueueCell`, then either continue the active evanescent
+/// scan when `$A(a0)` is non-zero or fall through to shooter-object handling.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_layout_write_loc_ED98(
+    layout_word_addr: u16,
+    block_col: u16,
+    block_row: u16,
+    layout_word: u16,
+    next_active_slot_addr: u32,
+) -> EvanescentBulletLayoutWriteLocED98 {
+    EvanescentBulletLayoutWriteLocED98 {
+        layout_word_addr,
+        final_layout_word: layout_word,
+        queued_cell: FgUpdateQueueCellLocED98 {
+            block_col,
+            block_row,
+            layout_word,
+        },
+        next_step: if next_active_slot_addr != 0 {
+            EvanescentBulletLayoutWriteNextLocED98::ContinueActiveScan {
+                next_active_slot_addr,
+            }
+        } else {
+            EvanescentBulletLayoutWriteNextLocED98::ProcessShooterObjects
+        },
+    }
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,
