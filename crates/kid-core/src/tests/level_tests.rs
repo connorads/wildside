@@ -9745,6 +9745,37 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EE92 (kid.asm:19375): once moving-up has chosen the current
+    /// layout word, age `< 2` interacts with any bit-14 cell; older ages require
+    /// the moving-up `$2000` bit.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EE92_moving_up_collision_gate_uses_young_age_or_direction_bit() {
+        assert_eq!(
+            crate::level::shooter_object_moving_up_collision_gate_loc_EE92(1, 0x4000),
+            crate::level::ShooterObjectMovingUpNextLocEE80::InteractLevelLayout,
+            "ASM loc_EE92 should interact for age below 2 as soon as bit 14 is set"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_up_collision_gate_loc_EE92(2, 0x4000),
+            crate::level::ShooterObjectMovingUpNextLocEE80::ContinueMovingUp,
+            "ASM loc_EE92 should continue for age 2 when the `$2000` moving-up bit is clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_up_collision_gate_loc_EE92(3, 0x6000),
+            crate::level::ShooterObjectMovingUpNextLocEE80::InteractLevelLayout,
+            "ASM loc_EE92 should interact at age 2 or higher when bit 14 and `$2000` are both set"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_up_collision_gate_loc_EE92(0, 0x2000),
+            crate::level::ShooterObjectMovingUpNextLocEE80::ContinueMovingUp,
+            "ASM loc_EE92 should skip the age and `$2000` tests when bit 14 is clear"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

@@ -8970,18 +8970,31 @@ pub(crate) fn shooter_object_moving_up_gate_loc_EE80(
         (age_after_increment, current_layout_word_addr)
     };
 
-    let next_step = if (selected_layout_word & 0x4000) == 0 {
+    ShooterObjectMovingUpGateLocEE80 {
+        state_word,
+        layout_word_addr,
+        next_step: shooter_object_moving_up_collision_gate_loc_EE92(
+            state_word,
+            selected_layout_word,
+        ),
+    }
+}
+
+/// ASM loc_EE92 (kid.asm:19375): after selecting the moving-up shooter's layout
+/// word, bit 14 gates collision; ages below two always interact on a bit-14 cell,
+/// while ages two and three only interact when the moving-up `$2000` bit remains set.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_up_collision_gate_loc_EE92(
+    state_word: u16,
+    selected_layout_word: u16,
+) -> ShooterObjectMovingUpNextLocEE80 {
+    if (selected_layout_word & 0x4000) == 0 {
         ShooterObjectMovingUpNextLocEE80::ContinueMovingUp
     } else if state_word < 2 || (selected_layout_word & 0x2000) != 0 {
         ShooterObjectMovingUpNextLocEE80::InteractLevelLayout
     } else {
         ShooterObjectMovingUpNextLocEE80::ContinueMovingUp
-    };
-
-    ShooterObjectMovingUpGateLocEE80 {
-        state_word,
-        layout_word_addr,
-        next_step,
     }
 }
 
