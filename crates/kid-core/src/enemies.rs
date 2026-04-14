@@ -318,6 +318,81 @@ pub(crate) fn lion_post_fire_wait_dispatch_loc_3e0f4(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum LionCollisionResumeLoc3E318 {
+    Loc3E7CA,
+    Loc3E6AE,
+    Loc3E560,
+    Loc3E3AC,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum LionCollisionLoc3E318 {
+    Kill,
+    Hurt {
+        remaining_hp: u16,
+        damage_animation: &'static str,
+        restored_animation: &'static str,
+    },
+    Continue {
+        next: LionCollisionResumeLoc3E318,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_collision_response_loc_3e318(
+    collision_type: i16,
+    current_hp: u16,
+    post_charge_state: bool,
+    x_direction_right: bool,
+) -> LionCollisionLoc3E318 {
+    // ASM Lion.asm loc_3E318:
+    // - negative collision IDs (`bmi`) kill Lion via `stru_3DF48`, set
+    //   `has_kid_collision`, and clear `$71(a5)`.
+    // - `colid_hurt` and `colid_kidabove` subtract one HP; if HP reaches 0,
+    //   `loc_3E378` is taken as a kill path.
+    // - otherwise, clear `collision_type` and branch by `$5C(a5)` and
+    //   `x_direction(a3)` to one of `loc_3E7CA/3E6AE/3E560/3E3AC`.
+    if collision_type.is_negative() {
+        return LionCollisionLoc3E318::Kill;
+    }
+
+    match collision_type as u16 {
+        0 => {
+            let next = match (post_charge_state, x_direction_right) {
+                (true, true) => LionCollisionResumeLoc3E318::Loc3E6AE,
+                (true, false) => LionCollisionResumeLoc3E318::Loc3E7CA,
+                (false, true) => LionCollisionResumeLoc3E318::Loc3E3AC,
+                (false, false) => LionCollisionResumeLoc3E318::Loc3E560,
+            };
+            LionCollisionLoc3E318::Continue { next }
+        }
+        LION_COLID_KIDABOVE | LION_COLID_HURT => {
+            let remaining_hp = current_hp.wrapping_sub(1);
+            if remaining_hp == 0 {
+                LionCollisionLoc3E318::Kill
+            } else {
+                LionCollisionLoc3E318::Hurt {
+                    remaining_hp,
+                    damage_animation: "stru_3DF42",
+                    restored_animation: "saved_lion_charge_animation",
+                }
+            }
+        }
+        _ => {
+            let next = match (post_charge_state, x_direction_right) {
+                (true, true) => LionCollisionResumeLoc3E318::Loc3E6AE,
+                (true, false) => LionCollisionResumeLoc3E318::Loc3E7CA,
+                (false, true) => LionCollisionResumeLoc3E318::Loc3E3AC,
+                (false, false) => LionCollisionResumeLoc3E318::Loc3E560,
+            };
+            LionCollisionLoc3E318::Continue { next }
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionChargeDirectionDispatch {
@@ -8643,6 +8718,69 @@ mod tests {
                 animation_script: "stru_3DF34",
             },
             "ASM Lion.asm loc_3E180 should keep the positive d7/d6 pair when parent x_direction is set"
+        );
+    }
+
+    #[test]
+    fn loc_3e318_kid_collision_routes_to_kill() {
+        assert_eq!(
+            lion_collision_response_loc_3e318(-1, 4, false, true),
+            LionCollisionLoc3E318::Kill,
+            "ASM Lion.asm loc_3E378 must be used for signed negative collision IDs"
+        );
+    }
+
+    #[test]
+    fn loc_3e318_hurt_collision_decrements_hp_and_restores_animation() {
+        assert_eq!(
+            lion_collision_response_loc_3e318(LION_COLID_HURT as i16, 3, false, false),
+            LionCollisionLoc3E318::Hurt {
+                remaining_hp: 2,
+                damage_animation: "stru_3DF42",
+                restored_animation: "saved_lion_charge_animation",
+            },
+            "ASM Lion.asm loc_3E32C should subtract one HP and restore the saved `$62(a5)` animation"
+        );
+    }
+
+    #[test]
+    fn loc_3e318_hurt_collision_with_last_hp_kills() {
+        assert_eq!(
+            lion_collision_response_loc_3e318(LION_COLID_KIDABOVE as i16, 1, false, false),
+            LionCollisionLoc3E318::Kill,
+            "ASM Lion.asm loc_3E32C must fall into the same kill path when HP reaches zero"
+        );
+    }
+
+    #[test]
+    fn loc_3e318_dispatches_by_5c_and_facing() {
+        assert_eq!(
+            lion_collision_response_loc_3e318(0, 4, false, false,),
+            LionCollisionLoc3E318::Continue {
+                next: LionCollisionResumeLoc3E318::Loc3E560,
+            },
+            "ASM Lion.asm loc_3E36C should jump to loc_3E560 when `$5C(a5)` is clear and x_direction is not set"
+        );
+        assert_eq!(
+            lion_collision_response_loc_3e318(0, 4, false, true),
+            LionCollisionLoc3E318::Continue {
+                next: LionCollisionResumeLoc3E318::Loc3E3AC,
+            },
+            "ASM Lion.asm loc_3E36C should jump to loc_3E3AC when `$5C(a5)` is clear and x_direction is set"
+        );
+        assert_eq!(
+            lion_collision_response_loc_3e318(0, 4, true, false),
+            LionCollisionLoc3E318::Continue {
+                next: LionCollisionResumeLoc3E318::Loc3E7CA,
+            },
+            "ASM Lion.asm loc_3E356 should jump to loc_3E7CA when `$5C(a5)` is set and x_direction is clear"
+        );
+        assert_eq!(
+            lion_collision_response_loc_3e318(0, 4, true, true),
+            LionCollisionLoc3E318::Continue {
+                next: LionCollisionResumeLoc3E318::Loc3E6AE,
+            },
+            "ASM Lion.asm loc_3E356 should jump to loc_3E6AE when `$5C(a5)` and x_direction are set"
         );
     }
 
