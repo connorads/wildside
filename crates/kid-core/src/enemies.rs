@@ -2698,6 +2698,19 @@ pub(crate) fn ufo_collision_dispatch_loc_35056(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoCollisionClearLoc35070 {
+    pub(crate) collision_type: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_collision_clear_loc_35070(collision_type: u16) -> UfoCollisionClearLoc35070 {
+    // ASM UFO.asm loc_35070: clear collision type and return.
+    let _ = collision_type;
+    UfoCollisionClearLoc35070 { collision_type: 0 }
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -7974,6 +7987,15 @@ mod tests {
                 behavior: Some(UfoCollisionBehaviorLoc35056::ReturnOnly),
             },
             "ASM UFO.asm loc_35056 maps `$20` to a return-only jump"
+        );
+    }
+
+    #[test]
+    fn ufo_collision_clear_matches_loc_35070() {
+        assert_eq!(
+            ufo_collision_clear_loc_35070(0x1234),
+            UfoCollisionClearLoc35070 { collision_type: 0 },
+            "ASM UFO.asm loc_35070 clears the `collision_type(a3)` word"
         );
     }
 
