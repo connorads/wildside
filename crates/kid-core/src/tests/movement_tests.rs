@@ -14601,9 +14601,10 @@ mod chunk_12 {
         assert!(!result.c, "C is cleared by `bclr #5,d0`");
     }
 
-    /// ASM loc_D66 (kid.asm:1538): scheme 5 swaps A↔C.
+    /// ASM loc_D66 (kid.asm:1538): scheme 5 clears A from `d0` and restores it
+    /// into C via `bset #5,d6`, then falls through to the loc_D70 C→A tail.
     #[test]
-    fn loc_d66_scheme5_swap_a_c() {
+    fn loc_d66_scheme5_maps_a_to_c() {
         let a_only = FrameInput {
             a: true,
             ..FrameInput::default()
@@ -14612,7 +14613,12 @@ mod chunk_12 {
         assert!(!result.a, "A cleared");
         assert!(result.c, "C set (was A)");
         assert!(!result.b, "B untouched");
+    }
 
+    /// ASM loc_D70 (kid.asm:1543): scheme 5 clears C from `d0` and restores it
+    /// into A via `bset #6,d6`, then falls through to the shared loc_D7A merge.
+    #[test]
+    fn loc_d70_scheme5_maps_c_to_a() {
         let c_only = FrameInput {
             c: true,
             ..FrameInput::default()
