@@ -7410,6 +7410,49 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E7FE (kid.asm:18513): the zero-width hard beam writer emits
+    /// three size-4 sprites, increments `d2` before each link byte, and carries
+    /// `d5 = d1 - 4` into the shared collision-object tail.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E7FE_writes_zero_width_hard_beam_sprite_triplet() {
+        let strip = crate::level::eyeclops_hard_beam_zero_width_writer_loc_E7FE(
+            0x0110, 0x0080, 4, 0x0800, 0x0110,
+        );
+        assert_eq!(
+            strip,
+            crate::level::EyeclopsHardBeamZeroWidthSpritesLocE7E0 {
+                sprites: [
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0078,
+                        size: 4,
+                        link: 5,
+                        tile_word: 0x8E8E,
+                        x_pos: 0x0110,
+                    },
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0080,
+                        size: 4,
+                        link: 6,
+                        tile_word: 0x8E92,
+                        x_pos: 0x0110,
+                    },
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0088,
+                        size: 4,
+                        link: 7,
+                        tile_word: 0x9E8E,
+                        x_pos: 0x0110,
+                    },
+                ],
+                next_link: 7,
+                collision_probe_screen_x: 0x0110,
+                collision_probe_screen_y: 0x007C,
+            },
+            "ASM loc_E7FE should write y=`d1-$8,d1,d1+$8`, size `$04`, links `d2+1..d2+3`, and tile words ORed with d4"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

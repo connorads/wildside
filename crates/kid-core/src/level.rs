@@ -12635,19 +12635,18 @@ pub(crate) fn eyeclops_hard_beam_zero_width_direction_loc_E7F4(
     }
 }
 
-/// ASM loc_E7E0 (kid.asm:18497): for the zero-width hard beam, adjust `d0/d6`
-/// from the direction latch, set `d5` to `d1 - 4`, then emit three size-4
-/// sprites at `d1 - 8`, `d1`, and `d1 + 8`.
+/// ASM loc_E7FE (kid.asm:18513): write the zero-width hard-beam sprite triplet
+/// at `d1 - 8`, `d1`, and `d1 + 8`, each with size `$04`, sequential links,
+/// and tile words `$868E`, `$8692`, `$968E` ORed with the direction mask.
 #[allow(non_snake_case)]
 #[allow(dead_code)]
-pub(crate) fn eyeclops_hard_beam_zero_width_sprites_loc_E7E0(
-    source_x: i16,
+pub(crate) fn eyeclops_hard_beam_zero_width_writer_loc_E7FE(
+    sprite_x: i16,
     base_y: i16,
     link: u8,
-    direction_latch_nonzero: bool,
+    tile_attr_mask: u16,
+    collision_probe_screen_x: i16,
 ) -> EyeclopsHardBeamZeroWidthSpritesLocE7E0 {
-    let direction =
-        eyeclops_hard_beam_zero_width_direction_loc_E7F4(source_x, direction_latch_nonzero);
     let collision_probe_screen_y = base_y.wrapping_sub(0x0004);
     let first_y = base_y.wrapping_sub(0x0008);
     let second_y = base_y;
@@ -12662,28 +12661,50 @@ pub(crate) fn eyeclops_hard_beam_zero_width_sprites_loc_E7E0(
                 y_pos: first_y,
                 size: 4,
                 link: first_link,
-                tile_word: 0x868E | direction.tile_attr_mask,
-                x_pos: direction.sprite_x,
+                tile_word: 0x868E | tile_attr_mask,
+                x_pos: sprite_x,
             },
             LevelSpriteStripEntryLocE692 {
                 y_pos: second_y,
                 size: 4,
                 link: second_link,
-                tile_word: 0x8692 | direction.tile_attr_mask,
-                x_pos: direction.sprite_x,
+                tile_word: 0x8692 | tile_attr_mask,
+                x_pos: sprite_x,
             },
             LevelSpriteStripEntryLocE692 {
                 y_pos: third_y,
                 size: 4,
                 link: third_link,
-                tile_word: 0x968E | direction.tile_attr_mask,
-                x_pos: direction.sprite_x,
+                tile_word: 0x968E | tile_attr_mask,
+                x_pos: sprite_x,
             },
         ],
         next_link: third_link,
-        collision_probe_screen_x: direction.collision_probe_screen_x,
+        collision_probe_screen_x,
         collision_probe_screen_y,
     }
+}
+
+/// ASM loc_E7E0 (kid.asm:18497): for the zero-width hard beam, adjust `d0/d6`
+/// from the direction latch, set `d5` to `d1 - 4`, then emit three size-4
+/// sprites at `d1 - 8`, `d1`, and `d1 + 8`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_zero_width_sprites_loc_E7E0(
+    source_x: i16,
+    base_y: i16,
+    link: u8,
+    direction_latch_nonzero: bool,
+) -> EyeclopsHardBeamZeroWidthSpritesLocE7E0 {
+    let direction =
+        eyeclops_hard_beam_zero_width_direction_loc_E7F4(source_x, direction_latch_nonzero);
+    eyeclops_hard_beam_zero_width_writer_loc_E7FE(
+        direction.sprite_x,
+        base_y,
+        link,
+        direction.tile_attr_mask,
+        direction.collision_probe_screen_x,
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
