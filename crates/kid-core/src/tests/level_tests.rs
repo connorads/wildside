@@ -9753,6 +9753,159 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F934 (kid.asm:20658): loop tailing should increment the current
+    /// source column and advance DBF by one before the next visible-cell read.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F934_advances_col_and_dbf_count() {
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_loop_tail_loc_F934(0x000A, 0x0003),
+            crate::level::AnimatedSolidBlockHorizontalQueueTailLocF934 {
+                next_col: 0x000B,
+                next_remaining_count: 0x0002,
+                continue_loop: true,
+            },
+            "ASM loc_F934 should continue when DBF remains non-$FFFF after decrement"
+        );
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_loop_tail_loc_F934(0x00FF, 0x0001),
+            crate::level::AnimatedSolidBlockHorizontalQueueTailLocF934 {
+                next_col: 0x0100,
+                next_remaining_count: 0x0000,
+                continue_loop: true,
+            },
+            "ASM loc_F934 should run once more when `d3==1`, then move `d0` to the next column"
+        );
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_loop_tail_loc_F934(0x0100, 0x0000),
+            crate::level::AnimatedSolidBlockHorizontalQueueTailLocF934 {
+                next_col: 0x0101,
+                next_remaining_count: 0xFFFF,
+                continue_loop: false,
+            },
+            "ASM loc_F934 should terminate when DBF decrements `d3` from 0 to -1"
+        );
+    }
+
+    /// ASM loc_F90A (kid.asm:20636): writes one layout restore byte and emits a
+    /// queue entry only for `col` still inside the on-screen animated-solid
+    /// window.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F90A_writes_layout_bytes_and_emits_fg_queue_entries_only_in_range() {
+        let mut theme_mappings = vec![[0x1111_1111, 0x2222_2222]; 0x100];
+        theme_mappings[0x5A] = [0xDEAD_BEEF, 0xFACE_CAFE];
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_cell_loc_F90A(
+                0x5A,
+                0x000A,
+                0x0C00,
+                0x0008,
+                0x0010,
+                &theme_mappings,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueCellLocF90A {
+                layout_word: 0x005A,
+                custom_entry: Some(crate::level::FgUpdateQueueCustomEntrySub1596 {
+                    vram_word_address: 0x0C28,
+                    first_longword: 0xDEAD_BEEF,
+                    second_longword: 0xFACE_CAFE,
+                }),
+            },
+            "ASM loc_F90A should always rewrite the layout byte and add the FG queue entry when camera_left <= col <= camera_right"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_cell_loc_F90A(
+                0x5A,
+                0x0003,
+                0x0C00,
+                0x0008,
+                0x0010,
+                &theme_mappings,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueCellLocF90A {
+                layout_word: 0x005A,
+                custom_entry: None,
+            },
+            "ASM loc_F90A should still write the layout byte while skipping FG emission when the column is left of the camera window"
+        );
+    }
+
+    /// ASM loc_F8CA (kid.asm:20589): computes the remaining loop count from the
+    /// source width table plus start column, restores every layout byte, and emits
+    /// FG queue entries only for the visible span after the `-8..+camera_right`
+    /// cull check.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F8CA_restores_layout_and_emits_visible_horizontal_queue_entries() {
+        let source_cells = (0u8..48).collect::<Vec<_>>();
+        let mut theme_mappings = vec![[0x1111_1111, 0x2222_2222]; 0x100];
+        theme_mappings[0x0A] = [0xA1A1_0001, 0xA1A1_0002];
+        theme_mappings[0x0B] = [0xA1B1_0001, 0xA1B1_0002];
+        theme_mappings[0x0C] = [0xA1C1_0001, 0xA1C1_0002];
+
+        let rows = crate::level::animated_solid_block_horizontal_rows_loc_F8CA(
+            &source_cells,
+            0,
+            4,
+            8,
+            0x0012,
+            0x0400,
+            10,
+            12,
+            0x000A,
+            0x0015,
+            &theme_mappings,
+        );
+
+        assert_eq!(
+            rows.layout_writes,
+            (8..20)
+                .map(|col| {
+                    let col = col as u16;
+                    (0x0400 + (u32::from(col - 8) * 2), col)
+                })
+                .collect::<Vec<_>>(),
+            "ASM loc_F8CA should restore each source layout byte to `(a4)+` for the full loop length"
+        );
+        assert_eq!(
+            rows.custom_queue_entries,
+            vec![
+                crate::level::FgUpdateQueueCustomEntrySub1596 {
+                    vram_word_address: 0x0228,
+                    first_longword: 0xA1A1_0001,
+                    second_longword: 0xA1A1_0002,
+                },
+                crate::level::FgUpdateQueueCustomEntrySub1596 {
+                    vram_word_address: 0x022C,
+                    first_longword: 0xA1B1_0001,
+                    second_longword: 0xA1B1_0002,
+                },
+                crate::level::FgUpdateQueueCustomEntrySub1596 {
+                    vram_word_address: 0x0230,
+                    first_longword: 0xA1C1_0001,
+                    second_longword: 0xA1C1_0002,
+                },
+            ],
+            "ASM loc_F8CA should only queue FG entries when the source column is visible after the pre-cull"
+        );
+        assert_eq!(
+            rows.final_layout_addr,
+            0x0400 + (u32::from((4u16 + 8) * 2)),
+            "ASM loc_F934 should advance the layout queue pointer by one word per processed source byte"
+        );
+        assert_eq!(
+            rows.final_col, 20,
+            "ASM loc_F8CA should increment the source column each loop iteration"
+        );
+        assert_eq!(
+            rows.remaining_count, 0xFFFF,
+            "ASM loc_F934 should leave d3 at -1 after the terminal DBF decrement"
+        );
+    }
+
     /// ASM loc_F85A (kid.asm:20528): each DBF iteration writes `$E304` to the
     /// current Level_Layout cell, queues VDP data only for visible rows, then
     /// advances by one row through `Level_width_tiles`.

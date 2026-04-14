@@ -980,6 +980,31 @@ pub(crate) struct AnimatedSolidBlockVerticalRowsLoopTailLocF87A {
     pub(crate) continue_loop: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockHorizontalRowsLocF8CA {
+    pub(crate) layout_writes: Vec<(u32, u16)>,
+    pub(crate) custom_queue_entries: Vec<FgUpdateQueueCustomEntrySub1596>,
+    pub(crate) final_layout_addr: u32,
+    pub(crate) final_col: u16,
+    pub(crate) remaining_count: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockHorizontalQueueCellLocF90A {
+    pub(crate) layout_word: u16,
+    pub(crate) custom_entry: Option<FgUpdateQueueCustomEntrySub1596>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockHorizontalQueueTailLocF934 {
+    pub(crate) next_col: u16,
+    pub(crate) next_remaining_count: u16,
+    pub(crate) continue_loop: bool,
+}
+
 /// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
 /// upper byte.
 #[allow(non_snake_case)]
@@ -9327,6 +9352,129 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
         custom_queue_entries,
         final_layout_addr: layout_addr,
         final_row: row,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn animated_solid_block_horizontal_rows_loc_F8CA(
+    source_cells: &[u8],
+    source_cells_start: usize,
+    source_cells_length_word: u16,
+    start_col: u16,
+    row: u16,
+    layout_queue_base_addr: u32,
+    camera_left_col: u16,
+    camera_right_col: u16,
+    camera_top_row: u16,
+    camera_bottom_row: u16,
+    theme_mappings: &[[u32; 2]],
+) -> AnimatedSolidBlockHorizontalRowsLocF8CA {
+    // ASM loc_F8CA (kid.asm:20616): table-driven entry count starts at
+    // `a3 + d2`, then `a3` advances by `d0` columns so `d3` iterations are
+    // consumed while each cell writes one layout restore byte.
+    let mut remaining_count = source_cells_length_word.wrapping_add(start_col);
+    let row_in_view = row >= camera_top_row && row <= camera_bottom_row;
+    let packed_row_bits = row_in_view.then_some((row << 8) & 0x0F00);
+    let mut source_index = source_cells_start.saturating_add(usize::from(start_col));
+    let mut layout_addr = layout_queue_base_addr;
+    let mut layout_writes = Vec::with_capacity(usize::from(remaining_count));
+    let mut custom_queue_entries = Vec::new();
+    let mut col = start_col;
+
+    loop {
+        let source_cell = source_cells.get(source_index).copied().unwrap_or(0);
+        let queue_cell = if row_in_view
+            && col <= camera_right_col
+            && (col.wrapping_sub(camera_left_col) as i16) > -8
+        {
+            animated_solid_block_horizontal_queue_cell_loc_F90A(
+                source_cell,
+                col,
+                packed_row_bits.unwrap_or(0),
+                camera_left_col,
+                camera_right_col,
+                theme_mappings,
+            )
+        } else {
+            AnimatedSolidBlockHorizontalQueueCellLocF90A {
+                layout_word: u16::from(source_cell),
+                custom_entry: None,
+            }
+        };
+
+        layout_writes.push((layout_addr, queue_cell.layout_word));
+        if let Some(custom_entry) = queue_cell.custom_entry {
+            custom_queue_entries.push(custom_entry);
+        }
+
+        layout_addr = layout_addr.wrapping_add(2);
+        source_index = source_index.wrapping_add(1);
+
+        let queue_tail =
+            animated_solid_block_horizontal_queue_loop_tail_loc_F934(col, remaining_count);
+        col = queue_tail.next_col;
+        remaining_count = queue_tail.next_remaining_count;
+        if !queue_tail.continue_loop {
+            break;
+        }
+    }
+
+    AnimatedSolidBlockHorizontalRowsLocF8CA {
+        layout_writes,
+        custom_queue_entries,
+        final_layout_addr: layout_addr,
+        final_col: col,
+        remaining_count,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F90A(
+    source_cell: u8,
+    source_cell_col: u16,
+    packed_row_bits: u16,
+    camera_left_col: u16,
+    camera_right_col: u16,
+    theme_mappings: &[[u32; 2]],
+) -> AnimatedSolidBlockHorizontalQueueCellLocF90A {
+    // ASM loc_F90A (kid.asm:20636): each visible candidate writes the queued
+    // source byte to the custom layout table, then emits the VDP queue entry
+    // only when `camera_left <= col <= camera_right`.
+    let layout_word = u16::from(source_cell);
+    let custom_entry = (source_cell_col >= camera_left_col && source_cell_col <= camera_right_col)
+        .then(|| {
+            let mapping_index = usize::from(source_cell);
+            let vram_word_address = packed_row_bits | ((source_cell_col << 2) & 0x007C);
+            let mapping_longwords = theme_mappings[mapping_index];
+            FgUpdateQueueCustomEntrySub1596 {
+                vram_word_address,
+                first_longword: mapping_longwords[0],
+                second_longword: mapping_longwords[1],
+            }
+        });
+
+    AnimatedSolidBlockHorizontalQueueCellLocF90A {
+        layout_word,
+        custom_entry,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_loop_tail_loc_F934(
+    source_cell_col: u16,
+    remaining_count: u16,
+) -> AnimatedSolidBlockHorizontalQueueTailLocF934 {
+    // ASM loc_F934 (kid.asm:20658): increment `d0` and DBF `d3` before tailing to
+    // the next cell. `dbf` with 0 means one final iteration and `-1` ends.
+    let next_remaining_count = remaining_count.wrapping_sub(1);
+    AnimatedSolidBlockHorizontalQueueTailLocF934 {
+        next_col: source_cell_col.wrapping_add(1),
+        next_remaining_count,
+        continue_loop: next_remaining_count != 0xFFFF,
     }
 }
 
