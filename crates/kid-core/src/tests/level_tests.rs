@@ -7453,6 +7453,72 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E842 (kid.asm:18543): exactly `d7 == 1` writes a one-width hard
+    /// beam strip; other counters continue into the wider-beam path.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E842_writes_one_width_hard_beam_sprite_triplet() {
+        let strip = crate::level::eyeclops_hard_beam_one_width_sprites_loc_E842(
+            1, 0x0120, 0x0080, 4, false,
+        )
+        .expect("ASM loc_E842 should handle d7 == 1 locally");
+        assert_eq!(
+            strip,
+            crate::level::EyeclopsHardBeamOneWidthSpritesLocE842 {
+                sprites: [
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0078,
+                        size: 8,
+                        link: 5,
+                        tile_word: 0x868E,
+                        x_pos: 0x0120,
+                    },
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0080,
+                        size: 8,
+                        link: 6,
+                        tile_word: 0x8692,
+                        x_pos: 0x0120,
+                    },
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0088,
+                        size: 8,
+                        link: 7,
+                        tile_word: 0x968E,
+                        x_pos: 0x0120,
+                    },
+                ],
+                next_link: 7,
+                collision_probe_screen_x: 0x0138,
+                collision_probe_screen_y: 0x007A,
+            },
+            "ASM loc_E842 should write size `$08` sprites and carry d6=d0+$18, d5=d1-$6 to the shared tail"
+        );
+
+        let flipped =
+            crate::level::eyeclops_hard_beam_one_width_sprites_loc_E842(1, 0x0120, 0x0080, 4, true)
+                .expect("ASM loc_E842 should still handle d7 == 1 when flipped");
+        assert_eq!(
+            (
+                flipped.sprites[0].x_pos,
+                flipped.sprites[0].tile_word,
+                flipped.sprites[1].tile_word,
+                flipped.sprites[2].tile_word,
+                flipped.collision_probe_screen_x,
+            ),
+            (0x0108, 0x8E8E, 0x8E92, 0x9E8E, 0x0108),
+            "ASM loc_E842 flipped sub-branch should subtract `$18` from d0 and seed d4 with `$0800` before the size-8 sprite writes"
+        );
+
+        assert_eq!(
+            crate::level::eyeclops_hard_beam_one_width_sprites_loc_E842(
+                2, 0x0120, 0x0080, 4, false,
+            ),
+            None,
+            "ASM loc_E842 should branch to the wider-beam path when d7 is not one"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
