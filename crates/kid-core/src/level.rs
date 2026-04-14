@@ -12738,6 +12738,56 @@ pub(crate) fn eyeclops_hard_beam_one_width_flipped_direction_loc_E858(
     }
 }
 
+/// ASM loc_E862 (kid.asm:18559): subtract six from `d1` for `d5`, write the
+/// three one-width beam sprites at `d1 - 8`, `d1`, and `d1 + 8`, each with
+/// size `$08` and tile words `$868E/$8692/$968E | d4`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_one_width_writer_loc_E862(
+    sprite_x: i16,
+    base_y: i16,
+    link: u8,
+    tile_attr_mask: u16,
+    collision_probe_screen_x: i16,
+) -> EyeclopsHardBeamOneWidthSpritesLocE842 {
+    let collision_probe_screen_y = base_y.wrapping_sub(0x0006);
+    let first_y = base_y.wrapping_sub(0x0008);
+    let second_y = base_y;
+    let third_y = base_y.wrapping_add(0x0008);
+    let first_link = link.wrapping_add(1);
+    let second_link = first_link.wrapping_add(1);
+    let third_link = second_link.wrapping_add(1);
+
+    EyeclopsHardBeamOneWidthSpritesLocE842 {
+        sprites: [
+            LevelSpriteStripEntryLocE692 {
+                y_pos: first_y,
+                size: 8,
+                link: first_link,
+                tile_word: 0x868E | tile_attr_mask,
+                x_pos: sprite_x,
+            },
+            LevelSpriteStripEntryLocE692 {
+                y_pos: second_y,
+                size: 8,
+                link: second_link,
+                tile_word: 0x8692 | tile_attr_mask,
+                x_pos: sprite_x,
+            },
+            LevelSpriteStripEntryLocE692 {
+                y_pos: third_y,
+                size: 8,
+                link: third_link,
+                tile_word: 0x968E | tile_attr_mask,
+                x_pos: sprite_x,
+            },
+        ],
+        next_link: third_link,
+        collision_probe_screen_x,
+        collision_probe_screen_y,
+    }
+}
+
 /// ASM loc_E842 (kid.asm:18543): `d7 == 1` uses the one-width hard-beam
 /// branch. The direction latch chooses either `d6=d0+$18` or `d0=d0-$18`,
 /// then the shared write block emits three size-8 sprites at `d1 - 8`, `d1`,
@@ -12765,42 +12815,14 @@ pub(crate) fn eyeclops_hard_beam_one_width_sprites_loc_E842(
     } else {
         (source_x, source_x.wrapping_add(0x0018), 0)
     };
-    let collision_probe_screen_y = base_y.wrapping_sub(0x0006);
-    let first_y = base_y.wrapping_sub(0x0008);
-    let second_y = base_y;
-    let third_y = base_y.wrapping_add(0x0008);
-    let first_link = link.wrapping_add(1);
-    let second_link = first_link.wrapping_add(1);
-    let third_link = second_link.wrapping_add(1);
 
-    Some(EyeclopsHardBeamOneWidthSpritesLocE842 {
-        sprites: [
-            LevelSpriteStripEntryLocE692 {
-                y_pos: first_y,
-                size: 8,
-                link: first_link,
-                tile_word: 0x868E | tile_attr_mask,
-                x_pos: sprite_x,
-            },
-            LevelSpriteStripEntryLocE692 {
-                y_pos: second_y,
-                size: 8,
-                link: second_link,
-                tile_word: 0x8692 | tile_attr_mask,
-                x_pos: sprite_x,
-            },
-            LevelSpriteStripEntryLocE692 {
-                y_pos: third_y,
-                size: 8,
-                link: third_link,
-                tile_word: 0x968E | tile_attr_mask,
-                x_pos: sprite_x,
-            },
-        ],
-        next_link: third_link,
+    Some(eyeclops_hard_beam_one_width_writer_loc_E862(
+        sprite_x,
+        base_y,
+        link,
+        tile_attr_mask,
         collision_probe_screen_x,
-        collision_probe_screen_y,
-    })
+    ))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -7539,6 +7539,50 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E862 (kid.asm:18559): the one-width writer stores `d5=d1-$6`,
+    /// emits three size-8 sprites at `d1-$8`, `d1`, and `d1+$8`, and
+    /// increments the sprite link before every link byte write.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E862_writes_size_8_one_width_hard_beam_triplet() {
+        let strip = crate::level::eyeclops_hard_beam_one_width_writer_loc_E862(
+            0x0108, 0x0080, 4, 0x0800, 0x0108,
+        );
+
+        assert_eq!(
+            strip,
+            crate::level::EyeclopsHardBeamOneWidthSpritesLocE842 {
+                sprites: [
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0078,
+                        size: 8,
+                        link: 5,
+                        tile_word: 0x8E8E,
+                        x_pos: 0x0108,
+                    },
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0080,
+                        size: 8,
+                        link: 6,
+                        tile_word: 0x8E92,
+                        x_pos: 0x0108,
+                    },
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0088,
+                        size: 8,
+                        link: 7,
+                        tile_word: 0x9E8E,
+                        x_pos: 0x0108,
+                    },
+                ],
+                next_link: 7,
+                collision_probe_screen_x: 0x0108,
+                collision_probe_screen_y: 0x007A,
+            },
+            "ASM loc_E862 should write y=`d1-$8,d1,d1+$8`, size `$08`, links `d2+1..d2+3`, and tile words ORed with d4"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
