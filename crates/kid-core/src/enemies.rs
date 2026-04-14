@@ -3463,6 +3463,19 @@ pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_left_hop_scream_worker_allocation_loc_3edc0()
+-> MiniHoppingSkullScreamWorkerAllocation {
+    // ASM Mini_Hopping_Skull.asm loc_3EDC0: swap object pointers and allocate
+    // with selector `$A000`, then install `sub_3F3F0` at slot +4 before
+    // returning to the shared collision-tail flow.
+    MiniHoppingSkullScreamWorkerAllocation {
+        allocation_selector: 0xA000,
+        routine: "sub_3F3F0",
+        delay_frames: 15,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_ground_wait_setup_loc_3eb00() -> MiniHoppingSkullGroundWaitSetup {
     // ASM Mini_Hopping_Skull.asm loc_3EB00: after positive-X slope-up contact,
     // clear both velocities, `st x_direction(a3)`, select `LnkTo_unk_C8030`,
@@ -8345,6 +8358,19 @@ mod tests {
             ),
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
             "ASM Mini_Hopping_Skull.asm loc_3ED8E sends `colid_hurt` to the same HP decrement branch as `colid_kidabove`"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_left_hop_scream_worker_allocation_matches_loc_3edc0() {
+        assert_eq!(
+            mini_hopping_skull_left_hop_scream_worker_allocation_loc_3edc0(),
+            MiniHoppingSkullScreamWorkerAllocation {
+                allocation_selector: 0xA000,
+                routine: "sub_3F3F0",
+                delay_frames: 15,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EDC0 should allocate a helper object with selector `$A000` and routine `sub_3F3F0`"
         );
     }
 
