@@ -2711,6 +2711,28 @@ pub(crate) fn ufo_collision_clear_loc_35070(collision_type: u16) -> UfoCollision
     UfoCollisionClearLoc35070 { collision_type: 0 }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoPositionRestoreLoc350F2 {
+    pub(crate) x_pos: i32,
+    pub(crate) y_pos: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_restore_position_loc_350f2(
+    x_pos: i32,
+    y_pos: i32,
+    x_vel: i32,
+    y_vel: i32,
+) -> UfoPositionRestoreLoc350F2 {
+    // ASM UFO.asm loc_350F2: rollback one frame by subtracting the per-frame
+    // velocity delta from object position.
+    UfoPositionRestoreLoc350F2 {
+        x_pos: x_pos.wrapping_sub(x_vel),
+        y_pos: y_pos.wrapping_sub(y_vel),
+    }
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -7996,6 +8018,18 @@ mod tests {
             ufo_collision_clear_loc_35070(0x1234),
             UfoCollisionClearLoc35070 { collision_type: 0 },
             "ASM UFO.asm loc_35070 clears the `collision_type(a3)` word"
+        );
+    }
+
+    #[test]
+    fn ufo_position_restore_matches_loc_350f2() {
+        assert_eq!(
+            ufo_restore_position_loc_350f2(0x1000_0000, 0x2000_0000, 0x0100_0000, -0x0200_0000),
+            UfoPositionRestoreLoc350F2 {
+                x_pos: 0x0F00_0000,
+                y_pos: 0x2020_0000,
+            },
+            "ASM UFO.asm loc_350F2 rolls the UFO back by one velocity step before slope bounces"
         );
     }
 
