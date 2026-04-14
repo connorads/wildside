@@ -12441,6 +12441,22 @@ pub(crate) fn level_sprite_strip_collision_column_loc_E70A(
     }
 }
 
+/// ASM loc_E738 (kid.asm:18423): clamp the already non-negative top terrain
+/// probe row to `Level_height_blocks - 1` when it reaches or passes the level
+/// height.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_top_row_upper_clamp_loc_E738(
+    top_tile_row: i16,
+    level_height_blocks: i16,
+) -> i16 {
+    if top_tile_row < level_height_blocks {
+        top_tile_row
+    } else {
+        level_height_blocks.wrapping_sub(1)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
