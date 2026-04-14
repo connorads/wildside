@@ -723,7 +723,7 @@ pub(crate) fn lion_projectile_bounce_velocities_loc_3e266(
     if terrain_collision_id == 0x04 || terrain_collision_id == 0x08 {
         x_velocity = lion_projectile_x_reflection_vel_loc_3e2a4(x_velocity);
     } else if terrain_collision_id == 0x0C || terrain_collision_id == 0x10 {
-        y_velocity = -y_velocity;
+        y_velocity = lion_projectile_y_reflection_vel_loc_3e2c8(y_velocity);
     }
 
     (x_velocity, y_velocity)
@@ -733,6 +733,12 @@ pub(crate) fn lion_projectile_bounce_velocities_loc_3e266(
 fn lion_projectile_x_reflection_vel_loc_3e2a4(x_velocity: i32) -> i32 {
     // ASM Lion.asm loc_3E2A4: negate x_vel on wall collisions.
     -x_velocity
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn lion_projectile_y_reflection_vel_loc_3e2c8(y_velocity: i32) -> i32 {
+    // ASM Lion.asm loc_3E2C8: negate y_vel on floor/ceiling collisions.
+    -y_velocity
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -798,6 +804,15 @@ mod loc_3e266_tests {
         assert_eq!(
             y_velocity, -0x2_0000,
             "ASM Lion.asm loc_3E266 should negate y_vel for colid_floor"
+        );
+    }
+
+    #[test]
+    fn loc_3e2c8_reflection_negates_y_velocity() {
+        assert_eq!(
+            super::lion_projectile_y_reflection_vel_loc_3e2c8(0x2_0000),
+            -0x2_0000,
+            "ASM Lion.asm loc_3E2C8 must negate `y_vel`"
         );
     }
 
