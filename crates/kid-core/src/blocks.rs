@@ -975,6 +975,10 @@ impl NativeRuntime {
                     bottom_px: y + 10,
                 });
             }
+            // ASM loc_F722 (kid.asm:20387): every skipped left-facing edge
+            // falls through to `$C(a0)` and resumes the emitter loop when
+            // another active slot exists. Native's dense iteration models
+            // that by adding no rectangles for the skipped slot and continuing.
         }
 
         // ASM loc_F5A6 (kid.asm:20226): all termination paths branch to the
