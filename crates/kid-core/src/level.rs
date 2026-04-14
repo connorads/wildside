@@ -822,6 +822,29 @@ pub(crate) struct ShooterFrameScanStartLocF25C {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterActiveSlotScanStepLocF28C {
+    DispatchExpiredSlot {
+        current_slot_addr: u32,
+        next_timer: u8,
+    },
+    CompileVisibleSlot {
+        current_slot_addr: u32,
+        next_timer: u8,
+        direction_word: u16,
+    },
+    ContinueScan {
+        current_slot_addr: u32,
+        next_timer: u8,
+        next_slot_addr: u32,
+    },
+    CommitFrame {
+        current_slot_addr: u32,
+        next_timer: u8,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8473,6 +8496,48 @@ pub(crate) fn shooter_frame_scan_start_loc_F25C(
         sprite_link_word: 0x0500 | u16::from(number_sprites),
         first_active_slot_addr,
         should_scan_active_slots: first_active_slot_addr != 0,
+    }
+}
+
+/// ASM loc_F28C (kid.asm:19849): walk one active shooter slot. The timer byte
+/// at `$8(a0)` is decremented before any other branch; zero dispatches the
+/// update jump table, a negative `$6(a0)` direction word enters sprite
+/// compilation, and a non-zero `$C(a0)` link continues the scan.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_active_slot_scan_step_loc_F28C(
+    current_slot_addr: u32,
+    timer: u8,
+    direction_word: u16,
+    next_slot_addr: u32,
+) -> ShooterActiveSlotScanStepLocF28C {
+    let next_timer = timer.wrapping_sub(1);
+    if next_timer == 0 {
+        return ShooterActiveSlotScanStepLocF28C::DispatchExpiredSlot {
+            current_slot_addr,
+            next_timer,
+        };
+    }
+
+    if (direction_word as i16) < 0 {
+        return ShooterActiveSlotScanStepLocF28C::CompileVisibleSlot {
+            current_slot_addr,
+            next_timer,
+            direction_word,
+        };
+    }
+
+    if next_slot_addr != 0 {
+        ShooterActiveSlotScanStepLocF28C::ContinueScan {
+            current_slot_addr,
+            next_timer,
+            next_slot_addr,
+        }
+    } else {
+        ShooterActiveSlotScanStepLocF28C::CommitFrame {
+            current_slot_addr,
+            next_timer,
+        }
     }
 }
 

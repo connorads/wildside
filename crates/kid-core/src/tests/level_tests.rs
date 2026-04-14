@@ -8857,6 +8857,66 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F28C (kid.asm:19849): each active shooter slot decrements its
+    /// timer first, then either dispatches the expired slot, compiles a visible
+    /// negative direction word, follows `$C(a0)`, or falls through to `loc_F2A2`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F28C_decrements_timer_before_choosing_the_next_active_slot_branch() {
+        assert_eq!(
+            crate::level::shooter_active_slot_scan_step_loc_F28C(
+                0xFFFF_E7F2,
+                1,
+                0x000F,
+                0xFFFF_E800,
+            ),
+            crate::level::ShooterActiveSlotScanStepLocF28C::DispatchExpiredSlot {
+                current_slot_addr: 0xFFFF_E7F2,
+                next_timer: 0,
+            },
+            "ASM loc_F28C should branch to loc_F2B6 immediately when `subq.b #1,8(a0)` reaches zero"
+        );
+
+        assert_eq!(
+            crate::level::shooter_active_slot_scan_step_loc_F28C(
+                0xFFFF_E800,
+                3,
+                0x800F,
+                0xFFFF_E80E,
+            ),
+            crate::level::ShooterActiveSlotScanStepLocF28C::CompileVisibleSlot {
+                current_slot_addr: 0xFFFF_E800,
+                next_timer: 2,
+                direction_word: 0x800F,
+            },
+            "ASM loc_F28C should test `$6(a0)` after the timer decrement and branch to loc_F410 for negative words"
+        );
+
+        assert_eq!(
+            crate::level::shooter_active_slot_scan_step_loc_F28C(
+                0xFFFF_E80E,
+                3,
+                0x000F,
+                0xFFFF_E81C,
+            ),
+            crate::level::ShooterActiveSlotScanStepLocF28C::ContinueScan {
+                current_slot_addr: 0xFFFF_E80E,
+                next_timer: 2,
+                next_slot_addr: 0xFFFF_E81C,
+            },
+            "ASM loc_F28C should continue with `$C(a0)` when the non-visible slot has a successor"
+        );
+
+        assert_eq!(
+            crate::level::shooter_active_slot_scan_step_loc_F28C(0xFFFF_E81C, 0, 0x000F, 0),
+            crate::level::ShooterActiveSlotScanStepLocF28C::CommitFrame {
+                current_slot_addr: 0xFFFF_E81C,
+                next_timer: 0xFF,
+            },
+            "ASM loc_F28C uses byte wrapping for the timer and falls through to loc_F2A2 when `$C(a0)` is zero"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
