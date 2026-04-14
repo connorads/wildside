@@ -7841,7 +7841,9 @@ impl NativeRuntime {
         // Path and speed bonuses only apply to non-Elsewhere levels (< 0x49 in map order).
         let level_idx = self.current_level.0 as usize;
         if self.current_level.0 < FIRST_ELSEWHERE_LEVEL_ID {
-            // Path bonus: per-level multiplier × 1000
+            // ASM loc_D60E (kid.asm:16750): before Elsewhere, index
+            // PathBonus_Values by Current_LevelID and multiply the byte by
+            // 1000; zero skips the Path Bonus object.
             if level_idx < PATH_BONUS_TABLE.len() {
                 let path_mult = PATH_BONUS_TABLE[level_idx] as u32;
                 if path_mult > 0 {

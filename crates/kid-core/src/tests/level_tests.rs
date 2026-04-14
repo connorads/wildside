@@ -6374,6 +6374,28 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D60E (kid.asm:16750): non-Elsewhere levels index
+    /// PathBonus_Values with Current_LevelID, zero-extend the byte, multiply by
+    /// 1000, and skip the EOL Path Bonus only when the product is zero.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D60E_path_bonus_multiplier_is_scaled_by_1000() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        start_level(&mut runtime);
+
+        runtime.current_level = LevelId(0x2D);
+        runtime.level_damage_taken = true;
+        runtime.level_prize_collected = true;
+        runtime.level_timer.seconds = 0;
+
+        runtime.apply_level_completion_bonuses();
+
+        assert_eq!(
+            runtime.progression.score, 25_000,
+            "ASM loc_D60E should turn PathBonus_Values[0x2D]=25 into 25,000 points"
+        );
+    }
+
     #[test]
     fn add_score_caps_at_9_999_999() {
         let mut runtime = NativeRuntime::new(manifest());
