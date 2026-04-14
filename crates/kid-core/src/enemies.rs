@@ -88,6 +88,14 @@ pub(crate) enum MiniHoppingSkullGroundWaitCollisionRoute {
     BerzerkerChargeKillsSkull,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullScreamWorkerAllocation {
+    pub(crate) allocation_selector: u16,
+    pub(crate) routine: &'static str,
+    pub(crate) delay_frames: u8,
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -2792,6 +2800,24 @@ pub(crate) fn mini_hopping_skull_ground_wait_collision_loc_3eb0e(
         }
         _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_scream_worker_allocation_loc_3eb40(
+    route: MiniHoppingSkullGroundWaitCollisionRoute,
+) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
+    if route != MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker {
+        return None;
+    }
+
+    // ASM Mini_Hopping_Skull.asm loc_3EB40: exchange a0/a4, allocate with
+    // selector `$A000`, store `sub_3F3F0` at object slot +4, then restore a0/a4.
+    // `sub_3F3F0` hibernates for `$F` frames before playing the scream SFX.
+    Some(MiniHoppingSkullScreamWorkerAllocation {
+        allocation_selector: 0xA000,
+        routine: "sub_3F3F0",
+        delay_frames: 15,
+    })
 }
 
 pub(crate) fn step_hopper(
@@ -5947,6 +5973,35 @@ mod tests {
             mini_hopping_skull_ground_wait_collision_loc_3eb0e(MINI_SKULL_COLID_SLOPEUP, false),
             MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
             "ASM Mini_Hopping_Skull.asm loc_3EB0E ignores unrecognised collision IDs during the grounded wait loop"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_scream_worker_allocation_matches_loc_3eb40() {
+        assert_eq!(
+            mini_hopping_skull_scream_worker_allocation_loc_3eb40(
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+            ),
+            Some(MiniHoppingSkullScreamWorkerAllocation {
+                allocation_selector: 0xA000,
+                routine: "sub_3F3F0",
+                delay_frames: 15,
+            }),
+            "ASM Mini_Hopping_Skull.asm loc_3EB40 should allocate a helper object for `sub_3F3F0`"
+        );
+        assert_eq!(
+            mini_hopping_skull_scream_worker_allocation_loc_3eb40(
+                MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+            ),
+            None,
+            "ASM Mini_Hopping_Skull.asm loc_3EB40 is skipped when the collision decrements skull HP"
+        );
+        assert_eq!(
+            mini_hopping_skull_scream_worker_allocation_loc_3eb40(
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+            ),
+            None,
+            "ASM Mini_Hopping_Skull.asm loc_3EB40 is skipped by the charging-Berzerker side-contact branch"
         );
     }
 

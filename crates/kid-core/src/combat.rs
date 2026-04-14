@@ -9531,9 +9531,9 @@ impl NativeRuntime {
                 return false;
             }
             if matches!(enemy_family, EnemyFamily::MiniHoppingSkull) {
-                // ASM Mini_Hopping_Skull.asm sub_3F3F0: side/below contact
-                // allocates a helper object that hibernates for 15 frames,
-                // then plays the scream SFX unless `$19(a3)` suppresses it.
+                // ASM Mini_Hopping_Skull.asm loc_3EB40 allocates sub_3F3F0:
+                // side/below contact hibernates for 15 frames, then plays the
+                // scream SFX unless `$19(a3)` suppresses it.
                 self.queue_mini_hopping_skull_scream(false);
             }
             self.apply_damage_with_knockback(slice, enemy_x);
