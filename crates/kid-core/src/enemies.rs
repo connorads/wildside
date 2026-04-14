@@ -1816,6 +1816,19 @@ pub(crate) fn ufo_double_acceleration_loc_34e10(
     command
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_double_terminal_speed_loc_34e1c(
+    mut command: UfoMotionCommand,
+    double_terminal_speed: bool,
+) -> UfoMotionCommand {
+    if double_terminal_speed {
+        // ASM UFO.asm loc_34E1C: non-zero `$4F(a5)` doubles d1 and d3 only.
+        command.target_x_velocity = command.target_x_velocity.saturating_mul(2);
+        command.target_y_velocity = command.target_y_velocity.saturating_mul(2);
+    }
+    command
+}
+
 pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     // Apply acceleration to velocity (clamped to terminal)
     enemy.x_velocity = (enemy.x_velocity + enemy.x_acceleration)
@@ -6516,6 +6529,32 @@ mod tests {
                 target_y_velocity: 0x18000,
             },
             "ASM UFO.asm loc_34E10 doubles acceleration registers d0/d2 while leaving target speed d1/d3 unchanged"
+        );
+    }
+
+    #[test]
+    fn ufo_motion_scaling_matches_loc_34e1c_terminal_gate() {
+        let command = UfoMotionCommand {
+            x_acceleration: -0x1000,
+            target_x_velocity: -0x20000,
+            y_acceleration: 0x0800,
+            target_y_velocity: 0x18000,
+        };
+
+        assert_eq!(
+            ufo_double_terminal_speed_loc_34e1c(command, false),
+            command,
+            "ASM UFO.asm loc_34E1C returns without changing d1/d3 when `$4F(a5)` is zero"
+        );
+        assert_eq!(
+            ufo_double_terminal_speed_loc_34e1c(command, true),
+            UfoMotionCommand {
+                x_acceleration: -0x1000,
+                target_x_velocity: -0x40000,
+                y_acceleration: 0x0800,
+                target_y_velocity: 0x30000,
+            },
+            "ASM UFO.asm loc_34E1C doubles terminal-speed registers d1/d3 while leaving acceleration d0/d2 unchanged"
         );
     }
 
