@@ -14978,4 +14978,42 @@ mod chunk_12 {
             "ASM loc_D428 should return to the title-reset tail once the fade word is negative"
         );
     }
+
+    /// ASM loc_D44C (kid.asm:16614): once the title-return fade underflows, the
+    /// ROM runs one final refresh/fade-helper frame, clears `$FFFFFBCC`, sets
+    /// `$FFFFFC36`, and jumps to `Teleport`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D44C_continue_timeout_title_return_tail_sets_teleport_flag() {
+        let tail = crate::boot::continue_timeout_title_return_loc_D44C();
+
+        assert_eq!(
+            tail.final_refresh_subroutine, "j_WaitForVint",
+            "ASM loc_D44C starts with one final VBlank wait"
+        );
+        assert_eq!(
+            tail.idle_subroutine, "j_Do_Nothing",
+            "ASM loc_D44C idles once before the final palette upload"
+        );
+        assert_eq!(
+            tail.palette_upload_subroutine, "j_Palette_to_VRAM",
+            "ASM loc_D44C uploads the palette before the final fade helper call"
+        );
+        assert_eq!(
+            tail.fade_helper_subroutine, "j_sub_14C0",
+            "ASM loc_D44C still runs the pending palette fade helper"
+        );
+        assert!(
+            tail.clears_continue_fade_colour,
+            "ASM loc_D44C clears `$FFFFFBCC` before Teleport"
+        );
+        assert!(
+            tail.sets_teleport_flag_fc36,
+            "ASM loc_D44C stores `$FF` to `$FFFFFC36` before Teleport"
+        );
+        assert_eq!(
+            tail.tail_subroutine, "Teleport",
+            "ASM loc_D44C exits through `bra.w Teleport`"
+        );
+    }
 }

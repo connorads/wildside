@@ -2208,6 +2208,18 @@ pub(crate) struct ContinueTimeoutTitleFadeStepLocD428 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ContinueTimeoutTitleReturnLocD44C {
+    pub(crate) final_refresh_subroutine: &'static str,
+    pub(crate) idle_subroutine: &'static str,
+    pub(crate) palette_upload_subroutine: &'static str,
+    pub(crate) fade_helper_subroutine: &'static str,
+    pub(crate) clears_continue_fade_colour: bool,
+    pub(crate) sets_teleport_flag_fc36: bool,
+    pub(crate) tail_subroutine: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -4072,6 +4084,23 @@ pub(crate) fn continue_timeout_title_fade_step_loc_D428(
         pending_palette_0_mask: u32::MAX,
         pending_palette_1_mask: u32::MAX,
         return_to_title: false,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn continue_timeout_title_return_loc_D44C() -> ContinueTimeoutTitleReturnLocD44C {
+    // ASM loc_D44C (kid.asm:16614): after loc_D428 underflows the fade word,
+    // the ROM performs one final VBlank/idle/palette/fade-helper refresh,
+    // clears `$FFFFFBCC`, sets `$FFFFFC36`, and jumps to Teleport.
+    ContinueTimeoutTitleReturnLocD44C {
+        final_refresh_subroutine: "j_WaitForVint",
+        idle_subroutine: "j_Do_Nothing",
+        palette_upload_subroutine: "j_Palette_to_VRAM",
+        fade_helper_subroutine: "j_sub_14C0",
+        clears_continue_fade_colour: true,
+        sets_teleport_flag_fc36: true,
+        tail_subroutine: "Teleport",
     }
 }
 
