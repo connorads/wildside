@@ -1094,6 +1094,15 @@ pub(crate) struct ShooterObjectMovingDownGateLocEF2E {
     pub(crate) next_step: ShooterObjectMovingDownNextLocEF2E,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterObjectMovingDownSpriteTailLocEF56 {
+    pub(crate) y_pos: u16,
+    pub(crate) sprite_x_offset: i16,
+    pub(crate) sprite_y_offset: i16,
+    pub(crate) tile_word: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -9125,6 +9134,21 @@ pub(crate) fn shooter_object_moving_down_collision_gate_loc_EF40(
         ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout
     } else {
         ShooterObjectMovingDownNextLocEF2E::ContinueMovingDown
+    }
+}
+
+/// ASM loc_EF56 (kid.asm:19459): `addq.w #4,4(a0)` advances the moving-down
+/// shooter, then `d1=-4`, `d2=0`, and `d3=$9295` feed the shared sprite maker.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_down_sprite_tail_loc_EF56(
+    y_pos: u16,
+) -> ShooterObjectMovingDownSpriteTailLocEF56 {
+    ShooterObjectMovingDownSpriteTailLocEF56 {
+        y_pos: y_pos.wrapping_add(4),
+        sprite_x_offset: -4,
+        sprite_y_offset: 0,
+        tile_word: 0x9295,
     }
 }
 

@@ -9963,6 +9963,30 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EF56 (kid.asm:19459): moving-down shooters add four to y, then
+    /// enter `Process_ShooterObject_MakeSprite` with down-facing offsets and
+    /// tile word `$9295`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EF56_moving_down_sprite_tail_steps_down_and_uses_down_sprite_constants() {
+        assert_eq!(
+            crate::level::shooter_object_moving_down_sprite_tail_loc_EF56(0x0120),
+            crate::level::ShooterObjectMovingDownSpriteTailLocEF56 {
+                y_pos: 0x0124,
+                sprite_x_offset: -4,
+                sprite_y_offset: 0,
+                tile_word: 0x9295,
+            },
+            "ASM loc_EF56 should add four to `$4(a0)` and seed the moving-down sprite constants"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_down_sprite_tail_loc_EF56(0xFFFE).y_pos,
+            0x0002,
+            "ASM loc_EF56 uses 16-bit wrapping for `addq.w #4,4(a0)`"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
