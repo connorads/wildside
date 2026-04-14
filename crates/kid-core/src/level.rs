@@ -934,6 +934,13 @@ pub(crate) struct EvanescentBulletDirectionLoopTailLocEC9E {
     pub(crate) loops_to_loc_ec76: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletRecyclePredecessorLocECC4 {
+    pub(crate) predecessor_slot_addr: u32,
+    pub(crate) scanned_links: usize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8560,6 +8567,37 @@ pub(crate) fn evanescent_bullet_direction_loop_tail_loc_EC9E(
         next_direction_counter,
         loops_to_loc_ec76: next_direction_counter != 0xFFFF,
     }
+}
+
+/// ASM loc_ECC4 (kid.asm:19162): when the aged evanescent object is not the
+/// active-list head, walk `$A(a3)` links from `Addr_FirstEvanescObjectSlot`
+/// until the successor equals the current `a0` slot.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_recycle_predecessor_scan_loc_ECC4(
+    active_slots: &[LinkedObjectSlotInit],
+    target_slot_addr: u32,
+) -> Option<EvanescentBulletRecyclePredecessorLocECC4> {
+    let mut current_slot_addr = active_slots.first()?.slot_addr;
+
+    for scanned_links in 1..=active_slots.len() {
+        let current_slot = active_slots
+            .iter()
+            .find(|slot| slot.slot_addr == current_slot_addr)?;
+        let successor_slot_addr = current_slot.next_slot_addr;
+        if successor_slot_addr == target_slot_addr {
+            return Some(EvanescentBulletRecyclePredecessorLocECC4 {
+                predecessor_slot_addr: current_slot.slot_addr,
+                scanned_links,
+            });
+        }
+        if successor_slot_addr == 0 {
+            return None;
+        }
+        current_slot_addr = successor_slot_addr;
+    }
+
+    None
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,

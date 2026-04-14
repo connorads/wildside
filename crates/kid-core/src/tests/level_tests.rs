@@ -9226,6 +9226,49 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_ECC4 (kid.asm:19162): after the current evanescent slot ages
+    /// out and is not the active-list head, the ROM follows predecessor links
+    /// until `$A(a3)` equals the current `a0` slot.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_ECC4_finds_the_predecessor_of_the_aged_evanescent_slot() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E90A,
+                next_slot_addr: 0xFFFF_E91A,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E92A,
+                next_slot_addr: 0,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E91A,
+                next_slot_addr: 0xFFFF_E92A,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::evanescent_bullet_recycle_predecessor_scan_loc_ECC4(
+                &active_slots,
+                0xFFFF_E92A,
+            ),
+            Some(crate::level::EvanescentBulletRecyclePredecessorLocECC4 {
+                predecessor_slot_addr: 0xFFFF_E91A,
+                scanned_links: 2,
+            }),
+            "ASM loc_ECC4 should follow `$A(a3)` links, not slice order, and branch to the splice block once the successor equals the aged slot"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_recycle_predecessor_scan_loc_ECC4(
+                &active_slots,
+                0xFFFF_E940,
+            ),
+            None,
+            "ASM loc_ECC4 assumes a live active-list member; native returns None if the zero tail is reached without a predecessor"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
