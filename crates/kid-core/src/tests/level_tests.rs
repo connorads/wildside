@@ -7225,6 +7225,36 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E756 (kid.asm:18440): the current-column terrain scan starts
+    /// at row pointer `$FFFF4A04 + top_row*2`, advances by `tile_column*2`,
+    /// and uses `bottom_row - top_row` as the inclusive DBF counter for
+    /// `sub_E446`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E756_seeds_current_column_collision_scan_from_row_pointer() {
+        let row_pointers = [0x8000, 0x8040, 0x8080, 0x80C0, 0x8100];
+        let scan =
+            crate::level::level_sprite_strip_collision_scan_seed_loc_E756(2, 4, 7, &row_pointers)
+                .expect("ASM loc_E756 should load the clamped top row pointer");
+
+        assert_eq!(
+            scan,
+            crate::level::LevelSpriteStripCollisionScanLocE756 {
+                inclusive_row_count: 2,
+                start_row: 2,
+                tile_column: 7,
+                collision_cell_addr: 0x808E,
+            },
+            "ASM loc_E756 should seed sub_E446 with row_count=bottom-top and a2=row_pointer[top]+column*2"
+        );
+
+        assert_eq!(
+            crate::level::level_sprite_strip_collision_scan_seed_loc_E756(6, 6, 0, &row_pointers,),
+            None,
+            "ASM loc_E756 relies on the clamped row pointer table; native should reject missing row pointers in the pure helper"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

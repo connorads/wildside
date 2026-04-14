@@ -12483,6 +12483,36 @@ pub(crate) fn level_sprite_strip_bottom_row_upper_clamp_loc_E74A(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripCollisionScanLocE756 {
+    pub(crate) inclusive_row_count: u16,
+    pub(crate) start_row: i16,
+    pub(crate) tile_column: i16,
+    pub(crate) collision_cell_addr: u16,
+}
+
+/// ASM loc_E756 (kid.asm:18440): convert the clamped top/bottom rows into the
+/// inclusive `sub_E446` DBF counter, load the top row pointer from `$FFFF4A04`,
+/// then advance by `tile_column * 2` bytes to seed the first collision cell.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_collision_scan_seed_loc_E756(
+    top_tile_row: i16,
+    bottom_tile_row: i16,
+    tile_column: i16,
+    row_pointer_words: &[u16],
+) -> Option<LevelSpriteStripCollisionScanLocE756> {
+    let row_index = usize::try_from(top_tile_row).ok()?;
+    let row_start_addr = row_pointer_words.get(row_index).copied()?;
+
+    Some(LevelSpriteStripCollisionScanLocE756 {
+        inclusive_row_count: bottom_tile_row.wrapping_sub(top_tile_row) as u16,
+        start_row: top_tile_row,
+        tile_column,
+        collision_cell_addr: row_start_addr.wrapping_add((tile_column as u16).wrapping_mul(2)),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
