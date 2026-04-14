@@ -927,6 +927,13 @@ pub(crate) struct ShooterVisibleLeftCellUpdateLocF3F4 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterVisibleScanTailLocF404 {
+    ContinueScan { next_slot_addr: u32 },
+    CommitFrame,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8844,6 +8851,21 @@ pub(crate) fn shooter_visible_left_cell_update_loc_F3F4(
         queue_block_col: block_col.wrapping_sub(1),
         queue_block_row: block_row,
         queue_layout_word: left_cell_layout_word,
+    }
+}
+
+/// ASM loc_F404 (kid.asm:20029): after visible-neighbour writes, load the
+/// active slot's `$C(a0)` successor. A non-zero link resumes the active-slot
+/// loop at `loc_F28C`; zero commits the frame through `loc_F2A2`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_visible_scan_tail_loc_F404(
+    next_slot_addr: u32,
+) -> ShooterVisibleScanTailLocF404 {
+    if next_slot_addr != 0 {
+        ShooterVisibleScanTailLocF404::ContinueScan { next_slot_addr }
+    } else {
+        ShooterVisibleScanTailLocF404::CommitFrame
     }
 }
 

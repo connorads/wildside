@@ -9280,6 +9280,27 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F404 (kid.asm:20029): after visible-cell writes, the ROM loads
+    /// `$C(a0)` and either resumes `loc_F28C` for the next active shooter slot
+    /// or falls through to `loc_F2A2` to commit the frame.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F404_continues_or_commits_after_visible_shooter_scan() {
+        assert_eq!(
+            crate::level::shooter_visible_scan_tail_loc_F404(0xFFFF_E81C),
+            crate::level::ShooterVisibleScanTailLocF404::ContinueScan {
+                next_slot_addr: 0xFFFF_E81C,
+            },
+            "ASM loc_F404 should branch back to loc_F28C when `$C(a0)` is non-zero"
+        );
+
+        assert_eq!(
+            crate::level::shooter_visible_scan_tail_loc_F404(0),
+            crate::level::ShooterVisibleScanTailLocF404::CommitFrame,
+            "ASM loc_F404 should branch to loc_F2A2 when `$C(a0)` is zero"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
