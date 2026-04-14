@@ -14,6 +14,13 @@ pub(crate) const MINI_SKULL_INITIAL_Y_SPEED_FP: i32 = 0x0002_8000;
 pub(crate) const MINI_SKULL_LEVEL_INITIAL_Y_SPEED_BONUS_FP: i32 = 0x0000_1000;
 pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 21; // ASM Mini_Hopping_Skull.asm:99,141 — dbf #$14 = 21 iterations
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullAirSprite {
+    Rising,
+    Falling,
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -2613,6 +2620,24 @@ fn mini_hopping_skull_snap_slopedown_x(grid: &terrain::BlockGrid, x_px: i32, y_p
     }
 
     (x_px.max(0) as u32) << 16
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_air_sprite_after_loc_3ea88(
+    is_animated: bool,
+    y_velocity: i32,
+) -> Option<MiniHoppingSkullAirSprite> {
+    if is_animated {
+        return None;
+    }
+
+    if y_velocity < 0 {
+        Some(MiniHoppingSkullAirSprite::Rising)
+    } else {
+        // ASM Mini_Hopping_Skull.asm loc_3EAAC: non-negative `y_vel(a3)`
+        // selects `LnkTo_unk_C8088` after the animated-state guard is clear.
+        Some(MiniHoppingSkullAirSprite::Falling)
+    }
 }
 
 pub(crate) fn step_hopper(
@@ -5607,6 +5632,25 @@ mod tests {
             enemy.y_pos,
             (32 << 16) + 0x0002_9200,
             "ASM Mini_Hopping_Skull.asm loc_3EA88 applies the gravity-adjusted velocity during the airborne frame"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_air_sprite_matches_loc_3eaac_falling_branch() {
+        assert_eq!(
+            mini_hopping_skull_air_sprite_after_loc_3ea88(false, -1),
+            Some(MiniHoppingSkullAirSprite::Rising),
+            "ASM Mini_Hopping_Skull.asm branches around loc_3EAAC while `y_vel(a3)` is negative"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_sprite_after_loc_3ea88(false, 0),
+            Some(MiniHoppingSkullAirSprite::Falling),
+            "ASM Mini_Hopping_Skull.asm loc_3EAAC selects the falling sprite once `y_vel(a3)` is non-negative"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_sprite_after_loc_3ea88(true, 0),
+            None,
+            "ASM Mini_Hopping_Skull.asm checks `is_animated(a3)` before the loc_3EAAC sprite branch"
         );
     }
 
