@@ -1811,6 +1811,10 @@ impl NativeRuntime {
                         row,
                         directions,
                         supported_by_neighbour: shooter_has_support(col, row, directions),
+                        // ASM loc_F24E (kid.asm:19823): initialise the new
+                        // shooter slot with delay `$0100` and state word zero.
+                        // Native folds the slot tick into this scan, so age
+                        // starts at zero here and advances below.
                         age: 0,
                     }),
             );

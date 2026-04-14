@@ -8157,6 +8157,30 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_f24e_initialises_new_shooter_slot_before_first_tick() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
+        runtime.projectiles.clear();
+        runtime.block_state.shooter_last_scanned_col = 1;
+        runtime.block_state.shooter_last_scanned_row = 4;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (4 * 16) << 16;
+        runtime.step_shooter_blocks(&slice);
+
+        assert_eq!(
+            runtime.block_state.shooter_blocks[0].age, 1,
+            "ASM loc_F24E (kid.asm:19823) writes the new slot state as zero; native creates age 0 and the same frame's folded sub_F730 tick advances it to age 1"
+        );
+        assert!(
+            !runtime.block_state.shooter_blocks[0].supported_by_neighbour,
+            "ASM loc_F24E follows any loc_F248 support marker, so an unsupported right-firing slot should keep the marker clear"
+        );
+    }
+
+    #[test]
     fn shooter_block_sub_f096_keeps_per_slot_cadence_until_the_worker_expires() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
