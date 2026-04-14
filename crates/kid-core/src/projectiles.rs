@@ -587,13 +587,14 @@ impl NativeRuntime {
             }
 
             // Wall-bounce: reverse velocity on terrain contact (Lion.asm loc_3E260).
-            // ASM checks collision_type and bounces up to 15 times per frame.
+            // ASM uses `moveq #$F,d0` + `dbf d0,loc_3E2A8` (16 attempts).
             // Native: check if projectile centre is inside a solid cell after moving.
             if p.wall_bounce
                 && let Some(g) = grid
             {
-                let mut remaining_bounces = 0x0Fu16;
-                while remaining_bounces > 0 {
+                let mut remaining_bounces = 0x0Fi16;
+                loop {
+                    // ASM loc_3E2A8 then loc_3E2C0: loop up to 16 bounce attempts using `dbf d0`.
                     let px_i = (p.x_pos >> 16) as i32;
                     let py_i = (p.y_pos >> 16) as i32;
                     let col = terrain::pixel_to_cell(px_i).max(0) as u16;
@@ -671,7 +672,10 @@ impl NativeRuntime {
                         }
                     }
 
-                    remaining_bounces -= 1;
+                    if !lion_projectile_bounce_iterations_continue_loc_3e2c0(&mut remaining_bounces)
+                    {
+                        break;
+                    }
                 }
             }
             true
@@ -706,6 +710,13 @@ impl NativeRuntime {
         self.release_lion_projectile_owners(released_owners);
         hit
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn lion_projectile_bounce_iterations_continue_loc_3e2c0(remaining_bounces: &mut i16) -> bool {
+    // ASM Lion.asm loc_3E2C0: `dbf d0,loc_3E2A8` (loop if decremented D0 != -1).
+    *remaining_bounces = remaining_bounces.wrapping_sub(1);
+    *remaining_bounces != -1
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -844,5 +855,20 @@ mod loc_3e266_tests {
             y_velocity, 0x3_0000,
             "ASM Lion.asm loc_3E29E still copies old `x_vel` into `y_vel`"
         );
+    }
+
+    #[test]
+    fn loc_3e2c0_dbf_continues_for_sixteen_iterations() {
+        let mut remaining_bounces = 0x0Fi16;
+        let mut iterations = 0i32;
+        loop {
+            iterations += 1;
+            if !super::lion_projectile_bounce_iterations_continue_loc_3e2c0(&mut remaining_bounces)
+            {
+                break;
+            }
+        }
+        assert_eq!(iterations, 16);
+        assert_eq!(remaining_bounces, -1);
     }
 }
