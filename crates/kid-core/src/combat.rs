@@ -7832,8 +7832,8 @@ impl NativeRuntime {
             self.add_score(5000);
         }
 
-        // No-prize bonus: 5000 points if no prize block content collected during level
-        // ASM: NoPrize_Bonus_Flag = 0 means bonus retained
+        // ASM loc_D5D2 (kid.asm:16732): NoPrize_Bonus_Flag = 0 means bonus
+        // retained, so the EOL builder adds a 5000-point "No Prize" bonus.
         if !self.level_prize_collected {
             self.add_score(5000);
         }

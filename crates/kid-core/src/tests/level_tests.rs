@@ -6283,6 +6283,27 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D5D2 (kid.asm:16732): `tst.b (NoPrize_Bonus_Flag).w; bne.w
+    /// loc_D60E`; flag zero falls through and allocates a 5000-point
+    /// "No Prize" bonus before continuing to the path-bonus branch.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D5D2_no_prize_flag_zero_awards_5000() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        start_level(&mut runtime);
+
+        runtime.level_damage_taken = true;
+        runtime.level_prize_collected = false;
+        runtime.level_timer.seconds = 0;
+
+        runtime.apply_level_completion_bonuses();
+
+        assert_eq!(
+            runtime.progression.score, 5000,
+            "ASM loc_D5D2 should award exactly the 5000-point No Prize bonus when NoPrize_Bonus_Flag is zero"
+        );
+    }
+
     #[test]
     fn speed_bonus_absent_when_elapsed_exceeds_threshold() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(3));
