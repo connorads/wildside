@@ -8948,6 +8948,24 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EB0C (kid.asm:18874): the clamped top and bottom pixel edges
+    /// become tile rows via `asr.w #4`; the bottom-minus-top result seeds the
+    /// row DBF counter and the doubled top row indexes the row-pointer table.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EB0C_converts_clamped_vertical_pixels_to_rows_and_row_pointer_offset() {
+        assert_eq!(
+            crate::level::evanescent_bullet_vertical_rows_loc_EB0C(0x001F, 0x0040),
+            crate::level::EvanescentBulletVerticalRowsLocEB0C {
+                top_row: 1,
+                bottom_row: 4,
+                row_dbf_counter: 3,
+                first_row_pointer_table_byte_offset: 2,
+            },
+            "ASM loc_EB0C should divide both clamped pixel edges by 16, then double the top row before reading `$FFFF4A04(a0,d0.w)`"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

@@ -858,6 +858,15 @@ pub(crate) struct EvanescentBulletBottomClampLocEAF8 {
     pub(crate) bottom_px: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletVerticalRowsLocEB0C {
+    pub(crate) top_row: u16,
+    pub(crate) bottom_row: u16,
+    pub(crate) row_dbf_counter: u16,
+    pub(crate) first_row_pointer_table_byte_offset: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8229,19 +8238,21 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
         evanescent_bullet_bottom_clamp_loc_EAF8(input.kid_hitbox_bottom, input.level_height_pixels)
             .bottom_px,
     );
+    let vertical_rows = evanescent_bullet_vertical_rows_loc_EB0C(
+        u16::try_from(top_px).expect("clamped top pixel should fit in u16"),
+        u16::try_from(bottom_px).expect("clamped bottom pixel should fit in u16"),
+    );
     let left_px = i32::from(input.kid_hitbox_left).saturating_sub(1).max(0);
     let right_bound_px = i32::from(input.level_width_pixels.saturating_sub(1));
     let right_px = (i32::from(input.kid_hitbox_right) + 1)
         .min(right_bound_px)
         .max(0);
 
-    let top_row = u16::try_from(top_px >> 4).expect("clamped top row should fit in u16");
-    let bottom_row = u16::try_from(bottom_px >> 4).expect("clamped bottom row should fit in u16");
     let left_col = u16::try_from(left_px >> 4).expect("clamped left col should fit in u16");
     let right_col = u16::try_from(right_px >> 4).expect("clamped right col should fit in u16");
 
     let mut found_evanescent_block = false;
-    for row in top_row..=bottom_row {
+    for row in vertical_rows.top_row..=vertical_rows.bottom_row {
         for col in left_col..=right_col {
             let cell = grid.cell_at(col, row);
             if cell.has_block && cell.block_type == terrain::BlockType::Evanescent {
@@ -8255,11 +8266,11 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
     }
 
     EvanescentBulletHitboxScanLocEAE4::Scan {
-        top_row,
-        bottom_row,
+        top_row: vertical_rows.top_row,
+        bottom_row: vertical_rows.bottom_row,
         left_col,
         right_col,
-        row_dbf_counter: bottom_row.wrapping_sub(top_row),
+        row_dbf_counter: vertical_rows.row_dbf_counter,
         col_dbf_counter: right_col.wrapping_sub(left_col),
         found_evanescent_block,
     }
@@ -8278,6 +8289,27 @@ pub(crate) fn evanescent_bullet_bottom_clamp_loc_EAF8(
         bottom_px: kid_hitbox_bottom
             .saturating_add(1)
             .min(level_height_pixels.saturating_sub(1)),
+    }
+}
+
+/// ASM loc_EB0C (kid.asm:18874): arithmetic-shift the clamped top and bottom
+/// pixel edges by four to get tile rows, subtract top from bottom for the
+/// inclusive DBF row counter, then double the top row for the `$FFFF4A04`
+/// row-pointer table lookup.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_vertical_rows_loc_EB0C(
+    top_px: u16,
+    bottom_px: u16,
+) -> EvanescentBulletVerticalRowsLocEB0C {
+    let top_row = top_px >> 4;
+    let bottom_row = bottom_px >> 4;
+
+    EvanescentBulletVerticalRowsLocEB0C {
+        top_row,
+        bottom_row,
+        row_dbf_counter: bottom_row.wrapping_sub(top_row),
+        first_row_pointer_table_byte_offset: top_row.wrapping_mul(2),
     }
 }
 
