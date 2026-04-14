@@ -16,6 +16,41 @@ pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 21; // ASM Mini_Hopping_Sk
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionInitVisibleState {
+    pub(crate) status_flag_13: bool,
+    pub(crate) object_meta: u16,
+    pub(crate) palette_line: u8,
+    pub(crate) current_hp: u16,
+    pub(crate) facing: Direction,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_init_visible_state_loc_3df92(
+    enemy_level: u16,
+    lion_x_word: u16,
+    kid_x_word: u16,
+) -> LionInitVisibleState {
+    // ASM Lion.asm loc_3DF92: after the signed spawn-facing compare, mark the
+    // object visible via `$13(a3)`, seed object_meta `$12`, initialise art,
+    // force palette line 2, set object_meta bit 7, and store `enemy_level+6`
+    // into current_hp.
+    let facing = if (kid_x_word as i16) < (lion_x_word as i16) {
+        Direction::Left
+    } else {
+        Direction::Right
+    };
+
+    LionInitVisibleState {
+        status_flag_13: true,
+        object_meta: 0x0012 | 0x0080,
+        palette_line: 2,
+        current_hp: enemy_level.wrapping_add(6),
+        facing,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -5976,6 +6011,31 @@ mod tests {
                 surface_child_y_pos: 0x0100_8000,
             },
             "ASM Drips.asm loc_33488 clears the falling child, adds 10px to its Y word, and copies the adjusted x/y to the surface child"
+        );
+    }
+
+    #[test]
+    fn lion_init_visible_state_matches_loc_3df92() {
+        assert_eq!(
+            lion_init_visible_state_loc_3df92(2, 0x0200, 0x0210),
+            LionInitVisibleState {
+                status_flag_13: true,
+                object_meta: 0x0092,
+                palette_line: 2,
+                current_hp: 8,
+                facing: Direction::Right,
+            },
+            "ASM Lion.asm loc_3DF92 should set `$13`, object_meta `$12|$80`, palette line 2, HP enemy_level+6, and keep the prior `st x_direction` result when Kid is right"
+        );
+        assert_eq!(
+            lion_init_visible_state_loc_3df92(0, 0x0200, 0x01F0).facing,
+            Direction::Left,
+            "ASM Lion.asm loc_3DF92 should preserve zero x_direction when the signed compare finds Kid left of Lion"
+        );
+        assert_eq!(
+            lion_init_visible_state_loc_3df92(0, 0x7FFF, 0x8000).facing,
+            Direction::Left,
+            "ASM Lion.asm loc_3DF92 inherits the signed word `blt` spawn-facing compare"
         );
     }
 
