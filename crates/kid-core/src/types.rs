@@ -576,6 +576,7 @@ pub(crate) struct ShooterBlockEntry {
     pub(crate) col: u16,
     pub(crate) row: u16,
     pub(crate) directions: u8,
+    pub(crate) supported_by_neighbour: bool,
     pub(crate) age: u16,
 }
 

@@ -1714,6 +1714,30 @@ impl NativeRuntime {
         let previous_col = self.block_state.shooter_last_scanned_col;
         let previous_row = self.block_state.shooter_last_scanned_row;
         let mut pending_entries = Vec::new();
+        let shooter_has_support = |col: u16, row: u16, directions: u8| {
+            let left = col
+                .checked_sub(1)
+                .is_some_and(|left_col| grid.cell_at(left_col, row).skin != 0);
+            let right = col
+                .checked_add(1)
+                .filter(|right_col| *right_col <= u16::try_from(max_col).unwrap_or(u16::MAX))
+                .is_some_and(|right_col| grid.cell_at(right_col, row).skin != 0);
+            let up = row
+                .checked_sub(1)
+                .is_some_and(|up_row| grid.cell_at(col, up_row).skin != 0);
+            let down = row
+                .checked_add(1)
+                .filter(|down_row| *down_row <= u16::try_from(max_row).unwrap_or(u16::MAX))
+                .is_some_and(|down_row| grid.cell_at(col, down_row).skin != 0);
+
+            (directions & 0x01 != 0 && up)
+                || (directions & 0x02 != 0 && right)
+                || (directions & 0x04 != 0 && down)
+                // ASM loc_F23E (kid.asm:19814): after shifting to the left
+                // shooter bit, `tst.b -1(a1)` marks the slot negative when
+                // the left neighbour's skin byte is non-zero.
+                || (directions & 0x08 != 0 && left)
+        };
         let mut queue_scan = |col: u16, row: u16, skin: u8| {
             // ASM loc_F106 (kid.asm:19673): a raw shooter candidate pops one
             // free slot, pushes it to the active list, then stores the layout
@@ -1786,6 +1810,7 @@ impl NativeRuntime {
                         col,
                         row,
                         directions,
+                        supported_by_neighbour: shooter_has_support(col, row, directions),
                         age: 0,
                     }),
             );

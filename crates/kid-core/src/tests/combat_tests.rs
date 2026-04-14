@@ -8126,9 +8126,33 @@ mod chunk_05 {
                 col: 5,
                 row: 4,
                 directions: 0x0A,
+                supported_by_neighbour: false,
                 age: 1,
             }],
             "ASM loc_F106 should allocate the candidate shooter slot with its column, row, and direction bits before sub_F730 ticks it"
+        );
+    }
+
+    #[test]
+    fn loc_f23e_marks_left_firing_shooter_when_left_neighbour_has_skin() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut grid = grid_with_shooter_blocks(&[(5, 4, 0x08)]);
+        grid.set_cell_at(4, 4, terrain::Cell::from_be_bytes(0x00, 0x2D));
+        runtime.set_block_grid(grid);
+        runtime.projectiles.clear();
+        runtime.block_state.shooter_last_scanned_col = 1;
+        runtime.block_state.shooter_last_scanned_row = 4;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (4 * 16) << 16;
+        runtime.step_shooter_blocks(&slice);
+
+        assert_eq!(runtime.block_state.shooter_blocks.len(), 1);
+        assert!(
+            runtime.block_state.shooter_blocks[0].supported_by_neighbour,
+            "ASM loc_F23E (kid.asm:19814) should set the negative direction-word marker via loc_F248 when a left-firing shooter sees a non-zero skin byte at `-1(a1)`"
         );
     }
 
