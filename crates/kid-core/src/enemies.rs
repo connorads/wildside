@@ -5263,7 +5263,8 @@ pub(crate) fn drips_collision_dispatch_loc_33550(
     }
 
     let contact_flag = match collision_type {
-        0x001C | 0x002C => 1,
+        0x001C => drips_collision_table_first_contact_loc_3356e(),
+        0x002C => 1,
         0x0020 | 0x0024 if berzerker_charging => 1,
         _ => 0,
     };
@@ -5271,6 +5272,13 @@ pub(crate) fn drips_collision_dispatch_loc_33550(
         collision_type: 0,
         contact_flag,
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_collision_table_first_contact_loc_3356e() -> u16 {
+    // ASM Drips.asm loc_3356E: the first dispatch-table branch is the
+    // `$1C` collision slot and resolves to a contact result.
+    1
 }
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
@@ -6573,6 +6581,23 @@ mod tests {
             drips_collision_dispatch_loc_33550(0x002C, false).contact_flag,
             1,
             "ASM Drips.asm loc_33550 maps `$2C` to d5=1 contact"
+        );
+    }
+
+    #[test]
+    fn drips_collision_table_first_contact_matches_loc_3356e() {
+        assert_eq!(
+            drips_collision_table_first_contact_loc_3356e(),
+            1,
+            "ASM Drips.asm loc_3356E dispatches the `$1C` collision slot to contact"
+        );
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0x001C, false),
+            DripsCollisionDispatchLoc33550 {
+                collision_type: 0,
+                contact_flag: 1,
+            },
+            "ASM Drips.asm loc_3356E is reached from loc_33550 after clearing `collision_type(a3)`"
         );
     }
 
