@@ -4919,6 +4919,14 @@ pub(crate) fn drips_surface_table_reset_loc_33506() -> (usize, u16) {
     (0, 0)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_sprite_write_loc_3350e(selected_sprite_offset: u16) -> u16 {
+    // ASM Drips.asm loc_3350E: write the selected `d7` word to
+    // `addroffset_sprite(a2)` for the surface child before returning to the
+    // dormant delay loop.
+    selected_sprite_offset
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -6091,6 +6099,20 @@ mod tests {
             drips_surface_table_reset_loc_33506(),
             (0, 0),
             "ASM Drips.asm loc_33506 reloads `a0` with `off_33520` and clears d7 before the surface child sprite write"
+        );
+    }
+
+    #[test]
+    fn drips_surface_sprite_write_matches_loc_3350e() {
+        assert_eq!(
+            drips_surface_sprite_write_loc_3350e(0x1234),
+            0x1234,
+            "ASM Drips.asm loc_3350E stores d7 unchanged into `addroffset_sprite(a2)`"
+        );
+        assert_eq!(
+            drips_surface_sprite_write_loc_3350e(0),
+            0,
+            "ASM Drips.asm loc_3350E also writes the zero sprite word produced by the table reset path"
         );
     }
 
