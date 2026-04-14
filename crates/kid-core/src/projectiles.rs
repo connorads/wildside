@@ -671,3 +671,57 @@ impl NativeRuntime {
         hit
     }
 }
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(clippy::manual_range_contains)]
+pub(crate) fn lion_projectile_bounce_velocities_loc_3e266(
+    x_velocity: i32,
+    y_velocity: i32,
+    terrain_collision_id: u16,
+) -> (i32, i32) {
+    // ASM Lion.asm loc_3E266: side collisions (right/left walls) negate `x_vel`,
+    // while floor/ceiling collisions (colid_floor/colid_ceiling) negate `y_vel`.
+    let mut x_velocity = x_velocity;
+    let mut y_velocity = y_velocity;
+
+    if terrain_collision_id == 0x04 || terrain_collision_id == 0x08 {
+        x_velocity = -x_velocity;
+    } else if terrain_collision_id == 0x0C || terrain_collision_id == 0x10 {
+        y_velocity = -y_velocity;
+    }
+
+    (x_velocity, y_velocity)
+}
+
+#[cfg(test)]
+mod loc_3e266_tests {
+    #[test]
+    fn loc_3e266_negates_x_velocity_on_wall_collision() {
+        let (x_velocity, y_velocity) =
+            super::lion_projectile_bounce_velocities_loc_3e266(0x2_0000, 0x1_0000, 0x0004);
+
+        assert_eq!(
+            x_velocity, -0x2_0000,
+            "ASM Lion.asm loc_3E266 should negate x_vel for colid_rightwall"
+        );
+        assert_eq!(
+            y_velocity, 0x1_0000,
+            "Other axis must remain untouched at loc_3E266"
+        );
+    }
+
+    #[test]
+    fn loc_3e266_negates_y_velocity_on_floor_collision() {
+        let (x_velocity, y_velocity) =
+            super::lion_projectile_bounce_velocities_loc_3e266(0x1_0000, 0x2_0000, 0x000C);
+
+        assert_eq!(
+            x_velocity, 0x1_0000,
+            "x_vel must remain unchanged for colid_floor at loc_3E266"
+        );
+        assert_eq!(
+            y_velocity, -0x2_0000,
+            "ASM Lion.asm loc_3E266 should negate y_vel for colid_floor"
+        );
+    }
+}
