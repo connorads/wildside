@@ -9020,6 +9020,31 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EB62 (kid.asm:18913): both no-block cells and block-flagged
+    /// non-`$A00` cells fall through to the scan-loop DBFs; only block-flagged
+    /// `$A00` cells branch away to the evanescent trigger path.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EB62_continues_the_scan_until_a_flagged_evanescent_cell() {
+        assert_eq!(
+            crate::level::evanescent_bullet_cell_scan_loc_EB62(0x6A00),
+            crate::level::EvanescentBulletCellScanLocEB62::Continue,
+            "ASM loc_EB62 should continue when `bclr #$F,d0` finds bit 15 already clear, even if the low type nibble is `$A`"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_cell_scan_loc_EB62(0xE800),
+            crate::level::EvanescentBulletCellScanLocEB62::Continue,
+            "ASM loc_EB62 should continue when the block flag is set but `andi.w #$F00,d0` is not `$A00`"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_cell_scan_loc_EB62(0xEA1D),
+            crate::level::EvanescentBulletCellScanLocEB62::TriggerEvanescentBlock,
+            "ASM loc_EB62 should not run for a block-flagged evanescent cell because loc_EB4C branches to loc_EB72 instead"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

@@ -889,6 +889,13 @@ pub(crate) struct EvanescentBulletScanHitLocEB48 {
     pub(crate) row: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EvanescentBulletCellScanLocEB62 {
+    Continue,
+    TriggerEvanescentBlock,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8399,6 +8406,25 @@ pub(crate) fn evanescent_bullet_scan_rows_loc_EB48(
     }
 
     None
+}
+
+/// ASM loc_EB62 (kid.asm:18913): after `bclr #$F,d0`, cells with no block
+/// flag and block-flagged cells whose masked type is not `$A00` both continue
+/// the inclusive column/row DBF scan instead of triggering an evanescent block.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_cell_scan_loc_EB62(
+    level_layout_word: u16,
+) -> EvanescentBulletCellScanLocEB62 {
+    if level_layout_word & 0x8000 == 0 {
+        return EvanescentBulletCellScanLocEB62::Continue;
+    }
+
+    if level_layout_word & 0x0F00 == 0x0A00 {
+        EvanescentBulletCellScanLocEB62::TriggerEvanescentBlock
+    } else {
+        EvanescentBulletCellScanLocEB62::Continue
+    }
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,
