@@ -421,6 +421,20 @@ pub(crate) struct SoundDriverWriteSubE133C {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverZ80HandshakeLocE136C {
+    pub(crate) bus_request_register: u32,
+    pub(crate) bus_latch_register: u32,
+    pub(crate) bus_status_register: u32,
+    pub(crate) requests_z80_bus: bool,
+    pub(crate) waits_for_bus_grant: bool,
+    pub(crate) latch_value: u8,
+    pub(crate) observed_status: u8,
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) delay_iterations: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SoundDriverUploadSubE13DA {
     pub(crate) source_relative_path: &'static str,
@@ -550,6 +564,27 @@ pub(crate) fn sound_driver_write_sub_E133C() -> SoundDriverWriteSubE133C {
     // ASM sub_E133C -> loc_E1576 (kid.asm:49508, 49847): enter the shared
     // Z80 write critical section, then return without queueing any command.
     SoundDriverWriteSubE133C { queued_bytes: [] }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_z80_handshake_loc_E136C(
+    status_byte: u8,
+) -> SoundDriverZ80HandshakeLocE136C {
+    // ASM loc_E136C (kid.asm:49540): after requesting `$A11100=$0100`, spin
+    // until bit 0 clears, write `1` to `$A01A20`, read `$A01A21`, release
+    // `$A11100`, and only burn the `$44` DBF delay when the read byte is non-zero.
+    SoundDriverZ80HandshakeLocE136C {
+        bus_request_register: 0xA11100,
+        bus_latch_register: 0xA01A20,
+        bus_status_register: 0xA01A21,
+        requests_z80_bus: true,
+        waits_for_bus_grant: true,
+        latch_value: 1,
+        observed_status: status_byte,
+        releases_z80_bus: true,
+        delay_iterations: if status_byte == 0 { 0 } else { 0x45 },
+    }
 }
 
 #[allow(non_snake_case)]

@@ -3567,6 +3567,43 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_E136C_z80_handshake_releases_bus_without_delay_when_status_is_zero() {
+        let handshake = sound_driver_z80_handshake_loc_E136C(0);
+
+        assert_eq!(
+            handshake,
+            SoundDriverZ80HandshakeLocE136C {
+                bus_request_register: 0xA11100,
+                bus_latch_register: 0xA01A20,
+                bus_status_register: 0xA01A21,
+                requests_z80_bus: true,
+                waits_for_bus_grant: true,
+                latch_value: 1,
+                observed_status: 0,
+                releases_z80_bus: true,
+                delay_iterations: 0,
+            },
+            "ASM loc_E136C should request the Z80 bus, poke `$A01A20`, read `$A01A21`, release the bus, and return immediately when the status byte is zero",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E136C_z80_handshake_runs_45_iteration_delay_for_nonzero_status() {
+        let handshake = sound_driver_z80_handshake_loc_E136C(0x80);
+
+        assert_eq!(
+            handshake.delay_iterations, 0x45,
+            "ASM loc_E136C seeds `d0=$44`, so the `dbf` delay lasts `$44+1` iterations when `$A01A21` is non-zero",
+        );
+        assert!(
+            handshake.releases_z80_bus,
+            "ASM loc_E136C should release `$A11100` before the optional delay loop",
+        );
+    }
+
+    #[test]
     fn sound_driver_upload_sub_e13da_copies_driver_and_zero_fills_z80_ram() {
         let source_root = unique_temp_path("sub-e13da-source");
         fs::create_dir_all(source_root.join("sound")).expect("sound dir should be creatable");
