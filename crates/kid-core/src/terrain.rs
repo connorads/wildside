@@ -811,6 +811,8 @@ impl BlockList {
     ) -> Option<&HiddenBlockEntry> {
         // ASM sub_E37A (kid.asm:17818) binary-searches the 8-byte hidden-block
         // list at `$FFFFF8EC` by the current Level_Layout address in `a2`.
+        // ASM loc_E38E (kid.asm:17831): after the stride seed, `a0` is the
+        // first entry, `a1` is one past `count*8`, and `a4` starts at `a0`.
         self.hidden_blocks
             .binary_search_by_key(&layout_addr, |entry| entry.layout_addr)
             .ok()
@@ -2931,6 +2933,53 @@ mod tests {
         assert_eq!(found.row, 1);
         assert_eq!(found.block_type, 0x04);
         assert_eq!(found.block_setting, 0x07);
+    }
+
+    #[test]
+    fn hidden_block_search_loc_e38e_seeds_first_entry_and_one_past_end() {
+        let bl = BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![
+                HiddenBlockEntry {
+                    layout_addr: 0x0010,
+                    col: 2,
+                    row: 0,
+                    block_type: 0x01,
+                    block_setting: 0x00,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0020,
+                    col: 4,
+                    row: 1,
+                    block_type: 0x04,
+                    block_setting: 0x07,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0030,
+                    col: 6,
+                    row: 2,
+                    block_type: 0x0C,
+                    block_setting: 0x02,
+                },
+            ],
+        };
+
+        let first = bl
+            .hidden_block_by_layout_addr_sub_E37A(0x0010)
+            .expect("ASM loc_E38E starts `a4` at the first hidden-block entry");
+        let last = bl
+            .hidden_block_by_layout_addr_sub_E37A(0x0030)
+            .expect("ASM loc_E38E computes `a1` as one past `count*8`, so the final entry remains searchable");
+
+        assert_eq!(first.col, 2);
+        assert_eq!(last.col, 6);
+        assert_eq!(
+            BlockList::hidden_block_search_initial_stride_bytes_loc_E386(3),
+            16,
+            "ASM loc_E38E receives the stride doubled once for a three-entry hidden-block list",
+        );
     }
 
     #[test]
