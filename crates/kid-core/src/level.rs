@@ -798,6 +798,15 @@ pub(crate) struct EvanescentObjectSpliceLocEA92 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EvanescentObjectFreeListPushLocEA98 {
+    pub(crate) first_free_slot_addr: u32,
+    pub(crate) should_continue_active_scan: bool,
+    pub(crate) next_active_slot_to_process_addr: u32,
+    pub(crate) slots: Vec<LinkedObjectSlotInit>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8106,6 +8115,31 @@ pub(crate) fn evanescent_object_splice_predecessor_loc_EA92(
     predecessor.next_slot_addr = target_next_slot_addr;
 
     Some(EvanescentObjectSpliceLocEA92 { slots })
+}
+
+/// ASM loc_EA98 (kid.asm:18812): push the removed evanescent object onto
+/// `Addr_NextFreeEvanescObjectSlot` by writing the old free-list head to
+/// `$A(a2)`, then continue active processing only when saved `d0` is non-zero.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_object_push_free_list_loc_EA98(
+    active_slots: &[LinkedObjectSlotInit],
+    target_slot_addr: u32,
+    first_free_slot_addr: u32,
+    saved_next_active_slot_addr: u32,
+) -> Option<EvanescentObjectFreeListPushLocEA98> {
+    let mut slots = active_slots.to_vec();
+    let target_slot = slots
+        .iter_mut()
+        .find(|slot| slot.slot_addr == target_slot_addr)?;
+    target_slot.next_slot_addr = first_free_slot_addr;
+
+    Some(EvanescentObjectFreeListPushLocEA98 {
+        first_free_slot_addr: target_slot_addr,
+        should_continue_active_scan: saved_next_active_slot_addr != 0,
+        next_active_slot_to_process_addr: saved_next_active_slot_addr,
+        slots,
+    })
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,

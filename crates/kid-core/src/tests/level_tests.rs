@@ -8681,6 +8681,72 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EA98 (kid.asm:18812): push `a2` onto the evanescent free list,
+    /// then use the previously saved `d0` link to decide whether active-list
+    /// processing continues.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EA98_pushes_removed_evanescent_slot_to_free_list() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBDA,
+                next_slot_addr: 0xFFFF_EBF2,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBE6,
+                next_slot_addr: 0xFFFF_EBF2,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBF2,
+                next_slot_addr: 0,
+            },
+        ];
+
+        let pushed = crate::level::evanescent_object_push_free_list_loc_EA98(
+            &active_slots,
+            0xFFFF_EBE6,
+            0xFFFF_EC10,
+            0xFFFF_EBF2,
+        )
+        .expect("ASM loc_EA98 should update the removed slot before making it the free-list head");
+
+        assert_eq!(
+            pushed,
+            crate::level::EvanescentObjectFreeListPushLocEA98 {
+                first_free_slot_addr: 0xFFFF_EBE6,
+                should_continue_active_scan: true,
+                next_active_slot_to_process_addr: 0xFFFF_EBF2,
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EBDA,
+                        next_slot_addr: 0xFFFF_EBF2,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EBE6,
+                        next_slot_addr: 0xFFFF_EC10,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EBF2,
+                        next_slot_addr: 0,
+                    },
+                ],
+            },
+            "ASM loc_EA98 should write the old free-list head into `$A(a2)`, make `a2` the free-list head, and keep scanning when saved `d0` is non-zero"
+        );
+
+        let terminal = crate::level::evanescent_object_push_free_list_loc_EA98(
+            &active_slots,
+            0xFFFF_EBF2,
+            0xFFFF_EC10,
+            0,
+        )
+        .expect("ASM loc_EA98 should also push the terminal active slot");
+        assert!(
+            !terminal.should_continue_active_scan,
+            "ASM loc_EA98 should stop active-list processing when saved `d0` is zero"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
