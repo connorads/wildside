@@ -9645,6 +9645,23 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F86A (kid.asm:20540): only the nibble in `$0F00` remains after
+    /// row-bit masking before ORing with packed X bits.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F86A_masks_the_row_upper_nybble_for_the_queue_word() {
+        assert_eq!(
+            crate::level::animated_solid_block_row_hi_bits_masked_loc_F86A(0x8A37),
+            0x0A00,
+            "ASM loc_F86A should clear everything except `$F00` from the shifted row"
+        );
+        assert_eq!(
+            crate::level::animated_solid_block_row_hi_bits_masked_loc_F86A(0x00FF),
+            0x0000,
+            "ASM loc_F86A should clear out lower bits and the top nibble when present"
+        );
+    }
+
     /// ASM loc_F85A (kid.asm:20528): each DBF iteration writes `$E304` to the
     /// current Level_Layout cell, queues VDP data only for visible rows, then
     /// advances by one row through `Level_width_tiles`.
