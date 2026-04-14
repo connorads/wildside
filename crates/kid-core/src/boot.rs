@@ -6794,7 +6794,11 @@ impl NativeRuntime {
                 return false;
             }
             PlayerLifecycle::GameOver { remaining_frames } => {
-                // ASM: "GAME OVER" display, then transition to continue screen or title.
+                // ASM loc_D25E (kid.asm:16472): after the "GAME OVER" text
+                // setup, `tst.w (Number_Continues).w; bne.w Continue_Screen`
+                // chooses the continue countdown when any continue remains;
+                // otherwise the no-continues hold waits, then returns to
+                // title via loc_D3F0.
                 if remaining_frames > 1 {
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: remaining_frames - 1,

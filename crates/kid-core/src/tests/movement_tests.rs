@@ -14730,4 +14730,26 @@ mod chunk_12 {
             "ASM loc_D17E clears the live Score longword after copying it to the EOL number object"
         );
     }
+
+    /// ASM loc_D25E (kid.asm:16472): `tst.w (Number_Continues).w` branches to
+    /// Continue_Screen only when a continue remains. With zero continues, the
+    /// no-continues path displays "GAME OVER", waits, and returns through
+    /// loc_D3F0 to the title boot state.
+    #[test]
+    fn loc_d25e_zero_continues_returns_to_title() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_continues = 0;
+        runtime.player_lifecycle = PlayerLifecycle::GameOver {
+            remaining_frames: 1,
+        };
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.boot_state,
+            BootState::TitleScreen { cursor: 0 },
+            "ASM loc_D25E zero-continues path should fall through to loc_D3F0 title return"
+        );
+    }
 }
