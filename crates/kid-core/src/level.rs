@@ -744,6 +744,15 @@ pub(crate) struct HiddenBlockRevealWorkerLocE096 {
     pub(crate) sprite_mapping: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockPrizeRevealScanTailLocE48E {
+    pub(crate) next_block_col: u16,
+    pub(crate) next_layout_word_addr: u16,
+    pub(crate) next_dbf_counter: u16,
+    pub(crate) loops_to_sub_e446: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -7878,6 +7887,28 @@ pub(crate) fn hidden_block_reveal_worker_loc_E096(
         layout_word_addr,
         sprite_tile_word,
         sprite_mapping,
+    }
+}
+
+/// ASM loc_E48E (kid.asm:17988): after either revealing a matching prize
+/// block or skipping a non-prize cell, advance to the same column in the next
+/// row by incrementing `d5`, adding `Level_width_tiles` to `a2`, and looping
+/// back to `sub_E446` while the DBF post-decrement counter has not reached
+/// `$FFFF`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_prize_reveal_scan_tail_loc_E48E(
+    block_col: u16,
+    layout_word_addr: u16,
+    level_width_tiles: u16,
+    dbf_counter: u16,
+) -> HiddenBlockPrizeRevealScanTailLocE48E {
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+    HiddenBlockPrizeRevealScanTailLocE48E {
+        next_block_col: block_col.wrapping_add(1),
+        next_layout_word_addr: layout_word_addr.wrapping_add(level_width_tiles),
+        next_dbf_counter,
+        loops_to_sub_e446: next_dbf_counter != 0xFFFF,
     }
 }
 

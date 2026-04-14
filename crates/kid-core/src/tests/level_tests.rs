@@ -7418,6 +7418,47 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E48E (kid.asm:17988): the prize-reveal scan tail always
+    /// advances `d5/a2`, then DBF loops back to `sub_E446` until `d6` reaches
+    /// `$FFFF` after decrement.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E48E_hidden_block_prize_reveal_scan_tail_advances_rows_until_dbf_exits() {
+        let continuing =
+            crate::level::hidden_block_prize_reveal_scan_tail_loc_E48E(0x0012, 0x03A6, 0x00F0, 2);
+        assert_eq!(
+            continuing.next_block_col, 0x0013,
+            "ASM loc_E48E should addq.w #1,d5 before the DBF test"
+        );
+        assert_eq!(
+            continuing.next_layout_word_addr, 0x0496,
+            "ASM loc_E48E should add Level_width_tiles to a2 without scaling it again"
+        );
+        assert_eq!(
+            continuing.next_dbf_counter, 1,
+            "ASM loc_E48E should DBF-decrement the scan counter after advancing the cursor"
+        );
+        assert!(
+            continuing.loops_to_sub_e446,
+            "ASM loc_E48E should branch back to sub_E446 while the DBF counter is not `$FFFF`"
+        );
+
+        let terminal =
+            crate::level::hidden_block_prize_reveal_scan_tail_loc_E48E(0xFFFF, 0xFFF0, 0x0020, 0);
+        assert_eq!(
+            terminal.next_block_col, 0,
+            "ASM loc_E48E uses word arithmetic, so d5 wraps on addq.w"
+        );
+        assert_eq!(
+            terminal.next_layout_word_addr, 0x0010,
+            "ASM loc_E48E uses word arithmetic when adding Level_width_tiles into a2"
+        );
+        assert!(
+            !terminal.loops_to_sub_e446,
+            "ASM loc_E48E should return once DBF decrements zero to `$FFFF`"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
