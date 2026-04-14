@@ -8826,6 +8826,58 @@ mod chunk_02 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_E03A_hidden_block_headbutt_requires_hidden_collision_nibble() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        // Solid ceiling cell at the same layout address as a hidden metadata
+        // entry. ASM loc_E03A must reject it because `(cell & $7000) != $2000`.
+        set_cell(&mut data, 2, 2, 0x60, 0x00);
+        for col in 0..6 {
+            set_cell(&mut data, col, 3, 0x60, 0x01);
+        }
+        runtime.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+        runtime.block_list = Some(terrain::BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![terrain::HiddenBlockEntry {
+                layout_addr: 0x001C,
+                col: 2,
+                row: 2,
+                block_type: 0x0A,
+                block_setting: 0x02,
+            }],
+        });
+        start_level(&mut runtime);
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 40 << 16;
+            slice.player.y_pos = 80 << 16;
+            slice.player.y_velocity = -0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+
+        let cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
+        assert_eq!(
+            cell,
+            terrain::Cell::from_be_bytes(0x60, 0x00),
+            "ASM loc_E03A should branch to loc_E23A unless the ceiling cell collision nibble is exactly `$2000`, even when hidden-block metadata exists for the layout address",
+        );
+    }
+
+    #[test]
     fn fifty_diamonds_grants_extra_life() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

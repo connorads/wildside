@@ -4258,8 +4258,10 @@ impl OpeningSliceState {
                 return;
             }
             let deferred_prize_ceiling_cell = deferred_prize_ceiling_phase.is_some();
-            // Hidden block reveal: headbutting a hidden block from below
-            // changes it to solid, making the block visible and functional.
+            // ASM loc_E03A (kid.asm:17373): hidden-block reveal starts only
+            // when the Level_Layout collision nibble is `$2000`; every other
+            // ceiling cell branches to `loc_E23A` without consulting the
+            // hidden-block metadata list.
             if !deferred_prize_ceiling_cell
                 && probe.cell.collision == terrain::CollisionKind::HiddenBlock
             {
