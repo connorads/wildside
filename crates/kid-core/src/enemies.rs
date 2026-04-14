@@ -3349,6 +3349,20 @@ pub(crate) fn mini_hopping_skull_left_ground_side_contact_loc_3ec90(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_left_hop_side_contact_loc_3ed14(
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3ED14: side contact during the left-hop
+    // windup tests `Berzerker_charging`; clear branches to loc_3ECFE's contact
+    // worker, set jumps to the skull kill path.
+    if berzerker_charging {
+        MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+    } else {
+        MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_damage_sequence_loc_3eb60(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
@@ -3489,11 +3503,7 @@ pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
         MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
-            if berzerker_charging {
-                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
-            } else {
-                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
-            }
+            mini_hopping_skull_left_hop_side_contact_loc_3ed14(berzerker_charging)
         }
         MINI_SKULL_COLID_GROUND_KIDBELOW => {
             MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
@@ -8115,6 +8125,20 @@ mod tests {
             ),
             MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
             "ASM Mini_Hopping_Skull.asm loc_3EC48 ignores unrecognised collision IDs during the left grounded wait loop"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_left_hop_side_contact_matches_loc_3ed14_berzerker_gate() {
+        assert_eq!(
+            mini_hopping_skull_left_hop_side_contact_loc_3ed14(false),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3ED14 should fall through to the contact worker when `Berzerker_charging` is clear"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_side_contact_loc_3ed14(true),
+            MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3ED14 should take the kill path while `Berzerker_charging` is set"
         );
     }
 
