@@ -5111,6 +5111,28 @@ pub(crate) fn drips_velocity_deltas_loc_33526(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsVelocityApplyLoc33546 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_velocity_apply_loc_33546(
+    x_velocity: i32,
+    y_velocity: i32,
+    x_delta: i32,
+    y_delta: i32,
+) -> DripsVelocityApplyLoc33546 {
+    // ASM Drips.asm loc_33546: add d7/d6 back into the object's x/y
+    // velocities as 32-bit values, preserving 68000 wrapping semantics.
+    DripsVelocityApplyLoc33546 {
+        x_velocity: x_velocity.wrapping_add(x_delta),
+        y_velocity: y_velocity.wrapping_add(y_delta),
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -6338,6 +6360,26 @@ mod tests {
                 y_delta: -0x0000_4000,
             },
             "ASM Drips.asm loc_33526 doubles d7/d6 with `add.l` when both child state bytes are set"
+        );
+    }
+
+    #[test]
+    fn drips_velocity_apply_matches_loc_33546_wrapping_adds() {
+        assert_eq!(
+            drips_velocity_apply_loc_33546(0x0000_3000, -0x0000_2000, 0x0000_6000, -0x0000_4000,),
+            DripsVelocityApplyLoc33546 {
+                x_velocity: 0x0000_9000,
+                y_velocity: -0x0000_6000,
+            },
+            "ASM Drips.asm loc_33546 adds d7/d6 directly into x_vel/y_vel"
+        );
+        assert_eq!(
+            drips_velocity_apply_loc_33546(i32::MAX, i32::MIN, 1, -1),
+            DripsVelocityApplyLoc33546 {
+                x_velocity: i32::MIN,
+                y_velocity: i32::MAX,
+            },
+            "ASM Drips.asm loc_33546 uses 32-bit `add.l`, so overflow wraps instead of saturating"
         );
     }
 
