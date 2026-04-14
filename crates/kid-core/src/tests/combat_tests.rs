@@ -6409,27 +6409,31 @@ mod chunk_03 {
         );
     }
 
-    /// ASM loc_DFEE (kid.asm:17338): the right edge is capped only after the
-    /// signed compare against `Level_width_blocks`, so equality with the level
-    /// width remains uncapped but strictly greater values become width-1.
+    /// ASM loc_E00E (kid.asm:17354): after the right edge is compared against
+    /// `Level_width_blocks`, the ROM subtracts the start column from `d1`; an
+    /// equal-width edge remains uncapped but a greater edge becomes width-1.
     #[test]
     #[allow(non_snake_case)]
-    fn loc_DFEE_hidden_block_jump_scan_preserves_equal_width_and_caps_greater_end() {
+    fn loc_E00E_hidden_block_jump_scan_preserves_equal_width_and_counts_after_cap() {
         let equal_width =
             hidden_block_jump_horizontal_scan_loc_DFEE(0x00F1, 0x0001, 0x0010, 0x0010);
         assert_eq!(
             equal_width.end_col, 0x0010,
-            "ASM loc_DFEE should leave d1 unchanged when it equals Level_width_blocks"
+            "ASM loc_E00E should receive unchanged d1 when it equals Level_width_blocks"
+        );
+        assert_eq!(
+            equal_width.block_count, 0x0001,
+            "ASM loc_E00E should subtract the start column after preserving the equal-width end column"
         );
 
         let past_width = hidden_block_jump_horizontal_scan_loc_DFEE(0x00F2, 0x0001, 0x0020, 0x0010);
         assert_eq!(
             past_width.end_col, 0x000F,
-            "ASM loc_DFEE should cap d1 to Level_width_blocks-1 only when d1 is greater"
+            "ASM loc_E00E should receive Level_width_blocks-1 when the shifted right edge is greater"
         );
         assert_eq!(
             past_width.block_count, 0,
-            "ASM loc_DFEE should compute the scan count after applying the right-edge cap"
+            "ASM loc_E00E should compute the scan count after applying the right-edge cap"
         );
     }
 

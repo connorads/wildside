@@ -1225,6 +1225,8 @@ pub(crate) fn hidden_block_jump_horizontal_scan_loc_DFEE(
         end_col = level_width_blocks.wrapping_sub(1);
     }
 
+    // ASM loc_E00E (kid.asm:17354): subtract the clamped start column from
+    // `d1`; the resulting inclusive count drives the hidden-block column loop.
     HiddenBlockJumpHorizontalScanLocDFEE {
         start_col,
         block_count: end_col.wrapping_sub(start_col),
