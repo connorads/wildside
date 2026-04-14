@@ -784,6 +784,25 @@ pub(crate) struct EvanescentShooterScanStartLocF1C8 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentShooterCandidateLocF1DE {
+    pub(crate) allocated_slot_addr: u32,
+    pub(crate) layout_word_addr: u32,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) direction_bits: u16,
+    pub(crate) direction_bits_after_up_shift: u16,
+    pub(crate) up_direction_set: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EvanescentShooterCellScanLocF1DE {
+    Continue,
+    QueueShooter(EvanescentShooterCandidateLocF1DE),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8356,6 +8375,36 @@ pub(crate) fn evanescent_shooter_scan_start_loc_F1C8(
         first_cell_layout_addr: row_base_layout_addr
             .wrapping_add(u32::from(first_cell_byte_offset)),
     }
+}
+
+/// ASM loc_F1DE (kid.asm:19775): scan only block-flagged shooter cells whose
+/// type bits are `$C00`; if the free-slot head is zero the scan continues.
+/// Otherwise the ROM pops that free slot, stores `(a1)`, `d3`, `d4`, and the
+/// low layout byte minus `$2D`, then shifts once to test the upward bit.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_shooter_cell_scan_loc_F1DE(
+    layout_word_addr: u32,
+    block_col: u16,
+    block_row: u16,
+    layout_word: u16,
+    next_free_slot_addr: u32,
+) -> EvanescentShooterCellScanLocF1DE {
+    if (layout_word & 0x0F00) != 0x0C00 || next_free_slot_addr == 0 {
+        return EvanescentShooterCellScanLocF1DE::Continue;
+    }
+
+    let direction_bits = (layout_word & 0x00FF).wrapping_sub(0x002D);
+
+    EvanescentShooterCellScanLocF1DE::QueueShooter(EvanescentShooterCandidateLocF1DE {
+        allocated_slot_addr: next_free_slot_addr,
+        layout_word_addr,
+        block_col,
+        block_row,
+        direction_bits,
+        direction_bits_after_up_shift: direction_bits >> 1,
+        up_direction_set: (direction_bits & 1) != 0,
+    })
 }
 
 #[allow(non_snake_case)]

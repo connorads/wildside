@@ -8747,6 +8747,53 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F1DE (kid.asm:19775): only `$C00` shooter cells with a free slot
+    /// are queued; the stored direction word is the low layout byte minus `$2D`,
+    /// and the first `lsr.w #1,d6` exposes the upward-neighbour carry.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F1DE_queues_only_shooter_cells_when_a_free_slot_exists() {
+        assert_eq!(
+            crate::level::evanescent_shooter_cell_scan_loc_F1DE(
+                0xFFFF_A646,
+                3,
+                7,
+                0xEB3C,
+                0xFFFF_E7F2,
+            ),
+            crate::level::EvanescentShooterCellScanLocF1DE::Continue,
+            "ASM loc_F1DE should continue when `andi.w #$F00,d6` is not `$C00`"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_shooter_cell_scan_loc_F1DE(0xFFFF_A646, 3, 7, 0xEC3C, 0,),
+            crate::level::EvanescentShooterCellScanLocF1DE::Continue,
+            "ASM loc_F1DE should continue without queueing when `Addr_NextFreeShooterObjectSlot` is zero"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_shooter_cell_scan_loc_F1DE(
+                0xFFFF_A646,
+                3,
+                7,
+                0xEC3C,
+                0xFFFF_E7F2,
+            ),
+            crate::level::EvanescentShooterCellScanLocF1DE::QueueShooter(
+                crate::level::EvanescentShooterCandidateLocF1DE {
+                    allocated_slot_addr: 0xFFFF_E7F2,
+                    layout_word_addr: 0xFFFF_A646,
+                    block_col: 3,
+                    block_row: 7,
+                    direction_bits: 0x000F,
+                    direction_bits_after_up_shift: 0x0007,
+                    up_direction_set: true,
+                },
+            ),
+            "ASM loc_F1DE should store `(low_byte-$2D)` in `$6(a3)`, then shift once before the loc_F224 right-neighbour check"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
