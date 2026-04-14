@@ -1625,6 +1625,8 @@ impl NativeRuntime {
         // ASM sub_F730 (kid.asm:20400): decrement the slot timer first, then
         // advance the visible-state word through the `0 -> $8001 -> $8002 ->
         // 3` and `n -> $8004 -> $8005 -> 0` countdown ladders.
+        // ASM loc_F76C (kid.asm:20421): if the decremented timer remains
+        // non-zero, branch to the loop tail without touching the state word.
         let decremented_timer = timer.wrapping_sub(1);
         if decremented_timer != 0 {
             return (decremented_timer, state);

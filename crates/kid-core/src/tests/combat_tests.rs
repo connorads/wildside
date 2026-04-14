@@ -8299,6 +8299,15 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_slot_tick_loc_f76c_only_decrements_live_timer_until_expiry() {
+        assert_eq!(
+            NativeRuntime::shooter_slot_tick_sub_F730(3, 0x8004, 4, 6),
+            (2, 0x8004),
+            "ASM loc_F76C should branch to the slot loop tail while the pre-decremented timer is non-zero",
+        );
+    }
+
+    #[test]
     fn shooter_slot_loc_f31c_loads_the_long_sleep_timer() {
         assert_eq!(
             NativeRuntime::shooter_slot_sleep_frames_loc_F31C(),
