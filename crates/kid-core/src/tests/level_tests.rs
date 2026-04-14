@@ -6872,6 +6872,41 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
+    /// one frame, subtracts `$11` from the fade progress word, decrements the
+    /// `d0` countdown, and only exits when the post-decrement value is zero.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DA30_end_credits_hundred_k_trip_steps_fade_countdown() {
+        let continuing = crate::level::end_credits_hundred_k_trip_fade_step_loc_DA30(0x0100, 2);
+        assert!(
+            continuing.hibernates_one_frame,
+            "ASM loc_DA30 should call j_Hibernate_Object_1Frame before stepping the fade"
+        );
+        assert_eq!(
+            continuing.fade_progress, 0x00EF,
+            "ASM loc_DA30 should subtract `$11` from `$FFFFF876` each frame"
+        );
+        assert_eq!(
+            continuing.countdown, 1,
+            "ASM loc_DA30 should decrement d0 after the fade-progress subtraction"
+        );
+        assert!(
+            !continuing.exits_to_loc_da4a,
+            "ASM loc_DA30 should fall through to loc_DA3E while the post-decrement d0 is non-zero"
+        );
+
+        let final_step = crate::level::end_credits_hundred_k_trip_fade_step_loc_DA30(0x0005, 1);
+        assert_eq!(
+            final_step.fade_progress, 0xFFF4,
+            "ASM loc_DA30 uses word subtraction, so the fade progress can wrap on the terminal frame"
+        );
+        assert!(
+            final_step.exits_to_loc_da4a,
+            "ASM loc_DA30 should branch to loc_DA4A when the post-decrement d0 is zero"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

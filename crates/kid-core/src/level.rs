@@ -11794,6 +11794,34 @@ pub(crate) fn end_credits_hundred_k_trip_palette_setup_loc_DA16(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndCreditsHundredKTripFadeStepLocDA30 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) fade_progress: u16,
+    pub(crate) countdown: u16,
+    pub(crate) exits_to_loc_da4a: bool,
+}
+
+/// ASM loc_DA30 (kid.asm:17070): each Hundred K Trip fade frame hibernates
+/// once, subtracts `$0011` from `$FFFFF876`, decrements `d0`, and exits to
+/// `loc_DA4A` only when the post-decrement `d0` is zero.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_hundred_k_trip_fade_step_loc_DA30(
+    fade_progress: u16,
+    countdown: u16,
+) -> EndCreditsHundredKTripFadeStepLocDA30 {
+    let fade_progress = fade_progress.wrapping_sub(0x0011);
+    let countdown = countdown.wrapping_sub(1);
+
+    EndCreditsHundredKTripFadeStepLocDA30 {
+        hibernates_one_frame: true,
+        fade_progress,
+        countdown,
+        exits_to_loc_da4a: countdown == 0,
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
