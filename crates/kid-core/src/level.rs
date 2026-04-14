@@ -927,6 +927,13 @@ pub(crate) struct EvanescentBulletDirectionLoadLocEC76 {
     pub(crate) stopped_on_empty_free_list: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletDirectionLoopTailLocEC9E {
+    pub(crate) next_direction_counter: u16,
+    pub(crate) loops_to_loc_ec76: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8538,6 +8545,21 @@ pub(crate) fn evanescent_bullet_direction_load_loc_EC76(
         loaded_slots,
         stopped_on_empty_free_list,
     })
+}
+
+/// ASM loc_EC9E (kid.asm:19143): after either a clear direction bit or a
+/// loaded shooter object, `dbf d4,loc_EC76` decrements the direction counter
+/// and loops while it has not wrapped to `$FFFF`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_direction_loop_tail_loc_EC9E(
+    direction_counter: u16,
+) -> EvanescentBulletDirectionLoopTailLocEC9E {
+    let next_direction_counter = direction_counter.wrapping_sub(1);
+    EvanescentBulletDirectionLoopTailLocEC9E {
+        next_direction_counter,
+        loops_to_loc_ec76: next_direction_counter != 0xFFFF,
+    }
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,

@@ -9201,6 +9201,31 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EC9E (kid.asm:19143): every visited direction, including clear
+    /// bits, reaches the `dbf` tail; the loop continues through directions
+    /// 3, 2, 1, 0 and exits only after the counter wraps to `$FFFF`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EC9E_direction_loop_tail_exits_after_direction_zero() {
+        assert_eq!(
+            crate::level::evanescent_bullet_direction_loop_tail_loc_EC9E(3),
+            crate::level::EvanescentBulletDirectionLoopTailLocEC9E {
+                next_direction_counter: 2,
+                loops_to_loc_ec76: true,
+            },
+            "ASM loc_EC9E should loop back to loc_EC76 after decrementing direction 3 to 2"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_direction_loop_tail_loc_EC9E(0),
+            crate::level::EvanescentBulletDirectionLoopTailLocEC9E {
+                next_direction_counter: 0xFFFF,
+                loops_to_loc_ec76: false,
+            },
+            "ASM loc_EC9E should exit once DBF decrements direction 0 to `$FFFF`"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
