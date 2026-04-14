@@ -8984,6 +8984,24 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EB3E (kid.asm:18894): clamped horizontal pixel edges are shifted
+    /// into tile columns, the inclusive width seeds `d2`, and the doubled left
+    /// column advances `a0` into the first scanned cell.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EB3E_converts_clamped_horizontal_pixels_to_columns_and_row_offset() {
+        assert_eq!(
+            crate::level::evanescent_bullet_horizontal_columns_loc_EB3E(0x001F, 0x0040),
+            crate::level::EvanescentBulletHorizontalColumnsLocEB3E {
+                left_col: 1,
+                right_col: 4,
+                col_dbf_counter: 3,
+                first_cell_byte_offset: 2,
+            },
+            "ASM loc_EB3E should divide both clamped pixel edges by 16, subtract left from right for the DBF counter, and double left before adding it into a0"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

@@ -873,6 +873,15 @@ pub(crate) struct EvanescentBulletRightClampLocEB2A {
     pub(crate) right_px: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletHorizontalColumnsLocEB3E {
+    pub(crate) left_col: u16,
+    pub(crate) right_col: u16,
+    pub(crate) col_dbf_counter: u16,
+    pub(crate) first_cell_byte_offset: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8254,12 +8263,14 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
             .right_px,
     );
 
-    let left_col = u16::try_from(left_px >> 4).expect("clamped left col should fit in u16");
-    let right_col = u16::try_from(right_px >> 4).expect("clamped right col should fit in u16");
+    let horizontal_columns = evanescent_bullet_horizontal_columns_loc_EB3E(
+        u16::try_from(left_px).expect("clamped left pixel should fit in u16"),
+        u16::try_from(right_px).expect("clamped right pixel should fit in u16"),
+    );
 
     let mut found_evanescent_block = false;
     for row in vertical_rows.top_row..=vertical_rows.bottom_row {
-        for col in left_col..=right_col {
+        for col in horizontal_columns.left_col..=horizontal_columns.right_col {
             let cell = grid.cell_at(col, row);
             if cell.has_block && cell.block_type == terrain::BlockType::Evanescent {
                 found_evanescent_block = true;
@@ -8274,10 +8285,10 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
     EvanescentBulletHitboxScanLocEAE4::Scan {
         top_row: vertical_rows.top_row,
         bottom_row: vertical_rows.bottom_row,
-        left_col,
-        right_col,
+        left_col: horizontal_columns.left_col,
+        right_col: horizontal_columns.right_col,
         row_dbf_counter: vertical_rows.row_dbf_counter,
-        col_dbf_counter: right_col.wrapping_sub(left_col),
+        col_dbf_counter: horizontal_columns.col_dbf_counter,
         found_evanescent_block,
     }
 }
@@ -8336,6 +8347,27 @@ pub(crate) fn evanescent_bullet_right_clamp_loc_EB2A(
         } else {
             level_width_pixels.saturating_sub(1)
         },
+    }
+}
+
+/// ASM loc_EB3E (kid.asm:18894): arithmetic-shift the clamped left and right
+/// pixel edges by four to get tile columns, subtract left from right for the
+/// inclusive DBF column counter, then double the left column before adding it
+/// into the current row pointer.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_horizontal_columns_loc_EB3E(
+    left_px: u16,
+    right_px: u16,
+) -> EvanescentBulletHorizontalColumnsLocEB3E {
+    let left_col = left_px >> 4;
+    let right_col = right_px >> 4;
+
+    EvanescentBulletHorizontalColumnsLocEB3E {
+        left_col,
+        right_col,
+        col_dbf_counter: right_col.wrapping_sub(left_col),
+        first_cell_byte_offset: left_col.wrapping_mul(2),
     }
 }
 
