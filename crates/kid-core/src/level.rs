@@ -905,6 +905,28 @@ pub(crate) struct EvanescentBulletLoadCandidateLocEC52 {
     pub(crate) direction_bits: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LoadedShooterObjectLocEC76 {
+    pub(crate) slot_addr: u32,
+    pub(crate) layout_word_addr: u16,
+    pub(crate) block_x_px: u16,
+    pub(crate) block_y_px: u16,
+    pub(crate) direction: u16,
+    pub(crate) state: u16,
+    pub(crate) next_active_slot_addr: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletDirectionLoadLocEC76 {
+    pub(crate) next_free_shooter_object_slot_addr: u32,
+    pub(crate) first_shooter_object_slot_addr: u32,
+    pub(crate) shooter_slots: Vec<LinkedObjectSlotInit>,
+    pub(crate) loaded_slots: Vec<LoadedShooterObjectLocEC76>,
+    pub(crate) stopped_on_empty_free_list: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8458,6 +8480,63 @@ pub(crate) fn evanescent_bullet_load_candidate_loc_EC52(
         block_x_px: block_col.wrapping_mul(16).wrapping_add(8),
         block_y_px: block_row.wrapping_mul(16).wrapping_add(8),
         direction_bits,
+    })
+}
+
+/// ASM loc_EC76 (kid.asm:19127): test evanescent direction bits from `d4=3`
+/// down to zero. Each set bit pops one shooter slot from
+/// `Addr_NextFreeShooterObjectSlot`, pushes it to `Addr_FirstShooterObjectSlot`,
+/// copies source layout/x/y/direction words, writes state `$FFFE`, and exits
+/// early when the free-list head is zero.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_direction_load_loc_EC76(
+    candidate: EvanescentBulletLoadCandidateLocEC52,
+    free_slots: &[LinkedObjectSlotInit],
+    next_free_shooter_object_slot_addr: u32,
+    first_shooter_object_slot_addr: u32,
+) -> Option<EvanescentBulletDirectionLoadLocEC76> {
+    let mut shooter_slots = free_slots.to_vec();
+    let mut next_free_slot_addr = next_free_shooter_object_slot_addr;
+    let mut first_active_slot_addr = first_shooter_object_slot_addr;
+    let mut loaded_slots = Vec::new();
+    let mut stopped_on_empty_free_list = false;
+
+    for direction in (0u16..=3).rev() {
+        if candidate.direction_bits & (1u16 << direction) == 0 {
+            continue;
+        }
+
+        if next_free_slot_addr == 0 {
+            stopped_on_empty_free_list = true;
+            break;
+        }
+
+        let slot_index = shooter_slots
+            .iter()
+            .position(|slot| slot.slot_addr == next_free_slot_addr)?;
+        let loaded_slot_addr = shooter_slots[slot_index].slot_addr;
+        next_free_slot_addr = shooter_slots[slot_index].next_slot_addr;
+        shooter_slots[slot_index].next_slot_addr = first_active_slot_addr;
+
+        loaded_slots.push(LoadedShooterObjectLocEC76 {
+            slot_addr: loaded_slot_addr,
+            layout_word_addr: candidate.layout_word_addr,
+            block_x_px: candidate.block_x_px,
+            block_y_px: candidate.block_y_px,
+            direction,
+            state: 0xFFFE,
+            next_active_slot_addr: first_active_slot_addr,
+        });
+        first_active_slot_addr = loaded_slot_addr;
+    }
+
+    Some(EvanescentBulletDirectionLoadLocEC76 {
+        next_free_shooter_object_slot_addr: next_free_slot_addr,
+        first_shooter_object_slot_addr: first_active_slot_addr,
+        shooter_slots,
+        loaded_slots,
+        stopped_on_empty_free_list,
     })
 }
 

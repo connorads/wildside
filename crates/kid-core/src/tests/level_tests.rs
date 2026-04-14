@@ -9069,6 +9069,138 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EC76 (kid.asm:19127): direction bits are tested from 3 down to
+    /// 0; each set bit consumes the current free shooter slot, pushes it to the
+    /// active-list head, and initialises state `$FFFE`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EC76_loads_direction_bits_from_high_to_low_and_pushes_active_head() {
+        let candidate = crate::level::EvanescentBulletLoadCandidateLocEC52 {
+            layout_word_addr: 0x04A6,
+            block_x_px: 120,
+            block_y_px: 200,
+            direction_bits: 0b1011,
+        };
+        let free_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E9FA,
+                next_slot_addr: 0xFFFF_EA06,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EA06,
+                next_slot_addr: 0xFFFF_EA12,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EA12,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::evanescent_bullet_direction_load_loc_EC76(
+                candidate,
+                &free_slots,
+                0xFFFF_E9FA,
+                0xFFFF_EB00,
+            ),
+            Some(crate::level::EvanescentBulletDirectionLoadLocEC76 {
+                next_free_shooter_object_slot_addr: 0,
+                first_shooter_object_slot_addr: 0xFFFF_EA12,
+                shooter_slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E9FA,
+                        next_slot_addr: 0xFFFF_EB00,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EA06,
+                        next_slot_addr: 0xFFFF_E9FA,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EA12,
+                        next_slot_addr: 0xFFFF_EA06,
+                    },
+                ],
+                loaded_slots: vec![
+                    crate::level::LoadedShooterObjectLocEC76 {
+                        slot_addr: 0xFFFF_E9FA,
+                        layout_word_addr: 0x04A6,
+                        block_x_px: 120,
+                        block_y_px: 200,
+                        direction: 3,
+                        state: 0xFFFE,
+                        next_active_slot_addr: 0xFFFF_EB00,
+                    },
+                    crate::level::LoadedShooterObjectLocEC76 {
+                        slot_addr: 0xFFFF_EA06,
+                        layout_word_addr: 0x04A6,
+                        block_x_px: 120,
+                        block_y_px: 200,
+                        direction: 1,
+                        state: 0xFFFE,
+                        next_active_slot_addr: 0xFFFF_E9FA,
+                    },
+                    crate::level::LoadedShooterObjectLocEC76 {
+                        slot_addr: 0xFFFF_EA12,
+                        layout_word_addr: 0x04A6,
+                        block_x_px: 120,
+                        block_y_px: 200,
+                        direction: 0,
+                        state: 0xFFFE,
+                        next_active_slot_addr: 0xFFFF_EA06,
+                    },
+                ],
+                stopped_on_empty_free_list: false,
+            }),
+            "ASM loc_EC76 should visit bits 3, 1, then 0 for mask `%1011`, and each loaded slot should point at the previous active-list head"
+        );
+    }
+
+    /// ASM loc_EC76 (kid.asm:19127): when a set direction bit finds
+    /// `Addr_NextFreeShooterObjectSlot` zero, the ROM branches to `loc_ECA2`
+    /// immediately instead of checking lower direction bits.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EC76_stops_when_a_set_direction_finds_no_free_shooter_slot() {
+        let candidate = crate::level::EvanescentBulletLoadCandidateLocEC52 {
+            layout_word_addr: 0x04A6,
+            block_x_px: 120,
+            block_y_px: 200,
+            direction_bits: 0b1011,
+        };
+        let free_slots = [crate::level::LinkedObjectSlotInit {
+            slot_addr: 0xFFFF_E9FA,
+            next_slot_addr: 0,
+        }];
+
+        assert_eq!(
+            crate::level::evanescent_bullet_direction_load_loc_EC76(
+                candidate,
+                &free_slots,
+                0xFFFF_E9FA,
+                0,
+            ),
+            Some(crate::level::EvanescentBulletDirectionLoadLocEC76 {
+                next_free_shooter_object_slot_addr: 0,
+                first_shooter_object_slot_addr: 0xFFFF_E9FA,
+                shooter_slots: vec![crate::level::LinkedObjectSlotInit {
+                    slot_addr: 0xFFFF_E9FA,
+                    next_slot_addr: 0,
+                }],
+                loaded_slots: vec![crate::level::LoadedShooterObjectLocEC76 {
+                    slot_addr: 0xFFFF_E9FA,
+                    layout_word_addr: 0x04A6,
+                    block_x_px: 120,
+                    block_y_px: 200,
+                    direction: 3,
+                    state: 0xFFFE,
+                    next_active_slot_addr: 0,
+                }],
+                stopped_on_empty_free_list: true,
+            }),
+            "ASM loc_EC76 should load direction 3, then stop at direction 1 when the free-list head has become zero"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
