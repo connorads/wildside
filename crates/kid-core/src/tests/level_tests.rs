@@ -8632,6 +8632,55 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EA92 (kid.asm:18809): the predecessor found in `a0` receives
+    /// the removed evanescent object's saved `$A(a2)` successor.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EA92_splices_predecessor_over_removed_evanescent_slot() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBDA,
+                next_slot_addr: 0xFFFF_EBE6,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBE6,
+                next_slot_addr: 0xFFFF_EBF2,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBF2,
+                next_slot_addr: 0,
+            },
+        ];
+
+        let spliced = crate::level::evanescent_object_splice_predecessor_loc_EA92(
+            &active_slots,
+            0xFFFF_EBDA,
+            0xFFFF_EBE6,
+        )
+        .expect("ASM loc_EA92 should have both predecessor and target slots");
+
+        assert_eq!(
+            spliced,
+            crate::level::EvanescentObjectSpliceLocEA92 {
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EBDA,
+                        next_slot_addr: 0xFFFF_EBF2,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EBE6,
+                        next_slot_addr: 0xFFFF_EBF2,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EBF2,
+                        next_slot_addr: 0,
+                    },
+                ],
+            },
+            "ASM loc_EA92 should only copy `$A(a2)` into `$A(a0)`; the removed slot keeps its old link until the free-list push"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
