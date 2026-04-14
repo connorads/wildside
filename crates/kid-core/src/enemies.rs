@@ -5978,6 +5978,37 @@ pub(crate) fn drips_surface_crawler_init_loc_335d8(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsSurfaceCrawlerAnimationTailLoc33630 {
+    pub(crate) first_animation: &'static str,
+    pub(crate) second_animation: &'static str,
+    pub(crate) is_moved_set: bool,
+    pub(crate) deltas: DripsVelocityDeltasLoc33526,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_animation_tail_loc_33630(
+    child_byte_44: u8,
+    child_byte_45: u8,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> DripsSurfaceCrawlerAnimationTailLoc33630 {
+    // ASM Drips.asm loc_33630: run `stru_33FA6`, wait, run `stru_33F14`,
+    // set `is_moved`, and then apply Drips velocity deltas via loc_33526.
+    DripsSurfaceCrawlerAnimationTailLoc33630 {
+        first_animation: "stru_33FA6",
+        second_animation: "stru_33F14",
+        is_moved_set: true,
+        deltas: drips_velocity_deltas_loc_33526(
+            child_byte_44,
+            child_byte_45,
+            x_velocity,
+            y_velocity,
+        ),
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -7781,6 +7812,36 @@ mod tests {
                 startup_animation: "stru_33FA6",
             },
             "ASM Drips.asm loc_335D8 copies parent `$44/$45`, flips x_direction, and negates x_vel when `bclr #2,d7` finds the bit set"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_animation_tail_matches_loc_33630() {
+        assert_eq!(
+            drips_surface_crawler_animation_tail_loc_33630(1, 0, 0x0000_3000, -0x0000_2000),
+            DripsSurfaceCrawlerAnimationTailLoc33630 {
+                first_animation: "stru_33FA6",
+                second_animation: "stru_33F14",
+                is_moved_set: true,
+                deltas: DripsVelocityDeltasLoc33526 {
+                    x_delta: 0x0000_3000,
+                    y_delta: -0x0000_2000,
+                },
+            },
+            "ASM Drips.asm loc_33630 runs both animations, sets `is_moved`, and tails through loc_33526"
+        );
+        assert_eq!(
+            drips_surface_crawler_animation_tail_loc_33630(1, 1, 0x0000_3000, -0x0000_2000),
+            DripsSurfaceCrawlerAnimationTailLoc33630 {
+                first_animation: "stru_33FA6",
+                second_animation: "stru_33F14",
+                is_moved_set: true,
+                deltas: DripsVelocityDeltasLoc33526 {
+                    x_delta: 0x0000_6000,
+                    y_delta: -0x0000_4000,
+                },
+            },
+            "ASM Drips.asm loc_33630 tails through loc_33526 with double-delta child gating"
         );
     }
 
