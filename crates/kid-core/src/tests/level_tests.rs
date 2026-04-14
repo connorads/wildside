@@ -7716,6 +7716,31 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E936 (kid.asm:18653): after the middle run, the wide hard beam
+    /// writes one final size-`$0C` sprite at the current `d1` with tile
+    /// `$968E|d4` and the next link byte.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E936_writes_wide_hard_beam_tail_cap() {
+        let tail = crate::level::eyeclops_hard_beam_wide_tail_loc_E936(0x008C, 10, 0x0130, 0x0800);
+
+        assert_eq!(
+            tail.tail_sprite,
+            crate::level::LevelSpriteStripEntryLocE692 {
+                y_pos: 0x008C,
+                size: 0x0C,
+                link: 11,
+                tile_word: 0x9E8E,
+                x_pos: 0x0130,
+            },
+            "ASM loc_E936 should write y, size `$0C`, incremented link, `$968E|d4`, and x into the tail sprite slot"
+        );
+        assert_eq!(
+            tail.next_link, 11,
+            "ASM loc_E936 should leave d2 at the link byte written into the tail sprite"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

@@ -12977,6 +12977,37 @@ pub(crate) fn eyeclops_hard_beam_wide_middle_loc_E902(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsHardBeamWideTailLocE936 {
+    pub(crate) tail_sprite: LevelSpriteStripEntryLocE692,
+    pub(crate) next_link: u8,
+}
+
+/// ASM loc_E936 (kid.asm:18653): the wide hard-beam strip always finishes at
+/// the current `d1` with one size-`$0C` tail cap using tile `$968E | d4` and
+/// the next sprite-table link.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_wide_tail_loc_E936(
+    y_pos: i16,
+    link: u8,
+    sprite_x: i16,
+    tile_attr_mask: u16,
+) -> EyeclopsHardBeamWideTailLocE936 {
+    let next_link = link.wrapping_add(1);
+
+    EyeclopsHardBeamWideTailLocE936 {
+        tail_sprite: LevelSpriteStripEntryLocE692 {
+            y_pos,
+            size: 0x0C,
+            link: next_link,
+            tile_word: 0x968E | tile_attr_mask,
+            x_pos: sprite_x,
+        },
+        next_link,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
