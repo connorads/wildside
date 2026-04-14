@@ -8210,6 +8210,104 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EB0 (kid.asm:1730): after `loc_EA2` finds the predecessor link,
+    /// the ROM splices `0(a5)` over the removed object, pushes `a5` onto the
+    /// object free list, decrements `Number_Objects`, and deallocates each
+    /// non-null gfx child at `$36/$3A/$3E`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EB0_splices_the_target_object_to_the_free_list_and_releases_gfx_children() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0DA0,
+                next_slot_addr: 0xFFFF_0E14,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0E14,
+                next_slot_addr: 0xFFFF_0E88,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0E88,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::deallocate_object_slot_body_loc_EB0(
+                &active_slots,
+                0xFFFF_0E14,
+                0xFFFF_0EFC,
+                3,
+                [Some(0xFFFF_2448), None, Some(0xFFFF_24E0)],
+            ),
+            Some(crate::level::DeallocatedObjectSlotLocEB0 {
+                first_active_slot_addr: 0xFFFF_0DA0,
+                first_free_slot_addr: 0xFFFF_0E14,
+                number_objects: 2,
+                current_object_addr_after_return: 0xFFFF_0DA0,
+                deallocated_gfx_object_addrs: vec![0xFFFF_2448, 0xFFFF_24E0],
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_0DA0,
+                        next_slot_addr: 0xFFFF_0E88,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_0E14,
+                        next_slot_addr: 0xFFFF_0EFC,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_0E88,
+                        next_slot_addr: 0,
+                    },
+                ],
+            }),
+            "ASM loc_EB0 should copy the removed object's successor into the predecessor link, then reuse the removed object's link for the old free-list head"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EB0_handles_head_object_removal_through_the_first_object_sentinel() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0DA0,
+                next_slot_addr: 0xFFFF_0E14,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0E14,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::deallocate_object_slot_body_loc_EB0(
+                &active_slots,
+                0xFFFF_0DA0,
+                0,
+                1,
+                [None, None, None],
+            ),
+            Some(crate::level::DeallocatedObjectSlotLocEB0 {
+                first_active_slot_addr: 0xFFFF_0E14,
+                first_free_slot_addr: 0xFFFF_0DA0,
+                number_objects: 0,
+                current_object_addr_after_return: 0xFFFF_F842,
+                deallocated_gfx_object_addrs: vec![],
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_0DA0,
+                        next_slot_addr: 0,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_0E14,
+                        next_slot_addr: 0,
+                    },
+                ],
+            }),
+            "ASM loc_EB0 should let the Addr_FirstObjectSlot sentinel act as the predecessor when the head object is removed"
+        );
+    }
+
     /// ASM loc_DF30 (kid.asm:17258): the combined evanescent/shooter init seeds
     /// `d0=$12`, so the inclusive DBF loop links 19 evanescent slots, clears
     /// the 20th slot's link word, and clears `Addr_FirstEvanescObjectSlot`.

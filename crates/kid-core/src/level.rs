@@ -691,6 +691,17 @@ pub(crate) struct DeallocateObjectSlotPredecessorLocEA2 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DeallocatedObjectSlotLocEB0 {
+    pub(crate) first_active_slot_addr: u32,
+    pub(crate) first_free_slot_addr: u32,
+    pub(crate) number_objects: u16,
+    pub(crate) current_object_addr_after_return: u32,
+    pub(crate) deallocated_gfx_object_addrs: Vec<u32>,
+    pub(crate) slots: Vec<LinkedObjectSlotInit>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescShooterObjectSlotsSubEABC {
     pub(crate) next_free_evanescent_object_slot_addr: u32,
     pub(crate) first_evanescent_object_slot_addr: u32,
@@ -8350,6 +8361,49 @@ pub(crate) fn deallocate_object_slot_predecessor_loc_EA2(
     }
 
     None
+}
+
+/// ASM loc_EB0 (kid.asm:1730): splice the current object in `a5` out of
+/// `Addr_FirstObjectSlot`, push it onto `Addr_NextFreeObjectSlot`, decrement
+/// `Number_Objects`, deallocate each non-null gfx child at `$36/$3A/$3E`, and
+/// resume with `a5` set to the predecessor link address in `a0`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn deallocate_object_slot_body_loc_EB0(
+    active_slots: &[LinkedObjectSlotInit],
+    target_slot_addr: u32,
+    first_free_slot_addr: u32,
+    number_objects: u16,
+    gfx_child_slot_addrs: [Option<u32>; 3],
+) -> Option<DeallocatedObjectSlotLocEB0> {
+    let target_index = active_slots
+        .iter()
+        .position(|slot| slot.slot_addr == target_slot_addr)?;
+    let predecessor = deallocate_object_slot_predecessor_loc_EA2(active_slots, target_slot_addr)?;
+    let mut slots = active_slots.to_vec();
+    let target_next_slot_addr = slots[target_index].next_slot_addr;
+
+    if predecessor.predecessor_link_addr != 0xFFFF_F842 {
+        let predecessor_slot = slots
+            .iter_mut()
+            .find(|slot| slot.slot_addr == predecessor.predecessor_link_addr)?;
+        predecessor_slot.next_slot_addr = target_next_slot_addr;
+    }
+
+    slots[target_index].next_slot_addr = first_free_slot_addr;
+
+    Some(DeallocatedObjectSlotLocEB0 {
+        first_active_slot_addr: if predecessor.predecessor_link_addr == 0xFFFF_F842 {
+            target_next_slot_addr
+        } else {
+            active_slots.first().map_or(0, |slot| slot.slot_addr)
+        },
+        first_free_slot_addr: target_slot_addr,
+        number_objects: number_objects.wrapping_sub(1),
+        current_object_addr_after_return: predecessor.predecessor_link_addr,
+        deallocated_gfx_object_addrs: gfx_child_slot_addrs.into_iter().flatten().collect(),
+        slots,
+    })
 }
 
 #[allow(non_snake_case)]
