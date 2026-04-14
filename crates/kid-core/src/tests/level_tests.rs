@@ -9002,6 +9002,24 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EB48 (kid.asm:18901): each outer-row iteration reloads `d3`
+    /// from `d2` and `a1` from `a0`, so later rows rescan from the left column
+    /// instead of continuing from the previous row's post-incremented pointer.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EB48_resets_the_inner_scan_for_each_hitbox_row() {
+        let mut data = vec![0; 4 * 3 * 2];
+        let evanescent_offset = ((4 + 1) * 2) as usize;
+        data[evanescent_offset] = 0xEA;
+        let grid = terrain::BlockGrid::from_level_layout(&data, 4, 3);
+
+        assert_eq!(
+            crate::level::evanescent_bullet_scan_rows_loc_EB48(&grid, 0, 1, 1, 1),
+            Some(crate::level::EvanescentBulletScanHitLocEB48 { col: 1, row: 1 }),
+            "ASM loc_EB48 should restart the inner scan from the left column on the second row before loc_EB4C tests bit 15 and block type `$A`"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

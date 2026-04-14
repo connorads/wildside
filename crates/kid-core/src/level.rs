@@ -882,6 +882,13 @@ pub(crate) struct EvanescentBulletHorizontalColumnsLocEB3E {
     pub(crate) first_cell_byte_offset: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletScanHitLocEB48 {
+    pub(crate) col: u16,
+    pub(crate) row: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8268,19 +8275,14 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
         u16::try_from(right_px).expect("clamped right pixel should fit in u16"),
     );
 
-    let mut found_evanescent_block = false;
-    for row in vertical_rows.top_row..=vertical_rows.bottom_row {
-        for col in horizontal_columns.left_col..=horizontal_columns.right_col {
-            let cell = grid.cell_at(col, row);
-            if cell.has_block && cell.block_type == terrain::BlockType::Evanescent {
-                found_evanescent_block = true;
-                break;
-            }
-        }
-        if found_evanescent_block {
-            break;
-        }
-    }
+    let found_evanescent_block = evanescent_bullet_scan_rows_loc_EB48(
+        grid,
+        vertical_rows.top_row,
+        vertical_rows.row_dbf_counter,
+        horizontal_columns.left_col,
+        horizontal_columns.col_dbf_counter,
+    )
+    .is_some();
 
     EvanescentBulletHitboxScanLocEAE4::Scan {
         top_row: vertical_rows.top_row,
@@ -8369,6 +8371,34 @@ pub(crate) fn evanescent_bullet_horizontal_columns_loc_EB3E(
         col_dbf_counter: right_col.wrapping_sub(left_col),
         first_cell_byte_offset: left_col.wrapping_mul(2),
     }
+}
+
+/// ASM loc_EB48 (kid.asm:18901): at the start of each scanned row, copy the
+/// horizontal DBF counter from `d2` to `d3` and the row pointer from `a0` to
+/// `a1`, so every row starts at the same left column before `loc_EB4C` walks
+/// rightward through the inclusive column span.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_scan_rows_loc_EB48(
+    grid: &terrain::BlockGrid,
+    top_row: u16,
+    row_dbf_counter: u16,
+    left_col: u16,
+    col_dbf_counter: u16,
+) -> Option<EvanescentBulletScanHitLocEB48> {
+    for row_delta in 0..=row_dbf_counter {
+        let row = top_row.wrapping_add(row_delta);
+        // ASM loc_EB48: `move.w d2,d3; move.w a0,a1` resets the inner scan.
+        for col_delta in 0..=col_dbf_counter {
+            let col = left_col.wrapping_add(col_delta);
+            let cell = grid.cell_at(col, row);
+            if cell.has_block && cell.block_type == terrain::BlockType::Evanescent {
+                return Some(EvanescentBulletScanHitLocEB48 { col, row });
+            }
+        }
+    }
+
+    None
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,
