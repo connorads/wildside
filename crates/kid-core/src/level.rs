@@ -11500,6 +11500,17 @@ pub(crate) const GAME_OVER_PALETTE_BACKUP_COUNT_LOC_D142: u16 = 0x1F;
 #[allow(dead_code)]
 pub(crate) const GAME_OVER_PALETTE_CLEAR_COUNT_LOC_D150: u16 = 0x1F;
 
+/// ASM loc_D718 (kid.asm:16825): end-of-level title-return palette backup loop.
+/// `moveq #$1F,d0; lea (Palette_Buffer).l,a0; lea (Palette_Buffer_2).l,a1;
+/// loc_D718: move.l (a0)+,(a1)+; dbf d0,loc_D718`.
+/// Copies 32 longwords (64 words = 128 bytes) from `Palette_Buffer` to
+/// `Palette_Buffer_2` before the fade target buffer is cleared.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eol_title_return_palette_backup_loc_D718(palette_buffer: [u16; 0x40]) -> [u16; 0x40] {
+    palette_buffer
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {

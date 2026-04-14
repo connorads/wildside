@@ -6354,6 +6354,27 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D718 (kid.asm:16825): after the EOL bonus tally, the title-return
+    /// fade backs up `Palette_Buffer` into `Palette_Buffer_2` via 32 longword
+    /// copies, preserving the complete 128-byte CRAM staging buffer.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D718_eol_title_return_backs_up_the_full_palette() {
+        let palette_buffer = core::array::from_fn(|index| 0x0100_u16.wrapping_add(index as u16));
+
+        let palette_buffer_2 =
+            crate::level::eol_title_return_palette_backup_loc_D718(palette_buffer);
+
+        assert_eq!(
+            palette_buffer_2, palette_buffer,
+            "ASM loc_D718 should copy all 64 palette words through the 32-longword DBF loop"
+        );
+        assert_eq!(
+            palette_buffer_2[0x3F], palette_buffer[0x3F],
+            "ASM loc_D718 must include the final palette word before the fade target clear"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
