@@ -7291,6 +7291,40 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E7AC (kid.asm:18483): the hard-beam branch clears bit 15 from
+    /// `d7`. If any low bit remains, it skips allocation; exactly `$8000`
+    /// allocates the companion GFX/object pair and spends two diamonds.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E7AC_masks_hard_beam_counter_and_allocates_only_at_zero_width() {
+        let zero_width = crate::level::eyeclops_hard_beam_gate_loc_E7AC(0x8000, 7);
+        assert_eq!(
+            zero_width,
+            crate::level::EyeclopsHardBeamGateLocE7AC {
+                masked_counter: 0,
+                allocation: Some(crate::level::EyeclopsHardBeamAllocationLocE7AC {
+                    gfx_spec: 0x0300_0001,
+                    object_slot_request: 0xFFFF,
+                    object_worker_addr: 0x0000_EADE,
+                    stores_gfx_slot_in_faba: true,
+                    stores_object_slot_in_gfx_backref: true,
+                    diamonds_after: 5,
+                }),
+            },
+            "ASM loc_E7AC should allocate with spec `$03000001`, install `loc_EADE`, cross-link through `$FFFFFABA`, and subtract two diamonds"
+        );
+
+        let growing = crate::level::eyeclops_hard_beam_gate_loc_E7AC(0x8001, 7);
+        assert_eq!(
+            growing,
+            crate::level::EyeclopsHardBeamGateLocE7AC {
+                masked_counter: 1,
+                allocation: None,
+            },
+            "ASM loc_E7AC should branch to loc_E7E0 without allocation when `andi.w #$7FFF,d7` leaves a non-zero counter"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

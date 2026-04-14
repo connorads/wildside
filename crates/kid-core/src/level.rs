@@ -12554,6 +12554,48 @@ pub(crate) fn level_sprite_strip_exit_loc_E7A8() -> LevelSpriteStripExitLocE7A8 
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsHardBeamAllocationLocE7AC {
+    pub(crate) gfx_spec: u32,
+    pub(crate) object_slot_request: u16,
+    pub(crate) object_worker_addr: u32,
+    pub(crate) stores_gfx_slot_in_faba: bool,
+    pub(crate) stores_object_slot_in_gfx_backref: bool,
+    pub(crate) diamonds_after: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsHardBeamGateLocE7AC {
+    pub(crate) masked_counter: u16,
+    pub(crate) allocation: Option<EyeclopsHardBeamAllocationLocE7AC>,
+}
+
+/// ASM loc_E7AC (kid.asm:18483): clear the hard-beam marker bit from `d7`.
+/// Non-zero low bits skip allocation; exactly `$8000` allocates the beam GFX
+/// object pair, stores their cross-links through `$FFFFFABA`, then spends two
+/// diamonds before falling through to `loc_E7E0`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_gate_loc_E7AC(
+    beam_counter: u16,
+    diamonds: u16,
+) -> EyeclopsHardBeamGateLocE7AC {
+    let masked_counter = beam_counter & 0x7FFF;
+    let allocation = (masked_counter == 0).then_some(EyeclopsHardBeamAllocationLocE7AC {
+        gfx_spec: 0x0300_0001,
+        object_slot_request: 0xFFFF,
+        object_worker_addr: 0x0000_EADE,
+        stores_gfx_slot_in_faba: true,
+        stores_object_slot_in_gfx_backref: true,
+        diamonds_after: diamonds.wrapping_sub(2),
+    });
+
+    EyeclopsHardBeamGateLocE7AC {
+        masked_counter,
+        allocation,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
