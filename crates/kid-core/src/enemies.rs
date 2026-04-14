@@ -2446,8 +2446,24 @@ fn apply_acceleration_axis(current_velocity: i32, target_velocity: i32, accelera
         let next_velocity = current_velocity.saturating_add(acceleration);
         next_velocity.min(target_velocity)
     } else {
-        let next_velocity = current_velocity.saturating_add(acceleration);
-        next_velocity.max(target_velocity)
+        ufo_apply_acceleration_axis_loc_3501e(current_velocity, target_velocity, acceleration)
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_apply_acceleration_axis_loc_3501e(
+    current_velocity: i32,
+    target_velocity: i32,
+    acceleration: i32,
+) -> i32 {
+    // ASM UFO.asm loc_3501E: negative-branch accelerant path in
+    // `Enemy_HandleAcceleration` keeps the accelerated value when it stays above
+    // target and clamps to target when it would cross or equal it.
+    let next_velocity = current_velocity.saturating_add(acceleration);
+    if next_velocity > target_velocity {
+        next_velocity
+    } else {
+        target_velocity
     }
 }
 
@@ -7480,6 +7496,20 @@ mod tests {
                 clear_ufo_shooting_state: true,
             },
             "ASM UFO.asm loc_34FD6 enters loc_34FFE when the segment countdown reaches zero"
+        );
+    }
+
+    #[test]
+    fn ufo_apply_acceleration_axis_matches_loc_3501e() {
+        assert_eq!(
+            ufo_apply_acceleration_axis_loc_3501e(0x0800, 0x0300, -0x0100),
+            0x0700,
+            "ASM UFO.asm loc_3501E keeps accelerating while the next value stays above target"
+        );
+        assert_eq!(
+            ufo_apply_acceleration_axis_loc_3501e(0x0800, 0x0700, -0x0200),
+            0x0700,
+            "ASM UFO.asm loc_3501E clamps to target when the next value would undershoot"
         );
     }
 
