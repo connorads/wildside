@@ -14880,4 +14880,28 @@ mod chunk_12 {
             "ASM loc_D386 visual tail should end at loc_D3F0 title return when no input is held"
         );
     }
+
+    /// ASM loc_D40A (kid.asm:16586): the continue-timeout title return copies
+    /// `Palette_Buffer` into `Palette_Buffer_2` with `moveq #$1F,d0` and
+    /// `move.l (a0)+,(a1)+; dbf d0,loc_D40A`, so all 32 longwords are backed up
+    /// before the fade target is cleared.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D40A_continue_timeout_title_return_backs_up_the_full_palette() {
+        let setup = crate::boot::continue_timeout_title_palette_backup_loc_D40A();
+
+        assert_eq!(
+            setup.palette_backup_dbf_seed, 0x001F,
+            "ASM loc_D40A seeds d0 with `$1F` for the inclusive palette-copy DBF loop"
+        );
+        assert_eq!(
+            setup.palette_backup_longwords, 0x0020,
+            "ASM loc_D40A should copy 32 longwords from `Palette_Buffer` to `Palette_Buffer_2`"
+        );
+        assert_eq!(
+            usize::from(setup.palette_backup_longwords) * 4,
+            128,
+            "ASM loc_D40A backs up the full 128-byte palette buffer"
+        );
+    }
 }

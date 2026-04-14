@@ -2184,6 +2184,13 @@ pub(crate) struct ContinueScreenMandatoryFadeLocD386 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ContinueTimeoutTitlePaletteBackupLocD40A {
+    pub(crate) palette_backup_dbf_seed: u16,
+    pub(crate) palette_backup_longwords: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -3986,6 +3993,21 @@ pub(crate) fn continue_screen_mandatory_fade_loc_D386() -> ContinueScreenMandato
         number_display_timer_seed: 0x1000,
         falling_velocity: 1,
         post_fade_wait_seed: 0x00EF,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn continue_timeout_title_palette_backup_loc_D40A()
+-> ContinueTimeoutTitlePaletteBackupLocD40A {
+    // ASM loc_D40A (kid.asm:16586): after the continue screen times out and
+    // loc_D3F0 clears Game_Mode, the ROM copies `Palette_Buffer` into
+    // `Palette_Buffer_2` with `moveq #$1F,d0; move.l (a0)+,(a1)+; dbf`.
+    // Native does not retain CRAM staging buffers on the title-return path, so
+    // this documents the full 128-byte backup before the following fade setup.
+    ContinueTimeoutTitlePaletteBackupLocD40A {
+        palette_backup_dbf_seed: 0x001F,
+        palette_backup_longwords: 0x0020,
     }
 }
 
