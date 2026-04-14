@@ -14571,6 +14571,21 @@ mod chunk_12 {
         assert!(!result.c, "C cleared");
     }
 
+    /// ASM loc_D4E (kid.asm:1526): scheme 4 clears B from `d0` and restores it
+    /// into A via `bset #6,d6` after loc_D44 handles the original A bit.
+    #[test]
+    fn loc_d4e_scheme4_maps_b_to_a() {
+        let result = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        }
+        .with_abc_buttons_permuted(4);
+
+        assert!(result.a, "A is set from B by `bset #6,d6`");
+        assert!(!result.b, "B is cleared by `bclr #4,d0`");
+        assert!(!result.c, "C stays clear at loc_D4E");
+    }
+
     /// ASM loc_D66 (kid.asm:1538): scheme 5 swaps A↔C.
     #[test]
     fn loc_d66_scheme5_swap_a_c() {

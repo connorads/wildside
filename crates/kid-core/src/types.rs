@@ -979,7 +979,8 @@ impl FrameInput {
                 c: self.b,
                 ..self
             },
-            // ASM loc_D44 (kid.asm:1521): A→C, B→A, C→B (reverse rotate).
+            // ASM loc_D44 (kid.asm:1521): `bclr #6,d0; bset #5,d6` maps A→C.
+            // ASM loc_D4E (kid.asm:1526): `bclr #4,d0; bset #6,d6` maps B→A.
             4 => Self {
                 a: self.b,
                 b: self.c,
