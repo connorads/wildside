@@ -3438,6 +3438,31 @@ pub(crate) fn mini_hopping_skull_left_hop_wait_setup_loc_3ed80() -> MiniHoppingS
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
+    collision_type: u16,
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3ED8E: clear `collision_type(a3)`, hibernate
+    // one frame, poll `sub_3F29A`, then dispatch by ordered Kid/hurt
+    // comparisons. Side collisions branch through `loc_3EDD6`, below collisions
+    // flow back to the same wait loop.
+    match collision_type {
+        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+        MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+        }
+        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
+            if berzerker_charging {
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+            } else {
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+            }
+        }
+        _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_ground_wait_setup_loc_3eb00() -> MiniHoppingSkullGroundWaitSetup {
     // ASM Mini_Hopping_Skull.asm loc_3EB00: after positive-X slope-up contact,
     // clear both velocities, `st x_direction(a3)`, select `LnkTo_unk_C8030`,
@@ -8271,6 +8296,55 @@ mod tests {
                 wait_frames: 21,
             },
             "ASM Mini_Hopping_Skull.asm loc_3ED80 should clear both velocities, face left, and seed a 21-frame wait"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_left_hop_windup_collision_matches_loc_3ed8e_compare_order() {
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(0, false),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3ED8E should continue the DBF loop while `collision_type(a3)` stays zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
+                MINI_SKULL_COLID_GROUND_KIDABOVE,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3ED8E sends `colid_kidabove` to the HP decrement branch"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
+                MINI_SKULL_COLID_GROUND_KIDLEFT,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3ED8E sends non-charging side contact to the scare/queue path"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
+                MINI_SKULL_COLID_GROUND_KIDLEFT,
+                true
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3ED8E jumps to loc_3F262 while `Berzerker_charging` is set"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
+                MINI_SKULL_COLID_GROUND_KIDBELOW,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3ED8E falls through for `colid_kidbelow` contact"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
+                MINI_SKULL_COLID_GROUND_HURT,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3ED8E sends `colid_hurt` to the same HP decrement branch as `colid_kidabove`"
         );
     }
 
