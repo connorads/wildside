@@ -1728,6 +1728,8 @@ impl NativeRuntime {
             }
         };
 
+        // ASM loc_F09E (kid.asm:19623): cache Kid's block X in `$FFFFF8BE`;
+        // unchanged columns branch to loc_F186 and leave the column scan alone.
         if previous_col != kid_block_col {
             let entering_col = if previous_col < kid_block_col {
                 (kid_block_col + 3).min(max_col)

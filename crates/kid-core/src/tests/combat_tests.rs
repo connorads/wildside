@@ -7991,6 +7991,27 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_f09e_skips_column_scan_when_kid_stays_in_same_block_column() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x02)]));
+        runtime.projectiles.clear();
+        runtime.block_state.shooter_last_scanned_col = 2;
+        runtime.block_state.shooter_last_scanned_row = 3;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (3 * 16) << 16;
+        runtime.step_shooter_blocks(&slice);
+
+        assert!(
+            runtime.block_state.shooter_blocks.is_empty(),
+            "ASM loc_F09E should branch to loc_F186 when the cached column equals Kid's current block column, so the `kid_x_block+3` shooter is not rescanned"
+        );
+        assert_eq!(runtime.block_state.shooter_last_scanned_col, 2);
+    }
+
+    #[test]
     fn shooter_block_sub_f096_keeps_per_slot_cadence_until_the_worker_expires() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
