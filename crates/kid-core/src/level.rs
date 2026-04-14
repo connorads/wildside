@@ -12148,6 +12148,37 @@ pub(crate) fn end_credits_hundred_k_trip_teleport_loc_DA4A() -> EndCreditsHundre
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripForwardSetupLocE650 {
+    pub(crate) source_x: i16,
+    pub(crate) d3_span_word: i16,
+    pub(crate) tile_attr_mask: u16,
+    pub(crate) map_probe_x: i16,
+}
+
+/// ASM loc_E650 (kid.asm:18321): derive the sprite-strip span from `d7`,
+/// advance the forward-facing screen X by twice that span plus `$20`, and
+/// reject the strip when the adjusted sprite X reaches `$1C0`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_forward_setup_loc_E650(
+    screen_x: i16,
+    d7_width_seed: i16,
+) -> Option<LevelSpriteStripForwardSetupLocE650> {
+    let d3_span_word = d7_width_seed.wrapping_sub(2).wrapping_mul(6);
+    let source_x = screen_x.wrapping_add(d3_span_word.wrapping_mul(2));
+    if source_x >= 0x01C0 {
+        return None;
+    }
+
+    Some(LevelSpriteStripForwardSetupLocE650 {
+        source_x,
+        d3_span_word,
+        tile_attr_mask: 0,
+        map_probe_x: source_x.wrapping_add(0x0020),
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,

@@ -6872,6 +6872,40 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E650 (kid.asm:18321): the forward terrain-sprite strip path
+    /// expands `d7-2` into `d3=6*(d7-2)`, advances `d0` by `2*d3`, probes
+    /// `$20` pixels farther right via `a1`, and resets the loader when the
+    /// adjusted X reaches `$1C0`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E650_forward_strip_setup_expands_width_and_checks_right_edge() {
+        let setup = crate::level::level_sprite_strip_forward_setup_loc_E650(0x0100, 6)
+            .expect("ASM loc_E650 should accept adjusted d0 below `$1C0`");
+
+        assert_eq!(
+            setup.d3_span_word, 24,
+            "ASM loc_E650 should compute d3 as `6 * (d7 - 2)`"
+        );
+        assert_eq!(
+            setup.source_x, 0x0130,
+            "ASM loc_E650 should add doubled d3 to d0 before the `$1C0` bound check"
+        );
+        assert_eq!(
+            setup.map_probe_x, 0x0150,
+            "ASM loc_E650 should set a1 to adjusted d0 plus `$20` on the forward path"
+        );
+        assert_eq!(
+            setup.tile_attr_mask, 0,
+            "ASM loc_E650 should clear d4 before falling through to loc_E692 on the forward path"
+        );
+
+        assert_eq!(
+            crate::level::level_sprite_strip_forward_setup_loc_E650(0x0190, 6),
+            None,
+            "ASM loc_E650 should branch to loc_E7A4 when adjusted d0 is greater than or equal to `$1C0`"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
