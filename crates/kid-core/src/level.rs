@@ -9052,6 +9052,21 @@ pub(crate) fn shooter_object_moving_left_collision_gate_loc_EEE4(
     }
 }
 
+/// ASM loc_EEFE (kid.asm:19420): `subq.w #4,2(a0)` advances the moving-left
+/// shooter, then `d1=-8`, `d2=-4`, and `d3=$8296` feed the shared sprite maker.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_left_sprite_tail_loc_EEFE(
+    x_pos: u16,
+) -> ShooterObjectSpriteTailLocEE52 {
+    ShooterObjectSpriteTailLocEE52 {
+        x_pos: x_pos.wrapping_sub(4),
+        sprite_x_offset: -8,
+        sprite_y_offset: -4,
+        tile_word: 0x8296,
+    }
+}
+
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,
 /// walk `Addr_FirstObjectSlot` while the new caller word (`d6`, copied from
 /// incoming `a0`) is strictly higher than the current slot's `$E(a1)` word.

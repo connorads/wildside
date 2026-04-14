@@ -9837,6 +9837,30 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EEFE (kid.asm:19420): moving-left shooters subtract four from
+    /// x, then enter `Process_ShooterObject_MakeSprite` with left-facing
+    /// offsets and tile word `$8296`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EEFE_moving_left_sprite_tail_steps_left_and_uses_left_sprite_constants() {
+        assert_eq!(
+            crate::level::shooter_object_moving_left_sprite_tail_loc_EEFE(0x0120),
+            crate::level::ShooterObjectSpriteTailLocEE52 {
+                x_pos: 0x011C,
+                sprite_x_offset: -8,
+                sprite_y_offset: -4,
+                tile_word: 0x8296,
+            },
+            "ASM loc_EEFE should subtract four from `$2(a0)` and seed the moving-left sprite constants"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_left_sprite_tail_loc_EEFE(0x0002).x_pos,
+            0xFFFE,
+            "ASM loc_EEFE uses 16-bit wrapping for `subq.w #4,2(a0)`"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
