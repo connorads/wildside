@@ -6961,6 +6961,38 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_collision_rects_loc_f67e_emits_down_facing_rectangles_inside_window() {
+        let rects = NativeRuntime::shooter_collision_rects_sub_F568(
+            CollisionRectSub1F52 {
+                left_px: 80,
+                right_px: 96,
+                top_px: 96,
+                bottom_px: 112,
+            },
+            &[(6, 6, 0x04), (6, 7, 0x04)],
+        );
+
+        assert_eq!(
+            rects,
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 98,
+                    right_px: 110,
+                    top_px: 111,
+                    bottom_px: 119,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 101,
+                    right_px: 107,
+                    top_px: 111,
+                    bottom_px: 123,
+                },
+            ],
+            "ASM loc_F67E should emit the down-facing pair for row `< bottom_block-1` and skip the shooter exactly on that edge",
+        );
+    }
+
+    #[test]
     fn shooter_collision_top_block_loc_f574_clamps_the_expanded_top_window() {
         assert_eq!(
             NativeRuntime::shooter_collision_top_block_loc_F574(0x000F),
