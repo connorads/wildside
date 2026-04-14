@@ -6897,6 +6897,24 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_collision_rects_loc_f72a_terminates_without_a_native_sentinel() {
+        let rects = NativeRuntime::shooter_collision_rects_sub_F568(
+            CollisionRectSub1F52 {
+                left_px: 80,
+                right_px: 96,
+                top_px: 96,
+                bottom_px: 112,
+            },
+            &[(20, 7, 0x01)],
+        );
+
+        assert!(
+            rects.is_empty(),
+            "ASM loc_F72A writes a zero word terminator to the ROM output buffer; native omits that sentinel from the returned rectangle list",
+        );
+    }
+
+    #[test]
     fn shooter_collision_rects_loc_f5aa_advances_after_rejected_slot() {
         let rects = NativeRuntime::shooter_collision_rects_sub_F568(
             CollisionRectSub1F52 {

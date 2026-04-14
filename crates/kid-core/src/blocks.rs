@@ -981,9 +981,9 @@ impl NativeRuntime {
             // that by adding no rectangles for the skipped slot and continuing.
         }
 
-        // ASM loc_F5A6 (kid.asm:20226): all termination paths branch to the
-        // shared tail, where the ROM writes a zero word at the rectangle output
-        // cursor. Native returns only the populated rectangles, so an empty or
+        // ASM loc_F5A6 -> loc_F72A (kid.asm:20226,20391): all termination
+        // paths write a zero word at the rectangle output cursor and return.
+        // Native returns only the populated rectangles, so an empty or
         // exhausted list has no sentinel element.
         rects
     }
