@@ -9554,6 +9554,25 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_ED7C (kid.asm:19258): the collision-overlay path reads the
+    /// theme collision byte indexed by the current terrain byte, rotates it
+    /// right by four as a word, and ORs it into the outgoing layout word.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_ED7C_overlays_theme_collision_bits_with_word_rotate() {
+        assert_eq!(
+            crate::level::evanescent_bullet_collision_overlay_loc_ED7C(0x2D, 0xE6),
+            0x602F,
+            "ASM loc_ED7C should use word `ror #4`, so theme byte `$E6` becomes `$600E` before ORing terrain byte `$2D`"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_collision_overlay_loc_ED7C(0x80, 0x0A),
+            0xA080,
+            "ASM loc_ED7C should not treat the theme collision byte as an 8-bit rotate; `$0A` rotates to `$A000` as a word"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

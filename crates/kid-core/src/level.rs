@@ -8782,6 +8782,19 @@ pub(crate) fn evanescent_bullet_action_loc_ED16(
     }
 }
 
+/// ASM loc_ED7C (kid.asm:19258): collision-overlay evanescent actions use
+/// `Foreground_theme` to select a theme collision table, read one byte using
+/// the terrain byte in `d1` as the index, `ror.w #4` that byte, then OR the
+/// rotated word back into `d1` before the shared layout write.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_collision_overlay_loc_ED7C(
+    terrain_layout_byte: u8,
+    theme_collision_byte: u8,
+) -> u16 {
+    u16::from(theme_collision_byte).rotate_right(4) | u16::from(terrain_layout_byte)
+}
+
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,
 /// walk `Addr_FirstObjectSlot` while the new caller word (`d6`, copied from
 /// incoming `a0`) is strictly higher than the current slot's `$E(a1)` word.
