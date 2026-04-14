@@ -6929,6 +6929,38 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_collision_rects_loc_f62c_emits_right_facing_rectangles_inside_window() {
+        let rects = NativeRuntime::shooter_collision_rects_sub_F568(
+            CollisionRectSub1F52 {
+                left_px: 80,
+                right_px: 96,
+                top_px: 96,
+                bottom_px: 112,
+            },
+            &[(5, 6, 0x02), (6, 6, 0x02)],
+        );
+
+        assert_eq!(
+            rects,
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 96,
+                    right_px: 104,
+                    top_px: 97,
+                    bottom_px: 109,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 96,
+                    right_px: 108,
+                    top_px: 100,
+                    bottom_px: 106,
+                },
+            ],
+            "ASM loc_F62C should emit the right-facing pair for col `< right_block-1` and skip the shooter exactly on that edge",
+        );
+    }
+
+    #[test]
     fn shooter_collision_top_block_loc_f574_clamps_the_expanded_top_window() {
         assert_eq!(
             NativeRuntime::shooter_collision_top_block_loc_F574(0x000F),
