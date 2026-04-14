@@ -7325,6 +7325,63 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E7E0 (kid.asm:18497): with `d7 == 0`, the hard beam writes a
+    /// three-sprite vertical strip. A clear direction latch keeps `d0` as the
+    /// sprite X and probes collision at `d0 + $10`; a set latch subtracts
+    /// `$10` from `d0`, probes there, and ORs `$0800` into each tile word.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E7E0_emits_zero_width_hard_beam_sprite_strip() {
+        let clear =
+            crate::level::eyeclops_hard_beam_zero_width_sprites_loc_E7E0(0x0120, 0x0080, 4, false);
+        assert_eq!(
+            clear,
+            crate::level::EyeclopsHardBeamZeroWidthSpritesLocE7E0 {
+                sprites: [
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0078,
+                        size: 4,
+                        link: 5,
+                        tile_word: 0x868E,
+                        x_pos: 0x0120,
+                    },
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0080,
+                        size: 4,
+                        link: 6,
+                        tile_word: 0x8692,
+                        x_pos: 0x0120,
+                    },
+                    crate::level::LevelSpriteStripEntryLocE692 {
+                        y_pos: 0x0088,
+                        size: 4,
+                        link: 7,
+                        tile_word: 0x968E,
+                        x_pos: 0x0120,
+                    },
+                ],
+                next_link: 7,
+                collision_probe_screen_x: 0x0130,
+                collision_probe_screen_y: 0x007C,
+            },
+            "ASM loc_E7E0 should emit y positions `d1-$8`, `d1`, `d1+$8`, then carry `d6=d0+$10` and `d5=d1-$4` to loc_E948"
+        );
+
+        let flipped =
+            crate::level::eyeclops_hard_beam_zero_width_sprites_loc_E7E0(0x0120, 0x0080, 4, true);
+        assert_eq!(
+            (
+                flipped.sprites[0].tile_word,
+                flipped.sprites[1].tile_word,
+                flipped.sprites[2].tile_word,
+                flipped.sprites[0].x_pos,
+                flipped.collision_probe_screen_x,
+            ),
+            (0x8E8E, 0x8E92, 0x9E8E, 0x0110, 0x0110),
+            "ASM loc_E7E0 should subtract `$10` from d0 and OR `$0800` into all three tile words when `$FFFFFABE` is non-zero"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

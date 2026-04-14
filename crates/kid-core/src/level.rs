@@ -12596,6 +12596,69 @@ pub(crate) fn eyeclops_hard_beam_gate_loc_E7AC(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsHardBeamZeroWidthSpritesLocE7E0 {
+    pub(crate) sprites: [LevelSpriteStripEntryLocE692; 3],
+    pub(crate) next_link: u8,
+    pub(crate) collision_probe_screen_x: i16,
+    pub(crate) collision_probe_screen_y: i16,
+}
+
+/// ASM loc_E7E0 (kid.asm:18497): for the zero-width hard beam, adjust `d0/d6`
+/// from the direction latch, set `d5` to `d1 - 4`, then emit three size-4
+/// sprites at `d1 - 8`, `d1`, and `d1 + 8`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_zero_width_sprites_loc_E7E0(
+    source_x: i16,
+    base_y: i16,
+    link: u8,
+    direction_latch_nonzero: bool,
+) -> EyeclopsHardBeamZeroWidthSpritesLocE7E0 {
+    let (sprite_x, collision_probe_screen_x, tile_attr_mask) = if direction_latch_nonzero {
+        let adjusted_x = source_x.wrapping_sub(0x0010);
+        (adjusted_x, adjusted_x, 0x0800)
+    } else {
+        (source_x, source_x.wrapping_add(0x0010), 0)
+    };
+    let collision_probe_screen_y = base_y.wrapping_sub(0x0004);
+    let first_y = base_y.wrapping_sub(0x0008);
+    let second_y = base_y;
+    let third_y = base_y.wrapping_add(0x0008);
+    let first_link = link.wrapping_add(1);
+    let second_link = first_link.wrapping_add(1);
+    let third_link = second_link.wrapping_add(1);
+
+    EyeclopsHardBeamZeroWidthSpritesLocE7E0 {
+        sprites: [
+            LevelSpriteStripEntryLocE692 {
+                y_pos: first_y,
+                size: 4,
+                link: first_link,
+                tile_word: 0x868E | tile_attr_mask,
+                x_pos: sprite_x,
+            },
+            LevelSpriteStripEntryLocE692 {
+                y_pos: second_y,
+                size: 4,
+                link: second_link,
+                tile_word: 0x8692 | tile_attr_mask,
+                x_pos: sprite_x,
+            },
+            LevelSpriteStripEntryLocE692 {
+                y_pos: third_y,
+                size: 4,
+                link: third_link,
+                tile_word: 0x968E | tile_attr_mask,
+                x_pos: sprite_x,
+            },
+        ],
+        next_link: third_link,
+        collision_probe_screen_x,
+        collision_probe_screen_y,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
