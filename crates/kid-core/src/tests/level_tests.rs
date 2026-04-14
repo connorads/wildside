@@ -9651,6 +9651,37 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EE38 (kid.asm:19338): once the moving-right shooter has selected
+    /// the current layout word, bit 14 gates collision; young age words only
+    /// interact when one of bits `$3000` is also set.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EE38_moving_right_collision_gate_uses_age_and_high_bits() {
+        assert_eq!(
+            crate::level::shooter_object_moving_right_collision_gate_loc_EE38(0, 0x4000),
+            crate::level::ShooterObjectMovingRightNextLocEE2A::ContinueMovingRight,
+            "ASM loc_EE38 should branch to loc_EE52 when bit 14 is set but age is below 2 and bits `$3000` are clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_right_collision_gate_loc_EE38(1, 0x5000),
+            crate::level::ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout,
+            "ASM loc_EE38 should interact before age 2 when bit 14 and one `$3000` bit are both set"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_right_collision_gate_loc_EE38(2, 0x4000),
+            crate::level::ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout,
+            "ASM loc_EE38 should interact at age 2 when bit 14 is set, even with bits `$3000` clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_right_collision_gate_loc_EE38(3, 0x3000),
+            crate::level::ShooterObjectMovingRightNextLocEE2A::ContinueMovingRight,
+            "ASM loc_EE38 should ignore bits `$3000` when bit 14 itself is clear"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

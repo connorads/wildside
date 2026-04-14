@@ -8883,17 +8883,33 @@ pub(crate) fn shooter_object_moving_right_gate_loc_EE2A(
         (age_after_increment, current_layout_word_addr)
     };
 
-    let should_interact = (current_layout_word & 0x4000) != 0
-        && (state_word >= 2 || (current_layout_word & 0x3000) != 0);
-
     ShooterObjectMovingRightGateLocEE2A {
         state_word,
         layout_word_addr,
-        next_step: if should_interact {
-            ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout
-        } else {
-            ShooterObjectMovingRightNextLocEE2A::ContinueMovingRight
-        },
+        next_step: shooter_object_moving_right_collision_gate_loc_EE38(
+            state_word,
+            current_layout_word,
+        ),
+    }
+}
+
+/// ASM loc_EE38 (kid.asm:19338): `btst #$E,d1` skips clear bit-14 cells; if bit
+/// 14 is set, age words two and above interact immediately, while younger ages
+/// only interact when `andi.w #$3000,d1` leaves a non-zero value.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_right_collision_gate_loc_EE38(
+    state_word: u16,
+    current_layout_word: u16,
+) -> ShooterObjectMovingRightNextLocEE2A {
+    if (current_layout_word & 0x4000) == 0 {
+        return ShooterObjectMovingRightNextLocEE2A::ContinueMovingRight;
+    }
+
+    if state_word >= 2 || (current_layout_word & 0x3000) != 0 {
+        ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout
+    } else {
+        ShooterObjectMovingRightNextLocEE2A::ContinueMovingRight
     }
 }
 
