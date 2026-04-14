@@ -11640,6 +11640,38 @@ pub(crate) fn eol_score_counter_drain_current_number_loc_D7CE(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EolScoreCounterLoopTailLocD7E4 {
+    pub(crate) frame_delay: u16,
+    pub(crate) transfer_chunk: u32,
+    pub(crate) chunk_quadrupled: bool,
+}
+
+/// ASM loc_D7E4 (kid.asm:16896): after each score-counter transfer, decrement
+/// the frame-delay word `d1`. A non-zero result loops with the same chunk;
+/// zero resets `d1` to `$78` and quadruples `d2` before looping.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eol_score_counter_loop_tail_loc_D7E4(
+    frame_delay: u16,
+    transfer_chunk: u32,
+) -> EolScoreCounterLoopTailLocD7E4 {
+    let frame_delay = frame_delay.wrapping_sub(1);
+    if frame_delay != 0 {
+        return EolScoreCounterLoopTailLocD7E4 {
+            frame_delay,
+            transfer_chunk,
+            chunk_quadrupled: false,
+        };
+    }
+
+    EolScoreCounterLoopTailLocD7E4 {
+        frame_delay: 0x0078,
+        transfer_chunk: transfer_chunk.wrapping_mul(4),
+        chunk_quadrupled: true,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {

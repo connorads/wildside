@@ -6537,6 +6537,41 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D7E4 (kid.asm:16896): the score-counter tail decrements `d1`
+    /// each loop, preserving `d2` until the delay reaches zero; then it resets
+    /// the delay to `$78` and doubles `d2` twice.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D7E4_eol_score_counter_delay_quadruples_transfer_chunk_on_rollover() {
+        let waiting = crate::level::eol_score_counter_loop_tail_loc_D7E4(3, 0x28);
+        assert_eq!(
+            waiting.frame_delay, 2,
+            "ASM loc_D7E4 should decrement d1 before looping back to loc_D770"
+        );
+        assert_eq!(
+            waiting.transfer_chunk, 0x28,
+            "ASM loc_D7E4 should preserve d2 while the frame-delay counter remains non-zero"
+        );
+        assert!(
+            !waiting.chunk_quadrupled,
+            "ASM loc_D7E4 should only grow the transfer chunk after d1 reaches zero"
+        );
+
+        let rollover = crate::level::eol_score_counter_loop_tail_loc_D7E4(1, 0x28);
+        assert_eq!(
+            rollover.frame_delay, 0x78,
+            "ASM loc_D7E4 should reset d1 to $78 after the delay expires"
+        );
+        assert_eq!(
+            rollover.transfer_chunk, 0xA0,
+            "ASM loc_D7E4 should quadruple d2 with two add.l d2,d2 instructions"
+        );
+        assert!(
+            rollover.chunk_quadrupled,
+            "ASM loc_D7E4 should report the chunk-growth rollover path"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
