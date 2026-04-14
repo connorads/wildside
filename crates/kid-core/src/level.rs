@@ -752,6 +752,13 @@ pub(crate) struct EvanescentShooterNeighbourMarkLocF14C {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentShooterNeighbourMarkLocF156 {
+    pub(crate) stored_local_word: u16,
+    pub(crate) shifted_direction_bits: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8198,6 +8205,30 @@ pub(crate) fn evanescent_shooter_right_neighbour_mark_loc_F14C(
     let should_mark = (direction_bits_after_up_check & 1) != 0 && right_neighbour_low_byte != 0;
 
     EvanescentShooterNeighbourMarkLocF14C {
+        stored_local_word: if should_mark {
+            stored_local_word.wrapping_sub(0x8000)
+        } else {
+            stored_local_word
+        },
+        shifted_direction_bits,
+    }
+}
+
+/// ASM loc_F156 (kid.asm:19704): `lsr.w #1,d6` consumes the next evanescent
+/// shooter direction bit. If carry is set, the ROM adds `Level_width_tiles` to
+/// `a1`; a non-zero low byte at `1(a1+Level_width_tiles)` falls through to
+/// `loc_F170`, subtracting `$8000` from `$6(a3)`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_shooter_below_neighbour_mark_loc_F156(
+    stored_local_word: u16,
+    direction_bits_after_right_check: u16,
+    below_neighbour_low_byte: u8,
+) -> EvanescentShooterNeighbourMarkLocF156 {
+    let shifted_direction_bits = direction_bits_after_right_check >> 1;
+    let should_mark = (direction_bits_after_right_check & 1) != 0 && below_neighbour_low_byte != 0;
+
+    EvanescentShooterNeighbourMarkLocF156 {
         stored_local_word: if should_mark {
             stored_local_word.wrapping_sub(0x8000)
         } else {
