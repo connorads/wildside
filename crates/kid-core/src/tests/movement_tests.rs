@@ -782,6 +782,20 @@ mod chunk_11 {
     }
 
     #[test]
+    fn loc_e2f0_hidden_block_reveal_bounces_down_four_frames_before_cleanup() {
+        assert_eq!(
+            crate::movement::hidden_block_reveal_bounce_down_loc_E2F0(0x0068),
+            crate::movement::HiddenBlockRevealBounceLocE2F0 {
+                y_pos_after_hibernates: [0x006A, 0x006C, 0x006E, 0x0070],
+                final_y_pos_px: 0x0070,
+                hibernate_frames: 4,
+                next_action_label: "sub_11530_then_Delete_CurrentObject",
+            },
+            "ASM loc_E2F0 should run the inclusive `d3=#3` DBF loop four times, adding two pixels before each one-frame hibernate, then call `sub_11530` and delete the object",
+        );
+    }
+
+    #[test]
     fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
         assert_eq!(
             crate::level::indoor_rubber_block_source_words_loc_14506(
