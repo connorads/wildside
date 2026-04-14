@@ -7265,6 +7265,45 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DF50 (kid.asm:17269): after the evanescent free list, the same
+    /// combined init seeds `d0=$26`, links 39 shooter slots at `$A(a0)`, clears
+    /// the 40th slot's link word, and clears `Addr_FirstShooterObjectSlot`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DF50_initialise_shooter_slots_links_the_full_free_list() {
+        let slots = crate::level::initialise_shooter_object_slots_loc_DF50();
+
+        assert_eq!(
+            slots.next_free_shooter_object_slot_addr, 0xFFFF_E9FA,
+            "ASM loc_DF50 should leave Addr_NextFreeShooterObjectSlot pointing at ShooterObject_RAM"
+        );
+        assert_eq!(
+            slots.first_shooter_object_slot_addr, 0,
+            "ASM loc_DF50 should clear Addr_FirstShooterObjectSlot after building the free list"
+        );
+        assert_eq!(
+            slots.shooter_slots.len(),
+            0x27,
+            "ASM loc_DF50 seeds d0=$26, so DBF links 0x27 shooter slots"
+        );
+        assert_eq!(
+            slots.shooter_slots[0],
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E9FA,
+                next_slot_addr: 0xFFFF_EA06,
+            },
+            "ASM loc_DF50 should write `$A(a0)=a0+$0C` for the first shooter slot"
+        );
+        assert_eq!(
+            slots.shooter_slots[0x26],
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBC2,
+                next_slot_addr: 0,
+            },
+            "ASM loc_DF50 should clear `$A(a0)` on the final shooter slot after DBF exits"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
