@@ -13007,6 +13007,16 @@ pub(crate) fn eyeclops_hard_beam_wide_tail_loc_E936(
     }
 }
 
+/// ASM loc_E972 (kid.asm:18676): after the hard-beam collision probe tail,
+/// the ROM masks off bit 0 of `d7`, doubles it, caps the result at `$20`,
+/// then stores `$1160 + d7` into the beam object's `$22` mapping word.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_object_mapping_loc_E972(beam_counter: u16) -> u16 {
+    let doubled_even_counter = (beam_counter & 0xFFFE).wrapping_mul(2);
+    0x1160 + doubled_even_counter.min(0x0020)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,

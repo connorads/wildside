@@ -7741,6 +7741,23 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E972 (kid.asm:18676): the beam-object mapping word uses the
+    /// even, doubled `d7` value capped at `$20`, then adds base tile `$1160`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E972_clamps_hard_beam_object_mapping_word() {
+        assert_eq!(
+            crate::level::eyeclops_hard_beam_object_mapping_loc_E972(0x000F),
+            0x117C,
+            "ASM loc_E972 should mask odd d7 to `$000E`, double it, and add `$1160`"
+        );
+        assert_eq!(
+            crate::level::eyeclops_hard_beam_object_mapping_loc_E972(0x0013),
+            0x1180,
+            "ASM loc_E972 should cap doubled widths above `$20` before adding `$1160`"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
