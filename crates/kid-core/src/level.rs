@@ -867,6 +867,12 @@ pub(crate) struct EvanescentBulletVerticalRowsLocEB0C {
     pub(crate) first_row_pointer_table_byte_offset: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletRightClampLocEB2A {
+    pub(crate) right_px: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8243,10 +8249,10 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
         u16::try_from(bottom_px).expect("clamped bottom pixel should fit in u16"),
     );
     let left_px = i32::from(input.kid_hitbox_left).saturating_sub(1).max(0);
-    let right_bound_px = i32::from(input.level_width_pixels.saturating_sub(1));
-    let right_px = (i32::from(input.kid_hitbox_right) + 1)
-        .min(right_bound_px)
-        .max(0);
+    let right_px = i32::from(
+        evanescent_bullet_right_clamp_loc_EB2A(input.kid_hitbox_right, input.level_width_pixels)
+            .right_px,
+    );
 
     let left_col = u16::try_from(left_px >> 4).expect("clamped left col should fit in u16");
     let right_col = u16::try_from(right_px >> 4).expect("clamped right col should fit in u16");
@@ -8310,6 +8316,26 @@ pub(crate) fn evanescent_bullet_vertical_rows_loc_EB0C(
         bottom_row,
         row_dbf_counter: bottom_row.wrapping_sub(top_row),
         first_row_pointer_table_byte_offset: top_row.wrapping_mul(2),
+    }
+}
+
+/// ASM loc_EB2A (kid.asm:18886): expand Kid's right hitbox edge by one pixel.
+/// If the expanded word is strictly below `Level_width_pixels`, keep it;
+/// otherwise clamp to `Level_width_pixels - 1` before the horizontal tile
+/// conversion at `loc_EB3E`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_right_clamp_loc_EB2A(
+    kid_hitbox_right: u16,
+    level_width_pixels: u16,
+) -> EvanescentBulletRightClampLocEB2A {
+    let expanded_right = kid_hitbox_right.saturating_add(1);
+    EvanescentBulletRightClampLocEB2A {
+        right_px: if expanded_right < level_width_pixels {
+            expanded_right
+        } else {
+            level_width_pixels.saturating_sub(1)
+        },
     }
 }
 

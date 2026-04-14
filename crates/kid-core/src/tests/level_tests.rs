@@ -8966,6 +8966,24 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EB2A (kid.asm:18886): the right edge is expanded by one pixel,
+    /// then clamped only when that expanded word is not strictly below
+    /// `Level_width_pixels`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EB2A_clamps_the_expanded_right_edge_to_level_width_minus_one() {
+        assert_eq!(
+            crate::level::evanescent_bullet_right_clamp_loc_EB2A(30, 64),
+            crate::level::EvanescentBulletRightClampLocEB2A { right_px: 31 },
+            "ASM loc_EB2A should keep `Kid_hitbox_right + 1` when it is strictly below Level_width_pixels"
+        );
+        assert_eq!(
+            crate::level::evanescent_bullet_right_clamp_loc_EB2A(63, 64),
+            crate::level::EvanescentBulletRightClampLocEB2A { right_px: 63 },
+            "ASM loc_EB2A should clamp to Level_width_pixels - 1 once the expanded right edge reaches or exceeds the level width"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
