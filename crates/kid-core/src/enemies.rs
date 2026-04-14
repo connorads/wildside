@@ -3263,6 +3263,24 @@ pub(crate) fn mini_hopping_skull_right_hop_scream_worker_allocation_loc_3ebc4(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_left_ground_scream_worker_allocation_loc_3ec7a(
+    route: MiniHoppingSkullGroundWaitCollisionRoute,
+) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
+    if route != MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker {
+        return None;
+    }
+
+    // ASM Mini_Hopping_Skull.asm loc_3EC7A: the left-grounded contact path
+    // mirrors the other grounded worker allocation: swap a0/a4, allocate with
+    // selector `$A000`, install `sub_3F3F0` at slot +4, then restore a0/a4.
+    Some(MiniHoppingSkullScreamWorkerAllocation {
+        allocation_selector: 0xA000,
+        routine: "sub_3F3F0",
+        delay_frames: 15,
+    })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26() -> MiniHoppingSkullRelaunchTail
 {
     // ASM Mini_Hopping_Skull.asm loc_3EC26: after loc_3EBFC has seeded the
@@ -7423,6 +7441,35 @@ mod tests {
             ),
             None,
             "ASM Mini_Hopping_Skull.asm loc_3EBC4 is skipped by the charging-Berzerker side-contact branch"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_left_ground_scream_worker_allocation_matches_loc_3ec7a() {
+        assert_eq!(
+            mini_hopping_skull_left_ground_scream_worker_allocation_loc_3ec7a(
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+            ),
+            Some(MiniHoppingSkullScreamWorkerAllocation {
+                allocation_selector: 0xA000,
+                routine: "sub_3F3F0",
+                delay_frames: 15,
+            }),
+            "ASM Mini_Hopping_Skull.asm loc_3EC7A should allocate the `sub_3F3F0` contact worker with selector `$A000`"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_ground_scream_worker_allocation_loc_3ec7a(
+                MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+            ),
+            None,
+            "ASM Mini_Hopping_Skull.asm loc_3EC7A is skipped when the left-grounded collision decrements skull HP"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_ground_scream_worker_allocation_loc_3ec7a(
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+            ),
+            None,
+            "ASM Mini_Hopping_Skull.asm loc_3EC7A is skipped by the charging-Berzerker side-contact branch"
         );
     }
 
