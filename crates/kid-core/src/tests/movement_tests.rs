@@ -14832,4 +14832,52 @@ mod chunk_12 {
             "ASM loc_D372 writes `#1` to `$6C(a0)`"
         );
     }
+
+    /// ASM loc_D386 (kid.asm:16546): the CONTINUE? text and number objects are
+    /// mandatory, receive display timer `$1000` and falling velocity `1`, then
+    /// `move.w #$EF,d0` seeds the post-fade wait before returning to title.
+    #[test]
+    fn loc_d386_mandatory_continue_objects_fade_before_timeout_title_return() {
+        let fade = crate::boot::continue_screen_mandatory_fade_loc_D386();
+
+        assert!(
+            fade.continue_text_fades,
+            "ASM loc_D386 always fades `$4C(a5)`"
+        );
+        assert!(
+            fade.continue_number_fades,
+            "ASM loc_D386 always fades `$50(a5)`"
+        );
+        assert_eq!(
+            fade.text_display_timer_seed, 0x1000,
+            "ASM loc_D386 writes `$1000` to `$46(a0)` for the text object"
+        );
+        assert_eq!(
+            fade.number_display_timer_seed, 0x1000,
+            "ASM loc_D386 writes `$1000` to `$A(a0)` for the number object"
+        );
+        assert_eq!(
+            fade.falling_velocity, 1,
+            "ASM loc_D386 writes `#1` to `$6C(a0)`"
+        );
+        assert_eq!(
+            fade.post_fade_wait_seed, 0x00EF,
+            "ASM loc_D386 should fall into loc_D3AA with `d0=$EF`"
+        );
+
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_continues = 1;
+        runtime.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+            remaining_frames: 1,
+        };
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.boot_state,
+            BootState::TitleScreen { cursor: 0 },
+            "ASM loc_D386 visual tail should end at loc_D3F0 title return when no input is held"
+        );
+    }
 }

@@ -2173,6 +2173,17 @@ pub(crate) struct ContinueScreenOptionalFadeLocD372 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ContinueScreenMandatoryFadeLocD386 {
+    pub(crate) continue_text_fades: bool,
+    pub(crate) continue_number_fades: bool,
+    pub(crate) text_display_timer_seed: u16,
+    pub(crate) number_display_timer_seed: u16,
+    pub(crate) falling_velocity: i16,
+    pub(crate) post_fade_wait_seed: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -3957,6 +3968,24 @@ pub(crate) fn continue_screen_optional_fade_loc_D372(
         bonus_object_fades: bonus_object_present,
         display_timer_seed: 0x1000,
         falling_velocity: 1,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn continue_screen_mandatory_fade_loc_D386() -> ContinueScreenMandatoryFadeLocD386 {
+    // ASM loc_D386 (kid.asm:16546): the CONTINUE? text pointer `$4C(a5)` and
+    // number pointer `$50(a5)` are mandatory on this path. Both are given
+    // display timer `$1000` and falling velocity `1`; the number object stores
+    // its timer at `$A(a0)` instead of `$46(a0)`. The ROM then seeds `d0=$EF`
+    // for the second wait before the title return.
+    ContinueScreenMandatoryFadeLocD386 {
+        continue_text_fades: true,
+        continue_number_fades: true,
+        text_display_timer_seed: 0x1000,
+        number_display_timer_seed: 0x1000,
+        falling_velocity: 1,
+        post_fade_wait_seed: 0x00EF,
     }
 }
 
@@ -6878,7 +6907,11 @@ impl NativeRuntime {
                         remaining_frames: remaining_frames - 1,
                     };
                 } else {
-                    // Countdown expired without input — return to title
+                    // ASM loc_D386 (kid.asm:16546): after the countdown expires,
+                    // the mandatory CONTINUE? text and number objects are kicked
+                    // into the falling fade, then loc_D3AA waits before loc_D3F0
+                    // returns to title. Native compresses that visual tail into
+                    // this lifecycle expiry.
                     self.return_to_title();
                 }
                 return false;
