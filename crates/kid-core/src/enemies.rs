@@ -2653,6 +2653,9 @@ pub(crate) fn step_hopper(
         enemy.on_ground = false;
     }
 
+    // ASM Mini_Hopping_Skull.asm loc_3EA88: after the hibernated frame and
+    // retention check, `add.l d3,y_vel(a3)` applies `$1200` gravity before the
+    // collision-type dispatch.
     enemy.y_velocity = (enemy.y_velocity + hc.gravity).min(physics::MAX_FALL_SPEED);
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
@@ -5581,6 +5584,29 @@ mod tests {
             spawn_y_velocity(EnemyFamily::MiniHoppingSkull, 2),
             0x0002_9000,
             "ASM Mini_Hopping_Skull.asm loc_3EA48 tests non-zero enemy_level, not a tiered table"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_first_air_tick_applies_loc_3ea88_gravity() {
+        let data = vec![0u8; 8 * 4 * 2];
+        let grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
+        let mut enemy = ActiveEnemy {
+            on_ground: false,
+            y_velocity: spawn_y_velocity(EnemyFamily::MiniHoppingSkull, 0),
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_hopper(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.y_velocity, 0x0002_9200,
+            "ASM Mini_Hopping_Skull.asm loc_3EA88 adds `$1200` gravity to the `$28000` loc_3EA48 seed"
+        );
+        assert_eq!(
+            enemy.y_pos,
+            (32 << 16) + 0x0002_9200,
+            "ASM Mini_Hopping_Skull.asm loc_3EA88 applies the gravity-adjusted velocity during the airborne frame"
         );
     }
 
