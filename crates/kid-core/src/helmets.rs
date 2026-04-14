@@ -9,6 +9,13 @@ pub(crate) struct EyeclopsBeamRenderSetupLocE4B2 {
     pub(crate) y_offset_px: i16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsBeamScreenOriginLocE4C4 {
+    pub(crate) screen_x_word: u16,
+    pub(crate) screen_y_word: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn eyeclops_beam_render_setup_loc_E4B2(
@@ -28,6 +35,32 @@ pub(crate) fn eyeclops_beam_render_setup_loc_E4B2(
         beam_counter: beam_counter.wrapping_sub(1),
         x_offset_px,
         y_offset_px: -0x0F,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn eyeclops_beam_screen_origin_loc_E4C4(
+    kid_x_word: u16,
+    kid_y_word: u16,
+    camera_x_word: u16,
+    camera_y_word: u16,
+    x_offset_px: i16,
+    y_offset_px: i16,
+) -> EyeclopsBeamScreenOriginLocE4C4 {
+    // ASM loc_E4C4 (kid.asm:18017): add Kid's word X/Y into d0/d1, subtract
+    // Camera_X_pos/Camera_Y_pos, then add the sprite-table bias `$80`.
+    let screen_x_word = kid_x_word
+        .wrapping_add(x_offset_px as u16)
+        .wrapping_sub(camera_x_word)
+        .wrapping_add(0x0080);
+    let screen_y_word = kid_y_word
+        .wrapping_add(y_offset_px as u16)
+        .wrapping_sub(camera_y_word)
+        .wrapping_add(0x0080);
+    EyeclopsBeamScreenOriginLocE4C4 {
+        screen_x_word,
+        screen_y_word,
     }
 }
 

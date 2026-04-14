@@ -3109,6 +3109,49 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_E4C4 (kid.asm:18017): the Eyeclops beam origin is Kid word
+    /// position plus the signed setup offset, minus camera word position, plus
+    /// the `$80` sprite coordinate bias on both axes.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E4C4_eyeclops_beam_screen_origin_applies_camera_and_sprite_bias() {
+        let right_setup = helmets::eyeclops_beam_render_setup_loc_E4B2(3, 0);
+        let right = helmets::eyeclops_beam_screen_origin_loc_E4C4(
+            0x0120,
+            0x00A0,
+            0x0100,
+            0x0080,
+            right_setup.x_offset_px,
+            right_setup.y_offset_px,
+        );
+        assert_eq!(
+            right.screen_x_word, 0x00B2,
+            "ASM loc_E4C4 should compute KidX+$12-CameraX+$80 for a zero direction latch"
+        );
+        assert_eq!(
+            right.screen_y_word, 0x0091,
+            "ASM loc_E4C4 should compute KidY-$0F-CameraY+$80"
+        );
+
+        let left_setup = helmets::eyeclops_beam_render_setup_loc_E4B2(3, 0xFF);
+        let left = helmets::eyeclops_beam_screen_origin_loc_E4C4(
+            0x0010,
+            0x0008,
+            0x0020,
+            0x0010,
+            left_setup.x_offset_px,
+            left_setup.y_offset_px,
+        );
+        assert_eq!(
+            left.screen_x_word, 0x005E,
+            "ASM loc_E4C4 uses wrapping word arithmetic after loc_E4B2 negates d0"
+        );
+        assert_eq!(
+            left.screen_y_word, 0x0069,
+            "ASM loc_E4C4 should preserve the wrapped signed Y offset before adding `$80`"
+        );
+    }
+
     #[test]
     fn eyeclops_c_press_fires_beam_right() {
         let mut rt = NativeRuntime::new(manifest());
