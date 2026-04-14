@@ -1829,6 +1829,85 @@ pub(crate) fn ufo_double_terminal_speed_loc_34e1c(
     command
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoTrackingCommandLoc34E2A {
+    pub(crate) motion: UfoMotionCommand,
+    pub(crate) y_velocity: i32,
+    pub(crate) facing: Direction,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn fixed_integer_word(pos: u32) -> i16 {
+    (pos >> 16) as u16 as i16
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn ufo_tracking_command_loc_34e2a(
+    ufo_x_pos: u32,
+    ufo_y_pos: u32,
+    kid_x_pos: u32,
+    kid_y_pos: u32,
+    tracking_enabled: bool,
+    some_ufo_shooting: bool,
+    double_acceleration: bool,
+    double_terminal_speed: bool,
+) -> Option<UfoTrackingCommandLoc34E2A> {
+    // ASM UFO.asm loc_34E2A: `$4D(a5)` and `Some_UFO_Shooting` gate the whole
+    // below-and-near Kid chase branch before any velocity state is changed.
+    if !tracking_enabled || some_ufo_shooting {
+        return None;
+    }
+
+    let ufo_x = fixed_integer_word(ufo_x_pos);
+    let ufo_y = fixed_integer_word(ufo_y_pos);
+    let kid_x = fixed_integer_word(kid_x_pos);
+    let kid_y = fixed_integer_word(kid_y_pos);
+    if kid_y <= ufo_y {
+        return None;
+    }
+
+    let left_edge = kid_x.wrapping_sub(0x30);
+    if ufo_x < left_edge {
+        return None;
+    }
+    let right_edge = left_edge.wrapping_add(0x60);
+    if ufo_x > right_edge {
+        return None;
+    }
+
+    let motion = if ufo_x < kid_x {
+        UfoMotionCommand {
+            x_acceleration: 0x1000,
+            target_x_velocity: 0x20000,
+            y_acceleration: 0,
+            target_y_velocity: 0,
+        }
+    } else {
+        UfoMotionCommand {
+            x_acceleration: -0x1000,
+            target_x_velocity: -0x20000,
+            y_acceleration: 0,
+            target_y_velocity: 0,
+        }
+    };
+    let motion = ufo_double_terminal_speed_loc_34e1c(
+        ufo_double_acceleration_loc_34e10(motion, double_acceleration),
+        double_terminal_speed,
+    );
+
+    Some(UfoTrackingCommandLoc34E2A {
+        motion,
+        y_velocity: 0,
+        facing: if ufo_x < kid_x {
+            Direction::Right
+        } else {
+            Direction::Left
+        },
+    })
+}
+
 pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     // Apply acceleration to velocity (clamped to terminal)
     enemy.x_velocity = (enemy.x_velocity + enemy.x_acceleration)
@@ -6555,6 +6634,131 @@ mod tests {
                 target_y_velocity: 0x30000,
             },
             "ASM UFO.asm loc_34E1C doubles terminal-speed registers d1/d3 while leaving acceleration d0/d2 unchanged"
+        );
+    }
+
+    #[test]
+    fn ufo_tracking_matches_loc_34e2a_below_near_kid_branch() {
+        assert_eq!(
+            ufo_tracking_command_loc_34e2a(
+                0x0120_8000,
+                0x0080_4000,
+                0x0100_0000,
+                0x0090_0000,
+                true,
+                false,
+                true,
+                true,
+            ),
+            Some(UfoTrackingCommandLoc34E2A {
+                motion: UfoMotionCommand {
+                    x_acceleration: -0x2000,
+                    target_x_velocity: -0x40000,
+                    y_acceleration: 0,
+                    target_y_velocity: 0,
+                },
+                y_velocity: 0,
+                facing: Direction::Left,
+            }),
+            "ASM UFO.asm loc_34E2A clears y_vel, steers left when UFO X is not less than Kid X, then calls loc_34E10 scaling"
+        );
+
+        assert_eq!(
+            ufo_tracking_command_loc_34e2a(
+                0x00D0_0000,
+                0x0080_0000,
+                0x0100_0000,
+                0x0090_0000,
+                true,
+                false,
+                false,
+                false,
+            ),
+            Some(UfoTrackingCommandLoc34E2A {
+                motion: UfoMotionCommand {
+                    x_acceleration: 0x1000,
+                    target_x_velocity: 0x20000,
+                    y_acceleration: 0,
+                    target_y_velocity: 0,
+                },
+                y_velocity: 0,
+                facing: Direction::Right,
+            }),
+            "ASM UFO.asm loc_34E2A includes the Kid X - $30 edge and steers right when UFO X is less than Kid X"
+        );
+    }
+
+    #[test]
+    fn ufo_tracking_matches_loc_34e2a_early_returns() {
+        assert_eq!(
+            ufo_tracking_command_loc_34e2a(
+                0x0100_0000,
+                0x0080_0000,
+                0x0100_0000,
+                0x0090_0000,
+                false,
+                false,
+                false,
+                false,
+            ),
+            None,
+            "ASM UFO.asm loc_34E2A returns before checking positions when `$4D(a5)` is zero"
+        );
+        assert_eq!(
+            ufo_tracking_command_loc_34e2a(
+                0x0100_0000,
+                0x0080_0000,
+                0x0100_0000,
+                0x0090_0000,
+                true,
+                true,
+                false,
+                false,
+            ),
+            None,
+            "ASM UFO.asm loc_34E2A returns while `Some_UFO_Shooting` is non-zero"
+        );
+        assert_eq!(
+            ufo_tracking_command_loc_34e2a(
+                0x0100_0000,
+                0x0080_0000,
+                0x0100_0000,
+                0x0080_0000,
+                true,
+                false,
+                false,
+                false,
+            ),
+            None,
+            "ASM UFO.asm loc_34E2A requires Kid's integer Y word to be greater than UFO's"
+        );
+        assert_eq!(
+            ufo_tracking_command_loc_34e2a(
+                0x00CF_0000,
+                0x0080_0000,
+                0x0100_0000,
+                0x0090_0000,
+                true,
+                false,
+                false,
+                false,
+            ),
+            None,
+            "ASM UFO.asm loc_34E2A rejects UFO X below Kid X - $30"
+        );
+        assert_eq!(
+            ufo_tracking_command_loc_34e2a(
+                0x0131_0000,
+                0x0080_0000,
+                0x0100_0000,
+                0x0090_0000,
+                true,
+                false,
+                false,
+                false,
+            ),
+            None,
+            "ASM UFO.asm loc_34E2A rejects UFO X above Kid X + $30"
         );
     }
 
