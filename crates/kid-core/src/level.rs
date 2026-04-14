@@ -11599,6 +11599,47 @@ pub(crate) fn eol_score_counter_apply_loc_D77E(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EolScoreCounterDrainLocD7CE {
+    pub(crate) displayed_score: u32,
+    pub(crate) remaining_amount: u32,
+    pub(crate) active_number_count: u16,
+    pub(crate) advances_to_next_number: bool,
+    pub(crate) all_numbers_complete: bool,
+}
+
+/// ASM loc_D7CE (kid.asm:16887): mirror live `(Score).w` into the score
+/// display object's `$60`, subtract the full transfer chunk from the active
+/// EOL number object's `$60`, and advance to the next number when the signed
+/// result is not positive.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eol_score_counter_drain_current_number_loc_D7CE(
+    score: u32,
+    remaining_amount: u32,
+    transfer_chunk: u32,
+    active_number_count: u16,
+) -> EolScoreCounterDrainLocD7CE {
+    if remaining_amount > transfer_chunk {
+        return EolScoreCounterDrainLocD7CE {
+            displayed_score: score,
+            remaining_amount: remaining_amount - transfer_chunk,
+            active_number_count,
+            advances_to_next_number: false,
+            all_numbers_complete: false,
+        };
+    }
+
+    let active_number_count = active_number_count.saturating_sub(1);
+    EolScoreCounterDrainLocD7CE {
+        displayed_score: score,
+        remaining_amount: 0,
+        active_number_count,
+        advances_to_next_number: active_number_count != 0,
+        all_numbers_complete: active_number_count == 0,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {

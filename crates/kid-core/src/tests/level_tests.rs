@@ -6493,6 +6493,50 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D7CE (kid.asm:16887): store the live score into the display
+    /// object's `$60`, subtract the full `d2` chunk from the active number, and
+    /// only advance `a1` when the signed remainder is not positive.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D7CE_eol_score_counter_stores_score_and_drains_current_number() {
+        let still_active =
+            crate::level::eol_score_counter_drain_current_number_loc_D7CE(12_345, 0x80, 0x28, 3);
+        assert_eq!(
+            still_active.displayed_score, 12_345,
+            "ASM loc_D7CE should mirror Score into the score display number object's `$60`"
+        );
+        assert_eq!(
+            still_active.remaining_amount, 0x58,
+            "ASM loc_D7CE should subtract the full d2 transfer chunk while the active amount remains positive"
+        );
+        assert!(
+            !still_active.advances_to_next_number,
+            "ASM loc_D7CE should branch to loc_D7E4 without advancing a1 when the remainder is positive"
+        );
+
+        let next_number =
+            crate::level::eol_score_counter_drain_current_number_loc_D7CE(12_385, 0x10, 0x28, 3);
+        assert_eq!(
+            next_number.remaining_amount, 0,
+            "ASM loc_D7CE should clear the active number's `$60` when subtracting d2 exhausts it"
+        );
+        assert_eq!(
+            next_number.active_number_count, 2,
+            "ASM loc_D7CE should decrement d3 after exhausting the active EOL number"
+        );
+        assert!(
+            next_number.advances_to_next_number,
+            "ASM loc_D7CE should load the next `(a2)+` number object when d3 is still non-zero"
+        );
+
+        let complete =
+            crate::level::eol_score_counter_drain_current_number_loc_D7CE(12_400, 0x28, 0x28, 1);
+        assert!(
+            complete.all_numbers_complete,
+            "ASM loc_D7CE should branch to loc_D7F4 when the final active EOL number reaches zero"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
