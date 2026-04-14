@@ -11646,6 +11646,35 @@ pub(crate) fn end_credits_tail_loc_D882() -> EndCreditsTailLocD882 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ObjectCollisionFieldsLocD980 {
+    pub(crate) object_addr: u32,
+    pub(crate) field_36: u32,
+    pub(crate) field_3a: u32,
+    pub(crate) field_3e: u32,
+}
+
+/// ASM loc_D980 (kid.asm:17007): walk the object list from
+/// `Addr_FirstObjectSlot`, skip the current object in `a5`, and clear the
+/// three collision/contact longwords at `$36`, `$3A`, and `$3E` on every other
+/// object before the later `Delete_AllButCurrentObject` tail.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn flagpole_clear_other_object_collision_loc_D980(
+    objects: &mut [ObjectCollisionFieldsLocD980],
+    current_object_addr: u32,
+) {
+    for object in objects {
+        if object.object_addr == current_object_addr {
+            continue;
+        }
+
+        object.field_36 = 0;
+        object.field_3a = 0;
+        object.field_3e = 0;
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.

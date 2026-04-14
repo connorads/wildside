@@ -15099,4 +15099,62 @@ mod chunk_12 {
             "ASM loc_D882 should jump to the shared mode reset tail"
         );
     }
+
+    /// ASM loc_D980 (kid.asm:17007): before deleting all but the current
+    /// flagpole object, the ROM walks `Addr_FirstObjectSlot`, skips `a5`, and
+    /// clears longwords `$36`, `$3A`, and `$3E` on every other object.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D980_flagpole_cleanup_clears_collision_fields_except_current_object() {
+        let mut objects = [
+            crate::level::ObjectCollisionFieldsLocD980 {
+                object_addr: 0x00FF_0100,
+                field_36: 0x1111_1111,
+                field_3a: 0x2222_2222,
+                field_3e: 0x3333_3333,
+            },
+            crate::level::ObjectCollisionFieldsLocD980 {
+                object_addr: 0x00FF_0200,
+                field_36: 0x4444_4444,
+                field_3a: 0x5555_5555,
+                field_3e: 0x6666_6666,
+            },
+            crate::level::ObjectCollisionFieldsLocD980 {
+                object_addr: 0x00FF_0300,
+                field_36: 0x7777_7777,
+                field_3a: 0x8888_8888,
+                field_3e: 0x9999_9999,
+            },
+        ];
+
+        crate::level::flagpole_clear_other_object_collision_loc_D980(&mut objects, 0x00FF_0200);
+
+        assert_eq!(
+            (
+                objects[0].field_36,
+                objects[0].field_3a,
+                objects[0].field_3e
+            ),
+            (0, 0, 0),
+            "ASM loc_D980 should clear `$36/$3A/$3E` on objects before `a5`"
+        );
+        assert_eq!(
+            (
+                objects[1].field_36,
+                objects[1].field_3a,
+                objects[1].field_3e
+            ),
+            (0x4444_4444, 0x5555_5555, 0x6666_6666),
+            "ASM loc_D980 should skip the current object when `cmp.l a5,a0` matches"
+        );
+        assert_eq!(
+            (
+                objects[2].field_36,
+                objects[2].field_3a,
+                objects[2].field_3e
+            ),
+            (0, 0, 0),
+            "ASM loc_D980 should resume traversal and clear later non-current objects"
+        );
+    }
 }
