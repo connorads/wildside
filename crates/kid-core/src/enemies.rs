@@ -79,6 +79,40 @@ pub(crate) fn lion_init_motion_profile_loc_3dfd8(current_hp: u16) -> LionInitMot
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionInitRuntimeFields {
+    pub(crate) ufo_beam_interval: u16,
+    pub(crate) ufo_beam_segments: u16,
+    pub(crate) tracking_callback: &'static str,
+    pub(crate) animation_script: &'static str,
+    pub(crate) shared_walker_state: i16,
+    pub(crate) charge_timer: u16,
+    pub(crate) collision_routine: &'static str,
+    pub(crate) random_phase_byte: u8,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_init_runtime_fields_loc_3dff0(
+    motion_profile: LionInitMotionProfile,
+    random_byte: u8,
+) -> LionInitRuntimeFields {
+    // ASM Lion.asm loc_3DFF0: common tail after the HP-specific motion branch.
+    // It writes `$4A/$48/$6A`, initialises the selected animation, seeds
+    // `$42(a3)` and `$54(a5)`, points a0 at the Lion collision routine, then
+    // stores the RNG byte in `$71(a5)` with the original zero-byte remap to `$4B`.
+    LionInitRuntimeFields {
+        ufo_beam_interval: 0x002F,
+        ufo_beam_segments: 0x0014,
+        tracking_callback: "LionTrackingCallback",
+        animation_script: motion_profile.animation_script,
+        shared_walker_state: 0x000A,
+        charge_timer: 0x003C,
+        collision_routine: "LionCollisionRoutine",
+        random_phase_byte: if random_byte == 0 { 0x4B } else { random_byte },
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -3661,6 +3695,7 @@ pub(crate) fn lion_charge_speed(hit_points: u8) -> i32 {
 }
 
 /// Lion charge timer: starts at $3C (60 frames), counts down while pacing.
+/// Seeded by Lion.asm loc_3DFF0.
 /// ASM loc_3E078: on expiry, unconditionally starts roar → charge regardless
 /// of Kid distance.  Reload is $B4 (180) via LION_COOLDOWN_AFTER_FIRE.
 pub(crate) const LION_CHARGE_TIMER_INIT: u16 = 60;
@@ -6091,6 +6126,41 @@ mod tests {
             lion_charge_speed(9),
             0x0001_8000,
             "ASM Lion.asm loc_3DFD8 is selected by `bne`, so HP above 8 is not a fast tier"
+        );
+    }
+
+    #[test]
+    fn lion_init_runtime_fields_match_loc_3dff0_common_tail() {
+        let fast_profile = lion_init_motion_profile_loc_3dfd8(8);
+        assert_eq!(
+            lion_init_runtime_fields_loc_3dff0(fast_profile, 0x2A),
+            LionInitRuntimeFields {
+                ufo_beam_interval: 0x002F,
+                ufo_beam_segments: 0x0014,
+                tracking_callback: "LionTrackingCallback",
+                animation_script: "stru_3DEF4",
+                shared_walker_state: 0x000A,
+                charge_timer: 0x003C,
+                collision_routine: "LionCollisionRoutine",
+                random_phase_byte: 0x2A,
+            },
+            "ASM Lion.asm loc_3DFF0 should seed the common runtime fields after the HP-specific animation script is selected"
+        );
+
+        let regular_profile = lion_init_motion_profile_loc_3dfd8(7);
+        assert_eq!(
+            lion_init_runtime_fields_loc_3dff0(regular_profile, 0),
+            LionInitRuntimeFields {
+                ufo_beam_interval: 0x002F,
+                ufo_beam_segments: 0x0014,
+                tracking_callback: "LionTrackingCallback",
+                animation_script: "stru_3DEDA",
+                shared_walker_state: 0x000A,
+                charge_timer: LION_CHARGE_TIMER_INIT,
+                collision_routine: "LionCollisionRoutine",
+                random_phase_byte: 0x4B,
+            },
+            "ASM Lion.asm loc_3DFF0 remaps RNG byte 0 to `$4B` after storing the selected animation"
         );
     }
 
