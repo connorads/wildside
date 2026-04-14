@@ -532,8 +532,12 @@ impl NativeRuntime {
                         -p.homing_accel
                     };
                     p.y_velocity += if dy > 0 {
+                        // ASM loc_3E240: if `d7 = y_pos(a3)-y_pos(a4)-$10` is
+                        // negative, add `$2000` and continue to loc_3E192.
                         p.homing_accel
                     } else {
+                        // ASM loc_3E20E: `beq/w bge` paths apply `-=$2000`
+                        // on the Y axis when the target is met or above.
                         -p.homing_accel
                     };
                 }

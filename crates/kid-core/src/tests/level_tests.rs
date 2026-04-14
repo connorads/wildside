@@ -14961,6 +14961,29 @@ mod chunk_10 {
     }
 
     #[test]
+    fn lion_projectile_loc_3e240_positive_y_branch_and_cap() {
+        // ASM Lion.asm loc_3E240: when `d7 = y_pos(a3)-y_pos(a4)-$10` is
+        // negative, the routine adds `$2000` and then clamps against `speed_cap`.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut proj = make_projectile(100, 0);
+        proj.homing_accel = 0x3000;
+        proj.speed_cap = 0x6_0000;
+        proj.y_velocity = 0x5_E000;
+        rt.projectiles.push(proj);
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 300 << 16;
+        rt.opening_slice = Some(slice);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles[0].y_velocity, 0x6_0000,
+            "loc_3E240 should add +homing_accel and clamp to +speed_cap",
+        );
+    }
+
+    #[test]
     fn homing_accelerates_toward_player_on_both_axes() {
         // Player far right and below → both axes should get positive accel.
         // Player far left and above → both axes should get negative accel.
