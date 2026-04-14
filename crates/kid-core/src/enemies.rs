@@ -282,6 +282,44 @@ pub(crate) fn lion_roar_wait_dispatch_loc_3e09e(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionPostFireWaitDispatch {
+    Damage,
+    ContinueWaiting {
+        next_collision_type: u16,
+    },
+    ResumeCharge {
+        next_collision_type: u16,
+        animation_script: &'static str,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_post_fire_wait_dispatch_loc_3e0f4(
+    collision_type: u16,
+    animation_done_flag_18: bool,
+) -> LionPostFireWaitDispatch {
+    // ASM Lion.asm loc_3E0F4: the post-fire parent waits one hibernated frame,
+    // sends hurt/Kid-above collisions to the damage path before clearing
+    // `collision_type`, loops while `$18(a3)` is clear, then restores the
+    // animation pointer saved in `$62(a5)` before the direction dispatch.
+    if matches!(collision_type, LION_COLID_HURT | LION_COLID_KIDABOVE) {
+        return LionPostFireWaitDispatch::Damage;
+    }
+
+    if !animation_done_flag_18 {
+        return LionPostFireWaitDispatch::ContinueWaiting {
+            next_collision_type: 0,
+        };
+    }
+
+    LionPostFireWaitDispatch::ResumeCharge {
+        next_collision_type: 0,
+        animation_script: "saved_lion_charge_animation",
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -7223,6 +7261,35 @@ mod tests {
                 active_projectile_count_delta: 1,
             },
             "ASM Lion.asm loc_3E09E should choose the clear x_direction orientation when Kid is not to the right"
+        );
+    }
+
+    #[test]
+    fn lion_post_fire_wait_dispatch_matches_loc_3e0f4() {
+        assert_eq!(
+            lion_post_fire_wait_dispatch_loc_3e0f4(LION_COLID_HURT, false),
+            LionPostFireWaitDispatch::Damage,
+            "ASM Lion.asm loc_3E0F4 should send colid_hurt to the damage path before clearing collision_type"
+        );
+        assert_eq!(
+            lion_post_fire_wait_dispatch_loc_3e0f4(LION_COLID_KIDABOVE, true),
+            LionPostFireWaitDispatch::Damage,
+            "ASM Lion.asm loc_3E0F4 should prioritise colid_kidabove over the `$18(a3)` completion flag"
+        );
+        assert_eq!(
+            lion_post_fire_wait_dispatch_loc_3e0f4(0x0020, false),
+            LionPostFireWaitDispatch::ContinueWaiting {
+                next_collision_type: 0,
+            },
+            "ASM Lion.asm loc_3E0F4 should clear non-damaging collision_type and loop while `$18(a3)` is clear"
+        );
+        assert_eq!(
+            lion_post_fire_wait_dispatch_loc_3e0f4(0, true),
+            LionPostFireWaitDispatch::ResumeCharge {
+                next_collision_type: 0,
+                animation_script: "saved_lion_charge_animation",
+            },
+            "ASM Lion.asm loc_3E0F4 should restore the animation script saved in `$62(a5)` when `$18(a3)` is set"
         );
     }
 
