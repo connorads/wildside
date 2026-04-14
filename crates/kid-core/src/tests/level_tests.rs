@@ -7181,6 +7181,28 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E744 (kid.asm:18429): bottom probe rows use the same arithmetic
+    /// pixel-to-tile conversion, then negative rows are clamped to zero.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E744_converts_bottom_probe_row_and_clamps_negative() {
+        assert_eq!(
+            crate::level::level_sprite_strip_bottom_row_lower_clamp_loc_E744(0x0040),
+            0x0004,
+            "ASM loc_E744 should convert positive bottom world Y with `asr.w #4`"
+        );
+        assert_eq!(
+            crate::level::level_sprite_strip_bottom_row_lower_clamp_loc_E744(-0x0001),
+            0,
+            "ASM loc_E744 should clamp a negative shifted bottom row to zero"
+        );
+        assert_eq!(
+            crate::level::level_sprite_strip_bottom_row_lower_clamp_loc_E744(-0x0010),
+            0,
+            "ASM loc_E744 should also clamp exact negative tile rows to zero"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

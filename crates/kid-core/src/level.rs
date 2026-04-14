@@ -12457,6 +12457,15 @@ pub(crate) fn level_sprite_strip_top_row_upper_clamp_loc_E738(
     }
 }
 
+/// ASM loc_E744 (kid.asm:18429): convert the bottom terrain probe from world
+/// pixels to a tile row with arithmetic shift, then clamp negative rows to
+/// zero before the bottom upper-bound check.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_bottom_row_lower_clamp_loc_E744(bottom_world_y: i16) -> i16 {
+    (bottom_world_y >> 4).max(0)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
