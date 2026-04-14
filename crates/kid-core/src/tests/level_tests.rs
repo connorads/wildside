@@ -8997,6 +8997,50 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F350 (kid.asm:19932): for a non-head visible shooter removal,
+    /// follow `$C(a3)` links until the predecessor's successor is `a0`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F350_finds_the_expired_visible_shooter_predecessor() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E7F2,
+                next_slot_addr: 0xFFFF_E800,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E800,
+                next_slot_addr: 0xFFFF_E80E,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E80E,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::shooter_expired_slot_predecessor_scan_loc_F350(
+                &active_slots,
+                0xFFFF_E7F2,
+                0xFFFF_E80E,
+            ),
+            Some(crate::level::ShooterExpiredSlotPredecessorScanLocF350 {
+                predecessor_slot_addr: 0xFFFF_E800,
+                scanned_links: 2,
+            }),
+            "ASM loc_F350 should loop through `$C(a3)` until the saved successor equals the expired slot"
+        );
+
+        assert_eq!(
+            crate::level::shooter_expired_slot_predecessor_scan_loc_F350(
+                &active_slots,
+                0xFFFF_E7F2,
+                0xFFFF_E81C,
+            ),
+            None,
+            "ASM loc_F350 only terminates when a list link names the expired slot; a null link means no predecessor in the provided list"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

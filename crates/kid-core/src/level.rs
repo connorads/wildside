@@ -871,6 +871,13 @@ pub(crate) enum ShooterExpiredSlotRangeCountdownLocF302 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterExpiredSlotPredecessorScanLocF350 {
+    pub(crate) predecessor_slot_addr: u32,
+    pub(crate) scanned_links: usize,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8628,6 +8635,38 @@ pub(crate) fn shooter_expired_slot_range_countdown_loc_F302(
             next_state_word: 2,
         }
     }
+}
+
+/// ASM loc_F350 (kid.asm:19932): when an expired visible shooter slot is not
+/// the active-list head, walk `$C(a3)` links until the successor equals `a0`;
+/// the matching `a3` predecessor is then spliced by `loc_F35E`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_expired_slot_predecessor_scan_loc_F350(
+    active_slots: &[LinkedObjectSlotInit],
+    first_active_slot_addr: u32,
+    target_slot_addr: u32,
+) -> Option<ShooterExpiredSlotPredecessorScanLocF350> {
+    let mut current_slot_addr = first_active_slot_addr;
+
+    for scanned_links in 1..=active_slots.len() {
+        let current_slot = active_slots
+            .iter()
+            .find(|slot| slot.slot_addr == current_slot_addr)?;
+        let successor_slot_addr = current_slot.next_slot_addr;
+        if successor_slot_addr == target_slot_addr {
+            return Some(ShooterExpiredSlotPredecessorScanLocF350 {
+                predecessor_slot_addr: current_slot.slot_addr,
+                scanned_links,
+            });
+        }
+        if successor_slot_addr == 0 {
+            return None;
+        }
+        current_slot_addr = successor_slot_addr;
+    }
+
+    None
 }
 
 #[allow(non_snake_case)]
