@@ -8313,6 +8313,25 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_slot_loc_f830_restores_offscreen_span_without_sprite_updates() {
+        let span = NativeRuntime::shooter_horizontal_span_loc_F808(10, 30, 4, 18, 31, 7, 4);
+
+        assert!(
+            NativeRuntime::shooter_horizontal_span_rejected_loc_F830(10, 30, 4, 18, 31, 7),
+            "ASM loc_F830 should take the coarse reject branch when the span starts past the camera right column"
+        );
+        assert_eq!(
+            span.restored_cols,
+            vec![31, 32, 33, 34],
+            "ASM loc_F830 should restore every span cell when the coarse viewport test rejects the shooter"
+        );
+        assert!(
+            span.sprite_cells.is_empty(),
+            "ASM loc_F830 (kid.asm:20504) skips the loc_F808 visible-cell queue path and only advances the layout pointer"
+        );
+    }
+
+    #[test]
     fn shooter_slot_tick_sub_f730_advances_the_zero_state_into_the_negative_visibility_ladder() {
         assert_eq!(
             NativeRuntime::shooter_slot_tick_sub_F730(1, 0, 4, 6),
