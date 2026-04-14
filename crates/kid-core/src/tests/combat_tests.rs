@@ -8012,6 +8012,29 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_f0d0_clamps_leftward_column_scan_to_zero() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.set_block_grid(grid_with_shooter_blocks(&[(0, 3, 0x02)]));
+        runtime.projectiles.clear();
+        runtime.block_state.shooter_last_scanned_col = 4;
+        runtime.block_state.shooter_last_scanned_row = 3;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = 16 << 16;
+        slice.player.y_pos = (3 * 16) << 16;
+        runtime.step_shooter_blocks(&slice);
+
+        assert_eq!(
+            runtime.block_state.shooter_blocks.len(),
+            1,
+            "ASM loc_F0D0 should clamp `kid_x_block-3` to column zero before loc_F0D8 starts the vertical scan"
+        );
+        assert_eq!(runtime.block_state.shooter_blocks[0].col, 0);
+        assert_eq!(runtime.block_state.shooter_blocks[0].row, 3);
+    }
+
+    #[test]
     fn shooter_block_sub_f096_keeps_per_slot_cadence_until_the_worker_expires() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

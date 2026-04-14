@@ -1734,6 +1734,8 @@ impl NativeRuntime {
             let entering_col = if previous_col < kid_block_col {
                 (kid_block_col + 3).min(max_col)
             } else {
+                // ASM loc_F0D0 (kid.asm:19643): moving left scans `kid_x_block-3`,
+                // clamped to column zero when the subtraction goes negative.
                 (kid_block_col - 3).max(0)
             } as u16;
             let start_row = (kid_block_row - 5).max(0) as u16;
