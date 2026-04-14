@@ -7519,6 +7519,26 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E858 (kid.asm:18554): the flipped one-width branch subtracts
+    /// `$18` from `d0`, copies that adjusted X into `d6`, and seeds `d4`
+    /// with `$0800` before falling through to the size-8 writer.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E858_flips_one_width_hard_beam_direction_setup() {
+        let direction =
+            crate::level::eyeclops_hard_beam_one_width_flipped_direction_loc_E858(0x0120);
+
+        assert_eq!(
+            direction,
+            crate::level::EyeclopsHardBeamOneWidthDirectionLocE858 {
+                sprite_x: 0x0108,
+                collision_probe_screen_x: 0x0108,
+                tile_attr_mask: 0x0800,
+            },
+            "ASM loc_E858 should subtract `$18` from d0, copy the adjusted value to d6, and set the flipped tile bit"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

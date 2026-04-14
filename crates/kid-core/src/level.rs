@@ -12715,6 +12715,29 @@ pub(crate) struct EyeclopsHardBeamOneWidthSpritesLocE842 {
     pub(crate) collision_probe_screen_y: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EyeclopsHardBeamOneWidthDirectionLocE858 {
+    pub(crate) sprite_x: i16,
+    pub(crate) collision_probe_screen_x: i16,
+    pub(crate) tile_attr_mask: u16,
+}
+
+/// ASM loc_E858 (kid.asm:18554): the non-zero `$FFFFFABE` one-width beam
+/// branch rewinds `d0` by `$18`, copies that X into `d6`, and ORs `$0800`
+/// into each emitted sprite tile word.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_one_width_flipped_direction_loc_E858(
+    source_x: i16,
+) -> EyeclopsHardBeamOneWidthDirectionLocE858 {
+    let adjusted_x = source_x.wrapping_sub(0x0018);
+    EyeclopsHardBeamOneWidthDirectionLocE858 {
+        sprite_x: adjusted_x,
+        collision_probe_screen_x: adjusted_x,
+        tile_attr_mask: 0x0800,
+    }
+}
+
 /// ASM loc_E842 (kid.asm:18543): `d7 == 1` uses the one-width hard-beam
 /// branch. The direction latch chooses either `d6=d0+$18` or `d0=d0-$18`,
 /// then the shared write block emits three size-8 sprites at `d1 - 8`, `d1`,
@@ -12733,8 +12756,12 @@ pub(crate) fn eyeclops_hard_beam_one_width_sprites_loc_E842(
     }
 
     let (sprite_x, collision_probe_screen_x, tile_attr_mask) = if direction_latch_nonzero {
-        let adjusted_x = source_x.wrapping_sub(0x0018);
-        (adjusted_x, adjusted_x, 0x0800)
+        let direction = eyeclops_hard_beam_one_width_flipped_direction_loc_E858(source_x);
+        (
+            direction.sprite_x,
+            direction.collision_probe_screen_x,
+            direction.tile_attr_mask,
+        )
     } else {
         (source_x, source_x.wrapping_add(0x0018), 0)
     };
