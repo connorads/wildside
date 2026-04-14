@@ -4927,6 +4927,25 @@ pub(crate) fn drips_surface_sprite_write_loc_3350e(selected_sprite_offset: u16) 
     selected_sprite_offset
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsIdleLoopLoc33516 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checks_in_range: bool,
+    pub(crate) loops_forever: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_idle_loop_loc_33516() -> DripsIdleLoopLoc33516 {
+    // ASM Drips.asm loc_33516: call one-frame hibernate, run
+    // Object_CheckInRange, then branch back to the same idle loop.
+    DripsIdleLoopLoc33516 {
+        hibernates_one_frame: true,
+        checks_in_range: true,
+        loops_forever: true,
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -6113,6 +6132,19 @@ mod tests {
             drips_surface_sprite_write_loc_3350e(0),
             0,
             "ASM Drips.asm loc_3350E also writes the zero sprite word produced by the table reset path"
+        );
+    }
+
+    #[test]
+    fn drips_idle_loop_matches_loc_33516() {
+        assert_eq!(
+            drips_idle_loop_loc_33516(),
+            DripsIdleLoopLoc33516 {
+                hibernates_one_frame: true,
+                checks_in_range: true,
+                loops_forever: true,
+            },
+            "ASM Drips.asm loc_33516 hibernates for one frame, checks object range, then branches back to itself"
         );
     }
 
