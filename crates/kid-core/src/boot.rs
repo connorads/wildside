@@ -6752,6 +6752,12 @@ impl NativeRuntime {
                     // Native: object collision state is not carried across
                     // lifecycle transitions, so the per-object clear is implicit.
                     // GFX object cleanup and palette loading are visual-only.
+                    // ASM loc_D17E (kid.asm:16428) allocates the EOL score
+                    // number object, copies `(Score).w` into object offset
+                    // `$60`, then clears the live Score longword. Native does
+                    // not model that visual object, so clear progression score
+                    // at the collapsed GameOver entry.
+                    self.progression.score = 0;
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: PLAYER_GAME_OVER_HOLD_FRAMES,
                     };

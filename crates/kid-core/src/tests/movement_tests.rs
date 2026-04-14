@@ -14688,4 +14688,31 @@ mod chunk_12 {
             "native game-over hold should cover repeated loc_D170 loop-back writes"
         );
     }
+
+    /// ASM loc_D17E (kid.asm:16428): after allocating the EOL score number,
+    /// `move.l (Score).w,$60(a0)` preserves the displayed value and `clr.l
+    /// (Score).w` clears the live score. Native does not model the visual EOL
+    /// number object, so entering `PlayerLifecycle::GameOver` clears
+    /// `progression.score`.
+    #[test]
+    fn loc_d17e_game_over_score_handoff_clears_live_score() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_lives = 0;
+        runtime.progression.score = 12_340;
+        runtime.player_lifecycle = PlayerLifecycle::Dying {
+            remaining_frames: 1,
+        };
+
+        runtime.step_frame(FrameInput::default());
+
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::GameOver { .. }),
+            "ASM loc_D17E score handoff is reached through the last-life GameOver path"
+        );
+        assert_eq!(
+            runtime.progression.score, 0,
+            "ASM loc_D17E clears the live Score longword after copying it to the EOL number object"
+        );
+    }
 }
