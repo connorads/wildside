@@ -21,6 +21,24 @@ pub(crate) enum MiniHoppingSkullAirSprite {
     Falling,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+const MINI_SKULL_COLID_RIGHTWALL: u16 = 0x0004;
+const MINI_SKULL_COLID_LEFTWALL: u16 = 0x0008;
+const MINI_SKULL_COLID_FLOOR: u16 = 0x000C;
+const MINI_SKULL_COLID_CEILING: u16 = 0x0010;
+const MINI_SKULL_COLID_HURT: u16 = 0x001C;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullCollisionDispatch {
+    AirborneLoop,
+    WallBounce,
+    FloorLanding,
+    CeilingHit,
+    HurtOrWeapon,
+    SlopeOrOtherTerrain,
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -2637,6 +2655,27 @@ pub(crate) fn mini_hopping_skull_air_sprite_after_loc_3ea88(
         // ASM Mini_Hopping_Skull.asm loc_3EAAC: non-negative `y_vel(a3)`
         // selects `LnkTo_unk_C8088` after the animated-state guard is clear.
         Some(MiniHoppingSkullAirSprite::Falling)
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_collision_dispatch_loc_3eab2(
+    collision_type: u16,
+) -> MiniHoppingSkullCollisionDispatch {
+    // ASM Mini_Hopping_Skull.asm loc_3EAB2 reads `collision_type(a3)` into d4
+    // and dispatches by compare order, not by a dense table.
+    if collision_type == 0 {
+        MiniHoppingSkullCollisionDispatch::AirborneLoop
+    } else if collision_type >= MINI_SKULL_COLID_HURT {
+        MiniHoppingSkullCollisionDispatch::HurtOrWeapon
+    } else if collision_type <= MINI_SKULL_COLID_LEFTWALL {
+        MiniHoppingSkullCollisionDispatch::WallBounce
+    } else if collision_type == MINI_SKULL_COLID_FLOOR {
+        MiniHoppingSkullCollisionDispatch::FloorLanding
+    } else if collision_type == MINI_SKULL_COLID_CEILING {
+        MiniHoppingSkullCollisionDispatch::CeilingHit
+    } else {
+        MiniHoppingSkullCollisionDispatch::SlopeOrOtherTerrain
     }
 }
 
@@ -5651,6 +5690,45 @@ mod tests {
             mini_hopping_skull_air_sprite_after_loc_3ea88(true, 0),
             None,
             "ASM Mini_Hopping_Skull.asm checks `is_animated(a3)` before the loc_3EAAC sprite branch"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_collision_dispatch_matches_loc_3eab2_compare_order() {
+        assert_eq!(
+            mini_hopping_skull_collision_dispatch_loc_3eab2(0),
+            MiniHoppingSkullCollisionDispatch::AirborneLoop,
+            "ASM Mini_Hopping_Skull.asm loc_3EAB2 branches back to loc_3EA88 when `collision_type(a3)` is zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_collision_dispatch_loc_3eab2(MINI_SKULL_COLID_RIGHTWALL),
+            MiniHoppingSkullCollisionDispatch::WallBounce,
+            "ASM Mini_Hopping_Skull.asm loc_3EAB2 sends right-wall collision to loc_3F1AA"
+        );
+        assert_eq!(
+            mini_hopping_skull_collision_dispatch_loc_3eab2(MINI_SKULL_COLID_LEFTWALL),
+            MiniHoppingSkullCollisionDispatch::WallBounce,
+            "ASM Mini_Hopping_Skull.asm loc_3EAB2 sends left-wall collision to loc_3F1AA"
+        );
+        assert_eq!(
+            mini_hopping_skull_collision_dispatch_loc_3eab2(MINI_SKULL_COLID_FLOOR),
+            MiniHoppingSkullCollisionDispatch::FloorLanding,
+            "ASM Mini_Hopping_Skull.asm loc_3EAB2 sends floor collision to loc_3EFEC"
+        );
+        assert_eq!(
+            mini_hopping_skull_collision_dispatch_loc_3eab2(MINI_SKULL_COLID_CEILING),
+            MiniHoppingSkullCollisionDispatch::CeilingHit,
+            "ASM Mini_Hopping_Skull.asm loc_3EAB2 sends ceiling collision to loc_3F1A2"
+        );
+        assert_eq!(
+            mini_hopping_skull_collision_dispatch_loc_3eab2(MINI_SKULL_COLID_HURT),
+            MiniHoppingSkullCollisionDispatch::HurtOrWeapon,
+            "ASM Mini_Hopping_Skull.asm loc_3EAB2 sends hurt-or-above collision to loc_3F1B8 before terrain checks"
+        );
+        assert_eq!(
+            mini_hopping_skull_collision_dispatch_loc_3eab2(0x0014),
+            MiniHoppingSkullCollisionDispatch::SlopeOrOtherTerrain,
+            "ASM Mini_Hopping_Skull.asm loc_3EAB2 falls through to loc_3EAD8 for slope-up collision"
         );
     }
 
