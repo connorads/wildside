@@ -6550,6 +6550,52 @@ mod chunk_03 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_E1BC_hidden_block_type4_spawns_current_then_next_workers() {
+        let pair = hidden_block_type4_reveal_pair_loc_E1BC(0x0008, 0x0003, 0x00FF_4A50, 0x1114);
+
+        assert_eq!(
+            pair.workers[0],
+            HiddenBlockRevealWorkerSubE1D4 {
+                revealed_layout_byte: 0x60,
+                allocation_spec: 0x2001,
+                object_handler_addr: 0x0000_E282,
+                block_col: 0x0008,
+                block_row: 0x0003,
+                layout_word_addr: 0x00FF_4A50,
+                sprite_mapping: 0x1114,
+            },
+            "ASM loc_E1BC should call sub_E1D4 on the current cell first when hidden-block byte 7 is clear",
+        );
+        assert_eq!(
+            pair.workers[1],
+            HiddenBlockRevealWorkerSubE1D4 {
+                revealed_layout_byte: 0x60,
+                allocation_spec: 0x2001,
+                object_handler_addr: 0x0000_E282,
+                block_col: 0x0009,
+                block_row: 0x0003,
+                layout_word_addr: 0x00FF_4A52,
+                sprite_mapping: 0x1115,
+            },
+            "ASM loc_E1BC should advance `a2/d2/d0` before the second sub_E1D4 call",
+        );
+        assert_eq!(
+            pair.second_worker_x_offset_px, 1,
+            "ASM loc_E1BC writes `#1` to `$50(a0)` after spawning the next-cell worker",
+        );
+        assert_eq!(
+            (
+                pair.restored_block_col,
+                pair.restored_layout_word_addr,
+                pair.restored_sprite_mapping,
+            ),
+            (0x0008, 0x00FF_4A50, 0x1114),
+            "ASM loc_E1BC should subtract the same offsets after the second worker so the shared post-reveal tail resumes from the original cell",
+        );
+    }
+
+    #[test]
     fn hide_end_sequence_credits_glyphs_sub_1d7e6_clears_all_six_display_flags() {
         let mut display_enabled = [true, false, true, true, false, true];
 

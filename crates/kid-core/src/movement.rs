@@ -1367,6 +1367,35 @@ pub(crate) fn hidden_block_type4_reveal_pair_loc_E19E(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_type4_reveal_pair_loc_E1BC(
+    block_col: u16,
+    block_row: u16,
+    layout_word_addr: u32,
+    sprite_mapping: u16,
+) -> HiddenBlockType4RevealPairLocE19E {
+    // ASM loc_E1BC (kid.asm:17603): for subtype-4 blocks with byte 7 clear,
+    // spawn the current-cell worker, advance `a2/d2/d0`, spawn the next-cell
+    // worker, set `$50(a0)=1`, then subtract the same offsets so the shared
+    // post-reveal tail resumes with the original scan cursor.
+    let current_worker =
+        hidden_block_reveal_worker_sub_E1D4(block_col, block_row, layout_word_addr, sprite_mapping);
+    let next_worker = hidden_block_reveal_worker_sub_E1D4(
+        block_col.wrapping_add(1),
+        block_row,
+        layout_word_addr.wrapping_add(2),
+        sprite_mapping.wrapping_add(1),
+    );
+    HiddenBlockType4RevealPairLocE19E {
+        workers: [current_worker, next_worker],
+        second_worker_x_offset_px: 1,
+        restored_block_col: block_col,
+        restored_layout_word_addr: layout_word_addr,
+        restored_sprite_mapping: sprite_mapping,
+    }
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn hide_end_sequence_credits_glyphs_sub_1D7E6(display_enabled: &mut [bool; 6]) {
     // ASM sub_1D7E6 (kid.asm:33029): load the six credits glyph worker slots
