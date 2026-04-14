@@ -9698,6 +9698,43 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F87A (kid.asm:20552): each loop tail increments the animated-solid
+    /// row index, advances the layout pointer by `Level_width_tiles`, and
+    /// decrements the DBF counter for repeat control.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F87A_advances_row_layout_ptr_and_dbf_counter() {
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_rows_loop_tail_loc_F87A(
+                0x001F,
+                0x0040_1000,
+                0x0040,
+                0x0003,
+            ),
+            crate::level::AnimatedSolidBlockVerticalRowsLoopTailLocF87A {
+                next_row: 0x0020,
+                next_layout_addr: 0x0040_1040,
+                next_dbf_row_counter: 0x0002,
+                continue_loop: true,
+            }
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_rows_loop_tail_loc_F87A(
+                0x0020,
+                0x0040_1040,
+                0x0040,
+                0x0000,
+            ),
+            crate::level::AnimatedSolidBlockVerticalRowsLoopTailLocF87A {
+                next_row: 0x0021,
+                next_layout_addr: 0x0040_1080,
+                next_dbf_row_counter: 0xFFFF,
+                continue_loop: false,
+            }
+        );
+    }
+
     /// ASM loc_F85A (kid.asm:20528): each DBF iteration writes `$E304` to the
     /// current Level_Layout cell, queues VDP data only for visible rows, then
     /// advances by one row through `Level_width_tiles`.

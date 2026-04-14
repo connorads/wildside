@@ -971,6 +971,15 @@ pub(crate) struct AnimatedSolidBlockVerticalRowsInputLocF85A {
     pub(crate) mapping_longwords: [u32; 2],
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockVerticalRowsLoopTailLocF87A {
+    pub(crate) next_row: u16,
+    pub(crate) next_layout_addr: u32,
+    pub(crate) next_dbf_row_counter: u16,
+    pub(crate) continue_loop: bool,
+}
+
 /// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
 /// upper byte.
 #[allow(non_snake_case)]
@@ -1010,6 +1019,25 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F872(
         vram_word_address: queue_word,
         first_longword: mapping_longwords[0],
         second_longword: mapping_longwords[1],
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_vertical_rows_loop_tail_loc_F87A(
+    d1: u16,
+    layout_addr: u32,
+    level_width_tiles: u16,
+    dbf_row_counter: u16,
+) -> AnimatedSolidBlockVerticalRowsLoopTailLocF87A {
+    // ASM loc_F87A (kid.asm:20552): increment row and layout row pointer,
+    // decrement DBF, and continue only if DBF did not wrap to -1.
+    let next_dbf_row_counter = dbf_row_counter.wrapping_sub(1);
+    AnimatedSolidBlockVerticalRowsLoopTailLocF87A {
+        next_row: d1.wrapping_add(1),
+        next_layout_addr: layout_addr.wrapping_add(u32::from(level_width_tiles)),
+        next_dbf_row_counter,
+        continue_loop: next_dbf_row_counter != 0xFFFF,
     }
 }
 
@@ -9247,13 +9275,13 @@ pub(crate) fn animated_solid_block_vertical_setup_loc_F83E(
 pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
     input: AnimatedSolidBlockVerticalRowsInputLocF85A,
 ) -> AnimatedSolidBlockVerticalRowsLocF85A {
-    let iterations = usize::from(input.dbf_row_counter.wrapping_add(1));
-    let mut layout_writes = Vec::with_capacity(iterations);
+    let mut layout_writes = Vec::with_capacity(usize::from(input.dbf_row_counter.wrapping_add(1)));
     let mut custom_queue_entries = Vec::new();
     let mut layout_addr = input.start_layout_addr;
     let mut row = input.start_row;
+    let mut dbf_row_counter = input.dbf_row_counter;
 
-    for _ in 0..iterations {
+    loop {
         layout_writes.push((layout_addr, 0xE304));
         if (input.camera_top_row..=input.camera_bottom_row).contains(&row) {
             let row_hi_bits = animated_solid_block_row_hi_bits_loc_F866(row);
@@ -9266,8 +9294,18 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
             ));
         }
 
-        row = row.wrapping_add(1);
-        layout_addr = layout_addr.wrapping_add(u32::from(input.level_width_tiles));
+        let loop_tail = animated_solid_block_vertical_rows_loop_tail_loc_F87A(
+            row,
+            layout_addr,
+            input.level_width_tiles,
+            dbf_row_counter,
+        );
+        row = loop_tail.next_row;
+        layout_addr = loop_tail.next_layout_addr;
+        dbf_row_counter = loop_tail.next_dbf_row_counter;
+        if !loop_tail.continue_loop {
+            break;
+        }
     }
 
     AnimatedSolidBlockVerticalRowsLocF85A {
