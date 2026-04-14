@@ -5133,6 +5133,53 @@ pub(crate) fn drips_velocity_apply_loc_33546(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsCollisionDispatchLoc33550 {
+    pub(crate) collision_type: u16,
+    pub(crate) contact_flag: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_collision_dispatch_loc_33550(
+    collision_type: u16,
+    berzerker_charging: bool,
+) -> DripsCollisionDispatchLoc33550 {
+    // ASM Drips.asm loc_33550: zero collision returns d5=0 unchanged; negative
+    // collision clears the word and returns d5=1. Positive collision clears the
+    // word before dispatching collision IDs from `$1C` upward.
+    if collision_type == 0 {
+        return DripsCollisionDispatchLoc33550 {
+            collision_type,
+            contact_flag: 0,
+        };
+    }
+    if (collision_type & 0x8000) != 0 {
+        return DripsCollisionDispatchLoc33550 {
+            collision_type: 0,
+            contact_flag: 1,
+        };
+    }
+
+    let adjusted = collision_type.wrapping_sub(0x001C);
+    if (adjusted & 0x8000) != 0 {
+        return DripsCollisionDispatchLoc33550 {
+            collision_type: 0,
+            contact_flag: 0,
+        };
+    }
+
+    let contact_flag = match collision_type {
+        0x001C | 0x002C => 1,
+        0x0020 | 0x0024 if berzerker_charging => 1,
+        _ => 0,
+    };
+    DripsCollisionDispatchLoc33550 {
+        collision_type: 0,
+        contact_flag,
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -6380,6 +6427,59 @@ mod tests {
                 y_velocity: i32::MAX,
             },
             "ASM Drips.asm loc_33546 uses 32-bit `add.l`, so overflow wraps instead of saturating"
+        );
+    }
+
+    #[test]
+    fn drips_collision_dispatch_matches_loc_33550_entry_paths() {
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0, true),
+            DripsCollisionDispatchLoc33550 {
+                collision_type: 0,
+                contact_flag: 0,
+            },
+            "ASM Drips.asm loc_33550 returns d5=0 for zero collision without needing the dispatch table"
+        );
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0xFFFF, false),
+            DripsCollisionDispatchLoc33550 {
+                collision_type: 0,
+                contact_flag: 1,
+            },
+            "ASM Drips.asm loc_33550 treats a negative collision word as contact and clears `collision_type(a3)`"
+        );
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0x001A, false),
+            DripsCollisionDispatchLoc33550 {
+                collision_type: 0,
+                contact_flag: 0,
+            },
+            "ASM Drips.asm loc_33550 clears positive collision words before rejecting values below `$1C`"
+        );
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0x001C, false).contact_flag,
+            1,
+            "ASM Drips.asm loc_33550 maps `$1C` to d5=1 contact"
+        );
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0x0020, false).contact_flag,
+            0,
+            "ASM Drips.asm loc_33550 maps `$20` through the Berzerker-charging gate"
+        );
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0x0024, true).contact_flag,
+            1,
+            "ASM Drips.asm loc_33550 accepts `$24` when `Berzerker_charging` is set"
+        );
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0x0028, true).contact_flag,
+            0,
+            "ASM Drips.asm loc_33550 dispatches `$28` to the no-contact return"
+        );
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0x002C, false).contact_flag,
+            1,
+            "ASM Drips.asm loc_33550 maps `$2C` to d5=1 contact"
         );
     }
 
