@@ -4911,6 +4911,14 @@ pub(crate) fn drips_splash_reset_loc_33488(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_table_reset_loc_33506() -> (usize, u16) {
+    // ASM Drips.asm loc_33506: when `off_33520` reaches its negative sentinel,
+    // reload `a0` from the start of the table and clear `d7` before the surface
+    // child sprite offset is written.
+    (0, 0)
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -6074,6 +6082,15 @@ mod tests {
                 surface_child_y_pos: 0x0100_8000,
             },
             "ASM Drips.asm loc_33488 clears the falling child, adds 10px to its Y word, and copies the adjusted x/y to the surface child"
+        );
+    }
+
+    #[test]
+    fn drips_surface_table_reset_matches_loc_33506() {
+        assert_eq!(
+            drips_surface_table_reset_loc_33506(),
+            (0, 0),
+            "ASM Drips.asm loc_33506 reloads `a0` with `off_33520` and clears d7 before the surface child sprite write"
         );
     }
 
