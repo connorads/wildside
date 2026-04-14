@@ -14525,6 +14525,21 @@ mod chunk_12 {
         assert!(!result.b, "B clear");
     }
 
+    /// ASM loc_D2C (kid.asm:1509): scheme 3 clears B from `d0` and restores
+    /// it into C via `bset #5,d6` before the loc_D36 C→A tail.
+    #[test]
+    fn loc_d2c_scheme3_maps_b_to_c() {
+        let result = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        }
+        .with_abc_buttons_permuted(3);
+
+        assert!(!result.a, "A stays clear at loc_D2C");
+        assert!(!result.b, "B is cleared by `bclr #4,d0`");
+        assert!(result.c, "C is set from B by `bset #5,d6`");
+    }
+
     /// ASM loc_D44 (kid.asm:1521): scheme 4 reverse-rotates A→C, B→A, C→B.
     #[test]
     fn loc_d44_scheme4_reverse_rotate() {

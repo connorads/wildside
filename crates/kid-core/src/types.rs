@@ -971,7 +971,8 @@ impl FrameInput {
                 b: self.a,
                 ..self
             },
-            // ASM loc_D22 (kid.asm:1504): A→B, B→C, C→A (3-way rotate).
+            // ASM loc_D22 (kid.asm:1504): A→B, then loc_D2C (kid.asm:1509)
+            // maps B→C before loc_D36 maps C→A (3-way rotate).
             3 => Self {
                 a: self.c,
                 b: self.a,
