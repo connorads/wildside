@@ -6770,6 +6770,24 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D9D4 (kid.asm:17036): for each GFX object, save `0(a3)` before
+    /// possible deletion, skip `Addr_GfxObject_Kid`, and delete all other GFX
+    /// objects via `j_loc_1078` until the saved next pointer is null.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D9D4_end_credits_gfx_cleanup_preserves_kid_and_continues_scan() {
+        let deleted = crate::level::end_credits_deleted_gfx_objects_loc_D9D4(
+            &[0x0100_0000, 0x0200_0000, 0x0300_0000, 0x0400_0000],
+            0x0200_0000,
+        );
+
+        assert_eq!(
+            deleted,
+            vec![0x0100_0000, 0x0300_0000, 0x0400_0000],
+            "ASM loc_D9D4 should delete every non-Kid GFX object and continue scanning after the skipped Kid entry"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

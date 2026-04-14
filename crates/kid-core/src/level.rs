@@ -11715,6 +11715,22 @@ pub(crate) fn end_credits_cleanup_setup_loc_D99E() -> EndCreditsCleanupSetupLocD
     }
 }
 
+/// ASM loc_D9D4 (kid.asm:17036): walk `Addr_FirstGfxObjectSlot`, stash each
+/// next pointer before deletion, preserve `Addr_GfxObject_Kid`, and call
+/// `j_loc_1078` for every other GFX object.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_deleted_gfx_objects_loc_D9D4(
+    gfx_object_addrs: &[u32],
+    kid_gfx_object_addr: u32,
+) -> Vec<u32> {
+    gfx_object_addrs
+        .iter()
+        .copied()
+        .filter(|addr| *addr != kid_gfx_object_addr)
+        .collect()
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
