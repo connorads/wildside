@@ -15,6 +15,44 @@ pub(crate) const MINI_SKULL_LEVEL_INITIAL_Y_SPEED_BONUS_FP: i32 = 0x0000_1000;
 pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 21; // ASM Mini_Hopping_Skull.asm:99,141 — dbf #$14 = 21 iterations
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
+pub(crate) struct NinjaInitState {
+    pub(crate) status_flag_13: bool,
+    pub(crate) object_meta: u16,
+    pub(crate) priority: u8,
+    pub(crate) current_hp: u8,
+    pub(crate) walk_speed_override: i32,
+}
+
+/// ASM Enemy11_Ninja_Init `loc_3D554` computes `current_hp` from layout level
+/// and seeds shared ninja state used by the stealth pacer speed path.
+#[allow(dead_code)]
+pub(crate) fn ninja_init_state_loc_3d554(enemy_level: u8) -> NinjaInitState {
+    let current_hp = spawn_hit_points(EnemyFamily::Ninja, enemy_level);
+    NinjaInitState {
+        status_flag_13: true,
+        object_meta: 0x0011,
+        priority: 0x00,
+        current_hp,
+        walk_speed_override: ninja_walk_speed_override_loc_3d59a_and_3d5aa(current_hp),
+    }
+}
+
+/// ASM Enemy11_Ninja_Init `loc_3D59A`/`loc_3D5AA` final speed arithmetic in `$50/$5E(a5)`:
+/// - `current_hp < 3`: one unconditional `loc_3D5AA` fallthrough path (`+$8000` ×2).
+/// - `current_hp == 3`: `loc_3D59A` then `loc_3D5AA` (`+$8000` ×2).
+/// - `current_hp > 3`: base `+$8000` + both branch adds (`+$8000` ×3), so net 3×.
+///   This is the native selection used by `step_pacer` speed resolution.
+#[allow(dead_code)]
+pub(crate) fn ninja_walk_speed_override_loc_3d59a_and_3d5aa(current_hp: u8) -> i32 {
+    if current_hp > 3 {
+        0x0002_4000
+    } else {
+        0x0001_8000
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionInitVisibleState {
     pub(crate) status_flag_13: bool,
@@ -698,6 +736,10 @@ pub(crate) const ENEMY_PROBE_HEIGHT: i32 = 16;
 /// The ASM init routines all follow the same pattern: start at $8000 and
 /// add $10000 for each HP tier above the family's minimum.
 pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
+    if matches!(family, EnemyFamily::Ninja) {
+        return ninja_walk_speed_override_loc_3d59a_and_3d5aa(hit_points);
+    }
+
     let (base_hp, base_speed, speed_step) = match family {
         // Goat: HP = enemy_level + 3 (min 3). Base speed $8000, step $10000.
         // Player-tracking callback (Goat.asm loc_3CC18) wired in step dispatch.
@@ -721,7 +763,9 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         EnemyFamily::Robot => (2, 0x0000_8000, 0x0000_8000),
         // Orca: fixed 4 HP. Fixed speed $8000.
         EnemyFamily::Orca => (4, 0x0000_8000, 0),
-        // Ninja: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
+        // Ninja: uses a custom init path in Enemy11_Ninja_Init:
+        // loc_3D554 sets `current_hp = enemy_level + 2`, then loc_3D59A/loc_3D5AA
+        // add to `$50/$5E(a5)` for final speed.
         EnemyFamily::Ninja => (2, 0x0000_8000, 0x0000_8000),
         // Lion: HP = enemy_level + 6 (min 6). Binary speed check: $28000 at HP==8,
         // $18000 otherwise. ASM: Lion.asm lines 32-41, `cmpi.b #8`.
@@ -7391,6 +7435,50 @@ mod tests {
     }
 
     #[test]
+    fn ninja_init_state_matches_loc_3d554() {
+        // ASM Enemy11_Ninja_Init `loc_3D554` sets object_meta and current_hp from
+        // layout level; loc_3D59A/3D5AA then shape the movement speed tier.
+        let low_hp = ninja_init_state_loc_3d554(0);
+        assert_eq!(low_hp.current_hp, 2);
+        assert!(low_hp.status_flag_13);
+        assert_eq!(low_hp.object_meta, 0x0011);
+        assert_eq!(low_hp.priority, 0);
+        assert_eq!(low_hp.walk_speed_override, 0x0001_8000);
+
+        let mid_hp = ninja_init_state_loc_3d554(1);
+        assert_eq!(mid_hp.current_hp, 3);
+        assert_eq!(mid_hp.walk_speed_override, 0x0001_8000);
+    }
+
+    #[test]
+    fn ninja_init_speed_follows_loc_3d59a_branch() {
+        // ASM loc_3D59A path is taken when `current_hp > 3` after the init
+        // compare against `#3`; this yields `$18000 + $8000`.
+        assert_eq!(
+            ninja_walk_speed_override_loc_3d59a_and_3d5aa(4),
+            0x0002_4000
+        );
+        assert_eq!(
+            ninja_walk_speed_override_loc_3d59a_and_3d5aa(5),
+            0x0002_4000
+        );
+    }
+
+    #[test]
+    fn ninja_init_speed_follows_loc_3d5aa_fallthrough() {
+        // ASM loc_3D5AA is the fallthrough path when `current_hp <= 3`
+        // (either directly for `<3` or after loc_3D59A for `==3`).
+        assert_eq!(
+            ninja_walk_speed_override_loc_3d59a_and_3d5aa(2),
+            0x0001_8000
+        );
+        assert_eq!(
+            ninja_walk_speed_override_loc_3d59a_and_3d5aa(3),
+            0x0001_8000
+        );
+    }
+
+    #[test]
     fn tank_shooting_layout_object_maps_enemy_id_0b() {
         let object = kid_data::EnemyLayoutObject {
             object_type: 0x0B,
@@ -10103,8 +10191,9 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::TarMonster => 2, // HP {2,4,6}
         EnemyFamily::Orca => 4,       // fixed 4 HP
         EnemyFamily::UFO => 1,
-        EnemyFamily::Ninja => 2, // HP 2-3
-        EnemyFamily::Lion => 6,  // HP 6-8
+        // Ninja: HP is `enemy_level + 2` and uses loc_3D59A/loc_3D5AA for speed tiers.
+        EnemyFamily::Ninja => 2,
+        EnemyFamily::Lion => 6, // HP 6-8
         EnemyFamily::SpinningTwins => 1,
         EnemyFamily::Drips => 1,
         EnemyFamily::Hand => 1,
