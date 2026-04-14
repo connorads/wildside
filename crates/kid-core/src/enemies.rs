@@ -1962,6 +1962,14 @@ pub(crate) struct UfoOnScreenCountLoc34F64 {
     pub(crate) ufo_on_screen_latch: bool,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoOffScreenGateLoc34F6E {
+    pub(crate) number_ufos_on_screen: u16,
+    pub(crate) play_hover_stop_sound: bool,
+    pub(crate) clear_latch_tail: bool,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_on_screen_count_loc_34f64(
     number_ufos_on_screen: u16,
@@ -1971,6 +1979,30 @@ pub(crate) fn ufo_on_screen_count_loc_34f64(
     UfoOnScreenCountLoc34F64 {
         number_ufos_on_screen: number_ufos_on_screen.wrapping_add(1),
         ufo_on_screen_latch: true,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_off_screen_gate_loc_34f6e(
+    number_ufos_on_screen: u16,
+    ufo_on_screen_latch: bool,
+) -> UfoOffScreenGateLoc34F6E {
+    // ASM UFO.asm loc_34F6E: off-screen UFOs with clear `$50(a5)` return
+    // without touching `Number_UFOs_OnScreen`; latched UFOs decrement it and
+    // only call `j_PlaySound2` when the decremented word is zero.
+    if !ufo_on_screen_latch {
+        return UfoOffScreenGateLoc34F6E {
+            number_ufos_on_screen,
+            play_hover_stop_sound: false,
+            clear_latch_tail: false,
+        };
+    }
+
+    let number_ufos_on_screen = number_ufos_on_screen.wrapping_sub(1);
+    UfoOffScreenGateLoc34F6E {
+        number_ufos_on_screen,
+        play_hover_stop_sound: number_ufos_on_screen == 0,
+        clear_latch_tail: true,
     }
 }
 
@@ -7189,6 +7221,39 @@ mod tests {
                 ufo_on_screen_latch: true,
             },
             "ASM UFO.asm loc_34F64 uses 16-bit addq.w wrapping semantics for the global UFO count"
+        );
+    }
+
+    #[test]
+    fn ufo_off_screen_gate_matches_loc_34f6e() {
+        assert_eq!(
+            ufo_off_screen_gate_loc_34f6e(3, false),
+            UfoOffScreenGateLoc34F6E {
+                number_ufos_on_screen: 3,
+                play_hover_stop_sound: false,
+                clear_latch_tail: false,
+            },
+            "ASM UFO.asm loc_34F6E returns immediately when `$50(a5)` is clear"
+        );
+
+        assert_eq!(
+            ufo_off_screen_gate_loc_34f6e(2, true),
+            UfoOffScreenGateLoc34F6E {
+                number_ufos_on_screen: 1,
+                play_hover_stop_sound: false,
+                clear_latch_tail: true,
+            },
+            "ASM UFO.asm loc_34F6E decrements Number_UFOs_OnScreen and skips the stop sound while another UFO remains"
+        );
+
+        assert_eq!(
+            ufo_off_screen_gate_loc_34f6e(1, true),
+            UfoOffScreenGateLoc34F6E {
+                number_ufos_on_screen: 0,
+                play_hover_stop_sound: true,
+                clear_latch_tail: true,
+            },
+            "ASM UFO.asm loc_34F6E plays the hover-stop sound only when the decrement reaches zero"
         );
     }
 
