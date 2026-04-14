@@ -13018,6 +13018,69 @@ pub(crate) fn eyeclops_hard_beam_object_mapping_loc_E972(beam_counter: u16) -> u
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TimedBlockVisibleSlotLocE9CA {
+    pub(crate) object_id_index: u16,
+    pub(crate) sprite: LevelSpriteStripEntryLocE692,
+}
+
+/// ASM loc_E9CA (kid.asm:18709): visible timed-block slots render only for
+/// object IDs `$127..=$12C` whose block column/row lie inside the camera tile
+/// window. The six-entry table offsets the end caps by four pixels and gives
+/// the middle four entries VDP size byte `$05`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn timed_block_visible_slot_sprite_loc_E9CA(
+    object_id: u16,
+    block_col: i16,
+    block_row: i16,
+    camera_x: i16,
+    camera_y: i16,
+    number_sprites: u8,
+) -> Option<TimedBlockVisibleSlotLocE9CA> {
+    const POS_OFFSETS_LOC_EA26: [i16; 6] = [4, 0, 0, 0, 0, 4];
+    const SIZE_BYTES_LOC_EA29: [u8; 6] = [0, 5, 5, 5, 5, 0];
+
+    let object_id_index = object_id.wrapping_sub(0x0127);
+    if (object_id_index as i16) < 0 || object_id_index >= 6 {
+        return None;
+    }
+
+    let min_col = (camera_x >> 4).wrapping_sub(4);
+    let max_col = min_col.wrapping_add(0x001C);
+    if block_col < min_col || block_col > max_col {
+        return None;
+    }
+
+    let min_row = (camera_y >> 4).wrapping_sub(4);
+    let max_row = min_row.wrapping_add(0x001C);
+    if block_row < min_row || block_row > max_row {
+        return None;
+    }
+
+    let table_index = usize::from(object_id_index);
+    let pos_offset = POS_OFFSETS_LOC_EA26[table_index];
+    let screen_x = (block_col << 4)
+        .wrapping_sub(camera_x)
+        .wrapping_add(0x0080)
+        .wrapping_add(pos_offset);
+    let screen_y = (block_row << 4)
+        .wrapping_sub(camera_y)
+        .wrapping_add(0x0080)
+        .wrapping_add(pos_offset);
+
+    Some(TimedBlockVisibleSlotLocE9CA {
+        object_id_index,
+        sprite: LevelSpriteStripEntryLocE692 {
+            y_pos: screen_y,
+            size: SIZE_BYTES_LOC_EA29[table_index],
+            link: number_sprites.wrapping_add(1),
+            tile_word: 0x8692,
+            x_pos: screen_x,
+        },
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,

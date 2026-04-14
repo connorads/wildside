@@ -7758,6 +7758,61 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E9CA (kid.asm:18709): visible timed-block slots accept only
+    /// IDs `$127..=$12C` inside the 28-tile camera window, then build one
+    /// `$8692` sprite using the overlapping `unk_EA26`/`unk_EA29` tables.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E9CA_builds_visible_timed_block_sprite_from_slot_table() {
+        let middle = crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+            0x0128, 0x0012, 0x0008, 0x0100, 0x0040, 6,
+        )
+        .expect("ASM loc_E9CA should accept ID `$128` inside the tile window");
+        assert_eq!(
+            middle,
+            crate::level::TimedBlockVisibleSlotLocE9CA {
+                object_id_index: 1,
+                sprite: crate::level::LevelSpriteStripEntryLocE692 {
+                    y_pos: 0x00C0,
+                    size: 5,
+                    link: 7,
+                    tile_word: 0x8692,
+                    x_pos: 0x00A0,
+                },
+            },
+            "ASM loc_E9CA should use table index 1 with no position offset and size byte `$05`"
+        );
+
+        let end_cap = crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+            0x012C, 0x0012, 0x0008, 0x0100, 0x0040, 7,
+        )
+        .expect("ASM loc_E9CA should accept the final ID `$12C`");
+        assert_eq!(
+            (
+                end_cap.sprite.x_pos,
+                end_cap.sprite.y_pos,
+                end_cap.sprite.size
+            ),
+            (0x00A4, 0x00C4, 0),
+            "ASM loc_E9CA should apply the final table word offset `$0004` and size byte `$00`"
+        );
+
+        assert_eq!(
+            crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+                0x012D, 0x0012, 0x0008, 0x0100, 0x0040, 6,
+            ),
+            None,
+            "ASM loc_E9CA should reject object IDs at or above `$12D`"
+        );
+        assert_eq!(
+            crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+                0x0128, 0x0029, 0x0008, 0x0100, 0x0040, 6,
+            ),
+            None,
+            "ASM loc_E9CA should reject block columns beyond `(Camera_X_pos >> 4) - 4 + $1C`"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.
