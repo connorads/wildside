@@ -6504,6 +6504,52 @@ mod chunk_03 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_E19E_hidden_block_type4_spawns_previous_then_current_workers() {
+        let pair = hidden_block_type4_reveal_pair_loc_E19E(0x0008, 0x0003, 0x00FF_4A50, 0x1114);
+
+        assert_eq!(
+            pair.workers[0],
+            HiddenBlockRevealWorkerSubE1D4 {
+                revealed_layout_byte: 0x60,
+                allocation_spec: 0x2001,
+                object_handler_addr: 0x0000_E282,
+                block_col: 0x0007,
+                block_row: 0x0003,
+                layout_word_addr: 0x00FF_4A4E,
+                sprite_mapping: 0x1113,
+            },
+            "ASM loc_E19E should pre-decrement `a2/d2/d0` before the first sub_E1D4 call when hidden-block byte 7 is set",
+        );
+        assert_eq!(
+            pair.workers[1],
+            HiddenBlockRevealWorkerSubE1D4 {
+                revealed_layout_byte: 0x60,
+                allocation_spec: 0x2001,
+                object_handler_addr: 0x0000_E282,
+                block_col: 0x0008,
+                block_row: 0x0003,
+                layout_word_addr: 0x00FF_4A50,
+                sprite_mapping: 0x1114,
+            },
+            "ASM loc_E19E should restore `a2/d2/d0` before the second sub_E1D4 call",
+        );
+        assert_eq!(
+            pair.second_worker_x_offset_px, 1,
+            "ASM loc_E19E writes `#1` to `$50(a0)` on the second worker only",
+        );
+        assert_eq!(
+            (
+                pair.restored_block_col,
+                pair.restored_layout_word_addr,
+                pair.restored_sprite_mapping,
+            ),
+            (0x0008, 0x00FF_4A50, 0x1114),
+            "ASM loc_E19E should reach the shared post-reveal tail with the original hidden-block scan cursor restored",
+        );
+    }
+
+    #[test]
     fn hide_end_sequence_credits_glyphs_sub_1d7e6_clears_all_six_display_flags() {
         let mut display_enabled = [true, false, true, true, false, true];
 

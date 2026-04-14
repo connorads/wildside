@@ -1182,6 +1182,16 @@ pub(crate) struct HiddenBlockRevealWorkerSubE1D4 {
     pub(crate) sprite_mapping: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockType4RevealPairLocE19E {
+    pub(crate) workers: [HiddenBlockRevealWorkerSubE1D4; 2],
+    pub(crate) second_worker_x_offset_px: u16,
+    pub(crate) restored_block_col: u16,
+    pub(crate) restored_layout_word_addr: u32,
+    pub(crate) restored_sprite_mapping: u16,
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_jump_window_sub_DFB0(
@@ -1324,6 +1334,35 @@ pub(crate) fn hidden_block_reveal_worker_sub_E1D4(
         block_row,
         layout_word_addr,
         sprite_mapping,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_type4_reveal_pair_loc_E19E(
+    block_col: u16,
+    block_row: u16,
+    layout_word_addr: u32,
+    sprite_mapping: u16,
+) -> HiddenBlockType4RevealPairLocE19E {
+    // ASM loc_E19E (kid.asm:17588): for subtype-4 blocks with byte 7 set,
+    // pre-decrement `a2/d2/d0`, spawn the previous-cell worker, restore those
+    // registers, spawn the current-cell worker, and set `$50(a0)=1` on that
+    // second allocation before resuming the shared post-reveal tail.
+    let previous_worker = hidden_block_reveal_worker_sub_E1D4(
+        block_col.wrapping_sub(1),
+        block_row,
+        layout_word_addr.wrapping_sub(2),
+        sprite_mapping.wrapping_sub(1),
+    );
+    let current_worker =
+        hidden_block_reveal_worker_sub_E1D4(block_col, block_row, layout_word_addr, sprite_mapping);
+    HiddenBlockType4RevealPairLocE19E {
+        workers: [previous_worker, current_worker],
+        second_worker_x_offset_px: 1,
+        restored_block_col: block_col,
+        restored_layout_word_addr: layout_word_addr,
+        restored_sprite_mapping: sprite_mapping,
     }
 }
 
