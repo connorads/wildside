@@ -3263,6 +3263,22 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_E554 (kid.asm:18084): the `$8000` table sentinel is followed by
+    /// two signed Y offsets. The ROM adds both to d1 and carries them into
+    /// the bounds path as d5/d6 for the beam's vertical collision band.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E554_eyeclops_beam_sentinel_prepares_vertical_collision_band() {
+        let render = helmets::eyeclops_beam_sprites_loc_E51A("unk_E570", 0x00B2, 0x0091, 0, 0, 0)
+            .expect("ASM loc_E512 dispatches d7=0 to unk_E570 before loc_E51A");
+
+        assert_eq!(
+            (render.collision_top_y_word, render.collision_bottom_y_word),
+            (0x0089, 0x00A1),
+            "ASM loc_E554 should add the post-sentinel words `$FFF8` and `$0010` to d1 before the bounds path",
+        );
+    }
+
     #[test]
     fn eyeclops_c_press_fires_beam_right() {
         let mut rt = NativeRuntime::new(manifest());

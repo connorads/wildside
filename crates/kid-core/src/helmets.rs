@@ -44,6 +44,8 @@ pub(crate) struct EyeclopsBeamSpriteLocE51A {
 pub(crate) struct EyeclopsBeamSpritesLocE51A {
     pub(crate) sprites: Vec<EyeclopsBeamSpriteLocE51A>,
     pub(crate) number_sprites: u8,
+    pub(crate) collision_top_y_word: u16,
+    pub(crate) collision_bottom_y_word: u16,
 }
 
 #[allow(non_snake_case)]
@@ -177,6 +179,11 @@ pub(crate) fn eyeclops_beam_sprites_loc_E51A(
     Some(EyeclopsBeamSpritesLocE51A {
         sprites,
         number_sprites,
+        // ASM loc_E554 (kid.asm:18084): after the `$8000` sentinel, the next
+        // two words are added to d1 and carried as d5/d6 into the bounds path.
+        collision_top_y_word: screen_y_word.wrapping_add(i16_bits(EYECLOPS_BEAM_UNK_E570_TOP_Y)),
+        collision_bottom_y_word: screen_y_word
+            .wrapping_add(i16_bits(EYECLOPS_BEAM_UNK_E570_BOTTOM_Y)),
     })
 }
 
@@ -215,6 +222,8 @@ const EYECLOPS_BEAM_TABLE_UNK_E570: [EyeclopsBeamTableEntryLocE51A; 4] = [
         x_offset: 0,
     },
 ];
+const EYECLOPS_BEAM_UNK_E570_TOP_Y: i16 = -0x08;
+const EYECLOPS_BEAM_UNK_E570_BOTTOM_Y: i16 = 0x10;
 
 fn i16_bits(value: i16) -> u16 {
     u16::from_ne_bytes(value.to_ne_bytes())
