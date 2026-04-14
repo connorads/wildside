@@ -6861,6 +6861,24 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_collision_rects_loc_f5a4_empty_active_list_terminates() {
+        let rects = NativeRuntime::shooter_collision_rects_sub_F568(
+            CollisionRectSub1F52 {
+                left_px: 80,
+                right_px: 96,
+                top_px: 96,
+                bottom_px: 112,
+            },
+            &[],
+        );
+
+        assert!(
+            rects.is_empty(),
+            "ASM loc_F5A4 tests the initial active-shooter pointer before slot reads; a zero head jumps to the shared terminator path",
+        );
+    }
+
+    #[test]
     fn shooter_collision_top_block_loc_f574_clamps_the_expanded_top_window() {
         assert_eq!(
             NativeRuntime::shooter_collision_top_block_loc_F574(0x000F),

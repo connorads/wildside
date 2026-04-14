@@ -878,6 +878,9 @@ impl NativeRuntime {
         let bottom_block = right_bottom.bottom_block;
         let mut rects = Vec::new();
 
+        // ASM loc_F5A4 (kid.asm:20223): the first active shooter pointer is
+        // tested before reading any slot; a zero head skips directly to the
+        // shared terminator path.
         for &(col, row, directions) in shooter_blocks {
             let col = col as i16;
             let row = row as i16;
