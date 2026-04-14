@@ -6906,6 +6906,40 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E67E (kid.asm:18342): the reversed terrain-sprite strip path
+    /// subtracts the doubled span and `$20` from `d0`, stores that adjusted X
+    /// in `a1`, sets the tile attribute mask to `$0800`, and rejects strips at
+    /// or left of screen X `$60`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E67E_reverse_strip_setup_flips_tiles_and_checks_left_edge() {
+        let setup = crate::level::level_sprite_strip_reverse_setup_loc_E67E(0x0120, 24)
+            .expect("ASM loc_E67E should accept adjusted d0 greater than `$60`");
+
+        assert_eq!(
+            setup.d3_span_word, 24,
+            "ASM loc_E67E should preserve the d3 span computed by loc_E650 for loc_E692"
+        );
+        assert_eq!(
+            setup.source_x, 0x00D0,
+            "ASM loc_E67E should subtract doubled d3 and `$20` from d0 before the `$60` bound check"
+        );
+        assert_eq!(
+            setup.map_probe_x, 0x00D0,
+            "ASM loc_E67E should copy the adjusted d0 into a1 without the forward `$20` probe bias"
+        );
+        assert_eq!(
+            setup.tile_attr_mask, 0x0800,
+            "ASM loc_E67E should seed d4 with `$0800` for flipped sprite tile words"
+        );
+
+        assert_eq!(
+            crate::level::level_sprite_strip_reverse_setup_loc_E67E(0x00B0, 24),
+            None,
+            "ASM loc_E67E should branch to loc_E7A4 when adjusted d0 is less than or equal to `$60`"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

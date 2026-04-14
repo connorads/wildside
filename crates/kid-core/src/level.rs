@@ -12179,6 +12179,38 @@ pub(crate) fn level_sprite_strip_forward_setup_loc_E650(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripReverseSetupLocE67E {
+    pub(crate) source_x: i16,
+    pub(crate) d3_span_word: i16,
+    pub(crate) tile_attr_mask: u16,
+    pub(crate) map_probe_x: i16,
+}
+
+/// ASM loc_E67E (kid.asm:18342): reversed strip setup subtracts the doubled
+/// span and `$20` from `d0`, uses that adjusted X for `a1`, sets bit `$0800`
+/// in the sprite tile word, and rejects positions at or left of `$60`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_reverse_setup_loc_E67E(
+    screen_x: i16,
+    d3_span_word: i16,
+) -> Option<LevelSpriteStripReverseSetupLocE67E> {
+    let source_x = screen_x
+        .wrapping_sub(d3_span_word.wrapping_mul(2))
+        .wrapping_sub(0x0020);
+    if source_x <= 0x0060 {
+        return None;
+    }
+
+    Some(LevelSpriteStripReverseSetupLocE67E {
+        source_x,
+        d3_span_word,
+        tile_attr_mask: 0x0800,
+        map_probe_x: source_x,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
