@@ -624,6 +624,13 @@ pub(crate) struct HiddenBlockPrizeRevealScanStartLocE3E4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockPrizeRevealMatchLocE3EE {
+    pub(crate) matched_record_addr: u32,
+    pub(crate) scanned_records: usize,
+    pub(crate) disguised: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockColumnUpdateSubE446 {
     pub(crate) layout_addr: u16,
     pub(crate) col: u16,
@@ -906,6 +913,25 @@ impl BlockList {
             preincrement_cursor_addr: prize_block_list_base_addr.wrapping_sub(8),
             first_prize_record_addr: prize_block_list_base_addr,
         }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn hidden_block_prize_reveal_metadata_scan_loc_E3EE(
+        &self,
+        prize_block_list_base_addr: u32,
+        layout_addr: u16,
+    ) -> Option<HiddenBlockPrizeRevealMatchLocE3EE> {
+        // ASM loc_E3EE (kid.asm:17889): advance through 8-byte prize records
+        // until word 0 matches the hidden-block layout address already in `d3`.
+        self.prize_blocks
+            .iter()
+            .position(|prize| prize.layout_addr == layout_addr)
+            .map(|record_index| HiddenBlockPrizeRevealMatchLocE3EE {
+                matched_record_addr: prize_block_list_base_addr + (record_index as u32 * 8),
+                scanned_records: record_index + 1,
+                disguised: self.prize_blocks[record_index].disguised,
+            })
     }
 
     #[allow(non_snake_case)]
@@ -3202,6 +3228,55 @@ mod tests {
         assert_eq!(
             scan.first_prize_record_addr, 0xFFFF_3B24,
             "ASM loc_E3E4 should preserve the actual first prize record after seeding the pre-increment cursor",
+        );
+    }
+
+    #[test]
+    fn loc_e3ee_hidden_block_prize_reveal_scans_eight_byte_records_until_match() {
+        let bl = BlockList {
+            prize_blocks: vec![
+                PrizeBlockEntry {
+                    layout_addr: 0x0008,
+                    col: 1,
+                    row: 0,
+                    content: PrizeContent::Diamond,
+                    disguised: false,
+                },
+                PrizeBlockEntry {
+                    layout_addr: 0x0010,
+                    col: 2,
+                    row: 0,
+                    content: PrizeContent::Clock,
+                    disguised: false,
+                },
+                PrizeBlockEntry {
+                    layout_addr: 0x0018,
+                    col: 3,
+                    row: 0,
+                    content: PrizeContent::Micromax,
+                    disguised: true,
+                },
+            ],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+
+        let matched = bl
+            .hidden_block_prize_reveal_metadata_scan_loc_E3EE(0xFFFF_3B24, 0x0018)
+            .expect("ASM loc_E3EE should stop when the prize record layout word matches");
+
+        assert_eq!(
+            matched.matched_record_addr, 0xFFFF_3B34,
+            "ASM loc_E3EE should advance the cursor by 8 bytes for each failed prize-record compare",
+        );
+        assert_eq!(
+            matched.scanned_records, 3,
+            "ASM loc_E3EE should include the matching record in the scan count",
+        );
+        assert!(
+            matched.disguised,
+            "ASM loc_E3EE should leave `a0` on the matching prize record so the flag word at offset 6 is read from that record",
         );
     }
 
