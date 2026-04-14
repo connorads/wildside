@@ -3622,7 +3622,7 @@ mod chunk_01 {
 
     #[test]
     #[allow(non_snake_case)]
-    fn loc_E1400_sound_driver_upload_copies_driver_before_zero_fill() {
+    fn loc_E1400_and_loc_E1406_sound_driver_upload_copy_then_zero_fill() {
         let source_root = unique_temp_path("sub-e13da-source");
         fs::create_dir_all(source_root.join("sound")).expect("sound dir should be creatable");
         fs::write(
@@ -3649,7 +3649,7 @@ mod chunk_01 {
                 stops_z80: true,
                 preserves_a1: true,
             },
-            "ASM loc_E1400 should copy exactly the GEMS sound-driver bytes into `$A00000` before sub_E13DA zero-fills the rest of Z80 RAM through `$A01FFF`",
+            "ASM loc_E1400 should copy exactly the GEMS sound-driver bytes into `$A00000`; ASM loc_E1406 should zero-fill the rest of Z80 RAM through `$A01FFF`",
         );
 
         fs::remove_dir_all(source_root).expect("temp sound dir should be removable");

@@ -654,6 +654,8 @@ pub(crate) fn sound_driver_upload_sub_E13DA(
     // ASM loc_E1400 (kid.asm:49610): `move.b (a0)+,(a1)+; dbf d0,loc_E1400`
     // runs for the inclusive count seeded from `GEMS_Sounddriver_End -
     // GEMS_Sounddriver - 1`, so it copies exactly the driver byte length.
+    // ASM loc_E1406 (kid.asm:49614): after the copy loop, write zero bytes
+    // until `a1 == $A02000`, clearing the rest of the Z80 RAM upload window.
     let source_relative_path = "sound/GEMS_Sounddriver.bin";
     let driver_bytes = fs::read(manifest.source_root.join(source_relative_path))?;
     let z80_ram_len = 0x2000usize;
