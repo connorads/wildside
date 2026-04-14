@@ -4677,6 +4677,38 @@ pub(crate) const DRIPS_DROP_GRAVITY: i32 = 0x2000;
 /// contact after the splash sequence; native keeps a generous timer in case the
 /// projectile never reaches solid terrain.
 pub(crate) const DRIPS_DROP_LIFETIME: u16 = 120;
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const DRIPS_COLID_CEILING: u16 = 0x0010;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsCeilingGateLoc333F6 {
+    pub(crate) waiting_for_ceiling: bool,
+    pub(crate) collision_type: u16,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_ceiling_gate_loc_333_f6(
+    collision_type: u16,
+    y_velocity: i32,
+) -> DripsCeilingGateLoc333F6 {
+    // ASM Drips.asm loc_333F6: loop until `collision_type(a3)` is
+    // `colid_ceiling`, then clear `collision_type(a3)` and `y_vel(a3)`.
+    if collision_type == DRIPS_COLID_CEILING {
+        DripsCeilingGateLoc333F6 {
+            waiting_for_ceiling: false,
+            collision_type: 0,
+            y_velocity: 0,
+        }
+    } else {
+        DripsCeilingGateLoc333F6 {
+            waiting_for_ceiling: true,
+            collision_type,
+            y_velocity,
+        }
+    }
+}
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
@@ -5786,6 +5818,28 @@ mod tests {
         assert!(
             (0x003C..=0x00BB).contains(&delay),
             "ASM Emo_Rock.asm loc_361F4 clears bit 7 before adding the `$3C` base delay, so the hover seed must stay within 60..187 frames"
+        );
+    }
+
+    #[test]
+    fn drips_ceiling_gate_matches_loc_333f6() {
+        assert_eq!(
+            drips_ceiling_gate_loc_333_f6(0, -0x0001_0000),
+            DripsCeilingGateLoc333F6 {
+                waiting_for_ceiling: true,
+                collision_type: 0,
+                y_velocity: -0x0001_0000,
+            },
+            "ASM Drips.asm loc_333F6 branches back while `collision_type(a3)` is not `colid_ceiling`"
+        );
+        assert_eq!(
+            drips_ceiling_gate_loc_333_f6(DRIPS_COLID_CEILING, -0x0001_0000),
+            DripsCeilingGateLoc333F6 {
+                waiting_for_ceiling: false,
+                collision_type: 0,
+                y_velocity: 0,
+            },
+            "ASM Drips.asm loc_333F6 clears `collision_type(a3)` and `y_vel(a3)` after ceiling contact"
         );
     }
 
