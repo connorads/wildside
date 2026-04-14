@@ -1744,6 +1744,9 @@ impl NativeRuntime {
             // ASM loc_F0E0 (kid.asm:19655): build the inclusive bottom row as
             // `kid_y_block+2`, clamping to `Level_height_blocks-1`.
             let end_row = (kid_block_row + 2).min(max_row) as u16;
+            // ASM loc_F0F0 (kid.asm:19663): subtract the top row from the
+            // bottom row for DBF's inclusive count, load `$FFFF4A04[d4*2]`,
+            // then add `d3*2` to address the entering column.
             for row in start_row..=end_row {
                 let cell = grid.cell_at(entering_col, row);
                 if cell.has_block && cell.block_type == terrain::BlockType::Shooter {

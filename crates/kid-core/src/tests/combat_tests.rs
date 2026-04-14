@@ -8081,6 +8081,32 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_f0f0_scans_inclusive_rows_from_start_pointer() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 1, 0x02), (5, 7, 0x04)]));
+        runtime.projectiles.clear();
+        runtime.block_state.shooter_last_scanned_col = 1;
+        runtime.block_state.shooter_last_scanned_row = 6;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (6 * 16) << 16;
+        runtime.step_shooter_blocks(&slice);
+
+        assert_eq!(
+            runtime
+                .block_state
+                .shooter_blocks
+                .iter()
+                .map(|entry| (entry.col, entry.row, entry.directions))
+                .collect::<Vec<_>>(),
+            vec![(5, 1, 0x02), (5, 7, 0x04)],
+            "ASM loc_F0F0 should start at `$FFFF4A04 + d4*2`, add `d3*2`, and DBF through the inclusive row count"
+        );
+    }
+
+    #[test]
     fn shooter_block_sub_f096_keeps_per_slot_cadence_until_the_worker_expires() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
