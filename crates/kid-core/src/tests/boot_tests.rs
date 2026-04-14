@@ -3881,6 +3881,45 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_E1584_queues_selected_command_and_two_low_payload_bytes() {
+        let write = sound_driver_write_command_and_two_bytes_loc_E1584(0x3D, 0x02, 0xA5, 0x5A);
+
+        assert_eq!(
+            write,
+            SoundDriverWriteCommandAndTwoBytes {
+                begin_write: SoundDriverBeginWriteSubE143A {
+                    command_head_address: 0xA00036,
+                    ring_buffer_address: 0xA01A40,
+                    write_index: 0x3D,
+                    interrupt_mask: 0x0700,
+                    requests_z80_bus: true,
+                    waits_for_bus_grant: true,
+                },
+                command_write: SoundDriverWriteCommandSubE1482 {
+                    queued_bytes: [0xFF, 0x02],
+                    next_write_index: 0x3F,
+                },
+                payload_writes: [
+                    SoundDriverWriteByteSubE148E {
+                        queued_byte: 0xA5,
+                        next_write_index: 0x00,
+                        committed_write_index: 0x00,
+                    },
+                    SoundDriverWriteByteSubE148E {
+                        queued_byte: 0x5A,
+                        next_write_index: 0x01,
+                        committed_write_index: 0x01,
+                    },
+                ],
+                releases_z80_bus: true,
+                restores_previous_sr: true,
+            },
+            "ASM loc_E1584 should queue caller-selected command `$02`, then write the low bytes from `8(a6)` and `$C(a6)` before the loc_E1470 cleanup",
+        );
+    }
+
+    #[test]
     fn rom_random_state_matches_get_randomnumber_byte_seeded_sequence() {
         // ASM Init_RNG / Get_RandomNumber_byte (kid.asm:1106-1204).
         let mut rng = RomRandomState::default();

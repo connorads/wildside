@@ -513,6 +513,16 @@ pub(crate) struct SoundDriverWriteCommandAndByte {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SoundDriverWriteCommandAndTwoBytes {
+    pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
+    pub(crate) command_write: SoundDriverWriteCommandSubE1482,
+    pub(crate) payload_writes: [SoundDriverWriteByteSubE148E; 2],
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) restores_previous_sr: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlaneClearPassSetupLoc1698 {
     pub(crate) target_addr: u32,
     pub(crate) dbf_seed: u16,
@@ -819,6 +829,31 @@ pub(crate) fn sound_driver_write_sub_E153E(
     // ASM sub_E153E (kid.asm:49796): enter the shared Z80/GEMS write section,
     // load command `$12`, then branch to loc_E1522 for the payload write.
     sound_driver_write_command_and_byte_loc_E1522(command_head_byte, 0x12, sound_id)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_and_two_bytes_loc_E1584(
+    command_head_byte: u8,
+    command_byte: u8,
+    first_payload: u8,
+    second_payload: u8,
+) -> SoundDriverWriteCommandAndTwoBytes {
+    // ASM loc_E1584 (kid.asm:49858): after the caller selects `d0`, queue the
+    // `FF,<command>` pair through sub_E1482, then queue the low bytes from
+    // `8(a6)` and `$C(a6)` through two sub_E148E calls before loc_E1470.
+    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, command_byte);
+    let first_write =
+        sound_driver_write_byte_sub_E148E(command_write.next_write_index, first_payload);
+    let second_write =
+        sound_driver_write_byte_sub_E148E(first_write.committed_write_index, second_payload);
+    SoundDriverWriteCommandAndTwoBytes {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        command_write,
+        payload_writes: [first_write, second_write],
+        releases_z80_bus: true,
+        restores_previous_sr: true,
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
