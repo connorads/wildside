@@ -710,6 +710,15 @@ pub(crate) struct DeleteAllButCurrentStartLocEFE {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DeleteAllButCurrentLoopLocF02 {
+    pub(crate) first_active_slot_addr: u32,
+    pub(crate) kept_current_object: bool,
+    pub(crate) deallocated_slot_addrs: Vec<u32>,
+    pub(crate) slots: Vec<LinkedObjectSlotInit>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescShooterObjectSlotsSubEABC {
     pub(crate) next_free_evanescent_object_slot_addr: u32,
     pub(crate) first_evanescent_object_slot_addr: u32,
@@ -9451,6 +9460,54 @@ pub(crate) fn delete_all_but_current_start_loc_EFE(
         scan_head_link_addr: 0xFFFF_F842,
         next_candidate_slot_addr: active_slots.first().map_or(0, |slot| slot.slot_addr),
         current_object_addr,
+    }
+}
+
+/// ASM loc_F02 (kid.asm:1771): load the next active object from the current
+/// cursor, skip `Addr_CurrentObject`, and call `Deallocate_ObjectSlot` for every
+/// other object before looping from the predecessor returned by deallocation.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn delete_all_but_current_loop_loc_F02(
+    active_slots: &[LinkedObjectSlotInit],
+    current_object_addr: u32,
+) -> DeleteAllButCurrentLoopLocF02 {
+    let mut ordered_slot_addrs = Vec::new();
+    let mut next_slot_addr =
+        delete_all_but_current_start_loc_EFE(active_slots, current_object_addr)
+            .next_candidate_slot_addr;
+
+    while next_slot_addr != 0 && !ordered_slot_addrs.contains(&next_slot_addr) {
+        ordered_slot_addrs.push(next_slot_addr);
+        let Some(slot) = active_slots
+            .iter()
+            .find(|slot| slot.slot_addr == next_slot_addr)
+        else {
+            break;
+        };
+        next_slot_addr = slot.next_slot_addr;
+    }
+
+    let kept_current_object = ordered_slot_addrs.contains(&current_object_addr);
+    let deallocated_slot_addrs = ordered_slot_addrs
+        .iter()
+        .copied()
+        .filter(|slot_addr| *slot_addr != current_object_addr)
+        .collect::<Vec<_>>();
+    let slots = if kept_current_object {
+        vec![LinkedObjectSlotInit {
+            slot_addr: current_object_addr,
+            next_slot_addr: 0,
+        }]
+    } else {
+        Vec::new()
+    };
+
+    DeleteAllButCurrentLoopLocF02 {
+        first_active_slot_addr: slots.first().map_or(0, |slot| slot.slot_addr),
+        kept_current_object,
+        deallocated_slot_addrs,
+        slots,
     }
 }
 

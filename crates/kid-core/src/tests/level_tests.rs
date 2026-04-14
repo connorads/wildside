@@ -8375,6 +8375,67 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F02 (kid.asm:1771): each loop reads `0(a5)`, skips the current
+    /// object when it is encountered, and otherwise deallocates the loaded slot.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F02_delete_all_but_current_keeps_only_the_current_object() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0DA0,
+                next_slot_addr: 0xFFFF_0E14,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0E14,
+                next_slot_addr: 0xFFFF_0E88,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0E88,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::delete_all_but_current_loop_loc_F02(&active_slots, 0xFFFF_0E14),
+            crate::level::DeleteAllButCurrentLoopLocF02 {
+                first_active_slot_addr: 0xFFFF_0E14,
+                kept_current_object: true,
+                deallocated_slot_addrs: vec![0xFFFF_0DA0, 0xFFFF_0E88],
+                slots: vec![crate::level::LinkedObjectSlotInit {
+                    slot_addr: 0xFFFF_0E14,
+                    next_slot_addr: 0,
+                }],
+            },
+            "ASM loc_F02 should skip the current object but keep looping so objects after it are still deallocated"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F02_delete_all_but_current_deallocates_everything_when_current_is_missing() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0DA0,
+                next_slot_addr: 0xFFFF_0E14,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0E14,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::delete_all_but_current_loop_loc_F02(&active_slots, 0xFFFF_0E88),
+            crate::level::DeleteAllButCurrentLoopLocF02 {
+                first_active_slot_addr: 0,
+                kept_current_object: false,
+                deallocated_slot_addrs: vec![0xFFFF_0DA0, 0xFFFF_0E14],
+                slots: vec![],
+            },
+            "ASM loc_F02 should keep deallocating loaded slots until the next link is null when `Addr_CurrentObject` is absent"
+        );
+    }
+
     /// ASM loc_DF30 (kid.asm:17258): the combined evanescent/shooter init seeds
     /// `d0=$12`, so the inclusive DBF loop links 19 evanescent slots, clears
     /// the 20th slot's link word, and clears `Addr_FirstEvanescObjectSlot`.
