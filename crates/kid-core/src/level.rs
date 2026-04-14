@@ -11843,6 +11843,39 @@ pub(crate) fn end_credits_hundred_k_trip_fade_loopback_loc_DA3E()
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndCreditsHundredKTripTeleportLocDA4A {
+    pub(crate) score: u32,
+    pub(crate) fade_colour_word: u16,
+    pub(crate) level_load_requested: bool,
+    pub(crate) player_start_x: u16,
+    pub(crate) player_start_y: u16,
+    pub(crate) current_level_id: u16,
+    pub(crate) current_helmet: u16,
+    pub(crate) continue_latch: bool,
+    pub(crate) tail_subroutine: &'static str,
+}
+
+/// ASM loc_DA4A (kid.asm:17083): once the Hundred K Trip fade countdown ends,
+/// seed the score and destination state, clear the current helmet, set the
+/// continue latch, and branch through the shared `Teleport` tail.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_hundred_k_trip_teleport_loc_DA4A() -> EndCreditsHundredKTripTeleportLocDA4A
+{
+    EndCreditsHundredKTripTeleportLocDA4A {
+        score: 1_000_001,
+        fade_colour_word: 0,
+        level_load_requested: true,
+        player_start_x: 0x0020,
+        player_start_y: 0x048F,
+        current_level_id: 0x001F,
+        current_helmet: 0,
+        continue_latch: true,
+        tail_subroutine: "Teleport",
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.

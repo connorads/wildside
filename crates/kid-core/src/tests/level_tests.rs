@@ -6931,6 +6931,50 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DA4A (kid.asm:17083): the terminal Hundred K Trip fade frame
+    /// seeds the trip score, clears the teleport fade colour, requests the
+    /// destination level load, resets Kid to The Kid, sets the continue latch,
+    /// and branches through `Teleport`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DA4A_end_credits_hundred_k_trip_seeds_teleport_state() {
+        let teleport = crate::level::end_credits_hundred_k_trip_teleport_loc_DA4A();
+
+        assert_eq!(
+            teleport.score, 1_000_001,
+            "ASM loc_DA4A should write decimal 1000001 into `(Score).w`"
+        );
+        assert_eq!(
+            teleport.fade_colour_word, 0,
+            "ASM loc_DA4A should clear `$FFFFFBCC` before teleporting"
+        );
+        assert!(
+            teleport.level_load_requested,
+            "ASM loc_DA4A should set `$FFFFFC36` so the destination level reloads"
+        );
+        assert_eq!(
+            (teleport.player_start_x, teleport.player_start_y),
+            (0x0020, 0x048F),
+            "ASM loc_DA4A should seed PlayerStart_X_pos=$20 and PlayerStart_Y_pos=$48F"
+        );
+        assert_eq!(
+            teleport.current_level_id, 0x001F,
+            "ASM loc_DA4A should select HundredKTripDest_LevelID ($1F)"
+        );
+        assert_eq!(
+            teleport.current_helmet, 0,
+            "ASM loc_DA4A should clear Current_Helmet before the trip starts"
+        );
+        assert!(
+            teleport.continue_latch,
+            "ASM loc_DA4A should set `$FFFFFC29` before branching to Teleport"
+        );
+        assert_eq!(
+            teleport.tail_subroutine, "Teleport",
+            "ASM loc_DA4A should exit through the shared Teleport tail"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
