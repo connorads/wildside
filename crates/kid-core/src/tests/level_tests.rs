@@ -6940,6 +6940,48 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E692 (kid.asm:18350): after either horizontal setup path, the
+    /// shared strip emitter computes `d5/d6`, halves `d3` for the remaining
+    /// span counter, and writes the leading sprite entry with tile `$E676|d4`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E692_first_strip_sprite_write_seeds_probe_bounds_and_link() {
+        let write =
+            crate::level::level_sprite_strip_first_write_loc_E692(0x0080, 5, 0x0130, 24, 0x0800);
+
+        assert_eq!(
+            write.top_probe_y, 0x0058,
+            "ASM loc_E692 should subtract d3 and `$10` from d1 before storing d5"
+        );
+        assert_eq!(
+            write.bottom_probe_y, 0x00B0,
+            "ASM loc_E692 should add d3 and `$18` to the original d1 before storing d6"
+        );
+        assert_eq!(
+            write.remaining_span_counter, 14,
+            "ASM loc_E692 should apply `lsr.w #1,d3; addq.w #2,d3` before the middle-piece loop"
+        );
+        assert_eq!(
+            write.next_y, 0x0068,
+            "ASM loc_E692 should add `$10` to d1 after writing the leading sprite y word"
+        );
+        assert_eq!(
+            write.next_link, 6,
+            "ASM loc_E692 should increment d2 before writing the leading sprite link byte"
+        );
+        assert_eq!(
+            write.first_sprite,
+            crate::level::LevelSpriteStripEntryLocE692 {
+                y_pos: 0x0058,
+                size: 0x0D,
+                link: 6,
+                tile_word: 0xEE76,
+                x_pos: 0x0130,
+            },
+            "ASM loc_E692 should write y, size `$0D`, incremented link, `$E676|d4`, and adjusted x into the first sprite slot"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

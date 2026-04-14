@@ -12211,6 +12211,59 @@ pub(crate) fn level_sprite_strip_reverse_setup_loc_E67E(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripEntryLocE692 {
+    pub(crate) y_pos: i16,
+    pub(crate) size: u8,
+    pub(crate) link: u8,
+    pub(crate) tile_word: u16,
+    pub(crate) x_pos: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripFirstWriteLocE692 {
+    pub(crate) top_probe_y: i16,
+    pub(crate) bottom_probe_y: i16,
+    pub(crate) remaining_span_counter: u16,
+    pub(crate) next_y: i16,
+    pub(crate) next_link: u8,
+    pub(crate) first_sprite: LevelSpriteStripEntryLocE692,
+}
+
+/// ASM loc_E692 (kid.asm:18350): seed `d5/d6` from the adjusted vertical
+/// span, convert `d3` into the remaining piece counter, then write the leading
+/// sprite entry at `(a2)+` with tile `$E676 | d4`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_first_write_loc_E692(
+    base_y: i16,
+    link: u8,
+    source_x: i16,
+    d3_span_word: i16,
+    tile_attr_mask: u16,
+) -> LevelSpriteStripFirstWriteLocE692 {
+    let bottom_probe_y = base_y.wrapping_add(d3_span_word).wrapping_add(0x0018);
+    let top_probe_y = base_y.wrapping_sub(d3_span_word).wrapping_sub(0x0010);
+    let remaining_span_counter = ((d3_span_word as u16) >> 1).wrapping_add(2);
+    let next_y = top_probe_y.wrapping_add(0x0010);
+    let next_link = link.wrapping_add(1);
+
+    LevelSpriteStripFirstWriteLocE692 {
+        top_probe_y,
+        bottom_probe_y,
+        remaining_span_counter,
+        next_y,
+        next_link,
+        first_sprite: LevelSpriteStripEntryLocE692 {
+            y_pos: top_probe_y,
+            size: 0x0D,
+            link: next_link,
+            tile_word: 0xE676 | tile_attr_mask,
+            x_pos: source_x,
+        },
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
