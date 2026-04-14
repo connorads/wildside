@@ -223,6 +223,63 @@ pub(crate) fn lion_track_kid_negative_delta_facing_loc_3e074(
     }
 }
 
+pub(crate) const LION_COLID_HURT: u16 = 0x001C;
+pub(crate) const LION_COLID_KIDABOVE: u16 = 0x002C;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionRoarWaitDispatch {
+    Damage,
+    ContinueWaiting {
+        next_collision_type: u16,
+    },
+    ReadyToFire {
+        next_collision_type: u16,
+        facing: Direction,
+        projectile_worker_selector: u16,
+        projectile_worker: &'static str,
+        active_projectile_count_delta: u8,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_roar_wait_dispatch_loc_3e09e(
+    collision_type: u16,
+    roar_fire_sprite_reached: bool,
+    lion_x_word: u16,
+    kid_x_word: u16,
+) -> LionRoarWaitDispatch {
+    // ASM Lion.asm loc_3E09E: after one hibernated frame, `colid_hurt` and
+    // `colid_kidabove` jump to the damage path before the normal collision
+    // clear. Non-damaging frames loop until the roar animation reaches its
+    // fire sprite; then the Lion faces Kid, allocates selector `$8000`, installs
+    // the projectile worker, and increments `$5B(a5)`.
+    if matches!(collision_type, LION_COLID_HURT | LION_COLID_KIDABOVE) {
+        return LionRoarWaitDispatch::Damage;
+    }
+
+    if !roar_fire_sprite_reached {
+        return LionRoarWaitDispatch::ContinueWaiting {
+            next_collision_type: 0,
+        };
+    }
+
+    let lion_x = i16::from_ne_bytes(lion_x_word.to_ne_bytes());
+    let kid_x = i16::from_ne_bytes(kid_x_word.to_ne_bytes());
+    let delta = kid_x.wrapping_sub(lion_x);
+    LionRoarWaitDispatch::ReadyToFire {
+        next_collision_type: 0,
+        facing: if delta > 0 {
+            Direction::Right
+        } else {
+            Direction::Left
+        },
+        projectile_worker_selector: 0x8000,
+        projectile_worker: "LionProjectileWorker",
+        active_projectile_count_delta: 1,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
@@ -6688,6 +6745,49 @@ mod tests {
             lion_track_kid_negative_delta_facing_loc_3e074(0x7FFF, 0x8000),
             Direction::Right,
             "ASM Lion.asm loc_3E074 inherits 68k signed-word comparison semantics across the sign boundary"
+        );
+    }
+
+    #[test]
+    fn lion_roar_wait_dispatch_matches_loc_3e09e() {
+        assert_eq!(
+            lion_roar_wait_dispatch_loc_3e09e(LION_COLID_HURT, false, 0x0200, 0x0300),
+            LionRoarWaitDispatch::Damage,
+            "ASM Lion.asm loc_3E09E should send colid_hurt to the damage path before clearing collision_type"
+        );
+        assert_eq!(
+            lion_roar_wait_dispatch_loc_3e09e(LION_COLID_KIDABOVE, true, 0x0200, 0x0300),
+            LionRoarWaitDispatch::Damage,
+            "ASM Lion.asm loc_3E09E should also prioritise colid_kidabove over the ready-to-fire sprite check"
+        );
+        assert_eq!(
+            lion_roar_wait_dispatch_loc_3e09e(0x0020, false, 0x0200, 0x0300),
+            LionRoarWaitDispatch::ContinueWaiting {
+                next_collision_type: 0,
+            },
+            "ASM Lion.asm loc_3E09E should clear non-damaging collision_type and loop until the fire sprite is reached"
+        );
+        assert_eq!(
+            lion_roar_wait_dispatch_loc_3e09e(0, true, 0x0200, 0x0300),
+            LionRoarWaitDispatch::ReadyToFire {
+                next_collision_type: 0,
+                facing: Direction::Right,
+                projectile_worker_selector: 0x8000,
+                projectile_worker: "LionProjectileWorker",
+                active_projectile_count_delta: 1,
+            },
+            "ASM Lion.asm loc_3E09E should clear collision_type, face Kid, allocate the projectile worker, and increment the active projectile count when the roar sprite is ready"
+        );
+        assert_eq!(
+            lion_roar_wait_dispatch_loc_3e09e(0, true, 0x0300, 0x0200),
+            LionRoarWaitDispatch::ReadyToFire {
+                next_collision_type: 0,
+                facing: Direction::Left,
+                projectile_worker_selector: 0x8000,
+                projectile_worker: "LionProjectileWorker",
+                active_projectile_count_delta: 1,
+            },
+            "ASM Lion.asm loc_3E09E should choose the clear x_direction orientation when Kid is not to the right"
         );
     }
 
