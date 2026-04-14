@@ -683,6 +683,13 @@ pub(crate) struct AllocatedObjectSlotListLocDF2 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DeallocateObjectSlotPredecessorLocEA2 {
+    pub(crate) predecessor_link_addr: u32,
+    pub(crate) scanned_links: usize,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescShooterObjectSlotsSubEABC {
     pub(crate) next_free_evanescent_object_slot_addr: u32,
@@ -7958,6 +7965,40 @@ pub(crate) fn allocate_object_slot_splice_loc_DF2(
         first_slot_addr: slots.first().map_or(0, |slot| slot.slot_addr),
         slots,
     }
+}
+
+/// ASM loc_EA2 (kid.asm:1720): `Deallocate_ObjectSlot` starts with `a0` at
+/// `Addr_FirstObjectSlot`, then repeatedly loads the predecessor link word. A
+/// null link exits without deallocating; a link equal to `a5` identifies the
+/// predecessor whose `0(a0)` will be spliced over the removed object.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn deallocate_object_slot_predecessor_loc_EA2(
+    active_slots: &[LinkedObjectSlotInit],
+    target_slot_addr: u32,
+) -> Option<DeallocateObjectSlotPredecessorLocEA2> {
+    let mut predecessor_link_addr = 0xFFFF_F842;
+    let mut next_slot_addr = active_slots.first().map_or(0, |slot| slot.slot_addr);
+
+    for scanned_links in 1..=active_slots.len() {
+        if next_slot_addr == 0 {
+            return None;
+        }
+        if next_slot_addr == target_slot_addr {
+            return Some(DeallocateObjectSlotPredecessorLocEA2 {
+                predecessor_link_addr,
+                scanned_links,
+            });
+        }
+
+        let current_slot = active_slots
+            .iter()
+            .find(|slot| slot.slot_addr == next_slot_addr)?;
+        predecessor_link_addr = current_slot.slot_addr;
+        next_slot_addr = current_slot.next_slot_addr;
+    }
+
+    None
 }
 
 #[allow(non_snake_case)]

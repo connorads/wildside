@@ -8167,6 +8167,49 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EA2 (kid.asm:1720): deallocation walks predecessor links from
+    /// `Addr_FirstObjectSlot` until `0(a0)` equals the current object in `a5`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EA2_finds_deallocate_object_predecessor_link() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0DA0,
+                next_slot_addr: 0xFFFF_0E14,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0E14,
+                next_slot_addr: 0xFFFF_0E88,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0E88,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::deallocate_object_slot_predecessor_loc_EA2(&active_slots, 0xFFFF_0DA0,),
+            Some(crate::level::DeallocateObjectSlotPredecessorLocEA2 {
+                predecessor_link_addr: 0xFFFF_F842,
+                scanned_links: 1,
+            }),
+            "ASM loc_EA2 should find a head removal while `a0` still points at Addr_FirstObjectSlot"
+        );
+        assert_eq!(
+            crate::level::deallocate_object_slot_predecessor_loc_EA2(&active_slots, 0xFFFF_0E88,),
+            Some(crate::level::DeallocateObjectSlotPredecessorLocEA2 {
+                predecessor_link_addr: 0xFFFF_0E14,
+                scanned_links: 3,
+            }),
+            "ASM loc_EA2 should advance a0 through each linked object until its next link equals a5"
+        );
+        assert_eq!(
+            crate::level::deallocate_object_slot_predecessor_loc_EA2(&active_slots, 0xFFFF_0EFC,),
+            None,
+            "ASM loc_EA2 should exit when the walk reaches a null link before finding a5"
+        );
+    }
+
     /// ASM loc_DF30 (kid.asm:17258): the combined evanescent/shooter init seeds
     /// `d0=$12`, so the inclusive DBF loop links 19 evanescent slots, clears
     /// the 20th slot's link word, and clears `Addr_FirstEvanescObjectSlot`.
