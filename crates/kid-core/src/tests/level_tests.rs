@@ -7226,6 +7226,45 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DF30 (kid.asm:17258): the combined evanescent/shooter init seeds
+    /// `d0=$12`, so the inclusive DBF loop links 19 evanescent slots, clears
+    /// the 20th slot's link word, and clears `Addr_FirstEvanescObjectSlot`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DF30_initialise_evanescent_slots_links_the_full_free_list() {
+        let slots = crate::level::initialise_evanesc_object_slots_loc_DF30();
+
+        assert_eq!(
+            slots.next_free_evanescent_object_slot_addr, 0xFFFF_E90A,
+            "ASM loc_DF30 should leave Addr_NextFreeEvanescObjectSlot pointing at EvanescObject_RAM"
+        );
+        assert_eq!(
+            slots.first_evanescent_object_slot_addr, 0,
+            "ASM loc_DF30 should clear Addr_FirstEvanescObjectSlot after building the free list"
+        );
+        assert_eq!(
+            slots.evanescent_slots.len(),
+            0x13,
+            "ASM loc_DF30 seeds d0=$12, so DBF links 0x13 evanescent slots"
+        );
+        assert_eq!(
+            slots.evanescent_slots[0],
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E90A,
+                next_slot_addr: 0xFFFF_E916,
+            },
+            "ASM loc_DF30 should write `$A(a0)=a0+$0C` for the first evanescent slot"
+        );
+        assert_eq!(
+            slots.evanescent_slots[0x12],
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E9E2,
+                next_slot_addr: 0,
+            },
+            "ASM loc_DF30 should clear `$A(a0)` on the final evanescent slot after DBF exits"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

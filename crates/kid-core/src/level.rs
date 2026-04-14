@@ -628,6 +628,9 @@ const SPRITE_DYNAMIC_ART_ADDR_SUB_B52: u32 = 0xFFFF_0500;
 const EVANESCENT_OBJECT_RAM_ADDR_SUB_EABC: u32 = 0xFFFF_EBDA;
 const EVANESCENT_OBJECT_SLOT_STRIDE_SUB_EABC: u16 = 0x000C;
 const EVANESCENT_OBJECT_SLOT_COUNT_SUB_EABC: usize = 40;
+const EVANESCENT_OBJECT_RAM_ADDR_LOC_DF30: u32 = 0xFFFF_E90A;
+const EVANESCENT_OBJECT_SLOT_STRIDE_LOC_DF30: u16 = 0x000C;
+const EVANESCENT_OBJECT_SLOT_COUNT_LOC_DF30: usize = 0x13;
 const SHOOTER_OBJECT_RAM_ADDR_SUB_F06A: u32 = 0xFFFF_E7F2;
 const SHOOTER_OBJECT_SLOT_STRIDE_SUB_F06A: u16 = 0x000E;
 const SHOOTER_OBJECT_SLOT_COUNT_SUB_F06A: usize = 20;
@@ -7667,6 +7670,36 @@ pub(crate) fn initialise_evanesc_object_slots_sub_EABC() -> EvanescShooterObject
 
     EvanescShooterObjectSlotsSubEABC {
         next_free_evanescent_object_slot_addr: EVANESCENT_OBJECT_RAM_ADDR_SUB_EABC,
+        first_evanescent_object_slot_addr: 0,
+        evanescent_slots,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn initialise_evanesc_object_slots_loc_DF30() -> EvanescShooterObjectSlotsSubEABC {
+    // ASM loc_DF30 (kid.asm:17258): after `Initialize_EvanescShooterObjectSlots`
+    // seeds `a0=EvanescObject_RAM` and `d0=$12`, the inclusive DBF loop writes
+    // each `$A(a0)` link to the next `$0C`-byte slot before clearing the final
+    // link and `Addr_FirstEvanescObjectSlot`.
+    let mut evanescent_slots = Vec::with_capacity(EVANESCENT_OBJECT_SLOT_COUNT_LOC_DF30);
+    let mut slot_addr = EVANESCENT_OBJECT_RAM_ADDR_LOC_DF30;
+    for slot_index in 0..EVANESCENT_OBJECT_SLOT_COUNT_LOC_DF30 {
+        let is_last = slot_index + 1 == EVANESCENT_OBJECT_SLOT_COUNT_LOC_DF30;
+        let next_slot_addr = if is_last {
+            0
+        } else {
+            slot_addr + u32::from(EVANESCENT_OBJECT_SLOT_STRIDE_LOC_DF30)
+        };
+        evanescent_slots.push(LinkedObjectSlotInit {
+            slot_addr,
+            next_slot_addr,
+        });
+        slot_addr += u32::from(EVANESCENT_OBJECT_SLOT_STRIDE_LOC_DF30);
+    }
+
+    EvanescShooterObjectSlotsSubEABC {
+        next_free_evanescent_object_slot_addr: EVANESCENT_OBJECT_RAM_ADDR_LOC_DF30,
         first_evanescent_object_slot_addr: 0,
         evanescent_slots,
     }
