@@ -7662,6 +7662,60 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E902 (kid.asm:18631): `DBF d3,loc_E902` emits
+    /// `(d7 >> 1)` middle sprites with tile `$8692|d4`. Odd beam widths then
+    /// subtract four from `d1` and write one additional middle sprite.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E902_emits_wide_hard_beam_middle_sprites_and_odd_spacer() {
+        let even =
+            crate::level::eyeclops_hard_beam_wide_middle_loc_E902(1, 4, 0x007C, 8, 0x0130, 0x0800);
+
+        assert_eq!(
+            even.middle_sprites,
+            vec![
+                crate::level::LevelSpriteStripEntryLocE692 {
+                    y_pos: 0x007C,
+                    size: 0x0C,
+                    link: 9,
+                    tile_word: 0x8E92,
+                    x_pos: 0x0130,
+                },
+                crate::level::LevelSpriteStripEntryLocE692 {
+                    y_pos: 0x0084,
+                    size: 0x0C,
+                    link: 10,
+                    tile_word: 0x8E92,
+                    x_pos: 0x0130,
+                },
+            ],
+            "ASM loc_E902 should execute the DBF body `middle_loop_counter + 1` times"
+        );
+        assert_eq!(
+            (even.odd_width_sprite, even.next_y, even.next_link),
+            (None, 0x008C, 10),
+            "ASM loc_E902 should skip the four-pixel spacer when bit 0 of d7 is clear"
+        );
+
+        let odd = crate::level::eyeclops_hard_beam_wide_middle_loc_E902(1, 5, 0x007A, 8, 0x0130, 0);
+        assert_eq!(
+            odd.odd_width_sprite,
+            Some(crate::level::LevelSpriteStripEntryLocE692 {
+                y_pos: 0x0086,
+                size: 0x0C,
+                link: 11,
+                tile_word: 0x8692,
+                x_pos: 0x0130,
+            }),
+            "ASM loc_E902 should subtract four from the post-loop d1 before writing the odd-width middle sprite"
+        );
+        assert_eq!(
+            (odd.next_y, odd.next_link),
+            (0x008E, 11),
+            "ASM loc_E902 should add eight after the odd spacer and leave d2 at the written link"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

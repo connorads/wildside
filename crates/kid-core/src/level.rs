@@ -12915,6 +12915,67 @@ pub(crate) fn eyeclops_hard_beam_wide_first_write_loc_E8DE(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EyeclopsHardBeamWideMiddleLocE902 {
+    pub(crate) middle_sprites: Vec<LevelSpriteStripEntryLocE692>,
+    pub(crate) odd_width_sprite: Option<LevelSpriteStripEntryLocE692>,
+    pub(crate) next_y: i16,
+    pub(crate) next_link: u8,
+}
+
+/// ASM loc_E902 (kid.asm:18631): the wide hard-beam middle loop writes one
+/// size-`$0C` `$8692 | d4` sprite for each `DBF` pass, so the `(d7 >> 1) - 1`
+/// counter emits `counter + 1` sprites. Odd `d7` then backs `d1` up four
+/// pixels and writes one extra middle tile before the tail cap.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_wide_middle_loc_E902(
+    middle_loop_counter: u16,
+    beam_counter: u16,
+    mut y_pos: i16,
+    mut link: u8,
+    sprite_x: i16,
+    tile_attr_mask: u16,
+) -> EyeclopsHardBeamWideMiddleLocE902 {
+    let middle_count = usize::from(middle_loop_counter).saturating_add(1);
+    let mut middle_sprites = Vec::with_capacity(middle_count);
+
+    for _ in 0..middle_count {
+        link = link.wrapping_add(1);
+        middle_sprites.push(LevelSpriteStripEntryLocE692 {
+            y_pos,
+            size: 0x0C,
+            link,
+            tile_word: 0x8692 | tile_attr_mask,
+            x_pos: sprite_x,
+        });
+        y_pos = y_pos.wrapping_add(0x0008);
+    }
+
+    let odd_width_sprite = if beam_counter & 1 == 0 {
+        None
+    } else {
+        y_pos = y_pos.wrapping_sub(0x0004);
+        link = link.wrapping_add(1);
+        let sprite = LevelSpriteStripEntryLocE692 {
+            y_pos,
+            size: 0x0C,
+            link,
+            tile_word: 0x8692 | tile_attr_mask,
+            x_pos: sprite_x,
+        };
+        y_pos = y_pos.wrapping_add(0x0008);
+        Some(sprite)
+    };
+
+    EyeclopsHardBeamWideMiddleLocE902 {
+        middle_sprites,
+        odd_width_sprite,
+        next_y: y_pos,
+        next_link: link,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
