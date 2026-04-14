@@ -1469,6 +1469,23 @@ pub(crate) fn hidden_block_jump_snap_loc_E1FE(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_jump_hitbox_top_loc_E236(
+    top_candidate_px: u16,
+    current_helmet_id: u16,
+) -> u16 {
+    // ASM loc_E236 (kid.asm:17654): store `d2` into `Kid_hitbox_top`. The
+    // immediately preceding helmet branch reaches loc_E236 directly for
+    // Micromax (`#9`) and Juggernaut (`#5`); every other helmet subtracts
+    // another `$10` first.
+    if matches!(current_helmet_id, 5 | 9) {
+        top_candidate_px
+    } else {
+        top_candidate_px.wrapping_sub(0x0010)
+    }
+}
+
+#[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn hide_end_sequence_credits_glyphs_sub_1D7E6(display_enabled: &mut [bool; 6]) {
     // ASM sub_1D7E6 (kid.asm:33029): load the six credits glyph worker slots

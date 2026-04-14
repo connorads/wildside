@@ -6413,6 +6413,36 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn loc_e236_hidden_block_jump_top_keeps_short_helmets_tighter() {
+        let snap = crate::movement::hidden_block_jump_snap_loc_E1FE(0x0040, 0x0002);
+
+        assert_eq!(
+            crate::movement::hidden_block_jump_hitbox_top_loc_E236(
+                snap.top_candidate_px,
+                PlayerForm::Juggernaut.helmet_id(),
+            ),
+            0x0060,
+            "ASM loc_E236 should store the `$F`-above-bottom top candidate directly for Juggernaut after `cmpi.w #5,d3; beq.w loc_E236`",
+        );
+        assert_eq!(
+            crate::movement::hidden_block_jump_hitbox_top_loc_E236(
+                snap.top_candidate_px,
+                PlayerForm::Micromax.helmet_id(),
+            ),
+            0x0060,
+            "ASM loc_E236 should store the same short top candidate directly for Micromax after `cmpi.w #9,d3; beq.w loc_E236`",
+        );
+        assert_eq!(
+            crate::movement::hidden_block_jump_hitbox_top_loc_E236(
+                snap.top_candidate_px,
+                PlayerForm::TheKid.helmet_id(),
+            ),
+            0x0050,
+            "ASM loc_E236 should receive `d2 - $10` for every other helmet because the branch is not taken",
+        );
+    }
+
     /// ASM loc_E000 (kid.asm:17347): after `sub_DFB0`/`loc_DFEE` have selected
     /// and shifted Kid's horizontal jump probe, the ROM clamps a negative
     /// start column to zero before computing the inclusive scan count.
