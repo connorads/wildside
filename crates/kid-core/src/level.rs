@@ -11686,6 +11686,35 @@ pub(crate) fn end_credits_clear_other_object_collision_loc_D984(
     flagpole_clear_other_object_collision_loc_D980(objects, current_object_addr);
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndCreditsCleanupSetupLocD99E {
+    pub(crate) deletes_all_but_current_object: bool,
+    pub(crate) sets_flag_fb6a: bool,
+    pub(crate) vdp_register_commands: [u16; 2],
+    pub(crate) clears_level_special_effects: bool,
+    pub(crate) fade_object_callback: &'static str,
+    pub(crate) hibernate_frames: u16,
+    pub(crate) gfx_cleanup_entry_label: &'static str,
+}
+
+/// ASM loc_D99E (kid.asm:17022): after the object-field clear loop, delete all
+/// non-current objects, set `$FFFFFB6A`, reset the scroll-plane VDP registers,
+/// clear `Level_Special_Effects`, allocate the `loc_C2F2` fade worker, and
+/// hibernate for `$24` frames before the GFX cleanup loop at `loc_D9D4`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_cleanup_setup_loc_D99E() -> EndCreditsCleanupSetupLocD99E {
+    EndCreditsCleanupSetupLocD99E {
+        deletes_all_but_current_object: true,
+        sets_flag_fb6a: true,
+        vdp_register_commands: [0x8200, 0x8407],
+        clears_level_special_effects: true,
+        fade_object_callback: "loc_C2F2",
+        hibernate_frames: 0x0024,
+        gfx_cleanup_entry_label: "loc_D9D4",
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.

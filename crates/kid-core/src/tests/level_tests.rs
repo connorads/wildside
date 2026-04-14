@@ -6730,6 +6730,46 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D99E (kid.asm:17022): after deleting all non-current objects,
+    /// set `$FFFFFB6A`, reset scroll-plane VDP registers to `$8200/$8407`,
+    /// clear level special effects, allocate `loc_C2F2`, and wait `$24` frames
+    /// before entering the GFX cleanup loop.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D99E_end_credits_cleanup_sets_up_fade_worker_and_gfx_pass() {
+        let setup = crate::level::end_credits_cleanup_setup_loc_D99E();
+
+        assert!(
+            setup.deletes_all_but_current_object,
+            "ASM loc_D99E begins with j_Delete_AllButCurrentObject"
+        );
+        assert!(
+            setup.sets_flag_fb6a,
+            "ASM loc_D99E should set $FFFFFB6A before rewriting VDP registers"
+        );
+        assert_eq!(
+            setup.vdp_register_commands,
+            [0x8200, 0x8407],
+            "ASM loc_D99E should write the two scroll-plane VDP register commands in order"
+        );
+        assert!(
+            setup.clears_level_special_effects,
+            "ASM loc_D99E should clear Level_Special_Effects before allocating the fade object"
+        );
+        assert_eq!(
+            setup.fade_object_callback, "loc_C2F2",
+            "ASM loc_D99E should allocate the same fade worker used by the flagpole cleanup path"
+        );
+        assert_eq!(
+            setup.hibernate_frames, 0x0024,
+            "ASM loc_D99E should hibernate for $24 frames before scanning GFX objects"
+        );
+        assert_eq!(
+            setup.gfx_cleanup_entry_label, "loc_D9D4",
+            "ASM loc_D99E should enter loc_D9D4 when Addr_FirstGfxObjectSlot is non-null"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
