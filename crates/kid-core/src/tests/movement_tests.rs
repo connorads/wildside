@@ -14776,4 +14776,35 @@ mod chunk_12 {
             "ASM loc_D2CE should branch to loc_D2DC immediately when Start is held"
         );
     }
+
+    /// ASM loc_D350 (kid.asm:16528): `jsr j_Hibernate_Object_1Frame`;
+    /// `tst.b (Ctrl_Held).w`; `bmi.s Use_Continue`; `dbf d0,loc_D350`.
+    /// Native preserves the input-first ordering: a held button on the first
+    /// countdown frame consumes the continue instead of decrementing the timer.
+    #[test]
+    fn loc_d350_start_held_uses_continue_before_countdown_decrements() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_continues = 2;
+        runtime.player_lifecycle = PlayerLifecycle::ContinueCountdown {
+            remaining_frames: CONTINUE_COUNTDOWN_FRAMES,
+        };
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.progression.number_continues, 1,
+            "ASM loc_D350 should branch to Use_Continue as soon as Ctrl_Held is negative"
+        );
+        assert_eq!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::Respawning {
+                remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES
+            },
+            "ASM loc_D350 input path should bypass the countdown tail and enter continue respawn"
+        );
+    }
 }
