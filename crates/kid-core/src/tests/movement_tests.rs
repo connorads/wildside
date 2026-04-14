@@ -704,6 +704,34 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_E58 (kid.asm:1665): a zero `Addr_FirstObjectSlot` restores the
+    /// saved caller stack and returns before any hibernation counter is touched.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E58_empty_object_list_returns_without_decrementing_hibernation_counters() {
+        let next_indices = [None, None];
+        let haze_throttled_flags = [true, false];
+        let mut hibernation_counters = [1, 0];
+
+        assert_eq!(
+            crate::movement::execute_objects_under_samurai_haze_loc_E1E(
+                3,
+                true,
+                None,
+                &next_indices,
+                &haze_throttled_flags,
+                &mut hibernation_counters,
+            ),
+            Vec::<usize>::new(),
+            "ASM loc_E58 should return immediately when the object-list head longword is zero",
+        );
+        assert_eq!(
+            hibernation_counters,
+            [1, 0],
+            "ASM loc_E58 should not reach loc_E3E's `subq.w #1,8(a5)` when there is no object",
+        );
+    }
+
     #[test]
     fn loc_e29a_reloads_hidden_block_reveal_gfx_slot_then_uses_saved_link() {
         assert_eq!(

@@ -1065,6 +1065,11 @@ pub(crate) fn execute_objects_under_samurai_haze_loc_E1E(
     let mut executed_indices = Vec::new();
     let slowed_frame = time_frames & 3 != 0;
     let mut current = first_object_index;
+    if current.is_none() {
+        // ASM loc_E58 (kid.asm:1665): when the linked-list head is zero,
+        // restore the saved caller stack and return without touching objects.
+        return executed_indices;
+    }
 
     while let Some(index) = current {
         let is_throttled = haze_throttled_flags.get(index).copied().unwrap_or_default();
