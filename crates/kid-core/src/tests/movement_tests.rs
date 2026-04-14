@@ -769,6 +769,19 @@ mod chunk_11 {
     }
 
     #[test]
+    fn loc_e2e2_hidden_block_reveal_bounces_up_four_frames() {
+        assert_eq!(
+            crate::movement::hidden_block_reveal_bounce_up_loc_E2E2(0x0070),
+            crate::movement::HiddenBlockRevealBounceLocE2E2 {
+                y_pos_after_hibernates: [0x006E, 0x006C, 0x006A, 0x0068],
+                final_y_pos_px: 0x0068,
+                hibernate_frames: 4,
+            },
+            "ASM loc_E2E2 should run the inclusive `d3=#3` DBF loop four times, subtracting two pixels before each one-frame hibernate",
+        );
+    }
+
+    #[test]
     fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
         assert_eq!(
             crate::level::indoor_rubber_block_source_words_loc_14506(
