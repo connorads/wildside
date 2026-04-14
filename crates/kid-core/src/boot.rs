@@ -4065,6 +4065,8 @@ pub(crate) fn continue_timeout_title_fade_step_loc_D428(
         };
     }
 
+    // ASM loc_D440 (kid.asm:16607): non-final fade frames seed `d0=-1`,
+    // store it to both pending palette longwords, then branch back to loc_D428.
     ContinueTimeoutTitleFadeStepLocD428 {
         fade_progress,
         pending_palette_0_mask: u32::MAX,

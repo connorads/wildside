@@ -14928,9 +14928,10 @@ mod chunk_12 {
     }
 
     /// ASM loc_D428 (kid.asm:16599): each continue-timeout title-return fade
-    /// frame subtracts `$10` from `$FFFFF876`; non-negative results reseed both
-    /// pending shadow-palette longwords to `-1`, while the negative underflow
-    /// frame exits without rewriting them.
+    /// frame subtracts `$10` from `$FFFFF876`. ASM loc_D440 (kid.asm:16607)
+    /// handles the non-negative loop-back by reseeding both pending
+    /// shadow-palette longwords to `-1`; the negative underflow frame exits
+    /// without rewriting them.
     #[test]
     #[allow(non_snake_case)]
     fn loc_D428_continue_timeout_title_fade_reseeds_masks_until_underflow() {
