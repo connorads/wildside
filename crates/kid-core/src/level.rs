@@ -971,6 +971,14 @@ pub(crate) struct AnimatedSolidBlockVerticalRowsInputLocF85A {
     pub(crate) mapping_longwords: [u32; 2],
 }
 
+/// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
+/// upper byte.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_row_hi_bits_loc_F866(block_row: u16) -> u16 {
+    block_row << 8
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleSpriteWordsLocF41E {
@@ -9214,8 +9222,9 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
     for _ in 0..iterations {
         layout_writes.push((layout_addr, 0xE304));
         if (input.camera_top_row..=input.camera_bottom_row).contains(&row) {
+            let row_hi_bits = animated_solid_block_row_hi_bits_loc_F866(row);
             custom_queue_entries.push(FgUpdateQueueCustomEntrySub1596 {
-                vram_word_address: ((row << 8) & 0x0F00) | input.packed_cell_x_bits,
+                vram_word_address: (row_hi_bits & 0x0F00) | input.packed_cell_x_bits,
                 first_longword: input.mapping_longwords[0],
                 second_longword: input.mapping_longwords[1],
             });

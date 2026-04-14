@@ -9628,6 +9628,23 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F866 (kid.asm:20536): the packed row bits are prepared by a
+    /// left shift from 16-bit row index to the queue-word upper byte.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F866_shifts_the_row_into_vram_upper_byte() {
+        assert_eq!(
+            crate::level::animated_solid_block_row_hi_bits_loc_F866(0x001F),
+            0x1F00,
+            "ASM loc_F866 should implement `d1 -> (d1 << 8)` before masking"
+        );
+        assert_eq!(
+            crate::level::animated_solid_block_row_hi_bits_loc_F866(0x00AB),
+            0xAB00,
+            "ASM loc_F866 should preserve all shifted bits when row is in range"
+        );
+    }
+
     /// ASM loc_F85A (kid.asm:20528): each DBF iteration writes `$E304` to the
     /// current Level_Layout cell, queues VDP data only for visible rows, then
     /// advances by one row through `Level_width_tiles`.
