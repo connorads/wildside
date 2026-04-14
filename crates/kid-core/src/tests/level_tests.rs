@@ -8723,6 +8723,30 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F1C8 (kid.asm:19765): the shared shooter scan setup converts
+    /// the clamped left/right columns into DBF's inclusive counter, doubles
+    /// the row for `$FFFF4A04`, and doubles the left column before adding it
+    /// to the selected row pointer.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F1C8_seeds_the_shooter_scan_cell_pointer_and_column_counter() {
+        assert_eq!(
+            crate::level::evanescent_shooter_scan_start_loc_F1C8(
+                0x0003,
+                0x0009,
+                0x0007,
+                0xFFFF_A640,
+            ),
+            crate::level::EvanescentShooterScanStartLocF1C8 {
+                col_dbf_counter: 0x0006,
+                row_pointer_table_byte_offset: 0x000E,
+                first_cell_byte_offset: 0x0006,
+                first_cell_layout_addr: 0xFFFF_A646,
+            },
+            "ASM loc_F1C8 should use `right-left` as DBF's inclusive counter and add `left*2` bytes to the row base before loc_F1DE reads `(a1)`"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

@@ -775,6 +775,15 @@ pub(crate) struct EvanescentShooterRowScanTailLocF17C {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentShooterScanStartLocF1C8 {
+    pub(crate) col_dbf_counter: u16,
+    pub(crate) row_pointer_table_byte_offset: u16,
+    pub(crate) first_cell_byte_offset: u16,
+    pub(crate) first_cell_layout_addr: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8323,6 +8332,29 @@ pub(crate) fn evanescent_shooter_window_left_col_loc_F1B0(camera_block_col: u16)
         candidate
     } else {
         0
+    }
+}
+
+/// ASM loc_F1C8 (kid.asm:19765): after `loc_F1B8` clamps the right edge, the
+/// ROM subtracts left `d3` from right `d5` for DBF's inclusive column counter,
+/// doubles row `d4` into the `$FFFF4A04` row-pointer table, then doubles left
+/// column `d3` before adding it to that row base.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_shooter_scan_start_loc_F1C8(
+    left_col: u16,
+    right_col: u16,
+    row: u16,
+    row_base_layout_addr: u32,
+) -> EvanescentShooterScanStartLocF1C8 {
+    let first_cell_byte_offset = left_col.wrapping_mul(2);
+
+    EvanescentShooterScanStartLocF1C8 {
+        col_dbf_counter: right_col.wrapping_sub(left_col),
+        row_pointer_table_byte_offset: row.wrapping_mul(2),
+        first_cell_byte_offset,
+        first_cell_layout_addr: row_base_layout_addr
+            .wrapping_add(u32::from(first_cell_byte_offset)),
     }
 }
 
