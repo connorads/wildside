@@ -8941,6 +8941,21 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F2EE (kid.asm:19889): the first expired shooter-slot state
+    /// marks the source layout word with high byte `$ED` before returning to
+    /// the shared `loc_F386` visible-neighbour update.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F2EE_marks_the_shooter_source_cell_erased() {
+        assert_eq!(
+            crate::level::shooter_expired_slot_erase_cell_loc_F2EE(0xB81A),
+            crate::level::ShooterExpiredSlotEraseCellLocF2EE {
+                layout_word_after: 0xED1A,
+            },
+            "ASM loc_F2EE should implement `move.b #$ED,(a3)`, replacing only the high byte of the layout word"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

@@ -853,6 +853,12 @@ pub(crate) struct ShooterFrameCommitLocF2A2 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterExpiredSlotEraseCellLocF2EE {
+    pub(crate) layout_word_after: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8563,6 +8569,19 @@ pub(crate) fn shooter_frame_commit_loc_F2A2(
         number_sprites: sprite_link_word as u8,
         fg_update_queue_cell_next_slot,
         addr_next_sprite_slot,
+    }
+}
+
+/// ASM loc_F2EE (kid.asm:19889): state 0 of the expired shooter-slot jump
+/// table loads the layout-word pointer from `(a0)` and writes byte `$ED` to
+/// `(a3)`, leaving the low byte of that block word untouched before `loc_F386`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_expired_slot_erase_cell_loc_F2EE(
+    layout_word_before: u16,
+) -> ShooterExpiredSlotEraseCellLocF2EE {
+    ShooterExpiredSlotEraseCellLocF2EE {
+        layout_word_after: 0xED00 | (layout_word_before & 0x00FF),
     }
 }
 
