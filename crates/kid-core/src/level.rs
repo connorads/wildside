@@ -766,6 +766,15 @@ pub(crate) struct EvanescentShooterNeighbourMarkLocF166 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentShooterRowScanTailLocF17C {
+    pub(crate) next_layout_addr: u32,
+    pub(crate) next_block_row: u16,
+    pub(crate) next_dbf_counter: u16,
+    pub(crate) should_continue_scan: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8265,6 +8274,27 @@ pub(crate) fn evanescent_shooter_left_neighbour_mark_loc_F166(
             stored_local_word
         },
         shifted_direction_bits,
+    }
+}
+
+/// ASM loc_F17C (kid.asm:19725): after finishing one active shooter row, add
+/// `Level_width_tiles` to `a1`, increment the block row in `d4`, then DBF the
+/// row counter back to `loc_F106` until it wraps to `$FFFF`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_shooter_row_scan_tail_loc_F17C(
+    layout_addr: u32,
+    block_row: u16,
+    dbf_counter: u16,
+    level_width_tiles: u16,
+) -> EvanescentShooterRowScanTailLocF17C {
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+
+    EvanescentShooterRowScanTailLocF17C {
+        next_layout_addr: layout_addr.wrapping_add(u32::from(level_width_tiles)),
+        next_block_row: block_row.wrapping_add(1),
+        next_dbf_counter,
+        should_continue_scan: next_dbf_counter != 0xFFFF,
     }
 }
 

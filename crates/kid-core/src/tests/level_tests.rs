@@ -8639,6 +8639,45 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F17C (kid.asm:19725): the row tail advances the level-layout
+    /// cursor by `Level_width_tiles`, increments `d4`, and uses DBF's wrapped
+    /// `$FFFF` terminal value to leave the row scan.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F17C_advances_to_the_next_shooter_scan_row_until_dbf_exits() {
+        let next = crate::level::evanescent_shooter_row_scan_tail_loc_F17C(
+            0xFFFF_A652,
+            0x0012,
+            0x0002,
+            0x0030,
+        );
+        assert_eq!(
+            next,
+            crate::level::EvanescentShooterRowScanTailLocF17C {
+                next_layout_addr: 0xFFFF_A682,
+                next_block_row: 0x0013,
+                next_dbf_counter: 0x0001,
+                should_continue_scan: true,
+            },
+            "ASM loc_F17C should re-enter loc_F106 while DBF leaves a non-$FFFF row counter"
+        );
+
+        let terminal = crate::level::evanescent_shooter_row_scan_tail_loc_F17C(
+            0xFFFF_A682,
+            0x0013,
+            0x0000,
+            0x0030,
+        );
+        assert_eq!(
+            terminal.next_dbf_counter, 0xFFFF,
+            "ASM loc_F17C should decrement a zero DBF counter to `$FFFF` before falling through"
+        );
+        assert!(
+            !terminal.should_continue_scan,
+            "ASM loc_F17C should fall through to loc_F186 only when DBF reaches `$FFFF`"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
