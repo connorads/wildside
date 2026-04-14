@@ -8298,6 +8298,20 @@ pub(crate) fn evanescent_shooter_row_scan_tail_loc_F17C(
     }
 }
 
+/// ASM loc_F1A8 (kid.asm:19745): when the current shooter scan row is above
+/// the previous row marker, seed the top row from `d1-5`; negative word results
+/// are clamped to zero before entering the shared scan setup at `loc_F1B0`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_shooter_upward_window_top_row_loc_F1A8(camera_block_row: u16) -> u16 {
+    let candidate = camera_block_row.wrapping_sub(5);
+    if (candidate as i16) >= 0 {
+        candidate
+    } else {
+        0
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSubF06A {

@@ -8678,6 +8678,28 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F1A8 (kid.asm:19745): the upward-camera path subtracts five
+    /// block rows from `d1`, then clamps the signed word result to zero.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F1A8_clamps_the_upward_shooter_scan_top_row() {
+        assert_eq!(
+            crate::level::evanescent_shooter_upward_window_top_row_loc_F1A8(0x0004),
+            0,
+            "ASM loc_F1A8 should clamp `d1-5` when the BPL test sees a negative word"
+        );
+        assert_eq!(
+            crate::level::evanescent_shooter_upward_window_top_row_loc_F1A8(0x0005),
+            0,
+            "ASM loc_F1A8 should keep an exact zero result after subtracting five rows"
+        );
+        assert_eq!(
+            crate::level::evanescent_shooter_upward_window_top_row_loc_F1A8(0x0009),
+            0x0004,
+            "ASM loc_F1A8 should keep positive `d1-5` results before entering loc_F1B0"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
