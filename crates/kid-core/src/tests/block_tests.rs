@@ -4900,9 +4900,13 @@ mod chunk_04 {
 
         step_ufo_beam(&mut enemy, &mut projectiles, player_x, player_y);
         assert_eq!(enemy.ufo_beam_segments, 4, "should start beam sequence");
+        assert_eq!(
+            enemy.ufo_beam_interval, 5,
+            "ASM UFO.asm loc_34EEC starts the beam interval at 5"
+        );
 
         // Step through interval frames to spawn segments
-        for _ in 0..20 {
+        for _ in 0..24 {
             step_ufo_beam(&mut enemy, &mut projectiles, player_x, player_y);
         }
         assert!(projectiles.len() >= 4, "should have spawned beam segments");

@@ -1926,6 +1926,16 @@ pub(crate) struct UfoTrackingCommandLoc34E2A {
     pub(crate) facing: Direction,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoBeamStartLoc34Eec {
+    pub(crate) beam_segments: u8,
+    pub(crate) beam_interval: u8,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) wait_timer: u16,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 fn fixed_integer_word(pos: u32) -> i16 {
     (pos >> 16) as u16 as i16
@@ -2064,6 +2074,28 @@ const UFO_BEAM_INTERVAL_FRAMES: u8 = 5;
 /// Beam segment y_velocity: $30000 from ASM.
 const UFO_BEAM_Y_VELOCITY: i32 = 0x3_0000;
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_beam_start_loc_34eec() -> UfoBeamStartLoc34Eec {
+    // ASM UFO.asm loc_34EEC: targeted shooting starts the shared UFO beam
+    // sequence, freezes the UFO, and reloads the one-second loop counter to $32.
+    UfoBeamStartLoc34Eec {
+        beam_segments: 4,
+        beam_interval: 5,
+        x_velocity: 0,
+        y_velocity: 0,
+        wait_timer: 0x32,
+    }
+}
+
+fn apply_ufo_beam_start_loc_34eec(enemy: &mut ActiveEnemy) {
+    let beam_start = ufo_beam_start_loc_34eec();
+    enemy.ufo_beam_segments = beam_start.beam_segments;
+    enemy.ufo_beam_interval = beam_start.beam_interval;
+    enemy.x_velocity = beam_start.x_velocity;
+    enemy.y_velocity = beam_start.y_velocity;
+    enemy.wait_timer = beam_start.wait_timer;
+}
+
 pub(crate) fn step_ufo_beam(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
@@ -2102,11 +2134,7 @@ pub(crate) fn step_ufo_beam(
         let ky = py >> 16;
         // Player must be below UFO and within ±2px horizontally
         if ky > ey && kx.abs_diff(ex) <= 2 {
-            enemy.ufo_beam_segments = UFO_BEAM_SEGMENT_COUNT;
-            enemy.ufo_beam_interval = 0;
-            // Freeze UFO during beam sequence (ASM clears velocities)
-            enemy.x_velocity = 0;
-            enemy.y_velocity = 0;
+            apply_ufo_beam_start_loc_34eec(enemy);
             return;
         }
     }
@@ -6971,6 +6999,21 @@ mod tests {
                 target_y_velocity: -0x30000,
             },
             "ASM UFO.asm loc_34E96 shares the loc_34E10 acceleration and terminal-speed scaling tail"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_start_matches_loc_34eec() {
+        assert_eq!(
+            ufo_beam_start_loc_34eec(),
+            UfoBeamStartLoc34Eec {
+                beam_segments: 4,
+                beam_interval: 5,
+                x_velocity: 0,
+                y_velocity: 0,
+                wait_timer: 0x32,
+            },
+            "ASM UFO.asm loc_34EEC writes `$48=4`, `$4A=5`, clears x/y velocity, and reloads `$44=$32`"
         );
     }
 
