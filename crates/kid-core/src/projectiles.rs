@@ -721,12 +721,18 @@ pub(crate) fn lion_projectile_bounce_velocities_loc_3e266(
     let mut y_velocity = y_velocity;
 
     if terrain_collision_id == 0x04 || terrain_collision_id == 0x08 {
-        x_velocity = -x_velocity;
+        x_velocity = lion_projectile_x_reflection_vel_loc_3e2a4(x_velocity);
     } else if terrain_collision_id == 0x0C || terrain_collision_id == 0x10 {
         y_velocity = -y_velocity;
     }
 
     (x_velocity, y_velocity)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn lion_projectile_x_reflection_vel_loc_3e2a4(x_velocity: i32) -> i32 {
+    // ASM Lion.asm loc_3E2A4: negate x_vel on wall collisions.
+    -x_velocity
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -756,6 +762,15 @@ fn terrain_collision_id_from_cell_loc_3e2a8(cell: terrain::Cell) -> u16 {
 
 #[cfg(test)]
 mod loc_3e266_tests {
+    #[test]
+    fn loc_3e2a4_reflection_negates_x_velocity() {
+        assert_eq!(
+            super::lion_projectile_x_reflection_vel_loc_3e2a4(0x2_0000),
+            -0x2_0000,
+            "ASM Lion.asm loc_3E2A4 must negate `x_vel`"
+        );
+    }
+
     #[test]
     fn loc_3e266_negates_x_velocity_on_wall_collision() {
         let (x_velocity, y_velocity) =
