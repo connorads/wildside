@@ -731,6 +731,19 @@ pub(crate) struct HiddenBlockEvanescentScanLocE082 {
     pub(crate) evanescent_sprite_words: Option<(u16, u16)>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockRevealWorkerLocE096 {
+    pub(crate) revealed_layout_byte: u8,
+    pub(crate) allocation_spec: u16,
+    pub(crate) object_handler_addr: u32,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) layout_word_addr: u32,
+    pub(crate) sprite_tile_word: u16,
+    pub(crate) sprite_mapping: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -7841,6 +7854,31 @@ pub(crate) fn hidden_block_evanescent_metadata_scan_loc_E082(
                 evanescent_sprite_words: (record.control_word < 0).then_some((0xE101, 0x1058)),
             }
         })
+}
+
+/// ASM loc_E096 (kid.asm:17409): reveal the hidden block by writing `$60` to
+/// the layout byte at `(a2)`, allocate a `$2001` object slot, install handler
+/// `$E29A`, then copy the block column/row, layout pointer, and selected sprite
+/// words into object fields `$44/$46/$48/$4C/$4E`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_reveal_worker_loc_E096(
+    block_col: u16,
+    block_row: u16,
+    layout_word_addr: u32,
+    sprite_tile_word: u16,
+    sprite_mapping: u16,
+) -> HiddenBlockRevealWorkerLocE096 {
+    HiddenBlockRevealWorkerLocE096 {
+        revealed_layout_byte: 0x60,
+        allocation_spec: 0x2001,
+        object_handler_addr: 0x0000_E29A,
+        block_col,
+        block_row,
+        layout_word_addr,
+        sprite_tile_word,
+        sprite_mapping,
+    }
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,

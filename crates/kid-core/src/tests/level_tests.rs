@@ -7380,6 +7380,44 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E096 (kid.asm:17409): reveal the hidden block cell and allocate
+    /// the single debris/animation object that carries the selected sprite
+    /// words plus the block position and layout pointer.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E096_hidden_block_reveal_allocates_single_worker_with_selected_sprite_words() {
+        let worker = crate::level::hidden_block_reveal_worker_loc_E096(
+            0x0012,
+            0x0007,
+            0x0000_03A6,
+            0xE101,
+            0x1058,
+        );
+
+        assert_eq!(
+            worker.revealed_layout_byte, 0x60,
+            "ASM loc_E096 should write `$60` to the hidden block layout byte before allocating the worker"
+        );
+        assert_eq!(
+            worker.allocation_spec, 0x2001,
+            "ASM loc_E096 should allocate an object slot with a0=`$2001`"
+        );
+        assert_eq!(
+            worker.object_handler_addr, 0x0000_E29A,
+            "ASM loc_E096 should install the reveal worker handler at `$E29A`"
+        );
+        assert_eq!(
+            (worker.block_col, worker.block_row, worker.layout_word_addr),
+            (0x0012, 0x0007, 0x0000_03A6),
+            "ASM loc_E096 should copy d0/d6/a2 into object fields `$44/$46/$48`"
+        );
+        assert_eq!(
+            (worker.sprite_tile_word, worker.sprite_mapping),
+            (0xE101, 0x1058),
+            "ASM loc_E096 should copy d2/d3 into object fields `$4C/$4E` without altering them"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
