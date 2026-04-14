@@ -2643,6 +2643,61 @@ pub(crate) fn ufo_apply_acceleration_axis_loc_35050(final_velocity: i32) -> i32 
     final_velocity
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum UfoCollisionBehaviorLoc35056 {
+    BounceWall,
+    BounceFloorCeil,
+    BounceSlopeUp,
+    BounceSlopeDown,
+    Hurt,
+    ReturnOnly,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoCollisionDispatchLoc35056 {
+    pub(crate) collision_type: u16,
+    pub(crate) behavior: Option<UfoCollisionBehaviorLoc35056>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_collision_dispatch_loc_35056(
+    collision_type: i16,
+) -> UfoCollisionDispatchLoc35056 {
+    // ASM UFO.asm loc_35056: negative values skip to `loc_35070` (clear only),
+    // zero returns directly, otherwise table-dispatch uses `collision_type-4` and
+    // `move.l (a4,d7.w),a4`.
+    if collision_type < 0 {
+        return UfoCollisionDispatchLoc35056 {
+            collision_type: 0,
+            behavior: None,
+        };
+    }
+
+    if collision_type == 0 {
+        return UfoCollisionDispatchLoc35056 {
+            collision_type: 0,
+            behavior: None,
+        };
+    }
+
+    let behavior = match collision_type as u16 {
+        0x0004 | 0x0008 => Some(UfoCollisionBehaviorLoc35056::BounceWall),
+        0x000C | 0x0010 => Some(UfoCollisionBehaviorLoc35056::BounceFloorCeil),
+        0x0014 => Some(UfoCollisionBehaviorLoc35056::BounceSlopeUp),
+        0x0018 => Some(UfoCollisionBehaviorLoc35056::BounceSlopeDown),
+        0x001C | 0x002C => Some(UfoCollisionBehaviorLoc35056::Hurt),
+        0x0020 | 0x0024 | 0x0028 => Some(UfoCollisionBehaviorLoc35056::ReturnOnly),
+        _ => None,
+    };
+
+    UfoCollisionDispatchLoc35056 {
+        collision_type: 0,
+        behavior,
+    }
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -7859,6 +7914,66 @@ mod tests {
             ufo_apply_acceleration_axis_loc_35050(0x1234),
             0x1234,
             "ASM UFO.asm loc_35050 stores the chosen velocity and returns"
+        );
+    }
+
+    #[test]
+    fn ufo_collision_dispatch_matches_loc_35056() {
+        assert_eq!(
+            ufo_collision_dispatch_loc_35056(0),
+            UfoCollisionDispatchLoc35056 {
+                collision_type: 0,
+                behavior: None,
+            },
+            "ASM UFO.asm loc_35056 returns through `rts` when collision_type is zero"
+        );
+        assert_eq!(
+            ufo_collision_dispatch_loc_35056(-1),
+            UfoCollisionDispatchLoc35056 {
+                collision_type: 0,
+                behavior: None,
+            },
+            "ASM UFO.asm loc_35056 sends negatives to loc_35070 and clears collision_type"
+        );
+        assert_eq!(
+            ufo_collision_dispatch_loc_35056(0x0004),
+            UfoCollisionDispatchLoc35056 {
+                collision_type: 0,
+                behavior: Some(UfoCollisionBehaviorLoc35056::BounceWall),
+            },
+            "ASM UFO.asm loc_35056 table-selects wall bounce for collision_type=$04"
+        );
+        assert_eq!(
+            ufo_collision_dispatch_loc_35056(0x000C),
+            UfoCollisionDispatchLoc35056 {
+                collision_type: 0,
+                behavior: Some(UfoCollisionBehaviorLoc35056::BounceFloorCeil),
+            },
+            "ASM UFO.asm loc_35056 table-selects floor/ceil bounce for collision_type=$0C"
+        );
+        assert_eq!(
+            ufo_collision_dispatch_loc_35056(0x0014),
+            UfoCollisionDispatchLoc35056 {
+                collision_type: 0,
+                behavior: Some(UfoCollisionBehaviorLoc35056::BounceSlopeUp),
+            },
+            "ASM UFO.asm loc_35056 table-selects up-slope bounce for collision_type=$14"
+        );
+        assert_eq!(
+            ufo_collision_dispatch_loc_35056(0x001C),
+            UfoCollisionDispatchLoc35056 {
+                collision_type: 0,
+                behavior: Some(UfoCollisionBehaviorLoc35056::Hurt),
+            },
+            "ASM UFO.asm loc_35056 routes projectile hits (and kid-jump equivalents) to hurt behavior"
+        );
+        assert_eq!(
+            ufo_collision_dispatch_loc_35056(0x0020),
+            UfoCollisionDispatchLoc35056 {
+                collision_type: 0,
+                behavior: Some(UfoCollisionBehaviorLoc35056::ReturnOnly),
+            },
+            "ASM UFO.asm loc_35056 maps `$20` to a return-only jump"
         );
     }
 
