@@ -964,6 +964,44 @@ pub(crate) enum EvanescentBulletActionDispatchLocED04 {
     ProcessShooterObjects,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletSpriteLocED16 {
+    pub(crate) y: u16,
+    pub(crate) link: u16,
+    pub(crate) tile_word: u16,
+    pub(crate) x: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBulletActionInputLocED16 {
+    pub(crate) action_byte: u8,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) min_visible_col: u16,
+    pub(crate) max_visible_col: u16,
+    pub(crate) min_visible_row: u16,
+    pub(crate) max_visible_row: u16,
+    pub(crate) camera_x_px: u16,
+    pub(crate) camera_y_px: u16,
+    pub(crate) current_sprite_link: u16,
+    pub(crate) loc_edbc_layout_offset: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum EvanescentBulletActionLocED16 {
+    PositiveBranchToLocEDBC {
+        layout_word: u16,
+    },
+    NegativeAction {
+        sprite: Option<EvanescentBulletSpriteLocED16>,
+        should_update_layout: bool,
+        use_collision_overlay: bool,
+    },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8699,6 +8737,48 @@ pub(crate) fn evanescent_bullet_action_dispatch_loc_ED04(
         })
     } else {
         Some(EvanescentBulletActionDispatchLocED04::ProcessShooterObjects)
+    }
+}
+
+/// ASM loc_ED16 (kid.asm:19216): negative action bytes optionally draw the
+/// fading evanescent-block sprite when `$2/$4(a0)` is inside the inclusive
+/// camera block window, then `loc_ED52` uses bit 0 to decide whether to rewrite
+/// the level-layout word and bit 1 to choose the collision-overlay path.
+/// Positive action bytes branch immediately to `loc_EDBC`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_bullet_action_loc_ED16(
+    input: EvanescentBulletActionInputLocED16,
+) -> EvanescentBulletActionLocED16 {
+    if (input.action_byte & 0x80) == 0 {
+        return EvanescentBulletActionLocED16::PositiveBranchToLocEDBC {
+            layout_word: 0xE31C_u16.wrapping_add(input.loc_edbc_layout_offset),
+        };
+    }
+
+    let sprite = (input.block_col >= input.min_visible_col
+        && input.block_col <= input.max_visible_col
+        && input.block_row >= input.min_visible_row
+        && input.block_row <= input.max_visible_row)
+        .then(|| EvanescentBulletSpriteLocED16 {
+            y: input
+                .block_row
+                .wrapping_mul(16)
+                .wrapping_sub(input.camera_y_px)
+                .wrapping_add(0x84),
+            link: input.current_sprite_link.wrapping_add(1),
+            tile_word: 0x8294,
+            x: input
+                .block_col
+                .wrapping_mul(16)
+                .wrapping_sub(input.camera_x_px)
+                .wrapping_add(0x84),
+        });
+
+    EvanescentBulletActionLocED16::NegativeAction {
+        sprite,
+        should_update_layout: (input.action_byte & 0x01) != 0,
+        use_collision_overlay: (input.action_byte & 0x02) != 0,
     }
 }
 

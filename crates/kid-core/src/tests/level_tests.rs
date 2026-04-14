@@ -9437,6 +9437,123 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_ED16 (kid.asm:19216): negative action bytes stay in the fading
+    /// evanescent path, emit a sprite only inside the inclusive camera window,
+    /// and preserve bits 0/1 for the layout-update logic at `loc_ED52`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_ED16_negative_actions_emit_visible_fade_sprites_and_layout_flags() {
+        assert_eq!(
+            crate::level::evanescent_bullet_action_loc_ED16(
+                crate::level::EvanescentBulletActionInputLocED16 {
+                    action_byte: 0x81,
+                    block_col: 9,
+                    block_row: 6,
+                    min_visible_col: 1,
+                    max_visible_col: 20,
+                    min_visible_row: 2,
+                    max_visible_row: 10,
+                    camera_x_px: 0x0020,
+                    camera_y_px: 0x0010,
+                    current_sprite_link: 4,
+                    loc_edbc_layout_offset: 0x0012,
+                },
+            ),
+            crate::level::EvanescentBulletActionLocED16::NegativeAction {
+                sprite: Some(crate::level::EvanescentBulletSpriteLocED16 {
+                    y: 0x00D4,
+                    link: 5,
+                    tile_word: 0x8294,
+                    x: 0x00F4,
+                }),
+                should_update_layout: true,
+                use_collision_overlay: false,
+            },
+            "ASM loc_ED16 should write y/link/tile/x words for an in-window negative action before loc_ED52 consumes bit 0"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_action_loc_ED16(
+                crate::level::EvanescentBulletActionInputLocED16 {
+                    action_byte: 0x83,
+                    block_col: 21,
+                    block_row: 6,
+                    min_visible_col: 1,
+                    max_visible_col: 20,
+                    min_visible_row: 2,
+                    max_visible_row: 10,
+                    camera_x_px: 0,
+                    camera_y_px: 0,
+                    current_sprite_link: 7,
+                    loc_edbc_layout_offset: 0,
+                },
+            ),
+            crate::level::EvanescentBulletActionLocED16::NegativeAction {
+                sprite: None,
+                should_update_layout: true,
+                use_collision_overlay: true,
+            },
+            "ASM loc_ED16 should skip sprite output outside the inclusive block window while preserving bit 1 for the collision-overlay layout rewrite"
+        );
+
+        assert_eq!(
+            crate::level::evanescent_bullet_action_loc_ED16(
+                crate::level::EvanescentBulletActionInputLocED16 {
+                    action_byte: 0x80,
+                    block_col: 1,
+                    block_row: 2,
+                    min_visible_col: 1,
+                    max_visible_col: 20,
+                    min_visible_row: 2,
+                    max_visible_row: 10,
+                    camera_x_px: 0,
+                    camera_y_px: 0,
+                    current_sprite_link: 0,
+                    loc_edbc_layout_offset: 0,
+                },
+            ),
+            crate::level::EvanescentBulletActionLocED16::NegativeAction {
+                sprite: Some(crate::level::EvanescentBulletSpriteLocED16 {
+                    y: 0x00A4,
+                    link: 1,
+                    tile_word: 0x8294,
+                    x: 0x0094,
+                }),
+                should_update_layout: false,
+                use_collision_overlay: false,
+            },
+            "ASM loc_ED16 should treat the min visible column/row as in-window and let loc_EDB0 skip the layout rewrite when bit 0 is clear"
+        );
+    }
+
+    /// ASM loc_ED16 (kid.asm:19216): `bpl.w loc_EDBC` sends positive action
+    /// bytes to the alternate tile-word rewrite, using `$E31C + $6(a0)`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_ED16_positive_actions_branch_to_loc_EDBC() {
+        assert_eq!(
+            crate::level::evanescent_bullet_action_loc_ED16(
+                crate::level::EvanescentBulletActionInputLocED16 {
+                    action_byte: 0x04,
+                    block_col: 9,
+                    block_row: 6,
+                    min_visible_col: 1,
+                    max_visible_col: 20,
+                    min_visible_row: 2,
+                    max_visible_row: 10,
+                    camera_x_px: 0,
+                    camera_y_px: 0,
+                    current_sprite_link: 4,
+                    loc_edbc_layout_offset: 0x0020,
+                },
+            ),
+            crate::level::EvanescentBulletActionLocED16::PositiveBranchToLocEDBC {
+                layout_word: 0xE33C,
+            },
+            "ASM loc_ED16 should branch positive action `$04` to loc_EDBC, which writes `$E31C + $6(a0)`"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
