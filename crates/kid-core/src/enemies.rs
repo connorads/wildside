@@ -3422,6 +3422,22 @@ pub(crate) fn mini_hopping_skull_slopedown_contact_loc_3ed6c(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_left_hop_wait_setup_loc_3ed80() -> MiniHoppingSkullGroundWaitSetup
+{
+    // ASM Mini_Hopping_Skull.asm loc_3ED80: left-facing slope-landing setup.
+    // Clears to zero velocities, sets `x_direction(a3)` clear, selects
+    // `LnkTo_unk_C8030`, and seeds the DBF wait loop with `$14`.
+    MiniHoppingSkullGroundWaitSetup {
+        x_velocity: 0,
+        y_velocity: 0,
+        x_direction: 0x00,
+        sprite: MiniHoppingSkullGroundWaitSprite::SlopeUpRight,
+        dbf_counter: 0x0014,
+        wait_frames: 21,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_ground_wait_setup_loc_3eb00() -> MiniHoppingSkullGroundWaitSetup {
     // ASM Mini_Hopping_Skull.asm loc_3EB00: after positive-X slope-up contact,
     // clear both velocities, `st x_direction(a3)`, select `LnkTo_unk_C8030`,
@@ -8239,6 +8255,22 @@ mod tests {
             mini_hopping_skull_slopedown_contact_loc_3ed6c(0x0001_0000).wait,
             MiniHoppingSkullSlopeDownWait::Right,
             "ASM Mini_Hopping_Skull.asm loc_3ED6C should jump to the mirrored right wait for positive X velocity"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_left_hop_wait_setup_matches_loc_3ed80() {
+        assert_eq!(
+            mini_hopping_skull_left_hop_wait_setup_loc_3ed80(),
+            MiniHoppingSkullGroundWaitSetup {
+                x_velocity: 0,
+                y_velocity: 0,
+                x_direction: 0x00,
+                sprite: MiniHoppingSkullGroundWaitSprite::SlopeUpRight,
+                dbf_counter: 0x0014,
+                wait_frames: 21,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3ED80 should clear both velocities, face left, and seed a 21-frame wait"
         );
     }
 
