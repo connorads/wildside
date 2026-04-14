@@ -823,6 +823,34 @@ mod chunk_11 {
     }
 
     #[test]
+    fn loc_e376_hidden_block_reveal_cleanup_only_runs_for_zero_offsets() {
+        assert_eq!(
+            crate::movement::hidden_block_reveal_cleanup_loc_E376(0, 0),
+            crate::movement::HiddenBlockRevealCleanupLocE376 {
+                calls_sub_11530: true,
+                deletes_current_object: true,
+            },
+            "ASM loc_E376 should delete after the zero-offset worker falls through from the `sub_11530` cleanup call",
+        );
+        assert_eq!(
+            crate::movement::hidden_block_reveal_cleanup_loc_E376(8, 0),
+            crate::movement::HiddenBlockRevealCleanupLocE376 {
+                calls_sub_11530: false,
+                deletes_current_object: true,
+            },
+            "ASM loc_E376 should be reached directly when `$50(a5)` is non-zero, skipping `sub_11530` before delete",
+        );
+        assert_eq!(
+            crate::movement::hidden_block_reveal_cleanup_loc_E376(0, 8),
+            crate::movement::HiddenBlockRevealCleanupLocE376 {
+                calls_sub_11530: false,
+                deletes_current_object: true,
+            },
+            "ASM loc_E376 should also skip `sub_11530` when `$52(a5)` is non-zero",
+        );
+    }
+
+    #[test]
     fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
         assert_eq!(
             crate::level::indoor_rubber_block_source_words_loc_14506(

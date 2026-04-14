@@ -1288,6 +1288,12 @@ pub(crate) struct HiddenBlockRevealBounceLocE35A {
     pub(crate) hibernate_frames: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockRevealCleanupLocE376 {
+    pub(crate) calls_sub_11530: bool,
+    pub(crate) deletes_current_object: bool,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockJumpSnapLocE1FE {
@@ -1642,6 +1648,20 @@ pub(crate) fn hidden_block_reveal_offset_bounce_down_loc_E35A(
         y_pos_after_hibernates,
         final_y_pos_px: y_pos,
         hibernate_frames: 4,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_reveal_cleanup_loc_E376(
+    x_offset_px: u16,
+    y_offset_px: u16,
+) -> HiddenBlockRevealCleanupLocE376 {
+    // ASM loc_E376 (kid.asm:17812): offset workers branch directly here and
+    // delete themselves; only the zero-offset worker calls sub_11530 first.
+    HiddenBlockRevealCleanupLocE376 {
+        calls_sub_11530: x_offset_px == 0 && y_offset_px == 0,
+        deletes_current_object: true,
     }
 }
 
