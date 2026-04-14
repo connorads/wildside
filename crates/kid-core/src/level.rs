@@ -11899,6 +11899,60 @@ pub(crate) fn end_credits_hundred_k_trip_tile_upload_loc_DA7A()
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformCeilingProbeHitboxLocDAD6 {
+    pub(crate) left_px: i32,
+    pub(crate) right_px: i32,
+    pub(crate) top_px: i32,
+    pub(crate) bottom_px: i32,
+    pub(crate) half_width_px: i32,
+    pub(crate) top_offset_px: i32,
+}
+
+fn platform_probe_rom_half_width_sub_daa6(current_form: PlayerForm) -> i32 {
+    // ASM sub_DAA6 (kid.asm:17116): double Current_Helmet and read the first
+    // byte of each `unk_B408` pair. Micromax is `$04` here even though the
+    // current native movement helper still carries a broader TODO value.
+    match current_form {
+        PlayerForm::TheKid => 5,
+        PlayerForm::Skycutter => 10,
+        PlayerForm::Cyclone
+        | PlayerForm::RedStealth
+        | PlayerForm::Eyeclops
+        | PlayerForm::IronKnight
+        | PlayerForm::Berzerker
+        | PlayerForm::Maniaxe => 7,
+        PlayerForm::Juggernaut => 23,
+        PlayerForm::Micromax => 4,
+    }
+}
+
+/// ASM loc_DAD6 (kid.asm:17130): build the Kid-vs-platform ceiling probe
+/// rectangle from `y_pos(a3)`, `x_pos(a3)`, the `unk_B408` half-width, and
+/// `d5=$0F` for Juggernaut/Micromax or `$1F` for every other helmet.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn platform_ceiling_probe_hitbox_loc_DAD6(
+    current_form: PlayerForm,
+    x_pos_px: i32,
+    y_pos_px: i32,
+) -> PlatformCeilingProbeHitboxLocDAD6 {
+    let half_width_px = platform_probe_rom_half_width_sub_daa6(current_form);
+    let top_offset_px = match current_form {
+        PlayerForm::Juggernaut | PlayerForm::Micromax => 0x0F,
+        _ => 0x1F,
+    };
+
+    PlatformCeilingProbeHitboxLocDAD6 {
+        left_px: x_pos_px - half_width_px,
+        right_px: x_pos_px + half_width_px,
+        top_px: y_pos_px - top_offset_px,
+        bottom_px: y_pos_px,
+        half_width_px,
+        top_offset_px,
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.

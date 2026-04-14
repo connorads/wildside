@@ -7002,6 +7002,62 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DAD6 (kid.asm:17130): after `sub_DAA6` selects the ROM
+    /// half-width and top offset, Kid's platform-ceiling probe is
+    /// `(x-d7)..(x+d7)` and `(y-d5)..y`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DAD6_platform_ceiling_probe_uses_rom_half_width_and_height() {
+        let kid = crate::level::platform_ceiling_probe_hitbox_loc_DAD6(
+            PlayerForm::TheKid,
+            0x0120,
+            0x0060,
+        );
+
+        assert_eq!(
+            (kid.left_px, kid.right_px),
+            (0x011B, 0x0125),
+            "ASM loc_DAD6 should subtract/add The Kid's unk_B408 half-width of 5"
+        );
+        assert_eq!(
+            (kid.top_px, kid.bottom_px, kid.top_offset_px),
+            (0x0041, 0x0060, 0x1F),
+            "ASM loc_DAD6 should use d5=$1F for non-Juggernaut/non-Micromax helmets"
+        );
+
+        let micromax = crate::level::platform_ceiling_probe_hitbox_loc_DAD6(
+            PlayerForm::Micromax,
+            0x0120,
+            0x0060,
+        );
+
+        assert_eq!(
+            (micromax.left_px, micromax.right_px, micromax.half_width_px),
+            (0x011C, 0x0124, 4),
+            "ASM sub_DAA6 should read Micromax half-width `$04` from unk_B408 before loc_DAD6"
+        );
+        assert_eq!(
+            (micromax.top_px, micromax.bottom_px, micromax.top_offset_px),
+            (0x0051, 0x0060, 0x0F),
+            "ASM loc_DAD6 should use d5=$0F for Current_Helmet 9"
+        );
+
+        let juggernaut = crate::level::platform_ceiling_probe_hitbox_loc_DAD6(
+            PlayerForm::Juggernaut,
+            0x0120,
+            0x0060,
+        );
+        assert_eq!(
+            (
+                juggernaut.left_px,
+                juggernaut.right_px,
+                juggernaut.top_offset_px
+            ),
+            (0x0109, 0x0137, 0x0F),
+            "ASM sub_DAA6 should pair Juggernaut's `$17` half-width with the short `$0F` top probe"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
