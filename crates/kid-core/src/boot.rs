@@ -2191,6 +2191,14 @@ pub(crate) struct ContinueTimeoutTitlePaletteBackupLocD40A {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ContinueTimeoutTitlePaletteClearLocD418 {
+    pub(crate) palette_clear_dbf_seed: u16,
+    pub(crate) palette_clear_words: u16,
+    pub(crate) fade_progress_seed: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceStripeLoopLoc1CDE4 {
     pub(crate) start_column: u16,
     pub(crate) iteration_seed: u16,
@@ -4008,6 +4016,21 @@ pub(crate) fn continue_timeout_title_palette_backup_loc_D40A()
     ContinueTimeoutTitlePaletteBackupLocD40A {
         palette_backup_dbf_seed: 0x001F,
         palette_backup_longwords: 0x0020,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn continue_timeout_title_palette_clear_loc_D418()
+-> ContinueTimeoutTitlePaletteClearLocD418 {
+    // ASM loc_D418 (kid.asm:16592): after loc_D40A's backup, `moveq #$3F,d0`
+    // drives `move.w #0,(a0)+; dbf d0,loc_D418`, clearing all 64 words of
+    // `Palette_Buffer_3`. The following instruction seeds fade progress
+    // `$FFFFF876` with `$0100` before the title-return fade loop starts.
+    ContinueTimeoutTitlePaletteClearLocD418 {
+        palette_clear_dbf_seed: 0x003F,
+        palette_clear_words: 0x0040,
+        fade_progress_seed: 0x0100,
     }
 }
 

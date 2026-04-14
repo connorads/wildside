@@ -14904,4 +14904,26 @@ mod chunk_12 {
             "ASM loc_D40A backs up the full 128-byte palette buffer"
         );
     }
+
+    /// ASM loc_D418 (kid.asm:16592): the continue-timeout title return clears
+    /// `Palette_Buffer_3` word-by-word with `moveq #$3F,d0` and then seeds the
+    /// shared fade progress word `$FFFFF876` to `$0100`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D418_continue_timeout_title_return_clears_the_full_fade_target() {
+        let setup = crate::boot::continue_timeout_title_palette_clear_loc_D418();
+
+        assert_eq!(
+            setup.palette_clear_dbf_seed, 0x003F,
+            "ASM loc_D418 seeds d0 with `$3F` for the inclusive Palette_Buffer_3 clear loop"
+        );
+        assert_eq!(
+            setup.palette_clear_words, 0x0040,
+            "ASM loc_D418 should clear all 64 words of `Palette_Buffer_3`"
+        );
+        assert_eq!(
+            setup.fade_progress_seed, 0x0100,
+            "ASM loc_D418 falls through to `move.w #$100,($FFFFF876).w`"
+        );
+    }
 }
