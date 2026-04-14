@@ -11876,6 +11876,29 @@ pub(crate) fn end_credits_hundred_k_trip_teleport_loc_DA4A() -> EndCreditsHundre
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
+    pub(crate) hibernate_frames_per_iteration: u16,
+    pub(crate) iterations: usize,
+    pub(crate) upload_pairs: [(u16, u16); 2],
+    pub(crate) deletes_current_object: bool,
+}
+
+/// ASM loc_DA7A (kid.asm:17096): hibernate the object for four frames, call
+/// `sub_C346` with `(d1,d2)=($00BC,$0644)` and `($0780,$0080)`, repeat until
+/// the post-increment counter reaches eight, then delete the current object.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_hundred_k_trip_tile_upload_loc_DA7A()
+-> EndCreditsHundredKTripTileUploadLocDA7A {
+    EndCreditsHundredKTripTileUploadLocDA7A {
+        hibernate_frames_per_iteration: 4,
+        iterations: 8,
+        upload_pairs: [(0x00BC, 0x0644), (0x0780, 0x0080)],
+        deletes_current_object: true,
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.

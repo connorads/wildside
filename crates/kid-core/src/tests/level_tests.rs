@@ -6975,6 +6975,33 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DA7A (kid.asm:17096): the post-teleport worker hibernates in
+    /// four-frame chunks, calls `sub_C346` twice with fixed `(d1,d2)` pairs,
+    /// loops until `d0 == 8`, then deletes itself.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DA7A_end_credits_hundred_k_trip_uploads_two_tile_spans_eight_times() {
+        let upload = crate::level::end_credits_hundred_k_trip_tile_upload_loc_DA7A();
+
+        assert_eq!(
+            upload.hibernate_frames_per_iteration, 4,
+            "ASM loc_DA7A should push `#4` before calling `j_Hibernate_Object`"
+        );
+        assert_eq!(
+            upload.upload_pairs,
+            [(0x00BC, 0x0644), (0x0780, 0x0080)],
+            "ASM loc_DA7A should call sub_C346 with the two fixed d1/d2 pairs on every iteration"
+        );
+        assert_eq!(
+            upload.iterations, 8,
+            "ASM loc_DA7A increments d0 and loops while `cmpi.w #8,d0` is not equal"
+        );
+        assert!(
+            upload.deletes_current_object,
+            "ASM loc_DA7A should jump to `j_Delete_CurrentObject` after the eighth iteration"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
