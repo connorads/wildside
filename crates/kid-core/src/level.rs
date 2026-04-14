@@ -11565,6 +11565,32 @@ pub(crate) fn eol_score_counter_transfer_chunk_loc_D770(
     remaining_amount.min(transfer_chunk)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EolScoreCounterApplyLocD77E {
+    pub(crate) score: u32,
+    pub(crate) awards_extra_life: bool,
+}
+
+/// ASM loc_D77E (kid.asm:16862): add the current EOL transfer chunk to
+/// `(Score).w`, clamp to `9_999_999`, then compare old/new `divu #50000`
+/// quotients. The EOL loop issues one `addq.w #1,(Number_Lives).w` when the
+/// quotient changes, not one life per crossed boundary.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eol_score_counter_apply_loc_D77E(
+    current_score: u32,
+    transfer_chunk: u32,
+) -> EolScoreCounterApplyLocD77E {
+    let score = current_score.saturating_add(transfer_chunk).min(SCORE_CAP);
+    let awards_extra_life =
+        current_score / SCORE_EXTRA_LIFE_INTERVAL != score / SCORE_EXTRA_LIFE_INTERVAL;
+
+    EolScoreCounterApplyLocD77E {
+        score,
+        awards_extra_life,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {

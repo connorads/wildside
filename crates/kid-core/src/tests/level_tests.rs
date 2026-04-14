@@ -6436,6 +6436,43 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D77E (kid.asm:16862): the EOL score counter adds `d4` to
+    /// `(Score).w`, caps at 9,999,999, and awards a single life when the old
+    /// and new `score / 50000` quotients differ.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D77E_eol_score_counter_applies_cap_and_single_life_boundary() {
+        let crossed = crate::level::eol_score_counter_apply_loc_D77E(49_990, 20);
+        assert_eq!(
+            crossed.score, 50_010,
+            "ASM loc_D77E should add the transfer chunk to the live Score longword"
+        );
+        assert!(
+            crossed.awards_extra_life,
+            "ASM loc_D77E should award one life when the 50,000-point quotient changes"
+        );
+
+        let jumped = crate::level::eol_score_counter_apply_loc_D77E(40_000, 70_000);
+        assert_eq!(
+            jumped.score, 110_000,
+            "ASM loc_D77E should keep the full chunk even when it spans multiple score intervals"
+        );
+        assert!(
+            jumped.awards_extra_life,
+            "ASM loc_D77E has one addq.w life operation, so any quotient change is a single award"
+        );
+
+        let capped = crate::level::eol_score_counter_apply_loc_D77E(9_995_000, 10_000);
+        assert_eq!(
+            capped.score, SCORE_CAP,
+            "ASM loc_D77E should clamp the live Score longword to 9,999,999"
+        );
+        assert!(
+            !capped.awards_extra_life,
+            "ASM loc_D77E should compare against the capped score quotient and avoid a phantom life at the cap"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
