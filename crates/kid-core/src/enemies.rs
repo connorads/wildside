@@ -113,6 +113,24 @@ pub(crate) fn lion_init_runtime_fields_loc_3dff0(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionFacingDispatch {
+    LeftPacing,
+    RightPacing,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_init_facing_dispatch_loc_3e030(facing: Direction) -> LionFacingDispatch {
+    // ASM Lion.asm loc_3E030: `tst.b x_direction(a3); beq.w loc_3E546;
+    // bra.w loc_3E392`. For Lion art, clear x_direction is the left-facing
+    // pacing loop and set x_direction is the right-facing pacing loop.
+    match facing {
+        Direction::Left => LionFacingDispatch::LeftPacing,
+        Direction::Right => LionFacingDispatch::RightPacing,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -6286,6 +6304,20 @@ mod tests {
                 random_phase_byte: 0x4B,
             },
             "ASM Lion.asm loc_3DFF0 remaps RNG byte 0 to `$4B` after storing the selected animation"
+        );
+    }
+
+    #[test]
+    fn lion_init_facing_dispatch_matches_loc_3e030() {
+        assert_eq!(
+            lion_init_facing_dispatch_loc_3e030(Direction::Left),
+            LionFacingDispatch::LeftPacing,
+            "ASM Lion.asm loc_3E030 should send clear `x_direction(a3)` to loc_3E546"
+        );
+        assert_eq!(
+            lion_init_facing_dispatch_loc_3e030(Direction::Right),
+            LionFacingDispatch::RightPacing,
+            "ASM Lion.asm loc_3E030 should send set `x_direction(a3)` to loc_3E392"
         );
     }
 
