@@ -3955,6 +3955,41 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_E159C_selects_command_00_before_two_payload_tail() {
+        let write = sound_driver_write_command_00_two_bytes_loc_E159C(0x3E, 0x88776655, 0x11223344);
+
+        assert_eq!(
+            write.command_write,
+            SoundDriverWriteCommandSubE1482 {
+                queued_bytes: [0xFF, 0x00],
+                next_write_index: 0x00,
+            },
+            "ASM loc_E159C should load `d0=#$00` before branching to loc_E1584, so the queued command must be `FF 00`",
+        );
+        assert_eq!(
+            write.payload_writes,
+            [
+                SoundDriverWriteByteSubE148E {
+                    queued_byte: 0x55,
+                    next_write_index: 0x01,
+                    committed_write_index: 0x01,
+                },
+                SoundDriverWriteByteSubE148E {
+                    queued_byte: 0x44,
+                    next_write_index: 0x02,
+                    committed_write_index: 0x02,
+                },
+            ],
+            "ASM loc_E159C should reuse loc_E1584, writing only the low bytes from `8(a6)` and `$C(a6)` after command `$00`",
+        );
+        assert!(
+            write.releases_z80_bus && write.restores_previous_sr,
+            "ASM loc_E159C should finish through loc_E1470 after the shared loc_E1584 payload writes",
+        );
+    }
+
+    #[test]
     fn rom_random_state_matches_get_randomnumber_byte_seeded_sequence() {
         // ASM Init_RNG / Get_RandomNumber_byte (kid.asm:1106-1204).
         let mut rng = RomRandomState::default();

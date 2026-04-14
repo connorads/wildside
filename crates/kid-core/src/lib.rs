@@ -874,6 +874,24 @@ pub(crate) fn sound_driver_write_command_02_two_bytes_loc_E157E(
     )
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_00_two_bytes_loc_E159C(
+    command_head_byte: u8,
+    first_payload: u32,
+    second_payload: u32,
+) -> SoundDriverWriteCommandAndTwoBytes {
+    // ASM loc_E159C (kid.asm:49867): enter sub_E143A, load command `$00`,
+    // then branch to loc_E1584, which queues the command and the low bytes
+    // from `8(a6)` and `$C(a6)`.
+    sound_driver_write_command_and_two_bytes_loc_E1584(
+        command_head_byte,
+        0x00,
+        first_payload as u8,
+        second_payload as u8,
+    )
+}
+
 #[derive(Debug, Clone, Copy)]
 struct PendingStompBounce {
     anchor_x_pos: u32,
