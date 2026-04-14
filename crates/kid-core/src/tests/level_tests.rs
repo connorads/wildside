@@ -9682,6 +9682,30 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EE52 (kid.asm:19348): the moving-right continuation advances the
+    /// shooter object's x word by four and seeds `Process_ShooterObject_MakeSprite`
+    /// with the right-facing sprite offsets and tile word.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EE52_moves_right_and_seeds_the_sprite_tail() {
+        assert_eq!(
+            crate::level::shooter_object_moving_right_sprite_tail_loc_EE52(0x0120),
+            crate::level::ShooterObjectSpriteTailLocEE52 {
+                x_pos: 0x0124,
+                sprite_x_offset: 0,
+                sprite_y_offset: -4,
+                tile_word: 0x8A96,
+            },
+            "ASM loc_EE52 should add four to `$2(a0)` before entering Process_ShooterObject_MakeSprite"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_right_sprite_tail_loc_EE52(0xFFFE).x_pos,
+            0x0002,
+            "ASM loc_EE52 should use 16-bit wrapping for the x-position `addq.w #4,2(a0)`"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

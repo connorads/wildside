@@ -1041,6 +1041,15 @@ pub(crate) struct ShooterObjectMovingRightGateLocEE2A {
     pub(crate) next_step: ShooterObjectMovingRightNextLocEE2A,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterObjectSpriteTailLocEE52 {
+    pub(crate) x_pos: u16,
+    pub(crate) sprite_x_offset: i16,
+    pub(crate) sprite_y_offset: i16,
+    pub(crate) tile_word: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8910,6 +8919,21 @@ pub(crate) fn shooter_object_moving_right_collision_gate_loc_EE38(
         ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout
     } else {
         ShooterObjectMovingRightNextLocEE2A::ContinueMovingRight
+    }
+}
+
+/// ASM loc_EE52 (kid.asm:19348): `addq.w #4,2(a0)` advances the moving-right
+/// shooter, then `d1=0`, `d2=-4`, and `d3=$8A96` feed the shared sprite maker.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_right_sprite_tail_loc_EE52(
+    x_pos: u16,
+) -> ShooterObjectSpriteTailLocEE52 {
+    ShooterObjectSpriteTailLocEE52 {
+        x_pos: x_pos.wrapping_add(4),
+        sprite_x_offset: 0,
+        sprite_y_offset: -4,
+        tile_word: 0x8A96,
     }
 }
 
