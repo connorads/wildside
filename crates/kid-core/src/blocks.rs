@@ -85,6 +85,21 @@ pub(crate) struct FloatingPrizeFallStepLoc10C50 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterHorizontalSpriteCellLocF808 {
+    pub(crate) col: i16,
+    pub(crate) row: i16,
+    pub(crate) fg_queue_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ShooterHorizontalSpanLocF808 {
+    pub(crate) restored_cols: Vec<i16>,
+    pub(crate) sprite_cells: Vec<ShooterHorizontalSpriteCellLocF808>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OneTimePrizeInitLoc10856 {
     pub(crate) was_first_prize_initialisation: bool,
     pub(crate) next_write_index: u16,
@@ -1613,6 +1628,90 @@ impl NativeRuntime {
     const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
     const SHOOTER_SLOT_COUNT: usize = 20;
     const SHOOTER_HEADBUTT_HOLD_FRAMES: u8 = 8;
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_horizontal_span_loc_F808(
+        camera_left_col: i16,
+        camera_right_col: i16,
+        camera_top_row: i16,
+        camera_bottom_row: i16,
+        start_col: i16,
+        row: i16,
+        tile_count: u8,
+    ) -> ShooterHorizontalSpanLocF808 {
+        let restored_cols = Self::shooter_horizontal_span_columns_loc_F828(start_col, tile_count);
+        if Self::shooter_horizontal_span_rejected_loc_F830(
+            camera_left_col,
+            camera_right_col,
+            camera_top_row,
+            camera_bottom_row,
+            start_col,
+            row,
+        ) {
+            return ShooterHorizontalSpanLocF808 {
+                restored_cols,
+                sprite_cells: Vec::new(),
+            };
+        }
+
+        let sprite_cells = restored_cols
+            .iter()
+            .copied()
+            .filter(|col| *col >= camera_left_col && *col <= camera_right_col)
+            .map(|col| {
+                // ASM loc_F808 (kid.asm:20482): each span cell first writes
+                // `$E304` back to the layout, then visible cells enqueue the
+                // compact `(row << 8 & $F00) | (col << 2 & $7C)` FG word.
+                let row_word = (i32::from(row) << 8) & 0x0F00;
+                let col_word = (i32::from(col) << 2) & 0x007C;
+                let fg_queue_word =
+                    u16::try_from(row_word | col_word).expect("masked FG queue word fits u16");
+                ShooterHorizontalSpriteCellLocF808 {
+                    col,
+                    row,
+                    fg_queue_word,
+                }
+            })
+            .collect::<Vec<_>>();
+
+        ShooterHorizontalSpanLocF808 {
+            restored_cols,
+            sprite_cells,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_horizontal_span_columns_loc_F828(
+        start_col: i16,
+        tile_count: u8,
+    ) -> Vec<i16> {
+        // ASM loc_F828 (kid.asm:20498): increment `d0` and DBF back to
+        // loc_F808, so the span is an inclusive counted run of `tile_count`
+        // cells even when only a suffix is inside the camera window.
+        (0..tile_count)
+            .map(|offset| start_col + i16::from(offset))
+            .collect::<Vec<_>>()
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_horizontal_span_rejected_loc_F830(
+        camera_left_col: i16,
+        camera_right_col: i16,
+        camera_top_row: i16,
+        camera_bottom_row: i16,
+        start_col: i16,
+        row: i16,
+    ) -> bool {
+        // ASM loc_F830 (kid.asm:20504): if the row or starting column fails
+        // the coarse viewport tests, write the restore word across the whole
+        // span and skip all custom FG update queue writes.
+        let row_visible = row <= camera_bottom_row && row >= camera_top_row;
+        let span_may_enter_view = start_col <= camera_right_col && start_col - camera_left_col > -8;
+        !(row_visible && span_may_enter_view)
+    }
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]

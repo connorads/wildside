@@ -8261,6 +8261,38 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_slot_loc_f808_restores_cells_and_queues_visible_horizontal_span() {
+        let span = NativeRuntime::shooter_horizontal_span_loc_F808(10, 30, 4, 18, 12, 7, 3);
+
+        assert_eq!(
+            span.restored_cols,
+            vec![12, 13, 14],
+            "ASM loc_F808 should write the `$E304` restore word before testing whether each horizontal shooter cell is visible"
+        );
+        assert_eq!(
+            span.sprite_cells,
+            vec![
+                crate::blocks::ShooterHorizontalSpriteCellLocF808 {
+                    col: 12,
+                    row: 7,
+                    fg_queue_word: 0x0730,
+                },
+                crate::blocks::ShooterHorizontalSpriteCellLocF808 {
+                    col: 13,
+                    row: 7,
+                    fg_queue_word: 0x0734,
+                },
+                crate::blocks::ShooterHorizontalSpriteCellLocF808 {
+                    col: 14,
+                    row: 7,
+                    fg_queue_word: 0x0738,
+                },
+            ],
+            "ASM loc_F808 (kid.asm:20482) should encode visible cells as `(row << 8 & $F00) | (col << 2 & $7C)`"
+        );
+    }
+
+    #[test]
     fn shooter_slot_tick_sub_f730_advances_the_zero_state_into_the_negative_visibility_ladder() {
         assert_eq!(
             NativeRuntime::shooter_slot_tick_sub_F730(1, 0, 4, 6),
