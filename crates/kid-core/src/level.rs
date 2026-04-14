@@ -9103,13 +9103,28 @@ pub(crate) fn shooter_object_moving_down_gate_loc_EF2E(
     ShooterObjectMovingDownGateLocEF2E {
         state_word,
         layout_word_addr,
-        next_step: if (selected_layout_word & 0x4000) == 0 {
-            ShooterObjectMovingDownNextLocEF2E::ContinueMovingDown
-        } else if state_word >= 2 || (selected_layout_word & 0x2000) != 0 {
-            ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout
-        } else {
-            ShooterObjectMovingDownNextLocEF2E::ContinueMovingDown
-        },
+        next_step: shooter_object_moving_down_collision_gate_loc_EF40(
+            state_word,
+            selected_layout_word,
+        ),
+    }
+}
+
+/// ASM loc_EF40 (kid.asm:19449): after moving-down has selected the current
+/// layout word, bit 14 gates collision; age words two and above interact
+/// immediately, while younger ages require the moving-down `$2000` bit.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_down_collision_gate_loc_EF40(
+    state_word: u16,
+    selected_layout_word: u16,
+) -> ShooterObjectMovingDownNextLocEF2E {
+    if (selected_layout_word & 0x4000) == 0 {
+        ShooterObjectMovingDownNextLocEF2E::ContinueMovingDown
+    } else if state_word >= 2 || (selected_layout_word & 0x2000) != 0 {
+        ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout
+    } else {
+        ShooterObjectMovingDownNextLocEF2E::ContinueMovingDown
     }
 }
 

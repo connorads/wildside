@@ -9932,6 +9932,37 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EF40 (kid.asm:19449): moving-down collision requires bit 14;
+    /// age two or higher interacts immediately, while younger ages need the
+    /// moving-down `$2000` direction bit.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EF40_moving_down_collision_gate_uses_age_and_direction_bit() {
+        assert_eq!(
+            crate::level::shooter_object_moving_down_collision_gate_loc_EF40(1, 0x4000),
+            crate::level::ShooterObjectMovingDownNextLocEF2E::ContinueMovingDown,
+            "ASM loc_EF40 should continue for age below 2 when bit 14 is set but `$2000` is clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_down_collision_gate_loc_EF40(1, 0x6000),
+            crate::level::ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout,
+            "ASM loc_EF40 should interact for a young moving-down shooter when bit 14 and `$2000` are both set"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_down_collision_gate_loc_EF40(2, 0x4000),
+            crate::level::ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout,
+            "ASM loc_EF40 should interact at age 2 even when the `$2000` moving-down bit is clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_down_collision_gate_loc_EF40(3, 0x2000),
+            crate::level::ShooterObjectMovingDownNextLocEF2E::ContinueMovingDown,
+            "ASM loc_EF40 should skip the age and `$2000` tests when bit 14 is clear"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
