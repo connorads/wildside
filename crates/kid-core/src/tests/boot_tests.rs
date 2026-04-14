@@ -3673,7 +3673,8 @@ mod chunk_01 {
     }
 
     #[test]
-    fn sound_driver_begin_write_sub_e143a_requests_the_bus_and_reads_the_ring_head() {
+    #[allow(non_snake_case)]
+    fn loc_E1460_sound_driver_begin_write_waits_for_bus_grant_before_reading_head() {
         let begin = sound_driver_begin_write_sub_E143A(0x2A);
 
         assert_eq!(
@@ -3686,7 +3687,7 @@ mod chunk_01 {
                 requests_z80_bus: true,
                 waits_for_bus_grant: true,
             },
-            "ASM sub_E143A should raise SR to `$0700`, request `$A11100=$0100`, wait for bit 0 to clear, then return the current write head from `$A00036` with ring base `$A01A40`",
+            "ASM loc_E1460 should wait for `$A11100` bit 0 to clear before sub_E143A returns the current write head from `$A00036` with ring base `$A01A40`",
         );
     }
 

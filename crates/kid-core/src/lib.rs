@@ -696,6 +696,8 @@ pub(crate) fn sound_driver_begin_write_sub_E143A(
     // ASM sub_E143A (kid.asm:49642): raise the interrupt mask to `$0700`,
     // request the Z80 bus, spin until bit 0 clears, then expose the command
     // head byte from `$A00036` plus the shared GEMS ring base at `$A01A40`.
+    // ASM loc_E1460 (kid.asm:49653): `btst #0,($A11100).l; bne.s loc_E1460`
+    // waits for the bus-request bit to clear before reading `(a0)`.
     SoundDriverBeginWriteSubE143A {
         command_head_address: 0xA00036,
         ring_buffer_address: 0xA01A40,
