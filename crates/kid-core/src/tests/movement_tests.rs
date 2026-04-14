@@ -705,6 +705,18 @@ mod chunk_11 {
     }
 
     #[test]
+    fn loc_e29a_reloads_hidden_block_reveal_gfx_slot_then_uses_saved_link() {
+        assert_eq!(
+            crate::movement::hidden_block_reveal_gfx_load_loc_E29A(0xFFFF_28B0),
+            crate::movement::HiddenBlockRevealGfxLoadLocE29A {
+                gfx_load_arg: 0x00FF_0004,
+                gfx_slot_addr: 0xFFFF_28B0,
+            },
+            "ASM loc_E29A should call `Load_GfxObjectSlot` with `#$FF0004`, then replace `a3` with the saved `$36(a5)` gfx-object link",
+        );
+    }
+
+    #[test]
     fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
         assert_eq!(
             crate::level::indoor_rubber_block_source_words_loc_14506(

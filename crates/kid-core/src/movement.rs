@@ -1232,6 +1232,13 @@ pub(crate) struct HiddenBlockType4RevealPairLocE19E {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockRevealGfxLoadLocE29A {
+    pub(crate) gfx_load_arg: u32,
+    pub(crate) gfx_slot_addr: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockJumpSnapLocE1FE {
     pub(crate) y_velocity_fp: i32,
     pub(crate) y_subpixel: u16,
@@ -1440,6 +1447,19 @@ pub(crate) fn hidden_block_type4_reveal_pair_loc_E1BC(
         restored_block_col: block_col,
         restored_layout_word_addr: layout_word_addr,
         restored_sprite_mapping: sprite_mapping,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_reveal_gfx_load_loc_E29A(
+    parent_gfx_slot_addr: u32,
+) -> HiddenBlockRevealGfxLoadLocE29A {
+    // ASM loc_E29A (kid.asm:17735): reload the hidden-block reveal gfx slot
+    // with `#$FF0004`, then resume using the object's saved `$36(a5)` gfx link.
+    HiddenBlockRevealGfxLoadLocE29A {
+        gfx_load_arg: 0x00FF_0004,
+        gfx_slot_addr: parent_gfx_slot_addr,
     }
 }
 
