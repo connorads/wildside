@@ -6799,6 +6799,15 @@ impl NativeRuntime {
                 // chooses the continue countdown when any continue remains;
                 // otherwise the no-continues hold waits, then returns to
                 // title via loc_D3F0.
+                //
+                // ASM loc_D2CE (kid.asm:16495): the no-continues wait loop
+                // hibernates one frame, then `tst.b (Ctrl_Held).w; bmi.s
+                // loc_D2DC`; bit 7 is Start, so held Start skips the timeout
+                // and immediately falls through to the title-return path.
+                if self.progression.number_continues == 0 && input.start {
+                    self.return_to_title();
+                    return false;
+                }
                 if remaining_frames > 1 {
                     self.player_lifecycle = PlayerLifecycle::GameOver {
                         remaining_frames: remaining_frames - 1,

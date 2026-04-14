@@ -14752,4 +14752,28 @@ mod chunk_12 {
             "ASM loc_D25E zero-continues path should fall through to loc_D3F0 title return"
         );
     }
+
+    /// ASM loc_D2CE (kid.asm:16495): the no-continues GAME OVER wait checks
+    /// `Ctrl_Held` after each one-frame hibernate; `bmi.s loc_D2DC` means held
+    /// Start (bit 7 set) skips the remaining `dbf d0,loc_D2CE` timeout.
+    #[test]
+    fn loc_d2ce_start_held_skips_no_continues_game_over_wait() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_continues = 0;
+        runtime.player_lifecycle = PlayerLifecycle::GameOver {
+            remaining_frames: PLAYER_GAME_OVER_HOLD_FRAMES,
+        };
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.boot_state,
+            BootState::TitleScreen { cursor: 0 },
+            "ASM loc_D2CE should branch to loc_D2DC immediately when Start is held"
+        );
+    }
 }
