@@ -8303,6 +8303,26 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_slot_loc_f326_restarts_or_frees_after_the_range_check() {
+        let player_x = (8 * 16) << 16;
+        let player_y = (6 * 16) << 16;
+        let in_range = NativeRuntime::shooter_player_in_range_sub_F536(player_x, player_y, 8, 6);
+        let out_of_range =
+            NativeRuntime::shooter_player_in_range_sub_F536(player_x, player_y, 20, 6);
+
+        assert_eq!(
+            NativeRuntime::shooter_slot_restart_phase_loc_F326(in_range),
+            Some(1),
+            "ASM loc_F326 (kid.asm:19914) should write `$A(a0)=1` when sub_F536 says Kid is still in range"
+        );
+        assert_eq!(
+            NativeRuntime::shooter_slot_restart_phase_loc_F326(out_of_range),
+            None,
+            "ASM loc_F326 should fall through to the free-slot unlink path instead of restarting the phase when sub_F536 returns zero"
+        );
+    }
+
+    #[test]
     fn shooter_headbutt_center_worker_runs_sub_114c0_timeline() {
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));

@@ -1619,6 +1619,15 @@ impl NativeRuntime {
         0x32
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_slot_restart_phase_loc_F326(player_in_range: bool) -> Option<u16> {
+        // ASM loc_F326 (kid.asm:19914): `sub_F536` returns non-zero while Kid
+        // remains in range; that path writes phase `$A(a0)=1`. Zero falls
+        // through to the free-slot unlink path.
+        if player_in_range { Some(1) } else { None }
+    }
+
     fn shooter_deleted_tile_for_sub_114c0(skin: u8) -> terrain::Cell {
         terrain::Cell::from_be_bytes(0xEF, skin)
     }
