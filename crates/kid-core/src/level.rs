@@ -1041,6 +1041,20 @@ pub(crate) fn animated_solid_block_vertical_rows_loop_tail_loc_F87A(
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_vertical_rows_tail_loc_F890(
+    swapped_d6: u32,
+    swapped_d7: u32,
+) -> AnimatedSolidBlockTailLocF836 {
+    // ASM loc_F890 (kid.asm:20564): swaps `d6` and `d7` back before branching to
+    // the shared animation scan tail.
+    AnimatedSolidBlockTailLocF836 {
+        restored_d6: swapped_d6.rotate_left(16),
+        restored_d7: swapped_d7.rotate_left(16),
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleSpriteWordsLocF41E {

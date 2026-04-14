@@ -9735,6 +9735,24 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F890 (kid.asm:20564): swaps `d6`/`d7` back before branching to
+    /// the shared animation scan tail.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F890_restores_scan_registers_before_tail_jump() {
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_rows_tail_loc_F890(
+                0x0034_0012,
+                0x0567_000E
+            ),
+            crate::level::AnimatedSolidBlockTailLocF836 {
+                restored_d6: 0x0012_0034,
+                restored_d7: 0x000E_0567,
+            },
+            "ASM loc_F890 should swap d6 and d7 back before branching to loc_F9BA"
+        );
+    }
+
     /// ASM loc_F85A (kid.asm:20528): each DBF iteration writes `$E304` to the
     /// current Level_Layout cell, queues VDP data only for visible rows, then
     /// advances by one row through `Level_width_tiles`.
