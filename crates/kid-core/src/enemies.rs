@@ -340,6 +340,37 @@ pub(crate) fn lion_charge_direction_dispatch_loc_3e11e(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionProjectileLaunchTail {
+    pub(crate) x_offset_pixels: i16,
+    pub(crate) x_velocity: i32,
+    pub(crate) animation_script: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_projectile_launch_tail_loc_3e180(
+    parent_facing: Direction,
+) -> LionProjectileLaunchTail {
+    // ASM Lion.asm loc_3E180: child setup enters with `d7` as the projectile
+    // X offset and `d6` as X velocity. Clear parent `x_direction` negates both
+    // before the label; set parent `x_direction` keeps `+$A` and `+$60000`.
+    // The label applies `d7` to `x_pos(a3)`, stores `d6` in `x_vel(a3)`, then
+    // initialises `stru_3DF34`.
+    match parent_facing {
+        Direction::Left => LionProjectileLaunchTail {
+            x_offset_pixels: -(LION_PROJECTILE_X_OFFSET as i16),
+            x_velocity: -LION_PROJECTILE_SPEED,
+            animation_script: "stru_3DF34",
+        },
+        Direction::Right => LionProjectileLaunchTail {
+            x_offset_pixels: LION_PROJECTILE_X_OFFSET as i16,
+            x_velocity: LION_PROJECTILE_SPEED,
+            animation_script: "stru_3DF34",
+        },
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -7324,6 +7355,28 @@ mod tests {
             lion_charge_direction_dispatch_loc_3e11e(Direction::Right),
             LionChargeDirectionDispatch::RightCharge,
             "ASM Lion.asm loc_3E11E should branch set x_direction to loc_3E3B2"
+        );
+    }
+
+    #[test]
+    fn lion_projectile_launch_tail_matches_loc_3e180() {
+        assert_eq!(
+            lion_projectile_launch_tail_loc_3e180(Direction::Left),
+            LionProjectileLaunchTail {
+                x_offset_pixels: -10,
+                x_velocity: -0x0006_0000,
+                animation_script: "stru_3DF34",
+            },
+            "ASM Lion.asm loc_3E180 should apply the negated d7/d6 pair prepared for clear parent x_direction"
+        );
+        assert_eq!(
+            lion_projectile_launch_tail_loc_3e180(Direction::Right),
+            LionProjectileLaunchTail {
+                x_offset_pixels: 10,
+                x_velocity: 0x0006_0000,
+                animation_script: "stru_3DF34",
+            },
+            "ASM Lion.asm loc_3E180 should keep the positive d7/d6 pair when parent x_direction is set"
         );
     }
 
