@@ -5242,10 +5242,7 @@ pub(crate) fn drips_collision_dispatch_loc_33550(
     // collision clears the word and returns d5=1. Positive collision clears the
     // word before dispatching collision IDs from `$1C` upward.
     if collision_type == 0 {
-        return DripsCollisionDispatchLoc33550 {
-            collision_type,
-            contact_flag: 0,
-        };
+        return drips_collision_no_contact_result_loc_33584(collision_type);
     }
     if (collision_type & 0x8000) != 0 {
         return drips_collision_contact_result_loc_33576();
@@ -5253,10 +5250,7 @@ pub(crate) fn drips_collision_dispatch_loc_33550(
 
     let adjusted = collision_type.wrapping_sub(0x001C);
     if (adjusted & 0x8000) != 0 {
-        return DripsCollisionDispatchLoc33550 {
-            collision_type: 0,
-            contact_flag: 0,
-        };
+        return drips_collision_no_contact_result_loc_33584(0);
     }
 
     let contact_flag = match collision_type {
@@ -5265,7 +5259,7 @@ pub(crate) fn drips_collision_dispatch_loc_33550(
         0x0020 | 0x0024 if berzerker_charging => {
             drips_collision_contact_result_loc_33576().contact_flag
         }
-        _ => 0,
+        _ => drips_collision_no_contact_result_loc_33584(0).contact_flag,
     };
     DripsCollisionDispatchLoc33550 {
         collision_type: 0,
@@ -5287,6 +5281,18 @@ pub(crate) fn drips_collision_contact_result_loc_33576() -> DripsCollisionDispat
     DripsCollisionDispatchLoc33550 {
         collision_type: 0,
         contact_flag: 1,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_collision_no_contact_result_loc_33584(
+    collision_type: u16,
+) -> DripsCollisionDispatchLoc33550 {
+    // ASM Drips.asm loc_33584: move 0 into d5 and return; callers have
+    // already decided whether `collision_type(a3)` should be preserved or clear.
+    DripsCollisionDispatchLoc33550 {
+        collision_type,
+        contact_flag: 0,
     }
 }
 
@@ -6627,6 +6633,26 @@ mod tests {
                 contact_flag: 1,
             },
             "ASM Drips.asm loc_33576 is also the negative collision word contact path"
+        );
+    }
+
+    #[test]
+    fn drips_collision_no_contact_result_matches_loc_33584() {
+        assert_eq!(
+            drips_collision_no_contact_result_loc_33584(0),
+            DripsCollisionDispatchLoc33550 {
+                collision_type: 0,
+                contact_flag: 0,
+            },
+            "ASM Drips.asm loc_33584 moves 0 into d5 and returns for no collision"
+        );
+        assert_eq!(
+            drips_collision_dispatch_loc_33550(0x0028, true),
+            DripsCollisionDispatchLoc33550 {
+                collision_type: 0,
+                contact_flag: 0,
+            },
+            "ASM Drips.asm loc_33584 is the `$28` dispatch-table no-contact slot after the collision word is cleared"
         );
     }
 
