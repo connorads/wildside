@@ -9269,6 +9269,61 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_ECD2 (kid.asm:19170): the predecessor found in `a3` receives
+    /// the aged evanescent object's saved successor link, unlinking the aged
+    /// object before the shared free-list push.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_ECD2_splices_the_aged_evanescent_slot_out_of_the_active_list() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E90A,
+                next_slot_addr: 0xFFFF_E91A,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E91A,
+                next_slot_addr: 0xFFFF_E92A,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E92A,
+                next_slot_addr: 0xFFFF_E93A,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E93A,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::evanescent_bullet_recycle_splice_predecessor_loc_ECD2(
+                &active_slots,
+                0xFFFF_E91A,
+                0xFFFF_E92A,
+            ),
+            Some(crate::level::EvanescentBulletRecycleSpliceLocECD2 {
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E90A,
+                        next_slot_addr: 0xFFFF_E91A,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E91A,
+                        next_slot_addr: 0xFFFF_E93A,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E92A,
+                        next_slot_addr: 0xFFFF_E93A,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E93A,
+                        next_slot_addr: 0,
+                    },
+                ],
+            }),
+            "ASM loc_ECD2 should copy the target slot successor into the predecessor link without mutating the target until the later free-list push"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
