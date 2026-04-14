@@ -8341,6 +8341,40 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EFE (kid.asm:1768): `Delete_AllButCurrentObject` reloads `a5`
+    /// from `Addr_FirstObjectSlot`, so every scan starts from the sentinel link.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EFE_delete_all_but_current_starts_from_first_object_sentinel() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0DA0,
+                next_slot_addr: 0xFFFF_0E14,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0E14,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::delete_all_but_current_start_loc_EFE(&active_slots, 0xFFFF_0E14),
+            crate::level::DeleteAllButCurrentStartLocEFE {
+                scan_head_link_addr: 0xFFFF_F842,
+                next_candidate_slot_addr: 0xFFFF_0DA0,
+                current_object_addr: 0xFFFF_0E14,
+            },
+            "ASM loc_EFE should seed the next loc_F02 candidate from `Addr_FirstObjectSlot`, not from the current object"
+        );
+
+        assert_eq!(
+            crate::level::delete_all_but_current_start_loc_EFE(&[], 0xFFFF_0E14)
+                .next_candidate_slot_addr,
+            0,
+            "ASM loc_EFE should let loc_F02 fall through to loc_F14 when the first object link is null"
+        );
+    }
+
     /// ASM loc_DF30 (kid.asm:17258): the combined evanescent/shooter init seeds
     /// `d0=$12`, so the inclusive DBF loop links 19 evanescent slots, clears
     /// the 20th slot's link word, and clears `Addr_FirstEvanescObjectSlot`.

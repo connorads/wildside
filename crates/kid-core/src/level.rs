@@ -701,6 +701,14 @@ pub(crate) struct DeallocatedObjectSlotLocEB0 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DeleteAllButCurrentStartLocEFE {
+    pub(crate) scan_head_link_addr: u32,
+    pub(crate) next_candidate_slot_addr: u32,
+    pub(crate) current_object_addr: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescShooterObjectSlotsSubEABC {
     pub(crate) next_free_evanescent_object_slot_addr: u32,
@@ -9428,6 +9436,22 @@ pub(crate) fn deallocate_object_slot_body_loc_EB0(
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn deallocate_object_slot_not_found_loc_EF0(current_object_addr: u32) -> u32 {
     current_object_addr
+}
+
+/// ASM loc_EFE (kid.asm:1768): `Delete_AllButCurrentObject` starts every pass
+/// from `Addr_FirstObjectSlot`, preserving `Addr_CurrentObject` only for the
+/// later `cmp.l` in loc_F02.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn delete_all_but_current_start_loc_EFE(
+    active_slots: &[LinkedObjectSlotInit],
+    current_object_addr: u32,
+) -> DeleteAllButCurrentStartLocEFE {
+    DeleteAllButCurrentStartLocEFE {
+        scan_head_link_addr: 0xFFFF_F842,
+        next_candidate_slot_addr: active_slots.first().map_or(0, |slot| slot.slot_addr),
+        current_object_addr,
+    }
 }
 
 #[allow(non_snake_case)]
