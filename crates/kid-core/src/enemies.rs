@@ -3339,8 +3339,8 @@ pub(crate) fn mini_hopping_skull_slopedown_contact_loc_3ed6c(
 ) -> MiniHoppingSkullSlopeDownContact {
     // ASM Mini_Hopping_Skull.asm loc_3ED6C: after `sub_3F3A6` snaps to the
     // slope-down surface, `tst.w x_vel(a3)` tests the high word. Negative
-    // velocity clears both velocities and enters loc_3ED80's left wait; a
-    // non-negative high word jumps to loc_3EEB2's right wait setup.
+    // velocity clears both velocities and enters the left wait; a
+    // non-negative high word jumps to the mirrored right wait setup.
     if x_velocity < 0 {
         MiniHoppingSkullSlopeDownContact {
             x_velocity: 0,
@@ -3492,7 +3492,7 @@ pub(crate) fn mini_hopping_skull_left_hop_damage_sequence_loc_3ed1e(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
     // ASM Mini_Hopping_Skull.asm loc_3ED1E: the left-hop windup damage path
-    // repeats the `$44(a3)` word decrement; zero branches to loc_3F18C,
+    // repeats the `$44(a3)` word decrement; zero branches to the death path,
     // otherwise `stru_3E9C2` plays before the windup DBF loop resumes.
     mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
 }
@@ -3706,7 +3706,7 @@ pub(crate) fn mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26() -> MiniHopp
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_hop_relaunch_tail_loc_3ed60() -> MiniHoppingSkullRelaunchTail
 {
-    // ASM Mini_Hopping_Skull.asm loc_3ED60: after loc_3ED36 has seeded the
+    // ASM Mini_Hopping_Skull.asm loc_3ED60: after the preceding tail has seeded the
     // leftward hop velocities, this tail sets `is_moved(a3)` and
     // `has_level_collision(a3)`, then branches back to loc_3EA88.
     MiniHoppingSkullRelaunchTail {
@@ -7970,7 +7970,7 @@ mod tests {
                 wait_frames: 21,
                 wait: MiniHoppingSkullSlopeDownWait::Left,
             },
-            "ASM Mini_Hopping_Skull.asm loc_3ED6C should clear velocities and enter loc_3ED80 when `tst.w x_vel(a3)` is negative"
+            "ASM Mini_Hopping_Skull.asm loc_3ED6C should clear velocities and enter the left wait when `tst.w x_vel(a3)` is negative"
         );
         assert_eq!(
             mini_hopping_skull_slopedown_contact_loc_3ed6c(0),
@@ -7983,12 +7983,12 @@ mod tests {
                 wait_frames: 21,
                 wait: MiniHoppingSkullSlopeDownWait::Right,
             },
-            "ASM Mini_Hopping_Skull.asm loc_3ED6C should jump to loc_3EEB2 for a zero high word"
+            "ASM Mini_Hopping_Skull.asm loc_3ED6C should jump to the mirrored right wait for a zero high word"
         );
         assert_eq!(
             mini_hopping_skull_slopedown_contact_loc_3ed6c(0x0001_0000).wait,
             MiniHoppingSkullSlopeDownWait::Right,
-            "ASM Mini_Hopping_Skull.asm loc_3ED6C should jump to loc_3EEB2 for positive X velocity"
+            "ASM Mini_Hopping_Skull.asm loc_3ED6C should jump to the mirrored right wait for positive X velocity"
         );
     }
 
@@ -8148,7 +8148,7 @@ mod tests {
         assert_eq!(
             mini_hopping_skull_left_hop_damage_sequence_loc_3ed1e(1),
             MiniHoppingSkullDamageSequence::SkullDestroyed,
-            "ASM Mini_Hopping_Skull.asm loc_3ED1E should branch to loc_3F18C when `$44(a3)` reaches zero"
+            "ASM Mini_Hopping_Skull.asm loc_3ED1E should branch to the death path when `$44(a3)` reaches zero"
         );
         assert_eq!(
             mini_hopping_skull_left_hop_damage_sequence_loc_3ed1e(2),
