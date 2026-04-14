@@ -591,6 +591,14 @@ pub(crate) fn sound_driver_z80_handshake_loc_E136C(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_vdp_dma_wait_loc_E13B0(vdp_control_port_word: u16) -> bool {
+    // ASM loc_E13B0 (kid.asm:49569): after restarting the Z80, repeatedly
+    // read VDP control port `4(a6)` and loop while bit 1 remains set.
+    (vdp_control_port_word & 0x0002) != 0
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn plane_clear_word_fill_loc_16B6(
     target_addr: u32,
     source_word: u16,

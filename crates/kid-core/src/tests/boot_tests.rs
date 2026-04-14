@@ -3604,6 +3604,23 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_E13B0_waits_until_vdp_control_port_bit_1_clears() {
+        assert!(
+            sound_driver_vdp_dma_wait_loc_E13B0(0x0002),
+            "ASM loc_E13B0 should branch back while `btst #1,d0` sees VDP control-port bit 1 set",
+        );
+        assert!(
+            !sound_driver_vdp_dma_wait_loc_E13B0(0x0000),
+            "ASM loc_E13B0 should return once VDP control-port bit 1 is clear",
+        );
+        assert!(
+            !sound_driver_vdp_dma_wait_loc_E13B0(0x0001),
+            "ASM loc_E13B0 tests bit 1 only; bit 0 must not keep the wait loop alive",
+        );
+    }
+
+    #[test]
     fn sound_driver_upload_sub_e13da_copies_driver_and_zero_fills_z80_ram() {
         let source_root = unique_temp_path("sub-e13da-source");
         fs::create_dir_all(source_root.join("sound")).expect("sound dir should be creatable");
