@@ -1976,10 +1976,7 @@ pub(crate) fn ufo_tracking_command_loc_34e2a(
             target_y_velocity: 0,
         }
     };
-    let motion = ufo_double_terminal_speed_loc_34e1c(
-        ufo_double_acceleration_loc_34e10(command, double_acceleration),
-        double_terminal_speed,
-    );
+    let motion = ufo_tracking_tail_loc_34e96(command, double_acceleration, double_terminal_speed);
 
     Some(UfoTrackingCommandLoc34E2A {
         motion,
@@ -2002,6 +1999,20 @@ pub(crate) fn ufo_right_tracking_command_loc_34e86() -> UfoMotionCommand {
         y_acceleration: 0,
         target_y_velocity: 0,
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_tracking_tail_loc_34e96(
+    command: UfoMotionCommand,
+    double_acceleration: bool,
+    double_terminal_speed: bool,
+) -> UfoMotionCommand {
+    // ASM UFO.asm loc_34E96: both left/right Kid chase branches share the
+    // `bsr.w loc_34E10` scaling tail before returning.
+    ufo_double_terminal_speed_loc_34e1c(
+        ufo_double_acceleration_loc_34e10(command, double_acceleration),
+        double_terminal_speed,
+    )
 }
 
 pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
@@ -6934,6 +6945,32 @@ mod tests {
             .map(|command| command.facing),
             Some(Direction::Right),
             "ASM UFO.asm loc_34E86 reaches `st x_direction(a3)`, represented by the right-facing/flipped native command"
+        );
+    }
+
+    #[test]
+    fn ufo_tracking_tail_matches_loc_34e96() {
+        let command = UfoMotionCommand {
+            x_acceleration: 0x1000,
+            target_x_velocity: 0x20000,
+            y_acceleration: -0x0800,
+            target_y_velocity: -0x18000,
+        };
+
+        assert_eq!(
+            ufo_tracking_tail_loc_34e96(command, false, false),
+            command,
+            "ASM UFO.asm loc_34E96 calls loc_34E10; with both scale flags clear the motion command is unchanged"
+        );
+        assert_eq!(
+            ufo_tracking_tail_loc_34e96(command, true, true),
+            UfoMotionCommand {
+                x_acceleration: 0x2000,
+                target_x_velocity: 0x40000,
+                y_acceleration: -0x1000,
+                target_y_velocity: -0x30000,
+            },
+            "ASM UFO.asm loc_34E96 shares the loc_34E10 acceleration and terminal-speed scaling tail"
         );
     }
 
