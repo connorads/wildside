@@ -1103,6 +1103,13 @@ pub(crate) struct ShooterObjectMovingDownSpriteTailLocEF56 {
     pub(crate) tile_word: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterObjectSpriteTailNextLocEF94 {
+    ProcessShooterObjectsLoop { next_active_slot_addr: u32 },
+    ContinueAtLocF05A,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -9149,6 +9156,23 @@ pub(crate) fn shooter_object_moving_down_sprite_tail_loc_EF56(
         sprite_x_offset: -4,
         sprite_y_offset: 0,
         tile_word: 0x9295,
+    }
+}
+
+/// ASM loc_EF94 (kid.asm:19488): the shared shooter sprite epilogue reads the
+/// slot's `$A(a0)` link; a non-zero link resumes `Process_ShooterObjects_Loop`,
+/// while a zero tail falls through to `loc_F05A`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_sprite_tail_next_loc_EF94(
+    next_active_slot_addr: u32,
+) -> ShooterObjectSpriteTailNextLocEF94 {
+    if next_active_slot_addr != 0 {
+        ShooterObjectSpriteTailNextLocEF94::ProcessShooterObjectsLoop {
+            next_active_slot_addr,
+        }
+    } else {
+        ShooterObjectSpriteTailNextLocEF94::ContinueAtLocF05A
     }
 }
 

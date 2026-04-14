@@ -9987,6 +9987,27 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EF94 (kid.asm:19488): the shared shooter sprite epilogue loops
+    /// through a non-zero `$A(a0)` active-list link and falls through at the
+    /// zero tail.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EF94_uses_next_active_slot_to_loop_or_fall_through() {
+        assert_eq!(
+            crate::level::shooter_object_sprite_tail_next_loc_EF94(0xFFFF_EA12),
+            crate::level::ShooterObjectSpriteTailNextLocEF94::ProcessShooterObjectsLoop {
+                next_active_slot_addr: 0xFFFF_EA12,
+            },
+            "ASM loc_EF94 should branch back to Process_ShooterObjects_Loop when `$A(a0)` is non-zero"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_sprite_tail_next_loc_EF94(0),
+            crate::level::ShooterObjectSpriteTailNextLocEF94::ContinueAtLocF05A,
+            "ASM loc_EF94 should fall through to loc_F05A when the active-list link is zero"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {
