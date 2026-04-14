@@ -7083,6 +7083,82 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E70A (kid.asm:18405): after the strip sprites are written, the
+    /// ROM stores the updated sprite pointer/count, converts `a1` from biased
+    /// screen X to a level tile column, rejects out-of-range columns, and
+    /// unbiases/clamps the top vertical probe row at zero.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E70A_commits_sprite_globals_and_seeds_collision_column() {
+        let setup = crate::level::level_sprite_strip_collision_column_loc_E70A(
+            crate::level::LevelSpriteStripCollisionColumnInputLocE70A {
+                addr_next_sprite_slot_offset: 0x0048,
+                number_sprites: 9,
+                map_probe_screen_x: 0x0150,
+                top_probe_screen_y: 0x0058,
+                bottom_probe_screen_y: 0x00B0,
+                camera_x: 0x0020,
+                camera_y: 0x0010,
+                level_width_blocks: 0x0040,
+            },
+        );
+
+        assert_eq!(
+            (setup.addr_next_sprite_slot_offset, setup.number_sprites),
+            (0x0048, 9),
+            "ASM loc_E70A should store the post-strip a2/d2 values in Addr_NextSpriteSlot and Number_Sprites"
+        );
+        assert_eq!(
+            setup.tile_column,
+            Some(0x000F),
+            "ASM loc_E70A should compute `(a1 - $80 + Camera_X_pos) >> 4` before the width checks"
+        );
+        assert_eq!(
+            (setup.top_world_y, setup.bottom_world_y),
+            (-0x0018, 0x0040),
+            "ASM loc_E70A should add `Camera_Y_pos - $80` to both d5 and d6 before row conversion"
+        );
+        assert_eq!(
+            setup.top_tile_row_lower_clamped, 0,
+            "ASM loc_E70A should clamp a negative top tile row to zero before the top upper-bound check"
+        );
+
+        assert_eq!(
+            crate::level::level_sprite_strip_collision_column_loc_E70A(
+                crate::level::LevelSpriteStripCollisionColumnInputLocE70A {
+                    addr_next_sprite_slot_offset: 0x0028,
+                    number_sprites: 5,
+                    map_probe_screen_x: 0x0060,
+                    top_probe_screen_y: 0x0080,
+                    bottom_probe_screen_y: 0x00A0,
+                    camera_x: 0,
+                    camera_y: 0,
+                    level_width_blocks: 0x0040,
+                },
+            )
+            .tile_column,
+            None,
+            "ASM loc_E70A should exit when the computed tile column is negative"
+        );
+        assert_eq!(
+            crate::level::level_sprite_strip_collision_column_loc_E70A(
+                crate::level::LevelSpriteStripCollisionColumnInputLocE70A {
+                    addr_next_sprite_slot_offset: 0x0028,
+                    number_sprites: 5,
+                    map_probe_screen_x: 0x0480,
+                    top_probe_screen_y: 0x0080,
+                    bottom_probe_screen_y: 0x00A0,
+                    camera_x: 0,
+                    camera_y: 0,
+                    level_width_blocks: 0x0040,
+                },
+            )
+            .tile_column,
+            None,
+            "ASM loc_E70A should exit when the computed tile column reaches Level_width_blocks"
+        );
+    }
+
     /// ASM loc_DA30 (kid.asm:17070): the Hundred K Trip fade loop hibernates
     /// one frame, subtracts `$11` from the fade progress word, decrements the
     /// `d0` countdown, and only exits when the post-decrement value is zero.

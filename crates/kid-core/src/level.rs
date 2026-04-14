@@ -12385,6 +12385,63 @@ pub(crate) fn level_sprite_strip_tail_loc_E6F8(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripCollisionColumnLocE70A {
+    pub(crate) addr_next_sprite_slot_offset: u16,
+    pub(crate) number_sprites: u8,
+    pub(crate) tile_column: Option<i16>,
+    pub(crate) top_world_y: i16,
+    pub(crate) bottom_world_y: i16,
+    pub(crate) top_tile_row_lower_clamped: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSpriteStripCollisionColumnInputLocE70A {
+    pub(crate) addr_next_sprite_slot_offset: u16,
+    pub(crate) number_sprites: u8,
+    pub(crate) map_probe_screen_x: i16,
+    pub(crate) top_probe_screen_y: i16,
+    pub(crate) bottom_probe_screen_y: i16,
+    pub(crate) camera_x: i16,
+    pub(crate) camera_y: i16,
+    pub(crate) level_width_blocks: i16,
+}
+
+/// ASM loc_E70A (kid.asm:18405): after the terrain strip sprites are written,
+/// commit `a2/d2` to the sprite globals, convert `a1` from biased screen X to
+/// a level tile column, reject columns outside `Level_width_blocks`, then
+/// unbias the vertical probe span and clamp the top row at zero.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_collision_column_loc_E70A(
+    input: LevelSpriteStripCollisionColumnInputLocE70A,
+) -> LevelSpriteStripCollisionColumnLocE70A {
+    let tile_column = input
+        .map_probe_screen_x
+        .wrapping_sub(0x0080)
+        .wrapping_add(input.camera_x)
+        >> 4;
+    let top_world_y = input
+        .top_probe_screen_y
+        .wrapping_add(input.camera_y)
+        .wrapping_sub(0x0080);
+    let bottom_world_y = input
+        .bottom_probe_screen_y
+        .wrapping_add(input.camera_y)
+        .wrapping_sub(0x0080);
+    let top_tile_row = top_world_y >> 4;
+
+    LevelSpriteStripCollisionColumnLocE70A {
+        addr_next_sprite_slot_offset: input.addr_next_sprite_slot_offset,
+        number_sprites: input.number_sprites,
+        tile_column: (tile_column >= 0 && tile_column < input.level_width_blocks)
+            .then_some(tile_column),
+        top_world_y,
+        bottom_world_y,
+        top_tile_row_lower_clamped: top_tile_row.max(0),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndCreditsHundredKTripTileUploadLocDA7A {
     pub(crate) hibernate_frames_per_iteration: u16,
     pub(crate) iterations: usize,
