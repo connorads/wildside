@@ -1955,6 +1955,25 @@ pub(crate) struct UfoBeamStartLoc34Eec {
     pub(crate) wait_timer: u16,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoOnScreenCountLoc34F64 {
+    pub(crate) number_ufos_on_screen: u16,
+    pub(crate) ufo_on_screen_latch: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_on_screen_count_loc_34f64(
+    number_ufos_on_screen: u16,
+) -> UfoOnScreenCountLoc34F64 {
+    // ASM UFO.asm loc_34F64: when a previously-unlatched UFO is inside the
+    // screen window, `addq.w #1,(Number_UFOs_OnScreen).w; st $50(a5)`.
+    UfoOnScreenCountLoc34F64 {
+        number_ufos_on_screen: number_ufos_on_screen.wrapping_add(1),
+        ufo_on_screen_latch: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 fn fixed_integer_word(pos: u32) -> i16 {
     (pos >> 16) as u16 as i16
@@ -7149,6 +7168,27 @@ mod tests {
                 wait_timer: 0x32,
             },
             "ASM UFO.asm loc_34EEC writes `$48=4`, `$4A=5`, clears x/y velocity, and reloads `$44=$32`"
+        );
+    }
+
+    #[test]
+    fn ufo_on_screen_count_matches_loc_34f64() {
+        assert_eq!(
+            ufo_on_screen_count_loc_34f64(0),
+            UfoOnScreenCountLoc34F64 {
+                number_ufos_on_screen: 1,
+                ufo_on_screen_latch: true,
+            },
+            "ASM UFO.asm loc_34F64 increments Number_UFOs_OnScreen and sets `$50(a5)` for a newly visible UFO"
+        );
+
+        assert_eq!(
+            ufo_on_screen_count_loc_34f64(0xFFFF),
+            UfoOnScreenCountLoc34F64 {
+                number_ufos_on_screen: 0,
+                ufo_on_screen_latch: true,
+            },
+            "ASM UFO.asm loc_34F64 uses 16-bit addq.w wrapping semantics for the global UFO count"
         );
     }
 
