@@ -866,17 +866,12 @@ impl BlockList {
         // `d3`. Type 1 reuses the matching 8-byte prize entry from
         // `$FFFFF8D4`; the other reveal types come from `unk_E412/unk_E414`.
         if entry.block_type == 1 {
-            let prize = self.prize_block_by_layout_addr_loc_10342(entry.layout_addr)?;
-            let (base_cell, sprite_mapping) = if prize.disguised {
-                (0xE101u16, 0x1058u16)
-            } else {
-                (0xE102u16, 0x1060u16)
-            };
-            let cell_word = base_cell.wrapping_add(u16::from(entry.block_setting));
-            return Some(HiddenBlockRevealSubE3C6 {
-                cell: Cell::from_be_bytes((cell_word >> 8) as u8, cell_word as u8),
-                sprite_mapping,
-            });
+            let prize_match =
+                self.hidden_block_prize_reveal_metadata_scan_loc_E3EE(0, entry.layout_addr)?;
+            return Some(Self::hidden_block_prize_reveal_cell_loc_E40A(
+                prize_match.disguised,
+                entry.block_setting,
+            ));
         }
 
         let (base_cell, sprite_mapping) = match entry.block_type {
@@ -932,6 +927,27 @@ impl BlockList {
                 scanned_records: record_index + 1,
                 disguised: self.prize_blocks[record_index].disguised,
             })
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn hidden_block_prize_reveal_cell_loc_E40A(
+        disguised: bool,
+        block_setting: u8,
+    ) -> HiddenBlockRevealSubE3C6 {
+        // ASM loc_E40A (kid.asm:17900): add the hidden-block setting byte to
+        // `d2` with `add.b`, so only the low byte wraps; then restore `a0`.
+        let (base_cell, sprite_mapping) = if disguised {
+            (0xE101u16, 0x1058u16)
+        } else {
+            (0xE102u16, 0x1060u16)
+        };
+        let cell_word =
+            (base_cell & 0xFF00) | u16::from((base_cell as u8).wrapping_add(block_setting));
+        HiddenBlockRevealSubE3C6 {
+            cell: Cell::from_be_bytes((cell_word >> 8) as u8, cell_word as u8),
+            sprite_mapping,
+        }
     }
 
     #[allow(non_snake_case)]
@@ -3277,6 +3293,38 @@ mod tests {
         assert!(
             matched.disguised,
             "ASM loc_E3EE should leave `a0` on the matching prize record so the flag word at offset 6 is read from that record",
+        );
+    }
+
+    #[test]
+    fn loc_e40a_hidden_block_prize_reveal_adds_setting_as_byte_and_restores_mapping() {
+        let visible = BlockList::hidden_block_prize_reveal_cell_loc_E40A(false, 0x03);
+        assert_eq!(
+            visible.cell,
+            Cell::from_be_bytes(0xE1, 0x05),
+            "ASM loc_E40A should add the setting byte to visible prize base `$E102`",
+        );
+        assert_eq!(
+            visible.sprite_mapping, 0x1060,
+            "ASM loc_E40A should preserve the visible prize sprite mapping selected before the final add",
+        );
+
+        let wrapped = BlockList::hidden_block_prize_reveal_cell_loc_E40A(false, 0xFF);
+        assert_eq!(
+            wrapped.cell,
+            Cell::from_be_bytes(0xE1, 0x01),
+            "ASM loc_E40A uses `add.b`, so `$E102 + $FF` wraps the low byte without carrying to `$E201`",
+        );
+
+        let disguised = BlockList::hidden_block_prize_reveal_cell_loc_E40A(true, 0x04);
+        assert_eq!(
+            disguised.cell,
+            Cell::from_be_bytes(0xE1, 0x05),
+            "ASM loc_E40A should add the setting byte to disguised prize base `$E101`",
+        );
+        assert_eq!(
+            disguised.sprite_mapping, 0x1058,
+            "ASM loc_E40A should preserve the disguised prize sprite mapping selected from the matched flag word",
         );
     }
 
