@@ -11522,6 +11522,37 @@ pub(crate) fn eol_title_return_palette_clear_loc_D726(palette_buffer_3: &mut [u1
     palette_buffer_3.fill(0);
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EolTitleReturnFadeLocD734 {
+    pub(crate) hibernate_frames: u16,
+    pub(crate) final_progress: u16,
+    pub(crate) palette_mask: u16,
+}
+
+/// ASM loc_D734 (kid.asm:16836): the title-return fade waits one frame,
+/// writes `$7C7F` to the shared fade mask, subtracts `$10` from `$FFFFF876`,
+/// and loops until the progress word reaches `$0080`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eol_title_return_fade_loc_D734(initial_progress: u16) -> EolTitleReturnFadeLocD734 {
+    let mut progress = initial_progress;
+    let mut hibernate_frames = 0;
+
+    loop {
+        hibernate_frames += 1;
+        progress = progress.wrapping_sub(0x0010);
+        if progress == 0x0080 {
+            break;
+        }
+    }
+
+    EolTitleReturnFadeLocD734 {
+        hibernate_frames,
+        final_progress: progress,
+        palette_mask: 0x7C7F,
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offset: u16) {

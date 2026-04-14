@@ -6396,6 +6396,28 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D734 (kid.asm:16836): after seeding `$FFFFF876` with `$0100`,
+    /// the title-return fade hibernates once per `$10` decrement and exits only
+    /// when the progress word reaches `$0080`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D734_eol_title_return_fade_runs_eight_one_frame_steps() {
+        let fade = crate::level::eol_title_return_fade_loc_D734(0x0100);
+
+        assert_eq!(
+            fade.hibernate_frames, 8,
+            "ASM loc_D734 should run eight Hibernate_Object_1Frame iterations from $0100 to $0080"
+        );
+        assert_eq!(
+            fade.final_progress, 0x0080,
+            "ASM loc_D734 should stop exactly when `$FFFFF876 == $0080`"
+        );
+        assert_eq!(
+            fade.palette_mask, 0x7C7F,
+            "ASM loc_D734 rewrites `$FFFFF88C` with the fade mask each frame"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
