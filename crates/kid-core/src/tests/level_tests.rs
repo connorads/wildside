@@ -10110,6 +10110,98 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EFC8 (kid.asm:19514): write the old shooter free-list head into
+    /// `$A(a0)`, make `a0` the new free-list head, then branch to an
+    /// interaction handler only when the current layout high byte is negative.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EFC8_pushes_shooter_slot_to_free_list_and_dispatches_signed_block_type() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E9FA,
+                next_slot_addr: 0xFFFF_EA1E,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EA06,
+                next_slot_addr: 0xFFFF_EA1E,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EA1E,
+                next_slot_addr: 0,
+            },
+        ];
+
+        let pushed = crate::level::shooter_object_free_list_push_loc_EFC8(
+            &active_slots,
+            0xFFFF_EA06,
+            0xFFFF_EA2A,
+            0x8A,
+        )
+        .expect("ASM loc_EFC8 should update the removed shooter slot before making it the free-list head");
+
+        assert_eq!(
+            pushed,
+            crate::level::ShooterObjectFreeListPushLocEFC8 {
+                first_free_slot_addr: 0xFFFF_EA06,
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E9FA,
+                        next_slot_addr: 0xFFFF_EA1E,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EA06,
+                        next_slot_addr: 0xFFFF_EA2A,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EA1E,
+                        next_slot_addr: 0,
+                    },
+                ],
+                interact_block: crate::level::ShooterObjectInteractBlockLocEFC8::Evanescent,
+            },
+            "ASM loc_EFC8 should push `a0` to Addr_NextFreeShooterObjectSlot before dispatching negative low nibble `$A` to evanescent block handling"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_free_list_push_loc_EFC8(
+                &active_slots,
+                0xFFFF_EA06,
+                0xFFFF_EA2A,
+                0x62,
+            )
+            .expect("positive high byte still pushes the shooter slot")
+            .interact_block,
+            crate::level::ShooterObjectInteractBlockLocEFC8::None,
+            "ASM loc_EFC8 should branch to ShooterObject_InteractBlock_None when `move.b (a4),d1` is non-negative"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_free_list_push_loc_EFC8(
+                &active_slots,
+                0xFFFF_EA06,
+                0xFFFF_EA2A,
+                0x89,
+            )
+            .expect("smash high byte still pushes the shooter slot")
+            .interact_block,
+            crate::level::ShooterObjectInteractBlockLocEFC8::Smash,
+            "ASM loc_EFC8 index entries 0, 1, and 9 dispatch to ShooterObject_InteractBlock_Smash"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_free_list_push_loc_EFC8(
+                &active_slots,
+                0xFFFF_EA06,
+                0xFFFF_EA2A,
+                0x82,
+            )
+            .expect("ice high byte still pushes the shooter slot")
+            .interact_block,
+            crate::level::ShooterObjectInteractBlockLocEFC8::Ice,
+            "ASM loc_EFC8 index entry 2 dispatches to ShooterObject_InteractBlock_Ice"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

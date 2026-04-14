@@ -1123,6 +1123,23 @@ pub(crate) struct ShooterObjectSpliceLocEFC2 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterObjectInteractBlockLocEFC8 {
+    Smash,
+    Ice,
+    Evanescent,
+    None,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ShooterObjectFreeListPushLocEFC8 {
+    pub(crate) first_free_slot_addr: u32,
+    pub(crate) slots: Vec<LinkedObjectSlotInit>,
+    pub(crate) interact_block: ShooterObjectInteractBlockLocEFC8,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -9242,6 +9259,41 @@ pub(crate) fn shooter_object_splice_predecessor_loc_EFC2(
     predecessor.next_slot_addr = target_next_slot_addr;
 
     Some(ShooterObjectSpliceLocEFC2 { slots })
+}
+
+/// ASM loc_EFC8 (kid.asm:19514): push the removed shooter object onto
+/// `Addr_NextFreeShooterObjectSlot`, then use the signed high byte of the
+/// current level-layout word to dispatch the shooter block interaction table.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_free_list_push_loc_EFC8(
+    active_slots: &[LinkedObjectSlotInit],
+    target_slot_addr: u32,
+    first_free_slot_addr: u32,
+    level_layout_high_byte: u8,
+) -> Option<ShooterObjectFreeListPushLocEFC8> {
+    let mut slots = active_slots.to_vec();
+    let target = slots
+        .iter_mut()
+        .find(|slot| slot.slot_addr == target_slot_addr)?;
+    target.next_slot_addr = first_free_slot_addr;
+
+    let interact_block = if (level_layout_high_byte & 0x80) == 0 {
+        ShooterObjectInteractBlockLocEFC8::None
+    } else {
+        match level_layout_high_byte & 0x0F {
+            0x0 | 0x1 | 0x9 => ShooterObjectInteractBlockLocEFC8::Smash,
+            0x2 => ShooterObjectInteractBlockLocEFC8::Ice,
+            0xA => ShooterObjectInteractBlockLocEFC8::Evanescent,
+            _ => ShooterObjectInteractBlockLocEFC8::None,
+        }
+    };
+
+    Some(ShooterObjectFreeListPushLocEFC8 {
+        first_free_slot_addr: target_slot_addr,
+        slots,
+        interact_block,
+    })
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,
