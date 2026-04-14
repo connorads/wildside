@@ -776,6 +776,15 @@ pub(crate) struct EvanescentBlockEraseMatchLocEA5A {
     pub(crate) final_layout_cell_word: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EvanescentObjectListMoveLocEA72 {
+    pub(crate) first_active_slot_addr: u32,
+    pub(crate) first_free_slot_addr: u32,
+    pub(crate) next_active_slot_to_process_addr: u32,
+    pub(crate) slots: Vec<LinkedObjectSlotInit>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -7989,6 +7998,48 @@ pub(crate) fn evanescent_block_erase_match_loc_EA5A(
         erased_block_row: Some(block_row),
         final_layout_cell_word: 0x2000 | (erased_layout_cell_word & 0x00FF),
     }
+}
+
+/// ASM loc_EA72 (kid.asm:18792): save the removed evanescent object's old
+/// `$A(a2)` next link in `d0`, unlink `a2` from `Addr_FirstEvanescObjectSlot`,
+/// push `a2` onto `Addr_NextFreeEvanescObjectSlot`, and use the saved `d0` as
+/// the next active object to process.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_object_move_active_to_free_loc_EA72(
+    active_slots: &[LinkedObjectSlotInit],
+    target_slot_addr: u32,
+    first_free_slot_addr: u32,
+) -> Option<EvanescentObjectListMoveLocEA72> {
+    let target_index = active_slots
+        .iter()
+        .position(|slot| slot.slot_addr == target_slot_addr)?;
+    let mut slots = active_slots.to_vec();
+    let next_active_slot_to_process_addr = slots[target_index].next_slot_addr;
+
+    if target_index == 0 {
+        let first_active_slot_addr = next_active_slot_to_process_addr;
+        slots[target_index].next_slot_addr = first_free_slot_addr;
+        return Some(EvanescentObjectListMoveLocEA72 {
+            first_active_slot_addr,
+            first_free_slot_addr: target_slot_addr,
+            next_active_slot_to_process_addr,
+            slots,
+        });
+    }
+
+    let predecessor_index = slots
+        .iter()
+        .position(|slot| slot.next_slot_addr == target_slot_addr)?;
+    slots[predecessor_index].next_slot_addr = next_active_slot_to_process_addr;
+    slots[target_index].next_slot_addr = first_free_slot_addr;
+
+    Some(EvanescentObjectListMoveLocEA72 {
+        first_active_slot_addr: active_slots.first().map_or(0, |slot| slot.slot_addr),
+        first_free_slot_addr: target_slot_addr,
+        next_active_slot_to_process_addr,
+        slots,
+    })
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,

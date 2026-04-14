@@ -8525,6 +8525,77 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EA72 (kid.asm:18792): save `$A(a2)` before mutating links,
+    /// unlink the current evanescent object from the active list, push it to
+    /// the free-list head, then continue active processing from the saved link.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EA72_moves_current_evanescent_slot_from_active_to_free_list() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBDA,
+                next_slot_addr: 0xFFFF_EBE6,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBE6,
+                next_slot_addr: 0xFFFF_EBF2,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBF2,
+                next_slot_addr: 0,
+            },
+        ];
+
+        let middle = crate::level::evanescent_object_move_active_to_free_loc_EA72(
+            &active_slots,
+            0xFFFF_EBE6,
+            0xFFFF_EC10,
+        )
+        .expect("ASM loc_EA72 should find the current evanescent object in the active list");
+        assert_eq!(
+            middle,
+            crate::level::EvanescentObjectListMoveLocEA72 {
+                first_active_slot_addr: 0xFFFF_EBDA,
+                first_free_slot_addr: 0xFFFF_EBE6,
+                next_active_slot_to_process_addr: 0xFFFF_EBF2,
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EBDA,
+                        next_slot_addr: 0xFFFF_EBF2,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EBE6,
+                        next_slot_addr: 0xFFFF_EC10,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_EBF2,
+                        next_slot_addr: 0,
+                    },
+                ],
+            },
+            "ASM loc_EA72 should splice the predecessor over a middle slot, then make the removed slot point at the old free-list head"
+        );
+
+        let head = crate::level::evanescent_object_move_active_to_free_loc_EA72(
+            &active_slots,
+            0xFFFF_EBDA,
+            0xFFFF_EC10,
+        )
+        .expect("ASM loc_EA72 should handle removal of Addr_FirstEvanescObjectSlot");
+        assert_eq!(
+            head.first_active_slot_addr, 0xFFFF_EBE6,
+            "ASM loc_EA72 should update Addr_FirstEvanescObjectSlot from `$A(a2)` when the head slot is removed"
+        );
+        assert_eq!(
+            head.next_active_slot_to_process_addr, 0xFFFF_EBE6,
+            "ASM loc_EA72 should continue from the saved old `$A(a2)` link after pushing the removed head to the free list"
+        );
+        assert_eq!(
+            head.slots[0].next_slot_addr, 0xFFFF_EC10,
+            "ASM loc_EA72 should store Addr_NextFreeEvanescObjectSlot into `$A(a2)` before making `a2` the free-list head"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
