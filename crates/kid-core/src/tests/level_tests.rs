@@ -6332,6 +6332,28 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D660 (kid.asm:16775): `cmp.b (a1,d0.w),d1; bhi.w loc_D702`
+    /// skips the speed bonus only when Level_completion_time is greater than
+    /// SpeedBonus_Values[level]. Equality still awards the 10,000-point bonus.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D660_speed_bonus_awards_on_threshold_equality() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        start_level(&mut runtime);
+
+        runtime.level_damage_taken = true;
+        runtime.level_prize_collected = true;
+        runtime.level_timer.seconds = LEVEL_TIMER_START_SECONDS - u16::from(SPEED_BONUS_TABLE[0]);
+
+        runtime.apply_level_completion_bonuses();
+
+        assert_eq!(
+            runtime.progression.score,
+            u32::from(runtime.level_timer.seconds) * 100 + 10_000,
+            "ASM loc_D660 should award speed bonus when completion time equals the threshold"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

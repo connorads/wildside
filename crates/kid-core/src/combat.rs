@@ -7851,7 +7851,10 @@ impl NativeRuntime {
                 }
             }
 
-            // Speed bonus: 10,000 points if completion time <= threshold.
+            // ASM loc_D660 (kid.asm:16775): before Elsewhere, index
+            // SpeedBonus_Values by Current_LevelID and skip only when
+            // Level_completion_time is strictly greater than the threshold.
+            // Passing the gate allocates the 10,000-point Speed Bonus object.
             //
             // ASM loc_C0CC (kid.asm:15687): reconstruct remaining seconds from
             // `Time_Seconds_low_digit + Time_Seconds_high_digit*$A +
