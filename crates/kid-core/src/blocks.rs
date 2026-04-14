@@ -1547,6 +1547,7 @@ impl NativeRuntime {
     /// shooter once, fires on age 0, then frees the slot again at age $16.
     const SHOOTER_FIRE_INTERVAL: u16 = 22;
     const SHOOTER_PROJECTILE_SPEED: i32 = 4 << 16; // 4px/frame in FP16.16
+    const SHOOTER_SLOT_COUNT: usize = 20;
     const SHOOTER_HEADBUTT_HOLD_FRAMES: u8 = 8;
 
     #[allow(non_snake_case)]
@@ -1739,6 +1740,14 @@ impl NativeRuntime {
                 || (directions & 0x08 != 0 && left)
         };
         let mut queue_scan = |col: u16, row: u16, skin: u8| {
+            if self.block_state.shooter_blocks.len() + pending_entries.len()
+                >= Self::SHOOTER_SLOT_COUNT
+            {
+                // ASM loc_F254 (kid.asm:19827): when `$FFFFF8C4` has no free
+                // shooter slot, the candidate allocation is skipped and the
+                // scan simply advances `a1/d3` to continue the DBF loop.
+                return;
+            }
             // ASM loc_F106 (kid.asm:19673): a raw shooter candidate pops one
             // free slot, pushes it to the active list, then stores the layout
             // address, column, row, and direction bits. Native works on decoded

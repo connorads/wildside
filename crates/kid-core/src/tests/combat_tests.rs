@@ -8181,6 +8181,46 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_f254_continues_scan_without_allocating_when_shooter_free_list_empty() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut blocks = (0..20).map(|col| (col, 0, 0x02)).collect::<Vec<_>>();
+        blocks.push((25, 4, 0x02));
+        runtime.set_block_grid(grid_with_shooter_blocks(&blocks));
+        runtime.projectiles.clear();
+        runtime.block_state.shooter_blocks = (0..20)
+            .map(|col| ShooterBlockEntry {
+                col,
+                row: 0,
+                directions: 0x02,
+                supported_by_neighbour: false,
+                age: 1,
+            })
+            .collect();
+        runtime.block_state.shooter_last_scanned_col = 21;
+        runtime.block_state.shooter_last_scanned_row = 4;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (22 * 16) << 16;
+        slice.player.y_pos = (4 * 16) << 16;
+        runtime.step_shooter_blocks(&slice);
+
+        assert_eq!(
+            runtime.block_state.shooter_blocks.len(),
+            20,
+            "ASM loc_F254 (kid.asm:19827) should leave the active list capped at the 20-slot free-list size when the scan finds a candidate with no free slot"
+        );
+        assert!(
+            runtime
+                .block_state
+                .shooter_blocks
+                .iter()
+                .all(|entry| (entry.col, entry.row) != (25, 4)),
+            "ASM loc_F254 advances to the next scanned cell after the no-free-slot branch instead of queueing the candidate"
+        );
+    }
+
+    #[test]
     fn shooter_block_sub_f096_keeps_per_slot_cadence_until_the_worker_expires() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
