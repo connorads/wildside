@@ -678,6 +678,8 @@ pub(crate) fn sound_driver_upload_sub_E13DA(
 pub(crate) fn sound_driver_reset_sub_E1416() -> SoundDriverResetSubE1416 {
     // ASM sub_E1416 (kid.asm:49626): assert Z80 reset, burn the fixed
     // 15-iteration delay loop, restart the bus, then release reset.
+    // ASM loc_E1424 (kid.asm:49630): `subq.l #1,d0; bne.s loc_E1424`
+    // decrements from `$F` to zero before `$A11100` and `$A11200` are written.
     SoundDriverResetSubE1416 {
         requests_z80_reset: true,
         reset_assert_delay_iterations: 15,

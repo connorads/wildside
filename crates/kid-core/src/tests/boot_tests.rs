@@ -3656,7 +3656,8 @@ mod chunk_01 {
     }
 
     #[test]
-    fn sound_driver_reset_sub_e1416_asserts_reset_then_restarts_the_bus() {
+    #[allow(non_snake_case)]
+    fn loc_E1424_sound_driver_reset_waits_before_restart_and_reset_release() {
         let reset = sound_driver_reset_sub_E1416();
 
         assert_eq!(
@@ -3667,7 +3668,7 @@ mod chunk_01 {
                 restarts_z80_bus: true,
                 releases_z80_reset: true,
             },
-            "ASM sub_E1416 should hold `$A11200` in reset for the fixed 15-iteration busy wait, restart `$A11100`, then release reset with `$0100`",
+            "ASM loc_E1424 should burn the fixed 15-iteration reset delay before sub_E1416 restarts `$A11100` and releases reset with `$0100`",
         );
     }
 
