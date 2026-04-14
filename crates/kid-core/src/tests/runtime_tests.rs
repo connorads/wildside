@@ -6861,6 +6861,25 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_collision_top_block_loc_f574_clamps_the_expanded_top_window() {
+        assert_eq!(
+            NativeRuntime::shooter_collision_top_block_loc_F574(0x000F),
+            0,
+            "ASM loc_F574 should clamp a negative `(Kid_hitbox_top >> 4) - 1` result to zero",
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_top_block_loc_F574(0x0010),
+            0,
+            "ASM loc_F574 should keep an exact zero expanded top block",
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_top_block_loc_F574(0x0050),
+            4,
+            "ASM loc_F574 should keep positive expanded top-block results",
+        );
+    }
+
+    #[test]
     fn shooter_block_fires_all_four_directions() {
         // Skin byte 0x0F = all directions (up + right + down + left)
         let mut rt = NativeRuntime::new(manifest());

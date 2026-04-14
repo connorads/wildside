@@ -862,7 +862,7 @@ impl NativeRuntime {
         // slightly-expanded block window, then emit up to two collision
         // rectangles per visible shooter edge inside that window.
         let left_block = (((i32::from(kid_hitbox.left_px)) >> 4) - 1).max(0) as i16;
-        let top_block = (((i32::from(kid_hitbox.top_px)) >> 4) - 1).max(0) as i16;
+        let top_block = Self::shooter_collision_top_block_loc_F574(kid_hitbox.top_px);
         let right_block = ((i32::from(kid_hitbox.right_px) + 0x0F) >> 4) as i16 + 1;
         let bottom_block = ((i32::from(kid_hitbox.bottom_px) + 0x0F) >> 4) as i16 + 1;
         let mut rects = Vec::new();
@@ -951,6 +951,15 @@ impl NativeRuntime {
         }
 
         rects
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_collision_top_block_loc_F574(kid_hitbox_top_px: i16) -> i16 {
+        // ASM loc_F574 (kid.asm:20203): `asr.w #4; subq.w #1` derives the
+        // expanded top block, and negative word results are clamped to zero
+        // before the right and bottom block bounds are derived.
+        (((i32::from(kid_hitbox_top_px)) >> 4) - 1).max(0) as i16
     }
 
     // Oracle-backed sub_1007A timing for demo 0x1B:
