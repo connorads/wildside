@@ -1050,6 +1050,44 @@ pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn execute_objects_under_samurai_haze_loc_E1E(
+    time_frames: u16,
+    samurai_haze_active: bool,
+    first_object_index: Option<usize>,
+    next_indices: &[Option<usize>],
+    haze_throttled_flags: &[bool],
+    hibernation_counters: &mut [u16],
+) -> Vec<usize> {
+    // ASM loc_E1E (kid.asm:1641): walk `Addr_FirstObjectSlot`; Samurai Haze
+    // skips objects whose `$10(a5)` flag is set on frames where
+    // `Time_Frames & 3 != 0`, before the hibernation counter is decremented.
+    // Objects that pass the gate execute only when `subq.w #1,8(a5)` reaches 0.
+    let mut executed_indices = Vec::new();
+    let slowed_frame = time_frames & 3 != 0;
+    let mut current = first_object_index;
+
+    while let Some(index) = current {
+        let is_throttled = haze_throttled_flags.get(index).copied().unwrap_or_default();
+        if samurai_haze_active && is_throttled && slowed_frame {
+            current = next_indices[index];
+            continue;
+        }
+
+        if let Some(counter) = hibernation_counters.get_mut(index) {
+            *counter = counter.wrapping_sub(1);
+            if *counter == 0 {
+                executed_indices.push(index);
+            }
+        }
+
+        current = next_indices[index];
+    }
+
+    executed_indices
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_predecessor_index_sub_FF6(
     next_indices: &[Option<usize>],
     target_index: usize,

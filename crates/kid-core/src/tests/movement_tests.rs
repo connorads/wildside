@@ -662,6 +662,49 @@ mod chunk_11 {
     }
 
     #[test]
+    fn loc_e1e_skips_haze_flagged_objects_before_hibernation_on_slowed_frames() {
+        let next_indices = [Some(1), Some(2), Some(3), None];
+        let haze_throttled_flags = [false, true, true, false];
+        let mut hibernation_counters = [1, 1, 2, 1];
+
+        assert_eq!(
+            crate::movement::execute_objects_under_samurai_haze_loc_E1E(
+                1,
+                true,
+                Some(1),
+                &next_indices,
+                &haze_throttled_flags,
+                &mut hibernation_counters,
+            ),
+            vec![3],
+            "ASM loc_E1E should keep walking `Addr_FirstObjectSlot`, but Samurai Haze skips `$10(a5)` objects before `subq.w #1,8(a5)` when `Time_Frames & 3 != 0`",
+        );
+        assert_eq!(
+            hibernation_counters,
+            [1, 1, 2, 0],
+            "ASM loc_E1E should leave skipped objects' hibernation counters untouched on slowed Samurai Haze frames",
+        );
+
+        assert_eq!(
+            crate::movement::execute_objects_under_samurai_haze_loc_E1E(
+                4,
+                true,
+                Some(1),
+                &next_indices,
+                &haze_throttled_flags,
+                &mut hibernation_counters,
+            ),
+            vec![1],
+            "ASM loc_E3E should decrement haze-flagged objects once the `Time_Frames & 3` gate opens, but still skip execution when `8(a5)` remains non-zero",
+        );
+        assert_eq!(
+            hibernation_counters,
+            [1, 0, 1, 0xFFFF],
+            "ASM loc_E3E uses wrapping word subtraction, so an already-zero counter becomes `$FFFF` on a later scheduler pass",
+        );
+    }
+
+    #[test]
     fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
         assert_eq!(
             crate::level::indoor_rubber_block_source_words_loc_14506(
