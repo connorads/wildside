@@ -4660,7 +4660,8 @@ pub(crate) fn step_dragon_walking(
 // ASM Drips is a multi-object enemy: ceiling attachment, forming animation,
 // animation-driven drop, splash, and surface-crawl spawning.
 // Native approximation: periodic projectile drop with ASM-matched timing.
-// Random dormant delay: (RNG >> 2) XOR kid_x ≈ 0-63f average ~32f.
+// Random dormant delay: Drips.asm loc_3340E uses `(RNG >> 2)`,
+// then XORs the low byte with Kid's integer X low byte.
 // Forming animation: ~35f. Total interval ≈ 67f average.
 // Drop child starts with zero vertical speed, then gains $2000/frame gravity
 // until it hits the floor. ASM loc_33424 clears `$2A(a1)` before the fall and
@@ -4708,6 +4709,21 @@ pub(crate) fn drips_ceiling_gate_loc_333_f6(
             y_velocity,
         }
     }
+}
+
+pub(crate) fn drips_wait_timer_with_rng_loc_3340e(rng: &mut RomRandomState, kid_x_pos: u32) -> u16 {
+    let x_pos_bytes = kid_x_pos.to_be_bytes();
+    let kid_x_word = u16::from_be_bytes([x_pos_bytes[0], x_pos_bytes[1]]);
+    drips_wait_timer_loc_3340e(rng.next_byte(), kid_x_word)
+}
+
+pub(crate) fn drips_wait_timer_loc_3340e(random_byte: u8, kid_x_word: u16) -> u16 {
+    // ASM Drips.asm loc_3340E: `andi.w #$FF,d7; asr.w #2,d7; move.w d7,d0`,
+    // then `move.w x_pos(a4),d7; eor.b d7,d0`.
+    let shifted = u16::from(random_byte) >> 2;
+    let shifted_bytes = shifted.to_be_bytes();
+    let kid_x_low_byte = kid_x_word.to_be_bytes()[1];
+    u16::from_be_bytes([shifted_bytes[0], shifted_bytes[1] ^ kid_x_low_byte])
 }
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
@@ -5844,6 +5860,22 @@ mod tests {
     }
 
     #[test]
+    fn drips_wait_timer_matches_loc_3340e_rng_and_kid_x_mix() {
+        assert_eq!(
+            drips_wait_timer_loc_3340e(0xFC, 0x01C0),
+            0x00FF,
+            "ASM Drips.asm loc_3340E shifts the RNG byte right by two, then XORs only d0's low byte with Kid X"
+        );
+
+        let mut rng = RomRandomState::default();
+        assert_eq!(
+            spawn_wait_timer(EnemyFamily::Drips, 0, 0x0123_0000, &mut rng),
+            0x0013,
+            "ASM Drips.asm loc_3340E mixes the first ROM RNG byte `$C0` with Kid integer X low byte `$23`"
+        );
+    }
+
+    #[test]
     fn tank_child_layout_matches_init_offsets_from_loc_3b372() {
         // ASM Tank.asm loc_3B372 copies the parent x/y into the child sprite,
         // then `subi.w #8,$1E(a1)` lifts the child 8px above the body.
@@ -6523,8 +6555,8 @@ pub(crate) fn spawn_wait_timer(
         EnemyFamily::Robot => 1,
         // TarMonster: starts submerged, waits before first emergence.
         EnemyFamily::TarMonster => TAR_MONSTER_SUBMERGED_FRAMES,
-        // Drips: first drop after one interval.
-        EnemyFamily::Drips => DRIPS_DROP_INTERVAL,
+        // ASM Drips.asm loc_3340E seeds the dormant delay from RNG and Kid X.
+        EnemyFamily::Drips => drips_wait_timer_with_rng_loc_3340e(rng, player_x),
         // DragonWalking: first breath after cooldown.
         EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INITIAL,
         // Armadillo.asm loc_3C7F8 seeds `$54(a5)` with `$12C` before entering
