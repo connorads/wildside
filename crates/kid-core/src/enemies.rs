@@ -51,6 +51,34 @@ pub(crate) fn lion_init_visible_state_loc_3df92(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionInitMotionProfile {
+    pub(crate) walk_speed: i32,
+    pub(crate) charge_speed: i32,
+    pub(crate) animation_script: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_init_motion_profile_loc_3dfd8(current_hp: u16) -> LionInitMotionProfile {
+    // ASM Lion.asm loc_3DFD8 is reached by `cmpi.w #8,d7; bne.s`: every HP
+    // value except exactly 8 uses `$18000` for both `$50(a5)` and `$5E(a5)`
+    // and installs `stru_3DEDA`.
+    if current_hp == 8 {
+        LionInitMotionProfile {
+            walk_speed: 0x0002_8000,
+            charge_speed: 0x0002_8000,
+            animation_script: "stru_3DEF4",
+        }
+    } else {
+        LionInitMotionProfile {
+            walk_speed: 0x0001_8000,
+            charge_speed: 0x0001_8000,
+            animation_script: "stru_3DEDA",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -3626,10 +3654,10 @@ pub(crate) fn step_hand(
     }
 }
 
-/// Lion charge speed: $28000 for HP==8, $18000 otherwise (Lion.asm lines 36-48).
+/// Lion charge speed: $28000 for HP==8, $18000 otherwise (Lion.asm loc_3DFD8).
 /// Also used as walk speed — ASM sets both $50(a5) and $5E(a5) from same value.
 pub(crate) fn lion_charge_speed(hit_points: u8) -> i32 {
-    if hit_points >= 8 { 0x2_8000 } else { 0x1_8000 }
+    if hit_points == 8 { 0x2_8000 } else { 0x1_8000 }
 }
 
 /// Lion charge timer: starts at $3C (60 frames), counts down while pacing.
@@ -6036,6 +6064,33 @@ mod tests {
             lion_init_visible_state_loc_3df92(0, 0x7FFF, 0x8000).facing,
             Direction::Left,
             "ASM Lion.asm loc_3DF92 inherits the signed word `blt` spawn-facing compare"
+        );
+    }
+
+    #[test]
+    fn lion_init_motion_profile_matches_loc_3dfd8_binary_hp_branch() {
+        assert_eq!(
+            lion_init_motion_profile_loc_3dfd8(7),
+            LionInitMotionProfile {
+                walk_speed: 0x0001_8000,
+                charge_speed: 0x0001_8000,
+                animation_script: "stru_3DEDA",
+            },
+            "ASM Lion.asm loc_3DFD8 should use `$18000` and `stru_3DEDA` when current_hp is not exactly 8"
+        );
+        assert_eq!(
+            lion_init_motion_profile_loc_3dfd8(8),
+            LionInitMotionProfile {
+                walk_speed: 0x0002_8000,
+                charge_speed: 0x0002_8000,
+                animation_script: "stru_3DEF4",
+            },
+            "ASM Lion.asm skips loc_3DFD8 only for current_hp exactly 8"
+        );
+        assert_eq!(
+            lion_charge_speed(9),
+            0x0001_8000,
+            "ASM Lion.asm loc_3DFD8 is selected by `bne`, so HP above 8 is not a fast tier"
         );
     }
 
