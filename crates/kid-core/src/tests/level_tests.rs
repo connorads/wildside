@@ -7158,6 +7158,74 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DF2 (kid.asm:1611): copy the predecessor's next link into the
+    /// allocated slot and then point the predecessor at that slot. When the
+    /// predecessor is `Addr_FirstObjectSlot`, this updates the list head.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DF2_allocate_object_slot_splices_after_the_found_predecessor() {
+        let active_slots = [
+            crate::level::ObjectSlotOrderLocDE0 {
+                slot_addr: 0xFFFF_0DA0,
+                caller_order: 0x1000,
+            },
+            crate::level::ObjectSlotOrderLocDE0 {
+                slot_addr: 0xFFFF_0E14,
+                caller_order: 0x3000,
+            },
+        ];
+        let spliced = crate::level::allocate_object_slot_splice_loc_DF2(
+            &active_slots,
+            crate::level::ObjectSlotOrderLocDE0 {
+                slot_addr: 0xFFFF_0E88,
+                caller_order: 0x2000,
+            },
+        );
+
+        assert_eq!(
+            spliced.inserted_index, 1,
+            "ASM loc_DF2 should splice at the predecessor found by loc_DE0"
+        );
+        assert_eq!(
+            spliced.first_slot_addr, 0xFFFF_0DA0,
+            "ASM loc_DF2 should preserve the existing head when inserting after it"
+        );
+        assert_eq!(
+            spliced.slots,
+            vec![
+                crate::level::LinkedObjectSlotInit {
+                    slot_addr: 0xFFFF_0DA0,
+                    next_slot_addr: 0xFFFF_0E88,
+                },
+                crate::level::LinkedObjectSlotInit {
+                    slot_addr: 0xFFFF_0E88,
+                    next_slot_addr: 0xFFFF_0E14,
+                },
+                crate::level::LinkedObjectSlotInit {
+                    slot_addr: 0xFFFF_0E14,
+                    next_slot_addr: 0,
+                },
+            ],
+            "ASM loc_DF2 should copy the old successor into `0(a0)` before linking the predecessor to `a0`"
+        );
+
+        let empty_splice = crate::level::allocate_object_slot_splice_loc_DF2(
+            &[],
+            crate::level::ObjectSlotOrderLocDE0 {
+                slot_addr: 0xFFFF_0DA0,
+                caller_order: 0,
+            },
+        );
+        assert_eq!(
+            empty_splice.slots,
+            vec![crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0DA0,
+                next_slot_addr: 0,
+            }],
+            "ASM loc_DF2 should handle the `Addr_FirstObjectSlot` sentinel with a null old successor"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

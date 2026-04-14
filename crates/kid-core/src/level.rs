@@ -670,6 +670,14 @@ pub(crate) struct ObjectSlotOrderLocDE0 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AllocatedObjectSlotListLocDF2 {
+    pub(crate) inserted_index: usize,
+    pub(crate) first_slot_addr: u32,
+    pub(crate) slots: Vec<LinkedObjectSlotInit>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescShooterObjectSlotsSubEABC {
     pub(crate) next_free_evanescent_object_slot_addr: u32,
     pub(crate) first_evanescent_object_slot_addr: u32,
@@ -7710,6 +7718,38 @@ pub(crate) fn allocate_object_slot_insert_index_loc_DE0(
         .iter()
         .position(|slot| new_caller_order <= slot.caller_order)
         .unwrap_or(active_slots.len())
+}
+
+/// ASM loc_DF2 (kid.asm:1611): splice the allocated object after the
+/// predecessor found by `loc_DE0`. The ROM copies the predecessor link into
+/// `0(a0)`, then stores `a0` through the predecessor link slot.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn allocate_object_slot_splice_loc_DF2(
+    active_slots: &[ObjectSlotOrderLocDE0],
+    new_slot: ObjectSlotOrderLocDE0,
+) -> AllocatedObjectSlotListLocDF2 {
+    let inserted_index =
+        allocate_object_slot_insert_index_loc_DE0(active_slots, new_slot.caller_order);
+    let mut ordered_slots = active_slots.to_vec();
+    ordered_slots.insert(inserted_index, new_slot);
+
+    let slots = ordered_slots
+        .iter()
+        .enumerate()
+        .map(|(slot_index, slot)| LinkedObjectSlotInit {
+            slot_addr: slot.slot_addr,
+            next_slot_addr: ordered_slots
+                .get(slot_index + 1)
+                .map_or(0, |next_slot| next_slot.slot_addr),
+        })
+        .collect::<Vec<_>>();
+
+    AllocatedObjectSlotListLocDF2 {
+        inserted_index,
+        first_slot_addr: slots.first().map_or(0, |slot| slot.slot_addr),
+        slots,
+    }
 }
 
 #[allow(non_snake_case)]
