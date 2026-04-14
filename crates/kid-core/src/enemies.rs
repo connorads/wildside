@@ -5821,6 +5821,52 @@ pub(crate) fn drips_bounds_contact_result_loc_335d4() -> u16 {
     1
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsSurfaceCrawlerInitLoc335D8 {
+    pub(crate) status_flag_13: bool,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) x_pos_word: u16,
+    pub(crate) y_pos_word: u16,
+    pub(crate) child_byte_44: u8,
+    pub(crate) child_byte_45: u8,
+    pub(crate) x_direction: u8,
+    pub(crate) x_velocity: i32,
+    pub(crate) startup_animation: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_init_loc_335d8(
+    queued_x_word: u16,
+    queued_y_word: u16,
+    parent_child_byte_44: u8,
+    parent_child_byte_45: u8,
+    random_byte: u8,
+) -> DripsSurfaceCrawlerInitLoc335D8 {
+    // ASM Drips.asm loc_335D8: allocate a visible low-priority object_meta `$16`
+    // child at queued `$44/$46`, copy the parent drip state bytes, seed x_vel
+    // with `$3000`, then `bclr #2,d7` decides whether to flip x_direction and
+    // negate the velocity before installing `stru_33FA6`.
+    let random_bit_2_was_set = (random_byte & 0x04) != 0;
+    DripsSurfaceCrawlerInitLoc335D8 {
+        status_flag_13: true,
+        priority: 0,
+        object_meta: 0x0016,
+        x_pos_word: queued_x_word,
+        y_pos_word: queued_y_word,
+        child_byte_44: parent_child_byte_44,
+        child_byte_45: parent_child_byte_45,
+        x_direction: if random_bit_2_was_set { 0xFF } else { 0x00 },
+        x_velocity: if random_bit_2_was_set {
+            -0x0000_3000
+        } else {
+            0x0000_3000
+        },
+        startup_animation: "stru_33FA6",
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -7526,6 +7572,42 @@ mod tests {
             drips_vertical_bounds_contact_flag_loc_335b0(0x0007, -0x0000_3000, 0x0100),
             drips_bounds_contact_result_loc_335d4(),
             "ASM Drips.asm loc_335D4 is reached when the upward probe becomes signed-negative"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_init_matches_loc_335d8() {
+        assert_eq!(
+            drips_surface_crawler_init_loc_335d8(0x0124, 0x00F0, 0x01, 0x00, 0x00),
+            DripsSurfaceCrawlerInitLoc335D8 {
+                status_flag_13: true,
+                priority: 0,
+                object_meta: 0x0016,
+                x_pos_word: 0x0124,
+                y_pos_word: 0x00F0,
+                child_byte_44: 0x01,
+                child_byte_45: 0x00,
+                x_direction: 0x00,
+                x_velocity: 0x0000_3000,
+                startup_animation: "stru_33FA6",
+            },
+            "ASM Drips.asm loc_335D8 keeps default x_direction and positive `$3000` x_vel when random bit 2 is clear"
+        );
+        assert_eq!(
+            drips_surface_crawler_init_loc_335d8(0x0124, 0x00F0, 0x02, 0x03, 0x04),
+            DripsSurfaceCrawlerInitLoc335D8 {
+                status_flag_13: true,
+                priority: 0,
+                object_meta: 0x0016,
+                x_pos_word: 0x0124,
+                y_pos_word: 0x00F0,
+                child_byte_44: 0x02,
+                child_byte_45: 0x03,
+                x_direction: 0xFF,
+                x_velocity: -0x0000_3000,
+                startup_animation: "stru_33FA6",
+            },
+            "ASM Drips.asm loc_335D8 copies parent `$44/$45`, flips x_direction, and negates x_vel when `bclr #2,d7` finds the bit set"
         );
     }
 
