@@ -523,8 +523,12 @@ impl NativeRuntime {
                     // Lion.asm loc_3E20E: Y homing target is 16px ($10) above player
                     let dy = (py as i64 - (0x10 << 16)) - p.y_pos as i64;
                     p.x_velocity += if dx > 0 {
+                        // ASM loc_3E1F4: if `d7 = x_pos-proj - x_pos(Kid)` is
+                        // negative, increment `x_vel` by `$2000` and clamp later.
                         p.homing_accel
                     } else {
+                        // ASM loc_3E1C2: non-negative `d7` keeps the `subi` path
+                        // (`-=$2000`) into the same clamp gate.
                         -p.homing_accel
                     };
                     p.y_velocity += if dy > 0 {

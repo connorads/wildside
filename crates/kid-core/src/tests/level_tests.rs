@@ -14939,6 +14939,28 @@ mod chunk_10 {
     }
 
     #[test]
+    fn lion_projectile_loc_3e1f4_positive_x_branch_accelerates_toward_kid() {
+        // ASM Lion.asm loc_3E1F4: with `d7 = x_pos(a3)-x_pos(a4)` negative
+        // the routine uses `addi.l #$2000,x_vel(a3)` before clamp.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut proj = make_projectile(50, 84);
+        proj.homing_accel = 0x1000;
+        proj.speed_cap = 0x6_0000;
+        rt.projectiles.push(proj);
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 70 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles[0].x_velocity, 0x1000,
+            "loc_3E1F4 should add +homing_accel when projectile is left of Kid",
+        );
+    }
+
+    #[test]
     fn homing_accelerates_toward_player_on_both_axes() {
         // Player far right and below → both axes should get positive accel.
         // Player far left and above → both axes should get negative accel.
