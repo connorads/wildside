@@ -7326,6 +7326,60 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E082 (kid.asm:17400): add 8 to the metadata cursor until the
+    /// record layout word matches `d4`, then use the signed word at offset 6 to
+    /// decide whether evanescent reveal sprite words replace the default.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E082_hidden_block_evanescent_scan_uses_8_byte_records_and_negative_gate() {
+        let records = [
+            crate::level::HiddenBlockMetadataRecordLocE082 {
+                layout_word_addr: 0x0100,
+                control_word: 0,
+            },
+            crate::level::HiddenBlockMetadataRecordLocE082 {
+                layout_word_addr: 0x0120,
+                control_word: 0x0001,
+            },
+            crate::level::HiddenBlockMetadataRecordLocE082 {
+                layout_word_addr: 0x0140,
+                control_word: -1,
+            },
+        ];
+
+        let matched = crate::level::hidden_block_evanescent_metadata_scan_loc_E082(
+            0x0001_2400,
+            0x0140,
+            &records,
+        )
+        .expect("ASM loc_E082 should scan until the matching layout word is found");
+
+        assert_eq!(
+            matched.matched_record_addr, 0x0001_2410,
+            "ASM loc_E082 should advance by one 8-byte metadata record per failed comparison"
+        );
+        assert_eq!(
+            matched.scanned_records, 3,
+            "ASM loc_E082 should include the matching record in the scan count"
+        );
+        assert_eq!(
+            matched.evanescent_sprite_words,
+            Some((0xE101, 0x1058)),
+            "ASM loc_E082 should replace the reveal sprite words only when `tst.w 6(a0)` is negative"
+        );
+
+        let ordinary = crate::level::hidden_block_evanescent_metadata_scan_loc_E082(
+            0x0001_2400,
+            0x0120,
+            &records,
+        )
+        .expect("ASM loc_E082 should also return ordinary matching records");
+        assert_eq!(
+            ordinary.evanescent_sprite_words, None,
+            "ASM loc_E082 should leave existing reveal sprite words unchanged for non-negative control words"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

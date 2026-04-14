@@ -716,6 +716,21 @@ pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) layout_word_addr: u16,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockMetadataRecordLocE082 {
+    pub(crate) layout_word_addr: u16,
+    pub(crate) control_word: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockEvanescentScanLocE082 {
+    pub(crate) matched_record_addr: u32,
+    pub(crate) scanned_records: usize,
+    pub(crate) evanescent_sprite_words: Option<(u16, u16)>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -7801,6 +7816,31 @@ pub(crate) fn hidden_block_evanescent_scan_start_loc_E07A(
         first_record_addr: hidden_block_list_base_addr,
         layout_word_addr,
     }
+}
+
+/// ASM loc_E082 (kid.asm:17400): advance `a0` by one 8-byte hidden-block
+/// metadata record until `(a0)` matches the layout word address in `d4`. Once
+/// matched, `tst.w 6(a0)` leaves the existing reveal sprite words alone for a
+/// non-negative control word, or replaces them with `$E101/$1058` when that
+/// word is negative.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_evanescent_metadata_scan_loc_E082(
+    hidden_block_list_base_addr: u32,
+    layout_word_addr: u16,
+    records: &[HiddenBlockMetadataRecordLocE082],
+) -> Option<HiddenBlockEvanescentScanLocE082> {
+    records
+        .iter()
+        .position(|record| record.layout_word_addr == layout_word_addr)
+        .map(|record_index| {
+            let record = records[record_index];
+            HiddenBlockEvanescentScanLocE082 {
+                matched_record_addr: hidden_block_list_base_addr + (record_index as u32 * 8),
+                scanned_records: record_index + 1,
+                evanescent_sprite_words: (record.control_word < 0).then_some((0xE101, 0x1058)),
+            }
+        })
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,
