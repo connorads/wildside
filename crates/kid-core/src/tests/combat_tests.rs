@@ -6387,6 +6387,52 @@ mod chunk_03 {
         assert_eq!(window.vertical_reach_px, 0x0020);
     }
 
+    /// ASM loc_DFEE (kid.asm:17338): after `sub_DFB0` has selected the
+    /// horizontal reach words, the ROM converts Kid's pixel bounds to block
+    /// columns, clamps a negative start to zero, and computes `d1 -= d0`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DFEE_hidden_block_jump_scan_clamps_negative_start_and_counts_from_zero() {
+        let scan = hidden_block_jump_horizontal_scan_loc_DFEE(0x0003, 0x0010, 0x001F, 0x0020);
+
+        assert_eq!(
+            scan.start_col, 0,
+            "ASM loc_DFEE should clamp the arithmetic-shifted negative left edge to block column zero"
+        );
+        assert_eq!(
+            scan.end_col, 0x0002,
+            "ASM loc_DFEE should subtract one pixel from the right edge before shifting to a block column"
+        );
+        assert_eq!(
+            scan.block_count, 0x0002,
+            "ASM loc_DFEE should subtract the clamped start column from the end column"
+        );
+    }
+
+    /// ASM loc_DFEE (kid.asm:17338): the right edge is capped only after the
+    /// signed compare against `Level_width_blocks`, so equality with the level
+    /// width remains uncapped but strictly greater values become width-1.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DFEE_hidden_block_jump_scan_preserves_equal_width_and_caps_greater_end() {
+        let equal_width =
+            hidden_block_jump_horizontal_scan_loc_DFEE(0x00F1, 0x0001, 0x0010, 0x0010);
+        assert_eq!(
+            equal_width.end_col, 0x0010,
+            "ASM loc_DFEE should leave d1 unchanged when it equals Level_width_blocks"
+        );
+
+        let past_width = hidden_block_jump_horizontal_scan_loc_DFEE(0x00F2, 0x0001, 0x0020, 0x0010);
+        assert_eq!(
+            past_width.end_col, 0x000F,
+            "ASM loc_DFEE should cap d1 to Level_width_blocks-1 only when d1 is greater"
+        );
+        assert_eq!(
+            past_width.block_count, 0,
+            "ASM loc_DFEE should compute the scan count after applying the right-edge cap"
+        );
+    }
+
     #[test]
     fn hidden_block_reveal_worker_sub_e0f8_seeds_the_loc_e304_burst_worker() {
         let worker = hidden_block_reveal_worker_sub_E0F8(0x0002, 0x0003, 0x00FF_4A48, 0x1114);

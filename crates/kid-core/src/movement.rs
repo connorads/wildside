@@ -1145,6 +1145,14 @@ pub(crate) struct HiddenBlockJumpWindowSubDFB0 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HiddenBlockJumpHorizontalScanLocDFEE {
+    pub(crate) start_col: i16,
+    pub(crate) block_count: i16,
+    pub(crate) end_col: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockRevealWorkerSubE0F8 {
     pub(crate) allocation_spec: u16,
     pub(crate) object_handler_addr: u32,
@@ -1188,6 +1196,38 @@ pub(crate) fn hidden_block_jump_window_sub_DFB0(
         left_reach_px,
         right_reach_px,
         vertical_reach_px,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hidden_block_jump_horizontal_scan_loc_DFEE(
+    kid_x_pos_px: i16,
+    left_reach_px: i16,
+    right_reach_px: i16,
+    level_width_blocks: i16,
+) -> HiddenBlockJumpHorizontalScanLocDFEE {
+    // ASM loc_DFEE (kid.asm:17338): negate the left reach, add Kid's word X
+    // position to both horizontal bounds, subtract one from the right edge,
+    // arithmetic-shift both to block columns, clamp a negative start to zero,
+    // then cap only an end column greater than `Level_width_blocks`.
+    let left_edge_px = left_reach_px.wrapping_neg().wrapping_add(kid_x_pos_px);
+    let right_edge_px = right_reach_px.wrapping_add(kid_x_pos_px).wrapping_sub(1);
+
+    let mut start_col = left_edge_px >> 4;
+    if start_col < 0 {
+        start_col = 0;
+    }
+
+    let mut end_col = right_edge_px >> 4;
+    if end_col > level_width_blocks {
+        end_col = level_width_blocks.wrapping_sub(1);
+    }
+
+    HiddenBlockJumpHorizontalScanLocDFEE {
+        start_col,
+        block_count: end_col.wrapping_sub(start_col),
+        end_col,
     }
 }
 
