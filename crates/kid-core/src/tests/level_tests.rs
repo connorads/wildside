@@ -9776,6 +9776,36 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EED6 (kid.asm:19403): moving-left shooters only reset on the
+    /// fourth positive age, then step the layout pointer left by one word.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EED6_moving_left_resets_fourth_frame_and_steps_layout_left() {
+        assert_eq!(
+            crate::level::shooter_object_moving_left_gate_loc_EED6(3, 0x04A6),
+            crate::level::ShooterObjectMovingLeftGateLocEED6 {
+                state_word: 3,
+                layout_word_addr: 0x04A6,
+            },
+            "ASM loc_EED6 should leave non-fourth positive ages and the layout pointer unchanged"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_left_gate_loc_EED6(4, 0x04A6),
+            crate::level::ShooterObjectMovingLeftGateLocEED6 {
+                state_word: 0,
+                layout_word_addr: 0x04A4,
+            },
+            "ASM loc_EED6 should clear `$8(a0)` and subtract two from `(a0)` on the fourth frame"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_left_gate_loc_EED6(4, 0x0000).layout_word_addr,
+            0xFFFE,
+            "ASM loc_EED6 uses 16-bit wrapping for `subq.w #2,(a0)`"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

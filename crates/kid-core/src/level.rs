@@ -1065,6 +1065,13 @@ pub(crate) struct ShooterObjectMovingUpGateLocEE80 {
     pub(crate) next_step: ShooterObjectMovingUpNextLocEE80,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterObjectMovingLeftGateLocEED6 {
+    pub(crate) state_word: u16,
+    pub(crate) layout_word_addr: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8995,6 +9002,28 @@ pub(crate) fn shooter_object_moving_up_collision_gate_loc_EE92(
         ShooterObjectMovingUpNextLocEE80::InteractLevelLayout
     } else {
         ShooterObjectMovingUpNextLocEE80::ContinueMovingUp
+    }
+}
+
+/// ASM loc_EED6 (kid.asm:19403): moving-left shooters reset `$8(a0)` to zero
+/// every fourth positive age and subtract two from the layout pointer before the
+/// following collision gate reads `(a0)`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_left_gate_loc_EED6(
+    age_after_increment: u16,
+    current_layout_word_addr: u16,
+) -> ShooterObjectMovingLeftGateLocEED6 {
+    if age_after_increment == 4 {
+        ShooterObjectMovingLeftGateLocEED6 {
+            state_word: 0,
+            layout_word_addr: current_layout_word_addr.wrapping_sub(2),
+        }
+    } else {
+        ShooterObjectMovingLeftGateLocEED6 {
+            state_word: age_after_increment,
+            layout_word_addr: current_layout_word_addr,
+        }
     }
 }
 
