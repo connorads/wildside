@@ -2150,6 +2150,53 @@ const UFO_BEAM_INTERVAL_FRAMES: u8 = 5;
 /// Beam segment y_velocity: $30000 from ASM.
 const UFO_BEAM_Y_VELOCITY: i32 = 0x3_0000;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoBeamLoadTickLoc34FD6 {
+    pub(crate) next_beam_segments: u8,
+    pub(crate) next_beam_interval: u8,
+    pub(crate) spawn_beam_segment: bool,
+    pub(crate) clear_ufo_shooting_state: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_beam_load_tick_loc_34fd6(
+    shooting_active: bool,
+    beam_segments: u8,
+    beam_interval: u8,
+) -> UfoBeamLoadTickLoc34FD6 {
+    // ASM UFO.asm loc_34FD6: when `$46(a5)` is set, this counts down `$4A(a5)`
+    // each frame, reloads it to 5 every beam segment, and decrements `$48(a5)`.
+    if !shooting_active {
+        return UfoBeamLoadTickLoc34FD6 {
+            next_beam_segments: beam_segments,
+            next_beam_interval: beam_interval,
+            spawn_beam_segment: false,
+            clear_ufo_shooting_state: false,
+        };
+    }
+
+    let mut beam_interval = beam_interval.wrapping_sub(1);
+    if beam_interval != 0 {
+        return UfoBeamLoadTickLoc34FD6 {
+            next_beam_segments: beam_segments,
+            next_beam_interval: beam_interval,
+            spawn_beam_segment: false,
+            clear_ufo_shooting_state: false,
+        };
+    }
+
+    beam_interval = UFO_BEAM_INTERVAL_FRAMES;
+    let next_beam_segments = beam_segments.wrapping_sub(1);
+    let clear_ufo_shooting_state = next_beam_segments == 0;
+    UfoBeamLoadTickLoc34FD6 {
+        next_beam_segments,
+        next_beam_interval: beam_interval,
+        spawn_beam_segment: !clear_ufo_shooting_state,
+        clear_ufo_shooting_state,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_start_loc_34eec() -> UfoBeamStartLoc34Eec {
     // ASM UFO.asm loc_34EEC: targeted shooting starts the shared UFO beam
@@ -2180,7 +2227,12 @@ pub(crate) fn step_ufo_beam(
 ) {
     // Active beam sequence: spawn segments at intervals
     if enemy.ufo_beam_segments > 0 {
-        if enemy.ufo_beam_interval == 0 {
+        let tick =
+            ufo_beam_load_tick_loc_34fd6(true, enemy.ufo_beam_segments, enemy.ufo_beam_interval);
+        enemy.ufo_beam_segments = tick.next_beam_segments;
+        enemy.ufo_beam_interval = tick.next_beam_interval;
+
+        if tick.spawn_beam_segment {
             projectiles.push(EnemyProjectile {
                 x_pos: enemy.x_pos,
                 y_pos: (enemy.y_pos as i64 + (10 << 16)) as u32,
@@ -2194,10 +2246,6 @@ pub(crate) fn step_ufo_beam(
                 wall_bounce: false,
                 ..Default::default()
             });
-            enemy.ufo_beam_segments -= 1;
-            enemy.ufo_beam_interval = UFO_BEAM_INTERVAL_FRAMES;
-        } else {
-            enemy.ufo_beam_interval -= 1;
         }
         return;
     }
@@ -7371,6 +7419,42 @@ mod tests {
                 wait_timer: 0x32,
             },
             "ASM UFO.asm loc_34EEC writes `$48=4`, `$4A=5`, clears x/y velocity, and reloads `$44=$32`"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_load_tick_matches_loc_34fd6() {
+        assert_eq!(
+            ufo_beam_load_tick_loc_34fd6(false, 4, 5),
+            UfoBeamLoadTickLoc34FD6 {
+                next_beam_segments: 4,
+                next_beam_interval: 5,
+                spawn_beam_segment: false,
+                clear_ufo_shooting_state: false,
+            },
+            "ASM UFO.asm loc_34FD6 does nothing while `$46(a5)` is clear"
+        );
+
+        assert_eq!(
+            ufo_beam_load_tick_loc_34fd6(true, 4, 1),
+            UfoBeamLoadTickLoc34FD6 {
+                next_beam_segments: 3,
+                next_beam_interval: 5,
+                spawn_beam_segment: true,
+                clear_ufo_shooting_state: false,
+            },
+            "ASM UFO.asm loc_34FD6 reloads the 5-frame interval counter and decrements `$48(a5)` on each segment"
+        );
+
+        assert_eq!(
+            ufo_beam_load_tick_loc_34fd6(true, 1, 1),
+            UfoBeamLoadTickLoc34FD6 {
+                next_beam_segments: 0,
+                next_beam_interval: 5,
+                spawn_beam_segment: false,
+                clear_ufo_shooting_state: true,
+            },
+            "ASM UFO.asm loc_34FD6 enters loc_34FFE when the segment countdown reaches zero"
         );
     }
 
