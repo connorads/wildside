@@ -3653,6 +3653,19 @@ pub(crate) fn mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26() -> MiniHopp
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_left_hop_relaunch_tail_loc_3ed60() -> MiniHoppingSkullRelaunchTail
+{
+    // ASM Mini_Hopping_Skull.asm loc_3ED60: after loc_3ED36 has seeded the
+    // leftward hop velocities, this tail sets `is_moved(a3)` and
+    // `has_level_collision(a3)`, then branches back to loc_3EA88.
+    MiniHoppingSkullRelaunchTail {
+        is_moved: true,
+        has_level_collision: true,
+        next_loop: "loc_3EA88",
+    }
+}
+
 pub(crate) fn step_hopper(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
@@ -8476,6 +8489,19 @@ mod tests {
                 next_loop: "loc_3EA88",
             },
             "ASM Mini_Hopping_Skull.asm loc_3EC26 should re-enable movement and level collision before returning to loc_3EA88"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_left_hop_relaunch_tail_matches_loc_3ed60_flags() {
+        assert_eq!(
+            mini_hopping_skull_left_hop_relaunch_tail_loc_3ed60(),
+            MiniHoppingSkullRelaunchTail {
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3ED60 should re-enable movement and level collision before returning to loc_3EA88"
         );
     }
 
