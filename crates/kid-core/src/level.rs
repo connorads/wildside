@@ -11074,6 +11074,57 @@ pub(crate) const EOL_NUMBER_DIGIT_SPACING_LOC_C4E2: u16 = 0x000C;
 #[allow(dead_code)]
 pub(crate) const POWERS_OF_TEN_LOC_C48C: [u32; 7] = [1_000_000, 100_000, 10_000, 1_000, 100, 10, 1];
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LevelSkipCompletionTimeDigitSpriteLocD468 {
+    pub(crate) digit: u8,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) display_flag: u8,
+    pub(crate) priority_layer: u8,
+    pub(crate) palette_line: u8,
+    pub(crate) vram_tile: u16,
+}
+
+/// ASM loc_D468 (kid.asm:16626): level-skip cheat EOL time digit sprites.
+///
+/// When `LevelSkip_Cheat` is non-zero, the ROM allocates three gfx objects
+/// before the normal EOL text path. `d3` starts from the byte
+/// `Level_completion_time`; each `divu.w #$A,d3` stores the remainder digit
+/// through `Spr_EOL_Digits_Index`, then keeps the quotient for the next sprite.
+/// Sprites are placed right-to-left at camera X + `$11C`, `$110`, `$104` and
+/// share camera Y + `$D4`, display flag `$FF`, priority `$02`, palette `$01`,
+/// and VRAM tile `$517`.
+#[allow(dead_code)]
+#[allow(non_snake_case)]
+pub(crate) fn level_skip_completion_time_digit_sprites_loc_D468(
+    level_skip_cheat: bool,
+    level_completion_time: u8,
+    camera_x_pos: u16,
+    camera_y_pos: u16,
+) -> Option<[LevelSkipCompletionTimeDigitSpriteLocD468; 3]> {
+    if !level_skip_cheat {
+        return None;
+    }
+
+    let y_pos = camera_y_pos.wrapping_add(0x00D4);
+    let common = |digit: u8, x_offset: u16| LevelSkipCompletionTimeDigitSpriteLocD468 {
+        digit,
+        x_pos: camera_x_pos.wrapping_add(x_offset),
+        y_pos,
+        display_flag: 0xFF,
+        priority_layer: 2,
+        palette_line: 1,
+        vram_tile: 0x0517,
+    };
+
+    Some([
+        common(level_completion_time % 10, 0x011C),
+        common((level_completion_time / 10) % 10, 0x0110),
+        common(level_completion_time / 100, 0x0104),
+    ])
+}
+
 /// ASM loc_C4AE (kid.asm:16139): determine what to display for one digit position.
 ///
 /// Returns `Some(digit)` (0–9) if a visible digit should be shown, or `None` if

@@ -2820,6 +2820,53 @@ mod chunk_01 {
         );
     }
 
+    /// ASM loc_D468 (kid.asm:16626): the level-skip cheat path emits three
+    /// completion-time digit sprites before entering the ordinary EOL object
+    /// layout. `divu.w #$A,d3; swap d3` consumes ones, tens, then hundreds.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D468_level_skip_completion_time_digits_are_placed_right_to_left() {
+        let sprites = level_skip_completion_time_digit_sprites_loc_D468(true, 123, 0x0200, 0x0040)
+            .expect("ASM loc_D468 should allocate digit sprites when LevelSkip_Cheat is set");
+
+        assert_eq!(
+            sprites.map(|sprite| sprite.digit),
+            [3, 2, 1],
+            "ASM loc_D468 should display Level_completion_time remainders from ones to hundreds"
+        );
+        assert_eq!(
+            sprites.map(|sprite| sprite.x_pos),
+            [0x031C, 0x0310, 0x0304],
+            "ASM loc_D468 seeds d2 with camera X + `$11C` and subtracts `$C` per digit"
+        );
+        assert_eq!(
+            sprites.map(|sprite| sprite.y_pos),
+            [0x0114, 0x0114, 0x0114],
+            "ASM loc_D468 places all three digits at camera Y + `$D4`"
+        );
+        assert!(
+            sprites.iter().all(|sprite| sprite.display_flag == 0xFF),
+            "ASM loc_D468 uses `st $13(a1)` for each digit object"
+        );
+        assert!(
+            sprites.iter().all(|sprite| sprite.priority_layer == 2
+                && sprite.palette_line == 1
+                && sprite.vram_tile == 0x0517),
+            "ASM loc_D468 gives each digit priority 2, palette 1, and VRAM tile `$517`"
+        );
+    }
+
+    /// ASM loc_D468 (kid.asm:16626): `tst.b (LevelSkip_Cheat).w; beq.s loc_D4CE`
+    /// skips the three digit allocations entirely when the cheat flag is clear.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D468_level_skip_completion_time_digits_skip_when_cheat_clear() {
+        assert!(
+            level_skip_completion_time_digit_sprites_loc_D468(false, 99, 0x0200, 0x0040).is_none(),
+            "ASM loc_D468 should branch straight to loc_D4CE when LevelSkip_Cheat is clear"
+        );
+    }
+
     /// ASM loc_C48C (kid.asm:16128): values above 9999999 are clamped.
     #[test]
     fn loc_c48c_eol_number_clamp_overflow() {
