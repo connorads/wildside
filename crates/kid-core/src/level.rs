@@ -767,6 +767,15 @@ pub(crate) struct EvanescentBlockRemovalGateLocEA3E {
     pub(crate) should_try_remove_block: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentBlockEraseMatchLocEA5A {
+    pub(crate) should_erase_block_from_level_layout: bool,
+    pub(crate) erased_block_col: Option<u16>,
+    pub(crate) erased_block_row: Option<u16>,
+    pub(crate) final_layout_cell_word: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -7948,6 +7957,37 @@ pub(crate) fn evanescent_block_removal_gate_loc_EA3E(
         next_timer: 1,
         should_try_remove_block: (layout_cell_hi_byte as i8) < 0
             && (layout_cell_hi_byte & 0x0F) < 0x0D,
+    }
+}
+
+/// ASM loc_EA5A (kid.asm:18783): compare the current Level_Layout word at
+/// `(a1)` with the evanescent object's saved word at `$6(a2)`. A mismatch
+/// skips the erase but still continues to `loc_EA72`; a match calls
+/// `EraseBlockFromLevelLayout` with the object's column/row and then writes
+/// byte `$20` back to `(a1)`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_block_erase_match_loc_EA5A(
+    layout_cell_word: u16,
+    saved_cell_word: u16,
+    block_col: u16,
+    block_row: u16,
+    erased_layout_cell_word: u16,
+) -> EvanescentBlockEraseMatchLocEA5A {
+    if layout_cell_word != saved_cell_word {
+        return EvanescentBlockEraseMatchLocEA5A {
+            should_erase_block_from_level_layout: false,
+            erased_block_col: None,
+            erased_block_row: None,
+            final_layout_cell_word: layout_cell_word,
+        };
+    }
+
+    EvanescentBlockEraseMatchLocEA5A {
+        should_erase_block_from_level_layout: true,
+        erased_block_col: Some(block_col),
+        erased_block_row: Some(block_row),
+        final_layout_cell_word: 0x2000 | (erased_layout_cell_word & 0x00FF),
     }
 }
 

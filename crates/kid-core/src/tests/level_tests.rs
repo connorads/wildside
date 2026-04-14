@@ -8489,6 +8489,42 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EA5A (kid.asm:18783): only an exact word match between `(a1)`
+    /// and `$6(a2)` calls `EraseBlockFromLevelLayout`; after that call the ROM
+    /// overwrites the high byte of the updated cell with `$20`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EA5A_erases_only_the_saved_cell_word_match() {
+        let matched = crate::level::evanescent_block_erase_match_loc_EA5A(
+            0x8C34, 0x8C34, 0x0012, 0x0007, 0x6A5B,
+        );
+
+        assert_eq!(
+            matched,
+            crate::level::EvanescentBlockEraseMatchLocEA5A {
+                should_erase_block_from_level_layout: true,
+                erased_block_col: Some(0x0012),
+                erased_block_row: Some(0x0007),
+                final_layout_cell_word: 0x205B,
+            },
+            "ASM loc_EA5A should pass `$2(a2)/$4(a2)` to EraseBlockFromLevelLayout and then force byte `$20` over the erased cell high byte"
+        );
+
+        let mismatched = crate::level::evanescent_block_erase_match_loc_EA5A(
+            0x8C35, 0x8C34, 0x0012, 0x0007, 0x6A5B,
+        );
+        assert_eq!(
+            mismatched,
+            crate::level::EvanescentBlockEraseMatchLocEA5A {
+                should_erase_block_from_level_layout: false,
+                erased_block_col: None,
+                erased_block_row: None,
+                final_layout_cell_word: 0x8C35,
+            },
+            "ASM loc_EA5A should skip EraseBlockFromLevelLayout when another system has already changed the layout word"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
