@@ -981,6 +981,7 @@ impl FrameInput {
             },
             // ASM loc_D44 (kid.asm:1521): `bclr #6,d0; bset #5,d6` maps A→C.
             // ASM loc_D4E (kid.asm:1526): `bclr #4,d0; bset #6,d6` maps B→A.
+            // ASM loc_D58 (kid.asm:1531): `bclr #5,d0; bset #4,d6` maps C→B.
             4 => Self {
                 a: self.b,
                 b: self.c,
