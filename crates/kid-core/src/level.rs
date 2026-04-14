@@ -11571,6 +11571,15 @@ pub(crate) struct EolScoreCounterApplyLocD77E {
     pub(crate) awards_extra_life: bool,
 }
 
+/// ASM loc_D79E (kid.asm:16872): compare old/new `divu.w #50000`
+/// quotients after the EOL score-counter add. Any quotient change awards one
+/// life and spawns one `loc_C5DE` extra-life icon.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eol_score_counter_awards_life_loc_D79E(old_score: u32, new_score: u32) -> bool {
+    old_score / SCORE_EXTRA_LIFE_INTERVAL != new_score / SCORE_EXTRA_LIFE_INTERVAL
+}
+
 /// ASM loc_D77E (kid.asm:16862): add the current EOL transfer chunk to
 /// `(Score).w`, clamp to `9_999_999`, then compare old/new `divu #50000`
 /// quotients. The EOL loop issues one `addq.w #1,(Number_Lives).w` when the
@@ -11582,8 +11591,7 @@ pub(crate) fn eol_score_counter_apply_loc_D77E(
     transfer_chunk: u32,
 ) -> EolScoreCounterApplyLocD77E {
     let score = current_score.saturating_add(transfer_chunk).min(SCORE_CAP);
-    let awards_extra_life =
-        current_score / SCORE_EXTRA_LIFE_INTERVAL != score / SCORE_EXTRA_LIFE_INTERVAL;
+    let awards_extra_life = eol_score_counter_awards_life_loc_D79E(current_score, score);
 
     EolScoreCounterApplyLocD77E {
         score,

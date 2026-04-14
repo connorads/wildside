@@ -6436,6 +6436,26 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D79E (kid.asm:16872): the EOL counter divides old and capped
+    /// new score by 50,000 and awards exactly one extra life if the quotients
+    /// differ.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D79E_eol_score_counter_compares_50k_quotients_for_one_life_award() {
+        assert!(
+            crate::level::eol_score_counter_awards_life_loc_D79E(49_990, 50_010),
+            "ASM loc_D79E should award one life when the 50,000-point quotient changes"
+        );
+        assert!(
+            crate::level::eol_score_counter_awards_life_loc_D79E(40_000, 110_000),
+            "ASM loc_D79E has one addq.w life operation even if the transfer spans multiple intervals"
+        );
+        assert!(
+            !crate::level::eol_score_counter_awards_life_loc_D79E(9_995_000, SCORE_CAP),
+            "ASM loc_D79E receives the capped score, so the cap must not create a phantom quotient change"
+        );
+    }
+
     /// ASM loc_D77E (kid.asm:16862): the EOL score counter adds `d4` to
     /// `(Score).w`, caps at 9,999,999, and awards a single life when the old
     /// and new `score / 50000` quotients differ.
