@@ -6993,6 +6993,38 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_collision_rects_loc_f6d2_emits_left_facing_rectangles_inside_window() {
+        let rects = NativeRuntime::shooter_collision_rects_sub_F568(
+            CollisionRectSub1F52 {
+                left_px: 80,
+                right_px: 96,
+                top_px: 96,
+                bottom_px: 112,
+            },
+            &[(5, 6, 0x08), (6, 6, 0x08)],
+        );
+
+        assert_eq!(
+            rects,
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 88,
+                    right_px: 96,
+                    top_px: 97,
+                    bottom_px: 109,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 84,
+                    right_px: 96,
+                    top_px: 100,
+                    bottom_px: 106,
+                },
+            ],
+            "ASM loc_F6D2 should skip a left-facing shooter with col-left_block `< 2` and emit the pair for the next inside column",
+        );
+    }
+
+    #[test]
     fn shooter_collision_top_block_loc_f574_clamps_the_expanded_top_window() {
         assert_eq!(
             NativeRuntime::shooter_collision_top_block_loc_F574(0x000F),

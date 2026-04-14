@@ -959,6 +959,9 @@ impl NativeRuntime {
                 && row != top_block
                 && row != bottom_block
             {
+                // ASM loc_F6D2 (kid.asm:20354): the left-facing shooter emits
+                // two rectangles when its column is at least two blocks inside
+                // the left edge and its row is off the top/bottom edges.
                 rects.push(CollisionRectSub1F52 {
                     left_px: x - 8,
                     right_px: x,
