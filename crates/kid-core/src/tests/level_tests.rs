@@ -9611,6 +9611,46 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EE2A (kid.asm:19331): moving-right shooter objects reset the
+    /// positive age word every fourth frame, advance the layout pointer only on
+    /// that reset, and use the current layout word's high collision bits to
+    /// decide whether to interact with the level layout.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EE2A_resets_fourth_frame_and_gates_solid_interaction() {
+        assert_eq!(
+            crate::level::shooter_object_moving_right_gate_loc_EE2A(1, 0x04A6, 0x4000),
+            crate::level::ShooterObjectMovingRightGateLocEE2A {
+                state_word: 1,
+                layout_word_addr: 0x04A6,
+                next_step: crate::level::ShooterObjectMovingRightNextLocEE2A::ContinueMovingRight,
+            },
+            "ASM loc_EE2A should let age 1 continue through a bit-14 cell when bits `$3000` are clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_right_gate_loc_EE2A(2, 0x04A6, 0x4000).next_step,
+            crate::level::ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout,
+            "ASM loc_EE2A should interact on age 2 once bit 14 is set, even when bits `$3000` are clear"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_right_gate_loc_EE2A(4, 0x04A6, 0x5000),
+            crate::level::ShooterObjectMovingRightGateLocEE2A {
+                state_word: 0,
+                layout_word_addr: 0x04A8,
+                next_step: crate::level::ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout,
+            },
+            "ASM loc_EE2A should reset age 4 to zero before the compare, advance the layout pointer, then still interact when bits `$3000` are non-zero"
+        );
+
+        assert_eq!(
+            crate::level::shooter_object_moving_right_gate_loc_EE2A(4, 0x04A6, 0x4000).next_step,
+            crate::level::ShooterObjectMovingRightNextLocEE2A::ContinueMovingRight,
+            "ASM loc_EE2A should use the reset zero age for the later compare, so bit 14 alone does not interact on the fourth-frame reset"
+        );
+    }
+
     #[test]
     #[allow(non_snake_case)]
     fn loc_EAE4_skips_clear_bit15_cells_and_the_scan_flag_path() {

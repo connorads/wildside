@@ -1026,6 +1026,21 @@ pub(crate) struct EvanescentBulletLayoutWriteLocED98 {
     pub(crate) next_step: EvanescentBulletLayoutWriteNextLocED98,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ShooterObjectMovingRightNextLocEE2A {
+    ContinueMovingRight,
+    InteractLevelLayout,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterObjectMovingRightGateLocEE2A {
+    pub(crate) state_word: u16,
+    pub(crate) layout_word_addr: u16,
+    pub(crate) next_step: ShooterObjectMovingRightNextLocEE2A,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8846,6 +8861,38 @@ pub(crate) fn evanescent_bullet_layout_write_loc_ED98(
             }
         } else {
             EvanescentBulletLayoutWriteNextLocED98::ProcessShooterObjects
+        },
+    }
+}
+
+/// ASM loc_EE2A (kid.asm:19331): moving-right shooter objects with positive
+/// age reset `$8(a0)` to zero and advance `(a0)` every fourth frame, then read
+/// the current level-layout word. Bit 14 gates the interaction test; ages two
+/// and three interact immediately, while ages zero/one interact only when
+/// bits `$3000` are also present.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_moving_right_gate_loc_EE2A(
+    age_after_increment: u16,
+    current_layout_word_addr: u16,
+    current_layout_word: u16,
+) -> ShooterObjectMovingRightGateLocEE2A {
+    let (state_word, layout_word_addr) = if age_after_increment == 4 {
+        (0, current_layout_word_addr.wrapping_add(2))
+    } else {
+        (age_after_increment, current_layout_word_addr)
+    };
+
+    let should_interact = (current_layout_word & 0x4000) != 0
+        && (state_word >= 2 || (current_layout_word & 0x3000) != 0);
+
+    ShooterObjectMovingRightGateLocEE2A {
+        state_word,
+        layout_word_addr,
+        next_step: if should_interact {
+            ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout
+        } else {
+            ShooterObjectMovingRightNextLocEE2A::ContinueMovingRight
         },
     }
 }
