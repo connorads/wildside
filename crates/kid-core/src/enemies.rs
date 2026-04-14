@@ -5802,7 +5802,17 @@ pub(crate) fn drips_vertical_bounds_contact_flag_loc_335b0(
     } else {
         y_pos_word.wrapping_add(8) >= level_height_pixels
     };
-    u16::from(out_of_bounds)
+    if out_of_bounds {
+        1
+    } else {
+        drips_bounds_no_contact_result_loc_335d0()
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_bounds_no_contact_result_loc_335d0() -> u16 {
+    // ASM Drips.asm loc_335D0: the in-bounds return tail moves 0 into d5.
+    0
 }
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
@@ -7477,6 +7487,20 @@ mod tests {
             drips_vertical_bounds_contact_flag_loc_335b0(0x0008, -0x0000_3000, 0x0100),
             0,
             "ASM Drips.asm loc_335B0 returns d5=0 when the upward probe lands exactly on the top edge"
+        );
+    }
+
+    #[test]
+    fn drips_bounds_no_contact_result_matches_loc_335d0() {
+        assert_eq!(
+            drips_bounds_no_contact_result_loc_335d0(),
+            0,
+            "ASM Drips.asm loc_335D0 moves 0 into d5 for the in-bounds return tail"
+        );
+        assert_eq!(
+            drips_vertical_bounds_contact_flag_loc_335b0(0x0008, -0x0000_3000, 0x0100),
+            drips_bounds_no_contact_result_loc_335d0(),
+            "ASM Drips.asm loc_335D0 is reached after the upward probe remains in bounds"
         );
     }
 
