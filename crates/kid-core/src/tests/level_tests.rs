@@ -6672,6 +6672,64 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D984 (kid.asm:17010): after loading each next object pointer
+    /// from the linked list, skip the current `a5` object and clear only the
+    /// `$36/$3A/$3E` longwords on the other objects.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D984_end_credits_cleanup_clears_other_object_collision_fields() {
+        let mut objects = [
+            crate::level::ObjectCollisionFieldsLocD980 {
+                object_addr: 0x0010_0000,
+                field_36: 0x3636_3636,
+                field_3a: 0x3A3A_3A3A,
+                field_3e: 0x3E3E_3E3E,
+            },
+            crate::level::ObjectCollisionFieldsLocD980 {
+                object_addr: 0x0020_0000,
+                field_36: 0xAAAA_AAAA,
+                field_3a: 0xBBBB_BBBB,
+                field_3e: 0xCCCC_CCCC,
+            },
+            crate::level::ObjectCollisionFieldsLocD980 {
+                object_addr: 0x0030_0000,
+                field_36: 0x1111_1111,
+                field_3a: 0x2222_2222,
+                field_3e: 0x3333_3333,
+            },
+        ];
+
+        crate::level::end_credits_clear_other_object_collision_loc_D984(&mut objects, 0x0020_0000);
+
+        assert_eq!(
+            (
+                objects[0].field_36,
+                objects[0].field_3a,
+                objects[0].field_3e
+            ),
+            (0, 0, 0),
+            "ASM loc_D984 should clear all three collision/contact longwords on non-current objects"
+        );
+        assert_eq!(
+            (
+                objects[1].field_36,
+                objects[1].field_3a,
+                objects[1].field_3e,
+            ),
+            (0xAAAA_AAAA, 0xBBBB_BBBB, 0xCCCC_CCCC),
+            "ASM loc_D984 should branch back immediately when the linked-list entry equals current a5"
+        );
+        assert_eq!(
+            (
+                objects[2].field_36,
+                objects[2].field_3a,
+                objects[2].field_3e
+            ),
+            (0, 0, 0),
+            "ASM loc_D984 should continue scanning after skipping the current object"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

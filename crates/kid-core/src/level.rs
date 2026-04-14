@@ -11675,6 +11675,17 @@ pub(crate) fn flagpole_clear_other_object_collision_loc_D980(
     }
 }
 
+/// ASM loc_D984 (kid.asm:17010): loop over `Addr_FirstObjectSlot`, skip the
+/// current object in `a5`, and clear `$36/$3A/$3E` on every other object.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_clear_other_object_collision_loc_D984(
+    objects: &mut [ObjectCollisionFieldsLocD980],
+    current_object_addr: u32,
+) {
+    flagpole_clear_other_object_collision_loc_D980(objects, current_object_addr);
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
