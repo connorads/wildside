@@ -3723,6 +3723,25 @@ pub(crate) fn mini_hopping_skull_left_hop_damage_sequence_loc_3ed1e(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_damage_sequence_loc_3ede0(
+    hit_counter: u16,
+) -> MiniHoppingSkullDamageSequence {
+    // ASM Mini_Hopping_Skull.asm loc_3EDE0: this second HP-decrement path in the
+    // left-hop flow mirrors `loc_3EB60`, subtracting one HP, jumping to death
+    // on zero, and replaying `stru_3E9C2` otherwise.
+    let remaining_hits = hit_counter.wrapping_sub(1);
+    if remaining_hits == 0 {
+        MiniHoppingSkullDamageSequence::SkullDestroyed
+    } else {
+        MiniHoppingSkullDamageSequence::PlayHitAnimation {
+            remaining_hits,
+            animation: "stru_3E9C2",
+            hibernate_until_finished: true,
+        }
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_ground_wait_tail_loc_3eb78(
     dbf_counter: u16,
     kid_x_word: u16,
@@ -8993,6 +9012,33 @@ mod tests {
                 hibernate_until_finished: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3ED1E uses word wrapping for the hit-counter decrement"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_damage_sequence_matches_loc_3ede0() {
+        assert_eq!(
+            mini_hopping_skull_damage_sequence_loc_3ede0(1),
+            MiniHoppingSkullDamageSequence::SkullDestroyed,
+            "ASM Mini_Hopping_Skull.asm loc_3EDE0 should jump to loc_3F176 when the decremented hit counter becomes zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_damage_sequence_loc_3ede0(2),
+            MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                remaining_hits: 1,
+                animation: "stru_3E9C2",
+                hibernate_until_finished: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EDE0 should replay `stru_3E9C2` when hits remain"
+        );
+        assert_eq!(
+            mini_hopping_skull_damage_sequence_loc_3ede0(0),
+            MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                remaining_hits: 0xFFFF,
+                animation: "stru_3E9C2",
+                hibernate_until_finished: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EDE0 wraps the hit counter with word subtraction"
         );
     }
 
