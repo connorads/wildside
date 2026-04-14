@@ -187,6 +187,25 @@ pub(crate) fn lion_clear_tracking_latch_loc_3e066(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_track_kid_nonnegative_delta_facing_loc_3e06a(
+    lion_x_word: u16,
+    kid_x_word: u16,
+) -> Direction {
+    let lion_x = i16::from_ne_bytes(lion_x_word.to_ne_bytes());
+    let kid_x = i16::from_ne_bytes(kid_x_word.to_ne_bytes());
+    let delta = lion_x.wrapping_sub(kid_x);
+    // ASM Lion.asm loc_3E06A: `tst.w d4`; negative values branch away,
+    // otherwise the fallthrough executes `sf x_direction(a3)`.
+    // The fallthrough path handles zero and positive deltas by clearing
+    // x_direction, which is the Lion's left-facing orientation.
+    if delta < 0 {
+        Direction::Right
+    } else {
+        Direction::Left
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
@@ -6624,6 +6643,20 @@ mod tests {
                 facing: Direction::Left,
             },
             "ASM Lion.asm loc_3E066 should clear `$4E(a5)` and keep non-negative d4 facing toward Kid on the left"
+        );
+    }
+
+    #[test]
+    fn lion_track_kid_facing_matches_loc_3e06a_nonnegative_delta() {
+        assert_eq!(
+            lion_track_kid_nonnegative_delta_facing_loc_3e06a(0x0300, 0x0200),
+            Direction::Left,
+            "ASM Lion.asm loc_3E06A should clear x_direction when signed d4 = lion_x - kid_x is positive"
+        );
+        assert_eq!(
+            lion_track_kid_nonnegative_delta_facing_loc_3e06a(0x0200, 0x0200),
+            Direction::Left,
+            "ASM Lion.asm loc_3E06A should also clear x_direction when signed d4 is zero"
         );
     }
 
