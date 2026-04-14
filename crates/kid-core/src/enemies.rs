@@ -2457,7 +2457,7 @@ pub(crate) fn ufo_apply_acceleration_axis_loc_3502a(
 ) -> i32 {
     // ASM UFO.asm loc_3502A: add positive acceleration and cap to desired axis speed.
     let next_velocity = current_velocity.saturating_add(acceleration);
-    next_velocity.min(target_velocity)
+    ufo_apply_acceleration_axis_loc_35050(next_velocity.min(target_velocity))
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -2480,10 +2480,16 @@ pub(crate) fn ufo_apply_acceleration_axis_loc_35044(
     // ASM UFO.asm loc_35044: keep the accelerated value while it stays above the target.
     let next_velocity = current_velocity.saturating_add(acceleration);
     if next_velocity > target_velocity {
-        next_velocity
+        ufo_apply_acceleration_axis_loc_35050(next_velocity)
     } else {
-        target_velocity
+        ufo_apply_acceleration_axis_loc_35050(target_velocity)
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_apply_acceleration_axis_loc_35050(final_velocity: i32) -> i32 {
+    // ASM UFO.asm loc_35050: write the chosen `d7` into Y velocity and return.
+    final_velocity
 }
 
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
@@ -7543,6 +7549,15 @@ mod tests {
             ufo_apply_acceleration_axis_loc_35044(0x0300, 0x0201, -0x0100),
             0x0201,
             "ASM UFO.asm loc_35044 clamps to target when the next value would pass below"
+        );
+    }
+
+    #[test]
+    fn ufo_apply_acceleration_axis_matches_loc_35050() {
+        assert_eq!(
+            ufo_apply_acceleration_axis_loc_35050(0x1234),
+            0x1234,
+            "ASM UFO.asm loc_35050 stores the chosen velocity and returns"
         );
     }
 
