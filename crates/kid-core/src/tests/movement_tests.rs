@@ -796,6 +796,20 @@ mod chunk_11 {
     }
 
     #[test]
+    fn loc_e34c_offset_hidden_block_reveal_bounces_up_four_frames() {
+        assert_eq!(
+            crate::movement::hidden_block_reveal_offset_bounce_up_loc_E34C(0x0079),
+            crate::movement::HiddenBlockRevealBounceLocE34C {
+                y_pos_after_hibernates: [0x0077, 0x0075, 0x0073, 0x0071],
+                final_y_pos_px: 0x0071,
+                hibernate_frames: 4,
+                follows_offset_position_setup: true,
+            },
+            "ASM loc_E34C should run after the loc_E304 `$52(a5)` Y-offset setup and subtract two pixels before each of four one-frame hibernates",
+        );
+    }
+
+    #[test]
     fn loc_14506_consumes_dbf_counter_plus_one_rubber_block_source_words() {
         assert_eq!(
             crate::level::indoor_rubber_block_source_words_loc_14506(
