@@ -856,6 +856,24 @@ pub(crate) fn sound_driver_write_command_and_two_bytes_loc_E1584(
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_02_two_bytes_loc_E157E(
+    command_head_byte: u8,
+    first_payload: u8,
+    second_payload: u8,
+) -> SoundDriverWriteCommandAndTwoBytes {
+    // ASM loc_E157E (kid.asm:49854): enter the shared Z80/GEMS write section,
+    // load command `$02` into `d0`, then fall through to loc_E1584 for the two
+    // low-byte payload writes.
+    sound_driver_write_command_and_two_bytes_loc_E1584(
+        command_head_byte,
+        0x02,
+        first_payload,
+        second_payload,
+    )
+}
+
 #[derive(Debug, Clone, Copy)]
 struct PendingStompBounce {
     anchor_x_pos: u32,
