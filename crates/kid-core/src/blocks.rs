@@ -1628,6 +1628,15 @@ impl NativeRuntime {
         if player_in_range { Some(1) } else { None }
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn shooter_slot_freed_cell_loc_F336(skin: u8) -> terrain::Cell {
+        // ASM loc_F336 (kid.asm:19921): before unlinking the active shooter
+        // slot, `move.b #$EC,(a3)` restores the layout high byte and preserves
+        // the skin byte already stored at the cell's low address.
+        terrain::Cell::from_be_bytes(0xEC, skin)
+    }
+
     fn shooter_deleted_tile_for_sub_114c0(skin: u8) -> terrain::Cell {
         terrain::Cell::from_be_bytes(0xEF, skin)
     }
@@ -1887,6 +1896,9 @@ impl NativeRuntime {
             }
 
             entry.age += 1;
+            // ASM loc_F336 (kid.asm:19921): the ROM unlinks expired active
+            // shooter slots back to `$FFFFF8C4`; native's retain false path is
+            // the same active-list removal in Vec form.
             entry.age < Self::SHOOTER_FIRE_INTERVAL
         });
     }

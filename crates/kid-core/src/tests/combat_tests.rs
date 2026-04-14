@@ -8323,6 +8323,38 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_slot_loc_f336_restores_ec_cell_and_unlinks_the_slot() {
+        assert_eq!(
+            NativeRuntime::shooter_slot_freed_cell_loc_F336(0x2D),
+            terrain::Cell::from_be_bytes(0xEC, 0x2D),
+            "ASM loc_F336 (kid.asm:19921) should write high byte `$EC` while preserving the shooter cell skin byte"
+        );
+
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x02)]));
+        runtime.block_state.shooter_blocks = vec![ShooterBlockEntry {
+            col: 5,
+            row: 3,
+            directions: 0x02,
+            supported_by_neighbour: false,
+            age: 21,
+        }];
+        runtime.block_state.shooter_last_scanned_col = 2;
+        runtime.block_state.shooter_last_scanned_row = 3;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (3 * 16) << 16;
+        runtime.step_shooter_blocks(&slice);
+
+        assert!(
+            runtime.block_state.shooter_blocks.is_empty(),
+            "ASM loc_F336 should unlink an expiring active shooter slot; native models the active/free lists with Vec retain"
+        );
+    }
+
+    #[test]
     fn shooter_headbutt_center_worker_runs_sub_114c0_timeline() {
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
