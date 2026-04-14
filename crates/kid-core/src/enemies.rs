@@ -1966,13 +1966,8 @@ pub(crate) fn ufo_tracking_command_loc_34e2a(
         return None;
     }
 
-    let motion = if ufo_x < kid_x {
-        UfoMotionCommand {
-            x_acceleration: 0x1000,
-            target_x_velocity: 0x20000,
-            y_acceleration: 0,
-            target_y_velocity: 0,
-        }
+    let command = if ufo_x < kid_x {
+        ufo_right_tracking_command_loc_34e86()
     } else {
         UfoMotionCommand {
             x_acceleration: -0x1000,
@@ -1982,7 +1977,7 @@ pub(crate) fn ufo_tracking_command_loc_34e2a(
         }
     };
     let motion = ufo_double_terminal_speed_loc_34e1c(
-        ufo_double_acceleration_loc_34e10(motion, double_acceleration),
+        ufo_double_acceleration_loc_34e10(command, double_acceleration),
         double_terminal_speed,
     );
 
@@ -1995,6 +1990,18 @@ pub(crate) fn ufo_tracking_command_loc_34e2a(
             Direction::Left
         },
     })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_right_tracking_command_loc_34e86() -> UfoMotionCommand {
+    // ASM UFO.asm loc_34E86: Kid is to the right, so d1/d0 become
+    // +$20000/+$1000 and `st x_direction(a3)` marks the UFO as flipped.
+    UfoMotionCommand {
+        x_acceleration: 0x1000,
+        target_x_velocity: 0x20000,
+        y_acceleration: 0,
+        target_y_velocity: 0,
+    }
 }
 
 pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
@@ -6897,6 +6904,36 @@ mod tests {
                 facing: Direction::Right,
             }),
             "ASM UFO.asm loc_34E2A includes the Kid X - $30 edge and steers right when UFO X is less than Kid X"
+        );
+    }
+
+    #[test]
+    fn ufo_tracking_right_command_matches_loc_34e86() {
+        assert_eq!(
+            ufo_right_tracking_command_loc_34e86(),
+            UfoMotionCommand {
+                x_acceleration: 0x1000,
+                target_x_velocity: 0x20000,
+                y_acceleration: 0,
+                target_y_velocity: 0,
+            },
+            "ASM UFO.asm loc_34E86 writes positive d0/d1 for rightward Kid chase before setting flipped x_direction"
+        );
+
+        assert_eq!(
+            ufo_tracking_command_loc_34e2a(
+                0x00D0_0000,
+                0x0080_0000,
+                0x0100_0000,
+                0x0090_0000,
+                true,
+                false,
+                false,
+                false,
+            )
+            .map(|command| command.facing),
+            Some(Direction::Right),
+            "ASM UFO.asm loc_34E86 reaches `st x_direction(a3)`, represented by the right-facing/flipped native command"
         );
     }
 
