@@ -883,6 +883,15 @@ pub(crate) struct ShooterExpiredSlotSpliceLocF35E {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ShooterExpiredSlotFreeListPushLocF364 {
+    pub(crate) first_free_slot_addr: u32,
+    pub(crate) should_continue_active_scan: bool,
+    pub(crate) next_active_slot_to_process_addr: u32,
+    pub(crate) slots: Vec<LinkedObjectSlotInit>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
@@ -8696,6 +8705,31 @@ pub(crate) fn shooter_expired_slot_splice_predecessor_loc_F35E(
     predecessor.next_slot_addr = target_next_slot_addr;
 
     Some(ShooterExpiredSlotSpliceLocF35E { slots })
+}
+
+/// ASM loc_F364 (kid.asm:19943): push the expired visible shooter slot onto
+/// the free list by writing the old `$FFFFF8C4` head to `$C(a0)`, then resume
+/// `loc_F28C` only when the saved active successor in `d0` is non-zero.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_expired_slot_push_free_list_loc_F364(
+    active_slots: &[LinkedObjectSlotInit],
+    target_slot_addr: u32,
+    first_free_slot_addr: u32,
+    saved_next_active_slot_addr: u32,
+) -> Option<ShooterExpiredSlotFreeListPushLocF364> {
+    let mut slots = active_slots.to_vec();
+    let target_slot = slots
+        .iter_mut()
+        .find(|slot| slot.slot_addr == target_slot_addr)?;
+    target_slot.next_slot_addr = first_free_slot_addr;
+
+    Some(ShooterExpiredSlotFreeListPushLocF364 {
+        first_free_slot_addr: target_slot_addr,
+        should_continue_active_scan: saved_next_active_slot_addr != 0,
+        next_active_slot_to_process_addr: saved_next_active_slot_addr,
+        slots,
+    })
 }
 
 #[allow(non_snake_case)]

@@ -9095,6 +9095,69 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F364 (kid.asm:19943): push the expired visible shooter slot to
+    /// the free-list head, then continue active scanning only if saved `d0`
+    /// held a non-zero successor.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F364_pushes_the_expired_visible_shooter_to_the_free_list() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E7F2,
+                next_slot_addr: 0xFFFF_E800,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E800,
+                next_slot_addr: 0xFFFF_E80E,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E80E,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::shooter_expired_slot_push_free_list_loc_F364(
+                &active_slots,
+                0xFFFF_E800,
+                0xFFFF_E81C,
+                0xFFFF_E80E,
+            ),
+            Some(crate::level::ShooterExpiredSlotFreeListPushLocF364 {
+                first_free_slot_addr: 0xFFFF_E800,
+                should_continue_active_scan: true,
+                next_active_slot_to_process_addr: 0xFFFF_E80E,
+                slots: vec![
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E7F2,
+                        next_slot_addr: 0xFFFF_E800,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E800,
+                        next_slot_addr: 0xFFFF_E81C,
+                    },
+                    crate::level::LinkedObjectSlotInit {
+                        slot_addr: 0xFFFF_E80E,
+                        next_slot_addr: 0,
+                    },
+                ],
+            }),
+            "ASM loc_F364 should write the old free-list head into `$C(a0)`, make `a0` the free head, and branch to loc_F28C when saved `d0` is non-zero"
+        );
+
+        assert!(
+            !crate::level::shooter_expired_slot_push_free_list_loc_F364(
+                &active_slots,
+                0xFFFF_E80E,
+                0xFFFF_E81C,
+                0,
+            )
+            .expect("ASM loc_F364 should still push the final active slot free")
+            .should_continue_active_scan,
+            "ASM loc_F364 should fall through to loc_F374/loc_F2A2 when saved `d0` is zero"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
