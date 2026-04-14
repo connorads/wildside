@@ -8312,6 +8312,20 @@ pub(crate) fn evanescent_shooter_upward_window_top_row_loc_F1A8(camera_block_row
     }
 }
 
+/// ASM loc_F1B0 (kid.asm:19751): seed the shooter scan's left block column
+/// from `d0-3`; if the signed word result is negative, clamp `d3` to zero
+/// before `loc_F1B8` computes the right edge.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_shooter_window_left_col_loc_F1B0(camera_block_col: u16) -> u16 {
+    let candidate = camera_block_col.wrapping_sub(3);
+    if (candidate as i16) >= 0 {
+        candidate
+    } else {
+        0
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSubF06A {

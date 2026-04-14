@@ -8700,6 +8700,29 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F1B0 (kid.asm:19751): the shared shooter scan setup subtracts
+    /// three block columns from `d0`, then clamps the signed word result to
+    /// zero before the right-edge setup at `loc_F1B8`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F1B0_clamps_the_shooter_scan_left_column() {
+        assert_eq!(
+            crate::level::evanescent_shooter_window_left_col_loc_F1B0(0x0002),
+            0,
+            "ASM loc_F1B0 should clamp `d0-3` when the BPL test sees a negative word"
+        );
+        assert_eq!(
+            crate::level::evanescent_shooter_window_left_col_loc_F1B0(0x0003),
+            0,
+            "ASM loc_F1B0 should keep an exact zero result after subtracting three columns"
+        );
+        assert_eq!(
+            crate::level::evanescent_shooter_window_left_col_loc_F1B0(0x0008),
+            0x0005,
+            "ASM loc_F1B0 should keep positive `d0-3` results before loc_F1B8 clamps the right edge"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
