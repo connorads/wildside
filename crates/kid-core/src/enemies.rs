@@ -509,6 +509,23 @@ pub(crate) struct MiniHoppingSkullRelaunchTail {
     pub(crate) next_loop: &'static str,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullLeftLandingLoopDecision {
+    ContinueWait {
+        next_dbf_counter: u16,
+    },
+    BeginSkullFacingLeftLanding {
+        dbf_counter: u16,
+        x_direction: u8,
+        sprite: &'static str,
+    },
+    BeginSkullLeftRelaunch {
+        dbf_counter: u16,
+        sprite: &'static str,
+    },
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -3573,6 +3590,35 @@ pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
             }
         }
         _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_left_hop_landing_gate_loc_3edf8(
+    dbf_counter: u16,
+    kid_x_word: u16,
+    skull_x_word: u16,
+) -> MiniHoppingSkullLeftLandingLoopDecision {
+    // ASM Mini_Hopping_Skull.asm loc_3EDF8: if `dbf d1` is still active, this
+    // loops back to loc_3ED8E. On fallthrough, Kid-to-skull signed comparison
+    // decides whether to branch to loc_3EEB2 (`d1=$14`) or to seed `d1=$A`
+    // with sprite `LnkTo_unk_C8038` before landing-loop continuation.
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+    if next_dbf_counter != 0xFFFF {
+        return MiniHoppingSkullLeftLandingLoopDecision::ContinueWait { next_dbf_counter };
+    }
+
+    if (kid_x_word as i16) > (skull_x_word as i16) {
+        MiniHoppingSkullLeftLandingLoopDecision::BeginSkullFacingLeftLanding {
+            dbf_counter: 0x0014,
+            x_direction: 0xFF,
+            sprite: "LnkTo_unk_C8010",
+        }
+    } else {
+        MiniHoppingSkullLeftLandingLoopDecision::BeginSkullLeftRelaunch {
+            dbf_counter: 0x000A,
+            sprite: "LnkTo_unk_C8038",
+        }
     }
 }
 
@@ -8821,6 +8867,42 @@ mod tests {
             ),
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
             "ASM Mini_Hopping_Skull.asm loc_3ED8E sends `colid_hurt` to the same HP decrement branch as `colid_kidabove`"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_left_hop_landing_gate_matches_loc_3edf8() {
+        assert_eq!(
+            mini_hopping_skull_left_hop_landing_gate_loc_3edf8(0x0014, 0, 0),
+            MiniHoppingSkullLeftLandingLoopDecision::ContinueWait {
+                next_dbf_counter: 0x0013,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EDF8 should consume the DBF counter before the signed X compare"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_landing_gate_loc_3edf8(0x0000, 0x0001, 0x0000),
+            MiniHoppingSkullLeftLandingLoopDecision::BeginSkullFacingLeftLanding {
+                dbf_counter: 0x0014,
+                x_direction: 0xFF,
+                sprite: "LnkTo_unk_C8010",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EDF8 jumps to loc_3EEB2 and seeds `$14` when Kid is to the right of the skull"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_landing_gate_loc_3edf8(0x0000, 0x0000, 0x0001),
+            MiniHoppingSkullLeftLandingLoopDecision::BeginSkullLeftRelaunch {
+                dbf_counter: 0x000A,
+                sprite: "LnkTo_unk_C8038",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EDF8 seeds `$A` and sets `LnkTo_unk_C8038` when Kid is not to the right"
+        );
+        assert_eq!(
+            mini_hopping_skull_left_hop_landing_gate_loc_3edf8(0x0000, 0x8000, 0x7FFF),
+            MiniHoppingSkullLeftLandingLoopDecision::BeginSkullLeftRelaunch {
+                dbf_counter: 0x000A,
+                sprite: "LnkTo_unk_C8038",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EDF8 uses signed compares (`cmp.w`) to treat `0x8000` as negative when comparing Kid and skull X"
         );
     }
 
