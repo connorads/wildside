@@ -621,17 +621,37 @@ impl NativeRuntime {
                     let v_blocked =
                         cell_v.has_block && cell_v.collision != terrain::CollisionKind::Empty;
 
-                    if h_blocked && v_blocked {
-                        // Corner: reverse both (ASM swaps velocities)
-                        p.x_velocity = -p.x_velocity;
-                        p.y_velocity = -p.y_velocity;
+                    let terrain_collision_id = if h_blocked && v_blocked {
+                        0
                     } else if h_blocked {
-                        // Horizontal wall: negate x (ASM loc_3E2A4)
-                        p.x_velocity = -p.x_velocity;
+                        if p.x_velocity >= 0 { 0x04 } else { 0x08 }
+                    } else if v_blocked {
+                        if p.y_velocity >= 0 { 0x0C } else { 0x10 }
+                    } else if cell.collision == terrain::CollisionKind::SlopeUp {
+                        0x14
                     } else {
-                        // Vertical surface (floor/ceiling) or slope: negate y (ASM loc_3E2C8)
-                        p.y_velocity = -p.y_velocity;
-                    }
+                        0x18
+                    };
+
+                    let (x_velocity, y_velocity) = if h_blocked && v_blocked {
+                        // ASM loc_3E266: corner probes can report both axes.
+                        (-p.x_velocity, -p.y_velocity)
+                    } else if matches!(terrain_collision_id, 0x04 | 0x08 | 0x0C | 0x10) {
+                        lion_projectile_bounce_velocities_loc_3e266(
+                            p.x_velocity,
+                            p.y_velocity,
+                            terrain_collision_id,
+                        )
+                    } else {
+                        lion_projectile_bounce_velocities_loc_3e29e(
+                            p.x_velocity,
+                            p.y_velocity,
+                            terrain_collision_id,
+                        )
+                    };
+
+                    p.x_velocity = x_velocity;
+                    p.y_velocity = y_velocity;
 
                     // Re-apply movement with bounced velocity
                     p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
@@ -693,6 +713,22 @@ pub(crate) fn lion_projectile_bounce_velocities_loc_3e266(
     (x_velocity, y_velocity)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_projectile_bounce_velocities_loc_3e29e(
+    x_velocity: i32,
+    y_velocity: i32,
+    terrain_collision_id: u16,
+) -> (i32, i32) {
+    // ASM Lion.asm loc_3E29E: for `colid_slopeup`, negate `y_vel` before
+    // swapping into `x_vel`, then move old `x_vel` to `y_vel`.
+    let bounced_x_velocity = if terrain_collision_id == 0x14 {
+        -y_velocity
+    } else {
+        y_velocity
+    };
+    (bounced_x_velocity, x_velocity)
+}
+
 #[cfg(test)]
 mod loc_3e266_tests {
     #[test]
@@ -722,6 +758,36 @@ mod loc_3e266_tests {
         assert_eq!(
             y_velocity, -0x2_0000,
             "ASM Lion.asm loc_3E266 should negate y_vel for colid_floor"
+        );
+    }
+
+    #[test]
+    fn loc_3e29e_swaps_velocities_with_slope_flip() {
+        let (x_velocity, y_velocity) =
+            super::lion_projectile_bounce_velocities_loc_3e29e(0x3_0000, 0x4_0000, 0x0014);
+
+        assert_eq!(
+            x_velocity, -0x4_0000,
+            "ASM Lion.asm loc_3E29E should negate `y_vel` into `x_vel` for `colid_slopeup`"
+        );
+        assert_eq!(
+            y_velocity, 0x3_0000,
+            "ASM Lion.asm loc_3E29E should move old `x_vel` into `y_vel`"
+        );
+    }
+
+    #[test]
+    fn loc_3e29e_uses_unmodified_y_for_other_collision_ids() {
+        let (x_velocity, y_velocity) =
+            super::lion_projectile_bounce_velocities_loc_3e29e(0x3_0000, 0x4_0000, 0x0018);
+
+        assert_eq!(
+            x_velocity, 0x4_0000,
+            "ASM Lion.asm loc_3E29E uses raw `y_vel` when `colid_slopedown` is not slope-up"
+        );
+        assert_eq!(
+            y_velocity, 0x3_0000,
+            "ASM Lion.asm loc_3E29E still copies old `x_vel` into `y_vel`"
         );
     }
 }
