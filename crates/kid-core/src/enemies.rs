@@ -90,6 +90,17 @@ pub(crate) enum MiniHoppingSkullGroundWaitCollisionRoute {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullDamageSequence {
+    SkullDestroyed,
+    PlayHitAnimation {
+        remaining_hits: u16,
+        animation: &'static str,
+        hibernate_until_finished: bool,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullScreamWorkerAllocation {
     pub(crate) allocation_selector: u16,
     pub(crate) routine: &'static str,
@@ -2809,6 +2820,25 @@ pub(crate) fn mini_hopping_skull_side_contact_loc_3eb56(
         MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
     } else {
         MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_damage_sequence_loc_3eb60(
+    hit_counter: u16,
+) -> MiniHoppingSkullDamageSequence {
+    // ASM Mini_Hopping_Skull.asm loc_3EB60: `subi.w #1,$44(a3)` mutates the
+    // live hit counter before the zero test; non-zero replays `stru_3E9C2`
+    // and hibernates until that animation finishes.
+    let remaining_hits = hit_counter.wrapping_sub(1);
+    if remaining_hits == 0 {
+        MiniHoppingSkullDamageSequence::SkullDestroyed
+    } else {
+        MiniHoppingSkullDamageSequence::PlayHitAnimation {
+            remaining_hits,
+            animation: "stru_3E9C2",
+            hibernate_until_finished: true,
+        }
     }
 }
 
@@ -5997,6 +6027,33 @@ mod tests {
             mini_hopping_skull_side_contact_loc_3eb56(true),
             MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
             "ASM Mini_Hopping_Skull.asm loc_3EB56 should jump to loc_3F262 while `Berzerker_charging` is set"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_damage_sequence_matches_loc_3eb60_counter_update() {
+        assert_eq!(
+            mini_hopping_skull_damage_sequence_loc_3eb60(1),
+            MiniHoppingSkullDamageSequence::SkullDestroyed,
+            "ASM Mini_Hopping_Skull.asm loc_3EB60 should branch to the skull death routine when `$44(a3)` becomes zero after decrement"
+        );
+        assert_eq!(
+            mini_hopping_skull_damage_sequence_loc_3eb60(2),
+            MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                remaining_hits: 1,
+                animation: "stru_3E9C2",
+                hibernate_until_finished: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EB60 should replay `stru_3E9C2` and hibernate until it finishes when hits remain"
+        );
+        assert_eq!(
+            mini_hopping_skull_damage_sequence_loc_3eb60(0),
+            MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                remaining_hits: 0xFFFF,
+                animation: "stru_3E9C2",
+                hibernate_until_finished: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EB60 uses word wrapping for the decrement before the zero branch"
         );
     }
 
