@@ -807,6 +807,13 @@ pub(crate) struct EvanescentObjectFreeListPushLocEA98 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentSpriteScanReturnLocEAB2 {
+    pub(crate) next_sprite_slot_addr: u32,
+    pub(crate) number_sprites: u8,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScratchDebrisPieceSub292E {
     pub(crate) y_velocity_px: i16,
@@ -8140,6 +8147,21 @@ pub(crate) fn evanescent_object_push_free_list_loc_EA98(
         next_active_slot_to_process_addr: saved_next_active_slot_addr,
         slots,
     })
+}
+
+/// ASM loc_EAB2 (kid.asm:18824): when the evanescent object scan reaches the
+/// null active-list link, copy the live sprite cursor in `a3` and count byte in
+/// `d3` back to `Addr_NextSpriteSlot` and `Number_Sprites` before returning.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_sprite_scan_return_loc_EAB2(
+    sprite_cursor_addr: u32,
+    sprite_count: u8,
+) -> EvanescentSpriteScanReturnLocEAB2 {
+    EvanescentSpriteScanReturnLocEAB2 {
+        next_sprite_slot_addr: sprite_cursor_addr,
+        number_sprites: sprite_count,
+    }
 }
 
 /// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,

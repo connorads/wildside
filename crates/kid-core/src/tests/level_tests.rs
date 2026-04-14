@@ -8747,6 +8747,22 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EAB2 (kid.asm:18824): after the active-list scan ends, the ROM
+    /// stores the current `a3` sprite cursor and low `d3` count byte back to
+    /// the shared sprite globals.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EAB2_returns_the_final_evanescent_sprite_cursor_and_count() {
+        assert_eq!(
+            crate::level::evanescent_sprite_scan_return_loc_EAB2(0xFFFF_0128, 0x25),
+            crate::level::EvanescentSpriteScanReturnLocEAB2 {
+                next_sprite_slot_addr: 0xFFFF_0128,
+                number_sprites: 0x25,
+            },
+            "ASM loc_EAB2 should copy `a3` to Addr_NextSpriteSlot and `d3` to Number_Sprites without adjusting either value"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
