@@ -766,6 +766,13 @@ pub(crate) struct EvanescentShooterNeighbourMarkLocF166 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EvanescentShooterNeighbourMarkLocF224 {
+    pub(crate) stored_local_word: u16,
+    pub(crate) shifted_direction_bits: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentShooterRowScanTailLocF17C {
     pub(crate) next_layout_addr: u32,
     pub(crate) next_block_row: u16,
@@ -8405,6 +8412,30 @@ pub(crate) fn evanescent_shooter_cell_scan_loc_F1DE(
         direction_bits_after_up_shift: direction_bits >> 1,
         up_direction_set: (direction_bits & 1) != 0,
     })
+}
+
+/// ASM loc_F224 (kid.asm:19800): after `loc_F1DE` consumes the upward bit,
+/// `lsr.w #1,d6` consumes the right-facing bit. If carry is set and
+/// `tst.b 3(a1)` sees a non-zero right-neighbour low byte, `loc_F248`
+/// subtracts `$8000` from the stored direction word at `$6(a3)`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn evanescent_shooter_second_scan_right_neighbour_mark_loc_F224(
+    stored_local_word: u16,
+    direction_bits_after_up_check: u16,
+    right_neighbour_low_byte: u8,
+) -> EvanescentShooterNeighbourMarkLocF224 {
+    let shifted_direction_bits = direction_bits_after_up_check >> 1;
+    let should_mark = (direction_bits_after_up_check & 1) != 0 && right_neighbour_low_byte != 0;
+
+    EvanescentShooterNeighbourMarkLocF224 {
+        stored_local_word: if should_mark {
+            stored_local_word.wrapping_sub(0x8000)
+        } else {
+            stored_local_word
+        },
+        shifted_direction_bits,
+    }
 }
 
 #[allow(non_snake_case)]
