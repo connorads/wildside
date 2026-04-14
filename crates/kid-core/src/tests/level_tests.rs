@@ -6418,6 +6418,30 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_D84E (kid.asm:16932): copy `Palette_Buffer` into
+    /// `Palette_Buffer_2` as 32 longwords before clearing the end-credits fade
+    /// target.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D84E_end_credits_backs_up_the_full_palette() {
+        let mut palette = [0_u16; 0x40];
+        for (index, word) in palette.iter_mut().enumerate() {
+            *word = u16::try_from(index).expect("palette index fits in u16") | 0x0A00;
+        }
+
+        let backup = crate::level::end_credits_palette_backup_loc_D84E(palette);
+
+        assert_eq!(
+            backup, palette,
+            "ASM loc_D84E should copy every word of the 128-byte Palette_Buffer into Palette_Buffer_2"
+        );
+        assert_eq!(
+            backup.len(),
+            0x40,
+            "ASM loc_D84E uses d0=$1F, so the inclusive DBF loop copies 32 longwords / 64 words"
+        );
+    }
+
     /// ASM loc_D770 (kid.asm:16855): `d4` starts as the active EOL number's
     /// remaining amount, then is clamped down to `d2` unless it is already
     /// smaller before the score update at `loc_D77E`.

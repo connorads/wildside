@@ -11553,6 +11553,16 @@ pub(crate) fn eol_title_return_fade_loc_D734(initial_progress: u16) -> EolTitleR
     }
 }
 
+/// ASM loc_D84E (kid.asm:16932): final-level end-credits palette backup loop.
+/// `moveq #$1F,d0` followed by `move.l (a0)+,(a1)+; dbf d0,loc_D84E`
+/// copies 32 longwords, i.e. the full 128-byte `Palette_Buffer`, into
+/// `Palette_Buffer_2`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_palette_backup_loc_D84E(palette_buffer: [u16; 0x40]) -> [u16; 0x40] {
+    palette_buffer
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
