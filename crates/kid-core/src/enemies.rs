@@ -28,6 +28,11 @@ const MINI_SKULL_COLID_FLOOR: u16 = 0x000C;
 const MINI_SKULL_COLID_CEILING: u16 = 0x0010;
 const MINI_SKULL_COLID_SLOPEUP: u16 = 0x0014;
 const MINI_SKULL_COLID_HURT: u16 = 0x001C;
+const MINI_SKULL_COLID_GROUND_KIDABOVE: u16 = 0x001C;
+const MINI_SKULL_COLID_GROUND_KIDLEFT: u16 = 0x0020;
+const MINI_SKULL_COLID_GROUND_KIDRIGHT: u16 = 0x0024;
+const MINI_SKULL_COLID_GROUND_KIDBELOW: u16 = 0x0028;
+const MINI_SKULL_COLID_GROUND_HURT: u16 = 0x002C;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -72,6 +77,15 @@ pub(crate) struct MiniHoppingSkullGroundWaitSetup {
     pub(crate) sprite: MiniHoppingSkullGroundWaitSprite,
     pub(crate) dbf_counter: u16,
     pub(crate) wait_frames: u8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullGroundWaitCollisionRoute {
+    ContinueWait,
+    DamageSkull,
+    QueueScreamWorker,
+    BerzerkerChargeKillsSkull,
 }
 
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
@@ -2750,6 +2764,33 @@ pub(crate) fn mini_hopping_skull_ground_wait_setup_loc_3eb00() -> MiniHoppingSku
         sprite: MiniHoppingSkullGroundWaitSprite::SlopeUpRight,
         dbf_counter: 0x0014,
         wait_frames: 21,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_ground_wait_collision_loc_3eb0e(
+    collision_type: u16,
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3EB0E: each grounded wait frame clears
+    // `collision_type(a3)`, hibernates one frame, polls `sub_3F29A`, then
+    // dispatches by ordered comparisons against Kid/hurt collision IDs.
+    match collision_type {
+        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+        MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+        }
+        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
+            if berzerker_charging {
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+            } else {
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+            }
+        }
+        MINI_SKULL_COLID_GROUND_KIDBELOW => {
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+        }
+        _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
     }
 }
 
@@ -5855,6 +5896,57 @@ mod tests {
                 wait_frames: 21,
             },
             "ASM Mini_Hopping_Skull.asm loc_3EB00 should face right, choose the slope-up wait sprite, and seed the `$14` DBF counter"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_ground_wait_collision_matches_loc_3eb0e_compare_order() {
+        assert_eq!(
+            mini_hopping_skull_ground_wait_collision_loc_3eb0e(0, false),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3EB0E should continue the DBF wait when `collision_type(a3)` stays zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_ground_wait_collision_loc_3eb0e(
+                MINI_SKULL_COLID_GROUND_KIDABOVE,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EB0E sends `colid_kidabove` to the HP decrement branch"
+        );
+        assert_eq!(
+            mini_hopping_skull_ground_wait_collision_loc_3eb0e(MINI_SKULL_COLID_GROUND_HURT, false),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EB0E sends `colid_hurt` to the same HP decrement branch"
+        );
+        assert_eq!(
+            mini_hopping_skull_ground_wait_collision_loc_3eb0e(
+                MINI_SKULL_COLID_GROUND_KIDLEFT,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3EB0E treats non-charging side contact as contact damage"
+        );
+        assert_eq!(
+            mini_hopping_skull_ground_wait_collision_loc_3eb0e(
+                MINI_SKULL_COLID_GROUND_KIDRIGHT,
+                true
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EB0E routes charging Berzerker side contact to loc_3F262"
+        );
+        assert_eq!(
+            mini_hopping_skull_ground_wait_collision_loc_3eb0e(
+                MINI_SKULL_COLID_GROUND_KIDBELOW,
+                true
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3EB0E sends `colid_kidbelow` to contact damage before considering Berzerker charge"
+        );
+        assert_eq!(
+            mini_hopping_skull_ground_wait_collision_loc_3eb0e(MINI_SKULL_COLID_SLOPEUP, false),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3EB0E ignores unrecognised collision IDs during the grounded wait loop"
         );
     }
 
