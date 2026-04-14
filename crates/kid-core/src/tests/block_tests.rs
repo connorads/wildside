@@ -3058,7 +3058,7 @@ mod chunk_04 {
     fn big_hopping_skull_initial_velocities() {
         // ASM: x_vel=$10000 (1px/frame), y_vel=$FFFE0000 (-2px/frame)
         assert_eq!(spawn_x_velocity(EnemyFamily::BigHoppingSkull, 0), 0x10000);
-        assert_eq!(spawn_y_velocity(EnemyFamily::BigHoppingSkull), -0x20000);
+        assert_eq!(spawn_y_velocity(EnemyFamily::BigHoppingSkull, 0), -0x20000);
     }
 
     #[test]

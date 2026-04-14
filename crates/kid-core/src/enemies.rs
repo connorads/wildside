@@ -10,6 +10,8 @@ use super::{
 pub(crate) const MINI_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
 pub(crate) const MINI_SKULL_JUMP_Y_SPEED_FP: i32 = -0x0003_8000;
 pub(crate) const MINI_SKULL_GRAVITY_FP: i32 = 0x0000_1200;
+pub(crate) const MINI_SKULL_INITIAL_Y_SPEED_FP: i32 = 0x0002_8000;
+pub(crate) const MINI_SKULL_LEVEL_INITIAL_Y_SPEED_BONUS_FP: i32 = 0x0000_1000;
 pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 21; // ASM Mini_Hopping_Skull.asm:99,141 — dbf #$14 = 21 iterations
 
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
@@ -1110,7 +1112,7 @@ pub(crate) fn activate_enemies_with_rng(
                 x_pos: head_x,
                 y_pos: head_y,
                 x_velocity: spawn_x_velocity(family, enemy_level),
-                y_velocity: spawn_y_velocity(family),
+                y_velocity: spawn_y_velocity(family, enemy_level),
                 target_x_velocity: 0,
                 target_y_velocity: 0,
                 x_acceleration: spawn_x_acceleration(family),
@@ -5564,6 +5566,25 @@ mod tests {
     }
 
     #[test]
+    fn mini_hopping_skull_initial_y_velocity_matches_loc_3ea48() {
+        assert_eq!(
+            spawn_y_velocity(EnemyFamily::MiniHoppingSkull, 0),
+            0x0002_8000,
+            "ASM Mini_Hopping_Skull.asm loc_3EA48 seeds base y_vel with `$28000`"
+        );
+        assert_eq!(
+            spawn_y_velocity(EnemyFamily::MiniHoppingSkull, 1),
+            0x0002_9000,
+            "ASM Mini_Hopping_Skull.asm loc_3EA48 adds `$1000` when enemy_level is non-zero"
+        );
+        assert_eq!(
+            spawn_y_velocity(EnemyFamily::MiniHoppingSkull, 2),
+            0x0002_9000,
+            "ASM Mini_Hopping_Skull.asm loc_3EA48 tests non-zero enemy_level, not a tiered table"
+        );
+    }
+
+    #[test]
     fn mini_hopping_skull_hp_tier_boost_matches_loc_3ebfc() {
         let grid = mini_hopping_skull_test_grid();
         let mut enemy = mini_hopping_skull_test_enemy();
@@ -5767,10 +5788,20 @@ mod tests {
     }
 }
 
-pub(crate) fn spawn_y_velocity(family: EnemyFamily) -> i32 {
+pub(crate) fn spawn_y_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
     match family {
         // Big_Hopping_Skull.asm: move.w #$FFFE,y_vel → $FFFE0000 FP16.16
         EnemyFamily::BigHoppingSkull => BIG_SKULL_INIT_Y_SPEED,
+        EnemyFamily::MiniHoppingSkull => {
+            // ASM Mini_Hopping_Skull.asm loc_3EA48 seeds y_vel with `$28000`;
+            // non-zero enemy_level at `$40(a3)` adds `$1000`.
+            MINI_SKULL_INITIAL_Y_SPEED_FP
+                + if enemy_level != 0 {
+                    MINI_SKULL_LEVEL_INITIAL_Y_SPEED_BONUS_FP
+                } else {
+                    0
+                }
+        }
         _ => 0,
     }
 }
