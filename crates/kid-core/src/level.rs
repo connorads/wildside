@@ -845,6 +845,14 @@ pub(crate) enum ShooterActiveSlotScanStepLocF28C {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterFrameCommitLocF2A2 {
+    pub(crate) number_sprites: u8,
+    pub(crate) fg_update_queue_cell_next_slot: u32,
+    pub(crate) addr_next_sprite_slot: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8538,6 +8546,23 @@ pub(crate) fn shooter_active_slot_scan_step_loc_F28C(
             current_slot_addr,
             next_timer,
         }
+    }
+}
+
+/// ASM loc_F2A2 (kid.asm:19858): after the active shooter scan, write the low
+/// byte of `a5` back to `Number_Sprites`, then persist the advanced cell-update
+/// and sprite-slot pointers before falling through to `sub_F568`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_frame_commit_loc_F2A2(
+    sprite_link_word: u16,
+    fg_update_queue_cell_next_slot: u32,
+    addr_next_sprite_slot: u32,
+) -> ShooterFrameCommitLocF2A2 {
+    ShooterFrameCommitLocF2A2 {
+        number_sprites: sprite_link_word as u8,
+        fg_update_queue_cell_next_slot,
+        addr_next_sprite_slot,
     }
 }
 

@@ -8917,6 +8917,30 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F2A2 (kid.asm:19858): the visible shooter pass commits the low
+    /// byte of `a5` as `Number_Sprites`, then writes back the advanced FG-cell
+    /// update queue and sprite-slot pointers before running collision rects.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F2A2_commits_sprite_count_and_advanced_render_pointers() {
+        assert_eq!(
+            crate::level::shooter_frame_commit_loc_F2A2(0x052A, 0xFFFF_47D6, 0xFFFF_01A0,),
+            crate::level::ShooterFrameCommitLocF2A2 {
+                number_sprites: 0x2A,
+                fg_update_queue_cell_next_slot: 0xFFFF_47D6,
+                addr_next_sprite_slot: 0xFFFF_01A0,
+            },
+            "ASM loc_F2A2 should store only the low byte of `a5` into Number_Sprites and preserve the two advanced long pointers"
+        );
+
+        assert_eq!(
+            crate::level::shooter_frame_commit_loc_F2A2(0x0604, 0xFFFF_47A6, 0xFFFF_0000,)
+                .number_sprites,
+            4,
+            "ASM loc_F2A2 should ignore the high byte of the sprite-link word when committing Number_Sprites"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
