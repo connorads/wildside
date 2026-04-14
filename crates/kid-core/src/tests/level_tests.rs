@@ -6907,6 +6907,30 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DA3E (kid.asm:17076): each continuing Hundred K Trip fade pass
+    /// writes `-1` to both pending palette masks before branching back to
+    /// `loc_DA30` for the hibernating frame.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DA3E_end_credits_hundred_k_trip_marks_both_palette_halves_dirty() {
+        let loopback = crate::level::end_credits_hundred_k_trip_fade_loopback_loc_DA3E();
+
+        assert_eq!(
+            loopback.pending_palette_0_mask,
+            u32::MAX,
+            "ASM loc_DA3E should store `move.l #-1` into `$FFFFF888`"
+        );
+        assert_eq!(
+            loopback.pending_palette_1_mask,
+            u32::MAX,
+            "ASM loc_DA3E should store `move.l #-1` into `$FFFFF88C`"
+        );
+        assert_eq!(
+            loopback.loop_target, "loc_DA30",
+            "ASM loc_DA3E should branch back to loc_DA30 after marking both palette halves dirty"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.

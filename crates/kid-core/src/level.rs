@@ -11822,6 +11822,27 @@ pub(crate) fn end_credits_hundred_k_trip_fade_step_loc_DA30(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EndCreditsHundredKTripFadeLoopbackLocDA3E {
+    pub(crate) pending_palette_0_mask: u32,
+    pub(crate) pending_palette_1_mask: u32,
+    pub(crate) loop_target: &'static str,
+}
+
+/// ASM loc_DA3E (kid.asm:17076): write `-1` to both pending palette masks
+/// (`$FFFFF888` and `$FFFFF88C`) before branching back to `loc_DA30` for the
+/// next hibernating fade frame.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn end_credits_hundred_k_trip_fade_loopback_loc_DA3E()
+-> EndCreditsHundredKTripFadeLoopbackLocDA3E {
+    EndCreditsHundredKTripFadeLoopbackLocDA3E {
+        pending_palette_0_mask: u32::MAX,
+        pending_palette_1_mask: u32::MAX,
+        loop_target: "loc_DA30",
+    }
+}
+
 /// ASM loc_D770 (kid.asm:16855): each EOL score-counter frame loads the
 /// remaining amount from the active number object's `$60` field and clamps the
 /// transfer chunk to `d2` before falling through to `loc_D77E`.
