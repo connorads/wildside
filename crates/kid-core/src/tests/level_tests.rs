@@ -8514,6 +8514,35 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F074 (kid.asm:19600): each `sub_F06A` DBF iteration writes the
+    /// next `$0E`-byte shooter slot address into `$C(a0)` before advancing `a0`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F074_links_one_sub_F06A_shooter_slot_to_the_next_stride() {
+        assert_eq!(
+            crate::level::shooter_object_next_link_loc_F074(0xFFFF_E7F2),
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E7F2,
+                next_slot_addr: 0xFFFF_E800,
+            },
+            "ASM loc_F074 should write the low word of `a0+$0E` into `$C(a0)`"
+        );
+        assert_eq!(
+            crate::level::shooter_object_next_link_loc_F074(0xFFFF_E8EE),
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_E8EE,
+                next_slot_addr: 0xFFFF_E8FC,
+            },
+            "ASM loc_F074 should also link the 19th active DBF iteration to the terminal shooter slot"
+        );
+
+        let slots = crate::level::initialise_shooter_object_slots_sub_F06A();
+        assert_eq!(
+            slots.shooter_slots[19].next_slot_addr, 0,
+            "ASM sub_F06A clears `$C(a0)` only after loc_F074's DBF loop leaves `a0` on the 20th slot"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

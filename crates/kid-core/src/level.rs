@@ -8169,24 +8169,34 @@ pub(crate) fn initialise_evanesc_object_slots_loc_DF30() -> EvanescShooterObject
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_object_next_link_loc_F074(slot_addr: u32) -> LinkedObjectSlotInit {
+    // ASM loc_F074 (kid.asm:19600): `lea $E(a0),a1; move.w a1,$C(a0)`.
+    LinkedObjectSlotInit {
+        slot_addr,
+        next_slot_addr: slot_addr + u32::from(SHOOTER_OBJECT_SLOT_STRIDE_SUB_F06A),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSubF06A {
     // ASM sub_F06A (kid.asm:19595): seed the shooter-object free list at
-    // `$FFFFE7F2` as 20 contiguous `$0E`-byte slots whose `$C(a0)` word points
-    // to the next slot, clear `Addr_FirstShooterObjectSlot`, then reset the
-    // last-triggered shooter cell coordinates at `$FFFFF8BE/$FFFFF8C0` to -1.
+    // `$FFFFE7F2`; loc_F074 links 19 contiguous `$0E`-byte slots through
+    // `$C(a0)`, then the tail clears the final link, `Addr_FirstShooterObjectSlot`,
+    // and the last-triggered shooter cell coordinates at `$FFFFF8BE/$FFFFF8C0`.
     let mut shooter_slots = Vec::with_capacity(SHOOTER_OBJECT_SLOT_COUNT_SUB_F06A);
     let mut slot_addr = SHOOTER_OBJECT_RAM_ADDR_SUB_F06A;
     for slot_index in 0..SHOOTER_OBJECT_SLOT_COUNT_SUB_F06A {
         let is_last = slot_index + 1 == SHOOTER_OBJECT_SLOT_COUNT_SUB_F06A;
-        let next_slot_addr = if is_last {
-            0
+        let slot = if is_last {
+            LinkedObjectSlotInit {
+                slot_addr,
+                next_slot_addr: 0,
+            }
         } else {
-            slot_addr + u32::from(SHOOTER_OBJECT_SLOT_STRIDE_SUB_F06A)
+            shooter_object_next_link_loc_F074(slot_addr)
         };
-        shooter_slots.push(LinkedObjectSlotInit {
-            slot_addr,
-            next_slot_addr,
-        });
+        shooter_slots.push(slot);
         slot_addr += u32::from(SHOOTER_OBJECT_SLOT_STRIDE_SUB_F06A);
     }
 
