@@ -6897,6 +6897,38 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_collision_rects_loc_f5aa_advances_after_rejected_slot() {
+        let rects = NativeRuntime::shooter_collision_rects_sub_F568(
+            CollisionRectSub1F52 {
+                left_px: 80,
+                right_px: 96,
+                top_px: 96,
+                bottom_px: 112,
+            },
+            &[(20, 7, 0x01), (6, 7, 0x01)],
+        );
+
+        assert_eq!(
+            rects,
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 98,
+                    right_px: 110,
+                    top_px: 99,
+                    bottom_px: 111,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 101,
+                    right_px: 107,
+                    top_px: 103,
+                    bottom_px: 111,
+                },
+            ],
+            "ASM loc_F5AA follows the current slot's next pointer after rejecting an out-of-window shooter, so later active shooters can still emit rectangles",
+        );
+    }
+
+    #[test]
     fn shooter_collision_top_block_loc_f574_clamps_the_expanded_top_window() {
         assert_eq!(
             NativeRuntime::shooter_collision_top_block_loc_F574(0x000F),

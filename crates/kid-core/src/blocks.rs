@@ -885,6 +885,10 @@ impl NativeRuntime {
             let col = col as i16;
             let row = row as i16;
             if col < left_block || col > right_block || row < top_block || row > bottom_block {
+                // ASM loc_F5AA (kid.asm:20230): a rejected slot reloads the
+                // next active shooter pointer from `$C(a0)`. Native stores
+                // active slots densely, so `continue` advances to that next
+                // candidate.
                 continue;
             }
 
