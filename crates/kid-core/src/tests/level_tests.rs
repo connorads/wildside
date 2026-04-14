@@ -8956,6 +8956,19 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F2F8 (kid.asm:19895): the second expired shooter-slot state
+    /// seeds `$9(a0)` with ten frames before the later range countdown can
+    /// rewind the state machine.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F2F8_seeds_the_range_countdown_with_ten_frames() {
+        assert_eq!(
+            crate::level::shooter_expired_slot_seed_range_delay_loc_F2F8(),
+            0x0A,
+            "ASM loc_F2F8 should write `$0A` to byte `$9(a0)`"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

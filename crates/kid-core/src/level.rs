@@ -8585,6 +8585,14 @@ pub(crate) fn shooter_expired_slot_erase_cell_loc_F2EE(
     }
 }
 
+/// ASM loc_F2F8 (kid.asm:19895): state 1 of the expired shooter-slot jump
+/// table seeds byte `$9(a0)` with ten frames before returning to `loc_F386`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_expired_slot_seed_range_delay_loc_F2F8() -> u8 {
+    0x0A
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSubF06A {
