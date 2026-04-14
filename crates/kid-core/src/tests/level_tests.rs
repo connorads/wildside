@@ -9578,6 +9578,22 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F836 (kid.asm:20508): the horizontal animated-solid block path
+    /// swaps the packed `d6/d7` registers back before the shared active-object
+    /// scan tail at `loc_F9BA`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F836_restores_horizontal_animated_block_scan_registers() {
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_tail_loc_F836(0x0034_0012, 0x0567_000E,),
+            crate::level::AnimatedSolidBlockTailLocF836 {
+                restored_d6: 0x0012_0034,
+                restored_d7: 0x000E_0567,
+            },
+            "ASM loc_F836 should swap d6/d7 back before branching to loc_F9BA"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.

@@ -934,6 +934,13 @@ pub(crate) enum ShooterVisibleScanTailLocF404 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockTailLocF836 {
+    pub(crate) restored_d6: u32,
+    pub(crate) restored_d7: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleSpriteWordsLocF41E {
     pub(crate) screen_y: u16,
     pub(crate) sprite_link_word: u16,
@@ -9109,6 +9116,21 @@ pub(crate) fn shooter_visible_negative_scan_tail_loc_F528(
         ShooterVisibleNegativeScanTailLocF528::ContinueScan { next_slot_addr }
     } else {
         ShooterVisibleNegativeScanTailLocF528::CommitFrame
+    }
+}
+
+/// ASM loc_F836 (kid.asm:20508): after the horizontal animated-solid block
+/// writer finishes, swap `d6/d7` back so `loc_F9BA` sees the active-object
+/// counter and sprite-link word in the low halves again.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_tail_loc_F836(
+    swapped_d6: u32,
+    swapped_d7: u32,
+) -> AnimatedSolidBlockTailLocF836 {
+    AnimatedSolidBlockTailLocF836 {
+        restored_d6: swapped_d6.rotate_left(16),
+        restored_d7: swapped_d7.rotate_left(16),
     }
 }
 
