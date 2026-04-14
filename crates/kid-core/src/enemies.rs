@@ -2968,6 +2968,16 @@ pub(crate) fn mini_hopping_skull_damage_sequence_loc_3eb60(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_right_hop_damage_sequence_loc_3ebe4(
+    hit_counter: u16,
+) -> MiniHoppingSkullDamageSequence {
+    // ASM Mini_Hopping_Skull.asm loc_3EBE4: the right-hop windup damage path
+    // repeats loc_3EB60's word decrement of `$44(a3)`; zero branches to
+    // loc_3F176, otherwise `stru_3E9C2` plays before the wait loop resumes.
+    mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_ground_wait_tail_loc_3eb78(
     dbf_counter: u16,
     kid_x_word: u16,
@@ -6553,6 +6563,33 @@ mod tests {
                 hibernate_until_finished: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3EB60 uses word wrapping for the decrement before the zero branch"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_right_hop_damage_sequence_matches_loc_3ebe4_counter_update() {
+        assert_eq!(
+            mini_hopping_skull_right_hop_damage_sequence_loc_3ebe4(1),
+            MiniHoppingSkullDamageSequence::SkullDestroyed,
+            "ASM Mini_Hopping_Skull.asm loc_3EBE4 should branch to loc_3F176 when `$44(a3)` reaches zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_right_hop_damage_sequence_loc_3ebe4(2),
+            MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                remaining_hits: 1,
+                animation: "stru_3E9C2",
+                hibernate_until_finished: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EBE4 should replay `stru_3E9C2` and hibernate until it finishes when hits remain"
+        );
+        assert_eq!(
+            mini_hopping_skull_right_hop_damage_sequence_loc_3ebe4(0),
+            MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                remaining_hits: 0xFFFF,
+                animation: "stru_3E9C2",
+                hibernate_until_finished: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EBE4 uses word wrapping for the hit-counter decrement"
         );
     }
 
