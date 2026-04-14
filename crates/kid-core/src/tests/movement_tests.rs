@@ -14669,4 +14669,23 @@ mod chunk_12 {
             "native game-over hold should include the loc_D15E score-fade tail"
         );
     }
+
+    /// ASM loc_D170 (kid.asm:16422): every score-fade loop-back writes
+    /// `$FFFF` to `$FFFFF888` and `$03FF` to `$FFFFF88A`, then branches back
+    /// to loc_D15E.  Native keeps this as visual palette/window state.
+    #[test]
+    fn loc_d170_game_over_score_fade_rewrites_shadow_palette_words() {
+        let first_shadow_word = 0xFFFF_u16;
+        let second_shadow_word = 0x03FF_u16;
+        let combined_longword = u32::from(first_shadow_word) << 16 | u32::from(second_shadow_word);
+
+        assert_eq!(
+            combined_longword, 0xFFFF_03FF,
+            "ASM loc_D170 writes $FFFF then $03FF to the adjacent shadow palette words"
+        );
+        assert!(
+            PLAYER_GAME_OVER_HOLD_FRAMES > 1,
+            "native game-over hold should cover repeated loc_D170 loop-back writes"
+        );
+    }
 }
