@@ -815,6 +815,8 @@ impl BlockList {
         // first entry, `a1` is one past `count*8`, and `a4` starts at `a0`.
         // ASM loc_E3A0 (kid.asm:17839): compare the target word from `a2`
         // with the current entry word and return only on an exact match.
+        // ASM loc_E3B2 (kid.asm:17851): when the target is greater than the
+        // current entry, advance by the current stride and clamp to `a1-8`.
         self.hidden_blocks
             .binary_search_by_key(&layout_addr, |entry| entry.layout_addr)
             .ok()
@@ -3024,6 +3026,55 @@ mod tests {
             bl.hidden_block_by_layout_addr_sub_E37A(0x0029).is_none(),
             "ASM loc_E3A0 only exits through loc_E3C0 on an exact layout-address match",
         );
+    }
+
+    #[test]
+    fn hidden_block_search_loc_e3b2_searches_upper_half_and_clamps_to_last_entry() {
+        let bl = BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![
+                HiddenBlockEntry {
+                    layout_addr: 0x0008,
+                    col: 1,
+                    row: 0,
+                    block_type: 0x01,
+                    block_setting: 0x00,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0018,
+                    col: 3,
+                    row: 1,
+                    block_type: 0x04,
+                    block_setting: 0x07,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0028,
+                    col: 5,
+                    row: 2,
+                    block_type: 0x0C,
+                    block_setting: 0x02,
+                },
+                HiddenBlockEntry {
+                    layout_addr: 0x0038,
+                    col: 7,
+                    row: 3,
+                    block_type: 0x0A,
+                    block_setting: 0x01,
+                },
+            ],
+        };
+
+        let upper_half = bl
+            .hidden_block_by_layout_addr_sub_E37A(0x0028)
+            .expect("ASM loc_E3B2 should advance into the upper half when `d0 > (a4)`");
+        let last = bl
+            .hidden_block_by_layout_addr_sub_E37A(0x0038)
+            .expect("ASM loc_E3B2 clamps probes at `a1-8`, keeping the last entry reachable");
+
+        assert_eq!(upper_half.col, 5);
+        assert_eq!(last.col, 7);
     }
 
     #[test]
