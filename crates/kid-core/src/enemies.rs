@@ -5614,6 +5614,23 @@ pub(crate) fn drips_left_bounds_gate_loc_335aa(x_pos_word: i16) -> DripsLeftBoun
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_vertical_bounds_contact_flag_loc_335b0(
+    y_pos_word: i16,
+    y_velocity: i32,
+    level_height_pixels: i16,
+) -> u16 {
+    // ASM Drips.asm loc_335B0: non-negative `y_vel(a3)` probes `y_pos(a3)+8`
+    // against `Level_height_pixels`; negative Y velocity probes `y_pos(a3)-8`
+    // and treats a signed-negative word as d5=1.
+    let out_of_bounds = if y_velocity < 0 {
+        y_pos_word.wrapping_sub(8) < 0
+    } else {
+        y_pos_word.wrapping_add(8) >= level_height_pixels
+    };
+    u16::from(out_of_bounds)
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -7191,6 +7208,30 @@ mod tests {
             drips_left_bounds_gate_loc_335aa(0x0020),
             DripsLeftBoundsNextLoc335AA::CheckVerticalLoc335B0,
             "ASM Drips.asm loc_335AA continues to the vertical gate while the left probe is inside the level"
+        );
+    }
+
+    #[test]
+    fn drips_vertical_bounds_flag_matches_loc_335b0() {
+        assert_eq!(
+            drips_vertical_bounds_contact_flag_loc_335b0(0x00F8, 0x0000_3000, 0x0100),
+            1,
+            "ASM Drips.asm loc_335B0 treats `y_pos(a3)+8 >= Level_height_pixels` as d5=1"
+        );
+        assert_eq!(
+            drips_vertical_bounds_contact_flag_loc_335b0(0x00F7, 0x0000_3000, 0x0100),
+            0,
+            "ASM Drips.asm loc_335B0 returns d5=0 while the downward probe remains inside the level"
+        );
+        assert_eq!(
+            drips_vertical_bounds_contact_flag_loc_335b0(0x0007, -0x0000_3000, 0x0100),
+            1,
+            "ASM Drips.asm loc_335B0 branches through loc_335CA when negative y velocity makes `y_pos(a3)-8` negative"
+        );
+        assert_eq!(
+            drips_vertical_bounds_contact_flag_loc_335b0(0x0008, -0x0000_3000, 0x0100),
+            0,
+            "ASM Drips.asm loc_335B0 returns d5=0 when the upward probe lands exactly on the top edge"
         );
     }
 
