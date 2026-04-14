@@ -9192,6 +9192,15 @@ pub(crate) fn deallocate_object_slot_body_loc_EB0(
     })
 }
 
+/// ASM loc_EF0 (kid.asm:1755): if the deallocation scan reaches a null list
+/// link before finding `a5`, restore `a5` from `Addr_CurrentObject` and return
+/// without touching object or gfx free lists.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn deallocate_object_slot_not_found_loc_EF0(current_object_addr: u32) -> u32 {
+    current_object_addr
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn spawn_block_debris_loc_2928(

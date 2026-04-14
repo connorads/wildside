@@ -8308,6 +8308,39 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EF0 (kid.asm:1755): if `Deallocate_ObjectSlot` exhausts the
+    /// active object list without finding `a5`, it restores `a5` from
+    /// `Addr_CurrentObject` and returns with no list mutation.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EF0_restores_current_object_when_deallocate_scan_misses() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0DA0,
+                next_slot_addr: 0xFFFF_0E14,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_0E14,
+                next_slot_addr: 0,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::deallocate_object_slot_predecessor_loc_EA2(&active_slots, 0xFFFF_0E88),
+            None,
+            "ASM loc_EA2 reaches `beq.s loc_EF0` once the list tail link is null"
+        );
+        assert_eq!(
+            crate::level::deallocate_object_slot_not_found_loc_EF0(0xFFFF_0E88),
+            0xFFFF_0E88,
+            "ASM loc_EF0 should reload `a5` from Addr_CurrentObject before returning from the missed deallocation"
+        );
+        assert_eq!(
+            active_slots[1].next_slot_addr, 0,
+            "ASM loc_EF0 should return before any `loc_EB0` free-list writes can run"
+        );
+    }
+
     /// ASM loc_DF30 (kid.asm:17258): the combined evanescent/shooter init seeds
     /// `d0=$12`, so the inclusive DBF loop links 19 evanescent slots, clears
     /// the 20th slot's link word, and clears `Addr_FirstEvanescObjectSlot`.
