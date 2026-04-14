@@ -57,6 +57,23 @@ pub(crate) struct MiniHoppingSkullTerrainContact {
     pub(crate) route: MiniHoppingSkullTerrainContactRoute,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullGroundWaitSprite {
+    SlopeUpRight,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullGroundWaitSetup {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) x_direction: u8,
+    pub(crate) sprite: MiniHoppingSkullGroundWaitSprite,
+    pub(crate) dbf_counter: u16,
+    pub(crate) wait_frames: u8,
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -2718,6 +2735,21 @@ pub(crate) fn mini_hopping_skull_terrain_contact_loc_3ead8(
         is_animated: false,
         has_level_collision: false,
         route,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_ground_wait_setup_loc_3eb00() -> MiniHoppingSkullGroundWaitSetup {
+    // ASM Mini_Hopping_Skull.asm loc_3EB00: after positive-X slope-up contact,
+    // clear both velocities, `st x_direction(a3)`, select `LnkTo_unk_C8030`,
+    // and seed d1 with `$14`; the following DBF loop runs 21 hibernated frames.
+    MiniHoppingSkullGroundWaitSetup {
+        x_velocity: 0,
+        y_velocity: 0,
+        x_direction: 0xFF,
+        sprite: MiniHoppingSkullGroundWaitSprite::SlopeUpRight,
+        dbf_counter: 0x0014,
+        wait_frames: 21,
     }
 }
 
@@ -5805,6 +5837,24 @@ mod tests {
                 route: MiniHoppingSkullTerrainContactRoute::SlopeUpPositiveXVelocity,
             },
             "ASM Mini_Hopping_Skull.asm loc_3EAD8 clears both velocity components after slope-up contact with positive `x_vel(a3)`"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_ground_wait_setup_matches_loc_3eb00() {
+        let setup = mini_hopping_skull_ground_wait_setup_loc_3eb00();
+
+        assert_eq!(
+            setup,
+            MiniHoppingSkullGroundWaitSetup {
+                x_velocity: 0,
+                y_velocity: 0,
+                x_direction: 0xFF,
+                sprite: MiniHoppingSkullGroundWaitSprite::SlopeUpRight,
+                dbf_counter: 0x0014,
+                wait_frames: 21,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EB00 should face right, choose the slope-up wait sprite, and seed the `$14` DBF counter"
         );
     }
 
