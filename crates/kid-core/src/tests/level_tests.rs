@@ -8543,6 +8543,38 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F14C (kid.asm:19698): shift the post-up-check direction word
+    /// once more; when the carry is set, a non-zero right-neighbour low byte at
+    /// `3(a1)` marks the just-stored `$6(a3)` word by subtracting `$8000`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F14C_marks_the_evanescent_shooter_when_the_right_neighbour_exists() {
+        let marked =
+            crate::level::evanescent_shooter_right_neighbour_mark_loc_F14C(0x000A, 0b0011, 0x2D);
+        assert_eq!(
+            marked,
+            crate::level::EvanescentShooterNeighbourMarkLocF14C {
+                stored_local_word: 0x800A,
+                shifted_direction_bits: 0b0001,
+            },
+            "ASM loc_F14C should subtract `$8000` from `$6(a3)` only when the shifted-out bit is set and `tst.b 3(a1)` is non-zero"
+        );
+
+        let clear_bit =
+            crate::level::evanescent_shooter_right_neighbour_mark_loc_F14C(0x000A, 0b0010, 0x2D);
+        assert_eq!(
+            clear_bit.stored_local_word, 0x000A,
+            "ASM loc_F14C should branch to loc_F156 without reading the neighbour when the carry is clear"
+        );
+
+        let empty_neighbour =
+            crate::level::evanescent_shooter_right_neighbour_mark_loc_F14C(0x000A, 0b0011, 0);
+        assert_eq!(
+            empty_neighbour.stored_local_word, 0x000A,
+            "ASM loc_F14C should branch to loc_F156 when `tst.b 3(a1)` finds an empty right neighbour"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
