@@ -5571,6 +5571,13 @@ pub(crate) enum DripsRightBoundsNextLoc33588 {
     CheckVerticalLoc335B0,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DripsLeftBoundsNextLoc335AA {
+    ContactLoc335D4,
+    CheckVerticalLoc335B0,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_right_bounds_gate_loc_33588(
     has_level_collision_byte_19: bool,
@@ -5592,6 +5599,18 @@ pub(crate) fn drips_right_bounds_gate_loc_33588(
         DripsRightBoundsNextLoc33588::ContactLoc335D4
     } else {
         DripsRightBoundsNextLoc33588::CheckVerticalLoc335B0
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_left_bounds_gate_loc_335aa(x_pos_word: i16) -> DripsLeftBoundsNextLoc335AA {
+    // ASM Drips.asm loc_335AA: subtract 8 from `x_pos(a3)` and branch to
+    // d5=1 when the signed word result is negative; otherwise continue to the
+    // vertical gate at loc_335B0.
+    if x_pos_word.wrapping_sub(8) < 0 {
+        DripsLeftBoundsNextLoc335AA::ContactLoc335D4
+    } else {
+        DripsLeftBoundsNextLoc335AA::CheckVerticalLoc335B0
     }
 }
 
@@ -7153,6 +7172,25 @@ mod tests {
             drips_right_bounds_gate_loc_33588(false, 0x00F7, 0x0000_3000, 0x0100),
             DripsRightBoundsNextLoc33588::CheckVerticalLoc335B0,
             "ASM Drips.asm loc_33588 continues to loc_335B0 while the right probe is still inside the level"
+        );
+    }
+
+    #[test]
+    fn drips_left_bounds_gate_matches_loc_335aa() {
+        assert_eq!(
+            drips_left_bounds_gate_loc_335aa(0x0007),
+            DripsLeftBoundsNextLoc335AA::ContactLoc335D4,
+            "ASM Drips.asm loc_335AA treats `x_pos(a3)-8` becoming negative as d5=1"
+        );
+        assert_eq!(
+            drips_left_bounds_gate_loc_335aa(0x0008),
+            DripsLeftBoundsNextLoc335AA::CheckVerticalLoc335B0,
+            "ASM Drips.asm loc_335AA falls through to loc_335B0 when `x_pos(a3)-8` is zero"
+        );
+        assert_eq!(
+            drips_left_bounds_gate_loc_335aa(0x0020),
+            DripsLeftBoundsNextLoc335AA::CheckVerticalLoc335B0,
+            "ASM Drips.asm loc_335AA continues to the vertical gate while the left probe is inside the level"
         );
     }
 
