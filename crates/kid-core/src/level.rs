@@ -900,6 +900,16 @@ pub(crate) struct ShooterVisibleRightGateLocF3B2 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ShooterVisibleRightCellUpdateLocF3BC {
+    pub(crate) right_cell_layout_addr: u32,
+    pub(crate) right_cell_layout_word: u16,
+    pub(crate) queue_block_col: u16,
+    pub(crate) queue_block_row: u16,
+    pub(crate) queue_layout_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
     pub(crate) first_record_addr: u32,
@@ -8751,6 +8761,32 @@ pub(crate) fn shooter_visible_right_gate_loc_F3B2(
     ShooterVisibleRightGateLocF3B2 {
         shifted_direction_bits: direction_bits_after_up_check >> 1,
         right_direction_set: (direction_bits_after_up_check & 1) != 0,
+    }
+}
+
+/// ASM loc_F3BC (kid.asm:19992): right-neighbour visible shooter cells use
+/// `d2=d1+1` when the state-table word is non-zero, then write `d2` to
+/// `2(a3)` and enqueue `(2(a0)+1, 4(a0), d2)` in `FGPlane_UpdateQueueCell`.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn shooter_visible_right_cell_update_loc_F3BC(
+    layout_word_addr: u32,
+    block_col: u16,
+    block_row: u16,
+    state_layout_word: u16,
+) -> ShooterVisibleRightCellUpdateLocF3BC {
+    let right_cell_layout_word = if state_layout_word == 0 {
+        0
+    } else {
+        state_layout_word.wrapping_add(1)
+    };
+
+    ShooterVisibleRightCellUpdateLocF3BC {
+        right_cell_layout_addr: layout_word_addr.wrapping_add(2),
+        right_cell_layout_word,
+        queue_block_col: block_col.wrapping_add(1),
+        queue_block_row: block_row,
+        queue_layout_word: right_cell_layout_word,
     }
 }
 

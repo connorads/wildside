@@ -9183,6 +9183,42 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F3BC (kid.asm:19992): a visible right-neighbour update writes
+    /// the state-table word plus one to `2(a3)`, then queues the same word for
+    /// the source block's `x+1,y` cell. A zero table word stays zero.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F3BC_writes_and_queues_the_visible_right_cell() {
+        assert_eq!(
+            crate::level::shooter_visible_right_cell_update_loc_F3BC(
+                0xFFFF_A680,
+                0x0012,
+                0x000B,
+                0x8D3D,
+            ),
+            crate::level::ShooterVisibleRightCellUpdateLocF3BC {
+                right_cell_layout_addr: 0xFFFF_A682,
+                right_cell_layout_word: 0x8D3E,
+                queue_block_col: 0x0013,
+                queue_block_row: 0x000B,
+                queue_layout_word: 0x8D3E,
+            },
+            "ASM loc_F3BC should write `d1+1` to the right layout cell and enqueue `2(a0)+1` with the same word"
+        );
+
+        assert_eq!(
+            crate::level::shooter_visible_right_cell_update_loc_F3BC(
+                0xFFFF_A680,
+                0x0012,
+                0x000B,
+                0,
+            )
+            .right_cell_layout_word,
+            0,
+            "ASM loc_F3BC reaches the write with `d2=0` when the state-table word is zero"
+        );
+    }
+
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
     /// `d0=$26`, then the inclusive DBF loop links each `$0C`-byte evanescent
     /// slot to the next before clearing the final `$A(a0)` word.
