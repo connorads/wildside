@@ -662,6 +662,13 @@ pub(crate) struct LinkedObjectSlotInit {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ObjectSlotOrderLocDE0 {
+    pub(crate) slot_addr: u32,
+    pub(crate) caller_order: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescShooterObjectSlotsSubEABC {
     pub(crate) next_free_evanescent_object_slot_addr: u32,
@@ -7687,6 +7694,22 @@ pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSu
         last_shooter_block_col: -1,
         last_shooter_block_row: -1,
     }
+}
+
+/// ASM loc_DE0 (kid.asm:1602): after `Allocate_ObjectSlot` pops a free object,
+/// walk `Addr_FirstObjectSlot` while the new caller word (`d6`, copied from
+/// incoming `a0`) is strictly higher than the current slot's `$E(a1)` word.
+/// Equal caller words stop the scan, so the new slot inserts before equal keys.
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn allocate_object_slot_insert_index_loc_DE0(
+    active_slots: &[ObjectSlotOrderLocDE0],
+    new_caller_order: u16,
+) -> usize {
+    active_slots
+        .iter()
+        .position(|slot| new_caller_order <= slot.caller_order)
+        .unwrap_or(active_slots.len())
 }
 
 #[allow(non_snake_case)]

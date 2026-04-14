@@ -7125,6 +7125,39 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_DE0 (kid.asm:1602): `cmp.w $E(a1),d6; bhi.s loc_DE0`
+    /// advances past slots with lower caller words only. Equal keys stop the
+    /// scan, so the newest slot is inserted before earlier equal-priority slots.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_DE0_allocate_object_slot_walk_stops_before_equal_or_higher_order() {
+        let active_slots = [
+            crate::level::ObjectSlotOrderLocDE0 {
+                slot_addr: 0xFFFF_0DA0,
+                caller_order: 0x1000,
+            },
+            crate::level::ObjectSlotOrderLocDE0 {
+                slot_addr: 0xFFFF_0E14,
+                caller_order: 0x2000,
+            },
+            crate::level::ObjectSlotOrderLocDE0 {
+                slot_addr: 0xFFFF_0E88,
+                caller_order: 0x2000,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::allocate_object_slot_insert_index_loc_DE0(&active_slots, 0x2000),
+            1,
+            "ASM loc_DE0 should stop before the first equal `$E(a1)` word because `bhi` is strict"
+        );
+        assert_eq!(
+            crate::level::allocate_object_slot_insert_index_loc_DE0(&active_slots, 0x3000),
+            active_slots.len(),
+            "ASM loc_DE0 should keep walking while the new caller word is higher than every active slot"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
