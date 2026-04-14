@@ -8596,6 +8596,42 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_EA86 (kid.asm:18801): for non-head removals, walk `$A(a0)`
+    /// links from `Addr_FirstEvanescObjectSlot` until the next link equals the
+    /// removed evanescent object in `a2`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_EA86_finds_evanescent_active_list_predecessor() {
+        let active_slots = [
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBDA,
+                next_slot_addr: 0xFFFF_EBF2,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBE6,
+                next_slot_addr: 0,
+            },
+            crate::level::LinkedObjectSlotInit {
+                slot_addr: 0xFFFF_EBF2,
+                next_slot_addr: 0xFFFF_EBE6,
+            },
+        ];
+
+        assert_eq!(
+            crate::level::evanescent_object_predecessor_scan_loc_EA86(&active_slots, 0xFFFF_EBE6,),
+            Some(crate::level::EvanescentObjectPredecessorLocEA86 {
+                predecessor_slot_addr: 0xFFFF_EBF2,
+                scanned_links: 2,
+            }),
+            "ASM loc_EA86 should follow linked `$A` order, not physical slot order, until `$A(a0)` equals `a2`"
+        );
+        assert_eq!(
+            crate::level::evanescent_object_predecessor_scan_loc_EA86(&active_slots, 0xFFFF_EC10,),
+            None,
+            "ASM loc_EA86 has no splice target when the active list reaches a null `$A` link first"
+        );
+    }
+
     #[test]
     fn elsewhere_level_skips_path_and_speed_bonuses() {
         // Elsewhere levels (>= 0x49) should not award path or speed bonuses.
