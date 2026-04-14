@@ -1738,6 +1738,8 @@ impl NativeRuntime {
                 // clamped to column zero when the subtraction goes negative.
                 (kid_block_col - 3).max(0)
             } as u16;
+            // ASM loc_F0D8 (kid.asm:19649): scan rows from `kid_y_block-5`,
+            // clamped to zero, through the later `kid_y_block+2` lower bound.
             let start_row = (kid_block_row - 5).max(0) as u16;
             let end_row = (kid_block_row + 2).min(max_row) as u16;
             for row in start_row..=end_row {

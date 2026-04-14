@@ -8035,6 +8035,29 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_f0d8_clamps_column_scan_top_row_to_zero() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 0, 0x02)]));
+        runtime.projectiles.clear();
+        runtime.block_state.shooter_last_scanned_col = 1;
+        runtime.block_state.shooter_last_scanned_row = 2;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (2 * 16) << 16;
+        runtime.step_shooter_blocks(&slice);
+
+        assert_eq!(
+            runtime.block_state.shooter_blocks.len(),
+            1,
+            "ASM loc_F0D8 should clamp `kid_y_block-5` to row zero, so shooters on the top level row still register"
+        );
+        assert_eq!(runtime.block_state.shooter_blocks[0].col, 5);
+        assert_eq!(runtime.block_state.shooter_blocks[0].row, 0);
+    }
+
+    #[test]
     fn shooter_block_sub_f096_keeps_per_slot_cadence_until_the_worker_expires() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
