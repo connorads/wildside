@@ -547,6 +547,12 @@ pub(crate) struct LionLoc3E434Result {
     pub(crate) branch: LionLoc3E434Branch,
 }
 
+fn lion_kid_minus_lion_x_delta(lion_x_word: u16, kid_x_word: u16) -> i16 {
+    let lion_x = i16::from_be_bytes(lion_x_word.to_be_bytes());
+    let kid_x = i16::from_be_bytes(kid_x_word.to_be_bytes());
+    kid_x.wrapping_sub(lion_x)
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_window_gate_loc_3e434(shared_walker_state: i16) -> LionLoc3E434Result {
     // ASM Lion.asm loc_3E434:
@@ -569,6 +575,32 @@ pub(crate) fn lion_charge_window_gate_loc_3e434(shared_walker_state: i16) -> Lio
             next_shared_state: shared_walker_state.saturating_add(1),
             branch: LionLoc3E434Branch::KeepAndContinue,
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionLoc3E604Branch {
+    ContinueMovement,
+    EnterLoc3E4CE,
+    EnterLoc3E50A,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_calm_distance_gate_loc_3e604(
+    lion_x_word: u16,
+    kid_x_word: u16,
+) -> LionLoc3E604Branch {
+    // ASM Lion.asm loc_3E604: `d4 = Kid.x - Lion.x` as a signed word. Values
+    // outside [-$60,+$60] continue the candidate movement; inside that band,
+    // positive deltas enter loc_3E4CE and zero/negative deltas enter loc_3E50A.
+    let delta = lion_kid_minus_lion_x_delta(lion_x_word, kid_x_word);
+    if !(-0x60..=0x60).contains(&delta) {
+        LionLoc3E604Branch::ContinueMovement
+    } else if delta > 0 {
+        LionLoc3E604Branch::EnterLoc3E4CE
+    } else {
+        LionLoc3E604Branch::EnterLoc3E50A
     }
 }
 
@@ -11651,6 +11683,35 @@ mod tests {
                 branch: LionLoc3E434Branch::KeepAndContinue,
             },
             "ASM Lion.asm loc_3E434 should increment negative states toward zero and continue the charge step"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_calm_distance_gate_matches_loc_3e604() {
+        assert_eq!(
+            lion_left_charge_calm_distance_gate_loc_3e604(0x0100, 0x0161),
+            LionLoc3E604Branch::ContinueMovement,
+            "ASM Lion.asm loc_3E604 should continue movement when d4 is greater than +$60"
+        );
+        assert_eq!(
+            lion_left_charge_calm_distance_gate_loc_3e604(0x0100, 0x00A0),
+            LionLoc3E604Branch::EnterLoc3E50A,
+            "ASM Lion.asm loc_3E604 should keep -$60 inside the face-left branch band"
+        );
+        assert_eq!(
+            lion_left_charge_calm_distance_gate_loc_3e604(0x0100, 0x0160),
+            LionLoc3E604Branch::EnterLoc3E4CE,
+            "ASM Lion.asm loc_3E604 should send positive in-band d4 values to loc_3E4CE"
+        );
+        assert_eq!(
+            lion_left_charge_calm_distance_gate_loc_3e604(0x0100, 0x0100),
+            LionLoc3E604Branch::EnterLoc3E50A,
+            "ASM Lion.asm loc_3E604 should send zero d4 to loc_3E50A"
+        );
+        assert_eq!(
+            lion_left_charge_calm_distance_gate_loc_3e604(0x7FFF, 0x8000),
+            LionLoc3E604Branch::EnterLoc3E4CE,
+            "ASM Lion.asm loc_3E604 should use signed-word wrapping for d4"
         );
     }
 
