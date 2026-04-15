@@ -3052,6 +3052,26 @@ pub(crate) fn ufo_beam_finish_loc_35228(parent_y_velocity: i32) -> UfoBeamFinish
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum UfoLinkedObjectRangeGateLoc35280 {
+    Return,
+    RunCleanupDeleteTail,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_linked_object_range_gate_loc_35280(
+    range_check_result_nonzero: bool,
+) -> UfoLinkedObjectRangeGateLoc35280 {
+    // ASM UFO.asm loc_35280: after the range-check subroutine, a zero result returns
+    // immediately; any non-zero result falls through into the cleanup/delete tail.
+    if range_check_result_nonzero {
+        UfoLinkedObjectRangeGateLoc35280::RunCleanupDeleteTail
+    } else {
+        UfoLinkedObjectRangeGateLoc35280::Return
+    }
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -9358,6 +9378,21 @@ mod tests {
                 d3: 0,
             },
             "ASM UFO.asm loc_35228 links the child gfx object, resets its state flags, bumps parent y_vel by $40000, and returns d2=$FFFFF400/d3=0"
+        );
+    }
+
+    #[test]
+    fn ufo_linked_object_range_gate_matches_loc_35280() {
+        assert_eq!(
+            ufo_linked_object_range_gate_loc_35280(false),
+            UfoLinkedObjectRangeGateLoc35280::Return,
+            "ASM UFO.asm loc_35280 returns when the range check leaves the zero condition set"
+        );
+
+        assert_eq!(
+            ufo_linked_object_range_gate_loc_35280(true),
+            UfoLinkedObjectRangeGateLoc35280::RunCleanupDeleteTail,
+            "ASM UFO.asm loc_35280 enters the cleanup/delete tail when the range check reports a non-zero result"
         );
     }
 
