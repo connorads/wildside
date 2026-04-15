@@ -5136,6 +5136,46 @@ fn ninja_detects_player_while_stealthed(dx_px: i64, dy_px: i64) -> bool {
         && dx_px < NINJA_DETECT_X_RANGE as i64
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaKidThreatRouteLoc3D734 {
+    /// No close Kid-driven guard/contact response.
+    ProjectileThreatCheck,
+    /// Enter the blocking/guard pose facing d4.
+    GuardPose,
+    /// Berzerker charging takes the kill path.
+    BerzerkerKillPath,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_kid_threat_route_loc_3d734(
+    kid_minus_ninja_x_px: i16,
+    kid_minus_ninja_y_px: i16,
+    player_form: PlayerForm,
+    berzerker_charging: bool,
+) -> NinjaKidThreatRouteLoc3D734 {
+    // ASM Ninja.asm loc_3D734: d4 is `kid_x - ninja_x`. The broad +/-$50
+    // band gates Berzerker's charge kill path; Red Stealth blocking then
+    // narrows to +/-$30 and requires Kid to be no more than 4 px above.
+    if !(-0x50..=0x50).contains(&kid_minus_ninja_x_px) {
+        return NinjaKidThreatRouteLoc3D734::ProjectileThreatCheck;
+    }
+
+    if berzerker_charging {
+        return NinjaKidThreatRouteLoc3D734::BerzerkerKillPath;
+    }
+
+    if !(-0x30..=0x30).contains(&kid_minus_ninja_x_px) || kid_minus_ninja_y_px < -4 {
+        return NinjaKidThreatRouteLoc3D734::ProjectileThreatCheck;
+    }
+
+    if player_form == PlayerForm::RedStealth {
+        NinjaKidThreatRouteLoc3D734::GuardPose
+    } else {
+        NinjaKidThreatRouteLoc3D734::ProjectileThreatCheck
+    }
+}
+
 /// Ninja jump-attack velocities (Ninja.asm lines 384-392).
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
@@ -12248,6 +12288,35 @@ mod tests {
         assert_eq!(
             enemy.x_velocity, 0,
             "ASM Ninja.asm loc_3D706 only enters the jump branch when kid_x - ninja_x < $10; the +$10 edge must stay in stealth"
+        );
+    }
+
+    #[test]
+    fn ninja_kid_threat_route_loc_3d734_matches_charge_and_red_stealth_gates() {
+        assert_eq!(
+            ninja_kid_threat_route_loc_3d734(0x50, -5, PlayerForm::TheKid, true),
+            NinjaKidThreatRouteLoc3D734::BerzerkerKillPath,
+            "ASM Ninja.asm loc_3D734 checks Berzerker_charging inside the inclusive +/-$50 Kid X band before the tighter Red Stealth guard gates"
+        );
+        assert_eq!(
+            ninja_kid_threat_route_loc_3d734(0x51, 0, PlayerForm::TheKid, true),
+            NinjaKidThreatRouteLoc3D734::ProjectileThreatCheck,
+            "ASM Ninja.asm loc_3D734 should skip the Berzerker kill path when kid_x - ninja_x is greater than +$50"
+        );
+        assert_eq!(
+            ninja_kid_threat_route_loc_3d734(0x30, -4, PlayerForm::RedStealth, false),
+            NinjaKidThreatRouteLoc3D734::GuardPose,
+            "ASM Ninja.asm loc_3D734 should enter the guard pose at the inclusive +$30 Red Stealth edge when Kid is not more than 4 px above"
+        );
+        assert_eq!(
+            ninja_kid_threat_route_loc_3d734(0x31, -4, PlayerForm::RedStealth, false),
+            NinjaKidThreatRouteLoc3D734::ProjectileThreatCheck,
+            "ASM Ninja.asm loc_3D734 should continue to the projectile-threat check outside the tighter +/-$30 Red Stealth guard band"
+        );
+        assert_eq!(
+            ninja_kid_threat_route_loc_3d734(0, -5, PlayerForm::RedStealth, false),
+            NinjaKidThreatRouteLoc3D734::ProjectileThreatCheck,
+            "ASM Ninja.asm loc_3D734 should require kid_y - ninja_y >= -4 before entering the guard pose"
         );
     }
 
