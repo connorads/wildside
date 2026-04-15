@@ -10033,6 +10033,79 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F9A6 (kid.asm:20703): when the visible-queue path is skipped, it
+    /// still writes one layout word per DBF row and advances source/layout by row
+    /// strides until DBF wraps to -1.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F9A6_copies_culled_column_layout_words_and_advances_by_level_stride() {
+        let source_cells = (0u8..16).collect::<Vec<_>>();
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F9A6(
+                &source_cells,
+                2,
+                0x0100,
+                0x0003,
+                4,
+                2,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
+                layout_writes: vec![(0x0100, 0x0002), (0x0102, 0x0006), (0x0104, 0x000A)],
+                final_source_cells_start: 14,
+                final_layout_addr: 0x0106,
+                final_remaining_count: 0xFFFF,
+                continue_loop: false,
+            },
+            "ASM loc_F9A6 should copy each culled row layout byte and step both cursors by row stride"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F9A6(
+                &source_cells,
+                1,
+                0x0200,
+                0x0000,
+                4,
+                2,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
+                layout_writes: vec![(0x0200, 0x0001)],
+                final_source_cells_start: 5,
+                final_layout_addr: 0x0202,
+                final_remaining_count: 0xFFFF,
+                continue_loop: false,
+            },
+            "ASM loc_F9A6 should perform a single write when DBF starts at zero"
+        );
+    }
+
+    /// ASM loc_F9A4 (kid.asm:20700): clear scratch byte and fall through to the
+    /// culled-column copy loop with identical state transitions.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F9A4_transitions_to_F9A6_without_changing_output_state() {
+        let source_cells = (0u8..12).collect::<Vec<_>>();
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_layout_only_col_loc_F9A4(
+                &source_cells,
+                3,
+                0x0300,
+                0x0002,
+                4,
+                2,
+            ),
+            crate::level::animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F9A6(
+                &source_cells,
+                3,
+                0x0300,
+                0x0002,
+                4,
+                2,
+            ),
+            "ASM loc_F9A4 should only prepare scratch and then delegate to loc_F9A6"
+        );
+    }
+
     /// ASM loc_F946 (kid.asm:20651): restores the swapped row/col scan registers
     /// before jumping to the shared scan tail.
     #[test]
@@ -10048,6 +10121,24 @@ mod chunk_02 {
                 restored_d7: 0xDDDD_CCCC,
             },
             "ASM loc_F946 should swap back the register halves by the same amount as `swap`"
+        );
+    }
+
+    /// ASM loc_F9B6 (kid.asm:20710): restores swapped scan registers after the
+    /// culled-column branch.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F9B6_restores_swapped_scan_registers() {
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_tail_loc_F9B6(
+                0x1234_5678,
+                0x9ABC_DEF0,
+            ),
+            crate::level::AnimatedSolidBlockTailLocF836 {
+                restored_d6: 0x5678_1234,
+                restored_d7: 0xDEF0_9ABC,
+            },
+            "ASM loc_F9B6 should restore both swap halves identically to `swap d6/d7`"
         );
     }
 

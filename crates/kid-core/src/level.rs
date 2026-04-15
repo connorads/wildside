@@ -1024,6 +1024,16 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueWalkTailLocF994 {
     pub(crate) continue_loop: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
+    pub(crate) layout_writes: Vec<(u32, u16)>,
+    pub(crate) final_source_cells_start: usize,
+    pub(crate) final_layout_addr: u32,
+    pub(crate) final_remaining_count: u16,
+    pub(crate) continue_loop: bool,
+}
+
 /// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
 /// upper byte.
 #[allow(non_snake_case)]
@@ -9483,6 +9493,69 @@ pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F90A(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_layout_only_col_loc_F9A4(
+    source_cells: &[u8],
+    source_cells_start: usize,
+    layout_queue_addr: u32,
+    remaining_count: u16,
+    level_width_blocks: usize,
+    level_width_tiles: u32,
+) -> AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
+    // ASM loc_F9A4 (kid.asm:20700): clear temporary accumulator state and
+    // fall through into the culled-column write loop.
+    let layout_cell: u8 = 0;
+    let _ = layout_cell;
+    animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F9A6(
+        source_cells,
+        source_cells_start,
+        layout_queue_addr,
+        remaining_count,
+        level_width_blocks,
+        level_width_tiles,
+    )
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F9A6(
+    source_cells: &[u8],
+    source_cells_start: usize,
+    layout_queue_addr: u32,
+    remaining_count: u16,
+    level_width_blocks: usize,
+    level_width_tiles: u32,
+) -> AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
+    // ASM loc_F9A6 (kid.asm:20703): while DBF is non-$FFFF, restore each
+    // source byte to layout and step source/layout cursors by row stride.
+    let mut source_cells_index = source_cells_start;
+    let mut dbf_counter = remaining_count;
+    let mut layout_addr = layout_queue_addr;
+    let mut layout_writes = Vec::with_capacity(usize::from(remaining_count));
+
+    loop {
+        let source_cell = source_cells.get(source_cells_index).copied().unwrap_or(0);
+        layout_writes.push((layout_addr, u16::from(source_cell)));
+
+        source_cells_index = source_cells_index.wrapping_add(level_width_blocks);
+        layout_addr = layout_addr.wrapping_add(level_width_tiles);
+        dbf_counter = dbf_counter.wrapping_sub(1);
+
+        if dbf_counter == 0xFFFF {
+            break;
+        }
+    }
+
+    AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
+        layout_writes,
+        final_source_cells_start: source_cells_index,
+        final_layout_addr: layout_addr,
+        final_remaining_count: dbf_counter,
+        continue_loop: false,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_gate_loc_F94E(
     source_cell_col: u16,
     source_cell_row: u16,
@@ -9646,6 +9719,17 @@ pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F946(
         restored_d6: swapped_d6.rotate_left(16),
         restored_d7: swapped_d7.rotate_left(16),
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F9B6(
+    swapped_d6: u32,
+    swapped_d7: u32,
+) -> AnimatedSolidBlockTailLocF836 {
+    // ASM loc_F9B6 (kid.asm:20710): restore `d6` and `d7`, then branch to
+    // `loc_F9BA` after the horizontal queue cull path.
+    animated_solid_block_horizontal_queue_tail_loc_F946(swapped_d6, swapped_d7)
 }
 
 #[allow(non_snake_case)]
