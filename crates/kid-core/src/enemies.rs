@@ -6826,6 +6826,56 @@ pub(crate) fn ninja_knockdown_landing_loop_loc_3d8e6(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaFarKidFacingDecisionLoc3D92A {
+    WithinBand,
+    AlreadyFacingFarKid,
+    TurnTowardFarKid,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaFarKidFacingStateLoc3D92A {
+    pub(crate) x_direction_right: bool,
+    pub(crate) decision: NinjaFarKidFacingDecisionLoc3D92A,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_far_kid_facing_loc_3d92a(
+    kid_minus_ninja_x_px: i16,
+    x_direction_right: bool,
+) -> NinjaFarKidFacingStateLoc3D92A {
+    // ASM Ninja.asm loc_3D92A: compute `d4 = kid_x - ninja_x`; only signed
+    // values outside the inclusive [-$80, +$80] band reach the facing checks.
+    let target_right = if kid_minus_ninja_x_px > 0x80 {
+        Some(true)
+    } else if kid_minus_ninja_x_px < -0x80 {
+        Some(false)
+    } else {
+        None
+    };
+
+    let Some(target_right) = target_right else {
+        return NinjaFarKidFacingStateLoc3D92A {
+            x_direction_right,
+            decision: NinjaFarKidFacingDecisionLoc3D92A::WithinBand,
+        };
+    };
+
+    if target_right == x_direction_right {
+        NinjaFarKidFacingStateLoc3D92A {
+            x_direction_right,
+            decision: NinjaFarKidFacingDecisionLoc3D92A::AlreadyFacingFarKid,
+        }
+    } else {
+        NinjaFarKidFacingStateLoc3D92A {
+            x_direction_right: target_right,
+            decision: NinjaFarKidFacingDecisionLoc3D92A::TurnTowardFarKid,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionLoc3D606 {
     /// ASM Ninja.asm loc_3D6DA: no collision, so jump to stealth/attack gate.
     To3D6DA,
@@ -16878,6 +16928,42 @@ mod tests {
                 route: NinjaKnockdownLandingRouteLoc3D8E6::KillPath,
             },
             "ASM Ninja.asm loc_3D8E6 should clear motion/flags and snap y_pos to ((integer_y + $F) & $FFF0) on floor contact"
+        );
+    }
+
+    #[test]
+    fn ninja_far_kid_facing_loc_3d92a_only_turns_outside_inclusive_band() {
+        assert_eq!(
+            ninja_far_kid_facing_loc_3d92a(0x80, false),
+            NinjaFarKidFacingStateLoc3D92A {
+                x_direction_right: false,
+                decision: NinjaFarKidFacingDecisionLoc3D92A::WithinBand,
+            },
+            "ASM Ninja.asm loc_3D92A should keep current facing at the inclusive +$80 Kid X edge"
+        );
+        assert_eq!(
+            ninja_far_kid_facing_loc_3d92a(-0x80, true),
+            NinjaFarKidFacingStateLoc3D92A {
+                x_direction_right: true,
+                decision: NinjaFarKidFacingDecisionLoc3D92A::WithinBand,
+            },
+            "ASM Ninja.asm loc_3D92A should keep current facing at the inclusive -$80 Kid X edge"
+        );
+        assert_eq!(
+            ninja_far_kid_facing_loc_3d92a(0x81, false),
+            NinjaFarKidFacingStateLoc3D92A {
+                x_direction_right: true,
+                decision: NinjaFarKidFacingDecisionLoc3D92A::TurnTowardFarKid,
+            },
+            "ASM Ninja.asm loc_3D92A should set x_direction when Kid is more than $80 px to the right"
+        );
+        assert_eq!(
+            ninja_far_kid_facing_loc_3d92a(-0x81, false),
+            NinjaFarKidFacingStateLoc3D92A {
+                x_direction_right: false,
+                decision: NinjaFarKidFacingDecisionLoc3D92A::AlreadyFacingFarKid,
+            },
+            "ASM Ninja.asm loc_3D92A should leave clear x_direction unchanged when Kid is already far left"
         );
     }
 
