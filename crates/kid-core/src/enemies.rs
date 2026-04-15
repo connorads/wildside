@@ -9392,6 +9392,75 @@ pub(crate) fn spinning_twins_falling_visual_init_loc_3b9b0(
     }
 }
 
+pub(crate) const SPINNING_TWINS_FALLING_VISUAL_X_STEPS_LOC_3BA00: [i32; 5] =
+    [0x1_2000, 0x1_2000, 0x1_8000, 0x2_4000, 0x3_0000];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsFallingVisualStateLoc3BA00 {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) step_index: u8,
+    pub(crate) frames_until_next_step_index: u8,
+    pub(crate) reverse_x_motion: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsFallingVisualStepLoc3BA00 {
+    pub(crate) state: SpinningTwinsFallingVisualStateLoc3BA00,
+    pub(crate) alive: bool,
+}
+
+fn spinning_twins_falling_visual_screen_delta_px(position: u32, camera_position: u32) -> i16 {
+    let position_px = (position >> 16) as u16;
+    let camera_px = (camera_position >> 16) as u16;
+    position_px.wrapping_sub(camera_px) as i16
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_falling_visual_step_loc_3ba00(
+    mut state: SpinningTwinsFallingVisualStateLoc3BA00,
+    camera_x_pos: u32,
+    camera_y_pos: u32,
+) -> SpinningTwinsFallingVisualStepLoc3BA00 {
+    // ASM Spinning_Twins.asm loc_3BA00: delete when the visual leaves the
+    // signed screen-relative box X[-$104,$244], Y[-$104,$1E4]; otherwise use
+    // dword_3BA60 for X drift, move down one pixel, and advance d0 every four
+    // frames, toggling d3 after the fifth table entry.
+    let screen_x = i32::from(spinning_twins_falling_visual_screen_delta_px(
+        state.x_pos,
+        camera_x_pos,
+    ));
+    let screen_y = i32::from(spinning_twins_falling_visual_screen_delta_px(
+        state.y_pos,
+        camera_y_pos,
+    ));
+    if !(-0x104..=0x244).contains(&screen_x) || !(-0x104..=0x1E4).contains(&screen_y) {
+        return SpinningTwinsFallingVisualStepLoc3BA00 {
+            state,
+            alive: false,
+        };
+    }
+
+    let step = SPINNING_TWINS_FALLING_VISUAL_X_STEPS_LOC_3BA00[usize::from(state.step_index) % 5];
+    let x_delta = if state.reverse_x_motion { -step } else { step };
+    state.x_pos = (i64::from(state.x_pos) + i64::from(x_delta)) as u32;
+    state.y_pos = state.y_pos.wrapping_add(1 << 16);
+
+    state.frames_until_next_step_index = state.frames_until_next_step_index.saturating_sub(1);
+    if state.frames_until_next_step_index == 0 {
+        state.frames_until_next_step_index = 4;
+        state.step_index = state.step_index.wrapping_add(1);
+        if state.step_index == 5 {
+            state.reverse_x_motion = !state.reverse_x_motion;
+            state.step_index = 0;
+        }
+    }
+
+    SpinningTwinsFallingVisualStepLoc3BA00 { state, alive: true }
+}
+
 /// SpinningTwins: orbit at spawn position, then drop and walk as pacer.
 /// Orbit-to-walk transition is collision-triggered (player touching the orbiting form).
 /// ASM: loc_3B904 checks collision_type each frame.

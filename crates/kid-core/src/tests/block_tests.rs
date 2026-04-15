@@ -6249,6 +6249,79 @@ mod chunk_04 {
         );
     }
 
+    #[test]
+    fn spinning_twins_falling_visual_step_loc_3ba00_uses_table_cadence() {
+        let mut state = SpinningTwinsFallingVisualStateLoc3BA00 {
+            x_pos: 0x0100_0000,
+            y_pos: 0x0080_0000,
+            step_index: 0,
+            frames_until_next_step_index: 4,
+            reverse_x_motion: false,
+        };
+
+        let first = spinning_twins_falling_visual_step_loc_3ba00(state, 0, 0);
+        assert!(first.alive);
+        assert_eq!(
+            first.state.x_pos, 0x0101_2000,
+            "ASM loc_3BA00 adds dword_3BA60[0] to X on the first frame"
+        );
+        assert_eq!(
+            first.state.y_pos, 0x0081_0000,
+            "ASM loc_3BA00 adds one pixel to Y each frame"
+        );
+        assert_eq!(first.state.step_index, 0);
+        assert_eq!(first.state.frames_until_next_step_index, 3);
+
+        state = first.state;
+        for _ in 0..3 {
+            state = spinning_twins_falling_visual_step_loc_3ba00(state, 0, 0).state;
+        }
+        assert_eq!(
+            state.step_index, 1,
+            "ASM loc_3BA00 advances d0 after four frames"
+        );
+        assert_eq!(state.frames_until_next_step_index, 4);
+
+        for _ in 0..16 {
+            state = spinning_twins_falling_visual_step_loc_3ba00(state, 0, 0).state;
+        }
+        assert_eq!(
+            state.step_index, 0,
+            "ASM loc_3BA00 wraps d0 after the fifth movement-table entry"
+        );
+        assert!(
+            state.reverse_x_motion,
+            "ASM loc_3BA00 toggles d3 before restarting the movement table"
+        );
+        assert_eq!(
+            state.x_pos, 0x0124_0000,
+            "ASM loc_3BA00 table covers 36px of horizontal drift per half-cycle"
+        );
+        assert_eq!(state.y_pos, 0x0094_0000);
+    }
+
+    #[test]
+    fn spinning_twins_falling_visual_step_loc_3ba00_deletes_outside_camera_box() {
+        let state = SpinningTwinsFallingVisualStateLoc3BA00 {
+            x_pos: 100 << 16,
+            y_pos: 128 << 16,
+            step_index: 0,
+            frames_until_next_step_index: 4,
+            reverse_x_motion: false,
+        };
+
+        let stepped = spinning_twins_falling_visual_step_loc_3ba00(state, 361 << 16, 0);
+
+        assert!(
+            !stepped.alive,
+            "ASM loc_3BA00 branches to object deletion when screen X is less than -$104"
+        );
+        assert_eq!(
+            stepped.state, state,
+            "ASM loc_3BA00 checks the camera box before applying movement"
+        );
+    }
+
     // --- Ghost blocks ---
 
     #[test]
