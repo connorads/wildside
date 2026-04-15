@@ -893,6 +893,14 @@ pub(crate) struct MiniHoppingSkullStoppedWaitSetup {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullFacingMatchedPauseSetup {
+    pub(crate) sprite: &'static str,
+    pub(crate) dbf_counter: u16,
+    pub(crate) wait_frames: u8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullStoppedWaitTail {
     ContinueWait {
         next_dbf_counter: u16,
@@ -5573,6 +5581,19 @@ pub(crate) fn mini_hopping_skull_stopped_wait_scream_worker_allocation_loc_3f03c
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_facing_matched_pause_setup_loc_3f09e()
+-> MiniHoppingSkullFacingMatchedPauseSetup {
+    // ASM Mini_Hopping_Skull.asm loc_3F09E: once the stopped-wait tail finds
+    // the skull already facing Kid, it selects `LnkTo_unk_C8078` and seeds
+    // d1 with `$A`, making the following DBF loop last 11 frames.
+    MiniHoppingSkullFacingMatchedPauseSetup {
+        sprite: "LnkTo_unk_C8078",
+        dbf_counter: 0x000A,
+        wait_frames: 11,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_stopped_wait_tail_loc_3f090(
     dbf_counter: u16,
     kid_x_word: u16,
@@ -5596,17 +5617,19 @@ pub(crate) fn mini_hopping_skull_stopped_wait_tail_loc_3f090(
                 wait_frames: 21,
             }
         } else {
+            let setup = mini_hopping_skull_facing_matched_pause_setup_loc_3f09e();
             MiniHoppingSkullStoppedWaitTail::BeginFacingMatchedPause {
-                sprite: "LnkTo_unk_C8078",
-                dbf_counter: 0x000A,
-                wait_frames: 11,
+                sprite: setup.sprite,
+                dbf_counter: setup.dbf_counter,
+                wait_frames: setup.wait_frames,
             }
         }
     } else if x_direction == 0 {
+        let setup = mini_hopping_skull_facing_matched_pause_setup_loc_3f09e();
         MiniHoppingSkullStoppedWaitTail::BeginFacingMatchedPause {
-            sprite: "LnkTo_unk_C8078",
-            dbf_counter: 0x000A,
-            wait_frames: 11,
+            sprite: setup.sprite,
+            dbf_counter: setup.dbf_counter,
+            wait_frames: setup.wait_frames,
         }
     } else {
         MiniHoppingSkullStoppedWaitTail::RestartStoppedWaitFacingLeft {
@@ -15237,6 +15260,19 @@ mod tests {
             ),
             None,
             "ASM Mini_Hopping_Skull.asm loc_3F03C is skipped by the charging-Berzerker side-contact branch"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_facing_matched_pause_setup_matches_loc_3f09e() {
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_setup_loc_3f09e(),
+            MiniHoppingSkullFacingMatchedPauseSetup {
+                sprite: "LnkTo_unk_C8078",
+                dbf_counter: 0x000A,
+                wait_frames: 11,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F09E should select the matched-facing sprite and seed d1 with `$A`"
         );
     }
 
