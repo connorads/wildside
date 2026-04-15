@@ -5393,6 +5393,23 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_reversal_loc_32840_negates_velocity_and_inverts_direction_flag() {
+        assert_eq!(
+            hand_reversal_loc_32840(-0x0000_4800, false),
+            HandReversalLoc32840 {
+                x_velocity: 0x0000_4800,
+                x_direction_flag: true,
+            },
+            "ASM Hand.asm loc_32840: `neg.l d5; move.l d5,x_vel(a3); not.b x_direction(a3)` reverses both patrol velocity and raw direction flag"
+        );
+        assert_eq!(
+            hand_reversal_loc_32840(0x0000_3000, true).x_velocity,
+            -0x0000_3000,
+            "ASM Hand.asm loc_32840 uses long negation symmetrically when turning back left"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

@@ -6485,6 +6485,25 @@ pub(crate) enum HandPatrolDecision {
     ReverseDirection,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub(crate) struct HandReversalLoc32840 {
+    pub(crate) x_velocity: i32,
+    pub(crate) x_direction_flag: bool,
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn hand_reversal_loc_32840(
+    x_velocity: i32,
+    x_direction_flag: bool,
+) -> HandReversalLoc32840 {
+    // ASM Hand.asm loc_32840: `neg.l d5; move.l d5,x_vel(a3);
+    // not.b x_direction(a3)` reverses patrol velocity and flips the raw flag.
+    HandReversalLoc32840 {
+        x_velocity: x_velocity.wrapping_neg(),
+        x_direction_flag: !x_direction_flag,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_patrol_decision_loc_32804(
@@ -6513,6 +6532,24 @@ pub(crate) fn hand_patrol_decision_loc_32804(
     } else {
         HandPatrolDecision::JumpAttack
     }
+}
+
+fn hand_x_direction_flag(facing: Direction) -> bool {
+    matches!(facing, Direction::Right)
+}
+
+fn hand_facing_from_x_direction_flag(x_direction_flag: bool) -> Direction {
+    if x_direction_flag {
+        Direction::Right
+    } else {
+        Direction::Left
+    }
+}
+
+fn reverse_hand_loc_32840(enemy: &mut ActiveEnemy) {
+    let reversal = hand_reversal_loc_32840(enemy.x_velocity, hand_x_direction_flag(enemy.facing));
+    enemy.x_velocity = reversal.x_velocity;
+    enemy.facing = hand_facing_from_x_direction_flag(reversal.x_direction_flag);
 }
 
 /// Step a Hand enemy through its walk/detect/jump state machine.
@@ -6558,7 +6595,7 @@ pub(crate) fn step_hand(
                     } else if enemy.x_pos < wall_fp + edge_fp {
                         enemy.x_pos = wall_fp + edge_fp;
                     }
-                    reverse_enemy_direction(enemy);
+                    reverse_hand_loc_32840(enemy);
                     return;
                 }
 
@@ -6568,7 +6605,7 @@ pub(crate) fn step_hand(
                     cx - ENEMY_PROBE_HALF_WIDTH
                 };
                 if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
-                    reverse_enemy_direction(enemy);
+                    reverse_hand_loc_32840(enemy);
                 }
             }
 
