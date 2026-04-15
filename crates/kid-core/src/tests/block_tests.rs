@@ -2674,6 +2674,30 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_death_sequence_loc_35c0e_clears_motion_updates_status_and_deletes() {
+        let positive = cloud_death_sequence_loc_35C0E(0x02);
+        assert_eq!(positive.x_velocity, 0);
+        assert_eq!(positive.animation_script, "stru_35EBA");
+        assert_eq!(
+            positive.status_route,
+            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 2 },
+            "ASM Cloud.asm loc_35C0E writes the respawn marker for positive object-status slots"
+        );
+        assert!(positive.deletes_current_object);
+
+        assert_eq!(
+            cloud_death_sequence_loc_35C0E(0xC7).status_route,
+            DeactivationStatusActionLoc3C4C0::SubtractSpawnCounter { index: 7 },
+            "ASM Cloud.asm loc_35C0E masks bit-7+bit-6 status slots before decrementing the spawn counter"
+        );
+        assert_eq!(
+            cloud_death_sequence_loc_35C0E(0x80).status_route,
+            DeactivationStatusActionLoc3C4C0::DeleteOnly,
+            "ASM Cloud.asm loc_35C0E deletes without a status-table write when bit 6 is clear"
+        );
+    }
+
+    #[test]
     fn cloud_flies_horizontally() {
         let mut enemy = ActiveEnemy {
             segment_index: 0,

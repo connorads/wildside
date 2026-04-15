@@ -3188,6 +3188,27 @@ pub(crate) fn cloud_control_script_dispatch_loc_35BB2(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CloudDeathSequenceLoc35C0E {
+    pub(crate) x_velocity: i32,
+    pub(crate) animation_script: &'static str,
+    pub(crate) status_route: DeactivationStatusActionLoc3C4C0,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_death_sequence_loc_35C0E(object_status_slot: u8) -> CloudDeathSequenceLoc35C0E {
+    // ASM Cloud.asm loc_35C0E: clear `x_vel(a3)`, run `stru_35EBA` to
+    // completion, apply the `$42(a5)` status route, then delete the object.
+    CloudDeathSequenceLoc35C0E {
+        x_velocity: 0,
+        animation_script: "stru_35EBA",
+        status_route: deactivation_status_update_loc_3C4C0(object_status_slot),
+        deletes_current_object: true,
+    }
+}
+
 pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
