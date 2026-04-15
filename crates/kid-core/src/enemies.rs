@@ -6643,6 +6643,14 @@ pub(crate) struct TarMonsterThirdAttackWaitLoc3235E {
     pub(crate) resumes_control_script: bool,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterCollisionGateLoc3237A {
+    Kill,
+    Return,
+    NonZero { captured_collision_type: u16 },
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_loc_32248() -> &'static [u8] {
     // ASM loc_32248: `lea (unk_32264).l,a0` loads this control script pointer.
@@ -6740,6 +6748,25 @@ pub(crate) fn tar_monster_third_attack_wait_loc_3235e() -> TarMonsterThirdAttack
         polls_collision_each_frame: true,
         restored_sprite_link: "LnkTo_unk_C77D6",
         resumes_control_script: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_collision_gate_loc_3237a(
+    collision_type: i16,
+) -> TarMonsterCollisionGateLoc3237A {
+    // ASM loc_3237A copies `collision_type(a3)` into d7; negative values go
+    // straight to the death path, zero returns, and positive values continue
+    // with the captured collision id.
+    if collision_type < 0 {
+        return TarMonsterCollisionGateLoc3237A::Kill;
+    }
+    if collision_type == 0 {
+        return TarMonsterCollisionGateLoc3237A::Return;
+    }
+    TarMonsterCollisionGateLoc3237A::NonZero {
+        captured_collision_type: collision_type as u16,
     }
 }
 
@@ -9252,6 +9279,27 @@ mod tests {
                 resumes_control_script: true,
             },
             "ASM Tar_Monster.asm loc_3235E seeds d0=8, so loc_32360 performs nine hibernated collision polls before restoring LnkTo_unk_C77D6"
+        );
+    }
+
+    #[test]
+    fn tar_monster_collision_gate_loc_3237a_routes_negative_zero_and_positive() {
+        assert_eq!(
+            tar_monster_collision_gate_loc_3237a(-1),
+            TarMonsterCollisionGateLoc3237A::Kill,
+            "ASM Tar_Monster.asm loc_3237A branches to the death path on a negative collision word"
+        );
+        assert_eq!(
+            tar_monster_collision_gate_loc_3237a(0),
+            TarMonsterCollisionGateLoc3237A::Return,
+            "ASM Tar_Monster.asm loc_3237A returns immediately when collision_type(a3) is zero"
+        );
+        assert_eq!(
+            tar_monster_collision_gate_loc_3237a(0x001C),
+            TarMonsterCollisionGateLoc3237A::NonZero {
+                captured_collision_type: 0x001C
+            },
+            "ASM Tar_Monster.asm loc_3237A preserves the non-zero collision id in d7 for the following dispatch"
         );
     }
 
