@@ -6798,6 +6798,73 @@ pub(crate) fn robot_collision_dispatch_loc_3a8ae(
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RobotHitReactionRouteLoc3A8Fc {
+    ClearAndWalk,
+    EnterCharge,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RobotChildSpriteUpdateLoc3A8Fc {
+    KeepCurrent,
+    UseHitFrame,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotHitReactionLoc3A8Fc {
+    pub(crate) remaining_hp: u16,
+    pub(crate) route: RobotHitReactionRouteLoc3A8Fc,
+    pub(crate) next_parent_collision_type: u16,
+    pub(crate) next_child_collision_type: u16,
+    pub(crate) child_collision_latched: bool,
+    pub(crate) child_y_offset_delta_px: i16,
+    pub(crate) child_sprite_update: RobotChildSpriteUpdateLoc3A8Fc,
+    pub(crate) replay_jump_sound: bool,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_hit_reaction_loc_3a8fc(
+    current_hp: u16,
+    tracking_latch_set: bool,
+    motion_suppressed: bool,
+) -> RobotHitReactionLoc3A8Fc {
+    // ASM Robot.asm loc_3A8FC: latch child collision, optionally select the
+    // hit frame while `$4E(a5)` is clear, move child down 4px, then decrement HP.
+    let remaining_hp = current_hp.wrapping_sub(1);
+    let child_sprite_update = if tracking_latch_set {
+        RobotChildSpriteUpdateLoc3A8Fc::KeepCurrent
+    } else {
+        RobotChildSpriteUpdateLoc3A8Fc::UseHitFrame
+    };
+
+    if remaining_hp == 0 {
+        return RobotHitReactionLoc3A8Fc {
+            remaining_hp,
+            route: RobotHitReactionRouteLoc3A8Fc::EnterCharge,
+            next_parent_collision_type: 0x0800,
+            next_child_collision_type: 0x0800,
+            child_collision_latched: true,
+            child_y_offset_delta_px: 4,
+            child_sprite_update,
+            replay_jump_sound: false,
+        };
+    }
+
+    RobotHitReactionLoc3A8Fc {
+        remaining_hp,
+        route: RobotHitReactionRouteLoc3A8Fc::ClearAndWalk,
+        next_parent_collision_type: 0,
+        next_child_collision_type: 0,
+        child_collision_latched: false,
+        child_y_offset_delta_px: 0,
+        child_sprite_update,
+        replay_jump_sound: !motion_suppressed,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
