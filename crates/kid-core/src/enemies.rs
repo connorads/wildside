@@ -1322,6 +1322,26 @@ pub(crate) fn fire_demon_non_hp5_animation_loc_3a464(
     })
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FireDemonInitWalkDispatch {
+    LeftSharedWalker,
+    RightSharedWalker,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_init_walk_dispatch_loc_3a476(
+    facing: Direction,
+) -> FireDemonInitWalkDispatch {
+    // ASM Fire_Demon.asm loc_3A476: `tst.b x_direction(a3)` dispatches clear
+    // raw direction into the left shared walker and set raw direction into the
+    // right shared walker. Native `Direction` is the decoded raw flag.
+    match facing {
+        Direction::Left => FireDemonInitWalkDispatch::LeftSharedWalker,
+        Direction::Right => FireDemonInitWalkDispatch::RightSharedWalker,
+    }
+}
+
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).

@@ -2481,6 +2481,38 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_dispatch_loc_3a476_follows_initial_direction() {
+        assert_eq!(
+            fire_demon_init_walk_dispatch_loc_3a476(Direction::Left),
+            FireDemonInitWalkDispatch::LeftSharedWalker,
+            "ASM Fire_Demon.asm loc_3A476 sends clear raw x_direction into the left shared-walker route"
+        );
+        assert_eq!(
+            fire_demon_init_walk_dispatch_loc_3a476(Direction::Right),
+            FireDemonInitWalkDispatch::RightSharedWalker,
+            "ASM Fire_Demon.asm loc_3A476 sends set raw x_direction into the right shared-walker route"
+        );
+        assert_eq!(
+            fire_demon_init_walk_dispatch_loc_3a476(spawn_facing(
+                EnemyFamily::FireDemon,
+                100 << 16,
+                80 << 16
+            )),
+            FireDemonInitWalkDispatch::LeftSharedWalker,
+            "native Fire Demon spawn-facing feeds the same left route when Kid starts left of the demon"
+        );
+        assert_eq!(
+            fire_demon_init_walk_dispatch_loc_3a476(spawn_facing(
+                EnemyFamily::FireDemon,
+                100 << 16,
+                120 << 16
+            )),
+            FireDemonInitWalkDispatch::RightSharedWalker,
+            "native Fire Demon spawn-facing feeds the same right route when Kid starts right of the demon"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);
