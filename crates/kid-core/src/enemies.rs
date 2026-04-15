@@ -3149,6 +3149,35 @@ pub(crate) enum UfoLinkedObjectRangeGateLoc35280 {
     RunCleanupDeleteTail,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoLinkedCleanupCountLoc3528A {
+    pub(crate) number_ufos_on_screen: u16,
+    pub(crate) play_hover_sound: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_linked_cleanup_count_loc_3528a(
+    number_ufos_on_screen: u16,
+    ufo_on_screen_latch: bool,
+) -> UfoLinkedCleanupCountLoc3528A {
+    // ASM UFO.asm loc_3528A: if `$50(a5)` is clear, skip the global
+    // `Number_UFOs_OnScreen` decrement; otherwise decrement and replay
+    // `sfx_UFO_hovering` only when the word reaches zero.
+    if !ufo_on_screen_latch {
+        return UfoLinkedCleanupCountLoc3528A {
+            number_ufos_on_screen,
+            play_hover_sound: false,
+        };
+    }
+
+    let number_ufos_on_screen = number_ufos_on_screen.wrapping_sub(1);
+    UfoLinkedCleanupCountLoc3528A {
+        number_ufos_on_screen,
+        play_hover_sound: number_ufos_on_screen == 0,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_linked_object_range_gate_loc_35280(
     range_check_result_nonzero: bool,
@@ -9718,6 +9747,36 @@ mod tests {
             ufo_linked_object_range_gate_loc_35280(true),
             UfoLinkedObjectRangeGateLoc35280::RunCleanupDeleteTail,
             "ASM UFO.asm loc_35280 enters the cleanup/delete tail when the range check reports a non-zero result"
+        );
+    }
+
+    #[test]
+    fn ufo_linked_cleanup_count_matches_loc_3528a() {
+        assert_eq!(
+            ufo_linked_cleanup_count_loc_3528a(3, false),
+            UfoLinkedCleanupCountLoc3528A {
+                number_ufos_on_screen: 3,
+                play_hover_sound: false,
+            },
+            "ASM UFO.asm loc_3528A skips Number_UFOs_OnScreen while `$50(a5)` is clear"
+        );
+
+        assert_eq!(
+            ufo_linked_cleanup_count_loc_3528a(2, true),
+            UfoLinkedCleanupCountLoc3528A {
+                number_ufos_on_screen: 1,
+                play_hover_sound: false,
+            },
+            "ASM UFO.asm loc_3528A decrements the UFO count and falls through silently when another UFO remains"
+        );
+
+        assert_eq!(
+            ufo_linked_cleanup_count_loc_3528a(1, true),
+            UfoLinkedCleanupCountLoc3528A {
+                number_ufos_on_screen: 0,
+                play_hover_sound: true,
+            },
+            "ASM UFO.asm loc_3528A plays sfx_UFO_hovering through j_PlaySound2 when the decrement reaches zero"
         );
     }
 
