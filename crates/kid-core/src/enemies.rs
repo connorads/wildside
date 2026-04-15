@@ -4353,6 +4353,15 @@ pub(crate) fn mini_hopping_skull_left_hop_damage_sequence_loc_3ed1e(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_landing_collision_damage_loc_3ef1a(
+    hit_counter: u16,
+) -> MiniHoppingSkullDamageSequence {
+    // ASM Mini_Hopping_Skull.asm loc_3EF1A: `subi.w #1,$44(a3)` then
+    // branches to loc_3F18C on zero, else replays `stru_3E9C2` and waits.
+    mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_damage_sequence_loc_3ede0(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
@@ -10751,6 +10760,25 @@ mod tests {
             ),
             None,
             "ASM Mini_Hopping_Skull.asm loc_3EEFA is skipped while `Berzerker_charging` takes the kill path"
+        );
+    }
+
+    #[test]
+    // ASM Mini_Hopping_Skull.asm loc_3EF1A
+    fn mini_hopping_skull_landing_collision_damage_matches_loc_3ef1a() {
+        assert_eq!(
+            mini_hopping_skull_landing_collision_damage_loc_3ef1a(1),
+            MiniHoppingSkullDamageSequence::SkullDestroyed,
+            "ASM Mini_Hopping_Skull.asm loc_3EF1A should branch to death when `$44(a3)` reaches zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_damage_loc_3ef1a(2),
+            MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                remaining_hits: 1,
+                animation: "stru_3E9C2",
+                hibernate_until_finished: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EF1A should replay `stru_3E9C2` and wait when hits remain"
         );
     }
 
