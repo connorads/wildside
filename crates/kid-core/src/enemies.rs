@@ -6632,6 +6632,17 @@ pub(crate) struct TarMonsterAppearAnimationLoc322C8 {
     pub(crate) resumes_control_script: bool,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterThirdAttackWaitLoc3235E {
+    pub(crate) dbf_seed: u16,
+    pub(crate) hibernate_frames: u16,
+    pub(crate) checks_object_range_each_frame: bool,
+    pub(crate) polls_collision_each_frame: bool,
+    pub(crate) restored_sprite_link: &'static str,
+    pub(crate) resumes_control_script: bool,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_loc_32248() -> &'static [u8] {
     // ASM loc_32248: `lea (unk_32264).l,a0` loads this control script pointer.
@@ -6712,6 +6723,22 @@ pub(crate) fn tar_monster_appear_animation_loc_322c8() -> TarMonsterAppearAnimat
         animation_label: "stru_3272E",
         hibernate_until_animation_finished: true,
         animation_frames: TAR_MONSTER_EMERGE_FRAMES,
+        resumes_control_script: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_third_attack_wait_loc_3235e() -> TarMonsterThirdAttackWaitLoc3235E {
+    // ASM loc_3235E seeds d0 with 8, then the following loop hibernates,
+    // range-checks, and polls collision once per inclusive DBF iteration before restoring
+    // the idle sprite link and resuming the bytecode loop at loc_3224E.
+    TarMonsterThirdAttackWaitLoc3235E {
+        dbf_seed: 8,
+        hibernate_frames: 9,
+        checks_object_range_each_frame: true,
+        polls_collision_each_frame: true,
+        restored_sprite_link: "LnkTo_unk_C77D6",
         resumes_control_script: true,
     }
 }
@@ -9209,6 +9236,22 @@ mod tests {
                 resumes_control_script: true,
             },
             "ASM Tar_Monster.asm loc_322C8 starts stru_3272E and waits for the animation to finish before reading the next command"
+        );
+    }
+
+    #[test]
+    fn tar_monster_third_attack_wait_loc_3235e_is_nine_collision_polled_frames() {
+        assert_eq!(
+            tar_monster_third_attack_wait_loc_3235e(),
+            TarMonsterThirdAttackWaitLoc3235E {
+                dbf_seed: 8,
+                hibernate_frames: 9,
+                checks_object_range_each_frame: true,
+                polls_collision_each_frame: true,
+                restored_sprite_link: "LnkTo_unk_C77D6",
+                resumes_control_script: true,
+            },
+            "ASM Tar_Monster.asm loc_3235E seeds d0=8, so loc_32360 performs nine hibernated collision polls before restoring LnkTo_unk_C77D6"
         );
     }
 
