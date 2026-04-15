@@ -9158,6 +9158,56 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_337f2(
     DripsSurfaceCrawlerMovementPathLoc337F2::FallbackTurn
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
+pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33810 {
+    GuardExit,
+    AlignmentLoop,
+    NegativeCornerLoop,
+    NegativeSolidTurn,
+    NegativeFallbackTurn,
+    NonNegativeCornerLoop,
+    NonNegativeSolidTurn,
+    NonNegativeFallbackTurn,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_movement_tail_loc_33810(
+    has_collision: bool,
+    bounds_contact: bool,
+    x_pos_word: u16,
+    y_pos_word: u16,
+    y_velocity_is_negative: bool,
+    tile_flags_3330e_d7: u16,
+) -> DripsSurfaceCrawlerMovementPathLoc33810 {
+    // ASM Drips.asm loc_33810: diagonal surface crawl waits until the low
+    // nibbles of x/y integer position sum to `$F`, then interprets the
+    // `loc_3330E` d7 probe with different branch targets for negative and
+    // non-negative y velocity.
+    if has_collision || bounds_contact {
+        return DripsSurfaceCrawlerMovementPathLoc33810::GuardExit;
+    }
+    if (x_pos_word & 0x000F) + (y_pos_word & 0x000F) != 0x000F {
+        return DripsSurfaceCrawlerMovementPathLoc33810::AlignmentLoop;
+    }
+    if y_velocity_is_negative {
+        if tile_flags_3330e_d7 == 0x4000 {
+            return DripsSurfaceCrawlerMovementPathLoc33810::NegativeCornerLoop;
+        }
+        if tile_flags_3330e_d7 == 0x6000 {
+            return DripsSurfaceCrawlerMovementPathLoc33810::NegativeSolidTurn;
+        }
+        return DripsSurfaceCrawlerMovementPathLoc33810::NegativeFallbackTurn;
+    }
+    if tile_flags_3330e_d7 == 0x4000 {
+        return DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeCornerLoop;
+    }
+    if tile_flags_3330e_d7 == 0x6000 {
+        return DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeSolidTurn;
+    }
+    DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeFallbackTurn
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -12431,6 +12481,73 @@ mod tests {
             drips_surface_crawler_movement_tail_loc_337f2(0x7000, 0x1111),
             DripsSurfaceCrawlerMovementPathLoc337F2::FallbackTurn,
             "ASM Drips.asm loc_337F2 falls through to the fallback turn for non-matching tile flags"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_movement_tail_matches_loc_33810() {
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33810(
+                true, false, 0x0127, 0x00F8, false, 0x1111,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc33810::GuardExit,
+            "ASM Drips.asm loc_33810 exits through the guard path when loc_33550 reports contact"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33810(
+                false, true, 0x0127, 0x00F8, false, 0x1111,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc33810::GuardExit,
+            "ASM Drips.asm loc_33810 exits through the guard path when loc_33588 reports boundary contact"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33810(
+                false, false, 0x0127, 0x00F7, false, 0x1111,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc33810::AlignmentLoop,
+            "ASM Drips.asm loc_33810 loops until `(x_pos & $F) + (y_pos & $F)` equals `$F`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33810(
+                false, false, 0x0127, 0x00F8, true, 0x4000,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc33810::NegativeCornerLoop,
+            "ASM Drips.asm loc_33810 loops on d7 `$4000` after the negative-y `loc_3330E` probe"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33810(
+                false, false, 0x0127, 0x00F8, true, 0x6000,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc33810::NegativeSolidTurn,
+            "ASM Drips.asm loc_33810 takes the negative-y solid turn on d7 `$6000`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33810(
+                false, false, 0x0127, 0x00F8, true, 0x1111,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc33810::NegativeFallbackTurn,
+            "ASM Drips.asm loc_33810 takes the negative-y fallback turn for non-matching d7"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33810(
+                false, false, 0x0127, 0x00F8, false, 0x4000,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeCornerLoop,
+            "ASM Drips.asm loc_33810 loops on d7 `$4000` after the non-negative-y `loc_3330E` probe"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33810(
+                false, false, 0x0127, 0x00F8, false, 0x6000,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeSolidTurn,
+            "ASM Drips.asm loc_33810 takes the non-negative-y solid turn on d7 `$6000`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33810(
+                false, false, 0x0127, 0x00F8, false, 0x1111,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeFallbackTurn,
+            "ASM Drips.asm loc_33810 takes the non-negative-y fallback turn for non-matching d7"
         );
     }
 
