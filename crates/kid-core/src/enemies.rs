@@ -672,6 +672,25 @@ pub(crate) fn lion_left_charge_continue_loc_3e67a(next_x_position: u32) -> LionL
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLeftChargeXCommitLoc3E6F0 {
+    pub(crate) x_position: u32,
+    pub(crate) enters_vertical_motion: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_x_commit_loc_3e6f0(
+    candidate_x_position: u32,
+) -> LionLeftChargeXCommitLoc3E6F0 {
+    // ASM Lion.asm loc_3E6F0: unobstructed left-charge movement commits `d2`
+    // into `x_pos(a3)` and falls through to the vertical motion block.
+    LionLeftChargeXCommitLoc3E6F0 {
+        x_position: candidate_x_position,
+        enters_vertical_motion: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeEntryLoc3E682 {
     pub(crate) left_charge_latch_set: bool,
     pub(crate) restored_sprite_offset: Option<u16>,
@@ -13719,6 +13738,18 @@ mod tests {
                 resume_via_callback: true,
             },
             "ASM Lion.asm loc_3E67A should commit `d2` to x_pos and enter the loc_3E556 hibernate/cull/resume tail"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_x_commit_matches_loc_3e6f0() {
+        assert_eq!(
+            lion_left_charge_x_commit_loc_3e6f0(0x0455_8000),
+            LionLeftChargeXCommitLoc3E6F0 {
+                x_position: 0x0455_8000,
+                enters_vertical_motion: true,
+            },
+            "ASM Lion.asm loc_3E6F0 should commit unobstructed d2 into x_pos before entering vertical motion"
         );
     }
 
