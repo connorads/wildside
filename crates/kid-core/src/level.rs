@@ -9900,6 +9900,84 @@ pub(crate) fn animated_solid_block_negative_sprites_loc_F9CC(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_vertical_sprites_loc_FA4C(
+    input: AnimatedSolidBlockNegativeSpritesInputLocF9CC,
+) -> AnimatedSolidBlockNegativeSpritesLocF9CC {
+    // ASM loc_FA4C (kid.asm:20781): vertical negative-state animated-solid
+    // descriptors first cull their single block column to the visible
+    // 21-column camera band, then clip the row DBF counter to the 15-row band.
+    let col_delta = i16::from_ne_bytes(
+        input
+            .block_col
+            .wrapping_sub(input.camera_left_col)
+            .to_ne_bytes(),
+    );
+    if !(0..=0x0014).contains(&col_delta) {
+        return AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot;
+    }
+
+    let mut start_row = input.block_row;
+    let mut dbf_sprite_counter = u16::from(input.span_tiles.wrapping_sub(1));
+    let row_delta = i16::from_ne_bytes(
+        input
+            .block_row
+            .wrapping_sub(input.camera_top_row)
+            .to_ne_bytes(),
+    );
+
+    if row_delta < 0 {
+        let clipped_counter =
+            i16::from_ne_bytes(dbf_sprite_counter.to_ne_bytes()).wrapping_add(row_delta);
+        if clipped_counter < 0 {
+            return AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot;
+        }
+        dbf_sprite_counter = u16::from_ne_bytes(clipped_counter.to_ne_bytes());
+        start_row = input.camera_top_row;
+    } else {
+        let bottom_overrun = row_delta.wrapping_sub(0x000E);
+        if bottom_overrun > 0 {
+            return AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot;
+        }
+
+        let visible_counter = u16::try_from(0x000E_i16.wrapping_sub(row_delta))
+            .expect("row_delta is already constrained to the visible row window");
+        if visible_counter < dbf_sprite_counter {
+            dbf_sprite_counter = visible_counter;
+        }
+    }
+
+    let screen_x = (input.block_col << 4)
+        .wrapping_sub(input.camera_x_word)
+        .wrapping_add(0x0080);
+    let start_screen_y = (start_row << 4)
+        .wrapping_sub(input.camera_y_word)
+        .wrapping_add(0x0080);
+    let tile_word = if input.descriptor_flags & 1 != 0 {
+        0x024A
+    } else {
+        0x024E
+    };
+    let mut sprite_link_word = input.sprite_link_word;
+    let mut sprites = Vec::with_capacity(usize::from(dbf_sprite_counter) + 1);
+
+    for sprite_index in 0..=dbf_sprite_counter {
+        sprite_link_word = sprite_link_word.wrapping_add(1);
+        sprites.push(AnimatedSolidBlockNegativeSpriteLocF9CC {
+            screen_y: start_screen_y.wrapping_add(sprite_index << 4),
+            sprite_link_word,
+            tile_word,
+            screen_x,
+        });
+    }
+
+    AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+        sprites,
+        next_sprite_link_word: sprite_link_word,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSubF06A {
     // ASM sub_F06A (kid.asm:19595): seed the shooter-object free list at
     // `$FFFFE7F2`; loc_F074 links 19 contiguous `$0E`-byte slots through
