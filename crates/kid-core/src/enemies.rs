@@ -2839,6 +2839,25 @@ pub(crate) fn ufo_hurt_driver_spawn_loc_35180(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtHibernateGateLoc351B6 {
+    pub(crate) keep_hibernating: bool,
+    pub(crate) delete_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_hibernate_gate_loc_351b6(
+    a3_flag_19_set: bool,
+) -> UfoHurtHibernateGateLoc351B6 {
+    // ASM UFO.asm loc_351B6: after one-frame hibernate, stay in this routine
+    // while `$19(a3)` is zero; delete the object when the byte is nonzero.
+    UfoHurtHibernateGateLoc351B6 {
+        keep_hibernating: !a3_flag_19_set,
+        delete_current_object: a3_flag_19_set,
+    }
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -8858,6 +8877,27 @@ mod tests {
                 parent_y_velocity: 0x0003_0000,
             },
             "ASM UFO.asm loc_35180 applies the same negative parent x_vel path as the hurt tail"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_hibernate_gate_matches_loc_351b6() {
+        assert_eq!(
+            ufo_hurt_hibernate_gate_loc_351b6(false),
+            UfoHurtHibernateGateLoc351B6 {
+                keep_hibernating: true,
+                delete_current_object: false,
+            },
+            "ASM UFO.asm loc_351B6 keeps hibernating while `$19(a3)` is zero"
+        );
+
+        assert_eq!(
+            ufo_hurt_hibernate_gate_loc_351b6(true),
+            UfoHurtHibernateGateLoc351B6 {
+                keep_hibernating: false,
+                delete_current_object: true,
+            },
+            "ASM UFO.asm loc_351B6 deletes current object when `$19(a3)` is set"
         );
     }
 
