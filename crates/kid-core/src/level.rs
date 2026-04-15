@@ -9926,6 +9926,9 @@ pub(crate) fn animated_solid_block_vertical_sprites_loc_FA4C(
     );
 
     if row_delta < 0 {
+        // ASM loc_FA7E (kid.asm:20804): add the negative top-row delta to the
+        // DBF sprite counter, cull if it goes negative, then start at d5
+        // (`Camera_Y_pos >> 4`).
         let clipped_counter =
             i16::from_ne_bytes(dbf_sprite_counter.to_ne_bytes()).wrapping_add(row_delta);
         if clipped_counter < 0 {

@@ -10498,12 +10498,12 @@ mod chunk_02 {
         );
     }
 
-    /// ASM loc_FA4C (kid.asm:20781): when the vertical strip starts above the
+    /// ASM loc_FA7E (kid.asm:20804): when the vertical strip starts above the
     /// camera, the negative row delta shortens the DBF counter and starts at
-    /// the camera-top row; fully clipped columns or rows advance the descriptor.
+    /// the camera-top row; fully clipped rows advance the descriptor.
     #[test]
     #[allow(non_snake_case)]
-    fn loc_FA4C_clips_top_and_culls_offscreen_vertical_strips() {
+    fn loc_FA7E_clips_top_and_culls_fully_hidden_vertical_strips() {
         assert_eq!(
             crate::level::animated_solid_block_vertical_sprites_loc_FA4C(
                 crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
@@ -10574,7 +10574,7 @@ mod chunk_02 {
                 },
             ),
             crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot,
-            "ASM loc_FA4C should advance without sprites when the top-clipped DBF counter goes negative"
+            "ASM loc_FA7E should advance without sprites when the top-clipped DBF counter goes negative"
         );
     }
 
