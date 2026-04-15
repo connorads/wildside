@@ -9129,6 +9129,35 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_337a0(
     DripsSurfaceCrawlerMovementPathLoc337A0::FallbackTurn
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
+pub(crate) enum DripsSurfaceCrawlerMovementPathLoc337F2 {
+    SolidD5Turn,
+    SolidD5Corner,
+    LoopToEntry,
+    FallbackTurn,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_movement_tail_loc_337f2(
+    tile_flags_33286_d5: u16,
+    tile_flags_33286_d6: u16,
+) -> DripsSurfaceCrawlerMovementPathLoc337F2 {
+    // ASM Drips.asm loc_337F2: non-negative y-velocity continuation from the
+    // left-side vertical turn. The routine checks `loc_33286` d5 before d6, so
+    // a d5 solid flag wins over the entry-loop d6 flag.
+    if tile_flags_33286_d5 == 0x6000 {
+        return DripsSurfaceCrawlerMovementPathLoc337F2::SolidD5Turn;
+    }
+    if tile_flags_33286_d5 == 0x4000 {
+        return DripsSurfaceCrawlerMovementPathLoc337F2::SolidD5Corner;
+    }
+    if tile_flags_33286_d6 == 0x6000 {
+        return DripsSurfaceCrawlerMovementPathLoc337F2::LoopToEntry;
+    }
+    DripsSurfaceCrawlerMovementPathLoc337F2::FallbackTurn
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -12378,6 +12407,30 @@ mod tests {
             drips_surface_crawler_movement_tail_loc_337a0(false, true, false, true, 0x7000, 0x1111,),
             DripsSurfaceCrawlerMovementPathLoc337A0::FallbackTurn,
             "ASM Drips.asm loc_337A0 falls through to the fallback turn for non-matching tile flags"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_movement_tail_matches_loc_337f2() {
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337f2(0x6000, 0x6000),
+            DripsSurfaceCrawlerMovementPathLoc337F2::SolidD5Turn,
+            "ASM Drips.asm loc_337F2 checks d5 `$6000` before d6, so the solid-d5 turn wins"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337f2(0x4000, 0x6000),
+            DripsSurfaceCrawlerMovementPathLoc337F2::SolidD5Corner,
+            "ASM Drips.asm loc_337F2 checks d5 `$4000` before the entry-loop d6 flag"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337f2(0x1111, 0x6000),
+            DripsSurfaceCrawlerMovementPathLoc337F2::LoopToEntry,
+            "ASM Drips.asm loc_337F2 loops to the entry label when only d6 is `$6000`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337f2(0x7000, 0x1111),
+            DripsSurfaceCrawlerMovementPathLoc337F2::FallbackTurn,
+            "ASM Drips.asm loc_337F2 falls through to the fallback turn for non-matching tile flags"
         );
     }
 
