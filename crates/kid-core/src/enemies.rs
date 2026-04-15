@@ -3289,8 +3289,8 @@ fn acceleration_for_target(
 
     let mut acceleration = base_acceleration;
     if current_velocity >= 0 {
-        // ASM UFO.asm loc_3546E: non-negative x_vel keeps d0 unless a positive
-        // target speed is already below the current velocity, where d0 is negated.
+        // ASM UFO.asm loc_3546E/loc_354B0: non-negative velocity keeps acceleration unless a positive
+        // target speed is already below the current velocity, where the acceleration register is negated.
         if target_velocity >= 0 && target_velocity < current_velocity {
             acceleration = -acceleration;
         }
@@ -12123,6 +12123,25 @@ mod tests {
             acceleration_for_target(0x0000_3000, 0x0000_2000, 0x0000_0800),
             -0x0000_0800,
             "ASM UFO.asm loc_3546E negates d0 when positive target d1 is below current x_vel"
+        );
+    }
+
+    #[test]
+    fn tornado_pattern_non_negative_y_velocity_matches_loc_354b0() {
+        assert_eq!(
+            acceleration_for_target(0x0000_3000, -0x0001_0000, -0x0000_0800),
+            -0x0000_0800,
+            "ASM UFO.asm loc_354B0 keeps d2 when y_vel is non-negative and target d3 is negative"
+        );
+        assert_eq!(
+            acceleration_for_target(0x0000_3000, 0x0000_4000, 0x0000_0800),
+            0x0000_0800,
+            "ASM UFO.asm loc_354B0 keeps d2 when positive target d3 is not below current y_vel"
+        );
+        assert_eq!(
+            acceleration_for_target(0x0000_3000, 0x0000_2000, 0x0000_0800),
+            -0x0000_0800,
+            "ASM UFO.asm loc_354B0 negates d2 when positive target d3 is below current y_vel"
         );
     }
 
