@@ -6997,6 +6997,22 @@ pub(crate) struct TarMonsterBerzerkerCollisionLoc323AA {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterHurtRouteLoc323C0 {
+    Death,
+    HurtAnimation,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterHurtCollisionLoc323C0 {
+    pub(crate) saved_child_visible: bool,
+    pub(crate) child_visible_during_response: bool,
+    pub(crate) remaining_hitpoints: u16,
+    pub(crate) route: TarMonsterHurtRouteLoc323C0,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -7140,6 +7156,30 @@ pub(crate) fn tar_monster_berzerker_collision_loc_323AA(
     TarMonsterBerzerkerCollisionLoc323AA {
         route: TarMonsterCollisionRouteLoc32386::ReturnOnly,
         clears_kid_x_velocity: false,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_hurt_collision_loc_323C0(
+    current_hitpoints: u16,
+    child_visible: bool,
+) -> TarMonsterHurtCollisionLoc323C0 {
+    // ASM loc_323C0 saves `$13(a2)` into d2, clears `$13(a2)`, then decrements
+    // d3. A zero result enters the death path; otherwise the hurt animation
+    // runs while the linked child sprite stays hidden.
+    let remaining_hitpoints = current_hitpoints.wrapping_sub(1);
+    let route = if remaining_hitpoints == 0 {
+        TarMonsterHurtRouteLoc323C0::Death
+    } else {
+        TarMonsterHurtRouteLoc323C0::HurtAnimation
+    };
+
+    TarMonsterHurtCollisionLoc323C0 {
+        saved_child_visible: child_visible,
+        child_visible_during_response: false,
+        remaining_hitpoints,
+        route,
     }
 }
 
@@ -9762,6 +9802,34 @@ mod tests {
                 clears_kid_x_velocity: true,
             },
             "ASM Tar_Monster.asm loc_323AA clears Kid `$26(a4)` x velocity before jumping to loc_323E6"
+        );
+    }
+
+    #[test]
+    fn tar_monster_hurt_collision_loc_323c0_hides_child_and_decrements_hitpoints() {
+        assert_eq!(
+            tar_monster_hurt_collision_loc_323C0(3, true),
+            TarMonsterHurtCollisionLoc323C0 {
+                saved_child_visible: true,
+                child_visible_during_response: false,
+                remaining_hitpoints: 2,
+                route: TarMonsterHurtRouteLoc323C0::HurtAnimation,
+            },
+            "ASM Tar_Monster.asm loc_323C0 saves `$13(a2)`, clears it, subtracts one from d3, and continues the hurt response when d3 is still non-zero"
+        );
+    }
+
+    #[test]
+    fn tar_monster_hurt_collision_loc_323c0_enters_death_path_when_hp_reaches_zero() {
+        assert_eq!(
+            tar_monster_hurt_collision_loc_323C0(1, false),
+            TarMonsterHurtCollisionLoc323C0 {
+                saved_child_visible: false,
+                child_visible_during_response: false,
+                remaining_hitpoints: 0,
+                route: TarMonsterHurtRouteLoc323C0::Death,
+            },
+            "ASM Tar_Monster.asm loc_323C0 branches to loc_323E6 when `subq.w #1,d3` leaves zero"
         );
     }
 
