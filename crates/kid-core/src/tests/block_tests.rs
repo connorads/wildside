@@ -5837,9 +5837,10 @@ mod chunk_04 {
                 transient_child_y_offset_delta_px: 4,
                 child_y_offset_delta_px: 0,
                 child_sprite_update: RobotChildSpriteUpdateLoc3A8Fc::UseHitFrame,
+                restores_walk_animations: true,
                 replay_jump_sound: true,
             },
-            "ASM Robot.asm loc_3A90C should move the child down 4px before lowering HP; non-lethal active-motion hits then clear both collision words, undo the child offset, clear the child collision latch, and replay the jump sound"
+            "ASM Robot.asm loc_3A936 should restore the walk animations, clear the child collision latch, and undo the loc_3A90C child +4px offset on non-lethal active-motion hits"
         );
         assert_eq!(
             robot_hit_reaction_loc_3a8fc(2, true, true),
@@ -5852,9 +5853,10 @@ mod chunk_04 {
                 transient_child_y_offset_delta_px: 4,
                 child_y_offset_delta_px: 0,
                 child_sprite_update: RobotChildSpriteUpdateLoc3A8Fc::KeepCurrent,
+                restores_walk_animations: true,
                 replay_jump_sound: false,
             },
-            "ASM Robot.asm loc_3A90C should still apply the transient child +4px offset when `$4E(a5)` keeps the current child sprite and `$19(a3)` suppresses sound"
+            "ASM Robot.asm loc_3A936 should still restore the walk animations after a non-lethal hit when `$4E(a5)` keeps the current child sprite and `$19(a3)` suppresses sound"
         );
         assert_eq!(
             robot_hit_reaction_loc_3a8fc(1, false, false),
@@ -5867,6 +5869,7 @@ mod chunk_04 {
                 transient_child_y_offset_delta_px: 4,
                 child_y_offset_delta_px: 4,
                 child_sprite_update: RobotChildSpriteUpdateLoc3A8Fc::UseHitFrame,
+                restores_walk_animations: false,
                 replay_jump_sound: false,
             },
             "ASM Robot.asm loc_3A90C should keep the child +4px offset on lethal hits before the charge-entry route seeds $800 collisions and skips the non-lethal sound path"

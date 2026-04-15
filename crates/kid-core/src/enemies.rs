@@ -7224,6 +7224,7 @@ pub(crate) struct RobotHitReactionLoc3A8Fc {
     pub(crate) transient_child_y_offset_delta_px: i16,
     pub(crate) child_y_offset_delta_px: i16,
     pub(crate) child_sprite_update: RobotChildSpriteUpdateLoc3A8Fc,
+    pub(crate) restores_walk_animations: bool,
     pub(crate) replay_jump_sound: bool,
 }
 
@@ -7253,10 +7254,14 @@ pub(crate) fn robot_hit_reaction_loc_3a8fc(
             transient_child_y_offset_delta_px: 4,
             child_y_offset_delta_px: 4,
             child_sprite_update,
+            restores_walk_animations: false,
             replay_jump_sound: false,
         };
     }
 
+    // ASM Robot.asm loc_3A936: non-lethal hits clear the child collision latch,
+    // subtract the same 4px from child Y, and reinitialise the body/head walk
+    // animations before clearing the pending collision words.
     RobotHitReactionLoc3A8Fc {
         remaining_hp,
         route: RobotHitReactionRouteLoc3A8Fc::ClearAndWalk,
@@ -7266,6 +7271,7 @@ pub(crate) fn robot_hit_reaction_loc_3a8fc(
         transient_child_y_offset_delta_px: 4,
         child_y_offset_delta_px: 0,
         child_sprite_update,
+        restores_walk_animations: true,
         replay_jump_sound: !motion_suppressed,
     }
 }
