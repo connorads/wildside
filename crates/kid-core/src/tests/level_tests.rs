@@ -13380,6 +13380,32 @@ mod chunk_02 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_FAFE_lift_block_worker_preserves_layout_pointer_and_converts_cell_coords_to_pixels() {
+        let result =
+            NativeRuntime::lift_block_headbutt_worker_loc_FAFE(0x0012, 0x0007, 0xFFFF_A676);
+
+        assert_eq!(
+            result.allocation_spec, 0x2001,
+            "ASM loc_FAFE should pass `#$2001` into `sub_E02` for the lift-block headbutt worker",
+        );
+        assert_eq!(
+            result.object_handler_addr, 0x0000_FB3E,
+            "ASM loc_FAFE should install `sub_FB3E` into `4(a0)` for the spawned lift worker",
+        );
+        assert_eq!(
+            (result.block_col, result.block_row, result.layout_word_addr),
+            (0x0012, 0x0007, 0xFFFF_A676),
+            "ASM loc_FAFE should copy `d1/d2/d3` straight into `$44/$46/$48(a0)`",
+        );
+        assert_eq!(
+            (result.gfx_x_pos, result.gfx_y_pos),
+            (0x0120, 0x0070),
+            "ASM loc_FAFE should shift the block column and row left by four before storing the gfx object's `$1A/$1E` pixel positions",
+        );
+    }
+
+    #[test]
     fn prize_block_deleted_tile_loc_101d8_queues_the_deleted_solid_cell_before_the_bounce() {
         let result = NativeRuntime::prize_block_deleted_tile_loc_101D8(0x0012, 0x0007, 0x05);
 

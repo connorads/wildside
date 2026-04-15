@@ -16,6 +16,18 @@ pub(crate) struct PrizeBlockHeadbuttWorkerLoc1002E {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LiftBlockHeadbuttWorkerLocFAFE {
+    pub(crate) allocation_spec: u16,
+    pub(crate) object_handler_addr: u32,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) layout_word_addr: u32,
+    pub(crate) gfx_x_pos: u16,
+    pub(crate) gfx_y_pos: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeBlockDeletedTileLoc101D8 {
     pub(crate) written_cell: terrain::Cell,
     pub(crate) fg_queue_entry: (u16, u16, u16),
@@ -1043,6 +1055,27 @@ impl NativeRuntime {
     // PrizeDiamond_Init starts moving on the frame after object creation, so a
     // newly spawned native floating item should be active immediately.
     pub(crate) const PRIZE_ITEM_INITIAL_DORMANT_FRAMES: u16 = 0;
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn lift_block_headbutt_worker_loc_FAFE(
+        block_col: u16,
+        block_row: u16,
+        layout_word_addr: u32,
+    ) -> LiftBlockHeadbuttWorkerLocFAFE {
+        // ASM loc_FAFE (kid.asm:20881): allocate object/gfx slots through
+        // `sub_E02`, install `sub_FB3E`, copy `d1/d2/d3` into `$44/$46/$48(a0)`,
+        // and seed the gfx object's pixel position from the block coordinates.
+        LiftBlockHeadbuttWorkerLocFAFE {
+            allocation_spec: 0x2001,
+            object_handler_addr: 0x0000_FB3E,
+            block_col,
+            block_row,
+            layout_word_addr,
+            gfx_x_pos: block_col << 4,
+            gfx_y_pos: block_row << 4,
+        }
+    }
 
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
