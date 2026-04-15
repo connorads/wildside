@@ -7013,6 +7013,15 @@ pub(crate) struct TarMonsterHurtCollisionLoc323C0 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterHurtAnimationLoc323D6 {
+    pub(crate) animation_label: &'static str,
+    pub(crate) hibernate_until_animation_finished: bool,
+    pub(crate) restored_child_visible: bool,
+    pub(crate) resumes_control_script: bool,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -7180,6 +7189,21 @@ pub(crate) fn tar_monster_hurt_collision_loc_323C0(
         child_visible_during_response: false,
         remaining_hitpoints,
         route,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_hurt_animation_loc_323D6(
+    saved_child_visible: bool,
+) -> TarMonsterHurtAnimationLoc323D6 {
+    // ASM loc_323D6 runs the `stru_326EE` hurt animation to completion, restores
+    // the child sprite visibility saved in d2, then resumes at loc_3224E.
+    TarMonsterHurtAnimationLoc323D6 {
+        animation_label: "stru_326EE",
+        hibernate_until_animation_finished: true,
+        restored_child_visible: saved_child_visible,
+        resumes_control_script: true,
     }
 }
 
@@ -9830,6 +9854,24 @@ mod tests {
                 route: TarMonsterHurtRouteLoc323C0::Death,
             },
             "ASM Tar_Monster.asm loc_323C0 branches to loc_323E6 when `subq.w #1,d3` leaves zero"
+        );
+    }
+
+    #[test]
+    fn tar_monster_hurt_animation_loc_323d6_restores_saved_child_visibility() {
+        assert_eq!(
+            tar_monster_hurt_animation_loc_323D6(true),
+            TarMonsterHurtAnimationLoc323D6 {
+                animation_label: "stru_326EE",
+                hibernate_until_animation_finished: true,
+                restored_child_visible: true,
+                resumes_control_script: true,
+            },
+            "ASM Tar_Monster.asm loc_323D6 should wait for stru_326EE, restore d2 into `$13(a2)`, and return to loc_3224E"
+        );
+        assert!(
+            !tar_monster_hurt_animation_loc_323D6(false).restored_child_visible,
+            "ASM Tar_Monster.asm loc_323D6 restores the exact saved `$13(a2)` byte rather than forcing visibility on"
         );
     }
 
