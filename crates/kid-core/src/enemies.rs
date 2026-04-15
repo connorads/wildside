@@ -3268,6 +3268,7 @@ pub(crate) fn ufo_linked_cleanup_status_loc_352b2(
     // ASM UFO.asm loc_352B2: read `$42(a5)` into d0, update the corresponding
     // `EnemyStatus_Table` slot for positive or bit-6 sentinel values, then
     // delete the current object.
+    // ASM UFO.asm loc_352D2: positive slots write `$2168` as the respawn marker.
     deactivation_status_update_loc_3C4C0(object_status_slot)
 }
 
@@ -10447,7 +10448,7 @@ mod tests {
         assert_eq!(
             ufo_linked_cleanup_status_loc_352b2(0x05),
             DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
-            "ASM UFO.asm loc_352B2 treats positive `$42(a5)` slots as respawn-marker writes"
+            "ASM UFO.asm loc_352D2 writes `$2168` to the positive `$42(a5)` status slot"
         );
 
         assert_eq!(
