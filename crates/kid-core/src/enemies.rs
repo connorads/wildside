@@ -7720,6 +7720,13 @@ pub(crate) struct TarMonsterHurtAnimationLoc323D6 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterRespawnMarkerLoc3242C {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -7902,6 +7909,19 @@ pub(crate) fn tar_monster_hurt_animation_loc_323D6(
         hibernate_until_animation_finished: true,
         restored_child_visible: saved_child_visible,
         resumes_control_script: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_respawn_marker_loc_3242C(
+    object_status_slot: u8,
+) -> TarMonsterRespawnMarkerLoc3242C {
+    // ASM loc_3242C: the positive `$42(a5)` byte is doubled as a word offset
+    // into EnemyStatus_Table, then `$2168` is written as the respawn marker.
+    TarMonsterRespawnMarkerLoc3242C {
+        index: usize::from(object_status_slot),
+        word_value: 0x2168,
     }
 }
 
@@ -10815,6 +10835,18 @@ mod tests {
         assert!(
             !tar_monster_hurt_animation_loc_323D6(false).restored_child_visible,
             "ASM Tar_Monster.asm loc_323D6 restores the exact saved `$13(a2)` byte rather than forcing visibility on"
+        );
+    }
+
+    #[test]
+    fn tar_monster_death_status_loc_3242c_writes_respawn_marker_for_positive_slot() {
+        assert_eq!(
+            tar_monster_respawn_marker_loc_3242C(0x05),
+            TarMonsterRespawnMarkerLoc3242C {
+                index: 0x05,
+                word_value: 0x2168,
+            },
+            "ASM Tar_Monster.asm loc_3242C doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
         );
     }
 
