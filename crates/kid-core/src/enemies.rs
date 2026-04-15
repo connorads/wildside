@@ -268,6 +268,9 @@ pub(crate) const NINJA_COLID_HURT: u16 = 0x001C;
 pub(crate) const NINJA_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const NINJA_COLID_KIDRIGHT: u16 = 0x0020;
 pub(crate) const NINJA_COLID_KIDLEFT: u16 = 0x0024;
+pub(crate) const CRAB_COLID_HURT: i16 = 0x001C;
+pub(crate) const CRAB_COLID_KIDRIGHT: i16 = 0x0020;
+pub(crate) const CRAB_COLID_KIDLEFT: i16 = 0x0024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -324,6 +327,51 @@ pub(crate) fn crab_motion_profile_loc_3b00a(current_hp: u8) -> CrabMotionProfile
         timer_48: 0x000C,
         animation_script: "stru_3AF62",
         increments_enemy_count: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CrabCollisionRouteLoc3B048 {
+    ContinueSharedWalker,
+    Death,
+    BerzerkerSideGate,
+    Damage,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_collision_dispatch_loc_3b048(
+    collision_type: i16,
+    using_freeze_sprite: bool,
+    crab_x_minus_kid_x: i16,
+    crab_facing: Direction,
+) -> CrabCollisionRouteLoc3B048 {
+    // ASM Crab.asm loc_3B048: read `collision_type(a3)` before clearing it.
+    // Zero resumes walking, negative values enter the death path, side contacts
+    // are gated by Berzerker charging, and `colid_hurt` only decrements HP when
+    // the frozen sprite is not active and Kid is on the side the crab faces.
+    if collision_type == 0 {
+        return CrabCollisionRouteLoc3B048::ContinueSharedWalker;
+    }
+    if collision_type.is_negative() {
+        return CrabCollisionRouteLoc3B048::Death;
+    }
+    match collision_type {
+        CRAB_COLID_KIDRIGHT | CRAB_COLID_KIDLEFT => CrabCollisionRouteLoc3B048::BerzerkerSideGate,
+        CRAB_COLID_HURT if !using_freeze_sprite => {
+            let kid_is_right_of_crab = crab_x_minus_kid_x < 0;
+            let crab_faces_kid_side = if kid_is_right_of_crab {
+                crab_facing == Direction::Right
+            } else {
+                crab_facing == Direction::Left
+            };
+            if crab_faces_kid_side {
+                CrabCollisionRouteLoc3B048::Damage
+            } else {
+                CrabCollisionRouteLoc3B048::ContinueSharedWalker
+            }
+        }
+        _ => CrabCollisionRouteLoc3B048::ContinueSharedWalker,
     }
 }
 
@@ -11464,6 +11512,59 @@ mod tests {
             "ASM Crab.asm loc_3B00A has no extra HP 4 speed tier"
         );
         assert_eq!(pacer_walk_speed(EnemyFamily::Crab, 4), 0x0001_8000);
+    }
+
+    #[test]
+    fn crab_collision_dispatch_matches_loc_3b048() {
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(0, false, 0x0020, Direction::Left),
+            CrabCollisionRouteLoc3B048::ContinueSharedWalker,
+            "ASM Crab.asm loc_3B048 should ignore zero collision_type before any side checks"
+        );
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(-1, false, 0x0020, Direction::Left),
+            CrabCollisionRouteLoc3B048::Death,
+            "ASM Crab.asm loc_3B048 should send negative collision_type to the death route"
+        );
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(CRAB_COLID_KIDRIGHT, false, 0x0020, Direction::Left,),
+            CrabCollisionRouteLoc3B048::BerzerkerSideGate,
+            "ASM Crab.asm loc_3B048 should route right-side Kid contact through the Berzerker gate"
+        );
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(CRAB_COLID_KIDLEFT, false, -0x0020, Direction::Right),
+            CrabCollisionRouteLoc3B048::BerzerkerSideGate,
+            "ASM Crab.asm loc_3B048 should route left-side Kid contact through the Berzerker gate"
+        );
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(CRAB_COLID_HURT, true, 0x0020, Direction::Left),
+            CrabCollisionRouteLoc3B048::ContinueSharedWalker,
+            "ASM Crab.asm loc_3B048 should suppress hurt response while the frozen sprite is active"
+        );
+    }
+
+    #[test]
+    fn crab_hurt_side_gate_matches_loc_3b048() {
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(CRAB_COLID_HURT, false, 0x0020, Direction::Left),
+            CrabCollisionRouteLoc3B048::Damage,
+            "ASM Crab.asm loc_3B048 should damage a left-facing crab when Kid is to its left"
+        );
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(CRAB_COLID_HURT, false, 0x0020, Direction::Right),
+            CrabCollisionRouteLoc3B048::ContinueSharedWalker,
+            "ASM Crab.asm loc_3B048 should skip hurt when Kid is not on the crab-facing side"
+        );
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(CRAB_COLID_HURT, false, -0x0020, Direction::Right),
+            CrabCollisionRouteLoc3B048::Damage,
+            "ASM Crab.asm loc_3B048 should damage a right-facing crab when Kid is to its right"
+        );
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(CRAB_COLID_HURT, false, 0, Direction::Left),
+            CrabCollisionRouteLoc3B048::Damage,
+            "ASM Crab.asm loc_3B048 should treat exact X alignment like the non-negative side"
+        );
     }
 
     #[test]
