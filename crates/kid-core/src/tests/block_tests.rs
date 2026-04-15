@@ -5695,6 +5695,50 @@ mod chunk_04 {
     }
 
     #[test]
+    fn robot_collision_dispatch_loc_3a8ae_routes_parent_and_child_contacts() {
+        assert_eq!(
+            robot_collision_dispatch_loc_3a8ae(-1, 0x001C, false),
+            RobotCollisionRouteLoc3A8Ae::Destroy,
+            "ASM Robot.asm loc_3A8AE sends negative parent collision_type straight to the destroy route"
+        );
+        assert_eq!(
+            robot_collision_dispatch_loc_3a8ae(0x0800, 0x001C, false),
+            RobotCollisionRouteLoc3A8Ae::ContinueCharge,
+            "ASM Robot.asm loc_3A8AE tests parent collision_type $800 before child damage IDs"
+        );
+        assert_eq!(
+            robot_collision_dispatch_loc_3a8ae(0x001C, 0, false),
+            RobotCollisionRouteLoc3A8Ae::HitReaction,
+            "ASM Robot.asm loc_3A8AE routes parent collision_type $1C to the hit-reaction route"
+        );
+        assert_eq!(
+            robot_collision_dispatch_loc_3a8ae(0, -1, false),
+            RobotCollisionRouteLoc3A8Ae::EnterCharge,
+            "ASM Robot.asm loc_3A8AE sends negative child `$38(a2)` to the charge-entry route"
+        );
+        assert_eq!(
+            robot_collision_dispatch_loc_3a8ae(0, 0x002C, false),
+            RobotCollisionRouteLoc3A8Ae::HitReaction,
+            "ASM Robot.asm loc_3A8AE routes child `$38(a2)` $2C to the hit-reaction route"
+        );
+        assert_eq!(
+            robot_collision_dispatch_loc_3a8ae(0, 0x0020, false),
+            RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
+            "ASM Robot.asm loc_3A8AE clears Berzerker body-hit collisions when Berzerker_charging is zero"
+        );
+        assert_eq!(
+            robot_collision_dispatch_loc_3a8ae(0, 0x0024, true),
+            RobotCollisionRouteLoc3A8Ae::Destroy,
+            "ASM Robot.asm loc_3A8AE destroys on Berzerker body-hit collisions when Berzerker_charging is set"
+        );
+        assert_eq!(
+            robot_collision_dispatch_loc_3a8ae(0, 0x0800, false),
+            RobotCollisionRouteLoc3A8Ae::ContinueCharge,
+            "ASM Robot.asm loc_3A8AE routes child `$38(a2)` $800 to the charge continuation route"
+        );
+    }
+
+    #[test]
     fn robot_charge_flips_direction_on_timer() {
         // ASM: charge is permanent — timer expiry flips direction, stays charging
         let grid = grid_with_platform(17, 0, 120);

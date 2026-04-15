@@ -6759,6 +6759,45 @@ pub(crate) fn robot_jump_sound_edge_loc_3a890(
     body_sprite_is_landing_frame && animation_timer == 4 && !motion_suppressed
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RobotCollisionRouteLoc3A8Ae {
+    ClearAndWalk,
+    HitReaction,
+    EnterCharge,
+    ContinueCharge,
+    Destroy,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_collision_dispatch_loc_3a8ae(
+    parent_collision_type: i16,
+    child_collision_type: i16,
+    berzerker_charging: bool,
+) -> RobotCollisionRouteLoc3A8Ae {
+    // ASM Robot.asm loc_3A8AE: parent collision_type is tested before `$38(a2)`.
+    if parent_collision_type.is_negative() {
+        return RobotCollisionRouteLoc3A8Ae::Destroy;
+    }
+    match parent_collision_type {
+        0x0800 => return RobotCollisionRouteLoc3A8Ae::ContinueCharge,
+        0x001C => return RobotCollisionRouteLoc3A8Ae::HitReaction,
+        _ => {}
+    }
+
+    if child_collision_type.is_negative() {
+        return RobotCollisionRouteLoc3A8Ae::EnterCharge;
+    }
+    match child_collision_type {
+        0x0000 => RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
+        0x001C | 0x002C => RobotCollisionRouteLoc3A8Ae::HitReaction,
+        0x0020 | 0x0024 if berzerker_charging => RobotCollisionRouteLoc3A8Ae::Destroy,
+        0x0020 | 0x0024 => RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
+        0x0800 => RobotCollisionRouteLoc3A8Ae::ContinueCharge,
+        _ => RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
