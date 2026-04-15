@@ -5152,6 +5152,58 @@ mod chunk_02 {
         assert!(!slice.player.on_ground);
     }
 
+    #[test]
+    fn death_respawn_runup_fresh_slope_landing_enters_loc_9d22_same_frame() {
+        let w = 64u16;
+        let h = 20u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_collision = |data: &mut Vec<u8>, col: u16, row: u16, hi: u8| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = hi;
+        };
+        set_collision(&mut data, 47, 14, 0x40);
+        set_collision(&mut data, 48, 14, 0x60);
+        set_collision(&mut data, 48, 13, 0x40);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::respawn(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 0x02FA_FE80;
+        slice.player.y_pos = 0x00DC_C000;
+        slice.player.x_velocity = 0x0002_4880;
+        slice.player.y_velocity = 0x0002_8000;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = false;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        // ASM `sub_902A -> loc_A984 -> loc_A99E -> loc_8BF0` immediately
+        // reaches `sub_9386 -> loc_9D22` on this Level 1 slope seam.  loc_9D22
+        // brakes the SlopeUp run from $27380 to $23380 and mirrors it into Y.
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.grounded_slope_collision(Some(&grid)),
+            Some(terrain::CollisionKind::SlopeUp)
+        );
+        assert_eq!(slice.player.x_velocity, 0x0002_3380);
+        assert_eq!(slice.player.y_velocity, -0x0002_3380);
+    }
+
     /// ASM sub_9386 + sub_A254: walking up a SlopeUp tile, the player's Y must
     /// smoothly track the slope diagonal every frame. SlopeUp: floor_y = cell_top
     /// + 15 - (x_px & 0x0F). Each pixel of rightward movement should raise Y by 1px.

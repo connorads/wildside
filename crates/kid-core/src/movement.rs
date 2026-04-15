@@ -2711,8 +2711,32 @@ impl OpeningSliceState {
                 let grounded_slope_before = self
                     .grounded_slope_collision(block_grid.as_deref())
                     .filter(|_| on_ground_before);
+                let grounded_edge_slope_before = if on_ground_before {
+                    block_grid.as_deref().and_then(|grid| {
+                        let x_px = (self.player.x_pos >> 16) as i32;
+                        let y_px = (self.player.y_pos >> 16) as i32;
+                        [
+                            terrain::probe_floor(grid, x_px - collision_hw, y_px),
+                            terrain::probe_floor(grid, x_px + collision_hw, y_px),
+                            terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw),
+                        ]
+                        .into_iter()
+                        .find_map(|probe| {
+                            (probe.on_ground
+                                && matches!(
+                                    probe.cell.collision,
+                                    terrain::CollisionKind::SlopeUp
+                                        | terrain::CollisionKind::SlopeDown
+                                ))
+                            .then_some(probe.cell.collision)
+                        })
+                    })
+                } else {
+                    None
+                };
                 if on_ground_before
                     && grounded_slope_before.is_none()
+                    && grounded_edge_slope_before.is_none()
                     && let Some(grid) = block_grid.as_deref()
                     && !self.walking_floor_support_exists_at_current_position(grid, collision_hw)
                 {
@@ -3055,6 +3079,9 @@ impl OpeningSliceState {
                         allow_asm_faithful_solid_touch_snap,
                     )
                 };
+                let plain_airborne_floor_landing = !on_ground_before
+                    && self.player.on_ground
+                    && airborne_slope_recontact.is_none();
                 kid_flip_follow_on_stages.after_floor = self.kid_flip_follow_on_stage_state();
                 if let (Some(grid), Some(collision)) =
                     (block_grid.as_deref(), airborne_slope_recontact)
@@ -3265,6 +3292,7 @@ impl OpeningSliceState {
                     }
                     if self.player.on_ground
                         && self.grounded_slope_collision(Some(grid)).is_none()
+                        && !plain_airborne_floor_landing
                         && !self
                             .walking_floor_support_exists_at_current_position(grid, collision_hw)
                     {
@@ -5024,8 +5052,24 @@ impl OpeningSliceState {
                     let rubber_rebound = !was_on_ground
                         && probe.cell.has_block
                         && probe.cell.block_type == terrain::BlockType::Rubber;
+                    let trailing_edge_still_on_solid = match self.player.x_velocity.cmp(&0) {
+                        // ASM `sub_902A -> loc_A984 -> loc_A99E -> loc_8BF0`
+                        // keeps the landing frame as plain walking while the
+                        // trailing edge is still on the previous flat tile.
+                        // Once that trailing support is gone, `sub_9386` can
+                        // immediately promote the contact to `loc_9D22`.
+                        std::cmp::Ordering::Greater => matches!(
+                            left_edge_probe.cell.collision,
+                            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                        ),
+                        std::cmp::Ordering::Less => matches!(
+                            right_edge_probe.cell.collision,
+                            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                        ),
+                        std::cmp::Ordering::Equal => true,
+                    };
                     let should_apply_slope_recontact = !was_on_ground
-                        && self.player.y_velocity < 0
+                        && !trailing_edge_still_on_solid
                         && matches!(
                             probe.cell.collision,
                             terrain::CollisionKind::SlopeDown | terrain::CollisionKind::SlopeUp
@@ -5165,7 +5209,14 @@ impl OpeningSliceState {
         self.terrain.floor_y_pos = floor_y_fp;
         self.player.y_pos = floor_y_fp;
         self.player.on_ground = true;
-        self.player.y_velocity = 0;
+        self.player.y_velocity = match collision {
+            // ASM loc_9D22: immediately after `sub_9386` finds slope support,
+            // `y_vel` mirrors `x_vel` for the slope coroutine.  This matters
+            // on fresh slope recontact as well as steady grounded walking.
+            terrain::CollisionKind::SlopeUp => -self.player.x_velocity,
+            terrain::CollisionKind::SlopeDown => self.player.x_velocity,
+            _ => 0,
+        };
         self.player.wall_cling_direction = None;
         self.player.on_spikes = probe.cell.collision == terrain::CollisionKind::Spikes;
     }
