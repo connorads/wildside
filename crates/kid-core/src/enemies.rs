@@ -6242,6 +6242,15 @@ pub(crate) struct TarMonsterAppearSoundLoc322C0 {
     pub(crate) preserves_script_command_d0: bool,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterAppearAnimationLoc322C8 {
+    pub(crate) animation_label: &'static str,
+    pub(crate) hibernate_until_animation_finished: bool,
+    pub(crate) animation_frames: u16,
+    pub(crate) resumes_control_script: bool,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_loc_32248() -> &'static [u8] {
     // ASM loc_32248: `lea (unk_32264).l,a0` loads this control script pointer.
@@ -6310,6 +6319,19 @@ pub(crate) fn tar_monster_appear_sound_loc_322c0() -> TarMonsterAppearSoundLoc32
     TarMonsterAppearSoundLoc322C0 {
         sound_effect_label: "sfx_Tar_Monster_appears",
         preserves_script_command_d0: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_appear_animation_loc_322c8() -> TarMonsterAppearAnimationLoc322C8 {
+    // ASM loc_322C8: load `stru_3272E`, initialise animation, hibernate until
+    // it finishes, then branch back to the control-script dispatcher.
+    TarMonsterAppearAnimationLoc322C8 {
+        animation_label: "stru_3272E",
+        hibernate_until_animation_finished: true,
+        animation_frames: TAR_MONSTER_EMERGE_FRAMES,
+        resumes_control_script: true,
     }
 }
 
@@ -8785,6 +8807,20 @@ mod tests {
                 preserves_script_command_d0: true,
             },
             "ASM Tar_Monster.asm loc_322C0 restores d0 after j_PlaySound so the script command survives the audio call"
+        );
+    }
+
+    #[test]
+    fn tar_monster_appear_animation_loc_322c8_waits_until_finished() {
+        assert_eq!(
+            tar_monster_appear_animation_loc_322c8(),
+            TarMonsterAppearAnimationLoc322C8 {
+                animation_label: "stru_3272E",
+                hibernate_until_animation_finished: true,
+                animation_frames: TAR_MONSTER_EMERGE_FRAMES,
+                resumes_control_script: true,
+            },
+            "ASM Tar_Monster.asm loc_322C8 starts stru_3272E and waits for the animation to finish before reading the next command"
         );
     }
 
