@@ -5490,6 +5490,27 @@ pub(crate) fn ninja_reset_stealth_pacing_loc_3d7ca(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaResumePacingRouteLoc3D7EE {
+    Loc3E560,
+    Loc3E3AC,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_resume_pacing_route_loc_3d7ee(
+    x_direction_right: bool,
+) -> NinjaResumePacingRouteLoc3D7EE {
+    // ASM Ninja.asm loc_3D7EE: `tst.b x_direction(a3); beq.w loc_3E560;
+    // bra.w loc_3E3AC`. Clear x_direction keeps the left-facing loop, set
+    // x_direction resumes the right-facing loop.
+    if x_direction_right {
+        NinjaResumePacingRouteLoc3D7EE::Loc3E3AC
+    } else {
+        NinjaResumePacingRouteLoc3D7EE::Loc3E560
+    }
+}
+
 /// Ninja jump-attack velocities (Ninja.asm lines 384-392).
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
@@ -13239,6 +13260,20 @@ mod tests {
                 next: NinjaResetStealthPacingRouteLoc3D7CA::Loc3E392,
             },
             "ASM Ninja.asm loc_3D7CA should send set x_direction to loc_3E392 after restoring the walk state"
+        );
+    }
+
+    #[test]
+    fn ninja_resume_pacing_route_loc_3d7ee_dispatches_by_x_direction() {
+        assert_eq!(
+            ninja_resume_pacing_route_loc_3d7ee(false),
+            NinjaResumePacingRouteLoc3D7EE::Loc3E560,
+            "ASM Ninja.asm loc_3D7EE should send clear x_direction to loc_3E560"
+        );
+        assert_eq!(
+            ninja_resume_pacing_route_loc_3d7ee(true),
+            NinjaResumePacingRouteLoc3D7EE::Loc3E3AC,
+            "ASM Ninja.asm loc_3D7EE should send set x_direction to loc_3E3AC"
         );
     }
 
