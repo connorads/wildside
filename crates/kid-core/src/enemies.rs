@@ -6773,6 +6773,14 @@ pub(crate) const HAND_WALK_SPEED: [i32; 3] = [0x3000, 0x4800, 0x6000];
 /// Hand jump-attack gravity (Hand.asm line 130: $4000 per frame).
 pub(crate) const HAND_GRAVITY: i32 = 0x4000;
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_jump_seed_loc_328a6(hit_points: u8) -> i16 {
+    // ASM Hand.asm loc_328A6: `move.w $46(a5),d5` loads the table's
+    // HP-derived attack-speed seed: HP 1 => 1, HP 2 => 2, HP 3+ => 3.
+    i16::from(hit_points.clamp(1, 3))
+}
+
 /// Hand jump velocity: randomised per-jump from ASM (Hand.asm lines 128-147).
 /// Y: -(tier + random(0..3)) × $10000, X: ±(tier + random(0..3)) × $10000.
 /// Random component is `(random_byte XOR kid_pos) & 3`.

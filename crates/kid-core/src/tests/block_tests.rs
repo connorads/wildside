@@ -5477,6 +5477,30 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_jump_seed_loc_328a6_loads_hp_tier_attack_seed() {
+        assert_eq!(
+            hand_jump_seed_loc_328a6(1),
+            1,
+            "ASM Hand.asm loc_328A6 loads `$46(a5)` as the jump speed seed for HP=1"
+        );
+        assert_eq!(
+            hand_jump_seed_loc_328a6(2),
+            2,
+            "ASM Hand.asm loc_328A6 preserves the HP=2 table seed"
+        );
+        assert_eq!(
+            hand_jump_seed_loc_328a6(3),
+            3,
+            "ASM Hand.asm loc_328A6 preserves the HP=3 table seed"
+        );
+        assert_eq!(
+            hand_jump_seed_loc_328a6(8),
+            3,
+            "native clamps oversized HP to the final Hand.asm attack tier"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
