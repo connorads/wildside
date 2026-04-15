@@ -4075,6 +4075,12 @@ pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
     }
 }
 
+pub(crate) fn fireball_main_loop_y_velocity_loc_32c1a(enemy: &ActiveEnemy) -> i32 {
+    // ASM Fireball.asm loc_32C1A: after the one-frame hibernate and
+    // `Object_CheckInRange`, add d0 gravity into `y_vel(a3)` before `loc_32C60`.
+    enemy.y_velocity.saturating_add(bouncer_gravity(enemy))
+}
+
 /// Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 /// Gravity $FA0/frame, deflects off all surfaces. No ground delay.
 /// Floor: negate y_vel. Wall: backup 2x, negate x_vel, clear y_vel.
@@ -4164,7 +4170,11 @@ pub(crate) fn step_bouncer_with_rng(
     rng: &mut RomRandomState,
 ) {
     // Apply gravity
-    enemy.y_velocity = enemy.y_velocity.saturating_add(bouncer_gravity(enemy));
+    enemy.y_velocity = if matches!(enemy.family, EnemyFamily::Fireball) {
+        fireball_main_loop_y_velocity_loc_32c1a(enemy)
+    } else {
+        enemy.y_velocity.saturating_add(bouncer_gravity(enemy))
+    };
 
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
@@ -15821,6 +15831,26 @@ mod tests {
             "ASM Fireball.asm loc_32C60/loc_32C86 dispatches the wall-collision handler, and Enemy19_Fireball_BounceWall only negates x_vel without touching x_direction"
         );
         assert_eq!(enemy.x_velocity, -0x0001_8000);
+    }
+
+    #[test]
+    fn fireball_main_loop_loc_32c1a_adds_hp_gravity_before_collision_dispatch() {
+        let mut hp1 = fireball_test_enemy();
+        hp1.y_velocity = 0x0001_8000;
+        assert_eq!(
+            fireball_main_loop_y_velocity_loc_32c1a(&hp1),
+            0x0001_A000,
+            "ASM Fireball.asm loc_32C1A should add the HP1 `$2000` gravity d0 into `y_vel(a3)` before `loc_32C60` dispatch"
+        );
+
+        let mut hp2 = fireball_test_enemy();
+        hp2.hit_points = 2;
+        hp2.y_velocity = 0x0001_8000;
+        assert_eq!(
+            fireball_main_loop_y_velocity_loc_32c1a(&hp2),
+            0x0001_B000,
+            "ASM Fireball.asm loc_32C1A should use the HP2 `$3000` gravity selected from `unk_32BA6`"
+        );
     }
 
     #[test]
