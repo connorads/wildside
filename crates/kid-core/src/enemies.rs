@@ -6527,6 +6527,14 @@ pub(crate) fn hand_left_detection_loc_32886(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_detection_reject_loc_328a2() -> i16 {
+    // ASM Hand.asm loc_328A2: shared reject return from range/cone checks,
+    // `moveq #0,d7; rts`.
+    0
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_patrol_decision_loc_32804(
     x_velocity: i32,
     probe_d6: i16,

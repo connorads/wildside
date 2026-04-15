@@ -5430,6 +5430,15 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_detection_reject_loc_328a2_returns_zero_d7() {
+        assert_eq!(
+            hand_detection_reject_loc_328a2(),
+            0,
+            "ASM Hand.asm loc_328A2: `moveq #0,d7; rts` is the shared no-attack probe return"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
