@@ -672,6 +672,28 @@ pub(crate) fn lion_left_charge_continue_loc_3e67a(next_x_position: u32) -> LionL
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLeftChargeEntryLoc3E682 {
+    pub(crate) left_charge_latch_set: bool,
+    pub(crate) restored_sprite_offset: Option<u16>,
+    pub(crate) is_animated: Option<bool>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_entry_loc_3e682(
+    saved_sprite_offset: u16,
+) -> LionLeftChargeEntryLoc3E682 {
+    // ASM Lion.asm loc_3E682: set `$5C(a5)`, then only restore
+    // `addroffset_sprite(a3)` and clear `is_animated(a3)` when `$4A(a3)` is
+    // non-zero; zero skips straight to the motion-seed tail.
+    LionLeftChargeEntryLoc3E682 {
+        left_charge_latch_set: true,
+        restored_sprite_offset: (saved_sprite_offset != 0).then_some(saved_sprite_offset),
+        is_animated: (saved_sprite_offset != 0).then_some(false),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLoc3E556Tail {
     pub(crate) hibernate_one_frame: bool,
     pub(crate) cull_routine: &'static str,
@@ -12597,6 +12619,28 @@ mod tests {
                 resume_via_callback: true,
             },
             "ASM Lion.asm loc_3E67A should commit `d2` to x_pos and enter the loc_3E556 hibernate/cull/resume tail"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_entry_matches_loc_3e682() {
+        assert_eq!(
+            lion_left_charge_entry_loc_3e682(0x2340),
+            LionLeftChargeEntryLoc3E682 {
+                left_charge_latch_set: true,
+                restored_sprite_offset: Some(0x2340),
+                is_animated: Some(false),
+            },
+            "ASM Lion.asm loc_3E682 should set `$5C(a5)`, restore a non-zero `$4A(a3)` sprite offset, and clear `is_animated(a3)`"
+        );
+        assert_eq!(
+            lion_left_charge_entry_loc_3e682(0),
+            LionLeftChargeEntryLoc3E682 {
+                left_charge_latch_set: true,
+                restored_sprite_offset: None,
+                is_animated: None,
+            },
+            "ASM Lion.asm loc_3E682 should skip sprite and animation writes when `$4A(a3)` is zero"
         );
     }
 
