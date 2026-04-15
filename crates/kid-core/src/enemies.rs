@@ -10223,6 +10223,8 @@ pub(crate) fn spinning_twins_falling_visual_step_loc_3ba00(
         camera_y_pos,
     ));
     if !(-0x104..=0x244).contains(&screen_x) || !(-0x104..=0x1E4).contains(&screen_y) {
+        // ASM Spinning_Twins.asm loc_3BA5C: off-camera visuals immediately
+        // jump to Delete_CurrentObject before movement is applied.
         return SpinningTwinsFallingVisualStepLoc3BA00 {
             state,
             alive: false,

@@ -6465,7 +6465,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn spinning_twins_falling_visual_step_loc_3ba00_deletes_outside_camera_box() {
+    fn spinning_twins_falling_visual_step_loc_3ba5c_deletes_outside_camera_box() {
         let state = SpinningTwinsFallingVisualStateLoc3BA00 {
             x_pos: 100 << 16,
             y_pos: 128 << 16,
@@ -6478,11 +6478,11 @@ mod chunk_04 {
 
         assert!(
             !stepped.alive,
-            "ASM loc_3BA00 branches to object deletion when screen X is less than -$104"
+            "ASM loc_3BA5C deletes the visual when screen X is less than -$104"
         );
         assert_eq!(
             stepped.state, state,
-            "ASM loc_3BA00 checks the camera box before applying movement"
+            "ASM loc_3BA5C is reached before applying movement"
         );
     }
 
