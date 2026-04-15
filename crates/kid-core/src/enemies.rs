@@ -613,6 +613,57 @@ pub(crate) fn lion_hibernate_cull_resume_loc_3e556() -> LionLoc3E556Tail {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionLeftChargeTerrainBranch {
+    ContinueToLoc3E5E8,
+    EnterLoc3E642,
+    ResetAndEnterLoc3E556,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLeftChargeTerrainResult {
+    pub(crate) branch: LionLeftChargeTerrainBranch,
+    pub(crate) next_shared_state: Option<i16>,
+    pub(crate) restores_charge_speed: bool,
+    pub(crate) restored_animation: Option<&'static str>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_terrain_gate_loc_3e5ba(
+    bit0_set: bool,
+    object_meta_low_byte_is_0x10: bool,
+) -> LionLeftChargeTerrainResult {
+    // ASM Lion.asm loc_3E5BA: clear terrain bit 0 falls through to loc_3E5E8;
+    // otherwise object id $10 restores the saved charge motion/animation and
+    // enters loc_3E556, while other ids route to loc_3E642.
+    if !bit0_set {
+        return LionLeftChargeTerrainResult {
+            branch: LionLeftChargeTerrainBranch::ContinueToLoc3E5E8,
+            next_shared_state: None,
+            restores_charge_speed: false,
+            restored_animation: None,
+        };
+    }
+
+    if object_meta_low_byte_is_0x10 {
+        LionLeftChargeTerrainResult {
+            branch: LionLeftChargeTerrainBranch::ResetAndEnterLoc3E556,
+            next_shared_state: Some(-0x78),
+            restores_charge_speed: true,
+            restored_animation: Some("saved_lion_charge_animation"),
+        }
+    } else {
+        LionLeftChargeTerrainResult {
+            branch: LionLeftChargeTerrainBranch::EnterLoc3E642,
+            next_shared_state: None,
+            restores_charge_speed: false,
+            restored_animation: None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -10852,6 +10903,40 @@ mod tests {
                 resume_via_callback: true,
             },
             "ASM Lion.asm loc_3E556 should hibernate, run sub_3E8BA, then jump through the restored a0 routine pointer without touching velocity fields"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_terrain_gate_matches_loc_3e5ba() {
+        assert_eq!(
+            lion_left_charge_terrain_gate_loc_3e5ba(false, false),
+            LionLeftChargeTerrainResult {
+                branch: LionLeftChargeTerrainBranch::ContinueToLoc3E5E8,
+                next_shared_state: None,
+                restores_charge_speed: false,
+                restored_animation: None,
+            },
+            "ASM Lion.asm loc_3E5BA should continue to loc_3E5E8 when terrain bit 0 is clear"
+        );
+        assert_eq!(
+            lion_left_charge_terrain_gate_loc_3e5ba(true, false),
+            LionLeftChargeTerrainResult {
+                branch: LionLeftChargeTerrainBranch::EnterLoc3E642,
+                next_shared_state: None,
+                restores_charge_speed: false,
+                restored_animation: None,
+            },
+            "ASM Lion.asm loc_3E5BA should route non-$10 object ids with terrain bit 0 set to loc_3E642"
+        );
+        assert_eq!(
+            lion_left_charge_terrain_gate_loc_3e5ba(true, true),
+            LionLeftChargeTerrainResult {
+                branch: LionLeftChargeTerrainBranch::ResetAndEnterLoc3E556,
+                next_shared_state: Some(-0x78),
+                restores_charge_speed: true,
+                restored_animation: Some("saved_lion_charge_animation"),
+            },
+            "ASM Lion.asm loc_3E5BA should set `$42(a3)` to `$FF88`, restore `$5E/$62`, then enter loc_3E556 for object id $10"
         );
     }
 
