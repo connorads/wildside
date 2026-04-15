@@ -10223,12 +10223,13 @@ mod chunk_02 {
         );
     }
 
-    /// ASM loc_F9CC clips horizontal strips against the left camera edge by
-    /// adding the negative column delta to the DBF counter and restarting at the
-    /// camera-left column; fully clipped rows advance without sprites.
+    /// ASM loc_FA06 (kid.asm:20749): clips horizontal strips against the left
+    /// camera edge by adding the negative column delta to the DBF counter and
+    /// restarting at the camera-left column; fully clipped rows advance without
+    /// sprites.
     #[test]
     #[allow(non_snake_case)]
-    fn loc_F9CC_clips_left_and_culls_rows_before_emitting_sprites() {
+    fn loc_FA06_clips_left_and_culls_rows_before_emitting_sprites() {
         assert_eq!(
             crate::level::animated_solid_block_negative_sprites_loc_F9CC(
                 crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
@@ -10261,7 +10262,7 @@ mod chunk_02 {
                 ],
                 next_sprite_link_word: 0x0012,
             },
-            "ASM loc_F9CC should clip two off-screen columns, keep two visible sprites, and preserve the bit-0 tile choice"
+            "ASM loc_FA06 should clip two off-screen columns, keep two visible sprites, and preserve the bit-0 tile choice"
         );
 
         assert_eq!(
@@ -10269,18 +10270,18 @@ mod chunk_02 {
                 crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
                     vertical_layout_flag: false,
                     descriptor_flags: 0,
-                    block_col: 0x000C,
-                    block_row: 0x0005,
+                    block_col: 0x0006,
+                    block_row: 0x0008,
                     span_tiles: 2,
                     camera_left_col: 0x000A,
                     camera_top_row: 0x0006,
-                    camera_x_word: 0,
-                    camera_y_word: 0,
+                    camera_x_word: 0x00A0,
+                    camera_y_word: 0x0060,
                     sprite_link_word: 0,
                 },
             ),
             crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot,
-            "ASM loc_F9CC should advance without sprites when the row is above the visible camera band"
+            "ASM loc_FA06 should advance without sprites when the clipped DBF counter goes negative"
         );
     }
 

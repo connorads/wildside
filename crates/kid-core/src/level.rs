@@ -9828,6 +9828,10 @@ pub(crate) fn animated_solid_block_negative_sprites_loc_F9CC(
     let col_delta = input.block_col.wrapping_sub(input.camera_left_col) as i16;
 
     if col_delta < 0 {
+        // ASM loc_FA06 (kid.asm:20749): when the strip starts left of the
+        // camera, add the negative column delta to the DBF sprite counter and
+        // cull if every tile is off-screen; the first emitted column becomes
+        // the camera-left column (`move.w d4,d0`).
         let clipped_counter = (dbf_sprite_counter as i16).wrapping_add(col_delta);
         if clipped_counter < 0 {
             return AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot;
