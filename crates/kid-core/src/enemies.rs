@@ -2775,6 +2775,42 @@ pub(crate) fn ufo_bounce_floor_ceil_tail_loc_35146(
     UfoFloorCeilBounceLoc35146 { y_velocity, d2 }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtSpawnTailLoc35174 {
+    pub(crate) some_ufo_shooting_cleared: bool,
+    pub(crate) allocation_selector: u16,
+    pub(crate) driver_routine: &'static str,
+    pub(crate) driver_x_velocity: i32,
+    pub(crate) driver_timer_flag: i16,
+    pub(crate) parent_moved: bool,
+    pub(crate) parent_y_velocity: i32,
+    pub(crate) driver_animation: &'static str,
+    pub(crate) parent_animation_flag_13_cleared: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_tail_loc_35174(
+    parent_x_velocity: i32,
+    some_ufo_shooting: bool,
+) -> UfoHurtSpawnTailLoc35174 {
+    // ASM UFO.asm loc_35174: clear `$46(a5)`/`Some_UFO_Shooting` only when set,
+    // allocate a driver with selector `$6000`, install `loc_355E2`, seed `$44` with
+    // parent `x_vel`, set a timer word to `-1`, clear child `$13`, set
+    // `is_moved(a3)`, force parent `y_vel` to `$30000`, then run `stru_34CA0`.
+    UfoHurtSpawnTailLoc35174 {
+        some_ufo_shooting_cleared: some_ufo_shooting,
+        allocation_selector: 0x6000,
+        driver_routine: "loc_355E2",
+        driver_x_velocity: parent_x_velocity,
+        driver_timer_flag: -1,
+        parent_moved: true,
+        parent_y_velocity: 0x0003_0000,
+        driver_animation: "stru_34CA0",
+        parent_animation_flag_13_cleared: true,
+    }
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -8385,6 +8421,41 @@ mod tests {
                 d2: -0x0200_0000,
             },
             "ASM UFO.asm loc_35146 preserves negative `d2` and negates `y_vel`"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_tail_matches_loc_35174() {
+        assert_eq!(
+            ufo_hurt_tail_loc_35174(0x00C0_0000, true),
+            UfoHurtSpawnTailLoc35174 {
+                some_ufo_shooting_cleared: true,
+                allocation_selector: 0x6000,
+                driver_routine: "loc_355E2",
+                driver_x_velocity: 0x00C0_0000,
+                driver_timer_flag: -1,
+                parent_moved: true,
+                parent_y_velocity: 0x0003_0000,
+                driver_animation: "stru_34CA0",
+                parent_animation_flag_13_cleared: true,
+            },
+            "ASM UFO.asm loc_35174 clears `Some_UFO_Shooting`, allocates `$6000` driver, and seeds parent motion"
+        );
+
+        assert_eq!(
+            ufo_hurt_tail_loc_35174(-0x0040_0000, false),
+            UfoHurtSpawnTailLoc35174 {
+                some_ufo_shooting_cleared: false,
+                allocation_selector: 0x6000,
+                driver_routine: "loc_355E2",
+                driver_x_velocity: -0x0040_0000,
+                driver_timer_flag: -1,
+                parent_moved: true,
+                parent_y_velocity: 0x0003_0000,
+                driver_animation: "stru_34CA0",
+                parent_animation_flag_13_cleared: true,
+            },
+            "ASM UFO.asm loc_35174 leaves `Some_UFO_Shooting` untouched when `$46(a5)` is already clear"
         );
     }
 
