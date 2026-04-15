@@ -616,12 +616,38 @@ pub(crate) enum GfxObjectSpecialSlotLoc10C6 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GfxObjectAllocationSpecialChainLocF9C {
+    None,
+    KidProjectile,
+    UnknownF86A,
+    UnknownF86E,
+    UnknownF872,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GfxObjectDeleteLoc10C6 {
     pub(crate) predecessor_next_index: Option<usize>,
     pub(crate) target_next_free_index: Option<usize>,
     pub(crate) next_free_head_index: usize,
     pub(crate) next_number_gfx_objects: u16,
     pub(crate) special_slot: GfxObjectSpecialSlotLoc10C6,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_alloc_special_chain_loc_F9C(
+    object_kind_word: u16,
+) -> GfxObjectAllocationSpecialChainLocF9C {
+    match object_kind_word {
+        1 => GfxObjectAllocationSpecialChainLocF9C::KidProjectile,
+        // ASM loc_F9C (kid.asm:1866): original kind 2 reaches this label after
+        // the first `subq.w #1,d5`; the second decrement selects `$FFFFF86A`.
+        2 => GfxObjectAllocationSpecialChainLocF9C::UnknownF86A,
+        3 => GfxObjectAllocationSpecialChainLocF9C::UnknownF86E,
+        4 => GfxObjectAllocationSpecialChainLocF9C::UnknownF872,
+        _ => GfxObjectAllocationSpecialChainLocF9C::None,
+    }
 }
 
 #[allow(non_snake_case)]
