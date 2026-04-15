@@ -694,6 +694,30 @@ pub(crate) fn lion_left_charge_entry_loc_3e682(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLeftChargeMotionSeedLoc3E694 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) y_position: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_motion_seed_loc_3e694(
+    saved_x_velocity: i32,
+    y_position: u32,
+) -> LionLeftChargeMotionSeedLoc3E694 {
+    // ASM Lion.asm loc_3E694: zero `y_vel(a3)`, restore `$50(a5)` into
+    // `x_vel(a3)`, and `addq.w #1,y_pos(a3)`. Since `y_pos` is FP16.16, that
+    // word add advances the integer pixel half by one without changing the
+    // fractional word.
+    LionLeftChargeMotionSeedLoc3E694 {
+        x_velocity: saved_x_velocity,
+        y_velocity: 0,
+        y_position: y_position.wrapping_add(0x0001_0000),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLoc3E556Tail {
     pub(crate) hibernate_one_frame: bool,
     pub(crate) cull_routine: &'static str,
@@ -12641,6 +12665,28 @@ mod tests {
                 is_animated: None,
             },
             "ASM Lion.asm loc_3E682 should skip sprite and animation writes when `$4A(a3)` is zero"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_motion_seed_matches_loc_3e694() {
+        assert_eq!(
+            lion_left_charge_motion_seed_loc_3e694(-0x0001_8000, 0x0042_8000),
+            LionLeftChargeMotionSeedLoc3E694 {
+                x_velocity: -0x0001_8000,
+                y_velocity: 0,
+                y_position: 0x0043_8000,
+            },
+            "ASM Lion.asm loc_3E694 should restore `$50(a5)` into x_vel, clear y_vel, and add one pixel to the y_pos word"
+        );
+        assert_eq!(
+            lion_left_charge_motion_seed_loc_3e694(0x0002_8000, 0xFFFF_1234),
+            LionLeftChargeMotionSeedLoc3E694 {
+                x_velocity: 0x0002_8000,
+                y_velocity: 0,
+                y_position: 0x0000_1234,
+            },
+            "ASM Lion.asm loc_3E694 inherits 16-bit word wrapping for `addq.w #1,y_pos(a3)`"
         );
     }
 
