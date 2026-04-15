@@ -6369,7 +6369,9 @@ pub(crate) fn step_lion(
     }
 }
 
-/// Robot walk speed: HP 2 = $8000, HP 3+ = $10000 (Robot.asm lines 28-36).
+/// Robot walk speed: HP 2 = $8000, HP 3+ = $10000.
+/// ASM Robot.asm loc_3A7EE always adds one `$8000`, with a second `$8000`
+/// preloaded only when `current_hp >= 3`.
 pub(crate) fn robot_walk_speed(hit_points: u8) -> i32 {
     if hit_points >= 3 { 0x1_0000 } else { 0x8000 }
 }

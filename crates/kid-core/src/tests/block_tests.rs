@@ -5594,8 +5594,22 @@ mod chunk_04 {
     }
 
     #[test]
-    fn robot_hp3_walks_faster() {
-        assert!(robot_walk_speed(3) > robot_walk_speed(2));
+    fn robot_walk_speed_loc_3a7ee_uses_binary_hp_threshold() {
+        assert_eq!(
+            robot_walk_speed(2),
+            0x8000,
+            "ASM Robot.asm loc_3A7EE adds one `$8000` for HP 2"
+        );
+        assert_eq!(
+            robot_walk_speed(3),
+            0x1_0000,
+            "ASM Robot.asm loc_3A7EE preloads `$8000` before the shared add at HP 3"
+        );
+        assert_eq!(
+            robot_walk_speed(4),
+            0x1_0000,
+            "ASM Robot.asm loc_3A7EE does not add extra speed tiers above HP 3"
+        );
     }
 
     #[test]
