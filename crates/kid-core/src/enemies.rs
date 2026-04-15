@@ -1574,10 +1574,28 @@ pub(crate) struct DragonWalkingSetupLoc3CDFC {
     pub(crate) animation_label: &'static str,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingNormalAnimationLoc3CE48 {
+    pub(crate) animation_label: &'static str,
+    pub(crate) saved_animation_label: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_normal_animation_loc_3ce48() -> DragonWalkingNormalAnimationLoc3CE48 {
+    // ASM Dragon.asm loc_3CE48: initialise `stru_3CC5E`, save the same
+    // animation pointer in `$62(a5)`, then fall through to loc_3CE5A.
+    DragonWalkingNormalAnimationLoc3CE48 {
+        animation_label: "stru_3CC5E",
+        saved_animation_label: "stru_3CC5E",
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
     let speed = hp3_base_speed + 0x0000_8000;
+    let normal_animation = dragon_walking_normal_animation_loc_3ce48();
 
     // ASM Dragon.asm loc_3CDFC: HP 3 preloads `$10000`, all HP tiers add
     // `$8000`, then shared setup seeds `$4A/$48/$6E/$54/$6A` before choosing
@@ -1593,7 +1611,7 @@ pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSe
         animation_label: if current_hp == 3 {
             "stru_3CC90"
         } else {
-            "stru_3CC5E"
+            normal_animation.animation_label
         },
     }
 }
@@ -11069,6 +11087,23 @@ mod tests {
             pacer_walk_speed(EnemyFamily::DragonWalking, 3),
             dragon_walking_setup_loc_3cdfc(3).speed_slot_50,
             "native DragonWalking HP 3 speed should match ASM Dragon.asm loc_3CDFC"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_normal_animation_matches_loc_3ce48() {
+        assert_eq!(
+            dragon_walking_normal_animation_loc_3ce48(),
+            DragonWalkingNormalAnimationLoc3CE48 {
+                animation_label: "stru_3CC5E",
+                saved_animation_label: "stru_3CC5E",
+            },
+            "ASM Dragon.asm loc_3CE48 initialises `stru_3CC5E` and saves it in `$62(a5)`"
+        );
+        assert_eq!(
+            dragon_walking_setup_loc_3cdfc(1).animation_label,
+            dragon_walking_normal_animation_loc_3ce48().animation_label,
+            "native non-HP3 DragonWalking setup should use the loc_3CE48 normal animation branch"
         );
     }
 
