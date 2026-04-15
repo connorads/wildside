@@ -5638,6 +5638,110 @@ pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 24;
 pub(crate) const TAR_MONSTER_GLOB_SPEED_X: i32 = 4 << 16;
 /// Glob gravity: $1000/frame (Tar_Monster.asm line 412).
 pub(crate) const TAR_MONSTER_GLOB_GRAVITY: i32 = 0x1000;
+/// Raw control script bytes used by `unk_32264` in `loc_32248`.
+/// Bytecode pairs are read with `move.w (a0)+,d0`, so each table entry is a signed
+/// 16-bit step command in the native script interpreter.
+pub(crate) const TAR_MONSTER_CONTROL_BYTES_LOC_32248: [u8; 44] = [
+    0x00, 0x04, 0x00, 0x10, 0x5A, 0x00, 0x00, 0x10, 0x05, 0x00, 0x00, 0x10, 0x0A, 0x00, 0x00, 0x10,
+    0x07, 0x00, 0x00, 0x10, 0x32, 0x00, 0x00, 0x10, 0x00, 0x0A, 0x00, 0x00, 0x08, 0x46, 0x00, 0x00,
+    0x0C, 0x00, 0x00, 0x04, 0x14, 0x00, 0x00, 0x08, 0x46, 0x00, 0xFF, 0xFF,
+];
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterLoc32290Target {
+    /// `off_32290[0]`: jump to `loc_322A8`.
+    Loc322A8,
+    /// `off_32290[1]`: jump to `loc_322BC`.
+    Loc322BC,
+    /// `off_32290[2]`: jump to `loc_322DA`.
+    Loc322DA,
+    /// `off_32290[3]`: jump to `loc_322FC`.
+    Loc322FC,
+    /// `off_32290[4]`: jump to `loc_32308`.
+    Loc32308,
+    /// `off_32290[5]`: jump to `loc_32310`.
+    Loc32310,
+    /// Byte index outside `off_32290` (out-of-range dispatch).
+    Invalid(u8),
+}
+
+/// ASM `off_32290` jump table for `loc_32256`/`loc_3231C` dispatch.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const TAR_MONSTER_LOC_32290_TABLE: [TarMonsterLoc32290Target; 6] = [
+    TarMonsterLoc32290Target::Loc322A8,
+    TarMonsterLoc32290Target::Loc322BC,
+    TarMonsterLoc32290Target::Loc322DA,
+    TarMonsterLoc32290Target::Loc322FC,
+    TarMonsterLoc32290Target::Loc32308,
+    TarMonsterLoc32290Target::Loc32310,
+];
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterLoc32256Route {
+    Restart,
+    Dispatch(TarMonsterLoc32290Target),
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterLoc3224EReturn {
+    pub(crate) collision_type: u16,
+    pub(crate) jump_table: &'static [TarMonsterLoc32290Target; 6],
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterLoc32256Return {
+    pub(crate) raw_command: i16,
+    pub(crate) route: TarMonsterLoc32256Route,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_loc_32248() -> &'static [u8] {
+    // ASM loc_32248: `lea (unk_32264).l,a0` loads this control script pointer.
+    &TAR_MONSTER_CONTROL_BYTES_LOC_32248
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_loc_3224e() -> TarMonsterLoc3224EReturn {
+    // ASM loc_3224E: clear `collision_type(a3)` and preload `off_32290` into `a1`.
+    TarMonsterLoc3224EReturn {
+        collision_type: 0,
+        jump_table: &TAR_MONSTER_LOC_32290_TABLE,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_loc_32256(raw_command: i16) -> TarMonsterLoc32256Return {
+    // ASM loc_32256: read one signed word; negative -> restart script at loc_32248;
+    // otherwise `move.b d0,d7` indexes `off_32290` by low byte and jumps indirectly.
+    if raw_command < 0 {
+        return TarMonsterLoc32256Return {
+            raw_command,
+            route: TarMonsterLoc32256Route::Restart,
+        };
+    }
+
+    let index = (raw_command & 0x00FF) as u8;
+    let target = match index {
+        0 => TarMonsterLoc32290Target::Loc322A8,
+        1 => TarMonsterLoc32290Target::Loc322BC,
+        2 => TarMonsterLoc32290Target::Loc322DA,
+        3 => TarMonsterLoc32290Target::Loc322FC,
+        4 => TarMonsterLoc32290Target::Loc32308,
+        5 => TarMonsterLoc32290Target::Loc32310,
+        _ => TarMonsterLoc32290Target::Invalid(index),
+    };
+
+    TarMonsterLoc32256Return {
+        raw_command,
+        route: TarMonsterLoc32256Route::Dispatch(target),
+    }
+}
 
 /// HP lookup table for TarMonster init (`Hitpoints_Enemy_05`, Tar_Monster.asm).
 pub(crate) const TAR_MONSTER_HITPOINTS_BY_LEVEL: [u8; 4] = [2, 4, 6, 0];
@@ -7892,6 +7996,60 @@ mod tests {
                 x_pos: 0x0120 << 16,
                 y_pos: 0x0080_u32.saturating_add(2 * 16) << 16,
             }
+        );
+    }
+
+    #[test]
+    fn tar_monster_control_script_pointer_loc_32248_starts_at_unk_32264() {
+        let bytes = tar_monster_loc_32248();
+
+        assert_eq!(
+            bytes,
+            TAR_MONSTER_CONTROL_BYTES_LOC_32248.as_slice(),
+            "ASM Tar_Monster.asm loc_32248 loads `unk_32264` into `a0`"
+        );
+        assert!(
+            !bytes.is_empty(),
+            "loc_32248 control-script source table must be populated"
+        );
+    }
+
+    #[test]
+    fn tar_monster_loc_3224e_clears_collision_type_and_picks_off_32290() {
+        let init = tar_monster_loc_3224e();
+
+        assert_eq!(
+            init.collision_type, 0,
+            "loc_3224E executes `clr.w collision_type(a3)`"
+        );
+        assert_eq!(init.jump_table[0], TarMonsterLoc32290Target::Loc322A8);
+        assert_eq!(init.jump_table[1], TarMonsterLoc32290Target::Loc322BC);
+        assert_eq!(init.jump_table[2], TarMonsterLoc32290Target::Loc322DA);
+        assert_eq!(init.jump_table[3], TarMonsterLoc32290Target::Loc322FC);
+        assert_eq!(init.jump_table[4], TarMonsterLoc32290Target::Loc32308);
+        assert_eq!(init.jump_table[5], TarMonsterLoc32290Target::Loc32310);
+    }
+
+    #[test]
+    fn tar_monster_loc_32256_restarts_on_negative_and_dispatches_by_low_byte() {
+        let sentinel = tar_monster_loc_32256(-1);
+        assert_eq!(
+            sentinel,
+            TarMonsterLoc32256Return {
+                raw_command: -1,
+                route: TarMonsterLoc32256Route::Restart,
+            }
+        );
+
+        let command_322_a8 = i16::from_be_bytes([0x00, 0x00]);
+        assert_eq!(
+            tar_monster_loc_32256(command_322_a8).route,
+            TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322A8)
+        );
+        let command_323_10 = i16::from_be_bytes([0x00, 0x04]);
+        assert_eq!(
+            tar_monster_loc_32256(command_323_10).route,
+            TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc32310)
         );
     }
 
