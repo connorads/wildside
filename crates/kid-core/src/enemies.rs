@@ -2076,6 +2076,22 @@ pub(crate) fn dragon_flying_respawn_marker_loc_34998(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonFlyingDeleteTailLoc349A6 {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_delete_tail_loc_349A6() -> DragonFlyingDeleteTailLoc349A6 {
+    // ASM Dragon_Flying.asm loc_349A6: all death-status routes converge on the
+    // `j_Delete_CurrentObject` tail after the explosion animation finishes.
+    DragonFlyingDeleteTailLoc349A6 {
+        deletes_current_object: true,
+    }
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {

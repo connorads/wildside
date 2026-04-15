@@ -5936,6 +5936,17 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_349a6_always_deletes_current_object() {
+        assert_eq!(
+            dragon_flying_delete_tail_loc_349A6(),
+            DragonFlyingDeleteTailLoc349A6 {
+                deletes_current_object: true,
+            },
+            "ASM Dragon_Flying.asm loc_349A6 is the shared j_Delete_CurrentObject tail for every death-status route"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_3488a_flip_sentinel_dispatches_next_move() {
         let mut enemy = test_dragon(0, 100 << 16, 200 << 16);
         enemy.dragon_phase = DragonFlyingState::Descending;
