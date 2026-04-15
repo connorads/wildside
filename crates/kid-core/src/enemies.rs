@@ -1481,6 +1481,43 @@ pub(crate) fn dragon_art_init_loc_3cdb8(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingSetupLoc3CDFC {
+    pub(crate) speed_slot_50: i32,
+    pub(crate) target_speed_slot_5e: i32,
+    pub(crate) state_word_4a: u16,
+    pub(crate) timer_48: u16,
+    pub(crate) patrol_timer_pair_6e: u32,
+    pub(crate) short_patrol_timer_54: u16,
+    pub(crate) callback_role: &'static str,
+    pub(crate) animation_label: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
+    let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
+    let speed = hp3_base_speed + 0x0000_8000;
+
+    // ASM Dragon.asm loc_3CDFC: HP 3 preloads `$10000`, all HP tiers add
+    // `$8000`, then shared setup seeds `$4A/$48/$6E/$54/$6A` before choosing
+    // the HP-3 animation.
+    DragonWalkingSetupLoc3CDFC {
+        speed_slot_50: speed,
+        target_speed_slot_5e: speed,
+        state_word_4a: 0x0010,
+        timer_48: 9,
+        patrol_timer_pair_6e: 0x0032_012C,
+        short_patrol_timer_54: DRAGON_WALKING_PATROL_SHORT_FRAMES,
+        callback_role: "dragon_breath_callback",
+        animation_label: if current_hp == 3 {
+            "stru_3CC90"
+        } else {
+            "stru_3CC5E"
+        },
+    }
+}
+
 // --- Dragon Flying script interpreter (Dragon_Flying.asm) ---
 
 /// Drift initial speed: $800 (subpixel FP16.16). ASM loc_34776.
@@ -10333,6 +10370,48 @@ mod tests {
             spawn_hit_points(EnemyFamily::DragonWalking, 2),
             3,
             "native DragonWalking HP should expose the same enemy_level+1 seed as ASM Dragon.asm loc_3CDB8"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_speed_and_setup_match_loc_3cdfc() {
+        assert_eq!(
+            dragon_walking_setup_loc_3cdfc(1),
+            DragonWalkingSetupLoc3CDFC {
+                speed_slot_50: 0x0000_8000,
+                target_speed_slot_5e: 0x0000_8000,
+                state_word_4a: 0x0010,
+                timer_48: 9,
+                patrol_timer_pair_6e: 0x0032_012C,
+                short_patrol_timer_54: DRAGON_WALKING_PATROL_SHORT_FRAMES,
+                callback_role: "dragon_breath_callback",
+                animation_label: "stru_3CC5E",
+            },
+            "ASM Dragon.asm loc_3CDFC adds `$8000` to both speed slots and uses the normal animation below HP 3"
+        );
+        assert_eq!(
+            dragon_walking_setup_loc_3cdfc(3),
+            DragonWalkingSetupLoc3CDFC {
+                speed_slot_50: 0x0001_8000,
+                target_speed_slot_5e: 0x0001_8000,
+                state_word_4a: 0x0010,
+                timer_48: 9,
+                patrol_timer_pair_6e: 0x0032_012C,
+                short_patrol_timer_54: DRAGON_WALKING_PATROL_SHORT_FRAMES,
+                callback_role: "dragon_breath_callback",
+                animation_label: "stru_3CC90",
+            },
+            "ASM Dragon.asm loc_3CDFC preserves the HP-3 `$10000` preload before the common `$8000` add"
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::DragonWalking, 1),
+            dragon_walking_setup_loc_3cdfc(1).speed_slot_50,
+            "native DragonWalking HP 1 speed should match ASM Dragon.asm loc_3CDFC"
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::DragonWalking, 3),
+            dragon_walking_setup_loc_3cdfc(3).speed_slot_50,
+            "native DragonWalking HP 3 speed should match ASM Dragon.asm loc_3CDFC"
         );
     }
 
