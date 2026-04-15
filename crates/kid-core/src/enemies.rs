@@ -9330,6 +9330,39 @@ pub(crate) const SPINNING_TWINS_DROP_Y_VEL: i32 = -0x1_0000;
 pub(crate) const SPINNING_TWINS_DROP_X_VEL_LEFT: i32 = -0x3_8000;
 pub(crate) const SPINNING_TWINS_DROP_X_VEL_RIGHT: i32 = 0x3_8000;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsDropTransitionLoc3B93C {
+    pub(crate) split_child_count: u8,
+    pub(crate) orbit_child_hidden: bool,
+    pub(crate) falling_visual_spawned: bool,
+    pub(crate) original_deleted_after_animation: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_drop_transition_loc_3b93c(
+    enemy: &mut ActiveEnemy,
+) -> SpinningTwinsDropTransitionLoc3B93C {
+    // ASM Spinning_Twins.asm loc_3B93C: collision hides the orbit child GFX,
+    // allocates two walking twin objects plus one falling visual worker, then
+    // deletes the original orbit object after its transition animation. The
+    // walking children enter loc_3BA74 for their initial launch velocities.
+    enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
+    enemy.y_velocity = SPINNING_TWINS_DROP_Y_VEL;
+    enemy.x_velocity = match enemy.facing {
+        Direction::Left => SPINNING_TWINS_DROP_X_VEL_LEFT,
+        Direction::Right => SPINNING_TWINS_DROP_X_VEL_RIGHT,
+    };
+    enemy.on_ground = false;
+
+    SpinningTwinsDropTransitionLoc3B93C {
+        split_child_count: 2,
+        orbit_child_hidden: true,
+        falling_visual_spawned: true,
+        original_deleted_after_animation: true,
+    }
+}
+
 /// SpinningTwins: orbit at spawn position, then drop and walk as pacer.
 /// Orbit-to-walk transition is collision-triggered (player touching the orbiting form).
 /// ASM: loc_3B904 checks collision_type each frame.
@@ -9364,14 +9397,7 @@ pub(crate) fn step_spinning_twins(
             };
 
             if player_contact {
-                // Drop to walking phase with initial X impulse (ASM loc_3BA74)
-                enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
-                enemy.y_velocity = SPINNING_TWINS_DROP_Y_VEL;
-                enemy.x_velocity = match enemy.facing {
-                    Direction::Left => SPINNING_TWINS_DROP_X_VEL_LEFT,
-                    Direction::Right => SPINNING_TWINS_DROP_X_VEL_RIGHT,
-                };
-                enemy.on_ground = false;
+                let _transition = spinning_twins_drop_transition_loc_3b93c(enemy);
             }
         }
         SpinningTwinsPhase::Walking => {

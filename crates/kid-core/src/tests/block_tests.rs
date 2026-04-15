@@ -6193,6 +6193,35 @@ mod chunk_04 {
         assert!(enemy.y_velocity < 0, "should have upward launch velocity");
     }
 
+    #[test]
+    fn spinning_twins_drop_transition_loc_3b93c_splits_orbit_object() {
+        let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
+        enemy.facing = Direction::Right;
+
+        let transition = spinning_twins_drop_transition_loc_3b93c(&mut enemy);
+
+        assert_eq!(enemy.spinning_twins_phase, SpinningTwinsPhase::Walking);
+        assert_eq!(enemy.x_velocity, SPINNING_TWINS_DROP_X_VEL_RIGHT);
+        assert_eq!(enemy.y_velocity, SPINNING_TWINS_DROP_Y_VEL);
+        assert!(!enemy.on_ground);
+        assert_eq!(
+            transition.split_child_count, 2,
+            "ASM loc_3B93C allocates two walking twin child objects"
+        );
+        assert!(
+            transition.orbit_child_hidden,
+            "ASM loc_3B93C clears `$13` on the orbit child GFX object"
+        );
+        assert!(
+            transition.falling_visual_spawned,
+            "ASM loc_3B93C allocates the falling visual worker"
+        );
+        assert!(
+            transition.original_deleted_after_animation,
+            "ASM loc_3B93C deletes the original orbit object after the transition animation"
+        );
+    }
+
     // --- Ghost blocks ---
 
     #[test]
