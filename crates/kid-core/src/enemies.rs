@@ -5176,6 +5176,33 @@ pub(crate) fn ninja_kid_threat_route_loc_3d734(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaProjectileThreatRouteLoc3D776 {
+    /// No active Maniaxe projectile threat; continue normal post-threat handling.
+    ContinuePostThreat,
+    /// Enter the blocking/guard pose facing d4.
+    GuardPose,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_projectile_threat_route_loc_3d776(
+    projectile_minus_ninja_x_px: Option<i16>,
+    player_form: PlayerForm,
+) -> NinjaProjectileThreatRouteLoc3D776 {
+    // ASM Ninja.asm loc_3D776: require a live Kid projectile, Current_Helmet
+    // Maniaxe, and projectile_x - ninja_x in the half-open [-$5A, +$5A) band.
+    let Some(projectile_dx) = projectile_minus_ninja_x_px else {
+        return NinjaProjectileThreatRouteLoc3D776::ContinuePostThreat;
+    };
+
+    if player_form == PlayerForm::Maniaxe && (-0x5A..0x5A).contains(&projectile_dx) {
+        NinjaProjectileThreatRouteLoc3D776::GuardPose
+    } else {
+        NinjaProjectileThreatRouteLoc3D776::ContinuePostThreat
+    }
+}
+
 /// Ninja jump-attack velocities (Ninja.asm lines 384-392).
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
@@ -12317,6 +12344,35 @@ mod tests {
             ninja_kid_threat_route_loc_3d734(0, -5, PlayerForm::RedStealth, false),
             NinjaKidThreatRouteLoc3D734::ProjectileThreatCheck,
             "ASM Ninja.asm loc_3D734 should require kid_y - ninja_y >= -4 before entering the guard pose"
+        );
+    }
+
+    #[test]
+    fn ninja_projectile_threat_route_loc_3d776_matches_maniaxe_half_open_band() {
+        assert_eq!(
+            ninja_projectile_threat_route_loc_3d776(None, PlayerForm::Maniaxe),
+            NinjaProjectileThreatRouteLoc3D776::ContinuePostThreat,
+            "ASM Ninja.asm loc_3D776 should ignore the projectile threat gate when Addr_GfxObject_KidProjectile is zero"
+        );
+        assert_eq!(
+            ninja_projectile_threat_route_loc_3d776(Some(0), PlayerForm::RedStealth),
+            NinjaProjectileThreatRouteLoc3D776::ContinuePostThreat,
+            "ASM Ninja.asm loc_3D776 should require Current_Helmet == Maniaxe before checking projectile X range"
+        );
+        assert_eq!(
+            ninja_projectile_threat_route_loc_3d776(Some(-0x5A), PlayerForm::Maniaxe),
+            NinjaProjectileThreatRouteLoc3D776::GuardPose,
+            "ASM Ninja.asm loc_3D776 should include the left projectile edge because d4 < -$5A is the only left-side reject"
+        );
+        assert_eq!(
+            ninja_projectile_threat_route_loc_3d776(Some(0x59), PlayerForm::Maniaxe),
+            NinjaProjectileThreatRouteLoc3D776::GuardPose,
+            "ASM Ninja.asm loc_3D776 should include +$59 because the right compare branches while d4 < +$5A"
+        );
+        assert_eq!(
+            ninja_projectile_threat_route_loc_3d776(Some(0x5A), PlayerForm::Maniaxe),
+            NinjaProjectileThreatRouteLoc3D776::ContinuePostThreat,
+            "ASM Ninja.asm loc_3D776 should reject +$5A exactly, making the right edge exclusive"
         );
     }
 
