@@ -419,6 +419,16 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn gfx_object_alloc_loc_FB0_routes_object_kind_4_to_the_fffff872_chain() {
+        assert_eq!(
+            gfx_object_alloc_special_chain_loc_F9C(4),
+            GfxObjectAllocationSpecialChainLocF9C::UnknownF872,
+            "ASM loc_FB0 should receive original kind 4 after three decrements, decrement it to zero, and splice the new gfx object through `$FFFFF872`",
+        );
+    }
+
+    #[test]
     fn gfx_object_delete_loc_10f4_routes_object_kind_3_to_the_fffff86a_singleton_slot() {
         assert_eq!(
             gfx_object_delete_loc_10C6(None, Some(7), 5, 3, 3).special_slot,

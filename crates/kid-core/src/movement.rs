@@ -648,6 +648,8 @@ pub(crate) fn gfx_object_alloc_special_chain_loc_F9C(
         // the first two `subq.w #1,d5` checks; the third decrement selects
         // `$FFFFF86E`.
         3 => GfxObjectAllocationSpecialChainLocF9C::UnknownF86E,
+        // ASM loc_FB0 (kid.asm:1880): original kind 4 reaches this label after
+        // three prior decrements; the fourth decrement selects `$FFFFF872`.
         4 => GfxObjectAllocationSpecialChainLocF9C::UnknownF872,
         _ => GfxObjectAllocationSpecialChainLocF9C::None,
     }
