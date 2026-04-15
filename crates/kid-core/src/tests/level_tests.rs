@@ -10665,6 +10665,22 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_FAE2 (kid.asm:20864): converts the caller's block column/row
+    /// back into a `Level_Layout` word pointer through the `$FFFF4A04`
+    /// row-pointer table before returning the address in `d3`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_FAE2_resolves_block_coordinates_to_the_level_layout_word_address() {
+        assert_eq!(
+            crate::level::level_layout_word_address_loc_FAE2(0x0012, 0x0007, 0xFFFF_A652),
+            crate::level::LayoutWordAddressLocFAE2 {
+                row_pointer_table_byte_offset: 0x000E,
+                layout_word_addr: 0xFFFF_A676,
+            },
+            "ASM loc_FAE2 should double the row for the row-pointer-table offset, then add `block_col * 2` bytes to the loaded row base",
+        );
+    }
+
     /// ASM loc_F8CA (kid.asm:20589): computes the remaining loop count from the
     /// source width table plus start column, restores every layout byte, and emits
     /// FG queue entries only for the visible span after the `-8..+camera_right`

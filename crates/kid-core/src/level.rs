@@ -1082,6 +1082,13 @@ pub(crate) enum AnimatedSolidBlockNegativeSpritesLocF9CC {
     },
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LayoutWordAddressLocFAE2 {
+    pub(crate) row_pointer_table_byte_offset: u16,
+    pub(crate) layout_word_addr: u32,
+}
+
 /// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
 /// upper byte.
 #[allow(non_snake_case)]
@@ -9982,6 +9989,22 @@ pub(crate) fn animated_solid_block_vertical_sprites_loc_FA4C(
     AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
         sprites,
         next_sprite_link_word: sprite_link_word,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn level_layout_word_address_loc_FAE2(
+    block_col: u16,
+    block_row: u16,
+    row_base_layout_addr: u32,
+) -> LayoutWordAddressLocFAE2 {
+    // ASM loc_FAE2 (kid.asm:20864): double `d2` for the `$FFFF4A04`
+    // row-pointer table, load that row base into `a0`, then add `d1` twice so
+    // the returned `d3` points at the two-byte Level_Layout cell.
+    LayoutWordAddressLocFAE2 {
+        row_pointer_table_byte_offset: block_row.wrapping_mul(2),
+        layout_word_addr: row_base_layout_addr.wrapping_add(u32::from(block_col.wrapping_mul(2))),
     }
 }
 
