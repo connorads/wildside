@@ -7727,6 +7727,21 @@ pub(crate) struct TarMonsterRespawnMarkerLoc3242C {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterDeathStatusRouteLoc3243A {
+    WriteRespawnMarker(TarMonsterRespawnMarkerLoc3242C),
+    SubtractSpawnCounter { index: usize, decrement: u16 },
+    DeleteOnly,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterDeathStatusUpdateLoc3243A {
+    pub(crate) route: TarMonsterDeathStatusRouteLoc3243A,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -7922,6 +7937,33 @@ pub(crate) fn tar_monster_respawn_marker_loc_3242C(
     TarMonsterRespawnMarkerLoc3242C {
         index: usize::from(object_status_slot),
         word_value: 0x2168,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_death_status_update_loc_3243A(
+    object_status_slot: u8,
+) -> TarMonsterDeathStatusUpdateLoc3243A {
+    // ASM loc_3243A: every status-table route converges on
+    // j_Delete_CurrentObject; bit 7 clear reaches loc_3242C, bit 7+6 subtracts
+    // `$400`, and bit 7 without bit 6 deletes without a table write.
+    let route = if object_status_slot & 0x80 == 0 {
+        TarMonsterDeathStatusRouteLoc3243A::WriteRespawnMarker(
+            tar_monster_respawn_marker_loc_3242C(object_status_slot),
+        )
+    } else if object_status_slot & 0x40 != 0 {
+        TarMonsterDeathStatusRouteLoc3243A::SubtractSpawnCounter {
+            index: usize::from(object_status_slot & 0x3F),
+            decrement: 0x0400,
+        }
+    } else {
+        TarMonsterDeathStatusRouteLoc3243A::DeleteOnly
+    };
+
+    TarMonsterDeathStatusUpdateLoc3243A {
+        route,
+        deletes_current_object: true,
     }
 }
 
@@ -10847,6 +10889,32 @@ mod tests {
                 word_value: 0x2168,
             },
             "ASM Tar_Monster.asm loc_3242C doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
+        );
+    }
+
+    #[test]
+    fn tar_monster_death_status_loc_3243a_always_deletes_after_status_route() {
+        let positive = tar_monster_death_status_update_loc_3243A(0x02);
+        assert!(
+            positive.deletes_current_object,
+            "ASM Tar_Monster.asm loc_3243A is the convergence jump to j_Delete_CurrentObject after loc_3242C"
+        );
+
+        let delete_only = tar_monster_death_status_update_loc_3243A(0x80);
+        assert_eq!(
+            delete_only.route,
+            TarMonsterDeathStatusRouteLoc3243A::DeleteOnly,
+            "ASM Tar_Monster.asm loc_3243A is also reached directly when `$42(a5)` has bit 7 set and bit 6 clear"
+        );
+        assert!(delete_only.deletes_current_object);
+
+        assert_eq!(
+            tar_monster_death_status_update_loc_3243A(0xC7).route,
+            TarMonsterDeathStatusRouteLoc3243A::SubtractSpawnCounter {
+                index: 0x07,
+                decrement: 0x0400,
+            },
+            "ASM Tar_Monster.asm loc_3243A receives the bit-6 path after subtracting `$400` from EnemyStatus_Table[d0 & $3F]"
         );
     }
 
