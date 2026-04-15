@@ -5877,6 +5877,28 @@ mod chunk_04 {
     }
 
     #[test]
+    fn robot_collision_clear_loc_3a958_clears_words_then_resumes_walk_direction() {
+        assert_eq!(
+            robot_collision_clear_loc_3a958(Direction::Left),
+            RobotCollisionClearLoc3A958 {
+                next_parent_collision_type: 0,
+                next_child_collision_type: 0,
+                resume_walk_direction: Direction::Left,
+            },
+            "ASM Robot.asm loc_3A958 should clear child `$38(a2)` and parent collision_type before x_direction=0 resumes the left walker"
+        );
+        assert_eq!(
+            robot_collision_clear_loc_3a958(Direction::Right),
+            RobotCollisionClearLoc3A958 {
+                next_parent_collision_type: 0,
+                next_child_collision_type: 0,
+                resume_walk_direction: Direction::Right,
+            },
+            "ASM Robot.asm loc_3A958 should clear child `$38(a2)` and parent collision_type before x_direction=$FF resumes the right walker"
+        );
+    }
+
+    #[test]
     fn robot_charge_flips_direction_on_timer() {
         // ASM: charge is permanent — timer expiry flips direction, stays charging
         let grid = grid_with_platform(17, 0, 120);

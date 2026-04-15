@@ -7276,6 +7276,26 @@ pub(crate) fn robot_hit_reaction_loc_3a8fc(
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotCollisionClearLoc3A958 {
+    pub(crate) next_parent_collision_type: u16,
+    pub(crate) next_child_collision_type: u16,
+    pub(crate) resume_walk_direction: Direction,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_collision_clear_loc_3a958(facing: Direction) -> RobotCollisionClearLoc3A958 {
+    // ASM Robot.asm loc_3A958: clear child `$38(a2)` and parent
+    // `collision_type(a3)`, then dispatch to the shared left/right walker
+    // from x_direction. Native `facing` is the decoded branch target.
+    RobotCollisionClearLoc3A958 {
+        next_parent_collision_type: 0,
+        next_child_collision_type: 0,
+        resume_walk_direction: facing,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
