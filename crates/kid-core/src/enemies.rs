@@ -1348,6 +1348,26 @@ pub(crate) fn dragon_drift_negative_velocity_loc_347b2(x_velocity: i32) -> i32 {
     (x_velocity - DRAGON_DRIFT_ACCEL).max(-DRAGON_DRIFT_SPEED_CAP)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonDriftStoreLoc347C8 {
+    pub(crate) x_velocity: i32,
+    pub(crate) checks_fire_breath_cone: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_drift_store_loc_347c8(
+    d7_velocity: i32,
+    d1_fire_gate: u16,
+) -> DragonDriftStoreLoc347C8 {
+    // ASM Dragon_Flying.asm loc_347C8: store prepared d7 into x_vel, then
+    // call loc_34836 only when d1 is non-zero.
+    DragonDriftStoreLoc347C8 {
+        x_velocity: d7_velocity,
+        checks_fire_breath_cone: d1_fire_gate != 0,
+    }
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {
@@ -3622,8 +3642,15 @@ pub(crate) fn step_dragon(
             } else if enemy.x_velocity < 0 {
                 enemy.x_velocity = dragon_drift_negative_velocity_loc_347b2(enemy.x_velocity);
             }
+            let d1_fire_gate = if enemy.dragon_phase == DragonFlyingState::DriftingWithFire {
+                1
+            } else {
+                0
+            };
+            let drift_tail = dragon_drift_store_loc_347c8(enemy.x_velocity, d1_fire_gate);
+            enemy.x_velocity = drift_tail.x_velocity;
             // Fire-breath cone check during DriftWithFire (ASM loc_34836).
-            if enemy.dragon_phase == DragonFlyingState::DriftingWithFire
+            if drift_tail.checks_fire_breath_cone
                 && dragon_fire_breath_cone(enemy, player_x_pos, player_y_pos)
             {
                 // Cone hit: enter descent attack.
@@ -9359,6 +9386,26 @@ mod tests {
             dragon_drift_negative_velocity_loc_347b2(-0x18000),
             -0x18000,
             "ASM Dragon_Flying.asm loc_347B2 preserves the `$FFFE8000` negative speed cap"
+        );
+    }
+
+    #[test]
+    fn dragon_drift_tail_store_matches_loc_347c8() {
+        assert_eq!(
+            dragon_drift_store_loc_347c8(0x18000, 0),
+            DragonDriftStoreLoc347C8 {
+                x_velocity: 0x18000,
+                checks_fire_breath_cone: false,
+            },
+            "ASM Dragon_Flying.asm loc_347C8 stores d7 into x_vel and skips loc_34836 when d1 is zero"
+        );
+        assert_eq!(
+            dragon_drift_store_loc_347c8(-0x18000, 1),
+            DragonDriftStoreLoc347C8 {
+                x_velocity: -0x18000,
+                checks_fire_breath_cone: true,
+            },
+            "ASM Dragon_Flying.asm loc_347C8 stores the signed d7 velocity before the non-zero d1 fire-cone branch"
         );
     }
 
