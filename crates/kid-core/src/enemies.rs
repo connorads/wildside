@@ -9363,6 +9363,35 @@ pub(crate) fn spinning_twins_drop_transition_loc_3b93c(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsFallingVisualInitLoc3B9B0 {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) priority: u8,
+    pub(crate) display_enabled: bool,
+    pub(crate) step_index: u8,
+    pub(crate) frames_until_next_step_index: u8,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_falling_visual_init_loc_3b9b0(
+    parent_x_pos: u32,
+    parent_y_pos: u32,
+) -> SpinningTwinsFallingVisualInitLoc3B9B0 {
+    // ASM Spinning_Twins.asm loc_3B9B0: copy the parent coordinates, bias the
+    // falling visual 19px left and 64px up, make it visible at priority 1, and
+    // seed the movement loop with d0=0/d1=4.
+    SpinningTwinsFallingVisualInitLoc3B9B0 {
+        x_pos: parent_x_pos.wrapping_sub(0x13 << 16),
+        y_pos: parent_y_pos.wrapping_sub(0x40 << 16),
+        priority: 1,
+        display_enabled: true,
+        step_index: 0,
+        frames_until_next_step_index: 4,
+    }
+}
+
 /// SpinningTwins: orbit at spawn position, then drop and walk as pacer.
 /// Orbit-to-walk transition is collision-triggered (player touching the orbiting form).
 /// ASM: loc_3B904 checks collision_type each frame.

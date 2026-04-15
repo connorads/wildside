@@ -6222,6 +6222,33 @@ mod chunk_04 {
         );
     }
 
+    #[test]
+    fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
+        let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
+
+        assert_eq!(
+            visual.x_pos, 0x00ED_0000,
+            "ASM loc_3B9B0 subtracts `$13` from the copied parent X position"
+        );
+        assert_eq!(
+            visual.y_pos, 0x0040_0000,
+            "ASM loc_3B9B0 subtracts `$40` from the copied parent Y position"
+        );
+        assert_eq!(visual.priority, 1, "ASM loc_3B9B0 writes priority 1");
+        assert!(
+            visual.display_enabled,
+            "ASM loc_3B9B0 sets `$13` so the visual worker displays"
+        );
+        assert_eq!(
+            visual.step_index, 0,
+            "ASM loc_3B9B0 clears d0 before entering the movement loop"
+        );
+        assert_eq!(
+            visual.frames_until_next_step_index, 4,
+            "ASM loc_3B9B0 seeds d1 with four frames per movement-table entry"
+        );
+    }
+
     // --- Ghost blocks ---
 
     #[test]
