@@ -4062,6 +4062,35 @@ pub(crate) fn fireball_bounce_y_velocity_with_rng(
     rebound
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FireballBounceCommitLoc32CE4 {
+    pub(crate) y_velocity: i32,
+    pub(crate) spawns_fire_trail: bool,
+    pub(crate) next_fire_trail_count: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_floor_ceiling_bounce_loc_32ce4(
+    enemy: &ActiveEnemy,
+    rng: &mut RomRandomState,
+    camera_x_px: u32,
+    fire_trail_count: u16,
+) -> FireballBounceCommitLoc32CE4 {
+    // ASM Fireball.asm loc_32CE4: commit d7 into `y_vel(a3)`, then allocate
+    // `loc_33128` only while `Number_of_Fire_Trails` remains below five.
+    let y_velocity = fireball_bounce_y_velocity_with_rng(enemy, rng, camera_x_px);
+    let spawns_fire_trail = fire_trail_count < 5;
+    FireballBounceCommitLoc32CE4 {
+        y_velocity,
+        spawns_fire_trail,
+        next_fire_trail_count: if spawns_fire_trail {
+            fire_trail_count.saturating_add(1)
+        } else {
+            fire_trail_count
+        },
+    }
+}
+
 pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
     match enemy.family {
         // Fireball.asm `Enemy19_Fireball_Init` indexes `unk_32BA6` with the raw
@@ -15851,6 +15880,34 @@ mod tests {
             0x0001_B000,
             "ASM Fireball.asm loc_32C1A should use the HP2 `$3000` gravity selected from `unk_32BA6`"
         );
+    }
+
+    #[test]
+    fn fireball_floor_ceiling_bounce_loc_32ce4_commits_velocity_and_gates_trails() {
+        let mut enemy = fireball_test_enemy();
+        enemy.x_pos = 0x0123_0000;
+        enemy.y_velocity = 0x0003_0000;
+
+        let mut rng = RomRandomState::default();
+        let open_slot =
+            fireball_floor_ceiling_bounce_loc_32ce4(&enemy, &mut rng, enemy.x_pos >> 16, 4);
+        assert_eq!(
+            open_slot,
+            FireballBounceCommitLoc32CE4 {
+                y_velocity: -0x0002_F180,
+                spawns_fire_trail: true,
+                next_fire_trail_count: 5,
+            },
+            "ASM Fireball.asm loc_32CE4 should store the rebound d7 into `y_vel(a3)` and allocate `loc_33128` while the trail count is below five"
+        );
+
+        let mut rng = RomRandomState::default();
+        let full = fireball_floor_ceiling_bounce_loc_32ce4(&enemy, &mut rng, enemy.x_pos >> 16, 5);
+        assert_eq!(
+            full.next_fire_trail_count, 5,
+            "ASM Fireball.asm loc_32CE4 should return without allocation when `Number_of_Fire_Trails` is already five"
+        );
+        assert!(!full.spawns_fire_trail);
     }
 
     #[test]
