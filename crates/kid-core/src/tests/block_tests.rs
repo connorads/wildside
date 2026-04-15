@@ -5675,6 +5675,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn robot_jump_sound_edge_loc_3a890_requires_sprite_timer_and_active_motion() {
+        assert!(
+            robot_jump_sound_edge_loc_3a890(true, 4, false),
+            "ASM Robot.asm loc_3A890 plays sfx_Robot_jumping_on only when `addroffset_sprite` is C82A8, `animation_timer` is 4, and `$19(a3)` is clear"
+        );
+        assert!(
+            !robot_jump_sound_edge_loc_3a890(false, 4, false),
+            "ASM Robot.asm loc_3A890 skips sound on any other sprite link"
+        );
+        assert!(
+            !robot_jump_sound_edge_loc_3a890(true, 3, false),
+            "ASM Robot.asm loc_3A890 skips sound outside animation_timer 4"
+        );
+        assert!(
+            !robot_jump_sound_edge_loc_3a890(true, 4, true),
+            "ASM Robot.asm loc_3A890 skips sound while `$19(a3)` suppresses motion/audio"
+        );
+    }
+
+    #[test]
     fn robot_charge_flips_direction_on_timer() {
         // ASM: charge is permanent — timer expiry flips direction, stays charging
         let grid = grid_with_platform(17, 0, 120);

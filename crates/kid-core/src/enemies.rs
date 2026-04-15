@@ -6748,6 +6748,17 @@ pub(crate) fn robot_charge_flip_reload_with_rng(rng: &mut RomRandomState) -> u16
 /// Robot projectile speed: ~5 px/frame horizontal (Robot.asm).
 pub(crate) const ROBOT_PROJECTILE_SPEED: i32 = 0x5_0000;
 
+#[cfg(test)]
+pub(crate) fn robot_jump_sound_edge_loc_3a890(
+    body_sprite_is_landing_frame: bool,
+    animation_timer: u16,
+    motion_suppressed: bool,
+) -> bool {
+    // ASM Robot.asm loc_3A890: C82A8 sprite, animation_timer == 4, and clear
+    // `$19(a3)` replay sfx_Robot_jumping_on before collision dispatch.
+    body_sprite_is_landing_frame && animation_timer == 4 && !motion_suppressed
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
