@@ -5873,6 +5873,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_348fc_classifies_descent_collision_type() {
+        assert_eq!(
+            dragon_descent_collision_outcome_loc_348fc(0),
+            DragonDescentCollisionOutcomeLoc348FC::ContinueLoop,
+            "ASM Dragon_Flying.asm loc_348FC falls through to the loop tail when collision_type is zero"
+        );
+        assert_eq!(
+            dragon_descent_collision_outcome_loc_348fc(0x8000),
+            DragonDescentCollisionOutcomeLoc348FC::Explosion,
+            "ASM Dragon_Flying.asm loc_348FC sends negative collision words to the death/explosion path"
+        );
+        assert_eq!(
+            dragon_descent_collision_outcome_loc_348fc(0x001C),
+            DragonDescentCollisionOutcomeLoc348FC::Explosion,
+            "ASM loc_348FC treats collision_type $1C as the same death/explosion branch"
+        );
+        assert_eq!(
+            dragon_descent_collision_outcome_loc_348fc(0x002C),
+            DragonDescentCollisionOutcomeLoc348FC::Explosion,
+            "ASM loc_348FC treats collision_type $2C as the same death/explosion branch"
+        );
+        assert_eq!(
+            dragon_descent_collision_outcome_loc_348fc(0x0004),
+            DragonDescentCollisionOutcomeLoc348FC::TerrainResponse(0x0004),
+            "ASM Dragon_Flying.asm loc_348FC forwards other positive terrain collisions to terrain response"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_3488a_flip_sentinel_dispatches_next_move() {
         let mut enemy = test_dragon(0, 100 << 16, 200 << 16);
         enemy.dragon_phase = DragonFlyingState::Descending;

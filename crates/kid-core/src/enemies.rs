@@ -1715,6 +1715,30 @@ pub(crate) fn dragon_descent_move_setup_loc_348e4(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonDescentCollisionOutcomeLoc348FC {
+    ContinueLoop,
+    Explosion,
+    TerrainResponse(u16),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_descent_collision_outcome_loc_348fc(
+    collision_type: u16,
+) -> DragonDescentCollisionOutcomeLoc348FC {
+    // ASM Dragon_Flying.asm loc_348FC: after one hibernated descent frame,
+    // zero collision falls into the DBF tail, negative/$1C/$2C collisions use
+    // the death/explosion path, and other positive collisions use terrain response.
+    if collision_type == 0 {
+        DragonDescentCollisionOutcomeLoc348FC::ContinueLoop
+    } else if (collision_type & 0x8000) != 0 || matches!(collision_type, 0x001C | 0x002C) {
+        DragonDescentCollisionOutcomeLoc348FC::Explosion
+    } else {
+        DragonDescentCollisionOutcomeLoc348FC::TerrainResponse(collision_type)
+    }
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {
