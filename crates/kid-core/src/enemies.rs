@@ -10115,6 +10115,34 @@ pub(crate) const SPINNING_TWINS_DROP_Y_VEL: i32 = -0x1_0000;
 // Initial X velocity on drop: ASM sets $FFFC8000 (left) or $38000 (right).
 pub(crate) const SPINNING_TWINS_DROP_X_VEL_LEFT: i32 = -0x3_8000;
 pub(crate) const SPINNING_TWINS_DROP_X_VEL_RIGHT: i32 = 0x3_8000;
+pub(crate) const SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX: u32 = 0x20;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsSecondWalkingChildInitLoc3BB06 {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) x_direction_flipped: bool,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_second_walking_child_init_loc_3bb06(
+    parent_x_pos: u32,
+    parent_y_pos: u32,
+) -> SpinningTwinsSecondWalkingChildInitLoc3BB06 {
+    // ASM Spinning_Twins.asm loc_3BB06: the second walking child sees the
+    // parent marker already set, keeps x_direction clear, and starts 32px to
+    // the right before the shared launch path assigns rightward velocity.
+    SpinningTwinsSecondWalkingChildInitLoc3BB06 {
+        x_pos: parent_x_pos.wrapping_add(SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX << 16),
+        y_pos: parent_y_pos,
+        x_direction_flipped: false,
+        x_velocity: SPINNING_TWINS_DROP_X_VEL_RIGHT,
+        y_velocity: SPINNING_TWINS_DROP_Y_VEL,
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]

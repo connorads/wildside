@@ -6387,6 +6387,32 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_second_walking_child_init_loc_3bb06_offsets_right() {
+        let child = spinning_twins_second_walking_child_init_loc_3bb06(0x0100_0000, 0x0080_0000);
+
+        assert_eq!(
+            child.x_pos, 0x0120_0000,
+            "ASM loc_3BB06 adds `$20` to the copied parent X position"
+        );
+        assert_eq!(
+            child.y_pos, 0x0080_0000,
+            "ASM loc_3BB06 leaves the copied parent Y position unchanged"
+        );
+        assert!(
+            !child.x_direction_flipped,
+            "ASM loc_3BB06 leaves x_direction clear for the second child"
+        );
+        assert_eq!(
+            child.x_velocity, SPINNING_TWINS_DROP_X_VEL_RIGHT,
+            "ASM loc_3BB06 reaches the clear-x_direction launch path"
+        );
+        assert_eq!(
+            child.y_velocity, SPINNING_TWINS_DROP_Y_VEL,
+            "ASM loc_3BB06 shares the walking-child upward launch"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 
