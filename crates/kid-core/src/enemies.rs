@@ -3570,13 +3570,9 @@ fn dragon_advance_script(
             DragonFlyingCmd::FacePlayer => {
                 // Immediate: face player and set initial drift speed. ASM loc_3473A.
                 if let Some(px) = player_x_pos {
-                    if enemy.x_pos > px {
-                        enemy.facing = Direction::Left;
-                        enemy.x_velocity = -DRAGON_FACE_PLAYER_SPEED;
-                    } else {
-                        enemy.facing = Direction::Right;
-                        enemy.x_velocity = DRAGON_FACE_PLAYER_SPEED;
-                    }
+                    let (facing, x_velocity) = dragon_face_player_motion(enemy.x_pos, px);
+                    enemy.facing = facing;
+                    enemy.x_velocity = x_velocity;
                 }
                 // Continue to next command immediately (no frame consumed).
             }
@@ -3591,6 +3587,18 @@ fn dragon_advance_script(
                 return;
             }
         }
+    }
+}
+
+pub(crate) fn dragon_face_player_motion(dragon_x_pos: u32, player_x_pos: u32) -> (Direction, i32) {
+    let dragon_x_px = dragon_x_pos >> 16;
+    let player_x_px = player_x_pos >> 16;
+    if dragon_x_px < player_x_px {
+        // ASM Dragon_Flying.asm loc_34758: x_direction=$FF and x_vel=$8000
+        // only when the dragon's integer X word is strictly left of Kid.
+        (Direction::Right, DRAGON_FACE_PLAYER_SPEED)
+    } else {
+        (Direction::Left, -DRAGON_FACE_PLAYER_SPEED)
     }
 }
 

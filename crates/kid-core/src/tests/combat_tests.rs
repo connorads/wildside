@@ -5670,6 +5670,25 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34758_turns_right_only_for_strictly_greater_kid_pixel_x() {
+        assert_eq!(
+            dragon_face_player_motion(200 << 16, 201 << 16),
+            (Direction::Right, 0x8000),
+            "ASM Dragon_Flying.asm loc_34758 is reached when dragon.x word < Kid.x word"
+        );
+        assert_eq!(
+            dragon_face_player_motion(200 << 16, (200 << 16) + 0xFFFF),
+            (Direction::Left, -0x8000),
+            "ASM loc_3473A compares only integer X words, so same-pixel subposition stays left"
+        );
+        assert_eq!(
+            dragon_face_player_motion(200 << 16, 200 << 16),
+            (Direction::Left, -0x8000),
+            "equal integer X words do not take loc_34758"
+        );
+    }
+
+    #[test]
     fn dragon_flyer_script_2_retargets_player_between_drifts() {
         // Script 2: DriftWithFire(112) → DriftWithFire(112) → FacePlayer → DriftWithFire(80).
         // After first two drift phases, FacePlayer should redirect toward the player.
