@@ -2454,6 +2454,33 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_animation_loc_3a464_selects_default_walk_script() {
+        assert_eq!(
+            fire_demon_non_hp5_animation_loc_3a464(3),
+            Some(FireDemonInitAnimation {
+                collision_routine: "fire_demon_collision",
+                animation_script: "stru_3A31A",
+                saved_animation_script: "stru_3A31A",
+            }),
+            "ASM Fire_Demon.asm loc_3A464 initialises and saves `stru_3A31A` for non-HP5 Fire Demons"
+        );
+        assert_eq!(
+            fire_demon_non_hp5_animation_loc_3a464(4),
+            Some(FireDemonInitAnimation {
+                collision_routine: "fire_demon_collision",
+                animation_script: "stru_3A31A",
+                saved_animation_script: "stru_3A31A",
+            }),
+            "ASM Fire_Demon.asm loc_3A464 is also the HP4/default walk-animation path"
+        );
+        assert_eq!(
+            fire_demon_non_hp5_animation_loc_3a464(5),
+            None,
+            "ASM Fire_Demon.asm loc_3A464 is skipped by the HP5 walk-animation branch"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);

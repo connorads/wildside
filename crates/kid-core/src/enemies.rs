@@ -1309,6 +1309,19 @@ pub(crate) fn fire_demon_hp5_animation_loc_3a444(current_hp: u8) -> Option<FireD
     })
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_non_hp5_animation_loc_3a464(
+    current_hp: u8,
+) -> Option<FireDemonInitAnimation> {
+    // ASM Fire_Demon.asm loc_3A464: the non-HP5 branch initialises `stru_3A31A`
+    // and stores the same animation pointer in `$62(a5)`.
+    (current_hp != 5).then_some(FireDemonInitAnimation {
+        collision_routine: "fire_demon_collision",
+        animation_script: "stru_3A31A",
+        saved_animation_script: "stru_3A31A",
+    })
+}
+
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).
