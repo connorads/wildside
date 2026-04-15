@@ -6825,18 +6825,17 @@ pub(crate) fn hand_jump_components_loc_328aa(
     }
 }
 
-/// Hand jump velocity: randomised per-jump from ASM (Hand.asm lines 128-147).
-/// Y: -(tier + random(0..3)) × $10000, X: ±(tier + random(0..3)) × $10000.
-/// Random component is `(random_byte XOR kid_pos) & 3`.
-/// We approximate with a frame-based pseudo-random in the range.
-pub(crate) fn hand_jump_speed(tier: usize, frame_counter: u32) -> (i32, i32) {
-    // Approximate the ASM's `random_byte XOR kid_pos & 3` pattern
-    let rand_y = ((frame_counter.wrapping_mul(7)) & 3) as i32;
-    let rand_x = ((frame_counter.wrapping_mul(13).wrapping_add(5)) & 3) as i32;
-    let t = (tier + 1) as i32; // tier 0 = HP 1 → multiplier 1
-    let y_speed = -(t + rand_y) * 0x1_0000;
-    let x_speed = (t + rand_x) * 0x1_0000;
-    (x_speed, y_speed)
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_x_velocity_loc_328e0(x_velocity_word: i16) -> i32 {
+    // ASM Hand.asm loc_328E0: `swap d7; move.l d7,x_vel(a3)` promotes the
+    // signed X word prepared by loc_328AA into the high word of 16.16 velocity.
+    i32::from(x_velocity_word) << 16
+}
+
+fn fixed_position_integer_word(position: u32) -> u16 {
+    let [high_a, high_b, _, _] = position.to_be_bytes();
+    u16::from_be_bytes([high_a, high_b])
 }
 
 /// Hand max fall speed: $180000 (Hand.asm lines 728-730), NOT the shared MAX_FALL_SPEED.
@@ -7096,9 +7095,20 @@ pub(crate) fn step_hand(
                 // Jump toward player with randomised velocity (Hand.asm lines 128-147)
                 enemy.hand_state = HandState::Jumping;
                 enemy.on_ground = false;
-                let (x_speed, y_speed) = hand_jump_speed(tier, enemy.wait_timer as u32);
-                enemy.x_velocity = if dx >= 0 { x_speed } else { -x_speed };
-                enemy.y_velocity = y_speed;
+                let speed_seed = hand_jump_seed_loc_328a6(enemy.hit_points);
+                let jump = hand_jump_components_loc_328aa(
+                    speed_seed,
+                    hand_x_direction_flag(enemy.facing),
+                    u32::from(enemy.wait_timer).wrapping_mul(7).to_le_bytes()[0],
+                    fixed_position_integer_word(py),
+                    u32::from(enemy.wait_timer)
+                        .wrapping_mul(13)
+                        .wrapping_add(5)
+                        .to_le_bytes()[0],
+                    fixed_position_integer_word(px),
+                );
+                enemy.x_velocity = hand_x_velocity_loc_328e0(jump.x_velocity_word);
+                enemy.y_velocity = jump.y_velocity;
             }
         }
         HandState::Jumping => {

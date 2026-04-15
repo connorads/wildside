@@ -5520,6 +5520,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_x_velocity_loc_328e0_swaps_signed_word_into_fixed_velocity() {
+        assert_eq!(
+            hand_x_velocity_loc_328e0(5),
+            0x0005_0000,
+            "ASM Hand.asm loc_328E0: `swap d7; move.l d7,x_vel(a3)` stores a positive X word as 16.16 velocity"
+        );
+        assert_eq!(
+            hand_x_velocity_loc_328e0(-5),
+            -0x0005_0000,
+            "ASM Hand.asm loc_328E0 preserves the sign bit when the clear x_direction path prepared a negative X word"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
@@ -5602,9 +5616,9 @@ mod chunk_04 {
         let floor_y = (17 * 16) << 16;
         let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y - (30 << 16), 1);
         enemy.hand_state = HandState::Jumping;
-        let (x_speed, y_speed) = hand_jump_speed(0, 0);
-        enemy.x_velocity = x_speed;
-        enemy.y_velocity = y_speed;
+        let jump = hand_jump_components_loc_328aa(hand_jump_seed_loc_328a6(1), true, 0, 0, 5, 0);
+        enemy.x_velocity = hand_x_velocity_loc_328e0(jump.x_velocity_word);
+        enemy.y_velocity = jump.y_velocity;
         enemy.on_ground = false;
         for _ in 0..300 {
             step_hand(&mut enemy, Some(&grid), None, None);
