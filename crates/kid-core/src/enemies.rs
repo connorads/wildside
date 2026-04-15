@@ -534,6 +534,46 @@ pub(crate) fn lion_charge_terrain_gate_loc_3e406(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionLoc3E434Branch {
+    KeepAndContinue,
+    Check60Band,
+    Check70Band,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLoc3E434Result {
+    pub(crate) next_shared_state: i16,
+    pub(crate) branch: LionLoc3E434Branch,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_window_gate_loc_3e434(shared_walker_state: i16) -> LionLoc3E434Result {
+    // ASM Lion.asm loc_3E434:
+    // - `$42 == $A` skips the inner distance gates and continues movement.
+    // - `$42 > 0` routes to the tighter ±$70 check in `loc_3E476`.
+    // - `$42 == 0` routes to the looser ±$60 check in `loc_3E450`.
+    // - `$42 < 0` increments toward zero and continues movement.
+    if shared_walker_state > 0 || shared_walker_state == 0x000A {
+        LionLoc3E434Result {
+            next_shared_state: shared_walker_state,
+            branch: LionLoc3E434Branch::Check70Band,
+        }
+    } else if shared_walker_state == 0 {
+        LionLoc3E434Result {
+            next_shared_state: 0,
+            branch: LionLoc3E434Branch::Check60Band,
+        }
+    } else {
+        LionLoc3E434Result {
+            next_shared_state: shared_walker_state.saturating_add(1),
+            branch: LionLoc3E434Branch::KeepAndContinue,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -10133,6 +10173,42 @@ mod tests {
             lion_charge_terrain_gate_loc_3e406(true, true),
             LionLoc3E406Branch::EnterLoc3E3A2,
             "ASM Lion.asm loc_3E406 should force a shared charge reset path into loc_3E3A2 when terrain bit0 is set and object_meta low byte is $10"
+        );
+    }
+
+    #[test]
+    fn lion_charge_window_gate_matches_loc_3e434() {
+        assert_eq!(
+            lion_charge_window_gate_loc_3e434(15),
+            LionLoc3E434Result {
+                next_shared_state: 15,
+                branch: LionLoc3E434Branch::Check70Band,
+            },
+            "ASM Lion.asm loc_3E434 should select the tight ±$70 overshoot check path for positive shared_walker_state"
+        );
+        assert_eq!(
+            lion_charge_window_gate_loc_3e434(0x000A),
+            LionLoc3E434Result {
+                next_shared_state: 0x000A,
+                branch: LionLoc3E434Branch::Check70Band,
+            },
+            "ASM Lion.asm loc_3E434 should keep state `$0A` and continue to `loc_3E476`"
+        );
+        assert_eq!(
+            lion_charge_window_gate_loc_3e434(0),
+            LionLoc3E434Result {
+                next_shared_state: 0,
+                branch: LionLoc3E434Branch::Check60Band,
+            },
+            "ASM Lion.asm loc_3E434 should route state 0 to the ±$60 overshoot check path at loc_3E450"
+        );
+        assert_eq!(
+            lion_charge_window_gate_loc_3e434(-1),
+            LionLoc3E434Result {
+                next_shared_state: 0,
+                branch: LionLoc3E434Branch::KeepAndContinue,
+            },
+            "ASM Lion.asm loc_3E434 should increment negative states toward zero and continue the charge step"
         );
     }
 
