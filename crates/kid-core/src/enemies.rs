@@ -3966,6 +3966,59 @@ pub(crate) fn mini_hopping_skull_landing_collision_route_loc_3ee12(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_landing_collision_route_loc_3eec8(
+    collision_type: u16,
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3EEC8: same collision compare order as
+    // loc_3EE12, but `loc_3EF10` handles left/right contact with a Berzerker
+    // branch and below-contact goes through the contact worker path.
+    match collision_type {
+        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+        MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+        }
+        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
+            mini_hopping_skull_landing_side_contact_loc_3ef10(berzerker_charging)
+        }
+        MINI_SKULL_COLID_GROUND_KIDBELOW => {
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+        }
+        _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_landing_side_contact_loc_3ef10(
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3EF10: side contact gates a Berzerker kill;
+    // if not charging, allocate `sub_3F3F0` through loc_3EEFA.
+    if berzerker_charging {
+        MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+    } else {
+        MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_landing_scream_worker_allocation_loc_3eefa(
+    route: MiniHoppingSkullGroundWaitCollisionRoute,
+) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
+    if route != MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker {
+        return None;
+    }
+
+    // ASM Mini_Hopping_Skull.asm loc_3EEFA: `exg a0,a4`, then allocate selector
+    // `$A000`, store `sub_3F3F0` at offset 4, and restore a0/a4.
+    Some(MiniHoppingSkullScreamWorkerAllocation {
+        allocation_selector: 0xA000,
+        routine: "sub_3F3F0",
+        delay_frames: 15,
+    })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_landing_tail_loc_3ee7c(
     dbf_counter: u16,
     is_boosted: bool,
@@ -10011,6 +10064,98 @@ mod tests {
             mini_hopping_skull_landing_collision_route_loc_3ee12(0x0123, false),
             MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
             "ASM Mini_Hopping_Skull.asm loc_3EE12 ignores non-Kid collision IDs"
+        );
+    }
+
+    #[test]
+    // ASM Mini_Hopping_Skull.asm loc_3EEC8
+    fn mini_hopping_skull_landing_collision_route_matches_loc_3eec8() {
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3eec8(0, false),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3EEC8 should continue when `collision_type(a3)` is zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3eec8(
+                MINI_SKULL_COLID_GROUND_KIDABOVE,
+                false,
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EEC8 should route `colid_kidabove` to the same HP decrement path as `loc_3EE64`"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3eec8(
+                MINI_SKULL_COLID_GROUND_KIDLEFT,
+                false,
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3EEC8 should send side contact through loc_3EF10"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3eec8(
+                MINI_SKULL_COLID_GROUND_KIDRIGHT,
+                true,
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EF10 should jump to loc_3F262 when `Berzerker_charging` is set"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3eec8(
+                MINI_SKULL_COLID_GROUND_KIDBELOW,
+                false,
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3EEC8 sends `colid_kidbelow` to the contact worker allocation path"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_route_loc_3eec8(0x0123, false),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3EEC8 ignores non-Kid collision IDs"
+        );
+    }
+
+    #[test]
+    // ASM Mini_Hopping_Skull.asm loc_3EF10
+    fn mini_hopping_skull_landing_side_contact_matches_loc_3ef10() {
+        assert_eq!(
+            mini_hopping_skull_landing_side_contact_loc_3ef10(false),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3EF10 should jump to loc_3EEFA when `Berzerker_charging` is clear"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_side_contact_loc_3ef10(true),
+            MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EF10 should jump to loc_3F262 while `Berzerker_charging` is set"
+        );
+    }
+
+    #[test]
+    // ASM Mini_Hopping_Skull.asm loc_3EEFA
+    fn mini_hopping_skull_landing_scream_worker_allocation_matches_loc_3eefa() {
+        assert_eq!(
+            mini_hopping_skull_landing_scream_worker_allocation_loc_3eefa(
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+            ),
+            Some(MiniHoppingSkullScreamWorkerAllocation {
+                allocation_selector: 0xA000,
+                routine: "sub_3F3F0",
+                delay_frames: 15,
+            }),
+            "ASM Mini_Hopping_Skull.asm loc_3EEFA should allocate `sub_3F3F0` with selector `$A000`"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_scream_worker_allocation_loc_3eefa(
+                MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+            ),
+            None,
+            "ASM Mini_Hopping_Skull.asm loc_3EEFA is skipped when the collision branch decrements HP"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_scream_worker_allocation_loc_3eefa(
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+            ),
+            None,
+            "ASM Mini_Hopping_Skull.asm loc_3EEFA is skipped while `Berzerker_charging` takes the kill path"
         );
     }
 
