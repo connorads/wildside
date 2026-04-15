@@ -6099,6 +6099,35 @@ pub(crate) fn hand_initial_motion_loc_327f2(
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum HandPatrolDecision {
+    ContinuePatrol,
+    JumpAttack,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_patrol_decision_loc_32804(
+    x_velocity: i32,
+    probe_d6: i16,
+    probe_d7: i16,
+) -> HandPatrolDecision {
+    // ASM Hand.asm loc_32804: after the shared patrol probe, the loop treats
+    // d6/d7 as opaque probe words. Native only models the branch decision here.
+    if x_velocity < 0 {
+        if probe_d6 != 0 {
+            HandPatrolDecision::ContinuePatrol
+        } else {
+            HandPatrolDecision::JumpAttack
+        }
+    } else if probe_d7 != 0 {
+        HandPatrolDecision::ContinuePatrol
+    } else {
+        HandPatrolDecision::JumpAttack
+    }
+}
+
 /// Step a Hand enemy through its walk/detect/jump state machine.
 /// Walking: paces with edge/wall detection. Detects player in 45-degree cone.
 /// Jumping: randomised arc toward player with gravity, lands and resumes walking.

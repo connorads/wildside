@@ -5366,6 +5366,15 @@ mod chunk_04 {
     // --- Hand ---
 
     #[test]
+    fn hand_patrol_loc_32804_continues_positive_velocity_when_d7_nonzero() {
+        assert_eq!(
+            hand_patrol_decision_loc_32804(0x0000_3000, 0, 1),
+            HandPatrolDecision::ContinuePatrol,
+            "ASM Hand.asm loc_32804: after positive x_vel, `tst.w d7; bne.s loc_32804` loops without reversing or jumping"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
