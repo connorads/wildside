@@ -10219,6 +10219,31 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_FA40 (kid.asm:20775): the vertical animated-solid path uses the
+    /// same descriptor-advance tail as `loc_F9C0`, advancing `a0` before DBF
+    /// decides whether to loop or commit frame sprite state.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_FA40_advances_vertical_descriptors_until_dbf_wraps() {
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_scan_advance_loc_FA40(0xFFFF_F91A, 0x0001,),
+            crate::level::AnimatedSolidBlockScanAdvanceLocF9C0::ContinueScan {
+                next_slot_addr: 0xFFFF_F92A,
+                next_dbf_counter: 0x0000,
+            },
+            "ASM loc_FA40 should advance `a0` by `$10` and loop while DBF has not reached -1"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_scan_advance_loc_FA40(0xFFFF_F92A, 0x0000,),
+            crate::level::AnimatedSolidBlockScanAdvanceLocF9C0::CommitFrame {
+                next_slot_addr: 0xFFFF_F93A,
+                next_dbf_counter: 0xFFFF,
+            },
+            "ASM loc_FA40 should still advance before the zero counter wraps and branches to loc_FAC0"
+        );
+    }
+
     /// ASM loc_F9CC (kid.asm:20724): negative horizontal animated-solid
     /// descriptors emit one sprite per visible strip tile, incrementing the
     /// sprite link before every write and adding `$10` to X between sprites.

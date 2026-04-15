@@ -9807,6 +9807,18 @@ pub(crate) fn animated_solid_block_scan_advance_loc_F9C0(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_vertical_scan_advance_loc_FA40(
+    slot_addr: u32,
+    dbf_counter: u16,
+) -> AnimatedSolidBlockScanAdvanceLocF9C0 {
+    // ASM loc_FA40 (kid.asm:20775): the vertical sprite path uses the same
+    // `lea $10(a0),a0` / `dbf d6` tail as loc_F9C0 before falling through to
+    // the shared frame commit at loc_FAC0.
+    animated_solid_block_scan_advance_loc_F9C0(slot_addr, dbf_counter)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_negative_sprites_loc_F9CC(
     input: AnimatedSolidBlockNegativeSpritesInputLocF9CC,
 ) -> AnimatedSolidBlockNegativeSpritesLocF9CC {
