@@ -7742,6 +7742,19 @@ pub(crate) struct TarMonsterDeathStatusUpdateLoc3243A {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterPostSubmergeHoldLoc32454 {
+    pub(crate) child_visible_during_animation: bool,
+    pub(crate) animation_label: &'static str,
+    pub(crate) hibernate_until_animation_finished: bool,
+    pub(crate) dbf_seed: u16,
+    pub(crate) hibernate_frames: u16,
+    pub(crate) checks_object_range_each_frame: bool,
+    pub(crate) polls_collision_each_frame: bool,
+    pub(crate) restarts_control_script: bool,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -7964,6 +7977,24 @@ pub(crate) fn tar_monster_death_status_update_loc_3243A(
     TarMonsterDeathStatusUpdateLoc3243A {
         route,
         deletes_current_object: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_post_submerge_hold_loc_32454() -> TarMonsterPostSubmergeHoldLoc32454 {
+    // ASM loc_32454: after hiding the child and waiting for `stru_3274C`, d0
+    // starts at `$50`; the one-frame hibernate/range/collision loop is DBF
+    // inclusive and then branches back to loc_32248.
+    TarMonsterPostSubmergeHoldLoc32454 {
+        child_visible_during_animation: false,
+        animation_label: "stru_3274C",
+        hibernate_until_animation_finished: true,
+        dbf_seed: 0x50,
+        hibernate_frames: 0x51,
+        checks_object_range_each_frame: true,
+        polls_collision_each_frame: true,
+        restarts_control_script: true,
     }
 }
 
@@ -10915,6 +10946,24 @@ mod tests {
                 decrement: 0x0400,
             },
             "ASM Tar_Monster.asm loc_3243A receives the bit-6 path after subtracting `$400` from EnemyStatus_Table[d0 & $3F]"
+        );
+    }
+
+    #[test]
+    fn tar_monster_post_submerge_hold_loc_32454_uses_inclusive_dbf_wait() {
+        assert_eq!(
+            tar_monster_post_submerge_hold_loc_32454(),
+            TarMonsterPostSubmergeHoldLoc32454 {
+                child_visible_during_animation: false,
+                animation_label: "stru_3274C",
+                hibernate_until_animation_finished: true,
+                dbf_seed: 0x50,
+                hibernate_frames: 0x51,
+                checks_object_range_each_frame: true,
+                polls_collision_each_frame: true,
+                restarts_control_script: true,
+            },
+            "ASM Tar_Monster.asm loc_32454 starts from d0=$50, so the DBF loop hibernates and polls collision for 81 frames before branching to loc_32248"
         );
     }
 
