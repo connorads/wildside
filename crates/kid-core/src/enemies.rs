@@ -7009,6 +7009,61 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_3371a(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
+pub(crate) enum DripsSurfaceCrawlerMovementPathLoc336D0 {
+    Loc338F8,
+    Loc3396E,
+    Loc336D0,
+    Loc339B4,
+    Loc339AA,
+    Loc33950,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_movement_tail_loc_336d0(
+    has_collision: bool,
+    probe_is_solid: bool,
+    bounds_contact: bool,
+    is_x_direction_left: bool,
+    tile_flags_331f6_d5: u16,
+    tile_flags_331f6_d6: u16,
+) -> DripsSurfaceCrawlerMovementPathLoc336D0 {
+    // ASM Drips.asm loc_336D0: common movement-tick gate for crawl children.
+    // This routine first runs the shared loc_33550 -> loc_331D2 -> loc_33588 path;
+    // failures fall through to `loc_338F8`.
+    if has_collision || !probe_is_solid || bounds_contact {
+        return DripsSurfaceCrawlerMovementPathLoc336D0::Loc338F8;
+    }
+
+    // `x_direction(a3)==0` stays on this routine and uses `-6` for the probe;
+    // non-zero is the `loc_3371A` right-facing branch.
+    if !is_x_direction_left {
+        return match drips_surface_crawler_movement_tail_loc_3371a(
+            tile_flags_331f6_d5,
+            tile_flags_331f6_d6,
+        ) {
+            DripsSurfaceCrawlerMovementPathLoc3371A::Loc339B4 => {
+                DripsSurfaceCrawlerMovementPathLoc336D0::Loc339B4
+            }
+            DripsSurfaceCrawlerMovementPathLoc3371A::Loc336D0 => {
+                DripsSurfaceCrawlerMovementPathLoc336D0::Loc336D0
+            }
+            DripsSurfaceCrawlerMovementPathLoc3371A::Loc339AA => {
+                DripsSurfaceCrawlerMovementPathLoc336D0::Loc339AA
+            }
+        };
+    }
+
+    if tile_flags_331f6_d5 == 0x6000 {
+        DripsSurfaceCrawlerMovementPathLoc336D0::Loc336D0
+    } else if tile_flags_331f6_d6 == 0x6000 {
+        DripsSurfaceCrawlerMovementPathLoc336D0::Loc3396E
+    } else {
+        DripsSurfaceCrawlerMovementPathLoc336D0::Loc33950
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -9378,6 +9433,63 @@ mod tests {
             drips_surface_crawler_movement_tail_loc_3371a(0x1111, 0x1111),
             DripsSurfaceCrawlerMovementPathLoc3371A::Loc339AA,
             "ASM Drips.asm loc_3371A falls through to `loc_339AA` for non-matching tile flags"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_movement_tail_matches_loc_336d0() {
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_336d0(true, true, false, true, 0x1111, 0x1111),
+            DripsSurfaceCrawlerMovementPathLoc336D0::Loc338F8,
+            "ASM Drips.asm loc_336D0 goes to `loc_338F8` when loc_33550 reports contact"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_336d0(
+                false, false, false, true, 0x1111, 0x1111,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc336D0::Loc338F8,
+            "ASM Drips.asm loc_336D0 goes to `loc_338F8` when the `loc_331D2` probe is not `$6000`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_336d0(false, true, true, true, 0x1111, 0x1111,),
+            DripsSurfaceCrawlerMovementPathLoc336D0::Loc338F8,
+            "ASM Drips.asm loc_336D0 goes to `loc_338F8` when `loc_33588` reports level boundary contact"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_336d0(false, true, false, true, 0x6000, 0x1111,),
+            DripsSurfaceCrawlerMovementPathLoc336D0::Loc336D0,
+            "ASM Drips.asm loc_336D0 loops to itself when `loc_331F6`-d5 is `$6000`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_336d0(false, true, false, true, 0x1111, 0x6000,),
+            DripsSurfaceCrawlerMovementPathLoc336D0::Loc3396E,
+            "ASM Drips.asm loc_336D0 routes `loc_331F6`-d6 `$6000` to `loc_3396E`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_336d0(false, true, false, true, 0x1111, 0x1111,),
+            DripsSurfaceCrawlerMovementPathLoc336D0::Loc33950,
+            "ASM Drips.asm loc_336D0 falls through to `loc_33950` when no tile flags match"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_336d0(
+                false, true, false, false, 0x6000, 0x1111,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc336D0::Loc339B4,
+            "ASM Drips.asm loc_336D0 paths to `loc_3371A`-derived `loc_339B4` on the right-facing x_direction branch"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_336d0(
+                false, true, false, false, 0x1111, 0x6000,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc336D0::Loc336D0,
+            "ASM Drips.asm loc_336D0 paths to `loc_3371A`-derived `loc_336D0` on the right-facing x_direction branch"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_336d0(
+                false, true, false, false, 0x1111, 0x1111,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc336D0::Loc339AA,
+            "ASM Drips.asm loc_336D0 paths to `loc_3371A`-derived `loc_339AA` on the right-facing x_direction branch"
         );
     }
 
