@@ -488,6 +488,23 @@ pub(crate) fn lion_projectile_launch_tail_loc_3e180(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionHibernateLoc3E3A2 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_hibernate_tail_loc_3e3a2() -> LionHibernateLoc3E3A2 {
+    // ASM Lion.asm loc_3E3A2: clear `x_vel` and `y_vel` when the routine hands
+    // off to `sub_3E8BA` after a short movement decision.
+    LionHibernateLoc3E3A2 {
+        x_velocity: 0,
+        y_velocity: 0,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -10056,6 +10073,18 @@ mod tests {
                 animation_script: "stru_3DF34",
             },
             "ASM Lion.asm loc_3E180 should keep the positive d7/d6 pair when parent x_direction is set"
+        );
+    }
+
+    #[test]
+    fn lion_hibernate_tail_matches_loc_3e3a2() {
+        assert_eq!(
+            lion_hibernate_tail_loc_3e3a2(),
+            LionHibernateLoc3E3A2 {
+                x_velocity: 0,
+                y_velocity: 0,
+            },
+            "ASM Lion.asm loc_3E3A2 should force zeroed velocities during the one-frame charge pause before re-entering the locomotion routine pointer"
         );
     }
 
