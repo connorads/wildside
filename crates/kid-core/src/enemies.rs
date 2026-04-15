@@ -6781,6 +6781,50 @@ pub(crate) fn hand_jump_seed_loc_328a6(hit_points: u8) -> i16 {
     i16::from(hit_points.clamp(1, 3))
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub(crate) struct HandJumpComponentsLoc328AA {
+    pub(crate) y_velocity: i32,
+    pub(crate) x_velocity_word: i16,
+}
+
+fn hand_jump_units_from_random_loc_328aa(
+    speed_seed: i16,
+    random_byte: u8,
+    kid_position_word: u16,
+) -> i16 {
+    let random_component = i16::from((random_byte ^ kid_position_word.to_le_bytes()[0]) & 3);
+    speed_seed.wrapping_add(random_component)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_jump_components_loc_328aa(
+    speed_seed: i16,
+    x_direction_flag: bool,
+    random_y_byte: u8,
+    kid_y_position_word: u16,
+    random_x_byte: u8,
+    kid_x_position_word: u16,
+) -> HandJumpComponentsLoc328AA {
+    // ASM Hand.asm loc_328AA: each axis uses `(random_byte ^ KidPosLo) & 3`,
+    // adds d5 from loc_328A6, stores negative Y, then negates X only when
+    // raw x_direction is clear before falling through to the X store.
+    let y_units =
+        hand_jump_units_from_random_loc_328aa(speed_seed, random_y_byte, kid_y_position_word);
+    let x_units =
+        hand_jump_units_from_random_loc_328aa(speed_seed, random_x_byte, kid_x_position_word);
+    let x_velocity_word = if x_direction_flag {
+        x_units
+    } else {
+        x_units.wrapping_neg()
+    };
+
+    HandJumpComponentsLoc328AA {
+        y_velocity: i32::from(y_units.wrapping_neg()) << 16,
+        x_velocity_word,
+    }
+}
+
 /// Hand jump velocity: randomised per-jump from ASM (Hand.asm lines 128-147).
 /// Y: -(tier + random(0..3)) × $10000, X: ±(tier + random(0..3)) × $10000.
 /// Random component is `(random_byte XOR kid_pos) & 3`.

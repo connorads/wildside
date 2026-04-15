@@ -5501,6 +5501,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_jump_components_loc_328aa_mix_random_bytes_with_kid_position() {
+        let components = hand_jump_components_loc_328aa(2, false, 0xAA, 0x1234, 0x0F, 0x0010);
+        assert_eq!(
+            components,
+            HandJumpComponentsLoc328AA {
+                y_velocity: -0x0004_0000,
+                x_velocity_word: -5,
+            },
+            "ASM Hand.asm loc_328AA: Y uses `(random ^ KidYLo) & 3`, then `neg.w; swap`; clear x_direction negates the X word before the X store"
+        );
+
+        assert_eq!(
+            hand_jump_components_loc_328aa(2, true, 0xAA, 0x1234, 0x0F, 0x0010).x_velocity_word,
+            5,
+            "ASM Hand.asm loc_328AA skips the X negation when raw x_direction is non-zero"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
