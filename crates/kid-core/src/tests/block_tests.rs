@@ -6414,7 +6414,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn spinning_twins_falling_visual_step_loc_3ba00_uses_table_cadence() {
+    fn spinning_twins_falling_visual_step_loc_3ba3c_moves_and_uses_table_cadence() {
         let mut state = SpinningTwinsFallingVisualStateLoc3BA00 {
             x_pos: 0x0100_0000,
             y_pos: 0x0080_0000,
@@ -6427,11 +6427,11 @@ mod chunk_04 {
         assert!(first.alive);
         assert_eq!(
             first.state.x_pos, 0x0101_2000,
-            "ASM loc_3BA00 adds dword_3BA60[0] to X on the first frame"
+            "ASM loc_3BA3C adds dword_3BA60[0] to X on the first frame"
         );
         assert_eq!(
             first.state.y_pos, 0x0081_0000,
-            "ASM loc_3BA00 adds one pixel to Y each frame"
+            "ASM loc_3BA3C adds one pixel to Y each frame"
         );
         assert_eq!(first.state.step_index, 0);
         assert_eq!(first.state.frames_until_next_step_index, 3);

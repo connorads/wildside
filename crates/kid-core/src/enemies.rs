@@ -10229,6 +10229,8 @@ pub(crate) fn spinning_twins_falling_visual_step_loc_3ba00(
         };
     }
 
+    // ASM Spinning_Twins.asm loc_3BA3C: apply the selected signed X drift,
+    // drop the visual one pixel, then maintain the four-frame table cadence.
     let step = SPINNING_TWINS_FALLING_VISUAL_X_STEPS_LOC_3BA00[usize::from(state.step_index) % 5];
     let x_delta = if state.reverse_x_motion { -step } else { step };
     state.x_pos = (i64::from(state.x_pos) + i64::from(x_delta)) as u32;
