@@ -5152,6 +5152,105 @@ pub(crate) fn ninja_collision_resume_loc_3d64e(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaCollisionStateLoc3D66E {
+    pub(crate) next: NinjaCollisionResumeLoc3D638,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_collision_resume_loc_3d66e(
+    next: NinjaCollisionResumeLoc3D638,
+) -> NinjaCollisionStateLoc3D66E {
+    // ASM Ninja.asm loc_3D66E is a plain branch to loc_3D638
+    // with no side effects.
+    NinjaCollisionStateLoc3D66E { next }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaCollisionLoc3D670Route {
+    /// ASM Ninja.asm loc_3D6DA branch after `$44(a5)` underflow.
+    To3DB4E,
+    /// ASM Ninja.asm loc_3D638 route after blocking animation completes.
+    To3D638 { next: NinjaCollisionResumeLoc3D638 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaCollisionStateLoc3D670 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) remaining_block_timer: u16,
+    pub(crate) route: NinjaCollisionLoc3D670Route,
+    pub(crate) uses_blocking_animation: bool,
+    pub(crate) blocking_animation: Option<&'static str>,
+    pub(crate) restored_animation: Option<&'static str>,
+    pub(crate) hibernates_until_animation_finished: bool,
+}
+
+#[allow(clippy::too_many_arguments)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_collision_block_animation_loc_3d670(
+    block_timer: u16,
+    wall_pinned: bool,
+    x_direction_right: bool,
+    restored_animation: &'static str,
+) -> NinjaCollisionStateLoc3D670 {
+    // ASM Ninja.asm loc_3D670:
+    // - subtracts 1 from `$44(a5)`
+    // - if it reached zero, jumps to loc_3DB4E
+    // - otherwise plays `stru_3D504`, waits for it, restores `$62(a5)` into
+    //   `$50(a5)`, and reinitialises animation before jumping to loc_3D638.
+    let remaining_block_timer = block_timer.wrapping_sub(1);
+    if remaining_block_timer == 0 {
+        NinjaCollisionStateLoc3D670 {
+            next_collision_type: 0,
+            remaining_block_timer,
+            route: NinjaCollisionLoc3D670Route::To3DB4E,
+            uses_blocking_animation: false,
+            blocking_animation: None,
+            restored_animation: None,
+            hibernates_until_animation_finished: false,
+        }
+    } else {
+        NinjaCollisionStateLoc3D670 {
+            next_collision_type: 0,
+            remaining_block_timer,
+            route: NinjaCollisionLoc3D670Route::To3D638 {
+                next: ninja_collision_resume_loc_3d638(wall_pinned, x_direction_right),
+            },
+            uses_blocking_animation: true,
+            blocking_animation: Some("stru_3D504"),
+            restored_animation: Some(restored_animation),
+            hibernates_until_animation_finished: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaCollisionStateLoc3D6C8 {
+    pub(crate) y_velocity: i32,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checked_sub_3e8ba: bool,
+    pub(crate) loops: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_collision_stun_loop_loc_3d6c8(y_velocity: i32) -> NinjaCollisionStateLoc3D6C8 {
+    // ASM Ninja.asm loc_3D6C8:
+    // - hibernate one frame
+    // - call sub_3E8BA (shared deactivation gate)
+    // - add `$4000` to y_vel(a3)
+    // - branch back and repeat.
+    NinjaCollisionStateLoc3D6C8 {
+        y_velocity: y_velocity.wrapping_add(0x4000),
+        hibernates_one_frame: true,
+        checked_sub_3e8ba: true,
+        loops: true,
+    }
+}
+
 /// Step a Ninja enemy: stealth-paces until player enters detection cone,
 /// then faces player and jump-attacks. Returns to stealth on landing.
 pub(crate) fn step_ninja(
@@ -12002,6 +12101,95 @@ mod tests {
             ninja_collision_resume_loc_3d64e(true),
             NinjaCollisionResumeLoc3D638::Loc3E3AC,
             "ASM Ninja.asm loc_3D64E should branch to loc_3E3AC when x_direction indicates right-facing"
+        );
+    }
+
+    #[test]
+    fn ninja_collision_loc_3d66e_is_a_fallthrough_gate_to_loc_3d638() {
+        assert_eq!(
+            ninja_collision_resume_loc_3d66e(NinjaCollisionResumeLoc3D638::Loc3E7CA),
+            NinjaCollisionStateLoc3D66E {
+                next: NinjaCollisionResumeLoc3D638::Loc3E7CA,
+            },
+            "ASM Ninja.asm loc_3D66E should pass the collision-resume route through unchanged"
+        );
+        assert_eq!(
+            ninja_collision_resume_loc_3d66e(NinjaCollisionResumeLoc3D638::Loc3E6AE),
+            NinjaCollisionStateLoc3D66E {
+                next: NinjaCollisionResumeLoc3D638::Loc3E6AE,
+            },
+            "ASM Ninja.asm loc_3D66E should always behave as an unconditional branch to loc_3D638"
+        );
+    }
+
+    #[test]
+    fn ninja_collision_loc_3d670_handles_block_timer_and_animation_swap() {
+        assert_eq!(
+            ninja_collision_block_animation_loc_3d670(1, false, false, "test_restore_animation"),
+            NinjaCollisionStateLoc3D670 {
+                next_collision_type: 0,
+                remaining_block_timer: 0,
+                route: NinjaCollisionLoc3D670Route::To3DB4E,
+                uses_blocking_animation: false,
+                blocking_animation: None,
+                restored_animation: None,
+                hibernates_until_animation_finished: false,
+            },
+            "ASM Ninja.asm loc_3D670 should jump to loc_3DB4E when `$44(a5)` becomes zero after decrement"
+        );
+        assert_eq!(
+            ninja_collision_block_animation_loc_3d670(5, false, false, "saved_animation"),
+            NinjaCollisionStateLoc3D670 {
+                next_collision_type: 0,
+                remaining_block_timer: 4,
+                route: NinjaCollisionLoc3D670Route::To3D638 {
+                    next: NinjaCollisionResumeLoc3D638::Loc3E7CA,
+                },
+                uses_blocking_animation: true,
+                blocking_animation: Some("stru_3D504"),
+                restored_animation: Some("saved_animation"),
+                hibernates_until_animation_finished: true,
+            },
+            "ASM Ninja.asm loc_3D670 should decrement `$44(a5)`, run blocking animation + Hibernate_UntilAnimFinished, then restore `$62(a5)` into `$50(a5)` before loc_3D638"
+        );
+        assert_eq!(
+            ninja_collision_block_animation_loc_3d670(2, true, true, "other_animation"),
+            NinjaCollisionStateLoc3D670 {
+                next_collision_type: 0,
+                remaining_block_timer: 1,
+                route: NinjaCollisionLoc3D670Route::To3D638 {
+                    next: NinjaCollisionResumeLoc3D638::Loc3E3AC,
+                },
+                uses_blocking_animation: true,
+                blocking_animation: Some("stru_3D504"),
+                restored_animation: Some("other_animation"),
+                hibernates_until_animation_finished: true,
+            },
+            "ASM Ninja.asm loc_3D670 should branch to loc_3D638 with wallpin/facing resume preserved after the blocking animation gate"
+        );
+    }
+
+    #[test]
+    fn ninja_collision_loc_3d6c8_loops_after_sub_3e8ba_and_y_vel_bump() {
+        assert_eq!(
+            ninja_collision_stun_loop_loc_3d6c8(-0x0004_0000),
+            NinjaCollisionStateLoc3D6C8 {
+                y_velocity: -0x0003_C000,
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                loops: true,
+            },
+            "ASM Ninja.asm loc_3D6C8 should hibernate, run `sub_3E8BA`, add `$4000` to y_vel(a3), then loop"
+        );
+        assert_eq!(
+            ninja_collision_stun_loop_loc_3d6c8(-0x3FFF_0000),
+            NinjaCollisionStateLoc3D6C8 {
+                y_velocity: (-0x3FFF_0000_i32).wrapping_add(0x4000),
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                loops: true,
+            },
+            "ASM Ninja.asm loc_3D6C8 increments y_vel(a3) each frame by `$4000` regardless of starting sign"
         );
     }
 }
