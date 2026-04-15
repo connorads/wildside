@@ -5594,6 +5594,33 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_setup_loc_3f09e()
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
+    collision_type: u16,
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3F0A8: the matched-facing pause loop
+    // clears `collision_type(a3)`, hibernates one frame, polls `sub_3F29A`,
+    // then checks no-collision, above, hurt, side, and below contact in order.
+    match collision_type {
+        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+        MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+        }
+        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
+            if berzerker_charging {
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+            } else {
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+            }
+        }
+        MINI_SKULL_COLID_GROUND_KIDBELOW => {
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+        }
+        _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_stopped_wait_tail_loc_3f090(
     dbf_counter: u16,
     kid_x_word: u16,
@@ -15273,6 +15300,63 @@ mod tests {
                 wait_frames: 11,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F09E should select the matched-facing sprite and seed d1 with `$A`"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_facing_matched_pause_collision_matches_loc_3f0a8() {
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(0, false),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3F0A8 should continue when no collision is reported"
+        );
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
+                MINI_SKULL_COLID_GROUND_KIDABOVE,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3F0A8 sends `colid_kidabove` to the damage branch"
+        );
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
+                MINI_SKULL_COLID_GROUND_HURT,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3F0A8 sends `colid_hurt` to the same damage branch"
+        );
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
+                MINI_SKULL_COLID_GROUND_KIDLEFT,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3F0A8 treats non-charging side contact as contact damage"
+        );
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
+                MINI_SKULL_COLID_GROUND_KIDRIGHT,
+                true
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3F0A8 routes charging Berzerker side contact to the skull kill path"
+        );
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
+                MINI_SKULL_COLID_GROUND_KIDBELOW,
+                true
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3F0A8 sends `colid_kidbelow` to contact damage before considering Berzerker charge"
+        );
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
+                MINI_SKULL_COLID_SLOPEUP,
+                false
+            ),
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+            "ASM Mini_Hopping_Skull.asm loc_3F0A8 ignores unrecognised collision IDs during the pause loop"
         );
     }
 
