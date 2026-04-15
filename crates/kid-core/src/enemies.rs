@@ -1289,6 +1289,26 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
     base_speed + tiers * speed_step
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireDemonInitAnimation {
+    pub(crate) collision_routine: &'static str,
+    pub(crate) animation_script: &'static str,
+    pub(crate) saved_animation_script: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_hp5_animation_loc_3a444(current_hp: u8) -> Option<FireDemonInitAnimation> {
+    // ASM Fire_Demon.asm loc_3A444: set `a0` to the Fire Demon collision routine,
+    // and keep HP5 on the `stru_3A334` branch while saving the same script in
+    // `$62(a5)` for later collision recovery.
+    (current_hp == 5).then_some(FireDemonInitAnimation {
+        collision_routine: "fire_demon_collision",
+        animation_script: "stru_3A334",
+        saved_animation_script: "stru_3A334",
+    })
+}
+
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).
