@@ -3053,8 +3053,12 @@ fn acceleration_for_target(
         if target_velocity >= 0 && target_velocity < current_velocity {
             acceleration = -acceleration;
         }
-    } else if target_velocity >= 0 || target_velocity > current_velocity {
-        acceleration = -acceleration;
+    } else {
+        // ASM UFO.asm loc_35488: negative x_vel keeps d0 for non-negative d1;
+        // only negate d0 when a negative target is above the current velocity.
+        if target_velocity < 0 && target_velocity > current_velocity {
+            acceleration = -acceleration;
+        }
     }
     acceleration
 }
@@ -11287,6 +11291,25 @@ mod tests {
             acceleration_for_target(0x0000_3000, 0x0000_2000, 0x0000_0800),
             -0x0000_0800,
             "ASM UFO.asm loc_3546E negates d0 when positive target d1 is below current x_vel"
+        );
+    }
+
+    #[test]
+    fn tornado_pattern_negative_x_velocity_matches_loc_35488() {
+        assert_eq!(
+            acceleration_for_target(-0x0000_3000, 0x0001_0000, 0x0000_0800),
+            0x0000_0800,
+            "ASM UFO.asm loc_35488 keeps d0 when x_vel is negative and target d1 is non-negative"
+        );
+        assert_eq!(
+            acceleration_for_target(-0x0000_3000, -0x0000_4000, -0x0000_0800),
+            -0x0000_0800,
+            "ASM UFO.asm loc_35488 keeps d0 when negative target d1 is not above current x_vel"
+        );
+        assert_eq!(
+            acceleration_for_target(-0x0000_3000, -0x0000_2000, -0x0000_0800),
+            0x0000_0800,
+            "ASM UFO.asm loc_35488 negates d0 when negative target d1 is above current x_vel"
         );
     }
 
