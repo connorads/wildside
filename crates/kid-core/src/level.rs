@@ -9506,6 +9506,39 @@ pub(crate) fn animated_solid_block_horizontal_queue_gate_loc_F94E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F96A(
+    source_cell: u8,
+    source_cell_row: u16,
+    packed_source_cell_col_bits: u16,
+    camera_top_row: u16,
+    camera_bottom_row: u16,
+    theme_mappings: &[[u32; 2]],
+) -> AnimatedSolidBlockHorizontalQueueCellLocF90A {
+    // ASM loc_F96A (kid.asm:20671): write one layout word and queue a custom FG
+    // entry only when `top <= row <= bottom`, using `$F00` row bits merged with
+    // pre-packed X bits from `loc_F94E`.
+    let layout_word = u16::from(source_cell);
+    let custom_entry = (source_cell_row >= camera_top_row && source_cell_row <= camera_bottom_row)
+        .then(|| {
+            let mapping_index = usize::from(source_cell);
+            let row_hi_bits = (source_cell_row << 8) & 0x0F00;
+            let vram_word_address = row_hi_bits | packed_source_cell_col_bits;
+            let mapping_longwords = theme_mappings[mapping_index];
+            FgUpdateQueueCustomEntrySub1596 {
+                vram_word_address,
+                first_longword: mapping_longwords[0],
+                second_longword: mapping_longwords[1],
+            }
+        });
+
+    AnimatedSolidBlockHorizontalQueueCellLocF90A {
+        layout_word,
+        custom_entry,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_layout_word_loc_F93E(source_cell: u8) -> u16 {
     // ASM loc_F93E (kid.asm:20646): restore a single layout byte into the
     // layout table slot and return it as the queued shortword.

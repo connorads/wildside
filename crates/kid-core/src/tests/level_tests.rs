@@ -9879,6 +9879,68 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F96A (kid.asm:20671): writes the layout word and queues a
+    /// foreground entry only for rows inside `[top,bottom]`, with queue address
+    /// formed from `$F00 |` pre-packed X bits.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F96A_writes_layout_and_queues_only_in_row_window() {
+        let mut theme_mappings = vec![[0x1111_1111, 0x2222_2222]; 0x100];
+        theme_mappings[0x5A] = [0xDEAD_BEEF, 0xFACE_CAFE];
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_cell_loc_F96A(
+                0x5A,
+                0x0012,
+                0x0028,
+                0x0010,
+                0x0014,
+                &theme_mappings,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueCellLocF90A {
+                layout_word: 0x005A,
+                custom_entry: Some(crate::level::FgUpdateQueueCustomEntrySub1596 {
+                    vram_word_address: 0x1228,
+                    first_longword: 0xDEAD_BEEF,
+                    second_longword: 0xFACE_CAFE,
+                }),
+            },
+            "ASM loc_F96A should queue FG updates only when the row is in-range, with `$F00` row bits and packed X bits"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_cell_loc_F96A(
+                0x5A,
+                0x000F,
+                0x0028,
+                0x0010,
+                0x0014,
+                &theme_mappings,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueCellLocF90A {
+                layout_word: 0x005A,
+                custom_entry: None,
+            },
+            "ASM loc_F96A should skip queue emission when row is above top-1"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_cell_loc_F96A(
+                0x5A,
+                0x0015,
+                0x0028,
+                0x0010,
+                0x0014,
+                &theme_mappings,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueCellLocF90A {
+                layout_word: 0x005A,
+                custom_entry: None,
+            },
+            "ASM loc_F96A should skip queue emission when row is below bottom"
+        );
+    }
+
     /// ASM loc_F93E (kid.asm:20646): always writes the source layout byte as a
     /// queue shortword, even when no FG queue work is performed.
     #[test]
