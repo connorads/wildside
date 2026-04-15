@@ -1186,6 +1186,33 @@ const SCORPION_BOOST_SPEED: i32 = 0x3_8000;
 /// Scorpion base speed (always $18000, from Scorpion.asm init line 30).
 const SCORPION_BASE_SPEED: i32 = 0x1_8000;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ScorpionTailGfxPosition {
+    pub(crate) x_word: u16,
+    pub(crate) y_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_tail_sync_loc_3dc86(
+    parent_x_pos: u32,
+    parent_y_pos: u32,
+    parent_facing: Direction,
+) -> ScorpionTailGfxPosition {
+    // ASM Scorpion.asm loc_3DC86 copies the parent integer X/Y words to the
+    // linked tail gfx object, lifts it by $16 px, then applies a facing offset.
+    let parent_x_word = (parent_x_pos >> 16) as u16;
+    let parent_y_word = (parent_y_pos >> 16) as u16;
+    let x_offset = match parent_facing {
+        Direction::Left => 1_u16,
+        Direction::Right => 0x16_u16,
+    };
+
+    ScorpionTailGfxPosition {
+        x_word: parent_x_word.wrapping_sub(x_offset),
+        y_word: parent_y_word.wrapping_sub(0x16),
+    }
+}
+
 /// Archer fire interval indexed by enemy_level (HP 1/2/3).
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
@@ -11088,6 +11115,18 @@ mod tests {
         assert_eq!(
             spawn_facing(EnemyFamily::Scorpion, 100 << 16, 120 << 16),
             Direction::Right
+        );
+    }
+
+    #[test]
+    fn scorpion_tail_sync_clear_direction_matches_loc_3dc86() {
+        assert_eq!(
+            scorpion_tail_sync_loc_3dc86(0x0120_8000, 0x0040_4000, Direction::Left),
+            ScorpionTailGfxPosition {
+                x_word: 0x011F,
+                y_word: 0x002A,
+            },
+            "ASM Scorpion.asm loc_3DC86 copies parent x/y words, subtracts $16 from y, and subtracts 1 from x when x_direction is clear"
         );
     }
 
