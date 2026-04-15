@@ -1341,6 +1341,13 @@ const DRAGON_RETURN_VEL_CAP_HARD: i32 = -0x8000_i32; // $FFFF8000 as signed
 /// Face-player initial x velocity: $8000. ASM loc_3473A.
 const DRAGON_FACE_PLAYER_SPEED: i32 = 0x8000;
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_drift_negative_velocity_loc_347b2(x_velocity: i32) -> i32 {
+    // ASM Dragon_Flying.asm loc_347B2: negative drift subtracts `$200`
+    // from d7 and clamps at `$FFFE8000` (-$18000).
+    (x_velocity - DRAGON_DRIFT_ACCEL).max(-DRAGON_DRIFT_SPEED_CAP)
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {
@@ -3613,8 +3620,7 @@ pub(crate) fn step_dragon(
                 enemy.x_velocity =
                     (enemy.x_velocity + DRAGON_DRIFT_ACCEL).min(DRAGON_DRIFT_SPEED_CAP);
             } else if enemy.x_velocity < 0 {
-                enemy.x_velocity =
-                    (enemy.x_velocity - DRAGON_DRIFT_ACCEL).max(-DRAGON_DRIFT_SPEED_CAP);
+                enemy.x_velocity = dragon_drift_negative_velocity_loc_347b2(enemy.x_velocity);
             }
             // Fire-breath cone check during DriftWithFire (ASM loc_34836).
             if enemy.dragon_phase == DragonFlyingState::DriftingWithFire
@@ -9334,6 +9340,25 @@ mod tests {
             spawn_x_velocity(EnemyFamily::Hand, 2),
             -0x0000_6000,
             "native Hand spawn x_velocity should expose the ASM Hand.asm loc_327F2 initial store for tier 3"
+        );
+    }
+
+    #[test]
+    fn dragon_negative_drift_acceleration_matches_loc_347b2() {
+        assert_eq!(
+            dragon_drift_negative_velocity_loc_347b2(-0x800),
+            -0xA00,
+            "ASM Dragon_Flying.asm loc_347B2 subtracts `$200` from a negative drift velocity"
+        );
+        assert_eq!(
+            dragon_drift_negative_velocity_loc_347b2(-0x17F00),
+            -0x18000,
+            "ASM Dragon_Flying.asm loc_347B2 clamps when subtracting `$200` would pass `$FFFE8000`"
+        );
+        assert_eq!(
+            dragon_drift_negative_velocity_loc_347b2(-0x18000),
+            -0x18000,
+            "ASM Dragon_Flying.asm loc_347B2 preserves the `$FFFE8000` negative speed cap"
         );
     }
 
