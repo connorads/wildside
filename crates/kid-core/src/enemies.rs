@@ -3178,6 +3178,28 @@ pub(crate) fn ufo_linked_cleanup_count_loc_3528a(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoLinkedCleanupShootingLoc352A6 {
+    pub(crate) global_shooting_flag: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_linked_cleanup_shooting_loc_352a6(
+    ufo_shooting_latch: bool,
+    global_shooting_flag: bool,
+) -> UfoLinkedCleanupShootingLoc352A6 {
+    // ASM UFO.asm loc_352A6: test `$46(a5)` and clear `Some_UFO_Shooting`
+    // only when this UFO's shooting latch is set.
+    UfoLinkedCleanupShootingLoc352A6 {
+        global_shooting_flag: if ufo_shooting_latch {
+            false
+        } else {
+            global_shooting_flag
+        },
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_linked_object_range_gate_loc_35280(
     range_check_result_nonzero: bool,
@@ -9777,6 +9799,25 @@ mod tests {
                 play_hover_sound: true,
             },
             "ASM UFO.asm loc_3528A plays sfx_UFO_hovering through j_PlaySound2 when the decrement reaches zero"
+        );
+    }
+
+    #[test]
+    fn ufo_linked_cleanup_shooting_matches_loc_352a6() {
+        assert_eq!(
+            ufo_linked_cleanup_shooting_loc_352a6(false, true),
+            UfoLinkedCleanupShootingLoc352A6 {
+                global_shooting_flag: true,
+            },
+            "ASM UFO.asm loc_352A6 leaves Some_UFO_Shooting untouched while `$46(a5)` is clear"
+        );
+
+        assert_eq!(
+            ufo_linked_cleanup_shooting_loc_352a6(true, true),
+            UfoLinkedCleanupShootingLoc352A6 {
+                global_shooting_flag: false,
+            },
+            "ASM UFO.asm loc_352A6 clears Some_UFO_Shooting when `$46(a5)` is set"
         );
     }
 
