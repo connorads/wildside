@@ -5203,6 +5203,47 @@ pub(crate) fn ninja_projectile_threat_route_loc_3d776(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaPostThreatRouteLoc3D79C {
+    /// Keep the current guard/pacing branch.
+    ResumePacing,
+    /// Clear the guard state, restore walk animation/speed, and resume moving.
+    ResetStealthPacing,
+    /// Positive `$4C(a5)` state branches to the airborne proximity check.
+    PositiveStateCheck,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_post_threat_route_loc_3d79c(
+    threat_state_4c: i8,
+    kid_projectile_present: bool,
+    kid_minus_ninja_x_px: i16,
+    player_form: PlayerForm,
+) -> NinjaPostThreatRouteLoc3D79C {
+    // ASM Ninja.asm loc_3D79C: `$4C(a5)` is a signed byte. Zero keeps the
+    // normal branch, positive delegates to the airborne proximity check, and
+    // negative guard state persists while a Kid projectile exists or Red
+    // Stealth remains inside the inclusive +/-$30 Kid X band.
+    if threat_state_4c == 0 {
+        return NinjaPostThreatRouteLoc3D79C::ResumePacing;
+    }
+
+    if threat_state_4c > 0 {
+        return NinjaPostThreatRouteLoc3D79C::PositiveStateCheck;
+    }
+
+    if kid_projectile_present {
+        return NinjaPostThreatRouteLoc3D79C::ResumePacing;
+    }
+
+    if (-0x30..=0x30).contains(&kid_minus_ninja_x_px) && player_form == PlayerForm::RedStealth {
+        NinjaPostThreatRouteLoc3D79C::ResumePacing
+    } else {
+        NinjaPostThreatRouteLoc3D79C::ResetStealthPacing
+    }
+}
+
 /// Ninja jump-attack velocities (Ninja.asm lines 384-392).
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
@@ -12373,6 +12414,40 @@ mod tests {
             ninja_projectile_threat_route_loc_3d776(Some(0x5A), PlayerForm::Maniaxe),
             NinjaProjectileThreatRouteLoc3D776::ContinuePostThreat,
             "ASM Ninja.asm loc_3D776 should reject +$5A exactly, making the right edge exclusive"
+        );
+    }
+
+    #[test]
+    fn ninja_post_threat_route_loc_3d79c_matches_signed_state_and_guard_persistence() {
+        assert_eq!(
+            ninja_post_threat_route_loc_3d79c(0, false, 0, PlayerForm::TheKid),
+            NinjaPostThreatRouteLoc3D79C::ResumePacing,
+            "ASM Ninja.asm loc_3D79C should keep normal pacing when `$4C(a5)` is zero"
+        );
+        assert_eq!(
+            ninja_post_threat_route_loc_3d79c(1, false, 0, PlayerForm::TheKid),
+            NinjaPostThreatRouteLoc3D79C::PositiveStateCheck,
+            "ASM Ninja.asm loc_3D79C should treat positive `$4C(a5)` as the airborne proximity branch"
+        );
+        assert_eq!(
+            ninja_post_threat_route_loc_3d79c(-1, true, 0x7F, PlayerForm::TheKid),
+            NinjaPostThreatRouteLoc3D79C::ResumePacing,
+            "ASM Ninja.asm loc_3D79C should keep negative guard state while Addr_GfxObject_KidProjectile is non-zero"
+        );
+        assert_eq!(
+            ninja_post_threat_route_loc_3d79c(-1, false, 0x30, PlayerForm::RedStealth),
+            NinjaPostThreatRouteLoc3D79C::ResumePacing,
+            "ASM Ninja.asm loc_3D79C should keep Red Stealth guard state at the inclusive +$30 Kid X edge"
+        );
+        assert_eq!(
+            ninja_post_threat_route_loc_3d79c(-1, false, 0x31, PlayerForm::RedStealth),
+            NinjaPostThreatRouteLoc3D79C::ResetStealthPacing,
+            "ASM Ninja.asm loc_3D79C should reset guard state when Red Stealth moves beyond +$30"
+        );
+        assert_eq!(
+            ninja_post_threat_route_loc_3d79c(-1, false, 0, PlayerForm::TheKid),
+            NinjaPostThreatRouteLoc3D79C::ResetStealthPacing,
+            "ASM Ninja.asm loc_3D79C should reset negative guard state without a projectile unless Current_Helmet is Red Stealth"
         );
     }
 
