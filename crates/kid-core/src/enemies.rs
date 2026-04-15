@@ -1368,6 +1368,27 @@ pub(crate) fn dragon_drift_store_loc_347c8(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonDriftDbfTailLoc347FC {
+    pub(crate) next_d0: u16,
+    pub(crate) loops_to_loc_3478c: bool,
+    pub(crate) advances_script: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_drift_dbf_tail_loc_347fc(d0_before_dbf: u16) -> DragonDriftDbfTailLoc347FC {
+    // ASM Dragon_Flying.asm loc_347FC: `dbf d0,loc_3478C` decrements the
+    // low word, loops until it becomes `$FFFF`, then falls through to loc_346DA.
+    let next_d0 = d0_before_dbf.wrapping_sub(1);
+    let loops_to_loc_3478c = next_d0 != 0xFFFF;
+    DragonDriftDbfTailLoc347FC {
+        next_d0,
+        loops_to_loc_3478c,
+        advances_script: !loops_to_loc_3478c,
+    }
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {
@@ -3660,6 +3681,9 @@ pub(crate) fn step_dragon(
             }
             enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_sub(1);
             if enemy.dragon_phase_frames == 0 {
+                // ASM Dragon_Flying.asm loc_347FC falls through to loc_346DA
+                // when the drift loop counter expires; native stores the
+                // remaining loop count directly in `dragon_phase_frames`.
                 dragon_advance_script(enemy, player_x_pos, projectiles);
             }
             dragon_apply_velocity(enemy);
@@ -9406,6 +9430,28 @@ mod tests {
                 checks_fire_breath_cone: true,
             },
             "ASM Dragon_Flying.asm loc_347C8 stores the signed d7 velocity before the non-zero d1 fire-cone branch"
+        );
+    }
+
+    #[test]
+    fn dragon_drift_dbf_tail_matches_loc_347fc() {
+        assert_eq!(
+            dragon_drift_dbf_tail_loc_347fc(0x0028),
+            DragonDriftDbfTailLoc347FC {
+                next_d0: 0x0027,
+                loops_to_loc_3478c: true,
+                advances_script: false,
+            },
+            "ASM Dragon_Flying.asm loc_347FC decrements d0 and branches back while the result is not `$FFFF`"
+        );
+        assert_eq!(
+            dragon_drift_dbf_tail_loc_347fc(0x0000),
+            DragonDriftDbfTailLoc347FC {
+                next_d0: 0xFFFF,
+                loops_to_loc_3478c: false,
+                advances_script: true,
+            },
+            "ASM Dragon_Flying.asm loc_347FC falls through to loc_346DA only after dbf decrements zero to `$FFFF`"
         );
     }
 
