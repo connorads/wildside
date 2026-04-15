@@ -6226,6 +6226,15 @@ pub(crate) struct TarMonsterLoc32256Return {
     pub(crate) route: TarMonsterLoc32256Route,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterWaitLoopLoc322AA {
+    pub(crate) hibernate_frames: u32,
+    pub(crate) checks_object_range_each_frame: bool,
+    pub(crate) polls_collision_each_frame: bool,
+    pub(crate) next_collision_type: u16,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_loc_32248() -> &'static [u8] {
     // ASM loc_32248: `lea (unk_32264).l,a0` loads this control script pointer.
@@ -6268,6 +6277,21 @@ pub(crate) fn tar_monster_loc_32256(raw_command: i16) -> TarMonsterLoc32256Retur
     TarMonsterLoc32256Return {
         raw_command,
         route: TarMonsterLoc32256Route::Dispatch(target),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_wait_loop_loc_322aa(
+    d0_after_loc_322a8: u16,
+) -> TarMonsterWaitLoopLoc322AA {
+    // ASM loc_322AA: hibernate one frame, check range, poll collision, then
+    // `dbf d0,loc_322AA`. After the inclusive DBF loop, branch to loc_3224E.
+    TarMonsterWaitLoopLoc322AA {
+        hibernate_frames: u32::from(d0_after_loc_322a8) + 1,
+        checks_object_range_each_frame: true,
+        polls_collision_each_frame: true,
+        next_collision_type: tar_monster_loc_3224e().collision_type,
     }
 }
 
@@ -8712,6 +8736,25 @@ mod tests {
         assert_eq!(
             tar_monster_loc_32256(command_323_10).route,
             TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc32310)
+        );
+    }
+
+    #[test]
+    fn tar_monster_wait_loop_loc_322aa_uses_inclusive_dbf_count() {
+        assert_eq!(
+            tar_monster_wait_loop_loc_322aa(0),
+            TarMonsterWaitLoopLoc322AA {
+                hibernate_frames: 1,
+                checks_object_range_each_frame: true,
+                polls_collision_each_frame: true,
+                next_collision_type: 0,
+            },
+            "ASM Tar_Monster.asm loc_322AA executes the loop body once before `dbf` exits from d0=0"
+        );
+        assert_eq!(
+            tar_monster_wait_loop_loc_322aa(0x5A).hibernate_frames,
+            91,
+            "ASM Tar_Monster.asm loc_322AA makes script wait byte $5A last 91 one-frame hibernates"
         );
     }
 
