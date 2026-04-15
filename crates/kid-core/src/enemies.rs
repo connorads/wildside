@@ -649,6 +649,29 @@ pub(crate) fn lion_right_charge_continue_loc_3e4c6(next_x_position: u32) -> Lion
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLoc3E67AResult {
+    pub(crate) x_position: u32,
+    pub(crate) hibernate_one_frame: bool,
+    pub(crate) cull_routine: &'static str,
+    pub(crate) resume_via_callback: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_continue_loc_3e67a(next_x_position: u32) -> LionLoc3E67AResult {
+    // ASM Lion.asm loc_3E67A: `move.l d2,x_pos(a3)` commits the left-charge
+    // candidate position, then branches to loc_3E556. Unlike loc_3E4C6, this
+    // path does not clear velocity fields before the hibernate/cull/resume tail.
+    let tail = lion_hibernate_cull_resume_loc_3e556();
+    LionLoc3E67AResult {
+        x_position: next_x_position,
+        hibernate_one_frame: tail.hibernate_one_frame,
+        cull_routine: tail.cull_routine,
+        resume_via_callback: tail.resume_via_callback,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLoc3E556Tail {
     pub(crate) hibernate_one_frame: bool,
     pub(crate) cull_routine: &'static str,
@@ -11777,6 +11800,20 @@ mod tests {
                 y_velocity: 0,
             },
             "ASM Lion.asm loc_3E4C6 should commit `d2` to x_pos before entering the loc_3E3A2 zero-velocity hibernate tail"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_continue_matches_loc_3e67a() {
+        assert_eq!(
+            lion_left_charge_continue_loc_3e67a(0x0456_8000),
+            LionLoc3E67AResult {
+                x_position: 0x0456_8000,
+                hibernate_one_frame: true,
+                cull_routine: "sub_3E8BA",
+                resume_via_callback: true,
+            },
+            "ASM Lion.asm loc_3E67A should commit `d2` to x_pos and enter the loc_3E556 hibernate/cull/resume tail"
         );
     }
 
