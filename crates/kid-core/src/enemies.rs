@@ -6649,6 +6649,7 @@ pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
 pub(crate) const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
 pub(crate) const NINJA_GRAVITY: i32 = 0x2800;
+pub(crate) const NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6: i32 = 0x0001_8000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -6729,6 +6730,34 @@ pub(crate) fn ninja_airborne_collision_dispatch_loc_3d878(
     NinjaAirborneCollisionStateLoc3D878 {
         next_collision_type: 0,
         route,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaKnockdownStartRouteLoc3D8D6 {
+    FallthroughLandingLoop,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaKnockdownStartStateLoc3D8D6 {
+    pub(crate) y_velocity: i32,
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) next: NinjaKnockdownStartRouteLoc3D8D6,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_knockdown_start_loc_3d8d6() -> NinjaKnockdownStartStateLoc3D8D6 {
+    // ASM Ninja.asm loc_3D8D6: set `y_vel(a3)` to `$18000`, set
+    // `is_moved(a3)` and `has_level_collision(a3)`, then fall through to
+    // the floor-wait loop.
+    NinjaKnockdownStartStateLoc3D8D6 {
+        y_velocity: NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6,
+        is_moved: true,
+        has_level_collision: true,
+        next: NinjaKnockdownStartRouteLoc3D8D6::FallthroughLandingLoop,
     }
 }
 
@@ -16732,6 +16761,20 @@ mod tests {
                 route: NinjaAirborneCollisionRouteLoc3D878::To3D8BC,
             },
             "ASM Ninja.asm loc_3D878 should allow Berzerker side contact through to loc_3D8BC when the Kid sprite threshold passes"
+        );
+    }
+
+    #[test]
+    fn ninja_knockdown_start_loc_3d8d6_seeds_landing_loop() {
+        assert_eq!(
+            ninja_knockdown_start_loc_3d8d6(),
+            NinjaKnockdownStartStateLoc3D8D6 {
+                y_velocity: 0x0001_8000,
+                is_moved: true,
+                has_level_collision: true,
+                next: NinjaKnockdownStartRouteLoc3D8D6::FallthroughLandingLoop,
+            },
+            "ASM Ninja.asm loc_3D8D6 should start the HP-depleted knockdown fall before the floor-contact wait"
         );
     }
 
