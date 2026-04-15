@@ -5851,6 +5851,28 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_348e4_seeds_descent_velocity_and_dbf_counter() {
+        assert_eq!(
+            dragon_descent_move_setup_loc_348e4(Direction::Left, -2, 3, 6),
+            DragonDescentMoveSetupLoc348E4 {
+                x_velocity: -2 << 16,
+                y_velocity: 3 << 16,
+                dbf_counter_after_subq: 5,
+            },
+            "ASM Dragon_Flying.asm loc_348E4 stores signed movement bytes as FP16.16 velocities and subtracts one from the frame byte for DBF"
+        );
+        assert_eq!(
+            dragon_descent_move_setup_loc_348e4(Direction::Right, -1, -4, 12),
+            DragonDescentMoveSetupLoc348E4 {
+                x_velocity: 1 << 16,
+                y_velocity: -4 << 16,
+                dbf_counter_after_subq: 11,
+            },
+            "ASM Dragon_Flying.asm loc_348E4 receives the loc_348CE direction-negated x velocity before starting the hibernation loop"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_3488a_flip_sentinel_dispatches_next_move() {
         let mut enemy = test_dragon(0, 100 << 16, 200 << 16);
         enemy.dragon_phase = DragonFlyingState::Descending;

@@ -1685,6 +1685,36 @@ pub(crate) fn dragon_hover_dbf_tail_loc_3482e(d0_before_dbf: u16) -> DragonHover
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonDescentMoveSetupLoc348E4 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) dbf_counter_after_subq: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_descent_move_setup_loc_348e4(
+    facing: Direction,
+    left_facing_x_vel_px: i8,
+    y_vel_px: i8,
+    frame_count: u8,
+) -> DragonDescentMoveSetupLoc348E4 {
+    // ASM Dragon_Flying.asm loc_348E4: after loc_348CE decodes signed
+    // byte-sized x/y velocities, the x word is written to `x_vel`; the next
+    // script byte supplies d2 and `subq.w #1,d2` seeds the DBF loop counter.
+    let left_facing_x_velocity = i32::from(left_facing_x_vel_px) << 16;
+    let x_velocity = match facing {
+        Direction::Right => -left_facing_x_velocity,
+        Direction::Left => left_facing_x_velocity,
+    };
+    DragonDescentMoveSetupLoc348E4 {
+        x_velocity,
+        y_velocity: i32::from(y_vel_px) << 16,
+        dbf_counter_after_subq: u16::from(frame_count).wrapping_sub(1),
+    }
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {
@@ -4204,15 +4234,12 @@ fn step_dragon_descent(
             } => {
                 if enemy.dragon_descent_frames == 0 {
                     // Start this entry: set velocities (pixel/frame → FP16.16).
-                    let xv = i32::from(x_vel) << 16;
-                    let yv = i32::from(y_vel) << 16;
-                    // x_vel is for facing-left; negate when facing right. ASM loc_348CE.
-                    enemy.x_velocity = if enemy.facing == Direction::Right {
-                        -xv
-                    } else {
-                        xv
-                    };
-                    enemy.y_velocity = yv;
+                    let setup =
+                        dragon_descent_move_setup_loc_348e4(enemy.facing, x_vel, y_vel, frames);
+                    enemy.x_velocity = setup.x_velocity;
+                    enemy.y_velocity = setup.y_velocity;
+                    // Native keeps a hibernated frame count here; ASM loc_348E4
+                    // seeds the equivalent DBF counter with `frame_count - 1`.
                     enemy.dragon_descent_frames = frames;
                 }
                 enemy.dragon_descent_frames -= 1;
