@@ -5252,6 +5252,16 @@ pub(crate) fn mini_hopping_skull_stopped_wait_side_contact_loc_3f052(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_stopped_wait_damage_sequence_loc_3f05c(
+    hit_counter: u16,
+) -> MiniHoppingSkullDamageSequence {
+    // ASM Mini_Hopping_Skull.asm loc_3F05C: stopped-wait damage subtracts
+    // one from `$44(a3)` as a word, branches to the death path on zero, otherwise
+    // plays `stru_3E9C2` and hibernates until that animation finishes.
+    mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_stopped_wait_collision_loc_3f00a(
     collision_type: u16,
     berzerker_charging: bool,
@@ -13992,6 +14002,33 @@ mod tests {
             mini_hopping_skull_stopped_wait_side_contact_loc_3f052(true),
             MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
             "ASM Mini_Hopping_Skull.asm loc_3F052 should jump to loc_3F262 when `Berzerker_charging` is set"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_stopped_wait_damage_sequence_matches_loc_3f05c() {
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_damage_sequence_loc_3f05c(1),
+            MiniHoppingSkullDamageSequence::SkullDestroyed,
+            "ASM Mini_Hopping_Skull.asm loc_3F05C should branch to the death path when `$44(a3)` reaches zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_damage_sequence_loc_3f05c(2),
+            MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                remaining_hits: 1,
+                animation: "stru_3E9C2",
+                hibernate_until_finished: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F05C should replay `stru_3E9C2` and hibernate until it finishes when hits remain"
+        );
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_damage_sequence_loc_3f05c(0),
+            MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                remaining_hits: 0xFFFF,
+                animation: "stru_3E9C2",
+                hibernate_until_finished: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F05C uses word wrapping for the hit-counter decrement"
         );
     }
 
