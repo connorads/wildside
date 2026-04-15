@@ -738,6 +738,60 @@ pub(crate) fn lion_left_charge_vertical_entry_loc_3e6f6(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionLeftChargeDownwardCollisionLoc3E732 {
+    Airborne {
+        y_position: u32,
+        floor_clearance_pixels: u16,
+        needs_floor_probe: bool,
+    },
+    Landed {
+        y_position: u32,
+        y_velocity: i32,
+        left_charge_latch_set: bool,
+        object_meta_bit7_cleared: bool,
+        restores_saved_charge_speed: bool,
+        next_shared_walker_state: Option<i16>,
+        restored_animation: &'static str,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_downward_collision_loc_3e732(
+    y_position: u32,
+    candidate_y_position: u32,
+    downward_pixels: u16,
+    floor_probe_hit: bool,
+    shared_walker_state: i16,
+) -> LionLeftChargeDownwardCollisionLoc3E732 {
+    // ASM Lion.asm loc_3E732: downward motion first checks the low-nibble
+    // clearance to the next 16px boundary. Only movement crossing that boundary
+    // probes floor terrain; a hit snaps to the boundary and restores charge.
+    let current_y_word = fixed_integer_word(y_position) as u16;
+    let floor_clearance_pixels = current_y_word.wrapping_neg() & 0x000F;
+    let needs_floor_probe = floor_clearance_pixels < downward_pixels;
+
+    if !needs_floor_probe || !floor_probe_hit {
+        return LionLeftChargeDownwardCollisionLoc3E732::Airborne {
+            y_position: candidate_y_position,
+            floor_clearance_pixels,
+            needs_floor_probe,
+        };
+    }
+
+    let snapped_y_word = current_y_word.wrapping_add(floor_clearance_pixels);
+    LionLeftChargeDownwardCollisionLoc3E732::Landed {
+        y_position: u32::from(snapped_y_word) << 16,
+        y_velocity: 0,
+        left_charge_latch_set: false,
+        object_meta_bit7_cleared: true,
+        restores_saved_charge_speed: true,
+        next_shared_walker_state: (shared_walker_state != 0x000A).then_some(-0x78),
+        restored_animation: "saved_lion_charge_animation",
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeEntryLoc3E682 {
     pub(crate) left_charge_latch_set: bool,
     pub(crate) restored_sprite_offset: Option<u16>,
@@ -13829,6 +13883,60 @@ mod tests {
                 needs_ceiling_probe: true,
             },
             "ASM Lion.asm loc_3E6F6 should request a ceiling probe when upward movement crosses the nibble clearance"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_downward_collision_matches_loc_3e732() {
+        assert_eq!(
+            lion_left_charge_downward_collision_loc_3e732(0x0042_0000, 0x0043_0000, 1, true, 0,),
+            LionLeftChargeDownwardCollisionLoc3E732::Airborne {
+                y_position: 0x0043_0000,
+                floor_clearance_pixels: 14,
+                needs_floor_probe: false,
+            },
+            "ASM Lion.asm loc_3E732 should skip floor probing when nibble clearance covers downward motion"
+        );
+        assert_eq!(
+            lion_left_charge_downward_collision_loc_3e732(0x0042_0000, 0x0052_0000, 16, false, 0,),
+            LionLeftChargeDownwardCollisionLoc3E732::Airborne {
+                y_position: 0x0052_0000,
+                floor_clearance_pixels: 14,
+                needs_floor_probe: true,
+            },
+            "ASM Lion.asm loc_3E732 should keep airborne motion when the floor probe misses"
+        );
+        assert_eq!(
+            lion_left_charge_downward_collision_loc_3e732(0x0042_0000, 0x0052_0000, 16, true, 0,),
+            LionLeftChargeDownwardCollisionLoc3E732::Landed {
+                y_position: 0x0050_0000,
+                y_velocity: 0,
+                left_charge_latch_set: false,
+                object_meta_bit7_cleared: true,
+                restores_saved_charge_speed: true,
+                next_shared_walker_state: Some(-0x78),
+                restored_animation: "saved_lion_charge_animation",
+            },
+            "ASM Lion.asm loc_3E732 should snap to the floor boundary, clear airborne state, restore charge speed, and reset non-$0A shared state"
+        );
+        assert_eq!(
+            lion_left_charge_downward_collision_loc_3e732(
+                0x0042_0000,
+                0x0052_0000,
+                16,
+                true,
+                0x000A,
+            ),
+            LionLeftChargeDownwardCollisionLoc3E732::Landed {
+                y_position: 0x0050_0000,
+                y_velocity: 0,
+                left_charge_latch_set: false,
+                object_meta_bit7_cleared: true,
+                restores_saved_charge_speed: true,
+                next_shared_walker_state: None,
+                restored_animation: "saved_lion_charge_animation",
+            },
+            "ASM Lion.asm loc_3E732 should preserve shared state $0A while still restoring the saved animation"
         );
     }
 
