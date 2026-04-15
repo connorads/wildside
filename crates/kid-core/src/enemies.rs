@@ -2755,6 +2755,26 @@ pub(crate) fn ufo_bounce_wall_tail_loc_35120(x_velocity: i32, d0: i32) -> UfoWal
     UfoWallBounceLoc35120 { x_velocity, d0 }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoFloorCeilBounceLoc35146 {
+    pub(crate) y_velocity: i32,
+    pub(crate) d2: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_bounce_floor_ceil_tail_loc_35146(
+    y_velocity: i32,
+    d2: i32,
+) -> UfoFloorCeilBounceLoc35146 {
+    // ASM UFO.asm loc_35146: after the floor/ceiling bounce has negated `y_vel`,
+    // keep it and negate only non-negative `d2` values as a secondary impulse.
+    let y_velocity = y_velocity.wrapping_neg();
+    let d2 = if d2 >= 0 { d2.wrapping_neg() } else { d2 };
+
+    UfoFloorCeilBounceLoc35146 { y_velocity, d2 }
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -8344,6 +8364,27 @@ mod tests {
                 d0: -0x0200_0000,
             },
             "ASM UFO.asm loc_35120 preserves negative `d0` and negates `x_vel`"
+        );
+    }
+
+    #[test]
+    fn ufo_bounce_floor_ceil_tail_matches_loc_35146() {
+        assert_eq!(
+            ufo_bounce_floor_ceil_tail_loc_35146(0x0100_0000, 0x0200_0000),
+            UfoFloorCeilBounceLoc35146 {
+                y_velocity: -0x0100_0000,
+                d2: -0x0200_0000,
+            },
+            "ASM UFO.asm loc_35146 keeps negated `y_vel` and negates positive `d2`"
+        );
+
+        assert_eq!(
+            ufo_bounce_floor_ceil_tail_loc_35146(-0x0100_0000, -0x0200_0000),
+            UfoFloorCeilBounceLoc35146 {
+                y_velocity: 0x0100_0000,
+                d2: -0x0200_0000,
+            },
+            "ASM UFO.asm loc_35146 preserves negative `d2` and negates `y_vel`"
         );
     }
 
