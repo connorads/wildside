@@ -5744,6 +5744,20 @@ pub(crate) fn hand_init_loc_327b6() -> HandInitLoc327B6 {
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_velocity_candidate_loc_327e4(hit_points: u8, x_direction_flag: bool) -> i32 {
+    // ASM Hand.asm loc_327E4: load the negative `$48(a5)` table velocity,
+    // then negate it only when raw x_direction is non-zero.
+    let tier = usize::from(hit_points.saturating_sub(1)).min(2);
+    let table_velocity = -HAND_WALK_SPEED[tier];
+    if x_direction_flag {
+        table_velocity.saturating_neg()
+    } else {
+        table_velocity
+    }
+}
+
 /// Step a Hand enemy through its walk/detect/jump state machine.
 /// Walking: paces with edge/wall detection. Detects player in 45-degree cone.
 /// Jumping: randomised arc toward player with gravity, lands and resumes walking.
@@ -9239,6 +9253,25 @@ mod tests {
             spawn_facing(EnemyFamily::Hand, 100 << 16, 120 << 16),
             Direction::Left,
             "ASM Hand.asm loc_327B6 clears x_direction; the following hand range check treats clear as the left-facing branch"
+        );
+    }
+
+    #[test]
+    fn hand_velocity_candidate_matches_loc_327e4_direction_gate() {
+        assert_eq!(
+            hand_velocity_candidate_loc_327e4(1, false),
+            -0x0000_3000,
+            "ASM Hand.asm loc_327E4 leaves the negative tier-1 table velocity unchanged when raw x_direction is clear"
+        );
+        assert_eq!(
+            hand_velocity_candidate_loc_327e4(2, false),
+            -0x0000_4800,
+            "ASM Hand.asm loc_327E4 reads the second HP tier from `$48(a5)` before testing x_direction"
+        );
+        assert_eq!(
+            hand_velocity_candidate_loc_327e4(3, true),
+            0x0000_6000,
+            "ASM Hand.asm loc_327E4 negates the tier-3 table velocity only when raw x_direction is set"
         );
     }
 
