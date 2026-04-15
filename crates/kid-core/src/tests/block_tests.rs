@@ -5410,6 +5410,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_left_detection_loc_32886_accepts_only_forward_cone() {
+        assert!(
+            hand_left_detection_loc_32886(-0x30, -0x18, 0x40),
+            "ASM Hand.asm loc_32886 accepts a left-side Kid within range when the vertical compare stays inside the 45-degree cone"
+        );
+        assert!(
+            !hand_left_detection_loc_32886(1, -0x18, 0x40),
+            "ASM Hand.asm loc_32886: `tst.w d6; bpl` rejects a Kid behind the clear x_direction branch"
+        );
+        assert!(
+            !hand_left_detection_loc_32886(-0x41, -0x18, 0x40),
+            "ASM Hand.asm loc_32886 rejects when d6 is below the negated `$44(a5)` range"
+        );
+        assert!(
+            !hand_left_detection_loc_32886(-0x20, -0x28, 0x40),
+            "ASM Hand.asm loc_32886 rejects when `cmp.w d6,d7; blt` finds the vertical lead larger than horizontal lead"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

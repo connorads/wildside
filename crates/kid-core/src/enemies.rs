@@ -6506,6 +6506,27 @@ pub(crate) fn hand_reversal_loc_32840(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_left_detection_loc_32886(
+    relative_x_px: i16,
+    vertical_delta_minus_16_px: i16,
+    detect_range_px: i16,
+) -> bool {
+    // ASM Hand.asm loc_32886: clear x_direction means the Hand faces left.
+    // d6 must be negative, not below `-$44(a5)`, and d7 must be >= d6.
+    if relative_x_px >= 0 {
+        return false;
+    }
+
+    let negative_range = detect_range_px.wrapping_neg();
+    if relative_x_px < negative_range {
+        return false;
+    }
+
+    vertical_delta_minus_16_px >= relative_x_px
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_patrol_decision_loc_32804(
     x_velocity: i32,
     probe_d6: i16,
