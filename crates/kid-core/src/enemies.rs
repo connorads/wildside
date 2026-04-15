@@ -5774,6 +5774,23 @@ pub(crate) fn ninja_guard_pose_loc_3d826(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_jump_threat_pose_loc_3d84e(
+    d4_kid_minus_ninja_x_px: i16,
+) -> NinjaThreatPoseState {
+    // ASM Ninja.asm loc_3D84E: clear animation, set `$4C(a5)` to positive 1,
+    // select `LnkTo_unk_C7D86`, zero `$50(a5)`, face by signed d4, then branch
+    // to loc_3D79C.
+    NinjaThreatPoseState {
+        threat_state_4c: 1,
+        is_animated: false,
+        sprite_link: "LnkTo_unk_C7D86",
+        walk_speed_override: 0,
+        x_direction_right: d4_kid_minus_ninja_x_px >= 0,
+        next: NinjaThreatPoseRoute::Loc3D79C,
+    }
+}
+
 /// Ninja jump-attack velocities (Ninja.asm lines 384-392).
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
@@ -13984,6 +14001,35 @@ mod tests {
                 next: NinjaThreatPoseRoute::Loc3D79C,
             },
             "ASM Ninja.asm loc_3D826 should set x_direction when d4 is zero or positive"
+        );
+    }
+
+    #[test]
+    fn ninja_jump_threat_pose_loc_3d84e_sets_positive_state_and_jump_sprite() {
+        assert_eq!(
+            ninja_jump_threat_pose_loc_3d84e(-1),
+            NinjaThreatPoseState {
+                threat_state_4c: 1,
+                is_animated: false,
+                sprite_link: "LnkTo_unk_C7D86",
+                walk_speed_override: 0,
+                x_direction_right: false,
+                next: NinjaThreatPoseRoute::Loc3D79C,
+            },
+            "ASM Ninja.asm loc_3D84E should set `$4C(a5)` to positive 1 and keep x_direction clear for negative d4"
+        );
+
+        assert_eq!(
+            ninja_jump_threat_pose_loc_3d84e(1),
+            NinjaThreatPoseState {
+                threat_state_4c: 1,
+                is_animated: false,
+                sprite_link: "LnkTo_unk_C7D86",
+                walk_speed_override: 0,
+                x_direction_right: true,
+                next: NinjaThreatPoseRoute::Loc3D79C,
+            },
+            "ASM Ninja.asm loc_3D84E should set x_direction for non-negative d4 before loc_3D79C"
         );
     }
 
