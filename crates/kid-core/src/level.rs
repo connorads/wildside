@@ -9473,6 +9473,39 @@ pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F90A(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_gate_loc_F94E(
+    source_cell_col: u16,
+    source_cell_row: u16,
+    camera_left_col: u16,
+    camera_top_row: u16,
+    camera_right_col: u16,
+    camera_bottom_row: u16,
+) -> Option<u16> {
+    // ASM loc_F94E (kid.asm:20657): when the alternate path is active,
+    // reject cells outside `[left,right]`, above `top-7`, or below `bottom`.
+    // If accepted, emit pre-packed X bits for the column as `d0 << 2 & $7C`.
+    if source_cell_col > camera_right_col {
+        return None;
+    }
+
+    if source_cell_col < camera_left_col {
+        return None;
+    }
+
+    if source_cell_row > camera_bottom_row {
+        return None;
+    }
+
+    let row_delta = source_cell_row.wrapping_sub(camera_top_row) as i16;
+    if row_delta <= -8 {
+        return None;
+    }
+
+    Some((source_cell_col << 2) & 0x007C)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_layout_word_loc_F93E(source_cell: u8) -> u16 {
     // ASM loc_F93E (kid.asm:20646): restore a single layout byte into the
     // layout table slot and return it as the queued shortword.

@@ -9833,6 +9833,52 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F94E (kid.asm:20657): only computes queue X bits when the source
+    /// cell is inside `left..=right` and not above `top-7`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F94E_returns_packed_x_bits_only_when_visible() {
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_gate_loc_F94E(
+                0x0010, 0x0012, 0x0008, 0x0010, 0x0020, 0x0030,
+            ),
+            Some(0x0040),
+            "ASM loc_F94E should pack the X bits when the source cell is in bounds"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_gate_loc_F94E(
+                0x0021, 0x0012, 0x0008, 0x0010, 0x0020, 0x0030,
+            ),
+            None,
+            "ASM loc_F94E should skip cells beyond the right bound"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_gate_loc_F94E(
+                0x0006, 0x0012, 0x0008, 0x0010, 0x0020, 0x0030,
+            ),
+            None,
+            "ASM loc_F94E should skip cells left of the left bound"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_gate_loc_F94E(
+                0x0010, 0x0008, 0x0008, 0x0010, 0x0020, 0x0030,
+            ),
+            None,
+            "ASM loc_F94E should skip cells at or above top-8"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_gate_loc_F94E(
+                0x0010, 0x0009, 0x0008, 0x0010, 0x0020, 0x0030,
+            ),
+            Some(0x0040),
+            "ASM loc_F94E should accept cells at top-7"
+        );
+    }
+
     /// ASM loc_F93E (kid.asm:20646): always writes the source layout byte as a
     /// queue shortword, even when no FG queue work is performed.
     #[test]
