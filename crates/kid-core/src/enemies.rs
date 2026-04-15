@@ -606,6 +606,29 @@ pub(crate) fn lion_left_charge_calm_distance_gate_loc_3e604(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionLoc3E62ABranch {
+    ContinueMovement,
+    EnterLoc3E642,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_alert_release_gate_loc_3e62a(
+    lion_x_word: u16,
+    kid_x_word: u16,
+) -> LionLoc3E62ABranch {
+    // ASM Lion.asm loc_3E62A: after `d4 = Kid.x - Lion.x`, `bgt` makes the
+    // release band asymmetric at the negative edge: +$70 continues, but -$70
+    // falls through to loc_3E642.
+    let delta = lion_kid_minus_lion_x_delta(lion_x_word, kid_x_word);
+    if delta > 0x70 || delta <= -0x70 {
+        LionLoc3E62ABranch::EnterLoc3E642
+    } else {
+        LionLoc3E62ABranch::ContinueMovement
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLoc3E4C6Result {
     pub(crate) x_position: u32,
     pub(crate) x_velocity: i32,
@@ -11712,6 +11735,35 @@ mod tests {
             lion_left_charge_calm_distance_gate_loc_3e604(0x7FFF, 0x8000),
             LionLoc3E604Branch::EnterLoc3E4CE,
             "ASM Lion.asm loc_3E604 should use signed-word wrapping for d4"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_alert_release_gate_matches_loc_3e62a() {
+        assert_eq!(
+            lion_left_charge_alert_release_gate_loc_3e62a(0x0100, 0x0171),
+            LionLoc3E62ABranch::EnterLoc3E642,
+            "ASM Lion.asm loc_3E62A should enter loc_3E642 when d4 is greater than +$70"
+        );
+        assert_eq!(
+            lion_left_charge_alert_release_gate_loc_3e62a(0x0100, 0x0170),
+            LionLoc3E62ABranch::ContinueMovement,
+            "ASM Lion.asm loc_3E62A should keep +$70 in the movement band"
+        );
+        assert_eq!(
+            lion_left_charge_alert_release_gate_loc_3e62a(0x0100, 0x0091),
+            LionLoc3E62ABranch::ContinueMovement,
+            "ASM Lion.asm loc_3E62A should continue when d4 is greater than -$70"
+        );
+        assert_eq!(
+            lion_left_charge_alert_release_gate_loc_3e62a(0x0100, 0x0090),
+            LionLoc3E62ABranch::EnterLoc3E642,
+            "ASM Lion.asm loc_3E62A should release on the exact -$70 boundary"
+        );
+        assert_eq!(
+            lion_left_charge_alert_release_gate_loc_3e62a(0x7FFF, 0x8000),
+            LionLoc3E62ABranch::ContinueMovement,
+            "ASM Lion.asm loc_3E62A should compute d4 with signed-word wrapping"
         );
     }
 
