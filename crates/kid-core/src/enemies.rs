@@ -5716,6 +5716,34 @@ pub(crate) const HAND_MAX_FALL_SPEED: i32 = 0x18_0000;
 /// Hand grab duration: 10 frames (Hand.asm loc_32906: moveq #$A,d3).
 pub(crate) const HAND_GRAB_DURATION: u16 = 10;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandInitLoc327B6 {
+    pub(crate) status_flag_13: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) x_direction_flag: bool,
+    pub(crate) motion_flag_19: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_init_loc_327b6() -> HandInitLoc327B6 {
+    // ASM Hand.asm loc_327B6: `st $13/is_moved/has_level_collision`,
+    // `sf x_direction/$19`, low priority, and object_meta `$17`.
+    HandInitLoc327B6 {
+        status_flag_13: true,
+        is_moved: true,
+        x_direction_flag: false,
+        motion_flag_19: false,
+        has_level_collision: true,
+        priority: 0,
+        object_meta: 0x0017,
+    }
+}
+
 /// Step a Hand enemy through its walk/detect/jump state machine.
 /// Walking: paces with edge/wall detection. Detects player in 45-degree cone.
 /// Jumping: randomised arc toward player with gravity, lands and resumes walking.
@@ -8703,8 +8731,9 @@ pub(crate) fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
 
 pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> Direction {
     match family {
-        // Hand always starts facing right (Hand.asm init)
-        EnemyFamily::Hand => Direction::Right,
+        // ASM Hand.asm loc_327B6 clears x_direction; loc_3284C's clear-flag
+        // branch detects Kid only on the left side.
+        EnemyFamily::Hand => Direction::Left,
         // Drips always start facing right (Drip.asm init)
         EnemyFamily::Drips => Direction::Right,
         // ASM Armadillo.asm loc_3C718, Dragon.asm loc_3CD70, and Tank.asm loc_3B2E4:
@@ -9186,6 +9215,30 @@ mod tests {
         assert_eq!(
             spawn_facing(EnemyFamily::Armadillo, 100 << 16, 120 << 16),
             Direction::Right
+        );
+    }
+
+    #[test]
+    fn hand_init_matches_loc_327b6_flags_and_default_direction() {
+        let init = hand_init_loc_327b6();
+
+        assert_eq!(
+            init,
+            HandInitLoc327B6 {
+                status_flag_13: true,
+                is_moved: true,
+                x_direction_flag: false,
+                motion_flag_19: false,
+                has_level_collision: true,
+                priority: 0,
+                object_meta: 0x0017,
+            },
+            "ASM Hand.asm loc_327B6 sets the active/moved/collision flags, clears raw x_direction/$19, and tags object_meta `$17`"
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Hand, 100 << 16, 120 << 16),
+            Direction::Left,
+            "ASM Hand.asm loc_327B6 clears x_direction; the following hand range check treats clear as the left-facing branch"
         );
     }
 
