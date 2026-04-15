@@ -5740,6 +5740,40 @@ pub(crate) fn ninja_positive_state_route_loc_3d7fa(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaThreatPoseRoute {
+    Loc3D79C,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaThreatPoseState {
+    pub(crate) threat_state_4c: i8,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_link: &'static str,
+    pub(crate) walk_speed_override: i32,
+    pub(crate) x_direction_right: bool,
+    pub(crate) next: NinjaThreatPoseRoute,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_guard_pose_loc_3d826(
+    d4_kid_or_projectile_minus_ninja_x_px: i16,
+) -> NinjaThreatPoseState {
+    // ASM Ninja.asm loc_3D826: `st $4C(a5)`, clear animation, select
+    // `LnkTo_unk_C7D8E`, zero `$50(a5)`, face by signed d4, then branch to
+    // loc_3D79C. Negative d4 keeps `x_direction` clear; zero/positive sets it.
+    NinjaThreatPoseState {
+        threat_state_4c: -1,
+        is_animated: false,
+        sprite_link: "LnkTo_unk_C7D8E",
+        walk_speed_override: 0,
+        x_direction_right: d4_kid_or_projectile_minus_ninja_x_px >= 0,
+        next: NinjaThreatPoseRoute::Loc3D79C,
+    }
+}
+
 /// Ninja jump-attack velocities (Ninja.asm lines 384-392).
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
@@ -13921,6 +13955,35 @@ mod tests {
                 next: NinjaResetStealthPacingRouteLoc3D7CA::Loc3E392,
             },
             "ASM Ninja.asm loc_3D7FA should branch to loc_3D7CA outside the inclusive +/-$10 X band"
+        );
+    }
+
+    #[test]
+    fn ninja_guard_pose_loc_3d826_sets_negative_guard_state_and_faces_by_d4() {
+        assert_eq!(
+            ninja_guard_pose_loc_3d826(-1),
+            NinjaThreatPoseState {
+                threat_state_4c: -1,
+                is_animated: false,
+                sprite_link: "LnkTo_unk_C7D8E",
+                walk_speed_override: 0,
+                x_direction_right: false,
+                next: NinjaThreatPoseRoute::Loc3D79C,
+            },
+            "ASM Ninja.asm loc_3D826 should leave x_direction clear for negative d4 before branching to loc_3D79C"
+        );
+
+        assert_eq!(
+            ninja_guard_pose_loc_3d826(0),
+            NinjaThreatPoseState {
+                threat_state_4c: -1,
+                is_animated: false,
+                sprite_link: "LnkTo_unk_C7D8E",
+                walk_speed_override: 0,
+                x_direction_right: true,
+                next: NinjaThreatPoseRoute::Loc3D79C,
+            },
+            "ASM Ninja.asm loc_3D826 should set x_direction when d4 is zero or positive"
         );
     }
 
