@@ -716,6 +716,14 @@ pub(crate) fn lion_left_charge_motion_seed_loc_3e694(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
+    // ASM Lion.asm loc_3E6A4: after the airborne Y-velocity update, hibernate
+    // for one frame, run sub_3E8BA's live object cull, then `jmp (a0)` back
+    // into the active Lion routine. It deliberately preserves velocities.
+    lion_hibernate_cull_resume_loc_3e556()
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLoc3E556Tail {
@@ -12687,6 +12695,19 @@ mod tests {
                 y_position: 0x0000_1234,
             },
             "ASM Lion.asm loc_3E694 inherits 16-bit word wrapping for `addq.w #1,y_pos(a3)`"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_airborne_resume_matches_loc_3e6a4() {
+        assert_eq!(
+            lion_left_charge_airborne_resume_loc_3e6a4(),
+            LionLoc3E556Tail {
+                hibernate_one_frame: true,
+                cull_routine: "sub_3E8BA",
+                resume_via_callback: true,
+            },
+            "ASM Lion.asm loc_3E6A4 should hibernate, run sub_3E8BA, and jump through a0 without zeroing velocities"
         );
     }
 
