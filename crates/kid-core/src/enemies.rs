@@ -839,6 +839,29 @@ pub(crate) struct MiniHoppingSkullStoppedWaitSetup {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullStoppedWaitTail {
+    ContinueWait {
+        next_dbf_counter: u16,
+    },
+    RestartStoppedWaitFacingLeft {
+        x_direction: u8,
+        dbf_counter: u16,
+        wait_frames: u8,
+    },
+    RestartStoppedWaitFacingRight {
+        x_direction: u8,
+        dbf_counter: u16,
+        wait_frames: u8,
+    },
+    BeginFacingMatchedPause {
+        sprite: &'static str,
+        dbf_counter: u16,
+        wait_frames: u8,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullGroundWaitCollisionRoute {
     ContinueWait,
     DamageSkull,
@@ -5300,6 +5323,51 @@ pub(crate) fn mini_hopping_skull_stopped_wait_scream_worker_allocation_loc_3f03c
         routine: "sub_3F3F0",
         delay_frames: 15,
     })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_stopped_wait_tail_loc_3f090(
+    dbf_counter: u16,
+    kid_x_word: u16,
+    skull_x_word: u16,
+    x_direction: u8,
+) -> MiniHoppingSkullStoppedWaitTail {
+    // ASM Mini_Hopping_Skull.asm loc_3F090: after the stopped-wait DBF falls
+    // through, Kid to the right enters this branch; a clear `x_direction(a3)`
+    // is set to `$FF` and the stopped wait restarts, while non-zero direction
+    // means the skull already faces Kid and can continue to the next pause.
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+    if next_dbf_counter != 0xFFFF {
+        return MiniHoppingSkullStoppedWaitTail::ContinueWait { next_dbf_counter };
+    }
+
+    if (kid_x_word as i16) > (skull_x_word as i16) {
+        if x_direction == 0 {
+            MiniHoppingSkullStoppedWaitTail::RestartStoppedWaitFacingRight {
+                x_direction: 0xFF,
+                dbf_counter: 0x0014,
+                wait_frames: 21,
+            }
+        } else {
+            MiniHoppingSkullStoppedWaitTail::BeginFacingMatchedPause {
+                sprite: "LnkTo_unk_C8078",
+                dbf_counter: 0x000A,
+                wait_frames: 11,
+            }
+        }
+    } else if x_direction == 0 {
+        MiniHoppingSkullStoppedWaitTail::BeginFacingMatchedPause {
+            sprite: "LnkTo_unk_C8078",
+            dbf_counter: 0x000A,
+            wait_frames: 11,
+        }
+    } else {
+        MiniHoppingSkullStoppedWaitTail::RestartStoppedWaitFacingLeft {
+            x_direction: 0x00,
+            dbf_counter: 0x0014,
+            wait_frames: 21,
+        }
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -14058,6 +14126,53 @@ mod tests {
             ),
             None,
             "ASM Mini_Hopping_Skull.asm loc_3F03C is skipped by the charging-Berzerker side-contact branch"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_stopped_wait_tail_matches_loc_3f090_direction_gate() {
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_tail_loc_3f090(0x0014, 40, 32, 0x00),
+            MiniHoppingSkullStoppedWaitTail::ContinueWait {
+                next_dbf_counter: 0x0013
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F090 should not run until the stopped-wait DBF counter falls through"
+        );
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_tail_loc_3f090(0x0000, 40, 32, 0x00),
+            MiniHoppingSkullStoppedWaitTail::RestartStoppedWaitFacingRight {
+                x_direction: 0xFF,
+                dbf_counter: 0x0014,
+                wait_frames: 21,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F090 should set `x_direction(a3)` when Kid is right and the skull is not already flipped"
+        );
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_tail_loc_3f090(0x0000, 40, 32, 0xFF),
+            MiniHoppingSkullStoppedWaitTail::BeginFacingMatchedPause {
+                sprite: "LnkTo_unk_C8078",
+                dbf_counter: 0x000A,
+                wait_frames: 11,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F090 should continue when Kid is right and `x_direction(a3)` is already non-zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_tail_loc_3f090(0x0000, 24, 32, 0xFF),
+            MiniHoppingSkullStoppedWaitTail::RestartStoppedWaitFacingLeft {
+                x_direction: 0x00,
+                dbf_counter: 0x0014,
+                wait_frames: 21,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F090 is skipped when Kid is left, so the opposite direction branch clears `x_direction(a3)`"
+        );
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_tail_loc_3f090(0x0000, 0x8000, 0x7FFF, 0xFF),
+            MiniHoppingSkullStoppedWaitTail::RestartStoppedWaitFacingLeft {
+                x_direction: 0x00,
+                dbf_counter: 0x0014,
+                wait_frames: 21,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F090 inherits the signed `cmp.w`/`bgt` X comparison"
         );
     }
 
