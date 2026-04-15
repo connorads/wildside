@@ -3274,6 +3274,19 @@ pub(crate) fn ufo_linked_cleanup_status_loc_352b2(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_linked_object_x_loc_3531a(parent_x_pos: u32, parent_facing: Direction) -> u16 {
+    // ASM UFO.asm loc_3531A: after `Enemy0F_UFO_SpeedToPos`, the linked object
+    // gets the parent's integer X word minus d6. Clear `x_direction` leaves
+    // d6 as +4; set `x_direction` negates d6 to -4, so the subtraction adds 4.
+    let parent_x_word = (parent_x_pos >> 16) as u16;
+    let d6 = match parent_facing {
+        Direction::Left => 4_u16,
+        Direction::Right => 0xFFFC_u16,
+    };
+    parent_x_word.wrapping_sub(d6)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_linked_object_range_gate_loc_35280(
     range_check_result_nonzero: bool,
 ) -> UfoLinkedObjectRangeGateLoc35280 {
@@ -10462,6 +10475,21 @@ mod tests {
             ufo_linked_cleanup_status_loc_352b2(0x82),
             DeactivationStatusActionLoc3C4C0::DeleteOnly,
             "ASM UFO.asm loc_352E0 deletes without an EnemyStatus_Table write when bit 7 is set and bit 6 is clear"
+        );
+    }
+
+    #[test]
+    fn ufo_linked_object_x_matches_loc_3531a() {
+        assert_eq!(
+            ufo_linked_object_x_loc_3531a(0x0120_8000, Direction::Left),
+            0x011C,
+            "ASM UFO.asm loc_3531A subtracts d6=4 when x_direction is clear"
+        );
+
+        assert_eq!(
+            ufo_linked_object_x_loc_3531a(0x0120_8000, Direction::Right),
+            0x0124,
+            "ASM UFO.asm loc_3531A subtracts d6=-4 when x_direction is set"
         );
     }
 
