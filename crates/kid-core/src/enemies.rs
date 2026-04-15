@@ -594,6 +594,25 @@ pub(crate) fn lion_right_charge_continue_loc_3e4c6(next_x_position: u32) -> Lion
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLoc3E556Tail {
+    pub(crate) hibernate_one_frame: bool,
+    pub(crate) cull_routine: &'static str,
+    pub(crate) resume_via_callback: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_hibernate_cull_resume_loc_3e556() -> LionLoc3E556Tail {
+    // ASM Lion.asm loc_3E556: hibernate for one frame, run sub_3E8BA's live
+    // object cull, then `jmp (a0)` back into the current Lion routine pointer.
+    LionLoc3E556Tail {
+        hibernate_one_frame: true,
+        cull_routine: "sub_3E8BA",
+        resume_via_callback: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -10820,6 +10839,19 @@ mod tests {
                 y_velocity: 0,
             },
             "ASM Lion.asm loc_3E4C6 should commit `d2` to x_pos before entering the loc_3E3A2 zero-velocity hibernate tail"
+        );
+    }
+
+    #[test]
+    fn lion_hibernate_cull_resume_matches_loc_3e556() {
+        assert_eq!(
+            lion_hibernate_cull_resume_loc_3e556(),
+            LionLoc3E556Tail {
+                hibernate_one_frame: true,
+                cull_routine: "sub_3E8BA",
+                resume_via_callback: true,
+            },
+            "ASM Lion.asm loc_3E556 should hibernate, run sub_3E8BA, then jump through the restored a0 routine pointer without touching velocity fields"
         );
     }
 
