@@ -744,6 +744,27 @@ pub(crate) enum MiniHoppingSkullLandingLoopDecision {
     },
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullLandingTailCollisionOutcome {
+    ContinueWait {
+        next_dbf_counter: u16,
+    },
+    DamageSkullThenRelaunch {
+        sequence: MiniHoppingSkullDamageSequence,
+    },
+    DamageSkullAndDestroy,
+    SpawnScreamWorkerAndRelaunch,
+    BerzerkerChargeKillsSkull,
+    BeginRelaunchArc {
+        y_velocity: i32,
+        x_velocity: i32,
+        is_moved: bool,
+        has_level_collision: bool,
+        next_loop: &'static str,
+    },
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -4386,6 +4407,65 @@ pub(crate) fn mini_hopping_skull_landing_collision_wait_loc_3ef32(
         MiniHoppingSkullLeftLandingLoopDecision::BeginSkullLeftRelaunch {
             dbf_counter: 0x000A,
             sprite: "LnkTo_unk_C8018",
+        }
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_landing_tail_collision_loc_3ef4c(
+    dbf_counter: u16,
+    collision_type: u16,
+    berzerker_charging: bool,
+    hit_counter: u16,
+    is_boosted: bool,
+) -> MiniHoppingSkullLandingTailCollisionOutcome {
+    // ASM Mini_Hopping_Skull.asm loc_3EF4C: clear/inspect collision each frame;
+    // on DBF expiry, collision outcome can damage the skull, queue a worker, kill
+    // on Berzerker charge, or fall through to the relaunch tail shared with
+    // `loc_3EE7C`.
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+    if next_dbf_counter != 0xFFFF {
+        return MiniHoppingSkullLandingTailCollisionOutcome::ContinueWait { next_dbf_counter };
+    }
+
+    match collision_type {
+        MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
+            match mini_hopping_skull_landing_collision_damage_loc_3ef1a(hit_counter) {
+                MiniHoppingSkullDamageSequence::SkullDestroyed => {
+                    MiniHoppingSkullLandingTailCollisionOutcome::DamageSkullAndDestroy
+                }
+                sequence @ MiniHoppingSkullDamageSequence::PlayHitAnimation { .. } => {
+                    MiniHoppingSkullLandingTailCollisionOutcome::DamageSkullThenRelaunch {
+                        sequence,
+                    }
+                }
+            }
+        }
+        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
+            if berzerker_charging {
+                MiniHoppingSkullLandingTailCollisionOutcome::BerzerkerChargeKillsSkull
+            } else {
+                MiniHoppingSkullLandingTailCollisionOutcome::SpawnScreamWorkerAndRelaunch
+            }
+        }
+        MINI_SKULL_COLID_GROUND_KIDBELOW => {
+            MiniHoppingSkullLandingTailCollisionOutcome::SpawnScreamWorkerAndRelaunch
+        }
+        _ => {
+            let mut y_velocity = 0xFFFC8000u32 as i32;
+            let mut x_velocity = 0x0001_8000u32 as i32;
+            if is_boosted {
+                y_velocity = y_velocity.wrapping_add(-0x1_0000);
+                x_velocity = x_velocity.wrapping_add(0x4000);
+            }
+
+            MiniHoppingSkullLandingTailCollisionOutcome::BeginRelaunchArc {
+                y_velocity,
+                x_velocity,
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            }
         }
     }
 }
@@ -10837,6 +10917,111 @@ mod tests {
                 sprite: "LnkTo_unk_C8018",
             },
             "ASM Mini_Hopping_Skull.asm loc_3EF32 routes Kid-right-of-skull into the `LnkTo_unk_C8018` branch before loc_3EF4C"
+        );
+    }
+
+    #[test]
+    // ASM Mini_Hopping_Skull.asm loc_3EF4C
+    fn mini_hopping_skull_landing_tail_collision_matches_loc_3ef4c() {
+        assert_eq!(
+            mini_hopping_skull_landing_tail_collision_loc_3ef4c(
+                0x0014,
+                MINI_SKULL_COLID_GROUND_KIDABOVE,
+                false,
+                0x0002,
+                false
+            ),
+            MiniHoppingSkullLandingTailCollisionOutcome::ContinueWait {
+                next_dbf_counter: 0x0013
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EF4C continues waiting while DBF is active"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_tail_collision_loc_3ef4c(
+                0x0000,
+                MINI_SKULL_COLID_GROUND_KIDABOVE,
+                false,
+                0x0002,
+                false
+            ),
+            MiniHoppingSkullLandingTailCollisionOutcome::DamageSkullThenRelaunch {
+                sequence: MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                    remaining_hits: 0x0001,
+                    animation: "stru_3E9C2",
+                    hibernate_until_finished: true,
+                },
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EF9E decrements HP and falls through to relaunch on non-zero hits"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_tail_collision_loc_3ef4c(
+                0x0000,
+                MINI_SKULL_COLID_GROUND_HURT,
+                false,
+                0x0001,
+                false
+            ),
+            MiniHoppingSkullLandingTailCollisionOutcome::DamageSkullAndDestroy,
+            "ASM Mini_Hopping_Skull.asm loc_3EF9E jumps to the death path when HP reaches zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_tail_collision_loc_3ef4c(
+                0x0000,
+                MINI_SKULL_COLID_GROUND_KIDLEFT,
+                false,
+                0x0003,
+                false
+            ),
+            MiniHoppingSkullLandingTailCollisionOutcome::SpawnScreamWorkerAndRelaunch,
+            "ASM Mini_Hopping_Skull.asm loc_3EF7E queues `sub_3F3F0` on side contact when Berzerker is clear"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_tail_collision_loc_3ef4c(
+                0x0000,
+                MINI_SKULL_COLID_GROUND_KIDRIGHT,
+                true,
+                0x0003,
+                false
+            ),
+            MiniHoppingSkullLandingTailCollisionOutcome::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3EF94 jumps directly to loc_3F262 under `Berzerker_charging`"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_tail_collision_loc_3ef4c(
+                0x0000, 0x0000, false, 0x0003, false
+            ),
+            MiniHoppingSkullLandingTailCollisionOutcome::BeginRelaunchArc {
+                y_velocity: 0xFFFC8000u32 as i32,
+                x_velocity: 0x0001_8000u32 as i32,
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EFB6 sets base relaunch velocities when DBF expires"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_tail_collision_loc_3ef4c(
+                0x0000, 0x0000, false, 0x0003, true
+            ),
+            MiniHoppingSkullLandingTailCollisionOutcome::BeginRelaunchArc {
+                y_velocity: 0xFFFB8000u32 as i32,
+                x_velocity: 0x0001C000u32 as i32,
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EFE0 (`tst.w $40(a3)`) adds boosted x/y to the relaunch arc"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_tail_collision_loc_3ef4c(
+                0x0000,
+                MINI_SKULL_COLID_GROUND_KIDBELOW,
+                false,
+                0x0004,
+                false
+            ),
+            MiniHoppingSkullLandingTailCollisionOutcome::SpawnScreamWorkerAndRelaunch,
+            "ASM Mini_Hopping_Skull.asm loc_3EF7E also runs for `colid_kidbelow` and falls through to relaunch"
         );
     }
 
