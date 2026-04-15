@@ -1636,6 +1636,26 @@ pub(crate) fn dragon_walking_common_init_loc_3ce5a(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingNormalDispatchLoc3CE84 {
+    Loc3E546,
+    Loc3E392,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_normal_dispatch_loc_3ce84(
+    facing: Direction,
+) -> DragonWalkingNormalDispatchLoc3CE84 {
+    // ASM Dragon.asm loc_3CE84: `tst.b x_direction(a3); beq.w loc_3E546;
+    // bra.w loc_3E392`. Clear x_direction is the left-facing pacing loop;
+    // set x_direction is the right-facing pacing loop.
+    match facing {
+        Direction::Left => DragonWalkingNormalDispatchLoc3CE84::Loc3E546,
+        Direction::Right => DragonWalkingNormalDispatchLoc3CE84::Loc3E392,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -11184,6 +11204,38 @@ mod tests {
             spawn_shared_walker_patrol_timer(EnemyFamily::DragonWalking),
             dragon_walking_common_init_loc_3ce5a(false, Direction::Left).patrol_timer,
             "native DragonWalking patrol timer should expose the `$54(a5)` seed from loc_3CE5A"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_normal_dispatch_matches_loc_3ce84() {
+        assert_eq!(
+            dragon_walking_normal_dispatch_loc_3ce84(Direction::Left),
+            DragonWalkingNormalDispatchLoc3CE84::Loc3E546,
+            "ASM Dragon.asm loc_3CE84 should send clear x_direction to loc_3E546"
+        );
+        assert_eq!(
+            dragon_walking_normal_dispatch_loc_3ce84(Direction::Right),
+            DragonWalkingNormalDispatchLoc3CE84::Loc3E392,
+            "ASM Dragon.asm loc_3CE84 should send set x_direction to loc_3E392"
+        );
+        assert_eq!(
+            dragon_walking_normal_dispatch_loc_3ce84(spawn_facing(
+                EnemyFamily::DragonWalking,
+                200 << 16,
+                50 << 16
+            )),
+            DragonWalkingNormalDispatchLoc3CE84::Loc3E546,
+            "native DragonWalking spawn-facing should feed the same clear-x_direction path from loc_3CE84"
+        );
+        assert_eq!(
+            dragon_walking_normal_dispatch_loc_3ce84(spawn_facing(
+                EnemyFamily::DragonWalking,
+                200 << 16,
+                300 << 16
+            )),
+            DragonWalkingNormalDispatchLoc3CE84::Loc3E392,
+            "native DragonWalking spawn-facing should feed the same set-x_direction path from loc_3CE84"
         );
     }
 
