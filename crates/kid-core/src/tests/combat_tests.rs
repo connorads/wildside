@@ -5947,6 +5947,55 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_3492c_runs_explosion_and_death_status_routes() {
+        let positive = dragon_flying_death_sequence_loc_3492C(
+            0x0123_8000,
+            0x0045_0000,
+            Direction::Right,
+            0xCAFE,
+            0x05,
+        );
+        assert_eq!(
+            positive,
+            DragonFlyingDeathSequenceLoc3492C {
+                animation_label: "stru_345E4",
+                is_moved: false,
+                vram_tile: 0,
+                pre_child_hibernate_frames: 2,
+                child_x_word: 0x0123,
+                child_y_word: 0x0055,
+                child_facing: Direction::Right,
+                child_state_word_4a: 0xCAFE,
+                hibernate_until_animation_finished: true,
+                status_route: DragonFlyingDeathStatusRouteLoc3492C::WriteRespawnMarker(
+                    DragonFlyingRespawnMarkerLoc34998 {
+                        index: 0x05,
+                        word_value: 0x2168,
+                    },
+                ),
+                delete_tail: DragonFlyingDeleteTailLoc349A6 {
+                    deletes_current_object: true,
+                },
+            },
+            "ASM Dragon_Flying.asm loc_3492C runs stru_345E4, spawns the walking-dragon child 16px below, then positive `$42(a5)` branches to loc_34998"
+        );
+
+        assert_eq!(
+            dragon_flying_death_sequence_loc_3492C(0, 0, Direction::Left, 0, 0xC7).status_route,
+            DragonFlyingDeathStatusRouteLoc3492C::SubtractSpawnCounter {
+                index: 0x07,
+                decrement: 0x0400,
+            },
+            "ASM Dragon_Flying.asm loc_3492C masks bit-7+bit-6 `$42(a5)` with `$3F` before subtracting `$400` from EnemyStatus_Table"
+        );
+        assert_eq!(
+            dragon_flying_death_sequence_loc_3492C(0, 0, Direction::Left, 0, 0x80).status_route,
+            DragonFlyingDeathStatusRouteLoc3492C::DeleteOnly,
+            "ASM Dragon_Flying.asm loc_3492C falls straight to loc_349A6 when bit 7 is set and bit 6 is clear"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_3488a_flip_sentinel_dispatches_next_move() {
         let mut enemy = test_dragon(0, 100 << 16, 200 << 16);
         enemy.dragon_phase = DragonFlyingState::Descending;

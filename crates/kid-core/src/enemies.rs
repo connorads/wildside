@@ -2092,6 +2092,70 @@ pub(crate) fn dragon_flying_delete_tail_loc_349A6() -> DragonFlyingDeleteTailLoc
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonFlyingDeathStatusRouteLoc3492C {
+    WriteRespawnMarker(DragonFlyingRespawnMarkerLoc34998),
+    SubtractSpawnCounter { index: usize, decrement: u16 },
+    DeleteOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonFlyingDeathSequenceLoc3492C {
+    pub(crate) animation_label: &'static str,
+    pub(crate) is_moved: bool,
+    pub(crate) vram_tile: u16,
+    pub(crate) pre_child_hibernate_frames: u16,
+    pub(crate) child_x_word: u16,
+    pub(crate) child_y_word: u16,
+    pub(crate) child_facing: Direction,
+    pub(crate) child_state_word_4a: u16,
+    pub(crate) hibernate_until_animation_finished: bool,
+    pub(crate) status_route: DragonFlyingDeathStatusRouteLoc3492C,
+    pub(crate) delete_tail: DragonFlyingDeleteTailLoc349A6,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_death_sequence_loc_3492C(
+    parent_x_pos: u32,
+    parent_y_pos: u32,
+    parent_facing: Direction,
+    parent_word_46: u16,
+    object_status_slot: u8,
+) -> DragonFlyingDeathSequenceLoc3492C {
+    // ASM Dragon_Flying.asm loc_3492C: play `stru_345E4`, clear `is_moved`
+    // and `vram_tile`, wait two frames, then allocate the loc_3CD16 walking
+    // dragon child from integer X/Y words before waiting for the animation.
+    let status_route = if object_status_slot & 0x80 == 0 {
+        DragonFlyingDeathStatusRouteLoc3492C::WriteRespawnMarker(
+            dragon_flying_respawn_marker_loc_34998(object_status_slot),
+        )
+    } else if object_status_slot & 0x40 != 0 {
+        DragonFlyingDeathStatusRouteLoc3492C::SubtractSpawnCounter {
+            index: usize::from(object_status_slot & 0x3F),
+            decrement: 0x0400,
+        }
+    } else {
+        DragonFlyingDeathStatusRouteLoc3492C::DeleteOnly
+    };
+
+    DragonFlyingDeathSequenceLoc3492C {
+        animation_label: "stru_345E4",
+        is_moved: false,
+        vram_tile: 0,
+        pre_child_hibernate_frames: 2,
+        child_x_word: (parent_x_pos >> 16) as u16,
+        child_y_word: ((parent_y_pos >> 16) as u16).wrapping_add(0x10),
+        child_facing: parent_facing,
+        child_state_word_4a: parent_word_46,
+        hibernate_until_animation_finished: true,
+        status_route,
+        delete_tail: dragon_flying_delete_tail_loc_349A6(),
+    }
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {
