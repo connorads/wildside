@@ -298,6 +298,37 @@ pub(crate) fn crab_init_visible_state_loc_3afd0(enemy_level: u8) -> CrabInitVisi
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CrabMotionProfileLoc3B00A {
+    pub(crate) walk_speed: i32,
+    pub(crate) stored_speed: i32,
+    pub(crate) timer_4a: u16,
+    pub(crate) timer_48: u16,
+    pub(crate) animation_script: &'static str,
+    pub(crate) increments_enemy_count: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_motion_profile_loc_3b00a(current_hp: u8) -> CrabMotionProfileLoc3B00A {
+    // ASM Crab.asm loc_3B00A: both speed slots receive one final `$8000` add
+    // after loc_3AFD0's optional `$10000` preload, then `$4A/$48` and
+    // `stru_3AF62` are installed before the shared walker loop.
+    let speed = if current_hp >= 3 {
+        0x0001_8000
+    } else {
+        0x0000_8000
+    };
+    CrabMotionProfileLoc3B00A {
+        walk_speed: speed,
+        stored_speed: speed,
+        timer_4a: 0x001E,
+        timer_48: 0x000C,
+        animation_script: "stru_3AF62",
+        increments_enemy_count: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
     Damage,
     ContinueWaiting {
@@ -1272,8 +1303,9 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         // Armadillo.asm loc_3C756/loc_3C766: `enemy_level + 1` yields HP 1/2/3+,
         // then the walk-speed slot starts at `$8000` and gains `$10000` at each tier.
         EnemyFamily::Armadillo => (1, 0x0000_8000, 0x0001_0000),
-        // Crab: HP = enemy_level + 2 (min 2). Base speed $8000, step $10000.
-        EnemyFamily::Crab => (2, 0x0000_8000, 0x0001_0000),
+        // Crab.asm loc_3B00A: HP 2 keeps `$8000`; HP 3+ uses the single
+        // `$10000` preload plus one final `$8000` add, so speed caps at `$18000`.
+        EnemyFamily::Crab => return crab_motion_profile_loc_3b00a(hit_points).walk_speed,
         // Scorpion: HP = enemy_level + 3 (min 3). Fixed speed $18000.
         EnemyFamily::Scorpion => (3, 0x0001_8000, 0),
         // Driller: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
@@ -11404,6 +11436,34 @@ mod tests {
             },
             "ASM Crab.asm loc_3AFD0 writes `$10000` to both speed slots once `current_hp >= 3`"
         );
+    }
+
+    #[test]
+    fn crab_motion_profile_matches_loc_3b00a() {
+        assert_eq!(
+            crab_motion_profile_loc_3b00a(2),
+            CrabMotionProfileLoc3B00A {
+                walk_speed: 0x0000_8000,
+                stored_speed: 0x0000_8000,
+                timer_4a: 0x001E,
+                timer_48: 0x000C,
+                animation_script: "stru_3AF62",
+                increments_enemy_count: true,
+            },
+            "ASM Crab.asm loc_3B00A should give HP 2 only the final `$8000` speed add"
+        );
+
+        assert_eq!(
+            crab_motion_profile_loc_3b00a(3).walk_speed,
+            0x0001_8000,
+            "ASM Crab.asm loc_3B00A should add `$8000` after the HP 3 preload"
+        );
+        assert_eq!(
+            crab_motion_profile_loc_3b00a(4).walk_speed,
+            0x0001_8000,
+            "ASM Crab.asm loc_3B00A has no extra HP 4 speed tier"
+        );
+        assert_eq!(pacer_walk_speed(EnemyFamily::Crab, 4), 0x0001_8000);
     }
 
     #[test]
