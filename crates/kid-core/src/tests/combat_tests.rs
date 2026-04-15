@@ -4703,7 +4703,10 @@ mod chunk_03 {
         assert_eq!(enemy.x_pos, start_x, "hover should not change X");
         assert_eq!(enemy.y_pos, start_y, "hover should not change Y");
         assert_eq!(enemy.dragon_phase, DragonFlyingState::Hovering);
-        assert_eq!(enemy.dragon_phase_frames, 102, "should count down");
+        assert_eq!(
+            enemy.dragon_phase_frames, 102,
+            "ASM Dragon_Flying.asm loc_3480A consumes exactly one hibernated hover frame per loop"
+        );
     }
 
     #[test]

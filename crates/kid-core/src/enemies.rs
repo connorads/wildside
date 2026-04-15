@@ -3751,7 +3751,9 @@ pub(crate) fn step_dragon(
     match enemy.dragon_phase {
         DragonFlyingState::None => {}
         DragonFlyingState::Hovering => {
-            // Hover: zero velocity, count down frames. ASM loc_34804.
+            // Hover: zero velocity, count down frames. ASM loc_34804 clears
+            // x_vel; Dragon_Flying.asm loc_3480A then hibernates one frame
+            // before checking collision_type and continuing the hover loop.
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
             enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_sub(1);
