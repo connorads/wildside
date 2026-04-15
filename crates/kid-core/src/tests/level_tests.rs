@@ -10321,6 +10321,56 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_FA2E (kid.asm:20766): emits the horizontal strip as consecutive
+    /// sprite-table entries, incrementing the link word before each store and
+    /// advancing X by `$10` per DBF iteration.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_FA2E_emits_linked_horizontal_sprite_entries() {
+        let result = crate::level::animated_solid_block_negative_sprites_loc_F9CC(
+            crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                vertical_layout_flag: false,
+                descriptor_flags: 1,
+                block_col: 0x0010,
+                block_row: 0x0007,
+                span_tiles: 3,
+                camera_left_col: 0x0010,
+                camera_top_row: 0x0006,
+                camera_x_word: 0x0100,
+                camera_y_word: 0x0060,
+                sprite_link_word: 0x00FE,
+            },
+        );
+
+        assert_eq!(
+            result,
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x0090,
+                        sprite_link_word: 0x00FF,
+                        tile_word: 0x024A,
+                        screen_x: 0x0080,
+                    },
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x0090,
+                        sprite_link_word: 0x0100,
+                        tile_word: 0x024A,
+                        screen_x: 0x0090,
+                    },
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x0090,
+                        sprite_link_word: 0x0101,
+                        tile_word: 0x024A,
+                        screen_x: 0x00A0,
+                    },
+                ],
+                next_sprite_link_word: 0x0101,
+            },
+            "ASM loc_FA2E should write one linked sprite per DBF iteration and add $10 to X after each entry"
+        );
+    }
+
     /// ASM loc_F8CA (kid.asm:20589): computes the remaining loop count from the
     /// source width table plus start column, restores every layout byte, and emits
     /// FG queue entries only for the visible span after the `-8..+camera_right`
