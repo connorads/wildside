@@ -16,6 +16,27 @@ RUN_HISTORY_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/run-history
 
 
 def run_autonomy_loop() -> None:
+    coverage_result = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "-q",
+            "-p",
+            "kidcli",
+            "--",
+            "asm-coverage",
+            "--update",
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if coverage_result.returncode != 0:
+        sys.stderr.write(coverage_result.stdout)
+        sys.stderr.write(coverage_result.stderr)
+        raise SystemExit(coverage_result.returncode)
+
     routines = os.environ.get("SOURCE_PORT_ROUTINES", "3")
     result = subprocess.run(
         [
@@ -290,6 +311,7 @@ Use the live source-port task package for this run. Do not invent a backlog hunt
 ## Fresh package
 
 - Regenerated with `cargo run -q -p kidcli -- autonomous-loop --goal source-port-frontier`
+- Coverage refreshed first with `cargo run -q -p kidcli -- asm-coverage --update`
 - Package: `{NEXT_TASK_PATH.relative_to(REPO_ROOT)}`
 - Note: `{NEXT_AGENT_PATH.relative_to(REPO_ROOT)}`
 - Generated at: `{generated_at}`

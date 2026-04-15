@@ -140,6 +140,44 @@ def append_history(
         handle.write("\n")
 
 
+def load_run_history() -> list[dict]:
+    if not RUN_HISTORY_PATH.exists():
+        return []
+    records: list[dict] = []
+    for line in RUN_HISTORY_PATH.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return records
+
+
+def latest_clean_completion(records: list[dict]) -> dict | None:
+    for record in reversed(records):
+        if (
+            record.get("outcome") == "completed"
+            and record.get("exit_code") == 0
+            and not record.get("dirty_tree")
+        ):
+            return record
+    return None
+
+
+def is_clean_repeat(task: dict, dirty_files: list[str]) -> tuple[bool, dict | None]:
+    if dirty_files:
+        return (False, None)
+    delegated_target = task.get("delegated_target")
+    if not delegated_target:
+        return (False, None)
+    previous = latest_clean_completion(load_run_history())
+    if previous is None:
+        return (False, None)
+    return (previous.get("delegated_target") == delegated_target, previous)
+
+
 def which(name: str) -> str:
     import shutil
 
@@ -185,6 +223,27 @@ def main() -> int:
 
     agent_cmd = resolve_agent(agent_name)
     task = load_task()
+    dirty_at_launch = tracked_dirty_files()
+    repeated, previous = is_clean_repeat(task, dirty_at_launch)
+    if repeated:
+        sys.stderr.write(
+            "✗ No-progress guard: fresh package selected the same delegated target "
+            f"as the last clean completed run ({task.get('delegated_target')}).\n"
+        )
+        sys.stderr.write(
+            "  Refresh coverage or inspect task selection before launching another agent.\n"
+        )
+        if previous is not None:
+            sys.stderr.write(f"  Previous cycle: {previous.get('cycle')}\n")
+        append_history(
+            task,
+            dirty_at_launch,
+            outcome="stalled_repeat",
+            exit_code=1,
+            preflight=preflight,
+        )
+        return 1
+
     cxys = subprocess.run(
         agent_cmd,
         cwd=REPO_ROOT,
@@ -206,7 +265,7 @@ def main() -> int:
 
     append_history(
         task,
-        dirty_before,
+        dirty_at_launch,
         outcome=outcome,
         exit_code=cxys.returncode,
         preflight=preflight,
