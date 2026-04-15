@@ -3146,6 +3146,16 @@ pub(crate) fn step_flyer_with_rng(
 /// ASM `Cloud.asm loc_35BDE -> loc_35C54`: `move.w #$3C,d3` is written after
 /// wall reversal, but the active loop never reads `d3`, so Cloud resumes
 /// flying immediately on the next frame instead of idling.
+const CLOUD_CONTROL_SCRIPT_WORDS_LOC_35BAC: [u16; 5] = [0x7800, 0x0004, 0x1E00, 0x0008, 0xFFFF];
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_control_script_words_loc_35BAC() -> &'static [u16] {
+    // ASM Cloud.asm loc_35BAC: `lea (unk_35BC4).l,a0` restarts the command
+    // stream before the dispatcher fetches the next big-endian word.
+    &CLOUD_CONTROL_SCRIPT_WORDS_LOC_35BAC
+}
+
 pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;

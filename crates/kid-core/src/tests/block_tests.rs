@@ -2644,6 +2644,15 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_control_script_pointer_loc_35bac_starts_at_unk_35bc4() {
+        assert_eq!(
+            cloud_control_script_words_loc_35BAC(),
+            &[0x7800, 0x0004, 0x1E00, 0x0008, 0xFFFF],
+            "ASM Cloud.asm loc_35BAC loads unk_35BC4 before command dispatch"
+        );
+    }
+
+    #[test]
     fn cloud_flies_horizontally() {
         let mut enemy = ActiveEnemy {
             segment_index: 0,
