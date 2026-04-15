@@ -6990,6 +6990,13 @@ pub(crate) enum TarMonsterCollisionRouteLoc32386 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterBerzerkerCollisionLoc323AA {
+    pub(crate) route: TarMonsterCollisionRouteLoc32386,
+    pub(crate) clears_kid_x_velocity: bool,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -7117,6 +7124,27 @@ pub(crate) fn tar_monster_collision_gate_loc_3237a(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_berzerker_collision_loc_323AA(
+    berzerker_charging: bool,
+) -> TarMonsterBerzerkerCollisionLoc323AA {
+    // ASM loc_323AA: side contact only kills while `Berzerker_charging` is
+    // non-zero. That accepted branch clears Kid's `$26(a4)` x velocity before
+    // skipping the collision subroutine return and entering loc_323E6.
+    if berzerker_charging {
+        return TarMonsterBerzerkerCollisionLoc323AA {
+            route: TarMonsterCollisionRouteLoc32386::BerzerkerKill,
+            clears_kid_x_velocity: true,
+        };
+    }
+
+    TarMonsterBerzerkerCollisionLoc323AA {
+        route: TarMonsterCollisionRouteLoc32386::ReturnOnly,
+        clears_kid_x_velocity: false,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_collision_dispatch_loc_32386(
     collision_type: u16,
     berzerker_charging: bool,
@@ -7126,7 +7154,7 @@ pub(crate) fn tar_monster_collision_dispatch_loc_32386(
     // charge flag is set; the charge path also clears Kid's x velocity.
     let route = match collision_type {
         0x001C | 0x002C => TarMonsterCollisionRouteLoc32386::Hurt,
-        0x0020 | 0x0024 if berzerker_charging => TarMonsterCollisionRouteLoc32386::BerzerkerKill,
+        0x0020 | 0x0024 => tar_monster_berzerker_collision_loc_323AA(berzerker_charging).route,
         _ => TarMonsterCollisionRouteLoc32386::ReturnOnly,
     };
     TarMonsterCollisionDispatchLoc32386 {
@@ -9714,6 +9742,26 @@ mod tests {
                 clears_kid_x_velocity: false,
             },
             "ASM Tar_Monster.asm loc_32386 clears even unrecognised non-zero collision ids before returning"
+        );
+    }
+
+    #[test]
+    fn tar_monster_berzerker_collision_loc_323aa_requires_charging_and_clears_kid_x_velocity() {
+        assert_eq!(
+            tar_monster_berzerker_collision_loc_323AA(false),
+            TarMonsterBerzerkerCollisionLoc323AA {
+                route: TarMonsterCollisionRouteLoc32386::ReturnOnly,
+                clears_kid_x_velocity: false,
+            },
+            "ASM Tar_Monster.asm loc_323AA returns when Berzerker_charging is zero"
+        );
+        assert_eq!(
+            tar_monster_berzerker_collision_loc_323AA(true),
+            TarMonsterBerzerkerCollisionLoc323AA {
+                route: TarMonsterCollisionRouteLoc32386::BerzerkerKill,
+                clears_kid_x_velocity: true,
+            },
+            "ASM Tar_Monster.asm loc_323AA clears Kid `$26(a4)` x velocity before jumping to loc_323E6"
         );
     }
 
