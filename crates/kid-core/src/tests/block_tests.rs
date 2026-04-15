@@ -5549,6 +5549,30 @@ mod chunk_04 {
     // --- Robot ---
 
     #[test]
+    fn robot_spawn_loc_3a7ac_faces_toward_kid_and_seeds_hp() {
+        assert_eq!(
+            spawn_facing(EnemyFamily::Robot, 100u32 << 16, 80u32 << 16),
+            Direction::Left,
+            "ASM Robot.asm loc_3A7AC keeps default x_direction=0 when Kid is left"
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Robot, 100u32 << 16, 100u32 << 16),
+            Direction::Right,
+            "ASM Robot.asm loc_3A7AC sets x_direction=$FF when Kid is level or right"
+        );
+        assert_eq!(
+            spawn_hit_points(EnemyFamily::Robot, 0),
+            2,
+            "ASM Robot.asm loc_3A7AC stores enemy_level+2 in current_hp"
+        );
+        assert_eq!(
+            spawn_hit_points(EnemyFamily::Robot, 1),
+            3,
+            "ASM Robot.asm loc_3A7AC keeps raw layout level as the HP tier"
+        );
+    }
+
+    #[test]
     fn robot_walks_then_shoots_and_charges_on_timer() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
