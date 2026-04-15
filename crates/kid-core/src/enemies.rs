@@ -505,6 +505,35 @@ pub(crate) fn lion_hibernate_tail_loc_3e3a2() -> LionHibernateLoc3E3A2 {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionLoc3E406Branch {
+    ContinueTo3E434,
+    EnterLoc3E3A2,
+    EnterLoc3E48E,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_terrain_gate_loc_3e406(
+    bit0_set: bool,
+    object_meta_low_byte_is_0x10: bool,
+) -> LionLoc3E406Branch {
+    // ASM Lion.asm loc_3E406: when terrain bit 0 is clear, continue into
+    // `loc_3E434`; if terrain bit 0 is set and object_meta low byte is $10,
+    // force the shared charge timeout to $FF88 and reinitialize the walk speed/
+    // animation before jumping to `loc_3E3A2`; otherwise continue to
+    // `loc_3E48E`.
+    if !bit0_set {
+        return LionLoc3E406Branch::ContinueTo3E434;
+    }
+
+    if object_meta_low_byte_is_0x10 {
+        LionLoc3E406Branch::EnterLoc3E3A2
+    } else {
+        LionLoc3E406Branch::EnterLoc3E48E
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -10085,6 +10114,25 @@ mod tests {
                 y_velocity: 0,
             },
             "ASM Lion.asm loc_3E3A2 should force zeroed velocities during the one-frame charge pause before re-entering the locomotion routine pointer"
+        );
+    }
+
+    #[test]
+    fn lion_charge_terrain_gate_matches_loc_3e406() {
+        assert_eq!(
+            lion_charge_terrain_gate_loc_3e406(false, false),
+            LionLoc3E406Branch::ContinueTo3E434,
+            "ASM Lion.asm loc_3E406 should continue to loc_3E434 when terrain bit0 is clear"
+        );
+        assert_eq!(
+            lion_charge_terrain_gate_loc_3e406(true, false),
+            LionLoc3E406Branch::EnterLoc3E48E,
+            "ASM Lion.asm loc_3E406 should route terrain-bit hits to loc_3E48E unless the low object_meta byte equals $10"
+        );
+        assert_eq!(
+            lion_charge_terrain_gate_loc_3e406(true, true),
+            LionLoc3E406Branch::EnterLoc3E3A2,
+            "ASM Lion.asm loc_3E406 should force a shared charge reset path into loc_3E3A2 when terrain bit0 is set and object_meta low byte is $10"
         );
     }
 
