@@ -6984,6 +6984,31 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_336aa(
     DripsSurfaceCrawlerMovementPathLoc33650::Loc339C8
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
+pub(crate) enum DripsSurfaceCrawlerMovementPathLoc3371A {
+    Loc339B4,
+    Loc336D0,
+    Loc339AA,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_movement_tail_loc_3371a(
+    tile_flags_331f6_d5: u16,
+    tile_flags_331f6_d6: u16,
+) -> DripsSurfaceCrawlerMovementPathLoc3371A {
+    // ASM Drips.asm loc_3371A: right-facing branch from loc_336D0.
+    // `$331F6` returns `d5` and `d6`, where `$6000` routes to the
+    // collision branch targets and `Loc336D0` loops after `beq.s loc_336D0`.
+    if tile_flags_331f6_d5 == 0x6000 {
+        DripsSurfaceCrawlerMovementPathLoc3371A::Loc339B4
+    } else if tile_flags_331f6_d6 == 0x6000 {
+        DripsSurfaceCrawlerMovementPathLoc3371A::Loc336D0
+    } else {
+        DripsSurfaceCrawlerMovementPathLoc3371A::Loc339AA
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -9334,6 +9359,25 @@ mod tests {
             drips_surface_crawler_movement_tail_loc_336aa(0x1111, 0x1111),
             DripsSurfaceCrawlerMovementPathLoc33650::Loc339C8,
             "ASM Drips.asm loc_336AA falls through to `loc_339C8` for non-matching tile flags"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_movement_tail_matches_loc_3371a() {
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_3371a(0x6000, 0x1111),
+            DripsSurfaceCrawlerMovementPathLoc3371A::Loc339B4,
+            "ASM Drips.asm loc_3371A sends `d5=$6000` to `loc_339B4`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_3371a(0x1111, 0x6000),
+            DripsSurfaceCrawlerMovementPathLoc3371A::Loc336D0,
+            "ASM Drips.asm loc_3371A sends `d6=$6000` to loop `loc_336D0`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_3371a(0x1111, 0x1111),
+            DripsSurfaceCrawlerMovementPathLoc3371A::Loc339AA,
+            "ASM Drips.asm loc_3371A falls through to `loc_339AA` for non-matching tile flags"
         );
     }
 
