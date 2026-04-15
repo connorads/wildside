@@ -5824,6 +5824,8 @@ mod chunk_04 {
 
     #[test]
     fn robot_hit_reaction_loc_3a8fc_decrements_hp_and_restores_child_on_nonlethal_hit() {
+        // ASM Robot.asm loc_3A8FC enters the hit-reaction sequence; the cases
+        // below pin the child offset applied by loc_3A90C within that path.
         assert_eq!(
             robot_hit_reaction_loc_3a8fc(3, false, false),
             RobotHitReactionLoc3A8Fc {
@@ -5832,11 +5834,12 @@ mod chunk_04 {
                 next_parent_collision_type: 0,
                 next_child_collision_type: 0,
                 child_collision_latched: false,
+                transient_child_y_offset_delta_px: 4,
                 child_y_offset_delta_px: 0,
                 child_sprite_update: RobotChildSpriteUpdateLoc3A8Fc::UseHitFrame,
                 replay_jump_sound: true,
             },
-            "ASM Robot.asm loc_3A8FC should lower HP, clear both collision words, undo the child +4px offset, clear the child collision latch, and replay the jump sound on non-lethal active-motion hits"
+            "ASM Robot.asm loc_3A90C should move the child down 4px before lowering HP; non-lethal active-motion hits then clear both collision words, undo the child offset, clear the child collision latch, and replay the jump sound"
         );
         assert_eq!(
             robot_hit_reaction_loc_3a8fc(2, true, true),
@@ -5846,11 +5849,12 @@ mod chunk_04 {
                 next_parent_collision_type: 0,
                 next_child_collision_type: 0,
                 child_collision_latched: false,
+                transient_child_y_offset_delta_px: 4,
                 child_y_offset_delta_px: 0,
                 child_sprite_update: RobotChildSpriteUpdateLoc3A8Fc::KeepCurrent,
                 replay_jump_sound: false,
             },
-            "ASM Robot.asm loc_3A8FC should keep the child sprite when `$4E(a5)` is set and suppress sound while `$19(a3)` is set"
+            "ASM Robot.asm loc_3A90C should still apply the transient child +4px offset when `$4E(a5)` keeps the current child sprite and `$19(a3)` suppresses sound"
         );
         assert_eq!(
             robot_hit_reaction_loc_3a8fc(1, false, false),
@@ -5860,11 +5864,12 @@ mod chunk_04 {
                 next_parent_collision_type: 0x0800,
                 next_child_collision_type: 0x0800,
                 child_collision_latched: true,
+                transient_child_y_offset_delta_px: 4,
                 child_y_offset_delta_px: 4,
                 child_sprite_update: RobotChildSpriteUpdateLoc3A8Fc::UseHitFrame,
                 replay_jump_sound: false,
             },
-            "ASM Robot.asm loc_3A8FC should keep the child +4px offset, leave the child collision latch set, seed $800 collisions, and skip the non-lethal sound path when HP reaches zero"
+            "ASM Robot.asm loc_3A90C should keep the child +4px offset on lethal hits before the charge-entry route seeds $800 collisions and skips the non-lethal sound path"
         );
     }
 

@@ -7221,6 +7221,7 @@ pub(crate) struct RobotHitReactionLoc3A8Fc {
     pub(crate) next_parent_collision_type: u16,
     pub(crate) next_child_collision_type: u16,
     pub(crate) child_collision_latched: bool,
+    pub(crate) transient_child_y_offset_delta_px: i16,
     pub(crate) child_y_offset_delta_px: i16,
     pub(crate) child_sprite_update: RobotChildSpriteUpdateLoc3A8Fc,
     pub(crate) replay_jump_sound: bool,
@@ -7232,8 +7233,9 @@ pub(crate) fn robot_hit_reaction_loc_3a8fc(
     tracking_latch_set: bool,
     motion_suppressed: bool,
 ) -> RobotHitReactionLoc3A8Fc {
-    // ASM Robot.asm loc_3A8FC: latch child collision, optionally select the
-    // hit frame while `$4E(a5)` is clear, move child down 4px, then decrement HP.
+    // ASM Robot.asm loc_3A8FC: latch child collision and optionally select the
+    // hit frame while `$4E(a5)` is clear. loc_3A90C then moves the child down
+    // 4px for the hit animation before decrementing HP.
     let remaining_hp = current_hp.wrapping_sub(1);
     let child_sprite_update = if tracking_latch_set {
         RobotChildSpriteUpdateLoc3A8Fc::KeepCurrent
@@ -7248,6 +7250,7 @@ pub(crate) fn robot_hit_reaction_loc_3a8fc(
             next_parent_collision_type: 0x0800,
             next_child_collision_type: 0x0800,
             child_collision_latched: true,
+            transient_child_y_offset_delta_px: 4,
             child_y_offset_delta_px: 4,
             child_sprite_update,
             replay_jump_sound: false,
@@ -7260,6 +7263,7 @@ pub(crate) fn robot_hit_reaction_loc_3a8fc(
         next_parent_collision_type: 0,
         next_child_collision_type: 0,
         child_collision_latched: false,
+        transient_child_y_offset_delta_px: 4,
         child_y_offset_delta_px: 0,
         child_sprite_update,
         replay_jump_sound: !motion_suppressed,
