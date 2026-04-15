@@ -748,6 +748,19 @@ pub(crate) struct MiniHoppingSkullGroundWaitSetup {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullStoppedWaitSetup {
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) sprite: &'static str,
+    pub(crate) dbf_counter: u16,
+    pub(crate) wait_frames: u8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullGroundWaitCollisionRoute {
     ContinueWait,
     DamageSkull,
@@ -4975,6 +4988,24 @@ pub(crate) fn mini_hopping_skull_left_hop_scream_worker_allocation_loc_3ecfe(
         routine: "sub_3F3F0",
         delay_frames: 15,
     })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_stopped_wait_setup_loc_3f000() -> MiniHoppingSkullStoppedWaitSetup
+{
+    // ASM Mini_Hopping_Skull.asm loc_3EFEC -> loc_3F000: stop motion,
+    // disable animation/collision, choose `LnkTo_unk_C8070`, and seed d1
+    // with `$14`; the following DBF loop waits 21 hibernated frames.
+    MiniHoppingSkullStoppedWaitSetup {
+        is_moved: false,
+        is_animated: false,
+        has_level_collision: false,
+        x_velocity: 0,
+        y_velocity: 0,
+        sprite: "LnkTo_unk_C8070",
+        dbf_counter: 0x0014,
+        wait_frames: 21,
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -12943,6 +12974,24 @@ mod tests {
             ),
             None,
             "ASM Mini_Hopping_Skull.asm loc_3ECFE is skipped by the charging-Berzerker side-contact branch"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_stopped_wait_setup_matches_loc_3f000() {
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_setup_loc_3f000(),
+            MiniHoppingSkullStoppedWaitSetup {
+                is_moved: false,
+                is_animated: false,
+                has_level_collision: false,
+                x_velocity: 0,
+                y_velocity: 0,
+                sprite: "LnkTo_unk_C8070",
+                dbf_counter: 0x0014,
+                wait_frames: 21,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F000 should enter the stopped wait with sprite `LnkTo_unk_C8070` and a `$14` DBF counter"
         );
     }
 
