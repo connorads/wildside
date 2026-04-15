@@ -5851,6 +5851,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_3488a_flip_sentinel_dispatches_next_move() {
+        let mut enemy = test_dragon(0, 100 << 16, 200 << 16);
+        enemy.dragon_phase = DragonFlyingState::Descending;
+        enemy.dragon_descent_index = 13; // ASM unk_34554 sentinel $DD48
+        enemy.dragon_descent_frames = 0;
+        enemy.facing = Direction::Left;
+
+        let mut projectile_slot = None;
+        step_dragon(&mut enemy, None, None, None, &mut projectile_slot);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Dragon_Flying.asm loc_3488A handles $DD48 by flipping x_direction before rereading the dive script"
+        );
+        assert_eq!(
+            enemy.x_velocity,
+            1 << 16,
+            "loc_3488A should continue immediately into the next movement word after the flip sentinel"
+        );
+        assert_eq!(enemy.y_velocity, -3 << 16);
+        assert_eq!(enemy.dragon_descent_index, 14);
+        assert_eq!(
+            enemy.dragon_descent_frames, 5,
+            "the next movement word starts its six-frame run and consumes the current frame"
+        );
+    }
+
+    #[test]
     /// ASM loc_3D02A: walking dragon breath is a stationary animated hitbox
     /// at ±28px from the dragon's mouth. No velocity — stru_3CCC8 plays for
     /// 68 frames (8+10+10+10+10+10+10) then $18(a3) signals completion.

@@ -3999,6 +3999,9 @@ fn step_dragon_descent(
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
 ) {
     loop {
+        // ASM Dragon_Flying.asm loc_3488A reads the next `unk_34554` word:
+        // restart, flip, and fire sentinels are immediate; movement entries
+        // consume frames after velocity setup.
         if enemy.dragon_descent_index as usize >= DRAGON_DIVE_SCRIPT.len() {
             // Shouldn't happen — script ends with RestartScript.
             dragon_restart_script(enemy);
