@@ -2391,6 +2391,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_spawn_loc_3a3d2_seeds_enemy_level_plus_three_hp() {
+        assert_eq!(
+            spawn_hit_points(EnemyFamily::FireDemon, 0),
+            3,
+            "ASM Fire_Demon.asm loc_3A3D2 adds 3 to the raw layout enemy_level"
+        );
+        assert_eq!(
+            spawn_hit_points(EnemyFamily::FireDemon, 2),
+            5,
+            "ASM Fire_Demon.asm loc_3A3D2 stores the adjusted value in current_hp"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_fire_demon_scales_with_hp() {
         assert_eq!(pacer_walk_speed(EnemyFamily::FireDemon, 3), 0x0000_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::FireDemon, 4), 0x0001_0000);

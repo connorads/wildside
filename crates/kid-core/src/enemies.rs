@@ -15137,9 +15137,10 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::EmoRock => 1,
         EnemyFamily::Archer => 1,
         EnemyFamily::Fireball => 1,
-        // Tier 3-4 families: approximate base HP from ASM init routines
-        EnemyFamily::FireDemon => 3, // HP 3-5
-        EnemyFamily::Robot => 2,     // HP 2-3
+        // Fire_Demon.asm loc_3A3D2: copy enemy_level(a3), add 3, store
+        // current_hp in `$44(a3)`.
+        EnemyFamily::FireDemon => 3,
+        EnemyFamily::Robot => 2, // HP 2-3
         EnemyFamily::TarMonster => tar_monster_hit_points_loc_321c6(enemy_level),
         EnemyFamily::Orca => 4, // fixed 4 HP
         EnemyFamily::UFO => 1,
