@@ -9850,6 +9850,9 @@ pub(crate) fn animated_solid_block_negative_sprites_loc_F9CC(
         }
     }
 
+    // ASM loc_FA0C (kid.asm:20754): convert level block coordinates to VDP
+    // sprite-table coordinates with the `$80` sprite origin bias after
+    // subtracting the camera word.
     let screen_y = (input.block_row << 4)
         .wrapping_sub(input.camera_y_word)
         .wrapping_add(0x0080);

@@ -10285,6 +10285,42 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_FA0C (kid.asm:20754): converts the selected block column/row to
+    /// sprite-table coordinates as `(block << 4) - camera + $80` before the
+    /// horizontal strip loop writes any sprites.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_FA0C_converts_visible_strip_to_sprite_coordinates() {
+        let result = crate::level::animated_solid_block_negative_sprites_loc_F9CC(
+            crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                vertical_layout_flag: false,
+                descriptor_flags: 0,
+                block_col: 0x0012,
+                block_row: 0x0009,
+                span_tiles: 1,
+                camera_left_col: 0x0010,
+                camera_top_row: 0x0006,
+                camera_x_word: 0x0108,
+                camera_y_word: 0x006C,
+                sprite_link_word: 0x0020,
+            },
+        );
+
+        assert_eq!(
+            result,
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                    screen_y: 0x00A4,
+                    sprite_link_word: 0x0021,
+                    tile_word: 0x024E,
+                    screen_x: 0x0098,
+                }],
+                next_sprite_link_word: 0x0021,
+            },
+            "ASM loc_FA0C should shift block coordinates to pixels, subtract camera words, and add the $80 sprite-table bias"
+        );
+    }
+
     /// ASM loc_F8CA (kid.asm:20589): computes the remaining loop count from the
     /// source width table plus start column, restores every layout byte, and emits
     /// FG queue entries only for the visible span after the `-8..+camera_right`
