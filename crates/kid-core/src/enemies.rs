@@ -1739,6 +1739,30 @@ pub(crate) fn dragon_descent_collision_outcome_loc_348fc(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonDescentDbfTailLoc34924 {
+    pub(crate) next_d2: u16,
+    pub(crate) loops_to_loc_348fc: bool,
+    pub(crate) advances_descent_script: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_descent_dbf_tail_loc_34924(
+    d2_before_dbf: u16,
+) -> DragonDescentDbfTailLoc34924 {
+    // ASM Dragon_Flying.asm loc_34924: `dbf d2,loc_348FC` decrements the
+    // movement-frame counter, loops while it is not `$FFFF`, then falls through
+    // to the next descent script word.
+    let next_d2 = d2_before_dbf.wrapping_sub(1);
+    let loops_to_loc_348fc = next_d2 != 0xFFFF;
+    DragonDescentDbfTailLoc34924 {
+        next_d2,
+        loops_to_loc_348fc,
+        advances_descent_script: !loops_to_loc_348fc,
+    }
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {
@@ -4266,6 +4290,9 @@ fn step_dragon_descent(
                     // seeds the equivalent DBF counter with `frame_count - 1`.
                     enemy.dragon_descent_frames = frames;
                 }
+                // ASM Dragon_Flying.asm loc_34924 advances the descent script
+                // only after the DBF counter underflows to `$FFFF`; native uses
+                // a direct remaining-frame count for the same hibernated loop.
                 enemy.dragon_descent_frames -= 1;
                 if enemy.dragon_descent_frames == 0 {
                     enemy.dragon_descent_index += 1;

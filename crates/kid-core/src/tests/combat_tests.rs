@@ -5902,6 +5902,28 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34924_descent_dbf_tail_loops_until_ffff() {
+        assert_eq!(
+            dragon_descent_dbf_tail_loc_34924(0x0005),
+            DragonDescentDbfTailLoc34924 {
+                next_d2: 0x0004,
+                loops_to_loc_348fc: true,
+                advances_descent_script: false,
+            },
+            "ASM Dragon_Flying.asm loc_34924 decrements d2 and branches back while the result is not `$FFFF`"
+        );
+        assert_eq!(
+            dragon_descent_dbf_tail_loc_34924(0x0000),
+            DragonDescentDbfTailLoc34924 {
+                next_d2: 0xFFFF,
+                loops_to_loc_348fc: false,
+                advances_descent_script: true,
+            },
+            "ASM Dragon_Flying.asm loc_34924 falls through to the next descent command only after DBF decrements zero to `$FFFF`"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_3488a_flip_sentinel_dispatches_next_move() {
         let mut enemy = test_dragon(0, 100 << 16, 200 << 16);
         enemy.dragon_phase = DragonFlyingState::Descending;
