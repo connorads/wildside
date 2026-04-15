@@ -9843,6 +9843,23 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_337f2(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsSurfaceCrawlerIdleLoopLoc33866 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) loops_forever: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_idle_loop_loc_33866() -> DripsSurfaceCrawlerIdleLoopLoc33866 {
+    // ASM Drips.asm loc_33866: hibernate the surface crawler for one frame,
+    // then branch back to loc_33866 unconditionally.
+    DripsSurfaceCrawlerIdleLoopLoc33866 {
+        hibernates_one_frame: true,
+        loops_forever: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[allow(dead_code)]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33810 {
     GuardExit,
@@ -13523,6 +13540,18 @@ mod tests {
             drips_surface_crawler_movement_tail_loc_337f2(0x7000, 0x1111),
             DripsSurfaceCrawlerMovementPathLoc337F2::FallbackTurn,
             "ASM Drips.asm loc_337F2 falls through to the fallback turn for non-matching tile flags"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_idle_loop_matches_loc_33866() {
+        assert_eq!(
+            drips_surface_crawler_idle_loop_loc_33866(),
+            DripsSurfaceCrawlerIdleLoopLoc33866 {
+                hibernates_one_frame: true,
+                loops_forever: true,
+            },
+            "ASM Drips.asm loc_33866 hibernates one frame and branches back to itself"
         );
     }
 
