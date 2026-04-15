@@ -9860,6 +9860,29 @@ pub(crate) fn drips_surface_crawler_idle_loop_loc_33866() -> DripsSurfaceCrawler
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33878 {
+    DiagonalLoop,
+    SolidTurn,
+    FallbackTurn,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_movement_tail_loc_33878(
+    tile_flags_3330e_d7: u16,
+) -> DripsSurfaceCrawlerMovementPathLoc33878 {
+    // ASM Drips.asm loc_33878: seed `d6=-5`, call loc_3330E, loop to loc_33810
+    // on `$4000`, route `$6000` to loc_33A36, otherwise fall through loc_33A0E.
+    if tile_flags_3330e_d7 == 0x4000 {
+        return DripsSurfaceCrawlerMovementPathLoc33878::DiagonalLoop;
+    }
+    if tile_flags_3330e_d7 == 0x6000 {
+        return DripsSurfaceCrawlerMovementPathLoc33878::SolidTurn;
+    }
+    DripsSurfaceCrawlerMovementPathLoc33878::FallbackTurn
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[allow(dead_code)]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33810 {
     GuardExit,
@@ -9900,13 +9923,17 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_33810(
         }
         return DripsSurfaceCrawlerMovementPathLoc33810::NegativeFallbackTurn;
     }
-    if tile_flags_3330e_d7 == 0x4000 {
-        return DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeCornerLoop;
+    match drips_surface_crawler_movement_tail_loc_33878(tile_flags_3330e_d7) {
+        DripsSurfaceCrawlerMovementPathLoc33878::DiagonalLoop => {
+            DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeCornerLoop
+        }
+        DripsSurfaceCrawlerMovementPathLoc33878::SolidTurn => {
+            DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeSolidTurn
+        }
+        DripsSurfaceCrawlerMovementPathLoc33878::FallbackTurn => {
+            DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeFallbackTurn
+        }
     }
-    if tile_flags_3330e_d7 == 0x6000 {
-        return DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeSolidTurn;
-    }
-    DripsSurfaceCrawlerMovementPathLoc33810::NonNegativeFallbackTurn
 }
 
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
@@ -13552,6 +13579,25 @@ mod tests {
                 loops_forever: true,
             },
             "ASM Drips.asm loc_33866 hibernates one frame and branches back to itself"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_movement_tail_matches_loc_33878() {
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33878(0x4000),
+            DripsSurfaceCrawlerMovementPathLoc33878::DiagonalLoop,
+            "ASM Drips.asm loc_33878 loops to loc_33810 when the `loc_3330E` d7 probe returns `$4000`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33878(0x6000),
+            DripsSurfaceCrawlerMovementPathLoc33878::SolidTurn,
+            "ASM Drips.asm loc_33878 routes d7 `$6000` to loc_33A36"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_33878(0x1111),
+            DripsSurfaceCrawlerMovementPathLoc33878::FallbackTurn,
+            "ASM Drips.asm loc_33878 falls through to loc_33A0E for non-matching d7 flags"
         );
     }
 
