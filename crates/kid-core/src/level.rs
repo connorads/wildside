@@ -9949,6 +9949,9 @@ pub(crate) fn animated_solid_block_vertical_sprites_loc_FA4C(
         }
     }
 
+    // ASM loc_FA84 (kid.asm:20809): convert the fixed column and clipped start
+    // row from block coordinates to sprite-table coordinates, then choose
+    // `$024A` or `$024E` from descriptor bit 0 before the vertical DBF loop.
     let screen_x = (input.block_col << 4)
         .wrapping_sub(input.camera_x_word)
         .wrapping_add(0x0080);

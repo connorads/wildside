@@ -10578,6 +10578,43 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_FA84 (kid.asm:20809): after the visible vertical span is chosen,
+    /// the ROM shifts block coordinates to pixels, subtracts camera words, adds
+    /// the `$80` sprite-table bias, and selects the tile word from bit 0 of the
+    /// descriptor flags.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_FA84_converts_vertical_strip_to_sprite_coordinates_and_tile_word() {
+        let result = crate::level::animated_solid_block_vertical_sprites_loc_FA4C(
+            crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                vertical_layout_flag: true,
+                descriptor_flags: 0,
+                block_col: 0x0013,
+                block_row: 0x0008,
+                span_tiles: 1,
+                camera_left_col: 0x0010,
+                camera_top_row: 0x0006,
+                camera_x_word: 0x0114,
+                camera_y_word: 0x006A,
+                sprite_link_word: 0x0030,
+            },
+        );
+
+        assert_eq!(
+            result,
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                    screen_y: 0x0096,
+                    sprite_link_word: 0x0031,
+                    tile_word: 0x024E,
+                    screen_x: 0x009C,
+                }],
+                next_sprite_link_word: 0x0031,
+            },
+            "ASM loc_FA84 should apply the camera-relative $80 sprite bias before the vertical sprite writer stores the entry"
+        );
+    }
+
     /// ASM loc_F8CA (kid.asm:20589): computes the remaining loop count from the
     /// source width table plus start column, restores every layout byte, and emits
     /// FG queue entries only for the visible span after the `-8..+camera_right`
