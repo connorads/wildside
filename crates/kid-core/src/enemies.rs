@@ -4091,6 +4091,35 @@ pub(crate) fn fireball_floor_ceiling_bounce_loc_32ce4(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FireballSlopeTrailMarkerLoc32D7E {
+    pub(crate) x_px: i16,
+    pub(crate) y_px: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_slope_up_trail_marker_loc_32d7e(
+    probe_x_px: i16,
+    probe_y_px: i16,
+    tile_word: u16,
+) -> Option<FireballSlopeTrailMarkerLoc32D7E> {
+    // ASM Fireball.asm loc_32D7E: read the tile at d7/d6, require collision
+    // nibble `$4000`, then align d6 to the tile row and subtract d7's low nibble.
+    if tile_word & 0x7000 != 0x4000 {
+        return None;
+    }
+
+    let x_fraction = probe_x_px & 0x000F_i16;
+    let aligned_y = probe_y_px & !0x000F_i16;
+    Some(FireballSlopeTrailMarkerLoc32D7E {
+        x_px: probe_x_px.wrapping_add(2),
+        y_px: aligned_y
+            .wrapping_add(0x000F)
+            .wrapping_sub(x_fraction)
+            .wrapping_sub(2),
+    })
+}
+
 pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
     match enemy.family {
         // Fireball.asm `Enemy19_Fireball_Init` indexes `unk_32BA6` with the raw
@@ -15908,6 +15937,24 @@ mod tests {
             "ASM Fireball.asm loc_32CE4 should return without allocation when `Number_of_Fire_Trails` is already five"
         );
         assert!(!full.spawns_fire_trail);
+    }
+
+    #[test]
+    fn fireball_slope_up_trail_marker_loc_32d7e_accepts_only_slope_up_tiles() {
+        assert_eq!(
+            fireball_slope_up_trail_marker_loc_32d7e(0x005B, 0x007A, 0x4000),
+            Some(FireballSlopeTrailMarkerLoc32D7E {
+                x_px: 0x005D,
+                y_px: 0x0072,
+            }),
+            "ASM Fireball.asm loc_32D7E should place the slope-up trail at x+2 and `(y & $FFF0) + $F - (x & $F) - 2`"
+        );
+
+        assert_eq!(
+            fireball_slope_up_trail_marker_loc_32d7e(0x005B, 0x007A, 0x5000),
+            None,
+            "ASM Fireball.asm loc_32D7E should return through loc_32D06 unless the sampled tile collision nibble is exactly `$4000`"
+        );
     }
 
     #[test]
