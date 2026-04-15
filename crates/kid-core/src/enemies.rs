@@ -5452,6 +5452,44 @@ pub(crate) fn ninja_post_threat_route_loc_3d79c(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaResetStealthPacingRouteLoc3D7CA {
+    Loc3E546,
+    Loc3E392,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaResetStealthPacingStateLoc3D7CA {
+    pub(crate) threat_state_4c: i8,
+    pub(crate) animation_script: &'static str,
+    pub(crate) is_animated: bool,
+    pub(crate) walk_speed_override: i32,
+    pub(crate) next: NinjaResetStealthPacingRouteLoc3D7CA,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_reset_stealth_pacing_loc_3d7ca(
+    saved_walk_speed_override_5e: i32,
+    x_direction_right: bool,
+) -> NinjaResetStealthPacingStateLoc3D7CA {
+    // ASM Ninja.asm loc_3D7CA: `sf $4C(a5)`, initialise `stru_3D4EA`,
+    // `st is_animated(a3)`, restore `$5E(a5)` into `$50(a5)`, then dispatch
+    // clear/set x_direction to loc_3E546/loc_3E392.
+    NinjaResetStealthPacingStateLoc3D7CA {
+        threat_state_4c: 0,
+        animation_script: "stru_3D4EA",
+        is_animated: true,
+        walk_speed_override: saved_walk_speed_override_5e,
+        next: if x_direction_right {
+            NinjaResetStealthPacingRouteLoc3D7CA::Loc3E392
+        } else {
+            NinjaResetStealthPacingRouteLoc3D7CA::Loc3E546
+        },
+    }
+}
+
 /// Ninja jump-attack velocities (Ninja.asm lines 384-392).
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
@@ -13172,6 +13210,35 @@ mod tests {
             ninja_post_threat_route_loc_3d79c(-1, false, 0, PlayerForm::TheKid),
             NinjaPostThreatRouteLoc3D79C::ResetStealthPacing,
             "ASM Ninja.asm loc_3D79C should reset negative guard state without a projectile unless Current_Helmet is Red Stealth"
+        );
+    }
+
+    #[test]
+    fn ninja_reset_stealth_pacing_loc_3d7ca_restores_walk_state_and_facing_route() {
+        let left = ninja_reset_stealth_pacing_loc_3d7ca(0x0000_8000, false);
+        assert_eq!(
+            left,
+            NinjaResetStealthPacingStateLoc3D7CA {
+                threat_state_4c: 0,
+                animation_script: "stru_3D4EA",
+                is_animated: true,
+                walk_speed_override: 0x0000_8000,
+                next: NinjaResetStealthPacingRouteLoc3D7CA::Loc3E546,
+            },
+            "ASM Ninja.asm loc_3D7CA should clear `$4C(a5)`, restore `$5E(a5)` into `$50(a5)`, and send clear x_direction to loc_3E546"
+        );
+
+        let right = ninja_reset_stealth_pacing_loc_3d7ca(0x0001_0000, true);
+        assert_eq!(
+            right,
+            NinjaResetStealthPacingStateLoc3D7CA {
+                threat_state_4c: 0,
+                animation_script: "stru_3D4EA",
+                is_animated: true,
+                walk_speed_override: 0x0001_0000,
+                next: NinjaResetStealthPacingRouteLoc3D7CA::Loc3E392,
+            },
+            "ASM Ninja.asm loc_3D7CA should send set x_direction to loc_3E392 after restoring the walk state"
         );
     }
 
