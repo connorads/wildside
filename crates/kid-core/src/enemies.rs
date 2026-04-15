@@ -5758,6 +5758,29 @@ pub(crate) fn hand_velocity_candidate_loc_327e4(hit_points: u8, x_direction_flag
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandInitialMotionLoc327F2 {
+    pub(crate) x_velocity: i32,
+    pub(crate) animation_label: &'static str,
+    pub(crate) has_kid_collision: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_initial_motion_loc_327f2(
+    hit_points: u8,
+    x_direction_flag: bool,
+) -> HandInitialMotionLoc327F2 {
+    // ASM Hand.asm loc_327F2: store d7 into x_vel, initialise `stru_32B6A`,
+    // then clear has_kid_collision before entering the patrol loop.
+    HandInitialMotionLoc327F2 {
+        x_velocity: hand_velocity_candidate_loc_327e4(hit_points, x_direction_flag),
+        animation_label: "stru_32B6A",
+        has_kid_collision: false,
+    }
+}
+
 /// Step a Hand enemy through its walk/detect/jump state machine.
 /// Walking: paces with edge/wall detection. Detects player in 45-degree cone.
 /// Jumping: randomised arc toward player with gravity, lands and resumes walking.
@@ -8739,6 +8762,12 @@ pub(crate) fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
         }
         // Big_Hopping_Skull.asm: move.w #1,x_vel → $10000 FP16.16
         EnemyFamily::BigHoppingSkull => BIG_SKULL_INIT_X_SPEED,
+        // ASM Hand.asm loc_327F2 stores the direction-gated table velocity
+        // into x_vel before the first patrol hibernate.
+        EnemyFamily::Hand => {
+            let hit_points = spawn_hit_points(EnemyFamily::Hand, enemy_level);
+            hand_initial_motion_loc_327f2(hit_points, false).x_velocity
+        }
         _ => 0,
     }
 }
@@ -9272,6 +9301,39 @@ mod tests {
             hand_velocity_candidate_loc_327e4(3, true),
             0x0000_6000,
             "ASM Hand.asm loc_327E4 negates the tier-3 table velocity only when raw x_direction is set"
+        );
+    }
+
+    #[test]
+    fn hand_initial_motion_matches_loc_327f2_store_and_collision_clear() {
+        assert_eq!(
+            hand_initial_motion_loc_327f2(1, false),
+            HandInitialMotionLoc327F2 {
+                x_velocity: -0x0000_3000,
+                animation_label: "stru_32B6A",
+                has_kid_collision: false,
+            },
+            "ASM Hand.asm loc_327F2 stores the prepared d7 velocity, starts `stru_32B6A`, and clears has_kid_collision"
+        );
+        assert_eq!(
+            hand_initial_motion_loc_327f2(2, true).x_velocity,
+            0x0000_4800,
+            "ASM Hand.asm loc_327F2 preserves the direction-gated d7 value when writing x_vel"
+        );
+        assert_eq!(
+            spawn_x_velocity(EnemyFamily::Hand, 0),
+            -0x0000_3000,
+            "native Hand spawn x_velocity should expose the ASM Hand.asm loc_327F2 initial store for tier 1"
+        );
+        assert_eq!(
+            spawn_x_velocity(EnemyFamily::Hand, 1),
+            -0x0000_4800,
+            "native Hand spawn x_velocity should expose the ASM Hand.asm loc_327F2 initial store for tier 2"
+        );
+        assert_eq!(
+            spawn_x_velocity(EnemyFamily::Hand, 2),
+            -0x0000_6000,
+            "native Hand spawn x_velocity should expose the ASM Hand.asm loc_327F2 initial store for tier 3"
         );
     }
 
