@@ -2653,6 +2653,27 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_control_script_dispatch_loc_35bb2_decodes_wait_flags_and_restart() {
+        let dispatches: Vec<_> = cloud_control_script_words_loc_35BAC()
+            .iter()
+            .copied()
+            .map(cloud_control_script_dispatch_loc_35BB2)
+            .collect();
+
+        assert_eq!(
+            dispatches,
+            vec![
+                CloudControlDispatchLoc35BB2::Wait { frames: 0x78 },
+                CloudControlDispatchLoc35BB2::SetStatus44,
+                CloudControlDispatchLoc35BB2::Wait { frames: 0x1E },
+                CloudControlDispatchLoc35BB2::ClearStatus44,
+                CloudControlDispatchLoc35BB2::RestartScript,
+            ],
+            "ASM Cloud.asm loc_35BB2 dispatches by command low byte and loops on the negative sentinel"
+        );
+    }
+
+    #[test]
     fn cloud_flies_horizontally() {
         let mut enemy = ActiveEnemy {
             segment_index: 0,

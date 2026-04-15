@@ -3156,6 +3156,38 @@ pub(crate) fn cloud_control_script_words_loc_35BAC() -> &'static [u16] {
     &CLOUD_CONTROL_SCRIPT_WORDS_LOC_35BAC
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CloudControlDispatchLoc35BB2 {
+    Wait { frames: u8 },
+    SetStatus44,
+    ClearStatus44,
+    PlayTransitionAnimation,
+    RestartScript,
+    Unknown { table_offset: u8 },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_control_script_dispatch_loc_35BB2(
+    command_word: u16,
+) -> CloudControlDispatchLoc35BB2 {
+    // ASM Cloud.asm loc_35BB2: `move.w (a0)+,d0; bmi.s ...; move.b d0,d7`
+    // uses the low byte as a longword-table offset while wait commands keep
+    // their duration in the high byte for the wait loop.
+    if command_word & 0x8000 != 0 {
+        return CloudControlDispatchLoc35BB2::RestartScript;
+    }
+
+    let [frames, table_offset] = command_word.to_be_bytes();
+    match table_offset {
+        0x00 => CloudControlDispatchLoc35BB2::Wait { frames },
+        0x04 => CloudControlDispatchLoc35BB2::SetStatus44,
+        0x08 => CloudControlDispatchLoc35BB2::ClearStatus44,
+        0x0C => CloudControlDispatchLoc35BB2::PlayTransitionAnimation,
+        _ => CloudControlDispatchLoc35BB2::Unknown { table_offset },
+    }
+}
+
 pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
