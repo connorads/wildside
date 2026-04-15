@@ -10385,7 +10385,7 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
         // Drips always start facing right (Drip.asm init)
         EnemyFamily::Drips => Direction::Right,
         // ASM Armadillo.asm loc_3C718, Dragon.asm loc_3CD70, Tank.asm loc_3B2E4,
-        // and Robot.asm loc_3A7AC: face TOWARD the player at spawn.
+        // Robot.asm loc_3A7AC, and Scorpion.asm loc_3DBD8: face TOWARD the player at spawn.
         // `move.w x_pos(a4),d4; cmp.w x_pos(a3),d4; blt.s loc_3CD82; st x_direction(a3)`
         // x_direction=0 → LEFT (default VRAM orientation), x_direction=$FF → RIGHT (flipped).
         // kid.x >= dragon.x → st x_direction → $FF → faces RIGHT (toward kid on the right).
@@ -11069,6 +11069,24 @@ mod tests {
         );
         assert_eq!(
             spawn_facing(EnemyFamily::Armadillo, 100 << 16, 120 << 16),
+            Direction::Right
+        );
+    }
+
+    #[test]
+    fn scorpion_spawn_faces_toward_player_per_loc_3dbd8() {
+        // ASM Scorpion.asm loc_3DBD8 is the common init tail reached after
+        // `cmp.w x_pos(a3),d4; blt.s loc_3DBD8; st x_direction(a3)`.
+        assert_eq!(
+            spawn_facing(EnemyFamily::Scorpion, 100 << 16, 80 << 16),
+            Direction::Left
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Scorpion, 100 << 16, 100 << 16),
+            Direction::Right
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Scorpion, 100 << 16, 120 << 16),
             Direction::Right
         );
     }
