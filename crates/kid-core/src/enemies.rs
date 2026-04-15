@@ -5832,6 +5832,55 @@ pub(crate) fn ninja_collision_resume_loc_3d638(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaAirborneCollisionRouteLoc3D878 {
+    Resume { next: NinjaCollisionResumeLoc3D638 },
+    To3DB4E,
+    To3D8BC,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaAirborneCollisionStateLoc3D878 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) route: NinjaAirborneCollisionRouteLoc3D878,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_airborne_collision_dispatch_loc_3d878(
+    collision_type: i16,
+    x_direction_right: bool,
+    player_form: PlayerForm,
+    kid_sprite_allows_berzerker_knockdown: bool,
+) -> NinjaAirborneCollisionStateLoc3D878 {
+    // ASM Ninja.asm loc_3D878: capture and clear `collision_type(a3)`. Side
+    // contact only enters loc_3D8BC when Current_Helmet is Berzerker and Kid's
+    // `addroffset_sprite` is not after `LnkTo_unk_ADFC8`; otherwise loc_3D89C
+    // resumes by x_direction.
+    let resume = NinjaAirborneCollisionRouteLoc3D878::Resume {
+        next: ninja_collision_resume_loc_3d638(false, x_direction_right),
+    };
+    let route = match collision_type {
+        0 => resume,
+        v if v < 0 => NinjaAirborneCollisionRouteLoc3D878::To3DB4E,
+        v if v == NINJA_COLID_KIDABOVE as i16 => NinjaAirborneCollisionRouteLoc3D878::To3D8BC,
+        v if v == NINJA_COLID_KIDRIGHT as i16 || v == NINJA_COLID_KIDLEFT as i16 => {
+            if player_form == PlayerForm::Berzerker && kid_sprite_allows_berzerker_knockdown {
+                NinjaAirborneCollisionRouteLoc3D878::To3D8BC
+            } else {
+                resume
+            }
+        }
+        _ => resume,
+    };
+
+    NinjaAirborneCollisionStateLoc3D878 {
+        next_collision_type: 0,
+        route,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionLoc3D606 {
     /// ASM Ninja.asm loc_3D6DA: no collision, so jump to stealth/attack gate.
     To3D6DA,
@@ -14030,6 +14079,89 @@ mod tests {
                 next: NinjaThreatPoseRoute::Loc3D79C,
             },
             "ASM Ninja.asm loc_3D84E should set x_direction for non-negative d4 before loc_3D79C"
+        );
+    }
+
+    #[test]
+    fn ninja_airborne_collision_dispatch_loc_3d878_clears_and_routes_collision_types() {
+        assert_eq!(
+            ninja_airborne_collision_dispatch_loc_3d878(0, false, PlayerForm::TheKid, true),
+            NinjaAirborneCollisionStateLoc3D878 {
+                next_collision_type: 0,
+                route: NinjaAirborneCollisionRouteLoc3D878::Resume {
+                    next: NinjaCollisionResumeLoc3D638::Loc3E7CA,
+                },
+            },
+            "ASM Ninja.asm loc_3D878 should clear collision_type and route zero through loc_3D89C by x_direction"
+        );
+
+        assert_eq!(
+            ninja_airborne_collision_dispatch_loc_3d878(-1, true, PlayerForm::TheKid, true),
+            NinjaAirborneCollisionStateLoc3D878 {
+                next_collision_type: 0,
+                route: NinjaAirborneCollisionRouteLoc3D878::To3DB4E,
+            },
+            "ASM Ninja.asm loc_3D878 should send negative collision IDs to loc_3DB4E"
+        );
+
+        assert_eq!(
+            ninja_airborne_collision_dispatch_loc_3d878(
+                NINJA_COLID_KIDABOVE as i16,
+                true,
+                PlayerForm::TheKid,
+                false
+            ),
+            NinjaAirborneCollisionStateLoc3D878 {
+                next_collision_type: 0,
+                route: NinjaAirborneCollisionRouteLoc3D878::To3D8BC,
+            },
+            "ASM Ninja.asm loc_3D878 should send colid_kidabove directly to loc_3D8BC"
+        );
+
+        assert_eq!(
+            ninja_airborne_collision_dispatch_loc_3d878(
+                NINJA_COLID_KIDRIGHT as i16,
+                true,
+                PlayerForm::TheKid,
+                true
+            ),
+            NinjaAirborneCollisionStateLoc3D878 {
+                next_collision_type: 0,
+                route: NinjaAirborneCollisionRouteLoc3D878::Resume {
+                    next: NinjaCollisionResumeLoc3D638::Loc3E6AE,
+                },
+            },
+            "ASM Ninja.asm loc_3D8A8 should require Current_Helmet == Berzerker before side contact can reach loc_3D8BC"
+        );
+
+        assert_eq!(
+            ninja_airborne_collision_dispatch_loc_3d878(
+                NINJA_COLID_KIDLEFT as i16,
+                false,
+                PlayerForm::Berzerker,
+                false
+            ),
+            NinjaAirborneCollisionStateLoc3D878 {
+                next_collision_type: 0,
+                route: NinjaAirborneCollisionRouteLoc3D878::Resume {
+                    next: NinjaCollisionResumeLoc3D638::Loc3E7CA,
+                },
+            },
+            "ASM Ninja.asm loc_3D8A8 should fall back to loc_3D89C when Kid's sprite offset is after LnkTo_unk_ADFC8"
+        );
+
+        assert_eq!(
+            ninja_airborne_collision_dispatch_loc_3d878(
+                NINJA_COLID_KIDLEFT as i16,
+                false,
+                PlayerForm::Berzerker,
+                true
+            ),
+            NinjaAirborneCollisionStateLoc3D878 {
+                next_collision_type: 0,
+                route: NinjaAirborneCollisionRouteLoc3D878::To3D8BC,
+            },
+            "ASM Ninja.asm loc_3D878 should allow Berzerker side contact through to loc_3D8BC when the Kid sprite threshold passes"
         );
     }
 
