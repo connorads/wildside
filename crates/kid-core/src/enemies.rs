@@ -2811,6 +2811,34 @@ pub(crate) fn ufo_hurt_tail_loc_35174(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverSpawnLoc35180 {
+    pub(crate) allocation_selector: u16,
+    pub(crate) driver_routine: &'static str,
+    pub(crate) driver_flag_46: i16,
+    pub(crate) driver_x_velocity: i32,
+    pub(crate) parent_moved: bool,
+    pub(crate) parent_y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_spawn_loc_35180(
+    parent_x_velocity: i32,
+) -> UfoHurtDriverSpawnLoc35180 {
+    // ASM UFO.asm loc_35180: allocate `$6000` object slot and install `loc_355E2`,
+    // set `$46(a0)=$FFFF`, copy parent `x_vel(a3)` into child `current_hp` (word write),
+    // clear parent `$13(a1)`, set is_moved(parent), and force parent `$2A(a3)=$30000`.
+    UfoHurtDriverSpawnLoc35180 {
+        allocation_selector: 0x6000,
+        driver_routine: "loc_355E2",
+        driver_flag_46: -1,
+        driver_x_velocity: parent_x_velocity,
+        parent_moved: true,
+        parent_y_velocity: 0x0003_0000,
+    }
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -8801,6 +8829,35 @@ mod tests {
                 parent_animation_flag_13_cleared: true,
             },
             "ASM UFO.asm loc_35174 leaves `Some_UFO_Shooting` untouched when `$46(a5)` is already clear"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_driver_spawn_matches_loc_35180() {
+        assert_eq!(
+            ufo_hurt_driver_spawn_loc_35180(0x00C0_0000),
+            UfoHurtDriverSpawnLoc35180 {
+                allocation_selector: 0x6000,
+                driver_routine: "loc_355E2",
+                driver_flag_46: -1,
+                driver_x_velocity: 0x00C0_0000,
+                parent_moved: true,
+                parent_y_velocity: 0x0003_0000,
+            },
+            "ASM UFO.asm loc_35180 allocates `$6000` driver, sets `$46=$FFFF`, copies parent x_vel and sets parent y_vel"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_spawn_loc_35180(-0x0080_0000),
+            UfoHurtDriverSpawnLoc35180 {
+                allocation_selector: 0x6000,
+                driver_routine: "loc_355E2",
+                driver_flag_46: -1,
+                driver_x_velocity: -0x0080_0000,
+                parent_moved: true,
+                parent_y_velocity: 0x0003_0000,
+            },
+            "ASM UFO.asm loc_35180 applies the same negative parent x_vel path as the hurt tail"
         );
     }
 
