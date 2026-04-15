@@ -5924,6 +5924,18 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34998_writes_respawn_marker_for_positive_slot() {
+        assert_eq!(
+            dragon_flying_respawn_marker_loc_34998(0x07),
+            DragonFlyingRespawnMarkerLoc34998 {
+                index: 0x07,
+                word_value: 0x2168,
+            },
+            "ASM Dragon_Flying.asm loc_34998 doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_3488a_flip_sentinel_dispatches_next_move() {
         let mut enemy = test_dragon(0, 100 << 16, 200 << 16);
         enemy.dragon_phase = DragonFlyingState::Descending;

@@ -2056,6 +2056,26 @@ pub(crate) fn dragon_descent_dbf_tail_loc_34924(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_respawn_marker_loc_34998(
+    object_status_slot: u8,
+) -> DragonFlyingRespawnMarkerLoc34998 {
+    // ASM Dragon_Flying.asm loc_34998: the positive `$42(a5)` byte is doubled
+    // as a word offset into EnemyStatus_Table, then `$2168` is written as the
+    // respawn marker before falling through to loc_349A6.
+    DragonFlyingRespawnMarkerLoc34998 {
+        index: usize::from(object_status_slot),
+        word_value: 0x2168,
+    }
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {
