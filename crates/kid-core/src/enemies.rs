@@ -263,6 +263,7 @@ pub(crate) fn lion_track_kid_negative_delta_facing_loc_3e074(
 
 pub(crate) const LION_COLID_HURT: u16 = 0x001C;
 pub(crate) const LION_COLID_KIDABOVE: u16 = 0x002C;
+pub(crate) const NINJA_COLID_FLOOR: u16 = 0x000C;
 pub(crate) const NINJA_COLID_HURT: u16 = 0x001C;
 pub(crate) const NINJA_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const NINJA_COLID_KIDRIGHT: u16 = 0x0020;
@@ -6650,6 +6651,7 @@ pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
 pub(crate) const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
 pub(crate) const NINJA_GRAVITY: i32 = 0x2800;
 pub(crate) const NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6: i32 = 0x0001_8000;
+pub(crate) const NINJA_KNOCKDOWN_GRAVITY_LOC_3D8E6: i32 = 0x0000_1800;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -6758,6 +6760,67 @@ pub(crate) fn ninja_knockdown_start_loc_3d8d6() -> NinjaKnockdownStartStateLoc3D
         is_moved: true,
         has_level_collision: true,
         next: NinjaKnockdownStartRouteLoc3D8D6::FallthroughLandingLoop,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaKnockdownLandingRouteLoc3D8E6 {
+    Loop,
+    KillPath,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaKnockdownLandingStateLoc3D8E6 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) y_position: u32,
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checked_sub_3e8ba: bool,
+    pub(crate) route: NinjaKnockdownLandingRouteLoc3D8E6,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_knockdown_landing_loop_loc_3d8e6(
+    collision_type: u16,
+    x_velocity: i32,
+    y_velocity: i32,
+    y_position: u32,
+) -> NinjaKnockdownLandingStateLoc3D8E6 {
+    // ASM Ninja.asm loc_3D8E6: clear collision, hibernate one frame, run
+    // `sub_3E8BA`, add `$1800` to y velocity, and loop until `colid_floor`.
+    // On floor contact, clear both velocities/flags and snap the integer Y word
+    // to `((y + $F) & $FFF0)` while clearing sub-pixels.
+    let next_y_velocity = y_velocity.wrapping_add(NINJA_KNOCKDOWN_GRAVITY_LOC_3D8E6);
+    if collision_type == NINJA_COLID_FLOOR {
+        let snapped_y_position = (((y_position >> 16).wrapping_add(0x0F)) & 0x0000_FFF0) << 16;
+        NinjaKnockdownLandingStateLoc3D8E6 {
+            next_collision_type: 0,
+            x_velocity: 0,
+            y_velocity: 0,
+            y_position: snapped_y_position,
+            is_moved: false,
+            has_level_collision: false,
+            hibernates_one_frame: true,
+            checked_sub_3e8ba: true,
+            route: NinjaKnockdownLandingRouteLoc3D8E6::KillPath,
+        }
+    } else {
+        NinjaKnockdownLandingStateLoc3D8E6 {
+            next_collision_type: 0,
+            x_velocity,
+            y_velocity: next_y_velocity,
+            y_position,
+            is_moved: true,
+            has_level_collision: true,
+            hibernates_one_frame: true,
+            checked_sub_3e8ba: true,
+            route: NinjaKnockdownLandingRouteLoc3D8E6::Loop,
+        }
     }
 }
 
@@ -16775,6 +16838,46 @@ mod tests {
                 next: NinjaKnockdownStartRouteLoc3D8D6::FallthroughLandingLoop,
             },
             "ASM Ninja.asm loc_3D8D6 should start the HP-depleted knockdown fall before the floor-contact wait"
+        );
+    }
+
+    #[test]
+    fn ninja_knockdown_landing_loop_loc_3d8e6_waits_for_floor_then_snaps_y() {
+        assert_eq!(
+            ninja_knockdown_landing_loop_loc_3d8e6(0, 0x0000_4000, 0x0001_8000, 0x0031_8000),
+            NinjaKnockdownLandingStateLoc3D8E6 {
+                next_collision_type: 0,
+                x_velocity: 0x0000_4000,
+                y_velocity: 0x0001_9800,
+                y_position: 0x0031_8000,
+                is_moved: true,
+                has_level_collision: true,
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                route: NinjaKnockdownLandingRouteLoc3D8E6::Loop,
+            },
+            "ASM Ninja.asm loc_3D8E6 should clear collision_type, add $1800 to y_vel, and loop while collision is not floor"
+        );
+
+        assert_eq!(
+            ninja_knockdown_landing_loop_loc_3d8e6(
+                NINJA_COLID_FLOOR,
+                0x0000_4000,
+                0x0001_8000,
+                0x0031_8000,
+            ),
+            NinjaKnockdownLandingStateLoc3D8E6 {
+                next_collision_type: 0,
+                x_velocity: 0,
+                y_velocity: 0,
+                y_position: 0x0040_0000,
+                is_moved: false,
+                has_level_collision: false,
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                route: NinjaKnockdownLandingRouteLoc3D8E6::KillPath,
+            },
+            "ASM Ninja.asm loc_3D8E6 should clear motion/flags and snap y_pos to ((integer_y + $F) & $FFF0) on floor contact"
         );
     }
 
