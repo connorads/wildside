@@ -2975,6 +2975,26 @@ pub(crate) struct UfoBeamSpawnLoc351EE {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_beam_segment_spawn_loc_351f2(
+    parent_x_velocity: i32,
+    raw_x_velocity: i16,
+    raw_y_velocity: i16,
+) -> Option<UfoBeamSpawnLoc351EE> {
+    // ASM UFO.asm loc_351F2: allocate selector `$8000`, install `loc_354DA`,
+    // stop on a zero x-word, then convert table words with `swap; asr.l #1`.
+    if raw_x_velocity == 0 {
+        return None;
+    }
+
+    Some(UfoBeamSpawnLoc351EE {
+        allocation_selector: 0x8000,
+        beam_routine: "loc_354DA",
+        beam_x_velocity: (i32::from(raw_x_velocity) << 15).wrapping_add(parent_x_velocity >> 1),
+        beam_y_velocity: i32::from(raw_y_velocity) << 15,
+    })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_spawn_loc_351ee(
     parent_x_velocity: i32,
     beam_velocity_pairs: &[(i16, i16)],
@@ -2983,21 +3003,12 @@ pub(crate) fn ufo_beam_spawn_loc_351ee(
     // `loc_354DA` beams from paired table entries until the first x-word sentinel 0.
     let mut spawns = Vec::new();
     for (raw_x_vel, raw_y_vel) in beam_velocity_pairs {
-        if *raw_x_vel == 0 {
+        let Some(spawn) =
+            ufo_beam_segment_spawn_loc_351f2(parent_x_velocity, *raw_x_vel, *raw_y_vel)
+        else {
             break;
-        }
-
-        let mut x_vel = i32::from(*raw_x_vel) << 15;
-        x_vel += parent_x_velocity >> 1;
-
-        let y_vel = i32::from(*raw_y_vel) << 15;
-
-        spawns.push(UfoBeamSpawnLoc351EE {
-            allocation_selector: 0x8000,
-            beam_routine: "loc_354DA",
-            beam_x_velocity: x_vel,
-            beam_y_velocity: y_vel,
-        });
+        };
+        spawns.push(spawn);
     }
 
     spawns
@@ -9239,6 +9250,26 @@ mod tests {
                 delete_current_object: true,
             },
             "ASM UFO.asm loc_351B6 deletes current object when `$19(a3)` is set"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_segment_spawn_matches_loc_351f2() {
+        assert_eq!(
+            ufo_beam_segment_spawn_loc_351f2(-0x0003_0000, -5, 4),
+            Some(UfoBeamSpawnLoc351EE {
+                allocation_selector: 0x8000,
+                beam_routine: "loc_354DA",
+                beam_x_velocity: -0x0004_0000,
+                beam_y_velocity: 0x0002_0000,
+            }),
+            "ASM UFO.asm loc_351F2 adds half parent x_vel to the signed table x-word and shifts the y-word independently"
+        );
+
+        assert_eq!(
+            ufo_beam_segment_spawn_loc_351f2(0x0010_0000, 0, -5),
+            None,
+            "ASM UFO.asm loc_351F2 branches to the finish tail before reading the y-word when the x-word sentinel is zero"
         );
     }
 
