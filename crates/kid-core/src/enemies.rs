@@ -3038,7 +3038,7 @@ fn acceleration_for_target(
     base_acceleration: i32,
 ) -> i32 {
     if base_acceleration == 0 {
-        // ASM UFO.asm loc_3545A/loc_35496: zero accel entry means "$C00 toward zero".
+        // ASM UFO.asm loc_35452: zero accel entry means `$C00` toward zero.
         return if current_velocity < 0 {
             TORNADO_ACCELERATION
         } else {
@@ -11252,6 +11252,20 @@ mod tests {
             ),
             None,
             "ASM UFO.asm loc_34E2A rejects UFO X above Kid X + $30"
+        );
+    }
+
+    #[test]
+    fn tornado_pattern_zero_x_acceleration_matches_loc_35452() {
+        assert_eq!(
+            acceleration_for_target(0x0000_1000, 0, 0),
+            -TORNADO_ACCELERATION,
+            "ASM UFO.asm loc_35452 substitutes `$C00` for a zero X acceleration entry and negates it when x_vel is non-negative"
+        );
+        assert_eq!(
+            acceleration_for_target(-0x0000_1000, 0, 0),
+            TORNADO_ACCELERATION,
+            "ASM UFO.asm loc_35452 keeps the substituted `$C00` positive when x_vel is negative"
         );
     }
 
