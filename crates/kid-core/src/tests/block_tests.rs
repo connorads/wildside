@@ -5613,6 +5613,41 @@ mod chunk_04 {
     }
 
     #[test]
+    fn robot_walk_loc_3a884_dispatches_from_x_direction() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut left = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
+        left.robot_state = RobotState::Walking;
+        left.facing = Direction::Left;
+        left.wait_timer = 10;
+        let left_start = left.x_pos;
+
+        step_robot(&mut left, Some(&grid), None, &mut None);
+
+        assert_eq!(
+            left.x_velocity,
+            -robot_walk_speed(2),
+            "ASM Robot.asm loc_3A884 x_direction=0 branches to the leftward shared walker"
+        );
+        assert!(left.x_pos < left_start);
+
+        let mut right = test_enemy(EnemyFamily::Robot, 60 << 16, floor_y, 2);
+        right.robot_state = RobotState::Walking;
+        right.facing = Direction::Right;
+        right.wait_timer = 10;
+        let right_start = right.x_pos;
+
+        step_robot(&mut right, Some(&grid), None, &mut None);
+
+        assert_eq!(
+            right.x_velocity,
+            robot_walk_speed(2),
+            "ASM Robot.asm loc_3A884 x_direction=$FF branches to the rightward shared walker"
+        );
+        assert!(right.x_pos > right_start);
+    }
+
+    #[test]
     fn robot_charge_flips_direction_on_timer() {
         // ASM: charge is permanent — timer expiry flips direction, stays charging
         let grid = grid_with_platform(17, 0, 120);

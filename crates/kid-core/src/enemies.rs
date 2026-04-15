@@ -6419,7 +6419,8 @@ pub(crate) fn step_robot_with_rng(
     match enemy.robot_state {
         RobotState::Walking => {
             let walk_speed = robot_walk_speed(enemy.hit_points);
-            // Walk like a pacer with robot-specific speed
+            // ASM Robot.asm loc_3A884 enters the shared walker left/right branch
+            // from x_direction; native `facing` is that decoded branch choice.
             if let Some(grid) = block_grid {
                 enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
                 enemy.y_velocity = 0;
