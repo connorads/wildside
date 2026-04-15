@@ -5524,7 +5524,11 @@ pub(crate) fn tar_monster_init_loc_321e4(
         priority: 0,
         object_meta: 5,
         x_pos: base.x_pos,
-        y_pos: spawn_y_pos_sub_36FF4(EnemyFamily::TarMonster, u32::from(queued_y_word), blank_top_rows),
+        y_pos: spawn_y_pos_sub_36FF4(
+            EnemyFamily::TarMonster,
+            u32::from(queued_y_word),
+            blank_top_rows,
+        ),
     }
 }
 
