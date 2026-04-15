@@ -6104,6 +6104,7 @@ pub(crate) fn hand_initial_motion_loc_327f2(
 pub(crate) enum HandPatrolDecision {
     ContinuePatrol,
     JumpAttack,
+    ReverseDirection,
 }
 
 #[allow(non_snake_case)]
@@ -6123,6 +6124,10 @@ pub(crate) fn hand_patrol_decision_loc_32804(
         }
     } else if probe_d7 != 0 {
         HandPatrolDecision::ContinuePatrol
+    } else if probe_d6 != 0 {
+        // ASM Hand.asm loc_32832: positive x_vel reaches the reversal branch
+        // when d7 is clear and d6 remains non-zero.
+        HandPatrolDecision::ReverseDirection
     } else {
         HandPatrolDecision::JumpAttack
     }
