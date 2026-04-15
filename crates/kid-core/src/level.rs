@@ -1005,6 +1005,15 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueTailLocF934 {
     pub(crate) continue_loop: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
+    pub(crate) layout_writes: Vec<(u32, u16)>,
+    pub(crate) final_layout_addr: u32,
+    pub(crate) final_remaining_count: u16,
+    pub(crate) continue_loop: bool,
+}
+
 /// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
 /// upper byte.
 #[allow(non_snake_case)]
@@ -9464,6 +9473,54 @@ pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F90A(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_layout_word_loc_F93E(source_cell: u8) -> u16 {
+    // ASM loc_F93E (kid.asm:20646): restore a single layout byte into the
+    // layout table slot and return it as the queued shortword.
+    u16::from(source_cell)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_skip_rows_loc_F93C(
+    source_cells: &[u8],
+    source_cells_start: usize,
+    layout_queue_base_addr: u32,
+    remaining_count: u16,
+) -> AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
+    // ASM loc_F93C (kid.asm:20643): when the current row is outside the VDP
+    // cull window, emit only restore bytes for the remaining row cells and
+    // skip all FG queue emission.
+    let mut source_cells_index = source_cells_start;
+    let mut dbf_counter = remaining_count;
+    let mut layout_addr = layout_queue_base_addr;
+    let mut layout_writes = Vec::with_capacity(usize::from(remaining_count));
+
+    loop {
+        let source_cell = source_cells.get(source_cells_index).copied().unwrap_or(0);
+        layout_writes.push((
+            layout_addr,
+            animated_solid_block_horizontal_queue_layout_word_loc_F93E(source_cell),
+        ));
+
+        source_cells_index = source_cells_index.wrapping_add(1);
+        layout_addr = layout_addr.wrapping_add(2);
+        dbf_counter = dbf_counter.wrapping_sub(1);
+
+        if dbf_counter == 0xFFFF {
+            break;
+        }
+    }
+
+    AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
+        layout_writes,
+        final_layout_addr: layout_addr,
+        final_remaining_count: dbf_counter,
+        continue_loop: false,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_loop_tail_loc_F934(
     source_cell_col: u16,
     remaining_count: u16,
@@ -9475,6 +9532,20 @@ pub(crate) fn animated_solid_block_horizontal_queue_loop_tail_loc_F934(
         next_col: source_cell_col.wrapping_add(1),
         next_remaining_count,
         continue_loop: next_remaining_count != 0xFFFF,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F946(
+    swapped_d6: u32,
+    swapped_d7: u32,
+) -> AnimatedSolidBlockTailLocF836 {
+    // ASM loc_F946 (kid.asm:20651): restore `d6` and `d7` after completing the
+    // horizontal queue pass, then jump to the shared scan tail.
+    AnimatedSolidBlockTailLocF836 {
+        restored_d6: swapped_d6.rotate_left(16),
+        restored_d7: swapped_d7.rotate_left(16),
     }
 }
 

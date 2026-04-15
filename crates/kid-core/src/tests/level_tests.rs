@@ -9833,6 +9833,82 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F93E (kid.asm:20646): always writes the source layout byte as a
+    /// queue shortword, even when no FG queue work is performed.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F93E_always_writes_layout_bytes_for_skipped_rows() {
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_layout_word_loc_F93E(0xA5),
+            0x00A5,
+            "ASM loc_F93E should mirror the source byte into the restored layout word"
+        );
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_layout_word_loc_F93E(0x00),
+            0x0000,
+            "ASM loc_F93E should mirror zero byte values"
+        );
+    }
+
+    /// ASM loc_F93C (kid.asm:20643): when a row is fully culled from FG queue
+    /// work, the ROM still restores every source layout byte and terminates via
+    /// the same DBF end condition.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F93C_restores_layout_bytes_until_dbf_expires() {
+        let source_cells = vec![0x01, 0x5B, 0xA5, 0xE8];
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_skip_rows_loc_F93C(
+                &source_cells,
+                1,
+                0x0400,
+                0x0003,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
+                layout_writes: vec![(0x0400, 0x005B), (0x0402, 0x00A5), (0x0404, 0x00E8)],
+                final_layout_addr: 0x0406,
+                final_remaining_count: 0xFFFF,
+                continue_loop: false,
+            },
+            "ASM loc_F93C should continue copying with DBF-style decrement and stop when DBF wraps"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_skip_rows_loc_F93C(
+                &source_cells,
+                0,
+                0x0100,
+                0x0000,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
+                layout_writes: vec![(0x0100, 0x0001)],
+                final_layout_addr: 0x0102,
+                final_remaining_count: 0xFFFF,
+                continue_loop: false,
+            },
+            "ASM loc_F93C must execute exactly one iteration for a DBF counter start of zero"
+        );
+    }
+
+    /// ASM loc_F946 (kid.asm:20651): restores the swapped row/col scan registers
+    /// before jumping to the shared scan tail.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F946_restores_swapped_scan_registers() {
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_tail_loc_F946(
+                0xAAAA_BBBB,
+                0xCCCC_DDDD
+            ),
+            crate::level::AnimatedSolidBlockTailLocF836 {
+                restored_d6: 0xBBBB_AAAA,
+                restored_d7: 0xDDDD_CCCC,
+            },
+            "ASM loc_F946 should swap back the register halves by the same amount as `swap`"
+        );
+    }
+
     /// ASM loc_F8CA (kid.asm:20589): computes the remaining loop count from the
     /// source width table plus start column, restores every layout byte, and emits
     /// FG queue entries only for the visible span after the `-8..+camera_right`
