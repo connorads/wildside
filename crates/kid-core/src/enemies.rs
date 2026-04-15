@@ -5498,6 +5498,36 @@ pub(crate) fn tar_monster_init_loc_321c6(
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterInitLoc321E4 {
+    pub(crate) hit_points: u8,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_init_loc_321e4(
+    queued_x_word: u16,
+    queued_y_word: u16,
+    enemy_level: u8,
+    blank_top_rows: u16,
+) -> TarMonsterInitLoc321E4 {
+    // ASM loc_321E4 calls sub_36FF4, sets object priority and object_meta to 5,
+    // then runs the shared setup path (loc_32146) before storing `a3` in `$3A(a5)`.
+    let base = tar_monster_init_loc_321c6(queued_x_word, queued_y_word, enemy_level);
+    TarMonsterInitLoc321E4 {
+        hit_points: base.hit_points,
+        priority: 0,
+        object_meta: 5,
+        x_pos: base.x_pos,
+        y_pos: spawn_y_pos_sub_36FF4(EnemyFamily::TarMonster, u32::from(queued_y_word), blank_top_rows),
+    }
+}
+
 /// Step a TarMonster through its bytecode-driven emerge/attack/submerge cycle.
 /// ASM: Tar_Monster.asm, jump table off_32290.
 /// Submerged → Emerging → Visible → Attacking → Submerging → Submerged (loop).
@@ -7631,6 +7661,23 @@ mod tests {
                 hit_points: 6,
                 x_pos: 0x003F << 16,
                 y_pos: 0x0010 << 16,
+            }
+        );
+    }
+
+    #[test]
+    fn tar_monster_init_loc_321e4_calls_36ff4_and_forwards_meta() {
+        // ASM loc_321E4 applies the blank-row Y adjustment via sub_36FF4,
+        // clears priority, and writes object_meta to 5.
+        let init = tar_monster_init_loc_321e4(0x0120, 0x0080, 0, 2);
+        assert_eq!(
+            init,
+            TarMonsterInitLoc321E4 {
+                hit_points: 2,
+                priority: 0,
+                object_meta: 5,
+                x_pos: 0x0120 << 16,
+                y_pos: 0x0080_u32.saturating_add(2 * 16) << 16,
             }
         );
     }
