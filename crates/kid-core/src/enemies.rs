@@ -6651,6 +6651,22 @@ pub(crate) enum TarMonsterCollisionGateLoc3237A {
     NonZero { captured_collision_type: u16 },
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterCollisionRouteLoc32386 {
+    ReturnOnly,
+    Hurt,
+    BerzerkerKill,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) route: TarMonsterCollisionRouteLoc32386,
+    pub(crate) clears_kid_x_velocity: bool,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_loc_32248() -> &'static [u8] {
     // ASM loc_32248: `lea (unk_32264).l,a0` loads this control script pointer.
@@ -6767,6 +6783,27 @@ pub(crate) fn tar_monster_collision_gate_loc_3237a(
     }
     TarMonsterCollisionGateLoc3237A::NonZero {
         captured_collision_type: collision_type as u16,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_collision_dispatch_loc_32386(
+    collision_type: u16,
+    berzerker_charging: bool,
+) -> TarMonsterCollisionDispatchLoc32386 {
+    // ASM loc_32386 immediately clears `collision_type(a3)`, then accepts
+    // `$1C/$2C` as ordinary hit ids. `$20/$24` kill only while the Berzerker
+    // charge flag is set; the charge path also clears Kid's x velocity.
+    let route = match collision_type {
+        0x001C | 0x002C => TarMonsterCollisionRouteLoc32386::Hurt,
+        0x0020 | 0x0024 if berzerker_charging => TarMonsterCollisionRouteLoc32386::BerzerkerKill,
+        _ => TarMonsterCollisionRouteLoc32386::ReturnOnly,
+    };
+    TarMonsterCollisionDispatchLoc32386 {
+        next_collision_type: 0,
+        route,
+        clears_kid_x_velocity: matches!(route, TarMonsterCollisionRouteLoc32386::BerzerkerKill),
     }
 }
 
@@ -9300,6 +9337,55 @@ mod tests {
                 captured_collision_type: 0x001C
             },
             "ASM Tar_Monster.asm loc_3237A preserves the non-zero collision id in d7 for the following dispatch"
+        );
+    }
+
+    #[test]
+    fn tar_monster_collision_dispatch_loc_32386_clears_and_routes_hit_ids() {
+        assert_eq!(
+            tar_monster_collision_dispatch_loc_32386(0x001C, false),
+            TarMonsterCollisionDispatchLoc32386 {
+                next_collision_type: 0,
+                route: TarMonsterCollisionRouteLoc32386::Hurt,
+                clears_kid_x_velocity: false,
+            },
+            "ASM Tar_Monster.asm loc_32386 clears collision_type(a3), then treats $1C as an ordinary hit"
+        );
+        assert_eq!(
+            tar_monster_collision_dispatch_loc_32386(0x002C, false).route,
+            TarMonsterCollisionRouteLoc32386::Hurt,
+            "ASM Tar_Monster.asm loc_32386 accepts $2C through the same ordinary-hit branch"
+        );
+    }
+
+    #[test]
+    fn tar_monster_collision_dispatch_loc_32386_requires_berzerker_charge_for_side_ids() {
+        assert_eq!(
+            tar_monster_collision_dispatch_loc_32386(0x0020, false),
+            TarMonsterCollisionDispatchLoc32386 {
+                next_collision_type: 0,
+                route: TarMonsterCollisionRouteLoc32386::ReturnOnly,
+                clears_kid_x_velocity: false,
+            },
+            "ASM Tar_Monster.asm loc_32386 consumes $20 but ignores it when Berzerker_charging is clear"
+        );
+        assert_eq!(
+            tar_monster_collision_dispatch_loc_32386(0x0024, true),
+            TarMonsterCollisionDispatchLoc32386 {
+                next_collision_type: 0,
+                route: TarMonsterCollisionRouteLoc32386::BerzerkerKill,
+                clears_kid_x_velocity: true,
+            },
+            "ASM Tar_Monster.asm loc_32386 accepts $24 only when Berzerker_charging is set and clears Kid x_vel on that path"
+        );
+        assert_eq!(
+            tar_monster_collision_dispatch_loc_32386(0x0028, true),
+            TarMonsterCollisionDispatchLoc32386 {
+                next_collision_type: 0,
+                route: TarMonsterCollisionRouteLoc32386::ReturnOnly,
+                clears_kid_x_velocity: false,
+            },
+            "ASM Tar_Monster.asm loc_32386 clears even unrecognised non-zero collision ids before returning"
         );
     }
 
