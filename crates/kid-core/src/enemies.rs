@@ -3201,6 +3201,16 @@ pub(crate) fn ufo_linked_cleanup_shooting_loc_352a6(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_linked_cleanup_status_loc_352b2(
+    object_status_slot: u8,
+) -> DeactivationStatusActionLoc3C4C0 {
+    // ASM UFO.asm loc_352B2: read `$42(a5)` into d0, update the corresponding
+    // `EnemyStatus_Table` slot for positive or bit-6 sentinel values, then
+    // delete the current object.
+    deactivation_status_update_loc_3C4C0(object_status_slot)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_linked_object_range_gate_loc_35280(
     range_check_result_nonzero: bool,
 ) -> UfoLinkedObjectRangeGateLoc35280 {
@@ -9818,6 +9828,27 @@ mod tests {
                 global_shooting_flag: false,
             },
             "ASM UFO.asm loc_352A6 clears Some_UFO_Shooting when `$46(a5)` is set"
+        );
+    }
+
+    #[test]
+    fn ufo_linked_cleanup_status_matches_loc_352b2() {
+        assert_eq!(
+            ufo_linked_cleanup_status_loc_352b2(0x05),
+            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+            "ASM UFO.asm loc_352B2 treats positive `$42(a5)` slots as respawn-marker writes"
+        );
+
+        assert_eq!(
+            ufo_linked_cleanup_status_loc_352b2(0xC3),
+            DeactivationStatusActionLoc3C4C0::SubtractSpawnCounter { index: 3 },
+            "ASM UFO.asm loc_352B2 masks bit-7/bit-6 sentinel slots to six bits before subtracting `$400`"
+        );
+
+        assert_eq!(
+            ufo_linked_cleanup_status_loc_352b2(0x82),
+            DeactivationStatusActionLoc3C4C0::DeleteOnly,
+            "ASM UFO.asm loc_352B2 deletes without an EnemyStatus_Table write when bit 7 is set and bit 6 is clear"
         );
     }
 
