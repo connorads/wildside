@@ -5036,6 +5036,24 @@ pub(crate) fn mini_hopping_skull_stopped_wait_collision_loc_3f00a(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_stopped_wait_scream_worker_allocation_loc_3f03c(
+    route: MiniHoppingSkullGroundWaitCollisionRoute,
+) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
+    if route != MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker {
+        return None;
+    }
+
+    // ASM Mini_Hopping_Skull.asm loc_3F03C: swap a0/a4, allocate selector
+    // `$A000`, install `sub_3F3F0` at slot +4, restore a0/a4, then rejoin
+    // the stopped-wait DBF tail.
+    Some(MiniHoppingSkullScreamWorkerAllocation {
+        allocation_selector: 0xA000,
+        routine: "sub_3F3F0",
+        delay_frames: 15,
+    })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26() -> MiniHoppingSkullRelaunchTail
 {
     // ASM Mini_Hopping_Skull.asm loc_3EC26: after loc_3EBFC has seeded the
@@ -13073,6 +13091,35 @@ mod tests {
             mini_hopping_skull_stopped_wait_collision_loc_3f00a(MINI_SKULL_COLID_SLOPEUP, false),
             MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
             "ASM Mini_Hopping_Skull.asm loc_3F00A ignores unrecognised collision IDs during the stopped wait loop"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_stopped_wait_scream_worker_allocation_matches_loc_3f03c() {
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_scream_worker_allocation_loc_3f03c(
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+            ),
+            Some(MiniHoppingSkullScreamWorkerAllocation {
+                allocation_selector: 0xA000,
+                routine: "sub_3F3F0",
+                delay_frames: 15,
+            }),
+            "ASM Mini_Hopping_Skull.asm loc_3F03C should allocate the delayed `sub_3F3F0` contact worker with selector `$A000`"
+        );
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_scream_worker_allocation_loc_3f03c(
+                MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+            ),
+            None,
+            "ASM Mini_Hopping_Skull.asm loc_3F03C is skipped when the stopped-wait collision decrements skull HP"
+        );
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_scream_worker_allocation_loc_3f03c(
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+            ),
+            None,
+            "ASM Mini_Hopping_Skull.asm loc_3F03C is skipped by the charging-Berzerker side-contact branch"
         );
     }
 
