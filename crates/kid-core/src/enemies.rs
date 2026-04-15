@@ -691,6 +691,53 @@ pub(crate) fn lion_left_charge_x_commit_loc_3e6f0(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionLeftChargeVerticalEntryLoc3E6F6 {
+    DownwardOrStationary {
+        candidate_y_position: u32,
+        pixel_delta: i16,
+    },
+    UpwardCollisionCheck {
+        candidate_y_position: u32,
+        upward_pixels: u16,
+        ceiling_clearance_pixels: u16,
+        needs_ceiling_probe: bool,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_vertical_entry_loc_3e6f6(
+    y_position: u32,
+    y_velocity: i32,
+    ceiling_probe_offset: u16,
+) -> LionLeftChargeVerticalEntryLoc3E6F6 {
+    // ASM Lion.asm loc_3E6F6: add `y_vel` to `y_pos`, compare the integer
+    // words, and only run the upward ceiling-clearance path when the signed
+    // word delta is negative.
+    let candidate_y_position = y_position.wrapping_add_signed(y_velocity);
+    let current_y_word = fixed_integer_word(y_position) as u16;
+    let candidate_y_word = fixed_integer_word(candidate_y_position) as u16;
+    let delta_word = candidate_y_word.wrapping_sub(current_y_word);
+    let pixel_delta = i16::from_be_bytes(delta_word.to_be_bytes());
+
+    if pixel_delta >= 0 {
+        return LionLeftChargeVerticalEntryLoc3E6F6::DownwardOrStationary {
+            candidate_y_position,
+            pixel_delta,
+        };
+    }
+
+    let upward_pixels = delta_word.wrapping_neg();
+    let ceiling_clearance_pixels = current_y_word.wrapping_sub(ceiling_probe_offset) & 0x000F;
+    LionLeftChargeVerticalEntryLoc3E6F6::UpwardCollisionCheck {
+        candidate_y_position,
+        upward_pixels,
+        ceiling_clearance_pixels,
+        needs_ceiling_probe: ceiling_clearance_pixels < upward_pixels,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeEntryLoc3E682 {
     pub(crate) left_charge_latch_set: bool,
     pub(crate) restored_sprite_offset: Option<u16>,
@@ -13750,6 +13797,38 @@ mod tests {
                 enters_vertical_motion: true,
             },
             "ASM Lion.asm loc_3E6F0 should commit unobstructed d2 into x_pos before entering vertical motion"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_vertical_entry_matches_loc_3e6f6() {
+        assert_eq!(
+            lion_left_charge_vertical_entry_loc_3e6f6(0x0042_0000, 0x0001_0000, 6),
+            LionLeftChargeVerticalEntryLoc3E6F6::DownwardOrStationary {
+                candidate_y_position: 0x0043_0000,
+                pixel_delta: 1,
+            },
+            "ASM Lion.asm loc_3E6F6 should route non-negative integer Y deltas to the downward/stationary path"
+        );
+        assert_eq!(
+            lion_left_charge_vertical_entry_loc_3e6f6(0x0042_0000, -0x0002_0000, 6),
+            LionLeftChargeVerticalEntryLoc3E6F6::UpwardCollisionCheck {
+                candidate_y_position: 0x0040_0000,
+                upward_pixels: 2,
+                ceiling_clearance_pixels: 12,
+                needs_ceiling_probe: false,
+            },
+            "ASM Lion.asm loc_3E6F6 should skip the ceiling probe when block-grid clearance covers upward movement"
+        );
+        assert_eq!(
+            lion_left_charge_vertical_entry_loc_3e6f6(0x0042_0000, -0x000D_0000, 6),
+            LionLeftChargeVerticalEntryLoc3E6F6::UpwardCollisionCheck {
+                candidate_y_position: 0x0035_0000,
+                upward_pixels: 13,
+                ceiling_clearance_pixels: 12,
+                needs_ceiling_probe: true,
+            },
+            "ASM Lion.asm loc_3E6F6 should request a ceiling probe when upward movement crosses the nibble clearance"
         );
     }
 
