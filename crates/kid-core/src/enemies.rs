@@ -9087,6 +9087,48 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_33730(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
+pub(crate) enum DripsSurfaceCrawlerMovementPathLoc337A0 {
+    GuardExit,
+    NonNegativeYVelocityBranch,
+    SolidD5Turn,
+    Loop,
+    SolidD6Corner,
+    FallbackTurn,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_movement_tail_loc_337a0(
+    has_collision: bool,
+    probe_is_solid: bool,
+    bounds_contact: bool,
+    y_velocity_is_negative: bool,
+    tile_flags_33286_d5: u16,
+    tile_flags_33286_d6: u16,
+) -> DripsSurfaceCrawlerMovementPathLoc337A0 {
+    // ASM Drips.asm loc_337A0: left-side vertical turn routine. The shared
+    // collision, right-probe, and bounds guards all take the animation-exit
+    // path; non-negative y velocity branches to the next label before this
+    // routine interprets `loc_33286` tile flags.
+    if has_collision || !probe_is_solid || bounds_contact {
+        return DripsSurfaceCrawlerMovementPathLoc337A0::GuardExit;
+    }
+    if !y_velocity_is_negative {
+        return DripsSurfaceCrawlerMovementPathLoc337A0::NonNegativeYVelocityBranch;
+    }
+    if tile_flags_33286_d5 == 0x6000 {
+        return DripsSurfaceCrawlerMovementPathLoc337A0::SolidD5Turn;
+    }
+    if tile_flags_33286_d6 == 0x6000 {
+        return DripsSurfaceCrawlerMovementPathLoc337A0::Loop;
+    }
+    if tile_flags_33286_d6 == 0x4000 {
+        return DripsSurfaceCrawlerMovementPathLoc337A0::SolidD6Corner;
+    }
+    DripsSurfaceCrawlerMovementPathLoc337A0::FallbackTurn
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -12288,6 +12330,54 @@ mod tests {
             ),
             DripsSurfaceCrawlerMovementPathLoc33730::Loc339A0,
             "ASM Drips.asm loc_33730 (y_vel<0 branch) falls through to `loc_339A0` for non-matching tile flags"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_movement_tail_matches_loc_337a0() {
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337a0(true, true, false, true, 0x1111, 0x1111),
+            DripsSurfaceCrawlerMovementPathLoc337A0::GuardExit,
+            "ASM Drips.asm loc_337A0 takes the guard exit when loc_33550 reports contact"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337a0(
+                false, false, false, true, 0x1111, 0x1111,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc337A0::GuardExit,
+            "ASM Drips.asm loc_337A0 takes the guard exit when the right `loc_331D2` probe is not `$6000`"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337a0(false, true, true, true, 0x1111, 0x1111,),
+            DripsSurfaceCrawlerMovementPathLoc337A0::GuardExit,
+            "ASM Drips.asm loc_337A0 takes the guard exit when `loc_33588` reports boundary contact"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337a0(
+                false, true, false, false, 0x1111, 0x1111,
+            ),
+            DripsSurfaceCrawlerMovementPathLoc337A0::NonNegativeYVelocityBranch,
+            "ASM Drips.asm loc_337A0 branches to the non-negative y-velocity label when `y_vel(a3)` is non-negative"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337a0(false, true, false, true, 0x6000, 0x1111,),
+            DripsSurfaceCrawlerMovementPathLoc337A0::SolidD5Turn,
+            "ASM Drips.asm loc_337A0 routes `loc_33286`-d5 `$6000` to the solid-d5 turn while y velocity is negative"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337a0(false, true, false, true, 0x1111, 0x6000,),
+            DripsSurfaceCrawlerMovementPathLoc337A0::Loop,
+            "ASM Drips.asm loc_337A0 loops to itself when `loc_33286`-d6 is `$6000` while y velocity is negative"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337a0(false, true, false, true, 0x1111, 0x4000,),
+            DripsSurfaceCrawlerMovementPathLoc337A0::SolidD6Corner,
+            "ASM Drips.asm loc_337A0 routes `loc_33286`-d6 `$4000` to the solid-d6 corner"
+        );
+        assert_eq!(
+            drips_surface_crawler_movement_tail_loc_337a0(false, true, false, true, 0x7000, 0x1111,),
+            DripsSurfaceCrawlerMovementPathLoc337A0::FallbackTurn,
+            "ASM Drips.asm loc_337A0 falls through to the fallback turn for non-matching tile flags"
         );
     }
 
