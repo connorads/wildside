@@ -5464,6 +5464,40 @@ pub(crate) const TAR_MONSTER_GLOB_SPEED_X: i32 = 4 << 16;
 /// Glob gravity: $1000/frame (Tar_Monster.asm line 412).
 pub(crate) const TAR_MONSTER_GLOB_GRAVITY: i32 = 0x1000;
 
+/// HP lookup table for TarMonster init (`Hitpoints_Enemy_05`, Tar_Monster.asm).
+pub(crate) const TAR_MONSTER_HITPOINTS_BY_LEVEL: [u8; 4] = [2, 4, 6, 0];
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterInitLoc321C6 {
+    pub(crate) hit_points: u8,
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_hit_points_loc_321c6(enemy_level: u8) -> u8 {
+    // ASM loc_321C6 indexes `dc.b Hitpoints_Enemy_05(pc,d3.w),d3`.
+    TAR_MONSTER_HITPOINTS_BY_LEVEL[usize::from(enemy_level.min(3))]
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_init_loc_321c6(
+    queued_x_word: u16,
+    queued_y_word: u16,
+    enemy_level: u8,
+) -> TarMonsterInitLoc321C6 {
+    // ASM loc_321C6 copies layout words 4/6 directly into x_pos/y_pos and uses the
+    // layout level word as the Hitpoints_Enemy_05 table index.
+    TarMonsterInitLoc321C6 {
+        hit_points: tar_monster_hit_points_loc_321c6(enemy_level),
+        x_pos: u32::from(queued_x_word) << 16,
+        y_pos: u32::from(queued_y_word) << 16,
+    }
+}
+
 /// Step a TarMonster through its bytecode-driven emerge/attack/submerge cycle.
 /// ASM: Tar_Monster.asm, jump table off_32290.
 /// Submerged → Emerging → Visible → Attacking → Submerging → Submerged (loop).
@@ -7565,6 +7599,39 @@ mod tests {
         assert_eq!(
             ninja_walk_speed_override_loc_3d59a_and_3d5aa(3),
             0x0001_8000
+        );
+    }
+
+    #[test]
+    fn tar_monster_hp_matches_loc_321c6_hitpoint_table() {
+        // ASM Tar_Monster.asm `Hitpoints_Enemy_05` is indexed by `enemy_level`.
+        assert_eq!(tar_monster_hit_points_loc_321c6(0), 2);
+        assert_eq!(tar_monster_hit_points_loc_321c6(1), 4);
+        assert_eq!(tar_monster_hit_points_loc_321c6(2), 6);
+        assert_eq!(tar_monster_hit_points_loc_321c6(3), 0);
+        assert_eq!(tar_monster_hit_points_loc_321c6(10), 0);
+    }
+
+    #[test]
+    fn tar_monster_init_loc_321c6_copies_layout_xy_word_values_per_native() {
+        // ASM loc_321C6 loads layout word-2/word-3 directly into x/y and reads
+        // word-1 as the level index.
+        assert_eq!(
+            tar_monster_init_loc_321c6(0x0120, 0x0080, 1),
+            TarMonsterInitLoc321C6 {
+                hit_points: 4,
+                x_pos: 0x0120 << 16,
+                y_pos: 0x0080 << 16,
+            }
+        );
+
+        assert_eq!(
+            tar_monster_init_loc_321c6(0x003F, 0x0010, 2),
+            TarMonsterInitLoc321C6 {
+                hit_points: 6,
+                x_pos: 0x003F << 16,
+                y_pos: 0x0010 << 16,
+            }
         );
     }
 
@@ -10357,10 +10424,10 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Archer => 1,
         EnemyFamily::Fireball => 1,
         // Tier 3-4 families: approximate base HP from ASM init routines
-        EnemyFamily::FireDemon => 3,  // HP 3-5
-        EnemyFamily::Robot => 2,      // HP 2-3
-        EnemyFamily::TarMonster => 2, // HP {2,4,6}
-        EnemyFamily::Orca => 4,       // fixed 4 HP
+        EnemyFamily::FireDemon => 3, // HP 3-5
+        EnemyFamily::Robot => 2,     // HP 2-3
+        EnemyFamily::TarMonster => tar_monster_hit_points_loc_321c6(enemy_level),
+        EnemyFamily::Orca => 4, // fixed 4 HP
         EnemyFamily::UFO => 1,
         // Ninja: HP is `enemy_level + 2` and uses loc_3D59A/loc_3D5AA for speed tiers.
         EnemyFamily::Ninja => 2,
