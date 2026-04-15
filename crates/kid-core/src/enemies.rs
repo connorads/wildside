@@ -5528,6 +5528,40 @@ pub(crate) fn tar_monster_init_loc_321e4(
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterChildInitLoc32200 {
+    pub(crate) sprite_frame_link: u16,
+    pub(crate) object_meta: u16,
+    pub(crate) priority: u8,
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) status_flag_13: bool,
+    pub(crate) animation_phase: u16,
+    pub(crate) vram_tile: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_child_init_loc_32200(
+    parent_init: TarMonsterInitLoc321E4,
+    sprite_frame_link: u16,
+) -> TarMonsterChildInitLoc32200 {
+    // ASM loc_32200 configures the child gfx object: writes the linked sprite frame,
+    // runs the shared setup path (loc_32146), sets status/animation fields, then
+    // links it through `$FFFFF86A` as an active object.
+    TarMonsterChildInitLoc32200 {
+        sprite_frame_link,
+        object_meta: 5,
+        priority: 0,
+        x_pos: parent_init.x_pos,
+        y_pos: parent_init.y_pos,
+        status_flag_13: true,
+        animation_phase: 2,
+        vram_tile: 0x0100,
+    }
+}
+
 /// Step a TarMonster through its bytecode-driven emerge/attack/submerge cycle.
 /// ASM: Tar_Monster.asm, jump table off_32290.
 /// Submerged → Emerging → Visible → Attacking → Submerging → Submerged (loop).
@@ -7678,6 +7712,28 @@ mod tests {
                 object_meta: 5,
                 x_pos: 0x0120 << 16,
                 y_pos: 0x0080_u32.saturating_add(2 * 16) << 16,
+            }
+        );
+    }
+
+    #[test]
+    fn tar_monster_child_init_loc_32200_copies_position_and_anim_meta() {
+        // ASM loc_32200 stores the parent coordinates onto the linked child object
+        // and applies the animation defaults (`status_flag_13`, animation phase 2, vram=$100).
+        let parent = tar_monster_init_loc_321e4(0x0100, 0x0040, 1, 1);
+        let child = tar_monster_child_init_loc_32200(parent, 0x0F00);
+
+        assert_eq!(
+            child,
+            TarMonsterChildInitLoc32200 {
+                sprite_frame_link: 0x0F00,
+                object_meta: 5,
+                priority: 0,
+                x_pos: 0x0100 << 16,
+                y_pos: 0x0040_u32.saturating_add(16) << 16,
+                status_flag_13: true,
+                animation_phase: 2,
+                vram_tile: 0x0100,
             }
         );
     }
