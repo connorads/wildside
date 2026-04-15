@@ -1443,6 +1443,44 @@ pub(crate) fn dragon_walking_child_init_loc_3cd16(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonArtInitLoc3CDB8 {
+    pub(crate) art_slot_index: u8,
+    pub(crate) status_flag_13: bool,
+    pub(crate) priority: u8,
+    pub(crate) current_hp: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_art_init_loc_3cdb8(
+    first_header_word: u16,
+    second_header_word: u16,
+    enemy_level: u8,
+) -> DragonArtInitLoc3CDB8 {
+    fn is_dragon_header_word(raw: u16) -> bool {
+        matches!(raw & 0x0FFF, 0x000C | 0x000D)
+    }
+
+    let art_slot_index = if is_dragon_header_word(first_header_word) {
+        0
+    } else if is_dragon_header_word(second_header_word) {
+        1
+    } else {
+        2
+    };
+
+    // ASM Dragon.asm loc_3CDB8: d4 selects the palette/VRAM table entry,
+    // `$13(a3)` is set, priority is cleared, and current_hp is
+    // `enemy_level + 1`.
+    DragonArtInitLoc3CDB8 {
+        art_slot_index,
+        status_flag_13: true,
+        priority: 0,
+        current_hp: u16::from(enemy_level) + 1,
+    }
+}
+
 // --- Dragon Flying script interpreter (Dragon_Flying.asm) ---
 
 /// Drift initial speed: $800 (subpixel FP16.16). ASM loc_34776.
@@ -10261,6 +10299,40 @@ mod tests {
                 parent_spawned_child: true,
             },
             "ASM Dragon.asm loc_3CD16 copies parent position, raw x_direction, and `$4A` into the spawned walking-dragon object before marking `$5C(a5)`"
+        );
+    }
+
+    #[test]
+    fn dragon_art_and_hp_seed_match_loc_3cdb8() {
+        assert_eq!(
+            dragon_art_init_loc_3cdb8(0x400D, 0xFFFF, 0),
+            DragonArtInitLoc3CDB8 {
+                art_slot_index: 0,
+                status_flag_13: true,
+                priority: 0,
+                current_hp: 1,
+            },
+            "ASM Dragon.asm loc_3CDB8 uses d4=0 when header slot 0 masks to DragonWalking `$0D`"
+        );
+        assert_eq!(
+            dragon_art_init_loc_3cdb8(0xFFFF, 0x800C, 2),
+            DragonArtInitLoc3CDB8 {
+                art_slot_index: 1,
+                status_flag_13: true,
+                priority: 0,
+                current_hp: 3,
+            },
+            "ASM Dragon.asm loc_3CDB8 uses d4=1 when header slot 1 masks to Flying Dragon `$0C` and stores enemy_level+1 HP"
+        );
+        assert_eq!(
+            dragon_art_init_loc_3cdb8(0x0001, 0x0002, 1).art_slot_index,
+            2,
+            "ASM Dragon.asm loc_3CDB8 falls through with d4=2 when neither loaded header slot is `$0C` or `$0D`"
+        );
+        assert_eq!(
+            spawn_hit_points(EnemyFamily::DragonWalking, 2),
+            3,
+            "native DragonWalking HP should expose the same enemy_level+1 seed as ASM Dragon.asm loc_3CDB8"
         );
     }
 
