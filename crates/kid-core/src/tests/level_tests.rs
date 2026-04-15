@@ -9941,6 +9941,40 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F994 (kid.asm:20692): advances row index, source layout cursor, and
+    /// layout queue pointer once per iteration, and decrements the DBF counter.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F994_advances_row_and_cursors_and_dbf_counter() {
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_walk_tail_loc_F994(
+                0x0010, 0x0020, 0x0400, 0x0003, 0x0010, 0x0040,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueWalkTailLocF994 {
+                next_row: 0x0011,
+                next_source_cells_start: 0x0030,
+                next_layout_addr: 0x0440,
+                next_remaining_count: 0x0002,
+                continue_loop: true,
+            },
+            "ASM loc_F994 should advance all scan cursors and keep looping when DBF counter remains non-$FFFF"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_walk_tail_loc_F994(
+                0x0010, 0x0004, 0x0040, 0x0000, 0x0010, 0x0040,
+            ),
+            crate::level::AnimatedSolidBlockHorizontalQueueWalkTailLocF994 {
+                next_row: 0x0011,
+                next_source_cells_start: 0x0014,
+                next_layout_addr: 0x0080,
+                next_remaining_count: 0xFFFF,
+                continue_loop: false,
+            },
+            "ASM loc_F994 should terminate loop when DBF reaches $FFFF after a decrement from zero"
+        );
+    }
+
     /// ASM loc_F93E (kid.asm:20646): always writes the source layout byte as a
     /// queue shortword, even when no FG queue work is performed.
     #[test]

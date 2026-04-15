@@ -1014,6 +1014,16 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
     pub(crate) continue_loop: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockHorizontalQueueWalkTailLocF994 {
+    pub(crate) next_row: u16,
+    pub(crate) next_source_cells_start: usize,
+    pub(crate) next_layout_addr: u32,
+    pub(crate) next_remaining_count: u16,
+    pub(crate) continue_loop: bool,
+}
+
 /// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
 /// upper byte.
 #[allow(non_snake_case)]
@@ -9534,6 +9544,29 @@ pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F96A(
     AnimatedSolidBlockHorizontalQueueCellLocF90A {
         layout_word,
         custom_entry,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_horizontal_queue_walk_tail_loc_F994(
+    source_cell_row: u16,
+    source_cells_start: usize,
+    layout_queue_addr: u32,
+    remaining_count: u16,
+    level_width_blocks: usize,
+    level_width_tiles: u32,
+) -> AnimatedSolidBlockHorizontalQueueWalkTailLocF994 {
+    // ASM loc_F994 (kid.asm:20692): after evaluating the source cell for the
+    // alternate animated-solid scan, advance to the next row at the same column
+    // and continue the DBF-controlled loop.
+    let next_remaining_count = remaining_count.wrapping_sub(1);
+    AnimatedSolidBlockHorizontalQueueWalkTailLocF994 {
+        next_row: source_cell_row.wrapping_add(1),
+        next_source_cells_start: source_cells_start.wrapping_add(level_width_blocks),
+        next_layout_addr: layout_queue_addr.wrapping_add(level_width_tiles),
+        next_remaining_count,
+        continue_loop: next_remaining_count != 0xFFFF,
     }
 }
 
