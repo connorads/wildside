@@ -4362,6 +4362,35 @@ pub(crate) fn mini_hopping_skull_landing_collision_damage_loc_3ef1a(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_landing_collision_wait_loc_3ef32(
+    dbf_counter: u16,
+    kid_x_word: u16,
+    skull_x_word: u16,
+) -> MiniHoppingSkullLeftLandingLoopDecision {
+    // ASM Mini_Hopping_Skull.asm loc_3EF32: decrements the wait DBF counter;
+    // if it still runs, loop. On exhaustion, a signed Kid-vs-skull X compare
+    // routes either to loc_3ED80 (`<=`) or seeds the right-facing C8018 phase
+    // with d1 = $A and continues through loc_3EF4C.
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+    if next_dbf_counter != 0xFFFF {
+        return MiniHoppingSkullLeftLandingLoopDecision::ContinueWait { next_dbf_counter };
+    }
+
+    if (kid_x_word as i16) <= (skull_x_word as i16) {
+        MiniHoppingSkullLeftLandingLoopDecision::BeginSkullFacingLeftLanding {
+            dbf_counter: 0x0014,
+            x_direction: 0x00,
+            sprite: "LnkTo_unk_C8030",
+        }
+    } else {
+        MiniHoppingSkullLeftLandingLoopDecision::BeginSkullLeftRelaunch {
+            dbf_counter: 0x000A,
+            sprite: "LnkTo_unk_C8018",
+        }
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_damage_sequence_loc_3ede0(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
@@ -10779,6 +10808,35 @@ mod tests {
                 hibernate_until_finished: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3EF1A should replay `stru_3E9C2` and wait when hits remain"
+        );
+    }
+
+    #[test]
+    // ASM Mini_Hopping_Skull.asm loc_3EF32
+    fn mini_hopping_skull_landing_collision_wait_matches_loc_3ef32() {
+        assert_eq!(
+            mini_hopping_skull_landing_collision_wait_loc_3ef32(0x0014, 0x0010, 0x0020),
+            MiniHoppingSkullLeftLandingLoopDecision::ContinueWait {
+                next_dbf_counter: 0x0013
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EF32 decrements the DBF counter while waiting"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_wait_loc_3ef32(0x0000, 0x0010, 0x0010),
+            MiniHoppingSkullLeftLandingLoopDecision::BeginSkullFacingLeftLanding {
+                dbf_counter: 0x0014,
+                x_direction: 0x00,
+                sprite: "LnkTo_unk_C8030",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EF32 routes Kid-at-or-left-of-skull to the `loc_3ED80` left-facing setup path"
+        );
+        assert_eq!(
+            mini_hopping_skull_landing_collision_wait_loc_3ef32(0x0000, 0x0021, 0x0020),
+            MiniHoppingSkullLeftLandingLoopDecision::BeginSkullLeftRelaunch {
+                dbf_counter: 0x000A,
+                sprite: "LnkTo_unk_C8018",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3EF32 routes Kid-right-of-skull into the `LnkTo_unk_C8018` branch before loc_3EF4C"
         );
     }
 
