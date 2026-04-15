@@ -1204,6 +1204,8 @@ pub(crate) fn scorpion_tail_sync_loc_3dc86(
     let parent_y_word = (parent_y_pos >> 16) as u16;
     let x_offset = match parent_facing {
         Direction::Left => 1_u16,
+        // ASM Scorpion.asm loc_3DCAA: when `x_direction` is set, subtract $16
+        // from the linked tail object's integer X word.
         Direction::Right => 0x16_u16,
     };
 
@@ -11127,6 +11129,18 @@ mod tests {
                 y_word: 0x002A,
             },
             "ASM Scorpion.asm loc_3DC86 copies parent x/y words, subtracts $16 from y, and subtracts 1 from x when x_direction is clear"
+        );
+    }
+
+    #[test]
+    fn scorpion_tail_sync_set_direction_matches_loc_3dcaa() {
+        assert_eq!(
+            scorpion_tail_sync_loc_3dc86(0x0120_8000, 0x0040_4000, Direction::Right),
+            ScorpionTailGfxPosition {
+                x_word: 0x010A,
+                y_word: 0x002A,
+            },
+            "ASM Scorpion.asm loc_3DCAA subtracts $16 from the linked tail x word when x_direction is set"
         );
     }
 
