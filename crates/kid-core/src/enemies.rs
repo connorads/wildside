@@ -271,6 +271,33 @@ pub(crate) const NINJA_COLID_KIDLEFT: u16 = 0x0024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CrabInitVisibleStateLoc3AFD0 {
+    pub(crate) status_flag_13: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) object_meta: u16,
+    pub(crate) priority: u8,
+    pub(crate) current_hp: u8,
+    pub(crate) speed_preload: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_init_visible_state_loc_3afd0(enemy_level: u8) -> CrabInitVisibleStateLoc3AFD0 {
+    // ASM Crab.asm loc_3AFD0: set `$13(a3)` and `is_animated(a3)`,
+    // write object_meta 9, clear priority, store `enemy_level + 2` HP, then
+    // preload `$50/$5E(a5)` with `$10000` only when HP is at least 3.
+    let current_hp = spawn_hit_points(EnemyFamily::Crab, enemy_level);
+    CrabInitVisibleStateLoc3AFD0 {
+        status_flag_13: true,
+        is_animated: true,
+        object_meta: 0x0009,
+        priority: 0,
+        current_hp,
+        speed_preload: if current_hp >= 3 { 0x0001_0000 } else { 0 },
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
     Damage,
     ContinueWaiting {
@@ -11347,6 +11374,35 @@ mod tests {
         assert_eq!(
             pacer_walk_speed(EnemyFamily::TankShooting, hp4),
             0x0001_8000
+        );
+    }
+
+    #[test]
+    fn crab_init_visible_state_matches_loc_3afd0() {
+        assert_eq!(
+            crab_init_visible_state_loc_3afd0(0),
+            CrabInitVisibleStateLoc3AFD0 {
+                status_flag_13: true,
+                is_animated: true,
+                object_meta: 0x0009,
+                priority: 0,
+                current_hp: 2,
+                speed_preload: 0,
+            },
+            "ASM Crab.asm loc_3AFD0 should only preload speed for HP 3+"
+        );
+
+        assert_eq!(
+            crab_init_visible_state_loc_3afd0(1),
+            CrabInitVisibleStateLoc3AFD0 {
+                status_flag_13: true,
+                is_animated: true,
+                object_meta: 0x0009,
+                priority: 0,
+                current_hp: 3,
+                speed_preload: 0x0001_0000,
+            },
+            "ASM Crab.asm loc_3AFD0 writes `$10000` to both speed slots once `current_hp >= 3`"
         );
     }
 
