@@ -5511,6 +5511,39 @@ pub(crate) fn ninja_resume_pacing_route_loc_3d7ee(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaPositiveStateRouteLoc3D7FA {
+    ResetStealthPacing {
+        next: NinjaResetStealthPacingRouteLoc3D7CA,
+    },
+    ResumePacing {
+        next: NinjaResumePacingRouteLoc3D7EE,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_positive_state_route_loc_3d7fa(
+    kid_minus_ninja_x_px: i16,
+    kid_minus_ninja_y_px: i16,
+    x_direction_right: bool,
+) -> NinjaPositiveStateRouteLoc3D7FA {
+    // ASM Ninja.asm loc_3D7FA: require Kid to be above the ninja with
+    // `kid_y - ninja_y` in [-$60, 0) and `kid_x - ninja_x` in inclusive
+    // [-$10, +$10]. Outside that box branches to loc_3D7CA; inside it branches
+    // to loc_3D7EE.
+    if !(-0x60..0).contains(&kid_minus_ninja_y_px)
+        || !(-0x10..=0x10).contains(&kid_minus_ninja_x_px)
+    {
+        let reset = ninja_reset_stealth_pacing_loc_3d7ca(0, x_direction_right);
+        return NinjaPositiveStateRouteLoc3D7FA::ResetStealthPacing { next: reset.next };
+    }
+
+    NinjaPositiveStateRouteLoc3D7FA::ResumePacing {
+        next: ninja_resume_pacing_route_loc_3d7ee(x_direction_right),
+    }
+}
+
 /// Ninja jump-attack velocities (Ninja.asm lines 384-392).
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
@@ -13274,6 +13307,38 @@ mod tests {
             ninja_resume_pacing_route_loc_3d7ee(true),
             NinjaResumePacingRouteLoc3D7EE::Loc3E3AC,
             "ASM Ninja.asm loc_3D7EE should send set x_direction to loc_3E3AC"
+        );
+    }
+
+    #[test]
+    fn ninja_positive_state_route_loc_3d7fa_matches_proximity_box() {
+        assert_eq!(
+            ninja_positive_state_route_loc_3d7fa(-0x10, -0x60, false),
+            NinjaPositiveStateRouteLoc3D7FA::ResumePacing {
+                next: NinjaResumePacingRouteLoc3D7EE::Loc3E560,
+            },
+            "ASM Ninja.asm loc_3D7FA should include the left X edge and top Y edge before branching to loc_3D7EE"
+        );
+        assert_eq!(
+            ninja_positive_state_route_loc_3d7fa(0x10, -1, true),
+            NinjaPositiveStateRouteLoc3D7FA::ResumePacing {
+                next: NinjaResumePacingRouteLoc3D7EE::Loc3E3AC,
+            },
+            "ASM Ninja.asm loc_3D7FA should include the +$10 X edge and require kid_y - ninja_y to stay negative"
+        );
+        assert_eq!(
+            ninja_positive_state_route_loc_3d7fa(0, 0, false),
+            NinjaPositiveStateRouteLoc3D7FA::ResetStealthPacing {
+                next: NinjaResetStealthPacingRouteLoc3D7CA::Loc3E546,
+            },
+            "ASM Ninja.asm loc_3D7FA should branch to loc_3D7CA once Kid is level with or below the ninja"
+        );
+        assert_eq!(
+            ninja_positive_state_route_loc_3d7fa(0x11, -1, true),
+            NinjaPositiveStateRouteLoc3D7FA::ResetStealthPacing {
+                next: NinjaResetStealthPacingRouteLoc3D7CA::Loc3E392,
+            },
+            "ASM Ninja.asm loc_3D7FA should branch to loc_3D7CA outside the inclusive +/-$10 X band"
         );
     }
 
