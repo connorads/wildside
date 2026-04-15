@@ -3014,6 +3014,44 @@ pub(crate) fn ufo_beam_spawn_loc_351ee(
     spawns
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoBeamFinishLoc35228 {
+    pub(crate) parent_beam_spawned_latch: bool,
+    pub(crate) linked_object_meta: u16,
+    pub(crate) linked_object_animation: &'static str,
+    pub(crate) linked_object_flag_13: bool,
+    pub(crate) linked_object_flag_19: bool,
+    pub(crate) linked_object_is_moved: bool,
+    pub(crate) linked_object_level_collision: bool,
+    pub(crate) linked_object_routine: u8,
+    pub(crate) parent_animation: &'static str,
+    pub(crate) parent_y_velocity: i32,
+    pub(crate) d2: i32,
+    pub(crate) d3: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_beam_finish_loc_35228(parent_y_velocity: i32) -> UfoBeamFinishLoc35228 {
+    // ASM UFO.asm loc_35228: mark `$47(a5)`, link the loc_32188 gfx object,
+    // initialise it as UFO object meta `$0F`, reset its state flags, replay the
+    // parent `stru_34C92` animation, then bias parent y velocity downward.
+    UfoBeamFinishLoc35228 {
+        parent_beam_spawned_latch: true,
+        linked_object_meta: 0x000F,
+        linked_object_animation: "stru_34D02",
+        linked_object_flag_13: true,
+        linked_object_flag_19: false,
+        linked_object_is_moved: false,
+        linked_object_level_collision: false,
+        linked_object_routine: 1,
+        parent_animation: "stru_34C92",
+        parent_y_velocity: parent_y_velocity.wrapping_add(0x0004_0000),
+        d2: -0x0000_0C00,
+        d3: 0,
+    }
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -9298,6 +9336,28 @@ mod tests {
             ufo_beam_spawn_loc_351ee(0x0010_0000, &[(0, -5), (5, 5)]),
             Vec::<UfoBeamSpawnLoc351EE>::new(),
             "ASM UFO.asm loc_351EE exits immediately when sentinel x-word is zero"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_finish_matches_loc_35228() {
+        assert_eq!(
+            ufo_beam_finish_loc_35228(0x0001_0000),
+            UfoBeamFinishLoc35228 {
+                parent_beam_spawned_latch: true,
+                linked_object_meta: 0x000F,
+                linked_object_animation: "stru_34D02",
+                linked_object_flag_13: true,
+                linked_object_flag_19: false,
+                linked_object_is_moved: false,
+                linked_object_level_collision: false,
+                linked_object_routine: 1,
+                parent_animation: "stru_34C92",
+                parent_y_velocity: 0x0005_0000,
+                d2: -0x0000_0C00,
+                d3: 0,
+            },
+            "ASM UFO.asm loc_35228 links the child gfx object, resets its state flags, bumps parent y_vel by $40000, and returns d2=$FFFFF400/d3=0"
         );
     }
 
