@@ -3543,6 +3543,8 @@ fn dragon_advance_script(
 ) {
     let script = dragon_script(enemy.dragon_script_variant);
     loop {
+        // ASM Dragon_Flying.asm loc_346DA: fetch one script word, restart on
+        // $FFFF, then use the low byte as a byte offset into off_3471E.
         enemy.dragon_script_cmd += 1;
         if enemy.dragon_script_cmd as usize >= script.len() {
             // Script end: restart. ASM $FFFF sentinel → loc_346C0.

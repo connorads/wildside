@@ -4734,6 +4734,46 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_script_words_match_loc_346da_dispatch_offsets() {
+        fn encode_cmd_word(cmd: DragonFlyingCmd) -> u16 {
+            // ASM Dragon_Flying.asm loc_346DA: the interpreter keeps the high
+            // byte as the frame count and dispatches through off_3471E with
+            // the low byte as the byte offset.
+            match cmd {
+                DragonFlyingCmd::Hover(frames) => frames << 8,
+                DragonFlyingCmd::Drift(frames) => (frames << 8) | 0x0004,
+                DragonFlyingCmd::DriftWithFire(frames) => (frames << 8) | 0x0014,
+                DragonFlyingCmd::FacePlayer => 0x000C,
+                DragonFlyingCmd::Descent => 0x0010,
+                DragonFlyingCmd::ReturnToAnchor => 0x0018,
+            }
+        }
+
+        fn encoded_script(variant: u8) -> Vec<u16> {
+            let mut words: Vec<u16> = dragon_script(variant)
+                .iter()
+                .copied()
+                .map(encode_cmd_word)
+                .collect();
+            words.push(0xFFFF);
+            words
+        }
+
+        assert_eq!(
+            encoded_script(0),
+            vec![0x7000, 0x0010, 0x5004, 0x3200, 0x7804, 0x0018, 0xFFFF]
+        );
+        assert_eq!(
+            encoded_script(1),
+            vec![0x2814, 0x1E14, 0x3214, 0x0018, 0xFFFF]
+        );
+        assert_eq!(
+            encoded_script(2),
+            vec![0x7014, 0x7014, 0x000C, 0x5014, 0x0018, 0xFFFF]
+        );
+    }
+
+    #[test]
     fn dragon_flyer_drift_accelerates_from_initial_speed() {
         // Script 1 starts with DriftWithFire(40).
         // Drift starts at $800, accelerates by $200/frame, caps at $18000.
