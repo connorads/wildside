@@ -5384,6 +5384,15 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_patrol_loc_32836_reverses_negative_velocity_when_d7_nonzero() {
+        assert_eq!(
+            hand_patrol_decision_loc_32804(-0x0000_3000, 0, 1),
+            HandPatrolDecision::ReverseDirection,
+            "ASM Hand.asm loc_32836: negative x_vel with d6 clear and d7 non-zero branches to the shared reversal path"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

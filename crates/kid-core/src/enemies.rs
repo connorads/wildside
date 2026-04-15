@@ -6119,6 +6119,10 @@ pub(crate) fn hand_patrol_decision_loc_32804(
     if x_velocity < 0 {
         if probe_d6 != 0 {
             HandPatrolDecision::ContinuePatrol
+        } else if probe_d7 != 0 {
+            // ASM Hand.asm loc_32836: negative x_vel reaches the reversal
+            // branch when d6 is clear and d7 remains non-zero.
+            HandPatrolDecision::ReverseDirection
         } else {
             HandPatrolDecision::JumpAttack
         }
