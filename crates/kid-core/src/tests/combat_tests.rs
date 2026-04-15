@@ -4737,6 +4737,28 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_3482e_hover_dbf_tail_loops_until_ffff() {
+        assert_eq!(
+            dragon_hover_dbf_tail_loc_3482e(0x0070),
+            DragonHoverDbfTailLoc3482E {
+                next_d0: 0x006F,
+                loops_to_loc_3480a: true,
+                advances_script: false,
+            },
+            "ASM Dragon_Flying.asm loc_3482E decrements the hover counter and branches back while the result is not `$FFFF`"
+        );
+        assert_eq!(
+            dragon_hover_dbf_tail_loc_3482e(0x0000),
+            DragonHoverDbfTailLoc3482E {
+                next_d0: 0xFFFF,
+                loops_to_loc_3480a: false,
+                advances_script: true,
+            },
+            "ASM Dragon_Flying.asm loc_3482E falls through to loc_346DA only after DBF decrements zero to `$FFFF`"
+        );
+    }
+
+    #[test]
     fn dragon_flying_script_words_match_loc_346da_dispatch_offsets() {
         fn encode_cmd_word(cmd: DragonFlyingCmd) -> u16 {
             // ASM Dragon_Flying.asm loc_346DA: the interpreter keeps the high

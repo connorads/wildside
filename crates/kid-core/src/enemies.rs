@@ -1480,6 +1480,28 @@ pub(crate) fn dragon_drift_dbf_tail_loc_347fc(d0_before_dbf: u16) -> DragonDrift
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonHoverDbfTailLoc3482E {
+    pub(crate) next_d0: u16,
+    pub(crate) loops_to_loc_3480a: bool,
+    pub(crate) advances_script: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_hover_dbf_tail_loc_3482e(d0_before_dbf: u16) -> DragonHoverDbfTailLoc3482E {
+    // ASM Dragon_Flying.asm loc_3482E: `dbf d0,loc_3480A` uses the same
+    // low-word decrement/fall-through rule as the drift tail, but targets the
+    // hover hibernation loop.
+    let next_d0 = d0_before_dbf.wrapping_sub(1);
+    let loops_to_loc_3480a = next_d0 != 0xFFFF;
+    DragonHoverDbfTailLoc3482E {
+        next_d0,
+        loops_to_loc_3480a,
+        advances_script: !loops_to_loc_3480a,
+    }
+}
+
 /// Script command for Dragon Flying flight scripts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DragonFlyingCmd {
