@@ -1126,7 +1126,8 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         // ASM Tank.asm loc_3B36A/loc_3B372: HP 2 gets one `$8000` add,
         // HP 3 gets two, HP 4+ gets three.
         EnemyFamily::Tank | EnemyFamily::TankShooting => (2, 0x0000_8000, 0x0000_8000),
-        // Fire Demon: HP = enemy_level + 3 (min 3). Base speed $8000, step $8000.
+        // Fire_Demon.asm loc_3A40C: HP 4 executes the second `$8000` speed add;
+        // HP 5+ reaches it after the earlier high-HP preload.
         EnemyFamily::FireDemon => (3, 0x0000_8000, 0x0000_8000),
         // Robot: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
         EnemyFamily::Robot => (2, 0x0000_8000, 0x0000_8000),

@@ -2412,6 +2412,18 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_speed_loc_3a40c_adds_hp4_speed_step() {
+        let hit_points = spawn_hit_points(EnemyFamily::FireDemon, 1);
+
+        assert_eq!(hit_points, 4);
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::FireDemon, hit_points),
+            0x0001_0000,
+            "ASM Fire_Demon.asm loc_3A40C adds the HP4 speed step before the final speed add"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);
