@@ -9966,6 +9966,9 @@ pub(crate) fn animated_solid_block_vertical_sprites_loc_FA4C(
     let mut sprite_link_word = input.sprite_link_word;
     let mut sprites = Vec::with_capacity(usize::from(dbf_sprite_counter) + 1);
 
+    // ASM loc_FAA6 (kid.asm:20821): each DBF iteration writes one vertical
+    // sprite entry, increments the link word before storing it, and advances Y
+    // by `$10` pixels for the next tile.
     for sprite_index in 0..=dbf_sprite_counter {
         sprite_link_word = sprite_link_word.wrapping_add(1);
         sprites.push(AnimatedSolidBlockNegativeSpriteLocF9CC {
