@@ -10142,6 +10142,31 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F9C0 (kid.asm:20718): after each animated-solid descriptor, the
+    /// scan advances `a0` by `$10` bytes and uses DBF semantics to choose between
+    /// looping back to the descriptor body and committing the frame state.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F9C0_advances_to_the_next_descriptor_until_dbf_wraps() {
+        assert_eq!(
+            crate::level::animated_solid_block_scan_advance_loc_F9C0(0xFFFF_F8DA, 0x0002),
+            crate::level::AnimatedSolidBlockScanAdvanceLocF9C0::ContinueScan {
+                next_slot_addr: 0xFFFF_F8EA,
+                next_dbf_counter: 0x0001,
+            },
+            "ASM loc_F9C0 should advance `a0` by `$10` and loop while DBF has not reached -1"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_scan_advance_loc_F9C0(0xFFFF_F8EA, 0x0000),
+            crate::level::AnimatedSolidBlockScanAdvanceLocF9C0::CommitFrame {
+                next_slot_addr: 0xFFFF_F8FA,
+                next_dbf_counter: 0xFFFF,
+            },
+            "ASM loc_F9C0 should still advance to the next descriptor before DBF falls through to the frame commit tail"
+        );
+    }
+
     /// ASM loc_F8CA (kid.asm:20589): computes the remaining loop count from the
     /// source width table plus start column, restores every layout byte, and emits
     /// FG queue entries only for the visible span after the `-8..+camera_right`

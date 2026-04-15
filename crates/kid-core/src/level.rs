@@ -1034,6 +1034,19 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
     pub(crate) continue_loop: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AnimatedSolidBlockScanAdvanceLocF9C0 {
+    ContinueScan {
+        next_slot_addr: u32,
+        next_dbf_counter: u16,
+    },
+    CommitFrame {
+        next_slot_addr: u32,
+        next_dbf_counter: u16,
+    },
+}
+
 /// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
 /// upper byte.
 #[allow(non_snake_case)]
@@ -9730,6 +9743,31 @@ pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F9B6(
     // ASM loc_F9B6 (kid.asm:20710): restore `d6` and `d7`, then branch to
     // `loc_F9BA` after the horizontal queue cull path.
     animated_solid_block_horizontal_queue_tail_loc_F946(swapped_d6, swapped_d7)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_scan_advance_loc_F9C0(
+    slot_addr: u32,
+    dbf_counter: u16,
+) -> AnimatedSolidBlockScanAdvanceLocF9C0 {
+    // ASM loc_F9C0 (kid.asm:20718): `lea $10(a0),a0` advances to the next
+    // animated-solid descriptor, then the `dbf d6` tail loops unless the DBF
+    // counter has wrapped to -1.
+    let next_slot_addr = slot_addr.wrapping_add(0x10);
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+
+    if next_dbf_counter == 0xFFFF {
+        AnimatedSolidBlockScanAdvanceLocF9C0::CommitFrame {
+            next_slot_addr,
+            next_dbf_counter,
+        }
+    } else {
+        AnimatedSolidBlockScanAdvanceLocF9C0::ContinueScan {
+            next_slot_addr,
+            next_dbf_counter,
+        }
+    }
 }
 
 #[allow(non_snake_case)]
