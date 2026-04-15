@@ -574,6 +574,26 @@ pub(crate) fn lion_charge_window_gate_loc_3e434(shared_walker_state: i16) -> Lio
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLoc3E4C6Result {
+    pub(crate) x_position: u32,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_right_charge_continue_loc_3e4c6(next_x_position: u32) -> LionLoc3E4C6Result {
+    // ASM Lion.asm loc_3E4C6: `move.l d2,x_pos(a3)` commits the right-charge
+    // candidate position, then branches to loc_3E3A2 to zero both velocities.
+    let tail = lion_hibernate_tail_loc_3e3a2();
+    LionLoc3E4C6Result {
+        x_position: next_x_position,
+        x_velocity: tail.x_velocity,
+        y_velocity: tail.y_velocity,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -10787,6 +10807,19 @@ mod tests {
                 branch: LionLoc3E434Branch::KeepAndContinue,
             },
             "ASM Lion.asm loc_3E434 should increment negative states toward zero and continue the charge step"
+        );
+    }
+
+    #[test]
+    fn lion_right_charge_continue_matches_loc_3e4c6() {
+        assert_eq!(
+            lion_right_charge_continue_loc_3e4c6(0x0123_8000),
+            LionLoc3E4C6Result {
+                x_position: 0x0123_8000,
+                x_velocity: 0,
+                y_velocity: 0,
+            },
+            "ASM Lion.asm loc_3E4C6 should commit `d2` to x_pos before entering the loc_3E3A2 zero-velocity hibernate tail"
         );
     }
 
