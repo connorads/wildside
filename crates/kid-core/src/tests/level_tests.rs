@@ -10167,6 +10167,123 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_F9CC (kid.asm:20724): negative horizontal animated-solid
+    /// descriptors emit one sprite per visible strip tile, incrementing the
+    /// sprite link before every write and adding `$10` to X between sprites.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F9CC_emits_horizontal_sprites_for_the_visible_negative_strip() {
+        let result = crate::level::animated_solid_block_negative_sprites_loc_F9CC(
+            crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                vertical_layout_flag: false,
+                descriptor_flags: 0,
+                block_col: 0x0011,
+                block_row: 0x0008,
+                span_tiles: 4,
+                camera_left_col: 0x0010,
+                camera_top_row: 0x0006,
+                camera_x_word: 0x0100,
+                camera_y_word: 0x0060,
+                sprite_link_word: 0x0500,
+            },
+        );
+
+        assert_eq!(
+            result,
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x00A0,
+                        sprite_link_word: 0x0501,
+                        tile_word: 0x024E,
+                        screen_x: 0x0090,
+                    },
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x00A0,
+                        sprite_link_word: 0x0502,
+                        tile_word: 0x024E,
+                        screen_x: 0x00A0,
+                    },
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x00A0,
+                        sprite_link_word: 0x0503,
+                        tile_word: 0x024E,
+                        screen_x: 0x00B0,
+                    },
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x00A0,
+                        sprite_link_word: 0x0504,
+                        tile_word: 0x024E,
+                        screen_x: 0x00C0,
+                    },
+                ],
+                next_sprite_link_word: 0x0504,
+            },
+            "ASM loc_F9CC should convert block coordinates to sprite coordinates and emit one linked sprite for every visible strip tile"
+        );
+    }
+
+    /// ASM loc_F9CC clips horizontal strips against the left camera edge by
+    /// adding the negative column delta to the DBF counter and restarting at the
+    /// camera-left column; fully clipped rows advance without sprites.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_F9CC_clips_left_and_culls_rows_before_emitting_sprites() {
+        assert_eq!(
+            crate::level::animated_solid_block_negative_sprites_loc_F9CC(
+                crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                    vertical_layout_flag: false,
+                    descriptor_flags: 1,
+                    block_col: 0x0008,
+                    block_row: 0x0008,
+                    span_tiles: 4,
+                    camera_left_col: 0x000A,
+                    camera_top_row: 0x0006,
+                    camera_x_word: 0x00A0,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0x0010,
+                },
+            ),
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x00A0,
+                        sprite_link_word: 0x0011,
+                        tile_word: 0x024A,
+                        screen_x: 0x0080,
+                    },
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x00A0,
+                        sprite_link_word: 0x0012,
+                        tile_word: 0x024A,
+                        screen_x: 0x0090,
+                    },
+                ],
+                next_sprite_link_word: 0x0012,
+            },
+            "ASM loc_F9CC should clip two off-screen columns, keep two visible sprites, and preserve the bit-0 tile choice"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_negative_sprites_loc_F9CC(
+                crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                    vertical_layout_flag: false,
+                    descriptor_flags: 0,
+                    block_col: 0x000C,
+                    block_row: 0x0005,
+                    span_tiles: 2,
+                    camera_left_col: 0x000A,
+                    camera_top_row: 0x0006,
+                    camera_x_word: 0,
+                    camera_y_word: 0,
+                    sprite_link_word: 0,
+                },
+            ),
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot,
+            "ASM loc_F9CC should advance without sprites when the row is above the visible camera band"
+        );
+    }
+
     /// ASM loc_F8CA (kid.asm:20589): computes the remaining loop count from the
     /// source width table plus start column, restores every layout byte, and emits
     /// FG queue entries only for the visible span after the `-8..+camera_right`

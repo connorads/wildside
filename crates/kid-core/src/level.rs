@@ -1047,6 +1047,41 @@ pub(crate) enum AnimatedSolidBlockScanAdvanceLocF9C0 {
     },
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockNegativeSpriteLocF9CC {
+    pub(crate) screen_y: u16,
+    pub(crate) sprite_link_word: u16,
+    pub(crate) tile_word: u16,
+    pub(crate) screen_x: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+    pub(crate) vertical_layout_flag: bool,
+    pub(crate) descriptor_flags: u8,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) span_tiles: u8,
+    pub(crate) camera_left_col: u16,
+    pub(crate) camera_top_row: u16,
+    pub(crate) camera_x_word: u16,
+    pub(crate) camera_y_word: u16,
+    pub(crate) sprite_link_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum AnimatedSolidBlockNegativeSpritesLocF9CC {
+    BranchToVerticalPath,
+    AdvanceSlot,
+    Sprites {
+        sprites: Vec<AnimatedSolidBlockNegativeSpriteLocF9CC>,
+        next_sprite_link_word: u16,
+    },
+}
+
 /// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
 /// upper byte.
 #[allow(non_snake_case)]
@@ -9767,6 +9802,77 @@ pub(crate) fn animated_solid_block_scan_advance_loc_F9C0(
             next_slot_addr,
             next_dbf_counter,
         }
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn animated_solid_block_negative_sprites_loc_F9CC(
+    input: AnimatedSolidBlockNegativeSpritesInputLocF9CC,
+) -> AnimatedSolidBlockNegativeSpritesLocF9CC {
+    // ASM loc_F9CC (kid.asm:20724): negative-state animated-solid descriptors
+    // with a clear orientation byte emit a horizontal sprite strip. The strip is
+    // row-culled to the visible 15-tile camera band and column-clipped to the
+    // left edge / 20-tile right edge before each sprite advances the link word.
+    if input.vertical_layout_flag {
+        return AnimatedSolidBlockNegativeSpritesLocF9CC::BranchToVerticalPath;
+    }
+
+    let row_delta = input.block_row.wrapping_sub(input.camera_top_row) as i16;
+    if !(0..=0x000E).contains(&row_delta) {
+        return AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot;
+    }
+
+    let mut start_col = input.block_col;
+    let mut dbf_sprite_counter = u16::from(input.span_tiles.wrapping_sub(1));
+    let col_delta = input.block_col.wrapping_sub(input.camera_left_col) as i16;
+
+    if col_delta < 0 {
+        let clipped_counter = (dbf_sprite_counter as i16).wrapping_add(col_delta);
+        if clipped_counter < 0 {
+            return AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot;
+        }
+        dbf_sprite_counter = clipped_counter as u16;
+        start_col = input.camera_left_col;
+    } else {
+        let right_overrun = col_delta.wrapping_sub(0x0014);
+        if right_overrun > 0 {
+            return AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot;
+        }
+
+        let visible_counter = 0x0014_i16.wrapping_sub(col_delta) as u16;
+        if visible_counter < dbf_sprite_counter {
+            dbf_sprite_counter = visible_counter;
+        }
+    }
+
+    let screen_y = (input.block_row << 4)
+        .wrapping_sub(input.camera_y_word)
+        .wrapping_add(0x0080);
+    let start_screen_x = (start_col << 4)
+        .wrapping_sub(input.camera_x_word)
+        .wrapping_add(0x0080);
+    let tile_word = if input.descriptor_flags & 1 != 0 {
+        0x024A
+    } else {
+        0x024E
+    };
+    let mut sprite_link_word = input.sprite_link_word;
+    let mut sprites = Vec::with_capacity(usize::from(dbf_sprite_counter) + 1);
+
+    for sprite_index in 0..=dbf_sprite_counter {
+        sprite_link_word = sprite_link_word.wrapping_add(1);
+        sprites.push(AnimatedSolidBlockNegativeSpriteLocF9CC {
+            screen_y,
+            sprite_link_word,
+            tile_word,
+            screen_x: start_screen_x.wrapping_add(sprite_index << 4),
+        });
+    }
+
+    AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+        sprites,
+        next_sprite_link_word: sprite_link_word,
     }
 }
 
