@@ -2737,6 +2737,24 @@ pub(crate) fn ufo_restore_position_loc_350f2(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoWallBounceLoc35120 {
+    pub(crate) x_velocity: i32,
+    pub(crate) d0: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_bounce_wall_tail_loc_35120(x_velocity: i32, d0: i32) -> UfoWallBounceLoc35120 {
+    // ASM UFO.asm loc_35120: after the wall bounce has negated `x_vel`, keep it.
+    // Clear-only behavior means positive `d0` values are negated so they can be
+    // used as a bounce impulse; negative `d0` passes through unchanged.
+    let x_velocity = x_velocity.wrapping_neg();
+    let d0 = if d0 >= 0 { d0.wrapping_neg() } else { d0 };
+
+    UfoWallBounceLoc35120 { x_velocity, d0 }
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -8305,6 +8323,27 @@ mod tests {
                 y_pos: 0x2020_0000,
             },
             "ASM UFO.asm loc_350F2 rolls the UFO back by one velocity step before slope bounces"
+        );
+    }
+
+    #[test]
+    fn ufo_bounce_wall_tail_matches_loc_35120() {
+        assert_eq!(
+            ufo_bounce_wall_tail_loc_35120(0x0100_0000, 0x0200_0000),
+            UfoWallBounceLoc35120 {
+                x_velocity: -0x0100_0000,
+                d0: -0x0200_0000,
+            },
+            "ASM UFO.asm loc_35120 keeps negated `x_vel` and negates positive `d0`"
+        );
+
+        assert_eq!(
+            ufo_bounce_wall_tail_loc_35120(-0x0100_0000, -0x0200_0000),
+            UfoWallBounceLoc35120 {
+                x_velocity: 0x0100_0000,
+                d0: -0x0200_0000,
+            },
+            "ASM UFO.asm loc_35120 preserves negative `d0` and negates `x_vel`"
         );
     }
 
