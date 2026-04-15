@@ -263,6 +263,10 @@ pub(crate) fn lion_track_kid_negative_delta_facing_loc_3e074(
 
 pub(crate) const LION_COLID_HURT: u16 = 0x001C;
 pub(crate) const LION_COLID_KIDABOVE: u16 = 0x002C;
+pub(crate) const NINJA_COLID_HURT: u16 = 0x001C;
+pub(crate) const NINJA_COLID_KIDABOVE: u16 = 0x002C;
+pub(crate) const NINJA_COLID_KIDRIGHT: u16 = 0x0020;
+pub(crate) const NINJA_COLID_KIDLEFT: u16 = 0x0024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -4634,6 +4638,103 @@ pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
 pub(crate) const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
 pub(crate) const NINJA_GRAVITY: i32 = 0x2800;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaCollisionResumeLoc3D638 {
+    /// ASM Ninja.asm loc_3E7CA: `beq.w loc_3E7CA` path (left-facing).
+    Loc3E7CA,
+    /// ASM Ninja.asm loc_3E6AE: `bra.w loc_3E6AE` path (right-facing).
+    Loc3E6AE,
+    /// ASM Ninja.asm loc_3E560: `beq.w loc_3E560` path (left-facing when `$5C(a5)` is set).
+    Loc3E560,
+    /// ASM Ninja.asm loc_3E3AC: `bra.w loc_3E3AC` path (right-facing when `$5C(a5)` is set).
+    Loc3E3AC,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_collision_resume_loc_3d638(
+    wall_pinned: bool,
+    x_direction_right: bool,
+) -> NinjaCollisionResumeLoc3D638 {
+    // ASM Ninja.asm loc_3D638: clear collision, branch by `$5C(a5)` and
+    // x_direction to one of `loc_3E7CA/3E6AE/3E560/3E3AC`.
+    if wall_pinned {
+        if x_direction_right {
+            NinjaCollisionResumeLoc3D638::Loc3E3AC
+        } else {
+            NinjaCollisionResumeLoc3D638::Loc3E560
+        }
+    } else if x_direction_right {
+        NinjaCollisionResumeLoc3D638::Loc3E6AE
+    } else {
+        NinjaCollisionResumeLoc3D638::Loc3E7CA
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaCollisionLoc3D606 {
+    /// ASM Ninja.asm loc_3D6DA: no collision, so jump to stealth/attack gate.
+    To3D6DA,
+    /// ASM Ninja.asm loc_3DB4E: negative collision IDs send to generic hit-kill logic.
+    To3DB4E,
+    /// ASM Ninja.asm loc_3D65A: hurt or kid-above collisions.
+    To3D65A,
+    /// ASM Ninja.asm loc_3D698: side collisions against Kid or left/right.
+    To3D698,
+    /// ASM Ninja.asm loc_3D638: clear collision and route by wall-pinned/direction.
+    To3D638 { next: NinjaCollisionResumeLoc3D638 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaCollisionStateLoc3D606 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) route: NinjaCollisionLoc3D606,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_collision_dispatch_loc_3d606(
+    collision_type: i16,
+    wall_pinned: bool,
+    x_direction_right: bool,
+) -> NinjaCollisionStateLoc3D606 {
+    // ASM Ninja.asm loc_3D606:
+    // - capture `$collision_type(a3)` in d4 and immediately clear it
+    // - branch on zero/negative/hurt/side/other collision IDs
+    let route = match collision_type {
+        0 => NinjaCollisionLoc3D606::To3D6DA,
+        v if v < 0 => NinjaCollisionLoc3D606::To3DB4E,
+        v if v == NINJA_COLID_HURT as i16 || v == NINJA_COLID_KIDABOVE as i16 => {
+            NinjaCollisionLoc3D606::To3D65A
+        }
+        v if v == NINJA_COLID_KIDRIGHT as i16 || v == NINJA_COLID_KIDLEFT as i16 => {
+            NinjaCollisionLoc3D606::To3D698
+        }
+        _ => NinjaCollisionLoc3D606::To3D638 {
+            next: ninja_collision_resume_loc_3d638(wall_pinned, x_direction_right),
+        },
+    };
+
+    NinjaCollisionStateLoc3D606 {
+        next_collision_type: 0,
+        route,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_collision_resume_loc_3d64e(
+    x_direction_right: bool,
+) -> NinjaCollisionResumeLoc3D638 {
+    // ASM Ninja.asm loc_3D64E: with no wall pin, dispatch only by facing:
+    // x_direction=0 → loc_3E560 (left-facing), x_direction=$FF → loc_3E3AC.
+    if x_direction_right {
+        NinjaCollisionResumeLoc3D638::Loc3E3AC
+    } else {
+        NinjaCollisionResumeLoc3D638::Loc3E560
+    }
+}
 
 /// Step a Ninja enemy: stealth-paces until player enters detection cone,
 /// then faces player and jump-attacks. Returns to stealth on landing.
@@ -10475,6 +10576,112 @@ mod tests {
         assert_eq!(
             enemy.x_velocity, 0,
             "ASM Ninja.asm loc_3D706 only enters the jump branch when kid_x - ninja_x < $10; the +$10 edge must stay in stealth"
+        );
+    }
+
+    #[test]
+    fn ninja_collision_dispatch_loc_3d606_clears_and_routes_collision_types() {
+        assert_eq!(
+            ninja_collision_dispatch_loc_3d606(0, false, false),
+            NinjaCollisionStateLoc3D606 {
+                next_collision_type: 0,
+                route: NinjaCollisionLoc3D606::To3D6DA,
+            },
+            "ASM Ninja.asm loc_3D606 should clear collision_type and jump to loc_3D6DA when d4 is zero"
+        );
+
+        assert_eq!(
+            ninja_collision_dispatch_loc_3d606(-1, false, false),
+            NinjaCollisionStateLoc3D606 {
+                next_collision_type: 0,
+                route: NinjaCollisionLoc3D606::To3DB4E,
+            },
+            "ASM Ninja.asm loc_3D606 should route negative collision IDs to loc_3DB4E via bmi"
+        );
+
+        assert_eq!(
+            ninja_collision_dispatch_loc_3d606(NINJA_COLID_HURT as i16, true, false),
+            NinjaCollisionStateLoc3D606 {
+                next_collision_type: 0,
+                route: NinjaCollisionLoc3D606::To3D65A,
+            },
+            "ASM Ninja.asm loc_3D606 should route colid_hurt to loc_3D65A after clearing collision_type"
+        );
+
+        assert_eq!(
+            ninja_collision_dispatch_loc_3d606(NINJA_COLID_KIDABOVE as i16, false, true),
+            NinjaCollisionStateLoc3D606 {
+                next_collision_type: 0,
+                route: NinjaCollisionLoc3D606::To3D65A,
+            },
+            "ASM Ninja.asm loc_3D606 should route colid_kidabove to loc_3D65A after clearing collision_type"
+        );
+
+        assert_eq!(
+            ninja_collision_dispatch_loc_3d606(NINJA_COLID_KIDRIGHT as i16, false, true),
+            NinjaCollisionStateLoc3D606 {
+                next_collision_type: 0,
+                route: NinjaCollisionLoc3D606::To3D698,
+            },
+            "ASM Ninja.asm loc_3D606 should route colid_kidright to loc_3D698"
+        );
+
+        assert_eq!(
+            ninja_collision_dispatch_loc_3d606(NINJA_COLID_KIDLEFT as i16, true, false),
+            NinjaCollisionStateLoc3D606 {
+                next_collision_type: 0,
+                route: NinjaCollisionLoc3D606::To3D698,
+            },
+            "ASM Ninja.asm loc_3D606 should route colid_kidleft to loc_3D698"
+        );
+
+        assert_eq!(
+            ninja_collision_dispatch_loc_3d606(0x00FF, true, true),
+            NinjaCollisionStateLoc3D606 {
+                next_collision_type: 0,
+                route: NinjaCollisionLoc3D606::To3D638 {
+                    next: NinjaCollisionResumeLoc3D638::Loc3E3AC
+                },
+            },
+            "ASM Ninja.asm loc_3D606 should fall through to loc_3D638 when collision_id is unhandled"
+        );
+    }
+
+    #[test]
+    fn ninja_collision_resume_loc_3d638_dispatches_wallpin_and_facing() {
+        assert_eq!(
+            ninja_collision_resume_loc_3d638(false, false),
+            NinjaCollisionResumeLoc3D638::Loc3E7CA,
+            "ASM Ninja.asm loc_3D638 should jump to loc_3E7CA for left-facing when `$5C(a5)` is clear"
+        );
+        assert_eq!(
+            ninja_collision_resume_loc_3d638(false, true),
+            NinjaCollisionResumeLoc3D638::Loc3E6AE,
+            "ASM Ninja.asm loc_3D638 should jump to loc_3E6AE for right-facing when `$5C(a5)` is clear"
+        );
+        assert_eq!(
+            ninja_collision_resume_loc_3d638(true, false),
+            NinjaCollisionResumeLoc3D638::Loc3E560,
+            "ASM Ninja.asm loc_3D638 should jump to loc_3E560 for left-facing when `$5C(a5)` is set"
+        );
+        assert_eq!(
+            ninja_collision_resume_loc_3d638(true, true),
+            NinjaCollisionResumeLoc3D638::Loc3E3AC,
+            "ASM Ninja.asm loc_3D638 should jump to loc_3E3AC for right-facing when `$5C(a5)` is set"
+        );
+    }
+
+    #[test]
+    fn ninja_collision_resume_loc_3d64e_removes_wallpin_gate_from_loc_3d638() {
+        assert_eq!(
+            ninja_collision_resume_loc_3d64e(false),
+            NinjaCollisionResumeLoc3D638::Loc3E560,
+            "ASM Ninja.asm loc_3D64E should branch to loc_3E560 with x_direction cleared"
+        );
+        assert_eq!(
+            ninja_collision_resume_loc_3d64e(true),
+            NinjaCollisionResumeLoc3D638::Loc3E3AC,
+            "ASM Ninja.asm loc_3D64E should branch to loc_3E3AC when x_direction indicates right-facing"
         );
     }
 }
