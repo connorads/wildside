@@ -1591,6 +1591,51 @@ pub(crate) fn dragon_walking_normal_animation_loc_3ce48() -> DragonWalkingNormal
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingInitialDispatchLoc3CE5A {
+    NormalFacingDispatch,
+    SpawnedChildLeftPacing,
+    SpawnedChildRightPacing,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingCommonInitLoc3CE5A {
+    pub(crate) shared_walker_state: i16,
+    pub(crate) breath_timer: u16,
+    pub(crate) patrol_timer: u16,
+    pub(crate) collision_callback: &'static str,
+    pub(crate) next: DragonWalkingInitialDispatchLoc3CE5A,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_common_init_loc_3ce5a(
+    parent_spawned_child: bool,
+    facing: Direction,
+) -> DragonWalkingCommonInitLoc3CE5A {
+    // ASM Dragon.asm loc_3CE5A: seed `$42(a3)`, `$66(a5)`, `$54(a5)`, and
+    // `a0=loc_3CE90`; when `$5C(a5)` is set, branch by x_direction directly
+    // to the spawned-child pacing loops, otherwise continue to normal-facing
+    // initial dispatch.
+    let next = if parent_spawned_child {
+        match facing {
+            Direction::Left => DragonWalkingInitialDispatchLoc3CE5A::SpawnedChildLeftPacing,
+            Direction::Right => DragonWalkingInitialDispatchLoc3CE5A::SpawnedChildRightPacing,
+        }
+    } else {
+        DragonWalkingInitialDispatchLoc3CE5A::NormalFacingDispatch
+    };
+
+    DragonWalkingCommonInitLoc3CE5A {
+        shared_walker_state: SHARED_WALKER_STATE_PATROL,
+        breath_timer: DRAGON_WALKING_BREATH_INITIAL,
+        patrol_timer: DRAGON_WALKING_PATROL_LONG_FRAMES,
+        collision_callback: "loc_3CE90",
+        next,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -11104,6 +11149,41 @@ mod tests {
             dragon_walking_setup_loc_3cdfc(1).animation_label,
             dragon_walking_normal_animation_loc_3ce48().animation_label,
             "native non-HP3 DragonWalking setup should use the loc_3CE48 normal animation branch"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_common_init_matches_loc_3ce5a() {
+        assert_eq!(
+            dragon_walking_common_init_loc_3ce5a(false, Direction::Left),
+            DragonWalkingCommonInitLoc3CE5A {
+                shared_walker_state: SHARED_WALKER_STATE_PATROL,
+                breath_timer: DRAGON_WALKING_BREATH_INITIAL,
+                patrol_timer: DRAGON_WALKING_PATROL_LONG_FRAMES,
+                collision_callback: "loc_3CE90",
+                next: DragonWalkingInitialDispatchLoc3CE5A::NormalFacingDispatch,
+            },
+            "ASM Dragon.asm loc_3CE5A seeds `$42/$66/$54/a0` before non-child dragons continue to normal facing dispatch"
+        );
+        assert_eq!(
+            dragon_walking_common_init_loc_3ce5a(true, Direction::Left).next,
+            DragonWalkingInitialDispatchLoc3CE5A::SpawnedChildLeftPacing,
+            "ASM Dragon.asm loc_3CE5A sends spawned clear-x_direction dragons to loc_3E7CA"
+        );
+        assert_eq!(
+            dragon_walking_common_init_loc_3ce5a(true, Direction::Right).next,
+            DragonWalkingInitialDispatchLoc3CE5A::SpawnedChildRightPacing,
+            "ASM Dragon.asm loc_3CE5A sends spawned set-x_direction dragons to loc_3E6AE"
+        );
+        assert_eq!(
+            spawn_shared_walker_state(EnemyFamily::DragonWalking),
+            dragon_walking_common_init_loc_3ce5a(false, Direction::Left).shared_walker_state,
+            "native DragonWalking shared state should expose the `$42(a3)` patrol seed from loc_3CE5A"
+        );
+        assert_eq!(
+            spawn_shared_walker_patrol_timer(EnemyFamily::DragonWalking),
+            dragon_walking_common_init_loc_3ce5a(false, Direction::Left).patrol_timer,
+            "native DragonWalking patrol timer should expose the `$54(a5)` seed from loc_3CE5A"
         );
     }
 
