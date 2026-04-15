@@ -6235,6 +6235,13 @@ pub(crate) struct TarMonsterWaitLoopLoc322AA {
     pub(crate) next_collision_type: u16,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterAppearSoundLoc322C0 {
+    pub(crate) sound_effect_label: &'static str,
+    pub(crate) preserves_script_command_d0: bool,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_loc_32248() -> &'static [u8] {
     // ASM loc_32248: `lea (unk_32264).l,a0` loads this control script pointer.
@@ -6292,6 +6299,17 @@ pub(crate) fn tar_monster_wait_loop_loc_322aa(
         checks_object_range_each_frame: true,
         polls_collision_each_frame: true,
         next_collision_type: tar_monster_loc_3224e().collision_type,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_appear_sound_loc_322c0() -> TarMonsterAppearSoundLoc322C0 {
+    // ASM loc_322C0: call `j_PlaySound` with `sfx_Tar_Monster_appears`, then
+    // restore the script command from the stack before animation setup.
+    TarMonsterAppearSoundLoc322C0 {
+        sound_effect_label: "sfx_Tar_Monster_appears",
+        preserves_script_command_d0: true,
     }
 }
 
@@ -8755,6 +8773,18 @@ mod tests {
             tar_monster_wait_loop_loc_322aa(0x5A).hibernate_frames,
             91,
             "ASM Tar_Monster.asm loc_322AA makes script wait byte $5A last 91 one-frame hibernates"
+        );
+    }
+
+    #[test]
+    fn tar_monster_appear_sound_loc_322c0_preserves_script_command() {
+        assert_eq!(
+            tar_monster_appear_sound_loc_322c0(),
+            TarMonsterAppearSoundLoc322C0 {
+                sound_effect_label: "sfx_Tar_Monster_appears",
+                preserves_script_command_d0: true,
+            },
+            "ASM Tar_Monster.asm loc_322C0 restores d0 after j_PlaySound so the script command survives the audio call"
         );
     }
 
