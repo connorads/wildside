@@ -3495,11 +3495,10 @@ pub(crate) fn step_dragon(
                     moving_right,
                 );
                 if wall.hit {
-                    enemy.x_velocity = -enemy.x_velocity;
-                    enemy.facing = match enemy.facing {
-                        Direction::Right => Direction::Left,
-                        Direction::Left => Direction::Right,
-                    };
+                    let (facing, x_velocity) =
+                        dragon_reverse_x_motion(enemy.facing, enemy.x_velocity);
+                    enemy.facing = facing;
+                    enemy.x_velocity = x_velocity;
                 }
             }
         }
@@ -3600,6 +3599,15 @@ pub(crate) fn dragon_face_player_motion(dragon_x_pos: u32, player_x_pos: u32) ->
     } else {
         (Direction::Left, -DRAGON_FACE_PLAYER_SPEED)
     }
+}
+
+pub(crate) fn dragon_reverse_x_motion(facing: Direction, x_velocity: i32) -> (Direction, i32) {
+    let facing = match facing {
+        Direction::Right => Direction::Left,
+        Direction::Left => Direction::Right,
+    };
+    // ASM Dragon_Flying.asm loc_34768: not.b x_direction(a3); neg.l x_vel(a3).
+    (facing, x_velocity.wrapping_neg())
 }
 
 /// Begin a drift command: set initial speed and direction. ASM loc_34776.

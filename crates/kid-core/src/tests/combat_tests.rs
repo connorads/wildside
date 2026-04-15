@@ -5689,6 +5689,25 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34768_toggles_facing_and_negates_x_velocity() {
+        assert_eq!(
+            dragon_reverse_x_motion(Direction::Left, -0x8000),
+            (Direction::Right, 0x8000),
+            "ASM Dragon_Flying.asm loc_34768 flips the direction flag and negates x_vel"
+        );
+        assert_eq!(
+            dragon_reverse_x_motion(Direction::Right, 0x1_8000),
+            (Direction::Left, -0x1_8000),
+            "loc_34768 preserves the full 32-bit velocity magnitude"
+        );
+        assert_eq!(
+            dragon_reverse_x_motion(Direction::Right, 0),
+            (Direction::Left, 0),
+            "NEG.L leaves zero velocity at zero while NOT.B still flips facing"
+        );
+    }
+
+    #[test]
     fn dragon_flyer_script_2_retargets_player_between_drifts() {
         // Script 2: DriftWithFire(112) → DriftWithFire(112) → FacePlayer → DriftWithFire(80).
         // After first two drift phases, FacePlayer should redirect toward the player.
