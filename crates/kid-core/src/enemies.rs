@@ -2858,6 +2858,44 @@ pub(crate) fn ufo_hurt_hibernate_gate_loc_351b6(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoBeamSpawnLoc351EE {
+    pub(crate) allocation_selector: u16,
+    pub(crate) beam_routine: &'static str,
+    pub(crate) beam_x_velocity: i32,
+    pub(crate) beam_y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_beam_spawn_loc_351ee(
+    parent_x_velocity: i32,
+    beam_velocity_pairs: &[(i16, i16)],
+) -> Vec<UfoBeamSpawnLoc351EE> {
+    // ASM UFO.asm loc_351EE: load `unk_351C4` and repeatedly allocate
+    // `loc_354DA` beams from paired table entries until the first x-word sentinel 0.
+    let mut spawns = Vec::new();
+    for (raw_x_vel, raw_y_vel) in beam_velocity_pairs {
+        if *raw_x_vel == 0 {
+            break;
+        }
+
+        let mut x_vel = i32::from(*raw_x_vel) << 15;
+        x_vel += parent_x_velocity >> 1;
+
+        let y_vel = i32::from(*raw_y_vel) << 15;
+
+        spawns.push(UfoBeamSpawnLoc351EE {
+            allocation_selector: 0x8000,
+            beam_routine: "loc_354DA",
+            beam_x_velocity: x_vel,
+            beam_y_velocity: y_vel,
+        });
+    }
+
+    spawns
+}
+
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
     // motion script and wrap when the following longword sentinel equals 1.
@@ -8898,6 +8936,34 @@ mod tests {
                 delete_current_object: true,
             },
             "ASM UFO.asm loc_351B6 deletes current object when `$19(a3)` is set"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_spawn_matches_loc_351ee() {
+        assert_eq!(
+            ufo_beam_spawn_loc_351ee(0x0006_0000, &[(5, 4), (-5, -3), (0, 0), (1, 1)]),
+            vec![
+                UfoBeamSpawnLoc351EE {
+                    allocation_selector: 0x8000,
+                    beam_routine: "loc_354DA",
+                    beam_x_velocity: 0x0005_8000,
+                    beam_y_velocity: 0x0008_0000,
+                },
+                UfoBeamSpawnLoc351EE {
+                    allocation_selector: 0x8000,
+                    beam_routine: "loc_354DA",
+                    beam_x_velocity: 0x0000_8000,
+                    beam_y_velocity: -0x0001_8000,
+                },
+            ],
+            "ASM UFO.asm loc_351EE reads the beam table, spawns each segment, and stops on x-word zero"
+        );
+
+        assert_eq!(
+            ufo_beam_spawn_loc_351ee(0x0010_0000, &[(0, -5), (5, 5)]),
+            Vec::<UfoBeamSpawnLoc351EE>::new(),
+            "ASM UFO.asm loc_351EE exits immediately when sentinel x-word is zero"
         );
     }
 
