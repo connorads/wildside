@@ -1415,6 +1415,34 @@ const DRAGON_SPAWN_Y_OFFSET_PX: u32 = 1;
 /// Walking dragons also use the 1px Y offset.
 const DRAGON_WALKING_SPAWN_Y_OFFSET_PX: u32 = 1;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingChildInitLoc3CD16 {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) facing: Direction,
+    pub(crate) inherited_state_word: u16,
+    pub(crate) parent_spawned_child: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_child_init_loc_3cd16(
+    parent_x_pos: u32,
+    parent_y_pos: u32,
+    parent_facing: Direction,
+    parent_state_word_4a: u16,
+) -> DragonWalkingChildInitLoc3CD16 {
+    // ASM Dragon.asm loc_3CD16: the flying-dragon parent allocates the
+    // walking-dragon child, copies `$44/$46/$48/$4A(a5)`, and sets `$5C(a5)`.
+    DragonWalkingChildInitLoc3CD16 {
+        x_pos: parent_x_pos,
+        y_pos: parent_y_pos,
+        facing: parent_facing,
+        inherited_state_word: parent_state_word_4a,
+        parent_spawned_child: true,
+    }
+}
+
 // --- Dragon Flying script interpreter (Dragon_Flying.asm) ---
 
 /// Drift initial speed: $800 (subpixel FP16.16). ASM loc_34776.
@@ -10215,6 +10243,24 @@ mod tests {
                 advances_script: true,
             },
             "ASM Dragon_Flying.asm loc_347FC falls through to loc_346DA only after dbf decrements zero to `$FFFF`"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_child_seed_matches_loc_3cd16() {
+        let init =
+            dragon_walking_child_init_loc_3cd16(0x0123_8000, 0x0045_0000, Direction::Right, 0x0010);
+
+        assert_eq!(
+            init,
+            DragonWalkingChildInitLoc3CD16 {
+                x_pos: 0x0123_8000,
+                y_pos: 0x0045_0000,
+                facing: Direction::Right,
+                inherited_state_word: 0x0010,
+                parent_spawned_child: true,
+            },
+            "ASM Dragon.asm loc_3CD16 copies parent position, raw x_direction, and `$4A` into the spawned walking-dragon object before marking `$5C(a5)`"
         );
     }
 
