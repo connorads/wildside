@@ -13184,6 +13184,22 @@ pub(crate) const EMO_ROCK_VELOCITY_CAP: i32 = 0x4_0000;
 /// EmoRock walk speed after landing.
 pub(crate) const EMO_ROCK_WALK_SPEED: i32 = 0x8000;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EmoRockWaitCountdownLoc36212 {
+    pub(crate) remaining_wait_timer: u16,
+    pub(crate) repeats_wait_loop: bool,
+}
+
+pub(crate) fn emo_rock_wait_countdown_loc_36212(wait_timer: u16) -> EmoRockWaitCountdownLoc36212 {
+    // ASM Emo_Rock.asm loc_36212: after each one-frame hibernate, `subq.w #1,d0`
+    // leaves the object in the wait loop while the word result is non-zero.
+    let remaining_wait_timer = wait_timer.wrapping_sub(1);
+    EmoRockWaitCountdownLoc36212 {
+        remaining_wait_timer,
+        repeats_wait_loop: remaining_wait_timer != 0,
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -13232,7 +13248,7 @@ pub(crate) fn step_emo_rock(
         if let Some(py) = player_y_pos {
             enemy.y_pos = py.saturating_sub(hover_height_fp);
         }
-        enemy.wait_timer -= 1;
+        enemy.wait_timer = emo_rock_wait_countdown_loc_36212(enemy.wait_timer).remaining_wait_timer;
         return;
     }
 
@@ -15783,6 +15799,26 @@ mod tests {
         assert!(
             (0x003C..=0x00BB).contains(&delay),
             "ASM Emo_Rock.asm loc_361F4 clears bit 7 before adding the `$3C` base delay, so the hover seed must stay within 60..187 frames"
+        );
+    }
+
+    #[test]
+    fn emo_rock_wait_countdown_loc_36212_loops_until_subq_reaches_zero() {
+        assert_eq!(
+            emo_rock_wait_countdown_loc_36212(3),
+            EmoRockWaitCountdownLoc36212 {
+                remaining_wait_timer: 2,
+                repeats_wait_loop: true,
+            },
+            "ASM Emo_Rock.asm loc_36212 branches back while `subq.w #1,d0` leaves a non-zero wait word"
+        );
+        assert_eq!(
+            emo_rock_wait_countdown_loc_36212(1),
+            EmoRockWaitCountdownLoc36212 {
+                remaining_wait_timer: 0,
+                repeats_wait_loop: false,
+            },
+            "ASM Emo_Rock.asm loc_36212 falls through when the countdown reaches zero"
         );
     }
 
