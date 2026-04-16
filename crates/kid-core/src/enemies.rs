@@ -4843,6 +4843,34 @@ pub(crate) fn ufo_beam_child_gravity_gate_loc_3555a(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverFallLoopLoc3564C {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) range_check_mode: u8,
+    pub(crate) y_velocity: i32,
+    pub(crate) collision_table: &'static str,
+    pub(crate) collision_dispatch_mode: u8,
+    pub(crate) loops_forever: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_fall_loop_loc_3564c(
+    y_velocity: i32,
+) -> UfoHurtDriverFallLoopLoc3564C {
+    // ASM UFO.asm loc_3564C: after one-frame hibernate, call Object_CheckInRange
+    // with d0=1, add `$2000` to `y_vel(a3)`, dispatch through `off_3569E`,
+    // then branch back to the same loop.
+    UfoHurtDriverFallLoopLoc3564C {
+        hibernates_one_frame: true,
+        range_check_mode: 1,
+        y_velocity: y_velocity.wrapping_add(0x0000_2000),
+        collision_table: "off_3569E",
+        collision_dispatch_mode: 1,
+        loops_forever: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -14722,6 +14750,28 @@ mod tests {
                 delete_current_object: true,
             },
             "ASM UFO.asm loc_3555A still applies gravity before deleting when `$19(a3)` is set"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_driver_fall_loop_matches_loc_3564c() {
+        assert_eq!(
+            ufo_hurt_driver_fall_loop_loc_3564c(0x0002_0000),
+            UfoHurtDriverFallLoopLoc3564C {
+                hibernates_one_frame: true,
+                range_check_mode: 1,
+                y_velocity: 0x0002_2000,
+                collision_table: "off_3569E",
+                collision_dispatch_mode: 1,
+                loops_forever: true,
+            },
+            "ASM UFO.asm loc_3564C hibernates, checks range with d0=1, adds `$2000` gravity, and loops through `off_3569E`"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_fall_loop_loc_3564c(i32::MAX).y_velocity,
+            i32::MIN.wrapping_add(0x0000_1FFF),
+            "ASM UFO.asm loc_3564C uses 68k longword wrapping for `addi.l #$2000,y_vel(a3)`"
         );
     }
 
