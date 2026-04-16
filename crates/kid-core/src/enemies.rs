@@ -5978,6 +5978,31 @@ pub(crate) fn ufo_hurt_driver_slide_loop_loc_35680() -> UfoHurtDriverSlideLoopLo
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverSlideTurnaroundLoc356CE {
+    pub(crate) x_velocity: i32,
+    pub(crate) x_pos: u32,
+    pub(crate) x_direction: u8,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_slide_turnaround_loc_356ce(
+    x_velocity: i32,
+    x_pos: u32,
+    x_direction: u8,
+) -> UfoHurtDriverSlideTurnaroundLoc356CE {
+    // ASM UFO.asm loc_356CE: negate `x_vel(a3)`, advance `x_pos(a3)` by that
+    // negated velocity shifted left two bits, then `not.b x_direction(a3)`.
+    let x_velocity = x_velocity.wrapping_neg();
+    let displacement = x_velocity.wrapping_shl(2);
+    UfoHurtDriverSlideTurnaroundLoc356CE {
+        x_velocity,
+        x_pos: x_pos.wrapping_add(u32::from_ne_bytes(displacement.to_ne_bytes())),
+        x_direction: !x_direction,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -16894,6 +16919,29 @@ mod tests {
                 loops_forever: true,
             },
             "ASM UFO.asm loc_35680 clears Kid collision, uses d0=0 collision dispatch, checks the ground tile, and loops"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_driver_slide_turnaround_matches_loc_356ce() {
+        assert_eq!(
+            ufo_hurt_driver_slide_turnaround_loc_356ce(-0x0000_8000, 0x0010_0000, 0),
+            UfoHurtDriverSlideTurnaroundLoc356CE {
+                x_velocity: 0x0000_8000,
+                x_pos: 0x0012_0000,
+                x_direction: 0xFF,
+            },
+            "ASM UFO.asm loc_356CE negates x_vel, applies four frames of the reversed velocity to x_pos, and flips clear x_direction to `$FF`"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_slide_turnaround_loc_356ce(0x0000_8000, 0x0010_0000, 0xFF),
+            UfoHurtDriverSlideTurnaroundLoc356CE {
+                x_velocity: -0x0000_8000,
+                x_pos: 0x000E_0000,
+                x_direction: 0,
+            },
+            "ASM UFO.asm loc_356CE uses longword wrapping for the shifted negative displacement and `not.b` for direction"
         );
     }
 
