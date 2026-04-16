@@ -11030,13 +11030,19 @@ pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 24;
 pub(crate) const TAR_MONSTER_GLOB_SPEED_X: i32 = 4 << 16;
 /// Glob gravity: $1000/frame (Tar_Monster.asm line 412).
 pub(crate) const TAR_MONSTER_GLOB_GRAVITY: i32 = 0x1000;
+/// ASM loc_32534: final three child velocities in the Tar Monster burst sequence.
+pub(crate) const TAR_MONSTER_BURST_TAIL_VELOCITIES_LOC_32534: [(i32, i32); 3] = [
+    (0x0_8000, -0x2_0000),
+    (-0x0_8000, -0x2_0000),
+    (0x0_2000, -0x1_C000),
+];
 /// ASM loc_324F8 burst child velocities after the straight glob impact/expiry.
 pub(crate) const TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8: [(i32, i32); 5] = [
     (0x1_0000, -0x1_0000),
     (-0x1_0000, -0x1_0000),
-    (0x0_8000, -0x2_0000),
-    (-0x0_8000, -0x2_0000),
-    (0x0_2000, -0x1_C000),
+    TAR_MONSTER_BURST_TAIL_VELOCITIES_LOC_32534[0],
+    TAR_MONSTER_BURST_TAIL_VELOCITIES_LOC_32534[1],
+    TAR_MONSTER_BURST_TAIL_VELOCITIES_LOC_32534[2],
 ];
 /// Raw control script bytes used by `unk_32264` in `loc_32248`.
 /// Bytecode pairs are read with `move.w (a0)+,d0`, so each table entry is a signed
@@ -11280,6 +11286,15 @@ pub(crate) struct TarMonsterBurstCleanupLoc324F8 {
     pub(crate) child_count: u8,
     pub(crate) child_velocities: [(i32, i32); 5],
     pub(crate) hibernates_before_delete: bool,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterBurstTailLoc32534 {
+    pub(crate) child_count: u8,
+    pub(crate) child_velocities: [(i32, i32); 3],
+    pub(crate) hibernates_before_delete: bool,
+    pub(crate) deletes_original_shot: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -11614,8 +11629,8 @@ pub(crate) fn tar_monster_shot_wait_loc_324E6(
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_burst_cleanup_loc_324F8() -> TarMonsterBurstCleanupLoc324F8 {
     // ASM loc_324F8 hides the impacted glob, clears both velocity longs, spawns
-    // five burst children with fixed velocity pairs, hibernates once, then
-    // deletes the original glob.
+    // two fixed-velocity children, then falls through loc_32534 for the final
+    // three children, one-frame hibernate, and original-glob delete.
     TarMonsterBurstCleanupLoc324F8 {
         hides_original_shot: true,
         clears_original_x_velocity: true,
@@ -11623,6 +11638,19 @@ pub(crate) fn tar_monster_burst_cleanup_loc_324F8() -> TarMonsterBurstCleanupLoc
         child_count: 5,
         child_velocities: TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8,
         hibernates_before_delete: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_burst_tail_loc_32534() -> TarMonsterBurstTailLoc32534 {
+    // ASM loc_32534 allocates the final three burst workers with fixed `$44/$48`
+    // velocity pairs, hibernates once, then deletes the source glob.
+    TarMonsterBurstTailLoc32534 {
+        child_count: 3,
+        child_velocities: TAR_MONSTER_BURST_TAIL_VELOCITIES_LOC_32534,
+        hibernates_before_delete: true,
+        deletes_original_shot: true,
     }
 }
 
@@ -15416,6 +15444,24 @@ mod tests {
                 .collect::<Vec<_>>(),
             TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8.to_vec(),
             "ASM Tar_Monster.asm loc_324F8 velocity table should drive the native retaliation burst"
+        );
+    }
+
+    #[test]
+    fn tar_monster_burst_tail_loc_32534_spawns_last_three_children_then_deletes() {
+        assert_eq!(
+            tar_monster_burst_tail_loc_32534(),
+            TarMonsterBurstTailLoc32534 {
+                child_count: 3,
+                child_velocities: [
+                    (0x0_8000, -0x2_0000),
+                    (-0x0_8000, -0x2_0000),
+                    (0x0_2000, -0x1_C000),
+                ],
+                hibernates_before_delete: true,
+                deletes_original_shot: true,
+            },
+            "ASM Tar_Monster.asm loc_32534 allocates the final three burst children, hibernates once, then deletes the original glob"
         );
     }
 
