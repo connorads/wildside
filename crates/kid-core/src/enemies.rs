@@ -1902,6 +1902,27 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArmadilloInitAnimationProfile {
+    pub(crate) initial_animation_script: &'static str,
+    pub(crate) saved_patrol_animation: &'static str,
+    pub(crate) saved_damage_resume_animation: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_hp2_init_animation_loc_3c7c0(
+    current_hp: u8,
+) -> Option<ArmadilloInitAnimationProfile> {
+    // ASM Armadillo.asm loc_3C7C0: HP 2 falls through after the high-HP guard,
+    // starts and saves `stru_3C64C`, and keeps `stru_3C666` for damage resume.
+    (current_hp == 2).then_some(ArmadilloInitAnimationProfile {
+        initial_animation_script: "stru_3C64C",
+        saved_patrol_animation: "stru_3C64C",
+        saved_damage_resume_animation: "stru_3C666",
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
     pub(crate) initial_animation_script: &'static str,
     pub(crate) saved_patrol_animation: &'static str,
@@ -15950,6 +15971,24 @@ mod tests {
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, hp1), 0x0000_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, hp2), 0x0001_8000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, hp3), 0x0002_8000);
+    }
+
+    #[test]
+    fn armadillo_hp2_init_animation_matches_loc_3c7c0() {
+        assert_eq!(
+            armadillo_hp2_init_animation_loc_3c7c0(2),
+            Some(ArmadilloInitAnimationProfile {
+                initial_animation_script: "stru_3C64C",
+                saved_patrol_animation: "stru_3C64C",
+                saved_damage_resume_animation: "stru_3C666",
+            }),
+            "ASM Armadillo.asm loc_3C7C0 handles HP 2 by selecting stru_3C64C and preserving stru_3C666 as the damage-resume animation"
+        );
+        assert_eq!(
+            armadillo_hp2_init_animation_loc_3c7c0(1),
+            None,
+            "ASM Armadillo.asm loc_3C7C0 is only reached after `cmpi.w #2,d7; bge.s loc_3C7C0`"
+        );
     }
 
     #[test]
