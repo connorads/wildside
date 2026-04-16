@@ -13560,6 +13560,17 @@ const CRAB_FREEZE_DISTANCE: i64 = 0x40;
 /// ASM loc_3B142: cmpi.w #$E0,d7 (unfreeze threshold = 224px).
 const CRAB_UNFREEZE_DISTANCE: i64 = 0xE0;
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_facing_toward_kid_loc_3b0e0(crab_x_minus_kid_x: i16) -> Direction {
+    // ASM Crab.asm loc_3B0E0: a negative `d7 = crab_x - Kid_x` reaches
+    // `st x_direction(a3)`, which is the crab's flipped/right-facing state.
+    if crab_x_minus_kid_x < 0 {
+        Direction::Right
+    } else {
+        Direction::Left
+    }
+}
+
 /// Crab player-proximity freeze callback (Crab.asm loc_3B0BE-loc_3B174).
 ///
 /// When player is within 64px horizontally AND facing the crab:
@@ -13582,6 +13593,10 @@ pub(crate) fn step_crab_freeze(
 
     let dx = (enemy.x_pos as i64 - px as i64) >> 16; // crab_x - player_x
     let abs_dx = dx.abs();
+
+    if !enemy.crab_frozen {
+        enemy.facing = crab_facing_toward_kid_loc_3b0e0(dx as i16);
+    }
 
     // ASM loc_3B142-loc_3B170: unfreeze when distance > 224px
     if abs_dx > CRAB_UNFREEZE_DISTANCE {
@@ -14393,6 +14408,25 @@ mod tests {
                 exits_enemy: true,
             },
             "ASM Crab.asm loc_3B094 should play the death animation to completion before enemy exit"
+        );
+    }
+
+    #[test]
+    fn crab_faces_toward_kid_matches_loc_3b0e0() {
+        assert_eq!(
+            crab_facing_toward_kid_loc_3b0e0(-1),
+            Direction::Right,
+            "ASM Crab.asm loc_3B0E0 should set x_direction when Kid is right of the crab"
+        );
+        assert_eq!(
+            crab_facing_toward_kid_loc_3b0e0(0),
+            Direction::Left,
+            "ASM Crab.asm loc_3B0BE should leave exact X alignment on the clear-x_direction branch"
+        );
+        assert_eq!(
+            crab_facing_toward_kid_loc_3b0e0(1),
+            Direction::Left,
+            "ASM Crab.asm loc_3B0BE should clear x_direction when Kid is left of the crab"
         );
     }
 
