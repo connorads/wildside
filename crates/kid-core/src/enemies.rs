@@ -3112,6 +3112,79 @@ const SCORPION_TRACK_RANGE: i64 = 0xAA;
 const SCORPION_BOOST_SPEED: i32 = 0x3_8000;
 /// Scorpion base speed (always $18000, from Scorpion.asm init line 30).
 const SCORPION_BASE_SPEED: i32 = 0x1_8000;
+const SCORPION_STING_X_RANGE_LOC_3DDC8: i16 = 0x24;
+const SCORPION_STING_Y_MIN_LOC_3DDEE: i16 = -0x20;
+const SCORPION_STING_Y_MAX_LOC_3DDEE: i16 = 0x30;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ScorpionCloseRangeRouteLoc3DDC8 {
+    ContinueSharedWalker,
+    TrackingLockedVerticalMiss,
+    TrackingLockedNoStingAnimation,
+    StingAnimation {
+        linked_tail_has_kid_collision: bool,
+        walk_speed_override: i32,
+        object_meta_or_mask: u16,
+        animation: &'static str,
+        hibernate_until_animation_finished: bool,
+    },
+}
+
+impl ScorpionCloseRangeRouteLoc3DDC8 {
+    pub(crate) const fn locks_tracking(self) -> bool {
+        !matches!(self, Self::ContinueSharedWalker)
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_close_range_route_loc_3ddc8(
+    scorpion_x_minus_kid_x_px: i16,
+    scorpion_y_minus_kid_y_px: i16,
+    facing: Direction,
+    enemy_level: u16,
+) -> ScorpionCloseRangeRouteLoc3DDC8 {
+    // ASM Scorpion.asm loc_3DDC8 keeps only d4 in [-$24, +$24], then tests
+    // signed d4 against `x_direction(a3)` before loc_3DDEE locks tracking.
+    if !(-SCORPION_STING_X_RANGE_LOC_3DDC8..=SCORPION_STING_X_RANGE_LOC_3DDC8)
+        .contains(&scorpion_x_minus_kid_x_px)
+    {
+        return ScorpionCloseRangeRouteLoc3DDC8::ContinueSharedWalker;
+    }
+
+    let facing_kid = if scorpion_x_minus_kid_x_px < 0 {
+        // ASM Scorpion.asm loc_3DDE6: negative d4 means Kid is right of the
+        // scorpion; only set x_direction reaches loc_3DDEE.
+        matches!(facing, Direction::Right)
+    } else {
+        // ASM Scorpion.asm loc_3DDC8: non-negative d4 falls through to
+        // loc_3DDEE only when x_direction is clear.
+        matches!(facing, Direction::Left)
+    };
+    if !facing_kid {
+        return ScorpionCloseRangeRouteLoc3DDC8::ContinueSharedWalker;
+    }
+
+    // ASM Scorpion.asm loc_3DDEE sets `$4E(a5)` before the vertical and level
+    // gates, so even a vertical miss suppresses future re-facing.
+    if !(SCORPION_STING_Y_MIN_LOC_3DDEE..=SCORPION_STING_Y_MAX_LOC_3DDEE)
+        .contains(&scorpion_y_minus_kid_y_px)
+    {
+        return ScorpionCloseRangeRouteLoc3DDC8::TrackingLockedVerticalMiss;
+    }
+
+    if enemy_level < 1 {
+        return ScorpionCloseRangeRouteLoc3DDC8::TrackingLockedNoStingAnimation;
+    }
+
+    ScorpionCloseRangeRouteLoc3DDC8::StingAnimation {
+        linked_tail_has_kid_collision: true,
+        walk_speed_override: 0,
+        object_meta_or_mask: 0xC000,
+        animation: "stru_3DB8E",
+        hibernate_until_animation_finished: true,
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScorpionTailGfxPosition {
@@ -16151,10 +16224,10 @@ pub(crate) fn step_archer(
 pub(crate) fn step_scorpion_tracking(
     enemy: &mut ActiveEnemy,
     player_x_pos: Option<u32>,
-    _player_y_pos: Option<u32>,
+    player_y_pos: Option<u32>,
 ) {
     let Some(px) = player_x_pos else { return };
-    let dx = (enemy.x_pos as i64 - px as i64) >> 16; // scorpion_x - player_x
+    let dx = (i64::from(enemy.x_pos) - i64::from(px)) >> 16; // scorpion_x - player_x
 
     // Within tracking range: face toward player unless tracking-locked.
     // ASM loc_3DD7E lines 146-155: if $4E clear, set x_direction toward player
@@ -16182,6 +16255,29 @@ pub(crate) fn step_scorpion_tracking(
     // ASM line 162-164: if enemy_level > 1 (HP >= 5 since HP = level + 3), boost speed.
     if enemy.hit_points >= 5 {
         enemy.walk_speed_override = SCORPION_BOOST_SPEED;
+    }
+
+    let Ok(dx_word) = i16::try_from(dx) else {
+        return;
+    };
+    let dy_word = player_y_pos
+        .and_then(|py| i16::try_from((i64::from(enemy.y_pos) - i64::from(py)) >> 16).ok())
+        .unwrap_or(0);
+    let close_range_route = scorpion_close_range_route_loc_3ddc8(
+        dx_word,
+        dy_word,
+        enemy.facing,
+        u16::from(enemy.enemy_level),
+    );
+    if close_range_route.locks_tracking() {
+        enemy.scorpion_tracking_lock = true;
+        if let ScorpionCloseRangeRouteLoc3DDC8::StingAnimation {
+            walk_speed_override,
+            ..
+        } = close_range_route
+        {
+            enemy.walk_speed_override = walk_speed_override;
+        }
     }
 }
 

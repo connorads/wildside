@@ -2576,6 +2576,78 @@ mod chunk_04 {
     }
 
     #[test]
+    fn scorpion_close_range_gate_loc_3ddc8_requires_36px_and_facing() {
+        use enemies::{ScorpionCloseRangeRouteLoc3DDC8, scorpion_close_range_route_loc_3ddc8};
+
+        assert_eq!(
+            scorpion_close_range_route_loc_3ddc8(0x25, 0, Direction::Left, 1),
+            ScorpionCloseRangeRouteLoc3DDC8::ContinueSharedWalker,
+            "ASM Scorpion.asm loc_3DDC8 exits to loc_3DE64 when d4 is greater than +$24"
+        );
+        assert_eq!(
+            scorpion_close_range_route_loc_3ddc8(-0x25, 0, Direction::Right, 1),
+            ScorpionCloseRangeRouteLoc3DDC8::ContinueSharedWalker,
+            "ASM Scorpion.asm loc_3DDC8 exits to loc_3DE64 when d4 is less than -$24"
+        );
+        assert!(
+            scorpion_close_range_route_loc_3ddc8(0x24, 0, Direction::Left, 1).locks_tracking(),
+            "ASM Scorpion.asm loc_3DDC8 keeps +$24 inside the close-range gate"
+        );
+        assert!(
+            scorpion_close_range_route_loc_3ddc8(-0x24, 0, Direction::Right, 1).locks_tracking(),
+            "ASM Scorpion.asm loc_3DDC8 keeps -$24 inside the close-range gate"
+        );
+    }
+
+    #[test]
+    fn scorpion_close_range_gate_loc_3dde6_rejects_wrong_facing() {
+        use enemies::{ScorpionCloseRangeRouteLoc3DDC8, scorpion_close_range_route_loc_3ddc8};
+
+        assert_eq!(
+            scorpion_close_range_route_loc_3ddc8(-0x10, 0, Direction::Left, 1),
+            ScorpionCloseRangeRouteLoc3DDC8::ContinueSharedWalker,
+            "ASM Scorpion.asm loc_3DDE6 rejects negative d4 when x_direction is clear"
+        );
+        assert_eq!(
+            scorpion_close_range_route_loc_3ddc8(0x10, 0, Direction::Right, 1),
+            ScorpionCloseRangeRouteLoc3DDC8::ContinueSharedWalker,
+            "ASM Scorpion.asm loc_3DDC8 positive d4 falls through only when x_direction is clear"
+        );
+    }
+
+    #[test]
+    fn scorpion_sting_lock_loc_3ddee_matches_vertical_and_level_gates() {
+        use enemies::{ScorpionCloseRangeRouteLoc3DDC8, scorpion_close_range_route_loc_3ddc8};
+
+        assert_eq!(
+            scorpion_close_range_route_loc_3ddc8(0, -0x21, Direction::Left, 1),
+            ScorpionCloseRangeRouteLoc3DDC8::TrackingLockedVerticalMiss,
+            "ASM Scorpion.asm loc_3DDEE sets $4E(a5) before y delta below -$20 exits through loc_3DE96"
+        );
+        assert_eq!(
+            scorpion_close_range_route_loc_3ddc8(0, 0x31, Direction::Left, 1),
+            ScorpionCloseRangeRouteLoc3DDC8::TrackingLockedVerticalMiss,
+            "ASM Scorpion.asm loc_3DDEE sets $4E(a5) before y delta above +$30 exits through loc_3DE96"
+        );
+        assert_eq!(
+            scorpion_close_range_route_loc_3ddc8(0, 0, Direction::Left, 0),
+            ScorpionCloseRangeRouteLoc3DDC8::TrackingLockedNoStingAnimation,
+            "ASM Scorpion.asm loc_3DDEE branches to loc_3DE3C without the sting animation when enemy_level < 1"
+        );
+        assert_eq!(
+            scorpion_close_range_route_loc_3ddc8(0, 0, Direction::Left, 1),
+            ScorpionCloseRangeRouteLoc3DDC8::StingAnimation {
+                linked_tail_has_kid_collision: true,
+                walk_speed_override: 0,
+                object_meta_or_mask: 0xC000,
+                animation: "stru_3DB8E",
+                hibernate_until_animation_finished: true,
+            },
+            "ASM Scorpion.asm loc_3DDEE enables tail collision, stops $50 speed, ORs object_meta with $C000, and waits for stru_3DB8E"
+        );
+    }
+
+    #[test]
     fn scorpion_collision_resume_patrol_branches_match_loc_3dd72() {
         use enemies::{ScorpionCollisionResumeBranchLoc3DD5C, scorpion_collision_resume_loc_3dd5c};
 
