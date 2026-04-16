@@ -8709,6 +8709,31 @@ pub(crate) struct TarMonsterShotSoundLoc32468 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterShotSpawnLoc3247E {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) object_meta: u16,
+    pub(crate) status_flag_13: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) priority: u8,
+    pub(crate) has_level_collision: bool,
+    pub(crate) sprite_frame_link: &'static str,
+    pub(crate) copied_x_direction: Direction,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterShotSpawnRouteLoc3247E {
+    StraightShot(TarMonsterShotSpawnLoc3247E),
+    RetaliationBurst {
+        x_pos: u32,
+        y_pos: u32,
+        proceeds_to_burst_cleanup: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -8962,6 +8987,37 @@ pub(crate) fn tar_monster_shot_sound_loc_32468() -> TarMonsterShotSoundLoc32468 
         preserves_script_command_d0: true,
         gfx_object_slot_word: 0x0300_0003,
     }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_shot_spawn_loc_3247E(
+    source_x_pos: u32,
+    source_y_pos: u32,
+    source_x_direction: Direction,
+    object_44_nonzero: bool,
+) -> TarMonsterShotSpawnRouteLoc3247E {
+    // ASM loc_3247E copies the source object's integer x/y words, then either
+    // branches to the burst path or prepares the straight shot.
+    if object_44_nonzero {
+        return TarMonsterShotSpawnRouteLoc3247E::RetaliationBurst {
+            x_pos: source_x_pos,
+            y_pos: source_y_pos.wrapping_sub(0x10 << 16),
+            proceeds_to_burst_cleanup: true,
+        };
+    }
+
+    TarMonsterShotSpawnRouteLoc3247E::StraightShot(TarMonsterShotSpawnLoc3247E {
+        x_pos: source_x_pos.wrapping_sub(0x19 << 16),
+        y_pos: source_y_pos.wrapping_sub(0x12 << 16),
+        object_meta: 5,
+        status_flag_13: true,
+        is_moved: true,
+        priority: 0,
+        has_level_collision: true,
+        sprite_frame_link: "LnkTo_unk_C781E",
+        copied_x_direction: source_x_direction,
+    })
 }
 
 #[allow(non_snake_case)]
@@ -12165,6 +12221,38 @@ mod tests {
                 gfx_object_slot_word: 0x0300_0003,
             },
             "ASM Tar_Monster.asm loc_32468 saves d0 around the shoot SFX before loading GfxObject slot `$3000003`"
+        );
+    }
+
+    #[test]
+    fn tar_monster_shot_spawn_loc_3247e_copies_pose_and_sets_straight_shot_flags() {
+        assert_eq!(
+            tar_monster_shot_spawn_loc_3247E(0x0120_0000, 0x0080_0000, Direction::Right, false),
+            TarMonsterShotSpawnRouteLoc3247E::StraightShot(TarMonsterShotSpawnLoc3247E {
+                x_pos: 0x0107_0000,
+                y_pos: 0x006E_0000,
+                object_meta: 5,
+                status_flag_13: true,
+                is_moved: true,
+                priority: 0,
+                has_level_collision: true,
+                sprite_frame_link: "LnkTo_unk_C781E",
+                copied_x_direction: Direction::Right,
+            }),
+            "ASM Tar_Monster.asm loc_3247E copies source x/y, subtracts $19/$12 for the straight shot, then copies x_direction"
+        );
+    }
+
+    #[test]
+    fn tar_monster_shot_spawn_loc_3247e_routes_nonzero_object_44_to_burst_path() {
+        assert_eq!(
+            tar_monster_shot_spawn_loc_3247E(0x0120_0000, 0x0080_0000, Direction::Left, true),
+            TarMonsterShotSpawnRouteLoc3247E::RetaliationBurst {
+                x_pos: 0x0120_0000,
+                y_pos: 0x0070_0000,
+                proceeds_to_burst_cleanup: true,
+            },
+            "ASM Tar_Monster.asm loc_3247E branches when `$44(a5)` is non-zero, subtracting only $10 from y before the burst cleanup"
         );
     }
 
