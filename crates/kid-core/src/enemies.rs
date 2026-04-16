@@ -8002,8 +8002,8 @@ pub(crate) fn step_tornado_with_rng(
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
-    // ASM Tornado.asm loc_359F2 / unk_3588C: reload the next script entry on
-    // each sub-cycle and reset the per-level countdown.
+    // ASM Tornado.asm loc_35908: the main flight loop decrements `$44(a5)`;
+    // only the zero result falls through to loc_359F2 and resets from `unk_3588C`.
     if enemy.wait_timer == 0 {
         let level = usize::from(enemy.enemy_level).min(2);
         enemy.wait_timer = TORNADO_PATTERN_FRAMES[level];

@@ -6406,6 +6406,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn tornado_loc_35908_decrements_timer_without_reloading_pattern() {
+        let mut enemy = test_enemy(EnemyFamily::Tornado, 100 << 16, 100 << 16, 1);
+        enemy.target_x_velocity = 0x0001_0000;
+        enemy.target_y_velocity = -0x0001_0000;
+        enemy.x_acceleration = 0x0000_0800;
+        enemy.y_acceleration = -0x0000_0800;
+        enemy.wait_timer = 2;
+        enemy.dragon_script_cmd = 7;
+
+        step_tornado(&mut enemy, None);
+
+        // ASM Tornado.asm loc_35908: `subq.w #1,$44(a5); bne.s loc_35908`
+        // keeps the current script while the countdown remains non-zero.
+        assert_eq!(enemy.wait_timer, 1);
+        assert_eq!(enemy.dragon_script_cmd, 7);
+        assert_eq!(enemy.x_velocity, 0x0000_0800);
+        assert_eq!(enemy.y_velocity, -0x0000_0800);
+    }
+
+    #[test]
     fn tornado_can_reach_doubled_level_2_target_speed() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 100 << 16, 100 << 16, 3);
         enemy.target_x_velocity = 0x0004_0000;
