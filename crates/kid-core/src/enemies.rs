@@ -1848,6 +1848,17 @@ pub(crate) enum MiniHoppingSkullLandingTailCollisionOutcome {
     },
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullAirDamageSetup {
+    pub(crate) remaining_hits: u16,
+    pub(crate) y_velocity: i32,
+    pub(crate) preserved_x_velocity: i32,
+    pub(crate) x_velocity: i32,
+    pub(crate) collision_type: u16,
+    pub(crate) next_loop: &'static str,
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -8563,6 +8574,24 @@ pub(crate) fn mini_hopping_skull_death_or_stopped_wait_loc_3f158(
         hibernate_until_finished: true,
         next_loop: "delete_current_object",
     })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_air_damage_setup_loc_3f1e6(
+    hit_counter: u16,
+    x_velocity: i32,
+) -> MiniHoppingSkullAirDamageSetup {
+    // ASM Mini_Hopping_Skull.asm loc_3F1E6: `subi.w #1,$44(a3)`,
+    // `move.l #$28800,y_vel(a3)`, preserve live X in d2, then clear live X
+    // and `collision_type(a3)` before entering the landing loop.
+    MiniHoppingSkullAirDamageSetup {
+        remaining_hits: hit_counter.wrapping_sub(1),
+        y_velocity: 0x0002_8800,
+        preserved_x_velocity: x_velocity,
+        x_velocity: 0,
+        collision_type: 0,
+        next_loop: "air_damage_landing_loop",
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -21675,6 +21704,27 @@ mod tests {
                 next_loop: "delete_current_object",
             }),
             "ASM Mini_Hopping_Skull.asm loc_3F158 should clear movement, play the death animation, and continue to deletion when `$44(a3)` is zero"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_air_damage_setup_matches_loc_3f1e6() {
+        assert_eq!(
+            mini_hopping_skull_air_damage_setup_loc_3f1e6(2, 0x0001_C000),
+            MiniHoppingSkullAirDamageSetup {
+                remaining_hits: 1,
+                y_velocity: 0x0002_8800,
+                preserved_x_velocity: 0x0001_C000,
+                x_velocity: 0,
+                collision_type: 0,
+                next_loop: "air_damage_landing_loop",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F1E6 decrements `$44(a3)`, stores live `x_vel(a3)` in d2, clears live X/collision, and seeds y_vel with `$28800`"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_damage_setup_loc_3f1e6(0, -0x0001_8000).remaining_hits,
+            0xFFFF,
+            "ASM Mini_Hopping_Skull.asm loc_3F1E6 uses word wrapping for `subi.w #1,$44(a3)`"
         );
     }
 
