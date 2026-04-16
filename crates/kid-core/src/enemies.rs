@@ -7138,6 +7138,46 @@ pub(crate) fn ufo_hurt_driver_slide_probe_x_loc_35724(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverSlideGroundTileLoc35738 {
+    pub(crate) probe_y_word: u16,
+    pub(crate) tile_column: u16,
+    pub(crate) tile_row: u16,
+    pub(crate) tile_collision_nibble: u16,
+    pub(crate) ground_present: bool,
+    pub(crate) miss_label: Option<&'static str>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_slide_ground_tile_loc_35738(
+    y_pos: u32,
+    probe_x_word: u16,
+    tile_word: u16,
+) -> UfoHurtDriverSlideGroundTileLoc35738 {
+    // ASM UFO.asm loc_35738: add 8px to the integer `y_pos(a3)` word, use
+    // logical word shifts to index the level-layout tile, and require the
+    // tile collision nibble to equal `$6000`; any other nibble branches to
+    // loc_356F2.
+    let [b0, b1, _, _] = y_pos.to_be_bytes();
+    let probe_y_word = u16::from_be_bytes([b0, b1]).wrapping_add(0x0008);
+    let tile_collision_nibble = tile_word & 0x7000;
+    let ground_present = tile_collision_nibble == 0x6000;
+
+    UfoHurtDriverSlideGroundTileLoc35738 {
+        probe_y_word,
+        tile_column: probe_x_word >> 4,
+        tile_row: probe_y_word >> 4,
+        tile_collision_nibble,
+        ground_present,
+        miss_label: if ground_present {
+            None
+        } else {
+            Some("loc_356F2")
+        },
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -19550,6 +19590,41 @@ mod tests {
             ufo_hurt_driver_slide_probe_x_loc_35724(0x0004_0000, 0).probe_x_word,
             0xFFF5,
             "ASM UFO.asm loc_35724 uses 16-bit word wrapping for the `$0F` subtraction"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_driver_slide_ground_tile_matches_loc_35738() {
+        assert_eq!(
+            ufo_hurt_driver_slide_ground_tile_loc_35738(0x0048_0000, 0x0123, 0x6000),
+            UfoHurtDriverSlideGroundTileLoc35738 {
+                probe_y_word: 0x0050,
+                tile_column: 0x0012,
+                tile_row: 0x0005,
+                tile_collision_nibble: 0x6000,
+                ground_present: true,
+                miss_label: None,
+            },
+            "ASM UFO.asm loc_35738 returns when the probed tile collision nibble is `$6000`"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_slide_ground_tile_loc_35738(0x0048_0000, 0x0123, 0x5000),
+            UfoHurtDriverSlideGroundTileLoc35738 {
+                probe_y_word: 0x0050,
+                tile_column: 0x0012,
+                tile_row: 0x0005,
+                tile_collision_nibble: 0x5000,
+                ground_present: false,
+                miss_label: Some("loc_356F2"),
+            },
+            "ASM UFO.asm loc_35738 branches to loc_356F2 for any non-`$6000` collision nibble"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_slide_ground_tile_loc_35738(0xFFFC_0000, 0xFFF0, 0x0000).tile_row,
+            0x0000,
+            "ASM UFO.asm loc_35738 uses wrapping word addition before `lsr.w #4`"
         );
     }
 
