@@ -2330,6 +2330,50 @@ pub(crate) fn big_hopping_skull_death_entry_loc_3664e() -> BigHoppingSkullDeathE
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BigHoppingSkullDeathWaitRouteLoc36664 {
+    LoopDeathAnimation,
+    FinalizeDeletion,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BigHoppingSkullDeathWaitLoc36664 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checks_object_range: bool,
+    pub(crate) collision_probe_extent: u16,
+    pub(crate) y_velocity: i32,
+    pub(crate) route: BigHoppingSkullDeathWaitRouteLoc36664,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_death_wait_loc_36664(
+    collision_probe_nonzero: bool,
+    animation_finished: bool,
+    y_velocity: i32,
+) -> BigHoppingSkullDeathWaitLoc36664 {
+    let y_velocity = if collision_probe_nonzero {
+        y_velocity
+    } else {
+        let low_word = y_velocity & 0x0000_FFFF;
+        (i32::from(2_i16) << 16) | low_word
+    };
+
+    // ASM Big_Hopping_Skull.asm loc_36664: hibernate once, range-check, probe
+    // collision with d7=#8, write `#2` into the high word of `y_vel(a3)` when
+    // d6 is zero, then keep waiting until `$18(a3)` is set.
+    BigHoppingSkullDeathWaitLoc36664 {
+        hibernates_one_frame: true,
+        checks_object_range: true,
+        collision_probe_extent: 8,
+        y_velocity,
+        route: if animation_finished {
+            BigHoppingSkullDeathWaitRouteLoc36664::FinalizeDeletion
+        } else {
+            BigHoppingSkullDeathWaitRouteLoc36664::LoopDeathAnimation
+        },
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,

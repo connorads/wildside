@@ -4090,6 +4090,31 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_death_wait_matches_loc_36664() {
+        assert_eq!(
+            enemies::big_hopping_skull_death_wait_loc_36664(true, false, -0x0001_1234),
+            enemies::BigHoppingSkullDeathWaitLoc36664 {
+                hibernates_one_frame: true,
+                checks_object_range: true,
+                collision_probe_extent: 8,
+                y_velocity: -0x0001_1234,
+                route: enemies::BigHoppingSkullDeathWaitRouteLoc36664::LoopDeathAnimation,
+            },
+            "ASM Big_Hopping_Skull.asm loc_36664 should leave y_vel unchanged and loop while d6 is non-zero and the animation flag is clear",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_death_wait_loc_36664(false, false, 0x0000_ABCD).y_velocity,
+            0x0002_ABCD,
+            "ASM Big_Hopping_Skull.asm loc_36664 should write only y_vel's high word to #2 when the d6 collision probe is zero",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_death_wait_loc_36664(true, true, 0x0003_4567).route,
+            enemies::BigHoppingSkullDeathWaitRouteLoc36664::FinalizeDeletion,
+            "ASM Big_Hopping_Skull.asm loc_36664 should leave the wait loop once the animation completion flag is set",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),
