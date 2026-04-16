@@ -7367,6 +7367,30 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_walking_velocity_gate_loc_3bb5a_settles_only_inside_asymmetric_band() {
+        assert_eq!(
+            spinning_twins_walking_velocity_gate_loc_3bb5a(0x0000_3001),
+            SpinningTwinsWalkingVelocityGateLoc3BB5A::CollisionDispatch,
+            "ASM loc_3BB5A keeps x_vel greater than `$3000` in the collision-dispatch path"
+        );
+        assert_eq!(
+            spinning_twins_walking_velocity_gate_loc_3bb5a(-0x0000_3000),
+            SpinningTwinsWalkingVelocityGateLoc3BB5A::CollisionDispatch,
+            "ASM loc_3BB5A keeps x_vel equal to `-$3000` in the collision-dispatch path"
+        );
+        assert_eq!(
+            spinning_twins_walking_velocity_gate_loc_3bb5a(0x0000_3000),
+            SpinningTwinsWalkingVelocityGateLoc3BB5A::Settle,
+            "ASM loc_3BB5A selects the settle path when x_vel equals `$3000`"
+        );
+        assert_eq!(
+            spinning_twins_walking_velocity_gate_loc_3bb5a(-0x0000_2FFF),
+            SpinningTwinsWalkingVelocityGateLoc3BB5A::Settle,
+            "ASM loc_3BB5A selects the settle path once negative x_vel is above `-$3000`"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 

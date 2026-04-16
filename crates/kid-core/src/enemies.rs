@@ -14228,6 +14228,32 @@ pub(crate) const SPINNING_TWINS_DROP_X_VEL_LEFT: i32 = -0x3_8000;
 pub(crate) const SPINNING_TWINS_DROP_X_VEL_RIGHT: i32 = 0x3_8000;
 pub(crate) const SPINNING_TWINS_DROP_X_DRAG: i32 = 0x1200;
 pub(crate) const SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX: u32 = 0x20;
+pub(crate) const SPINNING_TWINS_WALKING_SETTLE_X_SPEED: i32 = 0x3000;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SpinningTwinsWalkingVelocityGateLoc3BB5A {
+    CollisionDispatch,
+    Settle,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_walking_velocity_gate_loc_3bb5a(
+    x_velocity: i32,
+) -> SpinningTwinsWalkingVelocityGateLoc3BB5A {
+    // ASM Spinning_Twins.asm loc_3BB5A: `cmpi.l #$3000,x_vel(a3)` keeps
+    // high positive speed in the collision-dispatch path; otherwise
+    // `cmpi.l #$FFFFD000,x_vel(a3)` selects the settle path.
+    // The negative edge is exclusive because equal `-$3000` falls through to
+    // the collision dispatch, while positive `+$3000` settles.
+    if x_velocity > SPINNING_TWINS_WALKING_SETTLE_X_SPEED
+        || x_velocity <= -SPINNING_TWINS_WALKING_SETTLE_X_SPEED
+    {
+        SpinningTwinsWalkingVelocityGateLoc3BB5A::CollisionDispatch
+    } else {
+        SpinningTwinsWalkingVelocityGateLoc3BB5A::Settle
+    }
+}
 
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32) -> i32 {
