@@ -8701,6 +8701,14 @@ pub(crate) struct TarMonsterPostSubmergeHoldLoc32454 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterShotSoundLoc32468 {
+    pub(crate) sound_effect_label: &'static str,
+    pub(crate) preserves_script_command_d0: bool,
+    pub(crate) gfx_object_slot_word: u32,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -8941,6 +8949,18 @@ pub(crate) fn tar_monster_post_submerge_hold_loc_32454() -> TarMonsterPostSubmer
         checks_object_range_each_frame: true,
         polls_collision_each_frame: true,
         restarts_control_script: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_shot_sound_loc_32468() -> TarMonsterShotSoundLoc32468 {
+    // ASM loc_32468: preserve d0 around `j_PlaySound`, play
+    // `sfx_Tar_Monster_shoots`, then load a `$3000003` GfxObject slot.
+    TarMonsterShotSoundLoc32468 {
+        sound_effect_label: "sfx_Tar_Monster_shoots",
+        preserves_script_command_d0: true,
+        gfx_object_slot_word: 0x0300_0003,
     }
 }
 
@@ -12132,6 +12152,19 @@ mod tests {
                 restarts_control_script: true,
             },
             "ASM Tar_Monster.asm loc_32454 starts from d0=$50, so the DBF loop hibernates and polls collision for 81 frames before branching to loc_32248"
+        );
+    }
+
+    #[test]
+    fn tar_monster_shot_sound_loc_32468_preserves_d0_and_loads_slot() {
+        assert_eq!(
+            tar_monster_shot_sound_loc_32468(),
+            TarMonsterShotSoundLoc32468 {
+                sound_effect_label: "sfx_Tar_Monster_shoots",
+                preserves_script_command_d0: true,
+                gfx_object_slot_word: 0x0300_0003,
+            },
+            "ASM Tar_Monster.asm loc_32468 saves d0 around the shoot SFX before loading GfxObject slot `$3000003`"
         );
     }
 
