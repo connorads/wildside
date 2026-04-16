@@ -4871,6 +4871,32 @@ pub(crate) fn ufo_hurt_driver_fall_loop_loc_3564c(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverSlideSeedLoc3566C {
+    pub(crate) x_velocity: i32,
+    pub(crate) falls_through_to_slide_loop: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_slide_seed_loc_3566c(
+    x_direction: u8,
+) -> UfoHurtDriverSlideSeedLoc3566C {
+    // ASM UFO.asm loc_3566C: seed `x_vel(a3)` with `$FFFF8000`; a non-zero
+    // raw `x_direction(a3)` negates that longword before falling into the slide loop.
+    let leftward_velocity: i32 = -0x0000_8000;
+    let x_velocity = if x_direction == 0 {
+        leftward_velocity
+    } else {
+        leftward_velocity.wrapping_neg()
+    };
+
+    UfoHurtDriverSlideSeedLoc3566C {
+        x_velocity,
+        falls_through_to_slide_loop: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -14772,6 +14798,27 @@ mod tests {
             ufo_hurt_driver_fall_loop_loc_3564c(i32::MAX).y_velocity,
             i32::MIN.wrapping_add(0x0000_1FFF),
             "ASM UFO.asm loc_3564C uses 68k longword wrapping for `addi.l #$2000,y_vel(a3)`"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_driver_slide_seed_matches_loc_3566c() {
+        assert_eq!(
+            ufo_hurt_driver_slide_seed_loc_3566c(0),
+            UfoHurtDriverSlideSeedLoc3566C {
+                x_velocity: -0x0000_8000,
+                falls_through_to_slide_loop: true,
+            },
+            "ASM UFO.asm loc_3566C keeps `$FFFF8000` when raw `x_direction(a3)` is clear"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_slide_seed_loc_3566c(0xFF),
+            UfoHurtDriverSlideSeedLoc3566C {
+                x_velocity: 0x0000_8000,
+                falls_through_to_slide_loop: true,
+            },
+            "ASM UFO.asm loc_3566C negates `x_vel(a3)` for any non-zero raw direction before the slide loop"
         );
     }
 
