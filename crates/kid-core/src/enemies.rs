@@ -2996,6 +2996,34 @@ pub(crate) fn goat_berzerker_side_gate_loc_3cb76(
     })
 }
 
+pub(crate) const GOAT_BERZERKER_KNOCKBACK_GRAVITY_LOC_3CBA8: i32 = 0x0000_4000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct GoatBerzerkerAirborneFrameLoc3CBA8 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) applies_motion_subroutine: bool,
+    pub(crate) motion_subroutine: &'static str,
+    pub(crate) next_y_velocity: i32,
+    pub(crate) repeats_airborne_loop: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_berzerker_airborne_frame_loc_3cba8(
+    y_velocity: i32,
+) -> GoatBerzerkerAirborneFrameLoc3CBA8 {
+    // ASM Goat.asm loc_3CBA8: hibernate one frame, call `sub_3E8BA` with
+    // the current velocities, add `$4000` to `y_vel(a3)`, then branch back
+    // to repeat the airborne knockback loop.
+    GoatBerzerkerAirborneFrameLoc3CBA8 {
+        hibernates_one_frame: true,
+        applies_motion_subroutine: true,
+        motion_subroutine: "sub_3E8BA",
+        next_y_velocity: y_velocity.wrapping_add(GOAT_BERZERKER_KNOCKBACK_GRAVITY_LOC_3CBA8),
+        repeats_airborne_loop: true,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {

@@ -2513,6 +2513,27 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_berzerker_airborne_loop_matches_loc_3cba8() {
+        assert_eq!(GOAT_BERZERKER_KNOCKBACK_GRAVITY_LOC_3CBA8, 0x0000_4000);
+        assert_eq!(
+            goat_berzerker_airborne_frame_loc_3cba8(-0x0004_8000),
+            GoatBerzerkerAirborneFrameLoc3CBA8 {
+                hibernates_one_frame: true,
+                applies_motion_subroutine: true,
+                motion_subroutine: "sub_3E8BA",
+                next_y_velocity: -0x0004_4000,
+                repeats_airborne_loop: true,
+            },
+            "ASM Goat.asm loc_3CBA8 should hibernate, run sub_3E8BA, add `$4000`, and repeat"
+        );
+        assert_eq!(
+            goat_berzerker_airborne_frame_loc_3cba8(-0x0004_4000).next_y_velocity,
+            -0x0004_0000,
+            "ASM Goat.asm loc_3CBA8 should apply the same gravity step on the next loop"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);
