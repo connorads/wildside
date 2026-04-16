@@ -7867,6 +7867,15 @@ fn signed_word(word: u16) -> i16 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_vertical_sprite_loc_3300a(y_velocity: i32) -> i16 {
+    // ASM Fireball.asm loc_3300A: vertical fireballs start with sprite `4`;
+    // only a negative shifted Y word keeps it, otherwise the routine returns
+    // straight down/idle sprite `$F`.
+    let y_word = fireball_velocity_word_after_shift8_loc_32f3e(y_velocity);
+    if signed_word(y_word) < 0 { 4 } else { 0x0F }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_sprite_branch_loc_32f3e(
     x_velocity: i32,
     y_velocity: i32,
@@ -7880,7 +7889,7 @@ pub(crate) fn fireball_sprite_branch_loc_32f3e(
 
     if signed_x == 0 {
         return FireballSpriteBranchLoc32F3E::Vertical {
-            sprite_index: if signed_word(y_word) < 0 { 4 } else { 0x0F },
+            sprite_index: fireball_vertical_sprite_loc_3300a(y_velocity),
         };
     }
 
@@ -25060,6 +25069,20 @@ mod tests {
             fireball_sprite_branch_loc_32f3e(-0x0001_0000, -0x0000_8000),
             FireballSpriteBranchLoc32F3E::NegativeX,
             "ASM Fireball.asm loc_32F3E should route negative X into the loc_32F78 branch"
+        );
+    }
+
+    #[test]
+    fn fireball_vertical_sprite_loc_3300a_selects_up_or_down_sprite() {
+        assert_eq!(
+            fireball_vertical_sprite_loc_3300a(-0x0001_0000),
+            4,
+            "ASM Fireball.asm loc_3300A should keep sprite 4 when the shifted Y word is negative"
+        );
+        assert_eq!(
+            fireball_vertical_sprite_loc_3300a(0),
+            0x0F,
+            "ASM Fireball.asm loc_3300A should switch to sprite `$F` when the shifted Y word is zero"
         );
     }
 
