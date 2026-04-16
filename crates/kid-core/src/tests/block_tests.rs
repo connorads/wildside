@@ -8100,6 +8100,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_resume_walk_loc_3bbe6_clears_collision_and_decodes_direction() {
+        assert_eq!(
+            spinning_twins_resume_walk_loc_3bbe6(0),
+            SpinningTwinsResumeWalkLoc3BBE6 {
+                next_collision_type: 0,
+                resume_direction: Direction::Left
+            },
+            "ASM loc_3BBE6 clears collision_type and resumes left when x_direction is clear"
+        );
+        assert_eq!(
+            spinning_twins_resume_walk_loc_3bbe6(0xFF),
+            SpinningTwinsResumeWalkLoc3BBE6 {
+                next_collision_type: 0,
+                resume_direction: Direction::Right
+            },
+            "ASM loc_3BBE6 clears collision_type and resumes right when x_direction is set"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 

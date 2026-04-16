@@ -16132,6 +16132,30 @@ pub(crate) fn spinning_twins_settled_collision_dispatch_loc_3bbc4(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsResumeWalkLoc3BBE6 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) resume_direction: Direction,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_resume_walk_loc_3bbe6(
+    x_direction: u8,
+) -> SpinningTwinsResumeWalkLoc3BBE6 {
+    // ASM Spinning_Twins.asm loc_3BBE6: clear collision_type, then test
+    // x_direction. Zero resumes the left-facing shared walker path; nonzero
+    // resumes the right-facing path.
+    SpinningTwinsResumeWalkLoc3BBE6 {
+        next_collision_type: 0,
+        resume_direction: if x_direction == 0 {
+            Direction::Left
+        } else {
+            Direction::Right
+        },
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32) -> i32 {
     // ASM Spinning_Twins.asm loc_3BB2C: after hibernate + sub_3C3CE movement,
