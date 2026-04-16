@@ -16931,6 +16931,7 @@ pub(crate) fn emo_rock_settled_wait_loc_362b6(
 }
 
 const EMO_ROCK_BERZERKER_LAUNCH_Y_VELOCITY: i32 = -0x0003_0000;
+const EMO_ROCK_BERZERKER_AIRBORNE_GRAVITY: i32 = 0x0000_6000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -16955,6 +16956,43 @@ pub(crate) fn emo_rock_berzerker_launch_loc_362ee(
         x_velocity: player_x_velocity,
         y_velocity: EMO_ROCK_BERZERKER_LAUNCH_Y_VELOCITY,
         next_loop: "berzerker_airborne_loop",
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum EmoRockBerzerkerAirborneRouteLoc3630A {
+    ContinueAirborne,
+    Death,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EmoRockBerzerkerAirborneFrameLoc3630A {
+    pub(crate) y_velocity: i32,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) route: EmoRockBerzerkerAirborneRouteLoc3630A,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_berzerker_airborne_frame_loc_3630a(
+    y_velocity: i32,
+    flag_19_set: bool,
+) -> EmoRockBerzerkerAirborneFrameLoc3630A {
+    // ASM Emo_Rock.asm loc_3630A: hibernate once, branch to death when byte
+    // `$19(a3)` is set, otherwise add `$6000` to y_vel and loop.
+    if flag_19_set {
+        return EmoRockBerzerkerAirborneFrameLoc3630A {
+            y_velocity,
+            hibernates_one_frame: true,
+            route: EmoRockBerzerkerAirborneRouteLoc3630A::Death,
+        };
+    }
+
+    EmoRockBerzerkerAirborneFrameLoc3630A {
+        y_velocity: y_velocity + EMO_ROCK_BERZERKER_AIRBORNE_GRAVITY,
+        hibernates_one_frame: true,
+        route: EmoRockBerzerkerAirborneRouteLoc3630A::ContinueAirborne,
     }
 }
 
@@ -20986,6 +21024,28 @@ mod tests {
                 next_loop: "berzerker_airborne_loop",
             },
             "ASM Emo_Rock.asm loc_362EE copies Kid x_vel, sets y_vel=$FFFD0000, and falls through to the airborne loop"
+        );
+    }
+
+    #[test]
+    fn emo_rock_berzerker_airborne_loc_3630a_adds_gravity_until_flag_19() {
+        assert_eq!(
+            emo_rock_berzerker_airborne_frame_loc_3630a(-0x0003_0000, false),
+            EmoRockBerzerkerAirborneFrameLoc3630A {
+                y_velocity: -0x0002_A000,
+                hibernates_one_frame: true,
+                route: EmoRockBerzerkerAirborneRouteLoc3630A::ContinueAirborne,
+            },
+            "ASM Emo_Rock.asm loc_3630A hibernates once, adds `$6000` to y_vel, and loops while `$19(a3)` is clear"
+        );
+        assert_eq!(
+            emo_rock_berzerker_airborne_frame_loc_3630a(0x0001_2000, true),
+            EmoRockBerzerkerAirborneFrameLoc3630A {
+                y_velocity: 0x0001_2000,
+                hibernates_one_frame: true,
+                route: EmoRockBerzerkerAirborneRouteLoc3630A::Death,
+            },
+            "ASM Emo_Rock.asm loc_3630A branches to death before adding gravity when `$19(a3)` is set"
         );
     }
 
