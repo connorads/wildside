@@ -593,6 +593,30 @@ pub(crate) fn orca_berzerker_side_gate_loc_3d27e(
     })
 }
 
+pub(crate) const ORCA_BERZERKER_KNOCKBACK_GRAVITY_LOC_3D2AA: i32 = 0x0000_4000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaBerzerkerAirborneFrameLoc3D2AA {
+    pub(crate) applies_motion_subroutine: bool,
+    pub(crate) next_y_velocity: i32,
+    pub(crate) repeats_airborne_loop: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_berzerker_airborne_frame_loc_3d2aa(
+    y_velocity: i32,
+) -> OrcaBerzerkerAirborneFrameLoc3D2AA {
+    // ASM Orca.asm loc_3D2AA: hibernate one frame, apply the shared movement
+    // subroutine with the current velocities, add `$4000` to `y_vel(a3)`, and
+    // branch back to repeat the airborne knockback loop.
+    OrcaBerzerkerAirborneFrameLoc3D2AA {
+        applies_motion_subroutine: true,
+        next_y_velocity: y_velocity.wrapping_add(ORCA_BERZERKER_KNOCKBACK_GRAVITY_LOC_3D2AA),
+        repeats_airborne_loop: true,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
@@ -13281,6 +13305,25 @@ mod tests {
                 y_velocity: -0x0004_8000,
             }),
             "ASM Orca.asm loc_3D27E should seed the charging-Berzerker knockback state"
+        );
+    }
+
+    #[test]
+    fn orca_berzerker_airborne_loop_matches_loc_3d2aa() {
+        assert_eq!(ORCA_BERZERKER_KNOCKBACK_GRAVITY_LOC_3D2AA, 0x0000_4000);
+        assert_eq!(
+            orca_berzerker_airborne_frame_loc_3d2aa(-0x0004_8000),
+            OrcaBerzerkerAirborneFrameLoc3D2AA {
+                applies_motion_subroutine: true,
+                next_y_velocity: -0x0004_4000,
+                repeats_airborne_loop: true,
+            },
+            "ASM Orca.asm loc_3D2AA should add `$4000` to y_vel after each airborne movement frame"
+        );
+        assert_eq!(
+            orca_berzerker_airborne_frame_loc_3d2aa(-0x0004_4000).next_y_velocity,
+            -0x0004_0000,
+            "ASM Orca.asm loc_3D2AA should repeat the same gravity step on the next loop"
         );
     }
 
