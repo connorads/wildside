@@ -4614,6 +4614,24 @@ pub(crate) fn cloud_wait_loop_loc_35C56(command_word: u16) -> CloudWaitLoopLoc35
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudStatusLatchLoc35C72 {
+    pub(crate) object_44_value: u8,
+    pub(crate) resumes_control_script: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_status_latch_loc_35C72() -> CloudStatusLatchLoc35C72 {
+    // ASM Cloud.asm loc_35C72: `st $44(a5)` writes `$FF`, then branches back
+    // to the command dispatcher at loc_35BB2.
+    CloudStatusLatchLoc35C72 {
+        object_44_value: 0xFF,
+        resumes_control_script: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,

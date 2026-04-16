@@ -2873,6 +2873,18 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_status_latch_loc_35c72_sets_object_44_and_resumes_dispatch() {
+        assert_eq!(
+            cloud_status_latch_loc_35C72(),
+            CloudStatusLatchLoc35C72 {
+                object_44_value: 0xFF,
+                resumes_control_script: true,
+            },
+            "ASM Cloud.asm loc_35C72 sets `$44(a5)` with ST, then branches back to loc_35BB2"
+        );
+    }
+
+    #[test]
     fn cloud_death_sequence_loc_35c0e_clears_motion_updates_status_and_deletes() {
         let positive = cloud_death_sequence_loc_35C0E(0x02);
         assert_eq!(positive.x_velocity, 0);
