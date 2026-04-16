@@ -4923,6 +4923,47 @@ pub(crate) fn dragon_down_slide_frame_loc_34A6E(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonFlyingReboundStartLoc34A88 {
+    pub(crate) snap_x_pos: u32,
+    pub(crate) snap_y_pos: u32,
+    pub(crate) x_velocity_during_snap: i32,
+    pub(crate) y_velocity_during_snap: i32,
+    pub(crate) level_collision_during_first_hibernate: bool,
+    pub(crate) level_collision_after_snap: bool,
+    pub(crate) hibernate_frames_before_rebound_velocity: u16,
+    pub(crate) animation_label: &'static str,
+    pub(crate) rebound_x_velocity: i32,
+    pub(crate) rebound_y_velocity: i32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_rebound_start_loc_34A88(
+    x_pos: u32,
+    y_pos: u32,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> DragonFlyingReboundStartLoc34A88 {
+    // ASM Dragon_Flying.asm loc_34A88: a shared helper prepares `pos - velocity`,
+    // then the dragon hibernates once with level collision off, snaps to that
+    // prepared position, hibernates once with collision back on, and starts
+    // `stru_34652` with x_vel/y_vel word writes of `$FFFE`.
+    DragonFlyingReboundStartLoc34A88 {
+        snap_x_pos: x_pos.wrapping_add(u32::from_ne_bytes(x_velocity.wrapping_neg().to_ne_bytes())),
+        snap_y_pos: y_pos.wrapping_add(u32::from_ne_bytes(y_velocity.wrapping_neg().to_ne_bytes())),
+        x_velocity_during_snap: 0,
+        y_velocity_during_snap: 0,
+        level_collision_during_first_hibernate: false,
+        level_collision_after_snap: true,
+        hibernate_frames_before_rebound_velocity: 2,
+        animation_label: "stru_34652",
+        rebound_x_velocity: -0x0002_0000,
+        rebound_y_velocity: -0x0002_0000,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,

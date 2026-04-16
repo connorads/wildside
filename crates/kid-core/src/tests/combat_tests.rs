@@ -6186,6 +6186,43 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34a88_snaps_back_with_level_collision_disabled_for_one_frame() {
+        assert_eq!(
+            dragon_flying_rebound_start_loc_34A88(
+                0x0100_8000,
+                0x0200_4000,
+                0x0002_8000,
+                0x0003_4000,
+            ),
+            DragonFlyingReboundStartLoc34A88 {
+                snap_x_pos: 0x00FE_0000,
+                snap_y_pos: 0x01FD_0000,
+                x_velocity_during_snap: 0,
+                y_velocity_during_snap: 0,
+                level_collision_during_first_hibernate: false,
+                level_collision_after_snap: true,
+                hibernate_frames_before_rebound_velocity: 2,
+                animation_label: "stru_34652",
+                rebound_x_velocity: -0x0002_0000,
+                rebound_y_velocity: -0x0002_0000,
+            },
+            "ASM Dragon_Flying.asm loc_34A88 uses the prepared rebound coordinates to snap to `pos - velocity` after one no-collision hibernate"
+        );
+
+        assert_eq!(
+            dragon_flying_rebound_start_loc_34A88(
+                0x0100_0000,
+                0x0200_0000,
+                -0x0002_8000,
+                -0x0003_4000,
+            )
+            .snap_y_pos,
+            0x0203_4000,
+            "ASM Dragon_Flying.asm loc_34A88 negates signed y_vel before adding it back to y_pos"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_34998_writes_respawn_marker_for_positive_slot() {
         assert_eq!(
             dragon_flying_respawn_marker_loc_34998(0x07),
