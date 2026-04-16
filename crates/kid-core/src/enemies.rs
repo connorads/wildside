@@ -12817,6 +12817,19 @@ pub(crate) struct TarMonsterSeededShotLoc325B6 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterBurstChildEntryLoc325E6 {
+    pub(crate) gfx_object_slot_word: u32,
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) sprite_frame_link: &'static str,
+    pub(crate) collision_sprite_swap_enabled: bool,
+    pub(crate) falls_through_to_meta_seed: bool,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotMotionLoc324D0 {
     pub(crate) x_pos: u32,
     pub(crate) x_velocity: i32,
@@ -13184,6 +13197,29 @@ pub(crate) fn tar_monster_seeded_shot_loc_325B6(
         has_level_collision: true,
         collision_sprite_swap_enabled: false,
         collision_response_budget: 2,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_burst_child_entry_loc_325E6(
+    source_visual_x_pos: u32,
+    source_visual_y_pos: u32,
+    worker_x_velocity: i32,
+    worker_y_velocity: i32,
+) -> TarMonsterBurstChildEntryLoc325E6 {
+    // ASM loc_325E6 loads a `$3000003` GfxObject slot, follows the worker's
+    // source-object pointer to `$36(a0)`, copies that sprite x/y, then copies
+    // `$44/$48(a5)` velocities before selecting `LnkTo_unk_C782E`.
+    TarMonsterBurstChildEntryLoc325E6 {
+        gfx_object_slot_word: 0x0300_0003,
+        x_pos: source_visual_x_pos,
+        y_pos: source_visual_y_pos,
+        x_velocity: worker_x_velocity,
+        y_velocity: worker_y_velocity,
+        sprite_frame_link: "LnkTo_unk_C782E",
+        collision_sprite_swap_enabled: true,
+        falls_through_to_meta_seed: true,
     }
 }
 
@@ -17617,6 +17653,29 @@ mod tests {
             tar_monster_seeded_shot_loc_325B6(0x0001, 0x0002, i32::MIN).x_velocity,
             0,
             "ASM Tar_Monster.asm loc_325B6 uses 32-bit ASL semantics, so the native model must wrap when the top bit shifts out"
+        );
+    }
+
+    #[test]
+    fn tar_monster_burst_child_entry_loc_325e6_copies_source_visual_pose_and_worker_velocity() {
+        assert_eq!(
+            tar_monster_burst_child_entry_loc_325E6(
+                0x0120_8000,
+                0x0070_4000,
+                0x0000_8000,
+                -0x0002_0000
+            ),
+            TarMonsterBurstChildEntryLoc325E6 {
+                gfx_object_slot_word: 0x0300_0003,
+                x_pos: 0x0120_8000,
+                y_pos: 0x0070_4000,
+                x_velocity: 0x0000_8000,
+                y_velocity: -0x0002_0000,
+                sprite_frame_link: "LnkTo_unk_C782E",
+                collision_sprite_swap_enabled: true,
+                falls_through_to_meta_seed: true,
+            },
+            "ASM Tar_Monster.asm loc_325E6 copies the linked source sprite pose, uses `$44/$48(a5)` as velocities, and leaves d1 non-zero for collision sprite swaps"
         );
     }
 
