@@ -2085,6 +2085,15 @@ pub(crate) enum MiniHoppingSkullAirDamageDeathAnimation {
     BackwardOrNeutral,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullChargingBerzerkerLoopFrame {
+    pub(crate) y_velocity: i32,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) animation_tick_subroutine: &'static str,
+    pub(crate) next_loop: &'static str,
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -9912,6 +9921,20 @@ pub(crate) fn mini_hopping_skull_air_side_contact_loc_3f244(
         MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
     } else {
         MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_charging_berzerker_loop_loc_3f288(
+    y_velocity: i32,
+) -> MiniHoppingSkullChargingBerzerkerLoopFrame {
+    // ASM Mini_Hopping_Skull.asm loc_3F288: hibernate one frame, run
+    // `sub_3E8BA`, add `$4000` to `y_vel(a3)`, then branch back to loc_3F288.
+    MiniHoppingSkullChargingBerzerkerLoopFrame {
+        y_velocity: y_velocity.wrapping_add(0x0000_4000),
+        hibernates_one_frame: true,
+        animation_tick_subroutine: "sub_3E8BA",
+        next_loop: "loc_3F288",
     }
 }
 
@@ -24525,6 +24548,25 @@ mod tests {
             mini_hopping_skull_air_side_contact_loc_3f244(true),
             MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
             "ASM Mini_Hopping_Skull.asm loc_3F244 should jump to loc_3F262 while `Berzerker_charging` is set"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_charging_berzerker_loop_matches_loc_3f288() {
+        assert_eq!(
+            mini_hopping_skull_charging_berzerker_loop_loc_3f288(-0x0004_8000),
+            MiniHoppingSkullChargingBerzerkerLoopFrame {
+                y_velocity: -0x0004_4000,
+                hibernates_one_frame: true,
+                animation_tick_subroutine: "sub_3E8BA",
+                next_loop: "loc_3F288",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F288 should hibernate, run `sub_3E8BA`, add `$4000` gravity, and loop"
+        );
+        assert_eq!(
+            mini_hopping_skull_charging_berzerker_loop_loc_3f288(0x7FFF_F000).y_velocity,
+            i32::MIN + 0x3000,
+            "ASM Mini_Hopping_Skull.asm loc_3F288 uses 32-bit wrapping addition for `addi.l #$4000,y_vel(a3)`"
         );
     }
 
