@@ -16046,6 +16046,34 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3aa4c_waits_nine_shoot_windup_frames_unless_child_collision_arrives() {
+        assert_eq!(
+            robot_shoot_windup_loc_3aa4c(None),
+            RobotShootWindupLoc3AA4C {
+                hibernated_frames: 9,
+                route: RobotShootWindupRouteLoc3AA4C::ContinueShoot,
+            },
+            "ASM loc_3AA4C: d0=#8 with DBF hibernates 9 frames before continuing"
+        );
+        assert_eq!(
+            robot_shoot_windup_loc_3aa4c(Some(1)),
+            RobotShootWindupLoc3AA4C {
+                hibernated_frames: 1,
+                route: RobotShootWindupRouteLoc3AA4C::CollisionHandler,
+            },
+            "ASM loc_3AA4C: a non-zero `$38(a2)` after the first hibernate branches to the collision handler"
+        );
+        assert_eq!(
+            robot_shoot_windup_loc_3aa4c(Some(10)),
+            RobotShootWindupLoc3AA4C {
+                hibernated_frames: 9,
+                route: RobotShootWindupRouteLoc3AA4C::ContinueShoot,
+            },
+            "ASM loc_3AA4C: collisions after the 9 checked frames cannot interrupt this wind-up loop"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

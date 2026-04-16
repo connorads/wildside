@@ -9732,6 +9732,38 @@ pub(crate) fn robot_direction_branch_loc_3aa0c(x_direction: u8) -> Direction {
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RobotShootWindupRouteLoc3AA4C {
+    ContinueShoot,
+    CollisionHandler,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShootWindupLoc3AA4C {
+    pub(crate) hibernated_frames: u8,
+    pub(crate) route: RobotShootWindupRouteLoc3AA4C,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shoot_windup_loc_3aa4c(
+    first_child_collision_frame: Option<u8>,
+) -> RobotShootWindupLoc3AA4C {
+    // ASM Robot.asm loc_3AA4C: with `d0=#8`, hibernate one frame, test
+    // `$38(a2)`, and DBF back. That gives 9 post-hibernate collision checks.
+    match first_child_collision_frame {
+        Some(frame @ 1..=9) => RobotShootWindupLoc3AA4C {
+            hibernated_frames: frame,
+            route: RobotShootWindupRouteLoc3AA4C::CollisionHandler,
+        },
+        _ => RobotShootWindupLoc3AA4C {
+            hibernated_frames: 9,
+            route: RobotShootWindupRouteLoc3AA4C::ContinueShoot,
+        },
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
