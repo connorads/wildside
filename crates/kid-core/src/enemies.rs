@@ -2916,6 +2916,53 @@ pub(crate) fn armadillo_death_animation_loc_3c886() -> ArmadilloDeathAnimationLo
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArmadilloBerzerkerLaunchSetupLoc3C898 {
+    pub(crate) has_level_collision: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ArmadilloBerzerkerSideContactLoc3C898 {
+    ResumeSharedWalker,
+    PositiveRecoilWord,
+    Launch(ArmadilloBerzerkerLaunchSetupLoc3C898),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_berzerker_side_contact_loc_3c898(
+    berzerker_charging: bool,
+    recoil_state_word: i16,
+) -> ArmadilloBerzerkerSideContactLoc3C898 {
+    // ASM Armadillo.asm loc_3C898: clear `Berzerker_charging` resumes at
+    // the shared walker tail. When set, positive `$42(a3)` branches to the
+    // recoil path; zero or negative prepares the launched-armadillo loop.
+    if !berzerker_charging {
+        return ArmadilloBerzerkerSideContactLoc3C898::ResumeSharedWalker;
+    }
+
+    if recoil_state_word > 0 {
+        return ArmadilloBerzerkerSideContactLoc3C898::PositiveRecoilWord;
+    }
+
+    ArmadilloBerzerkerSideContactLoc3C898::Launch(ArmadilloBerzerkerLaunchSetupLoc3C898 {
+        has_level_collision: false,
+        has_kid_collision: true,
+        is_moved: true,
+        is_animated: false,
+        sprite_mapping: "LnkTo_unk_C76D6",
+        x_velocity: 0,
+        y_velocity: -0x0004_8000,
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
@@ -21073,6 +21120,46 @@ mod tests {
                 exits_enemy: true,
             },
             "ASM Armadillo.asm loc_3C886 plays `stru_3C69A`, waits for it to finish, then exits through loc_3E956"
+        );
+    }
+
+    #[test]
+    fn armadillo_berzerker_side_contact_matches_loc_3c898() {
+        assert_eq!(
+            armadillo_berzerker_side_contact_loc_3c898(false, 0),
+            ArmadilloBerzerkerSideContactLoc3C898::ResumeSharedWalker,
+            "ASM Armadillo.asm loc_3C898 resumes the shared walker tail while `Berzerker_charging` is clear"
+        );
+        assert_eq!(
+            armadillo_berzerker_side_contact_loc_3c898(true, 1),
+            ArmadilloBerzerkerSideContactLoc3C898::PositiveRecoilWord,
+            "ASM Armadillo.asm loc_3C898 sends positive `$42(a3)` through the recoil path"
+        );
+        assert_eq!(
+            armadillo_berzerker_side_contact_loc_3c898(true, 0),
+            ArmadilloBerzerkerSideContactLoc3C898::Launch(ArmadilloBerzerkerLaunchSetupLoc3C898 {
+                has_level_collision: false,
+                has_kid_collision: true,
+                is_moved: true,
+                is_animated: false,
+                sprite_mapping: "LnkTo_unk_C76D6",
+                x_velocity: 0,
+                y_velocity: -0x0004_8000,
+            }),
+            "ASM Armadillo.asm loc_3C898 prepares the Berzerker launch loop for zero or negative `$42(a3)`"
+        );
+        assert_eq!(
+            armadillo_berzerker_side_contact_loc_3c898(true, -1),
+            ArmadilloBerzerkerSideContactLoc3C898::Launch(ArmadilloBerzerkerLaunchSetupLoc3C898 {
+                has_level_collision: false,
+                has_kid_collision: true,
+                is_moved: true,
+                is_animated: false,
+                sprite_mapping: "LnkTo_unk_C76D6",
+                x_velocity: 0,
+                y_velocity: -0x0004_8000,
+            }),
+            "ASM Armadillo.asm loc_3C898 uses a signed greater-than branch, so only positive `$42(a3)` avoids launch"
         );
     }
 
