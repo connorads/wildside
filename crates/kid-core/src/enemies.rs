@@ -1440,8 +1440,10 @@ pub(crate) enum MiniHoppingSkullLandingTailCollisionOutcome {
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
-pub(crate) const BIG_SKULL_INIT_X_SPEED: i32 = 0x0001_0000; // ASM: move.w #1,x_vel (high word)
-pub(crate) const BIG_SKULL_INIT_Y_SPEED: i32 = -0x0002_0000; // ASM: move.w #$FFFE,y_vel (high word)
+// ASM Big_Hopping_Skull.asm loc_3651E: `move.w #$FFFE,y_vel(a3)`;
+// `move.w #1,x_vel(a3)` seeds the launch as high-word FP16.16 velocities.
+pub(crate) const BIG_SKULL_INIT_X_SPEED: i32 = 0x0001_0000;
+pub(crate) const BIG_SKULL_INIT_Y_SPEED: i32 = -0x0002_0000;
 pub(crate) const BIG_SKULL_GRAVITY: i32 = 0x0000_0FA0; // ASM: addi.l #$FA0,y_vel
 
 pub(crate) struct HopperConstants {
@@ -12235,7 +12237,7 @@ pub(crate) fn spawn_x_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
             const FIREBALL_MAX_UPWARD: [i32; 3] = [-0x30000, -0x40000, -0x50000];
             FIREBALL_MAX_UPWARD[usize::from(enemy_level).min(2)] >> 1
         }
-        // Big_Hopping_Skull.asm: move.w #1,x_vel → $10000 FP16.16
+        // Big_Hopping_Skull.asm loc_3651E: move.w #1,x_vel -> $10000 FP16.16
         EnemyFamily::BigHoppingSkull => BIG_SKULL_INIT_X_SPEED,
         // ASM Hand.asm loc_327F2 stores the direction-gated table velocity
         // into x_vel before the first patrol hibernate.
@@ -18917,7 +18919,7 @@ mod tests {
 
 pub(crate) fn spawn_y_velocity(family: EnemyFamily, enemy_level: u8) -> i32 {
     match family {
-        // Big_Hopping_Skull.asm: move.w #$FFFE,y_vel → $FFFE0000 FP16.16
+        // Big_Hopping_Skull.asm loc_3651E: move.w #$FFFE,y_vel -> $FFFE0000 FP16.16
         EnemyFamily::BigHoppingSkull => BIG_SKULL_INIT_Y_SPEED,
         EnemyFamily::MiniHoppingSkull => {
             // ASM Mini_Hopping_Skull.asm loc_3EA48 seeds y_vel with `$28000`;

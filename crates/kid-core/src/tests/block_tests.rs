@@ -3293,9 +3293,16 @@ mod chunk_04 {
 
     #[test]
     fn big_hopping_skull_initial_velocities() {
-        // ASM: x_vel=$10000 (1px/frame), y_vel=$FFFE0000 (-2px/frame)
-        assert_eq!(spawn_x_velocity(EnemyFamily::BigHoppingSkull, 0), 0x10000);
-        assert_eq!(spawn_y_velocity(EnemyFamily::BigHoppingSkull, 0), -0x20000);
+        assert_eq!(
+            spawn_x_velocity(EnemyFamily::BigHoppingSkull, 0),
+            0x10000,
+            "ASM Big_Hopping_Skull.asm loc_3651E should seed x_vel high word with #1",
+        );
+        assert_eq!(
+            spawn_y_velocity(EnemyFamily::BigHoppingSkull, 0),
+            -0x20000,
+            "ASM Big_Hopping_Skull.asm loc_3651E should seed y_vel high word with #$FFFE",
+        );
     }
 
     #[test]
