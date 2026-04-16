@@ -5437,6 +5437,30 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_shooting_entry_loc_341be_routes_table_delay_word() {
+        // ASM Archer.asm loc_341BE treats the shooting-table delay word as a
+        // three-way control value before either looping, updating the held
+        // arrow pose, or allocating a fired arrow.
+        assert_eq!(
+            archer_shooting_entry_loc_341BE(-1),
+            ArcherShootingEntryLoc341BE::RestartCycle
+        );
+        assert_eq!(
+            archer_shooting_entry_loc_341BE(6),
+            ArcherShootingEntryLoc341BE::PoseFrame { frame_timer: 6 }
+        );
+        assert_eq!(
+            archer_shooting_entry_loc_341BE(0),
+            ArcherShootingEntryLoc341BE::FireArrow {
+                hold_frame_timer: 0x14,
+                held_arrow_reset_sprite_offset: 0,
+                arrow_count_increment: 1,
+                held_arrow_position_nudge_px: 3,
+            }
+        );
+    }
+
+    #[test]
     fn archer_death_sequence_loc_3414a_marks_contact_bounces_kid_and_deletes() {
         // ASM Archer.asm loc_3414A applies these side effects before routing the
         // object-status byte and jumping through loc_34196 to delete the object.

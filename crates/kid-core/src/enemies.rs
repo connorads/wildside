@@ -4171,6 +4171,43 @@ pub(crate) fn archer_arrow_setup_loc_341AA(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ArcherShootingEntryLoc341BE {
+    RestartCycle,
+    PoseFrame {
+        frame_timer: u16,
+    },
+    FireArrow {
+        hold_frame_timer: u16,
+        held_arrow_reset_sprite_offset: u16,
+        arrow_count_increment: u16,
+        held_arrow_position_nudge_px: i16,
+    },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn archer_shooting_entry_loc_341BE(
+    table_frame_delay: i16,
+) -> ArcherShootingEntryLoc341BE {
+    // ASM Archer.asm loc_341BE: read the next shooting-table delay word into
+    // d3. Negative restarts the archer cycle, non-zero routes to the pose-frame
+    // path, and zero is the arrow-fire sentinel with fixed held-arrow effects.
+    match table_frame_delay {
+        delay if delay < 0 => ArcherShootingEntryLoc341BE::RestartCycle,
+        delay if delay > 0 => ArcherShootingEntryLoc341BE::PoseFrame {
+            frame_timer: delay.unsigned_abs(),
+        },
+        _ => ArcherShootingEntryLoc341BE::FireArrow {
+            hold_frame_timer: 0x14,
+            held_arrow_reset_sprite_offset: 0,
+            arrow_count_increment: 1,
+            held_arrow_position_nudge_px: 3,
+        },
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArcherDeathStatusRouteLoc3414A {
     WriteRespawnMarker(ArcherRespawnMarkerLoc34188),
     SubtractSpawnCounter { index: usize, decrement: u16 },
