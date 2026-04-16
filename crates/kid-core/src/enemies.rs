@@ -551,6 +551,43 @@ pub(crate) fn crab_berzerker_side_gate_loc_3b180(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CrabAirborneDecelerationFrameLoc3B1A6 {
+    pub(crate) collision_type: u16,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) route: CrabAirborneDecelerationRouteLoc3B1A6,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CrabAirborneDecelerationRouteLoc3B1A6 {
+    NonNegativeXVelocity { x_velocity: i32 },
+    NegativeXVelocityTail,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_airborne_deceleration_frame_loc_3b1a6(
+    x_velocity: i32,
+) -> CrabAirborneDecelerationFrameLoc3B1A6 {
+    // ASM Crab.asm loc_3B1A6: clear collision_type, hibernate for one frame,
+    // then test x_vel. Non-negative velocity is reduced by `$4000`; negative
+    // velocity branches to the signed counterpart.
+    let route = if x_velocity < 0 {
+        CrabAirborneDecelerationRouteLoc3B1A6::NegativeXVelocityTail
+    } else {
+        CrabAirborneDecelerationRouteLoc3B1A6::NonNegativeXVelocity {
+            x_velocity: x_velocity.wrapping_sub(0x0000_4000),
+        }
+    };
+
+    CrabAirborneDecelerationFrameLoc3B1A6 {
+        collision_type: 0,
+        hibernates_one_frame: true,
+        route,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabDamageRouteLoc3B08C {
     HurtAnimation,
     DeathAnimation,
@@ -16176,6 +16213,43 @@ mod tests {
                 y_velocity: 0,
             }),
             "ASM Crab.asm loc_3B180 should double Kid x_vel into the crab and clear y_vel before the airborne loop"
+        );
+    }
+
+    #[test]
+    fn crab_airborne_deceleration_frame_matches_loc_3b1a6() {
+        assert_eq!(
+            crab_airborne_deceleration_frame_loc_3b1a6(0x0001_0000),
+            CrabAirborneDecelerationFrameLoc3B1A6 {
+                collision_type: 0,
+                hibernates_one_frame: true,
+                route: CrabAirborneDecelerationRouteLoc3B1A6::NonNegativeXVelocity {
+                    x_velocity: 0x0000_C000,
+                },
+            },
+            "ASM Crab.asm loc_3B1A6 should clear collision_type, hibernate, then subtract `$4000` for non-negative x_vel"
+        );
+
+        assert_eq!(
+            crab_airborne_deceleration_frame_loc_3b1a6(0),
+            CrabAirborneDecelerationFrameLoc3B1A6 {
+                collision_type: 0,
+                hibernates_one_frame: true,
+                route: CrabAirborneDecelerationRouteLoc3B1A6::NonNegativeXVelocity {
+                    x_velocity: -0x0000_4000,
+                },
+            },
+            "ASM Crab.asm loc_3B1A6 should treat zero x_vel as non-negative before subtracting `$4000`"
+        );
+
+        assert_eq!(
+            crab_airborne_deceleration_frame_loc_3b1a6(-0x0001_0000),
+            CrabAirborneDecelerationFrameLoc3B1A6 {
+                collision_type: 0,
+                hibernates_one_frame: true,
+                route: CrabAirborneDecelerationRouteLoc3B1A6::NegativeXVelocityTail,
+            },
+            "ASM Crab.asm loc_3B1A6 should branch away when x_vel is negative"
         );
     }
 
