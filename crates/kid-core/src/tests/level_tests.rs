@@ -14083,6 +14083,28 @@ mod chunk_02 {
     }
 
     #[test]
+    fn lift_platform_step_loc_fce2_keeps_upward_accel_through_0x32_moved_rows() {
+        let mut lift = LiftPlatform {
+            x_pos: 32 << 16,
+            y_pos: 100 << 16,
+            y_velocity: 0,
+            age: 0,
+            last_integer_y: 100,
+            moved_y_steps: 0x32,
+            width_px: 16,
+            source_col: 2,
+            source_row: 6,
+            block_erased: false,
+        };
+
+        assert!(NativeRuntime::step_lift_platform_sub_FCA6(&mut lift, 256));
+        assert_eq!(
+            lift.y_velocity, -0x0708,
+            "ASM loc_FCE2 should subtract `$708` while `d1 <= $32`",
+        );
+    }
+
+    #[test]
     fn lift_platform_step_sub_fca6_switches_accel_after_0x32_moved_rows_and_deletes_at_level_height()
      {
         let mut lift = LiftPlatform {

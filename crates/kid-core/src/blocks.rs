@@ -793,6 +793,8 @@ impl NativeRuntime {
         if lift.moved_y_steps > 0x32 {
             lift.y_velocity = lift.y_velocity.wrapping_add(0x07D0);
         } else {
+            // ASM loc_FCE2 (kid.asm:21045): while `d1 <= $32`, keep applying
+            // the upward acceleration by subtracting `$708` from `$E(a3)`.
             lift.y_velocity = lift.y_velocity.wrapping_sub(0x0708);
         }
 
