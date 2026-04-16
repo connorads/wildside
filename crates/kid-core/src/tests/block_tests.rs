@@ -2537,6 +2537,18 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_palette_loc_3a4b8_uses_base_data_index_for_level_zero() {
+        assert_eq!(
+            fire_demon_palette_base_pulse_seed_loc_3a4b8(0),
+            Some(FireDemonPalettePulseSeedLoc3A4B8 {
+                palette_buffer_byte_offset: 0x22,
+                data_index_byte_offset: 0x0634,
+            }),
+            "ASM Fire_Demon.asm loc_3A4B8 loads Data_Index+$634 after loc_3A48E selects the palette target"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);
