@@ -9604,6 +9604,14 @@ pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 24;
 pub(crate) const TAR_MONSTER_GLOB_SPEED_X: i32 = 4 << 16;
 /// Glob gravity: $1000/frame (Tar_Monster.asm line 412).
 pub(crate) const TAR_MONSTER_GLOB_GRAVITY: i32 = 0x1000;
+/// ASM loc_324F8 burst child velocities after the straight glob impact/expiry.
+pub(crate) const TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8: [(i32, i32); 5] = [
+    (0x1_0000, -0x1_0000),
+    (-0x1_0000, -0x1_0000),
+    (0x0_8000, -0x2_0000),
+    (-0x0_8000, -0x2_0000),
+    (0x0_2000, -0x1_C000),
+];
 /// Raw control script bytes used by `unk_32264` in `loc_32248`.
 /// Bytecode pairs are read with `move.w (a0)+,d0`, so each table entry is a signed
 /// 16-bit step command in the native script interpreter.
@@ -9835,6 +9843,17 @@ pub(crate) enum TarMonsterShotWaitRouteLoc324E6 {
 pub(crate) struct TarMonsterShotWaitLoc324E6 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) route: TarMonsterShotWaitRouteLoc324E6,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterBurstCleanupLoc324F8 {
+    pub(crate) hides_original_shot: bool,
+    pub(crate) clears_original_x_velocity: bool,
+    pub(crate) clears_original_y_velocity: bool,
+    pub(crate) child_count: u8,
+    pub(crate) child_velocities: [(i32, i32); 5],
+    pub(crate) hibernates_before_delete: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -10167,6 +10186,22 @@ pub(crate) fn tar_monster_shot_wait_loc_324E6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_burst_cleanup_loc_324F8() -> TarMonsterBurstCleanupLoc324F8 {
+    // ASM loc_324F8 hides the impacted glob, clears both velocity longs, spawns
+    // five burst children with fixed velocity pairs, hibernates once, then
+    // deletes the original glob.
+    TarMonsterBurstCleanupLoc324F8 {
+        hides_original_shot: true,
+        clears_original_x_velocity: true,
+        clears_original_y_velocity: true,
+        child_count: 5,
+        child_velocities: TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8,
+        hibernates_before_delete: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_collision_dispatch_loc_32386(
     collision_type: u16,
     berzerker_charging: bool,
@@ -10362,14 +10397,8 @@ pub(crate) fn spawn_tar_monster_retaliation(
     x: u32,
     y: u32,
 ) {
-    let blobs: [(i32, i32); 5] = [
-        (0x1_0000, -0x1_0000),  // up-right
-        (-0x1_0000, -0x1_0000), // up-left
-        (0x0_8000, -0x2_0000),  // steep up-right
-        (-0x0_8000, -0x2_0000), // steep up-left
-        (0x0_2000, -0x1_C000),  // gentle arc
-    ];
-    for (xv, yv) in blobs {
+    let cleanup = tar_monster_burst_cleanup_loc_324F8();
+    for (xv, yv) in cleanup.child_velocities {
         projectiles.push(EnemyProjectile {
             x_pos: x,
             y_pos: y,
@@ -13598,6 +13627,40 @@ mod tests {
             tar_monster_shot_wait_loc_324E6(0, true).route,
             TarMonsterShotWaitRouteLoc324E6::BurstCleanup,
             "ASM Tar_Monster.asm loc_324E6 also exits when byte `$19(a3)` is non-zero"
+        );
+    }
+
+    #[test]
+    fn tar_monster_burst_cleanup_loc_324f8_spawns_five_fixed_velocity_children() {
+        assert_eq!(
+            tar_monster_burst_cleanup_loc_324F8(),
+            TarMonsterBurstCleanupLoc324F8 {
+                hides_original_shot: true,
+                clears_original_x_velocity: true,
+                clears_original_y_velocity: true,
+                child_count: 5,
+                child_velocities: [
+                    (0x1_0000, -0x1_0000),
+                    (-0x1_0000, -0x1_0000),
+                    (0x0_8000, -0x2_0000),
+                    (-0x0_8000, -0x2_0000),
+                    (0x0_2000, -0x1_C000),
+                ],
+                hibernates_before_delete: true,
+            },
+            "ASM Tar_Monster.asm loc_324F8 hides and stops the original glob before allocating five fixed-velocity burst children"
+        );
+
+        let mut projectiles = Vec::new();
+        spawn_tar_monster_retaliation(&mut projectiles, 0x0120_0000, 0x0070_0000);
+
+        assert_eq!(
+            projectiles
+                .iter()
+                .map(|projectile| (projectile.x_velocity, projectile.y_velocity))
+                .collect::<Vec<_>>(),
+            TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8.to_vec(),
+            "ASM Tar_Monster.asm loc_324F8 velocity table should drive the native retaliation burst"
         );
     }
 
