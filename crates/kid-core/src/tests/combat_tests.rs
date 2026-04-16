@@ -6137,6 +6137,24 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34a68_starts_downward_slide_without_clearing_fractional_y() {
+        assert_eq!(
+            dragon_down_slide_start_loc_34a68(0x0000_3456),
+            DragonDownSlideStartLoc34A68 {
+                y_velocity: 0x0003_3456,
+            },
+            "ASM Dragon_Flying.asm loc_34A68 writes `#3` only to the high word of y_vel"
+        );
+        assert_eq!(
+            dragon_down_slide_start_loc_34a68(-0x0000_8000),
+            DragonDownSlideStartLoc34A68 {
+                y_velocity: 0x0003_8000,
+            },
+            "ASM Dragon_Flying.asm loc_34A68 preserves the previous fractional low word even when the old long was negative"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_34998_writes_respawn_marker_for_positive_slot() {
         assert_eq!(
             dragon_flying_respawn_marker_loc_34998(0x07),

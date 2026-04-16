@@ -4064,6 +4064,23 @@ pub(crate) fn dragon_up_slide_frame_loc_34a4e(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonDownSlideStartLoc34A68 {
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_down_slide_start_loc_34a68(
+    previous_y_velocity: i32,
+) -> DragonDownSlideStartLoc34A68 {
+    // ASM Dragon_Flying.asm loc_34A68: move.w #3,y_vel writes only the
+    // high word of the FP16.16 long, preserving the previous fractional word.
+    DragonDownSlideStartLoc34A68 {
+        y_velocity: 0x0003_0000 | (previous_y_velocity & 0x0000_FFFF),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
