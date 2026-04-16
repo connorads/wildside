@@ -2160,6 +2160,8 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
         DIAMOND_COLID_HURT => DiamondHighHpCollisionRouteLoc3ADA4::Damage,
         DIAMOND_COLID_FLOOR => DiamondHighHpCollisionRouteLoc3ADA4::Loop,
         DIAMOND_COLID_RIGHTWALL | DIAMOND_COLID_LEFTWALL | DIAMOND_COLID_CEILING => {
+            // ASM Diamond.asm loc_3AE3E: wall and ceiling contacts negate both
+            // velocity axes before returning to the high-HP collision loop.
             DiamondHighHpCollisionRouteLoc3ADA4::Bounce {
                 x_velocity: -x_velocity,
                 y_velocity: -y_velocity,
@@ -14929,6 +14931,29 @@ mod tests {
             DiamondHighHpCollisionRouteLoc3ADA4::BerzerkerSideGate,
             "ASM Diamond.asm loc_3ADA4 should route Kid side contacts to the Berzerker gate",
         );
+    }
+
+    #[test]
+    fn diamond_high_hp_bounce_loc_3ae3e_negates_x_and_y_velocity() {
+        for collision_type in [
+            DIAMOND_COLID_RIGHTWALL,
+            DIAMOND_COLID_LEFTWALL,
+            DIAMOND_COLID_CEILING,
+        ] {
+            assert_eq!(
+                diamond_high_hp_collision_dispatch_loc_3ada4(
+                    collision_type,
+                    0x0001_8000,
+                    -0x0000_4000,
+                )
+                .route,
+                DiamondHighHpCollisionRouteLoc3ADA4::Bounce {
+                    x_velocity: -0x0001_8000,
+                    y_velocity: 0x0000_4000,
+                },
+                "ASM Diamond.asm loc_3AE3E should negate both x_vel and y_vel for wall/ceiling collision {collision_type:#06X}",
+            );
+        }
     }
 
     #[test]
