@@ -1648,6 +1648,7 @@ pub(crate) struct FireDemonPalettePulseSeedLoc3A4B8 {
 }
 
 const FIRE_DEMON_PALETTE_DATA_INDEX_BASE_LOC_3A4B8: u16 = 0x0634;
+const FIRE_DEMON_PALETTE_DATA_INDEX_STEP_LOC_3A4B4: u16 = 0x000C;
 
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_palette_base_pulse_seed_loc_3a4b8(
@@ -1660,6 +1661,23 @@ pub(crate) fn fire_demon_palette_base_pulse_seed_loc_3a4b8(
         palette_buffer_byte_offset: fire_demon_palette_target_loc_3a48e(vram_slot)?,
         data_index_byte_offset: FIRE_DEMON_PALETTE_DATA_INDEX_BASE_LOC_3A4B8,
     })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_palette_pulse_seed_loc_3a4b4(
+    vram_slot: u8,
+    enemy_level: u8,
+) -> Option<FireDemonPalettePulseSeedLoc3A4B8> {
+    let mut seed = fire_demon_palette_base_pulse_seed_loc_3a4b8(vram_slot)?;
+    // ASM Fire_Demon.asm loc_3A4B4: raw enemy_level 1 reaches one `$C` add;
+    // levels above 1 execute a pre-add and then fall through here for two steps.
+    let data_index_steps = match enemy_level {
+        0 => 0,
+        1 => 1,
+        _ => 2,
+    };
+    seed.data_index_byte_offset += data_index_steps * FIRE_DEMON_PALETTE_DATA_INDEX_STEP_LOC_3A4B4;
+    Some(seed)
 }
 
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).

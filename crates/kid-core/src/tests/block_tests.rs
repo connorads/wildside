@@ -2549,6 +2549,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_palette_loc_3a4b4_steps_data_index_for_higher_levels() {
+        assert_eq!(
+            fire_demon_palette_pulse_seed_loc_3a4b4(0, 1).map(|seed| seed.data_index_byte_offset),
+            Some(0x0640),
+            "ASM Fire_Demon.asm loc_3A4B4 adds one $C step for raw enemy_level 1"
+        );
+        assert_eq!(
+            fire_demon_palette_pulse_seed_loc_3a4b4(0, 2).map(|seed| seed.data_index_byte_offset),
+            Some(0x064C),
+            "ASM Fire_Demon.asm loc_3A4B4 is reached after the pre-add, producing two $C steps for raw enemy_level > 1"
+        );
+        assert_eq!(
+            fire_demon_palette_pulse_seed_loc_3a4b4(0, 9).map(|seed| seed.data_index_byte_offset),
+            Some(0x064C),
+            "ASM Fire_Demon.asm loc_3A4B4 has no additional tiers beyond the >1 fall-through"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);
