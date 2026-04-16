@@ -3443,6 +3443,24 @@ pub(crate) fn fire_demon_level2_fire_trail_timer_matches_loc_3a55c(animation_tim
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_fire_trail_allocation_loc_3a564(
+    fire_trail_count: u16,
+) -> FireDemonFireTrailGateLoc3A542 {
+    // ASM Fire_Demon.asm loc_3A564: `Number_of_Fire_Trails >= 7` skips the
+    // allocation; otherwise the ROM allocates a `loc_3A63C` trail object and
+    // increments the global trail count.
+    let spawns_fire_trail = fire_trail_count < 7;
+    FireDemonFireTrailGateLoc3A542 {
+        spawns_fire_trail,
+        next_fire_trail_count: if spawns_fire_trail {
+            fire_trail_count + 1
+        } else {
+            fire_trail_count
+        },
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fire_trail_gate_loc_3a542(
     sprite_is_trail_frame: bool,
     raw_enemy_level: u16,
@@ -3457,14 +3475,13 @@ pub(crate) fn fire_demon_fire_trail_gate_loc_3a542(
     } else {
         animation_timer == 6
     };
-    let spawns_fire_trail = sprite_is_trail_frame && timer_matches && fire_trail_count < 7;
-    FireDemonFireTrailGateLoc3A542 {
-        spawns_fire_trail,
-        next_fire_trail_count: if spawns_fire_trail {
-            fire_trail_count + 1
-        } else {
-            fire_trail_count
-        },
+    if sprite_is_trail_frame && timer_matches {
+        fire_demon_fire_trail_allocation_loc_3a564(fire_trail_count)
+    } else {
+        FireDemonFireTrailGateLoc3A542 {
+            spawns_fire_trail: false,
+            next_fire_trail_count: fire_trail_count,
+        }
     }
 }
 

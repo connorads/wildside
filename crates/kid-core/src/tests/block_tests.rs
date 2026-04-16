@@ -3048,6 +3048,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_collision_loc_3a564_allocates_while_trail_count_below_seven() {
+        assert_eq!(
+            fire_demon_fire_trail_allocation_loc_3a564(6),
+            FireDemonFireTrailGateLoc3A542 {
+                spawns_fire_trail: true,
+                next_fire_trail_count: 7,
+            },
+            "ASM Fire_Demon.asm loc_3A564 allocates loc_3A63C and increments Number_of_Fire_Trails while the count is below 7"
+        );
+        assert_eq!(
+            fire_demon_fire_trail_allocation_loc_3a564(7),
+            FireDemonFireTrailGateLoc3A542 {
+                spawns_fire_trail: false,
+                next_fire_trail_count: 7,
+            },
+            "ASM Fire_Demon.asm loc_3A564 branches to loc_3A586 without allocating once Number_of_Fire_Trails is 7"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);
