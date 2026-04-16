@@ -1000,6 +1000,26 @@ pub(crate) fn lion_left_charge_downward_collision_loc_3e732(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLeftChargeYCommitLoc3E77A {
+    pub(crate) y_position: u32,
+    pub(crate) gravity_tail: LionLeftChargeGravityTailLoc3E77E,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_y_commit_loc_3e77a(
+    candidate_y_position: u32,
+    y_velocity: i32,
+) -> LionLeftChargeYCommitLoc3E77A {
+    // ASM Lion.asm loc_3E77A: commit projected `d2` to `y_pos(a3)`, then
+    // immediately fall through to loc_3E77E's gravity/clamp tail.
+    LionLeftChargeYCommitLoc3E77A {
+        y_position: candidate_y_position,
+        gravity_tail: lion_left_charge_gravity_tail_loc_3e77e(y_velocity),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeGravityTailLoc3E77E {
     pub(crate) y_velocity: i32,
     pub(crate) next_tail: LionLoc3E556Tail,
@@ -15896,6 +15916,25 @@ mod tests {
             lion_left_charge_gravity_tail_loc_3e77e(-0x0001_0000).y_velocity,
             -0x0000_C000,
             "ASM Lion.asm loc_3E77E has no upward-speed clamp; signed negative values stay below `$180000`"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_y_commit_matches_loc_3e77a() {
+        assert_eq!(
+            lion_left_charge_y_commit_loc_3e77a(0x0052_8000, 0x0017_D000),
+            LionLeftChargeYCommitLoc3E77A {
+                y_position: 0x0052_8000,
+                gravity_tail: LionLeftChargeGravityTailLoc3E77E {
+                    y_velocity: 0x0018_0000,
+                    next_tail: LionLoc3E556Tail {
+                        hibernate_one_frame: true,
+                        cull_routine: "sub_3E8BA",
+                        resume_via_callback: true,
+                    },
+                },
+            },
+            "ASM Lion.asm loc_3E77A should commit `d2` into y_pos before falling through to loc_3E77E"
         );
     }
 
