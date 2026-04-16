@@ -4195,6 +4195,42 @@ pub(crate) fn dragon_walking_normal_resume_dispatch_loc_3cf62(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingBreathTriggerNextLoc3CF6E {
+    SpawnedChildRecover,
+    AllocateBreathObject,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingBreathTriggerLoc3CF6E {
+    pub(crate) breath_timer: u16,
+    pub(crate) phase_done_flag_5b: u8,
+    pub(crate) play_sound: bool,
+    pub(crate) next: DragonWalkingBreathTriggerNextLoc3CF6E,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_breath_trigger_loc_3cf6e(
+    parent_spawned_child: bool,
+    object_flag_19_set: bool,
+) -> DragonWalkingBreathTriggerLoc3CF6E {
+    // ASM Dragon.asm loc_3CF6E: reset `$66` to `$1F4`, clear `$5B(a5)`,
+    // bypass ordinary breath setup for spawned children, and only play the
+    // flame sound when `$19(a3)` is clear.
+    DragonWalkingBreathTriggerLoc3CF6E {
+        breath_timer: DRAGON_WALKING_BREATH_RESET,
+        phase_done_flag_5b: 0,
+        play_sound: !parent_spawned_child && !object_flag_19_set,
+        next: if parent_spawned_child {
+            DragonWalkingBreathTriggerNextLoc3CF6E::SpawnedChildRecover
+        } else {
+            DragonWalkingBreathTriggerNextLoc3CF6E::AllocateBreathObject
+        },
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -14046,6 +14082,7 @@ pub(crate) fn step_dragon_walking(
     if enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK && enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
         if enemy.wait_timer == 0 {
+            let breath_trigger = dragon_walking_breath_trigger_loc_3cf6e(false, false);
             // ASM loc_3D02A: breath is a stationary animated hitbox at
             // the dragon's mouth (±28px). No velocity — the GfxObject
             // stays in place for the animation duration (stru_3CCC8, 68f).
@@ -14066,7 +14103,7 @@ pub(crate) fn step_dragon_walking(
                 wall_bounce: false,
                 ..Default::default()
             });
-            enemy.wait_timer = DRAGON_WALKING_BREATH_RESET;
+            enemy.wait_timer = breath_trigger.breath_timer;
             enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_BREATH;
             enemy.dragon_phase_frames = DRAGON_WALKING_BREATH_HOLD_FRAMES;
             enemy.x_velocity = 0;
@@ -18815,6 +18852,34 @@ mod tests {
             dragon_walking_normal_resume_dispatch_loc_3cf62(Direction::Right),
             DragonWalkingNormalResumeDispatchLoc3CF62::Loc3E3AC,
             "ASM Dragon.asm loc_3CF62 should send set x_direction ordinary dragons to loc_3E3AC"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_trigger_matches_loc_3cf6e() {
+        assert_eq!(
+            dragon_walking_breath_trigger_loc_3cf6e(false, false),
+            DragonWalkingBreathTriggerLoc3CF6E {
+                breath_timer: DRAGON_WALKING_BREATH_RESET,
+                phase_done_flag_5b: 0,
+                play_sound: true,
+                next: DragonWalkingBreathTriggerNextLoc3CF6E::AllocateBreathObject,
+            },
+            "ASM Dragon.asm loc_3CF6E resets `$66`, clears `$5B`, and plays flame sound when `$19(a3)` is clear"
+        );
+        assert!(
+            !dragon_walking_breath_trigger_loc_3cf6e(false, true).play_sound,
+            "ASM Dragon.asm loc_3CF6E skips sound when `$19(a3)` is set"
+        );
+        assert_eq!(
+            dragon_walking_breath_trigger_loc_3cf6e(true, false),
+            DragonWalkingBreathTriggerLoc3CF6E {
+                breath_timer: DRAGON_WALKING_BREATH_RESET,
+                phase_done_flag_5b: 0,
+                play_sound: false,
+                next: DragonWalkingBreathTriggerNextLoc3CF6E::SpawnedChildRecover,
+            },
+            "ASM Dragon.asm loc_3CF6E sends `$5C(a5)` spawned children directly to recovery"
         );
     }
 
