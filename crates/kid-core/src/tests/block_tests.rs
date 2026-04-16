@@ -6740,6 +6740,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_jump_collision_loc_32a5a_rolls_back_and_bounces_up_left() {
+        assert_eq!(
+            hand_jump_collision_bounce_up_left_loc_32a5a(
+                0x1000_0000,
+                0x2000_0000,
+                0x0000_8000,
+                -0x0000_4000,
+            ),
+            HandJumpCollisionBounceLoc32A5A {
+                x_pos: 0x0FFF_8000,
+                y_pos: 0x2000_4000,
+                x_velocity: -0x0001_8000,
+                y_velocity: -0x0001_8000,
+            },
+            "ASM Hand.asm loc_32A5A rolls back position before storing `$FFFE8000` into x_vel and y_vel"
+        );
+    }
+
+    #[test]
     fn hand_ground_collision_loc_329e2_reverses_velocity_and_direction() {
         assert_eq!(
             hand_ground_collision_reverse_loc_329e2(-0x0000_3000, false),
