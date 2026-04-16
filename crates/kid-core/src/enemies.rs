@@ -16930,6 +16930,34 @@ pub(crate) fn emo_rock_settled_wait_loc_362b6(
     }
 }
 
+const EMO_ROCK_BERZERKER_LAUNCH_Y_VELOCITY: i32 = -0x0003_0000;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EmoRockBerzerkerLaunchLoc362Ee {
+    pub(crate) has_kid_collision: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) next_loop: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_berzerker_launch_loc_362ee(
+    player_x_velocity: i32,
+) -> EmoRockBerzerkerLaunchLoc362Ee {
+    // ASM Emo_Rock.asm loc_362EE: Berzerker side hits re-enable Kid collision,
+    // disable level collision, copy Kid's x_vel from a2, seed y_vel=$FFFD0000,
+    // then fall through to the airborne loop.
+    EmoRockBerzerkerLaunchLoc362Ee {
+        has_kid_collision: true,
+        has_level_collision: false,
+        x_velocity: player_x_velocity,
+        y_velocity: EMO_ROCK_BERZERKER_LAUNCH_Y_VELOCITY,
+        next_loop: "berzerker_airborne_loop",
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -20943,6 +20971,21 @@ mod tests {
             emo_rock_settled_wait_loc_362b6(false, 0x0010, false).route,
             EmoRockSettledWaitRouteLoc362B6::ContinueWait,
             "ASM Emo_Rock.asm loc_362B6 clears unhandled positive collision words and keeps waiting"
+        );
+    }
+
+    #[test]
+    fn emo_rock_berzerker_launch_loc_362ee_copies_kid_velocity_and_flags() {
+        assert_eq!(
+            emo_rock_berzerker_launch_loc_362ee(0x0001_8000),
+            EmoRockBerzerkerLaunchLoc362Ee {
+                has_kid_collision: true,
+                has_level_collision: false,
+                x_velocity: 0x0001_8000,
+                y_velocity: -0x0003_0000,
+                next_loop: "berzerker_airborne_loop",
+            },
+            "ASM Emo_Rock.asm loc_362EE copies Kid x_vel, sets y_vel=$FFFD0000, and falls through to the airborne loop"
         );
     }
 
