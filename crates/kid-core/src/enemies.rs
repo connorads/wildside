@@ -12657,6 +12657,7 @@ pub(crate) const SPINNING_TWINS_DROP_Y_VEL: i32 = -0x1_0000;
 // Initial X velocity on drop: ASM sets $FFFC8000 (left) or $38000 (right).
 pub(crate) const SPINNING_TWINS_DROP_X_VEL_LEFT: i32 = -0x3_8000;
 pub(crate) const SPINNING_TWINS_DROP_X_VEL_RIGHT: i32 = 0x3_8000;
+pub(crate) const SPINNING_TWINS_DROP_X_DRAG: i32 = 0x1200;
 pub(crate) const SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX: u32 = 0x20;
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -12669,6 +12670,13 @@ pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32)
     } else {
         y_velocity.wrapping_add(SPINNING_TWINS_GRAVITY)
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_walking_child_left_x_velocity_loc_3bb42(x_velocity: i32) -> i32 {
+    // ASM Spinning_Twins.asm loc_3BB42: a set x_direction flag takes the
+    // left-launched child through `addi.l #$1200,x_vel(a3)`.
+    x_velocity.wrapping_add(SPINNING_TWINS_DROP_X_DRAG)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
