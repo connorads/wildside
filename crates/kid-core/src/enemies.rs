@@ -309,6 +309,15 @@ pub(crate) const ORCA_COLID_HURT: i16 = 0x001C;
 pub(crate) const ORCA_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const ORCA_COLID_KIDLEFT: i16 = 0x0024;
 pub(crate) const ORCA_COLID_KIDABOVE: i16 = 0x002C;
+const DIAMOND_COLID_RIGHTWALL: u16 = 0x0004;
+const DIAMOND_COLID_LEFTWALL: u16 = 0x0008;
+const DIAMOND_COLID_FLOOR: u16 = 0x000C;
+const DIAMOND_COLID_CEILING: u16 = 0x0010;
+const DIAMOND_COLID_SLOPEUP: u16 = 0x0014;
+const DIAMOND_COLID_SLOPEDOWN: u16 = 0x0018;
+const DIAMOND_COLID_HURT: u16 = 0x001C;
+const DIAMOND_COLID_KIDRIGHT: u16 = 0x0020;
+const DIAMOND_COLID_KIDLEFT: u16 = 0x0024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -1750,6 +1759,73 @@ pub(crate) fn diamond_high_hp_init_loc_3ad7c(
         has_level_collision: true,
         animation_script: "stru_3ACA8",
         x_velocity,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DiamondHighHpCollisionRouteLoc3ADA4 {
+    Loop,
+    Fall { y_velocity: i32 },
+    Damage,
+    Bounce { x_velocity: i32, y_velocity: i32 },
+    Slope { y_velocity: i32 },
+    BerzerkerSideGate,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondHighHpCollisionDispatchLoc3ADA4 {
+    pub(crate) clears_collision_before_poll: bool,
+    pub(crate) route: DiamondHighHpCollisionRouteLoc3ADA4,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
+    collision_type: u16,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> DiamondHighHpCollisionDispatchLoc3ADA4 {
+    // ASM Diamond.asm loc_3ADA4: clear `collision_type(a3)`, hibernate one
+    // frame, run the shared range check, then dispatch the newly captured
+    // collision word. Zero collision starts falling, floor and unknown values
+    // loop, wall/ceiling contacts negate both velocities, and slopes choose
+    // the next Y velocity from the current X direction.
+    let route = match collision_type {
+        0 => DiamondHighHpCollisionRouteLoc3ADA4::Fall {
+            y_velocity: 0x0001_C000,
+        },
+        DIAMOND_COLID_HURT => DiamondHighHpCollisionRouteLoc3ADA4::Damage,
+        DIAMOND_COLID_FLOOR => DiamondHighHpCollisionRouteLoc3ADA4::Loop,
+        DIAMOND_COLID_RIGHTWALL | DIAMOND_COLID_LEFTWALL | DIAMOND_COLID_CEILING => {
+            DiamondHighHpCollisionRouteLoc3ADA4::Bounce {
+                x_velocity: -x_velocity,
+                y_velocity: -y_velocity,
+            }
+        }
+        DIAMOND_COLID_SLOPEUP => DiamondHighHpCollisionRouteLoc3ADA4::Slope {
+            y_velocity: if x_velocity < 0 {
+                0x0001_8000
+            } else {
+                -0x0001_8000
+            },
+        },
+        DIAMOND_COLID_SLOPEDOWN => DiamondHighHpCollisionRouteLoc3ADA4::Slope {
+            y_velocity: if x_velocity < 0 {
+                -0x0001_8000
+            } else {
+                0x0001_8000
+            },
+        },
+        DIAMOND_COLID_KIDRIGHT | DIAMOND_COLID_KIDLEFT => {
+            DiamondHighHpCollisionRouteLoc3ADA4::BerzerkerSideGate
+        }
+        _ => DiamondHighHpCollisionRouteLoc3ADA4::Loop,
+    };
+
+    DiamondHighHpCollisionDispatchLoc3ADA4 {
+        clears_collision_before_poll: true,
+        route,
     }
 }
 
@@ -13093,6 +13169,64 @@ mod tests {
             diamond_high_hp_init_loc_3ad7c(96, 96).x_velocity,
             -0x0001_8000,
             "ASM Diamond.asm loc_3AD7C uses `bmi`, so exact alignment takes the negate path",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_collision_dispatch_loc_3ada4_routes_collision_words() {
+        assert_eq!(
+            diamond_high_hp_collision_dispatch_loc_3ada4(0, 0x0001_8000, -0x0000_8000),
+            DiamondHighHpCollisionDispatchLoc3ADA4 {
+                clears_collision_before_poll: true,
+                route: DiamondHighHpCollisionRouteLoc3ADA4::Fall {
+                    y_velocity: 0x0001_C000,
+                },
+            },
+            "ASM Diamond.asm loc_3ADA4 should clear collision_type before polling and treat zero collision as the falling path",
+        );
+        assert_eq!(
+            diamond_high_hp_collision_dispatch_loc_3ada4(
+                DIAMOND_COLID_RIGHTWALL,
+                0x0001_8000,
+                -0x0000_4000,
+            )
+            .route,
+            DiamondHighHpCollisionRouteLoc3ADA4::Bounce {
+                x_velocity: -0x0001_8000,
+                y_velocity: 0x0000_4000,
+            },
+            "ASM Diamond.asm loc_3ADA4 should negate both velocities for wall or ceiling contacts",
+        );
+        assert_eq!(
+            diamond_high_hp_collision_dispatch_loc_3ada4(DIAMOND_COLID_SLOPEUP, -0x0001_8000, 0,)
+                .route,
+            DiamondHighHpCollisionRouteLoc3ADA4::Slope {
+                y_velocity: 0x0001_8000,
+            },
+            "ASM Diamond.asm loc_3ADA4 should use +$18000 y_vel for an up-slope while moving left",
+        );
+        assert_eq!(
+            diamond_high_hp_collision_dispatch_loc_3ada4(DIAMOND_COLID_SLOPEDOWN, 0x0001_8000, 0,)
+                .route,
+            DiamondHighHpCollisionRouteLoc3ADA4::Slope {
+                y_velocity: 0x0001_8000,
+            },
+            "ASM Diamond.asm loc_3ADA4 should use +$18000 y_vel for a down-slope while moving right",
+        );
+        assert_eq!(
+            diamond_high_hp_collision_dispatch_loc_3ada4(DIAMOND_COLID_FLOOR, 0, 0).route,
+            DiamondHighHpCollisionRouteLoc3ADA4::Loop,
+            "ASM Diamond.asm loc_3ADA4 should loop on floor contact",
+        );
+        assert_eq!(
+            diamond_high_hp_collision_dispatch_loc_3ada4(DIAMOND_COLID_HURT, 0, 0).route,
+            DiamondHighHpCollisionRouteLoc3ADA4::Damage,
+            "ASM Diamond.asm loc_3ADA4 should route hurt collision to the HP-damage path",
+        );
+        assert_eq!(
+            diamond_high_hp_collision_dispatch_loc_3ada4(DIAMOND_COLID_KIDLEFT, 0, 0).route,
+            DiamondHighHpCollisionRouteLoc3ADA4::BerzerkerSideGate,
+            "ASM Diamond.asm loc_3ADA4 should route Kid side contacts to the Berzerker gate",
         );
     }
 
