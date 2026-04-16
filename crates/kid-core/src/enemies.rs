@@ -1244,6 +1244,28 @@ pub(crate) fn lion_left_charge_entry_loc_3e682(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionChargeCollisionReentryLoc3E79E {
+    pub(crate) left_charge_latch_set: bool,
+    pub(crate) restored_sprite_offset: Option<u16>,
+    pub(crate) is_animated: Option<bool>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_collision_reentry_loc_3e79e(
+    saved_sprite_offset: u16,
+) -> LionChargeCollisionReentryLoc3E79E {
+    // ASM Lion.asm loc_3E79E: set `$5C(a5)`, then restore
+    // `addroffset_sprite(a3)` and clear `is_animated(a3)` only when `$4A(a3)`
+    // is non-zero; zero skips the sprite/animation writes before motion seeding.
+    LionChargeCollisionReentryLoc3E79E {
+        left_charge_latch_set: true,
+        restored_sprite_offset: (saved_sprite_offset != 0).then_some(saved_sprite_offset),
+        is_animated: (saved_sprite_offset != 0).then_some(false),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeMotionSeedLoc3E694 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -18072,6 +18094,28 @@ mod tests {
                 is_animated: None,
             },
             "ASM Lion.asm loc_3E682 should skip sprite and animation writes when `$4A(a3)` is zero"
+        );
+    }
+
+    #[test]
+    fn lion_charge_collision_reentry_matches_loc_3e79e() {
+        assert_eq!(
+            lion_charge_collision_reentry_loc_3e79e(0x2340),
+            LionChargeCollisionReentryLoc3E79E {
+                left_charge_latch_set: true,
+                restored_sprite_offset: Some(0x2340),
+                is_animated: Some(false),
+            },
+            "ASM Lion.asm loc_3E79E should set `$5C(a5)`, restore a non-zero `$4A(a3)` sprite offset, and clear animation"
+        );
+        assert_eq!(
+            lion_charge_collision_reentry_loc_3e79e(0),
+            LionChargeCollisionReentryLoc3E79E {
+                left_charge_latch_set: true,
+                restored_sprite_offset: None,
+                is_animated: None,
+            },
+            "ASM Lion.asm loc_3E79E should keep zero `$4A(a3)` from writing sprite offset or animation state"
         );
     }
 
