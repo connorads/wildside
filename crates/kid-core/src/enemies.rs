@@ -8351,7 +8351,7 @@ pub(crate) fn robot_collision_dispatch_loc_3a8ae(
 ) -> RobotCollisionRouteLoc3A8Ae {
     // ASM Robot.asm loc_3A8AE: parent collision_type is tested before `$38(a2)`.
     if parent_collision_type.is_negative() {
-        return RobotCollisionRouteLoc3A8Ae::Destroy;
+        return robot_destroy_prep_loc_3a9d2().route;
     }
     match parent_collision_type {
         0x0800 => return RobotCollisionRouteLoc3A8Ae::ContinueCharge,
@@ -8377,11 +8377,37 @@ pub(crate) fn robot_berzerker_side_gate_loc_3a9cc(
 ) -> RobotCollisionRouteLoc3A8Ae {
     // ASM Robot.asm loc_3A9CC: `$20/$24` child side contacts branch to
     // loc_3A958 when `Berzerker_charging` is clear; otherwise they fall
-    // through to the destruction prep path.
+    // through to the destruction prep path at loc_3A9D2.
     if berzerker_charging {
-        RobotCollisionRouteLoc3A8Ae::Destroy
+        robot_destroy_prep_loc_3a9d2().route
     } else {
         RobotCollisionRouteLoc3A8Ae::ClearAndWalk
+    }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotDestroyPrepLoc3A9D2 {
+    pub(crate) child_status_13: bool,
+    pub(crate) child_has_kid_collision: bool,
+    pub(crate) parent_has_kid_collision: bool,
+    pub(crate) plays_destroy_animation: bool,
+    pub(crate) hibernates_until_animation_finished: bool,
+    pub(crate) route: RobotCollisionRouteLoc3A8Ae,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_destroy_prep_loc_3a9d2() -> RobotDestroyPrepLoc3A9D2 {
+    // ASM Robot.asm loc_3A9D2: hide the child (`sf $13(a2)`), mark child and
+    // parent Kid collision flags, run `stru_3A74A` to completion, then branch
+    // to the shared destroy tail.
+    RobotDestroyPrepLoc3A9D2 {
+        child_status_13: false,
+        child_has_kid_collision: true,
+        parent_has_kid_collision: true,
+        plays_destroy_animation: true,
+        hibernates_until_animation_finished: true,
+        route: RobotCollisionRouteLoc3A8Ae::Destroy,
     }
 }
 

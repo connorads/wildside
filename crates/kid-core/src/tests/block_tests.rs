@@ -6025,6 +6025,22 @@ mod chunk_04 {
     }
 
     #[test]
+    fn robot_destroy_prep_loc_3a9d2_sets_collision_flags_before_destroy() {
+        assert_eq!(
+            robot_destroy_prep_loc_3a9d2(),
+            RobotDestroyPrepLoc3A9D2 {
+                child_status_13: false,
+                child_has_kid_collision: true,
+                parent_has_kid_collision: true,
+                plays_destroy_animation: true,
+                hibernates_until_animation_finished: true,
+                route: RobotCollisionRouteLoc3A8Ae::Destroy,
+            },
+            "ASM Robot.asm loc_3A9D2 should clear child `$13`, set child `$3D` and parent has_kid_collision, play the destroy animation, then leave via the destroy route"
+        );
+    }
+
+    #[test]
     fn robot_hit_reaction_loc_3a8fc_decrements_hp_and_restores_child_on_nonlethal_hit() {
         // ASM Robot.asm loc_3A8FC enters the hit-reaction sequence; the cases
         // below pin the child offset applied by loc_3A90C within that path.
