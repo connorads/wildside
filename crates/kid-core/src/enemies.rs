@@ -1900,6 +1900,19 @@ pub(crate) fn goat_hp4_init_animation_loc_3_caca(
     })
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_high_hp_init_animation_loc_3_cae8(
+    current_hp: u8,
+) -> Option<GoatInitAnimationProfile> {
+    // ASM Goat.asm loc_3CAE8: HP above 4 starts and saves `stru_3C996` for
+    // patrol, but stores `stru_3C9CA` as the damage-resume animation.
+    (current_hp > 4).then_some(GoatInitAnimationProfile {
+        initial_animation_script: "stru_3C996",
+        saved_patrol_animation: "stru_3C996",
+        saved_damage_resume_animation: "stru_3C9CA",
+    })
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {

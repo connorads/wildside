@@ -2385,6 +2385,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_high_hp_init_animation_uses_loc_3cae8_profile() {
+        assert_eq!(
+            goat_high_hp_init_animation_loc_3_cae8(spawn_hit_points(EnemyFamily::Goat, 2)),
+            Some(GoatInitAnimationProfile {
+                initial_animation_script: "stru_3C996",
+                saved_patrol_animation: "stru_3C996",
+                saved_damage_resume_animation: "stru_3C9CA",
+            }),
+            "ASM Goat.asm loc_3CAE8 handles current_hp > 4 with the high-HP damage resume animation"
+        );
+        assert_eq!(goat_high_hp_init_animation_loc_3_cae8(4), None);
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);
