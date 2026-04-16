@@ -8911,6 +8911,56 @@ pub(crate) fn hand_jump_loop_gravity_loc_328f0(y_velocity: i32) -> i32 {
     y_velocity.wrapping_add(HAND_GRAVITY)
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum HandGroundCollisionBehaviorLoc3299C {
+    Reverse,
+    KidBelowContact,
+    Destroy,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandGroundCollisionDispatchLoc3299C {
+    pub(crate) collision_type: u16,
+    pub(crate) behavior: Option<HandGroundCollisionBehaviorLoc3299C>,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_ground_collision_dispatch_loc_3299c(
+    collision_type: i16,
+) -> HandGroundCollisionDispatchLoc3299C {
+    // ASM Hand.asm loc_3299C: negative collision types branch to the shared
+    // destroy path before the clear; zero returns; positive IDs clear
+    // `collision_type(a3)` before dispatching through `off_329B6`.
+    if collision_type < 0 {
+        return HandGroundCollisionDispatchLoc3299C {
+            collision_type: collision_type as u16,
+            behavior: Some(HandGroundCollisionBehaviorLoc3299C::Destroy),
+        };
+    }
+
+    if collision_type == 0 {
+        return HandGroundCollisionDispatchLoc3299C {
+            collision_type: 0,
+            behavior: None,
+        };
+    }
+
+    let behavior = match collision_type as u16 {
+        0x0004 | 0x0008 | 0x0014 | 0x0018 => Some(HandGroundCollisionBehaviorLoc3299C::Reverse),
+        0x000C | 0x0010 | 0x001C | 0x002C => Some(HandGroundCollisionBehaviorLoc3299C::Destroy),
+        0x0020 | 0x0024 | 0x0028 => Some(HandGroundCollisionBehaviorLoc3299C::KidBelowContact),
+        _ => None,
+    };
+
+    HandGroundCollisionDispatchLoc3299C {
+        collision_type: 0,
+        behavior,
+    }
+}
+
 /// Hand grab duration: 10 frames (Hand.asm loc_32906: moveq #$A,d3).
 pub(crate) const HAND_GRAB_DURATION: u16 = 10;
 

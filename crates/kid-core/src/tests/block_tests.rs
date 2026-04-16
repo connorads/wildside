@@ -5821,6 +5821,44 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_ground_collision_loc_3299c_dispatches_ground_table() {
+        assert_eq!(
+            hand_ground_collision_dispatch_loc_3299c(-1),
+            HandGroundCollisionDispatchLoc3299C {
+                collision_type: 0xFFFF,
+                behavior: Some(HandGroundCollisionBehaviorLoc3299C::Destroy),
+            },
+            "ASM Hand.asm loc_3299C branches negative collision_type to the destroy path before clearing it"
+        );
+        assert_eq!(
+            hand_ground_collision_dispatch_loc_3299c(0),
+            HandGroundCollisionDispatchLoc3299C {
+                collision_type: 0,
+                behavior: None,
+            },
+            "ASM Hand.asm loc_3299C returns directly when collision_type is zero"
+        );
+        assert_eq!(
+            hand_ground_collision_dispatch_loc_3299c(0x0004),
+            HandGroundCollisionDispatchLoc3299C {
+                collision_type: 0,
+                behavior: Some(HandGroundCollisionBehaviorLoc3299C::Reverse),
+            },
+            "ASM Hand.asm loc_3299C clears positive collision_type before routing right-wall contact through the table"
+        );
+        assert_eq!(
+            hand_ground_collision_dispatch_loc_3299c(0x0028).behavior,
+            Some(HandGroundCollisionBehaviorLoc3299C::KidBelowContact),
+            "ASM Hand.asm loc_3299C maps the $28 contact slot to the Kid-below contact route"
+        );
+        assert_eq!(
+            hand_ground_collision_dispatch_loc_3299c(0x002C).behavior,
+            Some(HandGroundCollisionBehaviorLoc3299C::Destroy),
+            "ASM Hand.asm loc_3299C maps the final table slot to the shared destroy path"
+        );
+    }
+
+    #[test]
     fn hand_grab_snap_loc_3294c_uses_raw_direction_and_clears_fraction() {
         assert_eq!(
             hand_grab_snap_loc_3294c(0x0064_8000, 0x00C8_4000, false),
