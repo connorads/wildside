@@ -301,6 +301,10 @@ pub(crate) const DRAGON_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const CRAB_COLID_HURT: i16 = 0x001C;
 pub(crate) const CRAB_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const CRAB_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const SCORPION_COLID_HURT: i16 = 0x001C;
+pub(crate) const SCORPION_COLID_KIDRIGHT: i16 = 0x0020;
+pub(crate) const SCORPION_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const SCORPION_COLID_KIDABOVE: i16 = 0x002C;
 pub(crate) const ORCA_COLID_HURT: i16 = 0x001C;
 pub(crate) const ORCA_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const ORCA_COLID_KIDLEFT: i16 = 0x0024;
@@ -1598,6 +1602,37 @@ pub(crate) fn scorpion_tail_sync_loc_3dc86(
     ScorpionTailGfxPosition {
         x_word: parent_x_word.wrapping_sub(x_offset),
         y_word: parent_y_word.wrapping_sub(0x16),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ScorpionCollisionRouteLoc3DCB0 {
+    ContinueSharedWalker,
+    Damage,
+    BerzerkerSideGate,
+    Death,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_collision_dispatch_loc_3dcb0(
+    collision_type: i16,
+) -> ScorpionCollisionRouteLoc3DCB0 {
+    // ASM Scorpion.asm loc_3DCB0 reads `collision_type(a3)` into d4 without
+    // clearing it, then dispatches zero, negative, side, hurt, and above IDs.
+    if collision_type == 0 {
+        return ScorpionCollisionRouteLoc3DCB0::ContinueSharedWalker;
+    }
+    if collision_type.is_negative() {
+        return ScorpionCollisionRouteLoc3DCB0::Death;
+    }
+
+    match collision_type {
+        SCORPION_COLID_KIDRIGHT | SCORPION_COLID_KIDLEFT => {
+            ScorpionCollisionRouteLoc3DCB0::BerzerkerSideGate
+        }
+        SCORPION_COLID_HURT | SCORPION_COLID_KIDABOVE => ScorpionCollisionRouteLoc3DCB0::Damage,
+        _ => ScorpionCollisionRouteLoc3DCB0::ContinueSharedWalker,
     }
 }
 
@@ -12726,6 +12761,45 @@ mod tests {
                 y_word: 0x002A,
             },
             "ASM Scorpion.asm loc_3DCAA subtracts $16 from the linked tail x word when x_direction is set"
+        );
+    }
+
+    #[test]
+    fn scorpion_collision_dispatch_matches_loc_3dcb0_compare_order() {
+        assert_eq!(
+            scorpion_collision_dispatch_loc_3dcb0(0),
+            ScorpionCollisionRouteLoc3DCB0::ContinueSharedWalker,
+            "ASM Scorpion.asm loc_3DCB0 sends zero collision_type to the normal shared-walker resume path"
+        );
+        assert_eq!(
+            scorpion_collision_dispatch_loc_3dcb0(-1),
+            ScorpionCollisionRouteLoc3DCB0::Death,
+            "ASM Scorpion.asm loc_3DCB0 sends signed-negative collision words to the death path before positive ID checks"
+        );
+        assert_eq!(
+            scorpion_collision_dispatch_loc_3dcb0(SCORPION_COLID_KIDRIGHT),
+            ScorpionCollisionRouteLoc3DCB0::BerzerkerSideGate,
+            "ASM Scorpion.asm loc_3DCB0 routes kid-right side contact to the Berzerker side gate"
+        );
+        assert_eq!(
+            scorpion_collision_dispatch_loc_3dcb0(SCORPION_COLID_KIDLEFT),
+            ScorpionCollisionRouteLoc3DCB0::BerzerkerSideGate,
+            "ASM Scorpion.asm loc_3DCB0 routes kid-left side contact to the same Berzerker side gate"
+        );
+        assert_eq!(
+            scorpion_collision_dispatch_loc_3dcb0(SCORPION_COLID_HURT),
+            ScorpionCollisionRouteLoc3DCB0::Damage,
+            "ASM Scorpion.asm loc_3DCB0 routes hurt collision to HP damage"
+        );
+        assert_eq!(
+            scorpion_collision_dispatch_loc_3dcb0(SCORPION_COLID_KIDABOVE),
+            ScorpionCollisionRouteLoc3DCB0::Damage,
+            "ASM Scorpion.asm loc_3DCB0 routes kid-above collision to the same HP damage path"
+        );
+        assert_eq!(
+            scorpion_collision_dispatch_loc_3dcb0(0x0010),
+            ScorpionCollisionRouteLoc3DCB0::ContinueSharedWalker,
+            "ASM Scorpion.asm loc_3DCB0 ignores unhandled positive collision IDs"
         );
     }
 
