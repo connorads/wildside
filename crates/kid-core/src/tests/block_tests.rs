@@ -6185,6 +6185,49 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_jump_collision_loc_329f8_dispatches_airborne_table() {
+        assert_eq!(
+            hand_jump_collision_dispatch_loc_329f8(-1),
+            HandJumpCollisionDispatchLoc329F8 {
+                collision_type: 0xFFFF,
+                behavior: Some(HandJumpCollisionBehaviorLoc329F8::Destroy),
+            },
+            "ASM Hand.asm loc_329F8 branches negative collision_type to the shared destroy path before clearing it"
+        );
+        assert_eq!(
+            hand_jump_collision_dispatch_loc_329f8(0),
+            HandJumpCollisionDispatchLoc329F8 {
+                collision_type: 0,
+                behavior: None,
+            },
+            "ASM Hand.asm loc_329F8 returns directly when collision_type is zero"
+        );
+        assert_eq!(
+            hand_jump_collision_dispatch_loc_329f8(0x0004),
+            HandJumpCollisionDispatchLoc329F8 {
+                collision_type: 0,
+                behavior: Some(HandJumpCollisionBehaviorLoc329F8::ClearXVelocity),
+            },
+            "ASM Hand.asm loc_329F8 clears positive collision_type before routing the first airborne contact slot"
+        );
+        assert_eq!(
+            hand_jump_collision_dispatch_loc_329f8(0x0010).behavior,
+            Some(HandJumpCollisionBehaviorLoc329F8::ClearYVelocity),
+            "ASM Hand.asm loc_329F8 maps the $10 airborne contact slot to vertical velocity clearing"
+        );
+        assert_eq!(
+            hand_jump_collision_dispatch_loc_329f8(0x0028).behavior,
+            Some(HandJumpCollisionBehaviorLoc329F8::TryGrabKid),
+            "ASM Hand.asm loc_329F8 maps Kid-contact airborne slots to the grab gate"
+        );
+        assert_eq!(
+            hand_jump_collision_dispatch_loc_329f8(0x002C).behavior,
+            Some(HandJumpCollisionBehaviorLoc329F8::ReturnOnly),
+            "ASM Hand.asm loc_329F8 maps the final airborne table slot to an immediate return"
+        );
+    }
+
+    #[test]
     fn hand_ground_collision_loc_329e2_reverses_velocity_and_direction() {
         assert_eq!(
             hand_ground_collision_reverse_loc_329e2(-0x0000_3000, false),

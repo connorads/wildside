@@ -10148,6 +10148,65 @@ pub(crate) fn hand_ground_collision_dispatch_loc_3299c(
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum HandJumpCollisionBehaviorLoc329F8 {
+    ClearXVelocity,
+    ResetToPatrol,
+    ClearYVelocity,
+    BounceUpLeft,
+    BounceUpRight,
+    ReturnOnly,
+    TryGrabKid,
+    Destroy,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandJumpCollisionDispatchLoc329F8 {
+    pub(crate) collision_type: u16,
+    pub(crate) behavior: Option<HandJumpCollisionBehaviorLoc329F8>,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_jump_collision_dispatch_loc_329f8(
+    collision_type: i16,
+) -> HandJumpCollisionDispatchLoc329F8 {
+    // ASM Hand.asm loc_329F8: negative collision types branch to the shared
+    // destroy path, zero returns, and positive IDs clear `collision_type(a3)`
+    // before dispatching through `off_32A12[(collision_type - 4)]`.
+    if collision_type < 0 {
+        return HandJumpCollisionDispatchLoc329F8 {
+            collision_type: collision_type as u16,
+            behavior: Some(HandJumpCollisionBehaviorLoc329F8::Destroy),
+        };
+    }
+
+    if collision_type == 0 {
+        return HandJumpCollisionDispatchLoc329F8 {
+            collision_type: 0,
+            behavior: None,
+        };
+    }
+
+    let behavior = match collision_type as u16 {
+        0x0004 | 0x0008 => Some(HandJumpCollisionBehaviorLoc329F8::ClearXVelocity),
+        0x000C => Some(HandJumpCollisionBehaviorLoc329F8::ResetToPatrol),
+        0x0010 => Some(HandJumpCollisionBehaviorLoc329F8::ClearYVelocity),
+        0x0014 => Some(HandJumpCollisionBehaviorLoc329F8::BounceUpLeft),
+        0x0018 => Some(HandJumpCollisionBehaviorLoc329F8::BounceUpRight),
+        0x001C | 0x002C => Some(HandJumpCollisionBehaviorLoc329F8::ReturnOnly),
+        0x0020 | 0x0024 | 0x0028 => Some(HandJumpCollisionBehaviorLoc329F8::TryGrabKid),
+        _ => None,
+    };
+
+    HandJumpCollisionDispatchLoc329F8 {
+        collision_type: 0,
+        behavior,
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandGroundCollisionReverseLoc329E2 {
     pub(crate) x_velocity: i32,
     pub(crate) x_direction_flag: bool,
