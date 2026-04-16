@@ -13549,6 +13549,17 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_3395a() -> DripsSurfaceCrawl
     ])
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_turn_script_loc_33978() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
+{
+    // ASM Drips.asm loc_33978: select `unk_33BD0`, then branch to the shared
+    // loc_33AF6 turn-script interpreter.
+    drips_surface_crawler_turn_script_loc_33af6([
+        0x1E, 0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0xFF, 0x05, 0x00, 0x30, 0x00, 0x00, 0x00, 0x18,
+        0x00,
+    ])
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -18858,6 +18869,30 @@ mod tests {
                 next: DripsSurfaceCrawlerTurnNextLoc33AF6::Loc336D0,
             },
             "ASM Drips.asm loc_3395A selects `unk_33C00`, which loc_33AF6 snaps Y by +9, moves right, seeds +$3000 x velocity, and jumps to loc_336D0"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_turn_script_matches_loc_33978() {
+        assert_eq!(
+            drips_surface_crawler_turn_script_loc_33978(),
+            DripsSurfaceCrawlerTurnScriptLoc33AF6 {
+                snap_field: DripsSurfaceCrawlerTurnFieldLoc33AF6::YPos,
+                snap_offset: 0,
+                snap_mask: 0xFFF0,
+                flip_before_first_animation: false,
+                first_x_delta: 1,
+                first_y_delta: 0,
+                first_animation: DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33E1E,
+                flip_after_first_animation: true,
+                second_x_delta: 5,
+                second_y_delta: 0,
+                x_velocity_delta: 0x3000,
+                y_velocity_delta: 0,
+                second_animation: DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33F14,
+                next: DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33650,
+            },
+            "ASM Drips.asm loc_33978 selects `unk_33BD0`, which loc_33AF6 snaps Y without offset, flips direction after the first animation, and resumes loc_33650"
         );
     }
 
