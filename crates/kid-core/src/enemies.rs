@@ -529,6 +529,28 @@ pub(crate) fn orca_damage_response_loc_3d23e(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaDeathSequenceLoc3D268 {
+    pub(crate) has_kid_collision: bool,
+    pub(crate) death_animation: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) exits_enemy: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_death_sequence_loc_3d268() -> OrcaDeathSequenceLoc3D268 {
+    // ASM Orca.asm loc_3D268: `st has_kid_collision(a3)`, initialise
+    // `stru_3D11E`, hibernate until that animation finishes, then branch to
+    // the shared enemy exit tail.
+    OrcaDeathSequenceLoc3D268 {
+        has_kid_collision: true,
+        death_animation: "stru_3D11E",
+        waits_until_animation_finished: true,
+        exits_enemy: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
     Damage,
     ContinueWaiting {
@@ -13177,6 +13199,20 @@ mod tests {
             orca_damage_response_loc_3d23e(1, 0x0000_8000),
             OrcaDamageResponseLoc3D23E::Kill,
             "ASM Orca.asm loc_3D23E should take the kill path when the decrement reaches zero"
+        );
+    }
+
+    #[test]
+    fn orca_death_sequence_matches_loc_3d268() {
+        assert_eq!(
+            orca_death_sequence_loc_3d268(),
+            OrcaDeathSequenceLoc3D268 {
+                has_kid_collision: true,
+                death_animation: "stru_3D11E",
+                waits_until_animation_finished: true,
+                exits_enemy: true,
+            },
+            "ASM Orca.asm loc_3D268 should re-enable Kid collision, play the death animation, then exit the enemy"
         );
     }
 
