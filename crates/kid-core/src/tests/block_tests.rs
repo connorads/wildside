@@ -3063,7 +3063,55 @@ mod chunk_04 {
                 spawns_fire_trail: false,
                 next_fire_trail_count: 7,
             },
-            "ASM Fire_Demon.asm loc_3A564 branches to loc_3A586 without allocating once Number_of_Fire_Trails is 7"
+            "ASM Fire_Demon.asm loc_3A564 branches to collision handling without allocating once Number_of_Fire_Trails is 7"
+        );
+    }
+
+    #[test]
+    fn fire_demon_collision_loc_3a586_routes_collision_types() {
+        assert_eq!(
+            fire_demon_collision_dispatch_loc_3a586(-1, 3),
+            FireDemonCollisionRouteLoc3A586::Death,
+            "ASM Fire_Demon.asm loc_3A586 sends negative collision_type to the fire demon death path"
+        );
+        assert_eq!(
+            fire_demon_collision_dispatch_loc_3a586(0, 3),
+            FireDemonCollisionRouteLoc3A586::ResumeSharedWalker {
+                next_collision_type: 0,
+            },
+            "ASM Fire_Demon.asm loc_3A586 sends zero collision_type to the shared clear tail without damage"
+        );
+        assert_eq!(
+            fire_demon_collision_dispatch_loc_3a586(FIRE_DEMON_COLID_KIDRIGHT, 3),
+            FireDemonCollisionRouteLoc3A586::BerzerkerSideGate,
+            "ASM Fire_Demon.asm loc_3A586 routes colid_kidright to the Berzerker side-contact gate"
+        );
+        assert_eq!(
+            fire_demon_collision_dispatch_loc_3a586(FIRE_DEMON_COLID_KIDLEFT, 3),
+            FireDemonCollisionRouteLoc3A586::BerzerkerSideGate,
+            "ASM Fire_Demon.asm loc_3A586 routes colid_kidleft to the Berzerker side-contact gate"
+        );
+        assert_eq!(
+            fire_demon_collision_dispatch_loc_3a586(FIRE_DEMON_COLID_HURT, 3),
+            FireDemonCollisionRouteLoc3A586::Hurt {
+                remaining_hp: 2,
+                next_collision_type: 0,
+                damage_animation: "stru_3A34E",
+                restored_animation: "saved_fire_demon_walk_animation",
+            },
+            "ASM Fire_Demon.asm loc_3A586 decrements current_hp for colid_hurt and then clears collision_type through the shared tail"
+        );
+        assert_eq!(
+            fire_demon_collision_dispatch_loc_3a586(FIRE_DEMON_COLID_HURT, 1),
+            FireDemonCollisionRouteLoc3A586::Death,
+            "ASM Fire_Demon.asm loc_3A586 falls through to fire demon death when the colid_hurt decrement reaches zero"
+        );
+        assert_eq!(
+            fire_demon_collision_dispatch_loc_3a586(0x0004, 3),
+            FireDemonCollisionRouteLoc3A586::ResumeSharedWalker {
+                next_collision_type: 0,
+            },
+            "ASM Fire_Demon.asm loc_3A586 ignores unrecognised positive collision IDs via the shared clear tail"
         );
     }
 

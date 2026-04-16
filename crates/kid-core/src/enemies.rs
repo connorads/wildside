@@ -317,6 +317,9 @@ pub(crate) const ORCA_COLID_HURT: i16 = 0x001C;
 pub(crate) const ORCA_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const ORCA_COLID_KIDLEFT: i16 = 0x0024;
 pub(crate) const ORCA_COLID_KIDABOVE: i16 = 0x002C;
+pub(crate) const FIRE_DEMON_COLID_HURT: i16 = 0x001C;
+pub(crate) const FIRE_DEMON_COLID_KIDRIGHT: i16 = 0x0020;
+pub(crate) const FIRE_DEMON_COLID_KIDLEFT: i16 = 0x0024;
 const DIAMOND_COLID_RIGHTWALL: u16 = 0x0004;
 const DIAMOND_COLID_LEFTWALL: u16 = 0x0008;
 const DIAMOND_COLID_FLOOR: u16 = 0x000C;
@@ -3482,6 +3485,61 @@ pub(crate) fn fire_demon_fire_trail_gate_loc_3a542(
             spawns_fire_trail: false,
             next_fire_trail_count: fire_trail_count,
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FireDemonCollisionRouteLoc3A586 {
+    ResumeSharedWalker {
+        next_collision_type: u16,
+    },
+    Death,
+    BerzerkerSideGate,
+    Hurt {
+        remaining_hp: u16,
+        next_collision_type: u16,
+        damage_animation: &'static str,
+        restored_animation: &'static str,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
+    collision_type: i16,
+    current_hp: u16,
+) -> FireDemonCollisionRouteLoc3A586 {
+    // ASM Fire_Demon.asm loc_3A586: read `collision_type(a3)` into d4. Negative
+    // values enter the death animation before the shared clear tail, zero and
+    // unknown nonzero IDs fall through to that clear tail, side contacts branch
+    // to the Berzerker gate, and `colid_hurt` decrements `$44(a3)`.
+    if collision_type.is_negative() {
+        return FireDemonCollisionRouteLoc3A586::Death;
+    }
+
+    match collision_type {
+        0 => FireDemonCollisionRouteLoc3A586::ResumeSharedWalker {
+            next_collision_type: 0,
+        },
+        FIRE_DEMON_COLID_KIDRIGHT | FIRE_DEMON_COLID_KIDLEFT => {
+            FireDemonCollisionRouteLoc3A586::BerzerkerSideGate
+        }
+        FIRE_DEMON_COLID_HURT => {
+            let remaining_hp = current_hp.wrapping_sub(1);
+            if remaining_hp == 0 {
+                FireDemonCollisionRouteLoc3A586::Death
+            } else {
+                FireDemonCollisionRouteLoc3A586::Hurt {
+                    remaining_hp,
+                    next_collision_type: 0,
+                    damage_animation: "stru_3A34E",
+                    restored_animation: "saved_fire_demon_walk_animation",
+                }
+            }
+        }
+        _ => FireDemonCollisionRouteLoc3A586::ResumeSharedWalker {
+            next_collision_type: 0,
+        },
     }
 }
 
