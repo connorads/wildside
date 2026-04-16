@@ -4179,6 +4179,29 @@ pub(crate) fn ufo_beam_child_turnaround_loc_3554a(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoBeamChildGravityGateLoc3555A {
+    pub(crate) y_velocity: i32,
+    pub(crate) keep_hibernating: bool,
+    pub(crate) delete_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_beam_child_gravity_gate_loc_3555a(
+    y_velocity: i32,
+    flag_19_set: bool,
+) -> UfoBeamChildGravityGateLoc3555A {
+    // ASM UFO.asm loc_3555A: add `$3000` to `y_vel(a3)` every loop and delete
+    // only after `$19(a3)` becomes non-zero; otherwise branch back to loc_3554A.
+    let y_velocity = y_velocity.wrapping_add(0x0000_3000);
+    UfoBeamChildGravityGateLoc3555A {
+        y_velocity,
+        keep_hibernating: !flag_19_set,
+        delete_current_object: flag_19_set,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -13185,6 +13208,29 @@ mod tests {
             ufo_beam_child_turnaround_loc_3554a(1, 0xFF).x_direction,
             0,
             "ASM UFO.asm loc_3554A uses `not.b`, so `$FF` flips back to clear direction on the next zero-count frame"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_child_gravity_gate_matches_loc_3555a() {
+        assert_eq!(
+            ufo_beam_child_gravity_gate_loc_3555a(0x0002_0000, false),
+            UfoBeamChildGravityGateLoc3555A {
+                y_velocity: 0x0002_3000,
+                keep_hibernating: true,
+                delete_current_object: false,
+            },
+            "ASM UFO.asm loc_3555A adds `$3000` to `y_vel(a3)` and loops while `$19(a3)` is clear"
+        );
+
+        assert_eq!(
+            ufo_beam_child_gravity_gate_loc_3555a(-0x0000_1000, true),
+            UfoBeamChildGravityGateLoc3555A {
+                y_velocity: 0x0000_2000,
+                keep_hibernating: false,
+                delete_current_object: true,
+            },
+            "ASM UFO.asm loc_3555A still applies gravity before deleting when `$19(a3)` is set"
         );
     }
 
