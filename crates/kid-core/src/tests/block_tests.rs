@@ -2783,7 +2783,13 @@ mod chunk_04 {
             }),
             "ASM Cloud.asm loc_35C42 writes the $2168 respawn marker for positive object-status slots"
         );
-        assert!(positive.deletes_current_object);
+        assert_eq!(
+            positive.delete_tail,
+            CloudDeleteTailLoc35C50 {
+                deletes_current_object: true,
+            },
+            "ASM Cloud.asm loc_35C50 jumps to j_Delete_CurrentObject after every status route"
+        );
 
         assert_eq!(
             cloud_death_sequence_loc_35C0E(0xC7).status_route,

@@ -3750,7 +3750,7 @@ pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,
     pub(crate) status_route: CloudDeathStatusRouteLoc35C0E,
-    pub(crate) deletes_current_object: bool,
+    pub(crate) delete_tail: CloudDeleteTailLoc35C50,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -3766,6 +3766,22 @@ pub(crate) enum CloudDeathStatusRouteLoc35C0E {
     WriteRespawnMarker(CloudRespawnMarkerLoc35C42),
     SubtractSpawnCounter { index: usize, decrement: u16 },
     DeleteOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudDeleteTailLoc35C50 {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_delete_tail_loc_35C50() -> CloudDeleteTailLoc35C50 {
+    // ASM Cloud.asm loc_35C50: every death-status route converges on
+    // `jmp (j_Delete_CurrentObject).w`.
+    CloudDeleteTailLoc35C50 {
+        deletes_current_object: true,
+    }
 }
 
 #[allow(non_snake_case)]
@@ -3801,7 +3817,7 @@ pub(crate) fn cloud_death_sequence_loc_35C0E(object_status_slot: u8) -> CloudDea
         x_velocity: 0,
         animation_script: "stru_35EBA",
         status_route,
-        deletes_current_object: true,
+        delete_tail: cloud_delete_tail_loc_35C50(),
     }
 }
 
