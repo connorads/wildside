@@ -3474,6 +3474,29 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_diagonal_attack_setup_loc_35d40_starts_vertical_down_in_column() {
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
+                object_45: 0x00,
+                x_direction: 0,
+                cloud_x: 100,
+                cloud_y: 50,
+                kid_x: 100,
+                kid_y: 70,
+            }),
+            CloudDiagonalAttackSetupLoc35CD8 {
+                route: CloudDiagonalAttackRouteLoc35CD8::StartAttack {
+                    x_word: 0,
+                    y_word: 6,
+                },
+                animation_script: Some("stru_35EC8"),
+                object_45_value: Some(0xFF),
+            },
+            "ASM Cloud.asm loc_35D40 starts a straight-down attack when Kid is below within the signed -15..16 px column"
+        );
+    }
+
+    #[test]
     fn cloud_death_sequence_loc_35c0e_clears_motion_updates_status_and_deletes() {
         let positive = cloud_death_sequence_loc_35C0E(0x02);
         assert_eq!(positive.x_velocity, 0);

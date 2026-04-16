@@ -6780,31 +6780,34 @@ pub(crate) fn cloud_diagonal_attack_setup_loc_35CD8(
     }
 
     let d7 = input.kid_y.wrapping_sub(input.cloud_y);
-    if d7 < 0 {
-        return cloud_diagonal_attack_later_range_checks_loc_35cd8();
+    if d7 >= 0 {
+        let d6 = input.kid_x.wrapping_sub(input.cloud_x);
+        if input.x_direction == 0 {
+            if d6 < 0 {
+                let abs_dx = d6.wrapping_neg();
+                if d7 <= abs_dx && d7 >= abs_dx.wrapping_sub(0x10) {
+                    return cloud_diagonal_attack_start_loc_35cd8(-3, 3);
+                }
+            }
+        } else {
+            // ASM Cloud.asm loc_35D1E: non-zero `x_direction` mirrors the
+            // down-diagonal attack band to Kid's right side.
+            if d6 >= 0 && d7 <= d6 && d7 >= d6.wrapping_sub(0x10) {
+                return cloud_diagonal_attack_start_loc_35cd8(3, 3);
+            }
+        }
     }
 
-    let d6 = input.kid_x.wrapping_sub(input.cloud_x);
-    if input.x_direction == 0 {
-        if d6 >= 0 {
-            return cloud_diagonal_attack_later_range_checks_loc_35cd8();
+    // ASM Cloud.asm loc_35D40: if Kid is below and horizontally inside
+    // (-$10, +$10], start the straight-down attack before later checks.
+    if d7 >= 0 {
+        let d6 = input.kid_x.wrapping_sub(input.cloud_x);
+        if d6 <= 0x10 && d6 > -0x10 {
+            return cloud_diagonal_attack_start_loc_35cd8(0, 6);
         }
-
-        let abs_dx = d6.wrapping_neg();
-        if d7 > abs_dx || d7 < abs_dx.wrapping_sub(0x10) {
-            return cloud_diagonal_attack_later_range_checks_loc_35cd8();
-        }
-
-        cloud_diagonal_attack_start_loc_35cd8(-3, 3)
-    } else {
-        // ASM Cloud.asm loc_35D1E: non-zero `x_direction` mirrors the
-        // down-diagonal attack band to Kid's right side.
-        if d6 < 0 || d7 > d6 || d7 < d6.wrapping_sub(0x10) {
-            return cloud_diagonal_attack_later_range_checks_loc_35cd8();
-        }
-
-        cloud_diagonal_attack_start_loc_35cd8(3, 3)
     }
+
+    cloud_diagonal_attack_later_range_checks_loc_35cd8()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
