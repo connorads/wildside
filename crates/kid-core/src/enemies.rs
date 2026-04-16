@@ -2768,7 +2768,7 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
             // ASM Diamond.asm loc_3AE4A: `tst.l x_vel(a3)` sends negative
             // X velocity to +$18000 Y velocity; zero/non-negative goes upward.
             y_velocity: if x_velocity < 0 {
-                0x0001_8000
+                diamond_high_hp_slope_y_velocity_loc_3ae5c()
             } else {
                 diamond_high_hp_slope_y_velocity_loc_3ae50()
             },
@@ -2777,7 +2777,7 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
             y_velocity: if x_velocity < 0 {
                 -0x0001_8000
             } else {
-                0x0001_8000
+                diamond_high_hp_slope_y_velocity_loc_3ae5c()
             },
         },
         DIAMOND_COLID_KIDRIGHT | DIAMOND_COLID_KIDLEFT => {
@@ -2797,6 +2797,13 @@ pub(crate) fn diamond_high_hp_slope_y_velocity_loc_3ae50() -> i32 {
     // ASM Diamond.asm loc_3AE50: `move.l #-$18000,y_vel(a3)` sends the
     // high-HP Diamond upward along the slope before returning to loc_3ADA4.
     -0x0001_8000
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_high_hp_slope_y_velocity_loc_3ae5c() -> i32 {
+    // ASM Diamond.asm loc_3AE5C: `move.l #$18000,y_vel(a3)` sends the
+    // high-HP Diamond downward along the slope before returning to loc_3ADA4.
+    0x0001_8000
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -16826,6 +16833,15 @@ mod tests {
             diamond_high_hp_slope_y_velocity_loc_3ae50(),
             -0x0001_8000,
             "ASM Diamond.asm loc_3AE50 should store -$18000 into y_vel",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_slope_y_velocity_loc_3ae5c_is_positive() {
+        assert_eq!(
+            diamond_high_hp_slope_y_velocity_loc_3ae5c(),
+            0x0001_8000,
+            "ASM Diamond.asm loc_3AE5C should store +$18000 into y_vel",
         );
     }
 
