@@ -5551,6 +5551,66 @@ pub(crate) fn cloud_transition_loc_35C82() -> CloudTransitionLoc35C82 {
     }
 }
 
+const CLOUD_IDLE_SPRITES_LOC_35CA2: [&str; 6] = [
+    "LnkTo_unk_C787E-Data_Index",
+    "LnkTo_unk_C7886-Data_Index",
+    "LnkTo_unk_C788E-Data_Index",
+    "LnkTo_unk_C7896-Data_Index",
+    "LnkTo_unk_C788E-Data_Index",
+    "LnkTo_unk_C7886-Data_Index",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudIdleSpriteGateLoc35CA2 {
+    pub(crate) d2_after_subq: u16,
+    pub(crate) sprite_link: Option<&'static str>,
+    pub(crate) reaches_countdown_reload: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_idle_sprite_gate_loc_35CA2(
+    object_44: u8,
+    object_45: u8,
+    d2: u16,
+    random_byte: u8,
+) -> CloudIdleSpriteGateLoc35CA2 {
+    // ASM Cloud.asm loc_35CA2: only an armed idle cloud (`$44(a5)` set and
+    // `$45(a5)` clear) decrements d2; when it reaches zero, `(random & $2F)`
+    // is even-aligned and used as a byte offset into off_35C94.
+    if object_44 == 0 || object_45 != 0 {
+        return CloudIdleSpriteGateLoc35CA2 {
+            d2_after_subq: d2,
+            sprite_link: None,
+            reaches_countdown_reload: false,
+        };
+    }
+
+    let d2_after_subq = d2.wrapping_sub(1);
+    if d2_after_subq != 0 {
+        return CloudIdleSpriteGateLoc35CA2 {
+            d2_after_subq,
+            sprite_link: None,
+            reaches_countdown_reload: false,
+        };
+    }
+
+    let masked_random = u16::from(random_byte) & 0x002F;
+    let sprite_link = if masked_random <= 0x000A {
+        let table_index = usize::from((masked_random & !1) / 2);
+        Some(CLOUD_IDLE_SPRITES_LOC_35CA2[table_index])
+    } else {
+        None
+    };
+
+    CloudIdleSpriteGateLoc35CA2 {
+        d2_after_subq,
+        sprite_link,
+        reaches_countdown_reload: true,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,

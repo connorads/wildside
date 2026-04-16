@@ -3097,6 +3097,59 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_idle_sprite_gate_loc_35ca2_decrements_only_while_armed() {
+        assert_eq!(
+            cloud_idle_sprite_gate_loc_35CA2(0x00, 0x00, 5, 0),
+            CloudIdleSpriteGateLoc35CA2 {
+                d2_after_subq: 5,
+                sprite_link: None,
+                reaches_countdown_reload: false,
+            },
+            "ASM Cloud.asm loc_35CA2 returns before `subq.w #1,d2` when `$44(a5)` is clear"
+        );
+        assert_eq!(
+            cloud_idle_sprite_gate_loc_35CA2(0xFF, 0xFF, 5, 0),
+            CloudIdleSpriteGateLoc35CA2 {
+                d2_after_subq: 5,
+                sprite_link: None,
+                reaches_countdown_reload: false,
+            },
+            "ASM Cloud.asm loc_35CA2 returns before the countdown while `$45(a5)` is non-zero"
+        );
+        assert_eq!(
+            cloud_idle_sprite_gate_loc_35CA2(0xFF, 0x00, 5, 0),
+            CloudIdleSpriteGateLoc35CA2 {
+                d2_after_subq: 4,
+                sprite_link: None,
+                reaches_countdown_reload: false,
+            },
+            "ASM Cloud.asm loc_35CA2 keeps the decremented d2 when the result is non-zero"
+        );
+    }
+
+    #[test]
+    fn cloud_idle_sprite_gate_loc_35ca2_uses_masked_even_random_table_offset() {
+        assert_eq!(
+            cloud_idle_sprite_gate_loc_35CA2(0xFF, 0x00, 1, 0x07),
+            CloudIdleSpriteGateLoc35CA2 {
+                d2_after_subq: 0,
+                sprite_link: Some("LnkTo_unk_C7896-Data_Index"),
+                reaches_countdown_reload: true,
+            },
+            "ASM Cloud.asm loc_35CA2 masks random with $2F, clears bit 0, and indexes off_35C94"
+        );
+        assert_eq!(
+            cloud_idle_sprite_gate_loc_35CA2(0xFF, 0x00, 1, 0x2F),
+            CloudIdleSpriteGateLoc35CA2 {
+                d2_after_subq: 0,
+                sprite_link: None,
+                reaches_countdown_reload: true,
+            },
+            "ASM Cloud.asm loc_35CA2 skips the sprite write when the masked random word is above $A"
+        );
+    }
+
+    #[test]
     fn cloud_death_sequence_loc_35c0e_clears_motion_updates_status_and_deletes() {
         let positive = cloud_death_sequence_loc_35C0E(0x02);
         assert_eq!(positive.x_velocity, 0);
