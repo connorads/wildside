@@ -9721,6 +9721,17 @@ pub(crate) fn robot_charge_entry_loc_3a96c(facing: Direction) -> RobotChargeEntr
     }
 }
 
+#[cfg(test)]
+pub(crate) fn robot_direction_branch_loc_3aa0c(x_direction: u8) -> Direction {
+    // ASM Robot.asm loc_3AA0C: `tst.b x_direction(a3); beq.w loc_3C0FA;
+    // bra.w loc_3C04E`. Native stores the decoded shared-walker branch.
+    if x_direction == 0 {
+        Direction::Left
+    } else {
+        Direction::Right
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]

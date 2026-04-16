@@ -16032,6 +16032,20 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3aa0c_decodes_robot_x_direction_for_shared_walker_branch() {
+        assert_eq!(
+            robot_direction_branch_loc_3aa0c(0),
+            Direction::Left,
+            "ASM loc_3AA0C: zero x_direction branches to loc_3C0FA, native's left walker branch"
+        );
+        assert_eq!(
+            robot_direction_branch_loc_3aa0c(0xFF),
+            Direction::Right,
+            "ASM loc_3AA0C: non-zero x_direction falls through to loc_3C04E, native's right walker branch"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the
