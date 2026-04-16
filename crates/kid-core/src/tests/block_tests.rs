@@ -6984,6 +6984,17 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_walking_child_right_drag_loc_3bb52_eases_positive_x_velocity() {
+        assert_eq!(
+            spinning_twins_walking_child_right_x_velocity_loc_3bb52(
+                SPINNING_TWINS_DROP_X_VEL_RIGHT
+            ),
+            0x0003_6E00,
+            "ASM loc_3BB52 subtracts `$1200` when x_direction is clear"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 

@@ -12679,6 +12679,13 @@ pub(crate) fn spinning_twins_walking_child_left_x_velocity_loc_3bb42(x_velocity:
     x_velocity.wrapping_add(SPINNING_TWINS_DROP_X_DRAG)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_walking_child_right_x_velocity_loc_3bb52(x_velocity: i32) -> i32 {
+    // ASM Spinning_Twins.asm loc_3BB52: a clear x_direction flag takes the
+    // right-launched child through `subi.l #$1200,x_vel(a3)`.
+    x_velocity.wrapping_sub(SPINNING_TWINS_DROP_X_DRAG)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsFirstWalkingChildInitLoc3BB0C {
