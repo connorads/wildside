@@ -1288,6 +1288,28 @@ pub(crate) fn lion_left_charge_motion_seed_loc_3e694(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionChargeCollisionMotionSeedLoc3E7B0 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) y_position: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_collision_motion_seed_loc_3e7b0(
+    saved_x_velocity: i32,
+    y_position: u32,
+) -> LionChargeCollisionMotionSeedLoc3E7B0 {
+    // ASM Lion.asm loc_3E7B0: clear `y_vel(a3)`, restore `$50(a5)` into
+    // `x_vel(a3)`, and apply `addq.w #1,y_pos(a3)` with 16-bit word wrapping.
+    LionChargeCollisionMotionSeedLoc3E7B0 {
+        x_velocity: saved_x_velocity,
+        y_velocity: 0,
+        y_position: y_position.wrapping_add(0x0001_0000),
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
     // ASM Lion.asm loc_3E6A4: after the airborne Y-velocity update, hibernate
@@ -18138,6 +18160,28 @@ mod tests {
                 y_position: 0x0000_1234,
             },
             "ASM Lion.asm loc_3E694 inherits 16-bit word wrapping for `addq.w #1,y_pos(a3)`"
+        );
+    }
+
+    #[test]
+    fn lion_charge_collision_motion_seed_matches_loc_3e7b0() {
+        assert_eq!(
+            lion_charge_collision_motion_seed_loc_3e7b0(-0x0001_8000, 0x0042_8000),
+            LionChargeCollisionMotionSeedLoc3E7B0 {
+                x_velocity: -0x0001_8000,
+                y_velocity: 0,
+                y_position: 0x0043_8000,
+            },
+            "ASM Lion.asm loc_3E7B0 should restore `$50(a5)` into x_vel, clear y_vel, and add one pixel to y_pos"
+        );
+        assert_eq!(
+            lion_charge_collision_motion_seed_loc_3e7b0(0x0002_8000, 0xFFFF_1234),
+            LionChargeCollisionMotionSeedLoc3E7B0 {
+                x_velocity: 0x0002_8000,
+                y_velocity: 0,
+                y_position: 0x0000_1234,
+            },
+            "ASM Lion.asm loc_3E7B0 should preserve the ROM's 16-bit y_pos word wrapping"
         );
     }
 
