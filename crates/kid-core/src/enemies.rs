@@ -2963,6 +2963,27 @@ pub(crate) fn armadillo_berzerker_side_contact_loc_3c898(
     })
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArmadilloBerzerkerLaunchLoopTickLoc3C8CC {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) applies_shared_motion: bool,
+    pub(crate) next_y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_berzerker_launch_loop_tick_loc_3c8cc(
+    y_velocity: i32,
+) -> ArmadilloBerzerkerLaunchLoopTickLoc3C8CC {
+    // ASM Armadillo.asm loc_3C8CC: hibernate one frame, apply the shared
+    // launched-object motion helper, add `$4000` to `y_vel(a3)`, then loop.
+    ArmadilloBerzerkerLaunchLoopTickLoc3C8CC {
+        hibernates_one_frame: true,
+        applies_shared_motion: true,
+        next_y_velocity: y_velocity.wrapping_add(0x0000_4000),
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
@@ -21160,6 +21181,28 @@ mod tests {
                 y_velocity: -0x0004_8000,
             }),
             "ASM Armadillo.asm loc_3C898 uses a signed greater-than branch, so only positive `$42(a3)` avoids launch"
+        );
+    }
+
+    #[test]
+    fn armadillo_berzerker_launch_loop_tick_matches_loc_3c8cc() {
+        assert_eq!(
+            armadillo_berzerker_launch_loop_tick_loc_3c8cc(-0x0004_8000),
+            ArmadilloBerzerkerLaunchLoopTickLoc3C8CC {
+                hibernates_one_frame: true,
+                applies_shared_motion: true,
+                next_y_velocity: -0x0004_4000,
+            },
+            "ASM Armadillo.asm loc_3C8CC waits one frame, applies shared motion, then adds `$4000` to y_vel"
+        );
+        assert_eq!(
+            armadillo_berzerker_launch_loop_tick_loc_3c8cc(i32::MAX),
+            ArmadilloBerzerkerLaunchLoopTickLoc3C8CC {
+                hibernates_one_frame: true,
+                applies_shared_motion: true,
+                next_y_velocity: i32::MIN + 0x3FFF,
+            },
+            "ASM Armadillo.asm loc_3C8CC uses long-word wrapping arithmetic for `addi.l #$4000,y_vel(a3)`"
         );
     }
 
