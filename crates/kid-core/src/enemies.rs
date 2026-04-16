@@ -2140,6 +2140,41 @@ pub(crate) fn dragon_walking_damage_route_loc_3cebe(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingTerminalRouteLoc3CEE4 {
+    DeathAnimation {
+        set_has_kid_collision: bool,
+        animation: &'static str,
+    },
+    SpawnedChildResume {
+        set_has_kid_collision: bool,
+        next_collision_type: u16,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_terminal_route_loc_3cee4(
+    collision_type: i16,
+    parent_spawned_child: bool,
+) -> DragonWalkingTerminalRouteLoc3CEE4 {
+    // ASM Dragon.asm loc_3CEE4: `$FFFF` skips the Kid-collision flag and
+    // always plays `stru_3CCEC`; every other d4 sets `has_kid_collision`.
+    // Spawned walking-dragon children then store `$FFFE` and resume instead.
+    let set_has_kid_collision = collision_type != -1;
+    if set_has_kid_collision && parent_spawned_child {
+        DragonWalkingTerminalRouteLoc3CEE4::SpawnedChildResume {
+            set_has_kid_collision,
+            next_collision_type: 0xFFFE,
+        }
+    } else {
+        DragonWalkingTerminalRouteLoc3CEE4::DeathAnimation {
+            set_has_kid_collision,
+            animation: "stru_3CCEC",
+        }
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -13075,6 +13110,34 @@ mod tests {
                 restored_animation: "saved_dragon_walking_animation",
             },
             "ASM Dragon.asm loc_3CEBE plays `stru_3CCE6`, waits for it, then restores the saved walking animation"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_terminal_route_matches_loc_3cee4() {
+        assert_eq!(
+            dragon_walking_terminal_route_loc_3cee4(-1, true),
+            DragonWalkingTerminalRouteLoc3CEE4::DeathAnimation {
+                set_has_kid_collision: false,
+                animation: "stru_3CCEC",
+            },
+            "ASM Dragon.asm loc_3CEE4 sends `$FFFF` straight to the death animation even for spawned children"
+        );
+        assert_eq!(
+            dragon_walking_terminal_route_loc_3cee4(DRAGON_COLID_HURT as i16, false),
+            DragonWalkingTerminalRouteLoc3CEE4::DeathAnimation {
+                set_has_kid_collision: true,
+                animation: "stru_3CCEC",
+            },
+            "ASM Dragon.asm loc_3CEE4 sets has_kid_collision before ordinary DragonWalking death animation"
+        );
+        assert_eq!(
+            dragon_walking_terminal_route_loc_3cee4(DRAGON_COLID_KIDABOVE as i16, true),
+            DragonWalkingTerminalRouteLoc3CEE4::SpawnedChildResume {
+                set_has_kid_collision: true,
+                next_collision_type: 0xFFFE,
+            },
+            "ASM Dragon.asm loc_3CEE4 converts spawned-child terminal contacts into collision_type `$FFFE` and resumes"
         );
     }
 
