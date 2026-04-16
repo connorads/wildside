@@ -397,6 +397,9 @@ pub(crate) fn crab_collision_dispatch_loc_3b048(
     match collision_type {
         CRAB_COLID_KIDRIGHT | CRAB_COLID_KIDLEFT => CrabCollisionRouteLoc3B048::BerzerkerSideGate,
         CRAB_COLID_HURT if !using_freeze_sprite => {
+            // ASM Crab.asm loc_3B086: when `crab_x - kid_x` is negative, Kid
+            // is on the crab's right side; only a flipped/right-facing crab
+            // falls through to the damage decrement.
             let kid_is_right_of_crab = crab_x_minus_kid_x < 0;
             let crab_faces_kid_side = if kid_is_right_of_crab {
                 crab_facing == Direction::Right
@@ -12733,6 +12736,20 @@ mod tests {
             crab_collision_dispatch_loc_3b048(CRAB_COLID_HURT, false, 0, Direction::Left),
             CrabCollisionRouteLoc3B048::Damage,
             "ASM Crab.asm loc_3B048 should treat exact X alignment like the non-negative side"
+        );
+    }
+
+    #[test]
+    fn crab_hurt_right_side_gate_matches_loc_3b086() {
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(CRAB_COLID_HURT, false, -0x0020, Direction::Left),
+            CrabCollisionRouteLoc3B048::ContinueSharedWalker,
+            "ASM Crab.asm loc_3B086 should branch back when Kid is right of an unflipped/left-facing crab"
+        );
+        assert_eq!(
+            crab_collision_dispatch_loc_3b048(CRAB_COLID_HURT, false, -0x0020, Direction::Right),
+            CrabCollisionRouteLoc3B048::Damage,
+            "ASM Crab.asm loc_3B086 should accept a flipped/right-facing crab"
         );
     }
 
