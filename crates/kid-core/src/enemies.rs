@@ -320,6 +320,10 @@ pub(crate) const ORCA_COLID_KIDABOVE: i16 = 0x002C;
 pub(crate) const FIRE_DEMON_COLID_HURT: i16 = 0x001C;
 pub(crate) const FIRE_DEMON_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const FIRE_DEMON_COLID_KIDLEFT: i16 = 0x0024;
+const CRAB_COLID_RIGHTWALL: u16 = 0x0004;
+const CRAB_COLID_LEFTWALL: u16 = 0x0008;
+const CRAB_COLID_SLOPEUP: u16 = 0x0014;
+const CRAB_COLID_SLOPEDOWN: u16 = 0x0018;
 const DIAMOND_COLID_RIGHTWALL: u16 = 0x0004;
 const DIAMOND_COLID_LEFTWALL: u16 = 0x0008;
 const DIAMOND_COLID_FLOOR: u16 = 0x000C;
@@ -668,6 +672,34 @@ pub(crate) fn crab_airborne_threshold_route_loc_3b1c6(
         CrabAirborneThresholdRouteLoc3B1C6::ContinueCollisionResponse
     } else {
         CrabAirborneThresholdRouteLoc3B1C6::Settle
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CrabAirborneCollisionRouteLoc3B1DA {
+    GravityTail,
+    ReverseXVelocity,
+    SlopeTail { collision_type: u16 },
+    Loop,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_airborne_collision_dispatch_loc_3b1da(
+    collision_type: u16,
+) -> CrabAirborneCollisionRouteLoc3B1DA {
+    // ASM Crab.asm loc_3B1DA: captured collision_type zero enters gravity
+    // recovery, wall contacts reverse x_vel, slope contacts preserve d4 for
+    // the slope tail, and unknown contacts restart the airborne loop.
+    match collision_type {
+        0 => CrabAirborneCollisionRouteLoc3B1DA::GravityTail,
+        CRAB_COLID_RIGHTWALL | CRAB_COLID_LEFTWALL => {
+            CrabAirborneCollisionRouteLoc3B1DA::ReverseXVelocity
+        }
+        CRAB_COLID_SLOPEUP | CRAB_COLID_SLOPEDOWN => {
+            CrabAirborneCollisionRouteLoc3B1DA::SlopeTail { collision_type }
+        }
+        _ => CrabAirborneCollisionRouteLoc3B1DA::Loop,
     }
 }
 
@@ -18695,6 +18727,49 @@ mod tests {
             crab_airborne_threshold_route_loc_3b1c6(-0x0000_8000),
             CrabAirborneThresholdRouteLoc3B1C6::ContinueCollisionResponse,
             "ASM Crab.asm loc_3B1C6 should continue at exact `-$8000` because the second signed `bgt` is false"
+        );
+    }
+
+    #[test]
+    fn crab_airborne_collision_dispatch_matches_loc_3b1da() {
+        assert_eq!(
+            crab_airborne_collision_dispatch_loc_3b1da(0),
+            CrabAirborneCollisionRouteLoc3B1DA::GravityTail,
+            "ASM Crab.asm loc_3B1DA should send zero collision_type to gravity recovery"
+        );
+
+        assert_eq!(
+            crab_airborne_collision_dispatch_loc_3b1da(CRAB_COLID_RIGHTWALL),
+            CrabAirborneCollisionRouteLoc3B1DA::ReverseXVelocity,
+            "ASM Crab.asm loc_3B1DA should reverse x_vel on right wall contact"
+        );
+
+        assert_eq!(
+            crab_airborne_collision_dispatch_loc_3b1da(CRAB_COLID_LEFTWALL),
+            CrabAirborneCollisionRouteLoc3B1DA::ReverseXVelocity,
+            "ASM Crab.asm loc_3B1DA should reverse x_vel on left wall contact"
+        );
+
+        assert_eq!(
+            crab_airborne_collision_dispatch_loc_3b1da(CRAB_COLID_SLOPEUP),
+            CrabAirborneCollisionRouteLoc3B1DA::SlopeTail {
+                collision_type: CRAB_COLID_SLOPEUP,
+            },
+            "ASM Crab.asm loc_3B1DA should keep slope-up collision_type for the slope tail"
+        );
+
+        assert_eq!(
+            crab_airborne_collision_dispatch_loc_3b1da(CRAB_COLID_SLOPEDOWN),
+            CrabAirborneCollisionRouteLoc3B1DA::SlopeTail {
+                collision_type: CRAB_COLID_SLOPEDOWN,
+            },
+            "ASM Crab.asm loc_3B1DA should keep slope-down collision_type for the slope tail"
+        );
+
+        assert_eq!(
+            crab_airborne_collision_dispatch_loc_3b1da(0x002C),
+            CrabAirborneCollisionRouteLoc3B1DA::Loop,
+            "ASM Crab.asm loc_3B1DA should loop for collisions outside zero, wall, and slope cases"
         );
     }
 
