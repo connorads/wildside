@@ -10228,6 +10228,27 @@ pub(crate) fn hand_jump_collision_clear_y_velocity_loc_32a3e(
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandJumpCollisionVelocityLoc32A44 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_jump_collision_clear_x_velocity_loc_32a44(
+    _x_velocity: i32,
+    y_velocity: i32,
+) -> HandJumpCollisionVelocityLoc32A44 {
+    // ASM Hand.asm loc_32A44: `clr.l x_vel(a3)` clears only the horizontal
+    // velocity when the airborne collision table receives contact `$04`/`$08`.
+    HandJumpCollisionVelocityLoc32A44 {
+        x_velocity: 0,
+        y_velocity,
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandGroundCollisionReverseLoc329E2 {
     pub(crate) x_velocity: i32,
     pub(crate) x_direction_flag: bool,
