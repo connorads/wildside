@@ -16996,6 +16996,32 @@ pub(crate) fn emo_rock_berzerker_airborne_frame_loc_3630a(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EmoRockDisappearLoc36320 {
+    pub(crate) has_kid_collision: bool,
+    pub(crate) sound_effect: &'static str,
+    pub(crate) animation_script: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) addroffset_sprite: u16,
+    pub(crate) next_loop: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_disappear_loc_36320() -> EmoRockDisappearLoc36320 {
+    // ASM Emo_Rock.asm loc_36320: set Kid collision, play the disappear sound,
+    // run `stru_36456` to completion, clear addroffset_sprite, then restart
+    // the hover cycle.
+    EmoRockDisappearLoc36320 {
+        has_kid_collision: true,
+        sound_effect: "sfx_Emo_Rock_disappears",
+        animation_script: "stru_36456",
+        waits_until_animation_finished: true,
+        addroffset_sprite: 0,
+        next_loop: "restart_hover_cycle",
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -21046,6 +21072,22 @@ mod tests {
                 route: EmoRockBerzerkerAirborneRouteLoc3630A::Death,
             },
             "ASM Emo_Rock.asm loc_3630A branches to death before adding gravity when `$19(a3)` is set"
+        );
+    }
+
+    #[test]
+    fn emo_rock_disappear_loc_36320_resets_sprite_after_animation() {
+        assert_eq!(
+            emo_rock_disappear_loc_36320(),
+            EmoRockDisappearLoc36320 {
+                has_kid_collision: true,
+                sound_effect: "sfx_Emo_Rock_disappears",
+                animation_script: "stru_36456",
+                waits_until_animation_finished: true,
+                addroffset_sprite: 0,
+                next_loop: "restart_hover_cycle",
+            },
+            "ASM Emo_Rock.asm loc_36320 plays the vanish sound/animation, waits for completion, clears addroffset_sprite, and restarts hovering"
         );
     }
 
