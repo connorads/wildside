@@ -8982,6 +8982,25 @@ pub(crate) fn hand_ground_collision_reverse_loc_329e2(
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandKidBelowContactLoc329EC {
+    pub(crate) kid_collision_type: u16,
+    pub(crate) kid_object_meta: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_kid_below_contact_loc_329ec() -> HandKidBelowContactLoc329EC {
+    // ASM Hand.asm loc_329EC: `a2` is the Kid GfxObject pointer captured by
+    // Enemy17_Hand_Init; side contact from a grounded hand writes `$28` to
+    // `collision_type(a2)` and clears `object_meta(a2)`.
+    HandKidBelowContactLoc329EC {
+        kid_collision_type: 0x0028,
+        kid_object_meta: 0,
+    }
+}
+
 /// Hand grab duration: 10 frames (Hand.asm loc_32906: moveq #$A,d3).
 pub(crate) const HAND_GRAB_DURATION: u16 = 10;
 

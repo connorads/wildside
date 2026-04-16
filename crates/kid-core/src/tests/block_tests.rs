@@ -5879,6 +5879,18 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_ground_collision_loc_329ec_marks_kid_below_contact() {
+        assert_eq!(
+            hand_kid_below_contact_loc_329ec(),
+            HandKidBelowContactLoc329EC {
+                kid_collision_type: 0x0028,
+                kid_object_meta: 0,
+            },
+            "ASM Hand.asm loc_329EC writes colid_kidbelow to Kid collision_type and clears Kid object_meta"
+        );
+    }
+
+    #[test]
     fn hand_grab_snap_loc_3294c_uses_raw_direction_and_clears_fraction() {
         assert_eq!(
             hand_grab_snap_loc_3294c(0x0064_8000, 0x00C8_4000, false),
