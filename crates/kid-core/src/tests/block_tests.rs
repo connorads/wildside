@@ -2346,6 +2346,18 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_hp4_speed_adds_loc_3ca6e_tier() {
+        let hit_points = spawn_hit_points(EnemyFamily::Goat, 1);
+
+        assert_eq!(hit_points, 4);
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Goat, hit_points),
+            0x0001_8000,
+            "ASM Goat.asm loc_3CA6E adds the HP4 `$10000` speed tier before walk dispatch"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);
