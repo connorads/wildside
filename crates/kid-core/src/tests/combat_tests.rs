@@ -6223,6 +6223,30 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34ac2_accelerates_rebound_until_exact_zero() {
+        assert_eq!(
+            dragon_flying_rebound_frame_loc_34AC2(-0x0002_0000, 0),
+            DragonFlyingReboundFrameLoc34AC2::Continue {
+                y_velocity: -0x0001_E000,
+            },
+            "ASM Dragon_Flying.asm loc_34AC2 adds `$2000` and loops while the result is non-zero"
+        );
+        assert_eq!(
+            dragon_flying_rebound_frame_loc_34AC2(-0x0000_4000, 0x0008),
+            DragonFlyingReboundFrameLoc34AC2::CollisionRoute {
+                y_velocity: -0x0000_2000,
+                collision_type: 0x0008,
+            },
+            "ASM Dragon_Flying.asm loc_34AC2 polls collision_type after applying the `$2000` y_vel step"
+        );
+        assert_eq!(
+            dragon_flying_rebound_frame_loc_34AC2(-0x0000_2000, 0x0008),
+            DragonFlyingReboundFrameLoc34AC2::BeginReturnToAnchor { y_velocity: 0 },
+            "ASM Dragon_Flying.asm loc_34AC2 takes the `beq` return-to-anchor exit before hibernating or reading collision_type"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_34998_writes_respawn_marker_for_positive_slot() {
         assert_eq!(
             dragon_flying_respawn_marker_loc_34998(0x07),

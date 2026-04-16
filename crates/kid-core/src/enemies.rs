@@ -4462,6 +4462,8 @@ const DRAGON_TERRAIN_SLIDE_X_DECEL: i32 = 0x1000;
 const DRAGON_TERRAIN_UP_SLIDE_Y_ACCEL: i32 = 0x5000;
 /// Downward terrain slide vertical deceleration per frame: $2000. ASM loc_34A6E.
 const DRAGON_TERRAIN_DOWN_SLIDE_Y_DECEL: i32 = 0x2000;
+/// Post-snap rebound vertical acceleration per frame: $2000. ASM loc_34AC2.
+const DRAGON_TERRAIN_REBOUND_Y_ACCEL: i32 = 0x2000;
 
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_drift_negative_velocity_loc_347b2(x_velocity: i32) -> i32 {
@@ -4959,6 +4961,48 @@ pub(crate) fn dragon_flying_rebound_start_loc_34A88(
         animation_label: "stru_34652",
         rebound_x_velocity: -0x0002_0000,
         rebound_y_velocity: -0x0002_0000,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonFlyingReboundFrameLoc34AC2 {
+    BeginReturnToAnchor {
+        y_velocity: i32,
+    },
+    CollisionRoute {
+        y_velocity: i32,
+        collision_type: u16,
+    },
+    Continue {
+        y_velocity: i32,
+    },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_rebound_frame_loc_34AC2(
+    y_velocity: i32,
+    collision_type: u16,
+) -> DragonFlyingReboundFrameLoc34AC2 {
+    // ASM Dragon_Flying.asm loc_34AC2: add `$2000` to y_vel first. Exact zero
+    // branches to return-to-anchor before hibernating or polling collision_type;
+    // otherwise a non-zero collision after the hibernated frame takes the
+    // shared collision route.
+    let next_y_velocity = y_velocity.wrapping_add(DRAGON_TERRAIN_REBOUND_Y_ACCEL);
+    if next_y_velocity == 0 {
+        return DragonFlyingReboundFrameLoc34AC2::BeginReturnToAnchor { y_velocity: 0 };
+    }
+
+    if collision_type != 0 {
+        DragonFlyingReboundFrameLoc34AC2::CollisionRoute {
+            y_velocity: next_y_velocity,
+            collision_type,
+        }
+    } else {
+        DragonFlyingReboundFrameLoc34AC2::Continue {
+            y_velocity: next_y_velocity,
+        }
     }
 }
 
