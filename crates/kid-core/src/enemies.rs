@@ -2774,11 +2774,7 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
             },
         },
         DIAMOND_COLID_SLOPEDOWN => DiamondHighHpCollisionRouteLoc3ADA4::Slope {
-            y_velocity: if x_velocity < 0 {
-                -0x0001_8000
-            } else {
-                diamond_high_hp_slope_y_velocity_loc_3ae5c()
-            },
+            y_velocity: diamond_high_hp_slopedown_y_velocity_loc_3ae68(x_velocity),
         },
         DIAMOND_COLID_KIDRIGHT | DIAMOND_COLID_KIDLEFT => {
             DiamondHighHpCollisionRouteLoc3ADA4::BerzerkerSideGate
@@ -2804,6 +2800,17 @@ pub(crate) fn diamond_high_hp_slope_y_velocity_loc_3ae5c() -> i32 {
     // ASM Diamond.asm loc_3AE5C: `move.l #$18000,y_vel(a3)` sends the
     // high-HP Diamond downward along the slope before returning to loc_3ADA4.
     0x0001_8000
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_high_hp_slopedown_y_velocity_loc_3ae68(x_velocity: i32) -> i32 {
+    // ASM Diamond.asm loc_3AE68: `tst.l x_vel(a3); bmi.s loc_3AE50; bra.s
+    // loc_3AE5C`. Down-slope contact inverts the slope-up sign mapping.
+    if x_velocity < 0 {
+        diamond_high_hp_slope_y_velocity_loc_3ae50()
+    } else {
+        diamond_high_hp_slope_y_velocity_loc_3ae5c()
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -16842,6 +16849,25 @@ mod tests {
             diamond_high_hp_slope_y_velocity_loc_3ae5c(),
             0x0001_8000,
             "ASM Diamond.asm loc_3AE5C should store +$18000 into y_vel",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_slopedown_loc_3ae68_selects_by_x_velocity_sign() {
+        assert_eq!(
+            diamond_high_hp_slopedown_y_velocity_loc_3ae68(-0x0001_8000),
+            -0x0001_8000,
+            "ASM Diamond.asm loc_3AE68 should branch to loc_3AE50 when x_vel is negative",
+        );
+        assert_eq!(
+            diamond_high_hp_slopedown_y_velocity_loc_3ae68(0),
+            0x0001_8000,
+            "ASM Diamond.asm loc_3AE68 uses `bmi`, so zero x_vel branches to loc_3AE5C",
+        );
+        assert_eq!(
+            diamond_high_hp_slopedown_y_velocity_loc_3ae68(0x0001_8000),
+            0x0001_8000,
+            "ASM Diamond.asm loc_3AE68 should branch to loc_3AE5C when x_vel is positive",
         );
     }
 
