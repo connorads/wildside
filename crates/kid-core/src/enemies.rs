@@ -1200,12 +1200,22 @@ pub(crate) fn lion_left_charge_gravity_tail_loc_3e77e(
     // ASM Lion.asm loc_3E77E: add `$4000` gravity, clamp only when the signed
     // result is at least `$180000`, then branch to loc_3E6A4's hibernate tail.
     let accelerated = y_velocity.wrapping_add(0x0000_4000);
+    let capped_velocity = if accelerated < 0x0018_0000 {
+        accelerated
+    } else {
+        0x0018_0000
+    };
+    lion_left_charge_y_velocity_commit_loc_3e796(capped_velocity)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_y_velocity_commit_loc_3e796(
+    y_velocity: i32,
+) -> LionLeftChargeGravityTailLoc3E77E {
+    // ASM Lion.asm loc_3E796: commit the prepared d0 value into `y_vel(a3)`,
+    // then branch to loc_3E6A4's airborne hibernate/cull/resume tail.
     LionLeftChargeGravityTailLoc3E77E {
-        y_velocity: if accelerated < 0x0018_0000 {
-            accelerated
-        } else {
-            0x0018_0000
-        },
+        y_velocity,
         next_tail: lion_left_charge_airborne_resume_loc_3e6a4(),
     }
 }
@@ -18005,6 +18015,22 @@ mod tests {
             lion_left_charge_gravity_tail_loc_3e77e(-0x0001_0000).y_velocity,
             -0x0000_C000,
             "ASM Lion.asm loc_3E77E has no upward-speed clamp; signed negative values stay below `$180000`"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_y_velocity_commit_matches_loc_3e796() {
+        assert_eq!(
+            lion_left_charge_y_velocity_commit_loc_3e796(0x0012_4000),
+            LionLeftChargeGravityTailLoc3E77E {
+                y_velocity: 0x0012_4000,
+                next_tail: LionLoc3E556Tail {
+                    hibernate_one_frame: true,
+                    cull_routine: "sub_3E8BA",
+                    resume_via_callback: true,
+                },
+            },
+            "ASM Lion.asm loc_3E796 should commit d0 into y_vel and branch to loc_3E6A4"
         );
     }
 
