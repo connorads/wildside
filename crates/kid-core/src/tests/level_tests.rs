@@ -16186,6 +16186,26 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3aac4_clears_child_collision_before_resuming_walk_direction() {
+        assert_eq!(
+            robot_shoot_resume_loc_3aac4(0),
+            RobotShootResumeLoc3AAC4 {
+                next_child_collision_type: 0,
+                resume_walk_direction: Direction::Left,
+            },
+            "ASM loc_3AAC4: clr.w `$38(a2)`, then zero x_direction branches to loc_3C0FA"
+        );
+        assert_eq!(
+            robot_shoot_resume_loc_3aac4(0xFF),
+            RobotShootResumeLoc3AAC4 {
+                next_child_collision_type: 0,
+                resume_walk_direction: Direction::Right,
+            },
+            "ASM loc_3AAC4: clr.w `$38(a2)`, then non-zero x_direction branches to loc_3C04E"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

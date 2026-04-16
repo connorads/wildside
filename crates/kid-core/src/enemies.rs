@@ -12543,6 +12543,23 @@ pub(crate) fn robot_shoot_recovery_visual_loc_3aa9e() -> RobotShootRecoveryVisua
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShootResumeLoc3AAC4 {
+    pub(crate) next_child_collision_type: u16,
+    pub(crate) resume_walk_direction: Direction,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shoot_resume_loc_3aac4(x_direction: u8) -> RobotShootResumeLoc3AAC4 {
+    // ASM Robot.asm loc_3AAC4: clear child `$38(a2)`, then use the same
+    // `x_direction(a3)` branch shape as loc_3AA0C (`loc_3C0FA`/`loc_3C04E`).
+    RobotShootResumeLoc3AAC4 {
+        next_child_collision_type: 0,
+        resume_walk_direction: robot_direction_branch_loc_3aa0c(x_direction),
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
