@@ -2471,6 +2471,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_death_sequence_matches_loc_3cb64() {
+        assert_eq!(
+            goat_death_sequence_loc_3cb64(),
+            GoatDeathSequenceLoc3CB64 {
+                death_animation: "stru_3C9EA",
+                waits_until_animation_finished: true,
+                exits_enemy: true,
+            },
+            "ASM Goat.asm loc_3CB64 should play the death animation to completion before enemy exit"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);

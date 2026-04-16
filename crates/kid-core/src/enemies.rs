@@ -2411,6 +2411,25 @@ pub(crate) fn goat_damage_response_loc_3cb38(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct GoatDeathSequenceLoc3CB64 {
+    pub(crate) death_animation: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) exits_enemy: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_death_sequence_loc_3cb64() -> GoatDeathSequenceLoc3CB64 {
+    // ASM Goat.asm loc_3CB64: initialise `stru_3C9EA`, hibernate until the
+    // animation completes, then branch to the shared enemy exit routine.
+    GoatDeathSequenceLoc3CB64 {
+        death_animation: "stru_3C9EA",
+        waits_until_animation_finished: true,
+        exits_enemy: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {
     pub(crate) is_moved: bool,
     pub(crate) has_level_collision: bool,
