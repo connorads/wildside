@@ -6228,6 +6228,18 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_jump_collision_loc_32a3e_clears_only_y_velocity() {
+        assert_eq!(
+            hand_jump_collision_clear_y_velocity_loc_32a3e(0x0002_0000, -0x0003_4000),
+            HandJumpCollisionVelocityLoc32A3E {
+                x_velocity: 0x0002_0000,
+                y_velocity: 0,
+            },
+            "ASM Hand.asm loc_32A3E executes only `clr.l y_vel(a3)`, preserving x_vel"
+        );
+    }
+
+    #[test]
     fn hand_ground_collision_loc_329e2_reverses_velocity_and_direction() {
         assert_eq!(
             hand_ground_collision_reverse_loc_329e2(-0x0000_3000, false),
