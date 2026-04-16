@@ -987,6 +987,7 @@ pub(crate) fn lion_left_charge_downward_collision_loc_3e732(
     }
 
     let snapped_y_word = current_y_word.wrapping_add(floor_clearance_pixels);
+    let landing_resume = lion_left_charge_landing_resume_loc_3e76e();
     LionLeftChargeDownwardCollisionLoc3E732::Landed {
         y_position: u32::from(snapped_y_word) << 16,
         y_velocity: 0,
@@ -994,7 +995,24 @@ pub(crate) fn lion_left_charge_downward_collision_loc_3e732(
         object_meta_bit7_cleared: true,
         restores_saved_charge_speed: true,
         next_shared_walker_state: (shared_walker_state != 0x000A).then_some(-0x78),
+        restored_animation: landing_resume.restored_animation,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLeftChargeLandingResumeLoc3E76E {
+    pub(crate) restored_animation: &'static str,
+    pub(crate) next_branch: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_landing_resume_loc_3e76e() -> LionLeftChargeLandingResumeLoc3E76E {
+    // ASM Lion.asm loc_3E76E: load `$62(a5)` into d7, reinitialise the saved
+    // charge animation, then branch to loc_3E392's velocity-clear/facing tail.
+    LionLeftChargeLandingResumeLoc3E76E {
         restored_animation: "saved_lion_charge_animation",
+        next_branch: "loc_3E392",
     }
 }
 
@@ -15890,6 +15908,18 @@ mod tests {
                 restored_animation: "saved_lion_charge_animation",
             },
             "ASM Lion.asm loc_3E732 should preserve shared state $0A while still restoring the saved animation"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_landing_resume_matches_loc_3e76e() {
+        assert_eq!(
+            lion_left_charge_landing_resume_loc_3e76e(),
+            LionLeftChargeLandingResumeLoc3E76E {
+                restored_animation: "saved_lion_charge_animation",
+                next_branch: "loc_3E392",
+            },
+            "ASM Lion.asm loc_3E76E should init the saved `$62(a5)` animation before branching to loc_3E392"
         );
     }
 
