@@ -7764,6 +7764,48 @@ pub(crate) fn ninja_throw_frame_gate_loc_3d958(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaAttackPeriodRotationRouteLoc3D960 {
+    ContinuePacing,
+    StartJumpAttack,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaAttackPeriodRotationStateLoc3D960 {
+    pub(crate) attack_period_pair: u32,
+    pub(crate) attack_timer: u16,
+    pub(crate) route: NinjaAttackPeriodRotationRouteLoc3D960,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_attack_period_rotate_loc_3d960(
+    attack_period_pair: u32,
+    guard_state: i8,
+) -> NinjaAttackPeriodRotationStateLoc3D960 {
+    // ASM Ninja.asm loc_3D960: load `$6E(a5)`, `swap d0`, store the rotated
+    // long back to `$6E(a5)`, copy d0.w into `$54(a5)`, then only jump to
+    // the jump-attack path when `$4C(a5)` is zero.
+    let next_attack_period_pair = attack_period_pair.rotate_left(16);
+    let next_attack_period_pair_bytes = next_attack_period_pair.to_be_bytes();
+    let next_attack_timer = u16::from_be_bytes([
+        next_attack_period_pair_bytes[2],
+        next_attack_period_pair_bytes[3],
+    ]);
+    let route = if guard_state == 0 {
+        NinjaAttackPeriodRotationRouteLoc3D960::StartJumpAttack
+    } else {
+        NinjaAttackPeriodRotationRouteLoc3D960::ContinuePacing
+    };
+
+    NinjaAttackPeriodRotationStateLoc3D960 {
+        attack_period_pair: next_attack_period_pair,
+        attack_timer: next_attack_timer,
+        route,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionLoc3D606 {
     /// ASM Ninja.asm loc_3D6DA: no collision, so jump to stealth/attack gate.
     To3D6DA,
@@ -18848,6 +18890,37 @@ mod tests {
             ninja_throw_frame_gate_loc_3d958(true, 3),
             NinjaThrowFrameGateRouteLoc3D958::RotateAttackPeriod,
             "ASM Ninja.asm loc_3D958 should be skipped only for the exact C7DBE sprite frame with animation_timer(a3) == 3"
+        );
+    }
+
+    #[test]
+    fn ninja_attack_period_rotate_loc_3d960_swaps_period_words_and_checks_guard_state() {
+        assert_eq!(
+            ninja_attack_period_rotate_loc_3d960(0x0010_0030, 1),
+            NinjaAttackPeriodRotationStateLoc3D960 {
+                attack_period_pair: 0x0030_0010,
+                attack_timer: 0x0010,
+                route: NinjaAttackPeriodRotationRouteLoc3D960::ContinuePacing,
+            },
+            "ASM Ninja.asm loc_3D960 should rotate `$6E(a5)`, copy the new low word into `$54(a5)`, and branch to loc_3D998 when `$4C(a5)` is non-zero"
+        );
+        assert_eq!(
+            ninja_attack_period_rotate_loc_3d960(0x0010_0030, -1),
+            NinjaAttackPeriodRotationStateLoc3D960 {
+                attack_period_pair: 0x0030_0010,
+                attack_timer: 0x0010,
+                route: NinjaAttackPeriodRotationRouteLoc3D960::ContinuePacing,
+            },
+            "ASM Ninja.asm loc_3D960 uses tst.b on `$4C(a5)`, so negative guard state is still non-zero and keeps pacing"
+        );
+        assert_eq!(
+            ninja_attack_period_rotate_loc_3d960(0x0010_0030, 0),
+            NinjaAttackPeriodRotationStateLoc3D960 {
+                attack_period_pair: 0x0030_0010,
+                attack_timer: 0x0010,
+                route: NinjaAttackPeriodRotationRouteLoc3D960::StartJumpAttack,
+            },
+            "ASM Ninja.asm loc_3D960 should fall through to the jump-attack path only when `$4C(a5)` is zero"
         );
     }
 
