@@ -7318,6 +7318,24 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_lunge_windup_matches_loc_3d320_dbf_count() {
+        assert_eq!(
+            orca_lunge_windup_loc_3d320(ORCA_LUNGE_WINDUP_DBF_SEED_LOC_3D320),
+            OrcaLungeWindupLoc3D320 {
+                hibernate_frames: 6,
+                polls_collision_each_frame: true,
+                branches_on_nonzero_collision: true,
+            },
+            "ASM Orca.asm loc_3D320 should hibernate six frames from d1=5 and poll collision before launch"
+        );
+        assert_eq!(
+            orca_lunge_windup_loc_3d320(0).hibernate_frames,
+            1,
+            "ASM Orca.asm loc_3D320 DBF loop executes once before d1=0 exits"
+        );
+    }
+
+    #[test]
     fn orca_ignores_distant_player() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

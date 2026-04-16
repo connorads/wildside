@@ -913,8 +913,30 @@ pub(crate) fn orca_lunge_decision_loc_3d2f4(
         is_moved: true,
         is_animated: false,
         sprite_mapping: "LnkTo_unk_C7656",
-        windup_frames: 6,
+        windup_frames: orca_lunge_windup_loc_3d320(ORCA_LUNGE_WINDUP_DBF_SEED_LOC_3D320)
+            .hibernate_frames,
         launch_facing: current_facing,
+    }
+}
+
+pub(crate) const ORCA_LUNGE_WINDUP_DBF_SEED_LOC_3D320: u8 = 5;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaLungeWindupLoc3D320 {
+    pub(crate) hibernate_frames: u8,
+    pub(crate) polls_collision_each_frame: bool,
+    pub(crate) branches_on_nonzero_collision: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_lunge_windup_loc_3d320(dbf_seed: u8) -> OrcaLungeWindupLoc3D320 {
+    // ASM Orca.asm loc_3D320: hibernate once, poll `collision_type(a3)`,
+    // branch to loc_3D21E on non-zero collision, then `dbf d1,loc_3D320`.
+    OrcaLungeWindupLoc3D320 {
+        hibernate_frames: dbf_seed.saturating_add(1),
+        polls_collision_each_frame: true,
+        branches_on_nonzero_collision: true,
     }
 }
 
