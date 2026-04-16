@@ -5859,6 +5859,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_ground_collision_loc_329e2_reverses_velocity_and_direction() {
+        assert_eq!(
+            hand_ground_collision_reverse_loc_329e2(-0x0000_3000, false),
+            HandGroundCollisionReverseLoc329E2 {
+                x_velocity: 0x0000_3000,
+                x_direction_flag: true,
+            },
+            "ASM Hand.asm loc_329E2 negates x_vel as a long word and inverts clear x_direction to set"
+        );
+        assert_eq!(
+            hand_ground_collision_reverse_loc_329e2(0x0000_4800, true),
+            HandGroundCollisionReverseLoc329E2 {
+                x_velocity: -0x0000_4800,
+                x_direction_flag: false,
+            },
+            "ASM Hand.asm loc_329E2 applies the same long-word reversal when the hand turns back left"
+        );
+    }
+
+    #[test]
     fn hand_grab_snap_loc_3294c_uses_raw_direction_and_clears_fraction() {
         assert_eq!(
             hand_grab_snap_loc_3294c(0x0064_8000, 0x00C8_4000, false),

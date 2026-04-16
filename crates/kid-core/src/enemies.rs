@@ -8961,6 +8961,27 @@ pub(crate) fn hand_ground_collision_dispatch_loc_3299c(
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandGroundCollisionReverseLoc329E2 {
+    pub(crate) x_velocity: i32,
+    pub(crate) x_direction_flag: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_ground_collision_reverse_loc_329e2(
+    x_velocity: i32,
+    x_direction_flag: bool,
+) -> HandGroundCollisionReverseLoc329E2 {
+    // ASM Hand.asm loc_329E2: `neg.l x_vel(a3)` reverses the full 32-bit
+    // fixed-point velocity, then `not.b x_direction(a3)` flips the raw flag.
+    HandGroundCollisionReverseLoc329E2 {
+        x_velocity: x_velocity.wrapping_neg(),
+        x_direction_flag: !x_direction_flag,
+    }
+}
+
 /// Hand grab duration: 10 frames (Hand.asm loc_32906: moveq #$A,d3).
 pub(crate) const HAND_GRAB_DURATION: u16 = 10;
 
