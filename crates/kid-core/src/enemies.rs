@@ -1501,6 +1501,28 @@ pub(crate) fn lion_charge_collision_motion_seed_loc_3e7b0(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionChargeCollisionXCommitLoc3E80C {
+    pub(crate) x_position: u32,
+    pub(crate) reloads_d0_from_x_position: bool,
+    pub(crate) enters_vertical_motion: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_collision_x_commit_loc_3e80c(
+    candidate_x_position: u32,
+) -> LionChargeCollisionXCommitLoc3E80C {
+    // ASM Lion.asm loc_3E80C: unobstructed collision-reentry motion commits
+    // `d2` into `x_pos(a3)`, redundantly reloads d0 from d2, then falls through
+    // to the vertical motion block.
+    LionChargeCollisionXCommitLoc3E80C {
+        x_position: candidate_x_position,
+        reloads_d0_from_x_position: true,
+        enters_vertical_motion: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
     // ASM Lion.asm loc_3E6A4: after the airborne Y-velocity update, hibernate
@@ -20475,6 +20497,19 @@ mod tests {
                 y_position: 0x0000_1234,
             },
             "ASM Lion.asm loc_3E7B0 should preserve the ROM's 16-bit y_pos word wrapping"
+        );
+    }
+
+    #[test]
+    fn lion_charge_collision_x_commit_matches_loc_3e80c() {
+        assert_eq!(
+            lion_charge_collision_x_commit_loc_3e80c(0x0455_8000),
+            LionChargeCollisionXCommitLoc3E80C {
+                x_position: 0x0455_8000,
+                reloads_d0_from_x_position: true,
+                enters_vertical_motion: true,
+            },
+            "ASM Lion.asm loc_3E80C should commit unobstructed d2 into x_pos, reload d0, and enter vertical motion"
         );
     }
 
