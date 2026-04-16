@@ -2421,6 +2421,52 @@ pub(crate) fn armadillo_collision_dispatch_loc_3c824(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ArmadilloDamageResponseLoc3C848 {
+    RecoilActiveResume {
+        current_hp: u16,
+    },
+    Death,
+    Hurt {
+        remaining_hp: u16,
+        damage_animation: &'static str,
+        waits_until_animation_finished: bool,
+        recoil_state_word: i16,
+        restored_walk_speed: i32,
+        restored_animation: &'static str,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_damage_response_loc_3c848(
+    current_hp: u16,
+    recoil_state_word: i16,
+    saved_walk_speed: i32,
+) -> ArmadilloDamageResponseLoc3C848 {
+    // ASM Armadillo.asm loc_3C848: positive `$42(a3)` skips damage entirely.
+    // Otherwise current_hp is decremented; zero goes to death, and survivors
+    // play `stru_3C6D0`, seed `$42(a3)` with `$FF88`, restore walk speed from
+    // `$5E(a5)`, and resume the saved patrol animation from `$62(a5)`.
+    if recoil_state_word > 0 {
+        return ArmadilloDamageResponseLoc3C848::RecoilActiveResume { current_hp };
+    }
+
+    let remaining_hp = current_hp.wrapping_sub(1);
+    if remaining_hp == 0 {
+        ArmadilloDamageResponseLoc3C848::Death
+    } else {
+        ArmadilloDamageResponseLoc3C848::Hurt {
+            remaining_hp,
+            damage_animation: "stru_3C6D0",
+            waits_until_animation_finished: true,
+            recoil_state_word: -0x0078,
+            restored_walk_speed: saved_walk_speed,
+            restored_animation: "saved_armadillo_patrol_animation",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
@@ -18391,6 +18437,44 @@ mod tests {
             armadillo_collision_dispatch_loc_3c824(0x000C),
             ArmadilloCollisionRouteLoc3C824::ContinueSharedWalker,
             "ASM Armadillo.asm loc_3C824 ignores unmatched positive collision IDs"
+        );
+    }
+
+    #[test]
+    fn armadillo_damage_response_matches_loc_3c848() {
+        assert_eq!(
+            armadillo_damage_response_loc_3c848(3, 1, 0x0002_8000),
+            ArmadilloDamageResponseLoc3C848::RecoilActiveResume { current_hp: 3 },
+            "ASM Armadillo.asm loc_3C848 skips the HP decrement while `$42(a3)` is positive"
+        );
+        assert_eq!(
+            armadillo_damage_response_loc_3c848(1, 0, 0x0002_8000),
+            ArmadilloDamageResponseLoc3C848::Death,
+            "ASM Armadillo.asm loc_3C848 branches to death when the decremented HP word reaches zero"
+        );
+        assert_eq!(
+            armadillo_damage_response_loc_3c848(3, 0, 0x0002_8000),
+            ArmadilloDamageResponseLoc3C848::Hurt {
+                remaining_hp: 2,
+                damage_animation: "stru_3C6D0",
+                waits_until_animation_finished: true,
+                recoil_state_word: -0x0078,
+                restored_walk_speed: 0x0002_8000,
+                restored_animation: "saved_armadillo_patrol_animation",
+            },
+            "ASM Armadillo.asm loc_3C848 plays the hurt animation, seeds `$42(a3)` with `$FF88`, and restores the saved patrol speed/animation"
+        );
+        assert_eq!(
+            armadillo_damage_response_loc_3c848(2, -1, 0x0001_8000),
+            ArmadilloDamageResponseLoc3C848::Hurt {
+                remaining_hp: 1,
+                damage_animation: "stru_3C6D0",
+                waits_until_animation_finished: true,
+                recoil_state_word: -0x0078,
+                restored_walk_speed: 0x0001_8000,
+                restored_animation: "saved_armadillo_patrol_animation",
+            },
+            "ASM Armadillo.asm loc_3C848 allows zero and negative `$42(a3)` values to take damage"
         );
     }
 
