@@ -7391,6 +7391,42 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_walking_collision_dispatch_loc_3bb6e_clears_and_routes_contacts() {
+        assert_eq!(
+            spinning_twins_walking_collision_dispatch_loc_3bb6e(SPINNING_TWINS_COLID_FLOOR),
+            SpinningTwinsWalkingCollisionDispatchLoc3BB6E {
+                next_collision_type: 0,
+                route: SpinningTwinsWalkingCollisionRouteLoc3BB6E::FloorLanding
+            },
+            "ASM loc_3BB6E sends colid_floor to the landing path after reading d4"
+        );
+        assert_eq!(
+            spinning_twins_walking_collision_dispatch_loc_3bb6e(SPINNING_TWINS_COLID_RIGHTWALL),
+            SpinningTwinsWalkingCollisionDispatchLoc3BB6E {
+                next_collision_type: 0,
+                route: SpinningTwinsWalkingCollisionRouteLoc3BB6E::WallSettle
+            },
+            "ASM loc_3BB6E sends colid_rightwall to the settle path"
+        );
+        assert_eq!(
+            spinning_twins_walking_collision_dispatch_loc_3bb6e(SPINNING_TWINS_COLID_LEFTWALL),
+            SpinningTwinsWalkingCollisionDispatchLoc3BB6E {
+                next_collision_type: 0,
+                route: SpinningTwinsWalkingCollisionRouteLoc3BB6E::WallSettle
+            },
+            "ASM loc_3BB6E sends colid_leftwall to the same settle path"
+        );
+        assert_eq!(
+            spinning_twins_walking_collision_dispatch_loc_3bb6e(0x001C),
+            SpinningTwinsWalkingCollisionDispatchLoc3BB6E {
+                next_collision_type: 0,
+                route: SpinningTwinsWalkingCollisionRouteLoc3BB6E::ContinueAirborne
+            },
+            "ASM loc_3BB6E clears unmatched positive collision words and loops"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 

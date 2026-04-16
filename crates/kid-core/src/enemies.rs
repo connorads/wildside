@@ -14229,6 +14229,9 @@ pub(crate) const SPINNING_TWINS_DROP_X_VEL_RIGHT: i32 = 0x3_8000;
 pub(crate) const SPINNING_TWINS_DROP_X_DRAG: i32 = 0x1200;
 pub(crate) const SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX: u32 = 0x20;
 pub(crate) const SPINNING_TWINS_WALKING_SETTLE_X_SPEED: i32 = 0x3000;
+pub(crate) const SPINNING_TWINS_COLID_RIGHTWALL: u16 = 0x0004;
+pub(crate) const SPINNING_TWINS_COLID_LEFTWALL: u16 = 0x0008;
+pub(crate) const SPINNING_TWINS_COLID_FLOOR: u16 = 0x000C;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -14252,6 +14255,42 @@ pub(crate) fn spinning_twins_walking_velocity_gate_loc_3bb5a(
         SpinningTwinsWalkingVelocityGateLoc3BB5A::CollisionDispatch
     } else {
         SpinningTwinsWalkingVelocityGateLoc3BB5A::Settle
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SpinningTwinsWalkingCollisionRouteLoc3BB6E {
+    FloorLanding,
+    WallSettle,
+    ContinueAirborne,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsWalkingCollisionDispatchLoc3BB6E {
+    pub(crate) next_collision_type: u16,
+    pub(crate) route: SpinningTwinsWalkingCollisionRouteLoc3BB6E,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_walking_collision_dispatch_loc_3bb6e(
+    collision_type: u16,
+) -> SpinningTwinsWalkingCollisionDispatchLoc3BB6E {
+    // ASM Spinning_Twins.asm loc_3BB6E: copy `collision_type(a3)` to d4,
+    // route floor contact to the landing path, route either side wall to the
+    // settle path, and otherwise clear collision_type before the airborne loop.
+    let route = match collision_type {
+        SPINNING_TWINS_COLID_FLOOR => SpinningTwinsWalkingCollisionRouteLoc3BB6E::FloorLanding,
+        SPINNING_TWINS_COLID_RIGHTWALL | SPINNING_TWINS_COLID_LEFTWALL => {
+            SpinningTwinsWalkingCollisionRouteLoc3BB6E::WallSettle
+        }
+        _ => SpinningTwinsWalkingCollisionRouteLoc3BB6E::ContinueAirborne,
+    };
+
+    SpinningTwinsWalkingCollisionDispatchLoc3BB6E {
+        next_collision_type: 0,
+        route,
     }
 }
 
