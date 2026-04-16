@@ -1229,6 +1229,22 @@ pub(crate) struct MiniHoppingSkullFacingMatchedPauseSetup {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullFacingMatchedPauseTail {
+    ContinueWait {
+        next_dbf_counter: u16,
+    },
+    BeginRelaunchArc {
+        y_velocity: i32,
+        x_velocity: i32,
+        sprite: &'static str,
+        is_moved: bool,
+        has_level_collision: bool,
+        next_loop: &'static str,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullStoppedWaitTail {
     ContinueWait {
         next_dbf_counter: u16,
@@ -6558,6 +6574,41 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_scream_worker_allocation_l
         routine: "sub_3F3F0",
         delay_frames: 15,
     })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_facing_matched_pause_tail_loc_3f112(
+    dbf_counter: u16,
+    x_direction: u8,
+    is_boosted: bool,
+) -> MiniHoppingSkullFacingMatchedPauseTail {
+    // ASM Mini_Hopping_Skull.asm loc_3F112: DBF returns to the matched-facing
+    // pause loop while active. On fall-through, it seeds the relaunch arc,
+    // applies the HP-tier boost, negates X when `x_direction(a3)` is clear,
+    // selects `LnkTo_unk_C8080`, and reenables movement/collision.
+    let next_dbf_counter = dbf_counter.wrapping_sub(1);
+    if next_dbf_counter != 0xFFFF {
+        return MiniHoppingSkullFacingMatchedPauseTail::ContinueWait { next_dbf_counter };
+    }
+
+    let mut y_velocity = 0xFFFC8000u32 as i32;
+    let mut x_velocity = 0x0001_8000u32 as i32;
+    if is_boosted {
+        y_velocity = y_velocity.wrapping_add(-0x1_0000);
+        x_velocity = x_velocity.wrapping_add(0x4000);
+    }
+    if x_direction == 0 {
+        x_velocity = x_velocity.wrapping_neg();
+    }
+
+    MiniHoppingSkullFacingMatchedPauseTail::BeginRelaunchArc {
+        y_velocity,
+        x_velocity,
+        sprite: "LnkTo_unk_C8080",
+        is_moved: true,
+        has_level_collision: true,
+        next_loop: "loc_3EA88",
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -17521,6 +17572,41 @@ mod tests {
             ),
             None,
             "ASM Mini_Hopping_Skull.asm loc_3F0DA is skipped by the charging-Berzerker side-contact branch"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_facing_matched_pause_tail_matches_loc_3f112() {
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_tail_loc_3f112(0x000A, 0xFF, false),
+            MiniHoppingSkullFacingMatchedPauseTail::ContinueWait {
+                next_dbf_counter: 0x0009,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F112 should consume the DBF counter before relaunching"
+        );
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_tail_loc_3f112(0x0000, 0x00, false),
+            MiniHoppingSkullFacingMatchedPauseTail::BeginRelaunchArc {
+                y_velocity: -0x0003_8000,
+                x_velocity: -0x0001_8000,
+                sprite: "LnkTo_unk_C8080",
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F112 should negate base X velocity when `x_direction(a3)` is clear"
+        );
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_tail_loc_3f112(0x0000, 0xFF, true),
+            MiniHoppingSkullFacingMatchedPauseTail::BeginRelaunchArc {
+                y_velocity: -0x0004_8000,
+                x_velocity: 0x0001_C000,
+                sprite: "LnkTo_unk_C8080",
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F112 should apply the HP-tier boost before the direction gate"
         );
     }
 
