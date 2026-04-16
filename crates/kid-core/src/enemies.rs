@@ -4098,6 +4098,56 @@ pub(crate) fn ufo_beam_spawn_loc_351ee(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoBeamChildInitLoc35512 {
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) flag_13: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) flag_19: bool,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) loop_timer: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_beam_child_init_loc_35512(
+    linked_x_pos: u16,
+    linked_y_pos: u16,
+    child_x_direction: u8,
+    source_x_velocity: i32,
+    source_y_velocity: i32,
+) -> UfoBeamChildInitLoc35512 {
+    // ASM UFO.asm loc_35512: loc_354DA has just copied `$44/$48(a5)`, placed X at
+    // linked `$1A(a0)-$B` and mirrors it to `+$B` for non-zero `x_direction(a3)`.
+    let x_pos = linked_x_pos.wrapping_sub(0x000B);
+    let x_pos = if child_x_direction == 0 {
+        x_pos
+    } else {
+        x_pos.wrapping_add(0x0016)
+    };
+
+    UfoBeamChildInitLoc35512 {
+        x_pos,
+        y_pos: linked_y_pos.wrapping_sub(0x0018),
+        x_velocity: source_x_velocity,
+        y_velocity: source_y_velocity,
+        flag_13: true,
+        is_moved: true,
+        has_level_collision: false,
+        flag_19: false,
+        priority: 1,
+        object_meta: 0x000F,
+        sprite_mapping: "LnkTo_unk_C8408",
+        loop_timer: 5,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -13047,6 +13097,34 @@ mod tests {
             ufo_beam_spawn_loc_351ee(0x0010_0000, &[(0, -5), (5, 5)]),
             Vec::<UfoBeamSpawnLoc351EE>::new(),
             "ASM UFO.asm loc_351EE exits immediately when sentinel x-word is zero"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_child_init_matches_loc_35512() {
+        assert_eq!(
+            ufo_beam_child_init_loc_35512(0x0200, 0x0100, 0, -0x0004_0000, 0x0002_0000,),
+            UfoBeamChildInitLoc35512 {
+                x_pos: 0x01F5,
+                y_pos: 0x00E8,
+                x_velocity: -0x0004_0000,
+                y_velocity: 0x0002_0000,
+                flag_13: true,
+                is_moved: true,
+                has_level_collision: false,
+                flag_19: false,
+                priority: 1,
+                object_meta: 0x000F,
+                sprite_mapping: "LnkTo_unk_C8408",
+                loop_timer: 5,
+            },
+            "ASM UFO.asm loc_35512 seeds the beam gfx child 24px above the linked object with object meta `$0F` and a five-frame turn timer"
+        );
+
+        assert_eq!(
+            ufo_beam_child_init_loc_35512(0x0200, 0x0100, 0xFF, 0, 0).x_pos,
+            0x020B,
+            "ASM UFO.asm loc_354DA/loc_35512 mirrors the child X offset from -$B to +$B when `x_direction(a3)` is non-zero"
         );
     }
 
