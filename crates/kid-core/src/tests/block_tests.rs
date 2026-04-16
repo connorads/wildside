@@ -6693,7 +6693,7 @@ mod chunk_04 {
         );
         assert_eq!(
             child.x_velocity, SPINNING_TWINS_DROP_X_VEL_RIGHT,
-            "ASM loc_3BB06 reaches the clear-x_direction launch path"
+            "ASM loc_3BB1C assigns `$38000` when x_direction is clear"
         );
         assert_eq!(
             child.y_velocity, SPINNING_TWINS_DROP_Y_VEL,
