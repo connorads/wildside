@@ -4148,6 +4148,37 @@ pub(crate) fn ufo_beam_child_init_loc_35512(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoBeamChildTurnaroundLoc3554A {
+    pub(crate) loop_timer: u16,
+    pub(crate) x_direction: u8,
+    pub(crate) flipped_direction: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_beam_child_turnaround_loc_3554a(
+    loop_timer: u16,
+    x_direction: u8,
+) -> UfoBeamChildTurnaroundLoc3554A {
+    // ASM UFO.asm loc_3554A: after hibernating one frame, decrement d0; only
+    // the zero result runs `not.b x_direction(a3)` and reloads d0 to `$A`.
+    let loop_timer = loop_timer.wrapping_sub(1);
+    if loop_timer == 0 {
+        UfoBeamChildTurnaroundLoc3554A {
+            loop_timer: 0x000A,
+            x_direction: !x_direction,
+            flipped_direction: true,
+        }
+    } else {
+        UfoBeamChildTurnaroundLoc3554A {
+            loop_timer,
+            x_direction,
+            flipped_direction: false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -13125,6 +13156,35 @@ mod tests {
             ufo_beam_child_init_loc_35512(0x0200, 0x0100, 0xFF, 0, 0).x_pos,
             0x020B,
             "ASM UFO.asm loc_354DA/loc_35512 mirrors the child X offset from -$B to +$B when `x_direction(a3)` is non-zero"
+        );
+    }
+
+    #[test]
+    fn ufo_beam_child_turnaround_matches_loc_3554a() {
+        assert_eq!(
+            ufo_beam_child_turnaround_loc_3554a(5, 0),
+            UfoBeamChildTurnaroundLoc3554A {
+                loop_timer: 4,
+                x_direction: 0,
+                flipped_direction: false,
+            },
+            "ASM UFO.asm loc_3554A branches to the gravity tail while the decremented d0 word is non-zero"
+        );
+
+        assert_eq!(
+            ufo_beam_child_turnaround_loc_3554a(1, 0),
+            UfoBeamChildTurnaroundLoc3554A {
+                loop_timer: 0x000A,
+                x_direction: 0xFF,
+                flipped_direction: true,
+            },
+            "ASM UFO.asm loc_3554A flips clear `x_direction(a3)` to `$FF` and reloads d0 to `$A` when the countdown reaches zero"
+        );
+
+        assert_eq!(
+            ufo_beam_child_turnaround_loc_3554a(1, 0xFF).x_direction,
+            0,
+            "ASM UFO.asm loc_3554A uses `not.b`, so `$FF` flips back to clear direction on the next zero-count frame"
         );
     }
 
