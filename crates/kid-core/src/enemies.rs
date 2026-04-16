@@ -6021,6 +6021,54 @@ pub(crate) fn fireball_delete_tail_loc_32ed8() -> FireballDeleteTailLoc32ED8 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FireballSpriteBranchLoc32F3E {
+    Vertical { sprite_index: i16 },
+    NegativeX,
+    PositiveXNegativeY,
+    PositiveXNonNegativeY,
+}
+
+fn fireball_velocity_word_after_shift8_loc_32f3e(velocity: i32) -> u16 {
+    let shifted = velocity >> 8;
+    let bytes = shifted.to_be_bytes();
+    u16::from_be_bytes([bytes[2], bytes[3]])
+}
+
+fn signed_word(word: u16) -> i16 {
+    i16::from_be_bytes(word.to_be_bytes())
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_sprite_branch_loc_32f3e(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> FireballSpriteBranchLoc32F3E {
+    // ASM Fireball.asm loc_32F3E: `asr.l #8` both velocities, keep the low
+    // words, then branch first on signed X. A zero X velocity bypasses the
+    // quadrant table and selects the straight-up/straight-down sprite index.
+    let y_word = fireball_velocity_word_after_shift8_loc_32f3e(y_velocity);
+    let x_word = fireball_velocity_word_after_shift8_loc_32f3e(x_velocity);
+    let signed_x = signed_word(x_word);
+
+    if signed_x == 0 {
+        return FireballSpriteBranchLoc32F3E::Vertical {
+            sprite_index: if signed_word(y_word) < 0 { 4 } else { 0x0F },
+        };
+    }
+
+    if signed_x < 0 {
+        return FireballSpriteBranchLoc32F3E::NegativeX;
+    }
+
+    if signed_word(y_word) < 0 {
+        FireballSpriteBranchLoc32F3E::PositiveXNegativeY
+    } else {
+        FireballSpriteBranchLoc32F3E::PositiveXNonNegativeY
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn fireball_bounce_perturbation(enemy: &ActiveEnemy) -> i32 {
     let mut rng = RomRandomState::default();
@@ -20259,6 +20307,30 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Fireball.asm loc_32ED8 should jump straight to `j_Delete_CurrentObject` after every death-status route"
+        );
+    }
+
+    #[test]
+    fn fireball_sprite_branch_loc_32f3e_handles_vertical_and_quadrant_dispatch() {
+        assert_eq!(
+            fireball_sprite_branch_loc_32f3e(0, -0x0001_0000),
+            FireballSpriteBranchLoc32F3E::Vertical { sprite_index: 4 },
+            "ASM Fireball.asm loc_32F3E should return sprite index 4 for straight upward motion"
+        );
+        assert_eq!(
+            fireball_sprite_branch_loc_32f3e(0, 0x0001_0000),
+            FireballSpriteBranchLoc32F3E::Vertical { sprite_index: 0x0F },
+            "ASM Fireball.asm loc_32F3E should return sprite index $F for straight downward motion"
+        );
+        assert_eq!(
+            fireball_sprite_branch_loc_32f3e(0x0001_0000, -0x0000_8000),
+            FireballSpriteBranchLoc32F3E::PositiveXNegativeY,
+            "ASM Fireball.asm loc_32F3E should route positive X / negative Y into the loc_32FAC branch"
+        );
+        assert_eq!(
+            fireball_sprite_branch_loc_32f3e(-0x0001_0000, -0x0000_8000),
+            FireballSpriteBranchLoc32F3E::NegativeX,
+            "ASM Fireball.asm loc_32F3E should route negative X into the loc_32F78 branch"
         );
     }
 
