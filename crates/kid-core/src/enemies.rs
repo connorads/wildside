@@ -297,6 +297,10 @@ pub(crate) const NINJA_COLID_KIDLEFT: u16 = 0x0024;
 pub(crate) const CRAB_COLID_HURT: i16 = 0x001C;
 pub(crate) const CRAB_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const CRAB_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const ORCA_COLID_HURT: i16 = 0x001C;
+pub(crate) const ORCA_COLID_KIDRIGHT: i16 = 0x0020;
+pub(crate) const ORCA_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const ORCA_COLID_KIDABOVE: i16 = 0x002C;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -398,6 +402,34 @@ pub(crate) fn crab_collision_dispatch_loc_3b048(
             }
         }
         _ => CrabCollisionRouteLoc3B048::ContinueSharedWalker,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum OrcaCollisionRouteLoc3D21E {
+    Kill,
+    Damage,
+    BerzerkerSideGate,
+    Continue { next_collision_type: u16 },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_collision_dispatch_loc_3d21e(collision_type: i16) -> OrcaCollisionRouteLoc3D21E {
+    // ASM Orca.asm loc_3D21E: negative collision words kill immediately,
+    // hurt/Kid-above collisions enter the damage route, side contacts enter
+    // the Berzerker-only gate, and all other non-zero IDs fall through to
+    // the normal collision clear/resume path.
+    if collision_type.is_negative() {
+        return OrcaCollisionRouteLoc3D21E::Kill;
+    }
+
+    match collision_type {
+        ORCA_COLID_HURT | ORCA_COLID_KIDABOVE => OrcaCollisionRouteLoc3D21E::Damage,
+        ORCA_COLID_KIDRIGHT | ORCA_COLID_KIDLEFT => OrcaCollisionRouteLoc3D21E::BerzerkerSideGate,
+        _ => OrcaCollisionRouteLoc3D21E::Continue {
+            next_collision_type: 0,
+        },
     }
 }
 
@@ -11928,6 +11960,38 @@ mod tests {
             spawn_wait_timer(EnemyFamily::Orca, 0, 0, &mut rng),
             ORCA_LUNGE_COOLDOWN,
             "ASM Orca.asm loc_3D194 seeds `$54(a5)` before loc_3D2DE can test player proximity"
+        );
+    }
+
+    #[test]
+    fn orca_collision_dispatch_matches_loc_3d21e_routes() {
+        assert_eq!(
+            orca_collision_dispatch_loc_3d21e(-1),
+            OrcaCollisionRouteLoc3D21E::Kill,
+            "ASM Orca.asm loc_3D21E should send negative collision words to the kill route"
+        );
+        assert_eq!(
+            orca_collision_dispatch_loc_3d21e(ORCA_COLID_HURT),
+            OrcaCollisionRouteLoc3D21E::Damage
+        );
+        assert_eq!(
+            orca_collision_dispatch_loc_3d21e(ORCA_COLID_KIDABOVE),
+            OrcaCollisionRouteLoc3D21E::Damage
+        );
+        assert_eq!(
+            orca_collision_dispatch_loc_3d21e(ORCA_COLID_KIDRIGHT),
+            OrcaCollisionRouteLoc3D21E::BerzerkerSideGate
+        );
+        assert_eq!(
+            orca_collision_dispatch_loc_3d21e(ORCA_COLID_KIDLEFT),
+            OrcaCollisionRouteLoc3D21E::BerzerkerSideGate
+        );
+        assert_eq!(
+            orca_collision_dispatch_loc_3d21e(0x0010),
+            OrcaCollisionRouteLoc3D21E::Continue {
+                next_collision_type: 0
+            },
+            "ASM Orca.asm loc_3D21E should let unrelated collision IDs resume through the clear path"
         );
     }
 
