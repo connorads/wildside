@@ -7116,6 +7116,28 @@ pub(crate) fn ufo_hurt_driver_slide_collision_return_loc_3571e()
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverSlideProbeXLoc35724 {
+    pub(crate) probe_x_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_slide_probe_x_loc_35724(
+    x_pos: u32,
+    x_direction: u8,
+) -> UfoHurtDriverSlideProbeXLoc35724 {
+    // ASM UFO.asm loc_35724: read the integer word of `x_pos(a3)`, subtract
+    // `$0F`, and add `$1E` back for any non-zero raw `x_direction(a3)`.
+    let [b0, b1, _, _] = x_pos.to_be_bytes();
+    let mut probe_x_word = u16::from_be_bytes([b0, b1]).wrapping_sub(0x000F);
+    if x_direction != 0 {
+        probe_x_word = probe_x_word.wrapping_add(0x001E);
+    }
+
+    UfoHurtDriverSlideProbeXLoc35724 { probe_x_word }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -19503,6 +19525,31 @@ mod tests {
                 },
             },
             "ASM UFO.asm loc_3571E adjusts the stack by four bytes and branches back to the loc_35680 slide loop"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_driver_slide_probe_x_matches_loc_35724() {
+        assert_eq!(
+            ufo_hurt_driver_slide_probe_x_loc_35724(0x0123_8000, 0),
+            UfoHurtDriverSlideProbeXLoc35724 {
+                probe_x_word: 0x0114,
+            },
+            "ASM UFO.asm loc_35724 probes 15px left when raw x_direction is clear"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_slide_probe_x_loc_35724(0x0123_8000, 0xFF),
+            UfoHurtDriverSlideProbeXLoc35724 {
+                probe_x_word: 0x0132,
+            },
+            "ASM UFO.asm loc_35724 adds `$1E` after the left offset for any non-zero raw x_direction"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_slide_probe_x_loc_35724(0x0004_0000, 0).probe_x_word,
+            0xFFF5,
+            "ASM UFO.asm loc_35724 uses 16-bit word wrapping for the `$0F` subtraction"
         );
     }
 
