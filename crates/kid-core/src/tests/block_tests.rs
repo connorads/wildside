@@ -5461,6 +5461,28 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_pose_frame_loc_34222_mirrors_only_x_offset_when_facing_right() {
+        // ASM Archer.asm loc_34222 reads the pose sprite, d6 X offset, and d7 Y
+        // offset, then negates d6 only for flipped/right-facing archers.
+        assert_eq!(
+            archer_pose_frame_loc_34222(0x81A8, -14, -17, Direction::Left),
+            ArcherPoseFrameLoc34222 {
+                held_arrow_sprite_offset: 0x81A8,
+                x_offset_px: -14,
+                y_offset_px: -17,
+            }
+        );
+        assert_eq!(
+            archer_pose_frame_loc_34222(0x81A8, -14, -17, Direction::Right),
+            ArcherPoseFrameLoc34222 {
+                held_arrow_sprite_offset: 0x81A8,
+                x_offset_px: 14,
+                y_offset_px: -17,
+            }
+        );
+    }
+
+    #[test]
     fn archer_death_sequence_loc_3414a_marks_contact_bounces_kid_and_deletes() {
         // ASM Archer.asm loc_3414A applies these side effects before routing the
         // object-status byte and jumping through loc_34196 to delete the object.

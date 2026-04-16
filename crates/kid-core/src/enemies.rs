@@ -4208,6 +4208,36 @@ pub(crate) fn archer_shooting_entry_loc_341BE(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArcherPoseFrameLoc34222 {
+    pub(crate) held_arrow_sprite_offset: u16,
+    pub(crate) x_offset_px: i16,
+    pub(crate) y_offset_px: i16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn archer_pose_frame_loc_34222(
+    held_arrow_sprite_offset: u16,
+    table_x_offset_px: i16,
+    table_y_offset_px: i16,
+    archer_facing: Direction,
+) -> ArcherPoseFrameLoc34222 {
+    // ASM Archer.asm loc_34222: consume the pose sprite plus d6/d7 offsets from
+    // the shooting table, then negate only d6 when `x_direction(a3)` is set.
+    let x_offset_px = match archer_facing {
+        Direction::Left => table_x_offset_px,
+        Direction::Right => table_x_offset_px.wrapping_neg(),
+    };
+
+    ArcherPoseFrameLoc34222 {
+        held_arrow_sprite_offset,
+        x_offset_px,
+        y_offset_px: table_y_offset_px,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArcherDeathStatusRouteLoc3414A {
     WriteRespawnMarker(ArcherRespawnMarkerLoc34188),
     SubtractSpawnCounter { index: usize, decrement: u16 },
