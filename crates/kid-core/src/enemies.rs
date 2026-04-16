@@ -12381,8 +12381,9 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
         EnemyFamily::Hand => Direction::Left,
         // Drips always start facing right (Drip.asm init)
         EnemyFamily::Drips => Direction::Right,
-        // ASM Armadillo.asm loc_3C718, Dragon.asm loc_3CD70, Tank.asm loc_3B2E4,
-        // Robot.asm loc_3A7AC, and Scorpion.asm loc_3DBD8: face TOWARD the player at spawn.
+        // ASM Armadillo.asm loc_3C718, Goat.asm loc_3CA30, Dragon.asm loc_3CD70,
+        // Tank.asm loc_3B2E4, Robot.asm loc_3A7AC, and Scorpion.asm loc_3DBD8:
+        // face TOWARD the player at spawn.
         // `move.w x_pos(a4),d4; cmp.w x_pos(a3),d4; blt.s loc_3CD82; st x_direction(a3)`
         // x_direction=0 → LEFT (default VRAM orientation), x_direction=$FF → RIGHT (flipped).
         // kid.x >= dragon.x → st x_direction → $FF → faces RIGHT (toward kid on the right).

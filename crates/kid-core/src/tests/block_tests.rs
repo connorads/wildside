@@ -2328,6 +2328,24 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_spawn_faces_toward_player_per_loc_3ca30() {
+        // ASM Goat.asm loc_3CA30 is reached after the init branch skips
+        // `st x_direction(a3)` only when Kid is left of the goat.
+        assert_eq!(
+            spawn_facing(EnemyFamily::Goat, 100 << 16, 80 << 16),
+            Direction::Left
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Goat, 100 << 16, 100 << 16),
+            Direction::Right
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Goat, 100 << 16, 120 << 16),
+            Direction::Right
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);
