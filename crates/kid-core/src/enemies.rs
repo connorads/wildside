@@ -5031,6 +5031,12 @@ pub(crate) struct FireballSlopeTrailMarkerLoc32D7E {
     pub(crate) y_px: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FireballSlopeDownTrailMarkerLoc32E3C {
+    pub(crate) x_px: i16,
+    pub(crate) y_px: i16,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_slope_up_trail_marker_loc_32d7e(
     probe_x_px: i16,
@@ -5051,6 +5057,26 @@ pub(crate) fn fireball_slope_up_trail_marker_loc_32d7e(
             .wrapping_add(0x000F)
             .wrapping_sub(x_fraction)
             .wrapping_sub(2),
+    })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_slope_down_trail_marker_loc_32e3c(
+    probe_x_px: i16,
+    probe_y_px: i16,
+    tile_word: u16,
+) -> Option<FireballSlopeDownTrailMarkerLoc32E3C> {
+    // ASM Fireball.asm loc_32E3C: after sampling d7/d6, require collision
+    // nibble `$5000`, then align d6 to the tile row and add d7's low nibble.
+    if tile_word & 0x7000 != 0x5000 {
+        return None;
+    }
+
+    let x_fraction = probe_x_px & 0x000F_i16;
+    let aligned_y = probe_y_px & !0x000F_i16;
+    Some(FireballSlopeDownTrailMarkerLoc32E3C {
+        x_px: probe_x_px.wrapping_sub(2),
+        y_px: aligned_y.wrapping_add(x_fraction).wrapping_sub(2),
     })
 }
 
@@ -18272,6 +18298,24 @@ mod tests {
             fireball_slope_up_trail_marker_loc_32d7e(0x005B, 0x007A, 0x5000),
             None,
             "ASM Fireball.asm loc_32D7E should return through loc_32D06 unless the sampled tile collision nibble is exactly `$4000`"
+        );
+    }
+
+    #[test]
+    fn fireball_slope_down_trail_marker_loc_32e3c_accepts_only_slope_down_tiles() {
+        assert_eq!(
+            fireball_slope_down_trail_marker_loc_32e3c(0x005B, 0x007A, 0x5000),
+            Some(FireballSlopeDownTrailMarkerLoc32E3C {
+                x_px: 0x0059,
+                y_px: 0x0079,
+            }),
+            "ASM Fireball.asm loc_32E3C should place the slope-down trail at x-2 and `(y & $FFF0) + (x & $F) - 2`"
+        );
+
+        assert_eq!(
+            fireball_slope_down_trail_marker_loc_32e3c(0x005B, 0x007A, 0x4000),
+            None,
+            "ASM Fireball.asm loc_32E3C should return through loc_32D06 unless the sampled tile collision nibble is exactly `$5000`"
         );
     }
 
