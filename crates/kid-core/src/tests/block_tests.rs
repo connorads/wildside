@@ -2358,6 +2358,18 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_hp3_speed_uses_loc_3ca7e_common_final_add() {
+        let hit_points = spawn_hit_points(EnemyFamily::Goat, 0);
+
+        assert_eq!(hit_points, 3);
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Goat, hit_points),
+            0x0000_8000,
+            "ASM Goat.asm loc_3CA7E is the common final `$8000` speed add"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);

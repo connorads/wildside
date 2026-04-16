@@ -1527,6 +1527,7 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
 
     let (base_hp, base_speed, speed_step) = match family {
         // Goat.asm loc_3CA6E: HP 4+ reaches the `$10000` speed-tier add.
+        // Goat.asm loc_3CA7E: every tier then receives the final `$8000`.
         // HP = enemy_level + 3 (min 3). Base speed $8000, step $10000.
         // Player-tracking callback (Goat.asm loc_3CC18) wired in step dispatch.
         EnemyFamily::Goat => (3u8, 0x0000_8000i32, 0x0001_0000i32),
