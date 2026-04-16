@@ -7938,6 +7938,33 @@ pub(crate) fn hand_grab_snap_loc_3294c(
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandReleaseLoc32970 {
+    pub(crate) kid_grabbed_by_hand: bool,
+    pub(crate) hand_state: HandState,
+    pub(crate) on_ground: bool,
+    pub(crate) jump_speed_seed: i16,
+    pub(crate) collision_probe_half_width_px: i16,
+    pub(crate) collision_probe_height_px: i16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_release_loc_32970() -> HandReleaseLoc32970 {
+    // ASM Hand.asm loc_32970: clear KidGrabbedByHand, probe a 9x14 collision
+    // window, restore level-collision/moved flags, load `d5 = 2`, then branch
+    // to loc_328AA for a new jump setup instead of resuming patrol.
+    HandReleaseLoc32970 {
+        kid_grabbed_by_hand: false,
+        hand_state: HandState::Jumping,
+        on_ground: false,
+        jump_speed_seed: 2,
+        collision_probe_half_width_px: 9,
+        collision_probe_height_px: 0x0E,
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandInitLoc327B6 {
     pub(crate) status_flag_13: bool,
     pub(crate) is_moved: bool,
@@ -8276,7 +8303,24 @@ pub(crate) fn step_hand(
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
             } else {
-                enemy.hand_state = HandState::Walking;
+                let release = hand_release_loc_32970();
+                enemy.hand_state = release.hand_state;
+                enemy.on_ground = release.on_ground;
+                if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
+                    let jump = hand_jump_components_loc_328aa(
+                        release.jump_speed_seed,
+                        hand_x_direction_flag(enemy.facing),
+                        u32::from(enemy.wait_timer).wrapping_mul(7).to_le_bytes()[0],
+                        fixed_position_integer_word(py),
+                        u32::from(enemy.wait_timer)
+                            .wrapping_mul(13)
+                            .wrapping_add(5)
+                            .to_le_bytes()[0],
+                        fixed_position_integer_word(px),
+                    );
+                    enemy.x_velocity = hand_x_velocity_loc_328e0(jump.x_velocity_word);
+                    enemy.y_velocity = jump.y_velocity;
+                }
             }
         }
     }

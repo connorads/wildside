@@ -5709,6 +5709,53 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_release_loc_32970_restarts_jump_setup() {
+        assert_eq!(
+            hand_release_loc_32970(),
+            HandReleaseLoc32970 {
+                kid_grabbed_by_hand: false,
+                hand_state: HandState::Jumping,
+                on_ground: false,
+                jump_speed_seed: 2,
+                collision_probe_half_width_px: 9,
+                collision_probe_height_px: 0x0E,
+            },
+            "ASM Hand.asm loc_32970 clears KidGrabbedByHand, probes 9x14, restores movement/collision, and branches to loc_328AA with d5=2"
+        );
+    }
+
+    #[test]
+    fn hand_grabbing_step_uses_loc_32970_release_jump() {
+        let mut enemy = test_enemy(EnemyFamily::Hand, 0, 0, 1);
+        enemy.hand_state = HandState::Grabbing;
+        enemy.facing = Direction::Left;
+        enemy.on_ground = true;
+        enemy.wait_timer = 0;
+
+        step_hand(&mut enemy, None, Some(0x0064_8000), Some(0x00C8_4000));
+
+        assert_eq!(
+            (
+                enemy.hand_state,
+                enemy.on_ground,
+                enemy.x_pos,
+                enemy.y_pos,
+                enemy.x_velocity,
+                enemy.y_velocity,
+            ),
+            (
+                HandState::Jumping,
+                false,
+                0x0066_0000,
+                0x00C4_0000,
+                -0x0003_0000,
+                -0x0002_0000,
+            ),
+            "ASM Hand.asm loc_32970 releases the grab into a loc_328AA jump with d5=2 instead of returning to patrol"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
