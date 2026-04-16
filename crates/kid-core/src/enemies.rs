@@ -649,6 +649,44 @@ pub(crate) fn orca_berzerker_airborne_frame_loc_3d2aa(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum OrcaResumeBranch {
+    Loc3E7CA,
+    Loc3E6AE,
+    NormalResumeDispatch,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaCollisionClearLoc3D2BC {
+    pub(crate) next_collision_type: u16,
+    pub(crate) next: OrcaResumeBranch,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_collision_clear_loc_3d2bc(
+    wall_pinned: bool,
+    facing: Direction,
+) -> OrcaCollisionClearLoc3D2BC {
+    // ASM Orca.asm loc_3D2BC: clear `collision_type(a3)`, then test `$5C(a5)`.
+    // A wall-pinned Orca branches directly by `x_direction(a3)`; otherwise it
+    // falls through to the normal patrol resume dispatch.
+    let next = if wall_pinned {
+        match facing {
+            Direction::Left => OrcaResumeBranch::Loc3E7CA,
+            Direction::Right => OrcaResumeBranch::Loc3E6AE,
+        }
+    } else {
+        OrcaResumeBranch::NormalResumeDispatch
+    };
+
+    OrcaCollisionClearLoc3D2BC {
+        next_collision_type: 0,
+        next,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
     Damage,
     ContinueWaiting {
@@ -15029,6 +15067,34 @@ mod tests {
             orca_berzerker_airborne_frame_loc_3d2aa(-0x0004_4000).next_y_velocity,
             -0x0004_0000,
             "ASM Orca.asm loc_3D2AA should repeat the same gravity step on the next loop"
+        );
+    }
+
+    #[test]
+    fn orca_collision_clear_matches_loc_3d2bc() {
+        assert_eq!(
+            orca_collision_clear_loc_3d2bc(false, Direction::Left),
+            OrcaCollisionClearLoc3D2BC {
+                next_collision_type: 0,
+                next: OrcaResumeBranch::NormalResumeDispatch,
+            },
+            "ASM Orca.asm loc_3D2BC should clear collision and fall through when `$5C(a5)` is clear"
+        );
+        assert_eq!(
+            orca_collision_clear_loc_3d2bc(true, Direction::Left),
+            OrcaCollisionClearLoc3D2BC {
+                next_collision_type: 0,
+                next: OrcaResumeBranch::Loc3E7CA,
+            },
+            "ASM Orca.asm loc_3D2BC should send clear x_direction to loc_3E7CA when wall-pinned"
+        );
+        assert_eq!(
+            orca_collision_clear_loc_3d2bc(true, Direction::Right),
+            OrcaCollisionClearLoc3D2BC {
+                next_collision_type: 0,
+                next: OrcaResumeBranch::Loc3E6AE,
+            },
+            "ASM Orca.asm loc_3D2BC should send set x_direction to loc_3E6AE when wall-pinned"
         );
     }
 
