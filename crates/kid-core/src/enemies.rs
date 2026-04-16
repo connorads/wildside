@@ -418,6 +418,35 @@ pub(crate) fn crab_collision_dispatch_loc_3b048(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CrabDamageRouteLoc3B08C {
+    HurtAnimation,
+    DeathAnimation,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CrabDamageResultLoc3B08C {
+    pub(crate) current_hp: u16,
+    pub(crate) route: CrabDamageRouteLoc3B08C,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_damage_after_hurt_loc_3b08c(current_hp: u16) -> CrabDamageResultLoc3B08C {
+    // ASM Crab.asm loc_3B08C: decrement the `current_hp(a3)` word before
+    // deciding whether the crab survives for the hurt animation or exits.
+    let next_current_hp = current_hp.wrapping_sub(1);
+    CrabDamageResultLoc3B08C {
+        current_hp: next_current_hp,
+        route: if next_current_hp == 0 {
+            CrabDamageRouteLoc3B08C::DeathAnimation
+        } else {
+            CrabDamageRouteLoc3B08C::HurtAnimation
+        },
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum OrcaCollisionRouteLoc3D21E {
     Kill,
     Damage,
@@ -12750,6 +12779,26 @@ mod tests {
             crab_collision_dispatch_loc_3b048(CRAB_COLID_HURT, false, -0x0020, Direction::Right),
             CrabCollisionRouteLoc3B048::Damage,
             "ASM Crab.asm loc_3B086 should accept a flipped/right-facing crab"
+        );
+    }
+
+    #[test]
+    fn crab_damage_decrements_hp_before_routing_loc_3b08c() {
+        assert_eq!(
+            crab_damage_after_hurt_loc_3b08c(2),
+            CrabDamageResultLoc3B08C {
+                current_hp: 1,
+                route: CrabDamageRouteLoc3B08C::HurtAnimation,
+            },
+            "ASM Crab.asm loc_3B08C should keep the crab alive when `subi.w #1,current_hp` leaves a non-zero word"
+        );
+        assert_eq!(
+            crab_damage_after_hurt_loc_3b08c(1),
+            CrabDamageResultLoc3B08C {
+                current_hp: 0,
+                route: CrabDamageRouteLoc3B08C::DeathAnimation,
+            },
+            "ASM Crab.asm loc_3B08C should route out when `subi.w #1,current_hp` leaves zero"
         );
     }
 
