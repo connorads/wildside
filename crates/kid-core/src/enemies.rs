@@ -9902,6 +9902,20 @@ pub(crate) fn mini_hopping_skull_air_damage_death_animation_loc_3f238(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_air_side_contact_loc_3f244(
+    berzerker_charging: bool,
+) -> MiniHoppingSkullGroundWaitCollisionRoute {
+    // ASM Mini_Hopping_Skull.asm loc_3F244: airborne `$20/$24` side contact
+    // tests `Berzerker_charging`; clear allocates `sub_3F3F0`, set jumps to
+    // loc_3F262's charging-Berzerker kill setup.
+    if berzerker_charging {
+        MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+    } else {
+        MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_facing_matched_pause_scream_worker_allocation_loc_3f0da(
     route: MiniHoppingSkullGroundWaitCollisionRoute,
 ) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
@@ -24497,6 +24511,20 @@ mod tests {
             mini_hopping_skull_air_damage_death_animation_loc_3f238(-0x0001_8000),
             MiniHoppingSkullAirDamageDeathAnimation::BackwardOrNeutral,
             "ASM Mini_Hopping_Skull.asm loc_3F238 sends negative high words through the `ble.w loc_3F18C` branch"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_air_side_contact_matches_loc_3f244_berzerker_gate() {
+        assert_eq!(
+            mini_hopping_skull_air_side_contact_loc_3f244(false),
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3F244 should allocate `sub_3F3F0` while `Berzerker_charging` is clear"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_side_contact_loc_3f244(true),
+            MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull,
+            "ASM Mini_Hopping_Skull.asm loc_3F244 should jump to loc_3F262 while `Berzerker_charging` is set"
         );
     }
 
