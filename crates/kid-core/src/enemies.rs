@@ -1636,6 +1636,34 @@ pub(crate) fn scorpion_collision_dispatch_loc_3dcb0(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ScorpionDamageRouteLoc3DCD4 {
+    Hurt {
+        remaining_hp: u16,
+        damage_animation: &'static str,
+        restored_animation: &'static str,
+    },
+    Death,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_damage_route_loc_3dcd4(current_hp: u16) -> ScorpionDamageRouteLoc3DCD4 {
+    // ASM Scorpion.asm loc_3DCD4: `subq.w #1,$44(a3); beq.s ...` branches to
+    // death when the decremented current_hp word reaches zero; otherwise it
+    // runs the hurt animation to completion and restores the base animation.
+    let remaining_hp = current_hp.wrapping_sub(1);
+    if remaining_hp == 0 {
+        ScorpionDamageRouteLoc3DCD4::Death
+    } else {
+        ScorpionDamageRouteLoc3DCD4::Hurt {
+            remaining_hp,
+            damage_animation: "stru_3DB7A",
+            restored_animation: "stru_3DB60",
+        }
+    }
+}
+
 /// Archer fire interval indexed by enemy_level (HP 1/2/3).
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
@@ -12800,6 +12828,24 @@ mod tests {
             scorpion_collision_dispatch_loc_3dcb0(0x0010),
             ScorpionCollisionRouteLoc3DCB0::ContinueSharedWalker,
             "ASM Scorpion.asm loc_3DCB0 ignores unhandled positive collision IDs"
+        );
+    }
+
+    #[test]
+    fn scorpion_damage_route_matches_loc_3dcd4_hp_decrement() {
+        assert_eq!(
+            scorpion_damage_route_loc_3dcd4(3),
+            ScorpionDamageRouteLoc3DCD4::Hurt {
+                remaining_hp: 2,
+                damage_animation: "stru_3DB7A",
+                restored_animation: "stru_3DB60",
+            },
+            "ASM Scorpion.asm loc_3DCD4 decrements current_hp, plays the hurt animation, then restores the base animation while HP remains"
+        );
+        assert_eq!(
+            scorpion_damage_route_loc_3dcd4(1),
+            ScorpionDamageRouteLoc3DCD4::Death,
+            "ASM Scorpion.asm loc_3DCD4 branches to the death path when the decremented current_hp word reaches zero"
         );
     }
 
