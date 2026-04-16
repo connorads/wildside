@@ -7894,8 +7894,13 @@ fn fixed_position_integer_word(position: u32) -> u16 {
     u16::from_be_bytes([high_a, high_b])
 }
 
-/// Hand max fall speed: $180000 (Hand.asm lines 728-730), NOT the shared MAX_FALL_SPEED.
-pub(crate) const HAND_MAX_FALL_SPEED: i32 = 0x18_0000;
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_jump_loop_gravity_loc_328f0(y_velocity: i32) -> i32 {
+    // ASM Hand.asm loc_328F0: after hibernation/range/collision checks,
+    // `addi.l #$4000,y_vel(a3)` applies uncapped long-word gravity.
+    y_velocity.wrapping_add(HAND_GRAVITY)
+}
 
 /// Hand grab duration: 10 frames (Hand.asm loc_32906: moveq #$A,d3).
 pub(crate) const HAND_GRAB_DURATION: u16 = 10;
@@ -8168,8 +8173,7 @@ pub(crate) fn step_hand(
             }
         }
         HandState::Jumping => {
-            // Apply gravity, capped at Hand-specific $180000 (not shared MAX_FALL_SPEED)
-            enemy.y_velocity = (enemy.y_velocity + HAND_GRAVITY).min(HAND_MAX_FALL_SPEED);
+            enemy.y_velocity = hand_jump_loop_gravity_loc_328f0(enemy.y_velocity);
 
             // Move
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;

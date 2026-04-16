@@ -5665,6 +5665,15 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_jump_loop_loc_328f0_adds_uncapped_gravity() {
+        assert_eq!(
+            hand_jump_loop_gravity_loc_328f0(0x0018_0000),
+            0x0018_4000,
+            "ASM Hand.asm loc_328F0 applies `addi.l #$4000,y_vel(a3)` each loop and does not clamp at $180000"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
