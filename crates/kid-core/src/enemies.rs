@@ -951,6 +951,24 @@ pub(crate) fn orca_lunge_x_velocity_loc_3d340(facing: Direction) -> i32 {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaLungeLaunchTailLoc3D348 {
+    pub(crate) y_velocity: i32,
+    pub(crate) sprite_mapping_offset_delta: u16,
+    pub(crate) has_level_collision: bool,
+}
+
+pub(crate) fn orca_lunge_launch_tail_loc_3d348() -> OrcaLungeLaunchTailLoc3D348 {
+    // ASM Orca.asm loc_3D348: store y_vel `$FFFD8000`, advance
+    // `addroffset_sprite(a3)` by 4, and set `has_level_collision(a3)`.
+    OrcaLungeLaunchTailLoc3D348 {
+        y_velocity: ORCA_LUNGE_Y_SPEED,
+        sprite_mapping_offset_delta: 4,
+        has_level_collision: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
     Damage,
     ContinueWaiting {
@@ -12466,7 +12484,7 @@ pub(crate) fn step_orca(
             enemy.on_ground = false;
             enemy.facing = launch_facing;
             enemy.x_velocity = orca_lunge_x_velocity_loc_3d340(enemy.facing);
-            enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
+            enemy.y_velocity = orca_lunge_launch_tail_loc_3d348().y_velocity;
         }
         OrcaState::Lunging => {
             // Gravity (Orca.asm loc_3D3B4: $1800 per frame)
@@ -12504,7 +12522,7 @@ pub(crate) fn step_orca(
                 enemy.wall_pinned = false;
                 // Re-lunge in opposite direction
                 enemy.x_velocity = orca_lunge_x_velocity_loc_3d340(enemy.facing);
-                enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
+                enemy.y_velocity = orca_lunge_launch_tail_loc_3d348().y_velocity;
                 return;
             }
 

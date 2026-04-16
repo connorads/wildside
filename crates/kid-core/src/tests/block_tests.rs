@@ -7350,6 +7350,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_lunge_launch_tail_matches_loc_3d348() {
+        assert_eq!(
+            orca_lunge_launch_tail_loc_3d348(),
+            OrcaLungeLaunchTailLoc3D348 {
+                y_velocity: ORCA_LUNGE_Y_SPEED,
+                sprite_mapping_offset_delta: 4,
+                has_level_collision: true,
+            },
+            "ASM Orca.asm loc_3D348 should launch upward, advance the sprite mapping offset, and enable level collision"
+        );
+    }
+
+    #[test]
     fn orca_ignores_distant_player() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
