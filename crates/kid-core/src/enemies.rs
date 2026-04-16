@@ -653,6 +653,26 @@ pub(crate) fn crab_negative_airborne_deceleration_loc_3b1be(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CrabAirborneThresholdRouteLoc3B1C6 {
+    ContinueCollisionResponse,
+    Settle,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_airborne_threshold_route_loc_3b1c6(
+    x_velocity: i32,
+) -> CrabAirborneThresholdRouteLoc3B1C6 {
+    // ASM Crab.asm loc_3B1C6: signed `bgt` keeps large positive x_vel moving,
+    // while signed `bgt` against `$FFFF8000` settles only (-$8000, $8000].
+    if x_velocity > 0x0000_8000 || x_velocity <= -0x0000_8000 {
+        CrabAirborneThresholdRouteLoc3B1C6::ContinueCollisionResponse
+    } else {
+        CrabAirborneThresholdRouteLoc3B1C6::Settle
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabDamageRouteLoc3B08C {
     HurtAnimation,
     DeathAnimation,
@@ -18648,6 +18668,33 @@ mod tests {
                 x_velocity: 0x0000_1000,
             },
             "ASM Crab.asm loc_3B1BE can cross zero because it unconditionally adds `$4000`"
+        );
+    }
+
+    #[test]
+    fn crab_airborne_threshold_route_matches_loc_3b1c6() {
+        assert_eq!(
+            crab_airborne_threshold_route_loc_3b1c6(0x0000_8001),
+            CrabAirborneThresholdRouteLoc3B1C6::ContinueCollisionResponse,
+            "ASM Crab.asm loc_3B1C6 should continue when signed x_vel is greater than `$8000`"
+        );
+
+        assert_eq!(
+            crab_airborne_threshold_route_loc_3b1c6(0x0000_8000),
+            CrabAirborneThresholdRouteLoc3B1C6::Settle,
+            "ASM Crab.asm loc_3B1C6 should settle at the positive threshold"
+        );
+
+        assert_eq!(
+            crab_airborne_threshold_route_loc_3b1c6(-0x0000_7FFF),
+            CrabAirborneThresholdRouteLoc3B1C6::Settle,
+            "ASM Crab.asm loc_3B1C6 should settle while x_vel is still greater than `-$8000`"
+        );
+
+        assert_eq!(
+            crab_airborne_threshold_route_loc_3b1c6(-0x0000_8000),
+            CrabAirborneThresholdRouteLoc3B1C6::ContinueCollisionResponse,
+            "ASM Crab.asm loc_3B1C6 should continue at exact `-$8000` because the second signed `bgt` is false"
         );
     }
 
