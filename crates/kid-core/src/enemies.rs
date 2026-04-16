@@ -2553,6 +2553,52 @@ pub(crate) fn dragon_walking_death_sequence_loc_3cefc() -> DragonWalkingDeathSeq
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingBerzerkerKnockbackStartLoc3CF0E {
+    pub(crate) has_level_collision: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingBerzerkerSideGateLoc3CF0E {
+    ResumePatrol { next_collision_type: u16 },
+    Knockback(DragonWalkingBerzerkerKnockbackStartLoc3CF0E),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_berzerker_side_gate_loc_3cf0e(
+    berzerker_charging: bool,
+) -> DragonWalkingBerzerkerSideGateLoc3CF0E {
+    // ASM Dragon.asm loc_3CF0E: side contact falls through to the normal
+    // clear/resume path when `Berzerker_charging` is zero. A charging Berzerker
+    // disables level collision/animation, re-enables Kid collision and movement,
+    // swaps to `LnkTo_unk_C755E`, zeroes X velocity, and launches upward.
+    if !berzerker_charging {
+        return DragonWalkingBerzerkerSideGateLoc3CF0E::ResumePatrol {
+            next_collision_type: 0,
+        };
+    }
+
+    DragonWalkingBerzerkerSideGateLoc3CF0E::Knockback(
+        DragonWalkingBerzerkerKnockbackStartLoc3CF0E {
+            has_level_collision: false,
+            has_kid_collision: true,
+            is_moved: true,
+            is_animated: false,
+            sprite_mapping: "LnkTo_unk_C755E-Data_Index",
+            x_velocity: 0,
+            y_velocity: -0x0004_8000,
+        },
+    )
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -14471,6 +14517,32 @@ mod tests {
                 exits_enemy: true,
             },
             "ASM Dragon.asm loc_3CEFC should play the walking-dragon death animation, wait for it, then exit the enemy"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_berzerker_side_gate_matches_loc_3cf0e() {
+        assert_eq!(
+            dragon_walking_berzerker_side_gate_loc_3cf0e(false),
+            DragonWalkingBerzerkerSideGateLoc3CF0E::ResumePatrol {
+                next_collision_type: 0,
+            },
+            "ASM Dragon.asm loc_3CF0E should clear collision and resume while Berzerker_charging is zero"
+        );
+        assert_eq!(
+            dragon_walking_berzerker_side_gate_loc_3cf0e(true),
+            DragonWalkingBerzerkerSideGateLoc3CF0E::Knockback(
+                DragonWalkingBerzerkerKnockbackStartLoc3CF0E {
+                    has_level_collision: false,
+                    has_kid_collision: true,
+                    is_moved: true,
+                    is_animated: false,
+                    sprite_mapping: "LnkTo_unk_C755E-Data_Index",
+                    x_velocity: 0,
+                    y_velocity: -0x0004_8000,
+                }
+            ),
+            "ASM Dragon.asm loc_3CF0E should seed the charging-Berzerker knockback state"
         );
     }
 
