@@ -2101,6 +2101,45 @@ pub(crate) fn dragon_walking_collision_route_loc_3ce9a(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingDamageRouteLoc3CEBE {
+    Death {
+        remaining_hp: u16,
+    },
+    SpawnedChildContinue {
+        remaining_hp: u16,
+    },
+    ParentHurt {
+        remaining_hp: u16,
+        damage_animation: &'static str,
+        restored_animation: &'static str,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_damage_route_loc_3cebe(
+    current_hp: u16,
+    parent_spawned_child: bool,
+) -> DragonWalkingDamageRouteLoc3CEBE {
+    // ASM Dragon.asm loc_3CEBE: `subq.w #1,$44(a3)` sets the signed branch
+    // flags; positive remaining HP on parent-spawned children skips the hurt
+    // animation, while ordinary dragons play `stru_3CCE6` and restore `$62(a5)`.
+    let remaining_hp = current_hp.wrapping_sub(1);
+    let remaining_signed = i16::from_ne_bytes(remaining_hp.to_ne_bytes());
+    if remaining_signed <= 0 {
+        DragonWalkingDamageRouteLoc3CEBE::Death { remaining_hp }
+    } else if parent_spawned_child {
+        DragonWalkingDamageRouteLoc3CEBE::SpawnedChildContinue { remaining_hp }
+    } else {
+        DragonWalkingDamageRouteLoc3CEBE::ParentHurt {
+            remaining_hp,
+            damage_animation: "stru_3CCE6",
+            restored_animation: "saved_dragon_walking_animation",
+        }
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -13006,6 +13045,36 @@ mod tests {
             dragon_walking_collision_route_loc_3ce9a(0x0004),
             DragonWalkingCollisionRouteLoc3CE9A::Continue,
             "ASM Dragon.asm loc_3CE9A treats unrelated positive collision words as clear-and-resume"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_damage_route_matches_loc_3cebe() {
+        assert_eq!(
+            dragon_walking_damage_route_loc_3cebe(1, false),
+            DragonWalkingDamageRouteLoc3CEBE::Death { remaining_hp: 0 },
+            "ASM Dragon.asm loc_3CEBE branches to death when the HP decrement reaches zero"
+        );
+        assert_eq!(
+            dragon_walking_damage_route_loc_3cebe(0, false),
+            DragonWalkingDamageRouteLoc3CEBE::Death {
+                remaining_hp: 0xFFFF
+            },
+            "ASM Dragon.asm loc_3CEBE uses signed BLE flags after wrapping the HP word"
+        );
+        assert_eq!(
+            dragon_walking_damage_route_loc_3cebe(2, true),
+            DragonWalkingDamageRouteLoc3CEBE::SpawnedChildContinue { remaining_hp: 1 },
+            "ASM Dragon.asm loc_3CEBE skips the hurt animation for parent-spawned walking dragons"
+        );
+        assert_eq!(
+            dragon_walking_damage_route_loc_3cebe(3, false),
+            DragonWalkingDamageRouteLoc3CEBE::ParentHurt {
+                remaining_hp: 2,
+                damage_animation: "stru_3CCE6",
+                restored_animation: "saved_dragon_walking_animation",
+            },
+            "ASM Dragon.asm loc_3CEBE plays `stru_3CCE6`, waits for it, then restores the saved walking animation"
         );
     }
 
