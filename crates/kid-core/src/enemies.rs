@@ -3312,6 +3312,48 @@ pub(crate) fn dragon_left_slide_start_loc_34a24(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonLeftSlideFrameLoc34A2E {
+    CollisionRoute {
+        x_velocity: i32,
+        collision_type: u16,
+    },
+    Continue {
+        x_velocity: i32,
+    },
+    BeginReturnToAnchor {
+        x_velocity: i32,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_left_slide_frame_loc_34a2e(
+    x_velocity: i32,
+    collision_type: u16,
+) -> DragonLeftSlideFrameLoc34A2E {
+    // ASM Dragon_Flying.asm loc_34A2E: after one hibernated frame, non-zero
+    // collision_type branches to the collision handler before velocity changes;
+    // otherwise x_vel adds `$1000` and signed `bge` enters return-to-anchor.
+    if collision_type != 0 {
+        return DragonLeftSlideFrameLoc34A2E::CollisionRoute {
+            x_velocity,
+            collision_type,
+        };
+    }
+
+    let next_x_velocity = x_velocity.wrapping_add(DRAGON_TERRAIN_SLIDE_X_DECEL);
+    if next_x_velocity >= 0 {
+        DragonLeftSlideFrameLoc34A2E::BeginReturnToAnchor {
+            x_velocity: next_x_velocity,
+        }
+    } else {
+        DragonLeftSlideFrameLoc34A2E::Continue {
+            x_velocity: next_x_velocity,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,

@@ -6057,6 +6057,37 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34a2e_accelerates_left_slide_until_signed_nonnegative() {
+        assert_eq!(
+            dragon_left_slide_frame_loc_34a2e(-0x0001_CBAA, 0x0008),
+            DragonLeftSlideFrameLoc34A2E::CollisionRoute {
+                x_velocity: -0x0001_CBAA,
+                collision_type: 0x0008,
+            },
+            "ASM Dragon_Flying.asm loc_34A2E sends non-zero collision_type to the collision handler before changing x_vel"
+        );
+        assert_eq!(
+            dragon_left_slide_frame_loc_34a2e(-0x0001_CBAA, 0),
+            DragonLeftSlideFrameLoc34A2E::Continue {
+                x_velocity: -0x0001_BBAA,
+            },
+            "ASM Dragon_Flying.asm loc_34A2E adds `$1000` and loops while the signed result stays negative"
+        );
+        assert_eq!(
+            dragon_left_slide_frame_loc_34a2e(-0x0000_1000, 0),
+            DragonLeftSlideFrameLoc34A2E::BeginReturnToAnchor { x_velocity: 0 },
+            "ASM Dragon_Flying.asm loc_34A2E enters return-to-anchor when `addi.l #$1000,x_vel` sets signed zero"
+        );
+        assert_eq!(
+            dragon_left_slide_frame_loc_34a2e(-0x0000_0800, 0),
+            DragonLeftSlideFrameLoc34A2E::BeginReturnToAnchor {
+                x_velocity: 0x0000_0800,
+            },
+            "ASM Dragon_Flying.asm loc_34A2E also enters return-to-anchor for a signed positive acceleration result"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_34998_writes_respawn_marker_for_positive_slot() {
         assert_eq!(
             dragon_flying_respawn_marker_loc_34998(0x07),
