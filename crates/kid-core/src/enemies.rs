@@ -12830,6 +12830,13 @@ pub(crate) struct TarMonsterBurstChildEntryLoc325E6 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterBurstChildMetaLoc32618 {
+    pub(crate) object_meta: u16,
+    pub(crate) proceeds_to_projectile_setup: bool,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotMotionLoc324D0 {
     pub(crate) x_pos: u32,
     pub(crate) x_velocity: i32,
@@ -13220,6 +13227,17 @@ pub(crate) fn tar_monster_burst_child_entry_loc_325E6(
         sprite_frame_link: "LnkTo_unk_C782E",
         collision_sprite_swap_enabled: true,
         falls_through_to_meta_seed: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_burst_child_meta_loc_32618() -> TarMonsterBurstChildMetaLoc32618 {
+    // ASM loc_32618 seeds d0 with object_meta `$0005` for the burst child and
+    // falls through to the shared Tar Monster projectile setup.
+    TarMonsterBurstChildMetaLoc32618 {
+        object_meta: 5,
+        proceeds_to_projectile_setup: true,
     }
 }
 
@@ -17676,6 +17694,18 @@ mod tests {
                 falls_through_to_meta_seed: true,
             },
             "ASM Tar_Monster.asm loc_325E6 copies the linked source sprite pose, uses `$44/$48(a5)` as velocities, and leaves d1 non-zero for collision sprite swaps"
+        );
+    }
+
+    #[test]
+    fn tar_monster_burst_child_meta_loc_32618_seeds_object_meta_five() {
+        assert_eq!(
+            tar_monster_burst_child_meta_loc_32618(),
+            TarMonsterBurstChildMetaLoc32618 {
+                object_meta: 5,
+                proceeds_to_projectile_setup: true,
+            },
+            "ASM Tar_Monster.asm loc_32618 writes `#5` to d0 so burst children reuse the Tar Monster projectile object_meta"
         );
     }
 
