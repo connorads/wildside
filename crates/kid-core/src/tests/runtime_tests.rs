@@ -8217,6 +8217,22 @@ mod chunk_09 {
         );
     }
 
+    #[test]
+    fn lift_block_bob_down_pass_loc_fbda_matches_the_final_return_loop() {
+        let deltas = NativeRuntime::lift_block_bob_down_pass_loc_FBDA();
+
+        assert_eq!(
+            deltas,
+            &[2, 2, 2, 2, 2],
+            "ASM loc_FBDA should execute five `addq.w #2,y_pos(a3)` steps because `moveq #4,d1` feeds an inclusive DBF loop",
+        );
+        assert_eq!(
+            deltas.iter().copied().sum::<i16>(),
+            10,
+            "ASM loc_FBDA should move the struck lift block 10px downward before `Hibernate_UntilAnimFinished` starts",
+        );
+    }
+
     // --- Process block effects: lift block spawns platform ---
 
     #[test]
