@@ -3426,6 +3426,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_startup_matches_loc_3652e() {
+        assert_eq!(
+            enemies::big_hopping_skull_startup_loc_3652e(),
+            enemies::BigHoppingSkullStartupLoc3652E {
+                hibernates_one_frame: true,
+                checks_object_range: true,
+                animation: "stru_367BE",
+            },
+            "ASM Big_Hopping_Skull.asm loc_3652E should hibernate once, range-check, and seed the startup animation before loc_36540",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),

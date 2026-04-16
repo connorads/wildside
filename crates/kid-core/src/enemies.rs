@@ -1612,6 +1612,24 @@ pub(crate) const BIG_SKULL_INIT_X_SPEED: i32 = 0x0001_0000;
 pub(crate) const BIG_SKULL_INIT_Y_SPEED: i32 = -0x0002_0000;
 pub(crate) const BIG_SKULL_GRAVITY: i32 = 0x0000_0FA0; // ASM: addi.l #$FA0,y_vel
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BigHoppingSkullStartupLoc3652E {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checks_object_range: bool,
+    pub(crate) animation: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_startup_loc_3652e() -> BigHoppingSkullStartupLoc3652E {
+    // ASM Big_Hopping_Skull.asm loc_3652E: hibernate for one frame, call
+    // Object_CheckInRange, initialise `stru_367BE`, then enter loc_36540.
+    BigHoppingSkullStartupLoc3652E {
+        hibernates_one_frame: true,
+        checks_object_range: true,
+        animation: "stru_367BE",
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,
