@@ -16074,6 +16074,20 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3aa68_selects_positive_head_delta_for_zero_child_direction() {
+        assert_eq!(
+            robot_shoot_head_x_delta_loc_3aa68(0),
+            4,
+            "ASM loc_3AA68: zero child x_direction loads d1=4 for the head nudge"
+        );
+        assert_eq!(
+            robot_shoot_head_x_delta_loc_3aa68(0xFF),
+            -4,
+            "ASM loc_3AA68: non-zero child x_direction keeps the earlier negative head nudge"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

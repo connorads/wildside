@@ -9764,6 +9764,13 @@ pub(crate) fn robot_shoot_windup_loc_3aa4c(
     }
 }
 
+#[cfg(test)]
+pub(crate) fn robot_shoot_head_x_delta_loc_3aa68(child_x_direction: u8) -> i16 {
+    // ASM Robot.asm loc_3AA68: zero child `$16` falls through here and loads
+    // `d1=#4`; non-zero child direction uses the preceding `d1=#-$4` path.
+    if child_x_direction == 0 { 4 } else { -4 }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
