@@ -551,6 +551,50 @@ pub(crate) fn orca_death_sequence_loc_3d268() -> OrcaDeathSequenceLoc3D268 {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaBerzerkerKnockbackStartLoc3D27E {
+    pub(crate) has_level_collision: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum OrcaBerzerkerSideGateLoc3D27E {
+    ResumePatrol { next_collision_type: u16 },
+    Knockback(OrcaBerzerkerKnockbackStartLoc3D27E),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_berzerker_side_gate_loc_3d27e(
+    berzerker_charging: bool,
+) -> OrcaBerzerkerSideGateLoc3D27E {
+    // ASM Orca.asm loc_3D27E: side contact returns to the normal clear/resume
+    // path while `Berzerker_charging` is zero. A charging Berzerker disables
+    // level collision/animation, re-enables Kid collision and movement, swaps
+    // to `LnkTo_unk_C7656`, zeroes X velocity, and launches upward at `$FFFB8000`.
+    if !berzerker_charging {
+        return OrcaBerzerkerSideGateLoc3D27E::ResumePatrol {
+            next_collision_type: 0,
+        };
+    }
+
+    OrcaBerzerkerSideGateLoc3D27E::Knockback(OrcaBerzerkerKnockbackStartLoc3D27E {
+        has_level_collision: false,
+        has_kid_collision: true,
+        is_moved: true,
+        is_animated: false,
+        sprite_mapping: "LnkTo_unk_C7656",
+        x_velocity: 0,
+        y_velocity: -0x0004_8000,
+    })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
     Damage,
     ContinueWaiting {
@@ -13213,6 +13257,30 @@ mod tests {
                 exits_enemy: true,
             },
             "ASM Orca.asm loc_3D268 should re-enable Kid collision, play the death animation, then exit the enemy"
+        );
+    }
+
+    #[test]
+    fn orca_berzerker_side_gate_matches_loc_3d27e() {
+        assert_eq!(
+            orca_berzerker_side_gate_loc_3d27e(false),
+            OrcaBerzerkerSideGateLoc3D27E::ResumePatrol {
+                next_collision_type: 0
+            },
+            "ASM Orca.asm loc_3D27E should ignore side contact while Berzerker_charging is zero"
+        );
+        assert_eq!(
+            orca_berzerker_side_gate_loc_3d27e(true),
+            OrcaBerzerkerSideGateLoc3D27E::Knockback(OrcaBerzerkerKnockbackStartLoc3D27E {
+                has_level_collision: false,
+                has_kid_collision: true,
+                is_moved: true,
+                is_animated: false,
+                sprite_mapping: "LnkTo_unk_C7656",
+                x_velocity: 0,
+                y_velocity: -0x0004_8000,
+            }),
+            "ASM Orca.asm loc_3D27E should seed the charging-Berzerker knockback state"
         );
     }
 
