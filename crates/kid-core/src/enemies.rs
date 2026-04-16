@@ -18962,6 +18962,8 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Driller => 2,
         EnemyFamily::Cloud => 1,
         EnemyFamily::Sphere => 1,
+        // Big_Hopping_Skull.asm loc_3650E maps raw layout hitpoint 1 to 3 HP
+        // by branching past the 2-HP default and storing `#3` in d2.
         EnemyFamily::BigHoppingSkull => 2,
         EnemyFamily::EmoRock => 1,
         EnemyFamily::Archer => 1,
