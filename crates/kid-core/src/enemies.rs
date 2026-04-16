@@ -7742,6 +7742,28 @@ pub(crate) fn ninja_attack_cooldown_tick_loc_3d942(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaThrowFrameGateRouteLoc3D958 {
+    ContinuePacing { attack_timer: u16 },
+    RotateAttackPeriod,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_throw_frame_gate_loc_3d958(
+    sprite_is_throw_frame: bool,
+    animation_timer: u16,
+) -> NinjaThrowFrameGateRouteLoc3D958 {
+    // ASM Ninja.asm loc_3D958 is reached unless `addroffset_sprite(a3)` is
+    // `LnkTo_unk_C7DBE-Data_Index` and `animation_timer(a3)` is exactly 3.
+    // The mismatch path stores one frame into `$54(a5)` before loc_3D998.
+    if sprite_is_throw_frame && animation_timer == 3 {
+        NinjaThrowFrameGateRouteLoc3D958::RotateAttackPeriod
+    } else {
+        NinjaThrowFrameGateRouteLoc3D958::ContinuePacing { attack_timer: 1 }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionLoc3D606 {
     /// ASM Ninja.asm loc_3D6DA: no collision, so jump to stealth/attack gate.
     To3D6DA,
@@ -18807,6 +18829,25 @@ mod tests {
                 route: NinjaAttackCooldownRouteLoc3D942::ContinuePacing,
             },
             "ASM Ninja.asm loc_3D942 uses word wrapping arithmetic, so zero underflows and branches to loc_3D998"
+        );
+    }
+
+    #[test]
+    fn ninja_throw_frame_gate_loc_3d958_requires_exact_sprite_and_timer() {
+        assert_eq!(
+            ninja_throw_frame_gate_loc_3d958(false, 3),
+            NinjaThrowFrameGateRouteLoc3D958::ContinuePacing { attack_timer: 1 },
+            "ASM Ninja.asm loc_3D958 should reset `$54(a5)` to one frame when the sprite frame is not LnkTo_unk_C7DBE"
+        );
+        assert_eq!(
+            ninja_throw_frame_gate_loc_3d958(true, 2),
+            NinjaThrowFrameGateRouteLoc3D958::ContinuePacing { attack_timer: 1 },
+            "ASM Ninja.asm loc_3D958 should reset `$54(a5)` to one frame until animation_timer(a3) reaches 3"
+        );
+        assert_eq!(
+            ninja_throw_frame_gate_loc_3d958(true, 3),
+            NinjaThrowFrameGateRouteLoc3D958::RotateAttackPeriod,
+            "ASM Ninja.asm loc_3D958 should be skipped only for the exact C7DBE sprite frame with animation_timer(a3) == 3"
         );
     }
 
