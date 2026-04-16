@@ -16170,6 +16170,22 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3aa9e_restores_robot_shooting_visual_state() {
+        assert_eq!(
+            robot_shoot_recovery_visual_loc_3aa9e(),
+            RobotShootRecoveryVisualLoc3AA9E {
+                child_is_animated: true,
+                body_animation_source_offset_bytes: 0x14,
+                body_sprite_word_offset_from_source: 2,
+                body_is_animated: true,
+                body_phase_byte_18: 0,
+                body_animation_timer: 9,
+            },
+            "ASM loc_3AA9E: st child `$15`, use `stru_3A6E2+$14`, restart body animation, clear `$18`, timer=9"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

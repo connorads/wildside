@@ -12517,6 +12517,32 @@ pub(crate) fn robot_shoot_recovery_pause_loc_3aa88(
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShootRecoveryVisualLoc3AA9E {
+    pub(crate) child_is_animated: bool,
+    pub(crate) body_animation_source_offset_bytes: u16,
+    pub(crate) body_sprite_word_offset_from_source: u16,
+    pub(crate) body_is_animated: bool,
+    pub(crate) body_phase_byte_18: u8,
+    pub(crate) body_animation_timer: u16,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shoot_recovery_visual_loc_3aa9e() -> RobotShootRecoveryVisualLoc3AA9E {
+    // ASM Robot.asm loc_3AA9E: restore the shooting head (`st $15(a2)`), point
+    // body animation state at `stru_3A6E2+$14`, copy word 2 to
+    // `addroffset_sprite(a3)`, then restart body animation with timer 9.
+    RobotShootRecoveryVisualLoc3AA9E {
+        child_is_animated: true,
+        body_animation_source_offset_bytes: 0x14,
+        body_sprite_word_offset_from_source: 2,
+        body_is_animated: true,
+        body_phase_byte_18: 0,
+        body_animation_timer: 9,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
