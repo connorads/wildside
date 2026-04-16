@@ -6125,6 +6125,25 @@ pub(crate) fn fireball_negative_x_negative_y_sprite_loc_32f78(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_positive_x_negative_y_sprite_loc_32fac(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> FireballSpriteSelectionLoc32F3E {
+    // ASM Fireball.asm loc_32FAC: positive X and negative Y keep `d5=0`,
+    // convert Y to magnitude, use `(abs_y << 3) / x` as the unk_32EDC index,
+    // and pass the table byte through unchanged before loc_33006 copies d5.
+    let x_word = fireball_velocity_word_after_shift8_loc_32f3e(x_velocity);
+    let y_word = fireball_velocity_word_after_shift8_loc_32f3e(y_velocity);
+    let abs_y_word = y_word.wrapping_neg();
+    let sprite_index = fireball_ratio_sprite_index(x_word, abs_y_word).unwrap_or(4);
+
+    FireballSpriteSelectionLoc32F3E {
+        sprite_index,
+        quadrant_index: 0,
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn fireball_bounce_perturbation(enemy: &ActiveEnemy) -> i32 {
     let mut rng = RomRandomState::default();
@@ -20407,6 +20426,26 @@ mod tests {
                 quadrant_index: 1,
             },
             "ASM Fireball.asm loc_32F78 should use loc_33018's upward fallback sprite 4 when the ratio is at least $3F"
+        );
+    }
+
+    #[test]
+    fn fireball_positive_x_negative_y_sprite_loc_32fac_uses_ratio_table_directly() {
+        assert_eq!(
+            fireball_positive_x_negative_y_sprite_loc_32fac(0x0001_0000, -0x0000_8000),
+            FireballSpriteSelectionLoc32F3E {
+                sprite_index: 1,
+                quadrant_index: 0,
+            },
+            "ASM Fireball.asm loc_32FAC should pass unk_32EDC[4] = 1 through directly and keep quadrant 0"
+        );
+        assert_eq!(
+            fireball_positive_x_negative_y_sprite_loc_32fac(0x0000_0100, -0x0001_0000),
+            FireballSpriteSelectionLoc32F3E {
+                sprite_index: 4,
+                quadrant_index: 0,
+            },
+            "ASM Fireball.asm loc_32FAC should use loc_33018's upward fallback sprite 4 when the ratio is at least $3F"
         );
     }
 
