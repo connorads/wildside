@@ -2947,6 +2947,57 @@ pub(crate) fn goat_death_sequence_loc_3cb64() -> GoatDeathSequenceLoc3CB64 {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct GoatBerzerkerKnockbackStartLoc3CB76 {
+    pub(crate) has_level_collision: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum GoatBerzerkerSideGateLoc3CB76 {
+    ResumeSharedWalker { next_collision_type: u16 },
+    AirborneKnockback(GoatBerzerkerKnockbackStartLoc3CB76),
+    SideShoveThenHurtResume,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_berzerker_side_gate_loc_3cb76(
+    berzerker_charging: bool,
+    recoil_state_word: i16,
+) -> GoatBerzerkerSideGateLoc3CB76 {
+    // ASM Goat.asm loc_3CB76: clear `Berzerker_charging` returns to the
+    // normal collision clear/resume path. With charge active, positive `$42`
+    // branches to the shove/hurt-resume path; otherwise the goat enters the
+    // airborne knockback loop with collision/animation flags and launch
+    // velocity reset here.
+    if !berzerker_charging {
+        return GoatBerzerkerSideGateLoc3CB76::ResumeSharedWalker {
+            next_collision_type: 0,
+        };
+    }
+
+    if recoil_state_word > 0 {
+        return GoatBerzerkerSideGateLoc3CB76::SideShoveThenHurtResume;
+    }
+
+    GoatBerzerkerSideGateLoc3CB76::AirborneKnockback(GoatBerzerkerKnockbackStartLoc3CB76 {
+        has_level_collision: false,
+        has_kid_collision: true,
+        is_moved: true,
+        is_animated: false,
+        sprite_mapping: "LnkTo_unk_C7C56-Data_Index",
+        x_velocity: 0,
+        y_velocity: -0x0004_8000,
+    })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {
     pub(crate) is_moved: bool,
     pub(crate) has_level_collision: bool,

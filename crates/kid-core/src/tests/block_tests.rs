@@ -2484,6 +2484,35 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_berzerker_side_gate_matches_loc_3cb76() {
+        assert_eq!(
+            goat_berzerker_side_gate_loc_3cb76(false, 0),
+            GoatBerzerkerSideGateLoc3CB76::ResumeSharedWalker {
+                next_collision_type: 0,
+            },
+            "ASM Goat.asm loc_3CB76 should clear collision and resume while Berzerker_charging is zero"
+        );
+        assert_eq!(
+            goat_berzerker_side_gate_loc_3cb76(true, 1),
+            GoatBerzerkerSideGateLoc3CB76::SideShoveThenHurtResume,
+            "ASM Goat.asm loc_3CB76 should branch to the shove/hurt-resume path when `$42(a3)` is positive"
+        );
+        assert_eq!(
+            goat_berzerker_side_gate_loc_3cb76(true, 0),
+            GoatBerzerkerSideGateLoc3CB76::AirborneKnockback(GoatBerzerkerKnockbackStartLoc3CB76 {
+                has_level_collision: false,
+                has_kid_collision: true,
+                is_moved: true,
+                is_animated: false,
+                sprite_mapping: "LnkTo_unk_C7C56-Data_Index",
+                x_velocity: 0,
+                y_velocity: -0x0004_8000,
+            }),
+            "ASM Goat.asm loc_3CB76 should seed airborne knockback when charge is active and `$42(a3)` is not positive"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);
