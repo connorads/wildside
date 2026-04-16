@@ -371,6 +371,48 @@ pub(crate) fn tank_shooting_art_slot_loc_3b56c(enemy_type_slots: &[u16]) -> u16 
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TankShootingInitVisibleStateLoc3B5A6 {
+    pub(crate) status_flag_13: bool,
+    pub(crate) object_meta: u16,
+    pub(crate) art_slot_word: u16,
+    pub(crate) palette_line: u8,
+    pub(crate) vram_tile: u16,
+    pub(crate) priority: u8,
+    pub(crate) parent_timer_4a: u16,
+    pub(crate) parent_timer_48: u16,
+    pub(crate) current_hp: u8,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_shooting_init_visible_state_loc_3b5a6(
+    enemy_level: u8,
+    enemy_type_slots: &[u16],
+) -> TankShootingInitVisibleStateLoc3B5A6 {
+    // ASM Tank_Shooting.asm loc_3B5A6: use `d4` from loc_3B56C to index
+    // EnemyArt_PaletteLines, then double `d4` before reading
+    // EnemyArt_VRAMTileAddresses and storing `$3E(a3)`. The same tail sets
+    // object_meta bit 7, clears priority, seeds `$4A/$48(a5)`, and writes
+    // `enemy_level + 2` into current_hp.
+    const ENEMY_ART_PALETTE_LINES: [u8; 3] = [1, 2, 2];
+    const ENEMY_ART_VRAM_TILE_ADDRESSES: [u16; 3] = [0x02FB, 0x0409, 0x0517];
+
+    let slot_index = tank_shooting_art_slot_loc_3b56c(enemy_type_slots);
+    let slot = usize::from(slot_index);
+    TankShootingInitVisibleStateLoc3B5A6 {
+        status_flag_13: true,
+        object_meta: ROCK_TANK_SHOOTING_OBJECT_ID | 0x0080,
+        art_slot_word: slot_index.wrapping_mul(2),
+        palette_line: ENEMY_ART_PALETTE_LINES[slot],
+        vram_tile: ENEMY_ART_VRAM_TILE_ADDRESSES[slot],
+        priority: 0,
+        parent_timer_4a: 0x0020,
+        parent_timer_48: 0x000B,
+        current_hp: spawn_hit_points(EnemyFamily::TankShooting, enemy_level),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabMotionProfileLoc3B00A {
     pub(crate) walk_speed: i32,
     pub(crate) stored_speed: i32,
@@ -16157,6 +16199,27 @@ mod tests {
             tank_shooting_art_slot_loc_3b56c(&[0x0022, 0x401C, 0x000B]),
             2,
             "ASM Tank_Shooting.asm loc_3B56C only checks the first two header slots before falling back to d4=2"
+        );
+    }
+
+    #[test]
+    fn tank_shooting_init_visible_state_loc_3b5a6_uses_selected_art_slot() {
+        let state = tank_shooting_init_visible_state_loc_3b5a6(1, &[0x0022, 0x400A, 0x001C]);
+
+        assert_eq!(
+            state,
+            TankShootingInitVisibleStateLoc3B5A6 {
+                status_flag_13: true,
+                object_meta: 0x008B,
+                art_slot_word: 2,
+                palette_line: 2,
+                vram_tile: 0x0409,
+                priority: 0,
+                parent_timer_4a: 0x0020,
+                parent_timer_48: 0x000B,
+                current_hp: 3,
+            },
+            "ASM Tank_Shooting.asm loc_3B5A6 should double selected art slot 1 into `$3E=2`, use palette/VRAM slot 1, set object_meta bit 7, clear priority, and store enemy_level+2 HP",
         );
     }
 
