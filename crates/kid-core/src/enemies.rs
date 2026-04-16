@@ -705,6 +705,38 @@ pub(crate) fn crab_airborne_collision_dispatch_loc_3b1da(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CrabSlopeCollisionRouteLoc3B1F8 {
+    ReverseXVelocity,
+    ReflectYVelocity { y_velocity: i32 },
+    GravityTail,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_slope_collision_response_loc_3b1f8(
+    collision_type: u16,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> CrabSlopeCollisionRouteLoc3B1F8 {
+    // ASM Crab.asm loc_3B1F8: non-negative x_vel on slope-up reverses x_vel;
+    // negative x_vel on slope-down enters gravity recovery. The other
+    // slope/direction pairs logically halve y_vel as a long, then negate it.
+    if x_velocity >= 0 && collision_type == CRAB_COLID_SLOPEUP {
+        return CrabSlopeCollisionRouteLoc3B1F8::ReverseXVelocity;
+    }
+
+    if x_velocity < 0 && collision_type == CRAB_COLID_SLOPEDOWN {
+        return CrabSlopeCollisionRouteLoc3B1F8::GravityTail;
+    }
+
+    let half_y_unsigned = u32::from_ne_bytes(y_velocity.to_ne_bytes()) >> 1;
+    let reflected_y = i32::from_ne_bytes(0u32.wrapping_sub(half_y_unsigned).to_ne_bytes());
+    CrabSlopeCollisionRouteLoc3B1F8::ReflectYVelocity {
+        y_velocity: reflected_y,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabDamageRouteLoc3B08C {
     HurtAnimation,
     DeathAnimation,
@@ -18770,6 +18802,41 @@ mod tests {
             crab_airborne_collision_dispatch_loc_3b1da(0x002C),
             CrabAirborneCollisionRouteLoc3B1DA::Loop,
             "ASM Crab.asm loc_3B1DA should loop for collisions outside zero, wall, and slope cases"
+        );
+    }
+
+    #[test]
+    fn crab_slope_collision_response_matches_loc_3b1f8() {
+        assert_eq!(
+            crab_slope_collision_response_loc_3b1f8(CRAB_COLID_SLOPEUP, 0x0000_8000, 0x0002_0000,),
+            CrabSlopeCollisionRouteLoc3B1F8::ReverseXVelocity,
+            "ASM Crab.asm loc_3B1F8 should reverse x_vel for non-negative x_vel on slope-up"
+        );
+
+        assert_eq!(
+            crab_slope_collision_response_loc_3b1f8(
+                CRAB_COLID_SLOPEDOWN,
+                -0x0000_8000,
+                0x0002_0000,
+            ),
+            CrabSlopeCollisionRouteLoc3B1F8::GravityTail,
+            "ASM Crab.asm loc_3B1F8 should send negative x_vel on slope-down to gravity recovery"
+        );
+
+        assert_eq!(
+            crab_slope_collision_response_loc_3b1f8(CRAB_COLID_SLOPEDOWN, 0x0000_8000, 0x0002_0000,),
+            CrabSlopeCollisionRouteLoc3B1F8::ReflectYVelocity {
+                y_velocity: -0x0001_0000,
+            },
+            "ASM Crab.asm loc_3B1F8 should reflect y_vel for non-negative x_vel on slope-down"
+        );
+
+        assert_eq!(
+            crab_slope_collision_response_loc_3b1f8(CRAB_COLID_SLOPEUP, -0x0000_8000, -0x0002_0000,),
+            CrabSlopeCollisionRouteLoc3B1F8::ReflectYVelocity {
+                y_velocity: -0x7FFF_0000,
+            },
+            "ASM Crab.asm loc_3B1F8 should use logical half-y reflection for negative y_vel"
         );
     }
 
