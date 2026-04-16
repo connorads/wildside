@@ -775,10 +775,10 @@ impl NativeRuntime {
         lift: &mut LiftPlatform,
         level_height_pixels: u16,
     ) -> bool {
-        // ASM sub_FCA6 (kid.asm:21021): hibernate one frame, call sub_FD00,
-        // increment `d1` only when the integer `6(a3)` word changes, apply the
-        // pre-/post-`$32` acceleration, then delete once `6(a3)` reaches the
-        // signed level height.
+        // ASM loc_FCBE (kid.asm:21030): hibernate one frame, call sub_FD00,
+        // increment `d1` only when the integer `6(a3)` word changes, apply
+        // the pre-/post-`$32` acceleration, then loop until signed `6(a3)`
+        // reaches `Level_height_pixels`.
         lift.age = lift.age.saturating_add(1);
         lift.y_pos = Self::lift_platform_vertical_step_sub_FD00(lift.y_pos, lift.y_velocity);
 

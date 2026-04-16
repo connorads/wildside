@@ -14030,7 +14030,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn lift_platform_step_sub_fca6_counts_only_integer_y_changes() {
+    fn lift_platform_step_loc_fcbe_counts_only_integer_y_changes() {
         let mut lift = LiftPlatform {
             x_pos: 32 << 16,
             y_pos: 100 << 16,
@@ -14056,7 +14056,7 @@ mod chunk_02 {
         assert_eq!(lift.moved_y_steps, 1);
         assert_eq!(
             lift.age, 2,
-            "ASM sub_FCA6 should only advance `d1` once `sub_FD00` changes the integer `6(a3)` word",
+            "ASM loc_FCBE should only advance `d1` once `sub_FD00` changes the integer `6(a3)` word",
         );
     }
 
