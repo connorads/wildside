@@ -512,6 +512,45 @@ pub(crate) fn crab_collision_dispatch_loc_3b048(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CrabBerzerkerKnockbackStartLoc3B180 {
+    pub(crate) has_level_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) collision_type: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CrabBerzerkerSideGateLoc3B180 {
+    ResumeProximityCallback,
+    Knockback(CrabBerzerkerKnockbackStartLoc3B180),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_berzerker_side_gate_loc_3b180(
+    berzerker_charging: bool,
+    kid_x_velocity: i32,
+) -> CrabBerzerkerSideGateLoc3B180 {
+    // ASM Crab.asm loc_3B180: clear `Berzerker_charging` branches to
+    // loc_3B0BE. A charging Berzerker enables level collision and movement,
+    // clears collision_type, doubles Kid's x_vel into the crab, clears y_vel,
+    // then falls through to the airborne deceleration loop.
+    if !berzerker_charging {
+        return CrabBerzerkerSideGateLoc3B180::ResumeProximityCallback;
+    }
+
+    CrabBerzerkerSideGateLoc3B180::Knockback(CrabBerzerkerKnockbackStartLoc3B180 {
+        has_level_collision: true,
+        is_moved: true,
+        collision_type: 0,
+        x_velocity: kid_x_velocity.wrapping_add(kid_x_velocity),
+        y_velocity: 0,
+    })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabDamageRouteLoc3B08C {
     HurtAnimation,
     DeathAnimation,
@@ -16116,6 +16155,27 @@ mod tests {
             crab_collision_dispatch_loc_3b048(CRAB_COLID_HURT, true, 0x0020, Direction::Left),
             CrabCollisionRouteLoc3B048::ContinueSharedWalker,
             "ASM Crab.asm loc_3B048 should suppress hurt response while the frozen sprite is active"
+        );
+    }
+
+    #[test]
+    fn crab_berzerker_side_gate_matches_loc_3b180() {
+        assert_eq!(
+            crab_berzerker_side_gate_loc_3b180(false, 0x0001_8000),
+            CrabBerzerkerSideGateLoc3B180::ResumeProximityCallback,
+            "ASM Crab.asm loc_3B180 should branch to loc_3B0BE when `Berzerker_charging` is clear"
+        );
+
+        assert_eq!(
+            crab_berzerker_side_gate_loc_3b180(true, -0x0001_8000),
+            CrabBerzerkerSideGateLoc3B180::Knockback(CrabBerzerkerKnockbackStartLoc3B180 {
+                has_level_collision: true,
+                is_moved: true,
+                collision_type: 0,
+                x_velocity: -0x0003_0000,
+                y_velocity: 0,
+            }),
+            "ASM Crab.asm loc_3B180 should double Kid x_vel into the crab and clear y_vel before the airborne loop"
         );
     }
 
