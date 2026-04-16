@@ -3024,6 +3024,48 @@ pub(crate) fn goat_berzerker_airborne_frame_loc_3cba8(
     }
 }
 
+pub(crate) const GOAT_BERZERKER_SIDE_SHOVE_PIXELS_LOC_3CBBA: i32 = 0x0014_0000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct GoatBerzerkerSideShoveLoc3CBBA {
+    pub(crate) x_position: i32,
+    pub(crate) damage_animation: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) recoil_state_word: i16,
+    pub(crate) restored_walk_speed: i32,
+    pub(crate) restored_animation: &'static str,
+    pub(crate) clears_object_meta_bit_7: bool,
+    pub(crate) falls_through_to_collision_clear: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_berzerker_side_shove_loc_3cbba(
+    facing: Direction,
+    x_position: i32,
+    saved_walk_speed: i32,
+) -> GoatBerzerkerSideShoveLoc3CBBA {
+    // ASM Goat.asm loc_3CBBA: clear `x_direction` adds 20px to the fixed-point
+    // X position, flipped direction subtracts 20px, then the goat plays
+    // `stru_3C9E4`, waits, restores `$42(a3)`, walk speed and patrol animation,
+    // clears object_meta bit 7, and falls through to the collision clear tail.
+    let x_position = match facing {
+        Direction::Left => x_position.wrapping_add(GOAT_BERZERKER_SIDE_SHOVE_PIXELS_LOC_3CBBA),
+        Direction::Right => x_position.wrapping_sub(GOAT_BERZERKER_SIDE_SHOVE_PIXELS_LOC_3CBBA),
+    };
+
+    GoatBerzerkerSideShoveLoc3CBBA {
+        x_position,
+        damage_animation: "stru_3C9E4",
+        waits_until_animation_finished: true,
+        recoil_state_word: -0x0078,
+        restored_walk_speed: saved_walk_speed,
+        restored_animation: "saved_goat_patrol_animation",
+        clears_object_meta_bit_7: true,
+        falls_through_to_collision_clear: true,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {

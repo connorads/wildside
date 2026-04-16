@@ -2534,6 +2534,39 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_berzerker_side_shove_matches_loc_3cbba() {
+        assert_eq!(GOAT_BERZERKER_SIDE_SHOVE_PIXELS_LOC_3CBBA, 0x0014_0000);
+        assert_eq!(
+            goat_berzerker_side_shove_loc_3cbba(Direction::Left, 0x0080_0000, 0x0002_8000),
+            GoatBerzerkerSideShoveLoc3CBBA {
+                x_position: 0x0094_0000,
+                damage_animation: "stru_3C9E4",
+                waits_until_animation_finished: true,
+                recoil_state_word: -0x0078,
+                restored_walk_speed: 0x0002_8000,
+                restored_animation: "saved_goat_patrol_animation",
+                clears_object_meta_bit_7: true,
+                falls_through_to_collision_clear: true,
+            },
+            "ASM Goat.asm loc_3CBBA should add 20px for clear x_direction before the hurt-resume sequence"
+        );
+        assert_eq!(
+            goat_berzerker_side_shove_loc_3cbba(Direction::Right, 0x0080_0000, 0x0001_8000),
+            GoatBerzerkerSideShoveLoc3CBBA {
+                x_position: 0x006C_0000,
+                damage_animation: "stru_3C9E4",
+                waits_until_animation_finished: true,
+                recoil_state_word: -0x0078,
+                restored_walk_speed: 0x0001_8000,
+                restored_animation: "saved_goat_patrol_animation",
+                clears_object_meta_bit_7: true,
+                falls_through_to_collision_clear: true,
+            },
+            "ASM Goat.asm loc_3CBBA should subtract 20px for flipped x_direction before restoring patrol state"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);
