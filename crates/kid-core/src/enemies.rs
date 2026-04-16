@@ -16970,6 +16970,44 @@ fn tank_shooting_cycle_frames(hit_points: u8) -> u16 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TankInitWalkerEntryLoc3B40A {
+    LeftLoc3C0D2,
+    RightLoc3C026,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TankInitDriveSoundLoc3B40A {
+    pub(crate) next_tank_drive_refcount: u8,
+    pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
+    pub(crate) walker_entry: TankInitWalkerEntryLoc3B40A,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_init_drive_sound_loc_3b40a(
+    tank_drive_refcount: u8,
+    motion_active_flag_19: bool,
+    x_direction: u8,
+) -> TankInitDriveSoundLoc3B40A {
+    // ASM Tank.asm loc_3B40A: after the optional
+    // `j_PlaySound(sfx_Tank_driving)`, increment the shared tank-drive
+    // refcount and branch by x_direction. Zero enters loc_3C0D2; nonzero
+    // enters loc_3C026.
+    TankInitDriveSoundLoc3B40A {
+        next_tank_drive_refcount: tank_drive_refcount.wrapping_add(1),
+        sound_call: (tank_drive_refcount == 0 && !motion_active_flag_19).then_some(
+            SharedEnemyDriveSoundCallSub3C352::PlaySound(
+                SharedEnemyDriveSoundEffectSub3C352::TankDriving,
+            ),
+        ),
+        walker_entry: if x_direction == 0 {
+            TankInitWalkerEntryLoc3B40A::LeftLoc3C0D2
+        } else {
+            TankInitWalkerEntryLoc3B40A::RightLoc3C026
+        },
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TankShootingInitWalkerEntryLoc3B690 {
     LeftLoc3C0D2,
     RightLoc3C026,
@@ -17707,6 +17745,38 @@ mod tests {
                 walk_speed: 0x0001_0000,
             },
             "ASM Tank.asm loc_3B31E should double selected art slot 1 into `$3E=2`, use palette/VRAM slot 1, set object_meta bit 7, clear priority, and store enemy_level+2 HP",
+        );
+    }
+
+    #[test]
+    fn tank_init_drive_sound_loc_3b40a_starts_first_visible_loop() {
+        let result = tank_init_drive_sound_loc_3b40a(0, false, 0);
+
+        assert_eq!(
+            result,
+            TankInitDriveSoundLoc3B40A {
+                next_tank_drive_refcount: 1,
+                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::PlaySound(
+                    SharedEnemyDriveSoundEffectSub3C352::TankDriving,
+                )),
+                walker_entry: TankInitWalkerEntryLoc3B40A::LeftLoc3C0D2,
+            },
+            "ASM Tank.asm loc_3B40A should play TankDriving for the first visible tank, increment refcount, and branch to loc_3C0D2 when x_direction is zero",
+        );
+    }
+
+    #[test]
+    fn tank_init_drive_sound_loc_3b40a_skips_sound_but_still_increments() {
+        let result = tank_init_drive_sound_loc_3b40a(2, true, 0xFF);
+
+        assert_eq!(
+            result,
+            TankInitDriveSoundLoc3B40A {
+                next_tank_drive_refcount: 3,
+                sound_call: None,
+                walker_entry: TankInitWalkerEntryLoc3B40A::RightLoc3C026,
+            },
+            "ASM Tank.asm loc_3B40A should skip sound when refcount or `$19(a3)` is nonzero, still increment, and branch to loc_3C026 for nonzero x_direction",
         );
     }
 
