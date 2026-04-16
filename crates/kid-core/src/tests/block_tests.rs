@@ -2897,6 +2897,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_transition_loc_35c82_runs_animation_then_restarts_script() {
+        assert_eq!(
+            cloud_transition_loc_35C82(),
+            CloudTransitionLoc35C82 {
+                animation_script: "stru_35EC8",
+                hibernates_until_animation_finished: true,
+                restarts_control_script: true,
+            },
+            "ASM Cloud.asm loc_35C82 initialises stru_35EC8, hibernates until it finishes, then branches to loc_35BAC"
+        );
+    }
+
+    #[test]
     fn cloud_death_sequence_loc_35c0e_clears_motion_updates_status_and_deletes() {
         let positive = cloud_death_sequence_loc_35C0E(0x02);
         assert_eq!(positive.x_velocity, 0);
