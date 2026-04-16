@@ -4646,6 +4646,21 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_respawn_marker_loc_34188_writes_positive_status_slot() {
+        // ASM Archer.asm loc_34188 doubles positive `$42(a5)` as the
+        // EnemyStatus_Table word offset and writes `$2168`.
+        let marker = ArcherRespawnMarkerLoc34188 {
+            index: 5,
+            word_value: 0x2168,
+        };
+        assert_eq!(archer_respawn_marker_loc_34188(0x05), marker);
+        assert_eq!(
+            archer_death_sequence_loc_3414A(0x05).status_route,
+            ArcherDeathStatusRouteLoc3414A::WriteRespawnMarker(marker)
+        );
+    }
+
+    #[test]
     fn archer_adjust_angle_no_change_when_equal() {
         assert_eq!(archer_adjust_angle(10, 10), 10);
         assert_eq!(archer_adjust_angle(0, 0), 0);

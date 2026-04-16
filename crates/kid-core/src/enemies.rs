@@ -2645,9 +2645,30 @@ pub(crate) fn archer_shot_selection_loc_340C0(target_angle: usize) -> ArcherShot
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArcherDeathStatusRouteLoc3414A {
-    WriteRespawnMarker { index: usize, word_value: u16 },
+    WriteRespawnMarker(ArcherRespawnMarkerLoc34188),
     SubtractSpawnCounter { index: usize, decrement: u16 },
     DeleteOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArcherRespawnMarkerLoc34188 {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn archer_respawn_marker_loc_34188(
+    object_status_slot: u8,
+) -> ArcherRespawnMarkerLoc34188 {
+    // ASM Archer.asm loc_34188: positive `$42(a5)` is doubled as an
+    // EnemyStatus_Table word offset, then `$2168` is written as the respawn
+    // marker before falling into the delete tail.
+    ArcherRespawnMarkerLoc34188 {
+        index: usize::from(object_status_slot),
+        word_value: 0x2168,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2668,10 +2689,9 @@ pub(crate) fn archer_death_sequence_loc_3414A(
     // animation, force Kid's y velocity to `$FFFC0000`, then route `$42(a5)`
     // before the shared delete tail.
     let status_route = if object_status_slot & 0x80 == 0 {
-        ArcherDeathStatusRouteLoc3414A::WriteRespawnMarker {
-            index: usize::from(object_status_slot),
-            word_value: 0x2168,
-        }
+        ArcherDeathStatusRouteLoc3414A::WriteRespawnMarker(archer_respawn_marker_loc_34188(
+            object_status_slot,
+        ))
     } else if object_status_slot & 0x40 != 0 {
         ArcherDeathStatusRouteLoc3414A::SubtractSpawnCounter {
             index: usize::from(object_status_slot & 0x3F),
