@@ -442,6 +442,21 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn gfx_object_alloc_tail_loc_FBE_swaps_priority_and_increments_the_live_count() {
+        assert_eq!(
+            gfx_object_alloc_tail_loc_FBE(0x0201_0004, 0xFFFF, 0x00FF_8100),
+            GfxObjectAllocTailLocFBE {
+                object_kind_word: 0x0004,
+                priority_word: 0x0201,
+                next_number_gfx_objects: 0,
+                owner_object_addr: 0x00FF_8100,
+            },
+            "ASM loc_FBE should `swap d5`, store the high allocation word into `$A(a3)`, wrap `Number_GfxObjects`, and copy `a5` into `$C(a3)`",
+        );
+    }
+
+    #[test]
     fn gfx_object_delete_loc_10f4_routes_object_kind_3_to_the_fffff86a_singleton_slot() {
         assert_eq!(
             gfx_object_delete_loc_10C6(None, Some(7), 5, 3, 3).special_slot,

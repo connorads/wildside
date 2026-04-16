@@ -613,6 +613,15 @@ pub(crate) struct GfxObjectAllocationSpecialChainSpliceLocFB8 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GfxObjectAllocTailLocFBE {
+    pub(crate) object_kind_word: u16,
+    pub(crate) priority_word: u16,
+    pub(crate) next_number_gfx_objects: u16,
+    pub(crate) owner_object_addr: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GfxObjectSpecialSlotLoc10C6 {
     None,
     Kid,
@@ -652,6 +661,25 @@ pub(crate) fn gfx_object_alloc_special_chain_splice_loc_FB8(
     GfxObjectAllocationSpecialChainSpliceLocFB8 {
         new_gfx_special_next_index: current_special_chain_head_index,
         new_special_chain_head_index: new_gfx_index,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_alloc_tail_loc_FBE(
+    allocation_spec: u32,
+    current_number_gfx_objects: u16,
+    owner_object_addr: u32,
+) -> GfxObjectAllocTailLocFBE {
+    // ASM loc_FBE (kid.asm:1889): after the low allocation word has been
+    // stored in `8(a3)` and any special-chain splice is done, `swap d5` stores
+    // the high allocation word in `$A(a3)`, increments `Number_GfxObjects`,
+    // and copies owner pointer `a5` into `$C(a3)` before sorted insertion.
+    GfxObjectAllocTailLocFBE {
+        object_kind_word: allocation_spec as u16,
+        priority_word: (allocation_spec >> 16) as u16,
+        next_number_gfx_objects: current_number_gfx_objects.wrapping_add(1),
+        owner_object_addr,
     }
 }
 
