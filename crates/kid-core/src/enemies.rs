@@ -426,8 +426,8 @@ pub(crate) fn tank_shooting_init_visible_state_loc_3b5a6(
 pub(crate) fn tank_shooting_walk_speed_loc_3b5f2(current_hp: u8) -> i32 {
     // ASM Tank_Shooting.asm loc_3B5F2: HP > 3 preloads `$50(a5)` with
     // `$8000`, HP == 3 falls directly into this `$8000` add, and all paths
-    // then receive the final `$8000`. HP < 3 skips loc_3B5F2 and receives
-    // only the final add.
+    // then receive the final `$8000` at loc_3B5FA. HP < 3 skips loc_3B5F2
+    // and receives only the loc_3B5FA final add.
     match current_hp {
         0..=2 => 0x0000_8000,
         3 => 0x0001_0000,
@@ -3094,6 +3094,10 @@ pub(crate) const TANK_SHOOTING_SLOW_CYCLE_FRAMES: u16 = 232;
 /// ASM GfxObject_Animate + `stru_3B4D8`/`stru_3B4F6`: `loc_3C50E` fires one
 /// frame after the turret enters `LnkTo_unk_C7F10`, which is 74 frames after init.
 pub(crate) const TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES: u16 = 74;
+/// ASM Tank_Shooting.asm loc_3B5FA: after allocating the turret child,
+/// `move.w #$49,$54(a5)` seeds the first shot countdown.
+pub(crate) const TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA: u16 =
+    TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES - 1;
 /// ASM Tank_Shooting.asm loc_3B75A/loc_3B77E: spawn at ±15px from tank centre.
 pub(crate) const TANK_BULLET_SPAWN_X_OFFSET_PX: i32 = 15;
 /// ASM Tank_Shooting.asm loc_3B786/loc_3B78E: projectile Y = turret_y - (8 + 6) px.
@@ -18258,8 +18262,13 @@ mod tests {
         );
         assert_eq!(
             spawn_wait_timer(EnemyFamily::TankShooting, 0, 0, &mut rng),
+            TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA,
+            "ASM Tank_Shooting.asm loc_3B5FA seeds `$54(a5)` with `$49`; GfxObject_Animate reaches `loc_3C50E` one frame later"
+        );
+        assert_eq!(
+            TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA,
             TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES - 1,
-            "ASM GfxObject_Animate reaches `LnkTo_unk_C7F10`/timer 5 after 74 frames, so the countdown seed is 73"
+            "ASM Tank_Shooting.asm loc_3B5FA stores the countdown value for a 74-frame first-shot delay"
         );
     }
 
@@ -25687,10 +25696,11 @@ pub(crate) fn spawn_wait_timer(
 ) -> u16 {
     match family {
         EnemyFamily::EmoRock => emo_rock_wait_timer_with_rng(rng, player_x),
-        // ASM Tank_Shooting.asm `stru_3B4D8`/`stru_3B4F6` reaches the
-        // `loc_3C50E` fire gate 74 frames after init. Plain Tank.asm never fires.
+        // ASM Tank_Shooting.asm loc_3B5FA seeds `$54(a5)` with `$49`; the
+        // `stru_3B4D8`/`stru_3B4F6` animation reaches `loc_3C50E` one frame
+        // later. Plain Tank.asm never fires.
         EnemyFamily::Tank => 0,
-        EnemyFamily::TankShooting => TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES.saturating_sub(1),
+        EnemyFamily::TankShooting => TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA,
         // Archer: fire first arrow after one full interval (HP1 rate).
         EnemyFamily::Archer => ARCHER_FIRE_TIMER[0],
         // Lion: charge timer counts down from $3C (60 frames) before first charge.
