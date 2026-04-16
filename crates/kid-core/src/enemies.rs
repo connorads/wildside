@@ -1921,6 +1921,19 @@ pub(crate) fn armadillo_hp2_init_animation_loc_3c7c0(
     })
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_high_hp_init_animation_loc_3c7de(
+    current_hp: u8,
+) -> Option<ArmadilloInitAnimationProfile> {
+    // ASM Armadillo.asm loc_3C7DE: HP above 2 starts and saves `stru_3C64C`
+    // for patrol, but stores `stru_3C680` as the damage-resume animation.
+    (current_hp > 2).then_some(ArmadilloInitAnimationProfile {
+        initial_animation_script: "stru_3C64C",
+        saved_patrol_animation: "stru_3C64C",
+        saved_damage_resume_animation: "stru_3C680",
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
@@ -15988,6 +16001,24 @@ mod tests {
             armadillo_hp2_init_animation_loc_3c7c0(1),
             None,
             "ASM Armadillo.asm loc_3C7C0 is only reached after `cmpi.w #2,d7; bge.s loc_3C7C0`"
+        );
+    }
+
+    #[test]
+    fn armadillo_high_hp_init_animation_matches_loc_3c7de() {
+        assert_eq!(
+            armadillo_high_hp_init_animation_loc_3c7de(3),
+            Some(ArmadilloInitAnimationProfile {
+                initial_animation_script: "stru_3C64C",
+                saved_patrol_animation: "stru_3C64C",
+                saved_damage_resume_animation: "stru_3C680",
+            }),
+            "ASM Armadillo.asm loc_3C7DE keeps the fast patrol animation and swaps the damage-resume animation to stru_3C680"
+        );
+        assert_eq!(
+            armadillo_high_hp_init_animation_loc_3c7de(2),
+            None,
+            "ASM Armadillo.asm loc_3C7DE is only reached when the HP word is greater than two"
         );
     }
 
