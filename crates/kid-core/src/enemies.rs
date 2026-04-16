@@ -10434,6 +10434,8 @@ pub(crate) fn ninja_jump_attack_start_loc_3d9a4(
         } else {
             -NINJA_JUMP_X_SPEED_LEFT
         },
+        // ASM Ninja.asm loc_3D9C0: seed `y_vel`, enable level collision/movement,
+        // clear animation, and select the jump-attack sprite.
         y_velocity: NINJA_JUMP_Y_SPEED,
         has_level_collision: true,
         is_moved: true,
@@ -25018,6 +25020,21 @@ mod tests {
                 sprite_link: "LnkTo_unk_C7D6E",
             },
             "ASM Ninja.asm loc_3D9B8 should branch by set x_direction and use +$10000 for the right-facing lunge"
+        );
+    }
+
+    #[test]
+    fn ninja_jump_attack_start_loc_3d9c0_sets_shared_airborne_state() {
+        let state = ninja_jump_attack_start_loc_3d9a4(false);
+
+        assert_eq!(state.next_collision_type, 0);
+        assert_eq!(state.y_velocity, -0x0004_8000);
+        assert!(state.has_level_collision);
+        assert!(state.is_moved);
+        assert!(!state.is_animated);
+        assert_eq!(
+            state.sprite_link, "LnkTo_unk_C7D6E",
+            "ASM Ninja.asm loc_3D9C0 should set y_vel=-$48000, enable collision/motion, clear animation, and select C7D6E"
         );
     }
 
