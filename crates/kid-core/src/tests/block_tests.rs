@@ -2399,6 +2399,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_initial_dispatch_loc_3cb02_preserves_x_direction_convention() {
+        assert_eq!(
+            goat_initial_dispatch_loc_3_cb02(Direction::Left),
+            GoatInitialDispatchRouteLoc3CB02::ClearXDirection
+        );
+        assert_eq!(
+            goat_initial_dispatch_loc_3_cb02(Direction::Right),
+            GoatInitialDispatchRouteLoc3CB02::FlippedXDirection,
+            "ASM Goat.asm loc_3CB02 tests x_direction after installing the goat collision callback"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);

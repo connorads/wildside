@@ -1913,6 +1913,26 @@ pub(crate) fn goat_high_hp_init_animation_loc_3_cae8(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum GoatInitialDispatchRouteLoc3CB02 {
+    ClearXDirection,
+    FlippedXDirection,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_initial_dispatch_loc_3_cb02(
+    facing: Direction,
+) -> GoatInitialDispatchRouteLoc3CB02 {
+    // ASM Goat.asm loc_3CB02: after installing the goat collision callback,
+    // `tst.b x_direction(a3)` selects the clear-flag path for the default
+    // left-facing art and the flipped path for right-facing goats.
+    match facing {
+        Direction::Left => GoatInitialDispatchRouteLoc3CB02::ClearXDirection,
+        Direction::Right => GoatInitialDispatchRouteLoc3CB02::FlippedXDirection,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {
