@@ -301,6 +301,10 @@ pub(crate) const DRAGON_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const CRAB_COLID_HURT: i16 = 0x001C;
 pub(crate) const CRAB_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const CRAB_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const GOAT_COLID_HURT: i16 = 0x001C;
+pub(crate) const GOAT_COLID_KIDRIGHT: i16 = 0x0020;
+pub(crate) const GOAT_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const GOAT_COLID_KIDABOVE: i16 = 0x002C;
 pub(crate) const SCORPION_COLID_HURT: i16 = 0x001C;
 pub(crate) const SCORPION_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const SCORPION_COLID_KIDLEFT: i16 = 0x0024;
@@ -2340,6 +2344,33 @@ pub(crate) fn goat_initial_dispatch_loc_3_cb02(
     match facing {
         Direction::Left => GoatInitialDispatchRouteLoc3CB02::ClearXDirection,
         Direction::Right => GoatInitialDispatchRouteLoc3CB02::FlippedXDirection,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum GoatCollisionRouteLoc3CB14 {
+    ContinueSharedWalker,
+    Damage,
+    BerzerkerSideGate,
+    Death,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_collision_dispatch_loc_3cb14(collision_type: i16) -> GoatCollisionRouteLoc3CB14 {
+    // ASM Goat.asm loc_3CB14: read `collision_type(a3)` before clearing it.
+    // Signed-negative words enter the death path, zero and unknown positives
+    // resume walking, hurt/Kid-above contacts damage HP, and side contacts
+    // branch to the Berzerker side-contact gate.
+    if collision_type.is_negative() {
+        return GoatCollisionRouteLoc3CB14::Death;
+    }
+
+    match collision_type {
+        0 => GoatCollisionRouteLoc3CB14::ContinueSharedWalker,
+        GOAT_COLID_HURT | GOAT_COLID_KIDABOVE => GoatCollisionRouteLoc3CB14::Damage,
+        GOAT_COLID_KIDRIGHT | GOAT_COLID_KIDLEFT => GoatCollisionRouteLoc3CB14::BerzerkerSideGate,
+        _ => GoatCollisionRouteLoc3CB14::ContinueSharedWalker,
     }
 }
 

@@ -2412,6 +2412,45 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_collision_dispatch_loc_3cb14_routes_collision_words() {
+        assert_eq!(
+            goat_collision_dispatch_loc_3cb14(0),
+            GoatCollisionRouteLoc3CB14::ContinueSharedWalker,
+            "ASM Goat.asm loc_3CB14 sends zero collision_type to the shared walker resume path"
+        );
+        assert_eq!(
+            goat_collision_dispatch_loc_3cb14(-1),
+            GoatCollisionRouteLoc3CB14::Death,
+            "ASM Goat.asm loc_3CB14 sends signed-negative collision words to the death branch"
+        );
+        assert_eq!(
+            goat_collision_dispatch_loc_3cb14(GOAT_COLID_HURT),
+            GoatCollisionRouteLoc3CB14::Damage,
+            "ASM Goat.asm loc_3CB14 sends colid_hurt to the HP damage branch"
+        );
+        assert_eq!(
+            goat_collision_dispatch_loc_3cb14(GOAT_COLID_KIDABOVE),
+            GoatCollisionRouteLoc3CB14::Damage,
+            "ASM Goat.asm loc_3CB14 sends colid_kidabove to the same HP damage path"
+        );
+        assert_eq!(
+            goat_collision_dispatch_loc_3cb14(GOAT_COLID_KIDRIGHT),
+            GoatCollisionRouteLoc3CB14::BerzerkerSideGate,
+            "ASM Goat.asm loc_3CB14 routes colid_kidright to the Berzerker side-contact gate"
+        );
+        assert_eq!(
+            goat_collision_dispatch_loc_3cb14(GOAT_COLID_KIDLEFT),
+            GoatCollisionRouteLoc3CB14::BerzerkerSideGate,
+            "ASM Goat.asm loc_3CB14 routes colid_kidleft to the same side-contact gate"
+        );
+        assert_eq!(
+            goat_collision_dispatch_loc_3cb14(0x0010),
+            GoatCollisionRouteLoc3CB14::ContinueSharedWalker,
+            "ASM Goat.asm loc_3CB14 treats unrelated positive collision words as clear-and-resume"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);
