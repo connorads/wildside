@@ -11030,6 +11030,41 @@ pub(crate) fn robot_shoot_head_hold_loc_3aa72(
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RobotShootRecoveryRouteLoc3AA88 {
+    ContinueShoot,
+    CollisionHandler,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShootRecoveryPauseLoc3AA88 {
+    pub(crate) hibernated_frames: u8,
+    pub(crate) route: RobotShootRecoveryRouteLoc3AA88,
+    pub(crate) child_y_delta_after_loop_px: i16,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shoot_recovery_pause_loc_3aa88(
+    first_child_collision_frame: Option<u8>,
+) -> RobotShootRecoveryPauseLoc3AA88 {
+    // ASM Robot.asm loc_3AA88: `d0=#$A` hibernates/checks child `$38(a2)`
+    // eleven times. Only the uninterrupted path then `subi.w #3,$1E(a2)`.
+    match first_child_collision_frame {
+        Some(frame @ 1..=11) => RobotShootRecoveryPauseLoc3AA88 {
+            hibernated_frames: frame,
+            route: RobotShootRecoveryRouteLoc3AA88::CollisionHandler,
+            child_y_delta_after_loop_px: 0,
+        },
+        _ => RobotShootRecoveryPauseLoc3AA88 {
+            hibernated_frames: 11,
+            route: RobotShootRecoveryRouteLoc3AA88::ContinueShoot,
+            child_y_delta_after_loop_px: -3,
+        },
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]

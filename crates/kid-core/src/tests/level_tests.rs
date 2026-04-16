@@ -16139,6 +16139,37 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3aa88_waits_eleven_frames_before_raising_robot_head() {
+        assert_eq!(
+            robot_shoot_recovery_pause_loc_3aa88(None),
+            RobotShootRecoveryPauseLoc3AA88 {
+                hibernated_frames: 11,
+                route: RobotShootRecoveryRouteLoc3AA88::ContinueShoot,
+                child_y_delta_after_loop_px: -3,
+            },
+            "ASM loc_3AA88: d0=#$A with DBF hibernates 11 frames, then subi.w #3,$1E(a2) raises the head 3px"
+        );
+        assert_eq!(
+            robot_shoot_recovery_pause_loc_3aa88(Some(11)),
+            RobotShootRecoveryPauseLoc3AA88 {
+                hibernated_frames: 11,
+                route: RobotShootRecoveryRouteLoc3AA88::CollisionHandler,
+                child_y_delta_after_loop_px: 0,
+            },
+            "ASM loc_3AA88: collision on the final checked frame still branches before the Y adjustment"
+        );
+        assert_eq!(
+            robot_shoot_recovery_pause_loc_3aa88(Some(12)),
+            RobotShootRecoveryPauseLoc3AA88 {
+                hibernated_frames: 11,
+                route: RobotShootRecoveryRouteLoc3AA88::ContinueShoot,
+                child_y_delta_after_loop_px: -3,
+            },
+            "ASM loc_3AA88: collisions after the 11 checked frames cannot interrupt the Y adjustment"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the
