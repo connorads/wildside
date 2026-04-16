@@ -2483,6 +2483,27 @@ mod chunk_04 {
     }
 
     #[test]
+    fn scorpion_tracking_refaces_before_range_exit_per_loc_3dda8() {
+        use enemies::step_scorpion_tracking;
+
+        let mut enemy = make_pacer(EnemyFamily::Scorpion, 5, 100, 224);
+        enemy.facing = Direction::Left;
+        enemy.walk_speed_override = 0x3_8000;
+
+        step_scorpion_tracking(&mut enemy, Some(500u32 << 16), None);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Scorpion.asm loc_3DDA8 is reached after loc_3DDA4 can set x_direction, so out-of-range Kid to the right still re-faces first"
+        );
+        assert_eq!(
+            enemy.walk_speed_override, 0x1_8000,
+            "ASM Scorpion.asm loc_3DDA8 exits to loc_3DE7E outside +/-$AA and restores base speed"
+        );
+    }
+
+    #[test]
     fn scorpion_collision_resume_patrol_branches_match_loc_3dd72() {
         use enemies::{ScorpionCollisionResumeBranchLoc3DD5C, scorpion_collision_resume_loc_3dd5c};
 

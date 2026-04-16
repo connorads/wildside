@@ -14383,18 +14383,9 @@ pub(crate) fn step_scorpion_tracking(
     let Some(px) = player_x_pos else { return };
     let dx = (enemy.x_pos as i64 - px as i64) >> 16; // scorpion_x - player_x
 
-    // Outside tracking range: reset speed, optionally clear tracking lock.
-    // ASM loc_3DE7E: $50(a5) = $18000; if player airborne, clear $4E.
-    if dx.abs() > SCORPION_TRACK_RANGE {
-        enemy.walk_speed_override = SCORPION_BASE_SPEED;
-        // ASM checks player y_vel ($26(a4)) to clear tracking lock.
-        // We approximate: clear lock when out of range (conservative).
-        enemy.scorpion_tracking_lock = false;
-        return;
-    }
-
     // Within tracking range: face toward player unless tracking-locked.
-    // ASM loc_3DD7E lines 146-155: if $4E clear, set x_direction toward player.
+    // ASM loc_3DD7E lines 146-155: if $4E clear, set x_direction toward player
+    // before the loc_3DDA8 range gate runs.
     if !enemy.scorpion_tracking_lock {
         if dx > 0 {
             enemy.facing = Direction::Left; // player is to the left
@@ -14403,6 +14394,16 @@ pub(crate) fn step_scorpion_tracking(
             // sets `x_direction(a3)`, the native right-facing scorpion state.
             enemy.facing = Direction::Right; // player is to the right
         }
+    }
+
+    // ASM Scorpion.asm loc_3DDA8: after the optional re-facing branch, compare
+    // d4 against +/-$AA; outside the window exits to loc_3DE7E for base speed.
+    if dx.abs() > SCORPION_TRACK_RANGE {
+        enemy.walk_speed_override = SCORPION_BASE_SPEED;
+        // ASM checks player y_vel ($26(a4)) to clear tracking lock.
+        // We approximate: clear lock when out of range (conservative).
+        enemy.scorpion_tracking_lock = false;
+        return;
     }
 
     // ASM line 162-164: if enemy_level > 1 (HP >= 5 since HP = level + 3), boost speed.
