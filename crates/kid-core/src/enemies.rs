@@ -6045,6 +6045,26 @@ pub(crate) fn ufo_hurt_driver_slide_ground_miss_loc_356f2(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverSlideCollisionReturnLoc3571E {
+    pub(crate) stack_bytes_discarded: u16,
+    pub(crate) next_label: &'static str,
+    pub(crate) slide_loop: UfoHurtDriverSlideLoopLoc35680,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_slide_collision_return_loc_3571e()
+-> UfoHurtDriverSlideCollisionReturnLoc3571E {
+    // ASM UFO.asm loc_3571E: `addq.w #4,sp` discards the collision dispatch
+    // return address, then branches straight back to the loc_35680 slide loop.
+    UfoHurtDriverSlideCollisionReturnLoc3571E {
+        stack_bytes_discarded: 4,
+        next_label: "loc_35680",
+        slide_loop: ufo_hurt_driver_slide_loop_loc_35680(),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -17017,6 +17037,27 @@ mod tests {
                 next_label: "loc_3564C",
             },
             "ASM UFO.asm loc_356F2 writes the selected word_356E4 high word to y_vel, preserves its low word, doubles x_vel, and branches to loc_3564C"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_driver_slide_collision_return_matches_loc_3571e() {
+        assert_eq!(
+            ufo_hurt_driver_slide_collision_return_loc_3571e(),
+            UfoHurtDriverSlideCollisionReturnLoc3571E {
+                stack_bytes_discarded: 4,
+                next_label: "loc_35680",
+                slide_loop: UfoHurtDriverSlideLoopLoc35680 {
+                    has_kid_collision: false,
+                    hibernates_one_frame: true,
+                    checks_in_range: true,
+                    collision_table: "off_356B6",
+                    collision_dispatch_mode: 0,
+                    checks_ground_tile: true,
+                    loops_forever: true,
+                },
+            },
+            "ASM UFO.asm loc_3571E adjusts the stack by four bytes and branches back to the loc_35680 slide loop"
         );
     }
 
