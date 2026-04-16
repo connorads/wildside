@@ -13224,6 +13224,17 @@ pub(crate) fn emo_rock_hover_target_loc_3621a(
     }
 }
 
+pub(crate) fn emo_rock_drop_velocity_loc_3625e(y_velocity: i32, gravity: i32) -> i32 {
+    // ASM Emo_Rock.asm loc_3625E: add d2 gravity to y_vel, keep the result when
+    // it is <= `$60000`, otherwise snap the falling speed back to `$40000`.
+    let accelerated_y_velocity = y_velocity + gravity;
+    if accelerated_y_velocity > EMO_ROCK_VELOCITY_THRESHOLD {
+        EMO_ROCK_VELOCITY_CAP
+    } else {
+        accelerated_y_velocity
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -13286,13 +13297,7 @@ pub(crate) fn step_emo_rock(
     // Dropping phase: apply gravity, check floor.
     let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
     let gravity = EMO_ROCK_GRAVITY[level_index];
-    let new_yv = enemy.y_velocity + gravity;
-    // ASM Emo_Rock.asm:72-74: if exceeds $60000, snap to $40000
-    enemy.y_velocity = if new_yv > EMO_ROCK_VELOCITY_THRESHOLD {
-        EMO_ROCK_VELOCITY_CAP
-    } else {
-        new_yv
-    };
+    enemy.y_velocity = emo_rock_drop_velocity_loc_3625e(enemy.y_velocity, gravity);
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
     if let Some(grid) = block_grid {
@@ -15864,6 +15869,20 @@ mod tests {
                 clearance_half_width_px: 0x000E,
             },
             "ASM Emo_Rock.asm loc_3621A copies Kid X, stores Kid Y minus d1, then calls the clearance probe with d6=$1C and d7=$E"
+        );
+    }
+
+    #[test]
+    fn emo_rock_drop_velocity_loc_3625e_caps_only_after_threshold() {
+        assert_eq!(
+            emo_rock_drop_velocity_loc_3625e(0x0005_C000, 0x0000_4000),
+            0x0006_0000,
+            "ASM Emo_Rock.asm loc_3625E keeps the accelerated y velocity when the signed compare is equal to `$60000`"
+        );
+        assert_eq!(
+            emo_rock_drop_velocity_loc_3625e(0x0006_0000, 0x0000_4000),
+            0x0004_0000,
+            "ASM Emo_Rock.asm loc_3625E snaps y velocity to `$40000` only when the accelerated value is greater than `$60000`"
         );
     }
 
