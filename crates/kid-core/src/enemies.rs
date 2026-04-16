@@ -2534,6 +2534,25 @@ pub(crate) fn dragon_walking_terminal_route_loc_3cee4(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingDeathSequenceLoc3CEFC {
+    pub(crate) death_animation: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) exits_enemy: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_death_sequence_loc_3cefc() -> DragonWalkingDeathSequenceLoc3CEFC {
+    // ASM Dragon.asm loc_3CEFC: initialise `stru_3CCEC`, hibernate until that
+    // animation finishes, then branch to the shared enemy exit tail at loc_3E956.
+    DragonWalkingDeathSequenceLoc3CEFC {
+        death_animation: "stru_3CCEC",
+        waits_until_animation_finished: true,
+        exits_enemy: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -14439,6 +14458,19 @@ mod tests {
                 next_collision_type: 0xFFFE,
             },
             "ASM Dragon.asm loc_3CEE4 converts spawned-child terminal contacts into collision_type `$FFFE` and resumes"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_death_sequence_matches_loc_3cefc() {
+        assert_eq!(
+            dragon_walking_death_sequence_loc_3cefc(),
+            DragonWalkingDeathSequenceLoc3CEFC {
+                death_animation: "stru_3CCEC",
+                waits_until_animation_finished: true,
+                exits_enemy: true,
+            },
+            "ASM Dragon.asm loc_3CEFC should play the walking-dragon death animation, wait for it, then exit the enemy"
         );
     }
 
