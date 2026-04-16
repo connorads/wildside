@@ -1524,6 +1524,18 @@ pub(crate) fn lion_charge_collision_x_commit_loc_3e80c(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_collision_vertical_entry_loc_3e812(
+    y_position: u32,
+    y_velocity: i32,
+    ceiling_probe_offset: u16,
+) -> LionLeftChargeVerticalEntryLoc3E6F6 {
+    // ASM Lion.asm loc_3E812: collision-reentry vertical motion adds `y_vel`
+    // to `y_pos`, compares integer words, and only takes the ceiling-probe path
+    // when the signed pixel delta is negative.
+    lion_left_charge_vertical_entry_loc_3e6f6(y_position, y_velocity, ceiling_probe_offset)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
     // ASM Lion.asm loc_3E6A4: after the airborne Y-velocity update, hibernate
     // for one frame, run sub_3E8BA's live object cull, then `jmp (a0)` back
@@ -20510,6 +20522,38 @@ mod tests {
                 enters_vertical_motion: true,
             },
             "ASM Lion.asm loc_3E80C should commit unobstructed d2 into x_pos, reload d0, and enter vertical motion"
+        );
+    }
+
+    #[test]
+    fn lion_charge_collision_vertical_entry_matches_loc_3e812() {
+        assert_eq!(
+            lion_charge_collision_vertical_entry_loc_3e812(0x0042_0000, 0x0001_0000, 6),
+            LionLeftChargeVerticalEntryLoc3E6F6::DownwardOrStationary {
+                candidate_y_position: 0x0043_0000,
+                pixel_delta: 1,
+            },
+            "ASM Lion.asm loc_3E812 should route non-negative integer Y deltas to the downward/stationary path"
+        );
+        assert_eq!(
+            lion_charge_collision_vertical_entry_loc_3e812(0x0042_0000, -0x0002_0000, 6),
+            LionLeftChargeVerticalEntryLoc3E6F6::UpwardCollisionCheck {
+                candidate_y_position: 0x0040_0000,
+                upward_pixels: 2,
+                ceiling_clearance_pixels: 12,
+                needs_ceiling_probe: false,
+            },
+            "ASM Lion.asm loc_3E812 should skip the ceiling probe when block-grid clearance covers upward movement"
+        );
+        assert_eq!(
+            lion_charge_collision_vertical_entry_loc_3e812(0x0042_0000, -0x000D_0000, 6),
+            LionLeftChargeVerticalEntryLoc3E6F6::UpwardCollisionCheck {
+                candidate_y_position: 0x0035_0000,
+                upward_pixels: 13,
+                ceiling_clearance_pixels: 12,
+                needs_ceiling_probe: true,
+            },
+            "ASM Lion.asm loc_3E812 should request a ceiling probe when upward movement crosses the nibble clearance"
         );
     }
 
