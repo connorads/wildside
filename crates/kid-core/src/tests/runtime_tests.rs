@@ -8169,6 +8169,22 @@ mod chunk_09 {
         );
     }
 
+    #[test]
+    fn lift_block_bob_up_pass_loc_fbb0_matches_the_second_hibernating_loop() {
+        let deltas = NativeRuntime::lift_block_bob_up_pass_loc_FBB0();
+
+        assert_eq!(
+            deltas,
+            &[-2, -2, -2, -2, -2],
+            "ASM loc_FBB0 should execute five `subq.w #2,y_pos(a3)` steps because `moveq #4,d0` feeds an inclusive DBF loop",
+        );
+        assert_eq!(
+            deltas.iter().copied().sum::<i16>(),
+            -10,
+            "ASM loc_FBB0 should move the struck lift block 10px upward before the second return pass starts",
+        );
+    }
+
     // --- Process block effects: lift block spawns platform ---
 
     #[test]
