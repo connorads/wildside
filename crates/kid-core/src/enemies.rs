@@ -1934,6 +1934,21 @@ pub(crate) fn armadillo_high_hp_init_animation_loc_3c7de(
     })
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_object_meta_sync_loc_3c810(object_meta: u16) -> u16 {
+    // ASM Armadillo.asm loc_3C810: clear bit 6, then copy bit 7 into bit 6 so
+    // the collision handler sees the current recoil/orientation metadata pair.
+    const MIRROR_TARGET_BIT: u16 = 0x0040;
+    const MIRROR_SOURCE_BIT: u16 = 0x0080;
+
+    let cleared = object_meta & !MIRROR_TARGET_BIT;
+    if cleared & MIRROR_SOURCE_BIT == 0 {
+        cleared
+    } else {
+        cleared | MIRROR_TARGET_BIT
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
@@ -16019,6 +16034,25 @@ mod tests {
             armadillo_high_hp_init_animation_loc_3c7de(2),
             None,
             "ASM Armadillo.asm loc_3C7DE is only reached when the HP word is greater than two"
+        );
+    }
+
+    #[test]
+    fn armadillo_object_meta_sync_matches_loc_3c810() {
+        assert_eq!(
+            armadillo_object_meta_sync_loc_3c810(0x0000),
+            0x0000,
+            "ASM Armadillo.asm loc_3C810 clears object_meta bit 6 when bit 7 is clear"
+        );
+        assert_eq!(
+            armadillo_object_meta_sync_loc_3c810(0x0040),
+            0x0000,
+            "ASM Armadillo.asm loc_3C810 begins with `bclr #6,object_meta(a3)`"
+        );
+        assert_eq!(
+            armadillo_object_meta_sync_loc_3c810(0x0080),
+            0x00C0,
+            "ASM Armadillo.asm loc_3C810 sets bit 6 only after `btst #7,object_meta(a3)` succeeds"
         );
     }
 
