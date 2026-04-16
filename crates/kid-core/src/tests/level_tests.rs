@@ -16206,6 +16206,40 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3aad4_routes_mid_shot_collision_before_restoring_walk() {
+        assert_eq!(
+            robot_shoot_collision_dispatch_loc_3aad4(0x002C, 0, 0, false),
+            RobotShootCollisionRouteLoc3AAD4::HitReaction,
+            "ASM loc_3AAD4: live child `$38(a2)==$2C` branches to the hit reaction"
+        );
+        assert_eq!(
+            robot_shoot_collision_dispatch_loc_3aad4(0, 0x001C, 0, false),
+            RobotShootCollisionRouteLoc3AAD4::HitReaction,
+            "ASM loc_3AAD4: latched d4==$1C branches to the hit reaction"
+        );
+        assert_eq!(
+            robot_shoot_collision_dispatch_loc_3aad4(0, 0, 0x002C, false),
+            RobotShootCollisionRouteLoc3AAD4::HitReaction,
+            "ASM loc_3AAD4: parent colid_hurt branches to the hit reaction"
+        );
+        assert_eq!(
+            robot_shoot_collision_dispatch_loc_3aad4(0, 0x0020, 0, false),
+            RobotShootCollisionRouteLoc3AAD4::RestoreShootWalk,
+            "ASM loc_3AAD4: side contact without Berzerker_charging falls back to shoot recovery"
+        );
+        assert_eq!(
+            robot_shoot_collision_dispatch_loc_3aad4(0, 0x0024, 0, true),
+            RobotShootCollisionRouteLoc3AAD4::Destroy,
+            "ASM loc_3AAD4: side contact with Berzerker_charging jumps to destroy prep"
+        );
+        assert_eq!(
+            robot_shoot_collision_dispatch_loc_3aad4(0, 0x0004, 0, true),
+            RobotShootCollisionRouteLoc3AAD4::RestoreShootWalk,
+            "ASM loc_3AAD4: unrecognised d4 values branch back to shoot recovery even while Berzerker is charging"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

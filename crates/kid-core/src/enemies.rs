@@ -12560,6 +12560,39 @@ pub(crate) fn robot_shoot_resume_loc_3aac4(x_direction: u8) -> RobotShootResumeL
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RobotShootCollisionRouteLoc3AAD4 {
+    RestoreShootWalk,
+    HitReaction,
+    Destroy,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shoot_collision_dispatch_loc_3aad4(
+    child_collision_type_d0: u16,
+    latched_child_collision_type_d4: u16,
+    parent_collision_type: u16,
+    berzerker_charging: bool,
+) -> RobotShootCollisionRouteLoc3AAD4 {
+    // ASM Robot.asm loc_3AAD4: `$38(a2)==$2C`, stale/latched `d4==$1C`, or
+    // parent `collision_type(a3)==colid_hurt` route to the hit reaction. Child
+    // side contacts `$20/$24` only destroy the Robot while Berzerker is charging;
+    // every other checked value restores the shoot/walk visual state.
+    if child_collision_type_d0 == 0x002C
+        || latched_child_collision_type_d4 == 0x001C
+        || parent_collision_type == 0x002C
+    {
+        return RobotShootCollisionRouteLoc3AAD4::HitReaction;
+    }
+
+    if matches!(latched_child_collision_type_d4, 0x0020 | 0x0024) && berzerker_charging {
+        RobotShootCollisionRouteLoc3AAD4::Destroy
+    } else {
+        RobotShootCollisionRouteLoc3AAD4::RestoreShootWalk
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
