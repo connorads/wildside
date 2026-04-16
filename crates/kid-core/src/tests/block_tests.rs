@@ -3420,14 +3420,14 @@ mod chunk_04 {
                 cloud_x: 100,
                 cloud_y: 50,
                 kid_x: 92,
-                kid_y: 49,
+                kid_y: 20,
             }),
             CloudDiagonalAttackSetupLoc35CD8 {
                 route: CloudDiagonalAttackRouteLoc35CD8::LaterRangeChecks,
                 animation_script: None,
                 object_45_value: None,
             },
-            "ASM Cloud.asm loc_35CD8 sends negative Kid-minus-cloud Y deltas to the later range checks"
+            "ASM Cloud.asm loc_35D62 rejects Kid-minus-cloud Y deltas below the signed -24 px side-attack window"
         );
     }
 
@@ -3493,6 +3493,48 @@ mod chunk_04 {
                 object_45_value: Some(0xFF),
             },
             "ASM Cloud.asm loc_35D40 starts a straight-down attack when Kid is below within the signed -15..16 px column"
+        );
+    }
+
+    #[test]
+    fn cloud_diagonal_attack_setup_loc_35d62_starts_horizontal_side_attack() {
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
+                object_45: 0x00,
+                x_direction: 0,
+                cloud_x: 100,
+                cloud_y: 50,
+                kid_x: 90,
+                kid_y: 40,
+            }),
+            CloudDiagonalAttackSetupLoc35CD8 {
+                route: CloudDiagonalAttackRouteLoc35CD8::StartAttack {
+                    x_word: -6,
+                    y_word: 0,
+                },
+                animation_script: Some("stru_35EC8"),
+                object_45_value: Some(0xFF),
+            },
+            "ASM Cloud.asm loc_35D62 starts a horizontal attack when Kid is within the signed +/-24 px Y window and in front of a clear-x_direction cloud"
+        );
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
+                object_45: 0x00,
+                x_direction: 0xFF,
+                cloud_x: 100,
+                cloud_y: 50,
+                kid_x: 110,
+                kid_y: 40,
+            }),
+            CloudDiagonalAttackSetupLoc35CD8 {
+                route: CloudDiagonalAttackRouteLoc35CD8::StartAttack {
+                    x_word: 6,
+                    y_word: 0,
+                },
+                animation_script: Some("stru_35EC8"),
+                object_45_value: Some(0xFF),
+            },
+            "ASM Cloud.asm loc_35D62 mirrors the horizontal launch for non-zero x_direction after the Y-window gate"
         );
     }
 

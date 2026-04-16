@@ -6807,6 +6807,19 @@ pub(crate) fn cloud_diagonal_attack_setup_loc_35CD8(
         }
     }
 
+    // ASM Cloud.asm loc_35D62: within the signed +/-$18 Y window, launch
+    // horizontally only when Kid is in front of the cloud's current direction.
+    if (-0x18..=0x18).contains(&d7) {
+        let d6 = input.kid_x.wrapping_sub(input.cloud_x);
+        if input.x_direction == 0 {
+            if d6 < 0 {
+                return cloud_diagonal_attack_start_loc_35cd8(-6, 0);
+            }
+        } else if d6 >= 0 {
+            return cloud_diagonal_attack_start_loc_35cd8(6, 0);
+        }
+    }
+
     cloud_diagonal_attack_later_range_checks_loc_35cd8()
 }
 
