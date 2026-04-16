@@ -16108,6 +16108,37 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3aa72_holds_robot_head_nudge_for_five_checked_frames() {
+        assert_eq!(
+            robot_shoot_head_hold_loc_3aa72(4, None),
+            RobotShootHeadHoldLoc3AA72 {
+                hibernated_frames: 5,
+                route: RobotShootHoldRouteLoc3AA72::ContinueShoot,
+                child_x_delta_after_loop_px: 0,
+            },
+            "ASM loc_3AA72: d0=#4 with DBF hibernates 5 frames, then sub.w d1,$1A(a2) restores the +4px head nudge"
+        );
+        assert_eq!(
+            robot_shoot_head_hold_loc_3aa72(-4, Some(1)),
+            RobotShootHeadHoldLoc3AA72 {
+                hibernated_frames: 1,
+                route: RobotShootHoldRouteLoc3AA72::CollisionHandler,
+                child_x_delta_after_loop_px: -4,
+            },
+            "ASM loc_3AA72: collision after the first hibernate branches before restoring the -4px head nudge"
+        );
+        assert_eq!(
+            robot_shoot_head_hold_loc_3aa72(4, Some(6)),
+            RobotShootHeadHoldLoc3AA72 {
+                hibernated_frames: 5,
+                route: RobotShootHoldRouteLoc3AA72::ContinueShoot,
+                child_x_delta_after_loop_px: 0,
+            },
+            "ASM loc_3AA72: collisions after the 5 checked frames cannot interrupt the X restore"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the
