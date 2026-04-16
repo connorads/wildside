@@ -2513,6 +2513,30 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_palette_loc_3a48e_selects_target_palette_slot() {
+        assert_eq!(
+            fire_demon_palette_target_loc_3a48e(0),
+            Some(0x22),
+            "ASM Fire_Demon.asm loc_3A48E indexes dword_3A482 slot 0 as Palette_Buffer+$22"
+        );
+        assert_eq!(
+            fire_demon_palette_target_loc_3a48e(1),
+            Some(0x42),
+            "ASM Fire_Demon.asm loc_3A48E indexes dword_3A482 slot 1 as Palette_Buffer+$42"
+        );
+        assert_eq!(
+            fire_demon_palette_target_loc_3a48e(2),
+            Some(0x52),
+            "ASM Fire_Demon.asm loc_3A48E indexes dword_3A482 slot 2 as Palette_Buffer+$52"
+        );
+        assert_eq!(
+            fire_demon_palette_target_loc_3a48e(3),
+            None,
+            "native boundary keeps the three-entry loc_3A48E palette table explicit"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);

@@ -1629,6 +1629,17 @@ pub(crate) fn fire_demon_init_walk_dispatch_loc_3a476(
     }
 }
 
+const FIRE_DEMON_PALETTE_TARGET_BYTE_OFFSETS_LOC_3A48E: [u16; 3] = [0x22, 0x42, 0x52];
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_palette_target_loc_3a48e(vram_slot: u8) -> Option<u16> {
+    // ASM Fire_Demon.asm loc_3A48E: `$3E(a4)` indexes dword_3A482,
+    // selecting Palette_Buffer+$22/+$42/+$52 as the palette pulse target.
+    FIRE_DEMON_PALETTE_TARGET_BYTE_OFFSETS_LOC_3A48E
+        .get(usize::from(vram_slot))
+        .copied()
+}
+
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).
