@@ -788,6 +788,8 @@ impl NativeRuntime {
             lift.last_integer_y = current_integer_y;
         }
 
+        // ASM loc_FCD2 (kid.asm:21038-21042): once `d1` has counted more
+        // than `$32` changed integer `6(a3)` rows, switch to falling.
         if lift.moved_y_steps > 0x32 {
             lift.y_velocity = lift.y_velocity.wrapping_add(0x07D0);
         } else {
