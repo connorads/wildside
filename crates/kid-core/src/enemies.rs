@@ -2309,6 +2309,27 @@ pub(crate) fn big_hopping_skull_hit_animation_wait_loc_36632(
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BigHoppingSkullDeathEntryLoc3664E {
+    pub(crate) sound_effect: &'static str,
+    pub(crate) d0_preserved: bool,
+    pub(crate) animation: &'static str,
+    pub(crate) next_loop: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_death_entry_loc_3664e() -> BigHoppingSkullDeathEntryLoc3664E {
+    // ASM Big_Hopping_Skull.asm loc_3664E: push d0, play
+    // `sfx_Big_Hopping_Skull_dies`, restore d0, initialise `stru_367FA`,
+    // then fall through to the death-animation wait loop.
+    BigHoppingSkullDeathEntryLoc3664E {
+        sound_effect: "sfx_Big_Hopping_Skull_dies",
+        d0_preserved: true,
+        animation: "stru_367FA",
+        next_loop: "death_animation_wait",
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,

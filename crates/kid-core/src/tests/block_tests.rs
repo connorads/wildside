@@ -4076,6 +4076,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_death_entry_matches_loc_3664e() {
+        assert_eq!(
+            enemies::big_hopping_skull_death_entry_loc_3664e(),
+            enemies::BigHoppingSkullDeathEntryLoc3664E {
+                sound_effect: "sfx_Big_Hopping_Skull_dies",
+                d0_preserved: true,
+                animation: "stru_367FA",
+                next_loop: "death_animation_wait",
+            },
+            "ASM Big_Hopping_Skull.asm loc_3664E should preserve d0, play the death sound, initialise stru_367FA, and fall through to the death wait loop",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),
