@@ -2729,6 +2729,8 @@ pub(crate) fn scorpion_collision_resume_loc_3dd5c(
     // then test `x_direction(a3)` to choose the post-charge or patrol resume
     // branch for the current facing.
     let next = match (post_charge_state, facing) {
+        // ASM Scorpion.asm loc_3DD72: with `$5C(a5)` clear, a clear
+        // `x_direction(a3)` resumes the left patrol branch; set resumes right.
         (false, Direction::Left) => ScorpionCollisionResumeBranchLoc3DD5C::PatrolLeft,
         (false, Direction::Right) => ScorpionCollisionResumeBranchLoc3DD5C::PatrolRight,
         (true, Direction::Left) => ScorpionCollisionResumeBranchLoc3DD5C::PostChargeLeft,

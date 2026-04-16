@@ -2467,6 +2467,22 @@ mod chunk_04 {
     }
 
     #[test]
+    fn scorpion_collision_resume_patrol_branches_match_loc_3dd72() {
+        use enemies::{ScorpionCollisionResumeBranchLoc3DD5C, scorpion_collision_resume_loc_3dd5c};
+
+        assert_eq!(
+            scorpion_collision_resume_loc_3dd5c(false, Direction::Left).next,
+            ScorpionCollisionResumeBranchLoc3DD5C::PatrolLeft,
+            "ASM Scorpion.asm loc_3DD72 reaches loc_3E560 when x_direction is clear"
+        );
+        assert_eq!(
+            scorpion_collision_resume_loc_3dd5c(false, Direction::Right).next,
+            ScorpionCollisionResumeBranchLoc3DD5C::PatrolRight,
+            "ASM Scorpion.asm loc_3DD72 reaches loc_3E3AC when x_direction is set"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_driller_scales_with_hp() {
         // Driller: base_hp=2, base_speed=$8000, step=$8000
         assert_eq!(pacer_walk_speed(EnemyFamily::Driller, 2), 0x0000_8000);
