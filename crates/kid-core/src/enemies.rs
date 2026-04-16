@@ -13387,6 +13387,28 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_33892(
     DripsSurfaceCrawlerMovementPathLoc33892::FallbackTurn
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsSurfaceCrawlerDeleteTailLoc3392C {
+    pub(crate) is_moved: bool,
+    pub(crate) waits_for_animation_to_finish: bool,
+    pub(crate) current_drips_delta: i16,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_delete_tail_loc_3392c() -> DripsSurfaceCrawlerDeleteTailLoc3392C
+{
+    // ASM Drips.asm loc_3392C: clear `is_moved(a3)`, wait for the current
+    // animation to finish, decrement `$FFFFFB42`, then delete this crawler.
+    DripsSurfaceCrawlerDeleteTailLoc3392C {
+        is_moved: false,
+        waits_for_animation_to_finish: true,
+        current_drips_delta: -1,
+        deletes_current_object: true,
+    }
+}
+
 /// Step a Drips enemy: stationary ceiling hanger that periodically drops projectiles.
 /// ASM: Drips.asm — forming animation → drop at 10px/frame → splash → reform → repeat.
 /// Native approximation uses a physics projectile for the drop.
@@ -18658,6 +18680,20 @@ mod tests {
             drips_surface_crawler_movement_tail_loc_33892(false, false, false, 0x1111),
             DripsSurfaceCrawlerMovementPathLoc33892::FallbackTurn,
             "ASM Drips.asm loc_33892 falls through to loc_339F0 for non-matching d7 flags"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_delete_tail_matches_loc_3392c() {
+        assert_eq!(
+            drips_surface_crawler_delete_tail_loc_3392c(),
+            DripsSurfaceCrawlerDeleteTailLoc3392C {
+                is_moved: false,
+                waits_for_animation_to_finish: true,
+                current_drips_delta: -1,
+                deletes_current_object: true,
+            },
+            "ASM Drips.asm loc_3392C clears movement, waits for animation completion, decrements current Drips count, and deletes the object"
         );
     }
 
