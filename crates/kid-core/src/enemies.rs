@@ -8469,6 +8469,40 @@ pub(crate) fn robot_collision_clear_loc_3a958(facing: Direction) -> RobotCollisi
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotChargeEntryLoc3A96C {
+    pub(crate) tracking_latch_cleared: bool,
+    pub(crate) child_status_13_during_windup: bool,
+    pub(crate) child_status_13_after_windup: bool,
+    pub(crate) parent_has_kid_collision: bool,
+    pub(crate) child_has_kid_collision: bool,
+    pub(crate) charge_speed: i32,
+    pub(crate) next_parent_collision_type: u16,
+    pub(crate) next_child_collision_type: u16,
+    pub(crate) flip_timer: u16,
+    pub(crate) resume_walk_direction: Direction,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_charge_entry_loc_3a96c(facing: Direction) -> RobotChargeEntryLoc3A96C {
+    // ASM Robot.asm loc_3A96C: clear `$4E(a5)`, hide the child during the
+    // windup, mark both body/head as Kid-collidable, then seed charge speed,
+    // `$800` collision words, and `$54(a5)=$F` before branching by x_direction.
+    RobotChargeEntryLoc3A96C {
+        tracking_latch_cleared: true,
+        child_status_13_during_windup: false,
+        child_status_13_after_windup: true,
+        parent_has_kid_collision: true,
+        child_has_kid_collision: true,
+        charge_speed: ROBOT_CHARGE_SPEED,
+        next_parent_collision_type: 0x0800,
+        next_child_collision_type: 0x0800,
+        flip_timer: ROBOT_CHARGE_FLIP_BASE,
+        resume_walk_direction: facing,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]

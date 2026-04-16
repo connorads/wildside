@@ -6087,6 +6087,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn robot_charge_entry_loc_3a96c_seeds_charge_state_and_collision_words() {
+        assert_eq!(
+            robot_charge_entry_loc_3a96c(Direction::Left),
+            RobotChargeEntryLoc3A96C {
+                tracking_latch_cleared: true,
+                child_status_13_during_windup: false,
+                child_status_13_after_windup: true,
+                parent_has_kid_collision: true,
+                child_has_kid_collision: true,
+                charge_speed: ROBOT_CHARGE_SPEED,
+                next_parent_collision_type: 0x0800,
+                next_child_collision_type: 0x0800,
+                flip_timer: ROBOT_CHARGE_FLIP_BASE,
+                resume_walk_direction: Direction::Left,
+            },
+            "ASM Robot.asm loc_3A96C should clear `$4E(a5)`, seed `$800` collision words, load `$50(a5)=$28000`, and resume by x_direction"
+        );
+    }
+
+    #[test]
     fn robot_charge_flips_direction_on_timer() {
         // ASM: charge is permanent — timer expiry flips direction, stays charging
         let grid = grid_with_platform(17, 0, 120);
