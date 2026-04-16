@@ -14917,6 +14917,65 @@ pub(crate) fn emo_rock_landing_setup_loc_362a4() -> EmoRockLandingSetupLoc362A4 
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum EmoRockSettledWaitRouteLoc362B6 {
+    ContinueWait,
+    Disappear,
+    Death,
+    BerzerkerSideHit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EmoRockSettledWaitFrameLoc362B6 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) route: EmoRockSettledWaitRouteLoc362B6,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_settled_wait_loc_362b6(
+    animation_finished: bool,
+    collision_type: i16,
+    berzerker_charging: bool,
+) -> EmoRockSettledWaitFrameLoc362B6 {
+    // ASM Emo_Rock.asm loc_362B6: hibernate one frame, exit immediately when
+    // `$18(a3)` says the landing animation finished, otherwise dispatch the
+    // current collision word. Positive collision words are cleared before routing.
+    if animation_finished {
+        return EmoRockSettledWaitFrameLoc362B6 {
+            next_collision_type: collision_type as u16,
+            hibernates_one_frame: true,
+            route: EmoRockSettledWaitRouteLoc362B6::Disappear,
+        };
+    }
+
+    let (next_collision_type, route) = if collision_type == 0 {
+        (0, EmoRockSettledWaitRouteLoc362B6::ContinueWait)
+    } else if collision_type.is_negative() {
+        (
+            collision_type as u16,
+            EmoRockSettledWaitRouteLoc362B6::Death,
+        )
+    } else {
+        let route = match collision_type {
+            0x001C | 0x002C => EmoRockSettledWaitRouteLoc362B6::Death,
+            0x0020 | 0x0024 if berzerker_charging => {
+                EmoRockSettledWaitRouteLoc362B6::BerzerkerSideHit
+            }
+            _ => EmoRockSettledWaitRouteLoc362B6::ContinueWait,
+        };
+        (0, route)
+    };
+
+    EmoRockSettledWaitFrameLoc362B6 {
+        next_collision_type,
+        hibernates_one_frame: true,
+        route,
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -18071,6 +18130,62 @@ mod tests {
                 next_loop: "settled_wait_loop",
             },
             "ASM Emo_Rock.asm loc_362A4 clears y_vel, disables level collision, loads `stru_363FE`, and enters the settled wait loop"
+        );
+    }
+
+    #[test]
+    fn emo_rock_settled_wait_loc_362b6_routes_animation_and_collision() {
+        assert_eq!(
+            emo_rock_settled_wait_loc_362b6(true, 0x0020, false),
+            EmoRockSettledWaitFrameLoc362B6 {
+                next_collision_type: 0x0020,
+                hibernates_one_frame: true,
+                route: EmoRockSettledWaitRouteLoc362B6::Disappear,
+            },
+            "ASM Emo_Rock.asm loc_362B6 tests animation completion before reading collision_type"
+        );
+        assert_eq!(
+            emo_rock_settled_wait_loc_362b6(false, 0, false).route,
+            EmoRockSettledWaitRouteLoc362B6::ContinueWait,
+            "ASM Emo_Rock.asm loc_362B6 loops while collision_type is zero"
+        );
+        assert_eq!(
+            emo_rock_settled_wait_loc_362b6(false, -1, false),
+            EmoRockSettledWaitFrameLoc362B6 {
+                next_collision_type: 0xFFFF,
+                hibernates_one_frame: true,
+                route: EmoRockSettledWaitRouteLoc362B6::Death,
+            },
+            "ASM Emo_Rock.asm loc_362B6 branches negative collision words to death before clearing them"
+        );
+        assert_eq!(
+            emo_rock_settled_wait_loc_362b6(false, 0x001C, false),
+            EmoRockSettledWaitFrameLoc362B6 {
+                next_collision_type: 0,
+                hibernates_one_frame: true,
+                route: EmoRockSettledWaitRouteLoc362B6::Death,
+            },
+            "ASM Emo_Rock.asm loc_362B6 clears positive collision words, then sends hurt contacts to death"
+        );
+        assert_eq!(
+            emo_rock_settled_wait_loc_362b6(false, 0x002C, false).route,
+            EmoRockSettledWaitRouteLoc362B6::Death,
+            "ASM Emo_Rock.asm loc_362B6 sends Kid-above contacts to death"
+        );
+        assert_eq!(
+            emo_rock_settled_wait_loc_362b6(false, 0x0020, false).route,
+            EmoRockSettledWaitRouteLoc362B6::ContinueWait,
+            "ASM Emo_Rock.asm loc_362B6 ignores side contacts unless Berzerker is charging"
+        );
+        assert_eq!(
+            emo_rock_settled_wait_loc_362b6(false, 0x0024, true).route,
+            EmoRockSettledWaitRouteLoc362B6::BerzerkerSideHit,
+            "ASM Emo_Rock.asm loc_362B6 routes side contacts only when Berzerker_charging is set"
+        );
+        assert_eq!(
+            emo_rock_settled_wait_loc_362b6(false, 0x0010, false).route,
+            EmoRockSettledWaitRouteLoc362B6::ContinueWait,
+            "ASM Emo_Rock.asm loc_362B6 clears unhandled positive collision words and keeps waiting"
         );
     }
 
