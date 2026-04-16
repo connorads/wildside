@@ -16294,6 +16294,45 @@ fn tank_shooting_cycle_frames(hit_points: u8) -> u16 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TankShootingInitWalkerEntryLoc3B690 {
+    LeftLoc3C0D2,
+    RightLoc3C026,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TankShootingInitDriveSoundLoc3B690 {
+    pub(crate) next_tank_drive_refcount: u8,
+    pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
+    pub(crate) walker_entry: TankShootingInitWalkerEntryLoc3B690,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_shooting_init_drive_sound_loc_3b690(
+    tank_drive_refcount: u8,
+    motion_active_flag_19: bool,
+    x_direction: u8,
+) -> TankShootingInitDriveSoundLoc3B690 {
+    // ASM Tank_Shooting.asm loc_3B690: test the shared tank-drive refcount
+    // at `$FFFFFA34+d5`, then test `$19(a3)`. Only a zero refcount and clear
+    // motion-active flag call `j_PlaySound(sfx_Tank_driving)`. The shared
+    // refcount increments unconditionally before branching by x_direction:
+    // zero enters loc_3C0D2, nonzero enters loc_3C026.
+    TankShootingInitDriveSoundLoc3B690 {
+        next_tank_drive_refcount: tank_drive_refcount.wrapping_add(1),
+        sound_call: (tank_drive_refcount == 0 && !motion_active_flag_19).then_some(
+            SharedEnemyDriveSoundCallSub3C352::PlaySound(
+                SharedEnemyDriveSoundEffectSub3C352::TankDriving,
+            ),
+        ),
+        walker_entry: if x_direction == 0 {
+            TankShootingInitWalkerEntryLoc3B690::LeftLoc3C0D2
+        } else {
+            TankShootingInitWalkerEntryLoc3B690::RightLoc3C026
+        },
+    }
+}
+
 /// Tank_Shooting.asm loc_3C50E only spawns `loc_3B730` when the turret child
 /// is on `LnkTo_unk_C7F10` with `animation_timer == 5`.
 fn tank_shooting_spawn_worker_now_sub_3c4f8() -> bool {
@@ -18240,6 +18279,38 @@ mod tests {
             tank_shooting_cycle_frames(4),
             TANK_SHOOTING_FAST_CYCLE_FRAMES,
             "ASM Tank_Shooting.asm skips loc_3B682 only for exact HP 4"
+        );
+    }
+
+    #[test]
+    fn tank_shooting_init_drive_sound_loc_3b690_starts_first_visible_loop() {
+        let result = tank_shooting_init_drive_sound_loc_3b690(0, false, 0);
+
+        assert_eq!(
+            result,
+            TankShootingInitDriveSoundLoc3B690 {
+                next_tank_drive_refcount: 1,
+                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::PlaySound(
+                    SharedEnemyDriveSoundEffectSub3C352::TankDriving,
+                )),
+                walker_entry: TankShootingInitWalkerEntryLoc3B690::LeftLoc3C0D2,
+            },
+            "ASM Tank_Shooting.asm loc_3B690 should play TankDriving for the first visible tank, increment refcount, and branch to loc_3C0D2 when x_direction is zero",
+        );
+    }
+
+    #[test]
+    fn tank_shooting_init_drive_sound_loc_3b690_skips_sound_but_still_increments() {
+        let result = tank_shooting_init_drive_sound_loc_3b690(2, true, 0xFF);
+
+        assert_eq!(
+            result,
+            TankShootingInitDriveSoundLoc3B690 {
+                next_tank_drive_refcount: 3,
+                sound_call: None,
+                walker_entry: TankShootingInitWalkerEntryLoc3B690::RightLoc3C026,
+            },
+            "ASM Tank_Shooting.asm loc_3B690 should skip sound when refcount or `$19(a3)` is nonzero, still increment, and branch to loc_3C026 for nonzero x_direction",
         );
     }
 
