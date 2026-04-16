@@ -1831,6 +1831,58 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DiamondHighHpDamageRouteLoc3ADFA {
+    HurtAnimation,
+    DeathAnimation,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondHighHpDamageLoc3ADFA {
+    pub(crate) remaining_hitpoints: u16,
+    pub(crate) is_moved_during_response: bool,
+    pub(crate) animation_script: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) is_moved_after_response: bool,
+    pub(crate) restored_animation_script: Option<&'static str>,
+    pub(crate) next_collision_type: u16,
+    pub(crate) route: DiamondHighHpDamageRouteLoc3ADFA,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_high_hp_damage_loc_3adfa(current_hp: u16) -> DiamondHighHpDamageLoc3ADFA {
+    // ASM Diamond.asm loc_3ADFA: `subq.w #1,$44(a3)` chooses death only when
+    // the decrement leaves exactly zero. Surviving Diamonds stop movement for
+    // `stru_3ACBE`, wait for the animation to finish, re-enable movement,
+    // clear `collision_type(a3)`, and restore `stru_3ACA8`.
+    let remaining_hitpoints = current_hp.wrapping_sub(1);
+    if remaining_hitpoints == 0 {
+        return DiamondHighHpDamageLoc3ADFA {
+            remaining_hitpoints,
+            is_moved_during_response: false,
+            animation_script: "stru_3ACC4",
+            waits_until_animation_finished: true,
+            is_moved_after_response: false,
+            restored_animation_script: None,
+            next_collision_type: 0,
+            route: DiamondHighHpDamageRouteLoc3ADFA::DeathAnimation,
+        };
+    }
+
+    DiamondHighHpDamageLoc3ADFA {
+        remaining_hitpoints,
+        is_moved_during_response: false,
+        animation_script: "stru_3ACBE",
+        waits_until_animation_finished: true,
+        is_moved_after_response: true,
+        restored_animation_script: Some("stru_3ACA8"),
+        next_collision_type: 0,
+        route: DiamondHighHpDamageRouteLoc3ADFA::HurtAnimation,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonInitAnimation {
     pub(crate) collision_routine: &'static str,
     pub(crate) animation_script: &'static str,
@@ -13227,6 +13279,38 @@ mod tests {
             diamond_high_hp_collision_dispatch_loc_3ada4(DIAMOND_COLID_KIDLEFT, 0, 0).route,
             DiamondHighHpCollisionRouteLoc3ADA4::BerzerkerSideGate,
             "ASM Diamond.asm loc_3ADA4 should route Kid side contacts to the Berzerker gate",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_damage_loc_3adfa_decrements_hp_and_restores_motion() {
+        assert_eq!(
+            diamond_high_hp_damage_loc_3adfa(2),
+            DiamondHighHpDamageLoc3ADFA {
+                remaining_hitpoints: 1,
+                is_moved_during_response: false,
+                animation_script: "stru_3ACBE",
+                waits_until_animation_finished: true,
+                is_moved_after_response: true,
+                restored_animation_script: Some("stru_3ACA8"),
+                next_collision_type: 0,
+                route: DiamondHighHpDamageRouteLoc3ADFA::HurtAnimation,
+            },
+            "ASM Diamond.asm loc_3ADFA should stop movement for the hurt animation, then restore movement, clear collision_type, and restore the base animation when HP remains",
+        );
+        assert_eq!(
+            diamond_high_hp_damage_loc_3adfa(1),
+            DiamondHighHpDamageLoc3ADFA {
+                remaining_hitpoints: 0,
+                is_moved_during_response: false,
+                animation_script: "stru_3ACC4",
+                waits_until_animation_finished: true,
+                is_moved_after_response: false,
+                restored_animation_script: None,
+                next_collision_type: 0,
+                route: DiamondHighHpDamageRouteLoc3ADFA::DeathAnimation,
+            },
+            "ASM Diamond.asm loc_3ADFA should choose the death animation when the HP decrement reaches zero",
         );
     }
 
