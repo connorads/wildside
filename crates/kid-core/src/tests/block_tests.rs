@@ -5048,6 +5048,29 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_arrow_setup_loc_341aa_sets_velocity_and_inverts_held_arrow_facing() {
+        // ASM Archer.asm loc_341AA converts the chosen angle into velocity for
+        // the held arrow, then writes the bitwise inverse of the archer's
+        // x_direction to the held-arrow object.
+        assert_eq!(
+            archer_arrow_setup_loc_341AA(0x03, Direction::Right),
+            ArcherArrowSetupLoc341AA {
+                x_velocity: 0x18 * 0x1000,
+                y_velocity: -0x18 * 0x1000,
+                held_arrow_facing: Direction::Left,
+            }
+        );
+        assert_eq!(
+            archer_arrow_setup_loc_341AA(0x0A, Direction::Left),
+            ArcherArrowSetupLoc341AA {
+                x_velocity: -0x18 * 0x1000,
+                y_velocity: -0x18 * 0x1000,
+                held_arrow_facing: Direction::Right,
+            }
+        );
+    }
+
+    #[test]
     fn archer_death_sequence_loc_3414a_marks_contact_bounces_kid_and_deletes() {
         // ASM Archer.asm loc_3414A applies these side effects before routing the
         // object-status byte and jumping through loc_34196 to delete the object.

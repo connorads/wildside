@@ -3363,6 +3363,35 @@ pub(crate) fn archer_shot_selection_loc_340C0(target_angle: usize) -> ArcherShot
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArcherArrowSetupLoc341AA {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) held_arrow_facing: Direction,
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn archer_arrow_setup_loc_341AA(
+    opening_angle: usize,
+    archer_facing: Direction,
+) -> ArcherArrowSetupLoc341AA {
+    // ASM Archer.asm loc_341AA: after skipping the second angle word, run
+    // Enemy07_ArcherArrow_AngleToSpeedAndAnim for the held-arrow GfxObject,
+    // then copy `x_direction(a3)` to `$16(a1)` and `not.b` it.
+    let (x_velocity, y_velocity) = arrow_velocity_from_angle(opening_angle);
+    let held_arrow_facing = match archer_facing {
+        Direction::Left => Direction::Right,
+        Direction::Right => Direction::Left,
+    };
+
+    ArcherArrowSetupLoc341AA {
+        x_velocity,
+        y_velocity,
+        held_arrow_facing,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArcherDeathStatusRouteLoc3414A {
     WriteRespawnMarker(ArcherRespawnMarkerLoc34188),
     SubtractSpawnCounter { index: usize, decrement: u16 },
@@ -15592,7 +15621,7 @@ pub(crate) fn step_archer(
     let shot_selection = archer_shot_selection_loc_340C0(target_angle);
     enemy.facing = shot_selection.facing;
     let angle = shot_selection.initial_angle;
-    let (x_velocity, y_velocity) = arrow_velocity_from_angle(angle);
+    let arrow_setup = archer_arrow_setup_loc_341AA(angle, enemy.facing);
     let reaim = ARCHER_FIRE_TIMER[level];
 
     // Spawn offset from Archer.asm 3rd animation frame.
@@ -15614,8 +15643,8 @@ pub(crate) fn step_archer(
     projectiles.push(EnemyProjectile {
         x_pos: spawn_x,
         y_pos: spawn_y,
-        x_velocity,
-        y_velocity,
+        x_velocity: arrow_setup.x_velocity,
+        y_velocity: arrow_setup.y_velocity,
         // ASM arrows live until terrain collision, not a fixed timer.
         // Use large lifetime as fallback; terrain_kill handles normal removal.
         lifetime: u16::MAX,
