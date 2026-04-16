@@ -1726,6 +1726,24 @@ pub(crate) fn lion_charge_collision_vertical_entry_loc_3e812(
     lion_left_charge_vertical_entry_loc_3e6f6(y_position, y_velocity, ceiling_probe_offset)
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionChargeCollisionLandingResumeLoc3E88A {
+    pub(crate) restored_animation: &'static str,
+    pub(crate) next_branch: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_collision_landing_resume_loc_3e88a()
+-> LionChargeCollisionLandingResumeLoc3E88A {
+    // ASM Lion.asm loc_3E88A: load `$62(a5)` into d7, reinitialise the saved
+    // charge animation, then branch to loc_3E546's velocity-clear/facing tail.
+    LionChargeCollisionLandingResumeLoc3E88A {
+        restored_animation: "saved_lion_charge_animation",
+        next_branch: "loc_3E546",
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
     // ASM Lion.asm loc_3E6A4: after the airborne Y-velocity update, hibernate
@@ -23643,6 +23661,18 @@ mod tests {
                 needs_ceiling_probe: true,
             },
             "ASM Lion.asm loc_3E812 should request a ceiling probe when upward movement crosses the nibble clearance"
+        );
+    }
+
+    #[test]
+    fn lion_charge_collision_landing_resume_matches_loc_3e88a() {
+        assert_eq!(
+            lion_charge_collision_landing_resume_loc_3e88a(),
+            LionChargeCollisionLandingResumeLoc3E88A {
+                restored_animation: "saved_lion_charge_animation",
+                next_branch: "loc_3E546",
+            },
+            "ASM Lion.asm loc_3E88A should init the saved `$62(a5)` animation before branching to loc_3E546"
         );
     }
 
