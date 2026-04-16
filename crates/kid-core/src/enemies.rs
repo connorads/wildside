@@ -2467,6 +2467,44 @@ pub(crate) fn armadillo_damage_response_loc_3c848(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ArmadilloDeathRouteLoc3C87E {
+    DeathAnimation {
+        animation_script: &'static str,
+        waits_until_animation_finished: bool,
+        exits_enemy: bool,
+    },
+    SpawnedChildFallBeforeDeath {
+        x_velocity: i32,
+        y_velocity: i32,
+        has_level_collision: bool,
+        is_moved: bool,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_death_route_loc_3c87e(
+    spawned_child_flag: bool,
+) -> ArmadilloDeathRouteLoc3C87E {
+    // ASM Armadillo.asm loc_3C87E: `$5C(a5)` selects whether death starts
+    // immediately or first runs a falling settle path for spawned children.
+    if spawned_child_flag {
+        ArmadilloDeathRouteLoc3C87E::SpawnedChildFallBeforeDeath {
+            x_velocity: 0,
+            y_velocity: 0x0002_C000,
+            has_level_collision: true,
+            is_moved: true,
+        }
+    } else {
+        ArmadilloDeathRouteLoc3C87E::DeathAnimation {
+            animation_script: "stru_3C69A",
+            waits_until_animation_finished: true,
+            exits_enemy: true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
@@ -18475,6 +18513,29 @@ mod tests {
                 restored_animation: "saved_armadillo_patrol_animation",
             },
             "ASM Armadillo.asm loc_3C848 allows zero and negative `$42(a3)` values to take damage"
+        );
+    }
+
+    #[test]
+    fn armadillo_death_route_matches_loc_3c87e() {
+        assert_eq!(
+            armadillo_death_route_loc_3c87e(false),
+            ArmadilloDeathRouteLoc3C87E::DeathAnimation {
+                animation_script: "stru_3C69A",
+                waits_until_animation_finished: true,
+                exits_enemy: true,
+            },
+            "ASM Armadillo.asm loc_3C87E immediately plays the death animation when `$5C(a5)` is clear"
+        );
+        assert_eq!(
+            armadillo_death_route_loc_3c87e(true),
+            ArmadilloDeathRouteLoc3C87E::SpawnedChildFallBeforeDeath {
+                x_velocity: 0,
+                y_velocity: 0x0002_C000,
+                has_level_collision: true,
+                is_moved: true,
+            },
+            "ASM Armadillo.asm loc_3C87E sends set `$5C(a5)` through the falling settle route before death animation"
         );
     }
 
