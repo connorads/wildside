@@ -7990,6 +7990,25 @@ pub(crate) fn fireball_negative_x_nonnegative_y_sprite_loc_32fc8(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_positive_x_nonnegative_y_sprite_loc_32fe8(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> FireballSpriteSelectionLoc32F3E {
+    // ASM Fireball.asm loc_32FE8: positive X/non-negative Y keeps `d5=3`,
+    // indexes unk_32EDC with `(y << 3) / x`, then mirrors the table byte with
+    // `neg.w d6; addi.w #$13,d6` unless loc_33018's fallback is taken first.
+    let x_word = fireball_velocity_word_after_shift8_loc_32f3e(x_velocity);
+    let y_word = fireball_velocity_word_after_shift8_loc_32f3e(y_velocity);
+    let sprite_index = fireball_ratio_sprite_index(x_word, y_word)
+        .map_or(0x0F, |base_sprite_index| -base_sprite_index + 0x13);
+
+    FireballSpriteSelectionLoc32F3E {
+        sprite_index,
+        quadrant_index: 3,
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn fireball_bounce_perturbation(enemy: &ActiveEnemy) -> i32 {
     let mut rng = RomRandomState::default();
@@ -25101,6 +25120,26 @@ mod tests {
                 quadrant_index: 2,
             },
             "ASM Fireball.asm loc_32FC8 should branch to loc_33018 before applying the `$A` offset when the ratio is at least $3F"
+        );
+    }
+
+    #[test]
+    fn fireball_positive_x_nonnegative_y_sprite_loc_32fe8_mirrors_ratio_table() {
+        assert_eq!(
+            fireball_positive_x_nonnegative_y_sprite_loc_32fe8(0x0001_0000, 0x0000_8000),
+            FireballSpriteSelectionLoc32F3E {
+                sprite_index: 0x12,
+                quadrant_index: 3,
+            },
+            "ASM Fireball.asm loc_32FE8 should mirror unk_32EDC[4] = 1 around `$13` and use quadrant 3"
+        );
+        assert_eq!(
+            fireball_positive_x_nonnegative_y_sprite_loc_32fe8(0x0000_0100, 0x0001_0000),
+            FireballSpriteSelectionLoc32F3E {
+                sprite_index: 0x0F,
+                quadrant_index: 3,
+            },
+            "ASM Fireball.asm loc_32FE8 should branch to loc_33018 before `neg.w d6; addi.w #$13,d6` when the ratio is at least $3F"
         );
     }
 
