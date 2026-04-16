@@ -7336,6 +7336,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_lunge_right_x_velocity_matches_loc_3d340() {
+        assert_eq!(
+            orca_lunge_x_velocity_loc_3d340(Direction::Right),
+            ORCA_LUNGE_X_SPEED,
+            "ASM Orca.asm loc_3D340 should set x_vel to $30000 when x_direction is set"
+        );
+        assert_eq!(
+            orca_lunge_x_velocity_loc_3d340(Direction::Left),
+            -ORCA_LUNGE_X_SPEED,
+            "Orca launch should mirror the right-facing velocity when x_direction is clear"
+        );
+    }
+
+    #[test]
     fn orca_ignores_distant_player() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

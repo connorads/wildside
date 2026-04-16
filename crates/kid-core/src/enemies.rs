@@ -940,6 +940,15 @@ pub(crate) fn orca_lunge_windup_loc_3d320(dbf_seed: u8) -> OrcaLungeWindupLoc3D3
     }
 }
 
+pub(crate) fn orca_lunge_x_velocity_loc_3d340(facing: Direction) -> i32 {
+    // ASM Orca.asm loc_3D340: when `x_direction(a3)` is set, launch right
+    // with x_vel `$30000`; the clear-direction branch launches left.
+    match facing {
+        Direction::Right => ORCA_LUNGE_X_SPEED,
+        Direction::Left => -ORCA_LUNGE_X_SPEED,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
@@ -12456,10 +12465,7 @@ pub(crate) fn step_orca(
             enemy.orca_state = OrcaState::Lunging;
             enemy.on_ground = false;
             enemy.facing = launch_facing;
-            enemy.x_velocity = match enemy.facing {
-                Direction::Right => ORCA_LUNGE_X_SPEED,
-                Direction::Left => -ORCA_LUNGE_X_SPEED,
-            };
+            enemy.x_velocity = orca_lunge_x_velocity_loc_3d340(enemy.facing);
             enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
         }
         OrcaState::Lunging => {
@@ -12497,10 +12503,7 @@ pub(crate) fn step_orca(
                 enemy.facing = opposite_direction(enemy.facing);
                 enemy.wall_pinned = false;
                 // Re-lunge in opposite direction
-                enemy.x_velocity = match enemy.facing {
-                    Direction::Right => ORCA_LUNGE_X_SPEED,
-                    Direction::Left => -ORCA_LUNGE_X_SPEED,
-                };
+                enemy.x_velocity = orca_lunge_x_velocity_loc_3d340(enemy.facing);
                 enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
                 return;
             }
