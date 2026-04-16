@@ -14844,6 +14844,58 @@ pub(crate) fn emo_rock_drop_velocity_loc_3625e(y_velocity: i32, gravity: i32) ->
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum EmoRockDropRouteLoc36274 {
+    ContinueDrop,
+    Death,
+    Land { facing: Direction },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EmoRockDropFrameLoc36274 {
+    pub(crate) y_velocity: i32,
+    pub(crate) next_collision_type: u16,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) route: EmoRockDropRouteLoc36274,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_drop_frame_loc_36274(
+    y_velocity: i32,
+    collision_type: i16,
+    enemy_x_pos: u32,
+    player_x_pos: u32,
+) -> EmoRockDropFrameLoc36274 {
+    // ASM Emo_Rock.asm loc_36274: store d7 into y_vel, hibernate, then read
+    // collision_type. Negative words go to the destroy path before the clear;
+    // non-negative terrain contacts below `$1C` land and face Kid.
+    let (next_collision_type, route) = if collision_type == 0 {
+        (0, EmoRockDropRouteLoc36274::ContinueDrop)
+    } else if collision_type.is_negative() {
+        (collision_type as u16, EmoRockDropRouteLoc36274::Death)
+    } else if collision_type >= 0x001C {
+        (0, EmoRockDropRouteLoc36274::ContinueDrop)
+    } else {
+        let enemy_x_px = (enemy_x_pos >> 16) as i16;
+        let player_x_px = (player_x_pos >> 16) as i16;
+        let facing = if player_x_px < enemy_x_px {
+            Direction::Left
+        } else {
+            Direction::Right
+        };
+        (0, EmoRockDropRouteLoc36274::Land { facing })
+    };
+
+    EmoRockDropFrameLoc36274 {
+        y_velocity,
+        next_collision_type,
+        hibernates_one_frame: true,
+        route,
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -17936,6 +17988,54 @@ mod tests {
             emo_rock_drop_velocity_loc_3625e(0x0006_0000, 0x0000_4000),
             0x0004_0000,
             "ASM Emo_Rock.asm loc_3625E snaps y velocity to `$40000` only when the accelerated value is greater than `$60000`"
+        );
+    }
+
+    #[test]
+    fn emo_rock_drop_frame_loc_36274_routes_collision_after_storing_y_velocity() {
+        assert_eq!(
+            emo_rock_drop_frame_loc_36274(0x0004_0000, 0, 0x0120_0000, 0x0110_0000),
+            EmoRockDropFrameLoc36274 {
+                y_velocity: 0x0004_0000,
+                next_collision_type: 0,
+                hibernates_one_frame: true,
+                route: EmoRockDropRouteLoc36274::ContinueDrop,
+            },
+            "ASM Emo_Rock.asm loc_36274 writes d7 to y_vel, hibernates one frame, then loops while collision_type is zero"
+        );
+        assert_eq!(
+            emo_rock_drop_frame_loc_36274(0x0004_0000, -1, 0x0120_0000, 0x0110_0000).route,
+            EmoRockDropRouteLoc36274::Death,
+            "ASM Emo_Rock.asm loc_36274 branches negative collision words to the destroy path before clearing them"
+        );
+        assert_eq!(
+            emo_rock_drop_frame_loc_36274(0x0004_0000, 0x001C, 0x0120_0000, 0x0110_0000),
+            EmoRockDropFrameLoc36274 {
+                y_velocity: 0x0004_0000,
+                next_collision_type: 0,
+                hibernates_one_frame: true,
+                route: EmoRockDropRouteLoc36274::ContinueDrop,
+            },
+            "ASM Emo_Rock.asm loc_36274 clears positive collision words but keeps dropping when the word is >= `$1C`"
+        );
+        assert_eq!(
+            emo_rock_drop_frame_loc_36274(0x0004_0000, 0x000C, 0x0120_0000, 0x011F_0000),
+            EmoRockDropFrameLoc36274 {
+                y_velocity: 0x0004_0000,
+                next_collision_type: 0,
+                hibernates_one_frame: true,
+                route: EmoRockDropRouteLoc36274::Land {
+                    facing: Direction::Left,
+                },
+            },
+            "ASM Emo_Rock.asm loc_36274 leaves x_direction clear when Kid's integer X is left of the rock"
+        );
+        assert_eq!(
+            emo_rock_drop_frame_loc_36274(0x0004_0000, 0x000C, 0x0120_0000, 0x0120_0000).route,
+            EmoRockDropRouteLoc36274::Land {
+                facing: Direction::Right,
+            },
+            "ASM Emo_Rock.asm loc_36274 sets x_direction when Kid's integer X is equal to or right of the rock"
         );
     }
 
