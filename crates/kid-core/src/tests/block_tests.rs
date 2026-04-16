@@ -3469,7 +3469,7 @@ mod chunk_04 {
                 animation_script: Some("stru_35EC8"),
                 object_45_value: Some(0xFF),
             },
-            "ASM Cloud.asm loc_35CD8 non-zero x_direction starts the mirrored diagonal attack for Kid right/in-front"
+            "ASM Cloud.asm loc_35D1E non-zero x_direction starts the mirrored diagonal attack for Kid right/in-front"
         );
     }
 

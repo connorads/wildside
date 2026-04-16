@@ -6797,6 +6797,8 @@ pub(crate) fn cloud_diagonal_attack_setup_loc_35CD8(
 
         cloud_diagonal_attack_start_loc_35cd8(-3, 3)
     } else {
+        // ASM Cloud.asm loc_35D1E: non-zero `x_direction` mirrors the
+        // down-diagonal attack band to Kid's right side.
         if d6 < 0 || d7 > d6 || d7 < d6.wrapping_sub(0x10) {
             return cloud_diagonal_attack_later_range_checks_loc_35cd8();
         }
