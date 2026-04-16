@@ -2168,6 +2168,8 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
             }
         }
         DIAMOND_COLID_SLOPEUP => DiamondHighHpCollisionRouteLoc3ADA4::Slope {
+            // ASM Diamond.asm loc_3AE4A: `tst.l x_vel(a3)` sends negative
+            // X velocity to +$18000 Y velocity; zero/non-negative goes upward.
             y_velocity: if x_velocity < 0 {
                 0x0001_8000
             } else {
@@ -14954,6 +14956,25 @@ mod tests {
                 "ASM Diamond.asm loc_3AE3E should negate both x_vel and y_vel for wall/ceiling collision {collision_type:#06X}",
             );
         }
+    }
+
+    #[test]
+    fn diamond_high_hp_slope_up_loc_3ae4a_uses_x_velocity_sign() {
+        assert_eq!(
+            diamond_high_hp_collision_dispatch_loc_3ada4(DIAMOND_COLID_SLOPEUP, -0x0001_8000, 0)
+                .route,
+            DiamondHighHpCollisionRouteLoc3ADA4::Slope {
+                y_velocity: 0x0001_8000,
+            },
+            "ASM Diamond.asm loc_3AE4A should set +$18000 y_vel when x_vel is negative",
+        );
+        assert_eq!(
+            diamond_high_hp_collision_dispatch_loc_3ada4(DIAMOND_COLID_SLOPEUP, 0, 0).route,
+            DiamondHighHpCollisionRouteLoc3ADA4::Slope {
+                y_velocity: -0x0001_8000,
+            },
+            "ASM Diamond.asm loc_3AE4A uses `bmi`, so x_vel zero takes the non-negative path",
+        );
     }
 
     #[test]
