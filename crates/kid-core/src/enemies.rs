@@ -14399,6 +14399,8 @@ pub(crate) fn step_scorpion_tracking(
         if dx > 0 {
             enemy.facing = Direction::Left; // player is to the left
         } else if dx < 0 {
+            // ASM Scorpion.asm loc_3DDA4: negative d4 (`scorpion_x - Kid_x`)
+            // sets `x_direction(a3)`, the native right-facing scorpion state.
             enemy.facing = Direction::Right; // player is to the right
         }
     }

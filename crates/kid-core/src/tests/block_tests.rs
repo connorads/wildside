@@ -2443,6 +2443,22 @@ mod chunk_04 {
     }
 
     #[test]
+    fn scorpion_tracking_faces_right_when_kid_is_right_per_loc_3dda4() {
+        use enemies::step_scorpion_tracking;
+
+        let mut enemy = make_pacer(EnemyFamily::Scorpion, 4, 100, 224);
+        enemy.facing = Direction::Left;
+
+        step_scorpion_tracking(&mut enemy, Some(150u32 << 16), None);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Scorpion.asm loc_3DDA4 sets x_direction when d4 = scorpion_x - Kid_x is negative"
+        );
+    }
+
+    #[test]
     fn scorpion_tracking_no_boost_at_low_hp() {
         // HP 3-4 (enemy_level 0-1): no speed boost even within range.
         use enemies::step_scorpion_tracking;
