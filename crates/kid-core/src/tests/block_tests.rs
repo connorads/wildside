@@ -3439,6 +3439,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_level_height_gate_matches_loc_3656c() {
+        assert_eq!(
+            enemies::big_hopping_skull_level_height_gate_loc_3656c(0x004F, 0x0050),
+            enemies::BigHoppingSkullLevelHeightRouteLoc3656C::ReturnLoc3657C,
+            "ASM Big_Hopping_Skull.asm loc_3656C should keep the skull alive while y_pos is strictly below Level_height_pixels",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_level_height_gate_loc_3656c(0x0050, 0x0050),
+            enemies::BigHoppingSkullLevelHeightRouteLoc3656C::DeleteCurrentObject,
+            "ASM Big_Hopping_Skull.asm loc_3656C should delete on the exact Level_height_pixels boundary",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_level_height_gate_loc_3656c(0x0051, 0x0050),
+            enemies::BigHoppingSkullLevelHeightRouteLoc3656C::DeleteCurrentObject,
+            "ASM Big_Hopping_Skull.asm loc_3656C should delete when the signed y_pos word reaches or passes the level height",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),

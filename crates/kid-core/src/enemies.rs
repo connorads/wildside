@@ -1630,6 +1630,26 @@ pub(crate) fn big_hopping_skull_startup_loc_3652e() -> BigHoppingSkullStartupLoc
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BigHoppingSkullLevelHeightRouteLoc3656C {
+    ReturnLoc3657C,
+    DeleteCurrentObject,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_level_height_gate_loc_3656c(
+    y_pos_word: i16,
+    level_height_pixels: i16,
+) -> BigHoppingSkullLevelHeightRouteLoc3656C {
+    // ASM Big_Hopping_Skull.asm loc_3656C: compare signed `y_pos(a3)` word
+    // with `Level_height_pixels`; only strictly less returns at loc_3657C.
+    if y_pos_word < level_height_pixels {
+        BigHoppingSkullLevelHeightRouteLoc3656C::ReturnLoc3657C
+    } else {
+        BigHoppingSkullLevelHeightRouteLoc3656C::DeleteCurrentObject
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,
