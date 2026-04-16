@@ -652,6 +652,8 @@ pub(crate) fn orca_berzerker_airborne_frame_loc_3d2aa(
 pub(crate) enum OrcaResumeBranch {
     Loc3E7CA,
     Loc3E6AE,
+    Loc3E560,
+    Loc3E3AC,
     NormalResumeDispatch,
 }
 
@@ -682,6 +684,16 @@ pub(crate) fn orca_collision_clear_loc_3d2bc(
     OrcaCollisionClearLoc3D2BC {
         next_collision_type: 0,
         next,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_normal_resume_loc_3d2d2(facing: Direction) -> OrcaResumeBranch {
+    // ASM Orca.asm loc_3D2D2: with `$5C(a5)` clear, test `x_direction(a3)`.
+    // Clear selects the left-facing shared walker path; set selects right.
+    match facing {
+        Direction::Left => OrcaResumeBranch::Loc3E560,
+        Direction::Right => OrcaResumeBranch::Loc3E3AC,
     }
 }
 
@@ -15095,6 +15107,20 @@ mod tests {
                 next: OrcaResumeBranch::Loc3E6AE,
             },
             "ASM Orca.asm loc_3D2BC should send set x_direction to loc_3E6AE when wall-pinned"
+        );
+    }
+
+    #[test]
+    fn orca_normal_resume_matches_loc_3d2d2() {
+        assert_eq!(
+            orca_normal_resume_loc_3d2d2(Direction::Left),
+            OrcaResumeBranch::Loc3E560,
+            "ASM Orca.asm loc_3D2D2 should send clear x_direction to loc_3E560"
+        );
+        assert_eq!(
+            orca_normal_resume_loc_3d2d2(Direction::Right),
+            OrcaResumeBranch::Loc3E3AC,
+            "ASM Orca.asm loc_3D2D2 should send set x_direction to loc_3E3AC"
         );
     }
 
