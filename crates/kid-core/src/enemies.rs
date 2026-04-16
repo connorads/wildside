@@ -9132,13 +9132,47 @@ pub(crate) fn ninja_jump_threat_pose_loc_3d84e(
     }
 }
 
-/// Ninja jump-attack velocities (Ninja.asm lines 384-392).
+/// Ninja jump-attack velocities (Ninja.asm loc_3D9A4).
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
 pub(crate) const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
 pub(crate) const NINJA_GRAVITY: i32 = 0x2800;
 pub(crate) const NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6: i32 = 0x0001_8000;
 pub(crate) const NINJA_KNOCKDOWN_GRAVITY_LOC_3D8E6: i32 = 0x0000_1800;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaJumpAttackStartStateLoc3D9A4 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) has_level_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_link: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_jump_attack_start_loc_3d9a4(
+    x_direction_right: bool,
+) -> NinjaJumpAttackStartStateLoc3D9A4 {
+    // ASM Ninja.asm loc_3D9A4: clear `collision_type(a3)`, choose X velocity
+    // by `x_direction(a3)`, set jump Y velocity and level-collision/motion
+    // flags, clear animation, then select `LnkTo_unk_C7D6E`.
+    NinjaJumpAttackStartStateLoc3D9A4 {
+        next_collision_type: 0,
+        x_velocity: if x_direction_right {
+            NINJA_JUMP_X_SPEED_RIGHT
+        } else {
+            -NINJA_JUMP_X_SPEED_LEFT
+        },
+        y_velocity: NINJA_JUMP_Y_SPEED,
+        has_level_collision: true,
+        is_moved: true,
+        is_animated: false,
+        sprite_link: "LnkTo_unk_C7D6E",
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -9658,12 +9692,11 @@ pub(crate) fn step_ninja(
                     Direction::Left
                 };
                 // Launch jump attack
+                let jump_start =
+                    ninja_jump_attack_start_loc_3d9a4(matches!(enemy.facing, Direction::Right));
                 enemy.ninja_state = NinjaState::JumpAttack;
-                enemy.x_velocity = match enemy.facing {
-                    Direction::Left => -NINJA_JUMP_X_SPEED_LEFT,
-                    Direction::Right => NINJA_JUMP_X_SPEED_RIGHT,
-                };
-                enemy.y_velocity = NINJA_JUMP_Y_SPEED;
+                enemy.x_velocity = jump_start.x_velocity;
+                enemy.y_velocity = jump_start.y_velocity;
                 enemy.on_ground = false;
             }
         }
@@ -22095,6 +22128,36 @@ mod tests {
                 route: NinjaAttackPeriodRotationRouteLoc3D960::StartJumpAttack,
             },
             "ASM Ninja.asm loc_3D960 should fall through to the jump-attack path only when `$4C(a5)` is zero"
+        );
+    }
+
+    #[test]
+    fn ninja_jump_attack_start_loc_3d9a4_seeds_directional_lunge() {
+        assert_eq!(
+            ninja_jump_attack_start_loc_3d9a4(false),
+            NinjaJumpAttackStartStateLoc3D9A4 {
+                next_collision_type: 0,
+                x_velocity: -0x0001_8000,
+                y_velocity: -0x0004_8000,
+                has_level_collision: true,
+                is_moved: true,
+                is_animated: false,
+                sprite_link: "LnkTo_unk_C7D6E",
+            },
+            "ASM Ninja.asm loc_3D9A4 should clear collision, lunge left at -$18000, jump at -$48000, and select C7D6E"
+        );
+        assert_eq!(
+            ninja_jump_attack_start_loc_3d9a4(true),
+            NinjaJumpAttackStartStateLoc3D9A4 {
+                next_collision_type: 0,
+                x_velocity: 0x0001_0000,
+                y_velocity: -0x0004_8000,
+                has_level_collision: true,
+                is_moved: true,
+                is_animated: false,
+                sprite_link: "LnkTo_unk_C7D6E",
+            },
+            "ASM Ninja.asm loc_3D9A4 should branch by set x_direction and use +$10000 for the right-facing lunge"
         );
     }
 
