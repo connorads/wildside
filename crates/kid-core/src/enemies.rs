@@ -305,6 +305,10 @@ pub(crate) const GOAT_COLID_HURT: i16 = 0x001C;
 pub(crate) const GOAT_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const GOAT_COLID_KIDLEFT: i16 = 0x0024;
 pub(crate) const GOAT_COLID_KIDABOVE: i16 = 0x002C;
+pub(crate) const ARMADILLO_COLID_HURT: i16 = 0x001C;
+pub(crate) const ARMADILLO_COLID_KIDRIGHT: i16 = 0x0020;
+pub(crate) const ARMADILLO_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const ARMADILLO_COLID_KIDABOVE: i16 = 0x002C;
 pub(crate) const SCORPION_COLID_HURT: i16 = 0x001C;
 pub(crate) const SCORPION_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const SCORPION_COLID_KIDLEFT: i16 = 0x0024;
@@ -2383,6 +2387,37 @@ pub(crate) fn armadillo_object_meta_sync_loc_3c810(object_meta: u16) -> u16 {
         cleared
     } else {
         cleared | MIRROR_TARGET_BIT
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ArmadilloCollisionRouteLoc3C824 {
+    ContinueSharedWalker,
+    Damage,
+    BerzerkerSideGate,
+    Death,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_collision_dispatch_loc_3c824(
+    collision_type: i16,
+) -> ArmadilloCollisionRouteLoc3C824 {
+    // ASM Armadillo.asm loc_3C824: read `collision_type(a3)` into d4 before
+    // the later clear/resume tail. Negative words enter death, zero and
+    // unknown positives resume walking, hurt/Kid-above contacts damage HP,
+    // and side contacts branch to the Berzerker side-contact gate.
+    if collision_type.is_negative() {
+        return ArmadilloCollisionRouteLoc3C824::Death;
+    }
+
+    match collision_type {
+        0 => ArmadilloCollisionRouteLoc3C824::ContinueSharedWalker,
+        ARMADILLO_COLID_HURT | ARMADILLO_COLID_KIDABOVE => ArmadilloCollisionRouteLoc3C824::Damage,
+        ARMADILLO_COLID_KIDRIGHT | ARMADILLO_COLID_KIDLEFT => {
+            ArmadilloCollisionRouteLoc3C824::BerzerkerSideGate
+        }
+        _ => ArmadilloCollisionRouteLoc3C824::ContinueSharedWalker,
     }
 }
 
@@ -18317,6 +18352,45 @@ mod tests {
             armadillo_object_meta_sync_loc_3c810(0x0080),
             0x00C0,
             "ASM Armadillo.asm loc_3C810 sets bit 6 only after `btst #7,object_meta(a3)` succeeds"
+        );
+    }
+
+    #[test]
+    fn armadillo_collision_dispatch_matches_loc_3c824() {
+        assert_eq!(
+            armadillo_collision_dispatch_loc_3c824(-1),
+            ArmadilloCollisionRouteLoc3C824::Death,
+            "ASM Armadillo.asm loc_3C824 sends signed-negative collision_type to the death route"
+        );
+        assert_eq!(
+            armadillo_collision_dispatch_loc_3c824(0),
+            ArmadilloCollisionRouteLoc3C824::ContinueSharedWalker,
+            "ASM Armadillo.asm loc_3C824 sends zero collision_type to the normal resume route"
+        );
+        assert_eq!(
+            armadillo_collision_dispatch_loc_3c824(ARMADILLO_COLID_HURT),
+            ArmadilloCollisionRouteLoc3C824::Damage,
+            "ASM Armadillo.asm loc_3C824 sends colid_hurt to the damage route"
+        );
+        assert_eq!(
+            armadillo_collision_dispatch_loc_3c824(ARMADILLO_COLID_KIDABOVE),
+            ArmadilloCollisionRouteLoc3C824::Damage,
+            "ASM Armadillo.asm loc_3C824 sends colid_kidabove through the same damage path"
+        );
+        assert_eq!(
+            armadillo_collision_dispatch_loc_3c824(ARMADILLO_COLID_KIDRIGHT),
+            ArmadilloCollisionRouteLoc3C824::BerzerkerSideGate,
+            "ASM Armadillo.asm loc_3C824 sends colid_kidright to the Berzerker side gate"
+        );
+        assert_eq!(
+            armadillo_collision_dispatch_loc_3c824(ARMADILLO_COLID_KIDLEFT),
+            ArmadilloCollisionRouteLoc3C824::BerzerkerSideGate,
+            "ASM Armadillo.asm loc_3C824 sends colid_kidleft to the Berzerker side gate"
+        );
+        assert_eq!(
+            armadillo_collision_dispatch_loc_3c824(0x000C),
+            ArmadilloCollisionRouteLoc3C824::ContinueSharedWalker,
+            "ASM Armadillo.asm loc_3C824 ignores unmatched positive collision IDs"
         );
     }
 
