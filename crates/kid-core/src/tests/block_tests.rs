@@ -3036,6 +3036,18 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_collision_loc_3a55c_requires_level2_timer_three() {
+        assert!(
+            fire_demon_level2_fire_trail_timer_matches_loc_3a55c(3),
+            "ASM Fire_Demon.asm loc_3A55C: raw enemy_level 2 branches to allocation only when animation_timer is 3"
+        );
+        assert!(
+            !fire_demon_level2_fire_trail_timer_matches_loc_3a55c(6),
+            "ASM Fire_Demon.asm loc_3A55C: raw enemy_level 2 skips the ordinary timer-6 trail spawn"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);

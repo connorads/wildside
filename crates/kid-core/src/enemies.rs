@@ -3435,6 +3435,14 @@ pub(crate) struct FireDemonFireTrailGateLoc3A542 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_level2_fire_trail_timer_matches_loc_3a55c(animation_timer: u16) -> bool {
+    // ASM Fire_Demon.asm loc_3A55C: raw enemy_level 2 reaches allocation only
+    // when `animation_timer(a3)` equals 3; every other timer falls through to
+    // loc_3A586 collision handling without spawning a trail.
+    animation_timer == 3
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fire_trail_gate_loc_3a542(
     sprite_is_trail_frame: bool,
     raw_enemy_level: u16,
@@ -3445,7 +3453,7 @@ pub(crate) fn fire_demon_fire_trail_gate_loc_3a542(
     // reach the allocation block. Raw enemy_level 2 uses animation_timer 3; all
     // other levels use timer 6. Allocation runs while Number_of_Fire_Trails < 7.
     let timer_matches = if raw_enemy_level == 2 {
-        animation_timer == 3
+        fire_demon_level2_fire_trail_timer_matches_loc_3a55c(animation_timer)
     } else {
         animation_timer == 6
     };
