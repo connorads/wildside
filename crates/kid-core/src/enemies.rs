@@ -2078,6 +2078,13 @@ pub(crate) enum MiniHoppingSkullAirDamageSlopeLanding {
     DestroySkull(MiniHoppingSkullDestroyedSequence),
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullAirDamageDeathAnimation {
+    Forward,
+    BackwardOrNeutral,
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -9866,12 +9873,11 @@ pub(crate) fn mini_hopping_skull_air_damage_slope_landing_loc_3f22a(
         };
     }
 
-    let saved_x_integer_word = (preserved_x_velocity >> 16) as i16;
-    let animation = if saved_x_integer_word > 0 {
-        "stru_3E998"
-    } else {
-        "stru_3E9A2"
-    };
+    let animation =
+        match mini_hopping_skull_air_damage_death_animation_loc_3f238(preserved_x_velocity) {
+            MiniHoppingSkullAirDamageDeathAnimation::Forward => "stru_3E998",
+            MiniHoppingSkullAirDamageDeathAnimation::BackwardOrNeutral => "stru_3E9A2",
+        };
 
     MiniHoppingSkullAirDamageSlopeLanding::DestroySkull(MiniHoppingSkullDestroyedSequence {
         is_moved: false,
@@ -9879,6 +9885,20 @@ pub(crate) fn mini_hopping_skull_air_damage_slope_landing_loc_3f22a(
         hibernate_until_finished: true,
         next_loop: "delete_current_object",
     })
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_air_damage_death_animation_loc_3f238(
+    preserved_x_velocity: i32,
+) -> MiniHoppingSkullAirDamageDeathAnimation {
+    // ASM Mini_Hopping_Skull.asm loc_3F238: `swap d2; tst.w d2; ble.w
+    // loc_3F18C; bra.w loc_3F176` tests only the saved X velocity high word.
+    let saved_x_integer_word = (preserved_x_velocity >> 16) as i16;
+    if saved_x_integer_word > 0 {
+        MiniHoppingSkullAirDamageDeathAnimation::Forward
+    } else {
+        MiniHoppingSkullAirDamageDeathAnimation::BackwardOrNeutral
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -24458,6 +24478,25 @@ mod tests {
                 }
             ),
             "ASM Mini_Hopping_Skull.asm loc_3F22A treats a negative signed high word as the non-positive death animation"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_air_damage_death_animation_matches_loc_3f238() {
+        assert_eq!(
+            mini_hopping_skull_air_damage_death_animation_loc_3f238(0x0001_C000),
+            MiniHoppingSkullAirDamageDeathAnimation::Forward,
+            "ASM Mini_Hopping_Skull.asm loc_3F238 swaps saved d2 and routes a positive high word to the forward death animation"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_damage_death_animation_loc_3f238(0x0000_FFFF),
+            MiniHoppingSkullAirDamageDeathAnimation::BackwardOrNeutral,
+            "ASM Mini_Hopping_Skull.asm loc_3F238 ignores positive fractional-only velocity after `swap d2`"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_damage_death_animation_loc_3f238(-0x0001_8000),
+            MiniHoppingSkullAirDamageDeathAnimation::BackwardOrNeutral,
+            "ASM Mini_Hopping_Skull.asm loc_3F238 sends negative high words through the `ble.w loc_3F18C` branch"
         );
     }
 
