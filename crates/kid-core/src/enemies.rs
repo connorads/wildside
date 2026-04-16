@@ -11258,6 +11258,14 @@ pub(crate) enum TarMonsterShotSpawnRouteLoc3247E {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterRetaliationEntryLoc325AC {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) proceeds_to_burst_cleanup: bool,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotMotionLoc324D0 {
     pub(crate) x_pos: u32,
     pub(crate) x_velocity: i32,
@@ -11565,10 +11573,11 @@ pub(crate) fn tar_monster_shot_spawn_loc_3247E(
     // ASM loc_3247E copies the source object's integer x/y words, then either
     // branches to the burst path or prepares the straight shot.
     if object_44_nonzero {
+        let entry = tar_monster_retaliation_entry_loc_325AC(source_x_pos, source_y_pos);
         return TarMonsterShotSpawnRouteLoc3247E::RetaliationBurst {
-            x_pos: source_x_pos,
-            y_pos: source_y_pos.wrapping_sub(0x10 << 16),
-            proceeds_to_burst_cleanup: true,
+            x_pos: entry.x_pos,
+            y_pos: entry.y_pos,
+            proceeds_to_burst_cleanup: entry.proceeds_to_burst_cleanup,
         };
     }
 
@@ -11583,6 +11592,21 @@ pub(crate) fn tar_monster_shot_spawn_loc_3247E(
         sprite_frame_link: "LnkTo_unk_C781E",
         copied_x_direction: source_x_direction,
     })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_retaliation_entry_loc_325AC(
+    source_x_pos: u32,
+    source_y_pos: u32,
+) -> TarMonsterRetaliationEntryLoc325AC {
+    // ASM loc_325AC subtracts `$10` from the copied y word, leaves x unchanged,
+    // then branches directly into the shared burst cleanup at loc_324F8.
+    TarMonsterRetaliationEntryLoc325AC {
+        x_pos: source_x_pos,
+        y_pos: source_y_pos.wrapping_sub(0x10 << 16),
+        proceeds_to_burst_cleanup: true,
+    }
 }
 
 #[allow(non_snake_case)]
@@ -15362,6 +15386,19 @@ mod tests {
                 proceeds_to_burst_cleanup: true,
             },
             "ASM Tar_Monster.asm loc_3247E branches when `$44(a5)` is non-zero, subtracting only $10 from y before the burst cleanup"
+        );
+    }
+
+    #[test]
+    fn tar_monster_retaliation_entry_loc_325ac_keeps_x_and_offsets_y_before_cleanup() {
+        assert_eq!(
+            tar_monster_retaliation_entry_loc_325AC(0x0120_0000, 0x0080_0000),
+            TarMonsterRetaliationEntryLoc325AC {
+                x_pos: 0x0120_0000,
+                y_pos: 0x0070_0000,
+                proceeds_to_burst_cleanup: true,
+            },
+            "ASM Tar_Monster.asm loc_325AC subtracts `$10` from y_pos only, then enters the shared burst cleanup"
         );
     }
 
