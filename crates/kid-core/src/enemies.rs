@@ -7970,6 +7970,26 @@ pub(crate) fn fireball_positive_x_negative_y_sprite_loc_32fac(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_negative_x_nonnegative_y_sprite_loc_32fc8(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> FireballSpriteSelectionLoc32F3E {
+    // ASM Fireball.asm loc_32FC8: negative X has already been converted to
+    // magnitude and selected `d5=2`; non-negative Y indexes unk_32EDC with
+    // `(y << 3) / abs_x`, then offsets the table byte by `$A`.
+    let x_word = fireball_velocity_word_after_shift8_loc_32f3e(x_velocity);
+    let y_word = fireball_velocity_word_after_shift8_loc_32f3e(y_velocity);
+    let abs_x_word = x_word.wrapping_neg();
+    let sprite_index = fireball_ratio_sprite_index(abs_x_word, y_word)
+        .map_or(0x0F, |base_sprite_index| base_sprite_index + 0x0A);
+
+    FireballSpriteSelectionLoc32F3E {
+        sprite_index,
+        quadrant_index: 2,
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn fireball_bounce_perturbation(enemy: &ActiveEnemy) -> i32 {
     let mut rng = RomRandomState::default();
@@ -25061,6 +25081,26 @@ mod tests {
                 quadrant_index: 0,
             },
             "ASM Fireball.asm loc_32FAC should use loc_33018's upward fallback sprite 4 when the ratio is at least $3F"
+        );
+    }
+
+    #[test]
+    fn fireball_negative_x_nonnegative_y_sprite_loc_32fc8_offsets_ratio_table() {
+        assert_eq!(
+            fireball_negative_x_nonnegative_y_sprite_loc_32fc8(-0x0001_0000, 0x0000_8000),
+            FireballSpriteSelectionLoc32F3E {
+                sprite_index: 0x0B,
+                quadrant_index: 2,
+            },
+            "ASM Fireball.asm loc_32FC8 should offset unk_32EDC[4] = 1 by `$A` and use quadrant 2"
+        );
+        assert_eq!(
+            fireball_negative_x_nonnegative_y_sprite_loc_32fc8(-0x0000_0100, 0x0001_0000),
+            FireballSpriteSelectionLoc32F3E {
+                sprite_index: 0x0F,
+                quadrant_index: 2,
+            },
+            "ASM Fireball.asm loc_32FC8 should branch to loc_33018 before applying the `$A` offset when the ratio is at least $3F"
         );
     }
 
