@@ -9334,6 +9334,8 @@ pub(crate) fn ninja_far_kid_facing_loc_3d92a(
     // ASM Ninja.asm loc_3D92A: compute `d4 = kid_x - ninja_x`; only signed
     // values outside the inclusive [-$80, +$80] band reach the facing checks.
     let target_right = if kid_minus_ninja_x_px > 0x80 {
+        // ASM Ninja.asm loc_3D978: positive far `d4` keeps set
+        // `x_direction`, or toggles clear `x_direction` with `eori.b #$FF`.
         Some(true)
     } else if kid_minus_ninja_x_px < -0x80 {
         Some(false)
@@ -21973,6 +21975,26 @@ mod tests {
                 decision: NinjaFarKidFacingDecisionLoc3D92A::AlreadyFacingFarKid,
             },
             "ASM Ninja.asm loc_3D92A should leave clear x_direction unchanged when Kid is already far left"
+        );
+    }
+
+    #[test]
+    fn ninja_far_kid_facing_loc_3d978_turns_right_for_positive_far_kid() {
+        assert_eq!(
+            ninja_far_kid_facing_loc_3d92a(0x81, false),
+            NinjaFarKidFacingStateLoc3D92A {
+                x_direction_right: true,
+                decision: NinjaFarKidFacingDecisionLoc3D92A::TurnTowardFarKid,
+            },
+            "ASM Ninja.asm loc_3D978 should toggle clear x_direction when Kid is more than $80 px to the right"
+        );
+        assert_eq!(
+            ninja_far_kid_facing_loc_3d92a(0x81, true),
+            NinjaFarKidFacingStateLoc3D92A {
+                x_direction_right: true,
+                decision: NinjaFarKidFacingDecisionLoc3D92A::AlreadyFacingFarKid,
+            },
+            "ASM Ninja.asm loc_3D978 should leave set x_direction unchanged when already facing a far-right Kid"
         );
     }
 
