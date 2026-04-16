@@ -2197,6 +2197,43 @@ pub(crate) fn scorpion_berzerker_airborne_frame_loc_3dd4a(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ScorpionCollisionResumeBranchLoc3DD5C {
+    PatrolLeft,
+    PatrolRight,
+    PostChargeLeft,
+    PostChargeRight,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ScorpionCollisionResumeLoc3DD5C {
+    pub(crate) next_collision_type: u16,
+    pub(crate) next: ScorpionCollisionResumeBranchLoc3DD5C,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_collision_resume_loc_3dd5c(
+    post_charge_state: bool,
+    facing: Direction,
+) -> ScorpionCollisionResumeLoc3DD5C {
+    // ASM Scorpion.asm loc_3DD5C: clear `collision_type(a3)`, test `$5C(a5)`,
+    // then test `x_direction(a3)` to choose the post-charge or patrol resume
+    // branch for the current facing.
+    let next = match (post_charge_state, facing) {
+        (false, Direction::Left) => ScorpionCollisionResumeBranchLoc3DD5C::PatrolLeft,
+        (false, Direction::Right) => ScorpionCollisionResumeBranchLoc3DD5C::PatrolRight,
+        (true, Direction::Left) => ScorpionCollisionResumeBranchLoc3DD5C::PostChargeLeft,
+        (true, Direction::Right) => ScorpionCollisionResumeBranchLoc3DD5C::PostChargeRight,
+    };
+
+    ScorpionCollisionResumeLoc3DD5C {
+        next_collision_type: 0,
+        next,
+    }
+}
+
 /// Archer fire interval indexed by enemy_level (HP 1/2/3).
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
@@ -14515,6 +14552,33 @@ mod tests {
                 repeats_airborne_loop: true,
             },
             "ASM Scorpion.asm loc_3DD4A hibernates one frame, runs sub_3E8BA, adds `$4000` to y_vel, and branches back"
+        );
+    }
+
+    #[test]
+    fn scorpion_collision_resume_loc_3dd5c_clears_collision_and_routes_by_state_and_facing() {
+        assert_eq!(
+            scorpion_collision_resume_loc_3dd5c(false, Direction::Left),
+            ScorpionCollisionResumeLoc3DD5C {
+                next_collision_type: 0,
+                next: ScorpionCollisionResumeBranchLoc3DD5C::PatrolLeft,
+            },
+            "ASM Scorpion.asm loc_3DD5C clears collision_type, then resumes the left patrol branch when `$5C(a5)` and x_direction are clear"
+        );
+        assert_eq!(
+            scorpion_collision_resume_loc_3dd5c(false, Direction::Right).next,
+            ScorpionCollisionResumeBranchLoc3DD5C::PatrolRight,
+            "ASM Scorpion.asm loc_3DD5C uses set x_direction for the right patrol branch while `$5C(a5)` is clear"
+        );
+        assert_eq!(
+            scorpion_collision_resume_loc_3dd5c(true, Direction::Left).next,
+            ScorpionCollisionResumeBranchLoc3DD5C::PostChargeLeft,
+            "ASM Scorpion.asm loc_3DD5C uses clear x_direction for the left post-charge branch while `$5C(a5)` is set"
+        );
+        assert_eq!(
+            scorpion_collision_resume_loc_3dd5c(true, Direction::Right).next,
+            ScorpionCollisionResumeBranchLoc3DD5C::PostChargeRight,
+            "ASM Scorpion.asm loc_3DD5C uses set x_direction for the right post-charge branch while `$5C(a5)` is set"
         );
     }
 
