@@ -7178,6 +7178,128 @@ pub(crate) fn ufo_hurt_driver_slide_ground_tile_loc_35738(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum UfoHurtDriverCollisionTableLoc35762 {
+    FallLoop,
+    SlideLoop,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum UfoHurtDriverCollisionBehaviorLoc35762 {
+    FallTurnaround,
+    FallFloorLanding,
+    FallCeilingBounce,
+    FallSlopeUpBounce,
+    FallSlopeDownBounce,
+    SlideTurnaround,
+    SlideCollisionReturn,
+    SlideGroundMiss,
+    StopAndDeleteAfterAnimation,
+    StopAndFallUntilDeleted,
+    BerzerkerChargeFall { x_velocity: i32, y_velocity: i32 },
+    ReturnOnly,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverCollisionDispatchLoc35762 {
+    pub(crate) clears_collision_type: bool,
+    pub(crate) behavior: Option<UfoHurtDriverCollisionBehaviorLoc35762>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
+    collision_type: i16,
+    table: UfoHurtDriverCollisionTableLoc35762,
+    berzerker_charging: bool,
+    kid_x_velocity: i32,
+) -> UfoHurtDriverCollisionDispatchLoc35762 {
+    // ASM UFO.asm loc_35762: zero returns without clearing, negative values
+    // route straight to the hurt tail, positive non-zero values clear
+    // `collision_type(a3)` before either table-dispatching or returning.
+    if collision_type == 0 {
+        return UfoHurtDriverCollisionDispatchLoc35762 {
+            clears_collision_type: false,
+            behavior: None,
+        };
+    }
+
+    let hurt_behavior = match table {
+        UfoHurtDriverCollisionTableLoc35762::FallLoop => {
+            UfoHurtDriverCollisionBehaviorLoc35762::StopAndFallUntilDeleted
+        }
+        UfoHurtDriverCollisionTableLoc35762::SlideLoop => {
+            UfoHurtDriverCollisionBehaviorLoc35762::StopAndDeleteAfterAnimation
+        }
+    };
+
+    if collision_type < 0 {
+        return UfoHurtDriverCollisionDispatchLoc35762 {
+            clears_collision_type: false,
+            behavior: Some(hurt_behavior),
+        };
+    }
+
+    let collision_word = u16::from_be_bytes(collision_type.to_be_bytes());
+    if collision_word == 0x002C || collision_word == 0x001C {
+        return UfoHurtDriverCollisionDispatchLoc35762 {
+            clears_collision_type: true,
+            behavior: Some(hurt_behavior),
+        };
+    }
+
+    if collision_word > 0x001C {
+        let behavior = if collision_word < 0x0028 && berzerker_charging {
+            UfoHurtDriverCollisionBehaviorLoc35762::BerzerkerChargeFall {
+                x_velocity: kid_x_velocity >> 1,
+                y_velocity: -0x0004_0000,
+            }
+        } else {
+            UfoHurtDriverCollisionBehaviorLoc35762::ReturnOnly
+        };
+
+        return UfoHurtDriverCollisionDispatchLoc35762 {
+            clears_collision_type: true,
+            behavior: Some(behavior),
+        };
+    }
+
+    let behavior = match (table, collision_word) {
+        (UfoHurtDriverCollisionTableLoc35762::FallLoop, 0x0004 | 0x0008) => {
+            UfoHurtDriverCollisionBehaviorLoc35762::FallTurnaround
+        }
+        (UfoHurtDriverCollisionTableLoc35762::FallLoop, 0x000C) => {
+            UfoHurtDriverCollisionBehaviorLoc35762::FallFloorLanding
+        }
+        (UfoHurtDriverCollisionTableLoc35762::FallLoop, 0x0010) => {
+            UfoHurtDriverCollisionBehaviorLoc35762::FallCeilingBounce
+        }
+        (UfoHurtDriverCollisionTableLoc35762::FallLoop, 0x0014) => {
+            UfoHurtDriverCollisionBehaviorLoc35762::FallSlopeUpBounce
+        }
+        (UfoHurtDriverCollisionTableLoc35762::FallLoop, 0x0018) => {
+            UfoHurtDriverCollisionBehaviorLoc35762::FallSlopeDownBounce
+        }
+        (UfoHurtDriverCollisionTableLoc35762::SlideLoop, 0x0004 | 0x0008) => {
+            UfoHurtDriverCollisionBehaviorLoc35762::SlideTurnaround
+        }
+        (UfoHurtDriverCollisionTableLoc35762::SlideLoop, 0x000C | 0x0010) => {
+            UfoHurtDriverCollisionBehaviorLoc35762::SlideCollisionReturn
+        }
+        (UfoHurtDriverCollisionTableLoc35762::SlideLoop, 0x0014 | 0x0018) => {
+            UfoHurtDriverCollisionBehaviorLoc35762::SlideGroundMiss
+        }
+        _ => UfoHurtDriverCollisionBehaviorLoc35762::ReturnOnly,
+    };
+
+    UfoHurtDriverCollisionDispatchLoc35762 {
+        clears_collision_type: true,
+        behavior: Some(behavior),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -19625,6 +19747,112 @@ mod tests {
             ufo_hurt_driver_slide_ground_tile_loc_35738(0xFFFC_0000, 0xFFF0, 0x0000).tile_row,
             0x0000,
             "ASM UFO.asm loc_35738 uses wrapping word addition before `lsr.w #4`"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_driver_collision_dispatch_matches_loc_35762() {
+        assert_eq!(
+            ufo_hurt_driver_collision_dispatch_loc_35762(
+                0,
+                UfoHurtDriverCollisionTableLoc35762::SlideLoop,
+                false,
+                0,
+            ),
+            UfoHurtDriverCollisionDispatchLoc35762 {
+                clears_collision_type: false,
+                behavior: None,
+            },
+            "ASM UFO.asm loc_35762 returns immediately when collision_type is zero"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_collision_dispatch_loc_35762(
+                -1,
+                UfoHurtDriverCollisionTableLoc35762::SlideLoop,
+                false,
+                0,
+            ),
+            UfoHurtDriverCollisionDispatchLoc35762 {
+                clears_collision_type: false,
+                behavior: Some(UfoHurtDriverCollisionBehaviorLoc35762::StopAndDeleteAfterAnimation,),
+            },
+            "ASM UFO.asm loc_35762 routes negative collision_type to the slide hurt tail without clearing it first"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_collision_dispatch_loc_35762(
+                0x0004,
+                UfoHurtDriverCollisionTableLoc35762::SlideLoop,
+                false,
+                0,
+            ),
+            UfoHurtDriverCollisionDispatchLoc35762 {
+                clears_collision_type: true,
+                behavior: Some(UfoHurtDriverCollisionBehaviorLoc35762::SlideTurnaround),
+            },
+            "ASM UFO.asm loc_35762 clears positive collision_type, subtracts 4, and table-selects slide turnaround"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_collision_dispatch_loc_35762(
+                0x000C,
+                UfoHurtDriverCollisionTableLoc35762::FallLoop,
+                false,
+                0,
+            ),
+            UfoHurtDriverCollisionDispatchLoc35762 {
+                clears_collision_type: true,
+                behavior: Some(UfoHurtDriverCollisionBehaviorLoc35762::FallFloorLanding),
+            },
+            "ASM UFO.asm loc_35762 uses the caller's fall-loop table for the same collision_type index"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_collision_dispatch_loc_35762(
+                0x001C,
+                UfoHurtDriverCollisionTableLoc35762::FallLoop,
+                false,
+                0,
+            ),
+            UfoHurtDriverCollisionDispatchLoc35762 {
+                clears_collision_type: true,
+                behavior: Some(UfoHurtDriverCollisionBehaviorLoc35762::StopAndFallUntilDeleted,),
+            },
+            "ASM UFO.asm loc_35762 treats `$1C` as a hurt collision before table dispatch"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_collision_dispatch_loc_35762(
+                0x0020,
+                UfoHurtDriverCollisionTableLoc35762::SlideLoop,
+                false,
+                0x0004_0000,
+            ),
+            UfoHurtDriverCollisionDispatchLoc35762 {
+                clears_collision_type: true,
+                behavior: Some(UfoHurtDriverCollisionBehaviorLoc35762::ReturnOnly),
+            },
+            "ASM UFO.asm loc_35762 returns after clearing `$20` when Berzerker is not charging"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_collision_dispatch_loc_35762(
+                0x0020,
+                UfoHurtDriverCollisionTableLoc35762::SlideLoop,
+                true,
+                -0x0004_0000,
+            ),
+            UfoHurtDriverCollisionDispatchLoc35762 {
+                clears_collision_type: true,
+                behavior: Some(
+                    UfoHurtDriverCollisionBehaviorLoc35762::BerzerkerChargeFall {
+                        x_velocity: -0x0002_0000,
+                        y_velocity: -0x0004_0000,
+                    }
+                ),
+            },
+            "ASM UFO.asm loc_35762 uses half Kid x velocity and `-$40000` y velocity for a charging Berzerker hit"
         );
     }
 
