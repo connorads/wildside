@@ -10429,6 +10429,7 @@ pub(crate) fn ninja_jump_attack_start_loc_3d9a4(
     NinjaJumpAttackStartStateLoc3D9A4 {
         next_collision_type: 0,
         x_velocity: if x_direction_right {
+            // ASM Ninja.asm loc_3D9B8: set `x_vel(a3)` to +$10000 for set `x_direction`.
             NINJA_JUMP_X_SPEED_RIGHT
         } else {
             -NINJA_JUMP_X_SPEED_LEFT
@@ -25016,7 +25017,7 @@ mod tests {
                 is_animated: false,
                 sprite_link: "LnkTo_unk_C7D6E",
             },
-            "ASM Ninja.asm loc_3D9A4 should branch by set x_direction and use +$10000 for the right-facing lunge"
+            "ASM Ninja.asm loc_3D9B8 should branch by set x_direction and use +$10000 for the right-facing lunge"
         );
     }
 
