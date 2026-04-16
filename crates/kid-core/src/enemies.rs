@@ -2581,6 +2581,33 @@ pub(crate) fn dragon_descent_dbf_tail_loc_34924(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonReturnStopLoc349C0 {
+    pub(crate) y_velocity: i32,
+    pub(crate) reached_anchor_word: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_return_stop_loc_349c0(
+    current_y_word: u16,
+    anchor_y_word: u16,
+) -> DragonReturnStopLoc349C0 {
+    // ASM Dragon_Flying.asm loc_349C0: the preceding word compare branches
+    // here when current y_pos <= `$44(a5)`, and the label clears y_vel.
+    if current_y_word <= anchor_y_word {
+        DragonReturnStopLoc349C0 {
+            y_velocity: 0,
+            reached_anchor_word: true,
+        }
+    } else {
+        DragonReturnStopLoc349C0 {
+            y_velocity: -0x4000,
+            reached_anchor_word: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,

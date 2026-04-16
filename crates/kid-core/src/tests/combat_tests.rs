@@ -5924,6 +5924,34 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_349c0_clears_y_velocity_at_or_above_anchor_word() {
+        assert_eq!(
+            dragon_return_stop_loc_349c0(0x0100, 0x0100),
+            DragonReturnStopLoc349C0 {
+                y_velocity: 0,
+                reached_anchor_word: true,
+            },
+            "ASM Dragon_Flying.asm loc_349C0 clears y_vel when the integer Y word has reached the anchor"
+        );
+        assert_eq!(
+            dragon_return_stop_loc_349c0(0x00FF, 0x0100),
+            DragonReturnStopLoc349C0 {
+                y_velocity: 0,
+                reached_anchor_word: true,
+            },
+            "ASM Dragon_Flying.asm loc_349C0 is also reached when current Y is above the anchor"
+        );
+        assert_eq!(
+            dragon_return_stop_loc_349c0(0x0101, 0x0100),
+            DragonReturnStopLoc349C0 {
+                y_velocity: -0x4000,
+                reached_anchor_word: false,
+            },
+            "the branch before loc_349C0 keeps rising at `$FFFFC000` while current Y is still below the anchor"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_34998_writes_respawn_marker_for_positive_slot() {
         assert_eq!(
             dragon_flying_respawn_marker_loc_34998(0x07),
