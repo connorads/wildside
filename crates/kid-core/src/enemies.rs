@@ -346,6 +346,29 @@ pub(crate) fn crab_init_visible_state_loc_3afd0(enemy_level: u8) -> CrabInitVisi
     }
 }
 
+const ROCK_TANK_OBJECT_ID: u16 = 0x000A;
+const ROCK_TANK_SHOOTING_OBJECT_ID: u16 = 0x000B;
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_shooting_art_slot_loc_3b56c(enemy_type_slots: &[u16]) -> u16 {
+    // ASM Tank_Shooting.asm loc_3B56C: after setting `$13(a3)` and
+    // object_meta `$0B`, compare the first two enemy-layout header slots
+    // against both RockTank ids (`d5=$0B`, `d6=$0A`). A match in slot 0/1
+    // leaves `d4` at 0/1; no match falls through with `d4=2`.
+    let is_rock_tank_slot = |slot: &u16| {
+        let enemy_id = slot & 0x0FFF;
+        enemy_id == ROCK_TANK_SHOOTING_OBJECT_ID || enemy_id == ROCK_TANK_OBJECT_ID
+    };
+
+    if enemy_type_slots.first().is_some_and(is_rock_tank_slot) {
+        0
+    } else if enemy_type_slots.get(1).is_some_and(is_rock_tank_slot) {
+        1
+    } else {
+        2
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabMotionProfileLoc3B00A {
@@ -16115,6 +16138,25 @@ mod tests {
             EnemyFamily::from_layout_object(&[0x000A, 0x000B], &object),
             EnemyFamily::TankShooting,
             "ASM kid.asm enemyloaddata table maps object id `$0B` to `Enemy0B_RockTank_shooting_Init`"
+        );
+    }
+
+    #[test]
+    fn tank_shooting_art_slot_loc_3b56c_accepts_shooting_or_plain_tank_slots() {
+        assert_eq!(
+            tank_shooting_art_slot_loc_3b56c(&[0x000B, 0x001C, 0x0022]),
+            0,
+            "ASM Tank_Shooting.asm loc_3B56C should keep d4=0 when header slot 0 masks to shooting tank `$0B`"
+        );
+        assert_eq!(
+            tank_shooting_art_slot_loc_3b56c(&[0x0022, 0x400A, 0x001C]),
+            1,
+            "ASM Tank_Shooting.asm loc_3B56C should accept plain tank `$0A` as the shared tank art in slot 1"
+        );
+        assert_eq!(
+            tank_shooting_art_slot_loc_3b56c(&[0x0022, 0x401C, 0x000B]),
+            2,
+            "ASM Tank_Shooting.asm loc_3B56C only checks the first two header slots before falling back to d4=2"
         );
     }
 
