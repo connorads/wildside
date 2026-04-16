@@ -3292,6 +3292,26 @@ pub(crate) fn dragon_right_slide_frame_loc_34a0a(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonLeftSlideStartLoc34A24 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_left_slide_start_loc_34a24(
+    previous_x_velocity: i32,
+) -> DragonLeftSlideStartLoc34A24 {
+    // ASM Dragon_Flying.asm loc_34A24: clear.l y_vel, then move.w #$FFFE,x_vel.
+    // Like the mirrored right-slide setup, the word write changes only the
+    // high word of the FP16.16 long and preserves the previous fractional word.
+    DragonLeftSlideStartLoc34A24 {
+        x_velocity: -0x0002_0000 + (previous_x_velocity & 0x0000_FFFF),
+        y_velocity: 0,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
