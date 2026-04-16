@@ -12837,6 +12837,18 @@ pub(crate) struct TarMonsterBurstChildMetaLoc32618 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterProjectileSetupLoc3261C {
+    pub(crate) object_meta: u16,
+    pub(crate) status_flag_13: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) priority: u8,
+    pub(crate) has_level_collision: bool,
+    pub(crate) collision_response_budget: u16,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotMotionLoc324D0 {
     pub(crate) x_pos: u32,
     pub(crate) x_velocity: i32,
@@ -13190,20 +13202,21 @@ pub(crate) fn tar_monster_seeded_shot_loc_325B6(
     // ASM loc_325B6 loads slot `$3000003`, writes `$44/$46(a5)` as integer
     // x/y words, doubles `$48(a5)` with `asl.l #1`, and enters the shared
     // projectile setup with sprite `LnkTo_unk_C7BDE`, d1=0, and d0=$16.
+    let setup = tar_monster_projectile_setup_loc_3261C(0x16);
     TarMonsterSeededShotLoc325B6 {
         gfx_object_slot_word: 0x0300_0003,
         x_pos: u32::from(source_x_word) << 16,
         y_pos: u32::from(source_y_word) << 16,
         x_velocity: source_x_velocity.wrapping_mul(2),
         sprite_frame_link: "LnkTo_unk_C7BDE",
-        object_meta: 0x16,
-        status_flag_13: true,
-        is_moved: true,
-        has_kid_collision: true,
-        priority: 0,
-        has_level_collision: true,
+        object_meta: setup.object_meta,
+        status_flag_13: setup.status_flag_13,
+        is_moved: setup.is_moved,
+        has_kid_collision: setup.has_kid_collision,
+        priority: setup.priority,
+        has_level_collision: setup.has_level_collision,
         collision_sprite_swap_enabled: false,
-        collision_response_budget: 2,
+        collision_response_budget: setup.collision_response_budget,
     }
 }
 
@@ -13238,6 +13251,25 @@ pub(crate) fn tar_monster_burst_child_meta_loc_32618() -> TarMonsterBurstChildMe
     TarMonsterBurstChildMetaLoc32618 {
         object_meta: 5,
         proceeds_to_projectile_setup: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_projectile_setup_loc_3261C(
+    object_meta: u16,
+) -> TarMonsterProjectileSetupLoc3261C {
+    // ASM loc_3261C writes d0 to object_meta, runs the shared object setup,
+    // enables display/movement/Kid+level collision, lowers priority, and seeds
+    // d3 with two accepted collision responses before deletion.
+    TarMonsterProjectileSetupLoc3261C {
+        object_meta,
+        status_flag_13: true,
+        is_moved: true,
+        has_kid_collision: true,
+        priority: 0,
+        has_level_collision: true,
+        collision_response_budget: 2,
     }
 }
 
@@ -17706,6 +17738,29 @@ mod tests {
                 proceeds_to_projectile_setup: true,
             },
             "ASM Tar_Monster.asm loc_32618 writes `#5` to d0 so burst children reuse the Tar Monster projectile object_meta"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_setup_loc_3261c_applies_shared_flags_and_collision_budget() {
+        assert_eq!(
+            tar_monster_projectile_setup_loc_3261C(0x16),
+            TarMonsterProjectileSetupLoc3261C {
+                object_meta: 0x16,
+                status_flag_13: true,
+                is_moved: true,
+                has_kid_collision: true,
+                priority: 0,
+                has_level_collision: true,
+                collision_response_budget: 2,
+            },
+            "ASM Tar_Monster.asm loc_3261C stores d0 into object_meta, sets movement/collision flags, and starts d3 at 2"
+        );
+
+        assert_eq!(
+            tar_monster_projectile_setup_loc_3261C(5).object_meta,
+            tar_monster_burst_child_meta_loc_32618().object_meta,
+            "burst children enter the same shared setup after their meta seed"
         );
     }
 
