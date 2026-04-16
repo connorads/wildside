@@ -3655,6 +3655,30 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_hit_groan_gate_matches_loc_365f2() {
+        assert_eq!(
+            enemies::big_hopping_skull_hit_groan_gate_loc_365f2(true, 6),
+            enemies::BigHoppingSkullHitGroanGateLoc365F2 {
+                hibernates_one_frame: true,
+                checks_object_range: true,
+                sound_effect: Some("sfx_Big_Hopping_Skull_groan"),
+                d0_preserved: true,
+            },
+            "ASM Big_Hopping_Skull.asm loc_365F2 should play the groan on the exact C7FB0 sprite frame with animation_timer 6",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_hit_groan_gate_loc_365f2(false, 6).sound_effect,
+            None,
+            "ASM Big_Hopping_Skull.asm loc_365F2 should skip the groan on any other sprite link",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_hit_groan_gate_loc_365f2(true, 5).sound_effect,
+            None,
+            "ASM Big_Hopping_Skull.asm loc_365F2 should skip the groan outside animation_timer 6",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),

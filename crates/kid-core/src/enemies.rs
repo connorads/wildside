@@ -2016,6 +2016,31 @@ pub(crate) fn big_hopping_skull_damage_entry_loc_365d8(
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BigHoppingSkullHitGroanGateLoc365F2 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checks_object_range: bool,
+    pub(crate) sound_effect: Option<&'static str>,
+    pub(crate) d0_preserved: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_hit_groan_gate_loc_365f2(
+    sprite_is_groan_frame: bool,
+    animation_timer: u16,
+) -> BigHoppingSkullHitGroanGateLoc365F2 {
+    // ASM Big_Hopping_Skull.asm loc_365F2: after the one-frame hibernate
+    // and Object_CheckInRange, play the groan only for `LnkTo_unk_C7FB0`
+    // when `animation_timer(a3)` is exactly 6; d0 is pushed around PlaySound.
+    BigHoppingSkullHitGroanGateLoc365F2 {
+        hibernates_one_frame: true,
+        checks_object_range: true,
+        sound_effect: (sprite_is_groan_frame && animation_timer == 6)
+            .then_some("sfx_Big_Hopping_Skull_groan"),
+        d0_preserved: true,
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,
