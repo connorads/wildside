@@ -2219,6 +2219,8 @@ pub(crate) fn diamond_high_hp_damage_loc_3adfa(current_hp: u16) -> DiamondHighHp
     // clear `collision_type(a3)`, and restore `stru_3ACA8`.
     let remaining_hitpoints = current_hp.wrapping_sub(1);
     if remaining_hitpoints == 0 {
+        // ASM Diamond.asm loc_3AE28: final hit stops movement, runs
+        // `stru_3ACC4` to completion, then branches to shared object deletion.
         return DiamondHighHpDamageLoc3ADFA {
             remaining_hitpoints,
             is_moved_during_response: false,
@@ -14958,6 +14960,24 @@ mod tests {
                 route: DiamondHighHpDamageRouteLoc3ADFA::DeathAnimation,
             },
             "ASM Diamond.asm loc_3ADFA should choose the death animation when the HP decrement reaches zero",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_death_animation_loc_3ae28_stops_movement_until_delete() {
+        assert_eq!(
+            diamond_high_hp_damage_loc_3adfa(1),
+            DiamondHighHpDamageLoc3ADFA {
+                remaining_hitpoints: 0,
+                is_moved_during_response: false,
+                animation_script: "stru_3ACC4",
+                waits_until_animation_finished: true,
+                is_moved_after_response: false,
+                restored_animation_script: None,
+                next_collision_type: 0,
+                route: DiamondHighHpDamageRouteLoc3ADFA::DeathAnimation,
+            },
+            "ASM Diamond.asm loc_3AE28 should `sf is_moved`, wait on `stru_3ACC4`, then branch to loc_3C46E deletion",
         );
     }
 
