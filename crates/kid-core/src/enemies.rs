@@ -4632,6 +4632,24 @@ pub(crate) fn cloud_status_latch_loc_35C72() -> CloudStatusLatchLoc35C72 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudStatusLatchLoc35C7A {
+    pub(crate) object_44_value: u8,
+    pub(crate) resumes_control_script: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_status_latch_loc_35C7A() -> CloudStatusLatchLoc35C7A {
+    // ASM Cloud.asm loc_35C7A: `sf $44(a5)` writes `$00`, then branches back
+    // to the command dispatcher at loc_35BB2.
+    CloudStatusLatchLoc35C7A {
+        object_44_value: 0x00,
+        resumes_control_script: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,
