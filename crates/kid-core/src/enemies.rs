@@ -2269,6 +2269,46 @@ pub(crate) fn big_hopping_skull_hit_voice_gate_loc_36616(
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BigHoppingSkullHitAnimationWaitRouteLoc36632 {
+    Relaunch,
+    LoopHitAnimation,
+    SharedTail,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BigHoppingSkullHitAnimationWaitLoc36632 {
+    pub(crate) collision_probe_extent: u16,
+    pub(crate) clear_has_kid_collision: bool,
+    pub(crate) route: BigHoppingSkullHitAnimationWaitRouteLoc36632,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_hit_animation_wait_loc_36632(
+    collision_probe_nonzero: bool,
+    animation_finished: bool,
+) -> BigHoppingSkullHitAnimationWaitLoc36632 {
+    // ASM Big_Hopping_Skull.asm loc_36632: probe `loc_33286` with d7=#8;
+    // a zero d6 relaunches immediately, otherwise the hit animation loops
+    // until `$18(a3)` is set, then `has_kid_collision(a3)` is cleared.
+    let route = if !collision_probe_nonzero {
+        BigHoppingSkullHitAnimationWaitRouteLoc36632::Relaunch
+    } else if animation_finished {
+        BigHoppingSkullHitAnimationWaitRouteLoc36632::SharedTail
+    } else {
+        BigHoppingSkullHitAnimationWaitRouteLoc36632::LoopHitAnimation
+    };
+
+    BigHoppingSkullHitAnimationWaitLoc36632 {
+        collision_probe_extent: 8,
+        clear_has_kid_collision: matches!(
+            route,
+            BigHoppingSkullHitAnimationWaitRouteLoc36632::SharedTail
+        ),
+        route,
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,

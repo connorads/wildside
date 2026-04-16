@@ -4049,6 +4049,33 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_hit_animation_wait_matches_loc_36632() {
+        assert_eq!(
+            enemies::big_hopping_skull_hit_animation_wait_loc_36632(true, false),
+            enemies::BigHoppingSkullHitAnimationWaitLoc36632 {
+                collision_probe_extent: 8,
+                clear_has_kid_collision: false,
+                route: enemies::BigHoppingSkullHitAnimationWaitRouteLoc36632::LoopHitAnimation,
+            },
+            "ASM Big_Hopping_Skull.asm loc_36632 should keep looping while the hit animation completion flag is clear",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_hit_animation_wait_loc_36632(false, true).route,
+            enemies::BigHoppingSkullHitAnimationWaitRouteLoc36632::Relaunch,
+            "ASM Big_Hopping_Skull.asm loc_36632 should relaunch before testing animation completion when the d6 collision probe is zero",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_hit_animation_wait_loc_36632(true, true),
+            enemies::BigHoppingSkullHitAnimationWaitLoc36632 {
+                collision_probe_extent: 8,
+                clear_has_kid_collision: true,
+                route: enemies::BigHoppingSkullHitAnimationWaitRouteLoc36632::SharedTail,
+            },
+            "ASM Big_Hopping_Skull.asm loc_36632 should clear has_kid_collision and enter the shared tail after the hit animation finishes",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),
