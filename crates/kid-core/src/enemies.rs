@@ -588,6 +588,23 @@ pub(crate) fn crab_airborne_deceleration_frame_loc_3b1a6(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CrabNegativeAirborneDecelerationLoc3B1BE {
+    pub(crate) x_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_negative_airborne_deceleration_loc_3b1be(
+    x_velocity: i32,
+) -> CrabNegativeAirborneDecelerationLoc3B1BE {
+    // ASM Crab.asm loc_3B1BE: negative x_vel receives `addi.l #$4000`
+    // before the shared threshold and collision response tail.
+    CrabNegativeAirborneDecelerationLoc3B1BE {
+        x_velocity: x_velocity.wrapping_add(0x0000_4000),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabDamageRouteLoc3B08C {
     HurtAnimation,
     DeathAnimation,
@@ -16250,6 +16267,25 @@ mod tests {
                 route: CrabAirborneDecelerationRouteLoc3B1A6::NegativeXVelocityTail,
             },
             "ASM Crab.asm loc_3B1A6 should branch away when x_vel is negative"
+        );
+    }
+
+    #[test]
+    fn crab_negative_airborne_deceleration_matches_loc_3b1be() {
+        assert_eq!(
+            crab_negative_airborne_deceleration_loc_3b1be(-0x0001_0000),
+            CrabNegativeAirborneDecelerationLoc3B1BE {
+                x_velocity: -0x0000_C000,
+            },
+            "ASM Crab.asm loc_3B1BE should add `$4000` to a negative x_vel"
+        );
+
+        assert_eq!(
+            crab_negative_airborne_deceleration_loc_3b1be(-0x0000_3000),
+            CrabNegativeAirborneDecelerationLoc3B1BE {
+                x_velocity: 0x0000_1000,
+            },
+            "ASM Crab.asm loc_3B1BE can cross zero because it unconditionally adds `$4000`"
         );
     }
 
