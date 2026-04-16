@@ -2363,6 +2363,15 @@ impl NativeRuntime {
         &[2, 2, 2, 2, 2]
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn lift_block_bob_up_pass_loc_FBCC() -> &'static [i16] {
+        // ASM loc_FBCC (kid.asm:20955): `moveq #3,d0` makes the DBF loop run
+        // four times, subtracting 2px from the linked gfx object's y position
+        // before each one-frame hibernate.
+        &[-2, -2, -2, -2]
+    }
+
     /// Process block hit effects from the current frame's slice (prizes, bounces,
     /// lifts, drills, teleporter warps).
     pub(crate) fn process_block_effects(&mut self, slice: &mut OpeningSliceState) {
