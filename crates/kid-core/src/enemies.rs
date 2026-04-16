@@ -7532,6 +7532,8 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_tail_loc_3f112(
         y_velocity = y_velocity.wrapping_add(-0x1_0000);
         x_velocity = x_velocity.wrapping_add(0x4000);
     }
+    // ASM Mini_Hopping_Skull.asm loc_3F13C: after the optional HP boost,
+    // a clear `x_direction(a3)` falls through to `neg.l x_vel(a3)`.
     if x_direction == 0 {
         x_velocity = x_velocity.wrapping_neg();
     }
@@ -19388,6 +19390,34 @@ mod tests {
                 next_loop: "loc_3EA88",
             },
             "ASM Mini_Hopping_Skull.asm loc_3F112 should apply the HP-tier boost before the direction gate"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_facing_matched_pause_direction_gate_matches_loc_3f13c() {
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_tail_loc_3f112(0x0000, 0x00, true),
+            MiniHoppingSkullFacingMatchedPauseTail::BeginRelaunchArc {
+                y_velocity: -0x0004_8000,
+                x_velocity: -0x0001_C000,
+                sprite: "LnkTo_unk_C8080",
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F13C should negate the boosted X velocity when `x_direction(a3)` is clear"
+        );
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_tail_loc_3f112(0x0000, 0xFF, false),
+            MiniHoppingSkullFacingMatchedPauseTail::BeginRelaunchArc {
+                y_velocity: -0x0003_8000,
+                x_velocity: 0x0001_8000,
+                sprite: "LnkTo_unk_C8080",
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F13C should skip `neg.l x_vel(a3)` when `x_direction(a3)` is non-zero"
         );
     }
 
