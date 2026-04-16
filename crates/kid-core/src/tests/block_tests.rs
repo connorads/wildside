@@ -5022,7 +5022,7 @@ mod chunk_04 {
     #[test]
     fn archer_death_sequence_loc_3414a_marks_contact_bounces_kid_and_deletes() {
         // ASM Archer.asm loc_3414A applies these side effects before routing the
-        // object-status byte and jumping to the delete tail.
+        // object-status byte and jumping through loc_34196 to delete the object.
         let delete_only = archer_death_sequence_loc_3414A(0x80);
         assert_eq!(
             (

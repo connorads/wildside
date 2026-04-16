@@ -3389,7 +3389,7 @@ pub(crate) fn archer_death_sequence_loc_3414A(
 ) -> ArcherDeathSequenceLoc3414A {
     // ASM Archer.asm loc_3414A: set `has_kid_collision(a3)`, play the death
     // animation, force Kid's y velocity to `$FFFC0000`, then route `$42(a5)`
-    // before the shared delete tail.
+    // before ASM Archer.asm loc_34196 deletes the current object.
     let status_route = if object_status_slot & 0x80 == 0 {
         ArcherDeathStatusRouteLoc3414A::WriteRespawnMarker(archer_respawn_marker_loc_34188(
             object_status_slot,
