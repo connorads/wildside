@@ -798,6 +798,8 @@ impl NativeRuntime {
             lift.y_velocity = lift.y_velocity.wrapping_sub(0x0708);
         }
 
+        // ASM loc_FCEA (kid.asm:21048-21053): compare signed integer `6(a3)`
+        // with `Level_height_pixels`; strictly below loops, otherwise delete.
         let signed_integer_y = i32::from(i16::from_ne_bytes(current_integer_y.to_ne_bytes()));
         signed_integer_y < i32::from(level_height_pixels)
     }

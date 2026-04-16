@@ -14105,6 +14105,43 @@ mod chunk_02 {
     }
 
     #[test]
+    fn lift_platform_step_loc_fcea_deletes_at_level_height_boundary() {
+        let mut below_height = LiftPlatform {
+            x_pos: 32 << 16,
+            y_pos: 255 << 16,
+            y_velocity: 0,
+            age: 0,
+            last_integer_y: 255,
+            moved_y_steps: 0,
+            width_px: 16,
+            source_col: 2,
+            source_row: 6,
+            block_erased: false,
+        };
+        assert!(
+            NativeRuntime::step_lift_platform_sub_FCA6(&mut below_height, 256),
+            "ASM loc_FCEA should loop while signed `6(a3)` is below `Level_height_pixels`",
+        );
+
+        let mut at_height = LiftPlatform {
+            x_pos: 32 << 16,
+            y_pos: 256 << 16,
+            y_velocity: 0,
+            age: 0,
+            last_integer_y: 256,
+            moved_y_steps: 0,
+            width_px: 16,
+            source_col: 2,
+            source_row: 6,
+            block_erased: false,
+        };
+        assert!(
+            !NativeRuntime::step_lift_platform_sub_FCA6(&mut at_height, 256),
+            "ASM loc_FCEA should delete once signed `6(a3)` reaches `Level_height_pixels`",
+        );
+    }
+
+    #[test]
     fn lift_platform_step_sub_fca6_switches_accel_after_0x32_moved_rows_and_deletes_at_level_height()
      {
         let mut lift = LiftPlatform {
