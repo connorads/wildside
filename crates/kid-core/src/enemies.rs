@@ -3010,6 +3010,8 @@ const DRAGON_RETURN_VEL_CAP_SOFT: i32 = -0xF000_i32; // $FFFF1000 as signed
 const DRAGON_RETURN_VEL_CAP_HARD: i32 = -0x8000_i32; // $FFFF8000 as signed
 /// Face-player initial x velocity: $8000. ASM loc_3473A.
 const DRAGON_FACE_PLAYER_SPEED: i32 = 0x8000;
+/// Right terrain slide horizontal deceleration per frame: $1000. ASM loc_34A0A.
+const DRAGON_TERRAIN_SLIDE_X_DECEL: i32 = 0x1000;
 
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_drift_negative_velocity_loc_347b2(x_velocity: i32) -> i32 {
@@ -3243,6 +3245,48 @@ pub(crate) fn dragon_right_slide_start_loc_34a00(
     DragonRightSlideStartLoc34A00 {
         x_velocity: 0x0002_0000 | (previous_x_velocity & 0x0000_FFFF),
         y_velocity: 0,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonRightSlideFrameLoc34A0A {
+    CollisionRoute {
+        x_velocity: i32,
+        collision_type: u16,
+    },
+    Continue {
+        x_velocity: i32,
+    },
+    BeginReturnToAnchor {
+        x_velocity: i32,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_right_slide_frame_loc_34a0a(
+    x_velocity: i32,
+    collision_type: u16,
+) -> DragonRightSlideFrameLoc34A0A {
+    // ASM Dragon_Flying.asm loc_34A0A: after one hibernated frame, non-zero
+    // collision_type branches to the collision handler before velocity changes;
+    // otherwise x_vel subtracts `$1000` and signed `ble` enters return-to-anchor.
+    if collision_type != 0 {
+        return DragonRightSlideFrameLoc34A0A::CollisionRoute {
+            x_velocity,
+            collision_type,
+        };
+    }
+
+    let next_x_velocity = x_velocity.wrapping_sub(DRAGON_TERRAIN_SLIDE_X_DECEL);
+    if next_x_velocity <= 0 {
+        DragonRightSlideFrameLoc34A0A::BeginReturnToAnchor {
+            x_velocity: next_x_velocity,
+        }
+    } else {
+        DragonRightSlideFrameLoc34A0A::Continue {
+            x_velocity: next_x_velocity,
+        }
     }
 }
 
