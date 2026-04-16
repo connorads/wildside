@@ -1723,6 +1723,38 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondHighHpInitLoc3AD7C {
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) animation_script: &'static str,
+    pub(crate) x_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_high_hp_init_loc_3ad7c(
+    enemy_x_px: i32,
+    player_x_px: i32,
+) -> DiamondHighHpInitLoc3AD7C {
+    // ASM Diamond.asm loc_3AD7C: high-HP Diamonds enable movement and level
+    // collision, initialise `stru_3ACA8`, then seed `x_vel` to `$18000`.
+    // `move.w x_pos(a3),d7; sub.w x_pos(a4),d7; bmi.s <collision-loop>`
+    // keeps positive velocity only when the Diamond is left of Kid.
+    let x_velocity = if enemy_x_px - player_x_px < 0 {
+        0x0001_8000
+    } else {
+        -0x0001_8000
+    };
+
+    DiamondHighHpInitLoc3AD7C {
+        is_moved: true,
+        has_level_collision: true,
+        animation_script: "stru_3ACA8",
+        x_velocity,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonInitAnimation {
     pub(crate) collision_routine: &'static str,
     pub(crate) animation_script: &'static str,
@@ -13038,6 +13070,30 @@ mod tests {
 
         assert_eq!(pacer_walk_speed(EnemyFamily::Diamond, hp2), 0x0001_0000);
         assert_eq!(pacer_walk_speed(EnemyFamily::Diamond, hp3), 0x0001_8000);
+    }
+
+    #[test]
+    fn diamond_high_hp_init_loc_3ad7c_enables_movement_and_targets_kid() {
+        assert_eq!(
+            diamond_high_hp_init_loc_3ad7c(80, 112),
+            DiamondHighHpInitLoc3AD7C {
+                is_moved: true,
+                has_level_collision: true,
+                animation_script: "stru_3ACA8",
+                x_velocity: 0x0001_8000,
+            },
+            "ASM Diamond.asm loc_3AD7C should keep +$18000 x_vel when enemy_x - Kid_x is negative",
+        );
+        assert_eq!(
+            diamond_high_hp_init_loc_3ad7c(112, 80).x_velocity,
+            -0x0001_8000,
+            "ASM Diamond.asm loc_3AD7C should negate x_vel when the Diamond is right of or aligned with Kid",
+        );
+        assert_eq!(
+            diamond_high_hp_init_loc_3ad7c(96, 96).x_velocity,
+            -0x0001_8000,
+            "ASM Diamond.asm loc_3AD7C uses `bmi`, so exact alignment takes the negate path",
+        );
     }
 
     #[test]
