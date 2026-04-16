@@ -16054,6 +16054,47 @@ pub(crate) fn spinning_twins_floor_landing_loc_3bb8a(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SpinningTwinsSettleWalkerEntryLoc3BB94 {
+    LeftLoc3C0D2,
+    RightLoc3C026,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsSettleEntryLoc3BB94 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) has_level_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) restart_walk_animation: bool,
+    pub(crate) walker_entry: SpinningTwinsSettleWalkerEntryLoc3BB94,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_settle_entry_loc_3bb94(
+    x_direction: u8,
+) -> SpinningTwinsSettleEntryLoc3BB94 {
+    // ASM Spinning_Twins.asm loc_3BB94: clear collision_type, x_vel, y_vel,
+    // has_level_collision, and is_moved, restart `stru_3B81C`, then branch by
+    // x_direction: zero enters loc_3C0D2; nonzero enters loc_3C026.
+    SpinningTwinsSettleEntryLoc3BB94 {
+        next_collision_type: 0,
+        x_velocity: 0,
+        y_velocity: 0,
+        has_level_collision: false,
+        is_moved: false,
+        restart_walk_animation: true,
+        walker_entry: if x_direction == 0 {
+            SpinningTwinsSettleWalkerEntryLoc3BB94::LeftLoc3C0D2
+        } else {
+            SpinningTwinsSettleWalkerEntryLoc3BB94::RightLoc3C026
+        },
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32) -> i32 {
     // ASM Spinning_Twins.asm loc_3BB2C: after hibernate + sub_3C3CE movement,

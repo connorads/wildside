@@ -8031,6 +8031,36 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_settle_entry_loc_3bb94_clears_motion_and_resumes_walker() {
+        assert_eq!(
+            spinning_twins_settle_entry_loc_3bb94(0),
+            SpinningTwinsSettleEntryLoc3BB94 {
+                next_collision_type: 0,
+                x_velocity: 0,
+                y_velocity: 0,
+                has_level_collision: false,
+                is_moved: false,
+                restart_walk_animation: true,
+                walker_entry: SpinningTwinsSettleWalkerEntryLoc3BB94::LeftLoc3C0D2
+            },
+            "ASM loc_3BB94 clears motion/collision state and sends clear x_direction to loc_3C0D2"
+        );
+        assert_eq!(
+            spinning_twins_settle_entry_loc_3bb94(0xFF),
+            SpinningTwinsSettleEntryLoc3BB94 {
+                next_collision_type: 0,
+                x_velocity: 0,
+                y_velocity: 0,
+                has_level_collision: false,
+                is_moved: false,
+                restart_walk_animation: true,
+                walker_entry: SpinningTwinsSettleWalkerEntryLoc3BB94::RightLoc3C026
+            },
+            "ASM loc_3BB94 sends set x_direction to loc_3C026 after the same settle clears"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 
