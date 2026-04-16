@@ -6069,6 +6069,62 @@ pub(crate) fn fireball_sprite_branch_loc_32f3e(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireballSpriteSelectionLoc32F3E {
+    pub(crate) sprite_index: i16,
+    pub(crate) quadrant_index: u16,
+}
+
+fn fireball_ratio_lookup_unk_32edc(index: usize) -> i16 {
+    // ASM Fireball.asm unk_32EDC: the first $3F ratio slots map to 0, 1, 2,
+    // then 3; loc_32F78/loc_32FAC mirror or offset that base sprite index.
+    match index {
+        0..=2 => 0,
+        3..=5 => 1,
+        6..=13 => 2,
+        _ => 3,
+    }
+}
+
+fn fireball_ratio_sprite_index(abs_x_word: u16, abs_y_word: u16) -> Option<i16> {
+    let scaled_y_word = abs_y_word.wrapping_shl(3);
+    let divisor = i32::from(signed_word(abs_x_word));
+    if divisor == 0 {
+        return None;
+    }
+
+    let ratio = i32::from(scaled_y_word) / divisor;
+    let ratio_index = u16::try_from(ratio).ok().map(usize::from)?;
+    if ratio_index >= 0x3F {
+        None
+    } else {
+        Some(fireball_ratio_lookup_unk_32edc(ratio_index))
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_negative_x_negative_y_sprite_loc_32f78(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> FireballSpriteSelectionLoc32F3E {
+    // ASM Fireball.asm loc_32F78: after negative X is detected, `neg.w d6`
+    // makes the X divisor positive. With negative Y, `d5=1`, `neg.w d7`,
+    // `(abs_y << 3) / abs_x` indexes unk_32EDC, then the sprite index is
+    // mirrored with `neg.w d6; addi.w #9,d6`.
+    let x_word = fireball_velocity_word_after_shift8_loc_32f3e(x_velocity);
+    let y_word = fireball_velocity_word_after_shift8_loc_32f3e(y_velocity);
+    let abs_x_word = x_word.wrapping_neg();
+    let abs_y_word = y_word.wrapping_neg();
+    let sprite_index = fireball_ratio_sprite_index(abs_x_word, abs_y_word)
+        .map_or(4, |base_sprite_index| -base_sprite_index + 9);
+
+    FireballSpriteSelectionLoc32F3E {
+        sprite_index,
+        quadrant_index: 1,
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn fireball_bounce_perturbation(enemy: &ActiveEnemy) -> i32 {
     let mut rng = RomRandomState::default();
@@ -20331,6 +20387,26 @@ mod tests {
             fireball_sprite_branch_loc_32f3e(-0x0001_0000, -0x0000_8000),
             FireballSpriteBranchLoc32F3E::NegativeX,
             "ASM Fireball.asm loc_32F3E should route negative X into the loc_32F78 branch"
+        );
+    }
+
+    #[test]
+    fn fireball_negative_x_negative_y_sprite_loc_32f78_mirrors_ratio_table() {
+        assert_eq!(
+            fireball_negative_x_negative_y_sprite_loc_32f78(-0x0001_0000, -0x0000_8000),
+            FireballSpriteSelectionLoc32F3E {
+                sprite_index: 8,
+                quadrant_index: 1,
+            },
+            "ASM Fireball.asm loc_32F78 should mirror unk_32EDC[4] = 1 into sprite index 8 and quadrant 1"
+        );
+        assert_eq!(
+            fireball_negative_x_negative_y_sprite_loc_32f78(-0x0000_0100, -0x0001_0000),
+            FireballSpriteSelectionLoc32F3E {
+                sprite_index: 4,
+                quadrant_index: 1,
+            },
+            "ASM Fireball.asm loc_32F78 should use loc_33018's upward fallback sprite 4 when the ratio is at least $3F"
         );
     }
 
