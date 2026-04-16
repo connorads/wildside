@@ -2169,6 +2169,34 @@ pub(crate) fn scorpion_berzerker_side_gate_loc_3dd0e(
     })
 }
 
+pub(crate) const SCORPION_BERZERKER_KNOCKBACK_GRAVITY_LOC_3DD4A: i32 = 0x0000_4000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ScorpionBerzerkerAirborneFrameLoc3DD4A {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) applies_motion_subroutine: bool,
+    pub(crate) motion_subroutine: &'static str,
+    pub(crate) next_y_velocity: i32,
+    pub(crate) repeats_airborne_loop: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_berzerker_airborne_frame_loc_3dd4a(
+    y_velocity: i32,
+) -> ScorpionBerzerkerAirborneFrameLoc3DD4A {
+    // ASM Scorpion.asm loc_3DD4A: hibernate one frame, call `sub_3E8BA`
+    // with the current velocities, add `$4000` to `y_vel(a3)`, and branch
+    // back to repeat the airborne knockback loop.
+    ScorpionBerzerkerAirborneFrameLoc3DD4A {
+        hibernates_one_frame: true,
+        applies_motion_subroutine: true,
+        motion_subroutine: "sub_3E8BA",
+        next_y_velocity: y_velocity.wrapping_add(SCORPION_BERZERKER_KNOCKBACK_GRAVITY_LOC_3DD4A),
+        repeats_airborne_loop: true,
+    }
+}
+
 /// Archer fire interval indexed by enemy_level (HP 1/2/3).
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
@@ -14472,6 +14500,21 @@ mod tests {
                 y_velocity: -0x0004_8000,
             }),
             "ASM Scorpion.asm loc_3DD0E sets the linked tail `$3D` flag and seeds the charging-Berzerker knockback state"
+        );
+    }
+
+    #[test]
+    fn scorpion_berzerker_airborne_loop_loc_3dd4a_applies_gravity_and_repeats() {
+        assert_eq!(
+            scorpion_berzerker_airborne_frame_loc_3dd4a(-0x0004_8000),
+            ScorpionBerzerkerAirborneFrameLoc3DD4A {
+                hibernates_one_frame: true,
+                applies_motion_subroutine: true,
+                motion_subroutine: "sub_3E8BA",
+                next_y_velocity: -0x0004_4000,
+                repeats_airborne_loop: true,
+            },
+            "ASM Scorpion.asm loc_3DD4A hibernates one frame, runs sub_3E8BA, adds `$4000` to y_vel, and branches back"
         );
     }
 
