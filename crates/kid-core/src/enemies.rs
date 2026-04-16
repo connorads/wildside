@@ -14896,6 +14896,27 @@ pub(crate) fn emo_rock_drop_frame_loc_36274(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EmoRockLandingSetupLoc362A4 {
+    pub(crate) y_velocity: i32,
+    pub(crate) has_level_collision: bool,
+    pub(crate) animation_script: &'static str,
+    pub(crate) next_loop: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_landing_setup_loc_362a4() -> EmoRockLandingSetupLoc362A4 {
+    // ASM Emo_Rock.asm loc_362A4: landing clears vertical motion, disables level
+    // collision while the settling animation plays, and then enters the settled wait loop.
+    EmoRockLandingSetupLoc362A4 {
+        y_velocity: 0,
+        has_level_collision: false,
+        animation_script: "stru_363FE",
+        next_loop: "settled_wait_loop",
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -18036,6 +18057,20 @@ mod tests {
                 facing: Direction::Right,
             },
             "ASM Emo_Rock.asm loc_36274 sets x_direction when Kid's integer X is equal to or right of the rock"
+        );
+    }
+
+    #[test]
+    fn emo_rock_landing_setup_loc_362a4_clears_drop_state() {
+        assert_eq!(
+            emo_rock_landing_setup_loc_362a4(),
+            EmoRockLandingSetupLoc362A4 {
+                y_velocity: 0,
+                has_level_collision: false,
+                animation_script: "stru_363FE",
+                next_loop: "settled_wait_loop",
+            },
+            "ASM Emo_Rock.asm loc_362A4 clears y_vel, disables level collision, loads `stru_363FE`, and enters the settled wait loop"
         );
     }
 
