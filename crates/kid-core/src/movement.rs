@@ -606,6 +606,13 @@ pub(crate) struct ObjectGfxLinksSubE02 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GfxObjectAllocationSpecialChainSpliceLocFB8 {
+    pub(crate) new_gfx_special_next_index: Option<usize>,
+    pub(crate) new_special_chain_head_index: usize,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GfxObjectSpecialSlotLoc10C6 {
     None,
     Kid,
@@ -632,6 +639,20 @@ pub(crate) struct GfxObjectDeleteLoc10C6 {
     pub(crate) next_free_head_index: usize,
     pub(crate) next_number_gfx_objects: u16,
     pub(crate) special_slot: GfxObjectSpecialSlotLoc10C6,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_alloc_special_chain_splice_loc_FB8(
+    current_special_chain_head_index: Option<usize>,
+    new_gfx_index: usize,
+) -> GfxObjectAllocationSpecialChainSpliceLocFB8 {
+    // ASM loc_FB8 (kid.asm:1885): `move.l (a4),4(a3); move.l a3,(a4)` pushes
+    // the allocated gfx object onto the selected singleton chain.
+    GfxObjectAllocationSpecialChainSpliceLocFB8 {
+        new_gfx_special_next_index: current_special_chain_head_index,
+        new_special_chain_head_index: new_gfx_index,
+    }
 }
 
 #[allow(non_snake_case)]

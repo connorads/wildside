@@ -429,6 +429,19 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn gfx_object_alloc_loc_FB8_pushes_the_new_gfx_object_onto_the_special_chain() {
+        assert_eq!(
+            gfx_object_alloc_special_chain_splice_loc_FB8(Some(6), 2),
+            GfxObjectAllocationSpecialChainSpliceLocFB8 {
+                new_gfx_special_next_index: Some(6),
+                new_special_chain_head_index: 2,
+            },
+            "ASM loc_FB8 should copy the selected singleton head into the new gfx object's `4(a3)` link, then replace that head with the new gfx object",
+        );
+    }
+
+    #[test]
     fn gfx_object_delete_loc_10f4_routes_object_kind_3_to_the_fffff86a_singleton_slot() {
         assert_eq!(
             gfx_object_delete_loc_10C6(None, Some(7), 5, 3, 3).special_slot,
