@@ -4952,6 +4952,25 @@ pub(crate) const SPHERE_GRAVITY: i32 = 0x800;
 /// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
 pub(crate) const FIREBALL_UPWARD_CAP_BY_HP: [i32; 3] = [-0x4_0000, -0x5_0000, -0x5_0000];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireballRespawnMarkerLoc32ECA {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_respawn_marker_loc_32eca(
+    object_status_slot: u8,
+) -> FireballRespawnMarkerLoc32ECA {
+    // ASM Fireball.asm loc_32ECA: the positive `$42(a5)` byte is doubled as a
+    // word offset into EnemyStatus_Table, then `$2168` is written.
+    FireballRespawnMarkerLoc32ECA {
+        index: usize::from(object_status_slot),
+        word_value: 0x2168,
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn fireball_bounce_perturbation(enemy: &ActiveEnemy) -> i32 {
     let mut rng = RomRandomState::default();
@@ -18316,6 +18335,18 @@ mod tests {
             fireball_slope_down_trail_marker_loc_32e3c(0x005B, 0x007A, 0x4000),
             None,
             "ASM Fireball.asm loc_32E3C should return through loc_32D06 unless the sampled tile collision nibble is exactly `$5000`"
+        );
+    }
+
+    #[test]
+    fn fireball_respawn_marker_loc_32eca_writes_positive_status_slot() {
+        assert_eq!(
+            fireball_respawn_marker_loc_32eca(0x05),
+            FireballRespawnMarkerLoc32ECA {
+                index: 5,
+                word_value: 0x2168,
+            },
+            "ASM Fireball.asm loc_32ECA doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
         );
     }
 
