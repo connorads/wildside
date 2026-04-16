@@ -2336,6 +2336,15 @@ impl NativeRuntime {
         &[-2, -2, -2, -2, -2, -2]
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn lift_block_bob_down_pass_loc_FBA2() -> &'static [i16] {
+        // ASM loc_FBA2 (kid.asm:20937): `moveq #5,d1` makes the DBF loop run
+        // six times, adding 2px to the linked gfx object's y position before
+        // each one-frame hibernate.
+        &[2, 2, 2, 2, 2, 2]
+    }
+
     /// Process block hit effects from the current frame's slice (prizes, bounces,
     /// lifts, drills, teleporter warps).
     pub(crate) fn process_block_effects(&mut self, slice: &mut OpeningSliceState) {
