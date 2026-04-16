@@ -2897,6 +2897,25 @@ pub(crate) fn armadillo_death_route_loc_3c87e(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArmadilloDeathAnimationLoc3C886 {
+    pub(crate) animation_script: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) exits_enemy: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_death_animation_loc_3c886() -> ArmadilloDeathAnimationLoc3C886 {
+    // ASM Armadillo.asm loc_3C886: initialise `stru_3C69A`, hibernate until
+    // that animation completes, then branch to the shared enemy exit path.
+    ArmadilloDeathAnimationLoc3C886 {
+        animation_script: "stru_3C69A",
+        waits_until_animation_finished: true,
+        exits_enemy: true,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
@@ -21041,6 +21060,19 @@ mod tests {
                 is_moved: true,
             },
             "ASM Armadillo.asm loc_3C87E sends set `$5C(a5)` through the falling settle route before death animation"
+        );
+    }
+
+    #[test]
+    fn armadillo_death_animation_matches_loc_3c886() {
+        assert_eq!(
+            armadillo_death_animation_loc_3c886(),
+            ArmadilloDeathAnimationLoc3C886 {
+                animation_script: "stru_3C69A",
+                waits_until_animation_finished: true,
+                exits_enemy: true,
+            },
+            "ASM Armadillo.asm loc_3C886 plays `stru_3C69A`, waits for it to finish, then exits through loc_3E956"
         );
     }
 
