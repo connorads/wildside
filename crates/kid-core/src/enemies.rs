@@ -381,6 +381,7 @@ pub(crate) struct TankShootingInitVisibleStateLoc3B5A6 {
     pub(crate) parent_timer_4a: u16,
     pub(crate) parent_timer_48: u16,
     pub(crate) current_hp: u8,
+    pub(crate) walk_speed: i32,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -398,6 +399,7 @@ pub(crate) fn tank_shooting_init_visible_state_loc_3b5a6(
 
     let slot_index = tank_shooting_art_slot_loc_3b56c(enemy_type_slots);
     let slot = usize::from(slot_index);
+    let current_hp = spawn_hit_points(EnemyFamily::TankShooting, enemy_level);
     TankShootingInitVisibleStateLoc3B5A6 {
         status_flag_13: true,
         object_meta: ROCK_TANK_SHOOTING_OBJECT_ID | 0x0080,
@@ -407,7 +409,21 @@ pub(crate) fn tank_shooting_init_visible_state_loc_3b5a6(
         priority: 0,
         parent_timer_4a: 0x0020,
         parent_timer_48: 0x000B,
-        current_hp: spawn_hit_points(EnemyFamily::TankShooting, enemy_level),
+        current_hp,
+        walk_speed: tank_shooting_walk_speed_loc_3b5f2(current_hp),
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_shooting_walk_speed_loc_3b5f2(current_hp: u8) -> i32 {
+    // ASM Tank_Shooting.asm loc_3B5F2: HP > 3 preloads `$50(a5)` with
+    // `$8000`, HP == 3 falls directly into this `$8000` add, and all paths
+    // then receive the final `$8000`. HP < 3 skips loc_3B5F2 and receives
+    // only the final add.
+    match current_hp {
+        0..=2 => 0x0000_8000,
+        3 => 0x0001_0000,
+        _ => 0x0001_8000,
     }
 }
 
@@ -1998,6 +2014,9 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
     if matches!(family, EnemyFamily::Ninja) {
         return ninja_walk_speed_override_loc_3d59a_and_3d5aa(hit_points);
     }
+    if matches!(family, EnemyFamily::TankShooting) {
+        return tank_shooting_walk_speed_loc_3b5f2(hit_points);
+    }
 
     let (base_hp, base_speed, speed_step) = match family {
         // Goat.asm loc_3CA6E: HP 4+ reaches the `$10000` speed-tier add.
@@ -2018,7 +2037,7 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         // Tank: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
         // ASM Tank.asm loc_3B36A/loc_3B372: HP 2 gets one `$8000` add,
         // HP 3 gets two, HP 4+ gets three.
-        EnemyFamily::Tank | EnemyFamily::TankShooting => (2, 0x0000_8000, 0x0000_8000),
+        EnemyFamily::Tank => (2, 0x0000_8000, 0x0000_8000),
         // Fire_Demon.asm loc_3A40C: HP 4 executes the second `$8000` speed add;
         // HP 5+ reaches it after the earlier high-HP preload.
         // Fire_Demon.asm loc_3A414: every tier then falls through to the final
@@ -16218,8 +16237,33 @@ mod tests {
                 parent_timer_4a: 0x0020,
                 parent_timer_48: 0x000B,
                 current_hp: 3,
+                walk_speed: 0x0001_0000,
             },
             "ASM Tank_Shooting.asm loc_3B5A6 should double selected art slot 1 into `$3E=2`, use palette/VRAM slot 1, set object_meta bit 7, clear priority, and store enemy_level+2 HP",
+        );
+    }
+
+    #[test]
+    fn tank_shooting_walk_speed_loc_3b5f2_matches_hp_tiers() {
+        assert_eq!(
+            tank_shooting_walk_speed_loc_3b5f2(2),
+            0x0000_8000,
+            "ASM Tank_Shooting.asm loc_3B5F2 should be skipped below HP 3, leaving only the final `$8000` add"
+        );
+        assert_eq!(
+            tank_shooting_walk_speed_loc_3b5f2(3),
+            0x0001_0000,
+            "ASM Tank_Shooting.asm loc_3B5F2 should add `$8000` for HP 3 before the final `$8000` add"
+        );
+        assert_eq!(
+            tank_shooting_walk_speed_loc_3b5f2(4),
+            0x0001_8000,
+            "ASM Tank_Shooting.asm loc_3B5F2 should preserve the HP>3 `$8000` preload and add two more `$8000` steps"
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::TankShooting, 4),
+            0x0001_8000,
+            "native TankShooting pacer speed should route through Tank_Shooting.asm loc_3B5F2"
         );
     }
 
