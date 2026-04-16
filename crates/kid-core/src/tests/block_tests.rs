@@ -6011,6 +6011,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn robot_berzerker_side_gate_loc_3a9cc_requires_active_charge() {
+        assert_eq!(
+            robot_berzerker_side_gate_loc_3a9cc(false),
+            RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
+            "ASM Robot.asm loc_3A9CC should branch to loc_3A958 when `Berzerker_charging` is clear"
+        );
+        assert_eq!(
+            robot_berzerker_side_gate_loc_3a9cc(true),
+            RobotCollisionRouteLoc3A8Ae::Destroy,
+            "ASM Robot.asm loc_3A9CC should fall through to the destruction prep path when `Berzerker_charging` is set"
+        );
+    }
+
+    #[test]
     fn robot_hit_reaction_loc_3a8fc_decrements_hp_and_restores_child_on_nonlethal_hit() {
         // ASM Robot.asm loc_3A8FC enters the hit-reaction sequence; the cases
         // below pin the child offset applied by loc_3A90C within that path.

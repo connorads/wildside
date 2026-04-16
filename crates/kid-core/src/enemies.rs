@@ -8365,10 +8365,23 @@ pub(crate) fn robot_collision_dispatch_loc_3a8ae(
     match child_collision_type {
         0x0000 => RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
         0x001C | 0x002C => RobotCollisionRouteLoc3A8Ae::HitReaction,
-        0x0020 | 0x0024 if berzerker_charging => RobotCollisionRouteLoc3A8Ae::Destroy,
-        0x0020 | 0x0024 => RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
+        0x0020 | 0x0024 => robot_berzerker_side_gate_loc_3a9cc(berzerker_charging),
         0x0800 => RobotCollisionRouteLoc3A8Ae::ContinueCharge,
         _ => RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn robot_berzerker_side_gate_loc_3a9cc(
+    berzerker_charging: bool,
+) -> RobotCollisionRouteLoc3A8Ae {
+    // ASM Robot.asm loc_3A9CC: `$20/$24` child side contacts branch to
+    // loc_3A958 when `Berzerker_charging` is clear; otherwise they fall
+    // through to the destruction prep path.
+    if berzerker_charging {
+        RobotCollisionRouteLoc3A8Ae::Destroy
+    } else {
+        RobotCollisionRouteLoc3A8Ae::ClearAndWalk
     }
 }
 
