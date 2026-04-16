@@ -5674,6 +5674,41 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_grab_snap_loc_3294c_uses_raw_direction_and_clears_fraction() {
+        assert_eq!(
+            hand_grab_snap_loc_3294c(0x0064_8000, 0x00C8_4000, false),
+            HandGrabSnapLoc3294C {
+                x_pos: 0x0066_0000,
+                y_pos: 0x00C4_0000,
+            },
+            "ASM Hand.asm loc_3294C: clear x_direction stores Kid integer X+2 and clears both fractional words"
+        );
+        assert_eq!(
+            hand_grab_snap_loc_3294c(0x0064_8000, 0x00C8_4000, true).x_pos,
+            0x0062_0000,
+            "ASM Hand.asm loc_3294C: set x_direction subtracts four from the prepared Kid X+2 word, yielding Kid X-2"
+        );
+    }
+
+    #[test]
+    fn hand_grabbing_step_uses_loc_3294c_snap() {
+        let mut enemy = test_enemy(EnemyFamily::Hand, 0, 0, 1);
+        enemy.hand_state = HandState::Grabbing;
+        enemy.facing = Direction::Left;
+        enemy.wait_timer = 1;
+        enemy.x_velocity = 0x0003_0000;
+        enemy.y_velocity = -0x0004_0000;
+
+        step_hand(&mut enemy, None, Some(0x0064_8000), Some(0x00C8_4000));
+
+        assert_eq!(
+            (enemy.x_pos, enemy.y_pos, enemy.x_velocity, enemy.y_velocity),
+            (0x0066_0000, 0x00C4_0000, 0, 0),
+            "ASM Hand.asm loc_3294C drives the native grabbing step through integer X+2/Y-4 snap and velocity clear"
+        );
+    }
+
+    #[test]
     fn hand_walks_until_player_detected_ahead() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

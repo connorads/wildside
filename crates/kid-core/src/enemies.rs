@@ -7907,6 +7907,37 @@ pub(crate) const HAND_GRAB_DURATION: u16 = 10;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandGrabSnapLoc3294C {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_grab_snap_loc_3294c(
+    kid_x_pos: u32,
+    kid_y_pos: u32,
+    x_direction_flag: bool,
+) -> HandGrabSnapLoc3294C {
+    // ASM Hand.asm loc_3294C: loc_3292E prepares Kid X+2, subtracts 4 only
+    // when raw x_direction is set, then stores high position words and clears
+    // both fractional halves. Y always snaps to Kid Y-4.
+    let kid_x_word = (kid_x_pos >> 16) as u16;
+    let x_word = if x_direction_flag {
+        kid_x_word.wrapping_sub(2)
+    } else {
+        kid_x_word.wrapping_add(2)
+    };
+    let y_word = ((kid_y_pos >> 16) as u16).wrapping_sub(4);
+
+    HandGrabSnapLoc3294C {
+        x_pos: u32::from(x_word) << 16,
+        y_pos: u32::from(y_word) << 16,
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandInitLoc327B6 {
     pub(crate) status_flag_13: bool,
     pub(crate) is_moved: bool,
@@ -8233,14 +8264,11 @@ pub(crate) fn step_hand(
         }
         HandState::Grabbing => {
             // Hand follows player position for HAND_GRAB_DURATION frames.
-            // Hand.asm loc_3292E: hand snaps to kid's X±2, Y-4 each frame.
+            // Hand.asm loc_3294C: hand snaps to Kid's integer X±2, Y-4 each frame.
             if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
-                let x_off: i64 = match enemy.facing {
-                    Direction::Right => 2 << 16,
-                    Direction::Left => -(2i64 << 16),
-                };
-                enemy.x_pos = (px as i64 + x_off) as u32;
-                enemy.y_pos = (py as i64 - (4i64 << 16)) as u32;
+                let snap = hand_grab_snap_loc_3294c(px, py, hand_x_direction_flag(enemy.facing));
+                enemy.x_pos = snap.x_pos;
+                enemy.y_pos = snap.y_pos;
             }
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
