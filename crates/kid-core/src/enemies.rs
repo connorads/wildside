@@ -2120,6 +2120,55 @@ pub(crate) fn scorpion_death_route_loc_3dcf4() -> ScorpionDeathRouteLoc3DCF4 {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ScorpionBerzerkerKnockbackStartLoc3DD0E {
+    pub(crate) linked_tail_has_kid_collision: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ScorpionBerzerkerSideGateLoc3DD0E {
+    ResumeSharedWalker { next_collision_type: u16 },
+    Knockback(ScorpionBerzerkerKnockbackStartLoc3DD0E),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_berzerker_side_gate_loc_3dd0e(
+    berzerker_charging: bool,
+    sprite_before_sting_gate: bool,
+) -> ScorpionBerzerkerSideGateLoc3DD0E {
+    // ASM Scorpion.asm loc_3DD0E: side contact falls through to the normal
+    // clear/resume path unless Berzerker is charging and the current sprite
+    // offset is still before `LnkTo_unk_C7E0E-Data_Index`. The accepted path
+    // sets the linked tail object's `$3D` flag, disables level
+    // collision/animation, enables movement/Kid collision, swaps to
+    // `LnkTo_unk_C7DD6`, and launches upward.
+    if !berzerker_charging || !sprite_before_sting_gate {
+        return ScorpionBerzerkerSideGateLoc3DD0E::ResumeSharedWalker {
+            next_collision_type: 0,
+        };
+    }
+
+    ScorpionBerzerkerSideGateLoc3DD0E::Knockback(ScorpionBerzerkerKnockbackStartLoc3DD0E {
+        linked_tail_has_kid_collision: true,
+        has_level_collision: false,
+        has_kid_collision: true,
+        is_moved: true,
+        is_animated: false,
+        sprite_mapping: "LnkTo_unk_C7DD6-Data_Index",
+        x_velocity: 0,
+        y_velocity: -0x0004_8000,
+    })
+}
+
 /// Archer fire interval indexed by enemy_level (HP 1/2/3).
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
@@ -14391,6 +14440,38 @@ mod tests {
                 delete_current_object: true,
             },
             "ASM Scorpion.asm loc_3DCF4 sets the linked tail object's $3D flag, plays the death animation, waits for it, then deletes the current object"
+        );
+    }
+
+    #[test]
+    fn scorpion_berzerker_side_gate_loc_3dd0e_requires_charge_and_sprite_gate() {
+        assert_eq!(
+            scorpion_berzerker_side_gate_loc_3dd0e(false, true),
+            ScorpionBerzerkerSideGateLoc3DD0E::ResumeSharedWalker {
+                next_collision_type: 0,
+            },
+            "ASM Scorpion.asm loc_3DD0E branches to the normal clear/resume path when Berzerker_charging is zero"
+        );
+        assert_eq!(
+            scorpion_berzerker_side_gate_loc_3dd0e(true, false),
+            ScorpionBerzerkerSideGateLoc3DD0E::ResumeSharedWalker {
+                next_collision_type: 0,
+            },
+            "ASM Scorpion.asm loc_3DD0E branches to the normal clear/resume path when addroffset_sprite is at or after LnkTo_unk_C7E0E"
+        );
+        assert_eq!(
+            scorpion_berzerker_side_gate_loc_3dd0e(true, true),
+            ScorpionBerzerkerSideGateLoc3DD0E::Knockback(ScorpionBerzerkerKnockbackStartLoc3DD0E {
+                linked_tail_has_kid_collision: true,
+                has_level_collision: false,
+                has_kid_collision: true,
+                is_moved: true,
+                is_animated: false,
+                sprite_mapping: "LnkTo_unk_C7DD6-Data_Index",
+                x_velocity: 0,
+                y_velocity: -0x0004_8000,
+            }),
+            "ASM Scorpion.asm loc_3DD0E sets the linked tail `$3D` flag and seeds the charging-Berzerker knockback state"
         );
     }
 
