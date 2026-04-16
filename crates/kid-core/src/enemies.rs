@@ -3954,9 +3954,9 @@ pub(crate) struct ActiveEnemy {
     pub(crate) boss_head_index: u8,
     /// Scorpion: tracking-lock flag ($4E(a5)). Suppresses re-facing when locked onto player.
     pub(crate) scorpion_tracking_lock: bool,
-    /// ASM UFO.asm `$4E(a5)`: doubles per-axis acceleration for UFO/Tornado tiers 1-2.
+    /// ASM UFO.asm `$4E(a5)`; for Tornado, `$46(a5)` gates loc_3592E X-term doubling.
     pub(crate) flight_double_acceleration: bool,
-    /// ASM UFO.asm `$4F(a5)`: doubles target speed for UFO/Tornado tier 2.
+    /// ASM UFO.asm `$4F(a5)`; for Tornado, `$47(a5)` gates loc_3593A Y-term doubling.
     pub(crate) flight_double_terminal_speed: bool,
     /// Walk speed override from tracking callback ($50(a5)). When non-zero, step_pacer
     /// uses this instead of pacer_walk_speed(). Set by Scorpion tracking (Scorpion.asm loc_3DD7E).
@@ -7950,6 +7950,8 @@ pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
         pattern.target_x_velocity
     };
     let target_y_velocity = if enemy.flight_double_terminal_speed {
+        // ASM Tornado.asm loc_3593A: non-zero `$47(a5)` doubles `d1` and `d3`,
+        // the Y target speed and Y acceleration loaded from the script entry.
         pattern.target_y_velocity.saturating_mul(2)
     } else {
         pattern.target_y_velocity
@@ -7965,7 +7967,7 @@ pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     } else {
         x_acceleration
     };
-    enemy.y_acceleration = if enemy.flight_double_acceleration {
+    enemy.y_acceleration = if enemy.flight_double_terminal_speed {
         y_acceleration.saturating_mul(2)
     } else {
         y_acceleration
