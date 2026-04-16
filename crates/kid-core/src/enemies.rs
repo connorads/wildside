@@ -4971,6 +4971,21 @@ pub(crate) fn fireball_respawn_marker_loc_32eca(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireballDeleteTailLoc32ED8 {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_delete_tail_loc_32ed8() -> FireballDeleteTailLoc32ED8 {
+    // ASM Fireball.asm loc_32ED8: every death-status route converges on the
+    // `j_Delete_CurrentObject` tail after the explosion animation finishes.
+    FireballDeleteTailLoc32ED8 {
+        deletes_current_object: true,
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn fireball_bounce_perturbation(enemy: &ActiveEnemy) -> i32 {
     let mut rng = RomRandomState::default();
@@ -18347,6 +18362,17 @@ mod tests {
                 word_value: 0x2168,
             },
             "ASM Fireball.asm loc_32ECA doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
+        );
+    }
+
+    #[test]
+    fn fireball_delete_tail_loc_32ed8_jumps_to_delete_current_object() {
+        assert_eq!(
+            fireball_delete_tail_loc_32ed8(),
+            FireballDeleteTailLoc32ED8 {
+                deletes_current_object: true,
+            },
+            "ASM Fireball.asm loc_32ED8 should jump straight to `j_Delete_CurrentObject` after every death-status route"
         );
     }
 
