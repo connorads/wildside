@@ -3441,6 +3441,32 @@ pub(crate) fn dragon_walking_collision_clear_loc_3cf4c() -> DragonWalkingCollisi
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingSpawnedResumeDispatchLoc3CF50 {
+    OrdinaryDragonResume,
+    SpawnedChildLeftPacing,
+    SpawnedChildRightPacing,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_spawned_resume_dispatch_loc_3cf50(
+    parent_spawned_child: bool,
+    facing: Direction,
+) -> DragonWalkingSpawnedResumeDispatchLoc3CF50 {
+    // ASM Dragon.asm loc_3CF50: when `$5C(a5)` is clear, ordinary walking
+    // dragons continue into the normal resume gate. Parent-spawned children
+    // test `x_direction(a3)` here: clear goes to loc_3E7CA, set to loc_3E6AE.
+    if !parent_spawned_child {
+        return DragonWalkingSpawnedResumeDispatchLoc3CF50::OrdinaryDragonResume;
+    }
+
+    match facing {
+        Direction::Left => DragonWalkingSpawnedResumeDispatchLoc3CF50::SpawnedChildLeftPacing,
+        Direction::Right => DragonWalkingSpawnedResumeDispatchLoc3CF50::SpawnedChildRightPacing,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -16742,6 +16768,25 @@ mod tests {
                 falls_through_to_resume_dispatch: true,
             },
             "ASM Dragon.asm loc_3CF4C should clear collision_type before resuming the pacing dispatch"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_spawned_resume_dispatch_matches_loc_3cf50() {
+        assert_eq!(
+            dragon_walking_spawned_resume_dispatch_loc_3cf50(false, Direction::Left),
+            DragonWalkingSpawnedResumeDispatchLoc3CF50::OrdinaryDragonResume,
+            "ASM Dragon.asm loc_3CF50 should fall through to ordinary resume when `$5C(a5)` is clear"
+        );
+        assert_eq!(
+            dragon_walking_spawned_resume_dispatch_loc_3cf50(true, Direction::Left),
+            DragonWalkingSpawnedResumeDispatchLoc3CF50::SpawnedChildLeftPacing,
+            "ASM Dragon.asm loc_3CF50 should send clear x_direction spawned children to loc_3E7CA"
+        );
+        assert_eq!(
+            dragon_walking_spawned_resume_dispatch_loc_3cf50(true, Direction::Right),
+            DragonWalkingSpawnedResumeDispatchLoc3CF50::SpawnedChildRightPacing,
+            "ASM Dragon.asm loc_3CF50 should send set x_direction spawned children to loc_3E6AE"
         );
     }
 
