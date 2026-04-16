@@ -7709,6 +7709,39 @@ pub(crate) fn ninja_far_kid_facing_loc_3d92a(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaAttackCooldownRouteLoc3D942 {
+    ContinuePacing,
+    CheckThrowFrame,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaAttackCooldownStateLoc3D942 {
+    pub(crate) attack_timer: u16,
+    pub(crate) route: NinjaAttackCooldownRouteLoc3D942,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_attack_cooldown_tick_loc_3d942(
+    attack_timer: u16,
+) -> NinjaAttackCooldownStateLoc3D942 {
+    // ASM Ninja.asm loc_3D942: `subq.w #1,$54(a5); bne.s loc_3D998`.
+    // Only a post-decrement zero reaches the throw-frame gate.
+    let next_attack_timer = attack_timer.wrapping_sub(1);
+    let route = if next_attack_timer == 0 {
+        NinjaAttackCooldownRouteLoc3D942::CheckThrowFrame
+    } else {
+        NinjaAttackCooldownRouteLoc3D942::ContinuePacing
+    };
+
+    NinjaAttackCooldownStateLoc3D942 {
+        attack_timer: next_attack_timer,
+        route,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionLoc3D606 {
     /// ASM Ninja.asm loc_3D6DA: no collision, so jump to stealth/attack gate.
     To3D6DA,
@@ -18746,6 +18779,34 @@ mod tests {
                 decision: NinjaFarKidFacingDecisionLoc3D92A::AlreadyFacingFarKid,
             },
             "ASM Ninja.asm loc_3D92A should leave clear x_direction unchanged when Kid is already far left"
+        );
+    }
+
+    #[test]
+    fn ninja_attack_cooldown_tick_loc_3d942_branches_on_post_decrement_zero() {
+        assert_eq!(
+            ninja_attack_cooldown_tick_loc_3d942(2),
+            NinjaAttackCooldownStateLoc3D942 {
+                attack_timer: 1,
+                route: NinjaAttackCooldownRouteLoc3D942::ContinuePacing,
+            },
+            "ASM Ninja.asm loc_3D942 should branch to loc_3D998 while `$54(a5)` is non-zero after decrement"
+        );
+        assert_eq!(
+            ninja_attack_cooldown_tick_loc_3d942(1),
+            NinjaAttackCooldownStateLoc3D942 {
+                attack_timer: 0,
+                route: NinjaAttackCooldownRouteLoc3D942::CheckThrowFrame,
+            },
+            "ASM Ninja.asm loc_3D942 should only fall through to the sprite gate when `$54(a5)` becomes zero"
+        );
+        assert_eq!(
+            ninja_attack_cooldown_tick_loc_3d942(0),
+            NinjaAttackCooldownStateLoc3D942 {
+                attack_timer: 0xFFFF,
+                route: NinjaAttackCooldownRouteLoc3D942::ContinuePacing,
+            },
+            "ASM Ninja.asm loc_3D942 uses word wrapping arithmetic, so zero underflows and branches to loc_3D998"
         );
     }
 
