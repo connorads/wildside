@@ -9338,6 +9338,8 @@ pub(crate) fn ninja_far_kid_facing_loc_3d92a(
         // `x_direction`, or toggles clear `x_direction` with `eori.b #$FF`.
         Some(true)
     } else if kid_minus_ninja_x_px < -0x80 {
+        // ASM Ninja.asm loc_3D98A: negative far `d4` keeps clear
+        // `x_direction`, or toggles set `x_direction` with `eori.b #$FF`.
         Some(false)
     } else {
         None
@@ -21995,6 +21997,26 @@ mod tests {
                 decision: NinjaFarKidFacingDecisionLoc3D92A::AlreadyFacingFarKid,
             },
             "ASM Ninja.asm loc_3D978 should leave set x_direction unchanged when already facing a far-right Kid"
+        );
+    }
+
+    #[test]
+    fn ninja_far_kid_facing_loc_3d98a_turns_left_for_negative_far_kid() {
+        assert_eq!(
+            ninja_far_kid_facing_loc_3d92a(-0x81, true),
+            NinjaFarKidFacingStateLoc3D92A {
+                x_direction_right: false,
+                decision: NinjaFarKidFacingDecisionLoc3D92A::TurnTowardFarKid,
+            },
+            "ASM Ninja.asm loc_3D98A should toggle set x_direction when Kid is more than $80 px to the left"
+        );
+        assert_eq!(
+            ninja_far_kid_facing_loc_3d92a(-0x81, false),
+            NinjaFarKidFacingStateLoc3D92A {
+                x_direction_right: false,
+                decision: NinjaFarKidFacingDecisionLoc3D92A::AlreadyFacingFarKid,
+            },
+            "ASM Ninja.asm loc_3D98A should leave clear x_direction unchanged when already facing a far-left Kid"
         );
     }
 
