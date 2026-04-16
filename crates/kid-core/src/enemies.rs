@@ -1877,6 +1877,16 @@ pub(crate) struct MiniHoppingSkullAirDamageLoopFrame {
     pub(crate) route: MiniHoppingSkullAirDamageLoopRoute,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullAirDamageSlopeLanding {
+    ResumeTerrainContact {
+        x_velocity: i32,
+        next_loop: &'static str,
+    },
+    DestroySkull(MiniHoppingSkullDestroyedSequence),
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -8634,6 +8644,36 @@ pub(crate) fn mini_hopping_skull_air_damage_loop_loc_3f200(
         hibernates_one_frame: true,
         route,
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_air_damage_slope_landing_loc_3f22a(
+    remaining_hits: u16,
+    preserved_x_velocity: i32,
+) -> MiniHoppingSkullAirDamageSlopeLanding {
+    // ASM Mini_Hopping_Skull.asm loc_3F22A: if `$44(a3)` is still non-zero,
+    // restore saved d2 to `x_vel(a3)` and resume terrain contact. With zero HP,
+    // `swap d2; tst.w d2` tests the signed original high word of x_vel.
+    if remaining_hits != 0 {
+        return MiniHoppingSkullAirDamageSlopeLanding::ResumeTerrainContact {
+            x_velocity: preserved_x_velocity,
+            next_loop: "terrain_contact",
+        };
+    }
+
+    let saved_x_integer_word = (preserved_x_velocity >> 16) as i16;
+    let animation = if saved_x_integer_word > 0 {
+        "stru_3E998"
+    } else {
+        "stru_3E9A2"
+    };
+
+    MiniHoppingSkullAirDamageSlopeLanding::DestroySkull(MiniHoppingSkullDestroyedSequence {
+        is_moved: false,
+        animation,
+        hibernate_until_finished: true,
+        next_loop: "delete_current_object",
+    })
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -21813,6 +21853,54 @@ mod tests {
                 route: MiniHoppingSkullAirDamageLoopRoute::ContinueWait,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F200 clears unhandled non-zero collision IDs before looping"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_air_damage_slope_landing_matches_loc_3f22a() {
+        assert_eq!(
+            mini_hopping_skull_air_damage_slope_landing_loc_3f22a(1, -0x0001_8000),
+            MiniHoppingSkullAirDamageSlopeLanding::ResumeTerrainContact {
+                x_velocity: -0x0001_8000,
+                next_loop: "terrain_contact",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F22A restores saved d2 into x_vel(a3) when the decremented hit counter is non-zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_damage_slope_landing_loc_3f22a(0, 0x0001_C000),
+            MiniHoppingSkullAirDamageSlopeLanding::DestroySkull(
+                MiniHoppingSkullDestroyedSequence {
+                    is_moved: false,
+                    animation: "stru_3E998",
+                    hibernate_until_finished: true,
+                    next_loop: "delete_current_object",
+                }
+            ),
+            "ASM Mini_Hopping_Skull.asm loc_3F22A zero-hit continuation uses the positive signed high word of saved X velocity for the forward death animation"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_damage_slope_landing_loc_3f22a(0, 0x0000_FFFF),
+            MiniHoppingSkullAirDamageSlopeLanding::DestroySkull(
+                MiniHoppingSkullDestroyedSequence {
+                    is_moved: false,
+                    animation: "stru_3E9A2",
+                    hibernate_until_finished: true,
+                    next_loop: "delete_current_object",
+                }
+            ),
+            "ASM Mini_Hopping_Skull.asm loc_3F22A tests the swapped saved X high word, so fractional-only positive X still takes the non-positive death animation"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_damage_slope_landing_loc_3f22a(0, -0x0001_8000),
+            MiniHoppingSkullAirDamageSlopeLanding::DestroySkull(
+                MiniHoppingSkullDestroyedSequence {
+                    is_moved: false,
+                    animation: "stru_3E9A2",
+                    hibernate_until_finished: true,
+                    next_loop: "delete_current_object",
+                }
+            ),
+            "ASM Mini_Hopping_Skull.asm loc_3F22A treats a negative signed high word as the non-positive death animation"
         );
     }
 
