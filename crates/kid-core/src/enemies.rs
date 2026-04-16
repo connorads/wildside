@@ -2608,6 +2608,46 @@ pub(crate) fn dragon_return_stop_loc_349c0(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonTerrainDispatchLoc349DE {
+    DeathExplosion {
+        collision_cleared: bool,
+    },
+    RestartDescentScript {
+        collision_cleared: bool,
+    },
+    ResponseTable {
+        collision_cleared: bool,
+        byte_offset: u16,
+    },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_terrain_dispatch_loc_349DE(
+    collision_type: u16,
+) -> DragonTerrainDispatchLoc349DE {
+    // ASM Dragon_Flying.asm loc_349DE: negative collision branches to the
+    // death path before clearing collision_type; non-negative collision clears
+    // it, `$1C+` restarts the descent script, and lower values dispatch by
+    // subtracting four from the collision word for the response-table offset.
+    if (collision_type & 0x8000) != 0 {
+        DragonTerrainDispatchLoc349DE::DeathExplosion {
+            collision_cleared: false,
+        }
+    } else if collision_type >= 0x001C {
+        DragonTerrainDispatchLoc349DE::RestartDescentScript {
+            collision_cleared: true,
+        }
+    } else {
+        DragonTerrainDispatchLoc349DE::ResponseTable {
+            collision_cleared: true,
+            byte_offset: collision_type.wrapping_sub(4),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,

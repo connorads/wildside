@@ -5952,6 +5952,40 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_349de_routes_positive_terrain_collision_table_offsets() {
+        assert_eq!(
+            dragon_terrain_dispatch_loc_349DE(0x8000),
+            DragonTerrainDispatchLoc349DE::DeathExplosion {
+                collision_cleared: false,
+            },
+            "ASM Dragon_Flying.asm loc_349DE branches to the death path before clearing negative collision_type"
+        );
+        assert_eq!(
+            dragon_terrain_dispatch_loc_349DE(0x001C),
+            DragonTerrainDispatchLoc349DE::RestartDescentScript {
+                collision_cleared: true,
+            },
+            "ASM Dragon_Flying.asm loc_349DE clears collision_type, then `$1C+` returns to the descent script reader"
+        );
+        assert_eq!(
+            dragon_terrain_dispatch_loc_349DE(0x0004),
+            DragonTerrainDispatchLoc349DE::ResponseTable {
+                collision_cleared: true,
+                byte_offset: 0,
+            },
+            "ASM Dragon_Flying.asm loc_349DE subtracts four from low terrain collision words before table dispatch"
+        );
+        assert_eq!(
+            dragon_terrain_dispatch_loc_349DE(0x0018),
+            DragonTerrainDispatchLoc349DE::ResponseTable {
+                collision_cleared: true,
+                byte_offset: 0x0014,
+            },
+            "the last low terrain response reaches byte offset `$14` in the six-entry table"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_34998_writes_respawn_marker_for_positive_slot() {
         assert_eq!(
             dragon_flying_respawn_marker_loc_34998(0x07),
