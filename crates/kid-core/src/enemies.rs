@@ -1879,6 +1879,27 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
     base_speed + tiers * speed_step
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct GoatInitAnimationProfile {
+    pub(crate) initial_animation_script: &'static str,
+    pub(crate) saved_patrol_animation: &'static str,
+    pub(crate) saved_damage_resume_animation: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_hp4_init_animation_loc_3_caca(
+    current_hp: u8,
+) -> Option<GoatInitAnimationProfile> {
+    // ASM Goat.asm loc_3CACA: HP 4 skips the high-HP branch, starts
+    // `stru_3C996`, saves it in `$62(a5)`, and saves `stru_3C9B0` in `$66(a5)`.
+    (current_hp == 4).then_some(GoatInitAnimationProfile {
+        initial_animation_script: "stru_3C996",
+        saved_patrol_animation: "stru_3C996",
+        saved_damage_resume_animation: "stru_3C9B0",
+    })
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {
