@@ -3424,6 +3424,23 @@ pub(crate) fn dragon_walking_berzerker_airborne_frame_loc_3cf3a(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingCollisionClearLoc3CF4C {
+    pub(crate) collision_type: u16,
+    pub(crate) falls_through_to_resume_dispatch: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_collision_clear_loc_3cf4c() -> DragonWalkingCollisionClearLoc3CF4C {
+    // ASM Dragon.asm loc_3CF4C: `clr.w collision_type(a3)`, then fall through
+    // to the current `$5C(a5)`/x_direction pacing route.
+    DragonWalkingCollisionClearLoc3CF4C {
+        collision_type: 0,
+        falls_through_to_resume_dispatch: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -16713,6 +16730,18 @@ mod tests {
             dragon_walking_berzerker_airborne_frame_loc_3cf3a(-0x0004_4000).next_y_velocity,
             -0x0004_0000,
             "ASM Dragon.asm loc_3CF3A should repeat the same gravity step on the next loop"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_collision_clear_matches_loc_3cf4c() {
+        assert_eq!(
+            dragon_walking_collision_clear_loc_3cf4c(),
+            DragonWalkingCollisionClearLoc3CF4C {
+                collision_type: 0,
+                falls_through_to_resume_dispatch: true,
+            },
+            "ASM Dragon.asm loc_3CF4C should clear collision_type before resuming the pacing dispatch"
         );
     }
 
