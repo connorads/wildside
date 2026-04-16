@@ -15969,6 +15969,10 @@ pub(crate) const SPINNING_TWINS_WALKING_SETTLE_X_SPEED: i32 = 0x3000;
 pub(crate) const SPINNING_TWINS_COLID_RIGHTWALL: u16 = 0x0004;
 pub(crate) const SPINNING_TWINS_COLID_LEFTWALL: u16 = 0x0008;
 pub(crate) const SPINNING_TWINS_COLID_FLOOR: u16 = 0x000C;
+pub(crate) const SPINNING_TWINS_COLID_HURT: u16 = 0x001C;
+pub(crate) const SPINNING_TWINS_COLID_KIDRIGHT: u16 = 0x0020;
+pub(crate) const SPINNING_TWINS_COLID_KIDLEFT: u16 = 0x0024;
+pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = 0x002C;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -16092,6 +16096,39 @@ pub(crate) fn spinning_twins_settle_entry_loc_3bb94(
         } else {
             SpinningTwinsSettleWalkerEntryLoc3BB94::RightLoc3C026
         },
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SpinningTwinsSettledCollisionRouteLoc3BBC4 {
+    ResumeWalk,
+    Death,
+    Damage,
+    BerzerkerSideGate,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_settled_collision_dispatch_loc_3bbc4(
+    collision_type: u16,
+) -> SpinningTwinsSettledCollisionRouteLoc3BBC4 {
+    // ASM Spinning_Twins.asm loc_3BBC4: copy collision_type to d4, route zero
+    // and unmatched positive words back to walk, route negative words to death,
+    // Kid-above/hurt to damage, and side contacts to the Berzerker gate.
+    if collision_type == 0 {
+        return SpinningTwinsSettledCollisionRouteLoc3BBC4::ResumeWalk;
+    }
+    if collision_type & 0x8000 != 0 {
+        return SpinningTwinsSettledCollisionRouteLoc3BBC4::Death;
+    }
+    match collision_type {
+        SPINNING_TWINS_COLID_KIDABOVE | SPINNING_TWINS_COLID_HURT => {
+            SpinningTwinsSettledCollisionRouteLoc3BBC4::Damage
+        }
+        SPINNING_TWINS_COLID_KIDRIGHT | SPINNING_TWINS_COLID_KIDLEFT => {
+            SpinningTwinsSettledCollisionRouteLoc3BBC4::BerzerkerSideGate
+        }
+        _ => SpinningTwinsSettledCollisionRouteLoc3BBC4::ResumeWalk,
     }
 }
 

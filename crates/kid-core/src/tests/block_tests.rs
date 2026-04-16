@@ -8061,6 +8061,45 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_settled_collision_dispatch_loc_3bbc4_routes_contact_words() {
+        assert_eq!(
+            spinning_twins_settled_collision_dispatch_loc_3bbc4(0),
+            SpinningTwinsSettledCollisionRouteLoc3BBC4::ResumeWalk,
+            "ASM loc_3BBC4 sends a clear collision word straight back to walking"
+        );
+        assert_eq!(
+            spinning_twins_settled_collision_dispatch_loc_3bbc4(0x8000),
+            SpinningTwinsSettledCollisionRouteLoc3BBC4::Death,
+            "ASM loc_3BBC4 branches to death for negative collision words"
+        );
+        assert_eq!(
+            spinning_twins_settled_collision_dispatch_loc_3bbc4(SPINNING_TWINS_COLID_KIDABOVE),
+            SpinningTwinsSettledCollisionRouteLoc3BBC4::Damage,
+            "ASM loc_3BBC4 sends colid_kidabove to the damage branch"
+        );
+        assert_eq!(
+            spinning_twins_settled_collision_dispatch_loc_3bbc4(SPINNING_TWINS_COLID_HURT),
+            SpinningTwinsSettledCollisionRouteLoc3BBC4::Damage,
+            "ASM loc_3BBC4 sends colid_hurt to the same damage branch"
+        );
+        assert_eq!(
+            spinning_twins_settled_collision_dispatch_loc_3bbc4(SPINNING_TWINS_COLID_KIDRIGHT),
+            SpinningTwinsSettledCollisionRouteLoc3BBC4::BerzerkerSideGate,
+            "ASM loc_3BBC4 sends colid_kidright to the Berzerker side-contact gate"
+        );
+        assert_eq!(
+            spinning_twins_settled_collision_dispatch_loc_3bbc4(SPINNING_TWINS_COLID_KIDLEFT),
+            SpinningTwinsSettledCollisionRouteLoc3BBC4::BerzerkerSideGate,
+            "ASM loc_3BBC4 sends colid_kidleft to the same side-contact gate"
+        );
+        assert_eq!(
+            spinning_twins_settled_collision_dispatch_loc_3bbc4(SPINNING_TWINS_COLID_FLOOR),
+            SpinningTwinsSettledCollisionRouteLoc3BBC4::ResumeWalk,
+            "ASM loc_3BBC4 falls through to walking for unmatched positive collision words"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 
