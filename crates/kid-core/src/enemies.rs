@@ -2599,6 +2599,31 @@ pub(crate) fn dragon_walking_berzerker_side_gate_loc_3cf0e(
     )
 }
 
+pub(crate) const DRAGON_WALKING_BERZERKER_KNOCKBACK_GRAVITY_LOC_3CF3A: i32 = 0x0000_4000;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingBerzerkerAirborneFrameLoc3CF3A {
+    pub(crate) applies_motion_subroutine: bool,
+    pub(crate) next_y_velocity: i32,
+    pub(crate) repeats_airborne_loop: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_berzerker_airborne_frame_loc_3cf3a(
+    y_velocity: i32,
+) -> DragonWalkingBerzerkerAirborneFrameLoc3CF3A {
+    // ASM Dragon.asm loc_3CF3A: hibernate one frame, apply shared movement
+    // using the current velocities, add `$4000` to `y_vel(a3)`, and branch
+    // back to repeat the airborne knockback loop.
+    DragonWalkingBerzerkerAirborneFrameLoc3CF3A {
+        applies_motion_subroutine: true,
+        next_y_velocity: y_velocity
+            .wrapping_add(DRAGON_WALKING_BERZERKER_KNOCKBACK_GRAVITY_LOC_3CF3A),
+        repeats_airborne_loop: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -14543,6 +14568,28 @@ mod tests {
                 }
             ),
             "ASM Dragon.asm loc_3CF0E should seed the charging-Berzerker knockback state"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_berzerker_airborne_loop_matches_loc_3cf3a() {
+        assert_eq!(
+            DRAGON_WALKING_BERZERKER_KNOCKBACK_GRAVITY_LOC_3CF3A,
+            0x0000_4000
+        );
+        assert_eq!(
+            dragon_walking_berzerker_airborne_frame_loc_3cf3a(-0x0004_8000),
+            DragonWalkingBerzerkerAirborneFrameLoc3CF3A {
+                applies_motion_subroutine: true,
+                next_y_velocity: -0x0004_4000,
+                repeats_airborne_loop: true,
+            },
+            "ASM Dragon.asm loc_3CF3A should add `$4000` to y_vel after each airborne movement frame"
+        );
+        assert_eq!(
+            dragon_walking_berzerker_airborne_frame_loc_3cf3a(-0x0004_4000).next_y_velocity,
+            -0x0004_0000,
+            "ASM Dragon.asm loc_3CF3A should repeat the same gravity step on the next loop"
         );
     }
 
