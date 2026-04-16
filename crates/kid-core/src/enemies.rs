@@ -17008,6 +17008,136 @@ pub(crate) fn tank_init_drive_sound_loc_3b40a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TankMouthFrameLoc3B41C {
+    OpeningTimerA,
+    ClosingTimer37,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TankMouthSoundLoc3B41C {
+    Open,
+    Closed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TankUpdateRouteLoc3B41C {
+    Walk,
+    Hurt { remaining_hp: u16 },
+    Death,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TankUpdateLoc3B41C {
+    pub(crate) mouth_sound: Option<TankMouthSoundLoc3B41C>,
+    pub(crate) next_current_hp: u16,
+    pub(crate) clears_child_collision_type: bool,
+    pub(crate) hides_child_sprite: bool,
+    pub(crate) sets_child_kid_collision: bool,
+    pub(crate) clears_parent_motion_speed: bool,
+    pub(crate) child_recoil_timer: Option<u16>,
+    pub(crate) hurt_hibernate_frames: Option<u16>,
+    pub(crate) route: TankUpdateRouteLoc3B41C,
+}
+
+fn tank_collision_word_is_negative_loc_3b41c(collision_type: u16) -> bool {
+    collision_type & 0x8000 != 0
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_update_loc_3b41c(
+    parent_collision_type: u16,
+    child_collision_type: u16,
+    current_hp: u16,
+    mouth_frame: TankMouthFrameLoc3B41C,
+    motion_active_flag_19: bool,
+) -> TankUpdateLoc3B41C {
+    // ASM Tank.asm loc_3B41C: a negative parent collision routes directly to
+    // the death path. Otherwise the mouth child can play open/closed sounds
+    // on its exact animation-frame timers, then child collision `$38(a2)`
+    // decides whether to keep walking, hurt, or delete the tank.
+    if tank_collision_word_is_negative_loc_3b41c(parent_collision_type) {
+        return TankUpdateLoc3B41C {
+            mouth_sound: None,
+            next_current_hp: current_hp,
+            clears_child_collision_type: false,
+            hides_child_sprite: true,
+            sets_child_kid_collision: true,
+            clears_parent_motion_speed: false,
+            child_recoil_timer: None,
+            hurt_hibernate_frames: None,
+            route: TankUpdateRouteLoc3B41C::Death,
+        };
+    }
+
+    let mouth_sound = if motion_active_flag_19 {
+        None
+    } else {
+        match mouth_frame {
+            TankMouthFrameLoc3B41C::OpeningTimerA => Some(TankMouthSoundLoc3B41C::Open),
+            TankMouthFrameLoc3B41C::ClosingTimer37 => Some(TankMouthSoundLoc3B41C::Closed),
+            TankMouthFrameLoc3B41C::Other => None,
+        }
+    };
+
+    if tank_collision_word_is_negative_loc_3b41c(child_collision_type) {
+        return TankUpdateLoc3B41C {
+            mouth_sound,
+            next_current_hp: current_hp,
+            clears_child_collision_type: false,
+            hides_child_sprite: true,
+            sets_child_kid_collision: true,
+            clears_parent_motion_speed: false,
+            child_recoil_timer: None,
+            hurt_hibernate_frames: None,
+            route: TankUpdateRouteLoc3B41C::Death,
+        };
+    }
+
+    if !matches!(child_collision_type, 0x001C | 0x002C) {
+        return TankUpdateLoc3B41C {
+            mouth_sound,
+            next_current_hp: current_hp,
+            clears_child_collision_type: true,
+            hides_child_sprite: false,
+            sets_child_kid_collision: false,
+            clears_parent_motion_speed: false,
+            child_recoil_timer: None,
+            hurt_hibernate_frames: None,
+            route: TankUpdateRouteLoc3B41C::Walk,
+        };
+    }
+
+    let remaining_hp = current_hp.wrapping_sub(1);
+    if remaining_hp == 0 {
+        TankUpdateLoc3B41C {
+            mouth_sound,
+            next_current_hp: remaining_hp,
+            clears_child_collision_type: false,
+            hides_child_sprite: true,
+            sets_child_kid_collision: true,
+            clears_parent_motion_speed: false,
+            child_recoil_timer: None,
+            hurt_hibernate_frames: None,
+            route: TankUpdateRouteLoc3B41C::Death,
+        }
+    } else {
+        TankUpdateLoc3B41C {
+            mouth_sound,
+            next_current_hp: remaining_hp,
+            clears_child_collision_type: true,
+            hides_child_sprite: false,
+            sets_child_kid_collision: false,
+            clears_parent_motion_speed: true,
+            child_recoil_timer: Some(6),
+            hurt_hibernate_frames: Some(5),
+            route: TankUpdateRouteLoc3B41C::Hurt { remaining_hp },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TankShootingInitWalkerEntryLoc3B690 {
     LeftLoc3C0D2,
     RightLoc3C026,
@@ -17777,6 +17907,92 @@ mod tests {
                 walker_entry: TankInitWalkerEntryLoc3B40A::RightLoc3C026,
             },
             "ASM Tank.asm loc_3B40A should skip sound when refcount or `$19(a3)` is nonzero, still increment, and branch to loc_3C026 for nonzero x_direction",
+        );
+    }
+
+    #[test]
+    fn tank_update_loc_3b41c_plays_mouth_sound_then_keeps_walking_without_damage() {
+        let result = tank_update_loc_3b41c(0, 0, 3, TankMouthFrameLoc3B41C::OpeningTimerA, false);
+
+        assert_eq!(
+            result,
+            TankUpdateLoc3B41C {
+                mouth_sound: Some(TankMouthSoundLoc3B41C::Open),
+                next_current_hp: 3,
+                clears_child_collision_type: true,
+                hides_child_sprite: false,
+                sets_child_kid_collision: false,
+                clears_parent_motion_speed: false,
+                child_recoil_timer: None,
+                hurt_hibernate_frames: None,
+                route: TankUpdateRouteLoc3B41C::Walk,
+            },
+            "ASM Tank.asm loc_3B41C should play the open-mouth sound before clearing a zero child collision word and resuming the walker",
+        );
+    }
+
+    #[test]
+    fn tank_update_loc_3b41c_hurts_on_weapon_or_stomp_child_collision() {
+        let result =
+            tank_update_loc_3b41c(0, 0x001C, 3, TankMouthFrameLoc3B41C::ClosingTimer37, false);
+
+        assert_eq!(
+            result,
+            TankUpdateLoc3B41C {
+                mouth_sound: Some(TankMouthSoundLoc3B41C::Closed),
+                next_current_hp: 2,
+                clears_child_collision_type: true,
+                hides_child_sprite: false,
+                sets_child_kid_collision: false,
+                clears_parent_motion_speed: true,
+                child_recoil_timer: Some(6),
+                hurt_hibernate_frames: Some(5),
+                route: TankUpdateRouteLoc3B41C::Hurt { remaining_hp: 2 },
+            },
+            "ASM Tank.asm loc_3B41C should decrement HP for child collision `$1C`, stop parent motion, set child timer 6, hibernate 5 frames, then clear child collision",
+        );
+    }
+
+    #[test]
+    fn tank_update_loc_3b41c_deletes_on_final_child_hit() {
+        let result = tank_update_loc_3b41c(0, 0x002C, 1, TankMouthFrameLoc3B41C::Other, false);
+
+        assert_eq!(
+            result,
+            TankUpdateLoc3B41C {
+                mouth_sound: None,
+                next_current_hp: 0,
+                clears_child_collision_type: false,
+                hides_child_sprite: true,
+                sets_child_kid_collision: true,
+                clears_parent_motion_speed: false,
+                child_recoil_timer: None,
+                hurt_hibernate_frames: None,
+                route: TankUpdateRouteLoc3B41C::Death,
+            },
+            "ASM Tank.asm loc_3B41C should route a final `$2C` child hit to death after the current_hp decrement reaches zero",
+        );
+    }
+
+    #[test]
+    fn tank_update_loc_3b41c_negative_parent_collision_deletes_before_mouth_sound() {
+        let result =
+            tank_update_loc_3b41c(0x8000, 0, 3, TankMouthFrameLoc3B41C::OpeningTimerA, false);
+
+        assert_eq!(
+            result,
+            TankUpdateLoc3B41C {
+                mouth_sound: None,
+                next_current_hp: 3,
+                clears_child_collision_type: false,
+                hides_child_sprite: true,
+                sets_child_kid_collision: true,
+                clears_parent_motion_speed: false,
+                child_recoil_timer: None,
+                hurt_hibernate_frames: None,
+                route: TankUpdateRouteLoc3B41C::Death,
+            },
+            "ASM Tank.asm loc_3B41C should test the parent collision word first and skip mouth sounds when the negative bit routes directly to death",
         );
     }
 
