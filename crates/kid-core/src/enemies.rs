@@ -4460,6 +4460,8 @@ const DRAGON_FACE_PLAYER_SPEED: i32 = 0x8000;
 const DRAGON_TERRAIN_SLIDE_X_DECEL: i32 = 0x1000;
 /// Upward terrain slide vertical acceleration per frame: $5000. ASM loc_34A4E.
 const DRAGON_TERRAIN_UP_SLIDE_Y_ACCEL: i32 = 0x5000;
+/// Downward terrain slide vertical deceleration per frame: $2000. ASM loc_34A6E.
+const DRAGON_TERRAIN_DOWN_SLIDE_Y_DECEL: i32 = 0x2000;
 
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_drift_negative_velocity_loc_347b2(x_velocity: i32) -> i32 {
@@ -4873,6 +4875,49 @@ pub(crate) fn dragon_down_slide_start_loc_34a68(
     // high word of the FP16.16 long, preserving the previous fractional word.
     DragonDownSlideStartLoc34A68 {
         y_velocity: 0x0003_0000 | (previous_y_velocity & 0x0000_FFFF),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonDownSlideFrameLoc34A6E {
+    CollisionRoute {
+        y_velocity: i32,
+        collision_type: u16,
+    },
+    Continue {
+        y_velocity: i32,
+    },
+    BeginReturnToAnchor {
+        y_velocity: i32,
+    },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_down_slide_frame_loc_34A6E(
+    y_velocity: i32,
+    collision_type: u16,
+) -> DragonDownSlideFrameLoc34A6E {
+    // ASM Dragon_Flying.asm loc_34A6E: after one hibernated frame, non-zero
+    // collision_type branches to the collision handler before velocity changes;
+    // otherwise y_vel subtracts `$2000` and signed `ble` enters return-to-anchor.
+    if collision_type != 0 {
+        return DragonDownSlideFrameLoc34A6E::CollisionRoute {
+            y_velocity,
+            collision_type,
+        };
+    }
+
+    let next_y_velocity = y_velocity.wrapping_sub(DRAGON_TERRAIN_DOWN_SLIDE_Y_DECEL);
+    if next_y_velocity <= 0 {
+        DragonDownSlideFrameLoc34A6E::BeginReturnToAnchor {
+            y_velocity: next_y_velocity,
+        }
+    } else {
+        DragonDownSlideFrameLoc34A6E::Continue {
+            y_velocity: next_y_velocity,
+        }
     }
 }
 

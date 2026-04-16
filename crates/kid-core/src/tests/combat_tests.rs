@@ -6155,6 +6155,37 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34a6e_decelerates_downward_slide_until_signed_nonpositive() {
+        assert_eq!(
+            dragon_down_slide_frame_loc_34A6E(0x0002_CBAA, 0x0008),
+            DragonDownSlideFrameLoc34A6E::CollisionRoute {
+                y_velocity: 0x0002_CBAA,
+                collision_type: 0x0008,
+            },
+            "ASM Dragon_Flying.asm loc_34A6E sends non-zero collision_type to the collision handler before changing y_vel"
+        );
+        assert_eq!(
+            dragon_down_slide_frame_loc_34A6E(0x0002_CBAA, 0),
+            DragonDownSlideFrameLoc34A6E::Continue {
+                y_velocity: 0x0002_ABAA,
+            },
+            "ASM Dragon_Flying.asm loc_34A6E subtracts `$2000` and loops while the signed result stays positive"
+        );
+        assert_eq!(
+            dragon_down_slide_frame_loc_34A6E(0x0000_2000, 0),
+            DragonDownSlideFrameLoc34A6E::BeginReturnToAnchor { y_velocity: 0 },
+            "ASM Dragon_Flying.asm loc_34A6E enters return-to-anchor when `subi.l #$2000,y_vel` sets signed zero"
+        );
+        assert_eq!(
+            dragon_down_slide_frame_loc_34A6E(0x0000_1000, 0),
+            DragonDownSlideFrameLoc34A6E::BeginReturnToAnchor {
+                y_velocity: -0x0000_1000,
+            },
+            "ASM Dragon_Flying.asm loc_34A6E also enters return-to-anchor for a signed negative deceleration result"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_34998_writes_respawn_marker_for_positive_slot() {
         assert_eq!(
             dragon_flying_respawn_marker_loc_34998(0x07),
