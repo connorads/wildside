@@ -13200,6 +13200,30 @@ pub(crate) fn emo_rock_wait_countdown_loc_36212(wait_timer: u16) -> EmoRockWaitC
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct EmoRockHoverTargetLoc3621A {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) clearance_height_px: u16,
+    pub(crate) clearance_half_width_px: u16,
+}
+
+pub(crate) fn emo_rock_hover_target_loc_3621a(
+    player_x_pos: u32,
+    player_y_pos: u32,
+    hover_height_px: i32,
+) -> EmoRockHoverTargetLoc3621A {
+    // ASM Emo_Rock.asm loc_3621A: after hibernating, copy Kid X into x_pos,
+    // subtract d1 from Kid Y for y_pos, then probe a `$1C` by `$E` clearance box.
+    let hover_height_fp = (hover_height_px as u32) << 16;
+    EmoRockHoverTargetLoc3621A {
+        x_pos: player_x_pos,
+        y_pos: player_y_pos.saturating_sub(hover_height_fp),
+        clearance_height_px: 0x001C,
+        clearance_half_width_px: 0x000E,
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -13241,12 +13265,19 @@ pub(crate) fn step_emo_rock(
     if enemy.wait_timer > 0 {
         // Hovering phase: track player position, count down.
         let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
-        let hover_height_fp = (EMO_ROCK_HOVER_HEIGHT[level_index] as u32) << 16;
-        if let Some(px) = player_x_pos {
-            enemy.x_pos = px;
-        }
-        if let Some(py) = player_y_pos {
-            enemy.y_pos = py.saturating_sub(hover_height_fp);
+        if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
+            let target =
+                emo_rock_hover_target_loc_3621a(px, py, EMO_ROCK_HOVER_HEIGHT[level_index]);
+            enemy.x_pos = target.x_pos;
+            enemy.y_pos = target.y_pos;
+        } else {
+            let hover_height_fp = (EMO_ROCK_HOVER_HEIGHT[level_index] as u32) << 16;
+            if let Some(px) = player_x_pos {
+                enemy.x_pos = px;
+            }
+            if let Some(py) = player_y_pos {
+                enemy.y_pos = py.saturating_sub(hover_height_fp);
+            }
         }
         enemy.wait_timer = emo_rock_wait_countdown_loc_36212(enemy.wait_timer).remaining_wait_timer;
         return;
@@ -15819,6 +15850,20 @@ mod tests {
                 repeats_wait_loop: false,
             },
             "ASM Emo_Rock.asm loc_36212 falls through when the countdown reaches zero"
+        );
+    }
+
+    #[test]
+    fn emo_rock_hover_target_loc_3621a_tracks_kid_and_seeds_clearance_probe() {
+        assert_eq!(
+            emo_rock_hover_target_loc_3621a(0x0123_0000, 0x00C8_0000, 0x50),
+            EmoRockHoverTargetLoc3621A {
+                x_pos: 0x0123_0000,
+                y_pos: 0x0078_0000,
+                clearance_height_px: 0x001C,
+                clearance_half_width_px: 0x000E,
+            },
+            "ASM Emo_Rock.asm loc_3621A copies Kid X, stores Kid Y minus d1, then calls the clearance probe with d6=$1C and d7=$E"
         );
     }
 
