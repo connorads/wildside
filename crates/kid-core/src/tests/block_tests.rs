@@ -3458,6 +3458,45 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_contact_wait_matches_loc_365ac() {
+        assert_eq!(
+            enemies::big_hopping_skull_contact_wait_loc_365ac(false, 0x001C),
+            enemies::BigHoppingSkullContactWaitLoc365AC {
+                hibernates_one_frame: true,
+                checks_object_range: true,
+                collision_probe_extent: 8,
+                route: enemies::BigHoppingSkullContactWaitRouteLoc365AC::Relaunch,
+            },
+            "ASM Big_Hopping_Skull.asm loc_365AC should relaunch when the d6 collision probe is zero before checking collision_type",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_contact_wait_loc_365ac(true, 0),
+            enemies::BigHoppingSkullContactWaitLoc365AC {
+                hibernates_one_frame: true,
+                checks_object_range: true,
+                collision_probe_extent: 8,
+                route: enemies::BigHoppingSkullContactWaitRouteLoc365AC::SharedTail,
+            },
+            "ASM Big_Hopping_Skull.asm loc_365AC should route zero collision_type to the shared tail after a non-zero d6 probe",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_contact_wait_loc_365ac(true, 0x001C).route,
+            enemies::BigHoppingSkullContactWaitRouteLoc365AC::DamageSkull,
+            "ASM Big_Hopping_Skull.asm loc_365AC should route colid_hurt to skull damage",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_contact_wait_loc_365ac(true, 0x002C).route,
+            enemies::BigHoppingSkullContactWaitRouteLoc365AC::DamageSkull,
+            "ASM Big_Hopping_Skull.asm loc_365AC should route colid_kidabove to the same skull damage path",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_contact_wait_loc_365ac(true, 0x0020).route,
+            enemies::BigHoppingSkullContactWaitRouteLoc365AC::SharedTail,
+            "ASM Big_Hopping_Skull.asm loc_365AC should ignore non-damage side contact in this wait loop",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),

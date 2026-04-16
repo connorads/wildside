@@ -1650,6 +1650,47 @@ pub(crate) fn big_hopping_skull_level_height_gate_loc_3656c(
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BigHoppingSkullContactWaitRouteLoc365AC {
+    Relaunch,
+    SharedTail,
+    DamageSkull,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BigHoppingSkullContactWaitLoc365AC {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checks_object_range: bool,
+    pub(crate) collision_probe_extent: u16,
+    pub(crate) route: BigHoppingSkullContactWaitRouteLoc365AC,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_contact_wait_loc_365ac(
+    collision_probe_nonzero: bool,
+    collision_type: u16,
+) -> BigHoppingSkullContactWaitLoc365AC {
+    const COLID_HURT: u16 = 0x001C;
+    const COLID_KIDABOVE: u16 = 0x002C;
+
+    // ASM Big_Hopping_Skull.asm loc_365AC: hibernate, range-check, run the
+    // `loc_33286` collision probe with d7=#8, then dispatch only if d6 is set.
+    let route = if !collision_probe_nonzero {
+        BigHoppingSkullContactWaitRouteLoc365AC::Relaunch
+    } else if matches!(collision_type, COLID_HURT | COLID_KIDABOVE) {
+        BigHoppingSkullContactWaitRouteLoc365AC::DamageSkull
+    } else {
+        BigHoppingSkullContactWaitRouteLoc365AC::SharedTail
+    };
+
+    BigHoppingSkullContactWaitLoc365AC {
+        hibernates_one_frame: true,
+        checks_object_range: true,
+        collision_probe_extent: 8,
+        route,
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,
