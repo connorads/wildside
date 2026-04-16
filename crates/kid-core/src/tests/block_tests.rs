@@ -2451,6 +2451,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_damage_response_loc_3cb38_decrements_hp_before_routing() {
+        assert_eq!(
+            goat_damage_response_loc_3cb38(3, 0x0002_8000),
+            GoatDamageResponseLoc3CB38::Hurt {
+                remaining_hp: 2,
+                damage_animation: "stru_3C9E4",
+                recoil_state_word: -0x0078,
+                restored_walk_speed: 0x0002_8000,
+                restored_animation: "saved_goat_patrol_animation",
+            },
+            "ASM Goat.asm loc_3CB38 should play the hurt animation and restore saved walk state when the decremented HP word remains non-zero"
+        );
+        assert_eq!(
+            goat_damage_response_loc_3cb38(1, 0x0001_8000),
+            GoatDamageResponseLoc3CB38::Death,
+            "ASM Goat.asm loc_3CB38 should route to death when the decremented HP word reaches zero"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);

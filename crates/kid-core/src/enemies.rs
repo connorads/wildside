@@ -2376,6 +2376,41 @@ pub(crate) fn goat_collision_dispatch_loc_3cb14(collision_type: i16) -> GoatColl
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum GoatDamageResponseLoc3CB38 {
+    Death,
+    Hurt {
+        remaining_hp: u16,
+        damage_animation: &'static str,
+        recoil_state_word: i16,
+        restored_walk_speed: i32,
+        restored_animation: &'static str,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_damage_response_loc_3cb38(
+    current_hp: u16,
+    saved_walk_speed: i32,
+) -> GoatDamageResponseLoc3CB38 {
+    // ASM Goat.asm loc_3CB38: `subq.w #1,$44(a3)` kills on zero; otherwise
+    // play `stru_3C9E4`, set `$42(a3)` to `$FF88`, restore `$50(a5)` from
+    // saved `$5E(a5)`, then resume the saved patrol animation.
+    let remaining_hp = current_hp.wrapping_sub(1);
+    if remaining_hp == 0 {
+        GoatDamageResponseLoc3CB38::Death
+    } else {
+        GoatDamageResponseLoc3CB38::Hurt {
+            remaining_hp,
+            damage_animation: "stru_3C9E4",
+            recoil_state_word: -0x0078,
+            restored_walk_speed: saved_walk_speed,
+            restored_animation: "saved_goat_patrol_animation",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {
     pub(crate) is_moved: bool,
     pub(crate) has_level_collision: bool,
