@@ -1800,6 +1800,26 @@ pub(crate) fn lion_charge_collision_landing_resume_loc_3e88a()
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionChargeCollisionYCommitLoc3E896 {
+    pub(crate) y_position: u32,
+    pub(crate) enters_gravity_tail: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_collision_y_commit_loc_3e896(
+    candidate_y_position: u32,
+) -> LionChargeCollisionYCommitLoc3E896 {
+    // ASM Lion.asm loc_3E896: floor/ceiling probe misses and no-crossing paths
+    // commit projected `d2` into `y_pos(a3)`, then continue through the
+    // collision-reentry gravity/clamp tail.
+    LionChargeCollisionYCommitLoc3E896 {
+        y_position: candidate_y_position,
+        enters_gravity_tail: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
     // ASM Lion.asm loc_3E6A4: after the airborne Y-velocity update, hibernate
@@ -23807,6 +23827,18 @@ mod tests {
                 next_branch: "loc_3E546",
             },
             "ASM Lion.asm loc_3E88A should init the saved `$62(a5)` animation before branching to loc_3E546"
+        );
+    }
+
+    #[test]
+    fn lion_charge_collision_y_commit_matches_loc_3e896() {
+        assert_eq!(
+            lion_charge_collision_y_commit_loc_3e896(0x0052_8000),
+            LionChargeCollisionYCommitLoc3E896 {
+                y_position: 0x0052_8000,
+                enters_gravity_tail: true,
+            },
+            "ASM Lion.asm loc_3E896 should commit projected `d2` into y_pos before the collision-reentry gravity tail"
         );
     }
 
