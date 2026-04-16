@@ -2024,6 +2024,26 @@ pub(crate) fn fire_demon_palette_loop_head_loc_3a4c2(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireDemonPaletteCopyStep {
+    pub(crate) source_byte_offset: u16,
+    pub(crate) copied_words: u8,
+    pub(crate) next_hibernate_frames: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_palette_first_copy_loc_3a4d6() -> FireDemonPaletteCopyStep {
+    // ASM Fire_Demon.asm loc_3A4D6: after loc_3A4C2 resets a0 to the selected
+    // Data_Index palette script, `moveq #6,d0` plus `dbf` copies seven words
+    // into the target palette, then sleeps another three frames.
+    FireDemonPaletteCopyStep {
+        source_byte_offset: 0,
+        copied_words: 7,
+        next_hibernate_frames: 3,
+    }
+}
+
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).

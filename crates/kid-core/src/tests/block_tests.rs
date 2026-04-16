@@ -2626,6 +2626,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_palette_copy_loc_3a4d6_copies_seven_base_words() {
+        assert_eq!(
+            fire_demon_palette_first_copy_loc_3a4d6(),
+            FireDemonPaletteCopyStep {
+                source_byte_offset: 0,
+                copied_words: 7,
+                next_hibernate_frames: 3,
+            },
+            "ASM Fire_Demon.asm loc_3A4D6 uses moveq #6 with DBF, so the first palette pulse copies seven words from the base data pointer before the next 3-frame hibernate"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);
