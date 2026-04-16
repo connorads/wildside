@@ -2648,6 +2648,26 @@ pub(crate) fn dragon_terrain_dispatch_loc_349DE(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonRightSlideStartLoc34A00 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_right_slide_start_loc_34a00(
+    previous_x_velocity: i32,
+) -> DragonRightSlideStartLoc34A00 {
+    // ASM Dragon_Flying.asm loc_34A00: clear.l y_vel, then move.w #2,x_vel.
+    // The word write targets the high word of the FP16.16 long, preserving the
+    // previous low fractional word before the following deceleration loop.
+    DragonRightSlideStartLoc34A00 {
+        x_velocity: 0x0002_0000 | (previous_x_velocity & 0x0000_FFFF),
+        y_velocity: 0,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
