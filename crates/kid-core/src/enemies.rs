@@ -3089,7 +3089,8 @@ pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 pub(crate) const TANK_BULLET_LIFETIME: u16 = 120;
 /// ASM Tank_Shooting.asm `stru_3B4D8`: one shot every 116 frames at HP 4.
 pub(crate) const TANK_SHOOTING_FAST_CYCLE_FRAMES: u16 = 116;
-/// ASM Tank_Shooting.asm `stru_3B4F6`: one shot every 232 frames at HP 2-3.
+/// ASM Tank_Shooting.asm loc_3B682 / `stru_3B4F6`: one shot every 232
+/// frames when the turret setup value is not exactly 4.
 pub(crate) const TANK_SHOOTING_SLOW_CYCLE_FRAMES: u16 = 232;
 /// ASM GfxObject_Animate + `stru_3B4D8`/`stru_3B4F6`: `loc_3C50E` fires one
 /// frame after the turret enters `LnkTo_unk_C7F10`, which is 74 frames after init.
@@ -16284,7 +16285,9 @@ pub(crate) fn step_crab_freeze(
 }
 
 fn tank_shooting_cycle_frames(hit_points: u8) -> u16 {
-    if hit_points >= 4 {
+    // ASM Tank_Shooting.asm loc_3B682: `cmpi.w #4,d7; bne.s loc_3B682`
+    // installs the slow turret animation for every value except exact 4.
+    if hit_points == 4 {
         TANK_SHOOTING_FAST_CYCLE_FRAMES
     } else {
         TANK_SHOOTING_SLOW_CYCLE_FRAMES
@@ -18213,6 +18216,30 @@ mod tests {
             pacer_walk_speed(EnemyFamily::TankShooting, 4),
             0x0001_8000,
             "native TankShooting pacer speed should route through Tank_Shooting.asm loc_3B5F2"
+        );
+    }
+
+    #[test]
+    fn tank_shooting_cycle_frames_loc_3b682_uses_slow_script_unless_hp_is_four() {
+        assert_eq!(
+            tank_shooting_cycle_frames(2),
+            TANK_SHOOTING_SLOW_CYCLE_FRAMES,
+            "ASM Tank_Shooting.asm loc_3B682 installs `stru_3B4F6` on the HP 2 slow branch"
+        );
+        assert_eq!(
+            tank_shooting_cycle_frames(3),
+            TANK_SHOOTING_SLOW_CYCLE_FRAMES,
+            "ASM Tank_Shooting.asm loc_3B682 installs `stru_3B4F6` on the HP 3 slow branch"
+        );
+        assert_eq!(
+            tank_shooting_cycle_frames(5),
+            TANK_SHOOTING_SLOW_CYCLE_FRAMES,
+            "ASM Tank_Shooting.asm loc_3B682 is reached by `cmpi.w #4,d7; bne.s loc_3B682`, so HP 5 is not the fast script"
+        );
+        assert_eq!(
+            tank_shooting_cycle_frames(4),
+            TANK_SHOOTING_FAST_CYCLE_FRAMES,
+            "ASM Tank_Shooting.asm skips loc_3B682 only for exact HP 4"
         );
     }
 
