@@ -11349,6 +11349,31 @@ pub(crate) const SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX: u32 = 0x20;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsFirstWalkingChildInitLoc3BB0C {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) x_direction_flipped: bool,
+    pub(crate) x_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_first_walking_child_init_loc_3bb0c(
+    parent_x_pos: u32,
+    parent_y_pos: u32,
+) -> SpinningTwinsFirstWalkingChildInitLoc3BB0C {
+    // ASM Spinning_Twins.asm loc_3BB0C: the first walking child sets
+    // x_direction, starts 32px left of the source object, then the shared
+    // launch test assigns the negative X velocity.
+    SpinningTwinsFirstWalkingChildInitLoc3BB0C {
+        x_pos: parent_x_pos.wrapping_sub(SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX << 16),
+        y_pos: parent_y_pos,
+        x_direction_flipped: true,
+        x_velocity: SPINNING_TWINS_DROP_X_VEL_LEFT,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsSecondWalkingChildInitLoc3BB06 {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,

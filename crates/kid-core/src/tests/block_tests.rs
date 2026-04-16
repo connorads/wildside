@@ -6657,6 +6657,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_first_walking_child_init_loc_3bb0c_launches_left() {
+        let child = spinning_twins_first_walking_child_init_loc_3bb0c(0x0100_0000, 0x0080_0000);
+
+        assert_eq!(
+            child.x_pos, 0x00E0_0000,
+            "ASM loc_3BB0C is reached by the first child after the `$20` left offset"
+        );
+        assert_eq!(child.y_pos, 0x0080_0000);
+        assert!(
+            child.x_direction_flipped,
+            "ASM loc_3BB0C tests the set x_direction flag for the first child"
+        );
+        assert_eq!(
+            child.x_velocity, SPINNING_TWINS_DROP_X_VEL_LEFT,
+            "ASM loc_3BB0C assigns `$FFFC8000` when x_direction is set"
+        );
+    }
+
+    #[test]
     fn spinning_twins_second_walking_child_init_loc_3bb06_offsets_right() {
         let child = spinning_twins_second_walking_child_init_loc_3bb06(0x0100_0000, 0x0080_0000);
 
