@@ -5020,6 +5020,34 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_opening_angle_loc_3419a_selects_table_word_by_facing() {
+        // ASM Archer.asm loc_3419A loads the first shooting-table word for
+        // default-left and the second word when x_direction is flipped/right.
+        assert_eq!(
+            archer_opening_angle_loc_3419A(ArcherShootingTableLoc3419A::Vertical, Direction::Left),
+            0x0A
+        );
+        assert_eq!(
+            archer_opening_angle_loc_3419A(ArcherShootingTableLoc3419A::Vertical, Direction::Right),
+            0x03
+        );
+        assert_eq!(
+            archer_opening_angle_loc_3419A(
+                ArcherShootingTableLoc3419A::Horizontal,
+                Direction::Left
+            ),
+            0x0D
+        );
+        assert_eq!(
+            archer_opening_angle_loc_3419A(
+                ArcherShootingTableLoc3419A::Horizontal,
+                Direction::Right
+            ),
+            0x00
+        );
+    }
+
+    #[test]
     fn archer_death_sequence_loc_3414a_marks_contact_bounces_kid_and_deletes() {
         // ASM Archer.asm loc_3414A applies these side effects before routing the
         // object-status byte and jumping through loc_34196 to delete the object.

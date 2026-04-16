@@ -3305,6 +3305,33 @@ pub(crate) const ARROW_ANGLE_TABLE: [(i8, i8); 28] = [
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ArcherShootingTableLoc3419A {
+    Horizontal,
+    Vertical,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn archer_opening_angle_loc_3419A(
+    table: ArcherShootingTableLoc3419A,
+    facing: Direction,
+) -> usize {
+    // ASM Archer.asm loc_3419A: load the first table word as the default-left
+    // opening angle; if `x_direction(a3)` is non-zero (flipped/right), replace
+    // it with the second word before advancing to the speed/animation setup.
+    let (left_angle, right_angle) = match table {
+        ArcherShootingTableLoc3419A::Horizontal => (0x0D, 0x00),
+        ArcherShootingTableLoc3419A::Vertical => (0x0A, 0x03),
+    };
+
+    match facing {
+        Direction::Left => left_angle,
+        Direction::Right => right_angle,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherShotSelectionLoc340C0 {
     pub(crate) initial_angle: usize,
     pub(crate) facing: Direction,
@@ -3320,27 +3347,17 @@ pub(crate) fn archer_shot_selection_loc_340C0(target_angle: usize) -> ArcherShot
     // horizontal-right opening poses.  The following table reader then converts
     // the pose table's fixed opening angle, not the exact target angle; later
     // arrow logic re-aims.
-    match target_angle.min(ARROW_ANGLE_TABLE.len() - 1) {
-        0..=5 => ArcherShotSelectionLoc340C0 {
-            initial_angle: 3,
-            facing: Direction::Right,
-            uses_vertical_table: true,
-        },
-        6..=13 => ArcherShotSelectionLoc340C0 {
-            initial_angle: 0x0A,
-            facing: Direction::Left,
-            uses_vertical_table: true,
-        },
-        14..=20 => ArcherShotSelectionLoc340C0 {
-            initial_angle: 0x0D,
-            facing: Direction::Left,
-            uses_vertical_table: false,
-        },
-        _ => ArcherShotSelectionLoc340C0 {
-            initial_angle: 0,
-            facing: Direction::Right,
-            uses_vertical_table: false,
-        },
+    let (facing, table) = match target_angle.min(ARROW_ANGLE_TABLE.len() - 1) {
+        0..=5 => (Direction::Right, ArcherShootingTableLoc3419A::Vertical),
+        6..=13 => (Direction::Left, ArcherShootingTableLoc3419A::Vertical),
+        14..=20 => (Direction::Left, ArcherShootingTableLoc3419A::Horizontal),
+        _ => (Direction::Right, ArcherShootingTableLoc3419A::Horizontal),
+    };
+
+    ArcherShotSelectionLoc340C0 {
+        initial_angle: archer_opening_angle_loc_3419A(table, facing),
+        facing,
+        uses_vertical_table: table == ArcherShootingTableLoc3419A::Vertical,
     }
 }
 
