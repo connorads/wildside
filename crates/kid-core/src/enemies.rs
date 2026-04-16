@@ -4231,6 +4231,29 @@ pub(crate) fn dragon_walking_breath_trigger_loc_3cf6e(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingBreathObjectStartLoc3CF90 {
+    pub(crate) swaps_parent_and_child_registers: bool,
+    pub(crate) allocation_mask: u16,
+    pub(crate) child_callback: &'static str,
+    pub(crate) parent_animation: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_breath_object_start_loc_3cf90()
+-> DragonWalkingBreathObjectStartLoc3CF90 {
+    // ASM Dragon.asm loc_3CF90: exchange `a0/a1`, allocate a child object slot
+    // using `$8000`, install the breath worker callback, restore `a0/a1`, and
+    // start the parent's `stru_3CCC2` breath animation.
+    DragonWalkingBreathObjectStartLoc3CF90 {
+        swaps_parent_and_child_registers: true,
+        allocation_mask: 0x8000,
+        child_callback: "loc_3D02A",
+        parent_animation: "stru_3CCC2",
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -14083,6 +14106,8 @@ pub(crate) fn step_dragon_walking(
         enemy.wait_timer -= 1;
         if enemy.wait_timer == 0 {
             let breath_trigger = dragon_walking_breath_trigger_loc_3cf6e(false, false);
+            let breath_object = dragon_walking_breath_object_start_loc_3cf90();
+            debug_assert_eq!(breath_object.child_callback, "loc_3D02A");
             // ASM loc_3D02A: breath is a stationary animated hitbox at
             // the dragon's mouth (±28px). No velocity — the GfxObject
             // stays in place for the animation duration (stru_3CCC8, 68f).
@@ -18880,6 +18905,20 @@ mod tests {
                 next: DragonWalkingBreathTriggerNextLoc3CF6E::SpawnedChildRecover,
             },
             "ASM Dragon.asm loc_3CF6E sends `$5C(a5)` spawned children directly to recovery"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_object_start_matches_loc_3cf90() {
+        assert_eq!(
+            dragon_walking_breath_object_start_loc_3cf90(),
+            DragonWalkingBreathObjectStartLoc3CF90 {
+                swaps_parent_and_child_registers: true,
+                allocation_mask: 0x8000,
+                child_callback: "loc_3D02A",
+                parent_animation: "stru_3CCC2",
+            },
+            "ASM Dragon.asm loc_3CF90 allocates the breath child object and starts parent animation `stru_3CCC2`"
         );
     }
 
