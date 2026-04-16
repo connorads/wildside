@@ -2845,6 +2845,42 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_collision_loc_3a542_gates_fire_trail_spawn() {
+        assert_eq!(
+            fire_demon_fire_trail_gate_loc_3a542(true, 0, 6, 6),
+            FireDemonFireTrailGateLoc3A542 {
+                spawns_fire_trail: true,
+                next_fire_trail_count: 7,
+            },
+            "ASM Fire_Demon.asm loc_3A542 lets non-level-2 demons spawn a trail at animation_timer 6 while the trail count is below 7"
+        );
+        assert_eq!(
+            fire_demon_fire_trail_gate_loc_3a542(true, 2, 3, 0),
+            FireDemonFireTrailGateLoc3A542 {
+                spawns_fire_trail: true,
+                next_fire_trail_count: 1,
+            },
+            "ASM Fire_Demon.asm loc_3A542 uses animation_timer 3 for raw enemy_level 2"
+        );
+        assert_eq!(
+            fire_demon_fire_trail_gate_loc_3a542(true, 2, 6, 0),
+            FireDemonFireTrailGateLoc3A542 {
+                spawns_fire_trail: false,
+                next_fire_trail_count: 0,
+            },
+            "ASM Fire_Demon.asm loc_3A542 skips the non-level-2 timer for raw enemy_level 2"
+        );
+        assert_eq!(
+            fire_demon_fire_trail_gate_loc_3a542(true, 0, 6, 7),
+            FireDemonFireTrailGateLoc3A542 {
+                spawns_fire_trail: false,
+                next_fire_trail_count: 7,
+            },
+            "ASM Fire_Demon.asm loc_3A542 blocks allocation when Number_of_Fire_Trails is already 7"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);

@@ -2768,6 +2768,39 @@ pub(crate) fn fire_demon_palette_return_copy_loc_3a536() -> FireDemonPaletteCopy
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireDemonFireTrailGateLoc3A542 {
+    pub(crate) spawns_fire_trail: bool,
+    pub(crate) next_fire_trail_count: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_fire_trail_gate_loc_3a542(
+    sprite_is_trail_frame: bool,
+    raw_enemy_level: u16,
+    animation_timer: u16,
+    fire_trail_count: u16,
+) -> FireDemonFireTrailGateLoc3A542 {
+    // ASM Fire_Demon.asm loc_3A542: only the `LnkTo_unk_C771E` sprite frame can
+    // reach the allocation block. Raw enemy_level 2 uses animation_timer 3; all
+    // other levels use timer 6. Allocation runs while Number_of_Fire_Trails < 7.
+    let timer_matches = if raw_enemy_level == 2 {
+        animation_timer == 3
+    } else {
+        animation_timer == 6
+    };
+    let spawns_fire_trail = sprite_is_trail_frame && timer_matches && fire_trail_count < 7;
+    FireDemonFireTrailGateLoc3A542 {
+        spawns_fire_trail,
+        next_fire_trail_count: if spawns_fire_trail {
+            fire_trail_count + 1
+        } else {
+            fire_trail_count
+        },
+    }
+}
+
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).
