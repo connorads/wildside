@@ -1664,6 +1664,28 @@ pub(crate) fn scorpion_damage_route_loc_3dcd4(current_hp: u16) -> ScorpionDamage
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ScorpionDeathRouteLoc3DCF4 {
+    pub(crate) linked_tail_has_kid_collision: bool,
+    pub(crate) death_animation: &'static str,
+    pub(crate) hibernate_until_animation_finished: bool,
+    pub(crate) delete_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_death_route_loc_3dcf4() -> ScorpionDeathRouteLoc3DCF4 {
+    // ASM Scorpion.asm loc_3DCF4: load linked tail gfx object from `$3A(a5)`,
+    // set its `$3D` flag, run the scorpion death animation, then hibernate
+    // until the animation completes before deleting the current object.
+    ScorpionDeathRouteLoc3DCF4 {
+        linked_tail_has_kid_collision: true,
+        death_animation: "stru_3DB80",
+        hibernate_until_animation_finished: true,
+        delete_current_object: true,
+    }
+}
+
 /// Archer fire interval indexed by enemy_level (HP 1/2/3).
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
@@ -12846,6 +12868,20 @@ mod tests {
             scorpion_damage_route_loc_3dcd4(1),
             ScorpionDamageRouteLoc3DCD4::Death,
             "ASM Scorpion.asm loc_3DCD4 branches to the death path when the decremented current_hp word reaches zero"
+        );
+    }
+
+    #[test]
+    fn scorpion_death_route_matches_loc_3dcf4_tail_flag_and_animation() {
+        assert_eq!(
+            scorpion_death_route_loc_3dcf4(),
+            ScorpionDeathRouteLoc3DCF4 {
+                linked_tail_has_kid_collision: true,
+                death_animation: "stru_3DB80",
+                hibernate_until_animation_finished: true,
+                delete_current_object: true,
+            },
+            "ASM Scorpion.asm loc_3DCF4 sets the linked tail object's $3D flag, plays the death animation, waits for it, then deletes the current object"
         );
     }
 
