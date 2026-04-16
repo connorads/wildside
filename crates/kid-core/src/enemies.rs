@@ -54,6 +54,32 @@ pub(crate) fn ninja_walk_speed_override_loc_3d59a_and_3d5aa(current_hp: u8) -> i
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaInitStateLoc3D194 {
+    pub(crate) status_flag_13: bool,
+    pub(crate) object_meta: u16,
+    pub(crate) priority: u8,
+    pub(crate) current_hp: u8,
+    pub(crate) walk_speed: i32,
+    pub(crate) initial_lunge_timer: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_init_state_loc_3d194() -> OrcaInitStateLoc3D194 {
+    // ASM Orca.asm loc_3D194: set `$13(a3)`, write object_meta 8,
+    // clear priority, seed both speed slots with `$8000`, fix current_hp to 4,
+    // and overwrite `$54(a5)` with `$12C` before entering the walker loop.
+    OrcaInitStateLoc3D194 {
+        status_flag_13: true,
+        object_meta: 0x0008,
+        priority: 0,
+        current_hp: spawn_hit_points(EnemyFamily::Orca, 0),
+        walk_speed: pacer_walk_speed(EnemyFamily::Orca, 4),
+        initial_lunge_timer: ORCA_LUNGE_COOLDOWN,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionInitVisibleState {
     pub(crate) status_flag_13: bool,
     pub(crate) object_meta: u16,
@@ -11885,6 +11911,27 @@ mod tests {
     }
 
     #[test]
+    fn orca_init_state_matches_loc_3d194() {
+        let init = orca_init_state_loc_3d194();
+        assert!(
+            init.status_flag_13,
+            "ASM Orca.asm loc_3D194 should mark byte `$13(a3)` after spawn-facing setup"
+        );
+        assert_eq!(init.object_meta, 0x0008);
+        assert_eq!(init.priority, 0);
+        assert_eq!(init.current_hp, 4);
+        assert_eq!(init.walk_speed, 0x0000_8000);
+        assert_eq!(init.initial_lunge_timer, 0x012C);
+
+        let mut rng = RomRandomState::default();
+        assert_eq!(
+            spawn_wait_timer(EnemyFamily::Orca, 0, 0, &mut rng),
+            ORCA_LUNGE_COOLDOWN,
+            "ASM Orca.asm loc_3D194 seeds `$54(a5)` before loc_3D2DE can test player proximity"
+        );
+    }
+
+    #[test]
     fn tar_monster_hp_matches_loc_321c6_hitpoint_table() {
         // ASM Tar_Monster.asm `Hitpoints_Enemy_05` is indexed by `enemy_level`.
         assert_eq!(tar_monster_hit_points_loc_321c6(0), 2);
@@ -17946,6 +17993,9 @@ pub(crate) fn spawn_wait_timer(
         EnemyFamily::Drips => drips_wait_timer_with_rng_loc_3340e(rng, player_x),
         // DragonWalking: first breath after cooldown.
         EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INITIAL,
+        // Orca.asm loc_3D194 overwrites `$54(a5)` with `$12C` before the
+        // first proximity check can trigger `loc_3D2DE`.
+        EnemyFamily::Orca => ORCA_LUNGE_COOLDOWN,
         // Armadillo.asm loc_3C7F8 seeds `$54(a5)` with `$12C` before entering
         // the shared grounded walker loop.
         EnemyFamily::Armadillo => 0x012C,
