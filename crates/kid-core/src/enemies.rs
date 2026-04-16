@@ -14294,6 +14294,29 @@ pub(crate) fn spinning_twins_walking_collision_dispatch_loc_3bb6e(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsFloorLandingLoc3BB8A {
+    pub(crate) next_collision_type: u16,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_floor_landing_loc_3bb8a(
+    collision_type: u16,
+    y_velocity: i32,
+) -> SpinningTwinsFloorLandingLoc3BB8A {
+    // ASM Spinning_Twins.asm loc_3BB8A: after floor contact, clear
+    // `collision_type(a3)`, clear `y_vel(a3)`, then resume the walking-child
+    // movement loop.
+    let _ = collision_type;
+    let _ = y_velocity;
+    SpinningTwinsFloorLandingLoc3BB8A {
+        next_collision_type: 0,
+        y_velocity: 0,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32) -> i32 {
     // ASM Spinning_Twins.asm loc_3BB2C: after hibernate + sub_3C3CE movement,

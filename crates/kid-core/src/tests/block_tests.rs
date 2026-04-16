@@ -7427,6 +7427,21 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_floor_landing_loc_3bb8a_clears_collision_and_y_velocity() {
+        assert_eq!(
+            spinning_twins_floor_landing_loc_3bb8a(
+                SPINNING_TWINS_COLID_FLOOR,
+                SPINNING_TWINS_DROP_Y_VEL
+            ),
+            SpinningTwinsFloorLandingLoc3BB8A {
+                next_collision_type: 0,
+                y_velocity: 0
+            },
+            "ASM loc_3BB8A clears collision_type and y_vel after floor contact"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 
