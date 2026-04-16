@@ -5626,6 +5626,94 @@ pub(crate) fn cloud_idle_sprite_reset_loc_35CD2() -> CloudIdleSpriteResetLoc35CD
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudDiagonalAttackInputLoc35CD8 {
+    pub(crate) object_45: u8,
+    pub(crate) x_direction: u8,
+    pub(crate) cloud_x: i16,
+    pub(crate) cloud_y: i16,
+    pub(crate) kid_x: i16,
+    pub(crate) kid_y: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CloudDiagonalAttackRouteLoc35CD8 {
+    ContinueExistingAttack,
+    LaterRangeChecks,
+    StartAttack { x_word: i16, y_word: i16 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudDiagonalAttackSetupLoc35CD8 {
+    pub(crate) route: CloudDiagonalAttackRouteLoc35CD8,
+    pub(crate) animation_script: Option<&'static str>,
+    pub(crate) object_45_value: Option<u8>,
+}
+
+fn cloud_diagonal_attack_later_range_checks_loc_35cd8() -> CloudDiagonalAttackSetupLoc35CD8 {
+    CloudDiagonalAttackSetupLoc35CD8 {
+        route: CloudDiagonalAttackRouteLoc35CD8::LaterRangeChecks,
+        animation_script: None,
+        object_45_value: None,
+    }
+}
+
+fn cloud_diagonal_attack_start_loc_35cd8(
+    x_word: i16,
+    y_word: i16,
+) -> CloudDiagonalAttackSetupLoc35CD8 {
+    CloudDiagonalAttackSetupLoc35CD8 {
+        route: CloudDiagonalAttackRouteLoc35CD8::StartAttack { x_word, y_word },
+        animation_script: Some("stru_35EC8"),
+        object_45_value: Some(0xFF),
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_diagonal_attack_setup_loc_35CD8(
+    input: CloudDiagonalAttackInputLoc35CD8,
+) -> CloudDiagonalAttackSetupLoc35CD8 {
+    // ASM Cloud.asm loc_35CD8: ignore new setup while `$45(a5)` is set, then
+    // compare signed Kid-minus-cloud position words to find the diagonal band
+    // in front of the cloud before starting `stru_35EC8` and setting `$45(a5)`.
+    if input.object_45 != 0 {
+        return CloudDiagonalAttackSetupLoc35CD8 {
+            route: CloudDiagonalAttackRouteLoc35CD8::ContinueExistingAttack,
+            animation_script: None,
+            object_45_value: None,
+        };
+    }
+
+    let d7 = input.kid_y.wrapping_sub(input.cloud_y);
+    if d7 < 0 {
+        return cloud_diagonal_attack_later_range_checks_loc_35cd8();
+    }
+
+    let d6 = input.kid_x.wrapping_sub(input.cloud_x);
+    if input.x_direction == 0 {
+        if d6 >= 0 {
+            return cloud_diagonal_attack_later_range_checks_loc_35cd8();
+        }
+
+        let abs_dx = d6.wrapping_neg();
+        if d7 > abs_dx || d7 < abs_dx.wrapping_sub(0x10) {
+            return cloud_diagonal_attack_later_range_checks_loc_35cd8();
+        }
+
+        cloud_diagonal_attack_start_loc_35cd8(-3, 3)
+    } else {
+        if d6 < 0 || d7 > d6 || d7 < d6.wrapping_sub(0x10) {
+            return cloud_diagonal_attack_later_range_checks_loc_35cd8();
+        }
+
+        cloud_diagonal_attack_start_loc_35cd8(3, 3)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,

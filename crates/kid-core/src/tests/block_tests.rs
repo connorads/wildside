@@ -3159,6 +3159,86 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_diagonal_attack_setup_loc_35cd8_respects_latch_and_y_gate() {
+        let active = CloudDiagonalAttackInputLoc35CD8 {
+            object_45: 0xFF,
+            x_direction: 0,
+            cloud_x: 100,
+            cloud_y: 50,
+            kid_x: 92,
+            kid_y: 58,
+        };
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(active),
+            CloudDiagonalAttackSetupLoc35CD8 {
+                route: CloudDiagonalAttackRouteLoc35CD8::ContinueExistingAttack,
+                animation_script: None,
+                object_45_value: None,
+            },
+            "ASM Cloud.asm loc_35CD8 branches away immediately while `$45(a5)` is non-zero"
+        );
+
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
+                object_45: 0x00,
+                x_direction: 0,
+                cloud_x: 100,
+                cloud_y: 50,
+                kid_x: 92,
+                kid_y: 49,
+            }),
+            CloudDiagonalAttackSetupLoc35CD8 {
+                route: CloudDiagonalAttackRouteLoc35CD8::LaterRangeChecks,
+                animation_script: None,
+                object_45_value: None,
+            },
+            "ASM Cloud.asm loc_35CD8 sends negative Kid-minus-cloud Y deltas to the later range checks"
+        );
+    }
+
+    #[test]
+    fn cloud_diagonal_attack_setup_loc_35cd8_starts_when_kid_is_in_front_band() {
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
+                object_45: 0x00,
+                x_direction: 0,
+                cloud_x: 100,
+                cloud_y: 50,
+                kid_x: 92,
+                kid_y: 58,
+            }),
+            CloudDiagonalAttackSetupLoc35CD8 {
+                route: CloudDiagonalAttackRouteLoc35CD8::StartAttack {
+                    x_word: -3,
+                    y_word: 3,
+                },
+                animation_script: Some("stru_35EC8"),
+                object_45_value: Some(0xFF),
+            },
+            "ASM Cloud.asm loc_35CD8 clear x_direction starts the diagonal attack only for Kid left/in-front"
+        );
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
+                object_45: 0x00,
+                x_direction: 0xFF,
+                cloud_x: 100,
+                cloud_y: 50,
+                kid_x: 108,
+                kid_y: 58,
+            }),
+            CloudDiagonalAttackSetupLoc35CD8 {
+                route: CloudDiagonalAttackRouteLoc35CD8::StartAttack {
+                    x_word: 3,
+                    y_word: 3,
+                },
+                animation_script: Some("stru_35EC8"),
+                object_45_value: Some(0xFF),
+            },
+            "ASM Cloud.asm loc_35CD8 non-zero x_direction starts the mirrored diagonal attack for Kid right/in-front"
+        );
+    }
+
+    #[test]
     fn cloud_death_sequence_loc_35c0e_clears_motion_updates_status_and_deletes() {
         let positive = cloud_death_sequence_loc_35C0E(0x02);
         assert_eq!(positive.x_velocity, 0);
