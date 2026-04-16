@@ -3629,6 +3629,32 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_damage_entry_matches_loc_365d8() {
+        assert_eq!(
+            enemies::big_hopping_skull_damage_entry_loc_365d8(3, 0x0000_1234),
+            enemies::BigHoppingSkullDamageEntryLoc365D8 {
+                has_kid_collision: true,
+                kid_y_velocity: i32::from_ne_bytes(0xFFFD_1234_u32.to_ne_bytes()),
+                remaining_hit_points: 2,
+                animation: Some("stru_367CC"),
+                route: enemies::BigHoppingSkullDamageEntryRouteLoc365D8::HitAnimationThenWait,
+            },
+            "ASM Big_Hopping_Skull.asm loc_365D8 should set skull/Kid collision, write only Kid y_vel's high word to $FFFD, decrement d2, and play the non-lethal hit animation",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_damage_entry_loc_365d8(1, 0x0000_ABCD),
+            enemies::BigHoppingSkullDamageEntryLoc365D8 {
+                has_kid_collision: true,
+                kid_y_velocity: i32::from_ne_bytes(0xFFFD_ABCD_u32.to_ne_bytes()),
+                remaining_hit_points: 0,
+                animation: None,
+                route: enemies::BigHoppingSkullDamageEntryRouteLoc365D8::DestroySkull,
+            },
+            "ASM Big_Hopping_Skull.asm loc_365D8 should enter the destroy path when the decremented d2 hit counter reaches zero",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),

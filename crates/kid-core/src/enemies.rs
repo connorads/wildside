@@ -1975,6 +1975,47 @@ pub(crate) fn big_hopping_skull_contact_wait_loc_365ac(
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BigHoppingSkullDamageEntryRouteLoc365D8 {
+    DestroySkull,
+    HitAnimationThenWait,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BigHoppingSkullDamageEntryLoc365D8 {
+    pub(crate) has_kid_collision: bool,
+    pub(crate) kid_y_velocity: i32,
+    pub(crate) remaining_hit_points: u16,
+    pub(crate) animation: Option<&'static str>,
+    pub(crate) route: BigHoppingSkullDamageEntryRouteLoc365D8,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_damage_entry_loc_365d8(
+    hit_points_word: u16,
+    kid_y_velocity: i32,
+) -> BigHoppingSkullDamageEntryLoc365D8 {
+    let kid_y_velocity_low_word = kid_y_velocity & 0x0000_FFFF;
+    let kid_y_velocity = (i32::from(-3_i16) << 16) | kid_y_velocity_low_word;
+    let remaining_hit_points = hit_points_word.wrapping_sub(1);
+    let skull_destroyed = remaining_hit_points == 0;
+
+    // ASM Big_Hopping_Skull.asm loc_365D8: set `has_kid_collision(a3)`,
+    // ORIGINAL_QUIRK: `move.w #$FFFD,y_vel(a2)` writes only Kid's high
+    // velocity word, preserving the fractional low word while bouncing Kid up.
+    BigHoppingSkullDamageEntryLoc365D8 {
+        has_kid_collision: true,
+        kid_y_velocity,
+        remaining_hit_points,
+        animation: (!skull_destroyed).then_some("stru_367CC"),
+        route: if skull_destroyed {
+            BigHoppingSkullDamageEntryRouteLoc365D8::DestroySkull
+        } else {
+            BigHoppingSkullDamageEntryRouteLoc365D8::HitAnimationThenWait
+        },
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,
