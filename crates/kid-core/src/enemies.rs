@@ -2565,6 +2565,7 @@ pub(crate) fn scorpion_collision_resume_loc_3dd5c(
 /// Archer fire interval indexed by enemy_level (HP 1/2/3).
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
+pub(crate) const ARCHER_KILL_BOUNCE_Y_VELOCITY_LOC_3414A: i32 = -0x0004_0000;
 
 /// Arrow velocity table from Archer.asm `byte_3437A`.
 /// 28 entries: (x_direction_sign, sprite_id, x_vel_byte, y_vel_byte).
@@ -2638,6 +2639,53 @@ pub(crate) fn archer_shot_selection_loc_340C0(target_angle: usize) -> ArcherShot
             facing: Direction::Right,
             uses_vertical_table: false,
         },
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ArcherDeathStatusRouteLoc3414A {
+    WriteRespawnMarker { index: usize, word_value: u16 },
+    SubtractSpawnCounter { index: usize, decrement: u16 },
+    DeleteOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArcherDeathSequenceLoc3414A {
+    pub(crate) has_kid_collision: bool,
+    pub(crate) kid_y_velocity: i32,
+    pub(crate) status_route: ArcherDeathStatusRouteLoc3414A,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn archer_death_sequence_loc_3414A(
+    object_status_slot: u8,
+) -> ArcherDeathSequenceLoc3414A {
+    // ASM Archer.asm loc_3414A: set `has_kid_collision(a3)`, play the death
+    // animation, force Kid's y velocity to `$FFFC0000`, then route `$42(a5)`
+    // before the shared delete tail.
+    let status_route = if object_status_slot & 0x80 == 0 {
+        ArcherDeathStatusRouteLoc3414A::WriteRespawnMarker {
+            index: usize::from(object_status_slot),
+            word_value: 0x2168,
+        }
+    } else if object_status_slot & 0x40 != 0 {
+        ArcherDeathStatusRouteLoc3414A::SubtractSpawnCounter {
+            index: usize::from(object_status_slot & 0x3F),
+            decrement: 0x0400,
+        }
+    } else {
+        ArcherDeathStatusRouteLoc3414A::DeleteOnly
+    };
+
+    ArcherDeathSequenceLoc3414A {
+        has_kid_collision: true,
+        kid_y_velocity: ARCHER_KILL_BOUNCE_Y_VELOCITY_LOC_3414A,
+        status_route,
+        deletes_current_object: true,
     }
 }
 

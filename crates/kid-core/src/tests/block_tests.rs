@@ -4619,6 +4619,33 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_death_sequence_loc_3414a_marks_contact_bounces_kid_and_deletes() {
+        // ASM Archer.asm loc_3414A applies these side effects before routing the
+        // object-status byte and jumping to the delete tail.
+        let delete_only = archer_death_sequence_loc_3414A(0x80);
+        assert_eq!(
+            (
+                delete_only.has_kid_collision,
+                delete_only.kid_y_velocity,
+                delete_only.deletes_current_object,
+            ),
+            (true, ARCHER_KILL_BOUNCE_Y_VELOCITY_LOC_3414A, true)
+        );
+        assert_eq!(
+            delete_only.status_route,
+            ArcherDeathStatusRouteLoc3414A::DeleteOnly
+        );
+
+        assert_eq!(
+            archer_death_sequence_loc_3414A(0xC7).status_route,
+            ArcherDeathStatusRouteLoc3414A::SubtractSpawnCounter {
+                index: 7,
+                decrement: 0x0400,
+            }
+        );
+    }
+
+    #[test]
     fn archer_adjust_angle_no_change_when_equal() {
         assert_eq!(archer_adjust_angle(10, 10), 10);
         assert_eq!(archer_adjust_angle(0, 0), 0);
