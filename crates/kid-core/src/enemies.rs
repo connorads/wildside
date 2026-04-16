@@ -10118,7 +10118,7 @@ pub(crate) fn tar_monster_shot_motion_loc_324D0(
     copied_x_direction: Direction,
 ) -> TarMonsterShotMotionLoc324D0 {
     // ASM loc_324D0 starts with x_vel `$FFFC` (-4 px/frame). A non-zero
-    // copied x_direction mirrors the shot by negating velocity and adding $32 px.
+    // copied x_direction branches to loc_324DC, negating velocity and adding $32 px.
     match copied_x_direction {
         Direction::Left => TarMonsterShotMotionLoc324D0 {
             x_pos: x_pos_after_spawn_setup,
@@ -13536,7 +13536,7 @@ mod tests {
                 x_pos: 0x0139_0000,
                 x_velocity: TAR_MONSTER_GLOB_SPEED_X,
             },
-            "ASM Tar_Monster.asm loc_324D0 negates x_vel and adds $32 to x when copied x_direction is non-zero"
+            "ASM Tar_Monster.asm loc_324DC negates x_vel and adds $32 to x when copied x_direction is non-zero"
         );
     }
 
