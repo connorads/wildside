@@ -6003,6 +6003,48 @@ pub(crate) fn ufo_hurt_driver_slide_turnaround_loc_356ce(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum UfoHurtDriverSlideGroundMissLoc356F2 {
+    Turnaround(UfoHurtDriverSlideTurnaroundLoc356CE),
+    RelaunchFall {
+        x_velocity: i32,
+        y_velocity: i32,
+        next_label: &'static str,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_slide_ground_miss_loc_356f2(
+    first_rng_byte: u8,
+    second_rng_byte: u8,
+    x_velocity: i32,
+    x_pos: u32,
+    y_velocity: i32,
+    x_direction: u8,
+) -> UfoHurtDriverSlideGroundMissLoc356F2 {
+    // ASM UFO.asm loc_356F2: `(rng & $2F) > $0A` jumps to loc_356CE.
+    if u16::from(first_rng_byte & 0x2F) > 0x000A {
+        return UfoHurtDriverSlideGroundMissLoc356F2::Turnaround(
+            ufo_hurt_driver_slide_turnaround_loc_356ce(x_velocity, x_pos, x_direction),
+        );
+    }
+
+    // ASM UFO.asm loc_356F2: the second `(rng & 6)` selects word_356E4 entries
+    // `$FFFF/$FFFE/$FFFD/$FFFC`, writes only the high word of `y_vel(a3)`,
+    // doubles `x_vel(a3)`, then branches to loc_3564C.
+    const Y_VELOCITY_HIGH_WORDS: [i16; 4] = [-1, -2, -3, -4];
+    let table_index = usize::from((second_rng_byte & 0x06) >> 1);
+    let y_velocity =
+        (i32::from(Y_VELOCITY_HIGH_WORDS[table_index]) << 16) | (y_velocity & 0x0000_FFFF);
+
+    UfoHurtDriverSlideGroundMissLoc356F2::RelaunchFall {
+        x_velocity: x_velocity.wrapping_shl(1),
+        y_velocity,
+        next_label: "loc_3564C",
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -16942,6 +16984,39 @@ mod tests {
                 x_direction: 0,
             },
             "ASM UFO.asm loc_356CE uses longword wrapping for the shifted negative displacement and `not.b` for direction"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_driver_slide_ground_miss_matches_loc_356f2() {
+        assert_eq!(
+            ufo_hurt_driver_slide_ground_miss_loc_356f2(0x2F, 0, -0x0000_8000, 0x0010_0000, 0, 0,),
+            UfoHurtDriverSlideGroundMissLoc356F2::Turnaround(
+                UfoHurtDriverSlideTurnaroundLoc356CE {
+                    x_velocity: 0x0000_8000,
+                    x_pos: 0x0012_0000,
+                    x_direction: 0xFF,
+                },
+            ),
+            "ASM UFO.asm loc_356F2 branches to loc_356CE when the masked first RNG byte is greater than `$0A`"
+        );
+
+        let y_velocity = i32::from_ne_bytes(0xFFFD_1234_u32.to_ne_bytes());
+        assert_eq!(
+            ufo_hurt_driver_slide_ground_miss_loc_356f2(
+                0x0A,
+                0x04,
+                0x0000_8000,
+                0x0010_0000,
+                0x0000_1234,
+                0xFF,
+            ),
+            UfoHurtDriverSlideGroundMissLoc356F2::RelaunchFall {
+                x_velocity: 0x0001_0000,
+                y_velocity,
+                next_label: "loc_3564C",
+            },
+            "ASM UFO.asm loc_356F2 writes the selected word_356E4 high word to y_vel, preserves its low word, doubles x_vel, and branches to loc_3564C"
         );
     }
 
