@@ -16088,6 +16088,26 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3aa6c_applies_robot_head_nudge_and_seeds_hold_loop() {
+        assert_eq!(
+            robot_shoot_head_nudge_loc_3aa6c(0),
+            RobotShootHeadNudgeLoc3AA6C {
+                child_x_delta_px: 4,
+                next_loop_counter: 4,
+            },
+            "ASM loc_3AA6C: add.w d1,$1A(a2) applies the zero-direction +4px head nudge before d0=4"
+        );
+        assert_eq!(
+            robot_shoot_head_nudge_loc_3aa6c(0xFF),
+            RobotShootHeadNudgeLoc3AA6C {
+                child_x_delta_px: -4,
+                next_loop_counter: 4,
+            },
+            "ASM loc_3AA6C: add.w d1,$1A(a2) applies the non-zero-direction -4px head nudge before d0=4"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

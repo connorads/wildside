@@ -10974,6 +10974,26 @@ pub(crate) fn robot_shoot_head_x_delta_loc_3aa68(child_x_direction: u8) -> i16 {
     if child_x_direction == 0 { 4 } else { -4 }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShootHeadNudgeLoc3AA6C {
+    pub(crate) child_x_delta_px: i16,
+    pub(crate) next_loop_counter: u8,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shoot_head_nudge_loc_3aa6c(
+    child_x_direction: u8,
+) -> RobotShootHeadNudgeLoc3AA6C {
+    let child_x_delta_px = robot_shoot_head_x_delta_loc_3aa68(child_x_direction);
+    // ASM Robot.asm loc_3AA6C: `add.w d1,$1A(a2)` nudges the child head X
+    // position, then `moveq #4,d0` seeds the following checked hold loop.
+    RobotShootHeadNudgeLoc3AA6C {
+        child_x_delta_px,
+        next_loop_counter: 4,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
