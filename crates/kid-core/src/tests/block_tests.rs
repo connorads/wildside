@@ -6365,16 +6365,16 @@ mod chunk_04 {
     }
 
     #[test]
-    fn tornado_level_1_doubles_pattern_acceleration() {
+    fn tornado_loc_3592e_level_1_doubles_x_script_terms() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 2);
         enemy.enemy_level = 1;
         enemy.flight_double_acceleration = true;
         enemy.wait_timer = 0;
         step_tornado(&mut enemy, None);
-        assert_eq!(enemy.target_x_velocity, 0x0001_8000);
+        // ASM Tornado.asm loc_3592E: `$46(a5)` doubles d0 and d2 only.
+        assert_eq!(enemy.target_x_velocity, 0x0003_0000);
         assert_eq!(enemy.target_y_velocity, -0x0001_8000);
         assert_eq!(enemy.x_acceleration, 0x0000_3000);
-        assert_eq!(enemy.y_acceleration, -0x0000_3000);
         assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES[1]);
     }
 

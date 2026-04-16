@@ -7942,7 +7942,9 @@ pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
     let index = usize::from(enemy.dragon_script_cmd) % TORNADO_PATTERN_SCRIPT.len();
     let pattern = TORNADO_PATTERN_SCRIPT[index];
     enemy.dragon_script_cmd = ((index + 1) % TORNADO_PATTERN_SCRIPT.len()) as u8;
-    let target_x_velocity = if enemy.flight_double_terminal_speed {
+    let target_x_velocity = if enemy.flight_double_acceleration {
+        // ASM Tornado.asm loc_3592E: non-zero `$46(a5)` doubles `d0` and `d2`,
+        // the X target speed and X acceleration loaded from the script entry.
         pattern.target_x_velocity.saturating_mul(2)
     } else {
         pattern.target_x_velocity
