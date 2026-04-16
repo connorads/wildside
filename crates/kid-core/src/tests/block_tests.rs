@@ -2610,6 +2610,22 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_palette_loop_loc_3a4c2_hibernates_then_checks_liveness() {
+        assert_eq!(
+            fire_demon_palette_loop_head_loc_3a4c2(0),
+            FireDemonPaletteLoopHeadLoc3A4C2::DeleteCurrentObject,
+            "ASM Fire_Demon.asm loc_3A4C2 branches to loc_3A53E when the global Fire_Demon byte is clear after the 3-frame hibernate"
+        );
+        assert_eq!(
+            fire_demon_palette_loop_head_loc_3a4c2(1),
+            FireDemonPaletteLoopHeadLoc3A4C2::ContinueAfterHibernate {
+                hibernate_frames: 3,
+            },
+            "ASM Fire_Demon.asm loc_3A4C2 keeps the palette helper alive and resets a1/a0 before the first copy when Fire_Demon is non-zero"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);

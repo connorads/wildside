@@ -2001,6 +2001,29 @@ pub(crate) fn fire_demon_palette_pulse_seed_loc_3a4b4(
     Some(seed)
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FireDemonPaletteLoopHeadLoc3A4C2 {
+    DeleteCurrentObject,
+    ContinueAfterHibernate { hibernate_frames: u16 },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_palette_loop_head_loc_3a4c2(
+    fire_demon_count: u8,
+) -> FireDemonPaletteLoopHeadLoc3A4C2 {
+    // ASM Fire_Demon.asm loc_3A4C2: hibernate for three frames, then re-test
+    // the global Fire_Demon byte before resetting a1/a0 for the first palette
+    // copy. A clear byte deletes this helper object instead.
+    if fire_demon_count == 0 {
+        FireDemonPaletteLoopHeadLoc3A4C2::DeleteCurrentObject
+    } else {
+        FireDemonPaletteLoopHeadLoc3A4C2::ContinueAfterHibernate {
+            hibernate_frames: 3,
+        }
+    }
+}
+
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).
