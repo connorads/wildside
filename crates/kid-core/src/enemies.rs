@@ -5612,6 +5612,20 @@ pub(crate) fn cloud_idle_sprite_gate_loc_35CA2(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudIdleSpriteResetLoc35CD2 {
+    pub(crate) d2: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_idle_sprite_reset_loc_35CD2() -> CloudIdleSpriteResetLoc35CD2 {
+    // ASM Cloud.asm loc_35CD2: every elapsed idle-sprite attempt reloads the
+    // d2 countdown with five frames before returning to the wait loop.
+    CloudIdleSpriteResetLoc35CD2 { d2: 5 }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,

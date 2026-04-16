@@ -3150,6 +3150,15 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_idle_sprite_reset_loc_35cd2_reloads_five_frames() {
+        assert_eq!(
+            cloud_idle_sprite_reset_loc_35CD2(),
+            CloudIdleSpriteResetLoc35CD2 { d2: 5 },
+            "ASM Cloud.asm loc_35CD2 reloads d2 with #5 after every elapsed idle-sprite attempt"
+        );
+    }
+
+    #[test]
     fn cloud_death_sequence_loc_35c0e_clears_motion_updates_status_and_deletes() {
         let positive = cloud_death_sequence_loc_35C0E(0x02);
         assert_eq!(positive.x_velocity, 0);
