@@ -294,6 +294,10 @@ pub(crate) const NINJA_COLID_HURT: u16 = 0x001C;
 pub(crate) const NINJA_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const NINJA_COLID_KIDRIGHT: u16 = 0x0020;
 pub(crate) const NINJA_COLID_KIDLEFT: u16 = 0x0024;
+pub(crate) const DRAGON_COLID_HURT: u16 = 0x001C;
+pub(crate) const DRAGON_COLID_KIDRIGHT: u16 = 0x0020;
+pub(crate) const DRAGON_COLID_KIDLEFT: u16 = 0x0024;
+pub(crate) const DRAGON_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const CRAB_COLID_HURT: i16 = 0x001C;
 pub(crate) const CRAB_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const CRAB_COLID_KIDLEFT: i16 = 0x0024;
@@ -2064,6 +2068,36 @@ pub(crate) fn dragon_walking_normal_dispatch_loc_3ce84(
     match facing {
         Direction::Left => DragonWalkingNormalDispatchLoc3CE84::Loc3E546,
         Direction::Right => DragonWalkingNormalDispatchLoc3CE84::Loc3E392,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingCollisionRouteLoc3CE9A {
+    Continue,
+    Damage,
+    BerzerkerSideGate,
+    Death,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_collision_route_loc_3ce9a(
+    collision_type: i16,
+) -> DragonWalkingCollisionRouteLoc3CE9A {
+    // ASM Dragon.asm loc_3CE9A: read `collision_type(a3)` into d4; negative
+    // words take the death path, zero/unknown positives clear and resume, hurt
+    // or Kid-above contacts damage HP, and side contacts gate on Berzerker.
+    if collision_type.is_negative() {
+        return DragonWalkingCollisionRouteLoc3CE9A::Death;
+    }
+
+    match collision_type as u16 {
+        0 => DragonWalkingCollisionRouteLoc3CE9A::Continue,
+        DRAGON_COLID_HURT | DRAGON_COLID_KIDABOVE => DragonWalkingCollisionRouteLoc3CE9A::Damage,
+        DRAGON_COLID_KIDRIGHT | DRAGON_COLID_KIDLEFT => {
+            DragonWalkingCollisionRouteLoc3CE9A::BerzerkerSideGate
+        }
+        _ => DragonWalkingCollisionRouteLoc3CE9A::Continue,
     }
 }
 
@@ -12933,6 +12967,45 @@ mod tests {
             )),
             DragonWalkingNormalDispatchLoc3CE84::Loc3E392,
             "native DragonWalking spawn-facing should feed the same set-x_direction path from loc_3CE84"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_collision_route_matches_loc_3ce9a() {
+        assert_eq!(
+            dragon_walking_collision_route_loc_3ce9a(-1),
+            DragonWalkingCollisionRouteLoc3CE9A::Death,
+            "ASM Dragon.asm loc_3CE9A sends negative collision words to the death path"
+        );
+        assert_eq!(
+            dragon_walking_collision_route_loc_3ce9a(0),
+            DragonWalkingCollisionRouteLoc3CE9A::Continue,
+            "ASM Dragon.asm loc_3CE9A clears zero collision words and resumes walking"
+        );
+        assert_eq!(
+            dragon_walking_collision_route_loc_3ce9a(DRAGON_COLID_HURT as i16),
+            DragonWalkingCollisionRouteLoc3CE9A::Damage,
+            "ASM Dragon.asm loc_3CE9A sends colid_hurt to the damage path"
+        );
+        assert_eq!(
+            dragon_walking_collision_route_loc_3ce9a(DRAGON_COLID_KIDABOVE as i16),
+            DragonWalkingCollisionRouteLoc3CE9A::Damage,
+            "ASM Dragon.asm loc_3CE9A sends colid_kidabove to the same damage path"
+        );
+        assert_eq!(
+            dragon_walking_collision_route_loc_3ce9a(DRAGON_COLID_KIDRIGHT as i16),
+            DragonWalkingCollisionRouteLoc3CE9A::BerzerkerSideGate,
+            "ASM Dragon.asm loc_3CE9A sends colid_kidright to the Berzerker side-contact gate"
+        );
+        assert_eq!(
+            dragon_walking_collision_route_loc_3ce9a(DRAGON_COLID_KIDLEFT as i16),
+            DragonWalkingCollisionRouteLoc3CE9A::BerzerkerSideGate,
+            "ASM Dragon.asm loc_3CE9A sends colid_kidleft to the Berzerker side-contact gate"
+        );
+        assert_eq!(
+            dragon_walking_collision_route_loc_3ce9a(0x0004),
+            DragonWalkingCollisionRouteLoc3CE9A::Continue,
+            "ASM Dragon.asm loc_3CE9A treats unrelated positive collision words as clear-and-resume"
         );
     }
 
