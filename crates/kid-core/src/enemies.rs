@@ -2770,7 +2770,7 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
             y_velocity: if x_velocity < 0 {
                 0x0001_8000
             } else {
-                -0x0001_8000
+                diamond_high_hp_slope_y_velocity_loc_3ae50()
             },
         },
         DIAMOND_COLID_SLOPEDOWN => DiamondHighHpCollisionRouteLoc3ADA4::Slope {
@@ -2790,6 +2790,13 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
         clears_collision_before_poll: true,
         route,
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_high_hp_slope_y_velocity_loc_3ae50() -> i32 {
+    // ASM Diamond.asm loc_3AE50: `move.l #-$18000,y_vel(a3)` sends the
+    // high-HP Diamond upward along the slope before returning to loc_3ADA4.
+    -0x0001_8000
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -16810,6 +16817,15 @@ mod tests {
                 y_velocity: -0x0001_8000,
             },
             "ASM Diamond.asm loc_3AE4A uses `bmi`, so x_vel zero takes the non-negative path",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_slope_y_velocity_loc_3ae50_is_negative() {
+        assert_eq!(
+            diamond_high_hp_slope_y_velocity_loc_3ae50(),
+            -0x0001_8000,
+            "ASM Diamond.asm loc_3AE50 should store -$18000 into y_vel",
         );
     }
 
