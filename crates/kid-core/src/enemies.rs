@@ -11546,6 +11546,29 @@ pub(crate) fn hand_jump_collision_clear_x_velocity_loc_32a44(
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandJumpCollisionResetLoc32A4A {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) initial_motion: HandInitialMotionLoc327F2,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_jump_collision_reset_loc_32a4a(
+    hit_points: u8,
+    x_direction_flag: bool,
+) -> HandJumpCollisionResetLoc32A4A {
+    // ASM Hand.asm loc_32A4A: clear both velocity longs, drop the collision
+    // caller return address with `addq.w #4,sp`, then branch into loc_327E4.
+    HandJumpCollisionResetLoc32A4A {
+        x_velocity: 0,
+        y_velocity: 0,
+        initial_motion: hand_initial_motion_loc_327f2(hit_points, x_direction_flag),
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandGroundCollisionReverseLoc329E2 {
     pub(crate) x_velocity: i32,
     pub(crate) x_direction_flag: bool,

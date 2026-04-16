@@ -6723,6 +6723,23 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_jump_collision_loc_32a4a_resets_to_initial_patrol_motion() {
+        assert_eq!(
+            hand_jump_collision_reset_loc_32a4a(2, false),
+            HandJumpCollisionResetLoc32A4A {
+                x_velocity: 0,
+                y_velocity: 0,
+                initial_motion: HandInitialMotionLoc327F2 {
+                    x_velocity: -0x0000_4800,
+                    animation_label: "stru_32B6A",
+                    has_kid_collision: false,
+                },
+            },
+            "ASM Hand.asm loc_32A4A clears x/y velocity, unwinds the collision caller, and resumes patrol setup"
+        );
+    }
+
+    #[test]
     fn hand_ground_collision_loc_329e2_reverses_velocity_and_direction() {
         assert_eq!(
             hand_ground_collision_reverse_loc_329e2(-0x0000_3000, false),
