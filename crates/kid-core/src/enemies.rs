@@ -11597,6 +11597,34 @@ pub(crate) fn hand_jump_collision_bounce_up_left_loc_32a5a(
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandJumpCollisionBounceLoc32A70 {
+    pub(crate) x_pos: i32,
+    pub(crate) y_pos: i32,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_jump_collision_bounce_up_right_loc_32a70(
+    x_pos: i32,
+    y_pos: i32,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> HandJumpCollisionBounceLoc32A70 {
+    // ASM Hand.asm loc_32A70: call shared loc_350F2 to roll back by the
+    // current velocity, then store `$18000` X and `$FFFE8000` Y velocity.
+    let restored = ufo_restore_position_loc_350f2(x_pos, y_pos, x_velocity, y_velocity);
+    HandJumpCollisionBounceLoc32A70 {
+        x_pos: restored.x_pos,
+        y_pos: restored.y_pos,
+        x_velocity: 0x0001_8000,
+        y_velocity: -0x0001_8000,
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandGroundCollisionReverseLoc329E2 {
     pub(crate) x_velocity: i32,
     pub(crate) x_direction_flag: bool,
