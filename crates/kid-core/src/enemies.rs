@@ -1000,6 +1000,30 @@ pub(crate) fn lion_left_charge_downward_collision_loc_3e732(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionLeftChargeGravityTailLoc3E77E {
+    pub(crate) y_velocity: i32,
+    pub(crate) next_tail: LionLoc3E556Tail,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_left_charge_gravity_tail_loc_3e77e(
+    y_velocity: i32,
+) -> LionLeftChargeGravityTailLoc3E77E {
+    // ASM Lion.asm loc_3E77E: add `$4000` gravity, clamp only when the signed
+    // result is at least `$180000`, then branch to loc_3E6A4's hibernate tail.
+    let accelerated = y_velocity.wrapping_add(0x0000_4000);
+    LionLeftChargeGravityTailLoc3E77E {
+        y_velocity: if accelerated < 0x0018_0000 {
+            accelerated
+        } else {
+            0x0018_0000
+        },
+        next_tail: lion_left_charge_airborne_resume_loc_3e6a4(),
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeEntryLoc3E682 {
     pub(crate) left_charge_latch_set: bool,
     pub(crate) restored_sprite_offset: Option<u16>,
@@ -15846,6 +15870,32 @@ mod tests {
                 restored_animation: "saved_lion_charge_animation",
             },
             "ASM Lion.asm loc_3E732 should preserve shared state $0A while still restoring the saved animation"
+        );
+    }
+
+    #[test]
+    fn lion_left_charge_gravity_tail_matches_loc_3e77e() {
+        assert_eq!(
+            lion_left_charge_gravity_tail_loc_3e77e(0x0002_0000),
+            LionLeftChargeGravityTailLoc3E77E {
+                y_velocity: 0x0002_4000,
+                next_tail: LionLoc3E556Tail {
+                    hibernate_one_frame: true,
+                    cull_routine: "sub_3E8BA",
+                    resume_via_callback: true,
+                },
+            },
+            "ASM Lion.asm loc_3E77E should add `$4000` gravity and branch through loc_3E6A4"
+        );
+        assert_eq!(
+            lion_left_charge_gravity_tail_loc_3e77e(0x0017_D000).y_velocity,
+            0x0018_0000,
+            "ASM Lion.asm loc_3E77E should clamp signed velocities at `$180000`"
+        );
+        assert_eq!(
+            lion_left_charge_gravity_tail_loc_3e77e(-0x0001_0000).y_velocity,
+            -0x0000_C000,
+            "ASM Lion.asm loc_3E77E has no upward-speed clamp; signed negative values stay below `$180000`"
         );
     }
 
