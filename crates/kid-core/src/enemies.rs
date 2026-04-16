@@ -1509,6 +1509,13 @@ pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
     lion_hibernate_cull_resume_loc_3e556()
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_collision_airborne_resume_loc_3e7c0() -> LionLoc3E556Tail {
+    // ASM Lion.asm loc_3E7C0: after collision-reentry airborne movement,
+    // hibernate one frame, run sub_3E8BA's live object cull, then `jmp (a0)`.
+    lion_hibernate_cull_resume_loc_3e556()
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLoc3E556Tail {
@@ -20481,6 +20488,19 @@ mod tests {
                 resume_via_callback: true,
             },
             "ASM Lion.asm loc_3E6A4 should hibernate, run sub_3E8BA, and jump through a0 without zeroing velocities"
+        );
+    }
+
+    #[test]
+    fn lion_charge_collision_airborne_resume_matches_loc_3e7c0() {
+        assert_eq!(
+            lion_charge_collision_airborne_resume_loc_3e7c0(),
+            LionLoc3E556Tail {
+                hibernate_one_frame: true,
+                cull_routine: "sub_3E8BA",
+                resume_via_callback: true,
+            },
+            "ASM Lion.asm loc_3E7C0 should hibernate, run sub_3E8BA, and jump through a0 after collision-reentry airborne motion"
         );
     }
 
