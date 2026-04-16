@@ -3749,8 +3749,34 @@ pub(crate) fn cloud_control_script_dispatch_loc_35BB2(
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,
-    pub(crate) status_route: DeactivationStatusActionLoc3C4C0,
+    pub(crate) status_route: CloudDeathStatusRouteLoc35C0E,
     pub(crate) deletes_current_object: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudRespawnMarkerLoc35C42 {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CloudDeathStatusRouteLoc35C0E {
+    WriteRespawnMarker(CloudRespawnMarkerLoc35C42),
+    SubtractSpawnCounter { index: usize, decrement: u16 },
+    DeleteOnly,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_respawn_marker_loc_35C42(object_status_slot: u8) -> CloudRespawnMarkerLoc35C42 {
+    // ASM Cloud.asm loc_35C42: positive `$42(a5)` is doubled as an
+    // EnemyStatus_Table word offset, then `$2168` is written as the respawn marker.
+    CloudRespawnMarkerLoc35C42 {
+        index: usize::from(object_status_slot),
+        word_value: 0x2168,
+    }
 }
 
 #[allow(non_snake_case)]
@@ -3758,10 +3784,23 @@ pub(crate) struct CloudDeathSequenceLoc35C0E {
 pub(crate) fn cloud_death_sequence_loc_35C0E(object_status_slot: u8) -> CloudDeathSequenceLoc35C0E {
     // ASM Cloud.asm loc_35C0E: clear `x_vel(a3)`, run `stru_35EBA` to
     // completion, apply the `$42(a5)` status route, then delete the object.
+    let status_route = if object_status_slot & 0x80 == 0 {
+        CloudDeathStatusRouteLoc35C0E::WriteRespawnMarker(cloud_respawn_marker_loc_35C42(
+            object_status_slot,
+        ))
+    } else if object_status_slot & 0x40 != 0 {
+        CloudDeathStatusRouteLoc35C0E::SubtractSpawnCounter {
+            index: usize::from(object_status_slot & 0x3F),
+            decrement: 0x0400,
+        }
+    } else {
+        CloudDeathStatusRouteLoc35C0E::DeleteOnly
+    };
+
     CloudDeathSequenceLoc35C0E {
         x_velocity: 0,
         animation_script: "stru_35EBA",
-        status_route: deactivation_status_update_loc_3C4C0(object_status_slot),
+        status_route,
         deletes_current_object: true,
     }
 }

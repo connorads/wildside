@@ -2777,19 +2777,25 @@ mod chunk_04 {
         assert_eq!(positive.animation_script, "stru_35EBA");
         assert_eq!(
             positive.status_route,
-            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 2 },
-            "ASM Cloud.asm loc_35C0E writes the respawn marker for positive object-status slots"
+            CloudDeathStatusRouteLoc35C0E::WriteRespawnMarker(CloudRespawnMarkerLoc35C42 {
+                index: 2,
+                word_value: 0x2168,
+            }),
+            "ASM Cloud.asm loc_35C42 writes the $2168 respawn marker for positive object-status slots"
         );
         assert!(positive.deletes_current_object);
 
         assert_eq!(
             cloud_death_sequence_loc_35C0E(0xC7).status_route,
-            DeactivationStatusActionLoc3C4C0::SubtractSpawnCounter { index: 7 },
+            CloudDeathStatusRouteLoc35C0E::SubtractSpawnCounter {
+                index: 7,
+                decrement: 0x0400,
+            },
             "ASM Cloud.asm loc_35C0E masks bit-7+bit-6 status slots before decrementing the spawn counter"
         );
         assert_eq!(
             cloud_death_sequence_loc_35C0E(0x80).status_route,
-            DeactivationStatusActionLoc3C4C0::DeleteOnly,
+            CloudDeathStatusRouteLoc35C0E::DeleteOnly,
             "ASM Cloud.asm loc_35C0E deletes without a status-table write when bit 6 is clear"
         );
     }
