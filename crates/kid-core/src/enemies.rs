@@ -12659,6 +12659,18 @@ pub(crate) const SPINNING_TWINS_DROP_X_VEL_LEFT: i32 = -0x3_8000;
 pub(crate) const SPINNING_TWINS_DROP_X_VEL_RIGHT: i32 = 0x3_8000;
 pub(crate) const SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX: u32 = 0x20;
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32) -> i32 {
+    // ASM Spinning_Twins.asm loc_3BB2C: after hibernate + sub_3C3CE movement,
+    // `tst.l y_vel(a3)` skips gravity when y_vel is already zero; otherwise
+    // `addi.l #$2800,y_vel(a3)` eases the launched child toward falling.
+    if y_velocity == 0 {
+        0
+    } else {
+        y_velocity.wrapping_add(SPINNING_TWINS_GRAVITY)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsFirstWalkingChildInitLoc3BB0C {
@@ -12891,8 +12903,9 @@ pub(crate) fn step_spinning_twins(
             if enemy.on_ground {
                 step_pacer(enemy, block_grid);
             } else {
-                enemy.y_velocity += SPINNING_TWINS_GRAVITY;
                 enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+                enemy.y_velocity =
+                    spinning_twins_walking_child_y_velocity_loc_3bb2c(enemy.y_velocity);
                 // Check floor
                 if let Some(grid) = block_grid {
                     let x_px = (enemy.x_pos >> 16) as i32;

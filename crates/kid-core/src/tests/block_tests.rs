@@ -6961,6 +6961,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_walking_child_gravity_loc_3bb2c_stops_when_y_velocity_zero() {
+        assert_eq!(
+            spinning_twins_walking_child_y_velocity_loc_3bb2c(SPINNING_TWINS_DROP_Y_VEL),
+            -0x0000_D800,
+            "ASM loc_3BB2C adds `$2800` to non-zero y_vel before the X-drag block"
+        );
+        assert_eq!(
+            spinning_twins_walking_child_y_velocity_loc_3bb2c(0),
+            0,
+            "ASM loc_3BB2C skips gravity when y_vel is zero"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 
