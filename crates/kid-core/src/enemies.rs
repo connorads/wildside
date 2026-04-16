@@ -11340,7 +11340,7 @@ pub(crate) const SPINNING_TWINS_ORBIT_OFFSETS: [i32; 8] =
 const SPINNING_TWINS_ORBIT_HITBOX_HALF: i32 = 16;
 // Gravity applied each frame once the twins drop. ASM: $2800 FP.
 pub(crate) const SPINNING_TWINS_GRAVITY: i32 = 0x2800;
-// Launch Y velocity when transitioning from orbit. ASM: -$10000.
+// Launch Y velocity when transitioning from orbit. ASM loc_3BB24: -$10000.
 pub(crate) const SPINNING_TWINS_DROP_Y_VEL: i32 = -0x1_0000;
 // Initial X velocity on drop: ASM sets $FFFC8000 (left) or $38000 (right).
 pub(crate) const SPINNING_TWINS_DROP_X_VEL_LEFT: i32 = -0x3_8000;
@@ -11354,6 +11354,7 @@ pub(crate) struct SpinningTwinsFirstWalkingChildInitLoc3BB0C {
     pub(crate) y_pos: u32,
     pub(crate) x_direction_flipped: bool,
     pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -11363,12 +11364,14 @@ pub(crate) fn spinning_twins_first_walking_child_init_loc_3bb0c(
 ) -> SpinningTwinsFirstWalkingChildInitLoc3BB0C {
     // ASM Spinning_Twins.asm loc_3BB0C: the first walking child sets
     // x_direction, starts 32px left of the source object, then the shared
-    // launch test assigns the negative X velocity.
+    // launch test assigns the negative X velocity. ASM loc_3BB24 then assigns
+    // the shared upward Y velocity.
     SpinningTwinsFirstWalkingChildInitLoc3BB0C {
         x_pos: parent_x_pos.wrapping_sub(SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX << 16),
         y_pos: parent_y_pos,
         x_direction_flipped: true,
         x_velocity: SPINNING_TWINS_DROP_X_VEL_LEFT,
+        y_velocity: SPINNING_TWINS_DROP_Y_VEL,
     }
 }
 

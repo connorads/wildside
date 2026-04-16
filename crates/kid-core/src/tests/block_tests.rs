@@ -6673,6 +6673,10 @@ mod chunk_04 {
             child.x_velocity, SPINNING_TWINS_DROP_X_VEL_LEFT,
             "ASM loc_3BB0C assigns `$FFFC8000` when x_direction is set"
         );
+        assert_eq!(
+            child.y_velocity, SPINNING_TWINS_DROP_Y_VEL,
+            "ASM loc_3BB24 assigns `-$10000` after either X launch branch"
+        );
     }
 
     #[test]
