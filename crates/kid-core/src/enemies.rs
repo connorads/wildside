@@ -2601,6 +2601,47 @@ pub(crate) const ARROW_ANGLE_TABLE: [(i8, i8); 28] = [
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArcherShotSelectionLoc340C0 {
+    pub(crate) initial_angle: usize,
+    pub(crate) facing: Direction,
+    pub(crate) uses_vertical_table: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn archer_shot_selection_loc_340C0(target_angle: usize) -> ArcherShotSelectionLoc340C0 {
+    // ASM Archer.asm loc_3408C/loc_340C0: start on Shooting_Vertical with
+    // x_direction clear, then `cmpi #6`, `cmpi #$D`, and `cmpi #$14` divide the
+    // target angle into vertical-right, vertical-left, horizontal-left, and
+    // horizontal-right opening poses.  The following table reader then converts
+    // the pose table's fixed opening angle, not the exact target angle; later
+    // arrow logic re-aims.
+    match target_angle.min(ARROW_ANGLE_TABLE.len() - 1) {
+        0..=5 => ArcherShotSelectionLoc340C0 {
+            initial_angle: 3,
+            facing: Direction::Right,
+            uses_vertical_table: true,
+        },
+        6..=13 => ArcherShotSelectionLoc340C0 {
+            initial_angle: 0x0A,
+            facing: Direction::Left,
+            uses_vertical_table: true,
+        },
+        14..=20 => ArcherShotSelectionLoc340C0 {
+            initial_angle: 0x0D,
+            facing: Direction::Left,
+            uses_vertical_table: false,
+        },
+        _ => ArcherShotSelectionLoc340C0 {
+            initial_angle: 0,
+            facing: Direction::Right,
+            uses_vertical_table: false,
+        },
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ActivationWindow {
     pub(crate) x_min: u32,
     pub(crate) x_max: u32,
@@ -13579,14 +13620,20 @@ pub(crate) fn step_archer(
     }
 
     // Compute initial angle and velocity.
-    let angle = archer_angle_to_player(enemy.x_pos, enemy.y_pos, px, py);
+    // ASM Archer.asm loc_3408C temporarily subtracts `$1E` from y_pos(a3)
+    // before calling loc_34458 for the opening shot-sector decision.
+    let aim_origin_y = enemy.y_pos.wrapping_sub(0x001E_0000);
+    let target_angle = archer_angle_to_player(enemy.x_pos, aim_origin_y, px, py);
+    let shot_selection = archer_shot_selection_loc_340C0(target_angle);
+    enemy.facing = shot_selection.facing;
+    let angle = shot_selection.initial_angle;
     let (x_velocity, y_velocity) = arrow_velocity_from_angle(angle);
     let reaim = ARCHER_FIRE_TIMER[level];
 
     // Spawn offset from Archer.asm 3rd animation frame.
-    // Vertical shooting (angle 6..=13): Y=-24. Horizontal: Y=-17.
+    // Vertical shooting table: Y=-24. Horizontal table: Y=-17.
     // X offset negated when facing right (ASM loc_34216).
-    let y_offset = if (6..=13).contains(&angle) {
+    let y_offset = if shot_selection.uses_vertical_table {
         ARCHER_ARROW_Y_OFFSET_VERTICAL
     } else {
         ARCHER_ARROW_Y_OFFSET_HORIZONTAL

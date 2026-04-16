@@ -4580,6 +4580,45 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_shot_selection_loc_340c0_uses_fixed_opening_angles() {
+        // ASM Archer.asm loc_340C0 gates the target angle into
+        // vertical/horizontal pose tables before the table reader loads the
+        // fixed opening angle for the first arrow.
+        assert_eq!(
+            archer_shot_selection_loc_340C0(5),
+            ArcherShotSelectionLoc340C0 {
+                initial_angle: 3,
+                facing: Direction::Right,
+                uses_vertical_table: true,
+            }
+        );
+        assert_eq!(
+            archer_shot_selection_loc_340C0(6),
+            ArcherShotSelectionLoc340C0 {
+                initial_angle: 0x0A,
+                facing: Direction::Left,
+                uses_vertical_table: true,
+            }
+        );
+        assert_eq!(
+            archer_shot_selection_loc_340C0(20),
+            ArcherShotSelectionLoc340C0 {
+                initial_angle: 0x0D,
+                facing: Direction::Left,
+                uses_vertical_table: false,
+            }
+        );
+        assert_eq!(
+            archer_shot_selection_loc_340C0(21),
+            ArcherShotSelectionLoc340C0 {
+                initial_angle: 0,
+                facing: Direction::Right,
+                uses_vertical_table: false,
+            }
+        );
+    }
+
+    #[test]
     fn archer_adjust_angle_no_change_when_equal() {
         assert_eq!(archer_adjust_angle(10, 10), 10);
         assert_eq!(archer_adjust_angle(0, 0), 0);
