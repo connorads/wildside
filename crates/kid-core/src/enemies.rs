@@ -2744,6 +2744,18 @@ pub(crate) fn fire_demon_palette_middle_copy_loc_3a4f6() -> FireDemonPaletteCopy
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_palette_peak_copy_loc_3a516() -> FireDemonPaletteCopyStep {
+    // ASM Fire_Demon.asm loc_3A516: the preceding `addi.l #$1C,a0` selects the
+    // peak palette frame; `moveq #6,d0` plus `dbf` copies seven words before
+    // the next three-frame hibernate.
+    FireDemonPaletteCopyStep {
+        source_byte_offset: 0x001C,
+        copied_words: 7,
+        next_hibernate_frames: 3,
+    }
+}
+
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).
