@@ -6779,6 +6779,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_lunge_preserves_current_facing_from_loc_3d2f4() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, floor_y, 4);
+        enemy.orca_state = OrcaState::Walking;
+        enemy.on_ground = true;
+        enemy.wait_timer = 0;
+        enemy.facing = Direction::Left;
+
+        // ASM Orca.asm loc_3D2F4 enters the lunge wind-up when Kid is within
+        // +/-$30 px, but does not update `x_direction(a3)` before launch.
+        let player_x = Some((60 + 0x20) << 16);
+        step_orca(&mut enemy, Some(&grid), player_x);
+
+        assert_eq!(enemy.orca_state, OrcaState::Lunging);
+        assert_eq!(enemy.facing, Direction::Left);
+        assert_eq!(enemy.x_velocity, -ORCA_LUNGE_X_SPEED);
+    }
+
+    #[test]
     fn orca_ignores_distant_player() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

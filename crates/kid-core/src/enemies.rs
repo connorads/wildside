@@ -699,6 +699,45 @@ pub(crate) fn orca_normal_resume_loc_3d2d2(facing: Direction) -> OrcaResumeBranc
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum OrcaLungeDecisionLoc3D2F4 {
+    ResumePatrol,
+    BeginWindup {
+        is_moved: bool,
+        is_animated: bool,
+        sprite_mapping: &'static str,
+        windup_frames: u8,
+        launch_facing: Direction,
+    },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_lunge_decision_loc_3d2f4(
+    orca_x_pos: u32,
+    kid_x_pos: u32,
+    current_facing: Direction,
+) -> OrcaLungeDecisionLoc3D2F4 {
+    // ASM Orca.asm loc_3D2F4: compute signed word `orca_x - kid_x` and only
+    // enter the lunge wind-up when that delta is in [-$30, $30]. The routine
+    // sets movement flags and sprite mapping, but it does not update
+    // `x_direction(a3)` before the later launch uses the current facing.
+    let orca_x_word = (orca_x_pos >> 16) as u16;
+    let kid_x_word = (kid_x_pos >> 16) as u16;
+    let delta = orca_x_word.wrapping_sub(kid_x_word) as i16;
+    if !(-ORCA_DETECT_RANGE..=ORCA_DETECT_RANGE).contains(&i32::from(delta)) {
+        return OrcaLungeDecisionLoc3D2F4::ResumePatrol;
+    }
+
+    OrcaLungeDecisionLoc3D2F4::BeginWindup {
+        is_moved: true,
+        is_animated: false,
+        sprite_mapping: "LnkTo_unk_C7656",
+        windup_frames: 6,
+        launch_facing: current_facing,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
     Damage,
     ContinueWaiting {
@@ -10938,19 +10977,16 @@ pub(crate) fn step_orca(
             let Some(px) = player_x_pos else {
                 return;
             };
-            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
-            if dx.abs() > i64::from(ORCA_DETECT_RANGE) {
+            let OrcaLungeDecisionLoc3D2F4::BeginWindup { launch_facing, .. } =
+                orca_lunge_decision_loc_3d2f4(enemy.x_pos, px, enemy.facing)
+            else {
                 return;
-            }
+            };
 
             // Launch lunge
             enemy.orca_state = OrcaState::Lunging;
             enemy.on_ground = false;
-            enemy.facing = if dx >= 0 {
-                Direction::Right
-            } else {
-                Direction::Left
-            };
+            enemy.facing = launch_facing;
             enemy.x_velocity = match enemy.facing {
                 Direction::Right => ORCA_LUNGE_X_SPEED,
                 Direction::Left => -ORCA_LUNGE_X_SPEED,
@@ -15121,6 +15157,42 @@ mod tests {
             orca_normal_resume_loc_3d2d2(Direction::Right),
             OrcaResumeBranch::Loc3E3AC,
             "ASM Orca.asm loc_3D2D2 should send set x_direction to loc_3E3AC"
+        );
+    }
+
+    #[test]
+    fn orca_lunge_decision_matches_loc_3d2f4() {
+        assert_eq!(
+            orca_lunge_decision_loc_3d2f4(100 << 16, 149 << 16, Direction::Left),
+            OrcaLungeDecisionLoc3D2F4::ResumePatrol,
+            "ASM Orca.asm loc_3D2F4 should reject `orca_x - kid_x < -$30`"
+        );
+        assert_eq!(
+            orca_lunge_decision_loc_3d2f4(100 << 16, 51 << 16, Direction::Right),
+            OrcaLungeDecisionLoc3D2F4::ResumePatrol,
+            "ASM Orca.asm loc_3D2F4 should reject `orca_x - kid_x > $30`"
+        );
+        assert_eq!(
+            orca_lunge_decision_loc_3d2f4(100 << 16, 148 << 16, Direction::Left),
+            OrcaLungeDecisionLoc3D2F4::BeginWindup {
+                is_moved: true,
+                is_animated: false,
+                sprite_mapping: "LnkTo_unk_C7656",
+                windup_frames: 6,
+                launch_facing: Direction::Left,
+            },
+            "ASM Orca.asm loc_3D2F4 should accept the inclusive -$30 boundary without re-facing"
+        );
+        assert_eq!(
+            orca_lunge_decision_loc_3d2f4(100 << 16, 52 << 16, Direction::Right),
+            OrcaLungeDecisionLoc3D2F4::BeginWindup {
+                is_moved: true,
+                is_animated: false,
+                sprite_mapping: "LnkTo_unk_C7656",
+                windup_frames: 6,
+                launch_facing: Direction::Right,
+            },
+            "ASM Orca.asm loc_3D2F4 should accept the inclusive $30 boundary without re-facing"
         );
     }
 
