@@ -4897,6 +4897,34 @@ pub(crate) fn ufo_hurt_driver_slide_seed_loc_3566c(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverSlideLoopLoc35680 {
+    pub(crate) has_kid_collision: bool,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checks_in_range: bool,
+    pub(crate) collision_table: &'static str,
+    pub(crate) collision_dispatch_mode: u8,
+    pub(crate) checks_ground_tile: bool,
+    pub(crate) loops_forever: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_slide_loop_loc_35680() -> UfoHurtDriverSlideLoopLoc35680 {
+    // ASM UFO.asm loc_35680: clear `has_kid_collision(a3)`, hibernate one
+    // frame, range-check, dispatch collisions through `off_356B6` with d0=0,
+    // probe the ground tile, then branch back to the same slide loop.
+    UfoHurtDriverSlideLoopLoc35680 {
+        has_kid_collision: false,
+        hibernates_one_frame: true,
+        checks_in_range: true,
+        collision_table: "off_356B6",
+        collision_dispatch_mode: 0,
+        checks_ground_tile: true,
+        loops_forever: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -14819,6 +14847,23 @@ mod tests {
                 falls_through_to_slide_loop: true,
             },
             "ASM UFO.asm loc_3566C negates `x_vel(a3)` for any non-zero raw direction before the slide loop"
+        );
+    }
+
+    #[test]
+    fn ufo_hurt_driver_slide_loop_matches_loc_35680() {
+        assert_eq!(
+            ufo_hurt_driver_slide_loop_loc_35680(),
+            UfoHurtDriverSlideLoopLoc35680 {
+                has_kid_collision: false,
+                hibernates_one_frame: true,
+                checks_in_range: true,
+                collision_table: "off_356B6",
+                collision_dispatch_mode: 0,
+                checks_ground_tile: true,
+                loops_forever: true,
+            },
+            "ASM UFO.asm loc_35680 clears Kid collision, uses d0=0 collision dispatch, checks the ground tile, and loops"
         );
     }
 
