@@ -3679,6 +3679,28 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_hit_voice_gate_matches_loc_36616() {
+        assert_eq!(
+            enemies::big_hopping_skull_hit_voice_gate_loc_36616(true, 0x000C),
+            enemies::BigHoppingSkullHitVoiceGateLoc36616 {
+                sound_effect: Some("sfx_Voice_die"),
+                d0_preserved: true,
+            },
+            "ASM Big_Hopping_Skull.asm loc_36616 should play sfx_Voice_die on the exact C7FE0 sprite frame with animation_timer $C",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_hit_voice_gate_loc_36616(false, 0x000C).sound_effect,
+            None,
+            "ASM Big_Hopping_Skull.asm loc_36616 should skip the voice sound on any other sprite link",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_hit_voice_gate_loc_36616(true, 0x000B).sound_effect,
+            None,
+            "ASM Big_Hopping_Skull.asm loc_36616 should skip the voice sound outside animation_timer $C",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),

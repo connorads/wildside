@@ -2041,6 +2041,27 @@ pub(crate) fn big_hopping_skull_hit_groan_gate_loc_365f2(
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BigHoppingSkullHitVoiceGateLoc36616 {
+    pub(crate) sound_effect: Option<&'static str>,
+    pub(crate) d0_preserved: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_hit_voice_gate_loc_36616(
+    sprite_is_voice_frame: bool,
+    animation_timer: u16,
+) -> BigHoppingSkullHitVoiceGateLoc36616 {
+    // ASM Big_Hopping_Skull.asm loc_36616: play `sfx_Voice_die` only for
+    // `LnkTo_unk_C7FE0` when `animation_timer(a3)` is exactly $C; d0 is
+    // restored after the sound call before collision probing continues.
+    BigHoppingSkullHitVoiceGateLoc36616 {
+        sound_effect: (sprite_is_voice_frame && animation_timer == 0x000C)
+            .then_some("sfx_Voice_die"),
+        d0_preserved: true,
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,
