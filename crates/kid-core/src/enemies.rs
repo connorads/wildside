@@ -447,6 +447,25 @@ pub(crate) fn crab_damage_after_hurt_loc_3b08c(current_hp: u16) -> CrabDamageRes
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CrabDeathSequenceLoc3B094 {
+    pub(crate) animation_script: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) exits_enemy: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_death_sequence_loc_3b094() -> CrabDeathSequenceLoc3B094 {
+    // ASM Crab.asm loc_3B094: initialise `stru_3AF82`, hibernate until that
+    // death animation finishes, then branch to the shared enemy exit.
+    CrabDeathSequenceLoc3B094 {
+        animation_script: "stru_3AF82",
+        waits_until_animation_finished: true,
+        exits_enemy: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum OrcaCollisionRouteLoc3D21E {
     Kill,
     Damage,
@@ -12799,6 +12818,19 @@ mod tests {
                 route: CrabDamageRouteLoc3B08C::DeathAnimation,
             },
             "ASM Crab.asm loc_3B08C should route out when `subi.w #1,current_hp` leaves zero"
+        );
+    }
+
+    #[test]
+    fn crab_death_sequence_matches_loc_3b094() {
+        assert_eq!(
+            crab_death_sequence_loc_3b094(),
+            CrabDeathSequenceLoc3B094 {
+                animation_script: "stru_3AF82",
+                waits_until_animation_finished: true,
+                exits_enemy: true,
+            },
+            "ASM Crab.asm loc_3B094 should play the death animation to completion before enemy exit"
         );
     }
 
