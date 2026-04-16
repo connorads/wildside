@@ -1500,6 +1500,22 @@ pub(crate) enum MiniHoppingSkullDamageSequence {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullDestroyedSequence {
+    pub(crate) is_moved: bool,
+    pub(crate) animation: &'static str,
+    pub(crate) hibernate_until_finished: bool,
+    pub(crate) next_loop: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullLoc3F158Route {
+    RestartStoppedWait,
+    DestroySkull(MiniHoppingSkullDestroyedSequence),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullGroundWaitTail {
     ContinueWait {
         next_dbf_counter: u16,
@@ -7491,6 +7507,25 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_damage_sequence_loc_3f0fa(
     // subtracts one from `$44(a3)` as a word; zero branches to the death path,
     // otherwise `stru_3E9C2` plays and hibernates until finished.
     mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_death_or_stopped_wait_loc_3f158(
+    hit_counter: u16,
+) -> MiniHoppingSkullLoc3F158Route {
+    // ASM Mini_Hopping_Skull.asm loc_3F158: a non-zero `$44(a3)` falls back to
+    // the stopped-wait path; zero clears movement, plays `stru_3E9AC`,
+    // hibernates until finished, then continues to the deletion path.
+    if hit_counter != 0 {
+        return MiniHoppingSkullLoc3F158Route::RestartStoppedWait;
+    }
+
+    MiniHoppingSkullLoc3F158Route::DestroySkull(MiniHoppingSkullDestroyedSequence {
+        is_moved: false,
+        animation: "stru_3E9AC",
+        hibernate_until_finished: true,
+        next_loop: "delete_current_object",
+    })
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -19328,6 +19363,25 @@ mod tests {
                 hibernate_until_finished: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F0FA uses word wrapping for the hit-counter decrement"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_death_or_stopped_wait_matches_loc_3f158() {
+        assert_eq!(
+            mini_hopping_skull_death_or_stopped_wait_loc_3f158(1),
+            MiniHoppingSkullLoc3F158Route::RestartStoppedWait,
+            "ASM Mini_Hopping_Skull.asm loc_3F158 should branch back to the stopped-wait path while `$44(a3)` is non-zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_death_or_stopped_wait_loc_3f158(0),
+            MiniHoppingSkullLoc3F158Route::DestroySkull(MiniHoppingSkullDestroyedSequence {
+                is_moved: false,
+                animation: "stru_3E9AC",
+                hibernate_until_finished: true,
+                next_loop: "delete_current_object",
+            }),
+            "ASM Mini_Hopping_Skull.asm loc_3F158 should clear movement, play the death animation, and continue to deletion when `$44(a3)` is zero"
         );
     }
 
