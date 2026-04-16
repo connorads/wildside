@@ -11266,6 +11266,24 @@ pub(crate) struct TarMonsterRetaliationEntryLoc325AC {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterSeededShotLoc325B6 {
+    pub(crate) gfx_object_slot_word: u32,
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) x_velocity: i32,
+    pub(crate) sprite_frame_link: &'static str,
+    pub(crate) object_meta: u16,
+    pub(crate) status_flag_13: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) priority: u8,
+    pub(crate) has_level_collision: bool,
+    pub(crate) collision_sprite_swap_enabled: bool,
+    pub(crate) collision_response_budget: u16,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotMotionLoc324D0 {
     pub(crate) x_pos: u32,
     pub(crate) x_velocity: i32,
@@ -11606,6 +11624,33 @@ pub(crate) fn tar_monster_retaliation_entry_loc_325AC(
         x_pos: source_x_pos,
         y_pos: source_y_pos.wrapping_sub(0x10 << 16),
         proceeds_to_burst_cleanup: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_seeded_shot_loc_325B6(
+    source_x_word: u16,
+    source_y_word: u16,
+    source_x_velocity: i32,
+) -> TarMonsterSeededShotLoc325B6 {
+    // ASM loc_325B6 loads slot `$3000003`, writes `$44/$46(a5)` as integer
+    // x/y words, doubles `$48(a5)` with `asl.l #1`, and enters the shared
+    // projectile setup with sprite `LnkTo_unk_C7BDE`, d1=0, and d0=$16.
+    TarMonsterSeededShotLoc325B6 {
+        gfx_object_slot_word: 0x0300_0003,
+        x_pos: u32::from(source_x_word) << 16,
+        y_pos: u32::from(source_y_word) << 16,
+        x_velocity: source_x_velocity.wrapping_mul(2),
+        sprite_frame_link: "LnkTo_unk_C7BDE",
+        object_meta: 0x16,
+        status_flag_13: true,
+        is_moved: true,
+        has_kid_collision: true,
+        priority: 0,
+        has_level_collision: true,
+        collision_sprite_swap_enabled: false,
+        collision_response_budget: 2,
     }
 }
 
@@ -15399,6 +15444,35 @@ mod tests {
                 proceeds_to_burst_cleanup: true,
             },
             "ASM Tar_Monster.asm loc_325AC subtracts `$10` from y_pos only, then enters the shared burst cleanup"
+        );
+    }
+
+    #[test]
+    fn tar_monster_seeded_shot_loc_325b6_copies_words_and_doubles_x_velocity() {
+        assert_eq!(
+            tar_monster_seeded_shot_loc_325B6(0x0120, 0x0080, -0x0001_0000),
+            TarMonsterSeededShotLoc325B6 {
+                gfx_object_slot_word: 0x0300_0003,
+                x_pos: 0x0120_0000,
+                y_pos: 0x0080_0000,
+                x_velocity: -0x0002_0000,
+                sprite_frame_link: "LnkTo_unk_C7BDE",
+                object_meta: 0x16,
+                status_flag_13: true,
+                is_moved: true,
+                has_kid_collision: true,
+                priority: 0,
+                has_level_collision: true,
+                collision_sprite_swap_enabled: false,
+                collision_response_budget: 2,
+            },
+            "ASM Tar_Monster.asm loc_325B6 copies `$44/$46(a5)` into x/y, doubles `$48(a5)` with `asl.l #1`, and seeds object_meta `$16`"
+        );
+
+        assert_eq!(
+            tar_monster_seeded_shot_loc_325B6(0x0001, 0x0002, i32::MIN).x_velocity,
+            0,
+            "ASM Tar_Monster.asm loc_325B6 uses 32-bit ASL semantics, so the native model must wrap when the top bit shifts out"
         );
     }
 
