@@ -4238,6 +4238,34 @@ pub(crate) fn archer_pose_frame_loc_34222(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArcherHeldArrowPositionLoc34234 {
+    pub(crate) x_pos_word: u16,
+    pub(crate) y_pos_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn fp16_integer_word(position: u32) -> u16 {
+    u16::try_from(position >> 16).expect("FP16.16 integer word fits in u16")
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn archer_held_arrow_position_loc_34234(
+    archer_x_pos: u32,
+    archer_y_pos: u32,
+    x_offset_px: i16,
+    y_offset_px: i16,
+) -> ArcherHeldArrowPositionLoc34234 {
+    // ASM Archer.asm loc_34234: copy only the integer word of x_pos/y_pos into
+    // the held-arrow object, then add d6/d7 with 16-bit word arithmetic.
+    ArcherHeldArrowPositionLoc34234 {
+        x_pos_word: fp16_integer_word(archer_x_pos).wrapping_add_signed(x_offset_px),
+        y_pos_word: fp16_integer_word(archer_y_pos).wrapping_add_signed(y_offset_px),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArcherDeathStatusRouteLoc3414A {
     WriteRespawnMarker(ArcherRespawnMarkerLoc34188),
     SubtractSpawnCounter { index: usize, decrement: u16 },

@@ -5483,6 +5483,32 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_held_arrow_position_loc_34234_adds_offsets_to_position_words() {
+        // ASM Archer.asm loc_34234 copies the archer position words to the held
+        // arrow and applies the already-oriented d6/d7 offsets as word adds.
+        assert_eq!(
+            archer_held_arrow_position_loc_34234(100 << 16, 100 << 16, -14, -17),
+            ArcherHeldArrowPositionLoc34234 {
+                x_pos_word: 86,
+                y_pos_word: 83,
+            }
+        );
+        assert_eq!(
+            archer_held_arrow_position_loc_34234(
+                (100 << 16) | 0x8000,
+                (100 << 16) | 0x4000,
+                14,
+                -17
+            ),
+            ArcherHeldArrowPositionLoc34234 {
+                x_pos_word: 114,
+                y_pos_word: 83,
+            },
+            "fractional halves do not affect the word-level ASM operation"
+        );
+    }
+
+    #[test]
     fn archer_death_sequence_loc_3414a_marks_contact_bounces_kid_and_deletes() {
         // ASM Archer.asm loc_3414A applies these side effects before routing the
         // object-status byte and jumping through loc_34196 to delete the object.
