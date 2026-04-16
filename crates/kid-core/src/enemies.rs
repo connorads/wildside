@@ -18949,10 +18949,26 @@ pub(crate) fn spawn_y_acceleration(family: EnemyFamily) -> i32 {
     }
 }
 
+pub(crate) fn big_hopping_skull_hit_points_loc_3651a(enemy_level: u8) -> u8 {
+    match enemy_level {
+        0 => 2,
+        // Big_Hopping_Skull.asm loc_3650E maps raw layout hitpoint 1 to 3 HP
+        // by branching past the 2-HP default and storing `#3` in d2.
+        1 => 3,
+        // Big_Hopping_Skull.asm loc_3651A caps all other raw layout hitpoint
+        // values at 4 HP by storing `#4` in d2.
+        _ => 4,
+    }
+}
+
 /// Compute initial HP from the enemy family and the raw `enemy_level` field
 /// in the layout. Each family's ASM init adds a base offset to `enemy_level`
 /// to produce the actual HP value.
 pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
+    if family == EnemyFamily::BigHoppingSkull {
+        return big_hopping_skull_hit_points_loc_3651a(enemy_level);
+    }
+
     let base = match family {
         EnemyFamily::Goat => 3,
         EnemyFamily::Armadillo => 1,
@@ -18962,9 +18978,6 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Driller => 2,
         EnemyFamily::Cloud => 1,
         EnemyFamily::Sphere => 1,
-        // Big_Hopping_Skull.asm loc_3650E maps raw layout hitpoint 1 to 3 HP
-        // by branching past the 2-HP default and storing `#3` in d2.
-        EnemyFamily::BigHoppingSkull => 2,
         EnemyFamily::EmoRock => 1,
         EnemyFamily::Archer => 1,
         EnemyFamily::Fireball => 1,

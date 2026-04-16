@@ -3272,14 +3272,23 @@ mod chunk_04 {
 
     #[test]
     fn big_hopping_skull_hp_table() {
-        // enemy_level 0→2, 1→3, 2→4
+        // enemy_level 0->2, 1->3, anything else->4.
         assert_eq!(spawn_hit_points(EnemyFamily::BigHoppingSkull, 0), 2);
         assert_eq!(
             spawn_hit_points(EnemyFamily::BigHoppingSkull, 1),
             3,
             "ASM Big_Hopping_Skull.asm loc_3650E should map raw layout hitpoint 1 to 3 HP",
         );
-        assert_eq!(spawn_hit_points(EnemyFamily::BigHoppingSkull, 2), 4);
+        assert_eq!(
+            spawn_hit_points(EnemyFamily::BigHoppingSkull, 2),
+            4,
+            "ASM Big_Hopping_Skull.asm loc_3651A should map raw layout hitpoint 2 to the 4-HP fallback",
+        );
+        assert_eq!(
+            spawn_hit_points(EnemyFamily::BigHoppingSkull, 7),
+            4,
+            "ASM Big_Hopping_Skull.asm loc_3651A should cap every non-0/non-1 raw hitpoint value at 4 HP",
+        );
     }
 
     #[test]
