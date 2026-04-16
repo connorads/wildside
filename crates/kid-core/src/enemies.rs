@@ -13571,6 +13571,19 @@ pub(crate) fn crab_facing_toward_kid_loc_3b0e0(crab_x_minus_kid_x: i16) -> Direc
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_freeze_direction_gate_loc_3b0fe(
+    kid_facing: Direction,
+    crab_facing: Direction,
+) -> bool {
+    // ASM Crab.asm loc_3B0FE: when Kid's x_direction is clear, only a clear
+    // crab x_direction freezes. Kid clear means right-facing; crab clear means
+    // left-facing, so native directions must oppose each other.
+    let kid_x_direction_set = matches!(kid_facing, Direction::Left);
+    let crab_x_direction_set = matches!(crab_facing, Direction::Right);
+    kid_x_direction_set == crab_x_direction_set
+}
+
 /// Crab player-proximity freeze callback (Crab.asm loc_3B0BE-loc_3B174).
 ///
 /// When player is within 64px horizontally AND facing the crab:
@@ -13607,16 +13620,7 @@ pub(crate) fn step_crab_freeze(
     // ASM loc_3B0E4-loc_3B11E: check freeze condition (within 64px)
     if abs_dx <= CRAB_FREEZE_DISTANCE {
         // ASM loc_3B0E4: player within 64px
-        // Check if player is facing the crab:
-        // - If player faces right (Direction::Right in native, $FF in ASM),
-        //   crab must also face right for freeze
-        // - If player faces left (Direction::Left in native, 0 in ASM),
-        //   crab must also face left for freeze
-        let player_faces_crab = match (pfacing, enemy.facing) {
-            (Direction::Right, Direction::Right) => dx < 0, // player to left of crab, facing right toward it
-            (Direction::Left, Direction::Left) => dx > 0, // player to right of crab, facing left toward it
-            _ => false,
-        };
+        let player_faces_crab = crab_freeze_direction_gate_loc_3b0fe(pfacing, enemy.facing);
 
         if player_faces_crab {
             // ASM loc_3B104: freeze the crab
@@ -14427,6 +14431,26 @@ mod tests {
             crab_facing_toward_kid_loc_3b0e0(1),
             Direction::Left,
             "ASM Crab.asm loc_3B0BE should clear x_direction when Kid is left of the crab"
+        );
+    }
+
+    #[test]
+    fn crab_freeze_direction_gate_matches_loc_3b0fe() {
+        assert!(
+            crab_freeze_direction_gate_loc_3b0fe(Direction::Right, Direction::Left),
+            "ASM Crab.asm loc_3B0FE should freeze when Kid's clear x_direction faces a clear-x_direction crab"
+        );
+        assert!(
+            !crab_freeze_direction_gate_loc_3b0fe(Direction::Right, Direction::Right),
+            "ASM Crab.asm loc_3B0FE should skip freeze when the crab x_direction is set"
+        );
+        assert!(
+            crab_freeze_direction_gate_loc_3b0fe(Direction::Left, Direction::Right),
+            "ASM Crab.asm loc_3B0E4 fallthrough should freeze when both raw x_direction flags are set"
+        );
+        assert!(
+            !crab_freeze_direction_gate_loc_3b0fe(Direction::Left, Direction::Left),
+            "ASM Crab.asm loc_3B0E4 should skip freeze when Kid's set x_direction sees a clear-x_direction crab"
         );
     }
 
