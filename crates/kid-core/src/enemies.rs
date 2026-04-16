@@ -1592,6 +1592,7 @@ const MINI_SKULL_COLID_LEFTWALL: u16 = 0x0008;
 const MINI_SKULL_COLID_FLOOR: u16 = 0x000C;
 const MINI_SKULL_COLID_CEILING: u16 = 0x0010;
 const MINI_SKULL_COLID_SLOPEUP: u16 = 0x0014;
+const MINI_SKULL_COLID_SLOPEDOWN: u16 = 0x0018;
 const MINI_SKULL_COLID_HURT: u16 = 0x001C;
 const MINI_SKULL_COLID_GROUND_KIDABOVE: u16 = 0x001C;
 const MINI_SKULL_COLID_GROUND_KIDLEFT: u16 = 0x0020;
@@ -1857,6 +1858,23 @@ pub(crate) struct MiniHoppingSkullAirDamageSetup {
     pub(crate) x_velocity: i32,
     pub(crate) collision_type: u16,
     pub(crate) next_loop: &'static str,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullAirDamageLoopRoute {
+    ContinueWait,
+    FloorLanding,
+    SlopeLanding,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullAirDamageLoopFrame {
+    pub(crate) y_velocity: i32,
+    pub(crate) collision_type: u16,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) route: MiniHoppingSkullAirDamageLoopRoute,
 }
 
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
@@ -8591,6 +8609,30 @@ pub(crate) fn mini_hopping_skull_air_damage_setup_loc_3f1e6(
         x_velocity: 0,
         collision_type: 0,
         next_loop: "air_damage_landing_loop",
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_air_damage_loop_loc_3f200(
+    y_velocity: i32,
+    collision_type: u16,
+) -> MiniHoppingSkullAirDamageLoopFrame {
+    // ASM Mini_Hopping_Skull.asm loc_3F200: hibernate one frame, add `$4000`
+    // to `y_vel(a3)`, read `collision_type(a3)` into d4, clear any non-zero
+    // collision word, then dispatch only floor and slope contacts.
+    let route = match collision_type {
+        MINI_SKULL_COLID_FLOOR => MiniHoppingSkullAirDamageLoopRoute::FloorLanding,
+        MINI_SKULL_COLID_SLOPEUP | MINI_SKULL_COLID_SLOPEDOWN => {
+            MiniHoppingSkullAirDamageLoopRoute::SlopeLanding
+        }
+        _ => MiniHoppingSkullAirDamageLoopRoute::ContinueWait,
+    };
+
+    MiniHoppingSkullAirDamageLoopFrame {
+        y_velocity: y_velocity.wrapping_add(0x0000_4000),
+        collision_type: 0,
+        hibernates_one_frame: true,
+        route,
     }
 }
 
@@ -21725,6 +21767,52 @@ mod tests {
             mini_hopping_skull_air_damage_setup_loc_3f1e6(0, -0x0001_8000).remaining_hits,
             0xFFFF,
             "ASM Mini_Hopping_Skull.asm loc_3F1E6 uses word wrapping for `subi.w #1,$44(a3)`"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_air_damage_loop_matches_loc_3f200() {
+        assert_eq!(
+            mini_hopping_skull_air_damage_loop_loc_3f200(0x0002_8800, 0),
+            MiniHoppingSkullAirDamageLoopFrame {
+                y_velocity: 0x0002_C800,
+                collision_type: 0,
+                hibernates_one_frame: true,
+                route: MiniHoppingSkullAirDamageLoopRoute::ContinueWait,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F200 hibernates one frame, adds `$4000` to y_vel(a3), and loops while collision_type is zero"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_damage_loop_loc_3f200(0x0002_C800, MINI_SKULL_COLID_FLOOR),
+            MiniHoppingSkullAirDamageLoopFrame {
+                y_velocity: 0x0003_0800,
+                collision_type: 0,
+                hibernates_one_frame: true,
+                route: MiniHoppingSkullAirDamageLoopRoute::FloorLanding,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F200 routes floor contact after clearing collision_type(a3)"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_damage_loop_loc_3f200(0x0002_C800, MINI_SKULL_COLID_SLOPEUP)
+                .route,
+            MiniHoppingSkullAirDamageLoopRoute::SlopeLanding,
+            "ASM Mini_Hopping_Skull.asm loc_3F200 treats slope-up as a slope landing"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_damage_loop_loc_3f200(0x0002_C800, MINI_SKULL_COLID_SLOPEDOWN)
+                .route,
+            MiniHoppingSkullAirDamageLoopRoute::SlopeLanding,
+            "ASM Mini_Hopping_Skull.asm loc_3F200 treats slope-down as the same slope landing path"
+        );
+        assert_eq!(
+            mini_hopping_skull_air_damage_loop_loc_3f200(0x0002_C800, MINI_SKULL_COLID_CEILING),
+            MiniHoppingSkullAirDamageLoopFrame {
+                y_velocity: 0x0003_0800,
+                collision_type: 0,
+                hibernates_one_frame: true,
+                route: MiniHoppingSkullAirDamageLoopRoute::ContinueWait,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F200 clears unhandled non-zero collision IDs before looping"
         );
     }
 
