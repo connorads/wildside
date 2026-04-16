@@ -10419,6 +10419,15 @@ pub(crate) struct NinjaJumpAttackStartStateLoc3D9A4 {
     pub(crate) sprite_link: &'static str,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaJumpAttackAirborneStateLoc3D9DA {
+    pub(crate) y_velocity: i32,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checked_sub_3e8ba: bool,
+    pub(crate) sprite_link: Option<&'static str>,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_jump_attack_start_loc_3d9a4(
     x_direction_right: bool,
@@ -10441,6 +10450,29 @@ pub(crate) fn ninja_jump_attack_start_loc_3d9a4(
         is_moved: true,
         is_animated: false,
         sprite_link: "LnkTo_unk_C7D6E",
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_jump_attack_airborne_tick_loc_3d9da(
+    y_velocity: i32,
+) -> NinjaJumpAttackAirborneStateLoc3D9DA {
+    // ASM Ninja.asm loc_3D9DA: hibernate, run `sub_3E8BA`, add `$2800` to
+    // `y_vel(a3)`, then select the midair sprite from signed velocity bands.
+    let accelerated_y_velocity = y_velocity.wrapping_add(NINJA_GRAVITY);
+    let sprite_link = if accelerated_y_velocity < -0x0000_8000 {
+        None
+    } else if accelerated_y_velocity > 0x0000_8000 {
+        Some("LnkTo_unk_C7D7E")
+    } else {
+        Some("LnkTo_unk_C7D76")
+    };
+
+    NinjaJumpAttackAirborneStateLoc3D9DA {
+        y_velocity: accelerated_y_velocity,
+        hibernates_one_frame: true,
+        checked_sub_3e8ba: true,
+        sprite_link,
     }
 }
 
@@ -10971,8 +11003,8 @@ pub(crate) fn step_ninja(
             }
         }
         NinjaState::JumpAttack => {
-            // Apply gravity
-            enemy.y_velocity = (enemy.y_velocity + NINJA_GRAVITY).min(physics::MAX_FALL_SPEED);
+            let airborne_tick = ninja_jump_attack_airborne_tick_loc_3d9da(enemy.y_velocity);
+            enemy.y_velocity = airborne_tick.y_velocity.min(physics::MAX_FALL_SPEED);
 
             // Move
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
@@ -25035,6 +25067,53 @@ mod tests {
         assert_eq!(
             state.sprite_link, "LnkTo_unk_C7D6E",
             "ASM Ninja.asm loc_3D9C0 should set y_vel=-$48000, enable collision/motion, clear animation, and select C7D6E"
+        );
+    }
+
+    #[test]
+    fn ninja_jump_attack_airborne_tick_loc_3d9da_applies_gravity_and_sprite_bands() {
+        assert_eq!(
+            ninja_jump_attack_airborne_tick_loc_3d9da(-0x0004_8000),
+            NinjaJumpAttackAirborneStateLoc3D9DA {
+                y_velocity: -0x0004_5800,
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                sprite_link: None,
+            },
+            "ASM Ninja.asm loc_3D9DA should add $2800 after sub_3E8BA and keep the rising sprite while y_vel < -$8000"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_airborne_tick_loc_3d9da(-0x0000_A800),
+            NinjaJumpAttackAirborneStateLoc3D9DA {
+                y_velocity: -0x0000_8000,
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                sprite_link: Some("LnkTo_unk_C7D76"),
+            },
+            "ASM Ninja.asm loc_3D9DA should include -$8000 in the middle sprite band"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_airborne_tick_loc_3d9da(0x0000_5800),
+            NinjaJumpAttackAirborneStateLoc3D9DA {
+                y_velocity: 0x0000_8000,
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                sprite_link: Some("LnkTo_unk_C7D76"),
+            },
+            "ASM Ninja.asm loc_3D9DA should include +$8000 in the middle sprite band"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_airborne_tick_loc_3d9da(0x0000_5801),
+            NinjaJumpAttackAirborneStateLoc3D9DA {
+                y_velocity: 0x0000_8001,
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                sprite_link: Some("LnkTo_unk_C7D7E"),
+            },
+            "ASM Ninja.asm loc_3D9DA should select C7D7E only when y_vel > +$8000"
         );
     }
 
