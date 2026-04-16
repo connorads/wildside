@@ -7538,6 +7538,8 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_tail_loc_3f112(
         x_velocity = x_velocity.wrapping_neg();
     }
 
+    // ASM Mini_Hopping_Skull.asm loc_3F146: select `LnkTo_unk_C8080`,
+    // set movement and level-collision flags, then branch back to loc_3EA88.
     MiniHoppingSkullFacingMatchedPauseTail::BeginRelaunchArc {
         y_velocity,
         x_velocity,
@@ -19418,6 +19420,22 @@ mod tests {
                 next_loop: "loc_3EA88",
             },
             "ASM Mini_Hopping_Skull.asm loc_3F13C should skip `neg.l x_vel(a3)` when `x_direction(a3)` is non-zero"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_facing_matched_pause_relaunch_footer_matches_loc_3f146() {
+        assert_eq!(
+            mini_hopping_skull_facing_matched_pause_tail_loc_3f112(0x0000, 0xFF, true),
+            MiniHoppingSkullFacingMatchedPauseTail::BeginRelaunchArc {
+                y_velocity: -0x0004_8000,
+                x_velocity: 0x0001_C000,
+                sprite: "LnkTo_unk_C8080",
+                is_moved: true,
+                has_level_collision: true,
+                next_loop: "loc_3EA88",
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F146 should restore the airborne sprite, movement flag, collision flag, and loc_3EA88 loop"
         );
     }
 
