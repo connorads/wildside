@@ -3746,6 +3746,35 @@ pub(crate) fn cloud_control_script_dispatch_loc_35BB2(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudWaitLoopLoc35C56 {
+    pub(crate) dbf_seed: u16,
+    pub(crate) hibernate_frames: u32,
+    pub(crate) checks_object_range_each_frame: bool,
+    pub(crate) polls_collision_each_frame: bool,
+    pub(crate) updates_idle_sprite_each_frame: bool,
+    pub(crate) checks_attack_setup_each_frame: bool,
+    pub(crate) resumes_control_script: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_wait_loop_loc_35C56(command_word: u16) -> CloudWaitLoopLoc35C56 {
+    // ASM Cloud.asm loc_35C54 shifts the command word down by one byte; loc_35C56
+    // then hibernates, range-checks, polls collision, idles/attacks, and DBFs.
+    let dbf_seed = command_word >> 8;
+    CloudWaitLoopLoc35C56 {
+        dbf_seed,
+        hibernate_frames: u32::from(dbf_seed) + 1,
+        checks_object_range_each_frame: true,
+        polls_collision_each_frame: true,
+        updates_idle_sprite_each_frame: true,
+        checks_attack_setup_each_frame: true,
+        resumes_control_script: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,

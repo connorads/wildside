@@ -2771,6 +2771,24 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_wait_loop_loc_35c56_runs_inclusive_dbf_iterations() {
+        assert_eq!(
+            cloud_wait_loop_loc_35C56(0x7800),
+            CloudWaitLoopLoc35C56 {
+                dbf_seed: 0x78,
+                hibernate_frames: 0x79,
+                checks_object_range_each_frame: true,
+                polls_collision_each_frame: true,
+                updates_idle_sprite_each_frame: true,
+                checks_attack_setup_each_frame: true,
+                resumes_control_script: true,
+            },
+            "ASM Cloud.asm loc_35C56 hibernates once before each inclusive DBF iteration"
+        );
+        assert_eq!(cloud_wait_loop_loc_35C56(0x1E00).hibernate_frames, 0x1F);
+    }
+
+    #[test]
     fn cloud_death_sequence_loc_35c0e_clears_motion_updates_status_and_deletes() {
         let positive = cloud_death_sequence_loc_35C0E(0x02);
         assert_eq!(positive.x_velocity, 0);
