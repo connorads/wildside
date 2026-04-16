@@ -9825,6 +9825,20 @@ pub(crate) struct TarMonsterShotMotionLoc324D0 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterShotWaitRouteLoc324E6 {
+    ContinueLoop,
+    BurstCleanup,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterShotWaitLoc324E6 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) route: TarMonsterShotWaitRouteLoc324E6,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -10128,6 +10142,26 @@ pub(crate) fn tar_monster_shot_motion_loc_324D0(
             x_pos: x_pos_after_spawn_setup.wrapping_add(0x32 << 16),
             x_velocity: TAR_MONSTER_GLOB_SPEED_X,
         },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_shot_wait_loc_324E6(
+    collision_type: u16,
+    byte_19_nonzero: bool,
+) -> TarMonsterShotWaitLoc324E6 {
+    // ASM loc_324E6 hibernates once, exits on any non-zero collision_type, and
+    // otherwise loops while byte `$19(a3)` is clear.
+    let route = if collision_type != 0 || byte_19_nonzero {
+        TarMonsterShotWaitRouteLoc324E6::BurstCleanup
+    } else {
+        TarMonsterShotWaitRouteLoc324E6::ContinueLoop
+    };
+
+    TarMonsterShotWaitLoc324E6 {
+        hibernates_one_frame: true,
+        route,
     }
 }
 
@@ -13537,6 +13571,33 @@ mod tests {
                 x_velocity: TAR_MONSTER_GLOB_SPEED_X,
             },
             "ASM Tar_Monster.asm loc_324DC negates x_vel and adds $32 to x when copied x_direction is non-zero"
+        );
+    }
+
+    #[test]
+    fn tar_monster_shot_wait_loc_324e6_loops_until_collision_or_byte_19() {
+        assert_eq!(
+            tar_monster_shot_wait_loc_324E6(0, false),
+            TarMonsterShotWaitLoc324E6 {
+                hibernates_one_frame: true,
+                route: TarMonsterShotWaitRouteLoc324E6::ContinueLoop,
+            },
+            "ASM Tar_Monster.asm loc_324E6 loops only after the one-frame hibernate when collision_type is zero and byte `$19(a3)` is clear"
+        );
+
+        assert_eq!(
+            tar_monster_shot_wait_loc_324E6(0x000C, false),
+            TarMonsterShotWaitLoc324E6 {
+                hibernates_one_frame: true,
+                route: TarMonsterShotWaitRouteLoc324E6::BurstCleanup,
+            },
+            "ASM Tar_Monster.asm loc_324E6 exits the wait loop on any non-zero collision_type"
+        );
+
+        assert_eq!(
+            tar_monster_shot_wait_loc_324E6(0, true).route,
+            TarMonsterShotWaitRouteLoc324E6::BurstCleanup,
+            "ASM Tar_Monster.asm loc_324E6 also exits when byte `$19(a3)` is non-zero"
         );
     }
 
