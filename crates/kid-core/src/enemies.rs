@@ -8734,6 +8734,13 @@ pub(crate) enum TarMonsterShotSpawnRouteLoc3247E {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterShotMotionLoc324D0 {
+    pub(crate) x_pos: u32,
+    pub(crate) x_velocity: i32,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -9022,6 +9029,26 @@ pub(crate) fn tar_monster_shot_spawn_loc_3247E(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_shot_motion_loc_324D0(
+    x_pos_after_spawn_setup: u32,
+    copied_x_direction: Direction,
+) -> TarMonsterShotMotionLoc324D0 {
+    // ASM loc_324D0 starts with x_vel `$FFFC` (-4 px/frame). A non-zero
+    // copied x_direction mirrors the shot by negating velocity and adding $32 px.
+    match copied_x_direction {
+        Direction::Left => TarMonsterShotMotionLoc324D0 {
+            x_pos: x_pos_after_spawn_setup,
+            x_velocity: -TAR_MONSTER_GLOB_SPEED_X,
+        },
+        Direction::Right => TarMonsterShotMotionLoc324D0 {
+            x_pos: x_pos_after_spawn_setup.wrapping_add(0x32 << 16),
+            x_velocity: TAR_MONSTER_GLOB_SPEED_X,
+        },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_collision_dispatch_loc_32386(
     collision_type: u16,
     berzerker_charging: bool,
@@ -9154,20 +9181,23 @@ pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<En
             let elapsed = TAR_MONSTER_ATTACK_FRAMES - enemy.wait_timer;
             if elapsed == TAR_MONSTER_ATTACK_FIRE_FRAME {
                 // ASM loc_3231C/loc_32348: spawn the glob after the first `dbf` loop.
-                let xv = match enemy.facing {
-                    Direction::Right => TAR_MONSTER_GLOB_SPEED_X,
-                    Direction::Left => -TAR_MONSTER_GLOB_SPEED_X,
+                // The spawn setup follows loc_3247E, and loc_324D0 applies the
+                // direction-dependent velocity/mirror offset.
+                let spawn = match tar_monster_shot_spawn_loc_3247E(
+                    enemy.x_pos,
+                    enemy.y_pos,
+                    enemy.facing,
+                    false,
+                ) {
+                    TarMonsterShotSpawnRouteLoc3247E::StraightShot(spawn) => spawn,
+                    TarMonsterShotSpawnRouteLoc3247E::RetaliationBurst { .. } => return,
                 };
-                let spawn_y = (enemy.y_pos as i64 - (0x12 << 16)) as u32; // -18px Y offset
-                let spawn_x = if matches!(enemy.facing, Direction::Left) {
-                    (enemy.x_pos as i64 - (0x19 << 16)) as u32 // -25px X offset
-                } else {
-                    (enemy.x_pos as i64 + (0x19 << 16)) as u32 // +25px (mirrored)
-                };
+                let motion =
+                    tar_monster_shot_motion_loc_324D0(spawn.x_pos, spawn.copied_x_direction);
                 projectiles.push(EnemyProjectile {
-                    x_pos: spawn_x,
-                    y_pos: spawn_y,
-                    x_velocity: xv,
+                    x_pos: motion.x_pos,
+                    y_pos: spawn.y_pos,
+                    x_velocity: motion.x_velocity,
                     y_velocity: 0,
                     lifetime: 120,
                     gravity: TAR_MONSTER_GLOB_GRAVITY,
@@ -11951,7 +11981,7 @@ mod tests {
             tar_monster_loc_32256(command_322_a8).route,
             TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322A8)
         );
-        let command_323_10 = i16::from_be_bytes([0x00, 0x04]);
+        let command_323_10 = i16::from_be_bytes([0x00, 0x05]);
         assert_eq!(
             tar_monster_loc_32256(command_323_10).route,
             TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc32310)
@@ -12253,6 +12283,27 @@ mod tests {
                 proceeds_to_burst_cleanup: true,
             },
             "ASM Tar_Monster.asm loc_3247E branches when `$44(a5)` is non-zero, subtracting only $10 from y before the burst cleanup"
+        );
+    }
+
+    #[test]
+    fn tar_monster_shot_motion_loc_324d0_sets_velocity_and_mirrors_right_facing_spawn() {
+        assert_eq!(
+            tar_monster_shot_motion_loc_324D0(0x0107_0000, Direction::Left),
+            TarMonsterShotMotionLoc324D0 {
+                x_pos: 0x0107_0000,
+                x_velocity: -TAR_MONSTER_GLOB_SPEED_X,
+            },
+            "ASM Tar_Monster.asm loc_324D0 keeps the initial -4 px/frame shot when copied x_direction is zero"
+        );
+
+        assert_eq!(
+            tar_monster_shot_motion_loc_324D0(0x0107_0000, Direction::Right),
+            TarMonsterShotMotionLoc324D0 {
+                x_pos: 0x0139_0000,
+                x_velocity: TAR_MONSTER_GLOB_SPEED_X,
+            },
+            "ASM Tar_Monster.asm loc_324D0 negates x_vel and adds $32 to x when copied x_direction is non-zero"
         );
     }
 
@@ -17114,6 +17165,42 @@ mod tests {
         step_tar_monster(&mut enemy, &mut projectiles);
 
         assert_eq!(projectiles.len(), 1);
+    }
+
+    #[test]
+    fn tar_monster_attack_glob_uses_loc_3247e_and_loc_324d0_spawn_offsets() {
+        let mut right_facing = tar_monster_test_enemy();
+        right_facing.x_pos = 0x0120_0000;
+        right_facing.y_pos = 0x0080_0000;
+        right_facing.facing = Direction::Right;
+        let mut projectiles = Vec::new();
+
+        for _ in 0..9 {
+            step_tar_monster(&mut right_facing, &mut projectiles);
+        }
+
+        assert_eq!(projectiles.len(), 1);
+        assert_eq!(
+            projectiles[0].x_pos, 0x0139_0000,
+            "ASM Tar_Monster.asm loc_324D0 mirrors the loc_3247E `x-$19` setup by adding $32 when x_direction is non-zero"
+        );
+        assert_eq!(projectiles[0].y_pos, 0x006E_0000);
+        assert_eq!(projectiles[0].x_velocity, TAR_MONSTER_GLOB_SPEED_X);
+
+        let mut left_facing = tar_monster_test_enemy();
+        left_facing.x_pos = 0x0120_0000;
+        left_facing.y_pos = 0x0080_0000;
+        left_facing.facing = Direction::Left;
+        let mut projectiles = Vec::new();
+
+        for _ in 0..9 {
+            step_tar_monster(&mut left_facing, &mut projectiles);
+        }
+
+        assert_eq!(projectiles.len(), 1);
+        assert_eq!(projectiles[0].x_pos, 0x0107_0000);
+        assert_eq!(projectiles[0].y_pos, 0x006E_0000);
+        assert_eq!(projectiles[0].x_velocity, -TAR_MONSTER_GLOB_SPEED_X);
     }
 
     #[test]
