@@ -2303,6 +2303,23 @@ pub(crate) fn lion_medium_load_cull_loc_3e924(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionTerrainCollisionLoc3E94E {
+    pub(crate) next_collision_type: i16,
+    pub(crate) resume_via_callback: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_terrain_collision_loc_3e94e() -> LionTerrainCollisionLoc3E94E {
+    // ASM Lion.asm loc_3E94E: terrain contact from the charge movement probes
+    // stores `$FFFF` in `collision_type(a3)`, then resumes through `jmp (a0)`.
+    LionTerrainCollisionLoc3E94E {
+        next_collision_type: -1,
+        resume_via_callback: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionLeftChargeTerrainBranch {
     ContinueToLoc3E5E8,
     EnterLoc3E642,
@@ -29223,6 +29240,18 @@ mod tests {
                 deletes_current_object: true,
             }),
             "ASM Lion.asm loc_3E924 should branch through loc_3E920 once relative x drops below `-$1A4`"
+        );
+    }
+
+    #[test]
+    fn lion_terrain_collision_matches_loc_3e94e_sentinel() {
+        assert_eq!(
+            lion_terrain_collision_loc_3e94e(),
+            LionTerrainCollisionLoc3E94E {
+                next_collision_type: -1,
+                resume_via_callback: true,
+            },
+            "ASM Lion.asm loc_3E94E should set collision_type to `$FFFF` before jumping through a0"
         );
     }
 
