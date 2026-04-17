@@ -20972,6 +20972,8 @@ pub(crate) fn tank_update_loc_3b41c(
         };
     }
 
+    // ASM Tank.asm loc_3B478: damage collisions `$1C` and `$2C` subtract one
+    // from current_hp before branching on the decremented value.
     let remaining_hp = current_hp.wrapping_sub(1);
     if remaining_hp == 0 {
         TankUpdateLoc3B41C {
@@ -22106,6 +22108,24 @@ mod tests {
             },
             "ASM Tank.asm loc_3B446 should play the closed-mouth sound before decrementing HP for child collision `$1C`, stopping parent motion, setting child timer 6, hibernating 5 frames, then clearing child collision",
         );
+    }
+
+    #[test]
+    fn tank_update_loc_3b478_decrements_hp_for_damage_collisions() {
+        for child_collision_type in [0x001C, 0x002C] {
+            let result = tank_update_loc_3b41c(
+                0,
+                child_collision_type,
+                4,
+                TankMouthFrameLoc3B41C::Other,
+                false,
+            );
+
+            assert_eq!(
+                result.next_current_hp, 3,
+                "ASM Tank.asm loc_3B478 should decrement current_hp for child collision {child_collision_type:#06X}",
+            );
+        }
     }
 
     #[test]
