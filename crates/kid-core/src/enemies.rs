@@ -2264,9 +2264,39 @@ pub(crate) fn lion_cull_reject_loc_3e920(
     // `EnemyStatus_Table` from `$42(a5)`, then deleting the current object.
     LionCullRejectLoc3E920 {
         next_number_of_enemy: number_of_enemy.wrapping_sub(1),
-        status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
+        status_action: lion_cull_status_update_loc_3e956(object_status_slot),
         deletes_current_object: true,
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionRespawnMarkerLoc3E97C {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_respawn_marker_loc_3e97c(object_status_slot: u8) -> LionRespawnMarkerLoc3E97C {
+    // ASM Lion.asm loc_3E97C: positive `$42(a5)` has already been loaded into
+    // d0; `add.w d0,d0` makes it an EnemyStatus_Table word offset, then `$2168`
+    // is written before the common delete jump.
+    LionRespawnMarkerLoc3E97C {
+        index: usize::from(object_status_slot),
+        word_value: 0x2168,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn lion_cull_status_update_loc_3e956(object_status_slot: u8) -> DeactivationStatusActionLoc3C4C0 {
+    if object_status_slot & 0x80 == 0 {
+        let marker = lion_respawn_marker_loc_3e97c(object_status_slot);
+        return DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+            index: marker.index,
+        };
+    }
+
+    deactivation_status_update_loc_3C4C0(object_status_slot)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -29217,6 +29247,18 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Lion.asm loc_3E920 should delete without a table update when bit 7 is set and bit 6 is clear"
+        );
+    }
+
+    #[test]
+    fn lion_respawn_marker_matches_loc_3e97c_positive_status_slot() {
+        assert_eq!(
+            lion_respawn_marker_loc_3e97c(0x05),
+            LionRespawnMarkerLoc3E97C {
+                index: 5,
+                word_value: 0x2168,
+            },
+            "ASM Lion.asm loc_3E97C should double positive `$42(a5)` as an EnemyStatus_Table word offset and write `$2168`"
         );
     }
 
