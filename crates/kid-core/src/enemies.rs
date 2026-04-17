@@ -791,28 +791,62 @@ pub(crate) struct CrabGravityTailLoc3B218 {
     pub(crate) y_velocity: i32,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CrabGravityAccelerationTailLoc3B226 {
+    pub(crate) y_velocity: i32,
+    pub(crate) route: CrabGravityAccelerationRouteLoc3B226,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CrabGravityAccelerationRouteLoc3B226 {
+    NonNegativeXVelocity { x_velocity: i32 },
+    NegativeXVelocityTail,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_gravity_acceleration_tail_loc_3b226(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> CrabGravityAccelerationTailLoc3B226 {
+    // ASM Crab.asm loc_3B226: add `$4000` to y_vel, then only add `$4000`
+    // to x_vel when the signed test keeps x_vel on the non-negative branch.
+    let y_velocity = y_velocity.wrapping_add(0x0000_4000);
+    let route = if x_velocity < 0 {
+        CrabGravityAccelerationRouteLoc3B226::NegativeXVelocityTail
+    } else {
+        CrabGravityAccelerationRouteLoc3B226::NonNegativeXVelocity {
+            x_velocity: x_velocity.wrapping_add(0x0000_4000),
+        }
+    };
+
+    CrabGravityAccelerationTailLoc3B226 { y_velocity, route }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_gravity_tail_loc_3b218(
     x_velocity: i32,
     y_velocity: i32,
 ) -> CrabGravityTailLoc3B218 {
-    // ASM Crab.asm loc_3B218: zero y_vel is seeded with `$10000`; the tail then
-    // adds `$4000` to y_vel and accelerates x_vel by `$4000` in its signed
-    // direction.
+    // ASM Crab.asm loc_3B218: zero y_vel is seeded with `$10000`; the seeded
+    // value then falls through to the gravity acceleration tail.
     let seeded_y_velocity = if y_velocity == 0 {
         0x0001_0000
     } else {
         y_velocity
     };
-    let x_velocity = if x_velocity < 0 {
-        x_velocity.wrapping_sub(0x0000_4000)
-    } else {
-        x_velocity.wrapping_add(0x0000_4000)
+    let acceleration_tail = crab_gravity_acceleration_tail_loc_3b226(x_velocity, seeded_y_velocity);
+    let x_velocity = match acceleration_tail.route {
+        CrabGravityAccelerationRouteLoc3B226::NonNegativeXVelocity { x_velocity } => x_velocity,
+        CrabGravityAccelerationRouteLoc3B226::NegativeXVelocityTail => {
+            x_velocity.wrapping_sub(0x0000_4000)
+        }
     };
 
     CrabGravityTailLoc3B218 {
         x_velocity,
-        y_velocity: seeded_y_velocity.wrapping_add(0x0000_4000),
+        y_velocity: acceleration_tail.y_velocity,
     }
 }
 
@@ -23085,6 +23119,29 @@ mod tests {
             crab_negative_slope_route_loc_3b212(CRAB_COLID_SLOPEUP),
             CrabNegativeSlopeRouteLoc3B212::ReflectYVelocity,
             "ASM Crab.asm loc_3B212 should branch to loc_3B204 for non-`$18` slope contact"
+        );
+    }
+
+    #[test]
+    fn crab_gravity_acceleration_tail_matches_loc_3b226() {
+        assert_eq!(
+            crab_gravity_acceleration_tail_loc_3b226(0x0000_8000, 0x0001_0000),
+            CrabGravityAccelerationTailLoc3B226 {
+                y_velocity: 0x0001_4000,
+                route: CrabGravityAccelerationRouteLoc3B226::NonNegativeXVelocity {
+                    x_velocity: 0x0000_C000,
+                },
+            },
+            "ASM Crab.asm loc_3B226 should add `$4000` to y_vel and non-negative x_vel"
+        );
+
+        assert_eq!(
+            crab_gravity_acceleration_tail_loc_3b226(-0x0000_8000, 0x0002_0000),
+            CrabGravityAccelerationTailLoc3B226 {
+                y_velocity: 0x0002_4000,
+                route: CrabGravityAccelerationRouteLoc3B226::NegativeXVelocityTail,
+            },
+            "ASM Crab.asm loc_3B226 should still add gravity before branching on negative x_vel"
         );
     }
 
