@@ -4663,6 +4663,56 @@ pub(crate) fn fire_demon_fire_trail_gate_loc_3a542(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FireDemonFireTrailWaitNextLoc3A6CA {
+    ContinueLoop,
+    DeleteFlagSet { decrements_fire_trail_count: bool },
+    DeleteTimerExpired { decrements_fire_trail_count: bool },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireDemonFireTrailWaitStepLoc3A6CA {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) remaining_timer: u16,
+    pub(crate) next: FireDemonFireTrailWaitNextLoc3A6CA,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(
+    status_flag_19_set: bool,
+    timer_d3: u16,
+) -> FireDemonFireTrailWaitStepLoc3A6CA {
+    // ASM Fire_Demon.asm loc_3A6CA: after one hibernate, nonzero `$19(a3)`
+    // jumps to deletion. Otherwise `subq.w #1,d3` loops while the word result
+    // is nonzero; only a zero result falls through to deletion.
+    if status_flag_19_set {
+        return FireDemonFireTrailWaitStepLoc3A6CA {
+            hibernates_one_frame: true,
+            remaining_timer: timer_d3,
+            next: FireDemonFireTrailWaitNextLoc3A6CA::DeleteFlagSet {
+                decrements_fire_trail_count: true,
+            },
+        };
+    }
+
+    let remaining_timer = timer_d3.wrapping_sub(1);
+    let next = if remaining_timer == 0 {
+        FireDemonFireTrailWaitNextLoc3A6CA::DeleteTimerExpired {
+            decrements_fire_trail_count: true,
+        }
+    } else {
+        FireDemonFireTrailWaitNextLoc3A6CA::ContinueLoop
+    };
+
+    FireDemonFireTrailWaitStepLoc3A6CA {
+        hibernates_one_frame: true,
+        remaining_timer,
+        next,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireDemonCollisionRouteLoc3A586 {
     ResumeSharedWalker {
         next_collision_type: u16,

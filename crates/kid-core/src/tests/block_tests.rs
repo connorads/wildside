@@ -3400,6 +3400,41 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_fire_trail_wait_loop_loc_3a6ca_deletes_on_flag_or_timer() {
+        assert_eq!(
+            fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(true, 0x0096),
+            FireDemonFireTrailWaitStepLoc3A6CA {
+                hibernates_one_frame: true,
+                remaining_timer: 0x0096,
+                next: FireDemonFireTrailWaitNextLoc3A6CA::DeleteFlagSet {
+                    decrements_fire_trail_count: true,
+                },
+            },
+            "ASM Fire_Demon.asm loc_3A6CA should delete immediately when `$19(a3)` is nonzero"
+        );
+        assert_eq!(
+            fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(false, 1),
+            FireDemonFireTrailWaitStepLoc3A6CA {
+                hibernates_one_frame: true,
+                remaining_timer: 0,
+                next: FireDemonFireTrailWaitNextLoc3A6CA::DeleteTimerExpired {
+                    decrements_fire_trail_count: true,
+                },
+            },
+            "ASM Fire_Demon.asm loc_3A6CA should fall through to deletion when `subq.w #1,d3` reaches zero"
+        );
+        assert_eq!(
+            fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(false, 0),
+            FireDemonFireTrailWaitStepLoc3A6CA {
+                hibernates_one_frame: true,
+                remaining_timer: 0xFFFF,
+                next: FireDemonFireTrailWaitNextLoc3A6CA::ContinueLoop,
+            },
+            "ASM Fire_Demon.asm loc_3A6CA uses word subtraction, so d3=0 wraps to `$FFFF` and keeps looping"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);
