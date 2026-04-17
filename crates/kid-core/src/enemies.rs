@@ -3387,7 +3387,7 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
     // the next Y velocity from the current X direction.
     let route = match collision_type {
         0 => DiamondHighHpCollisionRouteLoc3ADA4::Fall {
-            y_velocity: 0x0001_C000,
+            y_velocity: diamond_high_hp_fall_y_velocity_loc_3ae78(),
         },
         DIAMOND_COLID_HURT => DiamondHighHpCollisionRouteLoc3ADA4::Damage,
         DIAMOND_COLID_FLOOR => DiamondHighHpCollisionRouteLoc3ADA4::Loop,
@@ -3421,6 +3421,13 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
         clears_collision_before_poll: true,
         route,
     }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_high_hp_fall_y_velocity_loc_3ae78() -> i32 {
+    // ASM Diamond.asm loc_3AE78: zero collision stores `#$1C000` into
+    // `y_vel(a3)` before returning to the high-HP collision loop.
+    0x0001_C000
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -18898,6 +18905,15 @@ mod tests {
             diamond_high_hp_collision_dispatch_loc_3ada4(DIAMOND_COLID_KIDLEFT, 0, 0).route,
             DiamondHighHpCollisionRouteLoc3ADA4::BerzerkerSideGate,
             "ASM Diamond.asm loc_3ADA4 should route Kid side contacts to the Berzerker gate",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_fall_y_velocity_loc_3ae78_is_one_and_three_quarter_pixels() {
+        assert_eq!(
+            diamond_high_hp_fall_y_velocity_loc_3ae78(),
+            0x0001_C000,
+            "ASM Diamond.asm loc_3AE78 should store +$1C000 into y_vel when no collision is reported",
         );
     }
 
