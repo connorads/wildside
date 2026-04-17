@@ -6703,6 +6703,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_hurt_driver_delete_tail_matches_loc_357e2() {
+        use enemies::{UfoHurtDriverDeleteTailLoc357E2, ufo_hurt_driver_delete_tail_loc_357E2};
+
+        assert_eq!(
+            ufo_hurt_driver_delete_tail_loc_357E2(),
+            UfoHurtDriverDeleteTailLoc357E2 {
+                deletes_current_object: true,
+            },
+            "ASM UFO.asm loc_357E2 is only the j_Delete_CurrentObject jump tail"
+        );
+    }
+
+    #[test]
     fn tornado_loads_rom_pattern_on_timer_expiry() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
         enemy.wait_timer = 0;

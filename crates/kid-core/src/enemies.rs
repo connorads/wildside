@@ -8391,6 +8391,22 @@ pub(crate) fn ufo_hurt_driver_stop_tail_loc_357C2(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverDeleteTailLoc357E2 {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_delete_tail_loc_357E2() -> UfoHurtDriverDeleteTailLoc357E2 {
+    // ASM UFO.asm loc_357E2: jump directly through `j_Delete_CurrentObject`;
+    // no velocity, collision, or animation state is changed in this tail.
+    UfoHurtDriverDeleteTailLoc357E2 {
+        deletes_current_object: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
     collision_type: i16,
