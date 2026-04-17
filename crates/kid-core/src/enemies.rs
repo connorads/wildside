@@ -825,6 +825,13 @@ pub(crate) fn crab_gravity_acceleration_tail_loc_3b226(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_negative_gravity_x_tail_loc_3b240(x_velocity: i32) -> i32 {
+    // ASM Crab.asm loc_3B240: negative x_vel from the gravity tail receives
+    // `subi.l #$4000,x_vel(a3)` before looping back to loc_3B1A6.
+    x_velocity.wrapping_sub(0x0000_4000)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_gravity_tail_loc_3b218(
     x_velocity: i32,
     y_velocity: i32,
@@ -840,7 +847,7 @@ pub(crate) fn crab_gravity_tail_loc_3b218(
     let x_velocity = match acceleration_tail.route {
         CrabGravityAccelerationRouteLoc3B226::NonNegativeXVelocity { x_velocity } => x_velocity,
         CrabGravityAccelerationRouteLoc3B226::NegativeXVelocityTail => {
-            x_velocity.wrapping_sub(0x0000_4000)
+            crab_negative_gravity_x_tail_loc_3b240(x_velocity)
         }
     };
 
@@ -23142,6 +23149,21 @@ mod tests {
                 route: CrabGravityAccelerationRouteLoc3B226::NegativeXVelocityTail,
             },
             "ASM Crab.asm loc_3B226 should still add gravity before branching on negative x_vel"
+        );
+    }
+
+    #[test]
+    fn crab_negative_gravity_x_tail_matches_loc_3b240() {
+        assert_eq!(
+            crab_negative_gravity_x_tail_loc_3b240(-0x0000_8000),
+            -0x0000_C000,
+            "ASM Crab.asm loc_3B240 should subtract `$4000` from negative x_vel"
+        );
+
+        assert_eq!(
+            crab_negative_gravity_x_tail_loc_3b240(i32::MIN),
+            0x7FFF_C000,
+            "ASM Crab.asm loc_3B240 should use 32-bit wrapping subtraction"
         );
     }
 
