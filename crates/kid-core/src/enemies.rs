@@ -4014,7 +4014,7 @@ pub(crate) fn goat_collision_clear_resume_loc_3cbf6(
 ) -> GoatCollisionClearResumeLoc3CBF6 {
     // ASM Goat.asm loc_3CBF6: clear `collision_type(a3)`, test `$5C(a5)`,
     // then branch by `x_direction(a3)`. Spawned children use loc_3E7CA/loc_3E6AE;
-    // ordinary goats use loc_3E560/loc_3E3AC.
+    // ASM Goat.asm loc_3CC0C: ordinary goats use loc_3E560/loc_3E3AC.
     let next = match (parent_spawned_child, facing) {
         (true, Direction::Left) => GoatCollisionClearResumeRouteLoc3CBF6::SpawnedChildLeft,
         (true, Direction::Right) => GoatCollisionClearResumeRouteLoc3CBF6::SpawnedChildRight,

@@ -2613,7 +2613,7 @@ mod chunk_04 {
                 collision_type: 0,
                 next: GoatCollisionClearResumeRouteLoc3CBF6::OrdinaryLeft,
             },
-            "ASM Goat.asm loc_3CBF6 should send ordinary goats with clear x_direction to loc_3E560"
+            "ASM Goat.asm loc_3CC0C should send ordinary goats with clear x_direction to loc_3E560"
         );
         assert_eq!(
             goat_collision_clear_resume_loc_3cbf6(false, Direction::Right),
@@ -2621,7 +2621,7 @@ mod chunk_04 {
                 collision_type: 0,
                 next: GoatCollisionClearResumeRouteLoc3CBF6::OrdinaryRight,
             },
-            "ASM Goat.asm loc_3CBF6 should send ordinary goats with set x_direction to loc_3E3AC"
+            "ASM Goat.asm loc_3CC0C should send ordinary goats with set x_direction to loc_3E3AC"
         );
     }
 
