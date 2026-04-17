@@ -2271,6 +2271,38 @@ pub(crate) fn lion_cull_reject_loc_3e920(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum LionMediumLoadCullLoc3E924 {
+    Return,
+    DeleteTail(LionCullRejectLoc3E920),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_medium_load_cull_loc_3e924(
+    x_pos_word: u16,
+    y_pos_word: u16,
+    camera_x_word: u16,
+    camera_y_word: u16,
+    number_of_enemy: u16,
+    object_status_slot: u8,
+) -> LionMediumLoadCullLoc3E924 {
+    // ASM Lion.asm loc_3E924: with 11..20 objects live, subtract camera words
+    // from the Lion's live integer position and keep only x[-$1A4,+$2E4] and
+    // y[-$1A4,+$284]. Failed comparisons branch through loc_3E920's delete tail.
+    let relative_x = x_pos_word.wrapping_sub(camera_x_word) as i16;
+    let relative_y = y_pos_word.wrapping_sub(camera_y_word) as i16;
+
+    if !(-0x01A4..=0x02E4).contains(&relative_x) || !(-0x01A4..=0x0284).contains(&relative_y) {
+        return LionMediumLoadCullLoc3E924::DeleteTail(lion_cull_reject_loc_3e920(
+            number_of_enemy,
+            object_status_slot,
+        ));
+    }
+
+    LionMediumLoadCullLoc3E924::Return
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionLeftChargeTerrainBranch {
     ContinueToLoc3E5E8,
     EnterLoc3E642,
@@ -29168,6 +29200,29 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Lion.asm loc_3E920 should delete without a table update when bit 7 is set and bit 6 is clear"
+        );
+    }
+
+    #[test]
+    fn lion_medium_load_cull_matches_loc_3e924_window() {
+        assert_eq!(
+            lion_medium_load_cull_loc_3e924(0x0E5C, 0x0E5C, 0x1000, 0x1000, 7, 0x05),
+            LionMediumLoadCullLoc3E924::Return,
+            "ASM Lion.asm loc_3E924 should keep the lower inclusive medium-load x/y edge at `-$1A4`"
+        );
+        assert_eq!(
+            lion_medium_load_cull_loc_3e924(0x12E4, 0x1284, 0x1000, 0x1000, 7, 0x05),
+            LionMediumLoadCullLoc3E924::Return,
+            "ASM Lion.asm loc_3E924 should keep the upper inclusive medium-load edges x=`$2E4`, y=`$284`"
+        );
+        assert_eq!(
+            lion_medium_load_cull_loc_3e924(0x0E5B, 0x1000, 0x1000, 0x1000, 7, 0x05),
+            LionMediumLoadCullLoc3E924::DeleteTail(LionCullRejectLoc3E920 {
+                next_number_of_enemy: 6,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                deletes_current_object: true,
+            }),
+            "ASM Lion.asm loc_3E924 should branch through loc_3E920 once relative x drops below `-$1A4`"
         );
     }
 
