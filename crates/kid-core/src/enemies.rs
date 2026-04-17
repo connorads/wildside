@@ -3897,6 +3897,51 @@ pub(crate) fn diamond_high_hp_damage_loc_3adfa(current_hp: u16) -> DiamondHighHp
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DiamondLowHpCollisionRouteLoc3AEC4 {
+    ResumeSharedWalker { next_collision_type: u16 },
+    BerzerkerSideGate,
+    HurtAnimation { remaining_hp: u16 },
+    DeathAnimation,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_low_hp_collision_dispatch_loc_3aec4(
+    collision_type: i16,
+    current_hp: u16,
+) -> DiamondLowHpCollisionRouteLoc3AEC4 {
+    // ASM Diamond.asm loc_3AEC4: read `collision_type(a3)` without a
+    // pre-clear. Zero and unknown positives resume the shared walker tail,
+    // signed-negative words delete the Diamond, side contacts enter the
+    // Berzerker gate, and `colid_hurt` decrements `$44(a3)` before routing.
+    if collision_type == 0 {
+        return DiamondLowHpCollisionRouteLoc3AEC4::ResumeSharedWalker {
+            next_collision_type: 0,
+        };
+    }
+    if collision_type.is_negative() {
+        return DiamondLowHpCollisionRouteLoc3AEC4::DeathAnimation;
+    }
+
+    match collision_type {
+        v if v == DIAMOND_COLID_KIDRIGHT as i16 || v == DIAMOND_COLID_KIDLEFT as i16 => {
+            DiamondLowHpCollisionRouteLoc3AEC4::BerzerkerSideGate
+        }
+        v if v == DIAMOND_COLID_HURT as i16 => {
+            let remaining_hp = current_hp.wrapping_sub(1);
+            if remaining_hp == 0 {
+                DiamondLowHpCollisionRouteLoc3AEC4::DeathAnimation
+            } else {
+                DiamondLowHpCollisionRouteLoc3AEC4::HurtAnimation { remaining_hp }
+            }
+        }
+        _ => DiamondLowHpCollisionRouteLoc3AEC4::ResumeSharedWalker {
+            next_collision_type: 0,
+        },
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonInitAnimation {
     pub(crate) collision_routine: &'static str,
     pub(crate) animation_script: &'static str,
@@ -20773,6 +20818,49 @@ mod tests {
                 route: DiamondHighHpDamageRouteLoc3ADFA::DeathAnimation,
             },
             "ASM Diamond.asm loc_3AE28 should `sf is_moved`, wait on `stru_3ACC4`, then branch to loc_3C46E deletion",
+        );
+    }
+
+    #[test]
+    fn diamond_low_hp_collision_dispatch_loc_3aec4_routes_collision_words() {
+        assert_eq!(
+            diamond_low_hp_collision_dispatch_loc_3aec4(0, 2),
+            DiamondLowHpCollisionRouteLoc3AEC4::ResumeSharedWalker {
+                next_collision_type: 0,
+            },
+            "ASM Diamond.asm loc_3AEC4 should send zero collision_type to the shared walker clear tail",
+        );
+        assert_eq!(
+            diamond_low_hp_collision_dispatch_loc_3aec4(-1, 2),
+            DiamondLowHpCollisionRouteLoc3AEC4::DeathAnimation,
+            "ASM Diamond.asm loc_3AEC4 should route signed-negative collision_type directly to deletion",
+        );
+        assert_eq!(
+            diamond_low_hp_collision_dispatch_loc_3aec4(DIAMOND_COLID_KIDRIGHT as i16, 2),
+            DiamondLowHpCollisionRouteLoc3AEC4::BerzerkerSideGate,
+            "ASM Diamond.asm loc_3AEC4 should route colid_kidright to the Berzerker side gate",
+        );
+        assert_eq!(
+            diamond_low_hp_collision_dispatch_loc_3aec4(DIAMOND_COLID_KIDLEFT as i16, 2),
+            DiamondLowHpCollisionRouteLoc3AEC4::BerzerkerSideGate,
+            "ASM Diamond.asm loc_3AEC4 should route colid_kidleft to the Berzerker side gate",
+        );
+        assert_eq!(
+            diamond_low_hp_collision_dispatch_loc_3aec4(DIAMOND_COLID_HURT as i16, 2),
+            DiamondLowHpCollisionRouteLoc3AEC4::HurtAnimation { remaining_hp: 1 },
+            "ASM Diamond.asm loc_3AEC4 should decrement current_hp before routing a surviving hurt hit",
+        );
+        assert_eq!(
+            diamond_low_hp_collision_dispatch_loc_3aec4(DIAMOND_COLID_HURT as i16, 1),
+            DiamondLowHpCollisionRouteLoc3AEC4::DeathAnimation,
+            "ASM Diamond.asm loc_3AEC4 should route to deletion when the hurt decrement leaves zero",
+        );
+        assert_eq!(
+            diamond_low_hp_collision_dispatch_loc_3aec4(DIAMOND_COLID_FLOOR as i16, 2),
+            DiamondLowHpCollisionRouteLoc3AEC4::ResumeSharedWalker {
+                next_collision_type: 0,
+            },
+            "ASM Diamond.asm loc_3AEC4 should ignore unknown positive collision IDs and resume walking",
         );
     }
 
