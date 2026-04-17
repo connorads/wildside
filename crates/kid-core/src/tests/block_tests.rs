@@ -3177,7 +3177,7 @@ mod chunk_04 {
                 damage_animation: "stru_3A34E",
                 restored_animation: "saved_fire_demon_walk_animation",
             },
-            "ASM Fire_Demon.asm loc_3A586 decrements current_hp for colid_hurt and then clears collision_type through the shared tail"
+            "ASM Fire_Demon.asm loc_3A586 decrements current_hp for colid_hurt and branches to loc_3A5BE while HP remains"
         );
         assert_eq!(
             fire_demon_collision_dispatch_loc_3a586(FIRE_DEMON_COLID_HURT, 1),
@@ -3205,6 +3205,20 @@ mod chunk_04 {
                 decrements_fire_demon_count: true,
             },
             "ASM Fire_Demon.asm loc_3A5A6 should hibernate on `stru_3A378` before decrementing `(Fire_Demon).w`"
+        );
+    }
+
+    #[test]
+    fn fire_demon_hurt_recovery_loc_3a5be_restores_saved_walk_animation() {
+        assert_eq!(
+            fire_demon_hurt_recovery_loc_3a5be(2),
+            FireDemonCollisionRouteLoc3A586::Hurt {
+                remaining_hp: 2,
+                next_collision_type: 0,
+                damage_animation: "stru_3A34E",
+                restored_animation: "saved_fire_demon_walk_animation",
+            },
+            "ASM Fire_Demon.asm loc_3A5BE should hibernate on `stru_3A34E` before restoring the saved `$62(a5)` animation"
         );
     }
 

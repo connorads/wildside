@@ -4011,6 +4011,20 @@ pub(crate) fn fire_demon_death_loc_3a5a6() -> FireDemonCollisionRouteLoc3A586 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_hurt_recovery_loc_3a5be(
+    remaining_hp: u16,
+) -> FireDemonCollisionRouteLoc3A586 {
+    // ASM Fire_Demon.asm loc_3A5BE: play `stru_3A34E`, hibernate until it
+    // finishes, then restore the saved animation pointer from `$62(a5)`.
+    FireDemonCollisionRouteLoc3A586::Hurt {
+        remaining_hp,
+        next_collision_type: 0,
+        damage_animation: "stru_3A34E",
+        restored_animation: "saved_fire_demon_walk_animation",
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
     collision_type: i16,
     current_hp: u16,
@@ -4035,12 +4049,7 @@ pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
             if remaining_hp == 0 {
                 fire_demon_death_loc_3a5a6()
             } else {
-                FireDemonCollisionRouteLoc3A586::Hurt {
-                    remaining_hp,
-                    next_collision_type: 0,
-                    damage_animation: "stru_3A34E",
-                    restored_animation: "saved_fire_demon_walk_animation",
-                }
+                fire_demon_hurt_recovery_loc_3a5be(remaining_hp)
             }
         }
         _ => FireDemonCollisionRouteLoc3A586::ResumeSharedWalker {
