@@ -4385,6 +4385,17 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_delete_tail_matches_loc_366b2() {
+        assert_eq!(
+            enemies::big_hopping_skull_delete_tail_loc_366b2(),
+            enemies::BigHoppingSkullDeleteTailLoc366B2 {
+                deletes_current_object: true,
+            },
+            "ASM Big_Hopping_Skull.asm loc_366B2 should jump to j_Delete_CurrentObject after every death-status route",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),

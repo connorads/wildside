@@ -2722,6 +2722,20 @@ pub(crate) fn big_hopping_skull_respawn_marker_loc_366a4(
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BigHoppingSkullDeleteTailLoc366B2 {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_delete_tail_loc_366b2() -> BigHoppingSkullDeleteTailLoc366B2 {
+    // ASM Big_Hopping_Skull.asm loc_366B2: all death-status finalisation paths
+    // converge on `jmp (j_Delete_CurrentObject).w`.
+    BigHoppingSkullDeleteTailLoc366B2 {
+        deletes_current_object: true,
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,
