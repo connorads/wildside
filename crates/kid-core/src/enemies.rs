@@ -18429,6 +18429,33 @@ pub(crate) fn tank_update_loc_3b41c(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TankShootingCollisionRouteLoc3B6C0 {
+    Death,
+    Damage,
+    Walk,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_shooting_collision_route_loc_3b6c0(
+    parent_collision_type: u16,
+    child_collision_type: u16,
+) -> TankShootingCollisionRouteLoc3B6C0 {
+    // ASM Tank_Shooting.asm loc_3B6C0: test the parent collision word before
+    // reading the turret child collision. Negative parent or child words route
+    // to death, child `$1C`/`$2C` route onward to the HP decrement, and
+    // zero or unrecognised child collisions resume the walker.
+    if parent_collision_type & 0x8000 != 0 || child_collision_type & 0x8000 != 0 {
+        return TankShootingCollisionRouteLoc3B6C0::Death;
+    }
+
+    if matches!(child_collision_type, 0x001C | 0x002C) {
+        TankShootingCollisionRouteLoc3B6C0::Damage
+    } else {
+        TankShootingCollisionRouteLoc3B6C0::Walk
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TankShootingInitWalkerEntryLoc3B690 {
     LeftLoc3C0D2,
     RightLoc3C026,
@@ -20879,6 +20906,44 @@ mod tests {
                 walker_entry: TankShootingInitWalkerEntryLoc3B690::RightLoc3C026,
             },
             "ASM Tank_Shooting.asm loc_3B690 should skip sound when refcount or `$19(a3)` is nonzero; loc_3B6AE should still increment and branch to loc_3C026 for nonzero x_direction",
+        );
+    }
+
+    #[test]
+    fn tank_shooting_collision_route_loc_3b6c0_classifies_parent_and_child_death() {
+        assert_eq!(
+            tank_shooting_collision_route_loc_3b6c0(0x8000, 0x001C),
+            TankShootingCollisionRouteLoc3B6C0::Death,
+            "ASM Tank_Shooting.asm loc_3B6C0 should route a negative parent collision word to death before applying child damage collisions",
+        );
+        assert_eq!(
+            tank_shooting_collision_route_loc_3b6c0(0, 0x8000),
+            TankShootingCollisionRouteLoc3B6C0::Death,
+            "ASM Tank_Shooting.asm loc_3B6C0 should route a negative turret-child collision word to death",
+        );
+    }
+
+    #[test]
+    fn tank_shooting_collision_route_loc_3b6c0_classifies_walk_and_damage() {
+        assert_eq!(
+            tank_shooting_collision_route_loc_3b6c0(0, 0),
+            TankShootingCollisionRouteLoc3B6C0::Walk,
+            "ASM Tank_Shooting.asm loc_3B6C0 should resume walking when the turret child collision is zero",
+        );
+        assert_eq!(
+            tank_shooting_collision_route_loc_3b6c0(0, 0x001D),
+            TankShootingCollisionRouteLoc3B6C0::Walk,
+            "ASM Tank_Shooting.asm loc_3B6C0 should resume walking for child collisions other than `$1C` or `$2C`",
+        );
+        assert_eq!(
+            tank_shooting_collision_route_loc_3b6c0(0, 0x001C),
+            TankShootingCollisionRouteLoc3B6C0::Damage,
+            "ASM Tank_Shooting.asm loc_3B6C0 should accept child collision `$1C` as a damage hit",
+        );
+        assert_eq!(
+            tank_shooting_collision_route_loc_3b6c0(0, 0x002C),
+            TankShootingCollisionRouteLoc3B6C0::Damage,
+            "ASM Tank_Shooting.asm loc_3B6C0 should accept child collision `$2C` as a damage hit",
         );
     }
 
