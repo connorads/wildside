@@ -10035,6 +10035,42 @@ pub(crate) fn fireball_delete_tail_loc_32ed8() -> FireballDeleteTailLoc32ED8 {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireballTrailInitLoc330D0 {
+    pub(crate) gfx_object_long: u32,
+    pub(crate) display_flag_13: u8,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) lifetime_frames: u16,
+    pub(crate) x_direction: u8,
+    pub(crate) x_px: i16,
+    pub(crate) y_px: i16,
+    pub(crate) animation: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_trail_init_loc_330d0(
+    parent_x_direction: u8,
+    parent_x_px: i16,
+    parent_y_px: i16,
+) -> FireballTrailInitLoc330D0 {
+    // ASM Fireball.asm loc_330D0: allocate GfxObject `$03000003`, mark the
+    // child visible, seed Fireball object metadata/collision, copy `$44/$46/$48(a5)`
+    // into direction/x/y, set `d3=$96`, then start `stru_330C2`.
+    FireballTrailInitLoc330D0 {
+        gfx_object_long: 0x0300_0003,
+        display_flag_13: 0xFF,
+        priority: 0,
+        object_meta: 0x19,
+        lifetime_frames: 0x96,
+        x_direction: parent_x_direction,
+        x_px: parent_x_px,
+        y_px: parent_y_px,
+        animation: "stru_330C2",
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireballSpriteBranchLoc32F3E {
     Vertical { sprite_index: i16 },
     NegativeX,
@@ -30652,6 +30688,25 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Fireball.asm loc_32ED8 should jump straight to `j_Delete_CurrentObject` after every death-status route"
+        );
+    }
+
+    #[test]
+    fn fireball_trail_init_loc_330d0_seeds_child_from_parent_slots() {
+        assert_eq!(
+            fireball_trail_init_loc_330d0(0xFF, 0x0123, 0x0456),
+            FireballTrailInitLoc330D0 {
+                gfx_object_long: 0x0300_0003,
+                display_flag_13: 0xFF,
+                priority: 0,
+                object_meta: 0x19,
+                lifetime_frames: 0x96,
+                x_direction: 0xFF,
+                x_px: 0x0123,
+                y_px: 0x0456,
+                animation: "stru_330C2",
+            },
+            "ASM Fireball.asm loc_330D0 should allocate the child object, copy `$44/$46/$48(a5)` into direction/x/y, and seed d3 with `$96`"
         );
     }
 
