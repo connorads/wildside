@@ -20991,6 +20991,9 @@ pub(crate) fn tank_update_loc_3b41c(
             route: TankUpdateRouteLoc3B41C::Death,
         }
     } else {
+        // ASM Tank.asm loc_3B49A: nonfatal damage clears parent motion,
+        // sets the mouth child recoil timer to 6, and hibernates for 5 frames
+        // before resuming normal walker cleanup.
         TankUpdateLoc3B41C {
             mouth_sound,
             next_current_hp: remaining_hp,
@@ -22170,6 +22173,27 @@ mod tests {
                 route: TankUpdateRouteLoc3B41C::Death,
             },
             "ASM Tank.asm loc_3B480 should hide the mouth child and skip hurt recovery when the loc_3B478 HP decrement reaches zero",
+        );
+    }
+
+    #[test]
+    fn tank_update_loc_3b49a_hurt_recovery_stops_motion_and_recoils_child() {
+        let result = tank_update_loc_3b41c(0, 0x002C, 2, TankMouthFrameLoc3B41C::Other, false);
+
+        assert_eq!(
+            result,
+            TankUpdateLoc3B41C {
+                mouth_sound: None,
+                next_current_hp: 1,
+                clears_child_collision_type: true,
+                hides_child_sprite: false,
+                sets_child_kid_collision: false,
+                clears_parent_motion_speed: true,
+                child_recoil_timer: Some(6),
+                hurt_hibernate_frames: Some(5),
+                route: TankUpdateRouteLoc3B41C::Hurt { remaining_hp: 1 },
+            },
+            "ASM Tank.asm loc_3B49A should clear parent motion, set child recoil timer 6, hibernate 5 frames, then keep the damaged tank alive",
         );
     }
 
