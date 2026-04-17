@@ -7441,11 +7441,14 @@ pub(crate) fn cloud_idle_sprite_reset_loc_35CD2() -> CloudIdleSpriteResetLoc35CD
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudDiagonalAttackInputLoc35CD8 {
     pub(crate) object_45: u8,
+    pub(crate) animation_done_flag_18: bool,
     pub(crate) x_direction: u8,
     pub(crate) cloud_x: i16,
     pub(crate) cloud_y: i16,
     pub(crate) kid_x: i16,
     pub(crate) kid_y: i16,
+    pub(crate) attack_x_word: i16,
+    pub(crate) attack_y_word: i16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -7453,7 +7456,17 @@ pub(crate) struct CloudDiagonalAttackInputLoc35CD8 {
 pub(crate) enum CloudDiagonalAttackRouteLoc35CD8 {
     ContinueExistingAttack,
     LaterRangeChecks,
-    StartAttack { x_word: i16, y_word: i16 },
+    StartAttack {
+        x_word: i16,
+        y_word: i16,
+    },
+    SpawnAttackSprite {
+        allocation_selector: u16,
+        projectile_worker: &'static str,
+        x_word: i16,
+        y_word: i16,
+        projectile_x_direction: u8,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -7494,6 +7507,24 @@ pub(crate) fn cloud_diagonal_attack_setup_loc_35CD8(
     // compare signed Kid-minus-cloud position words to find the diagonal band
     // in front of the cloud before starting `stru_35EC8` and setting `$45(a5)`.
     if input.object_45 != 0 {
+        // ASM Cloud.asm loc_35DAE: an active attack returns while `$18(a3)` is
+        // clear; once set, loc_35DB8 allocates `loc_35DF0`, copies the live
+        // attack vector from `d1`, flips `x_direction`, restores `stru_35EA0`,
+        // and clears `$45(a5)`.
+        if input.animation_done_flag_18 {
+            return CloudDiagonalAttackSetupLoc35CD8 {
+                route: CloudDiagonalAttackRouteLoc35CD8::SpawnAttackSprite {
+                    allocation_selector: 0x8000,
+                    projectile_worker: "loc_35DF0",
+                    x_word: input.attack_x_word,
+                    y_word: input.attack_y_word,
+                    projectile_x_direction: !input.x_direction,
+                },
+                animation_script: Some("stru_35EA0"),
+                object_45_value: Some(0x00),
+            };
+        }
+
         return CloudDiagonalAttackSetupLoc35CD8 {
             route: CloudDiagonalAttackRouteLoc35CD8::ContinueExistingAttack,
             animation_script: None,

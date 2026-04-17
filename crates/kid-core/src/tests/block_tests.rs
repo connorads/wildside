@@ -3524,11 +3524,14 @@ mod chunk_04 {
     fn cloud_diagonal_attack_setup_loc_35cd8_respects_latch_and_y_gate() {
         let active = CloudDiagonalAttackInputLoc35CD8 {
             object_45: 0xFF,
+            animation_done_flag_18: false,
             x_direction: 0,
             cloud_x: 100,
             cloud_y: 50,
             kid_x: 92,
             kid_y: 58,
+            attack_x_word: -3,
+            attack_y_word: 3,
         };
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(active),
@@ -3543,11 +3546,14 @@ mod chunk_04 {
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
                 object_45: 0x00,
+                animation_done_flag_18: false,
                 x_direction: 0,
                 cloud_x: 100,
                 cloud_y: 50,
                 kid_x: 92,
                 kid_y: 20,
+                attack_x_word: 0,
+                attack_y_word: 0,
             }),
             CloudDiagonalAttackSetupLoc35CD8 {
                 route: CloudDiagonalAttackRouteLoc35CD8::LaterRangeChecks,
@@ -3559,15 +3565,49 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_diagonal_attack_setup_loc_35dae_spawns_latched_attack_when_animation_done() {
+        let finished = cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
+            object_45: 0xFF,
+            animation_done_flag_18: true,
+            x_direction: 0xFF,
+            cloud_x: 100,
+            cloud_y: 50,
+            kid_x: 110,
+            kid_y: 40,
+            attack_x_word: 6,
+            attack_y_word: 0,
+        });
+
+        assert_eq!(
+            finished,
+            CloudDiagonalAttackSetupLoc35CD8 {
+                route: CloudDiagonalAttackRouteLoc35CD8::SpawnAttackSprite {
+                    allocation_selector: 0x8000,
+                    projectile_worker: "loc_35DF0",
+                    x_word: 6,
+                    y_word: 0,
+                    projectile_x_direction: 0x00,
+                },
+                animation_script: Some("stru_35EA0"),
+                object_45_value: Some(0x00),
+            },
+            "ASM Cloud.asm loc_35DAE waits for `$18(a3)`, then loc_35DB8 allocates `loc_35DF0`, copies `d1`, flips x_direction, and clears `$45(a5)`"
+        );
+    }
+
+    #[test]
     fn cloud_diagonal_attack_setup_loc_35cd8_starts_when_kid_is_in_front_band() {
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
                 object_45: 0x00,
+                animation_done_flag_18: false,
                 x_direction: 0,
                 cloud_x: 100,
                 cloud_y: 50,
                 kid_x: 92,
                 kid_y: 58,
+                attack_x_word: 0,
+                attack_y_word: 0,
             }),
             CloudDiagonalAttackSetupLoc35CD8 {
                 route: CloudDiagonalAttackRouteLoc35CD8::StartAttack {
@@ -3582,11 +3622,14 @@ mod chunk_04 {
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
                 object_45: 0x00,
+                animation_done_flag_18: false,
                 x_direction: 0xFF,
                 cloud_x: 100,
                 cloud_y: 50,
                 kid_x: 108,
                 kid_y: 58,
+                attack_x_word: 0,
+                attack_y_word: 0,
             }),
             CloudDiagonalAttackSetupLoc35CD8 {
                 route: CloudDiagonalAttackRouteLoc35CD8::StartAttack {
@@ -3605,11 +3648,14 @@ mod chunk_04 {
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
                 object_45: 0x00,
+                animation_done_flag_18: false,
                 x_direction: 0,
                 cloud_x: 100,
                 cloud_y: 50,
                 kid_x: 100,
                 kid_y: 70,
+                attack_x_word: 0,
+                attack_y_word: 0,
             }),
             CloudDiagonalAttackSetupLoc35CD8 {
                 route: CloudDiagonalAttackRouteLoc35CD8::StartAttack {
@@ -3627,11 +3673,14 @@ mod chunk_04 {
     fn cloud_diagonal_attack_setup_loc_35d9e_initialises_attack_animation_and_latch() {
         let setup = cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
             object_45: 0x00,
+            animation_done_flag_18: false,
             x_direction: 0,
             cloud_x: 100,
             cloud_y: 50,
             kid_x: 100,
             kid_y: 70,
+            attack_x_word: 0,
+            attack_y_word: 0,
         });
 
         assert_eq!(
@@ -3651,11 +3700,14 @@ mod chunk_04 {
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
                 object_45: 0x00,
+                animation_done_flag_18: false,
                 x_direction: 0,
                 cloud_x: 100,
                 cloud_y: 50,
                 kid_x: 90,
                 kid_y: 40,
+                attack_x_word: 0,
+                attack_y_word: 0,
             }),
             CloudDiagonalAttackSetupLoc35CD8 {
                 route: CloudDiagonalAttackRouteLoc35CD8::StartAttack {
@@ -3670,11 +3722,14 @@ mod chunk_04 {
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
                 object_45: 0x00,
+                animation_done_flag_18: false,
                 x_direction: 0xFF,
                 cloud_x: 100,
                 cloud_y: 50,
                 kid_x: 110,
                 kid_y: 40,
+                attack_x_word: 0,
+                attack_y_word: 0,
             }),
             CloudDiagonalAttackSetupLoc35CD8 {
                 route: CloudDiagonalAttackRouteLoc35CD8::StartAttack {
