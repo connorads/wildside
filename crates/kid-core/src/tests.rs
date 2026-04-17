@@ -7,8 +7,9 @@ use crate::blocks::{
     Prize10DiamondsWorkerInitLoc10988, Prize10DiamondsWorkerScanStartLoc10960,
     Prize10DiamondsWorkerStepLoc109C0, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
     PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
-    PrizeCollectedArcHibernateStepLocFEEE, PrizeContinueCountdownLoc1080A,
-    PrizeContinueDeleteLoc10838, ShooterCenterWorkerGateLoc1146E, ShooterLeftSupportProbeLoc11448,
+    PrizeCollectedArcHibernateStepLocFEEE, PrizeCollectedWorldStepLocFEFE,
+    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838, ShooterCenterWorkerGateLoc1146E,
+    ShooterLeftSupportProbeLoc11448,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudDisplayNumberTilesCalcDisplayNumber,

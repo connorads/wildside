@@ -79,6 +79,15 @@ pub(crate) struct PrizeCollectedArcHibernateStepLocFEEE {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeCollectedWorldStepLocFEFE {
+    pub(crate) world_x_word: u16,
+    pub(crate) world_y_word: u16,
+    pub(crate) next_loop_counter: u16,
+    pub(crate) should_loop: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeContinueCountdownLoc1080A {
     pub(crate) next_remaining: u16,
     pub(crate) should_delete: bool,
@@ -324,6 +333,27 @@ impl NativeRuntime {
             next_screen_y_fp,
             screen_x_word: Self::high_word_from_i32(next_screen_x_fp),
             screen_y_word: Self::high_word_from_i32(next_screen_y_fp),
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_collected_world_step_loc_FEFE(
+        arc_step: PrizeCollectedArcHibernateStepLocFEEE,
+        camera_x_word: u16,
+        camera_y_word: u16,
+        loop_counter: u16,
+    ) -> PrizeCollectedWorldStepLocFEFE {
+        // ASM loc_FEFE (kid.asm:21221): add the camera words back to the
+        // cached ankh screen-space words, write `x_pos/y_pos`, then let `dbf`
+        // run the 32-frame arc until `d2` underflows to `$FFFF`.
+        let next_loop_counter = loop_counter.wrapping_sub(1);
+
+        PrizeCollectedWorldStepLocFEFE {
+            world_x_word: arc_step.screen_x_word.wrapping_add(camera_x_word),
+            world_y_word: arc_step.screen_y_word.wrapping_add(camera_y_word),
+            next_loop_counter,
+            should_loop: next_loop_counter != u16::MAX,
         }
     }
 

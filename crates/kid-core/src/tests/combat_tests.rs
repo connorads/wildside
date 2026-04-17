@@ -2734,6 +2734,38 @@ mod chunk_03 {
     }
 
     #[test]
+    fn prize_ankh_collected_loc_fefe_reprojects_screen_words_and_loops() {
+        let arc_step = PrizeCollectedArcHibernateStepLocFEEE {
+            next_screen_x_fp: 0x002F_F800,
+            next_screen_y_fp: 0x0014_5800,
+            screen_x_word: 0x002F,
+            screen_y_word: 0x0014,
+        };
+
+        assert_eq!(
+            NativeRuntime::prize_collected_world_step_loc_FEFE(arc_step, 0x0020, 0x0050, 0x001F),
+            PrizeCollectedWorldStepLocFEFE {
+                world_x_word: 0x004F,
+                world_y_word: 0x0064,
+                next_loop_counter: 0x001E,
+                should_loop: true,
+            },
+            "ASM loc_FEFE should add `Camera_X_pos/Camera_Y_pos` words to the cached screen words before the `dbf d2,loc_FEEE` back-edge",
+        );
+
+        assert_eq!(
+            NativeRuntime::prize_collected_world_step_loc_FEFE(arc_step, 0x0020, 0x0050, 0),
+            PrizeCollectedWorldStepLocFEFE {
+                world_x_word: 0x004F,
+                world_y_word: 0x0064,
+                next_loop_counter: 0xFFFF,
+                should_loop: false,
+            },
+            "ASM loc_FEFE should stop looping when the final `dbf` decrement underflows `d2` to `$FFFF`",
+        );
+    }
+
+    #[test]
     fn prize_clock_sound_refcount_loc_10792_only_starts_the_first_loop() {
         assert_eq!(
             NativeRuntime::prize_clock_sound_refcount_loc_10792(0),
