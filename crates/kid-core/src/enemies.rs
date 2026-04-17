@@ -8944,6 +8944,25 @@ pub(crate) fn step_tornado_with_rng(
 /// ceiling→negate y_vel and halve.
 pub(crate) const SPHERE_GRAVITY: i32 = 0x800;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SphereWallBounceTrapLoc35FC4 {
+    pub(crate) reachable_from_collision_dispatch: bool,
+    pub(crate) traps_forever: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sphere_wall_bounce_trap_loc_35FC4() -> SphereWallBounceTrapLoc35FC4 {
+    // ASM Sphere.asm loc_35FC4: `jmp loc_35FC4(pc)` is a self-loop trap after
+    // Enemy06_Sphere_BounceWall's `bra.s Enemy06_Sphere_Loop`, so normal sphere
+    // collision dispatch must never continue into the orphaned code that follows.
+    SphereWallBounceTrapLoc35FC4 {
+        reachable_from_collision_dispatch: false,
+        traps_forever: true,
+    }
+}
+
 /// Fireball max upward velocity indexed by live HP
 /// (Fireball.asm `Enemy19_Fireball_Init`: `move.w 2(a0),d7; asl.w #3,d7` into `unk_32BA6`).
 /// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
@@ -27676,6 +27695,18 @@ mod tests {
             "ASM Fireball.asm loc_32CE4 should return without allocation when `Number_of_Fire_Trails` is already five"
         );
         assert!(!full.spawns_fire_trail);
+    }
+
+    #[test]
+    fn sphere_wall_bounce_trap_loc_35fc4_is_unreachable_self_loop() {
+        assert_eq!(
+            sphere_wall_bounce_trap_loc_35FC4(),
+            SphereWallBounceTrapLoc35FC4 {
+                reachable_from_collision_dispatch: false,
+                traps_forever: true,
+            },
+            "ASM Sphere.asm loc_35FC4 is `jmp loc_35FC4(pc)` after Enemy06_Sphere_BounceWall already branched back to the loop"
+        );
     }
 
     #[test]
