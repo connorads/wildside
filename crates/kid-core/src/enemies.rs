@@ -5734,6 +5734,26 @@ pub(crate) fn dragon_walking_breath_spawned_dispatch_loc_3d00c(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingBreathNormalDispatchLoc3D01E {
+    Loc3E560,
+    Loc3E3AC,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_breath_normal_dispatch_loc_3d01e(
+    facing: Direction,
+) -> DragonWalkingBreathNormalDispatchLoc3D01E {
+    // ASM Dragon.asm loc_3D01E: ordinary breath recovery tests
+    // `x_direction(a3)`; clear resumes at loc_3E560, and set resumes at
+    // loc_3E3AC.
+    match facing {
+        Direction::Left => DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E560,
+        Direction::Right => DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E3AC,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_done_wait_loc_3cfe4(
     parent_phase_done_flag_5b: bool,
@@ -23617,6 +23637,29 @@ mod tests {
             dragon_walking_breath_spawned_dispatch_loc_3d00c(true, Direction::Right),
             DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildRightPacing,
             "ASM Dragon.asm loc_3D00C should send spawned set x_direction dragons to loc_3E6AE"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_normal_dispatch_matches_loc_3d01e() {
+        assert_eq!(
+            dragon_walking_breath_normal_dispatch_loc_3d01e(Direction::Left),
+            DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E560,
+            "ASM Dragon.asm loc_3D01E should send ordinary clear x_direction dragons to loc_3E560"
+        );
+        assert_eq!(
+            dragon_walking_breath_normal_dispatch_loc_3d01e(Direction::Right),
+            DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E3AC,
+            "ASM Dragon.asm loc_3D01E should send ordinary set x_direction dragons to loc_3E3AC"
+        );
+        assert_eq!(
+            dragon_walking_breath_normal_dispatch_loc_3d01e(spawn_facing(
+                EnemyFamily::DragonWalking,
+                200 << 16,
+                50 << 16,
+            )),
+            DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E560,
+            "native DragonWalking spawn-facing should feed the same clear-x_direction branch from loc_3D01E"
         );
     }
 
