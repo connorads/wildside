@@ -7517,6 +7517,44 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_hurt_driver_floor_landing_matches_loc_3581e() {
+        use enemies::{
+            UfoHurtDriverFloorLandingLoc3581E, UfoHurtDriverSlideSeedLoc3566C,
+            ufo_hurt_driver_floor_landing_loc_3581E,
+        };
+
+        assert_eq!(
+            ufo_hurt_driver_floor_landing_loc_3581E(0x0127_8000, 0),
+            UfoHurtDriverFloorLandingLoc3581E {
+                stack_bytes_discarded: 4,
+                y_velocity: 0,
+                y_pos: 0x0120_0000,
+                next_label: "loc_3566C",
+                slide_seed: UfoHurtDriverSlideSeedLoc3566C {
+                    x_velocity: -0x0000_8000,
+                    falls_through_to_slide_loop: true,
+                },
+            },
+            "ASM UFO.asm loc_3581E clears y_vel, clears the y_pos fraction, adds 8 to the integer word, aligns it down to 16px, and branches to loc_3566C"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_floor_landing_loc_3581E(0xFFF9_1234, 0xFF),
+            UfoHurtDriverFloorLandingLoc3581E {
+                stack_bytes_discarded: 4,
+                y_velocity: 0,
+                y_pos: 0,
+                next_label: "loc_3566C",
+                slide_seed: UfoHurtDriverSlideSeedLoc3566C {
+                    x_velocity: 0x0000_8000,
+                    falls_through_to_slide_loop: true,
+                },
+            },
+            "ASM UFO.asm loc_3581E uses 16-bit word wrapping for the aligned integer Y and preserves loc_3566C raw direction semantics"
+        );
+    }
+
+    #[test]
     fn tornado_loads_rom_pattern_on_timer_expiry() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
         enemy.wait_timer = 0;

@@ -10452,6 +10452,36 @@ pub(crate) fn ufo_hurt_driver_vertical_bounce_loc_35810(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverFloorLandingLoc3581E {
+    pub(crate) stack_bytes_discarded: u16,
+    pub(crate) y_velocity: i32,
+    pub(crate) y_pos: u32,
+    pub(crate) next_label: &'static str,
+    pub(crate) slide_seed: UfoHurtDriverSlideSeedLoc3566C,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_floor_landing_loc_3581E(
+    y_pos: u32,
+    x_direction: u8,
+) -> UfoHurtDriverFloorLandingLoc3581E {
+    // ASM UFO.asm loc_3581E: discard the collision return, clear `y_vel(a3)`,
+    // clear the y-position fraction word, add 8 to the integer word, align
+    // down to a 16px boundary, then branch to loc_3566C.
+    let aligned_y_word = ((y_pos >> 16) as u16).wrapping_add(8) & 0xFFF0;
+
+    UfoHurtDriverFloorLandingLoc3581E {
+        stack_bytes_discarded: 4,
+        y_velocity: 0,
+        y_pos: u32::from(aligned_y_word) << 16,
+        next_label: "loc_3566C",
+        slide_seed: ufo_hurt_driver_slide_seed_loc_3566c(x_direction),
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
     collision_type: i16,
