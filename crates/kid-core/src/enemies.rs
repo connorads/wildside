@@ -2046,6 +2046,29 @@ pub(crate) fn lion_hibernate_cull_resume_loc_3e556() -> LionLoc3E556Tail {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionCullRejectLoc3E920 {
+    pub(crate) next_number_of_enemy: u16,
+    pub(crate) status_action: DeactivationStatusActionLoc3C4C0,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_cull_reject_loc_3e920(
+    number_of_enemy: u16,
+    object_status_slot: u8,
+) -> LionCullRejectLoc3E920 {
+    // ASM Lion.asm loc_3E920: every failed sub_3E8BA bounds/camera-retention
+    // check branches to loc_3E956, decrementing `Number_of_Enemy`, updating
+    // `EnemyStatus_Table` from `$42(a5)`, then deleting the current object.
+    LionCullRejectLoc3E920 {
+        next_number_of_enemy: number_of_enemy.wrapping_sub(1),
+        status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionLeftChargeTerrainBranch {
     ContinueToLoc3E5E8,
     EnterLoc3E642,
@@ -26426,6 +26449,37 @@ mod tests {
                 resume_via_callback: true,
             },
             "ASM Lion.asm loc_3E556 should hibernate, run sub_3E8BA, then jump through the restored a0 routine pointer without touching velocity fields"
+        );
+    }
+
+    #[test]
+    fn lion_cull_reject_matches_loc_3e920_trampoline() {
+        assert_eq!(
+            lion_cull_reject_loc_3e920(3, 0x05),
+            LionCullRejectLoc3E920 {
+                next_number_of_enemy: 2,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                deletes_current_object: true,
+            },
+            "ASM Lion.asm loc_3E920 should branch to the delete tail and write a respawn marker for positive `$42(a5)` slots"
+        );
+        assert_eq!(
+            lion_cull_reject_loc_3e920(0, 0xC2),
+            LionCullRejectLoc3E920 {
+                next_number_of_enemy: 0xFFFF,
+                status_action: DeactivationStatusActionLoc3C4C0::SubtractSpawnCounter { index: 2 },
+                deletes_current_object: true,
+            },
+            "ASM Lion.asm loc_3E920 should preserve the ROM's word decrement and bit-6 spawn-counter route"
+        );
+        assert_eq!(
+            lion_cull_reject_loc_3e920(1, 0x80),
+            LionCullRejectLoc3E920 {
+                next_number_of_enemy: 0,
+                status_action: DeactivationStatusActionLoc3C4C0::DeleteOnly,
+                deletes_current_object: true,
+            },
+            "ASM Lion.asm loc_3E920 should delete without a table update when bit 7 is set and bit 6 is clear"
         );
     }
 
