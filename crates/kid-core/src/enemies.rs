@@ -14367,6 +14367,22 @@ pub(crate) struct TarMonsterProjectileCollisionLoc32682 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterProjectileLoopRouteLoc3263C {
+    ContinueLoop,
+    DeleteCurrentObject,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterProjectileLoopLoc3263C {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) y_velocity: i32,
+    pub(crate) collision: TarMonsterProjectileCollisionLoc32682,
+    pub(crate) route: TarMonsterProjectileLoopRouteLoc3263C,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotMotionLoc324D0 {
     pub(crate) x_pos: u32,
     pub(crate) x_velocity: i32,
@@ -14850,6 +14866,53 @@ pub(crate) fn tar_monster_projectile_collision_loc_32682(
                 target,
             },
         ),
+    }
+}
+
+#[allow(non_snake_case)]
+fn tar_monster_projectile_collision_deletes_current_object_loc_3263C(
+    collision: TarMonsterProjectileCollisionLoc32682,
+) -> bool {
+    match collision.route {
+        TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => true,
+        TarMonsterProjectileCollisionRouteLoc32682::Dispatch(dispatch) => {
+            dispatch.target == TarMonsterProjectileCollisionTargetLoc32682::Loc32652
+        }
+        TarMonsterProjectileCollisionRouteLoc32682::ReturnOnly => false,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_projectile_loop_loc_3263C(
+    y_velocity: i32,
+    collision_type: i16,
+    collision_response_budget: u16,
+    collision_sprite_swap_enabled: bool,
+    byte_19_nonzero: bool,
+) -> TarMonsterProjectileLoopLoc3263C {
+    // ASM loc_3263C hibernates one frame, adds `$1000` to y_vel(a3), calls
+    // loc_32682, then loops while byte `$19(a3)` is clear. Any collision path
+    // that reaches loc_32652 deletes before the byte-19 loop test can repeat.
+    let y_velocity = y_velocity.wrapping_add(0x1000);
+    let collision = tar_monster_projectile_collision_loc_32682(
+        collision_type,
+        collision_response_budget,
+        collision_sprite_swap_enabled,
+    );
+    let route = if byte_19_nonzero
+        || tar_monster_projectile_collision_deletes_current_object_loc_3263C(collision)
+    {
+        TarMonsterProjectileLoopRouteLoc3263C::DeleteCurrentObject
+    } else {
+        TarMonsterProjectileLoopRouteLoc3263C::ContinueLoop
+    };
+
+    TarMonsterProjectileLoopLoc3263C {
+        hibernates_one_frame: true,
+        y_velocity,
+        collision,
+        route,
     }
 }
 
@@ -20162,6 +20225,37 @@ mod tests {
                 ),
             },
             "ASM Tar_Monster.asm loc_32682 subtracts 4 before indexing off_32656, so collision id $2C reaches the table's loc_32652 delete entry"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_loop_loc_3263c_applies_gravity_and_continues_while_byte_19_clear() {
+        assert_eq!(
+            tar_monster_projectile_loop_loc_3263C(0x0001_0000, 0, 2, true, false),
+            TarMonsterProjectileLoopLoc3263C {
+                hibernates_one_frame: true,
+                y_velocity: 0x0001_1000,
+                collision: TarMonsterProjectileCollisionLoc32682 {
+                    route: TarMonsterProjectileCollisionRouteLoc32682::ReturnOnly,
+                },
+                route: TarMonsterProjectileLoopRouteLoc3263C::ContinueLoop,
+            },
+            "ASM Tar_Monster.asm loc_3263C hibernates, adds `$1000` to y_vel(a3), calls loc_32682, and loops while byte `$19(a3)` is clear"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_loop_loc_3263c_deletes_on_byte_19_or_delete_collision() {
+        assert_eq!(
+            tar_monster_projectile_loop_loc_3263C(0, 0, 2, false, true).route,
+            TarMonsterProjectileLoopRouteLoc3263C::DeleteCurrentObject,
+            "ASM Tar_Monster.asm loc_3263C falls through to loc_32652 once byte `$19(a3)` becomes non-zero"
+        );
+
+        assert_eq!(
+            tar_monster_projectile_loop_loc_3263C(0, 0x002C, 1, false, false).route,
+            TarMonsterProjectileLoopRouteLoc3263C::DeleteCurrentObject,
+            "ASM Tar_Monster.asm loc_3263C does not repeat when loc_32682 dispatches collision id $2C to loc_32652"
         );
     }
 
