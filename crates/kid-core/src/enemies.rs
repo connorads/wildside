@@ -3254,6 +3254,15 @@ pub(crate) fn armadillo_berzerker_launch_loop_tick_loc_3c8cc(
     }
 }
 
+pub(crate) const ARMADILLO_BERZERKER_RECOVERY_SHOVE_PIXELS_LOC_3C8DE: i32 = 0x0014_0000;
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_berzerker_clear_direction_shove_loc_3c8de(x_position: i32) -> i32 {
+    // ASM Armadillo.asm loc_3C8DE: clear `x_direction` falls through to
+    // `addi.w #$14,x_pos(a3)`, nudging the integer word 20 pixels right.
+    x_position.wrapping_add(ARMADILLO_BERZERKER_RECOVERY_SHOVE_PIXELS_LOC_3C8DE)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
@@ -23283,6 +23292,20 @@ mod tests {
                 next_y_velocity: i32::MIN + 0x3FFF,
             },
             "ASM Armadillo.asm loc_3C8CC uses long-word wrapping arithmetic for `addi.l #$4000,y_vel(a3)`"
+        );
+    }
+
+    #[test]
+    fn armadillo_berzerker_clear_direction_shove_matches_loc_3c8de() {
+        assert_eq!(
+            armadillo_berzerker_clear_direction_shove_loc_3c8de(0x0123_8000),
+            0x0137_8000,
+            "ASM Armadillo.asm loc_3C8DE clear x_direction should add 20px and preserve the subpixel word"
+        );
+        assert_eq!(
+            armadillo_berzerker_clear_direction_shove_loc_3c8de(i32::MAX),
+            i32::MIN + 0x0013_FFFF,
+            "ASM Armadillo.asm loc_3C8DE uses word-sized position arithmetic, so native keeps wrapping behaviour"
         );
     }
 
