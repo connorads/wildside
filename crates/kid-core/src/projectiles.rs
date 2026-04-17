@@ -1,7 +1,7 @@
 use super::*;
 #[cfg(test)]
 use crate::combat::CollisionSizeEntrySub21F8;
-use crate::enemies::{archer_adjust_angle, archer_angle_to_player, arrow_velocity_from_angle};
+use crate::enemies::{archer_angle_to_player, archer_reaim_loc_3432E};
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -504,10 +504,10 @@ impl NativeRuntime {
                     p.reaim_countdown = p.reaim_interval;
                     if let (Some(px), Some(py)) = (player_x, player_y) {
                         let target = archer_angle_to_player(p.x_pos, p.y_pos, px, py) as u8;
-                        p.current_angle = archer_adjust_angle(p.current_angle, target);
-                        let (xv, yv) = arrow_velocity_from_angle(p.current_angle as usize);
-                        p.x_velocity = xv;
-                        p.y_velocity = yv;
+                        let reaim = archer_reaim_loc_3432E(p.current_angle, target);
+                        p.current_angle = reaim.current_angle;
+                        p.x_velocity = reaim.x_velocity;
+                        p.y_velocity = reaim.y_velocity;
                     }
                 } else {
                     p.reaim_countdown -= 1;

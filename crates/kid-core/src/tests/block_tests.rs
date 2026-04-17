@@ -5834,6 +5834,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_reaim_loc_3432e_refreshes_velocity_for_adjusted_angle() {
+        // ASM Archer.asm loc_3432E copies the adjusted angle from d2 to d6,
+        // reruns Enemy07_ArcherArrow_AngleToSpeedAndAnim, then loops.
+        assert_eq!(
+            archer_reaim_loc_3432E(5, 8),
+            ArcherReaimLoc3432E {
+                current_angle: 6,
+                x_velocity: 0,
+                y_velocity: -0x20 * 0x1000,
+            }
+        );
+    }
+
+    #[test]
     fn archer_arrow_spawns_with_reaim_and_terrain_kill() {
         let mut enemy = ActiveEnemy {
             segment_index: 0,

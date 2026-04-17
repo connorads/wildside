@@ -19102,6 +19102,28 @@ pub(crate) fn archer_adjust_angle(current: u8, target: u8) -> u8 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArcherReaimLoc3432E {
+    pub(crate) current_angle: u8,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn archer_reaim_loc_3432E(current_angle: u8, target_angle: u8) -> ArcherReaimLoc3432E {
+    // ASM Archer.asm loc_3432E: after loc_34308/loc_34320 adjust d2 by one
+    // circular angle step, copy d2 to d6 and rerun
+    // Enemy07_ArcherArrow_AngleToSpeedAndAnim for the arrow object.
+    let current_angle = archer_adjust_angle(current_angle, target_angle);
+    let (x_velocity, y_velocity) = arrow_velocity_from_angle(usize::from(current_angle));
+    ArcherReaimLoc3432E {
+        current_angle,
+        x_velocity,
+        y_velocity,
+    }
+}
+
 /// Convert an angle index (0..27) to (x_velocity, y_velocity) via ARROW_ANGLE_TABLE.
 /// ASM Enemy07_ArcherArrow_AngleToSpeedAndAnim: byte * 0x1000.
 pub(crate) fn arrow_velocity_from_angle(angle: usize) -> (i32, i32) {
