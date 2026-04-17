@@ -20549,6 +20549,23 @@ pub(crate) fn emo_rock_clearance_window_loc_3639e(
     })
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_clearance_rows_loc_363dc(
+    grid: &terrain::BlockGrid,
+    window: EmoRockClearanceWindowLoc3639E,
+) -> bool {
+    // ASM Emo_Rock.asm loc_363DC: each outer DBF row restores d7 from d6 and
+    // a1 from a0, so every row scans the full left-to-right column span.
+    for row in window.top_row..=window.bottom_row {
+        for col in window.left_col..=window.right_col {
+            if grid.cell_at(col, row).is_solid_floor() {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 pub(crate) fn emo_rock_drop_velocity_loc_3625e(y_velocity: i32, gravity: i32) -> i32 {
     // ASM Emo_Rock.asm loc_3625E: add d2 gravity to y_vel, keep the result when
     // it is <= `$60000`, otherwise snap the falling speed back to `$40000`.
@@ -25940,6 +25957,26 @@ mod tests {
             emo_rock_clearance_window_loc_3639e(0x0200, 0x01F2, 0x0050, 0x001C, 0x000E),
             EmoRockClearanceWindowRouteLoc3639E::Blocked,
             "ASM Emo_Rock.asm loc_3639E branches to loc_363FA when `x_pos+d7` is at or beyond Level_width_pixels"
+        );
+    }
+
+    #[test]
+    fn emo_rock_clearance_rows_loc_363dc_resets_the_inner_scan_each_row() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 6 * 6 * 2], 6, 6);
+        grid.set_cell_at(4, 4, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let window = EmoRockClearanceWindowLoc3639E {
+            top_row: 3,
+            bottom_row: 4,
+            left_col: 3,
+            right_col: 4,
+            row_dbf_count: 1,
+            col_dbf_count: 1,
+        };
+
+        assert!(
+            !emo_rock_clearance_rows_loc_363dc(&grid, window),
+            "ASM Emo_Rock.asm loc_363DC copies a0 back into a1 for the second row, so the scan must still inspect the rightmost column there"
         );
     }
 
