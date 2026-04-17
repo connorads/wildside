@@ -9855,6 +9855,22 @@ pub(crate) fn sphere_collision_gate_loc_36106(collision_type: u16) -> SphereColl
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SphereChildDeleteTailLoc3610E {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sphere_child_delete_tail_loc_3610E() -> SphereChildDeleteTailLoc3610E {
+    // ASM Sphere.asm loc_3610E: both the `$19(a3)` flag route and non-zero
+    // collision route end at the direct `j_Delete_CurrentObject` tail.
+    SphereChildDeleteTailLoc3610E {
+        deletes_current_object: true,
+    }
+}
+
 /// Fireball max upward velocity indexed by live HP
 /// (Fireball.asm `Enemy19_Fireball_Init`: `move.w 2(a0),d7; asl.w #3,d7` into `unk_32BA6`).
 /// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
@@ -30131,6 +30147,17 @@ mod tests {
             sphere_collision_gate_loc_36106(0x0004),
             SphereCollisionGateLoc36106::Delete,
             "ASM Sphere.asm loc_36106 branches to deletion for any non-zero collision event"
+        );
+    }
+
+    #[test]
+    fn sphere_child_delete_tail_loc_3610e_jumps_to_delete_current_object() {
+        assert_eq!(
+            sphere_child_delete_tail_loc_3610E(),
+            SphereChildDeleteTailLoc3610E {
+                deletes_current_object: true,
+            },
+            "ASM Sphere.asm loc_3610E is the spawned child object's direct `j_Delete_CurrentObject` tail"
         );
     }
 
