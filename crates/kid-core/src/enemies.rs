@@ -3961,6 +3961,30 @@ pub(crate) fn diamond_low_hp_death_animation_loc_3aee6() -> DiamondLowHpDeathAni
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondLowHpHurtAnimationLoc3AEF8 {
+    pub(crate) hurt_animation_script: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) next_collision_type: u16,
+    pub(crate) restored_animation_script: &'static str,
+    pub(crate) falls_through_to_shared_walker: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_low_hp_hurt_animation_loc_3aef8() -> DiamondLowHpHurtAnimationLoc3AEF8 {
+    // ASM Diamond.asm loc_3AEF8: play `stru_3ACBE` to completion, clear
+    // `collision_type(a3)`, restore the base `stru_3ACA8` animation, then fall
+    // through to the shared walker clear/resume tail.
+    DiamondLowHpHurtAnimationLoc3AEF8 {
+        hurt_animation_script: "stru_3ACBE",
+        waits_until_animation_finished: true,
+        next_collision_type: 0,
+        restored_animation_script: "stru_3ACA8",
+        falls_through_to_shared_walker: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonInitAnimation {
     pub(crate) collision_routine: &'static str,
     pub(crate) animation_script: &'static str,
@@ -20893,6 +20917,21 @@ mod tests {
                 deletes_enemy: true,
             },
             "ASM Diamond.asm loc_3AEE6 should play the death animation to completion before shared deletion",
+        );
+    }
+
+    #[test]
+    fn diamond_low_hp_hurt_animation_loc_3aef8_restores_base_animation() {
+        assert_eq!(
+            diamond_low_hp_hurt_animation_loc_3aef8(),
+            DiamondLowHpHurtAnimationLoc3AEF8 {
+                hurt_animation_script: "stru_3ACBE",
+                waits_until_animation_finished: true,
+                next_collision_type: 0,
+                restored_animation_script: "stru_3ACA8",
+                falls_through_to_shared_walker: true,
+            },
+            "ASM Diamond.asm loc_3AEF8 should play hurt, clear collision_type, restore base animation, and resume walking",
         );
     }
 
