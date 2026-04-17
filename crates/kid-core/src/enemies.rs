@@ -2891,6 +2891,88 @@ pub(crate) fn big_hopping_skull_delete_tail_loc_366b2() -> BigHoppingSkullDelete
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum BigHoppingSkullRelaunchRouteLoc366B6 {
+    DeleteCurrentObject,
+    ReturnToContactWait,
+    Relaunch(BigHoppingSkullBoundsCorrectionLoc36770),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct BigHoppingSkullRelaunchEntryLoc366B6 {
+    pub(crate) checks_level_height: bool,
+    pub(crate) animation: Option<&'static str>,
+    pub(crate) hibernates_until_animation_finished: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) route: BigHoppingSkullRelaunchRouteLoc366B6,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct BigHoppingSkullRelaunchInputLoc366B6 {
+    pub(crate) y_pos_word: i16,
+    pub(crate) level_height_pixels: i16,
+    pub(crate) animation_finished: bool,
+    pub(crate) saved_x_velocity: i32,
+    pub(crate) current_y_velocity: i32,
+    pub(crate) x_pos_word: i16,
+    pub(crate) left_bound_word: i16,
+    pub(crate) right_bound_word: i16,
+    pub(crate) facing: Direction,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_relaunch_entry_loc_366b6(
+    input: BigHoppingSkullRelaunchInputLoc366B6,
+) -> BigHoppingSkullRelaunchEntryLoc366B6 {
+    // ASM Big_Hopping_Skull.asm loc_366B6: rerun the level-height delete gate,
+    // branch back to the contact wait while `$18(a3)` is clear, otherwise play
+    // `stru_367B4`, hibernate until it finishes, restore level collision, and
+    // relaunch from saved d0 x_vel before the corridor bound correction.
+    if matches!(
+        big_hopping_skull_level_height_gate_loc_3656c(input.y_pos_word, input.level_height_pixels,),
+        BigHoppingSkullLevelHeightRouteLoc3656C::DeleteCurrentObject
+    ) {
+        return BigHoppingSkullRelaunchEntryLoc366B6 {
+            checks_level_height: true,
+            animation: None,
+            hibernates_until_animation_finished: false,
+            has_level_collision: false,
+            route: BigHoppingSkullRelaunchRouteLoc366B6::DeleteCurrentObject,
+        };
+    }
+
+    if !input.animation_finished {
+        return BigHoppingSkullRelaunchEntryLoc366B6 {
+            checks_level_height: true,
+            animation: None,
+            hibernates_until_animation_finished: false,
+            has_level_collision: false,
+            route: BigHoppingSkullRelaunchRouteLoc366B6::ReturnToContactWait,
+        };
+    }
+
+    let y_velocity = write_velocity_high_word(input.current_y_velocity, -2);
+    let motion = big_hopping_skull_bounds_correction_loc_36770(
+        input.x_pos_word,
+        input.left_bound_word,
+        input.right_bound_word,
+        input.saved_x_velocity,
+        y_velocity,
+        input.facing,
+    );
+
+    BigHoppingSkullRelaunchEntryLoc366B6 {
+        checks_level_height: true,
+        animation: Some("stru_367B4"),
+        hibernates_until_animation_finished: true,
+        has_level_collision: true,
+        route: BigHoppingSkullRelaunchRouteLoc366B6::Relaunch(motion),
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullCollisionActionLoc3674E {
     Return,
     WallBounce,

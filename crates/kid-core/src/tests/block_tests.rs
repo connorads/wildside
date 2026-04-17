@@ -4663,6 +4663,67 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_relaunch_entry_matches_loc_366b6() {
+        let relaunch_input = enemies::BigHoppingSkullRelaunchInputLoc366B6 {
+            y_pos_word: 0x004F,
+            level_height_pixels: 0x0050,
+            animation_finished: true,
+            saved_x_velocity: i32::from_ne_bytes(0xFFFF_2222_u32.to_ne_bytes()),
+            current_y_velocity: 0x0000_3333,
+            x_pos_word: 0x0080,
+            left_bound_word: 0x0040,
+            right_bound_word: 0x00C0,
+            facing: Direction::Right,
+        };
+
+        assert_eq!(
+            enemies::big_hopping_skull_relaunch_entry_loc_366b6(
+                enemies::BigHoppingSkullRelaunchInputLoc366B6 {
+                    y_pos_word: 0x0050,
+                    ..relaunch_input
+                },
+            )
+            .route,
+            enemies::BigHoppingSkullRelaunchRouteLoc366B6::DeleteCurrentObject,
+            "ASM Big_Hopping_Skull.asm loc_366B6 should delete before animation work when the height gate reaches Level_height_pixels",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_relaunch_entry_loc_366b6(
+                enemies::BigHoppingSkullRelaunchInputLoc366B6 {
+                    animation_finished: false,
+                    ..relaunch_input
+                },
+            ),
+            enemies::BigHoppingSkullRelaunchEntryLoc366B6 {
+                checks_level_height: true,
+                animation: None,
+                hibernates_until_animation_finished: false,
+                has_level_collision: false,
+                route: enemies::BigHoppingSkullRelaunchRouteLoc366B6::ReturnToContactWait,
+            },
+            "ASM Big_Hopping_Skull.asm loc_366B6 should return to the contact wait while animation_finished is clear",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_relaunch_entry_loc_366b6(relaunch_input),
+            enemies::BigHoppingSkullRelaunchEntryLoc366B6 {
+                checks_level_height: true,
+                animation: Some("stru_367B4"),
+                hibernates_until_animation_finished: true,
+                has_level_collision: true,
+                route: enemies::BigHoppingSkullRelaunchRouteLoc366B6::Relaunch(
+                    enemies::BigHoppingSkullBoundsCorrectionLoc36770 {
+                        x_velocity: i32::from_ne_bytes(0xFFFF_2222_u32.to_ne_bytes()),
+                        y_velocity: i32::from_ne_bytes(0xFFFE_3333_u32.to_ne_bytes()),
+                        facing: Direction::Right,
+                        route: enemies::BigHoppingSkullBoundsRouteLoc36770::Unchanged,
+                    },
+                ),
+            },
+            "ASM Big_Hopping_Skull.asm loc_366B6 should initialise stru_367B4, wait for it, restore level collision, and relaunch with saved d0 x_vel",
+        );
+    }
+
+    #[test]
     fn big_hopping_skull_collision_dispatch_matches_loc_3674e() {
         assert_eq!(
             enemies::big_hopping_skull_collision_dispatch_loc_3674e(0),
