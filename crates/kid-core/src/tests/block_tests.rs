@@ -8881,6 +8881,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_fatal_fall_start_matches_loc_3d48a() {
+        assert_eq!(
+            orca_fatal_fall_start_loc_3d48a(),
+            OrcaFatalFallStartLoc3D48A {
+                y_velocity: 0x0001_8000,
+                has_kid_collision: true,
+                falls_through_to_landing_loop: true,
+            },
+            "ASM Orca.asm loc_3D48A should start the HP-depleted fall with y_vel $18000 and Kid collision enabled"
+        );
+    }
+
+    #[test]
     fn orca_ignores_distant_player() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

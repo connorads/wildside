@@ -1285,6 +1285,25 @@ pub(crate) fn orca_landing_resume_loc_3d466(facing: Direction) -> OrcaLandingRes
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaFatalFallStartLoc3D48A {
+    pub(crate) y_velocity: i32,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) falls_through_to_landing_loop: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_fatal_fall_start_loc_3d48a() -> OrcaFatalFallStartLoc3D48A {
+    // ASM Orca.asm loc_3D48A: after HP reaches zero, seed downward y_vel
+    // `$18000`, set `has_kid_collision(a3)`, then fall through to landing.
+    OrcaFatalFallStartLoc3D48A {
+        y_velocity: 0x0001_8000,
+        has_kid_collision: true,
+        falls_through_to_landing_loop: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
     Damage,
     ContinueWaiting {
