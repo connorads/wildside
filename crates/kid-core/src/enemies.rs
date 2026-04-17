@@ -11839,6 +11839,30 @@ pub(crate) fn ninja_jump_attack_collision_dispatch_loc_3da0c(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaJumpAttackWallBounceStateLoc3DA46 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) x_direction_right: bool,
+    pub(crate) loops_airborne: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_jump_attack_wall_bounce_loc_3da46(
+    x_velocity: i32,
+    x_direction_right: bool,
+) -> NinjaJumpAttackWallBounceStateLoc3DA46 {
+    // ASM Ninja.asm loc_3DA46: clear `collision_type(a3)`, negate x_vel,
+    // toggle `x_direction(a3)` with `eori.b #$FF`, then branch to loc_3D9DA.
+    NinjaJumpAttackWallBounceStateLoc3DA46 {
+        next_collision_type: 0,
+        x_velocity: x_velocity.wrapping_neg(),
+        x_direction_right: !x_direction_right,
+        loops_airborne: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionResumeLoc3D638 {
     /// ASM Ninja.asm loc_3E7CA: `beq.w loc_3E7CA` path (left-facing).
     Loc3E7CA,
@@ -12388,8 +12412,16 @@ pub(crate) fn step_ninja(
                 moving_right,
             );
             if wall.hit {
-                enemy.x_velocity = -enemy.x_velocity;
-                enemy.facing = opposite_direction(enemy.facing);
+                let bounce = ninja_jump_attack_wall_bounce_loc_3da46(
+                    enemy.x_velocity,
+                    matches!(enemy.facing, Direction::Right),
+                );
+                enemy.x_velocity = bounce.x_velocity;
+                enemy.facing = if bounce.x_direction_right {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                };
             }
 
             // Floor landing: return to stealth
@@ -28280,6 +28312,31 @@ mod tests {
                 route: NinjaJumpAttackCollisionRouteLoc3DA0C::KidSideContact,
             },
             "ASM Ninja.asm loc_3DA0C should route either Kid-side contact to the Kid-side contact path"
+        );
+    }
+
+    #[test]
+    fn ninja_jump_attack_wall_bounce_loc_3da46_clears_reverses_and_toggles_facing() {
+        assert_eq!(
+            ninja_jump_attack_wall_bounce_loc_3da46(0x0001_0000, true),
+            NinjaJumpAttackWallBounceStateLoc3DA46 {
+                next_collision_type: 0,
+                x_velocity: -0x0001_0000,
+                x_direction_right: false,
+                loops_airborne: true,
+            },
+            "ASM Ninja.asm loc_3DA46 should clear collision_type, negate positive x_vel, toggle set x_direction, and loop"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_wall_bounce_loc_3da46(-0x0001_8000, false),
+            NinjaJumpAttackWallBounceStateLoc3DA46 {
+                next_collision_type: 0,
+                x_velocity: 0x0001_8000,
+                x_direction_right: true,
+                loops_airborne: true,
+            },
+            "ASM Ninja.asm loc_3DA46 should negate negative x_vel and toggle clear x_direction with eori.b #$FF"
         );
     }
 
