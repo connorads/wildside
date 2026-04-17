@@ -3778,6 +3778,44 @@ pub(crate) fn armadillo_berzerker_recovery_loc_3c8f2(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ArmadilloSpawnedChildResumeRouteLoc3C91A {
+    SpawnedChildLeft,
+    SpawnedChildRight,
+    OrdinaryTail,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArmadilloSpawnedChildResumeLoc3C91A {
+    pub(crate) collision_type: u16,
+    pub(crate) next: ArmadilloSpawnedChildResumeRouteLoc3C91A,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_spawned_child_resume_loc_3c91a(
+    parent_spawned_child: bool,
+    facing: Direction,
+) -> ArmadilloSpawnedChildResumeLoc3C91A {
+    // ASM Armadillo.asm loc_3C91A: clear `collision_type(a3)`, then `$5C(a5)`
+    // selects the spawned-child branch. Spawned children use clear `x_direction`
+    // for the left shared resume and set `x_direction` for the right one.
+    let next = if parent_spawned_child {
+        match facing {
+            Direction::Left => ArmadilloSpawnedChildResumeRouteLoc3C91A::SpawnedChildLeft,
+            Direction::Right => ArmadilloSpawnedChildResumeRouteLoc3C91A::SpawnedChildRight,
+        }
+    } else {
+        ArmadilloSpawnedChildResumeRouteLoc3C91A::OrdinaryTail
+    };
+
+    ArmadilloSpawnedChildResumeLoc3C91A {
+        collision_type: 0,
+        next,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {

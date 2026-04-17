@@ -2672,6 +2672,34 @@ mod chunk_04 {
     }
 
     #[test]
+    fn armadillo_spawned_child_resume_matches_loc_3c91a() {
+        assert_eq!(
+            armadillo_spawned_child_resume_loc_3c91a(true, Direction::Left),
+            ArmadilloSpawnedChildResumeLoc3C91A {
+                collision_type: 0,
+                next: ArmadilloSpawnedChildResumeRouteLoc3C91A::SpawnedChildLeft,
+            },
+            "ASM Armadillo.asm loc_3C91A clears collision_type and sends `$5C(a5)` spawned children with clear x_direction to the left resume"
+        );
+        assert_eq!(
+            armadillo_spawned_child_resume_loc_3c91a(true, Direction::Right),
+            ArmadilloSpawnedChildResumeLoc3C91A {
+                collision_type: 0,
+                next: ArmadilloSpawnedChildResumeRouteLoc3C91A::SpawnedChildRight,
+            },
+            "ASM Armadillo.asm loc_3C91A sends `$5C(a5)` spawned children with set x_direction to the right resume"
+        );
+        assert_eq!(
+            armadillo_spawned_child_resume_loc_3c91a(false, Direction::Left),
+            ArmadilloSpawnedChildResumeLoc3C91A {
+                collision_type: 0,
+                next: ArmadilloSpawnedChildResumeRouteLoc3C91A::OrdinaryTail,
+            },
+            "ASM Armadillo.asm loc_3C91A falls through to the ordinary resume tail when `$5C(a5)` is clear"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_scorpion_is_fixed() {
         // Scorpion: fixed $18000 regardless of HP.
         assert_eq!(pacer_walk_speed(EnemyFamily::Scorpion, 3), 0x0001_8000);
