@@ -4435,6 +4435,33 @@ pub(crate) fn scorpion_close_range_route_loc_3ddc8(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ScorpionStingRecoveryLoc3DE40 {
+    pub(crate) linked_tail_has_kid_collision: bool,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) animation_script: &'static str,
+    pub(crate) walk_speed_override: i32,
+    pub(crate) object_meta: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_sting_recovery_loc_3de40(
+    saved_walk_speed_override_5e: i32,
+    object_meta: u16,
+) -> ScorpionStingRecoveryLoc3DE40 {
+    // ASM Scorpion.asm loc_3DE40 clears the linked tail object's `$3D` flag,
+    // restores the base scorpion sprite/animation, copies `$5E(a5)` back to
+    // `$50(a5)`, and strips the high object_meta flags with `andi.w #$FFF`.
+    ScorpionStingRecoveryLoc3DE40 {
+        linked_tail_has_kid_collision: false,
+        sprite_mapping: "LnkTo_unk_C7DDE-Data_Index",
+        animation_script: "stru_3DB60",
+        walk_speed_override: saved_walk_speed_override_5e,
+        object_meta: object_meta & 0x0FFF,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScorpionTailGfxPosition {
     pub(crate) x_word: u16,

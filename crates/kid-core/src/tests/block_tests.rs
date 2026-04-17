@@ -2790,6 +2790,23 @@ mod chunk_04 {
     }
 
     #[test]
+    fn scorpion_sting_recovery_matches_loc_3de40_reset_side_effects() {
+        use enemies::{ScorpionStingRecoveryLoc3DE40, scorpion_sting_recovery_loc_3de40};
+
+        assert_eq!(
+            scorpion_sting_recovery_loc_3de40(0x0001_8000, 0xC013),
+            ScorpionStingRecoveryLoc3DE40 {
+                linked_tail_has_kid_collision: false,
+                sprite_mapping: "LnkTo_unk_C7DDE-Data_Index",
+                animation_script: "stru_3DB60",
+                walk_speed_override: 0x0001_8000,
+                object_meta: 0x0013,
+            },
+            "ASM Scorpion.asm loc_3DE40 clears linked tail collision, restores the base animation/speed, and masks object_meta with $0FFF"
+        );
+    }
+
+    #[test]
     fn scorpion_collision_resume_patrol_branches_match_loc_3dd72() {
         use enemies::{ScorpionCollisionResumeBranchLoc3DD5C, scorpion_collision_resume_loc_3dd5c};
 
