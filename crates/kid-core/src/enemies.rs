@@ -343,6 +343,40 @@ const DIAMOND_COLID_HURT: u16 = 0x001C;
 const DIAMOND_COLID_KIDRIGHT: u16 = 0x0020;
 const DIAMOND_COLID_KIDLEFT: u16 = 0x0024;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DrillerInitTailRouteLoc3BE60 {
+    ClearDirectionLoc3C0D2,
+    SetDirectionLoc3C026,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DrillerInitTailLoc3BE60 {
+    pub(crate) next_drill_refcount: u8,
+    pub(crate) callback: &'static str,
+    pub(crate) next_route: DrillerInitTailRouteLoc3BE60,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn driller_init_tail_loc_3be60(
+    x_direction_set: bool,
+    drill_refcount: u8,
+) -> DrillerInitTailLoc3BE60 {
+    // ASM Driller.asm loc_3BE60: after the optional initial DrillMoving sound,
+    // increment the shared refcount at $FFFFFA34+object_meta, set a0=loc_3BE78,
+    // then dispatch by x_direction into the shared walker loops.
+    DrillerInitTailLoc3BE60 {
+        next_drill_refcount: drill_refcount.wrapping_add(1),
+        callback: "loc_3BE78",
+        next_route: if x_direction_set {
+            DrillerInitTailRouteLoc3BE60::SetDirectionLoc3C026
+        } else {
+            DrillerInitTailRouteLoc3BE60::ClearDirectionLoc3C0D2
+        },
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabInitVisibleStateLoc3AFD0 {

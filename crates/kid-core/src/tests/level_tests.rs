@@ -15031,6 +15031,35 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3be60_driller_init_tail_increments_sound_refcount_and_dispatches_by_direction() {
+        let clear_direction = driller_init_tail_loc_3be60(false, 0xFF);
+        assert_eq!(
+            clear_direction.next_drill_refcount, 0,
+            "ASM Driller.asm loc_3BE60 uses `addi.b #1`, so $FF wraps to $00",
+        );
+        assert_eq!(
+            clear_direction.callback, "loc_3BE78",
+            "ASM Driller.asm loc_3BE60 installs loc_3BE78 as the per-frame callback",
+        );
+        assert_eq!(
+            clear_direction.next_route,
+            DrillerInitTailRouteLoc3BE60::ClearDirectionLoc3C0D2,
+            "ASM Driller.asm loc_3BE60 branches to loc_3C0D2 when x_direction is clear",
+        );
+
+        let set_direction = driller_init_tail_loc_3be60(true, 7);
+        assert_eq!(
+            set_direction.next_drill_refcount, 8,
+            "ASM Driller.asm loc_3BE60 increments the shared DrillMoving refcount before dispatch",
+        );
+        assert_eq!(
+            set_direction.next_route,
+            DrillerInitTailRouteLoc3BE60::SetDirectionLoc3C026,
+            "ASM Driller.asm loc_3BE60 branches to loc_3C026 when x_direction is set",
+        );
+    }
+
+    #[test]
     fn loc_3c026_wall_turnaround_clears_velocity_and_faces_right() {
         // ASM loc_3C026 (kid.asm:43493-43498): rightward wall collision path —
         //   clr.l x_vel(a3); clr.l y_vel(a3); st x_direction(a3)
