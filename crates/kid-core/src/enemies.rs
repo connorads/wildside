@@ -3472,6 +3472,29 @@ pub(crate) fn diamond_high_hp_berzerker_side_gate_loc_3ae84(
     })
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondHighHpBerzerkerLaunchTickLoc3AEB2 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_shared_retention_check_sub_3c3ce: bool,
+    pub(crate) next_y_velocity: i32,
+    pub(crate) loops: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_high_hp_berzerker_launch_tick_loc_3aeb2(
+    y_velocity: i32,
+) -> DiamondHighHpBerzerkerLaunchTickLoc3AEB2 {
+    // ASM Diamond.asm loc_3AEB2: each airborne tick hibernates one frame,
+    // runs `sub_3C3CE`, then `addi.l #$4000,y_vel(a3)` before looping.
+    DiamondHighHpBerzerkerLaunchTickLoc3AEB2 {
+        hibernates_one_frame: true,
+        runs_shared_retention_check_sub_3c3ce: true,
+        next_y_velocity: y_velocity.wrapping_add(0x0000_4000),
+        loops: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_slope_y_velocity_loc_3ae50() -> i32 {
     // ASM Diamond.asm loc_3AE50: `move.l #-$18000,y_vel(a3)` sends the
@@ -18980,6 +19003,29 @@ mod tests {
                 },
             ),
             "ASM Diamond.asm loc_3AE84 should set the charging Berzerker launch flags and velocities",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_berzerker_launch_tick_loc_3aeb2_applies_gravity_and_loops() {
+        assert_eq!(
+            diamond_high_hp_berzerker_launch_tick_loc_3aeb2(-0x0004_8000),
+            DiamondHighHpBerzerkerLaunchTickLoc3AEB2 {
+                hibernates_one_frame: true,
+                runs_shared_retention_check_sub_3c3ce: true,
+                next_y_velocity: -0x0004_4000,
+                loops: true,
+            },
+            "ASM Diamond.asm loc_3AEB2 should add +$4000 to y_vel after the shared retention check",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_berzerker_launch_tick_loc_3aeb2_wraps_like_addi_l() {
+        assert_eq!(
+            diamond_high_hp_berzerker_launch_tick_loc_3aeb2(i32::MAX - 0x1FFF).next_y_velocity,
+            i32::MIN + 0x2000,
+            "ASM Diamond.asm loc_3AEB2 uses 68k longword addition, so native keeps wrapping semantics",
         );
     }
 
