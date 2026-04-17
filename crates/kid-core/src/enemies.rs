@@ -12320,6 +12320,8 @@ pub(crate) fn mini_hopping_skull_delete_tail_loc_3f32e(
     // ASM Mini_Hopping_Skull.asm loc_3F32E: decrement `Number_of_Enemy`, read
     // `$42(a5)`, update `EnemyStatus_Table` for positive slots or bit-6 spawn
     // counters, then converge on `j_Delete_CurrentObject`.
+    // ASM Mini_Hopping_Skull.asm loc_3F354: positive `$42(a5)` doubles the
+    // slot byte as a word offset and writes `$2168` into `EnemyStatus_Table`.
     MiniHoppingSkullDeleteTailLoc3F32E {
         next_number_of_enemy: number_of_enemy.wrapping_sub(1),
         status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
@@ -29990,6 +29992,19 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F32E decrements Number_of_Enemy, subtracts `$400` when `$42(a5)` has bits 7+6 set, then jumps to j_Delete_CurrentObject"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_delete_tail_positive_slot_matches_loc_3f354() {
+        assert_eq!(
+            mini_hopping_skull_delete_tail_loc_3f32e(4, 0x05),
+            MiniHoppingSkullDeleteTailLoc3F32E {
+                next_number_of_enemy: 3,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                deletes_current_object: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F354 doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
         );
     }
 
