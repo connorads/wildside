@@ -3146,8 +3146,11 @@ mod chunk_04 {
     fn fire_demon_collision_loc_3a586_routes_collision_types() {
         assert_eq!(
             fire_demon_collision_dispatch_loc_3a586(-1, 3),
-            FireDemonCollisionRouteLoc3A586::Death,
-            "ASM Fire_Demon.asm loc_3A586 sends negative collision_type to the fire demon death path"
+            FireDemonCollisionRouteLoc3A586::Death {
+                death_animation: "stru_3A378",
+                decrements_fire_demon_count: true,
+            },
+            "ASM Fire_Demon.asm loc_3A586 sends negative collision_type to the loc_3A5A6 death path"
         );
         assert_eq!(
             fire_demon_collision_dispatch_loc_3a586(0, 3),
@@ -3178,8 +3181,11 @@ mod chunk_04 {
         );
         assert_eq!(
             fire_demon_collision_dispatch_loc_3a586(FIRE_DEMON_COLID_HURT, 1),
-            FireDemonCollisionRouteLoc3A586::Death,
-            "ASM Fire_Demon.asm loc_3A586 falls through to fire demon death when the colid_hurt decrement reaches zero"
+            FireDemonCollisionRouteLoc3A586::Death {
+                death_animation: "stru_3A378",
+                decrements_fire_demon_count: true,
+            },
+            "ASM Fire_Demon.asm loc_3A586 falls through to loc_3A5A6 when the colid_hurt decrement reaches zero"
         );
         assert_eq!(
             fire_demon_collision_dispatch_loc_3a586(0x0004, 3),
@@ -3187,6 +3193,18 @@ mod chunk_04 {
                 next_collision_type: 0,
             },
             "ASM Fire_Demon.asm loc_3A586 ignores unrecognised positive collision IDs via the shared clear tail"
+        );
+    }
+
+    #[test]
+    fn fire_demon_death_loc_3a5a6_uses_death_animation_and_liveness_count() {
+        assert_eq!(
+            fire_demon_death_loc_3a5a6(),
+            FireDemonCollisionRouteLoc3A586::Death {
+                death_animation: "stru_3A378",
+                decrements_fire_demon_count: true,
+            },
+            "ASM Fire_Demon.asm loc_3A5A6 should hibernate on `stru_3A378` before decrementing `(Fire_Demon).w`"
         );
     }
 

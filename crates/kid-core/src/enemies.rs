@@ -3987,7 +3987,10 @@ pub(crate) enum FireDemonCollisionRouteLoc3A586 {
     ResumeSharedWalker {
         next_collision_type: u16,
     },
-    Death,
+    Death {
+        death_animation: &'static str,
+        decrements_fire_demon_count: bool,
+    },
     BerzerkerSideGate,
     Hurt {
         remaining_hp: u16,
@@ -3995,6 +3998,16 @@ pub(crate) enum FireDemonCollisionRouteLoc3A586 {
         damage_animation: &'static str,
         restored_animation: &'static str,
     },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_death_loc_3a5a6() -> FireDemonCollisionRouteLoc3A586 {
+    // ASM Fire_Demon.asm loc_3A5A6: initialise `stru_3A378`, hibernate until
+    // the animation finishes, decrement `(Fire_Demon).w`, then branch to delete.
+    FireDemonCollisionRouteLoc3A586::Death {
+        death_animation: "stru_3A378",
+        decrements_fire_demon_count: true,
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -4007,7 +4020,7 @@ pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
     // unknown nonzero IDs fall through to that clear tail, side contacts branch
     // to the Berzerker gate, and `colid_hurt` decrements `$44(a3)`.
     if collision_type.is_negative() {
-        return FireDemonCollisionRouteLoc3A586::Death;
+        return fire_demon_death_loc_3a5a6();
     }
 
     match collision_type {
@@ -4020,7 +4033,7 @@ pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
         FIRE_DEMON_COLID_HURT => {
             let remaining_hp = current_hp.wrapping_sub(1);
             if remaining_hp == 0 {
-                FireDemonCollisionRouteLoc3A586::Death
+                fire_demon_death_loc_3a5a6()
             } else {
                 FireDemonCollisionRouteLoc3A586::Hurt {
                     remaining_hp,
