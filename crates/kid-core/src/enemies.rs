@@ -3270,6 +3270,46 @@ pub(crate) fn armadillo_berzerker_flipped_direction_shove_loc_3c8ec(x_position: 
     x_position.wrapping_sub(ARMADILLO_BERZERKER_RECOVERY_SHOVE_PIXELS_LOC_3C8DE)
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArmadilloBerzerkerRecoveryLoc3C8F2 {
+    pub(crate) x_position: i32,
+    pub(crate) damage_animation: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) recoil_state_word: i16,
+    pub(crate) restored_walk_speed: i32,
+    pub(crate) restored_animation: &'static str,
+    pub(crate) object_meta: u16,
+    pub(crate) falls_through_to_collision_clear: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_berzerker_recovery_loc_3c8f2(
+    facing: Direction,
+    x_position: i32,
+    saved_walk_speed: i32,
+    object_meta: u16,
+) -> ArmadilloBerzerkerRecoveryLoc3C8F2 {
+    let x_position = match facing {
+        Direction::Left => armadillo_berzerker_clear_direction_shove_loc_3c8de(x_position),
+        Direction::Right => armadillo_berzerker_flipped_direction_shove_loc_3c8ec(x_position),
+    };
+
+    // ASM Armadillo.asm loc_3C8F2: initialise `stru_3C6D6`, wait for it to
+    // finish, seed `$42(a3)` with `$FF88`, restore `$5E/$62(a5)`, clear
+    // object_meta bit 7, then fall through to the collision clear tail.
+    ArmadilloBerzerkerRecoveryLoc3C8F2 {
+        x_position,
+        damage_animation: "stru_3C6D6",
+        waits_until_animation_finished: true,
+        recoil_state_word: -0x0078,
+        restored_walk_speed: saved_walk_speed,
+        restored_animation: "saved_armadillo_patrol_animation",
+        object_meta: object_meta & !0x0080,
+        falls_through_to_collision_clear: true,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
@@ -23327,6 +23367,48 @@ mod tests {
             armadillo_berzerker_flipped_direction_shove_loc_3c8ec(i32::MIN),
             i32::MAX - 0x0013_FFFF,
             "ASM Armadillo.asm loc_3C8EC uses word-sized position arithmetic, so native keeps wrapping behaviour"
+        );
+    }
+
+    #[test]
+    fn armadillo_berzerker_recovery_matches_loc_3c8f2() {
+        assert_eq!(
+            armadillo_berzerker_recovery_loc_3c8f2(
+                Direction::Left,
+                0x0123_8000,
+                0x0002_8000,
+                0x00C4
+            ),
+            ArmadilloBerzerkerRecoveryLoc3C8F2 {
+                x_position: 0x0137_8000,
+                damage_animation: "stru_3C6D6",
+                waits_until_animation_finished: true,
+                recoil_state_word: -0x0078,
+                restored_walk_speed: 0x0002_8000,
+                restored_animation: "saved_armadillo_patrol_animation",
+                object_meta: 0x0044,
+                falls_through_to_collision_clear: true,
+            },
+            "ASM Armadillo.asm loc_3C8F2 should play the recovery animation, restore saved patrol state, and clear object_meta bit 7"
+        );
+        assert_eq!(
+            armadillo_berzerker_recovery_loc_3c8f2(
+                Direction::Right,
+                0x0123_8000,
+                -0x0001_8000,
+                0x0044
+            ),
+            ArmadilloBerzerkerRecoveryLoc3C8F2 {
+                x_position: 0x010F_8000,
+                damage_animation: "stru_3C6D6",
+                waits_until_animation_finished: true,
+                recoil_state_word: -0x0078,
+                restored_walk_speed: -0x0001_8000,
+                restored_animation: "saved_armadillo_patrol_animation",
+                object_meta: 0x0044,
+                falls_through_to_collision_clear: true,
+            },
+            "ASM Armadillo.asm loc_3C8F2 should leave object_meta bit 7 clear and preserve the saved walk speed value"
         );
     }
 
