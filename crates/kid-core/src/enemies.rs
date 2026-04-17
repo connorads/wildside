@@ -19088,7 +19088,8 @@ pub(crate) fn archer_angle_to_player(
     match (dx > 0, dy >= 0) {
         // Quadrant 0: right+up (d5=0)
         (true, false) => sub as usize,
-        // Quadrant 1: left+up (d5=1) → 0xD - sub
+        // ASM Archer.asm loc_34492: left+up negates both deltas, looks up the
+        // slope sub-angle, then returns `$D - sub`.
         (false, false) => (0x0D - sub) as usize,
         // Quadrant 2: left+down (d5=2) → 0xE + sub
         (false, true) => (0x0E + sub) as usize,

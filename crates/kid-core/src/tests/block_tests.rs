@@ -5558,6 +5558,17 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_angle_upper_left_matches_loc_34492_ratio_path() {
+        // ASM Archer.asm loc_34492 negates dx/dy for the left+up quadrant,
+        // maps (abs_dy * 8 / abs_dx) through unk_34404, then returns $D - sub.
+        let angle = archer_angle_to_player(200 << 16, 200 << 16, 100 << 16, 100 << 16);
+        assert_eq!(angle, 0x0A, "ratio 9 maps to sub-angle 3, so $D - 3");
+        let (xv, yv) = ARROW_ANGLE_TABLE[angle];
+        assert!(xv < 0, "x velocity should be negative (leftward)");
+        assert!(yv < 0, "y velocity should be negative (upward)");
+    }
+
+    #[test]
     fn archer_fire_timer_varies_by_hp() {
         assert_eq!(ARCHER_FIRE_TIMER[0], 0x1E, "HP 1: 30 frames");
         assert_eq!(ARCHER_FIRE_TIMER[1], 0x14, "HP 2: 20 frames");
