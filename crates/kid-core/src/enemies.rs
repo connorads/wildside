@@ -749,6 +749,38 @@ pub(crate) fn crab_negative_slope_route_loc_3b212(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CrabGravityTailLoc3B218 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_gravity_tail_loc_3b218(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> CrabGravityTailLoc3B218 {
+    // ASM Crab.asm loc_3B218: zero y_vel is seeded with `$10000`; the tail then
+    // adds `$4000` to y_vel and accelerates x_vel by `$4000` in its signed
+    // direction.
+    let seeded_y_velocity = if y_velocity == 0 {
+        0x0001_0000
+    } else {
+        y_velocity
+    };
+    let x_velocity = if x_velocity < 0 {
+        x_velocity.wrapping_sub(0x0000_4000)
+    } else {
+        x_velocity.wrapping_add(0x0000_4000)
+    };
+
+    CrabGravityTailLoc3B218 {
+        x_velocity,
+        y_velocity: seeded_y_velocity.wrapping_add(0x0000_4000),
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_slope_collision_response_loc_3b1f8(
     collision_type: u16,
@@ -20705,6 +20737,27 @@ mod tests {
             crab_negative_slope_route_loc_3b212(CRAB_COLID_SLOPEUP),
             CrabNegativeSlopeRouteLoc3B212::ReflectYVelocity,
             "ASM Crab.asm loc_3B212 should branch to loc_3B204 for non-`$18` slope contact"
+        );
+    }
+
+    #[test]
+    fn crab_gravity_tail_matches_loc_3b218() {
+        assert_eq!(
+            crab_gravity_tail_loc_3b218(0x0000_8000, 0),
+            CrabGravityTailLoc3B218 {
+                x_velocity: 0x0000_C000,
+                y_velocity: 0x0001_4000,
+            },
+            "ASM Crab.asm loc_3B218 should seed zero y_vel with `$10000`, then add `$4000`"
+        );
+
+        assert_eq!(
+            crab_gravity_tail_loc_3b218(-0x0000_8000, 0x0002_0000),
+            CrabGravityTailLoc3B218 {
+                x_velocity: -0x0000_C000,
+                y_velocity: 0x0002_4000,
+            },
+            "ASM Crab.asm loc_3B218 should preserve non-zero y_vel before adding `$4000` and push negative x_vel lower"
         );
     }
 
