@@ -2749,6 +2749,9 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
     if matches!(family, EnemyFamily::TankShooting) {
         return tank_shooting_walk_speed_loc_3b5f2(hit_points);
     }
+    if matches!(family, EnemyFamily::Driller) {
+        return driller_walk_speed_loc_3bd74(hit_points);
+    }
 
     let (base_hp, base_speed, speed_step) = match family {
         // Goat.asm loc_3CA6E: HP 4+ reaches the `$10000` speed-tier add.
@@ -2764,9 +2767,6 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         EnemyFamily::Crab => return crab_motion_profile_loc_3b00a(hit_points).walk_speed,
         // Scorpion: HP = enemy_level + 3 (min 3). Fixed speed $18000.
         EnemyFamily::Scorpion => (3, 0x0001_8000, 0),
-        // Driller.asm loc_3BD6C: HP 3+ reaches the middle `$8000` speed add
-        // before falling through to the final tier add.
-        EnemyFamily::Driller => (2, 0x0000_8000, 0x0000_8000),
         // Tank: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
         // ASM Tank.asm loc_3B36A/loc_3B372: HP 2 gets one `$8000` add,
         // HP 3 gets two, HP 4+ gets three.
@@ -2804,6 +2804,17 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
     };
     let tiers = hit_points.saturating_sub(base_hp) as i32;
     base_speed + tiers * speed_step
+}
+
+pub(crate) fn driller_walk_speed_loc_3bd74(hit_points: u8) -> i32 {
+    let mut speed = if hit_points > 3 { 0x0000_8000 } else { 0 };
+    if hit_points >= 3 {
+        // Driller.asm loc_3BD6C: HP 3+ reaches the middle `$8000` speed add.
+        speed += 0x0000_8000;
+    }
+    // Driller.asm loc_3BD74: every HP tier falls through to one final `$8000`
+    // add, so HP above 4 remains capped at the three-add `$18000` tier.
+    speed + 0x0000_8000
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

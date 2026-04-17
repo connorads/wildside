@@ -2748,7 +2748,11 @@ mod chunk_04 {
 
     #[test]
     fn pacer_walk_speed_driller_scales_with_hp() {
-        assert_eq!(pacer_walk_speed(EnemyFamily::Driller, 2), 0x0000_8000);
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Driller, 2),
+            0x0000_8000,
+            "ASM Driller.asm loc_3BD74 is the only speed add reached below HP 3",
+        );
         assert_eq!(
             pacer_walk_speed(EnemyFamily::Driller, 3),
             0x0001_0000,
@@ -2758,6 +2762,11 @@ mod chunk_04 {
             pacer_walk_speed(EnemyFamily::Driller, 4),
             0x0001_8000,
             "ASM Driller.asm loc_3BD6C is also reached after the high-HP `$8000` preload",
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Driller, 5),
+            0x0001_8000,
+            "ASM Driller.asm loc_3BD74 caps high HP speed after the preload and loc_3BD6C add",
         );
     }
 
