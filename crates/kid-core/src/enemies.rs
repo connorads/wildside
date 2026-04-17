@@ -7536,6 +7536,8 @@ pub(crate) fn cloud_diagonal_attack_setup_loc_35CD8(
                 return cloud_diagonal_attack_start_loc_35cd8(-6, 0);
             }
         } else if d6 >= 0 {
+            // ASM Cloud.asm loc_35D8C: non-zero `x_direction` accepts only
+            // non-negative Kid-minus-cloud X and swaps x=6/y=0 into `d1`.
             return cloud_diagonal_attack_start_loc_35cd8(6, 0);
         }
     }

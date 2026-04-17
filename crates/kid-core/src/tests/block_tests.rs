@@ -3661,7 +3661,7 @@ mod chunk_04 {
                 animation_script: Some("stru_35EC8"),
                 object_45_value: Some(0xFF),
             },
-            "ASM Cloud.asm loc_35D62 mirrors the horizontal launch for non-zero x_direction after the Y-window gate"
+            "ASM Cloud.asm loc_35D8C mirrors the horizontal launch for non-zero x_direction after the loc_35D62 Y-window gate"
         );
     }
 
