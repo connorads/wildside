@@ -20976,6 +20976,9 @@ pub(crate) fn tank_update_loc_3b41c(
     // from current_hp before branching on the decremented value.
     let remaining_hp = current_hp.wrapping_sub(1);
     if remaining_hp == 0 {
+        // ASM Tank.asm loc_3B480: zero HP hides the mouth child, restores
+        // Kid collision on that child, runs the death animation, then exits
+        // through the shared deactivation path.
         TankUpdateLoc3B41C {
             mouth_sound,
             next_current_hp: remaining_hp,
@@ -22146,6 +22149,27 @@ mod tests {
                 route: TankUpdateRouteLoc3B41C::Death,
             },
             "ASM Tank.asm loc_3B464 should accept `$2C` as a damage collision and route a final hit to death after the current_hp decrement reaches zero",
+        );
+    }
+
+    #[test]
+    fn tank_update_loc_3b480_death_path_hides_child_without_hurt_recovery() {
+        let result = tank_update_loc_3b41c(0, 0x001C, 1, TankMouthFrameLoc3B41C::Other, false);
+
+        assert_eq!(
+            result,
+            TankUpdateLoc3B41C {
+                mouth_sound: None,
+                next_current_hp: 0,
+                clears_child_collision_type: false,
+                hides_child_sprite: true,
+                sets_child_kid_collision: true,
+                clears_parent_motion_speed: false,
+                child_recoil_timer: None,
+                hurt_hibernate_frames: None,
+                route: TankUpdateRouteLoc3B41C::Death,
+            },
+            "ASM Tank.asm loc_3B480 should hide the mouth child and skip hurt recovery when the loc_3B478 HP decrement reaches zero",
         );
     }
 
