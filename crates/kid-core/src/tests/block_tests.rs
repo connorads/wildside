@@ -4663,6 +4663,52 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_collision_dispatch_matches_loc_3674e() {
+        assert_eq!(
+            enemies::big_hopping_skull_collision_dispatch_loc_3674e(0),
+            enemies::BigHoppingSkullCollisionDispatchLoc3674E {
+                captured_collision_type: 0,
+                next_collision_type: 0,
+                action: enemies::BigHoppingSkullCollisionActionLoc3674E::Return,
+            },
+            "ASM Big_Hopping_Skull.asm loc_3674E should return without clearing when collision_type is zero",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_collision_dispatch_loc_3674e(0x0004),
+            enemies::BigHoppingSkullCollisionDispatchLoc3674E {
+                captured_collision_type: 0x0004,
+                next_collision_type: 0,
+                action: enemies::BigHoppingSkullCollisionActionLoc3674E::WallBounce,
+            },
+            "ASM Big_Hopping_Skull.asm loc_3674E should clear collision_type and table-select wall bounce for right-wall contact",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_collision_dispatch_loc_3674e(0x0010).action,
+            enemies::BigHoppingSkullCollisionActionLoc3674E::CeilingBounce,
+            "ASM Big_Hopping_Skull.asm loc_3674E should table-select ceiling bounce for ceiling contact",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_collision_dispatch_loc_3674e(0x0014).action,
+            enemies::BigHoppingSkullCollisionActionLoc3674E::SlopeUpDeflect,
+            "ASM Big_Hopping_Skull.asm loc_3674E should table-select up-slope deflection for up-slope contact",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_collision_dispatch_loc_3674e(0x0018).action,
+            enemies::BigHoppingSkullCollisionActionLoc3674E::SlopeDownDeflect,
+            "ASM Big_Hopping_Skull.asm loc_3674E should table-select down-slope deflection for down-slope contact",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_collision_dispatch_loc_3674e(0x001C),
+            enemies::BigHoppingSkullCollisionDispatchLoc3674E {
+                captured_collision_type: 0x001C,
+                next_collision_type: 0,
+                action: enemies::BigHoppingSkullCollisionActionLoc3674E::Return,
+            },
+            "ASM Big_Hopping_Skull.asm loc_3674E should clear colid_hurt but return before terrain dispatch",
+        );
+    }
+
+    #[test]
     fn big_hopping_skull_bounds_correction_matches_loc_36770() {
         assert_eq!(
             enemies::big_hopping_skull_bounds_correction_loc_36770(

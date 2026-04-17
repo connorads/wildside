@@ -2891,6 +2891,67 @@ pub(crate) fn big_hopping_skull_delete_tail_loc_366b2() -> BigHoppingSkullDelete
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum BigHoppingSkullCollisionActionLoc3674E {
+    Return,
+    WallBounce,
+    FloorContact,
+    CeilingBounce,
+    SlopeUpDeflect,
+    SlopeDownDeflect,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct BigHoppingSkullCollisionDispatchLoc3674E {
+    pub(crate) captured_collision_type: u16,
+    pub(crate) next_collision_type: u16,
+    pub(crate) action: BigHoppingSkullCollisionActionLoc3674E,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_collision_dispatch_loc_3674e(
+    collision_type: u16,
+) -> BigHoppingSkullCollisionDispatchLoc3674E {
+    const COLID_RIGHT_WALL: u16 = 0x0004;
+    const COLID_LEFT_WALL: u16 = 0x0008;
+    const COLID_FLOOR: u16 = 0x000C;
+    const COLID_CEILING: u16 = 0x0010;
+    const COLID_SLOPE_UP: u16 = 0x0014;
+    const COLID_SLOPE_DOWN: u16 = 0x0018;
+    const COLID_HURT: u16 = 0x001C;
+
+    // ASM Big_Hopping_Skull.asm loc_3674E: zero collision returns without
+    // clearing; any non-zero word is cleared before hurt-or-higher contacts are
+    // ignored or terrain contacts dispatch through off_36736.
+    let next_collision_type = if collision_type == 0 {
+        collision_type
+    } else {
+        0
+    };
+    let action = if collision_type == 0 || collision_type >= COLID_HURT {
+        BigHoppingSkullCollisionActionLoc3674E::Return
+    } else {
+        match collision_type {
+            COLID_RIGHT_WALL | COLID_LEFT_WALL => {
+                BigHoppingSkullCollisionActionLoc3674E::WallBounce
+            }
+            COLID_FLOOR => BigHoppingSkullCollisionActionLoc3674E::FloorContact,
+            COLID_CEILING => BigHoppingSkullCollisionActionLoc3674E::CeilingBounce,
+            COLID_SLOPE_UP => BigHoppingSkullCollisionActionLoc3674E::SlopeUpDeflect,
+            COLID_SLOPE_DOWN => BigHoppingSkullCollisionActionLoc3674E::SlopeDownDeflect,
+            _ => BigHoppingSkullCollisionActionLoc3674E::Return,
+        }
+    };
+
+    BigHoppingSkullCollisionDispatchLoc3674E {
+        captured_collision_type: collision_type,
+        next_collision_type,
+        action,
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullBoundsRouteLoc36770 {
     Unchanged,
     HitLeftBound,
