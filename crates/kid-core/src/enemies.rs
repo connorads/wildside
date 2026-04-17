@@ -14333,6 +14333,40 @@ pub(crate) struct TarMonsterProjectileDeleteLoc32652 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterProjectileCollisionTargetLoc32682 {
+    Loc326AA,
+    Loc326B8,
+    Loc326C6,
+    Loc326DC,
+    Loc32652,
+    UnknownOffset(u16),
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterProjectileCollisionDispatchLoc32682 {
+    pub(crate) sprite_frame_link: Option<&'static str>,
+    pub(crate) remaining_collision_budget: u16,
+    pub(crate) clears_collision_type: bool,
+    pub(crate) target: TarMonsterProjectileCollisionTargetLoc32682,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TarMonsterProjectileCollisionRouteLoc32682 {
+    ReturnOnly,
+    DeleteCurrentObject,
+    Dispatch(TarMonsterProjectileCollisionDispatchLoc32682),
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterProjectileCollisionLoc32682 {
+    pub(crate) route: TarMonsterProjectileCollisionRouteLoc32682,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotMotionLoc324D0 {
     pub(crate) x_pos: u32,
     pub(crate) x_velocity: i32,
@@ -14765,6 +14799,57 @@ pub(crate) fn tar_monster_projectile_delete_loc_32652() -> TarMonsterProjectileD
     // `j_Delete_CurrentObject`.
     TarMonsterProjectileDeleteLoc32652 {
         deletes_current_object: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_projectile_collision_loc_32682(
+    collision_type: i16,
+    collision_response_budget: u16,
+    collision_sprite_swap_enabled: bool,
+) -> TarMonsterProjectileCollisionLoc32682 {
+    // ASM loc_32682 copies collision_type(a3) into d7: negative branches to
+    // loc_32652, zero returns, and positive values optionally select the
+    // collision sprite before spending one d3 response-budget word.
+    if collision_type < 0 {
+        return TarMonsterProjectileCollisionLoc32682 {
+            route: TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject,
+        };
+    }
+
+    if collision_type == 0 {
+        return TarMonsterProjectileCollisionLoc32682 {
+            route: TarMonsterProjectileCollisionRouteLoc32682::ReturnOnly,
+        };
+    }
+
+    let remaining_collision_budget = collision_response_budget.wrapping_sub(1);
+    if (remaining_collision_budget as i16) < 0 {
+        return TarMonsterProjectileCollisionLoc32682 {
+            route: TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject,
+        };
+    }
+
+    let collision_offset = (collision_type as u16).wrapping_sub(4);
+    let target = match collision_offset {
+        0 | 4 | 28 | 32 => TarMonsterProjectileCollisionTargetLoc32682::Loc326AA,
+        8 | 12 | 36 => TarMonsterProjectileCollisionTargetLoc32682::Loc326B8,
+        16 => TarMonsterProjectileCollisionTargetLoc32682::Loc326C6,
+        20 | 24 => TarMonsterProjectileCollisionTargetLoc32682::Loc326DC,
+        40 => TarMonsterProjectileCollisionTargetLoc32682::Loc32652,
+        _ => TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(collision_offset),
+    };
+
+    TarMonsterProjectileCollisionLoc32682 {
+        route: TarMonsterProjectileCollisionRouteLoc32682::Dispatch(
+            TarMonsterProjectileCollisionDispatchLoc32682 {
+                sprite_frame_link: collision_sprite_swap_enabled.then_some("LnkTo_unk_C7836"),
+                remaining_collision_budget,
+                clears_collision_type: true,
+                target,
+            },
+        ),
     }
 }
 
@@ -20017,6 +20102,66 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Tar_Monster.asm loc_32652 jumps directly to j_Delete_CurrentObject"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_collision_loc_32682_deletes_on_negative_or_spent_budget() {
+        assert_eq!(
+            tar_monster_projectile_collision_loc_32682(-1, 2, true),
+            TarMonsterProjectileCollisionLoc32682 {
+                route: TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject,
+            },
+            "ASM Tar_Monster.asm loc_32682 branches to loc_32652 when collision_type(a3) is negative"
+        );
+
+        assert_eq!(
+            tar_monster_projectile_collision_loc_32682(4, 0, false),
+            TarMonsterProjectileCollisionLoc32682 {
+                route: TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject,
+            },
+            "ASM Tar_Monster.asm loc_32682 decrements d3 before clearing collision_type, so an already-spent collision budget deletes instead of dispatching"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_collision_loc_32682_returns_or_dispatches_positive_collisions() {
+        assert_eq!(
+            tar_monster_projectile_collision_loc_32682(0, 2, true),
+            TarMonsterProjectileCollisionLoc32682 {
+                route: TarMonsterProjectileCollisionRouteLoc32682::ReturnOnly,
+            },
+            "ASM Tar_Monster.asm loc_32682 returns immediately when collision_type(a3) is zero"
+        );
+
+        assert_eq!(
+            tar_monster_projectile_collision_loc_32682(4, 2, true),
+            TarMonsterProjectileCollisionLoc32682 {
+                route: TarMonsterProjectileCollisionRouteLoc32682::Dispatch(
+                    TarMonsterProjectileCollisionDispatchLoc32682 {
+                        sprite_frame_link: Some("LnkTo_unk_C7836"),
+                        remaining_collision_budget: 1,
+                        clears_collision_type: true,
+                        target: TarMonsterProjectileCollisionTargetLoc32682::Loc326AA,
+                    }
+                ),
+            },
+            "ASM Tar_Monster.asm loc_32682 swaps to LnkTo_unk_C7836 when d1 is non-zero, clears collision_type, and dispatches collision id $04 through off_32656[0]"
+        );
+
+        assert_eq!(
+            tar_monster_projectile_collision_loc_32682(0x002C, 1, false),
+            TarMonsterProjectileCollisionLoc32682 {
+                route: TarMonsterProjectileCollisionRouteLoc32682::Dispatch(
+                    TarMonsterProjectileCollisionDispatchLoc32682 {
+                        sprite_frame_link: None,
+                        remaining_collision_budget: 0,
+                        clears_collision_type: true,
+                        target: TarMonsterProjectileCollisionTargetLoc32682::Loc32652,
+                    }
+                ),
+            },
+            "ASM Tar_Monster.asm loc_32682 subtracts 4 before indexing off_32656, so collision id $2C reaches the table's loc_32652 delete entry"
         );
     }
 
