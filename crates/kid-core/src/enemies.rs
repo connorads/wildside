@@ -20162,6 +20162,31 @@ pub(crate) fn tank_shooting_resume_walk_loc_3b720(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TankShootingHurtRecoveryLoc3B700 {
+    pub(crate) parent_motion_speed: i32,
+    pub(crate) child_recoil_timer: u16,
+    pub(crate) child_animation_script: &'static str,
+    pub(crate) hibernate_frames: u16,
+    pub(crate) resume_walk: TankShootingResumeWalkLoc3B720,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_shooting_hurt_recovery_loc_3b700(
+    x_direction: u8,
+) -> TankShootingHurtRecoveryLoc3B700 {
+    // ASM Tank_Shooting.asm loc_3B700: clear parent motion `$50(a5)`, set
+    // turret timer `$46(a2)=6`, install `stru_3B294`, hibernate five frames,
+    // then fall through to loc_3B720.
+    TankShootingHurtRecoveryLoc3B700 {
+        parent_motion_speed: 0,
+        child_recoil_timer: 6,
+        child_animation_script: "stru_3B294",
+        hibernate_frames: 5,
+        resume_walk: tank_shooting_resume_walk_loc_3b720(x_direction),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TankShootingInitWalkerEntryLoc3B690 {
     LeftLoc3C0D2,
     RightLoc3C026,
@@ -22857,6 +22882,24 @@ mod tests {
                 branch: TankShootingResumeWalkBranchLoc3B720::RightSharedWalker,
             },
             "ASM Tank_Shooting.asm loc_3B720 should branch any nonzero x_direction to loc_3C04E after clearing turret child `$38`",
+        );
+    }
+
+    #[test]
+    fn tank_shooting_hurt_recovery_loc_3b700_stops_motion_then_resumes_walk() {
+        assert_eq!(
+            tank_shooting_hurt_recovery_loc_3b700(0),
+            TankShootingHurtRecoveryLoc3B700 {
+                parent_motion_speed: 0,
+                child_recoil_timer: 6,
+                child_animation_script: "stru_3B294",
+                hibernate_frames: 5,
+                resume_walk: TankShootingResumeWalkLoc3B720 {
+                    next_child_collision_type: 0,
+                    branch: TankShootingResumeWalkBranchLoc3B720::LeftSharedWalker,
+                },
+            },
+            "ASM Tank_Shooting.asm loc_3B700 should clear `$50(a5)`, set turret `$46=6`, play stru_3B294, hibernate five frames, then fall through to loc_3B720",
         );
     }
 
