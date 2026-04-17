@@ -88,6 +88,13 @@ pub(crate) struct PrizeCollectedWorldStepLocFEFE {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeClockCollectedWorldStepLocFF92 {
+    pub(crate) arc_step: PrizeCollectedArcHibernateStepLocFEEE,
+    pub(crate) world_step: PrizeCollectedWorldStepLocFEFE,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeContinueCountdownLoc1080A {
     pub(crate) next_remaining: u16,
     pub(crate) should_delete: bool,
@@ -354,6 +361,39 @@ impl NativeRuntime {
             world_y_word: arc_step.screen_y_word.wrapping_add(camera_y_word),
             next_loop_counter,
             should_loop: next_loop_counter != u16::MAX,
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_clock_collected_world_step_loc_FF92(
+        screen_x_fp: i32,
+        screen_y_fp: i32,
+        x_delta_fp: i32,
+        y_delta_fp: i32,
+        camera_x_word: u16,
+        camera_y_word: u16,
+        loop_counter: u16,
+    ) -> PrizeClockCollectedWorldStepLocFF92 {
+        // ASM loc_FF92 (kid.asm:21260): the clock collection loop hibernates,
+        // advances cached screen-relative `$3E/$42`, writes world `x_pos/y_pos`
+        // by adding camera words, and repeats through `dbf d2,loc_FF92`.
+        let arc_step = Self::prize_collected_arc_hibernate_step_loc_FEEE(
+            screen_x_fp,
+            screen_y_fp,
+            x_delta_fp,
+            y_delta_fp,
+        );
+        let world_step = Self::prize_collected_world_step_loc_FEFE(
+            arc_step,
+            camera_x_word,
+            camera_y_word,
+            loop_counter,
+        );
+
+        PrizeClockCollectedWorldStepLocFF92 {
+            arc_step,
+            world_step,
         }
     }
 

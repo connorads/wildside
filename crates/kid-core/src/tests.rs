@@ -5,11 +5,11 @@ use crate::blocks::{
     OneTimePrizeScanStepLoc10886, OneTimePrizeStoreLoc1089A, Prize10DiamondsInitLoc108E8,
     Prize10DiamondsSpawnLoc108EE, Prize10DiamondsWorkerCountdownGateLoc10984,
     Prize10DiamondsWorkerInitLoc10988, Prize10DiamondsWorkerScanStartLoc10960,
-    Prize10DiamondsWorkerStepLoc109C0, PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0,
-    PrizeClockSoundCleanupLoc107E0, PrizeClockSoundRefcountLoc10792,
-    PrizeCollectedArcHibernateStepLocFEEE, PrizeCollectedWorldStepLocFEFE,
-    PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838, ShooterCenterWorkerGateLoc1146E,
-    ShooterLeftSupportProbeLoc11448,
+    Prize10DiamondsWorkerStepLoc109C0, PrizeClockCollectedWorldStepLocFF92,
+    PrizeClockCountdownLoc10796, PrizeClockFallGateLoc107B0, PrizeClockSoundCleanupLoc107E0,
+    PrizeClockSoundRefcountLoc10792, PrizeCollectedArcHibernateStepLocFEEE,
+    PrizeCollectedWorldStepLocFEFE, PrizeContinueCountdownLoc1080A, PrizeContinueDeleteLoc10838,
+    ShooterCenterWorkerGateLoc1146E, ShooterLeftSupportProbeLoc11448,
 };
 use crate::boot::{
     FlagHudDmaUploadSub44DC, HudAnimationStateSub44DC, HudDisplayNumberTilesCalcDisplayNumber,

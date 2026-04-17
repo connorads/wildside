@@ -2766,6 +2766,36 @@ mod chunk_03 {
     }
 
     #[test]
+    fn prize_clock_collected_loc_ff92_uses_clock_hud_target_arc() {
+        assert_eq!(
+            NativeRuntime::prize_clock_collected_world_step_loc_FF92(
+                0x0028_0000,
+                0x0014_0000,
+                0x0000_8000,
+                0x0000_5800,
+                0x0020,
+                0x0050,
+                0x001F,
+            ),
+            PrizeClockCollectedWorldStepLocFF92 {
+                arc_step: PrizeCollectedArcHibernateStepLocFEEE {
+                    next_screen_x_fp: 0x0028_8000,
+                    next_screen_y_fp: 0x0014_5800,
+                    screen_x_word: 0x0028,
+                    screen_y_word: 0x0014,
+                },
+                world_step: PrizeCollectedWorldStepLocFEFE {
+                    world_x_word: 0x0048,
+                    world_y_word: 0x0064,
+                    next_loop_counter: 0x001E,
+                    should_loop: true,
+                },
+            },
+            "ASM loc_FF92 should use the clock collect arc toward screen `$38,$1F`, write through camera-relative words, then loop back while `d2` has not underflowed",
+        );
+    }
+
+    #[test]
     fn prize_clock_sound_refcount_loc_10792_only_starts_the_first_loop() {
         assert_eq!(
             NativeRuntime::prize_clock_sound_refcount_loc_10792(0),
