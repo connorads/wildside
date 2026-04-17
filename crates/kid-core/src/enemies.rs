@@ -11244,9 +11244,9 @@ fn mini_hopping_skull_snap_slopeup_x(grid: &terrain::BlockGrid, x_px: i32, y_px:
     for col in start_col..grid.width_cells {
         let cell = grid.cell_at(col, row);
         if cell.collision == terrain::CollisionKind::SlopeUp {
-            // ASM Mini_Hopping_Skull.asm sub_3F366: `addi.w #$10,d6` before the
-            // collision check means the snap uses the matched slope cell's right
-            // edge, then subtracts the low nibble of the current Y position.
+            // ASM Mini_Hopping_Skull.asm loc_3F386: `addi.w #$10,d6` before
+            // each collision check means the snap uses the matched slope
+            // cell's right edge, then subtracts the low nibble of Y.
             let snapped_x_px = ((i32::from(col) + 1) * 16) - (y_px & 0x0F);
             return (snapped_x_px.max(0) as u32) << 16;
         }
@@ -30020,6 +30020,19 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F362 is the direct `j_Delete_CurrentObject` tail reached after the bit-7 set, bit-6 clear `$42(a5)` route"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_slopeup_scan_matches_loc_3f386() {
+        let data = vec![0u8; 8 * 4 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
+
+        assert_eq!(
+            mini_hopping_skull_snap_slopeup_x(&grid, 16, 46),
+            34u32 << 16,
+            "ASM Mini_Hopping_Skull.asm loc_3F386 advances by `$10` before each `$4000` slope-up check, then writes `cell_right - (y_pos & $F)` to x_pos"
         );
     }
 
