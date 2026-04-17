@@ -18730,6 +18730,47 @@ pub(crate) fn emo_rock_respawn_marker_loc_3638c(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum EmoRockDeathStatusRouteLoc3639A {
+    WriteRespawnMarker(EmoRockRespawnMarkerLoc3638C),
+    SubtractSpawnCounter { index: usize, decrement: u16 },
+    DeleteOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EmoRockDeathStatusLoc3639A {
+    pub(crate) status_route: EmoRockDeathStatusRouteLoc3639A,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_death_status_loc_3639A(
+    object_status_slot: u8,
+) -> EmoRockDeathStatusLoc3639A {
+    // ASM Emo_Rock.asm loc_3639A: every `$42(a5)` status route converges on
+    // the `j_Delete_CurrentObject` tail after optional EnemyStatus_Table work.
+    let status_route = if object_status_slot & 0x80 == 0 {
+        EmoRockDeathStatusRouteLoc3639A::WriteRespawnMarker(emo_rock_respawn_marker_loc_3638c(
+            object_status_slot,
+        ))
+    } else if object_status_slot & 0x40 != 0 {
+        EmoRockDeathStatusRouteLoc3639A::SubtractSpawnCounter {
+            index: usize::from(object_status_slot & 0x3F),
+            decrement: 0x0400,
+        }
+    } else {
+        EmoRockDeathStatusRouteLoc3639A::DeleteOnly
+    };
+
+    EmoRockDeathStatusLoc3639A {
+        status_route,
+        deletes_current_object: true,
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -23375,6 +23416,39 @@ mod tests {
                 word_value: 0x2168,
             },
             "ASM Emo_Rock.asm loc_3638C doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn emo_rock_death_status_loc_3639A_deletes_after_every_status_route() {
+        let positive = emo_rock_death_status_loc_3639A(0x05);
+        assert_eq!(
+            positive.status_route,
+            EmoRockDeathStatusRouteLoc3639A::WriteRespawnMarker(EmoRockRespawnMarkerLoc3638C {
+                index: 0x05,
+                word_value: 0x2168,
+            }),
+            "ASM Emo_Rock.asm loc_3639A is reached after positive status slots write the respawn marker"
+        );
+        assert!(positive.deletes_current_object);
+
+        assert_eq!(
+            emo_rock_death_status_loc_3639A(0xC7).status_route,
+            EmoRockDeathStatusRouteLoc3639A::SubtractSpawnCounter {
+                index: 0x07,
+                decrement: 0x0400,
+            },
+            "ASM Emo_Rock.asm loc_3639A is reached after bit-7+bit-6 status slots subtract `$400` from the masked EnemyStatus_Table entry"
+        );
+
+        assert_eq!(
+            emo_rock_death_status_loc_3639A(0x80),
+            EmoRockDeathStatusLoc3639A {
+                status_route: EmoRockDeathStatusRouteLoc3639A::DeleteOnly,
+                deletes_current_object: true,
+            },
+            "ASM Emo_Rock.asm loc_3639A deletes directly when bit 7 is set and bit 6 is clear"
         );
     }
 
