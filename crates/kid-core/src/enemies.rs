@@ -12904,8 +12904,27 @@ pub(crate) fn hand_kid_contact_gate_loc_32a86(
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandRespawnMarkerLoc32AD8 {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_respawn_marker_loc_32ad8(object_status_slot: u8) -> HandRespawnMarkerLoc32AD8 {
+    // ASM Hand.asm loc_32AD8: positive `$42(a5)` bytes are doubled as
+    // EnemyStatus_Table word offsets, then `$2168` is written as the
+    // respawn marker before the delete jump.
+    HandRespawnMarkerLoc32AD8 {
+        index: usize::from(object_status_slot),
+        word_value: 0x2168,
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum HandDeathStatusRouteLoc32AA2 {
-    PositiveSlot { index: usize },
+    WriteRespawnMarker(HandRespawnMarkerLoc32AD8),
     SubtractSpawnCounter { index: usize, decrement: u16 },
     DeleteOnly,
 }
@@ -12928,9 +12947,9 @@ pub(crate) fn hand_death_sequence_loc_32aa2(object_status_slot: u8) -> HandDeath
     // stopping movement, playing `stru_32B78` to completion, then routing
     // `$42(a5)` through the enemy status-table update before delete.
     let status_route = if object_status_slot & 0x80 == 0 {
-        HandDeathStatusRouteLoc32AA2::PositiveSlot {
-            index: usize::from(object_status_slot),
-        }
+        HandDeathStatusRouteLoc32AA2::WriteRespawnMarker(hand_respawn_marker_loc_32ad8(
+            object_status_slot,
+        ))
     } else if object_status_slot & 0x40 != 0 {
         HandDeathStatusRouteLoc32AA2::SubtractSpawnCounter {
             index: usize::from(object_status_slot & 0x3F),

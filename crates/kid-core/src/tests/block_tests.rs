@@ -7202,7 +7202,12 @@ mod chunk_04 {
                 is_moved: false,
                 animation_label: "stru_32B78",
                 hibernate_until_animation_finished: true,
-                status_route: HandDeathStatusRouteLoc32AA2::PositiveSlot { index: 0x05 },
+                status_route: HandDeathStatusRouteLoc32AA2::WriteRespawnMarker(
+                    HandRespawnMarkerLoc32AD8 {
+                        index: 0x05,
+                        word_value: 0x2168,
+                    }
+                ),
                 deletes_current_object: true,
             },
             "ASM Hand.asm loc_32AA2 sets has_kid_collision, clears is_moved, waits for stru_32B78, then routes positive `$42(a5)` to the respawn-marker path"
@@ -7224,6 +7229,18 @@ mod chunk_04 {
             "ASM Hand.asm loc_32AA2 sends bit-7 set and bit-6 clear status bytes straight to delete"
         );
         assert!(delete_only.deletes_current_object);
+    }
+
+    #[test]
+    fn hand_respawn_marker_loc_32ad8_writes_positive_status_slot() {
+        assert_eq!(
+            hand_respawn_marker_loc_32ad8(0x05),
+            HandRespawnMarkerLoc32AD8 {
+                index: 0x05,
+                word_value: 0x2168,
+            },
+            "ASM Hand.asm loc_32AD8 doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
+        );
     }
 
     #[test]
