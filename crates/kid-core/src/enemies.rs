@@ -15505,6 +15505,48 @@ pub(crate) fn robot_shoot_hit_animation_start_loc_3ab14() -> RobotShootHitAnimat
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShootLethalHitLoc3AB56 {
+    pub(crate) tracking_latch_cleared: bool,
+    pub(crate) child_status_13_during_windup: bool,
+    pub(crate) child_status_13_after_windup: bool,
+    pub(crate) parent_has_kid_collision: bool,
+    pub(crate) child_has_kid_collision: bool,
+    pub(crate) body_windup_animation_label: &'static str,
+    pub(crate) body_charge_animation_label: &'static str,
+    pub(crate) child_charge_animation_label: &'static str,
+    pub(crate) hibernates_until_windup_finished: bool,
+    pub(crate) charge_speed: i32,
+    pub(crate) next_parent_collision_type: u16,
+    pub(crate) next_child_collision_type: u16,
+    pub(crate) flip_timer: u16,
+    pub(crate) resume_walk_direction: Direction,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shoot_lethal_hit_loc_3ab56(facing: Direction) -> RobotShootLethalHitLoc3AB56 {
+    // ASM Robot.asm loc_3AB56: lethal shoot-hit clears `$4E(a5)`, hides the
+    // child head for `stru_3A74A`, then restores it and seeds the shared charge
+    // state before branching by x_direction.
+    RobotShootLethalHitLoc3AB56 {
+        tracking_latch_cleared: true,
+        child_status_13_during_windup: false,
+        child_status_13_after_windup: true,
+        parent_has_kid_collision: true,
+        child_has_kid_collision: true,
+        body_windup_animation_label: "stru_3A74A",
+        body_charge_animation_label: "stru_3A6FC",
+        child_charge_animation_label: "stru_3A730",
+        hibernates_until_windup_finished: true,
+        charge_speed: ROBOT_CHARGE_SPEED,
+        next_parent_collision_type: 0x0800,
+        next_child_collision_type: 0x0800,
+        flip_timer: ROBOT_CHARGE_FLIP_BASE,
+        resume_walk_direction: facing,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]

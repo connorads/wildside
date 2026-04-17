@@ -16470,6 +16470,30 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3ab56_lethal_shoot_hit_arms_robot_charge() {
+        assert_eq!(
+            robot_shoot_lethal_hit_loc_3ab56(Direction::Right),
+            RobotShootLethalHitLoc3AB56 {
+                tracking_latch_cleared: true,
+                child_status_13_during_windup: false,
+                child_status_13_after_windup: true,
+                parent_has_kid_collision: true,
+                child_has_kid_collision: true,
+                body_windup_animation_label: "stru_3A74A",
+                body_charge_animation_label: "stru_3A6FC",
+                child_charge_animation_label: "stru_3A730",
+                hibernates_until_windup_finished: true,
+                charge_speed: ROBOT_CHARGE_SPEED,
+                next_parent_collision_type: 0x0800,
+                next_child_collision_type: 0x0800,
+                flip_timer: ROBOT_CHARGE_FLIP_BASE,
+                resume_walk_direction: Direction::Right,
+            },
+            "ASM loc_3AB56: lethal shoot-hit hides the head during the windup, restores body/head charge animations, seeds `$800` collision words, then non-zero x_direction resumes right"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the
