@@ -2807,6 +2807,29 @@ mod chunk_04 {
     }
 
     #[test]
+    fn scorpion_resume_after_tracking_matches_loc_3de6c_cache_and_clear() {
+        use enemies::{
+            ScorpionResumeRouteLoc3DE6C, ScorpionResumeStateLoc3DE6C,
+            scorpion_resume_after_tracking_loc_3de6c,
+        };
+
+        assert_eq!(
+            scorpion_resume_after_tracking_loc_3de6c(0x0123, Direction::Left),
+            ScorpionResumeStateLoc3DE6C {
+                cached_kid_x_word: 0x0123,
+                next_collision_type: 0,
+                next: ScorpionResumeRouteLoc3DE6C::ClearDirection,
+            },
+            "ASM Scorpion.asm loc_3DE6C moves d3 into a2, clears collision_type, and sends clear x_direction down the left-facing resume branch"
+        );
+        assert_eq!(
+            scorpion_resume_after_tracking_loc_3de6c(0x00FE, Direction::Right).next,
+            ScorpionResumeRouteLoc3DE6C::SetDirection,
+            "ASM Scorpion.asm loc_3DE6C sends set x_direction down the right-facing resume branch after the same collision clear"
+        );
+    }
+
+    #[test]
     fn scorpion_collision_resume_patrol_branches_match_loc_3dd72() {
         use enemies::{ScorpionCollisionResumeBranchLoc3DD5C, scorpion_collision_resume_loc_3dd5c};
 

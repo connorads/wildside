@@ -4462,6 +4462,38 @@ pub(crate) fn scorpion_sting_recovery_loc_3de40(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ScorpionResumeRouteLoc3DE6C {
+    ClearDirection,
+    SetDirection,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ScorpionResumeStateLoc3DE6C {
+    pub(crate) cached_kid_x_word: u16,
+    pub(crate) next_collision_type: u16,
+    pub(crate) next: ScorpionResumeRouteLoc3DE6C,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_resume_after_tracking_loc_3de6c(
+    kid_x_word_d3: u16,
+    facing: Direction,
+) -> ScorpionResumeStateLoc3DE6C {
+    // ASM Scorpion.asm loc_3DE6C stores `d3` in `a2` as the cached Kid X word,
+    // clears `collision_type(a3)`, then dispatches by raw `x_direction(a3)`.
+    ScorpionResumeStateLoc3DE6C {
+        cached_kid_x_word: kid_x_word_d3,
+        next_collision_type: 0,
+        next: match facing {
+            Direction::Left => ScorpionResumeRouteLoc3DE6C::ClearDirection,
+            Direction::Right => ScorpionResumeRouteLoc3DE6C::SetDirection,
+        },
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScorpionTailGfxPosition {
     pub(crate) x_word: u16,
