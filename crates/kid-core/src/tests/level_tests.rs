@@ -16335,6 +16335,19 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3ab14_drops_robot_head_and_runs_hit_animation_before_hp_damage() {
+        assert_eq!(
+            robot_shoot_hit_animation_start_loc_3ab14(),
+            RobotShootHitAnimationStartLoc3AB14 {
+                child_y_offset_delta_px: 4,
+                animation_label: "stru_3A744",
+                hibernates_until_animation_finished: true,
+            },
+            "ASM loc_3AB14: addi.w #4,$1E(a2), init `stru_3A744`, then hibernate until animation finishes before decrementing HP"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

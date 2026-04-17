@@ -14056,6 +14056,26 @@ pub(crate) fn robot_shoot_collision_dispatch_loc_3aad4(
     RobotShootCollisionRouteLoc3AAD4::RestoreShootWalk
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShootHitAnimationStartLoc3AB14 {
+    pub(crate) child_y_offset_delta_px: i16,
+    pub(crate) animation_label: &'static str,
+    pub(crate) hibernates_until_animation_finished: bool,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shoot_hit_animation_start_loc_3ab14() -> RobotShootHitAnimationStartLoc3AB14 {
+    // ASM Robot.asm loc_3AB14: the shoot hit reaction always drops the child
+    // head by 4px, starts `stru_3A744`, and waits for that animation before
+    // the later `subi.w #1,$44(a3)` HP decrement.
+    RobotShootHitAnimationStartLoc3AB14 {
+        child_y_offset_delta_px: 4,
+        animation_label: "stru_3A744",
+        hibernates_until_animation_finished: true,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
