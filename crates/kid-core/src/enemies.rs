@@ -18611,6 +18611,22 @@ pub(crate) fn dragon_walking_breath_child_poll_loc_3d082(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingBreathChildDeleteLoc3D09E {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_breath_child_delete_loc_3d09e()
+-> DragonWalkingBreathChildDeleteLoc3D09E {
+    // ASM Dragon.asm loc_3D09E: tail-jump to `Delete_CurrentObject`; native
+    // represents the breath GfxObject as an expiring projectile.
+    DragonWalkingBreathChildDeleteLoc3D09E {
+        deletes_current_object: true,
+    }
+}
+
 enum DragonWalkingWalkStep {
     Walked,
     Idled,
@@ -19044,6 +19060,8 @@ pub(crate) fn step_dragon_walking(
                 enemy.dragon_phase_frames -= 1;
             } else {
                 debug_assert!(child_poll.sets_parent_phase_done_flag_5b);
+                let child_delete = dragon_walking_breath_child_delete_loc_3d09e();
+                debug_assert!(child_delete.deletes_current_object);
                 enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_RECOVER;
                 enemy.dragon_phase_frames = DRAGON_WALKING_RECOVER_FRAMES;
             }
@@ -26028,6 +26046,17 @@ mod tests {
                 next: DragonWalkingBreathChildPollNextLoc3D082::DeleteChild,
             },
             "ASM Dragon.asm loc_3D082 should branch to deletion when parent `$5B` is already non-zero"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_child_delete_matches_loc_3d09e() {
+        assert_eq!(
+            dragon_walking_breath_child_delete_loc_3d09e(),
+            DragonWalkingBreathChildDeleteLoc3D09E {
+                deletes_current_object: true,
+            },
+            "ASM Dragon.asm loc_3D09E should tail-jump to Delete_CurrentObject"
         );
     }
 
