@@ -14391,6 +14391,7 @@ pub(crate) fn ninja_jump_attack_landing_loc_3da56(
 
 pub(crate) const NINJA_KID_ABOVE_BOUNCE_Y_SPEED_LOC_3DA98: i32 = 0x0003_8000;
 pub(crate) const NINJA_KID_ABOVE_LANDING_GRAVITY_LOC_3DABC: i32 = 0x0000_1800;
+pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_Y_SPEED_LOC_3DB0A: i32 = -0x0004_8000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -14486,6 +14487,49 @@ pub(crate) fn ninja_kid_above_landing_loop_loc_3dabc(
             route: NinjaKidAboveLandingLoopRouteLoc3DABC::Loop,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaBerzerkerSideLaunchStateLoc3DB0A {
+    pub(crate) has_kid_collision: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_link: &'static str,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaBerzerkerSideContactRouteLoc3DB0A {
+    ContinueAirborneLoop,
+    Launch(NinjaBerzerkerSideLaunchStateLoc3DB0A),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_berzerker_side_contact_loc_3db0a(
+    berzerker_charging: bool,
+) -> NinjaBerzerkerSideContactRouteLoc3DB0A {
+    // ASM Ninja.asm loc_3DB0A: clear `Berzerker_charging` resumes the jump
+    // attack airborne loop. While charging, the duplicated `st has_kid_collision`
+    // leaves Kid collision enabled, disables level collision and animation,
+    // keeps movement enabled, selects C7D7E, zeroes X velocity, and launches
+    // upward at `-$48000`.
+    if !berzerker_charging {
+        return NinjaBerzerkerSideContactRouteLoc3DB0A::ContinueAirborneLoop;
+    }
+
+    NinjaBerzerkerSideContactRouteLoc3DB0A::Launch(NinjaBerzerkerSideLaunchStateLoc3DB0A {
+        has_kid_collision: true,
+        has_level_collision: false,
+        is_moved: true,
+        is_animated: false,
+        sprite_link: "LnkTo_unk_C7D7E",
+        x_velocity: 0,
+        y_velocity: NINJA_BERZERKER_SIDE_LAUNCH_Y_SPEED_LOC_3DB0A,
+    })
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -33675,6 +33719,29 @@ mod tests {
                 route: NinjaKidAboveLandingLoopRouteLoc3DABC::To3DB4E,
             },
             "ASM Ninja.asm loc_3DABC should clear motion/flags and snap y_pos to ((integer_y + $F) & $FFF0) on floor contact"
+        );
+    }
+
+    #[test]
+    fn ninja_berzerker_side_contact_loc_3db0a_launches_only_while_charging() {
+        assert_eq!(
+            ninja_berzerker_side_contact_loc_3db0a(false),
+            NinjaBerzerkerSideContactRouteLoc3DB0A::ContinueAirborneLoop,
+            "ASM Ninja.asm loc_3DB0A should branch back to the airborne loop when Berzerker_charging is clear"
+        );
+
+        assert_eq!(
+            ninja_berzerker_side_contact_loc_3db0a(true),
+            NinjaBerzerkerSideContactRouteLoc3DB0A::Launch(NinjaBerzerkerSideLaunchStateLoc3DB0A {
+                has_kid_collision: true,
+                has_level_collision: false,
+                is_moved: true,
+                is_animated: false,
+                sprite_link: "LnkTo_unk_C7D7E",
+                x_velocity: 0,
+                y_velocity: -0x0004_8000,
+            },),
+            "ASM Ninja.asm loc_3DB0A should freeze animation, keep Kid collision/movement enabled, and launch upward while charging"
         );
     }
 
