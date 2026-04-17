@@ -10100,6 +10100,25 @@ pub(crate) fn fireball_trail_loop_step_loc_33110(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireballTrailDeleteTailLoc33120 {
+    pub(crate) next_fire_trail_count: u16,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_trail_delete_tail_loc_33120(
+    fire_trail_count: u16,
+) -> FireballTrailDeleteTailLoc33120 {
+    // ASM Fireball.asm loc_33120: `subq.w #1,(Number_of_Fire_Trails).w`, then
+    // jump directly to `j_Delete_CurrentObject`.
+    FireballTrailDeleteTailLoc33120 {
+        next_fire_trail_count: fire_trail_count.wrapping_sub(1),
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireballSpriteBranchLoc32F3E {
     Vertical { sprite_index: i16 },
     NegativeX,
@@ -30764,6 +30783,26 @@ mod tests {
                 lifetime_frames: 0xFFFF,
             },
             "ASM Fireball.asm loc_33110 uses word subtraction, so an unexpected zero d3 wraps to `$FFFF` and branches back"
+        );
+    }
+
+    #[test]
+    fn fireball_trail_delete_tail_loc_33120_decrements_global_count() {
+        assert_eq!(
+            fireball_trail_delete_tail_loc_33120(5),
+            FireballTrailDeleteTailLoc33120 {
+                next_fire_trail_count: 4,
+                deletes_current_object: true,
+            },
+            "ASM Fireball.asm loc_33120 should decrement Number_of_Fire_Trails before deleting the current object"
+        );
+        assert_eq!(
+            fireball_trail_delete_tail_loc_33120(0),
+            FireballTrailDeleteTailLoc33120 {
+                next_fire_trail_count: 0xFFFF,
+                deletes_current_object: true,
+            },
+            "ASM Fireball.asm loc_33120 uses word subtraction, so an unexpected zero Number_of_Fire_Trails wraps to `$FFFF`"
         );
     }
 
