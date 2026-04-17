@@ -6248,6 +6248,36 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34b96_prepares_snap_coordinates_by_negating_velocity() {
+        assert_eq!(
+            dragon_flying_snap_back_coords_loc_34B96(
+                0x0100_8000,
+                0x0200_4000,
+                0x0002_8000,
+                -0x0003_4000,
+            ),
+            DragonFlyingSnapBackCoordsLoc34B96 {
+                snap_x_pos: 0x00FE_0000,
+                snap_y_pos: 0x0203_8000,
+            },
+            "ASM Dragon_Flying.asm loc_34B96 negates x_vel/y_vel before adding them to the live x_pos/y_pos"
+        );
+        assert_eq!(
+            dragon_flying_snap_back_coords_loc_34B96(
+                0x0001_0000,
+                0x0001_0000,
+                -0x0002_0000,
+                0x0002_0000,
+            ),
+            DragonFlyingSnapBackCoordsLoc34B96 {
+                snap_x_pos: 0x0003_0000,
+                snap_y_pos: 0xFFFF_0000,
+            },
+            "ASM Dragon_Flying.asm loc_34B96 uses wrapping 32-bit coordinate arithmetic"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_34ac2_accelerates_rebound_until_exact_zero() {
         assert_eq!(
             dragon_flying_rebound_frame_loc_34AC2(-0x0002_0000, 0),

@@ -6514,6 +6514,29 @@ pub(crate) struct DragonFlyingReboundStartLoc34A88 {
     pub(crate) rebound_y_velocity: i32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonFlyingSnapBackCoordsLoc34B96 {
+    pub(crate) snap_x_pos: u32,
+    pub(crate) snap_y_pos: u32,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_snap_back_coords_loc_34B96(
+    x_pos: u32,
+    y_pos: u32,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> DragonFlyingSnapBackCoordsLoc34B96 {
+    // ASM Dragon_Flying.asm loc_34B96: negate x_vel/y_vel into d0/d1,
+    // add the live x_pos/y_pos, and return those prepared snap coordinates.
+    DragonFlyingSnapBackCoordsLoc34B96 {
+        snap_x_pos: x_pos.wrapping_add(u32::from_ne_bytes(x_velocity.wrapping_neg().to_ne_bytes())),
+        snap_y_pos: y_pos.wrapping_add(u32::from_ne_bytes(y_velocity.wrapping_neg().to_ne_bytes())),
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_rebound_start_loc_34A88(
@@ -6522,13 +6545,14 @@ pub(crate) fn dragon_flying_rebound_start_loc_34A88(
     x_velocity: i32,
     y_velocity: i32,
 ) -> DragonFlyingReboundStartLoc34A88 {
+    let snap = dragon_flying_snap_back_coords_loc_34B96(x_pos, y_pos, x_velocity, y_velocity);
     // ASM Dragon_Flying.asm loc_34A88: a shared helper prepares `pos - velocity`,
     // then the dragon hibernates once with level collision off, snaps to that
     // prepared position, hibernates once with collision back on, and starts
     // `stru_34652` with x_vel/y_vel word writes of `$FFFE`.
     DragonFlyingReboundStartLoc34A88 {
-        snap_x_pos: x_pos.wrapping_add(u32::from_ne_bytes(x_velocity.wrapping_neg().to_ne_bytes())),
-        snap_y_pos: y_pos.wrapping_add(u32::from_ne_bytes(y_velocity.wrapping_neg().to_ne_bytes())),
+        snap_x_pos: snap.snap_x_pos,
+        snap_y_pos: snap.snap_y_pos,
         x_velocity_during_snap: 0,
         y_velocity_during_snap: 0,
         level_collision_during_first_hibernate: false,
@@ -6548,11 +6572,12 @@ pub(crate) fn dragon_flying_right_rebound_start_loc_34ADC(
     x_velocity: i32,
     y_velocity: i32,
 ) -> DragonFlyingReboundStartLoc34A88 {
+    let snap = dragon_flying_snap_back_coords_loc_34B96(x_pos, y_pos, x_velocity, y_velocity);
     // ASM Dragon_Flying.asm loc_34ADC: same snap/hibernate sequence as
     // loc_34A88, but the rebound starts with `move.w #2,x_vel(a3)`.
     DragonFlyingReboundStartLoc34A88 {
-        snap_x_pos: x_pos.wrapping_add(u32::from_ne_bytes(x_velocity.wrapping_neg().to_ne_bytes())),
-        snap_y_pos: y_pos.wrapping_add(u32::from_ne_bytes(y_velocity.wrapping_neg().to_ne_bytes())),
+        snap_x_pos: snap.snap_x_pos,
+        snap_y_pos: snap.snap_y_pos,
         x_velocity_during_snap: 0,
         y_velocity_during_snap: 0,
         level_collision_during_first_hibernate: false,
