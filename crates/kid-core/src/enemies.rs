@@ -3816,6 +3816,38 @@ pub(crate) fn armadillo_spawned_child_resume_loc_3c91a(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ArmadilloOrdinaryResumeRouteLoc3C930 {
+    OrdinaryLeft,
+    OrdinaryRight,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArmadilloOrdinaryResumeLoc3C930 {
+    pub(crate) collision_type: u16,
+    pub(crate) next: ArmadilloOrdinaryResumeRouteLoc3C930,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_ordinary_resume_loc_3c930(
+    facing: Direction,
+) -> ArmadilloOrdinaryResumeLoc3C930 {
+    // ASM Armadillo.asm loc_3C930: ordinary Armadillos branch by
+    // `x_direction(a3)` after the shared collision-clear tail has zeroed
+    // `collision_type(a3)`.
+    let next = match facing {
+        Direction::Left => ArmadilloOrdinaryResumeRouteLoc3C930::OrdinaryLeft,
+        Direction::Right => ArmadilloOrdinaryResumeRouteLoc3C930::OrdinaryRight,
+    };
+
+    ArmadilloOrdinaryResumeLoc3C930 {
+        collision_type: 0,
+        next,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {

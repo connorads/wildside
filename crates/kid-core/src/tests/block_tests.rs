@@ -2700,6 +2700,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn armadillo_ordinary_resume_matches_loc_3c930() {
+        assert_eq!(
+            armadillo_ordinary_resume_loc_3c930(Direction::Left),
+            ArmadilloOrdinaryResumeLoc3C930 {
+                collision_type: 0,
+                next: ArmadilloOrdinaryResumeRouteLoc3C930::OrdinaryLeft,
+            },
+            "ASM Armadillo.asm loc_3C930 sends ordinary Armadillos with clear x_direction to the left shared walker"
+        );
+        assert_eq!(
+            armadillo_ordinary_resume_loc_3c930(Direction::Right),
+            ArmadilloOrdinaryResumeLoc3C930 {
+                collision_type: 0,
+                next: ArmadilloOrdinaryResumeRouteLoc3C930::OrdinaryRight,
+            },
+            "ASM Armadillo.asm loc_3C930 sends ordinary Armadillos with set x_direction to the right shared walker"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_scorpion_is_fixed() {
         // Scorpion: fixed $18000 regardless of HP.
         assert_eq!(pacer_walk_speed(EnemyFamily::Scorpion, 3), 0x0001_8000);
