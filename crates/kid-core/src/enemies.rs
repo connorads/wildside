@@ -9145,6 +9145,13 @@ pub(crate) fn fireball_sprite_link_loc_33072(sprite_table_index: u8) -> Option<&
         .copied()
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_zero_phase_expiry_loc_33070() -> u16 {
+    // ASM Fireball.asm loc_33070: when loc_3304A's five-frame countdown expires
+    // while `d2` is zero, the branch sets `d2` to one for the next sprite write.
+    1
+}
+
 fn fireball_ratio_lookup_unk_32edc(index: usize) -> i16 {
     // ASM Fireball.asm unk_32EDC: the first $3F ratio slots map to 0, 1, 2,
     // then 3; loc_32F78/loc_32FAC mirror or offset that base sprite index.
@@ -28143,6 +28150,15 @@ mod tests {
             fireball_sprite_link_loc_33072(18),
             None,
             "ASM Fireball.asm loc_33072 has no off_33026 entry past the 18 sprite links"
+        );
+    }
+
+    #[test]
+    fn fireball_zero_phase_expiry_loc_33070_sets_d2_for_the_next_write() {
+        assert_eq!(
+            fireball_zero_phase_expiry_loc_33070(),
+            1,
+            "ASM Fireball.asm loc_33070 should set d2 to one when the expired phase was zero"
         );
     }
 
