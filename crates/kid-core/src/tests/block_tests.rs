@@ -9519,6 +9519,41 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_delete_tail_loc_3bca2_deletes_after_every_status_route() {
+        let delete_tail = SpinningTwinsDeleteTailLoc3BCA2 {
+            deletes_current_object: true,
+        };
+        assert_eq!(
+            spinning_twins_delete_tail_loc_3bca2(),
+            delete_tail,
+            "ASM loc_3BCA2 should jump to j_Delete_CurrentObject"
+        );
+        assert_eq!(
+            spinning_twins_death_status_loc_3bc78(0x05),
+            SpinningTwinsDeathStatusLoc3BC78 {
+                status_route: SpinningTwinsDeathStatusRouteLoc3BC78::ClearStatusSlot(
+                    SpinningTwinsClearStatusSlotLoc3BC98 {
+                        index: 5,
+                        word_value: 0,
+                    },
+                ),
+                delete_tail,
+            },
+            "ASM loc_3BCA2 should also be reached after the positive status-slot route"
+        );
+        assert_eq!(
+            spinning_twins_death_status_loc_3bc78(0xC7).delete_tail,
+            delete_tail,
+            "ASM loc_3BCA2 should also be reached after the spawn-counter route"
+        );
+        assert_eq!(
+            spinning_twins_death_status_loc_3bc78(0x80).delete_tail,
+            delete_tail,
+            "ASM loc_3BCA2 should also be reached by the delete-only status route"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 

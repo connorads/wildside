@@ -19737,6 +19737,28 @@ pub(crate) fn spinning_twins_clear_status_slot_loc_3bc98(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsDeleteTailLoc3BCA2 {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_delete_tail_loc_3bca2() -> SpinningTwinsDeleteTailLoc3BCA2 {
+    // ASM Spinning_Twins.asm loc_3BCA2: every death-status path converges on
+    // `jmp (j_Delete_CurrentObject).w`.
+    SpinningTwinsDeleteTailLoc3BCA2 {
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsDeathStatusLoc3BC78 {
+    pub(crate) status_route: SpinningTwinsDeathStatusRouteLoc3BC78,
+    pub(crate) delete_tail: SpinningTwinsDeleteTailLoc3BCA2,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_death_status_route_loc_3bc78(
     object_status_slot: u8,
@@ -19757,6 +19779,16 @@ pub(crate) fn spinning_twins_death_status_route_loc_3bc78(
     SpinningTwinsDeathStatusRouteLoc3BC78::SubtractSpawnCounter {
         index: usize::from(object_status_slot & 0x3F),
         decrement: 0x0400,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_death_status_loc_3bc78(
+    object_status_slot: u8,
+) -> SpinningTwinsDeathStatusLoc3BC78 {
+    SpinningTwinsDeathStatusLoc3BC78 {
+        status_route: spinning_twins_death_status_route_loc_3bc78(object_status_slot),
+        delete_tail: spinning_twins_delete_tail_loc_3bca2(),
     }
 }
 
