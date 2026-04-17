@@ -5968,6 +5968,26 @@ pub(crate) fn dragon_flying_right_rebound_frame_loc_34B16(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonFlyingReboundCollisionRouteLoc34B30 {
+    DeathExplosion,
+    RestartScript,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_rebound_collision_route_loc_34B30(
+    collision_type: u16,
+) -> DragonFlyingReboundCollisionRouteLoc34B30 {
+    // ASM Dragon_Flying.asm loc_34B30: only `$2C` and `$1C` branch to
+    // the death/explosion path; all other non-zero collision words restart.
+    match collision_type {
+        0x002C | 0x001C => DragonFlyingReboundCollisionRouteLoc34B30::DeathExplosion,
+        _ => DragonFlyingReboundCollisionRouteLoc34B30::RestartScript,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,

@@ -6296,6 +6296,30 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34b30_routes_only_selected_rebound_collisions_to_death() {
+        assert_eq!(
+            dragon_flying_rebound_collision_route_loc_34B30(0x001C),
+            DragonFlyingReboundCollisionRouteLoc34B30::DeathExplosion,
+            "ASM Dragon_Flying.asm loc_34B30 sends collision `$1C` to loc_3492C"
+        );
+        assert_eq!(
+            dragon_flying_rebound_collision_route_loc_34B30(0x002C),
+            DragonFlyingReboundCollisionRouteLoc34B30::DeathExplosion,
+            "ASM Dragon_Flying.asm loc_34B30 sends collision `$2C` to loc_3492C"
+        );
+        assert_eq!(
+            dragon_flying_rebound_collision_route_loc_34B30(0x0004),
+            DragonFlyingReboundCollisionRouteLoc34B30::RestartScript,
+            "ASM Dragon_Flying.asm loc_34B30 restarts the script for ordinary terrain collision words"
+        );
+        assert_eq!(
+            dragon_flying_rebound_collision_route_loc_34B30(0xFFFF),
+            DragonFlyingReboundCollisionRouteLoc34B30::RestartScript,
+            "ASM Dragon_Flying.asm loc_34B30 has no negative-collision special case before restarting the script"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_34998_writes_respawn_marker_for_positive_slot() {
         assert_eq!(
             dragon_flying_respawn_marker_loc_34998(0x07),
