@@ -12906,6 +12906,25 @@ pub(crate) fn ninja_kid_above_contact_loc_3da98(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaCeilingContactStateLoc3DAB0 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) y_velocity: i32,
+    pub(crate) loops_airborne: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_ceiling_contact_loc_3dab0(y_velocity: i32) -> NinjaCeilingContactStateLoc3DAB0 {
+    // ASM Ninja.asm loc_3DAB0: clear `collision_type(a3)`, negate `y_vel(a3)`,
+    // then branch back to loc_3D9DA.
+    NinjaCeilingContactStateLoc3DAB0 {
+        next_collision_type: 0,
+        y_velocity: y_velocity.wrapping_neg(),
+        loops_airborne: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionResumeLoc3D638 {
     /// ASM Ninja.asm loc_3E7CA: `beq.w loc_3E7CA` path (left-facing).
     Loc3E7CA,
@@ -30680,6 +30699,29 @@ mod tests {
                 route: NinjaKidAboveContactRouteLoc3DA98::ContinueAirborneLoop,
             },
             "ASM Ninja.asm loc_3DA98 uses word wrapping arithmetic, so zero underflows and keeps the airborne loop"
+        );
+    }
+
+    #[test]
+    fn ninja_ceiling_contact_loc_3dab0_clears_collision_and_reflects_y_velocity() {
+        assert_eq!(
+            ninja_ceiling_contact_loc_3dab0(-0x0002_4000),
+            NinjaCeilingContactStateLoc3DAB0 {
+                next_collision_type: 0,
+                y_velocity: 0x0002_4000,
+                loops_airborne: true,
+            },
+            "ASM Ninja.asm loc_3DAB0 should clear collision_type, negate upward y_vel, and branch back to loc_3D9DA"
+        );
+
+        assert_eq!(
+            ninja_ceiling_contact_loc_3dab0(0x0000_8000),
+            NinjaCeilingContactStateLoc3DAB0 {
+                next_collision_type: 0,
+                y_velocity: -0x0000_8000,
+                loops_airborne: true,
+            },
+            "ASM Ninja.asm loc_3DAB0 should use signed neg.l behaviour for positive y_vel too"
         );
     }
 
