@@ -8361,6 +8361,36 @@ pub(crate) fn ufo_hurt_driver_berzerker_charge_fall_loc_35788(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverStopTailLoc357C2 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) has_level_collision: bool,
+    pub(crate) animation: &'static str,
+    pub(crate) enters_falling_loop: bool,
+    pub(crate) waits_for_animation_before_delete: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_stop_tail_loc_357C2(
+    init_animation_result: i16,
+) -> UfoHurtDriverStopTailLoc357C2 {
+    // ASM UFO.asm loc_357C2: clear both velocity longwords, clear
+    // `has_level_collision(a3)`, initialise `stru_34CAE`, and use the returned
+    // d0 word to choose between entering the falling loop or waiting for the
+    // animation to finish before deleting the object.
+    UfoHurtDriverStopTailLoc357C2 {
+        x_velocity: 0,
+        y_velocity: 0,
+        has_level_collision: false,
+        animation: "stru_34CAE",
+        enters_falling_loop: init_animation_result != 0,
+        waits_for_animation_before_delete: init_animation_result == 0,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
     collision_type: i16,

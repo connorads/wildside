@@ -6672,6 +6672,37 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_hurt_driver_stop_tail_matches_loc_357c2() {
+        use enemies::{UfoHurtDriverStopTailLoc357C2, ufo_hurt_driver_stop_tail_loc_357C2};
+
+        assert_eq!(
+            ufo_hurt_driver_stop_tail_loc_357C2(1),
+            UfoHurtDriverStopTailLoc357C2 {
+                x_velocity: 0,
+                y_velocity: 0,
+                has_level_collision: false,
+                animation: "stru_34CAE",
+                enters_falling_loop: true,
+                waits_for_animation_before_delete: false,
+            },
+            "ASM UFO.asm loc_357C2 clears both velocities and enters the falling loop when j_Init_Animation returns non-zero"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_stop_tail_loc_357C2(0),
+            UfoHurtDriverStopTailLoc357C2 {
+                x_velocity: 0,
+                y_velocity: 0,
+                has_level_collision: false,
+                animation: "stru_34CAE",
+                enters_falling_loop: false,
+                waits_for_animation_before_delete: true,
+            },
+            "ASM UFO.asm loc_357C2 waits for the animation to finish before object deletion when j_Init_Animation returns zero"
+        );
+    }
+
+    #[test]
     fn tornado_loads_rom_pattern_on_timer_expiry() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
         enemy.wait_timer = 0;
