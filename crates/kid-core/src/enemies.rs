@@ -9128,9 +9128,28 @@ pub(crate) fn tornado_collision_dispatch_loc_35948(
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TornadoHitStatusRouteLoc359B2 {
-    WriteRespawnMarker { index: usize, word_value: u16 },
+    WriteRespawnMarker(TornadoRespawnMarkerLoc359E0),
     SubtractSpawnCounter { index: usize, decrement: u16 },
     DeleteOnly,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TornadoRespawnMarkerLoc359E0 {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tornado_respawn_marker_loc_359e0(
+    object_status_slot: u8,
+) -> TornadoRespawnMarkerLoc359E0 {
+    // ASM Tornado.asm loc_359E0: positive `$42(a5)` doubles as an
+    // EnemyStatus_Table word offset, then writes `$2168`.
+    TornadoRespawnMarkerLoc359E0 {
+        index: usize::from(object_status_slot),
+        word_value: 0x2168,
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -9145,10 +9164,9 @@ pub(crate) fn tornado_hit_sequence_loc_359b2(object_status_slot: u8) -> TornadoH
     // ASM Tornado.asm loc_359B2: play `stru_35B1E`, hibernate until it
     // finishes, then inspect `$42(a5)` to choose the status-table update.
     let status_route = if object_status_slot & 0x80 == 0 {
-        TornadoHitStatusRouteLoc359B2::WriteRespawnMarker {
-            index: usize::from(object_status_slot),
-            word_value: 0x2168,
-        }
+        TornadoHitStatusRouteLoc359B2::WriteRespawnMarker(tornado_respawn_marker_loc_359e0(
+            object_status_slot,
+        ))
     } else if object_status_slot & 0x40 != 0 {
         TornadoHitStatusRouteLoc359B2::SubtractSpawnCounter {
             index: usize::from(object_status_slot & 0x3F),

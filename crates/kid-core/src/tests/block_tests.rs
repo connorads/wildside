@@ -7465,17 +7465,19 @@ mod chunk_04 {
     fn tornado_hit_sequence_loc_359b2_routes_status_slot() {
         use enemies::{
             TornadoHitSequenceLoc359B2, TornadoHitStatusRouteLoc359B2,
-            tornado_hit_sequence_loc_359b2,
+            TornadoRespawnMarkerLoc359E0, tornado_hit_sequence_loc_359b2,
         };
 
         assert_eq!(
             tornado_hit_sequence_loc_359b2(0x05),
             TornadoHitSequenceLoc359B2 {
                 waits_for_hit_animation: true,
-                status_route: TornadoHitStatusRouteLoc359B2::WriteRespawnMarker {
-                    index: 5,
-                    word_value: 0x2168,
-                },
+                status_route: TornadoHitStatusRouteLoc359B2::WriteRespawnMarker(
+                    TornadoRespawnMarkerLoc359E0 {
+                        index: 5,
+                        word_value: 0x2168,
+                    },
+                ),
             },
             "ASM Tornado.asm loc_359B2 branches on non-negative `$42(a5)` after the hit animation",
         );
@@ -7497,6 +7499,20 @@ mod chunk_04 {
                 status_route: TornadoHitStatusRouteLoc359B2::DeleteOnly,
             },
             "ASM Tornado.asm loc_359B2 skips the status table when negative `$42(a5)` has bit 6 clear",
+        );
+    }
+
+    #[test]
+    fn tornado_respawn_marker_loc_359e0_writes_status_word() {
+        use enemies::{TornadoRespawnMarkerLoc359E0, tornado_respawn_marker_loc_359e0};
+
+        assert_eq!(
+            tornado_respawn_marker_loc_359e0(0x12),
+            TornadoRespawnMarkerLoc359E0 {
+                index: 0x12,
+                word_value: 0x2168,
+            },
+            "ASM Tornado.asm loc_359E0 writes `$2168` to EnemyStatus_Table[$42(a5)] before deletion",
         );
     }
 
