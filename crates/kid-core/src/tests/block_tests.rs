@@ -8022,6 +8022,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_landing_wait_matches_loc_3d44a() {
+        assert_eq!(
+            orca_landing_wait_loc_3d44a(ORCA_LANDING_WAIT_DBF_SEED_LOC_3D44A),
+            OrcaLandingWaitLoc3D44A {
+                hibernate_frames: 6,
+                is_animated: true,
+                animation_script: "stru_3D0A2",
+                next_worker: "loc_3D21E",
+            },
+            "ASM Orca.asm loc_3D44A should wait six hibernated frames from d1=5 before restoring animation"
+        );
+        assert_eq!(
+            orca_landing_wait_loc_3d44a(0).hibernate_frames,
+            1,
+            "ASM Orca.asm loc_3D44A DBF loop should execute once when d1 starts at zero"
+        );
+    }
+
+    #[test]
     fn orca_ignores_distant_player() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

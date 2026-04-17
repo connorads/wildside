@@ -1139,6 +1139,31 @@ pub(crate) fn orca_lunge_collision_dispatch_loc_3d35a(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const ORCA_LANDING_WAIT_DBF_SEED_LOC_3D44A: u8 = 5;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaLandingWaitLoc3D44A {
+    pub(crate) hibernate_frames: u8,
+    pub(crate) is_animated: bool,
+    pub(crate) animation_script: &'static str,
+    pub(crate) next_worker: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_landing_wait_loc_3d44a(dbf_seed: u8) -> OrcaLandingWaitLoc3D44A {
+    // ASM Orca.asm loc_3D44A: `dbf d1,loc_3D44A` hibernates
+    // `d1 + 1` frames, then `st is_animated(a3)`, initialises `stru_3D0A2`,
+    // and stores `loc_3D21E` as the worker callback.
+    OrcaLandingWaitLoc3D44A {
+        hibernate_frames: dbf_seed.saturating_add(1),
+        is_animated: true,
+        animation_script: "stru_3D0A2",
+        next_worker: "loc_3D21E",
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
