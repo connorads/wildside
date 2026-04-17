@@ -15079,6 +15079,55 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3bf02_driller_collision_dispatch_routes_stomp_hp_and_death() {
+        assert_eq!(
+            driller_collision_dispatch_loc_3bf02(0, 3),
+            DrillerCollisionDispatchLoc3BF02 {
+                next_collision_type: 0,
+                next_current_hp: 3,
+                route: DrillerCollisionRouteLoc3BF02::Continue,
+            },
+            "ASM Driller.asm loc_3BF02 branches to loc_3BF66 immediately when collision_type is zero",
+        );
+        assert_eq!(
+            driller_collision_dispatch_loc_3bf02(0x0020, 3),
+            DrillerCollisionDispatchLoc3BF02 {
+                next_collision_type: 0,
+                next_current_hp: 3,
+                route: DrillerCollisionRouteLoc3BF02::Continue,
+            },
+            "ASM Driller.asm loc_3BF02 clears positive non-kidabove collision words before continuing",
+        );
+        assert_eq!(
+            driller_collision_dispatch_loc_3bf02(DRILLER_COLID_KIDABOVE as i16, 2),
+            DrillerCollisionDispatchLoc3BF02 {
+                next_collision_type: 0,
+                next_current_hp: 1,
+                route: DrillerCollisionRouteLoc3BF02::HurtAnimation,
+            },
+            "ASM Driller.asm loc_3BF02 decrements current_hp for colid_kidabove and uses loc_3BF4E while HP remains",
+        );
+        assert_eq!(
+            driller_collision_dispatch_loc_3bf02(DRILLER_COLID_KIDABOVE as i16, 1),
+            DrillerCollisionDispatchLoc3BF02 {
+                next_collision_type: 0,
+                next_current_hp: 0,
+                route: DrillerCollisionRouteLoc3BF02::DeathAnimation,
+            },
+            "ASM Driller.asm loc_3BF02 falls through to loc_3BF1C when the stomp decrement reaches zero",
+        );
+        assert_eq!(
+            driller_collision_dispatch_loc_3bf02(-1, 2),
+            DrillerCollisionDispatchLoc3BF02 {
+                next_collision_type: 0xFFFF,
+                next_current_hp: 2,
+                route: DrillerCollisionRouteLoc3BF02::DeathAnimation,
+            },
+            "ASM Driller.asm loc_3BF02 sends negative collision words to loc_3BF1C before clearing or decrementing HP",
+        );
+    }
+
+    #[test]
     fn loc_3c026_wall_turnaround_clears_velocity_and_faces_right() {
         // ASM loc_3C026 (kid.asm:43493-43498): rightward wall collision path —
         //   clr.l x_vel(a3); clr.l y_vel(a3); st x_direction(a3)

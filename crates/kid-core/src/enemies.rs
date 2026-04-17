@@ -329,6 +329,7 @@ pub(crate) const ORCA_COLID_KIDABOVE: i16 = 0x002C;
 pub(crate) const FIRE_DEMON_COLID_HURT: i16 = 0x001C;
 pub(crate) const FIRE_DEMON_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const FIRE_DEMON_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const DRILLER_COLID_KIDABOVE: u16 = 0x002C;
 const CRAB_COLID_RIGHTWALL: u16 = 0x0004;
 const CRAB_COLID_LEFTWALL: u16 = 0x0008;
 const CRAB_COLID_SLOPEUP: u16 = 0x0014;
@@ -12427,6 +12428,66 @@ pub(crate) fn driller_block_drill_action_loc_3bede(
         // IceBlock_SmashAndLoadBullets.
         terrain::BlockType::Ice => DrillerBlockDrillActionLoc3BEDE::IceBullets,
         _ => DrillerBlockDrillActionLoc3BEDE::None,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DrillerCollisionRouteLoc3BF02 {
+    Continue,
+    HurtAnimation,
+    DeathAnimation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DrillerCollisionDispatchLoc3BF02 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) next_current_hp: u16,
+    pub(crate) route: DrillerCollisionRouteLoc3BF02,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn driller_collision_dispatch_loc_3bf02(
+    collision_type: i16,
+    current_hp: u16,
+) -> DrillerCollisionDispatchLoc3BF02 {
+    // ASM Driller.asm loc_3BF02: zero collision continues immediately;
+    // negative words branch to loc_3BF1C before `clr.w collision_type(a3)`.
+    if collision_type == 0 {
+        return DrillerCollisionDispatchLoc3BF02 {
+            next_collision_type: 0,
+            next_current_hp: current_hp,
+            route: DrillerCollisionRouteLoc3BF02::Continue,
+        };
+    }
+
+    if collision_type.is_negative() {
+        return DrillerCollisionDispatchLoc3BF02 {
+            next_collision_type: u16::from_ne_bytes(collision_type.to_ne_bytes()),
+            next_current_hp: current_hp,
+            route: DrillerCollisionRouteLoc3BF02::DeathAnimation,
+        };
+    }
+
+    let collision_word = u16::from_ne_bytes(collision_type.to_ne_bytes());
+    if collision_word != DRILLER_COLID_KIDABOVE {
+        return DrillerCollisionDispatchLoc3BF02 {
+            next_collision_type: 0,
+            next_current_hp: current_hp,
+            route: DrillerCollisionRouteLoc3BF02::Continue,
+        };
+    }
+
+    let next_current_hp = current_hp.wrapping_sub(1);
+    DrillerCollisionDispatchLoc3BF02 {
+        next_collision_type: 0,
+        next_current_hp,
+        route: if next_current_hp == 0 {
+            DrillerCollisionRouteLoc3BF02::DeathAnimation
+        } else {
+            DrillerCollisionRouteLoc3BF02::HurtAnimation
+        },
     }
 }
 
