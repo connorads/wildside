@@ -728,6 +728,27 @@ pub(crate) fn crab_reflect_y_velocity_loc_3b204(y_velocity: i32) -> i32 {
     i32::from_ne_bytes(0u32.wrapping_sub(half_y_unsigned).to_ne_bytes())
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CrabNegativeSlopeRouteLoc3B212 {
+    ReflectYVelocity,
+    GravityTail,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_negative_slope_route_loc_3b212(
+    collision_type: u16,
+) -> CrabNegativeSlopeRouteLoc3B212 {
+    // ASM Crab.asm loc_3B212: negative x_vel compares d4 with `$18`
+    // (slope-down). Exact slope-down falls into the gravity tail; all other
+    // slope contacts branch back to loc_3B204 for y-velocity reflection.
+    if collision_type == CRAB_COLID_SLOPEDOWN {
+        CrabNegativeSlopeRouteLoc3B212::GravityTail
+    } else {
+        CrabNegativeSlopeRouteLoc3B212::ReflectYVelocity
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_slope_collision_response_loc_3b1f8(
     collision_type: u16,
@@ -741,8 +762,13 @@ pub(crate) fn crab_slope_collision_response_loc_3b1f8(
         return CrabSlopeCollisionRouteLoc3B1F8::ReverseXVelocity;
     }
 
-    if x_velocity < 0 && collision_type == CRAB_COLID_SLOPEDOWN {
-        return CrabSlopeCollisionRouteLoc3B1F8::GravityTail;
+    if x_velocity < 0 {
+        match crab_negative_slope_route_loc_3b212(collision_type) {
+            CrabNegativeSlopeRouteLoc3B212::GravityTail => {
+                return CrabSlopeCollisionRouteLoc3B1F8::GravityTail;
+            }
+            CrabNegativeSlopeRouteLoc3B212::ReflectYVelocity => {}
+        }
     }
 
     CrabSlopeCollisionRouteLoc3B1F8::ReflectYVelocity {
@@ -20664,6 +20690,21 @@ mod tests {
             crab_reflect_y_velocity_loc_3b204(-0x0002_0000),
             -0x7FFF_0000,
             "ASM Crab.asm loc_3B204 uses `lsr.l`, so negative y_vel is halved as unsigned before negation"
+        );
+    }
+
+    #[test]
+    fn crab_negative_slope_route_matches_loc_3b212() {
+        assert_eq!(
+            crab_negative_slope_route_loc_3b212(CRAB_COLID_SLOPEDOWN),
+            CrabNegativeSlopeRouteLoc3B212::GravityTail,
+            "ASM Crab.asm loc_3B212 should fall through to the gravity tail only for collision `$18`"
+        );
+
+        assert_eq!(
+            crab_negative_slope_route_loc_3b212(CRAB_COLID_SLOPEUP),
+            CrabNegativeSlopeRouteLoc3B212::ReflectYVelocity,
+            "ASM Crab.asm loc_3B212 should branch to loc_3B204 for non-`$18` slope contact"
         );
     }
 
