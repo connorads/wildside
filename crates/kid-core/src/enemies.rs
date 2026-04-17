@@ -9809,6 +9809,34 @@ pub(crate) fn sphere_delete_tail_loc_36096() -> SphereDeleteTailLoc36096 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SphereChildLoopStepLoc360F4 {
+    Delete,
+    CheckCollision,
+    Continue { frames_until_collision_check: u16 },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sphere_child_loop_step_loc_360F4(
+    delete_flag_set: bool,
+    frames_until_collision_check: u16,
+) -> SphereChildLoopStepLoc360F4 {
+    // ASM Sphere.asm loc_360F4: after `j_Hibernate_Object_1Frame`, `$19(a3)`
+    // wins first; otherwise d0 either reaches the collision check or decrements
+    // and loops for another frame.
+    if delete_flag_set {
+        SphereChildLoopStepLoc360F4::Delete
+    } else if frames_until_collision_check == 0 {
+        SphereChildLoopStepLoc360F4::CheckCollision
+    } else {
+        SphereChildLoopStepLoc360F4::Continue {
+            frames_until_collision_check: frames_until_collision_check - 1,
+        }
+    }
+}
+
 /// Fireball max upward velocity indexed by live HP
 /// (Fireball.asm `Enemy19_Fireball_Init`: `move.w 2(a0),d7; asl.w #3,d7` into `unk_32BA6`).
 /// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
@@ -30050,6 +30078,27 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Sphere.asm loc_36096 should jump directly to `j_Delete_CurrentObject` after death-status handling"
+        );
+    }
+
+    #[test]
+    fn sphere_child_loop_loc_360f4_hibernates_then_prioritises_delete_flag() {
+        assert_eq!(
+            sphere_child_loop_step_loc_360F4(true, 6),
+            SphereChildLoopStepLoc360F4::Delete,
+            "ASM Sphere.asm loc_360F4 tests `$19(a3)` before consuming the d0 grace counter"
+        );
+        assert_eq!(
+            sphere_child_loop_step_loc_360F4(false, 6),
+            SphereChildLoopStepLoc360F4::Continue {
+                frames_until_collision_check: 5,
+            },
+            "ASM Sphere.asm loc_360F4 decrements non-zero d0 and resumes its one-frame hibernate loop"
+        );
+        assert_eq!(
+            sphere_child_loop_step_loc_360F4(false, 0),
+            SphereChildLoopStepLoc360F4::CheckCollision,
+            "ASM Sphere.asm loc_360F4 falls through to the collision check only when d0 is already zero"
         );
     }
 
