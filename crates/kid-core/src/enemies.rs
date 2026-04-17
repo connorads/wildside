@@ -20134,6 +20134,34 @@ pub(crate) fn tank_shooting_damage_after_hit_loc_3b6de(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TankShootingResumeWalkBranchLoc3B720 {
+    LeftSharedWalker,
+    RightSharedWalker,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TankShootingResumeWalkLoc3B720 {
+    pub(crate) next_child_collision_type: u16,
+    pub(crate) branch: TankShootingResumeWalkBranchLoc3B720,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_shooting_resume_walk_loc_3b720(
+    x_direction: u8,
+) -> TankShootingResumeWalkLoc3B720 {
+    // ASM Tank_Shooting.asm loc_3B720: clear turret child `$38(a2)`, then
+    // branch by `x_direction(a3)`; zero enters loc_3C0FA, nonzero loc_3C04E.
+    TankShootingResumeWalkLoc3B720 {
+        next_child_collision_type: 0,
+        branch: if x_direction == 0 {
+            TankShootingResumeWalkBranchLoc3B720::LeftSharedWalker
+        } else {
+            TankShootingResumeWalkBranchLoc3B720::RightSharedWalker
+        },
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TankShootingInitWalkerEntryLoc3B690 {
     LeftLoc3C0D2,
     RightLoc3C026,
@@ -22809,6 +22837,26 @@ mod tests {
             tank_shooting_damage_after_hit_loc_3b6de(3),
             TankShootingDamageRouteLoc3B6DE::Hurt { remaining_hp: 2 },
             "ASM Tank_Shooting.asm loc_3B6DE should branch to the hurt path when decremented current_hp remains nonzero",
+        );
+    }
+
+    #[test]
+    fn tank_shooting_resume_walk_loc_3b720_clears_child_collision_and_branches() {
+        assert_eq!(
+            tank_shooting_resume_walk_loc_3b720(0),
+            TankShootingResumeWalkLoc3B720 {
+                next_child_collision_type: 0,
+                branch: TankShootingResumeWalkBranchLoc3B720::LeftSharedWalker,
+            },
+            "ASM Tank_Shooting.asm loc_3B720 should clear turret child `$38` and branch clear x_direction to loc_3C0FA",
+        );
+        assert_eq!(
+            tank_shooting_resume_walk_loc_3b720(0xFF),
+            TankShootingResumeWalkLoc3B720 {
+                next_child_collision_type: 0,
+                branch: TankShootingResumeWalkBranchLoc3B720::RightSharedWalker,
+            },
+            "ASM Tank_Shooting.asm loc_3B720 should branch any nonzero x_direction to loc_3C04E after clearing turret child `$38`",
         );
     }
 
