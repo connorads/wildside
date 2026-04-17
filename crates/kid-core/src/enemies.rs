@@ -3942,6 +3942,25 @@ pub(crate) fn diamond_low_hp_collision_dispatch_loc_3aec4(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondLowHpDeathAnimationLoc3AEE6 {
+    pub(crate) animation_script: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) deletes_enemy: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_low_hp_death_animation_loc_3aee6() -> DiamondLowHpDeathAnimationLoc3AEE6 {
+    // ASM Diamond.asm loc_3AEE6: initialise `stru_3ACC4`, hibernate until the
+    // death animation finishes, then branch to shared enemy deletion.
+    DiamondLowHpDeathAnimationLoc3AEE6 {
+        animation_script: "stru_3ACC4",
+        waits_until_animation_finished: true,
+        deletes_enemy: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonInitAnimation {
     pub(crate) collision_routine: &'static str,
     pub(crate) animation_script: &'static str,
@@ -20861,6 +20880,19 @@ mod tests {
                 next_collision_type: 0,
             },
             "ASM Diamond.asm loc_3AEC4 should ignore unknown positive collision IDs and resume walking",
+        );
+    }
+
+    #[test]
+    fn diamond_low_hp_death_animation_loc_3aee6_waits_then_deletes() {
+        assert_eq!(
+            diamond_low_hp_death_animation_loc_3aee6(),
+            DiamondLowHpDeathAnimationLoc3AEE6 {
+                animation_script: "stru_3ACC4",
+                waits_until_animation_finished: true,
+                deletes_enemy: true,
+            },
+            "ASM Diamond.asm loc_3AEE6 should play the death animation to completion before shared deletion",
         );
     }
 
