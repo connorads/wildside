@@ -106,7 +106,7 @@ pub(crate) fn lion_init_visible_state_loc_3df92(
 
     LionInitVisibleState {
         status_flag_13: true,
-        object_meta: 0x0012 | 0x0080,
+        object_meta: 0x0092,
         palette_line: 2,
         current_hp: enemy_level.wrapping_add(6),
         facing,
@@ -407,6 +407,8 @@ pub(crate) fn crab_init_visible_state_loc_3afd0(enemy_level: u8) -> CrabInitVisi
 
 const ROCK_TANK_OBJECT_ID: u16 = 0x000A;
 const ROCK_TANK_SHOOTING_OBJECT_ID: u16 = 0x000B;
+const ROCK_TANK_VISIBLE_OBJECT_META: u16 = 0x008A;
+const ROCK_TANK_SHOOTING_VISIBLE_OBJECT_META: u16 = 0x008B;
 const ROCK_TANK_ART_PALETTE_LINES: [u8; 3] = [1, 2, 2];
 const ROCK_TANK_ART_VRAM_TILE_ADDRESSES: [u16; 3] = [0x02FB, 0x0409, 0x0517];
 
@@ -460,7 +462,7 @@ pub(crate) fn tank_init_visible_state_loc_3b31e(
     let current_hp = spawn_hit_points(EnemyFamily::Tank, enemy_level);
     TankInitVisibleStateLoc3B31E {
         status_flag_13: true,
-        object_meta: ROCK_TANK_OBJECT_ID | 0x0080,
+        object_meta: ROCK_TANK_VISIBLE_OBJECT_META,
         art_slot_word: slot_index.wrapping_mul(2),
         palette_line: ROCK_TANK_ART_PALETTE_LINES[slot],
         vram_tile: ROCK_TANK_ART_VRAM_TILE_ADDRESSES[slot],
@@ -502,7 +504,7 @@ pub(crate) fn tank_shooting_init_visible_state_loc_3b5a6(
     let current_hp = spawn_hit_points(EnemyFamily::TankShooting, enemy_level);
     TankShootingInitVisibleStateLoc3B5A6 {
         status_flag_13: true,
-        object_meta: ROCK_TANK_SHOOTING_OBJECT_ID | 0x0080,
+        object_meta: ROCK_TANK_SHOOTING_VISIBLE_OBJECT_META,
         art_slot_word: slot_index.wrapping_mul(2),
         palette_line: ROCK_TANK_ART_PALETTE_LINES[slot],
         vram_tile: ROCK_TANK_ART_VRAM_TILE_ADDRESSES[slot],
@@ -1553,15 +1555,6 @@ pub(crate) fn lion_collision_response_loc_3e318(
     }
 
     match collision_type as u16 {
-        0 => {
-            let next = match (post_charge_state, x_direction_right) {
-                (true, true) => LionCollisionResumeLoc3E318::Loc3E6AE,
-                (true, false) => LionCollisionResumeLoc3E318::Loc3E7CA,
-                (false, true) => LionCollisionResumeLoc3E318::Loc3E3AC,
-                (false, false) => LionCollisionResumeLoc3E318::Loc3E560,
-            };
-            LionCollisionLoc3E318::Continue { next }
-        }
         LION_COLID_KIDABOVE | LION_COLID_HURT => {
             let remaining_hp = current_hp.wrapping_sub(1);
             if remaining_hp == 0 {
@@ -23716,6 +23709,13 @@ mod tests {
             },
             "ASM Crab.asm loc_3B1F8 should reflect y_vel for non-negative x_vel on slope-down"
         );
+        assert_eq!(
+            crab_slope_collision_response_loc_3b1f8(CRAB_COLID_SLOPEDOWN, 0, 0x0002_0000,),
+            CrabSlopeCollisionRouteLoc3B1F8::ReflectYVelocity {
+                y_velocity: -0x0001_0000,
+            },
+            "ASM Crab.asm loc_3B1F8 should treat zero x_vel as the non-negative slope-down reflection path"
+        );
 
         assert_eq!(
             crab_slope_collision_response_loc_3b1f8(CRAB_COLID_SLOPEUP, -0x0000_8000, -0x0002_0000,),
@@ -23776,6 +23776,16 @@ mod tests {
                 route: CrabGravityAccelerationRouteLoc3B226::NegativeXVelocityTail,
             },
             "ASM Crab.asm loc_3B226 should still add gravity before branching on negative x_vel"
+        );
+        assert_eq!(
+            crab_gravity_acceleration_tail_loc_3b226(0, 0x0002_0000),
+            CrabGravityAccelerationTailLoc3B226 {
+                y_velocity: 0x0002_4000,
+                route: CrabGravityAccelerationRouteLoc3B226::NonNegativeXVelocity {
+                    x_velocity: 0x0000_4000,
+                },
+            },
+            "ASM Crab.asm loc_3B226 should treat zero x_vel as the non-negative acceleration branch"
         );
     }
 
@@ -24188,6 +24198,89 @@ mod tests {
                 launch_facing: Direction::Right,
             },
             "ASM Orca.asm loc_3D2F4 should accept the inclusive $30 boundary without re-facing"
+        );
+    }
+
+    #[test]
+    fn orca_lunge_velocity_matches_loc_3d340_and_loc_3d3d2() {
+        assert_eq!(
+            orca_lunge_x_velocity_loc_3d340(Direction::Left),
+            -ORCA_LUNGE_X_SPEED,
+            "ASM Orca.asm loc_3D340 should launch clear x_direction left at -$30000"
+        );
+        assert_eq!(
+            orca_lunge_x_velocity_loc_3d340(Direction::Right),
+            ORCA_LUNGE_X_SPEED,
+            "ASM Orca.asm loc_3D340 should launch set x_direction right at +$30000"
+        );
+        assert_eq!(
+            orca_lunge_right_x_velocity_loc_3d3d2(ORCA_LUNGE_X_SPEED),
+            ORCA_LUNGE_X_SPEED + ORCA_LUNGE_X_ACCEL,
+            "ASM Orca.asm loc_3D3D2 should add `$200` to the right-facing lunge velocity"
+        );
+    }
+
+    #[test]
+    fn orca_lunge_collision_dispatch_matches_loc_3d35a() {
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(0),
+            OrcaLungeCollisionRouteLoc3D35A::GravityAndAcceleration,
+            "ASM Orca.asm loc_3D35A should continue gravity/acceleration when collision_type is zero"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_FLOOR),
+            OrcaLungeCollisionRouteLoc3D35A::FloorLanding,
+            "ASM Orca.asm loc_3D35A should route floor collision to the landing path"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_RIGHTWALL),
+            OrcaLungeCollisionRouteLoc3D35A::WallBounce,
+            "ASM Orca.asm loc_3D35A should route right-wall collision to wall bounce"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_LEFTWALL),
+            OrcaLungeCollisionRouteLoc3D35A::WallBounce,
+            "ASM Orca.asm loc_3D35A should route left-wall collision to wall bounce"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_CEILING),
+            OrcaLungeCollisionRouteLoc3D35A::CeilingBounce,
+            "ASM Orca.asm loc_3D35A should route ceiling collision to vertical bounce"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_SLOPEUP),
+            OrcaLungeCollisionRouteLoc3D35A::SlopeRelaunch,
+            "ASM Orca.asm loc_3D35A should relaunch on slope-up contact"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_SLOPEDOWN),
+            OrcaLungeCollisionRouteLoc3D35A::SlopeRelaunch,
+            "ASM Orca.asm loc_3D35A should relaunch on slope-down contact"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_HURT),
+            OrcaLungeCollisionRouteLoc3D35A::Damage,
+            "ASM Orca.asm loc_3D35A should route hurt collision to damage"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_KIDABOVE),
+            OrcaLungeCollisionRouteLoc3D35A::Damage,
+            "ASM Orca.asm loc_3D35A should route Kid-above collision to damage"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_KIDRIGHT),
+            OrcaLungeCollisionRouteLoc3D35A::BerzerkerSideGate,
+            "ASM Orca.asm loc_3D35A should gate right-side Kid contact on Berzerker charge"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_KIDLEFT),
+            OrcaLungeCollisionRouteLoc3D35A::BerzerkerSideGate,
+            "ASM Orca.asm loc_3D35A should gate left-side Kid contact on Berzerker charge"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(0x0030),
+            OrcaLungeCollisionRouteLoc3D35A::GravityAndAcceleration,
+            "ASM Orca.asm loc_3D35A should ignore unrecognised positive collision IDs"
         );
     }
 
@@ -29551,6 +29644,11 @@ mod tests {
             "ASM Lion.asm loc_3DF92 should preserve zero x_direction when the signed compare finds Kid left of Lion"
         );
         assert_eq!(
+            lion_init_visible_state_loc_3df92(0, 0x0200, 0x0200).facing,
+            Direction::Right,
+            "ASM Lion.asm loc_3DF92 should set x_direction when the signed spawn-facing compare is equal"
+        );
+        assert_eq!(
             lion_init_visible_state_loc_3df92(0, 0x7FFF, 0x8000).facing,
             Direction::Left,
             "ASM Lion.asm loc_3DF92 inherits the signed word `blt` spawn-facing compare"
@@ -29674,6 +29772,14 @@ mod tests {
             },
             "ASM Lion.asm loc_3E066 should clear `$4E(a5)` and keep non-negative d4 facing toward Kid on the left"
         );
+        assert_eq!(
+            lion_clear_tracking_latch_loc_3e066(0x0200, 0x0200),
+            LionLatchClearResult {
+                range_latch_set: false,
+                facing: Direction::Left,
+            },
+            "ASM Lion.asm loc_3E066 should treat zero d4 as the non-negative clear-x_direction path"
+        );
     }
 
     #[test]
@@ -29701,6 +29807,11 @@ mod tests {
             lion_track_kid_negative_delta_facing_loc_3e074(0x7FFF, 0x8000),
             Direction::Right,
             "ASM Lion.asm loc_3E074 inherits 68k signed-word comparison semantics across the sign boundary"
+        );
+        assert_eq!(
+            lion_track_kid_negative_delta_facing_loc_3e074(0x0200, 0x0200),
+            Direction::Left,
+            "ASM Lion.asm loc_3E074 should not take the negative branch when d4 is zero"
         );
     }
 
@@ -29744,6 +29855,17 @@ mod tests {
                 active_projectile_count_delta: 1,
             },
             "ASM Lion.asm loc_3E09E should choose the clear x_direction orientation when Kid is not to the right"
+        );
+        assert_eq!(
+            lion_roar_wait_dispatch_loc_3e09e(0, true, 0x0200, 0x0200),
+            LionRoarWaitDispatch::ReadyToFire {
+                next_collision_type: 0,
+                facing: Direction::Left,
+                projectile_worker_selector: 0x8000,
+                projectile_worker: "LionProjectileWorker",
+                active_projectile_count_delta: 1,
+            },
+            "ASM Lion.asm loc_3E09E should keep clear x_direction when Kid and Lion share the same x word"
         );
     }
 
