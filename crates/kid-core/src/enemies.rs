@@ -15547,6 +15547,40 @@ pub(crate) fn robot_shoot_lethal_hit_loc_3ab56(facing: Direction) -> RobotShootL
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShotSpawnLoc3AC0C {
+    pub(crate) projectile_x_direction: u8,
+    pub(crate) projectile_x_velocity: i32,
+    pub(crate) projectile_x_delta_px: i16,
+    pub(crate) projectile_y_delta_px: i16,
+    pub(crate) animation_label: &'static str,
+    pub(crate) hibernates_one_frame_before_sound_gate: bool,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shot_spawn_loc_3ac0c(
+    child_x_direction: u8,
+    child_y_offset_46_px: i16,
+) -> RobotShotSpawnLoc3AC0C {
+    // ASM Robot.asm loc_3AC0C: after copying child x_direction, zero direction
+    // keeps d0=$FFFB and d1=$FFE6; non-zero direction negates both before
+    // storing shot velocity and X spawn offset.
+    let faces_left = child_x_direction == 0;
+    RobotShotSpawnLoc3AC0C {
+        projectile_x_direction: child_x_direction,
+        projectile_x_velocity: if faces_left {
+            -ROBOT_PROJECTILE_SPEED
+        } else {
+            ROBOT_PROJECTILE_SPEED
+        },
+        projectile_x_delta_px: if faces_left { -26 } else { 26 },
+        projectile_y_delta_px: 2 - child_y_offset_46_px,
+        animation_label: "stru_3A754",
+        hibernates_one_frame_before_sound_gate: true,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]

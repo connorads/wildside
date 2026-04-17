@@ -16494,6 +16494,34 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3ac0c_spawns_robot_shot_from_head_direction() {
+        assert_eq!(
+            robot_shot_spawn_loc_3ac0c(0, 18),
+            RobotShotSpawnLoc3AC0C {
+                projectile_x_direction: 0,
+                projectile_x_velocity: -ROBOT_PROJECTILE_SPEED,
+                projectile_x_delta_px: -26,
+                projectile_y_delta_px: -16,
+                animation_label: "stru_3A754",
+                hibernates_one_frame_before_sound_gate: true,
+            },
+            "ASM loc_3AC0C: zero child x_direction keeps d0=$FFFB and d1=$FFE6, so the shot starts 26px left and moves left at 5px/frame"
+        );
+        assert_eq!(
+            robot_shot_spawn_loc_3ac0c(0xFF, 18),
+            RobotShotSpawnLoc3AC0C {
+                projectile_x_direction: 0xFF,
+                projectile_x_velocity: ROBOT_PROJECTILE_SPEED,
+                projectile_x_delta_px: 26,
+                projectile_y_delta_px: -16,
+                animation_label: "stru_3A754",
+                hibernates_one_frame_before_sound_gate: true,
+            },
+            "ASM loc_3AC0C: non-zero child x_direction negates both d0 and d1 before writing shot velocity and X spawn offset"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the
