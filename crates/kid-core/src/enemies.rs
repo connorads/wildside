@@ -17433,6 +17433,13 @@ pub(crate) struct TarMonsterProjectileCollisionLoc32682 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterProjectileVelocityPair {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterProjectileLoopRouteLoc3263C {
     ContinueLoop,
     DeleteCurrentObject,
@@ -17929,6 +17936,20 @@ pub(crate) fn tar_monster_projectile_write_y_velocity_loc_326C0(y_velocity_d7: i
     // ASM loc_326C0: `move.l d7,y_vel(a3); rts` writes the prepared d7 long
     // directly to the projectile's y_vel field.
     y_velocity_d7
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_projectile_negated_velocity_swap_loc_326C6(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> TarMonsterProjectileVelocityPair {
+    // ASM loc_326C6: negate copied x_vel into d7, negate copied y_vel into d6,
+    // then cross-write d6 to x_vel(a3) and d7 to y_vel(a3).
+    TarMonsterProjectileVelocityPair {
+        x_velocity: y_velocity.wrapping_neg(),
+        y_velocity: x_velocity.wrapping_neg(),
+    }
 }
 
 #[allow(non_snake_case)]
@@ -24332,6 +24353,27 @@ mod tests {
             tar_monster_projectile_write_y_velocity_loc_326C0(0x0000_C000),
             0x0000_C000,
             "ASM Tar_Monster.asm loc_326C0 has no extra clamping or sign change after loc_326B8"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_negated_velocity_swap_loc_326c6_cross_writes_negated_longs() {
+        assert_eq!(
+            tar_monster_projectile_negated_velocity_swap_loc_326C6(0x0002_0000, -0x0003_0000),
+            TarMonsterProjectileVelocityPair {
+                x_velocity: 0x0003_0000,
+                y_velocity: -0x0002_0000,
+            },
+            "ASM Tar_Monster.asm loc_326C6 negates x_vel/y_vel as longs, then writes -y to x_vel and -x to y_vel"
+        );
+
+        assert_eq!(
+            tar_monster_projectile_negated_velocity_swap_loc_326C6(i32::MIN, 0x0001_0000),
+            TarMonsterProjectileVelocityPair {
+                x_velocity: -0x0001_0000,
+                y_velocity: i32::MIN,
+            },
+            "ASM Tar_Monster.asm loc_326C6 uses 68k NEG.L wrapping behaviour for the minimum negative long"
         );
     }
 
