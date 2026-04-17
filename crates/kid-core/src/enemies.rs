@@ -18684,6 +18684,33 @@ pub(crate) fn emo_rock_disappear_loc_36320() -> EmoRockDisappearLoc36320 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EmoRockDeathStartLoc36346 {
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) animation_script: &'static str,
+    pub(crate) hibernates_before_sound: bool,
+    pub(crate) sound_effect: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) reads_object_status_slot: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_death_start_loc_36346() -> EmoRockDeathStartLoc36346 {
+    // ASM Emo_Rock.asm loc_36346: re-enable Kid collision, stop movement, run
+    // the break animation/sound sequence, then read `$42(a5)` for status routing.
+    EmoRockDeathStartLoc36346 {
+        has_kid_collision: true,
+        is_moved: false,
+        animation_script: "stru_36468",
+        hibernates_before_sound: true,
+        sound_effect: "sfx_Prize_block",
+        waits_until_animation_finished: true,
+        reads_object_status_slot: true,
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -23300,6 +23327,23 @@ mod tests {
                 next_loop: "restart_hover_cycle",
             },
             "ASM Emo_Rock.asm loc_36320 plays the vanish sound/animation, waits for completion, clears addroffset_sprite, and restarts hovering"
+        );
+    }
+
+    #[test]
+    fn emo_rock_death_start_loc_36346_runs_break_sequence_before_status_route() {
+        assert_eq!(
+            emo_rock_death_start_loc_36346(),
+            EmoRockDeathStartLoc36346 {
+                has_kid_collision: true,
+                is_moved: false,
+                animation_script: "stru_36468",
+                hibernates_before_sound: true,
+                sound_effect: "sfx_Prize_block",
+                waits_until_animation_finished: true,
+                reads_object_status_slot: true,
+            },
+            "ASM Emo_Rock.asm loc_36346 stops movement, plays the break animation/sound sequence, then reads `$42(a5)` for status routing"
         );
     }
 
