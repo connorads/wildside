@@ -19712,9 +19712,29 @@ pub(crate) fn spinning_twins_damage_contact_loc_3bc34(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SpinningTwinsDeathStatusRouteLoc3BC78 {
-    PositiveStatusSlot { index: usize },
+    ClearStatusSlot(SpinningTwinsClearStatusSlotLoc3BC98),
     SubtractSpawnCounter { index: usize, decrement: u16 },
     DeleteOnly,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsClearStatusSlotLoc3BC98 {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_clear_status_slot_loc_3bc98(
+    object_status_slot: u8,
+) -> SpinningTwinsClearStatusSlotLoc3BC98 {
+    // ASM Spinning_Twins.asm loc_3BC98: the positive `$42(a5)` byte has already
+    // been copied to d0; `add.w d0,d0` makes it a word offset into
+    // EnemyStatus_Table, and `clr.w (a0,d0.w)` clears that status word.
+    SpinningTwinsClearStatusSlotLoc3BC98 {
+        index: usize::from(object_status_slot),
+        word_value: 0,
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -19727,9 +19747,9 @@ pub(crate) fn spinning_twins_death_status_route_loc_3bc78(
     // six-bit EnemyStatus_Table index and subtracts `$400`; the remaining
     // negative case deletes without touching the status table.
     if object_status_slot & 0x80 == 0 {
-        return SpinningTwinsDeathStatusRouteLoc3BC78::PositiveStatusSlot {
-            index: usize::from(object_status_slot),
-        };
+        return SpinningTwinsDeathStatusRouteLoc3BC78::ClearStatusSlot(
+            spinning_twins_clear_status_slot_loc_3bc98(object_status_slot),
+        );
     }
     if object_status_slot & 0x40 == 0 {
         return SpinningTwinsDeathStatusRouteLoc3BC78::DeleteOnly;

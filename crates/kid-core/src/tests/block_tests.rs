@@ -9483,7 +9483,12 @@ mod chunk_04 {
     fn spinning_twins_death_status_route_loc_3bc78_decodes_status_byte_sign_and_bit6() {
         assert_eq!(
             spinning_twins_death_status_route_loc_3bc78(0x05),
-            SpinningTwinsDeathStatusRouteLoc3BC78::PositiveStatusSlot { index: 5 },
+            SpinningTwinsDeathStatusRouteLoc3BC78::ClearStatusSlot(
+                SpinningTwinsClearStatusSlotLoc3BC98 {
+                    index: 5,
+                    word_value: 0,
+                }
+            ),
             "ASM loc_3BC78 should route a positive `$42(a5)` byte to the status-slot path"
         );
         assert_eq!(
@@ -9498,6 +9503,18 @@ mod chunk_04 {
             spinning_twins_death_status_route_loc_3bc78(0x80),
             SpinningTwinsDeathStatusRouteLoc3BC78::DeleteOnly,
             "ASM loc_3BC78 should leave the status table alone when only bit 7 is set"
+        );
+    }
+
+    #[test]
+    fn spinning_twins_clear_status_slot_loc_3bc98_clears_positive_status_word() {
+        assert_eq!(
+            spinning_twins_clear_status_slot_loc_3bc98(0x0A),
+            SpinningTwinsClearStatusSlotLoc3BC98 {
+                index: 0x0A,
+                word_value: 0,
+            },
+            "ASM loc_3BC98 should double positive `$42(a5)` as an EnemyStatus_Table word offset and clear that word"
         );
     }
 
