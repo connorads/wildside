@@ -18711,6 +18711,25 @@ pub(crate) fn emo_rock_death_start_loc_36346() -> EmoRockDeathStartLoc36346 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EmoRockRespawnMarkerLoc3638C {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_respawn_marker_loc_3638c(
+    object_status_slot: u8,
+) -> EmoRockRespawnMarkerLoc3638C {
+    // ASM Emo_Rock.asm loc_3638C: positive `$42(a5)` is doubled as an
+    // EnemyStatus_Table word offset, then `$2168` is stored.
+    EmoRockRespawnMarkerLoc3638C {
+        index: usize::from(object_status_slot),
+        word_value: 0x2168,
+    }
+}
+
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
@@ -23344,6 +23363,18 @@ mod tests {
                 reads_object_status_slot: true,
             },
             "ASM Emo_Rock.asm loc_36346 stops movement, plays the break animation/sound sequence, then reads `$42(a5)` for status routing"
+        );
+    }
+
+    #[test]
+    fn emo_rock_respawn_marker_loc_3638c_writes_positive_status_slot() {
+        assert_eq!(
+            emo_rock_respawn_marker_loc_3638c(0x05),
+            EmoRockRespawnMarkerLoc3638C {
+                index: 0x05,
+                word_value: 0x2168,
+            },
+            "ASM Emo_Rock.asm loc_3638C doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
         );
     }
 
