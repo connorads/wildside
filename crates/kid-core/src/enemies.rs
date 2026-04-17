@@ -18456,6 +18456,27 @@ pub(crate) fn tank_shooting_collision_route_loc_3b6c0(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TankShootingDamageRouteLoc3B6DE {
+    Death,
+    Hurt { remaining_hp: u16 },
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_shooting_damage_after_hit_loc_3b6de(
+    current_hp: u16,
+) -> TankShootingDamageRouteLoc3B6DE {
+    // ASM Tank_Shooting.asm loc_3B6DE: `subi.w #1,$44(a3)` updates the
+    // shooting tank's current_hp word. A zero result falls through to death;
+    // any non-zero result branches to the hurt/recoil path.
+    let remaining_hp = current_hp.wrapping_sub(1);
+    if remaining_hp == 0 {
+        TankShootingDamageRouteLoc3B6DE::Death
+    } else {
+        TankShootingDamageRouteLoc3B6DE::Hurt { remaining_hp }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TankShootingInitWalkerEntryLoc3B690 {
     LeftLoc3C0D2,
     RightLoc3C026,
@@ -20944,6 +20965,20 @@ mod tests {
             tank_shooting_collision_route_loc_3b6c0(0, 0x002C),
             TankShootingCollisionRouteLoc3B6C0::Damage,
             "ASM Tank_Shooting.asm loc_3B6C0 should accept child collision `$2C` as a damage hit",
+        );
+    }
+
+    #[test]
+    fn tank_shooting_damage_after_hit_loc_3b6de_branches_on_decremented_hp() {
+        assert_eq!(
+            tank_shooting_damage_after_hit_loc_3b6de(1),
+            TankShootingDamageRouteLoc3B6DE::Death,
+            "ASM Tank_Shooting.asm loc_3B6DE should fall through to death when decrementing current_hp leaves zero",
+        );
+        assert_eq!(
+            tank_shooting_damage_after_hit_loc_3b6de(3),
+            TankShootingDamageRouteLoc3B6DE::Hurt { remaining_hp: 2 },
+            "ASM Tank_Shooting.asm loc_3B6DE should branch to the hurt path when decremented current_hp remains nonzero",
         );
     }
 
