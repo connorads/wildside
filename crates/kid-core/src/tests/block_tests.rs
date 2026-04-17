@@ -3223,6 +3223,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_resume_shared_walker_loc_3a5d4_clears_collision_and_branches_by_direction() {
+        assert_eq!(
+            fire_demon_resume_shared_walker_loc_3a5d4(Direction::Left),
+            FireDemonResumeSharedWalkerLoc3A5D4 {
+                next_collision_type: 0,
+                branch: FireDemonResumeSharedWalkerBranchLoc3A5D4::LeftSharedWalker,
+            },
+            "ASM Fire_Demon.asm loc_3A5D4 should clear collision_type and send clear x_direction to the left shared walker"
+        );
+        assert_eq!(
+            fire_demon_resume_shared_walker_loc_3a5d4(Direction::Right),
+            FireDemonResumeSharedWalkerLoc3A5D4 {
+                next_collision_type: 0,
+                branch: FireDemonResumeSharedWalkerBranchLoc3A5D4::RightSharedWalker,
+            },
+            "ASM Fire_Demon.asm loc_3A5D4 should clear collision_type and send set x_direction to the right shared walker"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);

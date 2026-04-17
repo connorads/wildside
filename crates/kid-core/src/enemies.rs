@@ -4024,6 +4024,37 @@ pub(crate) fn fire_demon_hurt_recovery_loc_3a5be(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FireDemonResumeSharedWalkerBranchLoc3A5D4 {
+    LeftSharedWalker,
+    RightSharedWalker,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireDemonResumeSharedWalkerLoc3A5D4 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) branch: FireDemonResumeSharedWalkerBranchLoc3A5D4,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_resume_shared_walker_loc_3a5d4(
+    facing: Direction,
+) -> FireDemonResumeSharedWalkerLoc3A5D4 {
+    // ASM Fire_Demon.asm loc_3A5D4: clear `collision_type(a3)`, then `tst.b
+    // x_direction(a3)` branches clear direction to `loc_3C0FA` and set direction
+    // to `loc_3C04E`.
+    let branch = match facing {
+        Direction::Left => FireDemonResumeSharedWalkerBranchLoc3A5D4::LeftSharedWalker,
+        Direction::Right => FireDemonResumeSharedWalkerBranchLoc3A5D4::RightSharedWalker,
+    };
+    FireDemonResumeSharedWalkerLoc3A5D4 {
+        next_collision_type: 0,
+        branch,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
     collision_type: i16,
