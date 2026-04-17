@@ -4596,6 +4596,51 @@ pub(crate) fn diamond_low_hp_shared_walker_resume_loc_3af14(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DiamondLowHpBerzerkerSideGateRouteLoc3AF24 {
+    ResumeSharedWalker(DiamondLowHpSharedWalkerResumeLoc3AF14),
+    Launch(DiamondLowHpBerzerkerLaunchLoc3AF24),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondLowHpBerzerkerLaunchLoc3AF24 {
+    pub(crate) has_level_collision: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_low_hp_berzerker_side_gate_loc_3af24(
+    berzerker_charging: bool,
+    x_direction_flipped: bool,
+) -> DiamondLowHpBerzerkerSideGateRouteLoc3AF24 {
+    // ASM Diamond.asm loc_3AF24: clear `Berzerker_charging` branches back to
+    // loc_3AF14. A charging Berzerker disables level collision, keeps Kid
+    // collision and movement enabled, freezes animation on `LnkTo_unk_C8160`,
+    // zeroes X velocity, and launches the Diamond upward at `-$48000`.
+    if !berzerker_charging {
+        return DiamondLowHpBerzerkerSideGateRouteLoc3AF24::ResumeSharedWalker(
+            diamond_low_hp_shared_walker_resume_loc_3af14(x_direction_flipped),
+        );
+    }
+
+    DiamondLowHpBerzerkerSideGateRouteLoc3AF24::Launch(DiamondLowHpBerzerkerLaunchLoc3AF24 {
+        has_level_collision: false,
+        has_kid_collision: true,
+        is_moved: true,
+        is_animated: false,
+        sprite_mapping: "LnkTo_unk_C8160-Data_Index",
+        x_velocity: 0,
+        y_velocity: -0x0004_8000,
+    })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonInitAnimation {
     pub(crate) collision_routine: &'static str,
     pub(crate) animation_script: &'static str,
@@ -23046,6 +23091,36 @@ mod tests {
                 next_walker: DiamondLowHpSharedWalkerNextLoc3AF14::FlippedDirectionRoutineLoc3C04E,
             },
             "ASM Diamond.asm loc_3AF14 should branch to loc_3C04E when x_direction is set",
+        );
+    }
+
+    #[test]
+    fn diamond_low_hp_berzerker_side_gate_loc_3af24_requires_charge() {
+        assert_eq!(
+            diamond_low_hp_berzerker_side_gate_loc_3af24(false, true),
+            DiamondLowHpBerzerkerSideGateRouteLoc3AF24::ResumeSharedWalker(
+                DiamondLowHpSharedWalkerResumeLoc3AF14 {
+                    next_collision_type: 0,
+                    next_walker:
+                        DiamondLowHpSharedWalkerNextLoc3AF14::FlippedDirectionRoutineLoc3C04E,
+                },
+            ),
+            "ASM Diamond.asm loc_3AF24 should branch to loc_3AF14 when Berzerker_charging is clear",
+        );
+        assert_eq!(
+            diamond_low_hp_berzerker_side_gate_loc_3af24(true, false),
+            DiamondLowHpBerzerkerSideGateRouteLoc3AF24::Launch(
+                DiamondLowHpBerzerkerLaunchLoc3AF24 {
+                    has_level_collision: false,
+                    has_kid_collision: true,
+                    is_moved: true,
+                    is_animated: false,
+                    sprite_mapping: "LnkTo_unk_C8160-Data_Index",
+                    x_velocity: 0,
+                    y_velocity: -0x0004_8000,
+                },
+            ),
+            "ASM Diamond.asm loc_3AF24 should set the charging Berzerker launch flags and velocities",
         );
     }
 
