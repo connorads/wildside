@@ -20482,6 +20482,73 @@ pub(crate) fn emo_rock_hover_target_loc_3621a(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EmoRockClearanceWindowLoc3639E {
+    pub(crate) top_row: u16,
+    pub(crate) bottom_row: u16,
+    pub(crate) left_col: u16,
+    pub(crate) right_col: u16,
+    pub(crate) row_dbf_count: u16,
+    pub(crate) col_dbf_count: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum EmoRockClearanceWindowRouteLoc3639E {
+    Scan(EmoRockClearanceWindowLoc3639E),
+    Blocked,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_clearance_window_loc_3639e(
+    level_width_pixels: i32,
+    x_px: i32,
+    y_px: i32,
+    height_px: u16,
+    half_width_px: u16,
+) -> EmoRockClearanceWindowRouteLoc3639E {
+    // ASM Emo_Rock.asm loc_3639E: subtract the height/half-width from y/x,
+    // reject negative top/left edges and right edges at or beyond level width,
+    // then convert the inclusive pixel rectangle into DBF row/column counts.
+    let top_px = y_px - i32::from(height_px);
+    if top_px < 0 {
+        return EmoRockClearanceWindowRouteLoc3639E::Blocked;
+    }
+
+    let left_px = x_px - i32::from(half_width_px);
+    if left_px < 0 {
+        return EmoRockClearanceWindowRouteLoc3639E::Blocked;
+    }
+
+    let right_px = x_px + i32::from(half_width_px);
+    if right_px >= level_width_pixels {
+        return EmoRockClearanceWindowRouteLoc3639E::Blocked;
+    }
+
+    let Some(top_row) = u16::try_from(top_px >> 4).ok() else {
+        return EmoRockClearanceWindowRouteLoc3639E::Blocked;
+    };
+    let Some(bottom_row) = u16::try_from(y_px >> 4).ok() else {
+        return EmoRockClearanceWindowRouteLoc3639E::Blocked;
+    };
+    let Some(left_col) = u16::try_from(left_px >> 4).ok() else {
+        return EmoRockClearanceWindowRouteLoc3639E::Blocked;
+    };
+    let Some(right_col) = u16::try_from(right_px >> 4).ok() else {
+        return EmoRockClearanceWindowRouteLoc3639E::Blocked;
+    };
+
+    EmoRockClearanceWindowRouteLoc3639E::Scan(EmoRockClearanceWindowLoc3639E {
+        top_row,
+        bottom_row,
+        left_col,
+        right_col,
+        row_dbf_count: bottom_row.saturating_sub(top_row),
+        col_dbf_count: right_col.saturating_sub(left_col),
+    })
+}
+
 pub(crate) fn emo_rock_drop_velocity_loc_3625e(y_velocity: i32, gravity: i32) -> i32 {
     // ASM Emo_Rock.asm loc_3625E: add d2 gravity to y_vel, keep the result when
     // it is <= `$60000`, otherwise snap the falling speed back to `$40000`.
@@ -25838,6 +25905,41 @@ mod tests {
                 clearance_half_width_px: 0x000E,
             },
             "ASM Emo_Rock.asm loc_3621A copies Kid X, stores Kid Y minus d1, then calls the clearance probe with d6=$1C and d7=$E"
+        );
+    }
+
+    #[test]
+    fn emo_rock_clearance_window_loc_3639e_builds_inclusive_scan_counts() {
+        assert_eq!(
+            emo_rock_clearance_window_loc_3639e(0x0200, 0x0040, 0x0050, 0x001C, 0x000E),
+            EmoRockClearanceWindowRouteLoc3639E::Scan(EmoRockClearanceWindowLoc3639E {
+                top_row: 0x0003,
+                bottom_row: 0x0005,
+                left_col: 0x0003,
+                right_col: 0x0004,
+                row_dbf_count: 0x0002,
+                col_dbf_count: 0x0001,
+            }),
+            "ASM Emo_Rock.asm loc_3639E shifts `(y_pos-d6)..y_pos` and `(x_pos-d7)..(x_pos+d7)` by four, then subtracts starts from ends to seed inclusive DBF counts"
+        );
+    }
+
+    #[test]
+    fn emo_rock_clearance_window_loc_3639e_treats_edges_as_blocked() {
+        assert_eq!(
+            emo_rock_clearance_window_loc_3639e(0x0200, 0x0040, 0x001B, 0x001C, 0x000E),
+            EmoRockClearanceWindowRouteLoc3639E::Blocked,
+            "ASM Emo_Rock.asm loc_3639E branches to loc_363FA when `y_pos-d6` is negative"
+        );
+        assert_eq!(
+            emo_rock_clearance_window_loc_3639e(0x0200, 0x000D, 0x0050, 0x001C, 0x000E),
+            EmoRockClearanceWindowRouteLoc3639E::Blocked,
+            "ASM Emo_Rock.asm loc_3639E branches to loc_363FA when `x_pos-d7` is negative"
+        );
+        assert_eq!(
+            emo_rock_clearance_window_loc_3639e(0x0200, 0x01F2, 0x0050, 0x001C, 0x000E),
+            EmoRockClearanceWindowRouteLoc3639E::Blocked,
+            "ASM Emo_Rock.asm loc_3639E branches to loc_363FA when `x_pos+d7` is at or beyond Level_width_pixels"
         );
     }
 
