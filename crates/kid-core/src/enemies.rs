@@ -4566,6 +4566,36 @@ pub(crate) fn diamond_low_hp_hurt_animation_loc_3aef8() -> DiamondLowHpHurtAnima
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DiamondLowHpSharedWalkerNextLoc3AF14 {
+    DefaultDirectionRoutineLoc3C0FA,
+    FlippedDirectionRoutineLoc3C04E,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondLowHpSharedWalkerResumeLoc3AF14 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) next_walker: DiamondLowHpSharedWalkerNextLoc3AF14,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_low_hp_shared_walker_resume_loc_3af14(
+    x_direction_flipped: bool,
+) -> DiamondLowHpSharedWalkerResumeLoc3AF14 {
+    // ASM Diamond.asm loc_3AF14: `clr.w collision_type(a3)`, then
+    // `tst.b x_direction(a3)` selects the shared direction-specific walker.
+    DiamondLowHpSharedWalkerResumeLoc3AF14 {
+        next_collision_type: 0,
+        next_walker: if x_direction_flipped {
+            DiamondLowHpSharedWalkerNextLoc3AF14::FlippedDirectionRoutineLoc3C04E
+        } else {
+            DiamondLowHpSharedWalkerNextLoc3AF14::DefaultDirectionRoutineLoc3C0FA
+        },
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonInitAnimation {
     pub(crate) collision_routine: &'static str,
     pub(crate) animation_script: &'static str,
@@ -22996,6 +23026,26 @@ mod tests {
                 falls_through_to_shared_walker: true,
             },
             "ASM Diamond.asm loc_3AEF8 should play hurt, clear collision_type, restore base animation, and resume walking",
+        );
+    }
+
+    #[test]
+    fn diamond_low_hp_shared_walker_resume_loc_3af14_clears_collision_and_selects_direction() {
+        assert_eq!(
+            diamond_low_hp_shared_walker_resume_loc_3af14(false),
+            DiamondLowHpSharedWalkerResumeLoc3AF14 {
+                next_collision_type: 0,
+                next_walker: DiamondLowHpSharedWalkerNextLoc3AF14::DefaultDirectionRoutineLoc3C0FA,
+            },
+            "ASM Diamond.asm loc_3AF14 should clear collision and branch to loc_3C0FA when x_direction is zero",
+        );
+        assert_eq!(
+            diamond_low_hp_shared_walker_resume_loc_3af14(true),
+            DiamondLowHpSharedWalkerResumeLoc3AF14 {
+                next_collision_type: 0,
+                next_walker: DiamondLowHpSharedWalkerNextLoc3AF14::FlippedDirectionRoutineLoc3C04E,
+            },
+            "ASM Diamond.asm loc_3AF14 should branch to loc_3C04E when x_direction is set",
         );
     }
 
