@@ -7055,6 +7055,29 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_hurt_driver_vertical_bounce_matches_loc_35810() {
+        use enemies::{
+            UfoHurtDriverVerticalBounceLoc35810, ufo_hurt_driver_vertical_bounce_loc_35810,
+        };
+
+        assert_eq!(
+            ufo_hurt_driver_vertical_bounce_loc_35810(0x0004_0000),
+            UfoHurtDriverVerticalBounceLoc35810 {
+                y_velocity: -0x0002_0000,
+            },
+            "ASM UFO.asm loc_35810 negates y_vel and arithmetic-shifts the rebound down by one"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_vertical_bounce_loc_35810(i32::MIN),
+            UfoHurtDriverVerticalBounceLoc35810 {
+                y_velocity: -0x4000_0000,
+            },
+            "ASM UFO.asm loc_35810 uses 68k longword wrapping before the signed `asr.l #1`"
+        );
+    }
+
+    #[test]
     fn tornado_loads_rom_pattern_on_timer_expiry() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
         enemy.wait_timer = 0;

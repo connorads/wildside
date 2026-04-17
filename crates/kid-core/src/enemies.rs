@@ -9217,6 +9217,23 @@ pub(crate) fn ufo_hurt_driver_fall_turnaround_loc_357FA(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverVerticalBounceLoc35810 {
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_vertical_bounce_loc_35810(
+    y_velocity: i32,
+) -> UfoHurtDriverVerticalBounceLoc35810 {
+    // ASM UFO.asm loc_35810: copy `y_vel(a3)` to d7, `neg.l` it, then
+    // `asr.l #1` before writing the half-speed rebound back to `y_vel(a3)`.
+    UfoHurtDriverVerticalBounceLoc35810 {
+        y_velocity: y_velocity.wrapping_neg() >> 1,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
     collision_type: i16,
