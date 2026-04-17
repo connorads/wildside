@@ -14392,6 +14392,7 @@ pub(crate) fn ninja_jump_attack_landing_loc_3da56(
 pub(crate) const NINJA_KID_ABOVE_BOUNCE_Y_SPEED_LOC_3DA98: i32 = 0x0003_8000;
 pub(crate) const NINJA_KID_ABOVE_LANDING_GRAVITY_LOC_3DABC: i32 = 0x0000_1800;
 pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_Y_SPEED_LOC_3DB0A: i32 = -0x0004_8000;
+pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_GRAVITY_LOC_3DB3C: i32 = 0x0000_4000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -14530,6 +14531,29 @@ pub(crate) fn ninja_berzerker_side_contact_loc_3db0a(
         x_velocity: 0,
         y_velocity: NINJA_BERZERKER_SIDE_LAUNCH_Y_SPEED_LOC_3DB0A,
     })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaBerzerkerSideLaunchLoopTickLoc3DB3C {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checked_sub_3e8ba: bool,
+    pub(crate) y_velocity: i32,
+    pub(crate) loops: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_berzerker_side_launch_loop_tick_loc_3db3c(
+    y_velocity: i32,
+) -> NinjaBerzerkerSideLaunchLoopTickLoc3DB3C {
+    // ASM Ninja.asm loc_3DB3C: each launch tick hibernates one frame, runs
+    // `sub_3E8BA`, adds `$4000` to `y_vel(a3)`, then branches back to repeat.
+    NinjaBerzerkerSideLaunchLoopTickLoc3DB3C {
+        hibernates_one_frame: true,
+        checked_sub_3e8ba: true,
+        y_velocity: y_velocity.wrapping_add(NINJA_BERZERKER_SIDE_LAUNCH_GRAVITY_LOC_3DB3C),
+        loops: true,
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -33742,6 +33766,31 @@ mod tests {
                 y_velocity: -0x0004_8000,
             },),
             "ASM Ninja.asm loc_3DB0A should freeze animation, keep Kid collision/movement enabled, and launch upward while charging"
+        );
+    }
+
+    #[test]
+    fn ninja_berzerker_side_launch_loop_loc_3db3c_applies_gravity_and_loops() {
+        assert_eq!(
+            ninja_berzerker_side_launch_loop_tick_loc_3db3c(-0x0004_8000),
+            NinjaBerzerkerSideLaunchLoopTickLoc3DB3C {
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                y_velocity: -0x0004_4000,
+                loops: true,
+            },
+            "ASM Ninja.asm loc_3DB3C should hibernate, run sub_3E8BA, add $4000 to y_vel, and loop"
+        );
+
+        assert_eq!(
+            ninja_berzerker_side_launch_loop_tick_loc_3db3c(0x0000_7FFF),
+            NinjaBerzerkerSideLaunchLoopTickLoc3DB3C {
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                y_velocity: 0x0000_BFFF,
+                loops: true,
+            },
+            "ASM Ninja.asm loc_3DB3C applies the same $4000 gravity increment regardless of velocity sign"
         );
     }
 
