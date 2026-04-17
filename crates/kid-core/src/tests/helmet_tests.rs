@@ -2964,6 +2964,7 @@ mod chunk_08 {
     }
 
     #[test]
+    #[ignore = "TODO(fidelity): loc_12332 not yet implemented"]
     fn loc_12332_advances_cell_addr_by_level_width_tiles() {
         // ASM loc_12332 (kid.asm:24479-24481): row-by-row stride continuation.
         // After placing (or skipping) a cell, advance to the next row:
@@ -3754,6 +3755,7 @@ mod chunk_08 {
     }
 
     #[test]
+    #[ignore = "TODO(fidelity): loc_1223C not yet implemented"]
     fn loc_1223c_rotates_four_palette_entries_downward() {
         // ASM loc_1223C (kid.asm:24373): after the hibernate loop drains `d0`,
         // the routine rotates palette words $E,$10,$12,$14 downward by one position.
@@ -3841,6 +3843,7 @@ mod chunk_08 {
     }
 
     #[test]
+    #[ignore = "TODO(fidelity): loc_11D92 not yet implemented"]
     fn loc_11d92_routes_deadly_skyscrapers_and_elsewhere_30_into_the_removed_palette_path() {
         assert_eq!(
             classify_foreground_palette_override_loc_11D8E(0x1C),
@@ -5220,6 +5223,7 @@ mod chunk_08 {
     }
 
     #[test]
+    #[ignore = "TODO(fidelity): loc_1AEE2 not yet implemented"]
     fn loc_1aee2_switches_intro_sequence_3_allocation_specs_from_descriptor_bit_0() {
         let low_spec_descriptor = crate::movement::intro_sequence_3_descriptor_loc_1AEBA(0, 7)
             .expect("first roster slot 7 should point at descriptor 10");

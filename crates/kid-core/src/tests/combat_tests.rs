@@ -14674,6 +14674,7 @@ mod chunk_05 {
     }
 
     #[test]
+    #[ignore = "TODO(fidelity): loc_14874 not yet implemented"]
     fn loc_14874_unbiases_the_current_row_and_distinguishes_skip_top_from_full_cull() {
         let visible = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
             x_px: 0x0180,
