@@ -9115,6 +9115,36 @@ pub(crate) struct FireballSpriteSelectionLoc32F3E {
     pub(crate) quadrant_index: u16,
 }
 
+const FIREBALL_SPRITE_LINKS_LOC_33072: [&str; 18] = [
+    "LnkTo_unk_C78D6-Data_Index",
+    "LnkTo_unk_C78DE-Data_Index",
+    "LnkTo_unk_C78E6-Data_Index",
+    "LnkTo_unk_C78EE-Data_Index",
+    "LnkTo_unk_C78F6-Data_Index",
+    "LnkTo_unk_C78FE-Data_Index",
+    "LnkTo_unk_C7906-Data_Index",
+    "LnkTo_unk_C790E-Data_Index",
+    "LnkTo_unk_C7916-Data_Index",
+    "LnkTo_unk_C791E-Data_Index",
+    "LnkTo_unk_C7926-Data_Index",
+    "LnkTo_unk_C792E-Data_Index",
+    "LnkTo_unk_C7936-Data_Index",
+    "LnkTo_unk_C793E-Data_Index",
+    "LnkTo_unk_C7946-Data_Index",
+    "LnkTo_unk_C794E-Data_Index",
+    "LnkTo_unk_C7956-Data_Index",
+    "LnkTo_unk_C795E-Data_Index",
+];
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_sprite_link_loc_33072(sprite_table_index: u8) -> Option<&'static str> {
+    // ASM Fireball.asm loc_33072: sign-extend the selected byte, double it as
+    // a word offset into `off_33026`, then store that link into addroffset_sprite.
+    FIREBALL_SPRITE_LINKS_LOC_33072
+        .get(usize::from(sprite_table_index))
+        .copied()
+}
+
 fn fireball_ratio_lookup_unk_32edc(index: usize) -> i16 {
     // ASM Fireball.asm unk_32EDC: the first $3F ratio slots map to 0, 1, 2,
     // then 3; loc_32F78/loc_32FAC mirror or offset that base sprite index.
@@ -28094,6 +28124,25 @@ mod tests {
             fireball_vertical_sprite_loc_3300a(0),
             0x0F,
             "ASM Fireball.asm loc_3300A should switch to sprite `$F` when the shifted Y word is zero"
+        );
+    }
+
+    #[test]
+    fn fireball_sprite_link_loc_33072_writes_the_off_33026_entry() {
+        assert_eq!(
+            fireball_sprite_link_loc_33072(0),
+            Some("LnkTo_unk_C78D6-Data_Index"),
+            "ASM Fireball.asm loc_33072 should map index 0 through off_33026 before writing addroffset_sprite"
+        );
+        assert_eq!(
+            fireball_sprite_link_loc_33072(17),
+            Some("LnkTo_unk_C795E-Data_Index"),
+            "ASM Fireball.asm loc_33072 should allow the last animation slot used by loc_3304A's phase toggle"
+        );
+        assert_eq!(
+            fireball_sprite_link_loc_33072(18),
+            None,
+            "ASM Fireball.asm loc_33072 has no off_33026 entry past the 18 sprite links"
         );
     }
 
