@@ -17854,6 +17854,51 @@ pub(crate) fn spinning_twins_resume_walk_loc_3bbe6(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsBerzerkerLaunchSetupLoc3BBF6 {
+    pub(crate) has_level_collision: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SpinningTwinsBerzerkerSideGateLoc3BBF6 {
+    ResumeWalk(SpinningTwinsResumeWalkLoc3BBE6),
+    Launch(SpinningTwinsBerzerkerLaunchSetupLoc3BBF6),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_berzerker_side_gate_loc_3bbf6(
+    berzerker_charging: bool,
+    x_direction: u8,
+) -> SpinningTwinsBerzerkerSideGateLoc3BBF6 {
+    // ASM Spinning_Twins.asm loc_3BBF6: clear `Berzerker_charging` branches
+    // back to loc_3BBE6. A charging Berzerker disables terrain collision,
+    // enables Kid collision and movement, freezes animation on
+    // `LnkTo_unk_C7CDE`, zeroes X velocity, and launches upward at `-$48000`.
+    if !berzerker_charging {
+        return SpinningTwinsBerzerkerSideGateLoc3BBF6::ResumeWalk(
+            spinning_twins_resume_walk_loc_3bbe6(x_direction),
+        );
+    }
+
+    SpinningTwinsBerzerkerSideGateLoc3BBF6::Launch(SpinningTwinsBerzerkerLaunchSetupLoc3BBF6 {
+        has_level_collision: false,
+        has_kid_collision: true,
+        is_moved: true,
+        is_animated: false,
+        sprite_mapping: "LnkTo_unk_C7CDE-Data_Index",
+        x_velocity: 0,
+        y_velocity: -0x0004_8000,
+    })
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32) -> i32 {
     // ASM Spinning_Twins.asm loc_3BB2C: after hibernate + sub_3C3CE movement,

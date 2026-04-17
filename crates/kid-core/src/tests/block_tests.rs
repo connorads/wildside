@@ -8781,6 +8781,33 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_berzerker_side_gate_loc_3bbf6_requires_active_charge() {
+        assert_eq!(
+            spinning_twins_berzerker_side_gate_loc_3bbf6(false, 0),
+            SpinningTwinsBerzerkerSideGateLoc3BBF6::ResumeWalk(SpinningTwinsResumeWalkLoc3BBE6 {
+                next_collision_type: 0,
+                resume_direction: Direction::Left,
+            }),
+            "ASM loc_3BBF6 should branch back to loc_3BBE6 while Berzerker_charging is clear"
+        );
+        assert_eq!(
+            spinning_twins_berzerker_side_gate_loc_3bbf6(true, 0xFF),
+            SpinningTwinsBerzerkerSideGateLoc3BBF6::Launch(
+                SpinningTwinsBerzerkerLaunchSetupLoc3BBF6 {
+                    has_level_collision: false,
+                    has_kid_collision: true,
+                    is_moved: true,
+                    is_animated: false,
+                    sprite_mapping: "LnkTo_unk_C7CDE-Data_Index",
+                    x_velocity: 0,
+                    y_velocity: -0x0004_8000,
+                }
+            ),
+            "ASM loc_3BBF6 should seed the upward Berzerker launch when charging"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 
