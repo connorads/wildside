@@ -7028,6 +7028,33 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_hurt_driver_fall_turnaround_matches_loc_357fa() {
+        use enemies::{
+            UfoHurtDriverFallTurnaroundLoc357FA, ufo_hurt_driver_fall_turnaround_loc_357FA,
+        };
+
+        assert_eq!(
+            ufo_hurt_driver_fall_turnaround_loc_357FA(-0x0000_8000, 0x0010_0000, 0),
+            UfoHurtDriverFallTurnaroundLoc357FA {
+                x_velocity: 0x0000_8000,
+                x_pos: 0x0012_0000,
+                x_direction: 0xFF,
+            },
+            "ASM UFO.asm loc_357FA negates x_vel, applies four frames of reversed motion to x_pos, and flips clear x_direction to `$FF`"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_fall_turnaround_loc_357FA(0x0000_8000, 0x0010_0000, 0xFF),
+            UfoHurtDriverFallTurnaroundLoc357FA {
+                x_velocity: -0x0000_8000,
+                x_pos: 0x000E_0000,
+                x_direction: 0,
+            },
+            "ASM UFO.asm loc_357FA uses longword wrapping for displacement and `not.b` for raw direction"
+        );
+    }
+
+    #[test]
     fn tornado_loads_rom_pattern_on_timer_expiry() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
         enemy.wait_timer = 0;

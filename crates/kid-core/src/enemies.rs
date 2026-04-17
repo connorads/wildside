@@ -9190,6 +9190,33 @@ pub(crate) fn ufo_hurt_driver_falling_loop_loc_357E6(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverFallTurnaroundLoc357FA {
+    pub(crate) x_velocity: i32,
+    pub(crate) x_pos: u32,
+    pub(crate) x_direction: u8,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_fall_turnaround_loc_357FA(
+    x_velocity: i32,
+    x_pos: u32,
+    x_direction: u8,
+) -> UfoHurtDriverFallTurnaroundLoc357FA {
+    // ASM UFO.asm loc_357FA: negate `x_vel(a3)`, shift the reversed velocity
+    // left two bits into a four-frame displacement, add it to `x_pos(a3)`,
+    // then flip the raw `x_direction(a3)` byte with `not.b`.
+    let x_velocity = x_velocity.wrapping_neg();
+    let displacement = x_velocity.wrapping_shl(2);
+    UfoHurtDriverFallTurnaroundLoc357FA {
+        x_velocity,
+        x_pos: x_pos.wrapping_add(u32::from_ne_bytes(displacement.to_ne_bytes())),
+        x_direction: !x_direction,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
     collision_type: i16,
