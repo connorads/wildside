@@ -14390,6 +14390,7 @@ pub(crate) fn ninja_jump_attack_landing_loc_3da56(
 }
 
 pub(crate) const NINJA_KID_ABOVE_BOUNCE_Y_SPEED_LOC_3DA98: i32 = 0x0003_8000;
+pub(crate) const NINJA_KID_ABOVE_LANDING_GRAVITY_LOC_3DABC: i32 = 0x0000_1800;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -14423,6 +14424,67 @@ pub(crate) fn ninja_kid_above_contact_loc_3da98(
         } else {
             NinjaKidAboveContactRouteLoc3DA98::ContinueAirborneLoop
         },
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaKidAboveLandingLoopRouteLoc3DABC {
+    Loop,
+    To3DB4E,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaKidAboveLandingLoopStateLoc3DABC {
+    pub(crate) next_collision_type: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) y_position: u32,
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) checked_sub_3e8ba: bool,
+    pub(crate) route: NinjaKidAboveLandingLoopRouteLoc3DABC,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_kid_above_landing_loop_loc_3dabc(
+    collision_type: u16,
+    x_velocity: i32,
+    y_velocity: i32,
+    y_position: u32,
+) -> NinjaKidAboveLandingLoopStateLoc3DABC {
+    // ASM Ninja.asm loc_3DABC: after the Kid-above HP/timer reaches zero,
+    // clear collision, hibernate, run `sub_3E8BA`, apply `$1800` gravity, and
+    // loop until `colid_floor`. Floor contact clears motion/terrain flags and
+    // snaps integer Y to `((y + $F) & $FFF0)` before loc_3DB4E.
+    let next_y_velocity = y_velocity.wrapping_add(NINJA_KID_ABOVE_LANDING_GRAVITY_LOC_3DABC);
+    if collision_type == NINJA_COLID_FLOOR {
+        let snapped_y_position = (((y_position >> 16).wrapping_add(0x0F)) & 0x0000_FFF0) << 16;
+        NinjaKidAboveLandingLoopStateLoc3DABC {
+            next_collision_type: 0,
+            x_velocity: 0,
+            y_velocity: 0,
+            y_position: snapped_y_position,
+            is_moved: false,
+            has_level_collision: false,
+            hibernates_one_frame: true,
+            checked_sub_3e8ba: true,
+            route: NinjaKidAboveLandingLoopRouteLoc3DABC::To3DB4E,
+        }
+    } else {
+        NinjaKidAboveLandingLoopStateLoc3DABC {
+            next_collision_type: 0,
+            x_velocity,
+            y_velocity: next_y_velocity,
+            y_position,
+            is_moved: true,
+            has_level_collision: true,
+            hibernates_one_frame: true,
+            checked_sub_3e8ba: true,
+            route: NinjaKidAboveLandingLoopRouteLoc3DABC::Loop,
+        }
     }
 }
 
@@ -33573,6 +33635,46 @@ mod tests {
                 route: NinjaKidAboveContactRouteLoc3DA98::ContinueAirborneLoop,
             },
             "ASM Ninja.asm loc_3DA98 uses word wrapping arithmetic, so zero underflows and keeps the airborne loop"
+        );
+    }
+
+    #[test]
+    fn ninja_kid_above_landing_loop_loc_3dabc_waits_for_floor_then_snaps_y() {
+        assert_eq!(
+            ninja_kid_above_landing_loop_loc_3dabc(0, 0x0001_0000, 0x0000_4000, 0x0028_8000),
+            NinjaKidAboveLandingLoopStateLoc3DABC {
+                next_collision_type: 0,
+                x_velocity: 0x0001_0000,
+                y_velocity: 0x0000_5800,
+                y_position: 0x0028_8000,
+                is_moved: true,
+                has_level_collision: true,
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                route: NinjaKidAboveLandingLoopRouteLoc3DABC::Loop,
+            },
+            "ASM Ninja.asm loc_3DABC should clear collision_type, add $1800 to y_vel, and loop until floor contact"
+        );
+
+        assert_eq!(
+            ninja_kid_above_landing_loop_loc_3dabc(
+                NINJA_COLID_FLOOR,
+                -0x0001_8000,
+                0x0000_5800,
+                0x0028_8000
+            ),
+            NinjaKidAboveLandingLoopStateLoc3DABC {
+                next_collision_type: 0,
+                x_velocity: 0,
+                y_velocity: 0,
+                y_position: 0x0030_0000,
+                is_moved: false,
+                has_level_collision: false,
+                hibernates_one_frame: true,
+                checked_sub_3e8ba: true,
+                route: NinjaKidAboveLandingLoopRouteLoc3DABC::To3DB4E,
+            },
+            "ASM Ninja.asm loc_3DABC should clear motion/flags and snap y_pos to ((integer_y + $F) & $FFF0) on floor contact"
         );
     }
 
