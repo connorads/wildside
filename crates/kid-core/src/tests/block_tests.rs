@@ -7944,6 +7944,70 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_lunge_collision_dispatch_matches_loc_3d35a() {
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(0),
+            OrcaLungeCollisionRouteLoc3D35A::GravityAndAcceleration,
+            "ASM Orca.asm loc_3D35A should treat zero collision as the airborne gravity path"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_FLOOR),
+            OrcaLungeCollisionRouteLoc3D35A::FloorLanding,
+            "ASM Orca.asm loc_3D35A should route floor collisions to loc_3D420"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_RIGHTWALL),
+            OrcaLungeCollisionRouteLoc3D35A::WallBounce,
+            "ASM Orca.asm loc_3D35A should route right-wall collisions to loc_3D40C"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_LEFTWALL),
+            OrcaLungeCollisionRouteLoc3D35A::WallBounce,
+            "ASM Orca.asm loc_3D35A should route left-wall collisions to loc_3D40C"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_CEILING),
+            OrcaLungeCollisionRouteLoc3D35A::CeilingBounce,
+            "ASM Orca.asm loc_3D35A should route ceiling collisions to loc_3D47A"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_SLOPEUP),
+            OrcaLungeCollisionRouteLoc3D35A::SlopeRelaunch,
+            "ASM Orca.asm loc_3D35A should route slope-up collisions to loc_3D3DE"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_SLOPEDOWN),
+            OrcaLungeCollisionRouteLoc3D35A::SlopeRelaunch,
+            "ASM Orca.asm loc_3D35A should route slope-down collisions to loc_3D3DE"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_HURT),
+            OrcaLungeCollisionRouteLoc3D35A::Damage,
+            "ASM Orca.asm loc_3D35A should route hurt collisions to loc_3D472"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_KIDABOVE),
+            OrcaLungeCollisionRouteLoc3D35A::Damage,
+            "ASM Orca.asm loc_3D35A should route Kid-above collisions to loc_3D472"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_KIDRIGHT),
+            OrcaLungeCollisionRouteLoc3D35A::BerzerkerSideGate,
+            "ASM Orca.asm loc_3D35A should route side contacts to loc_3D4DE"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(ORCA_COLID_KIDLEFT),
+            OrcaLungeCollisionRouteLoc3D35A::BerzerkerSideGate,
+            "ASM Orca.asm loc_3D35A should route side contacts to loc_3D4DE"
+        );
+        assert_eq!(
+            orca_lunge_collision_dispatch_loc_3d35a(0x0030),
+            OrcaLungeCollisionRouteLoc3D35A::GravityAndAcceleration,
+            "ASM Orca.asm loc_3D35A should fall through unrecognised collision IDs to loc_3D3B4"
+        );
+    }
+
+    #[test]
     fn orca_ignores_distant_player() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

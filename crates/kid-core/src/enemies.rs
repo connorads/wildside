@@ -313,6 +313,12 @@ pub(crate) const SCORPION_COLID_HURT: i16 = 0x001C;
 pub(crate) const SCORPION_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const SCORPION_COLID_KIDLEFT: i16 = 0x0024;
 pub(crate) const SCORPION_COLID_KIDABOVE: i16 = 0x002C;
+pub(crate) const ORCA_COLID_RIGHTWALL: i16 = 0x0004;
+pub(crate) const ORCA_COLID_LEFTWALL: i16 = 0x0008;
+pub(crate) const ORCA_COLID_FLOOR: i16 = 0x000C;
+pub(crate) const ORCA_COLID_CEILING: i16 = 0x0010;
+pub(crate) const ORCA_COLID_SLOPEUP: i16 = 0x0014;
+pub(crate) const ORCA_COLID_SLOPEDOWN: i16 = 0x0018;
 pub(crate) const ORCA_COLID_HURT: i16 = 0x001C;
 pub(crate) const ORCA_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const ORCA_COLID_KIDLEFT: i16 = 0x0024;
@@ -1092,6 +1098,38 @@ pub(crate) fn orca_lunge_launch_tail_loc_3d348() -> OrcaLungeLaunchTailLoc3D348 
         y_velocity: ORCA_LUNGE_Y_SPEED,
         sprite_mapping_offset_delta: 4,
         has_level_collision: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum OrcaLungeCollisionRouteLoc3D35A {
+    GravityAndAcceleration,
+    FloorLanding,
+    WallBounce,
+    CeilingBounce,
+    SlopeRelaunch,
+    Damage,
+    BerzerkerSideGate,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_lunge_collision_dispatch_loc_3d35a(
+    collision_type: i16,
+) -> OrcaLungeCollisionRouteLoc3D35A {
+    // ASM Orca.asm loc_3D35A: after one hibernated movement frame, dispatch
+    // exact collision IDs; zero and unrecognised IDs fall through to the
+    // loc_3D3B4 gravity/acceleration path.
+    match collision_type {
+        ORCA_COLID_FLOOR => OrcaLungeCollisionRouteLoc3D35A::FloorLanding,
+        ORCA_COLID_RIGHTWALL | ORCA_COLID_LEFTWALL => OrcaLungeCollisionRouteLoc3D35A::WallBounce,
+        ORCA_COLID_CEILING => OrcaLungeCollisionRouteLoc3D35A::CeilingBounce,
+        ORCA_COLID_SLOPEUP | ORCA_COLID_SLOPEDOWN => OrcaLungeCollisionRouteLoc3D35A::SlopeRelaunch,
+        ORCA_COLID_HURT | ORCA_COLID_KIDABOVE => OrcaLungeCollisionRouteLoc3D35A::Damage,
+        ORCA_COLID_KIDRIGHT | ORCA_COLID_KIDLEFT => {
+            OrcaLungeCollisionRouteLoc3D35A::BerzerkerSideGate
+        }
+        _ => OrcaLungeCollisionRouteLoc3D35A::GravityAndAcceleration,
     }
 }
 
