@@ -14327,6 +14327,12 @@ pub(crate) struct TarMonsterProjectileSetupLoc3261C {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TarMonsterProjectileDeleteLoc32652 {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotMotionLoc324D0 {
     pub(crate) x_pos: u32,
     pub(crate) x_velocity: i32,
@@ -14748,6 +14754,17 @@ pub(crate) fn tar_monster_projectile_setup_loc_3261C(
         priority: 0,
         has_level_collision: true,
         collision_response_budget: 2,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_projectile_delete_loc_32652() -> TarMonsterProjectileDeleteLoc32652 {
+    // ASM loc_32652 is the shared Tar Monster projectile termination label:
+    // both the live loop and the collision dispatch table jump to
+    // `j_Delete_CurrentObject`.
+    TarMonsterProjectileDeleteLoc32652 {
+        deletes_current_object: true,
     }
 }
 
@@ -19989,6 +20006,17 @@ mod tests {
             tar_monster_projectile_setup_loc_3261C(5).object_meta,
             tar_monster_burst_child_meta_loc_32618().object_meta,
             "burst children enter the same shared setup after their meta seed"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_delete_loc_32652_deletes_current_object() {
+        assert_eq!(
+            tar_monster_projectile_delete_loc_32652(),
+            TarMonsterProjectileDeleteLoc32652 {
+                deletes_current_object: true,
+            },
+            "ASM Tar_Monster.asm loc_32652 jumps directly to j_Delete_CurrentObject"
         );
     }
 
