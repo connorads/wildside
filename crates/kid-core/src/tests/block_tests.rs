@@ -6914,6 +6914,21 @@ mod chunk_04 {
 
     // --- Cyclone-Tornado bounce interaction (ASM Tornado.asm loc_35986) ---
 
+    #[test]
+    fn tornado_cyclone_bounce_kid_right_loc_3597e_swaps_positive_d7() {
+        use enemies::{TornadoCycloneBounceLoc35986, tornado_cyclone_bounce_kid_right_loc_3597e};
+
+        assert_eq!(
+            tornado_cyclone_bounce_kid_right_loc_3597e(),
+            TornadoCycloneBounceLoc35986 {
+                player_x_velocity: 0x0002_0000,
+                tornado_x_velocity: -0x0001_0000,
+                player_collision_type: 0x0028,
+            },
+            "ASM Tornado.asm loc_3597E seeds d7=2 before loc_35986 swaps it into Kid x_vel and reflects half speed into the Tornado",
+        );
+    }
+
     /// Unit test: validate the bounce values and direction logic.
     /// Tests that the x_velocity calculation matches ASM loc_35986.
     #[test]

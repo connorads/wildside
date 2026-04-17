@@ -8159,6 +8159,37 @@ pub(crate) fn tornado_collision_dispatch_loc_35948(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TornadoCycloneBounceLoc35986 {
+    pub(crate) player_x_velocity: i32,
+    pub(crate) tornado_x_velocity: i32,
+    pub(crate) player_collision_type: u16,
+}
+
+fn swap_words_i32(value: i32) -> i32 {
+    let bits = value as u32;
+    bits.rotate_right(16) as i32
+}
+
+fn tornado_cyclone_bounce_from_d7_loc_35986(d7: i32) -> TornadoCycloneBounceLoc35986 {
+    // ASM Tornado.asm loc_35986: `swap d7`, write it to Kid's x_vel, then
+    // `neg.l d7; asr.l #1,d7` for the Tornado's reflected x_vel.
+    let player_x_velocity = swap_words_i32(d7);
+    let tornado_x_velocity = player_x_velocity.wrapping_neg() >> 1;
+    TornadoCycloneBounceLoc35986 {
+        player_x_velocity,
+        tornado_x_velocity,
+        player_collision_type: 0x0028,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tornado_cyclone_bounce_kid_right_loc_3597e() -> TornadoCycloneBounceLoc35986 {
+    // ASM Tornado.asm loc_3597E: `moveq #2,d7; bra.w loc_35986`.
+    tornado_cyclone_bounce_from_d7_loc_35986(2)
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoPositionRestoreLoc350F2 {
     pub(crate) x_pos: i32,
     pub(crate) y_pos: i32,
