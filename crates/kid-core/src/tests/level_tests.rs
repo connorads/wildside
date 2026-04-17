@@ -16522,6 +16522,37 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3ac48_loops_robot_shot_inside_camera_window_until_collision() {
+        assert_eq!(
+            robot_shot_flight_loop_loc_3ac48(-0x80, 0x01C0, 0),
+            RobotShotFlightLoc3AC48 {
+                collision_type_cleared_before_frame: true,
+                hibernates_one_frame: true,
+                route: RobotShotFlightRouteLoc3AC48::ContinueFlight,
+            },
+            "ASM loc_3AC48: x/y screen deltas at -$80 and $1C0 are still inside because the bounds use blt/bgt"
+        );
+        assert_eq!(
+            robot_shot_flight_loop_loc_3ac48(-0x81, 0, 0),
+            RobotShotFlightLoc3AC48 {
+                collision_type_cleared_before_frame: true,
+                hibernates_one_frame: true,
+                route: RobotShotFlightRouteLoc3AC48::StartImpact,
+            },
+            "ASM loc_3AC48: screen X below -$80 exits the flight loop after the one-frame hibernate"
+        );
+        assert_eq!(
+            robot_shot_flight_loop_loc_3ac48(0, 0, 0x001C),
+            RobotShotFlightLoc3AC48 {
+                collision_type_cleared_before_frame: true,
+                hibernates_one_frame: true,
+                route: RobotShotFlightRouteLoc3AC48::StartImpact,
+            },
+            "ASM loc_3AC48: any non-zero collision_type written during the frame exits the flight loop"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

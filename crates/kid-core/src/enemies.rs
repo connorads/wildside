@@ -15581,6 +15581,45 @@ pub(crate) fn robot_shot_spawn_loc_3ac0c(
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum RobotShotFlightRouteLoc3AC48 {
+    ContinueFlight,
+    StartImpact,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShotFlightLoc3AC48 {
+    pub(crate) collision_type_cleared_before_frame: bool,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) route: RobotShotFlightRouteLoc3AC48,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shot_flight_loop_loc_3ac48(
+    screen_x_px: i16,
+    screen_y_px: i16,
+    post_frame_collision_type: u16,
+) -> RobotShotFlightLoc3AC48 {
+    // ASM Robot.asm loc_3AC48: clear collision_type, hibernate one frame, then
+    // loop only while the shot is inside the inclusive camera window and no
+    // new collision was written during the frame.
+    let inside_camera_window =
+        (-0x80..=0x01C0).contains(&screen_x_px) && (-0x80..=0x01C0).contains(&screen_y_px);
+    let route = if inside_camera_window && post_frame_collision_type == 0 {
+        RobotShotFlightRouteLoc3AC48::ContinueFlight
+    } else {
+        RobotShotFlightRouteLoc3AC48::StartImpact
+    };
+
+    RobotShotFlightLoc3AC48 {
+        collision_type_cleared_before_frame: true,
+        hibernates_one_frame: true,
+        route,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
