@@ -14142,6 +14142,31 @@ mod chunk_02 {
     }
 
     #[test]
+    fn lift_platform_step_loc_fcfe_repeats_when_below_level_height() {
+        let mut lift = LiftPlatform {
+            x_pos: 32 << 16,
+            y_pos: 255 << 16,
+            y_velocity: 0,
+            age: 0,
+            last_integer_y: 255,
+            moved_y_steps: 0,
+            width_px: 16,
+            source_col: 2,
+            source_row: 6,
+            block_erased: false,
+        };
+
+        assert!(
+            NativeRuntime::step_lift_platform_sub_FCA6(&mut lift, 256),
+            "ASM loc_FCFE should branch back to `loc_FCBE` while signed `6(a3)` is still below `Level_height_pixels`",
+        );
+        assert_eq!(
+            lift.age, 1,
+            "ASM loc_FCFE loop-back should retain the worker for a later hibernate/frame step",
+        );
+    }
+
+    #[test]
     fn lift_platform_step_sub_fca6_switches_accel_after_0x32_moved_rows_and_deletes_at_level_height()
      {
         let mut lift = LiftPlatform {

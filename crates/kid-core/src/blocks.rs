@@ -801,6 +801,9 @@ impl NativeRuntime {
         // ASM loc_FCEA (kid.asm:21048-21053): compare signed integer `6(a3)`
         // with `Level_height_pixels`; strictly below loops, otherwise delete.
         let signed_integer_y = i32::from(i16::from_ne_bytes(current_integer_y.to_ne_bytes()));
+        // ASM loc_FCFE (kid.asm:21056): the strictly-below branch is only
+        // `bra.s loc_FCBE`, so native returns true to keep this platform worker
+        // retained for another loop iteration.
         signed_integer_y < i32::from(level_height_pixels)
     }
 
