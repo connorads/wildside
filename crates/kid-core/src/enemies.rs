@@ -16094,6 +16094,14 @@ pub(crate) fn tar_monster_projectile_dispatch_seed_loc_32698(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_projectile_reflect_x_loc_326AA(x_velocity: i32) -> i32 {
+    // ASM loc_326AA: copy x_vel(a3), arithmetic-shift it right by one, negate
+    // the halved value, and write it back to x_vel(a3).
+    (x_velocity >> 1).wrapping_neg()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_collision_loc_32682(
     collision_type: i16,
     collision_response_budget: u16,
@@ -21918,6 +21926,21 @@ mod tests {
             tar_monster_projectile_dispatch_seed_loc_32698(0x0004, 0),
             TarMonsterProjectileCollisionBudgetLoc32698::DeleteCurrentObject,
             "ASM Tar_Monster.asm loc_32698 branches to loc_32652 when the post-decrement d3 word is negative"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_reflect_x_loc_326aa_halves_and_negates_x_velocity() {
+        assert_eq!(
+            tar_monster_projectile_reflect_x_loc_326AA(0x0002_0000),
+            -0x0001_0000,
+            "ASM Tar_Monster.asm loc_326AA reflects a positive x_vel by ASR.L #1 followed by NEG.L"
+        );
+
+        assert_eq!(
+            tar_monster_projectile_reflect_x_loc_326AA(-0x0003_0000),
+            0x0001_8000,
+            "ASM Tar_Monster.asm loc_326AA uses arithmetic shift before negation, preserving signed fixed-point halves"
         );
     }
 
