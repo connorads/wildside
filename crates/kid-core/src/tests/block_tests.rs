@@ -7169,6 +7169,30 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_kid_contact_gate_loc_32a86_requires_grabbable_kid_state() {
+        assert_eq!(
+            hand_kid_contact_gate_loc_32a86(true, false, false),
+            HandKidContactRouteLoc32A86::ReturnOnly,
+            "ASM Hand.asm loc_32A86 returns immediately when Character_Movement is MoveID_Crawling"
+        );
+        assert_eq!(
+            hand_kid_contact_gate_loc_32a86(false, true, false),
+            HandKidContactRouteLoc32A86::ReturnOnly,
+            "ASM Hand.asm loc_32A86 returns immediately when Current_Helmet is Juggernaut"
+        );
+        assert_eq!(
+            hand_kid_contact_gate_loc_32a86(false, false, true),
+            HandKidContactRouteLoc32A86::ReturnOnly,
+            "ASM Hand.asm loc_32A86 returns when KidGrabbedByHand is already set"
+        );
+        assert_eq!(
+            hand_kid_contact_gate_loc_32a86(false, false, false),
+            HandKidContactRouteLoc32A86::StartGrab,
+            "ASM Hand.asm loc_32A86 branches to grab setup only after all three grab guards are clear"
+        );
+    }
+
+    #[test]
     fn hand_jump_collision_loc_32a3e_clears_only_y_velocity() {
         assert_eq!(
             hand_jump_collision_clear_y_velocity_loc_32a3e(0x0002_0000, -0x0003_4000),

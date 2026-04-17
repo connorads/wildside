@@ -12880,6 +12880,30 @@ pub(crate) fn hand_jump_collision_dispatch_loc_329f8(
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum HandKidContactRouteLoc32A86 {
+    ReturnOnly,
+    StartGrab,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_kid_contact_gate_loc_32a86(
+    character_movement_is_crawling: bool,
+    current_helmet_is_juggernaut: bool,
+    kid_grabbed_by_hand: bool,
+) -> HandKidContactRouteLoc32A86 {
+    // ASM Hand.asm loc_32A86: airborne Kid-contact IDs return while Kid is
+    // crawling, while Juggernaut is equipped, or while KidGrabbedByHand is
+    // already set; only the all-clear path branches into grab setup.
+    if character_movement_is_crawling || current_helmet_is_juggernaut || kid_grabbed_by_hand {
+        HandKidContactRouteLoc32A86::ReturnOnly
+    } else {
+        HandKidContactRouteLoc32A86::StartGrab
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandJumpCollisionVelocityLoc32A3E {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
