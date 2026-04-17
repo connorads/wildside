@@ -17198,6 +17198,7 @@ pub(crate) enum DripsSurfaceCrawlerTurnAnimationLoc33AF6 {
     Stru33E64,
     Stru33EE6,
     Stru33DF4,
+    Stru33DBC,
     Stru33DD8,
     Unknown(u8),
 }
@@ -17270,6 +17271,7 @@ fn drips_turn_script_animation_loc_33af6(
         0x28 => DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33E64,
         0x30 => DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33EE6,
         0x38 => DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33DF4,
+        0x44 => DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33DBC,
         0x4C => DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33DD8,
         _ => DripsSurfaceCrawlerTurnAnimationLoc33AF6::Unknown(byte_offset),
     }
@@ -17388,6 +17390,17 @@ pub(crate) fn drips_surface_crawler_turn_script_loc_33a4a() -> DripsSurfaceCrawl
     drips_surface_crawler_turn_script_loc_33af6([
         0x1E, 0x00, 0x00, 0x00, 0xFE, 0x01, 0x38, 0x00, 0xFE, 0xFF, 0xD0, 0x00, 0x00, 0x00, 0x18,
         0x00,
+    ])
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_turn_script_loc_33a54() -> DripsSurfaceCrawlerTurnScriptLoc33AF6
+{
+    // ASM Drips.asm loc_33A54: select `unk_33D30`, then branch to the shared
+    // loc_33AF6 turn-script interpreter.
+    drips_surface_crawler_turn_script_loc_33af6([
+        0x1A, 0x08, 0x00, 0x00, 0xFF, 0xFC, 0x44, 0xFF, 0x00, 0xFE, 0x00, 0x00, 0xD0, 0x00, 0x14,
+        0x0C,
     ])
 }
 
@@ -25115,6 +25128,30 @@ mod tests {
                 next: DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33650,
             },
             "ASM Drips.asm loc_33A4A selects `unk_33D20`, which loc_33AF6 snaps Y, steps down-left then up-left, seeds -$3000 x velocity, and resumes loc_33650"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_turn_script_matches_loc_33a54() {
+        assert_eq!(
+            drips_surface_crawler_turn_script_loc_33a54(),
+            DripsSurfaceCrawlerTurnScriptLoc33AF6 {
+                snap_field: DripsSurfaceCrawlerTurnFieldLoc33AF6::XPos,
+                snap_offset: 8,
+                snap_mask: 0xFFF0,
+                flip_before_first_animation: false,
+                first_x_delta: -1,
+                first_y_delta: -4,
+                first_animation: DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33DBC,
+                flip_after_first_animation: true,
+                second_x_delta: 0,
+                second_y_delta: -2,
+                x_velocity_delta: 0,
+                y_velocity_delta: -0x3000,
+                second_animation: DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33EB2,
+                next: DripsSurfaceCrawlerTurnNextLoc33AF6::Loc337A0,
+            },
+            "ASM Drips.asm loc_33A54 selects `unk_33D30`, which loc_33AF6 snaps X by +8, climbs left/up, flips after the first animation, seeds -$3000 y velocity, and jumps to loc_337A0"
         );
     }
 
