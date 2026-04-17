@@ -18970,6 +18970,8 @@ pub(crate) fn tank_update_loc_3b41c(
             // ASM Tank.asm loc_3B444: after the optional open-mouth sound,
             // execution immediately joins the child collision routing.
             TankMouthFrameLoc3B41C::OpeningTimerA => Some(TankMouthSoundLoc3B41C::Open),
+            // ASM Tank.asm loc_3B446: non-open mouth frames check for
+            // closing timer `$37` before optionally playing the closed sound.
             TankMouthFrameLoc3B41C::ClosingTimer37 => Some(TankMouthSoundLoc3B41C::Closed),
             TankMouthFrameLoc3B41C::Other => None,
         }
@@ -19978,7 +19980,7 @@ mod tests {
                 hurt_hibernate_frames: Some(5),
                 route: TankUpdateRouteLoc3B41C::Hurt { remaining_hp: 2 },
             },
-            "ASM Tank.asm loc_3B41C should decrement HP for child collision `$1C`, stop parent motion, set child timer 6, hibernate 5 frames, then clear child collision",
+            "ASM Tank.asm loc_3B446 should play the closed-mouth sound before decrementing HP for child collision `$1C`, stopping parent motion, setting child timer 6, hibernating 5 frames, then clearing child collision",
         );
     }
 
