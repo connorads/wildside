@@ -7193,6 +7193,40 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_death_sequence_loc_32aa2_runs_animation_then_status_route() {
+        let positive = hand_death_sequence_loc_32aa2(0x05);
+        assert_eq!(
+            positive,
+            HandDeathSequenceLoc32AA2 {
+                has_kid_collision: true,
+                is_moved: false,
+                animation_label: "stru_32B78",
+                hibernate_until_animation_finished: true,
+                status_route: HandDeathStatusRouteLoc32AA2::PositiveSlot { index: 0x05 },
+                deletes_current_object: true,
+            },
+            "ASM Hand.asm loc_32AA2 sets has_kid_collision, clears is_moved, waits for stru_32B78, then routes positive `$42(a5)` to the respawn-marker path"
+        );
+
+        assert_eq!(
+            hand_death_sequence_loc_32aa2(0xC7).status_route,
+            HandDeathStatusRouteLoc32AA2::SubtractSpawnCounter {
+                index: 0x07,
+                decrement: 0x0400,
+            },
+            "ASM Hand.asm loc_32AA2 masks bit-7+bit-6 `$42(a5)` with `$3F` before subtracting `$400` from EnemyStatus_Table"
+        );
+
+        let delete_only = hand_death_sequence_loc_32aa2(0x80);
+        assert_eq!(
+            delete_only.status_route,
+            HandDeathStatusRouteLoc32AA2::DeleteOnly,
+            "ASM Hand.asm loc_32AA2 sends bit-7 set and bit-6 clear status bytes straight to delete"
+        );
+        assert!(delete_only.deletes_current_object);
+    }
+
+    #[test]
     fn hand_jump_collision_loc_32a3e_clears_only_y_velocity() {
         assert_eq!(
             hand_jump_collision_clear_y_velocity_loc_32a3e(0x0002_0000, -0x0003_4000),

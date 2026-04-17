@@ -12904,6 +12904,54 @@ pub(crate) fn hand_kid_contact_gate_loc_32a86(
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum HandDeathStatusRouteLoc32AA2 {
+    PositiveSlot { index: usize },
+    SubtractSpawnCounter { index: usize, decrement: u16 },
+    DeleteOnly,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandDeathSequenceLoc32AA2 {
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) animation_label: &'static str,
+    pub(crate) hibernate_until_animation_finished: bool,
+    pub(crate) status_route: HandDeathStatusRouteLoc32AA2,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_death_sequence_loc_32aa2(object_status_slot: u8) -> HandDeathSequenceLoc32AA2 {
+    // ASM Hand.asm loc_32AA2: death starts by enabling Kid collision,
+    // stopping movement, playing `stru_32B78` to completion, then routing
+    // `$42(a5)` through the enemy status-table update before delete.
+    let status_route = if object_status_slot & 0x80 == 0 {
+        HandDeathStatusRouteLoc32AA2::PositiveSlot {
+            index: usize::from(object_status_slot),
+        }
+    } else if object_status_slot & 0x40 != 0 {
+        HandDeathStatusRouteLoc32AA2::SubtractSpawnCounter {
+            index: usize::from(object_status_slot & 0x3F),
+            decrement: 0x0400,
+        }
+    } else {
+        HandDeathStatusRouteLoc32AA2::DeleteOnly
+    };
+
+    HandDeathSequenceLoc32AA2 {
+        has_kid_collision: true,
+        is_moved: false,
+        animation_label: "stru_32B78",
+        hibernate_until_animation_finished: true,
+        status_route,
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandJumpCollisionVelocityLoc32A3E {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
