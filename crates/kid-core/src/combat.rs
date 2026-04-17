@@ -9479,10 +9479,8 @@ impl NativeRuntime {
         // Diamond collection: touching a Diamond picks it up
         self.collect_diamonds(slice);
 
-        // Cyclone-Tornado bounce: ASM Tornado.asm loc_35986
+        // Cyclone-Tornado bounce: ASM Tornado.asm loc_3597E/loc_35984 -> loc_35986.
         // When Cyclone-flying player contacts Tornado, bounce instead of damage.
-        // Player x_vel = ±$20000, Tornado x_vel = opposite halved ∓$10000,
-        // cyclone_y_accel = $28 (40).
         if !self.stomped_this_frame
             && self.progression.current_form == PlayerForm::Cyclone
             && self.helmet.cyclone_flying
@@ -9502,17 +9500,16 @@ impl NativeRuntime {
                 ) {
                     continue;
                 }
-                // ASM loc_35986: Cyclone-Tornado bounce
-                // Direction from player position relative to Tornado center
                 let player_x = slice.player.x_pos as i64;
                 let tornado_x = enemy.x_pos as i64;
-                let bounce_direction = if player_x < tornado_x { -1 } else { 1 };
-                // Player x_velocity = ±$20000 (2.0 px/frame)
-                slice.player.x_velocity = bounce_direction * 0x20000;
-                // Tornado x_velocity = opposite, halved (∓$10000)
-                enemy.x_velocity = -bounce_direction * 0x10000;
-                // Cyclone Y acceleration boost = $28 (ASM writes to $38(a4))
-                self.helmet.cyclone_y_accel = 0x28;
+                let bounce = tornado_cyclone_bounce_for_positions_loc_35986(player_x, tornado_x);
+                slice.player.x_velocity = bounce.player_x_velocity;
+                enemy.x_velocity = bounce.tornado_x_velocity;
+                // TODO(fidelity): ASM writes `$28` to Kid `collision_type(a4)`.
+                // Native has no player collision_type field here, so preserve
+                // the existing Cyclone accumulator surrogate until that boundary
+                // is modelled directly.
+                self.helmet.cyclone_y_accel = bounce.player_collision_type as i16;
                 self.opening_slice = Some(*slice);
                 self.last_kid_frame_post_motion_mutator =
                     KidFramePostMotionMutator::CycloneTornadoBounce;

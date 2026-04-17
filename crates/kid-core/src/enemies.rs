@@ -8188,6 +8188,23 @@ pub(crate) fn tornado_cyclone_bounce_kid_right_loc_3597e() -> TornadoCycloneBoun
     tornado_cyclone_bounce_from_d7_loc_35986(2)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tornado_cyclone_bounce_kid_left_loc_35984() -> TornadoCycloneBounceLoc35986 {
+    // ASM Tornado.asm loc_35984: `moveq #-2,d7`, then fall through to `loc_35986`.
+    tornado_cyclone_bounce_from_d7_loc_35986(-2)
+}
+
+pub(crate) fn tornado_cyclone_bounce_for_positions_loc_35986(
+    player_x: i64,
+    tornado_x: i64,
+) -> TornadoCycloneBounceLoc35986 {
+    if player_x < tornado_x {
+        tornado_cyclone_bounce_kid_left_loc_35984()
+    } else {
+        tornado_cyclone_bounce_kid_right_loc_3597e()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoPositionRestoreLoc350F2 {

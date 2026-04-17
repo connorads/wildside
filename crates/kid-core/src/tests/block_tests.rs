@@ -6929,29 +6929,37 @@ mod chunk_04 {
         );
     }
 
-    /// Unit test: validate the bounce values and direction logic.
-    /// Tests that the x_velocity calculation matches ASM loc_35986.
     #[test]
-    fn cyclone_tornado_bounce_x_velocity_values_match_asm() {
-        // ASM loc_35986: player x_velocity = ±$20000 (after swap of ±2)
-        // Direction based on player position relative to Tornado
-        let player_left_of_tornado: i32 = -0x20000; // Player should bounce right
-        let player_right_of_tornado: i32 = 0x20000; // Player should bounce left (negative)
+    fn tornado_cyclone_bounce_kid_left_loc_35984_preserves_moveq_sign_extension() {
+        use enemies::{TornadoCycloneBounceLoc35986, tornado_cyclone_bounce_kid_left_loc_35984};
+
         assert_eq!(
-            player_left_of_tornado, -0x20000,
-            "left bounce should be negative $20000"
+            tornado_cyclone_bounce_kid_left_loc_35984(),
+            TornadoCycloneBounceLoc35986 {
+                player_x_velocity: -0x0001_0001,
+                tornado_x_velocity: 0x0000_8000,
+                player_collision_type: 0x0028,
+            },
+            "ASM Tornado.asm loc_35984 uses `moveq #-2,d7`; after loc_35986 `swap d7`, Kid x_vel is $FFFEFFFF rather than symmetric -$00020000",
+        );
+    }
+
+    #[test]
+    fn tornado_cyclone_bounce_for_positions_loc_35986_selects_side_branch() {
+        use enemies::tornado_cyclone_bounce_for_positions_loc_35986;
+
+        assert_eq!(
+            tornado_cyclone_bounce_for_positions_loc_35986(0x0100_0000, 0x0110_0000)
+                .player_x_velocity,
+            -0x0001_0001,
+            "ASM Tornado.asm loc_35986 should use the loc_35984 left-contact branch when Kid is left of the Tornado",
         );
         assert_eq!(
-            player_right_of_tornado, 0x20000,
-            "right bounce should be positive $20000"
+            tornado_cyclone_bounce_for_positions_loc_35986(0x0120_0000, 0x0110_0000)
+                .player_x_velocity,
+            0x0002_0000,
+            "ASM Tornado.asm loc_35986 should use the loc_3597E right-contact branch when Kid is right of the Tornado",
         );
-        // Tornado x_velocity is half of player velocity, opposite direction
-        let tornado_refl_left: i32 = 0x10000; // Half of -$20000 negated
-        let tornado_refl_right: i32 = -0x10000; // Half of $20000 negated
-        assert_eq!(tornado_refl_left, 0x10000, "Tornado should reflect right");
-        assert_eq!(tornado_refl_right, -0x10000, "Tornado should reflect left");
-        // Cyclone Y acceleration = $28 (40)
-        assert_eq!(0x28u16, 40, "Y acceleration boost should be 40");
     }
 
     /// Integration test: regular form takes damage from Tornado.
