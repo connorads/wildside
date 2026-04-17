@@ -4780,6 +4780,32 @@ pub(crate) fn fire_demon_berzerker_side_gate_loc_3a5e4(
     })
 }
 
+pub(crate) const FIRE_DEMON_BERZERKER_LAUNCH_GRAVITY_LOC_3A610: i32 = 0x0000_4000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireDemonBerzerkerLaunchLoopTickLoc3A610 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_shared_retention_check_sub_3c3ce: bool,
+    pub(crate) next_y_velocity: i32,
+    pub(crate) loops: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_berzerker_launch_loop_tick_loc_3a610(
+    y_velocity: i32,
+) -> FireDemonBerzerkerLaunchLoopTickLoc3A610 {
+    // ASM Fire_Demon.asm loc_3A610: each airborne tick hibernates one frame,
+    // runs `sub_3C3CE`, adds `$4000` to `y_vel(a3)`, then branches back to
+    // loc_3A610.
+    FireDemonBerzerkerLaunchLoopTickLoc3A610 {
+        hibernates_one_frame: true,
+        runs_shared_retention_check_sub_3c3ce: true,
+        next_y_velocity: y_velocity.wrapping_add(FIRE_DEMON_BERZERKER_LAUNCH_GRAVITY_LOC_3A610),
+        loops: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
     collision_type: i16,

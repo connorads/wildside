@@ -3386,6 +3386,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_berzerker_launch_loop_loc_3a610_applies_gravity_and_loops() {
+        assert_eq!(
+            fire_demon_berzerker_launch_loop_tick_loc_3a610(-0x0004_8000),
+            FireDemonBerzerkerLaunchLoopTickLoc3A610 {
+                hibernates_one_frame: true,
+                runs_shared_retention_check_sub_3c3ce: true,
+                next_y_velocity: -0x0004_4000,
+                loops: true,
+            },
+            "ASM Fire_Demon.asm loc_3A610 should hibernate, run sub_3C3CE, add `$4000` to y_vel, and loop"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);
