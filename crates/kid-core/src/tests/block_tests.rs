@@ -3359,6 +3359,33 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_berzerker_side_gate_loc_3a5e4_launches_only_while_charging() {
+        assert_eq!(
+            fire_demon_berzerker_side_gate_loc_3a5e4(false, Direction::Left),
+            FireDemonBerzerkerSideGateLoc3A5E4::ResumeSharedWalker(
+                FireDemonResumeSharedWalkerLoc3A5D4 {
+                    next_collision_type: 0,
+                    branch: FireDemonResumeSharedWalkerBranchLoc3A5D4::LeftSharedWalker,
+                },
+            ),
+            "ASM Fire_Demon.asm loc_3A5E4 should branch to loc_3A5D4 when Berzerker_charging is clear"
+        );
+        assert_eq!(
+            fire_demon_berzerker_side_gate_loc_3a5e4(true, Direction::Right),
+            FireDemonBerzerkerSideGateLoc3A5E4::Launch(FireDemonBerzerkerLaunchLoc3A5E4 {
+                has_level_collision: false,
+                has_kid_collision: true,
+                is_moved: true,
+                is_animated: false,
+                sprite_mapping: "LnkTo_unk_C773E-Data_Index",
+                x_velocity: 0,
+                y_velocity: -0x0004_8000,
+            }),
+            "ASM Fire_Demon.asm loc_3A5E4 should freeze animation and launch upward while Berzerker_charging is set"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_lion_binary_hp_check() {
         // Lion: ASM binary check — $18000 for HP<8, $28000 for HP==8.
         assert_eq!(pacer_walk_speed(EnemyFamily::Lion, 6), 0x0001_8000);

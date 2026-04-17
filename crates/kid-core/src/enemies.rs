@@ -4735,6 +4735,51 @@ pub(crate) fn fire_demon_resume_shared_walker_loc_3a5d4(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireDemonBerzerkerLaunchLoc3A5E4 {
+    pub(crate) has_level_collision: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FireDemonBerzerkerSideGateLoc3A5E4 {
+    ResumeSharedWalker(FireDemonResumeSharedWalkerLoc3A5D4),
+    Launch(FireDemonBerzerkerLaunchLoc3A5E4),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_berzerker_side_gate_loc_3a5e4(
+    berzerker_charging: bool,
+    facing: Direction,
+) -> FireDemonBerzerkerSideGateLoc3A5E4 {
+    // ASM Fire_Demon.asm loc_3A5E4: clear `(Berzerker_charging).w` branches
+    // back to loc_3A5D4. A charging Berzerker disables terrain collision,
+    // leaves Kid collision and movement enabled, freezes animation on
+    // `LnkTo_unk_C773E`, zeroes X velocity, and launches upward at `-$48000`.
+    if !berzerker_charging {
+        return FireDemonBerzerkerSideGateLoc3A5E4::ResumeSharedWalker(
+            fire_demon_resume_shared_walker_loc_3a5d4(facing),
+        );
+    }
+
+    FireDemonBerzerkerSideGateLoc3A5E4::Launch(FireDemonBerzerkerLaunchLoc3A5E4 {
+        has_level_collision: false,
+        has_kid_collision: true,
+        is_moved: true,
+        is_animated: false,
+        sprite_mapping: "LnkTo_unk_C773E-Data_Index",
+        x_velocity: 0,
+        y_velocity: -0x0004_8000,
+    })
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
     collision_type: i16,
