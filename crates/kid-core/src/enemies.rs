@@ -10482,6 +10482,23 @@ pub(crate) fn ufo_hurt_driver_floor_landing_loc_3581E(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverLaunchLoc35838 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_up_left_launch_loc_35838() -> UfoHurtDriverLaunchLoc35838 {
+    // ASM UFO.asm loc_35838: write `#-$10000` to both `x_vel(a3)` and
+    // `y_vel(a3)`, then return.
+    UfoHurtDriverLaunchLoc35838 {
+        x_velocity: -0x0001_0000,
+        y_velocity: -0x0001_0000,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
     collision_type: i16,

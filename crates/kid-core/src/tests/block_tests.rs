@@ -7555,6 +7555,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_hurt_driver_up_left_launch_matches_loc_35838() {
+        use enemies::{UfoHurtDriverLaunchLoc35838, ufo_hurt_driver_up_left_launch_loc_35838};
+
+        assert_eq!(
+            ufo_hurt_driver_up_left_launch_loc_35838(),
+            UfoHurtDriverLaunchLoc35838 {
+                x_velocity: -0x0001_0000,
+                y_velocity: -0x0001_0000,
+            },
+            "ASM UFO.asm loc_35838 writes -$10000 to both x_vel and y_vel before returning"
+        );
+    }
+
+    #[test]
     fn tornado_loads_rom_pattern_on_timer_expiry() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
         enemy.wait_timer = 0;
