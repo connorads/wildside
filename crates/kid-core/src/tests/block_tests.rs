@@ -2626,6 +2626,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_tracking_right_route_matches_loc_3cc36() {
+        assert_eq!(
+            goat_tracking_right_route_loc_3cc36(100, 133, Direction::Left),
+            Some(GoatTrackingRightRouteLoc3CC36::TurnRight),
+            "ASM Goat.asm loc_3CC36 should set x_direction when d7 is negative and Kid is more than 32px right"
+        );
+        assert_eq!(
+            goat_tracking_right_route_loc_3cc36(100, 133, Direction::Right),
+            Some(GoatTrackingRightRouteLoc3CC36::AlreadyFacingRight),
+            "ASM Goat.asm loc_3CC36 should keep set x_direction when already facing Kid on the right"
+        );
+        assert_eq!(
+            goat_tracking_right_route_loc_3cc36(100, 132, Direction::Left),
+            None,
+            "ASM Goat.asm loc_3CC36 is not the right-side reface path while d7 is still within -32px"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);

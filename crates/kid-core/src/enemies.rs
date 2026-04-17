@@ -4030,6 +4030,33 @@ pub(crate) fn goat_collision_clear_resume_loc_3cbf6(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum GoatTrackingRightRouteLoc3CC36 {
+    TurnRight,
+    AlreadyFacingRight,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_tracking_right_route_loc_3cc36(
+    goat_x_px: i16,
+    kid_x_px: i16,
+    facing: Direction,
+) -> Option<GoatTrackingRightRouteLoc3CC36> {
+    let d7 = goat_x_px.wrapping_sub(kid_x_px);
+    if d7 >= -0x20 {
+        return None;
+    }
+
+    // ASM Goat.asm loc_3CC36: negative `d7` means Kid is more than 32px to
+    // the goat's right; clear `x_direction` branches to the shared turn-right
+    // path, while set `x_direction` already faces Kid.
+    Some(match facing {
+        Direction::Left => GoatTrackingRightRouteLoc3CC36::TurnRight,
+        Direction::Right => GoatTrackingRightRouteLoc3CC36::AlreadyFacingRight,
+    })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {
     pub(crate) is_moved: bool,
     pub(crate) has_level_collision: bool,
