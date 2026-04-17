@@ -21220,7 +21220,7 @@ pub(crate) fn archer_angle_to_player(
     let sub = RATIO_TABLE[(ratio as usize).min(RATIO_TABLE.len() - 1)] as i32;
 
     match (dx > 0, dy >= 0) {
-        // Quadrant 0: right+up (d5=0)
+        // ASM Archer.asm loc_344C6: right+up keeps the ratio-table sub-angle.
         (true, false) => sub as usize,
         // ASM Archer.asm loc_34492: left+up negates both deltas, looks up the
         // slope sub-angle, then returns `$D - sub`.

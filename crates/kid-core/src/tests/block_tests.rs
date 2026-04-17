@@ -5965,9 +5965,10 @@ mod chunk_04 {
 
     #[test]
     fn archer_angle_upper_right() {
-        // Player well above and to the right → quadrant 0, should give angle near 0-6
+        // ASM Archer.asm loc_344C6: right+up maps the ratio-table value
+        // directly to the returned angle.
         let angle = archer_angle_to_player(100 << 16, 200 << 16, 200 << 16, 100 << 16);
-        assert!(angle <= 6, "angle {angle} should be in upper-right range");
+        assert_eq!(angle, 0x03, "ratio 9 maps directly to sub-angle 3");
         let (xv, yv) = ARROW_ANGLE_TABLE[angle];
         assert!(xv > 0, "x velocity should be positive (rightward)");
         assert!(yv < 0, "y velocity should be negative (upward)");
