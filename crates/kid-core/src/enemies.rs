@@ -17920,7 +17920,15 @@ pub(crate) fn tar_monster_projectile_reflect_x_loc_326AA(x_velocity: i32) -> i32
 pub(crate) fn tar_monster_projectile_reflect_y_loc_326B8(y_velocity: i32) -> i32 {
     // ASM loc_326B8: copy y_vel(a3), arithmetic-shift it right by one, negate
     // the halved value, then fall through to the shared y_vel(a3) writeback.
-    (y_velocity >> 1).wrapping_neg()
+    tar_monster_projectile_write_y_velocity_loc_326C0((y_velocity >> 1).wrapping_neg())
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_projectile_write_y_velocity_loc_326C0(y_velocity_d7: i32) -> i32 {
+    // ASM loc_326C0: `move.l d7,y_vel(a3); rts` writes the prepared d7 long
+    // directly to the projectile's y_vel field.
+    y_velocity_d7
 }
 
 #[allow(non_snake_case)]
@@ -24309,6 +24317,21 @@ mod tests {
             tar_monster_projectile_reflect_y_loc_326B8(-0x0001_8000),
             0x0000_C000,
             "ASM Tar_Monster.asm loc_326B8 preserves signed half-pixel velocity before the shared y_vel writeback"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_write_y_velocity_loc_326c0_stores_prepared_d7() {
+        assert_eq!(
+            tar_monster_projectile_write_y_velocity_loc_326C0(-0x0002_0000),
+            -0x0002_0000,
+            "ASM Tar_Monster.asm loc_326C0 writes the prepared d7 long directly to y_vel(a3)"
+        );
+
+        assert_eq!(
+            tar_monster_projectile_write_y_velocity_loc_326C0(0x0000_C000),
+            0x0000_C000,
+            "ASM Tar_Monster.asm loc_326C0 has no extra clamping or sign change after loc_326B8"
         );
     }
 
