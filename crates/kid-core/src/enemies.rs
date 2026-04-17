@@ -9837,6 +9837,24 @@ pub(crate) fn sphere_child_loop_step_loc_360F4(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SphereCollisionGateLoc36106 {
+    Delete,
+    ContinueLoop,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sphere_collision_gate_loc_36106(collision_type: u16) -> SphereCollisionGateLoc36106 {
+    // ASM Sphere.asm loc_36106: after the d0 grace counter expires, a non-zero
+    // `collision_type(a3)` exits the child object; zero resumes the wait loop.
+    if collision_type == 0 {
+        SphereCollisionGateLoc36106::ContinueLoop
+    } else {
+        SphereCollisionGateLoc36106::Delete
+    }
+}
+
 /// Fireball max upward velocity indexed by live HP
 /// (Fireball.asm `Enemy19_Fireball_Init`: `move.w 2(a0),d7; asl.w #3,d7` into `unk_32BA6`).
 /// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
@@ -30099,6 +30117,20 @@ mod tests {
             sphere_child_loop_step_loc_360F4(false, 0),
             SphereChildLoopStepLoc360F4::CheckCollision,
             "ASM Sphere.asm loc_360F4 falls through to the collision check only when d0 is already zero"
+        );
+    }
+
+    #[test]
+    fn sphere_collision_gate_loc_36106_deletes_only_after_collision() {
+        assert_eq!(
+            sphere_collision_gate_loc_36106(0),
+            SphereCollisionGateLoc36106::ContinueLoop,
+            "ASM Sphere.asm loc_36106 resumes the child loop while `collision_type(a3)` is zero"
+        );
+        assert_eq!(
+            sphere_collision_gate_loc_36106(0x0004),
+            SphereCollisionGateLoc36106::Delete,
+            "ASM Sphere.asm loc_36106 branches to deletion for any non-zero collision event"
         );
     }
 
