@@ -17925,6 +17925,46 @@ pub(crate) fn spinning_twins_berzerker_launch_loop_tick_loc_3bc22(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsDamageRecoveryLoc3BC34 {
+    pub(crate) next_hit_points: u16,
+    pub(crate) hit_animation: &'static str,
+    pub(crate) waits_until_hit_animation_finished: bool,
+    pub(crate) restored_walk_animation: &'static str,
+    pub(crate) resume_walk: SpinningTwinsResumeWalkLoc3BBE6,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SpinningTwinsDamageContactLoc3BC34 {
+    Death { next_hit_points: u16 },
+    Recover(SpinningTwinsDamageRecoveryLoc3BC34),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_damage_contact_loc_3bc34(
+    hit_points: u16,
+    x_direction: u8,
+) -> SpinningTwinsDamageContactLoc3BC34 {
+    // ASM Spinning_Twins.asm loc_3BC34: `subi.w #1,$44(a3)` sends the twins
+    // to loc_3BC56 when HP reaches zero. Otherwise it plays `stru_3B836` to
+    // completion, restores the walking `stru_3B81C` animation, then resumes
+    // through loc_3BBE6.
+    let next_hit_points = hit_points.wrapping_sub(1);
+    if next_hit_points == 0 {
+        return SpinningTwinsDamageContactLoc3BC34::Death { next_hit_points };
+    }
+
+    SpinningTwinsDamageContactLoc3BC34::Recover(SpinningTwinsDamageRecoveryLoc3BC34 {
+        next_hit_points,
+        hit_animation: "stru_3B836",
+        waits_until_hit_animation_finished: true,
+        restored_walk_animation: "stru_3B81C",
+        resume_walk: spinning_twins_resume_walk_loc_3bbe6(x_direction),
+    })
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32) -> i32 {
     // ASM Spinning_Twins.asm loc_3BB2C: after hibernate + sub_3C3CE movement,

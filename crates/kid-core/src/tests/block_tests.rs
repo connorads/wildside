@@ -8831,6 +8831,29 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_damage_contact_loc_3bc34_decrements_hp_before_recovery_or_death() {
+        assert_eq!(
+            spinning_twins_damage_contact_loc_3bc34(1, 0),
+            SpinningTwinsDamageContactLoc3BC34::Death { next_hit_points: 0 },
+            "ASM loc_3BC34 should branch to the death path when `$44(a3)` decrements to zero"
+        );
+        assert_eq!(
+            spinning_twins_damage_contact_loc_3bc34(2, 0xFF),
+            SpinningTwinsDamageContactLoc3BC34::Recover(SpinningTwinsDamageRecoveryLoc3BC34 {
+                next_hit_points: 1,
+                hit_animation: "stru_3B836",
+                waits_until_hit_animation_finished: true,
+                restored_walk_animation: "stru_3B81C",
+                resume_walk: SpinningTwinsResumeWalkLoc3BBE6 {
+                    next_collision_type: 0,
+                    resume_direction: Direction::Right,
+                },
+            }),
+            "ASM loc_3BC34 should play hit animation, restore walking, then resume through loc_3BBE6"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 
