@@ -2764,7 +2764,8 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         EnemyFamily::Crab => return crab_motion_profile_loc_3b00a(hit_points).walk_speed,
         // Scorpion: HP = enemy_level + 3 (min 3). Fixed speed $18000.
         EnemyFamily::Scorpion => (3, 0x0001_8000, 0),
-        // Driller: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
+        // Driller.asm loc_3BD6C: HP 3+ reaches the middle `$8000` speed add
+        // before falling through to the final tier add.
         EnemyFamily::Driller => (2, 0x0000_8000, 0x0000_8000),
         // Tank: HP = enemy_level + 2 (min 2). Base speed $8000, step $8000.
         // ASM Tank.asm loc_3B36A/loc_3B372: HP 2 gets one `$8000` add,
