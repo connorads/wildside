@@ -5889,6 +5889,30 @@ pub(crate) fn dragon_flying_rebound_start_loc_34A88(
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_right_rebound_start_loc_34ADC(
+    x_pos: u32,
+    y_pos: u32,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> DragonFlyingReboundStartLoc34A88 {
+    // ASM Dragon_Flying.asm loc_34ADC: same snap/hibernate sequence as
+    // loc_34A88, but the rebound starts with `move.w #2,x_vel(a3)`.
+    DragonFlyingReboundStartLoc34A88 {
+        snap_x_pos: x_pos.wrapping_add(u32::from_ne_bytes(x_velocity.wrapping_neg().to_ne_bytes())),
+        snap_y_pos: y_pos.wrapping_add(u32::from_ne_bytes(y_velocity.wrapping_neg().to_ne_bytes())),
+        x_velocity_during_snap: 0,
+        y_velocity_during_snap: 0,
+        level_collision_during_first_hibernate: false,
+        level_collision_after_snap: true,
+        hibernate_frames_before_rebound_velocity: 2,
+        animation_label: "stru_34652",
+        rebound_x_velocity: 0x0002_0000,
+        rebound_y_velocity: -0x0002_0000,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonFlyingReboundFrameLoc34AC2 {

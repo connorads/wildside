@@ -6223,6 +6223,31 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34adc_snaps_back_then_rebounds_right() {
+        assert_eq!(
+            dragon_flying_right_rebound_start_loc_34ADC(
+                0x0100_8000,
+                0x0200_4000,
+                -0x0001_8000,
+                0x0002_4000,
+            ),
+            DragonFlyingReboundStartLoc34A88 {
+                snap_x_pos: 0x0102_0000,
+                snap_y_pos: 0x01FE_0000,
+                x_velocity_during_snap: 0,
+                y_velocity_during_snap: 0,
+                level_collision_during_first_hibernate: false,
+                level_collision_after_snap: true,
+                hibernate_frames_before_rebound_velocity: 2,
+                animation_label: "stru_34652",
+                rebound_x_velocity: 0x0002_0000,
+                rebound_y_velocity: -0x0002_0000,
+            },
+            "ASM Dragon_Flying.asm loc_34ADC mirrors loc_34A88's snap sequence but writes positive `#2` to x_vel"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_34ac2_accelerates_rebound_until_exact_zero() {
         assert_eq!(
             dragon_flying_rebound_frame_loc_34AC2(-0x0002_0000, 0),
