@@ -18565,6 +18565,52 @@ pub(crate) fn dragon_walking_breath_child_position_loc_3d070(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingBreathChildPollNextLoc3D082 {
+    RepeatPoll,
+    DeleteChild,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingBreathChildPollLoc3D082 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) sets_parent_phase_done_flag_5b: bool,
+    pub(crate) next: DragonWalkingBreathChildPollNextLoc3D082,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_breath_child_poll_loc_3d082(
+    parent_phase_done_flag_5b: u8,
+    child_animation_done_flag_18: bool,
+) -> DragonWalkingBreathChildPollLoc3D082 {
+    // ASM Dragon.asm loc_3D082: hibernate one frame, delete when the parent
+    // `$5B` flag is non-zero, otherwise keep polling until child `$18` marks
+    // the animation complete; completion writes `#1` back to parent `$5B`.
+    if parent_phase_done_flag_5b != 0 {
+        return DragonWalkingBreathChildPollLoc3D082 {
+            hibernates_one_frame: true,
+            sets_parent_phase_done_flag_5b: false,
+            next: DragonWalkingBreathChildPollNextLoc3D082::DeleteChild,
+        };
+    }
+
+    if !child_animation_done_flag_18 {
+        return DragonWalkingBreathChildPollLoc3D082 {
+            hibernates_one_frame: true,
+            sets_parent_phase_done_flag_5b: false,
+            next: DragonWalkingBreathChildPollNextLoc3D082::RepeatPoll,
+        };
+    }
+
+    DragonWalkingBreathChildPollLoc3D082 {
+        hibernates_one_frame: true,
+        sets_parent_phase_done_flag_5b: true,
+        next: DragonWalkingBreathChildPollNextLoc3D082::DeleteChild,
+    }
+}
+
 enum DragonWalkingWalkStep {
     Walked,
     Idled,
@@ -18990,9 +19036,14 @@ pub(crate) fn step_dragon_walking(
 
     match enemy.dragon_script_cmd {
         DRAGON_WALKING_PHASE_BREATH => {
-            if enemy.dragon_phase_frames > 0 {
+            let child_poll =
+                dragon_walking_breath_child_poll_loc_3d082(0, enemy.dragon_phase_frames == 0);
+            debug_assert!(child_poll.hibernates_one_frame);
+
+            if child_poll.next == DragonWalkingBreathChildPollNextLoc3D082::RepeatPoll {
                 enemy.dragon_phase_frames -= 1;
             } else {
+                debug_assert!(child_poll.sets_parent_phase_done_flag_5b);
                 enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_RECOVER;
                 enemy.dragon_phase_frames = DRAGON_WALKING_RECOVER_FRAMES;
             }
@@ -25946,6 +25997,37 @@ mod tests {
             .x_pos,
             0x013F_8000,
             "ASM Dragon.asm loc_3D070 should negate the `-$1C` offset when x_direction is set"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_child_poll_matches_loc_3d082() {
+        assert_eq!(
+            dragon_walking_breath_child_poll_loc_3d082(0, false),
+            DragonWalkingBreathChildPollLoc3D082 {
+                hibernates_one_frame: true,
+                sets_parent_phase_done_flag_5b: false,
+                next: DragonWalkingBreathChildPollNextLoc3D082::RepeatPoll,
+            },
+            "ASM Dragon.asm loc_3D082 should keep polling while parent `$5B` and child `$18` are clear"
+        );
+        assert_eq!(
+            dragon_walking_breath_child_poll_loc_3d082(0, true),
+            DragonWalkingBreathChildPollLoc3D082 {
+                hibernates_one_frame: true,
+                sets_parent_phase_done_flag_5b: true,
+                next: DragonWalkingBreathChildPollNextLoc3D082::DeleteChild,
+            },
+            "ASM Dragon.asm loc_3D082 should set parent `$5B` once child animation flag `$18` is set"
+        );
+        assert_eq!(
+            dragon_walking_breath_child_poll_loc_3d082(1, false),
+            DragonWalkingBreathChildPollLoc3D082 {
+                hibernates_one_frame: true,
+                sets_parent_phase_done_flag_5b: false,
+                next: DragonWalkingBreathChildPollNextLoc3D082::DeleteChild,
+            },
+            "ASM Dragon.asm loc_3D082 should branch to deletion when parent `$5B` is already non-zero"
         );
     }
 
