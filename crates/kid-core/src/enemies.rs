@@ -9154,9 +9154,25 @@ pub(crate) fn tornado_respawn_marker_loc_359e0(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TornadoDeleteTailLoc359EE {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tornado_delete_tail_loc_359ee() -> TornadoDeleteTailLoc359EE {
+    // ASM Tornado.asm loc_359EE: all status-table branches finish by jumping to
+    // `j_Delete_CurrentObject`.
+    TornadoDeleteTailLoc359EE {
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TornadoHitSequenceLoc359B2 {
     pub(crate) waits_for_hit_animation: bool,
     pub(crate) status_route: TornadoHitStatusRouteLoc359B2,
+    pub(crate) delete_tail: TornadoDeleteTailLoc359EE,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -9179,6 +9195,7 @@ pub(crate) fn tornado_hit_sequence_loc_359b2(object_status_slot: u8) -> TornadoH
     TornadoHitSequenceLoc359B2 {
         waits_for_hit_animation: true,
         status_route,
+        delete_tail: tornado_delete_tail_loc_359ee(),
     }
 }
 

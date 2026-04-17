@@ -7464,7 +7464,7 @@ mod chunk_04 {
     #[test]
     fn tornado_hit_sequence_loc_359b2_routes_status_slot() {
         use enemies::{
-            TornadoHitSequenceLoc359B2, TornadoHitStatusRouteLoc359B2,
+            TornadoDeleteTailLoc359EE, TornadoHitSequenceLoc359B2, TornadoHitStatusRouteLoc359B2,
             TornadoRespawnMarkerLoc359E0, tornado_hit_sequence_loc_359b2,
         };
 
@@ -7478,6 +7478,9 @@ mod chunk_04 {
                         word_value: 0x2168,
                     },
                 ),
+                delete_tail: TornadoDeleteTailLoc359EE {
+                    deletes_current_object: true,
+                },
             },
             "ASM Tornado.asm loc_359B2 branches on non-negative `$42(a5)` after the hit animation",
         );
@@ -7489,6 +7492,9 @@ mod chunk_04 {
                     index: 7,
                     decrement: 0x0400,
                 },
+                delete_tail: TornadoDeleteTailLoc359EE {
+                    deletes_current_object: true,
+                },
             },
             "ASM Tornado.asm loc_359B2 masks bit 6 from negative `$42(a5)` before subtracting the spawn counter",
         );
@@ -7497,6 +7503,9 @@ mod chunk_04 {
             TornadoHitSequenceLoc359B2 {
                 waits_for_hit_animation: true,
                 status_route: TornadoHitStatusRouteLoc359B2::DeleteOnly,
+                delete_tail: TornadoDeleteTailLoc359EE {
+                    deletes_current_object: true,
+                },
             },
             "ASM Tornado.asm loc_359B2 skips the status table when negative `$42(a5)` has bit 6 clear",
         );
@@ -7513,6 +7522,19 @@ mod chunk_04 {
                 word_value: 0x2168,
             },
             "ASM Tornado.asm loc_359E0 writes `$2168` to EnemyStatus_Table[$42(a5)] before deletion",
+        );
+    }
+
+    #[test]
+    fn tornado_delete_tail_loc_359ee_deletes_current_object() {
+        use enemies::{TornadoDeleteTailLoc359EE, tornado_delete_tail_loc_359ee};
+
+        assert_eq!(
+            tornado_delete_tail_loc_359ee(),
+            TornadoDeleteTailLoc359EE {
+                deletes_current_object: true,
+            },
+            "ASM Tornado.asm loc_359EE jumps to j_Delete_CurrentObject after every status route",
         );
     }
 
