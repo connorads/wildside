@@ -6664,6 +6664,66 @@ pub(crate) fn dragon_flying_rebound_collision_route_loc_34B30(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonFlyingDescentFireSetupLoc34BE6 {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) initial_x_velocity: i32,
+    pub(crate) final_x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) priority: u8,
+    pub(crate) object_meta: u16,
+    pub(crate) offscreen_flag_cleared: bool,
+    pub(crate) animation_label: &'static str,
+    pub(crate) first_animation_counter: u16,
+}
+
+fn fp16_from_signed_word(word: i16) -> i32 {
+    i32::from(word) << 16
+}
+
+fn fp16_high_signed_word(value: i32) -> i16 {
+    let bytes = value.to_be_bytes();
+    i16::from_be_bytes([bytes[0], bytes[1]])
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_descent_fire_setup_loc_34BE6(
+    dragon_x_pos: u32,
+    dragon_y_pos: u32,
+    dragon_x_velocity: i32,
+    fire_y_velocity_word: i16,
+    facing: Direction,
+) -> DragonFlyingDescentFireSetupLoc34BE6 {
+    let (x_offset_px, initial_x_velocity_word) = match facing {
+        Direction::Left => (-10, -1),
+        Direction::Right => (10, 1),
+    };
+    let final_x_velocity_word = fp16_high_signed_word(dragon_x_velocity);
+
+    // ASM Dragon_Flying.asm loc_34BE6: apply the signed mouth offset, seed
+    // d1 into x_vel for animation setup, then overwrite x_vel/y_vel from the
+    // parent-supplied words `$44/$46(a5)` before the first DBF loop.
+    DragonFlyingDescentFireSetupLoc34BE6 {
+        x_pos: dragon_x_pos.wrapping_add_signed(x_offset_px << 16),
+        y_pos: dragon_y_pos.wrapping_add(10 << 16),
+        initial_x_velocity: fp16_from_signed_word(initial_x_velocity_word),
+        final_x_velocity: fp16_from_signed_word(final_x_velocity_word),
+        y_velocity: fp16_from_signed_word(fire_y_velocity_word),
+        is_moved: true,
+        has_level_collision: true,
+        priority: 0,
+        object_meta: 0x000C,
+        offscreen_flag_cleared: true,
+        animation_label: "LnkTo_unk_C75CE",
+        first_animation_counter: 6,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
@@ -11037,21 +11097,24 @@ fn step_dragon_descent(
             }
             DragonDiveAction::SpawnFire => {
                 // Spawn fire-breath projectile during descent.
-                // ASM loc_34BAC: x_pos += $FFF6 (-10px, negated if facing right),
-                // y_pos += $A (+10px), x_vel from dragon, y_vel = 3<<16.
+                // ASM loc_348A0 prepares the parent words; loc_34BAC/loc_34BE6
+                // apply x_pos += $FFF6 (-10px, negated if facing right),
+                // y_pos += $A (+10px), x_vel from the dragon's signed high
+                // word, y_vel = 3<<16.
                 // No frame-based lifetime — dies off-screen ($19) or on terrain.
                 if let Some(projs) = projectiles {
-                    let x_offset: i32 = match enemy.facing {
-                        Direction::Right => 10,
-                        Direction::Left => -10,
-                    };
+                    let setup = dragon_flying_descent_fire_setup_loc_34BE6(
+                        enemy.x_pos,
+                        enemy.y_pos,
+                        enemy.x_velocity,
+                        3,
+                        enemy.facing,
+                    );
                     projs.push(EnemyProjectile {
-                        x_pos: (enemy.x_pos as i64 + ((i64::from(x_offset)) << 16)) as u32,
-                        y_pos: (enemy.y_pos as i64 + (10 << 16)) as u32,
-                        // ASM Dragon_Flying loc_348A0: copy the dragon's live
-                        // x_vel into the projectile and force y_vel to +3px/frame.
-                        x_velocity: enemy.x_velocity,
-                        y_velocity: 3 << 16,
+                        x_pos: setup.x_pos,
+                        y_pos: setup.y_pos,
+                        x_velocity: setup.final_x_velocity,
+                        y_velocity: setup.y_velocity,
                         // ASM: no lifetime timer; projectile persists until off-screen
                         // or terrain contact. Use large lifetime + terrain_kill.
                         lifetime: 600,

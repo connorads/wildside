@@ -5826,13 +5826,13 @@ mod chunk_03 {
             "descent fire should spawn one projectile"
         );
         assert_eq!(
-            projectiles[0].x_velocity, -0x1_4000,
-            "ASM loc_348A0 copies the dragon's live x_vel into descent fire"
+            projectiles[0].x_velocity, -0x2_0000,
+            "ASM loc_348A0/loc_34BE6 copy only the dragon x_vel high word into descent fire"
         );
         assert_eq!(
             projectiles[0].y_velocity,
             3 << 16,
-            "ASM loc_348A0 stores +3px/frame downward in the projectile"
+            "ASM loc_34BE6 stores the parent-supplied +3px/frame word in the projectile"
         );
         // ASM loc_34BAC: x_pos += $FFF6 (-10px), negated if facing right → +10px
         let expected_x = (100 + 10) << 16;
@@ -5847,6 +5847,46 @@ mod chunk_03 {
         assert_eq!(
             enemy.dragon_descent_index, 4,
             "spawn-fire advances immediately"
+        );
+    }
+
+    #[test]
+    fn dragon_flying_loc_34be6_sets_descent_fire_from_parent_words() {
+        assert_eq!(
+            dragon_flying_descent_fire_setup_loc_34BE6(
+                0x0100_0000,
+                0x0200_8000,
+                -0x0001_4000,
+                3,
+                Direction::Right,
+            ),
+            DragonFlyingDescentFireSetupLoc34BE6 {
+                x_pos: 0x010A_0000,
+                y_pos: 0x020A_8000,
+                initial_x_velocity: 0x0001_0000,
+                final_x_velocity: -0x0002_0000,
+                y_velocity: 0x0003_0000,
+                is_moved: true,
+                has_level_collision: true,
+                priority: 0,
+                object_meta: 0x000C,
+                offscreen_flag_cleared: true,
+                animation_label: "LnkTo_unk_C75CE",
+                first_animation_counter: 6,
+            },
+            "ASM Dragon_Flying.asm loc_34BE6 seeds d1 into x_vel, then overwrites x_vel from the signed parent high word"
+        );
+        assert_eq!(
+            dragon_flying_descent_fire_setup_loc_34BE6(
+                0x0100_0000,
+                0x0200_0000,
+                0x0001_C000,
+                3,
+                Direction::Left,
+            )
+            .x_pos,
+            0x00F6_0000,
+            "ASM Dragon_Flying.asm loc_34BE6 keeps the `$FFF6` left-facing mouth offset"
         );
     }
 
