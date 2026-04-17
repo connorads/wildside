@@ -2388,6 +2388,14 @@ pub(crate) struct MiniHoppingSkullChargingBerzerkerLoopFrame {
     pub(crate) next_loop: &'static str,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct MiniHoppingSkullDeleteTailLoc3F32E {
+    pub(crate) next_number_of_enemy: u16,
+    pub(crate) status_action: DeactivationStatusActionLoc3C4C0,
+    pub(crate) deletes_current_object: bool,
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -11172,6 +11180,21 @@ pub(crate) fn mini_hopping_skull_charging_berzerker_loop_loc_3f288(
         hibernates_one_frame: true,
         animation_tick_subroutine: "sub_3E8BA",
         next_loop: "loc_3F288",
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_delete_tail_loc_3f32e(
+    number_of_enemy: u16,
+    object_status_slot: u8,
+) -> MiniHoppingSkullDeleteTailLoc3F32E {
+    // ASM Mini_Hopping_Skull.asm loc_3F32E: decrement `Number_of_Enemy`, read
+    // `$42(a5)`, update `EnemyStatus_Table` for positive slots or bit-6 spawn
+    // counters, then converge on `j_Delete_CurrentObject`.
+    MiniHoppingSkullDeleteTailLoc3F32E {
+        next_number_of_enemy: number_of_enemy.wrapping_sub(1),
+        status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
+        deletes_current_object: true,
     }
 }
 
@@ -27470,6 +27493,19 @@ mod tests {
             mini_hopping_skull_charging_berzerker_loop_loc_3f288(0x7FFF_F000).y_velocity,
             i32::MIN + 0x3000,
             "ASM Mini_Hopping_Skull.asm loc_3F288 uses 32-bit wrapping addition for `addi.l #$4000,y_vel(a3)`"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_delete_tail_matches_loc_3f32e_status_update() {
+        assert_eq!(
+            mini_hopping_skull_delete_tail_loc_3f32e(3, 0xC2),
+            MiniHoppingSkullDeleteTailLoc3F32E {
+                next_number_of_enemy: 2,
+                status_action: DeactivationStatusActionLoc3C4C0::SubtractSpawnCounter { index: 2 },
+                deletes_current_object: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F32E decrements Number_of_Enemy, subtracts `$400` when `$42(a5)` has bits 7+6 set, then jumps to j_Delete_CurrentObject"
         );
     }
 
