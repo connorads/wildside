@@ -4641,6 +4641,29 @@ pub(crate) fn diamond_low_hp_berzerker_side_gate_loc_3af24(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondLowHpBerzerkerLaunchTickLoc3AF50 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_shared_retention_check_sub_3c3ce: bool,
+    pub(crate) next_y_velocity: i32,
+    pub(crate) loops: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_low_hp_berzerker_launch_tick_loc_3af50(
+    y_velocity: i32,
+) -> DiamondLowHpBerzerkerLaunchTickLoc3AF50 {
+    // ASM Diamond.asm loc_3AF50: each airborne tick hibernates one frame,
+    // runs `sub_3C3CE`, then `addi.l #$4000,y_vel(a3)` before looping.
+    DiamondLowHpBerzerkerLaunchTickLoc3AF50 {
+        hibernates_one_frame: true,
+        runs_shared_retention_check_sub_3c3ce: true,
+        next_y_velocity: y_velocity.wrapping_add(0x0000_4000),
+        loops: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonInitAnimation {
     pub(crate) collision_routine: &'static str,
     pub(crate) animation_script: &'static str,
@@ -23121,6 +23144,25 @@ mod tests {
                 },
             ),
             "ASM Diamond.asm loc_3AF24 should set the charging Berzerker launch flags and velocities",
+        );
+    }
+
+    #[test]
+    fn diamond_low_hp_berzerker_launch_tick_loc_3af50_applies_gravity_and_loops() {
+        assert_eq!(
+            diamond_low_hp_berzerker_launch_tick_loc_3af50(-0x0004_8000),
+            DiamondLowHpBerzerkerLaunchTickLoc3AF50 {
+                hibernates_one_frame: true,
+                runs_shared_retention_check_sub_3c3ce: true,
+                next_y_velocity: -0x0004_4000,
+                loops: true,
+            },
+            "ASM Diamond.asm loc_3AF50 should add +$4000 to y_vel after the shared retention check",
+        );
+        assert_eq!(
+            diamond_low_hp_berzerker_launch_tick_loc_3af50(i32::MAX).next_y_velocity,
+            i32::MIN + 0x3FFF,
+            "ASM Diamond.asm loc_3AF50 uses 68k longword addition, so native keeps wrapping semantics",
         );
     }
 
