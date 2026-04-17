@@ -6863,6 +6863,55 @@ mod chunk_04 {
         );
     }
 
+    #[test]
+    fn tornado_collision_dispatch_loc_35948_uses_tornado_table() {
+        use enemies::{
+            TornadoCollisionBehaviorLoc35948, TornadoCollisionDispatchLoc35948,
+            tornado_collision_dispatch_loc_35948,
+        };
+
+        assert_eq!(
+            tornado_collision_dispatch_loc_35948(0),
+            TornadoCollisionDispatchLoc35948 {
+                collision_type: 0,
+                behavior: None,
+            },
+            "ASM Tornado.asm loc_35948 reaches shared `loc_35056`, which returns directly when collision_type is zero",
+        );
+        assert_eq!(
+            tornado_collision_dispatch_loc_35948(0x0004),
+            TornadoCollisionDispatchLoc35948 {
+                collision_type: 0,
+                behavior: Some(TornadoCollisionBehaviorLoc35948::BounceWall),
+            },
+            "ASM Tornado.asm loc_35948 table-selects wall bounce for collision_type=$04",
+        );
+        assert_eq!(
+            tornado_collision_dispatch_loc_35948(0x001C),
+            TornadoCollisionDispatchLoc35948 {
+                collision_type: 0,
+                behavior: Some(TornadoCollisionBehaviorLoc35948::Hurt),
+            },
+            "ASM Tornado.asm loc_35948 table-selects the hurt/deletion path for collision_type=$1C",
+        );
+        assert_eq!(
+            tornado_collision_dispatch_loc_35948(0x0020),
+            TornadoCollisionDispatchLoc35948 {
+                collision_type: 0,
+                behavior: Some(TornadoCollisionBehaviorLoc35948::CycloneBounceKidRight),
+            },
+            "ASM Tornado.asm loc_35948 routes collision_type=$20 through the Tornado-specific side-contact table entry",
+        );
+        assert_eq!(
+            tornado_collision_dispatch_loc_35948(0x0024),
+            TornadoCollisionDispatchLoc35948 {
+                collision_type: 0,
+                behavior: Some(TornadoCollisionBehaviorLoc35948::CycloneBounceKidLeft),
+            },
+            "ASM Tornado.asm loc_35948 routes collision_type=$24 through the opposite side-contact table entry",
+        );
+    }
+
     // --- Cyclone-Tornado bounce interaction (ASM Tornado.asm loc_35986) ---
 
     /// Unit test: validate the bounce values and direction logic.

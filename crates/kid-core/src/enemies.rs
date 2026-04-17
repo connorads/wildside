@@ -8101,6 +8101,64 @@ pub(crate) fn ufo_collision_clear_loc_35070(collision_type: u16) -> UfoCollision
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TornadoCollisionBehaviorLoc35948 {
+    BounceWall,
+    BounceFloorCeil,
+    BounceSlopeUp,
+    BounceSlopeDown,
+    Hurt,
+    CycloneBounceKidRight,
+    CycloneBounceKidLeft,
+    ReturnOnly,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TornadoCollisionDispatchLoc35948 {
+    pub(crate) collision_type: u16,
+    pub(crate) behavior: Option<TornadoCollisionBehaviorLoc35948>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tornado_collision_dispatch_loc_35948(
+    collision_type: i16,
+) -> TornadoCollisionDispatchLoc35948 {
+    // ASM Tornado.asm loc_35948: load Tornado's `off_35950` table into `a4`,
+    // then branch to shared UFO collision dispatch at `loc_35056`.
+    if collision_type < 0 {
+        return TornadoCollisionDispatchLoc35948 {
+            collision_type: 0,
+            behavior: None,
+        };
+    }
+
+    if collision_type == 0 {
+        return TornadoCollisionDispatchLoc35948 {
+            collision_type: 0,
+            behavior: None,
+        };
+    }
+
+    let behavior = match collision_type as u16 {
+        0x0004 | 0x0008 => Some(TornadoCollisionBehaviorLoc35948::BounceWall),
+        0x000C | 0x0010 => Some(TornadoCollisionBehaviorLoc35948::BounceFloorCeil),
+        0x0014 => Some(TornadoCollisionBehaviorLoc35948::BounceSlopeUp),
+        0x0018 => Some(TornadoCollisionBehaviorLoc35948::BounceSlopeDown),
+        0x001C | 0x002C => Some(TornadoCollisionBehaviorLoc35948::Hurt),
+        0x0020 => Some(TornadoCollisionBehaviorLoc35948::CycloneBounceKidRight),
+        0x0024 => Some(TornadoCollisionBehaviorLoc35948::CycloneBounceKidLeft),
+        0x0028 => Some(TornadoCollisionBehaviorLoc35948::ReturnOnly),
+        _ => None,
+    };
+
+    TornadoCollisionDispatchLoc35948 {
+        collision_type: 0,
+        behavior,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoPositionRestoreLoc350F2 {
     pub(crate) x_pos: i32,
     pub(crate) y_pos: i32,
