@@ -12400,9 +12400,39 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
 /// ASM stores 12px ($C) in the Driller sprite's collision half-width field.
 pub(crate) const DRILLER_PROBE_HALF_WIDTH: i32 = 12;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DrillerBlockDrillActionLoc3BEDE {
+    None,
+    SmashBits,
+    IceBullets,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn driller_block_drill_action_loc_3bede(
+    cell: terrain::Cell,
+) -> DrillerBlockDrillActionLoc3BEDE {
+    if !(cell.has_block && cell.collision == terrain::CollisionKind::Solid) {
+        return DrillerBlockDrillActionLoc3BEDE::None;
+    }
+
+    match cell.block_type {
+        // ASM Driller.asm loc_3BEDE: block type mask `$000` or `$100`
+        // calls Block_LoadSmashBits. In native block terms those are Smash
+        // and Prize; Prize later restores through the normal deferred block path.
+        terrain::BlockType::Smash | terrain::BlockType::Prize => {
+            DrillerBlockDrillActionLoc3BEDE::SmashBits
+        }
+        // ASM Driller.asm loc_3BEF2: block type mask `$200` calls
+        // IceBlock_SmashAndLoadBullets.
+        terrain::BlockType::Ice => DrillerBlockDrillActionLoc3BEDE::IceBullets,
+        _ => DrillerBlockDrillActionLoc3BEDE::None,
+    }
+}
+
 /// Step a Driller enemy: paces like normal, but drills through Smash and Ice blocks.
 /// ASM loc_3BE78: when sprite timer matches direction (8 for left, 4 for right),
-/// checks cell at (sprite_x ± offset, sprite_y - 16) for Smash/Ice type and destroys it.
+/// checks cell at (sprite_x ± offset, sprite_y - 16) for drillable block type and destroys it.
 /// Returns list of (col, row) cells to destroy this frame.
 pub(crate) fn step_driller(
     enemy: &mut ActiveEnemy,
@@ -12433,13 +12463,10 @@ pub(crate) fn step_driller(
     let row = terrain::pixel_to_cell(probe_y).max(0) as u16;
     let cell = grid.cell_at(col, row);
 
-    // ASM loc_3BEF2: check block type. $100 = Smash, $200 = Ice.
-    // Any block with collision Solid + has_block + block_type Smash/Ice.
-    if cell.has_block
-        && cell.collision == terrain::CollisionKind::Solid
-        && (cell.block_type == terrain::BlockType::Smash
-            || cell.block_type == terrain::BlockType::Ice)
-    {
+    if !matches!(
+        driller_block_drill_action_loc_3bede(cell),
+        DrillerBlockDrillActionLoc3BEDE::None
+    ) {
         drilled.push((col, row));
     }
 

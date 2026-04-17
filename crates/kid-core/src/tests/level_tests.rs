@@ -15060,6 +15060,25 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3bede_driller_smash_loader_accepts_smash_and_prize_block_types() {
+        assert_eq!(
+            driller_block_drill_action_loc_3bede(terrain::Cell::from_be_bytes(0xE0, 0x01)),
+            DrillerBlockDrillActionLoc3BEDE::SmashBits,
+            "ASM Driller.asm loc_3BEDE is reached when block type mask is `$000`",
+        );
+        assert_eq!(
+            driller_block_drill_action_loc_3bede(terrain::Cell::from_be_bytes(0xE1, 0x01)),
+            DrillerBlockDrillActionLoc3BEDE::SmashBits,
+            "ASM Driller.asm loc_3BEDE is also reached when `cmpi.w #$100,d5` succeeds",
+        );
+        assert_eq!(
+            driller_block_drill_action_loc_3bede(terrain::Cell::from_be_bytes(0xE5, 0x01)),
+            DrillerBlockDrillActionLoc3BEDE::None,
+            "ASM Driller.asm loc_3BEDE only covers the `$000`/`$100` Smash loader cases",
+        );
+    }
+
+    #[test]
     fn loc_3c026_wall_turnaround_clears_velocity_and_faces_right() {
         // ASM loc_3C026 (kid.asm:43493-43498): rightward wall collision path —
         //   clr.l x_vel(a3); clr.l y_vel(a3); st x_direction(a3)
