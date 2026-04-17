@@ -10071,6 +10071,35 @@ pub(crate) fn fireball_trail_init_loc_330d0(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FireballTrailLoopStepLoc33110 {
+    Continue { lifetime_frames: u16 },
+    Delete,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_trail_loop_step_loc_33110(
+    flag_19_is_set: bool,
+    lifetime_frames: u16,
+) -> FireballTrailLoopStepLoc33110 {
+    // ASM Fireball.asm loc_33110: after hibernating one frame, `$19(a3)` takes
+    // the delete tail. Otherwise `subq.w #1,d3` runs as a wrapping word
+    // decrement; only a zero result falls through to that same tail.
+    if flag_19_is_set {
+        return FireballTrailLoopStepLoc33110::Delete;
+    }
+
+    let next_lifetime_frames = lifetime_frames.wrapping_sub(1);
+    if next_lifetime_frames == 0 {
+        FireballTrailLoopStepLoc33110::Delete
+    } else {
+        FireballTrailLoopStepLoc33110::Continue {
+            lifetime_frames: next_lifetime_frames,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireballSpriteBranchLoc32F3E {
     Vertical { sprite_index: i16 },
     NegativeX,
@@ -30707,6 +30736,34 @@ mod tests {
                 animation: "stru_330C2",
             },
             "ASM Fireball.asm loc_330D0 should allocate the child object, copy `$44/$46/$48(a5)` into direction/x/y, and seed d3 with `$96`"
+        );
+    }
+
+    #[test]
+    fn fireball_trail_loop_loc_33110_prioritises_flag_then_countdown() {
+        assert_eq!(
+            fireball_trail_loop_step_loc_33110(true, 0x96),
+            FireballTrailLoopStepLoc33110::Delete,
+            "ASM Fireball.asm loc_33110 should take the delete tail when `$19(a3)` is non-zero before touching d3"
+        );
+        assert_eq!(
+            fireball_trail_loop_step_loc_33110(false, 0x96),
+            FireballTrailLoopStepLoc33110::Continue {
+                lifetime_frames: 0x95,
+            },
+            "ASM Fireball.asm loc_33110 should decrement d3 after a clear `$19(a3)` and keep hibernating while the result is non-zero"
+        );
+        assert_eq!(
+            fireball_trail_loop_step_loc_33110(false, 1),
+            FireballTrailLoopStepLoc33110::Delete,
+            "ASM Fireball.asm loc_33110 should take the delete tail when `subq.w #1,d3` produces zero"
+        );
+        assert_eq!(
+            fireball_trail_loop_step_loc_33110(false, 0),
+            FireballTrailLoopStepLoc33110::Continue {
+                lifetime_frames: 0xFFFF,
+            },
+            "ASM Fireball.asm loc_33110 uses word subtraction, so an unexpected zero d3 wraps to `$FFFF` and branches back"
         );
     }
 
