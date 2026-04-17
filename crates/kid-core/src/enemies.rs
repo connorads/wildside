@@ -20550,6 +20550,13 @@ pub(crate) fn emo_rock_clearance_window_loc_3639e(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn emo_rock_clearance_cell_blocked_loc_363e0(cell: terrain::Cell) -> bool {
+    // ASM Emo_Rock.asm loc_363E0: each scanned word is masked with `$4000`;
+    // any set bit branches to the blocked return at loc_363FA.
+    cell.is_solid_floor()
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_clearance_rows_loc_363dc(
     grid: &terrain::BlockGrid,
     window: EmoRockClearanceWindowLoc3639E,
@@ -20558,12 +20565,33 @@ pub(crate) fn emo_rock_clearance_rows_loc_363dc(
     // a1 from a0, so every row scans the full left-to-right column span.
     for row in window.top_row..=window.bottom_row {
         for col in window.left_col..=window.right_col {
-            if grid.cell_at(col, row).is_solid_floor() {
+            if emo_rock_clearance_cell_blocked_loc_363e0(grid.cell_at(col, row)) {
                 return false;
             }
         }
     }
     true
+}
+
+pub(crate) fn emo_rock_clearance_probe_loc_3639e(
+    grid: &terrain::BlockGrid,
+    x_px: i32,
+    y_px: i32,
+    height_px: u16,
+    half_width_px: u16,
+) -> bool {
+    match emo_rock_clearance_window_loc_3639e(
+        grid.width_pixels(),
+        x_px,
+        y_px,
+        height_px,
+        half_width_px,
+    ) {
+        EmoRockClearanceWindowRouteLoc3639E::Scan(window) => {
+            emo_rock_clearance_rows_loc_363dc(grid, window)
+        }
+        EmoRockClearanceWindowRouteLoc3639E::Blocked => false,
+    }
 }
 
 pub(crate) fn emo_rock_drop_velocity_loc_3625e(y_velocity: i32, gravity: i32) -> i32 {
@@ -20945,6 +20973,25 @@ pub(crate) fn step_emo_rock(
         }
         enemy.wait_timer = emo_rock_wait_countdown_loc_36212(enemy.wait_timer).remaining_wait_timer;
         return;
+    }
+
+    if let (Some(grid), Some(px), Some(py)) = (block_grid, player_x_pos, player_y_pos) {
+        let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
+        let target = emo_rock_hover_target_loc_3621a(px, py, EMO_ROCK_HOVER_HEIGHT[level_index]);
+        enemy.x_pos = target.x_pos;
+        enemy.y_pos = target.y_pos;
+
+        let x_px = i32::try_from(enemy.x_pos >> 16).map_or(i32::MAX, |value| value);
+        let y_px = i32::try_from(enemy.y_pos >> 16).map_or(i32::MAX, |value| value);
+        if !emo_rock_clearance_probe_loc_3639e(
+            grid,
+            x_px,
+            y_px,
+            target.clearance_height_px,
+            target.clearance_half_width_px,
+        ) {
+            return;
+        }
     }
 
     // Dropping phase: apply gravity, check floor.
@@ -25977,6 +26024,37 @@ mod tests {
         assert!(
             !emo_rock_clearance_rows_loc_363dc(&grid, window),
             "ASM Emo_Rock.asm loc_363DC copies a0 back into a1 for the second row, so the scan must still inspect the rightmost column there"
+        );
+    }
+
+    #[test]
+    fn emo_rock_clearance_cell_loc_363e0_checks_only_the_4000_bit() {
+        assert!(
+            !emo_rock_clearance_cell_blocked_loc_363e0(terrain::Cell::from_be_bytes(0x30, 0x00)),
+            "ASM Emo_Rock.asm loc_363E0 should keep scanning when the masked `$4000` bit is clear"
+        );
+        assert!(
+            emo_rock_clearance_cell_blocked_loc_363e0(terrain::Cell::from_be_bytes(0x40, 0x00)),
+            "ASM Emo_Rock.asm loc_363E0 should branch blocked for a slope-up `$4000` word"
+        );
+        assert!(
+            emo_rock_clearance_cell_blocked_loc_363e0(terrain::Cell::from_be_bytes(0x60, 0x00)),
+            "ASM Emo_Rock.asm loc_363E0 should branch blocked for a solid `$6000` word because bit `$4000` remains set"
+        );
+    }
+
+    #[test]
+    fn emo_rock_clearance_probe_loc_363e0_blocks_drop_when_any_scanned_cell_is_solid() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 8 * 2], 8, 8);
+        assert!(
+            emo_rock_clearance_probe_loc_3639e(&grid, 0x0040, 0x0050, 0x001C, 0x000E),
+            "ASM Emo_Rock.asm loc_363E0 should fall through with d7=0 when every scanned cell clears bit `$4000`"
+        );
+
+        grid.set_cell_at(4, 4, terrain::Cell::from_be_bytes(0x60, 0x00));
+        assert!(
+            !emo_rock_clearance_probe_loc_3639e(&grid, 0x0040, 0x0050, 0x001C, 0x000E),
+            "ASM Emo_Rock.asm loc_363E0 should return blocked as soon as any cell in the loc_363DC row loop has bit `$4000` set"
         );
     }
 
