@@ -476,6 +476,26 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn gfx_object_alloc_loc_FE6_splices_new_object_before_the_old_successor() {
+        let mut next_indices = [
+            Some(1), // sentinel -> first live node
+            Some(3), // predecessor -> old successor
+            None,
+            Some(4), // old successor -> tail
+            None,
+        ];
+
+        gfx_object_alloc_insert_loc_FE6(&mut next_indices, 1, 2);
+
+        assert_eq!(
+            next_indices,
+            [Some(1), Some(2), Some(3), Some(4), None],
+            "ASM loc_FE6 should copy `0(a4)` into `0(a3)`, then repoint `0(a4)` at the newly allocated gfx object",
+        );
+    }
+
+    #[test]
     fn gfx_object_delete_loc_10f4_routes_object_kind_3_to_the_fffff86a_singleton_slot() {
         assert_eq!(
             gfx_object_delete_loc_10C6(None, Some(7), 5, 3, 3).special_slot,

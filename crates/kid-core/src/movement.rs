@@ -708,6 +708,20 @@ pub(crate) fn gfx_object_alloc_insertion_predecessor_index_loc_FD4(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_alloc_insert_loc_FE6(
+    next_indices: &mut [Option<usize>],
+    predecessor_index: usize,
+    new_index: usize,
+) {
+    // ASM Allocate_GfxObjectSlot loc_FE6 (kid.asm:1906): copy the predecessor
+    // link `0(a4)` into the new gfx object's `0(a3)`, then store `a3` back in
+    // `0(a4)` so the allocation is spliced before the old successor.
+    next_indices[new_index] = next_indices[predecessor_index];
+    next_indices[predecessor_index] = Some(new_index);
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_alloc_special_chain_loc_F9C(
     object_kind_word: u16,
 ) -> GfxObjectAllocationSpecialChainLocF9C {
