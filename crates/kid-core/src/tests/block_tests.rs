@@ -2590,6 +2590,42 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_collision_clear_resume_matches_loc_3cbf6() {
+        assert_eq!(
+            goat_collision_clear_resume_loc_3cbf6(true, Direction::Left),
+            GoatCollisionClearResumeLoc3CBF6 {
+                collision_type: 0,
+                next: GoatCollisionClearResumeRouteLoc3CBF6::SpawnedChildLeft,
+            },
+            "ASM Goat.asm loc_3CBF6 should clear collision_type and send `$5C(a5)` spawned children with clear x_direction to loc_3E7CA"
+        );
+        assert_eq!(
+            goat_collision_clear_resume_loc_3cbf6(true, Direction::Right),
+            GoatCollisionClearResumeLoc3CBF6 {
+                collision_type: 0,
+                next: GoatCollisionClearResumeRouteLoc3CBF6::SpawnedChildRight,
+            },
+            "ASM Goat.asm loc_3CBF6 should send `$5C(a5)` spawned children with set x_direction to loc_3E6AE"
+        );
+        assert_eq!(
+            goat_collision_clear_resume_loc_3cbf6(false, Direction::Left),
+            GoatCollisionClearResumeLoc3CBF6 {
+                collision_type: 0,
+                next: GoatCollisionClearResumeRouteLoc3CBF6::OrdinaryLeft,
+            },
+            "ASM Goat.asm loc_3CBF6 should send ordinary goats with clear x_direction to loc_3E560"
+        );
+        assert_eq!(
+            goat_collision_clear_resume_loc_3cbf6(false, Direction::Right),
+            GoatCollisionClearResumeLoc3CBF6 {
+                collision_type: 0,
+                next: GoatCollisionClearResumeRouteLoc3CBF6::OrdinaryRight,
+            },
+            "ASM Goat.asm loc_3CBF6 should send ordinary goats with set x_direction to loc_3E3AC"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);

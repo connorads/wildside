@@ -3455,6 +3455,43 @@ pub(crate) fn goat_berzerker_side_shove_loc_3cbba(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum GoatCollisionClearResumeRouteLoc3CBF6 {
+    SpawnedChildLeft,
+    SpawnedChildRight,
+    OrdinaryLeft,
+    OrdinaryRight,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct GoatCollisionClearResumeLoc3CBF6 {
+    pub(crate) collision_type: u16,
+    pub(crate) next: GoatCollisionClearResumeRouteLoc3CBF6,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_collision_clear_resume_loc_3cbf6(
+    parent_spawned_child: bool,
+    facing: Direction,
+) -> GoatCollisionClearResumeLoc3CBF6 {
+    // ASM Goat.asm loc_3CBF6: clear `collision_type(a3)`, test `$5C(a5)`,
+    // then branch by `x_direction(a3)`. Spawned children use loc_3E7CA/loc_3E6AE;
+    // ordinary goats use loc_3E560/loc_3E3AC.
+    let next = match (parent_spawned_child, facing) {
+        (true, Direction::Left) => GoatCollisionClearResumeRouteLoc3CBF6::SpawnedChildLeft,
+        (true, Direction::Right) => GoatCollisionClearResumeRouteLoc3CBF6::SpawnedChildRight,
+        (false, Direction::Left) => GoatCollisionClearResumeRouteLoc3CBF6::OrdinaryLeft,
+        (false, Direction::Right) => GoatCollisionClearResumeRouteLoc3CBF6::OrdinaryRight,
+    };
+
+    GoatCollisionClearResumeLoc3CBF6 {
+        collision_type: 0,
+        next,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {
     pub(crate) is_moved: bool,
     pub(crate) has_level_collision: bool,
