@@ -4703,6 +4703,25 @@ pub(crate) fn archer_shooting_entry_loc_341BE(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArcherArrowDeleteLoc34336 {
+    pub(crate) number_of_arrows: u16,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn archer_arrow_delete_loc_34336(number_of_arrows: u16) -> ArcherArrowDeleteLoc34336 {
+    // ASM Archer.asm loc_34336: `subq.w #1,(Number_of_Arrows).w`, then jump to
+    // j_Delete_CurrentObject. Native stores the same live-arrow count as the
+    // projectile Vec length.
+    ArcherArrowDeleteLoc34336 {
+        number_of_arrows: number_of_arrows.wrapping_sub(1),
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherPoseFrameLoc34222 {
     pub(crate) held_arrow_sprite_offset: u16,
     pub(crate) x_offset_px: i16,

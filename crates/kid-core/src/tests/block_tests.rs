@@ -5703,6 +5703,24 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_arrow_delete_loc_34336_decrements_arrow_count_and_deletes() {
+        // ASM Archer.asm loc_34336 decrements the global Number_of_Arrows word
+        // before tail-calling j_Delete_CurrentObject.
+        assert_eq!(
+            archer_arrow_delete_loc_34336(2),
+            ArcherArrowDeleteLoc34336 {
+                number_of_arrows: 1,
+                deletes_current_object: true,
+            }
+        );
+        assert_eq!(
+            archer_arrow_delete_loc_34336(0).number_of_arrows,
+            0xFFFF,
+            "68k word decrement wraps if the counter is already zero"
+        );
+    }
+
+    #[test]
     fn archer_pose_frame_loc_34222_mirrors_only_x_offset_when_facing_right() {
         // ASM Archer.asm loc_34222 reads the pose sprite, d6 X offset, and d7 Y
         // offset, then negates d6 only for flipped/right-facing archers.
