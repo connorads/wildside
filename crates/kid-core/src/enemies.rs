@@ -21227,7 +21227,7 @@ pub(crate) fn archer_angle_to_player(
         (false, false) => (0x0D - sub) as usize,
         // ASM Archer.asm loc_344E6: left+down adds `$E` to the ratio-table sub-angle.
         (false, true) => (0x0E + sub) as usize,
-        // Quadrant 3: right+down (d5=3) → 0x1B - sub
+        // ASM Archer.asm loc_3450A: right+down subtracts the ratio-table sub-angle from `$1B`.
         (true, true) => (0x1B - sub) as usize,
     }
 }

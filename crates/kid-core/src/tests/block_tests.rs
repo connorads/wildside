@@ -5997,6 +5997,17 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_angle_lower_right_matches_loc_3450a_ratio_path() {
+        // ASM Archer.asm loc_3450A: right+down maps the ratio-table value,
+        // then subtracts it from $1B for the returned angle.
+        let angle = archer_angle_to_player(100 << 16, 100 << 16, 200 << 16, 200 << 16);
+        assert_eq!(angle, 0x18, "ratio 6 maps to sub-angle 3, so $1B - 3");
+        let (xv, yv) = ARROW_ANGLE_TABLE[angle];
+        assert!(xv > 0, "x velocity should be positive (rightward)");
+        assert!(yv > 0, "y velocity should be positive (downward)");
+    }
+
+    #[test]
     fn archer_fire_timer_varies_by_hp() {
         assert_eq!(ARCHER_FIRE_TIMER[0], 0x1E, "HP 1: 30 frames");
         assert_eq!(ARCHER_FIRE_TIMER[1], 0x14, "HP 2: 20 frames");
