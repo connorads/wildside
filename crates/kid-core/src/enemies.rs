@@ -1991,6 +1991,25 @@ pub(crate) fn lion_charge_collision_gravity_cap_loc_3e89a(y_velocity: i32) -> i3
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionChargeCollisionYVelocityCommitLoc3E8B2 {
+    pub(crate) y_velocity: i32,
+    pub(crate) next_tail: LionLoc3E556Tail,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_collision_y_velocity_commit_loc_3e8b2(
+    y_velocity: i32,
+) -> LionChargeCollisionYVelocityCommitLoc3E8B2 {
+    // ASM Lion.asm loc_3E8B2: commit prepared d0 into `y_vel(a3)`, then branch
+    // to loc_3E7C0's collision-reentry hibernate/cull/resume tail.
+    LionChargeCollisionYVelocityCommitLoc3E8B2 {
+        y_velocity,
+        next_tail: lion_charge_collision_airborne_resume_loc_3e7c0(),
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
     // ASM Lion.asm loc_3E6A4: after the airborne Y-velocity update, hibernate
@@ -26352,6 +26371,22 @@ mod tests {
             lion_charge_collision_gravity_cap_loc_3e89a(-0x0001_0000),
             -0x0000_C000,
             "ASM Lion.asm loc_3E89A has no upward-speed clamp; signed negative values stay below `$180000`"
+        );
+    }
+
+    #[test]
+    fn lion_charge_collision_y_velocity_commit_matches_loc_3e8b2() {
+        assert_eq!(
+            lion_charge_collision_y_velocity_commit_loc_3e8b2(0x0018_0000),
+            LionChargeCollisionYVelocityCommitLoc3E8B2 {
+                y_velocity: 0x0018_0000,
+                next_tail: LionLoc3E556Tail {
+                    hibernate_one_frame: true,
+                    cull_routine: "sub_3E8BA",
+                    resume_via_callback: true,
+                },
+            },
+            "ASM Lion.asm loc_3E8B2 should commit prepared d0 into y_vel and branch to loc_3E7C0"
         );
     }
 
