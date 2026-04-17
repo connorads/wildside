@@ -2562,7 +2562,7 @@ mod chunk_04 {
                 clears_object_meta_bit_7: true,
                 falls_through_to_collision_clear: true,
             },
-            "ASM Goat.asm loc_3CBBA should subtract 20px for flipped x_direction before restoring patrol state"
+            "ASM Goat.asm loc_3CBC8 should subtract 20px for flipped x_direction before restoring patrol state"
         );
     }
 

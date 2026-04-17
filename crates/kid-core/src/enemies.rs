@@ -3431,7 +3431,11 @@ pub(crate) fn goat_berzerker_side_shove_loc_3cbba(
     // clears object_meta bit 7, and falls through to the collision clear tail.
     let x_position = match facing {
         Direction::Left => x_position.wrapping_add(GOAT_BERZERKER_SIDE_SHOVE_PIXELS_LOC_3CBBA),
-        Direction::Right => x_position.wrapping_sub(GOAT_BERZERKER_SIDE_SHOVE_PIXELS_LOC_3CBBA),
+        Direction::Right => {
+            // ASM Goat.asm loc_3CBC8: flipped `x_direction` subtracts `$14`
+            // pixels from `x_pos(a3)` before the hurt-resume sequence.
+            x_position.wrapping_sub(GOAT_BERZERKER_SIDE_SHOVE_PIXELS_LOC_3CBBA)
+        }
     };
 
     GoatBerzerkerSideShoveLoc3CBBA {
