@@ -7476,6 +7476,8 @@ fn cloud_diagonal_attack_start_loc_35cd8(
     x_word: i16,
     y_word: i16,
 ) -> CloudDiagonalAttackSetupLoc35CD8 {
+    // ASM Cloud.asm loc_35D9E: every attack vector converges here to initialise
+    // `stru_35EC8` and set `$45(a5)` with `st`.
     CloudDiagonalAttackSetupLoc35CD8 {
         route: CloudDiagonalAttackRouteLoc35CD8::StartAttack { x_word, y_word },
         animation_script: Some("stru_35EC8"),

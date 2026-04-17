@@ -3624,6 +3624,29 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_diagonal_attack_setup_loc_35d9e_initialises_attack_animation_and_latch() {
+        let setup = cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
+            object_45: 0x00,
+            x_direction: 0,
+            cloud_x: 100,
+            cloud_y: 50,
+            kid_x: 100,
+            kid_y: 70,
+        });
+
+        assert_eq!(
+            setup.animation_script,
+            Some("stru_35EC8"),
+            "ASM Cloud.asm loc_35D9E initialises the attack animation after the vector is selected"
+        );
+        assert_eq!(
+            setup.object_45_value,
+            Some(0xFF),
+            "ASM Cloud.asm loc_35D9E uses `st $45(a5)` to latch an active attack"
+        );
+    }
+
+    #[test]
     fn cloud_diagonal_attack_setup_loc_35d62_starts_horizontal_side_attack() {
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
