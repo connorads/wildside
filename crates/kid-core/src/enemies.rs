@@ -3430,6 +3430,48 @@ pub(crate) fn diamond_high_hp_fall_y_velocity_loc_3ae78() -> i32 {
     0x0001_C000
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DiamondHighHpBerzerkerSideGateRouteLoc3AE84 {
+    Loop,
+    Launch(DiamondHighHpBerzerkerLaunchLoc3AE84),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondHighHpBerzerkerLaunchLoc3AE84 {
+    pub(crate) has_level_collision: bool,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) sprite_mapping: &'static str,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_high_hp_berzerker_side_gate_loc_3ae84(
+    berzerker_charging: bool,
+) -> DiamondHighHpBerzerkerSideGateRouteLoc3AE84 {
+    // ASM Diamond.asm loc_3AE84: Kid side contacts loop unless
+    // `(Berzerker_charging).w` is set. A charging Berzerker turns off terrain
+    // collision, keeps Kid collision enabled, freezes animation on
+    // `LnkTo_unk_C8160`, zeroes X velocity, and launches upward at `-$48000`.
+    if !berzerker_charging {
+        return DiamondHighHpBerzerkerSideGateRouteLoc3AE84::Loop;
+    }
+
+    DiamondHighHpBerzerkerSideGateRouteLoc3AE84::Launch(DiamondHighHpBerzerkerLaunchLoc3AE84 {
+        has_level_collision: false,
+        has_kid_collision: true,
+        is_moved: true,
+        is_animated: false,
+        sprite_mapping: "LnkTo_unk_C8160-Data_Index",
+        x_velocity: 0,
+        y_velocity: -0x0004_8000,
+    })
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_slope_y_velocity_loc_3ae50() -> i32 {
     // ASM Diamond.asm loc_3AE50: `move.l #-$18000,y_vel(a3)` sends the
@@ -18914,6 +18956,30 @@ mod tests {
             diamond_high_hp_fall_y_velocity_loc_3ae78(),
             0x0001_C000,
             "ASM Diamond.asm loc_3AE78 should store +$1C000 into y_vel when no collision is reported",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_berzerker_side_gate_loc_3ae84_requires_charge() {
+        assert_eq!(
+            diamond_high_hp_berzerker_side_gate_loc_3ae84(false),
+            DiamondHighHpBerzerkerSideGateRouteLoc3AE84::Loop,
+            "ASM Diamond.asm loc_3AE84 should return to the collision loop when Berzerker_charging is clear",
+        );
+        assert_eq!(
+            diamond_high_hp_berzerker_side_gate_loc_3ae84(true),
+            DiamondHighHpBerzerkerSideGateRouteLoc3AE84::Launch(
+                DiamondHighHpBerzerkerLaunchLoc3AE84 {
+                    has_level_collision: false,
+                    has_kid_collision: true,
+                    is_moved: true,
+                    is_animated: false,
+                    sprite_mapping: "LnkTo_unk_C8160-Data_Index",
+                    x_velocity: 0,
+                    y_velocity: -0x0004_8000,
+                },
+            ),
+            "ASM Diamond.asm loc_3AE84 should set the charging Berzerker launch flags and velocities",
         );
     }
 
