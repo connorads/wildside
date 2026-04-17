@@ -12867,6 +12867,43 @@ pub(crate) fn ninja_jump_attack_landing_loc_3da56(
     }
 }
 
+pub(crate) const NINJA_KID_ABOVE_BOUNCE_Y_SPEED_LOC_3DA98: i32 = 0x0003_8000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaKidAboveContactRouteLoc3DA98 {
+    ContinueAirborneLoop,
+    FallthroughLandingLoop,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaKidAboveContactStateLoc3DA98 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) y_velocity: i32,
+    pub(crate) block_timer_44: u16,
+    pub(crate) route: NinjaKidAboveContactRouteLoc3DA98,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_kid_above_contact_loc_3da98(
+    block_timer_44: u16,
+) -> NinjaKidAboveContactStateLoc3DA98 {
+    // ASM Ninja.asm loc_3DA98: set `y_vel(a3)` to `$38000`, decrement `$44(a3)`
+    // as a word, and enter the landing loop only when the post-decrement value is zero.
+    let next_block_timer_44 = block_timer_44.wrapping_sub(1);
+    NinjaKidAboveContactStateLoc3DA98 {
+        next_collision_type: 0,
+        y_velocity: NINJA_KID_ABOVE_BOUNCE_Y_SPEED_LOC_3DA98,
+        block_timer_44: next_block_timer_44,
+        route: if next_block_timer_44 == 0 {
+            NinjaKidAboveContactRouteLoc3DA98::FallthroughLandingLoop
+        } else {
+            NinjaKidAboveContactRouteLoc3DA98::ContinueAirborneLoop
+        },
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionResumeLoc3D638 {
@@ -30607,6 +30644,42 @@ mod tests {
                 next: NinjaJumpAttackLandingResumeLoc3DA56::Loc3E3B2,
             },
             "ASM Ninja.asm loc_3DA56 should branch set x_direction to loc_3E3B2 after clearing jump state"
+        );
+    }
+
+    #[test]
+    fn ninja_kid_above_contact_loc_3da98_bounces_and_branches_on_timer_zero() {
+        assert_eq!(
+            ninja_kid_above_contact_loc_3da98(2),
+            NinjaKidAboveContactStateLoc3DA98 {
+                next_collision_type: 0,
+                y_velocity: 0x0003_8000,
+                block_timer_44: 1,
+                route: NinjaKidAboveContactRouteLoc3DA98::ContinueAirborneLoop,
+            },
+            "ASM Ninja.asm loc_3DA98 should set y_vel=$38000, decrement `$44`, clear collision, and branch back to loc_3D9DA while non-zero"
+        );
+
+        assert_eq!(
+            ninja_kid_above_contact_loc_3da98(1),
+            NinjaKidAboveContactStateLoc3DA98 {
+                next_collision_type: 0,
+                y_velocity: 0x0003_8000,
+                block_timer_44: 0,
+                route: NinjaKidAboveContactRouteLoc3DA98::FallthroughLandingLoop,
+            },
+            "ASM Ninja.asm loc_3DA98 should fall through to the landing loop when `$44` becomes zero after decrement"
+        );
+
+        assert_eq!(
+            ninja_kid_above_contact_loc_3da98(0),
+            NinjaKidAboveContactStateLoc3DA98 {
+                next_collision_type: 0,
+                y_velocity: 0x0003_8000,
+                block_timer_44: 0xFFFF,
+                route: NinjaKidAboveContactRouteLoc3DA98::ContinueAirborneLoop,
+            },
+            "ASM Ninja.asm loc_3DA98 uses word wrapping arithmetic, so zero underflows and keeps the airborne loop"
         );
     }
 
