@@ -18534,6 +18534,37 @@ const DRAGON_WALKING_PHASE_WALK: u8 = 0;
 const DRAGON_WALKING_PHASE_BREATH: u8 = 1;
 const DRAGON_WALKING_PHASE_RECOVER: u8 = 2;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingBreathChildPositionLoc3D070 {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) status_flag_13: u8,
+    pub(crate) animation_label: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_breath_child_position_loc_3d070(
+    parent_x_pos: u32,
+    parent_y_pos: u32,
+    parent_direction: Direction,
+) -> DragonWalkingBreathChildPositionLoc3D070 {
+    // ASM Dragon.asm loc_3D070: after `d0` is seeded to `-$1C` and negated
+    // only for set `x_direction`, add the word offset to the child X word,
+    // set `$13(a3)`, and initialise `stru_3CCC8`.
+    let x_offset = match parent_direction {
+        Direction::Left => -DRAGON_WALKING_BREATH_OFFSET_PX,
+        Direction::Right => DRAGON_WALKING_BREATH_OFFSET_PX,
+    };
+
+    DragonWalkingBreathChildPositionLoc3D070 {
+        x_pos: (i64::from(parent_x_pos) + (i64::from(x_offset) << 16)) as u32,
+        y_pos: parent_y_pos,
+        status_flag_13: 0xFF,
+        animation_label: "stru_3CCC8",
+    }
+}
+
 enum DragonWalkingWalkStep {
     Walked,
     Idled,
@@ -18901,13 +18932,16 @@ pub(crate) fn step_dragon_walking(
             // ASM loc_3D02A: breath is a stationary animated hitbox at
             // the dragon's mouth (±28px). No velocity — the GfxObject
             // stays in place for the animation duration (stru_3CCC8, 68f).
-            let x_offset = match enemy.facing {
-                Direction::Right => DRAGON_WALKING_BREATH_OFFSET_PX,
-                Direction::Left => -DRAGON_WALKING_BREATH_OFFSET_PX,
-            };
+            let child_position = dragon_walking_breath_child_position_loc_3d070(
+                enemy.x_pos,
+                enemy.y_pos,
+                enemy.facing,
+            );
+            debug_assert_eq!(child_position.status_flag_13, 0xFF);
+            debug_assert_eq!(child_position.animation_label, "stru_3CCC8");
             projectiles.push(EnemyProjectile {
-                x_pos: (enemy.x_pos as i64 + ((i64::from(x_offset)) << 16)) as u32,
-                y_pos: enemy.y_pos,
+                x_pos: child_position.x_pos,
+                y_pos: child_position.y_pos,
                 x_velocity: 0,
                 y_velocity: 0,
                 lifetime: DRAGON_WALKING_BREATH_LIFETIME,
@@ -25884,6 +25918,34 @@ mod tests {
                 parent_animation: "stru_3CCC2",
             },
             "ASM Dragon.asm loc_3CF90 allocates the breath child object and starts parent animation `stru_3CCC2`"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_child_position_matches_loc_3d070() {
+        assert_eq!(
+            dragon_walking_breath_child_position_loc_3d070(
+                0x0123_8000,
+                0x0045_4000,
+                Direction::Left,
+            ),
+            DragonWalkingBreathChildPositionLoc3D070 {
+                x_pos: 0x0107_8000,
+                y_pos: 0x0045_4000,
+                status_flag_13: 0xFF,
+                animation_label: "stru_3CCC8",
+            },
+            "ASM Dragon.asm loc_3D070 should add `-$1C` pixels for clear x_direction and initialise `stru_3CCC8`"
+        );
+        assert_eq!(
+            dragon_walking_breath_child_position_loc_3d070(
+                0x0123_8000,
+                0x0045_4000,
+                Direction::Right,
+            )
+            .x_pos,
+            0x013F_8000,
+            "ASM Dragon.asm loc_3D070 should negate the `-$1C` offset when x_direction is set"
         );
     }
 
