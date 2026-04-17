@@ -11184,6 +11184,15 @@ pub(crate) fn mini_hopping_skull_charging_berzerker_loop_loc_3f288(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_cull_reject_loc_3f300(
+    number_of_enemy: u16,
+    object_status_slot: u8,
+) -> MiniHoppingSkullDeleteTailLoc3F32E {
+    // ASM Mini_Hopping_Skull.asm loc_3F300: `bra.w loc_3F32E`.
+    mini_hopping_skull_delete_tail_loc_3f32e(number_of_enemy, object_status_slot)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_delete_tail_loc_3f32e(
     number_of_enemy: u16,
     object_status_slot: u8,
@@ -27506,6 +27515,19 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F32E decrements Number_of_Enemy, subtracts `$400` when `$42(a5)` has bits 7+6 set, then jumps to j_Delete_CurrentObject"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_cull_reject_matches_loc_3f300_trampoline() {
+        assert_eq!(
+            mini_hopping_skull_cull_reject_loc_3f300(9, 0x05),
+            MiniHoppingSkullDeleteTailLoc3F32E {
+                next_number_of_enemy: 8,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                deletes_current_object: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F300 is only `bra.w loc_3F32E`, so every rejected culling check must take the delete-tail status update"
         );
     }
 
