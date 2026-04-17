@@ -55,6 +55,15 @@ run = "scripts/strict-rust.sh cargo run --release -p kidcli -- verify-gameplay -
 [tasks.verify-slice-fast]
 run = """
 scripts/strict-rust.sh sh -ec '
+cargo test -q -p kid-core --lib -- --skip demo_ --skip published_tas --skip snapshot \
+  && cargo test -q -p kidcli gameplay_regression_
+'
+"""
+description = "Broad kid-core --lib sweep plus kidcli gameplay regressions; the canonical green-gate check"
+
+[tasks.verify-slice-smoke]
+run = """
+scripts/strict-rust.sh sh -ec '
 cargo test -q -p kid-core timing_regression_ \
   && cargo test -q -p kid-core determinism_ \
   && cargo test -q -p kid-core boot_title_start_level_1_hidden_gameplay_bootstrap_matches_settled_spawn \
@@ -67,6 +76,7 @@ cargo test -q -p kid-core timing_regression_ \
   && cargo test -q -p kidcli gameplay_regression_
 '
 """
+description = "Narrow name-filter smoke gate (legacy verify-slice-fast); faster than the broad sweep but misses newly-added loc_ coverage tests"
 
 [tasks.verify-1p-playable]
 run = "scripts/strict-rust.sh cargo run --release -p kidcli -- release-gate --target 1p-playable"
