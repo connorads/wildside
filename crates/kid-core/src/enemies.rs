@@ -20134,6 +20134,34 @@ pub(crate) fn tank_shooting_damage_after_hit_loc_3b6de(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TankShootingDeathRouteLoc3B6E6 {
+    SharedDeactivateLoc3C46E,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TankShootingDeathLoc3B6E6 {
+    pub(crate) child_visible: bool,
+    pub(crate) child_has_kid_collision: bool,
+    pub(crate) death_animation_script: &'static str,
+    pub(crate) hibernates_until_animation_finished: bool,
+    pub(crate) route: TankShootingDeathRouteLoc3B6E6,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_shooting_death_loc_3b6e6() -> TankShootingDeathLoc3B6E6 {
+    // ASM Tank_Shooting.asm loc_3B6E6: hide turret child `$13(a2)`, set
+    // turret kid-collision `$3D(a2)`, install `stru_3B518`, hibernate until
+    // that animation finishes, then branch to loc_3C46E.
+    TankShootingDeathLoc3B6E6 {
+        child_visible: false,
+        child_has_kid_collision: true,
+        death_animation_script: "stru_3B518",
+        hibernates_until_animation_finished: true,
+        route: TankShootingDeathRouteLoc3B6E6::SharedDeactivateLoc3C46E,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TankShootingResumeWalkBranchLoc3B720 {
     LeftSharedWalker,
     RightSharedWalker,
@@ -22900,6 +22928,21 @@ mod tests {
                 },
             },
             "ASM Tank_Shooting.asm loc_3B700 should clear `$50(a5)`, set turret `$46=6`, play stru_3B294, hibernate five frames, then fall through to loc_3B720",
+        );
+    }
+
+    #[test]
+    fn tank_shooting_death_loc_3b6e6_hides_turret_and_deactivates_after_animation() {
+        assert_eq!(
+            tank_shooting_death_loc_3b6e6(),
+            TankShootingDeathLoc3B6E6 {
+                child_visible: false,
+                child_has_kid_collision: true,
+                death_animation_script: "stru_3B518",
+                hibernates_until_animation_finished: true,
+                route: TankShootingDeathRouteLoc3B6E6::SharedDeactivateLoc3C46E,
+            },
+            "ASM Tank_Shooting.asm loc_3B6E6 should hide turret `$13`, set turret `$3D`, play stru_3B518, hibernate until finished, then branch to loc_3C46E",
         );
     }
 
