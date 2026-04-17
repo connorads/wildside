@@ -289,7 +289,10 @@ pub(crate) fn lion_track_kid_negative_delta_facing_loc_3e074(
 
 pub(crate) const LION_COLID_HURT: u16 = 0x001C;
 pub(crate) const LION_COLID_KIDABOVE: u16 = 0x002C;
+pub(crate) const NINJA_COLID_RIGHTWALL: u16 = 0x0004;
+pub(crate) const NINJA_COLID_LEFTWALL: u16 = 0x0008;
 pub(crate) const NINJA_COLID_FLOOR: u16 = 0x000C;
+pub(crate) const NINJA_COLID_CEILING: u16 = 0x0010;
 pub(crate) const NINJA_COLID_HURT: u16 = 0x001C;
 pub(crate) const NINJA_COLID_KIDABOVE: u16 = 0x002C;
 pub(crate) const NINJA_COLID_KIDRIGHT: u16 = 0x0020;
@@ -11788,6 +11791,49 @@ pub(crate) fn ninja_jump_attack_airborne_tick_loc_3d9da(
         hibernates_one_frame: true,
         checked_sub_3e8ba: true,
         sprite_link,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaJumpAttackCollisionRouteLoc3DA0C {
+    ContinueAirborneLoop,
+    Land,
+    WallBounce,
+    CeilingContact,
+    KidAboveContact,
+    KidSideContact,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaJumpAttackCollisionStateLoc3DA0C {
+    pub(crate) next_collision_type: u16,
+    pub(crate) route: NinjaJumpAttackCollisionRouteLoc3DA0C,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_jump_attack_collision_dispatch_loc_3da0c(
+    collision_type: u16,
+) -> NinjaJumpAttackCollisionStateLoc3DA0C {
+    // ASM Ninja.asm loc_3DA0C: copy `collision_type(a3)` into d4, clear it,
+    // then compare d4 against floor, side walls, ceiling, and Kid contacts.
+    let route = match collision_type {
+        NINJA_COLID_FLOOR => NinjaJumpAttackCollisionRouteLoc3DA0C::Land,
+        NINJA_COLID_RIGHTWALL | NINJA_COLID_LEFTWALL => {
+            NinjaJumpAttackCollisionRouteLoc3DA0C::WallBounce
+        }
+        NINJA_COLID_CEILING => NinjaJumpAttackCollisionRouteLoc3DA0C::CeilingContact,
+        NINJA_COLID_KIDABOVE => NinjaJumpAttackCollisionRouteLoc3DA0C::KidAboveContact,
+        NINJA_COLID_KIDRIGHT | NINJA_COLID_KIDLEFT => {
+            NinjaJumpAttackCollisionRouteLoc3DA0C::KidSideContact
+        }
+        _ => NinjaJumpAttackCollisionRouteLoc3DA0C::ContinueAirborneLoop,
+    };
+
+    NinjaJumpAttackCollisionStateLoc3DA0C {
+        next_collision_type: 0,
+        route,
     }
 }
 
@@ -28168,6 +28214,72 @@ mod tests {
                 sprite_link: Some("LnkTo_unk_C7D7E"),
             },
             "ASM Ninja.asm loc_3DA06 should select C7D7E only when y_vel > +$8000"
+        );
+    }
+
+    #[test]
+    fn ninja_jump_attack_collision_dispatch_loc_3da0c_clears_and_routes_contact() {
+        assert_eq!(
+            ninja_jump_attack_collision_dispatch_loc_3da0c(0),
+            NinjaJumpAttackCollisionStateLoc3DA0C {
+                next_collision_type: 0,
+                route: NinjaJumpAttackCollisionRouteLoc3DA0C::ContinueAirborneLoop,
+            },
+            "ASM Ninja.asm loc_3DA0C should clear zero collision_type and loop back to loc_3D9DA"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_collision_dispatch_loc_3da0c(NINJA_COLID_FLOOR),
+            NinjaJumpAttackCollisionStateLoc3DA0C {
+                next_collision_type: 0,
+                route: NinjaJumpAttackCollisionRouteLoc3DA0C::Land,
+            },
+            "ASM Ninja.asm loc_3DA0C should route colid_floor to the landing path"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_collision_dispatch_loc_3da0c(NINJA_COLID_RIGHTWALL),
+            NinjaJumpAttackCollisionStateLoc3DA0C {
+                next_collision_type: 0,
+                route: NinjaJumpAttackCollisionRouteLoc3DA0C::WallBounce,
+            },
+            "ASM Ninja.asm loc_3DA0C should send right-wall contact to the wall bounce path"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_collision_dispatch_loc_3da0c(NINJA_COLID_LEFTWALL),
+            NinjaJumpAttackCollisionStateLoc3DA0C {
+                next_collision_type: 0,
+                route: NinjaJumpAttackCollisionRouteLoc3DA0C::WallBounce,
+            },
+            "ASM Ninja.asm loc_3DA0C should send left-wall contact to the same wall bounce path"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_collision_dispatch_loc_3da0c(NINJA_COLID_CEILING),
+            NinjaJumpAttackCollisionStateLoc3DA0C {
+                next_collision_type: 0,
+                route: NinjaJumpAttackCollisionRouteLoc3DA0C::CeilingContact,
+            },
+            "ASM Ninja.asm loc_3DA0C should route colid_ceiling to the ceiling-contact path"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_collision_dispatch_loc_3da0c(NINJA_COLID_KIDABOVE),
+            NinjaJumpAttackCollisionStateLoc3DA0C {
+                next_collision_type: 0,
+                route: NinjaJumpAttackCollisionRouteLoc3DA0C::KidAboveContact,
+            },
+            "ASM Ninja.asm loc_3DA0C should route colid_kidabove to the Kid-above contact path"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_collision_dispatch_loc_3da0c(NINJA_COLID_KIDLEFT),
+            NinjaJumpAttackCollisionStateLoc3DA0C {
+                next_collision_type: 0,
+                route: NinjaJumpAttackCollisionRouteLoc3DA0C::KidSideContact,
+            },
+            "ASM Ninja.asm loc_3DA0C should route either Kid-side contact to the Kid-side contact path"
         );
     }
 
