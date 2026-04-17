@@ -16299,9 +16299,9 @@ mod chunk_10 {
             "ASM loc_3AAD4: latched d4==$1C branches to the hit reaction"
         );
         assert_eq!(
-            robot_shoot_collision_dispatch_loc_3aad4(0, 0, 0x002C, false),
+            robot_shoot_collision_dispatch_loc_3aad4(0, 0, 0x001C, false),
             RobotShootCollisionRouteLoc3AAD4::HitReaction,
-            "ASM loc_3AAD4: parent colid_hurt branches to the hit reaction"
+            "ASM loc_3AB04: parent colid_hurt ($1C) branches to the hit reaction"
         );
         assert_eq!(
             robot_shoot_collision_dispatch_loc_3aad4(0, 0x0020, 0, false),
