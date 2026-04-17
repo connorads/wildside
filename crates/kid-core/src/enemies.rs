@@ -16102,6 +16102,14 @@ pub(crate) fn tar_monster_projectile_reflect_x_loc_326AA(x_velocity: i32) -> i32
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_projectile_reflect_y_loc_326B8(y_velocity: i32) -> i32 {
+    // ASM loc_326B8: copy y_vel(a3), arithmetic-shift it right by one, negate
+    // the halved value, then fall through to the shared y_vel(a3) writeback.
+    (y_velocity >> 1).wrapping_neg()
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_collision_loc_32682(
     collision_type: i16,
     collision_response_budget: u16,
@@ -21941,6 +21949,21 @@ mod tests {
             tar_monster_projectile_reflect_x_loc_326AA(-0x0003_0000),
             0x0001_8000,
             "ASM Tar_Monster.asm loc_326AA uses arithmetic shift before negation, preserving signed fixed-point halves"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_reflect_y_loc_326b8_halves_and_negates_y_velocity() {
+        assert_eq!(
+            tar_monster_projectile_reflect_y_loc_326B8(0x0004_0000),
+            -0x0002_0000,
+            "ASM Tar_Monster.asm loc_326B8 reflects a positive y_vel by ASR.L #1 followed by NEG.L"
+        );
+
+        assert_eq!(
+            tar_monster_projectile_reflect_y_loc_326B8(-0x0001_8000),
+            0x0000_C000,
+            "ASM Tar_Monster.asm loc_326B8 preserves signed half-pixel velocity before the shared y_vel writeback"
         );
     }
 
