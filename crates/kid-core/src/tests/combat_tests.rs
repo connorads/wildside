@@ -2713,6 +2713,27 @@ mod chunk_03 {
     }
 
     #[test]
+    fn prize_ankh_collected_loc_feee_advances_cached_screen_offsets_before_world_write() {
+        let step = NativeRuntime::prize_collected_arc_hibernate_step_loc_FEEE(
+            0x0028_0000,
+            0x0014_0000,
+            0x0007_F800,
+            0x0000_5800,
+        );
+
+        assert_eq!(
+            step,
+            PrizeCollectedArcHibernateStepLocFEEE {
+                next_screen_x_fp: 0x002F_F800,
+                next_screen_y_fp: 0x0014_5800,
+                screen_x_word: 0x002F,
+                screen_y_word: 0x0014,
+            },
+            "ASM loc_FEEE should hibernate, add the cached ankh HUD deltas, then expose the high word of `$3E/$42` for the later world-coordinate write",
+        );
+    }
+
+    #[test]
     fn prize_clock_sound_refcount_loc_10792_only_starts_the_first_loop() {
         assert_eq!(
             NativeRuntime::prize_clock_sound_refcount_loc_10792(0),

@@ -70,6 +70,15 @@ pub(crate) struct PrizeClockFallGateLoc107B0 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PrizeCollectedArcHibernateStepLocFEEE {
+    pub(crate) next_screen_x_fp: i32,
+    pub(crate) next_screen_y_fp: i32,
+    pub(crate) screen_x_word: u16,
+    pub(crate) screen_y_word: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeContinueCountdownLoc1080A {
     pub(crate) next_remaining: u16,
     pub(crate) should_delete: bool,
@@ -285,10 +294,37 @@ pub(crate) struct ShooterCollisionRightBottomBlocksLocF580 {
 }
 
 impl NativeRuntime {
+    fn high_word_from_i32(value: i32) -> u16 {
+        let bytes = value.to_be_bytes();
+        u16::from_be_bytes([bytes[0], bytes[1]])
+    }
+
     #[allow(non_snake_case)]
     pub(crate) fn lift_platform_vertical_step_sub_FD00(y_pos: u32, y_velocity: i32) -> u32 {
         // ASM sub_FD00 (kid.asm:21064): `move.l $E(a3),d7; add.l d7,6(a3)`.
         y_pos.wrapping_add_signed(y_velocity)
+    }
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_collected_arc_hibernate_step_loc_FEEE(
+        screen_x_fp: i32,
+        screen_y_fp: i32,
+        x_delta_fp: i32,
+        y_delta_fp: i32,
+    ) -> PrizeCollectedArcHibernateStepLocFEEE {
+        // ASM loc_FEEE (kid.asm:21215): after `Hibernate_Object_1Frame`,
+        // add the precomputed ankh HUD deltas to cached screen-relative
+        // longwords `$3E/$42`, then read the high word of `$3E` into `d4`.
+        let next_screen_x_fp = screen_x_fp.wrapping_add(x_delta_fp);
+        let next_screen_y_fp = screen_y_fp.wrapping_add(y_delta_fp);
+
+        PrizeCollectedArcHibernateStepLocFEEE {
+            next_screen_x_fp,
+            next_screen_y_fp,
+            screen_x_word: Self::high_word_from_i32(next_screen_x_fp),
+            screen_y_word: Self::high_word_from_i32(next_screen_y_fp),
+        }
     }
 
     #[allow(non_snake_case)]
