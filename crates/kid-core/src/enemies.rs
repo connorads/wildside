@@ -18550,6 +18550,16 @@ pub(crate) fn drips_surface_crawler_idle_loop_loc_33866() -> DripsSurfaceCrawler
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_idle_loop_loc_33a7c() -> DripsSurfaceCrawlerIdleLoopLoc33866 {
+    // ASM Drips.asm loc_33A7C: call `j_Hibernate_Object_1Frame`, then
+    // `bra.s loc_33A7C`; this is the parked surface-crawler loop.
+    DripsSurfaceCrawlerIdleLoopLoc33866 {
+        hibernates_one_frame: true,
+        loops_forever: true,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33878 {
@@ -27163,6 +27173,18 @@ mod tests {
                 loops_forever: true,
             },
             "ASM Drips.asm loc_33866 hibernates one frame and branches back to itself"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_idle_loop_matches_loc_33a7c() {
+        assert_eq!(
+            drips_surface_crawler_idle_loop_loc_33a7c(),
+            DripsSurfaceCrawlerIdleLoopLoc33866 {
+                hibernates_one_frame: true,
+                loops_forever: true,
+            },
+            "ASM Drips.asm loc_33A7C calls `j_Hibernate_Object_1Frame` then branches back to itself"
         );
     }
 
