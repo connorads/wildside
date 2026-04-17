@@ -6724,6 +6724,55 @@ pub(crate) fn dragon_flying_descent_fire_setup_loc_34BE6(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonFlyingDescentFireFirstLoopLoc34C26 {
+    CollisionCleanup {
+        dbf_counter: u16,
+        has_level_collision: bool,
+        x_velocity: i32,
+        y_velocity: i32,
+        animation_label: &'static str,
+    },
+    ContinueFirstAnimation {
+        next_d0: u16,
+    },
+    EnterTravelAnimation {
+        next_d0: u16,
+        animation_label: &'static str,
+    },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_descent_fire_first_loop_loc_34C26(
+    d0_before_dbf: u16,
+    collision_type: u16,
+) -> DragonFlyingDescentFireFirstLoopLoc34C26 {
+    // ASM Dragon_Flying.asm loc_34C26: hibernate, branch to the cleanup tail on
+    // any collision before DBF, otherwise decrement d0 and keep the first sprite
+    // until the DBF result becomes `$FFFF`.
+    if collision_type != 0 {
+        return DragonFlyingDescentFireFirstLoopLoc34C26::CollisionCleanup {
+            dbf_counter: d0_before_dbf,
+            has_level_collision: false,
+            x_velocity: 0,
+            y_velocity: 0,
+            animation_label: "LnkTo_unk_C75DE",
+        };
+    }
+
+    let next_d0 = d0_before_dbf.wrapping_sub(1);
+    if next_d0 == 0xFFFF {
+        DragonFlyingDescentFireFirstLoopLoc34C26::EnterTravelAnimation {
+            next_d0,
+            animation_label: "LnkTo_unk_C75D6",
+        }
+    } else {
+        DragonFlyingDescentFireFirstLoopLoc34C26::ContinueFirstAnimation { next_d0 }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,

@@ -5891,6 +5891,34 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34c26_runs_first_fire_animation_dbf_loop() {
+        assert_eq!(
+            dragon_flying_descent_fire_first_loop_loc_34C26(6, 0),
+            DragonFlyingDescentFireFirstLoopLoc34C26::ContinueFirstAnimation { next_d0: 5 },
+            "ASM Dragon_Flying.asm loc_34C26 decrements d0 after a no-collision hibernated frame and loops while it is not `$FFFF`"
+        );
+        assert_eq!(
+            dragon_flying_descent_fire_first_loop_loc_34C26(0, 0),
+            DragonFlyingDescentFireFirstLoopLoc34C26::EnterTravelAnimation {
+                next_d0: 0xFFFF,
+                animation_label: "LnkTo_unk_C75D6",
+            },
+            "ASM Dragon_Flying.asm loc_34C26 falls through to the travel sprite after DBF decrements zero to `$FFFF`"
+        );
+        assert_eq!(
+            dragon_flying_descent_fire_first_loop_loc_34C26(6, 0x0004),
+            DragonFlyingDescentFireFirstLoopLoc34C26::CollisionCleanup {
+                dbf_counter: 6,
+                has_level_collision: false,
+                x_velocity: 0,
+                y_velocity: 0,
+                animation_label: "LnkTo_unk_C75DE",
+            },
+            "ASM Dragon_Flying.asm loc_34C26 branches to the cleanup tail before DBF when collision_type is non-zero"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_348e4_seeds_descent_velocity_and_dbf_counter() {
         assert_eq!(
             dragon_descent_move_setup_loc_348e4(Direction::Left, -2, 3, 6),
