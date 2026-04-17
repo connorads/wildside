@@ -5708,6 +5708,32 @@ pub(crate) fn dragon_walking_breath_normal_restore_loc_3d002()
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingBreathSpawnedDispatchLoc3D00C {
+    OrdinaryResume,
+    SpawnedChildLeftPacing,
+    SpawnedChildRightPacing,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_breath_spawned_dispatch_loc_3d00c(
+    parent_spawned_child: bool,
+    facing: Direction,
+) -> DragonWalkingBreathSpawnedDispatchLoc3D00C {
+    // ASM Dragon.asm loc_3D00C: clear `$5C(a5)` continues through the ordinary
+    // resume path; parent-spawned children branch by `x_direction(a3)`, where
+    // clear goes to `loc_3E7CA` and set goes to `loc_3E6AE`.
+    if !parent_spawned_child {
+        return DragonWalkingBreathSpawnedDispatchLoc3D00C::OrdinaryResume;
+    }
+
+    match facing {
+        Direction::Left => DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildLeftPacing,
+        Direction::Right => DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildRightPacing,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_done_wait_loc_3cfe4(
     parent_phase_done_flag_5b: bool,
@@ -23572,6 +23598,25 @@ mod tests {
                 animation_label: dragon_walking_breath_normal_restore_loc_3d002().animation_label,
             },
             "native non-HP3 breath recovery should use the loc_3D002 animation branch"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_spawned_dispatch_matches_loc_3d00c() {
+        assert_eq!(
+            dragon_walking_breath_spawned_dispatch_loc_3d00c(false, Direction::Left),
+            DragonWalkingBreathSpawnedDispatchLoc3D00C::OrdinaryResume,
+            "ASM Dragon.asm loc_3D00C should continue through ordinary resume when `$5C(a5)` is clear"
+        );
+        assert_eq!(
+            dragon_walking_breath_spawned_dispatch_loc_3d00c(true, Direction::Left),
+            DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildLeftPacing,
+            "ASM Dragon.asm loc_3D00C should send spawned clear x_direction dragons to loc_3E7CA"
+        );
+        assert_eq!(
+            dragon_walking_breath_spawned_dispatch_loc_3d00c(true, Direction::Right),
+            DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildRightPacing,
+            "ASM Dragon.asm loc_3D00C should send spawned set x_direction dragons to loc_3E6AE"
         );
     }
 
