@@ -14234,6 +14234,61 @@ pub(crate) fn hand_init_y_snap_loc_32aea(y_pos_word: u16) -> u16 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandTerrainScanLoc32AFE {
+    pub(crate) row_index: i16,
+    pub(crate) start_col: i16,
+    pub(crate) end_col: i16,
+    pub(crate) sample_count: u16,
+    pub(crate) first_collision_4000: u16,
+    pub(crate) last_collision_4000: u16,
+    pub(crate) any_collision_4000: bool,
+}
+
+fn asr4_word(value: u16) -> i16 {
+    i16::from_be_bytes(value.to_be_bytes()) >> 4
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_terrain_scan_loc_32afe(
+    x_pos_word: u16,
+    y_pos_word: u16,
+    sampled_row_words: &[u16],
+) -> HandTerrainScanLoc32AFE {
+    // ASM Hand.asm loc_32AFE samples the map row at `(y + 1) >> 4`, scans
+    // columns `(x - $E) >> 4` through `(x + $E) >> 4`, masks each word with
+    // `$4000`, and returns the first/last masks while `tst.w d4` reports
+    // whether any sampled word carried that bit.
+    let row_index = asr4_word(y_pos_word.wrapping_add(1));
+    let start_col = asr4_word(x_pos_word.wrapping_sub(0x000E));
+    let end_col = asr4_word(x_pos_word.wrapping_add(0x000E));
+    let span = end_col.saturating_sub(start_col).saturating_add(1);
+    let sample_count = u16::try_from(span).unwrap_or(0);
+    let count = usize::from(sample_count);
+    let first_collision_4000 = sampled_row_words.first().copied().unwrap_or(0) & 0x4000;
+    let last_collision_4000 = sampled_row_words
+        .get(count.saturating_sub(1))
+        .copied()
+        .unwrap_or(0)
+        & 0x4000;
+    let any_collision_4000 = sampled_row_words
+        .iter()
+        .take(count)
+        .any(|word| word & 0x4000 != 0);
+
+    HandTerrainScanLoc32AFE {
+        row_index,
+        start_col,
+        end_col,
+        sample_count,
+        first_collision_4000,
+        last_collision_4000,
+        any_collision_4000,
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandDeathSequenceLoc32AA2 {
     pub(crate) has_kid_collision: bool,
     pub(crate) is_moved: bool,
@@ -23645,6 +23700,42 @@ mod tests {
             spawn_y_pos_sub_36FF4(EnemyFamily::Hand, 0x0040, 1),
             0x004F_0000,
             "native Hand spawn y should apply sub_36FF4 before ASM Hand.asm loc_32AEA"
+        );
+    }
+
+    #[test]
+    fn hand_terrain_scan_loc_32afe_returns_edge_masks_and_any_hit() {
+        let scan = hand_terrain_scan_loc_32afe(0x0040, 0x004F, &[0x4000, 0x0000]);
+        assert_eq!(
+            scan,
+            HandTerrainScanLoc32AFE {
+                row_index: 5,
+                start_col: 3,
+                end_col: 4,
+                sample_count: 2,
+                first_collision_4000: 0x4000,
+                last_collision_4000: 0,
+                any_collision_4000: true,
+            },
+            "ASM Hand.asm loc_32AFE scans `(x-$E)..(x+$E)` on row `(y+1)>>4` and returns d6=first, d7=last"
+        );
+        assert_eq!(
+            hand_patrol_decision_loc_32804(
+                0x3000,
+                i16::try_from(scan.first_collision_4000).expect("mask fits in signed word"),
+                i16::try_from(scan.last_collision_4000).expect("mask fits in signed word"),
+            ),
+            HandPatrolDecision::ReverseDirection,
+            "ASM Hand.asm loc_32AFE feeds d6/d7 into the positive-x patrol edge branch"
+        );
+    }
+
+    #[test]
+    fn hand_terrain_scan_loc_32afe_reports_no_support_for_death_path() {
+        let scan = hand_terrain_scan_loc_32afe(0x0040, 0x004F, &[0x0000, 0x0000]);
+        assert!(
+            !scan.any_collision_4000,
+            "ASM Hand.asm loc_32AFE leaves d4 zero when no sampled word has `$4000`, so the following `beq.w loc_32AA2` death path is taken"
         );
     }
 
