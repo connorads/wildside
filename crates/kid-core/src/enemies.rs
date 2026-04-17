@@ -3427,10 +3427,6 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         EnemyFamily::Robot => (2, 0x0000_8000, 0x0000_8000),
         // Orca: fixed 4 HP. Fixed speed $8000.
         EnemyFamily::Orca => (4, 0x0000_8000, 0),
-        // Ninja: uses a custom init path in Enemy11_Ninja_Init:
-        // loc_3D554 sets `current_hp = enemy_level + 2`, then loc_3D59A/loc_3D5AA
-        // add to `$50/$5E(a5)` for final speed.
-        EnemyFamily::Ninja => (2, 0x0000_8000, 0x0000_8000),
         // Lion: HP = enemy_level + 6 (min 6). Binary speed check: $28000 at HP==8,
         // $18000 otherwise. ASM: Lion.asm lines 32-41, `cmpi.b #8`.
         // Using step=0 and handling HP==8 via lion_charge_speed instead.
@@ -23189,6 +23185,30 @@ mod tests {
     }
 
     #[test]
+    fn driller_walk_speed_matches_loc_3bd6c_and_loc_3bd74() {
+        assert_eq!(
+            driller_walk_speed_loc_3bd74(2),
+            0x0000_8000,
+            "ASM Driller.asm loc_3BD74 gives low HP only the final `$8000` add",
+        );
+        assert_eq!(
+            driller_walk_speed_loc_3bd74(3),
+            0x0001_0000,
+            "ASM Driller.asm loc_3BD6C lets HP 3 reach the middle `$8000` add before loc_3BD74",
+        );
+        assert_eq!(
+            driller_walk_speed_loc_3bd74(4),
+            0x0001_8000,
+            "ASM Driller.asm loc_3BD64 high-HP preload plus loc_3BD6C/loc_3BD74 caps Driller speed at three `$8000` adds",
+        );
+        assert_eq!(
+            driller_walk_speed_loc_3bd74(5),
+            0x0001_8000,
+            "ASM Driller.asm loc_3BD64 keeps HP above 4 on the same capped high-speed tier",
+        );
+    }
+
+    #[test]
     fn tank_spawn_faces_toward_player_per_loc_3b2e4() {
         assert_eq!(
             spawn_facing(EnemyFamily::Tank, 100 << 16, 80 << 16),
@@ -23231,6 +23251,84 @@ mod tests {
         assert_eq!(
             pacer_walk_speed(EnemyFamily::TankShooting, hp4),
             0x0001_8000
+        );
+    }
+
+    #[test]
+    fn boss_head_config_matches_multi_head_init_asm() {
+        assert_eq!(
+            boss_head_config(EnemyFamily::Shishkaboss),
+            ([20, 30, 30], [0, 0, 0], [0, 0x48, 0x90],),
+            "ASM kid.asm Enemy22_Shiskaboss_Init spawns heads at y offsets 0/$48/$90; ShishkaBoss_HitPointsPerHead is `$14` for the first head and later heads use `$1E`",
+        );
+        assert_eq!(
+            boss_head_config(EnemyFamily::BoomerangBosses),
+            ([30, 30, 30], [0, -0x00C8, -0x01C2], [0, 0, 0],),
+            "ASM kid.asm Enemy23_BoomerangBosses_Init spawns heads at x offsets 0/-$C8/-$1C2 and uses BoomerangBoss_HitPointsPerHead `$1E`",
+        );
+        assert_eq!(
+            boss_head_config(EnemyFamily::BagelBrothers),
+            ([30, 30, 30], [0, -0x0064, 0], [0, -0x0096, -0x012C],),
+            "ASM kid.asm Enemy24_BagelBrothers_Init spawns heads at (0,0), (-$64,-$96), and (0,-$12C), each with BagelBrothers_HitPointsPerHead `$1E`",
+        );
+        assert_eq!(
+            boss_head_config(EnemyFamily::Tank),
+            ([1, 1, 1], [0, 0, 0], [0, 0, 0]),
+            "Non-boss families have no multi-head ASM spawn table and keep the sentinel fallback",
+        );
+    }
+
+    #[test]
+    fn pacer_walk_speed_covers_family_specific_asm_tiers() {
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Goat, 3),
+            0x0000_8000,
+            "ASM Goat.asm loc_3CA7E gives base HP one final `$8000` add",
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Goat, 4),
+            0x0001_8000,
+            "ASM Goat.asm loc_3CA6E lets HP 4 reach the `$10000` tier before the final add",
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Scorpion, 5),
+            0x0001_8000,
+            "ASM Scorpion init uses a fixed `$18000` shared-walker speed",
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::FireDemon, 3),
+            0x0000_8000,
+            "ASM Fire_Demon.asm loc_3A414 gives HP 3 only the final `$8000` add",
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::FireDemon, 5),
+            0x0001_8000,
+            "ASM Fire_Demon.asm loc_3A40C/loc_3A414 gives HP 5 the three-add speed tier",
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Robot, 2),
+            0x0000_8000,
+            "ASM Robot init starts the HP 2 walker at one `$8000` add, not the default `$10000` fallback",
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Lion, 8),
+            0x0002_8000,
+            "ASM Lion.asm loc_3DFD8 skips the `$18000` branch only when current_hp is exactly 8",
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::Hand, 3),
+            0x0000_6000,
+            "ASM Hand speed table advances from `$3000` by `$1800` per HP tier",
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::SpinningTwins, 1),
+            0x0001_8000,
+            "ASM Spinning_Twins shared-walker landing path uses fixed `$18000` walk speed",
+        );
+        assert_eq!(
+            pacer_walk_speed(EnemyFamily::TarMonster, 2),
+            0x0001_8000,
+            "ASM Tar_Monster emerging walker uses fixed `$18000` walk speed",
         );
     }
 
