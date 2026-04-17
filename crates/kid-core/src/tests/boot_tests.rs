@@ -457,6 +457,25 @@ mod chunk_01 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn gfx_object_alloc_loc_FD4_skips_equal_priorities_before_first_higher_priority() {
+        let next_indices = [
+            Some(1), // sentinel -> first live node
+            Some(2), // priority 1
+            Some(3), // equal priority 2
+            Some(4), // higher priority 3
+            None,
+        ];
+        let priority_words = [0, 1, 2, 3, 2];
+
+        assert_eq!(
+            gfx_object_alloc_insertion_predecessor_index_loc_FD4(&next_indices, &priority_words, 2),
+            2,
+            "ASM loc_FD4 should keep walking while each existing `$A(a4)` priority is less than or equal to the new object's `d5`",
+        );
+    }
+
+    #[test]
     fn gfx_object_delete_loc_10f4_routes_object_kind_3_to_the_fffff86a_singleton_slot() {
         assert_eq!(
             gfx_object_delete_loc_10C6(None, Some(7), 5, 3, 3).special_slot,

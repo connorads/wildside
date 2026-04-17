@@ -685,6 +685,29 @@ pub(crate) fn gfx_object_alloc_tail_loc_FBE(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn gfx_object_alloc_insertion_predecessor_index_loc_FD4(
+    next_indices: &[Option<usize>],
+    priority_words: &[u16],
+    target_priority_word: u16,
+) -> usize {
+    // ASM Allocate_GfxObjectSlot loc_FD4 (kid.asm:1897): starting at the
+    // sentinel `(Addr_FirstGfxObjectSlot).w`, follow `0(a4)` while the next
+    // node exists and its `$A(a4)` priority word is less than or equal to the
+    // new object's `d5`; allocation inserts after the last such node.
+    let mut cursor_index = 0usize;
+    loop {
+        let Some(next_index) = next_indices[cursor_index] else {
+            return cursor_index;
+        };
+        if priority_words[next_index] > target_priority_word {
+            return cursor_index;
+        }
+        cursor_index = next_index;
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_alloc_special_chain_loc_F9C(
     object_kind_word: u16,
 ) -> GfxObjectAllocationSpecialChainLocF9C {
