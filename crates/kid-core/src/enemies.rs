@@ -14210,6 +14210,22 @@ pub(crate) enum HandDeathStatusRouteLoc32AA2 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct HandDeleteTailLoc32AE6 {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_delete_tail_loc_32ae6() -> HandDeleteTailLoc32AE6 {
+    // ASM Hand.asm loc_32AE6: every death-status route converges on a direct
+    // jump to `j_Delete_CurrentObject`.
+    HandDeleteTailLoc32AE6 {
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandDeathSequenceLoc32AA2 {
     pub(crate) has_kid_collision: bool,
     pub(crate) is_moved: bool,
@@ -14244,7 +14260,7 @@ pub(crate) fn hand_death_sequence_loc_32aa2(object_status_slot: u8) -> HandDeath
         animation_label: "stru_32B78",
         hibernate_until_animation_finished: true,
         status_route,
-        deletes_current_object: true,
+        deletes_current_object: hand_delete_tail_loc_32ae6().deletes_current_object,
     }
 }
 
@@ -23582,6 +23598,21 @@ mod tests {
             spawn_x_velocity(EnemyFamily::Hand, 2),
             -0x0000_6000,
             "native Hand spawn x_velocity should expose the ASM Hand.asm loc_327F2 initial store for tier 3"
+        );
+    }
+
+    #[test]
+    fn hand_delete_tail_loc_32ae6_deletes_current_object() {
+        assert_eq!(
+            hand_delete_tail_loc_32ae6(),
+            HandDeleteTailLoc32AE6 {
+                deletes_current_object: true,
+            },
+            "ASM Hand.asm loc_32AE6 jumps directly to `j_Delete_CurrentObject` after every death-status path"
+        );
+        assert!(
+            hand_death_sequence_loc_32aa2(0x80).deletes_current_object,
+            "ASM Hand.asm loc_32AE6 is also reached by the bit-7 delete-only status route"
         );
     }
 
