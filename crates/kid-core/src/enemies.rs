@@ -8334,6 +8334,33 @@ pub(crate) struct UfoHurtDriverCollisionDispatchLoc35762 {
     pub(crate) behavior: Option<UfoHurtDriverCollisionBehaviorLoc35762>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverBerzerkerChargeFallLoc35788 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) has_level_collision: bool,
+    pub(crate) animation: &'static str,
+    pub(crate) enters_falling_loop: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_berzerker_charge_fall_loc_35788(
+    kid_x_velocity: i32,
+) -> UfoHurtDriverBerzerkerChargeFallLoc35788 {
+    // ASM UFO.asm loc_35788: when `$20/$24` collision reaches this branch with
+    // `Berzerker_charging` set, copy half Kid x_vel into the UFO, set y_vel to
+    // `-$40000`, clear `has_level_collision(a3)`, start `stru_34CAE`, then
+    // enter the shared falling loop.
+    UfoHurtDriverBerzerkerChargeFallLoc35788 {
+        x_velocity: kid_x_velocity >> 1,
+        y_velocity: -0x0004_0000,
+        has_level_collision: false,
+        animation: "stru_34CAE",
+        enters_falling_loop: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
     collision_type: i16,
@@ -8377,9 +8404,10 @@ pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
 
     if collision_word > 0x001C {
         let behavior = if collision_word < 0x0028 && berzerker_charging {
+            let fall = ufo_hurt_driver_berzerker_charge_fall_loc_35788(kid_x_velocity);
             UfoHurtDriverCollisionBehaviorLoc35762::BerzerkerChargeFall {
-                x_velocity: kid_x_velocity >> 1,
-                y_velocity: -0x0004_0000,
+                x_velocity: fall.x_velocity,
+                y_velocity: fall.y_velocity,
             }
         } else {
             UfoHurtDriverCollisionBehaviorLoc35762::ReturnOnly

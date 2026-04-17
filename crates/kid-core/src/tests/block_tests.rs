@@ -6652,6 +6652,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_hurt_driver_berzerker_charge_fall_matches_loc_35788() {
+        use enemies::{
+            UfoHurtDriverBerzerkerChargeFallLoc35788,
+            ufo_hurt_driver_berzerker_charge_fall_loc_35788,
+        };
+
+        assert_eq!(
+            ufo_hurt_driver_berzerker_charge_fall_loc_35788(-0x0005_0000),
+            UfoHurtDriverBerzerkerChargeFallLoc35788 {
+                x_velocity: -0x0002_8000,
+                y_velocity: -0x0004_0000,
+                has_level_collision: false,
+                animation: "stru_34CAE",
+                enters_falling_loop: true,
+            },
+            "ASM UFO.asm loc_35788 copies arithmetic half of Kid x_vel, clears `has_level_collision(a3)`, starts `stru_34CAE`, and enters the falling loop"
+        );
+    }
+
+    #[test]
     fn tornado_loads_rom_pattern_on_timer_expiry() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
         enemy.wait_timer = 0;
