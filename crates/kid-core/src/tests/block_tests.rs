@@ -8808,6 +8808,29 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_berzerker_launch_loop_loc_3bc22_adds_gravity_and_repeats() {
+        assert_eq!(
+            SPINNING_TWINS_BERZERKER_LAUNCH_GRAVITY_LOC_3BC22, 0x0000_4000,
+            "ASM loc_3BC22 adds `$4000` to y_vel on every airborne tick"
+        );
+        assert_eq!(
+            spinning_twins_berzerker_launch_loop_tick_loc_3bc22(-0x0004_8000),
+            SpinningTwinsBerzerkerLaunchLoopTickLoc3BC22 {
+                hibernates_one_frame: true,
+                runs_shared_retention_check_sub_3c3ce: true,
+                next_y_velocity: -0x0004_4000,
+                loops: true,
+            },
+            "ASM loc_3BC22 should hibernate, run sub_3C3CE, add gravity, and loop"
+        );
+        assert_eq!(
+            spinning_twins_berzerker_launch_loop_tick_loc_3bc22(-0x0004_4000).next_y_velocity,
+            -0x0004_0000,
+            "ASM loc_3BC22 should use the same `$4000` gravity step on the next loop"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 

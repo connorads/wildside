@@ -17899,6 +17899,32 @@ pub(crate) fn spinning_twins_berzerker_side_gate_loc_3bbf6(
     })
 }
 
+pub(crate) const SPINNING_TWINS_BERZERKER_LAUNCH_GRAVITY_LOC_3BC22: i32 = 0x0000_4000;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsBerzerkerLaunchLoopTickLoc3BC22 {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) runs_shared_retention_check_sub_3c3ce: bool,
+    pub(crate) next_y_velocity: i32,
+    pub(crate) loops: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_berzerker_launch_loop_tick_loc_3bc22(
+    y_velocity: i32,
+) -> SpinningTwinsBerzerkerLaunchLoopTickLoc3BC22 {
+    // ASM Spinning_Twins.asm loc_3BC22: each airborne frame hibernates once,
+    // runs `sub_3C3CE`, adds `$4000` to `y_vel(a3)`, then branches back to
+    // loc_3BC22.
+    SpinningTwinsBerzerkerLaunchLoopTickLoc3BC22 {
+        hibernates_one_frame: true,
+        runs_shared_retention_check_sub_3c3ce: true,
+        next_y_velocity: y_velocity.wrapping_add(SPINNING_TWINS_BERZERKER_LAUNCH_GRAVITY_LOC_3BC22),
+        loops: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32) -> i32 {
     // ASM Spinning_Twins.asm loc_3BB2C: after hibernate + sub_3C3CE movement,
