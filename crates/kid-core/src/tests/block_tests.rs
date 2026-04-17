@@ -4373,6 +4373,18 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_respawn_marker_matches_loc_366a4() {
+        assert_eq!(
+            enemies::big_hopping_skull_respawn_marker_loc_366a4(0x05),
+            enemies::BigHoppingSkullRespawnMarkerLoc366A4 {
+                index: 0x05,
+                word_value: 0x2168,
+            },
+            "ASM Big_Hopping_Skull.asm loc_366A4 should double positive `$42(a5)` into an EnemyStatus_Table word offset and write `$2168`",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),

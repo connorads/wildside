@@ -2703,6 +2703,25 @@ pub(crate) fn big_hopping_skull_death_animation_gate_loc_3667e(
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct BigHoppingSkullRespawnMarkerLoc366A4 {
+    pub(crate) index: usize,
+    pub(crate) word_value: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_respawn_marker_loc_366a4(
+    object_status_slot: u8,
+) -> BigHoppingSkullRespawnMarkerLoc366A4 {
+    // ASM Big_Hopping_Skull.asm loc_366A4: positive `$42(a5)` is doubled as
+    // an EnemyStatus_Table word offset, then `$2168` is written before the
+    // shared death finalisation tail.
+    BigHoppingSkullRespawnMarkerLoc366A4 {
+        index: usize::from(object_status_slot),
+        word_value: 0x2168,
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,
