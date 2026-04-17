@@ -21225,7 +21225,7 @@ pub(crate) fn archer_angle_to_player(
         // ASM Archer.asm loc_34492: left+up negates both deltas, looks up the
         // slope sub-angle, then returns `$D - sub`.
         (false, false) => (0x0D - sub) as usize,
-        // Quadrant 2: left+down (d5=2) → 0xE + sub
+        // ASM Archer.asm loc_344E6: left+down adds `$E` to the ratio-table sub-angle.
         (false, true) => (0x0E + sub) as usize,
         // Quadrant 3: right+down (d5=3) → 0x1B - sub
         (true, true) => (0x1B - sub) as usize,
