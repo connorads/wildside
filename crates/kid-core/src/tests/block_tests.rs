@@ -2830,6 +2830,44 @@ mod chunk_04 {
     }
 
     #[test]
+    fn scorpion_timer_gate_matches_loc_3dea0_threshold_and_swap() {
+        use enemies::{
+            ScorpionTimerGateLoc3DEA0, ScorpionTimerRestartRouteLoc3DEA0,
+            ScorpionTimerRouteLoc3DEA0, scorpion_timer_gate_loc_3dea0,
+        };
+
+        assert_eq!(
+            scorpion_timer_gate_loc_3dea0(1, 7, 0x0010_0020, Direction::Left),
+            ScorpionTimerGateLoc3DEA0 {
+                timer_54: 7,
+                alternating_timer_pair_6e: 0x0010_0020,
+                route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker,
+            },
+            "ASM Scorpion.asm loc_3DEA0 leaves the timer pair untouched when $42 is positive and not $000A"
+        );
+        assert_eq!(
+            scorpion_timer_gate_loc_3dea0(-1, 2, 0x0010_0020, Direction::Left),
+            ScorpionTimerGateLoc3DEA0 {
+                timer_54: 1,
+                alternating_timer_pair_6e: 0x0010_0020,
+                route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker,
+            },
+            "ASM Scorpion.asm loc_3DEA0 decrements $54 when $42 is signed non-positive and resumes while the decremented timer is nonzero"
+        );
+        assert_eq!(
+            scorpion_timer_gate_loc_3dea0(0x000A, 1, 0x0010_0020, Direction::Right),
+            ScorpionTimerGateLoc3DEA0 {
+                timer_54: 0x0010,
+                alternating_timer_pair_6e: 0x0020_0010,
+                route: ScorpionTimerRouteLoc3DEA0::RestartPacing {
+                    next: ScorpionTimerRestartRouteLoc3DEA0::SetDirection,
+                },
+            },
+            "ASM Scorpion.asm loc_3DEA0 treats $42 == $000A as active, swaps the packed $6E timer halves when $54 reaches zero, and restarts by direction"
+        );
+    }
+
+    #[test]
     fn scorpion_collision_resume_patrol_branches_match_loc_3dd72() {
         use enemies::{ScorpionCollisionResumeBranchLoc3DD5C, scorpion_collision_resume_loc_3dd5c};
 

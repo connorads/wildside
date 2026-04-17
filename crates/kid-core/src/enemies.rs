@@ -4494,6 +4494,70 @@ pub(crate) fn scorpion_resume_after_tracking_loc_3de6c(
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ScorpionTimerRestartRouteLoc3DEA0 {
+    ClearDirection,
+    SetDirection,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ScorpionTimerRouteLoc3DEA0 {
+    ResumeSharedWalker,
+    RestartPacing {
+        next: ScorpionTimerRestartRouteLoc3DEA0,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ScorpionTimerGateLoc3DEA0 {
+    pub(crate) timer_54: u16,
+    pub(crate) alternating_timer_pair_6e: u32,
+    pub(crate) route: ScorpionTimerRouteLoc3DEA0,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_timer_gate_loc_3dea0(
+    relative_y_word_42: i16,
+    timer_54: u16,
+    alternating_timer_pair_6e: u32,
+    facing: Direction,
+) -> ScorpionTimerGateLoc3DEA0 {
+    // ASM Scorpion.asm loc_3DEA0 only advances the `$54(a5)` timer when
+    // `$42(a3)` is signed <= 0 or exactly `$000A`; other values resume without
+    // touching the packed timer pair in `$6E(a5)`.
+    if relative_y_word_42 > 0 && relative_y_word_42 != 0x000A {
+        return ScorpionTimerGateLoc3DEA0 {
+            timer_54,
+            alternating_timer_pair_6e,
+            route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker,
+        };
+    }
+
+    let timer_54 = timer_54.wrapping_sub(1);
+    if timer_54 != 0 {
+        return ScorpionTimerGateLoc3DEA0 {
+            timer_54,
+            alternating_timer_pair_6e,
+            route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker,
+        };
+    }
+
+    let swapped_timer_pair = alternating_timer_pair_6e.rotate_left(16);
+    ScorpionTimerGateLoc3DEA0 {
+        timer_54: swapped_timer_pair as u16,
+        alternating_timer_pair_6e: swapped_timer_pair,
+        route: ScorpionTimerRouteLoc3DEA0::RestartPacing {
+            next: match facing {
+                Direction::Left => ScorpionTimerRestartRouteLoc3DEA0::ClearDirection,
+                Direction::Right => ScorpionTimerRestartRouteLoc3DEA0::SetDirection,
+            },
+        },
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ScorpionTailGfxPosition {
     pub(crate) x_word: u16,
