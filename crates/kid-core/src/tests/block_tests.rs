@@ -9480,6 +9480,28 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_death_status_route_loc_3bc78_decodes_status_byte_sign_and_bit6() {
+        assert_eq!(
+            spinning_twins_death_status_route_loc_3bc78(0x05),
+            SpinningTwinsDeathStatusRouteLoc3BC78::PositiveStatusSlot { index: 5 },
+            "ASM loc_3BC78 should route a positive `$42(a5)` byte to the status-slot path"
+        );
+        assert_eq!(
+            spinning_twins_death_status_route_loc_3bc78(0xC7),
+            SpinningTwinsDeathStatusRouteLoc3BC78::SubtractSpawnCounter {
+                index: 7,
+                decrement: 0x0400,
+            },
+            "ASM loc_3BC78 should mask bit-7+bit-6 `$42(a5)` to a six-bit EnemyStatus_Table index"
+        );
+        assert_eq!(
+            spinning_twins_death_status_route_loc_3bc78(0x80),
+            SpinningTwinsDeathStatusRouteLoc3BC78::DeleteOnly,
+            "ASM loc_3BC78 should leave the status table alone when only bit 7 is set"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 

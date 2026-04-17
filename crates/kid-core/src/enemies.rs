@@ -19709,6 +19709,37 @@ pub(crate) fn spinning_twins_damage_contact_loc_3bc34(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum SpinningTwinsDeathStatusRouteLoc3BC78 {
+    PositiveStatusSlot { index: usize },
+    SubtractSpawnCounter { index: usize, decrement: u16 },
+    DeleteOnly,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_death_status_route_loc_3bc78(
+    object_status_slot: u8,
+) -> SpinningTwinsDeathStatusRouteLoc3BC78 {
+    // ASM Spinning_Twins.asm loc_3BC78: after `$44(a3)` reaches zero and
+    // `Number_of_Enemy` is decremented, `$42(a5)` is copied into d0. A positive
+    // byte takes the clear-slot path; a negative byte with bit 6 set masks to a
+    // six-bit EnemyStatus_Table index and subtracts `$400`; the remaining
+    // negative case deletes without touching the status table.
+    if object_status_slot & 0x80 == 0 {
+        return SpinningTwinsDeathStatusRouteLoc3BC78::PositiveStatusSlot {
+            index: usize::from(object_status_slot),
+        };
+    }
+    if object_status_slot & 0x40 == 0 {
+        return SpinningTwinsDeathStatusRouteLoc3BC78::DeleteOnly;
+    }
+    SpinningTwinsDeathStatusRouteLoc3BC78::SubtractSpawnCounter {
+        index: usize::from(object_status_slot & 0x3F),
+        decrement: 0x0400,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_child_y_velocity_loc_3bb2c(y_velocity: i32) -> i32 {
     // ASM Spinning_Twins.asm loc_3BB2C: after hibernate + sub_3C3CE movement,
