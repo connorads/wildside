@@ -12322,6 +12322,8 @@ pub(crate) fn mini_hopping_skull_delete_tail_loc_3f32e(
     // counters, then converge on `j_Delete_CurrentObject`.
     // ASM Mini_Hopping_Skull.asm loc_3F354: positive `$42(a5)` doubles the
     // slot byte as a word offset and writes `$2168` into `EnemyStatus_Table`.
+    // ASM Mini_Hopping_Skull.asm loc_3F362: all status routes converge on the
+    // direct `jmp (j_Delete_CurrentObject).w` tail.
     MiniHoppingSkullDeleteTailLoc3F32E {
         next_number_of_enemy: number_of_enemy.wrapping_sub(1),
         status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
@@ -30005,6 +30007,19 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F354 doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_delete_tail_direct_delete_matches_loc_3f362() {
+        assert_eq!(
+            mini_hopping_skull_delete_tail_loc_3f32e(1, 0x80),
+            MiniHoppingSkullDeleteTailLoc3F32E {
+                next_number_of_enemy: 0,
+                status_action: DeactivationStatusActionLoc3C4C0::DeleteOnly,
+                deletes_current_object: true,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F362 is the direct `j_Delete_CurrentObject` tail reached after the bit-7 set, bit-6 clear `$42(a5)` route"
         );
     }
 
