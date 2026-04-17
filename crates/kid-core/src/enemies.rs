@@ -18967,6 +18967,8 @@ pub(crate) fn tank_update_loc_3b41c(
         None
     } else {
         match mouth_frame {
+            // ASM Tank.asm loc_3B444: after the optional open-mouth sound,
+            // execution immediately joins the child collision routing.
             TankMouthFrameLoc3B41C::OpeningTimerA => Some(TankMouthSoundLoc3B41C::Open),
             TankMouthFrameLoc3B41C::ClosingTimer37 => Some(TankMouthSoundLoc3B41C::Closed),
             TankMouthFrameLoc3B41C::Other => None,
@@ -19954,7 +19956,7 @@ mod tests {
                 hurt_hibernate_frames: None,
                 route: TankUpdateRouteLoc3B41C::Walk,
             },
-            "ASM Tank.asm loc_3B41C should play the open-mouth sound before clearing a zero child collision word and resuming the walker",
+            "ASM Tank.asm loc_3B444 should join child collision routing after the open-mouth sound, then clear a zero child collision word and resume the walker",
         );
     }
 
