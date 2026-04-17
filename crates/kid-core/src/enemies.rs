@@ -18977,6 +18977,8 @@ pub(crate) fn tank_update_loc_3b41c(
         }
     };
 
+    // ASM Tank.asm loc_3B464: the mouth child collision word chooses
+    // walk, death, or damage after mouth-sound handling has completed.
     if tank_collision_word_is_negative_loc_3b41c(child_collision_type) {
         return TankUpdateLoc3B41C {
             mouth_sound,
@@ -20001,7 +20003,7 @@ mod tests {
                 hurt_hibernate_frames: None,
                 route: TankUpdateRouteLoc3B41C::Death,
             },
-            "ASM Tank.asm loc_3B41C should route a final `$2C` child hit to death after the current_hp decrement reaches zero",
+            "ASM Tank.asm loc_3B464 should accept `$2C` as a damage collision and route a final hit to death after the current_hp decrement reaches zero",
         );
     }
 
