@@ -2396,6 +2396,13 @@ pub(crate) struct MiniHoppingSkullDeleteTailLoc3F32E {
     pub(crate) deletes_current_object: bool,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum MiniHoppingSkullMediumLoadGateLoc3F304 {
+    Return,
+    DeleteTail(MiniHoppingSkullDeleteTailLoc3F32E),
+}
+
 // Big Hopping Skull: continuous bouncer from Big_Hopping_Skull.asm.
 // FP16.16 velocities: x_vel = ±$10000 (1px/frame), y_vel init = $FFFE0000 (-2px/frame).
 // Gravity: $FA0/frame. Deflects off all surfaces with no ground delay.
@@ -11190,6 +11197,30 @@ pub(crate) fn mini_hopping_skull_cull_reject_loc_3f300(
 ) -> MiniHoppingSkullDeleteTailLoc3F32E {
     // ASM Mini_Hopping_Skull.asm loc_3F300: `bra.w loc_3F32E`.
     mini_hopping_skull_delete_tail_loc_3f32e(number_of_enemy, object_status_slot)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn mini_hopping_skull_medium_load_camera_gate_loc_3f304(
+    x_pos_word: u16,
+    y_pos_word: u16,
+    camera_x_word: u16,
+    camera_y_word: u16,
+    number_of_enemy: u16,
+    object_status_slot: u8,
+) -> MiniHoppingSkullMediumLoadGateLoc3F304 {
+    // ASM Mini_Hopping_Skull.asm loc_3F304: subtract camera words, keep only
+    // signed deltas inside x[-$1A4,+$2E4] and y[-$1A4,+$284]; every failed
+    // comparison branches back to loc_3F300.
+    let relative_x = x_pos_word.wrapping_sub(camera_x_word) as i16;
+    let relative_y = y_pos_word.wrapping_sub(camera_y_word) as i16;
+
+    if !(-0x01A4..=0x02E4).contains(&relative_x) || !(-0x01A4..=0x0284).contains(&relative_y) {
+        return MiniHoppingSkullMediumLoadGateLoc3F304::DeleteTail(
+            mini_hopping_skull_cull_reject_loc_3f300(number_of_enemy, object_status_slot),
+        );
+    }
+
+    MiniHoppingSkullMediumLoadGateLoc3F304::Return
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -27528,6 +27559,26 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F300 is only `bra.w loc_3F32E`, so every rejected culling check must take the delete-tail status update"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_medium_load_gate_matches_loc_3f304_bounds() {
+        assert_eq!(
+            mini_hopping_skull_medium_load_camera_gate_loc_3f304(0xFE5C, 0x0284, 0, 0, 4, 0x81),
+            MiniHoppingSkullMediumLoadGateLoc3F304::Return,
+            "ASM Mini_Hopping_Skull.asm loc_3F304 keeps the exact inclusive medium-load bounds x[-$1A4,+$2E4], y[-$1A4,+$284]"
+        );
+        assert_eq!(
+            mini_hopping_skull_medium_load_camera_gate_loc_3f304(0xFE5B, 0x0100, 0, 0, 4, 0x81),
+            MiniHoppingSkullMediumLoadGateLoc3F304::DeleteTail(
+                MiniHoppingSkullDeleteTailLoc3F32E {
+                    next_number_of_enemy: 3,
+                    status_action: DeactivationStatusActionLoc3C4C0::DeleteOnly,
+                    deletes_current_object: true,
+                }
+            ),
+            "ASM Mini_Hopping_Skull.asm loc_3F304 branches to loc_3F300 when signed screen X is less than -$1A4"
         );
     }
 
