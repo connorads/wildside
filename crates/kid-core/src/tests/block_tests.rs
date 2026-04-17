@@ -2720,6 +2720,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn armadillo_spawned_child_fall_setup_matches_loc_3c93c() {
+        assert_eq!(
+            armadillo_spawned_child_fall_setup_loc_3c93c(),
+            ArmadilloSpawnedChildFallSetupLoc3C93C {
+                x_velocity: 0,
+                y_velocity: 0x0002_C000,
+                has_level_collision: true,
+                is_moved: true,
+            },
+            "ASM Armadillo.asm loc_3C93C seeds spawned-child fall with zero x_vel, `$2C000` y_vel, level collision, and movement"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_scorpion_is_fixed() {
         // Scorpion: fixed $18000 regardless of HP.
         assert_eq!(pacer_walk_speed(EnemyFamily::Scorpion, 3), 0x0001_8000);

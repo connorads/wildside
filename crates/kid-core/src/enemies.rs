@@ -3620,11 +3620,12 @@ pub(crate) fn armadillo_death_route_loc_3c87e(
     // ASM Armadillo.asm loc_3C87E: `$5C(a5)` selects whether death starts
     // immediately or first runs a falling settle path for spawned children.
     if spawned_child_flag {
+        let fall_setup = armadillo_spawned_child_fall_setup_loc_3c93c();
         ArmadilloDeathRouteLoc3C87E::SpawnedChildFallBeforeDeath {
-            x_velocity: 0,
-            y_velocity: 0x0002_C000,
-            has_level_collision: true,
-            is_moved: true,
+            x_velocity: fall_setup.x_velocity,
+            y_velocity: fall_setup.y_velocity,
+            has_level_collision: fall_setup.has_level_collision,
+            is_moved: fall_setup.is_moved,
         }
     } else {
         ArmadilloDeathRouteLoc3C87E::DeathAnimation {
@@ -3845,6 +3846,29 @@ pub(crate) fn armadillo_ordinary_resume_loc_3c930(
     ArmadilloOrdinaryResumeLoc3C930 {
         collision_type: 0,
         next,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArmadilloSpawnedChildFallSetupLoc3C93C {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) has_level_collision: bool,
+    pub(crate) is_moved: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_spawned_child_fall_setup_loc_3c93c()
+-> ArmadilloSpawnedChildFallSetupLoc3C93C {
+    // ASM Armadillo.asm loc_3C93C: spawned-child death setup clears `x_vel(a3)`,
+    // stores `$2C000` in `y_vel(a3)`, and enables level collision plus movement
+    // before entering the floor-contact wait.
+    ArmadilloSpawnedChildFallSetupLoc3C93C {
+        x_velocity: 0,
+        y_velocity: 0x0002_C000,
+        has_level_collision: true,
+        is_moved: true,
     }
 }
 
