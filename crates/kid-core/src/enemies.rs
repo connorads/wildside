@@ -9127,6 +9127,45 @@ pub(crate) fn tornado_collision_dispatch_loc_35948(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TornadoHitStatusRouteLoc359B2 {
+    WriteRespawnMarker { index: usize, word_value: u16 },
+    SubtractSpawnCounter { index: usize, decrement: u16 },
+    DeleteOnly,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TornadoHitSequenceLoc359B2 {
+    pub(crate) waits_for_hit_animation: bool,
+    pub(crate) status_route: TornadoHitStatusRouteLoc359B2,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tornado_hit_sequence_loc_359b2(object_status_slot: u8) -> TornadoHitSequenceLoc359B2 {
+    // ASM Tornado.asm loc_359B2: play `stru_35B1E`, hibernate until it
+    // finishes, then inspect `$42(a5)` to choose the status-table update.
+    let status_route = if object_status_slot & 0x80 == 0 {
+        TornadoHitStatusRouteLoc359B2::WriteRespawnMarker {
+            index: usize::from(object_status_slot),
+            word_value: 0x2168,
+        }
+    } else if object_status_slot & 0x40 != 0 {
+        TornadoHitStatusRouteLoc359B2::SubtractSpawnCounter {
+            index: usize::from(object_status_slot & 0x3F),
+            decrement: 0x0400,
+        }
+    } else {
+        TornadoHitStatusRouteLoc359B2::DeleteOnly
+    };
+
+    TornadoHitSequenceLoc359B2 {
+        waits_for_hit_animation: true,
+        status_route,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TornadoCycloneBounceLoc35986 {
     pub(crate) player_x_velocity: i32,
     pub(crate) tornado_x_velocity: i32,

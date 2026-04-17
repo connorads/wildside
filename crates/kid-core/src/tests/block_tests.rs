@@ -7461,6 +7461,45 @@ mod chunk_04 {
         );
     }
 
+    #[test]
+    fn tornado_hit_sequence_loc_359b2_routes_status_slot() {
+        use enemies::{
+            TornadoHitSequenceLoc359B2, TornadoHitStatusRouteLoc359B2,
+            tornado_hit_sequence_loc_359b2,
+        };
+
+        assert_eq!(
+            tornado_hit_sequence_loc_359b2(0x05),
+            TornadoHitSequenceLoc359B2 {
+                waits_for_hit_animation: true,
+                status_route: TornadoHitStatusRouteLoc359B2::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168,
+                },
+            },
+            "ASM Tornado.asm loc_359B2 branches on non-negative `$42(a5)` after the hit animation",
+        );
+        assert_eq!(
+            tornado_hit_sequence_loc_359b2(0xC7),
+            TornadoHitSequenceLoc359B2 {
+                waits_for_hit_animation: true,
+                status_route: TornadoHitStatusRouteLoc359B2::SubtractSpawnCounter {
+                    index: 7,
+                    decrement: 0x0400,
+                },
+            },
+            "ASM Tornado.asm loc_359B2 masks bit 6 from negative `$42(a5)` before subtracting the spawn counter",
+        );
+        assert_eq!(
+            tornado_hit_sequence_loc_359b2(0x87),
+            TornadoHitSequenceLoc359B2 {
+                waits_for_hit_animation: true,
+                status_route: TornadoHitStatusRouteLoc359B2::DeleteOnly,
+            },
+            "ASM Tornado.asm loc_359B2 skips the status table when negative `$42(a5)` has bit 6 clear",
+        );
+    }
+
     // --- Cyclone-Tornado bounce interaction (ASM Tornado.asm loc_35986) ---
 
     #[test]
