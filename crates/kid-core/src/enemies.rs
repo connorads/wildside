@@ -721,6 +721,14 @@ pub(crate) enum CrabSlopeCollisionRouteLoc3B1F8 {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_reflect_y_velocity_loc_3b204(y_velocity: i32) -> i32 {
+    // ASM Crab.asm loc_3B204: `move.l y_vel,d7; lsr.l #1,d7; neg.l d7;
+    // move.l d7,y_vel` uses a logical shift before the two's-complement negate.
+    let half_y_unsigned = u32::from_ne_bytes(y_velocity.to_ne_bytes()) >> 1;
+    i32::from_ne_bytes(0u32.wrapping_sub(half_y_unsigned).to_ne_bytes())
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_slope_collision_response_loc_3b1f8(
     collision_type: u16,
     x_velocity: i32,
@@ -737,10 +745,8 @@ pub(crate) fn crab_slope_collision_response_loc_3b1f8(
         return CrabSlopeCollisionRouteLoc3B1F8::GravityTail;
     }
 
-    let half_y_unsigned = u32::from_ne_bytes(y_velocity.to_ne_bytes()) >> 1;
-    let reflected_y = i32::from_ne_bytes(0u32.wrapping_sub(half_y_unsigned).to_ne_bytes());
     CrabSlopeCollisionRouteLoc3B1F8::ReflectYVelocity {
-        y_velocity: reflected_y,
+        y_velocity: crab_reflect_y_velocity_loc_3b204(y_velocity),
     }
 }
 
@@ -20643,6 +20649,21 @@ mod tests {
                 y_velocity: -0x7FFF_0000,
             },
             "ASM Crab.asm loc_3B1F8 should use logical half-y reflection for negative y_vel"
+        );
+    }
+
+    #[test]
+    fn crab_reflect_y_velocity_matches_loc_3b204() {
+        assert_eq!(
+            crab_reflect_y_velocity_loc_3b204(0x0002_0000),
+            -0x0001_0000,
+            "ASM Crab.asm loc_3B204 should logically halve positive y_vel, then negate it"
+        );
+
+        assert_eq!(
+            crab_reflect_y_velocity_loc_3b204(-0x0002_0000),
+            -0x7FFF_0000,
+            "ASM Crab.asm loc_3B204 uses `lsr.l`, so negative y_vel is halved as unsigned before negation"
         );
     }
 
