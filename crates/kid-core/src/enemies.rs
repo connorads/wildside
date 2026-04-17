@@ -11777,6 +11777,7 @@ pub(crate) fn ninja_jump_attack_airborne_tick_loc_3d9da(
     let sprite_link = if accelerated_y_velocity < -0x0000_8000 {
         None
     } else if accelerated_y_velocity > 0x0000_8000 {
+        // ASM Ninja.asm loc_3DA06: falling faster than +$8000 selects C7D7E.
         Some("LnkTo_unk_C7D7E")
     } else {
         Some("LnkTo_unk_C7D76")
@@ -28166,7 +28167,7 @@ mod tests {
                 checked_sub_3e8ba: true,
                 sprite_link: Some("LnkTo_unk_C7D7E"),
             },
-            "ASM Ninja.asm loc_3D9DA should select C7D7E only when y_vel > +$8000"
+            "ASM Ninja.asm loc_3DA06 should select C7D7E only when y_vel > +$8000"
         );
     }
 
