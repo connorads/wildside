@@ -2889,6 +2889,64 @@ pub(crate) fn big_hopping_skull_delete_tail_loc_366b2() -> BigHoppingSkullDelete
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum BigHoppingSkullBoundsRouteLoc36770 {
+    Unchanged,
+    HitLeftBound,
+    HitRightBound,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct BigHoppingSkullBoundsCorrectionLoc36770 {
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) facing: Direction,
+    pub(crate) route: BigHoppingSkullBoundsRouteLoc36770,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn write_velocity_high_word(value: i32, high_word: i16) -> i32 {
+    (i32::from(high_word) << 16) | (value & 0x0000_FFFF)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_bounds_correction_loc_36770(
+    x_pos_word: i16,
+    left_bound_word: i16,
+    right_bound_word: i16,
+    x_velocity: i32,
+    y_velocity: i32,
+    facing: Direction,
+) -> BigHoppingSkullBoundsCorrectionLoc36770 {
+    // ASM Big_Hopping_Skull.asm loc_36770: signed word compare against `$3E/$40(a3)`.
+    // Hitting either bound writes only the high word of y_vel/x_vel, preserving
+    // the low fractional words, then sets x_direction ($FF right, $00 left).
+    if x_pos_word <= left_bound_word {
+        BigHoppingSkullBoundsCorrectionLoc36770 {
+            x_velocity: write_velocity_high_word(x_velocity, 1),
+            y_velocity: write_velocity_high_word(y_velocity, -2),
+            facing: Direction::Right,
+            route: BigHoppingSkullBoundsRouteLoc36770::HitLeftBound,
+        }
+    } else if x_pos_word >= right_bound_word {
+        BigHoppingSkullBoundsCorrectionLoc36770 {
+            x_velocity: write_velocity_high_word(x_velocity, -1),
+            y_velocity: write_velocity_high_word(y_velocity, -2),
+            facing: Direction::Left,
+            route: BigHoppingSkullBoundsRouteLoc36770::HitRightBound,
+        }
+    } else {
+        BigHoppingSkullBoundsCorrectionLoc36770 {
+            x_velocity,
+            y_velocity,
+            facing,
+            route: BigHoppingSkullBoundsRouteLoc36770::Unchanged,
+        }
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,

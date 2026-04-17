@@ -4663,6 +4663,61 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_bounds_correction_matches_loc_36770() {
+        assert_eq!(
+            enemies::big_hopping_skull_bounds_correction_loc_36770(
+                0x003F,
+                0x0040,
+                0x00C0,
+                i32::from_ne_bytes(0xFFFF_1234_u32.to_ne_bytes()),
+                0x0000_ABCD,
+                Direction::Left,
+            ),
+            enemies::BigHoppingSkullBoundsCorrectionLoc36770 {
+                x_velocity: 0x0001_1234,
+                y_velocity: i32::from_ne_bytes(0xFFFE_ABCD_u32.to_ne_bytes()),
+                facing: Direction::Right,
+                route: enemies::BigHoppingSkullBoundsRouteLoc36770::HitLeftBound,
+            },
+            "ASM Big_Hopping_Skull.asm loc_36770 should force rightward launch at or left of `$3E(a3)` and preserve low velocity words",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_bounds_correction_loc_36770(
+                0x00C0,
+                0x0040,
+                0x00C0,
+                0x0001_5678,
+                0x0000_9ABC,
+                Direction::Right,
+            ),
+            enemies::BigHoppingSkullBoundsCorrectionLoc36770 {
+                x_velocity: i32::from_ne_bytes(0xFFFF_5678_u32.to_ne_bytes()),
+                y_velocity: i32::from_ne_bytes(0xFFFE_9ABC_u32.to_ne_bytes()),
+                facing: Direction::Left,
+                route: enemies::BigHoppingSkullBoundsRouteLoc36770::HitRightBound,
+            },
+            "ASM Big_Hopping_Skull.asm loc_36770 should force leftward launch at or right of `$40(a3)` and preserve low velocity words",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_bounds_correction_loc_36770(
+                0x0080,
+                0x0040,
+                0x00C0,
+                0x0001_5678,
+                -0x0002_1234,
+                Direction::Right,
+            ),
+            enemies::BigHoppingSkullBoundsCorrectionLoc36770 {
+                x_velocity: 0x0001_5678,
+                y_velocity: -0x0002_1234,
+                facing: Direction::Right,
+                route: enemies::BigHoppingSkullBoundsRouteLoc36770::Unchanged,
+            },
+            "ASM Big_Hopping_Skull.asm loc_36770 should return without edits while x_pos is inside the corridor",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),
