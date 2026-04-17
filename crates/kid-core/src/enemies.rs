@@ -1302,6 +1302,73 @@ pub(crate) fn orca_fatal_fall_start_loc_3d48a() -> OrcaFatalFallStartLoc3D48A {
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const ORCA_FATAL_FALL_GRAVITY_LOC_3D496: i32 = 0x0000_1800;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum OrcaFatalFallRouteLoc3D496 {
+    Loop,
+    DeathAnimation {
+        animation_script: &'static str,
+        waits_until_animation_finished: bool,
+        exits_enemy: bool,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaFatalFallFrameLoc3D496 {
+    pub(crate) next_collision_type: i16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) route: OrcaFatalFallRouteLoc3D496,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_fatal_fall_frame_loc_3d496(
+    collision_type: i16,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> OrcaFatalFallFrameLoc3D496 {
+    // ASM Orca.asm loc_3D496: clear collision, hibernate once, add `$1800`
+    // to y_vel, and repeat until floor/slope contact stops motion for death.
+    let y_velocity_after_gravity = y_velocity.wrapping_add(ORCA_FATAL_FALL_GRAVITY_LOC_3D496);
+    let landed = matches!(
+        collision_type,
+        ORCA_COLID_FLOOR | ORCA_COLID_SLOPEUP | ORCA_COLID_SLOPEDOWN
+    );
+
+    if landed {
+        OrcaFatalFallFrameLoc3D496 {
+            next_collision_type: 0,
+            x_velocity: 0,
+            y_velocity: 0,
+            is_moved: false,
+            has_level_collision: false,
+            hibernates_one_frame: true,
+            route: OrcaFatalFallRouteLoc3D496::DeathAnimation {
+                animation_script: "stru_3D11E",
+                waits_until_animation_finished: true,
+                exits_enemy: true,
+            },
+        }
+    } else {
+        OrcaFatalFallFrameLoc3D496 {
+            next_collision_type: 0,
+            x_velocity,
+            y_velocity: y_velocity_after_gravity,
+            is_moved: true,
+            has_level_collision: true,
+            hibernates_one_frame: true,
+            route: OrcaFatalFallRouteLoc3D496::Loop,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
