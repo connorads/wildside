@@ -5213,6 +5213,46 @@ pub(crate) fn dragon_walking_breath_collision_poll_loc_3cfae(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonWalkingBreathDoneNextLoc3CFE4 {
+    RepeatBreathPoll,
+    RestoreWalkingAnimation { animation_label: &'static str },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingBreathDoneWaitLoc3CFE4 {
+    pub(crate) hibernates_after_done_flag: bool,
+    pub(crate) next: DragonWalkingBreathDoneNextLoc3CFE4,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_breath_done_wait_loc_3cfe4(
+    parent_phase_done_flag_5b: bool,
+    enemy_level_word_40: u16,
+) -> DragonWalkingBreathDoneWaitLoc3CFE4 {
+    // ASM Dragon.asm loc_3CFE4: clear `$5B(a5)` branches back to the breath
+    // poll. Once set, the parent hibernates once, then `$40(a3) == 2`
+    // restores HP-3 `stru_3CC90`; all other levels restore `stru_3CC5E`.
+    if !parent_phase_done_flag_5b {
+        return DragonWalkingBreathDoneWaitLoc3CFE4 {
+            hibernates_after_done_flag: false,
+            next: DragonWalkingBreathDoneNextLoc3CFE4::RepeatBreathPoll,
+        };
+    }
+
+    let animation_label = if enemy_level_word_40 == 2 {
+        "stru_3CC90"
+    } else {
+        "stru_3CC5E"
+    };
+    DragonWalkingBreathDoneWaitLoc3CFE4 {
+        hibernates_after_done_flag: true,
+        next: DragonWalkingBreathDoneNextLoc3CFE4::RestoreWalkingAnimation { animation_label },
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
@@ -21628,6 +21668,38 @@ mod tests {
             dragon_walking_breath_collision_poll_loc_3cfae(0x0004, true).next,
             DragonWalkingBreathPollNextLoc3CFAE::WaitForPhaseDoneFlag,
             "ASM Dragon.asm loc_3CFAE keeps unrelated positive collisions in the breath wait loop"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_done_wait_matches_loc_3cfe4() {
+        assert_eq!(
+            dragon_walking_breath_done_wait_loc_3cfe4(false, 2),
+            DragonWalkingBreathDoneWaitLoc3CFE4 {
+                hibernates_after_done_flag: false,
+                next: DragonWalkingBreathDoneNextLoc3CFE4::RepeatBreathPoll,
+            },
+            "ASM Dragon.asm loc_3CFE4 should loop while the parent `$5B` done flag is clear"
+        );
+        assert_eq!(
+            dragon_walking_breath_done_wait_loc_3cfe4(true, 2),
+            DragonWalkingBreathDoneWaitLoc3CFE4 {
+                hibernates_after_done_flag: true,
+                next: DragonWalkingBreathDoneNextLoc3CFE4::RestoreWalkingAnimation {
+                    animation_label: "stru_3CC90",
+                },
+            },
+            "ASM Dragon.asm loc_3CFE4 should restore HP-3 animation when enemy_level `$40` is 2"
+        );
+        assert_eq!(
+            dragon_walking_breath_done_wait_loc_3cfe4(true, 1),
+            DragonWalkingBreathDoneWaitLoc3CFE4 {
+                hibernates_after_done_flag: true,
+                next: DragonWalkingBreathDoneNextLoc3CFE4::RestoreWalkingAnimation {
+                    animation_label: "stru_3CC5E",
+                },
+            },
+            "ASM Dragon.asm loc_3CFE4 should restore the normal walking animation for non-HP3 levels"
         );
     }
 
