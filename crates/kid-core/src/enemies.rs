@@ -1268,6 +1268,23 @@ pub(crate) fn orca_landing_wait_loc_3d44a(dbf_seed: u8) -> OrcaLandingWaitLoc3D4
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum OrcaLandingResumeLoc3D466 {
+    Loc3E566,
+    Loc3E3B2,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_landing_resume_loc_3d466(facing: Direction) -> OrcaLandingResumeLoc3D466 {
+    // ASM Orca.asm loc_3D466: `tst.b x_direction(a3)` branches clear
+    // direction to loc_3E566 and set direction to loc_3E3B2.
+    match facing {
+        Direction::Left => OrcaLandingResumeLoc3D466::Loc3E566,
+        Direction::Right => OrcaLandingResumeLoc3D466::Loc3E3B2,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionRoarWaitDispatch {
     Damage,
     ContinueWaiting {

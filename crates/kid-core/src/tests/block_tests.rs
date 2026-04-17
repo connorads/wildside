@@ -8867,6 +8867,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_landing_resume_matches_loc_3d466() {
+        assert_eq!(
+            orca_landing_resume_loc_3d466(Direction::Left),
+            OrcaLandingResumeLoc3D466::Loc3E566,
+            "ASM Orca.asm loc_3D466 should branch clear x_direction to loc_3E566"
+        );
+        assert_eq!(
+            orca_landing_resume_loc_3d466(Direction::Right),
+            OrcaLandingResumeLoc3D466::Loc3E3B2,
+            "ASM Orca.asm loc_3D466 should branch set x_direction to loc_3E3B2"
+        );
+    }
+
+    #[test]
     fn orca_ignores_distant_player() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
