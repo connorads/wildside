@@ -14224,6 +14224,14 @@ pub(crate) fn hand_delete_tail_loc_32ae6() -> HandDeleteTailLoc32AE6 {
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hand_init_y_snap_loc_32aea(y_pos_word: u16) -> u16 {
+    // ASM Hand.asm loc_32AEA: after init and blank-row adjustment, snap the
+    // integer y word to `((y - 8) & $FFF0) + $F`.
+    y_pos_word.wrapping_sub(8) & 0xFFF0 | 0x000F
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandDeathSequenceLoc32AA2 {
@@ -20823,6 +20831,11 @@ pub(crate) fn spawn_y_pos_sub_36FF4(
         EnemyFamily::DragonWalking => {
             object_y.saturating_add(DRAGON_WALKING_SPAWN_Y_OFFSET_PX) << 16
         }
+        EnemyFamily::Hand => {
+            let y_word =
+                u16::try_from(object_y & 0xFFFF).expect("masked Hand spawn y fits in a word");
+            u32::from(hand_init_y_snap_loc_32aea(y_word)) << 16
+        }
         _ => object_y << 16,
     }
 }
@@ -23613,6 +23626,25 @@ mod tests {
         assert!(
             hand_death_sequence_loc_32aa2(0x80).deletes_current_object,
             "ASM Hand.asm loc_32AE6 is also reached by the bit-7 delete-only status route"
+        );
+    }
+
+    #[test]
+    fn hand_init_y_snap_loc_32aea_aligns_spawn_word_after_blank_rows() {
+        assert_eq!(
+            hand_init_y_snap_loc_32aea(0x0048),
+            0x004F,
+            "ASM Hand.asm loc_32AEA subtracts 8, masks to a 16px boundary, then adds `$F`"
+        );
+        assert_eq!(
+            hand_init_y_snap_loc_32aea(0x0040),
+            0x003F,
+            "ASM Hand.asm loc_32AEA can snap to the previous tile row when y is already aligned"
+        );
+        assert_eq!(
+            spawn_y_pos_sub_36FF4(EnemyFamily::Hand, 0x0040, 1),
+            0x004F_0000,
+            "native Hand spawn y should apply sub_36FF4 before ASM Hand.asm loc_32AEA"
         );
     }
 
