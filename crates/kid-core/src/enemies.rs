@@ -3438,6 +3438,9 @@ pub(crate) fn goat_berzerker_side_shove_loc_3cbba(
         }
     };
 
+    // ASM Goat.asm loc_3CBCE: initialise `stru_3C9E4`, wait for it to finish,
+    // write `$FF88` to `$42(a3)`, restore `$5E/$62(a5)`, then clear
+    // object_meta bit 7 before falling into collision clear.
     GoatBerzerkerSideShoveLoc3CBBA {
         x_position,
         damage_animation: "stru_3C9E4",

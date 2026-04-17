@@ -2564,6 +2564,29 @@ mod chunk_04 {
             },
             "ASM Goat.asm loc_3CBC8 should subtract 20px for flipped x_direction before restoring patrol state"
         );
+        let hurt_resume =
+            goat_berzerker_side_shove_loc_3cbba(Direction::Left, 0x0080_0000, 0x0002_8000);
+        assert_eq!(
+            (
+                hurt_resume.damage_animation,
+                hurt_resume.waits_until_animation_finished,
+                hurt_resume.recoil_state_word,
+                hurt_resume.restored_walk_speed,
+                hurt_resume.restored_animation,
+                hurt_resume.clears_object_meta_bit_7,
+                hurt_resume.falls_through_to_collision_clear,
+            ),
+            (
+                "stru_3C9E4",
+                true,
+                -0x0078,
+                0x0002_8000,
+                "saved_goat_patrol_animation",
+                true,
+                true,
+            ),
+            "ASM Goat.asm loc_3CBCE should play the hurt-resume animation, restore saved patrol state, and fall through to collision clear"
+        );
     }
 
     #[test]
