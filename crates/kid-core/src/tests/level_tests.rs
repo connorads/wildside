@@ -16321,6 +16321,20 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3aafa_requires_berzerker_charge_for_robot_shoot_side_contact_destroy() {
+        assert_eq!(
+            robot_shoot_berzerker_side_gate_loc_3aafa(false),
+            RobotShootCollisionRouteLoc3AAD4::RestoreShootWalk,
+            "ASM loc_3AAFA: clear Berzerker_charging branches back to loc_3AA9E"
+        );
+        assert_eq!(
+            robot_shoot_berzerker_side_gate_loc_3aafa(true),
+            RobotShootCollisionRouteLoc3AAD4::Destroy,
+            "ASM loc_3AAFA: set Berzerker_charging jumps to loc_3A9D2 destroy prep"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

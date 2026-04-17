@@ -14018,6 +14018,20 @@ pub(crate) enum RobotShootCollisionRouteLoc3AAD4 {
 }
 
 #[cfg(test)]
+pub(crate) fn robot_shoot_berzerker_side_gate_loc_3aafa(
+    berzerker_charging: bool,
+) -> RobotShootCollisionRouteLoc3AAD4 {
+    // ASM Robot.asm loc_3AAFA: child side contacts `$20/$24` branch back to
+    // loc_3AA9E while `Berzerker_charging` is clear; a charging Berzerker
+    // tail-jumps to the shared Robot destroy prep at loc_3A9D2.
+    if berzerker_charging {
+        RobotShootCollisionRouteLoc3AAD4::Destroy
+    } else {
+        RobotShootCollisionRouteLoc3AAD4::RestoreShootWalk
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn robot_shoot_collision_dispatch_loc_3aad4(
     child_collision_type_d0: u16,
     latched_child_collision_type_d4: u16,
@@ -14035,11 +14049,11 @@ pub(crate) fn robot_shoot_collision_dispatch_loc_3aad4(
         return RobotShootCollisionRouteLoc3AAD4::HitReaction;
     }
 
-    if matches!(latched_child_collision_type_d4, 0x0020 | 0x0024) && berzerker_charging {
-        RobotShootCollisionRouteLoc3AAD4::Destroy
-    } else {
-        RobotShootCollisionRouteLoc3AAD4::RestoreShootWalk
+    if matches!(latched_child_collision_type_d4, 0x0020 | 0x0024) {
+        return robot_shoot_berzerker_side_gate_loc_3aafa(berzerker_charging);
     }
+
+    RobotShootCollisionRouteLoc3AAD4::RestoreShootWalk
 }
 
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
