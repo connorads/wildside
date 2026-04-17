@@ -3263,6 +3263,13 @@ pub(crate) fn armadillo_berzerker_clear_direction_shove_loc_3c8de(x_position: i3
     x_position.wrapping_add(ARMADILLO_BERZERKER_RECOVERY_SHOVE_PIXELS_LOC_3C8DE)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_berzerker_flipped_direction_shove_loc_3c8ec(x_position: i32) -> i32 {
+    // ASM Armadillo.asm loc_3C8EC: flipped `x_direction` subtracts `$14`
+    // from the integer word of `x_pos(a3)` before recovery animation setup.
+    x_position.wrapping_sub(ARMADILLO_BERZERKER_RECOVERY_SHOVE_PIXELS_LOC_3C8DE)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
@@ -23306,6 +23313,20 @@ mod tests {
             armadillo_berzerker_clear_direction_shove_loc_3c8de(i32::MAX),
             i32::MIN + 0x0013_FFFF,
             "ASM Armadillo.asm loc_3C8DE uses word-sized position arithmetic, so native keeps wrapping behaviour"
+        );
+    }
+
+    #[test]
+    fn armadillo_berzerker_flipped_direction_shove_matches_loc_3c8ec() {
+        assert_eq!(
+            armadillo_berzerker_flipped_direction_shove_loc_3c8ec(0x0123_8000),
+            0x010F_8000,
+            "ASM Armadillo.asm loc_3C8EC flipped x_direction should subtract 20px and preserve the subpixel word"
+        );
+        assert_eq!(
+            armadillo_berzerker_flipped_direction_shove_loc_3c8ec(i32::MIN),
+            i32::MAX - 0x0013_FFFF,
+            "ASM Armadillo.asm loc_3C8EC uses word-sized position arithmetic, so native keeps wrapping behaviour"
         );
     }
 
