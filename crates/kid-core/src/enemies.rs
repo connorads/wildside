@@ -30119,6 +30119,16 @@ mod tests {
             "ASM Lion.asm loc_3E6F6 should skip the ceiling probe when block-grid clearance covers upward movement"
         );
         assert_eq!(
+            lion_left_charge_vertical_entry_loc_3e6f6(0x0042_0000, -0x000C_0000, 6),
+            LionLeftChargeVerticalEntryLoc3E6F6::UpwardCollisionCheck {
+                candidate_y_position: 0x0036_0000,
+                upward_pixels: 12,
+                ceiling_clearance_pixels: 12,
+                needs_ceiling_probe: false,
+            },
+            "ASM Lion.asm loc_3E6F6 uses `cmp.w d1,d3; bcc.s loc_3E77A`, so exact clearance equality skips the ceiling probe"
+        );
+        assert_eq!(
             lion_left_charge_vertical_entry_loc_3e6f6(0x0042_0000, -0x000D_0000, 6),
             LionLeftChargeVerticalEntryLoc3E6F6::UpwardCollisionCheck {
                 candidate_y_position: 0x0035_0000,
@@ -30140,6 +30150,15 @@ mod tests {
                 needs_floor_probe: false,
             },
             "ASM Lion.asm loc_3E732 should skip floor probing when nibble clearance covers downward motion"
+        );
+        assert_eq!(
+            lion_left_charge_downward_collision_loc_3e732(0x0042_0000, 0x0050_0000, 14, true, 0,),
+            LionLeftChargeDownwardCollisionLoc3E732::Airborne {
+                y_position: 0x0050_0000,
+                floor_clearance_pixels: 14,
+                needs_floor_probe: false,
+            },
+            "ASM Lion.asm loc_3E732 uses `cmp.w d1,d3; bcc.s loc_3E77A`, so exact floor clearance equality skips the floor probe even if terrain is present"
         );
         assert_eq!(
             lion_left_charge_downward_collision_loc_3e732(0x0042_0000, 0x0052_0000, 16, false, 0,),
