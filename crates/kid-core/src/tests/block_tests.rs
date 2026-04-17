@@ -8008,6 +8008,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_lunge_right_acceleration_matches_loc_3d3d2() {
+        assert_eq!(
+            orca_lunge_right_x_velocity_loc_3d3d2(ORCA_LUNGE_X_SPEED),
+            ORCA_LUNGE_X_SPEED + ORCA_LUNGE_X_ACCEL,
+            "ASM Orca.asm loc_3D3D2 should add `$200` to x_vel when x_direction is set"
+        );
+        assert_eq!(
+            orca_lunge_right_x_velocity_loc_3d3d2(-0x0000_0100),
+            0x0000_0100,
+            "ASM Orca.asm loc_3D3D2 should use signed long addition, not clamp at zero"
+        );
+    }
+
+    #[test]
     fn orca_ignores_distant_player() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

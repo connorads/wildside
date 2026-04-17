@@ -1083,6 +1083,12 @@ pub(crate) fn orca_lunge_x_velocity_loc_3d340(facing: Direction) -> i32 {
     }
 }
 
+pub(crate) fn orca_lunge_right_x_velocity_loc_3d3d2(x_velocity: i32) -> i32 {
+    // ASM Orca.asm loc_3D3D2: set `x_direction(a3)` takes the right-facing
+    // branch and adds `$200` to the signed long `x_vel(a3)`.
+    x_velocity.wrapping_add(ORCA_LUNGE_X_ACCEL)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaLungeLaunchTailLoc3D348 {
@@ -13963,14 +13969,14 @@ pub(crate) fn step_orca(
             // Gravity (Orca.asm loc_3D3B4: $1800 per frame)
             enemy.y_velocity = (enemy.y_velocity + ORCA_LUNGE_GRAVITY).min(physics::MAX_FALL_SPEED);
 
-            // X acceleration during lunge (Orca.asm loc_3D3A2: $200 per frame in
-            // facing direction, unless wall-pinned via $5C flag).
+            // X acceleration during lunge unless wall-pinned via `$5C(a5)`.
             if !enemy.wall_pinned {
-                let accel = match enemy.facing {
-                    Direction::Right => ORCA_LUNGE_X_ACCEL,
-                    Direction::Left => -ORCA_LUNGE_X_ACCEL,
+                enemy.x_velocity = match enemy.facing {
+                    Direction::Right => orca_lunge_right_x_velocity_loc_3d3d2(enemy.x_velocity),
+                    // ASM Orca.asm loc_3D3B4: clear `x_direction(a3)` subtracts
+                    // `$200` from `x_vel(a3)` before looping to loc_3D35A.
+                    Direction::Left => enemy.x_velocity.wrapping_sub(ORCA_LUNGE_X_ACCEL),
                 };
-                enemy.x_velocity += accel;
             }
 
             // Move
