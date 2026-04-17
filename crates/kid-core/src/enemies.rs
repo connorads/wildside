@@ -5955,6 +5955,17 @@ pub(crate) fn dragon_flying_rebound_frame_loc_34AC2(
     }
 }
 
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_right_rebound_frame_loc_34B16(
+    y_velocity: i32,
+    collision_type: u16,
+) -> DragonFlyingReboundFrameLoc34AC2 {
+    // ASM Dragon_Flying.asm loc_34B16: the right-rebound loop applies the
+    // same `$2000` y_vel acceleration and exact-zero return exit as loc_34AC2.
+    dragon_flying_rebound_frame_loc_34AC2(y_velocity, collision_type)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
