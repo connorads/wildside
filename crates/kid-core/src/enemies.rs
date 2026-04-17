@@ -1980,6 +1980,18 @@ pub(crate) fn lion_charge_collision_y_commit_loc_3e896(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_charge_collision_gravity_cap_loc_3e89a(y_velocity: i32) -> i32 {
+    // ASM Lion.asm loc_3E89A: load `y_vel(a3)`, add `$4000`, then use a
+    // signed compare against `$180000`; upward velocities are not clamped.
+    let accelerated = y_velocity.wrapping_add(0x0000_4000);
+    if accelerated < 0x0018_0000 {
+        accelerated
+    } else {
+        0x0018_0000
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
     // ASM Lion.asm loc_3E6A4: after the airborne Y-velocity update, hibernate
     // for one frame, run sub_3E8BA's live object cull, then `jmp (a0)` back
@@ -26321,6 +26333,25 @@ mod tests {
                 enters_gravity_tail: true,
             },
             "ASM Lion.asm loc_3E896 should commit projected `d2` into y_pos before the collision-reentry gravity tail"
+        );
+    }
+
+    #[test]
+    fn lion_charge_collision_gravity_cap_matches_loc_3e89a() {
+        assert_eq!(
+            lion_charge_collision_gravity_cap_loc_3e89a(0x0002_0000),
+            0x0002_4000,
+            "ASM Lion.asm loc_3E89A should add `$4000` gravity before the cap check"
+        );
+        assert_eq!(
+            lion_charge_collision_gravity_cap_loc_3e89a(0x0017_D000),
+            0x0018_0000,
+            "ASM Lion.asm loc_3E89A should clamp signed downward velocities at `$180000`"
+        );
+        assert_eq!(
+            lion_charge_collision_gravity_cap_loc_3e89a(-0x0001_0000),
+            -0x0000_C000,
+            "ASM Lion.asm loc_3E89A has no upward-speed clamp; signed negative values stay below `$180000`"
         );
     }
 
