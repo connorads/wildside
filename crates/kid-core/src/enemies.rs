@@ -18626,7 +18626,8 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
         // Drips always start facing right (Drip.asm init)
         EnemyFamily::Drips => Direction::Right,
         // ASM Armadillo.asm loc_3C718, Goat.asm loc_3CA30, Dragon.asm loc_3CD70,
-        // Tank.asm loc_3B2E4, Robot.asm loc_3A7AC, and Scorpion.asm loc_3DBD8:
+        // Tank.asm loc_3B2E4, Robot.asm loc_3A7AC, Driller.asm loc_3BD2A,
+        // and Scorpion.asm loc_3DBD8:
         // face TOWARD the player at spawn.
         // `move.w x_pos(a4),d4; cmp.w x_pos(a3),d4; blt.s loc_3CD82; st x_direction(a3)`
         // x_direction=0 → LEFT (default VRAM orientation), x_direction=$FF → RIGHT (flipped).
@@ -18970,6 +18971,35 @@ mod tests {
                 route: DiamondHighHpDamageRouteLoc3ADFA::DeathAnimation,
             },
             "ASM Diamond.asm loc_3AE28 should `sf is_moved`, wait on `stru_3ACC4`, then branch to loc_3C46E deletion",
+        );
+    }
+
+    #[test]
+    fn driller_spawn_setup_loc_3bd2a_faces_toward_player_and_seeds_hp() {
+        assert_eq!(
+            spawn_facing(EnemyFamily::Driller, 100 << 16, 80 << 16),
+            Direction::Left,
+            "ASM Driller.asm loc_3BD2A is reached without `st x_direction` when Kid is left of the Driller",
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Driller, 100 << 16, 100 << 16),
+            Direction::Right,
+            "ASM Driller.asm loc_3BD2A is reached after `st x_direction` when Kid is horizontally aligned",
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Driller, 100 << 16, 120 << 16),
+            Direction::Right,
+            "ASM Driller.asm loc_3BD2A is reached after `st x_direction` when Kid is right of the Driller",
+        );
+        assert_eq!(
+            spawn_hit_points(EnemyFamily::Driller, 0),
+            2,
+            "ASM Driller.asm loc_3BD2A stores enemy_level + 2 in current_hp",
+        );
+        assert_eq!(
+            spawn_hit_points(EnemyFamily::Driller, 2),
+            4,
+            "ASM Driller.asm loc_3BD2A keeps raw enemy_level as the speed/HP tier before adding 2",
         );
     }
 
@@ -28596,6 +28626,8 @@ pub(crate) fn spawn_hit_points(family: EnemyFamily, enemy_level: u8) -> u8 {
         EnemyFamily::Crab => 2,
         EnemyFamily::Tank | EnemyFamily::TankShooting => 2,
         EnemyFamily::Scorpion => 3,
+        // Driller.asm loc_3BD2A: after common visible setup, copy
+        // `enemy_level(a3)` to d7, add 2, then store it in `current_hp(a3)`.
         EnemyFamily::Driller => 2,
         EnemyFamily::Cloud => 1,
         EnemyFamily::Sphere => 1,
