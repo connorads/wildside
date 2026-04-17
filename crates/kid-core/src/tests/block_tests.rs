@@ -4359,6 +4359,20 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_death_animation_gate_matches_loc_3667e() {
+        assert_eq!(
+            enemies::big_hopping_skull_death_animation_gate_loc_3667e(false),
+            enemies::BigHoppingSkullDeathAnimationGateLoc3667E::LoopDeathAnimation,
+            "ASM Big_Hopping_Skull.asm loc_3667E should branch back to loc_36664 while the death animation flag is clear",
+        );
+        assert_eq!(
+            enemies::big_hopping_skull_death_animation_gate_loc_3667e(true),
+            enemies::BigHoppingSkullDeathAnimationGateLoc3667E::FinalizeDeathStatus,
+            "ASM Big_Hopping_Skull.asm loc_3667E should read `$42(a5)` and continue into death-status finalisation once the animation flag is set",
+        );
+    }
+
+    #[test]
     fn enemy_spawn_y_adjustment_sub_36ff4_scales_blank_top_rows_to_pixels() {
         assert_eq!(
             enemies::enemy_spawn_y_adjustment_sub_36FF4(0),

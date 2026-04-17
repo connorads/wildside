@@ -2683,6 +2683,26 @@ pub(crate) fn big_hopping_skull_death_wait_loc_36664(
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BigHoppingSkullDeathAnimationGateLoc3667E {
+    LoopDeathAnimation,
+    FinalizeDeathStatus,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn big_hopping_skull_death_animation_gate_loc_3667e(
+    animation_finished: bool,
+) -> BigHoppingSkullDeathAnimationGateLoc3667E {
+    // ASM Big_Hopping_Skull.asm loc_3667E: `tst.b $18(a3)` loops to
+    // loc_36664 while the death animation is still active; once non-zero,
+    // the routine loads `$42(a5)` into d0 for the death-status tail.
+    if animation_finished {
+        BigHoppingSkullDeathAnimationGateLoc3667E::FinalizeDeathStatus
+    } else {
+        BigHoppingSkullDeathAnimationGateLoc3667E::LoopDeathAnimation
+    }
+}
+
 pub(crate) struct HopperConstants {
     pub(crate) jump_x_speed: i32,
     pub(crate) jump_y_speed: i32,
