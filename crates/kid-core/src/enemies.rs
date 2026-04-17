@@ -17954,6 +17954,20 @@ pub(crate) fn tar_monster_projectile_negated_velocity_swap_loc_326C6(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tar_monster_projectile_velocity_swap_loc_326DC(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> TarMonsterProjectileVelocityPair {
+    // ASM loc_326DC: copy x_vel to d7 and y_vel to d6, then cross-write d6 to
+    // x_vel(a3) and d7 to y_vel(a3) without negation.
+    TarMonsterProjectileVelocityPair {
+        x_velocity: y_velocity,
+        y_velocity: x_velocity,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_collision_loc_32682(
     collision_type: i16,
     collision_response_budget: u16,
@@ -24374,6 +24388,27 @@ mod tests {
                 y_velocity: i32::MIN,
             },
             "ASM Tar_Monster.asm loc_326C6 uses 68k NEG.L wrapping behaviour for the minimum negative long"
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectile_velocity_swap_loc_326dc_cross_writes_without_negation() {
+        assert_eq!(
+            tar_monster_projectile_velocity_swap_loc_326DC(0x0002_0000, -0x0003_0000),
+            TarMonsterProjectileVelocityPair {
+                x_velocity: -0x0003_0000,
+                y_velocity: 0x0002_0000,
+            },
+            "ASM Tar_Monster.asm loc_326DC writes old y_vel to x_vel and old x_vel to y_vel without negation"
+        );
+
+        assert_eq!(
+            tar_monster_projectile_velocity_swap_loc_326DC(i32::MIN, 0x0001_0000),
+            TarMonsterProjectileVelocityPair {
+                x_velocity: 0x0001_0000,
+                y_velocity: i32::MIN,
+            },
+            "ASM Tar_Monster.asm loc_326DC only moves long words, so the minimum negative value is preserved"
         );
     }
 
