@@ -12826,6 +12826,49 @@ pub(crate) fn ninja_jump_attack_wall_bounce_loc_3da46(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum NinjaJumpAttackLandingResumeLoc3DA56 {
+    Loc3E566,
+    Loc3E3B2,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct NinjaJumpAttackLandingStateLoc3DA56 {
+    pub(crate) next_collision_type: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) animation_script: &'static str,
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) is_animated: bool,
+    pub(crate) next: NinjaJumpAttackLandingResumeLoc3DA56,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ninja_jump_attack_landing_loc_3da56(
+    x_direction_right: bool,
+) -> NinjaJumpAttackLandingStateLoc3DA56 {
+    // ASM Ninja.asm loc_3DA56: clear collision, zero x/y velocity, initialise
+    // `stru_3D4EA`, stop movement and level collision, enable animation, then
+    // branch on raw `x_direction(a3)` to loc_3E566/loc_3E3B2.
+    NinjaJumpAttackLandingStateLoc3DA56 {
+        next_collision_type: 0,
+        x_velocity: 0,
+        y_velocity: 0,
+        animation_script: "stru_3D4EA",
+        is_moved: false,
+        has_level_collision: false,
+        is_animated: true,
+        next: if x_direction_right {
+            NinjaJumpAttackLandingResumeLoc3DA56::Loc3E3B2
+        } else {
+            NinjaJumpAttackLandingResumeLoc3DA56::Loc3E566
+        },
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionResumeLoc3D638 {
     /// ASM Ninja.asm loc_3E7CA: `beq.w loc_3E7CA` path (left-facing).
     Loc3E7CA,
@@ -30531,6 +30574,39 @@ mod tests {
                 loops_airborne: true,
             },
             "ASM Ninja.asm loc_3DA46 should negate negative x_vel and toggle clear x_direction with eori.b #$FF"
+        );
+    }
+
+    #[test]
+    fn ninja_jump_attack_landing_loc_3da56_stops_motion_and_resumes_by_facing() {
+        assert_eq!(
+            ninja_jump_attack_landing_loc_3da56(false),
+            NinjaJumpAttackLandingStateLoc3DA56 {
+                next_collision_type: 0,
+                x_velocity: 0,
+                y_velocity: 0,
+                animation_script: "stru_3D4EA",
+                is_moved: false,
+                has_level_collision: false,
+                is_animated: true,
+                next: NinjaJumpAttackLandingResumeLoc3DA56::Loc3E566,
+            },
+            "ASM Ninja.asm loc_3DA56 should stop the jump attack, restart stru_3D4EA, and branch clear x_direction to loc_3E566"
+        );
+
+        assert_eq!(
+            ninja_jump_attack_landing_loc_3da56(true),
+            NinjaJumpAttackLandingStateLoc3DA56 {
+                next_collision_type: 0,
+                x_velocity: 0,
+                y_velocity: 0,
+                animation_script: "stru_3D4EA",
+                is_moved: false,
+                has_level_collision: false,
+                is_animated: true,
+                next: NinjaJumpAttackLandingResumeLoc3DA56::Loc3E3B2,
+            },
+            "ASM Ninja.asm loc_3DA56 should branch set x_direction to loc_3E3B2 after clearing jump state"
         );
     }
 
