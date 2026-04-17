@@ -747,10 +747,17 @@ pub(crate) fn crab_airborne_collision_dispatch_loc_3b1da(
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_reverse_x_velocity_loc_3b24c(x_velocity: i32) -> i32 {
+    // ASM Crab.asm loc_3B24C: `neg.l x_vel(a3)` reverses the complete
+    // FP16.16 longword and keeps 68000 two's-complement wrapping behaviour.
+    0i32.wrapping_sub(x_velocity)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabSlopeCollisionRouteLoc3B1F8 {
-    ReverseXVelocity,
+    ReverseXVelocity { x_velocity: i32 },
     ReflectYVelocity { y_velocity: i32 },
     GravityTail,
 }
@@ -867,7 +874,9 @@ pub(crate) fn crab_slope_collision_response_loc_3b1f8(
     // negative x_vel on slope-down enters gravity recovery. The other
     // slope/direction pairs logically halve y_vel as a long, then negate it.
     if x_velocity >= 0 && collision_type == CRAB_COLID_SLOPEUP {
-        return CrabSlopeCollisionRouteLoc3B1F8::ReverseXVelocity;
+        return CrabSlopeCollisionRouteLoc3B1F8::ReverseXVelocity {
+            x_velocity: crab_reverse_x_velocity_loc_3b24c(x_velocity),
+        };
     }
 
     if x_velocity < 0 {
@@ -23065,10 +23074,27 @@ mod tests {
     }
 
     #[test]
+    fn crab_reverse_x_velocity_matches_loc_3b24c() {
+        assert_eq!(
+            crab_reverse_x_velocity_loc_3b24c(0x0000_8000),
+            -0x0000_8000,
+            "ASM Crab.asm loc_3B24C should negate positive x_vel"
+        );
+
+        assert_eq!(
+            crab_reverse_x_velocity_loc_3b24c(i32::MIN),
+            i32::MIN,
+            "ASM Crab.asm loc_3B24C should preserve 68000 wrapping on the most negative long"
+        );
+    }
+
+    #[test]
     fn crab_slope_collision_response_matches_loc_3b1f8() {
         assert_eq!(
             crab_slope_collision_response_loc_3b1f8(CRAB_COLID_SLOPEUP, 0x0000_8000, 0x0002_0000,),
-            CrabSlopeCollisionRouteLoc3B1F8::ReverseXVelocity,
+            CrabSlopeCollisionRouteLoc3B1F8::ReverseXVelocity {
+                x_velocity: -0x0000_8000,
+            },
             "ASM Crab.asm loc_3B1F8 should reverse x_vel for non-negative x_vel on slope-up"
         );
 
