@@ -18449,9 +18449,10 @@ pub(crate) fn tank_shooting_init_drive_sound_loc_3b690(
 ) -> TankShootingInitDriveSoundLoc3B690 {
     // ASM Tank_Shooting.asm loc_3B690: test the shared tank-drive refcount
     // at `$FFFFFA34+d5`, then test `$19(a3)`. Only a zero refcount and clear
-    // motion-active flag call `j_PlaySound(sfx_Tank_driving)`. The shared
-    // refcount increments unconditionally before branching by x_direction:
-    // zero enters loc_3C0D2, nonzero enters loc_3C026.
+    // motion-active flag call `j_PlaySound(sfx_Tank_driving)`.
+    // ASM Tank_Shooting.asm loc_3B6AE: the shared refcount increments
+    // unconditionally before branching by x_direction: zero enters loc_3C0D2,
+    // nonzero enters loc_3C026.
     TankShootingInitDriveSoundLoc3B690 {
         next_tank_drive_refcount: tank_drive_refcount.wrapping_add(1),
         sound_call: (tank_drive_refcount == 0 && !motion_active_flag_19).then_some(
@@ -20862,7 +20863,7 @@ mod tests {
                 )),
                 walker_entry: TankShootingInitWalkerEntryLoc3B690::LeftLoc3C0D2,
             },
-            "ASM Tank_Shooting.asm loc_3B690 should play TankDriving for the first visible tank, increment refcount, and branch to loc_3C0D2 when x_direction is zero",
+            "ASM Tank_Shooting.asm loc_3B690 should play TankDriving for the first visible tank; loc_3B6AE should increment refcount and branch to loc_3C0D2 when x_direction is zero",
         );
     }
 
@@ -20877,7 +20878,7 @@ mod tests {
                 sound_call: None,
                 walker_entry: TankShootingInitWalkerEntryLoc3B690::RightLoc3C026,
             },
-            "ASM Tank_Shooting.asm loc_3B690 should skip sound when refcount or `$19(a3)` is nonzero, still increment, and branch to loc_3C026 for nonzero x_direction",
+            "ASM Tank_Shooting.asm loc_3B690 should skip sound when refcount or `$19(a3)` is nonzero; loc_3B6AE should still increment and branch to loc_3C026 for nonzero x_direction",
         );
     }
 
