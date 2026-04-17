@@ -9115,6 +9115,29 @@ pub(crate) struct FireballSpriteSelectionLoc32F3E {
     pub(crate) quadrant_index: u16,
 }
 
+const FIREBALL_SPRITE_DIRECTION_AND_BASE_LOC_3304A: [(u8, u8); 20] = [
+    (0x00, 0x08),
+    (0x00, 0x06),
+    (0x00, 0x04),
+    (0x00, 0x02),
+    (0x00, 0x00),
+    (0xFF, 0x00),
+    (0xFF, 0x02),
+    (0xFF, 0x04),
+    (0xFF, 0x06),
+    (0xFF, 0x08),
+    (0xFF, 0x08),
+    (0xFF, 0x0A),
+    (0xFF, 0x0C),
+    (0xFF, 0x0E),
+    (0xFF, 0x10),
+    (0x00, 0x10),
+    (0x00, 0x0E),
+    (0x00, 0x0C),
+    (0x00, 0x0A),
+    (0x00, 0x08),
+];
+
 const FIREBALL_SPRITE_LINKS_LOC_33072: [&str; 18] = [
     "LnkTo_unk_C78D6-Data_Index",
     "LnkTo_unk_C78DE-Data_Index",
@@ -9150,6 +9173,53 @@ pub(crate) fn fireball_zero_phase_expiry_loc_33070() -> u16 {
     // ASM Fireball.asm loc_33070: when loc_3304A's five-frame countdown expires
     // while `d2` is zero, the branch sets `d2` to one for the next sprite write.
     1
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireballSpriteCommitLoc3304A {
+    pub(crate) x_direction: u8,
+    pub(crate) sprite_table_index: u8,
+    pub(crate) sprite_link: &'static str,
+    pub(crate) next_animation_phase: u16,
+    pub(crate) next_animation_countdown: u16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_sprite_commit_loc_3304a(
+    sprite_index: i16,
+    animation_phase: u16,
+    animation_countdown: u16,
+) -> Option<FireballSpriteCommitLoc3304A> {
+    // ASM Fireball.asm loc_3304A: double the selected angle sprite index,
+    // copy byte_33080 into `x_direction(a3)`, add live `d2` to byte_33081,
+    // then age/toggle the five-frame phase countdown before loc_33072 writes
+    // addroffset_sprite.
+    let sprite_table_entry =
+        FIREBALL_SPRITE_DIRECTION_AND_BASE_LOC_3304A.get(usize::try_from(sprite_index).ok()?)?;
+    let animation_phase_byte = u8::try_from(animation_phase).ok()?;
+    let sprite_table_index = sprite_table_entry.1.checked_add(animation_phase_byte)?;
+    let sprite_link = fireball_sprite_link_loc_33072(sprite_table_index)?;
+
+    let decremented_countdown = animation_countdown.wrapping_sub(1);
+    let (next_animation_countdown, next_animation_phase) = if decremented_countdown == 0 {
+        let next_phase = if animation_phase == 0 {
+            fireball_zero_phase_expiry_loc_33070()
+        } else {
+            0
+        };
+        (5, next_phase)
+    } else {
+        (decremented_countdown, animation_phase)
+    };
+
+    Some(FireballSpriteCommitLoc3304A {
+        x_direction: sprite_table_entry.0,
+        sprite_table_index,
+        sprite_link,
+        next_animation_phase,
+        next_animation_countdown,
+    })
 }
 
 fn fireball_ratio_lookup_unk_32edc(index: usize) -> i16 {
@@ -28159,6 +28229,43 @@ mod tests {
             fireball_zero_phase_expiry_loc_33070(),
             1,
             "ASM Fireball.asm loc_33070 should set d2 to one when the expired phase was zero"
+        );
+    }
+
+    #[test]
+    fn fireball_sprite_commit_loc_3304a_applies_direction_phase_and_countdown() {
+        assert_eq!(
+            fireball_sprite_commit_loc_3304a(0, 0, 2),
+            Some(FireballSpriteCommitLoc3304A {
+                x_direction: 0x00,
+                sprite_table_index: 8,
+                sprite_link: "LnkTo_unk_C7916-Data_Index",
+                next_animation_phase: 0,
+                next_animation_countdown: 1,
+            }),
+            "ASM Fireball.asm loc_3304A should use byte_33080/byte_33081 before decrementing the phase countdown"
+        );
+        assert_eq!(
+            fireball_sprite_commit_loc_3304a(0, 0, 1),
+            Some(FireballSpriteCommitLoc3304A {
+                x_direction: 0x00,
+                sprite_table_index: 8,
+                sprite_link: "LnkTo_unk_C7916-Data_Index",
+                next_animation_phase: 1,
+                next_animation_countdown: 5,
+            }),
+            "ASM Fireball.asm loc_3304A should write the current phase frame before loc_33070 arms d2 for the next frame"
+        );
+        assert_eq!(
+            fireball_sprite_commit_loc_3304a(14, 1, 1),
+            Some(FireballSpriteCommitLoc3304A {
+                x_direction: 0xFF,
+                sprite_table_index: 17,
+                sprite_link: "LnkTo_unk_C795E-Data_Index",
+                next_animation_phase: 0,
+                next_animation_countdown: 5,
+            }),
+            "ASM Fireball.asm loc_3304A should keep set x_direction from byte_33080 and clear non-zero d2 after expiry"
         );
     }
 
