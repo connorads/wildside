@@ -9161,6 +9161,35 @@ pub(crate) fn ufo_hurt_driver_delete_tail_loc_357E2() -> UfoHurtDriverDeleteTail
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct UfoHurtDriverFallingLoopLoc357E6 {
+    pub(crate) y_velocity: i32,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) deletes_current_object: bool,
+    pub(crate) next_label: &'static str,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn ufo_hurt_driver_falling_loop_loc_357E6(
+    y_velocity: i32,
+    animation_finished_flag: bool,
+) -> UfoHurtDriverFallingLoopLoc357E6 {
+    // ASM UFO.asm loc_357E6: hibernate one frame, add `$4000` to `y_vel(a3)`,
+    // and keep looping until byte `$19(a3)` is set, then branch to loc_357E2.
+    UfoHurtDriverFallingLoopLoc357E6 {
+        y_velocity: y_velocity.wrapping_add(0x0000_4000),
+        hibernates_one_frame: true,
+        deletes_current_object: animation_finished_flag,
+        next_label: if animation_finished_flag {
+            "loc_357E2"
+        } else {
+            "loc_357E6"
+        },
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
     collision_type: i16,

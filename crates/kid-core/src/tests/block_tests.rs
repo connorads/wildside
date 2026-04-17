@@ -7001,6 +7001,33 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ufo_hurt_driver_falling_loop_matches_loc_357e6() {
+        use enemies::{UfoHurtDriverFallingLoopLoc357E6, ufo_hurt_driver_falling_loop_loc_357E6};
+
+        assert_eq!(
+            ufo_hurt_driver_falling_loop_loc_357E6(0x0001_0000, false),
+            UfoHurtDriverFallingLoopLoc357E6 {
+                y_velocity: 0x0001_4000,
+                hibernates_one_frame: true,
+                deletes_current_object: false,
+                next_label: "loc_357E6",
+            },
+            "ASM UFO.asm loc_357E6 hibernates, applies `$4000` gravity, and loops while `$19(a3)` is clear"
+        );
+
+        assert_eq!(
+            ufo_hurt_driver_falling_loop_loc_357E6(i32::MAX, true),
+            UfoHurtDriverFallingLoopLoc357E6 {
+                y_velocity: i32::MIN.wrapping_add(0x0000_3FFF),
+                hibernates_one_frame: true,
+                deletes_current_object: true,
+                next_label: "loc_357E2",
+            },
+            "ASM UFO.asm loc_357E6 still applies gravity before deleting when `$19(a3)` is set"
+        );
+    }
+
+    #[test]
     fn tornado_loads_rom_pattern_on_timer_expiry() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
         enemy.wait_timer = 0;
