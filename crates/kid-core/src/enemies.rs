@@ -27460,7 +27460,7 @@ mod tests {
             ufo_restore_position_loc_350f2(0x1000_0000, 0x2000_0000, 0x0100_0000, -0x0200_0000),
             UfoPositionRestoreLoc350F2 {
                 x_pos: 0x0F00_0000,
-                y_pos: 0x2020_0000,
+                y_pos: 0x2200_0000,
             },
             "ASM UFO.asm loc_350F2 rolls the UFO back by one velocity step before slope bounces"
         );
@@ -27622,7 +27622,7 @@ mod tests {
                     allocation_selector: 0x8000,
                     beam_routine: "loc_354DA",
                     beam_x_velocity: 0x0005_8000,
-                    beam_y_velocity: 0x0008_0000,
+                    beam_y_velocity: 0x0002_0000,
                 },
                 UfoBeamSpawnLoc351EE {
                     allocation_selector: 0x8000,
