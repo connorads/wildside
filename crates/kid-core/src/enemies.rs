@@ -5692,6 +5692,22 @@ pub(crate) struct DragonWalkingBreathDoneWaitLoc3CFE4 {
     pub(crate) next: DragonWalkingBreathDoneNextLoc3CFE4,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonWalkingBreathNormalRestoreLoc3D002 {
+    pub(crate) animation_label: &'static str,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_walking_breath_normal_restore_loc_3d002()
+-> DragonWalkingBreathNormalRestoreLoc3D002 {
+    // ASM Dragon.asm loc_3D002: non-HP3 walking dragons restore the normal
+    // `stru_3CC5E` animation after the breath done flag is observed.
+    DragonWalkingBreathNormalRestoreLoc3D002 {
+        animation_label: "stru_3CC5E",
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_done_wait_loc_3cfe4(
     parent_phase_done_flag_5b: bool,
@@ -5710,7 +5726,7 @@ pub(crate) fn dragon_walking_breath_done_wait_loc_3cfe4(
     let animation_label = if enemy_level_word_40 == 2 {
         "stru_3CC90"
     } else {
-        "stru_3CC5E"
+        dragon_walking_breath_normal_restore_loc_3d002().animation_label
     };
     DragonWalkingBreathDoneWaitLoc3CFE4 {
         hibernates_after_done_flag: true,
@@ -23538,6 +23554,24 @@ mod tests {
                 },
             },
             "ASM Dragon.asm loc_3CFE4 should restore the normal walking animation for non-HP3 levels"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_normal_restore_matches_loc_3d002() {
+        assert_eq!(
+            dragon_walking_breath_normal_restore_loc_3d002(),
+            DragonWalkingBreathNormalRestoreLoc3D002 {
+                animation_label: "stru_3CC5E",
+            },
+            "ASM Dragon.asm loc_3D002 should restore the normal walking animation for non-HP3 breath recovery"
+        );
+        assert_eq!(
+            dragon_walking_breath_done_wait_loc_3cfe4(true, 1).next,
+            DragonWalkingBreathDoneNextLoc3CFE4::RestoreWalkingAnimation {
+                animation_label: dragon_walking_breath_normal_restore_loc_3d002().animation_label,
+            },
+            "native non-HP3 breath recovery should use the loc_3D002 animation branch"
         );
     }
 
