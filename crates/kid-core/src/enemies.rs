@@ -5188,6 +5188,8 @@ pub(crate) fn dragon_walking_breath_collision_poll_loc_3cfae(
     // damaging contacts, and gate side contacts on `Berzerker_charging`.
     // ASM Dragon.asm loc_3CFD4: side contacts test `Berzerker_charging`;
     // clear keeps the breath poll waiting without setting the parent flag.
+    // ASM Dragon.asm loc_3CFDA: accepted damage/charging-side contacts write
+    // `#1` to `$5B(a1)` before returning through the shared collision route.
     let damaging_contact = matches!(
         collision_type as u16,
         DRAGON_COLID_HURT | DRAGON_COLID_KIDABOVE
@@ -21528,6 +21530,29 @@ mod tests {
             },
             "ASM Dragon.asm loc_3CF90 allocates the breath child object and starts parent animation `stru_3CCC2`"
         );
+    }
+
+    #[test]
+    fn dragon_walking_breath_marks_parent_done_loc_3cfda() {
+        for (collision_type, berzerker_charging) in [
+            (DRAGON_COLID_HURT, false),
+            (DRAGON_COLID_KIDABOVE, false),
+            (DRAGON_COLID_KIDRIGHT, true),
+            (DRAGON_COLID_KIDLEFT, true),
+        ] {
+            assert_eq!(
+                dragon_walking_breath_collision_poll_loc_3cfae(
+                    collision_type as i16,
+                    berzerker_charging,
+                ),
+                DragonWalkingBreathCollisionPollLoc3CFAE {
+                    hibernates_one_frame: true,
+                    sets_parent_phase_done_flag_5b: true,
+                    next: DragonWalkingBreathPollNextLoc3CFAE::SharedCollisionRoute,
+                },
+                "ASM Dragon.asm loc_3CFDA should mark parent breath phase done before shared collision handling"
+            );
+        }
     }
 
     #[test]
