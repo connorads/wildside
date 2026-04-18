@@ -6329,6 +6329,8 @@ pub(crate) fn boss_head_movement_step_sub_3995C(
     // `unk_39988` (Boomerang boss head 2's fixed loop table).
     // ASM loc_39962 (kid.asm:42598): the negative delay sentinel reloads
     // `a2` with `unk_39988` and retries before any velocity words are used.
+    // ASM loc_3996E (kid.asm:42605): a non-negative entry's X/Y words are
+    // converted with `swap; asr.l #1` and written to head velocity.
     boss_head_movement_step_sub_39846(
         delay_counter_d0,
         current_script_index,
