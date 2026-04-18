@@ -308,6 +308,7 @@ pub(crate) const GOAT_COLID_HURT: i16 = 0x001C;
 pub(crate) const GOAT_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const GOAT_COLID_KIDLEFT: i16 = 0x0024;
 pub(crate) const GOAT_COLID_KIDABOVE: i16 = 0x002C;
+pub(crate) const ARMADILLO_COLID_FLOOR: i16 = 0x000C;
 pub(crate) const ARMADILLO_COLID_HURT: i16 = 0x001C;
 pub(crate) const ARMADILLO_COLID_KIDRIGHT: i16 = 0x0020;
 pub(crate) const ARMADILLO_COLID_KIDLEFT: i16 = 0x0024;
@@ -3918,6 +3919,61 @@ pub(crate) fn armadillo_spawned_child_fall_setup_loc_3c93c()
         y_velocity: 0x0002_C000,
         has_level_collision: true,
         is_moved: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ArmadilloSpawnedChildFallWaitRouteLoc3C954 {
+    Loop,
+    DeathAnimation {
+        animation_script: &'static str,
+        waits_until_animation_finished: bool,
+        exits_enemy: bool,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArmadilloSpawnedChildFallWaitLoc3C954 {
+    pub(crate) next_collision_type: i16,
+    pub(crate) y_velocity: i32,
+    pub(crate) has_level_collision: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) route: ArmadilloSpawnedChildFallWaitRouteLoc3C954,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn armadillo_spawned_child_fall_wait_loc_3c954(
+    collision_type: i16,
+    y_velocity: i32,
+) -> ArmadilloSpawnedChildFallWaitLoc3C954 {
+    // ASM Armadillo.asm loc_3C954: clear stale collision_type, hibernate one
+    // frame, then wait until the post-hibernate collision word is colid_floor.
+    if collision_type == ARMADILLO_COLID_FLOOR {
+        let death_animation = armadillo_death_animation_loc_3c886();
+        ArmadilloSpawnedChildFallWaitLoc3C954 {
+            next_collision_type: 0,
+            y_velocity: 0,
+            has_level_collision: false,
+            is_moved: false,
+            hibernates_one_frame: true,
+            route: ArmadilloSpawnedChildFallWaitRouteLoc3C954::DeathAnimation {
+                animation_script: death_animation.animation_script,
+                waits_until_animation_finished: death_animation.waits_until_animation_finished,
+                exits_enemy: death_animation.exits_enemy,
+            },
+        }
+    } else {
+        ArmadilloSpawnedChildFallWaitLoc3C954 {
+            next_collision_type: 0,
+            y_velocity,
+            has_level_collision: true,
+            is_moved: true,
+            hibernates_one_frame: true,
+            route: ArmadilloSpawnedChildFallWaitRouteLoc3C954::Loop,
+        }
     }
 }
 
@@ -27464,6 +27520,50 @@ mod tests {
                 exits_enemy: true,
             },
             "ASM Armadillo.asm loc_3C886 plays `stru_3C69A`, waits for it to finish, then exits through loc_3E956"
+        );
+    }
+
+    #[test]
+    fn armadillo_spawned_child_fall_wait_matches_loc_3c954() {
+        assert_eq!(
+            armadillo_spawned_child_fall_wait_loc_3c954(0, 0x0002_C000),
+            ArmadilloSpawnedChildFallWaitLoc3C954 {
+                next_collision_type: 0,
+                y_velocity: 0x0002_C000,
+                has_level_collision: true,
+                is_moved: true,
+                hibernates_one_frame: true,
+                route: ArmadilloSpawnedChildFallWaitRouteLoc3C954::Loop,
+            },
+            "ASM Armadillo.asm loc_3C954 clears collision_type, hibernates, and loops while collision remains zero"
+        );
+        assert_eq!(
+            armadillo_spawned_child_fall_wait_loc_3c954(0x0004, 0x0002_C000),
+            ArmadilloSpawnedChildFallWaitLoc3C954 {
+                next_collision_type: 0,
+                y_velocity: 0x0002_C000,
+                has_level_collision: true,
+                is_moved: true,
+                hibernates_one_frame: true,
+                route: ArmadilloSpawnedChildFallWaitRouteLoc3C954::Loop,
+            },
+            "ASM Armadillo.asm loc_3C954 ignores non-floor collision words and waits for colid_floor"
+        );
+        assert_eq!(
+            armadillo_spawned_child_fall_wait_loc_3c954(ARMADILLO_COLID_FLOOR, 0x0002_C000),
+            ArmadilloSpawnedChildFallWaitLoc3C954 {
+                next_collision_type: 0,
+                y_velocity: 0,
+                has_level_collision: false,
+                is_moved: false,
+                hibernates_one_frame: true,
+                route: ArmadilloSpawnedChildFallWaitRouteLoc3C954::DeathAnimation {
+                    animation_script: "stru_3C69A",
+                    waits_until_animation_finished: true,
+                    exits_enemy: true,
+                },
+            },
+            "ASM Armadillo.asm loc_3C954 exits only on colid_floor, then clears movement, y_vel, and level collision before loc_3C886"
         );
     }
 
