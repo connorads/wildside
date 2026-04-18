@@ -44,6 +44,14 @@ Find where tests are blind. Every surviving mutant (a sign flip, comparison reve
 
 **Prerequisites**: `.cargo/mutants.toml` has `gitignore = true` (avoids copying `.cache/`).
 
+**Loop fit**: treat full-file sweeps as manual/post-fix-batch verification,
+not a default `rl source-port` task. Large modules such as `enemies.rs`
+currently enumerate thousands of mutants and can exceed the loop timeout; broad
+baseline tests also depend on generated cache assets that `gitignore = true`
+intentionally omits from cargo-mutants' scratch tree. Keep autonomous iterations
+on commit-sized ASM coverage/audit tasks unless mutation testing has been split
+into a focused shard with a runnable baseline.
+
 **Tier 1** (zero unit tests, highest impact):
 ```bash
 cargo mutants -p kid-core -f enemies.rs -j 4 --output /tmp/mutants-enemies -- --lib -- --skip demo_ --skip published_tas --skip snapshot

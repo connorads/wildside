@@ -22,12 +22,20 @@ strategies:
 
   - name: loc-coverage-drive
     enabled: true
-    min_cluster_size: 3
+    # Keep Ralph-loop source-port iterations commit-sized. The remaining
+    # uncovered loc_ clusters are small, and waiting for clusters of three
+    # falls through to the long-running mutation lane instead.
+    min_cluster_size: 1
     # Empty = all subsystems; could focus on kid_main or block code
     focus_subsystems: []
 
   - name: mutation-testing
-    enabled: true
+    # Full-file cargo-mutants runs are too large for a single rl iteration on
+    # this repo: enemies.rs currently enumerates thousands of candidates, and
+    # --gitignore=true excludes the generated asset cache needed by broad
+    # baseline tests. Run this manually as a post-fix-batch gate until the lane
+    # is split into focused/sharded tasks.
+    enabled: false
     output_dir: .cache/mutants
     targets:
       - { module: enemies.rs, package: kid-core, tier: 1 }
