@@ -6486,6 +6486,8 @@ pub(crate) fn boss_death_timeout_sound_sub_370D2(v_int_counter_fff809: u8) -> &'
     if v_int_counter_fff809 & 1 != 0 {
         "sfx_Plethora_x"
     } else {
+        // ASM loc_371F4 (kid.asm:39071): an even `$FFFFF809` bit queues
+        // `sfx_Boss_dies` before the timeout animation starts at loc_37200.
         "sfx_Boss_dies"
     }
 }
