@@ -3279,6 +3279,8 @@ pub(crate) fn big_hopping_skull_bounds_correction_loc_36770(
     // Hitting either bound writes only the high word of y_vel/x_vel, preserving
     // the low fractional words, then sets x_direction ($FF right, $00 left).
     if x_pos_word <= left_bound_word {
+        // ASM Big_Hopping_Skull.asm loc_36782: y_vel.high=$FFFE,
+        // x_vel.high=1, and `st x_direction(a3)` faces right.
         BigHoppingSkullBoundsCorrectionLoc36770 {
             x_velocity: write_velocity_high_word(x_velocity, 1),
             y_velocity: write_velocity_high_word(y_velocity, -2),
