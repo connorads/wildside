@@ -12497,10 +12497,9 @@ fn mini_hopping_skull_snap_slopedown_x(grid: &terrain::BlockGrid, x_px: i32, y_p
     for col in (0..=start_col).rev() {
         let cell = grid.cell_at(col as u16, row);
         if cell.collision == terrain::CollisionKind::SlopeDown {
-            // ASM Mini_Hopping_Skull.asm sub_3F3A6: `addi.w #2,a4` advances to
-            // the next cell on the right before each loop subtracts 16px, so
-            // the final snap uses the matched slope cell's left edge plus the
-            // current Y low nibble.
+            // ASM Mini_Hopping_Skull.asm loc_3F3CE: the loop samples the tile,
+            // subtracts 16px, and walks left until `$5000`; the final snap uses
+            // the matched slope cell's left edge plus the current Y low nibble.
             let snapped_x_px = (col * 16) + (y_px & 0x0F);
             return (snapped_x_px.max(0) as u32) << 16;
         }
@@ -32820,6 +32819,19 @@ mod tests {
             mini_hopping_skull_snap_slopeup_x(&grid, 16, 46),
             34u32 << 16,
             "ASM Mini_Hopping_Skull.asm loc_3F386 advances by `$10` before each `$4000` slope-up check, then writes `cell_right - (y_pos & $F)` to x_pos"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_slopedown_scan_matches_loc_3f3ce() {
+        let data = vec![0u8; 8 * 4 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x50, 0x00));
+
+        assert_eq!(
+            mini_hopping_skull_snap_slopedown_x(&grid, 55, 46),
+            46u32 << 16,
+            "ASM Mini_Hopping_Skull.asm loc_3F3CE samples from the cell to the right, walks left to `$5000`, then writes `cell_left + (y_pos & $F)` to x_pos"
         );
     }
 
