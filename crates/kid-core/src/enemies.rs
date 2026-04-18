@@ -5316,8 +5316,17 @@ pub(crate) enum ScorpionTimerRestartRouteLoc3DEA0 {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum ScorpionTimerResumeRouteLoc3DECE {
+    ClearDirection,
+    SetDirection,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ScorpionTimerRouteLoc3DEA0 {
-    ResumeSharedWalker,
+    ResumeSharedWalker {
+        next: ScorpionTimerResumeRouteLoc3DECE,
+    },
     RestartPacing {
         next: ScorpionTimerRestartRouteLoc3DEA0,
     },
@@ -5345,7 +5354,9 @@ pub(crate) fn scorpion_timer_gate_loc_3dea0(
         return ScorpionTimerGateLoc3DEA0 {
             timer_54,
             alternating_timer_pair_6e,
-            route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker,
+            route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker {
+                next: scorpion_timer_resume_route_loc_3dece(facing),
+            },
         };
     }
 
@@ -5356,7 +5367,9 @@ pub(crate) fn scorpion_timer_gate_loc_3dea0(
         return ScorpionTimerGateLoc3DEA0 {
             timer_54,
             alternating_timer_pair_6e,
-            route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker,
+            route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker {
+                next: scorpion_timer_resume_route_loc_3dece(facing),
+            },
         };
     }
 
@@ -5370,6 +5383,18 @@ pub(crate) fn scorpion_timer_gate_loc_3dea0(
                 Direction::Right => ScorpionTimerRestartRouteLoc3DEA0::SetDirection,
             },
         },
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn scorpion_timer_resume_route_loc_3dece(
+    facing: Direction,
+) -> ScorpionTimerResumeRouteLoc3DECE {
+    // ASM Scorpion.asm loc_3DECE tests raw `x_direction(a3)`: clear branches
+    // to loc_3E566, set branches to loc_3E3B2.
+    match facing {
+        Direction::Left => ScorpionTimerResumeRouteLoc3DECE::ClearDirection,
+        Direction::Right => ScorpionTimerResumeRouteLoc3DECE::SetDirection,
     }
 }
 

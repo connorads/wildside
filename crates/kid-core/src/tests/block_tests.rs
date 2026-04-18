@@ -2933,7 +2933,8 @@ mod chunk_04 {
     fn scorpion_timer_gate_matches_loc_3dea0_threshold_and_swap() {
         use enemies::{
             ScorpionTimerGateLoc3DEA0, ScorpionTimerRestartRouteLoc3DEA0,
-            ScorpionTimerRouteLoc3DEA0, scorpion_timer_gate_loc_3dea0,
+            ScorpionTimerResumeRouteLoc3DECE, ScorpionTimerRouteLoc3DEA0,
+            scorpion_timer_gate_loc_3dea0,
         };
 
         assert_eq!(
@@ -2941,7 +2942,9 @@ mod chunk_04 {
             ScorpionTimerGateLoc3DEA0 {
                 timer_54: 7,
                 alternating_timer_pair_6e: 0x0010_0020,
-                route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker,
+                route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker {
+                    next: ScorpionTimerResumeRouteLoc3DECE::ClearDirection,
+                },
             },
             "ASM Scorpion.asm loc_3DEA0 leaves the timer pair untouched when $42 is positive and not $000A"
         );
@@ -2950,7 +2953,9 @@ mod chunk_04 {
             ScorpionTimerGateLoc3DEA0 {
                 timer_54: 1,
                 alternating_timer_pair_6e: 0x0010_0020,
-                route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker,
+                route: ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker {
+                    next: ScorpionTimerResumeRouteLoc3DECE::ClearDirection,
+                },
             },
             "ASM Scorpion.asm loc_3DEA0 decrements $54 when $42 is signed non-positive and resumes while the decremented timer is nonzero"
         );
@@ -2984,6 +2989,22 @@ mod chunk_04 {
                 },
             },
             "ASM Scorpion.asm loc_3DEAE decrements $54 to zero, swaps `$6E(a5)`, reloads $54 from the swapped low word, then restarts through the clear x_direction branch"
+        );
+    }
+
+    #[test]
+    fn scorpion_timer_resume_matches_loc_3dece_direction_dispatch() {
+        use enemies::{ScorpionTimerResumeRouteLoc3DECE, scorpion_timer_resume_route_loc_3dece};
+
+        assert_eq!(
+            scorpion_timer_resume_route_loc_3dece(Direction::Left),
+            ScorpionTimerResumeRouteLoc3DECE::ClearDirection,
+            "ASM Scorpion.asm loc_3DECE reaches loc_3E566 when x_direction is clear"
+        );
+        assert_eq!(
+            scorpion_timer_resume_route_loc_3dece(Direction::Right),
+            ScorpionTimerResumeRouteLoc3DECE::SetDirection,
+            "ASM Scorpion.asm loc_3DECE reaches loc_3E3B2 when x_direction is set"
         );
     }
 
