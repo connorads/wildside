@@ -22528,6 +22528,32 @@ pub(crate) fn tank_update_loc_3b41c(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TankResumeWalkBranchLoc3B4BA {
+    LeftSharedWalker,
+    RightSharedWalker,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TankResumeWalkLoc3B4BA {
+    pub(crate) next_child_collision_type: u16,
+    pub(crate) branch: TankResumeWalkBranchLoc3B4BA,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_resume_walk_loc_3b4ba(x_direction: u8) -> TankResumeWalkLoc3B4BA {
+    // ASM Tank.asm loc_3B4BA: clear mouth child collision `$38(a2)`, then
+    // branch by `x_direction(a3)`; zero enters loc_3C0FA, nonzero loc_3C04E.
+    TankResumeWalkLoc3B4BA {
+        next_child_collision_type: 0,
+        branch: if x_direction == 0 {
+            TankResumeWalkBranchLoc3B4BA::LeftSharedWalker
+        } else {
+            TankResumeWalkBranchLoc3B4BA::RightSharedWalker
+        },
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TankShootingCollisionRouteLoc3B6C0 {
     Death,
     Damage,
@@ -23884,6 +23910,26 @@ mod tests {
                 route: TankUpdateRouteLoc3B41C::Hurt { remaining_hp: 1 },
             },
             "ASM Tank.asm loc_3B49A should clear parent motion, set child recoil timer 6, hibernate 5 frames, then keep the damaged tank alive",
+        );
+    }
+
+    #[test]
+    fn tank_resume_walk_loc_3b4ba_clears_child_collision_and_branches() {
+        assert_eq!(
+            tank_resume_walk_loc_3b4ba(0),
+            TankResumeWalkLoc3B4BA {
+                next_child_collision_type: 0,
+                branch: TankResumeWalkBranchLoc3B4BA::LeftSharedWalker,
+            },
+            "ASM Tank.asm loc_3B4BA should clear mouth child `$38` and branch clear x_direction to loc_3C0FA",
+        );
+        assert_eq!(
+            tank_resume_walk_loc_3b4ba(0xFF),
+            TankResumeWalkLoc3B4BA {
+                next_child_collision_type: 0,
+                branch: TankResumeWalkBranchLoc3B4BA::RightSharedWalker,
+            },
+            "ASM Tank.asm loc_3B4BA should branch any nonzero x_direction to loc_3C04E after clearing mouth child `$38`",
         );
     }
 
