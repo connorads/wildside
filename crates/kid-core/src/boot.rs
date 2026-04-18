@@ -4662,6 +4662,8 @@ pub(crate) fn options_menu_speed_text_loc_1CF78(
     // ASM loc_1CF78 (kid.asm:32254): always draw `OptText7` at `(0,$C)`, then
     // switch to the packed `( $E,$C )` / `( $E,$E )` entries from `OptText8`
     // or `OptText9` depending on `Options_Suboption_Speed`.
+    // ASM loc_1CF94 (kid.asm:32264): the two consecutive draw calls consume
+    // the selected mode line and then the following packed prompt line.
     OptionsMenuSpeedTextLoc1CF78 {
         highlighted: selected_option == 2,
         header_x: 0,
