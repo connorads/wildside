@@ -7283,6 +7283,8 @@ pub(crate) fn heady_metal_cleanup_sub_378C8(
     if global_hit_latch_fb4e {
         next_countdown_42 = next_countdown_42.wrapping_sub(1);
         if next_countdown_42 == 0 {
+            // ASM loc_37922 (kid.asm:39701): delete the five cached workers
+            // with `j_loc_1078`, then clear `$FFFFFB72/$76/$7A/$BAE/$BB2`.
             return HeadyMetalCleanupSub378C8 {
                 next_countdown_42,
                 should_cleanup_workers: true,
