@@ -1986,11 +1986,7 @@ pub(crate) fn lion_left_charge_gravity_tail_loc_3e77e(
     // ASM Lion.asm loc_3E77E: add `$4000` gravity, clamp only when the signed
     // result is at least `$180000`, then branch to loc_3E6A4's hibernate tail.
     let accelerated = y_velocity.wrapping_add(0x0000_4000);
-    let capped_velocity = if accelerated < 0x0018_0000 {
-        accelerated
-    } else {
-        0x0018_0000
-    };
+    let capped_velocity = accelerated.min(0x0018_0000);
     lion_left_charge_y_velocity_commit_loc_3e796(capped_velocity)
 }
 
@@ -2229,11 +2225,7 @@ pub(crate) fn lion_charge_collision_gravity_cap_loc_3e89a(y_velocity: i32) -> i3
     // ASM Lion.asm loc_3E89A: load `y_vel(a3)`, add `$4000`, then use a
     // signed compare against `$180000`; upward velocities are not clamped.
     let accelerated = y_velocity.wrapping_add(0x0000_4000);
-    if accelerated < 0x0018_0000 {
-        accelerated
-    } else {
-        0x0018_0000
-    }
+    accelerated.min(0x0018_0000)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -2332,13 +2324,8 @@ pub(crate) fn lion_respawn_marker_loc_3e97c(object_status_slot: u8) -> LionRespa
 
 #[cfg_attr(not(test), allow(dead_code))]
 fn lion_cull_status_update_loc_3e956(object_status_slot: u8) -> DeactivationStatusActionLoc3C4C0 {
-    if object_status_slot & 0x80 == 0 {
-        let marker = lion_respawn_marker_loc_3e97c(object_status_slot);
-        return DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
-            index: marker.index,
-        };
-    }
-
+    // ASM Lion.asm loc_3E956 duplicates loc_3C4C0's delete-tail status-table
+    // update, including the positive-slot respawn marker at loc_3E97C.
     deactivation_status_update_loc_3C4C0(object_status_slot)
 }
 
@@ -30523,6 +30510,21 @@ mod tests {
                 needs_floor_probe: false,
             },
             "ASM Lion.asm loc_3E84E should skip floor probing when nibble clearance covers downward motion"
+        );
+        assert_eq!(
+            lion_charge_collision_downward_collision_loc_3e84e(
+                0x0042_0000,
+                0x0050_0000,
+                14,
+                true,
+                0,
+            ),
+            LionChargeCollisionDownwardCollisionLoc3E84E::Airborne {
+                y_position: 0x0050_0000,
+                floor_clearance_pixels: 14,
+                needs_floor_probe: false,
+            },
+            "ASM Lion.asm loc_3E84E uses `cmp.w d1,d3; bcc`: equality skips the floor probe"
         );
         assert_eq!(
             lion_charge_collision_downward_collision_loc_3e84e(
