@@ -371,6 +371,8 @@ pub(crate) fn build_intro_sequence_vdp(data: &IntroSub1B850Data, segment: usize)
         // ASM loc_1C540 (kid.asm:31273): non-zero region variants seed
         // `d0=#$D` for a 14-word overlay after this base palette copy; this
         // native loader currently follows the default FC82==0 path.
+        // ASM loc_1C542 (kid.asm:31276): the overlay itself is the inclusive
+        // `move.w (a0)+,(a1)+; dbf` loop into Palette_Buffer_2+$62.
         _ => &data.palette_segment_2,
     };
     vdp.write_cram_words(0, palette);
