@@ -11248,6 +11248,35 @@ pub(crate) fn fireball_trail_loop_step_loc_33110(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FireballObstacleTrailLoopStepLoc331BA {
+    Continue { lifetime_frames: u16 },
+    Delete,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_obstacle_trail_loop_step_loc_331ba(
+    flag_19_is_set: bool,
+    lifetime_frames: u16,
+) -> FireballObstacleTrailLoopStepLoc331BA {
+    // ASM Fireball.asm loc_331BA: after `loc_33128`'s wall/floor probes accept
+    // the spawned trail, each iteration hibernates once, checks `$19(a3)`, then
+    // decrements `d3` as a wrapping word before either looping or deleting.
+    if flag_19_is_set {
+        return FireballObstacleTrailLoopStepLoc331BA::Delete;
+    }
+
+    let next_lifetime_frames = lifetime_frames.wrapping_sub(1);
+    if next_lifetime_frames == 0 {
+        FireballObstacleTrailLoopStepLoc331BA::Delete
+    } else {
+        FireballObstacleTrailLoopStepLoc331BA::Continue {
+            lifetime_frames: next_lifetime_frames,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireballTrailDeleteTailLoc33120 {
     pub(crate) next_fire_trail_count: u16,
     pub(crate) deletes_current_object: bool,
@@ -33380,6 +33409,34 @@ mod tests {
                 lifetime_frames: 0xFFFF,
             },
             "ASM Fireball.asm loc_33110 uses word subtraction, so an unexpected zero d3 wraps to `$FFFF` and branches back"
+        );
+    }
+
+    #[test]
+    fn fireball_obstacle_trail_loop_loc_331ba_prioritises_flag_then_countdown() {
+        assert_eq!(
+            fireball_obstacle_trail_loop_step_loc_331ba(true, 0x96),
+            FireballObstacleTrailLoopStepLoc331BA::Delete,
+            "ASM Fireball.asm loc_331BA should take the delete tail when `$19(a3)` is non-zero before touching d3"
+        );
+        assert_eq!(
+            fireball_obstacle_trail_loop_step_loc_331ba(false, 0x96),
+            FireballObstacleTrailLoopStepLoc331BA::Continue {
+                lifetime_frames: 0x95,
+            },
+            "ASM Fireball.asm loc_331BA should decrement d3 after a clear `$19(a3)` and keep hibernating while the result is non-zero"
+        );
+        assert_eq!(
+            fireball_obstacle_trail_loop_step_loc_331ba(false, 1),
+            FireballObstacleTrailLoopStepLoc331BA::Delete,
+            "ASM Fireball.asm loc_331BA should take the delete tail when `subq.w #1,d3` produces zero"
+        );
+        assert_eq!(
+            fireball_obstacle_trail_loop_step_loc_331ba(false, 0),
+            FireballObstacleTrailLoopStepLoc331BA::Continue {
+                lifetime_frames: 0xFFFF,
+            },
+            "ASM Fireball.asm loc_331BA uses word subtraction, so an unexpected zero d3 wraps to `$FFFF` and branches back"
         );
     }
 
