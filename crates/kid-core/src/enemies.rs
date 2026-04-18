@@ -9016,6 +9016,40 @@ pub(crate) fn cloud_diagonal_attack_setup_loc_35CD8(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum CloudAttackProjectileRouteLoc35E8A {
+    ContinueLoop,
+    DeleteTail,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudAttackProjectileLoopLoc35E8A {
+    pub(crate) hibernates_one_frame: bool,
+    pub(crate) route: CloudAttackProjectileRouteLoc35E8A,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_attack_projectile_loop_loc_35E8A(
+    collision_type: u16,
+    animation_flag_19: bool,
+) -> CloudAttackProjectileLoopLoc35E8A {
+    // ASM Cloud.asm loc_35E8A: after `j_Hibernate_Object_1Frame`, any non-zero
+    // `collision_type(a3)` exits before byte `$19(a3)` is tested.
+    let route = if collision_type != 0 || animation_flag_19 {
+        CloudAttackProjectileRouteLoc35E8A::DeleteTail
+    } else {
+        CloudAttackProjectileRouteLoc35E8A::ContinueLoop
+    };
+
+    CloudAttackProjectileLoopLoc35E8A {
+        hibernates_one_frame: true,
+        route,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,

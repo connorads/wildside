@@ -3892,6 +3892,28 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_attack_projectile_loop_loc_35e8a_waits_until_collision_or_animation_flag() {
+        assert_eq!(
+            cloud_attack_projectile_loop_loc_35E8A(0, false),
+            CloudAttackProjectileLoopLoc35E8A {
+                hibernates_one_frame: true,
+                route: CloudAttackProjectileRouteLoc35E8A::ContinueLoop,
+            },
+            "ASM Cloud.asm loc_35E8A hibernates, then loops while `collision_type(a3)` and `$19(a3)` are both clear"
+        );
+        assert_eq!(
+            cloud_attack_projectile_loop_loc_35E8A(0x0004, false).route,
+            CloudAttackProjectileRouteLoc35E8A::DeleteTail,
+            "ASM Cloud.asm loc_35E8A checks non-zero `collision_type(a3)` before byte `$19(a3)`"
+        );
+        assert_eq!(
+            cloud_attack_projectile_loop_loc_35E8A(0, true).route,
+            CloudAttackProjectileRouteLoc35E8A::DeleteTail,
+            "ASM Cloud.asm loc_35E8A exits when byte `$19(a3)` is set after the collision check"
+        );
+    }
+
+    #[test]
     fn cloud_diagonal_attack_setup_loc_35cd8_starts_when_kid_is_in_front_band() {
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
