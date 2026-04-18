@@ -2444,6 +2444,13 @@ pub(crate) struct IntroTextLineBreakLoc1C7C4 {
     pub(crate) continues_parsing: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTextDelayLoc1C7D2 {
+    pub(crate) hibernate_frames: u8,
+    pub(crate) returns_to_hibernate: bool,
+}
+
 impl TitleTextWordWritesSub1B7B6 {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn bottom_word_addresses(self) -> [u16; 2] {
@@ -2488,6 +2495,18 @@ pub(crate) fn intro_text_line_break_loc_1C7C4(
         next_x_pos: header_x_pos,
         next_y_pos: current_y_pos.wrapping_add(2),
         continues_parsing: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_text_delay_loc_1C7D2(duration_byte: u8) -> IntroTextDelayLoc1C7D2 {
+    // ASM loc_1C7D2 (kid.asm:31432-31436): when marker `$FE` is consumed,
+    // load the following byte from `(a1)+` into `d0`, then branch back to
+    // `loc_1C7AE` so the intro text worker hibernates for that duration.
+    IntroTextDelayLoc1C7D2 {
+        hibernate_frames: duration_byte,
+        returns_to_hibernate: true,
     }
 }
 
