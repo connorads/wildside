@@ -6358,6 +6358,9 @@ impl NativeRuntime {
                     }
                 } else if start_pressed {
                     self.title_idle_frames = 0;
+                    // ASM Obj_TitleMenu loc_1BBD6: after Start selects the
+                    // current row, the object marks the hand-off latch and
+                    // jumps through loc_6E2 / level-select entry.
                     self.title_menu_selection_pending = Some(*cursor);
                     self.title_menu_selection_delay_frames = TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES;
                 } else if up_pressed && *cursor > 0 {
@@ -6461,6 +6464,9 @@ impl NativeRuntime {
                     }
                 } else if start_pressed {
                     self.title_idle_frames = 0;
+                    // ASM Obj_TitleMenu loc_1BBD6: after Start selects the
+                    // current row, the object marks the hand-off latch and
+                    // jumps through loc_6E2 / level-select entry.
                     self.title_menu_selection_pending = Some(*cursor);
                     self.title_menu_selection_delay_frames = TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES;
                 } else if up_pressed && *cursor > 0 {
