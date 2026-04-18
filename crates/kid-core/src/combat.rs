@@ -6283,6 +6283,10 @@ pub(crate) fn boss_head_movement_step_sub_398C4(
     // ASM sub_398C4 (kid.asm:42532): same countdown/script loader as
     // `sub_39846`, but a negative sentinel always rewinds to
     // `unk_398F0` (Boomerang boss head 1's fixed loop table).
+    //
+    // ASM loc_398CA (kid.asm:42538): after `subq.w #1,d0` reaches zero,
+    // read `(a2)+`; a negative delay reloads `a2` with `unk_398F0` and
+    // retries until a real Boomerang head-1 movement entry is consumed.
     boss_head_movement_step_sub_39846(
         delay_counter_d0,
         current_script_index,
