@@ -2848,6 +2848,8 @@ pub(crate) fn boss_head_projectile_spawn_sub_397E4(
     let callback_label = if variant_d1 == 0 {
         "loc_3A0D2"
     } else {
+        // ASM loc_397FA (kid.asm:42445): nonzero `d1` selects
+        // `loc_3A1EA` for the child object's callback at `4(a0)`.
         "loc_3A1EA"
     };
 
