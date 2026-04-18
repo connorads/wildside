@@ -5111,6 +5111,8 @@ pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
 /// Tank bullet lifetime in frames (enough to cross a screen width).
+/// TODO(fidelity): ASM Tank_Shooting.asm loc_3B7BA keeps the shot alive until
+/// camera bounds or collision delete it; native still uses this timer fallback.
 pub(crate) const TANK_BULLET_LIFETIME: u16 = 120;
 /// ASM Tank_Shooting.asm `stru_3B4D8`: one shot every 116 frames at HP 4.
 pub(crate) const TANK_SHOOTING_FAST_CYCLE_FRAMES: u16 = 116;
@@ -5128,6 +5130,41 @@ pub(crate) const TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA: u16 =
 pub(crate) const TANK_BULLET_SPAWN_X_OFFSET_PX: i32 = 15;
 /// ASM Tank_Shooting.asm loc_3B786/loc_3B78E: projectile Y = turret_y - (8 + 6) px.
 pub(crate) const TANK_BULLET_SPAWN_Y_OFFSET_PX: i32 = 14;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum TankBulletLoopRouteLoc3B7BA {
+    Continue,
+    Delete,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_bullet_loop_route_loc_3b7ba(
+    x_pos_word: u16,
+    y_pos_word: u16,
+    camera_x_word: u16,
+    camera_y_word: u16,
+    collision_type: u16,
+) -> TankBulletLoopRouteLoc3B7BA {
+    // ASM Tank_Shooting.asm loc_3B7BA: after one hibernated frame, compare the
+    // signed camera-relative x/y words against [-$80, $1C0], then loop only
+    // while collision_type remains zero.
+    let relative_x = x_pos_word.wrapping_sub(camera_x_word) as i16;
+    if !(-0x80..=0x01C0).contains(&relative_x) {
+        return TankBulletLoopRouteLoc3B7BA::Delete;
+    }
+
+    let relative_y = y_pos_word.wrapping_sub(camera_y_word) as i16;
+    if !(-0x80..=0x01C0).contains(&relative_y) {
+        return TankBulletLoopRouteLoc3B7BA::Delete;
+    }
+
+    if collision_type == 0 {
+        TankBulletLoopRouteLoc3B7BA::Continue
+    } else {
+        TankBulletLoopRouteLoc3B7BA::Delete
+    }
+}
 
 /// Scorpion tracking range in pixels (Scorpion.asm line 158: $AA = 170).
 /// Outside this range, speed resets to base $18000.
@@ -25443,6 +25480,60 @@ mod tests {
                 route: TankShootingDeathRouteLoc3B6E6::SharedDeactivateLoc3C46E,
             },
             "ASM Tank_Shooting.asm loc_3B6E6 should hide turret `$13`, set turret `$3D`, play stru_3B518, hibernate until finished, then branch to loc_3C46E",
+        );
+    }
+
+    #[test]
+    fn tank_bullet_loop_route_loc_3b7ba_keeps_zero_collision_inside_camera_box() {
+        assert_eq!(
+            tank_bullet_loop_route_loc_3b7ba(0x0200, 0x0120, 0x0200, 0x0100, 0),
+            TankBulletLoopRouteLoc3B7BA::Continue,
+            "ASM Tank_Shooting.asm loc_3B7BA should loop while x/y camera-relative words are in range and collision_type is zero",
+        );
+
+        assert_eq!(
+            tank_bullet_loop_route_loc_3b7ba(0x0180, 0x0080, 0x0200, 0x0100, 0),
+            TankBulletLoopRouteLoc3B7BA::Continue,
+            "ASM Tank_Shooting.asm loc_3B7BA should keep the signed lower bound `$FF80` inclusive",
+        );
+
+        assert_eq!(
+            tank_bullet_loop_route_loc_3b7ba(0x03C0, 0x02C0, 0x0200, 0x0100, 0),
+            TankBulletLoopRouteLoc3B7BA::Continue,
+            "ASM Tank_Shooting.asm loc_3B7BA should keep the signed upper bound `$01C0` inclusive",
+        );
+    }
+
+    #[test]
+    fn tank_bullet_loop_route_loc_3b7ba_deletes_on_bounds_or_collision() {
+        assert_eq!(
+            tank_bullet_loop_route_loc_3b7ba(0x017F, 0x0100, 0x0200, 0x0100, 0),
+            TankBulletLoopRouteLoc3B7BA::Delete,
+            "ASM Tank_Shooting.asm loc_3B7BA should delete when signed relative x is below `$FF80`",
+        );
+
+        assert_eq!(
+            tank_bullet_loop_route_loc_3b7ba(0x03C1, 0x0100, 0x0200, 0x0100, 0),
+            TankBulletLoopRouteLoc3B7BA::Delete,
+            "ASM Tank_Shooting.asm loc_3B7BA should delete when signed relative x is above `$01C0`",
+        );
+
+        assert_eq!(
+            tank_bullet_loop_route_loc_3b7ba(0x0200, 0x007F, 0x0200, 0x0100, 0),
+            TankBulletLoopRouteLoc3B7BA::Delete,
+            "ASM Tank_Shooting.asm loc_3B7BA should delete when signed relative y is below `$FF80`",
+        );
+
+        assert_eq!(
+            tank_bullet_loop_route_loc_3b7ba(0x0200, 0x02C1, 0x0200, 0x0100, 0),
+            TankBulletLoopRouteLoc3B7BA::Delete,
+            "ASM Tank_Shooting.asm loc_3B7BA should delete when signed relative y is above `$01C0`",
+        );
+
+        assert_eq!(
+            tank_bullet_loop_route_loc_3b7ba(0x0200, 0x0100, 0x0200, 0x0100, 0x001C),
+            TankBulletLoopRouteLoc3B7BA::Delete,
+            "ASM Tank_Shooting.asm loc_3B7BA should delete on any nonzero collision_type after the bounds checks",
         );
     }
 
