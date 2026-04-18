@@ -20286,6 +20286,18 @@ pub(crate) struct DripsSurfaceCrawlerFirstAnimationLoc33B30 {
     pub(crate) flip_after_animation: bool,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsSurfaceCrawlerSecondAnimationLoc33B5E {
+    pub(crate) x_delta: i16,
+    pub(crate) y_delta: i16,
+    pub(crate) x_velocity_delta: i32,
+    pub(crate) y_velocity_delta: i32,
+    pub(crate) animation: DripsSurfaceCrawlerTurnAnimationLoc33AF6,
+    pub(crate) applies_child_velocity_deltas: bool,
+    pub(crate) next: DripsSurfaceCrawlerTurnNextLoc33AF6,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 fn drips_turn_script_i8(byte: u8) -> i16 {
     i16::from(i8::from_ne_bytes([byte]))
@@ -20361,6 +20373,24 @@ pub(crate) fn drips_surface_crawler_first_animation_loc_33b30(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_second_animation_loc_33b5e(
+    table: [u8; 8],
+) -> DripsSurfaceCrawlerSecondAnimationLoc33B5E {
+    // ASM Drips.asm loc_33B5E: sign-extend the second byte x/y deltas, add the
+    // signed word velocity deltas, initialise animation, run `loc_33526`, then
+    // jump through `off_33ADA`.
+    DripsSurfaceCrawlerSecondAnimationLoc33B5E {
+        x_delta: drips_turn_script_i8(table[0]),
+        y_delta: drips_turn_script_i8(table[1]),
+        x_velocity_delta: drips_turn_script_i16(table[2], table[3]),
+        y_velocity_delta: drips_turn_script_i16(table[4], table[5]),
+        animation: drips_turn_script_animation_loc_33af6(table[6]),
+        applies_child_velocity_deltas: true,
+        next: drips_turn_script_next_loc_33af6(table[7]),
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 fn drips_surface_crawler_turn_script_loc_33af6(
     table: [u8; 16],
 ) -> DripsSurfaceCrawlerTurnScriptLoc33AF6 {
@@ -20369,6 +20399,9 @@ fn drips_surface_crawler_turn_script_loc_33af6(
     // the second movement/velocity tuple before jumping through `off_33ADA`.
     let first_animation =
         drips_surface_crawler_first_animation_loc_33b30([table[4], table[5], table[6], table[7]]);
+    let second_animation = drips_surface_crawler_second_animation_loc_33b5e([
+        table[8], table[9], table[10], table[11], table[12], table[13], table[14], table[15],
+    ]);
     DripsSurfaceCrawlerTurnScriptLoc33AF6 {
         snap_field: drips_turn_script_field_loc_33af6(table[0]),
         snap_offset: drips_turn_script_i8(table[1]) + drips_turn_script_i8(table[2]),
@@ -20378,12 +20411,12 @@ fn drips_surface_crawler_turn_script_loc_33af6(
         first_y_delta: first_animation.y_delta,
         first_animation: first_animation.animation,
         flip_after_first_animation: first_animation.flip_after_animation,
-        second_x_delta: drips_turn_script_i8(table[8]),
-        second_y_delta: drips_turn_script_i8(table[9]),
-        x_velocity_delta: drips_turn_script_i16(table[10], table[11]),
-        y_velocity_delta: drips_turn_script_i16(table[12], table[13]),
-        second_animation: drips_turn_script_animation_loc_33af6(table[14]),
-        next: drips_turn_script_next_loc_33af6(table[15]),
+        second_x_delta: second_animation.x_delta,
+        second_y_delta: second_animation.y_delta,
+        x_velocity_delta: second_animation.x_velocity_delta,
+        y_velocity_delta: second_animation.y_velocity_delta,
+        second_animation: second_animation.animation,
+        next: second_animation.next,
     }
 }
 
@@ -29767,6 +29800,40 @@ mod tests {
                 flip_after_animation: false,
             },
             "ASM Drips.asm loc_33B30 skips `not.b x_direction(a3)` when the post-animation byte is zero"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_second_animation_matches_loc_33b5e() {
+        assert_eq!(
+            drips_surface_crawler_second_animation_loc_33b5e([
+                0xFB, 0x00, 0xD0, 0x00, 0x00, 0x00, 0x18, 0x00,
+            ]),
+            DripsSurfaceCrawlerSecondAnimationLoc33B5E {
+                x_delta: -5,
+                y_delta: 0,
+                x_velocity_delta: -0x3000,
+                y_velocity_delta: 0,
+                animation: DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33F14,
+                applies_child_velocity_deltas: true,
+                next: DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33650,
+            },
+            "ASM Drips.asm loc_33B5E sign-extends byte position deltas, sign-extends word velocity deltas, runs loc_33526, and dispatches through off_33ADA"
+        );
+        assert_eq!(
+            drips_surface_crawler_second_animation_loc_33b5e([
+                0x00, 0xFE, 0x00, 0x00, 0xD0, 0x00, 0x14, 0x0C,
+            ]),
+            DripsSurfaceCrawlerSecondAnimationLoc33B5E {
+                x_delta: 0,
+                y_delta: -2,
+                x_velocity_delta: 0,
+                y_velocity_delta: -0x3000,
+                animation: DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33EB2,
+                applies_child_velocity_deltas: true,
+                next: DripsSurfaceCrawlerTurnNextLoc33AF6::Loc337A0,
+            },
+            "ASM Drips.asm loc_33B5E preserves zero X velocity deltas while applying a negative Y velocity word before the next movement route"
         );
     }
 
