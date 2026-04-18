@@ -2403,6 +2403,8 @@ pub(crate) fn boss_death_burst_homing_step_sub_370D2(
     // ASM loc_3719E (kid.asm:39034): compare `y_pos(a3)` with Kid's `$1E`;
     // add `$7D0` when the burst is above or level with Kid, subtract otherwise.
     let y_velocity_delta = if effect_y > kid_y {
+        // ASM loc_371AC (kid.asm:39041): burst below Kid subtracts `$7D0`
+        // from `y_vel(a3)`.
         -homing_accel
     } else {
         homing_accel
