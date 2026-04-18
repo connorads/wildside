@@ -2863,6 +2863,8 @@ pub(crate) fn boss_head_projectile_spawn_sub_397E4(
         (parent_x.wrapping_add(0x0018), 3)
     };
 
+    // ASM loc_39836 (kid.asm:42465): commit prepared X to `$44(a0)`, load
+    // `d7=#stru_39FD8`, and call `j_Init_Animation` before returning.
     BossHeadProjectileSpawnSub397E4 {
         callback_label,
         x_pos,
