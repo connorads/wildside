@@ -5784,6 +5784,8 @@ pub(crate) fn kid_hitbox_solid_scan_loc_1FEE(
         for col_index in 0..=col_count {
             let tile_word = *level_layout_words.get(row_start + usize::from(col_index))?;
             if (tile_word & 0x7000) >= 0x6000 {
+                // ASM loc_2010 (kid.asm:3829): reread the just-scanned word
+                // from `-2(a1)` and hand it to the solid-scan expansion path.
                 return Some(KidHitboxSolidScanHitLoc1FEE {
                     tile_word,
                     row_index,
