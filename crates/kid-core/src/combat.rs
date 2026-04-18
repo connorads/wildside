@@ -2769,6 +2769,8 @@ pub(crate) fn boss_eye_orbit_placement_sub_393C8(
         if previous_parent_frame_d0 == current_parent_frame_16 {
             (sprite_word_y_adjust, false)
         } else if previous_parent_frame_d0 == 0 {
+            // ASM loc_39402 (kid.asm:41983): a zero previous frame in `d0`
+            // takes `addq.w #1,$A(a3)` before falling through to `loc_39406`.
             (sprite_word_y_adjust.wrapping_add(1), true)
         } else {
             (sprite_word_y_adjust.wrapping_sub(1), true)
