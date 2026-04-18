@@ -10022,6 +10022,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_partner_signal_tail_loc_3bca6_marks_linked_twin_before_delete() {
+        assert_eq!(
+            spinning_twins_partner_signal_tail_loc_3bca6(0x03),
+            SpinningTwinsPartnerSignalTailLoc3BCA6 {
+                partner_slot: 0x03,
+                next_partner_flag_5b: 0xFF,
+                deletes_current_object: true,
+            },
+            "ASM loc_3BCA6 should follow `$5C(a5)`, set linked twin `$5B` with `st`, then delete"
+        );
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_init_loc_3b9b0_offsets_parent_position() {
         let visual = spinning_twins_falling_visual_init_loc_3b9b0(0x0100_0000, 0x0080_0000);
 

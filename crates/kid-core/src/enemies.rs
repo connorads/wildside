@@ -21059,6 +21059,27 @@ pub(crate) fn spinning_twins_delete_tail_loc_3bca2() -> SpinningTwinsDeleteTailL
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SpinningTwinsPartnerSignalTailLoc3BCA6 {
+    pub(crate) partner_slot: u8,
+    pub(crate) next_partner_flag_5b: u8,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn spinning_twins_partner_signal_tail_loc_3bca6(
+    partner_slot: u8,
+) -> SpinningTwinsPartnerSignalTailLoc3BCA6 {
+    // ASM Spinning_Twins.asm loc_3BCA6: `move.l $5C(a5),a2; st $5B(a2)`
+    // marks the linked walking twin before deleting the current object.
+    SpinningTwinsPartnerSignalTailLoc3BCA6 {
+        partner_slot,
+        next_partner_flag_5b: 0xFF,
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsDeathStatusLoc3BC78 {
     pub(crate) status_route: SpinningTwinsDeathStatusRouteLoc3BC78,
     pub(crate) delete_tail: SpinningTwinsDeleteTailLoc3BCA2,
