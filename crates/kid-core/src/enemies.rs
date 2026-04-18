@@ -4997,6 +4997,25 @@ pub(crate) struct FireDemonFireTrailWaitStepLoc3A6CA {
     pub(crate) next: FireDemonFireTrailWaitNextLoc3A6CA,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireDemonFireTrailDeleteTailLoc3A6DA {
+    pub(crate) next_fire_trail_count: u16,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_fire_trail_delete_tail_loc_3a6da(
+    fire_trail_count: u16,
+) -> FireDemonFireTrailDeleteTailLoc3A6DA {
+    // ASM Fire_Demon.asm loc_3A6DA: `subq.w #1,(Number_of_Fire_Trails).w`,
+    // then jump directly to `j_Delete_CurrentObject`.
+    FireDemonFireTrailDeleteTailLoc3A6DA {
+        next_fire_trail_count: fire_trail_count.wrapping_sub(1),
+        deletes_current_object: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(
     status_flag_19_set: bool,
