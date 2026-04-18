@@ -2429,6 +2429,13 @@ pub(crate) struct IntroTextInitialHibernateLoc1C7AE {
     pub(crate) hibernate_frames: u8,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IntroTextByteDispatchLoc1C7B6 {
+    DeleteCurrentObject,
+    Continue { byte: u8 },
+}
+
 impl TitleTextWordWritesSub1B7B6 {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn bottom_word_addresses(self) -> [u16; 2] {
@@ -2444,6 +2451,19 @@ pub(crate) fn intro_text_initial_hibernate_loc_1C7AE() -> IntroTextInitialHibern
     // before the byte parser can consume the text stream.
     IntroTextInitialHibernateLoc1C7AE {
         hibernate_frames: 1,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_text_byte_dispatch_loc_1C7B6(byte: u8) -> IntroTextByteDispatchLoc1C7B6 {
+    // ASM loc_1C7B6 (kid.asm:31416-31422): clear `d6`, read the next text byte
+    // from `(a1)+`, and delete the current object immediately when that byte is
+    // the `$FF` terminator; all other bytes continue through the marker parser.
+    if byte == 0xFF {
+        IntroTextByteDispatchLoc1C7B6::DeleteCurrentObject
+    } else {
+        IntroTextByteDispatchLoc1C7B6::Continue { byte }
     }
 }
 
