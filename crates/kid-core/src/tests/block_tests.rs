@@ -5042,7 +5042,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn big_hopping_skull_bounds_correction_matches_loc_36770() {
+    fn big_hopping_skull_right_bound_launch_matches_loc_36798() {
         assert_eq!(
             enemies::big_hopping_skull_bounds_correction_loc_36770(
                 0x00C0,
@@ -5058,8 +5058,12 @@ mod chunk_04 {
                 facing: Direction::Left,
                 route: enemies::BigHoppingSkullBoundsRouteLoc36770::HitRightBound,
             },
-            "ASM Big_Hopping_Skull.asm loc_36770 should force leftward launch at or right of `$40(a3)` and preserve low velocity words",
+            "ASM Big_Hopping_Skull.asm loc_36798 should force leftward launch at or right of `$40(a3)` and preserve low velocity words",
         );
+    }
+
+    #[test]
+    fn big_hopping_skull_bounds_correction_matches_loc_36770() {
         assert_eq!(
             enemies::big_hopping_skull_bounds_correction_loc_36770(
                 0x0080,

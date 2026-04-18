@@ -3288,6 +3288,8 @@ pub(crate) fn big_hopping_skull_bounds_correction_loc_36770(
             route: BigHoppingSkullBoundsRouteLoc36770::HitLeftBound,
         }
     } else if x_pos_word >= right_bound_word {
+        // ASM Big_Hopping_Skull.asm loc_36798: y_vel.high=$FFFE,
+        // x_vel.high=$FFFF, and `sf x_direction(a3)` faces left.
         BigHoppingSkullBoundsCorrectionLoc36770 {
             x_velocity: write_velocity_high_word(x_velocity, -1),
             y_velocity: write_velocity_high_word(y_velocity, -2),
