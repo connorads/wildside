@@ -101,6 +101,11 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES: usize =
 // `cmpi.w #$100,($FFFFF876).w`, so the fade helper idles for 17 frames before
 // it finally dispatches `$44(a5)` to loc_1B9B2.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_FADE_FRAMES: usize = 17;
+// ASM loc_1C234 (kid.asm:31103): before each non-final shared fade pass,
+// `moveq #-1,d0` writes `$FFFFFFFF` to `$FFFFF888` and `$FFFFF88C`, then
+// branches back to loc_1C21E. Native folds those shadow-palette writes into
+// the same 17-frame timing window because the timeout-restart model does not
+// keep the intermediate palette masks.
 // ASM sub_1B988 / sub_1C204 / loc_1B9B6 do not start the
 // `move.w #$21B,d0` / `dbf` countdown until the delayed `sub_1B988` worker
 // reaches the end of the 17-frame fade helper. On the timeout-restart path
