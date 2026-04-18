@@ -1380,6 +1380,36 @@ pub(crate) struct OrcaFatalFallFrameLoc3D496 {
     pub(crate) route: OrcaFatalFallRouteLoc3D496,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct OrcaFatalFallDeathAnimationLoc3D4BC {
+    pub(crate) next_collision_type: i16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) animation_script: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) exits_enemy: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn orca_fatal_fall_death_animation_loc_3d4bc() -> OrcaFatalFallDeathAnimationLoc3D4BC {
+    // ASM Orca.asm loc_3D4BC: after fatal-fall floor/slope contact, stop
+    // both velocity components, clear movement/level collision, play
+    // `stru_3D11E`, wait for it to finish, then branch to loc_3E956.
+    OrcaFatalFallDeathAnimationLoc3D4BC {
+        next_collision_type: 0,
+        x_velocity: 0,
+        y_velocity: 0,
+        is_moved: false,
+        has_level_collision: false,
+        animation_script: "stru_3D11E",
+        waits_until_animation_finished: true,
+        exits_enemy: true,
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_fatal_fall_frame_loc_3d496(
     collision_type: i16,
@@ -1395,17 +1425,18 @@ pub(crate) fn orca_fatal_fall_frame_loc_3d496(
     );
 
     if landed {
+        let death_animation = orca_fatal_fall_death_animation_loc_3d4bc();
         OrcaFatalFallFrameLoc3D496 {
-            next_collision_type: 0,
-            x_velocity: 0,
-            y_velocity: 0,
-            is_moved: false,
-            has_level_collision: false,
+            next_collision_type: death_animation.next_collision_type,
+            x_velocity: death_animation.x_velocity,
+            y_velocity: death_animation.y_velocity,
+            is_moved: death_animation.is_moved,
+            has_level_collision: death_animation.has_level_collision,
             hibernates_one_frame: true,
             route: OrcaFatalFallRouteLoc3D496::DeathAnimation {
-                animation_script: "stru_3D11E",
-                waits_until_animation_finished: true,
-                exits_enemy: true,
+                animation_script: death_animation.animation_script,
+                waits_until_animation_finished: death_animation.waits_until_animation_finished,
+                exits_enemy: death_animation.exits_enemy,
             },
         }
     } else {

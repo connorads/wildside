@@ -9299,6 +9299,24 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_fatal_fall_death_animation_matches_loc_3d4bc() {
+        assert_eq!(
+            orca_fatal_fall_death_animation_loc_3d4bc(),
+            OrcaFatalFallDeathAnimationLoc3D4BC {
+                next_collision_type: 0,
+                x_velocity: 0,
+                y_velocity: 0,
+                is_moved: false,
+                has_level_collision: false,
+                animation_script: "stru_3D11E",
+                waits_until_animation_finished: true,
+                exits_enemy: true,
+            },
+            "ASM Orca.asm loc_3D4BC should stop motion, disable movement/level collision, play `stru_3D11E`, and exit"
+        );
+    }
+
+    #[test]
     fn orca_fatal_fall_loop_matches_loc_3d496() {
         assert_eq!(ORCA_FATAL_FALL_GRAVITY_LOC_3D496, 0x0000_1800);
         assert_eq!(
@@ -9315,23 +9333,25 @@ mod chunk_04 {
             "ASM Orca.asm loc_3D496 should clear collision, hibernate, add $1800 to y_vel, and loop without floor/slope contact"
         );
 
-        assert_eq!(
-            orca_fatal_fall_frame_loc_3d496(ORCA_COLID_SLOPEUP, 0x0000_4000, 0x0001_8000),
-            OrcaFatalFallFrameLoc3D496 {
-                next_collision_type: 0,
-                x_velocity: 0,
-                y_velocity: 0,
-                is_moved: false,
-                has_level_collision: false,
-                hibernates_one_frame: true,
-                route: OrcaFatalFallRouteLoc3D496::DeathAnimation {
-                    animation_script: "stru_3D11E",
-                    waits_until_animation_finished: true,
-                    exits_enemy: true,
+        for collision_type in [ORCA_COLID_FLOOR, ORCA_COLID_SLOPEUP, ORCA_COLID_SLOPEDOWN] {
+            assert_eq!(
+                orca_fatal_fall_frame_loc_3d496(collision_type, 0x0000_4000, 0x0001_8000),
+                OrcaFatalFallFrameLoc3D496 {
+                    next_collision_type: 0,
+                    x_velocity: 0,
+                    y_velocity: 0,
+                    is_moved: false,
+                    has_level_collision: false,
+                    hibernates_one_frame: true,
+                    route: OrcaFatalFallRouteLoc3D496::DeathAnimation {
+                        animation_script: "stru_3D11E",
+                        waits_until_animation_finished: true,
+                        exits_enemy: true,
+                    },
                 },
-            },
-            "ASM Orca.asm loc_3D496 should stop motion and play the death animation on floor or slope contact"
-        );
+                "ASM Orca.asm loc_3D496 should route floor/slope contact through loc_3D4BC death animation"
+            );
+        }
     }
 
     #[test]
