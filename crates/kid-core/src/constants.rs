@@ -92,6 +92,10 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES: usize = 27;
 // visible `move.w #4,(Camera_Y_pos).w` does not surface until frame 9392 in
 // the timeout-restart published TAS window, after a short zero-camera gap.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES: usize = 37;
+// ASM loc_1C210 (kid.asm:31089): shared sub_1C204 fills all 64 words of
+// `Palette_Buffer_3` from `$FFFFFBCC` before the fade-loop timing below.
+// Native's timeout-restart model keeps this path as timing-visible state and
+// does not materialise the intermediate CRAM staging buffer.
 // ASM sub_1C204 loops on `Hibernate_Object_1Frame`, `addi.w #$10,
 // ($FFFFF876).w`, `cmpi.w #$100,($FFFFF876).w`, so the fade helper idles for
 // 17 frames before it finally dispatches `$44(a5)` to loc_1B9B2.
