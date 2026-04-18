@@ -5349,6 +5349,8 @@ pub(crate) fn scorpion_timer_gate_loc_3dea0(
         };
     }
 
+    // ASM Scorpion.asm loc_3DEAE decrements `$54(a5)` and resumes until it
+    // reaches zero, then swaps the packed `$6E(a5)` timer pair.
     let timer_54 = timer_54.wrapping_sub(1);
     if timer_54 != 0 {
         return ScorpionTimerGateLoc3DEA0 {

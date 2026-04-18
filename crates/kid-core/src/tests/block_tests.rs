@@ -2968,6 +2968,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn scorpion_timer_restart_matches_loc_3deae_swap_and_reload() {
+        use enemies::{
+            ScorpionTimerGateLoc3DEA0, ScorpionTimerRestartRouteLoc3DEA0,
+            ScorpionTimerRouteLoc3DEA0, scorpion_timer_gate_loc_3dea0,
+        };
+
+        assert_eq!(
+            scorpion_timer_gate_loc_3dea0(0, 1, 0x1234_00AB, Direction::Left),
+            ScorpionTimerGateLoc3DEA0 {
+                timer_54: 0x1234,
+                alternating_timer_pair_6e: 0x00AB_1234,
+                route: ScorpionTimerRouteLoc3DEA0::RestartPacing {
+                    next: ScorpionTimerRestartRouteLoc3DEA0::ClearDirection,
+                },
+            },
+            "ASM Scorpion.asm loc_3DEAE decrements $54 to zero, swaps `$6E(a5)`, reloads $54 from the swapped low word, then restarts through the clear x_direction branch"
+        );
+    }
+
+    #[test]
     fn scorpion_collision_resume_patrol_branches_match_loc_3dd72() {
         use enemies::{ScorpionCollisionResumeBranchLoc3DD5C, scorpion_collision_resume_loc_3dd5c};
 
