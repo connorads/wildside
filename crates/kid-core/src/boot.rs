@@ -6540,6 +6540,12 @@ impl NativeRuntime {
                             self.begin_level_entry(self.current_level);
                         }
                         _ => {
+                            // ASM Load_OptionMenu -> sub_1C896 loc_1C8A2
+                            // (kid.asm:31547): copy all 64 options-palette
+                            // words from Pal_1C97C before constructing the
+                            // options object. Native does not model CRAM
+                            // palette state, so this enters the gameplay-state
+                            // side of the same load path.
                             self.boot_state = BootState::OptionsMenu { cursor: 0 };
                         }
                     }
