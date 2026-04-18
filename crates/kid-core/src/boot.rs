@@ -2436,6 +2436,14 @@ pub(crate) enum IntroTextByteDispatchLoc1C7B6 {
     Continue { byte: u8 },
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTextLineBreakLoc1C7C4 {
+    pub(crate) next_x_pos: u16,
+    pub(crate) next_y_pos: u16,
+    pub(crate) continues_parsing: bool,
+}
+
 impl TitleTextWordWritesSub1B7B6 {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn bottom_word_addresses(self) -> [u16; 2] {
@@ -2464,6 +2472,22 @@ pub(crate) fn intro_text_byte_dispatch_loc_1C7B6(byte: u8) -> IntroTextByteDispa
         IntroTextByteDispatchLoc1C7B6::DeleteCurrentObject
     } else {
         IntroTextByteDispatchLoc1C7B6::Continue { byte }
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_text_line_break_loc_1C7C4(
+    header_x_pos: u16,
+    current_y_pos: u16,
+) -> IntroTextLineBreakLoc1C7C4 {
+    // ASM loc_1C7C4 (kid.asm:31424-31429): when the parser sees `$FD`, reload
+    // `d1` from the text header's X coordinate at `6(a0)`, advance `d2` by two
+    // rows, and branch back to `loc_1C7B6` for the next byte.
+    IntroTextLineBreakLoc1C7C4 {
+        next_x_pos: header_x_pos,
+        next_y_pos: current_y_pos.wrapping_add(2),
+        continues_parsing: true,
     }
 }
 
