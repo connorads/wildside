@@ -2459,7 +2459,8 @@ pub(crate) fn boss_death_burst_timeout_ground_gate_loc_3724A(
 ) -> BossDeathBurstTimeoutGroundGateLoc3724A {
     // ASM loc_3724A (kid.asm:39105): loop back to loc_3720A until `$18(a3)`
     // is non-zero. Once grounded, allocate a `sub_37002` helper at `y_pos+8`
-    // and at `x_pos-5` for clear `x_direction`, otherwise `x_pos+5`.
+    // and at `x_pos-5` for clear `x_direction`. ASM loc_37280 is the
+    // non-zero `x_direction` tail that stores `x_pos+5` before sub_3728C.
     if !grounded {
         return BossDeathBurstTimeoutGroundGateLoc3724A {
             final_spawn: None,
