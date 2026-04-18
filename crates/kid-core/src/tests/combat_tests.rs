@@ -8760,6 +8760,46 @@ mod chunk_05 {
     }
 
     #[test]
+    fn level_timer_clock_bonus_loc_ffde_preserves_seconds_below_cap() {
+        let mut timer = LevelTimer {
+            seconds: 6 * 60 + 59,
+            sub_frames: 42,
+        };
+
+        timer.add_clock_bonus();
+
+        assert_eq!(
+            timer.seconds,
+            9 * 60 + 59,
+            "ASM loc_FFDE should add three minutes without clearing seconds while the result stays below 10:00"
+        );
+        assert_eq!(
+            timer.sub_frames, 1,
+            "ASM loc_FFFC should still reset `Time_SubSeconds` after the loc_FFDE minute bonus"
+        );
+    }
+
+    #[test]
+    fn level_timer_clock_bonus_loc_ffde_clears_seconds_at_cap() {
+        let mut timer = LevelTimer {
+            seconds: 7 * 60 + 1,
+            sub_frames: 42,
+        };
+
+        timer.add_clock_bonus();
+
+        assert_eq!(
+            timer.seconds,
+            10 * 60,
+            "ASM loc_FFDE should clamp above 10 minutes to exactly 10:00, matching the seconds-digit clear"
+        );
+        assert_eq!(
+            timer.sub_frames, 1,
+            "ASM loc_FFFC should still reset `Time_SubSeconds` after the loc_FFDE clamp path"
+        );
+    }
+
+    #[test]
     fn level_timer_clock_bonus_caps_at_ten_minutes() {
         let mut timer = LevelTimer::new();
         // At 3:00, add clock → 6:00
