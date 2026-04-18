@@ -7680,6 +7680,8 @@ impl NativeRuntime {
                 played_effects.push(pending.effect);
             }
         }
+        // ASM Mini_Hopping_Skull.asm loc_3F406: after the optional scream branch,
+        // the transient worker always jumps to `j_Delete_CurrentObject`.
         self.pending_sound_effects
             .retain(|pending| pending.delay_frames > 0);
         self.played_sound_effects.extend(played_effects);

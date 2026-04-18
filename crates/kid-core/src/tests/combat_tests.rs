@@ -5604,6 +5604,27 @@ mod chunk_03 {
     }
 
     #[test]
+    fn mini_hopping_skull_loc_3f406_deletes_suppressed_scream_worker() {
+        // ASM Mini_Hopping_Skull.asm loc_3F406 is reached when `$19(a3)` is set:
+        // skip `PlaySound`, then always jump to `j_Delete_CurrentObject`.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.queue_mini_hopping_skull_scream(true);
+
+        for _ in 0..15 {
+            runtime.step_pending_sound_effects();
+        }
+
+        assert!(
+            runtime.played_sound_effects.is_empty(),
+            "loc_3F406 should skip the scream SFX when the `$19(a3)` suppress flag is set",
+        );
+        assert!(
+            runtime.pending_sound_effects.is_empty(),
+            "loc_3F406 should delete the transient sub_3F3F0 worker even when sound is suppressed",
+        );
+    }
+
+    #[test]
     fn sub_1b36c_plays_thunderstorm_without_clobbering_d0() {
         let mut runtime = NativeRuntime::new(manifest());
 
