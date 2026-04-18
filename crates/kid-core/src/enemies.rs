@@ -5139,6 +5139,7 @@ pub(crate) const TANK_BULLET_SPAWN_Y_OFFSET_PX: i32 = 14;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankBulletLoopRouteLoc3B7BA {
     Continue,
+    /// ASM Tank_Shooting.asm loc_3B7EC: shared `j_Delete_CurrentObject` tail.
     Delete,
 }
 
@@ -5151,8 +5152,8 @@ pub(crate) fn tank_bullet_loop_route_loc_3b7ba(
     collision_type: u16,
 ) -> TankBulletLoopRouteLoc3B7BA {
     // ASM Tank_Shooting.asm loc_3B7BA: after one hibernated frame, compare the
-    // signed camera-relative x/y words against [-$80, $1C0], then loop only
-    // while collision_type remains zero.
+    // signed camera-relative x/y words against [-$80, $1C0]. Any failed bounds
+    // check, or any nonzero collision_type, branches to loc_3B7EC.
     let relative_x = x_pos_word.wrapping_sub(camera_x_word) as i16;
     if !(-0x80..=0x01C0).contains(&relative_x) {
         return TankBulletLoopRouteLoc3B7BA::Delete;
@@ -25857,35 +25858,41 @@ mod tests {
     }
 
     #[test]
-    fn tank_bullet_loop_route_loc_3b7ba_deletes_on_bounds_or_collision() {
+    fn tank_bullet_loop_route_loc_3b7ba_branches_to_loc_3b7ec_on_bounds_or_collision() {
         assert_eq!(
             tank_bullet_loop_route_loc_3b7ba(0x017F, 0x0100, 0x0200, 0x0100, 0),
             TankBulletLoopRouteLoc3B7BA::Delete,
-            "ASM Tank_Shooting.asm loc_3B7BA should delete when signed relative x is below `$FF80`",
+            "ASM Tank_Shooting.asm loc_3B7BA should branch to loc_3B7EC when signed relative x is below `$FF80`",
         );
 
         assert_eq!(
             tank_bullet_loop_route_loc_3b7ba(0x03C1, 0x0100, 0x0200, 0x0100, 0),
             TankBulletLoopRouteLoc3B7BA::Delete,
-            "ASM Tank_Shooting.asm loc_3B7BA should delete when signed relative x is above `$01C0`",
+            "ASM Tank_Shooting.asm loc_3B7BA should branch to loc_3B7EC when signed relative x is above `$01C0`",
         );
 
         assert_eq!(
             tank_bullet_loop_route_loc_3b7ba(0x0200, 0x007F, 0x0200, 0x0100, 0),
             TankBulletLoopRouteLoc3B7BA::Delete,
-            "ASM Tank_Shooting.asm loc_3B7BA should delete when signed relative y is below `$FF80`",
+            "ASM Tank_Shooting.asm loc_3B7BA should branch to loc_3B7EC when signed relative y is below `$FF80`",
         );
 
         assert_eq!(
             tank_bullet_loop_route_loc_3b7ba(0x0200, 0x02C1, 0x0200, 0x0100, 0),
             TankBulletLoopRouteLoc3B7BA::Delete,
-            "ASM Tank_Shooting.asm loc_3B7BA should delete when signed relative y is above `$01C0`",
+            "ASM Tank_Shooting.asm loc_3B7BA should branch to loc_3B7EC when signed relative y is above `$01C0`",
         );
 
         assert_eq!(
             tank_bullet_loop_route_loc_3b7ba(0x0200, 0x0100, 0x0200, 0x0100, 0x001C),
             TankBulletLoopRouteLoc3B7BA::Delete,
-            "ASM Tank_Shooting.asm loc_3B7BA should delete on any nonzero collision_type after the bounds checks",
+            "ASM Tank_Shooting.asm loc_3B7BA should branch to loc_3B7EC on any nonzero collision_type after the bounds checks",
+        );
+
+        assert_eq!(
+            tank_bullet_loop_route_loc_3b7ba(0x0200, 0x0100, 0x0200, 0x0100, 0xFFFF),
+            TankBulletLoopRouteLoc3B7BA::Delete,
+            "ASM Tank_Shooting.asm loc_3B7EC is also reached for signed-negative nonzero collision_type words",
         );
     }
 
