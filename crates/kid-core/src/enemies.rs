@@ -723,6 +723,29 @@ pub(crate) fn crab_airborne_threshold_route_loc_3b1c6(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CrabAirborneSettleTailLoc3B254 {
+    pub(crate) is_moved: bool,
+    pub(crate) has_level_collision: bool,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) resumes_proximity_callback: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn crab_airborne_settle_tail_loc_3b254() -> CrabAirborneSettleTailLoc3B254 {
+    // ASM Crab.asm loc_3B254: `sf is_moved(a3)`, `sf has_level_collision(a3)`,
+    // zero both velocity longwords, then branch back to loc_3B0BE.
+    CrabAirborneSettleTailLoc3B254 {
+        is_moved: false,
+        has_level_collision: false,
+        x_velocity: 0,
+        y_velocity: 0,
+        resumes_proximity_callback: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabAirborneCollisionRouteLoc3B1DA {
     GravityTail,
     ReverseXVelocity,
@@ -24293,6 +24316,21 @@ mod tests {
             crab_airborne_threshold_route_loc_3b1c6(-0x0000_8000),
             CrabAirborneThresholdRouteLoc3B1C6::ContinueCollisionResponse,
             "ASM Crab.asm loc_3B1C6 should continue at exact `-$8000` because the second signed `bgt` is false"
+        );
+    }
+
+    #[test]
+    fn crab_airborne_settle_tail_matches_loc_3b254() {
+        assert_eq!(
+            crab_airborne_settle_tail_loc_3b254(),
+            CrabAirborneSettleTailLoc3B254 {
+                is_moved: false,
+                has_level_collision: false,
+                x_velocity: 0,
+                y_velocity: 0,
+                resumes_proximity_callback: true,
+            },
+            "ASM Crab.asm loc_3B254 should clear movement/collision flags, zero both velocities, and resume loc_3B0BE"
         );
     }
 
