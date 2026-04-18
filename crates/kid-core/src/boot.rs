@@ -2423,10 +2423,27 @@ pub(crate) struct TitleTextWordWritesSub1B7B6 {
     pub(crate) bottom_words: [u16; 2],
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTextInitialHibernateLoc1C7AE {
+    pub(crate) hibernate_frames: u8,
+}
+
 impl TitleTextWordWritesSub1B7B6 {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn bottom_word_addresses(self) -> [u16; 2] {
         [self.base_word_address + 0x50, self.base_word_address + 0x52]
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_text_initial_hibernate_loc_1C7AE() -> IntroTextInitialHibernateLoc1C7AE {
+    // ASM loc_1C7A0 -> loc_1C7AE (kid.asm:31404-31414): the intro text worker
+    // seeds `d0=1`, hibernates one object frame, then decrements `d0` to zero
+    // before the byte parser can consume the text stream.
+    IntroTextInitialHibernateLoc1C7AE {
+        hibernate_frames: 1,
     }
 }
 
