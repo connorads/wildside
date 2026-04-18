@@ -283,6 +283,8 @@ pub(crate) fn intro_sequence_5_center_particle_loc_1BE88(
     IntroSequence5CenterParticleLoc1BE88 {
         x_pos,
         y_pos,
+        // ASM loc_1BECE (kid.asm:30710-30713): all FC82 variants share the
+        // same x/y velocity seed and `$5EB` VRAM tile before sprite selection.
         x_vel: 0x0002_F000,
         y_vel: 0xFFFF_7100, // -0x8F000 in 16.16 fixed-point
         vram_tile: 0x05EB,
