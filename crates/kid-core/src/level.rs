@@ -7630,6 +7630,8 @@ pub(crate) fn object_check_in_range_active_count_gate_loc_320E2(
     // window when `Number_Objects > $14`; otherwise it branches to `loc_3211A`.
     // Inside the tight path, it subtracts `Camera_X_pos` from `x_pos(a3)` and
     // reaches `loc_32102` only when relative x stays inside `[-$104, $244]`.
+    // Failed tight-window checks branch to loc_32116, whose `moveq #1,d7; rts`
+    // reports the object as out of range.
     let uses_tight_window = number_objects > 0x0014;
     let relative_x = object_x_pos.wrapping_sub(camera_x_pos);
     let reaches_loc_32102 = uses_tight_window && (-0x0104..=0x0244).contains(&relative_x);
