@@ -11296,6 +11296,26 @@ pub(crate) fn fireball_trail_delete_tail_loc_33120(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireballObstacleTrailDeleteTailLoc331CA {
+    pub(crate) next_fire_trail_count: u16,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fireball_obstacle_trail_delete_tail_loc_331ca(
+    fire_trail_count: u16,
+) -> FireballObstacleTrailDeleteTailLoc331CA {
+    // ASM Fireball.asm loc_331CA: every `loc_33128` rejection and the
+    // `loc_331BA` lifetime fall-through decrement Number_of_Fire_Trails before
+    // jumping directly to `j_Delete_CurrentObject`.
+    FireballObstacleTrailDeleteTailLoc331CA {
+        next_fire_trail_count: fire_trail_count.wrapping_sub(1),
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireballSpriteBranchLoc32F3E {
     Vertical { sprite_index: i16 },
     NegativeX,
@@ -33457,6 +33477,26 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Fireball.asm loc_33120 uses word subtraction, so an unexpected zero Number_of_Fire_Trails wraps to `$FFFF`"
+        );
+    }
+
+    #[test]
+    fn fireball_obstacle_trail_delete_tail_loc_331ca_decrements_global_count() {
+        assert_eq!(
+            fireball_obstacle_trail_delete_tail_loc_331ca(5),
+            FireballObstacleTrailDeleteTailLoc331CA {
+                next_fire_trail_count: 4,
+                deletes_current_object: true,
+            },
+            "ASM Fireball.asm loc_331CA should decrement Number_of_Fire_Trails before deleting the current object"
+        );
+        assert_eq!(
+            fireball_obstacle_trail_delete_tail_loc_331ca(0),
+            FireballObstacleTrailDeleteTailLoc331CA {
+                next_fire_trail_count: 0xFFFF,
+                deletes_current_object: true,
+            },
+            "ASM Fireball.asm loc_331CA uses word subtraction, so an unexpected zero Number_of_Fire_Trails wraps to `$FFFF`"
         );
     }
 
