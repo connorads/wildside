@@ -9316,6 +9316,9 @@ pub(crate) fn classify_enemy_contact_with_half_width(
             }
         }
     } else if object_y_delta >= 0 {
+        // ASM loc_1C94 (kid.asm:3427): object X delta is negative
+        // (object slower in X), while the Y delta stays non-negative after
+        // `move.l $2A(a2),d7; sub.l $2A(a0),d7`; the negative-Y branch is skipped.
         let x_term = i64::from(object_left - kid_right) * i64::from(rel_y);
         let y_term = i64::from(object_bottom - kid_top) * i64::from(rel_x);
         if y_term < x_term {
