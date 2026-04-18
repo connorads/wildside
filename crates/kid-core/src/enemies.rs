@@ -20276,6 +20276,16 @@ pub(crate) struct DripsSurfaceCrawlerTurnScriptLoc33AF6 {
     pub(crate) next: DripsSurfaceCrawlerTurnNextLoc33AF6,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DripsSurfaceCrawlerFirstAnimationLoc33B30 {
+    pub(crate) x_delta: i16,
+    pub(crate) y_delta: i16,
+    pub(crate) animation: DripsSurfaceCrawlerTurnAnimationLoc33AF6,
+    pub(crate) waits_for_animation_to_finish: bool,
+    pub(crate) flip_after_animation: bool,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 fn drips_turn_script_i8(byte: u8) -> i16 {
     i16::from(i8::from_ne_bytes([byte]))
@@ -20335,21 +20345,39 @@ fn drips_turn_script_next_loc_33af6(byte_offset: u8) -> DripsSurfaceCrawlerTurnN
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn drips_surface_crawler_first_animation_loc_33b30(
+    table: [u8; 4],
+) -> DripsSurfaceCrawlerFirstAnimationLoc33B30 {
+    // ASM Drips.asm loc_33B30: sign-extend the two byte deltas into x/y
+    // position words, initialise the selected animation, hibernate until it
+    // finishes, then optionally `not.b x_direction(a3)`.
+    DripsSurfaceCrawlerFirstAnimationLoc33B30 {
+        x_delta: drips_turn_script_i8(table[0]),
+        y_delta: drips_turn_script_i8(table[1]),
+        animation: drips_turn_script_animation_loc_33af6(table[2]),
+        waits_for_animation_to_finish: true,
+        flip_after_animation: table[3] != 0,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 fn drips_surface_crawler_turn_script_loc_33af6(
     table: [u8; 16],
 ) -> DripsSurfaceCrawlerTurnScriptLoc33AF6 {
     // ASM Drips.asm loc_33AF6: zero velocity/fractional position, snap the
     // selected x/y word through `andi.w #$FFF0`, run one animation, then apply
     // the second movement/velocity tuple before jumping through `off_33ADA`.
+    let first_animation =
+        drips_surface_crawler_first_animation_loc_33b30([table[4], table[5], table[6], table[7]]);
     DripsSurfaceCrawlerTurnScriptLoc33AF6 {
         snap_field: drips_turn_script_field_loc_33af6(table[0]),
         snap_offset: drips_turn_script_i8(table[1]) + drips_turn_script_i8(table[2]),
         snap_mask: 0xFFF0,
         flip_before_first_animation: table[3] != 0,
-        first_x_delta: drips_turn_script_i8(table[4]),
-        first_y_delta: drips_turn_script_i8(table[5]),
-        first_animation: drips_turn_script_animation_loc_33af6(table[6]),
-        flip_after_first_animation: table[7] != 0,
+        first_x_delta: first_animation.x_delta,
+        first_y_delta: first_animation.y_delta,
+        first_animation: first_animation.animation,
+        flip_after_first_animation: first_animation.flip_after_animation,
         second_x_delta: drips_turn_script_i8(table[8]),
         second_y_delta: drips_turn_script_i8(table[9]),
         x_velocity_delta: drips_turn_script_i16(table[10], table[11]),
@@ -29713,6 +29741,32 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Drips.asm loc_3392C clears movement, waits for animation completion, decrements current Drips count, and deletes the object"
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_first_animation_matches_loc_33b30() {
+        assert_eq!(
+            drips_surface_crawler_first_animation_loc_33b30([0xFF, 0xFC, 0x44, 0xFF]),
+            DripsSurfaceCrawlerFirstAnimationLoc33B30 {
+                x_delta: -1,
+                y_delta: -4,
+                animation: DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33DBC,
+                waits_for_animation_to_finish: true,
+                flip_after_animation: true,
+            },
+            "ASM Drips.asm loc_33B30 sign-extends byte x/y deltas, runs `j_Hibernate_UntilAnimFinished`, and flips x_direction only for non-zero script byte"
+        );
+        assert_eq!(
+            drips_surface_crawler_first_animation_loc_33b30([0x03, 0x01, 0x38, 0x00]),
+            DripsSurfaceCrawlerFirstAnimationLoc33B30 {
+                x_delta: 3,
+                y_delta: 1,
+                animation: DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33DF4,
+                waits_for_animation_to_finish: true,
+                flip_after_animation: false,
+            },
+            "ASM Drips.asm loc_33B30 skips `not.b x_direction(a3)` when the post-animation byte is zero"
         );
     }
 
