@@ -5902,6 +5902,8 @@ pub(crate) fn kid_hitbox_solid_scan_expand_up_loc_2050(
     // `j_Palette_to_VRAM0` returns non-zero. The post-hit `add.w d3,a1`
     // restores the last zero row, and `sub_1F8E` seeds the low words of
     // `d1/d2` from that restored row with `d1 = row << 4` and `d2 = d1 - 1`.
+    // ASM loc_2074 (kid.asm:3876-3881) consumes that pre-increment `d2` seed
+    // when the following downward scan adds `$10` before each row probe.
     let blocking_offset = palette_results.iter().position(|&result| result != 0)?;
     let restored_index = start_index_after_left_blocker
         .checked_sub(blocking_offset.checked_mul(level_width_tiles)?)?;
