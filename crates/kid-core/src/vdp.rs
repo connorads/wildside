@@ -423,6 +423,9 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
         kid_data::decode_enigma(&tilemap_raw, 0x20C1).context("failed to decode title tilemap")?;
 
     // Get tile patch words from the load plan.
+    // ASM loc_1C4E0 (kid.asm:31213): region byte 1 seeds the optional
+    // 0x13-word title-palette overlay; native's title-screen cache currently
+    // uses the default region path, so the symbolic plan has no overlay load.
     let plan = kid_data::title_screen_load_plan_sub_1B2A4(0);
     let tile_patch_words = plan.tile_patch_words;
 
