@@ -35889,6 +35889,8 @@ pub(crate) fn enemy_art_decompress_route_loc_36E24(
             EnemyArtDecompressRouteLoc36E24::ForestRam
         }
     } else if use_special_vram_palette {
+        // ASM loc_36E2C (kid.asm:38723): after skipping the Forest RAM path,
+        // non-zero `d6` calls `j_DecompressToRAM_Special`.
         EnemyArtDecompressRouteLoc36E24::SpecialVram
     } else {
         // ASM loc_36E38 (kid.asm:38730): when neither the Forest RAM path nor
