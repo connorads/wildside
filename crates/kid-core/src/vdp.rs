@@ -426,7 +426,9 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     let plan = kid_data::title_screen_load_plan_sub_1B2A4(0);
     let tile_patch_words = plan.tile_patch_words;
 
-    // Load palette.
+    // ASM loc_1C4BE (kid.asm:31202): after loc_1C4B2 seeds `d0=#$32`,
+    // the inclusive DBF loop copies 0x33 words from Pal_1C400 into
+    // Palette_Buffer; native loads those same title palette words for CRAM.
     let palette_words = load_palette_words(&scenes.join("palette/title.bin"))?;
 
     Ok(TitleScreenData {
