@@ -6371,6 +6371,9 @@ impl NativeRuntime {
                     *cursor -= 1;
                     play_navigate_jingle = true;
                 } else if down_pressed && *cursor < 2 {
+                    // ASM Obj_TitleMenu loc_1BBF6: Down only moves while
+                    // `d1 != 2`, then calls sub_1BC26 before refreshing the
+                    // cursor row from word_1BC20.
                     self.title_idle_frames = 0;
                     *cursor += 1;
                     play_navigate_jingle = true;
@@ -6480,6 +6483,9 @@ impl NativeRuntime {
                     *cursor -= 1;
                     play_navigate_jingle = true;
                 } else if down_pressed && *cursor < 2 {
+                    // ASM Obj_TitleMenu loc_1BBF6: Down only moves while
+                    // `d1 != 2`, then calls sub_1BC26 before refreshing the
+                    // cursor row from word_1BC20.
                     self.title_idle_frames = 0;
                     *cursor += 1;
                     play_navigate_jingle = true;
