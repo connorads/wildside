@@ -13672,6 +13672,8 @@ pub(crate) fn background_scroll_enigma_row_transfer_loc_303D4(
     let source = if background_row_index < 0x1C {
         BackgroundScrollEnigmaRowSourceLoc303D4::LowerDecompressionBuffer
     } else {
+        // ASM loc_3041C (kid.asm:34043-34046): row bytes `$1C` and above load
+        // `$FFFF8EB2 + (row << 6)` for both primary and secondary copy passes.
         BackgroundScrollEnigmaRowSourceLoc303D4::UpperDecompressionBuffer
     };
     let (primary_decompression_byte_offset, secondary_decompression_byte_offset) = match source {
