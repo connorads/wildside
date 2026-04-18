@@ -9327,6 +9327,9 @@ pub(crate) fn classify_enemy_contact_with_half_width(
             ContactSide::Below
         }
     } else {
+        // ASM loc_1CB8 (kid.asm:3446): both object deltas are negative, so
+        // the ROM compares `(object_left - kid_right) * rel_y` with
+        // `(object_top - kid_bottom) * rel_x`.
         let x_term = i64::from(object_left - kid_right) * i64::from(rel_y);
         let y_term = i64::from(object_top - kid_bottom) * i64::from(rel_x);
         if y_term > x_term {
