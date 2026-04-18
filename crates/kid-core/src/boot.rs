@@ -2451,6 +2451,14 @@ pub(crate) struct IntroTextDelayLoc1C7D2 {
     pub(crate) returns_to_hibernate: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTextBuggySubstitutionLoc1C7DC {
+    pub(crate) comparison_addr: u16,
+    pub(crate) output_byte: u8,
+    pub(crate) substituted: bool,
+}
+
 impl TitleTextWordWritesSub1B7B6 {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn bottom_word_addresses(self) -> [u16; 2] {
@@ -2507,6 +2515,24 @@ pub(crate) fn intro_text_delay_loc_1C7D2(duration_byte: u8) -> IntroTextDelayLoc
     IntroTextDelayLoc1C7D2 {
         hibernate_frames: duration_byte,
         returns_to_hibernate: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_text_buggy_substitution_loc_1C7DC(
+    text_byte: u8,
+    exception_vector_byte: u8,
+) -> IntroTextBuggySubstitutionLoc1C7DC {
+    // ASM loc_1C7DC (kid.asm:31439-31442): compare `d6` with byte `(off_20).w`
+    // instead of immediate `#$20`; on equality replace `d6` with `$6D`.
+    // ORIGINAL_QUIRK: the ROM appears to read the exception vector table by
+    // mistake, so this is data-at-address `$20`, not the ASCII space byte.
+    let substituted = text_byte == exception_vector_byte;
+    IntroTextBuggySubstitutionLoc1C7DC {
+        comparison_addr: 0x0020,
+        output_byte: if substituted { 0x6D } else { text_byte },
+        substituted,
     }
 }
 
