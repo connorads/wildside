@@ -6007,6 +6007,9 @@ pub(crate) fn boss_head_movement_step_sub_39846(
             continue;
         }
 
+        // ASM loc_39858 (kid.asm:42489): a non-negative delay consumes the
+        // following X/Y words from `(a2)+`, then `swap; asr.l #1` converts
+        // each signed word into the FP16.16 velocity stored on the head.
         let to_fp16_16 = |word: i16| i32::from(word) << 15;
         return BossHeadMovementStepSub39846 {
             next_delay_counter: next_delay as u16,
