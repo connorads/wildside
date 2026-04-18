@@ -2912,6 +2912,8 @@ pub(crate) fn shishka_bagel_head_1_init_loc_39478(
     // copy anchor $44/$46, then branch on d2: unk_39872 + ShishkaBoss HP ($14)
     // when d2==0, unk_39AB2 + BagelBrothers HP ($1E) when d2!=0.
     let (object_meta_base, hit_points, movement_script_label) = if variant_d2 == 0 {
+        // ASM loc_394E2 (kid.asm:42088): the d2==0 ShishkaBoss path keeps
+        // `unk_39872` and writes ShishkaBoss_HitPointsPerHead ($14) to `$3E(a3)`.
         (0x0022_u16, 0x0014_u16, "unk_39872")
     } else {
         (0x0024, 0x001E, "unk_39AB2")
