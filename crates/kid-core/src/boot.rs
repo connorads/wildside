@@ -3998,6 +3998,15 @@ pub(crate) fn end_sequence_vram_zero_fill_loc_1DA7E() -> EndSequenceVramZeroFill
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) const fn end_sequence_palette_first_bank_words_loc_1C82C() -> u16 {
+    // ASM loc_1C82C (kid.asm:31483): `moveq #$F,d0` feeds the inclusive
+    // `move.w (a0)+,(a1)+; dbf d0,loc_1C82C` copy from `Pal_1C8AA` into the
+    // first `Palette_Buffer` bank.
+    0x000F + 1
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn end_sequence_fade_loop_loc_1D270() -> EndSequenceFadeLoopLoc1D270 {
     // ASM loc_1D270 (kid.asm:32637): after `moveq #7,d0`, each loop body loads
     // `d7 = #$20`, darkens `Palette_Buffer+$20` via `sub_1C85E`, hibernates for
