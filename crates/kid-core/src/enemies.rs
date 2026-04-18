@@ -11016,8 +11016,9 @@ pub(crate) fn ufo_linked_object_range_gate_loc_35280(
 }
 
 pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
-    // ASM Tornado.asm loc_359F2 / unk_35A0C: advance through the 16-entry
-    // motion script and wrap when the following longword sentinel equals 1.
+    // ASM Tornado.asm loc_359F2 -> loc_35A02 / unk_35A0C: use the current
+    // 16-byte motion-script entry, advance the script pointer, and wrap when
+    // the following longword sentinel equals 1.
     let index = usize::from(enemy.dragon_script_cmd) % TORNADO_PATTERN_SCRIPT.len();
     let pattern = TORNADO_PATTERN_SCRIPT[index];
     enemy.dragon_script_cmd = ((index + 1) % TORNADO_PATTERN_SCRIPT.len()) as u8;

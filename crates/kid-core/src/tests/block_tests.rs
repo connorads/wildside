@@ -7680,6 +7680,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn tornado_pattern_tail_loc_35a02_advances_and_wraps_after_last_entry() {
+        let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
+        enemy.dragon_script_cmd = (TORNADO_PATTERN_SCRIPT.len() - 1) as u8;
+
+        reload_tornado_pattern_script(&mut enemy);
+
+        assert_eq!(
+            enemy.target_x_velocity, -0x0001_8000,
+            "ASM Tornado.asm loc_35A02 uses the current a0 entry as a4 before adding `$10` to the next script pointer"
+        );
+        assert_eq!(enemy.target_y_velocity, 0x0001_8000);
+        assert_eq!(enemy.x_acceleration, -0x0000_1800);
+        assert_eq!(enemy.y_acceleration, 0x0000_1800);
+        assert_eq!(
+            enemy.dragon_script_cmd, 0,
+            "ASM Tornado.asm loc_359F2 sees the `$00000001` sentinel after loc_35A02 advances past the last entry and reloads unk_35A0C"
+        );
+    }
+
+    #[test]
     fn tornado_loc_3592e_level_1_doubles_x_script_terms() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 2);
         enemy.enemy_level = 1;
