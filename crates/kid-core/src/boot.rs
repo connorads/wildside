@@ -3356,6 +3356,28 @@ pub(crate) fn intro_decompression_buffer_zero_fill_loc_1C11E()
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence4PaletteMaskStartLoc1C1E2 {
+    pub(crate) start_byte_offset: usize,
+    pub(crate) mask: u8,
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_sequence_4_palette_mask_start_loc_1C1E2(
+    d3_before_lsr: u16,
+) -> IntroSequence4PaletteMaskStartLoc1C1E2 {
+    // ASM sub_1C1D2 -> loc_1C1E2 (kid.asm:31045-31051): `lsr.w #1,d3`
+    // halves the byte offset and leaves the old bit 0 in carry. Carry set
+    // keeps `d4=$F0`; carry clear falls through to `move.w #$F,d4`. The label
+    // then adds the shifted `d3` to the Level_Layout base pointer.
+    IntroSequence4PaletteMaskStartLoc1C1E2 {
+        start_byte_offset: usize::from(d3_before_lsr >> 1),
+        mask: if d3_before_lsr & 1 == 0 { 0x0F } else { 0xF0 },
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VdpPatternFillRowLoopLoc1C5E8 {
     pub(crate) vram_address_step: u32,
 }

@@ -1191,10 +1191,14 @@ mod chunk_11 {
         // The add.w d3,a0 at loc_1C1E2 uses the post-lsr d3 value (d3/2),
         // effectively adding (original_d3 >> 1) to the buffer pointer.
         let original_d3 = 0x42_u16; // example: arbitrary palette offset
-        let after_lsr = original_d3 >> 1; // d3 after lsr.w #1
+        let start = crate::boot::intro_sequence_4_palette_mask_start_loc_1C1E2(original_d3);
         assert_eq!(
-            after_lsr, 0x21,
+            start.start_byte_offset, 0x21_usize,
             "ASM loc_1C1E2 operates on d3 after the LSR divides by 2"
+        );
+        assert_eq!(
+            start.mask, 0x0F,
+            "ASM loc_1C1E2 fallthrough uses the high-nibble clear mask when carry is clear"
         );
         // The a0 register starts at the base of a palette row, and the add.w d3,a0
         // advances it to the specific palette entry within that row.
