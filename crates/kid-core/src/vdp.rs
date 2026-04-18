@@ -363,6 +363,8 @@ pub(crate) fn build_intro_sequence_vdp(data: &IntroSub1B850Data, segment: usize)
         // ASM loc_1C4F6 (kid.asm:31232): `move.w (a0)+,(a1)+; dbf`
         // copies 0x33 words from Pal_1C28A into Palette_Buffer_2.
         0 => &data.palette_segment_0,
+        // ASM loc_1C50A (kid.asm:31247): `move.w (a0)+,(a1)+; dbf`
+        // copies 0x23 words from Pal_1C2F0 into Palette_Buffer_2.
         1 => &data.palette_segment_1,
         _ => &data.palette_segment_2,
     };
