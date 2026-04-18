@@ -11079,6 +11079,24 @@ pub(crate) fn sphere_child_delete_tail_loc_3610E() -> SphereChildDeleteTailLoc36
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SphereCollisionTableGuardLoc36128 {
+    pub(crate) reachable_from_valid_table_index: bool,
+    pub(crate) traps_forever: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sphere_collision_table_guard_loc_36128() -> SphereCollisionTableGuardLoc36128 {
+    // ASM Sphere.asm loc_36128: `bra.s loc_36128` sits immediately before
+    // `off_3612A`; valid collision IDs start at `$04` and dispatch into the
+    // table, so this byte guard must never be a normal route.
+    SphereCollisionTableGuardLoc36128 {
+        reachable_from_valid_table_index: false,
+        traps_forever: true,
+    }
+}
+
 /// Fireball max upward velocity indexed by live HP
 /// (Fireball.asm `Enemy19_Fireball_Init`: `move.w 2(a0),d7; asl.w #3,d7` into `unk_32BA6`).
 /// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
@@ -33122,6 +33140,18 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Sphere.asm loc_3610E is the spawned child object's direct `j_Delete_CurrentObject` tail"
+        );
+    }
+
+    #[test]
+    fn sphere_collision_table_guard_loc_36128_is_self_loop_trap() {
+        assert_eq!(
+            sphere_collision_table_guard_loc_36128(),
+            SphereCollisionTableGuardLoc36128 {
+                reachable_from_valid_table_index: false,
+                traps_forever: true,
+            },
+            "ASM Sphere.asm loc_36128 is `bra.s loc_36128`, guarding the bytes before `off_3612A` rather than a valid collision table entry"
         );
     }
 
