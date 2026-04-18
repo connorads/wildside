@@ -5994,6 +5994,9 @@ pub(crate) fn boss_head_movement_step_sub_39846(
         };
     }
 
+    // ASM loc_3984C (kid.asm:42482): once the countdown reaches zero,
+    // read the next delay word from `(a2)+`; a negative sentinel rewinds
+    // `a2` to the reset script and retries the read.
     let mut script = current_script;
     let mut script_index = current_script_index;
     loop {
