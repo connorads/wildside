@@ -6287,6 +6287,8 @@ pub(crate) fn boss_head_movement_step_sub_398C4(
     // ASM loc_398CA (kid.asm:42538): after `subq.w #1,d0` reaches zero,
     // read `(a2)+`; a negative delay reloads `a2` with `unk_398F0` and
     // retries until a real Boomerang head-1 movement entry is consumed.
+    // ASM loc_398D6 (kid.asm:42545): consume that entry's X/Y words and
+    // convert each with `swap; asr.l #1` before storing head velocity.
     boss_head_movement_step_sub_39846(
         delay_counter_d0,
         current_script_index,
