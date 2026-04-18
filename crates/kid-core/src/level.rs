@@ -7363,6 +7363,8 @@ pub(crate) fn manage_enemy_loading_setup_loc_3682C(
     // from `Addr_EnemyLayout`, reads the leading word through `(a1)+`, masks
     // the loop counter down to its low byte with `andi.w #$FF,d7`, mirrors
     // that value into `d6`, and reanchors `a2` on `EnemyStatus_Table`.
+    // ASM loc_36968 (kid.asm:38096-38098) consumes this same `d7` with the
+    // inclusive `dbf d7,loc_36840` loop tail before setting `$FFFFFB51`.
     let enemy_count = enemy_count_word & 0x00FF;
     ManageEnemyLoadingSetupLoc3682C {
         enemy_count,
