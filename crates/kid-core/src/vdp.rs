@@ -360,6 +360,8 @@ pub(crate) fn build_intro_sequence_vdp(data: &IntroSub1B850Data, segment: usize)
     // ASM: segment 0 → Pal_1C28A (0x33 words), segment 1 → Pal_1C2F0 (0x23 words),
     // segments 2+ → Pal_1C346 (0x40 words).
     let palette = match segment {
+        // ASM loc_1C4F6 (kid.asm:31232): `move.w (a0)+,(a1)+; dbf`
+        // copies 0x33 words from Pal_1C28A into Palette_Buffer_2.
         0 => &data.palette_segment_0,
         1 => &data.palette_segment_1,
         _ => &data.palette_segment_2,
