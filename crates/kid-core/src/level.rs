@@ -5741,6 +5741,8 @@ pub(crate) fn kid_hitbox_solid_scan_setup_loc_1FB2(
     // from pixels to tile rows/columns, seed inclusive DBF counters, and load
     // the top-row/left-column Level_Layout address from `$FFFF4A04`.
     if scan_disabled_fa64 || !kid_object_present {
+        // ASM loc_200C (kid.asm:3824): restore the two saved Kid position
+        // words from the stack and return without a solid-tile hit.
         return None;
     }
 
@@ -5791,6 +5793,8 @@ pub(crate) fn kid_hitbox_solid_scan_loc_1FEE(
         }
     }
 
+    // ASM loc_200C (kid.asm:3824): if both inclusive DBF loops exhaust without
+    // a `$6000+` collision nibble, the scan unwinds the saved stack words and returns.
     None
 }
 
