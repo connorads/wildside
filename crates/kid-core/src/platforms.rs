@@ -206,6 +206,8 @@ pub(crate) fn vertical_push_magnitude_loc_266A(push_y_px: i16) -> VerticalPushMa
     // ASM loc_266A (kid.asm:4571): copy `d6` into `d4`, and when the signed
     // push is negative run `neg.w d4`. Returning the raw 16-bit word keeps the
     // original wraparound behaviour for the `$8000` overflow case.
+    // ASM loc_2672 (kid.asm:4576-4578) then compares this `d4` magnitude against
+    // horizontal magnitude `d5`, so this helper preserves the word consumed there.
     VerticalPushMagnitudeLoc266A {
         magnitude_word: if push_y_px >= 0 {
             push_y_px as u16
