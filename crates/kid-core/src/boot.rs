@@ -5280,6 +5280,9 @@ impl NativeRuntime {
         // ASM sub_1C246 writes `Game_Mode=$2C` immediately, but the later
         // Load_IntroSequence6 / loc_1BCD0 title rebuild still needs the local
         // settle window before the standard title pose appears.
+        // ASM loc_1C264 (kid.asm:31132): both `Game_Mode=$24` and `$28`
+        // Start-skip branches land on `move.w #$2C,(Game_Mode).w`, set the
+        // intro-sequence flag at `$FFFFFBCE`, stop music, and jump to loc_6E2.
         let mut ready_frame = self
             .frame_index
             .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES);
