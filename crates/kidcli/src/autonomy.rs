@@ -1306,7 +1306,12 @@ fn evaluate_source_port_frontier_cycle(
                     summary,
                 )
             } else if let Some(gate_failure) = select_release_gate_blocker(repo_root) {
-                let task = source_port_frontier_release_gate_task(frontier, &note, &gate_failure);
+                let task = source_port_frontier_release_gate_task(
+                    repo_root,
+                    frontier,
+                    &note,
+                    &gate_failure,
+                );
                 let summary = format!(
                     "TAS frontier {} is closed through frame {}; delegated to failing release-gate step {} ({}).",
                     frontier.slug,
@@ -1336,16 +1341,14 @@ fn evaluate_source_port_frontier_cycle(
                             frontier.slug, target
                         );
                         (
-                            TaskPackage {
-                                capability: CapabilityId::SourcePortFrontierTask,
-                                delegated_goal: Some(AutonomyGoal::ProactiveVerification),
-                                delegated_target: Some(target.clone()),
-                                delegation_reason: Some(
-                                    "ready backlog and release-gate blockers are clear; proactive verification has work"
-                                        .to_owned(),
-                                ),
-                                ..pv_task
-                            },
+                            source_port_frontier_proactive_task(
+                                pv_task,
+                                frontier,
+                                &note,
+                                target.clone(),
+                                "ready backlog and release-gate blockers are clear; proactive verification has work"
+                                    .to_owned(),
+                            ),
                             Some(AutonomyGoal::ProactiveVerification),
                             Some(target.clone()),
                             Some(target),
@@ -1466,7 +1469,14 @@ fn evaluate_source_port_frontier_cycle(
                                 "case-queue stalled {repeated_cycles} cycles; all sub_ covered, pivot to proactive-verification ({target})"
                             )),
                             next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
-                            ..pv_task
+                            ..source_port_frontier_proactive_task(
+                                pv_task,
+                                frontier,
+                                &note,
+                                target,
+                                "case-queue stalled and all sub_ labels are covered; proactive verification has work"
+                                    .to_owned(),
+                            )
                         };
                     } else {
                         let sweep_task =
@@ -1570,7 +1580,14 @@ fn evaluate_source_port_frontier_cycle(
                             "backlog-issue stalled {repeated_cycles} cycles; pivot to proactive-verification ({target})"
                         )),
                         next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
-                        ..pv_task
+                        ..source_port_frontier_proactive_task(
+                            pv_task,
+                            frontier,
+                            &note,
+                            target,
+                            "current source-port lane stalled; proactive verification has work"
+                                .to_owned(),
+                        )
                     };
                 } else {
                     apply_stalled_recovery(
@@ -1623,6 +1640,39 @@ fn evaluate_source_port_frontier_cycle(
     })
 }
 
+fn source_port_frontier_context(frontier: &ActiveFrontierState) -> FrontierContext {
+    FrontierContext {
+        slug: frontier.slug.clone(),
+        recording: frontier.recording.clone(),
+        scenario: frontier.scenario.clone(),
+        area: frontier.area.clone(),
+        status: frontier.status.clone(),
+        frontier_frame: frontier.frontier_frame,
+        authoritative_clean_through: frontier.authoritative_clean_through,
+        current_blocker: frontier.current_blocker.clone(),
+        current_hypothesis: frontier.current_hypothesis.clone(),
+        rejected_hypotheses: frontier.rejected_hypotheses.clone(),
+        required_next_evidence: frontier.required_next_evidence.clone(),
+        verification_commands: frontier.verification_commands.clone(),
+    }
+}
+
+fn source_port_frontier_proactive_task(
+    mut task: TaskPackage,
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+    target: String,
+    delegation_reason: String,
+) -> TaskPackage {
+    task.capability = CapabilityId::SourcePortFrontierTask;
+    task.frontier_context = Some(source_port_frontier_context(frontier));
+    task.delegated_goal = Some(AutonomyGoal::ProactiveVerification);
+    task.delegated_target = Some(target);
+    task.delegation_reason = Some(delegation_reason);
+    task.next_agent_note = Some(note.clone());
+    task
+}
+
 fn source_port_frontier_task(
     frontier: &ActiveFrontierState,
     note: &NextAgentNoteDirective,
@@ -1667,20 +1717,7 @@ fn source_port_frontier_task(
                 artefact_path: Some(note.path.clone()),
             },
         ],
-        frontier_context: Some(FrontierContext {
-            slug: frontier.slug.clone(),
-            recording: frontier.recording.clone(),
-            scenario: frontier.scenario.clone(),
-            area: frontier.area.clone(),
-            status: frontier.status.clone(),
-            frontier_frame: frontier.frontier_frame,
-            authoritative_clean_through: frontier.authoritative_clean_through,
-            current_blocker: frontier.current_blocker.clone(),
-            current_hypothesis: frontier.current_hypothesis.clone(),
-            rejected_hypotheses: frontier.rejected_hypotheses.clone(),
-            required_next_evidence: frontier.required_next_evidence.clone(),
-            verification_commands: frontier.verification_commands.clone(),
-        }),
+        frontier_context: Some(source_port_frontier_context(frontier)),
         case_queue_context: None,
         delegated_goal: None,
         delegated_target: None,
@@ -3072,85 +3109,353 @@ fn try_mutation_testing_strategy(
     output_dir: &str,
     targets: &[MutationTarget],
 ) -> Option<CycleReport> {
-    // Sort by tier, then pick first module without outcomes.json.
+    // Sort by tier, then pick the first module that still needs mutation work.
     let mut sorted: Vec<&MutationTarget> = targets.iter().collect();
     sorted.sort_by_key(|t| t.tier);
 
     for target in sorted {
         let module_stem = target.module.strip_suffix(".rs").unwrap_or(&target.module);
-        let outcomes_path = repo_root
-            .join(output_dir)
-            .join(module_stem)
-            .join("outcomes.json");
-        if !outcomes_path.exists() {
-            let command = format!(
-                "cargo mutants -p {} -f {} -j 4 --output {} -- --lib -- --skip demo_ --skip published_tas --skip snapshot",
-                target.package,
-                target.module,
-                PathBuf::from(output_dir).join(module_stem).display()
-            );
+        let output_root = PathBuf::from(output_dir).join(module_stem);
+        let output_root_abs = repo_root.join(&output_root);
+        let run = inspect_mutation_run(&output_root_abs);
 
-            let task = TaskPackage {
-                capability: CapabilityId::ProactiveVerificationTask,
-                title: format!(
-                    "Run mutation testing on {} (tier {})",
-                    target.module, target.tier
-                ),
-                summary: format!(
-                    "Run cargo-mutants on {} in package {}. For each surviving mutant: find the ASM routine, determine if it's a real bug or a test gap, and fix accordingly.",
-                    target.module, target.package
-                ),
-                generated_at: String::new(),
-                cycle: 0,
-                progress_fingerprint: String::new(),
-                sources: vec![
-                    format!("crates/{}/src/{}", target.package, target.module),
-                    ".cache/upstream/kid-chameleon-disasm/kid.asm".to_owned(),
-                    ".agents/skills/m68k-kid-asm/SKILL.md".to_owned(),
-                ],
-                implementation_targets: vec![format!(
-                    "crates/{}/src/{}",
-                    target.package, target.module
-                )],
-                commands: vec![command, "mise run verify-slice-fast".to_owned()],
-                done_criteria: vec![
-                    format!("Mutation testing outcomes.json exists for {}.", module_stem),
-                    "Surviving mutants triaged: bugs fixed or tests added.".to_owned(),
-                    "verify-slice-fast passes.".to_owned(),
-                ],
-                evidence: vec![EvidenceItem {
-                    label: "mutation-testing".to_owned(),
-                    status: "not-run".to_owned(),
-                    detail: format!(
-                        "{} (tier {}) has no mutation testing results yet",
-                        target.module, target.tier
-                    ),
-                    artefact_path: None,
-                }],
-                frontier_context: None,
-                case_queue_context: None,
-                delegated_goal: None,
-                delegated_target: None,
-                delegation_reason: None,
-                recovery_mode: None,
-                recovery_step: None,
-                stalled_repetition_count: None,
-                pivot_reason: None,
-                next_fallback_goal: None,
-                next_agent_note: None,
-                target_routines: None,
-            };
-
-            return Some(proactive_verification_report(
-                cycle,
-                "mutation-testing",
-                module_stem,
-                task,
-            ));
+        match &run.status {
+            MutationRunStatus::NotRun => {
+                let task = mutation_run_task(target, &output_root, None);
+                return Some(proactive_verification_report(
+                    cycle,
+                    "mutation-testing",
+                    &format!("{module_stem}:run"),
+                    task,
+                ));
+            }
+            MutationRunStatus::Incomplete { detail } => {
+                let detail_hash = stable_short_hash(detail);
+                let task = mutation_run_task(target, &output_root, Some(detail.clone()));
+                return Some(proactive_verification_report(
+                    cycle,
+                    "mutation-testing",
+                    &format!("{module_stem}:rerun:{detail_hash}"),
+                    task,
+                ));
+            }
+            MutationRunStatus::Survivors { detail } => {
+                let detail_hash = stable_short_hash(detail);
+                let task = mutation_triage_task(target, &output_root, &run, detail.clone());
+                return Some(proactive_verification_report(
+                    cycle,
+                    "mutation-testing",
+                    &format!("{module_stem}:triage:{detail_hash}"),
+                    task,
+                ));
+            }
+            MutationRunStatus::Complete => {}
         }
     }
 
     None
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MutationRunStatus {
+    NotRun,
+    Incomplete { detail: String },
+    Survivors { detail: String },
+    Complete,
+}
+
+#[derive(Debug, Clone)]
+struct MutationRunInspection {
+    outcomes_path: PathBuf,
+    missed_path: PathBuf,
+    timeout_path: PathBuf,
+    status: MutationRunStatus,
+}
+
+fn inspect_mutation_run(output_root_abs: &Path) -> MutationRunInspection {
+    let run_dir = output_root_abs.join("mutants.out");
+    let outcomes_path = run_dir.join("outcomes.json");
+    let mutants_path = run_dir.join("mutants.json");
+    let missed_path = run_dir.join("missed.txt");
+    let timeout_path = run_dir.join("timeout.txt");
+    let debug_log_path = run_dir.join("debug.log");
+
+    let status = if !outcomes_path.exists() {
+        MutationRunStatus::NotRun
+    } else if let Some(detail) = mutation_debug_failure(&debug_log_path) {
+        MutationRunStatus::Incomplete { detail }
+    } else {
+        match mutation_outcome_counts(&outcomes_path, &mutants_path) {
+            Ok((candidate_count, outcome_count)) if outcome_count < candidate_count => {
+                MutationRunStatus::Incomplete {
+                    detail: format!(
+                        "partial cargo-mutants results: {outcome_count}/{candidate_count} mutants have outcomes"
+                    ),
+                }
+            }
+            Ok(_) => {
+                let missed = trimmed_file(&missed_path);
+                let timed_out = trimmed_file(&timeout_path);
+                if missed.is_empty() && timed_out.is_empty() {
+                    MutationRunStatus::Complete
+                } else {
+                    let missed_count = line_count(&missed);
+                    let timeout_count = line_count(&timed_out);
+                    let first = missed
+                        .lines()
+                        .chain(timed_out.lines())
+                        .next()
+                        .unwrap_or("unknown survivor");
+                    MutationRunStatus::Survivors {
+                        detail: format!(
+                            "{missed_count} missed and {timeout_count} timed-out mutants remain; first: {first}"
+                        ),
+                    }
+                }
+            }
+            Err(detail) => MutationRunStatus::Incomplete { detail },
+        }
+    };
+
+    MutationRunInspection {
+        outcomes_path,
+        missed_path,
+        timeout_path,
+        status,
+    }
+}
+
+fn mutation_debug_failure(debug_log_path: &Path) -> Option<String> {
+    let content = fs::read_to_string(debug_log_path).ok()?;
+    let failure_markers = [
+        "No space left on device",
+        "Worker thread failed",
+        "scenario execution internal error",
+        "interrupted",
+        "ERROR cargo_mutants",
+    ];
+    content
+        .lines()
+        .find(|line| failure_markers.iter().any(|marker| line.contains(marker)))
+        .map(|line| line.trim().to_owned())
+}
+
+fn mutation_outcome_counts(
+    outcomes_path: &Path,
+    mutants_path: &Path,
+) -> std::result::Result<(usize, usize), String> {
+    let outcomes_content = fs::read_to_string(outcomes_path)
+        .map_err(|error| format!("failed to read {}: {error}", outcomes_path.display()))?;
+    let outcomes: serde_json::Value = serde_json::from_str(&outcomes_content)
+        .map_err(|error| format!("failed to parse {}: {error}", outcomes_path.display()))?;
+    let outcome_count = outcomes
+        .get("outcomes")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| format!("{} has no outcomes array", outcomes_path.display()))?
+        .iter()
+        .filter(|outcome| {
+            outcome
+                .get("scenario")
+                .and_then(|scenario| scenario.get("Mutant"))
+                .is_some()
+        })
+        .count();
+
+    let mutants_content = fs::read_to_string(mutants_path)
+        .map_err(|error| format!("failed to read {}: {error}", mutants_path.display()))?;
+    let mutants: serde_json::Value = serde_json::from_str(&mutants_content)
+        .map_err(|error| format!("failed to parse {}: {error}", mutants_path.display()))?;
+    let candidate_count = mutants
+        .as_array()
+        .ok_or_else(|| format!("{} is not a mutants array", mutants_path.display()))?
+        .len();
+
+    Ok((candidate_count, outcome_count))
+}
+
+fn trimmed_file(path: &Path) -> String {
+    fs::read_to_string(path)
+        .map(|content| content.trim().to_owned())
+        .unwrap_or_default()
+}
+
+fn line_count(content: &str) -> usize {
+    content
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count()
+}
+
+fn stable_short_hash(content: &str) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for byte in content.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("{hash:016x}")[..8].to_owned()
+}
+
+fn mutation_command(target: &MutationTarget, output_root: &Path) -> String {
+    format!(
+        "cargo mutants -p {} -f {} -j 4 --gitignore=true --output {} -- --lib -- --skip demo_ --skip published_tas --skip snapshot",
+        target.package,
+        target.module,
+        output_root.display()
+    )
+}
+
+fn mutation_common_sources(target: &MutationTarget) -> Vec<String> {
+    vec![
+        format!("crates/{}/src/{}", target.package, target.module),
+        ".cache/upstream/kid-chameleon-disasm/kid.asm".to_owned(),
+        ".agents/skills/m68k-kid-asm/SKILL.md".to_owned(),
+    ]
+}
+
+fn mutation_common_targets(target: &MutationTarget) -> Vec<String> {
+    vec![format!("crates/{}/src/{}", target.package, target.module)]
+}
+
+fn mutation_run_task(
+    target: &MutationTarget,
+    output_root: &Path,
+    incomplete_detail: Option<String>,
+) -> TaskPackage {
+    let command = mutation_command(target, output_root);
+    let outcomes_path = output_root.join("mutants.out/outcomes.json");
+    let mutants_path = output_root.join("mutants.out/mutants.json");
+    let clean_command = format!(
+        "rm -rf {}/mutants.out {}/mutants.out.old",
+        output_root.display(),
+        output_root.display()
+    );
+    let is_rerun = incomplete_detail.is_some();
+
+    TaskPackage {
+        capability: CapabilityId::ProactiveVerificationTask,
+        title: if is_rerun {
+            format!("Rerun incomplete mutation testing on {} (tier {})", target.module, target.tier)
+        } else {
+            format!("Run mutation testing on {} (tier {})", target.module, target.tier)
+        },
+        summary: if is_rerun {
+            format!(
+                "Previous cargo-mutants output for {} is incomplete. Clean the partial output, rerun with gitignore forced on, then triage survivors if any remain.",
+                target.module
+            )
+        } else {
+            format!(
+                "Run cargo-mutants on {} in package {} with gitignore forced on. If it finds surviving mutants, triage one into an ASM-backed code fix or test.",
+                target.module, target.package
+            )
+        },
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: mutation_common_sources(target),
+        implementation_targets: mutation_common_targets(target),
+        commands: if is_rerun {
+            vec![clean_command, command, "mise run verify-slice-fast".to_owned()]
+        } else {
+            vec![command, "mise run verify-slice-fast".to_owned()]
+        },
+        done_criteria: vec![
+            format!(
+                "Mutation testing outcomes exist at {}.",
+                outcomes_path.display()
+            ),
+            format!(
+                "{} covers every candidate listed in {}.",
+                outcomes_path.display(),
+                mutants_path.display()
+            ),
+            "If missed or timed-out mutants remain, convert at least one into an ASM-backed fix or test before committing.".to_owned(),
+            "verify-slice-fast passes after any code/test change.".to_owned(),
+        ],
+        evidence: vec![EvidenceItem {
+            label: if is_rerun {
+                "mutation-testing-incomplete".to_owned()
+            } else {
+                "mutation-testing".to_owned()
+            },
+            status: if is_rerun {
+                "incomplete".to_owned()
+            } else {
+                "not-run".to_owned()
+            },
+            detail: incomplete_detail.unwrap_or_else(|| {
+                format!("{} (tier {}) has no mutation testing results yet", target.module, target.tier)
+            }),
+            artefact_path: if is_rerun {
+                Some(outcomes_path)
+            } else {
+                None
+            },
+        }],
+        frontier_context: None,
+        case_queue_context: None,
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: None,
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: None,
+        next_agent_note: None,
+        target_routines: None,
+    }
+}
+
+fn mutation_triage_task(
+    target: &MutationTarget,
+    output_root: &Path,
+    run: &MutationRunInspection,
+    detail: String,
+) -> TaskPackage {
+    TaskPackage {
+        capability: CapabilityId::ProactiveVerificationTask,
+        title: format!("Triage surviving mutation results for {}", target.module),
+        summary: format!(
+            "cargo-mutants completed for {}, but survivors remain. Read the ASM for the first surviving mutant and turn it into a bug fix or an exact-value test.",
+            target.module
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: mutation_common_sources(target),
+        implementation_targets: mutation_common_targets(target),
+        commands: vec![
+            format!("sed -n '1,80p' {}", run.missed_path.display()),
+            format!("sed -n '1,80p' {}", run.timeout_path.display()),
+            mutation_command(target, output_root),
+            "mise run verify-slice-fast".to_owned(),
+        ],
+        done_criteria: vec![
+            "At least one surviving or timed-out mutant is killed by an ASM-backed code fix or exact-value test.".to_owned(),
+            "The relevant ASM label is cited in the test or implementation comment.".to_owned(),
+            "cargo-mutants is rerun for the affected survivor or module.".to_owned(),
+            "verify-slice-fast passes.".to_owned(),
+        ],
+        evidence: vec![EvidenceItem {
+            label: "mutation-testing-survivors".to_owned(),
+            status: "needs-triage".to_owned(),
+            detail,
+            artefact_path: Some(run.outcomes_path.clone()),
+        }],
+        frontier_context: None,
+        case_queue_context: None,
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: None,
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: None,
+        next_agent_note: None,
+        target_routines: None,
+    }
 }
 
 /// Collect uncovered sub_ labels from asm-coverage, sorted by priority then subsystem gap.
@@ -4166,6 +4471,7 @@ fn select_release_gate_blocker(repo_root: &Path) -> Option<ReleaseGateFailureCan
 }
 
 fn source_port_frontier_release_gate_task(
+    repo_root: &Path,
     frontier: &ActiveFrontierState,
     note: &NextAgentNoteDirective,
     gate_failure: &ReleaseGateFailureCandidate,
@@ -4175,6 +4481,43 @@ fn source_port_frontier_release_gate_task(
     } else {
         "mise run release-gate"
     };
+    let release_gate_latest = latest_release_gate_failure_detail(repo_root, &gate_failure.target);
+    let release_gate_focus = release_gate_focus_evidence(repo_root, &gate_failure.target);
+    let (failure_detail, failure_artefact) = release_gate_latest.clone().unwrap_or_else(|| {
+        (
+            format!("{}: {}", gate_failure.step_name, gate_failure.detail),
+            PathBuf::from(format!(
+                ".cache/release-gate/{}/latest.json",
+                gate_failure.target
+            )),
+        )
+    });
+    let mut evidence = vec![
+        EvidenceItem {
+            label: "active-frontier".to_owned(),
+            status: frontier.status.clone(),
+            detail: format!(
+                "{} clean through frame {}",
+                frontier.slug, frontier.authoritative_clean_through
+            ),
+            artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+        },
+        EvidenceItem {
+            label: "release-gate-failure".to_owned(),
+            status: "failed".to_owned(),
+            detail: failure_detail,
+            artefact_path: Some(failure_artefact),
+        },
+    ];
+    if let Some((detail, artefact_path)) = release_gate_focus {
+        evidence.push(EvidenceItem {
+            label: "release-gate-focus".to_owned(),
+            status: "correlated".to_owned(),
+            detail,
+            artefact_path: Some(artefact_path),
+        });
+    }
+
     TaskPackage {
         capability: CapabilityId::SourcePortFrontierTask,
         title: format!(
@@ -4207,43 +4550,8 @@ fn source_port_frontier_release_gate_task(
             "verify-slice-fast passes.".to_owned(),
             "project-status no longer leads with the same release-gate blocker.".to_owned(),
         ],
-        evidence: vec![
-            EvidenceItem {
-                label: "active-frontier".to_owned(),
-                status: frontier.status.clone(),
-                detail: format!(
-                    "{} clean through frame {}",
-                    frontier.slug, frontier.authoritative_clean_through
-                ),
-                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
-            },
-            EvidenceItem {
-                label: "release-gate-failure".to_owned(),
-                status: "failed".to_owned(),
-                detail: format!(
-                    "{} {}: {}",
-                    gate_failure.target, gate_failure.step_name, gate_failure.detail
-                ),
-                artefact_path: Some(PathBuf::from(format!(
-                    ".cache/release-gate/{}/latest.json",
-                    gate_failure.target
-                ))),
-            },
-        ],
-        frontier_context: Some(FrontierContext {
-            slug: frontier.slug.clone(),
-            recording: frontier.recording.clone(),
-            scenario: frontier.scenario.clone(),
-            area: frontier.area.clone(),
-            status: frontier.status.clone(),
-            frontier_frame: frontier.frontier_frame,
-            authoritative_clean_through: frontier.authoritative_clean_through,
-            current_blocker: frontier.current_blocker.clone(),
-            current_hypothesis: frontier.current_hypothesis.clone(),
-            rejected_hypotheses: frontier.rejected_hypotheses.clone(),
-            required_next_evidence: frontier.required_next_evidence.clone(),
-            verification_commands: frontier.verification_commands.clone(),
-        }),
+        evidence,
+        frontier_context: Some(source_port_frontier_context(frontier)),
         case_queue_context: None,
         delegated_goal: Some(AutonomyGoal::SweepParity),
         delegated_target: Some(gate_failure.step_name.clone()),
@@ -6686,6 +6994,61 @@ mod tests {
             .expect("git commit should run");
     }
 
+    fn mutation_target(module: &str, tier: u8) -> super::MutationTarget {
+        super::MutationTarget {
+            module: module.to_owned(),
+            package: "kid-core".to_owned(),
+            tier,
+        }
+    }
+
+    fn write_mutation_run(
+        repo_root: &Path,
+        module_stem: &str,
+        candidate_count: usize,
+        outcome_count: usize,
+        missed: &str,
+        timed_out: &str,
+        debug_log: &str,
+    ) {
+        let run_dir = repo_root
+            .join(".cache/mutants")
+            .join(module_stem)
+            .join("mutants.out");
+        fs::create_dir_all(&run_dir).expect("mutation run dir should exist");
+
+        let mutants = (0..candidate_count)
+            .map(|index| format!(r#"{{"name":"mutant-{index}"}}"#))
+            .collect::<Vec<_>>()
+            .join(",");
+        fs::write(run_dir.join("mutants.json"), format!("[{mutants}]\n"))
+            .expect("mutants.json should write");
+
+        let outcomes = (0..outcome_count)
+            .map(|index| {
+                format!(
+                    r#"{{"scenario":{{"Mutant":{{"name":"mutant-{index}"}}}},"summary":"CaughtMutant"}}"#
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        fs::write(
+            run_dir.join("outcomes.json"),
+            format!(r#"{{"outcomes":[{{"scenario":"Baseline","summary":"Success"}}{comma}{outcomes}]}}"#, comma = if outcomes.is_empty() { "" } else { "," }),
+        )
+        .expect("outcomes.json should write");
+
+        fs::write(run_dir.join("missed.txt"), missed).expect("missed.txt should write");
+        fs::write(run_dir.join("timeout.txt"), timed_out).expect("timeout.txt should write");
+        fs::write(run_dir.join("debug.log"), debug_log).expect("debug.log should write");
+    }
+
+    fn write_complete_default_mutation_runs(repo_root: &Path) {
+        for module_stem in ["enemies", "combat", "blocks"] {
+            write_mutation_run(repo_root, module_stem, 1, 1, "", "", "");
+        }
+    }
+
     fn write_case(
         repo_root: &Path,
         selector: &str,
@@ -6948,6 +7311,7 @@ mod tests {
             "{\"passed\": true}\n",
         )
         .expect("release gate should write");
+        write_complete_default_mutation_runs(temp_dir.path());
 
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
@@ -7265,6 +7629,7 @@ mod tests {
             "{\n  \"passed\": true,\n  \"first_failure\": null,\n  \"likely_subsystems\": [\"none\"]\n}\n",
         )
         .expect("green verify should write");
+        write_complete_default_mutation_runs(temp_dir.path());
 
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
@@ -7399,6 +7764,34 @@ mod tests {
     }
 
     #[test]
+    fn source_port_frontier_proactive_delegation_carries_handoff_context() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.capability, super::CapabilityId::SourcePortFrontierTask);
+        assert_eq!(
+            task.delegated_goal,
+            Some(super::AutonomyGoal::ProactiveVerification)
+        );
+        assert!(
+            task.title.contains("mutation testing"),
+            "source-port should delegate to the proactive mutation lane"
+        );
+        assert!(
+            task.frontier_context.is_some(),
+            "delegated proactive task should still carry source-port frontier context"
+        );
+        assert!(
+            task.next_agent_note.is_some(),
+            "delegated proactive task should refresh the source-port handoff note"
+        );
+    }
+
+    #[test]
     fn source_port_frontier_enters_recovery_after_repeated_sweep_stalls() {
         let temp_dir = source_port_repo();
         fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
@@ -7425,6 +7818,7 @@ mod tests {
         )
         .expect("release gate should write");
         commit_repo(temp_dir.path(), "prepare clean sweep parity repo");
+        write_complete_default_mutation_runs(temp_dir.path());
         let run_dir = temp_dir.path().join(".cache/autonomy/source-port-frontier");
         fs::create_dir_all(&run_dir).expect("run dir should exist");
         let fingerprint = "test-frontier:complete:6906:6905:sweep-parity:state-sweep:state-sweep";
@@ -7532,6 +7926,150 @@ mod tests {
             task.evidence
                 .iter()
                 .any(|item| item.label == "loc-coverage-promotion")
+        );
+    }
+
+    #[test]
+    fn mutation_testing_strategy_uses_cargo_mutants_out_path_and_forces_gitignore() {
+        let temp_dir = source_port_repo();
+        let targets = vec![mutation_target("enemies.rs", 1)];
+
+        let report =
+            super::try_mutation_testing_strategy(temp_dir.path(), 4, ".cache/mutants", &targets)
+                .expect("mutation testing task should exist");
+        let task = report.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:enemies:run"
+        );
+        assert!(
+            task.commands
+                .iter()
+                .any(|command| command.contains("--gitignore=true")
+                    && command.contains("--output .cache/mutants/enemies")),
+            "generated cargo-mutants command should force gitignore and use the module output dir"
+        );
+        assert!(
+            task.done_criteria
+                .iter()
+                .any(|criterion| criterion
+                    .contains(".cache/mutants/enemies/mutants.out/outcomes.json")),
+            "done criteria should name cargo-mutants' real outcomes path"
+        );
+    }
+
+    #[test]
+    fn mutation_testing_strategy_reruns_incomplete_mutants_out() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(
+            temp_dir.path(),
+            "enemies",
+            10,
+            2,
+            "",
+            "",
+            "ERROR cargo_mutants::lab: Worker thread failed: No space left on device\n",
+        );
+        let targets = vec![mutation_target("enemies.rs", 1)];
+
+        let report =
+            super::try_mutation_testing_strategy(temp_dir.path(), 4, ".cache/mutants", &targets)
+                .expect("rerun task should exist");
+        let task = report.selected_task.expect("selected task should exist");
+
+        assert!(
+            report
+                .progress_fingerprint
+                .starts_with("proactive-verification:mutation-testing:enemies:rerun:"),
+            "incomplete results should get a rerun-specific fingerprint"
+        );
+        assert!(task.title.contains("Rerun incomplete mutation testing"));
+        assert!(
+            task.commands
+                .iter()
+                .any(|command| command.contains("rm -rf .cache/mutants/enemies/mutants.out")),
+            "rerun task should clean partial cargo-mutants output first"
+        );
+        assert!(
+            task.commands
+                .iter()
+                .any(|command| command.contains("--gitignore=true")),
+            "rerun command should force gitignore handling"
+        );
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "mutation-testing-incomplete"
+                    && item.status == "incomplete"
+                    && item.detail.contains("No space left on device")),
+            "task should surface the interrupted cargo-mutants evidence"
+        );
+    }
+
+    #[test]
+    fn mutation_testing_strategy_triages_survivors_from_complete_run() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(
+            temp_dir.path(),
+            "enemies",
+            2,
+            2,
+            "crates/kid-core/src/enemies.rs:48:19: replace > with < in ninja_walk_speed_override_loc_3d59a_and_3d5aa\n",
+            "",
+            "",
+        );
+        let targets = vec![mutation_target("enemies.rs", 1)];
+
+        let report =
+            super::try_mutation_testing_strategy(temp_dir.path(), 4, ".cache/mutants", &targets)
+                .expect("triage task should exist");
+        let task = report.selected_task.expect("selected task should exist");
+
+        assert!(
+            report
+                .progress_fingerprint
+                .starts_with("proactive-verification:mutation-testing:enemies:triage:"),
+            "survivors should get a triage-specific fingerprint"
+        );
+        assert!(task.title.contains("Triage surviving mutation results"));
+        assert!(
+            task.commands
+                .iter()
+                .any(|command| command.contains("missed.txt")),
+            "triage task should point the agent at missed mutants"
+        );
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "mutation-testing-survivors"
+                    && item.status == "needs-triage"
+                    && item.detail.contains("1 missed")),
+            "task should summarise remaining survivors"
+        );
+    }
+
+    #[test]
+    fn mutation_testing_strategy_skips_complete_modules_without_survivors() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(temp_dir.path(), "enemies", 1, 1, "", "", "");
+        let targets = vec![
+            mutation_target("enemies.rs", 1),
+            mutation_target("combat.rs", 1),
+        ];
+
+        let report =
+            super::try_mutation_testing_strategy(temp_dir.path(), 4, ".cache/mutants", &targets)
+                .expect("next module task should exist");
+        let task = report.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:combat:run"
+        );
+        assert!(
+            task.title.contains("combat.rs"),
+            "complete modules with no survivors should be skipped"
         );
     }
 
@@ -7697,6 +8235,7 @@ mod tests {
             temp_dir.path(),
             "| 146 | [ ] | P0 | level | Dying in Level 2 can leave the game stuck on the level-loading screen | verify |\n",
         );
+        write_complete_default_mutation_runs(temp_dir.path());
 
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
