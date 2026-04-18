@@ -96,9 +96,10 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES: usize =
 // `Palette_Buffer_3` from `$FFFFFBCC` before the fade-loop timing below.
 // Native's timeout-restart model keeps this path as timing-visible state and
 // does not materialise the intermediate CRAM staging buffer.
-// ASM sub_1C204 loops on `Hibernate_Object_1Frame`, `addi.w #$10,
-// ($FFFFF876).w`, `cmpi.w #$100,($FFFFF876).w`, so the fade helper idles for
-// 17 frames before it finally dispatches `$44(a5)` to loc_1B9B2.
+// ASM loc_1C21E (kid.asm:31096): shared sub_1C204 loops on
+// `Hibernate_Object_1Frame`, `sub_1C246`, `addi.w #$10,($FFFFF876).w`,
+// `cmpi.w #$100,($FFFFF876).w`, so the fade helper idles for 17 frames before
+// it finally dispatches `$44(a5)` to loc_1B9B2.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_FADE_FRAMES: usize = 17;
 // ASM sub_1B988 / sub_1C204 / loc_1B9B6 do not start the
 // `move.w #$21B,d0` / `dbf` countdown until the delayed `sub_1B988` worker
