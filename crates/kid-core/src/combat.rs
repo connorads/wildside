@@ -2502,7 +2502,8 @@ pub(crate) fn boss_eye_pop_effect_init_sub_3729E(
 ) -> BossEyePopEffectInitSub3729E {
     // ASM sub_3729E (kid.asm:39142): allocate gfx slot `$01010002`, seed
     // sprite mapping `LnkTo_unk_C8460-Data_Index`, bump `$FFFFFB4F`, play
-    // `stru_37BEA`, then enter a 100-frame facing loop.
+    // `stru_37BEA`, then enter ASM loc_372F6's 100-frame hibernated
+    // facing loop.
     BossEyePopEffectInitSub3729E {
         gfx_slot_base: 0x0101_0002,
         priority: 0,
