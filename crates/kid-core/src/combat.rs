@@ -2858,6 +2858,8 @@ pub(crate) fn boss_head_projectile_spawn_sub_397E4(
     let (x_pos, velocity_word_48) = if parent_x_direction == 0 {
         (parent_x.wrapping_sub(0x0018), -3)
     } else {
+        // ASM loc_3982C (kid.asm:42461): set `$48(a0)=3` and place the
+        // child 24px to the right when the parent x_direction byte is set.
         (parent_x.wrapping_add(0x0018), 3)
     };
 
