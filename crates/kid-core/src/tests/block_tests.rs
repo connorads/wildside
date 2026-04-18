@@ -8287,6 +8287,24 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_terrain_scan_loop_loc_32b32_accumulates_middle_tile_hits() {
+        let scan = hand_terrain_scan_loc_32afe(0x0048, 0x004F, &[0x0000, 0x4000, 0x0000]);
+        assert_eq!(
+            scan.sample_count, 3,
+            "ASM Hand.asm loc_32B32 should scan all columns from `(x-$E)>>4` through `(x+$E)>>4`"
+        );
+        assert!(
+            scan.any_collision_4000,
+            "ASM Hand.asm loc_32B32 sets d4 when any loop body sample carries bit `$4000`, even when the first and last samples are clear"
+        );
+        assert_eq!(
+            (scan.first_collision_4000, scan.last_collision_4000),
+            (0, 0),
+            "ASM Hand.asm loc_32B32 must not collapse the middle hit into either edge mask"
+        );
+    }
+
+    #[test]
     fn hand_jump_collision_loc_32a3e_clears_only_y_velocity() {
         assert_eq!(
             hand_jump_collision_clear_y_velocity_loc_32a3e(0x0002_0000, -0x0003_4000),
