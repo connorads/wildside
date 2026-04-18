@@ -22217,6 +22217,13 @@ pub(crate) fn player_relative_direction(
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ArcherAngleLoc34458 {
+    pub(crate) angle: usize,
+    pub(crate) quadrant_selector: u8,
+}
+
 /// Compute arrow angle index (0..27) from archer to player.
 /// Faithfully mirrors Archer.asm `loc_34458`: quadrant dispatch + unk_34404 ratio lookup.
 pub(crate) fn archer_angle_to_player(
@@ -22225,6 +22232,15 @@ pub(crate) fn archer_angle_to_player(
     player_x: u32,
     player_y: u32,
 ) -> usize {
+    archer_angle_loc_34458(archer_x, archer_y, player_x, player_y).angle
+}
+
+pub(crate) fn archer_angle_loc_34458(
+    archer_x: u32,
+    archer_y: u32,
+    player_x: u32,
+    player_y: u32,
+) -> ArcherAngleLoc34458 {
     let dx = (player_x >> 16) as i32 - (archer_x >> 16) as i32;
     // Archer aims 16px above player centre (subi.w #$10,d7 in ASM).
     let dy = ((player_y >> 16) as i32 - 0x10) - (archer_y >> 16) as i32;
@@ -22239,8 +22255,18 @@ pub(crate) fn archer_angle_to_player(
     if dx == 0 {
         // ORIGINAL_QUIRK: ASM loc_34530 sets d7=0 then tests d7 (not d4/dy), so
         // bmi never fires and this always returns angle 21 (straight down).
-        return 0x15;
+        return ArcherAngleLoc34458 {
+            angle: 0x15,
+            quadrant_selector: 3,
+        };
     }
+
+    let quadrant_selector = match (dx > 0, dy >= 0) {
+        (true, false) => 0,
+        (false, false) => 1,
+        (false, true) => 2,
+        (true, true) => 3,
+    };
 
     let abs_dx = dx.unsigned_abs();
     let abs_dy = dy.unsigned_abs();
@@ -22248,12 +22274,17 @@ pub(crate) fn archer_angle_to_player(
 
     // ASM loc_34546: ratio >= $3F → nearly vertical, return 6 (up) or 21 (down).
     if ratio >= 0x3F {
-        return if dy < 0 { 6 } else { 0x15 };
+        return ArcherAngleLoc34458 {
+            angle: if dy < 0 { 6 } else { 0x15 },
+            // ASM Archer.asm loc_3452C: overflow paths keep the d5 quadrant
+            // selector and return it in d7 alongside the vertical angle in d6.
+            quadrant_selector,
+        };
     }
 
     let sub = RATIO_TABLE[(ratio as usize).min(RATIO_TABLE.len() - 1)] as i32;
 
-    match (dx > 0, dy >= 0) {
+    let angle = match (dx > 0, dy >= 0) {
         // ASM Archer.asm loc_344C6: right+up keeps the ratio-table sub-angle.
         (true, false) => sub as usize,
         // ASM Archer.asm loc_34492: left+up negates both deltas, looks up the
@@ -22263,6 +22294,14 @@ pub(crate) fn archer_angle_to_player(
         (false, true) => (0x0E + sub) as usize,
         // ASM Archer.asm loc_3450A: right+down subtracts the ratio-table sub-angle from `$1B`.
         (true, true) => (0x1B - sub) as usize,
+    };
+
+    // ASM Archer.asm loc_3452C: ratio paths return the computed d5 quadrant
+    // selector in d7. Native callers only need the d6 angle today, but keeping
+    // the selector explicit documents the ROM contract and protects future ports.
+    ArcherAngleLoc34458 {
+        angle,
+        quadrant_selector,
     }
 }
 

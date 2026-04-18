@@ -6130,6 +6130,62 @@ mod chunk_04 {
     }
 
     #[test]
+    fn archer_angle_loc_3452c_returns_quadrant_selector() {
+        // ASM Archer.asm loc_3452C copies d5 to d7 after each ratio path.
+        // The caller currently uses d6's angle, but d7 still identifies the
+        // right+up, left+up, left+down, or right+down quadrant that produced it.
+        let cases = [
+            (
+                "right+up",
+                100 << 16,
+                200 << 16,
+                200 << 16,
+                100 << 16,
+                0x03,
+                0,
+            ),
+            (
+                "left+up",
+                200 << 16,
+                200 << 16,
+                100 << 16,
+                100 << 16,
+                0x0A,
+                1,
+            ),
+            (
+                "left+down",
+                200 << 16,
+                100 << 16,
+                100 << 16,
+                200 << 16,
+                0x11,
+                2,
+            ),
+            (
+                "right+down",
+                100 << 16,
+                100 << 16,
+                200 << 16,
+                200 << 16,
+                0x18,
+                3,
+            ),
+        ];
+
+        for (case, archer_x, archer_y, player_x, player_y, expected_angle, expected_selector) in
+            cases
+        {
+            let result = archer_angle_loc_34458(archer_x, archer_y, player_x, player_y);
+            assert_eq!(result.angle, expected_angle, "{case} angle");
+            assert_eq!(
+                result.quadrant_selector, expected_selector,
+                "{case} selector"
+            );
+        }
+    }
+
+    #[test]
     fn archer_fire_timer_varies_by_hp() {
         assert_eq!(ARCHER_FIRE_TIMER[0], 0x1E, "HP 1: 30 frames");
         assert_eq!(ARCHER_FIRE_TIMER[1], 0x14, "HP 2: 20 frames");
