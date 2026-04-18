@@ -16564,6 +16564,26 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3ac7e_stops_robot_shot_and_selects_impact_offset() {
+        assert_eq!(
+            robot_shot_impact_prep_loc_3ac7e(0),
+            RobotShotImpactPrepLoc3AC7E {
+                projectile_x_velocity: 0,
+                impact_x_delta_px: -8,
+            },
+            "ASM loc_3AC7E: zero x_direction leaves d0=$FFF8, so the stopped shot impact shifts 8px left"
+        );
+        assert_eq!(
+            robot_shot_impact_prep_loc_3ac7e(0xFF),
+            RobotShotImpactPrepLoc3AC7E {
+                projectile_x_velocity: 0,
+                impact_x_delta_px: 8,
+            },
+            "ASM loc_3AC7E: non-zero x_direction negates d0 before the impact offset is applied"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

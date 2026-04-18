@@ -17068,6 +17068,23 @@ pub(crate) fn robot_shot_flight_loop_loc_3ac48(
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShotImpactPrepLoc3AC7E {
+    pub(crate) projectile_x_velocity: i32,
+    pub(crate) impact_x_delta_px: i16,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shot_impact_prep_loc_3ac7e(x_direction: u8) -> RobotShotImpactPrepLoc3AC7E {
+    // ASM Robot.asm loc_3AC7E: zero x_vel, seed d0=$FFF8, then negate d0 when
+    // `x_direction(a3)` is non-zero before the impact position tail applies it.
+    RobotShotImpactPrepLoc3AC7E {
+        projectile_x_velocity: 0,
+        impact_x_delta_px: if x_direction == 0 { -8 } else { 8 },
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
