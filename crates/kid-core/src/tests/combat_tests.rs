@@ -6023,6 +6023,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34c3a_waits_for_collision_or_animation_done() {
+        assert_eq!(
+            dragon_flying_descent_fire_travel_loop_loc_34C3A(0, false),
+            DragonFlyingDescentFireTravelLoopLoc34C3A::ContinueTravelAnimation,
+            "ASM Dragon_Flying.asm loc_34C3A repeats the travel animation while collision_type is zero and `$19` is clear"
+        );
+        assert_eq!(
+            dragon_flying_descent_fire_travel_loop_loc_34C3A(0x0004, false),
+            DragonFlyingDescentFireTravelLoopLoc34C3A::CollisionCleanup {
+                has_level_collision: false,
+                x_velocity: 0,
+                y_velocity: 0,
+                animation_label: "LnkTo_unk_C75DE",
+            },
+            "ASM Dragon_Flying.asm loc_34C3A checks collision_type before byte `$19`"
+        );
+        assert_eq!(
+            dragon_flying_descent_fire_travel_loop_loc_34C3A(0, true),
+            DragonFlyingDescentFireTravelLoopLoc34C3A::AnimationFinishedCleanup {
+                has_level_collision: false,
+                x_velocity: 0,
+                y_velocity: 0,
+                animation_label: "LnkTo_unk_C75DE",
+            },
+            "ASM Dragon_Flying.asm loc_34C3A falls into the cleanup tail when byte `$19` is set"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_348e4_seeds_descent_velocity_and_dbf_counter() {
         assert_eq!(
             dragon_descent_move_setup_loc_348e4(Direction::Left, -2, 3, 6),

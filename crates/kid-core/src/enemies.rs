@@ -7613,6 +7613,54 @@ pub(crate) fn dragon_flying_descent_fire_first_loop_loc_34C26(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum DragonFlyingDescentFireTravelLoopLoc34C3A {
+    CollisionCleanup {
+        has_level_collision: bool,
+        x_velocity: i32,
+        y_velocity: i32,
+        animation_label: &'static str,
+    },
+    ContinueTravelAnimation,
+    AnimationFinishedCleanup {
+        has_level_collision: bool,
+        x_velocity: i32,
+        y_velocity: i32,
+        animation_label: &'static str,
+    },
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_descent_fire_travel_loop_loc_34C3A(
+    collision_type: u16,
+    animation_done_flag_19: bool,
+) -> DragonFlyingDescentFireTravelLoopLoc34C3A {
+    // ASM Dragon_Flying.asm loc_34C3A: after a hibernated frame, any
+    // collision exits before testing byte `$19`; otherwise `$19 == 0` loops
+    // on the travel sprite and `$19 != 0` enters the shared cleanup tail.
+    if collision_type != 0 {
+        return DragonFlyingDescentFireTravelLoopLoc34C3A::CollisionCleanup {
+            has_level_collision: false,
+            x_velocity: 0,
+            y_velocity: 0,
+            animation_label: "LnkTo_unk_C75DE",
+        };
+    }
+
+    if !animation_done_flag_19 {
+        return DragonFlyingDescentFireTravelLoopLoc34C3A::ContinueTravelAnimation;
+    }
+
+    DragonFlyingDescentFireTravelLoopLoc34C3A::AnimationFinishedCleanup {
+        has_level_collision: false,
+        x_velocity: 0,
+        y_velocity: 0,
+        animation_label: "LnkTo_unk_C75DE",
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
