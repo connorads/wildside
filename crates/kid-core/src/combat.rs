@@ -6372,6 +6372,8 @@ pub(crate) fn boss_head_movement_step_sub_399EE(
     // ASM loc_399F4 (kid.asm:42657): after the countdown reaches zero,
     // a negative delay word reloads `a2` with `unk_39A1A` and retries
     // before any X/Y velocity words are consumed.
+    // ASM loc_39A00 (kid.asm:42664): a non-negative delay consumes the
+    // next X/Y words and stores each as FP16.16 velocity via `swap; asr.l #1`.
     boss_head_movement_step_sub_39846(
         delay_counter_d0,
         current_script_index,
