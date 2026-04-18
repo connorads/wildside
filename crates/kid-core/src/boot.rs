@@ -4007,6 +4007,15 @@ pub(crate) const fn end_sequence_palette_first_bank_words_loc_1C82C() -> u16 {
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) const fn end_sequence_palette_second_bank_byte_offset_loc_1C84E() -> u16 {
+    // ASM loc_1C84E (kid.asm:31493): after the optional d1-controlled palette
+    // patch, `lea (Palette_Buffer+$20).l,a1` retargets the remaining
+    // `Pal_1C8AA` copy to the second palette bank.
+    0x0020
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn end_sequence_fade_loop_loc_1D270() -> EndSequenceFadeLoopLoc1D270 {
     // ASM loc_1D270 (kid.asm:32637): after `moveq #7,d0`, each loop body loads
     // `d7 = #$20`, darkens `Palette_Buffer+$20` via `sub_1C85E`, hibernates for
