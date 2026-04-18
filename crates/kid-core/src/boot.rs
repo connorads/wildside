@@ -4016,6 +4016,15 @@ pub(crate) const fn end_sequence_palette_second_bank_byte_offset_loc_1C84E() -> 
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
+pub(crate) const fn end_sequence_palette_second_bank_words_loc_1C856() -> u16 {
+    // ASM loc_1C856 (kid.asm:31497): `moveq #$2F,d0` feeds the inclusive
+    // `move.w (a0)+,(a1)+; dbf d0,loc_1C856` loop, copying the final 48
+    // words of `Pal_1C8AA` into `Palette_Buffer+$20`.
+    0x002F + 1
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
 pub(crate) fn end_sequence_fade_loop_loc_1D270() -> EndSequenceFadeLoopLoc1D270 {
     // ASM loc_1D270 (kid.asm:32637): after `moveq #7,d0`, each loop body loads
     // `d7 = #$20`, darkens `Palette_Buffer+$20` via `sub_1C85E`, hibernates for
