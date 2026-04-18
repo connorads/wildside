@@ -2331,6 +2331,21 @@ pub(crate) fn lion_cull_reject_loc_3e920(
     LionCullRejectLoc3E920 {
         next_number_of_enemy: number_of_enemy.wrapping_sub(1),
         status_action: lion_cull_status_update_loc_3e956(object_status_slot),
+        deletes_current_object: lion_delete_tail_loc_3e98a().deletes_current_object,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct LionDeleteTailLoc3E98A {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_delete_tail_loc_3e98a() -> LionDeleteTailLoc3E98A {
+    // ASM Lion.asm loc_3E98A: all loc_3E956 status routes converge on
+    // `jmp (j_Delete_CurrentObject).w`.
+    LionDeleteTailLoc3E98A {
         deletes_current_object: true,
     }
 }
@@ -2346,7 +2361,7 @@ pub(crate) struct LionRespawnMarkerLoc3E97C {
 pub(crate) fn lion_respawn_marker_loc_3e97c(object_status_slot: u8) -> LionRespawnMarkerLoc3E97C {
     // ASM Lion.asm loc_3E97C: positive `$42(a5)` has already been loaded into
     // d0; `add.w d0,d0` makes it an EnemyStatus_Table word offset, then `$2168`
-    // is written before the common delete jump.
+    // is written before the common delete jump at loc_3E98A.
     LionRespawnMarkerLoc3E97C {
         index: usize::from(object_status_slot),
         word_value: 0x2168,
@@ -31321,6 +31336,17 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Lion.asm loc_3E920 should delete without a table update when bit 7 is set and bit 6 is clear"
+        );
+    }
+
+    #[test]
+    fn lion_delete_tail_matches_loc_3e98a() {
+        assert_eq!(
+            lion_delete_tail_loc_3e98a(),
+            LionDeleteTailLoc3E98A {
+                deletes_current_object: true,
+            },
+            "ASM Lion.asm loc_3E98A should jump to j_Delete_CurrentObject after every cull status route"
         );
     }
 
