@@ -9050,6 +9050,23 @@ pub(crate) fn cloud_attack_projectile_loop_loc_35E8A(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CloudAttackProjectileDeleteTailLoc35E9C {
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn cloud_attack_projectile_delete_tail_loc_35E9C()
+-> CloudAttackProjectileDeleteTailLoc35E9C {
+    // ASM Cloud.asm loc_35E9C: spawned attack projectile tail-calls
+    // `j_Delete_CurrentObject` without extra cleanup.
+    CloudAttackProjectileDeleteTailLoc35E9C {
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,

@@ -3914,6 +3914,17 @@ mod chunk_04 {
     }
 
     #[test]
+    fn cloud_attack_projectile_delete_tail_loc_35e9c_deletes_current_object() {
+        assert_eq!(
+            cloud_attack_projectile_delete_tail_loc_35E9C(),
+            CloudAttackProjectileDeleteTailLoc35E9C {
+                deletes_current_object: true,
+            },
+            "ASM Cloud.asm loc_35E9C is only `jmp (j_Delete_CurrentObject).w`"
+        );
+    }
+
+    #[test]
     fn cloud_diagonal_attack_setup_loc_35cd8_starts_when_kid_is_in_front_band() {
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
