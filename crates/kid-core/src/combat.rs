@@ -9282,6 +9282,10 @@ pub(crate) fn classify_enemy_contact_with_half_width(
     let rel_x = object_x_delta >> 8;
     let rel_y = object_y_delta >> 8;
 
+    // ASM loc_1C42 (kid.asm:3390): GfxObjects_CollisionKid subtracts Kid's
+    // velocity from the object's velocity, scales the deltas with
+    // `lsl.l #8; swap`, then dispatches through the four sign-specific
+    // overlap comparisons below to choose the collision side.
     enum ContactSide {
         Above,
         Below,
