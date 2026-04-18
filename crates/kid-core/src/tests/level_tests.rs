@@ -16584,6 +16584,25 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3ac92_applies_robot_shot_impact_tail_and_deletes() {
+        assert_eq!(
+            robot_shot_impact_tail_loc_3ac92(100, -8),
+            RobotShotImpactTailLoc3AC92 {
+                x_pos_px: 92,
+                animation_label: "stru_3A762",
+                hibernates_until_animation_finished: true,
+                deletes_current_object: true,
+            },
+            "ASM loc_3AC92: adds the prepared d0 offset to x_pos, plays the impact animation, then deletes the shot"
+        );
+        assert_eq!(
+            robot_shot_impact_tail_loc_3ac92(100, 8).x_pos_px,
+            108,
+            "ASM loc_3AC92: the same tail applies a rightward d0 produced by non-zero x_direction"
+        );
+    }
+
+    #[test]
     fn homing_y_target_offset_is_16px_above_player() {
         // ASM Lion.asm loc_3E20E: Y homing target is 16px ($10) above player.
         // If target offset `- (0x10 << 16)` mutated to `+ (0x10 << 16)`, the

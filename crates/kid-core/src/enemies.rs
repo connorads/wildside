@@ -17085,6 +17085,30 @@ pub(crate) fn robot_shot_impact_prep_loc_3ac7e(x_direction: u8) -> RobotShotImpa
     }
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct RobotShotImpactTailLoc3AC92 {
+    pub(crate) x_pos_px: i16,
+    pub(crate) animation_label: &'static str,
+    pub(crate) hibernates_until_animation_finished: bool,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[cfg(test)]
+pub(crate) fn robot_shot_impact_tail_loc_3ac92(
+    x_pos_px: i16,
+    impact_x_delta_px: i16,
+) -> RobotShotImpactTailLoc3AC92 {
+    // ASM Robot.asm loc_3AC92: add d0 to the integer x_pos word, initialise
+    // impact animation stru_3A762, wait for it to finish, then delete the shot.
+    RobotShotImpactTailLoc3AC92 {
+        x_pos_px: x_pos_px.wrapping_add(impact_x_delta_px),
+        animation_label: "stru_3A762",
+        hibernates_until_animation_finished: true,
+        deletes_current_object: true,
+    }
+}
+
 /// Step a Robot enemy: paces at HP-dependent speed, shoots at intervals,
 /// then enters a fast charge phase.
 #[cfg(test)]
