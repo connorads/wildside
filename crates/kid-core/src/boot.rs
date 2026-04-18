@@ -6364,6 +6364,9 @@ impl NativeRuntime {
                     self.title_menu_selection_pending = Some(*cursor);
                     self.title_menu_selection_delay_frames = TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES;
                 } else if up_pressed && *cursor > 0 {
+                    // ASM Obj_TitleMenu loc_1BBDE: Up only moves when `d1`
+                    // is non-zero, then decrements the row, calls sub_1BC26,
+                    // and resets the title idle countdown.
                     self.title_idle_frames = 0;
                     *cursor -= 1;
                     play_navigate_jingle = true;
@@ -6470,6 +6473,9 @@ impl NativeRuntime {
                     self.title_menu_selection_pending = Some(*cursor);
                     self.title_menu_selection_delay_frames = TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES;
                 } else if up_pressed && *cursor > 0 {
+                    // ASM Obj_TitleMenu loc_1BBDE: Up only moves when `d1`
+                    // is non-zero, then decrements the row, calls sub_1BC26,
+                    // and resets the title idle countdown.
                     self.title_idle_frames = 0;
                     *cursor -= 1;
                     play_navigate_jingle = true;
