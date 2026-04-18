@@ -208,6 +208,8 @@ pub(crate) fn enemy_death_burst_homing_step_sub_37002(
     // sprite against Kid and accelerate toward him by `$FA0` on each axis.
     let homing_accel = 0x0000_0FA0;
     let (x_direction, x_velocity_delta) = if effect_x > kid_x {
+        // ASM loc_3709E (kid.asm:38943): burst right of Kid clears
+        // `x_direction(a3)` and subtracts `$FA0` from `x_vel(a3)`.
         (0, -homing_accel)
     } else {
         (0xFF, homing_accel)
