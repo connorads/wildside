@@ -2853,6 +2853,8 @@ pub(crate) fn boss_head_projectile_spawn_sub_397E4(
         "loc_3A1EA"
     };
 
+    // ASM loc_3980A (kid.asm:42450): copy parent X/Y and x_direction, then
+    // use the clear x_direction path for `$48(a0)=$FFFD` and X minus $18.
     let (x_pos, velocity_word_48) = if parent_x_direction == 0 {
         (parent_x.wrapping_sub(0x0018), -3)
     } else {
