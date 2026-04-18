@@ -4254,6 +4254,58 @@ pub(crate) fn goat_tracking_left_route_loc_3cc46(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum GoatTrackingResumeRouteLoc3CC52 {
+    Loc3E566,
+    Loc3E3B2,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_tracking_resume_route_loc_3cc52(
+    facing: Direction,
+) -> GoatTrackingResumeRouteLoc3CC52 {
+    // ASM Goat.asm loc_3CC52: `tst.b x_direction(a3); beq.w loc_3E566;
+    // bra.w loc_3E3B2`. This is reached both when `$42(a3)` is positive
+    // and when Kid is inside the inclusive +/-32px tracking dead zone.
+    match facing {
+        Direction::Left => GoatTrackingResumeRouteLoc3CC52::Loc3E566,
+        Direction::Right => GoatTrackingResumeRouteLoc3CC52::Loc3E3B2,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum GoatTrackingRouteLoc3CC18 {
+    Resume(GoatTrackingResumeRouteLoc3CC52),
+    Right(GoatTrackingRightRouteLoc3CC36),
+    Left(GoatTrackingLeftRouteLoc3CC46),
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn goat_tracking_route_loc_3cc18(
+    shared_walker_state: i16,
+    goat_x_px: i16,
+    kid_x_px: i16,
+    facing: Direction,
+) -> GoatTrackingRouteLoc3CC18 {
+    // ASM Goat.asm loc_3CC18: positive `$42(a3)` skips the Kid-distance
+    // checks and resumes immediately through loc_3CC52.
+    if shared_walker_state > 0 {
+        return GoatTrackingRouteLoc3CC18::Resume(goat_tracking_resume_route_loc_3cc52(facing));
+    }
+
+    if let Some(route) = goat_tracking_right_route_loc_3cc36(goat_x_px, kid_x_px, facing) {
+        return GoatTrackingRouteLoc3CC18::Right(route);
+    }
+
+    if let Some(route) = goat_tracking_left_route_loc_3cc46(goat_x_px, kid_x_px, facing) {
+        return GoatTrackingRouteLoc3CC18::Left(route);
+    }
+
+    GoatTrackingRouteLoc3CC18::Resume(goat_tracking_resume_route_loc_3cc52(facing))
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpInitLoc3AD7C {
     pub(crate) is_moved: bool,
     pub(crate) has_level_collision: bool,
@@ -8636,17 +8688,30 @@ pub(crate) fn step_active_enemies_with_rng(
                     }
                     step_pacer(enemy, block_grid);
                     // Goat: player-tracking callback (Goat.asm loc_3CC18).
-                    // If player is >32px away, turn to face them.
+                    // Positive `$42(a3)` resumes through loc_3CC52; otherwise
+                    // if player is >32px away, turn to face them.
                     if matches!(enemy.family, EnemyFamily::Goat)
                         && let Some(px) = player_x_pos
                     {
-                        let dx = (px as i64 - enemy.x_pos as i64) >> 16;
-                        if dx.abs() > 0x20 {
-                            enemy.facing = if dx > 0 {
-                                Direction::Right
-                            } else {
-                                Direction::Left
-                            };
+                        match goat_tracking_route_loc_3cc18(
+                            enemy.shared_walker_state,
+                            (enemy.x_pos >> 16) as i16,
+                            (px >> 16) as i16,
+                            enemy.facing,
+                        ) {
+                            GoatTrackingRouteLoc3CC18::Right(
+                                GoatTrackingRightRouteLoc3CC36::TurnRight,
+                            ) => enemy.facing = Direction::Right,
+                            GoatTrackingRouteLoc3CC18::Left(
+                                GoatTrackingLeftRouteLoc3CC46::TurnLeft,
+                            ) => enemy.facing = Direction::Left,
+                            GoatTrackingRouteLoc3CC18::Resume(_)
+                            | GoatTrackingRouteLoc3CC18::Right(
+                                GoatTrackingRightRouteLoc3CC36::AlreadyFacingRight,
+                            )
+                            | GoatTrackingRouteLoc3CC18::Left(
+                                GoatTrackingLeftRouteLoc3CC46::AlreadyFacingLeft,
+                            ) => {}
                         }
                     }
                     // Scorpion: tracking callback (Scorpion.asm loc_3DD7E).

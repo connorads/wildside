@@ -2664,6 +2664,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_tracking_positive_shared_state_resumes_by_direction_loc_3cc52() {
+        assert_eq!(
+            goat_tracking_route_loc_3cc18(1, 100, 133, Direction::Left),
+            GoatTrackingRouteLoc3CC18::Resume(GoatTrackingResumeRouteLoc3CC52::Loc3E566),
+            "ASM Goat.asm loc_3CC18 should branch positive `$42(a3)` to loc_3CC52, which sends clear x_direction to loc_3E566 without rechecking Kid distance"
+        );
+        assert_eq!(
+            goat_tracking_route_loc_3cc18(1, 133, 100, Direction::Right),
+            GoatTrackingRouteLoc3CC18::Resume(GoatTrackingResumeRouteLoc3CC52::Loc3E3B2),
+            "ASM Goat.asm loc_3CC18 should branch positive `$42(a3)` to loc_3CC52, which sends set x_direction to loc_3E3B2 without rechecking Kid distance"
+        );
+        assert_eq!(
+            goat_tracking_route_loc_3cc18(0, 100, 132, Direction::Left),
+            GoatTrackingRouteLoc3CC18::Resume(GoatTrackingResumeRouteLoc3CC52::Loc3E566),
+            "ASM Goat.asm loc_3CC18 should also reach loc_3CC52 inside the inclusive +/-32px dead zone"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_armadillo_scales_with_hp() {
         // Armadillo: base_hp=1, base_speed=$8000, step=$10000
         assert_eq!(pacer_walk_speed(EnemyFamily::Armadillo, 1), 0x0000_8000);
