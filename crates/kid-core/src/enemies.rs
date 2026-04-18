@@ -15624,6 +15624,8 @@ pub(crate) fn hand_terrain_scan_loc_32afe(
     // `$4000`, and returns the first/last masks while `tst.w d4` reports
     // whether any sampled word carried that bit. ASM Hand.asm loc_32B32 is
     // the per-cell loop body: `move.w (a4)+,d6; andi.w #$4000,d6`.
+    // ASM Hand.asm loc_32B3E is the inclusive `dbf d7,loc_32B32`
+    // back-edge; after the loop, `-2(a4)` is the last scanned word.
     let row_index = asr4_word(y_pos_word.wrapping_add(1));
     let start_col = asr4_word(x_pos_word.wrapping_sub(0x000E));
     let end_col = asr4_word(x_pos_word.wrapping_add(0x000E));

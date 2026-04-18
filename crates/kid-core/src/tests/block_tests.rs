@@ -8305,6 +8305,23 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_terrain_scan_loop_loc_32b3e_uses_inclusive_dbf_bound() {
+        let scan = hand_terrain_scan_loc_32afe(0x0048, 0x004F, &[0x0000, 0x0000, 0x4000, 0x0000]);
+        assert_eq!(
+            scan.sample_count, 3,
+            "ASM Hand.asm loc_32B3E starts with `d7=end_col-start_col`, so `dbf` runs three iterations for a span of two"
+        );
+        assert_eq!(
+            scan.last_collision_4000, 0x4000,
+            "ASM Hand.asm loc_32B3E exits with `-2(a4)` pointing at the third and final scanned word"
+        );
+        assert!(
+            scan.any_collision_4000,
+            "ASM Hand.asm loc_32B3E must include the final iteration in the returned `tst.w d4` state"
+        );
+    }
+
+    #[test]
     fn hand_jump_collision_loc_32a3e_clears_only_y_velocity() {
         assert_eq!(
             hand_jump_collision_clear_y_velocity_loc_32a3e(0x0002_0000, -0x0003_4000),
