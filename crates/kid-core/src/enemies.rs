@@ -11097,6 +11097,24 @@ pub(crate) fn sphere_collision_table_guard_loc_36128() -> SphereCollisionTableGu
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SphereChildVerticalBounceLoc36142 {
+    pub(crate) y_velocity: i32,
+    pub(crate) resumes_child_loop: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sphere_child_vertical_bounce_loc_36142(
+    y_velocity: i32,
+) -> SphereChildVerticalBounceLoc36142 {
+    // ASM Sphere.asm loc_36142: `neg.l y_vel(a3)` then `bra.s loc_360F4`.
+    SphereChildVerticalBounceLoc36142 {
+        y_velocity: y_velocity.wrapping_neg(),
+        resumes_child_loop: true,
+    }
+}
+
 /// Fireball max upward velocity indexed by live HP
 /// (Fireball.asm `Enemy19_Fireball_Init`: `move.w 2(a0),d7; asl.w #3,d7` into `unk_32BA6`).
 /// HP 1/2/3 use the second/third/final table entries because spawn HP already includes the +1 base.
@@ -33152,6 +33170,27 @@ mod tests {
                 traps_forever: true,
             },
             "ASM Sphere.asm loc_36128 is `bra.s loc_36128`, guarding the bytes before `off_3612A` rather than a valid collision table entry"
+        );
+    }
+
+    #[test]
+    fn sphere_child_vertical_bounce_loc_36142_negates_y_velocity_and_resumes() {
+        assert_eq!(
+            sphere_child_vertical_bounce_loc_36142(0x0002_8000),
+            SphereChildVerticalBounceLoc36142 {
+                y_velocity: -0x0002_8000,
+                resumes_child_loop: true,
+            },
+            "ASM Sphere.asm loc_36142 should `neg.l y_vel(a3)` before branching back to loc_360F4"
+        );
+
+        assert_eq!(
+            sphere_child_vertical_bounce_loc_36142(i32::MIN),
+            SphereChildVerticalBounceLoc36142 {
+                y_velocity: i32::MIN,
+                resumes_child_loop: true,
+            },
+            "ASM Sphere.asm loc_36142 uses 68k long-word negation, so the two's-complement minimum wraps to itself"
         );
     }
 
