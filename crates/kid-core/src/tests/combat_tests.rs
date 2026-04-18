@@ -6052,6 +6052,24 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_loc_34c4a_runs_cleanup_animations_then_deletes() {
+        assert_eq!(
+            dragon_flying_descent_fire_cleanup_loc_34C4A(),
+            DragonFlyingDescentFireCleanupLoc34C4A {
+                has_level_collision: false,
+                x_velocity: 0,
+                y_velocity: 0,
+                first_animation_label: "LnkTo_unk_C75DE",
+                first_animation_hibernate_frames: 3,
+                second_animation_label: "LnkTo_unk_C75E6",
+                second_animation_hibernate_frames: 3,
+                deletes_current_object: true,
+            },
+            "ASM Dragon_Flying.asm loc_34C4A clears movement/collision, hibernates 3+3 cleanup frames, then deletes the object"
+        );
+    }
+
+    #[test]
     fn dragon_flying_loc_348e4_seeds_descent_velocity_and_dbf_counter() {
         assert_eq!(
             dragon_descent_move_setup_loc_348e4(Direction::Left, -2, 3, 6),

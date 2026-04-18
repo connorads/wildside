@@ -7661,6 +7661,38 @@ pub(crate) fn dragon_flying_descent_fire_travel_loop_loc_34C3A(
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DragonFlyingDescentFireCleanupLoc34C4A {
+    pub(crate) has_level_collision: bool,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+    pub(crate) first_animation_label: &'static str,
+    pub(crate) first_animation_hibernate_frames: u16,
+    pub(crate) second_animation_label: &'static str,
+    pub(crate) second_animation_hibernate_frames: u16,
+    pub(crate) deletes_current_object: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn dragon_flying_descent_fire_cleanup_loc_34C4A()
+-> DragonFlyingDescentFireCleanupLoc34C4A {
+    // ASM Dragon_Flying.asm loc_34C4A: clear level collision and both velocity
+    // longs, hibernate three frames on `LnkTo_unk_C75DE`, hibernate three more
+    // on `LnkTo_unk_C75E6`, then tail-jump to Delete_CurrentObject.
+    DragonFlyingDescentFireCleanupLoc34C4A {
+        has_level_collision: false,
+        x_velocity: 0,
+        y_velocity: 0,
+        first_animation_label: "LnkTo_unk_C75DE",
+        first_animation_hibernate_frames: 3,
+        second_animation_label: "LnkTo_unk_C75E6",
+        second_animation_hibernate_frames: 3,
+        deletes_current_object: true,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonFlyingRespawnMarkerLoc34998 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
