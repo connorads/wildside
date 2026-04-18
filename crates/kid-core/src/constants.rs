@@ -100,6 +100,10 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES: usize =
 // `Hibernate_Object_1Frame`, `sub_1C246`, `addi.w #$10,($FFFFF876).w`,
 // `cmpi.w #$100,($FFFFF876).w`, so the fade helper idles for 17 frames before
 // it finally dispatches `$44(a5)` to loc_1B9B2.
+// ASM loc_1C240 (kid.asm:31110): the strict `>$100` exit loads the continuation
+// callback from object offset `$44(a5)` and jumps there after the 17th hibernate
+// frame, so native counts the shared fade as a complete timing window before
+// the caller-specific intro worker resumes.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_FADE_FRAMES: usize = 17;
 // ASM loc_1C234 (kid.asm:31103): before each non-final shared fade pass,
 // `moveq #-1,d0` writes `$FFFFFFFF` to `$FFFFF888` and `$FFFFF88C`, then
