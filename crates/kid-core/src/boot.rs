@@ -3376,6 +3376,30 @@ pub(crate) fn intro_sequence_4_palette_mask_start_loc_1C1E2(
     }
 }
 
+pub(crate) const INTRO_SEQUENCE_4_PALETTE_MASK_ROWS_LOC_1C1E4: usize = 0x57 + 1;
+pub(crate) const INTRO_SEQUENCE_4_PALETTE_MASK_STRIDE_BYTES_LOC_1C1E4: usize = 0x20;
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn apply_intro_sequence_4_palette_mask_loop_loc_1C1E4(
+    level_layout: &mut [u8],
+    start: IntroSequence4PaletteMaskStartLoc1C1E2,
+) -> usize {
+    // ASM loc_1C1E4 (kid.asm:31053-31056): apply `and.b d4,(a0)`, advance
+    // `a0` by `$20` bytes, and let `dbf d2,loc_1C1E4` run inclusively from
+    // `d2=$57`, touching 88 Level_Layout bytes in one column of palette nibbles.
+    let mut offset = start.start_byte_offset;
+    let mut masked_bytes = 0_usize;
+    for _ in 0..INTRO_SEQUENCE_4_PALETTE_MASK_ROWS_LOC_1C1E4 {
+        if let Some(byte) = level_layout.get_mut(offset) {
+            *byte &= start.mask;
+            masked_bytes += 1;
+        }
+        offset = offset.saturating_add(INTRO_SEQUENCE_4_PALETTE_MASK_STRIDE_BYTES_LOC_1C1E4);
+    }
+    masked_bytes
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct VdpPatternFillRowLoopLoc1C5E8 {

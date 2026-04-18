@@ -1228,6 +1228,25 @@ mod chunk_11 {
         );
         // The mask in d4 is either $F0 (clear low nibble) or $0F (clear high nibble)
         // depending on the bit 0 of the original d3 value before the lsr.
+        let start = crate::boot::intro_sequence_4_palette_mask_start_loc_1C1E2(0x43);
+        let mut level_layout = vec![0xFF_u8; 0x21 + (0x20 * 87) + 1];
+        let masked_bytes = crate::boot::apply_intro_sequence_4_palette_mask_loop_loc_1C1E4(
+            &mut level_layout,
+            start,
+        );
+        assert_eq!(
+            masked_bytes, 88,
+            "ASM loc_1C1E4 should mask one byte per DBF pass"
+        );
+        assert_eq!(
+            level_layout[0x21], 0xF0,
+            "ASM loc_1C1E4 should mask the first selected Level_Layout byte"
+        );
+        assert_eq!(
+            level_layout[0x21 + (0x20 * 87)],
+            0xF0,
+            "ASM loc_1C1E4 should mask the final DBF zero-slot Level_Layout byte"
+        );
         assert_eq!(
             0xF0_u8, 0b11110000,
             "ASM loc_1C1E2 branch taken: d4=$F0 clears the low nibble of each palette byte"
