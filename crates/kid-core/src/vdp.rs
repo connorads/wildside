@@ -432,6 +432,9 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     // ASM loc_1C4BE (kid.asm:31202): after loc_1C4B2 seeds `d0=#$32`,
     // the inclusive DBF loop copies 0x33 words from Pal_1C400 into
     // Palette_Buffer; native loads those same title palette words for CRAM.
+    // ASM loc_1C4E2 (kid.asm:31216): non-default regions copy their selected
+    // 0x13-word overlay into Palette_Buffer+$1A; the default region path leaves
+    // the base palette unchanged before native writes it to CRAM.
     let palette_words = load_palette_words(&scenes.join("palette/title.bin"))?;
 
     Ok(TitleScreenData {
