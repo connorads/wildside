@@ -2526,7 +2526,8 @@ pub(crate) fn boss_eye_pop_effect_init_sub_3729E(
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_pop_effect_face_kid_sub_3729E(effect_x: u16, kid_x: u16) -> u8 {
     // ASM loc_37300..loc_3731A (kid.asm:39170): if the effect is to the right
-    // of Kid clear `x_direction(a3)`, otherwise set it to `$FF`.
+    // of Kid, ASM loc_37316 clears `x_direction(a3)`; otherwise loc_37300
+    // sets it to `$FF`.
     if effect_x > kid_x { 0 } else { 0xFF }
 }
 
