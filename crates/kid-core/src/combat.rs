@@ -2557,6 +2557,7 @@ pub(crate) fn boss_eye_attack_init_sub_37332(
     let initial_x_velocity = if x_pos < kid_x {
         -0x0000_7FFF
     } else {
+        // ASM loc_37394 (kid.asm:39224): `move.l #$7FFF,x_vel(a3)`.
         0x0000_7FFF
     };
 
