@@ -3601,6 +3601,8 @@ pub(crate) fn boomerang_boss_head_1_activation_loc_37F94(
     }
 
     let x_direction = if word_gt_signed(head_x, kid_x) {
+        // ASM loc_37FC2 (kid.asm:40371): `sf x_direction(a3)` when the
+        // signed head X word is greater than Kid's X word.
         0
     } else {
         0xFF
