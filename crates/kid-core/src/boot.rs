@@ -2459,6 +2459,14 @@ pub(crate) struct IntroTextBuggySubstitutionLoc1C7DC {
     pub(crate) substituted: bool,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroTextGlyphStepLoc1C7E6 {
+    pub(crate) tile_index: u8,
+    pub(crate) next_x_pos: u16,
+    pub(crate) hibernate_frames: Option<u16>,
+}
+
 impl TitleTextWordWritesSub1B7B6 {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn bottom_word_addresses(self) -> [u16; 2] {
@@ -2533,6 +2541,24 @@ pub(crate) fn intro_text_buggy_substitution_loc_1C7DC(
         comparison_addr: 0x0020,
         output_byte: if substituted { 0x6D } else { text_byte },
         substituted,
+    }
+}
+
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn intro_text_glyph_step_loc_1C7E6(
+    glyph_byte: u8,
+    current_x_pos: u16,
+    header_delay_counter: u16,
+) -> IntroTextGlyphStepLoc1C7E6 {
+    // ASM loc_1C7E6 (kid.asm:31444-31450): subtract `$41` from `d6`, render
+    // the glyph through the intro text tile writer, advance `d1` by one tile,
+    // then use the header delay word at `4(a0)` to choose immediate parsing
+    // or hibernation via `loc_1C7AE`.
+    IntroTextGlyphStepLoc1C7E6 {
+        tile_index: glyph_byte.wrapping_sub(0x41),
+        next_x_pos: current_x_pos.wrapping_add(1),
+        hibernate_frames: (header_delay_counter != 0).then_some(header_delay_counter),
     }
 }
 
