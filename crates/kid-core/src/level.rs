@@ -7506,9 +7506,11 @@ pub(crate) fn manage_enemy_loading_spawn_object_loc_3691E(
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
     // ASM loc_3200A (kid.asm:37413): clear `d0`, read byte `1(a1)`, and
-    // return zero immediately for empty slots. Positive bytes subtract one,
-    // rotate that slot index right by four bits, OR in the big-endian word
-    // from `unk_3680C`, then force the high bits with `ori.w #$C000,d0`.
+    // branch to loc_32044 for empty slots, where `clr.w (a2)+` writes the
+    // zero status word before advancing to the next 8-byte layout entry.
+    // Positive bytes subtract one, rotate that slot index right by four bits,
+    // OR in the big-endian word from `unk_3680C`, then force the high bits
+    // with `ori.w #$C000,d0`.
     const ENEMY_LAYOUT_STATUS_LOOKUP_LOC_3200A: [u16; 4] = [0x00F0, 0x01E0, 0x02D0, 0x03C0];
 
     if entry_status_byte == 0 {
