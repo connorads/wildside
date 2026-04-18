@@ -2394,6 +2394,8 @@ pub(crate) fn boss_death_burst_homing_step_sub_370D2(
     // but with the slower `$7D0` per-axis acceleration.
     let homing_accel = 0x0000_07D0;
     let (x_direction, x_velocity_delta) = if effect_x > kid_x {
+        // ASM loc_37192 (kid.asm:39030): burst right of Kid clears
+        // `x_direction(a3)` and subtracts `$7D0` from `x_vel(a3)`.
         (0, -homing_accel)
     } else {
         (0xFF, homing_accel)
