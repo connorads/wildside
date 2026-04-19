@@ -1907,6 +1907,9 @@ impl NativeRuntime {
         }
 
         if state == 0 {
+            // ASM loc_F8A6 (kid.asm:20577): a zero state stores `$8001`
+            // and adds two frames to the expired slot timer before the
+            // horizontal redraw setup continues.
             (decremented_timer.wrapping_add(2), 0x8001)
         } else {
             // ASM loc_F898 (kid.asm:20570): a non-zero positive state starts
