@@ -6455,6 +6455,8 @@ pub(crate) fn boss_head_movement_step_sub_39C02(
     // ASM sub_39C02 (kid.asm:42809): same countdown/script loader as
     // `sub_39846`, but a negative sentinel always rewinds to
     // `unk_39C2E` (Bagel Brothers head movement variant).
+    // ASM loc_39C08 (kid.asm:42815): after the countdown reaches zero,
+    // a negative delay word reloads `a2` with `unk_39C2E` and retries.
     boss_head_movement_step_sub_39846(
         delay_counter_d0,
         current_script_index,
