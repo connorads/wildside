@@ -813,6 +813,10 @@ pub(crate) fn step_weather_worker_sub_61CA(
                     u16::from_be_bytes(spawn_x_px.to_be_bytes()).wrapping_add(0x000F) >> 4,
                 );
                 let first_word = input.collision_rows.word_at(row_index, col_floor);
+                // ASM loc_62AA (kid.asm:6275): first test masks the low nibble
+                // of `(a4)+`; if the 16px spawn footprint crosses into the next
+                // collision column, the second test masks that next word's low
+                // byte before falling through to loc_62C2.
                 let blocked_first_tile = first_word & 0x000F != 0;
                 let crosses_tile = col_ceil != col_floor;
                 let blocked_second_tile = crosses_tile
