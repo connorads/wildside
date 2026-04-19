@@ -10941,6 +10941,9 @@ pub(crate) fn shooter_object_moving_up_gate_loc_EE80(
 /// ASM loc_EE92 (kid.asm:19375): after selecting the moving-up shooter's layout
 /// word, bit 14 gates collision; ages below two always interact on a bit-14 cell,
 /// while ages two and three only interact when the moving-up `$2000` bit remains set.
+/// ASM loc_EEAC (kid.asm:19385): every non-interacting branch continues the
+/// moving-up shooter by subtracting four from `$4(a0)` before emitting sprite
+/// tile `$8295`.
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_up_collision_gate_loc_EE92(
