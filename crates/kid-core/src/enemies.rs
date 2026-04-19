@@ -5436,6 +5436,8 @@ pub(crate) fn scorpion_close_range_route_loc_3ddc8(
         return ScorpionCloseRangeRouteLoc3DDC8::TrackingLockedVerticalMiss;
     }
 
+    // ASM Scorpion.asm loc_3DDEE branches to loc_3DE3C when `$40(a3) < 1`,
+    // keeping the tracking lock but skipping the tail-collision sting animation.
     if enemy_level < 1 {
         return ScorpionCloseRangeRouteLoc3DDC8::TrackingLockedNoStingAnimation;
     }
