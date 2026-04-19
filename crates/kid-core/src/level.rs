@@ -9223,6 +9223,8 @@ pub(crate) fn shooter_visible_up_sprite_loc_F41E(
 ) -> ShooterVisibleUpSpriteLocF41E {
     let shifted_direction_bits = input.direction_bits >> 1;
     if (input.direction_bits & 1) == 0 {
+        // ASM loc_F462 (kid.asm:20071): clear carry after the upward bit
+        // check branches to the right-neighbour sprite gate.
         return ShooterVisibleUpSpriteLocF41E {
             shifted_direction_bits,
             sprite_words: None,
