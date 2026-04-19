@@ -4194,8 +4194,15 @@ impl NativeRuntime {
             std::cmp::Ordering::Less => slice.player.facing == Direction::Left,
             std::cmp::Ordering::Equal => false,
         };
+        // ASM loc_9512 (kid.asm:10978): on ice (`$FFFFFA0A == 1`), the charge
+        // accumulator only continues while left or right is held; no held
+        // direction branches to the clear path before the velocity threshold.
+        let ice_without_directional_input = slice.terrain.floor_terrain_type == TerrainType::Ice
+            && !self.previous_input.left
+            && !self.previous_input.right;
         let vel_abs = slice.player.x_velocity.unsigned_abs() as i32;
         if !moving_forward
+            || ice_without_directional_input
             || vel_abs < BERZERKER_CHARGE_VEL_THRESHOLD
             || !(slice.player.on_ground || self.previous_input.left || self.previous_input.right)
         {
