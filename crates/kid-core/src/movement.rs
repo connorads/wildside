@@ -5576,6 +5576,8 @@ pub(crate) fn update_level_one_slope_ground_velocity(
                 canonical_vel = max_speed;
             }
         }
+        // ASM loc_9DEE (kid.asm:12023): every uphill subpath branches to the
+        // shared canonical-velocity unconvert/store tail below.
     } else if downhill_pressed {
         if canonical_vel >= 0 {
             canonical_vel -= downhill_accel * 2;
