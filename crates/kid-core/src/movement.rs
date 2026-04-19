@@ -3256,6 +3256,8 @@ impl OpeningSliceState {
                 //   loc_94D8 (kid.asm:10945): write the Juggernaut walk sprite
                 //     and clear is_animated when the sprite lock is absent or
                 //     the lock timer has expired.
+                //   loc_94E0 (kid.asm:10949): common Juggernaut exit runs
+                //     the support-sprite step, then returns.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
