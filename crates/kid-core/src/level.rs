@@ -16026,6 +16026,8 @@ pub(crate) fn eyeclops_hard_beam_gate_loc_E7AC(
     let allocation = (masked_counter == 0).then_some(EyeclopsHardBeamAllocationLocE7AC {
         gfx_spec: 0x0300_0001,
         object_slot_request: 0xFFFF,
+        // ASM loc_EADE (kid.asm:18851): the companion worker hibernates one
+        // frame, then branches back to itself while the hard beam owns it.
         object_worker_addr: 0x0000_EADE,
         stores_gfx_slot_in_faba: true,
         stores_object_slot_in_gfx_backref: true,
