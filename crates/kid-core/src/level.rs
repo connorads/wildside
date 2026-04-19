@@ -10185,6 +10185,8 @@ pub(crate) fn evanescent_block_removal_gate_loc_EA3E(
 ) -> EvanescentBlockRemovalGateLocEA3E {
     let decremented_timer = timer.wrapping_sub(1);
     if decremented_timer != 0 {
+        // ASM loc_EAAA (kid.asm:18820): the waiting path reloads `$A(a2)`
+        // as the next active evanescent object before the shared return tail.
         return EvanescentBlockRemovalGateLocEA3E {
             next_timer: decremented_timer,
             should_try_remove_block: false,
