@@ -4109,6 +4109,9 @@ impl OpeningSliceState {
                 // ASM loc_8460 (kid.asm:9218): `swap; rol.l #5` turns the
                 // absolute x_vel into that sprite-phase increment, still with
                 // no gameplay state change in native.
+                // ASM loc_8470 (kid.asm:9226): stores the wrapped phase in
+                // $FFFFF8F0 and indexes off_84A2 for addroffset_sprite(a3);
+                // native leaves that sprite-table write unmodelled.
                 // ASM loc_83B4 (kid.asm:9139): non-Skycutter crawl uses
                 // `bsr.w sub_8506` (airborne horizontal tables), NOT the
                 // ground walking tables. Native uses ground tables for all
