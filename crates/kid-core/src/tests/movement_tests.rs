@@ -11637,9 +11637,7 @@ mod chunk_12 {
     /// (loc_9F32 is the fall-through from the positive check).
     ///
     /// This test exercises the path through loc_9F32 with a velocity within bounds
-    /// to confirm the clamp is a pass-through (no modification). The function
-    /// does not currently implement the $40000 cap because internal slope logic
-    /// already ensures velocity ≤ max_speed; the ASM cap is redundant safety.
+    /// to confirm the clamp is a pass-through (no modification).
     #[test]
     #[allow(non_snake_case)]
     fn slope_post_velocity_cap_passthrough_loc_9F32() {
@@ -11663,6 +11661,32 @@ mod chunk_12 {
         assert_eq!(
             vel, 0x5000,
             "ASM loc_9F32: velocity $5000 within ±$40000 cap, passthrough"
+        );
+    }
+
+    /// ASM loc_9F32: negative post-slope velocities below -$40000 clamp to
+    /// -$40000 after the positive cap check falls through.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_post_velocity_negative_cap_loc_9F32() {
+        // SlopeUp with no input starts from a too-fast negative velocity.
+        // loc_9E2E moves canonical velocity from -$50000 to -$4E000, then
+        // loc_9E64 stores it. loc_9F32 must clamp that below-cap result.
+        let (vel, _) = update_level_one_slope_ground_velocity(
+            -0x0005_0000,
+            Direction::Left,
+            HorizontalInput {
+                left: false,
+                right: false,
+                run: false,
+            },
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            vel, -0x4_0000,
+            "ASM loc_9F32: x_vel below -$40000 clamps to -$40000"
         );
     }
 

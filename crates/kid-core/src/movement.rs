@@ -5419,6 +5419,14 @@ pub(crate) struct CrawlSlopeSnapSub83E6 {
     pub(crate) adjusted: bool,
 }
 
+fn cap_slope_exit_x_vel_loc_9f32(x_vel: i32) -> i32 {
+    // ASM loc_9F18 (kid.asm:12223): after every slope velocity path stores
+    // `x_vel`, reload it and clamp positive values above `$40000`.
+    // ASM loc_9F32 (kid.asm:12232): negate the cap and clamp negative values
+    // below `$FFFC0000` before storing `x_vel` again at loc_9F3A.
+    x_vel.clamp(-KID_SLOPE_MAX_SPEED_FP, KID_SLOPE_MAX_SPEED_FP)
+}
+
 pub(crate) fn update_level_one_slope_ground_velocity(
     x_vel: i32,
     facing: Direction,
@@ -5477,6 +5485,7 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         } else {
             Direction::Left
         };
+        let next_x_vel = cap_slope_exit_x_vel_loc_9f32(next_x_vel);
         return (next_x_vel, next_facing);
     }
 
@@ -5652,6 +5661,7 @@ pub(crate) fn update_level_one_slope_ground_velocity(
     };
     // ASM loc_9E64 (kid.asm:12086): `move.l d0,x_vel(a3)` stores the
     // unconverted slope velocity; native returns it for the caller to apply.
+    let next_x_vel = cap_slope_exit_x_vel_loc_9f32(next_x_vel);
     (next_x_vel, next_facing)
 }
 
