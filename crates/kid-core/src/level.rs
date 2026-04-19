@@ -10598,6 +10598,8 @@ pub(crate) fn evanescent_bullet_direction_load_loc_EC76(
         }
 
         if next_free_slot_addr == 0 {
+            // ASM loc_ECA2 (kid.asm:19146): an empty shooter free-list exits
+            // the direction loop immediately before the shared age advance.
             stopped_on_empty_free_list = true;
             break;
         }
