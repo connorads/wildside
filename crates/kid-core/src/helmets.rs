@@ -781,6 +781,8 @@ pub(crate) fn skycutter_visual_step_sub_98F2(
     if state.motion_timer <= 1 {
         let index = usize::from(state.motion_script_index.unwrap_or(u8::MAX));
         let (phase, timer, next_index) = if let Some(&(phase, timer)) = SCRIPT.get(index) {
+            // ASM loc_996A (kid.asm:11504): read the next `(phase, timer)`
+            // pair from `a0`, then store the post-incremented pointer.
             (phase, timer, Some((index + 1) as u8))
         } else {
             // ASM loc_9968 (kid.asm:11501): if `$FFFFFA0E` is outside
