@@ -16675,6 +16675,9 @@ pub(crate) struct EolScoreCounterDrainLocD7CE {
 /// display object's `$60`, subtract the full transfer chunk from the active
 /// EOL number object's `$60`, and advance to the next number when the signed
 /// result is not positive.
+/// ASM loc_D7F4 (kid.asm:16905): when that decrement exhausts the final active
+/// number, stop the counter sound, hibernate for `d0`, then route to the next
+/// level or `End_Credits`.
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn eol_score_counter_drain_current_number_loc_D7CE(
