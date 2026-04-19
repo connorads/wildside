@@ -5592,6 +5592,9 @@ pub(crate) fn update_level_one_slope_ground_velocity(
                 canonical_vel = downhill_cap;
             }
         } else {
+            // ASM loc_9E1E (kid.asm:12047): canonical velocity below the
+            // downhill cap brakes toward the negative max-speed floor at
+            // `4(a0)`.
             canonical_vel += brake;
             if canonical_vel < -max_speed {
                 canonical_vel = -max_speed;
