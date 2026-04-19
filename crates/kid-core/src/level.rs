@@ -10562,6 +10562,8 @@ pub(crate) fn evanescent_bullet_load_candidate_loc_EC52(
     age: u16,
 ) -> Option<EvanescentBulletLoadCandidateLocEC52> {
     if age != 0 {
+        // ASM loc_ECA6 (kid.asm:19150): non-zero age skips bullet loading and
+        // enters the shared age increment/action dispatch path.
         return None;
     }
 
