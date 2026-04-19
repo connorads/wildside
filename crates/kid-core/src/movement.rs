@@ -3260,6 +3260,9 @@ impl OpeningSliceState {
                 //     the support-sprite step, then returns.
                 //   loc_94F6 (kid.asm:10963): non-Juggernaut dispatch enters
                 //     Cyclone walking animation or the shared generic path.
+                //   loc_9596 (kid.asm:11037): TheKid positive-velocity branch;
+                //     facing right keeps the normal walk animation, facing left
+                //     falls through to the backward sprite.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
