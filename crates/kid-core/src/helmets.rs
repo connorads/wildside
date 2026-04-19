@@ -312,6 +312,8 @@ pub(crate) fn red_stealth_floor_impact_sub_B000(
     }
 
     let kind = match probe.cell.block_type {
+        // ASM loc_B070 (kid.asm:13904): smash-block table entry sets d6=2
+        // and jumps to Block_LoadSmashBits before the common bounce tail.
         terrain::BlockType::Smash => RedStealthFloorImpactKindSubB000::Smash,
         terrain::BlockType::Prize => RedStealthFloorImpactKindSubB000::Prize,
         terrain::BlockType::Ice => RedStealthFloorImpactKindSubB000::Ice,
