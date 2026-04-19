@@ -615,6 +615,8 @@ pub(crate) fn sound_driver_z80_handshake_loc_E136C(
 pub(crate) fn sound_driver_vdp_dma_wait_loc_E13B0(vdp_control_port_word: u16) -> bool {
     // ASM loc_E13B0 (kid.asm:49569): after restarting the Z80, repeatedly
     // read VDP control port `4(a6)` and loop while bit 1 remains set.
+    // ASM loc_964 (kid.asm:1084) is the same VDP DMA-busy predicate:
+    // `move.w 4(a6),d6; btst #1,d6; bne.s loc_964`.
     (vdp_control_port_word & 0x0002) != 0
 }
 
