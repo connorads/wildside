@@ -393,6 +393,8 @@ pub(crate) fn juggernaut_companion_step_sub_975C(
         };
     }
 
+    // ASM loc_976C (kid.asm:11292): clear `$15(a4)`, then branch on the
+    // shared `$FFFFFA6C` latch before testing wall, object, and Down blockers.
     let blocked = wall_scan_blocked || object_overlap || down_held;
     let visual = if state.blocked_latch {
         if blocked {
