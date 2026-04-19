@@ -142,6 +142,9 @@ pub struct NativeRuntime {
     ///   - loc_B8C (kid.asm:1342): default path (1P mode or Current_player==0)
     ///     stores `Ctrl_Held → Ctrl_1_Held`, `Ctrl_Pressed → Ctrl_1_Pressed`.
     ///   - 2P + Current_player!=0: stores to Ctrl_2_Held/Ctrl_2_Pressed.
+    ///   - loc_BB6 (kid.asm:1358): common post-cheat path wraps the hardware
+    ///     poll with sub_914/sub_924 and reads ports $A10003/$A10005 into
+    ///     Ctrl_1/Ctrl_2.
     ///
     /// Native: single FrameInput consumed directly — no per-player routing.
     options_two_player_two_controllers: bool,
