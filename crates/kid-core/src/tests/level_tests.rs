@@ -7369,6 +7369,19 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E7A4 (kid.asm:18476): off-screen strip setup failures clear
+    /// `$FFFFFAB8`, so the next accepted strip starts the adjacent-column
+    /// cadence from zero.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E7A4_resets_strip_scan_counter_after_rejected_setup() {
+        assert_eq!(
+            crate::level::level_sprite_strip_reset_scan_counter_loc_E7A4(),
+            0,
+            "ASM loc_E7A4 should clear `$FFFFFAB8` before the `loc_E7A8` exit"
+        );
+    }
+
     /// ASM loc_E7A8 (kid.asm:18479): rejected strip paths do not clear or
     /// allocate anything here; they branch straight into the shared visible
     /// object sprite pass at `loc_E99C`.

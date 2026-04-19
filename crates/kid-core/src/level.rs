@@ -15971,6 +15971,15 @@ pub(crate) fn level_sprite_strip_advance_scan_counter_loc_E79C(strip_scan_counte
     strip_scan_counter.wrapping_add(1)
 }
 
+/// ASM loc_E7A4 (kid.asm:18476): rejected terrain sprite strips reset the
+/// adjacent-column scan counter `$FFFFFAB8` before falling through to
+/// `loc_E7A8`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_reset_scan_counter_loc_E7A4() -> u16 {
+    0
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LevelSpriteStripExitLocE7A8 {
     ContinueToVisibleObjectSpritePass,
