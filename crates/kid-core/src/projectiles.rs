@@ -390,6 +390,11 @@ impl NativeRuntime {
         // If solid: `andi.w #$FFF0,d7; subq.w #1,d7` snaps to tile left edge - 1.
         // ASM loc_8864 (kid.asm:9682): `bne.w loc_88E6` — not-solid branch
         // skips wall snap entirely, falls through to y-axis movement.
+        // ASM loc_887A (kid.asm:9691): left-moving pre-boundary check.
+        // `andi.w #$F,d6; neg.w d7; cmp.w d6,d7` compares the leftward
+        // displacement against the current tile nibble. If the projectile
+        // stays within the tile, `sub.w d7,d5; move.w d5,x_pos(a3)` applies
+        // the move and falls through to loc_88E6.
         // ASM loc_8890 (kid.asm:9700): left-moving mirror — snaps to
         // `(x & $FFF0) + $10` (tile right edge). Both paths fall through to
         // loc_88B6 bounce logic: `subq.w #1,d0` (bounce counter), x_vel decay
