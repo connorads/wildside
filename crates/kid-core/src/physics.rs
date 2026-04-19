@@ -558,6 +558,7 @@ pub fn update_skycutter_horizontal_velocity_sub_9A20(
             // ASM loc_9A56 (kid.asm:11611): `subi.l #$2000,d0`.
             x_vel - 0x2000
         } else {
+            // ASM loc_9A66 (kid.asm:11618): `move.l #$40000,d0`.
             0x4_0000
         }
     } else if input.run {
