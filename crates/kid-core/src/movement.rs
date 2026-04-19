@@ -3280,6 +3280,9 @@ impl OpeningSliceState {
                 //   loc_95E4 (kid.asm:11074): `swap; rol.l #5` converts
                 //     abs(x_vel) into the sprite-phase increment; Micromax
                 //     adds the same increment twice. Native: visual-only.
+                //   loc_95F2 (kid.asm:11082): wrap that generic walk sprite
+                //     phase at `$600` after the velocity-scaled increment.
+                //     Native: visual-only.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
