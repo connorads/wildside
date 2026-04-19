@@ -804,6 +804,9 @@ impl PlayerForm {
     }
 
     /// Select the ground speed table for this form and terrain type.
+    /// ASM loc_9AE0 (kid.asm:11673): sub_9A0A enters the generic ground
+    /// table path by loading the normal table, then swapping in ice/rubber
+    /// tables before applying Micromax/Juggernaut form offsets.
     /// Three form groups (Kid/Micromax/Juggernaut) × three terrain types (Normal/Ice/Rubber).
     pub(crate) fn ground_speed_table(
         self,
