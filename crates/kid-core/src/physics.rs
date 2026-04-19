@@ -676,6 +676,8 @@ fn apply_holding_left(vel: i32, run: bool, table: &SpeedTable) -> i32 {
 fn decelerate(vel: i32, table: &SpeedTable) -> i32 {
     match vel.cmp(&0) {
         std::cmp::Ordering::Greater => {
+            // ASM loc_9BFC (kid.asm:11843): moving right with no direction held
+            // subtracts `8(a0)` and snaps only if the result goes negative.
             let next = vel - table.walk_run_decel;
             if next < 0 { 0 } else { next }
         }
