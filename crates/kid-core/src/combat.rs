@@ -9094,6 +9094,8 @@ pub(crate) fn juggernaut_support_overlap_sub_9832(
                 let left_px = right_px.saturating_sub(collision_size.width_px);
                 (left_px, right_px)
             } else {
+                // ASM loc_9882 (kid.asm:11394): clear `x_direction` uses
+                // `x_pos + left_offset`, then checks the derived right edge.
                 let left_px = candidate
                     .x_anchor_px
                     .saturating_add(collision_size.left_offset_px);
