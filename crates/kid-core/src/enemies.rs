@@ -5435,6 +5435,8 @@ pub(crate) fn scorpion_close_range_route_loc_3ddc8(
     if !(SCORPION_STING_Y_MIN_LOC_3DDEE..=SCORPION_STING_Y_MAX_LOC_3DDEE)
         .contains(&scorpion_y_minus_kid_y_px)
     {
+        // ASM Scorpion.asm loc_3DE96 handles vertical misses after `$4E(a5)`
+        // has been set, so the scorpion stays tracking-locked without stinging.
         return ScorpionCloseRangeRouteLoc3DDC8::TrackingLockedVerticalMiss;
     }
 
