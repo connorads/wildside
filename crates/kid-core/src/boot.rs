@@ -830,6 +830,9 @@ pub(crate) fn step_hud_animation_sub_44DC(
             DIAMOND_TABLE,
             0xFF,
         );
+    // ASM loc_4648 (kid.asm:5717): store the advanced AniArt_Flag offset in
+    // `$FFFFFA61`, walk the flag speed/frame pairs, and wrap `$FF` back to
+    // offset 0 before loc_4680 dispatches the frame DMA.
     let (flag_countdown_fb5c, flag_frame_offset_fb61, flag_frame) = step_hud_animation_pair_table(
         state.flag_countdown_fb5c,
         state.flag_frame_offset_fb61,
