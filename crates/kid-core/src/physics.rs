@@ -568,6 +568,8 @@ pub fn update_skycutter_horizontal_velocity_sub_9A20(
     } else if input.run {
         (x_vel - 0x4000).max(-0x4_0000)
     } else if x_vel > -0x2_0000 {
+        // ASM loc_9A90 (kid.asm:11638): reverse path with Ctrl_A_Held clear
+        // subtracts `$2000`, then clamps at the leftward walk cap `$FFFE0000`.
         (x_vel - 0x2000).max(-0x2_0000)
     } else if x_vel >= -0x4_0000 {
         x_vel + 0x2000
