@@ -4219,6 +4219,10 @@ impl NativeRuntime {
             .berzerker_charge_accum
             .overflowing_add(BERZERKER_CHARGE_ACCUM_STEP);
         if overflow {
+            // ASM loc_9556 (kid.asm:11004): on ice, the carried byte
+            // accumulator adds a fixed `$40` to the visual walk counter instead
+            // of the non-ice velocity-scaled delta. Native keeps the gameplay
+            // flag and leaves that sprite counter visual-only.
             self.helmet.berzerker_charge_accum = 0xFF;
             self.helmet.berzerker_charging = true;
         } else {
