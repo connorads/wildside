@@ -3025,7 +3025,8 @@ impl OpeningSliceState {
                 //   `andi.w #$FFF0,y_pos(a3)` (snap y to 16px grid),
                 //   `subq.w #1,y_pos(a3)` (one pixel above surface),
                 //   then dispatch: x_vel==0 → `bsr.w sub_78E8; bra.w loc_75D4`
-                //   (standing still), x_vel!=0 → `bsr.w sub_942A; bra.w loc_8BF0`
+                //   (standing still). ASM loc_B996 (kid.asm:14929): x_vel!=0
+                //   → `move.l x_vel(a3),d0; bsr.w sub_942A; bra.w loc_8BF0`
                 //   (walking animation). Native: floor snap handled by
                 //   apply_floor_collision; collision_type clearing is implicit
                 //   (native doesn't use the field); sub_78E8/sub_942A paths
