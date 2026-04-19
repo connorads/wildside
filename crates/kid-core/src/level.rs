@@ -8947,6 +8947,8 @@ pub(crate) fn shooter_active_slot_scan_step_loc_F28C(
     }
 
     if (direction_word as i16) < 0 {
+        // ASM loc_F410 (kid.asm:20035): a negative `$6(a0)` enters visible
+        // sprite compilation instead of following the active-slot link.
         return ShooterActiveSlotScanStepLocF28C::CompileVisibleSlot {
             current_slot_addr,
             next_timer,
