@@ -433,6 +433,9 @@ pub(crate) fn juggernaut_companion_step_sub_975C(
         JuggernautCompanionVisualSub975C::None
     };
 
+    // ASM loc_97FE (kid.asm:11341): every live branch reaches the common
+    // companion sync/return. Native does not persist the visual-only GFX object,
+    // so the convergence is represented by returning the resolved step.
     JuggernautCompanionStepSub975C {
         byte_15_active: false,
         blocked_latch: blocked,
