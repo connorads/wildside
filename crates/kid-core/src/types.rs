@@ -811,6 +811,8 @@ impl PlayerForm {
     /// table pointer with the rubber table (`unk_9CCE`).
     /// ASM loc_9AFC (kid.asm:11685): Micromax advances the selected terrain
     /// table pointer by `$1C`, one `SpeedTable` entry.
+    /// ASM loc_9B08 (kid.asm:11690): Juggernaut advances the selected terrain
+    /// table pointer by `$38`, two `SpeedTable` entries.
     /// Three form groups (Kid/Micromax/Juggernaut) × three terrain types (Normal/Ice/Rubber).
     pub(crate) fn ground_speed_table(
         self,
