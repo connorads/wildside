@@ -5579,6 +5579,8 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         // ASM loc_9DEE (kid.asm:12023): every uphill subpath branches to the
         // shared canonical-velocity unconvert/store tail below.
     } else if downhill_pressed {
+        // ASM loc_9DF2 (kid.asm:12027): downhill input updates facing from
+        // the slope flag, then double-accelerates non-negative canonical vel.
         if canonical_vel >= 0 {
             canonical_vel -= downhill_accel * 2;
         } else if canonical_vel >= downhill_cap {
