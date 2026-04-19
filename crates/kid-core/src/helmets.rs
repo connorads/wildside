@@ -4185,8 +4185,18 @@ impl NativeRuntime {
             return;
         }
 
+        // ASM loc_950A (kid.asm:10973): negative Berzerker `x_vel` clears the
+        // charge accumulator when `x_direction(a3)` is clear (facing right);
+        // otherwise `neg.l d0` normalises the forward-left speed for the
+        // charge-accumulator path.
+        let moving_forward = match slice.player.x_velocity.cmp(&0) {
+            std::cmp::Ordering::Greater => slice.player.facing == Direction::Right,
+            std::cmp::Ordering::Less => slice.player.facing == Direction::Left,
+            std::cmp::Ordering::Equal => false,
+        };
         let vel_abs = slice.player.x_velocity.unsigned_abs() as i32;
-        if vel_abs < BERZERKER_CHARGE_VEL_THRESHOLD
+        if !moving_forward
+            || vel_abs < BERZERKER_CHARGE_VEL_THRESHOLD
             || !(slice.player.on_ground || self.previous_input.left || self.previous_input.right)
         {
             self.helmet.berzerker_charging = false;
