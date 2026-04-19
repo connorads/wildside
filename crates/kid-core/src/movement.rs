@@ -3286,6 +3286,9 @@ impl OpeningSliceState {
                 //   loc_95FC (kid.asm:11087): store the wrapped sprite phase
                 //     in `$FFFFF8F0`, then fall through to the shared walking
                 //     sprite table. Native: visual-only.
+                //   loc_9600 (kid.asm:11090): index off_9618 by helmet and
+                //     `d2 >> 8` by sprite phase to choose the walking frame.
+                //     Native: visual-only.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
