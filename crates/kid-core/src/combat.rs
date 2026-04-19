@@ -8101,6 +8101,8 @@ impl NativeRuntime {
         //     GFX direction only for RedStealth, IronKnight, and Berzerker.
         //     ASM loc_7DDA (kid.asm:8520): copy Kid's palette line to the
         //     child GFX object and select its sprite mapping from off_8176.
+        //     ASM loc_7DF0 (kid.asm:8527): common exit writes Kid's sprite
+        //     mapping, then loads TheKid base palette plus secondary palette.
         //
         //   off_7D34[4] = loc_7D44 (kid.asm:8469): hide child GFX ($13=0),
         //     set Kid sprite (addroffset_sprite = d7), load 15-word palette
