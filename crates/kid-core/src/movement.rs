@@ -5561,6 +5561,9 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         if canonical_vel < 0 {
             canonical_vel += uphill_accel * 2;
         } else if canonical_vel <= uphill_cap {
+            // ASM loc_9DD4 (kid.asm:12007): canonical uphill velocity at or
+            // below the cap gains one acceleration step, then clamps back to
+            // `(a1)` if the add overshoots.
             canonical_vel += uphill_accel;
             if canonical_vel > uphill_cap {
                 canonical_vel = uphill_cap;
