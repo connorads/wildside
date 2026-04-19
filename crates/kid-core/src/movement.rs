@@ -4133,6 +4133,8 @@ impl OpeningSliceState {
                 // `cmpi.w #Skycutter,(Current_Helmet).w; bne.w loc_83B4;
                 // bsr.w sub_9A0A`. Skycutter uses sub_9A0A (which falls
                 // through to sub_9A20) for crawl horizontal velocity.
+                // ASM loc_9A14 (kid.asm:11578): `Current_Helmet == 1`
+                // falls through to Skycutter's fixed sub_9A20 velocity path.
                 // Native: same Skycutter branch here covers both walking
                 // and crawling.
                 physics::update_skycutter_horizontal_velocity_sub_9A20(
