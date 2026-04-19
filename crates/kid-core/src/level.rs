@@ -10796,6 +10796,8 @@ pub(crate) fn evanescent_bullet_action_loc_ED16(
 
     EvanescentBulletActionLocED16::NegativeAction {
         sprite,
+        // ASM loc_EDB0 (kid.asm:19280): when bit 0 is clear, skip the layout
+        // rewrite and continue via the active-list link/tail branch.
         should_update_layout: (input.action_byte & 0x01) != 0,
         use_collision_overlay: (input.action_byte & 0x02) != 0,
     }
