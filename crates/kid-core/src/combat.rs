@@ -6499,6 +6499,8 @@ pub(crate) fn boss_head_movement_step_sub_39D54(
     // `unk_39D80` (Bagel Brothers head movement variant).
     // ASM loc_39D5A (kid.asm:42906): a negative delay word reloads `a2`
     // with `unk_39D80` and retries before any X/Y velocity words are consumed.
+    // ASM loc_39D66 (kid.asm:42913): a non-negative delay consumes the
+    // following X/Y words and stores each as FP16.16 via `swap; asr.l #1`.
     boss_head_movement_step_sub_39846(
         delay_counter_d0,
         current_script_index,
