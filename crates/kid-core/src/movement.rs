@@ -1198,6 +1198,9 @@ pub(crate) fn execute_objects_under_samurai_haze_loc_E1E(
         }
 
         if let Some(counter) = hibernation_counters.get_mut(index) {
+            // ASM loc_E3E (kid.asm:1653): objects that pass the Samurai Haze
+            // gate run `subq.w #1,8(a5)` with word wrapping, then execute only
+            // when the decremented hibernation counter is zero.
             *counter = counter.wrapping_sub(1);
             if *counter == 0 {
                 executed_indices.push(index);
