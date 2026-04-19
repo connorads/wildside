@@ -3273,6 +3273,10 @@ impl OpeningSliceState {
                 //     counter, then idle-on-ice with no left/right input picks
                 //     the standing sprite from off_79B2; directional input falls
                 //     through to the shared walking table. Native: visual-only.
+                //   loc_95DA (kid.asm:11068): non-ice reloads the shared
+                //     walking counter from $FFFFF8F0, then normalises negative
+                //     x_vel before the velocity-scaled sprite-phase increment.
+                //     Native: visual-only.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
