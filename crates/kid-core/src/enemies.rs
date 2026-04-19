@@ -14314,6 +14314,11 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     // and gravity continues. Native: probe_floor edge detection reverses the
     // walker at cliff edges, preventing the fall state entirely.
     //
+    // ASM loc_3C246 (kid.asm:43731-43739): no-floor continuation adds
+    // `$2000` to y_vel, caps at `$80000`, stores it at loc_3C25E, and loops
+    // back to loc_3C18A. Native keeps walkers grounded via probe_floor, so
+    // this leftward gravity continuation is intentionally unreachable.
+    //
     // ASM loc_3C276 (kid.asm:43751-43754): falling walker loop top —
     // tst.w $3A(a5); beq.s loc_3C280; bsr.w sub_3BF72. Identical attachment
     // check to loc_3C18A/loc_3C03A but in the falling walker loop (entered
