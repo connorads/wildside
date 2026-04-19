@@ -8747,6 +8747,9 @@ pub(crate) fn evanescent_shooter_below_neighbour_mark_loc_F156(
 /// ASM loc_F166 (kid.asm:19712): `lsr.w #1,d6` consumes the final evanescent
 /// shooter direction bit. If carry is set and `tst.b -1(a1)` sees a non-zero
 /// left-neighbour low byte, `loc_F170` subtracts `$8000` from `$6(a3)`.
+/// ASM loc_F176 (kid.asm:19721): both the clear-left-neighbour branch and the
+/// `loc_F170` marked path then write `$0100` and `0` as the tile tail before
+/// advancing to the next row at `loc_F17C`.
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_shooter_left_neighbour_mark_loc_F166(
