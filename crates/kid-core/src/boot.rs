@@ -783,6 +783,9 @@ pub(crate) fn step_hud_animation_sub_44DC(
         6, 0x00, 6, 0x04, 6, 0x08, 6, 0x0C, 6, 0x10, 6, 0x14, 0xFF, 0xFF,
     ];
 
+    // ASM loc_44F4 (kid.asm:5556): walk AniArt_Coin at `$FFFFFA60+2`;
+    // `$FF` resets the offset to 0 and branches back to loc_44F4 before the
+    // frame byte falls through to loc_4534.
     let (coin_countdown_fb5b, coin_frame_offset_fb60, coin_frame) = step_hud_animation_pair_table(
         state.coin_countdown_fb5b,
         state.coin_frame_offset_fb60,
