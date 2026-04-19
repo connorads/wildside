@@ -5650,6 +5650,8 @@ pub(crate) fn update_level_one_slope_ground_velocity(
     } else {
         canonical_vel
     };
+    // ASM loc_9E64 (kid.asm:12086): `move.l d0,x_vel(a3)` stores the
+    // unconverted slope velocity; native returns it for the caller to apply.
     (next_x_vel, next_facing)
 }
 
