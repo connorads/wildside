@@ -3258,6 +3258,8 @@ impl OpeningSliceState {
                 //     the lock timer has expired.
                 //   loc_94E0 (kid.asm:10949): common Juggernaut exit runs
                 //     the support-sprite step, then returns.
+                //   loc_94F6 (kid.asm:10963): non-Juggernaut dispatch enters
+                //     Cyclone walking animation or the shared generic path.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
