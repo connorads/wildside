@@ -10369,7 +10369,8 @@ pub(crate) fn evanescent_sprite_scan_return_loc_EAB2(
 /// ASM loc_EAE4 (kid.asm:18858): unless the `$FFFFFA64` flag is set, expand
 /// Kid's hitbox by one pixel on each side, clamp it to level pixel bounds,
 /// convert to inclusive tile rows/columns, and scan for bit-15 block cells
-/// whose block type is `$A` before falling through to the bullet loader.
+/// whose block type is `$A` before falling through to `loc_EB6E`, the shared
+/// bullet-loader entry.
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
@@ -10377,6 +10378,8 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
     grid: &terrain::BlockGrid,
 ) -> EvanescentBulletHitboxScanLocEAE4 {
     if input.skip_scan_flag {
+        // ASM loc_EB6E (kid.asm:18918): `$FFFFFA64` skips the hitbox scan and
+        // branches straight to `LoadBulletsFromEvanescentBlock`.
         return EvanescentBulletHitboxScanLocEAE4::SkipToLoadBullets;
     }
 
