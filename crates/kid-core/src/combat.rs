@@ -9118,7 +9118,8 @@ pub(crate) fn juggernaut_support_overlap_sub_9832(
             }
 
             // ASM loc_98DE (kid.asm:11435): first overlapping box sets
-            // `d7=1` before the common condition-code return.
+            // `d7=1` before ASM loc_98E6 (kid.asm:11443) tests `d7` for the
+            // caller. Native carries that condition code as this bool return.
             return true;
         }
     }
