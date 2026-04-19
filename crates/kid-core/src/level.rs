@@ -16287,6 +16287,9 @@ pub(crate) fn eyeclops_hard_beam_wide_setup_loc_E8A6(
 ) -> Option<EyeclopsHardBeamWideSetupLocE8A6> {
     let span_px = beam_counter.wrapping_shl(3) as i16;
     if direction_latch_nonzero {
+        // ASM loc_E8CA (kid.asm:18605): flipped wide beams subtract the span
+        // plus `$10` from `d0`, copy that adjusted X to `d6`, reject at
+        // `<= $60`, and seed the `$0800` tile attribute mask.
         let sprite_x = source_x.wrapping_sub(span_px).wrapping_sub(0x0010);
         if sprite_x <= 0x0060 {
             return None;
