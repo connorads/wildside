@@ -2917,7 +2917,8 @@ impl OpeningSliceState {
                     )
                 };
 
-                // ASM loc_9D22: on slopes, y_vel mirrors x_vel so the player
+                // ASM loc_9D22 canonicalises the slope velocity in d0, then
+                // loc_9D2E (kid.asm:11948) stores it to y_vel so the player
                 // moves diagonally along the 45° surface. SlopeUp (/): going
                 // right means going up → y_vel = -x_vel. SlopeDown (\): going
                 // right means going down → y_vel = +x_vel.
