@@ -11335,6 +11335,8 @@ pub(crate) fn delete_all_but_current_start_loc_EFE(
 /// ASM loc_F02 (kid.asm:1771): load the next active object from the current
 /// cursor, skip `Addr_CurrentObject`, and call `Deallocate_ObjectSlot` for every
 /// other object before looping from the predecessor returned by deallocation.
+/// ASM loc_F14 (kid.asm:1781): when `0(a5)` is null, restore the saved
+/// registers and return with only the current object left in the active list.
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn delete_all_but_current_loop_loc_F02(
