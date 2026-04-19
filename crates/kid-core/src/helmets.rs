@@ -3166,6 +3166,9 @@ impl NativeRuntime {
         //     accumulator ($FFFFF8F0) mod 8, pick between two sprite frames
         //     (>= 5 → LnkTo_unk_ABDE0, < 5 → LnkTo_unk_ABEA6). Visual-only;
         //     native does not model the Micromax idle animation cycle.
+        //   loc_7974 (kid.asm:8026): the shared Micromax branch seeds d1 with
+        //     the high-frame sprite and replaces it with the low-frame sprite
+        //     only while the wrapped accumulator is below 5.
         //   loc_7982 (kid.asm:8032): Micromax idle sprite store — `move.w
         //     d1,addroffset_sprite(a3) / rts`. Common exit for loc_7962's
         //     two-frame sprite selection. Visual-only.
