@@ -1909,6 +1909,8 @@ impl NativeRuntime {
         if state == 0 {
             (decremented_timer.wrapping_add(2), 0x8001)
         } else {
+            // ASM loc_F898 (kid.asm:20570): a non-zero positive state starts
+            // the flash pair by storing `$8004` and adding two frames.
             (decremented_timer.wrapping_add(2), 0x8004)
         }
     }
