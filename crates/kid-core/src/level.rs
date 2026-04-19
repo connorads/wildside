@@ -16278,6 +16278,9 @@ pub(crate) struct EyeclopsHardBeamWideSetupLocE8A6 {
 /// span. Forward beams probe at `d0 + span + $10` while drawing from
 /// `d0 + span - $10` and reject at `$1C0`; flipped beams draw and probe at
 /// `d0 - span - $10`, set `$0800`, and reject at or left of `$60`.
+/// ASM loc_E988 (kid.asm:18685): either off-screen rejection clears the beam
+/// counter and deletes the linked beam object; native reports that rejection as
+/// `None` so the caller can skip the hard-beam sprite/object commit path.
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn eyeclops_hard_beam_wide_setup_loc_E8A6(
