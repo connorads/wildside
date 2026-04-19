@@ -3172,6 +3172,10 @@ impl NativeRuntime {
         //   loc_7982 (kid.asm:8032): Micromax idle sprite store — `move.w
         //     d1,addroffset_sprite(a3) / rts`. Common exit for loc_7962's
         //     two-frame sprite selection. Visual-only.
+        //   loc_79DE (kid.asm:8079): unreachable Iron Knight companion block
+        //     would force `LnkTo_unk_C0552` before branching to the shared tail.
+        //     Native has no implementation path for it because no ROM caller
+        //     reaches the unlabelled `$79C6` entry after off_79B2.
         let previous_maniaxe_axe_active = self.helmet.maniaxe_axe_active;
         let previous_red_stealth_sword_timer = self.helmet.red_stealth_sword_timer;
         self.clear_special_movement_state_sub_DB22();
