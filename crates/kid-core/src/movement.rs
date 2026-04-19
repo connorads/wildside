@@ -3250,6 +3250,9 @@ impl OpeningSliceState {
                 //   loc_9484 (kid.asm:10910): Juggernaut speed→animation lookup.
                 //   loc_949C (kid.asm:10919): swap/rol abs(x_vel) → animation increment.
                 //   loc_94AA (kid.asm:10927): animation counter mod $600, frame select.
+                //   loc_94B4 (kid.asm:10932): store $FFFFF8F0, index off_94E6,
+                //     and optionally write addroffset_sprite(a3) before the
+                //     companion visual step.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
