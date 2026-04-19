@@ -14786,6 +14786,9 @@ pub(crate) fn level_skip_completion_time_digit_sprites_loc_D468(
     camera_y_pos: u16,
 ) -> Option<[LevelSkipCompletionTimeDigitSpriteLocD468; 3]> {
     if !level_skip_cheat {
+        // ASM loc_D4CE (kid.asm:16657): clear LevelSkip_Cheat branches here,
+        // skipping the three completion-time digit sprites and continuing with
+        // the ordinary EOL text/number object setup.
         return None;
     }
 
