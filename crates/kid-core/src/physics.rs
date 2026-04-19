@@ -655,6 +655,8 @@ fn apply_holding_left(vel: i32, run: bool, table: &SpeedTable) -> i32 {
             // Above walk cap: decel with walk_run_decel ($08)
             vel + table.walk_run_decel
         } else {
+            // ASM loc_9BB6 (kid.asm:11795): below the walk cap, subtract
+            // `4(a0)`, then clamp back to `-(a0)` if acceleration crosses it.
             // Below walk cap: accelerate
             let next = vel - table.walk_accel;
             if next.saturating_neg() > table.max_walk_speed {
