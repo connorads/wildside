@@ -555,6 +555,7 @@ pub fn update_skycutter_horizontal_velocity_sub_9A20(
         } else if x_vel < 0x2_0000 {
             (x_vel + 0x2000).min(0x2_0000)
         } else if x_vel <= 0x4_0000 {
+            // ASM loc_9A56 (kid.asm:11611): `subi.l #$2000,d0`.
             x_vel - 0x2000
         } else {
             0x4_0000
