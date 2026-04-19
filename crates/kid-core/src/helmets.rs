@@ -414,6 +414,8 @@ pub(crate) fn juggernaut_companion_step_sub_975C(
         // fixed `LnkTo_unk_BEDF0` mapping before the common position sync.
         JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEDF0-Data_Index")
     } else if character_movement == MOVE_ID_WALKING {
+        // ASM loc_97E8 (kid.asm:11334): walking movement indexes `off_9826`
+        // with the caller-provided byte offset and writes the selected mapping.
         const WALK_TABLE: [&str; 6] = [
             "LnkTo_unk_BEDF0-Data_Index",
             "LnkTo_unk_BEF76-Data_Index",
