@@ -5609,6 +5609,9 @@ pub(crate) fn update_level_one_slope_ground_velocity(
             canonical_vel = neutral_target;
         }
     } else {
+        // ASM loc_9E42 (kid.asm:12066): canonical velocity already at or above
+        // `$10(a0)` subtracts `$C(a0)`, then clamps back up to the neutral target
+        // if that subtraction crosses below it.
         canonical_vel -= neutral_decel;
         if canonical_vel < neutral_target {
             canonical_vel = neutral_target;
