@@ -3263,6 +3263,9 @@ impl OpeningSliceState {
                 //   loc_9596 (kid.asm:11037): TheKid positive-velocity branch;
                 //     facing right keeps the normal walk animation, facing left
                 //     falls through to the backward sprite.
+                //   loc_959C (kid.asm:11041): backward TheKid walking writes
+                //     the fixed `LnkTo_unk_A5346` sprite and returns without
+                //     advancing the shared walking-frame table.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
