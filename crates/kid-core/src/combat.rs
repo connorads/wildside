@@ -9074,6 +9074,9 @@ pub(crate) fn juggernaut_support_overlap_sub_9832(
     let kid_top_px = y_px.saturating_sub(0x1F);
     let kid_bottom_px = kid_top_px.saturating_add(0x10);
 
+    // ASM loc_985A (kid.asm:11380): follow each object's next pointer, stop
+    // on null, and skip deleted entries before scanning their collision boxes.
+    // Native represents that linked list as the `candidates` slice.
     for candidate in candidates {
         if !candidate.active {
             continue;
