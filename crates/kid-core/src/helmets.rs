@@ -4223,6 +4223,9 @@ impl NativeRuntime {
             // accumulator adds a fixed `$40` to the visual walk counter instead
             // of the non-ice velocity-scaled delta. Native keeps the gameplay
             // flag and leaves that sprite counter visual-only.
+            // ASM loc_955A (kid.asm:11007): both ice and non-ice visual-counter
+            // paths wrap at `$600` before the shared tail stores the counter
+            // and sets the Berzerker/Cyclone charge flag represented here.
             self.helmet.berzerker_charge_accum = 0xFF;
             self.helmet.berzerker_charging = true;
         } else {
