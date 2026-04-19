@@ -5554,6 +5554,10 @@ pub(crate) fn update_level_one_slope_ground_velocity(
     // forward (`d1`) enters uphill acceleration, backward (`d2`) enters
     // downhill acceleration, and no directional input enters neutral decel.
     if uphill_pressed {
+        // ASM loc_9DC0 (kid.asm:11998): uphill input copies `$FA26` to
+        // `x_direction`; native returns the equivalent facing below. Negative
+        // canonical velocity receives two uphill acceleration steps before
+        // the shared slope-velocity exit.
         if canonical_vel < 0 {
             canonical_vel += uphill_accel * 2;
         } else if canonical_vel <= uphill_cap {
