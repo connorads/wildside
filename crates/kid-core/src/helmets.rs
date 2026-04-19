@@ -3176,6 +3176,10 @@ impl NativeRuntime {
         //     would force `LnkTo_unk_C0552` before branching to the shared tail.
         //     Native has no implementation path for it because no ROM caller
         //     reaches the unlabelled `$79C6` entry after off_79B2.
+        //   loc_79E6 (kid.asm:8084): unreachable zero-state companion init
+        //     would copy Kid pose fields into the `a2` object and switch Kid
+        //     to `LnkTo_unk_BF0FC`. Native intentionally has no Iron Knight
+        //     companion object because the ROM block is not entered.
         let previous_maniaxe_axe_active = self.helmet.maniaxe_axe_active;
         let previous_red_stealth_sword_timer = self.helmet.red_stealth_sword_timer;
         self.clear_special_movement_state_sub_DB22();
