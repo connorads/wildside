@@ -5601,6 +5601,9 @@ pub(crate) fn update_level_one_slope_ground_velocity(
             }
         }
     } else if canonical_vel < neutral_target {
+        // ASM loc_9E2E (kid.asm:12055): neutral slope input compares d0 with
+        // `$10(a0)`, adds `$C(a0)` while below target, then clamps at the
+        // neutral target before the facing update.
         canonical_vel += neutral_decel;
         if canonical_vel > neutral_target {
             canonical_vel = neutral_target;
