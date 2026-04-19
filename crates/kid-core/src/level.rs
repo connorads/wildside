@@ -8900,6 +8900,8 @@ pub(crate) fn evanescent_shooter_second_scan_right_neighbour_mark_loc_F224(
 /// integer camera words. The ROM scans a 21-column by 15-row block window,
 /// keeps the current sprite count in the low byte of `$0500`, and skips the
 /// active-list scan entirely when `$FFFFF8C2` is zero.
+/// ASM loc_F2B0 (kid.asm:19864): that empty-list branch enters `sub_F568`
+/// directly without committing active-scan render pointers first.
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_frame_scan_start_loc_F25C(
