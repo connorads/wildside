@@ -613,7 +613,8 @@ fn apply_holding_right(vel: i32, run: bool, table: &SpeedTable) -> i32 {
             // Above walk cap: decel with walk_run_decel ($08)
             vel - table.walk_run_decel
         } else {
-            // Below walk cap: accelerate
+            // ASM loc_9B4E (kid.asm:11729): below walk cap, add `4(a0)`
+            // then clamp to `(a0)`.
             (vel + table.walk_accel).min(table.max_walk_speed)
         }
     } else {
