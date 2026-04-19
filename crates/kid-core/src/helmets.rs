@@ -406,6 +406,8 @@ pub(crate) fn juggernaut_companion_step_sub_975C(
             JuggernautCompanionVisualSub975C::InitAnimation("stru_9812")
         }
     } else if blocked {
+        // ASM loc_97BE (kid.asm:11318): any clear-latch blocker starts the
+        // lower animation `stru_981C` and stores `$FF` into `$FFFFFA6C`.
         JuggernautCompanionVisualSub975C::InitAnimation("stru_981C")
     } else if character_movement == MOVE_ID_STANDINGSTILL {
         JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEDF0-Data_Index")
