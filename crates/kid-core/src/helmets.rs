@@ -4211,6 +4211,9 @@ impl NativeRuntime {
             return;
         }
 
+        // ASM loc_9526 (kid.asm:10986): once the direction/ice gate admits the
+        // frame, require `abs(x_vel) >= $10000`, then `addi.b #$10,$FFFFFA13`;
+        // carry promotes this into the Berzerker/Cyclone charge flag below.
         let (new_accum, overflow) = self
             .helmet
             .berzerker_charge_accum
