@@ -9390,6 +9390,8 @@ pub(crate) fn animated_solid_block_horizontal_tail_loc_F836(
 /// when the source column is inside `[camera_x, camera_x+$14]`, the starting
 /// row is not below `camera_y+$E`, and `start_row-camera_y > -8`. The accepted
 /// path precomputes `(d0 << 2) & $7C` for the per-row custom queue entries.
+/// ASM loc_F886 (kid.asm:20559): rejected vertical spans still write `$E304`
+/// down the layout rows, but skip the foreground update queue.
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_vertical_setup_loc_F83E(
