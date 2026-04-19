@@ -4208,6 +4208,8 @@ impl NativeRuntime {
         {
             // ASM loc_957C (kid.asm:11023): every rejected charge frame clears
             // `$FFFFFA13`, the byte accumulator represented by this native field.
+            // ASM loc_9580 (kid.asm:11026): fall-through clears
+            // `(Berzerker_charging).w`; native stores that flag directly.
             self.helmet.berzerker_charging = false;
             self.helmet.berzerker_charge_accum = 0;
             return;
