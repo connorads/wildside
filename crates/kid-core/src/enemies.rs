@@ -5412,6 +5412,8 @@ pub(crate) fn scorpion_close_range_route_loc_3ddc8(
     if !(-SCORPION_STING_X_RANGE_LOC_3DDC8..=SCORPION_STING_X_RANGE_LOC_3DDC8)
         .contains(&scorpion_x_minus_kid_x_px)
     {
+        // ASM Scorpion.asm loc_3DE64 is the shared sprite-gated resume for
+        // close-range misses that continue normal shared-walker processing.
         return ScorpionCloseRangeRouteLoc3DDC8::ContinueSharedWalker;
     }
 
