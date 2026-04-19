@@ -803,6 +803,9 @@ pub(crate) fn step_hud_animation_sub_44DC(
         LIFE_TABLE,
         0xFF,
     );
+    // ASM loc_45B2 (kid.asm:5639): store the advanced AniArt_Clock offset in
+    // `$FFFFFA5F`, walk the clock speed/frame pairs, and wrap `$FF` back to
+    // offset 0 before loc_45DA uploads the selected frame.
     let (clock_countdown_fb5a, clock_frame_offset_fb5f, clock_frame) =
         step_hud_animation_pair_table(
             state.clock_countdown_fb5a,
