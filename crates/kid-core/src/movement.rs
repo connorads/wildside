@@ -3283,6 +3283,9 @@ impl OpeningSliceState {
                 //   loc_95F2 (kid.asm:11082): wrap that generic walk sprite
                 //     phase at `$600` after the velocity-scaled increment.
                 //     Native: visual-only.
+                //   loc_95FC (kid.asm:11087): store the wrapped sprite phase
+                //     in `$FFFFF8F0`, then fall through to the shared walking
+                //     sprite table. Native: visual-only.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
