@@ -4940,6 +4940,8 @@ pub(crate) fn fire_demon_palette_loop_head_loc_3a4c2(
     // the global Fire_Demon byte before resetting a1/a0 for the first palette
     // copy. A clear byte deletes this helper object instead.
     if fire_demon_count == 0 {
+        // ASM Fire_Demon.asm loc_3A53E: the clear liveness byte jumps straight
+        // to `j_Delete_CurrentObject`.
         FireDemonPaletteLoopHeadLoc3A4C2::DeleteCurrentObject
     } else {
         FireDemonPaletteLoopHeadLoc3A4C2::ContinueAfterHibernate {
