@@ -1885,7 +1885,12 @@ impl NativeRuntime {
         if state & 0x8000 != 0 {
             return match state {
                 0x8001 | 0x8004 => (decremented_timer.wrapping_add(2), state.wrapping_add(1)),
-                0x8002 => (reload_delay, 3),
+                0x8002 => {
+                    // ASM loc_F78C (kid.asm:20434): `$8002` exits the
+                    // negative visibility ladder by storing state `3` and
+                    // restoring the slot reload delay from `6(a0)`.
+                    (reload_delay, 3)
+                }
                 _ => (active_delay, 0),
             };
         }
