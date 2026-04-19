@@ -2978,6 +2978,9 @@ impl OpeningSliceState {
                 //     Kid from the tile address cached in $FFFFFB6C.
                 //   - loc_A594: collision_type == $18 (floor+left-wall compound) →
                 //     same kill/bounce logic mirrored for the left side.
+                //   - loc_A5AE (kid.asm:12932): Juggernaut/Skycutter survive $18 —
+                //     clear collision_type, keep y_vel=$FFFE0000, negate d7 so
+                //     x_vel=+$00020000, then reposition from $FFFFFB6C.
                 // Native: the decomposed probe architecture (separate floor/ceiling
                 // and wall passes) eliminates the compound collision_type. The
                 // loc_A532 restore is implicit — position is applied incrementally
