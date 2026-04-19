@@ -650,6 +650,8 @@ fn apply_holding_left(vel: i32, run: bool, table: &SpeedTable) -> i32 {
         if abs_vel > table.max_run_speed {
             -table.max_run_speed
         } else if abs_vel > table.max_walk_speed {
+            // ASM loc_9BAC (kid.asm:11789): after the run-cap guard, speeds
+            // above `(a0)` decelerate with `add.l 8(a0),d0`.
             // Above walk cap: decel with walk_run_decel ($08)
             vel + table.walk_run_decel
         } else {
