@@ -776,6 +776,8 @@ pub(crate) fn skycutter_visual_step_sub_98F2(
         }
     }
 
+    // ASM loc_9942 (kid.asm:11487): the no-transient-board path decrements
+    // `$FFFFFA0D`; an expired timer reloads `d6` from the `unk_96AC` script.
     if state.motion_timer <= 1 {
         let index = usize::from(state.motion_script_index.unwrap_or(u8::MAX));
         let (phase, timer, next_index) = if let Some(&(phase, timer)) = SCRIPT.get(index) {
