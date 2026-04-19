@@ -515,6 +515,9 @@ pub fn update_horizontal_velocity(
     // ASM loc_9B14 (kid.asm:11695): `tst.b x_direction(a3)` selects the
     // facing branch, and opposite held input flips `x_direction` before the
     // shared right/left/no-input velocity paths run.
+    // ASM loc_9B26 (kid.asm:11706): the right-facing branch tests
+    // `Ctrl_Right_Held`; held falls through to loc_9B2E, otherwise it jumps
+    // to the shared loc_9BEE deceleration path.
     if input.right {
         (
             apply_holding_right(x_vel, input.run, table),
