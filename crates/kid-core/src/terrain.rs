@@ -327,6 +327,8 @@ pub(crate) fn juggernaut_wall_scan_sub_96E8(
             // ASM loc_9732 (kid.asm:11263): mask `(a1)+` with `$7000` and
             // only branch to the hit return when the result equals `$6000`.
             if grid.cell_at(col as u16, row as u16).collision == CollisionKind::Solid {
+                // ASM loc_9754 (kid.asm:11276): restore registers, set d7=1,
+                // and return NE to the caller on the first matching tile.
                 return true;
             }
         }
