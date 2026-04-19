@@ -4371,6 +4371,9 @@ pub(crate) fn end_sequence_terminator_exit_loc_1D450() -> EndSequenceTerminatorE
     // the tail waits for VBlank, idles once, uploads the cleared palette, sets
     // `($FFFFFBCE).w`, clears `($FFFFFBCC).w`, `(Game_Mode).w`, and
     // `(Number_Lives).w`, then jumps through the callback in `(off_7192).w`.
+    // ASM loc_950 (kid.asm:1062): the `j_WaitForVint` call reaches the optional
+    // `$FFFFFC80`-gated DBF delay inside WaitForVint; native records the
+    // subroutine edge only because the hardware busy-wait has no gameplay state.
     EndSequenceTerminatorExitLoc1D450 {
         wait_seed: 0x0190,
         wait_iterations: 0x0191,
