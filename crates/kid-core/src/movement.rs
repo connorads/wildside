@@ -5480,6 +5480,8 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         return (next_x_vel, next_facing);
     }
 
+    // ASM loc_9D86 (kid.asm:11971): `lea $14(a0),a1` selects the walk
+    // sub-table; Ctrl_A held advances `a1` by $10 to the run sub-table.
     let (
         max_speed,
         brake,
