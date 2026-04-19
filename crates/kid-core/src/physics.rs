@@ -502,7 +502,7 @@ pub struct HorizontalInput {
 
 /// Update horizontal velocity for one frame.
 ///
-/// Direct translation of the branching at loc_9B2E..loc_9C06. Velocity is
+/// Direct translation of the branching at loc_9B14..loc_9C06. Velocity is
 /// signed i32 in fixed-point 16.16: positive = rightward.
 ///
 /// Returns `(new_x_vel, new_facing)`.
@@ -512,6 +512,9 @@ pub fn update_horizontal_velocity(
     input: HorizontalInput,
     table: &SpeedTable,
 ) -> (i32, Direction) {
+    // ASM loc_9B14 (kid.asm:11695): `tst.b x_direction(a3)` selects the
+    // facing branch, and opposite held input flips `x_direction` before the
+    // shared right/left/no-input velocity paths run.
     if input.right {
         (
             apply_holding_right(x_vel, input.run, table),
