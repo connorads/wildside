@@ -1897,7 +1897,12 @@ impl NativeRuntime {
                     // restoring the slot reload delay from `6(a0)`.
                     (reload_delay, 3)
                 }
-                _ => (active_delay, 0),
+                _ => {
+                    // ASM loc_F7AA (kid.asm:20448): `$8005` clears the state
+                    // word and restores the active delay from `4(a0)` before
+                    // redrawing the `$E304` shooter span.
+                    (active_delay, 0)
+                }
             };
         }
 
