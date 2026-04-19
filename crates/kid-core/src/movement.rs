@@ -3369,6 +3369,9 @@ impl OpeningSliceState {
                     //     tile at (col+1, row-1). If Solid or at level edge → loc_A036.
                     //   loc_A036 (kid.asm:12325): x_pos = (x_pos & $FFF0) | threshold;
                     //     bsr sub_A254 (re-snap Y).
+                    //   loc_A048 (kid.asm:12332): shared skip/fall-through from
+                    //     the slope-up wall guard into the slope walking animation
+                    //     dispatch at loc_A13A.
                     //
                     // SlopeDown path ($FFFFFA26=$FF, left wall check via loc_A04C):
                     //   Mirror of above with loc_A0B4/loc_A0C6/loc_A0DC/loc_A0F6/loc_A128.
