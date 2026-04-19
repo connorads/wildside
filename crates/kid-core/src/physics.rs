@@ -604,6 +604,9 @@ fn apply_holding_right(vel: i32, run: bool, table: &SpeedTable) -> i32 {
         }
     } else if vel >= 0 {
         // Walking right, moving right
+        // ASM loc_9B44 (kid.asm:11723): once under the run cap, compare
+        // against the walk cap; above it decelerates by `8(a0)`, otherwise
+        // the fall-through path applies walk acceleration and clamps to `(a0)`.
         if vel > table.max_run_speed {
             table.max_run_speed
         } else if vel > table.max_walk_speed {
