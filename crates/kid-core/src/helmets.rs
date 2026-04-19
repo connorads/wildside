@@ -410,6 +410,8 @@ pub(crate) fn juggernaut_companion_step_sub_975C(
         // lower animation `stru_981C` and stores `$FF` into `$FFFFFA6C`.
         JuggernautCompanionVisualSub975C::InitAnimation("stru_981C")
     } else if character_movement == MOVE_ID_STANDINGSTILL {
+        // ASM loc_97D4 (kid.asm:11327): standing-still movement writes the
+        // fixed `LnkTo_unk_BEDF0` mapping before the common position sync.
         JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEDF0-Data_Index")
     } else if character_movement == MOVE_ID_WALKING {
         const WALK_TABLE: [&str; 6] = [
