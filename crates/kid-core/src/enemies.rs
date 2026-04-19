@@ -16751,8 +16751,9 @@ pub(crate) fn step_lion(
             // Pace like normal
             step_pacer(enemy, block_grid);
 
-            // Count down charge timer.  ASM loc_3E078: timer always ticks and
-            // the charge fires unconditionally on expiry (no Kid distance gate).
+            // Count down charge timer. ASM Lion.asm loc_3E03C only resolves
+            // facing/tracking before falling into loc_3E078, where the timer
+            // always ticks and the charge fires unconditionally on expiry.
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
                 return;
