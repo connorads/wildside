@@ -761,6 +761,9 @@ pub(crate) fn skycutter_visual_step_sub_98F2(
                 };
             }
             state.flipboard_counter = next_counter;
+            // ASM loc_992A (kid.asm:11474): store the advanced `$FA69`
+            // counter, shift it by three, and index `off_993A` for Kid's
+            // transient flipboard sprite mapping.
             return SkycutterVisualStepSub98F2 {
                 player_sprite_mapping: kid_data::skycutter_flipboard_sprite_mapping_sub_98F2(
                     next_counter,
