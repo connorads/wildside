@@ -5818,6 +5818,9 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
         0,
     ) == terrain::CollisionKind::SlopeDown
     {
+        // ASM loc_841A (kid.asm:9181): after negating the probe width, a
+        // `$5000` left-side slope hit snaps x_pos to the current tile column
+        // plus `$FFFFFA78` (Kid half-width) and reports adjusted.
         let snapped_x_px = (center_x_px & !0xF) + half_width;
         return CrawlSlopeSnapSub83E6 {
             x_pos: (snapped_x_px.max(0) as u32) << 16,
