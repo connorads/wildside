@@ -314,6 +314,8 @@ pub(crate) fn juggernaut_wall_scan_sub_96E8(
     let col_start = left_px >> 4;
     let col_end = right_px >> 4;
 
+    // ASM loc_972E (kid.asm:11259): reset the inner column count for each
+    // row, scan across it, then advance to the next Level_width_tiles row.
     for row in row_start..=row_end {
         if row < 0 {
             continue;
