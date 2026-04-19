@@ -3266,6 +3266,9 @@ impl OpeningSliceState {
                 //   loc_959C (kid.asm:11041): backward TheKid walking writes
                 //     the fixed `LnkTo_unk_A5346` sprite and returns without
                 //     advancing the shared walking-frame table.
+                //   loc_95A4 (kid.asm:11046): forward/generic walking animation
+                //     dispatch, splitting ice's fixed `$40` counter advance from
+                //     the non-ice velocity-scaled path.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
