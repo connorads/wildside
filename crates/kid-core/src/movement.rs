@@ -5732,6 +5732,9 @@ pub(crate) fn crawl_wall_escape_sub_81B4(
         sample_y_offset_px,
     ) != terrain::CollisionKind::Solid
     {
+        // ASM loc_81D8 (kid.asm:8967): left escape path restores the normal
+        // half-width, snaps `(x_pos - half_width)` to the containing tile's
+        // right edge, then subtracts half_width again before returning EQ.
         let snapped_x_px = ((center_x_px - half_width) & !0xF) + 0xF - half_width;
         return CrawlWallEscapeSub81B4 {
             x_pos: (snapped_x_px.max(0) as u32) << 16,
