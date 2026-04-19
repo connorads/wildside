@@ -807,6 +807,8 @@ impl PlayerForm {
     /// ASM loc_9AE0 (kid.asm:11673): sub_9A0A enters the generic ground
     /// table path by loading the normal table, then swapping in ice/rubber
     /// tables before applying Micromax/Juggernaut form offsets.
+    /// ASM loc_9AF2 (kid.asm:11680): terrain type 1 replaces the current
+    /// table pointer with the rubber table (`unk_9CCE`).
     /// Three form groups (Kid/Micromax/Juggernaut) × three terrain types (Normal/Ice/Rubber).
     pub(crate) fn ground_speed_table(
         self,
