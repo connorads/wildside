@@ -649,6 +649,8 @@ pub(crate) const MICROMAX_DETACH_Y_VEL: i32 = -0x4_0000;
 /// Micromax detach X speed: 2.0 FP (kick away from surface).
 /// loc_A6AE + loc_AC42: `move.l #$FFFE0000,d7; tst.b ($FA72); beq skip;
 /// neg.l d7` — direction depends on which side the wall is on.
+/// ASM loc_AC64 (kid.asm:13483): store the selected `d7` into x_vel before
+/// clearing the climb latch, setting the jump latch, and flipping x_direction.
 pub(crate) const MICROMAX_DETACH_X_SPEED: i32 = 0x2_0000;
 
 // === Murder wall ===
