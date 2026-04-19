@@ -518,6 +518,8 @@ pub fn update_horizontal_velocity(
     // ASM loc_9B26 (kid.asm:11706): the right-facing branch tests
     // `Ctrl_Right_Held`; held falls through to loc_9B2E, otherwise it jumps
     // to the shared loc_9BEE deceleration path.
+    // ASM loc_9B8A (kid.asm:11770): the left-facing branch mirrors that gate:
+    // `Ctrl_Left_Held` falls through to loc_9B90, otherwise loc_9BEE decelerates.
     if input.right {
         (
             apply_holding_right(x_vel, input.run, table),
