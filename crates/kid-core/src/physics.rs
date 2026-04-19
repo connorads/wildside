@@ -576,6 +576,8 @@ pub fn update_skycutter_horizontal_velocity_sub_9A20(
         // cruise speed add `$2000`, decelerating back toward zero.
         x_vel + 0x2000
     } else {
+        // ASM loc_9AC2 (kid.asm:11655): values below `$FFFC0000` clamp to
+        // the leftward run cap before returning.
         -0x4_0000
     };
 
