@@ -9123,6 +9123,9 @@ pub(crate) fn juggernaut_support_overlap_sub_9832(
         }
     }
 
+    // ASM loc_98E4 (kid.asm:11440): a null next-object link after scanning the
+    // support candidates sets `d7=0`, which falls through to the common exit as
+    // "no overlap".
     false
 }
 
