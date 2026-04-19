@@ -305,6 +305,8 @@ pub(crate) fn juggernaut_wall_scan_sub_96E8(
     // `$6000`; slopes/spikes do not count.
     let row_start = (y_px - 0x1F) >> 4;
     let row_end = (y_px - 0x10) >> 4;
+    // ASM loc_971A (kid.asm:11249): after the optional `exg d5,d7`,
+    // convert the facing offsets into left/right pixel edges and tile columns.
     let (left_px, right_px) = match facing {
         crate::physics::Direction::Right => (x_px - 0x0B, x_px + 0x04),
         crate::physics::Direction::Left => (x_px - 0x04, x_px + 0x0B),
