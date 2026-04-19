@@ -5569,6 +5569,8 @@ pub(crate) fn update_level_one_slope_ground_velocity(
                 canonical_vel = uphill_cap;
             }
         } else {
+            // ASM loc_9DE4 (kid.asm:12017): over-cap uphill velocity brakes by
+            // `8(a0)`, then clamps to the slope table's absolute max speed.
             canonical_vel -= brake;
             if canonical_vel > max_speed {
                 canonical_vel = max_speed;
