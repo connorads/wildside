@@ -6596,6 +6596,8 @@ pub(crate) fn fire_demon_fragment_collision_step_sub_3A1A6(
 
     result.next_collision_type = 0;
     if matches!(collision_type, 0x001C | 0x002C | -1) {
+        // ASM loc_3A1C6 (kid.asm:43251): matching `$1C`/`$2C`/`$FFFF`
+        // collisions jump straight to `j_Delete_CurrentObject`.
         result.delete_current_object = true;
     }
 
