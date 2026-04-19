@@ -1041,6 +1041,9 @@ impl NativeRuntime {
                 && col != left_block
                 && col != right_block
             {
+                // ASM loc_F5B0 (kid.asm:20234): once the active shooter slot
+                // overlaps Kid's expanded block window, bit 0 in direction
+                // flags emits the two upward-facing collision rectangles.
                 rects.push(CollisionRectSub1F52 {
                     left_px: x + 2,
                     right_px: x + 14,
