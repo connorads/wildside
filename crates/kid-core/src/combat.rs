@@ -9088,6 +9088,8 @@ pub(crate) fn juggernaut_support_overlap_sub_9832(
             }
 
             let (left_px, right_px) = if candidate.mirrored {
+                // ASM loc_98B0 (kid.asm:11415): set `x_direction` negates the
+                // stored left offset, then subtracts width to get the left edge.
                 let right_px = candidate
                     .x_anchor_px
                     .saturating_sub(collision_size.left_offset_px);
