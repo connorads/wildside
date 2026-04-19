@@ -599,7 +599,8 @@ fn apply_holding_right(vel: i32, run: bool, table: &SpeedTable) -> i32 {
         if vel >= 0 {
             (vel + table.run_accel).min(table.max_run_speed)
         } else {
-            // Moving left while holding right+run: strong_brake ($18)
+            // ASM loc_9B78 (kid.asm:11757): running right while moving left
+            // adds `$18(a0)`, the strong-brake value.
             vel + table.strong_brake
         }
     } else if vel >= 0 {
