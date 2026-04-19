@@ -5584,6 +5584,9 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         if canonical_vel >= 0 {
             canonical_vel -= downhill_accel * 2;
         } else if canonical_vel >= downhill_cap {
+            // ASM loc_9E08 (kid.asm:12037): negative downhill canonical
+            // velocity that has not crossed the downhill cap subtracts one
+            // downhill acceleration step and clamps back to `8(a1)`.
             canonical_vel -= downhill_accel;
             if canonical_vel < downhill_cap {
                 canonical_vel = downhill_cap;
