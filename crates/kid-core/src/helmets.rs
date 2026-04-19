@@ -3180,6 +3180,10 @@ impl NativeRuntime {
         //     would copy Kid pose fields into the `a2` object and switch Kid
         //     to `LnkTo_unk_BF0FC`. Native intentionally has no Iron Knight
         //     companion object because the ROM block is not entered.
+        //   loc_7A02 (kid.asm:8091): unreachable shared tail clears
+        //     `$FFFFFA0D` and seeds `$FFFFFA0E` with `$96D4`. Live Iron Knight
+        //     walking animation state is driven elsewhere, so native keeps
+        //     this reset unmodelled with the rest of the dead block.
         let previous_maniaxe_axe_active = self.helmet.maniaxe_axe_active;
         let previous_red_stealth_sword_timer = self.helmet.red_stealth_sword_timer;
         self.clear_special_movement_state_sub_DB22();
