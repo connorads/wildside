@@ -8938,6 +8938,8 @@ pub(crate) fn shooter_active_slot_scan_step_loc_F28C(
 ) -> ShooterActiveSlotScanStepLocF28C {
     let next_timer = timer.wrapping_sub(1);
     if next_timer == 0 {
+        // ASM loc_F2B6 (kid.asm:19869): an expired timer increments `$A(a0)`,
+        // reloads timer byte `8(a0)` to 3, then dispatches through `off_F2CE`.
         return ShooterActiveSlotScanStepLocF28C::DispatchExpiredSlot {
             current_slot_addr,
             next_timer,
