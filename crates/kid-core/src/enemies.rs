@@ -14439,6 +14439,8 @@ pub(crate) fn driller_collision_dispatch_loc_3bf02(
 ) -> DrillerCollisionDispatchLoc3BF02 {
     // ASM Driller.asm loc_3BF02: zero collision continues immediately;
     // negative words branch to loc_3BF1C before `clr.w collision_type(a3)`.
+    // ASM Driller.asm loc_3BF66: every continue route rejoins the
+    // `tst.b x_direction(a3)` dispatch into the shared walker loops.
     if collision_type == 0 {
         return DrillerCollisionDispatchLoc3BF02 {
             next_collision_type: 0,
