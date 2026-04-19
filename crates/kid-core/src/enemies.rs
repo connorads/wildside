@@ -14299,6 +14299,10 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
     // turnaround. This catches the "cliff with no wall to cling to" case.
     // Native: also covered by the probe_floor edge check below.
     //
+    // ASM loc_3C160 (kid.asm:43626-43632): leftward mirror of loc_3C0B4 —
+    // when d6 >= 0 and bit 1 is clear, set $6E(a5) and branch to loc_3C026
+    // turnaround. Native uses the same probe_floor edge check for both sides.
+    //
     // ASM loc_3C1E4 (kid.asm:43688-43696): Y-axis movement entry in the
     // leftward walker loop — loads y_pos, adds y_vel, computes pixel
     // displacement, branches to loc_3C220 when >= 0 (moving down). Native
