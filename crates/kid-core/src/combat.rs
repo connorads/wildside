@@ -9117,6 +9117,8 @@ pub(crate) fn juggernaut_support_overlap_sub_9832(
                 continue;
             }
 
+            // ASM loc_98DE (kid.asm:11435): first overlapping box sets
+            // `d7=1` before the common condition-code return.
             return true;
         }
     }
