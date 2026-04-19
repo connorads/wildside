@@ -535,6 +535,9 @@ pub fn update_skycutter_horizontal_velocity_sub_9A20(
     facing: Direction,
     input: HorizontalInput,
 ) -> (i32, Direction) {
+    // ASM loc_9A84 (kid.asm:11631): left-facing Skycutter tests
+    // Ctrl_Right_Held; right held clears x_direction and jumps to loc_9A32,
+    // otherwise the reverse-deceleration path remains left-facing.
     let facing_right = match facing {
         Direction::Right => !input.left,
         Direction::Left => input.right,
