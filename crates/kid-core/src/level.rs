@@ -15963,6 +15963,14 @@ pub(crate) fn level_sprite_strip_should_scan_adjacent_column_loc_E790(
     strip_scan_counter >= 3
 }
 
+/// ASM loc_E79C (kid.asm:18471): every accepted terrain sprite strip advances
+/// `$FFFFFAB8` by one with word wrapping, then falls through to `loc_E7A8`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_advance_scan_counter_loc_E79C(strip_scan_counter: u16) -> u16 {
+    strip_scan_counter.wrapping_add(1)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LevelSpriteStripExitLocE7A8 {
     ContinueToVisibleObjectSpritePass,

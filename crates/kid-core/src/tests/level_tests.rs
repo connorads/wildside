@@ -7352,6 +7352,23 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E79C (kid.asm:18471): the accepted strip tail increments
+    /// `$FFFFFAB8` with 16-bit word wrapping before branching to `loc_E7A8`.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E79C_advances_strip_scan_counter_with_word_wrapping() {
+        assert_eq!(
+            crate::level::level_sprite_strip_advance_scan_counter_loc_E79C(2),
+            3,
+            "ASM loc_E79C should add one to `$FFFFFAB8` after an accepted strip"
+        );
+        assert_eq!(
+            crate::level::level_sprite_strip_advance_scan_counter_loc_E79C(0xFFFF),
+            0,
+            "ASM loc_E79C uses addi.w, so `$FFFFFAB8` should wrap as a word"
+        );
+    }
+
     /// ASM loc_E7A8 (kid.asm:18479): rejected strip paths do not clear or
     /// allocate anything here; they branch straight into the shared visible
     /// object sprite pass at `loc_E99C`.
