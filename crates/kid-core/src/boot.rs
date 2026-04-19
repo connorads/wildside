@@ -7167,6 +7167,10 @@ impl NativeRuntime {
                     //   clr MurderWall_flag, allocate loc_C326 + loc_C428 objects,
                     //   decompress TtlCrdLetters to VRAM $8120 and unk_E06B5
                     //   to VRAM $A2E0, then palette copy loops loc_D11C/loc_D12E.
+                    // ASM loc_D170 (kid.asm:16422) refreshes the score-fade
+                    // shadow palette/window words to `$FFFF,$03FF` before
+                    // looping back to loc_D15E. Native keeps that as visual
+                    // state under the collapsed GameOver hold.
                     //
                     // Native: object collision state is not carried across
                     // lifecycle transitions, so the per-object clear is implicit.
