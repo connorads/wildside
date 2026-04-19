@@ -5631,6 +5631,10 @@ pub(crate) fn update_level_one_slope_ground_velocity(
             Direction::Right
         }
     } else if slope_descends_right == (canonical_vel >= 0) {
+        // ASM loc_9E4C (kid.asm:12072): neutral slope input starts from the
+        // `$FFFFFA26` slope flag and flips it when canonical `d0` is negative.
+        // This branch is the native facing produced by the combined slope flag
+        // and post-deceleration canonical velocity sign.
         Direction::Right
     } else {
         Direction::Left
