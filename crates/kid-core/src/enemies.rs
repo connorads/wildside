@@ -1302,8 +1302,9 @@ pub(crate) fn orca_lunge_collision_dispatch_loc_3d35a(
     collision_type: i16,
 ) -> OrcaLungeCollisionRouteLoc3D35A {
     // ASM Orca.asm loc_3D35A: after one hibernated movement frame, dispatch
-    // exact collision IDs; zero and unrecognised IDs fall through to the
-    // loc_3D3B4 gravity/acceleration path.
+    // exact collision IDs; hurt/Kid-above contact jumps to loc_3D472's
+    // hit-point/fatal-fall gate, while zero and unrecognised IDs fall through
+    // to the loc_3D3B4 gravity/acceleration path.
     match collision_type {
         ORCA_COLID_FLOOR => OrcaLungeCollisionRouteLoc3D35A::FloorLanding,
         ORCA_COLID_RIGHTWALL | ORCA_COLID_LEFTWALL => OrcaLungeCollisionRouteLoc3D35A::WallBounce,
