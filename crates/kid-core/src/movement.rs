@@ -4106,6 +4106,9 @@ impl OpeningSliceState {
                 // path consumes x_vel only to advance the visual walk-sprite
                 // accumulator after gameplay velocity is chosen. Native keeps
                 // this branch to gameplay velocity; sprite phase is visual-only.
+                // ASM loc_8460 (kid.asm:9218): `swap; rol.l #5` turns the
+                // absolute x_vel into that sprite-phase increment, still with
+                // no gameplay state change in native.
                 // ASM loc_83B4 (kid.asm:9139): non-Skycutter crawl uses
                 // `bsr.w sub_8506` (airborne horizontal tables), NOT the
                 // ground walking tables. Native uses ground tables for all
