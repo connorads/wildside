@@ -2074,6 +2074,9 @@ impl NativeRuntime {
 
             (directions & 0x01 != 0 && up)
                 || (directions & 0x02 != 0 && right)
+                // ASM loc_F22E (kid.asm:19806): after shifting to the down
+                // shooter bit, `add.w Level_width_tiles,a4; tst.b 1(a4)`
+                // marks the slot negative when the lower neighbour has skin.
                 || (directions & 0x04 != 0 && down)
                 // ASM loc_F23E (kid.asm:19814): after shifting to the left
                 // shooter bit, `tst.b -1(a1)` marks the slot negative when
