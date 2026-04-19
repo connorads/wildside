@@ -5640,6 +5640,9 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         Direction::Left
     };
 
+    // ASM loc_9E58 (kid.asm:12078): store the neutral-path `d1` result into
+    // `x_direction(a3)`. Native carries that byte-sized direction update as
+    // the `next_facing` value returned beside the updated slope velocity.
     let next_x_vel = if slope_descends_right {
         -canonical_vel
     } else {
