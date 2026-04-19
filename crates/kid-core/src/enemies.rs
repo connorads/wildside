@@ -14471,6 +14471,8 @@ pub(crate) fn driller_collision_dispatch_loc_3bf02(
         route: if next_current_hp == 0 {
             DrillerCollisionRouteLoc3BF02::DeathAnimation
         } else {
+            // ASM Driller.asm loc_3BF4E: surviving stomp plays `stru_3BCCE`,
+            // waits for it to finish, then restores `stru_3BCB2`.
             DrillerCollisionRouteLoc3BF02::HurtAnimation
         },
     }
