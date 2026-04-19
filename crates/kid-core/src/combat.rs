@@ -6565,6 +6565,8 @@ pub(crate) fn fire_demon_fragment_collision_step_sub_3A172(
 
     result.next_collision_type = 0;
     if matches!(collision_type, 0x001C | 0x002C | -1) {
+        // ASM loc_3A192 (kid.asm:43225): matching fragment hits initialise
+        // `stru_3A1E0`, hibernate until that animation finishes, then delete.
         result.animation_label = Some("stru_3A1E0");
         result.hibernate_until_anim_finished = true;
         result.delete_current_object = true;
