@@ -9089,6 +9089,8 @@ pub(crate) fn shooter_expired_slot_splice_predecessor_loc_F35E(
 /// ASM loc_F364 (kid.asm:19943): push the expired visible shooter slot onto
 /// the free list by writing the old `$FFFFF8C4` head to `$C(a0)`, then resume
 /// `loc_F28C` only when the saved active successor in `d0` is non-zero.
+/// ASM loc_F374 (kid.asm:19949): saved `d0 == 0` falls through to the shared
+/// frame commit at `loc_F2A2`.
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_expired_slot_push_free_list_loc_F364(
