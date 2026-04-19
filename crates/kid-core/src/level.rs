@@ -15952,6 +15952,17 @@ pub(crate) fn level_sprite_strip_right_adjacent_column_loc_E786(
     })
 }
 
+/// ASM loc_E790 (kid.asm:18466): once the adjacent terrain column pointer has
+/// been selected, compare `$FFFFFAB8` with `#3`; values below three skip the
+/// second `sub_E446`, while values three or higher scan that adjacent column.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn level_sprite_strip_should_scan_adjacent_column_loc_E790(
+    strip_scan_counter: u16,
+) -> bool {
+    strip_scan_counter >= 3
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LevelSpriteStripExitLocE7A8 {
     ContinueToVisibleObjectSpritePass,

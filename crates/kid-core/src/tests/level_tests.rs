@@ -7336,6 +7336,22 @@ mod chunk_02 {
         );
     }
 
+    /// ASM loc_E790 (kid.asm:18466): after the adjacent column pointer is
+    /// prepared, `$FFFFFAB8 < 3` skips the second collision scan, while
+    /// `$FFFFFAB8 >= 3` calls `sub_E446` for that adjacent column.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_E790_scans_adjacent_column_only_after_third_strip() {
+        assert!(
+            !crate::level::level_sprite_strip_should_scan_adjacent_column_loc_E790(2),
+            "ASM loc_E790 should branch to loc_E79C while `$FFFFFAB8` is below three"
+        );
+        assert!(
+            crate::level::level_sprite_strip_should_scan_adjacent_column_loc_E790(3),
+            "ASM loc_E790 should call sub_E446 when `$FFFFFAB8` reaches three"
+        );
+    }
+
     /// ASM loc_E7A8 (kid.asm:18479): rejected strip paths do not clear or
     /// allocate anything here; they branch straight into the shared visible
     /// object sprite pass at `loc_E99C`.
