@@ -551,6 +551,7 @@ pub fn update_skycutter_horizontal_velocity_sub_9A20(
         // ASM loc_9A32 (kid.asm:11597): forward-facing/no opposite input
         // enters the A-held run branch or the `$2000` walk accel/cruise clamp.
         if input.run {
+            // ASM loc_9A6E (kid.asm:11623): `addi.l #$4000,d0`, clamp at `$40000`.
             (x_vel + 0x4000).min(0x4_0000)
         } else if x_vel < 0x2_0000 {
             (x_vel + 0x2000).min(0x2_0000)
