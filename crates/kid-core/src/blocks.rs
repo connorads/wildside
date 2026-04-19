@@ -1884,7 +1884,13 @@ impl NativeRuntime {
 
         if state & 0x8000 != 0 {
             return match state {
-                0x8001 | 0x8004 => (decremented_timer.wrapping_add(2), state.wrapping_add(1)),
+                0x8001 => (decremented_timer.wrapping_add(2), state.wrapping_add(1)),
+                0x8004 => {
+                    // ASM loc_F79A (kid.asm:20440): `$8004` is the only
+                    // post-`bgt` negative state that advances one more step
+                    // and reloads the timer with the two-frame delay.
+                    (decremented_timer.wrapping_add(2), state.wrapping_add(1))
+                }
                 0x8002 => {
                     // ASM loc_F78C (kid.asm:20434): `$8002` exits the
                     // negative visibility ladder by storing state `3` and
