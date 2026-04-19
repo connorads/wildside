@@ -4226,6 +4226,8 @@ impl NativeRuntime {
             // ASM loc_955A (kid.asm:11007): both ice and non-ice visual-counter
             // paths wrap at `$600` before the shared tail stores the counter
             // and sets the Berzerker/Cyclone charge flag represented here.
+            // ASM loc_9564 (kid.asm:11012): `move.w d2,($FFFFF8F0).w` stores
+            // that visual counter, then `st (Berzerker_charging).w`.
             self.helmet.berzerker_charge_accum = 0xFF;
             self.helmet.berzerker_charging = true;
         } else {
