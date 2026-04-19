@@ -6415,6 +6415,8 @@ pub(crate) fn boss_head_movement_step_sub_39A86(
     // ASM loc_39A8C (kid.asm:42717): after the countdown reaches zero,
     // a negative delay word reloads `a2` with `unk_39AB2` and retries
     // before the Bagel Brothers head consumes X/Y velocity words.
+    // ASM loc_39A98 (kid.asm:42724): the selected entry's X/Y words are
+    // converted with `swap; asr.l #1` and stored to head velocity.
     boss_head_movement_step_sub_39846(
         delay_counter_d0,
         current_script_index,
