@@ -809,6 +809,8 @@ impl PlayerForm {
     /// tables before applying Micromax/Juggernaut form offsets.
     /// ASM loc_9AF2 (kid.asm:11680): terrain type 1 replaces the current
     /// table pointer with the rubber table (`unk_9CCE`).
+    /// ASM loc_9AFC (kid.asm:11685): Micromax advances the selected terrain
+    /// table pointer by `$1C`, one `SpeedTable` entry.
     /// Three form groups (Kid/Micromax/Juggernaut) × three terrain types (Normal/Ice/Rubber).
     pub(crate) fn ground_speed_table(
         self,
