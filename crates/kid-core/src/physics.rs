@@ -572,6 +572,8 @@ pub fn update_skycutter_horizontal_velocity_sub_9A20(
         // subtracts `$2000`, then clamps at the leftward walk cap `$FFFE0000`.
         (x_vel - 0x2000).max(-0x2_0000)
     } else if x_vel >= -0x4_0000 {
+        // ASM loc_9AB2 (kid.asm:11648): velocities from `$FFFC0000` up to
+        // cruise speed add `$2000`, decelerating back toward zero.
         x_vel + 0x2000
     } else {
         -0x4_0000
