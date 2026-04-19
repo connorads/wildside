@@ -618,7 +618,8 @@ fn apply_holding_right(vel: i32, run: bool, table: &SpeedTable) -> i32 {
             (vel + table.walk_accel).min(table.max_walk_speed)
         }
     } else {
-        // Walking right, but moving left: turn_brake ($0C)
+        // ASM loc_9B5C (kid.asm:11739): walking right while moving left adds
+        // `$C(a0)`, the turn-brake value.
         vel + table.turn_brake
     }
 }
