@@ -783,6 +783,8 @@ pub(crate) fn skycutter_visual_step_sub_98F2(
         let (phase, timer, next_index) = if let Some(&(phase, timer)) = SCRIPT.get(index) {
             (phase, timer, Some((index + 1) as u8))
         } else {
+            // ASM loc_9968 (kid.asm:11501): if `$FFFFFA0E` is outside
+            // `unk_96AC..unk_96D0`, reset `a0` to the script start.
             let (phase, timer) = SCRIPT[0];
             (phase, timer, Some(1))
         };
