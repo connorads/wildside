@@ -8097,6 +8097,8 @@ impl NativeRuntime {
         //     RedStealth/IronKnight/Berzerker, copy palette. Then load TheKid
         //     base palette (sub_80D0 with d7=0) and 3-word secondary palette
         //     (sub_813C from off_8162[Current_Helmet]).
+        //     ASM loc_7DD6 (kid.asm:8517): `not.b $16(a4)` flips the child
+        //     GFX direction only for RedStealth, IronKnight, and Berzerker.
         //
         //   off_7D34[4] = loc_7D44 (kid.asm:8469): hide child GFX ($13=0),
         //     set Kid sprite (addroffset_sprite = d7), load 15-word palette
