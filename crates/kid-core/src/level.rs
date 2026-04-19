@@ -15182,6 +15182,8 @@ pub(crate) const GAME_OVER_PALETTE_BACKUP_COUNT_LOC_D142: u16 = 0x1F;
 #[allow(dead_code)]
 pub(crate) const GAME_OVER_PALETTE_CLEAR_COUNT_LOC_D150: u16 = 0x1F;
 
+/// ASM loc_D702 (kid.asm:16818): after the EOL bonus-object setup, hibernate
+/// for `$5A` frames, then fall through to the title-return palette prep.
 /// ASM loc_D718 (kid.asm:16825): end-of-level title-return palette backup loop.
 /// `moveq #$1F,d0; lea (Palette_Buffer).l,a0; lea (Palette_Buffer_2).l,a1;
 /// loc_D718: move.l (a0)+,(a1)+; dbf d0,loc_D718`.
