@@ -5550,6 +5550,9 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         input.left
     };
 
+    // ASM loc_9DAA (kid.asm:11986): dispatch the canonicalised slope inputs:
+    // forward (`d1`) enters uphill acceleration, backward (`d2`) enters
+    // downhill acceleration, and no directional input enters neutral decel.
     if uphill_pressed {
         if canonical_vel < 0 {
             canonical_vel += uphill_accel * 2;
