@@ -797,6 +797,9 @@ pub(crate) fn skycutter_visual_step_sub_98F2(
         state.motion_timer -= 1;
     }
 
+    // ASM loc_9974 (kid.asm:11509): `moveq #$10,d7`;
+    // the following A-held test keeps that speed or replaces it with `$20`,
+    // picking the Skycutter board roll speed from the A-button latch.
     state.roll_accum = state
         .roll_accum
         .wrapping_add(if a_held { 0x20 } else { 0x10 });
