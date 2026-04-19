@@ -1107,6 +1107,9 @@ pub(crate) fn step_level_special_effects_sub_6048(
                     start_word: 0x19,
                     words: saved_storm_palette[1..].to_vec(),
                 });
+            // ASM loc_60E0 (kid.asm:6101): `moveq #$E,d0` then `move.w
+            // (a0)+,(a1)+; dbf d0,loc_60E0` copies all 15 Mountain foreground
+            // overlay palette words to `Palette_Buffer_3+2`.
             state
                 .palette_ops
                 .push(WeatherPaletteOpSub6048::WritePaletteBuffer3 {
