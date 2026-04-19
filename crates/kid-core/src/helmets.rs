@@ -818,6 +818,8 @@ pub(crate) fn skycutter_visual_step_sub_98F2(
     // ASM loc_99E6 (kid.asm:11547): store the selected priority word into
     // the board helper, then subtract `$1A` from its y-position when
     // `$FFFFFA6A` says Kid is riding the board.
+    // ASM loc_99F8 (kid.asm:11553): common `movem.l (sp)+,a0-a2; rts`
+    // exit after both the on-board offset path and the no-offset branch.
     SkycutterVisualStepSub98F2 {
         player_sprite_mapping: board_mapping,
         board_sprite_mapping: board_mapping,
