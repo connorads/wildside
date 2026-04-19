@@ -4206,6 +4206,8 @@ impl NativeRuntime {
             || vel_abs < BERZERKER_CHARGE_VEL_THRESHOLD
             || !(slice.player.on_ground || self.previous_input.left || self.previous_input.right)
         {
+            // ASM loc_957C (kid.asm:11023): every rejected charge frame clears
+            // `$FFFFFA13`, the byte accumulator represented by this native field.
             self.helmet.berzerker_charging = false;
             self.helmet.berzerker_charge_accum = 0;
             return;
