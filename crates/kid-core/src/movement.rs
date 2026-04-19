@@ -3253,6 +3253,9 @@ impl OpeningSliceState {
                 //   loc_94B4 (kid.asm:10932): store $FFFFF8F0, index off_94E6,
                 //     and optionally write addroffset_sprite(a3) before the
                 //     companion visual step.
+                //   loc_94D8 (kid.asm:10945): write the Juggernaut walk sprite
+                //     and clear is_animated when the sprite lock is absent or
+                //     the lock timer has expired.
                 // Native: flag clearing in clear_special_movement_state_sub_DB22 and
                 // refresh_grounded_helmet_state_sub_78E8; animation is visual-only.
                 //
