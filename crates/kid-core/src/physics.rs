@@ -566,6 +566,8 @@ pub fn update_skycutter_horizontal_velocity_sub_9A20(
             0x4_0000
         }
     } else if input.run {
+        // ASM loc_9ACA (kid.asm:11660): reverse path with Ctrl_A_Held set
+        // subtracts `$4000`, then clamps at the leftward run cap.
         (x_vel - 0x4000).max(-0x4_0000)
     } else if x_vel > -0x2_0000 {
         // ASM loc_9A90 (kid.asm:11638): reverse path with Ctrl_A_Held clear
