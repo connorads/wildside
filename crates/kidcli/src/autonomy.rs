@@ -455,6 +455,9 @@ struct ReleaseGateFailureCandidate {
     detail: String,
 }
 
+const HIGH_VALUE_BACKLOG_ISSUE_ORDER: &[&str] =
+    &["138", "143", "139", "140", "136", "135", "141", "137"];
+
 #[derive(Debug, Clone)]
 struct CaseQueueSnapshot {
     selected_case: Option<CaseQueueCandidate>,
@@ -4356,9 +4359,25 @@ fn select_open_backlog_issue(repo_root: &Path) -> Result<Option<BacklogIssueCand
                 BacklogIssueFocus::VisualParity => 1,
             }
         }
+        fn preferred_issue_rank(issue_id: &str) -> usize {
+            HIGH_VALUE_BACKLOG_ISSUE_ORDER
+                .iter()
+                .position(|candidate| *candidate == issue_id)
+                .unwrap_or(HIGH_VALUE_BACKLOG_ISSUE_ORDER.len())
+        }
+        fn evidence_rank(issue: &BacklogIssueCandidate) -> u8 {
+            let verify = issue.verify.to_ascii_lowercase();
+            if verify.contains("native repro status: not reproduced") {
+                1
+            } else {
+                0
+            }
+        }
         priority_rank(&left.priority)
             .cmp(&priority_rank(&right.priority))
             .then_with(|| focus_rank(left.focus).cmp(&focus_rank(right.focus)))
+            .then_with(|| evidence_rank(left).cmp(&evidence_rank(right)))
+            .then_with(|| preferred_issue_rank(&left.id).cmp(&preferred_issue_rank(&right.id)))
             .then_with(|| left.id.cmp(&right.id))
     });
     Ok(items.into_iter().next())
@@ -7721,6 +7740,27 @@ mod tests {
             task.title.contains("Implement ready backlog issue"),
             "ready backlog issue should beat loc coverage"
         );
+    }
+
+    #[test]
+    fn open_backlog_selection_skips_fresh_negative_repro_before_high_value_issue() {
+        let temp_dir = source_port_repo();
+        fs::write(
+            temp_dir.path().join(super::SOURCE_PORT_BACKLOG_PATH),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 137 | [ ] | P1 | player | Kid walks backwards while climbing slopes | Native repro status: not reproduced. Fresh negative baseline recorded. |
+| 138 | [ ] | P1 | player | Enemy contact appears to apply double damage because invulnerability is too short | Take consecutive hits, confirm post-hit invulnerability timing matches oracle |
+",
+        )
+        .expect("backlog should write");
+
+        let issue = super::select_open_backlog_issue(temp_dir.path())
+            .expect("selection should succeed")
+            .expect("issue should be selected");
+
+        assert_eq!(issue.id, "138");
     }
 
     #[test]
