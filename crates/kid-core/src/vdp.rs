@@ -11,7 +11,7 @@
 use anyhow::{Context, Result};
 use kid_data::AssetManifest;
 
-use crate::boot::VDP_GAME_INIT_VALUES;
+use crate::boot::{VDP_GAME_INIT_VALUES, title_text_word_writes_sub_1B7B6};
 
 const VRAM_SIZE: usize = 0x1_0000;
 const CRAM_SIZE: usize = 0x80;
@@ -224,8 +224,7 @@ const NAMETABLE_ROW_STRIDE_BYTES: usize = 128;
 
 // ─── Intro sequence (segments 0–4) ──────────────────────────────────────────
 
-/// Cached decompressed assets for intro sequences that use sub_1B850
-/// (segments 0 and 2 — IntroSequence1 and IntroSequence3).
+/// Cached decompressed assets for intro sequences.
 #[derive(Debug, Clone)]
 pub(crate) struct IntroSub1B850Data {
     /// 5 decompressed Saxman art chunks in upload order.
@@ -240,6 +239,22 @@ pub(crate) struct IntroSub1B850Data {
     palette_segment_1: Vec<u16>,
     /// Segment 2+ palette words (Pal_1C346 — intro3_alley.bin).
     palette_segment_2: Vec<u16>,
+    /// Shared Hologram_background art used by Load_IntroSequence2/4.
+    hologram_background_art: Vec<u8>,
+    /// Hologram_blocks art used by Load_IntroSequence2.
+    hologram_blocks_art: Vec<u8>,
+    /// Intro text letters used by Load_IntroSequence2/4.
+    intro_text_letters_art: Vec<u8>,
+    /// MapEni_CC0E decoded with the Load_IntroSequence2 base tile `$2114`.
+    intro_sequence_2_hologram_tilemap: Vec<u16>,
+    /// MapEni_CC0E decoded with the Load_IntroSequence4 base tile `$20BC`.
+    intro_sequence_4_hologram_tilemap: Vec<u16>,
+    /// IntroSequence2 foreground tilemap (`unk_2E7C6`) decoded with base `$00BC`.
+    intro_sequence_2_tilemap: Vec<u16>,
+    /// Load_IntroSequence5 art uploads in ROM order.
+    intro_sequence_5_art_chunks: [(usize, Vec<u8>); 4],
+    /// IntroSequence5 tilemap (`MapEni_2E154`) decoded with base `$00BC`.
+    intro_sequence_5_tilemap: Vec<u16>,
 }
 
 /// Load and cache intro sub_1B850 assets from the asset bundle.
@@ -249,6 +264,14 @@ pub(crate) struct IntroSub1B850Data {
 /// each of 28 words across full 64-word rows to plane B at $E000.
 pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<IntroSub1B850Data> {
     let scenes = manifest.output_root.join("scenes");
+
+    fn load_saxman_art(scenes: &std::path::Path, filename: &str) -> Result<Vec<u8>> {
+        let path = scenes.join(filename);
+        let compressed = std::fs::read(&path)
+            .with_context(|| format!("failed to read intro art: {}", path.display()))?;
+        kid_data::decode_saxman(&compressed)
+            .with_context(|| format!("failed to decompress intro art: {filename}"))
+    }
 
     // Art uploads — label→filename mapping from kid.asm / extract pipeline.
     let art_files: [(u16, &str); 5] = [
@@ -260,11 +283,7 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     ];
     let mut art_chunks = Vec::new();
     for (vram_addr, filename) in &art_files {
-        let path = scenes.join(filename);
-        let compressed = std::fs::read(&path)
-            .with_context(|| format!("failed to read intro art: {}", path.display()))?;
-        let decompressed = kid_data::decode_saxman(&compressed)
-            .with_context(|| format!("failed to decompress intro art: {filename}"))?;
+        let decompressed = load_saxman_art(&scenes, filename)?;
         // VDP addresses in kid_data are byte addresses (the VDP control port
         // encodes byte addresses, not word addresses, despite the field name).
         art_chunks.push((*vram_addr as usize, decompressed));
@@ -304,6 +323,43 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     let palette_segment_1 = load_palette_words(&scenes.join("palette/intro2_sky.bin"))?;
     let palette_segment_2 = load_palette_words(&scenes.join("palette/intro3_alley.bin"))?;
 
+    let hologram_background_art = load_saxman_art(&scenes, "artcomp/Hologram_background.bin")?;
+    let hologram_blocks_art = load_saxman_art(&scenes, "artcomp/Hologram_blocks.bin")?;
+    let intro_text_letters_art = load_saxman_art(&scenes, "artcomp/Intro_text_letters.bin")?;
+
+    let hologram_tilemap_raw = std::fs::read(scenes.join("mapeni/hologram_background.bin"))
+        .context("failed to read hologram background tilemap")?;
+    let intro_sequence_2_hologram_tilemap = kid_data::decode_enigma(&hologram_tilemap_raw, 0x2114)
+        .context("failed to decode intro sequence 2 hologram tilemap")?;
+    let intro_sequence_4_hologram_tilemap = kid_data::decode_enigma(&hologram_tilemap_raw, 0x20BC)
+        .context("failed to decode intro sequence 4 hologram tilemap")?;
+
+    let intro_sequence_2_tilemap_raw = std::fs::read(scenes.join("mapeni/intro2_sky.bin"))
+        .context("failed to read intro sequence 2 tilemap")?;
+    let intro_sequence_2_tilemap = kid_data::decode_enigma(&intro_sequence_2_tilemap_raw, 0x00BC)
+        .context("failed to decode intro sequence 2 tilemap")?;
+
+    let intro_sequence_5_art_files: [(u16, &str); 4] = [
+        (0x1780, "artcomp/Dark_alley_from_intro.bin"),
+        (0x4D80, "artcomp/P_block_from_intro.bin"),
+        (0x6800, "artcomp/The_kid_from_intro.bin"),
+        // ASM Load_IntroSequence5 starts with sub_1C278, so the cold-boot
+        // region byte advances from 0 to 1 before loc_1B100 selects byte_219C1.
+        (0xBD60, "artcomp/Maniaxe_helmet_from_intro.bin"),
+    ];
+    let mut intro_sequence_5_art_chunks = Vec::new();
+    for (vram_addr, filename) in &intro_sequence_5_art_files {
+        intro_sequence_5_art_chunks
+            .push((*vram_addr as usize, load_saxman_art(&scenes, filename)?));
+    }
+    let intro_sequence_5_art_chunks: [(usize, Vec<u8>); 4] = intro_sequence_5_art_chunks
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("expected 4 intro sequence 5 art chunks"))?;
+    let intro_sequence_5_tilemap_raw = std::fs::read(scenes.join("mapeni/intro3_alley.bin"))
+        .context("failed to read intro sequence 5 tilemap")?;
+    let intro_sequence_5_tilemap = kid_data::decode_enigma(&intro_sequence_5_tilemap_raw, 0x00BC)
+        .context("failed to decode intro sequence 5 tilemap")?;
+
     Ok(IntroSub1B850Data {
         art_chunks,
         plane_a_tilemap,
@@ -311,23 +367,42 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
         palette_segment_0,
         palette_segment_1,
         palette_segment_2,
+        hologram_background_art,
+        hologram_blocks_art,
+        intro_text_letters_art,
+        intro_sequence_2_hologram_tilemap,
+        intro_sequence_4_hologram_tilemap,
+        intro_sequence_2_tilemap,
+        intro_sequence_5_art_chunks,
+        intro_sequence_5_tilemap,
     })
 }
 
 /// Build VdpState for an intro sequence segment (0–4).
 ///
 /// Segments 0 and 2 use sub_1B850 art/tilemaps with segment-specific palettes.
-/// Segments 1 and 3 also reuse the same art layout (the hologram text overlays
-/// are sprite-based and deferred). Segment 4 has its own setup but uses the
-/// same base art for now.
+/// Segments 1, 3, and 4 follow the separate Load_IntroSequence2/4/5 loaders.
 pub(crate) fn build_intro_sequence_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpState {
-    let mut vdp = VdpState::new();
+    match segment {
+        1 => build_intro_sequence_2_vdp(data),
+        3 => build_intro_sequence_4_vdp(data),
+        4 => build_intro_sequence_5_vdp(data),
+        _ => build_intro_sub_1b850_vdp(data, segment),
+    }
+}
 
+fn intro_sequence_base_vdp() -> VdpState {
+    let mut vdp = VdpState::new();
     // ASM VDPGameInitValues → register init, then reg 1 = $74 (display on).
     for (i, &value) in VDP_GAME_INIT_VALUES.iter().enumerate() {
         vdp.registers[i] = value;
     }
     vdp.registers[1] = 0x74;
+    vdp
+}
+
+fn build_intro_sub_1b850_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpState {
+    let mut vdp = intro_sequence_base_vdp();
 
     // Upload decompressed art to VRAM at specified addresses.
     for (vram_byte_addr, art_bytes) in &data.art_chunks {
@@ -376,6 +451,115 @@ pub(crate) fn build_intro_sequence_vdp(data: &IntroSub1B850Data, segment: usize)
         _ => &data.palette_segment_2,
     };
     vdp.write_cram_words(0, palette);
+
+    vdp
+}
+
+fn write_full_plane_rows(vdp: &mut VdpState, plane_base: usize, rows: &[[u16; 64]; 28]) {
+    for (row, words) in rows.iter().enumerate() {
+        for (col, &word) in words.iter().enumerate() {
+            let byte_addr = plane_base + row * NAMETABLE_ROW_STRIDE_BYTES + col * 2;
+            vdp.write_vram_word(byte_addr, word);
+        }
+    }
+}
+
+fn write_plane_a_40x28(vdp: &mut VdpState, words: &[u16]) {
+    for row in 0..28usize {
+        for col in 0..40usize {
+            let word_index = row * 40 + col;
+            if let Some(&word) = words.get(word_index) {
+                let byte_addr = row * NAMETABLE_ROW_STRIDE_BYTES + col * 2;
+                vdp.write_vram_word(byte_addr, word);
+            }
+        }
+    }
+}
+
+fn sub_1cd88_rows(decoded_words: &[u16]) -> Option<[[u16; 64]; 28]> {
+    kid_data::decompression_buffer_rows_upload_sub_1CD88(decoded_words)
+        .ok()
+        .map(|upload| upload.rows)
+}
+
+fn intro_sequence_2_hologram_rows(data: &IntroSub1B850Data) -> Option<[[u16; 64]; 28]> {
+    let mut decoded_words = data.intro_sequence_2_hologram_tilemap.clone();
+    apply_title_text_word_writes_sub_1b7b6(&mut decoded_words);
+    sub_1cd88_rows(&decoded_words)
+}
+
+fn apply_title_text_word_writes_sub_1b7b6(decoded_words: &mut [u16]) {
+    // ASM sub_1B7B6 (kid.asm:30035-30053): after Load_IntroSequence2 decodes
+    // MapEni_CC0E into Decompression_Buffer, it patches the listed absolute
+    // RAM addresses with the fixed `$21AB..$21AE` 2x2 blocks before sub_1CD88.
+    const DECOMPRESSION_BUFFER_LOW_ADDR: u16 = 0x77B2;
+    for write in title_text_word_writes_sub_1B7B6() {
+        let byte_offset = usize::from(
+            write
+                .base_word_address
+                .wrapping_sub(DECOMPRESSION_BUFFER_LOW_ADDR),
+        );
+        let word_index = byte_offset / 2;
+        if word_index + 1 < decoded_words.len() {
+            decoded_words[word_index] = write.top_words[0];
+            decoded_words[word_index + 1] = write.top_words[1];
+        }
+        let bottom_word_index = word_index + 0x28;
+        if bottom_word_index + 1 < decoded_words.len() {
+            decoded_words[bottom_word_index] = write.bottom_words[0];
+            decoded_words[bottom_word_index + 1] = write.bottom_words[1];
+        }
+    }
+}
+
+fn build_intro_sequence_2_vdp(data: &IntroSub1B850Data) -> VdpState {
+    let mut vdp = intro_sequence_base_vdp();
+
+    // ASM Load_IntroSequence2 (kid.asm:29255-29300): load HoloBG art, the
+    // paired HoloBlocks art, patch the hologram tilemap via sub_1B7B6, then
+    // write the intro2_sky plane-A tilemap and copy the sub_1C4FE palette.
+    vdp.write_vram(0x2280, &data.hologram_background_art);
+    vdp.write_vram(0x3540, &data.hologram_blocks_art);
+    if let Some(rows) = intro_sequence_2_hologram_rows(data) {
+        write_full_plane_rows(&mut vdp, 0xE000, &rows);
+    }
+    vdp.write_vram(0xFA60, &data.intro_text_letters_art);
+    write_plane_a_40x28(&mut vdp, &data.intro_sequence_2_tilemap);
+    vdp.write_cram_words(0, &data.palette_segment_1);
+
+    vdp
+}
+
+fn build_intro_sequence_4_vdp(data: &IntroSub1B850Data) -> VdpState {
+    let mut vdp = intro_sequence_base_vdp();
+
+    // ASM Load_IntroSequence4 (kid.asm:29303-29321): only the HoloBG art is
+    // loaded, MapEni_CC0E is decoded with base `$20BC`, sub_1CD88 writes it
+    // to plane B, and sub_1C4FE supplies the intro2_sky palette again.
+    vdp.write_vram(0x1780, &data.hologram_background_art);
+    if let Some(rows) = sub_1cd88_rows(&data.intro_sequence_4_hologram_tilemap) {
+        write_full_plane_rows(&mut vdp, 0xE000, &rows);
+    }
+    vdp.write_vram(0xFA60, &data.intro_text_letters_art);
+    vdp.write_cram_words(0, &data.palette_segment_1);
+
+    vdp
+}
+
+fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data) -> VdpState {
+    let mut vdp = intro_sequence_base_vdp();
+
+    // ASM Load_IntroSequence5 (kid.asm:29324-29364): use the Dark Alley/P
+    // block/Kid/helmet art set and MapEni_2E154, not the shared sub_1B850
+    // Wild Side art path. Native follows the cold-boot post-sub_1C278
+    // region-byte-1 art for this cached non-gameplay VDP state.
+    for (vram_byte_addr, art_bytes) in &data.intro_sequence_5_art_chunks {
+        vdp.write_vram(*vram_byte_addr, art_bytes);
+    }
+    if let Some(rows) = sub_1cd88_rows(&data.intro_sequence_5_tilemap) {
+        write_full_plane_rows(&mut vdp, 0xE000, &rows);
+    }
+    vdp.write_cram_words(0, &data.palette_segment_2);
 
     vdp
 }
@@ -524,6 +708,31 @@ fn load_palette_words(path: &std::path::Path) -> Result<Vec<u16>> {
 mod tests {
     use super::*;
 
+    fn empty_intro_data() -> IntroSub1B850Data {
+        IntroSub1B850Data {
+            art_chunks: [
+                (0, vec![]),
+                (0, vec![]),
+                (0, vec![]),
+                (0, vec![]),
+                (0, vec![]),
+            ],
+            plane_a_tilemap: vec![],
+            plane_b_rows: [[0; 64]; 28],
+            palette_segment_0: vec![],
+            palette_segment_1: vec![],
+            palette_segment_2: vec![],
+            hologram_background_art: vec![],
+            hologram_blocks_art: vec![],
+            intro_text_letters_art: vec![],
+            intro_sequence_2_hologram_tilemap: vec![],
+            intro_sequence_4_hologram_tilemap: vec![],
+            intro_sequence_2_tilemap: vec![],
+            intro_sequence_5_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            intro_sequence_5_tilemap: vec![],
+        }
+    }
+
     #[test]
     fn vdp_state_new_has_correct_sizes() {
         let vdp = VdpState::new();
@@ -609,18 +818,8 @@ mod tests {
         // → 40×28 tilemap at cell (0,0) in the plane A nametable at $0000.
         let tilemap = vec![0x1234u16; 40 * 28];
         let data = IntroSub1B850Data {
-            art_chunks: [
-                (0, vec![]),
-                (0, vec![]),
-                (0, vec![]),
-                (0, vec![]),
-                (0, vec![]),
-            ],
             plane_a_tilemap: tilemap,
-            plane_b_rows: [[0; 64]; 28],
-            palette_segment_0: vec![],
-            palette_segment_1: vec![],
-            palette_segment_2: vec![],
+            ..empty_intro_data()
         };
         let vdp = build_intro_sequence_vdp(&data, 0);
 
@@ -642,18 +841,8 @@ mod tests {
         rows[0] = [0xAAAA; 64];
         rows[27] = [0xBBBB; 64];
         let data = IntroSub1B850Data {
-            art_chunks: [
-                (0, vec![]),
-                (0, vec![]),
-                (0, vec![]),
-                (0, vec![]),
-                (0, vec![]),
-            ],
-            plane_a_tilemap: vec![],
             plane_b_rows: rows,
-            palette_segment_0: vec![],
-            palette_segment_1: vec![],
-            palette_segment_2: vec![],
+            ..empty_intro_data()
         };
         let vdp = build_intro_sequence_vdp(&data, 0);
 
@@ -673,18 +862,10 @@ mod tests {
     #[test]
     fn intro_sequence_selects_palette_by_segment() {
         let data = IntroSub1B850Data {
-            art_chunks: [
-                (0, vec![]),
-                (0, vec![]),
-                (0, vec![]),
-                (0, vec![]),
-                (0, vec![]),
-            ],
-            plane_a_tilemap: vec![],
-            plane_b_rows: [[0; 64]; 28],
             palette_segment_0: vec![0x0111],
             palette_segment_1: vec![0x0222],
             palette_segment_2: vec![0x0333],
+            ..empty_intro_data()
         };
 
         let vdp0 = build_intro_sequence_vdp(&data, 0);
@@ -706,6 +887,82 @@ mod tests {
             u16::from_be_bytes([vdp2.cram[0], vdp2.cram[1]]),
             0x0333,
             "segment 2+ uses intro3_alley palette"
+        );
+    }
+
+    #[test]
+    fn intro_sequence_2_4_and_5_follow_their_rom_vdp_loaders() {
+        let mut intro2_hologram = vec![0x2114u16; 40 * 28];
+        let base_word_index = (0x7C12u16 - 0x77B2u16) as usize / 2;
+        intro2_hologram[base_word_index] = 0x1234;
+        let data = IntroSub1B850Data {
+            art_chunks: [
+                (0x2740, vec![0xF1]),
+                (0, vec![]),
+                (0, vec![]),
+                (0, vec![]),
+                (0, vec![]),
+            ],
+            palette_segment_1: vec![0x0222],
+            palette_segment_2: vec![0x0333],
+            hologram_background_art: vec![0xA1],
+            hologram_blocks_art: vec![0xB2],
+            intro_text_letters_art: vec![0xC3],
+            intro_sequence_2_hologram_tilemap: intro2_hologram,
+            intro_sequence_4_hologram_tilemap: vec![0x20BC; 40 * 28],
+            intro_sequence_2_tilemap: vec![0x00BC; 40 * 28],
+            intro_sequence_5_art_chunks: [
+                (0x1780, vec![0xD4]),
+                (0x4D80, vec![0xE5]),
+                (0x6800, vec![0xF6]),
+                (0xBD60, vec![0xA7]),
+            ],
+            intro_sequence_5_tilemap: vec![0x0ABC; 40 * 28],
+            ..empty_intro_data()
+        };
+
+        let intro2 = build_intro_sequence_vdp(&data, 1);
+        assert_eq!(
+            intro2.vram[0x2740], 0,
+            "ASM Load_IntroSequence2 (kid.asm:29255) must not reuse the sub_1B850 Wild Side art upload at $2740",
+        );
+        assert_eq!(intro2.vram[0x2280], 0xA1);
+        assert_eq!(intro2.vram[0x3540], 0xB2);
+        assert_eq!(
+            u16::from_be_bytes([intro2.vram[0], intro2.vram[1]]),
+            0x00BC,
+            "ASM Load_IntroSequence2 should write the intro2_sky tilemap to plane A",
+        );
+        assert_eq!(
+            u16::from_be_bytes([intro2.vram[0xE700], intro2.vram[0xE701]]),
+            0x21AB,
+            "ASM sub_1B7B6 should patch the hologram tilemap before sub_1CD88 uploads it",
+        );
+
+        let intro4 = build_intro_sequence_vdp(&data, 3);
+        assert_eq!(
+            intro4.vram[0x1780], 0xA1,
+            "ASM Load_IntroSequence4 (kid.asm:29303) should load HoloBG at $1780",
+        );
+        assert_eq!(
+            u16::from_be_bytes([intro4.vram[0xE000], intro4.vram[0xE001]]),
+            0x20BC,
+            "ASM Load_IntroSequence4 should upload the HoloBG tilemap through sub_1CD88",
+        );
+
+        let intro5 = build_intro_sequence_vdp(&data, 4);
+        assert_eq!(
+            intro5.vram[0x2740], 0,
+            "ASM Load_IntroSequence5 (kid.asm:29324) must not reuse sub_1B850's background art at $2740",
+        );
+        assert_eq!(intro5.vram[0x1780], 0xD4);
+        assert_eq!(intro5.vram[0x4D80], 0xE5);
+        assert_eq!(intro5.vram[0x6800], 0xF6);
+        assert_eq!(intro5.vram[0xBD60], 0xA7);
+        assert_eq!(
+            u16::from_be_bytes([intro5.vram[0xE000], intro5.vram[0xE001]]),
+            0x0ABC,
+            "ASM Load_IntroSequence5 should upload MapEni_2E154 through sub_1CD88",
         );
     }
 
