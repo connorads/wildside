@@ -527,6 +527,12 @@ struct CaseFailureView {
 struct HypothesisSummary {
     name: String,
     reason: String,
+    /// Optional `progress_fingerprint` token (e.g.
+    /// `proactive-verification:mutation-testing:enemies.rs`). When
+    /// present, the cascade skips any candidate task whose fingerprint
+    /// matches so the loop stops rediscovering dead ends.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    fingerprint: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -584,6 +590,24 @@ impl CaseFailureClass {
 struct SourcePortFrontierState {
     updated_at: String,
     active_frontier: ActiveFrontierState,
+    /// Debug-field registry entries that have been flagged ready for
+    /// promotion from the debug bag to typed state. The proactive
+    /// cascade emits a `promote-debug-field` task for any entry whose
+    /// `maturity_status` is `ready` so mature candidates preempt the
+    /// loc-coverage-drive busywork.
+    #[serde(default)]
+    candidate_promotions: Vec<CandidatePromotion>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CandidatePromotion {
+    key: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    promotion_target: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    maturity_status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2599,12 +2623,30 @@ enum ProactiveStrategy {
         min_cluster_size: usize,
         #[serde(default)]
         focus_subsystems: Vec<String>,
+        /// Cap cite-only commits per autonomy session so this strategy
+        /// stops absorbing every cycle once the uncovered queue is stale.
+        #[serde(default = "default_loc_coverage_max_per_session")]
+        max_per_session: u32,
     },
     MutationTesting {
         enabled: bool,
         output_dir: String,
         targets: Vec<MutationTarget>,
+        /// Ordered list of module filenames. Each cycle picks the current
+        /// rotation entry via `mutation-pointer.json` and advances on
+        /// completion so the cascade never blocks on a single large file.
+        #[serde(default)]
+        rotation: Vec<String>,
+        /// Optional time-box for large files (e.g. enemies.rs enumerates
+        /// thousands of candidates). When present, the task passes
+        /// `--shard` and `--test-timeout-multiplier` hints.
+        #[serde(default)]
+        max_candidates_per_cycle: Option<u32>,
     },
+}
+
+fn default_loc_coverage_max_per_session() -> u32 {
+    2
 }
 
 #[derive(Debug, Deserialize)]
@@ -2651,6 +2693,7 @@ fn load_proactive_verification_config(repo_root: &Path) -> Result<ProactiveVerif
                     enabled: true,
                     min_cluster_size: 3,
                     focus_subsystems: Vec::new(),
+                    max_per_session: default_loc_coverage_max_per_session(),
                 },
                 ProactiveStrategy::MutationTesting {
                     enabled: true,
@@ -2672,6 +2715,12 @@ fn load_proactive_verification_config(repo_root: &Path) -> Result<ProactiveVerif
                             tier: 1,
                         },
                     ],
+                    rotation: vec![
+                        "enemies.rs".to_owned(),
+                        "combat.rs".to_owned(),
+                        "blocks.rs".to_owned(),
+                    ],
+                    max_candidates_per_cycle: None,
                 },
             ],
         })
@@ -2688,6 +2737,9 @@ fn evaluate_proactive_verification_cycle(
     routines_per_task: u32,
 ) -> Result<CycleReport> {
     let config = load_proactive_verification_config(repo_root)?;
+    let work_counts = refresh_work_type_counts(repo_root).unwrap_or_default();
+    let frontier_state = load_source_port_frontier_state(repo_root).ok();
+    let rejected_fingerprints = collect_rejected_fingerprints(frontier_state.as_ref());
 
     for strategy in &config.strategies {
         match strategy {
@@ -2697,6 +2749,7 @@ fn evaluate_proactive_verification_cycle(
             } if *enabled => {
                 if let Some(report) =
                     try_root_cause_backlog_strategy(repo_root, cycle, root_cause_marker)?
+                    && !rejected_fingerprints.contains(&report.progress_fingerprint)
                 {
                     return Ok(report);
                 }
@@ -2707,6 +2760,7 @@ fn evaluate_proactive_verification_cycle(
             } if *enabled => {
                 if let Some(report) =
                     try_enemy_family_audit_strategy(repo_root, cycle, priority_order)?
+                    && !rejected_fingerprints.contains(&report.progress_fingerprint)
                 {
                     return Ok(report);
                 }
@@ -2715,14 +2769,32 @@ fn evaluate_proactive_verification_cycle(
                 enabled,
                 min_cluster_size,
                 focus_subsystems,
+                max_per_session,
             } if *enabled => {
+                // Mature debug-field candidates preempt coverage busywork so
+                // the loop does not queue another `Cite ASM loc_` task when
+                // there is a ready promotion waiting.
+                if let Some(report) = try_candidate_promotion_strategy(
+                    cycle,
+                    frontier_state.as_ref(),
+                    &rejected_fingerprints,
+                ) {
+                    return Ok(report);
+                }
+                // Circuit breaker: once this session has already produced
+                // max_per_session cite-only commits, skip to the next
+                // strategy instead of queuing another `Cite ASM loc_` task.
+                if work_counts.cite_only >= *max_per_session {
+                    continue;
+                }
                 if let Some(report) = try_loc_coverage_drive_strategy(
                     repo_root,
                     cycle,
                     routines_per_task,
                     *min_cluster_size,
                     focus_subsystems,
-                )? {
+                )? && !rejected_fingerprints.contains(&report.progress_fingerprint)
+                {
                     return Ok(report);
                 }
             }
@@ -2730,9 +2802,17 @@ fn evaluate_proactive_verification_cycle(
                 enabled,
                 output_dir,
                 targets,
+                rotation,
+                max_candidates_per_cycle,
             } if *enabled => {
-                if let Some(report) =
-                    try_mutation_testing_strategy(repo_root, cycle, output_dir, targets)
+                if let Some(report) = try_mutation_testing_strategy(
+                    repo_root,
+                    cycle,
+                    output_dir,
+                    targets,
+                    rotation,
+                    *max_candidates_per_cycle,
+                ) && !rejected_fingerprints.contains(&report.progress_fingerprint)
                 {
                     return Ok(report);
                 }
@@ -2758,6 +2838,101 @@ fn evaluate_proactive_verification_cycle(
             summary: "All proactive verification strategies exhausted.".to_owned(),
         }],
     })
+}
+
+fn collect_rejected_fingerprints(state: Option<&SourcePortFrontierState>) -> BTreeSet<String> {
+    state
+        .map(|s| {
+            s.active_frontier
+                .rejected_hypotheses
+                .iter()
+                .filter_map(|entry| entry.fingerprint.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn try_candidate_promotion_strategy(
+    cycle: u32,
+    state: Option<&SourcePortFrontierState>,
+    rejected_fingerprints: &BTreeSet<String>,
+) -> Option<CycleReport> {
+    let state = state?;
+    let ready = state
+        .candidate_promotions
+        .iter()
+        .find(|entry| entry.maturity_status.as_deref() == Some("ready"))?;
+
+    let target = ready.key.clone();
+    let fingerprint = format!("proactive-verification:promote-debug-field:{target}");
+    if rejected_fingerprints.contains(&fingerprint) {
+        return None;
+    }
+
+    let promotion_target = ready
+        .promotion_target
+        .clone()
+        .unwrap_or_else(|| "typed gameplay state".to_owned());
+    let reason = ready.reason.clone().unwrap_or_else(|| {
+        "debug-field age plus repeated parity use qualify it for promotion".to_owned()
+    });
+
+    let task = TaskPackage {
+        capability: CapabilityId::ProactiveVerificationTask,
+        title: format!("Promote debug field `{target}` to typed state"),
+        summary: format!(
+            "Debug field `{target}` is ready for promotion to {promotion_target}. Move it from the debug bag into typed gameplay state per the debug-field registry contract, update referencing parity logic, and drop the `candidate` status.",
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            "docs/source-port/debug-field-registry.yaml".to_owned(),
+            SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
+            "CLAUDE.md".to_owned(),
+        ],
+        implementation_targets: vec![
+            "crates/kid-core/src/".to_owned(),
+            "crates/kidcli/src/".to_owned(),
+        ],
+        commands: vec![
+            "mise run audit-debug-fields".to_owned(),
+            "mise run verify-slice-fast".to_owned(),
+        ],
+        done_criteria: vec![
+            format!("`{target}` removed from `debug_fields`/`gameplay_debug_fields` maps."),
+            format!(
+                "`{target}` registry entry status changes from `candidate` and the matching `candidate_promotions[]` entry is removed from frontier-state.yaml."
+            ),
+            "mise run audit-debug-fields exits 0.".to_owned(),
+            "verify-slice-fast passes.".to_owned(),
+        ],
+        evidence: vec![EvidenceItem {
+            label: "candidate-promotion".to_owned(),
+            status: "ready".to_owned(),
+            detail: reason,
+            artefact_path: Some(PathBuf::from("docs/source-port/debug-field-registry.yaml")),
+        }],
+        frontier_context: None,
+        case_queue_context: None,
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: None,
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: None,
+        next_agent_note: None,
+        target_routines: None,
+    };
+
+    Some(proactive_verification_report(
+        cycle,
+        "promote-debug-field",
+        &target,
+        task,
+    ))
 }
 
 fn proactive_verification_report(
@@ -3226,12 +3401,68 @@ fn try_mutation_testing_strategy(
     cycle: u32,
     output_dir: &str,
     targets: &[MutationTarget],
+    rotation: &[String],
+    max_candidates_per_cycle: Option<u32>,
 ) -> Option<CycleReport> {
-    // Sort by tier, then pick the first module that still needs mutation work.
-    let mut sorted: Vec<&MutationTarget> = targets.iter().collect();
-    sorted.sort_by_key(|t| t.tier);
+    // Build the candidate ordering. When a rotation list is provided the
+    // cascade prefers the current rotation entry first so every cycle works
+    // on one file at a time; other targets still act as fallback in their
+    // original tier order. Without rotation the behaviour matches the
+    // previous tier-sorted pass.
+    let mut ordered: Vec<&MutationTarget> = Vec::new();
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
 
-    for target in sorted {
+    if !rotation.is_empty() {
+        let pointer_path = repo_root.join(MUTATION_POINTER_PATH);
+        let mut pointer = load_mutation_pointer(&pointer_path);
+        let mut start_index = pointer.index % rotation.len();
+
+        // Skip past modules that have already reached Complete so the
+        // rotation naturally advances at the end of each successful cycle
+        // instead of cycling back to finished files.
+        for _ in 0..rotation.len() {
+            let module = &rotation[start_index];
+            let Some(target) = targets.iter().find(|t| &t.module == module) else {
+                start_index = (start_index + 1) % rotation.len();
+                continue;
+            };
+            let module_stem = target.module.strip_suffix(".rs").unwrap_or(&target.module);
+            let output_root_abs = repo_root.join(output_dir).join(module_stem);
+            if matches!(
+                inspect_mutation_run(&output_root_abs).status,
+                MutationRunStatus::Complete
+            ) {
+                start_index = (start_index + 1) % rotation.len();
+                continue;
+            }
+            break;
+        }
+
+        pointer.index = start_index;
+        pointer.last_file.clone_from(&rotation[start_index]);
+        pointer.last_run_at = autonomy_timestamp();
+        let _ = write_mutation_pointer(&pointer_path, &pointer);
+
+        for offset in 0..rotation.len() {
+            let idx = (start_index + offset) % rotation.len();
+            let module = &rotation[idx];
+            if let Some(target) = targets.iter().find(|t| &t.module == module)
+                && seen.insert(target.module.as_str())
+            {
+                ordered.push(target);
+            }
+        }
+    }
+
+    let mut tier_sorted: Vec<&MutationTarget> = targets.iter().collect();
+    tier_sorted.sort_by_key(|t| t.tier);
+    for target in tier_sorted {
+        if seen.insert(target.module.as_str()) {
+            ordered.push(target);
+        }
+    }
+
+    for target in ordered {
         let module_stem = target.module.strip_suffix(".rs").unwrap_or(&target.module);
         let output_root = PathBuf::from(output_dir).join(module_stem);
         let output_root_abs = repo_root.join(&output_root);
@@ -3239,7 +3470,7 @@ fn try_mutation_testing_strategy(
 
         match &run.status {
             MutationRunStatus::NotRun => {
-                let task = mutation_run_task(target, &output_root, None);
+                let task = mutation_run_task(target, &output_root, None, max_candidates_per_cycle);
                 return Some(proactive_verification_report(
                     cycle,
                     "mutation-testing",
@@ -3249,7 +3480,12 @@ fn try_mutation_testing_strategy(
             }
             MutationRunStatus::Incomplete { detail } => {
                 let detail_hash = stable_short_hash(detail);
-                let task = mutation_run_task(target, &output_root, Some(detail.clone()));
+                let task = mutation_run_task(
+                    target,
+                    &output_root,
+                    Some(detail.clone()),
+                    max_candidates_per_cycle,
+                );
                 return Some(proactive_verification_report(
                     cycle,
                     "mutation-testing",
@@ -3272,6 +3508,125 @@ fn try_mutation_testing_strategy(
     }
 
     None
+}
+
+const MUTATION_POINTER_PATH: &str = ".cache/autonomy/proactive-verification/mutation-pointer.json";
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct MutationPointer {
+    #[serde(default)]
+    index: usize,
+    #[serde(default)]
+    last_file: String,
+    #[serde(default)]
+    last_run_at: String,
+}
+
+fn load_mutation_pointer(path: &Path) -> MutationPointer {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|content| serde_json::from_str(&content).ok())
+        .unwrap_or_default()
+}
+
+fn write_mutation_pointer(path: &Path, pointer: &MutationPointer) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    let json = serde_json::to_string_pretty(pointer)
+        .with_context(|| format!("failed to serialise {}", path.display()))?;
+    fs::write(path, format!("{json}\n"))
+        .with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(())
+}
+
+const RL_SESSION_PATH: &str = ".cache/autonomy/rl-session.json";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WorkType {
+    CiteOnly,
+    DocsOnly,
+    Productive,
+}
+
+fn classify_commit_subject(subject: &str) -> WorkType {
+    let trimmed = subject.trim_start();
+    if trimmed.starts_with("Cite ASM loc_") {
+        return WorkType::CiteOnly;
+    }
+    // Common dev-doc conventions: "docs: ...", "docs(area): ...", "Document ..."
+    if trimmed.starts_with("docs:")
+        || trimmed.starts_with("docs(")
+        || trimmed.starts_with("Document ")
+    {
+        return WorkType::DocsOnly;
+    }
+    WorkType::Productive
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct WorkTypeCounts {
+    #[serde(default)]
+    cite_only: u32,
+    #[serde(default)]
+    docs_only: u32,
+    #[serde(default)]
+    productive: u32,
+}
+
+/// Re-walks commits recorded in the rl-session.json session window and
+/// updates the work_type_counts field. Returns the updated counters.
+/// Silently no-ops if the session file is missing (the rl-loop harness
+/// creates it; outside that harness the circuit breaker is effectively
+/// disabled, which matches one-off manual invocations).
+fn refresh_work_type_counts(repo_root: &Path) -> Result<WorkTypeCounts> {
+    let path = repo_root.join(RL_SESSION_PATH);
+    let Ok(content) = fs::read_to_string(&path) else {
+        return Ok(WorkTypeCounts::default());
+    };
+    let mut session: serde_json::Value = serde_json::from_str(&content)
+        .with_context(|| format!("failed to parse {}", path.display()))?;
+
+    let start_sha = session
+        .get("start_commit_sha")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned);
+    let Some(start_sha) = start_sha else {
+        return Ok(WorkTypeCounts::default());
+    };
+
+    let output = Command::new("git")
+        .args(["log", "--format=%s", &format!("{start_sha}..HEAD")])
+        .current_dir(repo_root)
+        .output();
+    let Ok(output) = output else {
+        return Ok(WorkTypeCounts::default());
+    };
+    if !output.status.success() {
+        return Ok(WorkTypeCounts::default());
+    }
+
+    let mut counts = WorkTypeCounts::default();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        match classify_commit_subject(line) {
+            WorkType::CiteOnly => counts.cite_only += 1,
+            WorkType::DocsOnly => counts.docs_only += 1,
+            WorkType::Productive => counts.productive += 1,
+        }
+    }
+
+    if let Some(obj) = session.as_object_mut() {
+        obj.insert(
+            "work_type_counts".to_owned(),
+            serde_json::to_value(&counts).unwrap_or(serde_json::Value::Null),
+        );
+        if let Ok(serialised) = serde_json::to_string_pretty(&session) {
+            let _ = fs::write(&path, format!("{serialised}\n"));
+        }
+    }
+
+    Ok(counts)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3438,6 +3793,7 @@ fn mutation_run_task(
     target: &MutationTarget,
     output_root: &Path,
     incomplete_detail: Option<String>,
+    max_candidates_per_cycle: Option<u32>,
 ) -> TaskPackage {
     let command = mutation_command(target, output_root);
     let outcomes_path = output_root.join("mutants.out/outcomes.json");
@@ -3448,6 +3804,11 @@ fn mutation_run_task(
         output_root.display()
     );
     let is_rerun = incomplete_detail.is_some();
+    let cycle_cap_note = max_candidates_per_cycle.map(|cap| {
+        format!(
+            " If the file enumerates more than {cap} candidates, prioritise the first {cap} and leave the rest for the next rotation cycle."
+        )
+    });
 
     TaskPackage {
         capability: CapabilityId::ProactiveVerificationTask,
@@ -3456,16 +3817,22 @@ fn mutation_run_task(
         } else {
             format!("Run mutation testing on {} (tier {})", target.module, target.tier)
         },
-        summary: if is_rerun {
-            format!(
-                "Previous cargo-mutants output for {} is incomplete. Clean the partial output, rerun with gitignore forced on, then triage survivors if any remain.",
-                target.module
-            )
-        } else {
-            format!(
-                "Run cargo-mutants on {} in package {} with gitignore forced on. If it finds surviving mutants, triage one into an ASM-backed code fix or test.",
-                target.module, target.package
-            )
+        summary: {
+            let base = if is_rerun {
+                format!(
+                    "Previous cargo-mutants output for {} is incomplete. Clean the partial output, rerun with gitignore forced on, then triage survivors if any remain.",
+                    target.module
+                )
+            } else {
+                format!(
+                    "Run cargo-mutants on {} in package {} with gitignore forced on. If it finds surviving mutants, triage one into an ASM-backed code fix or test.",
+                    target.module, target.package
+                )
+            };
+            match cycle_cap_note.as_ref() {
+                Some(note) => format!("{base}{note}"),
+                None => base,
+            }
         },
         generated_at: String::new(),
         cycle: 0,
@@ -8573,9 +8940,15 @@ mod tests {
         let temp_dir = source_port_repo();
         let targets = vec![mutation_target("enemies.rs", 1)];
 
-        let report =
-            super::try_mutation_testing_strategy(temp_dir.path(), 4, ".cache/mutants", &targets)
-                .expect("mutation testing task should exist");
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            None,
+        )
+        .expect("mutation testing task should exist");
         let task = report.selected_task.expect("selected task should exist");
 
         assert_eq!(
@@ -8612,9 +8985,15 @@ mod tests {
         );
         let targets = vec![mutation_target("enemies.rs", 1)];
 
-        let report =
-            super::try_mutation_testing_strategy(temp_dir.path(), 4, ".cache/mutants", &targets)
-                .expect("rerun task should exist");
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            None,
+        )
+        .expect("rerun task should exist");
         let task = report.selected_task.expect("selected task should exist");
 
         assert!(
@@ -8660,9 +9039,15 @@ mod tests {
         );
         let targets = vec![mutation_target("enemies.rs", 1)];
 
-        let report =
-            super::try_mutation_testing_strategy(temp_dir.path(), 4, ".cache/mutants", &targets)
-                .expect("triage task should exist");
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            None,
+        )
+        .expect("triage task should exist");
         let task = report.selected_task.expect("selected task should exist");
 
         assert!(
@@ -8697,9 +9082,15 @@ mod tests {
             mutation_target("combat.rs", 1),
         ];
 
-        let report =
-            super::try_mutation_testing_strategy(temp_dir.path(), 4, ".cache/mutants", &targets)
-                .expect("next module task should exist");
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            None,
+        )
+        .expect("next module task should exist");
         let task = report.selected_task.expect("selected task should exist");
 
         assert_eq!(

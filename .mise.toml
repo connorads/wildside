@@ -209,6 +209,18 @@ description = "Single RL/Codex source-port run that pipes the live delegated pro
 run = "python3 scripts/audit_debug_fields.py"
 description = "Check that emitted debug fields are registered and stale candidates are promoted or exempted"
 
+[tasks.mutants-file]
+run = """
+sh -ec '
+FILE=${FILE:?usage: mise run mutants-file FILE=<module.rs>}
+STEM=${FILE%.rs}
+OUTPUT=${OUTPUT:-.cache/mutants/${STEM}}
+rm -rf "$OUTPUT/mutants.out" "$OUTPUT/mutants.out.old"
+cargo mutants -p kid-core -f "$FILE" -j 4 --gitignore=true --output "$OUTPUT" -- --lib -- --skip demo_ --skip published_tas --skip snapshot
+'
+"""
+description = "Run cargo-mutants against a single kid-core source file (FILE=<module.rs>), matching the rotation strategy's invocation"
+
 [tasks.clean-build]
 run = "cargo clean"
 description = "Remove Cargo build artefacts under target/"

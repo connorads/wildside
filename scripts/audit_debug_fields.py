@@ -59,6 +59,38 @@ def commit_distance(first_added_commit: str) -> int | None:
         return None
 
 
+def maturity_for_distance(distance: int | None, warn_after: int, fail_after: int) -> str:
+    if distance is None:
+        return "exploratory"
+    if distance >= fail_after:
+        return "ready"
+    if distance >= warn_after:
+        return "candidate"
+    return "exploratory"
+
+
+def refresh_candidate_maturity(
+    frontier_state: dict,
+    registered: dict,
+    emitted: set[str],
+    warn_after: int,
+    fail_after: int,
+) -> bool:
+    mutated = False
+    for item in frontier_state.get("candidate_promotions", []):
+        key = item.get("key")
+        field = registered.get(key) if key else None
+        if field is None or key not in emitted:
+            desired = "exploratory"
+        else:
+            distance = commit_distance(str(field.get("first_added_commit", "")))
+            desired = maturity_for_distance(distance, warn_after, fail_after)
+        if item.get("maturity_status") != desired:
+            item["maturity_status"] = desired
+            mutated = True
+    return mutated
+
+
 def main() -> int:
     registry = load_jsonish(REGISTRY_PATH)
     frontier_state = load_jsonish(FRONTIER_STATE_PATH)
@@ -101,6 +133,11 @@ def main() -> int:
         if key not in registered:
             problems.append(f"frontier-state candidate promotion references unknown key: {key}")
 
+    if refresh_candidate_maturity(frontier_state, registered, emitted, warn_after, fail_after):
+        FRONTIER_STATE_PATH.write_text(
+            json.dumps(frontier_state, indent=2) + "\n", encoding="utf-8"
+        )
+
     print("Debug Field Audit")
     print(f"  emitted keys: {len(emitted)}")
     print(f"  registered keys: {len(registered)}")
@@ -111,7 +148,8 @@ def main() -> int:
     if candidate_promotions:
         print("  frontier candidate promotions:")
         for item in candidate_promotions:
-            print(f"    - {item['key']}: {item['reason']}")
+            maturity = item.get("maturity_status", "exploratory")
+            print(f"    - {item['key']} [{maturity}]: {item['reason']}")
 
     for warning in warnings:
         print(f"warning: {warning}")

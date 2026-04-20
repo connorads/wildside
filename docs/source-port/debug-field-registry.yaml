@@ -46,6 +46,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "published-demo-diamond-frontier",
+      "first_added_commit": "07702ec8",
       "intended_meaning": "Current native queue of delayed prize-diamond award countdowns, emitted when floating-diamond frontier tracing is active.",
       "promotion_trigger": "Promote if parity work or checked-in regressions repeatedly depend on the queued prize-award countdown state."
     },
@@ -54,6 +55,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "published-demo-diamond-frontier",
+      "first_added_commit": "07702ec8",
       "intended_meaning": "Nearest floating diamond pickup candidates with overlap and gap diagnostics for the frame-1830 published-demo frontier.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed floating-item pickup/contact state."
     },
@@ -62,6 +64,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "kid-object-collision-frontier",
+      "first_added_commit": "cf35c55c",
       "intended_meaning": "Nearby active objects around Kid with top-gap, overlap, and support-direction diagnostics for the frame-3400 stomp setup frontier.",
       "promotion_trigger": "Promote if repeated parity work starts depending on a typed Kid/object support or collision-direction field."
     },
@@ -70,6 +73,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "c0b0bcdd",
       "intended_meaning": "Native grounded latch plus left/centre/right/hitbox terrain floor probes for the frame-7969 Knight's Isle support frontier.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed native terrain-support or grounded-latch diagnostic."
     },
@@ -78,6 +82,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "c0b0bcdd",
       "intended_meaning": "Native helmet/special-motion latch state for frame-7969 lift-off investigation: Skycutter board, Cyclone flight, Iron Knight climb, Micromax stick, pending stomp bounce, and form-flash state.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed special-motion or helmet-state latch during gameplay parity."
     },
@@ -86,6 +91,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "c0b0bcdd",
       "intended_meaning": "Native player lifecycle plus goal-flag distance/touch status for ruling in or out the frame-7969 Knights Isle flagpole handoff theory.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed goal-touch or player-lifecycle diagnostic."
     },
@@ -94,6 +100,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "9e5ea0ef",
       "intended_meaning": "Native gameplay-path branch plus the first post-motion mutator that touched Kid, used to prove whether frame-7968..7969 is still running normal movement or an external handoff.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed gameplay-path or post-motion handoff diagnostic."
     },
@@ -102,6 +109,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "3e8cb4fb",
       "intended_meaning": "Native Kid snapshot before and after the pre-physics handlers in refresh_opening_slice, plus the ordered list of handlers that changed Kid before normal physics on frames 7968..7969.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed pre-physics handoff or handler-attribution diagnostic."
     },
@@ -110,6 +118,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "cc4b3c52",
       "intended_meaning": "Native carry-style state visible before pre-physics consumption: lifecycle, prior post-motion mutator, queued stomp/form/level-skip or player wall-cling/jump-buffer state, plus the closest native pre-sub_B168 collision-bounce surrogate (form-flash latch, stomp candidate/enemy, and saved anchor) for the frame-7969 Knights Isle lift-off frontier.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed native collision-handoff or carry-state diagnostic ahead of normal physics."
     },
@@ -118,6 +127,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "e7dad6c8",
       "intended_meaning": "Whether native already has a stomp-eligible enemy overlap immediately after physics and before any post-motion mutator runs, plus the saved anchor and y-velocity window for the frame-7969 Knights Isle lift-off frontier.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed same-frame stomp-contact diagnostic or if it starts driving the eventual stomp-timing fix."
     },
@@ -126,6 +136,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "578da956",
       "intended_meaning": "Focused Iron Knight wall-attach gate at the pre-physics consumer boundary for frames 7968..7969: raw C-edge, grounded/climbing state, forward wall contact, and whether the native handler injected the ROM-matching `-0x4000` attach velocity.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed Iron Knight attach candidate or attach-trigger diagnostic."
     },
@@ -134,6 +145,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "68309ca3",
       "intended_meaning": "Shared post-sub_AF10 kid_flip branch-selection snapshot for frames 7968..7969: wall-scan result, raw B/C edges, grounded Iron Knight state, and which native B/C fan-out branch actually claims or drops the frame.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed shared kid_flip branch-selection or button-consumer diagnostic."
     },
@@ -142,6 +154,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "f9a5e328",
       "intended_meaning": "Stage-by-stage native snapshot of the shared post-kid_flip fallthrough path inside the loc_AA22 movement shell: entry, press-away, jump/gravity, floor, and wall states before later post-motion consumers run.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed shared follow-on stage state for grounded, velocity, or wall-cling handoff debugging."
     },
@@ -150,6 +163,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "8251ecd2",
       "intended_meaning": "Focused native gate snapshot around `apply_jump_and_gravity_vel_only(...)`: branch label, jump and just-jumped carry bits, held-B/custom-gravity gates, and pre/post y-velocity plus grounded state for the loc_AA22 lift-off window.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed sub_B168-surrogate branch or gate snapshot instead of the free-form debug string."
     },
@@ -158,6 +172,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "7f89544f",
       "intended_meaning": "AsmFaithful grounded-release scan inputs and first supporting terrain cell, plus the first post-motion mutator label, for proving whether native leaves solid support before or after normal physics on frames 7968..7969.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed grounded-release scan or post-motion support-handoff diagnostic."
     },
@@ -166,6 +181,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "978b0360",
       "intended_meaning": "Closest native observable mirror of the ROM sub_AF7A Iron Knight block-breaker path: pre-physics horizontal speed gate plus the forward wall probe's block-bearing cell for frames 7968..7969.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed Iron Knight block-breaker candidate or wall-block contact diagnostic."
     },
@@ -174,6 +190,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "knights-isle-ground-support-frontier",
+      "first_added_commit": "0db84e62",
       "intended_meaning": "Focused loc_AA9C mirror for frames 7968..7969: held/probe direction, carried wall-cling state, native sub_ADB8/sub_AE6E-style gate status, and the forward/top-edge wall contacts at the live release window.",
       "promotion_trigger": "Promote if repeated parity work depends on a typed wall-cling live-release gate or side-contact diagnostic."
     },
@@ -182,6 +199,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "kid-object-collision-frontier",
+      "first_added_commit": "f9ca3563",
       "intended_meaning": "Oracle Kid gfx-object collision_type word, formatted with the disassembly colid label when present.",
       "promotion_trigger": "Promote if parity work starts depending on a typed oracle/native collision classification field."
     },
@@ -190,6 +208,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "kid-object-collision-frontier",
+      "first_added_commit": "f9ca3563",
       "intended_meaning": "Oracle Kid gfx-object collision metadata word captured alongside collision_type for frame-3400 tracing.",
       "promotion_trigger": "Promote if repeated parity work depends on decoding or asserting the collision metadata word."
     },
@@ -198,6 +217,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "kid-object-collision-frontier",
+      "first_added_commit": "f9ca3563",
       "intended_meaning": "Oracle gfx-object collision_type word for active enemies involved in the frame-3400 stomp setup window.",
       "promotion_trigger": "Promote if repeated frontiers depend on typed per-object collision classifications."
     },
@@ -206,6 +226,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "kid-object-collision-frontier",
+      "first_added_commit": "c0b0bcdd",
       "intended_meaning": "Oracle gfx-object collision metadata word captured next to collision_type on active enemy slots.",
       "promotion_trigger": "Promote if repeated frontiers depend on decoding or asserting the per-object collision metadata."
     },
@@ -214,6 +235,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "shared-walker-frontier",
+      "first_added_commit": "8d00c573",
       "intended_meaning": "DragonWalking grounded freeze countdown used to spot spawn or landing idle windows.",
       "promotion_trigger": "Promote if parity logic or checked-in regressions depend on the freeze countdown directly."
     },
@@ -222,6 +244,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "shared-walker-frontier",
+      "first_added_commit": "8d00c573",
       "intended_meaning": "Last DragonWalking shared-walker branch label emitted for TAS frontier tracing.",
       "promotion_trigger": "Promote if multiple frontiers or regression assertions depend on the branch identity."
     },
@@ -230,6 +253,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "shared-walker-frontier",
+      "first_added_commit": "8d00c573",
       "intended_meaning": "Signed DragonWalking horizontal distance to Kid, captured when calm/alert logic evaluates its detect and release windows.",
       "promotion_trigger": "Promote if shared-walker range logic needs repeated parity checks or typed thresholds."
     },
@@ -238,6 +262,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "shared-walker-frontier",
+      "first_added_commit": "c2b88970",
       "intended_meaning": "The integer X position that DragonWalking probed for its next grounded or airborne terrain step.",
       "promotion_trigger": "Promote if shared-walker parity work starts depending on the exact stepped probe position."
     },
@@ -246,6 +271,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "shared-walker-frontier",
+      "first_added_commit": "c2b88970",
       "intended_meaning": "The centre floor probe result for the most recent DragonWalking terrain decision.",
       "promotion_trigger": "Promote if shared-walker floor contact parity needs typed support-state fields."
     },
@@ -254,6 +280,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "shared-walker-frontier",
+      "first_added_commit": "c2b88970",
       "intended_meaning": "The left-edge floor probe result for the most recent DragonWalking terrain decision.",
       "promotion_trigger": "Promote if repeated frontier work depends on left-edge support classification."
     },
@@ -262,6 +289,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "shared-walker-frontier",
+      "first_added_commit": "c2b88970",
       "intended_meaning": "The right-edge floor probe result for the most recent DragonWalking terrain decision.",
       "promotion_trigger": "Promote if repeated frontier work depends on right-edge support classification."
     },
@@ -270,6 +298,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "shared-walker-frontier",
+      "first_added_commit": "c2b88970",
       "intended_meaning": "The wall probe result for the most recent DragonWalking terrain decision, including negative hits.",
       "promotion_trigger": "Promote if repeated frontier work depends on typed side-contact attribution."
     }

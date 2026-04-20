@@ -28,15 +28,26 @@ strategies:
     min_cluster_size: 1
     # Empty = all subsystems; could focus on kid_main or block code
     focus_subsystems: []
+    # Cap cite-only commits per autonomy session so loc-coverage-drive does
+    # not absorb every cycle once the rotation stalls; the cascade advances
+    # to mutation-testing/enemy-family-audit instead.
+    max_per_session: 2
 
   - name: mutation-testing
-    # Full-file cargo-mutants runs are too large for a single rl iteration on
-    # this repo: enemies.rs currently enumerates thousands of candidates, and
-    # --gitignore=true excludes the generated asset cache needed by broad
-    # baseline tests. Run this manually as a post-fix-batch gate until the lane
-    # is split into focused/sharded tasks.
-    enabled: false
+    # Sharded rotation: each cycle runs `cargo mutants -f <file>` on the
+    # current rotation entry and advances the pointer at
+    # .cache/autonomy/proactive-verification/mutation-pointer.json once the
+    # run completes without survivors. max_candidates_per_cycle time-boxes
+    # large files (enemies.rs enumerates thousands of candidates).
+    enabled: true
     output_dir: .cache/mutants
+    rotation:
+      - enemies.rs
+      - combat.rs
+      - blocks.rs
+      - physics.rs
+      - terrain.rs
+    max_candidates_per_cycle: 200
     targets:
       - { module: enemies.rs, package: kid-core, tier: 1 }
       - { module: combat.rs, package: kid-core, tier: 1 }
