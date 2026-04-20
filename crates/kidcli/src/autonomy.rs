@@ -38,6 +38,9 @@ const SOURCE_PORT_BACKLOG_PATH: &str = "docs/source-port/backlog.md";
 const SOURCE_PORT_RELEASE_GATE_PATH: &str = ".cache/release-gate/1p-accurate/latest.json";
 const SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH: &str =
     ".cache/autonomy/source-port-frontier/run-history.jsonl";
+const SOURCE_PORT_RECOVERY_TRACE_PATH: &str =
+    ".cache/autonomy/source-port-frontier/recovery-trace.jsonl";
+const SOURCE_PORT_RECOVERY_TRACE_ENV: &str = "KC_AUTONOMY_RECOVERY_TRACE";
 const SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET: &str =
     "backlog-evidence-blocker:boot-title-start-level1:level_entry@520";
 const SOURCE_PORT_FRONTIER_NOTE_REQUIREMENT_SUMMARY: &str = "Before exiting, replace the next-agent note with frontmatter for the active slug plus the required handoff sections.";
@@ -1275,6 +1278,54 @@ fn apply_dirty_tree_recovery(
     task.next_fallback_goal = delegated_goal;
 }
 
+#[allow(clippy::too_many_arguments)]
+fn emit_recovery_trace(
+    repo_root: &Path,
+    cycle: u32,
+    delegated_goal: Option<AutonomyGoal>,
+    delegated_target: Option<&str>,
+    base_progress_fingerprint: &str,
+    dirty_files_len: usize,
+    repeated_stalls: u32,
+    chose_branch: &str,
+    task: &TaskPackage,
+    final_progress_fingerprint: &str,
+) {
+    if std::env::var(SOURCE_PORT_RECOVERY_TRACE_ENV).is_err() {
+        return;
+    }
+    let path = repo_root.join(SOURCE_PORT_RECOVERY_TRACE_PATH);
+    if let Some(parent) = path.parent()
+        && fs::create_dir_all(parent).is_err()
+    {
+        return;
+    }
+    let record = serde_json::json!({
+        "timestamp": autonomy_timestamp(),
+        "cycle": cycle,
+        "delegated_goal": delegated_goal.map(AutonomyGoal::slug),
+        "delegated_target": delegated_target,
+        "base_progress_fingerprint": base_progress_fingerprint,
+        "dirty_files_len": dirty_files_len,
+        "repeated_stalls": repeated_stalls,
+        "chose_branch": chose_branch,
+        "recovery_mode_out": task.recovery_mode.map(RecoveryMode::as_str),
+        "recovery_step_out": task.recovery_step.map(RecoveryStep::as_str),
+        "final_progress_fingerprint": final_progress_fingerprint,
+    });
+    let Ok(line) = serde_json::to_string(&record) else {
+        return;
+    };
+    let _ = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .and_then(|mut handle| {
+            use std::io::Write;
+            writeln!(handle, "{line}")
+        });
+}
+
 fn apply_stalled_recovery(
     task: &mut TaskPackage,
     fingerprint: &str,
@@ -1545,7 +1596,9 @@ fn evaluate_source_port_frontier_cycle(
     let dirty_files = tracked_dirty_files(repo_root);
     let repeated_stalls =
         source_port_recent_matching_stall_count(repo_root, &base_progress_fingerprint);
+    let mut chose_branch: &'static str = "none";
     if !dirty_files.is_empty() {
+        chose_branch = "dirty";
         apply_dirty_tree_recovery(&mut task_package, &dirty_files, delegated_goal);
     } else if repeated_stalls >= 2 {
         let repeated_cycles = repeated_stalls + 1;
@@ -1558,6 +1611,7 @@ fn evaluate_source_port_frontier_cycle(
                     let pv_report =
                         evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
                     if let Some(pv_task) = pv_report.task_package {
+                        chose_branch = "case_queue_pv";
                         let target = pv_task.progress_fingerprint.clone();
                         task_package = TaskPackage {
                             generated_at: autonomy_timestamp(),
@@ -1583,6 +1637,7 @@ fn evaluate_source_port_frontier_cycle(
                             )
                         };
                     } else {
+                        chose_branch = "case_queue_sweep";
                         let sweep_task =
                             source_port_frontier_sweep_task(repo_root, frontier, &note);
                         task_package = TaskPackage {
@@ -1602,6 +1657,7 @@ fn evaluate_source_port_frontier_cycle(
                         };
                     }
                 } else {
+                    chose_branch = "case_queue_backlog";
                     let batch_size = (routines_per_task as usize).min(uncovered.len());
                     let batch = &uncovered[..batch_size];
                     let first_label = batch[0].1.clone();
@@ -1631,6 +1687,7 @@ fn evaluate_source_port_frontier_cycle(
             Some(AutonomyGoal::SweepParity) => {
                 let queue = build_case_queue_snapshot(repo_root)?;
                 if let Some(recording) = queue.selected_recording.as_ref() {
+                    chose_branch = "sweep_parity_recording";
                     let recording_task =
                         source_port_frontier_recording_task(frontier, &note, &queue, recording);
                     task_package = TaskPackage {
@@ -1650,6 +1707,7 @@ fn evaluate_source_port_frontier_cycle(
                         ..recording_task
                     };
                 } else {
+                    chose_branch = "sweep_parity_refresh";
                     apply_stalled_recovery(
                         &mut task_package,
                         &base_progress_fingerprint,
@@ -1669,6 +1727,7 @@ fn evaluate_source_port_frontier_cycle(
                 let pv_report =
                     evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
                 if let Some(pv_task) = pv_report.task_package {
+                    chose_branch = "catchall_pv";
                     let target = pv_task.progress_fingerprint.clone();
                     task_package = TaskPackage {
                         generated_at: autonomy_timestamp(),
@@ -1694,6 +1753,7 @@ fn evaluate_source_port_frontier_cycle(
                         )
                     };
                 } else {
+                    chose_branch = "catchall_reverify";
                     apply_stalled_recovery(
                         &mut task_package,
                         &base_progress_fingerprint,
@@ -1711,11 +1771,23 @@ fn evaluate_source_port_frontier_cycle(
     let progress_fingerprint = if let Some(step) = task_package.recovery_step {
         format!("{}:recovery:{}", base_progress_fingerprint, step.as_str())
     } else {
-        base_progress_fingerprint
+        base_progress_fingerprint.clone()
     };
     task_package
         .progress_fingerprint
         .clone_from(&progress_fingerprint);
+    emit_recovery_trace(
+        repo_root,
+        cycle,
+        delegated_goal,
+        delegated_target.as_deref(),
+        &base_progress_fingerprint,
+        dirty_files.len(),
+        repeated_stalls,
+        chose_branch,
+        &task_package,
+        &progress_fingerprint,
+    );
     let selected_task = task_ready.then(|| task_package.clone());
     let blocker = selected_task
         .as_ref()
@@ -8636,6 +8708,59 @@ mod tests {
             super::backlog_issue_progress_marker(&issue),
             "141:investigate"
         );
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn recovery_trace_emits_jsonl_record_when_env_var_set() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_backlog(
+            temp_dir.path(),
+            "| 141 | [ ] | P1 | render | Intro and level-intro graphics still do not match the original game | Native/oracle repro status: reproduced for boot/intro visual parity. |\n",
+        );
+        write_complete_default_mutation_runs(temp_dir.path());
+
+        let trace_path = temp_dir.path().join(super::SOURCE_PORT_RECOVERY_TRACE_PATH);
+        assert!(!trace_path.exists());
+
+        // SAFETY: tests are single-process; the env toggle is read by the cycle
+        // we are about to invoke, then verified once via the on-disk trace file.
+        unsafe {
+            std::env::set_var(super::SOURCE_PORT_RECOVERY_TRACE_ENV, "1");
+        }
+        let result = evaluate_source_port_frontier_cycle(temp_dir.path(), 99, 1);
+        unsafe {
+            std::env::remove_var(super::SOURCE_PORT_RECOVERY_TRACE_ENV);
+        }
+        result.expect("cycle should build");
+
+        let raw = fs::read_to_string(&trace_path).expect("trace file should exist");
+        let line = raw.lines().next().expect("trace should have a line");
+        let record: serde_json::Value =
+            serde_json::from_str(line).expect("trace line should parse as JSON");
+        for key in [
+            "timestamp",
+            "cycle",
+            "delegated_goal",
+            "delegated_target",
+            "base_progress_fingerprint",
+            "dirty_files_len",
+            "repeated_stalls",
+            "chose_branch",
+            "recovery_mode_out",
+            "recovery_step_out",
+            "final_progress_fingerprint",
+        ] {
+            assert!(
+                record.get(key).is_some(),
+                "trace record missing field {key}: {record}"
+            );
+        }
+        assert_eq!(record["cycle"], serde_json::json!(99));
+        // No prior stalled_repeat history → recovery dispatch not entered.
+        assert_eq!(record["chose_branch"], serde_json::json!("none"));
+        assert_eq!(record["repeated_stalls"], serde_json::json!(0));
     }
 
     #[test]
