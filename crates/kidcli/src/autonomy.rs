@@ -1156,36 +1156,25 @@ fn tracked_dirty_files(repo_root: &Path) -> Vec<String> {
 }
 
 fn source_port_recent_matching_stall_count(repo_root: &Path, fingerprint: &str) -> u32 {
-    let run_dir = repo_root.join(".cache/autonomy/source-port-frontier");
-    let Ok(entries) = fs::read_dir(run_dir) else {
+    let path = repo_root.join(SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH);
+    let Ok(contents) = fs::read_to_string(path) else {
         return 0;
     };
-    let mut cycle_paths = entries
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| {
-                    name.starts_with("cycle-")
-                        && std::path::Path::new(name)
-                            .extension()
-                            .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
-                })
-        })
-        .collect::<Vec<_>>();
-    cycle_paths.sort();
-    cycle_paths.reverse();
 
     let mut matches = 0;
-    for cycle_path in cycle_paths {
-        let Ok(bytes) = fs::read(&cycle_path) else {
-            break;
+    for line in contents.lines().rev() {
+        let Ok(record) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
         };
-        let Ok(cycle) = serde_json::from_slice::<CycleReport>(&bytes) else {
-            break;
-        };
-        if cycle.progress_fingerprint == fingerprint && cycle.stalled {
+        let same_fingerprint = record
+            .get("progress_fingerprint")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| value == fingerprint);
+        let stalled_repeat = record
+            .get("outcome")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|outcome| outcome == "stalled_repeat");
+        if same_fingerprint && stalled_repeat {
             matches += 1;
             continue;
         }
@@ -1381,6 +1370,7 @@ fn evaluate_source_port_frontier_cycle(
             if let Some(issue) =
                 select_ready_backlog_issue_excluding(repo_root, &recent_clean_completed_targets)?
             {
+                let target = ready_backlog_issue_progress_marker(&issue);
                 let task = source_port_frontier_ready_backlog_issue_task(frontier, &note, &issue);
                 let summary = format!(
                     "TAS frontier {} is closed through frame {}; delegated to ready backlog issue #{} ({}).",
@@ -1389,8 +1379,8 @@ fn evaluate_source_port_frontier_cycle(
                 (
                     task,
                     Some(AutonomyGoal::ProactiveVerification),
-                    Some(issue.id.clone()),
-                    Some(format!("ready-backlog:{}", issue.id)),
+                    Some(target.clone()),
+                    Some(format!("ready-backlog:{target}")),
                     summary,
                 )
             } else if let Some(gate_failure) = select_release_gate_blocker(repo_root) {
@@ -2973,9 +2963,10 @@ fn try_root_cause_backlog_strategy(
 ) -> Result<Option<CycleReport>> {
     let issues = load_open_backlog_issues(repo_root)?;
     let marker_lower = root_cause_marker.to_ascii_lowercase();
-    let ready_issue = issues
-        .iter()
-        .find(|issue| issue.summary.to_ascii_lowercase().contains(&marker_lower));
+    let ready_issue = issues.iter().find(|issue| {
+        issue.summary.to_ascii_lowercase().contains(&marker_lower)
+            || issue.verify.to_ascii_lowercase().contains(&marker_lower)
+    });
 
     let Some(issue) = ready_issue else {
         return Ok(None);
@@ -3035,10 +3026,11 @@ fn try_root_cause_backlog_strategy(
         target_routines: None,
     };
 
+    let target = ready_backlog_issue_progress_marker(issue);
     Ok(Some(proactive_verification_report(
         cycle,
         "root-cause-backlog",
-        &issue.id,
+        &target,
         task,
     )))
 }
@@ -4918,13 +4910,17 @@ fn is_ready_backlog_issue(issue: &BacklogIssueCandidate) -> bool {
     summary.contains("root cause identified") || verify.contains("root cause identified")
 }
 
+fn ready_backlog_issue_progress_marker(issue: &BacklogIssueCandidate) -> String {
+    format!("{}:ready", issue.id)
+}
+
 fn select_ready_backlog_issue_excluding(
     repo_root: &Path,
     exhausted_targets: &BTreeSet<String>,
 ) -> Result<Option<BacklogIssueCandidate>> {
     let mut items = load_open_backlog_issues(repo_root)?;
     items.retain(is_ready_backlog_issue);
-    items.retain(|issue| !exhausted_targets.contains(&issue.id));
+    items.retain(|issue| !exhausted_targets.contains(&ready_backlog_issue_progress_marker(issue)));
     items.sort_by(|left, right| {
         fn priority_rank(priority: &str) -> u8 {
             match priority {
@@ -4970,7 +4966,7 @@ fn source_port_frontier_ready_backlog_issue_task(
         "verify-slice-fast passes.".to_owned(),
     ];
     task.delegated_goal = Some(AutonomyGoal::ProactiveVerification);
-    task.delegated_target = Some(issue.id.clone());
+    task.delegated_target = Some(ready_backlog_issue_progress_marker(issue));
     task.delegation_reason = Some(
         "root-cause backlog items outrank proactive loc_ coverage once TAS is closed".to_owned(),
     );
@@ -7785,6 +7781,28 @@ mod tests {
             .expect("run history should write");
     }
 
+    fn write_stalled_repeat(
+        repo_root: &Path,
+        cycle: u32,
+        delegated_target: &str,
+        fingerprint: &str,
+    ) {
+        let run_dir = repo_root.join(".cache/autonomy/source-port-frontier");
+        fs::create_dir_all(&run_dir).expect("run history dir should exist");
+        fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(run_dir.join("run-history.jsonl"))
+            .and_then(|mut file| {
+                use std::io::Write;
+                writeln!(
+                    file,
+                    r#"{{"cycle":{cycle},"delegated_target":"{delegated_target}","progress_fingerprint":"{fingerprint}","outcome":"stalled_repeat","exit_code":1,"dirty_tree":false}}"#
+                )
+            })
+            .expect("run history should write");
+    }
+
     fn write_case(
         repo_root: &Path,
         selector: &str,
@@ -8538,10 +8556,15 @@ mod tests {
             evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
 
-        assert_eq!(task.delegated_target.as_deref(), Some("144"));
+        assert_eq!(task.delegated_target.as_deref(), Some("144:ready"));
         assert!(
             task.title.contains("Implement ready backlog issue"),
             "ready backlog issue should beat loc coverage"
+        );
+        assert!(
+            cycle
+                .progress_fingerprint
+                .contains("ready-backlog:144:ready")
         );
     }
 
@@ -8721,12 +8744,57 @@ mod tests {
             .expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
 
-        assert_eq!(task.delegated_target.as_deref(), Some("141"));
+        assert_eq!(task.delegated_target.as_deref(), Some("141:ready"));
         assert!(
             task.title.contains("Implement ready backlog issue #141"),
             "narrowed root-cause evidence should promote to implementation instead of the shared evidence blocker"
         );
-        assert!(cycle.progress_fingerprint.contains("ready-backlog:141"));
+        assert!(
+            cycle
+                .progress_fingerprint
+                .contains("ready-backlog:141:ready")
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_ready_work_ignores_legacy_clean_raw_issue_id() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_backlog(
+            temp_dir.path(),
+            "\
+| 141 | [ ] | P1 | render | Intro and level-intro graphics still do not match the original game | Root cause identified: native IntroSequence2/4/5 VDP loading currently reuses ASM sub_1B850; split loading to follow Load_IntroSequence2, Load_IntroSequence4, and Load_IntroSequence5. |
+",
+        );
+        write_clean_completion(temp_dir.path(), 321, "141");
+
+        let cycle = evaluate_source_port_frontier_cycle(temp_dir.path(), 322, 1)
+            .expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.delegated_target.as_deref(), Some("141:ready"));
+        assert!(task.title.contains("Implement ready backlog issue #141"));
+    }
+
+    #[test]
+    fn proactive_root_cause_strategy_reads_verify_column() {
+        let temp_dir = source_port_repo();
+        write_backlog(
+            temp_dir.path(),
+            "\
+| 141 | [ ] | P1 | render | Intro and level-intro graphics still do not match the original game | Root cause identified: native IntroSequence2/4/5 VDP loading currently reuses ASM sub_1B850; split loading to follow Load_IntroSequence2, Load_IntroSequence4, and Load_IntroSequence5. |
+",
+        );
+
+        let report = super::evaluate_proactive_verification_cycle(temp_dir.path(), 7, 1)
+            .expect("cycle should build");
+        let task = report.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:root-cause-backlog:141:ready"
+        );
+        assert!(task.title.contains("Fix backlog #141"));
     }
 
     #[test]
@@ -8825,28 +8893,16 @@ mod tests {
         .expect("release gate should write");
         commit_repo(temp_dir.path(), "prepare clean sweep parity repo");
         write_complete_default_mutation_runs(temp_dir.path());
+        let fingerprint = "test-frontier:complete:6906:6905:sweep-parity:state-sweep:state-sweep";
         let run_dir = temp_dir.path().join(".cache/autonomy/source-port-frontier");
         fs::create_dir_all(&run_dir).expect("run dir should exist");
-        let fingerprint = "test-frontier:complete:6906:6905:sweep-parity:state-sweep:state-sweep";
-        for cycle_no in 1..=2 {
-            fs::write(
-                run_dir.join(format!("cycle-{cycle_no:04}.json")),
-                format!(
-                    r#"{{
-  "goal": "source-port-frontier",
-  "cycle": {cycle_no},
-  "goal_complete": false,
-  "stalled": true,
-  "selected_task": null,
-  "task_package": null,
-  "blocker": null,
-  "capabilities": [],
-  "progress_fingerprint": "{fingerprint}"
-}}"#
-                ),
-            )
-            .expect("prior cycle should write");
-        }
+        fs::write(
+            run_dir.join("cycle-9999.json"),
+            r#"{"progress_fingerprint":"stale-newer-cycle-file","stalled":false}"#,
+        )
+        .expect("stale cycle file should write");
+        write_stalled_repeat(temp_dir.path(), 1, "state-sweep", fingerprint);
+        write_stalled_repeat(temp_dir.path(), 2, "state-sweep", fingerprint);
 
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 3, 1).expect("cycle should build");

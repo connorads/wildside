@@ -170,12 +170,17 @@ def is_clean_repeat(task: dict, dirty_files: list[str]) -> tuple[bool, dict | No
     if dirty_files:
         return (False, None)
     delegated_target = task.get("delegated_target")
-    if not delegated_target:
+    progress_fingerprint = task.get("progress_fingerprint")
+    if not delegated_target or not progress_fingerprint:
         return (False, None)
     previous = latest_clean_completion(load_run_history())
     if previous is None:
         return (False, None)
-    return (previous.get("delegated_target") == delegated_target, previous)
+    return (
+        previous.get("delegated_target") == delegated_target
+        and previous.get("progress_fingerprint") == progress_fingerprint,
+        previous,
+    )
 
 
 def which(name: str) -> str:
@@ -228,6 +233,7 @@ def main() -> int:
     if repeated:
         sys.stderr.write(
             "✗ No-progress guard: fresh package selected the same delegated target "
+            "and progress fingerprint "
             f"as the last clean completed run ({task.get('delegated_target')}).\n"
         )
         sys.stderr.write(
@@ -235,6 +241,9 @@ def main() -> int:
         )
         if previous is not None:
             sys.stderr.write(f"  Previous cycle: {previous.get('cycle')}\n")
+            sys.stderr.write(
+                f"  Previous fingerprint: {previous.get('progress_fingerprint')}\n"
+            )
         append_history(
             task,
             dirty_at_launch,
