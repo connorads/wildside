@@ -437,6 +437,21 @@ enum BacklogIssueFocus {
     VisualParity,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BacklogIssuePhase {
+    CaptureEvidence,
+    InvestigateReproduced,
+}
+
+impl BacklogIssuePhase {
+    fn slug(self) -> &'static str {
+        match self {
+            BacklogIssuePhase::CaptureEvidence => "capture",
+            BacklogIssuePhase::InvestigateReproduced => "investigate",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct BacklogIssueCandidate {
     id: String,
@@ -1358,6 +1373,7 @@ fn evaluate_source_port_frontier_cycle(
                             summary,
                         )
                     } else if let Some(issue) = select_open_backlog_issue(repo_root)? {
+                        let target = backlog_issue_progress_marker(&issue);
                         let task = source_port_frontier_backlog_issue_task(frontier, &note, &issue);
                         let summary = format!(
                             "TAS frontier {} is closed through frame {}; proactive verification exhausted, pivoting to backlog issue #{} ({}).",
@@ -1369,8 +1385,8 @@ fn evaluate_source_port_frontier_cycle(
                         (
                             task,
                             None,
-                            Some(issue.id.clone()),
-                            Some(format!("backlog-issue:{}", issue.id)),
+                            Some(target.clone()),
+                            Some(format!("backlog-issue:{target}")),
                             summary,
                         )
                     } else {
@@ -4383,6 +4399,19 @@ fn select_open_backlog_issue(repo_root: &Path) -> Result<Option<BacklogIssueCand
     Ok(items.into_iter().next())
 }
 
+fn backlog_issue_phase(issue: &BacklogIssueCandidate) -> BacklogIssuePhase {
+    let verify = issue.verify.to_ascii_lowercase();
+    if !verify.contains("not reproduced") && verify.contains("repro status: reproduced") {
+        BacklogIssuePhase::InvestigateReproduced
+    } else {
+        BacklogIssuePhase::CaptureEvidence
+    }
+}
+
+fn backlog_issue_progress_marker(issue: &BacklogIssueCandidate) -> String {
+    format!("{}:{}", issue.id, backlog_issue_phase(issue).slug())
+}
+
 fn is_ready_backlog_issue(issue: &BacklogIssueCandidate) -> bool {
     let summary = issue.summary.to_ascii_lowercase();
     let verify = issue.verify.to_ascii_lowercase();
@@ -4594,6 +4623,7 @@ fn source_port_frontier_backlog_issue_task(
     issue: &BacklogIssueCandidate,
 ) -> TaskPackage {
     let issue_slug = format!("issue-{}", issue.id);
+    let phase = backlog_issue_phase(issue);
     let focus_label = match issue.focus {
         BacklogIssueFocus::Playability => "playability",
         BacklogIssueFocus::VisualParity => "visual-parity",
@@ -4603,46 +4633,100 @@ fn source_port_frontier_backlog_issue_task(
     } else {
         "00"
     };
+    let (title, summary, sources, implementation_targets, commands, done_criteria, reason) =
+        match phase {
+            BacklogIssuePhase::CaptureEvidence => (
+                format!(
+                    "Capture canonical evidence for backlog issue #{} ({})",
+                    issue.id, focus_label
+                ),
+                format!(
+                    "{} is authoritative-clean through frame {}; capture a reproducible {} bundle for backlog issue #{}: {}.",
+                    frontier.recording,
+                    frontier.authoritative_clean_through,
+                    focus_label,
+                    issue.id,
+                    issue.summary
+                ),
+                vec![
+                    SOURCE_PORT_BACKLOG_PATH.to_owned(),
+                    SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+                ],
+                vec![SOURCE_PORT_BACKLOG_PATH.to_owned()],
+                vec![
+                    format!("cargo run -p kidcli -- play-native --record {}", issue_slug),
+                    format!("cargo run -p kidcli -- verify-recording --slug {}", issue_slug),
+                    format!(
+                        "cargo run -p kidcli -- capture-frames --level {} --frames 0,60,120 --output .cache/debug/{}/",
+                        level_hint, issue_slug
+                    ),
+                    "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+                        .to_owned(),
+                ],
+                vec![
+                    format!(
+                        "Backlog issue #{} cites a recording slug or explicit frame-capture artefact path.",
+                        issue.id
+                    ),
+                    "The repro is classified as playability or visual-parity with concrete next verification commands.".to_owned(),
+                    "If no repro is found, the backlog item records that negative result explicitly instead of staying a vague report.".to_owned(),
+                ],
+                "the TAS frontier is already closed and there is no reduced case or untriaged recording, so the next highest-value move is to turn a top open backlog report into canonical evidence".to_owned(),
+            ),
+            BacklogIssuePhase::InvestigateReproduced => (
+                format!(
+                    "Investigate reproduced backlog issue #{} ({})",
+                    issue.id, focus_label
+                ),
+                format!(
+                    "{} is authoritative-clean through frame {}; backlog issue #{} already has reproduced {} evidence, so read ASM/native code and either fix it or narrow the root cause.",
+                    frontier.recording,
+                    frontier.authoritative_clean_through,
+                    issue.id,
+                    focus_label
+                ),
+                vec![
+                    SOURCE_PORT_BACKLOG_PATH.to_owned(),
+                    SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+                    ".agents/skills/m68k-kid-asm/SKILL.md".to_owned(),
+                    ".cache/upstream/kid-chameleon-disasm/kid.asm".to_owned(),
+                ],
+                vec![
+                    SOURCE_PORT_BACKLOG_PATH.to_owned(),
+                    "crates/kid-core/src/".to_owned(),
+                ],
+                vec![
+                    format!("cargo run -p kidcli -- verify-recording --slug {}", issue_slug),
+                    format!(
+                        "cargo run -p kidcli -- capture-frames --level {} --frames 0,60,120 --output .cache/debug/{}/",
+                        level_hint, issue_slug
+                    ),
+                    "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+                        .to_owned(),
+                    "mise run verify-slice-fast".to_owned(),
+                ],
+                vec![
+                    format!(
+                        "Backlog issue #{} is either fixed and marked [x], or its root cause / blocker is narrowed with concrete artefacts.",
+                        issue.id
+                    ),
+                    "Any gameplay/render fix cites the ASM label or asset/source path that justifies it.".to_owned(),
+                    "verify-slice-fast passes for code changes.".to_owned(),
+                ],
+                "the TAS frontier is closed and this backlog issue already has reproduced evidence, so the next loop should investigate or fix it instead of recapturing the same evidence".to_owned(),
+            ),
+        };
     TaskPackage {
         capability: CapabilityId::SourcePortFrontierTask,
-        title: format!(
-            "Capture canonical evidence for backlog issue #{} ({})",
-            issue.id, focus_label
-        ),
-        summary: format!(
-            "{} is authoritative-clean through frame {}; capture a reproducible {} bundle for backlog issue #{}: {}.",
-            frontier.recording,
-            frontier.authoritative_clean_through,
-            focus_label,
-            issue.id,
-            issue.summary
-        ),
+        title,
+        summary,
         generated_at: String::new(),
         cycle: 0,
         progress_fingerprint: String::new(),
-        sources: vec![
-            SOURCE_PORT_BACKLOG_PATH.to_owned(),
-            SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
-        ],
-        implementation_targets: vec![SOURCE_PORT_BACKLOG_PATH.to_owned()],
-        commands: vec![
-            format!("cargo run -p kidcli -- play-native --record {}", issue_slug),
-            format!("cargo run -p kidcli -- verify-recording --slug {}", issue_slug),
-            format!(
-                "cargo run -p kidcli -- capture-frames --level {} --frames 0,60,120 --output .cache/debug/{}/",
-                level_hint, issue_slug
-            ),
-            "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
-                .to_owned(),
-        ],
-        done_criteria: vec![
-            format!(
-                "Backlog issue #{} cites a recording slug or explicit frame-capture artefact path.",
-                issue.id
-            ),
-            "The repro is classified as playability or visual-parity with concrete next verification commands.".to_owned(),
-            "If no repro is found, the backlog item records that negative result explicitly instead of staying a vague report.".to_owned(),
-        ],
+        sources,
+        implementation_targets,
+        commands,
+        done_criteria,
         evidence: vec![
             EvidenceItem {
                 label: "active-frontier".to_owned(),
@@ -4685,10 +4769,8 @@ fn source_port_frontier_backlog_issue_task(
         }),
         case_queue_context: None,
         delegated_goal: None,
-        delegated_target: Some(issue.id.clone()),
-        delegation_reason: Some(
-            "the TAS frontier is already closed and there is no reduced case or untriaged recording, so the next highest-value move is to turn a top open backlog report into canonical evidence".to_owned(),
-        ),
+        delegated_target: Some(backlog_issue_progress_marker(issue)),
+        delegation_reason: Some(reason),
         recovery_mode: None,
         recovery_step: None,
         stalled_repetition_count: None,
@@ -7787,6 +7869,36 @@ mod tests {
     }
 
     #[test]
+    fn reproduced_backlog_issue_switches_from_capture_to_investigation_phase() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_backlog(
+            temp_dir.path(),
+            "| 141 | [ ] | P1 | render | Intro and level-intro graphics still do not match the original game | Native/oracle repro status: reproduced for boot/intro visual parity. |\n",
+        );
+        write_complete_default_mutation_runs(temp_dir.path());
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.delegated_target.as_deref(), Some("141:investigate"));
+        assert!(task.title.contains("Investigate reproduced backlog issue"));
+        assert!(
+            !task
+                .commands
+                .iter()
+                .any(|command| command.contains("play-native --record issue-141")),
+            "reproduced evidence should not launch the same capture command again"
+        );
+        assert!(
+            cycle
+                .progress_fingerprint
+                .contains("backlog-issue:141:investigate")
+        );
+    }
+
+    #[test]
     fn source_port_frontier_prioritises_release_gate_blocker_before_proactive_verification() {
         let temp_dir = source_port_repo();
         write_source_port_frontier(temp_dir.path(), false, "complete");
@@ -8304,14 +8416,18 @@ mod tests {
             evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
 
-        assert_eq!(task.delegated_target.as_deref(), Some("146"));
+        assert_eq!(task.delegated_target.as_deref(), Some("146:capture"));
         assert!(task.title.contains("backlog issue #146"));
         assert!(
             task.commands
                 .iter()
                 .any(|command| command.contains("play-native --record issue-146"))
         );
-        assert!(cycle.progress_fingerprint.contains("backlog-issue:146"));
+        assert!(
+            cycle
+                .progress_fingerprint
+                .contains("backlog-issue:146:capture")
+        );
     }
 
     #[test]
