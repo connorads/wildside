@@ -15,6 +15,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PROMPT_SCRIPT = REPO_ROOT / "scripts/source_port_rl_prompt.py"
 NEXT_TASK_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/next-task.json"
 RUN_HISTORY_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/run-history.jsonl"
+PROMISE_TOKEN = "__PROMISE_RL_DONE__"
+DEFAULT_MAX_STALL_STREAK = 3
 
 
 def tracked_dirty_files() -> list[str]:
@@ -166,6 +168,69 @@ def latest_clean_completion(records: list[dict]) -> dict | None:
     return None
 
 
+def consecutive_stalled_repeat_count(records: list[dict]) -> int:
+    count = 0
+    for record in reversed(records):
+        if record.get("outcome") == "stalled_repeat":
+            count += 1
+            continue
+        break
+    return count
+
+
+def stall_streak_threshold() -> int:
+    raw = os.environ.get("SOURCE_PORT_MAX_STALL_STREAK")
+    if raw is None or raw == "":
+        return DEFAULT_MAX_STALL_STREAK
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_MAX_STALL_STREAK
+    return max(value, 1)
+
+
+def emit_circuit_breaker_message(
+    task: dict,
+    previous: dict | None,
+    streak_after: int,
+    threshold: int,
+    recent_records: list[dict],
+) -> None:
+    target = task.get("delegated_target")
+    fingerprint = task.get("progress_fingerprint")
+    sys.stderr.write(
+        "✗ Stall streak circuit breaker tripped: "
+        f"{streak_after} consecutive stalled_repeat cycles "
+        f"(threshold {threshold}) on the same delegated lane.\n"
+    )
+    sys.stderr.write(f"  Stuck delegated_target: {target}\n")
+    sys.stderr.write(f"  Stuck progress_fingerprint: {fingerprint}\n")
+    if previous is not None:
+        sys.stderr.write(
+            f"  Last clean completion: cycle {previous.get('cycle')} "
+            f"({previous.get('delegated_target')})\n"
+        )
+    if recent_records:
+        sys.stderr.write("  Recent cycles (oldest -> newest):\n")
+        for record in recent_records:
+            sys.stderr.write(
+                f"    cycle={record.get('cycle')} outcome={record.get('outcome')} "
+                f"target={record.get('delegated_target')}\n"
+            )
+    sys.stderr.write(
+        "  Operator unblocks (try one before relaunching `rl`):\n"
+        "    1. cargo run -q -p kidcli -- asm-coverage --update    "
+        "# refresh ASM coverage so task selection moves on\n"
+        "    2. Commit any fresh evidence under .cache/native-oracle-runs/ "
+        "or docs/source-port/ to advance the lane fingerprint\n"
+        "    3. Promote a backlog item by adding "
+        '"Root cause identified" to its summary in '
+        "docs/source-port/backlog.md\n"
+        "    4. Broaden docs/source-port/proactive-verification-config.yaml "
+        "if all four PV strategies are exhausted\n"
+    )
+
+
 def is_clean_repeat(task: dict, dirty_files: list[str]) -> tuple[bool, dict | None]:
     if dirty_files:
         return (False, None)
@@ -244,6 +309,9 @@ def main() -> int:
             sys.stderr.write(
                 f"  Previous fingerprint: {previous.get('progress_fingerprint')}\n"
             )
+        history_before = load_run_history()
+        threshold = stall_streak_threshold()
+        streak_after = consecutive_stalled_repeat_count(history_before) + 1
         append_history(
             task,
             dirty_at_launch,
@@ -251,6 +319,14 @@ def main() -> int:
             exit_code=1,
             preflight=preflight,
         )
+        if streak_after >= threshold:
+            recent = (history_before + [{"cycle": task.get("cycle"),
+                                         "outcome": "stalled_repeat",
+                                         "delegated_target": task.get("delegated_target")}])[-streak_after:]
+            emit_circuit_breaker_message(task, previous, streak_after, threshold, recent)
+            sys.stdout.write(PROMISE_TOKEN + "\n")
+            sys.stdout.flush()
+            return 0
         return 1
 
     cxys = subprocess.run(

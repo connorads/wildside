@@ -160,5 +160,83 @@ class SourcePortRlToolTests(unittest.TestCase):
         )
 
 
+    def test_consecutive_stalled_repeat_count_walks_tail(self) -> None:
+        records = [
+            {"outcome": "completed"},
+            {"outcome": "stalled_repeat"},
+            {"outcome": "stalled_repeat"},
+            {"outcome": "stalled_repeat"},
+        ]
+        self.assertEqual(source_port_rl_run.consecutive_stalled_repeat_count(records), 3)
+
+    def test_consecutive_stalled_repeat_count_breaks_on_other_outcomes(self) -> None:
+        records = [
+            {"outcome": "stalled_repeat"},
+            {"outcome": "completed"},
+            {"outcome": "stalled_repeat"},
+            {"outcome": "stalled_repeat"},
+        ]
+        # Only the trailing run of stalled_repeat counts; the completed in the middle breaks.
+        self.assertEqual(source_port_rl_run.consecutive_stalled_repeat_count(records), 2)
+
+    def test_consecutive_stalled_repeat_count_handles_empty(self) -> None:
+        self.assertEqual(source_port_rl_run.consecutive_stalled_repeat_count([]), 0)
+
+    def test_stall_streak_threshold_default_when_unset(self) -> None:
+        import os
+
+        original = os.environ.pop("SOURCE_PORT_MAX_STALL_STREAK", None)
+        try:
+            self.assertEqual(
+                source_port_rl_run.stall_streak_threshold(),
+                source_port_rl_run.DEFAULT_MAX_STALL_STREAK,
+            )
+        finally:
+            if original is not None:
+                os.environ["SOURCE_PORT_MAX_STALL_STREAK"] = original
+
+    def test_stall_streak_threshold_reads_env(self) -> None:
+        import os
+
+        original = os.environ.get("SOURCE_PORT_MAX_STALL_STREAK")
+        os.environ["SOURCE_PORT_MAX_STALL_STREAK"] = "5"
+        try:
+            self.assertEqual(source_port_rl_run.stall_streak_threshold(), 5)
+        finally:
+            if original is None:
+                os.environ.pop("SOURCE_PORT_MAX_STALL_STREAK", None)
+            else:
+                os.environ["SOURCE_PORT_MAX_STALL_STREAK"] = original
+
+    def test_stall_streak_threshold_clamps_to_one(self) -> None:
+        import os
+
+        original = os.environ.get("SOURCE_PORT_MAX_STALL_STREAK")
+        os.environ["SOURCE_PORT_MAX_STALL_STREAK"] = "0"
+        try:
+            self.assertEqual(source_port_rl_run.stall_streak_threshold(), 1)
+        finally:
+            if original is None:
+                os.environ.pop("SOURCE_PORT_MAX_STALL_STREAK", None)
+            else:
+                os.environ["SOURCE_PORT_MAX_STALL_STREAK"] = original
+
+    def test_stall_streak_threshold_invalid_falls_back_to_default(self) -> None:
+        import os
+
+        original = os.environ.get("SOURCE_PORT_MAX_STALL_STREAK")
+        os.environ["SOURCE_PORT_MAX_STALL_STREAK"] = "not-a-number"
+        try:
+            self.assertEqual(
+                source_port_rl_run.stall_streak_threshold(),
+                source_port_rl_run.DEFAULT_MAX_STALL_STREAK,
+            )
+        finally:
+            if original is None:
+                os.environ.pop("SOURCE_PORT_MAX_STALL_STREAK", None)
+            else:
+                os.environ["SOURCE_PORT_MAX_STALL_STREAK"] = original
+
+
 if __name__ == "__main__":
     unittest.main()
