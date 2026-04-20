@@ -6,7 +6,7 @@ use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
 use kid_data::AssetManifest;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -36,6 +36,10 @@ const SOURCE_PORT_ROADMAP_PATH: &str = "docs/source-port/roadmap.md";
 const SOURCE_PORT_WHOLE_GAME_INDEX_PATH: &str = "docs/source-port/whole-game-index.md";
 const SOURCE_PORT_BACKLOG_PATH: &str = "docs/source-port/backlog.md";
 const SOURCE_PORT_RELEASE_GATE_PATH: &str = ".cache/release-gate/1p-accurate/latest.json";
+const SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH: &str =
+    ".cache/autonomy/source-port-frontier/run-history.jsonl";
+const SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET: &str =
+    "backlog-evidence-blocker:boot-title-start-level1:level_entry@520";
 const SOURCE_PORT_FRONTIER_NOTE_REQUIREMENT_SUMMARY: &str = "Before exiting, replace the next-agent note with frontmatter for the active slug plus the required handoff sections.";
 const SOURCE_PORT_FRONTIER_NOTE_REQUIRED_SECTIONS: [&str; 6] = [
     "What Changed",
@@ -1166,6 +1170,45 @@ fn source_port_recent_matching_stall_count(repo_root: &Path, fingerprint: &str) 
     matches
 }
 
+fn source_port_recent_clean_completed_targets(repo_root: &Path) -> BTreeSet<String> {
+    let path = repo_root.join(SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH);
+    let Ok(contents) = fs::read_to_string(path) else {
+        return BTreeSet::new();
+    };
+    let mut targets = BTreeSet::new();
+    for line in contents.lines().rev() {
+        let Ok(record) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let clean_completion = record
+            .get("outcome")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|outcome| outcome == "completed")
+            && record
+                .get("exit_code")
+                .and_then(serde_json::Value::as_i64)
+                .is_some_and(|code| code == 0)
+            && !record
+                .get("dirty_tree")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+        if !clean_completion {
+            continue;
+        }
+        if let Some(target) = record
+            .get("delegated_target")
+            .and_then(serde_json::Value::as_str)
+            .filter(|target| !target.is_empty())
+        {
+            targets.insert(target.to_owned());
+            if targets.len() >= 12 {
+                break;
+            }
+        }
+    }
+    targets
+}
+
 fn prepend_commands(existing: &[String], prefix: &[String]) -> Vec<String> {
     prefix
         .iter()
@@ -1260,6 +1303,7 @@ fn evaluate_source_port_frontier_cycle(
     let frontier = &state.active_frontier;
     let note = source_port_next_agent_note(repo_root, frontier.slug.as_str());
     let task_ready = matches!(frontier.status.as_str(), "active" | "complete");
+    let recent_clean_completed_targets = source_port_recent_clean_completed_targets(repo_root);
     let (task_package, delegated_goal, delegated_target, lane_fingerprint, summary) = if frontier
         .status
         == "active"
@@ -1310,7 +1354,9 @@ fn evaluate_source_port_frontier_cycle(
         } else {
             // No case-queue work. Prioritise ready backlog fixes and live
             // gate blockers before coverage-driven fallback work.
-            if let Some(issue) = select_ready_backlog_issue(repo_root)? {
+            if let Some(issue) =
+                select_ready_backlog_issue_excluding(repo_root, &recent_clean_completed_targets)?
+            {
                 let task = source_port_frontier_ready_backlog_issue_task(frontier, &note, &issue);
                 let summary = format!(
                     "TAS frontier {} is closed through frame {}; delegated to ready backlog issue #{} ({}).",
@@ -1372,7 +1418,10 @@ fn evaluate_source_port_frontier_cycle(
                             Some(target),
                             summary,
                         )
-                    } else if let Some(issue) = select_open_backlog_issue(repo_root)? {
+                    } else if let Some(issue) = select_open_backlog_issue_excluding(
+                        repo_root,
+                        &recent_clean_completed_targets,
+                    )? {
                         let target = backlog_issue_progress_marker(&issue);
                         let task = source_port_frontier_backlog_issue_task(frontier, &note, &issue);
                         let summary = format!(
@@ -1387,6 +1436,28 @@ fn evaluate_source_port_frontier_cycle(
                             None,
                             Some(target.clone()),
                             Some(format!("backlog-issue:{target}")),
+                            summary,
+                        )
+                    } else if open_backlog_targets_exhausted_by_recent_clean_completion(
+                        repo_root,
+                        &recent_clean_completed_targets,
+                    )? && !recent_clean_completed_targets
+                        .contains(SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET)
+                    {
+                        let task = source_port_frontier_backlog_evidence_blocker_task(
+                            frontier,
+                            &note,
+                            &recent_clean_completed_targets,
+                        );
+                        let summary = format!(
+                            "TAS frontier {} is closed through frame {}; open backlog issue targets were recently clean-completed without closing, so source-port pivots to the shared evidence blocker.",
+                            frontier.slug, frontier.authoritative_clean_through
+                        );
+                        (
+                            task,
+                            Some(AutonomyGoal::SweepParity),
+                            Some(SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET.to_owned()),
+                            Some(SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET.to_owned()),
                             summary,
                         )
                     } else {
@@ -4358,8 +4429,18 @@ fn load_open_backlog_issues(repo_root: &Path) -> Result<Vec<BacklogIssueCandidat
     Ok(items)
 }
 
+#[cfg(test)]
 fn select_open_backlog_issue(repo_root: &Path) -> Result<Option<BacklogIssueCandidate>> {
+    let exhausted_targets = source_port_recent_clean_completed_targets(repo_root);
+    select_open_backlog_issue_excluding(repo_root, &exhausted_targets)
+}
+
+fn select_open_backlog_issue_excluding(
+    repo_root: &Path,
+    exhausted_targets: &BTreeSet<String>,
+) -> Result<Option<BacklogIssueCandidate>> {
     let mut items = load_open_backlog_issues(repo_root)?;
+    items.retain(|issue| !backlog_issue_target_exhausted(issue, exhausted_targets));
     items.sort_by(|left, right| {
         fn priority_rank(priority: &str) -> u8 {
             match priority {
@@ -4399,6 +4480,17 @@ fn select_open_backlog_issue(repo_root: &Path) -> Result<Option<BacklogIssueCand
     Ok(items.into_iter().next())
 }
 
+fn open_backlog_targets_exhausted_by_recent_clean_completion(
+    repo_root: &Path,
+    exhausted_targets: &BTreeSet<String>,
+) -> Result<bool> {
+    let items = load_open_backlog_issues(repo_root)?;
+    Ok(!items.is_empty()
+        && items
+            .iter()
+            .all(|issue| backlog_issue_target_exhausted(issue, exhausted_targets)))
+}
+
 fn backlog_issue_phase(issue: &BacklogIssueCandidate) -> BacklogIssuePhase {
     let verify = issue.verify.to_ascii_lowercase();
     if !verify.contains("not reproduced") && verify.contains("repro status: reproduced") {
@@ -4412,15 +4504,32 @@ fn backlog_issue_progress_marker(issue: &BacklogIssueCandidate) -> String {
     format!("{}:{}", issue.id, backlog_issue_phase(issue).slug())
 }
 
+fn backlog_issue_target_exhausted(
+    issue: &BacklogIssueCandidate,
+    exhausted_targets: &BTreeSet<String>,
+) -> bool {
+    if exhausted_targets.contains(&backlog_issue_progress_marker(issue)) {
+        return true;
+    }
+    matches!(
+        backlog_issue_phase(issue),
+        BacklogIssuePhase::CaptureEvidence
+    ) && exhausted_targets.contains(&issue.id)
+}
+
 fn is_ready_backlog_issue(issue: &BacklogIssueCandidate) -> bool {
     let summary = issue.summary.to_ascii_lowercase();
     let verify = issue.verify.to_ascii_lowercase();
     summary.contains("root cause identified") || verify.contains("root cause identified")
 }
 
-fn select_ready_backlog_issue(repo_root: &Path) -> Result<Option<BacklogIssueCandidate>> {
+fn select_ready_backlog_issue_excluding(
+    repo_root: &Path,
+    exhausted_targets: &BTreeSet<String>,
+) -> Result<Option<BacklogIssueCandidate>> {
     let mut items = load_open_backlog_issues(repo_root)?;
     items.retain(is_ready_backlog_issue);
+    items.retain(|issue| !exhausted_targets.contains(&issue.id));
     items.sort_by(|left, right| {
         fn priority_rank(priority: &str) -> u8 {
             match priority {
@@ -4611,6 +4720,104 @@ fn source_port_frontier_release_gate_task(
         recovery_step: None,
         stalled_repetition_count: None,
         pivot_reason: None,
+        next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
+        next_agent_note: Some(note.clone()),
+        target_routines: None,
+    }
+}
+
+fn source_port_frontier_backlog_evidence_blocker_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+    exhausted_targets: &BTreeSet<String>,
+) -> TaskPackage {
+    let exhausted_detail = exhausted_targets
+        .iter()
+        .filter(|target| {
+            target
+                .chars()
+                .next()
+                .is_some_and(|first| first.is_ascii_digit())
+        })
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    let detail = if exhausted_detail.is_empty() {
+        "open backlog issue targets were recently completed cleanly but remain open".to_owned()
+    } else {
+        format!("recent clean completions exhausted open backlog issue targets: {exhausted_detail}")
+    };
+    let delegation_reason = "open backlog issue packages were recently clean-completed without closing or changing phase, so the loop must repair the shared evidence blocker instead of reselecting the same issue".to_owned();
+
+    TaskPackage {
+        capability: CapabilityId::SourcePortFrontierTask,
+        title: "Repair backlog evidence blocker: boot-title-start-level1".to_owned(),
+        summary: format!(
+            "{} is authoritative-clean through frame {}; backlog issue selection is exhausted by recent clean completions, so narrow or fix the shared boot-title-start-level1 evidence blocker before another issue package is selected.",
+            frontier.recording, frontier.authoritative_clean_through
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            SOURCE_PORT_BACKLOG_PATH.to_owned(),
+            "docs/source-port/methodology.md".to_owned(),
+            ".agents/skills/m68k-kid-asm/SKILL.md".to_owned(),
+            ".cache/upstream/kid-chameleon-disasm/kid.asm".to_owned(),
+        ],
+        implementation_targets: vec![
+            "crates/kid-core/src/".to_owned(),
+            "crates/kidcli/src/".to_owned(),
+            SOURCE_PORT_BACKLOG_PATH.to_owned(),
+        ],
+        commands: vec![
+            "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+                .to_owned(),
+            "cargo run -p kidcli -- verify-recording --slug issue-141".to_owned(),
+            "cargo run -p kidcli -- capture-frames --level 00 --frames 0,60,120 --output .cache/debug/backlog-evidence-blocker/"
+                .to_owned(),
+            "mise run verify-slice-fast".to_owned(),
+        ],
+        done_criteria: vec![
+            "The boot-title-start-level1 evidence path is green, or the first authoritative blocker is narrowed with concrete native/oracle artefacts.".to_owned(),
+            "Any gameplay/render fix cites the ASM label or asset/source path that justifies it.".to_owned(),
+            "A targeted regression or backlog note prevents the selector from choosing the same exhausted issue package again without new evidence.".to_owned(),
+            "verify-slice-fast passes for code changes.".to_owned(),
+        ],
+        evidence: vec![
+            EvidenceItem {
+                label: "active-frontier".to_owned(),
+                status: frontier.status.clone(),
+                detail: format!(
+                    "{} clean through frame {}",
+                    frontier.slug, frontier.authoritative_clean_through
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "recent-clean-completions".to_owned(),
+                status: "exhausted".to_owned(),
+                detail,
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH)),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: Some(source_port_frontier_context(frontier)),
+        case_queue_context: None,
+        delegated_goal: Some(AutonomyGoal::SweepParity),
+        delegated_target: Some(SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET.to_owned()),
+        delegation_reason: Some(delegation_reason),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: Some(
+            "recent clean completions exhausted open backlog issue targets".to_owned(),
+        ),
         next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
         next_agent_note: Some(note.clone()),
         target_routines: None,
@@ -7150,6 +7357,23 @@ mod tests {
         }
     }
 
+    fn write_clean_completion(repo_root: &Path, cycle: u32, delegated_target: &str) {
+        let run_dir = repo_root.join(".cache/autonomy/source-port-frontier");
+        fs::create_dir_all(&run_dir).expect("run history dir should exist");
+        fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(run_dir.join("run-history.jsonl"))
+            .and_then(|mut file| {
+                use std::io::Write;
+                writeln!(
+                    file,
+                    r#"{{"cycle":{cycle},"delegated_target":"{delegated_target}","outcome":"completed","exit_code":0,"dirty_tree":false}}"#
+                )
+            })
+            .expect("run history should write");
+    }
+
     fn write_case(
         repo_root: &Path,
         selector: &str,
@@ -7869,6 +8093,32 @@ mod tests {
     }
 
     #[test]
+    fn open_backlog_selection_treats_legacy_clean_issue_id_as_capture_exhausted() {
+        let temp_dir = source_port_repo();
+        fs::write(
+            temp_dir.path().join(super::SOURCE_PORT_BACKLOG_PATH),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 138 | [ ] | P1 | player | Enemy contact appears to apply double damage because invulnerability is too short | Take consecutive hits, confirm post-hit invulnerability timing matches oracle |
+| 141 | [ ] | P1 | render | Intro and level-intro graphics still do not match the original game | Native/oracle repro status: reproduced for boot/intro visual parity. |
+",
+        )
+        .expect("backlog should write");
+        write_clean_completion(temp_dir.path(), 217, "138");
+
+        let issue = super::select_open_backlog_issue(temp_dir.path())
+            .expect("selection should succeed")
+            .expect("issue should be selected");
+
+        assert_eq!(issue.id, "141");
+        assert_eq!(
+            super::backlog_issue_progress_marker(&issue),
+            "141:investigate"
+        );
+    }
+
+    #[test]
     fn reproduced_backlog_issue_switches_from_capture_to_investigation_phase() {
         let temp_dir = source_port_repo();
         write_source_port_frontier(temp_dir.path(), false, "complete");
@@ -7895,6 +8145,65 @@ mod tests {
             cycle
                 .progress_fingerprint
                 .contains("backlog-issue:141:investigate")
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_skips_recent_clean_completed_backlog_target() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_backlog(
+            temp_dir.path(),
+            "\
+| 141 | [ ] | P1 | render | Intro and level-intro graphics still do not match the original game | Native/oracle repro status: reproduced for boot/intro visual parity. |
+| 139 | [ ] | P1 | render | Bouncy blocks still render like spikes | Compare rubber block tiles and state art against oracle frames |
+",
+        );
+        write_complete_default_mutation_runs(temp_dir.path());
+        write_clean_completion(temp_dir.path(), 41, "141:investigate");
+
+        let cycle = evaluate_source_port_frontier_cycle(temp_dir.path(), 42, 1)
+            .expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_ne!(task.delegated_target.as_deref(), Some("141:investigate"));
+        assert_eq!(task.delegated_target.as_deref(), Some("139:capture"));
+        assert!(
+            cycle
+                .progress_fingerprint
+                .contains("backlog-issue:139:capture")
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_pivots_when_backlog_targets_are_recently_completed() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_backlog(
+            temp_dir.path(),
+            "\
+| 141 | [ ] | P1 | render | Intro and level-intro graphics still do not match the original game | Native/oracle repro status: reproduced for boot/intro visual parity. |
+",
+        );
+        write_complete_default_mutation_runs(temp_dir.path());
+        write_clean_completion(temp_dir.path(), 41, "141:investigate");
+
+        let cycle = evaluate_source_port_frontier_cycle(temp_dir.path(), 42, 1)
+            .expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            task.delegated_target.as_deref(),
+            Some(super::SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET)
+        );
+        assert!(
+            task.title.contains("Repair backlog evidence blocker"),
+            "selector should emit useful blocker work instead of reselecting the clean-completed issue"
+        );
+        assert!(
+            cycle
+                .progress_fingerprint
+                .contains(super::SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET)
         );
     }
 
