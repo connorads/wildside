@@ -8553,6 +8553,95 @@ mod tests {
     }
 
     #[test]
+    fn sweep_parity_stalled_fingerprint_pivots_to_refresh_evidence_recovery() {
+        // Reproduce the cycle 455-462 stall pattern from production: TAS frontier
+        // closed, no case-queue or PV work, dispatch falls through to
+        // state-sweep on the SweepParity lane. After two consecutive stalled
+        // repeats on the resulting fingerprint, the SweepParity arm of the
+        // stall-recovery dispatch must promote the task package to a recovery
+        // package, otherwise the runner would spin until something else
+        // (e.g. ASM coverage) advances the lane fingerprint.
+        let temp_dir = source_port_repo();
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("release gate dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RELEASE_GATE_PATH),
+            "{\"passed\": true}\n",
+        )
+        .expect("release gate should write");
+        write_complete_default_mutation_runs(temp_dir.path());
+        // Commit the fixture writes so the cycle does not see them as a dirty
+        // tree (which would short-circuit into DirtyTree recovery).
+        commit_repo(temp_dir.path(), "fixture state");
+
+        // First run: nothing stalled yet. Capture the baseline fingerprint
+        // without hard-coding it so the test stays robust against fingerprint
+        // formatting changes.
+        let baseline =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let baseline_task = baseline.selected_task.expect("selected task should exist");
+        assert_eq!(
+            baseline_task.delegated_goal,
+            Some(super::AutonomyGoal::SweepParity),
+            "fixture must dispatch on SweepParity"
+        );
+        assert_eq!(
+            baseline_task.delegated_target.as_deref(),
+            Some("state-sweep"),
+            "fixture must target state-sweep"
+        );
+        assert!(
+            baseline_task.recovery_mode.is_none(),
+            "first run has no stall history yet"
+        );
+        let stalled_fingerprint = baseline_task.progress_fingerprint.clone();
+
+        // Seed two consecutive stalled_repeat rows on the baseline fingerprint.
+        write_stalled_repeat(temp_dir.path(), 1, "state-sweep", &stalled_fingerprint);
+        write_stalled_repeat(temp_dir.path(), 2, "state-sweep", &stalled_fingerprint);
+
+        // Third cycle: repeated_stalls = 2, recovery dispatch must fire on the
+        // SweepParity arm. With no case-queue recording in the fixture the
+        // arm falls through to apply_stalled_recovery + RefreshEvidence.
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 3, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+        assert_eq!(
+            task.recovery_mode,
+            Some(super::RecoveryMode::StalledFingerprint),
+            "SweepParity arm must mark the package as recovery after two stalled cycles"
+        );
+        assert_eq!(
+            task.recovery_step,
+            Some(super::RecoveryStep::RefreshEvidence),
+            "SweepParity arm without a recording should pivot to refresh-evidence"
+        );
+        assert_eq!(task.stalled_repetition_count, Some(3));
+        assert!(
+            task.progress_fingerprint
+                .contains(":recovery:refresh_evidence"),
+            "fingerprint should advance with the recovery suffix so the runner stops counting it as the same lane: {}",
+            task.progress_fingerprint
+        );
+    }
+
+    #[test]
     fn source_port_frontier_prioritises_dirty_tree_recovery() {
         let temp_dir = source_port_repo();
         fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
