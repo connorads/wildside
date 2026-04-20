@@ -8208,6 +8208,31 @@ mod tests {
     }
 
     #[test]
+    fn source_port_frontier_promotes_clean_narrowed_backlog_to_ready_work() {
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_backlog(
+            temp_dir.path(),
+            "\
+| 141 | [ ] | P1 | render | Intro and level-intro graphics still do not match the original game | Root cause identified: native IntroSequence2/4/5 VDP loading currently reuses ASM sub_1B850; split loading to follow Load_IntroSequence2, Load_IntroSequence4, and Load_IntroSequence5. Native/oracle repro status: reproduced for boot/intro visual parity. |
+",
+        );
+        write_complete_default_mutation_runs(temp_dir.path());
+        write_clean_completion(temp_dir.path(), 41, "141:investigate");
+
+        let cycle = evaluate_source_port_frontier_cycle(temp_dir.path(), 42, 1)
+            .expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.delegated_target.as_deref(), Some("141"));
+        assert!(
+            task.title.contains("Implement ready backlog issue #141"),
+            "narrowed root-cause evidence should promote to implementation instead of the shared evidence blocker"
+        );
+        assert!(cycle.progress_fingerprint.contains("ready-backlog:141"));
+    }
+
+    #[test]
     fn source_port_frontier_prioritises_release_gate_blocker_before_proactive_verification() {
         let temp_dir = source_port_repo();
         write_source_port_frontier(temp_dir.path(), false, "complete");
