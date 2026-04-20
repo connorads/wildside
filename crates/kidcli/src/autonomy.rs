@@ -1941,6 +1941,8 @@ fn source_port_frontier_sweep_task(
     let delegation_reason = "the TAS frontier is closed and no actionable reduced case is available, so the next repo-local lane is sweep parity hardening".to_owned();
     let release_gate_latest = latest_release_gate_failure_detail(repo_root, "1p-accurate");
     let release_gate_focus = release_gate_focus_evidence(repo_root, "1p-accurate");
+    let release_gate_signal = latest_release_gate_signal(repo_root);
+    let state_sweep_signal = latest_state_sweep_signal(repo_root);
     let mut evidence = vec![
         EvidenceItem {
             label: "active-frontier".to_owned(),
@@ -1971,6 +1973,13 @@ fn source_port_frontier_sweep_task(
             detail: detail.clone(),
             artefact_path: Some(artefact_path.clone()),
         });
+    } else if release_gate_signal.ok {
+        evidence.push(EvidenceItem {
+            label: "release-gate-status".to_owned(),
+            status: "passed".to_owned(),
+            detail: release_gate_signal.detail.clone(),
+            artefact_path: release_gate_signal.artefact_path.clone(),
+        });
     }
     if let Some((detail, artefact_path)) = &release_gate_focus {
         evidence.push(EvidenceItem {
@@ -1980,6 +1989,26 @@ fn source_port_frontier_sweep_task(
             artefact_path: Some(artefact_path.clone()),
         });
     }
+    evidence.push(EvidenceItem {
+        label: "state-sweep-status".to_owned(),
+        status: if state_sweep_signal.ok {
+            "passed".to_owned()
+        } else {
+            "failed".to_owned()
+        },
+        detail: state_sweep_signal.detail.clone(),
+        artefact_path: state_sweep_signal.artefact_path.clone(),
+    });
+    let first_done_criterion = if release_gate_latest.is_some() {
+        "Refresh the persisted release-gate evidence in the sweep lane so the next-agent note cites the latest failure and state-sweep correlation."
+            .to_owned()
+    } else if release_gate_signal.ok {
+        "Refresh the persisted sweep-parity evidence so the next-agent note cites the passing release gate and latest state-sweep report."
+            .to_owned()
+    } else {
+        "Refresh the persisted release-gate evidence in the sweep lane so the next-agent note cites the current gate status."
+            .to_owned()
+    };
     TaskPackage {
         capability: CapabilityId::SourcePortFrontierTask,
         title: "Advance source-port via sweep parity hardening".to_owned(),
@@ -2008,8 +2037,7 @@ fn source_port_frontier_sweep_task(
             "mise run release-gate".to_owned(),
         ],
         done_criteria: vec![
-            "Refresh the persisted release-gate evidence in the sweep lane so the next-agent note cites the latest failure and state-sweep correlation."
-                .to_owned(),
+            first_done_criterion,
             "Advance sweep parity, release-gate hardening, or another explicit verification lane with new evidence."
                 .to_owned(),
             "Do not reopen TAS-frontier work unless a new authoritative frontier appears.".to_owned(),
@@ -6504,6 +6532,16 @@ fn render_source_port_next_agent_note(frontier: &FrontierContext, task: &TaskPac
         .iter()
         .find(|item| item.label == "release-gate-focus")
         .map(|item| item.detail.as_str());
+    let release_gate_status = task
+        .evidence
+        .iter()
+        .find(|item| item.label == "release-gate-status")
+        .map(|item| item.detail.as_str());
+    let state_sweep_status = task
+        .evidence
+        .iter()
+        .find(|item| item.label == "state-sweep-status")
+        .map(|item| item.detail.as_str());
     let exact_next_moves = if closed_frontier {
         let mut moves = Vec::new();
         if let Some(summary) = recovery_summary.as_ref() {
@@ -6542,6 +6580,12 @@ fn render_source_port_next_agent_note(frontier: &FrontierContext, task: &TaskPac
         }
         if let Some(detail) = release_gate_focus {
             evidence.push(format!("Latest state-sweep correlation: {detail}"));
+        }
+        if let Some(detail) = release_gate_status {
+            evidence.push(format!("Release-gate status: {detail}"));
+        }
+        if let Some(detail) = state_sweep_status {
+            evidence.push(format!("Latest state-sweep status: {detail}"));
         }
         evidence
             .iter()
@@ -6671,7 +6715,7 @@ mod tests {
         evaluate_capabilities, evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
         fingerprint_for_capabilities, latest_release_gate_signal, latest_state_sweep_signal,
         load_source_port_frontier_state, render_source_port_next_agent_note, select_next_task,
-        source_port_next_agent_note,
+        source_port_frontier_sweep_task, source_port_next_agent_note,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -7762,6 +7806,92 @@ mod tests {
         assert!(
             rendered_note.contains("timestamp 1775367006"),
             "next-agent note should surface the refreshed state-sweep timestamp"
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_sweep_task_carries_green_release_gate_evidence_into_note() {
+        let temp_dir = source_port_repo();
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port"))
+            .expect("docs dir should exist");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"{
+  "timestamp": "1776704737",
+  "target": "1p-accurate",
+  "passed": true,
+  "steps": [
+    {
+      "name": "state_sweep:0-104",
+      "status": "passed",
+      "detail": "all 69 requested levels passed the state sweep"
+    }
+  ],
+  "sweep_summary": {
+    "authoritative": 0,
+    "advisory": 178,
+    "accumulation": 0,
+    "rng": 0,
+    "oracle_limitation": 662
+  }
+}
+"#,
+        )
+        .expect("release gate latest should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1776704792","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":178,"accumulation":0,"rng":0,"oracle_limitation":662},"report_path":"/tmp/sweep-report-green.json","field_summary":[],"release_gate_focus":[]}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let frontier = load_source_port_frontier_state(temp_dir.path())
+            .expect("frontier state should load")
+            .active_frontier;
+        let note = source_port_next_agent_note(temp_dir.path(), frontier.slug.as_str());
+        let task = source_port_frontier_sweep_task(temp_dir.path(), &frontier, &note);
+        let rendered_note = render_source_port_next_agent_note(
+            task.frontier_context
+                .as_ref()
+                .expect("frontier context should exist"),
+            &task,
+        );
+
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "release-gate-status"
+                    && item.status == "passed"
+                    && item.detail.contains("timestamp 1776704737")),
+            "task should carry the passing release-gate artefact"
+        );
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "state-sweep-status"
+                    && item.status == "passed"
+                    && item.detail.contains("advisory=178")
+                    && item.detail.contains("oracle_limitations=662")),
+            "task should carry the latest passing state-sweep artefact"
+        );
+        assert!(
+            task.done_criteria.iter().any(|criterion| criterion
+                .contains("passing release gate and latest state-sweep report")),
+            "green gate tasks should ask for refreshed green-lane evidence"
+        );
+        assert!(
+            rendered_note
+                .contains("Release-gate status: latest release gate passed (timestamp 1776704737)"),
+            "next-agent note should surface the green release gate"
+        );
+        assert!(
+            rendered_note.contains("Latest state-sweep status: latest state sweep passed"),
+            "next-agent note should surface the latest state-sweep report"
         );
     }
 
