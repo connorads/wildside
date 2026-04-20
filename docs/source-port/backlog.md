@@ -173,6 +173,33 @@ For newly opened items, capture these facts in the investigation notes:
 
 ## Investigation notes
 
+### 141 — Intro and level-intro graphics still do not match the original game (NARROWED)
+Root cause candidate: native currently treats every `BootState::IntroSequence { segment: 0..4 }`
+as if it used the ASM `sub_1B850` renderer path. That is only true for
+`Load_IntroSequence1` and `Load_IntroSequence3` (`kid.asm:29067-29082`,
+`kid.asm:30172-30215`). The ROM uses separate VDP loaders for the other intro
+segments: `Load_IntroSequence2` loads `Addr_HoloBG`, applies `sub_1B7B6`, and
+copies palette via `sub_1C4FE` (`kid.asm:29255-29300`); `Load_IntroSequence4`
+loads the HoloBG variant and also uses `sub_1C4FE` (`kid.asm:29303-29321`);
+`Load_IntroSequence5` loads `byte_1E6E3`, `byte_20D36`, `byte_2A992`, the
+`loc_1B100` variant art, `MapEni_2E154`, and palette via `sub_1C512`
+(`kid.asm:29324-29364`). The reproduced `issue-141` recording reaches
+`IntroSequence5` on frame 519, so the native `build_intro_sequence_vdp`
+reuse explains the late intro visual diffs at frames 540 and 568.
+
+Verified on 2026-04-20: `cargo run -p kidcli -- verify-recording --slug issue-141`
+still preserves the input trace but fails oracle state/frame parity and rewrites
+artefacts under `.cache/recordings/issue-141/verify`; `cargo run -p kidcli --
+capture-frames --level 00 --frames 0,60,120 --output .cache/debug/issue-141/`
+regenerates the direct frame captures; `cargo run -p kidcli --
+compare-native-oracle --scenario boot-title-start-level1` still fails at
+`level_entry@520` on Kid position (`native 00400000,00680000`;
+`oracle 007F0000,00020000`). This does not close the issue: the next code step
+is to split native intro VDP loading so segments 1, 3, and 4 follow the ASM
+`Load_IntroSequence2`, `Load_IntroSequence4`, and `Load_IntroSequence5` asset
+paths instead of `sub_1B850`; the level-intro half still needs a settled Level
+00 recording after the boot/title compare drift is cleared.
+
 ### 001 — Player stuck after damage (FIXED)
 Root cause: `apply_damage()` did not clear `left_wall_sticky` / `right_wall_sticky`.
 If the player was wall-grabbed when hit, they stayed pinned to the wall during
