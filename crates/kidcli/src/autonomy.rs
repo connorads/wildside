@@ -4375,9 +4375,9 @@ fn select_open_backlog_issue(repo_root: &Path) -> Result<Option<BacklogIssueCand
         }
         priority_rank(&left.priority)
             .cmp(&priority_rank(&right.priority))
-            .then_with(|| focus_rank(left.focus).cmp(&focus_rank(right.focus)))
             .then_with(|| evidence_rank(left).cmp(&evidence_rank(right)))
             .then_with(|| preferred_issue_rank(&left.id).cmp(&preferred_issue_rank(&right.id)))
+            .then_with(|| focus_rank(left.focus).cmp(&focus_rank(right.focus)))
             .then_with(|| left.id.cmp(&right.id))
     });
     Ok(items.into_iter().next())
@@ -7761,6 +7761,29 @@ mod tests {
             .expect("issue should be selected");
 
         assert_eq!(issue.id, "138");
+    }
+
+    #[test]
+    fn open_backlog_selection_moves_past_completed_negative_evidence_targets() {
+        let temp_dir = source_port_repo();
+        fs::write(
+            temp_dir.path().join(super::SOURCE_PORT_BACKLOG_PATH),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 137 | [ ] | P1 | player | Kid walks backwards while climbing slopes | Native repro status: not reproduced. Fresh negative baseline recorded. |
+| 138 | [ ] | P1 | player | Enemy contact appears to apply double damage because invulnerability is too short | Native repro status: not reproduced. Fresh negative baseline recorded. |
+| 139 | [ ] | P1 | render | Bouncy blocks still render like spikes | Compare rubber block tiles and state art against oracle frames |
+| 143 | [ ] | P1 | block | Heavy Man's first helmet causes repeated block-bounce instead of the ROM's smooth single-hit break | Native repro status: not reproduced. Fresh negative baseline recorded. |
+",
+        )
+        .expect("backlog should write");
+
+        let issue = super::select_open_backlog_issue(temp_dir.path())
+            .expect("selection should succeed")
+            .expect("issue should be selected");
+
+        assert_eq!(issue.id, "139");
     }
 
     #[test]
