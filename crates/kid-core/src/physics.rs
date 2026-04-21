@@ -679,11 +679,7 @@ fn apply_holding_left(vel: i32, run: bool, table: &SpeedTable) -> i32 {
             // `4(a0)`, then clamp back to `-(a0)` if acceleration crosses it.
             // Below walk cap: accelerate
             let next = vel - table.walk_accel;
-            if next.saturating_neg() > table.max_walk_speed {
-                -table.max_walk_speed
-            } else {
-                next
-            }
+            next.max(-table.max_walk_speed)
         }
     } else {
         // Walking left, but moving right OR stopped: strong_brake ($18)
@@ -699,11 +695,11 @@ fn decelerate(vel: i32, table: &SpeedTable) -> i32 {
             // ASM loc_9BFC (kid.asm:11843): moving right with no direction held
             // subtracts `8(a0)` and snaps only if the result goes negative.
             let next = vel - table.walk_run_decel;
-            if next < 0 { 0 } else { next }
+            next.max(0)
         }
         std::cmp::Ordering::Less => {
             let next = vel + table.walk_run_decel;
-            if next > 0 { 0 } else { next }
+            next.min(0)
         }
         std::cmp::Ordering::Equal => 0,
     }
@@ -1023,16 +1019,17 @@ pub(crate) fn reverse_murder_wall_camera_push_loc_7396(camera_x: u32, wall_x: i6
     if d0 >= 0 {
         // loc_73B8: camera ahead of (right of) reversed wall — snap camera
         // leftward to wall position.
-        let new_camera_x = (camera_x & 0xFFFF) | ((wall_px as u16 as u32) << 16);
+        let new_camera_x = (camera_x & 0xFFFF) + ((wall_px as u16 as u32) << 16);
         (new_camera_x, wall_x)
-    } else if d0 > -0x80 {
+    } else if d0 >= -0x7F {
         // loc_73A0 → loc_73C2: gap within $80 — tolerable, no adjustment.
+        // ASM uses `bgt #-$80`; for integer d0 this is equivalent to `>= -$7F`.
         (camera_x, wall_x)
     } else {
         // loc_73A0: camera far behind — clamp wall so it stays within $80 of
         // camera: MurderWall_X_pos.w = Camera_X_pos.w + $80.
         let new_wall_high = camera_px.wrapping_add(0x80) as u16;
-        let new_wall_x = (wall_x & 0xFFFF) | (i64::from(new_wall_high) << 16);
+        let new_wall_x = (wall_x & 0xFFFF) + (i64::from(new_wall_high) << 16);
         (camera_x, new_wall_x)
     }
 }
@@ -2025,6 +2022,29 @@ mod tests {
     }
 
     #[test]
+    fn loc_9bee_no_input_exact_decel_lands_on_zero() {
+        // ASM loc_9BFC/loc_9C06 (kid.asm:11843): positive exact-decel result
+        // is zero, so `bmi.w loc_9C06` is not taken but d0 is still zero.
+        let (positive, _) = update_horizontal_velocity(
+            NORMAL_KID.walk_run_decel,
+            Direction::Right,
+            no_input(),
+            &NORMAL_KID,
+        );
+        assert_eq!(positive, 0);
+
+        // ASM loc_9BEE/loc_9C06 (kid.asm:11835): negative exact-decel result
+        // is zero, so `bpl.w loc_9C06` is taken and writes zero explicitly.
+        let (negative, _) = update_horizontal_velocity(
+            -NORMAL_KID.walk_run_decel,
+            Direction::Left,
+            no_input(),
+            &NORMAL_KID,
+        );
+        assert_eq!(negative, 0);
+    }
+
+    #[test]
     fn decel_zero_stays_zero() {
         let (result, _) = update_horizontal_velocity(0, Direction::Right, no_input(), &NORMAL_KID);
         assert_eq!(result, 0);
@@ -2424,6 +2444,19 @@ mod tests {
             "ASM loc_71EC: when Kid is null, camera position is unchanged — \
              native equivalent: centred player produces zero delta",
         );
+    }
+
+    #[test]
+    fn loc_73a0_reversed_murder_wall_gap_inside_80px_window_does_not_clamp() {
+        // ASM loc_73A0 (kid.asm:7505): `cmpi.w #-$80,d0; bgt.w loc_73C2`.
+        // A gap of -$7F branches to loc_73C2 and leaves the wall untouched.
+        let camera_x = 0x0010_00AA;
+        let wall_x = 0x008F_0055;
+
+        let (new_camera_x, new_wall_x) = reverse_murder_wall_camera_push_loc_7396(camera_x, wall_x);
+
+        assert_eq!(new_camera_x, camera_x);
+        assert_eq!(new_wall_x, wall_x);
     }
 }
 
