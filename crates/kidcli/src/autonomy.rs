@@ -6213,22 +6213,8 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
             Some(report_path.unwrap_or(latest_path)),
         )
     } else {
-        let failed_step = report
-            .get("steps")
-            .and_then(serde_json::Value::as_array)
-            .and_then(|steps| {
-                steps.iter().find(|step| {
-                    step.get("status")
-                        .and_then(serde_json::Value::as_str)
-                        .is_some_and(|status| status == "failed")
-                })
-            });
-        let detail = failed_step
-            .and_then(|step| {
-                let name = step.get("name")?.as_str()?;
-                let detail = step.get("detail")?.as_str()?;
-                Some(format!("{name}: {detail}"))
-            })
+        let failed_steps = release_gate_failed_step_details(&report);
+        let detail = format_release_gate_failed_step_summary(&failed_steps)
             .unwrap_or_else(|| "latest release gate did not pass".to_owned());
         let detail = correlate_release_gate_failure_with_state_sweep(repo_root, &detail)
             .map(|correlation| format!("{detail}; {correlation}"))
@@ -6244,6 +6230,58 @@ fn timestamped_release_gate_report_path(latest_path: &Path, timestamp: &str) -> 
     latest_path
         .parent()
         .map(|parent| parent.join(timestamp).join("report.json"))
+}
+
+fn release_gate_failed_step_details(report: &serde_json::Value) -> Vec<String> {
+    report
+        .get("steps")
+        .and_then(serde_json::Value::as_array)
+        .map(|steps| {
+            steps
+                .iter()
+                .filter(|step| {
+                    step.get("status")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(|status| status == "failed")
+                })
+                .filter_map(|step| {
+                    let name = step.get("name")?.as_str()?;
+                    let detail = step.get("detail")?.as_str()?;
+                    Some(format!("{name}: {detail}"))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn format_release_gate_failed_step_summary(failed_steps: &[String]) -> Option<String> {
+    let first_step = failed_steps.first()?;
+    let remaining_count = failed_steps.len().saturating_sub(1);
+    if remaining_count == 0 {
+        return Some(first_step.clone());
+    }
+
+    let preview = failed_steps
+        .iter()
+        .skip(1)
+        .take(3)
+        .map(|step| {
+            step.split_once(": ")
+                .map_or(step.as_str(), |(name, _)| name)
+                .to_owned()
+        })
+        .collect::<Vec<_>>();
+    let omitted_count = remaining_count.saturating_sub(preview.len());
+    let omitted_suffix = if omitted_count == 0 {
+        String::new()
+    } else {
+        format!(", +{omitted_count} more")
+    };
+    let plural = if remaining_count == 1 { "" } else { "s" };
+    Some(format!(
+        "{first_step}; plus {remaining_count} more failed step{plural}: {}{omitted_suffix}",
+        preview.join(", ")
+    ))
 }
 
 fn correlate_release_gate_failure_with_state_sweep(
@@ -6462,18 +6500,8 @@ fn latest_release_gate_failure_detail(repo_root: &Path, target: &str) -> Option<
     {
         return None;
     }
-    let failed_step = report
-        .get("steps")
-        .and_then(serde_json::Value::as_array)
-        .and_then(|steps| {
-            steps.iter().find(|step| {
-                step.get("status")
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(|status| status == "failed")
-            })
-        })?;
-    let name = failed_step.get("name")?.as_str()?;
-    let detail = failed_step.get("detail")?.as_str()?;
+    let failed_steps = release_gate_failed_step_details(&report);
+    let detail = format_release_gate_failed_step_summary(&failed_steps)?;
     let timestamp = report
         .get("timestamp")
         .and_then(serde_json::Value::as_str)
@@ -6486,7 +6514,7 @@ fn latest_release_gate_failure_detail(repo_root: &Path, target: &str) -> Option<
     let artefact_path = report_path
         .filter(|report_path| report_path.is_file())
         .unwrap_or(latest_path);
-    Some((format!("{name}: {detail}{freshness}"), artefact_path))
+    Some((format!("{detail}{freshness}"), artefact_path))
 }
 
 fn release_gate_focus_evidence(repo_root: &Path, target: &str) -> Option<(String, PathBuf)> {
@@ -8040,6 +8068,58 @@ mod tests {
             artefact_path,
             report_dir.join("report.json"),
             "failure evidence should anchor to the immutable timestamped gate report"
+        );
+    }
+
+    #[test]
+    fn release_gate_failure_evidence_mentions_additional_failed_steps() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1775119880",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "gameplay_compare:pause_resume_level1",
+                  "status": "failed",
+                  "detail": "gameplay state level_settle@719 diverged in game mode (native 0008, oracle 000C)"
+                },
+                {
+                  "name": "frame_oracle:boot_title_start_level1",
+                  "status": "failed",
+                  "detail": "state title@360 diverged in camera y pos (native 0000, oracle 0010)"
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+        assert!(!outcome.ok);
+        assert!(
+            outcome
+                .detail
+                .contains("gameplay_compare:pause_resume_level1"),
+            "signal should keep the first failed step as the correlation anchor"
+        );
+        assert!(
+            outcome
+                .detail
+                .contains("plus 1 more failed step: frame_oracle:boot_title_start_level1"),
+            "signal should not hide additional failed release-gate steps"
+        );
+
+        let (detail, _) = latest_release_gate_failure_detail(temp_dir.path(), "1p-accurate")
+            .expect("failure detail should load");
+        assert!(
+            detail.contains("plus 1 more failed step: frame_oracle:boot_title_start_level1"),
+            "source-port handoff evidence should carry the extra failed step count"
         );
     }
 
