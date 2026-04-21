@@ -1,6 +1,7 @@
 use super::*;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
@@ -276,27 +277,18 @@ fn run_one_player_accurate_gate(
         Ok(sweep_report) => {
             report.sweep_summary = Some(sweep_report.divergence_summary.clone());
             if sweep_report.failed > 0 || sweep_report.errors > 0 {
+                let detail = state_sweep_failed_detail(repo_root, &sweep_report);
                 report.steps.push(ReleaseGateStep {
                     name: "state_sweep:0-104".to_string(),
                     status: ReleaseGateStepStatus::Failed,
-                    detail: format!(
-                        "state sweep reported {} failed levels and {} errors",
-                        sweep_report.failed, sweep_report.errors
-                    ),
+                    detail: detail.clone(),
                 });
-                bail!(
-                    "state sweep reported {} failed levels and {} errors",
-                    sweep_report.failed,
-                    sweep_report.errors
-                );
+                bail!("{detail}");
             }
             report.steps.push(ReleaseGateStep {
                 name: "state_sweep:0-104".to_string(),
                 status: ReleaseGateStepStatus::Passed,
-                detail: format!(
-                    "all {} requested levels passed the state sweep",
-                    levels.len()
-                ),
+                detail: state_sweep_passed_detail(repo_root, levels.len(), &sweep_report),
             });
         }
         Err(error) => {
@@ -310,6 +302,34 @@ fn run_one_player_accurate_gate(
     }
 
     Ok(())
+}
+
+fn state_sweep_passed_detail(
+    repo_root: &Path,
+    levels_requested: usize,
+    sweep_report: &sweep::SweepReport,
+) -> String {
+    format!(
+        "all {} requested levels passed the state sweep (report={})",
+        levels_requested,
+        state_sweep_report_path(repo_root, sweep_report).display()
+    )
+}
+
+fn state_sweep_failed_detail(repo_root: &Path, sweep_report: &sweep::SweepReport) -> String {
+    format!(
+        "state sweep reported {} failed levels and {} errors (report={})",
+        sweep_report.failed,
+        sweep_report.errors,
+        state_sweep_report_path(repo_root, sweep_report).display()
+    )
+}
+
+fn state_sweep_report_path(repo_root: &Path, sweep_report: &sweep::SweepReport) -> PathBuf {
+    repo_root
+        .join(".cache/sweep-runs")
+        .join(&sweep_report.timestamp)
+        .join("report.json")
 }
 
 fn run_cargo_step(repo_root: &Path, args: &[&str]) -> Result<String> {
@@ -362,4 +382,40 @@ fn unix_timestamp() -> String {
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default();
     format!("{}", since_epoch.as_secs())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sweep_report(timestamp: &str, failed: usize, errors: usize) -> sweep::SweepReport {
+        sweep::SweepReport {
+            timestamp: timestamp.to_owned(),
+            kid_core_hash: None,
+            levels: Vec::new(),
+            passed: 69,
+            failed,
+            errors,
+            divergence_summary: sweep::DivergenceSummary::default(),
+            field_summary: Vec::new(),
+            release_gate_focus: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn state_sweep_step_details_cite_persisted_report_path() {
+        let repo_root = Path::new("/tmp/kc");
+        let report = sweep_report("1776793954", 0, 0);
+
+        assert_eq!(
+            state_sweep_passed_detail(repo_root, 69, &report),
+            "all 69 requested levels passed the state sweep (report=/tmp/kc/.cache/sweep-runs/1776793954/report.json)"
+        );
+
+        let report = sweep_report("1776794000", 2, 1);
+        assert_eq!(
+            state_sweep_failed_detail(repo_root, &report),
+            "state sweep reported 2 failed levels and 1 errors (report=/tmp/kc/.cache/sweep-runs/1776794000/report.json)"
+        );
+    }
 }
