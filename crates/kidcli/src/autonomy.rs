@@ -6482,7 +6482,10 @@ fn latest_release_gate_failure_detail(repo_root: &Path, target: &str) -> Option<
         || format!(" (timestamp {timestamp})"),
         |report_path| format!(" (timestamp {timestamp}, report={})", report_path.display()),
     );
-    Some((format!("{name}: {detail}{freshness}"), latest_path))
+    let artefact_path = report_path
+        .filter(|report_path| report_path.is_file())
+        .unwrap_or(latest_path);
+    Some((format!("{name}: {detail}{freshness}"), artefact_path))
 }
 
 fn release_gate_focus_evidence(repo_root: &Path, target: &str) -> Option<(String, PathBuf)> {
@@ -7592,10 +7595,10 @@ mod tests {
         SOURCE_PORT_RELEASE_GATE_PATH, SOURCE_PORT_RESEARCH_MAP_PATH, SOURCE_PORT_ROADMAP_PATH,
         SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, build_case_queue_snapshot, detect_blocker,
         evaluate_capabilities, evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
-        fingerprint_for_capabilities, is_sweep_refresh_commit, latest_release_gate_signal,
-        latest_state_sweep_signal, load_source_port_frontier_state, parse_recent_commit_summaries,
-        render_source_port_next_agent_note, select_next_task, source_port_frontier_sweep_task,
-        source_port_next_agent_note, sweep_refresh_streak,
+        fingerprint_for_capabilities, is_sweep_refresh_commit, latest_release_gate_failure_detail,
+        latest_release_gate_signal, latest_state_sweep_signal, load_source_port_frontier_state,
+        parse_recent_commit_summaries, render_source_port_next_agent_note, select_next_task,
+        source_port_frontier_sweep_task, source_port_next_agent_note, sweep_refresh_streak,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -7969,6 +7972,48 @@ mod tests {
         assert!(
             outcome.detail.contains("title@360"),
             "signal should include the failed step detail"
+        );
+    }
+
+    #[test]
+    fn release_gate_failure_evidence_prefers_timestamped_report_when_present() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let report_dir = gate_dir.join("1775119879");
+        fs::create_dir_all(&report_dir).expect("timestamped gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1775119879",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "frame_oracle:boot_title_start_level1",
+                  "status": "failed",
+                  "detail": "state title@360 diverged in game mode (native 000C, oracle 002C)"
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("latest gate report should write");
+        fs::write(report_dir.join("report.json"), "{}\n")
+            .expect("timestamped gate report should write");
+
+        let (detail, artefact_path) =
+            latest_release_gate_failure_detail(temp_dir.path(), "1p-accurate")
+                .expect("failed gate detail should load");
+
+        assert!(
+            detail.contains("frame_oracle:boot_title_start_level1") && detail.contains("report="),
+            "failure detail should still name the failed step and timestamped report"
+        );
+        assert_eq!(
+            artefact_path,
+            report_dir.join("report.json"),
+            "failure evidence should anchor to the immutable timestamped gate report"
         );
     }
 
