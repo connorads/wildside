@@ -97,6 +97,10 @@
       {
         "name": "Issue #137 was actionable from the fresh `issue-137-repro` recording",
         "reason": "The 2026-04-21 attempt to run `play-native --warp-level 00 --settled --record issue-137-repro` had to be interrupted from the interactive player before `.cache/recordings/issue-137-repro/manifest.json` existed. `verify-recording --slug issue-137-repro` therefore fails before replay, and `.cache/debug/bug-137/level_00_frame_00000.png`, `level_00_frame_00060.png`, and `level_00_frame_00120.png` are title-card captures, not a slope traversal. ASM `sub_8506` / `loc_8518` / `loc_8560` and `sub_902A` / `sub_9386` / `loc_9D22` identify the facing and slope paths to re-check once a settled Level 00 slope repro exists."
+      },
+      {
+        "name": "Issue #138 was actionable from the fresh `issue-138-repro` recording",
+        "reason": "The 2026-04-21 attempt to run `play-native --warp-level 00 --settled --record issue-138-repro` timed out before `.cache/recordings/issue-138-repro/manifest.json` existed. `verify-recording --slug issue-138-repro` therefore fails before replay, and `.cache/debug/bug-138/level_00_frame_00000.png`, `level_00_frame_00060.png`, and `level_00_frame_00120.png` are title-card captures, not enemy-contact gameplay. ASM `GfxObjects_CollisionKid_Collide` / `loc_1D00`, `Check_for_recent_damge` / `loc_B700`, and `loc_BC34` / `loc_BC54` / `loc_BC56` / `loc_BC5C` / `loc_BC6E` show the ROM gates repeat damage through `Just_received_damage` and clears it after 66 hibernate frames; native already has proposed fix commit `e6b27bb7bcffd20e410c73573ea3bcebbb549399` for the same 66-frame latch."
       }
     ],
     "required_next_evidence": [
@@ -129,7 +133,8 @@
   },
   "candidate_promotions": [],
   "bug_investigation_attempts": {
-    "137": 1
+    "137": 1,
+    "138": 1
   },
   "stuck_policy": {
     "probe_only_commit_threshold": 2,
