@@ -6376,6 +6376,10 @@ fn latest_state_sweep_report_entry(repo_root: &Path) -> Option<StateSweepEvidenc
         if !is_state_sweep_payload(&payload) {
             continue;
         }
+        let timestamp = payload
+            .get("timestamp")
+            .and_then(serde_json::Value::as_str)
+            .map_or(timestamp, str::to_owned);
         let candidate = StateSweepEvidence {
             source_path: report_path.clone(),
             report_path: report_path.to_string_lossy().into_owned(),
@@ -9467,6 +9471,125 @@ mod tests {
                         .as_ref()
                         .is_some_and(|path| path == &sweep_dir.join("report.json"))),
             "task should cite the direct state-sweep report when history mirrors the same run"
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_orders_state_sweep_reports_by_payload_timestamp() {
+        let temp_dir = source_port_repo();
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        let stale_copied_sweep_dir = temp_dir.path().join(".cache/sweep-runs/9999999999");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        fs::create_dir_all(&stale_copied_sweep_dir).expect("sweep dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"{
+  "timestamp": "1775371458",
+  "target": "1p-accurate",
+  "passed": true,
+  "steps": [
+    {
+      "name": "state_sweep:0-104",
+      "status": "passed",
+      "detail": "all 69 requested levels passed the state sweep"
+    }
+  ],
+  "sweep_summary": {
+    "authoritative": 0,
+    "advisory": 178,
+    "accumulation": 0,
+    "rng": 0,
+    "oracle_limitation": 662
+  }
+}
+"#,
+        )
+        .expect("release gate latest should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775371458","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":178,"accumulation":0,"rng":0,"oracle_limitation":662},"report_path":"/tmp/fresh-history-report.json","field_summary":[],"release_gate_focus":[]}
+"#,
+        )
+        .expect("sweep history should write");
+        fs::write(
+            stale_copied_sweep_dir.join("report.json"),
+            r#"{
+  "timestamp": "1775371000",
+  "kid_core_hash": "deadbeef",
+  "levels": [
+    {
+      "level_id": 0,
+      "slug": "idle_level_00",
+      "tier": "state",
+      "passed": true,
+      "state_diffs": [],
+      "mae": null,
+      "diff_images": [],
+      "error": null,
+      "divergence_summary": {
+        "authoritative": 0,
+        "advisory": 0,
+        "accumulation": 0,
+        "rng": 0,
+        "oracle_limitation": 0
+      }
+    }
+  ],
+  "passed": 69,
+  "failed": 0,
+  "errors": 0,
+  "divergence_summary": {
+    "authoritative": 0,
+    "advisory": 999,
+    "accumulation": 0,
+    "rng": 0,
+    "oracle_limitation": 999
+  },
+  "field_summary": [],
+  "release_gate_focus": []
+}
+"#,
+        )
+        .expect("stale copied sweep report should write");
+
+        let frontier = load_source_port_frontier_state(temp_dir.path())
+            .expect("frontier state should load")
+            .active_frontier;
+        let note = source_port_next_agent_note(temp_dir.path(), frontier.slug.as_str());
+        let task = source_port_frontier_sweep_task(temp_dir.path(), &frontier, &note);
+
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "state-sweep-status"
+                    && item.status == "passed"
+                    && item.detail.contains("timestamp 1775371458")
+                    && item.detail.contains("advisory=178")
+                    && item.detail.contains("oracle_limitations=662")
+                    && item
+                        .artefact_path
+                        .as_ref()
+                        .is_some_and(|path| path
+                            == &temp_dir.path().join(".cache/metrics/sweep-history.jsonl"))),
+            "fresh history should beat a stale copied report in a newer-looking cache directory"
         );
     }
 
