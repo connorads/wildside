@@ -101,6 +101,10 @@
       {
         "name": "Issue #138 was actionable from the fresh `issue-138-repro` recording",
         "reason": "The 2026-04-21 attempt to run `play-native --warp-level 00 --settled --record issue-138-repro` timed out before `.cache/recordings/issue-138-repro/manifest.json` existed. `verify-recording --slug issue-138-repro` therefore fails before replay, and `.cache/debug/bug-138/level_00_frame_00000.png`, `level_00_frame_00060.png`, and `level_00_frame_00120.png` are title-card captures, not enemy-contact gameplay. ASM `GfxObjects_CollisionKid_Collide` / `loc_1D00`, `Check_for_recent_damge` / `loc_B700`, and `loc_BC34` / `loc_BC54` / `loc_BC56` / `loc_BC5C` / `loc_BC6E` show the ROM gates repeat damage through `Just_received_damage` and clears it after 66 hibernate frames; native already has proposed fix commit `e6b27bb7bcffd20e410c73573ea3bcebbb549399` for the same 66-frame latch."
+      },
+      {
+        "name": "Issue #139 was actionable from the fresh `issue-139-repro` recording",
+        "reason": "The 2026-04-21 attempt to run `play-native --warp-level 00 --settled --record issue-139-repro` timed out before `.cache/recordings/issue-139-repro/manifest.json` existed. `verify-recording --slug issue-139-repro` therefore fails before replay, and `.cache/debug/bug-139/level_00_frame_00000.png`, `level_00_frame_00060.png`, and `level_00_frame_00120.png` are title-card captures, not settled rubber-block gameplay. ASM `loc_122B8` / `word_122C6`, `loc_12372` / `loc_12380`, `sub_144DA` / `loc_14506` / `loc_1451E` / `loc_14538` / `loc_1456E`, and `sub_302F6` / `loc_30336` plus `sub_3034A` / `loc_3037C` identify the rubber-cell and block-mapping paths to re-check once a settled rubber-block repro exists; `compare-native-oracle --scenario boot-title-start-level1` passes."
       }
     ],
     "required_next_evidence": [
@@ -134,7 +138,8 @@
   "candidate_promotions": [],
   "bug_investigation_attempts": {
     "137": 1,
-    "138": 1
+    "138": 1,
+    "139": 1
   },
   "stuck_policy": {
     "probe_only_commit_threshold": 2,
