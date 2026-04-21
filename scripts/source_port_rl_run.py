@@ -198,11 +198,17 @@ def emit_circuit_breaker_message(
 ) -> None:
     target = task.get("delegated_target")
     fingerprint = task.get("progress_fingerprint")
-    sys.stderr.write(
-        "✗ Stall streak circuit breaker tripped: "
-        f"{streak_after} consecutive stalled_repeat cycles "
-        f"(threshold {threshold}) on the same delegated lane.\n"
-    )
+    if task.get("definitively_stalled"):
+        sys.stderr.write(
+            "✗ Definitively stalled: autonomy module signalled the recovery "
+            "cascade can only restate work that already landed cleanly.\n"
+        )
+    else:
+        sys.stderr.write(
+            "✗ Stall streak circuit breaker tripped: "
+            f"{streak_after} consecutive stalled_repeat cycles "
+            f"(threshold {threshold}) on the same delegated lane.\n"
+        )
     sys.stderr.write(f"  Stuck delegated_target: {target}\n")
     sys.stderr.write(f"  Stuck progress_fingerprint: {fingerprint}\n")
     if previous is not None:
@@ -294,6 +300,22 @@ def main() -> int:
     agent_cmd = resolve_agent(agent_name)
     task = load_task()
     dirty_at_launch = tracked_dirty_files()
+    if task.get("definitively_stalled"):
+        # Autonomy module signalled that the recovery cascade can only
+        # restate work that already completed cleanly. Skip the
+        # DEFAULT_MAX_STALL_STREAK wait and hand control back to the
+        # operator on iteration 1 with the same unblock hints.
+        previous = latest_clean_completion(load_run_history())
+        emit_circuit_breaker_message(
+            task,
+            previous,
+            streak_after=0,
+            threshold=0,
+            recent_records=[],
+        )
+        sys.stdout.write(PROMISE_TOKEN + "\n")
+        sys.stdout.flush()
+        return 0
     repeated, previous = is_clean_repeat(task, dirty_at_launch)
     if repeated:
         sys.stderr.write(

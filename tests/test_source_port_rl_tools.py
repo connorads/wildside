@@ -237,6 +237,80 @@ class SourcePortRlToolTests(unittest.TestCase):
             else:
                 os.environ["SOURCE_PORT_MAX_STALL_STREAK"] = original
 
+    def test_definitively_stalled_task_emits_promise_token_on_iteration_1(self) -> None:
+        import io
+        import os
+
+        # Seed a next-task.json with definitively_stalled=true so the runner
+        # sees the autonomy module's "cascade can only restate completed
+        # work" signal and short-circuits without waiting for
+        # DEFAULT_MAX_STALL_STREAK silent retries.
+        next_task_path = (
+            self.repo_root / ".cache/autonomy/source-port-frontier/next-task.json"
+        )
+        next_task_path.parent.mkdir(parents=True, exist_ok=True)
+        next_task_path.write_text(
+            json.dumps(
+                {
+                    "cycle": 474,
+                    "delegated_target": "state-sweep",
+                    "progress_fingerprint": "lane:state-sweep:recovery:refresh_evidence",
+                    "definitively_stalled": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        # Guard against the prompt subprocess and agent subprocess actually
+        # running — the runner should never reach them on this path.
+        original_next_task_path = source_port_rl_run.NEXT_TASK_PATH
+        original_run = subprocess.run
+        original_argv = sys.argv
+        original_stdout = sys.stdout
+        original_stderr = sys.stderr
+
+        def fake_run(
+            cmd: list[str], *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            # The runner calls `git status` for dirty_files; everything else
+            # should not execute on the definitively_stalled path.
+            if cmd and cmd[0] == "git":
+                return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+            if cmd and "source_port_rl_prompt" in str(cmd[-1]):
+                # Prompt script runs before the short-circuit; mimic success.
+                return subprocess.CompletedProcess(cmd, 0, stdout="{}", stderr="")
+            raise AssertionError(
+                f"runner should not invoke subprocess after "
+                f"definitively_stalled short-circuit: {cmd}"
+            )
+
+        source_port_rl_run.NEXT_TASK_PATH = next_task_path
+        subprocess.run = fake_run  # type: ignore[assignment]
+        source_port_rl_run.subprocess.run = fake_run  # type: ignore[assignment]
+        sys.argv = ["source_port_rl_run.py"]
+        sys.stdout = io.StringIO()
+        sys.stderr = io.StringIO()
+        # Prevent resolve_agent from looking up a real binary.
+        original_resolve = source_port_rl_run.resolve_agent
+        source_port_rl_run.resolve_agent = lambda name: ["/bin/true"]
+        try:
+            exit_code = source_port_rl_run.main()
+            stdout_value = sys.stdout.getvalue()
+            stderr_value = sys.stderr.getvalue()
+        finally:
+            source_port_rl_run.NEXT_TASK_PATH = original_next_task_path
+            subprocess.run = original_run  # type: ignore[assignment]
+            source_port_rl_run.subprocess.run = original_run  # type: ignore[assignment]
+            source_port_rl_run.resolve_agent = original_resolve
+            sys.argv = original_argv
+            sys.stdout = original_stdout
+            sys.stderr = original_stderr
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn(source_port_rl_run.PROMISE_TOKEN, stdout_value)
+        self.assertIn("Definitively stalled", stderr_value)
+        self.assertIn("state-sweep", stderr_value)
+
 
 if __name__ == "__main__":
     unittest.main()
