@@ -1245,6 +1245,28 @@ fn source_port_frontier_progress_fingerprint(
     )
 }
 
+fn source_port_frontier_sweep_lane_marker(repo_root: &Path) -> String {
+    let release_gate_timestamp = latest_release_gate_timestamp(repo_root, "1p-accurate")
+        .unwrap_or_else(|| "missing".to_owned());
+    let state_sweep_timestamp = latest_state_sweep_evidence(repo_root)
+        .and_then(|evidence| evidence.timestamp)
+        .unwrap_or_else(|| "missing".to_owned());
+    format!("state-sweep:gate-{release_gate_timestamp}:sweep-{state_sweep_timestamp}")
+}
+
+fn latest_release_gate_timestamp(repo_root: &Path, target: &str) -> Option<String> {
+    let latest_path = repo_root
+        .join(".cache/release-gate")
+        .join(target)
+        .join("latest.json");
+    let contents = fs::read_to_string(latest_path).ok()?;
+    let report = serde_json::from_str::<serde_json::Value>(&contents).ok()?;
+    report
+        .get("timestamp")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+}
+
 fn tracked_dirty_files(repo_root: &Path) -> Vec<String> {
     let output = Command::new("git")
         .args(["status", "--short", "--untracked-files=no"])
@@ -1633,6 +1655,7 @@ fn evaluate_source_port_frontier_cycle(
                         )
                     } else {
                         let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
+                        let lane_marker = source_port_frontier_sweep_lane_marker(repo_root);
                         let summary = format!(
                             "TAS frontier {} is closed through frame {}; all proactive verification strategies and backlog issues exhausted, so source-port pivots to sweep parity hardening.",
                             frontier.slug, frontier.authoritative_clean_through
@@ -1641,7 +1664,7 @@ fn evaluate_source_port_frontier_cycle(
                             task,
                             Some(AutonomyGoal::SweepParity),
                             Some("state-sweep".to_owned()),
-                            Some("state-sweep".to_owned()),
+                            Some(lane_marker),
                             summary,
                         )
                     }
@@ -8997,6 +9020,95 @@ mod tests {
     }
 
     #[test]
+    fn sweep_parity_fingerprint_advances_when_gate_evidence_refreshes() {
+        let temp_dir = source_port_repo();
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&gate_dir).expect("release gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"{"timestamp":"1776000000","passed":true}"#,
+        )
+        .expect("release gate should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1776000001","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":178,"accumulation":0,"rng":0,"oracle_limitation":662},"report_path":"/tmp/sweep-report-old.json","field_summary":[],"release_gate_focus":[]}
+"#,
+        )
+        .expect("sweep history should write");
+        write_complete_default_mutation_runs(temp_dir.path());
+        commit_repo(temp_dir.path(), "fixture state");
+
+        let baseline =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let baseline_task = baseline.selected_task.expect("selected task should exist");
+        assert!(
+            baseline_task
+                .progress_fingerprint
+                .contains("state-sweep:gate-1776000000:sweep-1776000001"),
+            "sweep lane fingerprint should include persisted evidence freshness: {}",
+            baseline_task.progress_fingerprint
+        );
+        write_stalled_repeat(
+            temp_dir.path(),
+            1,
+            "state-sweep",
+            &baseline_task.progress_fingerprint,
+        );
+        write_stalled_repeat(
+            temp_dir.path(),
+            2,
+            "state-sweep",
+            &baseline_task.progress_fingerprint,
+        );
+
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"{"timestamp":"1776000100","passed":true}"#,
+        )
+        .expect("release gate should refresh");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1776000101","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":178,"accumulation":0,"rng":0,"oracle_limitation":662},"report_path":"/tmp/sweep-report-new.json","field_summary":[],"release_gate_focus":[]}
+"#,
+        )
+        .expect("sweep history should refresh");
+        commit_repo(temp_dir.path(), "refresh sweep evidence");
+
+        let refreshed =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 3, 1).expect("cycle should build");
+        let refreshed_task = refreshed.selected_task.expect("selected task should exist");
+        assert_eq!(
+            refreshed_task.recovery_step, None,
+            "fresh release-gate and state-sweep evidence should break the old stalled fingerprint"
+        );
+        assert!(
+            refreshed_task
+                .progress_fingerprint
+                .contains("state-sweep:gate-1776000100:sweep-1776000101"),
+            "refreshed fingerprint should carry new evidence timestamps: {}",
+            refreshed_task.progress_fingerprint
+        );
+    }
+
+    #[test]
     fn source_port_frontier_prioritises_dirty_tree_recovery() {
         let temp_dir = source_port_repo();
         fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
@@ -9462,7 +9574,6 @@ mod tests {
         .expect("release gate should write");
         commit_repo(temp_dir.path(), "prepare clean sweep parity repo");
         write_complete_default_mutation_runs(temp_dir.path());
-        let fingerprint = "test-frontier:complete:6906:6905:sweep-parity:state-sweep:state-sweep";
         let run_dir = temp_dir.path().join(".cache/autonomy/source-port-frontier");
         fs::create_dir_all(&run_dir).expect("run dir should exist");
         fs::write(
@@ -9470,8 +9581,21 @@ mod tests {
             r#"{"progress_fingerprint":"stale-newer-cycle-file","stalled":false}"#,
         )
         .expect("stale cycle file should write");
-        write_stalled_repeat(temp_dir.path(), 1, "state-sweep", fingerprint);
-        write_stalled_repeat(temp_dir.path(), 2, "state-sweep", fingerprint);
+        let baseline =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let baseline_task = baseline.selected_task.expect("selected task should exist");
+        write_stalled_repeat(
+            temp_dir.path(),
+            1,
+            "state-sweep",
+            &baseline_task.progress_fingerprint,
+        );
+        write_stalled_repeat(
+            temp_dir.path(),
+            2,
+            "state-sweep",
+            &baseline_task.progress_fingerprint,
+        );
 
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 3, 1).expect("cycle should build");
