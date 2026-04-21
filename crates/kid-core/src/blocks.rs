@@ -282,6 +282,24 @@ pub(crate) struct MetalBlockPushWakeStep {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IronKnightBlockEffectSubAF7A {
+    Smash,
+    Prize,
+    Ice,
+    Metal,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IronKnightBlockBreakerCollisionSubAF7A {
+    pub(crate) next_block_breaker: bool,
+    pub(crate) handled_collision: bool,
+    pub(crate) next_y_velocity: Option<i32>,
+    pub(crate) effect: Option<IronKnightBlockEffectSubAF7A>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShiftingBlockActivationLoc11364 {
     pub(crate) should_play_sound: bool,
     pub(crate) should_spawn_worker: bool,
@@ -1560,6 +1578,75 @@ impl NativeRuntime {
     pub(crate) const BLOCK_DESTROY_DIRECTION_LEFT: u16 = 1;
     pub(crate) const BLOCK_DESTROY_DIRECTION_ABOVE: u16 = 2;
     pub(crate) const BLOCK_DESTROY_DIRECTION_RIGHT: u16 = 3;
+    const IRON_KNIGHT_BLOCK_BREAKER_MIN_Y_VELOCITY_SUB_AF7A: i32 = 0x0004_8000;
+    const IRON_KNIGHT_BLOCK_BREAKER_REBOUND_Y_VELOCITY_SUB_AF7A: i32 = -0x0000_8000;
+
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn iron_knight_block_breaker_collision_sub_AF7A(
+        is_iron_knight: bool,
+        current_block_breaker: bool,
+        y_velocity: i32,
+        solid_collision: bool,
+        block_type: terrain::BlockType,
+    ) -> IronKnightBlockBreakerCollisionSubAF7A {
+        // ASM sub_AF7A (kid.asm:13801): non-Iron-Knight forms and the first
+        // slow hit return zero without touching `Iron_Knight_block_breaker`.
+        if !is_iron_knight
+            || (!current_block_breaker
+                && y_velocity < Self::IRON_KNIGHT_BLOCK_BREAKER_MIN_Y_VELOCITY_SUB_AF7A)
+        {
+            return IronKnightBlockBreakerCollisionSubAF7A {
+                next_block_breaker: current_block_breaker,
+                handled_collision: false,
+                next_y_velocity: None,
+                effect: None,
+            };
+        }
+
+        // ASM loc_AF96 sets `Iron_Knight_block_breaker` before probing the
+        // contacted block with sub_BBE2, so even rejected dispatches keep the
+        // latch for the follow-up collision scan.
+        let next_block_breaker = true;
+        if !solid_collision {
+            return IronKnightBlockBreakerCollisionSubAF7A {
+                next_block_breaker,
+                handled_collision: false,
+                next_y_velocity: None,
+                effect: None,
+            };
+        }
+
+        // ASM off_AFD8 dispatches block types 0..5 only. SolidGhost and
+        // Teleporter jump through sub_AFD4, which unwinds to the unhandled
+        // loc_AFCA return; Metal is handled by loc_110D0 without deletion.
+        let effect = match block_type {
+            terrain::BlockType::Smash => Some(IronKnightBlockEffectSubAF7A::Smash),
+            terrain::BlockType::Prize => Some(IronKnightBlockEffectSubAF7A::Prize),
+            terrain::BlockType::Ice => Some(IronKnightBlockEffectSubAF7A::Ice),
+            terrain::BlockType::Metal => Some(IronKnightBlockEffectSubAF7A::Metal),
+            terrain::BlockType::SolidGhost
+            | terrain::BlockType::Teleporter
+            | terrain::BlockType::Rubber
+            | terrain::BlockType::Shifting
+            | terrain::BlockType::Shooter
+            | terrain::BlockType::Mushroom
+            | terrain::BlockType::Evanescent
+            | terrain::BlockType::Lift
+            | terrain::BlockType::Drill
+            | terrain::BlockType::Deleted
+            | terrain::BlockType::None => None,
+        };
+
+        IronKnightBlockBreakerCollisionSubAF7A {
+            next_block_breaker,
+            handled_collision: effect.is_some(),
+            next_y_velocity: effect
+                .is_some()
+                .then_some(Self::IRON_KNIGHT_BLOCK_BREAKER_REBOUND_Y_VELOCITY_SUB_AF7A),
+            effect,
+        }
+    }
 
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn rubber_block_base_skin_parts_for_sub_10de4(
@@ -3670,6 +3757,87 @@ mod tests {
         assert_eq!(
             NativeRuntime::floating_prize_graphics_spec(terrain::PrizeContent::TenDiamonds),
             None
+        );
+    }
+
+    #[test]
+    fn iron_knight_block_breaker_latch_matches_asm_sub_af7a() {
+        // ASM sub_AF7A/off_AFD8: Iron Knight sets the block-breaker latch on
+        // the first qualifying downward hit, dispatches prize blocks through
+        // loc_1002E, then returns handled with y_vel `$FFFF8000`.
+        let first_hit = NativeRuntime::iron_knight_block_breaker_collision_sub_AF7A(
+            true,
+            false,
+            0x0004_8000,
+            true,
+            terrain::BlockType::Prize,
+        );
+        assert_eq!(
+            first_hit,
+            IronKnightBlockBreakerCollisionSubAF7A {
+                next_block_breaker: true,
+                handled_collision: true,
+                next_y_velocity: Some(-0x0000_8000),
+                effect: Some(IronKnightBlockEffectSubAF7A::Prize),
+            }
+        );
+
+        // ASM loc_AF96: once `Iron_Knight_block_breaker` is set, the next
+        // dispatch skips the `$48000` velocity threshold instead of falling
+        // back into the ordinary block-bounce path.
+        let latched_hit = NativeRuntime::iron_knight_block_breaker_collision_sub_AF7A(
+            true,
+            true,
+            0,
+            true,
+            terrain::BlockType::Smash,
+        );
+        assert_eq!(
+            latched_hit,
+            IronKnightBlockBreakerCollisionSubAF7A {
+                next_block_breaker: true,
+                handled_collision: true,
+                next_y_velocity: Some(-0x0000_8000),
+                effect: Some(IronKnightBlockEffectSubAF7A::Smash),
+            }
+        );
+    }
+
+    #[test]
+    fn iron_knight_block_breaker_ignores_non_break_dispatches_like_off_afd8() {
+        // ASM off_AFD8 routes SolidGhost and Teleporter to sub_AFD4, which
+        // unwinds to loc_AFCA and returns unhandled; Metal is the only
+        // non-breaking slot that still returns handled via loc_110D0.
+        assert_eq!(
+            NativeRuntime::iron_knight_block_breaker_collision_sub_AF7A(
+                true,
+                false,
+                0x0004_8000,
+                true,
+                terrain::BlockType::SolidGhost,
+            ),
+            IronKnightBlockBreakerCollisionSubAF7A {
+                next_block_breaker: true,
+                handled_collision: false,
+                next_y_velocity: None,
+                effect: None,
+            }
+        );
+
+        assert_eq!(
+            NativeRuntime::iron_knight_block_breaker_collision_sub_AF7A(
+                true,
+                false,
+                0x0004_8000,
+                true,
+                terrain::BlockType::Metal,
+            ),
+            IronKnightBlockBreakerCollisionSubAF7A {
+                next_block_breaker: true,
+                handled_collision: true,
+                next_y_velocity: Some(-0x0000_8000),
+                effect: Some(IronKnightBlockEffectSubAF7A::Metal),
+            }
         );
     }
 
