@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-05T00:00:00Z",
+  "updated_at": "2026-04-21T22:28:07Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-tail-clean-through-end",
@@ -93,6 +93,10 @@
       {
         "name": "Frame 34368 was another demo-return hidden-player window",
         "reason": "That was wrong. The divergence sits on the later timeout-restart intro-sequence-1 Start-skip title rebuild, where `title_screen_ready` stayed on the generic 150-frame local gate even though the inherited `loc_1B5CE` title pose should reappear two frames earlier."
+      },
+      {
+        "name": "Issue #137 was actionable from the fresh `issue-137-repro` recording",
+        "reason": "The 2026-04-21 attempt to run `play-native --warp-level 00 --settled --record issue-137-repro` had to be interrupted from the interactive player before `.cache/recordings/issue-137-repro/manifest.json` existed. `verify-recording --slug issue-137-repro` therefore fails before replay, and `.cache/debug/bug-137/level_00_frame_00000.png`, `level_00_frame_00060.png`, and `level_00_frame_00120.png` are title-card captures, not a slope traversal. ASM `sub_8506` / `loc_8518` / `loc_8560` and `sub_902A` / `sub_9386` / `loc_9D22` identify the facing and slope paths to re-check once a settled Level 00 slope repro exists."
       }
     ],
     "required_next_evidence": [
@@ -124,7 +128,9 @@
     ]
   },
   "candidate_promotions": [],
-  "bug_investigation_attempts": {},
+  "bug_investigation_attempts": {
+    "137": 1
+  },
   "stuck_policy": {
     "probe_only_commit_threshold": 2,
     "rule": "After 2 consecutive probe/docs-only commits on the same frontier, the next session must add instrumentation or narrow the scenario before landing another gameplay patch.",
