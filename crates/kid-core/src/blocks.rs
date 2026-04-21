@@ -47,6 +47,18 @@ pub(crate) struct PrizeBlockSpawnFlashLoc102B8 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HelmetCleanupAnimationSub10D3E {
+    pub(crate) allocation_spec: u32,
+    pub(crate) vram_tile: u16,
+    pub(crate) display_enabled: bool,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) animation_script_addr: u32,
+    pub(crate) deletes_after_animation: bool,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundRefcountLoc10792 {
     pub(crate) should_play_sound: bool,
     pub(crate) next_refcount: u8,
@@ -1354,6 +1366,27 @@ impl NativeRuntime {
         }
     }
 
+    #[allow(non_snake_case)]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn helmet_cleanup_animation_sub_10D3E(
+        x_pos: u16,
+        y_pos: u16,
+    ) -> HelmetCleanupAnimationSub10D3E {
+        // ASM sub_10D3E (kid.asm:22653): the transient cleanup worker loads
+        // gfx slot spec `$02000000`, clears `vram_tile(a3)`, sets `$13(a3)`,
+        // copies its cached `$44/$46(a5)` coordinates, runs `stru_102DE`, then
+        // deletes itself as soon as `Hibernate_UntilAnimFinished` returns.
+        HelmetCleanupAnimationSub10D3E {
+            allocation_spec: 0x0200_0000,
+            vram_tile: 0,
+            display_enabled: true,
+            x_pos,
+            y_pos,
+            animation_script_addr: 0x0001_02DE,
+            deletes_after_animation: true,
+        }
+    }
+
     fn floating_item_lifetime(content: terrain::PrizeContent) -> u16 {
         match content {
             terrain::PrizeContent::Diamond => Self::PRIZE_DIAMOND_LIFETIME_FRAMES,
@@ -1396,25 +1429,36 @@ impl NativeRuntime {
         )
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn helmet_cleanup_effect_loc_10cec(
+        content: terrain::PrizeContent,
+        x_pos: u32,
+        y_pos: i64,
+    ) -> Option<BlockDestroyEffect> {
+        if !Self::is_helmet_prize(content) {
+            return None;
+        }
+
+        Some(BlockDestroyEffect {
+            // ASM loc_10CF4 -> loc_10D38 (kid.asm:22608-22644): once the scan
+            // finds an older helmet owner in the `$6C..$8C` range, sub_10CEC
+            // copies its integer x, subtracts 8px from y, then seeds the
+            // shared eight-frame cleanup animation at that adjusted point.
+            x_px: (x_pos >> 16) as u16,
+            y_px: ((y_pos >> 16) as u16).saturating_sub(8),
+            remaining: 8,
+        })
+    }
+
     fn clear_existing_helmet_prizes_for_sub_10cec(&mut self) {
         let mut removed_effects = Vec::new();
         self.floating_items.retain(|item| {
-            if !Self::is_helmet_prize(item.content) {
+            let Some(effect) =
+                Self::helmet_cleanup_effect_loc_10cec(item.content, item.x_pos, item.y_pos)
+            else {
                 return true;
-            }
-
-            let x_px = (item.x_pos >> 16) as u16;
-            let y_px = ((item.y_pos >> 16) as u16).saturating_sub(8);
-            removed_effects.push(BlockDestroyEffect {
-                // ASM loc_10CF4 (kid.asm:22624) loops through the linked
-                // object list until it finds an existing helmet prize in the
-                // `$6C..$8C` object-meta range, then sub_10CEC deletes that
-                // older owner before sub_10D3E spawns a transient animation
-                // at the deleted helmet's x_pos and y_pos-8.
-                x_px,
-                y_px,
-                remaining: 8,
-            });
+            };
+            removed_effects.push(effect);
             false
         });
         // ASM loc_10D38 (kid.asm:22644) is the shared epilogue after the
@@ -1440,18 +1484,65 @@ impl NativeRuntime {
     pub(crate) const BLOCK_DESTROY_DIRECTION_RIGHT: u16 = 3;
 
     #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn rubber_block_base_skin_for_sub_10de4(cell: terrain::Cell) -> Option<u8> {
-        if cell.block_type != terrain::BlockType::Rubber {
+    pub(crate) fn rubber_block_base_skin_parts_for_sub_10de4(
+        block_type: terrain::BlockType,
+        skin: u8,
+    ) -> Option<u8> {
+        if block_type != terrain::BlockType::Rubber {
             return None;
         }
 
         // ASM loc_10E06 (kid.asm:22730): rubber skins `$0C/$0D` share the
         // low animation pair, so the worker seeds `d0` with `$E60C` before the
         // shared `loc_10E0A` toggles between `$E60C` and `$E60D`.
-        Some(match cell.skin {
+        Some(match skin {
             0x0C | 0x0D => 0x0C,
             _ => 0x0E,
         })
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn rubber_block_base_skin_for_sub_10de4(cell: terrain::Cell) -> Option<u8> {
+        Self::rubber_block_base_skin_parts_for_sub_10de4(cell.block_type, cell.skin)
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn rubber_block_animation_slot_matches_sub_10de4(
+        entry_col: u16,
+        entry_row: u16,
+        col: u16,
+        row: u16,
+    ) -> bool {
+        // ASM sub_10DE4 (kid.asm:22717): the worker reuses the stored layout
+        // cell only when both the column and row identify the same block.
+        entry_col == col && entry_row == row
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn rubber_block_animation_wait_state_sub_10de4(
+        frames_until_next_write: u8,
+    ) -> (u8, bool) {
+        // ASM loc_10E0A -> sub_10DE4 (kid.asm:22733-22762): each hibernate
+        // count decrements toward zero, and the next skin write happens only
+        // after the countdown reaches exactly zero.
+        let next_frames_until_next_write = frames_until_next_write.saturating_sub(1);
+        (
+            next_frames_until_next_write,
+            next_frames_until_next_write > 0,
+        )
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn rubber_block_animation_next_step_sub_10de4(phase: u8) -> Option<(u8, u8, bool)> {
+        let next_phase = phase.saturating_add(1);
+        let &(skin_offset, next_delay) =
+            Self::RUBBER_BLOCK_SUB_10DE4_SEQUENCE.get(usize::from(next_phase))?;
+        // ASM sub_10DE4 (kid.asm:22733-22766): the ninth and final write uses
+        // the last `(0, 0)` table entry and then jumps straight to
+        // `Delete_CurrentObject`, so no worker remains after that step.
+        let keeps_running =
+            usize::from(next_phase.saturating_add(1)) < Self::RUBBER_BLOCK_SUB_10DE4_SEQUENCE.len();
+        Some((skin_offset, next_delay, keeps_running))
     }
 
     fn write_rubber_block_skin_for_sub_10de4(
@@ -1492,7 +1583,9 @@ impl NativeRuntime {
             .block_state
             .rubber_block_animations
             .iter_mut()
-            .find(|entry| entry.col == col && entry.row == row)
+            .find(|entry| {
+                Self::rubber_block_animation_slot_matches_sub_10de4(entry.col, entry.row, col, row)
+            })
         {
             existing.base_skin = base_skin;
             existing.phase = 0;
@@ -1520,22 +1613,24 @@ impl NativeRuntime {
         self.block_state
             .rubber_block_animations
             .retain_mut(|entry| {
-                if entry.frames_until_next_write > 0 {
-                    entry.frames_until_next_write -= 1;
-                }
-                if entry.frames_until_next_write > 0 {
+                let (next_frames_until_next_write, should_keep_waiting) =
+                    Self::rubber_block_animation_wait_state_sub_10de4(
+                        entry.frames_until_next_write,
+                    );
+                entry.frames_until_next_write = next_frames_until_next_write;
+                if should_keep_waiting {
                     return true;
                 }
 
-                entry.phase = entry.phase.saturating_add(1);
-                let Some(&(skin_offset, next_delay)) =
-                    Self::RUBBER_BLOCK_SUB_10DE4_SEQUENCE.get(usize::from(entry.phase))
+                let Some((skin_offset, next_delay, keeps_running)) =
+                    Self::rubber_block_animation_next_step_sub_10de4(entry.phase)
                 else {
                     return false;
                 };
+                entry.phase = entry.phase.saturating_add(1);
                 pending_writes.push((entry.col, entry.row, entry.base_skin, skin_offset));
                 entry.frames_until_next_write = next_delay;
-                entry.phase + 1 < Self::RUBBER_BLOCK_SUB_10DE4_SEQUENCE.len() as u8
+                keeps_running
             });
 
         for (col, row, base_skin, skin_offset) in pending_writes {
@@ -3060,5 +3155,933 @@ impl NativeRuntime {
         // immediately after the `OneTimePrize_CheckCollected` function chunk.
         // Native falls back to ordinary Rust control flow here and deliberately
         // does not model the unreachable self-loop.
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::combat::CollisionRectSub1F52;
+    use crate::types::{LiftPlatform, ShooterHeadbuttWorkerKind};
+
+    #[test]
+    fn lift_and_prize_headbutt_workers_shift_block_coordinates_into_pixels() {
+        // ASM loc_FAFE / loc_1002E: `lsl.w #4,d4` scales the block column/row
+        // into gfx pixel coordinates before storing them at `$1A/$1E(a1)`.
+        let lift = NativeRuntime::lift_block_headbutt_worker_loc_FAFE(0x12, 0x0B, 0x00AB_CDEF);
+        assert_eq!(lift.gfx_x_pos, 0x0120);
+        assert_eq!(lift.gfx_y_pos, 0x00B0);
+
+        let prize = NativeRuntime::prize_block_headbutt_worker_loc_1002E(0x09, 0x07, 0x0012_3456);
+        assert_eq!(prize.gfx_x_pos, 0x0090);
+        assert_eq!(prize.gfx_y_pos, 0x0070);
+    }
+
+    #[test]
+    fn prize_block_wobble_tables_match_asm_loc_100da_through_loc_10120() {
+        // ASM loc_100DA/100E8/100F6/10104/10112/10120: inclusive DBF loops
+        // yield 6/6/5/5/4/5 hibernated steps with +/-2px deltas.
+        assert_eq!(
+            NativeRuntime::prize_block_wobble_y_deltas_sub_1007A(),
+            &[
+                -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2,
+                -2, -2, -2, 2, 2, 2, 2, 2,
+            ]
+        );
+        assert_eq!(
+            NativeRuntime::prize_block_wobble_fall_loc_100F6(),
+            &[-2, -2, -2, -2, -2]
+        );
+        assert_eq!(
+            NativeRuntime::prize_block_wobble_rise_loc_10104(),
+            &[2, 2, 2, 2, 2]
+        );
+        assert_eq!(
+            NativeRuntime::prize_block_wobble_fall_loc_10112(),
+            &[-2, -2, -2, -2]
+        );
+        assert_eq!(
+            NativeRuntime::prize_block_wobble_rise_loc_10120(),
+            &[2, 2, 2, 2, 2]
+        );
+        assert_eq!(
+            NativeRuntime::deleted_tile_wobble_y_deltas_loc_10200(),
+            NativeRuntime::prize_block_wobble_y_deltas_sub_1007A()
+        );
+    }
+
+    #[test]
+    fn evanescent_block_reveal_tables_match_asm_loc_1117a_through_loc_11198() {
+        // ASM loc_1117A/11188/11196/11198: `moveq #3,d0` makes each DBF loop
+        // run four hibernated steps, with the alternate branch reusing the
+        // same four-step ascent delta sequence.
+        assert_eq!(
+            NativeRuntime::evanescent_block_reveal_alt_branch_iterations_loc_11196(),
+            4
+        );
+        assert_eq!(
+            NativeRuntime::evanescent_block_reveal_descent_y_deltas_loc_1117A(),
+            &[2, 2, 2, 2]
+        );
+        assert_eq!(
+            NativeRuntime::evanescent_block_reveal_ascent_y_deltas_loc_11188(),
+            &[-2, -2, -2, -2]
+        );
+        assert_eq!(
+            NativeRuntime::evanescent_block_reveal_alt_branch_y_deltas_loc_11198(),
+            NativeRuntime::evanescent_block_reveal_ascent_y_deltas_loc_11188()
+        );
+    }
+
+    #[test]
+    fn prize_collection_helpers_match_asm_loc_feee_through_loc_ff92() {
+        // ASM loc_FEEE/loc_FEFE/loc_FF92: the collection arc advances cached
+        // screen-space FP words, then reprojects the high words back into
+        // world coordinates while DBF keeps looping until the counter
+        // underflows from zero to `$FFFF`.
+        assert_eq!(NativeRuntime::high_word_from_i32(0x1234_5678), 0x1234);
+
+        let arc = NativeRuntime::prize_collected_arc_hibernate_step_loc_FEEE(
+            0x0010_0000,
+            0x0008_0000,
+            0x0001_8000,
+            -0x0000_8000,
+        );
+        assert_eq!(arc.next_screen_x_fp, 0x0011_8000);
+        assert_eq!(arc.next_screen_y_fp, 0x0007_8000);
+        assert_eq!(arc.screen_x_word, 0x0011);
+        assert_eq!(arc.screen_y_word, 0x0007);
+
+        let world = NativeRuntime::prize_collected_world_step_loc_FEFE(arc, 0x0100, 0x0020, 1);
+        assert_eq!(world.world_x_word, 0x0111);
+        assert_eq!(world.world_y_word, 0x0027);
+        assert_eq!(world.next_loop_counter, 0);
+        assert!(world.should_loop);
+
+        let underflow = NativeRuntime::prize_collected_world_step_loc_FEFE(arc, 0x0100, 0x0020, 0);
+        assert_eq!(underflow.next_loop_counter, u16::MAX);
+        assert!(!underflow.should_loop);
+
+        let clock = NativeRuntime::prize_clock_collected_world_step_loc_FF92(
+            0x0010_0000,
+            0x0008_0000,
+            0x0001_8000,
+            -0x0000_8000,
+            0x0100,
+            0x0020,
+            1,
+        );
+        assert_eq!(clock.arc_step, arc);
+        assert_eq!(clock.world_step, world);
+    }
+
+    #[test]
+    fn clock_and_continue_helpers_match_asm_loc_10792_through_loc_10838() {
+        // ASM loc_10792..loc_10838: the first clock plays the looping sound,
+        // countdowns swap animation on `$012C` and delete on zero, the fall
+        // gate is strict on both bottom and collection, and the continue exit
+        // always plays sound `#$6A` before deleting.
+        assert_eq!(
+            NativeRuntime::prize_clock_sound_refcount_loc_10792(0),
+            PrizeClockSoundRefcountLoc10792 {
+                should_play_sound: true,
+                next_refcount: 1,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_clock_sound_refcount_loc_10792(3),
+            PrizeClockSoundRefcountLoc10792 {
+                should_play_sound: false,
+                next_refcount: 4,
+            }
+        );
+
+        assert_eq!(
+            NativeRuntime::prize_clock_countdown_loc_10796(0x012D),
+            PrizeClockCountdownLoc10796 {
+                next_remaining: 0x012C,
+                should_delete: false,
+                should_swap_animation: true,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_clock_countdown_loc_10796(1),
+            PrizeClockCountdownLoc10796 {
+                next_remaining: 0,
+                should_delete: true,
+                should_swap_animation: false,
+            }
+        );
+
+        assert_eq!(
+            NativeRuntime::prize_clock_fall_gate_loc_107B0(0x00EF, 0x00F0, false),
+            PrizeClockFallGateLoc107B0 {
+                stays_active: true,
+                hit_level_bottom: false,
+                collided_with_player: false,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_clock_fall_gate_loc_107B0(0x00F0, 0x00F0, false),
+            PrizeClockFallGateLoc107B0 {
+                stays_active: false,
+                hit_level_bottom: true,
+                collided_with_player: false,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_clock_fall_gate_loc_107B0(0x00EF, 0x00F0, true),
+            PrizeClockFallGateLoc107B0 {
+                stays_active: false,
+                hit_level_bottom: false,
+                collided_with_player: true,
+            }
+        );
+
+        assert_eq!(
+            NativeRuntime::prize_clock_sound_cleanup_loc_107E0(1),
+            PrizeClockSoundCleanupLoc107E0 {
+                next_refcount: 0,
+                should_play_stop_sound: true,
+                should_delete_current_object: true,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_clock_sound_cleanup_loc_107E0(3),
+            PrizeClockSoundCleanupLoc107E0 {
+                next_refcount: 2,
+                should_play_stop_sound: false,
+                should_delete_current_object: true,
+            }
+        );
+
+        assert_eq!(
+            NativeRuntime::prize_continue_countdown_loc_1080A(0x012D),
+            PrizeContinueCountdownLoc1080A {
+                next_remaining: 0x012C,
+                should_delete: false,
+                should_swap_animation: true,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_continue_countdown_loc_1080A(1),
+            PrizeContinueCountdownLoc1080A {
+                next_remaining: 0,
+                should_delete: true,
+                should_swap_animation: false,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_continue_delete_loc_10838(),
+            PrizeContinueDeleteLoc10838 {
+                sound_effect_id: 0x6A,
+                preserves_d0_across_sound_call: true,
+                should_delete_current_object: true,
+            }
+        );
+    }
+
+    #[test]
+    fn floating_prize_fall_helpers_match_asm_loc_103de_through_loc_10c50() {
+        // ASM loc_103DE/loc_10402/loc_10C50: falling adds `#$1388` gravity,
+        // snaps the integer row with `andi.w #$FFF0`, and only on a snapped-row
+        // change clears the first-row grace and advances the layout pointer.
+        let steady = NativeRuntime::floating_prize_fall_step_loc_10C50(
+            0x0030,
+            0x0030_F000,
+            0x0000_1000,
+            true,
+            7,
+            0x0080,
+            0x0040,
+        );
+        assert_eq!(steady.next_y_velocity, 0x0000_2388);
+        assert_eq!(steady.next_y_pos, 0x0031_1388);
+        assert_eq!(steady.next_aligned_y, 0x0030);
+        assert!(steady.next_first_row_grace);
+        assert_eq!(steady.next_level_row, 7);
+        assert_eq!(steady.next_level_layout_offset, 0x0080);
+
+        let crossed = NativeRuntime::floating_prize_fall_step_loc_10C50(
+            0x0030,
+            0x003F_F000,
+            0x0000_1000,
+            true,
+            7,
+            0x0080,
+            0x0040,
+        );
+        assert_eq!(crossed.next_y_velocity, 0x0000_2388);
+        assert_eq!(crossed.next_y_pos, 0x0040_1388);
+        assert_eq!(crossed.next_aligned_y, 0x0040);
+        assert!(!crossed.next_first_row_grace);
+        assert_eq!(crossed.next_level_row, 8);
+        assert_eq!(crossed.next_level_layout_offset, 0x00C0);
+        assert_eq!(
+            NativeRuntime::floating_prize_fall_loc_103DE(
+                0x0030,
+                0x003F_F000,
+                0x0000_1000,
+                true,
+                7,
+                0x0080,
+                0x0040,
+            ),
+            crossed
+        );
+        assert_eq!(
+            NativeRuntime::floating_prize_row_sync_loc_10402(
+                0x0030,
+                0x003F_F000,
+                0x0000_1000,
+                true,
+                7,
+                0x0080,
+                0x0040,
+            ),
+            crossed
+        );
+    }
+
+    #[test]
+    fn floating_prize_metadata_matches_asm_sub_10c78_through_sub_10cec() {
+        // ASM sub_10C78/sub_10CB0/sub_10CEC: diamonds use the shorter `$01F4`
+        // timer, all non-diamond falling prizes use `$0320`, only helmet
+        // prizes take the cleanup path, and that cleanup effect reuses the
+        // deleted helmet's integer x with `y-8`.
+        assert_eq!(
+            NativeRuntime::floating_item_lifetime(terrain::PrizeContent::Diamond),
+            0x01F4
+        );
+        assert_eq!(
+            NativeRuntime::floating_item_lifetime(terrain::PrizeContent::Ankh),
+            0x0320
+        );
+        assert_eq!(
+            NativeRuntime::floating_item_lifetime(terrain::PrizeContent::Skycutter),
+            0x0320
+        );
+
+        assert!(NativeRuntime::is_helmet_prize(
+            terrain::PrizeContent::Skycutter
+        ));
+        assert!(NativeRuntime::is_helmet_prize(
+            terrain::PrizeContent::Micromax
+        ));
+        assert!(!NativeRuntime::is_helmet_prize(
+            terrain::PrizeContent::Diamond
+        ));
+        assert!(!NativeRuntime::is_helmet_prize(terrain::PrizeContent::Ankh));
+        assert!(!NativeRuntime::is_helmet_prize(
+            terrain::PrizeContent::Continue
+        ));
+
+        let cleanup = NativeRuntime::helmet_cleanup_effect_loc_10cec(
+            terrain::PrizeContent::Skycutter,
+            0x0123_0000,
+            0x0042_0000,
+        )
+        .expect("helmet prize should spawn cleanup effect");
+        assert_eq!(cleanup.x_px, 0x0123);
+        assert_eq!(cleanup.y_px, 0x003A);
+        assert_eq!(cleanup.remaining, 8);
+        assert!(
+            NativeRuntime::helmet_cleanup_effect_loc_10cec(
+                terrain::PrizeContent::Ankh,
+                0x0123_0000,
+                0x0042_0000,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn helmet_cleanup_animation_matches_asm_sub_10d3e() {
+        // ASM sub_10D3E (kid.asm:22653): the spawned cleanup worker always
+        // uses gfx slot `$02000000`, clears VRAM tile zero, shows the sprite,
+        // copies the cached word coordinates, runs `stru_102DE`, and deletes
+        // itself immediately after the animation finishes.
+        assert_eq!(
+            NativeRuntime::helmet_cleanup_animation_sub_10D3E(0x0123, 0x003A),
+            HelmetCleanupAnimationSub10D3E {
+                allocation_spec: 0x0200_0000,
+                vram_tile: 0,
+                display_enabled: true,
+                x_pos: 0x0123,
+                y_pos: 0x003A,
+                animation_script_addr: 0x0001_02DE,
+                deletes_after_animation: true,
+            }
+        );
+    }
+
+    #[test]
+    fn one_time_prize_helpers_match_asm_loc_10856_through_loc_1089a() {
+        // ASM loc_10856..loc_1089A: negative headers clear the full forty-entry
+        // table, scans start at `2(a0)` with `d0 = #$27`, matches require both
+        // layout and level, DBF underflows to stop, and the header points at
+        // the next insertion slot rather than the slot just written.
+        let mut entries = [0_u32; 0x28];
+        entries[5] = 0x1111_2222;
+
+        let first = NativeRuntime::one_time_prize_init_loc_10856(-1, entries);
+        assert!(first.was_first_prize_initialisation);
+        assert_eq!(first.next_write_index, 0);
+        assert_eq!(first.entries, [0; 0x28]);
+
+        let resumed = NativeRuntime::one_time_prize_init_loc_10856(5, entries);
+        assert!(!resumed.was_first_prize_initialisation);
+        assert_eq!(resumed.next_write_index, 5);
+        assert_eq!(resumed.entries[5], 0x1111_2222);
+
+        assert_eq!(
+            NativeRuntime::one_time_prize_scan_start_loc_1086A(0x3456),
+            OneTimePrizeScanStartLoc1086A {
+                remaining_entry_checks: 0x27,
+                prize_layout_addr: 0x3456,
+                entry_byte_offset_from_table_base: 2,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::one_time_prize_entry_check_loc_10876(0x1234_0005, 0x1234, 0x0005),
+            OneTimePrizeEntryCheckLoc10876 {
+                entry_layout_addr: 0x1234,
+                entry_level_id: 0x0005,
+                layout_addr_matches: true,
+                level_id_matches: true,
+                should_init_prize_diamond: true,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::one_time_prize_entry_check_loc_10876(0x1234_0005, 0x1234, 0x0006),
+            OneTimePrizeEntryCheckLoc10876 {
+                entry_layout_addr: 0x1234,
+                entry_level_id: 0x0005,
+                layout_addr_matches: true,
+                level_id_matches: false,
+                should_init_prize_diamond: false,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::one_time_prize_scan_step_loc_10886(0, 2),
+            OneTimePrizeScanStepLoc10886 {
+                next_remaining_entry_checks: u16::MAX,
+                next_entry_byte_offset_from_table_base: 6,
+                should_continue_scan: false,
+            }
+        );
+
+        let stored = NativeRuntime::one_time_prize_store_loc_1089A(0x27, [0; 0x28], 0xBEEF, 0x0012);
+        assert_eq!(stored.next_write_index, 0);
+        assert_eq!(stored.entries[0x27], 0xBEEF_0012);
+    }
+
+    #[test]
+    fn prize_10_diamonds_helpers_match_asm_loc_108ee_through_loc_109c0() {
+        // ASM loc_108E8..loc_109C0: the burst table only spawns on the listed
+        // frames, each spawned worker copies the owner position and seeds
+        // `(word << 16) >> 3` velocities, and later worker steps reproject the
+        // cached camera-relative FP words through the camera integers.
+        assert_eq!(
+            NativeRuntime::prize_10_diamonds_init_loc_108E8(),
+            Prize10DiamondsInitLoc108E8 {
+                cleared_worker_slots: [0; 10],
+            }
+        );
+
+        let first = NativeRuntime::prize_10_diamonds_spawn_loc_108EE(0, 0x0120, 0x00B0);
+        assert_eq!(first.burst_table_index, Some(0));
+        assert!(first.should_hibernate_one_frame);
+        assert!(first.should_scan_workers);
+        assert!(first.should_spawn_worker);
+        assert_eq!(first.allocation_spec, Some(0x00FE_0000));
+        assert_eq!(first.sound_effect_label, Some("sfx_Diamond_prize"));
+        assert_eq!(first.priority, Some(1));
+        assert_eq!(first.display_enabled, Some(true));
+        assert_eq!(
+            first.animation_script_label,
+            Some("LnkTo_unk_E1046-Data_Index")
+        );
+        assert_eq!(first.x_pos, Some(0x0120));
+        assert_eq!(first.y_pos, Some(0x00B0));
+        assert_eq!(first.x_velocity, Some(-20_i32 << 13));
+        assert_eq!(first.y_velocity, Some(-36_i32 << 13));
+        assert_eq!(first.is_moved, Some(true));
+        assert_eq!(first.lifetime_frames, Some(0x0078));
+
+        let skipped = NativeRuntime::prize_10_diamonds_spawn_loc_108EE(4, 0x0120, 0x00B0);
+        assert!(!skipped.should_spawn_worker);
+        assert_eq!(skipped.burst_table_index, None);
+        assert_eq!(skipped.x_velocity, None);
+        assert_eq!(skipped.y_velocity, None);
+
+        let tail = NativeRuntime::prize_10_diamonds_spawn_loc_108EE(29, 0x0120, 0x00B0);
+        assert_eq!(tail.burst_table_index, Some(9));
+        assert_eq!(tail.x_velocity, Some(6_i32 << 13));
+        assert_eq!(tail.y_velocity, Some(-8_i32 << 13));
+
+        let past_end = NativeRuntime::prize_10_diamonds_spawn_loc_108EE(30, 0x0120, 0x00B0);
+        assert!(!past_end.should_spawn_worker);
+        assert_eq!(past_end.burst_table_index, None);
+
+        assert_eq!(
+            NativeRuntime::prize_10_diamonds_worker_scan_start_loc_10960(),
+            Prize10DiamondsWorkerScanStartLoc10960 {
+                first_worker_slot_byte_offset: 0,
+                worker_slot_stride_bytes: 4,
+                worker_table_len_bytes: 0x28,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(0x0070),
+            Prize10DiamondsWorkerCountdownGateLoc10984 {
+                should_clear_display_enabled: true,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(0x006F),
+            Prize10DiamondsWorkerCountdownGateLoc10984 {
+                should_clear_display_enabled: false,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_10_diamonds_worker_init_loc_10988(0x0100_0000, 0x0010_0000, 0, 0),
+            Prize10DiamondsWorkerInitLoc10988 {
+                camera_relative_x_pos: 0x0100_0000,
+                camera_relative_y_pos: 0x0010_0000,
+                x_velocity: 0x0001_3000,
+                y_velocity: 0x0001_0000,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::prize_10_diamonds_worker_step_loc_109C0(
+                0x0001_0000,
+                -0x0000_8000,
+                0x0000_8000,
+                0x0001_0000,
+                0x0020,
+                0x0010,
+            ),
+            Prize10DiamondsWorkerStepLoc109C0 {
+                next_camera_relative_x_pos: 0x0001_8000,
+                next_camera_relative_y_pos: 0x0000_8000,
+                next_x_pos: 0x0021,
+                next_y_pos: 0x0010,
+            }
+        );
+    }
+
+    #[test]
+    fn lift_platform_and_block_helpers_match_asm_sub_fd00_and_loc_113f4_through_loc_1141e() {
+        // ASM sub_FD00/loc_FCBE/loc_113F4/loc_1141E: the vertical step is a
+        // wrapping FP add, lift platforms only count changed integer rows, the
+        // velocity flips from subtracting `$708` to adding `$7D0` after more
+        // than `$32` moved rows, and the rise/fall workers use DBF tails.
+        assert_eq!(
+            NativeRuntime::lift_platform_vertical_step_sub_FD00(0xFFFF_0000, 0x0002_0000),
+            0x0001_0000
+        );
+
+        let mut rising = LiftPlatform {
+            x_pos: 0,
+            y_pos: 0x0010_0000,
+            y_velocity: 0,
+            age: 0,
+            last_integer_y: 0x0010,
+            moved_y_steps: 0,
+            width_px: 16,
+            source_col: 0,
+            source_row: 0,
+            block_erased: false,
+        };
+        assert!(NativeRuntime::step_lift_platform_sub_FCA6(
+            &mut rising,
+            0x0020
+        ));
+        assert_eq!(rising.age, 1);
+        assert_eq!(rising.y_pos, 0x0010_0000);
+        assert_eq!(rising.last_integer_y, 0x0010);
+        assert_eq!(rising.moved_y_steps, 0);
+        assert_eq!(rising.y_velocity, -0x0708);
+
+        let mut falling = LiftPlatform {
+            x_pos: 0,
+            y_pos: 0x0020_0000,
+            y_velocity: 0x0100,
+            age: 2,
+            last_integer_y: 0x001F,
+            moved_y_steps: 0x33,
+            width_px: 16,
+            source_col: 0,
+            source_row: 0,
+            block_erased: false,
+        };
+        assert!(!NativeRuntime::step_lift_platform_sub_FCA6(
+            &mut falling,
+            0x0020
+        ));
+        assert_eq!(falling.age, 3);
+        assert_eq!(falling.last_integer_y, 0x0020);
+        assert_eq!(falling.moved_y_steps, 0x34);
+        assert_eq!(falling.y_velocity, 0x08D0);
+
+        assert_eq!(
+            NativeRuntime::lift_block_rise_step_loc_113F4(0x0040, 7),
+            LiftBlockRiseStepLoc113F4 {
+                next_y_pos: 0x003E,
+                next_loop_counter: 6,
+                should_hibernate_one_frame: true,
+                should_repeat_loop: true,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::lift_block_rise_step_loc_113F4(0x0040, 0),
+            LiftBlockRiseStepLoc113F4 {
+                next_y_pos: 0x003E,
+                next_loop_counter: u16::MAX,
+                should_hibernate_one_frame: true,
+                should_repeat_loop: false,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::lift_block_fall_step_loc_1141E(0x0050, 1),
+            LiftBlockFallStepLoc1141E {
+                next_y_pos: 0x004F,
+                next_loop_counter: 0,
+                should_hibernate_one_frame: true,
+                should_delete_current_object: false,
+                should_repeat_loop: true,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::lift_block_fall_step_loc_1141E(0x0050, 0),
+            LiftBlockFallStepLoc1141E {
+                next_y_pos: 0x004F,
+                next_loop_counter: u16::MAX,
+                should_hibernate_one_frame: true,
+                should_delete_current_object: true,
+                should_repeat_loop: false,
+            }
+        );
+    }
+
+    #[test]
+    fn shooter_headbutt_helpers_match_asm_loc_11448_through_loc_11474() {
+        // ASM loc_11448..loc_11474: the left support probe skips column zero,
+        // the centre gate restores the original column and suppresses the
+        // struck-cell worker after any support spawn, and the centre worker
+        // carries the struck cell as `(col,row)` with age zero.
+        assert_eq!(
+            NativeRuntime::shooter_left_support_probe_loc_11448(0, true),
+            ShooterLeftSupportProbeLoc11448 {
+                should_probe_support: false,
+                support_col: None,
+                next_block_col_for_right_probe: 1,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::shooter_left_support_probe_loc_11448(3, true),
+            ShooterLeftSupportProbeLoc11448 {
+                should_probe_support: true,
+                support_col: Some(2),
+                next_block_col_for_right_probe: 4,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::shooter_left_support_probe_loc_11448(3, false),
+            ShooterLeftSupportProbeLoc11448 {
+                should_probe_support: false,
+                support_col: None,
+                next_block_col_for_right_probe: 4,
+            }
+        );
+
+        assert_eq!(
+            NativeRuntime::shooter_center_worker_gate_loc_1146E(5, false),
+            ShooterCenterWorkerGateLoc1146E {
+                restored_block_col: 4,
+                should_queue_center_worker: true,
+            }
+        );
+        assert_eq!(
+            NativeRuntime::shooter_center_worker_gate_loc_1146E(5, true),
+            ShooterCenterWorkerGateLoc1146E {
+                restored_block_col: 4,
+                should_queue_center_worker: false,
+            }
+        );
+
+        let worker = NativeRuntime::shooter_center_worker_loc_11474(6, 9);
+        assert_eq!(worker.col, 6);
+        assert_eq!(worker.row, 9);
+        assert_eq!(worker.age, 0);
+        assert_eq!(worker.kind, ShooterHeadbuttWorkerKind::Center);
+    }
+
+    #[test]
+    fn shooter_collision_rects_match_asm_sub_f568_direction_windows() {
+        // ASM sub_F568/loc_F5B0/loc_F62C/loc_F67E/loc_F6D2: a shooter that is
+        // two blocks inside every expanded window edge emits two rectangles per
+        // direction, and each direction bit keeps its own edge/window gate.
+        let hitbox = CollisionRectSub1F52 {
+            left_px: 64,
+            right_px: 128,
+            top_px: 64,
+            bottom_px: 128,
+        };
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(5, 5, 0x0F), (2, 5, 0x0F)]),
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 82,
+                    right_px: 94,
+                    top_px: 67,
+                    bottom_px: 79,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 85,
+                    right_px: 91,
+                    top_px: 71,
+                    bottom_px: 79,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 96,
+                    right_px: 104,
+                    top_px: 81,
+                    bottom_px: 93,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 96,
+                    right_px: 108,
+                    top_px: 84,
+                    bottom_px: 90,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 82,
+                    right_px: 94,
+                    top_px: 95,
+                    bottom_px: 103,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 85,
+                    right_px: 91,
+                    top_px: 95,
+                    bottom_px: 107,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 72,
+                    right_px: 80,
+                    top_px: 81,
+                    bottom_px: 93,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 68,
+                    right_px: 80,
+                    top_px: 84,
+                    bottom_px: 90,
+                },
+            ]
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(5, 5, 0x02)]),
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 96,
+                    right_px: 104,
+                    top_px: 81,
+                    bottom_px: 93,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 96,
+                    right_px: 108,
+                    top_px: 84,
+                    bottom_px: 90,
+                },
+            ]
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(5, 5, 0x01)]),
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 82,
+                    right_px: 94,
+                    top_px: 67,
+                    bottom_px: 79,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 85,
+                    right_px: 91,
+                    top_px: 71,
+                    bottom_px: 79,
+                },
+            ]
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(5, 5, 0x04)]),
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 82,
+                    right_px: 94,
+                    top_px: 95,
+                    bottom_px: 103,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 85,
+                    right_px: 91,
+                    top_px: 95,
+                    bottom_px: 107,
+                },
+            ]
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(5, 5, 0x08)]),
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 72,
+                    right_px: 80,
+                    top_px: 81,
+                    bottom_px: 93,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 68,
+                    right_px: 80,
+                    top_px: 84,
+                    bottom_px: 90,
+                },
+            ]
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(3, 5, 0x0F), (5, 3, 0x0F)]),
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 64,
+                    right_px: 72,
+                    top_px: 81,
+                    bottom_px: 93,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 64,
+                    right_px: 76,
+                    top_px: 84,
+                    bottom_px: 90,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 82,
+                    right_px: 94,
+                    top_px: 63,
+                    bottom_px: 71,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 85,
+                    right_px: 91,
+                    top_px: 63,
+                    bottom_px: 75,
+                },
+            ]
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(8, 5, 0x02)]),
+            Vec::<CollisionRectSub1F52>::new()
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(5, 8, 0x04)]),
+            Vec::<CollisionRectSub1F52>::new()
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(4, 5, 0x08)]),
+            Vec::<CollisionRectSub1F52>::new()
+        );
+    }
+
+    #[test]
+    fn rubber_block_worker_lookup_reuses_only_the_same_layout_cell() {
+        // ASM sub_10DE4 (kid.asm:22717): the worker is keyed by the exact
+        // `(col,row)` layout cell stored in `$44/$46(a5)`, so sharing either
+        // axis alone must not reuse an existing animation slot.
+        assert!(
+            NativeRuntime::rubber_block_animation_slot_matches_sub_10de4(0x12, 0x07, 0x12, 0x07)
+        );
+        assert!(
+            !NativeRuntime::rubber_block_animation_slot_matches_sub_10de4(0x12, 0x07, 0x13, 0x07)
+        );
+        assert!(
+            !NativeRuntime::rubber_block_animation_slot_matches_sub_10de4(0x12, 0x07, 0x12, 0x08)
+        );
+        assert!(
+            !NativeRuntime::rubber_block_animation_slot_matches_sub_10de4(0x12, 0x07, 0x13, 0x08)
+        );
+    }
+
+    #[test]
+    fn rubber_block_wait_gate_only_releases_when_the_hibernate_count_reaches_zero() {
+        // ASM loc_10E0A (kid.asm:22733-22762): the worker hibernates for the
+        // programmed count, then performs the next `sub_11530` write exactly
+        // on the zero-crossing frame.
+        assert_eq!(
+            NativeRuntime::rubber_block_animation_wait_state_sub_10de4(2),
+            (1, true)
+        );
+        assert_eq!(
+            NativeRuntime::rubber_block_animation_wait_state_sub_10de4(1),
+            (0, false)
+        );
+        assert_eq!(
+            NativeRuntime::rubber_block_animation_wait_state_sub_10de4(0),
+            (0, false)
+        );
+    }
+
+    #[test]
+    fn rubber_block_sequence_keeps_running_until_the_final_ninth_write() {
+        // ASM sub_10DE4 (kid.asm:22733-22766): the `(1,3)` step is followed by
+        // a final `(0,3)` write, but the last `(0,0)` table entry immediately
+        // falls into `Delete_CurrentObject` instead of keeping the worker.
+        assert_eq!(
+            NativeRuntime::rubber_block_animation_next_step_sub_10de4(6),
+            Some((0, 3, true))
+        );
+        assert_eq!(
+            NativeRuntime::rubber_block_animation_next_step_sub_10de4(7),
+            Some((0, 0, false))
+        );
+        assert_eq!(
+            NativeRuntime::rubber_block_animation_next_step_sub_10de4(8),
+            None
+        );
+    }
+
+    #[test]
+    fn rubber_block_base_skin_matches_asm_sub_10de4_skin_split() {
+        // ASM sub_10DE4 / loc_10E06 (kid.asm:22717-22730): only rubber blocks
+        // animate here, skins `$0C/$0D` collapse to base `$0C`, and the rest
+        // of the rubber family seeds the `$0E/$0F` pair.
+        assert_eq!(
+            NativeRuntime::rubber_block_base_skin_parts_for_sub_10de4(
+                terrain::BlockType::Rubber,
+                0x0C,
+            ),
+            Some(0x0C)
+        );
+        assert_eq!(
+            NativeRuntime::rubber_block_base_skin_parts_for_sub_10de4(
+                terrain::BlockType::Rubber,
+                0x0D,
+            ),
+            Some(0x0C)
+        );
+        assert_eq!(
+            NativeRuntime::rubber_block_base_skin_parts_for_sub_10de4(
+                terrain::BlockType::Rubber,
+                0x0E,
+            ),
+            Some(0x0E)
+        );
+        assert_eq!(
+            NativeRuntime::rubber_block_base_skin_parts_for_sub_10de4(
+                terrain::BlockType::Evanescent,
+                0x0C,
+            ),
+            None
+        );
     }
 }
