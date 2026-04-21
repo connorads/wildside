@@ -2535,6 +2535,20 @@ mod tests {
     }
 
     #[test]
+    fn smash_block_nibble_zero_dispatches_to_off_bb80_entry_zero() {
+        // ASM sub_BBE2 loc_BC26 (kid.asm:15167) maps block nibble `$0` to
+        // dispatch offset `$00`, so sub_BB54 indexes off_BB80 entry 0:
+        // `j_Block_LoadSmashBits`.
+        let data = [0xE0, 0x34];
+        let grid = BlockGrid::from_level_layout(&data, 1, 1);
+        let probe = kid_block_interaction_probe_sub_BBE2(&grid, 0, 0)
+            .expect("smash block should be an interactive block");
+
+        assert_eq!(grid.cell_at(0, 0).block_type, BlockType::Smash);
+        assert_eq!(probe.dispatch_table_offset, 0x00);
+    }
+
+    #[test]
     fn cell_from_be_bytes_parses_spikes() {
         // 0x70 = 0b0_111_0000 → collision=7 (spikes)
         let cell = Cell::from_be_bytes(0x70, 0x00);
