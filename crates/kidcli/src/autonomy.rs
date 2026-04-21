@@ -6512,7 +6512,7 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
             .get("timestamp")
             .and_then(serde_json::Value::as_str)
             .unwrap_or("unknown");
-        let report_path = timestamped_release_gate_report_path(&latest_path, timestamp);
+        let report_path = existing_timestamped_release_gate_report_path(&latest_path, timestamp);
         let report_detail = report_path
             .as_ref()
             .map(|path| format!(", report={}", path.display()))
@@ -6530,6 +6530,13 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
             .unwrap_or(detail);
         CheckOutcome::failing(detail, Some(latest_path))
     }
+}
+
+fn existing_timestamped_release_gate_report_path(
+    latest_path: &Path,
+    timestamp: &str,
+) -> Option<PathBuf> {
+    timestamped_release_gate_report_path(latest_path, timestamp).filter(|path| path.is_file())
 }
 
 fn timestamped_release_gate_report_path(latest_path: &Path, timestamp: &str) -> Option<PathBuf> {
@@ -8335,6 +8342,41 @@ mod tests {
     }
 
     #[test]
+    fn release_gate_signal_uses_latest_json_when_timestamped_report_is_missing() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        let latest_path = gate_dir.join("latest.json");
+        fs::write(
+            &latest_path,
+            r#"
+            {
+              "timestamp": "1776704737",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": []
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+        assert!(outcome.ok);
+        assert!(
+            outcome.detail.contains("timestamp 1776704737"),
+            "signal should still preserve the release-gate timestamp"
+        );
+        assert!(
+            !outcome.detail.contains("1776704737/report.json"),
+            "signal should not cite a missing timestamped report"
+        );
+        assert_eq!(
+            outcome.artefact_path.as_deref(),
+            Some(latest_path.as_path())
+        );
+    }
+
+    #[test]
     fn release_gate_value_normalisation_preserves_decimal_counts() {
         assert_eq!(normalise_release_gate_value("000C"), "0x000c");
         assert_eq!(normalise_release_gate_value("0x002C"), "0x002c");
@@ -9207,6 +9249,10 @@ mod tests {
             .expect("docs dir should exist");
         fs::create_dir_all(&gate_dir).expect("gate dir should exist");
         fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        let gate_report_dir = gate_dir.join("1776704737");
+        fs::create_dir_all(&gate_report_dir).expect("timestamped gate dir should exist");
+        fs::write(gate_report_dir.join("report.json"), "{}")
+            .expect("timestamped gate report should write");
         write_source_port_frontier(temp_dir.path(), false, "complete");
         fs::write(
             gate_dir.join("latest.json"),
