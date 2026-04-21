@@ -54,15 +54,13 @@ pub(crate) fn run_release_gate(
     target: ReleaseGateTarget,
     max_failures: usize,
 ) -> Result<()> {
-    let run_dir = repo_root
-        .join(".cache/release-gate")
-        .join(target.slug())
-        .join(unix_timestamp());
+    let timestamp = unix_timestamp();
+    let (run_dir, report_path) = release_gate_report_paths(repo_root, target, &timestamp);
     fs::create_dir_all(&run_dir)
         .with_context(|| format!("failed to create {}", run_dir.display()))?;
 
     let mut report = ReleaseGateReport {
-        timestamp: unix_timestamp(),
+        timestamp,
         target: target.slug().to_string(),
         passed: false,
         steps: Vec::new(),
@@ -79,7 +77,6 @@ pub(crate) fn run_release_gate(
     };
 
     report.passed = result.is_ok();
-    let report_path = run_dir.join("report.json");
     fs::write(&report_path, serde_json::to_vec_pretty(&report)?)
         .with_context(|| format!("failed to write {}", report_path.display()))?;
 
@@ -384,6 +381,19 @@ fn unix_timestamp() -> String {
     format!("{}", since_epoch.as_secs())
 }
 
+fn release_gate_report_paths(
+    repo_root: &Path,
+    target: ReleaseGateTarget,
+    timestamp: &str,
+) -> (PathBuf, PathBuf) {
+    let run_dir = repo_root
+        .join(".cache/release-gate")
+        .join(target.slug())
+        .join(timestamp);
+    let report_path = run_dir.join("report.json");
+    (run_dir, report_path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -416,6 +426,26 @@ mod tests {
         assert_eq!(
             state_sweep_failed_detail(repo_root, &report),
             "state sweep reported 2 failed levels and 1 errors (report=/tmp/kc/.cache/sweep-runs/1776794000/report.json)"
+        );
+    }
+
+    #[test]
+    fn release_gate_report_path_uses_report_timestamp() {
+        let repo_root = Path::new("/tmp/kc");
+
+        let (run_dir, report_path) = release_gate_report_paths(
+            repo_root,
+            ReleaseGateTarget::OnePlayerAccurate,
+            "1776796430",
+        );
+
+        assert_eq!(
+            run_dir,
+            PathBuf::from("/tmp/kc/.cache/release-gate/1p-accurate/1776796430")
+        );
+        assert_eq!(
+            report_path,
+            PathBuf::from("/tmp/kc/.cache/release-gate/1p-accurate/1776796430/report.json")
         );
     }
 }
