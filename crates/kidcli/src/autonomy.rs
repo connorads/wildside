@@ -6562,12 +6562,23 @@ fn extract_release_gate_failed_checkpoint(detail: &str) -> Option<String> {
 
 fn normalise_release_gate_value(raw: &str) -> String {
     let trimmed = raw.trim();
-    let hex = trimmed.strip_prefix("0x").unwrap_or(trimmed);
-    if !hex.is_empty() && hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
-        format!("0x{}", hex.to_ascii_lowercase())
+    if let Some(hex) = trimmed.strip_prefix("0x") {
+        return format!("0x{}", hex.to_ascii_lowercase());
+    }
+    if looks_like_fixed_width_hex(trimmed) {
+        format!("0x{}", trimmed.to_ascii_lowercase())
     } else {
         trimmed.to_ascii_lowercase()
     }
+}
+
+fn looks_like_fixed_width_hex(value: &str) -> bool {
+    !value.is_empty()
+        && value.chars().all(|ch| ch.is_ascii_hexdigit())
+        && (value
+            .chars()
+            .any(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_digit())
+            || (value.len() > 1 && value.starts_with('0')))
 }
 
 fn extract_release_gate_failed_values(detail: &str) -> Option<(String, String)> {
@@ -7597,8 +7608,9 @@ mod tests {
         evaluate_capabilities, evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
         fingerprint_for_capabilities, is_sweep_refresh_commit, latest_release_gate_failure_detail,
         latest_release_gate_signal, latest_state_sweep_signal, load_source_port_frontier_state,
-        parse_recent_commit_summaries, render_source_port_next_agent_note, select_next_task,
-        source_port_frontier_sweep_task, source_port_next_agent_note, sweep_refresh_streak,
+        normalise_release_gate_value, parse_recent_commit_summaries,
+        render_source_port_next_agent_note, select_next_task, source_port_frontier_sweep_task,
+        source_port_next_agent_note, sweep_refresh_streak,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -7973,6 +7985,14 @@ mod tests {
             outcome.detail.contains("title@360"),
             "signal should include the failed step detail"
         );
+    }
+
+    #[test]
+    fn release_gate_value_normalisation_preserves_decimal_counts() {
+        assert_eq!(normalise_release_gate_value("000C"), "0x000c");
+        assert_eq!(normalise_release_gate_value("0x002C"), "0x002c");
+        assert_eq!(normalise_release_gate_value("3"), "3");
+        assert_eq!(normalise_release_gate_value("120"), "120");
     }
 
     #[test]

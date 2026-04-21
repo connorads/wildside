@@ -104,12 +104,23 @@ pub(super) fn extract_release_gate_failed_checkpoint(detail: &str) -> Option<Str
 
 pub(super) fn normalise_release_gate_value(raw: &str) -> String {
     let trimmed = raw.trim();
-    let hex = trimmed.strip_prefix("0x").unwrap_or(trimmed);
-    if !hex.is_empty() && hex.chars().all(|ch| ch.is_ascii_hexdigit()) {
-        format!("0x{}", hex.to_ascii_lowercase())
+    if let Some(hex) = trimmed.strip_prefix("0x") {
+        return format!("0x{}", hex.to_ascii_lowercase());
+    }
+    if looks_like_fixed_width_hex(trimmed) {
+        format!("0x{}", trimmed.to_ascii_lowercase())
     } else {
         trimmed.to_ascii_lowercase()
     }
+}
+
+fn looks_like_fixed_width_hex(value: &str) -> bool {
+    !value.is_empty()
+        && value.chars().all(|ch| ch.is_ascii_hexdigit())
+        && (value
+            .chars()
+            .any(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_digit())
+            || (value.len() > 1 && value.starts_with('0')))
 }
 
 pub(super) fn extract_release_gate_failed_values(detail: &str) -> Option<(String, String)> {

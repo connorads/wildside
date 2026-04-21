@@ -15,6 +15,7 @@ use gameplay::{check_jump_assertions, check_walk_right_assertions};
 use release_gate::{
     ReleaseGateFieldFocus, extract_release_gate_failed_field,
     extract_release_gate_scenario_level_id, format_release_gate_focus_summary,
+    normalise_release_gate_value,
 };
 
 use super::*;
@@ -2953,6 +2954,14 @@ mod tests {
             extract_release_gate_failed_field(detail).as_deref(),
             Some("game_mode")
         );
+    }
+
+    #[test]
+    fn normalises_release_gate_values_without_turning_decimal_counts_into_hex() {
+        assert_eq!(normalise_release_gate_value("000C"), "0x000c");
+        assert_eq!(normalise_release_gate_value("0x002C"), "0x002c");
+        assert_eq!(normalise_release_gate_value("3"), "3");
+        assert_eq!(normalise_release_gate_value("120"), "120");
     }
 
     #[test]
