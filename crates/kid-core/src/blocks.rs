@@ -47,6 +47,14 @@ pub(crate) struct PrizeBlockSpawnFlashLoc102B8 {
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FloatingPrizeGraphicsSpec {
+    pub(crate) object_meta: u16,
+    pub(crate) palette_line: u8,
+    pub(crate) animation_script_addr: u32,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HelmetCleanupAnimationSub10D3E {
     pub(crate) allocation_spec: u32,
     pub(crate) vram_tile: u16,
@@ -1429,6 +1437,74 @@ impl NativeRuntime {
                 | terrain::PrizeContent::Maniaxe
                 | terrain::PrizeContent::Micromax
         )
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn floating_prize_graphics_spec(
+        content: terrain::PrizeContent,
+    ) -> Option<FloatingPrizeGraphicsSpec> {
+        // ASM PrizeDiamond_Init (kid.asm:21604) uses palette line 0 and
+        // `stru_10D6E`; ASM sub_10CB0 (kid.asm:22600) gives every helmet
+        // palette line 3 before each PrizeHelmet* routine selects its own
+        // `stru_106D0..stru_10700` animation script.
+        let spec = match content {
+            terrain::PrizeContent::Diamond => FloatingPrizeGraphicsSpec {
+                object_meta: 0x0064,
+                palette_line: 0,
+                animation_script_addr: 0x0001_0D6E,
+            },
+            terrain::PrizeContent::Skycutter => FloatingPrizeGraphicsSpec {
+                object_meta: 0x006C,
+                palette_line: 3,
+                animation_script_addr: 0x0001_06DC,
+            },
+            terrain::PrizeContent::Cyclone => FloatingPrizeGraphicsSpec {
+                object_meta: 0x0070,
+                palette_line: 3,
+                animation_script_addr: 0x0001_06E8,
+            },
+            terrain::PrizeContent::RedStealth => FloatingPrizeGraphicsSpec {
+                object_meta: 0x0074,
+                palette_line: 3,
+                animation_script_addr: 0x0001_06F4,
+            },
+            terrain::PrizeContent::Eyeclops => FloatingPrizeGraphicsSpec {
+                object_meta: 0x0078,
+                palette_line: 3,
+                animation_script_addr: 0x0001_06EE,
+            },
+            terrain::PrizeContent::Juggernaut => FloatingPrizeGraphicsSpec {
+                object_meta: 0x007C,
+                palette_line: 3,
+                animation_script_addr: 0x0001_06D6,
+            },
+            terrain::PrizeContent::IronKnight => FloatingPrizeGraphicsSpec {
+                object_meta: 0x0080,
+                palette_line: 3,
+                animation_script_addr: 0x0001_06FA,
+            },
+            terrain::PrizeContent::Berzerker => FloatingPrizeGraphicsSpec {
+                object_meta: 0x0084,
+                palette_line: 3,
+                animation_script_addr: 0x0001_06E2,
+            },
+            terrain::PrizeContent::Maniaxe => FloatingPrizeGraphicsSpec {
+                object_meta: 0x0088,
+                palette_line: 3,
+                animation_script_addr: 0x0001_06D0,
+            },
+            terrain::PrizeContent::Micromax => FloatingPrizeGraphicsSpec {
+                object_meta: 0x008C,
+                palette_line: 3,
+                animation_script_addr: 0x0001_0700,
+            },
+            terrain::PrizeContent::Points10000
+            | terrain::PrizeContent::Ankh
+            | terrain::PrizeContent::Clock
+            | terrain::PrizeContent::Continue
+            | terrain::PrizeContent::TenDiamonds => return None,
+        };
+        Some(spec)
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -3488,6 +3564,112 @@ mod tests {
                 0x0042_0000,
             )
             .is_none()
+        );
+    }
+
+    #[test]
+    fn floating_prize_graphics_specs_match_asm_prize_initialisers() {
+        // ASM PrizeDiamond_Init and PrizeHelmet* initialisers choose the
+        // content-specific sprite scripts before the shared fall/collision
+        // loops run; #136's renderer fix should consume this table instead of
+        // placeholder colours.
+        assert_eq!(
+            NativeRuntime::floating_prize_graphics_spec(terrain::PrizeContent::Diamond),
+            Some(FloatingPrizeGraphicsSpec {
+                object_meta: 0x0064,
+                palette_line: 0,
+                animation_script_addr: 0x0001_0D6E,
+            })
+        );
+
+        let helmet_specs = [
+            (
+                terrain::PrizeContent::Skycutter,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x006C,
+                    palette_line: 3,
+                    animation_script_addr: 0x0001_06DC,
+                },
+            ),
+            (
+                terrain::PrizeContent::Cyclone,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x0070,
+                    palette_line: 3,
+                    animation_script_addr: 0x0001_06E8,
+                },
+            ),
+            (
+                terrain::PrizeContent::RedStealth,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x0074,
+                    palette_line: 3,
+                    animation_script_addr: 0x0001_06F4,
+                },
+            ),
+            (
+                terrain::PrizeContent::Eyeclops,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x0078,
+                    palette_line: 3,
+                    animation_script_addr: 0x0001_06EE,
+                },
+            ),
+            (
+                terrain::PrizeContent::Juggernaut,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x007C,
+                    palette_line: 3,
+                    animation_script_addr: 0x0001_06D6,
+                },
+            ),
+            (
+                terrain::PrizeContent::IronKnight,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x0080,
+                    palette_line: 3,
+                    animation_script_addr: 0x0001_06FA,
+                },
+            ),
+            (
+                terrain::PrizeContent::Berzerker,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x0084,
+                    palette_line: 3,
+                    animation_script_addr: 0x0001_06E2,
+                },
+            ),
+            (
+                terrain::PrizeContent::Maniaxe,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x0088,
+                    palette_line: 3,
+                    animation_script_addr: 0x0001_06D0,
+                },
+            ),
+            (
+                terrain::PrizeContent::Micromax,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x008C,
+                    palette_line: 3,
+                    animation_script_addr: 0x0001_0700,
+                },
+            ),
+        ];
+        for (content, expected) in helmet_specs {
+            assert_eq!(
+                NativeRuntime::floating_prize_graphics_spec(content),
+                Some(expected)
+            );
+        }
+
+        assert_eq!(
+            NativeRuntime::floating_prize_graphics_spec(terrain::PrizeContent::Ankh),
+            None
+        );
+        assert_eq!(
+            NativeRuntime::floating_prize_graphics_spec(terrain::PrizeContent::TenDiamonds),
+            None
         );
     }
 
