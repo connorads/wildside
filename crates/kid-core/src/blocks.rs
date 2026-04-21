@@ -3534,6 +3534,13 @@ mod tests {
         assert_eq!(resumed.next_write_index, 5);
         assert_eq!(resumed.entries[5], 0x1111_2222);
 
+        // ASM loc_10856: `bpl.s loc_1086A` treats zero as an already
+        // initialised header, so slot 0 resumes without clearing the table.
+        let zero_header = NativeRuntime::one_time_prize_init_loc_10856(0, entries);
+        assert!(!zero_header.was_first_prize_initialisation);
+        assert_eq!(zero_header.next_write_index, 0);
+        assert_eq!(zero_header.entries[5], 0x1111_2222);
+
         assert_eq!(
             NativeRuntime::one_time_prize_scan_start_loc_1086A(0x3456),
             OneTimePrizeScanStartLoc1086A {
