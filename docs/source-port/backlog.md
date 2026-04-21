@@ -181,6 +181,28 @@ For newly opened items, capture these facts in the investigation notes:
 
 ## Investigation notes
 
+### Shared boot-title-start-level1 evidence blocker (CLOSED)
+2026-04-21 delegated package `backlog-evidence-blocker:boot-title-start-level1:level_entry@520`
+reconfirmed that the shared boot/title evidence path is green. `cargo run -p
+kidcli -- compare-native-oracle --scenario boot-title-start-level1` passes, and
+the required direct captures were refreshed under
+`.cache/debug/backlog-evidence-blocker/level_00_frame_00000.png`,
+`.cache/debug/backlog-evidence-blocker/level_00_frame_00060.png`, and
+`.cache/debug/backlog-evidence-blocker/level_00_frame_00120.png`.
+
+Selector guard: do not reselect `boot-title-start-level1:level_entry@520` as a
+backlog evidence blocker unless a new run of that exact compare command fails.
+ASM `Obj_TitleMenu loc_1BBD6` only performs the Start hand-off by writing
+`Game_Mode=$0008`, setting `$FFFFFBCE`, and jumping through `loc_6E2` into
+`Load_InGame`; `level_entry@520` is therefore a hand-off identity checkpoint,
+not settled gameplay evidence. The settled Kid pose/state evidence remains at
+`level_settle@719`.
+
+`cargo run -p kidcli -- verify-recording --slug issue-141` still fails
+oracle/frame parity against the intro visual recording, so keep that as
+issue-141-specific visual evidence. It is not evidence that the shared
+`boot-title-start-level1` compare path is blocked.
+
 ### 141 — Intro and level-intro graphics still do not match the original game (FIXED)
 Fixed on 2026-04-20: native intro VDP loading now keeps ASM `sub_1B850` for
 `Load_IntroSequence1` and `Load_IntroSequence3` only (`kid.asm:29067-29082`,
