@@ -43,6 +43,10 @@ const SOURCE_PORT_RECOVERY_TRACE_PATH: &str =
 const SOURCE_PORT_RECOVERY_TRACE_ENV: &str = "KC_AUTONOMY_RECOVERY_TRACE";
 const SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET: &str =
     "backlog-evidence-blocker:boot-title-start-level1:level_entry@520";
+/// Maximum number of gameplay-bug investigation attempts per backlog issue
+/// before the selector skips it. The per-issue counter lives in
+/// `frontier-state.yaml` under `bug_investigation_attempts`.
+const BUG_INVESTIGATION_ATTEMPT_CAP: u32 = 3;
 const SOURCE_PORT_FRONTIER_NOTE_REQUIREMENT_SUMMARY: &str = "Before exiting, replace the next-agent note with frontmatter for the active slug plus the required handoff sections.";
 const SOURCE_PORT_FRONTIER_NOTE_REQUIRED_SECTIONS: [&str; 6] = [
     "What Changed",
@@ -98,6 +102,10 @@ pub(crate) enum AutonomyGoal {
     #[value(name = "proactive-verification")]
     #[serde(rename = "proactive-verification")]
     ProactiveVerification,
+    /// Gameplay-bug investigation: reproduce, trace ASM, propose fix, mark `[?]`.
+    #[value(name = "gameplay-bug-investigation")]
+    #[serde(rename = "gameplay-bug-investigation")]
+    GameplayBugInvestigation,
 }
 
 impl AutonomyGoal {
@@ -112,6 +120,7 @@ impl AutonomyGoal {
             Self::CaseQueue => "case-queue",
             Self::GameplayBacklog => "gameplay-backlog",
             Self::ProactiveVerification => "proactive-verification",
+            Self::GameplayBugInvestigation => "gameplay-bug-investigation",
         }
     }
 
@@ -135,6 +144,7 @@ impl AutonomyGoal {
             Self::ProactiveVerification => {
                 repo_root.join("docs/source-port/proactive-verification-config.yaml")
             }
+            Self::GameplayBugInvestigation => repo_root.join(SOURCE_PORT_BACKLOG_PATH),
         }
     }
 }
@@ -607,6 +617,12 @@ struct SourcePortFrontierState {
     /// loc-coverage-drive busywork.
     #[serde(default)]
     candidate_promotions: Vec<CandidatePromotion>,
+    /// Per-issue attempt counter for the gameplay-bug investigation lane.
+    /// Incremented each time the lane stalls without producing evidence;
+    /// once it exceeds `BUG_INVESTIGATION_ATTEMPT_CAP`, the selector skips
+    /// the issue until a human re-inspects.
+    #[serde(default)]
+    bug_investigation_attempts: BTreeMap<String, u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1669,6 +1685,29 @@ fn evaluate_source_port_frontier_cycle(
                             Some(AutonomyGoal::ProactiveVerification),
                             Some(target.clone()),
                             Some(target),
+                            summary,
+                        )
+                    } else if let Some(issue) = select_open_bug_for_investigation(
+                        repo_root,
+                        &recent_clean_completed_targets,
+                        &state.bug_investigation_attempts,
+                        BUG_INVESTIGATION_ATTEMPT_CAP,
+                    )? {
+                        let target = bug_investigation_progress_marker(&issue);
+                        let task =
+                            source_port_frontier_bug_investigation_task(frontier, &note, &issue);
+                        let summary = format!(
+                            "TAS frontier {} is closed through frame {}; delegated to gameplay-bug investigation for #{} ({}).",
+                            frontier.slug,
+                            frontier.authoritative_clean_through,
+                            issue.id,
+                            issue.summary
+                        );
+                        (
+                            task,
+                            Some(AutonomyGoal::GameplayBugInvestigation),
+                            Some(target.clone()),
+                            Some(format!("bug-investigation:{target}")),
                             summary,
                         )
                     } else if let Some(issue) = select_open_backlog_issue_excluding(
@@ -5432,6 +5471,186 @@ fn source_port_frontier_ready_backlog_issue_task(
         "root-cause backlog items outrank proactive loc_ coverage once TAS is closed".to_owned(),
     );
     task
+}
+
+fn bug_investigation_progress_marker(issue: &BacklogIssueCandidate) -> String {
+    format!("{}:investigate-bug", issue.id)
+}
+
+fn is_bug_investigation_candidate(issue: &BacklogIssueCandidate) -> bool {
+    // Ready items (root cause identified) belong to the ready-implement lane;
+    // investigation is for bugs that still need reproduction + tracing.
+    if is_ready_backlog_issue(issue) {
+        return false;
+    }
+    let verify = issue.verify.to_ascii_lowercase();
+    let summary = issue.summary.to_ascii_lowercase();
+    // Skip items tagged `blocked:*` or `stalled:*` — those are for humans.
+    !(verify.contains("blocked:")
+        || verify.contains("stalled:")
+        || summary.contains("blocked:")
+        || summary.contains("stalled:"))
+}
+
+fn select_open_bug_for_investigation(
+    repo_root: &Path,
+    exhausted_targets: &BTreeSet<String>,
+    attempts: &BTreeMap<String, u32>,
+    attempt_cap: u32,
+) -> Result<Option<BacklogIssueCandidate>> {
+    let mut items = load_open_backlog_issues(repo_root)?;
+    items.retain(is_bug_investigation_candidate);
+    items.retain(|issue| !exhausted_targets.contains(&bug_investigation_progress_marker(issue)));
+    items.retain(|issue| attempts.get(&issue.id).copied().unwrap_or(0) < attempt_cap);
+    items.sort_by(|left, right| {
+        fn priority_rank(priority: &str) -> u8 {
+            match priority {
+                "P0" => 0,
+                "P1" => 1,
+                "P2" => 2,
+                _ => 3,
+            }
+        }
+        priority_rank(&left.priority)
+            .cmp(&priority_rank(&right.priority))
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    Ok(items.into_iter().next())
+}
+
+fn source_port_frontier_bug_investigation_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+    issue: &BacklogIssueCandidate,
+) -> TaskPackage {
+    let impl_target = match issue.system.as_str() {
+        "enemy" => "crates/kid-core/src/enemies.rs",
+        "block" | "platform" => "crates/kid-core/src/blocks.rs",
+        "player" | "camera" | "form" => "crates/kid-core/src/lib.rs",
+        "render" | "level" => "crates/kid-core/src/level.rs",
+        _ => "crates/kid-core/src/lib.rs",
+    };
+    let issue_slug = format!("issue-{}", issue.id);
+    let level_hint = if issue.summary.to_ascii_lowercase().contains("2nd level") {
+        "01"
+    } else {
+        "00"
+    };
+    let focus_label = match issue.focus {
+        BacklogIssueFocus::Playability => "playability",
+        BacklogIssueFocus::VisualParity => "visual-parity",
+    };
+    let title = format!(
+        "Investigate open backlog issue #{} ({})",
+        issue.id, focus_label
+    );
+    let summary = format!(
+        "{} is authoritative-clean through frame {}; drive gameplay-bug investigation on backlog issue #{}: {}. Reproduce, trace ASM + oracle, propose a fix, mark the backlog item [?] — never [x].",
+        frontier.recording, frontier.authoritative_clean_through, issue.id, issue.summary
+    );
+    let delegation_reason = format!(
+        "gate green and proactive verification exhausted; backlog issue #{} is the highest-priority open bug without root cause, so investigate it instead of meta-hardening",
+        issue.id
+    );
+    TaskPackage {
+        capability: CapabilityId::SourcePortFrontierTask,
+        title,
+        summary,
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            SOURCE_PORT_BACKLOG_PATH.to_owned(),
+            SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
+            SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+            ".agents/skills/m68k-kid-asm/SKILL.md".to_owned(),
+            ".cache/upstream/kid-chameleon-disasm/kid.asm".to_owned(),
+        ],
+        implementation_targets: vec![
+            impl_target.to_owned(),
+            SOURCE_PORT_BACKLOG_PATH.to_owned(),
+        ],
+        commands: vec![
+            format!(
+                "cargo run --release -p kidcli -- play-native --warp-level {} --settled --record {}-repro",
+                level_hint, issue_slug
+            ),
+            format!(
+                "cargo run -p kidcli -- verify-recording --slug {}-repro",
+                issue_slug
+            ),
+            format!(
+                "cargo run -p kidcli -- capture-frames --level {} --frames 0,60,120 --output .cache/debug/bug-{}/",
+                level_hint, issue.id
+            ),
+            "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+                .to_owned(),
+            "mise run verify-slice-fast".to_owned(),
+            "cargo run -q -p kidcli -- asm-coverage --update".to_owned(),
+        ],
+        done_criteria: vec![
+            format!(
+                "Backlog issue #{} is marked [?] with an evidence block citing repro scenario path, ASM labels, oracle-parity result, and the proposed-fix commit hash.",
+                issue.id
+            ),
+            "Never promote to [x]; that remains a human decision.".to_owned(),
+            "If reproduction fails or ASM/oracle remain ambiguous, append the dead end to the rejected-hypotheses ledger, bump `bug_investigation_attempts` in frontier-state.yaml, and leave status at [~].".to_owned(),
+            "Commit must touch either `crates/kid-core/src/**` (fix + regression test) or `docs/source-port/backlog.md` (evidence / status transition); cache-only churn does not count as progress.".to_owned(),
+            "verify-slice-fast stays green after any fix.".to_owned(),
+        ],
+        evidence: vec![
+            EvidenceItem {
+                label: "active-frontier".to_owned(),
+                status: frontier.status.clone(),
+                detail: format!(
+                    "{} clean through frame {}",
+                    frontier.slug, frontier.authoritative_clean_through
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "bug-investigation".to_owned(),
+                status: issue.status.clone(),
+                detail: format!(
+                    "#{} {} {} {}: {}",
+                    issue.id, issue.priority, focus_label, issue.system, issue.summary
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_BACKLOG_PATH)),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: Some(FrontierContext {
+            slug: frontier.slug.clone(),
+            recording: frontier.recording.clone(),
+            scenario: frontier.scenario.clone(),
+            area: frontier.area.clone(),
+            status: frontier.status.clone(),
+            frontier_frame: frontier.frontier_frame,
+            authoritative_clean_through: frontier.authoritative_clean_through,
+            current_blocker: frontier.current_blocker.clone(),
+            current_hypothesis: frontier.current_hypothesis.clone(),
+            rejected_hypotheses: frontier.rejected_hypotheses.clone(),
+            required_next_evidence: frontier.required_next_evidence.clone(),
+            verification_commands: frontier.verification_commands.clone(),
+        }),
+        case_queue_context: None,
+        delegated_goal: Some(AutonomyGoal::GameplayBugInvestigation),
+        delegated_target: Some(bug_investigation_progress_marker(issue)),
+        delegation_reason: Some(delegation_reason),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: Some(AutonomyGoal::SweepParity),
+        next_agent_note: Some(note.clone()),
+        target_routines: None,
+        definitively_stalled: false,
+    }
 }
 
 fn select_release_gate_blocker(repo_root: &Path) -> Option<ReleaseGateFailureCandidate> {
@@ -10194,6 +10413,9 @@ mod tests {
             "| 141 | [ ] | P1 | render | Intro and level-intro graphics still do not match the original game | Native/oracle repro status: reproduced for boot/intro visual parity. |\n",
         );
         write_complete_default_mutation_runs(temp_dir.path());
+        // Exhaust the gameplay-bug investigation lane so the old
+        // capture-vs-investigate fallback fires in this test.
+        write_clean_completion(temp_dir.path(), 0, "141:investigate-bug");
 
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
@@ -10228,6 +10450,10 @@ mod tests {
         );
         write_complete_default_mutation_runs(temp_dir.path());
         write_clean_completion(temp_dir.path(), 41, "141:investigate");
+        // Exhaust the gameplay-bug investigation lane so the old
+        // open-backlog fallback fires in this test.
+        write_clean_completion(temp_dir.path(), 39, "141:investigate-bug");
+        write_clean_completion(temp_dir.path(), 40, "139:investigate-bug");
 
         let cycle = evaluate_source_port_frontier_cycle(temp_dir.path(), 42, 1)
             .expect("cycle should build");
@@ -10254,6 +10480,9 @@ mod tests {
         );
         write_complete_default_mutation_runs(temp_dir.path());
         write_clean_completion(temp_dir.path(), 41, "141:investigate");
+        // Exhaust the gameplay-bug investigation lane so the old
+        // evidence-blocker fallback fires in this test.
+        write_clean_completion(temp_dir.path(), 40, "141:investigate-bug");
 
         let cycle = evaluate_source_port_frontier_cycle(temp_dir.path(), 42, 1)
             .expect("cycle should build");
@@ -10881,6 +11110,8 @@ mod tests {
             "| 146 | [ ] | P0 | level | Dying in Level 2 can leave the game stuck on the level-loading screen | verify |\n",
         );
         write_complete_default_mutation_runs(temp_dir.path());
+        // Exhaust the gameplay-bug investigation lane so the older capture-evidence lane fires.
+        write_clean_completion(temp_dir.path(), 0, "146:investigate-bug");
 
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
@@ -10897,6 +11128,178 @@ mod tests {
             cycle
                 .progress_fingerprint
                 .contains("backlog-issue:146:capture")
+        );
+    }
+
+    #[test]
+    fn source_port_frontier_selects_gameplay_bug_investigation_when_pv_exhausted() {
+        // With the gate green, PV exhausted (mutation runs complete), and at
+        // least one open [ ] bug on the backlog, the loop must delegate to
+        // gameplay-bug investigation instead of sweep-parity meta-work.
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_backlog(
+            temp_dir.path(),
+            "| 135 | [ ] | P1 | level | Level 1 background graphics drift | verify |\n",
+        );
+        write_complete_default_mutation_runs(temp_dir.path());
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            task.delegated_goal,
+            Some(super::AutonomyGoal::GameplayBugInvestigation)
+        );
+        assert_ne!(task.delegated_goal, Some(super::AutonomyGoal::SweepParity));
+        assert_eq!(
+            task.delegated_target.as_deref(),
+            Some("135:investigate-bug")
+        );
+        assert!(task.title.contains("#135"));
+        assert!(
+            cycle
+                .progress_fingerprint
+                .contains("bug-investigation:135:investigate-bug"),
+            "fingerprint should reference bug-investigation lane, got: {}",
+            cycle.progress_fingerprint
+        );
+    }
+
+    #[test]
+    fn gameplay_bug_investigation_selector_excludes_closed_blocked_stalled_items() {
+        // [?] and [x] never reach the parser (parser only accepts [ ] / [~]);
+        // [~] items with verify tagged `blocked:` or `stalled:` are filtered by
+        // is_bug_investigation_candidate. Only the plain [ ] item survives.
+        let temp_dir = source_port_repo();
+        write_backlog(
+            temp_dir.path(),
+            "\
+| 135 | [x] | P1 | level | Closed already | verify |\n\
+| 136 | [?] | P1 | level | Awaiting human validation | verify |\n\
+| 137 | [~] | P1 | level | Blocked bug | blocked:needs-human-repro |\n\
+| 138 | [~] | P1 | level | Stalled bug | stalled:agent-blocked |\n\
+| 139 | [ ] | P1 | level | Bouncy blocks wrong | verify |\n",
+        );
+
+        let exhausted = std::collections::BTreeSet::new();
+        let attempts = std::collections::BTreeMap::new();
+        let picked = super::select_open_bug_for_investigation(
+            temp_dir.path(),
+            &exhausted,
+            &attempts,
+            super::BUG_INVESTIGATION_ATTEMPT_CAP,
+        )
+        .expect("selector should run");
+
+        let issue = picked.expect("plain open bug should be selected");
+        assert_eq!(issue.id, "139");
+    }
+
+    #[test]
+    fn gameplay_bug_investigation_selector_skips_exhausted_targets() {
+        // When the issue's investigate-bug target has already been clean-
+        // completed this window, the selector must skip it so we pivot away
+        // instead of looping on the same handoff.
+        let temp_dir = source_port_repo();
+        write_backlog(
+            temp_dir.path(),
+            "| 135 | [ ] | P1 | level | Level 1 background graphics drift | verify |\n",
+        );
+
+        let mut exhausted = std::collections::BTreeSet::new();
+        exhausted.insert("135:investigate-bug".to_owned());
+        let attempts = std::collections::BTreeMap::new();
+        let picked = super::select_open_bug_for_investigation(
+            temp_dir.path(),
+            &exhausted,
+            &attempts,
+            super::BUG_INVESTIGATION_ATTEMPT_CAP,
+        )
+        .expect("selector should run");
+
+        assert!(picked.is_none(), "exhausted target must be skipped");
+    }
+
+    #[test]
+    fn gameplay_bug_investigation_selector_skips_items_at_attempt_cap() {
+        // Issues whose attempt counter has reached the cap are considered
+        // agent-blocked and excluded until a human re-inspects.
+        let temp_dir = source_port_repo();
+        write_backlog(
+            temp_dir.path(),
+            "| 135 | [ ] | P1 | level | Level 1 background graphics drift | verify |\n",
+        );
+
+        let exhausted = std::collections::BTreeSet::new();
+        let mut attempts = std::collections::BTreeMap::new();
+        attempts.insert("135".to_owned(), super::BUG_INVESTIGATION_ATTEMPT_CAP);
+        let picked = super::select_open_bug_for_investigation(
+            temp_dir.path(),
+            &exhausted,
+            &attempts,
+            super::BUG_INVESTIGATION_ATTEMPT_CAP,
+        )
+        .expect("selector should run");
+
+        assert!(picked.is_none(), "issue at attempt cap must be skipped");
+    }
+
+    #[test]
+    fn gameplay_bug_investigation_selector_sorts_p0_before_p1_before_p2() {
+        // Priority drives selection order: P0 beats P1 beats P2. Tie-break by
+        // id so behaviour is deterministic.
+        let temp_dir = source_port_repo();
+        write_backlog(
+            temp_dir.path(),
+            "\
+| 138 | [ ] | P2 | level | Lower priority bug | verify |\n\
+| 137 | [ ] | P1 | level | Mid priority bug | verify |\n\
+| 136 | [ ] | P0 | level | Top priority bug | verify |\n",
+        );
+
+        let exhausted = std::collections::BTreeSet::new();
+        let attempts = std::collections::BTreeMap::new();
+        let picked = super::select_open_bug_for_investigation(
+            temp_dir.path(),
+            &exhausted,
+            &attempts,
+            super::BUG_INVESTIGATION_ATTEMPT_CAP,
+        )
+        .expect("selector should run");
+
+        let issue = picked.expect("highest-priority bug should be selected");
+        assert_eq!(issue.id, "136");
+        assert_eq!(issue.priority, "P0");
+    }
+
+    #[test]
+    fn source_port_frontier_falls_through_to_sweep_parity_when_no_open_bugs() {
+        // No open [ ] / [~] bugs → gameplay-bug lane yields nothing, loop must
+        // preserve existing sweep-parity / evidence-blocker fallback behaviour.
+        let temp_dir = source_port_repo();
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        write_backlog(
+            temp_dir.path(),
+            "| 999 | [x] | P1 | level | Everything already closed | verify |\n",
+        );
+        write_complete_default_mutation_runs(temp_dir.path());
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_ne!(
+            task.delegated_goal,
+            Some(super::AutonomyGoal::GameplayBugInvestigation),
+            "no open bugs → must not route to investigation lane"
+        );
+        assert_eq!(task.delegated_goal, Some(super::AutonomyGoal::SweepParity));
+        assert!(
+            !cycle.progress_fingerprint.contains("bug-investigation:"),
+            "fingerprint should not mention bug-investigation when no open bugs exist, got: {}",
+            cycle.progress_fingerprint
         );
     }
 

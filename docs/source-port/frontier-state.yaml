@@ -124,6 +124,7 @@
     ]
   },
   "candidate_promotions": [],
+  "bug_investigation_attempts": {},
   "stuck_policy": {
     "probe_only_commit_threshold": 2,
     "rule": "After 2 consecutive probe/docs-only commits on the same frontier, the next session must add instrumentation or narrow the scenario before landing another gameplay patch.",
