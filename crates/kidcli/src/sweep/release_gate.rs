@@ -165,47 +165,59 @@ pub(super) fn extract_release_gate_scenario_level_id(step_name: &str) -> Option<
 pub(super) fn latest_release_gate_failed_fields(repo_root: &Path) -> Vec<ReleaseGateFieldFocus> {
     ["1p-playable", "1p-accurate"]
         .into_iter()
-        .filter_map(|target| {
+        .flat_map(|target| {
             let latest_path = repo_root
                 .join(".cache/release-gate")
                 .join(target)
                 .join("latest.json");
-            let contents = fs::read_to_string(&latest_path).ok()?;
-            let report = serde_json::from_str::<serde_json::Value>(&contents).ok()?;
+            let Some(report) = fs::read_to_string(&latest_path)
+                .ok()
+                .and_then(|contents| serde_json::from_str::<serde_json::Value>(&contents).ok())
+            else {
+                return Vec::new();
+            };
             if report
                 .get("passed")
                 .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false)
             {
-                return None;
+                return Vec::new();
             }
-            let failed_step = report
+            report
                 .get("steps")
                 .and_then(serde_json::Value::as_array)
-                .and_then(|steps| {
-                    steps.iter().find(|step| {
-                        step.get("status")
-                            .and_then(serde_json::Value::as_str)
-                            .is_some_and(|status| status == "failed")
-                    })
-                })?;
-            let step_name = failed_step.get("name")?.as_str()?.to_owned();
-            let detail = failed_step.get("detail")?.as_str()?;
-            let field = extract_release_gate_failed_field(detail)?;
-            let (native_value, oracle_value) = extract_release_gate_failed_values(detail)
-                .map_or((None, None), |(native, oracle)| {
-                    (Some(native), Some(oracle))
-                });
-            let scenario_level_id = extract_release_gate_scenario_level_id(&step_name);
-            Some(ReleaseGateFieldFocus {
-                target: target.to_owned(),
-                step_name,
-                checkpoint: extract_release_gate_failed_checkpoint(detail),
-                field,
-                native_value,
-                oracle_value,
-                scenario_level_id,
-            })
+                .map(|steps| {
+                    steps
+                        .iter()
+                        .filter(|step| {
+                            step.get("status")
+                                .and_then(serde_json::Value::as_str)
+                                .is_some_and(|status| status == "failed")
+                        })
+                        .filter_map(|failed_step| {
+                            let step_name = failed_step.get("name")?.as_str()?.to_owned();
+                            let detail = failed_step.get("detail")?.as_str()?;
+                            let field = extract_release_gate_failed_field(detail)?;
+                            let (native_value, oracle_value) =
+                                extract_release_gate_failed_values(detail)
+                                    .map_or((None, None), |(native, oracle)| {
+                                        (Some(native), Some(oracle))
+                                    });
+                            let scenario_level_id =
+                                extract_release_gate_scenario_level_id(&step_name);
+                            Some(ReleaseGateFieldFocus {
+                                target: target.to_owned(),
+                                step_name,
+                                checkpoint: extract_release_gate_failed_checkpoint(detail),
+                                field,
+                                native_value,
+                                oracle_value,
+                                scenario_level_id,
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
         })
         .collect()
 }
@@ -544,4 +556,60 @@ pub(super) fn summarise_release_gate_focuses(
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn latest_release_gate_failed_fields_keeps_all_failed_steps() {
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("create gate dir");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"{
+  "target": "1p-accurate",
+  "passed": false,
+  "steps": [
+    {
+      "name": "gameplay_compare:pause_resume_level1",
+      "status": "failed",
+      "detail": "gameplay state level_settle@719 diverged in game mode (native 0008, oracle 000C)"
+    },
+    {
+      "name": "frame_oracle:boot_title_start_level1",
+      "status": "failed",
+      "detail": "state title@360 diverged in camera y pos (native 0000, oracle 0010)"
+    }
+  ]
+}"#,
+        )
+        .expect("write report");
+
+        assert_eq!(
+            latest_release_gate_failed_fields(temp_dir.path()),
+            vec![
+                ReleaseGateFieldFocus {
+                    target: "1p-accurate".into(),
+                    step_name: "gameplay_compare:pause_resume_level1".into(),
+                    checkpoint: Some("level_settle@719".into()),
+                    field: "game_mode".into(),
+                    native_value: Some("0x0008".into()),
+                    oracle_value: Some("0x000c".into()),
+                    scenario_level_id: Some("0x00".into()),
+                },
+                ReleaseGateFieldFocus {
+                    target: "1p-accurate".into(),
+                    step_name: "frame_oracle:boot_title_start_level1".into(),
+                    checkpoint: Some("title@360".into()),
+                    field: "camera_y_pos".into(),
+                    native_value: Some("0x0000".into()),
+                    oracle_value: Some("0x0010".into()),
+                    scenario_level_id: Some("0x00".into()),
+                },
+            ]
+        );
+    }
 }
