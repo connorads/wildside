@@ -326,16 +326,20 @@ pub fn update_jump_horizontal_velocity(
         } else {
             x_vel - 0x100
         }
-    } else if x_vel > 0 {
-        // ASM loc_B0FE (kid.asm:13972): no L/R input, positive velocity —
-        // `subi.l #$400,d0; bpl.s loc_B118; moveq #0,d0`
-        (x_vel - 0x400).max(0)
-    } else if x_vel < 0 {
-        // ASM loc_B10E (kid.asm:13981): no L/R input, negative velocity —
-        // `addi.l #$400,d0; bmi.s loc_B118; moveq #0,d0`
-        (x_vel + 0x400).min(0)
     } else {
-        0
+        match x_vel.cmp(&0) {
+            std::cmp::Ordering::Greater => {
+                // ASM loc_B0FE (kid.asm:13972): no L/R input, positive velocity —
+                // `subi.l #$400,d0; bpl.s loc_B118; moveq #0,d0`
+                (x_vel - 0x400).max(0)
+            }
+            std::cmp::Ordering::Less => {
+                // ASM loc_B10E (kid.asm:13981): no L/R input, negative velocity —
+                // `addi.l #$400,d0; bmi.s loc_B118; moveq #0,d0`
+                (x_vel + 0x400).min(0)
+            }
+            std::cmp::Ordering::Equal => 0,
+        }
     };
 
     let new_facing = if input.left {
@@ -1161,6 +1165,17 @@ mod tests {
     }
 
     #[test]
+    fn skycutter_sub_9a20_walk_right_at_exact_walk_speed_decelerates() {
+        // ASM loc_9A32 (kid.asm:11597): `cmpi.l #$20000,d0; bge.s loc_9A56`.
+        // Equality branches to loc_9A56, so exact walk speed decelerates by $2000.
+        let (vel, dir) =
+            update_skycutter_horizontal_velocity_sub_9A20(0x2_0000, Direction::Right, right_walk());
+
+        assert_eq!(vel, 0x1_E000);
+        assert_eq!(dir, Direction::Right);
+    }
+
+    #[test]
     fn skycutter_sub_9a20_pressing_away_flips_facing_and_uses_left_branch() {
         let (vel, dir) =
             update_skycutter_horizontal_velocity_sub_9A20(0, Direction::Right, left_walk());
@@ -1182,6 +1197,17 @@ mod tests {
         );
 
         assert_eq!(vel, -0x4_0000);
+        assert_eq!(dir, Direction::Left);
+    }
+
+    #[test]
+    fn skycutter_sub_9a20_walk_left_at_exact_walk_speed_decelerates() {
+        // ASM loc_9A90 (kid.asm:11638): `cmpi.l #$FFFE0000,d0; ble.s loc_9AB2`.
+        // Equality branches to loc_9AB2, so exact left walk speed decelerates by $2000.
+        let (vel, dir) =
+            update_skycutter_horizontal_velocity_sub_9A20(-0x2_0000, Direction::Left, left_walk());
+
+        assert_eq!(vel, -0x1_E000);
         assert_eq!(dir, Direction::Left);
     }
 
@@ -2680,8 +2706,8 @@ mod proptests {
 
     // -- Boundary tests (killing < vs <= / > vs >= mutants) --
 
-    /// No input at vel=0 returns 0. ASM: both `bgt` (vel>0) and `blt` (vel<0)
-    /// skip when vel=0, falling through to the zero branch.
+    /// ASM loc_B0FE/loc_B10E (kid.asm:13972/13981): no-input jump-air
+    /// decel treats vel=0 as neither positive nor negative, so it stays zero.
     #[test]
     fn jump_horizontal_no_input_at_zero_stays_zero() {
         let no_input = HorizontalInput {
@@ -2697,8 +2723,8 @@ mod proptests {
         assert_eq!(vel, 0, "vel=0 with no input must stay 0");
     }
 
-    /// No input at vel=+1 decelerates. ASM: `bgt` branches on vel>0, so
-    /// vel=1 must enter the positive decel path and NOT be treated as zero.
+    /// ASM loc_B0FE (kid.asm:13972): positive no-input jump-air velocity
+    /// subtracts `$400` and snaps to zero if the subtraction crosses sign.
     #[test]
     fn jump_horizontal_no_input_positive_one_decelerates() {
         let no_input = HorizontalInput {
@@ -2715,8 +2741,8 @@ mod proptests {
         assert_eq!(vel, 0, "vel=1 with no input snaps to 0");
     }
 
-    /// No input at vel=-1 decelerates. ASM: `blt` branches on vel<0, so
-    /// vel=-1 must enter the negative decel path and NOT be treated as zero.
+    /// ASM loc_B10E (kid.asm:13981): negative no-input jump-air velocity
+    /// adds `$400` and snaps to zero if the addition crosses sign.
     #[test]
     fn jump_horizontal_no_input_negative_one_decelerates() {
         let no_input = HorizontalInput {
