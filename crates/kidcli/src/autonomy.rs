@@ -1805,8 +1805,9 @@ fn evaluate_source_port_frontier_cycle(
     // Mechanism C: the sweep-parity lane marker embeds fresh timestamps every
     // cycle, so `repeated_stalls` never accumulates even when the agent is
     // producing back-to-back docs-only "Refresh sweep parity evidence" commits.
-    // Inspect git history directly: if the last 3+ commits touched only the
-    // sweep-refresh prose docs, force the stalled-recovery cascade to fire.
+    // Inspect git history directly: if the last 3+ consecutive commits touched
+    // only the sweep-refresh prose docs, force the stalled-recovery cascade to
+    // fire.
     let recent_commits = recent_commit_summaries(repo_root, 5);
     let docs_only_refresh_streak = sweep_refresh_streak(&recent_commits);
     if docs_only_refresh_streak >= 3 {
@@ -7464,10 +7465,10 @@ fn render_source_port_next_agent_note(
     let recent_streak = sweep_refresh_streak(recent_commits);
     let self_check = if recent_streak >= 3 {
         format!(
-            "- STOP: the last {recent_streak} commits touched only docs/source-port/methodology.md + docs/source-port/research-map.md. Do NOT produce another commit of the same shape. Pivot to proactive-verification (`cargo run -p kidcli -- autonomous-loop --goal proactive-verification`) or record the stall in docs/source-port/frontier-state.yaml before touching those docs again."
+            "- STOP: the last {recent_streak} consecutive commits touched only docs/source-port/methodology.md + docs/source-port/research-map.md. Do NOT produce another commit of the same shape. Pivot to proactive-verification (`cargo run -p kidcli -- autonomous-loop --goal proactive-verification`) or record the stall in docs/source-port/frontier-state.yaml before touching those docs again."
         )
     } else {
-        "- Read the Recent Commits block below before starting. If the last 3+ commits touched only docs/source-port/methodology.md and docs/source-port/research-map.md, do NOT produce another commit of the same shape — pivot to proactive-verification or record the stall in docs/source-port/frontier-state.yaml.".to_owned()
+        "- Read the Recent Commits block below before starting. If the last 3+ consecutive commits touched only docs/source-port/methodology.md and docs/source-port/research-map.md, do NOT produce another commit of the same shape — pivot to proactive-verification or record the stall in docs/source-port/frontier-state.yaml.".to_owned()
     };
     let recent_commits_block = if recent_commits.is_empty() {
         "- (git log unavailable)".to_owned()
@@ -10933,7 +10934,7 @@ Empty commit
             "expected first commit summary: {rendered}"
         );
         assert!(
-            rendered.contains("STOP: the last 3 commits"),
+            rendered.contains("STOP: the last 3 consecutive commits"),
             "expected streak STOP warning: {rendered}"
         );
     }
@@ -10986,6 +10987,7 @@ Empty commit
         };
         let rendered = render_source_port_next_agent_note(&frontier, &task, &[]);
         assert!(rendered.contains("# Self-Check Before Starting"));
+        assert!(rendered.contains("last 3+ consecutive commits"));
         assert!(!rendered.contains("STOP:"));
     }
 }
