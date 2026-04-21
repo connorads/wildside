@@ -5916,9 +5916,14 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
             .get("timestamp")
             .and_then(serde_json::Value::as_str)
             .unwrap_or("unknown");
+        let report_path = timestamped_release_gate_report_path(&latest_path, timestamp);
+        let report_detail = report_path
+            .as_ref()
+            .map(|path| format!(", report={}", path.display()))
+            .unwrap_or_default();
         CheckOutcome::passing(
-            format!("latest release gate passed (timestamp {timestamp})"),
-            Some(latest_path),
+            format!("latest release gate passed (timestamp {timestamp}{report_detail})"),
+            Some(report_path.unwrap_or(latest_path)),
         )
     } else {
         let failed_step = report
@@ -5943,6 +5948,15 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
             .unwrap_or(detail);
         CheckOutcome::failing(detail, Some(latest_path))
     }
+}
+
+fn timestamped_release_gate_report_path(latest_path: &Path, timestamp: &str) -> Option<PathBuf> {
+    if timestamp == "unknown" {
+        return None;
+    }
+    latest_path
+        .parent()
+        .map(|parent| parent.join(timestamp).join("report.json"))
 }
 
 fn correlate_release_gate_failure_with_state_sweep(
@@ -6168,14 +6182,7 @@ fn latest_release_gate_failure_detail(repo_root: &Path, target: &str) -> Option<
         .get("timestamp")
         .and_then(serde_json::Value::as_str)
         .unwrap_or("unknown");
-    let report_path = if timestamp == "unknown" {
-        None
-    } else {
-        let candidate = latest_path
-            .parent()
-            .map(|parent| parent.join(timestamp).join("report.json"))?;
-        Some(candidate)
-    };
+    let report_path = timestamped_release_gate_report_path(&latest_path, timestamp);
     let freshness = report_path.as_ref().map_or_else(
         || format!(" (timestamp {timestamp})"),
         |report_path| format!(" (timestamp {timestamp}, report={})", report_path.display()),
@@ -8430,8 +8437,13 @@ mod tests {
                 .iter()
                 .any(|item| item.label == "release-gate-status"
                     && item.status == "passed"
-                    && item.detail.contains("timestamp 1776704737")),
-            "task should carry the passing release-gate artefact"
+                    && item.detail.contains("timestamp 1776704737")
+                    && item
+                        .detail
+                        .contains(".cache/release-gate/1p-accurate/1776704737/report.json")
+                    && item.artefact_path.as_ref().is_some_and(|path| path
+                        .ends_with(".cache/release-gate/1p-accurate/1776704737/report.json"))),
+            "task should carry the timestamped passing release-gate artefact"
         );
         assert!(
             task.evidence
@@ -8448,9 +8460,10 @@ mod tests {
             "green gate tasks should ask for refreshed green-lane evidence"
         );
         assert!(
-            rendered_note
-                .contains("Release-gate status: latest release gate passed (timestamp 1776704737)"),
-            "next-agent note should surface the green release gate"
+            rendered_note.contains(
+                "Release-gate status: latest release gate passed (timestamp 1776704737, report="
+            ),
+            "next-agent note should surface the timestamped green release gate report"
         );
         assert!(
             rendered_note.contains("Latest state-sweep status: latest state sweep passed"),
