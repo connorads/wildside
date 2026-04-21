@@ -35,14 +35,14 @@ pub enum CollisionKind {
 
 impl CollisionKind {
     fn from_bits(bits: u8) -> Self {
-        match bits {
-            0 => Self::Empty,
+        match bits & 0x07 {
+            0 | 1 | 3 => Self::Empty,
             2 => Self::HiddenBlock,
             4 => Self::SlopeUp,
             5 => Self::SlopeDown,
             6 => Self::Solid,
             7 => Self::Spikes,
-            _ => Self::Empty,
+            _ => unreachable!("collision bits are masked to 3 bits"),
         }
     }
 }
@@ -2472,6 +2472,33 @@ mod tests {
         assert!(cell.has_block);
         assert_eq!(cell.collision, CollisionKind::Solid);
         assert_eq!(cell.block_type, BlockType::Prize);
+    }
+
+    #[test]
+    fn cell_from_be_bytes_decodes_all_asm_collision_nibbles() {
+        // ASM GfxObjects_Collision_Tiles_RowLoop (kid.asm:2916) first tests
+        // bit `$4000`, and loc_17C6 (kid.asm:2942) masks `$7000` to dispatch
+        // `$4000/$5000/$6000/$7000`. Thus `$0000`, `$1000`, and `$3000` are
+        // empty terrain, while `$2000` remains hidden-block metadata.
+        let cases = [
+            (0x00, CollisionKind::Empty),
+            (0x10, CollisionKind::Empty),
+            (0x20, CollisionKind::HiddenBlock),
+            (0x30, CollisionKind::Empty),
+            (0x40, CollisionKind::SlopeUp),
+            (0x50, CollisionKind::SlopeDown),
+            (0x60, CollisionKind::Solid),
+            (0x70, CollisionKind::Spikes),
+        ];
+
+        for (hi, expected_collision) in cases {
+            let cell = Cell::from_be_bytes(hi, 0x5A);
+
+            assert!(!cell.has_block);
+            assert_eq!(cell.collision, expected_collision);
+            assert_eq!(cell.block_type, BlockType::None);
+            assert_eq!(cell.skin, 0x5A);
+        }
     }
 
     #[test]
