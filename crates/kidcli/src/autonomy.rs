@@ -305,6 +305,13 @@ pub(crate) struct TaskPackage {
     next_agent_note: Option<NextAgentNoteDirective>,
     #[serde(skip_serializing_if = "Option::is_none")]
     target_routines: Option<Vec<TargetRoutine>>,
+    /// True iff the planner has nothing genuinely new to dispatch and the
+    /// recovery cascade can only restate work that already landed cleanly.
+    /// Runner uses this to short-circuit straight to the operator message
+    /// on iteration 1 instead of waiting for `DEFAULT_MAX_STALL_STREAK`
+    /// consecutive silent retries.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    definitively_stalled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1353,6 +1360,59 @@ fn source_port_recent_clean_completed_targets(repo_root: &Path) -> BTreeSet<Stri
     targets
 }
 
+/// True iff a recent clean completion (within the last ~12 rows) exposed
+/// exactly this `(delegated_target, progress_fingerprint)` pair. Distinct
+/// from `source_port_recent_matching_stall_count` which needs trailing
+/// `stalled_repeat` rows — this fires on iteration 1, before any stalls
+/// accumulate, when the planner would re-emit just-completed work.
+fn source_port_repeats_recent_clean_completion(
+    repo_root: &Path,
+    target: &str,
+    fingerprint: &str,
+) -> bool {
+    let path = repo_root.join(SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH);
+    let Ok(contents) = fs::read_to_string(path) else {
+        return false;
+    };
+    let mut examined = 0usize;
+    for line in contents.lines().rev() {
+        if examined >= 12 {
+            break;
+        }
+        let Ok(record) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        examined += 1;
+        let clean_completion = record
+            .get("outcome")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|outcome| outcome == "completed")
+            && record
+                .get("exit_code")
+                .and_then(serde_json::Value::as_i64)
+                .is_some_and(|code| code == 0)
+            && !record
+                .get("dirty_tree")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+        if !clean_completion {
+            continue;
+        }
+        let target_matches = record
+            .get("delegated_target")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| value == target);
+        let fingerprint_matches = record
+            .get("progress_fingerprint")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| value == fingerprint);
+        if target_matches && fingerprint_matches {
+            return true;
+        }
+    }
+    false
+}
+
 fn prepend_commands(existing: &[String], prefix: &[String]) -> Vec<String> {
     prefix
         .iter()
@@ -1723,8 +1783,35 @@ fn evaluate_source_port_frontier_cycle(
         ..task_package
     };
     let dirty_files = tracked_dirty_files(repo_root);
-    let repeated_stalls =
+    let mut repeated_stalls =
         source_port_recent_matching_stall_count(repo_root, &base_progress_fingerprint);
+    // Mechanism A: iteration 1 must not silently retry work that already
+    // landed cleanly. If the candidate `(target, fingerprint)` matches any
+    // clean-completion row in the recent run history, lift the recovery
+    // trigger into the existing `repeated_stalls >= 2` cascade so the
+    // dispatch arms pivot instead of re-emitting byte-identical work.
+    if repeated_stalls < 2
+        && dirty_files.is_empty()
+        && delegated_target.as_deref().is_some_and(|target| {
+            source_port_repeats_recent_clean_completion(
+                repo_root,
+                target,
+                &base_progress_fingerprint,
+            )
+        })
+    {
+        repeated_stalls = 2;
+    }
+    // Mechanism C: the sweep-parity lane marker embeds fresh timestamps every
+    // cycle, so `repeated_stalls` never accumulates even when the agent is
+    // producing back-to-back docs-only "Refresh sweep parity evidence" commits.
+    // Inspect git history directly: if the last 3+ commits touched only the
+    // sweep-refresh prose docs, force the stalled-recovery cascade to fire.
+    let recent_commits = recent_commit_summaries(repo_root, 5);
+    let docs_only_refresh_streak = sweep_refresh_streak(&recent_commits);
+    if docs_only_refresh_streak >= 3 {
+        repeated_stalls = repeated_stalls.max(2);
+    }
     let mut chose_branch: &'static str = "none";
     if !dirty_files.is_empty() {
         chose_branch = "dirty";
@@ -1835,6 +1922,52 @@ fn evaluate_source_port_frontier_cycle(
                         next_fallback_goal: Some(AutonomyGoal::CaseQueue),
                         ..recording_task
                     };
+                } else if docs_only_refresh_streak >= 3 {
+                    // The previous `RefreshEvidence` recovery step is itself
+                    // what produced the docs-only commit streak; asking for
+                    // another refresh perpetuates the loop. Pivot to
+                    // proactive-verification instead, regardless of whether
+                    // `evaluate_proactive_verification_cycle` returns a task —
+                    // the operator-visible pivot_reason and fallback goal are
+                    // what break the loop.
+                    chose_branch = "sweep_parity_docs_only_streak";
+                    let pv_report =
+                        evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
+                    let pivot_reason = format!(
+                        "last {docs_only_refresh_streak} commits were docs-only sweep-parity refreshes; pivot to proactive-verification instead of emitting another release-gate evidence refresh"
+                    );
+                    if let Some(pv_task) = pv_report.task_package {
+                        let target = pv_task.progress_fingerprint.clone();
+                        task_package = TaskPackage {
+                            generated_at: autonomy_timestamp(),
+                            cycle,
+                            progress_fingerprint: base_progress_fingerprint.clone(),
+                            capability: CapabilityId::SourcePortFrontierTask,
+                            delegated_goal: Some(AutonomyGoal::ProactiveVerification),
+                            delegated_target: Some(target.clone()),
+                            recovery_mode: Some(RecoveryMode::StalledFingerprint),
+                            recovery_step: Some(RecoveryStep::PivotToNextLane),
+                            stalled_repetition_count: Some(repeated_cycles),
+                            pivot_reason: Some(pivot_reason),
+                            next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
+                            ..source_port_frontier_proactive_task(
+                                pv_task,
+                                frontier,
+                                &note,
+                                target,
+                                "sweep-parity refresh loop detected; pivoting to proactive-verification".to_owned(),
+                            )
+                        };
+                    } else {
+                        apply_stalled_recovery(
+                            &mut task_package,
+                            &base_progress_fingerprint,
+                            repeated_cycles,
+                            RecoveryStep::PivotToNextLane,
+                            pivot_reason,
+                            Some(AutonomyGoal::ProactiveVerification),
+                        );
+                    }
                 } else {
                     chose_branch = "sweep_parity_refresh";
                     apply_stalled_recovery(
@@ -1905,6 +2038,24 @@ fn evaluate_source_port_frontier_cycle(
     task_package
         .progress_fingerprint
         .clone_from(&progress_fingerprint);
+    // Mechanism B: if the recovery cascade could only decorate the same lane
+    // (deterministic `:recovery:<step>` suffix that already landed cleanly),
+    // mark the package so the runner short-circuits to the operator message
+    // on iteration 1 instead of emitting another identical retry.
+    if task_package.recovery_mode.is_some()
+        && task_package
+            .delegated_target
+            .as_deref()
+            .is_some_and(|target| {
+                source_port_repeats_recent_clean_completion(
+                    repo_root,
+                    target,
+                    &progress_fingerprint,
+                )
+            })
+    {
+        task_package.definitively_stalled = true;
+    }
     emit_recovery_trace(
         repo_root,
         cycle,
@@ -2034,6 +2185,7 @@ fn source_port_frontier_task(
         next_fallback_goal: None,
         next_agent_note: Some(note.clone()),
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -2145,6 +2297,7 @@ fn source_port_frontier_case_queue_task(
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -2283,6 +2436,7 @@ fn source_port_frontier_sweep_task(
         next_fallback_goal: Some(AutonomyGoal::CaseQueue),
         next_agent_note: Some(note.clone()),
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -2442,6 +2596,7 @@ fn source_port_frontier_gameplay_backlog_task(
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
         target_routines,
+        definitively_stalled: false,
     }
 }
 
@@ -2758,6 +2913,7 @@ fn evaluate_gameplay_backlog_cycle(
         next_fallback_goal: None,
         next_agent_note: None,
         target_routines,
+        definitively_stalled: false,
     };
 
     let progress_fingerprint = format!("gameplay-backlog:{label}");
@@ -3116,6 +3272,7 @@ fn try_candidate_promotion_strategy(
         next_fallback_goal: None,
         next_agent_note: None,
         target_routines: None,
+        definitively_stalled: false,
     };
 
     Some(proactive_verification_report(
@@ -3225,6 +3382,7 @@ fn try_root_cause_backlog_strategy(
         next_fallback_goal: None,
         next_agent_note: None,
         target_routines: None,
+        definitively_stalled: false,
     };
 
     let target = ready_backlog_issue_progress_marker(issue);
@@ -3346,6 +3504,7 @@ fn try_enemy_family_audit_strategy(
                 } else {
                     Some(target_routines)
                 },
+                definitively_stalled: false,
             };
 
             return Ok(Some(proactive_verification_report(
@@ -3471,6 +3630,7 @@ fn try_loc_coverage_drive_strategy(
         next_fallback_goal: None,
         next_agent_note: None,
         target_routines: Some(target_routines),
+        definitively_stalled: false,
     };
 
     Ok(Some(proactive_verification_report(
@@ -3579,6 +3739,7 @@ fn try_loc_promotion_strategy(
         next_fallback_goal: None,
         next_agent_note: None,
         target_routines: Some(target_routines),
+        definitively_stalled: false,
     };
 
     Ok(Some(proactive_verification_report(
@@ -3766,6 +3927,100 @@ struct WorkTypeCounts {
     docs_only: u32,
     #[serde(default)]
     productive: u32,
+}
+
+/// Paths whose commits we treat as "sweep-parity evidence refresh" — the
+/// autonomy loop's observed dead-end when every other lane is green. A commit
+/// that touches only these paths has encoded no new information (they embed
+/// `.cache/sweep-runs/<timestamp>/report.json` paths and `cycle=N` counters
+/// that change every run). See `sweep_refresh_streak` below.
+const SWEEP_REFRESH_DOC_PATHS: &[&str] = &[
+    "docs/source-port/methodology.md",
+    "docs/source-port/research-map.md",
+];
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub(crate) struct RecentCommitSummary {
+    pub(crate) sha: String,
+    pub(crate) subject: String,
+    pub(crate) files: Vec<String>,
+}
+
+/// Returns the last `count` commits (newest first) with their changed file
+/// list. Used by the handoff note and the dead-end detector to give the next
+/// agent — and the loop itself — a picture of whether we're about to repeat
+/// ourselves. Silently returns an empty Vec if git is unavailable.
+fn recent_commit_summaries(repo_root: &Path, count: usize) -> Vec<RecentCommitSummary> {
+    if count == 0 {
+        return Vec::new();
+    }
+    const DELIM: &str = "__KID_COMMIT__";
+    let format = format!("{DELIM}%n%h%n%s");
+    let output = Command::new("git")
+        .args([
+            "log",
+            &format!("-{count}"),
+            "--no-merges",
+            "--name-only",
+            &format!("--format={format}"),
+        ])
+        .current_dir(repo_root)
+        .output();
+    let Ok(output) = output else {
+        return Vec::new();
+    };
+    if !output.status.success() {
+        return Vec::new();
+    }
+    parse_recent_commit_summaries(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_recent_commit_summaries(stdout: &str) -> Vec<RecentCommitSummary> {
+    const DELIM: &str = "__KID_COMMIT__";
+    let mut summaries = Vec::new();
+    let mut iter = stdout.lines().peekable();
+    while let Some(line) = iter.next() {
+        if line.trim() != DELIM {
+            continue;
+        }
+        let Some(sha) = iter.next() else { break };
+        let Some(subject) = iter.next() else { break };
+        let mut files = Vec::new();
+        while let Some(next) = iter.peek() {
+            if next.trim() == DELIM {
+                break;
+            }
+            let file_line = iter.next().expect("peek succeeded");
+            if file_line.is_empty() {
+                continue;
+            }
+            files.push(file_line.to_owned());
+        }
+        summaries.push(RecentCommitSummary {
+            sha: sha.to_owned(),
+            subject: subject.to_owned(),
+            files,
+        });
+    }
+    summaries
+}
+
+fn is_sweep_refresh_commit(summary: &RecentCommitSummary) -> bool {
+    !summary.files.is_empty()
+        && summary
+            .files
+            .iter()
+            .all(|path| SWEEP_REFRESH_DOC_PATHS.contains(&path.as_str()))
+}
+
+/// Counts consecutive most-recent commits (starting from `summaries[0]`) that
+/// are pure sweep-parity evidence refreshes. A streak >= 3 means the loop is
+/// spinning; downstream code short-circuits to proactive-verification.
+fn sweep_refresh_streak(summaries: &[RecentCommitSummary]) -> usize {
+    summaries
+        .iter()
+        .take_while(|commit| is_sweep_refresh_commit(commit))
+        .count()
 }
 
 /// Re-walks commits recorded in the rl-session.json session window and
@@ -4082,6 +4337,7 @@ fn mutation_run_task(
         next_fallback_goal: None,
         next_agent_note: None,
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -4133,6 +4389,7 @@ fn mutation_triage_task(
         next_fallback_goal: None,
         next_agent_note: None,
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -4830,6 +5087,7 @@ fn case_queue_task(
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -4953,6 +5211,7 @@ fn source_port_frontier_recording_task(
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -5315,6 +5574,7 @@ fn source_port_frontier_release_gate_task(
         next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
         next_agent_note: Some(note.clone()),
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -5413,6 +5673,7 @@ fn source_port_frontier_backlog_evidence_blocker_task(
         next_fallback_goal: Some(AutonomyGoal::ProactiveVerification),
         next_agent_note: Some(note.clone()),
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -5577,6 +5838,7 @@ fn source_port_frontier_backlog_issue_task(
         next_fallback_goal: Some(AutonomyGoal::GameplayBacklog),
         next_agent_note: Some(note.clone()),
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -5699,6 +5961,7 @@ fn case_queue_recording_task(
         next_fallback_goal: Some(AutonomyGoal::SweepParity),
         next_agent_note: Some(note.clone()),
         target_routines: None,
+        definitively_stalled: false,
     }
 }
 
@@ -6808,6 +7071,7 @@ fn select_next_task(
         next_fallback_goal: None,
         next_agent_note: None,
         target_routines: None,
+        definitively_stalled: false,
     })
 }
 
@@ -7061,14 +7325,19 @@ fn write_source_port_next_agent_note(
         fs::create_dir_all(parent)
             .with_context(|| format!("failed to create {}", parent.display()))?;
     }
+    let recent_commits = recent_commit_summaries(repo_root, 5);
     fs::write(
         &note_path,
-        render_source_port_next_agent_note(frontier, task),
+        render_source_port_next_agent_note(frontier, task, &recent_commits),
     )
     .with_context(|| format!("failed to write {}", note_path.display()))
 }
 
-fn render_source_port_next_agent_note(frontier: &FrontierContext, task: &TaskPackage) -> String {
+fn render_source_port_next_agent_note(
+    frontier: &FrontierContext,
+    task: &TaskPackage,
+    recent_commits: &[RecentCommitSummary],
+) -> String {
     let closed_frontier = frontier.status == "complete";
     let recovery_summary = match (
         task.recovery_mode,
@@ -7173,6 +7442,30 @@ fn render_source_port_next_agent_note(frontier: &FrontierContext, task: &TaskPac
             .collect::<Vec<_>>()
             .join("\n")
     };
+    let recent_streak = sweep_refresh_streak(recent_commits);
+    let self_check = if recent_streak >= 3 {
+        format!(
+            "- STOP: the last {recent_streak} commits touched only docs/source-port/methodology.md + docs/source-port/research-map.md. Do NOT produce another commit of the same shape. Pivot to proactive-verification (`cargo run -p kidcli -- autonomous-loop --goal proactive-verification`) or record the stall in docs/source-port/frontier-state.yaml before touching those docs again."
+        )
+    } else {
+        "- Read the Recent Commits block below before starting. If the last 3+ commits touched only docs/source-port/methodology.md and docs/source-port/research-map.md, do NOT produce another commit of the same shape — pivot to proactive-verification or record the stall in docs/source-port/frontier-state.yaml.".to_owned()
+    };
+    let recent_commits_block = if recent_commits.is_empty() {
+        "- (git log unavailable)".to_owned()
+    } else {
+        recent_commits
+            .iter()
+            .map(|commit| {
+                let files = if commit.files.is_empty() {
+                    "(no file paths reported)".to_owned()
+                } else {
+                    commit.files.join(", ")
+                };
+                format!("- {} {} — {}", commit.sha, commit.subject, files)
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
     format!(
         "\
 ---
@@ -7180,6 +7473,12 @@ slug: {slug}
 updated_at: {updated_at}
 status: {status}
 ---
+# Self-Check Before Starting
+{self_check}
+
+# Recent Commits
+{recent_commits_block}
+
 # What Changed
 - {what_changed}
 
@@ -7287,15 +7586,16 @@ fn print_cycle_summary(cycle: &CycleReport) {
 mod tests {
     use super::{
         CapabilityId, CapabilityStatus, CaseFailureClass, CaseQueueStatus, CheckOutcome, GoalSpec,
-        NextAgentNoteStatus, RepositorySignals, SOURCE_PORT_CASE_CACHE_PATH,
+        NextAgentNoteStatus, RecentCommitSummary, RepositorySignals, SOURCE_PORT_CASE_CACHE_PATH,
         SOURCE_PORT_CASE_QUEUE_NOTE_PATH, SOURCE_PORT_FRONTIER_NOTE_PATH,
         SOURCE_PORT_FRONTIER_STATE_PATH, SOURCE_PORT_RECORDINGS_CACHE_PATH,
         SOURCE_PORT_RELEASE_GATE_PATH, SOURCE_PORT_RESEARCH_MAP_PATH, SOURCE_PORT_ROADMAP_PATH,
         SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, build_case_queue_snapshot, detect_blocker,
         evaluate_capabilities, evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
-        fingerprint_for_capabilities, latest_release_gate_signal, latest_state_sweep_signal,
-        load_source_port_frontier_state, render_source_port_next_agent_note, select_next_task,
-        source_port_frontier_sweep_task, source_port_next_agent_note,
+        fingerprint_for_capabilities, is_sweep_refresh_commit, latest_release_gate_signal,
+        latest_state_sweep_signal, load_source_port_frontier_state, parse_recent_commit_summaries,
+        render_source_port_next_agent_note, select_next_task, source_port_frontier_sweep_task,
+        source_port_next_agent_note, sweep_refresh_streak,
     };
     use std::collections::BTreeMap;
     use std::fs;
@@ -7495,6 +7795,7 @@ mod tests {
             next_fallback_goal: None,
             next_agent_note: None,
             target_routines: None,
+            definitively_stalled: false,
         };
 
         let blocker =
@@ -7998,6 +8299,28 @@ mod tests {
             .expect("run history should write");
     }
 
+    fn write_clean_completion_with_fingerprint(
+        repo_root: &Path,
+        cycle: u32,
+        delegated_target: &str,
+        fingerprint: &str,
+    ) {
+        let run_dir = repo_root.join(".cache/autonomy/source-port-frontier");
+        fs::create_dir_all(&run_dir).expect("run history dir should exist");
+        fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(run_dir.join("run-history.jsonl"))
+            .and_then(|mut file| {
+                use std::io::Write;
+                writeln!(
+                    file,
+                    r#"{{"cycle":{cycle},"delegated_target":"{delegated_target}","progress_fingerprint":"{fingerprint}","outcome":"completed","exit_code":0,"dirty_tree":false}}"#
+                )
+            })
+            .expect("run history should write");
+    }
+
     fn write_stalled_repeat(
         repo_root: &Path,
         cycle: u32,
@@ -8375,7 +8698,7 @@ mod tests {
             .frontier_context
             .as_ref()
             .expect("frontier context should exist");
-        let rendered_note = render_source_port_next_agent_note(frontier, &task);
+        let rendered_note = render_source_port_next_agent_note(frontier, &task, &[]);
 
         assert!(
             task.evidence
@@ -8462,6 +8785,7 @@ mod tests {
                 .as_ref()
                 .expect("frontier context should exist"),
             &task,
+            &[],
         );
 
         assert!(
@@ -8739,6 +9063,7 @@ mod tests {
                 .as_ref()
                 .expect("frontier context should exist"),
             &task,
+            &[],
         );
 
         assert!(
@@ -9016,6 +9341,153 @@ mod tests {
                 .contains(":recovery:refresh_evidence"),
             "fingerprint should advance with the recovery suffix so the runner stops counting it as the same lane: {}",
             task.progress_fingerprint
+        );
+    }
+
+    #[test]
+    fn clean_repeat_of_recent_completion_triggers_recovery_on_iteration_1() {
+        // Reproduce the user's "2 silent iterations wasted" pattern: the
+        // planner would dispatch byte-identical work because the last clean
+        // completion on this lane used exactly the same (target, fingerprint)
+        // pair. No stalled_repeat rows have accumulated yet. Mechanism A must
+        // lift the recovery trigger on iteration 1 instead of waiting for the
+        // runner's `repeated_stalls >= 2` cascade to fire after two silent
+        // retries.
+        let temp_dir = source_port_repo();
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("release gate dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RELEASE_GATE_PATH),
+            "{\"passed\": true}\n",
+        )
+        .expect("release gate should write");
+        write_complete_default_mutation_runs(temp_dir.path());
+        commit_repo(temp_dir.path(), "fixture state");
+
+        // Capture the baseline fingerprint that the planner would emit.
+        let baseline =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let baseline_task = baseline.selected_task.expect("selected task should exist");
+        assert_eq!(
+            baseline_task.delegated_target.as_deref(),
+            Some("state-sweep"),
+        );
+        assert!(baseline_task.recovery_mode.is_none());
+        let plain_fingerprint = baseline_task.progress_fingerprint.clone();
+
+        // Seed exactly one clean-completion row with that (target, fingerprint)
+        // pair — no stalled_repeat rows. This is the cycle 466/470 state the
+        // user hit: the last run was clean, the planner reselects the same
+        // lane.
+        write_clean_completion_with_fingerprint(
+            temp_dir.path(),
+            10,
+            "state-sweep",
+            &plain_fingerprint,
+        );
+
+        // Iteration 1 on the next `rl` call: Mechanism A must fire without
+        // waiting for two silent stalled_repeat retries.
+        let cycle = evaluate_source_port_frontier_cycle(temp_dir.path(), 11, 1)
+            .expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+        assert_eq!(
+            task.recovery_mode,
+            Some(super::RecoveryMode::StalledFingerprint),
+            "clean repeat must trigger the recovery cascade on iteration 1"
+        );
+        assert!(
+            task.progress_fingerprint.contains(":recovery:"),
+            "recovery suffix should be applied: {}",
+            task.progress_fingerprint
+        );
+    }
+
+    #[test]
+    fn recovery_suffix_repeating_clean_completion_marks_definitively_stalled() {
+        // Mechanism B: the recovery cascade's decoration is deterministic
+        // (`:recovery:<step>`). If both the plain fingerprint AND the
+        // suffixed fingerprint already appear as recent clean completions,
+        // the cascade can only restate work that already landed. Mark the
+        // task so the runner short-circuits to the operator message on
+        // iteration 1 instead of looping through another three silent
+        // retries.
+        let temp_dir = source_port_repo();
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("release gate dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RELEASE_GATE_PATH),
+            "{\"passed\": true}\n",
+        )
+        .expect("release gate should write");
+        write_complete_default_mutation_runs(temp_dir.path());
+        commit_repo(temp_dir.path(), "fixture state");
+
+        let baseline =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let baseline_task = baseline.selected_task.expect("selected task should exist");
+        let plain_fingerprint = baseline_task.progress_fingerprint.clone();
+        let suffixed_fingerprint = format!("{plain_fingerprint}:recovery:refresh_evidence");
+
+        // Seed both: the plain fingerprint AND the recovery-suffixed
+        // fingerprint as recent clean completions. The first row triggers
+        // Mechanism A. The second means the recovery suffix also repeats
+        // completed work, so Mechanism B must mark the task.
+        write_clean_completion_with_fingerprint(
+            temp_dir.path(),
+            10,
+            "state-sweep",
+            &plain_fingerprint,
+        );
+        write_clean_completion_with_fingerprint(
+            temp_dir.path(),
+            11,
+            "state-sweep",
+            &suffixed_fingerprint,
+        );
+
+        let cycle = evaluate_source_port_frontier_cycle(temp_dir.path(), 12, 1)
+            .expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+        assert_eq!(
+            task.progress_fingerprint, suffixed_fingerprint,
+            "recovery cascade should land on the same suffixed fingerprint"
+        );
+        assert!(
+            task.definitively_stalled,
+            "task should be marked definitively stalled when the recovery suffix also repeats a recent clean completion"
         );
     }
 
@@ -9604,7 +10076,7 @@ mod tests {
             .frontier_context
             .as_ref()
             .expect("frontier context should exist");
-        let rendered_note = render_source_port_next_agent_note(frontier, &task);
+        let rendered_note = render_source_port_next_agent_note(frontier, &task, &[]);
 
         assert_eq!(
             task.recovery_mode,
@@ -10156,5 +10628,293 @@ mod tests {
         assert_eq!(task.cycle, 1);
         assert_eq!(task.progress_fingerprint, cycle.progress_fingerprint);
         assert!(!task.generated_at.is_empty());
+    }
+
+    fn fake_commit(sha: &str, subject: &str, files: &[&str]) -> RecentCommitSummary {
+        RecentCommitSummary {
+            sha: sha.to_owned(),
+            subject: subject.to_owned(),
+            files: files.iter().map(|s| (*s).to_owned()).collect(),
+        }
+    }
+
+    #[test]
+    fn parse_recent_commit_summaries_parses_multiple_commits() {
+        let stdout = "\
+__KID_COMMIT__
+abc1234
+First commit
+docs/source-port/methodology.md
+docs/source-port/research-map.md
+
+__KID_COMMIT__
+def5678
+Second commit
+crates/kidcli/src/main.rs
+";
+        let parsed = parse_recent_commit_summaries(stdout);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].sha, "abc1234");
+        assert_eq!(parsed[0].subject, "First commit");
+        assert_eq!(
+            parsed[0].files,
+            vec![
+                "docs/source-port/methodology.md".to_string(),
+                "docs/source-port/research-map.md".to_string(),
+            ]
+        );
+        assert_eq!(parsed[1].sha, "def5678");
+        assert_eq!(
+            parsed[1].files,
+            vec!["crates/kidcli/src/main.rs".to_string()]
+        );
+    }
+
+    #[test]
+    fn parse_recent_commit_summaries_handles_commit_with_no_files() {
+        // `git log --name-only` for an empty commit emits only the DELIM/sha/subject.
+        let stdout = "\
+__KID_COMMIT__
+abc1234
+Empty commit
+";
+        let parsed = parse_recent_commit_summaries(stdout);
+        assert_eq!(parsed.len(), 1);
+        assert!(parsed[0].files.is_empty());
+    }
+
+    #[test]
+    fn is_sweep_refresh_commit_detects_docs_only_refresh() {
+        let commit = fake_commit(
+            "abc1234",
+            "Refresh sweep parity evidence",
+            &[
+                "docs/source-port/methodology.md",
+                "docs/source-port/research-map.md",
+            ],
+        );
+        assert!(is_sweep_refresh_commit(&commit));
+    }
+
+    #[test]
+    fn is_sweep_refresh_commit_allows_single_sweep_doc() {
+        let commit = fake_commit(
+            "abc1234",
+            "docs: nudge methodology",
+            &["docs/source-port/methodology.md"],
+        );
+        assert!(is_sweep_refresh_commit(&commit));
+    }
+
+    #[test]
+    fn is_sweep_refresh_commit_rejects_mixed_files() {
+        let commit = fake_commit(
+            "abc1234",
+            "docs: refresh plus code",
+            &[
+                "docs/source-port/methodology.md",
+                "crates/kidcli/src/main.rs",
+            ],
+        );
+        assert!(!is_sweep_refresh_commit(&commit));
+    }
+
+    #[test]
+    fn is_sweep_refresh_commit_rejects_empty_file_list() {
+        // Empty file list (e.g. git merge or empty commit) must not be classified
+        // as a sweep refresh — otherwise the detector fires spuriously.
+        let commit = fake_commit("abc1234", "Merge commit", &[]);
+        assert!(!is_sweep_refresh_commit(&commit));
+    }
+
+    #[test]
+    fn sweep_refresh_streak_counts_consecutive_refreshes() {
+        let commits = vec![
+            fake_commit(
+                "a",
+                "Refresh sweep parity evidence",
+                &["docs/source-port/methodology.md"],
+            ),
+            fake_commit(
+                "b",
+                "Refresh sweep parity evidence",
+                &[
+                    "docs/source-port/methodology.md",
+                    "docs/source-port/research-map.md",
+                ],
+            ),
+            fake_commit(
+                "c",
+                "Refresh sweep parity evidence",
+                &["docs/source-port/research-map.md"],
+            ),
+            fake_commit("d", "Real code change", &["crates/kidcli/src/main.rs"]),
+        ];
+        assert_eq!(sweep_refresh_streak(&commits), 3);
+    }
+
+    #[test]
+    fn sweep_refresh_streak_stops_at_first_non_refresh() {
+        let commits = vec![
+            fake_commit(
+                "a",
+                "Refresh sweep parity evidence",
+                &["docs/source-port/methodology.md"],
+            ),
+            fake_commit("b", "Real code change", &["crates/kidcli/src/main.rs"]),
+            fake_commit(
+                "c",
+                "Refresh sweep parity evidence",
+                &["docs/source-port/methodology.md"],
+            ),
+        ];
+        // Only the most-recent run counts; the older refreshes are not part of
+        // the current streak.
+        assert_eq!(sweep_refresh_streak(&commits), 1);
+    }
+
+    #[test]
+    fn sweep_refresh_streak_returns_zero_when_no_recent_refreshes() {
+        let commits = vec![
+            fake_commit("a", "Real code change", &["crates/kidcli/src/main.rs"]),
+            fake_commit(
+                "b",
+                "Refresh sweep parity evidence",
+                &["docs/source-port/methodology.md"],
+            ),
+        ];
+        assert_eq!(sweep_refresh_streak(&commits), 0);
+    }
+
+    #[test]
+    fn render_source_port_next_agent_note_embeds_recent_commits_block() {
+        let frontier = super::FrontierContext {
+            slug: "test-frontier".to_owned(),
+            recording: "rec".to_owned(),
+            scenario: "scn".to_owned(),
+            area: "area".to_owned(),
+            status: "complete".to_owned(),
+            frontier_frame: 0,
+            authoritative_clean_through: 0,
+            current_blocker: "none".to_owned(),
+            current_hypothesis: super::HypothesisSummary {
+                name: "h".to_owned(),
+                reason: "r".to_owned(),
+                fingerprint: None,
+            },
+            rejected_hypotheses: vec![],
+            required_next_evidence: vec![],
+            verification_commands: vec![],
+        };
+        let task = super::TaskPackage {
+            capability: CapabilityId::SourcePortFrontierTask,
+            title: "t".to_owned(),
+            summary: "s".to_owned(),
+            generated_at: "0".to_owned(),
+            cycle: 1,
+            progress_fingerprint: "fp".to_owned(),
+            sources: vec![],
+            implementation_targets: vec![],
+            commands: vec![],
+            done_criteria: vec![],
+            evidence: vec![],
+            next_agent_note: None,
+            frontier_context: Some(frontier.clone()),
+            case_queue_context: None,
+            delegated_goal: None,
+            delegated_target: None,
+            delegation_reason: None,
+            recovery_mode: None,
+            recovery_step: None,
+            stalled_repetition_count: None,
+            pivot_reason: None,
+            next_fallback_goal: None,
+            target_routines: None,
+            definitively_stalled: false,
+        };
+        let commits = vec![
+            fake_commit(
+                "a",
+                "Refresh sweep parity evidence",
+                &["docs/source-port/methodology.md"],
+            ),
+            fake_commit(
+                "b",
+                "Refresh sweep parity evidence",
+                &["docs/source-port/research-map.md"],
+            ),
+            fake_commit(
+                "c",
+                "Refresh sweep parity evidence",
+                &[
+                    "docs/source-port/methodology.md",
+                    "docs/source-port/research-map.md",
+                ],
+            ),
+        ];
+        let rendered = render_source_port_next_agent_note(&frontier, &task, &commits);
+        assert!(
+            rendered.contains("# Recent Commits"),
+            "expected Recent Commits section: {rendered}"
+        );
+        assert!(
+            rendered.contains("- a Refresh sweep parity evidence"),
+            "expected first commit summary: {rendered}"
+        );
+        assert!(
+            rendered.contains("STOP: the last 3 commits"),
+            "expected streak STOP warning: {rendered}"
+        );
+    }
+
+    #[test]
+    fn render_source_port_next_agent_note_uses_soft_self_check_when_no_streak() {
+        let frontier = super::FrontierContext {
+            slug: "test".to_owned(),
+            recording: "rec".to_owned(),
+            scenario: "scn".to_owned(),
+            area: "area".to_owned(),
+            status: "complete".to_owned(),
+            frontier_frame: 0,
+            authoritative_clean_through: 0,
+            current_blocker: "none".to_owned(),
+            current_hypothesis: super::HypothesisSummary {
+                name: "h".to_owned(),
+                reason: "r".to_owned(),
+                fingerprint: None,
+            },
+            rejected_hypotheses: vec![],
+            required_next_evidence: vec![],
+            verification_commands: vec![],
+        };
+        let task = super::TaskPackage {
+            capability: CapabilityId::SourcePortFrontierTask,
+            title: "t".to_owned(),
+            summary: "s".to_owned(),
+            generated_at: "0".to_owned(),
+            cycle: 1,
+            progress_fingerprint: "fp".to_owned(),
+            sources: vec![],
+            implementation_targets: vec![],
+            commands: vec![],
+            done_criteria: vec![],
+            evidence: vec![],
+            next_agent_note: None,
+            frontier_context: Some(frontier.clone()),
+            case_queue_context: None,
+            delegated_goal: None,
+            delegated_target: None,
+            delegation_reason: None,
+            recovery_mode: None,
+            recovery_step: None,
+            stalled_repetition_count: None,
+            pivot_reason: None,
+            next_fallback_goal: None,
+            target_routines: None,
+            definitively_stalled: false,
+        };
+        let rendered = render_source_port_next_agent_note(&frontier, &task, &[]);
+        assert!(rendered.contains("# Self-Check Before Starting"));
+        assert!(!rendered.contains("STOP:"));
     }
 }

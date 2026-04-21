@@ -15,6 +15,8 @@ Use this as the fixed prompt/context for repeated Ralph cycles on the source-por
 
 **Step 4.** Pick ONE item from "Exact Next Moves" in the handoff note. That is your task for this session.
 
+**Step 5 (self-check).** Read the "Recent Commits" block in the handoff note (or run `git log --oneline -5 --stat`). If the last 3+ commits touched only `docs/source-port/methodology.md` and/or `docs/source-port/research-map.md`, the loop is spinning — **do not produce another commit of the same shape**. Pivot to `autonomous-loop --goal proactive-verification`, or record the stall in `docs/source-port/frontier-state.yaml` before touching those prose docs again.
+
 **STOP.** Do not read `docs/source-port/frontier-state.yaml`, `docs/source-port/backlog.md`, `docs/source-port/tas-roadmap.md`, or any other broad context document. The handoff note already distils them. Reading them wastes your context window on information you already have.
 
 ## Investigation hierarchy (follow this order)
