@@ -2475,6 +2475,39 @@ mod tests {
     }
 
     #[test]
+    fn cell_from_be_bytes_preserves_each_sub_bbe2_block_dispatch_nibble() {
+        // ASM sub_BBE2 loc_BC26 (kid.asm:15167) masks `$F00` and shifts by 6,
+        // producing a block-type dispatch offset into off_BB80.  Every ROM
+        // block nibble, including `$F`, must survive decode and re-pack.
+        let cases = [
+            (0x00, BlockType::Smash),
+            (0x01, BlockType::Prize),
+            (0x02, BlockType::Ice),
+            (0x03, BlockType::SolidGhost),
+            (0x04, BlockType::Teleporter),
+            (0x05, BlockType::Metal),
+            (0x06, BlockType::Rubber),
+            (0x07, BlockType::Shifting),
+            (0x08, BlockType::Shooter),
+            (0x09, BlockType::Mushroom),
+            (0x0A, BlockType::Evanescent),
+            (0x0B, BlockType::Lift),
+            (0x0C, BlockType::Drill),
+            (0x0F, BlockType::Deleted),
+        ];
+
+        for (nibble, expected_block_type) in cases {
+            let hi = 0xE0 | nibble;
+            let cell = Cell::from_be_bytes(hi, 0x34);
+
+            assert!(cell.has_block);
+            assert_eq!(cell.collision, CollisionKind::Solid);
+            assert_eq!(cell.block_type, expected_block_type);
+            assert_eq!(cell.to_word(), (u16::from(hi) << 8) | 0x0034);
+        }
+    }
+
+    #[test]
     fn cell_from_be_bytes_parses_spikes() {
         // 0x70 = 0b0_111_0000 → collision=7 (spikes)
         let cell = Cell::from_be_bytes(0x70, 0x00);
