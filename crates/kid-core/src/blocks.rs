@@ -4084,4 +4084,40 @@ mod tests {
             None
         );
     }
+
+    #[test]
+    fn block_destroy_effect_origins_match_asm_sub_10eda_and_sub_10f9c() {
+        // ASM sub_10EDA/sub_10F9C (kid.asm:22817-22908): both block destroy
+        // workers use the same direction branches for the 4px effect nudge.
+        let cases = [
+            (
+                NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW,
+                (0x0030, 0x0044),
+            ),
+            (
+                NativeRuntime::BLOCK_DESTROY_DIRECTION_LEFT,
+                (0x002C, 0x0040),
+            ),
+            (
+                NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
+                (0x0030, 0x003C),
+            ),
+            (
+                NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT,
+                (0x0034, 0x0040),
+            ),
+        ];
+        for (direction, expected) in cases {
+            assert_eq!(
+                NativeRuntime::smash_block_destroy_effect_origin_sub_10EDA(
+                    direction, 0x0030, 0x0040,
+                ),
+                expected
+            );
+            assert_eq!(
+                NativeRuntime::ice_block_destroy_effect_origin_sub_10F9C(direction, 0x0030, 0x0040,),
+                expected
+            );
+        }
+    }
 }
