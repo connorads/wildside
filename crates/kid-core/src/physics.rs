@@ -1156,6 +1156,16 @@ mod tests {
     }
 
     #[test]
+    fn skycutter_sub_9a20_run_right_from_standstill_adds_4000() {
+        // ASM loc_9A6E (kid.asm:11623): `addi.l #$4000,d0`, then clamp at `$40000`.
+        let (vel, dir) =
+            update_skycutter_horizontal_velocity_sub_9A20(0, Direction::Right, right_run());
+
+        assert_eq!(vel, 0x4000);
+        assert_eq!(dir, Direction::Right);
+    }
+
+    #[test]
     fn skycutter_sub_9a20_walk_right_decelerates_back_from_run_speed() {
         let (vel, dir) =
             update_skycutter_horizontal_velocity_sub_9A20(0x2_2000, Direction::Right, right_walk());
