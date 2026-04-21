@@ -12,8 +12,16 @@ Progress language uses the evidence ladder from `methodology.md`:
 `stubbed`, `boots`, `replay-matched`, `branch-matched`, `mechanic-swept`, `human-play-stable`.
 A closed TAS frontier proves `replay-matched` on that route, not `human-play-stable`.
 
-Status: `[ ]` open, `[~]` in progress, `[x]` done, `[-]` won't fix / not a bug
+Status: `[ ]` open, `[~]` in progress, `[?]` agent proposes fix complete — **human must validate before closing**, `[x]` done, `[-]` won't fix / not a bug, `[b]` blocked / needs human repro
 Priority: P0 (game-breaking), P1 (core feel), P2 (missing system), P3 (polish)
+
+`[?]` items carry an evidence block recording the investigation outcome: repro
+scenario path, ASM labels cited, oracle-parity result, and the proposed-fix
+commit hash. Only a human may promote `[?]` → `[x]`; the agent lane never
+auto-closes. If investigation stalls, the lane appends to the rejected-hypothesis
+ledger in `frontier-state.yaml`, increments the per-issue attempt counter, and
+leaves status at `[~]` until the counter exceeds the cap (auto-tagged
+`stalled:agent-blocked`).
 
 For newly opened items, capture these facts in the investigation notes:
 

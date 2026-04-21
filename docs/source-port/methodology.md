@@ -74,6 +74,35 @@ This mirrors byuu's investigation loop (identify → capture → hypothesise →
 7. **Fix**: implement smallest correct change
 8. **Verify**: probe scenario passes + full sweep passes + visual before/after comparison
 
+### Iteration workflow: agent-proposed vs human-closed
+
+The autonomy loop's gameplay-bug investigation lane must never close a backlog
+item on its own. It owns the `[~]` → `[?]` transition only.
+
+Status transitions:
+
+- `[ ]` — open. Selector picks from here by priority.
+- `[~]` — agent investigating. Set on entry to the lane. Evidence accumulates
+  under the backlog row.
+- `[?]` — agent proposes a fix complete. Evidence block lists repro scenario
+  path, cited ASM labels, oracle-parity result, and the commit hash of the
+  proposed fix. Human must validate before promoting to `[x]`.
+- `[x]` — closed by a human.
+- `[b]` — blocked: needs human repro or external artefact.
+- `stalled:agent-blocked` — auto-applied when the per-issue attempt counter
+  exceeds the cap. Selector skips until a human re-inspects.
+
+The agent lane guardrails:
+
+- Never writes `[x]`. A reviewer converts `[?]` → `[x]` once the fix is
+  validated.
+- Every investigation commit must either touch `crates/kid-core/src/**` (fix +
+  regression test) or `docs/source-port/backlog.md` (new evidence block or
+  status transition). Pure cache-local churn does not count as progress.
+- On stall, append to the rejected-hypothesis ledger, increment
+  `bug_investigation_attempts[<issue-id>]` in `frontier-state.yaml`, and leave
+  status at `[~]`.
+
 ### Trace comparison techniques
 
 When investigating divergences between native and oracle:
