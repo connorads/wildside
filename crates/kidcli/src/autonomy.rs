@@ -8980,6 +8980,125 @@ mod tests {
     }
 
     #[test]
+    fn source_port_frontier_green_gate_prefers_newer_state_sweep_report_when_history_lags() {
+        let temp_dir = source_port_repo();
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        let fresh_sweep_dir = temp_dir.path().join(".cache/sweep-runs/1776800896");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        fs::create_dir_all(&fresh_sweep_dir).expect("fresh sweep dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"{
+  "timestamp": "1776800861",
+  "target": "1p-accurate",
+  "passed": true,
+  "steps": [
+    {
+      "name": "state_sweep:0-104",
+      "status": "passed",
+      "detail": "all 69 requested levels passed the state sweep"
+    }
+  ],
+  "sweep_summary": {
+    "authoritative": 0,
+    "advisory": 178,
+    "accumulation": 0,
+    "rng": 0,
+    "oracle_limitation": 662
+  }
+}
+"#,
+        )
+        .expect("release gate latest should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1776800852","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":177,"accumulation":0,"rng":0,"oracle_limitation":661},"report_path":"/tmp/stale-sweep-report.json","field_summary":[],"release_gate_focus":[]}
+"#,
+        )
+        .expect("stale sweep history should write");
+        fs::write(
+            fresh_sweep_dir.join("report.json"),
+            r#"{
+  "timestamp": "1776800896",
+  "kid_core_hash": "deadbeef",
+  "levels": [
+    {
+      "level_id": 0,
+      "slug": "idle_level_00",
+      "tier": "state",
+      "passed": true,
+      "state_diffs": [],
+      "mae": null,
+      "diff_images": [],
+      "error": null,
+      "divergence_summary": {
+        "authoritative": 0,
+        "advisory": 0,
+        "accumulation": 0,
+        "rng": 0,
+        "oracle_limitation": 0
+      }
+    }
+  ],
+  "passed": 69,
+  "failed": 0,
+  "errors": 0,
+  "divergence_summary": {
+    "authoritative": 0,
+    "advisory": 178,
+    "accumulation": 0,
+    "rng": 0,
+    "oracle_limitation": 662
+  },
+  "field_summary": [],
+  "release_gate_focus": []
+}
+"#,
+        )
+        .expect("fresh sweep report should write");
+
+        let frontier = load_source_port_frontier_state(temp_dir.path())
+            .expect("frontier state should load")
+            .active_frontier;
+        let note = source_port_next_agent_note(temp_dir.path(), frontier.slug.as_str());
+        let task = source_port_frontier_sweep_task(temp_dir.path(), &frontier, &note);
+        let rendered_note = render_source_port_next_agent_note(
+            task.frontier_context
+                .as_ref()
+                .expect("frontier context should exist"),
+            &task,
+            &[],
+        );
+
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "state-sweep-status"
+                    && item.status == "passed"
+                    && item.detail.contains("timestamp 1776800896")
+                    && item.detail.contains("advisory=178")
+                    && item.detail.contains("oracle_limitations=662")
+                    && item
+                        .artefact_path
+                        .as_ref()
+                        .is_some_and(|path| path == &fresh_sweep_dir.join("report.json"))),
+            "green sweep handoff should prefer the newer direct report over stale history"
+        );
+        assert!(
+            rendered_note.contains("timestamp 1776800896")
+                && rendered_note.contains(".cache/sweep-runs/1776800896/report.json"),
+            "next-agent note should cite the newer direct sweep report"
+        );
+        assert!(
+            !rendered_note.contains("1776800852") && !rendered_note.contains("stale-sweep-report"),
+            "next-agent note should not reuse stale sweep-history evidence"
+        );
+    }
+
+    #[test]
     fn sweep_parity_refresh_updates_source_port_handoff_note() {
         let temp_dir = source_port_repo();
         let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
