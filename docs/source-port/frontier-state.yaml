@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-21T22:28:07Z",
+  "updated_at": "2026-04-21T22:51:56Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-tail-clean-through-end",
@@ -109,6 +109,10 @@
       {
         "name": "Issue #140 was actionable from the fresh `issue-140-repro` recording",
         "reason": "The 2026-04-21 attempt to run `play-native --warp-level 00 --settled --record issue-140-repro` had to be interrupted before `.cache/recordings/issue-140-repro/manifest.json` existed. `verify-recording --slug issue-140-repro` therefore fails before replay, and `.cache/debug/bug-140/level_00_frame_00000.png`, `level_00_frame_00060.png`, and `level_00_frame_00120.png` are title-card captures, not settled prize-block gameplay. ASM `loc_123DC` / `loc_12408` / `loc_1241C` / `loc_12454` / `loc_12468` identify the `$E102/$E101` prize-cell mapping path, while `sub_1007A` / `loc_101D8` / `loc_10200` / `loc_102B8` / `Prize_Init` identify the hit wobble and spawn-flash paths to re-check once a settled prize-block-hit repro exists; `compare-native-oracle --scenario boot-title-start-level1` passes."
+      },
+      {
+        "name": "Issue #143 was actionable from the fresh `issue-143-repro` recording",
+        "reason": "The 2026-04-21 attempt to run `play-native --warp-level 00 --settled --record issue-143-repro` had to be interrupted before `.cache/recordings/issue-143-repro/manifest.json` existed. `verify-recording --slug issue-143-repro` therefore fails before replay, and `.cache/debug/bug-143/level_00_frame_00000.png`, `level_00_frame_00060.png`, and `level_00_frame_00120.png` are baseline Level 00 captures, not settled Heavy Man block-break gameplay. ASM `sub_AF7A` / `loc_AF96` / `off_AFD8` / `sub_AFD4` / `loc_AFCA` / `loc_1002E` / `loc_110D0` identify the latch and dispatch contract now modelled by proposed-fix commit `cfdb0a7c`; `compare-native-oracle --scenario boot-title-start-level1` passes, but a human-controlled Heavy Man block-break recording is still required before runtime integration or `[x]` promotion."
       }
     ],
     "required_next_evidence": [
@@ -144,7 +148,8 @@
     "137": 1,
     "138": 1,
     "139": 1,
-    "140": 1
+    "140": 1,
+    "143": 1
   },
   "stuck_policy": {
     "probe_only_commit_threshold": 2,
