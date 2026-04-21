@@ -28,12 +28,11 @@ pub(crate) fn prize_10000_points_init_loc_10AE0(
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn prize_10000_points_clear_slots_loc_10AFA(mut worker_slots: [u32; 5]) -> [u32; 5] {
+pub(crate) fn prize_10000_points_clear_slots_loc_10AFA(_worker_slots: [u32; 5]) -> [u32; 5] {
     // ASM loc_10AFA (kid.asm:22393): `moveq #4,d0` enters a `clr.l (a0)+;
     // dbf d0,loc_10AFA` loop, so exactly five longwords at `$44(a5)` are
     // zeroed before the later prize-number worker scan starts.
-    worker_slots.fill(0);
-    worker_slots
+    [0; 5]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -9643,5 +9642,43 @@ impl NativeRuntime {
         }
 
         false
+    }
+}
+
+#[cfg(test)]
+mod mutation_tests {
+    use super::*;
+
+    #[test]
+    fn enemy_death_burst_homing_step_loc_37078_treats_equal_x_as_kid_on_left() {
+        // ASM loc_37078 (kid.asm:38930): `cmp.w d5,d3; bgt.s loc_3709E`.
+        // Equal X does not branch, so the burst stores `x_direction=$FF` and
+        // accelerates rightward by `$FA0`.
+        let step = enemy_death_burst_homing_step_sub_37002(0x0120, 0x0040, 0x0120, 0x0060);
+
+        assert_eq!(
+            step,
+            EnemyDeathBurstHomingStepSub37002 {
+                x_direction: 0xFF,
+                x_velocity_delta: 0x0000_0FA0,
+                y_velocity_delta: 0x0000_0FA0,
+            }
+        );
+    }
+
+    #[test]
+    fn enemy_death_burst_homing_step_loc_370aa_treats_equal_y_as_kid_above() {
+        // ASM loc_370AA (kid.asm:38947): `cmp.w d6,d4; bgt.s loc_370B8`.
+        // Equal Y does not branch, so the burst accelerates downward by `$FA0`.
+        let step = enemy_death_burst_homing_step_sub_37002(0x0140, 0x0080, 0x0120, 0x0080);
+
+        assert_eq!(
+            step,
+            EnemyDeathBurstHomingStepSub37002 {
+                x_direction: 0,
+                x_velocity_delta: -0x0000_0FA0,
+                y_velocity_delta: 0x0000_0FA0,
+            }
+        );
     }
 }
