@@ -5754,21 +5754,27 @@ mod chunk_09 {
 
     #[test]
     fn process_block_effects_drill_projectile_fires_rightward() {
-        // Player to the right of the drill → projectile fires right
+        // ASM sub_1129C/sub_10EDA: a drill hit spawns a plain horizontal
+        // projectile at the block effect origin, moving 4px/frame.
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 200 << 16;
-        slice.drill_projectile_hit = Some((100 << 16, 50 << 16));
+        let origin = (100 << 16, 50 << 16);
+        slice.drill_projectile_hit = Some(origin);
 
         rt.process_block_effects(&mut slice);
 
         assert_eq!(rt.projectiles.len(), 1);
+        let projectile = &rt.projectiles[0];
         assert!(
-            rt.projectiles[0].x_velocity > 0,
+            projectile.x_velocity > 0,
             "drill projectile should fire rightward when player is right of block"
         );
-        assert_eq!(rt.projectiles[0].x_velocity, 0x4_0000); // 4 px/frame
-        assert_eq!(rt.projectiles[0].y_velocity, 0);
+        assert_eq!(projectile.x_pos, origin.0);
+        assert_eq!(projectile.y_pos, origin.1);
+        assert_eq!(projectile.x_velocity, 0x4_0000);
+        assert_eq!(projectile.y_velocity, 0);
+        assert_eq!(projectile.lifetime, 120);
     }
 
     #[test]
@@ -5776,16 +5782,22 @@ mod chunk_09 {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 50 << 16;
-        slice.drill_projectile_hit = Some((100 << 16, 50 << 16));
+        let origin = (100 << 16, 50 << 16);
+        slice.drill_projectile_hit = Some(origin);
 
         rt.process_block_effects(&mut slice);
 
         assert_eq!(rt.projectiles.len(), 1);
+        let projectile = &rt.projectiles[0];
         assert!(
-            rt.projectiles[0].x_velocity < 0,
+            projectile.x_velocity < 0,
             "drill projectile should fire leftward when player is left of block"
         );
-        assert_eq!(rt.projectiles[0].x_velocity, -0x4_0000);
+        assert_eq!(projectile.x_pos, origin.0);
+        assert_eq!(projectile.y_pos, origin.1);
+        assert_eq!(projectile.x_velocity, -0x4_0000);
+        assert_eq!(projectile.y_velocity, 0);
+        assert_eq!(projectile.lifetime, 120);
     }
 
     #[test]
@@ -7117,7 +7129,8 @@ mod chunk_09 {
 
     #[test]
     fn shooter_block_fires_all_four_directions() {
-        // Skin byte 0x0F = all directions (up + right + down + left)
+        // ASM LoadBulletsFromEvanescentBlock loc_EC76: skin byte 0x0F loads
+        // one shooter object for each direction at the block centre.
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x0F)]));
         rt.block_state.shooter_last_scanned_col = 1;
@@ -7144,6 +7157,11 @@ mod chunk_09 {
         assert!(velocities.contains(&(speed, 0)), "missing right projectile");
         assert!(velocities.contains(&(0, speed)), "missing down projectile");
         assert!(velocities.contains(&(-speed, 0)), "missing left projectile");
+        for projectile in &rt.projectiles {
+            assert_eq!(projectile.x_pos, (5 * 16 + 8) << 16);
+            assert_eq!(projectile.y_pos, (3 * 16 + 8) << 16);
+            assert_eq!(projectile.lifetime, 120);
+        }
     }
 
     #[test]

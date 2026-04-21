@@ -699,8 +699,10 @@ impl NativeRuntime {
         // level_id)` pair into slot `d0`. The header therefore points to the
         // next insertion slot, not the one just written.
         let mut next_entries = entries;
+        let [layout_hi, layout_lo] = prize_layout_addr.to_be_bytes();
+        let [level_hi, level_lo] = current_level_id.to_be_bytes();
         next_entries[usize::from(current_write_index)] =
-            (u32::from(prize_layout_addr) << 16) | u32::from(current_level_id);
+            u32::from_be_bytes([layout_hi, layout_lo, level_hi, level_lo]);
         let mut next_write_index = current_write_index.wrapping_add(1);
         if next_write_index >= 0x28 {
             next_write_index = 0;
@@ -2321,11 +2323,9 @@ impl NativeRuntime {
                             x_velocity: xv,
                             y_velocity: yv,
                             lifetime: 120,
-                            gravity: 0,
-                            friendly: false,
-                            homing_accel: 0,
-                            speed_cap: 0,
-                            wall_bounce: false,
+                            // ASM LoadBulletsFromEvanescentBlock/Process_ShooterObjects
+                            // stores a plain shooter object: no gravity, homing,
+                            // friendly damage, or wall bounce metadata.
                             ..Default::default()
                         });
                     }
@@ -2748,13 +2748,9 @@ impl NativeRuntime {
                 x_pos: x_fp,
                 y_pos: y_fp,
                 x_velocity: dir * 0x4_0000, // 4 px/frame horizontal
-                y_velocity: 0,
                 lifetime: 120,
-                gravity: 0,
-                friendly: false,
-                homing_accel: 0,
-                speed_cap: 0,
-                wall_bounce: false,
+                // ASM sub_1129C/sub_10EDA creates the simple horizontal drill
+                // effect; the remaining projectile fields stay at native defaults.
                 ..Default::default()
             });
         }
@@ -3596,6 +3592,51 @@ mod tests {
             }
         );
 
+        // ASM loc_108EE: every negative `byte_108AC` entry branches to
+        // `loc_10960`; every non-negative entry indexes `unk_10A52`.
+        let expected_bursts = [
+            (0, 0, -20, -36),
+            (1, 1, -20, -27),
+            (2, 2, -20, -18),
+            (3, 3, -20, -9),
+            (24, 4, 6, -36),
+            (25, 5, -4, -28),
+            (26, 6, 16, -28),
+            (27, 7, -4, -16),
+            (28, 8, 16, -16),
+            (29, 9, 6, -8),
+        ];
+        for (frame, table_index, x_velocity_word, y_velocity_word) in expected_bursts {
+            let spawned = NativeRuntime::prize_10_diamonds_spawn_loc_108EE(frame, 0x0120, 0x00B0);
+            assert_eq!(
+                spawned.burst_table_index,
+                Some(table_index),
+                "frame {frame}"
+            );
+            assert!(spawned.should_spawn_worker, "frame {frame}");
+            assert_eq!(spawned.x_pos, Some(0x0120), "frame {frame}");
+            assert_eq!(spawned.y_pos, Some(0x00B0), "frame {frame}");
+            assert_eq!(
+                spawned.x_velocity,
+                Some(x_velocity_word << 13),
+                "frame {frame}"
+            );
+            assert_eq!(
+                spawned.y_velocity,
+                Some(y_velocity_word << 13),
+                "frame {frame}"
+            );
+            assert_eq!(spawned.lifetime_frames, Some(0x0078), "frame {frame}");
+        }
+
+        for frame in 4..24 {
+            let skipped = NativeRuntime::prize_10_diamonds_spawn_loc_108EE(frame, 0x0120, 0x00B0);
+            assert_eq!(skipped.burst_table_index, None, "frame {frame}");
+            assert!(!skipped.should_spawn_worker, "frame {frame}");
+            assert_eq!(skipped.x_velocity, None, "frame {frame}");
+            assert_eq!(skipped.y_velocity, None, "frame {frame}");
+        }
+
         let first = NativeRuntime::prize_10_diamonds_spawn_loc_108EE(0, 0x0120, 0x00B0);
         assert_eq!(first.burst_table_index, Some(0));
         assert!(first.should_hibernate_one_frame);
@@ -3615,17 +3656,6 @@ mod tests {
         assert_eq!(first.y_velocity, Some(-36_i32 << 13));
         assert_eq!(first.is_moved, Some(true));
         assert_eq!(first.lifetime_frames, Some(0x0078));
-
-        let skipped = NativeRuntime::prize_10_diamonds_spawn_loc_108EE(4, 0x0120, 0x00B0);
-        assert!(!skipped.should_spawn_worker);
-        assert_eq!(skipped.burst_table_index, None);
-        assert_eq!(skipped.x_velocity, None);
-        assert_eq!(skipped.y_velocity, None);
-
-        let tail = NativeRuntime::prize_10_diamonds_spawn_loc_108EE(29, 0x0120, 0x00B0);
-        assert_eq!(tail.burst_table_index, Some(9));
-        assert_eq!(tail.x_velocity, Some(6_i32 << 13));
-        assert_eq!(tail.y_velocity, Some(-8_i32 << 13));
 
         let past_end = NativeRuntime::prize_10_diamonds_spawn_loc_108EE(30, 0x0120, 0x00B0);
         assert!(!past_end.should_spawn_worker);
@@ -3997,6 +4027,67 @@ mod tests {
         assert_eq!(
             NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(4, 5, 0x08)]),
             Vec::<CollisionRectSub1F52>::new()
+        );
+    }
+
+    #[test]
+    fn shooter_collision_rects_sub_f568_keeps_inclusive_outer_window_edges() {
+        // ASM sub_F568 loc_F5B0 (kid.asm:20234): the outer block-window
+        // rejects only `col > right_block` / `row > bottom_block`; equality
+        // remains in-window and is filtered later only by direction-specific
+        // edge gates.
+        let hitbox = CollisionRectSub1F52 {
+            left_px: 64,
+            right_px: 128,
+            top_px: 64,
+            bottom_px: 128,
+        };
+
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(9, 5, 0x08)]),
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 136,
+                    right_px: 144,
+                    top_px: 81,
+                    bottom_px: 93,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 132,
+                    right_px: 144,
+                    top_px: 84,
+                    bottom_px: 90,
+                },
+            ],
+            "ASM sub_F568 should keep col == right_block in the outer window"
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(5, 9, 0x01)]),
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 82,
+                    right_px: 94,
+                    top_px: 131,
+                    bottom_px: 143,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 85,
+                    right_px: 91,
+                    top_px: 135,
+                    bottom_px: 143,
+                },
+            ],
+            "ASM sub_F568 should keep row == bottom_block in the outer window"
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(10, 5, 0x08)]),
+            Vec::<CollisionRectSub1F52>::new(),
+            "ASM sub_F568 should reject col > right_block before direction gates"
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(5, 10, 0x01)]),
+            Vec::<CollisionRectSub1F52>::new(),
+            "ASM sub_F568 should reject row > bottom_block before direction gates"
         );
     }
 
