@@ -6716,17 +6716,22 @@ fn latest_state_sweep_signal(repo_root: &Path) -> CheckOutcome {
         .and_then(|summary| summary.get("oracle_limitation"))
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
+    let timestamp_detail = latest
+        .timestamp
+        .as_deref()
+        .map(|timestamp| format!("timestamp {timestamp}, "))
+        .unwrap_or_default();
     if passed {
         CheckOutcome::passing(
             format!(
-                "latest state sweep passed (failed=0, errors=0, advisory={advisory}, oracle_limitations={oracle_limitations}, report={report_path})"
+                "latest state sweep passed ({timestamp_detail}failed=0, errors=0, advisory={advisory}, oracle_limitations={oracle_limitations}, report={report_path})"
             ),
             Some(latest.source_path),
         )
     } else {
         CheckOutcome::failing(
             format!(
-                "latest state sweep reported failures (failed={failed}, errors={errors}, report={report_path})"
+                "latest state sweep reported failures ({timestamp_detail}failed={failed}, errors={errors}, report={report_path})"
             ),
             Some(latest.source_path),
         )
@@ -8871,6 +8876,7 @@ mod tests {
                 .iter()
                 .any(|item| item.label == "state-sweep-status"
                     && item.status == "passed"
+                    && item.detail.contains("timestamp 1776704792")
                     && item.detail.contains("advisory=178")
                     && item.detail.contains("oracle_limitations=662")),
             "task should carry the latest passing state-sweep artefact"
