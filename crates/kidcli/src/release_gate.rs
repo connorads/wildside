@@ -88,7 +88,7 @@ pub(crate) fn run_release_gate(
         .join("latest.json");
     fs::copy(&report_path, &latest_path)
         .with_context(|| format!("failed to update {}", latest_path.display()))?;
-    crate::autonomy::refresh_source_port_frontier_handoff_from_latest_evidence(repo_root, 1)
+    crate::autonomy::refresh_source_port_frontier_handoff_after_release_gate(repo_root, 1)
         .context("failed to refresh source-port frontier handoff from release-gate evidence")?;
 
     match result {

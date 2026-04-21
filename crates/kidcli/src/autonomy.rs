@@ -982,15 +982,35 @@ pub(crate) fn refresh_source_port_frontier_handoff_from_latest_evidence(
     repo_root: &Path,
     routines_per_task: u32,
 ) -> Result<()> {
+    refresh_source_port_frontier_handoff(repo_root, routines_per_task).map(|_| ())
+}
+
+pub(crate) fn refresh_source_port_frontier_handoff_after_release_gate(
+    repo_root: &Path,
+    routines_per_task: u32,
+) -> Result<()> {
+    if let Some(task) = refresh_source_port_frontier_handoff(repo_root, routines_per_task)? {
+        record_refresh_evidence_completion(repo_root, &task)?;
+        if task.recovery_step == Some(RecoveryStep::RefreshEvidence) {
+            refresh_source_port_frontier_handoff(repo_root, routines_per_task)?;
+        }
+    }
+    Ok(())
+}
+
+fn refresh_source_port_frontier_handoff(
+    repo_root: &Path,
+    routines_per_task: u32,
+) -> Result<Option<TaskPackage>> {
     let frontier_path = repo_root.join(SOURCE_PORT_FRONTIER_STATE_PATH);
     if !frontier_path.is_file() {
-        return Ok(());
+        return Ok(None);
     }
     let next_cycle = load_goal_ledger_if_present(repo_root, AutonomyGoal::SourcePortFrontier)?
         .map_or(1, |ledger| ledger.cycles_run.saturating_add(1));
     let cycle = evaluate_source_port_frontier_cycle(repo_root, next_cycle, routines_per_task)?;
     let Some(task) = cycle.task_package else {
-        return Ok(());
+        return Ok(None);
     };
     let next_task_path = repo_root
         .join(".cache/autonomy")
@@ -1007,6 +1027,92 @@ pub(crate) fn refresh_source_port_frontier_handoff_from_latest_evidence(
     ) {
         write_source_port_next_agent_note(repo_root, note, frontier, &task)?;
     }
+    Ok(Some(task))
+}
+
+fn record_refresh_evidence_completion(repo_root: &Path, task: &TaskPackage) -> Result<()> {
+    if task.recovery_step != Some(RecoveryStep::RefreshEvidence) {
+        return Ok(());
+    }
+    let run_history_path = repo_root.join(SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH);
+    if let Some(parent) = run_history_path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    let mut record = serde_json::Map::new();
+    record.insert(
+        "cycle".to_owned(),
+        serde_json::Value::from(task.cycle as u64),
+    );
+    if let Some(goal) = task.delegated_goal {
+        record.insert(
+            "delegated_goal".to_owned(),
+            serde_json::Value::from(goal.slug()),
+        );
+    } else {
+        record.insert("delegated_goal".to_owned(), serde_json::Value::Null);
+    }
+    if let Some(target) = task.delegated_target.as_ref() {
+        record.insert(
+            "delegated_target".to_owned(),
+            serde_json::Value::from(target.as_str()),
+        );
+    } else {
+        record.insert("delegated_target".to_owned(), serde_json::Value::Null);
+    }
+    record.insert(
+        "dirty_files".to_owned(),
+        serde_json::Value::Array(Vec::new()),
+    );
+    record.insert("dirty_tree".to_owned(), serde_json::Value::Bool(false));
+    record.insert("dirty_tree_fingerprint".to_owned(), serde_json::Value::Null);
+    record.insert("exit_code".to_owned(), serde_json::Value::from(0));
+    record.insert("outcome".to_owned(), serde_json::Value::from("completed"));
+    record.insert("preflight_command".to_owned(), serde_json::Value::Null);
+    record.insert("preflight_exit_code".to_owned(), serde_json::Value::Null);
+    record.insert(
+        "preflight_summary".to_owned(),
+        serde_json::Value::from("release-gate refreshed source-port evidence"),
+    );
+    record.insert(
+        "progress_fingerprint".to_owned(),
+        serde_json::Value::from(task.progress_fingerprint.as_str()),
+    );
+    if let Some(mode) = task.recovery_mode {
+        record.insert(
+            "recovery_mode".to_owned(),
+            serde_json::Value::from(mode.as_str()),
+        );
+    } else {
+        record.insert("recovery_mode".to_owned(), serde_json::Value::Null);
+    }
+    record.insert(
+        "recovery_step".to_owned(),
+        serde_json::Value::from(RecoveryStep::RefreshEvidence.as_str()),
+    );
+    if let Some(count) = task.stalled_repetition_count {
+        record.insert(
+            "stalled_repetition_count".to_owned(),
+            serde_json::Value::from(count as u64),
+        );
+    } else {
+        record.insert(
+            "stalled_repetition_count".to_owned(),
+            serde_json::Value::Null,
+        );
+    }
+    record.insert(
+        "timestamp".to_owned(),
+        serde_json::Value::from(autonomy_timestamp()),
+    );
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&run_history_path)
+        .with_context(|| format!("failed to open {}", run_history_path.display()))?;
+    use std::io::Write;
+    writeln!(file, "{}", serde_json::Value::Object(record))
+        .with_context(|| format!("failed to append {}", run_history_path.display()))?;
     Ok(())
 }
 
@@ -8411,6 +8517,118 @@ mod tests {
         assert!(
             note.contains("timestamp 1775369195"),
             "refreshed note should include the latest state-sweep timestamp"
+        );
+    }
+
+    #[test]
+    fn release_gate_refresh_records_source_port_refresh_evidence_completion() {
+        let temp_dir = source_port_repo();
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"{
+  "timestamp": "1775369194",
+  "target": "1p-accurate",
+  "passed": true,
+  "steps": [
+    {
+      "name": "state_sweep:0-104",
+      "status": "passed",
+      "detail": "all 69 requested levels passed the state sweep"
+    }
+  ],
+  "sweep_summary": {
+    "authoritative": 0,
+    "advisory": 178,
+    "accumulation": 0,
+    "rng": 0,
+    "oracle_limitation": 662
+  }
+}
+"#,
+        )
+        .expect("release gate latest should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775369195","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":178,"accumulation":0,"rng":0,"oracle_limitation":662},"report_path":"/tmp/sweep-report-green.json","field_summary":[],"release_gate_focus":[]}
+"#,
+        )
+        .expect("sweep history should write");
+        write_complete_default_mutation_runs(temp_dir.path());
+        commit_repo(temp_dir.path(), "prepare clean recovery fixture");
+
+        let baseline =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
+        let baseline_task = baseline.selected_task.expect("selected task should exist");
+        let stalled_fingerprint = baseline_task.progress_fingerprint.clone();
+        write_stalled_repeat(temp_dir.path(), 1, "state-sweep", &stalled_fingerprint);
+        write_stalled_repeat(temp_dir.path(), 2, "state-sweep", &stalled_fingerprint);
+
+        super::refresh_source_port_frontier_handoff_after_release_gate(temp_dir.path(), 1)
+            .expect("release-gate handoff refresh should record completion");
+
+        let run_history = fs::read_to_string(
+            temp_dir
+                .path()
+                .join(super::SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH),
+        )
+        .expect("run history should exist");
+        let latest_record = run_history
+            .lines()
+            .last()
+            .expect("history should have a row");
+        let latest_record: serde_json::Value =
+            serde_json::from_str(latest_record).expect("history row should parse");
+        assert_eq!(latest_record["outcome"], "completed");
+        assert_eq!(latest_record["recovery_step"], "refresh_evidence");
+        assert!(
+            latest_record["progress_fingerprint"]
+                .as_str()
+                .is_some_and(|fingerprint| fingerprint.contains(":recovery:refresh_evidence")),
+            "completion should record the recovery fingerprint"
+        );
+        let refreshed_task = fs::read_to_string(
+            temp_dir
+                .path()
+                .join(".cache/autonomy/source-port-frontier/next-task.json"),
+        )
+        .expect("next task should be refreshed after completion");
+        assert!(
+            !refreshed_task.contains("\"recovery_step\": \"refresh_evidence\""),
+            "handoff should be regenerated after recording the refresh completion"
+        );
+
+        let next_cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 4, 1).expect("cycle should build");
+        let next_task = next_cycle
+            .selected_task
+            .expect("selected task should exist");
+        assert_eq!(
+            next_task.recovery_step, None,
+            "the refresh completion should break the stale stalled-repeat chain"
+        );
+        assert_eq!(
+            next_task.delegated_goal,
+            Some(super::AutonomyGoal::SweepParity)
         );
     }
 
