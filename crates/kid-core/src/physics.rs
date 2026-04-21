@@ -361,15 +361,23 @@ fn apply_air_holding_right(vel: i32, table: &AirSpeedTable) -> i32 {
         // ASM loc_8536 (kid.asm:9327): cmpi.l #$38000,d0; ble.s loc_8544;
         // move.l #$38000,d0 — hard cap positive velocity at AIR_HARD_CAP.
         let vel = vel.min(AIR_HARD_CAP);
-        if vel < table.max_air_speed {
-            // ASM loc_8544 (kid.asm:9332): cmp.l (a0),d0; bge.s loc_8554;
-            // add.l 4(a0),d0 — below max, accelerate by air_accel, clamp to max.
-            (vel + table.air_accel).min(table.max_air_speed)
-        } else {
-            // ASM loc_8554 (kid.asm:9344): sub.l 8(a0),d0; cmp.l (a0),d0;
-            // bge.s return_855E; move.l (a0),d0 — at/above max, decelerate
-            // by air_above_max_decel, clamp floor to max.
-            (vel - table.air_above_max_decel).max(table.max_air_speed)
+        match vel.cmp(&table.max_air_speed) {
+            std::cmp::Ordering::Less => {
+                // ASM loc_8544 (kid.asm:9332): cmp.l (a0),d0; bge.s loc_8554;
+                // add.l 4(a0),d0 — below max, accelerate by air_accel, clamp to max.
+                (vel + table.air_accel).min(table.max_air_speed)
+            }
+            std::cmp::Ordering::Equal => {
+                // ASM loc_8544: equality takes the loc_8554 branch, whose
+                // decel-then-floor path returns `(a0)` unchanged.
+                table.max_air_speed
+            }
+            std::cmp::Ordering::Greater => {
+                // ASM loc_8554 (kid.asm:9344): sub.l 8(a0),d0; cmp.l (a0),d0;
+                // bge.s return_855E; move.l (a0),d0 — above max, decelerate
+                // by air_above_max_decel, clamp floor to max.
+                (vel - table.air_above_max_decel).max(table.max_air_speed)
+            }
         }
     }
 }
@@ -384,21 +392,29 @@ fn apply_air_holding_left(vel: i32, table: &AirSpeedTable) -> i32 {
         // ble.s loc_858C; move.l #$38000,d0 — negate to positive,
         // hard cap at AIR_HARD_CAP. Mirror of loc_8536.
         let abs_vel = vel.saturating_neg().min(AIR_HARD_CAP);
-        if abs_vel < table.max_air_speed {
-            // ASM loc_858C (kid.asm:9378): cmp.l (a0),d0; bge.s loc_859E;
-            // fall through to loc_8590 — below max, accelerate.
-            // ASM loc_8590 (kid.asm:9382): add.l 4(a0),d0; cmp.l (a0),d0;
-            // ble.s loc_859A; move.l (a0),d0 — accelerate by air_accel,
-            // clamp to max. Then neg.l d0 restores negative sign. Mirror
-            // of loc_8544.
-            let next_abs = (abs_vel + table.air_accel).min(table.max_air_speed);
-            -next_abs
-        } else {
-            // ASM loc_859E (kid.asm:9393): sub.l 8(a0),d0 — at/above max,
-            // decelerate by air_above_max_decel, clamp floor to max,
-            // then neg.l d0. Mirror of loc_8554.
-            let next_abs = (abs_vel - table.air_above_max_decel).max(table.max_air_speed);
-            -next_abs
+        match abs_vel.cmp(&table.max_air_speed) {
+            std::cmp::Ordering::Less => {
+                // ASM loc_858C (kid.asm:9378): cmp.l (a0),d0; bge.s loc_859E;
+                // fall through to loc_8590 — below max, accelerate.
+                // ASM loc_8590 (kid.asm:9382): add.l 4(a0),d0; cmp.l (a0),d0;
+                // ble.s loc_859A; move.l (a0),d0 — accelerate by air_accel,
+                // clamp to max. Then neg.l d0 restores negative sign. Mirror
+                // of loc_8544.
+                let next_abs = (abs_vel + table.air_accel).min(table.max_air_speed);
+                -next_abs
+            }
+            std::cmp::Ordering::Equal => {
+                // ASM loc_858C: equality branches to loc_859E, whose
+                // decel-then-floor path returns `-(a0)` unchanged.
+                -table.max_air_speed
+            }
+            std::cmp::Ordering::Greater => {
+                // ASM loc_859E (kid.asm:9393): sub.l 8(a0),d0 — above max,
+                // decelerate by air_above_max_decel, clamp floor to max,
+                // then neg.l d0. Mirror of loc_8554.
+                let next_abs = (abs_vel - table.air_above_max_decel).max(table.max_air_speed);
+                -next_abs
+            }
         }
     }
 }
@@ -417,12 +433,12 @@ fn air_decelerate(vel: i32, table: &AirSpeedTable) -> i32 {
         std::cmp::Ordering::Greater => {
             // ASM loc_85B8: sub.l $C(a0),d0; bmi.s loc_85C0; rts
             let next = vel - table.air_no_input_decel;
-            if next < 0 { 0 } else { next } // loc_85C0: moveq #0,d0
+            next.max(0) // loc_85C0: moveq #0,d0
         }
         std::cmp::Ordering::Less => {
             // ASM loc_85AC fall-through: add.l $C(a0),d0; bpl.s loc_85C0; rts
             let next = vel + table.air_no_input_decel;
-            if next > 0 { 0 } else { next } // loc_85C0: moveq #0,d0
+            next.min(0) // loc_85C0: moveq #0,d0
         }
         std::cmp::Ordering::Equal => 0,
     }
@@ -1186,6 +1202,16 @@ mod tests {
     }
 
     #[test]
+    fn skycutter_sub_9a20_walk_right_from_one_adds_2000() {
+        // ASM loc_9A32 (kid.asm:11597): below `$20000`, `addi.l #$2000,d0`.
+        let (vel, dir) =
+            update_skycutter_horizontal_velocity_sub_9A20(1, Direction::Right, right_walk());
+
+        assert_eq!(vel, 0x2001);
+        assert_eq!(dir, Direction::Right);
+    }
+
+    #[test]
     fn skycutter_sub_9a20_pressing_away_flips_facing_and_uses_left_branch() {
         let (vel, dir) =
             update_skycutter_horizontal_velocity_sub_9A20(0, Direction::Right, left_walk());
@@ -1329,6 +1355,16 @@ mod tests {
             update_horizontal_velocity(vel, Direction::Right, right_walk(), &NORMAL_KID);
         assert_eq!(result, vel - NORMAL_KID.walk_run_decel);
         assert!(result > NORMAL_KID.max_walk_speed);
+    }
+
+    #[test]
+    fn loc_9b44_walk_right_at_exact_walk_cap_stays_capped() {
+        // ASM loc_9B44 (kid.asm:11723): `cmp.l (a0),d0; ble.s loc_9B4E`.
+        // Equality enters loc_9B4E, then the acceleration path clamps straight
+        // back to `(a0)` instead of applying the above-cap deceleration.
+        let result = apply_holding_right(NORMAL_KID.max_walk_speed, false, &NORMAL_KID);
+
+        assert_eq!(result, NORMAL_KID.max_walk_speed);
     }
 
     // -- Jump tests --
@@ -2770,8 +2806,8 @@ mod proptests {
     }
 
     /// Airborne holding right at exactly max_air_speed: already at cap, no accel.
-    /// ASM: `cmp.l d1,d0; blt.s` — vel < max branches to accel; vel == max
-    /// falls through to decel-towards-max (which is a no-op at exact max).
+    /// ASM loc_8544 (kid.asm:9332): `cmp.l (a0),d0; bge.s loc_8554`.
+    /// Equality takes loc_8554, then the decel-towards-max floor restores `(a0)`.
     #[test]
     fn air_holding_right_at_exact_max_does_not_accelerate() {
         let table = AIR_NORMAL;
@@ -2781,6 +2817,7 @@ mod proptests {
     }
 
     /// Airborne holding left at exactly max_air_speed (negated): no accel.
+    /// ASM loc_858C (kid.asm:9378): `cmp.l (a0),d0; bge.s loc_859E`.
     #[test]
     fn air_holding_left_at_exact_max_does_not_accelerate() {
         let table = AIR_NORMAL;
