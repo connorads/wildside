@@ -1999,14 +1999,21 @@ fn evaluate_source_port_frontier_cycle(
                             )
                         };
                     } else {
-                        apply_stalled_recovery(
-                            &mut task_package,
-                            &base_progress_fingerprint,
-                            repeated_cycles,
-                            RecoveryStep::PivotToNextLane,
-                            pivot_reason,
-                            Some(AutonomyGoal::ProactiveVerification),
-                        );
+                        task_package = TaskPackage {
+                            generated_at: autonomy_timestamp(),
+                            cycle,
+                            progress_fingerprint: base_progress_fingerprint.clone(),
+                            recovery_mode: Some(RecoveryMode::StalledFingerprint),
+                            recovery_step: Some(RecoveryStep::PivotToNextLane),
+                            stalled_repetition_count: Some(repeated_cycles),
+                            pivot_reason: Some(pivot_reason.clone()),
+                            ..source_port_frontier_proactive_exhausted_recovery_task(
+                                frontier,
+                                &note,
+                                docs_only_refresh_streak,
+                                pivot_reason,
+                            )
+                        };
                     }
                 } else {
                     chose_branch = "sweep_parity_refresh";
@@ -5120,6 +5127,89 @@ fn case_queue_task(
         delegated_goal: None,
         delegated_target: None,
         delegation_reason: queue.selection_reason.clone(),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: Some(AutonomyGoal::SweepParity),
+        next_agent_note: Some(note.clone()),
+        target_routines: None,
+        definitively_stalled: false,
+    }
+}
+
+fn source_port_frontier_proactive_exhausted_recovery_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+    docs_only_refresh_streak: usize,
+    pivot_reason: String,
+) -> TaskPackage {
+    TaskPackage {
+        capability: CapabilityId::SourcePortFrontierTask,
+        title: "Record source-port verification stall".to_owned(),
+        summary: format!(
+            "{} is authoritative-clean through frame {}; sweep-parity has repeated docs-only refreshes and proactive-verification is currently exhausted, so record the recovery stall before touching sweep evidence docs again.",
+            frontier.recording, frontier.authoritative_clean_through
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
+            SOURCE_PORT_RESEARCH_MAP_PATH.to_owned(),
+            "docs/source-port/methodology.md".to_owned(),
+            SOURCE_PORT_RELEASE_GATE_PATH.to_owned(),
+        ],
+        implementation_targets: vec![
+            SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
+            "crates/kidcli/src/autonomy.rs".to_owned(),
+        ],
+        commands: vec![
+            "cargo run -p kidcli -- autonomous-loop --goal proactive-verification".to_owned(),
+            "mise run verify-slice-fast".to_owned(),
+            "cargo run -p kidcli -- asm-coverage --update".to_owned(),
+        ],
+        done_criteria: vec![
+            "Record the exhausted proactive-verification pivot in docs/source-port/frontier-state.yaml so the next package does not ask for another docs-only sweep refresh.".to_owned(),
+            "Do not edit only docs/source-port/methodology.md and docs/source-port/research-map.md.".to_owned(),
+            "verify-slice-fast passes.".to_owned(),
+        ],
+        evidence: vec![
+            EvidenceItem {
+                label: "active-frontier".to_owned(),
+                status: frontier.status.clone(),
+                detail: format!(
+                    "{} clean through frame {}",
+                    frontier.slug, frontier.authoritative_clean_through
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "docs-only-refresh-streak".to_owned(),
+                status: "stalled".to_owned(),
+                detail: format!(
+                    "last {docs_only_refresh_streak} commits touched only sweep-parity evidence docs"
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_RESEARCH_MAP_PATH)),
+            },
+            EvidenceItem {
+                label: "proactive-verification-status".to_owned(),
+                status: "complete".to_owned(),
+                detail: "autonomous-loop --goal proactive-verification has no actionable task package".to_owned(),
+                artefact_path: Some(PathBuf::from("docs/source-port/proactive-verification-config.yaml")),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: Some(source_port_frontier_context(frontier)),
+        case_queue_context: None,
+        delegated_goal: Some(AutonomyGoal::ProactiveVerification),
+        delegated_target: Some("all-exhausted".to_owned()),
+        delegation_reason: Some(pivot_reason),
         recovery_mode: None,
         recovery_step: None,
         stalled_repetition_count: None,
@@ -10724,6 +10814,96 @@ mod tests {
         assert!(
             rendered_note.contains("narrow the next run to release-gate evidence refresh instead of another broad lane replay"),
             "recovery note should surface the stalled recovery pivot reason"
+        );
+    }
+
+    #[test]
+    fn docs_only_sweep_refresh_streak_pivots_to_proactive_exhaustion_record() {
+        let temp_dir = source_port_repo();
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("release gate dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RELEASE_GATE_PATH),
+            "{\"passed\": true}\n",
+        )
+        .expect("release gate should write");
+        write_complete_default_mutation_runs(temp_dir.path());
+        commit_repo(temp_dir.path(), "prepare clean sweep parity repo");
+
+        for index in 0..3 {
+            fs::write(
+                temp_dir.path().join("docs/source-port/methodology.md"),
+                format!("# Methodology\n\nrefresh {index}\n"),
+            )
+            .expect("methodology doc should write");
+            fs::write(
+                temp_dir.path().join("docs/source-port/research-map.md"),
+                format!("# Research Map\n\nrefresh {index}\n"),
+            )
+            .expect("research map should write");
+            commit_repo(temp_dir.path(), "docs: refresh sweep parity evidence");
+        }
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 5, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+        let frontier = task
+            .frontier_context
+            .as_ref()
+            .expect("frontier context should exist");
+        let rendered_note = render_source_port_next_agent_note(frontier, &task, &[]);
+
+        assert_eq!(
+            task.recovery_mode,
+            Some(super::RecoveryMode::StalledFingerprint)
+        );
+        assert_eq!(
+            task.recovery_step,
+            Some(super::RecoveryStep::PivotToNextLane)
+        );
+        assert_eq!(
+            task.delegated_goal,
+            Some(super::AutonomyGoal::ProactiveVerification),
+            "docs-only sweep loops should stop delegating another sweep refresh when proactive-verification is exhausted"
+        );
+        assert_eq!(task.delegated_target.as_deref(), Some("all-exhausted"));
+        assert!(
+            task.implementation_targets
+                .iter()
+                .any(|path| path == SOURCE_PORT_FRONTIER_STATE_PATH),
+            "exhausted pivot should ask the agent to record the stall in frontier-state"
+        );
+        assert!(
+            !task
+                .implementation_targets
+                .iter()
+                .all(|path| super::SWEEP_REFRESH_DOC_PATHS.contains(&path.as_str())),
+            "exhausted pivot must not be another docs-only sweep refresh"
+        );
+        assert!(
+            rendered_note
+                .contains("Target `all-exhausted` for the next concrete source-port step."),
+            "handoff should make the exhausted proactive target visible"
+        );
+        assert!(
+            rendered_note.contains("Record the exhausted proactive-verification pivot"),
+            "handoff should explain why the lane is no longer another sweep refresh"
         );
     }
 
