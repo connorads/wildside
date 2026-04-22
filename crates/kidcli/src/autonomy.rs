@@ -1753,6 +1753,26 @@ fn evaluate_source_port_frontier_cycle(
                             Some(SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET.to_owned()),
                             summary,
                         )
+                    } else if source_port_records_proactive_exhaustion(frontier) {
+                        let pivot_reason =
+                            "recorded proactive-verification exhaustion blocks another sweep-parity evidence refresh"
+                                .to_owned();
+                        let task = source_port_frontier_recorded_verification_stall_task(
+                            frontier,
+                            &note,
+                            pivot_reason,
+                        );
+                        let summary = format!(
+                            "TAS frontier {} is closed through frame {}; verification lanes are recorded exhausted, so source-port will not emit another sweep-parity evidence refresh.",
+                            frontier.slug, frontier.authoritative_clean_through
+                        );
+                        (
+                            task,
+                            Some(AutonomyGoal::ProactiveVerification),
+                            Some("all-exhausted".to_owned()),
+                            Some(PROACTIVE_ALL_EXHAUSTED_FINGERPRINT.to_owned()),
+                            summary,
+                        )
                     } else {
                         let task = source_port_frontier_sweep_task(repo_root, frontier, &note);
                         let lane_marker = source_port_frontier_sweep_lane_marker(repo_root);
@@ -11305,6 +11325,71 @@ mod tests {
                 criterion.contains("Record the exhausted proactive-verification pivot")
             }),
             "once recorded, the next package should not ask to record the same pivot again"
+        );
+    }
+
+    #[test]
+    fn recorded_proactive_exhaustion_blocks_plain_sweep_fallback() {
+        let temp_dir = source_port_repo();
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("release gate dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        let frontier_path = temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH);
+        let frontier_state =
+            fs::read_to_string(&frontier_path).expect("frontier state should read");
+        fs::write(
+            &frontier_path,
+            frontier_state.replace(
+                r#""reason": "Already fixed at frame 6358.""#,
+                &format!(
+                    r#""reason": "Already fixed at frame 6358.",
+        "fingerprint": "{}""#,
+                    super::PROACTIVE_ALL_EXHAUSTED_FINGERPRINT
+                ),
+            ),
+        )
+        .expect("frontier state should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RELEASE_GATE_PATH),
+            "{\"passed\": true}\n",
+        )
+        .expect("release gate should write");
+        write_complete_default_mutation_runs(temp_dir.path());
+        commit_repo(temp_dir.path(), "prepare recorded exhausted repo");
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 2, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.title, "Source-port verification lanes exhausted");
+        assert_eq!(
+            task.delegated_goal,
+            Some(super::AutonomyGoal::ProactiveVerification)
+        );
+        assert_eq!(task.delegated_target.as_deref(), Some("all-exhausted"));
+        assert!(
+            task.definitively_stalled,
+            "a recorded exhausted pivot should block the plain sweep fallback even after the docs-only commit streak is broken"
+        );
+        assert!(
+            task.summary
+                .contains("Do not emit another sweep evidence refresh"),
+            "task should carry the operator-facing stop condition"
         );
     }
 
