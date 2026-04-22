@@ -1,8 +1,10 @@
 use super::*;
 
 /// Cache key for oracle runs: `(oracle_name, rom_sha1, script_sha1)`.
-/// Oracle output is deterministic for a given backend + ROM + input script,
-/// so we cache results and only re-run when any component changes.
+/// Oracle output is deterministic for a given backend + ROM + input script
+/// **and helper binary**, so the cache key folds the backend's cache version
+/// into `script_sha1` to invalidate stale entries when the helper's boot,
+/// warp, or capture logic changes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct OracleCacheKey {
     pub(crate) rom_sha1: String,
@@ -22,16 +24,23 @@ impl OracleCacheKey {
 
     /// Build a cache key from a DynamicScenario. Includes `warp_to_level`
     /// in the hash so that different target levels produce distinct keys,
-    /// even when the post-warp script is identical.
+    /// even when the post-warp script is identical. `cache_version` comes
+    /// from the backend and changes whenever the helper's behaviour (e.g.
+    /// boot flow, warp timing) changes — mixing it into `script_sha1`
+    /// naturally unreaches stale entries without any explicit deletion.
     pub(crate) fn from_scenario(
         rom_bytes: &[u8],
         scenario: &scenarios::DynamicScenario,
         oracle_name: &str,
+        cache_version: &str,
     ) -> Self {
         let scenario_json = serde_json::to_vec(scenario).unwrap_or_default();
+        let mut script_bytes = scenario_json;
+        script_bytes.push(0);
+        script_bytes.extend_from_slice(cache_version.as_bytes());
         Self {
             rom_sha1: sha1_hex(rom_bytes),
-            script_sha1: sha1_hex(&scenario_json),
+            script_sha1: sha1_hex(&script_bytes),
             oracle_name: oracle_name.to_string(),
         }
     }
@@ -136,6 +145,24 @@ mod tests {
         let key1 = OracleCacheKey::new(rom, b"script_a");
         let key2 = OracleCacheKey::new(rom, b"script_b");
         assert_ne!(key1.script_sha1, key2.script_sha1);
+    }
+
+    #[test]
+    fn cache_key_differs_when_cache_version_changes() {
+        let rom = b"fake rom bytes";
+        let scenario = scenarios::DynamicScenario {
+            slug: "t".into(),
+            script: vec![0; 1],
+            frame_count: 1,
+            checkpoints: Vec::new(),
+            warp_to_level: None,
+        };
+        let key_v1 = OracleCacheKey::from_scenario(rom, &scenario, "jgenesis", "v1");
+        let key_v2 = OracleCacheKey::from_scenario(rom, &scenario, "jgenesis", "v2");
+        assert_ne!(
+            key_v1.script_sha1, key_v2.script_sha1,
+            "cache_version must contribute to script_sha1 so helper changes invalidate stale entries"
+        );
     }
 
     #[test]

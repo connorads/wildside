@@ -1,3 +1,4 @@
+use crate::capture::sha1_hex;
 use crate::scenarios::Scenario;
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Deserialize;
@@ -6,12 +7,21 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 
 const BLASTEM_URL: &str = "https://github.com/libretro/blastem";
 const BLASTEM_COMMIT: &str = "277e4a62668597d4f59cadda1cbafb844f981d45";
 const JGENESIS_URL: &str = "https://github.com/jsgroth/jgenesis";
 const JGENESIS_COMMIT: &str = "8e5ed096d90ef08060813fc157222fe466b967d2";
 const HELPER_TEMPLATE: &str = include_str!("oracle_helper_main.rs.txt");
+
+/// SHA1 of the helper template. Folded into `OracleCacheKey::script_sha1`
+/// so that any change to the helper's boot/warp/capture logic unreaches
+/// stale oracle-cache entries without manual deletion.
+pub(crate) fn jgenesis_helper_cache_version() -> &'static str {
+    static CACHE_VERSION: OnceLock<String> = OnceLock::new();
+    CACHE_VERSION.get_or_init(|| sha1_hex(HELPER_TEMPLATE.as_bytes()))
+}
 
 /// Extra options for oracle runs beyond the base scenario.
 #[derive(Debug, Clone, Default)]
@@ -25,6 +35,10 @@ pub(crate) struct OracleRunOptions {
 /// Abstraction over emulator backends for oracle comparison.
 pub(crate) trait OracleBackend: Send + Sync {
     fn name(&self) -> &'static str;
+    /// Version string identifying the current helper binary. Must change
+    /// whenever the helper's observable behaviour changes. Folded into the
+    /// oracle cache key so stale entries become unreachable on upgrade.
+    fn cache_version(&self) -> &str;
     fn run_scenario(
         &self,
         rom_path: &Path,
@@ -42,6 +56,10 @@ pub(crate) struct JgenesisBackend {
 impl OracleBackend for JgenesisBackend {
     fn name(&self) -> &'static str {
         "jgenesis"
+    }
+
+    fn cache_version(&self) -> &str {
+        jgenesis_helper_cache_version()
     }
 
     fn run_scenario(

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-22T00:00:00Z",
+  "updated_at": "2026-04-22T12:00:00Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-tail-clean-through-end",
@@ -50,6 +50,10 @@
       "reason": "Frame 34916 needed the later intro-sequence-1 title idle seeded two frames ahead of the shared `Obj_TitleMenu loc_1BAEA -> loc_1BB02` hand-off, and frame 35148 needed demo Start-abort edges suppressed while Kid_Transform still hibernated the gameplay/object loop. With both fixes in place, chunked CRC checks keep the published tail clean through frame 37759."
     },
     "rejected_hypotheses": [
+      {
+        "name": "Sweep oracle_limitations come from the oracle being stuck on the title card (game_mode=0x0008) after a short post-Start wait in boot_and_warp_oracle",
+        "reason": "The multi-lane recovery plan (Lane 1 / C8) asserted the 662 oracle_limitations would drop to ~52 by making the post-Start wait in `crates/kidcli/src/oracle_helper_main.rs.txt` poll `Game_Mode` until it leaves 0x0008 instead of a fixed 120-frame wait. After invalidating the oracle cache (new helper-version-aware cache key) and running `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` with the dynamic wait in place, 662 oracle_limitations remained: field breakdown shows `game_paused=136` and `current_level_id=136` dominating, with only `game_mode=8` diffs. Per commit 230a2632 (`Add game_paused to oracle state, treat paused oracle diffs as advisory`), the real root cause is `Ctrl_Pressed` carryover from the title-card Start press pausing the oracle once gameplay begins — which no post-title-card `Game_Mode` wait can fix. Any future attempt on C8 must start by probing Start-press timing or adding explicit unpause logic, not by widening the title-card wait."
+      },
       {
         "name": "Frame 21837 still needed a trace-only visibility mask",
         "reason": "That explanation was incomplete. The timeout-restart `IntroSequence6` lineage needed the effective demo gameplay start delayed by one frame, so the hidden bootstrap camera row and the first buffered demo input stayed aligned before Kid became visible on frame 21838."

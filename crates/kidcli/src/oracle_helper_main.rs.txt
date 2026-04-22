@@ -1314,6 +1314,11 @@ fn boot_and_warp_oracle(
         }
 
         // Wait for title card (game_mode=8 → Load_TitleCard → "Press Start").
+        // Kept as a fixed 120-frame wait: when we reach this point game_mode
+        // is already 0x0008 but the title-card handler needs real frames to
+        // finalise its init (VRAM load, sprites, input dispatch) before Start
+        // is accepted. Polling game_mode here would break the cheat path,
+        // which sets game_mode=0x0008 synchronously and needs these frames.
         for _ in 0..120 {
             tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
         }
@@ -1328,13 +1333,30 @@ fn boot_and_warp_oracle(
         };
         tick_one_frame(emulator, renderer, audio, &start_input, save_writer)?;
 
-        // Wait for level to fully initialise.
-        for _ in 0..120 {
+        // Wait for level to fully initialise (game_mode leaves 0x0008).
+        // Previously a fixed 120-frame wait; for many levels that was
+        // insufficient and the first scenario checkpoint fired with
+        // game_mode still 0x0008, causing the sweep to classify the diffs
+        // as oracle_limitation (the oracle was stuck on the title card).
+        // Poll until game_mode transitions, capped at 600 frames to avoid
+        // infinite loops on a broken boot.
+        for _ in 0..600 {
+            if read_game_mode(emulator) != 0x0008 {
+                break;
+            }
             tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
         }
     }
 
     Ok(())
+}
+
+fn read_game_mode(emulator: &mut GenesisEmulator) -> u16 {
+    let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
+    u16::from_be_bytes([
+        mem.read(work_ram_index(GAME_MODE_ADDR)),
+        mem.read(work_ram_index(GAME_MODE_ADDR) + 1),
+    ])
 }
 
 fn inputs_from_mask(mask: u8) -> GenesisInputs {

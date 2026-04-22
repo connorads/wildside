@@ -22,7 +22,9 @@ use super::*;
 use cache::{OracleCacheKey, load_cached_oracle, store_oracle_cache};
 use diff::{annotate_diff, frame_mae, generate_diff_composite, pixel_mismatch_count};
 use native_player::render_gameplay_frame_evidence_for_level;
-use oracle::{JgenesisBackend, OracleBackend, run_jgenesis_capture_dynamic};
+use oracle::{
+    JgenesisBackend, OracleBackend, jgenesis_helper_cache_version, run_jgenesis_capture_dynamic,
+};
 use rayon::prelude::*;
 use release_gate::{latest_release_gate_failed_fields, summarise_release_gate_focuses};
 use scenarios::{DynamicCheckpoint, DynamicScenario, idle_level_scenario};
@@ -737,7 +739,12 @@ fn sweep_single_level(
     let native_states = extract_checkpoint_states(&native_trace, &scenario.checkpoints);
 
     // Run oracle (with caching)
-    let cache_key = OracleCacheKey::from_scenario(rom_bytes, &scenario, backend.name());
+    let cache_key = OracleCacheKey::from_scenario(
+        rom_bytes,
+        &scenario,
+        backend.name(),
+        backend.cache_version(),
+    );
     let oracle = if let Some(cached) = load_cached_oracle(&cache_key, repo_root) {
         cached
     } else {
@@ -1587,7 +1594,12 @@ fn warm_oracle_cache(
             .iter()
             .map(|&level_id| {
                 let scenario = idle_level_scenario(level_id, None);
-                let cache_key = OracleCacheKey::from_scenario(rom_bytes, &scenario, "jgenesis");
+                let cache_key = OracleCacheKey::from_scenario(
+                    rom_bytes,
+                    &scenario,
+                    "jgenesis",
+                    jgenesis_helper_cache_version(),
+                );
 
                 // Already cached?
                 if load_cached_oracle(&cache_key, repo_root).is_some() {
@@ -1767,7 +1779,12 @@ pub(crate) fn run_sweep_compare(
         fs::create_dir_all(&level_dir)?;
 
         // Run oracle once (shared between both orderings)
-        let cache_key = OracleCacheKey::from_scenario(&rom_bytes, &scenario, backend.name());
+        let cache_key = OracleCacheKey::from_scenario(
+            &rom_bytes,
+            &scenario,
+            backend.name(),
+            backend.cache_version(),
+        );
         let oracle = if let Some(cached) = load_cached_oracle(&cache_key, repo_root) {
             cached
         } else {
