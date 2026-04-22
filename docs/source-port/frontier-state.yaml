@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-21T22:51:56Z",
+  "updated_at": "2026-04-22T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-tail-clean-through-end",
@@ -113,11 +113,17 @@
       {
         "name": "Issue #143 was actionable from the fresh `issue-143-repro` recording",
         "reason": "The 2026-04-21 attempt to run `play-native --warp-level 00 --settled --record issue-143-repro` had to be interrupted before `.cache/recordings/issue-143-repro/manifest.json` existed. `verify-recording --slug issue-143-repro` therefore fails before replay, and `.cache/debug/bug-143/level_00_frame_00000.png`, `level_00_frame_00060.png`, and `level_00_frame_00120.png` are baseline Level 00 captures, not settled Heavy Man block-break gameplay. ASM `sub_AF7A` / `loc_AF96` / `off_AFD8` / `sub_AFD4` / `loc_AFCA` / `loc_1002E` / `loc_110D0` identify the latch and dispatch contract now modelled by proposed-fix commit `cfdb0a7c`; `compare-native-oracle --scenario boot-title-start-level1` passes, but a human-controlled Heavy Man block-break recording is still required before runtime integration or `[x]` promotion."
+      },
+      {
+        "name": "Sweep-parity docs refresh was still actionable after proactive-verification exhausted",
+        "reason": "The cycle-600 recovery package pivoted away from a third repeated docs-only sweep-parity refresh because `cargo run -p kidcli -- autonomous-loop --goal proactive-verification` completed with no actionable task package. The published TAS tail is already authoritative-clean through frame 37759, with the last ASM-backed gameplay repairs anchored to `Obj_TitleMenu loc_1BAEA -> loc_1BB02` and `Kid_Transform`; do not emit another methodology/research-map-only sweep refresh until a new recording, reduced case, backlog evidence item, release-gate failure, or proactive-verification strategy exists.",
+        "fingerprint": "proactive-verification:all-exhausted"
       }
     ],
     "required_next_evidence": [
       "No successor frontier is open in the published any-percent tail; rerun the full `verify-tas --frame-start 23250 --bisect` sweep only when a new regression or broader frontier is introduced.",
-      "`issue-137` is blocked as a gameplay case: `verify-recording --slug issue-137` still reports `trace_match: true` with `oracle_state_match: false` / `oracle_frame_match: false`, the transcript only reaches `TitleScreen` on frame 599 and never enters gameplay, and the derived `issue-137_case_00000_00120` bundle is non-authoritative because the source recording replay length drifted (`recorded 2239`, `replay 120`). Re-record from settled Level 00 gameplay before reopening this lane as an actionable case."
+      "`issue-137` is blocked as a gameplay case: `verify-recording --slug issue-137` still reports `trace_match: true` with `oracle_state_match: false` / `oracle_frame_match: false`, the transcript only reaches `TitleScreen` on frame 599 and never enters gameplay, and the derived `issue-137_case_00000_00120` bundle is non-authoritative because the source recording replay length drifted (`recorded 2239`, `replay 120`). Re-record from settled Level 00 gameplay before reopening this lane as an actionable case.",
+      "The proactive-verification exhaustion pivot is recorded with fingerprint `proactive-verification:all-exhausted`; the next source-port package should not ask for another docs-only sweep evidence refresh unless a new lane input changes the fingerprint."
     ],
     "verification_commands": [
       "cargo test -q -p kid-core published_tas_later_timeout_restart_intro_sequence_5_keeps_camera_handoff_on_frame_32005 -- --nocapture",

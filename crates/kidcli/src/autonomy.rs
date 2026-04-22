@@ -43,6 +43,7 @@ const SOURCE_PORT_RECOVERY_TRACE_PATH: &str =
 const SOURCE_PORT_RECOVERY_TRACE_ENV: &str = "KC_AUTONOMY_RECOVERY_TRACE";
 const SOURCE_PORT_BACKLOG_EVIDENCE_BLOCKER_TARGET: &str =
     "backlog-evidence-blocker:boot-title-start-level1:level_entry@520";
+const PROACTIVE_ALL_EXHAUSTED_FINGERPRINT: &str = "proactive-verification:all-exhausted";
 /// Maximum number of gameplay-bug investigation attempts per backlog issue
 /// before the selector skips it. The per-issue counter lives in
 /// `frontier-state.yaml` under `bug_investigation_attempts`.
@@ -1998,6 +1999,21 @@ fn evaluate_source_port_frontier_cycle(
                                 "sweep-parity refresh loop detected; pivoting to proactive-verification".to_owned(),
                             )
                         };
+                    } else if source_port_records_proactive_exhaustion(frontier) {
+                        task_package = TaskPackage {
+                            generated_at: autonomy_timestamp(),
+                            cycle,
+                            progress_fingerprint: base_progress_fingerprint.clone(),
+                            recovery_mode: Some(RecoveryMode::StalledFingerprint),
+                            recovery_step: Some(RecoveryStep::PivotToNextLane),
+                            stalled_repetition_count: Some(repeated_cycles),
+                            pivot_reason: Some(pivot_reason.clone()),
+                            ..source_port_frontier_recorded_verification_stall_task(
+                                frontier,
+                                &note,
+                                pivot_reason,
+                            )
+                        };
                     } else {
                         task_package = TaskPackage {
                             generated_at: autonomy_timestamp(),
@@ -3224,7 +3240,7 @@ fn evaluate_proactive_verification_cycle(
         task_package: None,
         selected_task: None,
         blocker: None,
-        progress_fingerprint: "proactive-verification:all-exhausted".to_owned(),
+        progress_fingerprint: PROACTIVE_ALL_EXHAUSTED_FINGERPRINT.to_owned(),
         capabilities: vec![CapabilityReport {
             id: CapabilityId::ProactiveVerificationTask,
             title: "Proactive verification".to_owned(),
@@ -3244,6 +3260,13 @@ fn collect_rejected_fingerprints(state: Option<&SourcePortFrontierState>) -> BTr
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn source_port_records_proactive_exhaustion(frontier: &ActiveFrontierState) -> bool {
+    frontier
+        .rejected_hypotheses
+        .iter()
+        .any(|entry| entry.fingerprint.as_deref() == Some(PROACTIVE_ALL_EXHAUSTED_FINGERPRINT))
 }
 
 fn try_candidate_promotion_strategy(
@@ -5199,6 +5222,14 @@ fn source_port_frontier_proactive_exhausted_recovery_task(
                 artefact_path: Some(PathBuf::from("docs/source-port/proactive-verification-config.yaml")),
             },
             EvidenceItem {
+                label: "stall-record-fingerprint".to_owned(),
+                status: "required".to_owned(),
+                detail: format!(
+                    "append rejected_hypotheses[].fingerprint = `{PROACTIVE_ALL_EXHAUSTED_FINGERPRINT}` when recording this exhausted pivot"
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
                 label: "next-agent-note".to_owned(),
                 status: note.status.as_str().to_owned(),
                 detail: note.detail.clone(),
@@ -5218,6 +5249,79 @@ fn source_port_frontier_proactive_exhausted_recovery_task(
         next_agent_note: Some(note.clone()),
         target_routines: None,
         definitively_stalled: false,
+    }
+}
+
+fn source_port_frontier_recorded_verification_stall_task(
+    frontier: &ActiveFrontierState,
+    note: &NextAgentNoteDirective,
+    pivot_reason: String,
+) -> TaskPackage {
+    TaskPackage {
+        capability: CapabilityId::SourcePortFrontierTask,
+        title: "Source-port verification lanes exhausted".to_owned(),
+        summary: format!(
+            "{} is authoritative-clean through frame {}, the docs-only sweep refresh loop already pivoted through exhausted proactive-verification, and that stall is now recorded in frontier-state.yaml. Do not emit another sweep evidence refresh until new case, backlog, gate, or proactive-verification work exists.",
+            frontier.recording, frontier.authoritative_clean_through
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
+            SOURCE_PORT_RELEASE_GATE_PATH.to_owned(),
+        ],
+        implementation_targets: vec![
+            SOURCE_PORT_FRONTIER_STATE_PATH.to_owned(),
+            "crates/kidcli/src/autonomy.rs".to_owned(),
+        ],
+        commands: vec![
+            "cargo run -p kidcli -- autonomous-loop --goal proactive-verification".to_owned(),
+            "mise run verify-slice-fast".to_owned(),
+        ],
+        done_criteria: vec![
+            "Do not refresh only docs/source-port/methodology.md and docs/source-port/research-map.md for this repeated stall.".to_owned(),
+            "Add a genuinely new source-port lane input (recording/reduced case/backlog evidence/proactive strategy) before regenerating sweep evidence docs again.".to_owned(),
+            "verify-slice-fast passes if any tracked change is made.".to_owned(),
+        ],
+        evidence: vec![
+            EvidenceItem {
+                label: "recorded-proactive-exhaustion".to_owned(),
+                status: "recorded".to_owned(),
+                detail: format!(
+                    "frontier-state rejected_hypotheses contains fingerprint `{PROACTIVE_ALL_EXHAUSTED_FINGERPRINT}`"
+                ),
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
+            },
+            EvidenceItem {
+                label: "pivot-reason".to_owned(),
+                status: "stalled".to_owned(),
+                detail: pivot_reason,
+                artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH)),
+            },
+            EvidenceItem {
+                label: "next-agent-note".to_owned(),
+                status: note.status.as_str().to_owned(),
+                detail: note.detail.clone(),
+                artefact_path: Some(note.path.clone()),
+            },
+        ],
+        frontier_context: Some(source_port_frontier_context(frontier)),
+        case_queue_context: None,
+        delegated_goal: Some(AutonomyGoal::ProactiveVerification),
+        delegated_target: Some("all-exhausted".to_owned()),
+        delegation_reason: Some(
+            "recorded proactive-verification exhaustion blocks another docs-only sweep refresh"
+                .to_owned(),
+        ),
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: None,
+        next_agent_note: Some(note.clone()),
+        target_routines: None,
+        definitively_stalled: true,
     }
 }
 
@@ -11106,6 +11210,101 @@ mod tests {
         assert!(
             rendered_note.contains("Record the exhausted proactive-verification pivot"),
             "handoff should explain why the lane is no longer another sweep refresh"
+        );
+        assert!(
+            task.evidence.iter().any(|item| {
+                item.label == "stall-record-fingerprint"
+                    && item
+                        .detail
+                        .contains(super::PROACTIVE_ALL_EXHAUSTED_FINGERPRINT)
+            }),
+            "recovery task should tell the operator which frontier-state fingerprint records the stall"
+        );
+    }
+
+    #[test]
+    fn recorded_proactive_exhaustion_blocks_repeat_sweep_refresh_recovery() {
+        let temp_dir = source_port_repo();
+        fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
+            .expect("release gate dir should exist");
+        write_source_port_frontier(temp_dir.path(), false, "complete");
+        let frontier_path = temp_dir.path().join(SOURCE_PORT_FRONTIER_STATE_PATH);
+        let frontier_state =
+            fs::read_to_string(&frontier_path).expect("frontier state should read");
+        fs::write(
+            &frontier_path,
+            frontier_state.replace(
+                r#""reason": "Already fixed at frame 6358.""#,
+                &format!(
+                    r#""reason": "Already fixed at frame 6358.",
+        "fingerprint": "{}""#,
+                    super::PROACTIVE_ALL_EXHAUSTED_FINGERPRINT
+                ),
+            ),
+        )
+        .expect("frontier state should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
+            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
+        )
+        .expect("research map should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
+            "# Source-Port Roadmap\n\nThe game is not complete.\n",
+        )
+        .expect("roadmap should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
+            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
+        )
+        .expect("whole-game index should write");
+        fs::write(
+            temp_dir.path().join(SOURCE_PORT_RELEASE_GATE_PATH),
+            "{\"passed\": true}\n",
+        )
+        .expect("release gate should write");
+        write_complete_default_mutation_runs(temp_dir.path());
+        commit_repo(temp_dir.path(), "prepare recorded exhausted repo");
+
+        for index in 0..3 {
+            fs::write(
+                temp_dir.path().join("docs/source-port/methodology.md"),
+                format!("# Methodology\n\nrefresh {index}\n"),
+            )
+            .expect("methodology doc should write");
+            fs::write(
+                temp_dir.path().join("docs/source-port/research-map.md"),
+                format!("# Research Map\n\nrefresh {index}\n"),
+            )
+            .expect("research map should write");
+            commit_repo(temp_dir.path(), "docs: refresh sweep parity evidence");
+        }
+
+        let cycle =
+            evaluate_source_port_frontier_cycle(temp_dir.path(), 6, 1).expect("cycle should build");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(task.title, "Source-port verification lanes exhausted");
+        assert_eq!(
+            task.delegated_target.as_deref(),
+            Some("all-exhausted"),
+            "recorded exhaustion should remain visible as the exhausted delegated target"
+        );
+        assert!(
+            task.definitively_stalled,
+            "recorded exhaustion should be surfaced as a terminal stall, not another docs-only refresh task"
+        );
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "recorded-proactive-exhaustion"),
+            "task should prove it consumed the durable frontier-state record"
+        );
+        assert!(
+            !task.done_criteria.iter().any(|criterion| {
+                criterion.contains("Record the exhausted proactive-verification pivot")
+            }),
+            "once recorded, the next package should not ask to record the same pivot again"
         );
     }
 
