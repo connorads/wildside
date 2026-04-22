@@ -6790,10 +6790,11 @@ fn latest_state_sweep_focus_summary(
                 .find(|entry| release_gate_focus_entry_matches(entry, failed_focus))
                 .or_else(|| {
                     entries.iter().find(|entry| {
-                        entry
-                            .get("field")
-                            .and_then(serde_json::Value::as_str)
-                            .is_some_and(|field| field == failed_field)
+                        release_gate_focus_entry_is_legacy(entry)
+                            && entry
+                                .get("field")
+                                .and_then(serde_json::Value::as_str)
+                                .is_some_and(|field| field == failed_field)
                     })
                 })
                 .and_then(|entry| {
@@ -6994,6 +6995,18 @@ fn release_gate_focus_entry_matches(
     };
 
     target_matches && step_matches && checkpoint_matches && native_matches && oracle_matches
+}
+
+fn release_gate_focus_entry_is_legacy(entry: &serde_json::Value) -> bool {
+    [
+        "target",
+        "step_name",
+        "checkpoint",
+        "native_value",
+        "oracle_value",
+    ]
+    .iter()
+    .all(|key| entry.get(*key).is_none())
 }
 
 fn format_divergence_summary_value(summary: Option<&serde_json::Value>) -> Option<String> {
@@ -8625,6 +8638,54 @@ mod tests {
                 .detail
                 .contains("wrong focus summary should not win"),
             "signal should not stop at the first field-only match"
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_ignores_mismatched_modern_focus_entries() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1775367135",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "gameplay_compare:pause_resume_level1",
+                  "status": "failed",
+                  "detail": "gameplay state level_settle@719 diverged in game mode (native 0008, oracle 000C)"
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("gate report should write");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775367561","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":191,"accumulation":0,"rng":0,"oracle_limitation":668},"report_path":"/tmp/sweep-report.json","field_summary":[{"field":"game_mode","total_diffs":13,"levels":12,"level_ids":["0x00"],"checkpoints":["idle_tail"],"checkpoint_counts":[{"checkpoint":"idle_tail","diffs":12}],"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":13}}],"release_gate_focus":[{"target":"1p-playable","step_name":"gameplay_compare:progress_two_transitions","checkpoint":"level_settle@719","field":"game_mode","native_value":"0x0008","oracle_value":"0x000c","summary":"wrong modern focus summary should not win"}]}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+        assert!(!outcome.ok);
+        assert!(
+            !outcome
+                .detail
+                .contains("wrong modern focus summary should not win"),
+            "modern focus entries must match target/step/checkpoint before reuse"
+        );
+        assert!(
+            outcome
+                .detail
+                .contains("latest state sweep classifies `game_mode`"),
+            "signal should fall back to field-summary classification when only mismatched modern focus entries exist"
         );
     }
 
