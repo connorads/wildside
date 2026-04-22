@@ -6525,10 +6525,22 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
         let failed_steps = release_gate_failed_step_details(&report);
         let detail = format_release_gate_failed_step_summary(&failed_steps)
             .unwrap_or_else(|| "latest release gate did not pass".to_owned());
+        let timestamp = report
+            .get("timestamp")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown");
+        let report_path = existing_timestamped_release_gate_report_path(&latest_path, timestamp);
+        let report_detail = report_path.as_ref().map_or_else(
+            || format!(" (timestamp {timestamp})"),
+            |path| format!(" (timestamp {timestamp}, report={})", path.display()),
+        );
         let detail = correlate_release_gate_failure_with_state_sweep(repo_root, &detail)
             .map(|correlation| format!("{detail}; {correlation}"))
             .unwrap_or(detail);
-        CheckOutcome::failing(detail, Some(latest_path))
+        CheckOutcome::failing(
+            format!("{detail}{report_detail}"),
+            Some(report_path.unwrap_or(latest_path)),
+        )
     }
 }
 
@@ -8351,6 +8363,89 @@ mod tests {
         assert!(
             outcome.detail.contains("title@360"),
             "signal should include the failed step detail"
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_prefers_timestamped_failure_report_when_present() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        let report_dir = gate_dir.join("1775119879");
+        fs::create_dir_all(&report_dir).expect("timestamped gate dir should exist");
+        let report_path = report_dir.join("report.json");
+        fs::write(&report_path, "{}\n").expect("timestamped gate report should write");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1775119879",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "frame_oracle:boot_title_start_level1",
+                  "status": "failed",
+                  "detail": "state title@360 diverged in game mode (native 000C, oracle 002C)"
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(!outcome.ok);
+        assert!(
+            outcome.detail.contains("timestamp 1775119879")
+                && outcome.detail.contains("1775119879/report.json"),
+            "failing release-gate signal should cite the immutable timestamped report"
+        );
+        assert_eq!(
+            outcome.artefact_path.as_deref(),
+            Some(report_path.as_path())
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_uses_latest_json_for_failure_when_timestamped_report_is_missing() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        let latest_path = gate_dir.join("latest.json");
+        fs::write(
+            &latest_path,
+            r#"
+            {
+              "timestamp": "1775119879",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "frame_oracle:boot_title_start_level1",
+                  "status": "failed",
+                  "detail": "state title@360 diverged in game mode (native 000C, oracle 002C)"
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(!outcome.ok);
+        assert!(
+            outcome.detail.contains("timestamp 1775119879"),
+            "signal should still preserve the failed release-gate timestamp"
+        );
+        assert!(
+            !outcome.detail.contains("1775119879/report.json"),
+            "signal should not cite a missing timestamped failure report"
+        );
+        assert_eq!(
+            outcome.artefact_path.as_deref(),
+            Some(latest_path.as_path())
         );
     }
 
