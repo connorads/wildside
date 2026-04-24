@@ -120,14 +120,13 @@
       },
       {
         "name": "Sweep-parity docs refresh was still actionable after proactive-verification exhausted",
-        "reason": "The cycle-600 recovery package pivoted away from a third repeated docs-only sweep-parity refresh because `cargo run -p kidcli -- autonomous-loop --goal proactive-verification` completed with no actionable task package. The published TAS tail is already authoritative-clean through frame 37759, with the last ASM-backed gameplay repairs anchored to `Obj_TitleMenu loc_1BAEA -> loc_1BB02` and `Kid_Transform`; do not emit another methodology/research-map-only sweep refresh until a new recording, reduced case, backlog evidence item, release-gate failure, or proactive-verification strategy exists.",
-        "fingerprint": "proactive-verification:all-exhausted"
+        "reason": "Superseded 2026-04-24. The `proactive-verification:all-exhausted` stall was lifted after three lane inputs landed: (1) the oracle cache-key versioning on helper-template SHA1 (commit f410a1f2); (2) mutation-testing rotation extended with helmets.rs, level.rs, movement.rs (commit cf814bbe — re-opens the exhausted 5-file rotation with three untested large modules); (3) a new advisory-promotion proactive strategy (commit bf2130c1 — surfaces stable advisory diffs for promotion review). Any future docs-only sweep-parity refresh streak must again be a terminal stall record, but the previous all-exhausted fingerprint no longer applies."
       }
     ],
     "required_next_evidence": [
       "No successor frontier is open in the published any-percent tail; rerun the full `verify-tas --frame-start 23250 --bisect` sweep only when a new regression or broader frontier is introduced.",
       "`issue-137` is blocked as a gameplay case: `verify-recording --slug issue-137` still reports `trace_match: true` with `oracle_state_match: false` / `oracle_frame_match: false`, the transcript only reaches `TitleScreen` on frame 599 and never enters gameplay, and the derived `issue-137_case_00000_00120` bundle is non-authoritative because the source recording replay length drifted (`recorded 2239`, `replay 120`). Re-record from settled Level 00 gameplay before reopening this lane as an actionable case.",
-      "The proactive-verification exhaustion pivot is recorded with fingerprint `proactive-verification:all-exhausted`; the next source-port package should not ask for another docs-only sweep evidence refresh unless a new lane input changes the fingerprint."
+      "The previous `proactive-verification:all-exhausted` pivot has been lifted — mutation rotation now includes helmets/level/movement and an advisory-promotion strategy has been added. If the extended cascade again returns `all-exhausted`, record a fresh stall rather than reusing the old fingerprint."
     ],
     "verification_commands": [
       "cargo test -q -p kid-core published_tas_later_timeout_restart_intro_sequence_5_keeps_camera_handoff_on_frame_32005 -- --nocapture",
