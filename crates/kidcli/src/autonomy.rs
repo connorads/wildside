@@ -3073,6 +3073,28 @@ enum ProactiveStrategy {
         #[serde(default)]
         max_candidates_per_cycle: Option<u32>,
     },
+    /// Surface advisory-category field diffs that have been stable across
+    /// recent sweeps and ask the next agent to either promote them to
+    /// authoritative (remove from `ADVISORY_FIELDS`) or record a rejected
+    /// hypothesis explaining why they remain advisory.
+    AdvisoryPromotion {
+        enabled: bool,
+        /// Directory holding `<timestamp>/report.json` per sweep run.
+        #[serde(default = "default_advisory_diffs_dir")]
+        diffs_dir: String,
+        /// Minimum number of recent sweeps a field must appear in before it
+        /// is considered stable enough to surface as a promotion candidate.
+        #[serde(default = "default_advisory_min_persistence_sweeps")]
+        min_persistence_sweeps: u32,
+    },
+}
+
+fn default_advisory_diffs_dir() -> String {
+    ".cache/sweep-runs".to_owned()
+}
+
+fn default_advisory_min_persistence_sweeps() -> u32 {
+    3
 }
 
 fn default_loc_coverage_max_per_session() -> u32 {
@@ -3151,6 +3173,11 @@ fn load_proactive_verification_config(repo_root: &Path) -> Result<ProactiveVerif
                         "blocks.rs".to_owned(),
                     ],
                     max_candidates_per_cycle: None,
+                },
+                ProactiveStrategy::AdvisoryPromotion {
+                    enabled: true,
+                    diffs_dir: default_advisory_diffs_dir(),
+                    min_persistence_sweeps: default_advisory_min_persistence_sweeps(),
                 },
             ],
         })
@@ -3242,6 +3269,21 @@ fn evaluate_proactive_verification_cycle(
                     targets,
                     rotation,
                     *max_candidates_per_cycle,
+                ) && !rejected_fingerprints.contains(&report.progress_fingerprint)
+                {
+                    return Ok(report);
+                }
+            }
+            ProactiveStrategy::AdvisoryPromotion {
+                enabled,
+                diffs_dir,
+                min_persistence_sweeps,
+            } if *enabled => {
+                if let Some(report) = try_advisory_promotion_strategy(
+                    repo_root,
+                    cycle,
+                    diffs_dir,
+                    *min_persistence_sweeps,
                 ) && !rejected_fingerprints.contains(&report.progress_fingerprint)
                 {
                     return Ok(report);
@@ -3952,6 +3994,238 @@ fn try_mutation_testing_strategy(
     }
 
     None
+}
+
+/// Candidate surfaced for advisory→authoritative promotion review.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AdvisoryPromotionCandidate {
+    field: String,
+    /// How many of the scanned sweep reports contained at least one advisory
+    /// diff on this field.
+    persistence: u32,
+    /// Total advisory diffs across all scanned reports (breadth of effect).
+    total_diffs: u32,
+    /// Distinct levels the field appeared in, highest-recent first.
+    level_count: u32,
+    /// Latest report path observed (used as the evidence artefact).
+    latest_report_path: String,
+}
+
+/// Scan recent sweep reports for advisory-category field diffs that have been
+/// stable across the last `min_persistence_sweeps` runs and surface the top
+/// candidate for promotion review.
+///
+/// The strategy never modifies `ADVISORY_FIELDS` itself — it only emits a
+/// `TaskPackage` asking the next agent to either remove the field from the
+/// list (promote to authoritative) or record a rejected hypothesis in
+/// `frontier-state.yaml` explaining why it must stay advisory.
+fn try_advisory_promotion_strategy(
+    repo_root: &Path,
+    cycle: u32,
+    diffs_dir: &str,
+    min_persistence_sweeps: u32,
+) -> Option<CycleReport> {
+    let reports = load_recent_sweep_reports(repo_root, diffs_dir);
+    if reports.is_empty() {
+        return None;
+    }
+
+    let min_persistence = min_persistence_sweeps.max(1).min(reports.len() as u32);
+    let candidates = rank_advisory_promotion_candidates(&reports, min_persistence);
+    let top = candidates.into_iter().next()?;
+
+    let task = advisory_promotion_task(&top, reports.len(), min_persistence);
+    Some(proactive_verification_report(
+        cycle,
+        "advisory-promotion",
+        &top.field,
+        task,
+    ))
+}
+
+/// Most-recent-first list of `(report_path, SweepReport)` pairs scanned from
+/// `<repo_root>/<diffs_dir>/<timestamp>/report.json`. The `latest` symlink
+/// (if present) is skipped so each timestamped run is counted exactly once.
+fn load_recent_sweep_reports(
+    repo_root: &Path,
+    diffs_dir: &str,
+) -> Vec<(PathBuf, crate::sweep::SweepReport)> {
+    let sweeps_root = repo_root.join(diffs_dir);
+    let Ok(entries) = fs::read_dir(&sweeps_root) else {
+        return Vec::new();
+    };
+
+    let mut timestamped: Vec<(String, PathBuf)> = entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            let file_name = path.file_name()?.to_str()?.to_owned();
+            // Skip the `latest` symlink — the real directory is walked directly.
+            if file_name == "latest" {
+                return None;
+            }
+            let metadata = fs::symlink_metadata(&path).ok()?;
+            if !metadata.file_type().is_dir() {
+                return None;
+            }
+            Some((file_name, path))
+        })
+        .collect();
+
+    // Timestamps are lexicographically sortable (chrono emits e.g.
+    // `2026-04-24T12-34-56Z`) so reversed string sort gives most-recent first.
+    timestamped.sort_by(|a, b| b.0.cmp(&a.0));
+
+    timestamped
+        .into_iter()
+        .filter_map(|(_, dir)| {
+            let report_path = dir.join("report.json");
+            let content = fs::read_to_string(&report_path).ok()?;
+            let report: crate::sweep::SweepReport = serde_json::from_str(&content).ok()?;
+            Some((report_path, report))
+        })
+        .collect()
+}
+
+/// Collapse advisory diffs across `reports` into ranked candidates. Only
+/// fields seen in at least `min_persistence` distinct reports qualify.
+fn rank_advisory_promotion_candidates(
+    reports: &[(PathBuf, crate::sweep::SweepReport)],
+    min_persistence: u32,
+) -> Vec<AdvisoryPromotionCandidate> {
+    let mut persistence: BTreeMap<String, u32> = BTreeMap::new();
+    let mut total_diffs: BTreeMap<String, u32> = BTreeMap::new();
+    let mut levels_seen: BTreeMap<String, BTreeSet<u8>> = BTreeMap::new();
+    let mut latest_path: BTreeMap<String, String> = BTreeMap::new();
+
+    for (report_path, report) in reports {
+        let mut fields_in_report: BTreeSet<String> = BTreeSet::new();
+        for level in &report.levels {
+            for diff in &level.state_diffs {
+                if !matches!(diff.category, crate::sweep::DivergenceCategory::Advisory) {
+                    continue;
+                }
+                *total_diffs.entry(diff.field.clone()).or_default() += 1;
+                levels_seen
+                    .entry(diff.field.clone())
+                    .or_default()
+                    .insert(level.level_id);
+                fields_in_report.insert(diff.field.clone());
+            }
+        }
+        for field in fields_in_report {
+            *persistence.entry(field.clone()).or_default() += 1;
+            latest_path
+                .entry(field)
+                .or_insert_with(|| report_path.display().to_string());
+        }
+    }
+
+    let mut candidates: Vec<AdvisoryPromotionCandidate> = persistence
+        .into_iter()
+        .filter(|(_, count)| *count >= min_persistence)
+        .map(|(field, persistence)| {
+            let total = total_diffs.get(&field).copied().unwrap_or(0);
+            let level_count = levels_seen.get(&field).map_or(0, |ids| ids.len() as u32);
+            let latest_report_path = latest_path.get(&field).cloned().unwrap_or_default();
+            AdvisoryPromotionCandidate {
+                field,
+                persistence,
+                total_diffs: total,
+                level_count,
+                latest_report_path,
+            }
+        })
+        .collect();
+
+    // Highest-effect first: most persistence, then total diffs, then breadth.
+    candidates.sort_by(|a, b| {
+        b.persistence
+            .cmp(&a.persistence)
+            .then_with(|| b.total_diffs.cmp(&a.total_diffs))
+            .then_with(|| b.level_count.cmp(&a.level_count))
+            .then_with(|| a.field.cmp(&b.field))
+    });
+    candidates
+}
+
+fn advisory_promotion_task(
+    candidate: &AdvisoryPromotionCandidate,
+    scanned_sweeps: usize,
+    min_persistence: u32,
+) -> TaskPackage {
+    TaskPackage {
+        capability: CapabilityId::ProactiveVerificationTask,
+        title: format!(
+            "Review advisory field `{}` for promotion to authoritative",
+            candidate.field
+        ),
+        summary: format!(
+            "Advisory diff on `{field}` has persisted across {persistence} of the last {scanned} sweeps ({total_diffs} total diffs, {level_count} distinct levels). Read the ASM around the field's producer, compare native vs oracle at one of the affected levels, and decide: remove `{field}` from `ADVISORY_FIELDS` in `crates/kidcli/src/sweep/mod.rs` (promote to authoritative) OR add a rejected_hypothesis entry in `docs/source-port/frontier-state.yaml` explaining the architectural reason it stays advisory.",
+            field = candidate.field,
+            persistence = candidate.persistence,
+            scanned = scanned_sweeps,
+            total_diffs = candidate.total_diffs,
+            level_count = candidate.level_count,
+        ),
+        generated_at: String::new(),
+        cycle: 0,
+        progress_fingerprint: String::new(),
+        sources: vec![
+            "crates/kidcli/src/sweep/mod.rs".to_owned(),
+            "docs/source-port/frontier-state.yaml".to_owned(),
+            ".cache/upstream/kid-chameleon-disasm/kid.asm".to_owned(),
+            candidate.latest_report_path.clone(),
+        ],
+        implementation_targets: vec![
+            "crates/kidcli/src/sweep/mod.rs".to_owned(),
+            "docs/source-port/frontier-state.yaml".to_owned(),
+        ],
+        commands: vec![
+            "mise run verify-slice-fast".to_owned(),
+            "cargo run --release -p kidcli -- sweep --levels 0-104 --tier state".to_owned(),
+        ],
+        done_criteria: vec![
+            format!(
+                "Field `{}` is either removed from `ADVISORY_FIELDS` or has a rejected_hypothesis entry citing the ASM evidence.",
+                candidate.field
+            ),
+            "verify-slice-fast passes.".to_owned(),
+            format!(
+                "The next state-tier sweep shows the field reclassified (no more advisory diffs, or a new authoritative diff ready for triage).",
+            ),
+        ],
+        evidence: vec![EvidenceItem {
+            label: "advisory-promotion".to_owned(),
+            status: format!(
+                "persistent-{}-of-{}-sweeps",
+                candidate.persistence, scanned_sweeps
+            ),
+            detail: format!(
+                "`{field}` appeared advisory in {persistence}/{scanned} sweeps (>= min {min}) across {level_count} levels with {total} total diffs",
+                field = candidate.field,
+                persistence = candidate.persistence,
+                scanned = scanned_sweeps,
+                min = min_persistence,
+                level_count = candidate.level_count,
+                total = candidate.total_diffs,
+            ),
+            artefact_path: Some(PathBuf::from(&candidate.latest_report_path)),
+        }],
+        frontier_context: None,
+        case_queue_context: None,
+        delegated_goal: None,
+        delegated_target: None,
+        delegation_reason: None,
+        recovery_mode: None,
+        recovery_step: None,
+        stalled_repetition_count: None,
+        pivot_reason: None,
+        next_fallback_goal: None,
+        next_agent_note: None,
+        target_routines: None,
+        definitively_stalled: false,
+    }
 }
 
 const MUTATION_POINTER_PATH: &str = ".cache/autonomy/proactive-verification/mutation-pointer.json";
@@ -11610,6 +11884,222 @@ mod tests {
         assert!(
             task.title.contains("combat.rs"),
             "complete modules with no survivors should be skipped"
+        );
+    }
+
+    fn write_sweep_report(
+        repo_root: &Path,
+        diffs_dir: &str,
+        timestamp: &str,
+        levels: &[(u8, &[(&str, crate::sweep::DivergenceCategory)])],
+    ) {
+        use crate::sweep::{
+            DivergenceSummary, LevelSweepResult, StateDiff, SweepReport, SweepTier,
+        };
+
+        let level_entries: Vec<LevelSweepResult> = levels
+            .iter()
+            .map(|(level_id, diffs)| {
+                let state_diffs: Vec<StateDiff> = diffs
+                    .iter()
+                    .map(|(field, category)| StateDiff {
+                        checkpoint: "idle_tail".into(),
+                        field: (*field).to_owned(),
+                        native_value: "0x0000".into(),
+                        oracle_value: "0x0001".into(),
+                        category: *category,
+                    })
+                    .collect();
+                LevelSweepResult {
+                    level_id: *level_id,
+                    slug: format!("level_{level_id:#04x}"),
+                    tier: SweepTier::State,
+                    passed: diffs.is_empty(),
+                    state_diffs,
+                    mae: None,
+                    pixel_mismatches: None,
+                    diff_images: Vec::new(),
+                    error: None,
+                    divergence_summary: DivergenceSummary::default(),
+                }
+            })
+            .collect();
+
+        let report = SweepReport {
+            timestamp: timestamp.to_owned(),
+            kid_core_hash: None,
+            levels: level_entries,
+            passed: 0,
+            failed: 0,
+            errors: 0,
+            divergence_summary: DivergenceSummary::default(),
+            field_summary: Vec::new(),
+            release_gate_focus: Vec::new(),
+        };
+
+        let dir = repo_root.join(diffs_dir).join(timestamp);
+        fs::create_dir_all(&dir).expect("sweep run dir should exist");
+        fs::write(
+            dir.join("report.json"),
+            serde_json::to_string(&report).expect("report should serialise"),
+        )
+        .expect("report.json should write");
+    }
+
+    #[test]
+    fn advisory_promotion_strategy_ranks_most_persistent_field_first() {
+        let temp_dir = source_port_repo();
+        let diffs_dir = ".cache/sweep-runs";
+        let advisory = crate::sweep::DivergenceCategory::Advisory;
+
+        // kid_x_vel appears in all three sweeps (persistent); number_objects
+        // only in the latest. Persistence should outrank total diffs.
+        write_sweep_report(
+            temp_dir.path(),
+            diffs_dir,
+            "2026-04-20T10-00-00Z",
+            &[(0x00, &[("kid_x_vel", advisory)])],
+        );
+        write_sweep_report(
+            temp_dir.path(),
+            diffs_dir,
+            "2026-04-21T10-00-00Z",
+            &[(0x00, &[("kid_x_vel", advisory)])],
+        );
+        write_sweep_report(
+            temp_dir.path(),
+            diffs_dir,
+            "2026-04-22T10-00-00Z",
+            &[(
+                0x00,
+                &[
+                    ("kid_x_vel", advisory),
+                    ("number_objects", advisory),
+                    ("number_objects", advisory),
+                ],
+            )],
+        );
+
+        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 7, diffs_dir, 3)
+            .expect("stable advisory field should surface a task");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            cycle.progress_fingerprint, "proactive-verification:advisory-promotion:kid_x_vel",
+            "most-persistent advisory field should be picked first"
+        );
+        assert!(
+            task.title.contains("`kid_x_vel`"),
+            "task title should name the promotion candidate"
+        );
+        assert!(
+            task.implementation_targets
+                .iter()
+                .any(|path| path == "crates/kidcli/src/sweep/mod.rs"),
+            "task should point at ADVISORY_FIELDS so the agent can promote the field"
+        );
+        assert!(
+            task.implementation_targets
+                .iter()
+                .any(|path| path == "docs/source-port/frontier-state.yaml"),
+            "task should allow recording a rejected hypothesis as the alternative outcome"
+        );
+        assert!(
+            task.evidence
+                .iter()
+                .any(|item| item.label == "advisory-promotion"
+                    && item.detail.contains("3/3 sweeps")
+                    && item.detail.contains("`kid_x_vel`")),
+            "evidence should summarise the persistence and field name"
+        );
+    }
+
+    #[test]
+    fn advisory_promotion_strategy_requires_min_persistence_across_sweeps() {
+        let temp_dir = source_port_repo();
+        let diffs_dir = ".cache/sweep-runs";
+        let advisory = crate::sweep::DivergenceCategory::Advisory;
+
+        // Field appears in 2 of 3 sweeps — below the min_persistence=3 bar.
+        write_sweep_report(
+            temp_dir.path(),
+            diffs_dir,
+            "2026-04-20T10-00-00Z",
+            &[(0x00, &[("kid_x_vel", advisory)])],
+        );
+        write_sweep_report(
+            temp_dir.path(),
+            diffs_dir,
+            "2026-04-21T10-00-00Z",
+            &[(0x00, &[("kid_x_vel", advisory)])],
+        );
+        write_sweep_report(temp_dir.path(), diffs_dir, "2026-04-22T10-00-00Z", &[]);
+
+        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 3, diffs_dir, 3);
+        assert!(
+            cycle.is_none(),
+            "field below the persistence threshold should not yield a task"
+        );
+    }
+
+    #[test]
+    fn advisory_promotion_strategy_ignores_non_advisory_categories() {
+        let temp_dir = source_port_repo();
+        let diffs_dir = ".cache/sweep-runs";
+        let authoritative = crate::sweep::DivergenceCategory::Authoritative;
+
+        // Authoritative diffs are real bugs and belong to other lanes, not
+        // this strategy. A field that only appears as authoritative should
+        // never be surfaced as a promotion candidate.
+        for ts in [
+            "2026-04-20T10-00-00Z",
+            "2026-04-21T10-00-00Z",
+            "2026-04-22T10-00-00Z",
+        ] {
+            write_sweep_report(
+                temp_dir.path(),
+                diffs_dir,
+                ts,
+                &[(0x00, &[("kid_x_pos", authoritative)])],
+            );
+        }
+
+        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 9, diffs_dir, 3);
+        assert!(
+            cycle.is_none(),
+            "authoritative diffs should not be surfaced by advisory-promotion"
+        );
+    }
+
+    #[test]
+    fn advisory_promotion_strategy_degrades_when_only_one_sweep_exists() {
+        let temp_dir = source_port_repo();
+        let diffs_dir = ".cache/sweep-runs";
+        let advisory = crate::sweep::DivergenceCategory::Advisory;
+
+        // Single-report case: the strategy caps the persistence requirement
+        // at the number of reports actually present. A clean sweep should
+        // still surface any advisory field instead of silently staying idle.
+        write_sweep_report(
+            temp_dir.path(),
+            diffs_dir,
+            "2026-04-22T10-00-00Z",
+            &[(0x00, &[("number_lives", advisory)])],
+        );
+
+        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 11, diffs_dir, 3)
+            .expect("one stable advisory diff should still yield a task after degradation");
+        let task = cycle.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            cycle.progress_fingerprint,
+            "proactive-verification:advisory-promotion:number_lives"
+        );
+        assert!(
+            task.evidence.iter().any(|item| {
+                item.label == "advisory-promotion" && item.detail.contains("1/1 sweeps")
+            }),
+            "evidence should reflect the degraded persistence (1-of-1)"
         );
     }
 

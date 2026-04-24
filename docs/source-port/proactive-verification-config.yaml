@@ -66,3 +66,19 @@ strategies:
       - { module: helmets.rs, package: kid-core, tier: 1 }
       - { module: level.rs, package: kid-core, tier: 2 }
       - { module: movement.rs, package: kid-core, tier: 1 }
+
+  - name: advisory-promotion
+    # Surface stable advisory-category diffs from `.cache/sweep-runs/`.
+    # The strategy never mutates `ADVISORY_FIELDS` itself — it emits a task
+    # asking the next agent to either promote the field to authoritative
+    # (delete it from `ADVISORY_FIELDS` in `crates/kidcli/src/sweep/mod.rs`)
+    # or record a rejected_hypothesis entry in `frontier-state.yaml`
+    # explaining why it must remain advisory.
+    #
+    # `min_persistence_sweeps` is clamped to the number of reports actually
+    # present, so a fresh clone with a single sweep still surfaces work;
+    # once a long history exists, only diffs that have persisted across
+    # the last N runs are considered stable enough to review.
+    enabled: true
+    diffs_dir: .cache/sweep-runs
+    min_persistence_sweeps: 3
