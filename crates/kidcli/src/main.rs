@@ -663,6 +663,24 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = sweep::SweepTier::State)]
         tier: sweep::SweepTier,
     },
+    /// Rank the top-N pixel-diff checkpoints from a frames-tier sweep for
+    /// visual triage. Copies native_*.png and diff_*.png into an output
+    /// directory with a manifest, ordered by worst mismatch first.
+    ///
+    /// Filters out levels whose only state divergences are `oracle_limitation`
+    /// — otherwise the top-N is polluted by oracle-pause noise. Requires a
+    /// frames-tier sweep (state-tier runs have no pixel metrics).
+    RankPixelDiffs {
+        /// Path to a sweep report.json. Defaults to `.cache/sweep-runs/latest/report.json`.
+        #[arg(long)]
+        report: Option<PathBuf>,
+        /// Number of top-ranked checkpoints to copy.
+        #[arg(long, default_value_t = 10)]
+        top: usize,
+        /// Output directory.
+        #[arg(long, default_value = ".cache/pixel-review/latest")]
+        output: PathBuf,
+    },
     /// Diff two WRAM dump files byte-by-byte, highlighting changed addresses.
     RamDiff {
         /// First WRAM dump file
@@ -1715,6 +1733,33 @@ fn main() -> Result<()> {
             let level_ids = sweep::parse_level_range(&levels)?;
 
             sweep::run_sweep_compare(&repo_root, &rom_path, &manifest, &level_ids, tier)?;
+        }
+        Commands::RankPixelDiffs {
+            report,
+            top,
+            output,
+        } => {
+            let repo_root = current_dir()?;
+            let report_path =
+                report.unwrap_or_else(|| repo_root.join(".cache/sweep-runs/latest/report.json"));
+            let manifest = sweep::run_rank_pixel_diffs(&report_path, top, &output)?;
+            println!(
+                "ranked {} entries (skipped {} oracle-limitation-only, {} without pixel data)",
+                manifest.entries.len(),
+                manifest.skipped_oracle_limitation_only,
+                manifest.skipped_no_pixel_data
+            );
+            for entry in &manifest.entries {
+                println!(
+                    "  #{:02} level {:02x} {} — {} mismatches (mae {:.1})",
+                    entry.rank,
+                    entry.level_id,
+                    entry.slug,
+                    entry.pixel_mismatches.unwrap_or(0),
+                    entry.mae.unwrap_or(0.0),
+                );
+            }
+            println!("manifest written to {}/manifest.json", output.display());
         }
         Commands::RamDiff {
             file_a,

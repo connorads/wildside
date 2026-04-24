@@ -1,9 +1,11 @@
 mod frames;
 mod gameplay;
+mod pixel_rank;
 mod release_gate;
 
 pub(crate) use frames::{capture_frames, diagnose_frame, golden_capture, golden_diff};
 pub(crate) use gameplay::run_gameplay_sweep;
+pub(crate) use pixel_rank::run_rank_pixel_diffs;
 pub(crate) use release_gate::ReleaseGateFocusSummary;
 
 // Re-export submodule items needed by tests in this module
