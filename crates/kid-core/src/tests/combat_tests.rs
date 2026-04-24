@@ -1396,6 +1396,43 @@ mod chunk_03 {
     }
 
     #[test]
+    fn diamond_power_main_circle_of_doom_slot_reads_size_table_loc_3f81a() {
+        // ASM loc_3F81A: move.w $3E(a0),d5; lsr.w #1,d5;
+        // move.b byte_3F8B4(pc,d5.w),d6. With upper word $21, d5=$10 and
+        // byte_3F8B4[$10] is 5, not the final table entry.
+        let mut slot = helmets::CircleOfDoomSlot {
+            radius: 0x0021_0000,
+            shrink_flag: 0,
+            angle: 0x0000_0000,
+            status: 0,
+        };
+        let result = helmets::diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0, 0, 0);
+        assert_eq!(
+            result.half_size, 5,
+            "ASM loc_3F81A: byte_3F8B4[$10] supplies the sprite half-size"
+        );
+    }
+
+    #[test]
+    fn diamond_power_main_circle_of_doom_slot_size_index_12_uses_slow_shrink_loc_3f81a() {
+        // ASM loc_3F81A: cmpi.w #$C,d5; bge.s loc_3F880. The equality case
+        // reaches loc_3F880, so radius index $C must not take the fast shrink.
+        let mut slot = helmets::CircleOfDoomSlot {
+            radius: 0x0018_0000,
+            shrink_flag: 0,
+            angle: 0x0000_0000,
+            status: 0,
+        };
+        let result = helmets::diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0, 0, 0);
+        assert!(!result.removed);
+        assert_eq!(
+            slot.radius,
+            0x0018_0000 - 0x400,
+            "ASM loc_3F81A: d5 == $C branches to loc_3F880 after only #$400 shrink"
+        );
+    }
+
+    #[test]
     fn diamond_power_main_circle_of_doom_slot_fast_shrink_when_small_loc_3f81a() {
         // ASM: when $3E.w >> 1 < $C (radius upper word < $18), both $400 and
         // $19000 are subtracted. Set radius so upper word = $16 → index = $B < $C.
@@ -1413,6 +1450,24 @@ mod chunk_03 {
             initial - 0x400 - 0x19000,
             "ASM: both subi.l #$400 and subi.l #$19000 when size_index < $C"
         );
+    }
+
+    #[test]
+    fn diamond_power_main_circle_of_doom_slot_keeps_exact_zero_radius_loc_3f81a() {
+        // ASM loc_3F81A: after the fast shrink, `bge.s loc_3F880` keeps zero
+        // or positive results. Only a negative long radius removes the slot.
+        let mut slot = helmets::CircleOfDoomSlot {
+            radius: 0x0001_9400,
+            shrink_flag: 0,
+            angle: 0x0000_0000,
+            status: 0,
+        };
+        let result = helmets::diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0, 0, 0);
+        assert!(
+            !result.removed,
+            "ASM loc_3F81A: exact zero after #$400 + #$19000 still branches to loc_3F880"
+        );
+        assert_eq!(slot.radius, 0);
     }
 
     #[test]
