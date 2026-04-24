@@ -38,7 +38,13 @@ strategies:
     # current rotation entry and advances the pointer at
     # .cache/autonomy/proactive-verification/mutation-pointer.json once the
     # run completes without survivors. max_candidates_per_cycle time-boxes
-    # large files (enemies.rs enumerates thousands of candidates).
+    # large files (enemies.rs enumerates thousands of candidates, level.rs
+    # has ~18k LOC and will similarly generate a large mutant set).
+    #
+    # The first 5 entries wrapped with zero survivors across ~836 mutants,
+    # so the loop correctly declared the rotation exhausted. helmets.rs,
+    # level.rs, and movement.rs extend the rotation to re-open the strategy
+    # and give later cycles real test-gap work to triage.
     enabled: true
     output_dir: .cache/mutants
     rotation:
@@ -47,6 +53,9 @@ strategies:
       - blocks.rs
       - physics.rs
       - terrain.rs
+      - helmets.rs
+      - level.rs
+      - movement.rs
     max_candidates_per_cycle: 200
     targets:
       - { module: enemies.rs, package: kid-core, tier: 1 }
@@ -54,3 +63,6 @@ strategies:
       - { module: blocks.rs, package: kid-core, tier: 1 }
       - { module: physics.rs, package: kid-core, tier: 2 }
       - { module: terrain.rs, package: kid-core, tier: 2 }
+      - { module: helmets.rs, package: kid-core, tier: 1 }
+      - { module: level.rs, package: kid-core, tier: 2 }
+      - { module: movement.rs, package: kid-core, tier: 1 }
