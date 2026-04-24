@@ -2135,6 +2135,40 @@ pub(crate) struct BoomerangBossHead3EyePiece6LaunchLoc3937A {
     pub(crate) loops_back_loc_393b0: bool,
 }
 
+/// Top-level Enemy20 (HeadyMetal) initialisation summary.
+///
+/// ASM `Enemy20_HeadyMetal_Init` (kid.asm:39247) enumerates all 17
+/// worker sprites plus the scatter-tracking anchor, rather than
+/// dispatching through `loc_32146` directly the way other bosses do.
+/// Each worker is allocated via `sub_3764A` / `sub_37680` / `sub_376B6`
+/// — all three of those allocator subs call `loc_32146` internally, so
+/// `runs_common_boss_init_loc_32146` is true as a structural marker
+/// even though the dispatch is indirect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalInitEnemy20Loc39247 {
+    pub(crate) runs_common_boss_init_loc_32146: bool,
+    /// Count of main-head sprites allocated via `sub_3764A` (gfx slot `$01010002`).
+    pub(crate) main_head_sprite_count: u8,
+    /// Count of body-piece sprites allocated via `sub_37680` (gfx slot `$01000002`).
+    pub(crate) body_piece_sprite_count: u8,
+    /// Count of eye sprites allocated via `sub_376B6` (gfx slot `$00FF0002`).
+    pub(crate) eye_sprite_count: u8,
+    /// Total worker pointer slots walked by `sub_376EC` at `$FFFFFB72`.
+    pub(crate) total_worker_slot_count: u8,
+    /// Label for the cached anchor at `$FFFFFB7A` (the third `sub_3764A` slot).
+    pub(crate) cached_anchor_slot_label: &'static str,
+    /// Animation struct label for the anchor (`stru_37B8A`).
+    pub(crate) anchor_animation_struct_label: &'static str,
+    /// Fallthrough entry point for the scatter/tracking loop.
+    pub(crate) tracking_loop_entry_label: &'static str,
+    /// Initial loop counter `d0` loaded before entering `loc_37582` (`$1E` = 30).
+    pub(crate) initial_loop_counter_d0: u16,
+    /// Anchor start X copied from the enemy ROM entry (`4(a0)` at `sub_3764A`).
+    pub(crate) anchor_x_pos: u16,
+    /// Anchor start Y copied from the enemy ROM entry (`6(a0)` at `sub_3764A`).
+    pub(crate) anchor_y_pos: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalSpriteInitSub3764A {
     pub(crate) gfx_slot_base: u32,
@@ -6864,6 +6898,42 @@ pub(crate) fn fire_demon_fragment_decel_step_loc_3A24C(
         delete_current_object: false,
         runs_collision_check_sub_3a1a6: true,
         next: FireDemonFragmentDecelNextLoc3A24C::ContinueDecelLoc3A24C,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn heady_metal_init_enemy20_loc_39247(
+    anchor_x: u16,
+    anchor_y: u16,
+) -> HeadyMetalInitEnemy20Loc39247 {
+    // ASM Enemy20_HeadyMetal_Init (kid.asm:39247-39343): load the enemy-table
+    // anchor into a0, point a2 at the worker pointer table `$FFFFFB72`, then
+    // allocate the full boss rig:
+    //   3 x `sub_3764A`  (kid.asm:39250,39256,39261) — main-head gfx slot $01010002
+    //   12 x `sub_37680` (kid.asm:39266-39321)        — body pieces gfx slot $01000002
+    //   2 x `sub_376B6`  (kid.asm:39326,39331)        — eye sprites gfx slot $00FF0002
+    // Each allocator sub performs its own `jsr loc_32146(pc)` (see sub_3764A at
+    // kid.asm:39432, sub_37680 at kid.asm:39452, sub_376B6 at kid.asm:39472),
+    // so the common boss init runs 17 times in total rather than once.
+    //
+    // After the allocations the init loads the cached anchor (the third
+    // `sub_3764A` slot at `$FFFFFB7A`), initialises the anchor animation from
+    // `stru_37B8A` (kid.asm:39337), seeds the scatter velocities via `sub_376EC`
+    // (kid.asm:39341), sets `d0 = $1E` (30) as the scatter loop counter at
+    // kid.asm:39342, then falls through into `loc_37582` for the tracking loop.
+    HeadyMetalInitEnemy20Loc39247 {
+        runs_common_boss_init_loc_32146: true,
+        main_head_sprite_count: 3,
+        body_piece_sprite_count: 12,
+        eye_sprite_count: 2,
+        total_worker_slot_count: 17,
+        cached_anchor_slot_label: "$FFFFFB7A",
+        anchor_animation_struct_label: "stru_37B8A",
+        tracking_loop_entry_label: "loc_37582",
+        initial_loop_counter_d0: 0x001E,
+        anchor_x_pos: anchor_x,
+        anchor_y_pos: anchor_y,
     }
 }
 

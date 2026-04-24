@@ -831,6 +831,58 @@ mod chunk_08 {
     }
 
     #[test]
+    fn heady_metal_init_enemy20_loc_39247_summarises_the_bespoke_boss_dispatch() {
+        // ASM Enemy20_HeadyMetal_Init (kid.asm:39247): 3 x sub_3764A + 12 x
+        // sub_37680 + 2 x sub_376B6 = 17 worker allocations. Each allocator
+        // internally `jsr loc_32146(pc)` (kid.asm:39432, 39452, 39472), so the
+        // common boss init runs 17 times even though the top-level Enemy20
+        // init never calls `loc_32146` directly.
+        let init = heady_metal_init_enemy20_loc_39247(0x0120, 0x00B0);
+
+        assert!(
+            init.runs_common_boss_init_loc_32146,
+            "HeadyMetal reaches `loc_32146` via its 17 sub_3764A/sub_37680/sub_376B6 allocator calls",
+        );
+        assert_eq!(
+            init.main_head_sprite_count, 3,
+            "ASM Enemy20_HeadyMetal_Init (kid.asm:39250,39256,39261) calls `sub_3764A` three times",
+        );
+        assert_eq!(
+            init.body_piece_sprite_count, 12,
+            "ASM Enemy20_HeadyMetal_Init (kid.asm:39266-39321) calls `sub_37680` twelve times",
+        );
+        assert_eq!(
+            init.eye_sprite_count, 2,
+            "ASM Enemy20_HeadyMetal_Init (kid.asm:39326,39331) calls `sub_376B6` twice",
+        );
+        assert_eq!(
+            init.total_worker_slot_count, 17,
+            "Worker pointer table at `$FFFFFB72` holds 3+12+2 entries after Enemy20 init completes",
+        );
+        assert_eq!(
+            init.cached_anchor_slot_label, "$FFFFFB7A",
+            "ASM Enemy20_HeadyMetal_Init caches the third `sub_3764A` return into `$FFFFFB7A`",
+        );
+        assert_eq!(
+            init.anchor_animation_struct_label, "stru_37B8A",
+            "ASM kid.asm:39337 loads `stru_37B8A` as the anchor animation struct",
+        );
+        assert_eq!(
+            init.tracking_loop_entry_label, "loc_37582",
+            "ASM Enemy20_HeadyMetal_Init falls through into `loc_37582` for the tracking loop",
+        );
+        assert_eq!(
+            init.initial_loop_counter_d0, 0x001E,
+            "ASM kid.asm:39342 seeds `d0 = $1E` (30) before entering the tracking loop",
+        );
+        assert_eq!(
+            (init.anchor_x_pos, init.anchor_y_pos),
+            (0x0120, 0x00B0),
+            "Anchor X/Y are copied straight from the enemy ROM entry `(4,6)(a0)` at `sub_3764A`",
+        );
+    }
+
+    #[test]
     fn heady_metal_sprite_init_sub_3764a_seeds_the_shared_anchor_sprite() {
         let init = heady_metal_sprite_init_sub_3764A(0x0044, 0x0046);
 
