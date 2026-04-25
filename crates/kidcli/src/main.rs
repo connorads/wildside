@@ -39,7 +39,7 @@ use inspect::*;
 
 use anyhow::{Context, Result, anyhow, bail};
 use autonomy::{AutonomyGoal, run_autonomous_loop};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use kid_core::physics::Direction as NativeDirection;
 use kid_core::{GameMode as NativeGameMode, NativeTraceFrame, run_script};
@@ -59,7 +59,10 @@ use player::{PlayOptions, run_player};
 use project_status::{ProjectStatusFormat, run_project_status};
 use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_recording};
 use release_gate::{ReleaseGateTarget, run_release_gate};
-use scenarios::{GameplayScenario, Scenario};
+use scenarios::{
+    DynamicScenario, GameplayScenario, Scenario, idle_level_scenario, prize_block_scenario,
+    stomp_enemy_scenario, walk_right_scenario,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::env;
@@ -75,6 +78,18 @@ use ymfm_sys::Ym2612;
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum RecordScenarioKind {
+    /// idle for 5 seconds — captures pure level-settle state.
+    Idle,
+    /// walk right (+ periodic jumps) for 5 seconds.
+    WalkRight,
+    /// walk right and jump under prize blocks.
+    PrizeBlock,
+    /// run + aggressive jumps to maximise enemy stomps.
+    StompEnemy,
 }
 
 #[derive(Debug, Subcommand)]
@@ -98,6 +113,31 @@ enum Commands {
         scale: Option<u32>,
         #[arg(long, default_value_t = false)]
         mute: bool,
+    },
+    /// Record a recording bundle from a scripted scenario without an
+    /// interactive session. Bypasses the play-native --settled --record
+    /// trap that has stalled multiple [~]/[?] backlog repros (#135, #136,
+    /// #137, #140, #143) by warping straight to the level and saving the
+    /// manifest deterministically.
+    RecordScenario {
+        /// Recording slug — bundle is written to .cache/recordings/<slug>/.
+        #[arg(long)]
+        slug: String,
+        /// Scenario kind.
+        #[arg(long, value_enum, default_value_t = RecordScenarioKind::WalkRight)]
+        scenario: RecordScenarioKind,
+        /// Level to warp into.
+        #[arg(long)]
+        level: u8,
+        /// Override the default scenario frame count (post-settle frames).
+        #[arg(long)]
+        walk_frames: Option<usize>,
+        /// Optional ROM path (defaults to repo-root resolution).
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        /// Optional upstream-dir path.
+        #[arg(long)]
+        dir: Option<PathBuf>,
     },
     /// Launch the native runtime. Defaults to the full boot/title/game flow.
     PlayNative {
@@ -756,6 +796,57 @@ fn main() -> Result<()> {
                     mute,
                 },
             )?;
+        }
+        Commands::RecordScenario {
+            slug,
+            scenario,
+            level,
+            walk_frames,
+            rom,
+            dir,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            ensure_level_layouts(&rom_path, &manifest, &[level])?;
+            let dynamic = build_record_scenario(scenario, level, walk_frames);
+            let trace = kid_core::run_script_with_warp(
+                manifest.clone(),
+                &dynamic.script,
+                dynamic.frame_count,
+                dynamic.warp_to_level,
+            );
+            let record_to = repo_root
+                .join(".cache/recordings")
+                .join(recording::validate_recording_slug(&slug)?);
+            let recording = recording::build_recording(
+                &manifest,
+                &slug,
+                recording::RecordingStart {
+                    warp_level: Some(level),
+                    settled: false,
+                },
+                dynamic.script.clone(),
+                trace,
+            )?;
+            // Replace the auto-generated walk_right/idle scenario inside the
+            // recording with the explicit warp-driven scenario, so verify-
+            // recording replays the same script the agent just executed.
+            let mut recording = recording;
+            recording.manifest.scenario = dynamic;
+            recording::save_recording_with_artifacts(
+                &record_to,
+                &recording,
+                &recording::RecordingBundleArtifacts::default(),
+            )?;
+            println!(
+                "wrote recording bundle to {}",
+                record_to
+                    .strip_prefix(&repo_root)
+                    .unwrap_or(&record_to)
+                    .display()
+            );
         }
         Commands::PlayNative {
             rom,
@@ -1981,6 +2072,19 @@ fn gameplay_entry_script() -> Result<Vec<u8>> {
     build_controller_script(&[120, 200, 280, 360, 440], &[String::from("460:start")])
 }
 
+fn build_record_scenario(
+    kind: RecordScenarioKind,
+    level: u8,
+    walk_frames: Option<usize>,
+) -> DynamicScenario {
+    match kind {
+        RecordScenarioKind::Idle => idle_level_scenario(level, walk_frames),
+        RecordScenarioKind::WalkRight => walk_right_scenario(level, walk_frames.unwrap_or(300)),
+        RecordScenarioKind::PrizeBlock => prize_block_scenario(level),
+        RecordScenarioKind::StompEnemy => stomp_enemy_scenario(level, walk_frames.unwrap_or(360)),
+    }
+}
+
 fn gameplay_move_right_script() -> Result<Vec<u8>> {
     build_controller_script(
         &[120, 200, 280, 360, 440],
@@ -2248,13 +2352,13 @@ fn print_asset_manifest(manifest: &AssetManifest) {
 #[cfg(test)]
 mod tests {
     use super::{
-        GameplayCapture, GameplayScenario, GameplayState, ReferenceName, analyse_audio_samples,
-        audio_envelope_similarity, build_controller_script, capture_native_gameplay_run,
-        capture_native_gameplay_scenario, compare_native_gameplay_with,
-        compare_native_states_against_oracle, ensure_gameplay_level_layouts_with,
-        ensure_level_layouts_with, find_gameplay_live_drifts, gameplay_checkpoint_window,
-        native_trace_to_oracle_state, parse_button_mask, parse_input_spec,
-        prepare_generated_assets_with, selected_reference_repos,
+        GameplayCapture, GameplayScenario, GameplayState, RecordScenarioKind, ReferenceName,
+        analyse_audio_samples, audio_envelope_similarity, build_controller_script,
+        build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
+        compare_native_gameplay_with, compare_native_states_against_oracle,
+        ensure_gameplay_level_layouts_with, ensure_level_layouts_with, find_gameplay_live_drifts,
+        gameplay_checkpoint_window, native_trace_to_oracle_state, parse_button_mask,
+        parse_input_spec, prepare_generated_assets_with, selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -3501,6 +3605,53 @@ AddrTbl_LevelNames:
             kid_jump_gravity_probe: None,
             number_objects: 3,
             number_gfx_objects: 3,
+        }
+    }
+
+    #[test]
+    fn build_record_scenario_warps_idle_to_requested_level() {
+        let scenario = build_record_scenario(RecordScenarioKind::Idle, 0x07, Some(120));
+        assert_eq!(scenario.warp_to_level, Some(0x07));
+        assert!(scenario.frame_count >= 120, "idle frame count tracks input");
+        assert!(
+            scenario.script.iter().all(|&b| b == 0),
+            "idle scenario must hold no buttons"
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_walk_right_holds_right_during_walk_phase() {
+        let scenario = build_record_scenario(RecordScenarioKind::WalkRight, 0x00, Some(120));
+        assert_eq!(scenario.warp_to_level, Some(0x00));
+        // Settle is 60 frames; after settle, the script must drive Right.
+        let post_settle: Vec<u8> = scenario.script[60..(60 + 120)].to_vec();
+        let right_held = post_settle.iter().filter(|&&b| b & (1 << 3) != 0).count();
+        assert!(
+            right_held > post_settle.len() / 2,
+            "walk_right scenario must hold Right for the majority of post-settle frames \
+             ({} of {})",
+            right_held,
+            post_settle.len()
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_kinds_warp_to_distinct_levels() {
+        // Sanity: every kind targets the level it was given, not a default.
+        for level in [0x00u8, 0x05u8, 0x10u8] {
+            for kind in [
+                RecordScenarioKind::Idle,
+                RecordScenarioKind::WalkRight,
+                RecordScenarioKind::PrizeBlock,
+                RecordScenarioKind::StompEnemy,
+            ] {
+                let scenario = build_record_scenario(kind, level, None);
+                assert_eq!(
+                    scenario.warp_to_level,
+                    Some(level),
+                    "{kind:?} at level {level:#04x} must warp"
+                );
+            }
         }
     }
 }
