@@ -1076,6 +1076,18 @@ pub(crate) fn extract_checkpoint_states(
                 just_received_damage: Some(frame.just_received_damage),
                 kid_collision_type: None,
                 kid_collision_source: None,
+                // Map native facing -> ROM x_direction byte: Right = 0 (default
+                // sprite orientation), Left = $FF (flipped). Only emit during
+                // gameplay so boot/title divergence isn't misclassified.
+                kid_x_direction: matches!(
+                    frame.game_mode,
+                    kid_core::GameMode::InGame | kid_core::GameMode::DemoPlay
+                )
+                .then(|| match frame.kid_facing {
+                    Some(kid_core::physics::Direction::Right) => 0u8,
+                    Some(kid_core::physics::Direction::Left) => 0xFFu8,
+                    None => 0u8,
+                }),
                 invulnerable_frames: Some(frame.invulnerable_frames as u8),
                 currently_transforming: Some(frame.form_change_flash_frames > 0),
                 rng_offset: None,            // native uses different RNG system
@@ -1287,6 +1299,22 @@ pub(crate) fn compare_sweep_states_for_frontier(
                 field: "character_movement".into(),
                 native_value: format!("{n_movement:#06x}"),
                 oracle_value: format!("{o_movement:#06x}"),
+                category: DivergenceCategory::Authoritative,
+            });
+        }
+        // ASM `x_direction = $16` in GfxObject struct: $00 = facing right,
+        // $FF = facing left. Slope-traversal moonwalk (#137) is precisely
+        // a divergence in this byte while character_movement and velocity
+        // already agree, so it must be checked even when the rest of the
+        // state matches.
+        if let (Some(n_dir), Some(o_dir)) = (native.kid_x_direction, oracle.kid_x_direction)
+            && n_dir != o_dir
+        {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "kid_x_direction".into(),
+                native_value: format!("{n_dir:#04x}"),
+                oracle_value: format!("{o_dir:#04x}"),
                 category: DivergenceCategory::Authoritative,
             });
         }
@@ -1936,6 +1964,7 @@ mod tests {
             just_received_damage: None,
             kid_collision_type: None,
             kid_collision_source: None,
+            kid_x_direction: None,
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,
@@ -1949,6 +1978,67 @@ mod tests {
         let diffs = compare_sweep_states(&native, &oracle);
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].field, "game_mode");
+    }
+
+    #[test]
+    fn compare_sweep_states_detects_kid_x_direction_diff() {
+        // Regression for backlog #137 (moonwalk on slopes): ASM
+        // `loc_9E88: sf x_direction` (SlopeDown -> Right, byte = 0) vs
+        // `loc_9EA4: st x_direction` (SlopeUp -> Left, byte = $FF). If
+        // native picks the wrong branch, the byte diverges from oracle
+        // even when character_movement and velocity already agree.
+        let native = vec![OracleState {
+            label: "settle".into(),
+            frame_index: 780,
+            game_mode: 0x0008,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 3,
+            current_helmet_id: 0,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            kid_x_pos: 0,
+            kid_y_pos: 0,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            game_paused: false,
+            active_enemies: Vec::new(),
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
+            kid_x_direction: Some(0x00),
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
+            cpu_registers: None,
+        }];
+        let mut oracle = native.clone();
+        oracle[0].kid_x_direction = Some(0xFF);
+
+        let diffs = compare_sweep_states(&native, &oracle);
+        assert_eq!(diffs.len(), 1, "expected single facing-direction diff");
+        assert_eq!(diffs[0].field, "kid_x_direction");
+        assert_eq!(diffs[0].native_value, "0x00");
+        assert_eq!(diffs[0].oracle_value, "0xff");
+        assert!(matches!(
+            diffs[0].category,
+            DivergenceCategory::Authoritative
+        ));
     }
 
     #[test]
@@ -1985,6 +2075,7 @@ mod tests {
             just_received_damage: None,
             kid_collision_type: None,
             kid_collision_source: None,
+            kid_x_direction: None,
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,
@@ -2048,6 +2139,7 @@ mod tests {
             just_received_damage: None,
             kid_collision_type: None,
             kid_collision_source: None,
+            kid_x_direction: None,
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,
@@ -2403,6 +2495,7 @@ mod tests {
             just_received_damage: None,
             kid_collision_type: None,
             kid_collision_source: None,
+            kid_x_direction: None,
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,

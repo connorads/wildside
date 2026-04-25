@@ -284,6 +284,8 @@ struct OracleState {
     #[serde(default)]
     kid_collision_source: Option<u16>,
     #[serde(default)]
+    kid_x_direction: Option<u8>,
+    #[serde(default)]
     invulnerable_frames: Option<u8>,
     #[serde(default)]
     currently_transforming: Option<bool>,
@@ -308,6 +310,10 @@ const CAMERA_X_POS_ADDR: usize = 0xFF_F81C;
 const CAMERA_Y_POS_ADDR: usize = 0xFF_F820;
 const KID_X_POS_ADDR: usize = 0xFF_24FA;
 const KID_Y_POS_ADDR: usize = 0xFF_24FE;
+// Kid GfxObject base = 0xFF24E0 (slot at index 2). x_direction lives at
+// offset $16 from the slot base (variables.asm: `x_direction = $16`). 0 =
+// facing right (default sprite orientation), $FF = facing left.
+const KID_X_DIRECTION_ADDR: usize = 0xFF_24F6;
 const NUMBER_OBJECTS_ADDR: usize = 0xFF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: usize = 0xFF_F85C;
 const SCORE_ADDR: usize = 0xFF_FC4C;
@@ -932,6 +938,8 @@ fn capture_state(
         just_received_damage: Some(read_wram_u8(&work_ram, JUST_RECEIVED_DAMAGE_ADDR) != 0),
         kid_collision_type: matches!(game_mode, 0x0008 | 0x0010).then_some(kid_collision_type),
         kid_collision_source: matches!(game_mode, 0x0008 | 0x0010).then_some(kid_collision_source),
+        kid_x_direction: matches!(game_mode, 0x0008 | 0x0010)
+            .then_some(read_wram_u8(&work_ram, KID_X_DIRECTION_ADDR)),
         invulnerable_frames: Some(read_wram_u8(&work_ram, INVULNERABLE_FRAMES_ADDR)),
         currently_transforming: Some(currently_transforming),
         rng_offset: Some(read_wram_u16(&work_ram, RNG_OFFSET_ADDR)),

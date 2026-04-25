@@ -741,6 +741,7 @@ mod tests {
             just_received_damage: None,
             kid_collision_type: None,
             kid_collision_source: None,
+            kid_x_direction: None,
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,

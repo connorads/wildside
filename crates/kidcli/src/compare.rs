@@ -1044,6 +1044,19 @@ pub(crate) fn native_trace_to_oracle_state(
         just_received_damage: Some(frame.just_received_damage),
         kid_collision_type: None,
         kid_collision_source: None,
+        // ASM `x_direction = $16` (GfxObject struct): $00 = right (default
+        // sprite orientation), $FF = left. Native carries facing on
+        // `kid_facing`; emit it here only during gameplay so boot/title
+        // sequences (where the byte is unstable) don't drive false diffs.
+        kid_x_direction: matches!(
+            frame.game_mode,
+            kid_core::GameMode::InGame | kid_core::GameMode::DemoPlay
+        )
+        .then(|| match frame.kid_facing {
+            Some(kid_core::physics::Direction::Right) => 0u8,
+            Some(kid_core::physics::Direction::Left) => 0xFFu8,
+            None => 0u8,
+        }),
         invulnerable_frames: Some(frame.invulnerable_frames as u8),
         currently_transforming: Some(frame.form_change_flash_frames > 0),
         rng_offset: frame.rng_offset,
@@ -1417,6 +1430,7 @@ mod tests {
             just_received_damage: Some(false),
             kid_collision_type: None,
             kid_collision_source: None,
+            kid_x_direction: None,
             invulnerable_frames: Some(0),
             currently_transforming: Some(false),
             rng_offset: None,

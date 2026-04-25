@@ -240,6 +240,13 @@ pub struct OracleState {
     pub kid_collision_type: Option<u16>,
     #[serde(default)]
     pub kid_collision_source: Option<u16>,
+    /// Kid GfxObject `x_direction` byte (offset $16): 0 = facing right (default
+    /// sprite orientation), $FF = facing left (sprite flipped). Native and
+    /// oracle MUST agree every frame — divergence is the moonwalk-up-slopes
+    /// signature (#137) and the only way to detect facing-direction bugs in
+    /// the sweep.
+    #[serde(default)]
+    pub kid_x_direction: Option<u8>,
     #[serde(default)]
     pub invulnerable_frames: Option<u8>,
     #[serde(default)]
