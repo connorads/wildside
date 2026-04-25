@@ -3250,6 +3250,12 @@ impl NativeRuntime {
         }
     }
 
+    // Skycutter has no special enemy-attack routine in the ROM: contact-only
+    // damage via the standard Kid jump/contact path. Verified 2026-04-25 — no
+    // `Skycutter` reference in `.cache/upstream/kid-chameleon-disasm/code/enemy/`,
+    // no `Skycutter_*` flag in `variables.asm`. Helmet-specific attacks come
+    // through diamond powers (Invulnerability/DeathSnake — see
+    // `assigned_diamond_power`).
     pub(crate) fn step_skycutter_flipboard(
         &mut self,
         slice: &mut OpeningSliceState,
@@ -3716,6 +3722,13 @@ impl NativeRuntime {
     /// The grab loop's gravity accumulator ($800/frame) differs from
     /// native's MICROMAX_STUCK_GRAVITY (0x600) because the ASM value
     /// includes platform y_vel contribution.
+    //
+    // Micromax has no special enemy-attack routine in the ROM: contact-only
+    // damage via the standard Kid jump/contact path. Verified 2026-04-25 — no
+    // `Micromax` reference in `.cache/upstream/kid-chameleon-disasm/code/enemy/`,
+    // no `Micromax_*` flag in `variables.asm`. Helmet-specific attacks come
+    // through diamond powers (MiniSnake/DeathSnake — see
+    // `assigned_diamond_power`).
     pub(crate) fn step_micromax_stick(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
         // Only active for Micromax form
         if self.progression.current_form != PlayerForm::Micromax {
