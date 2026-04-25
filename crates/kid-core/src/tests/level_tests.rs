@@ -5005,7 +5005,9 @@ mod chunk_02 {
         );
 
         assert_eq!(new_vel, 0x0003_4000);
-        assert_eq!(new_facing, Direction::Left);
+        // ASM loc_9DC0: SlopeUp + Right held copies $FA26=0 into x_direction.
+        // Kid's default-right sprite means x_direction=0 → Right. Backlog #137.
+        assert_eq!(new_facing, Direction::Right);
     }
 
     #[test]
@@ -5027,7 +5029,8 @@ mod chunk_02 {
         // `4(a1)` twice while canonical x_vel is still negative, reducing the
         // live rightward speed by $4000 per frame on this Level 1 climb.
         assert_eq!(new_vel, 0x0002_8000);
-        assert_eq!(new_facing, Direction::Left);
+        // ASM loc_9DC0: x_direction=$FA26=0 → Right. Backlog #137.
+        assert_eq!(new_facing, Direction::Right);
     }
 
     #[test]
@@ -5049,7 +5052,8 @@ mod chunk_02 {
         // live positive `x_vel` in canonical space. At the exact uphill cap, the
         // ROM takes loc_9DD4's add+clamp path and holds `$10000` for one more frame.
         assert_eq!(new_vel, 0x0001_0000);
-        assert_eq!(new_facing, Direction::Left);
+        // ASM loc_9DC0: x_direction=$FA26=0 → Right. Backlog #137.
+        assert_eq!(new_facing, Direction::Right);
     }
 
     #[test]
@@ -5069,7 +5073,9 @@ mod chunk_02 {
 
         // ASM loc_9D22 uses the shared `unk_9EB0` slope table for Cyclone.
         assert_eq!(new_vel, 0x0003_4000);
-        assert_eq!(new_facing, Direction::Left);
+        // ASM loc_9DC0: x_direction=$FA26=0 → Right (Cyclone uses shared path,
+        // same direction convention as Kid). Backlog #137.
+        assert_eq!(new_facing, Direction::Right);
     }
 
     #[test]

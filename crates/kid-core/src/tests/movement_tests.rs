@@ -11235,6 +11235,176 @@ mod chunk_12 {
         );
     }
 
+    /// Backlog #137 — slope-facing must not invert on uphill traversal.
+    ///
+    /// ASM `loc_9DC0` copies `$FFFFFA26` (the slope flag) into `x_direction(a3)`
+    /// when the player presses uphill, and `loc_9DF2` flips it via `seq` when
+    /// downhill is held. `$FA26` is `0` on SlopeUp tiles and `$FF` on SlopeDown
+    /// tiles. With Kid's default-right sprite, `x_direction=0` renders Right
+    /// and `x_direction=$FF` renders Left, so the rendered facing must match
+    /// the held direction the same way it does on flat ground.
+    ///
+    /// The previous mapping inverted these branches and produced the
+    /// "moonwalking up slopes" repro: the player held Right, position ticked
+    /// rightward, but the sprite faced Left because the canonical-frame slope
+    /// flag was returned without re-interpreting through Kid's sprite
+    /// convention. The walk-right sweep now flags it (commit `082b0437`),
+    /// and this unit test pins the eight ASM-derived facings so the bug
+    /// cannot return without being noticed.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_facing_does_not_invert_on_uphill_traversal_loc_9DC0() {
+        use terrain::CollisionKind::{SlopeDown, SlopeUp};
+        let neutral = HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        };
+        let right = HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        };
+        let left = HorizontalInput {
+            left: true,
+            right: false,
+            run: false,
+        };
+
+        // ---- Uphill input (loc_9DC0 — copy $FA26 into x_direction) ----
+        // SlopeUp + Right held: $FA26=0 → x_direction=0 → Right.
+        let (_, facing) = update_level_one_slope_ground_velocity(
+            0x0000_4000,
+            Direction::Right,
+            right,
+            SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            facing,
+            Direction::Right,
+            "ASM loc_9DC0 SlopeUp uphill: x_direction=$FA26=0 → Right (no moonwalk)"
+        );
+
+        // SlopeDown + Left held: $FA26=$FF → x_direction=$FF → Left.
+        let (_, facing) = update_level_one_slope_ground_velocity(
+            -0x0000_4000,
+            Direction::Left,
+            left,
+            SlopeDown,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            facing,
+            Direction::Left,
+            "ASM loc_9DC0 SlopeDown uphill: x_direction=$FA26=$FF → Left"
+        );
+
+        // ---- Downhill input (loc_9DF2 — seq inverts the slope flag) ----
+        // SlopeUp + Left held: tst.b $FA26=0 sets Z → seq stores $FF → Left.
+        let (_, facing) = update_level_one_slope_ground_velocity(
+            0,
+            Direction::Right,
+            left,
+            SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            facing,
+            Direction::Left,
+            "ASM loc_9DF2 SlopeUp downhill: seq($FA26==0) → x_direction=$FF → Left"
+        );
+
+        // SlopeDown + Right held: tst.b $FA26=$FF clears Z → seq stores 0 → Right.
+        let (_, facing) = update_level_one_slope_ground_velocity(
+            0,
+            Direction::Left,
+            right,
+            SlopeDown,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            facing,
+            Direction::Right,
+            "ASM loc_9DF2 SlopeDown downhill: seq($FA26!=0) → x_direction=0 → Right"
+        );
+
+        // ---- Neutral input (loc_9E4C — flag XOR canonical_vel sign) ----
+        // SlopeUp + canonical≥0 (no input, vel positive): $FA26=0 → x_direction=0 → Right.
+        let (vel, facing) = update_level_one_slope_ground_velocity(
+            0x0000_4000,
+            Direction::Right,
+            neutral,
+            SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert!(
+            vel >= 0,
+            "ASM loc_9E2E: positive canonical vel decays toward neutral target but stays ≥0 here"
+        );
+        assert_eq!(
+            facing,
+            Direction::Right,
+            "ASM loc_9E4C SlopeUp neutral, canonical≥0: x_direction=0 → Right"
+        );
+
+        // SlopeUp + canonical<0 (no input, vel negative): $FA26 XOR $FF = $FF → Left.
+        let (vel, facing) = update_level_one_slope_ground_velocity(
+            -0x0000_4000,
+            Direction::Left,
+            neutral,
+            SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert!(
+            vel < 0,
+            "ASM loc_9E2E: negative canonical vel stays negative"
+        );
+        assert_eq!(
+            facing,
+            Direction::Left,
+            "ASM loc_9E4C SlopeUp neutral, canonical<0: x_direction=$FF → Left"
+        );
+
+        // SlopeDown + canonical≥0 (no input, vel positive): canonical = -x_vel.
+        // With x_vel=-$4000 → canonical=+$4000 → $FA26=$FF → x_direction=$FF → Left.
+        let (_, facing) = update_level_one_slope_ground_velocity(
+            -0x0000_4000,
+            Direction::Left,
+            neutral,
+            SlopeDown,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            facing,
+            Direction::Left,
+            "ASM loc_9E4C SlopeDown neutral, canonical≥0: x_direction=$FF → Left"
+        );
+
+        // SlopeDown + canonical<0 (no input, vel positive in real frame).
+        // x_vel=+$4000 → canonical=-$4000 → $FA26 XOR $FF = 0 → Right.
+        let (_, facing) = update_level_one_slope_ground_velocity(
+            0x0000_4000,
+            Direction::Right,
+            neutral,
+            SlopeDown,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            facing,
+            Direction::Right,
+            "ASM loc_9E4C SlopeDown neutral, canonical<0: x_direction=0 → Right"
+        );
+    }
+
     /// ASM loc_9DAA: forward direction held → loc_9DC0 (uphill acceleration).
     /// SlopeUp + right held = uphill. d1 = Ctrl_Right_Held (non-zero) → bne.s loc_9DC0.
     #[test]
@@ -11727,10 +11897,13 @@ mod chunk_12 {
             vel, 0x7000,
             "ASM loc_9FBC: positive x_vel ($7000) takes the +16 y-snap branch"
         );
+        // ASM loc_9DC0: uphill on SlopeUp copies $FA26 (0) into x_direction(a3),
+        // and Kid sprite default-right means x_direction=0 → Right.  Backlog
+        // #137 was the moonwalk that flipped this to Left.
         assert_eq!(
             facing,
-            Direction::Left,
-            "ASM loc_9FBC: SlopeUp rightward → facing Left (uphill convention)"
+            Direction::Right,
+            "ASM loc_9DC0: SlopeUp + Right held → x_direction=0 → Right"
         );
     }
 

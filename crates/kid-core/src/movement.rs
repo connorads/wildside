@@ -5637,26 +5637,43 @@ pub(crate) fn update_level_one_slope_ground_velocity(
         }
     }
 
+    // ASM facing convention: `x_direction=0` (sf) leaves Kid's sprite in
+    // its default right-facing pose (Direction::Right); `x_direction=$FF`
+    // (st) flips it (Direction::Left). The slope flag at `$FFFFFA26` is 0
+    // for SlopeUp and $FF for SlopeDown, so copying or flipping that byte
+    // into `x_direction` yields the facings below. Backlog #137: the
+    // earlier mapping inverted these branches and produced a moonwalk
+    // (Direction::Left while holding Right uphill).
     let next_facing = if uphill_pressed {
+        // ASM loc_9DC0 (kid.asm:11998): `move.b ($FFFFFA26).w,x_direction(a3)`.
+        // SlopeUp uphill ($FA26=0 → x_direction=0): Right. SlopeDown uphill
+        // ($FA26=$FF → x_direction=$FF): Left.
         if slope_descends_right {
-            Direction::Right
-        } else {
             Direction::Left
+        } else {
+            Direction::Right
         }
     } else if downhill_pressed {
+        // ASM loc_9DF2 (kid.asm:12027): `tst.b ($FFFFFA26).w; seq x_direction`.
+        // SlopeUp downhill ($FA26=0 → seq sets $FF): Left. SlopeDown downhill
+        // ($FA26=$FF → seq sets 0): Right.
         if slope_descends_right {
-            Direction::Left
-        } else {
             Direction::Right
+        } else {
+            Direction::Left
         }
     } else if slope_descends_right == (canonical_vel >= 0) {
-        // ASM loc_9E4C (kid.asm:12072): neutral slope input starts from the
-        // `$FFFFFA26` slope flag and flips it when canonical `d0` is negative.
-        // This branch is the native facing produced by the combined slope flag
-        // and post-deceleration canonical velocity sign.
-        Direction::Right
-    } else {
+        // ASM loc_9E4C (kid.asm:12072): neutral slope input loads the slope
+        // flag, then `eori.b #$FF,d1` when canonical `d0` is negative before
+        // storing it to `x_direction`. So:
+        //   SlopeUp + canonical≥0   ($FA26=0   → x_direction=0)   → Right
+        //   SlopeDown + canonical<0 ($FA26^$FF=0 → x_direction=0) → Right
+        //   SlopeUp + canonical<0   ($FA26^$FF=$FF → x_direction=$FF) → Left
+        //   SlopeDown + canonical≥0 ($FA26=$FF → x_direction=$FF) → Left
+        // The two `Left` cases are when `slope_descends_right == (canonical_vel >= 0)`.
         Direction::Left
+    } else {
+        Direction::Right
     };
 
     // ASM loc_9E58 (kid.asm:12078): store the neutral-path `d1` result into
