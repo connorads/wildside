@@ -2592,6 +2592,7 @@ AddrTbl_LevelNames:
             parent_object_ptr: None,
             gfx_slot_index: None,
             on_ground: None,
+            current_hp: None,
             debug_fields: std::collections::BTreeMap::new(),
         }
     }

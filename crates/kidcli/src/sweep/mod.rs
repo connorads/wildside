@@ -2105,6 +2105,7 @@ mod tests {
             parent_object_ptr: Some(0x00FF_9120),
             gfx_slot_index: Some(3),
             on_ground: Some(true),
+            current_hp: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
         let native = vec![OracleState {
@@ -2158,6 +2159,102 @@ mod tests {
 
         let enemy_diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Enemy);
         assert_eq!(enemy_diffs.len(), 1);
+        assert_eq!(enemy_diffs[0].field, "enemy_roster");
+    }
+
+    /// Regression: when the only thing that diverges on an enemy is its
+    /// `current_hp` byte (GfxObject + $44), the enemy frontier must still
+    /// flag the diff via the structural `enemy_roster` comparison.  Without
+    /// this field on `OracleEnemyState`, a "did the friendly attack land?"
+    /// scenario could silently pass when native skipped the damage path
+    /// while oracle decremented HP (or vice versa).
+    #[test]
+    fn enemy_frontier_detects_current_hp_drift() {
+        let base_enemy = OracleEnemyState {
+            object_type: 0x0D, // dragon
+            x_pos: 0x035E_8000,
+            y_pos: 0x0270_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: EnemyFacing::Left,
+            collision_type: None,
+            collision_source: None,
+            layout_index: Some(4),
+            layout_ptr: Some(0x00FF_A100),
+            parent_object_ptr: Some(0x00FF_9120),
+            gfx_slot_index: Some(3),
+            on_ground: Some(true),
+            current_hp: Some(3),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        // Native: HP unchanged at 3 (damage path skipped).
+        let native_state = OracleState {
+            label: "settle".into(),
+            frame_index: 780,
+            game_mode: 0x0010,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 3,
+            current_helmet_id: 0,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            camera_x_pos: 0x0100_0000,
+            camera_y_pos: 0,
+            kid_x_pos: 0,
+            kid_y_pos: 0,
+            number_objects: 5,
+            number_gfx_objects: 3,
+            game_paused: false,
+            active_enemies: vec![base_enemy.clone()],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
+            kid_x_direction: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
+            cpu_registers: None,
+        };
+        // Oracle: HP dropped to 2 (the friendly hit landed).
+        let oracle_state = OracleState {
+            active_enemies: vec![OracleEnemyState {
+                current_hp: Some(2),
+                ..base_enemy.clone()
+            }],
+            ..native_state.clone()
+        };
+        let native = vec![native_state];
+        let oracle = vec![oracle_state];
+
+        // Gameplay frontier doesn't compare enemy state, so no diff.
+        let gameplay_diffs =
+            compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Gameplay);
+        assert!(
+            gameplay_diffs.is_empty(),
+            "current_hp delta is enemy-frontier business; expected no gameplay diffs, got {gameplay_diffs:?}"
+        );
+
+        // Enemy frontier must surface it via the structural enemy_roster
+        // comparison — the only field that differs is current_hp.
+        let enemy_diffs = compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Enemy);
+        assert_eq!(
+            enemy_diffs.len(),
+            1,
+            "expected single enemy_roster diff for current_hp drift, got {enemy_diffs:?}"
+        );
         assert_eq!(enemy_diffs[0].field, "enemy_roster");
     }
 

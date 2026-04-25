@@ -670,6 +670,7 @@ mod tests {
             parent_object_ptr: None,
             gfx_slot_index: None,
             on_ground: None,
+            current_hp: None,
             debug_fields: std::collections::BTreeMap::new(),
         });
 
@@ -697,6 +698,7 @@ mod tests {
             parent_object_ptr: Some(0xFFFF_0E88),
             gfx_slot_index: Some(2),
             on_ground: None,
+            current_hp: None,
             debug_fields,
         });
 

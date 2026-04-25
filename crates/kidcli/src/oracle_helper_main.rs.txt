@@ -187,6 +187,8 @@ struct OracleEnemyState {
     #[serde(default)]
     on_ground: Option<bool>,
     #[serde(default)]
+    current_hp: Option<u16>,
+    #[serde(default)]
     debug_fields: BTreeMap<String, String>,
 }
 
@@ -346,6 +348,12 @@ const OBJECT_Y_VEL_OFFSET: usize = 0x2A;
 const OBJECT_COLLISION_TYPE_OFFSET: usize = 0x38;
 const OBJECT_COLLISION_SOURCE_OFFSET: usize = 0x3A;
 const OBJECT_LAYOUT_PTR_OFFSET: usize = 0x44;
+// GfxObject `current_hp` lives at offset $44 per `variables.asm` and is
+// the word every enemy decrements when a friendly hit lands (see e.g.
+// `code/enemy/Dragon.asm:66 move.w d7,current_hp(a3)`). This is on the
+// GfxObject slot (`base`), not on the parent Object struct — those are
+// different structs with different layouts.
+const GFX_OBJECT_CURRENT_HP_OFFSET: usize = 0x44;
 
 struct NullSaveWriter;
 
@@ -1011,6 +1019,7 @@ fn capture_enemy_states(
             parent_object_ptr: Some(parent_object as u32),
             gfx_slot_index: Some(slot_index),
             on_ground: None,
+            current_hp: Some(read_wram_u16(work_ram, base + GFX_OBJECT_CURRENT_HP_OFFSET)),
             debug_fields,
         });
     }

@@ -142,6 +142,14 @@ pub struct OracleEnemyState {
     pub gfx_slot_index: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_ground: Option<bool>,
+    /// Enemy `current_hp` word from the parent Object struct (offset $44 per
+    /// `variables.asm`).  Drops by one each time a friendly hit lands at
+    /// `loc_3D6E0` / `loc_C20A` and similar damage paths, so any "did the
+    /// attack land" assertion needs both sides to agree on this byte.
+    /// Stored u16 to mirror the M68K word; native populates from
+    /// `NativeObjectSnapshot.hit_points` widened to u16.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_hp: Option<u16>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub debug_fields: BTreeMap<String, String>,
 }

@@ -1087,6 +1087,11 @@ pub(crate) fn active_enemy_states_from_native_frame(
                 parent_object_ptr: None,
                 gfx_slot_index: None,
                 on_ground: object.on_ground,
+                // Native `hit_points` is the byte the runtime decrements; the
+                // ROM stores it as the word `current_hp` at GfxObject + $44.
+                // Widen u8 → u16 for the comparison so both sides represent
+                // the same M68K word.
+                current_hp: object.hit_points.map(u16::from),
                 debug_fields: object.debug_fields.clone(),
             }),
             _ => None,
