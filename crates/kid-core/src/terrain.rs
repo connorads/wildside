@@ -2272,6 +2272,14 @@ mod tests {
         BlockGrid::from_level_layout(&data, 4, 3)
     }
 
+    fn make_empty_grid(width: u16, height: u16) -> BlockGrid {
+        BlockGrid::from_level_layout(
+            &vec![0u8; usize::from(width) * usize::from(height) * 2],
+            width,
+            height,
+        )
+    }
+
     #[test]
     fn cell_at_returns_empty_for_air() {
         let grid = make_test_grid();
@@ -2301,6 +2309,30 @@ mod tests {
         assert_eq!(pixel_to_cell(16), 1);
         assert_eq!(pixel_to_cell(31), 1);
         assert_eq!(pixel_to_cell(32), 2);
+    }
+
+    #[test]
+    fn juggernaut_wall_scan_sub_96e8_uses_asm_right_facing_probe_bounds() {
+        let mut grid = make_empty_grid(6, 4);
+        grid.set_cell_at(2, 2, Cell::from_be_bytes(0x60, 0x01));
+        grid.set_cell_at(3, 2, Cell::from_be_bytes(0x30, 0x01));
+
+        assert!(
+            juggernaut_wall_scan_sub_96E8(&grid, 43, 63, crate::physics::Direction::Right),
+            "ASM sub_96E8/loc_971A scans row (y-$1F)>>4 through (y-$10)>>4 and right-facing columns (x-$0B)>>4 through (x+$04)>>4"
+        );
+    }
+
+    #[test]
+    fn juggernaut_wall_scan_sub_96e8_uses_asm_left_facing_probe_bounds() {
+        let mut grid = make_empty_grid(6, 4);
+        grid.set_cell_at(2, 2, Cell::from_be_bytes(0x60, 0x01));
+        grid.set_cell_at(1, 2, Cell::from_be_bytes(0x30, 0x01));
+
+        assert!(
+            juggernaut_wall_scan_sub_96E8(&grid, 36, 63, crate::physics::Direction::Left),
+            "ASM sub_96E8/loc_971A swaps the #$0B/#4 offsets for set x_direction before converting to tile columns"
+        );
     }
 
     #[test]
