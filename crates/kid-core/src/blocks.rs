@@ -3322,6 +3322,28 @@ mod tests {
     use super::*;
     use crate::combat::CollisionRectSub1F52;
     use crate::types::{LiftPlatform, ShooterHeadbuttWorkerKind};
+    use std::path::PathBuf;
+
+    fn runtime_for_block_tests() -> NativeRuntime {
+        NativeRuntime::new(kid_data::AssetManifest {
+            generated_bundle_version: 0,
+            rom_sha1: String::new(),
+            upstream_commit: String::new(),
+            source_root: PathBuf::new(),
+            output_root: PathBuf::new(),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        })
+    }
 
     #[test]
     fn lift_and_prize_headbutt_workers_shift_block_coordinates_into_pixels() {
@@ -3655,6 +3677,68 @@ mod tests {
     }
 
     #[test]
+    fn helmet_prize_cleanup_sub_10cec_removes_existing_helmets_and_spawns_effects() {
+        // ASM sub_10CEC/loc_10CF4 (kid.asm:22620-22644): the new helmet
+        // initialiser walks existing objects, deletes any prior helmet prize
+        // in the `$6C..$8C` content range, and seeds sub_10D3E at x/y-8.
+        let mut runtime = runtime_for_block_tests();
+        runtime.floating_items = vec![
+            FloatingItem {
+                x_pos: 0x0020_0000,
+                y_pos: 0x0030_0000,
+                y_velocity: 0,
+                remaining: 0x0320,
+                spawn_delay: 0,
+                level_col: 2,
+                level_row: 3,
+                first_row_grace: false,
+                content: terrain::PrizeContent::Skycutter,
+                collected: false,
+            },
+            FloatingItem {
+                x_pos: 0x0040_0000,
+                y_pos: 0x0050_0000,
+                y_velocity: 0,
+                remaining: 0x0320,
+                spawn_delay: 0,
+                level_col: 4,
+                level_row: 5,
+                first_row_grace: false,
+                content: terrain::PrizeContent::Ankh,
+                collected: false,
+            },
+            FloatingItem {
+                x_pos: 0x0060_0000,
+                y_pos: 0x0070_0000,
+                y_velocity: 0,
+                remaining: 0x0320,
+                spawn_delay: 0,
+                level_col: 6,
+                level_row: 7,
+                first_row_grace: false,
+                content: terrain::PrizeContent::Micromax,
+                collected: false,
+            },
+        ];
+
+        runtime.clear_existing_helmet_prizes_for_sub_10cec();
+
+        assert_eq!(runtime.floating_items.len(), 1);
+        assert_eq!(
+            runtime.floating_items[0].content,
+            terrain::PrizeContent::Ankh
+        );
+        assert_eq!(
+            runtime
+                .block_destroy_effects
+                .iter()
+                .map(|effect| (effect.x_px, effect.y_px, effect.remaining))
+                .collect::<Vec<_>>(),
+            vec![(0x0020, 0x0028, 8), (0x0060, 0x0068, 8)]
+        );
+    }
+
+    #[test]
     fn floating_prize_graphics_specs_match_asm_prize_initialisers() {
         // ASM PrizeDiamond_Init and PrizeHelmet* initialisers choose the
         // content-specific sprite scripts before the shared fall/collision
@@ -3765,6 +3849,38 @@ mod tests {
         // ASM sub_AF7A/off_AFD8: Iron Knight sets the block-breaker latch on
         // the first qualifying downward hit, dispatches prize blocks through
         // loc_1002E, then returns handled with y_vel `$FFFF8000`.
+        assert_eq!(
+            NativeRuntime::iron_knight_block_breaker_collision_sub_AF7A(
+                false,
+                false,
+                0x0004_8000,
+                true,
+                terrain::BlockType::Prize,
+            ),
+            IronKnightBlockBreakerCollisionSubAF7A {
+                next_block_breaker: false,
+                handled_collision: false,
+                next_y_velocity: None,
+                effect: None,
+            },
+            "ASM sub_AF7A bne.w loc_AFD0 rejects non-Iron-Knight forms before velocity/block checks"
+        );
+        assert_eq!(
+            NativeRuntime::iron_knight_block_breaker_collision_sub_AF7A(
+                true,
+                false,
+                0x0004_7FFF,
+                true,
+                terrain::BlockType::Prize,
+            ),
+            IronKnightBlockBreakerCollisionSubAF7A {
+                next_block_breaker: false,
+                handled_collision: false,
+                next_y_velocity: None,
+                effect: None,
+            },
+            "ASM sub_AF7A blt.w loc_AFD0 rejects unlatched Iron Knight hits below `$48000`"
+        );
         let first_hit = NativeRuntime::iron_knight_block_breaker_collision_sub_AF7A(
             true,
             false,
@@ -4442,6 +4558,48 @@ mod tests {
     }
 
     #[test]
+    fn shooter_collision_rects_sub_f568_right_edge_gate_needs_direction_bit_and_two_block_margin() {
+        // ASM loc_F62C (kid.asm:20285): bit 1 reaches the right-facing
+        // rectangles only after `lsr.w #1,d6`, and `d4 - d1 + 1` must stay
+        // negative, which requires at least two columns of right-edge margin.
+        let hitbox = CollisionRectSub1F52 {
+            left_px: 64,
+            right_px: 128,
+            top_px: 64,
+            bottom_px: 128,
+        };
+
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(7, 5, 0x02)]),
+            vec![
+                CollisionRectSub1F52 {
+                    left_px: 128,
+                    right_px: 136,
+                    top_px: 81,
+                    bottom_px: 93,
+                },
+                CollisionRectSub1F52 {
+                    left_px: 128,
+                    right_px: 140,
+                    top_px: 84,
+                    bottom_px: 90,
+                },
+            ],
+            "ASM loc_F62C should emit when bit 1 is set and col < right_block - 1"
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(7, 4, 0x01)]),
+            Vec::<CollisionRectSub1F52>::new(),
+            "ASM loc_F62C must not treat bit 0 as the right-facing shooter bit"
+        );
+        assert_eq!(
+            NativeRuntime::shooter_collision_rects_sub_F568(hitbox, &[(8, 5, 0x02)]),
+            Vec::<CollisionRectSub1F52>::new(),
+            "ASM loc_F62C should reject col >= right_block - 1"
+        );
+    }
+
+    #[test]
     fn rubber_block_worker_lookup_reuses_only_the_same_layout_cell() {
         // ASM sub_10DE4 (kid.asm:22717): the worker is keyed by the exact
         // `(col,row)` layout cell stored in `$44/$46(a5)`, so sharing either
@@ -4530,6 +4688,72 @@ mod tests {
                 0x0C,
             ),
             None
+        );
+        assert_eq!(
+            NativeRuntime::rubber_block_base_skin_for_sub_10de4(terrain::Cell::from_be_bytes(
+                0xE6, 0x0D,
+            )),
+            Some(0x0C),
+            "ASM sub_10DE4 reads the live cell skin byte before collapsing `$0D` to base `$0C`"
+        );
+        assert_eq!(
+            NativeRuntime::rubber_block_base_skin_for_sub_10de4(terrain::Cell::from_be_bytes(
+                0xE6, 0x0E,
+            )),
+            Some(0x0E),
+            "ASM sub_10DE4 keeps non-$0C/$0D rubber skins on the `$0E/$0F` pair"
+        );
+        assert_eq!(
+            NativeRuntime::rubber_block_base_skin_for_sub_10de4(terrain::Cell::from_be_bytes(
+                0xE0, 0x0D,
+            )),
+            None,
+            "ASM sub_10DE4 is only reached for rubber cells, not other block families"
+        );
+    }
+
+    #[test]
+    fn rubber_block_runtime_writes_asm_sub_10de4_immediate_and_delayed_skins() {
+        // ASM sub_10DE4 / loc_10E0A (kid.asm:22717-22766): the worker reads
+        // the live layout skin, immediately writes `base+1`, hibernates two
+        // frames, then writes the base skin back into the same layout cell.
+        let mut runtime = runtime_for_block_tests();
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 18], 3, 3);
+        grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0xE0, 0x0D));
+        runtime.block_grid = Some(grid);
+
+        runtime.start_rubber_block_animation_sub_10de4(1, 1);
+        assert_eq!(
+            runtime.block_grid.as_ref().unwrap().cell_at(1, 1),
+            terrain::Cell::from_be_bytes(0xE6, 0x0D),
+            "ASM loc_10E0A should write the jiggled rubber frame immediately"
+        );
+        assert_eq!(
+            runtime.block_grid.as_ref().unwrap().cell_at(2, 1),
+            terrain::Cell::from_be_bytes(0xE0, 0x0D),
+            "ASM sub_10DE4 must leave non-rubber neighbour cells untouched"
+        );
+        assert_eq!(runtime.block_state.rubber_block_animations.len(), 1);
+
+        runtime.step_rubber_block_animations_sub_10de4();
+        assert_eq!(
+            runtime.block_grid.as_ref().unwrap().cell_at(1, 1),
+            terrain::Cell::from_be_bytes(0xE6, 0x0D),
+            "ASM hibernate count 2 should keep waiting on the first native step"
+        );
+
+        runtime.step_rubber_block_animations_sub_10de4();
+        assert_eq!(
+            runtime.block_grid.as_ref().unwrap().cell_at(1, 1),
+            terrain::Cell::from_be_bytes(0xE6, 0x0C),
+            "ASM sub_10DE4 should write the base rubber frame after two hibernated frames"
+        );
+        assert_eq!(runtime.block_state.rubber_block_animations.len(), 1);
+        assert_eq!(runtime.block_state.rubber_block_animations[0].phase, 1);
+        assert_eq!(
+            runtime.block_state.rubber_block_animations[0].frames_until_next_write,
+            1
         );
     }
 
