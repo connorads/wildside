@@ -714,6 +714,11 @@ enum Commands {
         /// Machine-readable JSON output.
         #[arg(long, default_value_t = false)]
         json: bool,
+        /// Fail (exit non-zero) if any label in REQUIRED_LABELS lacks a
+        /// native source citation. Use in CI/pre-commit to prevent
+        /// regressions on attack/animation/slope routines.
+        #[arg(long, default_value_t = false)]
+        check_required: bool,
     },
 }
 
@@ -1784,6 +1789,7 @@ fn main() -> Result<()> {
             subsystem,
             uncovered,
             json,
+            check_required,
         } => {
             let repo_root = current_dir()?;
             asm_coverage::run_asm_coverage(
@@ -1792,6 +1798,7 @@ fn main() -> Result<()> {
                 subsystem.as_deref(),
                 uncovered,
                 json,
+                check_required,
             )?;
         }
     }

@@ -572,6 +572,108 @@ fn load_open_backlog_signal_counts(repo_root: &Path) -> BTreeMap<String, usize> 
     counts
 }
 
+// ── Required-labels gate ───────────────────────────────────────────────
+//
+// Labels listed here MUST stay cited from native source files. The gate
+// is preventative: every label below is currently covered, so the gate
+// passes today. It exists to catch the regression where someone deletes
+// the only citation, leaving a load-bearing ROM routine undocumented in
+// the native code.
+//
+// Add a label here only when there is a backlog item or expected fidelity
+// regression that hinges on a specific routine being recovered. The
+// reason field is shown when the gate fails — make it useful for the
+// person who has to restore the citation.
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RequiredLabel {
+    pub(crate) label: &'static str,
+    pub(crate) reason: &'static str,
+}
+
+pub(crate) const REQUIRED_LABELS: &[RequiredLabel] = &[
+    // Slope-traversal facing flips (backlog #137 — moonwalking up slopes).
+    RequiredLabel {
+        label: "loc_9E88",
+        reason: "SlopeDown facing branch (sf x_direction). #137 moonwalk regression.",
+    },
+    RequiredLabel {
+        label: "loc_9EA4",
+        reason: "SlopeUp facing branch (st x_direction). #137 moonwalk regression.",
+    },
+    RequiredLabel {
+        label: "loc_9D22",
+        reason: "Slope grid lookup feeding the SlopeDown/SlopeUp branches. #137.",
+    },
+    // Sprite direction selection during gameplay.
+    RequiredLabel {
+        label: "loc_A13A",
+        reason: "Sprite direction selection — drives kid_x_direction every frame.",
+    },
+    // Slope-tracking math used by the renderer for column tilt.
+    RequiredLabel {
+        label: "sub_902A",
+        reason: "Slope tracking helper (sub_9386 callee). Sprite tilt parity.",
+    },
+    RequiredLabel {
+        label: "sub_9386",
+        reason: "Slope direction probe ($FFFFFA26 producer). Renderer tilt parity.",
+    },
+    // Per-helmet attack routines that gate the rest of the combat ports.
+    RequiredLabel {
+        label: "sub_868E",
+        reason: "Red Stealth sword swing. Removing this citation hides attack regressions.",
+    },
+    RequiredLabel {
+        label: "loc_8ABC",
+        reason: "Maniaxe axe-throw branch. Combat parity for helmet 08.",
+    },
+    RequiredLabel {
+        label: "sub_AF7A",
+        reason: "Iron Knight block-breaker (#143). Helmet attack + block destroy.",
+    },
+];
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RequiredLabelStatus {
+    /// Label is cited from at least one source file — gate passes for it.
+    Covered,
+    /// Label is in the disassembly but no source file cites it.
+    Uncovered,
+    /// Label is not present in the disassembly map at all (renamed,
+    /// removed, or extractor missed it).
+    NotFound,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RequiredLabelReport {
+    pub(crate) required: RequiredLabel,
+    pub(crate) status: RequiredLabelStatus,
+}
+
+pub(crate) fn check_required_labels(map: &CoverageMap) -> Vec<RequiredLabelReport> {
+    REQUIRED_LABELS
+        .iter()
+        .map(|required| {
+            let mut status = RequiredLabelStatus::NotFound;
+            for sub in map.subsystems.values() {
+                if let Some(label) = sub.labels.iter().find(|l| l.label == required.label) {
+                    status = if label.cited_in.is_empty() {
+                        RequiredLabelStatus::Uncovered
+                    } else {
+                        RequiredLabelStatus::Covered
+                    };
+                    break;
+                }
+            }
+            RequiredLabelReport {
+                required: *required,
+                status,
+            }
+        })
+        .collect()
+}
+
 // ── Public entry point ─────────────────────────────────────────────────
 
 pub(crate) fn run_asm_coverage(
@@ -580,6 +682,7 @@ pub(crate) fn run_asm_coverage(
     subsystem_filter: Option<&str>,
     uncovered_only: bool,
     json_output: bool,
+    check_required: bool,
 ) -> Result<()> {
     let upstream_dir = repo_root.join(".cache/upstream/kid-chameleon-disasm");
     if !upstream_dir.is_dir() {
@@ -705,12 +808,133 @@ pub(crate) fn run_asm_coverage(
         }
     }
 
+    if check_required {
+        let reports = check_required_labels(&map);
+        let issues: Vec<&RequiredLabelReport> = reports
+            .iter()
+            .filter(|r| !matches!(r.status, RequiredLabelStatus::Covered))
+            .collect();
+        if issues.is_empty() {
+            println!("\nrequired-labels gate: {} labels covered", reports.len());
+        } else {
+            println!("\nrequired-labels gate: FAIL ({} issues)", issues.len());
+            for report in &issues {
+                let status = match report.status {
+                    RequiredLabelStatus::Uncovered => "uncovered",
+                    RequiredLabelStatus::NotFound => "not in disasm",
+                    RequiredLabelStatus::Covered => unreachable!(),
+                };
+                println!(
+                    "  - {} ({}): {}",
+                    report.required.label, status, report.required.reason
+                );
+            }
+            bail!(
+                "{} required ASM label(s) missing native citations — restore them in kid-core or kidcli",
+                issues.len()
+            );
+        }
+    }
+
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn make_label(label: &str, kind: LabelKind, cited: &[&str]) -> AsmLabel {
+        AsmLabel {
+            label: label.to_owned(),
+            kind,
+            asm_file: "kid.asm".to_owned(),
+            line_number: 1,
+            cited_in: cited.iter().map(|s| (*s).to_owned()).collect(),
+        }
+    }
+
+    fn make_subsystem(labels: Vec<AsmLabel>) -> SubsystemCoverage {
+        SubsystemCoverage {
+            asm_source: "kid.asm".to_owned(),
+            sub_total: labels.iter().filter(|l| l.kind == LabelKind::Sub).count(),
+            sub_cited: labels
+                .iter()
+                .filter(|l| l.kind == LabelKind::Sub && !l.cited_in.is_empty())
+                .count(),
+            loc_total: labels.iter().filter(|l| l.kind == LabelKind::Loc).count(),
+            loc_cited: labels
+                .iter()
+                .filter(|l| l.kind == LabelKind::Loc && !l.cited_in.is_empty())
+                .count(),
+            labels,
+        }
+    }
+
+    fn coverage_map_with(labels: Vec<AsmLabel>) -> CoverageMap {
+        let mut subsystems = BTreeMap::new();
+        subsystems.insert("test".to_owned(), make_subsystem(labels));
+        CoverageMap {
+            generated_at: "0s".to_owned(),
+            summary: CoverageSummary {
+                total_sub_labels: 0,
+                total_loc_labels: 0,
+                sub_cited: 0,
+                sub_coverage_pct: 100.0,
+                loc_cited: 0,
+                loc_coverage_pct: 100.0,
+            },
+            subsystems,
+        }
+    }
+
+    #[test]
+    fn check_required_labels_reports_covered_when_all_cited() {
+        let labels = REQUIRED_LABELS
+            .iter()
+            .map(|r| {
+                make_label(
+                    r.label,
+                    LabelKind::Loc,
+                    &["crates/kid-core/src/movement.rs"],
+                )
+            })
+            .collect();
+        let map = coverage_map_with(labels);
+
+        let reports = check_required_labels(&map);
+        assert_eq!(reports.len(), REQUIRED_LABELS.len());
+        for report in reports {
+            assert_eq!(report.status, RequiredLabelStatus::Covered);
+        }
+    }
+
+    #[test]
+    fn check_required_labels_flags_uncovered_label() {
+        // Only one required label is in the map, with no citation.
+        let target = REQUIRED_LABELS.first().expect("REQUIRED_LABELS nonempty");
+        let labels = vec![make_label(target.label, LabelKind::Loc, &[])];
+        let map = coverage_map_with(labels);
+
+        let reports = check_required_labels(&map);
+        let target_report = reports
+            .iter()
+            .find(|r| r.required.label == target.label)
+            .expect("target label report present");
+        assert_eq!(target_report.status, RequiredLabelStatus::Uncovered);
+    }
+
+    #[test]
+    fn check_required_labels_flags_missing_label() {
+        // No labels in the map at all — every required label should report
+        // NotFound rather than Covered, so the gate fails loudly when the
+        // disasm is missing or the extractor regresses.
+        let map = coverage_map_with(Vec::new());
+
+        let reports = check_required_labels(&map);
+        for report in reports {
+            assert_eq!(report.status, RequiredLabelStatus::NotFound);
+        }
+    }
 
     #[test]
     fn classify_citations_separates_implementation_and_tests() {
