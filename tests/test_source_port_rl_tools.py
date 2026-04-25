@@ -79,6 +79,84 @@ class SourcePortRlToolTests(unittest.TestCase):
         self.assertIsNone(source_port_rl_run.select_preflight_command(dirty_files))
         self.assertIsNone(source_port_rl_prompt.select_preflight_command(dirty_files))
 
+    def test_run_autonomy_loop_skips_bootstrap_when_upstream_exists(self) -> None:
+        upstream = (
+            self.repo_root / ".cache/upstream/kid-chameleon-disasm/kid.asm"
+        )
+        upstream.parent.mkdir(parents=True, exist_ok=True)
+        upstream.write_text("; fixture\n", encoding="utf-8")
+        commands: list[list[str]] = []
+        original_run = source_port_rl_prompt.subprocess.run
+
+        def fake_run(
+            cmd: list[str], *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            commands.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        source_port_rl_prompt.subprocess.run = fake_run  # type: ignore[assignment]
+        try:
+            source_port_rl_prompt.run_autonomy_loop()
+        finally:
+            source_port_rl_prompt.subprocess.run = original_run  # type: ignore[assignment]
+
+        self.assertEqual(len(commands), 2)
+        self.assertEqual(commands[0][-2:], ["--", "asm-coverage", "--update"][-2:])
+        self.assertNotIn("bootstrap-upstream", commands[0])
+        self.assertNotIn("bootstrap-upstream", commands[1])
+
+    def test_run_autonomy_loop_bootstraps_missing_upstream(self) -> None:
+        upstream = (
+            self.repo_root / ".cache/upstream/kid-chameleon-disasm/kid.asm"
+        )
+        commands: list[list[str]] = []
+        original_run = source_port_rl_prompt.subprocess.run
+
+        def fake_run(
+            cmd: list[str], *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            commands.append(cmd)
+            if "bootstrap-upstream" in cmd:
+                upstream.parent.mkdir(parents=True, exist_ok=True)
+                upstream.write_text("; fixture\n", encoding="utf-8")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        source_port_rl_prompt.subprocess.run = fake_run  # type: ignore[assignment]
+        try:
+            source_port_rl_prompt.run_autonomy_loop()
+        finally:
+            source_port_rl_prompt.subprocess.run = original_run  # type: ignore[assignment]
+
+        self.assertEqual(len(commands), 3)
+        self.assertIn("bootstrap-upstream", commands[0])
+        self.assertIn("asm-coverage", commands[1])
+        self.assertIn("autonomous-loop", commands[2])
+
+    def test_run_autonomy_loop_stops_when_bootstrap_fails(self) -> None:
+        commands: list[list[str]] = []
+        original_run = source_port_rl_prompt.subprocess.run
+
+        def fake_run(
+            cmd: list[str], *args: object, **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            commands.append(cmd)
+            if "bootstrap-upstream" in cmd:
+                return subprocess.CompletedProcess(
+                    cmd, 128, stdout="", stderr="clone failed\n"
+                )
+            raise AssertionError(f"unexpected command after bootstrap failure: {cmd}")
+
+        source_port_rl_prompt.subprocess.run = fake_run  # type: ignore[assignment]
+        try:
+            with self.assertRaises(SystemExit) as caught:
+                source_port_rl_prompt.run_autonomy_loop()
+        finally:
+            source_port_rl_prompt.subprocess.run = original_run  # type: ignore[assignment]
+
+        self.assertEqual(caught.exception.code, 128)
+        self.assertEqual(len(commands), 1)
+        self.assertIn("bootstrap-upstream", commands[0])
+
     def test_dirty_tree_fingerprint_changes_with_diff(self) -> None:
         self.git("init")
         self.git("config", "user.name", "Test User")

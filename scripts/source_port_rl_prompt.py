@@ -15,7 +15,45 @@ NEXT_AGENT_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/next-agent.m
 RUN_HISTORY_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/run-history.jsonl"
 
 
+def upstream_disassembly_path() -> Path:
+    return REPO_ROOT / ".cache/upstream/kid-chameleon-disasm/kid.asm"
+
+
+def ensure_upstream_disassembly() -> None:
+    if upstream_disassembly_path().is_file():
+        return
+
+    sys.stderr.write(
+        "upstream disassembly missing; running `mise run bootstrap-upstream` equivalent\n"
+    )
+    result = subprocess.run(
+        [
+            "cargo",
+            "run",
+            "-q",
+            "-p",
+            "kidcli",
+            "--",
+            "bootstrap-upstream",
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        sys.stderr.write(result.stdout)
+        sys.stderr.write(result.stderr)
+        raise SystemExit(result.returncode)
+    if not upstream_disassembly_path().is_file():
+        raise SystemExit(
+            f"bootstrap-upstream completed but {upstream_disassembly_path()} is still missing"
+        )
+
+
 def run_autonomy_loop() -> None:
+    ensure_upstream_disassembly()
+
     coverage_result = subprocess.run(
         [
             "cargo",
