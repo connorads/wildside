@@ -9751,4 +9751,30 @@ mod mutation_tests {
             }
         );
     }
+
+    #[test]
+    fn shishka_bagel_head_1_post_projectile_loc_3958e_loops_until_animation_done() {
+        // ASM loc_3958E (kid.asm:42176): `tst.b $18(a3); beq.s loc_39570`.
+        // A zero animation byte keeps the post-projectile wait loop active;
+        // any non-zero byte branches back to the activation wait loop.
+        let waiting = shishka_bagel_head_1_post_projectile_anim_gate_loc_3958E(0);
+        assert_eq!(
+            waiting,
+            ShishkaBagelHead1PostProjectileAnimGateLoc3958E {
+                animation_done_byte_18: 0,
+                post_projectile_animation_done: false,
+                next: ShishkaBagelHead1PostProjectileAnimGateNextLoc3958E::AwaitPostProjectileWaitLoc39570,
+            }
+        );
+
+        let done = shishka_bagel_head_1_post_projectile_anim_gate_loc_3958E(1);
+        assert_eq!(
+            done,
+            ShishkaBagelHead1PostProjectileAnimGateLoc3958E {
+                animation_done_byte_18: 1,
+                post_projectile_animation_done: true,
+                next: ShishkaBagelHead1PostProjectileAnimGateNextLoc3958E::ReturnToActivationWaitLoc394E8,
+            }
+        );
+    }
 }
