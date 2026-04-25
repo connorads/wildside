@@ -148,7 +148,65 @@ pub(super) fn check_walk_right_assertions(
         });
     }
 
+    diffs.extend(check_walk_facing_consistency(
+        trace, scenario, settle_idx, end_idx,
+    ));
+
     diffs
+}
+
+/// Self-consistency assertion: while the script holds Right (and not Left)
+/// and Kid is actually moving (character_movement != 0), the rendered
+/// facing must be Right. ASM `loc_9E88: sf x_direction` (SlopeDown -> Right)
+/// vs `loc_9EA4: st x_direction` (SlopeUp -> Left): bug #137 ("moonwalking
+/// up slopes") flips the byte while velocity and position still progress
+/// rightward, so position-only checks miss it. This catches the bug across
+/// all 105 sweep levels without needing the oracle to be available.
+fn check_walk_facing_consistency(
+    trace: &[NativeTraceFrame],
+    scenario: &DynamicScenario,
+    settle_idx: usize,
+    end_idx: usize,
+) -> Vec<StateDiff> {
+    use kid_core::physics::Direction;
+
+    const RIGHT_BIT: u8 = 1 << 3;
+    const LEFT_BIT: u8 = 1 << 2;
+
+    let mut first_inversion_frame: Option<usize> = None;
+    let mut inversion_count: usize = 0;
+
+    for frame_index in settle_idx..=end_idx {
+        let buttons = scenario.script.get(frame_index).copied().unwrap_or(0);
+        if buttons & RIGHT_BIT == 0 || buttons & LEFT_BIT != 0 {
+            continue;
+        }
+        let Some(frame) = trace.get(frame_index) else {
+            continue;
+        };
+        // Only check while Kid is actually moving — a paused or knocked-back
+        // frame can legitimately keep facing without contradicting the input.
+        if frame.character_movement.unwrap_or(0) == 0 {
+            continue;
+        }
+        if matches!(frame.kid_facing, Some(Direction::Left)) {
+            inversion_count += 1;
+            if first_inversion_frame.is_none() {
+                first_inversion_frame = Some(frame_index);
+            }
+        }
+    }
+
+    if let Some(frame_index) = first_inversion_frame {
+        return vec![StateDiff {
+            checkpoint: format!("frame_{frame_index}"),
+            field: "kid_facing_matches_input".into(),
+            native_value: format!("kid_facing=Left while Right held ({inversion_count} frames)"),
+            oracle_value: "kid_facing=Right (matches held direction)".into(),
+            category: DivergenceCategory::Authoritative,
+        }];
+    }
+    Vec::new()
 }
 
 /// Self-consistency assertion: player Y velocity goes negative after jump input,
@@ -217,4 +275,99 @@ pub(super) fn check_jump_assertions(
     }
 
     diffs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scenarios::walk_right_scenario;
+    use kid_core::physics::Direction;
+
+    fn moving_frame_facing(frame_index: usize, facing: Direction) -> NativeTraceFrame {
+        NativeTraceFrame {
+            frame_index,
+            kid_x_pos: Some(0x0010_0000 + (frame_index as u32) * 0x0001_0000),
+            kid_y_pos: Some(0x0010_0000),
+            character_movement: Some(2), // walking
+            kid_facing: Some(facing),
+            number_hitpoints: 3,
+            ..NativeTraceFrame::default()
+        }
+    }
+
+    #[test]
+    fn walk_right_assertions_flag_moonwalk_inversion() {
+        // Regression for backlog #137: position is monotonically increasing
+        // (not a kid_x_pos_monotonic miss) but kid_facing is Left while the
+        // script holds Right. The new facing-consistency check must surface
+        // a single authoritative diff so the bug stops being invisible to
+        // the gameplay sweep.
+        let scenario = walk_right_scenario(0x00, 300);
+        let trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| {
+                let facing = if (100..=130).contains(&i) {
+                    Direction::Left // moonwalk window
+                } else {
+                    Direction::Right
+                };
+                moving_frame_facing(i, facing)
+            })
+            .collect();
+
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+
+        // No position diff (monotonic), but exactly one facing diff.
+        assert!(
+            diffs.iter().all(|d| d.field != "kid_x_pos_monotonic"),
+            "position should still be monotonic: {diffs:?}"
+        );
+        let facing_diffs: Vec<_> = diffs
+            .iter()
+            .filter(|d| d.field == "kid_facing_matches_input")
+            .collect();
+        assert_eq!(facing_diffs.len(), 1, "expected exactly one facing diff");
+        assert!(
+            matches!(facing_diffs[0].category, DivergenceCategory::Authoritative),
+            "facing diff must be authoritative"
+        );
+    }
+
+    #[test]
+    fn walk_right_assertions_pass_when_facing_tracks_input() {
+        let scenario = walk_right_scenario(0x00, 300);
+        let trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| moving_frame_facing(i, Direction::Right))
+            .collect();
+
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+        assert!(
+            diffs.iter().all(|d| d.field != "kid_facing_matches_input"),
+            "facing in sync with input must produce no facing diff: {diffs:?}"
+        );
+    }
+
+    #[test]
+    fn walk_right_assertions_ignore_facing_when_not_moving() {
+        // ORIGINAL_QUIRK: enemy hits / pause windows can keep kid_facing as
+        // Left while character_movement reads Standingstill (0). Those frames
+        // are not moonwalk evidence and must not produce false positives.
+        let scenario = walk_right_scenario(0x00, 300);
+        let trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| NativeTraceFrame {
+                frame_index: i,
+                kid_x_pos: Some(0x0010_0000 + (i as u32) * 0x0001_0000),
+                kid_y_pos: Some(0x0010_0000),
+                character_movement: Some(0), // standingstill — not moving
+                kid_facing: Some(Direction::Left),
+                number_hitpoints: 3,
+                ..NativeTraceFrame::default()
+            })
+            .collect();
+
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+        assert!(
+            diffs.iter().all(|d| d.field != "kid_facing_matches_input"),
+            "non-moving frames must not produce facing diffs: {diffs:?}"
+        );
+    }
 }
