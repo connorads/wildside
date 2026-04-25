@@ -3499,6 +3499,17 @@ impl NativeRuntime {
     /// IronKnight wall climb: the ROM accepts the attach from the grounded
     /// walking path as well as from airborne wall contact. C presses while
     /// climbing boost upward, natural drift slides down.
+    //
+    // Iron Knight has no enemy-damage path in the ROM during climb. Verified
+    // 2026-04-25 — no enemy ASM file in
+    // `.cache/upstream/kid-chameleon-disasm/code/enemy/` checks a
+    // `Iron_Knight_climbing` or equivalent flag, and no `cmpi.w
+    // #Iron_Knight,(Current_Helmet)` appears anywhere. Only `Berzerker_charging`
+    // is consulted by enemies (Robot/Ninja/Crab/Drips/Diamond/Mini_Hopping_Skull
+    // and ~14 others). Iron Knight's only damage-dealing capability is the
+    // block-break latch (`Iron_Knight_block_breaker` $FFFFFA6B, modelled in
+    // `blocks.rs::sub_AF7A`) — never enemy contact during climb. Implementing
+    // climb-damage here would be a deviation, not a fix.
     pub(crate) fn step_iron_knight_climb(
         &mut self,
         slice: &mut OpeningSliceState,
