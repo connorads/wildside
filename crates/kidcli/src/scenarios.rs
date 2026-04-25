@@ -400,6 +400,56 @@ pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
     }
 }
 
+/// Idle on a level so a known enemy id has time to enter its initialised state,
+/// then sample the enemy roster so native-vs-oracle parity can detect missing
+/// or misclassified spawns.
+///
+/// Used to convert "is enemy X actually working?" audit questions into a
+/// regression-grade scenario: the slug embeds the enemy id, the warp targets
+/// a level that hosts it, and the checkpoints bracket the spawn window so a
+/// later sweep run can read off the enemy roster at each label.
+///
+/// The script is pure idle (no input). For bosses like HeadyMetal (Plethora 1,
+/// level 0x33) the player spawns inside the arena; oracle and native both pull
+/// the boss into the active object pool during the spawn-animation window
+/// (~120 frames per `Enemy20_HeadyMetal_Init` / `loc_3761E`). A 600-frame
+/// idle covers the spawn, the early phase transitions, and the first hit
+/// window without input noise.
+pub fn enemy_spawn_audit_scenario(enemy_id: u8, level_id: u8) -> DynamicScenario {
+    let settle_frames: usize = 60;
+    let idle_frames: usize = 600;
+    let total_frames = settle_frames + idle_frames;
+    let mid = settle_frames + idle_frames / 2;
+    let tail = total_frames.saturating_sub(1);
+
+    let checkpoints = vec![
+        DynamicCheckpoint {
+            label: "level_settle".into(),
+            frame_index: settle_frames,
+        },
+        DynamicCheckpoint {
+            label: "enemy_spawn_window".into(),
+            frame_index: settle_frames + 180,
+        },
+        DynamicCheckpoint {
+            label: "enemy_visible_mid".into(),
+            frame_index: mid,
+        },
+        DynamicCheckpoint {
+            label: "enemy_visible_tail".into(),
+            frame_index: tail,
+        },
+    ];
+
+    DynamicScenario {
+        slug: format!("enemy_spawn_audit_{enemy_id:02x}_level_{level_id:02x}"),
+        script: vec![0u8; total_frames.saturating_add(1)],
+        frame_count: total_frames,
+        checkpoints,
+        warp_to_level: Some(level_id),
+    }
+}
+
 /// Walk right with aggressive jump spam — higher frequency jumps than walk_right
 /// to maximise enemy stomp and headbutt chances across arbitrary levels.
 pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario {
@@ -734,8 +784,8 @@ fn apply_range(script: &mut [u8], start: usize, end: usize, buttons: u8) {
 #[cfg(test)]
 mod tests {
     use super::{
-        DynamicScenario, GameplayScenario, Scenario, idle_level_scenario, prize_block_scenario,
-        stomp_enemy_scenario, walk_right_scenario,
+        DynamicScenario, GameplayScenario, Scenario, enemy_spawn_audit_scenario,
+        idle_level_scenario, prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
     };
 
     #[test]
@@ -1128,6 +1178,47 @@ mod tests {
     #[test]
     fn stomp_enemy_scenario_frame_count_covers_checkpoints() {
         let scenario = stomp_enemy_scenario(0x05, 240);
+        let max_cp = scenario
+            .checkpoints
+            .iter()
+            .map(|cp| cp.frame_index)
+            .max()
+            .expect("checkpoints");
+        assert!(scenario.frame_count > max_cp);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+    }
+
+    #[test]
+    fn enemy_spawn_audit_heady_metal_targets_plethora_one() {
+        // HeadyMetal (kind 0x20) is the Plethora 1 boss, level 0x33 — verified
+        // via `kidcli inspect-level --rom kid.bin --level 33` 2026-04-25.
+        let scenario = enemy_spawn_audit_scenario(0x20, 0x33);
+        assert_eq!(scenario.slug, "enemy_spawn_audit_20_level_33");
+        assert_eq!(scenario.warp_to_level, Some(0x33));
+        // Pure idle — no input noise during the boss spawn window.
+        assert!(scenario.script.iter().all(|byte| *byte == 0));
+        assert_eq!(scenario.frame_count, 660);
+        // Spawn-window checkpoint is past Enemy20_HeadyMetal_Init (~120f).
+        let labels: Vec<_> = scenario
+            .checkpoints
+            .iter()
+            .map(|cp| cp.label.clone())
+            .collect();
+        assert_eq!(
+            labels,
+            vec![
+                "level_settle".to_string(),
+                "enemy_spawn_window".into(),
+                "enemy_visible_mid".into(),
+                "enemy_visible_tail".into(),
+            ]
+        );
+        assert_eq!(scenario.checkpoints[1].frame_index, 240);
+    }
+
+    #[test]
+    fn enemy_spawn_audit_scenario_frame_count_covers_checkpoints() {
+        let scenario = enemy_spawn_audit_scenario(0x20, 0x33);
         let max_cp = scenario
             .checkpoints
             .iter()

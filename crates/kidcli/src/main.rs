@@ -60,8 +60,8 @@ use project_status::{ProjectStatusFormat, run_project_status};
 use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_recording};
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{
-    DynamicScenario, GameplayScenario, Scenario, idle_level_scenario, prize_block_scenario,
-    stomp_enemy_scenario, walk_right_scenario,
+    DynamicScenario, GameplayScenario, Scenario, enemy_spawn_audit_scenario, idle_level_scenario,
+    prize_block_scenario, stomp_enemy_scenario, walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -90,6 +90,9 @@ enum RecordScenarioKind {
     PrizeBlock,
     /// run + aggressive jumps to maximise enemy stomps.
     StompEnemy,
+    /// idle 10 s in-arena to sample enemy roster across the spawn window —
+    /// pair with `--level 0x33` to probe HeadyMetal (kind 0x20) on Plethora 1.
+    EnemySpawnAuditHeadyMetal,
 }
 
 #[derive(Debug, Subcommand)]
@@ -2082,6 +2085,7 @@ fn build_record_scenario(
         RecordScenarioKind::WalkRight => walk_right_scenario(level, walk_frames.unwrap_or(300)),
         RecordScenarioKind::PrizeBlock => prize_block_scenario(level),
         RecordScenarioKind::StompEnemy => stomp_enemy_scenario(level, walk_frames.unwrap_or(360)),
+        RecordScenarioKind::EnemySpawnAuditHeadyMetal => enemy_spawn_audit_scenario(0x20, level),
     }
 }
 
