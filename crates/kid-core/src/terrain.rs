@@ -3511,6 +3511,52 @@ mod tests {
     }
 
     #[test]
+    fn hidden_block_reveal_sub_e3c6_preserves_each_rom_table_entry() {
+        let bl = BlockList {
+            prize_blocks: vec![],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+
+        // ASM sub_E3C6 indexes `unk_E412/unk_E414` with `block_type * 4`;
+        // every populated ROM table slot must remain independently reachable.
+        for (block_type, base_cell, sprite_mapping) in [
+            (0x00, 0xE001, 0x1058),
+            (0x02, 0xE203, 0x1074),
+            (0x04, 0xE407, 0x107C),
+            (0x05, 0xE50B, 0x1084),
+            (0x06, 0xE60C, 0x1098),
+            (0x07, 0xE710, 0x109C),
+            (0x09, 0xE919, 0x10A0),
+            (0x0A, 0xEA1C, 0x10E4),
+            (0x0B, 0xEB2C, 0x10A4),
+            (0x0C, 0xEC2D, 0x1084),
+        ] {
+            let reveal = bl
+                .hidden_block_reveal_sub_E3C6(&HiddenBlockEntry {
+                    layout_addr: 0x0048,
+                    col: 9,
+                    row: 3,
+                    block_type,
+                    block_setting: 0x02,
+                })
+                .expect("ASM sub_E3C6 should resolve every populated non-prize table slot");
+
+            let cell_word = base_cell + 0x02;
+            assert_eq!(
+                reveal.cell,
+                Cell::from_be_bytes((cell_word >> 8) as u8, cell_word as u8),
+                "ASM sub_E3C6 should add the setting byte to the selected table cell",
+            );
+            assert_eq!(
+                reveal.sprite_mapping, sprite_mapping,
+                "ASM sub_E3C6 should preserve the sprite mapping paired with the selected table cell",
+            );
+        }
+    }
+
+    #[test]
     fn hidden_block_reveal_sub_e3c6_requires_matching_prize_entry_for_type_1() {
         let bl = BlockList {
             prize_blocks: vec![],
