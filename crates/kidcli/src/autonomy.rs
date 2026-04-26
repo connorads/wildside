@@ -4581,8 +4581,12 @@ fn stable_short_hash(content: &str) -> String {
 }
 
 fn mutation_command(target: &MutationTarget, output_root: &Path) -> String {
+    // `KID_REPO_ROOT=$(pwd)` lets the in-tempdir test fixtures resolve back to
+    // the original `.cache/generated/` (gitignored, hence excluded from the
+    // mutants copy). `-j 1` keeps a single ~10 GB test binary in RAM at a
+    // time — `-j 4` previously OOM-killed the whole tmux session.
     format!(
-        "cargo mutants -p {} -f {} -j 4 --gitignore=true --output {} -- --lib -- --skip demo_ --skip published_tas --skip snapshot",
+        "KID_REPO_ROOT=$(pwd) cargo mutants -p {} -f {} -j 1 --gitignore=true --output {} -- --lib -- --skip demo_ --skip published_tas --skip snapshot",
         target.package,
         target.module,
         output_root.display()

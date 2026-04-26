@@ -653,12 +653,27 @@ pub(super) fn cached_any_percent_published_runtime_and_script() -> (NativeRuntim
     cached_tas_runtime_and_script("any-percent-published")
 }
 
-pub(super) fn cached_generated_runtime() -> NativeRuntime {
-    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+// `cargo mutants` copies the source tree into `/tmp/cargo-mutants-…/` and runs
+// tests there. `.cache/generated/` is gitignored so it is excluded from that
+// copy, which makes `env!("CARGO_MANIFEST_DIR")` resolve to a tempdir that has
+// no manifest. Allow the mutants invocation to point us back at the real repo
+// via `KID_REPO_ROOT`.
+pub(super) fn repo_root() -> PathBuf {
+    if let Ok(override_root) = env::var("KID_REPO_ROOT")
+        && !override_root.is_empty()
+    {
+        return PathBuf::from(override_root)
+            .canonicalize()
+            .expect("KID_REPO_ROOT canonicalize");
+    }
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
-        .expect("repo root");
-    let manifest_path = repo_root
+        .expect("repo root")
+}
+
+pub(super) fn cached_generated_runtime() -> NativeRuntime {
+    let manifest_path = repo_root()
         .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
     let manifest = kid_data::load_manifest(&manifest_path).expect("load cached manifest");
     let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
@@ -667,11 +682,7 @@ pub(super) fn cached_generated_runtime() -> NativeRuntime {
 }
 
 pub(super) fn cached_tas_runtime_and_script(scenario_slug: &str) -> (NativeRuntime, Vec<u8>) {
-    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .expect("repo root");
-    let scenario_path = repo_root.join(format!("tests/data/tas/{scenario_slug}/scenario.json"));
+    let scenario_path = repo_root().join(format!("tests/data/tas/{scenario_slug}/scenario.json"));
     let scenario_raw = fs::read_to_string(scenario_path).expect("read TAS scenario");
     let scenario_json: serde_json::Value =
         serde_json::from_str(&scenario_raw).expect("parse TAS scenario");
