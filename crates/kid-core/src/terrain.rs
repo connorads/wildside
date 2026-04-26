@@ -142,7 +142,7 @@ impl Cell {
         } else {
             0
         };
-        block_flag | collision_bits | block_type_bits | u16::from(self.skin)
+        block_flag + collision_bits + block_type_bits + u16::from(self.skin)
     }
 }
 
@@ -2293,6 +2293,17 @@ mod tests {
         let grid = make_test_grid();
         let cell = grid.cell_at(0, 2);
         assert_eq!(cell.collision, CollisionKind::Solid);
+    }
+
+    #[test]
+    fn cell_to_word_packs_level_layout_fields_without_cross_bit_loss() {
+        let cell = Cell::from_be_bytes(0xE6, 0x0C);
+
+        assert_eq!(
+            cell.to_word(),
+            0xE60C,
+            "ASM sub_BBE2/loc_BC26 and loc_33280 consume the original Level_Layout word, so native packing must preserve block flag, collision nibble, block type, and skin exactly",
+        );
     }
 
     #[test]
