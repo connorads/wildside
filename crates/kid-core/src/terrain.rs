@@ -4134,25 +4134,42 @@ mod tests {
 
     #[test]
     fn block_list_from_raw_teleporter_dest_fields() {
-        // Verify teleporter offset arithmetic for dest_x (bytes 8-9)
+        // ASM loc_1269C (kid.asm:24925) writes each teleporter record as
+        // layout_addr, explicit column, explicit row, destination map/y, then
+        // destination x; loc_11CE0 bounds the section with `count * $A`.
         let mut data = Vec::new();
         data.extend_from_slice(&[0u8; 16]); // no prizes, ghost terminator
-        // Teleporter with large dest_x to test byte ordering
         data.extend_from_slice(&[
             0x00, 0x10, // layout_addr
-            0x00, 0x01, // col=1
-            0x00, 0x02, // row=2
+            0x01, 0x02, // col=0x0102
+            0x03, 0x04, // row=0x0304
             0x03, // dest_map_id=3
             0x04, // dest_y=4
             0x01, 0x00, // dest_x=256 (big-endian)
         ]);
+        data.extend_from_slice(&[
+            0x00, 0x20, // layout_addr
+            0x05, 0x06, // col=0x0506
+            0x07, 0x08, // row=0x0708
+            0x09, // dest_map_id=9
+            0x0A, // dest_y=10
+            0x0B, 0x0C, // dest_x=0x0B0C
+        ]);
         data.extend_from_slice(&[0x00, 0x00]); // teleporter terminator
 
         let bl = BlockList::from_raw(&data, 20);
-        assert_eq!(bl.teleporters.len(), 1);
+        assert_eq!(bl.teleporters.len(), 2);
         assert_eq!(bl.teleporters[0].dest_x, 256);
+        assert_eq!(bl.teleporters[0].col, 0x0102);
+        assert_eq!(bl.teleporters[0].row, 0x0304);
         assert_eq!(bl.teleporters[0].dest_map_id, 3);
         assert_eq!(bl.teleporters[0].dest_y, 4);
+        assert_eq!(bl.teleporters[1].layout_addr, 0x0020);
+        assert_eq!(bl.teleporters[1].col, 0x0506);
+        assert_eq!(bl.teleporters[1].row, 0x0708);
+        assert_eq!(bl.teleporters[1].dest_map_id, 9);
+        assert_eq!(bl.teleporters[1].dest_y, 10);
+        assert_eq!(bl.teleporters[1].dest_x, 0x0B0C);
     }
 
     #[test]
