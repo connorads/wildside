@@ -4064,6 +4064,45 @@ mod tests {
     }
 
     #[test]
+    fn block_list_from_raw_ghost_after_prize_uses_advanced_offset() {
+        // ASM loc_123DC/loc_12434 appends prize records in 8-byte slots, and
+        // loc_11CB6 accounts for the prize count with `lsl.w #3`; ghost fields
+        // must therefore be read from the offset after the prize section.
+        let mut data = Vec::new();
+        data.extend_from_slice(&[
+            0x00, 0x20, // prize layout_addr
+            0x00, 0x02, // prize col
+            0x00, 0x03, // prize row
+            0x80, 0x07, // disguised Iron Knight
+        ]);
+        data.extend_from_slice(&[
+            0x00, 0x00, // timer: zero also terminates the prize section
+            0xA5, // flags
+            0x04, // mapping_frame: non-zero means vanished/non-solid
+            0x03, 0x04, // solid_time
+            0x05, 0x06, // vanished_time
+            0x00, 0x40, // layout_addr
+            0x00, 0x07, // col
+            0x00, 0x09, // row
+            0x02, // count nibble -> 3 blocks
+            0x01, // vertical
+        ]);
+        data.extend_from_slice(&[0u8; 16]); // ghost terminator
+
+        let bl = BlockList::from_raw(&data, 20);
+        assert_eq!(bl.prize_blocks.len(), 1);
+        assert_eq!(bl.ghost_blocks.len(), 1);
+        assert_eq!(bl.ghost_blocks[0].timer, 0);
+        assert_eq!(bl.ghost_blocks[0].solid_time, 0x0304);
+        assert_eq!(bl.ghost_blocks[0].vanished_time, 0x0506);
+        assert_eq!(bl.ghost_blocks[0].col, 7);
+        assert_eq!(bl.ghost_blocks[0].row, 9);
+        assert_eq!(bl.ghost_blocks[0].count, 3);
+        assert!(bl.ghost_blocks[0].vertical);
+        assert!(!bl.ghost_blocks[0].solid);
+    }
+
+    #[test]
     fn block_list_from_raw_teleporter_dest_fields() {
         // Verify teleporter offset arithmetic for dest_x (bytes 8-9)
         let mut data = Vec::new();
