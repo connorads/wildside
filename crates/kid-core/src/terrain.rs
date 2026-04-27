@@ -652,9 +652,8 @@ impl BlockList {
     /// Parse prize block entries from the raw Block List RAM dump.
     ///
     /// Prize entries are 8 bytes each at the start of the block list.
-    /// The Level_Layout RAM address in bytes 0-1 is used to detect the
-    /// end of the prize section (zero or address outside layout range).
-    pub fn from_raw(data: &[u8], layout_width: u16) -> Self {
+    /// A zero Level_Layout RAM address in bytes 0-1 ends the prize section.
+    pub fn from_raw(data: &[u8], _layout_width: u16) -> Self {
         let mut prize_blocks = Vec::new();
         let mut offset = 0;
         while offset + 8 <= data.len() {
@@ -667,19 +666,6 @@ impl BlockList {
             let disguised = data[offset + 6] & 0x80 != 0;
             let content_id = data[offset + 7] & 0x0F;
             let content = PrizeContent::from_id(content_id);
-
-            // Validate: the layout address should point into the Level_Layout
-            // RAM range. Each cell is 2 bytes, so the address divided by 2
-            // gives the cell index. If width is 0 or address seems invalid,
-            // we've hit the end of prize entries.
-            if layout_width > 0 {
-                let cell_index = layout_addr / 2;
-                let derived_col = cell_index % layout_width;
-                let derived_row = cell_index / layout_width;
-                // Use the derived position as a cross-check; prefer the
-                // explicit col/row fields since they're authoritative.
-                let _ = (derived_col, derived_row);
-            }
 
             prize_blocks.push(PrizeBlockEntry {
                 layout_addr,
@@ -4022,11 +4008,16 @@ mod tests {
 
     #[test]
     fn block_list_from_raw_multiple_prizes_distinct_fields() {
-        // Two prizes with different col/row to test offset arithmetic
+        // ASM loc_123DC/loc_12434 stores each prize record as
+        // Level_Layout address, explicit column, explicit row, then the
+        // disguise/content word. Keep the explicit coordinates even when a
+        // layout-width-derived coordinate would differ.
         let mut data = Vec::new();
-        // Prize 1: col=2, row=3, content=Diamond (0), not disguised
+        // Prize 1: layout_addr=0x0010 derives (8,0) for width 20, but the ROM
+        // record stores col=2,row=3.
         data.extend_from_slice(&[0x00, 0x10, 0x00, 0x02, 0x00, 0x03, 0x00, 0x00]);
-        // Prize 2: col=5, row=8, content=IronKnight (7), disguised
+        // Prize 2: layout_addr=0x0020 derives (16,0), but the ROM record
+        // stores col=5,row=8.
         data.extend_from_slice(&[0x00, 0x20, 0x00, 0x05, 0x00, 0x08, 0x80, 0x07]);
         // Terminator via ghost timer=0
         data.extend_from_slice(&[0u8; 16]);
@@ -4034,11 +4025,13 @@ mod tests {
         let bl = BlockList::from_raw(&data, 20);
         assert_eq!(bl.prize_blocks.len(), 2);
         // First prize
+        assert_eq!(bl.prize_blocks[0].layout_addr, 0x0010);
         assert_eq!(bl.prize_blocks[0].col, 2);
         assert_eq!(bl.prize_blocks[0].row, 3);
         assert_eq!(bl.prize_blocks[0].content, PrizeContent::Diamond);
         assert!(!bl.prize_blocks[0].disguised);
         // Second prize — tests offset advancement (+8 per entry)
+        assert_eq!(bl.prize_blocks[1].layout_addr, 0x0020);
         assert_eq!(bl.prize_blocks[1].col, 5);
         assert_eq!(bl.prize_blocks[1].row, 8);
         assert_eq!(bl.prize_blocks[1].content, PrizeContent::IronKnight);
