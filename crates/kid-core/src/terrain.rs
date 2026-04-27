@@ -4103,6 +4103,36 @@ mod tests {
     }
 
     #[test]
+    fn block_list_from_raw_ghost_terminator_requires_all_zero_header_words() {
+        // ASM loc_124BE writes the 16-byte ghost record as timer, state word,
+        // solid-time, vanished-time, then layout/coordinates. ASM loc_11CCA
+        // guards the runtime list by count*16, so the native raw parser's
+        // synthetic terminator must require every header word it checks to be
+        // zero, not just the timer/layout words.
+        let mut data = Vec::new();
+        data.extend_from_slice(&[
+            0x00, 0x00, // timer=0, also ends the prize section
+            0x00, 0x00, // flags, mapping_frame
+            0x00, 0x2A, // solid_time=42 keeps this from being a terminator
+            0x00, 0x00, // vanished_time
+            0x00, 0x00, // layout_addr
+            0x00, 0x06, // col
+            0x00, 0x07, // row
+            0x00, // count nibble -> 1 block
+            0x00, // horizontal
+        ]);
+        data.extend_from_slice(&[0u8; 16]);
+
+        let bl = BlockList::from_raw(&data, 20);
+
+        assert_eq!(bl.ghost_blocks.len(), 1);
+        assert_eq!(bl.ghost_blocks[0].solid_time, 42);
+        assert_eq!(bl.ghost_blocks[0].col, 6);
+        assert_eq!(bl.ghost_blocks[0].row, 7);
+        assert_eq!(bl.ghost_blocks[0].count, 1);
+    }
+
+    #[test]
     fn block_list_from_raw_teleporter_dest_fields() {
         // Verify teleporter offset arithmetic for dest_x (bytes 8-9)
         let mut data = Vec::new();
