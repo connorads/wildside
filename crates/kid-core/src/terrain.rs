@@ -2335,6 +2335,41 @@ mod tests {
     }
 
     #[test]
+    fn juggernaut_wall_scan_sub_96e8_rejects_tiles_outside_asm_row_window() {
+        let mut grid = make_empty_grid(6, 8);
+        grid.set_cell_at(4, 2, Cell::from_be_bytes(0x60, 0x01));
+        grid.set_cell_at(4, 5, Cell::from_be_bytes(0x60, 0x01));
+
+        assert!(
+            !juggernaut_wall_scan_sub_96E8(&grid, 75, 80, crate::physics::Direction::Right),
+            "ASM sub_96E8 computes rows from (y-$1F)>>4 through (y-$10)>>4, so row 2 and row 5 are outside the y=80 scan"
+        );
+
+        grid.set_cell_at(4, 4, Cell::from_be_bytes(0x60, 0x01));
+        assert!(
+            juggernaut_wall_scan_sub_96E8(&grid, 75, 80, crate::physics::Direction::Right),
+            "ASM loc_972E must still include the final row from (y-$10)>>4"
+        );
+    }
+
+    #[test]
+    fn juggernaut_wall_scan_sub_96e8_rejects_tiles_outside_right_facing_column_window() {
+        let mut grid = make_empty_grid(8, 4);
+        grid.set_cell_at(3, 2, Cell::from_be_bytes(0x60, 0x01));
+
+        assert!(
+            !juggernaut_wall_scan_sub_96E8(&grid, 43, 63, crate::physics::Direction::Right),
+            "ASM loc_971A scans only column (x-$0B)>>4..(x+$04)>>4 for this right-facing edge, so column 3 is outside the x=43 scan"
+        );
+
+        grid.set_cell_at(2, 2, Cell::from_be_bytes(0x60, 0x01));
+        assert!(
+            juggernaut_wall_scan_sub_96E8(&grid, 43, 63, crate::physics::Direction::Right),
+            "ASM loc_971A must still include column (x-$0B)>>4"
+        );
+    }
+
+    #[test]
     fn juggernaut_wall_scan_sub_96e8_uses_asm_left_facing_probe_bounds() {
         let mut grid = make_empty_grid(6, 4);
         grid.set_cell_at(2, 2, Cell::from_be_bytes(0x60, 0x01));

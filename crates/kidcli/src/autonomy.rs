@@ -3890,6 +3890,10 @@ fn try_mutation_testing_strategy(
     rotation: &[String],
     max_candidates_per_cycle: Option<u32>,
 ) -> Option<CycleReport> {
+    let ledger_path = repo_root.join(MUTATION_LEDGER_PATH);
+    let mut ledger = load_mutation_ledger(&ledger_path);
+    let current_commit = current_short_commit(repo_root);
+
     // Build the candidate ordering. When a rotation list is provided the
     // cascade prefers the current rotation entry first so every cycle works
     // on one file at a time; other targets still act as fallback in their
@@ -3950,49 +3954,128 @@ fn try_mutation_testing_strategy(
 
     for target in ordered {
         let module_stem = target.module.strip_suffix(".rs").unwrap_or(&target.module);
-        let output_root = PathBuf::from(output_dir).join(module_stem);
-        let output_root_abs = repo_root.join(&output_root);
-        let run = inspect_mutation_run(&output_root_abs);
+        let base_output_root = PathBuf::from(output_dir).join(module_stem);
+        let base_output_root_abs = repo_root.join(&base_output_root);
+        let base_run = inspect_mutation_run(&base_output_root_abs);
 
-        match &run.status {
-            MutationRunStatus::NotRun => {
-                let task = mutation_run_task(target, &output_root, None, max_candidates_per_cycle);
-                return Some(proactive_verification_report(
-                    cycle,
-                    "mutation-testing",
-                    &format!("{module_stem}:run"),
-                    task,
-                ));
+        if matches!(base_run.status, MutationRunStatus::Complete) {
+            continue;
+        }
+
+        let candidate_count = base_run
+            .candidate_count
+            .or_else(|| mutation_candidate_count(&base_run.mutants_path));
+        let shard_count = candidate_count.map_or(1, |count| {
+            mutation_shard_count(count, max_candidates_per_cycle)
+        });
+
+        for shard_index in 0..shard_count {
+            let shard = MutationShard {
+                index: shard_index,
+                total: shard_count,
+            };
+            let output_root = mutation_shard_output_root(output_dir, module_stem, shard);
+            let output_root_abs = repo_root.join(&output_root);
+            let run = inspect_mutation_run(&output_root_abs);
+            let ledger_key = mutation_ledger_key(target, shard);
+            let previous_entry = ledger.entries.get(&ledger_key).cloned();
+            let source_hash = mutation_relevant_source_hash(repo_root, target);
+            sync_mutation_ledger_entry(
+                &mut ledger,
+                target,
+                shard,
+                &run,
+                &current_commit,
+                source_hash.as_deref(),
+            );
+
+            match &run.status {
+                MutationRunStatus::NotRun => {
+                    mark_mutation_ledger_attempt(
+                        &mut ledger,
+                        target,
+                        shard,
+                        MutationLedgerStatus::NotRun,
+                    );
+                    let _ = write_mutation_ledger(&ledger_path, &ledger);
+                    let task = mutation_run_task(
+                        target,
+                        &output_root,
+                        shard,
+                        None,
+                        max_candidates_per_cycle,
+                    );
+                    return Some(proactive_verification_report(
+                        cycle,
+                        "mutation-testing",
+                        &format!("{module_stem}:run{}", shard.suffix()),
+                        task,
+                    ));
+                }
+                MutationRunStatus::Incomplete { detail } => {
+                    let detail_hash = stable_short_hash(detail);
+                    mark_mutation_ledger_attempt(
+                        &mut ledger,
+                        target,
+                        shard,
+                        MutationLedgerStatus::Incomplete,
+                    );
+                    let _ = write_mutation_ledger(&ledger_path, &ledger);
+                    let task = mutation_run_task(
+                        target,
+                        &output_root,
+                        shard,
+                        Some(detail.clone()),
+                        max_candidates_per_cycle,
+                    );
+                    return Some(proactive_verification_report(
+                        cycle,
+                        "mutation-testing",
+                        &format!("{module_stem}:rerun:{detail_hash}{}", shard.suffix()),
+                        task,
+                    ));
+                }
+                MutationRunStatus::Survivors { detail } => {
+                    let repeated = previous_entry.as_ref().is_some_and(|entry| {
+                        entry.last_commit == current_commit
+                            && entry.attempt_count > 0
+                            && entry.survivor_hash == run.survivor_hash
+                            && entry.source_hash == source_hash
+                    });
+                    if repeated {
+                        mark_mutation_ledger_attempt(
+                            &mut ledger,
+                            target,
+                            shard,
+                            MutationLedgerStatus::DeferredRepeated,
+                        );
+                        let _ = write_mutation_ledger(&ledger_path, &ledger);
+                        continue;
+                    }
+
+                    let detail_hash = stable_short_hash(detail);
+                    mark_mutation_ledger_attempt(
+                        &mut ledger,
+                        target,
+                        shard,
+                        MutationLedgerStatus::Survivors,
+                    );
+                    let _ = write_mutation_ledger(&ledger_path, &ledger);
+                    let task =
+                        mutation_triage_task(target, &output_root, shard, &run, detail.clone());
+                    return Some(proactive_verification_report(
+                        cycle,
+                        "mutation-testing",
+                        &format!("{module_stem}:triage:{detail_hash}{}", shard.suffix()),
+                        task,
+                    ));
+                }
+                MutationRunStatus::Complete => {}
             }
-            MutationRunStatus::Incomplete { detail } => {
-                let detail_hash = stable_short_hash(detail);
-                let task = mutation_run_task(
-                    target,
-                    &output_root,
-                    Some(detail.clone()),
-                    max_candidates_per_cycle,
-                );
-                return Some(proactive_verification_report(
-                    cycle,
-                    "mutation-testing",
-                    &format!("{module_stem}:rerun:{detail_hash}"),
-                    task,
-                ));
-            }
-            MutationRunStatus::Survivors { detail } => {
-                let detail_hash = stable_short_hash(detail);
-                let task = mutation_triage_task(target, &output_root, &run, detail.clone());
-                return Some(proactive_verification_report(
-                    cycle,
-                    "mutation-testing",
-                    &format!("{module_stem}:triage:{detail_hash}"),
-                    task,
-                ));
-            }
-            MutationRunStatus::Complete => {}
         }
     }
 
+    let _ = write_mutation_ledger(&ledger_path, &ledger);
     None
 }
 
@@ -4229,6 +4312,7 @@ fn advisory_promotion_task(
 }
 
 const MUTATION_POINTER_PATH: &str = ".cache/autonomy/proactive-verification/mutation-pointer.json";
+const MUTATION_LEDGER_PATH: &str = ".cache/autonomy/proactive-verification/mutation-ledger.json";
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct MutationPointer {
@@ -4257,6 +4341,170 @@ fn write_mutation_pointer(path: &Path, pointer: &MutationPointer) -> Result<()> 
     fs::write(path, format!("{json}\n"))
         .with_context(|| format!("failed to write {}", path.display()))?;
     Ok(())
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct MutationLedger {
+    #[serde(default)]
+    entries: BTreeMap<String, MutationLedgerEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct MutationLedgerEntry {
+    module: String,
+    package: String,
+    shard: usize,
+    shards_total: usize,
+    #[serde(default)]
+    candidate_count: Option<usize>,
+    #[serde(default)]
+    outcome_count: Option<usize>,
+    status: MutationLedgerStatus,
+    #[serde(default)]
+    mutants_hash: Option<String>,
+    #[serde(default)]
+    survivor_hash: Option<String>,
+    #[serde(default)]
+    source_hash: Option<String>,
+    #[serde(default)]
+    last_run_at: String,
+    #[serde(default)]
+    last_commit: String,
+    #[serde(default)]
+    attempt_count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum MutationLedgerStatus {
+    NotRun,
+    Incomplete,
+    Clean,
+    Survivors,
+    DeferredRepeated,
+}
+
+fn load_mutation_ledger(path: &Path) -> MutationLedger {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|content| serde_json::from_str(&content).ok())
+        .unwrap_or_default()
+}
+
+fn write_mutation_ledger(path: &Path, ledger: &MutationLedger) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    let json = serde_json::to_string_pretty(ledger)
+        .with_context(|| format!("failed to serialise {}", path.display()))?;
+    fs::write(path, format!("{json}\n"))
+        .with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(())
+}
+
+fn mutation_ledger_key(target: &MutationTarget, shard: MutationShard) -> String {
+    format!(
+        "{}:{}:{}/{}",
+        target.package,
+        target.module,
+        shard.index + 1,
+        shard.total
+    )
+}
+
+fn mutation_ledger_status(status: &MutationRunStatus) -> MutationLedgerStatus {
+    match status {
+        MutationRunStatus::NotRun => MutationLedgerStatus::NotRun,
+        MutationRunStatus::Incomplete { .. } => MutationLedgerStatus::Incomplete,
+        MutationRunStatus::Survivors { .. } => MutationLedgerStatus::Survivors,
+        MutationRunStatus::Complete => MutationLedgerStatus::Clean,
+    }
+}
+
+fn sync_mutation_ledger_entry(
+    ledger: &mut MutationLedger,
+    target: &MutationTarget,
+    shard: MutationShard,
+    run: &MutationRunInspection,
+    commit: &str,
+    source_hash: Option<&str>,
+) {
+    let key = mutation_ledger_key(target, shard);
+    let attempt_count = ledger
+        .entries
+        .get(&key)
+        .map(|entry| entry.attempt_count)
+        .unwrap_or_default();
+    ledger.entries.insert(
+        key,
+        MutationLedgerEntry {
+            module: target.module.clone(),
+            package: target.package.clone(),
+            shard: shard.index + 1,
+            shards_total: shard.total,
+            candidate_count: run.candidate_count,
+            outcome_count: run.outcome_count,
+            status: mutation_ledger_status(&run.status),
+            mutants_hash: run.mutants_hash.clone(),
+            survivor_hash: run.survivor_hash.clone(),
+            source_hash: source_hash.map(str::to_owned),
+            last_run_at: autonomy_timestamp(),
+            last_commit: commit.to_owned(),
+            attempt_count,
+        },
+    );
+}
+
+fn mark_mutation_ledger_attempt(
+    ledger: &mut MutationLedger,
+    target: &MutationTarget,
+    shard: MutationShard,
+    status: MutationLedgerStatus,
+) {
+    let key = mutation_ledger_key(target, shard);
+    if let Some(entry) = ledger.entries.get_mut(&key) {
+        entry.status = status;
+        entry.attempt_count = entry.attempt_count.saturating_add(1);
+        entry.last_run_at = autonomy_timestamp();
+    }
+}
+
+fn current_short_commit(repo_root: &Path) -> String {
+    Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .current_dir(repo_root)
+        .output()
+        .ok()
+        .and_then(|output| {
+            output
+                .status
+                .success()
+                .then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+        })
+        .filter(|commit| !commit.is_empty())
+        .unwrap_or_else(|| "unknown".to_owned())
+}
+
+fn mutation_relevant_source_hash(repo_root: &Path, target: &MutationTarget) -> Option<String> {
+    let mut content = String::new();
+    let candidates = [
+        format!("crates/{}/src/{}", target.package, target.module),
+        format!("crates/{}/src/tests.rs", target.package),
+        format!("crates/{}/src/lib.rs", target.package),
+    ];
+
+    for relative in candidates {
+        let path = repo_root.join(&relative);
+        if let Ok(file_content) = fs::read_to_string(&path) {
+            content.push_str(&relative);
+            content.push('\n');
+            content.push_str(&file_content);
+            content.push('\n');
+        }
+    }
+
+    (!content.is_empty()).then(|| stable_short_hash(&content))
 }
 
 const RL_SESSION_PATH: &str = ".cache/autonomy/rl-session.json";
@@ -4452,8 +4700,13 @@ enum MutationRunStatus {
 #[derive(Debug, Clone)]
 struct MutationRunInspection {
     outcomes_path: PathBuf,
+    mutants_path: PathBuf,
     missed_path: PathBuf,
     timeout_path: PathBuf,
+    candidate_count: Option<usize>,
+    outcome_count: Option<usize>,
+    mutants_hash: Option<String>,
+    survivor_hash: Option<String>,
     status: MutationRunStatus,
 }
 
@@ -4465,22 +4718,30 @@ fn inspect_mutation_run(output_root_abs: &Path) -> MutationRunInspection {
     let timeout_path = run_dir.join("timeout.txt");
     let debug_log_path = run_dir.join("debug.log");
 
+    let counts = if outcomes_path.exists() {
+        mutation_outcome_counts(&outcomes_path, &mutants_path).ok()
+    } else {
+        None
+    };
+    let mutants_hash = trimmed_file(&mutants_path);
+    let missed = trimmed_file(&missed_path);
+    let timed_out = trimmed_file(&timeout_path);
+    let survivor_detail = format!("{missed}\n{timed_out}");
+
     let status = if !outcomes_path.exists() {
         MutationRunStatus::NotRun
     } else if let Some(detail) = mutation_debug_failure(&debug_log_path) {
         MutationRunStatus::Incomplete { detail }
     } else {
-        match mutation_outcome_counts(&outcomes_path, &mutants_path) {
-            Ok((candidate_count, outcome_count)) if outcome_count < candidate_count => {
+        match counts {
+            Some((candidate_count, outcome_count)) if outcome_count < candidate_count => {
                 MutationRunStatus::Incomplete {
                     detail: format!(
                         "partial cargo-mutants results: {outcome_count}/{candidate_count} mutants have outcomes"
                     ),
                 }
             }
-            Ok(_) => {
-                let missed = trimmed_file(&missed_path);
-                let timed_out = trimmed_file(&timeout_path);
+            Some(_) => {
                 if missed.is_empty() && timed_out.is_empty() {
                     MutationRunStatus::Complete
                 } else {
@@ -4498,14 +4759,25 @@ fn inspect_mutation_run(output_root_abs: &Path) -> MutationRunInspection {
                     }
                 }
             }
-            Err(detail) => MutationRunStatus::Incomplete { detail },
+            None => MutationRunStatus::Incomplete {
+                detail: format!(
+                    "failed to read cargo-mutants outcomes at {}",
+                    outcomes_path.display()
+                ),
+            },
         }
     };
 
     MutationRunInspection {
         outcomes_path,
+        mutants_path,
         missed_path,
         timeout_path,
+        candidate_count: counts.map(|(candidate_count, _)| candidate_count),
+        outcome_count: counts.map(|(_, outcome_count)| outcome_count),
+        mutants_hash: (!mutants_hash.is_empty()).then(|| stable_short_hash(&mutants_hash)),
+        survivor_hash: (!survivor_detail.trim().is_empty())
+            .then(|| stable_short_hash(&survivor_detail)),
         status,
     }
 }
@@ -4558,6 +4830,12 @@ fn mutation_outcome_counts(
     Ok((candidate_count, outcome_count))
 }
 
+fn mutation_candidate_count(mutants_path: &Path) -> Option<usize> {
+    let mutants_content = fs::read_to_string(mutants_path).ok()?;
+    let mutants: serde_json::Value = serde_json::from_str(&mutants_content).ok()?;
+    mutants.as_array().map(Vec::len)
+}
+
 fn trimmed_file(path: &Path) -> String {
     fs::read_to_string(path)
         .map(|content| content.trim().to_owned())
@@ -4580,15 +4858,67 @@ fn stable_short_hash(content: &str) -> String {
     format!("{hash:016x}")[..8].to_owned()
 }
 
-fn mutation_command(target: &MutationTarget, output_root: &Path) -> String {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct MutationShard {
+    index: usize,
+    total: usize,
+}
+
+impl MutationShard {
+    fn label(self) -> String {
+        format!("{}/{}", self.index + 1, self.total)
+    }
+
+    fn suffix(self) -> String {
+        if self.total > 1 {
+            format!(":shard-{}", self.label())
+        } else {
+            String::new()
+        }
+    }
+}
+
+fn mutation_shard_count(candidate_count: usize, max_candidates_per_cycle: Option<u32>) -> usize {
+    let Some(cap) = max_candidates_per_cycle.and_then(|cap| usize::try_from(cap).ok()) else {
+        return 1;
+    };
+    if cap == 0 || candidate_count == 0 {
+        return 1;
+    }
+    candidate_count.div_ceil(cap).max(1)
+}
+
+fn mutation_shard_output_root(
+    output_dir: &str,
+    module_stem: &str,
+    shard: MutationShard,
+) -> PathBuf {
+    let base = PathBuf::from(output_dir).join(module_stem);
+    if shard.total > 1 {
+        base.join(format!("shard-{}-of-{}", shard.index + 1, shard.total))
+    } else {
+        base
+    }
+}
+
+fn mutation_command(
+    target: &MutationTarget,
+    output_root: &Path,
+    shard: Option<MutationShard>,
+) -> String {
     // `KID_REPO_ROOT=$(pwd)` lets the in-tempdir test fixtures resolve back to
     // the original `.cache/generated/` (gitignored, hence excluded from the
     // mutants copy). `-j 1` keeps a single ~10 GB test binary in RAM at a
     // time — `-j 4` previously OOM-killed the whole tmux session.
+    let shard_arg = shard
+        .filter(|shard| shard.total > 1)
+        .map(|shard| format!(" --shard {}", shard.label()))
+        .unwrap_or_default();
     format!(
-        "KID_REPO_ROOT=$(pwd) cargo mutants -p {} -f {} -j 1 --gitignore=true --output {} -- --lib -- --skip demo_ --skip published_tas --skip snapshot",
+        "KID_REPO_ROOT=$(pwd) cargo mutants -p {} -f {} -j 1 --gitignore=true{} --output {} -- --lib -- --skip demo_ --skip published_tas --skip snapshot",
         target.package,
         target.module,
+        shard_arg,
         output_root.display()
     )
 }
@@ -4608,10 +4938,11 @@ fn mutation_common_targets(target: &MutationTarget) -> Vec<String> {
 fn mutation_run_task(
     target: &MutationTarget,
     output_root: &Path,
+    shard: MutationShard,
     incomplete_detail: Option<String>,
     max_candidates_per_cycle: Option<u32>,
 ) -> TaskPackage {
-    let command = mutation_command(target, output_root);
+    let command = mutation_command(target, output_root, Some(shard));
     let outcomes_path = output_root.join("mutants.out/outcomes.json");
     let mutants_path = output_root.join("mutants.out/mutants.json");
     let clean_command = format!(
@@ -4629,20 +4960,44 @@ fn mutation_run_task(
     TaskPackage {
         capability: CapabilityId::ProactiveVerificationTask,
         title: if is_rerun {
-            format!("Rerun incomplete mutation testing on {} (tier {})", target.module, target.tier)
+            if shard.total > 1 {
+                format!(
+                    "Rerun incomplete mutation testing on {} shard {} (tier {})",
+                    target.module,
+                    shard.label(),
+                    target.tier
+                )
+            } else {
+                format!(
+                    "Rerun incomplete mutation testing on {} (tier {})",
+                    target.module, target.tier
+                )
+            }
         } else {
-            format!("Run mutation testing on {} (tier {})", target.module, target.tier)
+            if shard.total > 1 {
+                format!(
+                    "Run mutation testing on {} shard {} (tier {})",
+                    target.module,
+                    shard.label(),
+                    target.tier
+                )
+            } else {
+                format!("Run mutation testing on {} (tier {})", target.module, target.tier)
+            }
         },
         summary: {
             let base = if is_rerun {
                 format!(
-                    "Previous cargo-mutants output for {} is incomplete. Clean the partial output, rerun with gitignore forced on, then triage survivors if any remain.",
-                    target.module
+                    "Previous cargo-mutants output for {}{} is incomplete. Clean the partial output, rerun with gitignore forced on, then triage survivors if any remain.",
+                    target.module,
+                    if shard.total > 1 { format!(" shard {}", shard.label()) } else { String::new() }
                 )
             } else {
                 format!(
-                    "Run cargo-mutants on {} in package {} with gitignore forced on. If it finds surviving mutants, triage one into an ASM-backed code fix or test.",
-                    target.module, target.package
+                    "Run cargo-mutants on {}{} in package {} with gitignore forced on. If it finds surviving mutants, triage one into an ASM-backed code fix or test.",
+                    target.module,
+                    if shard.total > 1 { format!(" shard {}", shard.label()) } else { String::new() },
+                    target.package
                 )
             };
             match cycle_cap_note.as_ref() {
@@ -4712,15 +5067,25 @@ fn mutation_run_task(
 fn mutation_triage_task(
     target: &MutationTarget,
     output_root: &Path,
+    shard: MutationShard,
     run: &MutationRunInspection,
     detail: String,
 ) -> TaskPackage {
     TaskPackage {
         capability: CapabilityId::ProactiveVerificationTask,
-        title: format!("Triage surviving mutation results for {}", target.module),
+        title: if shard.total > 1 {
+            format!(
+                "Triage surviving mutation results for {} shard {}",
+                target.module,
+                shard.label()
+            )
+        } else {
+            format!("Triage surviving mutation results for {}", target.module)
+        },
         summary: format!(
-            "cargo-mutants completed for {}, but survivors remain. Read the ASM for the first surviving mutant and turn it into a bug fix or an exact-value test.",
-            target.module
+            "cargo-mutants completed for {}{}, but survivors remain. Read the ASM for the first surviving mutant and turn it into a bug fix or an exact-value test.",
+            target.module,
+            if shard.total > 1 { format!(" shard {}", shard.label()) } else { String::new() }
         ),
         generated_at: String::new(),
         cycle: 0,
@@ -4730,7 +5095,7 @@ fn mutation_triage_task(
         commands: vec![
             format!("sed -n '1,80p' {}", run.missed_path.display()),
             format!("sed -n '1,80p' {}", run.timeout_path.display()),
-            mutation_command(target, output_root),
+            mutation_command(target, output_root, Some(shard)),
             "mise run verify-slice-fast".to_owned(),
         ],
         done_criteria: vec![
@@ -9308,10 +9673,27 @@ mod tests {
         timed_out: &str,
         debug_log: &str,
     ) {
-        let run_dir = repo_root
-            .join(".cache/mutants")
-            .join(module_stem)
-            .join("mutants.out");
+        write_mutation_run_at(
+            repo_root,
+            &PathBuf::from(".cache/mutants").join(module_stem),
+            candidate_count,
+            outcome_count,
+            missed,
+            timed_out,
+            debug_log,
+        );
+    }
+
+    fn write_mutation_run_at(
+        repo_root: &Path,
+        output_root: &Path,
+        candidate_count: usize,
+        outcome_count: usize,
+        missed: &str,
+        timed_out: &str,
+        debug_log: &str,
+    ) {
+        let run_dir = repo_root.join(output_root).join("mutants.out");
         fs::create_dir_all(&run_dir).expect("mutation run dir should exist");
 
         let mutants = (0..candidate_count)
@@ -11888,6 +12270,121 @@ mod tests {
         assert!(
             task.title.contains("combat.rs"),
             "complete modules with no survivors should be skipped"
+        );
+    }
+
+    #[test]
+    fn mutation_shard_count_respects_candidate_cap() {
+        let cap = Some(200);
+
+        assert_eq!(super::mutation_shard_count(0, cap), 1);
+        assert_eq!(super::mutation_shard_count(1, cap), 1);
+        assert_eq!(super::mutation_shard_count(199, cap), 1);
+        assert_eq!(super::mutation_shard_count(200, cap), 1);
+        assert_eq!(super::mutation_shard_count(201, cap), 2);
+        assert_eq!(super::mutation_shard_count(749, cap), 4);
+    }
+
+    #[test]
+    fn mutation_testing_strategy_runs_first_shard_when_candidate_cap_is_exceeded() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(temp_dir.path(), "terrain", 749, 0, "", "", "");
+        let targets = vec![mutation_target("terrain.rs", 1)];
+
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            Some(200),
+        )
+        .expect("sharded mutation testing task should exist");
+        let task = report.selected_task.expect("selected task should exist");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:terrain:run:shard-1/4"
+        );
+        assert!(
+            task.commands
+                .iter()
+                .any(|command| command.contains("--shard 1/4")
+                    && command.contains("--output .cache/mutants/terrain/shard-1-of-4")),
+            "generated command should run the first bounded shard"
+        );
+    }
+
+    #[test]
+    fn mutation_testing_strategy_skips_clean_shards() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(temp_dir.path(), "terrain", 201, 0, "", "", "");
+        write_mutation_run_at(
+            temp_dir.path(),
+            Path::new(".cache/mutants/terrain/shard-1-of-2"),
+            101,
+            101,
+            "",
+            "",
+            "",
+        );
+        let targets = vec![mutation_target("terrain.rs", 1)];
+
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            Some(200),
+        )
+        .expect("second shard task should exist");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:terrain:run:shard-2/2"
+        );
+    }
+
+    #[test]
+    fn mutation_testing_strategy_defers_repeated_survivor_hashes() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(temp_dir.path(), "terrain", 201, 0, "", "", "");
+        write_mutation_run_at(
+            temp_dir.path(),
+            Path::new(".cache/mutants/terrain/shard-1-of-2"),
+            101,
+            101,
+            "crates/kid-core/src/terrain.rs:42:7: replace + with - in wall_scan\n",
+            "",
+            "",
+        );
+        let targets = vec![mutation_target("terrain.rs", 1)];
+
+        let first = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            Some(200),
+        )
+        .expect("first survivor task should exist");
+        assert!(first.progress_fingerprint.contains("terrain:triage:"));
+
+        let second = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            5,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            Some(200),
+        )
+        .expect("second shard task should exist after repeated survivor deferral");
+
+        assert_eq!(
+            second.progress_fingerprint,
+            "proactive-verification:mutation-testing:terrain:run:shard-2/2"
         );
     }
 
