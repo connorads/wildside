@@ -3099,6 +3099,16 @@ mod tests {
         let bl = BlockList::from_raw(&data, 20);
         assert_eq!(bl.prize_content_at(2, 5), Some(PrizeContent::Cyclone));
         assert_eq!(bl.prize_content_at(8, 1), Some(PrizeContent::Ankh));
+        assert_eq!(
+            bl.prize_content_at(2, 1),
+            None,
+            "ASM loc_10342 matches one exact prize record; native coordinate lookup must not accept a row-only or column-only match",
+        );
+        assert_eq!(
+            bl.prize_content_at(8, 5),
+            None,
+            "ASM loc_10342 matches one exact prize record; native coordinate lookup must not accept a row-only or column-only match",
+        );
         assert_eq!(bl.prize_content_at(99, 99), None);
     }
 
@@ -3122,6 +3132,14 @@ mod tests {
         assert_eq!(hb.layout_addr, 0x0010);
         assert_eq!(hb.block_type, 0x42);
         assert_eq!(hb.block_setting, 0x01);
+        assert!(
+            bl.hidden_block_at(3, 99).is_none(),
+            "ASM sub_E446 derives one Level_Layout address for the current column and row before sub_E37A; a column-only match must not reveal a block",
+        );
+        assert!(
+            bl.hidden_block_at(99, 7).is_none(),
+            "ASM sub_E446 derives one Level_Layout address for the current column and row before sub_E37A; a row-only match must not reveal a block",
+        );
         assert!(bl.hidden_block_at(99, 99).is_none());
     }
 
