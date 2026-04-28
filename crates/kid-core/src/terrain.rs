@@ -4103,6 +4103,60 @@ mod tests {
     }
 
     #[test]
+    fn block_list_from_raw_ghost_section_keeps_sixteen_byte_bounds_after_prizes() {
+        // ASM loc_11CB6/loc_11CD4 (kid.asm:23868): after prize bytes are
+        // skipped with count*8, ghost bytes are bounded by count*16. A
+        // non-zero parser offset must still leave room for one 16-byte ghost
+        // record.
+        let mut data = Vec::new();
+        data.extend_from_slice(&[0x00, 0x10, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03]);
+        data.extend_from_slice(&[0x00, 0x20, 0x00, 0x04, 0x00, 0x05, 0x80, 0x07]);
+        data.extend_from_slice(&[
+            0x00, 0x00, // timer=0, also ends the prize section
+            0x00, 0x02, // flags, mapping_frame
+            0x00, 0x21, // solid_time
+            0x00, 0x11, // vanished_time
+            0x00, 0x60, // layout_addr
+            0x00, 0x08, // col
+            0x00, 0x09, // row
+            0x04, // count nibble -> 5 blocks
+            0x01, // vertical
+        ]);
+        // ASM loc_124BE writes the timer as the first word in each 16-byte
+        // ghost record. Use asymmetric timer bytes so the parser must read
+        // both `offset` and `offset + 1`, not the high byte twice.
+        data.extend_from_slice(&[
+            0x12, 0x34, // timer
+            0x00, 0x00, // flags, mapping_frame
+            0x00, 0x22, // solid_time
+            0x00, 0x12, // vanished_time
+            0x00, 0x80, // layout_addr
+            0x00, 0x0A, // col
+            0x00, 0x0B, // row
+            0x01, // count nibble -> 2 blocks
+            0x00, // horizontal
+        ]);
+
+        let bl = BlockList::from_raw(&data, 20);
+
+        assert_eq!(bl.prize_blocks.len(), 2);
+        assert_eq!(bl.ghost_blocks.len(), 2);
+        assert_eq!(bl.ghost_blocks[0].col, 8);
+        assert_eq!(bl.ghost_blocks[0].row, 9);
+        assert_eq!(bl.ghost_blocks[0].solid_time, 0x0021);
+        assert_eq!(bl.ghost_blocks[0].vanished_time, 0x0011);
+        assert_eq!(bl.ghost_blocks[0].count, 5);
+        assert!(bl.ghost_blocks[0].vertical);
+        assert_eq!(bl.ghost_blocks[1].timer, 0x1234);
+        assert_eq!(bl.ghost_blocks[1].col, 10);
+        assert_eq!(bl.ghost_blocks[1].row, 11);
+        assert_eq!(bl.ghost_blocks[1].solid_time, 0x0022);
+        assert_eq!(bl.ghost_blocks[1].vanished_time, 0x0012);
+        assert_eq!(bl.ghost_blocks[1].count, 2);
+        assert!(!bl.ghost_blocks[1].vertical);
+    }
+
+    #[test]
     fn block_list_from_raw_ghost_terminator_requires_all_zero_header_words() {
         // ASM loc_124BE writes the 16-byte ghost record as timer, state word,
         // solid-time, vanished-time, then layout/coordinates. ASM loc_11CCA
