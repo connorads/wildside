@@ -2979,6 +2979,27 @@ mod tests {
     }
 
     #[test]
+    fn probe_floor_hitbox_prefers_higher_asm_slope_support_when_airborne() {
+        let w = 4u16;
+        let h = 2u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(usize::from(1u16) * usize::from(w)) * 2] = 0x40;
+        data[(usize::from(1u16) * usize::from(w) + usize::from(2u16)) * 2] = 0x50;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // ASM sub_A254 (kid.asm:12554): `$4000` computes `constant - x_pos`;
+        // loc_A268 computes `$5000` as `constant + x_pos`. With centre x=24
+        // over empty space, the left edge at x=7 has floor_y 24 while the
+        // right edge at x=41 has floor_y 25, so the higher support is left.
+        let probe = probe_floor_hitbox(&grid, 24, 10, 17);
+
+        assert!(!probe.on_ground);
+        assert_eq!(probe.cell.collision, CollisionKind::SlopeUp);
+        assert_eq!(probe.cell_x, 0);
+        assert_eq!(probe.floor_y_px, 24);
+    }
+
+    #[test]
     fn probe_floor_span_finds_support_beyond_normal_hitbox() {
         let w = 6u16;
         let h = 4u16;
