@@ -4062,6 +4062,19 @@ mod tests {
     }
 
     #[test]
+    fn relative_collision_mask_loc_331d2_rejects_either_negative_coordinate() {
+        let mut grid = make_empty_grid(2, 2);
+        grid.set_cell_at(0, 0, Cell::from_be_bytes(0x60, 0x01));
+
+        // ASM sub_B55C/loc_331D2 (kid.asm:14464/37627) samples exactly the
+        // Level_Layout cell addressed by the relative x/y probe. Native must
+        // not let `probe_at` clamp a single negative coordinate onto cell
+        // (0,0), because that would turn out-of-level space into solid terrain.
+        assert_eq!(relative_collision_mask_loc_331D2(&grid, -1, 0, 0, 0), 0);
+        assert_eq!(relative_collision_mask_loc_331D2(&grid, 0, -1, 0, 0), 0);
+    }
+
+    #[test]
     fn probe_wall_three_point_height_calculation() {
         // Verify probe_wall samples lower, mid, and upper body points.
         // Build grid where only the middle row is solid.
