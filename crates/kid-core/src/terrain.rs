@@ -4124,6 +4124,36 @@ mod tests {
     }
 
     #[test]
+    fn relative_collision_column_loc_331f6_zero_coordinates_are_valid() {
+        let mut grid = make_empty_grid(3, 3);
+        grid.set_cell_at(0, 2, Cell::from_be_bytes(0x60, 0x11));
+        grid.set_cell_at(0, 1, Cell::from_be_bytes(0x70, 0x22));
+        grid.set_cell_at(0, 0, Cell::from_be_bytes(0x40, 0x33));
+        grid.set_cell_at(1, 0, Cell::from_be_bytes(0x50, 0x44));
+
+        // ASM loc_331F6 (kid.asm:37644): after adding the relative x offset and
+        // `$E` y bias, the routine shifts those unsigned words directly. Exact
+        // zero coordinates fall through to the Level_Layout read; only native's
+        // out-of-level guard rejects negative coordinates before `probe_at`.
+        assert_eq!(
+            relative_collision_column_loc_331F6(&grid, 0, 18, 0, 0x03E7),
+            RelativeCollisionColumnLoc331F6 {
+                current_row: 0x6011,
+                one_row_up: 0x7022,
+                two_rows_up: 0x4033,
+            }
+        );
+        assert_eq!(
+            relative_collision_column_loc_331F6(&grid, 16, -14, 0, 0x03E7),
+            RelativeCollisionColumnLoc331F6 {
+                current_row: 0x5044,
+                one_row_up: 0,
+                two_rows_up: 0,
+            }
+        );
+    }
+
+    #[test]
     fn probe_wall_three_point_height_calculation() {
         // Verify probe_wall samples lower, mid, and upper body points.
         // Build grid where only the middle row is solid.
