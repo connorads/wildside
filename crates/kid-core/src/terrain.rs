@@ -4075,6 +4075,28 @@ mod tests {
     }
 
     #[test]
+    fn relative_collision_column_loc_331f6_adds_x_offset_before_column_lookup() {
+        let mut grid = make_empty_grid(4, 4);
+        grid.set_cell_at(1, 2, Cell::from_be_bytes(0x60, 0x11));
+        grid.set_cell_at(1, 1, Cell::from_be_bytes(0x70, 0x22));
+        grid.set_cell_at(1, 0, Cell::from_be_bytes(0x40, 0x33));
+
+        // ASM loc_331F6 (kid.asm:37643): `add.w x_pos(a3),d7` forms the
+        // probe column before `lsr.w #4,d7`; `addi.w #$E,d6` forms the
+        // current row, then the routine reads that row and two rows above.
+        let column = relative_collision_column_loc_331F6(&grid, 8, 18, 16, 0x03E7);
+
+        assert_eq!(
+            column,
+            RelativeCollisionColumnLoc331F6 {
+                current_row: 0x6011,
+                one_row_up: 0x7022,
+                two_rows_up: 0x4033,
+            }
+        );
+    }
+
+    #[test]
     fn probe_wall_three_point_height_calculation() {
         // Verify probe_wall samples lower, mid, and upper body points.
         // Build grid where only the middle row is solid.
