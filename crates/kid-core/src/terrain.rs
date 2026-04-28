@@ -964,7 +964,10 @@ impl BlockList {
         let mut updates = Vec::new();
         for offset in 0..=row_count_inclusive {
             let row = start_row.saturating_add(offset);
-            if row >= grid.height_cells || col >= grid.width_cells {
+            if row >= grid.height_cells {
+                break;
+            }
+            if col >= grid.width_cells {
                 break;
             }
 
