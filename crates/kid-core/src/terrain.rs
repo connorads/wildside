@@ -3965,6 +3965,19 @@ mod tests {
     }
 
     #[test]
+    fn probe_wall_column_left_boundary_zero_still_scans_column_zero() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[usize::from(4u16) * 2] = 0x60; // row 1, col 0 solid
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+        // ASM sub_8F26 loc_8FAC: after `sub.w d4,d7`, only `bmi.w loc_8FF8`
+        // skips the scan. An exact zero left edge falls through to sub_922C.
+        let probe = probe_wall_column(&grid, 8, 31, 7, 16, false);
+        assert!(probe.hit, "left boundary zero should scan column 0");
+        assert_eq!(probe.cell_x, 0);
+        assert_eq!(probe.wall_x_px, 16);
+    }
+
+    #[test]
     fn probe_wall_column_moving_left_edge_calculation() {
         // Verify edge_x = center - half_width - 1 (not center / half_width)
         // Build grid where col 1 is solid but col 2 is not
