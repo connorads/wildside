@@ -2910,6 +2910,17 @@ mod tests {
     }
 
     #[test]
+    fn slope_down_not_on_ground_when_above_surface() {
+        let grid = make_slope_grid();
+        // ASM sub_A254 loc_A268 (kid.asm:12559) adds x_pos to the slope
+        // constant for `$5000`, so col 1 x=24 has floor_y = 16 + 8 = 24.
+        // Feet one pixel above that surface have not reached the diagonal.
+        let probe = probe_floor(&grid, 24, 23);
+        assert!(!probe.on_ground);
+        assert_eq!(probe.floor_y_px, 24);
+    }
+
+    #[test]
     fn solid_floor_unchanged_by_slope_logic() {
         let grid = make_slope_grid();
         // Solid at col 2, row 1 (cell_top = 16px). Floor Y = 16 regardless of x.
