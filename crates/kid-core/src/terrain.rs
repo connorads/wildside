@@ -3939,6 +3939,27 @@ mod tests {
     }
 
     #[test]
+    fn probe_relative_collision_sub_b55c_preserves_hidden_and_spikes_masks() {
+        // ASM sub_B55C (kid.asm:14464) samples one Level_Layout word and
+        // returns `andi.w #$7000,d5`, so callers must still see `$2000`
+        // hidden-block metadata and `$7000` spikes through this wrapper.
+        let data = [
+            0x20, 0x01, // col 0: hidden block collision nibble
+            0x70, 0x02, // col 1: spikes collision nibble
+        ];
+        let grid = BlockGrid::from_level_layout(&data, 2, 1);
+
+        assert_eq!(
+            probe_relative_collision_sub_B55C(&grid, 0, 0, 0, 0),
+            CollisionKind::HiddenBlock
+        );
+        assert_eq!(
+            probe_relative_collision_sub_B55C(&grid, 0, 0, 16, 0),
+            CollisionKind::Spikes
+        );
+    }
+
+    #[test]
     fn probe_wall_three_point_height_calculation() {
         // Verify probe_wall samples lower, mid, and upper body points.
         // Build grid where only the middle row is solid.
