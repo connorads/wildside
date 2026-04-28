@@ -2962,6 +2962,23 @@ mod tests {
     }
 
     #[test]
+    fn probe_floor_hitbox_uses_left_edge_for_slope_down_support() {
+        let grid = make_slope_grid();
+
+        // ASM sub_A254 loc_A268 (kid.asm:12563): `$5000` SlopeDown derives
+        // `y_pos = constant + x_pos`. With centre x=24 and half_width=5, the
+        // left edge at x=19 lands exactly on y=19, while centre x=24 and right
+        // edge x=29 are above their diagonal surfaces. Replacing the left-edge
+        // `center_x - half_width` probe with `center_x + half_width` misses this.
+        let probe = probe_floor_hitbox(&grid, 24, 19, 5);
+
+        assert!(probe.on_ground);
+        assert_eq!(probe.cell.collision, CollisionKind::SlopeDown);
+        assert_eq!(probe.cell_x, 1);
+        assert_eq!(probe.floor_y_px, 19);
+    }
+
+    #[test]
     fn probe_floor_span_finds_support_beyond_normal_hitbox() {
         let w = 6u16;
         let h = 4u16;
