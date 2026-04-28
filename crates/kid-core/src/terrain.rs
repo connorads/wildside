@@ -4843,6 +4843,16 @@ mod tests {
     }
 
     #[test]
+    fn horizontal_collision_scan_following_row_class_loc_36a10_returns_negative_one_for_empty_rows()
+    {
+        assert_eq!(
+            horizontal_collision_scan_following_row_class_loc_36A10(&[]),
+            -1,
+            "ASM loc_36A10 has no following-row words to classify in this native helper case, so the row must stay in the clear `d6=-1` class instead of becoming mixed",
+        );
+    }
+
+    #[test]
     fn horizontal_collision_scan_left_lead_column_index_loc_36aa6_skips_the_boundary_and_targets_the_adjacent_column()
      {
         assert_eq!(
@@ -4877,6 +4887,19 @@ mod tests {
         assert!(
             horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(0x4000),
             "ASM loc_36ABE should take the exact `$4000` fast path for the following lead cell before the later mixed-kind branch runs",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36abe_distinguishes_mixed_and_clear_words()
+     {
+        assert!(
+            horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(0x5000),
+            "ASM loc_36ABE should fall through to loc_36ACE and still block a `$5000` following lead cell because bit `$4000` remains set",
+        );
+        assert!(
+            !horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(0x0001),
+            "ASM loc_36ABE should mask with `$7000` before testing collision bits, so low skin/block bits alone must not classify the following lead cell as blocked",
         );
     }
 
@@ -4940,6 +4963,16 @@ mod tests {
             horizontal_collision_scan_left_following_row_class_loc_36AF0(&[0x0000, 0x0000]),
             -1,
             "ASM loc_36B2E should return `d6=-1` when the reverse clear-entry scan reaches the inclusive `dbf` tail without finding bit `$4000`",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_left_following_row_class_loc_36af0_returns_negative_one_for_empty_rows()
+     {
+        assert_eq!(
+            horizontal_collision_scan_left_following_row_class_loc_36AF0(&[]),
+            -1,
+            "ASM loc_36AF0 reverse following-row classification has no words to scan in this native helper case, so it must preserve the clear `d6=-1` class",
         );
     }
 
@@ -5055,6 +5088,132 @@ mod tests {
                 lead_column_blocked: false,
             },
             "ASM loc_36C40 should scan only the in-span left lead column via `add.w d4,a4`; a blocking word on the following row below `d2` must not set `d6`",
+        );
+    }
+
+    #[test]
+    fn transform_overlap_column_blocked_sub_7bea_accepts_zero_row_and_rejects_out_of_bounds() {
+        let mut data = vec![0u8; 2 * 2 * 2];
+        data[0] = 0x40;
+        let grid = BlockGrid::from_level_layout(&data, 2, 2);
+
+        assert!(
+            transform_overlap_column_blocked_sub_7bea(&grid, 0, 0, 0),
+            "ASM sub_7BEA/loc_7C02 should scan row 0 and column 0 normally when `y_pos(a3)` and the sampled X are exactly zero",
+        );
+        assert!(
+            !transform_overlap_column_blocked_sub_7bea(&grid, -1, 0, 0),
+            "ASM sub_7BEA native boundary guard should clear the result before a negative X can wrap into the tile grid",
+        );
+        assert!(
+            !transform_overlap_column_blocked_sub_7bea(&grid, 0, -1, 0),
+            "ASM sub_7BEA native boundary guard should clear the result before a negative Y can wrap into the tile grid",
+        );
+        assert!(
+            !transform_overlap_column_blocked_sub_7bea(&grid, 32, 0, 0),
+            "ASM sub_7BEA native boundary guard should clear the result once the sampled column reaches `Level_width_blocks`",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_loc_36b5a_uses_subtracted_top_row_for_body_span() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[2] = 0x40;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        let scan = horizontal_collision_scan_right_sub_36B3C(&grid, 24, 48, 8, 16);
+
+        assert_eq!(
+            scan,
+            HorizontalCollisionScan {
+                hitbox_blocked: false,
+                lead_column_blocked: false,
+            },
+            "ASM loc_36B5A/loc_36BF6 should derive the top row from `y_pos-height`; a row-0 blocker must not enter the body scan when the actual span is only row 2",
+        );
+    }
+
+    #[test]
+    fn horizontal_collision_scan_empty_span_boundary_fallback_uses_the_leading_edge_column() {
+        let data = [0u8; 4 * 4 * 2];
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        assert_eq!(
+            horizontal_collision_scan_right_sub_36B3C(&grid, 56, 32, 8, 0),
+            HorizontalCollisionScan {
+                hitbox_blocked: false,
+                lead_column_blocked: true,
+            },
+            "ASM loc_36BA0's right-boundary fallback should classify an empty vertical span from `(x+half_width-1)>>4 + 1`, so the right edge at the final column blocks",
+        );
+        assert_eq!(
+            horizontal_collision_scan_right_sub_36B3C(&grid, 40, 32, 8, 0),
+            HorizontalCollisionScan {
+                hitbox_blocked: false,
+                lead_column_blocked: false,
+            },
+            "ASM loc_36BA0's right-boundary fallback should stay clear when `(x+half_width-1)>>4 + 1` remains inside the level",
+        );
+        assert_eq!(
+            horizontal_collision_scan_left_sub_36BD6(&grid, 8, 32, 8, 0),
+            HorizontalCollisionScan {
+                hitbox_blocked: false,
+                lead_column_blocked: true,
+            },
+            "ASM loc_36C38's left-boundary fallback should classify an empty vertical span from `(x-half_width)>>4`, so column zero blocks the next left step",
+        );
+        assert_eq!(
+            horizontal_collision_scan_left_sub_36BD6(&grid, 40, 32, 8, 0),
+            HorizontalCollisionScan {
+                hitbox_blocked: false,
+                lead_column_blocked: false,
+            },
+            "ASM loc_36C38's left-boundary fallback should stay clear when `(x-half_width)>>4` remains positive",
+        );
+    }
+
+    #[test]
+    fn vertical_collision_scan_row_keeps_zero_row_and_rejects_out_of_range_spans() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[0] = 0x40;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        assert!(
+            vertical_collision_scan_row(&grid, 8, 8, 0),
+            "ASM loc_36CAA/loc_36D00 should scan row 0 and column 0 when the inclusive width span lands exactly there",
+        );
+        assert!(
+            !vertical_collision_scan_row(&grid, 8, 8, -1),
+            "ASM loc_36CB8's negative-row gate should clear d6 before loading any row pointer",
+        );
+        assert!(
+            !vertical_collision_scan_row(&grid, -16, 8, 0),
+            "ASM loc_36CAA/loc_36D00 native boundary guard should clear spans that sit wholly left of the level",
+        );
+        assert!(
+            !vertical_collision_scan_row(&grid, 80, 8, 0),
+            "ASM loc_36CAA/loc_36D00 native boundary guard should clear spans that sit wholly right of the level",
+        );
+    }
+
+    #[test]
+    fn vertical_collision_scan_row_uses_inclusive_left_and_right_edge_columns() {
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[(usize::from(1u16) * 4 + 0) * 2] = 0x40;
+        data[(usize::from(2u16) * 4 + 2) * 2] = 0x40;
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+
+        assert!(
+            !vertical_collision_scan_row(&grid, 40, 16, 1),
+            "ASM loc_36CAA/loc_36D00 should start the span at `(x-half_width)>>4`; a blocker just outside that left edge must stay unseen",
+        );
+        assert!(
+            !vertical_collision_scan_row(&grid, 24, 8, 2),
+            "ASM loc_36CAA/loc_36D00 should end the span at `(x+half_width-1)>>4`; a blocker just outside that right edge must stay unseen",
+        );
+        assert!(
+            vertical_collision_scan_row(&grid, 8, 8, 1),
+            "ASM loc_36CAA/loc_36D00 should still include column 0 when the right edge also resolves to column 0",
         );
     }
 
