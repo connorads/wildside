@@ -4285,6 +4285,45 @@ mod tests {
     }
 
     #[test]
+    fn block_list_from_raw_hidden_entries_start_after_full_teleporter_record_and_terminator() {
+        // ASM loc_1269C writes 10-byte teleporter records, including the final
+        // destination-x word. ASM loc_11CE0/loc_11CF6 then bounds the
+        // teleporter and hidden sections independently, so hidden parsing must
+        // start after both that dest-x word and the two-byte teleporter
+        // terminator, not from the tail of the last teleporter record.
+        let mut data = Vec::new();
+        data.extend_from_slice(&[0u8; 16]); // no prizes, ghost terminator
+        data.extend_from_slice(&[
+            0x00, 0x10, // teleporter layout_addr
+            0x00, 0x02, // teleporter col
+            0x00, 0x03, // teleporter row
+            0x04, // dest_map_id
+            0x05, // dest_y
+            0x12, 0x34, // dest_x; poison for any backwards hidden cursor
+        ]);
+        data.extend_from_slice(&[0x00, 0x00]); // teleporter terminator
+        data.extend_from_slice(&[
+            0x00, 0x40, // hidden layout_addr
+            0x00, 0x06, // hidden col
+            0x00, 0x07, // hidden row
+            0x09, // hidden block_type
+            0x0A, // hidden block_setting
+        ]);
+        data.extend_from_slice(&[0x00, 0x00]); // hidden terminator
+
+        let bl = BlockList::from_raw(&data, 20);
+
+        assert_eq!(bl.teleporters.len(), 1);
+        assert_eq!(bl.teleporters[0].dest_x, 0x1234);
+        assert_eq!(bl.hidden_blocks.len(), 1);
+        assert_eq!(bl.hidden_blocks[0].layout_addr, 0x0040);
+        assert_eq!(bl.hidden_blocks[0].col, 6);
+        assert_eq!(bl.hidden_blocks[0].row, 7);
+        assert_eq!(bl.hidden_blocks[0].block_type, 0x09);
+        assert_eq!(bl.hidden_blocks[0].block_setting, 0x0A);
+    }
+
+    #[test]
     fn block_list_from_raw_accepts_bare_teleporter_terminator() {
         // ASM block-list sections are independently bounded. A two-byte
         // teleporter terminator with no following hidden records should simply
