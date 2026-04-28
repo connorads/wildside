@@ -1318,12 +1318,10 @@ pub fn probe_wall(
 /// `moveq #0,d7; addq.w #2,sp; rts` (EQ = no wall). Native: probe returns
 /// `hit: false`.
 ///
-/// ASM loc_9380 (kid.asm:10799): sub_922C OOB column guard. Entry converts
-/// the probe x coordinate to a column via `asr.w #4,d7`: if negative (`bmi.w
-/// loc_9380`) or greater than `Level_width_tiles` (`bgt.w loc_9380`), jumps
-/// to `moveq #1,d7; addq.w #2,sp; rts` — returning NE (hit=true, treat as
-/// wall). TODO(fidelity): native returns `hit: false` for OOB via the
-/// `edge_x < 0 || edge_x >= grid.width_pixels()` guard.
+/// ASM loc_9380 (kid.asm:10799): raw `sub_922C` returns NE for an OOB column,
+/// but the `sub_8F26` movement shell checks the level edge first (`loc_8FAC`
+/// `bmi.w loc_8FF8` for the left edge). Native preserves that shell-level
+/// boundary skip here so callers do not attach to an out-of-level wall.
 pub fn probe_wall_column(
     grid: &BlockGrid,
     center_x_px: i32,
@@ -3956,8 +3954,12 @@ mod tests {
 
     #[test]
     fn probe_wall_column_out_of_bounds_left() {
-        let grid = make_wall_grid();
-        // Player near left edge, moving left. edge_x would go negative.
+        let mut data = vec![0u8; 4 * 4 * 2];
+        data[usize::from(4u16) * 2] = 0x60; // row 1, col 0 solid
+        let grid = BlockGrid::from_level_layout(&data, 4, 4);
+        // ASM sub_8F26 loc_8FAC -> loc_8FF8 checks the negative left edge
+        // before the column scan can sample col 0, so an out-of-level probe
+        // skips wall attachment even when the first in-bounds cell is solid.
         let probe = probe_wall_column(&grid, 2, 47, 7, 31, false);
         assert!(!probe.hit, "out-of-bounds probe should not hit");
     }
