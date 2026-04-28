@@ -648,6 +648,11 @@ pub(crate) struct HiddenBlockColumnUpdateSubE446 {
     pub(crate) duration_frames: u16,
 }
 
+const PRIZE_BLOCK_RECORD_BYTES: usize = 8;
+const GHOST_BLOCK_RECORD_BYTES: usize = 16;
+const TELEPORTER_RECORD_BYTES: usize = 10;
+const HIDDEN_BLOCK_RECORD_BYTES: usize = 8;
+
 impl BlockList {
     /// Parse prize block entries from the raw Block List RAM dump.
     ///
@@ -656,7 +661,7 @@ impl BlockList {
     pub fn from_raw(data: &[u8], _layout_width: u16) -> Self {
         let mut prize_blocks = Vec::new();
         let mut offset = 0;
-        while offset + 8 <= data.len() {
+        while offset + PRIZE_BLOCK_RECORD_BYTES <= data.len() {
             let layout_addr = u16::from_be_bytes([data[offset], data[offset + 1]]);
             if layout_addr == 0 {
                 break;
@@ -674,20 +679,20 @@ impl BlockList {
                 content,
                 disguised,
             });
-            offset += 8;
+            offset = offset.saturating_add(PRIZE_BLOCK_RECORD_BYTES);
         }
 
         // Ghost block group entries follow prizes (16 bytes each).
         // Detect end by checking for zero timer and zero layout address.
         let mut ghost_blocks = Vec::new();
-        while offset + 16 <= data.len() {
+        while offset + GHOST_BLOCK_RECORD_BYTES <= data.len() {
             let timer = u16::from_be_bytes([data[offset], data[offset + 1]]);
             let mapping_frame = data[offset + 3];
             let solid_time = u16::from_be_bytes([data[offset + 4], data[offset + 5]]);
             let vanished_time = u16::from_be_bytes([data[offset + 6], data[offset + 7]]);
             let layout_addr = u16::from_be_bytes([data[offset + 8], data[offset + 9]]);
             if layout_addr == 0 && timer == 0 && solid_time == 0 {
-                offset += 16; // advance past ghost terminator entry
+                offset = offset.saturating_add(GHOST_BLOCK_RECORD_BYTES);
                 break;
             }
             let col = u16::from_be_bytes([data[offset + 10], data[offset + 11]]);
@@ -706,13 +711,13 @@ impl BlockList {
                 timer,
                 solid,
             });
-            offset += 16;
+            offset = offset.saturating_add(GHOST_BLOCK_RECORD_BYTES);
         }
 
         // Teleporter entries follow ghosts (10 bytes each).
         // End when layout_addr is 0.
         let mut teleporters = Vec::new();
-        while offset + 10 <= data.len() {
+        while offset + TELEPORTER_RECORD_BYTES <= data.len() {
             let layout_addr = u16::from_be_bytes([data[offset], data[offset + 1]]);
             if layout_addr == 0 {
                 break;
@@ -731,7 +736,7 @@ impl BlockList {
                 dest_y,
                 dest_x,
             });
-            offset += 10;
+            offset = offset.saturating_add(TELEPORTER_RECORD_BYTES);
         }
 
         // Hidden block entries follow teleporters (8 bytes each).
@@ -740,7 +745,7 @@ impl BlockList {
             offset += 2; // skip teleporter terminator
         }
         let mut hidden_blocks = Vec::new();
-        while offset + 8 <= data.len() {
+        while offset + HIDDEN_BLOCK_RECORD_BYTES <= data.len() {
             let layout_addr = u16::from_be_bytes([data[offset], data[offset + 1]]);
             if layout_addr == 0 {
                 break;
@@ -756,7 +761,7 @@ impl BlockList {
                 block_type,
                 block_setting,
             });
-            offset += 8;
+            offset = offset.saturating_add(HIDDEN_BLOCK_RECORD_BYTES);
         }
 
         Self {
@@ -838,15 +843,13 @@ impl BlockList {
     ) -> u16 {
         // ASM loc_E386 (kid.asm:17824): starting from `d0=count-1` and
         // `d1=8`, halve d0 and double the byte stride until d0 shifts to zero.
-        let mut remaining = hidden_block_count.wrapping_sub(1);
-        let mut stride_bytes = 8u16;
-        loop {
-            remaining >>= 1;
-            if remaining == 0 {
-                return stride_bytes;
-            }
-            stride_bytes = stride_bytes.wrapping_mul(2);
+        let remaining = hidden_block_count.wrapping_sub(1);
+        if remaining == 0 {
+            return 8;
         }
+
+        let doubled_count = u16::BITS - 1 - remaining.leading_zeros();
+        8u16.wrapping_shl(doubled_count)
     }
 
     #[allow(non_snake_case)]
@@ -937,7 +940,7 @@ impl BlockList {
             (0xE102u16, 0x1060u16)
         };
         let cell_word =
-            (base_cell & 0xFF00) | u16::from((base_cell as u8).wrapping_add(block_setting));
+            (base_cell & 0xFF00) + u16::from((base_cell as u8).wrapping_add(block_setting));
         HiddenBlockRevealSubE3C6 {
             cell: Cell::from_be_bytes((cell_word >> 8) as u8, cell_word as u8),
             sprite_mapping,
@@ -2972,12 +2975,10 @@ mod tests {
     /// (prize, ghost, teleporter, hidden) with distinct field values so
     /// any byte-offset mutation produces a detectable wrong result.
     ///
-    /// Binary format note: sections are sequential, each terminated by a
-    /// sentinel. The prize section ends when layout_addr (first 2 bytes)
-    /// is 0. The ghost section's first entry with timer=0 also acts as
-    /// the prize terminator (timer bytes overlap layout_addr position).
+    /// ASM loc_123DC/loc_12434 append prize records as 8-byte tuples, and
+    /// Load_LevelData loc_11CB6/loc_11CE0 bounds those runtime sections using
+    /// exact 8-byte prize and 10-byte teleporter record strides.
     #[test]
-    #[ignore = "TODO(fidelity): block_list raw parser not yet implemented"]
     fn block_list_from_raw_parses_all_sections() {
         let mut data = Vec::new();
 
@@ -3038,7 +3039,7 @@ mod tests {
 
         // Prize assertions — every field must be exact
         assert_eq!(bl.prize_blocks.len(), 1);
-        assert_eq!(bl.prize_blocks[0].layout_addr, 0x0012);
+        assert_eq!(bl.prize_blocks[0].layout_addr, 0x0042);
         assert_eq!(bl.prize_blocks[0].col, 7);
         assert_eq!(bl.prize_blocks[0].row, 3);
         assert!(bl.prize_blocks[0].disguised);
@@ -3057,7 +3058,7 @@ mod tests {
 
         // Teleporter assertions
         assert_eq!(bl.teleporters.len(), 1);
-        assert_eq!(bl.teleporters[0].layout_addr, 0x0040);
+        assert_eq!(bl.teleporters[0].layout_addr, 0x0010);
         assert_eq!(bl.teleporters[0].col, 9);
         assert_eq!(bl.teleporters[0].row, 2);
         assert_eq!(bl.teleporters[0].dest_map_id, 5);
