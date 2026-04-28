@@ -3928,6 +3928,25 @@ mod tests {
     }
 
     #[test]
+    fn probe_iron_knight_climb_resume_left_uses_negative_half_width_plus_one() {
+        let w = 4u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(1 * usize::from(w) + 1) * 2] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // ASM loc_A2F6 -> loc_A30A negates the `$FFFFFA78 + 1` x offset before
+        // sub_B55C adds it to x_pos(a3), so left resume samples exactly
+        // `center - half_width - 1`. Here that is x=31, col 1; nearby arithmetic
+        // mutations sample col 0 or col 2 instead.
+        let probe = probe_iron_knight_climb_resume_wall(&grid, 40, 48, 8, false);
+        assert!(probe.hit);
+        assert_eq!(probe.cell_x, 1);
+        assert_eq!(probe.cell_y, 1);
+        assert_eq!(probe.wall_x_px, 32);
+    }
+
+    #[test]
     fn probe_iron_knight_climb_resume_moving_right() {
         let grid = make_wall_grid(); // wall at col 5, rows 1-2
         // Player at x=72, feet at y=48. Probe y = 48 - 24 = 24 (row 1).
