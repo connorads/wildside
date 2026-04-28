@@ -1949,12 +1949,18 @@ pub(crate) fn transform_overlap_column_blocked_sub_7bea(
     // ASM sub_7BEA (kid.asm:8317): start from the row containing `y_pos(a3)`,
     // walk upward one row per `suba.w Level_width_tiles,a4`, and stop as soon
     // as any scanned cell carries bit `$4000`.
-    if x_px < 0 || foot_y_px < 0 {
+    if x_px < 0 {
+        return false;
+    }
+    if foot_y_px < 0 {
         return false;
     }
 
     let column = pixel_to_cell(x_px);
-    if column < 0 || column >= i32::from(grid.width_cells) {
+    if column < 0 {
+        return false;
+    }
+    if column >= i32::from(grid.width_cells) {
         return false;
     }
 
@@ -1967,10 +1973,14 @@ pub(crate) fn transform_overlap_column_blocked_sub_7bea(
     // bne.w loc_7C18; suba.w (Level_width_tiles).w,a4; dbf d7,loc_7C02`
     // — scan loop: read tile, check wall bit ($4000), move up one row, repeat.
     for _ in 0..=rows_up {
-        if row >= 0
-            && row < i32::from(grid.height_cells)
-            && sets_collision_bit_14(grid.cell_at(column as u16, row as u16))
-        {
+        if row < 0 {
+            break;
+        }
+        if row >= i32::from(grid.height_cells) {
+            row -= 1;
+            continue;
+        }
+        if sets_collision_bit_14(grid.cell_at(column as u16, row as u16)) {
             // ASM loc_7C18 (kid.asm:8337): `moveq #1,d7; rts` — wall found,
             // return blocked (non-zero d7 = column is obstructed).
             return true;
@@ -2118,7 +2128,10 @@ fn vertical_collision_scan_row(
 
     let mut left_col = pixel_to_cell(center_x_px - half_width);
     let mut right_col = pixel_to_cell(center_x_px + half_width - 1);
-    if right_col < 0 || left_col >= i32::from(grid.width_cells) {
+    if right_col < 0 {
+        return false;
+    }
+    if left_col >= i32::from(grid.width_cells) {
         return false;
     }
     left_col = left_col.max(0);
