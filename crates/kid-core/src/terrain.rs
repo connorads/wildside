@@ -3988,6 +3988,25 @@ mod tests {
     }
 
     #[test]
+    fn probe_wall_column_moving_left_samples_one_pixel_outside_hitbox() {
+        // ASM sub_8F26 loc_8FAC -> sub_922C: leftward movement subtracts the
+        // travelled delta from the left edge before the column probe. At an
+        // exact 16px boundary, the sampled wall column is the tile just outside
+        // Kid's hitbox, not the tile inside it.
+        let w = 4u16;
+        let h = 3u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[usize::from(w) * 2] = 0x60; // row 1, col 0 solid
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        let probe = probe_wall_column(&grid, 24, 31, 8, 16, false);
+
+        assert!(probe.hit);
+        assert_eq!(probe.cell_x, 0);
+        assert_eq!(probe.wall_x_px, 16);
+    }
+
+    #[test]
     fn probe_relative_collision_sub_b55c_preserves_hidden_and_spikes_masks() {
         // ASM sub_B55C (kid.asm:14464) samples one Level_Layout word and
         // returns `andi.w #$7000,d5`, so callers must still see `$2000`
