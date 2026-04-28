@@ -3218,6 +3218,23 @@ mod tests {
     }
 
     #[test]
+    fn hidden_block_search_loc_e386_derives_power_of_two_byte_stride() {
+        // ASM loc_E386 (kid.asm:17824) starts from count-1, halves that value,
+        // and doubles the 8-byte record stride until the shifted count reaches
+        // zero. These exact values keep the binary-search stride contract from
+        // collapsing to the initial record size for non-trivial lists.
+        let cases = [(1, 8), (2, 8), (3, 16), (4, 16), (5, 32), (8, 32)];
+
+        for (hidden_block_count, expected_stride) in cases {
+            assert_eq!(
+                BlockList::hidden_block_search_initial_stride_bytes_loc_E386(hidden_block_count),
+                expected_stride,
+                "ASM loc_E386 should derive the initial byte stride for {hidden_block_count} hidden-block records",
+            );
+        }
+    }
+
+    #[test]
     fn hidden_block_search_loc_e3a0_returns_only_exact_layout_match() {
         let bl = BlockList {
             prize_blocks: vec![],
@@ -4224,6 +4241,60 @@ mod tests {
         assert_eq!(bl.teleporters[1].dest_map_id, 9);
         assert_eq!(bl.teleporters[1].dest_y, 10);
         assert_eq!(bl.teleporters[1].dest_x, 0x0B0C);
+    }
+
+    #[test]
+    fn block_list_from_raw_hidden_entries_follow_teleporter_terminator() {
+        // ASM loc_11CE0 bounds teleporter records in 10-byte slots, then the
+        // hidden-block section is read as 8-byte records (`sub_E37A` consumes
+        // layout_addr plus metadata from offsets 6/7). The native parser must
+        // skip the two-byte teleporter terminator exactly once and then advance
+        // by 8 for each hidden record.
+        let mut data = Vec::new();
+        data.extend_from_slice(&[0u8; 16]); // no prizes, ghost terminator
+        data.extend_from_slice(&[0x00, 0x00]); // teleporter terminator
+        data.extend_from_slice(&[
+            0x00, 0x10, // layout_addr
+            0x00, 0x03, // col
+            0x00, 0x07, // row
+            0x42, // block_type
+            0x01, // block_setting
+        ]);
+        data.extend_from_slice(&[
+            0x00, 0x28, // layout_addr
+            0x00, 0x05, // col
+            0x00, 0x09, // row
+            0x0A, // block_type
+            0x02, // block_setting
+        ]);
+        data.extend_from_slice(&[0x00, 0x00]); // hidden terminator
+
+        let bl = BlockList::from_raw(&data, 20);
+
+        assert_eq!(bl.hidden_blocks.len(), 2);
+        assert_eq!(bl.hidden_blocks[0].layout_addr, 0x0010);
+        assert_eq!(bl.hidden_blocks[0].col, 3);
+        assert_eq!(bl.hidden_blocks[0].row, 7);
+        assert_eq!(bl.hidden_blocks[0].block_type, 0x42);
+        assert_eq!(bl.hidden_blocks[0].block_setting, 0x01);
+        assert_eq!(bl.hidden_blocks[1].layout_addr, 0x0028);
+        assert_eq!(bl.hidden_blocks[1].col, 5);
+        assert_eq!(bl.hidden_blocks[1].row, 9);
+        assert_eq!(bl.hidden_blocks[1].block_type, 0x0A);
+        assert_eq!(bl.hidden_blocks[1].block_setting, 0x02);
+    }
+
+    #[test]
+    fn block_list_from_raw_accepts_bare_teleporter_terminator() {
+        // ASM block-list sections are independently bounded. A two-byte
+        // teleporter terminator with no following hidden records should simply
+        // produce an empty block list, not read before the current cursor.
+        let bl = BlockList::from_raw(&[0x00, 0x00], 20);
+
+        assert!(bl.prize_blocks.is_empty());
+        assert!(bl.ghost_blocks.is_empty());
+        assert!(bl.teleporters.is_empty());
+        assert!(bl.hidden_blocks.is_empty());
     }
 
     #[test]
