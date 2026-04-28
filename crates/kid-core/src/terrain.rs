@@ -5129,6 +5129,18 @@ mod tests {
     }
 
     #[test]
+    fn transform_overlap_column_blocked_sub_7bea_walks_up_from_rows_below_level() {
+        let mut data = vec![0u8; 2 * 2 * 2];
+        data[(2 * 1) * 2] = 0x40;
+        let grid = BlockGrid::from_level_layout(&data, 2, 2);
+
+        assert!(
+            transform_overlap_column_blocked_sub_7bea(&grid, 0, 48, 2),
+            "ASM loc_7C02 should move upward one row per `suba.w Level_width_tiles,a4`; native starts below the cached grid but must still reach row 1 and detect bit-$4000",
+        );
+    }
+
+    #[test]
     fn horizontal_collision_scan_loc_36b5a_uses_subtracted_top_row_for_body_span() {
         let mut data = vec![0u8; 4 * 4 * 2];
         data[2] = 0x40;
