@@ -3972,6 +3972,25 @@ mod tests {
     }
 
     #[test]
+    fn probe_wall_top_edge_moving_left_subtracts_half_width() {
+        let w = 5u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(usize::from(w) + 2) * 2] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        // ASM sub_8F26 loc_8FAC (kid.asm:10376): leftward wall probing uses
+        // `sub.w ($FFFFFA78).w,d7`; the top-edge continuation must sample
+        // `center - half_width`, not the right edge or a divided coordinate.
+        let probe = probe_wall_top_edge(&grid, 40, 47, 8, 31, false);
+
+        assert!(probe.hit);
+        assert_eq!(probe.cell_x, 2);
+        assert_eq!(probe.cell_y, 1);
+        assert_eq!(probe.wall_x_px, 48);
+    }
+
+    #[test]
     fn probe_wall_column_out_of_bounds_left() {
         let mut data = vec![0u8; 4 * 4 * 2];
         data[usize::from(4u16) * 2] = 0x60; // row 1, col 0 solid
