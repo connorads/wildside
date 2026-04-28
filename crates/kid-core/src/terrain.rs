@@ -4097,6 +4097,33 @@ mod tests {
     }
 
     #[test]
+    fn relative_collision_column_loc_331f6_rejects_either_negative_coordinate() {
+        let mut grid = make_empty_grid(2, 2);
+        grid.set_cell_at(0, 1, Cell::from_be_bytes(0x60, 0x11));
+        grid.set_cell_at(0, 0, Cell::from_be_bytes(0x70, 0x22));
+
+        // ASM loc_331F6 (kid.asm:37643): the routine derives its current row
+        // from `y_pos(a3) + $E` and its column from `d7 + x_pos(a3)` before
+        // reading that Level_Layout column and two rows above. Native must not
+        // let `probe_at` clamp either negative relative coordinate onto column
+        // zero, because that would promote out-of-level space into terrain.
+        let expected_empty_column = RelativeCollisionColumnLoc331F6 {
+            current_row: 0,
+            one_row_up: 0,
+            two_rows_up: 0,
+        };
+
+        assert_eq!(
+            relative_collision_column_loc_331F6(&grid, -1, 2, 0, 0x03E7),
+            expected_empty_column
+        );
+        assert_eq!(
+            relative_collision_column_loc_331F6(&grid, 0, -15, 0, 0x03E7),
+            expected_empty_column
+        );
+    }
+
+    #[test]
     fn probe_wall_three_point_height_calculation() {
         // Verify probe_wall samples lower, mid, and upper body points.
         // Build grid where only the middle row is solid.
