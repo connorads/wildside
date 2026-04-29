@@ -1998,11 +1998,7 @@ fn wall_of_death_compile_sprite(
 
     // ASM loc_4009C: compile sprite into buffer
     let entry_index = table_byte_index / 4;
-    let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
-        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
-    } else {
-        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
-    };
+    let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
 
     WallOfDeathSlotAction::Visible {
         world_x,
@@ -2783,6 +2779,35 @@ mod tests {
                 size_byte: 0x05,
                 pattern: 0x86F6,
                 x: 0x1B2,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_wall_of_death_compiles_first_post_table_word_loc_4009c() {
+        // ASM loc_4009C / word_4020E (kid.asm:45446, 45605): the ROM reads
+        // `(a1,d6.w)` and `2(a1,d6.w)` without a bounds check. For size 10,
+        // the read lands on `sub_40236` (`andi.w #$FF,d0`) and yields size
+        // byte $02 from opcode $0240 plus pattern $00FF.
+        let slot = WallOfDeathSlot {
+            x_offset: 0x20,
+            y_offset: 0x30,
+            size_index: 10,
+            reached_right_edge: true,
+        };
+
+        let action = wall_of_death_compile_sprite(&slot, 0x20, 0x30, 0x100, 0x200);
+
+        assert_eq!(
+            action,
+            WallOfDeathSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x116C,
+                y: 0xA5,
+                size_byte: 0x02,
+                pattern: 0x00FF,
+                x: 0x95,
             }
         );
     }
