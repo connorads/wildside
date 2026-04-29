@@ -2695,6 +2695,66 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn diamond_power_wall_of_death_fade_to_zero_stays_visible_loc_40044() {
+        // ASM loc_40044 (kid.asm:45417): `subq.w #1,$24(a0); bpl.s loc_40060`.
+        // The branch is signed non-negative, so a size index decremented to
+        // exactly zero stays visible; only underflow to -1 removes the slot.
+        let mut slot = WallOfDeathSlot {
+            x_offset: 0x20,
+            y_offset: 0x30,
+            size_index: 1,
+            reached_right_edge: true,
+        };
+
+        let action = diamond_power_main_wall_of_death_slot(&mut slot, 0x100, 0x200, -8);
+
+        assert_eq!(slot.size_index, 0);
+        assert_eq!(slot.x_offset, 0x18);
+        assert_eq!(
+            action,
+            WallOfDeathSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x1144,
+                y: 0xAF,
+                size_byte: 0x00,
+                pattern: 0x86EA,
+                x: 0x9F,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_wall_of_death_right_edge_equality_turns_back_loc_40026() {
+        // ASM loc_40026 (kid.asm:45404): `cmpi.w #$139,d0; blt.s loc_4006E`.
+        // Equality falls through, sets $42(a0), then loc_40060 subtracts the
+        // earlier +8 so the boundary frame compiles from old d0 without moving.
+        let mut slot = WallOfDeathSlot {
+            x_offset: 0x139,
+            y_offset: 0x30,
+            size_index: 6,
+            reached_right_edge: false,
+        };
+
+        let action = diamond_power_main_wall_of_death_slot(&mut slot, 0x100, 0x200, 1);
+
+        assert!(slot.reached_right_edge);
+        assert_eq!(slot.x_offset, 0x139);
+        assert_eq!(
+            action,
+            WallOfDeathSlotAction::Visible {
+                world_x: 0x239,
+                world_y: 0x230,
+                vram_attr: 0x115C,
+                y: 0xA9,
+                size_byte: 0x05,
+                pattern: 0x86F6,
+                x: 0x1B2,
+            }
+        );
+    }
 }
 
 /// Diamond-power sprite attribute table.
