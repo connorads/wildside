@@ -2675,6 +2675,52 @@ mod tests {
     }
 
     #[test]
+    fn diamond_power_five_way_stationary_slots_do_not_bounce_at_bounds_loc_40166() {
+        // ASM loc_4014C/loc_40166/loc_40176/loc_4018A (kid.asm:45528,
+        // 45535, 45542, 45549): after an edge breach, the ROM still checks
+        // the matching velocity sign with `tst.w`; zero velocity takes the
+        // `bge`/`ble` skip path and is not negated.
+        let cases = [
+            FiveWayShotSlot {
+                screen_x: -1,
+                screen_y: 0x20,
+                x_vel: 0,
+                y_vel: 0,
+                size_index: 5,
+            },
+            FiveWayShotSlot {
+                screen_x: 0x140,
+                screen_y: 0x20,
+                x_vel: 0,
+                y_vel: 0,
+                size_index: 5,
+            },
+            FiveWayShotSlot {
+                screen_x: 0x20,
+                screen_y: -1,
+                x_vel: 0,
+                y_vel: 0,
+                size_index: 5,
+            },
+            FiveWayShotSlot {
+                screen_x: 0x20,
+                screen_y: 0xE0,
+                x_vel: 0,
+                y_vel: 0,
+                size_index: 5,
+            },
+        ];
+
+        for mut slot in cases {
+            let action = diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 1);
+
+            assert_eq!(slot.x_vel, 0);
+            assert_eq!(slot.y_vel, 0);
+            assert!(matches!(action, FiveWayShotSlotAction::Visible { .. }));
+        }
+    }
+
+    #[test]
     fn diamond_power_five_way_timer_zero_does_not_fade_loc_4019a() {
         // ASM loc_4019A (kid.asm:45556): `tst.w (Diamond_power_timer).w;
         // bpl.s loc_401BA` skips the fade decrement for timer zero.
@@ -2832,6 +2878,19 @@ mod tests {
         assert_eq!(
             diamond_power_snake_steer(0, 14, 2, 0x01, 3),
             SnakeSteerResult::Adjusted(0x04)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_cosine_index_uses_word_offset_loc_3fa8c() {
+        // ASM loc_3FA8C (kid.asm:44798): `andi.w #$1F,d5; add.w d5,d5`
+        // converts the sub-octant into a byte offset before the cosine lookup.
+        // Sub-octant $10 sits close enough to the tangent comparison boundary
+        // that using `$10 + 2` or `$10 / 2` for the cosine offset turns the
+        // wrong way.
+        assert_eq!(
+            diamond_power_snake_steer(0, 64, 62, 0x10, 3),
+            SnakeSteerResult::Adjusted(0x13)
         );
     }
 
