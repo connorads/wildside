@@ -2189,13 +2189,13 @@ pub(crate) fn diamond_power_main_five_way_shot_slot(
 
     // ASM: bpl.s loc_40166; tst.w $26(a0); bge.s loc_40166; neg.w $26(a0)
     // Left-edge bounce: if d0 < 0 AND x_vel < 0, negate x_vel
-    if d0 < 0 && slot.x_vel < 0 {
+    if d0 < 0 && slot.x_vel.is_negative() {
         slot.x_vel = slot.x_vel.wrapping_neg();
     }
 
     // ASM loc_40166: cmpi.w #$140,d0; blt.s loc_40176; tst.w $26(a0); ble.s loc_40176; neg.w $26(a0)
     // Right-edge bounce: if d0 >= 320 AND x_vel > 0, negate x_vel
-    if d0 >= 0x140 && slot.x_vel > 0 {
+    if d0 >= 0x140 && slot.x_vel.is_positive() {
         slot.x_vel = slot.x_vel.wrapping_neg();
     }
 
@@ -2207,13 +2207,13 @@ pub(crate) fn diamond_power_main_five_way_shot_slot(
 
     // ASM: bpl.s loc_4018A; tst.w $2A(a0); bge.s loc_4018A; neg.w $2A(a0)
     // Top-edge bounce: if d1 < 0 AND y_vel < 0, negate y_vel
-    if d1 < 0 && slot.y_vel < 0 {
+    if d1 < 0 && slot.y_vel.is_negative() {
         slot.y_vel = slot.y_vel.wrapping_neg();
     }
 
     // ASM loc_4018A: cmpi.w #$E0,d1; blt.s loc_4019A; tst.w $2A(a0); ble.s loc_4019A; neg.w $2A(a0)
     // Bottom-edge bounce: if d1 >= 224 AND y_vel > 0, negate y_vel
-    if d1 >= 0xE0 && slot.y_vel > 0 {
+    if d1 >= 0xE0 && slot.y_vel.is_positive() {
         slot.y_vel = slot.y_vel.wrapping_neg();
     }
 
@@ -2471,24 +2471,32 @@ pub(crate) fn diamond_power_snake_steer(
     } else {
         // ASM: sub.w d4,d3 — octant difference
         let diff = (target_octant as i16).wrapping_sub(current_octant as i16);
-
-        if diff < 0 {
-            // ASM loc_3FA6A: cmpi.w #$FFFC,d3; bge.s loc_3FAC2; bra.s loc_3FACC
-            if diff >= -4 {
-                // Shortest path: subtract turn_rate
-                SnakeSteerResult::Adjusted(current_angle.wrapping_sub(turn_rate))
-            } else {
-                // Wrap around: add turn_rate
-                SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate))
+        match diff.cmp(&0) {
+            // ASM loc_3FA50 (kid.asm:44758): `cmp.w d3,d4; beq.s loc_3FA72`
+            // routes equal octants into the trig path above, so loc_3FA6A and
+            // the positive-diff path below only see strictly non-zero deltas.
+            std::cmp::Ordering::Less => {
+                // ASM loc_3FA6A: cmpi.w #$FFFC,d3; bge.s loc_3FAC2; bra.s loc_3FACC
+                if diff >= -4 {
+                    // Shortest path: subtract turn_rate
+                    SnakeSteerResult::Adjusted(current_angle.wrapping_sub(turn_rate))
+                } else {
+                    // Wrap around: add turn_rate
+                    SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate))
+                }
             }
-        } else {
-            // ASM: cmpi.w #4,d3; bge.s loc_3FAC2; bra.s loc_3FACC
-            if diff >= 4 {
-                // Wrap around: subtract turn_rate
-                SnakeSteerResult::Adjusted(current_angle.wrapping_sub(turn_rate))
-            } else {
-                // Shortest path: add turn_rate
-                SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate))
+            std::cmp::Ordering::Equal => {
+                unreachable!("ASM loc_3FA50 routes equal octants to loc_3FA72 before diff")
+            }
+            std::cmp::Ordering::Greater => {
+                // ASM: cmpi.w #4,d3; bge.s loc_3FAC2; bra.s loc_3FACC
+                if diff >= 4 {
+                    // Wrap around: subtract turn_rate
+                    SnakeSteerResult::Adjusted(current_angle.wrapping_sub(turn_rate))
+                } else {
+                    // Shortest path: add turn_rate
+                    SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate))
+                }
             }
         }
     }
@@ -2531,6 +2539,27 @@ mod tests {
 
         assert!(!result.removed);
         assert_eq!(slot.angle, 0x0000_BEEF);
+    }
+
+    #[test]
+    fn diamond_power_circle_of_doom_quarter_turn_uses_scaled_sine_y_offset_loc_3f81a() {
+        // ASM loc_3F81A (kid.asm:44509-44517): `muls.w d5,d1; swap d1;
+        // asr.w #6,d1; neg.w d1; add.w y_pos(a3),d1; subi.w #$10,d1`.
+        // At angle $40, `sub_40236` returns the quarter-turn sine peak. With
+        // radius $00210000, the scaled sine contributes 32px upward before the
+        // fixed $10 lift, so screen Y lands at $8F rather than the idle $AF.
+        let mut slot = CircleOfDoomSlot {
+            radius: 0x0021_0000,
+            shrink_flag: 0,
+            angle: 0x0040_0000,
+            status: 0,
+        };
+
+        let result = diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0x40, 0, 0);
+
+        assert!(!result.removed);
+        assert_eq!(result.screen_y, 0x008F);
+        assert_eq!(result.half_size, 5);
     }
 
     #[test]
@@ -2840,6 +2869,17 @@ mod tests {
     }
 
     #[test]
+    fn diamond_power_snake_steer_zero_octant_diff_turns_forward_loc_3fa5e() {
+        // ASM `bmi.s loc_3FA6A` (kid.asm:44760) only takes the negative-diff
+        // branch when d3 is strictly below zero. An exact zero octant
+        // difference falls through to `cmpi.w #4,d3` and adds turn_rate.
+        assert_eq!(
+            diamond_power_snake_steer(2, 8, 1, 0x20, 3),
+            SnakeSteerResult::Adjusted(0x23)
+        );
+    }
+
+    #[test]
     fn diamond_power_snake_steer_odd_octant_negates_angle_for_ratio_loc_3fa72() {
         // ASM loc_3FA72 (kid.asm:44777): `btst #0,d3; beq.s loc_3FA84;
         // neg.w d5` changes the sub-octant table index for odd target octants.
@@ -2891,6 +2931,18 @@ mod tests {
         assert_eq!(
             diamond_power_snake_steer(0, 64, 62, 0x10, 3),
             SnakeSteerResult::Adjusted(0x13)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_cosine_offset_doubles_sub_octant_loc_3fa8c() {
+        // ASM loc_3FA8C (kid.asm:44798): `andi.w #$1F,d5; add.w d5,d5`
+        // doubles sub-octant 4 to byte offset 8. That selects cosine index 60,
+        // making tangent quotient 3227 exceed the displacement ratio 3223, so
+        // loc_3FABE falls through to loc_3FAC2 and subtracts turn_rate.
+        assert_eq!(
+            diamond_power_snake_steer(0, 61, 6, 0x04, 3),
+            SnakeSteerResult::Adjusted(0x01)
         );
     }
 
