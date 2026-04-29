@@ -2590,6 +2590,37 @@ mod tests {
     }
 
     #[test]
+    fn diamond_power_five_way_exact_left_edge_keeps_left_velocity_loc_4014c() {
+        // ASM loc_4014C (kid.asm:45526): `add.w $26(a0),d0; bpl.s loc_40166`
+        // branches for zero, so an exact left-edge position is stored without
+        // negating a still-leftward velocity. Only negative screen X bounces.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 6,
+            screen_y: 0x20,
+            x_vel: -6,
+            y_vel: 0,
+            size_index: 5,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 1);
+
+        assert_eq!(slot.screen_x, 0);
+        assert_eq!(slot.x_vel, -6);
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0,
+                world_y: 0x20,
+                vram_attr: 0x1158,
+                y: 0x9A,
+                size_byte: 0x05,
+                pattern: 0x86F2,
+                x: 0x7A,
+            }
+        );
+    }
+
+    #[test]
     fn diamond_power_rain_find_nearest_enemy_keeps_left_screen_edge_loc_3fee2() {
         // ASM loc_3FEE2 (kid.asm:45253): `cmpi.w #$FFF8,d5; blt.s loc_3FF26`
         // rejects only values below -8, so exact screen X -8 remains targetable.
