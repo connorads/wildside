@@ -3156,6 +3156,33 @@ mod tests {
     }
 
     #[test]
+    fn diamond_power_snake_compiles_first_post_table_word_loc_3fb3e() {
+        // ASM loc_3FB3E / word_4020E / sub_40236
+        // (kid.asm:44861, 45605, 45618): `move.b (a1,d6.w)` and
+        // `move.w 2(a1,d6.w)` read straight through the ten 4-byte entries.
+        // With `diamond_size = 10`, `d6 = $28`, so the ROM consumes opcode
+        // `$0240` from `andi.w #$FF,d0` as size byte $02 and pattern $00FF.
+        let mut slot = SnakeSlot {
+            x_pos: 0x20,
+            y_pos: 0x90,
+            diamond_size: 10,
+            trail: [(0, 0); 3],
+        };
+
+        let action = diamond_power_snake_slot_sprite(&mut slot, 0, 0, 0, 0);
+
+        assert_eq!(
+            action,
+            SnakeSlotSpriteAction::Visible {
+                y: 0x0105,
+                size_byte: 0x02,
+                pattern: 0x00FF,
+                x: 0x0095,
+            }
+        );
+    }
+
+    #[test]
     fn diamond_power_init_invulnerability_preserves_signed_rom_offsets_loc_3fc8c() {
         // ASM loc_3FC8C / DiamondPower_InitData_Invulnerability
         // (kid.asm:45010, 45055): the second byte is sign-extended with
@@ -3457,12 +3484,7 @@ pub(crate) fn diamond_power_snake_slot_sprite(
 
     // ASM: look up sprite attributes from word_4020E
     let entry_index = table_index / 4;
-    let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
-        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
-    } else {
-        // Out-of-range sizes use last entry (defensive; ASM doesn't bounds-check)
-        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
-    };
+    let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
 
     SnakeSlotSpriteAction::Visible {
         y: y as u16,
@@ -3764,11 +3786,7 @@ pub(crate) fn diamond_power_main_extra_hp_life_slot(
 
     // ASM loc_3FC56: compile sprite — add.w d6,d6; add.w d6,d6; lea word_4020E(pc),a1
     let entry_index = d6 as usize;
-    let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
-        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
-    } else {
-        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
-    };
+    let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
 
     ExtraHPLifeSlotAction::Visible {
         y: screen_y as u16,
@@ -3943,11 +3961,7 @@ pub(crate) fn diamond_power_invuln_haze_slot_sprite(
 
     // ASM: lea word_4020E(pc),a1; cmpi.w #$C,d6
     let entry_index = table_index / 4;
-    let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
-        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
-    } else {
-        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
-    };
+    let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
 
     if table_index < 0xC {
         // ASM: small sprite path → a4 buffer
