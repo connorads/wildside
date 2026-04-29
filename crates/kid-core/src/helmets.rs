@@ -2617,6 +2617,39 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn diamond_power_rain_find_nearest_enemy_replaces_equal_distance_enemy_loc_3ff1c() {
+        // ASM loc_3FF1C (kid.asm:45277): `cmp.w d6,d7; bcs.s loc_3FF26`
+        // skips only when the current best distance is unsigned-below the
+        // candidate distance. Equal Manhattan distances fall through and
+        // replace `a3`, so the later enemy in the linked-list scan wins ties.
+        let target = diamond_power_rain_find_nearest_enemy(
+            0,
+            0x20,
+            0,
+            0,
+            &[
+                SnakeTargetCandidate {
+                    x_pos: -8,
+                    y_pos: 0x28,
+                },
+                SnakeTargetCandidate {
+                    x_pos: 8,
+                    y_pos: 0x28,
+                },
+            ],
+        );
+
+        assert_eq!(
+            target,
+            Some(RainNearestEnemy {
+                distance: 8,
+                x: 8,
+                y: 0x28,
+            })
+        );
+    }
 }
 
 /// Diamond-power sprite attribute table.
