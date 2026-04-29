@@ -2270,11 +2270,7 @@ fn five_way_shot_compile_sprite(
 
     // ASM: compile sprite into buffer
     let entry_index = table_byte_index / 4;
-    let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
-        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
-    } else {
-        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
-    };
+    let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
 
     FiveWayShotSlotAction::Visible {
         world_x,
@@ -2612,6 +2608,126 @@ mod tests {
                 size_byte: 0x05,
                 pattern: 0x86F2,
                 x: 0x7A,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_five_way_top_edge_requires_negative_position_and_velocity_loc_40176() {
+        // ASM loc_40176 (kid.asm:45541): `add.w $2A(a0),d1; bpl.s loc_4018A`
+        // skips the top bounce whenever the updated screen Y is non-negative,
+        // even if the slot is still travelling upward.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 0x20,
+            screen_y: 4,
+            x_vel: 0,
+            y_vel: -4,
+            size_index: 5,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 1);
+
+        assert_eq!(slot.screen_y, 0);
+        assert_eq!(slot.y_vel, -4);
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0x20,
+                world_y: 0,
+                vram_attr: 0x1158,
+                y: 0x7A,
+                size_byte: 0x05,
+                pattern: 0x86F2,
+                x: 0x9A,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_five_way_timer_zero_does_not_fade_loc_4019a() {
+        // ASM loc_4019A (kid.asm:45556): `tst.w (Diamond_power_timer).w;
+        // bpl.s loc_401BA` skips the fade decrement for timer zero.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 0x20,
+            screen_y: 0x30,
+            x_vel: 0,
+            y_vel: 0,
+            size_index: 0,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0x100, 0x200, 0);
+
+        assert_eq!(slot.size_index, 0);
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x1144,
+                y: 0xAF,
+                size_byte: 0x00,
+                pattern: 0x86EA,
+                x: 0x9F,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_five_way_fade_to_zero_stays_visible_loc_4019a() {
+        // ASM loc_4019A (kid.asm:45561): `subq.w #1,$24(a0); bpl.s loc_401BA`.
+        // Decrementing to exactly zero is still non-negative, so removal starts
+        // only after the size word underflows to -1.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 0x20,
+            screen_y: 0x30,
+            x_vel: 0,
+            y_vel: 0,
+            size_index: 1,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0x100, 0x200, -8);
+
+        assert_eq!(slot.size_index, 0);
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x1144,
+                y: 0xAF,
+                size_byte: 0x00,
+                pattern: 0x86EA,
+                x: 0x9F,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_five_way_compiles_first_post_table_word_loc_401ba() {
+        // ASM loc_401BA / word_4020E (kid.asm:45567, 45605): the ROM reads
+        // `(a1,d6.w)` and `2(a1,d6.w)` without a bounds check. For size 10,
+        // the read lands on `sub_40236` (`andi.w #$FF,d0`) and yields size
+        // byte $02 from opcode $0240 plus pattern $00FF.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 0x20,
+            screen_y: 0x30,
+            x_vel: 0,
+            y_vel: 0,
+            size_index: 10,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0x100, 0x200, 1);
+
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x116C,
+                y: 0xA5,
+                size_byte: 0x02,
+                pattern: 0x00FF,
+                x: 0x95,
             }
         );
     }
