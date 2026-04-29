@@ -2508,6 +2508,32 @@ pub(crate) fn diamond_power_snake_steer(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diamond_power_snake_find_target_keeps_lower_screen_bounds_loc_3f9c2() {
+        // ASM loc_3F9C2 (kid.asm:44684): `cmpi.w #$FFF8,d4; blt.s loc_3FA06`
+        // and `cmpi.w #$10,d5; blt.s loc_3FA06` reject values below the
+        // lower bounds, so exact -8 X and $10 Y remain valid target candidates.
+        let target = diamond_power_snake_find_target(
+            0,
+            0x10,
+            0,
+            0,
+            &[SnakeTargetCandidate {
+                x_pos: -8,
+                y_pos: 0x20,
+            }],
+            0x1234,
+            0x5678,
+        );
+
+        assert_eq!(target, SnakeTarget { x: -8, y: 0x20 });
+    }
+}
+
 /// Diamond-power sprite attribute table.
 /// ASM word_4020E (kid.asm:45605): 10 entries of (size_byte, pattern_word),
 /// stored as 4-byte pairs. Indexed by `diamond_size * 4`.
