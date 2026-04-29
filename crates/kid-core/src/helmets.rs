@@ -3141,6 +3141,181 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn diamond_power_init_invulnerability_preserves_signed_rom_offsets_loc_3fc8c() {
+        // ASM loc_3FC8C / DiamondPower_InitData_Invulnerability
+        // (kid.asm:45010, 45055): the second byte is sign-extended with
+        // `ext.w d3`, while phase and rotation speed stay unsigned bytes.
+        let result = diamond_power_init_invuln_haze(true);
+
+        assert_eq!(
+            result,
+            InvulnHazeInitResult {
+                slots: vec![
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: -0x24,
+                        phase: 0x00,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: -0x24,
+                        phase: 0x80,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: 0x04,
+                        phase: 0x40,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: 0x04,
+                        phase: 0xC0,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x1A,
+                        phase: 0x10,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x1A,
+                        phase: 0x90,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x06,
+                        phase: 0x30,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x06,
+                        phase: 0xB0,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x18,
+                        radius_frac: 0,
+                        y_offset: -0x10,
+                        phase: 0x20,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x18,
+                        radius_frac: 0,
+                        y_offset: -0x10,
+                        phase: 0xA0,
+                        rotation_speed: 0x06
+                    },
+                ],
+                diamond_power_timer: 0x01E0,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_init_samurai_haze_preserves_signed_rom_offsets_loc_3fc8c() {
+        // ASM loc_3FC8C / DiamondPower_InitData_SamuraiHaze
+        // (kid.asm:45010, 45043): the ROM table mixes signed Y offsets with
+        // unsigned phase bytes, so $80/$A0/$C0/$E0 must survive as 8-bit
+        // phases instead of being sign-extended like the second byte.
+        let result = diamond_power_init_invuln_haze(false);
+
+        assert_eq!(
+            result,
+            InvulnHazeInitResult {
+                slots: vec![
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: -0x24,
+                        phase: 0x00,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: -0x24,
+                        phase: 0x80,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: 0x04,
+                        phase: 0x80,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: 0x04,
+                        phase: 0x00,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x1A,
+                        phase: 0x20,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x1A,
+                        phase: 0xA0,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x06,
+                        phase: 0x60,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x06,
+                        phase: 0xE0,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x18,
+                        radius_frac: 0,
+                        y_offset: -0x10,
+                        phase: 0x40,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x18,
+                        radius_frac: 0,
+                        y_offset: -0x10,
+                        phase: 0xC0,
+                        rotation_speed: 0x02
+                    },
+                ],
+                diamond_power_timer: 0x01E0,
+            }
+        );
+    }
 }
 
 /// Diamond-power sprite attribute table.
