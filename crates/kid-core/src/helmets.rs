@@ -2592,6 +2592,31 @@ mod tests {
 
         assert_eq!(target, SnakeTarget { x: 8, y: 0x30 });
     }
+
+    #[test]
+    fn diamond_power_rain_find_nearest_enemy_keeps_left_screen_edge_loc_3fee2() {
+        // ASM loc_3FEE2 (kid.asm:45253): `cmpi.w #$FFF8,d5; blt.s loc_3FF26`
+        // rejects only values below -8, so exact screen X -8 remains targetable.
+        let target = diamond_power_rain_find_nearest_enemy(
+            0,
+            0x20,
+            0,
+            0,
+            &[SnakeTargetCandidate {
+                x_pos: -8,
+                y_pos: 0x28,
+            }],
+        );
+
+        assert_eq!(
+            target,
+            Some(RainNearestEnemy {
+                distance: 8,
+                x: -8,
+                y: 0x28,
+            })
+        );
+    }
 }
 
 /// Diamond-power sprite attribute table.
