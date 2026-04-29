@@ -2513,6 +2513,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn diamond_power_circle_of_doom_clamps_size_table_upper_bound_loc_3f81a() {
+        // ASM loc_3F81A / byte_3F8B4 (kid.asm:44537, 44560): the ROM indexes
+        // the 28-byte table with `$3E(a0).w >> 1`. Native keeps the last ROM
+        // half-size as the defensive value for radii beyond that table.
+        let mut slot = CircleOfDoomSlot {
+            radius: 0x0038_0000,
+            shrink_flag: 0,
+            angle: 0,
+            status: 1,
+        };
+
+        let result = diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0x10, 0, 0);
+
+        assert_eq!(result.half_size, 6);
+        assert!(result.removed);
+    }
+
+    #[test]
     fn diamond_power_snake_find_target_keeps_lower_screen_bounds_loc_3f9c2() {
         // ASM loc_3F9C2 (kid.asm:44684): `cmpi.w #$FFF8,d4; blt.s loc_3FA06`
         // and `cmpi.w #$10,d5; blt.s loc_3FA06` reject values below the
