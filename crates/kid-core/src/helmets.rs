@@ -2613,6 +2613,37 @@ mod tests {
     }
 
     #[test]
+    fn diamond_power_five_way_exact_right_edge_bounces_right_velocity_loc_40166() {
+        // ASM loc_40166 (kid.asm:45533): `cmpi.w #$140,d0; blt.s loc_40176`
+        // skips only while updated screen X is below 320. At exactly 320,
+        // positive X velocity is negated before the position is stored.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 0x13F,
+            screen_y: 0x20,
+            x_vel: 1,
+            y_vel: 0,
+            size_index: 5,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 1);
+
+        assert_eq!(slot.screen_x, 0x140);
+        assert_eq!(slot.x_vel, -1);
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0x140,
+                world_y: 0x20,
+                vram_attr: 0x1158,
+                y: 0x9A,
+                size_byte: 0x05,
+                pattern: 0x86F2,
+                x: 0x1BA,
+            }
+        );
+    }
+
+    #[test]
     fn diamond_power_five_way_top_edge_requires_negative_position_and_velocity_loc_40176() {
         // ASM loc_40176 (kid.asm:45541): `add.w $2A(a0),d1; bpl.s loc_4018A`
         // skips the top bounce whenever the updated screen Y is non-negative,
