@@ -3143,6 +3143,19 @@ mod tests {
     }
 
     #[test]
+    fn diamond_sprite_attr_reads_first_post_table_word_from_sub_40236_loc_3ffca() {
+        // ASM loc_3FFCA / word_4020E / sub_40236
+        // (kid.asm:45354, 45605, 45618): `move.b (a1,d6.w)` and
+        // `move.w 2(a1,d6.w)` read straight through the ten 4-byte entries.
+        // With `d6 = $28` (size index 10), the ROM consumes opcode `$0240`
+        // from `andi.w #$FF,d0` as size byte $02 and pattern $00FF.
+        assert_eq!(
+            diamond_sprite_attr_for_word_4020e_index(DIAMOND_SPRITE_ATTR_TABLE.len()),
+            (0x02, 0x00FF)
+        );
+    }
+
+    #[test]
     fn diamond_power_init_invulnerability_preserves_signed_rom_offsets_loc_3fc8c() {
         // ASM loc_3FC8C / DiamondPower_InitData_Invulnerability
         // (kid.asm:45010, 45055): the second byte is sign-extended with
@@ -3340,17 +3353,16 @@ pub(crate) const DIAMOND_SPRITE_ATTR_TABLE: [(u8, u16); 10] = [
 
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_sprite_attr_for_word_4020e_index(entry_index: usize) -> (u8, u16) {
-    if entry_index == DIAMOND_SPRITE_ATTR_TABLE.len() {
-        // ASM loc_3FFCA / word_4020E (kid.asm:45354, 45605): the ROM does no
-        // bounds check before reading `(a1,d6.w)` and `2(a1,d6.w)`. The first
-        // post-table words are `sub_40236: andi.w #$FF,d0` = `$0240,$00FF`.
-        return (0x02, 0x00FF);
-    }
-
-    if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
-        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
-    } else {
-        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
+    match entry_index.cmp(&DIAMOND_SPRITE_ATTR_TABLE.len()) {
+        std::cmp::Ordering::Less => DIAMOND_SPRITE_ATTR_TABLE[entry_index],
+        std::cmp::Ordering::Equal => {
+            // ASM loc_3FFCA / word_4020E (kid.asm:45354, 45605): the ROM does
+            // no bounds check before reading `(a1,d6.w)` and `2(a1,d6.w)`.
+            // The first post-table words are `sub_40236: andi.w #$FF,d0` =
+            // `$0240,$00FF`.
+            (0x02, 0x00FF)
+        }
+        std::cmp::Ordering::Greater => *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap(),
     }
 }
 
