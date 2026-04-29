@@ -2565,6 +2565,33 @@ mod tests {
 
         assert_eq!(target, SnakeTarget { x: -8, y: 0x20 });
     }
+
+    #[test]
+    fn diamond_power_snake_find_target_replaces_equal_distance_target_loc_3f9fc() {
+        // ASM loc_3F9FC (kid.asm:44708): `cmp.w d5,d3; bcs.s loc_3FA06`
+        // skips only when the current best distance is unsigned-below the
+        // candidate distance. Equal distances fall through and replace `a3`.
+        let target = diamond_power_snake_find_target(
+            0,
+            0x20,
+            0,
+            0,
+            &[
+                SnakeTargetCandidate {
+                    x_pos: -8,
+                    y_pos: 0x30,
+                },
+                SnakeTargetCandidate {
+                    x_pos: 8,
+                    y_pos: 0x30,
+                },
+            ],
+            0x1234,
+            0x5678,
+        );
+
+        assert_eq!(target, SnakeTarget { x: 8, y: 0x30 });
+    }
 }
 
 /// Diamond-power sprite attribute table.
