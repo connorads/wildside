@@ -2764,6 +2764,66 @@ mod tests {
     }
 
     #[test]
+    fn diamond_power_snake_octant_treats_zero_vertical_delta_as_positive_loc_3fa16() {
+        // ASM loc_3FA16 (kid.asm:44732): `tst.w d1; bpl.s loc_3FA36`.
+        // A zero vertical delta takes the positive branch, leaving d3=0 before
+        // the loc_3FA46 axis-alignment flip returns octant 1.
+        assert_eq!(diamond_power_snake_octant(0x20, 0x40, 0x20, 0x30), 1);
+    }
+
+    #[test]
+    fn diamond_power_snake_octant_equal_axes_do_not_add_horizontal_bit_loc_3fa40() {
+        // ASM loc_3FA40 (kid.asm:44744): `cmp.w d0,d1; bge.s loc_3FA46`
+        // skips `addq.w #1,d3` for equal absolute axes. Only strictly more
+        // horizontal displacement increments the octant base.
+        assert_eq!(diamond_power_snake_octant(0x25, 0x40, 0x20, 0x35), 1);
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_same_octant_requires_both_components_zero_loc_3fa72() {
+        // ASM loc_3FA72 (kid.asm:44773): `move.w d0,d5; or.w d1,d5; beq`
+        // reaches Unchanged only when both displacement components are zero.
+        assert_eq!(
+            diamond_power_snake_steer(0, 0, 8, 0, 3),
+            SnakeSteerResult::Adjusted(3)
+        );
+        assert_eq!(
+            diamond_power_snake_steer(0, 0, 0, 0, 3),
+            SnakeSteerResult::Unchanged
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_odd_octant_negates_angle_for_ratio_loc_3fa72() {
+        // ASM loc_3FA72 (kid.asm:44777): `btst #0,d3; beq.s loc_3FA84;
+        // neg.w d5` changes the sub-octant table index for odd target octants.
+        assert_eq!(
+            diamond_power_snake_steer(1, 8, 8, 0x28, 3),
+            SnakeSteerResult::Adjusted(0x25)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_non_diagonal_octant_keeps_axes_loc_3fa84() {
+        // ASM loc_3FA84 (kid.asm:44782): mask `$66` swaps d0/d1 only for
+        // diagonal octants. Octant 0 keeps dx as the divisor before loc_3FA8C.
+        assert_eq!(
+            diamond_power_snake_steer(0, 4, 8, 8, 3),
+            SnakeSteerResult::Adjusted(5)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_diagonal_octant_swaps_axes_loc_3fa84() {
+        // ASM loc_3FA84 (kid.asm:44783): `btst d3,d6; beq.s loc_3FA8C;
+        // exg d0,d1` swaps the ratio axes for diagonal octant 2.
+        assert_eq!(
+            diamond_power_snake_steer(2, 4, 32, 0x48, 3),
+            SnakeSteerResult::Adjusted(0x45)
+        );
+    }
+
+    #[test]
     fn diamond_power_rain_find_nearest_enemy_keeps_left_screen_edge_loc_3fee2() {
         // ASM loc_3FEE2 (kid.asm:45253): `cmpi.w #$FFF8,d5; blt.s loc_3FF26`
         // rejects only values below -8, so exact screen X -8 remains targetable.
