@@ -1234,11 +1234,9 @@ pub(crate) fn diamond_power_main_circle_of_doom_slot(
         }
     }
 
-    // ASM: subq.w #4,$42(a0) — decrement angle
-    let angle_upper = (slot.angle >> 16) as u16;
-    let angle_lower = slot.angle as u16;
-    let new_angle_upper = angle_upper.wrapping_sub(4);
-    slot.angle = (new_angle_upper as u32) << 16 | angle_lower as u32;
+    // ASM loc_3F880: `subq.w #4,$42(a0)` decrements the high word of the
+    // angle longword in place, preserving the low word unchanged.
+    slot.angle = slot.angle.wrapping_sub(4 << 16);
 
     // ASM loc_3F8AA: move.l 4(a0),d0; bne.w loc_3F81A; rts
     // The linked-list traversal tail: loads the next-slot pointer from offset 4
@@ -2528,6 +2526,23 @@ mod tests {
 
         assert_eq!(result.half_size, 6);
         assert!(result.removed);
+    }
+
+    #[test]
+    fn diamond_power_circle_of_doom_decrements_angle_high_word_loc_3f880() {
+        // ASM loc_3F880 (kid.asm:44553): `subq.w #4,$42(a0)` updates only the
+        // high word of the angle longword, so fractional low-word bits survive.
+        let mut slot = CircleOfDoomSlot {
+            radius: 0x0021_0000,
+            shrink_flag: 0,
+            angle: 0x0004_BEEF,
+            status: 0,
+        };
+
+        let result = diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0x10, 0, 0);
+
+        assert!(!result.removed);
+        assert_eq!(slot.angle, 0x0000_BEEF);
     }
 
     #[test]
