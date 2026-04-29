@@ -2824,6 +2824,18 @@ mod tests {
     }
 
     #[test]
+    fn diamond_power_snake_steer_tangent_divu_uses_quotient_loc_3fa8c() {
+        // ASM loc_3FA8C / loc_3FABE (kid.asm:44794, 44809): `divu.w d1,d0`
+        // keeps the tangent quotient before `cmp.w d4,d0; ble.s loc_3FACC`.
+        // With angle sub-octant 1 and shallow displacement, the quotient turns
+        // right; using the division remainder would incorrectly subtract.
+        assert_eq!(
+            diamond_power_snake_steer(0, 14, 2, 0x01, 3),
+            SnakeSteerResult::Adjusted(0x04)
+        );
+    }
+
+    #[test]
     fn diamond_power_rain_find_nearest_enemy_keeps_left_screen_edge_loc_3fee2() {
         // ASM loc_3FEE2 (kid.asm:45253): `cmpi.w #$FFF8,d5; blt.s loc_3FF26`
         // rejects only values below -8, so exact screen X -8 remains targetable.
