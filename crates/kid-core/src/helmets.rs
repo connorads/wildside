@@ -2665,6 +2665,36 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn diamond_power_wall_of_death_timer_zero_does_not_fade_loc_40044() {
+        // ASM loc_40044 (kid.asm:45410): `tst.w (Diamond_power_timer).w;
+        // bpl.s loc_40060` skips the fade decrement for timer zero. A zero
+        // size slot stays visible instead of underflowing into removal.
+        let mut slot = WallOfDeathSlot {
+            x_offset: 0x20,
+            y_offset: 0x30,
+            size_index: 0,
+            reached_right_edge: true,
+        };
+
+        let action = diamond_power_main_wall_of_death_slot(&mut slot, 0x100, 0x200, 0);
+
+        assert_eq!(slot.size_index, 0);
+        assert_eq!(slot.x_offset, 0x18);
+        assert_eq!(
+            action,
+            WallOfDeathSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x1144,
+                y: 0xAF,
+                size_byte: 0x00,
+                pattern: 0x86EA,
+                x: 0x9F,
+            }
+        );
+    }
 }
 
 /// Diamond-power sprite attribute table.
