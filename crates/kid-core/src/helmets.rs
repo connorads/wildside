@@ -1767,11 +1767,7 @@ pub(crate) fn diamond_power_rain_screen_cull_and_compile(
     if d1 <= 0x168 {
         // ASM loc_3FFCA: on-screen — compile sprite
         let entry_index = table_index / 4;
-        let (size_byte, pattern) = if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
-            DIAMOND_SPRITE_ATTR_TABLE[entry_index]
-        } else {
-            *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
-        };
+        let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
 
         return (
             vram_attr,
@@ -2650,6 +2646,25 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn diamond_power_rain_compiles_first_post_table_word_loc_3ffca() {
+        // ASM loc_3FFCA (kid.asm:45354) indexes `word_4020E` with
+        // `diamond_size * 4` and does not clamp. For size 10, the read lands
+        // on the first two words of `sub_40236` (`andi.w #$FF,d0`), yielding
+        // size byte $02 from opcode $0240 and pattern $00FF.
+        let (_, action) = diamond_power_rain_screen_cull_and_compile(0x20, 0x90, 10);
+
+        assert_eq!(
+            action,
+            RainSlotSpriteAction::Visible {
+                y: 0x86,
+                size_byte: 0x02,
+                pattern: 0x00FF,
+                x: 0x16,
+            }
+        );
+    }
 }
 
 /// Diamond-power sprite attribute table.
@@ -2671,6 +2686,22 @@ pub(crate) const DIAMOND_SPRITE_ATTR_TABLE: [(u8, u16); 10] = [
     (0x00, 0x822D), // d6=0x20
     (0x05, 0xE6FA), // d6=0x24
 ];
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_sprite_attr_for_word_4020e_index(entry_index: usize) -> (u8, u16) {
+    if entry_index == DIAMOND_SPRITE_ATTR_TABLE.len() {
+        // ASM loc_3FFCA / word_4020E (kid.asm:45354, 45605): the ROM does no
+        // bounds check before reading `(a1,d6.w)` and `2(a1,d6.w)`. The first
+        // post-table words are `sub_40236: andi.w #$FF,d0` = `$0240,$00FF`.
+        return (0x02, 0x00FF);
+    }
+
+    if entry_index < DIAMOND_SPRITE_ATTR_TABLE.len() {
+        DIAMOND_SPRITE_ATTR_TABLE[entry_index]
+    } else {
+        *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap()
+    }
+}
 
 /// Result of processing a single snake slot in the sprite compilation loop.
 #[derive(Debug, Clone, PartialEq, Eq)]
