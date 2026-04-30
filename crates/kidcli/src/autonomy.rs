@@ -959,9 +959,12 @@ impl GoalState {
             Self::GameplayBacklog => {
                 evaluate_gameplay_backlog_cycle(repo_root, cycle_number, routines_per_task)
             }
-            Self::ProactiveVerification => {
-                evaluate_proactive_verification_cycle(repo_root, cycle_number, routines_per_task)
-            }
+            Self::ProactiveVerification => evaluate_proactive_verification_cycle(
+                repo_root,
+                cycle_number,
+                routines_per_task,
+                &[],
+            ),
         }
     }
 }
@@ -1483,6 +1486,16 @@ fn apply_dirty_tree_recovery(
     task.next_fallback_goal = delegated_goal;
 }
 
+/// Convert the cascade's prior-cycle `delegated_target` into a one-element
+/// skip list for `evaluate_proactive_verification_cycle`. Empty when nothing
+/// was delegated (e.g. fresh frontier). Used by recovery branches so the
+/// proactive-verification strategies don't re-emit the same stuck fingerprint.
+fn pv_recovery_skip_list(delegated_target: Option<&str>) -> Vec<String> {
+    delegated_target
+        .map(|target| vec![target.to_owned()])
+        .unwrap_or_default()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn emit_recovery_trace(
     repo_root: &Path,
@@ -1666,8 +1679,12 @@ fn evaluate_source_port_frontier_cycle(
             } else {
                 let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
                 if uncovered.is_empty() {
-                    let pv_report =
-                        evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
+                    let pv_report = evaluate_proactive_verification_cycle(
+                        repo_root,
+                        cycle,
+                        routines_per_task,
+                        &[],
+                    )?;
                     if let Some(pv_task) = pv_report.task_package {
                         let target = pv_task.progress_fingerprint.clone();
                         let summary = format!(
@@ -1885,8 +1902,13 @@ fn evaluate_source_port_frontier_cycle(
                 let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
                 if uncovered.is_empty() {
                     // All sub_ covered; try proactive verification before sweep-parity
-                    let pv_report =
-                        evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
+                    let pv_skip = pv_recovery_skip_list(delegated_target.as_deref());
+                    let pv_report = evaluate_proactive_verification_cycle(
+                        repo_root,
+                        cycle,
+                        routines_per_task,
+                        &pv_skip,
+                    )?;
                     if let Some(pv_task) = pv_report.task_package {
                         chose_branch = "case_queue_pv";
                         let target = pv_task.progress_fingerprint.clone();
@@ -1992,8 +2014,13 @@ fn evaluate_source_port_frontier_cycle(
                     // the operator-visible pivot_reason and fallback goal are
                     // what break the loop.
                     chose_branch = "sweep_parity_docs_only_streak";
-                    let pv_report =
-                        evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
+                    let pv_skip = pv_recovery_skip_list(delegated_target.as_deref());
+                    let pv_report = evaluate_proactive_verification_cycle(
+                        repo_root,
+                        cycle,
+                        routines_per_task,
+                        &pv_skip,
+                    )?;
                     let pivot_reason = format!(
                         "last {docs_only_refresh_streak} commits were docs-only sweep-parity refreshes; pivot to proactive-verification instead of emitting another release-gate evidence refresh"
                     );
@@ -2069,8 +2096,13 @@ fn evaluate_source_port_frontier_cycle(
                 // Stalled on a backlog-issue or unknown lane. Try proactive
                 // verification (enemy audits, loc_ coverage, mutation testing)
                 // before falling back to re-verify.
-                let pv_report =
-                    evaluate_proactive_verification_cycle(repo_root, cycle, routines_per_task)?;
+                let pv_skip = pv_recovery_skip_list(delegated_target.as_deref());
+                let pv_report = evaluate_proactive_verification_cycle(
+                    repo_root,
+                    cycle,
+                    routines_per_task,
+                    &pv_skip,
+                )?;
                 if let Some(pv_task) = pv_report.task_package {
                     chose_branch = "catchall_pv";
                     let target = pv_task.progress_fingerprint.clone();
@@ -3192,11 +3224,13 @@ fn evaluate_proactive_verification_cycle(
     repo_root: &Path,
     cycle: u32,
     routines_per_task: u32,
+    extra_skip_fingerprints: &[String],
 ) -> Result<CycleReport> {
     let config = load_proactive_verification_config(repo_root)?;
     let work_counts = refresh_work_type_counts(repo_root).unwrap_or_default();
     let frontier_state = load_source_port_frontier_state(repo_root).ok();
-    let rejected_fingerprints = collect_rejected_fingerprints(frontier_state.as_ref());
+    let mut rejected_fingerprints = collect_rejected_fingerprints(frontier_state.as_ref());
+    rejected_fingerprints.extend(extra_skip_fingerprints.iter().cloned());
 
     for strategy in &config.strategies {
         match strategy {
@@ -3269,6 +3303,7 @@ fn evaluate_proactive_verification_cycle(
                     targets,
                     rotation,
                     *max_candidates_per_cycle,
+                    &rejected_fingerprints,
                 ) && !rejected_fingerprints.contains(&report.progress_fingerprint)
                 {
                     return Ok(report);
@@ -3415,13 +3450,20 @@ fn try_candidate_promotion_strategy(
     ))
 }
 
+/// Canonical full-progress fingerprint emitted by `proactive_verification_report`.
+/// Centralised so the recovery cascade can construct skip strings that match
+/// whatever the strategy will emit (see `try_mutation_testing_strategy`).
+fn proactive_verification_full_fingerprint(strategy_name: &str, target: &str) -> String {
+    format!("proactive-verification:{strategy_name}:{target}")
+}
+
 fn proactive_verification_report(
     cycle: u32,
     strategy_name: &str,
     target: &str,
     task: TaskPackage,
 ) -> CycleReport {
-    let fingerprint = format!("proactive-verification:{strategy_name}:{target}");
+    let fingerprint = proactive_verification_full_fingerprint(strategy_name, target);
     let task = TaskPackage {
         generated_at: autonomy_timestamp(),
         cycle,
@@ -3889,6 +3931,7 @@ fn try_mutation_testing_strategy(
     targets: &[MutationTarget],
     rotation: &[String],
     max_candidates_per_cycle: Option<u32>,
+    skip_fingerprints: &BTreeSet<String>,
 ) -> Option<CycleReport> {
     let ledger_path = repo_root.join(MUTATION_LEDGER_PATH);
     let mut ledger = load_mutation_ledger(&ledger_path);
@@ -3991,6 +4034,31 @@ fn try_mutation_testing_strategy(
 
             match &run.status {
                 MutationRunStatus::NotRun => {
+                    let candidate_target = format!("{module_stem}:run{}", shard.suffix());
+                    let candidate_fingerprint = proactive_verification_full_fingerprint(
+                        "mutation-testing",
+                        &candidate_target,
+                    );
+                    // Asymmetry guard mirroring the Survivors arm: if the
+                    // strategy has emitted "run shard-N/M" three times without
+                    // producing the artefact (the agent kept committing in the
+                    // same file but never ran the shard), defer this shard so
+                    // the rotation advances instead of definitively stalling
+                    // on Mechanism A in the recovery cascade.
+                    let previous_attempts = previous_entry
+                        .as_ref()
+                        .map_or(0, |entry| entry.attempt_count);
+                    if previous_attempts >= 3 || skip_fingerprints.contains(&candidate_fingerprint)
+                    {
+                        mark_mutation_ledger_attempt(
+                            &mut ledger,
+                            target,
+                            shard,
+                            MutationLedgerStatus::DeferredAttempts,
+                        );
+                        let _ = write_mutation_ledger(&ledger_path, &ledger);
+                        continue;
+                    }
                     mark_mutation_ledger_attempt(
                         &mut ledger,
                         target,
@@ -3998,6 +4066,7 @@ fn try_mutation_testing_strategy(
                         MutationLedgerStatus::NotRun,
                     );
                     let _ = write_mutation_ledger(&ledger_path, &ledger);
+                    update_mutation_pointer_shard(repo_root, shard);
                     let task = mutation_run_task(
                         target,
                         &output_root,
@@ -4008,12 +4077,28 @@ fn try_mutation_testing_strategy(
                     return Some(proactive_verification_report(
                         cycle,
                         "mutation-testing",
-                        &format!("{module_stem}:run{}", shard.suffix()),
+                        &candidate_target,
                         task,
                     ));
                 }
                 MutationRunStatus::Incomplete { detail } => {
                     let detail_hash = stable_short_hash(detail);
+                    let candidate_target =
+                        format!("{module_stem}:rerun:{detail_hash}{}", shard.suffix());
+                    let candidate_fingerprint = proactive_verification_full_fingerprint(
+                        "mutation-testing",
+                        &candidate_target,
+                    );
+                    if skip_fingerprints.contains(&candidate_fingerprint) {
+                        mark_mutation_ledger_attempt(
+                            &mut ledger,
+                            target,
+                            shard,
+                            MutationLedgerStatus::DeferredAttempts,
+                        );
+                        let _ = write_mutation_ledger(&ledger_path, &ledger);
+                        continue;
+                    }
                     mark_mutation_ledger_attempt(
                         &mut ledger,
                         target,
@@ -4021,6 +4106,7 @@ fn try_mutation_testing_strategy(
                         MutationLedgerStatus::Incomplete,
                     );
                     let _ = write_mutation_ledger(&ledger_path, &ledger);
+                    update_mutation_pointer_shard(repo_root, shard);
                     let task = mutation_run_task(
                         target,
                         &output_root,
@@ -4031,7 +4117,7 @@ fn try_mutation_testing_strategy(
                     return Some(proactive_verification_report(
                         cycle,
                         "mutation-testing",
-                        &format!("{module_stem}:rerun:{detail_hash}{}", shard.suffix()),
+                        &candidate_target,
                         task,
                     ));
                 }
@@ -4054,6 +4140,22 @@ fn try_mutation_testing_strategy(
                     }
 
                     let detail_hash = stable_short_hash(detail);
+                    let candidate_target =
+                        format!("{module_stem}:triage:{detail_hash}{}", shard.suffix());
+                    let candidate_fingerprint = proactive_verification_full_fingerprint(
+                        "mutation-testing",
+                        &candidate_target,
+                    );
+                    if skip_fingerprints.contains(&candidate_fingerprint) {
+                        mark_mutation_ledger_attempt(
+                            &mut ledger,
+                            target,
+                            shard,
+                            MutationLedgerStatus::DeferredAttempts,
+                        );
+                        let _ = write_mutation_ledger(&ledger_path, &ledger);
+                        continue;
+                    }
                     mark_mutation_ledger_attempt(
                         &mut ledger,
                         target,
@@ -4061,12 +4163,13 @@ fn try_mutation_testing_strategy(
                         MutationLedgerStatus::Survivors,
                     );
                     let _ = write_mutation_ledger(&ledger_path, &ledger);
+                    update_mutation_pointer_shard(repo_root, shard);
                     let task =
                         mutation_triage_task(target, &output_root, shard, &run, detail.clone());
                     return Some(proactive_verification_report(
                         cycle,
                         "mutation-testing",
-                        &format!("{module_stem}:triage:{detail_hash}{}", shard.suffix()),
+                        &candidate_target,
                         task,
                     ));
                 }
@@ -4322,6 +4425,10 @@ struct MutationPointer {
     last_file: String,
     #[serde(default)]
     last_run_at: String,
+    #[serde(default)]
+    shard_index: usize,
+    #[serde(default)]
+    shards_total: usize,
 }
 
 fn load_mutation_pointer(path: &Path) -> MutationPointer {
@@ -4341,6 +4448,18 @@ fn write_mutation_pointer(path: &Path, pointer: &MutationPointer) -> Result<()> 
     fs::write(path, format!("{json}\n"))
         .with_context(|| format!("failed to write {}", path.display()))?;
     Ok(())
+}
+
+/// Refresh the on-disk mutation pointer with the shard the strategy committed
+/// to this cycle. The fields are advisory only — the strategy still derives
+/// the next shard from filesystem + ledger inspection — so this exists purely
+/// to give operators visibility into which shard the loop is on.
+fn update_mutation_pointer_shard(repo_root: &Path, shard: MutationShard) {
+    let pointer_path = repo_root.join(MUTATION_POINTER_PATH);
+    let mut pointer = load_mutation_pointer(&pointer_path);
+    pointer.shard_index = shard.index + 1;
+    pointer.shards_total = shard.total;
+    let _ = write_mutation_pointer(&pointer_path, &pointer);
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -4382,6 +4501,7 @@ enum MutationLedgerStatus {
     Clean,
     Survivors,
     DeferredRepeated,
+    DeferredAttempts,
 }
 
 fn load_mutation_ledger(path: &Path) -> MutationLedger {
@@ -8758,7 +8878,7 @@ mod tests {
         render_source_port_next_agent_note, select_next_task, source_port_frontier_sweep_task,
         source_port_next_agent_note, sweep_refresh_streak,
     };
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::process::Command;
@@ -11638,7 +11758,7 @@ mod tests {
 ",
         );
 
-        let report = super::evaluate_proactive_verification_cycle(temp_dir.path(), 7, 1)
+        let report = super::evaluate_proactive_verification_cycle(temp_dir.path(), 7, 1, &[])
             .expect("cycle should build");
         let task = report.selected_task.expect("selected task should exist");
 
@@ -12117,6 +12237,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             None,
+            &BTreeSet::new(),
         )
         .expect("mutation testing task should exist");
         let task = report.selected_task.expect("selected task should exist");
@@ -12162,6 +12283,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             None,
+            &BTreeSet::new(),
         )
         .expect("rerun task should exist");
         let task = report.selected_task.expect("selected task should exist");
@@ -12216,6 +12338,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             None,
+            &BTreeSet::new(),
         )
         .expect("triage task should exist");
         let task = report.selected_task.expect("selected task should exist");
@@ -12259,6 +12382,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             None,
+            &BTreeSet::new(),
         )
         .expect("next module task should exist");
         let task = report.selected_task.expect("selected task should exist");
@@ -12298,6 +12422,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             Some(200),
+            &BTreeSet::new(),
         )
         .expect("sharded mutation testing task should exist");
         let task = report.selected_task.expect("selected task should exist");
@@ -12337,6 +12462,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             Some(200),
+            &BTreeSet::new(),
         )
         .expect("second shard task should exist");
 
@@ -12368,6 +12494,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             Some(200),
+            &BTreeSet::new(),
         )
         .expect("first survivor task should exist");
         assert!(first.progress_fingerprint.contains("terrain:triage:"));
@@ -12379,6 +12506,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             Some(200),
+            &BTreeSet::new(),
         )
         .expect("second shard task should exist after repeated survivor deferral");
 
@@ -12386,6 +12514,233 @@ mod tests {
             second.progress_fingerprint,
             "proactive-verification:mutation-testing:terrain:run:shard-2/2"
         );
+    }
+
+    /// Helpers for the asymmetry-guard tests: write a single ledger entry to
+    /// disk so the strategy reads it as `previous_entry`.
+    fn write_mutation_ledger_entry(
+        repo_root: &Path,
+        module: &str,
+        package: &str,
+        shard: usize,
+        shards_total: usize,
+        status: &str,
+        attempt_count: u32,
+    ) {
+        let path = repo_root.join(".cache/autonomy/proactive-verification/mutation-ledger.json");
+        fs::create_dir_all(path.parent().unwrap()).expect("ledger dir should exist");
+        let key = format!("{package}:{module}:{shard}/{shards_total}");
+        let json = format!(
+            r#"{{
+  "entries": {{
+    "{key}": {{
+      "module": "{module}",
+      "package": "{package}",
+      "shard": {shard},
+      "shards_total": {shards_total},
+      "candidate_count": null,
+      "outcome_count": null,
+      "status": "{status}",
+      "mutants_hash": null,
+      "survivor_hash": null,
+      "source_hash": null,
+      "last_run_at": "test",
+      "last_commit": "test",
+      "attempt_count": {attempt_count}
+    }}
+  }}
+}}
+"#
+        );
+        fs::write(&path, json).expect("ledger should write");
+    }
+
+    fn read_mutation_ledger_status(
+        repo_root: &Path,
+        module: &str,
+        package: &str,
+        shard: usize,
+        shards_total: usize,
+    ) -> Option<String> {
+        let path = repo_root.join(".cache/autonomy/proactive-verification/mutation-ledger.json");
+        let content = fs::read_to_string(&path).ok()?;
+        let value: serde_json::Value = serde_json::from_str(&content).ok()?;
+        let key = format!("{package}:{module}:{shard}/{shards_total}");
+        value
+            .get("entries")?
+            .get(&key)?
+            .get("status")?
+            .as_str()
+            .map(str::to_owned)
+    }
+
+    /// Asymmetry guard for the `NotRun` arm: if the strategy has emitted "run
+    /// shard-N/M" three times without producing the artefact, defer this shard
+    /// so the rotation advances. Mirrors
+    /// `mutation_testing_strategy_defers_repeated_survivor_hashes` for the
+    /// other half of the loop deadlock at autonomy.rs:3993.
+    #[test]
+    fn mutation_testing_strategy_defers_repeated_notrun_attempts() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(temp_dir.path(), "terrain", 201, 0, "", "", "");
+        write_mutation_ledger_entry(
+            temp_dir.path(),
+            "terrain.rs",
+            "kid-core",
+            1,
+            2,
+            "not_run",
+            3,
+        );
+        let targets = vec![mutation_target("terrain.rs", 1)];
+
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            Some(200),
+            &BTreeSet::new(),
+        )
+        .expect("rotation should advance to the next shard");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:terrain:run:shard-2/2"
+        );
+        assert_eq!(
+            read_mutation_ledger_status(temp_dir.path(), "terrain.rs", "kid-core", 1, 2).as_deref(),
+            Some("deferred_attempts"),
+            "shard-1 must be marked deferred_attempts after the third emit attempt"
+        );
+    }
+
+    /// Recovery cascade plumbing: when an external skip set includes a
+    /// candidate fingerprint, the strategy must defer that shard and advance.
+    #[test]
+    fn mutation_testing_strategy_honours_skip_fingerprints() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(temp_dir.path(), "terrain", 201, 0, "", "", "");
+        let targets = vec![mutation_target("terrain.rs", 1)];
+
+        let mut skip = BTreeSet::new();
+        skip.insert("proactive-verification:mutation-testing:terrain:run:shard-1/2".to_owned());
+
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            Some(200),
+            &skip,
+        )
+        .expect("strategy should advance past the skipped shard");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:terrain:run:shard-2/2"
+        );
+        assert_eq!(
+            read_mutation_ledger_status(temp_dir.path(), "terrain.rs", "kid-core", 1, 2).as_deref(),
+            Some("deferred_attempts"),
+            "skipped shard must be marked deferred_attempts"
+        );
+    }
+
+    /// Verify that `evaluate_proactive_verification_cycle` plumbs its
+    /// `extra_skip_fingerprints` argument through to the mutation-testing
+    /// strategy. The recovery cascade depends on this to break the
+    /// `helmets:run:shard-3/5` deadlock.
+    #[test]
+    fn evaluate_proactive_verification_cycle_merges_extra_skip_fingerprints() {
+        let temp_dir = source_port_repo();
+        // Write a config that exposes only mutation-testing on terrain.rs so
+        // the cascade reaches the strategy under test deterministically.
+        fs::write(
+            temp_dir
+                .path()
+                .join("docs/source-port/proactive-verification-config.yaml"),
+            r#"
+strategies:
+  - name: root-cause-backlog
+    enabled: false
+    root_cause_marker: ""
+  - name: enemy-family-audit
+    enabled: false
+    priority_order: []
+  - name: loc-coverage-drive
+    enabled: false
+    min_cluster_size: 3
+  - name: mutation-testing
+    enabled: true
+    output_dir: .cache/mutants
+    targets:
+      - module: terrain.rs
+        package: kid-core
+        tier: 1
+    rotation:
+      - terrain.rs
+    max_candidates_per_cycle: 200
+  - name: advisory-promotion
+    enabled: false
+"#,
+        )
+        .expect("pv config should write");
+        write_mutation_run(temp_dir.path(), "terrain", 201, 0, "", "", "");
+
+        let extra_skip =
+            vec!["proactive-verification:mutation-testing:terrain:run:shard-1/2".to_owned()];
+        let report =
+            super::evaluate_proactive_verification_cycle(temp_dir.path(), 9, 1, &extra_skip)
+                .expect("cycle should build");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:terrain:run:shard-2/2",
+            "extra skip should propagate to the mutation-testing strategy"
+        );
+    }
+
+    /// Pointer extension is backwards compatible: pre-extension JSON files
+    /// (without `shard_index`/`shards_total`) deserialise via `serde(default)`,
+    /// and round-tripping a populated pointer preserves the new fields.
+    #[test]
+    fn mutation_pointer_persists_shard_index() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let path = temp_dir.path().join("mutation-pointer.json");
+
+        let pointer = super::MutationPointer {
+            index: 4,
+            last_file: "helmets.rs".to_owned(),
+            last_run_at: "2026-04-30T12:00:00Z".to_owned(),
+            shard_index: 2,
+            shards_total: 5,
+        };
+        super::write_mutation_pointer(&path, &pointer).expect("pointer should write");
+        let round_tripped = super::load_mutation_pointer(&path);
+        assert_eq!(round_tripped.shard_index, 2);
+        assert_eq!(round_tripped.shards_total, 5);
+        assert_eq!(round_tripped.index, 4);
+        assert_eq!(round_tripped.last_file, "helmets.rs");
+
+        // Pre-extension JSON must still deserialise: new fields default to 0.
+        fs::write(
+            &path,
+            r#"{
+  "index": 4,
+  "last_file": "terrain.rs",
+  "last_run_at": "2026-04-29T12:00:00Z"
+}
+"#,
+        )
+        .expect("legacy pointer should write");
+        let legacy = super::load_mutation_pointer(&path);
+        assert_eq!(legacy.index, 4);
+        assert_eq!(legacy.last_file, "terrain.rs");
+        assert_eq!(legacy.shard_index, 0);
+        assert_eq!(legacy.shards_total, 0);
     }
 
     fn write_sweep_report(
