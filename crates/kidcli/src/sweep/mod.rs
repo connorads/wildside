@@ -36,9 +36,13 @@ use sha1::{Digest, Sha1};
 
 /// Advisory fields — diverge due to architectural differences, not native bugs.
 /// Promoted to authoritative (removed from list): score, number_diamonds (0 diffs at 0px),
-/// murder_wall_x (oracle-pause exceptions handled in classify_state_diff).
+/// murder_wall_x (oracle-pause exceptions handled in classify_state_diff),
+/// number_objects (native models the +2 fixed system slots and +1 theme palette
+/// rotation in `trace::object_counts_from_roster`; ASM `Allocate_ObjectSlot`
+/// kid.asm:1583-1597 increments `Number_Objects` $FFFFF84A on every alloc, so
+/// any remaining diff is either an oracle-paused checkpoint or a real
+/// roster mismatch).
 pub(crate) const ADVISORY_FIELDS: &[&str] = &[
-    "number_objects",   // native doesn't model system objects (palette rotation, etc.)
     "number_hitpoints", // oracle-pause: idle_tail diverges because oracle is paused
     "number_lives",     // oracle-pause: idle_tail diverges because oracle is paused
     "kid_x_vel",        // capture-timing: native post-frame vs oracle VBlank
