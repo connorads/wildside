@@ -15,8 +15,23 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PROMPT_SCRIPT = REPO_ROOT / "scripts/source_port_rl_prompt.py"
 NEXT_TASK_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/next-task.json"
 RUN_HISTORY_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/run-history.jsonl"
+ASM_COVERAGE_PATH = REPO_ROOT / "docs/source-port/asm-coverage.yaml"
+BACKLOG_PATH = REPO_ROOT / "docs/source-port/backlog.md"
 PROMISE_TOKEN = "__PROMISE_RL_DONE__"
 DEFAULT_MAX_STALL_STREAK = 3
+
+MISSING_ARTEFACT_REGEN_HINT = {
+    "state_sweep": (
+        "cargo run --release -p kidcli -- sweep --levels 0-104 --tier state    "
+        "# regenerate the missing state sweep "
+        "(auto-recovery will attempt this if the fingerprint hasn't been retried)"
+    ),
+    "release_gate": (
+        "mise run release-gate    "
+        "# regenerate the missing release-gate evidence "
+        "(auto-recovery will attempt this if the fingerprint hasn't been retried)"
+    ),
+}
 
 
 def tracked_dirty_files() -> list[str]:
@@ -189,6 +204,83 @@ def stall_streak_threshold() -> int:
     return max(value, 1)
 
 
+def asm_coverage_has_uncovered_sub_labels(path: Path) -> bool:
+    """True if `asm-coverage.yaml` reports `sub_coverage_pct` below 100.0.
+
+    Cheap heuristic over a cached file — we don't pull in PyYAML for this.
+    """
+    try:
+        contents = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    for line in contents.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("sub_coverage_pct:"):
+            value = stripped.split(":", 1)[1].strip()
+            try:
+                return float(value) < 100.0
+            except ValueError:
+                return False
+    return False
+
+
+def backlog_has_unpromoted_open_item(path: Path) -> bool:
+    """True if `backlog.md` has an open item (`[ ]` or `[~]`) whose row text
+    does NOT include "Root cause identified". The autonomy cascade prefers
+    items with that marker, so promoting another one unblocks new work.
+    """
+    try:
+        contents = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    for line in contents.splitlines():
+        if not line.startswith("|"):
+            continue
+        if "[ ]" not in line and "[~]" not in line:
+            continue
+        if "Root cause identified" not in line:
+            return True
+    return False
+
+
+def derive_operator_unblocks(
+    task: dict,
+    repo_root: Path = REPO_ROOT,
+) -> list[str]:
+    """Render hints that match the current repo state.
+
+    Order: missing-artefact (most actionable) → all-exhausted PV → uncovered
+    asm coverage → backlog promotion → fallback rerun. The runner always
+    appends the rerun line so the operator has a no-op safe choice.
+    """
+    hints: list[str] = []
+    missing = task.get("missing_artefact")
+    if missing in MISSING_ARTEFACT_REGEN_HINT:
+        hints.append(MISSING_ARTEFACT_REGEN_HINT[missing])
+    target = task.get("delegated_target") or ""
+    if "all-exhausted" in target:
+        hints.append(
+            "Broaden docs/source-port/proactive-verification-config.yaml — "
+            "all PV strategies report exhausted"
+        )
+    if asm_coverage_has_uncovered_sub_labels(repo_root / "docs/source-port/asm-coverage.yaml"):
+        hints.append(
+            "cargo run -q -p kidcli -- asm-coverage --update    "
+            "# uncovered sub_ labels remain — refreshing may unblock task selection"
+        )
+    if backlog_has_unpromoted_open_item(repo_root / "docs/source-port/backlog.md"):
+        hints.append(
+            "Promote a backlog item by adding "
+            '"Root cause identified" to its summary in '
+            "docs/source-port/backlog.md"
+        )
+    hints.append(
+        "Rerun `rl` to retry from the current state "
+        "(safe no-op if nothing else has changed)"
+    )
+    return hints
+
+
 def emit_circuit_breaker_message(
     task: dict,
     previous: dict | None,
@@ -223,18 +315,10 @@ def emit_circuit_breaker_message(
                 f"    cycle={record.get('cycle')} outcome={record.get('outcome')} "
                 f"target={record.get('delegated_target')}\n"
             )
-    sys.stderr.write(
-        "  Operator unblocks (try one before relaunching `rl`):\n"
-        "    1. cargo run -q -p kidcli -- asm-coverage --update    "
-        "# refresh ASM coverage so task selection moves on\n"
-        "    2. Commit any fresh evidence under .cache/native-oracle-runs/ "
-        "or docs/source-port/ to advance the lane fingerprint\n"
-        "    3. Promote a backlog item by adding "
-        '"Root cause identified" to its summary in '
-        "docs/source-port/backlog.md\n"
-        "    4. Broaden docs/source-port/proactive-verification-config.yaml "
-        "if all four PV strategies are exhausted\n"
-    )
+    hints = derive_operator_unblocks(task)
+    sys.stderr.write("  Operator unblocks (try one before relaunching `rl`):\n")
+    for index, hint in enumerate(hints, start=1):
+        sys.stderr.write(f"    {index}. {hint}\n")
 
 
 def is_clean_repeat(task: dict, dirty_files: list[str]) -> tuple[bool, dict | None]:
