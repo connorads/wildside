@@ -15587,6 +15587,78 @@ mod chunk_05 {
     }
 
     #[test]
+    fn skycutter_idle_frame_without_c_rising_edge_keeps_counter_at_zero_loc_a840() {
+        // ASM loc_A840 (kid.asm:13141): the flipboard deploy fires only on the
+        // C-press rising edge — `bclr #Button_C,(Ctrl_Pressed); beq.w loc_A87A`
+        // skips the deploy when the rising-edge bit is clear. With C never
+        // pressed, the counter stays at zero and on_board never toggles.
+        //
+        // This pins three predicates against equivalent-looking boundary
+        // mutations cargo-mutants would otherwise miss:
+        //   1. `c_pressed = input.c && !prior_input.c` — an `&&`→`||` mutation
+        //      treats every frame with prior C clear as a rising edge.
+        //   2. `if c_pressed && self.helmet.skycutter_flipboard == 0` — an
+        //      `&&`→`||` mutation deploys whenever the counter is already 0.
+        //   3. `if self.helmet.skycutter_flipboard > 0` — a `>`→`>=` mutation
+        //      enters the counter-step block at flipboard=0 and advances it.
+        // Any of those mutations would set `skycutter_flipboard != 0` here.
+        let mut rt = skycutter_runtime();
+        rt.helmet.skycutter_flipboard = 0;
+        rt.helmet.skycutter_on_board = false;
+        let mut slice = airborne_slice();
+        let prior_facing = slice.player.facing;
+
+        rt.step_skycutter_flipboard(&mut slice, FrameInput::default());
+
+        assert_eq!(
+            rt.helmet.skycutter_flipboard, 0,
+            "ASM loc_A840: no C rising edge → flipboard stays at 0"
+        );
+        assert!(
+            !rt.helmet.skycutter_on_board,
+            "ASM sub_98F2: idle frame must not toggle on_board"
+        );
+        assert_eq!(
+            slice.player.facing, prior_facing,
+            "ASM sub_98F2 loc_991A: facing flips only at the $11 midpoint frame"
+        );
+    }
+
+    #[test]
+    fn skycutter_b_press_kick_uses_half_x_velocity_loc_a7e8() {
+        // ASM loc_A7E8 (kid.asm:13113): `move.l x_vel(a3),d6; bpl.w loc_A7E8;
+        // neg.l d6` then `asr.l #1,d6; addi.l #$30000,d6; move.l d6,y_vel(a3)`
+        // — kick magnitude = `abs(x_vel) >> 1 + $30000`. Native negates so the
+        // kick points upward (positive y in ASM is downward).
+        //
+        // The exact magnitude pins the divisor against cargo-mutants
+        // mutations on `/`:
+        //   `/` → `*`: magnitude becomes `abs(x_vel) * 2 + $30000`.
+        //   `/` → `%`: magnitude becomes `abs(x_vel) % 2 + $30000`.
+        //   `/` (correct): magnitude becomes `abs(x_vel) / 2 + $30000`.
+        // x_vel = $20000 picks the only divisor that yields $40000 magnitude.
+        let mut rt = skycutter_runtime();
+        rt.helmet.skycutter_on_board = true;
+        rt.prior_input = FrameInput::default();
+        let mut slice = airborne_slice();
+        slice.player.x_velocity = 0x2_0000;
+        slice.player.y_velocity = 0;
+
+        let b_input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
+        rt.step_skycutter_flipboard(&mut slice, b_input);
+
+        // Magnitude = $20000 / 2 + $30000 = $10000 + $30000 = $40000.
+        // Native negates → -$40000 (upward).
+        assert_eq!(
+            slice.player.y_velocity, -0x4_0000,
+            "ASM loc_A7E8: kick = -(abs(x_vel) / 2 + $30000); rejects /↔* and /↔%"
+        );
+    }
+
+    #[test]
     fn skycutter_visual_step_sub_98f2_restarts_board_script_and_rolls_priority() {
         let step = skycutter_visual_step_sub_98F2(
             SkycutterVisualStateSub98F2 {

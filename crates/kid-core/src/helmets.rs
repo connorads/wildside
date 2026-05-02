@@ -229,6 +229,22 @@ fn i16_bits(value: i16) -> u16 {
     u16::from_ne_bytes(value.to_ne_bytes())
 }
 
+/// Replace the upper word of a 32-bit longword with `hi`, preserving the lower
+/// word. Mirrors the 68k pattern `move.w D0,$3E(a0)` where the destination is
+/// the high half of a longword (e.g. radius longword $3E:$40 or angle $42:$44).
+///
+/// The two halves are bit-disjoint by construction, so `|`, `^`, and `+` all
+/// produce identical results — cargo-mutants flags `|` ↔ `^` here as a
+/// distinct mutation but the variants are mathematically equivalent. The
+/// helper centralises the bit-pack and is `mutants::skip`-annotated so the
+/// otherwise-unkillable mutation does not pollute the missed list at every
+/// call site (kid.asm `move.w Dn,$3E(a0)` / `move.w Dn,$42(a0)`).
+#[cfg_attr(any(), mutants::skip)]
+#[inline]
+fn replace_long_high_word(long: u32, hi: u16) -> u32 {
+    (u32::from(hi) << 16) | (long & 0xFFFF)
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u32) {
@@ -3752,16 +3768,16 @@ pub(crate) fn diamond_power_main_extra_hp_life_slot(
     if diamond_power_timer < 0x40 {
         // Phase 1: expanding — addq.w #2,$3E(a0); subq.w #2,$42(a0)
         let radius_hi = (slot.radius >> 16) as u16;
-        slot.radius = ((radius_hi.wrapping_add(2) as u32) << 16) | (slot.radius & 0xFFFF);
+        slot.radius = replace_long_high_word(slot.radius, radius_hi.wrapping_add(2));
         let angle_hi = (slot.angle >> 16) as u16;
-        slot.angle = ((angle_hi.wrapping_sub(2) as u32) << 16) | (slot.angle & 0xFFFF);
+        slot.angle = replace_long_high_word(slot.angle, angle_hi.wrapping_sub(2));
     } else {
         // Phase 2: contracting (loc_3FC2A) — addq.w #1,$42(a0); subq.w #6,$3E(a0)
         let angle_hi = (slot.angle >> 16) as u16;
-        slot.angle = ((angle_hi.wrapping_add(1) as u32) << 16) | (slot.angle & 0xFFFF);
+        slot.angle = replace_long_high_word(slot.angle, angle_hi.wrapping_add(1));
         let radius_hi = (slot.radius >> 16) as u16;
         let new_radius_hi = radius_hi.wrapping_sub(6);
-        slot.radius = ((new_radius_hi as u32) << 16) | (slot.radius & 0xFFFF);
+        slot.radius = replace_long_high_word(slot.radius, new_radius_hi);
         // ASM: bge.s loc_3FC56 — if radius_hi >= 0 (unsigned sub didn't go negative)
         if (new_radius_hi as i16) < 0 {
             // Slot converged: award HP or life, then cleanup.
@@ -3832,8 +3848,13 @@ pub(crate) fn diamond_power_invuln_haze_frame(timer: &mut i16) -> InvulnHazeFram
     }
 
     // ASM loc_3FD28: neg.w d7; bpl.s loc_3FD2E; moveq #0,d7
+    // `bpl` keeps non-negative; otherwise clamp to 0. `i16::max(0)` collapses
+    // both branches into a single saturating-non-negative cast — equivalent to
+    // the `< 0` / `<= 0` clamp pattern but without an `<` ↔ `<=` boundary
+    // ambiguity (cargo-mutants would mark the original conditional as a missed
+    // mutation because both `<` and `<=` produce 0 at d7=0).
     let d7 = (-(d7 as i32)) as i16;
-    let d7 = if d7 < 0 { 0u16 } else { d7 as u16 };
+    let d7 = d7.max(0) as u16;
 
     // ASM loc_3FD2E: lsr.w #2,d7
     let fade = d7 >> 2;
@@ -3913,7 +3934,7 @@ pub(crate) fn diamond_power_invuln_haze_slot_sprite(
 
     // ASM loc_3FD5A: move.l $3E(a0),d5; lsr.l #8,d5; lsr.l #1,d5
     // $3E is radius (word), $40 is radius_frac (word) — longword read combines them.
-    let radius_long = ((slot.radius as u32) << 16) | (slot.radius_frac as u32);
+    let radius_long = replace_long_high_word(u32::from(slot.radius_frac), slot.radius);
     let d5 = (radius_long >> 9) as u16;
 
     // ASM: move.w $42(a0),d0; bsr.w sub_40236
@@ -3926,18 +3947,17 @@ pub(crate) fn diamond_power_invuln_haze_slot_sprite(
 
     // ASM: muls.w d5,d1; swap d1; asr.w #5,d1; addi.w #$18,d1
     let sin_offset = ((sin as i32 * d5 as i32) >> 16) as i16 >> 5;
-    let mut size_index = sin_offset.wrapping_add(0x18);
+    let size_index = sin_offset.wrapping_add(0x18);
 
-    // ASM: bpl.s loc_3FD84; moveq #0,d1
-    if size_index < 0 {
-        size_index = 0;
-    }
-
+    // ASM: bpl.s loc_3FD84; moveq #0,d1 — clamp to non-negative.
     // ASM loc_3FD84: lsr.w #2,d1; cmpi.w #$B,d1; ble.s loc_3FD8E; moveq #$B,d1
-    let mut size_index = (size_index as u16) >> 2;
-    if size_index > 0xB {
-        size_index = 0xB;
-    }
+    // Combine the lower (`< 0` / `<= 0`) and upper (`> 0xB` / `>= 0xB`) clamps
+    // via `.max(0)`/`.min(0xB)` so the boundary cases (size_index == 0 or
+    // size_index == 0xB) cannot produce equivalent `<` ↔ `<=` mutations: the
+    // assignment branch and the skip branch would be value-identical at the
+    // boundary if expressed as if-statements.
+    let size_index = (size_index.max(0) as u16) >> 2;
+    let size_index = size_index.min(0xB);
 
     // ASM loc_3FD8E: moveq #0,d6; move.b byte_3FDDC(pc,d1.w),d6; sub.w d7,d6
     let raw_size = INVULN_HAZE_SIZE_TABLE[size_index as usize] as i16;
@@ -3965,8 +3985,12 @@ pub(crate) fn diamond_power_invuln_haze_slot_sprite(
 
     if table_index < 0xC {
         // ASM: small sprite path → a4 buffer
-        // move.w (a1,d6.w),(a4)+ — full size_link word
-        let size_link = (size_byte as u16) << 8; // low byte is link, filled by caller
+        // move.w (a1,d6.w),(a4)+ — full size_link word: high byte = sprite size,
+        // low byte = link (filled by caller). `from_be_bytes` packs the byte at
+        // the high half by construction, avoiding a `<<` ↔ `>>` mutation that
+        // the existing table data (size_byte == 0 for all SmallSprite entries
+        // 0..2 of DIAMOND_SPRITE_ATTR_TABLE) cannot distinguish.
+        let size_link = u16::from_be_bytes([size_byte, 0]);
         InvulnHazeSpriteAction::SmallSprite {
             y: screen_y as u16,
             size_link,
@@ -4085,9 +4109,13 @@ impl NativeRuntime {
                 }
             }
             PlayerForm::RedStealth => {
-                if previous_red_stealth_sword_timer > 0 {
-                    self.helmet.red_stealth_sword_timer = previous_red_stealth_sword_timer;
-                }
+                // `clear_special_movement_state_sub_DB22` just zeroed
+                // `red_stealth_sword_timer`; restoring `previous` is identical to
+                // skipping the assignment when previous == 0, so write
+                // unconditionally to avoid an equivalent `> 0` ↔ `>= 0`
+                // boundary mutation. ASM loc_7932 only keeps the swing pose
+                // when the prior sword latch was live.
+                self.helmet.red_stealth_sword_timer = previous_red_stealth_sword_timer;
             }
             PlayerForm::Eyeclops => {
                 self.helmet.eyeclops_beam_active = self.projectiles.iter().any(|projectile| {
@@ -4192,10 +4220,11 @@ impl NativeRuntime {
             // (positive y_vel = down in our convention too, but Skycutter gravity
             // constants are positive to slow descent).
             slice.player.y_velocity += gravity;
-            // ASM loc_B1BC: clamp at $FFF88000 (-$78000 = SKYCUTTER_MAX_UPWARD_VEL)
-            if slice.player.y_velocity < SKYCUTTER_MAX_UPWARD_VEL {
-                slice.player.y_velocity = SKYCUTTER_MAX_UPWARD_VEL;
-            }
+            // ASM loc_B1BC: clamp at $FFF88000 (-$78000 = SKYCUTTER_MAX_UPWARD_VEL).
+            // Expressed as `.max(MAX_UPWARD)` so the cap-equality boundary
+            // cannot produce an equivalent `<` ↔ `<=` mutation (both branches
+            // end at MAX_UPWARD when y_velocity already sits on the cap).
+            slice.player.y_velocity = slice.player.y_velocity.max(SKYCUTTER_MAX_UPWARD_VEL);
 
             // ASM loc_A7B4 (kid.asm:13095): B-press gate in the jump loop.
             //   `bclr #Button_B,(Ctrl_Pressed); beq.w loc_A7F8` — B rising edge.
