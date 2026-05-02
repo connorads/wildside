@@ -1341,7 +1341,10 @@ fn source_port_recent_matching_stall_count(repo_root: &Path, fingerprint: &str) 
     matches
 }
 
-fn source_port_recent_clean_completed_targets(repo_root: &Path) -> BTreeSet<String> {
+fn source_port_recent_clean_completed_targets(
+    repo_root: &Path,
+    max_rows: usize,
+) -> BTreeSet<String> {
     let path = repo_root.join(SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH);
     let Ok(contents) = fs::read_to_string(path) else {
         return BTreeSet::new();
@@ -1372,7 +1375,7 @@ fn source_port_recent_clean_completed_targets(repo_root: &Path) -> BTreeSet<Stri
             .filter(|target| !target.is_empty())
         {
             targets.insert(target.to_owned());
-            if targets.len() >= 12 {
+            if targets.len() >= max_rows {
                 break;
             }
         }
@@ -1486,14 +1489,27 @@ fn apply_dirty_tree_recovery(
     task.next_fallback_goal = delegated_goal;
 }
 
-/// Convert the cascade's prior-cycle `delegated_target` into a one-element
-/// skip list for `evaluate_proactive_verification_cycle`. Empty when nothing
-/// was delegated (e.g. fresh frontier). Used by recovery branches so the
-/// proactive-verification strategies don't re-emit the same stuck fingerprint.
-fn pv_recovery_skip_list(delegated_target: Option<&str>) -> Vec<String> {
-    delegated_target
-        .map(|target| vec![target.to_owned()])
-        .unwrap_or_default()
+/// Skip list for `evaluate_proactive_verification_cycle`. Combines two
+/// sources: the cascade's currently-stuck `delegated_target` (so the same
+/// strategy fingerprint isn't re-emitted in this cycle) and the recent
+/// clean-completion delegated_targets from run-history (so a strategy whose
+/// top candidate landed cleanly in the *previous* cycle doesn't surface
+/// again now that its work is done).
+///
+/// Reads `delegated_target` from run-history rather than `progress_fingerprint`
+/// because for cascade-emitted PV tasks the outer task's `progress_fingerprint`
+/// is the frontier base + `:recovery:<step>` suffix, while `delegated_target`
+/// holds the PV strategy fingerprint we actually want to skip
+/// (e.g. `proactive-verification:advisory-promotion:number_lives`). For
+/// mutation-testing the strategy fingerprint embeds the survivor hash
+/// (`mutation-testing:helmets:triage:7cf4a671:shard-2/5`), so a legitimate
+/// revisit of `shard-2/5` with a new survivor list has a different
+/// fingerprint and is not skipped.
+fn pv_recovery_skip_list(repo_root: &Path, delegated_target: Option<&str>) -> Vec<String> {
+    let mut skip: Vec<String> = delegated_target.map(str::to_owned).into_iter().collect();
+    let recent = source_port_recent_clean_completed_targets(repo_root, 5);
+    skip.extend(recent);
+    skip
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1585,7 +1601,7 @@ fn evaluate_source_port_frontier_cycle(
     let frontier = &state.active_frontier;
     let note = source_port_next_agent_note(repo_root, frontier.slug.as_str());
     let task_ready = matches!(frontier.status.as_str(), "active" | "complete");
-    let recent_clean_completed_targets = source_port_recent_clean_completed_targets(repo_root);
+    let recent_clean_completed_targets = source_port_recent_clean_completed_targets(repo_root, 12);
     let (task_package, delegated_goal, delegated_target, lane_fingerprint, summary) = if frontier
         .status
         == "active"
@@ -1902,7 +1918,7 @@ fn evaluate_source_port_frontier_cycle(
                 let uncovered = collect_uncovered_sub_labels(repo_root).unwrap_or_default();
                 if uncovered.is_empty() {
                     // All sub_ covered; try proactive verification before sweep-parity
-                    let pv_skip = pv_recovery_skip_list(delegated_target.as_deref());
+                    let pv_skip = pv_recovery_skip_list(repo_root, delegated_target.as_deref());
                     let pv_report = evaluate_proactive_verification_cycle(
                         repo_root,
                         cycle,
@@ -2014,7 +2030,7 @@ fn evaluate_source_port_frontier_cycle(
                     // the operator-visible pivot_reason and fallback goal are
                     // what break the loop.
                     chose_branch = "sweep_parity_docs_only_streak";
-                    let pv_skip = pv_recovery_skip_list(delegated_target.as_deref());
+                    let pv_skip = pv_recovery_skip_list(repo_root, delegated_target.as_deref());
                     let pv_report = evaluate_proactive_verification_cycle(
                         repo_root,
                         cycle,
@@ -2096,7 +2112,7 @@ fn evaluate_source_port_frontier_cycle(
                 // Stalled on a backlog-issue or unknown lane. Try proactive
                 // verification (enemy audits, loc_ coverage, mutation testing)
                 // before falling back to re-verify.
-                let pv_skip = pv_recovery_skip_list(delegated_target.as_deref());
+                let pv_skip = pv_recovery_skip_list(repo_root, delegated_target.as_deref());
                 let pv_report = evaluate_proactive_verification_cycle(
                     repo_root,
                     cycle,
@@ -6303,7 +6319,7 @@ fn load_open_backlog_issues(repo_root: &Path) -> Result<Vec<BacklogIssueCandidat
 
 #[cfg(test)]
 fn select_open_backlog_issue(repo_root: &Path) -> Result<Option<BacklogIssueCandidate>> {
-    let exhausted_targets = source_port_recent_clean_completed_targets(repo_root);
+    let exhausted_targets = source_port_recent_clean_completed_targets(repo_root, 12);
     select_open_backlog_issue_excluding(repo_root, &exhausted_targets)
 }
 
@@ -13026,6 +13042,175 @@ strategies:
         assert_eq!(
             cycle.progress_fingerprint,
             "proactive-verification:advisory-promotion:kid_x_vel"
+        );
+    }
+
+    #[test]
+    fn pv_skip_includes_recent_clean_fingerprint() {
+        // A PV strategy fingerprint that completed cleanly in the previous
+        // cycle must end up in the skip list so the cascade does not re-emit
+        // the same work in the next cycle.
+        let temp_dir = source_port_repo();
+        write_clean_completion_with_fingerprint(
+            temp_dir.path(),
+            111,
+            "proactive-verification:advisory-promotion:number_lives",
+            "frontier-base:recovery:pivot_to_next_lane",
+        );
+
+        let skip = super::pv_recovery_skip_list(temp_dir.path(), None);
+        assert!(
+            skip.contains(&"proactive-verification:advisory-promotion:number_lives".to_owned()),
+            "recently-completed PV fingerprint must be in the skip list, got: {skip:?}"
+        );
+    }
+
+    #[test]
+    fn pv_skip_excludes_stalled_or_dirty_rows() {
+        // Only `outcome=completed` AND `exit_code=0` AND `dirty_tree=false`
+        // rows should contribute. Stalled, dirty, or non-zero-exit rows must
+        // be ignored — they did not actually land work.
+        let temp_dir = source_port_repo();
+        write_stalled_repeat(
+            temp_dir.path(),
+            110,
+            "proactive-verification:mutation-testing:helmets:run",
+            "frontier-base:recovery:pivot_to_next_lane",
+        );
+        let run_dir = temp_dir.path().join(".cache/autonomy/source-port-frontier");
+        fs::create_dir_all(&run_dir).expect("run history dir should exist");
+        fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(run_dir.join("run-history.jsonl"))
+            .and_then(|mut file| {
+                use std::io::Write;
+                // Dirty-tree row with otherwise-clean fields.
+                writeln!(
+                    file,
+                    r#"{{"cycle":109,"delegated_target":"proactive-verification:loc-coverage-promotion:loc_dirty","outcome":"completed","exit_code":0,"dirty_tree":true}}"#
+                )?;
+                // Non-zero exit row.
+                writeln!(
+                    file,
+                    r#"{{"cycle":108,"delegated_target":"proactive-verification:enemy-family-audit:helmets","outcome":"completed","exit_code":1,"dirty_tree":false}}"#
+                )
+            })
+            .expect("run history should write");
+
+        let skip = super::pv_recovery_skip_list(temp_dir.path(), None);
+        assert!(
+            !skip.contains(&"proactive-verification:mutation-testing:helmets:run".to_owned()),
+            "stalled_repeat row must not contribute to skip list"
+        );
+        assert!(
+            !skip.contains(&"proactive-verification:loc-coverage-promotion:loc_dirty".to_owned()),
+            "dirty_tree row must not contribute to skip list"
+        );
+        assert!(
+            !skip.contains(&"proactive-verification:enemy-family-audit:helmets".to_owned()),
+            "non-zero exit_code row must not contribute to skip list"
+        );
+    }
+
+    #[test]
+    fn pv_skip_threads_recent_completion_into_advisory_promotion() {
+        // End-to-end of the cycle 111 → 112 stall: a clean-completed PV
+        // fingerprint must be filtered out of the next cycle's strategies.
+        // After Commit 1 already filters `number_lives` via the const, we
+        // still need defence-in-depth for fields that legitimately remain
+        // in `ADVISORY_FIELDS` (e.g. `kid_x_vel`) — once the cascade's PV
+        // task is completed, the next cycle must not re-emit it.
+        let temp_dir = source_port_repo();
+        let diffs_dir = ".cache/sweep-runs";
+        let advisory = crate::sweep::DivergenceCategory::Advisory;
+        for ts in [
+            "2026-04-20T10-00-00Z",
+            "2026-04-21T10-00-00Z",
+            "2026-04-22T10-00-00Z",
+        ] {
+            write_sweep_report(
+                temp_dir.path(),
+                diffs_dir,
+                ts,
+                &[(0x00, &[("kid_x_vel", advisory)])],
+            );
+        }
+        // Synthetic run-history: cycle 111 cleanly completed `kid_x_vel`
+        // promotion. Cycle 112 must skip it.
+        write_clean_completion_with_fingerprint(
+            temp_dir.path(),
+            111,
+            "proactive-verification:advisory-promotion:kid_x_vel",
+            "frontier-base:recovery:pivot_to_next_lane",
+        );
+        // Minimal PV config: only advisory-promotion enabled.
+        fs::write(
+            temp_dir
+                .path()
+                .join("docs/source-port/proactive-verification-config.yaml"),
+            r#"
+strategies:
+  - name: root-cause-backlog
+    enabled: false
+    root_cause_marker: ""
+  - name: enemy-family-audit
+    enabled: false
+    priority_order: []
+  - name: loc-coverage-drive
+    enabled: false
+    min_cluster_size: 3
+  - name: mutation-testing
+    enabled: false
+    output_dir: .cache/mutants
+    targets: []
+    rotation: []
+  - name: advisory-promotion
+    enabled: true
+    diffs_dir: .cache/sweep-runs
+    min_persistence_sweeps: 3
+"#,
+        )
+        .expect("pv config should write");
+
+        let pv_skip = super::pv_recovery_skip_list(temp_dir.path(), None);
+        let report =
+            super::evaluate_proactive_verification_cycle(temp_dir.path(), 112, 1, &pv_skip)
+                .expect("cycle should build");
+
+        assert_ne!(
+            report.progress_fingerprint, "proactive-verification:advisory-promotion:kid_x_vel",
+            "cleanly-completed PV fingerprint must not be re-emitted by the next cycle"
+        );
+    }
+
+    #[test]
+    fn pv_skip_lets_revisit_with_different_survivor_hash() {
+        // Mutation-testing fingerprints embed the survivor hash, so a fresh
+        // shard-2/5 run with new survivors has a different fingerprint and
+        // must NOT be skipped. Only the exact prior fingerprint is excluded.
+        let temp_dir = source_port_repo();
+        write_clean_completion_with_fingerprint(
+            temp_dir.path(),
+            100,
+            "proactive-verification:mutation-testing:helmets:triage:7cf4a671:shard-2/5",
+            "frontier-base:recovery:pivot_to_next_lane",
+        );
+
+        let skip = super::pv_recovery_skip_list(temp_dir.path(), None);
+        assert!(
+            skip.contains(
+                &"proactive-verification:mutation-testing:helmets:triage:7cf4a671:shard-2/5"
+                    .to_owned()
+            ),
+            "exact prior fingerprint must be skipped"
+        );
+        assert!(
+            !skip.contains(
+                &"proactive-verification:mutation-testing:helmets:triage:8a2c5f12:shard-2/5"
+                    .to_owned()
+            ),
+            "different survivor hash must NOT be in the skip list"
         );
     }
 
