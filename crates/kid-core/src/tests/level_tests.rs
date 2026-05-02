@@ -13064,6 +13064,98 @@ mod chunk_02 {
         );
     }
 
+    /// Backlog #138 regression: pins the exact ASM-derived 66-frame contact-damage
+    /// gate so a future tweak to `PLAYER_DAMAGE_INVULNERABLE_FRAMES` cannot reopen
+    /// the "double damage" complaint silently.
+    ///
+    /// ASM `Check_for_recent_damge` (kid.asm:14632) returns immediately when
+    /// `Just_received_damage` is set; otherwise it falls through to `loc_B700`
+    /// which deducts HP and re-arms the latch. The flash thread at
+    /// `loc_BC54..loc_BC6E` (kid.asm:15196..15213) clears the latch after
+    /// 11 outer cycles × (2 white + 4 normal) = 66 hibernate frames. Native
+    /// mirrors this through the `invulnerable_frames` countdown that
+    /// `step_lifecycle` decrements before `find_contact_damage_source` checks
+    /// `invulnerable_frames != 0`.
+    ///
+    /// `loc_bc6e_normal_palette_hold_is_4_frames_and_damage_clears_after_countdown`
+    /// already pins the countdown after a direct `apply_damage()` call. This
+    /// test starts the latch via the *contact* path (matching the user-visible
+    /// double-damage scenario in #138) and pins both the lower boundary
+    /// (invuln=1 after PLAYER_DAMAGE_INVULNERABLE_FRAMES-1 frames) and the
+    /// release frame (invuln=0 after PLAYER_DAMAGE_INVULNERABLE_FRAMES frames).
+    /// The existing `invulnerability_prevents_rapid_rehit` only sustains 10
+    /// frames, so it would still pass under the pre-fix 300-frame setting and
+    /// would not catch a regression to the constant.
+    #[test]
+    fn enemy_contact_double_damage_gate_releases_after_exactly_66_frames_loc_bc54() {
+        let mut runtime = NativeRuntime::new(manifest_with_static_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+        advance_past_level_entry_damage_grace(&mut runtime);
+        runtime.progression.number_hitpoints = 3;
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0100_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.player.y_velocity = 0;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.progression.number_hitpoints, 2,
+            "first contact must deduct exactly one HP"
+        );
+        assert_eq!(
+            runtime.progression.invulnerable_frames, PLAYER_DAMAGE_INVULNERABLE_FRAMES,
+            "ASM loc_BC54: arming Just_received_damage seeds the 66-frame flash thread"
+        );
+
+        // Walk away from the skull so its hopping AI can't re-engage the
+        // contact path while we measure the countdown. step_lifecycle still
+        // decrements invuln every frame the player is Alive.
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0040_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.player.on_ground = true;
+            slice.player.x_velocity = 0;
+            slice.player.y_velocity = 0;
+        }
+        for _ in 0..(PLAYER_DAMAGE_INVULNERABLE_FRAMES - 1) {
+            runtime.step_frame(FrameInput::default());
+        }
+        let frames_minus_one = PLAYER_DAMAGE_INVULNERABLE_FRAMES - 1;
+        assert_eq!(
+            runtime.progression.invulnerable_frames, 1,
+            "ASM loc_BC6E countdown: invuln must still be 1 after exactly {frames_minus_one} step_frames — gate stays closed"
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints, 2,
+            "no HP loss while gate is closed"
+        );
+
+        // One more step releases the latch (`sf Just_received_damage`).
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.progression.invulnerable_frames, 0,
+            "ASM loc_BC6E `sf Just_received_damage`: invuln must reach 0 after exactly {PLAYER_DAMAGE_INVULNERABLE_FRAMES} step_frames"
+        );
+        assert!(
+            !runtime.just_received_damage,
+            "ASM loc_BC6E: Just_received_damage flag is cleared once the flash thread completes"
+        );
+    }
+
     #[test]
     fn enemy_contact_kills_at_one_hp() {
         let mut runtime = NativeRuntime::new(manifest_with_static_skull());
