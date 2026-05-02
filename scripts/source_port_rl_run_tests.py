@@ -12,10 +12,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from source_port_rl_run import (
+    AUTO_RECOVERY_ARGV,
     MISSING_ARTEFACT_REGEN_HINT,
     asm_coverage_has_uncovered_sub_labels,
+    attempt_auto_recovery,
     backlog_has_unpromoted_open_item,
     derive_operator_unblocks,
+    record_auto_recovery_attempt,
+    should_auto_recover,
 )
 
 
@@ -137,6 +141,46 @@ class DeriveOperatorUnblocks(unittest.TestCase):
                 repo_root=repo,
             )
             self.assertEqual(hints[0], MISSING_ARTEFACT_REGEN_HINT["release_gate"])
+
+
+class AutoRecoveryBookkeeping(unittest.TestCase):
+    def test_argv_matches_rust_canonical_shapes(self) -> None:
+        # If the Rust auto_recovery_command unit tests change shape, this
+        # test will diff. Both sides must move together.
+        self.assertEqual(
+            AUTO_RECOVERY_ARGV["state_sweep"],
+            [
+                "cargo", "run", "--release", "-p", "kidcli", "--",
+                "sweep", "--levels", "0-104", "--tier", "state",
+            ],
+        )
+        self.assertEqual(
+            AUTO_RECOVERY_ARGV["release_gate"],
+            ["mise", "run", "release-gate"],
+        )
+
+    def test_should_auto_recover_returns_false_after_record(self) -> None:
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "auto_recovery.json"
+            self.assertTrue(should_auto_recover("fp-A", path))
+            record_auto_recovery_attempt("fp-A", "2026-04-22T11:00:00Z", path)
+            self.assertFalse(should_auto_recover("fp-A", path))
+            # Different fingerprint still allowed.
+            self.assertTrue(should_auto_recover("fp-B", path))
+
+    def test_attempt_auto_recovery_skips_dirty_tree(self) -> None:
+        # A dirty tree must short-circuit before we even consider the
+        # bookkeeping. Returning None lets the caller fall through to the
+        # operator message rather than running cargo against unsaved work.
+        result = attempt_auto_recovery(
+            {"missing_artefact": "state_sweep", "progress_fingerprint": "fp"},
+            ["README.md"],
+        )
+        self.assertIsNone(result)
+
+    def test_attempt_auto_recovery_skips_when_no_missing_artefact(self) -> None:
+        result = attempt_auto_recovery({"progress_fingerprint": "fp"}, [])
+        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

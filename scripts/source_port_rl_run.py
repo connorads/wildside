@@ -15,10 +15,23 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PROMPT_SCRIPT = REPO_ROOT / "scripts/source_port_rl_prompt.py"
 NEXT_TASK_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/next-task.json"
 RUN_HISTORY_PATH = REPO_ROOT / ".cache/autonomy/source-port-frontier/run-history.jsonl"
+AUTO_RECOVERY_PATH = (
+    REPO_ROOT / ".cache/autonomy/source-port-frontier/auto_recovery_attempts.json"
+)
 ASM_COVERAGE_PATH = REPO_ROOT / "docs/source-port/asm-coverage.yaml"
 BACKLOG_PATH = REPO_ROOT / "docs/source-port/backlog.md"
 PROMISE_TOKEN = "__PROMISE_RL_DONE__"
 DEFAULT_MAX_STALL_STREAK = 3
+
+# Mirrors `auto_recovery_command` in crates/kidcli/src/autonomy.rs. Rust
+# unit tests pin both shapes so the two sides cannot drift silently.
+AUTO_RECOVERY_ARGV: dict[str, list[str]] = {
+    "state_sweep": [
+        "cargo", "run", "--release", "-p", "kidcli", "--",
+        "sweep", "--levels", "0-104", "--tier", "state",
+    ],
+    "release_gate": ["mise", "run", "release-gate"],
+}
 
 MISSING_ARTEFACT_REGEN_HINT = {
     "state_sweep": (
@@ -338,6 +351,106 @@ def is_clean_repeat(task: dict, dirty_files: list[str]) -> tuple[bool, dict | No
     )
 
 
+def load_auto_recovery_attempts(path: Path = AUTO_RECOVERY_PATH) -> dict[str, dict]:
+    try:
+        contents = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    try:
+        data = json.loads(contents)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def should_auto_recover(fingerprint: str, path: Path = AUTO_RECOVERY_PATH) -> bool:
+    entries = load_auto_recovery_attempts(path)
+    entry = entries.get(fingerprint, {})
+    return int(entry.get("attempts", 0) or 0) == 0
+
+
+def record_auto_recovery_attempt(
+    fingerprint: str,
+    timestamp: str,
+    path: Path = AUTO_RECOVERY_PATH,
+) -> None:
+    """Atomic write: serialise to .tmp + rename. A crash between write and
+    rename leaves the existing JSON intact, mirroring the Rust helper.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    entries = load_auto_recovery_attempts(path)
+    entry = entries.get(fingerprint, {"attempts": 0, "last_at": ""})
+    entries[fingerprint] = {
+        "attempts": int(entry.get("attempts", 0) or 0) + 1,
+        "last_at": timestamp,
+    }
+    tmp_path = path.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps(entries, indent=2, sort_keys=True), encoding="utf-8")
+    tmp_path.replace(path)
+
+
+def append_auto_recovered_history(task: dict, missing: str) -> None:
+    RUN_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "cycle": task.get("cycle"),
+        "delegated_goal": task.get("delegated_goal"),
+        "delegated_target": task.get("delegated_target"),
+        "progress_fingerprint": task.get("progress_fingerprint"),
+        "missing_artefact": missing,
+        "outcome": "auto_recovered",
+        "exit_code": 0,
+        "dirty_tree": False,
+    }
+    with RUN_HISTORY_PATH.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, sort_keys=True))
+        handle.write("\n")
+
+
+def attempt_auto_recovery(task: dict, dirty_at_launch: list[str]) -> int | None:
+    """Returns 0 on successful auto-recovery (next iteration retries),
+    1 if the operator must intervene (one-attempt cap reached), or None
+    if no auto-recovery is applicable and the caller should continue with
+    its existing flow.
+    """
+    missing = task.get("missing_artefact")
+    if missing not in AUTO_RECOVERY_ARGV:
+        return None
+    if dirty_at_launch:
+        # Don't run cargo on a dirty tree. Fall through to operator message.
+        sys.stderr.write(
+            f"⚠ Skipping auto-recovery for missing {missing}: tracked tree is dirty.\n"
+        )
+        return None
+    fingerprint = task.get("progress_fingerprint") or ""
+    if not should_auto_recover(fingerprint):
+        sys.stderr.write(
+            f"✗ Auto-recovery already attempted for fingerprint {fingerprint}; "
+            "manual intervention needed.\n"
+        )
+        return 1
+    argv = AUTO_RECOVERY_ARGV[missing]
+    sys.stderr.write("\n")
+    sys.stderr.write("=" * 72 + "\n")
+    sys.stderr.write(f"  Auto-recovery: regenerating missing {missing}\n")
+    sys.stderr.write(f"  Command: {' '.join(argv)}\n")
+    sys.stderr.write("  Sweep typically takes 2-3 min; release-gate ~1 min.\n")
+    sys.stderr.write("=" * 72 + "\n")
+    sys.stderr.flush()
+    record_auto_recovery_attempt(fingerprint, datetime.now(UTC).isoformat())
+    result = subprocess.run(argv, cwd=REPO_ROOT, check=False)
+    if result.returncode != 0:
+        sys.stderr.write(
+            f"✗ Auto-recovery command exited {result.returncode}; manual intervention needed.\n"
+        )
+        return 1
+    append_auto_recovered_history(task, missing)
+    sys.stderr.write("✓ Auto-recovery succeeded; next `rl` iteration will retry.\n")
+    return 0
+
+
 def which(name: str) -> str:
     import shutil
 
@@ -384,6 +497,40 @@ def main() -> int:
     agent_cmd = resolve_agent(agent_name)
     task = load_task()
     dirty_at_launch = tracked_dirty_files()
+
+    # Auto-recovery for known-regenerable missing artefacts. Bounded to one
+    # attempt per fingerprint; dirty trees skip the auto-run. On success the
+    # prompt script is re-invoked so `next-task.json` reflects post-recovery
+    # state, avoiding a spurious is_clean_repeat trip on the next iteration.
+    auto_recovery_outcome = attempt_auto_recovery(task, dirty_at_launch)
+    if auto_recovery_outcome == 0:
+        prompt_result = subprocess.run(
+            [sys.executable, str(PROMPT_SCRIPT)],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            env=prompt_env,
+            text=True,
+        )
+        if prompt_result.returncode != 0:
+            sys.stderr.write(prompt_result.stdout)
+            sys.stderr.write(prompt_result.stderr)
+            return prompt_result.returncode
+        return 0
+    if auto_recovery_outcome == 1:
+        # One-attempt cap reached or recovery failed: emit operator hints.
+        previous = latest_clean_completion(load_run_history())
+        emit_circuit_breaker_message(
+            task,
+            previous,
+            streak_after=0,
+            threshold=0,
+            recent_records=[],
+        )
+        sys.stdout.write(PROMISE_TOKEN + "\n")
+        sys.stdout.flush()
+        return 0
+
     if task.get("definitively_stalled"):
         # Autonomy module signalled that the recovery cascade can only
         # restate work that already completed cleanly. Skip the

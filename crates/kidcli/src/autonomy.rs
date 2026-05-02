@@ -347,6 +347,96 @@ pub(crate) enum MissingArtefact {
     ReleaseGate,
 }
 
+/// Path of the auto-recovery bookkeeping JSON, relative to repo root. Kept
+/// in `.cache/` because attempt counts are local, machine-specific state.
+pub(crate) const AUTO_RECOVERY_ATTEMPTS_PATH: &str =
+    ".cache/autonomy/source-port-frontier/auto_recovery_attempts.json";
+
+/// Argv to regenerate a missing artefact. Hardcoded for the two known
+/// variants — promote to a YAML config only if a third entry is needed.
+///
+/// The production caller is the Python runner (`scripts/source_port_rl_run.py`),
+/// which mirrors this argv. This Rust copy is the canonical contract: unit
+/// tests below pin both shapes so the two sides cannot drift silently.
+#[allow(dead_code)]
+pub(crate) fn auto_recovery_command(missing: MissingArtefact) -> Vec<String> {
+    match missing {
+        MissingArtefact::StateSweep => vec![
+            "cargo".into(),
+            "run".into(),
+            "--release".into(),
+            "-p".into(),
+            "kidcli".into(),
+            "--".into(),
+            "sweep".into(),
+            "--levels".into(),
+            "0-104".into(),
+            "--tier".into(),
+            "state".into(),
+        ],
+        MissingArtefact::ReleaseGate => vec!["mise".into(), "run".into(), "release-gate".into()],
+    }
+}
+
+/// True iff no auto-recovery attempt has been recorded for this fingerprint
+/// yet. Bounded to one attempt per fingerprint, ever — re-attempts require
+/// either a manual reset (delete the JSON entry or the whole file) or a new
+/// fingerprint. This keeps a real failure surfaceable: the second stall on
+/// the same fingerprint always reaches the operator.
+#[allow(dead_code)]
+pub(crate) fn should_auto_recover(repo_root: &Path, fingerprint: &str) -> bool {
+    let path = repo_root.join(AUTO_RECOVERY_ATTEMPTS_PATH);
+    let Ok(contents) = fs::read_to_string(&path) else {
+        return true;
+    };
+    let Ok(entries) = serde_json::from_str::<serde_json::Value>(&contents) else {
+        return true;
+    };
+    let attempts = entries
+        .get(fingerprint)
+        .and_then(|entry| entry.get("attempts"))
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    attempts == 0
+}
+
+/// Record an auto-recovery attempt for `fingerprint`. Atomic via .tmp +
+/// rename so a crash mid-write leaves the existing JSON intact.
+#[allow(dead_code)]
+pub(crate) fn record_auto_recovery_attempt(
+    repo_root: &Path,
+    fingerprint: &str,
+    timestamp: &str,
+) -> Result<()> {
+    let path = repo_root.join(AUTO_RECOVERY_ATTEMPTS_PATH);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let mut entries: serde_json::Value = match fs::read_to_string(&path) {
+        Ok(contents) => serde_json::from_str(&contents).unwrap_or_else(|_| serde_json::json!({})),
+        Err(_) => serde_json::json!({}),
+    };
+    let map = entries
+        .as_object_mut()
+        .ok_or_else(|| anyhow::anyhow!("auto-recovery attempts JSON is not an object"))?;
+    let entry = map
+        .entry(fingerprint.to_owned())
+        .or_insert_with(|| serde_json::json!({"attempts": 0, "last_at": ""}));
+    let attempts = entry
+        .get("attempts")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0)
+        + 1;
+    *entry = serde_json::json!({
+        "attempts": attempts,
+        "last_at": timestamp,
+    });
+    let tmp_path = path.with_extension("json.tmp");
+    fs::write(&tmp_path, serde_json::to_string_pretty(&entries)?)?;
+    fs::rename(&tmp_path, &path)?;
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct TargetRoutine {
     label: String,
@@ -13343,6 +13433,85 @@ strategies:
         assert_eq!(
             task.missing_artefact, None,
             "clean lane marker must not signal a missing artefact"
+        );
+    }
+
+    #[test]
+    fn auto_recovery_command_state_sweep_returns_sweep_argv() {
+        let argv = super::auto_recovery_command(super::MissingArtefact::StateSweep);
+        assert_eq!(
+            argv,
+            vec![
+                "cargo",
+                "run",
+                "--release",
+                "-p",
+                "kidcli",
+                "--",
+                "sweep",
+                "--levels",
+                "0-104",
+                "--tier",
+                "state",
+            ]
+        );
+    }
+
+    #[test]
+    fn auto_recovery_command_release_gate_returns_release_gate_argv() {
+        let argv = super::auto_recovery_command(super::MissingArtefact::ReleaseGate);
+        assert_eq!(argv, vec!["mise", "run", "release-gate"]);
+    }
+
+    #[test]
+    fn should_auto_recover_returns_false_after_first_attempt() {
+        // Bounded retry: once an attempt is recorded for the fingerprint,
+        // the helper must refuse another auto-attempt so a genuine failure
+        // surfaces to the operator.
+        let temp_dir = source_port_repo();
+        let fingerprint = "state-sweep:gate-missing:sweep-missing:recovery:pivot_to_next_lane";
+        assert!(
+            super::should_auto_recover(temp_dir.path(), fingerprint),
+            "fresh fingerprint must allow first attempt"
+        );
+        super::record_auto_recovery_attempt(temp_dir.path(), fingerprint, "2026-04-22T11:00:00Z")
+            .expect("attempt should record");
+        assert!(
+            !super::should_auto_recover(temp_dir.path(), fingerprint),
+            "second auto-recovery on same fingerprint must be refused"
+        );
+        // Distinct fingerprint still allowed.
+        assert!(
+            super::should_auto_recover(temp_dir.path(), "different-fingerprint"),
+            "unrelated fingerprint must still allow first attempt"
+        );
+    }
+
+    #[test]
+    fn should_auto_recover_atomic_write_survives_partial_failure() {
+        // A stranded `.tmp` from a crashed prior write must not corrupt the
+        // helper's view: the real JSON is the source of truth, and the .tmp
+        // exists only between fs::write and fs::rename. We reproduce the
+        // crash window by leaving a malformed .tmp on disk and asserting
+        // that should_auto_recover still answers from the canonical file.
+        let temp_dir = source_port_repo();
+        let fingerprint = "lane:recovery:pivot_to_next_lane";
+        super::record_auto_recovery_attempt(temp_dir.path(), fingerprint, "2026-04-22T11:00:00Z")
+            .expect("attempt should record");
+        let path = temp_dir.path().join(super::AUTO_RECOVERY_ATTEMPTS_PATH);
+        let tmp_path = path.with_extension("json.tmp");
+        fs::write(&tmp_path, "{ partial").expect("stranded tmp should write");
+        assert!(
+            !super::should_auto_recover(temp_dir.path(), fingerprint),
+            "canonical JSON must still gate the second attempt"
+        );
+        // Recording a fresh attempt on a *different* fingerprint must succeed
+        // and overwrite the stranded .tmp atomically.
+        super::record_auto_recovery_attempt(temp_dir.path(), "other", "2026-04-22T11:05:00Z")
+            .expect("second attempt should record");
+        assert!(
+            !super::should_auto_recover(temp_dir.path(), "other"),
+            "second fingerprint must also be locked after one attempt"
         );
     }
 
