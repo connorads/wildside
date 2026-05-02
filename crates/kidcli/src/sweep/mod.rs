@@ -49,11 +49,18 @@ use sha1::{Digest, Sha1};
 /// oracle-paused checkpoint — the oracle never reached the damage routine,
 /// so the precedence reorder in commit 404996c4 lets these reclassify to
 /// `OracleLimitation`. Real native-only damage bugs now surface as
-/// authoritative).
+/// authoritative),
+/// number_lives (ASM `lose_life` kid.asm:14766 `subq.w #1,(Number_Lives).w`
+/// only runs inside the live gameplay death path; the title-card seed at
+/// kid.asm:16568 `move.w #3,(Number_Lives).w` is what oracle reports while
+/// it stays paused on `Game_Mode=$0008`. All 8 advisory diffs in sweep
+/// 1777686359 sat on `idle_tail` checkpoints where `game_paused=true`
+/// already classified to `oracle_limitation`, so the field-level mask was
+/// redundant after the precedence reorder. Real native-only life-loss
+/// bugs now surface as authoritative).
 pub(crate) const ADVISORY_FIELDS: &[&str] = &[
-    "number_lives", // oracle-pause: idle_tail diverges because oracle is paused
-    "kid_x_vel",    // capture-timing: native post-frame vs oracle VBlank
-    "kid_y_vel",    // capture-timing: native post-frame vs oracle VBlank
+    "kid_x_vel", // capture-timing: native post-frame vs oracle VBlank
+    "kid_y_vel", // capture-timing: native post-frame vs oracle VBlank
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
@@ -2764,6 +2771,57 @@ mod tests {
             field: "number_hitpoints".into(),
             native_value: "0".into(),
             oracle_value: "2".into(),
+            category: DivergenceCategory::Authoritative,
+        };
+        let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
+        let oracle_paused_checkpoints = std::collections::HashSet::<&str>::new();
+
+        let category =
+            classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
+
+        assert_eq!(category, DivergenceCategory::Authoritative);
+    }
+
+    #[test]
+    fn number_lives_diff_against_paused_oracle_is_oracle_limitation() {
+        // Mirrors the `number_hitpoints` promotion: every advisory
+        // `number_lives` diff in sweep 1777686359 (8 levels at `idle_tail`)
+        // sat on a checkpoint where `game_paused=true` was already
+        // classified as `oracle_limitation`. Native ran live, died once
+        // (lives 3→2), oracle stayed on the title-card seed of 3 from
+        // kid.asm:16568 `move.w #3,(Number_Lives).w` because it never
+        // reached the death path at kid.asm:14766
+        // `subq.w #1,(Number_Lives).w`. With oracle-paused supersedence
+        // from commit 404996c4 in place, the field-level mask was
+        // redundant.
+        let diff = StateDiff {
+            checkpoint: "idle_tail".into(),
+            field: "number_lives".into(),
+            native_value: "2".into(),
+            oracle_value: "3".into(),
+            category: DivergenceCategory::Authoritative,
+        };
+        let death_gap_checkpoints = std::collections::HashSet::from(["idle_tail"]);
+        let oracle_paused_checkpoints = std::collections::HashSet::from(["idle_tail"]);
+
+        let category =
+            classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
+
+        assert_eq!(category, DivergenceCategory::OracleLimitation);
+    }
+
+    #[test]
+    fn number_lives_diff_with_live_oracle_is_authoritative() {
+        // Symmetric case: if a future scenario produces a `number_lives`
+        // mismatch where the oracle is NOT paused (live gameplay reached
+        // the ASM death path at `lose_life` kid.asm:14766), the diff is a
+        // real native life-loss bug and must surface as authoritative —
+        // not be hidden by an advisory mask.
+        let diff = StateDiff {
+            checkpoint: "idle_tail".into(),
+            field: "number_lives".into(),
+            native_value: "2".into(),
+            oracle_value: "3".into(),
             category: DivergenceCategory::Authoritative,
         };
         let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
