@@ -8175,21 +8175,62 @@ fn latest_state_sweep_signal(repo_root: &Path) -> CheckOutcome {
         .as_deref()
         .map(|timestamp| format!("timestamp {timestamp}, "))
         .unwrap_or_default();
+    // Source freshness: persist the kid-core source hash from the sweep
+    // report so the cycle artefact can be cross-checked against the current
+    // tree. A drift between this hash and `sweep::kid_core_source_hash` means
+    // the gate ran against an older revision and the green status is stale.
+    let kid_core_hash_detail = latest
+        .payload
+        .get("kid_core_hash")
+        .and_then(serde_json::Value::as_str)
+        .filter(|hash| !hash.is_empty())
+        .map(|hash| format!("kid_core_hash={}, ", short_kid_core_hash(hash)))
+        .unwrap_or_default();
+    // Sweep breadth: the gate only counts as whole-game evidence when it
+    // covered all 69 BCD levels. Older history entries persist
+    // `levels_requested`; fresh per-run reports persist a `levels` array.
+    let levels_detail = state_sweep_level_count(&latest.payload)
+        .map(|count| format!("levels={count}, "))
+        .unwrap_or_default();
     if passed {
         CheckOutcome::passing(
             format!(
-                "latest state sweep passed ({timestamp_detail}failed=0, errors=0, advisory={advisory}, oracle_limitations={oracle_limitations}, report={report_path})"
+                "latest state sweep passed ({timestamp_detail}{kid_core_hash_detail}{levels_detail}failed=0, errors=0, advisory={advisory}, oracle_limitations={oracle_limitations}, report={report_path})"
             ),
             Some(latest.source_path),
         )
     } else {
         CheckOutcome::failing(
             format!(
-                "latest state sweep reported failures ({timestamp_detail}failed={failed}, errors={errors}, report={report_path})"
+                "latest state sweep reported failures ({timestamp_detail}{kid_core_hash_detail}{levels_detail}failed={failed}, errors={errors}, report={report_path})"
             ),
             Some(latest.source_path),
         )
     }
+}
+
+/// Truncates a kid-core source SHA1 to a git-style short prefix so the
+/// persisted summary stays readable. A 12-char prefix is unambiguous in
+/// practice for this single-file digest.
+fn short_kid_core_hash(hash: &str) -> &str {
+    let len = hash.len().min(12);
+    &hash[..len]
+}
+
+/// Returns the number of levels covered by a state-sweep payload, preferring
+/// the explicit `levels_requested` field in sweep-history entries and falling
+/// back to the `levels` array length in fresh per-run reports.
+fn state_sweep_level_count(payload: &serde_json::Value) -> Option<u64> {
+    if let Some(count) = payload
+        .get("levels_requested")
+        .and_then(serde_json::Value::as_u64)
+    {
+        return Some(count);
+    }
+    payload
+        .get("levels")
+        .and_then(serde_json::Value::as_array)
+        .map(|levels| levels.len() as u64)
 }
 
 fn run_check<F>(artefact_path: PathBuf, check: F) -> CheckOutcome
@@ -9938,6 +9979,68 @@ mod tests {
         assert!(
             outcome.detail.contains("oracle_limitations=648"),
             "signal should include oracle limitation counts"
+        );
+    }
+
+    #[test]
+    fn state_sweep_signal_embeds_kid_core_hash_and_level_count() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        // Sweep-history entries persist the full SHA1 alongside
+        // `levels_requested`. The signal should surface both so the
+        // sweep-parity cycle artefact is self-citing for source freshness
+        // and partial-sweep coverage; without them an agent reading the
+        // cycle file alone cannot tell whether the gate ran against the
+        // current kid-core tree or covered only a subset of BCD levels.
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1777763142","tier":"state","kid_core_hash":"5e6309c94728b8ef9e9e10ba5002197362b8926f","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":840},"report_path":"/tmp/sweep-report.json"}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let outcome = latest_state_sweep_signal(temp_dir.path());
+        assert!(outcome.ok);
+        assert!(
+            outcome.detail.contains("kid_core_hash=5e6309c94728"),
+            "signal should embed the 12-char kid-core source hash prefix so cycle artefacts can detect stale gates: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains("levels=69"),
+            "signal should embed the swept-level count so partial sweeps cannot impersonate whole-game evidence: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn state_sweep_signal_omits_kid_core_hash_when_absent() {
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        // Older sweep-history entries pre-date the kid_core_hash field;
+        // the signal must still pass cleanly without injecting an empty
+        // `kid_core_hash=` placeholder that future readers might mistake
+        // for a sentinel value.
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775120772","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":0},"report_path":"/tmp/sweep-report.json"}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let outcome = latest_state_sweep_signal(temp_dir.path());
+        assert!(outcome.ok);
+        assert!(
+            !outcome.detail.contains("kid_core_hash="),
+            "signal must not inject a placeholder kid_core_hash for legacy entries: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains("levels=69"),
+            "levels_requested should still appear when present: {}",
+            outcome.detail
         );
     }
 
