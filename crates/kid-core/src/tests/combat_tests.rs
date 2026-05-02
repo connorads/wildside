@@ -2846,6 +2846,159 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn diamond_power_invuln_haze_small_sprite_screen_position_exact_loc_3fd4c() {
+        // ASM loc_3FD4C..loc_3FDD2 (kid.asm:45082-45146) screen-position math:
+        //   move.l $3E(a0),d5; lsr.l #8,d5; lsr.l #1,d5     ; d5 = radius_long >> 9
+        //   move.w $42(a0),d0; bsr.w sub_40236              ; d0 = cos, d1 = sin
+        //   muls.w d5,d0; swap d0; asr.w #5,d0              ; x_offset = (cos*d5)>>16>>5
+        //   add.w x_pos(a3),d0; add.w d3,d0                 ; +kid_x +($7F-cam_x)
+        //   muls.w d5,d1; swap d1; asr.w #5,d1; addi.w #$18,d1 ; sin term + $18
+        //   bpl.s loc_3FD84; moveq #0,d1                    ; clamp negative to 0
+        //   loc_3FD84: lsr.w #2,d1; cmpi.w #$B,d1; ble.s loc_3FD8E; moveq #$B,d1
+        //   loc_3FD8E: moveq #0,d6; move.b byte_3FDDC(pc,d1.w),d6
+        //   sub.w d7,d6; bmi.s loc_3FDD2                    ; skip if size-fade < 0
+        //   add.w y_pos(a3),d1 (after y_offset); add.w d4,d1; sub.w d6,d0; sub.w d6,d1
+        //
+        // Inputs: radius=$10, radius_frac=$4000 → radius_long=$10_4000 → d5=$820=2080.
+        //   phase=0 → angle=0 → cos=word_402B0[64]=$3FFE=16382, sin=$0000.
+        //   d3 = $7F − 0 = 127; d4 = 127.
+        //   x: cos*d5 = 16382*2080 = $0207_F840; >>16=$207=519; >>5 = 16.
+        //      screen_x_pre = 100 + 16 + 127 = 243.
+        //   sin term = 0 → size_index = 0 + $18 = 24, no clamp; >>2 = 6.
+        //   raw_size = byte_3FDDC[6] = 3; fade = 1 → d6 = 2 (≥0, not skipped).
+        //   screen_y_pre = (−$10) + 80 + 127 = 191.
+        //   sub d6: x = 243 − 2 = 241; y = 191 − 2 = 189.
+        //   table_index = 2*4 = 8 < $C → SmallSprite, entry 2 → ($00, $86EC).
+        //   size_link = ($00 as u16) << 8 = 0.
+        let mut slot = helmets::InvulnHazeSlot {
+            radius: 0x10,
+            radius_frac: 0x4000,
+            y_offset: -0x10,
+            phase: 0,
+            rotation_speed: 6,
+        };
+        let result = helmets::diamond_power_invuln_haze_slot_sprite(&mut slot, 1, 100, 80, 0, 0);
+        assert_eq!(
+            result,
+            helmets::InvulnHazeSpriteAction::SmallSprite {
+                y: 189,
+                size_link: 0,
+                pattern: 0x86EC,
+                x: 241,
+            },
+            "ASM loc_3FD4C..loc_3FDD2: exact x/y math for fade=1, d6=2"
+        );
+    }
+
+    #[test]
+    fn diamond_power_invuln_haze_d6_zero_falls_through_loc_3fd8e() {
+        // ASM loc_3FD8E: `sub.w d7,d6; bmi.s loc_3FDD2` — `bmi` branches only on
+        // negative (N flag set). When d6 == 0, the branch is NOT taken, so the
+        // sprite is emitted (not Skipped). This locks the boundary against a
+        // `< 0` → `<= 0` mutation in the Rust port.
+        //
+        // Same setup as above, but fade = raw_size = 3 → d6 = 0.
+        //   screen_x = 100 + 16 + 127 − 0 = 243; screen_y = −$10 + 80 + 127 − 0 = 191.
+        //   table_index = 0 → SmallSprite, entry 0 → ($00, $86EA).
+        let mut slot = helmets::InvulnHazeSlot {
+            radius: 0x10,
+            radius_frac: 0x4000,
+            y_offset: -0x10,
+            phase: 0,
+            rotation_speed: 6,
+        };
+        let result = helmets::diamond_power_invuln_haze_slot_sprite(&mut slot, 3, 100, 80, 0, 0);
+        assert_eq!(
+            result,
+            helmets::InvulnHazeSpriteAction::SmallSprite {
+                y: 191,
+                size_link: 0,
+                pattern: 0x86EA,
+                x: 243,
+            },
+            "ASM loc_3FD8E: d6 == 0 falls through, NOT skipped (bmi only fires on negative)"
+        );
+    }
+
+    #[test]
+    fn diamond_power_invuln_haze_size_index_upper_clamp_loc_3fd84() {
+        // ASM loc_3FD84: `lsr.w #2,d1; cmpi.w #$B,d1; ble.s loc_3FD8E; moveq #$B,d1`.
+        // `ble` is signed-≤, so values strictly greater than $B are clamped to $B.
+        //
+        // Inputs: radius=$18, radius_frac=$0200 → radius_long=$18_0200 → d5=$C01=3073.
+        //   phase=64 (90°), rotation_speed=0 (so loc_3FD4C add is a no-op even with
+        //   fade=0; otherwise phase would advance by rotation_speed before sub_40236).
+        //   sub_40236(64): cos=0, sin=word_402B0[64]=$3FFE=16382 (Q2).
+        //   x_offset = 0 → screen_x_pre = 100 + 0 + 127 = 227.
+        //   sin*d5 = 16382*3073 = $0300_27FE; >>16 = $300 = 768; >>5 = 24.
+        //   size_index_raw = 24 + $18 = $30 = 48; >>2 = $C = 12, ABOVE $B → clamp $B.
+        //   raw_size = byte_3FDDC[$B] = 5; fade=0 → d6 = 5.
+        //   screen_y_pre = −$10 + 80 + 127 = 191.
+        //   sub d6: x = 227 − 5 = 222; y = 191 − 5 = 186.
+        //   table_index = 5*4 = $14 ≥ $C → LargeSprite, entry 5 → ($05, $86F2).
+        //
+        // Without the upper clamp, `INVULN_HAZE_SIZE_TABLE[12]` would panic.
+        let mut slot = helmets::InvulnHazeSlot {
+            radius: 0x18,
+            radius_frac: 0x0200,
+            y_offset: -0x10,
+            phase: 64,
+            rotation_speed: 0,
+        };
+        let result = helmets::diamond_power_invuln_haze_slot_sprite(&mut slot, 0, 100, 80, 0, 0);
+        assert_eq!(
+            result,
+            helmets::InvulnHazeSpriteAction::LargeSprite {
+                y: 186,
+                size_byte: 0x05,
+                pattern: 0x86F2,
+                x: 222,
+            },
+            "ASM loc_3FD84: size_index >$B clamped to $B (raw_size=5, LargeSprite path)"
+        );
+    }
+
+    #[test]
+    fn diamond_power_invuln_haze_size_index_lower_clamp_loc_3fd84() {
+        // ASM loc_3FD7E (just before loc_3FD84): `addi.w #$18,d1; bpl.s loc_3FD84;
+        // moveq #0,d1`. `bpl` keeps non-negative; otherwise clamp to 0.
+        //
+        // Inputs: radius=$19, radius_frac=$0400 → radius_long=$19_0400 → d5=$C82=3202.
+        //   phase=192 (270°), rotation_speed=0 (so loc_3FD4C add is a no-op even with
+        //   fade=0; otherwise phase would advance by rotation_speed before sub_40236).
+        //   sub_40236(192): cos=0, sin=−$3FFE=−16382 (Q4 negates sin).
+        //   x_offset = 0 → screen_x_pre = 100 + 0 + 127 = 227.
+        //   sin*d5 = −16382*3202 = −52,455,164; >>16 = −801; (i16) >>5 = −26.
+        //   size_index_raw = −26 + $18 = −2, NEGATIVE → clamp to 0.
+        //   (0 as u16) >> 2 = 0; raw_size = byte_3FDDC[0] = 1; fade=0 → d6 = 1.
+        //   screen_y_pre = −$10 + 80 + 127 = 191.
+        //   sub d6: x = 227 − 1 = 226; y = 191 − 1 = 190.
+        //   table_index = 1*4 = 4 < $C → SmallSprite, entry 1 → ($00, $86EB).
+        //
+        // Without the lower clamp, the negative i16 would cast to a huge u16
+        // and round-trip through the upper clamp to $B, producing raw_size=5
+        // and a LargeSprite — a different return variant.
+        let mut slot = helmets::InvulnHazeSlot {
+            radius: 0x19,
+            radius_frac: 0x0400,
+            y_offset: -0x10,
+            phase: 192,
+            rotation_speed: 0,
+        };
+        let result = helmets::diamond_power_invuln_haze_slot_sprite(&mut slot, 0, 100, 80, 0, 0);
+        assert_eq!(
+            result,
+            helmets::InvulnHazeSpriteAction::SmallSprite {
+                y: 190,
+                size_link: 0,
+                pattern: 0x86EB,
+                x: 226,
+            },
+            "ASM loc_3FD7E: size_index <0 clamped to 0 (raw_size=1, SmallSprite path)"
+        );
+    }
+
     // -----------------------------------------------------------------------
     // Prize content dispatch
     // -----------------------------------------------------------------------
