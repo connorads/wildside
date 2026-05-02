@@ -904,6 +904,17 @@ fn classify_state_diff(
         return DivergenceCategory::Advisory;
     }
 
+    // Oracle-paused supersedes death-gap: when the oracle is stuck on title
+    // (game_mode=0x0008) or in a pause menu, ALL fields are unreliable —
+    // including position fields that would otherwise hit the death-gap
+    // advisory path. Without this precedence, native deaths landing on an
+    // oracle-paused checkpoint produce spurious "advisory" position diffs
+    // that the autonomy advisory-promotion strategy then flags as candidates,
+    // even though the oracle never reached gameplay to report a real value.
+    if oracle_paused_checkpoints.contains(diff.checkpoint.as_str()) {
+        return DivergenceCategory::OracleLimitation;
+    }
+
     if death_gap_checkpoints.contains(diff.checkpoint.as_str())
         && matches!(
             diff.field.as_str(),
@@ -911,13 +922,6 @@ fn classify_state_diff(
         )
     {
         return DivergenceCategory::Advisory;
-    }
-
-    // When the oracle is paused (stuck in transition or pause menu), its
-    // entire game state is unreliable — not just positions. Classify all
-    // remaining diffs as oracle limitation.
-    if oracle_paused_checkpoints.contains(diff.checkpoint.as_str()) {
-        return DivergenceCategory::OracleLimitation;
     }
 
     DivergenceCategory::Authoritative
@@ -2628,6 +2632,65 @@ mod tests {
             classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
 
         assert_eq!(category, DivergenceCategory::OracleLimitation);
+    }
+
+    #[test]
+    fn paused_oracle_supersedes_death_gap_for_position_diffs() {
+        // When a checkpoint is BOTH death-gap (native HP=0) and oracle-paused
+        // (oracle stuck on title or pause menu), the oracle's position is
+        // meaningless — it never reached gameplay. Classify as
+        // OracleLimitation so the autonomy advisory-promotion strategy does
+        // not flag camera_y_pos / kid_x_pos / kid_y_pos / camera_x_pos as
+        // promotion candidates from these double-classified diffs. Sweep
+        // 1777679249 produced 17 such advisory camera_y_pos diffs, every one
+        // of them on an oracle-paused level_settle/idle_tail checkpoint.
+        for field in ["camera_y_pos", "camera_x_pos", "kid_x_pos", "kid_y_pos"] {
+            let diff = StateDiff {
+                checkpoint: "level_settle".into(),
+                field: field.into(),
+                native_value: "0x00e00000".into(),
+                oracle_value: "0x00730000".into(),
+                category: DivergenceCategory::Authoritative,
+            };
+            let death_gap_checkpoints = std::collections::HashSet::from(["level_settle"]);
+            let oracle_paused_checkpoints = std::collections::HashSet::from(["level_settle"]);
+
+            let category =
+                classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
+
+            assert_eq!(
+                category,
+                DivergenceCategory::OracleLimitation,
+                "field '{field}' should be oracle limitation when oracle is paused, even on a death-gap checkpoint"
+            );
+        }
+    }
+
+    #[test]
+    fn death_gap_position_diff_without_oracle_pause_remains_advisory() {
+        // When native dies but the oracle survives (game continues, not
+        // paused), position diffs ARE advisory: oracle reports a real
+        // gameplay position that simply diverged from the dead native run.
+        for field in ["camera_y_pos", "camera_x_pos", "kid_x_pos", "kid_y_pos"] {
+            let diff = StateDiff {
+                checkpoint: "idle_tail".into(),
+                field: field.into(),
+                native_value: "0x00000000".into(),
+                oracle_value: "0x05000000".into(),
+                category: DivergenceCategory::Authoritative,
+            };
+            let death_gap_checkpoints = std::collections::HashSet::from(["idle_tail"]);
+            let oracle_paused_checkpoints = std::collections::HashSet::<&str>::new();
+
+            let category =
+                classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
+
+            assert_eq!(
+                category,
+                DivergenceCategory::Advisory,
+                "field '{field}' should remain advisory on a true death-gap checkpoint when oracle is alive"
+            );
+        }
     }
 
     #[test]
