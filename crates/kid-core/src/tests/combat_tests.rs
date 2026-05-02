@@ -2469,6 +2469,114 @@ mod chunk_03 {
     }
 
     #[test]
+    fn diamond_power_main_extra_hp_life_screen_position_exact_values_loc_3fbe4() {
+        // ASM loc_3FBE4 (kid.asm:44932-44950) screen-position math:
+        //   move.l $3E(a0),d5; lsr.l #8,d5; lsr.l #1,d5     ; d5 = radius >> 9
+        //   move.w $42(a0),d0; bsr.w sub_40236              ; d0 = cos, d1 = sin
+        //   muls.w d5,d0; swap d0; asr.w #5,d0              ; x_offset = (cos*d5)>>16>>5
+        //   add.w x_pos(a3),d0; add.w d3,d0                 ; screen_x = kid_x + x_offset + d3
+        //   muls.w d5,d1; swap d1; asr.w #5,d1; neg.w d1    ; y_offset = -((sin*d5)>>16>>5)
+        //   add.w y_pos(a3),d1; subi.w #$10,d1; add.w d4,d1 ; screen_y = kid_y + y_offset - $10 + d4
+        //
+        // Inputs: radius=$0040_0000, angle byte=$10, kid=(100,80), camera=(0,0).
+        //   d3 = $7F - 0 = $7F (= 127); d4 = $7F.
+        //   d5 = $0040_0000 >> 9 = $2000 (= 8192).
+        //   sub_40236($10): cos = word_402B0[48] = $3B20 (15136); sin = word_402B0[16] = $187D (6269).
+        //   cos*d5 = $3B20*$2000 = $0764_0000 → swap >> 5: ($0764) >> 5 = 1892>>5 = 59.
+        //   sin*d5 = $187D*$2000 = $030F_A000 → swap >> 5: ($030F) >> 5 = 783>>5 = 24.
+        //   screen_x = 100 + 59 + 127 = 286.
+        //   screen_y = 80 + (-24) - 16 + 127 = 167.
+        let mut slot = helmets::ExtraHPLifeSlot {
+            radius: 0x0040_0000, // upper word $40 → d5 = $2000
+            angle: 0x0010_0000,  // upper byte $10 → cos=$3B20, sin=$187D
+            power_type: 8,
+        };
+        let result =
+            helmets::diamond_power_main_extra_hp_life_slot(&mut slot, 100, 80, 0, 0, 0x10, 0);
+        let helmets::ExtraHPLifeSlotAction::Visible { x, y, .. } = result else {
+            panic!("ASM loc_3FC56: expanding phase with positive radius compiles a sprite");
+        };
+        assert_eq!(
+            x, 286,
+            "ASM loc_3FBE4: screen_x = kid_x + ((cos * (radius>>9))>>16)>>5 + ($7F - camera_x)"
+        );
+        assert_eq!(
+            y, 167,
+            "ASM loc_3FBE4: screen_y = kid_y + -(((sin * (radius>>9))>>16)>>5) - $10 + ($7F - camera_y)"
+        );
+    }
+
+    #[test]
+    fn diamond_power_main_extra_hp_life_expanding_preserves_lower_word_loc_3fbe4() {
+        // ASM loc_3FBE4: `addq.w #2,$3E(a0); subq.w #2,$42(a0)` operates on the
+        // upper word ($3E and $42) of each longword; the lower fractional word
+        // ($40 and $44) must be preserved across the update.
+        let mut slot = helmets::ExtraHPLifeSlot {
+            radius: 0x0040_4321, // upper=$40, lower=$4321
+            angle: 0x0019_BEEF,  // upper=$19, lower=$BEEF
+            power_type: 8,
+        };
+        helmets::diamond_power_main_extra_hp_life_slot(
+            &mut slot, 100, 80, 0, 0, 0x10, // expanding phase
+            0,
+        );
+        assert_eq!(
+            slot.radius, 0x0042_4321,
+            "ASM loc_3FBE4: addq.w #2,$3E(a0) updates upper word only; $40 lower word preserved"
+        );
+        assert_eq!(
+            slot.angle, 0x0017_BEEF,
+            "ASM loc_3FBE4: subq.w #2,$42(a0) updates upper word only; $44 lower word preserved"
+        );
+    }
+
+    #[test]
+    fn diamond_power_main_extra_hp_life_contracting_preserves_lower_word_loc_3fc2a() {
+        // ASM loc_3FC2A: `addq.w #1,$42(a0); subq.w #6,$3E(a0)` operates on the
+        // upper word only; the lower fractional words must be preserved.
+        let mut slot = helmets::ExtraHPLifeSlot {
+            radius: 0x0030_4321, // upper=$30, lower=$4321
+            angle: 0x0019_BEEF,  // upper=$19, lower=$BEEF
+            power_type: 8,
+        };
+        helmets::diamond_power_main_extra_hp_life_slot(
+            &mut slot, 100, 80, 0, 0, 0x40, // contracting phase, no convergence
+            0,
+        );
+        assert_eq!(
+            slot.radius, 0x002A_4321,
+            "ASM loc_3FC2A: subq.w #6,$3E(a0) updates upper word only; $40 lower word preserved"
+        );
+        assert_eq!(
+            slot.angle, 0x001A_BEEF,
+            "ASM loc_3FC2A: addq.w #1,$42(a0) updates upper word only; $44 lower word preserved"
+        );
+    }
+
+    #[test]
+    fn diamond_power_main_extra_hp_life_radius_zero_after_subtract_does_not_converge_loc_3fc2a() {
+        // ASM loc_3FC2A: `subq.w #6,$3E(a0); bge.s loc_3FC56` —
+        // `bge` branches when N==V (i.e. result >= 0), which includes 0. When
+        // radius_hi exactly equals 0 after subtraction, control falls through
+        // to loc_3FC56 (compile sprite), NOT to the convergence path.
+        let mut slot = helmets::ExtraHPLifeSlot {
+            radius: 0x0006_4321, // radius_hi=6 → after -6 = 0 (still bge)
+            angle: 0x0000_0000,
+            power_type: 8,
+        };
+        let result =
+            helmets::diamond_power_main_extra_hp_life_slot(&mut slot, 100, 80, 0, 0, 0x40, 0);
+        assert!(
+            matches!(result, helmets::ExtraHPLifeSlotAction::Visible { .. }),
+            "ASM loc_3FC2A: bge.s loc_3FC56 — radius_hi==0 falls through to compile sprite"
+        );
+        assert_eq!(
+            slot.radius, 0x0000_4321,
+            "ASM loc_3FC2A: subq.w #6,$3E(a0) — upper word becomes 0, lower word preserved"
+        );
+    }
+
+    #[test]
     fn diamond_power_init_invulnerability_loc_3fc8a_loc_3fc8c() {
         // ASM loc_3FC8A (kid.asm:45006): common Invulnerability/SamuraiHaze init
         // entry — moveq #9,d1 (10 slots via dbf).
