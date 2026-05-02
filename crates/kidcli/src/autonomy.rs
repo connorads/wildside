@@ -4291,6 +4291,14 @@ fn rank_advisory_promotion_candidates(
                 if !matches!(diff.category, crate::sweep::DivergenceCategory::Advisory) {
                     continue;
                 }
+                // Old sweep reports bake in the category at sweep time, so a
+                // field promoted out of `ADVISORY_FIELDS` after the sweep ran
+                // would still vote for itself here. Filter against the const
+                // at runtime so the promotion strategy moves on immediately
+                // — no sweep refresh required.
+                if !crate::sweep::ADVISORY_FIELDS.contains(&diff.field.as_str()) {
+                    continue;
+                }
                 *total_diffs.entry(diff.field.clone()).or_default() += 1;
                 levels_seen
                     .entry(diff.field.clone())
@@ -12940,7 +12948,7 @@ strategies:
             temp_dir.path(),
             diffs_dir,
             "2026-04-22T10-00-00Z",
-            &[(0x00, &[("number_lives", advisory)])],
+            &[(0x00, &[("kid_y_vel", advisory)])],
         );
 
         let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 11, diffs_dir, 3)
@@ -12949,13 +12957,75 @@ strategies:
 
         assert_eq!(
             cycle.progress_fingerprint,
-            "proactive-verification:advisory-promotion:number_lives"
+            "proactive-verification:advisory-promotion:kid_y_vel"
         );
         assert!(
             task.evidence.iter().any(|item| {
                 item.label == "advisory-promotion" && item.detail.contains("1/1 sweeps")
             }),
             "evidence should reflect the degraded persistence (1-of-1)"
+        );
+    }
+
+    #[test]
+    fn advisory_promotion_excludes_field_no_longer_in_const() {
+        // Sweep reports bake in the category at sweep time. After a field is
+        // promoted out of `ADVISORY_FIELDS`, old reports must stop voting for
+        // it — otherwise the proactive-verification cascade re-emits the
+        // already-completed promotion task. The runtime filter against
+        // `ADVISORY_FIELDS` defends against that. `number_lives` was promoted
+        // in commit 4a645436 and is no longer in the const.
+        let temp_dir = source_port_repo();
+        let diffs_dir = ".cache/sweep-runs";
+        let advisory = crate::sweep::DivergenceCategory::Advisory;
+
+        for ts in [
+            "2026-04-20T10-00-00Z",
+            "2026-04-21T10-00-00Z",
+            "2026-04-22T10-00-00Z",
+        ] {
+            write_sweep_report(
+                temp_dir.path(),
+                diffs_dir,
+                ts,
+                &[(0x00, &[("number_lives", advisory)])],
+            );
+        }
+
+        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 13, diffs_dir, 3);
+        assert!(
+            cycle.is_none(),
+            "fields no longer in ADVISORY_FIELDS must not surface as candidates"
+        );
+    }
+
+    #[test]
+    fn advisory_promotion_includes_field_still_in_const() {
+        // Mirror of the exclusion test: a field still in `ADVISORY_FIELDS`
+        // (`kid_x_vel`) must still surface so genuinely-stable advisory diffs
+        // continue to drive promotion review.
+        let temp_dir = source_port_repo();
+        let diffs_dir = ".cache/sweep-runs";
+        let advisory = crate::sweep::DivergenceCategory::Advisory;
+
+        for ts in [
+            "2026-04-20T10-00-00Z",
+            "2026-04-21T10-00-00Z",
+            "2026-04-22T10-00-00Z",
+        ] {
+            write_sweep_report(
+                temp_dir.path(),
+                diffs_dir,
+                ts,
+                &[(0x00, &[("kid_x_vel", advisory)])],
+            );
+        }
+
+        let cycle = super::try_advisory_promotion_strategy(temp_dir.path(), 14, diffs_dir, 3)
+            .expect("field still in ADVISORY_FIELDS must surface as a candidate");
+        assert_eq!(
+            cycle.progress_fingerprint,
+            "proactive-verification:advisory-promotion:kid_x_vel"
         );
     }
 
