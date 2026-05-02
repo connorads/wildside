@@ -4319,20 +4319,27 @@ impl NativeRuntime {
             // ASM `subi.w` wraps: e.g. 0xAA00 - 0x3000 = 0x7A00 (negative →
             // positive wrap). This is intentional — the wrap produces a sudden
             // downward push that's part of the flight feel.
+            // ASM loc_B214+ (kid.asm:14097): `subi.w #$3000,d7; cmpi.w
+            // #$8001,d7; bgt.w loc_B246; move.w #$8001,d7` — clamp upward
+            // thrust to MIN ($8001 = -$7FFF). Expressed as `.max(MIN)` so the
+            // boundary case (accel == MIN) cannot produce equivalent
+            // `<`↔`<=`↔`==` mutations: an if-statement re-assigns MIN to
+            // itself at the boundary, so all three operators are
+            // observationally identical.
             self.helmet.cyclone_y_accel = self
                 .helmet
                 .cyclone_y_accel
-                .wrapping_sub(CYCLONE_ACCEL_THRUST);
-            if self.helmet.cyclone_y_accel < CYCLONE_ACCEL_MIN {
-                self.helmet.cyclone_y_accel = CYCLONE_ACCEL_MIN;
-            }
+                .wrapping_sub(CYCLONE_ACCEL_THRUST)
+                .max(CYCLONE_ACCEL_MIN);
         } else {
             // ASM loc_B23A (kid.asm:14104): flying button not pressed — cap
             // descent acceleration at $1200 so Cyclone drifts down gently.
-            // `cmpi.w #$1200,d7; ble.w loc_B246; move.w #$1200,d7`
-            if self.helmet.cyclone_y_accel > CYCLONE_ACCEL_MAX_DESCENT {
-                self.helmet.cyclone_y_accel = CYCLONE_ACCEL_MAX_DESCENT;
-            }
+            // `cmpi.w #$1200,d7; ble.w loc_B246; move.w #$1200,d7`. Expressed
+            // as `.min(MAX)` so the boundary case (accel == MAX) cannot
+            // produce an equivalent `>`↔`>=` mutation: the if-statement
+            // re-assigns MAX to itself at the boundary.
+            self.helmet.cyclone_y_accel =
+                self.helmet.cyclone_y_accel.min(CYCLONE_ACCEL_MAX_DESCENT);
         }
 
         // ASM loc_B246 (kid.asm:14109): store acceleration back to
