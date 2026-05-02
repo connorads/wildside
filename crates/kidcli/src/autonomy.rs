@@ -8176,16 +8176,18 @@ fn latest_state_sweep_signal(repo_root: &Path) -> CheckOutcome {
         .map(|timestamp| format!("timestamp {timestamp}, "))
         .unwrap_or_default();
     // Source freshness: persist the kid-core source hash from the sweep
-    // report so the cycle artefact can be cross-checked against the current
-    // tree. A drift between this hash and `sweep::kid_core_source_hash` means
-    // the gate ran against an older revision and the green status is stale.
-    let kid_core_hash_detail = latest
+    // report and cross-check it against `sweep::kid_core_source_hash` for the
+    // current tree. A drift between the two means the gate ran against an
+    // older revision and the green status is stale; surface that drift in the
+    // detail so the next sweep-parity cycle treats the artefact as
+    // self-citing evidence of staleness rather than fresh coverage.
+    let persisted_kid_core_hash = latest
         .payload
         .get("kid_core_hash")
-        .and_then(serde_json::Value::as_str)
-        .filter(|hash| !hash.is_empty())
-        .map(|hash| format!("kid_core_hash={}, ", short_kid_core_hash(hash)))
-        .unwrap_or_default();
+        .and_then(serde_json::Value::as_str);
+    let current_kid_core_hash = crate::sweep::kid_core_source_hash(repo_root).ok();
+    let kid_core_hash_detail =
+        format_kid_core_hash_detail(persisted_kid_core_hash, current_kid_core_hash.as_deref());
     // Sweep breadth: the gate only counts as whole-game evidence when it
     // covered all 69 BCD levels. Older history entries persist
     // `levels_requested`; fresh per-run reports persist a `levels` array.
@@ -8215,6 +8217,29 @@ fn latest_state_sweep_signal(repo_root: &Path) -> CheckOutcome {
 fn short_kid_core_hash(hash: &str) -> &str {
     let len = hash.len().min(12);
     &hash[..len]
+}
+
+/// Formats the `kid_core_hash` segment of a state-sweep signal detail string,
+/// optionally annotating drift between the hash captured at sweep time
+/// (`persisted`) and the hash of the current kid-core source tree
+/// (`current`). Returns an empty string when no persisted hash is available
+/// so legacy sweep-history entries that pre-date the field stay readable
+/// without a placeholder. When persisted and current disagree the segment
+/// reads `kid_core_hash=PERSISTED (stale, current=CURRENT), ` so the
+/// sweep-parity cycle artefact cites the drift directly — operators reading
+/// the artefact alone can tell that the green status reflects an older tree.
+fn format_kid_core_hash_detail(persisted: Option<&str>, current: Option<&str>) -> String {
+    let Some(persisted) = persisted.filter(|hash| !hash.is_empty()) else {
+        return String::new();
+    };
+    let persisted_short = short_kid_core_hash(persisted);
+    match current.filter(|hash| !hash.is_empty()) {
+        Some(current) if current != persisted => {
+            let current_short = short_kid_core_hash(current);
+            format!("kid_core_hash={persisted_short} (stale, current={current_short}), ")
+        }
+        _ => format!("kid_core_hash={persisted_short}, "),
+    }
 }
 
 /// Returns the number of levels covered by a state-sweep payload, preferring
@@ -9114,11 +9139,11 @@ mod tests {
         SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, build_case_queue_snapshot,
         capability_completion_summary, detect_blocker, evaluate_capabilities,
         evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
-        fingerprint_for_capabilities, is_sweep_refresh_commit, latest_release_gate_failure_detail,
-        latest_release_gate_signal, latest_state_sweep_signal, load_source_port_frontier_state,
-        normalise_release_gate_value, parse_recent_commit_summaries,
-        render_source_port_next_agent_note, select_next_task, source_port_frontier_sweep_task,
-        source_port_next_agent_note, sweep_refresh_streak,
+        fingerprint_for_capabilities, format_kid_core_hash_detail, is_sweep_refresh_commit,
+        latest_release_gate_failure_detail, latest_release_gate_signal, latest_state_sweep_signal,
+        load_source_port_frontier_state, normalise_release_gate_value,
+        parse_recent_commit_summaries, render_source_port_next_agent_note, select_next_task,
+        source_port_frontier_sweep_task, source_port_next_agent_note, sweep_refresh_streak,
     };
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
@@ -10040,6 +10065,84 @@ mod tests {
         assert!(
             outcome.detail.contains("levels=69"),
             "levels_requested should still appear when present: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn kid_core_hash_detail_renders_persisted_only_when_current_unknown() {
+        // A missing current hash (e.g. `kid_core_source_hash` errored)
+        // must not invent a stale annotation — fall back to the legacy
+        // single-hash form so the cycle artefact still cites the persisted
+        // sweep hash even when the current tree cannot be hashed.
+        let detail =
+            format_kid_core_hash_detail(Some("5e6309c94728b8ef9e9e10ba5002197362b8926f"), None);
+        assert_eq!(detail, "kid_core_hash=5e6309c94728, ");
+    }
+
+    #[test]
+    fn kid_core_hash_detail_renders_fresh_when_current_matches_persisted() {
+        // Persisted and current SHA1 agree byte-for-byte: the gate ran
+        // against the live tree, so the annotation must omit any "stale"
+        // marker.
+        let hash = "5e6309c94728b8ef9e9e10ba5002197362b8926f";
+        let detail = format_kid_core_hash_detail(Some(hash), Some(hash));
+        assert_eq!(detail, "kid_core_hash=5e6309c94728, ");
+    }
+
+    #[test]
+    fn kid_core_hash_detail_annotates_stale_when_current_differs_from_persisted() {
+        // Persisted (sweep-time) and current source hashes diverge, so the
+        // gate ran against an older revision. The detail must surface both
+        // 12-char prefixes inside a `(stale, current=...)` annotation so
+        // the persisted sweep-parity cycle artefact is self-citing for
+        // source drift without forcing readers to consult the kid-core
+        // tree.
+        let detail = format_kid_core_hash_detail(
+            Some("5e6309c94728b8ef9e9e10ba5002197362b8926f"),
+            Some("0123456789abcdef0123456789abcdef01234567"),
+        );
+        assert_eq!(
+            detail,
+            "kid_core_hash=5e6309c94728 (stale, current=0123456789ab), "
+        );
+    }
+
+    #[test]
+    fn kid_core_hash_detail_returns_empty_when_persisted_missing() {
+        // No persisted hash (legacy sweep-history row): the segment must
+        // collapse to an empty string so the surrounding detail does not
+        // leak a placeholder.
+        assert_eq!(format_kid_core_hash_detail(None, Some("anything")), "");
+        assert_eq!(format_kid_core_hash_detail(Some(""), Some("anything")), "");
+    }
+
+    #[test]
+    fn state_sweep_signal_annotates_drift_when_kid_core_source_changed() {
+        // End-to-end: sweep-history persists a hash that does not match the
+        // current kid-core source tree. `kid_core_source_hash` for the
+        // empty fixture below is the SHA1 of zero hashed bytes
+        // (`da39a3ee...`); the persisted hash differs, so the signal must
+        // append the `(stale, current=...)` annotation so a sweep-parity
+        // cycle artefact citing this signal exposes the source drift
+        // directly.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1777763142","tier":"state","kid_core_hash":"5e6309c94728b8ef9e9e10ba5002197362b8926f","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":0,"accumulation":0,"rng":0,"oracle_limitation":840},"report_path":"/tmp/sweep-report.json"}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let outcome = latest_state_sweep_signal(temp_dir.path());
+        assert!(outcome.ok);
+        assert!(
+            outcome
+                .detail
+                .contains("kid_core_hash=5e6309c94728 (stale, current=da39a3ee5e6b)"),
+            "drift between persisted sweep hash and current source hash must surface in the detail: {}",
             outcome.detail
         );
     }
