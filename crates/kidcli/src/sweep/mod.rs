@@ -41,12 +41,19 @@ use sha1::{Digest, Sha1};
 /// rotation in `trace::object_counts_from_roster`; ASM `Allocate_ObjectSlot`
 /// kid.asm:1583-1597 increments `Number_Objects` $FFFFF84A on every alloc, so
 /// any remaining diff is either an oracle-paused checkpoint or a real
-/// roster mismatch).
+/// roster mismatch),
+/// number_hitpoints (ASM damage path `loc_B722` kid.asm:14646-14658 does
+/// `subq.w #1,(Number_Hitpoints).w` only inside live gameplay; respawn
+/// `lose_life` kid.asm:14763-14768 reseeds `move.w #2,(Number_Hitpoints).w`.
+/// Every persistent advisory diff in sweep 1777685763 sat on an
+/// oracle-paused checkpoint — the oracle never reached the damage routine,
+/// so the precedence reorder in commit 404996c4 lets these reclassify to
+/// `OracleLimitation`. Real native-only damage bugs now surface as
+/// authoritative).
 pub(crate) const ADVISORY_FIELDS: &[&str] = &[
-    "number_hitpoints", // oracle-pause: idle_tail diverges because oracle is paused
-    "number_lives",     // oracle-pause: idle_tail diverges because oracle is paused
-    "kid_x_vel",        // capture-timing: native post-frame vs oracle VBlank
-    "kid_y_vel",        // capture-timing: native post-frame vs oracle VBlank
+    "number_lives", // oracle-pause: idle_tail diverges because oracle is paused
+    "kid_x_vel",    // capture-timing: native post-frame vs oracle VBlank
+    "kid_y_vel",    // capture-timing: native post-frame vs oracle VBlank
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
@@ -2717,6 +2724,55 @@ mod tests {
                 "field '{field}' should be oracle limitation when oracle is paused"
             );
         }
+    }
+
+    #[test]
+    fn number_hitpoints_diff_against_paused_oracle_is_oracle_limitation() {
+        // After commit 404996c4 made oracle-paused supersede death-gap, the
+        // legacy `number_hitpoints` advisory mask was redundant. Sweep
+        // 1777685763 carried 13 `number_hitpoints` advisory diffs across 13
+        // levels, every one of them on an `oracle_paused=true` checkpoint
+        // (oracle stuck before the ROM damage path at `loc_B722`
+        // kid.asm:14646-14658, so it kept the `lose_life` reseed of
+        // `Number_Hitpoints=2` from kid.asm:14768). Removing the mask lets
+        // those naturally fall through to `OracleLimitation`.
+        let diff = StateDiff {
+            checkpoint: "idle_tail".into(),
+            field: "number_hitpoints".into(),
+            native_value: "0".into(),
+            oracle_value: "2".into(),
+            category: DivergenceCategory::Authoritative,
+        };
+        let death_gap_checkpoints = std::collections::HashSet::from(["idle_tail"]);
+        let oracle_paused_checkpoints = std::collections::HashSet::from(["idle_tail"]);
+
+        let category =
+            classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
+
+        assert_eq!(category, DivergenceCategory::OracleLimitation);
+    }
+
+    #[test]
+    fn number_hitpoints_diff_with_live_oracle_is_authoritative() {
+        // Symmetric case: if a future scenario produces a `number_hitpoints`
+        // mismatch where the oracle is NOT paused (live gameplay reached the
+        // ASM damage path at `loc_B722` kid.asm:14651-14658), the diff is a
+        // real native damage bug and must surface as authoritative — not be
+        // hidden by an advisory mask.
+        let diff = StateDiff {
+            checkpoint: "idle_tail".into(),
+            field: "number_hitpoints".into(),
+            native_value: "0".into(),
+            oracle_value: "2".into(),
+            category: DivergenceCategory::Authoritative,
+        };
+        let death_gap_checkpoints = std::collections::HashSet::<&str>::new();
+        let oracle_paused_checkpoints = std::collections::HashSet::<&str>::new();
+
+        let category =
+            classify_state_diff(&diff, &death_gap_checkpoints, &oracle_paused_checkpoints);
+
+        assert_eq!(category, DivergenceCategory::Authoritative);
     }
 
     #[test]
