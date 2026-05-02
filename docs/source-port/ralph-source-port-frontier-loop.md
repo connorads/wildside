@@ -91,3 +91,20 @@ If a session is blocked:
 3. The next session must use a different approach or a narrower case
 
 Never run the same investigation twice — check "Dead Ends / Do Not Retry" first.
+
+## Auto-recovery and state-aware operator hints
+
+When the autonomy cascade can't dispatch new work because a regenerable
+artefact is missing (state sweep or release-gate evidence), the runner
+auto-recovers instead of waiting on the operator. Bookkeeping at
+`.cache/autonomy/source-port-frontier/auto_recovery_attempts.json` caps
+recovery at **one attempt per fingerprint, ever** — a genuine failure still
+surfaces on the second stall, and a manual reset (delete the entry or the
+whole file) re-arms it. Dirty trees skip the auto-run.
+
+Operator unblock hints emitted by `emit_circuit_breaker_message` are now
+state-aware: they only suggest commands whose preconditions hold (e.g.
+`asm-coverage --update` is suppressed when coverage is already 100%, and
+the regeneration command for a missing artefact is rendered as the top
+hint). The `missing_artefact` typed signal on `TaskPackage` is what drives
+both auto-recovery and the rendered hint.

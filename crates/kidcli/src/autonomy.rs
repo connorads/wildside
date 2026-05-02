@@ -1,3 +1,28 @@
+//! Autonomy: source-port frontier task dispatcher and recovery cascade.
+//!
+//! ## Auto-recovery contract
+//!
+//! Cycles emit a typed `MissingArtefact` signal on `TaskPackage` when the
+//! lane requires a regenerable artefact (state sweep, release-gate
+//! evidence). The Python runner (`scripts/source_port_rl_run.py`) reads
+//! that signal and runs the deterministic regeneration command via
+//! `auto_recovery_command`, bookkept atomically in
+//! `.cache/autonomy/source-port-frontier/auto_recovery_attempts.json`.
+//!
+//! Bookkeeping is bounded to **one attempt per fingerprint, ever**.
+//! Re-arming requires either a manual reset (delete the file or the
+//! entry) or a new fingerprint; this keeps a real failure surfaceable —
+//! the second stall on the same fingerprint always reaches the operator.
+//!
+//! Dirty trees gate auto-recovery: the runner skips the cargo run when
+//! tracked files are uncommitted, so unsaved work isn't run alongside a
+//! 2-3 minute sweep. The operator message renders normally in that case.
+//!
+//! Both the Rust helpers (`auto_recovery_command`, `should_auto_recover`,
+//! `record_auto_recovery_attempt`) and the Python runner mirror the same
+//! contract; the Rust unit tests pin the argv shapes so the two sides
+//! cannot drift silently.
+
 use super::{
     GameplayScenario, Scenario, compare_native_gameplay, compare_native_oracle,
     prepare_generated_assets, verify_native_bootstrap,
