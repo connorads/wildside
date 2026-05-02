@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-22T12:00:00Z",
+  "updated_at": "2026-05-02T12:00:00Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-tail-clean-through-end",
@@ -133,6 +133,10 @@
       {
         "name": "Advisory `number_lives` had to stay masked because oracle idle warps always pause and the death path is unreachable",
         "reason": "Promoted 2026-05-02. Same architectural pattern as `number_hitpoints` — the legacy mask predated the oracle-paused supersedence in `classify_state_diff` and was a blunt workaround for Start-press carryover pausing the oracle on idle warps. Sweep `1777686359` carried 8 advisory `number_lives` diffs (levels 0x09, 0x32, 0x33, 0x48, 0x50, 0x57, 0x61, 0x63 at `idle_tail`), every one with `native=2 oracle=3` on a checkpoint where `game_paused:false->true` was already `oracle_limitation` and `current_level_id` showed the oracle stuck on title (0x0000). The ROM only decrements `Number_Lives` inside the live `lose_life` death path at kid.asm:14766 (`subq.w #1,(Number_Lives).w`); the title-card seed at kid.asm:16568 (`move.w #3,(Number_Lives).w`) is what the paused oracle reports. Native ran live, died once during the idle scenario (lives 3→2), oracle never reached gameplay so it stayed at the seed of 3. With commit 404996c4's precedence reorder, removing `number_lives` from `ADVISORY_FIELDS` lets these diffs naturally reclassify to `OracleLimitation` while letting any future non-paused life-loss divergence surface as a real native bug rather than being silently swallowed."
+      },
+      {
+        "name": "Issue #139's Block_Mappings layout is `1 fallback + 5 groups × 16 skins`, as backlog #125 codified",
+        "reason": "Rejected 2026-05-02 during gameplay-bug-investigation cycle 121. ASM `sub_30194` (`kid.asm:33745-33893`) sets `move.w #$FF,d4` on `kid.asm:33752` before calling `sub_302F6` / `sub_3034A`, and both subroutines mask the cell with `d4` and shift left 3 (`loc_30336`, `loc_3037C`) — Block_Mappings is byte-indexed by `(cell & 0xFF) × 8`, i.e. **the skin byte alone**. The block-type byte (cell bits 11..8) is never used for the tile lookup, only for behaviour dispatch (`AddrTbl_BlockTypes` in `kid.asm:24385-24402`). `unk_7B8DC` (`tools/to_split.txt:703`) is extracted verbatim from $7B8DC..$7BB64 (= $288 bytes = 81 contiguous 8-byte quads) and copied into RAM `Block_Mappings = $FFFF503A` by `loc_11D46` as 162 longwords. `crates/kid-data/src/lib.rs:3105-3153` (`mapped_word_pair_sub_302F6`, `mapped_longword_sub_3034A`) already implements this contract correctly using `tile_index = cell & 0x00FF`. The `crates/kid-render/src/level.rs:131-164` `BlockVisualMapping::resolve` lookup `block_quads[1 + group_index * 16 + skin]` (with `group_index` derived from block_type via `block_visual_kind`) is therefore wrong against ROM byte layout: e.g. cell `$E60C` (rubber, skin `0x0C`) reads byte offset `0x268` → tiles `$0AB9 $0AB7 $0ABA $0AB8` instead of ROM offset `0x60` → `$026E $0270 $026F $0271`. The supporting test fixture `block_mapping_words` (`crates/kid-render/src/lib.rs:789-799`) is a synthetic per-(group, skin) layout that masks the divergence; the production `theme/block_mappings.bin` is a flat skin-indexed table. Backlog `#125`'s claim that the asset is grouped is contradicted by `sub_30194`'s `d4 = $FF`, `kid-data`'s flat lookup, and the verbatim `to_split.txt` mapping. Future fix must restore skin-only indexing in `BlockVisualMapping::resolve` and rebuild the `#125` regression fixtures against ROM-correct (skin → tile) pairs."
       }
     ],
     "required_next_evidence": [
@@ -168,7 +172,7 @@
   "bug_investigation_attempts": {
     "137": 1,
     "138": 1,
-    "139": 1,
+    "139": 2,
     "140": 1,
     "143": 1
   },
