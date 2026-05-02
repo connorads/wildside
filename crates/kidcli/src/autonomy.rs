@@ -8468,7 +8468,10 @@ fn capability_completion_summary(
         CapabilityId::ReleaseGateGreen => (
             signals.release_gate.ok,
             if signals.release_gate.ok {
-                "The latest release-gate artefact reports a passing 1p-accurate gate.".to_owned()
+                format!(
+                    "The latest release-gate artefact reports a passing 1p-accurate gate: {}",
+                    signals.release_gate.detail
+                )
             } else {
                 format!(
                     "The latest release-gate artefact is missing or failing: {}",
@@ -8479,7 +8482,10 @@ fn capability_completion_summary(
         CapabilityId::StateSweepGreen => (
             signals.state_sweep.ok,
             if signals.state_sweep.ok {
-                "The latest state-tier sweep artefact reports no failures or errors.".to_owned()
+                format!(
+                    "The latest state-tier sweep artefact reports no failures or errors: {}",
+                    signals.state_sweep.detail
+                )
             } else {
                 format!(
                     "The latest state-tier sweep artefact is missing or failing: {}",
@@ -9064,8 +9070,9 @@ mod tests {
         SOURCE_PORT_CASE_QUEUE_NOTE_PATH, SOURCE_PORT_FRONTIER_NOTE_PATH,
         SOURCE_PORT_FRONTIER_STATE_PATH, SOURCE_PORT_RECORDINGS_CACHE_PATH,
         SOURCE_PORT_RELEASE_GATE_PATH, SOURCE_PORT_RESEARCH_MAP_PATH, SOURCE_PORT_ROADMAP_PATH,
-        SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, build_case_queue_snapshot, detect_blocker,
-        evaluate_capabilities, evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
+        SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, build_case_queue_snapshot,
+        capability_completion_summary, detect_blocker, evaluate_capabilities,
+        evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
         fingerprint_for_capabilities, is_sweep_refresh_commit, latest_release_gate_failure_detail,
         latest_release_gate_signal, latest_state_sweep_signal, load_source_port_frontier_state,
         normalise_release_gate_value, parse_recent_commit_summaries,
@@ -9407,6 +9414,50 @@ mod tests {
                 .summary
                 .contains("Static summary that should not leak into the selected task"),
             "task summary should not reuse static goal-spec prose"
+        );
+    }
+
+    #[test]
+    fn passing_release_gate_capability_summary_embeds_signal_detail() {
+        let mut signals = base_signals();
+        signals.release_gate = CheckOutcome::passing(
+            "latest release gate passed (timestamp 1777763092, report=/tmp/release-gate/1777763092/report.json)",
+            None,
+        );
+
+        let (complete, summary) =
+            capability_completion_summary(CapabilityId::ReleaseGateGreen, &signals);
+
+        assert!(complete, "passing signal should mark capability complete");
+        assert!(
+            summary.contains("timestamp 1777763092"),
+            "persisted sweep-parity summary should cite the release-gate timestamp so cycle artefacts are self-citing: {summary}"
+        );
+        assert!(
+            summary.contains("/tmp/release-gate/1777763092/report.json"),
+            "persisted sweep-parity summary should cite the release-gate report path: {summary}"
+        );
+    }
+
+    #[test]
+    fn passing_state_sweep_capability_summary_embeds_signal_detail() {
+        let mut signals = base_signals();
+        signals.state_sweep = CheckOutcome::passing(
+            "latest state sweep passed (timestamp 1777763142, failed=0, errors=0, advisory=0, oracle_limitations=840, report=/tmp/sweep-runs/1777763142/report.json)",
+            None,
+        );
+
+        let (complete, summary) =
+            capability_completion_summary(CapabilityId::StateSweepGreen, &signals);
+
+        assert!(complete, "passing signal should mark capability complete");
+        assert!(
+            summary.contains("timestamp 1777763142"),
+            "persisted sweep-parity summary should cite the state-sweep timestamp so cycle artefacts are self-citing: {summary}"
+        );
+        assert!(
+            summary.contains("/tmp/sweep-runs/1777763142/report.json"),
+            "persisted sweep-parity summary should cite the state-sweep report path: {summary}"
         );
     }
 
