@@ -8181,18 +8181,28 @@ fn latest_state_sweep_signal(repo_root: &Path) -> CheckOutcome {
         .get("errors")
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
-    let advisory = latest
-        .payload
-        .get("divergence_summary")
-        .and_then(|summary| summary.get("advisory"))
-        .and_then(serde_json::Value::as_u64)
-        .unwrap_or(0);
-    let oracle_limitations = latest
-        .payload
-        .get("divergence_summary")
-        .and_then(|summary| summary.get("oracle_limitation"))
-        .and_then(serde_json::Value::as_u64)
-        .unwrap_or(0);
+    // Sweep parity: the release-gate signal cites the full
+    // `sweep_summary=authoritative/advisory/accumulation/rng/oracle_limitation`
+    // breakdown via `format_release_gate_sweep_summary`, but the state-sweep
+    // signal historically only surfaced `advisory` + `oracle_limitations`.
+    // That asymmetry hid `authoritative`, `accumulation`, and `rng` whenever
+    // an operator read just the state-sweep evidence — `failed=0/errors=0`
+    // already implies `authoritative=0`, but the inline counts make the
+    // claim explicit so the persisted signal stays self-citing for every
+    // divergence category (matching the gate signal's contract).
+    let count = |field: &str| {
+        latest
+            .payload
+            .get("divergence_summary")
+            .and_then(|summary| summary.get(field))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0)
+    };
+    let authoritative = count("authoritative");
+    let advisory = count("advisory");
+    let accumulation = count("accumulation");
+    let rng = count("rng");
+    let oracle_limitations = count("oracle_limitation");
     let timestamp_detail = latest
         .timestamp
         .as_deref()
@@ -8220,14 +8230,14 @@ fn latest_state_sweep_signal(repo_root: &Path) -> CheckOutcome {
     if passed {
         CheckOutcome::passing(
             format!(
-                "latest state sweep passed ({timestamp_detail}{kid_core_hash_detail}{levels_detail}failed=0, errors=0, advisory={advisory}, oracle_limitations={oracle_limitations}, report={report_path})"
+                "latest state sweep passed ({timestamp_detail}{kid_core_hash_detail}{levels_detail}failed=0, errors=0, authoritative={authoritative}, advisory={advisory}, accumulation={accumulation}, rng={rng}, oracle_limitations={oracle_limitations}, report={report_path})"
             ),
             Some(latest.source_path),
         )
     } else {
         CheckOutcome::failing(
             format!(
-                "latest state sweep reported failures ({timestamp_detail}{kid_core_hash_detail}{levels_detail}failed={failed}, errors={errors}, report={report_path})"
+                "latest state sweep reported failures ({timestamp_detail}{kid_core_hash_detail}{levels_detail}failed={failed}, errors={errors}, authoritative={authoritative}, advisory={advisory}, accumulation={accumulation}, rng={rng}, oracle_limitations={oracle_limitations}, report={report_path})"
             ),
             Some(latest.source_path),
         )
@@ -10089,6 +10099,45 @@ mod tests {
             outcome.detail.contains("oracle_limitations=648"),
             "signal should include oracle limitation counts"
         );
+    }
+
+    #[test]
+    fn state_sweep_signal_surfaces_full_divergence_breakdown_for_release_gate_parity() {
+        // Sweep parity: the release-gate signal already cites every divergence
+        // category via `format_release_gate_sweep_summary`, so a passing
+        // gate's evidence is self-cite-able for `authoritative` /
+        // `accumulation` / `rng` even when those counts are zero. The
+        // state-sweep signal historically omitted those three categories,
+        // leaving `failed=0/errors=0` to imply `authoritative=0` rather than
+        // stating it. This test pins the explicit form so the two signals
+        // expose the same parity contract — an operator reading either one
+        // alone can confirm every category is at zero without chasing the
+        // linked sweep report.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let metrics_dir = temp_dir.path().join(".cache/metrics");
+        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
+        fs::write(
+            metrics_dir.join("sweep-history.jsonl"),
+            r#"{"timestamp":"1775120772","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":17,"accumulation":3,"rng":1,"oracle_limitation":840},"report_path":"/tmp/sweep-report.json"}
+"#,
+        )
+        .expect("sweep history should write");
+
+        let outcome = latest_state_sweep_signal(temp_dir.path());
+        assert!(outcome.ok);
+        for fragment in [
+            "authoritative=0",
+            "advisory=17",
+            "accumulation=3",
+            "rng=1",
+            "oracle_limitations=840",
+        ] {
+            assert!(
+                outcome.detail.contains(fragment),
+                "signal should cite `{fragment}` for divergence-breakdown parity with the release-gate signal: {}",
+                outcome.detail
+            );
+        }
     }
 
     #[test]
