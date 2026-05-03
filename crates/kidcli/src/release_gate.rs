@@ -93,6 +93,17 @@ pub(crate) struct ReleaseGateReport {
 pub(crate) struct TopDivergenceField {
     pub(crate) field: String,
     pub(crate) total_diffs: usize,
+    // Sweep parity: persist the breadth (distinct level count) the
+    // dominant field diverged across. `total_diffs` alone does not
+    // distinguish a regression that concentrates 200 diffs on five
+    // levels from a baseline that spreads 200 diffs across all 69
+    // levels — the gate signal would render the same `top_field`
+    // fingerprint in both cases. Persisting `levels` lets the signal
+    // surface the breadth half of the dominant-field shape so a
+    // shift in concentration is visible from the next-agent note
+    // alone. Optional so pre-field reports stay readable.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) levels: Option<usize>,
 }
 
 pub(crate) fn run_release_gate(
@@ -350,6 +361,12 @@ fn run_one_player_accurate_gate(
                     .map(|entry| TopDivergenceField {
                         field: entry.field.clone(),
                         total_diffs: entry.total_diffs,
+                        // Persist breadth so the gate signal can render the
+                        // dominant-field fingerprint as `name:diffs across
+                        // N levels` — concentration shifts (e.g. 200 diffs
+                        // on 5 levels vs 200 spread across 69) are
+                        // otherwise hidden behind an unchanged top_field.
+                        levels: Some(entry.levels),
                     });
             if sweep_report.failed > 0 || sweep_report.errors > 0 {
                 let detail = state_sweep_failed_detail(repo_root, &sweep_report);

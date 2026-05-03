@@ -8385,15 +8385,19 @@ fn format_release_gate_levels_segment(value: Option<&serde_json::Value>) -> Stri
 /// `top_divergence_field` (e.g. 1p-playable targets, pre-field reports,
 /// or sweeps that produced no diffs) so the surrounding detail does
 /// not leak a placeholder. When the field is present, the segment
-/// reads `, top_field=NAME:COUNT` so the persisted release-gate signal
-/// carries a per-field fingerprint alongside the per-category
-/// `sweep_summary`: `passed=true` plus `oracle_limitation=840` only
-/// proves the divergence threshold, while the dominant field name +
-/// total tells the operator whether the underlying state shape is
-/// unchanged or has rotated to a new field — a regression signal the
+/// reads `, top_field=NAME:COUNT` (or
+/// `, top_field=NAME:COUNT across N levels` once the gate report
+/// persists `levels`) so the release-gate signal carries a per-field
+/// fingerprint alongside the per-category `sweep_summary`:
+/// `passed=true` plus `oracle_limitation=840` only proves the
+/// divergence threshold, while the dominant field name + total + level
+/// breadth tells the operator whether the underlying state shape is
+/// unchanged or has rotated/concentrated — a regression signal the
 /// existing summary would otherwise mask. The leading `, ` separator
 /// matches the surrounding `kid_core_hash`/`levels`/`sweep_summary`
-/// segments so the persisted signal renders as one readable list.
+/// segments so the persisted signal renders as one readable list. The
+/// `levels` component is only appended when present so pre-breadth
+/// reports stay readable without a placeholder.
 fn format_release_gate_top_field_segment(top_field: Option<&serde_json::Value>) -> String {
     let Some(top_field) = top_field.filter(|value| value.is_object()) else {
         return String::new();
@@ -8405,8 +8409,14 @@ fn format_release_gate_top_field_segment(top_field: Option<&serde_json::Value>) 
     let total_diffs = top_field
         .get("total_diffs")
         .and_then(serde_json::Value::as_u64);
+    let levels = top_field.get("levels").and_then(serde_json::Value::as_u64);
     match (field, total_diffs) {
-        (Some(field), Some(total_diffs)) => format!(", top_field={field}:{total_diffs}"),
+        (Some(field), Some(total_diffs)) => match levels {
+            Some(levels) => {
+                format!(", top_field={field}:{total_diffs} across {levels} levels")
+            }
+            None => format!(", top_field={field}:{total_diffs}"),
+        },
         _ => String::new(),
     }
 }
@@ -11092,13 +11102,65 @@ mod tests {
         // per-category `sweep_summary`. The leading comma+space matches
         // the surrounding kid_core_hash / levels / sweep_summary / report
         // segments so the persisted signal renders as a single readable
-        // list.
+        // list. Pre-breadth reports (no `levels` key on the dominant-field
+        // object) render the count-only shape so legacy artefacts stay
+        // readable without a placeholder.
         let value = serde_json::json!({
             "field": "camera_y_pos",
             "total_diffs": 136,
         });
         assert_eq!(
             format_release_gate_top_field_segment(Some(&value)),
+            ", top_field=camera_y_pos:136"
+        );
+    }
+
+    #[test]
+    fn release_gate_top_field_segment_renders_breadth_when_levels_present() {
+        // Sweep parity: once the gate report persists the breadth half
+        // of the dominant-field shape (the distinct level count the
+        // top field diverged across), the signal must render
+        // `, top_field=NAME:COUNT across N levels`. `total_diffs` alone
+        // does not distinguish a regression that concentrates 200 diffs
+        // on five levels from a baseline that spreads 200 diffs across
+        // all 69 — the breadth citation makes the concentration
+        // explicit so the persisted next-agent note carries it without
+        // chasing the linked sweep-runs report.
+        let value = serde_json::json!({
+            "field": "camera_y_pos",
+            "total_diffs": 136,
+            "levels": 68,
+        });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&value)),
+            ", top_field=camera_y_pos:136 across 68 levels"
+        );
+    }
+
+    #[test]
+    fn release_gate_top_field_segment_ignores_invalid_levels() {
+        // Defensive: a malformed `levels` value (string, negative,
+        // null, missing) must collapse to the count-only shape rather
+        // than rendering `top_field=NAME:COUNT across <unparsable>
+        // levels`. The breadth segment is purely additive — if it
+        // can't be read as a non-negative integer, the signal stays
+        // backward-compatible with pre-breadth gate reports.
+        let string_levels = serde_json::json!({
+            "field": "camera_y_pos",
+            "total_diffs": 136,
+            "levels": "many",
+        });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&string_levels)),
+            ", top_field=camera_y_pos:136"
+        );
+        let null_levels = serde_json::json!({
+            "field": "camera_y_pos",
+            "total_diffs": 136,
+            "levels": serde_json::Value::Null,
+        });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&null_levels)),
             ", top_field=camera_y_pos:136"
         );
     }
@@ -11239,6 +11301,64 @@ mod tests {
                 .detail
                 .contains("frame_oracle:boot_title_start_level1"),
             "failing release-gate signal must still include the failed step name: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_embeds_top_field_breadth_in_passing_detail() {
+        // End-to-end: once the gate report persists `levels` on the
+        // dominant-field object, a passing release-gate signal must
+        // render `, top_field=NAME:COUNT across N levels` so the
+        // breadth half of the dominant-field shape becomes part of the
+        // persisted evidence. Concentration shifts (e.g. 200 diffs on
+        // 5 levels vs 200 spread across 69) are otherwise invisible
+        // behind an unchanged `top_field=NAME:COUNT` fingerprint.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1777773524",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": [],
+              "kid_core_hash": "5e6309c94728b8ef9e9e10ba5002197362b8926f",
+              "levels_requested": 69,
+              "sweep_summary": {
+                "authoritative": 0,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              },
+              "top_divergence_field": {
+                "field": "camera_y_pos",
+                "total_diffs": 136,
+                "levels": 68
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(outcome.ok);
+        assert!(
+            outcome
+                .detail
+                .contains(", top_field=camera_y_pos:136 across 68 levels"),
+            "passing release-gate signal must self-cite the dominant-field breadth: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains(", sweep_summary=authoritative=0/advisory=0/accumulation=0/rng=0/oracle_limitation=840"),
+            "embedding top_field breadth must not displace the sweep_summary segment: {}",
             outcome.detail
         );
     }
