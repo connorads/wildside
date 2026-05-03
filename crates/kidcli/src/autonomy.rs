@@ -1153,13 +1153,7 @@ pub(crate) fn refresh_source_port_frontier_handoff_after_release_gate(
     repo_root: &Path,
     routines_per_task: u32,
 ) -> Result<()> {
-    if let Some(task) = refresh_source_port_frontier_handoff(repo_root, routines_per_task)? {
-        record_refresh_evidence_completion(repo_root, &task)?;
-        if task.recovery_step == Some(RecoveryStep::RefreshEvidence) {
-            refresh_source_port_frontier_handoff(repo_root, routines_per_task)?;
-        }
-    }
-    Ok(())
+    refresh_source_port_frontier_handoff(repo_root, routines_per_task).map(|_| ())
 }
 
 fn refresh_source_port_frontier_handoff(
@@ -1192,92 +1186,6 @@ fn refresh_source_port_frontier_handoff(
         write_source_port_next_agent_note(repo_root, note, frontier, &task)?;
     }
     Ok(Some(task))
-}
-
-fn record_refresh_evidence_completion(repo_root: &Path, task: &TaskPackage) -> Result<()> {
-    if task.recovery_step != Some(RecoveryStep::RefreshEvidence) {
-        return Ok(());
-    }
-    let run_history_path = repo_root.join(SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH);
-    if let Some(parent) = run_history_path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("failed to create {}", parent.display()))?;
-    }
-    let mut record = serde_json::Map::new();
-    record.insert(
-        "cycle".to_owned(),
-        serde_json::Value::from(task.cycle as u64),
-    );
-    if let Some(goal) = task.delegated_goal {
-        record.insert(
-            "delegated_goal".to_owned(),
-            serde_json::Value::from(goal.slug()),
-        );
-    } else {
-        record.insert("delegated_goal".to_owned(), serde_json::Value::Null);
-    }
-    if let Some(target) = task.delegated_target.as_ref() {
-        record.insert(
-            "delegated_target".to_owned(),
-            serde_json::Value::from(target.as_str()),
-        );
-    } else {
-        record.insert("delegated_target".to_owned(), serde_json::Value::Null);
-    }
-    record.insert(
-        "dirty_files".to_owned(),
-        serde_json::Value::Array(Vec::new()),
-    );
-    record.insert("dirty_tree".to_owned(), serde_json::Value::Bool(false));
-    record.insert("dirty_tree_fingerprint".to_owned(), serde_json::Value::Null);
-    record.insert("exit_code".to_owned(), serde_json::Value::from(0));
-    record.insert("outcome".to_owned(), serde_json::Value::from("completed"));
-    record.insert("preflight_command".to_owned(), serde_json::Value::Null);
-    record.insert("preflight_exit_code".to_owned(), serde_json::Value::Null);
-    record.insert(
-        "preflight_summary".to_owned(),
-        serde_json::Value::from("release-gate refreshed source-port evidence"),
-    );
-    record.insert(
-        "progress_fingerprint".to_owned(),
-        serde_json::Value::from(task.progress_fingerprint.as_str()),
-    );
-    if let Some(mode) = task.recovery_mode {
-        record.insert(
-            "recovery_mode".to_owned(),
-            serde_json::Value::from(mode.as_str()),
-        );
-    } else {
-        record.insert("recovery_mode".to_owned(), serde_json::Value::Null);
-    }
-    record.insert(
-        "recovery_step".to_owned(),
-        serde_json::Value::from(RecoveryStep::RefreshEvidence.as_str()),
-    );
-    if let Some(count) = task.stalled_repetition_count {
-        record.insert(
-            "stalled_repetition_count".to_owned(),
-            serde_json::Value::from(count as u64),
-        );
-    } else {
-        record.insert(
-            "stalled_repetition_count".to_owned(),
-            serde_json::Value::Null,
-        );
-    }
-    record.insert(
-        "timestamp".to_owned(),
-        serde_json::Value::from(autonomy_timestamp()),
-    );
-    let mut file = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&run_history_path)
-        .with_context(|| format!("failed to open {}", run_history_path.display()))?;
-    use std::io::Write;
-    writeln!(file, "{}", serde_json::Value::Object(record))
-        .with_context(|| format!("failed to append {}", run_history_path.display()))?;
-    Ok(())
 }
 
 fn case_queue_gate_status(candidate: &CaseQueueCandidate) -> &'static str {
@@ -2158,15 +2066,17 @@ fn evaluate_source_port_frontier_cycle(
                         next_fallback_goal: Some(AutonomyGoal::CaseQueue),
                         ..recording_task
                     };
-                } else if telemetry_refresh_streak_count >= 3 {
-                    // The previous `RefreshEvidence` recovery step is itself
-                    // what produced the telemetry-refresh commit streak;
-                    // asking for another refresh perpetuates the loop. Pivot
-                    // to proactive-verification instead, regardless of whether
-                    // `evaluate_proactive_verification_cycle` returns a task —
-                    // the operator-visible pivot_reason and fallback goal are
-                    // what break the loop.
-                    chose_branch = "sweep_parity_telemetry_refresh_streak";
+                } else {
+                    // No recording queued: try proactive-verification before
+                    // declaring the lane idle. Previously this branch emitted
+                    // `RefreshEvidence` (a docs-/gate-signal-touching task)
+                    // gated behind a telemetry-refresh streak >= 3, but the
+                    // gate let the agent burn ~22 cycles producing
+                    // self-referential gate-signal tweaks before the
+                    // recovery-decorated fingerprint terminal finally caught
+                    // the loop. Always running PV first means a stalled
+                    // sweep-parity lane reaches mutation testing or another
+                    // PV strategy before any docs-only retry path can fire.
                     let pv_skip = pv_recovery_skip_list(repo_root, delegated_target.as_deref());
                     let pv_report = evaluate_proactive_verification_cycle(
                         repo_root,
@@ -2174,10 +2084,17 @@ fn evaluate_source_port_frontier_cycle(
                         routines_per_task,
                         &pv_skip,
                     )?;
-                    let pivot_reason = format!(
-                        "last {telemetry_refresh_streak_count} commits were telemetry-refresh-only commits (docs and/or gate-signal renderers); pivot to proactive-verification instead of emitting another release-gate evidence refresh"
-                    );
+                    let pivot_reason = if telemetry_refresh_streak_count >= 2 {
+                        format!(
+                            "sweep-parity stalled {repeated_cycles} cycles and last {telemetry_refresh_streak_count} commits were telemetry-refresh only (docs and/or gate-signal renderers); pivot to proactive-verification instead of another release-gate evidence refresh"
+                        )
+                    } else {
+                        format!(
+                            "sweep-parity delegated fingerprint repeated for {repeated_cycles} stalled cycles; pivot to proactive-verification before declaring the lane idle"
+                        )
+                    };
                     if let Some(pv_task) = pv_report.task_package {
+                        chose_branch = "sweep_parity_pv";
                         let target = pv_task.progress_fingerprint.clone();
                         task_package = TaskPackage {
                             generated_at: autonomy_timestamp(),
@@ -2196,10 +2113,11 @@ fn evaluate_source_port_frontier_cycle(
                                 frontier,
                                 &note,
                                 target,
-                                "sweep-parity refresh loop detected; pivoting to proactive-verification".to_owned(),
+                                "sweep-parity stalled; pivoting to proactive-verification before declaring the lane idle".to_owned(),
                             )
                         };
                     } else if source_port_records_proactive_exhaustion(frontier) {
+                        chose_branch = "sweep_parity_pv_exhausted_recorded";
                         task_package = TaskPackage {
                             generated_at: autonomy_timestamp(),
                             cycle,
@@ -2215,6 +2133,7 @@ fn evaluate_source_port_frontier_cycle(
                             )
                         };
                     } else {
+                        chose_branch = "sweep_parity_pv_exhausted";
                         task_package = TaskPackage {
                             generated_at: autonomy_timestamp(),
                             cycle,
@@ -2231,18 +2150,6 @@ fn evaluate_source_port_frontier_cycle(
                             )
                         };
                     }
-                } else {
-                    chose_branch = "sweep_parity_refresh";
-                    apply_stalled_recovery(
-                        &mut task_package,
-                        &base_progress_fingerprint,
-                        repeated_cycles,
-                        RecoveryStep::RefreshEvidence,
-                        format!(
-                            "sweep-parity delegated fingerprint repeated for {repeated_cycles} stalled cycles; narrow the next run to release-gate evidence refresh instead of another broad lane replay"
-                        ),
-                        Some(AutonomyGoal::SweepParity),
-                    );
                 }
             }
             _ => {
@@ -12467,118 +12374,6 @@ mod tests {
     }
 
     #[test]
-    fn release_gate_refresh_records_source_port_refresh_evidence_completion() {
-        let temp_dir = source_port_repo();
-        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
-        let metrics_dir = temp_dir.path().join(".cache/metrics");
-        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
-        fs::create_dir_all(&metrics_dir).expect("metrics dir should exist");
-        write_source_port_frontier(temp_dir.path(), false, "complete");
-        fs::write(
-            temp_dir.path().join(SOURCE_PORT_RESEARCH_MAP_PATH),
-            "# Research Map\n\n## Remaining work\n- Oracle sweep hardening\n",
-        )
-        .expect("research map should write");
-        fs::write(
-            temp_dir.path().join(SOURCE_PORT_ROADMAP_PATH),
-            "# Source-Port Roadmap\n\nThe game is not complete.\n",
-        )
-        .expect("roadmap should write");
-        fs::write(
-            temp_dir.path().join(SOURCE_PORT_WHOLE_GAME_INDEX_PATH),
-            "# Whole-Game Index\n\n## Explicitly open areas\n- Wider 1P gate\n",
-        )
-        .expect("whole-game index should write");
-        fs::write(
-            gate_dir.join("latest.json"),
-            r#"{
-  "timestamp": "1775369194",
-  "target": "1p-accurate",
-  "passed": true,
-  "steps": [
-    {
-      "name": "state_sweep:0-104",
-      "status": "passed",
-      "detail": "all 69 requested levels passed the state sweep"
-    }
-  ],
-  "sweep_summary": {
-    "authoritative": 0,
-    "advisory": 178,
-    "accumulation": 0,
-    "rng": 0,
-    "oracle_limitation": 662
-  }
-}
-"#,
-        )
-        .expect("release gate latest should write");
-        fs::write(
-            metrics_dir.join("sweep-history.jsonl"),
-            r#"{"timestamp":"1775369195","tier":"state","levels_requested":69,"passed":69,"failed":0,"errors":0,"divergence_summary":{"authoritative":0,"advisory":178,"accumulation":0,"rng":0,"oracle_limitation":662},"report_path":"/tmp/sweep-report-green.json","field_summary":[],"release_gate_focus":[]}
-"#,
-        )
-        .expect("sweep history should write");
-        write_complete_default_mutation_runs(temp_dir.path());
-        commit_repo(temp_dir.path(), "prepare clean recovery fixture");
-
-        let baseline =
-            evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
-        let baseline_task = baseline.selected_task.expect("selected task should exist");
-        let stalled_fingerprint = baseline_task.progress_fingerprint.clone();
-        write_stalled_repeat(temp_dir.path(), 1, "state-sweep", &stalled_fingerprint);
-        write_stalled_repeat(temp_dir.path(), 2, "state-sweep", &stalled_fingerprint);
-
-        super::refresh_source_port_frontier_handoff_after_release_gate(temp_dir.path(), 1)
-            .expect("release-gate handoff refresh should record completion");
-
-        let run_history = fs::read_to_string(
-            temp_dir
-                .path()
-                .join(super::SOURCE_PORT_FRONTIER_RUN_HISTORY_PATH),
-        )
-        .expect("run history should exist");
-        let latest_record = run_history
-            .lines()
-            .last()
-            .expect("history should have a row");
-        let latest_record: serde_json::Value =
-            serde_json::from_str(latest_record).expect("history row should parse");
-        assert_eq!(latest_record["outcome"], "completed");
-        assert_eq!(latest_record["recovery_step"], "refresh_evidence");
-        assert!(
-            latest_record["progress_fingerprint"]
-                .as_str()
-                .is_some_and(|fingerprint| fingerprint.contains(":recovery:refresh_evidence")),
-            "completion should record the recovery fingerprint"
-        );
-        let refreshed_task = fs::read_to_string(
-            temp_dir
-                .path()
-                .join(".cache/autonomy/source-port-frontier/next-task.json"),
-        )
-        .expect("next task should be refreshed after completion");
-        assert!(
-            !refreshed_task.contains("\"recovery_step\": \"refresh_evidence\""),
-            "handoff should be regenerated after recording the refresh completion"
-        );
-
-        let next_cycle =
-            evaluate_source_port_frontier_cycle(temp_dir.path(), 4, 1).expect("cycle should build");
-        let next_task = next_cycle
-            .selected_task
-            .expect("selected task should exist");
-        assert_eq!(
-            next_task.recovery_step, None,
-            "the refresh completion should break the stale stalled-repeat chain"
-        );
-        assert_eq!(
-            next_task.delegated_goal,
-            Some(super::AutonomyGoal::SweepParity)
-        );
-    }
-
-    #[test]
     fn source_port_frontier_prefers_newer_state_sweep_report_when_history_lags() {
         let temp_dir = source_port_repo();
         let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
@@ -12952,14 +12747,15 @@ mod tests {
     }
 
     #[test]
-    fn sweep_parity_stalled_fingerprint_pivots_to_refresh_evidence_recovery() {
+    fn evaluate_source_port_frontier_cycle_pivots_to_pv_on_sweep_parity_stall() {
         // Reproduce the cycle 455-462 stall pattern from production: TAS frontier
-        // closed, no case-queue or PV work, dispatch falls through to
+        // closed, no case-queue recording, dispatch falls through to
         // state-sweep on the SweepParity lane. After two consecutive stalled
         // repeats on the resulting fingerprint, the SweepParity arm of the
-        // stall-recovery dispatch must promote the task package to a recovery
-        // package, otherwise the runner would spin until something else
-        // (e.g. ASM coverage) advances the lane fingerprint.
+        // stall-recovery dispatch must pivot to proactive-verification (which
+        // has work — at least one mutation shard NotRun) instead of emitting
+        // a docs-/gate-signal-touching RefreshEvidence task that the agent
+        // would game into 22 self-citing telemetry commits.
         let temp_dir = source_port_repo();
         fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
             .expect("release gate dir should exist");
@@ -12984,40 +12780,21 @@ mod tests {
             "{\"passed\": true}\n",
         )
         .expect("release gate should write");
-        write_complete_default_mutation_runs(temp_dir.path());
-        // Commit the fixture writes so the cycle does not see them as a dirty
-        // tree (which would short-circuit into DirtyTree recovery).
+        // Deliberately do NOT pre-populate mutation runs: PV cascade should
+        // pick up the first un-run mutation shard as the available task.
         commit_repo(temp_dir.path(), "fixture state");
 
-        // First run: nothing stalled yet. Capture the baseline fingerprint
-        // without hard-coding it so the test stays robust against fingerprint
-        // formatting changes.
+        // First run: capture the baseline fingerprint and seed stalled repeats.
         let baseline =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
         let baseline_task = baseline.selected_task.expect("selected task should exist");
-        assert_eq!(
-            baseline_task.delegated_goal,
-            Some(super::AutonomyGoal::SweepParity),
-            "fixture must dispatch on SweepParity"
-        );
-        assert_eq!(
-            baseline_task.delegated_target.as_deref(),
-            Some("state-sweep"),
-            "fixture must target state-sweep"
-        );
-        assert!(
-            baseline_task.recovery_mode.is_none(),
-            "first run has no stall history yet"
-        );
         let stalled_fingerprint = baseline_task.progress_fingerprint.clone();
-
-        // Seed two consecutive stalled_repeat rows on the baseline fingerprint.
         write_stalled_repeat(temp_dir.path(), 1, "state-sweep", &stalled_fingerprint);
         write_stalled_repeat(temp_dir.path(), 2, "state-sweep", &stalled_fingerprint);
 
-        // Third cycle: repeated_stalls = 2, recovery dispatch must fire on the
-        // SweepParity arm. With no case-queue recording in the fixture the
-        // arm falls through to apply_stalled_recovery + RefreshEvidence.
+        // Third cycle: recovery dispatch fires on SweepParity arm with no
+        // recording → must pivot to proactive-verification. PV has a NotRun
+        // mutation shard, so the emitted task delegates to PV.
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 3, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
@@ -13028,15 +12805,18 @@ mod tests {
         );
         assert_eq!(
             task.recovery_step,
-            Some(super::RecoveryStep::RefreshEvidence),
-            "SweepParity arm without a recording should pivot to refresh-evidence"
+            Some(super::RecoveryStep::PivotToNextLane),
+            "SweepParity stall must now pivot, never RefreshEvidence"
+        );
+        assert_eq!(
+            task.delegated_goal,
+            Some(super::AutonomyGoal::ProactiveVerification),
+            "SweepParity stall must delegate to PV when PV has work"
         );
         assert_eq!(task.stalled_repetition_count, Some(3));
         assert!(
-            task.progress_fingerprint
-                .contains(":recovery:refresh_evidence"),
-            "fingerprint should advance with the recovery suffix so the runner stops counting it as the same lane: {}",
-            task.progress_fingerprint
+            task.next_fallback_goal == Some(super::AutonomyGoal::ProactiveVerification),
+            "fallback goal should be PV so the wrapper keeps cycling that lane"
         );
     }
 
@@ -13155,7 +12935,7 @@ mod tests {
             evaluate_source_port_frontier_cycle(temp_dir.path(), 1, 1).expect("cycle should build");
         let baseline_task = baseline.selected_task.expect("selected task should exist");
         let plain_fingerprint = baseline_task.progress_fingerprint.clone();
-        let suffixed_fingerprint = format!("{plain_fingerprint}:recovery:refresh_evidence");
+        let suffixed_fingerprint = format!("{plain_fingerprint}:recovery:pivot_to_next_lane");
 
         // Seed both: the plain fingerprint AND the recovery-suffixed
         // fingerprint as recent clean completions. The first row triggers
@@ -13170,7 +12950,7 @@ mod tests {
         write_clean_completion_with_fingerprint(
             temp_dir.path(),
             11,
-            "state-sweep",
+            "all-exhausted",
             &suffixed_fingerprint,
         );
 
@@ -13726,6 +13506,9 @@ mod tests {
 
     #[test]
     fn source_port_frontier_enters_recovery_after_repeated_sweep_stalls() {
+        // After two stalled-repeat rows, the SweepParity arm with PV-exhausted
+        // (all mutation runs already complete) must surface the proactive
+        // exhaustion record path — never RefreshEvidence.
         let temp_dir = source_port_repo();
         fs::create_dir_all(temp_dir.path().join(".cache/release-gate/1p-accurate"))
             .expect("release gate dir should exist");
@@ -13778,11 +13561,6 @@ mod tests {
         let cycle =
             evaluate_source_port_frontier_cycle(temp_dir.path(), 3, 1).expect("cycle should build");
         let task = cycle.selected_task.expect("selected task should exist");
-        let frontier = task
-            .frontier_context
-            .as_ref()
-            .expect("frontier context should exist");
-        let rendered_note = render_source_port_next_agent_note(frontier, &task, &[]);
 
         assert_eq!(
             task.recovery_mode,
@@ -13790,23 +13568,14 @@ mod tests {
         );
         assert_eq!(
             task.recovery_step,
-            Some(super::RecoveryStep::RefreshEvidence)
+            Some(super::RecoveryStep::PivotToNextLane),
+            "SweepParity stall recovery must pivot (never RefreshEvidence)"
         );
         assert_eq!(task.stalled_repetition_count, Some(3));
-        assert!(
-            cycle
-                .progress_fingerprint
-                .contains("recovery:refresh_evidence")
-        );
-        assert!(
-            rendered_note.contains(
-                "Recovery mode `stalled_fingerprint` / step `refresh_evidence` after 3 repeated stalled cycles"
-            ),
-            "recovery note should surface the stalled recovery context"
-        );
-        assert!(
-            rendered_note.contains("narrow the next run to release-gate evidence refresh instead of another broad lane replay"),
-            "recovery note should surface the stalled recovery pivot reason"
+        assert_eq!(
+            task.delegated_target.as_deref(),
+            Some("all-exhausted"),
+            "with all PV strategies exhausted, the recovery task records the stall"
         );
     }
 
