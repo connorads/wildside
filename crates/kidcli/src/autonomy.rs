@@ -7605,9 +7605,22 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
         // gate's own threshold; the inline summary makes the parity
         // contract part of the persisted evidence.
         let sweep_summary_detail = format_release_gate_sweep_summary(report.get("sweep_summary"));
+        // Source freshness: bring the kid-core hash check the state-sweep
+        // signal already does into the release-gate signal. The gate now
+        // persists `kid_core_hash` from the embedded sweep, so the signal
+        // can cite (and mark drift on) the source the gate ran against
+        // without chasing into the linked sweep-runs report.
+        let persisted_kid_core_hash = report
+            .get("kid_core_hash")
+            .and_then(serde_json::Value::as_str);
+        let current_kid_core_hash = crate::sweep::kid_core_source_hash(repo_root).ok();
+        let kid_core_hash_segment = format_release_gate_kid_core_hash_segment(
+            persisted_kid_core_hash,
+            current_kid_core_hash.as_deref(),
+        );
         CheckOutcome::passing(
             format!(
-                "latest release gate passed (timestamp {timestamp}{sweep_summary_detail}{report_detail})"
+                "latest release gate passed (timestamp {timestamp}{kid_core_hash_segment}{sweep_summary_detail}{report_detail})"
             ),
             Some(report_path.unwrap_or(latest_path)),
         )
@@ -8250,6 +8263,34 @@ fn format_kid_core_hash_detail(persisted: Option<&str>, current: Option<&str>) -
         }
         _ => format!("kid_core_hash={persisted_short}, "),
     }
+}
+
+/// Formats the `kid_core_hash` segment of a passing release-gate signal.
+/// Mirrors `format_kid_core_hash_detail` but emits a leading `, ` so it
+/// can be slotted into the gate signal alongside the existing
+/// `sweep_summary` segment. Returns an empty string when the gate report
+/// has no `kid_core_hash` (e.g. a 1p-playable run that never invoked the
+/// state sweep, or a pre-field report) so the surrounding detail does
+/// not leak a placeholder. When persisted and current disagree the
+/// segment reads `, kid_core_hash=PERSISTED (stale, current=CURRENT)` so
+/// the gate signal cites source drift in lockstep with the state-sweep
+/// signal — a green gate that ran against an older tree no longer hides
+/// behind `passed=true`.
+fn format_release_gate_kid_core_hash_segment(
+    persisted: Option<&str>,
+    current: Option<&str>,
+) -> String {
+    let detail = format_kid_core_hash_detail(persisted, current);
+    if detail.is_empty() {
+        return String::new();
+    }
+    // `format_kid_core_hash_detail` returns `kid_core_hash=..., ` with a
+    // trailing comma+space so it can sit between segments in the
+    // state-sweep signal. The gate signal places it as a suffix, so
+    // strip the trailing separator and add a leading one to match the
+    // surrounding `sweep_summary`/`report` segments.
+    let body = detail.trim_end_matches(", ");
+    format!(", {body}")
 }
 
 /// Formats the `sweep_summary` segment of a passing release-gate signal.
@@ -9182,9 +9223,9 @@ mod tests {
         capability_completion_summary, detect_blocker, evaluate_capabilities,
         evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
         fingerprint_for_capabilities, format_kid_core_hash_detail,
-        format_release_gate_sweep_summary, is_sweep_refresh_commit,
-        latest_release_gate_failure_detail, latest_release_gate_signal, latest_state_sweep_signal,
-        load_source_port_frontier_state, normalise_release_gate_value,
+        format_release_gate_kid_core_hash_segment, format_release_gate_sweep_summary,
+        is_sweep_refresh_commit, latest_release_gate_failure_detail, latest_release_gate_signal,
+        latest_state_sweep_signal, load_source_port_frontier_state, normalise_release_gate_value,
         parse_recent_commit_summaries, render_source_port_next_agent_note, select_next_task,
         source_port_frontier_sweep_task, source_port_next_agent_note, sweep_refresh_streak,
     };
@@ -10345,6 +10386,162 @@ mod tests {
         assert!(
             outcome.detail.contains("timestamp 1776704737"),
             "fallback signal must still preserve the timestamp citation: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_kid_core_hash_segment_returns_empty_when_persisted_absent() {
+        // 1p-playable gate runs and pre-field gate reports leave
+        // `kid_core_hash` absent. The segment must collapse to empty so
+        // the surrounding signal does not emit a half-formed
+        // `, kid_core_hash=` placeholder that future readers might
+        // mistake for an empty sentinel.
+        assert_eq!(format_release_gate_kid_core_hash_segment(None, None), "");
+        assert_eq!(
+            format_release_gate_kid_core_hash_segment(None, Some("5e6309c94728b8ef")),
+            ""
+        );
+    }
+
+    #[test]
+    fn release_gate_kid_core_hash_segment_renders_fresh_when_hashes_match() {
+        // Persisted gate hash and current kid-core source agree: the
+        // gate ran on the live tree, so the segment cites the short
+        // hash without a drift annotation. The leading comma+space
+        // matches the surrounding `sweep_summary` and `report` segments
+        // so the gate signal renders as a single readable list.
+        let segment = format_release_gate_kid_core_hash_segment(
+            Some("5e6309c94728b8ef9e9e10ba5002197362b8926f"),
+            Some("5e6309c94728b8ef9e9e10ba5002197362b8926f"),
+        );
+        assert_eq!(segment, ", kid_core_hash=5e6309c94728");
+    }
+
+    #[test]
+    fn release_gate_kid_core_hash_segment_marks_drift_when_hashes_differ() {
+        // Persisted gate hash disagrees with the current kid-core
+        // source: the gate result is stale relative to the live tree.
+        // The segment must surface the drift inline so the next-agent
+        // note exposes the staleness without chasing the sweep-runs
+        // report — mirrors the state-sweep signal's drift annotation.
+        let segment = format_release_gate_kid_core_hash_segment(
+            Some("5e6309c94728b8ef9e9e10ba5002197362b8926f"),
+            Some("ffffffffffffffffffffffffffffffffffffffff"),
+        );
+        assert_eq!(
+            segment,
+            ", kid_core_hash=5e6309c94728 (stale, current=ffffffffffff)"
+        );
+    }
+
+    #[test]
+    fn release_gate_kid_core_hash_segment_renders_persisted_only_when_current_unknown() {
+        // The current source hash is unavailable when the autonomy
+        // signal runs outside a kid-core checkout (e.g. tests under a
+        // bare TempDir). The segment must still render the persisted
+        // hash so the gate signal stays self-citing rather than
+        // silently dropping the field.
+        let segment = format_release_gate_kid_core_hash_segment(
+            Some("5e6309c94728b8ef9e9e10ba5002197362b8926f"),
+            None,
+        );
+        assert_eq!(segment, ", kid_core_hash=5e6309c94728");
+    }
+
+    #[test]
+    fn release_gate_signal_embeds_kid_core_hash_segment_in_passing_detail() {
+        // End-to-end: a passing release-gate report whose embedded
+        // sweep persisted `kid_core_hash` must produce a signal that
+        // cites the source hash inline alongside the timestamp,
+        // sweep_summary, and report path. Without this the gate signal
+        // could not detect the case where the gate ran against a stale
+        // tree even though the underlying state-sweep signal already
+        // does.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1777768597",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": [],
+              "kid_core_hash": "5e6309c94728b8ef9e9e10ba5002197362b8926f",
+              "sweep_summary": {
+                "authoritative": 0,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(outcome.ok);
+        assert!(
+            outcome.detail.contains(", kid_core_hash=5e6309c94728"),
+            "passing release-gate signal must self-cite the embedded kid_core_hash: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains("sweep_summary=authoritative=0"),
+            "embedding kid_core_hash must not displace the sweep_summary segment: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains("timestamp 1777768597"),
+            "embedding kid_core_hash must not displace the timestamp citation: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_omits_kid_core_hash_segment_when_field_missing() {
+        // Pre-field gate reports (and 1p-playable runs) have no
+        // `kid_core_hash`. The signal must stay readable — the gate
+        // continues to cite timestamp + (optional) sweep_summary + report
+        // without injecting an empty placeholder.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1776704737",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": [],
+              "sweep_summary": {
+                "authoritative": 0,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(outcome.ok);
+        assert!(
+            !outcome.detail.contains("kid_core_hash="),
+            "missing kid_core_hash must not produce a partial segment: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains("sweep_summary=authoritative=0"),
+            "absence of kid_core_hash must not affect the sweep_summary segment: {}",
             outcome.detail
         );
     }

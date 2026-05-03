@@ -45,6 +45,16 @@ pub(crate) struct ReleaseGateReport {
     steps: Vec<ReleaseGateStep>,
     #[serde(skip_serializing_if = "Option::is_none")]
     sweep_summary: Option<sweep::DivergenceSummary>,
+    // Sweep parity: persist the kid-core source SHA1 the embedded state
+    // sweep ran against. Without this, the gate report cites a passing
+    // outcome but the operator has to chase the linked sweep-runs report
+    // to verify the gate ran on the live tree. Carrying the hash in the
+    // gate artefact lets `latest_release_gate_signal` self-cite source
+    // freshness and drift in the same drift-aware way the state-sweep
+    // signal already does. Optional so 1p-playable runs (which never
+    // invoke the state sweep) and pre-field reports stay readable.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kid_core_hash: Option<String>,
 }
 
 pub(crate) fn run_release_gate(
@@ -65,6 +75,7 @@ pub(crate) fn run_release_gate(
         passed: false,
         steps: Vec::new(),
         sweep_summary: None,
+        kid_core_hash: None,
     };
 
     let result = match target {
@@ -273,6 +284,11 @@ fn run_one_player_accurate_gate(
     ) {
         Ok(sweep_report) => {
             report.sweep_summary = Some(sweep_report.divergence_summary.clone());
+            // Capture the kid-core source hash the sweep ran against —
+            // populated whether the sweep passed or failed so a failing
+            // gate also self-cites the source it ran on. The signal layer
+            // compares this against the live tree and surfaces drift.
+            report.kid_core_hash.clone_from(&sweep_report.kid_core_hash);
             if sweep_report.failed > 0 || sweep_report.errors > 0 {
                 let detail = state_sweep_failed_detail(repo_root, &sweep_report);
                 report.steps.push(ReleaseGateStep {
