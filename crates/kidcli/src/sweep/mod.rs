@@ -231,8 +231,8 @@ struct SweepHistoryEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub(crate) struct SweepHistoryFieldEntry {
-    field: String,
-    total_diffs: usize,
+    pub(crate) field: String,
+    pub(crate) total_diffs: usize,
     levels: usize,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     level_ids: Vec<String>,

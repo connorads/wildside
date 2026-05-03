@@ -69,6 +69,30 @@ pub(crate) struct ReleaseGateReport {
     // 1p-playable runs and pre-field reports stay readable.
     #[serde(skip_serializing_if = "Option::is_none")]
     levels_requested: Option<usize>,
+    // Sweep parity: persist a fingerprint of the dominant divergence
+    // field — the name and total_diffs of `field_summary[0]` from the
+    // embedded sweep, which is the field with the most diffs across
+    // the most levels (deterministic via total_diffs desc, levels
+    // desc, name asc). `sweep_summary` already carries the per-category
+    // totals, but a green gate with `oracle_limitation=840` says nothing
+    // about whether the underlying field shape is unchanged. If a future
+    // run flips the dominant field (e.g. `score` overtakes
+    // `camera_y_pos`), that's a meaningful state-shape regression that
+    // the existing signal would mask. Persisting the top-field name
+    // alongside its diff count lets `latest_release_gate_signal`
+    // self-cite the fingerprint so the next-agent note carries it
+    // forward without chasing the linked sweep-runs report. Optional
+    // so 1p-playable runs (no sweep) and pre-field reports stay
+    // readable, and skipped when the embedded sweep recorded zero
+    // diffs (no dominant field exists).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_divergence_field: Option<TopDivergenceField>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct TopDivergenceField {
+    pub(crate) field: String,
+    pub(crate) total_diffs: usize,
 }
 
 pub(crate) fn run_release_gate(
@@ -91,6 +115,7 @@ pub(crate) fn run_release_gate(
         sweep_summary: None,
         kid_core_hash: None,
         levels_requested: None,
+        top_divergence_field: None,
     };
 
     let result = match target {
@@ -310,6 +335,22 @@ fn run_one_player_accurate_gate(
             // gate also self-cites the source it ran on. The signal layer
             // compares this against the live tree and surfaces drift.
             report.kid_core_hash.clone_from(&sweep_report.kid_core_hash);
+            // Sweep parity: capture the dominant divergence field so the
+            // gate report carries a per-field fingerprint alongside the
+            // per-category `sweep_summary`. `field_summary` is sorted by
+            // total_diffs desc, levels desc, name asc (see
+            // `summarise_field_diffs` in sweep/mod.rs), so the first
+            // entry is the deterministic winner. Skipped when the sweep
+            // recorded zero diffs (no dominant field exists), so a
+            // pristine gate report stays free of placeholder values.
+            report.top_divergence_field =
+                sweep_report
+                    .field_summary
+                    .first()
+                    .map(|entry| TopDivergenceField {
+                        field: entry.field.clone(),
+                        total_diffs: entry.total_diffs,
+                    });
             if sweep_report.failed > 0 || sweep_report.errors > 0 {
                 let detail = state_sweep_failed_detail(repo_root, &sweep_report);
                 report.steps.push(ReleaseGateStep {

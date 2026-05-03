@@ -7623,9 +7623,18 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
         // the same field so a passing release-gate signal proves both
         // breadth and divergence threshold rather than only the latter.
         let levels_segment = format_release_gate_levels_segment(report.get("levels_requested"));
+        // Sweep parity: surface the dominant divergence field
+        // (`field_summary[0]`) so the gate signal carries a per-field
+        // fingerprint alongside the per-category `sweep_summary`. A
+        // regression that flips the dominant field (e.g. `score`
+        // overtakes `camera_y_pos`) becomes immediately visible from
+        // the persisted signal rather than being hidden inside an
+        // unchanged `oracle_limitation=840`.
+        let top_field_segment =
+            format_release_gate_top_field_segment(report.get("top_divergence_field"));
         CheckOutcome::passing(
             format!(
-                "latest release gate passed (timestamp {timestamp}{kid_core_hash_segment}{levels_segment}{sweep_summary_detail}{report_detail})"
+                "latest release gate passed (timestamp {timestamp}{kid_core_hash_segment}{levels_segment}{sweep_summary_detail}{top_field_segment}{report_detail})"
             ),
             Some(report_path.unwrap_or(latest_path)),
         )
@@ -7668,11 +7677,21 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
         // signal cites breadth on both passing and failing branches so
         // the gate signal stays parity-tight regardless of outcome.
         let levels_segment = format_release_gate_levels_segment(report.get("levels_requested"));
+        // Sweep parity: surface the dominant divergence field on the
+        // failing branch too — the passing branch already cites it,
+        // and a red gate is exactly when an operator most needs to see
+        // whether the dominant field has rotated. The failed-step
+        // detail names the specific scenario/field that tipped the
+        // gate red, but the dominant-field fingerprint exposes any
+        // shift in the underlying sweep shape that the failing step
+        // alone would not surface.
+        let top_field_segment =
+            format_release_gate_top_field_segment(report.get("top_divergence_field"));
         let report_detail = report_path.as_ref().map_or_else(
-            || format!(" (timestamp {timestamp}{kid_core_hash_segment}{levels_segment}{sweep_summary_detail})"),
+            || format!(" (timestamp {timestamp}{kid_core_hash_segment}{levels_segment}{sweep_summary_detail}{top_field_segment})"),
             |path| {
                 format!(
-                    " (timestamp {timestamp}{kid_core_hash_segment}{levels_segment}{sweep_summary_detail}, report={})",
+                    " (timestamp {timestamp}{kid_core_hash_segment}{levels_segment}{sweep_summary_detail}{top_field_segment}, report={})",
                     path.display()
                 )
             },
@@ -8359,6 +8378,37 @@ fn format_release_gate_levels_segment(value: Option<&serde_json::Value>) -> Stri
         return String::new();
     };
     format!(", levels={count}")
+}
+
+/// Formats the `top_divergence_field` segment of a release-gate signal.
+/// Returns an empty string when the gate report has no
+/// `top_divergence_field` (e.g. 1p-playable targets, pre-field reports,
+/// or sweeps that produced no diffs) so the surrounding detail does
+/// not leak a placeholder. When the field is present, the segment
+/// reads `, top_field=NAME:COUNT` so the persisted release-gate signal
+/// carries a per-field fingerprint alongside the per-category
+/// `sweep_summary`: `passed=true` plus `oracle_limitation=840` only
+/// proves the divergence threshold, while the dominant field name +
+/// total tells the operator whether the underlying state shape is
+/// unchanged or has rotated to a new field — a regression signal the
+/// existing summary would otherwise mask. The leading `, ` separator
+/// matches the surrounding `kid_core_hash`/`levels`/`sweep_summary`
+/// segments so the persisted signal renders as one readable list.
+fn format_release_gate_top_field_segment(top_field: Option<&serde_json::Value>) -> String {
+    let Some(top_field) = top_field.filter(|value| value.is_object()) else {
+        return String::new();
+    };
+    let field = top_field
+        .get("field")
+        .and_then(serde_json::Value::as_str)
+        .filter(|name| !name.is_empty());
+    let total_diffs = top_field
+        .get("total_diffs")
+        .and_then(serde_json::Value::as_u64);
+    match (field, total_diffs) {
+        (Some(field), Some(total_diffs)) => format!(", top_field={field}:{total_diffs}"),
+        _ => String::new(),
+    }
 }
 
 /// Formats the `sweep_summary` segment of a passing release-gate signal.
@@ -9292,9 +9342,9 @@ mod tests {
         evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
         fingerprint_for_capabilities, format_kid_core_hash_detail,
         format_release_gate_kid_core_hash_segment, format_release_gate_levels_segment,
-        format_release_gate_sweep_summary, is_sweep_refresh_commit,
-        latest_release_gate_failure_detail, latest_release_gate_signal, latest_state_sweep_signal,
-        load_source_port_frontier_state, normalise_release_gate_value,
+        format_release_gate_sweep_summary, format_release_gate_top_field_segment,
+        is_sweep_refresh_commit, latest_release_gate_failure_detail, latest_release_gate_signal,
+        latest_state_sweep_signal, load_source_port_frontier_state, normalise_release_gate_value,
         parse_recent_commit_summaries, render_source_port_next_agent_note, select_next_task,
         source_port_frontier_sweep_task, source_port_next_agent_note, sweep_refresh_streak,
     };
@@ -10995,6 +11045,247 @@ mod tests {
         assert!(
             outcome.detail.contains("sweep_summary=authoritative=0"),
             "absence of levels_requested must not affect the sweep_summary segment: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_top_field_segment_returns_empty_when_value_absent_or_invalid() {
+        // 1p-playable gate runs, pre-field gate reports, and pristine
+        // sweeps that produced zero diffs all leave
+        // `top_divergence_field` absent. The segment must collapse to
+        // empty so the surrounding signal does not leak a half-formed
+        // `, top_field=` placeholder. Non-object values (e.g. a stale
+        // schema migration that wrote a scalar) collapse the same way
+        // so a malformed report stays readable rather than rendering
+        // `top_field=null`.
+        assert_eq!(format_release_gate_top_field_segment(None), "");
+        let null = serde_json::Value::Null;
+        assert_eq!(format_release_gate_top_field_segment(Some(&null)), "");
+        let scalar = serde_json::Value::String("camera_y_pos".into());
+        assert_eq!(format_release_gate_top_field_segment(Some(&scalar)), "");
+        // Object missing one or both required fields collapses too —
+        // the persisted signal contract requires both `field` and
+        // `total_diffs` to render meaningfully.
+        let missing_count = serde_json::json!({ "field": "camera_y_pos" });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&missing_count)),
+            ""
+        );
+        let missing_field = serde_json::json!({ "total_diffs": 136 });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&missing_field)),
+            ""
+        );
+        let empty_field = serde_json::json!({ "field": "", "total_diffs": 136 });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&empty_field)),
+            ""
+        );
+    }
+
+    #[test]
+    fn release_gate_top_field_segment_renders_dominant_field_when_value_present() {
+        // A gate report carrying `top_divergence_field` produces the
+        // canonical `, top_field=NAME:COUNT` segment so the gate signal
+        // carries a per-field fingerprint inline alongside the
+        // per-category `sweep_summary`. The leading comma+space matches
+        // the surrounding kid_core_hash / levels / sweep_summary / report
+        // segments so the persisted signal renders as a single readable
+        // list.
+        let value = serde_json::json!({
+            "field": "camera_y_pos",
+            "total_diffs": 136,
+        });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&value)),
+            ", top_field=camera_y_pos:136"
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_embeds_top_field_in_passing_detail() {
+        // End-to-end: a passing release-gate report with
+        // `top_divergence_field` produces a signal that cites the
+        // dominant field inline alongside timestamp, kid_core_hash,
+        // levels, sweep_summary, and report path. Without this a green
+        // gate with `oracle_limitation=840` says nothing about whether
+        // the underlying field shape is unchanged or has rotated to a
+        // new dominant field — a regression signal the existing summary
+        // would otherwise mask.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1777772704",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": [],
+              "kid_core_hash": "5e6309c94728b8ef9e9e10ba5002197362b8926f",
+              "levels_requested": 69,
+              "sweep_summary": {
+                "authoritative": 0,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              },
+              "top_divergence_field": {
+                "field": "camera_y_pos",
+                "total_diffs": 136
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(outcome.ok);
+        assert!(
+            outcome.detail.contains(", top_field=camera_y_pos:136"),
+            "passing release-gate signal must self-cite the dominant divergence field: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains(", sweep_summary=authoritative=0/advisory=0/accumulation=0/rng=0/oracle_limitation=840"),
+            "embedding top_field must not displace the sweep_summary segment: {}",
+            outcome.detail
+        );
+        // Order matters: the gate signal renders the per-field
+        // fingerprint after the per-category `sweep_summary` so the
+        // dominant-field detail nests under the totals it qualifies.
+        let summary_idx = outcome
+            .detail
+            .find(", sweep_summary=")
+            .expect("sweep_summary segment present");
+        let top_field_idx = outcome
+            .detail
+            .find(", top_field=")
+            .expect("top_field segment present");
+        assert!(
+            summary_idx < top_field_idx,
+            "segment order must be sweep_summary -> top_field: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_embeds_top_field_in_failing_detail() {
+        // Sweep parity: the failing branch must carry the dominant-field
+        // fingerprint too. A red gate is exactly when an operator most
+        // needs to see whether the dominant field has rotated — the
+        // failed-step detail names the specific scenario/field that
+        // tipped the gate red, but the dominant-field fingerprint
+        // exposes any shift in the underlying sweep shape that the
+        // failing step alone would not surface.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1777772800",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "frame_oracle:boot_title_start_level1",
+                  "status": "failed",
+                  "detail": "state title@360 diverged in game mode (native 000C, oracle 002C)"
+                }
+              ],
+              "kid_core_hash": "5e6309c94728b8ef9e9e10ba5002197362b8926f",
+              "levels_requested": 69,
+              "sweep_summary": {
+                "authoritative": 2,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              },
+              "top_divergence_field": {
+                "field": "camera_y_pos",
+                "total_diffs": 136
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(!outcome.ok);
+        assert!(
+            outcome.detail.contains(", top_field=camera_y_pos:136"),
+            "failing release-gate signal must self-cite the dominant divergence field: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains(", sweep_summary=authoritative=2/advisory=0/accumulation=0/rng=0/oracle_limitation=840"),
+            "embedding top_field must not displace the sweep_summary segment: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains("frame_oracle:boot_title_start_level1"),
+            "failing release-gate signal must still include the failed step name: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_omits_top_field_when_field_missing() {
+        // Pre-field gate reports, 1p-playable runs, and pristine sweeps
+        // (zero diffs, no dominant field) all leave
+        // `top_divergence_field` absent. The signal must stay readable —
+        // the gate continues to cite timestamp + (optional) kid_core_hash
+        // + (optional) levels + (optional) sweep_summary + report
+        // without injecting a partial `, top_field=` placeholder.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1776704800",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": [],
+              "levels_requested": 69,
+              "sweep_summary": {
+                "authoritative": 0,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 0
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(outcome.ok);
+        assert!(
+            !outcome.detail.contains("top_field="),
+            "missing top_divergence_field must not produce a partial segment: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains("sweep_summary=authoritative=0"),
+            "absence of top_divergence_field must not affect the sweep_summary segment: {}",
             outcome.detail
         );
     }
