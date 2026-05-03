@@ -23,6 +23,21 @@ BACKLOG_PATH = REPO_ROOT / "docs/source-port/backlog.md"
 PROMISE_TOKEN = "__PROMISE_RL_DONE__"
 DEFAULT_MAX_STALL_STREAK = 3
 
+# Mirrors `TELEMETRY_REFRESH_PATHS` in crates/kidcli/src/autonomy.rs. The Rust
+# side rejects emitting RefreshEvidence on stalls now, but if a future gaming
+# variant slips past it, this defence-in-depth check catches it before another
+# wasted iteration. Keep both lists in sync.
+TELEMETRY_REFRESH_PATHS: frozenset[str] = frozenset(
+    {
+        "docs/source-port/methodology.md",
+        "docs/source-port/research-map.md",
+        "crates/kidcli/src/autonomy.rs",
+        "crates/kidcli/src/release_gate.rs",
+        "crates/kidcli/src/sweep/mod.rs",
+    }
+)
+TELEMETRY_REFRESH_STREAK_THRESHOLD = 2
+
 # Mirrors `auto_recovery_command` in crates/kidcli/src/autonomy.rs. Rust
 # unit tests pin both shapes so the two sides cannot drift silently.
 AUTO_RECOVERY_ARGV: dict[str, list[str]] = {
@@ -334,6 +349,67 @@ def emit_circuit_breaker_message(
         sys.stderr.write(f"    {index}. {hint}\n")
 
 
+def recent_commit_filesets(count: int) -> list[list[str]]:
+    """Return the changed-file lists for the last `count` non-merge commits,
+    newest first. Empty list if git is unavailable.
+    """
+    if count <= 0:
+        return []
+    delim = "__KID_COMMIT__"
+    fmt = f"{delim}%n%H"
+    result = subprocess.run(
+        [
+            "git",
+            "log",
+            f"-{count}",
+            "--no-merges",
+            "--name-only",
+            f"--format={fmt}",
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return []
+    filesets: list[list[str]] = []
+    current: list[str] | None = None
+    expecting_sha = False
+    for raw_line in result.stdout.splitlines():
+        line = raw_line.strip()
+        if line == delim:
+            if current is not None:
+                filesets.append(current)
+            current = []
+            expecting_sha = True
+            continue
+        if expecting_sha:
+            expecting_sha = False
+            continue
+        if line and current is not None:
+            current.append(line)
+    if current is not None:
+        filesets.append(current)
+    return filesets
+
+
+def is_telemetry_refresh_fileset(files: list[str]) -> bool:
+    if not files:
+        return False
+    return all(path in TELEMETRY_REFRESH_PATHS for path in files)
+
+
+def telemetry_refresh_streak() -> int:
+    streak = 0
+    for files in recent_commit_filesets(5):
+        if is_telemetry_refresh_fileset(files):
+            streak += 1
+        else:
+            break
+    return streak
+
+
 def is_clean_repeat(task: dict, dirty_files: list[str]) -> tuple[bool, dict | None]:
     if dirty_files:
         return (False, None)
@@ -469,6 +545,36 @@ def main() -> int:
     agent_name = sys.argv[1] if len(sys.argv) > 1 else None
     dirty_before = tracked_dirty_files()
     preflight = run_dirty_tree_preflight(dirty_before)
+
+    # Defence-in-depth: if the last 2+ commits in the rl session touched only
+    # telemetry-refresh paths (docs and/or gate-signal renderers), the agent
+    # has been gaming the loop and the autonomy module may not have caught
+    # the new variant yet. Hard-stop with PROMISE_TOKEN so the operator
+    # decides whether to pivot or rest. The Rust-side fix in autonomy.rs
+    # should mean this never fires in practice — it limits damage.
+    streak = telemetry_refresh_streak()
+    if streak >= TELEMETRY_REFRESH_STREAK_THRESHOLD and not dirty_before:
+        sys.stderr.write(
+            f"✗ Telemetry-refresh streak detected: last {streak} commits "
+            "touched only telemetry-refresh paths "
+            "(docs/source-port/methodology.md, "
+            "docs/source-port/research-map.md, "
+            "crates/kidcli/src/autonomy.rs, "
+            "crates/kidcli/src/release_gate.rs, "
+            "crates/kidcli/src/sweep/mod.rs).\n"
+        )
+        sys.stderr.write(
+            "  Pivot or rest — adding another gate-signal field that cites "
+            "itself isn't engine progress.\n"
+        )
+        sys.stderr.write(
+            "  Try: cargo run -p kidcli -- autonomous-loop "
+            "--goal proactive-verification\n"
+        )
+        sys.stdout.write(PROMISE_TOKEN + "\n")
+        sys.stdout.flush()
+        return 0
+
     prompt_env = os.environ.copy()
     prompt_env["SOURCE_PORT_DIRTY_TREE_FINGERPRINT"] = str(
         preflight.get("fingerprint") or ""

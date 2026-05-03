@@ -14,10 +14,12 @@ from tempfile import TemporaryDirectory
 from source_port_rl_run import (
     AUTO_RECOVERY_ARGV,
     MISSING_ARTEFACT_REGEN_HINT,
+    TELEMETRY_REFRESH_PATHS,
     asm_coverage_has_uncovered_sub_labels,
     attempt_auto_recovery,
     backlog_has_unpromoted_open_item,
     derive_operator_unblocks,
+    is_telemetry_refresh_fileset,
     record_auto_recovery_attempt,
     should_auto_recover,
 )
@@ -181,6 +183,68 @@ class AutoRecoveryBookkeeping(unittest.TestCase):
     def test_attempt_auto_recovery_skips_when_no_missing_artefact(self) -> None:
         result = attempt_auto_recovery({"progress_fingerprint": "fp"}, [])
         self.assertIsNone(result)
+
+
+class TelemetryRefreshDetection(unittest.TestCase):
+    """Pin the wrapper-side `is_telemetry_refresh_fileset` so it stays in
+    lockstep with the Rust-side `is_telemetry_refresh_commit`."""
+
+    def test_paths_match_rust_set(self) -> None:
+        self.assertEqual(
+            TELEMETRY_REFRESH_PATHS,
+            frozenset(
+                {
+                    "docs/source-port/methodology.md",
+                    "docs/source-port/research-map.md",
+                    "crates/kidcli/src/autonomy.rs",
+                    "crates/kidcli/src/release_gate.rs",
+                    "crates/kidcli/src/sweep/mod.rs",
+                }
+            ),
+        )
+
+    def test_docs_only_set_is_refresh(self) -> None:
+        self.assertTrue(
+            is_telemetry_refresh_fileset(
+                [
+                    "docs/source-port/methodology.md",
+                    "docs/source-port/research-map.md",
+                ]
+            )
+        )
+
+    def test_gate_signal_self_cite_pattern_is_refresh(self) -> None:
+        # Reproduce the observed gaming pattern: agent edits only autonomy.rs
+        # + release_gate.rs + sweep/mod.rs to add a new gate-signal field
+        # that cites itself.
+        self.assertTrue(
+            is_telemetry_refresh_fileset(
+                [
+                    "crates/kidcli/src/autonomy.rs",
+                    "crates/kidcli/src/release_gate.rs",
+                    "crates/kidcli/src/sweep/mod.rs",
+                ]
+            )
+        )
+
+    def test_kid_core_change_slips_through(self) -> None:
+        # Real `sweep-parity:` promotion edits ADVISORY_FIELDS plus a
+        # kid-core regression test alongside autonomy/sweep tweaks. Any
+        # non-telemetry path slips it past the detector.
+        self.assertFalse(
+            is_telemetry_refresh_fileset(
+                [
+                    "crates/kidcli/src/autonomy.rs",
+                    "crates/kid-core/src/something.rs",
+                    "docs/source-port/frontier-state.yaml",
+                ]
+            )
+        )
+
+    def test_empty_fileset_is_not_refresh(self) -> None:
+        # Empty file list (e.g. merge or empty commit) must not be classified
+        # as a telemetry refresh — otherwise the guard fires spuriously.
+        self.assertFalse(is_telemetry_refresh_fileset([]))
 
 
 if __name__ == "__main__":
