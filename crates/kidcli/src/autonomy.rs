@@ -4112,6 +4112,8 @@ fn try_mutation_testing_strategy(
                 source_hash.as_deref(),
             );
 
+            let source_drifted =
+                mutation_source_drifted(previous_entry.as_ref(), source_hash.as_deref());
             match &run.status {
                 MutationRunStatus::NotRun => {
                     let candidate_target = format!("{module_stem}:run{}", shard.suffix());
@@ -4125,9 +4127,18 @@ fn try_mutation_testing_strategy(
                     // same file but never ran the shard), defer this shard so
                     // the rotation advances instead of definitively stalling
                     // on Mechanism A in the recovery cascade.
-                    let previous_attempts = previous_entry
-                        .as_ref()
-                        .map_or(0, |entry| entry.attempt_count);
+                    //
+                    // Source drift overrides the guard: a shard previously
+                    // deferred against the old code becomes eligible again
+                    // when kid-core changes underneath it (helmets work in
+                    // 7b8240ae / 9987074c is the motivating example).
+                    let previous_attempts = if source_drifted {
+                        0
+                    } else {
+                        previous_entry
+                            .as_ref()
+                            .map_or(0, |entry| entry.attempt_count)
+                    };
                     if previous_attempts >= 3 || skip_fingerprints.contains(&candidate_fingerprint)
                     {
                         mark_mutation_ledger_attempt(
@@ -4631,6 +4642,24 @@ fn mutation_ledger_status(status: &MutationRunStatus) -> MutationLedgerStatus {
     }
 }
 
+/// Returns true when the ledger entry's recorded source hash differs from the
+/// caller-supplied `current_source_hash` (and both are present). Drift means
+/// the underlying kid-core file(s) for the module have changed since the
+/// previous deferral or completion, so any prior attempt-count guard is no
+/// longer load-bearing — the shard should re-open for cargo-mutants.
+fn mutation_source_drifted(
+    previous_entry: Option<&MutationLedgerEntry>,
+    current_source_hash: Option<&str>,
+) -> bool {
+    match (
+        previous_entry.and_then(|e| e.source_hash.as_deref()),
+        current_source_hash,
+    ) {
+        (Some(recorded), Some(current)) => recorded != current,
+        _ => false,
+    }
+}
+
 fn sync_mutation_ledger_entry(
     ledger: &mut MutationLedger,
     target: &MutationTarget,
@@ -4643,7 +4672,16 @@ fn sync_mutation_ledger_entry(
     let attempt_count = ledger
         .entries
         .get(&key)
-        .map(|entry| entry.attempt_count)
+        .and_then(|entry| {
+            // Reset attempt_count when the relevant source has drifted: the
+            // previous deferral was tied to the old code and is no longer a
+            // valid signal that this shard is a dead-end.
+            let drifted = match (entry.source_hash.as_deref(), source_hash) {
+                (Some(recorded), Some(current)) => recorded != current,
+                _ => false,
+            };
+            (!drifted).then_some(entry.attempt_count)
+        })
         .unwrap_or_default();
     ledger.entries.insert(
         key,
@@ -14183,9 +14221,35 @@ mod tests {
         status: &str,
         attempt_count: u32,
     ) {
+        write_mutation_ledger_entry_with_source_hash(
+            repo_root,
+            module,
+            package,
+            shard,
+            shards_total,
+            status,
+            attempt_count,
+            None,
+        );
+    }
+
+    fn write_mutation_ledger_entry_with_source_hash(
+        repo_root: &Path,
+        module: &str,
+        package: &str,
+        shard: usize,
+        shards_total: usize,
+        status: &str,
+        attempt_count: u32,
+        source_hash: Option<&str>,
+    ) {
         let path = repo_root.join(".cache/autonomy/proactive-verification/mutation-ledger.json");
         fs::create_dir_all(path.parent().unwrap()).expect("ledger dir should exist");
         let key = format!("{package}:{module}:{shard}/{shards_total}");
+        let source_hash_json = match source_hash {
+            Some(value) => format!("\"{value}\""),
+            None => "null".to_owned(),
+        };
         let json = format!(
             r#"{{
   "entries": {{
@@ -14199,7 +14263,7 @@ mod tests {
       "status": "{status}",
       "mutants_hash": null,
       "survivor_hash": null,
-      "source_hash": null,
+      "source_hash": {source_hash_json},
       "last_run_at": "test",
       "last_commit": "test",
       "attempt_count": {attempt_count}
@@ -14269,6 +14333,58 @@ mod tests {
             read_mutation_ledger_status(temp_dir.path(), "terrain.rs", "kid-core", 1, 2).as_deref(),
             Some("deferred_attempts"),
             "shard-1 must be marked deferred_attempts after the third emit attempt"
+        );
+    }
+
+    /// When a shard was previously deferred against an old kid-core source
+    /// hash and the relevant source has since drifted, the rotation must
+    /// re-open the shard rather than re-deferring on the stale attempt count.
+    /// Motivating example: the helmets work in 7b8240ae / 9987074c modified
+    /// kid-core helmet code while the helmet shards 0/1/3/4 sat at
+    /// `deferred_attempts`; without drift detection, the strategy would skip
+    /// them indefinitely.
+    #[test]
+    fn mutation_strategy_reopens_deferred_shard_on_source_drift() {
+        let temp_dir = source_port_repo();
+        // 201 candidates → 2 shards under the cap of 200.
+        write_mutation_run(temp_dir.path(), "terrain", 201, 0, "", "", "");
+        // Record shard-1/2 as fully deferred against a stale source hash
+        // that cannot match anything `mutation_relevant_source_hash`
+        // computes from the live workspace.
+        write_mutation_ledger_entry_with_source_hash(
+            temp_dir.path(),
+            "terrain.rs",
+            "kid-core",
+            1,
+            2,
+            "deferred_attempts",
+            3,
+            Some("stale-source-hash-from-pre-drift"),
+        );
+        let targets = vec![mutation_target("terrain.rs", 1)];
+
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            Some(200),
+            &BTreeSet::new(),
+        )
+        .expect("strategy should re-open the drifted shard");
+
+        // Drift detection forces previous_attempts to 0, so the strategy
+        // emits the `run:shard-1/2` task instead of advancing to shard-2/2.
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:terrain:run:shard-1/2",
+            "drifted shard must re-open and emit a run task"
+        );
+        assert_eq!(
+            read_mutation_ledger_status(temp_dir.path(), "terrain.rs", "kid-core", 1, 2).as_deref(),
+            Some("not_run"),
+            "drifted shard's status must reset to not_run for the new attempt"
         );
     }
 
