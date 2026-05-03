@@ -7633,9 +7633,38 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
             .and_then(serde_json::Value::as_str)
             .unwrap_or("unknown");
         let report_path = existing_timestamped_release_gate_report_path(&latest_path, timestamp);
+        // Sweep parity: the passing branch already self-cites
+        // `kid_core_hash` (with drift annotation) and the embedded
+        // `sweep_summary` breakdown; the state-sweep signal renders the
+        // same fields on both passing and failing branches. The failing
+        // release-gate branch historically only carried the timestamp +
+        // report path, so an operator inspecting a red gate signal alone
+        // could not tell whether the failure ran against the live tree
+        // and could not see how many of each divergence category the
+        // embedded sweep observed (often the failure correlates with
+        // non-zero `authoritative` counts that the failed step itself
+        // does not name). Embed the same segments here so the failing
+        // signal stays self-citing — both `format_release_gate_*` helpers
+        // already collapse to empty strings when the underlying fields
+        // are absent (1p-playable runs, gate aborted before sweep), so
+        // older red gates remain readable without a placeholder.
+        let persisted_kid_core_hash = report
+            .get("kid_core_hash")
+            .and_then(serde_json::Value::as_str);
+        let current_kid_core_hash = crate::sweep::kid_core_source_hash(repo_root).ok();
+        let kid_core_hash_segment = format_release_gate_kid_core_hash_segment(
+            persisted_kid_core_hash,
+            current_kid_core_hash.as_deref(),
+        );
+        let sweep_summary_detail = format_release_gate_sweep_summary(report.get("sweep_summary"));
         let report_detail = report_path.as_ref().map_or_else(
-            || format!(" (timestamp {timestamp})"),
-            |path| format!(" (timestamp {timestamp}, report={})", path.display()),
+            || format!(" (timestamp {timestamp}{kid_core_hash_segment}{sweep_summary_detail})"),
+            |path| {
+                format!(
+                    " (timestamp {timestamp}{kid_core_hash_segment}{sweep_summary_detail}, report={})",
+                    path.display()
+                )
+            },
         );
         let detail = correlate_release_gate_failure_with_state_sweep(repo_root, &detail)
             .map(|correlation| format!("{detail}; {correlation}"))
@@ -10591,6 +10620,133 @@ mod tests {
         assert!(
             outcome.detail.contains("sweep_summary=authoritative=0"),
             "absence of kid_core_hash must not affect the sweep_summary segment: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_embeds_kid_core_hash_and_sweep_summary_in_failing_detail() {
+        // Sweep parity: a failing release-gate report whose embedded
+        // sweep persisted both `kid_core_hash` and `sweep_summary` must
+        // surface them inline alongside the timestamp and report path —
+        // mirroring the passing branch and the state-sweep signal,
+        // which already carries the same fields on both passing and
+        // failing branches. Without this the red gate signal hides
+        // both the source the gate ran against and the underlying
+        // divergence breakdown, even though the failed step name often
+        // does not name the categories that contributed.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1777769305",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "frame_oracle:boot_title_start_level1",
+                  "status": "failed",
+                  "detail": "state title@360 diverged in game mode (native 000C, oracle 002C)"
+                }
+              ],
+              "kid_core_hash": "5e6309c94728b8ef9e9e10ba5002197362b8926f",
+              "sweep_summary": {
+                "authoritative": 2,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(!outcome.ok);
+        assert!(
+            outcome.detail.contains("timestamp 1777769305"),
+            "failing release-gate signal must still cite the timestamp: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains(", kid_core_hash=5e6309c94728"),
+            "failing release-gate signal must self-cite the embedded kid_core_hash: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains(", sweep_summary=authoritative=2/advisory=0/accumulation=0/rng=0/oracle_limitation=840"),
+            "failing release-gate signal must self-cite the embedded sweep_summary breakdown: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains("frame_oracle:boot_title_start_level1"),
+            "failing release-gate signal must still include the failed step name: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_omits_kid_core_hash_and_sweep_summary_when_failing_report_has_neither() {
+        // Pre-field gate reports (and 1p-playable runs that never
+        // invoked the state sweep) carry neither `kid_core_hash` nor
+        // `sweep_summary`. The failing signal must stay readable — no
+        // empty placeholders, no doubled separators — so the existing
+        // failed-step + timestamp + report path contract continues to
+        // hold for older red gates.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1775119879",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "frame_oracle:boot_title_start_level1",
+                  "status": "failed",
+                  "detail": "state title@360 diverged in game mode (native 000C, oracle 002C)"
+                }
+              ]
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(!outcome.ok);
+        assert!(
+            !outcome.detail.contains("kid_core_hash="),
+            "missing kid_core_hash must not produce a partial segment: {}",
+            outcome.detail
+        );
+        assert!(
+            !outcome.detail.contains("sweep_summary="),
+            "missing sweep_summary must not produce a partial segment: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains("(timestamp 1775119879"),
+            "failing release-gate signal must still cite the timestamp without doubled separators: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains("frame_oracle:boot_title_start_level1"),
+            "failing release-gate signal must still include the failed step name: {}",
             outcome.detail
         );
     }
