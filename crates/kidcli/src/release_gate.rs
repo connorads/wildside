@@ -104,6 +104,18 @@ pub(crate) struct TopDivergenceField {
     // alone. Optional so pre-field reports stay readable.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) levels: Option<usize>,
+    // Sweep parity: persist the breadth (distinct checkpoint count)
+    // the dominant field diverged across. `levels` already discloses
+    // the level-axis breadth, but two regressions can spread the same
+    // diff total across the same level count while occupying very
+    // different checkpoint shapes — e.g. 136 diffs on 68 levels at a
+    // single `level_settle` checkpoint vs the same total scattered
+    // across `idle_tail`, `level_settle`, and `pre_warp`. Persisting
+    // the checkpoint count lets the gate signal surface that
+    // checkpoint-axis shift in the same shape the level-axis already
+    // does. Optional so pre-checkpoint reports stay readable.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) checkpoints: Option<usize>,
 }
 
 pub(crate) fn run_release_gate(
@@ -367,6 +379,14 @@ fn run_one_player_accurate_gate(
                         // on 5 levels vs 200 spread across 69) are
                         // otherwise hidden behind an unchanged top_field.
                         levels: Some(entry.levels),
+                        // Persist the checkpoint-axis breadth alongside the
+                        // level-axis one so the gate signal can render
+                        // `across N levels in M checkpoints`. Two regressions
+                        // can share the same level count while diverging at
+                        // very different checkpoint sets; without the
+                        // checkpoint count, the dominant-field fingerprint
+                        // would render identically in both cases.
+                        checkpoints: Some(entry.checkpoints.len()),
                     });
             if sweep_report.failed > 0 || sweep_report.errors > 0 {
                 let detail = state_sweep_failed_detail(repo_root, &sweep_report);

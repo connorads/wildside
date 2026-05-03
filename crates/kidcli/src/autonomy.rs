@@ -8386,18 +8386,23 @@ fn format_release_gate_levels_segment(value: Option<&serde_json::Value>) -> Stri
 /// or sweeps that produced no diffs) so the surrounding detail does
 /// not leak a placeholder. When the field is present, the segment
 /// reads `, top_field=NAME:COUNT` (or
-/// `, top_field=NAME:COUNT across N levels` once the gate report
-/// persists `levels`) so the release-gate signal carries a per-field
-/// fingerprint alongside the per-category `sweep_summary`:
-/// `passed=true` plus `oracle_limitation=840` only proves the
-/// divergence threshold, while the dominant field name + total + level
+/// `, top_field=NAME:COUNT across N levels`, or
+/// `, top_field=NAME:COUNT across N levels in M checkpoints` once the
+/// gate report persists `levels` and `checkpoints`) so the
+/// release-gate signal carries a per-field fingerprint alongside the
+/// per-category `sweep_summary`: `passed=true` plus
+/// `oracle_limitation=840` only proves the divergence threshold, while
+/// the dominant field name + total + level breadth + checkpoint
 /// breadth tells the operator whether the underlying state shape is
-/// unchanged or has rotated/concentrated — a regression signal the
-/// existing summary would otherwise mask. The leading `, ` separator
-/// matches the surrounding `kid_core_hash`/`levels`/`sweep_summary`
-/// segments so the persisted signal renders as one readable list. The
-/// `levels` component is only appended when present so pre-breadth
-/// reports stay readable without a placeholder.
+/// unchanged, rotated, concentrated, or scattered — regression signals
+/// the existing summary would otherwise mask. The leading `, `
+/// separator matches the surrounding
+/// `kid_core_hash`/`levels`/`sweep_summary` segments so the persisted
+/// signal renders as one readable list. The `levels` and `checkpoints`
+/// components are only appended when present so pre-breadth reports
+/// stay readable without a placeholder, and `checkpoints` only renders
+/// alongside `levels` so a half-shape (checkpoints without levels) is
+/// never emitted.
 fn format_release_gate_top_field_segment(top_field: Option<&serde_json::Value>) -> String {
     let Some(top_field) = top_field.filter(|value| value.is_object()) else {
         return String::new();
@@ -8410,12 +8415,18 @@ fn format_release_gate_top_field_segment(top_field: Option<&serde_json::Value>) 
         .get("total_diffs")
         .and_then(serde_json::Value::as_u64);
     let levels = top_field.get("levels").and_then(serde_json::Value::as_u64);
+    let checkpoints = top_field
+        .get("checkpoints")
+        .and_then(serde_json::Value::as_u64);
     match (field, total_diffs) {
-        (Some(field), Some(total_diffs)) => match levels {
-            Some(levels) => {
+        (Some(field), Some(total_diffs)) => match (levels, checkpoints) {
+            (Some(levels), Some(checkpoints)) => format!(
+                ", top_field={field}:{total_diffs} across {levels} levels in {checkpoints} checkpoints"
+            ),
+            (Some(levels), None) => {
                 format!(", top_field={field}:{total_diffs} across {levels} levels")
             }
-            None => format!(", top_field={field}:{total_diffs}"),
+            _ => format!(", top_field={field}:{total_diffs}"),
         },
         _ => String::new(),
     }
@@ -11138,6 +11149,83 @@ mod tests {
     }
 
     #[test]
+    fn release_gate_top_field_segment_renders_checkpoint_breadth_when_present() {
+        // Sweep parity: once the gate report persists the
+        // checkpoint-axis breadth alongside the level-axis breadth, the
+        // signal must render
+        // `, top_field=NAME:COUNT across N levels in M checkpoints`.
+        // Two regressions can spread the same diff total across the
+        // same level count while occupying very different checkpoint
+        // sets — e.g. 136 diffs on 68 levels at a single
+        // `level_settle` checkpoint vs the same total scattered across
+        // `idle_tail`, `level_settle`, and `pre_warp`. Without the
+        // checkpoint count, the dominant-field fingerprint would render
+        // identically in both cases; with it, a checkpoint-axis shift
+        // becomes visible from the next-agent note alone.
+        let value = serde_json::json!({
+            "field": "camera_y_pos",
+            "total_diffs": 136,
+            "levels": 68,
+            "checkpoints": 4,
+        });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&value)),
+            ", top_field=camera_y_pos:136 across 68 levels in 4 checkpoints"
+        );
+    }
+
+    #[test]
+    fn release_gate_top_field_segment_omits_checkpoints_without_levels() {
+        // Defensive: `checkpoints` is the second half of a paired
+        // shape — it only renders alongside `levels`. A gate report
+        // that somehow carried `checkpoints` without `levels` (e.g. a
+        // partially-migrated artefact, or a malformed render) must
+        // collapse to the count-only shape rather than emitting the
+        // half-shape `top_field=NAME:COUNT in M checkpoints`. Keeps
+        // the segment grammar consistent: levels first, checkpoints
+        // only as a refinement.
+        let value = serde_json::json!({
+            "field": "camera_y_pos",
+            "total_diffs": 136,
+            "checkpoints": 4,
+        });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&value)),
+            ", top_field=camera_y_pos:136"
+        );
+    }
+
+    #[test]
+    fn release_gate_top_field_segment_ignores_invalid_checkpoints() {
+        // Defensive: a malformed `checkpoints` value (string, null,
+        // negative) must collapse to the levels-only shape rather than
+        // rendering `... in <unparsable> checkpoints`. The checkpoint
+        // segment is purely additive — if it can't be read as a
+        // non-negative integer, the signal stays backward-compatible
+        // with pre-checkpoint gate reports.
+        let string_checkpoints = serde_json::json!({
+            "field": "camera_y_pos",
+            "total_diffs": 136,
+            "levels": 68,
+            "checkpoints": "many",
+        });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&string_checkpoints)),
+            ", top_field=camera_y_pos:136 across 68 levels"
+        );
+        let null_checkpoints = serde_json::json!({
+            "field": "camera_y_pos",
+            "total_diffs": 136,
+            "levels": 68,
+            "checkpoints": serde_json::Value::Null,
+        });
+        assert_eq!(
+            format_release_gate_top_field_segment(Some(&null_checkpoints)),
+            ", top_field=camera_y_pos:136 across 68 levels"
+        );
+    }
+
+    #[test]
     fn release_gate_top_field_segment_ignores_invalid_levels() {
         // Defensive: a malformed `levels` value (string, negative,
         // null, missing) must collapse to the count-only shape rather
@@ -11359,6 +11447,69 @@ mod tests {
                 .detail
                 .contains(", sweep_summary=authoritative=0/advisory=0/accumulation=0/rng=0/oracle_limitation=840"),
             "embedding top_field breadth must not displace the sweep_summary segment: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_embeds_top_field_checkpoint_breadth_in_passing_detail() {
+        // End-to-end: once the gate report persists `checkpoints` on
+        // the dominant-field object, a passing release-gate signal
+        // must render
+        // `, top_field=NAME:COUNT across N levels in M checkpoints` so
+        // both axes of the dominant-field shape become part of the
+        // persisted evidence. Two regressions can spread the same diff
+        // total across the same level count while occupying very
+        // different checkpoint sets (e.g. all on `level_settle` vs
+        // scattered across `idle_tail`/`level_settle`/`pre_warp`); the
+        // checkpoint count surfaces that scatter shift directly in the
+        // next-agent note.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1777773524",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": [],
+              "kid_core_hash": "5e6309c94728b8ef9e9e10ba5002197362b8926f",
+              "levels_requested": 69,
+              "sweep_summary": {
+                "authoritative": 0,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              },
+              "top_divergence_field": {
+                "field": "camera_y_pos",
+                "total_diffs": 136,
+                "levels": 68,
+                "checkpoints": 4
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(outcome.ok);
+        assert!(
+            outcome
+                .detail
+                .contains(", top_field=camera_y_pos:136 across 68 levels in 4 checkpoints"),
+            "passing release-gate signal must self-cite both breadth axes: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains(", sweep_summary=authoritative=0/advisory=0/accumulation=0/rng=0/oracle_limitation=840"),
+            "embedding top_field checkpoint breadth must not displace the sweep_summary segment: {}",
             outcome.detail
         );
     }

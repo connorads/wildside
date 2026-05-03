@@ -237,7 +237,7 @@ pub(crate) struct SweepHistoryFieldEntry {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     level_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    checkpoints: Vec<String>,
+    pub(crate) checkpoints: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     checkpoint_counts: Vec<SweepHistoryCheckpointCount>,
     #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
