@@ -55,6 +55,20 @@ pub(crate) struct ReleaseGateReport {
     // invoke the state sweep) and pre-field reports stay readable.
     #[serde(skip_serializing_if = "Option::is_none")]
     kid_core_hash: Option<String>,
+    // Sweep parity: persist the breadth (level count) the embedded state
+    // sweep ran across. The state-sweep signal already cites `levels=N`
+    // alongside the divergence breakdown, but the release-gate signal
+    // historically had no equivalent — `passed=true` plus
+    // `sweep_summary=authoritative=0` proved the divergence threshold
+    // without proving the breadth, so a gate that swept only a handful
+    // of levels could pass green and look identical to a whole-game
+    // gate. Carrying the requested level count in the gate artefact
+    // lets `latest_release_gate_signal` cite breadth in the same shape
+    // the state-sweep signal does. Set whether the sweep passes or
+    // fails so the failing branch also self-cites breadth. Optional so
+    // 1p-playable runs and pre-field reports stay readable.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    levels_requested: Option<usize>,
 }
 
 pub(crate) fn run_release_gate(
@@ -76,6 +90,7 @@ pub(crate) fn run_release_gate(
         steps: Vec::new(),
         sweep_summary: None,
         kid_core_hash: None,
+        levels_requested: None,
     };
 
     let result = match target {
@@ -271,6 +286,12 @@ fn run_one_player_accurate_gate(
     }
 
     let levels = sweep::parse_level_range("0-104")?;
+    // Sweep parity: persist the requested breadth before the sweep runs
+    // so both passing and failing gate branches surface `levels=N` in
+    // their signal. Mirrors the state-sweep signal which already cites
+    // breadth via `levels_requested` (or the fresh-report `levels`
+    // array length) regardless of the sweep outcome.
+    report.levels_requested = Some(levels.len());
     match sweep::run_sweep_with_options(
         repo_root,
         rom_path,

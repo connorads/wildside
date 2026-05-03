@@ -7618,9 +7618,14 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
             persisted_kid_core_hash,
             current_kid_core_hash.as_deref(),
         );
+        // Sweep breadth: the state-sweep signal already cites `levels=N`
+        // alongside its divergence breakdown; the gate signal carries
+        // the same field so a passing release-gate signal proves both
+        // breadth and divergence threshold rather than only the latter.
+        let levels_segment = format_release_gate_levels_segment(report.get("levels_requested"));
         CheckOutcome::passing(
             format!(
-                "latest release gate passed (timestamp {timestamp}{kid_core_hash_segment}{sweep_summary_detail}{report_detail})"
+                "latest release gate passed (timestamp {timestamp}{kid_core_hash_segment}{levels_segment}{sweep_summary_detail}{report_detail})"
             ),
             Some(report_path.unwrap_or(latest_path)),
         )
@@ -7657,11 +7662,17 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
             current_kid_core_hash.as_deref(),
         );
         let sweep_summary_detail = format_release_gate_sweep_summary(report.get("sweep_summary"));
+        // Sweep breadth: surface the requested level count on the
+        // failing branch too — the passing branch already does this via
+        // `format_release_gate_levels_segment`, and the state-sweep
+        // signal cites breadth on both passing and failing branches so
+        // the gate signal stays parity-tight regardless of outcome.
+        let levels_segment = format_release_gate_levels_segment(report.get("levels_requested"));
         let report_detail = report_path.as_ref().map_or_else(
-            || format!(" (timestamp {timestamp}{kid_core_hash_segment}{sweep_summary_detail})"),
+            || format!(" (timestamp {timestamp}{kid_core_hash_segment}{levels_segment}{sweep_summary_detail})"),
             |path| {
                 format!(
-                    " (timestamp {timestamp}{kid_core_hash_segment}{sweep_summary_detail}, report={})",
+                    " (timestamp {timestamp}{kid_core_hash_segment}{levels_segment}{sweep_summary_detail}, report={})",
                     path.display()
                 )
             },
@@ -8330,6 +8341,24 @@ fn format_release_gate_kid_core_hash_segment(
     // surrounding `sweep_summary`/`report` segments.
     let body = detail.trim_end_matches(", ");
     format!(", {body}")
+}
+
+/// Formats the `levels` segment of a release-gate signal. Mirrors the
+/// state-sweep signal's `levels=N` citation so the gate signal reports
+/// breadth in the same shape — `passed=true` plus a zero divergence
+/// breakdown only proves the gate's own threshold, but a green gate
+/// that swept only a handful of levels would otherwise look identical
+/// to a whole-game gate. Returns an empty string when the gate report
+/// has no `levels_requested` (e.g. a 1p-playable target that never
+/// invoked the state sweep, or a pre-field report) so the surrounding
+/// detail does not leak a placeholder. The leading `, ` separator
+/// matches the surrounding `kid_core_hash`/`sweep_summary`/`report`
+/// segments so the persisted signal renders as one readable list.
+fn format_release_gate_levels_segment(value: Option<&serde_json::Value>) -> String {
+    let Some(count) = value.and_then(serde_json::Value::as_u64) else {
+        return String::new();
+    };
+    format!(", levels={count}")
 }
 
 /// Formats the `sweep_summary` segment of a passing release-gate signal.
@@ -9262,9 +9291,10 @@ mod tests {
         capability_completion_summary, detect_blocker, evaluate_capabilities,
         evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
         fingerprint_for_capabilities, format_kid_core_hash_detail,
-        format_release_gate_kid_core_hash_segment, format_release_gate_sweep_summary,
-        is_sweep_refresh_commit, latest_release_gate_failure_detail, latest_release_gate_signal,
-        latest_state_sweep_signal, load_source_port_frontier_state, normalise_release_gate_value,
+        format_release_gate_kid_core_hash_segment, format_release_gate_levels_segment,
+        format_release_gate_sweep_summary, is_sweep_refresh_commit,
+        latest_release_gate_failure_detail, latest_release_gate_signal, latest_state_sweep_signal,
+        load_source_port_frontier_state, normalise_release_gate_value,
         parse_recent_commit_summaries, render_source_port_next_agent_note, select_next_task,
         source_port_frontier_sweep_task, source_port_next_agent_note, sweep_refresh_streak,
     };
@@ -10747,6 +10777,224 @@ mod tests {
                 .detail
                 .contains("frame_oracle:boot_title_start_level1"),
             "failing release-gate signal must still include the failed step name: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_levels_segment_returns_empty_when_value_absent_or_invalid() {
+        // 1p-playable gate runs and pre-field gate reports leave
+        // `levels_requested` absent. The segment must collapse to empty
+        // so the surrounding signal does not leak a half-formed
+        // `, levels=` placeholder. Non-numeric values (e.g. a stale
+        // schema migration that wrote a string) collapse the same way
+        // so a malformed report stays readable rather than rendering
+        // `levels=null`.
+        assert_eq!(format_release_gate_levels_segment(None), "");
+        let null = serde_json::Value::Null;
+        assert_eq!(format_release_gate_levels_segment(Some(&null)), "");
+        let string = serde_json::Value::String("69".into());
+        assert_eq!(format_release_gate_levels_segment(Some(&string)), "");
+    }
+
+    #[test]
+    fn release_gate_levels_segment_renders_breadth_when_value_present() {
+        // A gate report carrying `levels_requested` produces the
+        // canonical `, levels=N` segment so the gate signal cites
+        // breadth in the same shape as the state-sweep signal. The
+        // leading comma+space matches the surrounding kid_core_hash /
+        // sweep_summary / report segments so the persisted signal
+        // renders as a single readable list.
+        let value = serde_json::Value::from(69_u64);
+        assert_eq!(
+            format_release_gate_levels_segment(Some(&value)),
+            ", levels=69"
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_embeds_levels_in_passing_detail() {
+        // End-to-end: a passing release-gate report with
+        // `levels_requested` produces a signal that cites breadth
+        // inline alongside timestamp, kid_core_hash, sweep_summary, and
+        // report path. Without this a green gate that swept only a
+        // handful of levels would look identical in the signal to a
+        // whole-game gate.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1777771500",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": [],
+              "kid_core_hash": "5e6309c94728b8ef9e9e10ba5002197362b8926f",
+              "levels_requested": 69,
+              "sweep_summary": {
+                "authoritative": 0,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(outcome.ok);
+        assert!(
+            outcome.detail.contains(", levels=69"),
+            "passing release-gate signal must self-cite the embedded breadth: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains(", kid_core_hash=5e6309c94728"),
+            "embedding levels must not displace the kid_core_hash segment: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains(", sweep_summary=authoritative=0/advisory=0/accumulation=0/rng=0/oracle_limitation=840"),
+            "embedding levels must not displace the sweep_summary segment: {}",
+            outcome.detail
+        );
+        // Order matters: the gate signal mirrors the state-sweep
+        // signal's `kid_core_hash` -> `levels` -> divergence ordering
+        // so the two signals can be eyeballed against each other.
+        let levels_idx = outcome
+            .detail
+            .find(", levels=69")
+            .expect("levels segment present");
+        let sweep_idx = outcome
+            .detail
+            .find(", sweep_summary=")
+            .expect("sweep_summary segment present");
+        let hash_idx = outcome
+            .detail
+            .find(", kid_core_hash=")
+            .expect("kid_core_hash segment present");
+        assert!(
+            hash_idx < levels_idx && levels_idx < sweep_idx,
+            "segment order must be kid_core_hash -> levels -> sweep_summary: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_embeds_levels_in_failing_detail() {
+        // Sweep parity: the failing branch must carry breadth too.
+        // Without this a red gate signal hides whether the failed
+        // sweep was whole-game or scoped to a handful of levels — the
+        // failed-step detail names a divergence but not the breadth,
+        // so the operator could not tell from the signal alone.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1777771600",
+              "target": "1p-accurate",
+              "passed": false,
+              "steps": [
+                {
+                  "name": "frame_oracle:boot_title_start_level1",
+                  "status": "failed",
+                  "detail": "state title@360 diverged in game mode (native 000C, oracle 002C)"
+                }
+              ],
+              "kid_core_hash": "5e6309c94728b8ef9e9e10ba5002197362b8926f",
+              "levels_requested": 69,
+              "sweep_summary": {
+                "authoritative": 2,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(!outcome.ok);
+        assert!(
+            outcome.detail.contains(", levels=69"),
+            "failing release-gate signal must self-cite the embedded breadth: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains(", kid_core_hash=5e6309c94728"),
+            "embedding levels must not displace the kid_core_hash segment: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains(", sweep_summary=authoritative=2/advisory=0/accumulation=0/rng=0/oracle_limitation=840"),
+            "embedding levels must not displace the sweep_summary segment: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome
+                .detail
+                .contains("frame_oracle:boot_title_start_level1"),
+            "failing release-gate signal must still include the failed step name: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_omits_levels_when_field_missing() {
+        // Pre-field gate reports and 1p-playable runs leave
+        // `levels_requested` absent. The signal must stay readable —
+        // the gate continues to cite timestamp + (optional) kid_core_hash
+        // + (optional) sweep_summary + report without injecting a
+        // partial `, levels=` placeholder.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1776704737",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": [],
+              "sweep_summary": {
+                "authoritative": 0,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(outcome.ok);
+        assert!(
+            !outcome.detail.contains("levels="),
+            "missing levels_requested must not produce a partial segment: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains("sweep_summary=authoritative=0"),
+            "absence of levels_requested must not affect the sweep_summary segment: {}",
             outcome.detail
         );
     }
