@@ -7597,8 +7597,18 @@ fn latest_release_gate_signal(repo_root: &Path) -> CheckOutcome {
             .as_ref()
             .map(|path| format!(", report={}", path.display()))
             .unwrap_or_default();
+        // Sweep parity: surface the embedded `sweep_summary` totals so a
+        // passing release-gate signal self-cites every divergence category
+        // — operators reading the next-agent note alone can confirm
+        // authoritative/advisory/accumulation/rng all sat at zero rather
+        // than chasing the gate report. `passed=true` only enforces the
+        // gate's own threshold; the inline summary makes the parity
+        // contract part of the persisted evidence.
+        let sweep_summary_detail = format_release_gate_sweep_summary(report.get("sweep_summary"));
         CheckOutcome::passing(
-            format!("latest release gate passed (timestamp {timestamp}{report_detail})"),
+            format!(
+                "latest release gate passed (timestamp {timestamp}{sweep_summary_detail}{report_detail})"
+            ),
             Some(report_path.unwrap_or(latest_path)),
         )
     } else {
@@ -8240,6 +8250,38 @@ fn format_kid_core_hash_detail(persisted: Option<&str>, current: Option<&str>) -
         }
         _ => format!("kid_core_hash={persisted_short}, "),
     }
+}
+
+/// Formats the `sweep_summary` segment of a passing release-gate signal.
+/// Returns an empty string when the gate report has no `sweep_summary`
+/// (e.g. a 1p-playable target that never invoked the state sweep) so the
+/// surrounding detail does not leak a placeholder. When the field is
+/// present, the segment reads
+/// `, sweep_summary=authoritative=A/advisory=B/accumulation=C/rng=D/oracle_limitation=E`
+/// so the persisted release-gate signal is self-citing for every
+/// divergence category — `passed=true` alone only proves the gate's own
+/// threshold, while the inline counts make the full parity contract part
+/// of the evidence the next-agent note carries forward. Missing categories
+/// default to zero so older reports that pre-date a category render
+/// readable without a placeholder.
+fn format_release_gate_sweep_summary(summary: Option<&serde_json::Value>) -> String {
+    let Some(summary) = summary.filter(|value| value.is_object()) else {
+        return String::new();
+    };
+    let count = |field: &str| {
+        summary
+            .get(field)
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0)
+    };
+    format!(
+        ", sweep_summary=authoritative={}/advisory={}/accumulation={}/rng={}/oracle_limitation={}",
+        count("authoritative"),
+        count("advisory"),
+        count("accumulation"),
+        count("rng"),
+        count("oracle_limitation"),
+    )
 }
 
 /// Returns the number of levels covered by a state-sweep payload, preferring
@@ -9139,7 +9181,8 @@ mod tests {
         SOURCE_PORT_WHOLE_GAME_INDEX_PATH, TaskPackage, build_case_queue_snapshot,
         capability_completion_summary, detect_blocker, evaluate_capabilities,
         evaluate_case_queue_cycle, evaluate_source_port_frontier_cycle,
-        fingerprint_for_capabilities, format_kid_core_hash_detail, is_sweep_refresh_commit,
+        fingerprint_for_capabilities, format_kid_core_hash_detail,
+        format_release_gate_sweep_summary, is_sweep_refresh_commit,
         latest_release_gate_failure_detail, latest_release_gate_signal, latest_state_sweep_signal,
         load_source_port_frontier_state, normalise_release_gate_value,
         parse_recent_commit_summaries, render_source_port_next_agent_note, select_next_task,
@@ -10147,6 +10190,165 @@ mod tests {
         );
     }
 
+    #[test]
+    fn release_gate_sweep_summary_returns_empty_when_field_absent() {
+        // 1p-playable gate runs do not invoke the state sweep, so the
+        // persisted report has no `sweep_summary` field. The signal must
+        // collapse the segment to an empty string rather than emit a
+        // placeholder that could be misread as zero advisory diffs.
+        assert_eq!(format_release_gate_sweep_summary(None), "");
+    }
+
+    #[test]
+    fn release_gate_sweep_summary_returns_empty_when_field_not_object() {
+        // Defensive: a malformed sweep_summary (string, null, array) must
+        // not panic or invent values — collapse to empty so the signal
+        // falls back to citing only the timestamp + report path.
+        let null = serde_json::Value::Null;
+        assert_eq!(format_release_gate_sweep_summary(Some(&null)), "");
+        let scalar = serde_json::Value::String("oops".to_owned());
+        assert_eq!(format_release_gate_sweep_summary(Some(&scalar)), "");
+    }
+
+    #[test]
+    fn release_gate_sweep_summary_renders_full_breakdown_when_all_zero() {
+        // Even when every category is zero, the signal must spell each
+        // category out: a passing gate's parity contract requires
+        // authoritative/advisory/accumulation/rng all at zero, and
+        // hiding them would hide whether any single category drifted.
+        let summary = serde_json::json!({
+            "authoritative": 0,
+            "advisory": 0,
+            "accumulation": 0,
+            "rng": 0,
+            "oracle_limitation": 840,
+        });
+        assert_eq!(
+            format_release_gate_sweep_summary(Some(&summary)),
+            ", sweep_summary=authoritative=0/advisory=0/accumulation=0/rng=0/oracle_limitation=840"
+        );
+    }
+
+    #[test]
+    fn release_gate_sweep_summary_surfaces_nonzero_categories() {
+        // A passing gate that still recorded advisory or accumulation
+        // diffs (within threshold) must surface those counts so the
+        // next-agent note exposes the parity drift before it grows
+        // into a regression.
+        let summary = serde_json::json!({
+            "authoritative": 0,
+            "advisory": 17,
+            "accumulation": 3,
+            "rng": 0,
+            "oracle_limitation": 840,
+        });
+        assert_eq!(
+            format_release_gate_sweep_summary(Some(&summary)),
+            ", sweep_summary=authoritative=0/advisory=17/accumulation=3/rng=0/oracle_limitation=840"
+        );
+    }
+
+    #[test]
+    fn release_gate_sweep_summary_defaults_missing_categories_to_zero() {
+        // Older gate reports that pre-date a category (e.g. before
+        // `rng` was tracked) must still render readably — missing
+        // numeric fields default to zero rather than an "unknown"
+        // placeholder so the signal stays self-cite-able.
+        let summary = serde_json::json!({
+            "authoritative": 0,
+            "advisory": 0,
+            "oracle_limitation": 840,
+        });
+        assert_eq!(
+            format_release_gate_sweep_summary(Some(&summary)),
+            ", sweep_summary=authoritative=0/advisory=0/accumulation=0/rng=0/oracle_limitation=840"
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_embeds_sweep_summary_in_passing_detail() {
+        // End-to-end: a passing release-gate report with a populated
+        // `sweep_summary` field must produce a signal that cites every
+        // divergence category inline, between the timestamp and the
+        // report path. This is the parity contract the next-agent note
+        // forwards to the next loop iteration.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1777766508",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": [],
+              "sweep_summary": {
+                "authoritative": 0,
+                "advisory": 0,
+                "accumulation": 0,
+                "rng": 0,
+                "oracle_limitation": 840
+              }
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(outcome.ok);
+        assert!(
+            outcome.detail.contains(
+                "sweep_summary=authoritative=0/advisory=0/accumulation=0/rng=0/oracle_limitation=840"
+            ),
+            "passing release-gate signal must self-cite the embedded sweep_summary breakdown: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains("timestamp 1777766508"),
+            "embedding the sweep_summary must not displace the timestamp citation: {}",
+            outcome.detail
+        );
+    }
+
+    #[test]
+    fn release_gate_signal_omits_sweep_summary_when_field_missing() {
+        // 1p-playable gate runs (and any future target that doesn't
+        // invoke the state sweep) leave `sweep_summary` absent. The
+        // signal must stay readable rather than emit a half-formed
+        // segment.
+        let temp_dir = TempDir::new().expect("temp dir should exist");
+        let gate_dir = temp_dir.path().join(".cache/release-gate/1p-accurate");
+        fs::create_dir_all(&gate_dir).expect("gate dir should exist");
+        fs::write(
+            gate_dir.join("latest.json"),
+            r#"
+            {
+              "timestamp": "1776704737",
+              "target": "1p-accurate",
+              "passed": true,
+              "steps": []
+            }
+            "#,
+        )
+        .expect("gate report should write");
+
+        let outcome = latest_release_gate_signal(temp_dir.path());
+
+        assert!(outcome.ok);
+        assert!(
+            !outcome.detail.contains("sweep_summary="),
+            "missing sweep_summary must not produce a partial segment: {}",
+            outcome.detail
+        );
+        assert!(
+            outcome.detail.contains("timestamp 1776704737"),
+            "fallback signal must still preserve the timestamp citation: {}",
+            outcome.detail
+        );
+    }
+
     fn source_port_repo() -> TempDir {
         let temp_dir = TempDir::new().expect("temp dir should exist");
         fs::create_dir_all(temp_dir.path().join("docs/source-port"))
@@ -10839,10 +11041,19 @@ mod tests {
             "green gate tasks should ask for refreshed green-lane evidence"
         );
         assert!(
+            rendered_note
+                .contains("Release-gate status: latest release gate passed (timestamp 1776704737"),
+            "next-agent note should surface the timestamped green release gate report: {rendered_note}"
+        );
+        assert!(
+            rendered_note.contains("1776704737/report.json"),
+            "next-agent note should cite the timestamped green release gate report path: {rendered_note}"
+        );
+        assert!(
             rendered_note.contains(
-                "Release-gate status: latest release gate passed (timestamp 1776704737, report="
+                "sweep_summary=authoritative=0/advisory=178/accumulation=0/rng=0/oracle_limitation=662"
             ),
-            "next-agent note should surface the timestamped green release gate report"
+            "next-agent note should self-cite the embedded sweep_summary parity contract: {rendered_note}"
         );
         assert!(
             rendered_note.contains("Latest state-sweep status: latest state sweep passed"),
