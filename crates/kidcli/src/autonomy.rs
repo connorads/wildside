@@ -2039,8 +2039,8 @@ fn evaluate_source_port_frontier_cycle(
     // only the sweep-refresh prose docs, force the stalled-recovery cascade to
     // fire.
     let recent_commits = recent_commit_summaries(repo_root, 5);
-    let docs_only_refresh_streak = sweep_refresh_streak(&recent_commits);
-    if docs_only_refresh_streak >= 3 {
+    let telemetry_refresh_streak_count = telemetry_refresh_streak(&recent_commits);
+    if telemetry_refresh_streak_count >= 3 {
         repeated_stalls = repeated_stalls.max(2);
     }
     let mut chose_branch: &'static str = "none";
@@ -2158,15 +2158,15 @@ fn evaluate_source_port_frontier_cycle(
                         next_fallback_goal: Some(AutonomyGoal::CaseQueue),
                         ..recording_task
                     };
-                } else if docs_only_refresh_streak >= 3 {
+                } else if telemetry_refresh_streak_count >= 3 {
                     // The previous `RefreshEvidence` recovery step is itself
-                    // what produced the docs-only commit streak; asking for
-                    // another refresh perpetuates the loop. Pivot to
-                    // proactive-verification instead, regardless of whether
+                    // what produced the telemetry-refresh commit streak;
+                    // asking for another refresh perpetuates the loop. Pivot
+                    // to proactive-verification instead, regardless of whether
                     // `evaluate_proactive_verification_cycle` returns a task —
                     // the operator-visible pivot_reason and fallback goal are
                     // what break the loop.
-                    chose_branch = "sweep_parity_docs_only_streak";
+                    chose_branch = "sweep_parity_telemetry_refresh_streak";
                     let pv_skip = pv_recovery_skip_list(repo_root, delegated_target.as_deref());
                     let pv_report = evaluate_proactive_verification_cycle(
                         repo_root,
@@ -2175,7 +2175,7 @@ fn evaluate_source_port_frontier_cycle(
                         &pv_skip,
                     )?;
                     let pivot_reason = format!(
-                        "last {docs_only_refresh_streak} commits were docs-only sweep-parity refreshes; pivot to proactive-verification instead of emitting another release-gate evidence refresh"
+                        "last {telemetry_refresh_streak_count} commits were telemetry-refresh-only commits (docs and/or gate-signal renderers); pivot to proactive-verification instead of emitting another release-gate evidence refresh"
                     );
                     if let Some(pv_task) = pv_report.task_package {
                         let target = pv_task.progress_fingerprint.clone();
@@ -2226,7 +2226,7 @@ fn evaluate_source_port_frontier_cycle(
                             ..source_port_frontier_proactive_exhausted_recovery_task(
                                 frontier,
                                 &note,
-                                docs_only_refresh_streak,
+                                telemetry_refresh_streak_count,
                                 pivot_reason,
                             )
                         };
@@ -4843,14 +4843,23 @@ struct WorkTypeCounts {
     productive: u32,
 }
 
-/// Paths whose commits we treat as "sweep-parity evidence refresh" — the
-/// autonomy loop's observed dead-end when every other lane is green. A commit
-/// that touches only these paths has encoded no new information (they embed
-/// `.cache/sweep-runs/<timestamp>/report.json` paths and `cycle=N` counters
-/// that change every run). See `sweep_refresh_streak` below.
-const SWEEP_REFRESH_DOC_PATHS: &[&str] = &[
+/// Paths whose commits we treat as "telemetry refresh" — the autonomy loop's
+/// observed dead-end when every other lane is green. A commit that touches
+/// only these paths has encoded no new information: doc paths embed
+/// `.cache/sweep-runs/<timestamp>/report.json` and `cycle=N` counters that
+/// rotate every run, and the kidcli sources here are the gate-signal
+/// renderers themselves — adding a new field that cites itself isn't
+/// engine progress, it's the loop staring at its own reflection. A
+/// legitimate `sweep-parity:` promotion edits `ADVISORY_FIELDS` plus
+/// `frontier-state.yaml` plus a kid-core regression test, so its file set
+/// falls outside this subset and slips past the detector.
+/// See `telemetry_refresh_streak` below.
+const TELEMETRY_REFRESH_PATHS: &[&str] = &[
     "docs/source-port/methodology.md",
     "docs/source-port/research-map.md",
+    "crates/kidcli/src/autonomy.rs",
+    "crates/kidcli/src/release_gate.rs",
+    "crates/kidcli/src/sweep/mod.rs",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -4919,21 +4928,23 @@ fn parse_recent_commit_summaries(stdout: &str) -> Vec<RecentCommitSummary> {
     summaries
 }
 
-fn is_sweep_refresh_commit(summary: &RecentCommitSummary) -> bool {
+fn is_telemetry_refresh_commit(summary: &RecentCommitSummary) -> bool {
     !summary.files.is_empty()
         && summary
             .files
             .iter()
-            .all(|path| SWEEP_REFRESH_DOC_PATHS.contains(&path.as_str()))
+            .all(|path| TELEMETRY_REFRESH_PATHS.contains(&path.as_str()))
 }
 
 /// Counts consecutive most-recent commits (starting from `summaries[0]`) that
-/// are pure sweep-parity evidence refreshes. A streak >= 3 means the loop is
-/// spinning; downstream code short-circuits to proactive-verification.
-fn sweep_refresh_streak(summaries: &[RecentCommitSummary]) -> usize {
+/// are pure telemetry refreshes (docs-only or gate-signal-only — see
+/// `TELEMETRY_REFRESH_PATHS`). A streak >= 2 means the loop has been
+/// spinning on the gate signal renderer; downstream code short-circuits to
+/// proactive-verification or terminal exhaustion.
+fn telemetry_refresh_streak(summaries: &[RecentCommitSummary]) -> usize {
     summaries
         .iter()
-        .take_while(|commit| is_sweep_refresh_commit(commit))
+        .take_while(|commit| is_telemetry_refresh_commit(commit))
         .count()
 }
 
@@ -6132,14 +6143,14 @@ fn case_queue_task(
 fn source_port_frontier_proactive_exhausted_recovery_task(
     frontier: &ActiveFrontierState,
     note: &NextAgentNoteDirective,
-    docs_only_refresh_streak: usize,
+    telemetry_refresh_streak_count: usize,
     pivot_reason: String,
 ) -> TaskPackage {
     TaskPackage {
         capability: CapabilityId::SourcePortFrontierTask,
         title: "Record source-port verification stall".to_owned(),
         summary: format!(
-            "{} is authoritative-clean through frame {}; sweep-parity has repeated docs-only refreshes and proactive-verification is currently exhausted, so record the recovery stall before touching sweep evidence docs again.",
+            "{} is authoritative-clean through frame {}; sweep-parity has repeated telemetry-refresh-only commits and proactive-verification is currently exhausted, so record the recovery stall before touching sweep evidence docs again.",
             frontier.recording, frontier.authoritative_clean_through
         ),
         generated_at: String::new(),
@@ -6161,8 +6172,8 @@ fn source_port_frontier_proactive_exhausted_recovery_task(
             "cargo run -p kidcli -- asm-coverage --update".to_owned(),
         ],
         done_criteria: vec![
-            "Record the exhausted proactive-verification pivot in docs/source-port/frontier-state.yaml so the next package does not ask for another docs-only sweep refresh.".to_owned(),
-            "Do not edit only docs/source-port/methodology.md and docs/source-port/research-map.md.".to_owned(),
+            "Record the exhausted proactive-verification pivot in docs/source-port/frontier-state.yaml so the next package does not ask for another telemetry refresh.".to_owned(),
+            "Do not edit only telemetry-refresh paths (docs/source-port/methodology.md, docs/source-port/research-map.md, crates/kidcli/src/autonomy.rs, crates/kidcli/src/release_gate.rs, crates/kidcli/src/sweep/mod.rs).".to_owned(),
             "verify-slice-fast passes.".to_owned(),
         ],
         evidence: vec![
@@ -6176,10 +6187,10 @@ fn source_port_frontier_proactive_exhausted_recovery_task(
                 artefact_path: Some(PathBuf::from(SOURCE_PORT_FRONTIER_STATE_PATH)),
             },
             EvidenceItem {
-                label: "docs-only-refresh-streak".to_owned(),
+                label: "telemetry-refresh-streak".to_owned(),
                 status: "stalled".to_owned(),
                 detail: format!(
-                    "last {docs_only_refresh_streak} commits touched only sweep-parity evidence docs"
+                    "last {telemetry_refresh_streak_count} commits touched only telemetry-refresh paths (docs and/or gate-signal renderers)"
                 ),
                 artefact_path: Some(PathBuf::from(SOURCE_PORT_RESEARCH_MAP_PATH)),
             },
@@ -9210,13 +9221,13 @@ fn render_source_port_next_agent_note(
             .collect::<Vec<_>>()
             .join("\n")
     };
-    let recent_streak = sweep_refresh_streak(recent_commits);
+    let recent_streak = telemetry_refresh_streak(recent_commits);
     let self_check = if recent_streak >= 3 {
         format!(
-            "- STOP: the last {recent_streak} consecutive commits touched only docs/source-port/methodology.md + docs/source-port/research-map.md. Do NOT produce another commit of the same shape. Pivot to proactive-verification (`cargo run -p kidcli -- autonomous-loop --goal proactive-verification`) or record the stall in docs/source-port/frontier-state.yaml before touching those docs again."
+            "- STOP: the last {recent_streak} consecutive commits touched only telemetry-refresh paths (methodology.md, research-map.md, autonomy.rs, release_gate.rs, sweep/mod.rs). Do NOT produce another commit of the same shape — adding a new gate-signal field that cites itself isn't engine progress. Pivot to proactive-verification (`cargo run -p kidcli -- autonomous-loop --goal proactive-verification`) or record the stall in docs/source-port/frontier-state.yaml before touching those paths again."
         )
     } else {
-        "- Read the Recent Commits block below before starting. If the last 3+ consecutive commits touched only docs/source-port/methodology.md and docs/source-port/research-map.md, do NOT produce another commit of the same shape — pivot to proactive-verification or record the stall in docs/source-port/frontier-state.yaml.".to_owned()
+        "- Read the Recent Commits block below before starting. If the last 3+ consecutive commits touched only telemetry-refresh paths (methodology.md, research-map.md, autonomy.rs, release_gate.rs, sweep/mod.rs), do NOT produce another commit of the same shape — pivot to proactive-verification or record the stall in docs/source-port/frontier-state.yaml.".to_owned()
     };
     let recent_commits_block = if recent_commits.is_empty() {
         "- (git log unavailable)".to_owned()
@@ -9364,10 +9375,11 @@ mod tests {
         fingerprint_for_capabilities, format_kid_core_hash_detail,
         format_release_gate_kid_core_hash_segment, format_release_gate_levels_segment,
         format_release_gate_sweep_summary, format_release_gate_top_field_segment,
-        is_sweep_refresh_commit, latest_release_gate_failure_detail, latest_release_gate_signal,
-        latest_state_sweep_signal, load_source_port_frontier_state, normalise_release_gate_value,
-        parse_recent_commit_summaries, render_source_port_next_agent_note, select_next_task,
-        source_port_frontier_sweep_task, source_port_next_agent_note, sweep_refresh_streak,
+        is_telemetry_refresh_commit, latest_release_gate_failure_detail,
+        latest_release_gate_signal, latest_state_sweep_signal, load_source_port_frontier_state,
+        normalise_release_gate_value, parse_recent_commit_summaries,
+        render_source_port_next_agent_note, select_next_task, source_port_frontier_sweep_task,
+        source_port_next_agent_note, telemetry_refresh_streak,
     };
     use std::collections::{BTreeMap, BTreeSet};
     use std::fs;
@@ -13874,8 +13886,8 @@ mod tests {
             !task
                 .implementation_targets
                 .iter()
-                .all(|path| super::SWEEP_REFRESH_DOC_PATHS.contains(&path.as_str())),
-            "exhausted pivot must not be another docs-only sweep refresh"
+                .all(|path| super::TELEMETRY_REFRESH_PATHS.contains(&path.as_str())),
+            "exhausted pivot must not be another telemetry refresh"
         );
         assert!(
             rendered_note
@@ -15754,7 +15766,7 @@ Empty commit
     }
 
     #[test]
-    fn is_sweep_refresh_commit_detects_docs_only_refresh() {
+    fn is_telemetry_refresh_commit_detects_docs_only_refresh() {
         let commit = fake_commit(
             "abc1234",
             "Refresh sweep parity evidence",
@@ -15763,21 +15775,52 @@ Empty commit
                 "docs/source-port/research-map.md",
             ],
         );
-        assert!(is_sweep_refresh_commit(&commit));
+        assert!(is_telemetry_refresh_commit(&commit));
     }
 
     #[test]
-    fn is_sweep_refresh_commit_allows_single_sweep_doc() {
+    fn is_telemetry_refresh_commit_allows_single_sweep_doc() {
         let commit = fake_commit(
             "abc1234",
             "docs: nudge methodology",
             &["docs/source-port/methodology.md"],
         );
-        assert!(is_sweep_refresh_commit(&commit));
+        assert!(is_telemetry_refresh_commit(&commit));
     }
 
     #[test]
-    fn is_sweep_refresh_commit_rejects_mixed_files() {
+    fn is_telemetry_refresh_commit_detects_gate_signal_self_cite_pattern() {
+        // Reproduces the observed gaming pattern (commits 1e853f3d / cbabf8a1 /
+        // 79e3c484): the agent edits only autonomy.rs + release_gate.rs +
+        // sweep/mod.rs to add a new gate-signal field that cites itself.
+        // Detector must catch this even though it's "source code", because no
+        // engine progress occurred.
+        let commit = fake_commit(
+            "1e853f3d",
+            "sweep-parity: surface kid_core_hash on failing release-gate signal",
+            &[
+                "crates/kidcli/src/autonomy.rs",
+                "crates/kidcli/src/release_gate.rs",
+                "crates/kidcli/src/sweep/mod.rs",
+            ],
+        );
+        assert!(is_telemetry_refresh_commit(&commit));
+    }
+
+    #[test]
+    fn is_telemetry_refresh_commit_detects_autonomy_only_signal_tweak() {
+        // The cbabf8a1 / 79e3c484 shape: a "self-cite" tweak that touches
+        // only autonomy.rs.
+        let commit = fake_commit(
+            "cbabf8a1",
+            "sweep-parity: persist dominant divergence field",
+            &["crates/kidcli/src/autonomy.rs"],
+        );
+        assert!(is_telemetry_refresh_commit(&commit));
+    }
+
+    #[test]
+    fn is_telemetry_refresh_commit_rejects_mixed_files() {
         let commit = fake_commit(
             "abc1234",
             "docs: refresh plus code",
@@ -15786,24 +15829,42 @@ Empty commit
                 "crates/kidcli/src/main.rs",
             ],
         );
-        assert!(!is_sweep_refresh_commit(&commit));
+        assert!(!is_telemetry_refresh_commit(&commit));
     }
 
     #[test]
-    fn is_sweep_refresh_commit_rejects_empty_file_list() {
+    fn is_telemetry_refresh_commit_rejects_legitimate_promotion_with_kid_core_change() {
+        // A real `sweep-parity:` promotion (per the plan: 4a645436, 45a42001,
+        // d1496677) edits ADVISORY_FIELDS plus a kid-core regression test
+        // alongside the autonomy/sweep telemetry tweak. The presence of any
+        // non-telemetry path slips it past the detector.
+        let commit = fake_commit(
+            "4a645436",
+            "sweep-parity: promote field after regression test passes",
+            &[
+                "crates/kidcli/src/autonomy.rs",
+                "crates/kid-core/src/something.rs",
+                "docs/source-port/frontier-state.yaml",
+            ],
+        );
+        assert!(!is_telemetry_refresh_commit(&commit));
+    }
+
+    #[test]
+    fn is_telemetry_refresh_commit_rejects_empty_file_list() {
         // Empty file list (e.g. git merge or empty commit) must not be classified
-        // as a sweep refresh — otherwise the detector fires spuriously.
+        // as a telemetry refresh — otherwise the detector fires spuriously.
         let commit = fake_commit("abc1234", "Merge commit", &[]);
-        assert!(!is_sweep_refresh_commit(&commit));
+        assert!(!is_telemetry_refresh_commit(&commit));
     }
 
     #[test]
-    fn sweep_refresh_streak_counts_consecutive_refreshes() {
+    fn telemetry_refresh_streak_counts_consecutive_refreshes() {
         let commits = vec![
             fake_commit(
                 "a",
-                "Refresh sweep parity evidence",
-                &["docs/source-port/methodology.md"],
+                "sweep-parity: persist dominant divergence field",
+                &["crates/kidcli/src/autonomy.rs"],
             ),
             fake_commit(
                 "b",
@@ -15815,16 +15876,19 @@ Empty commit
             ),
             fake_commit(
                 "c",
-                "Refresh sweep parity evidence",
-                &["docs/source-port/research-map.md"],
+                "sweep-parity: surface kid_core_hash on signal",
+                &[
+                    "crates/kidcli/src/autonomy.rs",
+                    "crates/kidcli/src/release_gate.rs",
+                ],
             ),
             fake_commit("d", "Real code change", &["crates/kidcli/src/main.rs"]),
         ];
-        assert_eq!(sweep_refresh_streak(&commits), 3);
+        assert_eq!(telemetry_refresh_streak(&commits), 3);
     }
 
     #[test]
-    fn sweep_refresh_streak_stops_at_first_non_refresh() {
+    fn telemetry_refresh_streak_stops_at_first_non_refresh() {
         let commits = vec![
             fake_commit(
                 "a",
@@ -15840,11 +15904,11 @@ Empty commit
         ];
         // Only the most-recent run counts; the older refreshes are not part of
         // the current streak.
-        assert_eq!(sweep_refresh_streak(&commits), 1);
+        assert_eq!(telemetry_refresh_streak(&commits), 1);
     }
 
     #[test]
-    fn sweep_refresh_streak_returns_zero_when_no_recent_refreshes() {
+    fn telemetry_refresh_streak_returns_zero_when_no_recent_refreshes() {
         let commits = vec![
             fake_commit("a", "Real code change", &["crates/kidcli/src/main.rs"]),
             fake_commit(
@@ -15853,7 +15917,7 @@ Empty commit
                 &["docs/source-port/methodology.md"],
             ),
         ];
-        assert_eq!(sweep_refresh_streak(&commits), 0);
+        assert_eq!(telemetry_refresh_streak(&commits), 0);
     }
 
     #[test]
