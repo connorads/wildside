@@ -1195,6 +1195,40 @@ mod loc_3e266_tests {
     }
 
     #[test]
+    fn loc_3e2c0_returns_false_exactly_when_decremented_counter_is_minus_one() {
+        // ASM Lion.asm loc_3E2C0: `dbf d0,loc_3E2A8` — `dbf` decrements d0 then
+        // branches if d0 != -1. A single call with `d0 = 0` must therefore
+        // decrement to -1 and return `false`. The companion `dbf_continues`
+        // test covers the iteration count from d0=$0F; this one pins the
+        // exact decrement-and-branch contract for both the exit edge (d0=0
+        // -> false, remaining -> -1) and the continue edge (d0=1 -> true,
+        // remaining -> 0) so any single-call mutation on the helper (sign
+        // flip, off-by-one comparison, swapped operands) fails fast against
+        // the asserted ground truth instead of relying on the outer loop's
+        // count-equals-16 invariant.
+        let mut remaining_bounces = 0i16;
+        let kept =
+            super::lion_projectile_bounce_iterations_continue_loc_3e2c0(&mut remaining_bounces);
+        assert!(
+            !kept,
+            "ASM Lion.asm loc_3E2C0: `dbf d0` with d0=0 decrements to -1 and \
+             must NOT branch back to loc_3E2A8 — returning `true` here would \
+             leave the bounce loop spinning forever."
+        );
+        assert_eq!(remaining_bounces, -1);
+
+        let mut remaining_bounces = 1i16;
+        let kept =
+            super::lion_projectile_bounce_iterations_continue_loc_3e2c0(&mut remaining_bounces);
+        assert!(
+            kept,
+            "ASM Lion.asm loc_3E2C0: `dbf d0` with d0=1 decrements to 0 and \
+             must branch back to loc_3E2A8 for one more bounce attempt."
+        );
+        assert_eq!(remaining_bounces, 0);
+    }
+
+    #[test]
     fn loc_3e30e_decrements_owner_projectile_count_with_wrap() {
         assert_eq!(
             super::lion_projectile_owner_token_mismatch_loc_3e30e(4),
