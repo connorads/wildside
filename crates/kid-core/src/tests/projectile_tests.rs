@@ -4451,6 +4451,102 @@ mod chunk_06 {
         );
     }
 
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM Lion.asm sub_3E2CE: the camera-box check converts world positions to
+    /// screen-space by `screen = (pos>>16) - (camera>>16)` and demands both
+    /// axes sit in [-$40, $X]. The published off-screen test parks the camera
+    /// at the origin with a positive screen-y, so any `>> with <<` mutation on
+    /// either side of the y-subtraction collapses to the same in-box answer
+    /// and survives. Anchor the camera at $100 px and pull the projectile
+    /// inside the y-positive band — the `<<` mutant on `p.y_pos` truncates to
+    /// 0 and reports `screen_y = -$100`, while the `<<` mutant on
+    /// `camera.y_pos` reports `screen_y = +$150`, both falling outside the
+    /// allowed [-$40, $120] band and forcing an unwarranted delete.
+    fn lion_projectile_sub_3e2ce_keeps_in_box_shot_when_camera_is_offset_y_positive() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0, 0, 6);
+        lion.ufo_beam_interval = 0x5A;
+        lion.ufo_beam_segments = 1;
+        rt.active_enemies.push(lion);
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 0x0100 << 16;
+        slice.camera.y_pos = 0x0100 << 16;
+        rt.opening_slice = Some(slice);
+
+        // screen_x = 0xE0 - 0x100 = -0x20 (in [-$40, $180])
+        // screen_y = 0x150 - 0x100 = +0x50 (in [-$40, $120])
+        let mut projectile = make_projectile(0x00E0, 0x0150);
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: lion.segment_index,
+            layout_index: lion.layout_index,
+            token: 0x5A,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Lion.asm sub_3E2CE: a projectile inside the camera box must survive \
+             — a `>> with <<` mutation on either y-axis term would compute the \
+             wrong screen_y and force an off-screen delete"
+        );
+        assert_eq!(
+            rt.active_enemies[0].ufo_beam_segments, 1,
+            "in-box projectile must NOT release the lion's active-shot count"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM Lion.asm sub_3E2CE: the camera box reaches negative screen offsets
+    /// down to -$40 on both axes (the lion's "still on screen" margin).
+    /// Stripping the leading `-` from either lower bound (`(-$40..=$X)`)
+    /// would shrink the box to non-negative offsets only; a projectile that
+    /// sits inside the negative-x and negative-y halves of the original box
+    /// would be falsely reported off-screen. Park both axes at -$20 to lock
+    /// the missing margin under test.
+    fn lion_projectile_sub_3e2ce_keeps_in_box_shot_inside_negative_screen_offsets() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0, 0, 6);
+        lion.ufo_beam_interval = 0x5A;
+        lion.ufo_beam_segments = 1;
+        rt.active_enemies.push(lion);
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 0x0100 << 16;
+        slice.camera.y_pos = 0x0100 << 16;
+        rt.opening_slice = Some(slice);
+
+        // screen_x = 0xE0 - 0x100 = -0x20 (in [-$40, $180])
+        // screen_y = 0xE0 - 0x100 = -0x20 (in [-$40, $120])
+        let mut projectile = make_projectile(0x00E0, 0x00E0);
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: lion.segment_index,
+            layout_index: lion.layout_index,
+            token: 0x5A,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Lion.asm sub_3E2CE: a projectile in the negative-screen-offset \
+             half of the camera box must survive — deleting the `-` from either \
+             lower bound would clamp the box to non-negative offsets and force \
+             an off-screen delete"
+        );
+        assert_eq!(
+            rt.active_enemies[0].ufo_beam_segments, 1,
+            "in-box projectile must NOT release the lion's active-shot count"
+        );
+    }
+
     // --- loc_8852: Right-moving tile-boundary wall snap + bounce ---
 
     #[test]

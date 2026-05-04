@@ -855,6 +855,48 @@ mod loc_3e266_tests {
     }
 
     #[test]
+    fn loc_3e266_leaves_velocities_untouched_for_slope_collision_id_14() {
+        // ASM Lion.asm loc_3E266 only mirrors an axis when the collided
+        // face matches one of the four straight wall/floor/ceiling collision
+        // ids ($04 rightwall, $08 leftwall, $0C floor, $10 ceiling). Slope
+        // ids ($14/$18) are routed through `lion_projectile_bounce_velocities_loc_3e29e`
+        // via the `loc_3E2A8` lookup instead, so loc_3E266 must leave both
+        // velocities alone. A `replace == with !=` mutation on the ceiling
+        // check (`id == $10`) would otherwise let any non-floor id flip y_vel
+        // before the slope swap had a chance to run.
+        let (x_velocity, y_velocity) =
+            super::lion_projectile_bounce_velocities_loc_3e266(0x3_0000, 0x4_0000, 0x0014);
+
+        assert_eq!(
+            (x_velocity, y_velocity),
+            (0x3_0000, 0x4_0000),
+            "ASM Lion.asm loc_3E266: a slope (`$14`) collision id must leave both velocities untouched"
+        );
+    }
+
+    #[test]
+    fn terrain_collision_id_from_cell_loc_3e2a8_returns_slope_down_for_slope_down_cell() {
+        // ASM Lion.asm loc_3E2A8: the bounce-classification probe maps
+        // `colid_slopedown` to $18 so the caller routes through
+        // `lion_projectile_bounce_velocities_loc_3e29e` for the slope swap.
+        // Without an explicit SlopeDown match arm the function silently
+        // falls through to `_ => 0` and downhill cells never reach the
+        // swap path, leaving the projectile to plough through them with
+        // raw, unmodified velocity.
+        let cell = super::terrain::Cell {
+            has_block: true,
+            collision: super::terrain::CollisionKind::SlopeDown,
+            block_type: super::terrain::BlockType::None,
+            skin: 0,
+        };
+        assert_eq!(
+            super::terrain_collision_id_from_cell_loc_3e2a8(cell),
+            0x0018,
+            "ASM Lion.asm loc_3E2A8: SlopeDown cells must map to colid_slopedown ($18)"
+        );
+    }
+
+    #[test]
     fn loc_3e2c8_reflection_negates_y_velocity() {
         assert_eq!(
             super::lion_projectile_y_reflection_vel_loc_3e2c8(0x2_0000),
