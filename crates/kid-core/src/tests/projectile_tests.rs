@@ -4249,6 +4249,208 @@ mod chunk_06 {
         );
     }
 
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM loc_8810 (kid.asm:9659+): without a level loaded, sub_87B0 still
+    /// runs the linear `add.l x_vel(a3),x_pos(a3); add.l y_vel(a3),y_pos(a3)`
+    /// step. The Rust no-grid let-else fallback in `step_juggernaut_skull_sub_87B0`
+    /// must reproduce this addition on both axes — flipping the `+` to `-` or
+    /// `*` would push the skull backwards or slingshot it across the map.
+    fn loc_8810_skull_no_grid_fallback_advances_y_pos_by_velocity() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0,
+            y_velocity: 0x2_0000, // 2 px/frame downwards before gravity
+            lifetime: 10,
+            friendly: true,
+            gravity: JUGGERNAUT_SKULL_GRAVITY,
+            ..Default::default()
+        });
+        // Intentionally no `set_block_grid` — exercises the let-else no-grid path.
+
+        rt.step_projectiles();
+
+        let projectile = &rt.projectiles[0];
+        // ASM loc_8810: gravity is added before the move (`addi.l #$1000,y_vel`),
+        // so the post-step y_vel is `0x2_0000 + 0x1000`.
+        assert_eq!(
+            projectile.y_velocity, 0x21000,
+            "ASM loc_8810: gravity must accumulate before the linear step"
+        );
+        // ASM loc_8810 linear step: `add.l y_vel(a3),y_pos(a3)`.
+        assert_eq!(
+            projectile.y_pos,
+            (100u32 << 16).wrapping_add(0x21000),
+            "ASM loc_8810: no-grid fallback must add (not subtract or multiply) y_velocity into y_pos"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM sub_1D78 -> Is_Juggernaut_Skull_Active gate: the skull main loop
+    /// (loc_8810) only runs when the helmet is actually Juggernaut and the
+    /// projectile carries the skull's `$1000/frame` gravity tag. A friendly
+    /// projectile with non-skull gravity (e.g. an Eyeclops beam) must take
+    /// the regular projectile path, NOT the skull bounce path. This guards
+    /// the AND chain in `is_juggernaut_skull_projectile` so swapping any of
+    /// the conjuncts to OR routes a non-skull through sub_87B0.
+    fn is_juggernaut_skull_projectile_requires_skull_gravity_for_terrain_kill_path() {
+        let mut rt = NativeRuntime::new(manifest());
+        // Friendly non-skull projectile (gravity=0) sitting just before a
+        // solid block; with `terrain_kill=true` the regular projectile path
+        // (kid-core projectiles.rs step_projectiles) deletes it on contact.
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 30 << 16,
+            y_pos: 40 << 16,
+            x_velocity: 0x4_0000,
+            y_velocity: 0,
+            lifetime: 10,
+            friendly: true,
+            gravity: 0,
+            terrain_kill: true,
+            reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+            ..Default::default()
+        });
+        // Solid block at col 2 (px 32-47) at row 2 (px 32-47) — covers the
+        // post-step position (34, 40).
+        rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
+
+        rt.step_projectiles();
+
+        // Original: regular path triggers terrain-kill → projectile removed.
+        // If `is_juggernaut_skull_projectile` misclassifies this projectile
+        // as a skull, sub_87B0's wall-snap path keeps it alive (with snapped
+        // x_pos and a decremented bounce budget).
+        assert!(
+            rt.projectiles.is_empty(),
+            "friendly non-skull projectile with terrain_kill must take the \
+             terrain-kill branch, not the skull bounce path"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM sub_B55C (probed at loc_8852/loc_8916 with `cmpi.w #$6000,d5`):
+    /// the skull's tile-boundary collision check only fires when the cell
+    /// reports a solid-class collision. Native `solid_terrain_at` mirrors
+    /// that gate by ANDing `has_block` with `collision != Empty`. A
+    /// presentation cell (has_block=true, collision=Empty) — which the level
+    /// loader emits for skinned-but-passable backdrop tiles — must NOT
+    /// register as a wall, otherwise the skull would burn a bounce on a
+    /// non-existent obstacle.
+    fn loc_8852_solid_terrain_gate_ignores_presentation_only_blocks() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 30 << 16,
+            y_pos: 40 << 16,
+            x_velocity: 0x4_0000,
+            y_velocity: 0,
+            lifetime: 10,
+            friendly: true,
+            gravity: JUGGERNAUT_SKULL_GRAVITY,
+            reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+            ..Default::default()
+        });
+
+        // Presentation block at (col 2, row 2): has_block=1, collision=Empty
+        // (hi byte 0x80 — block flag set, collision bits 000).
+        let w = 10u16;
+        let h = 10u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let off = (usize::from(2u16) * usize::from(w) + usize::from(2u16)) * 2;
+        data[off] = 0x80;
+        rt.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+
+        rt.step_projectiles();
+
+        let projectile = &rt.projectiles[0];
+        assert_eq!(
+            projectile.reaim_countdown,
+            u16::from(JUGGERNAUT_SKULL_BOUNCES),
+            "ASM loc_8852: a non-solid (collision=Empty) cell must not consume a bounce"
+        );
+        assert_eq!(
+            projectile.x_velocity, 0x4_0000,
+            "ASM loc_8852: x_velocity must remain unchanged when the probe reports non-solid"
+        );
+        assert_eq!(
+            projectile.x_pos >> 16,
+            34,
+            "ASM loc_8810 fallthrough: presentation block keeps the linear x_pos += x_vel step"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM Lion.asm sub_3E2CE / loc_3E1B4 (release path on owner-token match):
+    /// the lion's `$5B(a5)` active-shot count is decremented only when the
+    /// owning enemy is actually a Lion. Native `release_lion_projectile_owners`
+    /// must AND the family check together with segment/layout/token matching;
+    /// loosening the family conjunct to OR would let an unrelated active enemy
+    /// inherit the released token and corrupt its `ufo_beam_segments`.
+    fn release_lion_projectile_owners_requires_lion_family() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut tank = test_enemy(EnemyFamily::Tank, 0, 0, 1);
+        tank.segment_index = 7;
+        tank.layout_index = 3;
+        tank.ufo_beam_interval = 0x42;
+        tank.ufo_beam_segments = 5;
+        rt.active_enemies.push(tank);
+
+        // Expiring projectile (lifetime=0) routed through release_lion_projectile_owners.
+        let mut projectile = make_projectile(0, 0);
+        projectile.lifetime = 0;
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: 7,
+            layout_index: 3,
+            token: 0x42,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.active_enemies[0].ufo_beam_segments, 5,
+            "non-Lion enemy with matching segment/layout/token must NOT have its \
+             ufo_beam_segments decremented — the family conjunct guards the release"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM Lion.asm sub_3E2CE: the release decrements the lion's segment count
+    /// only when *all* of family/segment_index/layout_index/ufo_beam_interval
+    /// match. A live Lion sharing the same segment/token but a different
+    /// layout slot must not absorb the released projectile.
+    fn release_lion_projectile_owners_requires_layout_match() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0, 0, 1);
+        lion.segment_index = 2;
+        lion.layout_index = 9; // owner.layout_index will not match
+        lion.ufo_beam_interval = 0x5A;
+        lion.ufo_beam_segments = 3;
+        rt.active_enemies.push(lion);
+
+        let mut projectile = make_projectile(0, 0);
+        projectile.lifetime = 0;
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: 2,
+            layout_index: 4, // mismatches lion.layout_index
+            token: 0x5A,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.active_enemies[0].ufo_beam_segments, 3,
+            "Lion with non-matching layout_index must not have its segment count \
+             released — layout_index is one of the four required AND conjuncts"
+        );
+    }
+
     // --- loc_8852: Right-moving tile-boundary wall snap + bounce ---
 
     #[test]
