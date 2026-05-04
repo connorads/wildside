@@ -634,15 +634,13 @@ impl NativeRuntime {
                     let v_blocked =
                         cell_v.has_block && cell_v.collision != terrain::CollisionKind::Empty;
 
-                    let terrain_collision_id = if h_blocked && v_blocked {
-                        0
-                    } else if h_blocked {
-                        if p.x_velocity >= 0 { 0x04 } else { 0x08 }
-                    } else if v_blocked {
-                        if p.y_velocity >= 0 { 0x0C } else { 0x10 }
-                    } else {
-                        terrain_collision_id_from_cell_loc_3e2a8(cell)
-                    };
+                    let terrain_collision_id = lion_projectile_terrain_collision_id_loc_3e260(
+                        h_blocked,
+                        v_blocked,
+                        p.x_velocity,
+                        p.y_velocity,
+                        cell,
+                    );
 
                     let (x_velocity, y_velocity) = if h_blocked && v_blocked {
                         // ASM loc_3E266: corner probes can report both axes.
@@ -813,6 +811,35 @@ fn terrain_collision_id_from_cell_loc_3e2a8(cell: terrain::Cell) -> u16 {
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_projectile_terrain_collision_id_loc_3e260(
+    h_blocked: bool,
+    v_blocked: bool,
+    x_velocity: i32,
+    y_velocity: i32,
+    cell: terrain::Cell,
+) -> u16 {
+    // ASM Lion.asm loc_3E266: branches off `d4` (collision_type) into the
+    // straight-wall reflectors at $04 (colid_rightwall) / $08 (colid_leftwall)
+    // / $0C (colid_floor) / $10 (colid_ceiling) and the slope swap at $14/$18.
+    // Native does not have a hardware collision probe filling `d4`, so the
+    // bounce loop derives the id from which probe cell blocked the move and
+    // the projectile's velocity sign: a rightward-moving projectile that
+    // hits the horizontal probe must have run into a right wall, etc. The
+    // sign comparison must use `>= 0`, not `< 0`, so that a stationary axis
+    // (vel == 0) still classifies as the "forward" wall — matching the ASM
+    // where `d4` already encodes the contact face.
+    if h_blocked && v_blocked {
+        0
+    } else if h_blocked {
+        if x_velocity >= 0 { 0x04 } else { 0x08 }
+    } else if v_blocked {
+        if y_velocity >= 0 { 0x0C } else { 0x10 }
+    } else {
+        terrain_collision_id_from_cell_loc_3e2a8(cell)
+    }
+}
+
 #[cfg(test)]
 mod loc_3e266_tests {
     #[test]
@@ -893,6 +920,143 @@ mod loc_3e266_tests {
             super::terrain_collision_id_from_cell_loc_3e2a8(cell),
             0x0018,
             "ASM Lion.asm loc_3E2A8: SlopeDown cells must map to colid_slopedown ($18)"
+        );
+    }
+
+    fn empty_cell() -> super::terrain::Cell {
+        super::terrain::Cell {
+            has_block: false,
+            collision: super::terrain::CollisionKind::Empty,
+            block_type: super::terrain::BlockType::None,
+            skin: 0,
+        }
+    }
+
+    #[test]
+    fn loc_3e260_h_blocked_with_rightward_velocity_yields_colid_rightwall() {
+        // ASM Lion.asm loc_3E266: `cmpi.w #4,d4 / beq.s loc_3E2A4` selects the
+        // x-axis reflector for `colid_rightwall` ($04). Native must classify
+        // a horizontally-blocked, right-moving projectile as $04 so the bounce
+        // loop reaches `lion_projectile_bounce_velocities_loc_3e266` and the
+        // x-axis is the one that flips. The sign test is `>= 0`, not `< 0`,
+        // so a +x velocity must produce $04, not $08.
+        assert_eq!(
+            super::lion_projectile_terrain_collision_id_loc_3e260(
+                true,
+                false,
+                0x0002_0000,
+                0,
+                empty_cell(),
+            ),
+            0x0004,
+            "ASM Lion.asm loc_3E266: h_blocked + x_vel >= 0 must map to colid_rightwall ($04)"
+        );
+    }
+
+    #[test]
+    fn loc_3e260_h_blocked_with_leftward_velocity_yields_colid_leftwall() {
+        // ASM Lion.asm loc_3E266: `cmpi.w #8,d4 / beq.s loc_3E2A4` is the
+        // mirror branch for `colid_leftwall` ($08). A horizontally-blocked
+        // projectile with negative x_vel must classify as $08 so the bounce
+        // table still negates x_vel via the same reflector — a `>= 0` -> `< 0`
+        // mutation would invert the assignment and emit $04 here, breaking
+        // the sign-correlated id even though the resulting velocity flip is
+        // identical for both walls.
+        assert_eq!(
+            super::lion_projectile_terrain_collision_id_loc_3e260(
+                true,
+                false,
+                -0x0002_0000,
+                0,
+                empty_cell(),
+            ),
+            0x0008,
+            "ASM Lion.asm loc_3E266: h_blocked + x_vel < 0 must map to colid_leftwall ($08)"
+        );
+    }
+
+    #[test]
+    fn loc_3e260_v_blocked_with_downward_velocity_yields_colid_floor() {
+        // ASM Lion.asm loc_3E266: `cmpi.w #$C,d4 / beq.w loc_3E2C8` routes a
+        // floor contact ($0C) through the y-axis reflector. Native infers $0C
+        // when the vertical probe is blocked and y_vel >= 0 (downward in
+        // screen coordinates).
+        assert_eq!(
+            super::lion_projectile_terrain_collision_id_loc_3e260(
+                false,
+                true,
+                0,
+                0x0002_0000,
+                empty_cell(),
+            ),
+            0x000C,
+            "ASM Lion.asm loc_3E266: v_blocked + y_vel >= 0 must map to colid_floor ($0C)"
+        );
+    }
+
+    #[test]
+    fn loc_3e260_v_blocked_with_upward_velocity_yields_colid_ceiling() {
+        // ASM Lion.asm loc_3E266: `cmpi.w #$10,d4 / beq.w loc_3E2C8` is the
+        // ceiling branch ($10). Negative y_vel (rising) must classify as $10
+        // — `>= 0` -> `< 0` would emit $0C here, swapping floor and ceiling
+        // ids while still bouncing y_vel; only the id distinction catches
+        // the mutation.
+        assert_eq!(
+            super::lion_projectile_terrain_collision_id_loc_3e260(
+                false,
+                true,
+                0,
+                -0x0002_0000,
+                empty_cell(),
+            ),
+            0x0010,
+            "ASM Lion.asm loc_3E266: v_blocked + y_vel < 0 must map to colid_ceiling ($10)"
+        );
+    }
+
+    #[test]
+    fn loc_3e260_corner_block_yields_zero_collision_id() {
+        // ASM Lion.asm loc_3E266: when both probes report contact, native
+        // returns $00 so the bounce-velocity dispatcher hits the corner-case
+        // arm at `step_projectiles` (`(-x_vel, -y_vel)`) instead of running
+        // the `loc_3E266` table. Any non-corner id here would push the
+        // projectile through `lion_projectile_bounce_velocities_loc_3e266`
+        // and skip the dual-axis flip.
+        assert_eq!(
+            super::lion_projectile_terrain_collision_id_loc_3e260(
+                true,
+                true,
+                0x0002_0000,
+                0x0002_0000,
+                empty_cell(),
+            ),
+            0,
+            "ASM Lion.asm loc_3E266: simultaneous h+v blocking must yield $00 so the corner branch runs"
+        );
+    }
+
+    #[test]
+    fn loc_3e260_unblocked_falls_back_to_cell_collision() {
+        // ASM Lion.asm loc_3E2A8: when neither probe reports an axis-aligned
+        // hit, the bounce loop classifies the contact via the cell at the
+        // projectile's centre, so a slope-up cell must still emit $14 and
+        // route through `lion_projectile_bounce_velocities_loc_3e29e`.
+        let cell = super::terrain::Cell {
+            has_block: true,
+            collision: super::terrain::CollisionKind::SlopeUp,
+            block_type: super::terrain::BlockType::None,
+            skin: 0,
+        };
+        assert_eq!(
+            super::lion_projectile_terrain_collision_id_loc_3e260(
+                false,
+                false,
+                0x0001_0000,
+                0x0001_0000,
+                cell,
+            ),
+            0x0014,
+            "ASM Lion.asm loc_3E2A8: unblocked probes must fall through to the cell-based slope id"
         );
     }
 
