@@ -44,7 +44,9 @@ strategies:
     # The first 5 entries wrapped with zero survivors across ~836 mutants,
     # so the loop correctly declared the rotation exhausted. helmets.rs,
     # level.rs, and movement.rs extend the rotation to re-open the strategy
-    # and give later cycles real test-gap work to triage.
+    # and give later cycles real test-gap work to triage. platforms.rs,
+    # projectiles.rs, weather.rs, and vdp.rs extend it again on 2026-05-04
+    # to cover gameplay modules that have never been mutation-tested.
     enabled: true
     output_dir: .cache/mutants
     rotation:
@@ -56,6 +58,10 @@ strategies:
       - helmets.rs
       - level.rs
       - movement.rs
+      - platforms.rs
+      - projectiles.rs
+      - weather.rs
+      - vdp.rs
     max_candidates_per_cycle: 200
     targets:
       - { module: enemies.rs, package: kid-core, tier: 1 }
@@ -66,6 +72,10 @@ strategies:
       - { module: helmets.rs, package: kid-core, tier: 1 }
       - { module: level.rs, package: kid-core, tier: 2 }
       - { module: movement.rs, package: kid-core, tier: 1 }
+      - { module: platforms.rs, package: kid-core, tier: 1 }
+      - { module: projectiles.rs, package: kid-core, tier: 1 }
+      - { module: weather.rs, package: kid-core, tier: 2 }
+      - { module: vdp.rs, package: kid-core, tier: 3 }
 
   - name: advisory-promotion
     # Surface stable advisory-category diffs from `.cache/sweep-runs/`.
