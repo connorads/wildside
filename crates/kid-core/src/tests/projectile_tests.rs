@@ -4547,6 +4547,231 @@ mod chunk_06 {
         );
     }
 
+    // --- sub_3E2CE called from loc_3E2A8: post-bounce camera-box re-check ---
+
+    /// Build an `n × n`-cell grid (n × 16 px on each axis) with solid blocks
+    /// at the supplied (col, row) positions. Mirrors `bounce_grid` from
+    /// `fixtures.rs` but lets each test pick a wider grid so the lion
+    /// projectile can land in the high-pixel region needed to drive the
+    /// camera offset past the post-bounce camera-box bounds.
+    fn lion_bounce_grid(
+        width_cells: u16,
+        height_cells: u16,
+        cells: &[(u16, u16)],
+    ) -> terrain::BlockGrid {
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        for &(col, row) in cells {
+            let off = (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
+            data[off] = 0xE0; // has_block=1, collision=Solid(6)
+        }
+        terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells)
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM Lion.asm sub_3E2CE called from loc_3E2A8: every wall-bounce
+    /// iteration ends with `bsr.w sub_3E2CE` re-running the on-screen test
+    /// before the next `dbf d0`. Native mirrors the call inline at the end
+    /// of the bounce loop. The published `lion_projectile_sub_3e2ce_*`
+    /// tests cover the post-move (pre-bounce) call site only — they leave
+    /// `wall_bounce: true` projectiles untested at the second call site, so
+    /// arithmetic and range mutations on lines 662-666 survive.
+    ///
+    /// Pin the post-bounce in-box path with a corner bounce: pre-bounce
+    /// `(398, 350)` with `vel = (+2, +2)` moves to `(400, 352)`, lands in
+    /// solid cells `(25, 22)` (destination), `(25, 21)` (h-probe),
+    /// `(24, 22)` (v-probe), corner-flips both velocities and re-applies
+    /// to `(396, 348)`. Camera at `(380, 300)` gives screen-space
+    /// `(16, 48)` — inside `[-$40, $180] / [-$40, $120]`. The camera-axis
+    /// values are large enough that any `>> with <<` mutation collapses
+    /// the affected term to zero and pushes the screen-coordinate outside
+    /// the band, any `replace - with +` mutation pushes the sum past the
+    /// upper bound, and stripping the leading `-` from either lower bound
+    /// clamps the box to non-negative offsets so the in-box position is
+    /// re-classified as off-screen. Deleting the trailing `!` flips the
+    /// survival branch into a delete.
+    fn lion_projectile_wall_bounce_camera_box_corner_bounce_keeps_in_box() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0, 0, 6);
+        lion.ufo_beam_interval = 0x5A;
+        lion.ufo_beam_segments = 1;
+        rt.active_enemies.push(lion);
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 380u32 << 16;
+        slice.camera.y_pos = 300u32 << 16;
+        rt.opening_slice = Some(slice);
+
+        // Solids at corner destination + h-probe + v-probe so loc_3E260
+        // classifies `h_blocked && v_blocked` and routes through the
+        // loc_3E266 corner branch (terrain_collision_id == 0).
+        rt.set_block_grid(lion_bounce_grid(50, 50, &[(25, 22), (25, 21), (24, 22)]));
+
+        let mut projectile = make_projectile(398, 350);
+        projectile.x_velocity = 0x2_0000;
+        projectile.y_velocity = 0x2_0000;
+        projectile.wall_bounce = true;
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: lion.segment_index,
+            layout_index: lion.layout_index,
+            token: 0x5A,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Lion.asm sub_3E2CE (called from loc_3E2A8): a post-bounce \
+             projectile inside the camera box must survive — `>> with <<`, \
+             `- with +`, `delete -` lower-bound, and `delete !` mutations on \
+             lines 662-666 each force an unwarranted off-screen delete here"
+        );
+        assert_eq!(
+            rt.projectiles[0].x_pos,
+            396u32 << 16,
+            "post-bounce x_pos must equal pre-bounce + negated x_vel (398-2)"
+        );
+        assert_eq!(
+            rt.projectiles[0].y_pos,
+            348u32 << 16,
+            "post-bounce y_pos must equal pre-bounce + negated y_vel (350-2)"
+        );
+        assert_eq!(
+            rt.active_enemies[0].ufo_beam_segments, 1,
+            "in-box post-bounce projectile must NOT release the lion's \
+             active-shot count"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM Lion.asm sub_3E2CE called from loc_3E2A8: the post-bounce
+    /// re-check must delete the projectile when the post-bounce x falls
+    /// outside the camera band even if y stays inside. Replacing `&&`
+    /// with `||` would let a single in-axis pass through, and replacing
+    /// `-` with `/` would collapse the screen-space subtraction to a
+    /// small in-band quotient. Both mutations survive the in-box test
+    /// because `&&` and `||` agree when both axes are in.
+    ///
+    /// Drive the projectile far across the screen with `vel = (+240, 0)`
+    /// from `(760, 350)` so the post-move position `(1000, 350)` still
+    /// satisfies the pre-bounce sub_3E2CE check (camera at `(700, 300)`
+    /// gives screen `(300, 50)`), but the horizontal-only bounce reflects
+    /// `x_vel` to `-240` and re-applies to `(520, 350)`. Screen becomes
+    /// `(-180, 50)` — `screen_x` is outside `[-$40, $180]` while
+    /// `screen_y` stays inside `[-$40, $120]`. The original deletes; the
+    /// `&& -> ||` mutant keeps and the `replace - with /` mutant on the
+    /// x subtraction (`520/700 = 0`) keeps. Test asserts deletion plus a
+    /// segment-count release so both survivors fail.
+    fn lion_projectile_wall_bounce_camera_box_horizontal_bounce_deletes_when_x_off_screen() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0, 0, 6);
+        lion.ufo_beam_interval = 0x5A;
+        lion.ufo_beam_segments = 1;
+        rt.active_enemies.push(lion);
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 700u32 << 16;
+        slice.camera.y_pos = 300u32 << 16;
+        rt.opening_slice = Some(slice);
+
+        // Single solid cell at the post-move destination; the v-probe at
+        // (47, 21) stays empty so loc_3E260 classifies as straight-wall
+        // ($04: rightwall) and loc_3E266 reflects only x_vel.
+        rt.set_block_grid(lion_bounce_grid(70, 30, &[(62, 21)]));
+
+        let mut projectile = make_projectile(760, 350);
+        projectile.x_velocity = 0xF0_0000; // +240 px/frame
+        projectile.y_velocity = 0;
+        projectile.wall_bounce = true;
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: lion.segment_index,
+            layout_index: lion.layout_index,
+            token: 0x5A,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            0,
+            "ASM Lion.asm sub_3E2CE (called from loc_3E2A8): a post-bounce \
+             projectile with screen_x outside [-$40, $180] must delete — \
+             the `&& -> ||` mutant would keep it on the strength of \
+             screen_y alone, and the `replace - with /` x mutant would \
+             collapse 520/700 to 0 and report screen_x in-band"
+        );
+        assert_eq!(
+            rt.active_enemies[0].ufo_beam_segments, 0,
+            "off-screen post-bounce delete must release the lion's \
+             segment count via release_lion_projectile_owners"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    /// ASM Lion.asm sub_3E2CE called from loc_3E2A8: mirror of the
+    /// horizontal-bounce off-screen test on the y axis to pin the
+    /// `replace - with /` mutation on `screen_y`. The horizontal version
+    /// can't reach this mutation because its x-only bounce keeps
+    /// screen_y stable.
+    ///
+    /// Pre-bounce `(350, 760)` with `vel = (0, +240)` moves to
+    /// `(350, 1000)`, lands in solid cell `(21, 62)`, reflects only y_vel
+    /// to `-240` and re-applies to `(350, 520)`. Camera at `(300, 720)`
+    /// gives pre-bounce screen `(50, 280)` (in the box at the upper y
+    /// edge) and post-bounce screen `(50, -200)` — `screen_y` outside
+    /// `[-$40, $120]` while `screen_x` stays in `[-$40, $180]`. The
+    /// `replace - with /` y mutant collapses `520/720` to `0` (in band)
+    /// and would keep the projectile.
+    fn lion_projectile_wall_bounce_camera_box_vertical_bounce_deletes_when_y_off_screen() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0, 0, 6);
+        lion.ufo_beam_interval = 0x5A;
+        lion.ufo_beam_segments = 1;
+        rt.active_enemies.push(lion);
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 300u32 << 16;
+        slice.camera.y_pos = 720u32 << 16;
+        rt.opening_slice = Some(slice);
+
+        // Single solid cell at the post-move destination; the h-probe at
+        // (21, 47) stays empty so loc_3E260 classifies as straight-floor
+        // ($0C) and loc_3E266 reflects only y_vel.
+        rt.set_block_grid(lion_bounce_grid(30, 70, &[(21, 62)]));
+
+        let mut projectile = make_projectile(350, 760);
+        projectile.x_velocity = 0;
+        projectile.y_velocity = 0xF0_0000; // +240 px/frame
+        projectile.wall_bounce = true;
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: lion.segment_index,
+            layout_index: lion.layout_index,
+            token: 0x5A,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            0,
+            "ASM Lion.asm sub_3E2CE (called from loc_3E2A8): a post-bounce \
+             projectile with screen_y outside [-$40, $120] must delete — \
+             the `replace - with /` y mutant would collapse 520/720 to 0 \
+             and report screen_y in-band"
+        );
+        assert_eq!(
+            rt.active_enemies[0].ufo_beam_segments, 0,
+            "off-screen post-bounce delete must release the lion's \
+             segment count via release_lion_projectile_owners"
+        );
+    }
+
     // --- loc_8852: Right-moving tile-boundary wall snap + bounce ---
 
     #[test]
