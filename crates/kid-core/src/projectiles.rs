@@ -642,22 +642,14 @@ impl NativeRuntime {
                         cell,
                     );
 
-                    let (x_velocity, y_velocity) = if h_blocked && v_blocked {
-                        // ASM loc_3E266: corner probes can report both axes.
-                        (-p.x_velocity, -p.y_velocity)
-                    } else if matches!(terrain_collision_id, 0x04 | 0x08 | 0x0C | 0x10) {
-                        lion_projectile_bounce_velocities_loc_3e266(
+                    let (x_velocity, y_velocity) =
+                        lion_projectile_bounce_velocity_dispatch_loc_3e266(
+                            h_blocked,
+                            v_blocked,
                             p.x_velocity,
                             p.y_velocity,
                             terrain_collision_id,
-                        )
-                    } else {
-                        lion_projectile_bounce_velocities_loc_3e29e(
-                            p.x_velocity,
-                            p.y_velocity,
-                            terrain_collision_id,
-                        )
-                    };
+                        );
 
                     p.x_velocity = x_velocity;
                     p.y_velocity = y_velocity;
@@ -808,6 +800,32 @@ fn terrain_collision_id_from_cell_loc_3e2a8(cell: terrain::Cell) -> u16 {
         terrain::CollisionKind::SlopeUp => 0x14,
         terrain::CollisionKind::SlopeDown => 0x18,
         _ => 0,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lion_projectile_bounce_velocity_dispatch_loc_3e266(
+    h_blocked: bool,
+    v_blocked: bool,
+    x_velocity: i32,
+    y_velocity: i32,
+    terrain_collision_id: u16,
+) -> (i32, i32) {
+    // ASM Lion.asm loc_3E266 dispatch: the four straight-wall ids ($04/$08/
+    // $0C/$10) reach the colid_rightwall/leftwall/floor/ceiling reflectors
+    // through `loc_3E2A4`/`loc_3E2C8`; slope ids ($14/$18) skip the
+    // reflectors and run the swap at `loc_3E29E`. Native must additionally
+    // collapse simultaneous h+v probe blockings into a corner-flip
+    // ((-x_vel, -y_vel)) because, unlike the ASM where `d4` always names
+    // a single contact face, the native probe can stamp both axes at once.
+    // Without that branch, both axes would otherwise feed through the
+    // single-face reflector and one component would be left untouched.
+    if h_blocked && v_blocked {
+        (-x_velocity, -y_velocity)
+    } else if matches!(terrain_collision_id, 0x04 | 0x08 | 0x0C | 0x10) {
+        lion_projectile_bounce_velocities_loc_3e266(x_velocity, y_velocity, terrain_collision_id)
+    } else {
+        lion_projectile_bounce_velocities_loc_3e29e(x_velocity, y_velocity, terrain_collision_id)
     }
 }
 
@@ -1032,6 +1050,68 @@ mod loc_3e266_tests {
             ),
             0,
             "ASM Lion.asm loc_3E266: simultaneous h+v blocking must yield $00 so the corner branch runs"
+        );
+    }
+
+    #[test]
+    fn loc_3e266_dispatch_corner_block_negates_both_velocities_with_exact_values() {
+        // ASM Lion.asm loc_3E266: when both probes report contact native
+        // routes through the corner branch, which flips both axes in a
+        // single dispatch step. The bounce loop's gameplay test
+        // (`wall_bounce_corner_negates_both_velocities`) cannot pin down
+        // either negation in isolation because the next loop iteration
+        // re-classifies the now-mirrored axis as a single wall and runs
+        // through `lion_projectile_x_reflection_vel_loc_3e2a4` again,
+        // independently restoring the missing flip. Pin the corner
+        // dispatch with exact values so a `delete -` mutation on either
+        // axis fails immediately.
+        assert_eq!(
+            super::lion_projectile_bounce_velocity_dispatch_loc_3e266(
+                true,
+                true,
+                0x0002_0000,
+                0x0003_0000,
+                0,
+            ),
+            (-0x0002_0000, -0x0003_0000),
+            "ASM Lion.asm loc_3E266 corner branch must negate both velocities — \
+             deleting the `-` on either axis would leave the original sign intact"
+        );
+    }
+
+    #[test]
+    fn loc_3e266_dispatch_straight_wall_id_routes_through_loc_3e266_reflector() {
+        // ASM Lion.asm loc_3E266: id $04 must reach the x-axis reflector
+        // and leave y_vel untouched. A `&& -> ||` mutation on the corner
+        // condition would force the corner branch even with v_blocked=false
+        // and flip y_vel here.
+        assert_eq!(
+            super::lion_projectile_bounce_velocity_dispatch_loc_3e266(
+                true,
+                false,
+                0x0002_0000,
+                0x0003_0000,
+                0x0004,
+            ),
+            (-0x0002_0000, 0x0003_0000),
+            "ASM Lion.asm loc_3E266: a single-axis hit must run through `loc_3E2A4`/`loc_3E2C8`, not the corner flip"
+        );
+    }
+
+    #[test]
+    fn loc_3e266_dispatch_slope_id_routes_through_loc_3e29e_swap() {
+        // ASM Lion.asm loc_3E29E: slope ids ($14/$18) bypass the straight-wall
+        // reflectors and run the swap (-y -> x, x -> y for slope-up).
+        assert_eq!(
+            super::lion_projectile_bounce_velocity_dispatch_loc_3e266(
+                false,
+                false,
+                0x0003_0000,
+                0x0004_0000,
+                0x0014,
+            ),
+            (-0x0004_0000, 0x0003_0000),
+            "ASM Lion.asm loc_3E29E: slope id $14 must reach the swap branch, not the straight-wall reflector"
         );
     }
 
