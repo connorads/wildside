@@ -15495,6 +15495,15 @@ mod chunk_05 {
             "ASM loc_147D6 should skip rows left of `Camera_X_pos - $20`"
         );
 
+        let right_clipped = crate::weather::LavaGeyserCameraWindowInputLoc147D6 {
+            x_px: 0x0300,
+            ..inside
+        };
+        assert!(
+            !crate::weather::lava_geyser_is_inside_camera_window_loc_147D6(right_clipped),
+            "ASM loc_147D6 should skip rows right of `Camera_X_pos + $160` (max_x = min_x + $180, not min_x * $180)"
+        );
+
         let bottom_clipped = crate::weather::LavaGeyserCameraWindowInputLoc147D6 {
             y_px: 0x0289,
             ..inside
@@ -15503,11 +15512,24 @@ mod chunk_05 {
             !crate::weather::lava_geyser_is_inside_camera_window_loc_147D6(bottom_clipped),
             "ASM loc_147D6 should skip rows below `Camera_Y_pos + $128`"
         );
+
+        let above_top_pad = crate::weather::LavaGeyserCameraWindowInputLoc147D6 {
+            y_px: 0x0100,
+            ..inside
+        };
+        assert!(
+            !crate::weather::lava_geyser_is_inside_camera_window_loc_147D6(above_top_pad),
+            "ASM loc_147D6 should skip rows above `Camera_Y_pos - $48` (min_y = camera_y - $48, not camera_y / $48)"
+        );
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_14874 not yet implemented"]
     fn loc_14874_unbiases_the_current_row_and_distinguishes_skip_top_from_full_cull() {
+        // ASM loc_14874 (kid.asm:27928-27951): camera_x_px=$100 → x window
+        // [$E0, $260]; camera_y_px=$160 → y window [$138, $268]. The shared
+        // arithmetic is `x_px - $80` and `y_px - $80 - $10 - ((row_idx + 1)
+        // << 4)`, so for row_idx=0 a Kid screen X=$180 maps to x_px=$100 and
+        // Y=$210 maps to sprite_row_y_px=$170.
         let visible = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
             x_px: 0x0180,
             y_px: 0x0210,
@@ -15518,41 +15540,99 @@ mod chunk_05 {
         assert_eq!(
             crate::weather::lava_geyser_top_sprite_window_loc_14874(visible),
             crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::BuildTopSprite {
-                sprite_row_y_px: 0x0180,
+                sprite_row_y_px: 0x0170,
             },
-            "ASM loc_14874 should subtract `$80` from `$44/$46(a5)`, subtract `$10 + ((d3 + 1) << 4)` from Y, and keep rows inside the inclusive X and lower/upper Y camera pads on the top-cap path"
+            "ASM loc_14874 should keep rows whose unbiased point sits inside both the X and Y camera pads"
+        );
+
+        let at_min_x = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
+            x_px: 0x0160, // x_px = $E0 == min_x
+            ..visible
+        };
+        assert_eq!(
+            crate::weather::lava_geyser_top_sprite_window_loc_14874(at_min_x),
+            crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::BuildTopSprite {
+                sprite_row_y_px: 0x0170,
+            },
+            "ASM loc_14874 `blt.w` is strict, so x_px == Camera_X_pos - $20 should still build the top sprite"
+        );
+
+        let left_of_min_x = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
+            x_px: 0x0140, // x_px = $C0 < min_x = $E0
+            ..visible
+        };
+        assert_eq!(
+            crate::weather::lava_geyser_top_sprite_window_loc_14874(left_of_min_x),
+            crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::Culled,
+            "ASM loc_14874 should branch to loc_14940 when the unbiased X sits left of `Camera_X_pos - $20`"
+        );
+
+        let at_max_x = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
+            x_px: 0x02E0, // x_px = $260 == max_x
+            ..visible
+        };
+        assert_eq!(
+            crate::weather::lava_geyser_top_sprite_window_loc_14874(at_max_x),
+            crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::BuildTopSprite {
+                sprite_row_y_px: 0x0170,
+            },
+            "ASM loc_14874 `bgt.w` is strict, so x_px == Camera_X_pos + $160 should still build the top sprite"
+        );
+
+        let right_of_max_x = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
+            x_px: 0x0300, // x_px = $280 > max_x = $260; chosen to also exceed any plausible mutant max_x
+            ..visible
+        };
+        assert_eq!(
+            crate::weather::lava_geyser_top_sprite_window_loc_14874(right_of_max_x),
+            crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::Culled,
+            "ASM loc_14874 should branch to loc_14940 when the unbiased X sits right of `Camera_X_pos + $160` (max_x = min_x + $180)"
         );
 
         let above_top_pad = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
-            y_px: 0x01F7,
+            y_px: 0x01A0, // sprite_row_y_px = $100 < min_y = $138
             ..visible
         };
         assert_eq!(
             crate::weather::lava_geyser_top_sprite_window_loc_14874(above_top_pad),
             crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::SkipTopSprite {
-                sprite_row_y_px: 0x0167,
+                sprite_row_y_px: 0x0100,
             },
             "ASM loc_14874 should branch to loc_148E6, skipping only the top-cap build, when the current row sits above `Camera_Y_pos - $28`"
         );
 
-        let right_clipped = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
-            x_px: 0x0301,
+        let at_min_y = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
+            y_px: 0x01D8, // sprite_row_y_px = $138 == min_y
             ..visible
         };
         assert_eq!(
-            crate::weather::lava_geyser_top_sprite_window_loc_14874(right_clipped),
-            crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::Culled,
-            "ASM loc_14874 should branch to loc_14940 when `$44(a5) - $80` lies right of `Camera_X_pos + $160`"
+            crate::weather::lava_geyser_top_sprite_window_loc_14874(at_min_y),
+            crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::BuildTopSprite {
+                sprite_row_y_px: 0x0138,
+            },
+            "ASM loc_14874 `blt.s loc_148E6` is strict, so sprite_row_y_px == Camera_Y_pos - $28 should still build the top cap"
+        );
+
+        let at_max_y = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
+            y_px: 0x0308, // sprite_row_y_px = $268 == max_y
+            ..visible
+        };
+        assert_eq!(
+            crate::weather::lava_geyser_top_sprite_window_loc_14874(at_max_y),
+            crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::BuildTopSprite {
+                sprite_row_y_px: 0x0268,
+            },
+            "ASM loc_14874 `bgt.w loc_14940` is strict, so sprite_row_y_px == Camera_Y_pos + $108 should still build the top cap"
         );
 
         let below_bottom_pad = crate::weather::LavaGeyserTopSpriteWindowInputLoc14874 {
-            y_px: 0x02B9,
+            y_px: 0x0320, // sprite_row_y_px = $280 > max_y = $268
             ..visible
         };
         assert_eq!(
             crate::weather::lava_geyser_top_sprite_window_loc_14874(below_bottom_pad),
             crate::weather::LavaGeyserTopSpriteWindowResultLoc14874::Culled,
-            "ASM loc_14874 should branch to loc_14940 when the current row falls below `Camera_Y_pos + $108`"
+            "ASM loc_14874 should branch to loc_14940 when the current row falls below `Camera_Y_pos + $108` (max_y = min_y + $130)"
         );
     }
 
@@ -15638,6 +15718,11 @@ mod chunk_05 {
             crate::weather::lava_geyser_middle_sprite_row_window_loc_148F8(0x014F, 0x0160),
             crate::weather::LavaGeyserMiddleSpriteRowResultLoc148F8::SkipAboveWindow,
             "ASM loc_148F8 should skip the current middle-row build and fall through to loc_14914 when `d1` sits above `Camera_Y_pos - $10`"
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_middle_sprite_row_window_loc_148F8(0x0250, 0x0160),
+            crate::weather::LavaGeyserMiddleSpriteRowResultLoc148F8::BuildSpriteRow,
+            "ASM loc_148F8 `bgt.w` is strict, so `d1` == Camera_Y_pos + $F0 should still build the middle row"
         );
         assert_eq!(
             crate::weather::lava_geyser_middle_sprite_row_window_loc_148F8(0x0251, 0x0160),
