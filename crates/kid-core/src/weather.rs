@@ -2354,17 +2354,20 @@ impl NativeRuntime {
         let spawn_x = camera_x.wrapping_add(x_offset);
         let spawn_y = (slice.camera.y_pos >> 16).saturating_sub(16);
 
+        // ASM sub_61CA loc_61E2 (kid.asm:6199): hail particles fall at
+        // `addi.w #4,(a0)` = 4 px/frame downward. The remaining EnemyProjectile
+        // fields (x_velocity, friendly, gravity, homing_accel, speed_cap,
+        // wall_bounce, ...) all match `Default::default()` for hail and are
+        // covered by the spread; listing them explicitly only invites
+        // equivalent-mutant noise from cargo-mutants.
+        // TODO(fidelity): ROM also applies `subi.w #1,2(a0)` (-1 px/frame X
+        // drift) and an off-screen kill instead of a 120-frame lifetime; this
+        // simplified path uses a fixed lifetime as a stub.
         self.projectiles.push(EnemyProjectile {
             x_pos: spawn_x << 16,
             y_pos: spawn_y << 16,
-            x_velocity: 0,
-            y_velocity: 0x4_0000, // 4 px/frame downward
+            y_velocity: 0x4_0000,
             lifetime: 120,
-            friendly: false,
-            gravity: 0,
-            homing_accel: 0,
-            speed_cap: 0,
-            wall_bounce: false,
             ..Default::default()
         });
     }

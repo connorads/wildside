@@ -10011,6 +10011,15 @@ mod chunk_05 {
         assert_eq!(wall.max_speed, MURDER_WALL_SLOW_MAX_SPEED);
     }
 
+    /// ASM sub_61CA (kid.asm:6190): hail-particle spawn for storm+hail levels.
+    /// loc_61E2 sets the per-frame `addi.w #4,(a0)` downward velocity (4 px =
+    /// `0x0004_0000` in our 16.16 fixed-point), and the spawn position is
+    /// derived from `Camera_X_pos` / `Camera_Y_pos`. The exact-value asserts
+    /// below pin every initialisation in `NativeRuntime::step_weather`'s
+    /// `EnemyProjectile { .. }` literal so cargo-mutants cannot delete a field
+    /// without breaking a test (`x_velocity`, `friendly`, `gravity`,
+    /// `homing_accel`, `speed_cap`, `wall_bounce` all default to zero/false
+    /// for hail, so the spawner relies on `..Default::default()`).
     #[test]
     fn hail_spawns_projectiles_after_35_seconds() {
         let mut runtime = NativeRuntime::new(manifest());
@@ -10021,8 +10030,23 @@ mod chunk_05 {
         runtime.weather.hail_spawn_timer = 0;
         runtime.weather.hail_period_timer = 100; // mid-period, still active
 
-        let slice = airborne_slice();
+        // Pick non-zero camera_x and frame_index so the spawn formulas
+        // distinguish operator-replacement mutants:
+        //  * `slice.camera.x_pos >> 16` vs `<< 16` — `0x0040_0000 >> 16 = 0x40`
+        //    while `0x0040_0000 << 16` truncates to 0 in u32.
+        //  * `frame_index * 7 + 13` vs `frame_index / 7 + 13` —
+        //    `50 * 7 + 13 = 363` vs `50 / 7 + 13 = 20`.
+        let mut slice = airborne_slice();
+        slice.camera.x_pos = 0x0040_0000;
+        runtime.frame_index = 50;
+
         let before = runtime.projectiles.len();
+        let camera_x = slice.camera.x_pos >> 16;
+        let camera_y = slice.camera.y_pos >> 16;
+        let expected_x_offset = ((runtime.frame_index * 7 + 13) % 320) as u32;
+        let expected_x_pos = camera_x.wrapping_add(expected_x_offset) << 16;
+        let expected_y_pos = camera_y.saturating_sub(16) << 16;
+
         runtime.step_weather(&slice);
 
         assert_eq!(
@@ -10031,8 +10055,28 @@ mod chunk_05 {
             "hail should spawn a projectile"
         );
         let p = &runtime.projectiles[before];
-        assert!(p.y_velocity > 0, "hail should fall downward");
-        assert!(!p.friendly, "hail should damage the player");
+        // Spawn position above the camera, X jittered by frame_index.
+        assert_eq!(p.x_pos, expected_x_pos, "ASM sub_61CA: hail spawn_x");
+        assert_eq!(p.y_pos, expected_y_pos, "ASM sub_61CA: hail spawn_y");
+        // ASM loc_61E2 `addi.w #4,(a0)` — exact 4 px/frame downward.
+        assert_eq!(
+            p.y_velocity, 0x0004_0000,
+            "ASM loc_61E2: y_velocity = 4 px/frame downward"
+        );
+        // Stub lifetime — exact 120 frames until the off-screen kill from
+        // ASM loc_6212 is wired in.
+        assert_eq!(p.lifetime, 120, "step_weather lifetime stub: 120 frames");
+        // Default-derived fields: any future code that sets these to non-zero
+        // for hail would silently break the storm scenario.
+        assert_eq!(
+            p.x_velocity, 0,
+            "hail: no horizontal motion in current stub"
+        );
+        assert!(!p.friendly, "hail damages Kid, not enemies");
+        assert_eq!(p.gravity, 0, "hail: constant downward velocity, no gravity");
+        assert_eq!(p.homing_accel, 0, "hail: not homing");
+        assert_eq!(p.speed_cap, 0, "hail: no homing speed cap");
+        assert!(!p.wall_bounce, "hail: no wall bounce");
     }
 
     #[test]
