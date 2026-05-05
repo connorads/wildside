@@ -5909,3 +5909,54 @@ mod chunk_07 {
         );
     }
 }
+
+mod chunk_08_inactive_slot_constructors {
+    use super::*;
+
+    #[test]
+    fn falling_weather_slot_inactive_writes_minus_one_to_both_y_and_x() {
+        // ASM sub_61CA loc_6226 (kid.asm:6227), loc_636A (kid.asm:6363),
+        // loc_6398 (kid.asm:6384), and loc_63C4 (kid.asm:6405) all clear a
+        // falling slot via `move.l #$FFFFFFFF,(a0)` — a single 32-bit write
+        // that sets the y_px word AND the x_px word to $FFFF. The native
+        // `inactive` constructor must mirror this longword contract: x_px
+        // must equal -1 (not just any negative or positive sentinel),
+        // because the off-screen scan at loc_625E reads the y_px word and
+        // the spawn path at loc_62C2 then writes (y_px, x_px) as a contiguous
+        // pair. A constructor that left x_px > 0 would silently break any
+        // future code that scanned the x_px word for the inactive sentinel.
+        let slot = FallingWeatherSlotSub61CA::inactive(6, 3);
+
+        assert_eq!(
+            slot.y_px, -1,
+            "ASM loc_6226 `move.l #$FFFFFFFF,(a0)` writes $FFFF into the y_px word"
+        );
+        assert_eq!(
+            slot.x_px, -1,
+            "ASM loc_6226 `move.l #$FFFFFFFF,(a0)` writes $FFFF into the x_px word \
+             (low half of the same longword)"
+        );
+        assert_eq!(slot.animation_cooldown, 6);
+        assert_eq!(slot.animation_frame, 3);
+    }
+
+    #[test]
+    fn weather_impact_slot_inactive_writes_minus_one_to_both_y_and_x() {
+        // ASM sub_61CA loc_63C4 (kid.asm:6405) deactivates an impact slot via
+        // `move.l #$FFFFFFFF,(a0); move.w #$100,4(a0)`. Same longword
+        // contract as the falling slots: y_px AND x_px both go to $FFFF.
+        let slot = WeatherImpactSlotSub61CA::inactive(1, 0);
+
+        assert_eq!(
+            slot.y_px, -1,
+            "ASM loc_63C4 `move.l #$FFFFFFFF,(a0)` writes $FFFF into the y_px word"
+        );
+        assert_eq!(
+            slot.x_px, -1,
+            "ASM loc_63C4 `move.l #$FFFFFFFF,(a0)` writes $FFFF into the x_px word \
+             (low half of the same longword)"
+        );
+        assert_eq!(slot.animation_cooldown, 1);
+        assert_eq!(slot.animation_frame, 0);
+    }
+}
