@@ -1018,6 +1018,124 @@ mod tests {
     }
 
     #[test]
+    fn apply_title_text_word_writes_sub_1b7b6_stamps_2x2_pattern_at_every_table_entry() {
+        // ASM sub_1B7B6 (kid.asm:30035-30053): for each base RAM address in
+        // `unk_1B7E0`, the routine writes
+        //   move.w #$21AB,(a1)        ; top-left  (word offset +0)
+        //   move.w #$21AC,2(a1)       ; top-right (word offset +1)
+        //   move.w #$21AD,$50(a1)     ; bot-left  (word offset +$28)
+        //   move.w #$21AE,$52(a1)     ; bot-right (word offset +$29)
+        // The native code subtracts $77B2 from the table address to convert
+        // the absolute RAM address into a word index inside the decompression
+        // buffer.  This buffer is large enough to hold every write so the
+        // top/bottom bound checks all evaluate true; the test then verifies
+        // that the four words landed at the exact expected offsets for each
+        // of the 55 table entries (and only those offsets).
+        const DECOMPRESSION_BUFFER_LOW_ADDR: u16 = 0x77B2;
+        let mut decoded_words = vec![0u16; 0x500];
+
+        apply_title_text_word_writes_sub_1b7b6(&mut decoded_words);
+
+        let entries = title_text_word_writes_sub_1B7B6();
+        assert_eq!(entries.len(), 55);
+        let mut expected_writes = std::collections::HashMap::new();
+        for entry in &entries {
+            let word_index = usize::from(
+                entry
+                    .base_word_address
+                    .wrapping_sub(DECOMPRESSION_BUFFER_LOW_ADDR),
+            ) / 2;
+            expected_writes.insert(word_index, 0x21ABu16);
+            expected_writes.insert(word_index + 1, 0x21AC);
+            expected_writes.insert(word_index + 0x28, 0x21AD);
+            expected_writes.insert(word_index + 0x29, 0x21AE);
+        }
+
+        for (idx, expected) in &expected_writes {
+            assert_eq!(
+                decoded_words[*idx], *expected,
+                "ASM sub_1B7B6 must stamp ${expected:04X} at word index ${idx:04X}",
+            );
+        }
+        for (idx, value) in decoded_words.iter().enumerate() {
+            if expected_writes.contains_key(&idx) {
+                continue;
+            }
+            assert_eq!(
+                *value, 0,
+                "word index ${idx:04X} is not in sub_1B7B6's table; native must not touch it",
+            );
+        }
+
+        // First entry: ASM table starts at $7C12 → word index $230.
+        assert_eq!(decoded_words[0x230], 0x21AB);
+        assert_eq!(decoded_words[0x231], 0x21AC);
+        assert_eq!(decoded_words[0x230 + 0x28], 0x21AD);
+        assert_eq!(decoded_words[0x230 + 0x29], 0x21AE);
+
+        // Last entry: ASM table ends at $7FEE before the $FFFF sentinel →
+        // word index $41E.
+        assert_eq!(decoded_words[0x41E], 0x21AB);
+        assert_eq!(decoded_words[0x41F], 0x21AC);
+        assert_eq!(decoded_words[0x41E + 0x28], 0x21AD);
+        assert_eq!(decoded_words[0x41E + 0x29], 0x21AE);
+    }
+
+    #[test]
+    fn apply_title_text_word_writes_sub_1b7b6_top_bound_skips_when_word_index_plus_one_equals_len()
+    {
+        // ASM sub_1B7B6: the first table entry is base $7C12 → word index $230
+        // inside the decompression buffer (low address $77B2).  Sized at exactly
+        // $231 words, the buffer can hold word index $230 but not $231, so the
+        // bound `word_index + 1 < len` must reject the entry; any mutant that
+        // loosens the comparison to `<=` (or perturbs `+ 1` to `* 1`/`- 1`)
+        // turns the skipped write into an out-of-bounds index that panics.
+        let mut decoded_words = vec![0u16; 0x231];
+
+        apply_title_text_word_writes_sub_1b7b6(&mut decoded_words);
+
+        // Original: every entry has word_index >= $230, so every top check
+        // falls through and the buffer remains untouched.
+        assert!(
+            decoded_words.iter().all(|&w| w == 0),
+            "sub_1B7B6 must not write when no entry's word_index + 1 fits in the buffer",
+        );
+    }
+
+    #[test]
+    fn apply_title_text_word_writes_sub_1b7b6_bottom_bound_skips_when_bottom_plus_one_equals_len() {
+        // ASM sub_1B7B6: the bottom row is at offset $50 bytes = $28 words from
+        // the top row, plus one more word for $52(a1).  With the buffer sized
+        // at $259 words, the first table entry (word index $230) fits its top
+        // pair ($230,$231) but the bottom pair ($258,$259) ends exactly at
+        // len, so the bound `bottom + 1 < len` must reject the bottom write;
+        // any mutant that loosens the check to `<=`/`==` (or perturbs `+ 1`
+        // to `* 1`/`- 1`) turns the skipped write into an out-of-bounds
+        // index that panics.
+        let mut decoded_words = vec![0u16; 0x259];
+
+        apply_title_text_word_writes_sub_1b7b6(&mut decoded_words);
+
+        // First five entries (word indices $230..$240) all have their top
+        // pair inside the buffer and their bottom pair off the end — top
+        // writes must land, bottom slots must remain zero.
+        for &word_index in &[0x230usize, 0x234, 0x238, 0x23C, 0x240] {
+            assert_eq!(
+                decoded_words[word_index], 0x21AB,
+                "sub_1B7B6 must stamp top-left $21AB at word index ${word_index:04X}",
+            );
+            assert_eq!(
+                decoded_words[word_index + 1],
+                0x21AC,
+                "sub_1B7B6 must stamp top-right $21AC at word index ${:04X}",
+                word_index + 1,
+            );
+        }
+        // Bottom of the first entry is exactly out of bounds — must stay 0.
+        assert_eq!(decoded_words[0x258], 0);
+    }
+
+    #[test]
     fn title_screen_tile_patch_at_f000() {
         let mut patch = [0u16; 32];
         patch[0] = 0x1111;
