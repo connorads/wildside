@@ -146,43 +146,46 @@ pub(crate) fn build_sega_screen_vdp(data: &SegaScreenData, elapsed: usize) -> Vd
     // After the initial 11-frame wait, every 4th frame copies 11 words from
     // a sliding offset into CRAM words 2..12.  The cursor starts at $28 and
     // decreases by 2 each step until it goes negative.
-    if elapsed > SEGA_INITIAL_WAIT_FRAMES {
-        let fade_elapsed = elapsed - SEGA_INITIAL_WAIT_FRAMES;
-        let mut frame_delay = SEGA_FADE_FRAME_DELAY_INIT;
-        let mut palette_cursor = SEGA_FADE_PALETTE_CURSOR_INIT;
+    //
+    // Using `saturating_sub` (rather than an `if elapsed > N` guard) keeps
+    // the boundary at elapsed == SEGA_INITIAL_WAIT_FRAMES unambiguous: the
+    // fade loop body only executes when fade_elapsed > 0, so the strict-
+    // versus-non-strict comparison can't survive as an equivalent mutant.
+    let fade_elapsed = elapsed.saturating_sub(SEGA_INITIAL_WAIT_FRAMES);
+    let mut frame_delay = SEGA_FADE_FRAME_DELAY_INIT;
+    let mut palette_cursor = SEGA_FADE_PALETTE_CURSOR_INIT;
 
-        for _ in 0..fade_elapsed {
-            frame_delay -= 1;
-            if frame_delay >= 0 {
-                continue;
-            }
-            // Reset delay counter.
-            frame_delay = 3;
-            if palette_cursor < 0 {
-                continue;
-            }
-            // ASM loc_12ED2: copy 11 words from Pal_12EEC+6+cursor to CRAM+$4.
-            // Pal_12EEC+6 = byte 6 from the start of the palette block,
-            // which is word 3 in our palette_words array (after the 2-byte header
-            // that is NOT included in palette_words — the header was consumed
-            // during loading).  But the fade data in the ROM is at Pal_12EEC+6,
-            // and the first 2 bytes of Pal_12EEC are the header bytes (dest=0,
-            // count=$0C).  So Pal_12EEC+6 = 4 bytes past the palette data start,
-            // i.e. word index 2 + (cursor/2).
-            //
-            // Actually: Pal_12EEC byte layout:
-            //   [0]=dest_offset, [1]=dbf_count, [2..67]=SegaLogo.bin contents
-            // Pal_12EEC+6 = byte 6 = SegaLogo.bin byte 4 = word 2 of palette_words
-            // The cursor d0=d3 is a byte offset added to Pal_12EEC+6, so the
-            // source word index = 2 + cursor/2.
-            let source_word_index = 2 + (palette_cursor as usize) / 2;
-            if source_word_index + SEGA_FADE_STRIP_WORDS <= data.palette_words.len() {
-                let strip = &data.palette_words
-                    [source_word_index..source_word_index + SEGA_FADE_STRIP_WORDS];
-                vdp.write_cram_words(SEGA_FADE_STRIP_CRAM_WORD_OFFSET, strip);
-            }
-            palette_cursor -= 2;
+    for _ in 0..fade_elapsed {
+        frame_delay -= 1;
+        if frame_delay >= 0 {
+            continue;
         }
+        // Reset delay counter.
+        frame_delay = 3;
+        if palette_cursor < 0 {
+            continue;
+        }
+        // ASM loc_12ED2: copy 11 words from Pal_12EEC+6+cursor to CRAM+$4.
+        // Pal_12EEC+6 = byte 6 from the start of the palette block,
+        // which is word 3 in our palette_words array (after the 2-byte header
+        // that is NOT included in palette_words — the header was consumed
+        // during loading).  But the fade data in the ROM is at Pal_12EEC+6,
+        // and the first 2 bytes of Pal_12EEC are the header bytes (dest=0,
+        // count=$0C).  So Pal_12EEC+6 = 4 bytes past the palette data start,
+        // i.e. word index 2 + (cursor/2).
+        //
+        // Actually: Pal_12EEC byte layout:
+        //   [0]=dest_offset, [1]=dbf_count, [2..67]=SegaLogo.bin contents
+        // Pal_12EEC+6 = byte 6 = SegaLogo.bin byte 4 = word 2 of palette_words
+        // The cursor d0=d3 is a byte offset added to Pal_12EEC+6, so the
+        // source word index = 2 + cursor/2.
+        let source_word_index = 2 + (palette_cursor as usize) / 2;
+        if source_word_index + SEGA_FADE_STRIP_WORDS <= data.palette_words.len() {
+            let strip =
+                &data.palette_words[source_word_index..source_word_index + SEGA_FADE_STRIP_WORDS];
+            vdp.write_cram_words(SEGA_FADE_STRIP_CRAM_WORD_OFFSET, strip);
+        }
+        palette_cursor -= 2;
     }
 
     vdp
@@ -751,6 +754,40 @@ mod tests {
     }
 
     #[test]
+    fn write_vram_word_at_origin_writes_both_bytes() {
+        // ASM `move.w d1,(a6)` against a VRAM-write VDP control word writes
+        // the high byte of d1 first and then the low byte at the next address.
+        // Pinning byte_addr=0 separately from the existing 0x100 case means
+        // any mutant that turns `byte_addr + 1` (line 80) into `byte_addr - 1`
+        // underflows the bound check at the lowest legal address — the
+        // 0x100 case wouldn't notice because the underflowed value is still
+        // less than VRAM_SIZE.
+        let mut vdp = VdpState::new();
+        vdp.write_vram_word(0, 0x80BC);
+        assert_eq!(vdp.vram[0], 0x80, "high byte at byte_addr=0");
+        assert_eq!(vdp.vram[1], 0xBC, "low byte at byte_addr=0+1");
+    }
+
+    #[test]
+    fn write_vram_word_skips_when_low_byte_would_overrun() {
+        // ASM treats VDP VRAM as a 64KB linear buffer; native mirrors that
+        // with `vram: vec![0; VRAM_SIZE]`.  At byte_addr = VRAM_SIZE - 1 the
+        // high byte fits at vram[VRAM_SIZE-1] but the low byte would need
+        // vram[VRAM_SIZE], so the bound `byte_addr + 1 < self.vram.len()`
+        // (line 80) must reject the write.  Any mutant that loosens the
+        // comparison to `<=` (or perturbs `+ 1` to `* 1`) would index past
+        // the end and panic; the original silently skips and leaves the
+        // last byte untouched.
+        let mut vdp = VdpState::new();
+        let last = VRAM_SIZE - 1;
+        vdp.write_vram_word(last, 0x80BC);
+        assert_eq!(
+            vdp.vram[last], 0,
+            "boundary write at byte_addr=VRAM_SIZE-1 must be rejected, vram[last] stays 0",
+        );
+    }
+
+    #[test]
     fn write_cram_words_stores_big_endian() {
         let mut vdp = VdpState::new();
         vdp.write_cram_words(0, &[0x0EEE, 0x0444]);
@@ -758,6 +795,25 @@ mod tests {
         assert_eq!(vdp.cram[1], 0xEE);
         assert_eq!(vdp.cram[2], 0x04);
         assert_eq!(vdp.cram[3], 0x44);
+    }
+
+    #[test]
+    fn write_cram_words_at_nonzero_offset_advances_byte_offset() {
+        // ASM `lea (Palette_Buffer+$4).l,a1; move.w (a0)+,(a1)+` writes word
+        // strips at non-zero CRAM offsets — `Palette_Buffer+$4` corresponds
+        // to CRAM word offset 2 (byte offset 4).  Driving write_cram_words
+        // with a non-zero `word_offset` AND multiple words pins the
+        // `(word_offset + i) * 2` byte-offset formula on line 90: any mutant
+        // that flips the `*` to `+` lands the second word at byte_offset
+        // word_offset+i+2 instead of (word_offset+i)*2, and any mutant that
+        // flips the `+` to `*` lands word i at i*word_offset*2 — both shift
+        // the second strip word away from cram[6..8].
+        let mut vdp = VdpState::new();
+        vdp.write_cram_words(2, &[0x0EEE, 0x0444]);
+        assert_eq!(vdp.cram[4], 0x0E, "word 0 high byte at cram[(2+0)*2]");
+        assert_eq!(vdp.cram[5], 0xEE, "word 0 low byte at cram[(2+0)*2 + 1]");
+        assert_eq!(vdp.cram[6], 0x04, "word 1 high byte at cram[(2+1)*2]");
+        assert_eq!(vdp.cram[7], 0x44, "word 1 low byte at cram[(2+1)*2 + 1]");
     }
 
     #[test]
@@ -810,6 +866,110 @@ mod tests {
         assert_eq!(vdp.vram[0xFFFF], 0xAA);
         // Write past end — should silently do nothing.
         vdp.write_vram(VRAM_SIZE + 100, &[0xBB; 10]);
+    }
+
+    #[test]
+    fn build_sega_screen_vdp_fade_loc_12e96_first_palette_strip_lands_at_elapsed_32() {
+        // ASM Load_SegaScreen loc_12E64 (kid.asm:25497-25510): the initial
+        // wait loop seeds `moveq #$A,d2` then `dbf d2,loc_12E6C`, so it spends
+        // exactly 11 frames before the fade outer loop at loc_12E96 starts.
+        // That outer loop seeds `moveq #$14,d1` (frame delay) and `moveq
+        // #$28,d3` (palette cursor).  loc_12E96 (kid.asm:25515-25543) does
+        // `subq.w #1,d1; bpl.s loc_12ED8`, so the first palette copy at
+        // loc_12ED2 (kid.asm:25537) only fires when d1 transitions from 0 to
+        // -1 — exactly 21 fade iterations later.  At that point d0 captures
+        // the cursor BEFORE `subq.w #2,d3`, and `lea Pal_12EEC+6(pc,d0.w),a0`
+        // resolves to palette word index 2 + d0/2 (Pal_12EEC = [dest, count,
+        // SegaLogo.bin...]; the +6 offset and the absent header in
+        // `palette_words` cancel to leave +2 word indices).  loc_12ED2 then
+        // copies `moveq #$A,d0; dbf d0` = 11 words into Palette_Buffer+$4
+        // (CRAM word offset 2).  This test seeds palette_words with distinct
+        // values so any mutation of `2 + cursor/2`, the strip slice, the
+        // fade-strip CRAM destination, or the cursor decrement lands the
+        // wrong source words at the wrong CRAM offset.
+        let mut palette_words = vec![0u16; 33];
+        for (i, slot) in palette_words.iter_mut().enumerate() {
+            *slot = 0x1000 + i as u16;
+        }
+        let data = SegaScreenData {
+            art_bytes: vec![0; 32],
+            palette_words: palette_words.clone(),
+        };
+
+        // Sanity: at elapsed=11 the initial wait loop is still consuming
+        // frames, so the fade outer loop hasn't started — CRAM word 2 must
+        // still match the initial Pal_12EEC copy at loc_12DFE (which writes
+        // palette_words[0..13] to CRAM word offset 0).
+        let vdp_initial = build_sega_screen_vdp(&data, SEGA_INITIAL_WAIT_FRAMES);
+        assert_eq!(
+            u16::from_be_bytes([vdp_initial.cram[4], vdp_initial.cram[5]]),
+            palette_words[2],
+            "elapsed=11: fade not yet running, CRAM word 2 = initial palette word 2",
+        );
+
+        // Sanity: at elapsed=12, the fade outer loop has run 1 iteration but
+        // d1 went 0x14→0x13 — still bpl, no copy.  CRAM word 2 must still be
+        // the initial palette word 2.
+        let vdp_one_iter = build_sega_screen_vdp(&data, SEGA_INITIAL_WAIT_FRAMES + 1);
+        assert_eq!(
+            u16::from_be_bytes([vdp_one_iter.cram[4], vdp_one_iter.cram[5]]),
+            palette_words[2],
+            "elapsed=12: 1 fade iteration, d1=$13, no copy yet",
+        );
+
+        // First copy fires after exactly 21 fade iterations (d1 = 0x14, 0x13,
+        // ..., 0, -1 → not bpl).  Cursor on entry is $28, so source_word_index
+        // = 2 + 0x28/2 = 22.  All 11 strip words must equal palette_words[22..33].
+        let vdp_first_copy = build_sega_screen_vdp(&data, SEGA_INITIAL_WAIT_FRAMES + 21);
+        for i in 0..SEGA_FADE_STRIP_WORDS {
+            let cram_byte_offset = (SEGA_FADE_STRIP_CRAM_WORD_OFFSET + i) * 2;
+            let actual = u16::from_be_bytes([
+                vdp_first_copy.cram[cram_byte_offset],
+                vdp_first_copy.cram[cram_byte_offset + 1],
+            ]);
+            assert_eq!(
+                actual,
+                palette_words[22 + i],
+                "first fade copy: CRAM word {} = palette_words[{}]",
+                SEGA_FADE_STRIP_CRAM_WORD_OFFSET + i,
+                22 + i,
+            );
+        }
+
+        // Second copy fires 4 iterations later (d1 reset to 3, then 3,2,1,0,-1).
+        // Cursor was $28, decremented by 2 after the first copy → $26 on
+        // entry.  source_word_index = 2 + 0x26/2 = 21.  Strip = palette_words[21..32].
+        let vdp_second_copy = build_sega_screen_vdp(&data, SEGA_INITIAL_WAIT_FRAMES + 25);
+        for i in 0..SEGA_FADE_STRIP_WORDS {
+            let cram_byte_offset = (SEGA_FADE_STRIP_CRAM_WORD_OFFSET + i) * 2;
+            let actual = u16::from_be_bytes([
+                vdp_second_copy.cram[cram_byte_offset],
+                vdp_second_copy.cram[cram_byte_offset + 1],
+            ]);
+            assert_eq!(
+                actual,
+                palette_words[21 + i],
+                "second fade copy: CRAM word {} = palette_words[{}]",
+                SEGA_FADE_STRIP_CRAM_WORD_OFFSET + i,
+                21 + i,
+            );
+        }
+
+        // After 22 copies (elapsed = 11 initial + 21 + 21*4 = 116), cursor has
+        // decremented from $28 to 0 and the 22nd copy uses source_word_index =
+        // 2 + 0/2 = 2.  ASM loc_12E96 (kid.asm:25531): `bmi.w loc_12ED8`
+        // skips only when d3 (the cursor) is already negative — at d3=0 the
+        // branch is NOT taken, so the copy still fires for cursor==0.  This
+        // pins the strict-less-than bound on line 161 (`palette_cursor < 0`):
+        // any mutant that loosens it to `<=`/`==` would skip the cursor==0
+        // copy and leave CRAM word 2 holding the previous strip's value
+        // (palette_words[3], from the 21st copy at cursor=2).
+        let vdp_cursor_zero = build_sega_screen_vdp(&data, SEGA_INITIAL_WAIT_FRAMES + 21 + 21 * 4);
+        assert_eq!(
+            u16::from_be_bytes([vdp_cursor_zero.cram[4], vdp_cursor_zero.cram[5]]),
+            palette_words[2],
+            "22nd fade copy at cursor=0: CRAM word 2 = palette_words[2 + 0/2] = palette_words[2]",
+        );
     }
 
     #[test]
