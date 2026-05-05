@@ -14963,6 +14963,211 @@ mod chunk_05 {
         );
     }
 
+    #[test]
+    fn lava_fireball_cooldown_only_resets_segment_at_zero_frame() {
+        // ASM loc_14A4C → loc_149CC (kid.asm:28104-28038): the 60-frame
+        // hibernation between fireball cycles ends with `bra.w loc_149CC`,
+        // which re-seeds the script registers in one shot. Native models this
+        // as a single restart on the exact frame `cooldown_timer` decrements
+        // to zero — never on the intermediate frames where the timer is still
+        // counting down. This pins the strict `== 0` boundary so a `!= 0`
+        // mutant on `advance_lava_fireball` is killed.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_fireballs.push(LavaFireball {
+            x_px: 100,
+            base_y_px: 200,
+            current_y_px: 250,
+            segment_index: 5,
+            segment_frame: 3,
+            cooldown_timer: 2,
+        });
+
+        let slice = airborne_slice();
+
+        // Frame 1: cooldown 2 → 1, still non-zero → no segment reset.
+        runtime.step_lava_geysers(&slice);
+        let fireball = &runtime.weather.lava_fireballs[0];
+        assert_eq!(
+            fireball.cooldown_timer, 1,
+            "ASM loc_14A4C hibernation should decrement once per frame"
+        );
+        assert_eq!(
+            fireball.segment_index, 5,
+            "ASM cooldown == 0 reset must NOT fire while the hibernation is still counting down"
+        );
+        assert_eq!(
+            fireball.current_y_px, 250,
+            "ASM loc_149CC re-seed should only fire when the hibernation expires, not mid-countdown"
+        );
+
+        // Frame 2: cooldown 1 → 0 → restart fires exactly once.
+        runtime.step_lava_geysers(&slice);
+        let fireball = &runtime.weather.lava_fireballs[0];
+        assert_eq!(fireball.cooldown_timer, 0);
+        assert_eq!(
+            fireball.segment_index, 0,
+            "ASM loc_14A4C → loc_149CC should restart the script the moment the hibernation expires"
+        );
+        assert_eq!(
+            fireball.segment_frame, 0,
+            "ASM loc_149CC restart should reset the segment frame counter"
+        );
+        assert_eq!(
+            fireball.current_y_px, fireball.base_y_px,
+            "ASM loc_149CC restart should snap current_y_px back to the seeded base row"
+        );
+    }
+
+    #[test]
+    fn step_murder_wall_reversed_subtracts_speed_from_x_pos_exactly() {
+        // ASM loc_7388 (kid.asm:7495): `sub.l d7,(MurderWall_X_pos).w`. The
+        // reversed wall must subtract the accelerated speed in 32-bit
+        // sub-pixel units, not divide. Seed the camera far ahead of the wall
+        // so the reverse camera-push at loc_7396 lands on `d0 >= -$7F` (no
+        // adjustment), letting us assert the raw `x_pos - speed` result and
+        // kill the `-=` → `/=` mutant on the position update.
+        let mut runtime = NativeRuntime::new(manifest());
+        let initial_x: i64 = 0x0100_0000;
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: initial_x,
+            speed: 0,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: true,
+        });
+        // camera_px = $80 < wall_px = $100, gap d0 = -$80.  After the
+        // subtraction the wall sits at $00FF_FF00 (high half $FF), so
+        // d0 = $80 - $FF = -$7F which falls in the loc_73A0/73C2 tolerable
+        // band (no camera or wall adjustment).
+        let mut cam: u32 = 0x0080_0000;
+        runtime.step_murder_wall(&mut cam);
+        let wall = runtime.murder_wall.as_ref().unwrap();
+        assert_eq!(
+            wall.speed, MURDER_WALL_ACCELERATION,
+            "ASM loc_7316 still accelerates by $100 on the reversed path"
+        );
+        assert_eq!(
+            wall.x_pos,
+            initial_x - i64::from(MURDER_WALL_ACCELERATION),
+            "ASM loc_7388 should subtract the accelerated speed from MurderWall_X_pos exactly (-$100), not divide it"
+        );
+        assert_eq!(
+            cam, 0x0080_0000,
+            "ASM loc_73A0/73C2 tolerable gap should leave Camera_X_pos untouched on this frame"
+        );
+    }
+
+    #[test]
+    fn step_lava_geysers_returns_early_when_weather_is_not_lava() {
+        // ASM Obj_Lava_Geyser (kid.asm:27799) is only spawned by loc_14C6A on
+        // lava-weather levels (`Current_LevelID` ∈ Special_Effects_Lava).
+        // Native mirrors that with the early return on `weather_type != 1`.
+        // If a residual geyser survives a weather change, no phase advance
+        // must happen — pin the early return to kill the `||` → `&&` mutant
+        // on the guard in `step_lava_geysers`.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 0; // not lava
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 16,
+            phase: 0,
+            timer: 5,
+            current_height: 0,
+        });
+
+        let slice = airborne_slice();
+        runtime.step_lava_geysers(&slice);
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(
+            geyser.phase, 0,
+            "ASM sub_146E2 should not be entered on non-lava weather, so the geyser phase must stay dormant"
+        );
+        assert_eq!(
+            geyser.timer, 5,
+            "ASM sub_146E2 early-out must skip the dormant timer countdown when weather_type != 1"
+        );
+        assert_eq!(geyser.current_height, 0);
+    }
+
+    #[test]
+    fn step_lava_geysers_phase_0_dormant_decrements_timer_and_keeps_phase() {
+        // ASM loc_14772 (kid.asm:27817): the dormant phase loops on
+        // `j_Hibernate_Object_1Frame; dbf d2,loc_14772`, taking the branch
+        // while the timer is non-negative and falling through to the
+        // eruption setup (loc_14788) only once `d2` underflows past zero.
+        // The native model checks `timer > 0` and decrements by exactly one
+        // per frame; this exact-value pin kills the `>` → `<` and `-=` →
+        // `+=`/`/=` mutants on the dormant branch.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 16,
+            phase: 0,
+            timer: 5,
+            current_height: 0,
+        });
+
+        let slice = airborne_slice();
+        runtime.step_lava_geysers(&slice);
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(
+            geyser.phase, 0,
+            "ASM loc_14776 should keep the geyser dormant while `$4E(a5)` is still positive"
+        );
+        assert_eq!(
+            geyser.timer, 4,
+            "ASM loc_14776 `subq.w #1,$4E(a5)` must subtract exactly 1, never add or divide"
+        );
+        assert_eq!(geyser.current_height, 0);
+    }
+
+    #[test]
+    fn step_lava_geysers_phase_3_collapse_decrements_height_by_erupt_speed() {
+        // ASM loc_1498C (kid.asm:28031): once the hold timer at loc_1496C
+        // expires and `$4D(a5)` flips to "going down", the worker enters the
+        // collapse loop with `subi.w #1,d3; bne.w loc_1485E; sf $4D(a5);
+        // bra.w loc_14788`. Native simplifies that into the phase-3 branch
+        // that subtracts `LAVA_GEYSER_ERUPT_SPEED` from `current_height`
+        // each frame and re-arms the dormant timer only once the column
+        // hits the floor. Seed the column above that threshold so the
+        // original takes the decrement branch and the mutants (`>` → `<`
+        // falls into the dormant reset; `-=` → `/=` snaps height to 4)
+        // become observable.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 16,
+            phase: 3,
+            timer: 0,
+            current_height: 16, // > LAVA_GEYSER_ERUPT_SPEED (4)
+        });
+
+        let slice = airborne_slice();
+        runtime.step_lava_geysers(&slice);
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(
+            geyser.phase, 3,
+            "ASM loc_14782 should stay in the collapse branch while the column still towers above LAVA_GEYSER_ERUPT_SPEED"
+        );
+        assert_eq!(
+            geyser.current_height,
+            16 - LAVA_GEYSER_ERUPT_SPEED,
+            "ASM loc_14782 collapse step must subtract LAVA_GEYSER_ERUPT_SPEED exactly, not divide by it"
+        );
+        assert_eq!(
+            geyser.timer, 0,
+            "ASM loc_14782 must not arm the dormant timer until the collapse hits the floor"
+        );
+    }
+
     // --- Lava geyser init ---
 
     #[test]
