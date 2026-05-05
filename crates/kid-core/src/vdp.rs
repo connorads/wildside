@@ -814,23 +814,50 @@ mod tests {
 
     #[test]
     fn intro_sequence_plane_a_tilemap_at_nametable_origin() {
-        // ASM sub_1B850: sub_1C5D0 called with d4=0, d5=0, d6=$28, d7=$1C
-        // → 40×28 tilemap at cell (0,0) in the plane A nametable at $0000.
-        let tilemap = vec![0x1234u16; 40 * 28];
+        // ASM sub_1B850 (kid.asm:30193-30197) seeds d4=0, d5=0, d6=$28, d7=$1C
+        // before bsr.w sub_1C5D0, and sub_1C5D0 (kid.asm:31341-31363) reads the
+        // source pointer linearly with `move.w (a4)+,(a6)` for d6+1 = 40 words
+        // per row while advancing the VRAM target by `addi.l #$800000` (128
+        // bytes = one nametable row) for d7+1 = 28 rows. The source is
+        // therefore row-major with stride 40, the VRAM target is row*128 +
+        // col*2, and only columns 0..39 of each row are written.
+        //
+        // Each cell carries a unique value `(row << 8) | col | 0x8000` so that
+        // mutating the source-side word index (`row * 40 + col`) to anything
+        // else lands the wrong row at the right VRAM address — uniform fill
+        // values cannot detect that class of mutation.
+        let mut tilemap = vec![0u16; 40 * 28];
+        for row in 0..28u16 {
+            for col in 0..40u16 {
+                tilemap[(row as usize) * 40 + (col as usize)] = 0x8000 | (row << 8) | col;
+            }
+        }
         let data = IntroSub1B850Data {
             plane_a_tilemap: tilemap,
             ..empty_intro_data()
         };
         let vdp = build_intro_sequence_vdp(&data, 0);
 
-        // First tile at (0,0) → byte address $0000.
-        let w = u16::from_be_bytes([vdp.vram[0], vdp.vram[1]]);
-        assert_eq!(w, 0x1234, "plane A first tile at (0,0)");
+        // Sample row-major source-vs-target pairs: corners and one interior
+        // cell so any mutation that breaks `row * 40 + col` indexing or
+        // `row * 128 + col * 2` VRAM addressing produces a divergence.
+        for &(row, col) in &[(0u16, 0u16), (0, 39), (1, 0), (5, 7), (27, 39)] {
+            let addr = (row as usize) * 128 + (col as usize) * 2;
+            let w = u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
+            let expected = 0x8000 | (row << 8) | col;
+            assert_eq!(
+                w, expected,
+                "plane A cell ({row},{col}) at byte ${addr:04X}"
+            );
+        }
 
-        // Last tile at (39,27) → byte $0000 + 27*128 + 39*2 = 3456 + 78 = 3534.
-        let addr = 27 * 128 + 39 * 2;
-        let w = u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
-        assert_eq!(w, 0x1234, "plane A last tile at (39,27)");
+        // Column 40 is past sub_1C5D0's d6=$28 inner-loop bound, so the byte
+        // immediately after the last written column on row 0 must remain zero.
+        let untouched = u16::from_be_bytes([vdp.vram[80], vdp.vram[81]]);
+        assert_eq!(
+            untouched, 0,
+            "ASM sub_1C5D0 only writes 40 words per row; column 40 must stay 0"
+        );
     }
 
     #[test]
