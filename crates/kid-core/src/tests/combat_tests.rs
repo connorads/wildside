@@ -12769,6 +12769,114 @@ mod chunk_05 {
     }
 
     #[test]
+    fn sub_6048_skips_hail_block_when_level_special_effects_not_storm_and_hail() {
+        // ASM loc_6172 (kid.asm:6153): cmpi.w #WeatherID_Storm_and_Hail,
+        // (Level_Special_Effects).w; bne.s return_61C0 — non-3 level special
+        // effects exit before any hail-period bookkeeping. Native folds this
+        // into the hail-block guard. Pin frame_counter past the $873 boundary
+        // with level_special_effects=2 so the original `&&` short-circuits;
+        // a `&& with ||` mutant on the level-effects guard would fall through
+        // and decrement hail_period_timer, marking the test red.
+        let stepped = step_level_special_effects_sub_6048(
+            WeatherSpecialEffectsStepSub6048 {
+                frame_counter: 0x0874,
+                level_special_effects: 2,
+                foreground_theme_is_mountain: false,
+                background_theme_is_mountain: false,
+                fade_countdown: 0,
+                fade_progress_latch: 0,
+                palette_animation_speed: 0,
+                pending_palette_mask_0: 0,
+                weather_mode_byte: 0,
+                thunder_timer: 10,
+                hail_period_timer: 7,
+                hail_active: false,
+                snow_spawn_cooldown: 9,
+                snow_slot_count: 3,
+                play_thunder_sound: false,
+                call_snow_worker: false,
+                palette_ops: Vec::new(),
+            },
+            [0; 8],
+            [0; 15],
+            [0; 7],
+            [0; 7],
+            0,
+        );
+
+        assert_eq!(
+            stepped.hail_period_timer, 7,
+            "ASM loc_6172 bne.s return_61C0: non-storm-and-hail level must NOT decrement hail_period_timer"
+        );
+        assert!(
+            !stepped.hail_active,
+            "ASM loc_6172 bne.s return_61C0: hail_active must remain false when the level guard fails"
+        );
+        assert!(
+            !stepped.call_snow_worker,
+            "ASM loc_6172 bne.s return_61C0: sub_61CA must NOT be invoked when the level guard fails"
+        );
+        assert_eq!(
+            stepped.snow_spawn_cooldown, 9,
+            "ASM loc_6172 bne.s return_61C0: snow_spawn_cooldown stays untouched on the early-exit path"
+        );
+    }
+
+    #[test]
+    fn sub_6048_skips_hail_block_at_frame_counter_threshold_0x0873() {
+        // ASM loc_6172 (kid.asm:6155): cmpi.w #$873,(Frame_Counter).w; bls.s
+        // return_61C0 — frame_counter EQUAL to $873 still takes the bls
+        // branch (less-OR-same) and exits before the hail logic. Pinning the
+        // boundary at exactly $873 with level_special_effects=3 kills both
+        // the `> with >=` mutant on the frame_counter > 0x0873 check and the
+        // `&& with ||` mutant on the second `&&` between the level guard and
+        // the frame_counter guard.
+        let stepped = step_level_special_effects_sub_6048(
+            WeatherSpecialEffectsStepSub6048 {
+                frame_counter: 0x0873,
+                level_special_effects: 3,
+                foreground_theme_is_mountain: false,
+                background_theme_is_mountain: false,
+                fade_countdown: 0,
+                fade_progress_latch: 0,
+                palette_animation_speed: 0,
+                pending_palette_mask_0: 0,
+                weather_mode_byte: 0,
+                thunder_timer: 10,
+                hail_period_timer: 7,
+                hail_active: false,
+                snow_spawn_cooldown: 9,
+                snow_slot_count: 3,
+                play_thunder_sound: false,
+                call_snow_worker: false,
+                palette_ops: Vec::new(),
+            },
+            [0; 8],
+            [0; 15],
+            [0; 7],
+            [0; 7],
+            0,
+        );
+
+        assert_eq!(
+            stepped.hail_period_timer, 7,
+            "ASM loc_6172 bls.s return_61C0: frame_counter == $873 takes the bls branch and must NOT decrement hail_period_timer"
+        );
+        assert!(
+            !stepped.hail_active,
+            "ASM loc_6172 bls.s return_61C0: hail_active stays false at the $873 boundary"
+        );
+        assert!(
+            !stepped.call_snow_worker,
+            "ASM loc_6172 bls.s return_61C0: no sub_61CA call at the $873 boundary"
+        );
+        assert_eq!(
+            stepped.snow_spawn_cooldown, 9,
+            "ASM loc_6172 bls.s return_61C0: snow_spawn_cooldown stays untouched at the $873 boundary"
+        );
+    }
+
+    #[test]
     fn sub_61ca_reuses_deleted_falling_slot_and_keeps_its_animation_word() {
         let mut collision_rows = empty_weather_collision_rows_sub_61_ca();
         collision_rows.rows[2][8] = 0;
@@ -13517,6 +13625,57 @@ mod chunk_05 {
         assert!(
             stepped.falling_slots[0].y_px < 0,
             "ASM loc_62AA: crosses tile boundary, second tile blocked (& $FF != 0) → no spawn"
+        );
+    }
+
+    #[test]
+    fn loc_626c_no_cross_unblocked_first_tile_spawns_despite_blocked_second_tile() {
+        // ASM loc_62AA (kid.asm:6275): the second-tile guard at loc_62B6
+        // (`andi.w #$FF,d6; bne.s loc_62CE`) only fires when col_ceil != col_floor
+        // (the spawn footprint crosses into the next 16-wide collision column).
+        // With random=$08 → spawn_x=$30=48, col_floor=48>>4=3 and col_ceil=(48+$F)>>4=3,
+        // so the cross flag is clear and the second tile must be ignored even when
+        // its low byte is set. This pins the right-shift in the col_ceil formula:
+        // a `>> with <<` mutant on `(spawn_x + $F) >> 4` would inflate col_ceil to
+        // 0x3F0 = 1008, force crosses_tile=true, and let the blocked second tile at
+        // [0][4] suppress the spawn.
+        let mut collision_rows = empty_weather_collision_rows_sub_61_ca();
+        collision_rows.rows[0][3] = 0x0000; // first tile clear → no first-tile block
+        collision_rows.rows[0][4] = 0x0010; // second tile blocked, but ignored when no cross
+
+        let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+            camera_x_px: 0,
+            camera_y_px: 0,
+            spawn_cooldown: 1,
+            free_falling_slots: 1,
+            falling_slots: [
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+            ],
+            impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+            kid_hitbox_top_px: 9999,
+            kid_hitbox_bottom_px: 9999,
+            kid_hitbox_left_px: 9999,
+            kid_hitbox_right_px: 9999,
+            random_byte: 0x08,
+            collision_rows,
+            starting_number_sprites: 0,
+        });
+
+        assert_eq!(
+            stepped.falling_slots[0].y_px, 0,
+            "ASM loc_62C2: spawn_y_px = camera_y_px = 0 must be written to the freed slot"
+        );
+        assert_eq!(
+            stepped.falling_slots[0].x_px, 0x0030,
+            "ASM loc_62C2: spawn_x_px = camera_x + random + $28 = $30 must land on the freed slot"
+        );
+        assert_eq!(
+            stepped.free_falling_slots, 0,
+            "ASM loc_62C2: subq.b #1,($FFFFFB3D).w should decrement the free count after a successful spawn"
         );
     }
 
@@ -14427,9 +14586,13 @@ mod chunk_05 {
             starting_number_sprites: 0,
         });
 
-        assert!(
-            stepped.impact_slots[0].y_px < 0,
-            "ASM loc_63C4: move.l #$FFFFFFFF,(a0) deactivates slot when frame >= 2"
+        assert_eq!(
+            stepped.impact_slots[0].y_px, -1,
+            "ASM loc_63C4: move.l #$FFFFFFFF,(a0) writes -1 to slot.y_px"
+        );
+        assert_eq!(
+            stepped.impact_slots[0].x_px, -1,
+            "ASM loc_63C4: move.l #$FFFFFFFF,(a0) writes -1 to slot.x_px (low half of the long write); pinning the negative sentinel kills a `delete -` mutant on the x_px deactivation store"
         );
         assert_eq!(
             stepped.impact_slots[0].animation_cooldown, 1,
@@ -15017,6 +15180,70 @@ mod chunk_05 {
             fireball.current_y_px, fireball.base_y_px,
             "ASM loc_149CC restart should snap current_y_px back to the seeded base row"
         );
+    }
+
+    #[test]
+    fn lava_fireball_rise_phase_subtracts_scripted_delta_y_per_segment() {
+        // ASM unk_146CC (kid.asm:27745): the scripted small-fireball motion
+        // table walks five rise segments before the apex hold. Each entry is
+        // `(frames, delta_y, sprite_kind)`, with frames stored as the dbf
+        // counter (loops `frames + 1` times):
+        //   $A,-4,TallRise   → 11 frames at delta_y -4 (-44)
+        //   $A,-3,TallRise   → 11 frames at delta_y -3 (-33)
+        //   $A,-3,MidRise    → 11 frames at delta_y -3 (-33)
+        //   $A,-2,MidRise    → 11 frames at delta_y -2 (-22)
+        //   $8,-1,MidBody    →  9 frames at delta_y -1  (-9)
+        // Pinning the cumulative current_y_px after each completed segment
+        // kills the five `delete -` mutants on the rise-phase delta_y values
+        // in LAVA_FIREBALL_SCRIPT (any sign flip on a single rise segment
+        // perturbs every subsequent checkpoint).
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_fireballs.push(LavaFireball {
+            x_px: 100,
+            base_y_px: 0x0200,
+            current_y_px: 0x0200,
+            segment_index: 0,
+            segment_frame: 0,
+            cooldown_timer: 0,
+        });
+        runtime.progression.invulnerable_frames = usize::MAX; // suppress damage path
+        runtime.opening_slice = None;
+
+        let mut slice = airborne_slice();
+        // Park Kid far from the fireball so collision never fires.
+        slice.player.x_pos = ((-9000_i32) << 16) as u32;
+        slice.player.y_pos = ((-9000_i32) << 16) as u32;
+
+        let segment_endpoints: [(usize, u16, u8); 5] = [
+            // (frames_to_advance_to_segment_end, expected_current_y_px, expected_segment_index_after_transition)
+            (11, 0x0200 - 44, 1),
+            (22, 0x0200 - 44 - 33, 2),
+            (33, 0x0200 - 44 - 33 - 33, 3),
+            (44, 0x0200 - 44 - 33 - 33 - 22, 4),
+            (53, 0x0200 - 44 - 33 - 33 - 22 - 9, 5),
+        ];
+
+        let mut frames_so_far = 0_usize;
+        for (target_frames, expected_y, expected_idx) in segment_endpoints {
+            while frames_so_far < target_frames {
+                runtime.step_lava_geysers(&slice);
+                frames_so_far += 1;
+            }
+            let fireball = &runtime.weather.lava_fireballs[0];
+            assert_eq!(
+                fireball.current_y_px, expected_y,
+                "ASM unk_146CC rise-phase delta_y after {target_frames} frames should land at {expected_y:#06X}"
+            );
+            assert_eq!(
+                fireball.segment_index, expected_idx,
+                "ASM loc_14A46 dbf transition should advance segment_index to {expected_idx} after the {target_frames}-frame rise checkpoint"
+            );
+            assert_eq!(
+                fireball.segment_frame, 0,
+                "ASM loc_14A46: clr.w segment_frame on segment transition"
+            );
+        }
     }
 
     #[test]

@@ -1193,10 +1193,13 @@ pub(crate) fn step_level_special_effects_sub_6048(
         }
     }
 
-    if state.frame_counter > 0x0834
-        && state.level_special_effects == 3
-        && state.frame_counter > 0x0873
-    {
+    // ASM loc_6172 (kid.asm:6151): cmpi.w #$834,d6; bls.s loc_61C2
+    // also gates this block, but its early-exit just sets weather_mode_byte=4
+    // (which we always emit at the end of the function) and the second gate
+    // `cmpi.w #$873,(Frame_Counter)` strictly dominates it. Collapse the two
+    // checks to a single binding boundary so a `> with >=` mutant on the
+    // weaker $834 check cannot survive as an equivalent mutant.
+    if state.level_special_effects == 3 && state.frame_counter > 0x0873 {
         state.hail_period_timer = state.hail_period_timer.wrapping_sub(1);
         if state.hail_period_timer == 0 {
             // ASM loc_619C (kid.asm:6163): addi.w #$258,($FFFFFB52).w;
