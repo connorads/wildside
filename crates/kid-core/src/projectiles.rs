@@ -600,7 +600,15 @@ impl NativeRuntime {
                 && let Some(g) = grid
             {
                 let mut remaining_bounces = 0x0Fi16;
-                loop {
+                // ASM Lion.asm loc_3E2C0: `dbf d0,loc_3E2A8` with d0 seeded to
+                // `moveq #$F,d0`. The ROM's bound is the `dbf` decrement-and-
+                // branch instruction itself — it fires at the loop tail and
+                // caps execution at exactly 16 iterations. Express that bound
+                // structurally with `for _ in 0..16` so the cap is faithful to
+                // the ROM (the same place the ROM has it) and the loop cannot
+                // be turned into an infinite spin by mutating the helper that
+                // models `dbf` (`lion_projectile_bounce_iterations_continue_loc_3e2c0`).
+                for _ in 0..16 {
                     // ASM loc_3E2A8 then loc_3E2C0: loop up to 16 bounce attempts using `dbf d0`.
                     let px_i = (p.x_pos >> 16) as i32;
                     let py_i = (p.y_pos >> 16) as i32;
@@ -1181,10 +1189,23 @@ mod loc_3e266_tests {
 
     #[test]
     fn loc_3e2c0_dbf_continues_for_sixteen_iterations() {
+        // ASM Lion.asm loc_3E2C0: `dbf d0,loc_3E2A8` with d0 seeded to #$F at
+        // the loop entry — `dbf` decrements then branches while d0 != -1, so
+        // the loop is bounded to exactly 16 iterations. The hard cap inside
+        // the loop body pins that ROM bound: any mutation that turns the
+        // helper into an unconditional `true` (or otherwise drops the
+        // decrement-and-exit contract) blows past 16 and trips the assertion
+        // instead of spinning the test runner into a cargo-mutants timeout.
         let mut remaining_bounces = 0x0Fi16;
         let mut iterations = 0i32;
         loop {
             iterations += 1;
+            assert!(
+                iterations <= 16,
+                "ASM Lion.asm loc_3E2C0: `dbf d0` with d0=$F must exit after \
+                 exactly 16 iterations; the helper failed to decrement or \
+                 return false at the -1 edge."
+            );
             if !super::lion_projectile_bounce_iterations_continue_loc_3e2c0(&mut remaining_bounces)
             {
                 break;
