@@ -15157,6 +15157,13 @@ mod chunk_05 {
 
     #[test]
     fn loc_14afc_applies_the_tall_rise_fireball_drop_before_the_shared_overlap_checks() {
+        // Baseline 0x0200 (512) is non-trivial and non-power-of-divisor for
+        // each constant, so every operator-replacement mutant on the offsets
+        // (`-` → `+` / `/`, `+` → `-` / `*`) produces a visibly different
+        // window. ASM sub_14AB0 (kid.asm:28146) sets `d7 = d1` (top row) and
+        // `d6 = fireball_y + 1` (bottom row); the shared `subq.w #1,d7` plus
+        // bucket-specific branches at loc_14AFC / loc_14B00 / loc_14B04 yield
+        // the five (top, bottom) pairs asserted below.
         assert_eq!(
             crate::weather::lava_fireball_vertical_window_loc_14AFC(
                 0x0200,
@@ -15171,6 +15178,17 @@ mod chunk_05 {
         assert_eq!(
             crate::weather::lava_fireball_vertical_window_loc_14AFC(
                 0x0200,
+                crate::weather::LavaFireballSpriteKind::MidRise,
+            ),
+            crate::weather::LavaFireballVerticalWindowLoc14AFC {
+                top_px: 0x01EE,
+                bottom_px: 0x01FF,
+            },
+            "ASM loc_14B00 (kid.asm:28179) should produce the mid-rise window `[baseline_y-18, baseline_y-1]` via the `subq.w #3,d6` branch on top of the shared `subq.w #1,d7`"
+        );
+        assert_eq!(
+            crate::weather::lava_fireball_vertical_window_loc_14AFC(
+                0x0200,
                 crate::weather::LavaFireballSpriteKind::MidBody,
             ),
             crate::weather::LavaFireballVerticalWindowLoc14AFC {
@@ -15178,6 +15196,28 @@ mod chunk_05 {
                 bottom_px: 0x01FF,
             },
             "ASM loc_14AFC should leave the later sprite buckets on their own neighbouring branches, so a mid-body segment keeps the shared `baseline_y-1` bottom row"
+        );
+        assert_eq!(
+            crate::weather::lava_fireball_vertical_window_loc_14AFC(
+                0x0200,
+                crate::weather::LavaFireballSpriteKind::MidFall,
+            ),
+            crate::weather::LavaFireballVerticalWindowLoc14AFC {
+                top_px: 0x01F4,
+                bottom_px: 0x01FF,
+            },
+            "ASM loc_14B06 fall-through (kid.asm:28170) should produce the mid-fall window `[baseline_y-12, baseline_y-1]` via the `addq.w #3,d6` branch over the shared decrements"
+        );
+        assert_eq!(
+            crate::weather::lava_fireball_vertical_window_loc_14AFC(
+                0x0200,
+                crate::weather::LavaFireballSpriteKind::TallFall,
+            ),
+            crate::weather::LavaFireballVerticalWindowLoc14AFC {
+                top_px: 0x01E9,
+                bottom_px: 0x0206,
+            },
+            "ASM loc_14B04 (kid.asm:28184) should produce the tall-fall window `[baseline_y-23, baseline_y+6]` via the `addq.w #7,d7` branch — the only bucket whose bottom row sits below the baseline"
         );
     }
 
