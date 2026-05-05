@@ -664,7 +664,12 @@ pub(crate) fn build_title_screen_vdp(data: &TitleScreenData) -> VdpState {
     // ASM: after sub_1B2A4, the caller does `moveq #$15,d4; moveq #1,d5;
     // moveq #$12,d6; moveq #$14,d7; bsr.w sub_1C5D0`.
     // sub_1C5D0 computes: byte_addr = row*128 + col*2 within the nametable.
-    // Plane A nametable at $0000 (register 2 = $00).
+    // Plane A nametable at $0000 (register 2 = $00). The maximum byte address
+    // produced for an 18×20 tilemap at cell (21,1) is 20*128 + 38*2 = $0A4C
+    // (≪ VRAM_SIZE), and write_vram_word already gates on the VRAM bound, so
+    // we let it own that check rather than wrapping it in a redundant outer
+    // guard whose `byte_addr + 1 < VRAM_SIZE` never fires for any reachable
+    // (row, col) pair.
     let tilemap_width: usize = 18;
     let tilemap_height: usize = 20;
     let cell_x: usize = 0x15; // 21
@@ -673,12 +678,10 @@ pub(crate) fn build_title_screen_vdp(data: &TitleScreenData) -> VdpState {
     for row in 0..tilemap_height {
         for col in 0..tilemap_width {
             let word_index = row * tilemap_width + col;
-            if word_index < data.plane_a_tilemap.len() {
+            if let Some(&word) = data.plane_a_tilemap.get(word_index) {
                 let byte_addr =
                     plane_a_base + (cell_y + row) * NAMETABLE_ROW_STRIDE_BYTES + (cell_x + col) * 2;
-                if byte_addr + 1 < VRAM_SIZE {
-                    vdp.write_vram_word(byte_addr, data.plane_a_tilemap[word_index]);
-                }
+                vdp.write_vram_word(byte_addr, word);
             }
         }
     }
@@ -1155,9 +1158,26 @@ mod tests {
 
     #[test]
     fn title_screen_tilemap_at_cell_21_1() {
-        // ASM: after sub_1B2A4, sub_1C5D0 with d4=$15, d5=1, d6=$12, d7=$14
-        // → 18×20 tilemap at cell (21,1) in plane A nametable at $0000.
-        let tilemap = vec![0x5678u16; 18 * 20];
+        // ASM sub_1C5D0 (kid.asm:31341-31363): driven by d4=$15, d5=1, d6=$12,
+        // d7=$14 after sub_1B2A4 returns, the routine reads the source pointer
+        // linearly with `move.w (a4)+,(a6)` for d6+1 = 18 words per row while
+        // advancing the VRAM target by `addi.l #$800000` (128 bytes = one
+        // nametable row) for d7+1 = 20 rows; the per-cell VRAM byte address is
+        // therefore `(cell_y + row)*128 + (cell_x + col)*2` with the source
+        // word index laid out row-major as `row*tilemap_width + col`.
+        //
+        // Each cell carries a unique value `(row << 8) | col | 0x8000` so the
+        // assertions pin both the row-major source index AND the row*128 +
+        // col*2 VRAM target: any mutant that swaps `row * tilemap_width` for
+        // `row + tilemap_width` / `row / tilemap_width`, perturbs `cell_x +
+        // col`, or otherwise lands the wrong source word at the right byte
+        // address would copy a different unique value into VRAM.
+        let mut tilemap = vec![0u16; 18 * 20];
+        for row in 0..20u16 {
+            for col in 0..18u16 {
+                tilemap[(row as usize) * 18 + (col as usize)] = 0x8000 | (row << 8) | col;
+            }
+        }
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: tilemap,
@@ -1166,15 +1186,40 @@ mod tests {
         };
         let vdp = build_title_screen_vdp(&data);
 
-        // First tile at cell (21,1) → byte 128 + 42 = 170.
-        let addr = 128 + 21 * 2;
-        let w = u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
-        assert_eq!(w, 0x5678, "title tilemap first tile at cell (21,1)");
+        // Sample row-major source-vs-target pairs across every edge so any
+        // arithmetic mutation on `(cell_y + row) * 128 + (cell_x + col) * 2`
+        // or on `row * tilemap_width + col` produces a divergence on at least
+        // one cell — corners alone cannot distinguish `*` from `+`/`/` when
+        // the right-hand operand is 0 on both edges.
+        for &(row, col) in &[
+            (0u16, 0u16), // (cell_y=1, cell_x=21) → byte 128 + 42 = 170
+            (0, 17),      // top-right edge — pins col*2 / cell_x+col
+            (1, 0),       // exercises a non-zero row at col=0
+            (3, 5),       // interior cell
+            (19, 0),      // bottom-left — pins (cell_y + row) * 128
+            (19, 17),     // bottom-right corner
+        ] {
+            let addr = (1 + row as usize) * 128 + (0x15 + col as usize) * 2;
+            let w = u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
+            let expected = 0x8000 | (row << 8) | col;
+            assert_eq!(
+                w, expected,
+                "title tilemap cell (row={row}, col={col}) at byte ${addr:04X}"
+            );
+        }
 
-        // Last tile at cell (38,20) → (1+19)*128 + (21+17)*2 = 2560 + 76 = 2636.
-        let addr = 20 * 128 + 38 * 2;
-        let w = u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
-        assert_eq!(w, 0x5678, "title tilemap last tile at cell (38,20)");
+        // ASM sub_1C5D0 only writes `d6+1 = 18` words per row, so the byte
+        // immediately after the last written column on row 0 of the title
+        // window must remain zero — pins the inner-loop bound and rules out a
+        // mutant that turns `col < tilemap_width` into a permissive variant.
+        let untouched = u16::from_be_bytes([
+            vdp.vram[128 + (0x15 + 18) * 2],
+            vdp.vram[128 + (0x15 + 18) * 2 + 1],
+        ]);
+        assert_eq!(
+            untouched, 0,
+            "ASM sub_1C5D0 stops after column $11 (= tilemap_width-1); column 18 must stay 0"
+        );
     }
 
     #[test]
