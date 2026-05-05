@@ -1440,4 +1440,35 @@ mod tests {
         let w31 = u16::from_be_bytes([vdp.vram[0xF000 + 62], vdp.vram[0xF000 + 63]]);
         assert_eq!(w31, 0x2222, "tile patch last word at $F03E");
     }
+
+    #[test]
+    fn load_palette_words_decodes_big_endian_pairs_from_disk() {
+        // ASM Palette_Buffer / Pal_1C28A / Pal_1C2F0 / Pal_1C346 (kid.asm:31232,
+        // 31247, 31262) all hold raw 9-bit BGR palette words written through
+        // `move.w (a0)+,(a1)+` — the on-disk layout extracted by the asset
+        // pipeline is therefore big-endian u16 word pairs. load_palette_words
+        // mirrors that with `chunks_exact(2).map(u16::from_be_bytes)`.
+        //
+        // Driving the loader with a known byte sequence (and asserting on both
+        // length AND value) pins all three Result<Vec<u16>>-replacement mutants
+        // cargo-mutants generates for the wrapper: `Ok(vec![])` shrinks the
+        // length, `Ok(vec![0])` and `Ok(vec![1])` change both the length and
+        // the first word's value.
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("kc-vdp-palette-{}-{nanos}.bin", std::process::id()));
+        let bytes: [u8; 6] = [0x0E, 0xEE, 0x04, 0x44, 0x00, 0x00];
+        std::fs::write(&path, bytes).expect("write temp palette");
+
+        let words = load_palette_words(&path).expect("load palette words");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(words.len(), 3, "three big-endian word pairs from 6 bytes");
+        assert_eq!(words[0], 0x0EEE, "first word is BE pair of bytes 0..2");
+        assert_eq!(words[1], 0x0444, "second word is BE pair of bytes 2..4");
+        assert_eq!(words[2], 0x0000, "third word is BE pair of bytes 4..6");
+    }
 }
