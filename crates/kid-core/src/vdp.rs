@@ -276,14 +276,6 @@ pub(crate) struct IntroSub1B850Data {
 pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<IntroSub1B850Data> {
     let scenes = manifest.output_root.join("scenes");
 
-    fn load_saxman_art(scenes: &std::path::Path, filename: &str) -> Result<Vec<u8>> {
-        let path = scenes.join(filename);
-        let compressed = std::fs::read(&path)
-            .with_context(|| format!("failed to read intro art: {}", path.display()))?;
-        kid_data::decode_saxman(&compressed)
-            .with_context(|| format!("failed to decompress intro art: {filename}"))
-    }
-
     // Art uploads — label→filename mapping from kid.asm / extract pipeline.
     let art_files: [(u16, &str); 5] = [
         (0x1780, "artcomp/Wild_Side_arcade.bin"),
@@ -294,7 +286,7 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     ];
     let mut art_chunks = Vec::new();
     for (vram_addr, filename) in &art_files {
-        let decompressed = load_saxman_art(&scenes, filename)?;
+        let decompressed = load_saxman_art(&scenes.join(filename))?;
         // VDP addresses in kid_data are byte addresses (the VDP control port
         // encodes byte addresses, not word addresses, despite the field name).
         art_chunks.push((*vram_addr as usize, decompressed));
@@ -334,9 +326,9 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     let palette_segment_1 = load_palette_words(&scenes.join("palette/intro2_sky.bin"))?;
     let palette_segment_2 = load_palette_words(&scenes.join("palette/intro3_alley.bin"))?;
 
-    let hologram_background_art = load_saxman_art(&scenes, "artcomp/Hologram_background.bin")?;
-    let hologram_blocks_art = load_saxman_art(&scenes, "artcomp/Hologram_blocks.bin")?;
-    let intro_text_letters_art = load_saxman_art(&scenes, "artcomp/Intro_text_letters.bin")?;
+    let hologram_background_art = load_saxman_art(&scenes.join("artcomp/Hologram_background.bin"))?;
+    let hologram_blocks_art = load_saxman_art(&scenes.join("artcomp/Hologram_blocks.bin"))?;
+    let intro_text_letters_art = load_saxman_art(&scenes.join("artcomp/Intro_text_letters.bin"))?;
 
     let hologram_tilemap_raw = std::fs::read(scenes.join("mapeni/hologram_background.bin"))
         .context("failed to read hologram background tilemap")?;
@@ -360,8 +352,10 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     ];
     let mut intro_sequence_5_art_chunks = Vec::new();
     for (vram_addr, filename) in &intro_sequence_5_art_files {
-        intro_sequence_5_art_chunks
-            .push((*vram_addr as usize, load_saxman_art(&scenes, filename)?));
+        intro_sequence_5_art_chunks.push((
+            *vram_addr as usize,
+            load_saxman_art(&scenes.join(filename))?,
+        ));
     }
     let intro_sequence_5_art_chunks: [(usize, Vec<u8>); 4] = intro_sequence_5_art_chunks
         .try_into()
@@ -721,6 +715,19 @@ fn load_palette_words(path: &std::path::Path) -> Result<Vec<u16>> {
         .chunks_exact(2)
         .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
         .collect())
+}
+
+/// Load and decompress a Saxman-compressed art file.
+///
+/// Mirrors ASM `jsr (j_KosDec)` / `jsr (j_SaxDec)` style intro-art uploads
+/// (e.g. sub_1B850 in kid.asm:30172) where each `move.l #ArtAddr,a0` is
+/// followed by a decompression call before the resulting bytes are streamed
+/// into VRAM.
+fn load_saxman_art(path: &std::path::Path) -> Result<Vec<u8>> {
+    let compressed = std::fs::read(path)
+        .with_context(|| format!("failed to read intro art: {}", path.display()))?;
+    kid_data::decode_saxman(&compressed)
+        .with_context(|| format!("failed to decompress intro art: {}", path.display()))
 }
 
 #[cfg(test)]
@@ -1475,5 +1482,32 @@ mod tests {
         assert_eq!(words[0], 0x0EEE, "first word is BE pair of bytes 0..2");
         assert_eq!(words[1], 0x0444, "second word is BE pair of bytes 2..4");
         assert_eq!(words[2], 0x0000, "third word is BE pair of bytes 4..6");
+    }
+
+    #[test]
+    fn load_saxman_art_decompresses_known_fixture_from_disk() {
+        // ASM sub_1B850 (kid.asm:30172) and Load_IntroSequence{2,4,5} all upload
+        // Saxman-compressed art via `jsr (j_SaxDec)` after seeding `a0` with the
+        // ROM offset. load_saxman_art is the I/O wrapper around that decode and
+        // must return the actual decoded bytes — `Ok(vec![])`, `Ok(vec![0])`,
+        // and `Ok(vec![1])` mutants would all corrupt subsequent VRAM uploads.
+        //
+        // Saxman framing matches kid_data::SAXMAN_FIXTURE: a 2-byte little-
+        // endian compressed length, a control byte selecting eight literal
+        // slots, the four ASCII bytes "ABCD", and a trailing zero pair.
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("kc-vdp-saxman-{}-{nanos}.bin", std::process::id()));
+        let compressed: [u8; 10] = [0x00, 0x02, 0xF4, 0x60, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00];
+        std::fs::write(&path, compressed).expect("write temp saxman blob");
+
+        let decoded = load_saxman_art(&path).expect("decompress saxman art");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(decoded.len(), 4, "fixture decodes to four literal bytes");
+        assert_eq!(decoded, b"ABCD", "fixture decodes to ASCII 'ABCD'");
     }
 }
