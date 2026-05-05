@@ -1904,12 +1904,9 @@ mod tests {
             .map(|skin| sample_tile_quad(0x00BC + (skin as u16 * 4)))
             .collect();
         let mut blocks = Vec::with_capacity(81);
-        blocks.push(sample_tile_quad(0x0220));
-        for group in 0..5 {
-            for skin in 0..16 {
-                let base = 0x0224 + ((group * 16 + skin) as u16 * 4);
-                blocks.push(sample_tile_quad(base));
-            }
+        for skin in 0..81 {
+            let base = 0x0220 + (skin as u16 * 4);
+            blocks.push(sample_tile_quad(base));
         }
         let foreground_layout_bytes = sample_foreground_layout_bytes();
         let foreground_layout =
@@ -2540,11 +2537,12 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, Some(&grid));
 
         let expected_tiles = [
-            (16, 0, 0x200, 8),
-            (32, 0, 0x200, 76),
-            (48, 0, 0x200, 144),
-            (64, 0, 0x200, 212),
-            (80, 0, 0x200, 280),
+            (16, 0, 0x200, 4),
+            (32, 0, 0x200, 8),
+            (48, 0, 0x200, 12),
+            (64, 0, 0x200, 16),
+            (80, 0, 0x200, 20),
+            (96, 0, 0x200, 24),
         ];
         for (x, y, expected_sheet_len, expected_tile_index) in expected_tiles {
             let Some((tile_sheet, tile, _)) =
@@ -2556,8 +2554,6 @@ mod tests {
             assert_eq!(tile.tile_index, expected_tile_index);
         }
         assert!(topmost_indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x200).is_none());
-        // Block type 7 (Shifting) keeps its terrain skin — no block override emitted.
-        assert!(topmost_indexed_tile_at_with_sheet_len(&scene, 96, 0, 0x200).is_none());
     }
 
     #[test]
@@ -3674,15 +3670,15 @@ mod tests {
         };
         assert_eq!(tile_sheet.tiles.len(), 0x200);
         assert_eq!(
-            tile.tile_index, 8,
-            "a post-prize $E001 smash block must use smash-family art, not prize-family art"
+            tile.tile_index, 4,
+            "ASM sub_30194 sets d4=$FF before sub_302F6/sub_3034A, so post-prize $E001 must use skin-byte block quad 1"
         );
     }
 
     #[test]
-    fn block_types_have_distinct_tile_mappings() {
+    fn block_types_share_tile_mapping_when_skin_matches() {
         let visuals = sample_level_visuals();
-        let tile_indices: Vec<_> = [Some(0), Some(1), Some(2), Some(6)]
+        let tile_indices: Vec<_> = [Some(0), Some(1), Some(2), Some(6), Some(7)]
             .iter()
             .map(|block_type| {
                 let resolved = visuals
@@ -3696,13 +3692,11 @@ mod tests {
                     .tile_index
             })
             .collect();
-        for i in 0..tile_indices.len() {
-            for j in (i + 1)..tile_indices.len() {
-                assert_ne!(
-                    tile_indices[i], tile_indices[j],
-                    "block mappings at indices {i} and {j} share the same tile"
-                );
-            }
+        for tile_index in tile_indices {
+            assert_eq!(
+                tile_index, 0,
+                "ASM sub_30194 masks block cells with d4=$FF, so block_type cannot change the Block_Mappings tile when skin is unchanged"
+            );
         }
     }
 

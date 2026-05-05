@@ -2,9 +2,7 @@ use crate::tiles::TileQuad;
 use anyhow::{Result, bail};
 use kid_data::BgscrollProfile;
 
-const BLOCK_VARIANT_SKIN_COUNT: usize = 16;
-const BLOCK_VARIANT_GROUP_COUNT: usize = 5;
-const BLOCK_MAPPING_QUAD_COUNT: usize = 1 + BLOCK_VARIANT_SKIN_COUNT * BLOCK_VARIANT_GROUP_COUNT;
+const BLOCK_MAPPING_QUAD_COUNT: usize = 81;
 const FOREGROUND_CELLS_PER_SCREEN_X: u16 = 20;
 const FOREGROUND_CELLS_PER_SCREEN_Y: u16 = 14;
 
@@ -139,10 +137,9 @@ impl BlockVisualMapping {
                     quad,
                 }),
             Some(block_type) => {
-                let (kind, group_index) = block_visual_kind(block_type)?;
-                let block_index = 1 + group_index * BLOCK_VARIANT_SKIN_COUNT + index;
+                let kind = block_visual_kind(block_type);
                 self.block_quads
-                    .get(block_index)
+                    .get(index)
                     .or(self.block_quads.first())
                     .map(|quad| ResolvedBlockVisual { kind, quad })
             }
@@ -150,16 +147,14 @@ impl BlockVisualMapping {
     }
 }
 
-fn block_visual_kind(block_type: u8) -> Option<(BlockVisualKind, usize)> {
+fn block_visual_kind(block_type: u8) -> BlockVisualKind {
     match block_type {
-        0 => Some((BlockVisualKind::Smash, 0)),
-        1 => Some((BlockVisualKind::Prize, 1)),
-        2 => Some((BlockVisualKind::Ice, 2)),
-        5 => Some((BlockVisualKind::Metal, 3)),
-        6 => Some((BlockVisualKind::Rubber, 4)),
-        // Other block types (Mushroom, SolidGhost, Teleporter, Shifting, etc.)
-        // keep their terrain skin — no override needed.
-        _ => None,
+        0 => BlockVisualKind::Smash,
+        1 => BlockVisualKind::Prize,
+        2 => BlockVisualKind::Ice,
+        5 => BlockVisualKind::Metal,
+        6 => BlockVisualKind::Rubber,
+        _ => BlockVisualKind::GenericBlock,
     }
 }
 

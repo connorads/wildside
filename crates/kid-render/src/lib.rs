@@ -57,7 +57,7 @@ mod tests {
     }
 
     #[test]
-    fn load_block_visual_mapping_from_skin_and_block_type() {
+    fn load_block_visual_mapping_uses_skin_byte_for_every_block_type() {
         let fixture = TestBundle::new().expect("test bundle");
 
         let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
@@ -69,51 +69,53 @@ mod tests {
         let smash = visuals
             .level
             .block_mapping
-            .resolve(0, Some(0))
+            .resolve(1, Some(0))
             .expect("smash block mapping");
         let prize = visuals
             .level
             .block_mapping
-            .resolve(0, Some(1))
+            .resolve(1, Some(1))
             .expect("prize block mapping");
         let ice = visuals
             .level
             .block_mapping
-            .resolve(0, Some(2))
+            .resolve(1, Some(2))
             .expect("ice block mapping");
         let metal = visuals
             .level
             .block_mapping
-            .resolve(0, Some(5))
+            .resolve(1, Some(5))
             .expect("metal block mapping");
         let rubber = visuals
             .level
             .block_mapping
-            .resolve(0, Some(6))
+            .resolve(1, Some(6))
             .expect("rubber block mapping");
-        // Block types without specific art (Mushroom, Shifting, etc.) keep terrain skin.
-        let terrain_skin_block = visuals.level.block_mapping.resolve(0, Some(7));
-        assert!(
-            terrain_skin_block.is_none(),
-            "shifting block should keep terrain skin"
-        );
+        let shifting = visuals
+            .level
+            .block_mapping
+            .resolve(1, Some(7))
+            .expect("shifting block mapping");
 
         assert_eq!(terrain.kind, BlockVisualKind::Terrain);
         assert_eq!(terrain.quad.tiles[0].tile_index, 10);
         assert_eq!(terrain.quad.tiles[1].tile_index, 11);
 
         assert_eq!(smash.kind, BlockVisualKind::Smash);
-        assert_eq!(smash.quad.tiles[0].tile_index, 0x0200);
+        assert_eq!(smash.quad.tiles[0].tile_index, 0x0204);
         assert_eq!(prize.kind, BlockVisualKind::Prize);
-        assert_eq!(prize.quad.tiles[0].tile_index, 0x0300);
+        assert_eq!(prize.quad.tiles[0].tile_index, 0x0204);
         assert_eq!(ice.kind, BlockVisualKind::Ice);
-        assert_eq!(ice.quad.tiles[0].tile_index, 0x0400);
+        assert_eq!(ice.quad.tiles[0].tile_index, 0x0204);
         assert_eq!(metal.kind, BlockVisualKind::Metal);
-        assert_eq!(metal.quad.tiles[0].tile_index, 0x0500);
+        assert_eq!(metal.quad.tiles[0].tile_index, 0x0204);
         assert_eq!(rubber.kind, BlockVisualKind::Rubber);
-        assert_eq!(rubber.quad.tiles[0].tile_index, 0x0600);
-
-        assert_ne!(smash, metal);
+        assert_eq!(rubber.quad.tiles[0].tile_index, 0x0204);
+        assert_eq!(shifting.kind, BlockVisualKind::GenericBlock);
+        assert_eq!(
+            shifting.quad.tiles[0].tile_index, 0x0204,
+            "ASM sub_30194 sets d4=$FF, so sub_302F6/loc_30336 and sub_3034A/loc_3037C use the skin byte directly for all block types"
+        );
     }
 
     #[test]
@@ -787,13 +789,10 @@ mod tests {
     }
 
     fn block_mapping_words() -> Vec<u16> {
-        let mut words = vec![0x00BC_u16; 4];
-        for group in 0..5_u16 {
-            let group_base = 0x0200_u16 + group * 0x0100;
-            for skin in 0..16_u16 {
-                let tile_base = group_base + skin * 4;
-                words.extend([tile_base, tile_base + 2, tile_base + 1, tile_base + 3]);
-            }
+        let mut words = Vec::new();
+        for skin in 0..81_u16 {
+            let tile_base = 0x0200_u16 + skin * 4;
+            words.extend([tile_base, tile_base + 2, tile_base + 1, tile_base + 3]);
         }
         words
     }

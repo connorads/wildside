@@ -926,6 +926,22 @@ not a stock-ROM behaviour. The right fix for the backlog item was to document "n
 the shipped ROM" and align native options with the actual disassembly instead of inventing another
 menu branch.
 
+### 139 / 140 — Block_Mappings renderer indexing (PATCHED, AWAITING VISUAL VALIDATION)
+Patch evidence 2026-05-05: `BlockVisualMapping::resolve` now matches ASM `sub_30194` /
+`sub_302F6` / `sub_3034A` by indexing `Block_Mappings` with `usize::from(skin)` for every
+block type. `BlockVisualKind` is retained as diagnostic metadata only; block type no longer changes
+the tile quad. The synthetic fixtures now use 81 contiguous skin-indexed quads instead of the old
+`1 fallback + 5 groups x 16 skins` layout.
+
+Regression coverage:
+- `cargo test -q -p kid-render load_block_visual_mapping_uses_skin_byte_for_every_block_type -- --nocapture`
+- `cargo test -q -p kidcli build_game_scene_emits_block_family_tiles_from_skin_and_block_type -- --nocapture`
+- `cargo test -q -p kidcli prize_block_lifecycle_restores_smash_family_art_after_dispatch -- --nocapture`
+- `cargo test -q -p kidcli block_types_share_tile_mapping_when_skin_matches -- --nocapture`
+
+Keep #139/#140 at `[?]` until a human-controlled gameplay recording validates a rubber-bearing level
+and an actual prize-block hit visually.
+
 ### 142 — Level 1 dragon breath travels too far (FIXED)
 ASM audit 2026-04-05: `loc_3D02A` spawns breath as a stationary GfxObject (animation `stru_3CCC8`, 68 frames: 8+10+10+10+10+10+10) placed at ±28px (`DRAGON_WALKING_BREATH_OFFSET_PX`). Native incorrectly created a travelling projectile with `x_velocity=0x30000` and `lifetime=68`, covering 204px. Fix: zero velocity, keep lifetime=68 (matches animation duration). Also fixed flying dragon fire (`loc_34BAC`): added ±10px X offset and `terrain_kill` (ASM uses off-screen `$19(a3)` cull, not frame timer).
 
