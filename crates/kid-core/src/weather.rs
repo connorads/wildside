@@ -1300,15 +1300,29 @@ const LAVA_FIREBALL_SCRIPT: [LavaFireballSegment; 11] = [
     },
 ];
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn kid_hitbox_bounds_px_at_screen(
+    kid_x_px: i32,
+    kid_foot_y_px: i32,
+) -> (i32, i32, i32, i32) {
+    // ASM sub_14A58/sub_14AB0 read the four `Kid_hitbox_*` words straight from
+    // RAM. Native rebuilds them from the player's screen-pixel position by
+    // subtracting `PLAYER_HALF_WIDTH = 5` from `x_px` for the left column,
+    // adding the same five for the right column, and subtracting
+    // `PLAYER_HEIGHT = 31` from the foot row to get the head row. The bottom
+    // row sits exactly on the foot pixel — Kid is anchored at his feet.
+    (
+        kid_x_px - PLAYER_HALF_WIDTH,
+        kid_x_px + PLAYER_HALF_WIDTH,
+        kid_foot_y_px - PLAYER_HEIGHT,
+        kid_foot_y_px,
+    )
+}
+
 fn kid_hitbox_bounds_px(slice: &OpeningSliceState) -> (i32, i32, i32, i32) {
     let x_px = (slice.player.x_pos >> 16) as i32;
     let foot_y_px = (slice.player.y_pos >> 16) as i32;
-    (
-        x_px - PLAYER_HALF_WIDTH,
-        x_px + PLAYER_HALF_WIDTH,
-        foot_y_px - PLAYER_HEIGHT,
-        foot_y_px,
-    )
+    kid_hitbox_bounds_px_at_screen(x_px, foot_y_px)
 }
 
 #[allow(dead_code)]
@@ -1488,14 +1502,26 @@ pub(crate) fn lava_fireball_overlap_gate_loc_14B06(
 }
 
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_fireball_hitbox_x_window_loc_14AB0(fireball_x_px: u16) -> (i32, i32) {
+    // ASM sub_14AB0 (kid.asm:28151-28157): `move.w $44(a5),d6; subi.w #$80,d6;
+    // addq.w #1,d6` shapes the inclusive left column after the shared sprite
+    // bias subtract — native stores `fireball.x_px` already unbiased so only
+    // the `+1` needs replaying. `addi.w #6,d6` then advances to the inclusive
+    // right column before the second `bgt.s loc_14B22` reject.
+    let left = i32::from(fireball_x_px) + 1;
+    let right = left + 6;
+    (left, right)
+}
+
+#[allow(non_snake_case)]
 fn lava_fireball_hits_kid_sub_14AB0(
     fireball: &LavaFireball,
     slice: &OpeningSliceState,
     sprite_kind: LavaFireballSpriteKind,
 ) -> bool {
     let (kid_left, kid_right, kid_top, kid_bottom) = kid_hitbox_bounds_px(slice);
-    let fireball_left = i32::from(fireball.x_px) + 1;
-    let fireball_right = fireball_left + 6;
+    let (fireball_left, fireball_right) = lava_fireball_hitbox_x_window_loc_14AB0(fireball.x_px);
     let vertical_window =
         lava_fireball_vertical_window_loc_14AFC(fireball.current_y_px, sprite_kind);
 

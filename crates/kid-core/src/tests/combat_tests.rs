@@ -15031,6 +15031,18 @@ mod chunk_05 {
             Some(crate::weather::LavaFireballScriptStepLoc149E4::CooldownAndRestart),
             "ASM loc_149E4 should branch to loc_14A4C as soon as the first script word is negative, which is how `unk_146CC` terminates the fireball loop before the 60-frame hibernation"
         );
+        assert_eq!(
+            crate::weather::decode_lava_fireball_script_step_loc_149E4(&[0x0000, 0xFFFC, 0x1234]),
+            Some(crate::weather::LavaFireballScriptStepLoc149E4::EmitSegment(
+                crate::weather::LavaFireballSegmentLoc149E4 {
+                    dbf_counter: 0x0000,
+                    frames: 0x0001,
+                    delta_y: -4,
+                    sprite_script_word: 0x1234,
+                }
+            )),
+            "ASM loc_149E4 (kid.asm:28061-28062) uses `bmi.s loc_14A4C`, which only branches on N=1 — a zero counter is non-negative, so the segment loop must still emit a one-frame segment instead of falling through to the cooldown sentinel"
+        );
     }
 
     #[test]
@@ -15093,6 +15105,12 @@ mod chunk_05 {
                 0x0108, 0x010E, 0x01F0, 0x01FF, 0x0108, 0x010E, window,
             ),
             "ASM loc_14B22 should return immediately when Kid stays above the fireball window in screen coordinates"
+        );
+        assert!(
+            !crate::weather::lava_fireball_rejects_kid_loc_14B22(
+                0x010E, 0x0115, 0x0205, 0x0208, 0x0108, 0x010E, window,
+            ),
+            "ASM sub_14AB0 (kid.asm:28159-28160) compares `Kid_hitbox_left` against the inclusive fireball right column with `bgt.s loc_14B22`, so equality keeps the overlap active — the right-side touching boundary must NOT reject"
         );
     }
 
@@ -15218,6 +15236,39 @@ mod chunk_05 {
                 bottom_px: 0x0206,
             },
             "ASM loc_14B04 (kid.asm:28184) should produce the tall-fall window `[baseline_y-23, baseline_y+6]` via the `addq.w #7,d7` branch — the only bucket whose bottom row sits below the baseline"
+        );
+    }
+
+    #[test]
+    fn kid_hitbox_bounds_px_at_screen_anchors_at_the_foot_pixel_with_inclusive_half_widths() {
+        // Player half-width = 5, height = 31. Both constants are non-trivial
+        // versus the chosen `x_px=100`/`foot_y_px=200`, so each operator
+        // mutation (`+`/`-` to `*`/`/`) yields a visibly different bound:
+        //   * 100+5 vs 100*5  (105 vs 500)
+        //   * 200-31 vs 200/31 (169 vs 6)
+        // ASM sub_14A58/sub_14AB0 read `Kid_hitbox_*` straight from RAM; native
+        // rebuilds them from the player's screen-pixel position before each
+        // hazard overlap check.
+        assert_eq!(
+            crate::weather::kid_hitbox_bounds_px_at_screen(100, 200),
+            (95, 105, 169, 200),
+            "ASM Kid_hitbox_left/right pair should sit at `x_px ± PLAYER_HALF_WIDTH (5)`, and the head row should sit `PLAYER_HEIGHT (31)` above the foot pixel which itself doubles as the inclusive bottom row"
+        );
+    }
+
+    #[test]
+    fn loc_14ab0_fireball_x_window_replays_the_inclusive_addq_w_1_left_and_addi_w_6_right_columns()
+    {
+        // ASM sub_14AB0 (kid.asm:28151-28157): `move.w $44(a5),d6; subi.w
+        // #$80,d6; addq.w #1,d6` shapes the left column, then `addi.w #6,d6`
+        // advances to the right column. Native stores `fireball.x_px` already
+        // unbiased so only the `+1`/`+6` need replaying. Choose `x_px=0x0100`
+        // so each operator mutant is visible: `256+1 = 257` vs `256*1 = 256`,
+        // and `257+6 = 263` vs `257*6 = 1542` / `257-6 = 251`.
+        assert_eq!(
+            crate::weather::lava_fireball_hitbox_x_window_loc_14AB0(0x0100),
+            (0x0101, 0x0107),
+            "ASM sub_14AB0 should produce the inclusive `[fireball_x+1, fireball_x+7]` X window after the shared sprite-bias subtract; the `+1` left edge is what the first `blt.s loc_14B22` reject compares against `Kid_hitbox_right`"
         );
     }
 
