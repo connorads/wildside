@@ -84,13 +84,21 @@ impl VdpState {
     }
 
     /// Write palette words to CRAM at the given word offset.
+    ///
     /// Each word is 2 bytes in Mega Drive 0BGR format (3 bits per channel).
+    /// The bound is expressed as a 2-byte slice borrow rather than
+    /// `byte_offset + 1 < cram.len()` because cargo-mutants flagged the
+    /// latter form's `<`/`+` mutations as equivalent: `byte_offset =
+    /// (word_offset + i) * 2` is always even and `CRAM_SIZE = 0x80` is even,
+    /// so `byte_offset + 1` can never equal `cram.len()`. Using
+    /// `get_mut(byte_offset..byte_offset + 2)` makes the 2-byte span explicit
+    /// so any arithmetic mutation produces a slice whose length mismatches
+    /// `word.to_be_bytes()` and `copy_from_slice` panics.
     fn write_cram_words(&mut self, word_offset: usize, words: &[u16]) {
         for (i, &word) in words.iter().enumerate() {
             let byte_offset = (word_offset + i) * 2;
-            if byte_offset + 1 < self.cram.len() {
-                self.cram[byte_offset] = (word >> 8) as u8;
-                self.cram[byte_offset + 1] = word as u8;
+            if let Some(slot) = self.cram.get_mut(byte_offset..byte_offset + 2) {
+                slot.copy_from_slice(&word.to_be_bytes());
             }
         }
     }
@@ -435,15 +443,15 @@ fn build_intro_sub_1b850_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpSta
     }
 
     // Load segment-specific palette to CRAM.
-    // ASM: segment 0 → Pal_1C28A (0x33 words), segment 1 → Pal_1C2F0 (0x23 words),
-    // segments 2+ → Pal_1C346 (0x40 words).
+    // ASM: segment 0 → Pal_1C28A (0x33 words), segments 2+ → Pal_1C346.
+    // Segment 1 (Load_IntroSequence2) and segments 3/4 (Load_IntroSequence4/5)
+    // route through their dedicated build_intro_sequence_{2,4,5}_vdp helpers
+    // before this fn runs, so this match only fires for segments 0, 2, and any
+    // overflow values — there is no live `1 =>` arm to test here.
     let palette = match segment {
         // ASM loc_1C4F6 (kid.asm:31232): `move.w (a0)+,(a1)+; dbf`
         // copies 0x33 words from Pal_1C28A into Palette_Buffer_2.
         0 => &data.palette_segment_0,
-        // ASM loc_1C50A (kid.asm:31247): `move.w (a0)+,(a1)+; dbf`
-        // copies 0x23 words from Pal_1C2F0 into Palette_Buffer_2.
-        1 => &data.palette_segment_1,
         // ASM loc_1C51E (kid.asm:31262): `move.w (a0)+,(a1)+; dbf`
         // copies 0x40 words from Pal_1C346 into Palette_Buffer_2.
         // ASM loc_1C540 (kid.asm:31273): non-zero region variants seed
@@ -1047,6 +1055,80 @@ mod tests {
         // Row 27, col 0 at $E000 + 27*128 = $E000 + $D80 = $ED80.
         let w = u16::from_be_bytes([vdp.vram[0xED80], vdp.vram[0xED81]]);
         assert_eq!(w, 0xBBBB, "plane B row 27 col 0");
+    }
+
+    #[test]
+    fn write_full_plane_rows_pins_byte_address_per_row_and_col() {
+        // ASM sub_1CD88 (kid.asm:31931-31948): writes 28 plane rows starting
+        // at the VRAM target seeded by the caller, advancing by `addi.l
+        // #$800000` (= 128 bytes = one nametable row stride) between rows.
+        // Native's write_full_plane_rows mirrors that with `plane_base + row *
+        // NAMETABLE_ROW_STRIDE_BYTES + col * 2`.  Driving the helper with
+        // unique cell values pins both the row-stride term and the col*2 term
+        // — any mutation that swaps `+` for `-`/`*` or `*` for `+`/`/` lands
+        // the wrong cell at the right address (or vice versa).
+        let mut vdp = VdpState::new();
+        let mut rows = [[0u16; 64]; 28];
+        for (row, row_words) in rows.iter_mut().enumerate() {
+            for (col, slot) in row_words.iter_mut().enumerate() {
+                *slot = 0x8000 | ((row as u16) << 8) | col as u16;
+            }
+        }
+        let plane_base = 0xE000usize;
+        write_full_plane_rows(&mut vdp, plane_base, &rows);
+
+        // Sample every edge plus an interior cell so any arithmetic mutation
+        // on the byte address shifts at least one cell off the expected slot.
+        for &(row, col) in &[(0usize, 0usize), (0, 63), (1, 0), (5, 7), (27, 0), (27, 63)] {
+            let addr = plane_base + row * 128 + col * 2;
+            let w = u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
+            let expected = 0x8000 | ((row as u16) << 8) | col as u16;
+            assert_eq!(
+                w, expected,
+                "plane row ({row},{col}) at byte ${addr:04X} must hold the row-major source word"
+            );
+        }
+    }
+
+    #[test]
+    fn write_plane_a_40x28_pins_row_major_source_and_byte_target() {
+        // ASM sub_1B850 (kid.asm:30193-30197) seeds d6=$28, d7=$1C and bsr.w
+        // sub_1C5D0; sub_1C5D0 (kid.asm:31341-31363) reads the source linearly
+        // with `move.w (a4)+,(a6)` for d6+1 = 40 words per row across d7+1 =
+        // 28 rows, advancing the VRAM target by `addi.l #$800000` (128 bytes)
+        // between rows.  The native helper mirrors that with `row * 40 + col`
+        // for the source index and `row * NAMETABLE_ROW_STRIDE_BYTES + col *
+        // 2` for the byte address.  Each cell is tagged with a unique value
+        // so any mutation that swaps `*` for `+`/`/` or `+` for `-`/`*` on
+        // either side lands the wrong source word at the right byte (or right
+        // word at the wrong byte).
+        let mut vdp = VdpState::new();
+        let mut tilemap = vec![0u16; 40 * 28];
+        for row in 0..28u16 {
+            for col in 0..40u16 {
+                tilemap[(row as usize) * 40 + (col as usize)] = 0x8000 | (row << 8) | col;
+            }
+        }
+        write_plane_a_40x28(&mut vdp, &tilemap);
+
+        for &(row, col) in &[(0u16, 0u16), (0, 39), (1, 0), (3, 5), (27, 0), (27, 39)] {
+            let addr = (row as usize) * 128 + (col as usize) * 2;
+            let w = u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
+            let expected = 0x8000 | (row << 8) | col;
+            assert_eq!(
+                w, expected,
+                "plane A cell ({row},{col}) at byte ${addr:04X} must hold the row-major source word"
+            );
+        }
+
+        // sub_1C5D0 stops after d6+1 = 40 words per row, so column 40 must
+        // remain 0 — pins the inner-loop bound and rules out a mutant that
+        // turns `col < 40` into a permissive variant.
+        let untouched = u16::from_be_bytes([vdp.vram[80], vdp.vram[81]]);
+        assert_eq!(
+            untouched, 0,
+            "ASM sub_1C5D0 only writes 40 words per row; column 40 must stay 0"
+        );
     }
 
     #[test]
