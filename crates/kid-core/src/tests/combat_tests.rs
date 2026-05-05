@@ -11453,6 +11453,39 @@ mod chunk_05 {
         );
     }
 
+    /// ASM kid.asm:5847-5850: reversed murder-wall path. `addi.w #$110,d0;
+    /// sub.w (Kid_hitbox_right).w,d0; ble.s loc_5E34; bra.s loc_5E3A`.  When
+    /// `wall_x + $110 - kid_hitbox_right > 0`, `ble` is NOT taken so the
+    /// routine bypasses loc_5E34 and never writes Kid `$38(a0)`.  This pins
+    /// the sign of the `+$110` displacement: a `wall_x - $110` mutation would
+    /// flip the comparison for any wall to the right of Kid and incorrectly
+    /// arm push_animation_timer.
+    #[test]
+    fn loc_5e2e_reversed_wall_no_overlap_skips_push_timer() {
+        // wall_x=$100, kid_hitbox_right=$80 → $100 + $110 - $80 = $190 > 0
+        // → ble NOT taken → push_animation_timer stays None.
+        let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
+            murder_wall_enabled: true,
+            murder_wall_x_px: 0x0100,
+            murder_wall_reversed: true,
+            kid_hitbox_left_px: 0,
+            kid_hitbox_right_px: 0x0080,
+            camera_x_px: 0x0100,
+            camera_y_px: 0,
+            animation_timer: 3,
+            animation_frame: 0,
+            starting_number_sprites: 0,
+        });
+        assert_eq!(
+            render.push_animation_timer, None,
+            "ASM kid.asm:5850 bra.s loc_5E3A: bypass loc_5E34 when wall_x + $110 > kid_hitbox_right"
+        );
+        assert_eq!(
+            render.push_animation_offset, None,
+            "ASM sub_5E02 only writes Kid `$3A(a0)` on the forward (non-reversed) path"
+        );
+    }
+
     /// ASM loc_5E3A (kid.asm:5862): camera distance check before sprite emission.
     /// `move.w (Camera_X_pos).w,d3; sub.w (MurderWall_X_pos).w,d3` then
     /// `cmpi.w #$30,d3; blt.s loc_5E52; rts`.  When camera - wall >= $30 (or
