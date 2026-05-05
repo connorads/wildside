@@ -13756,6 +13756,181 @@ mod chunk_05 {
         );
     }
 
+    #[test]
+    fn loc_62d6_keeps_collision_when_slot_lands_exactly_on_kid_hitbox_top() {
+        // ASM loc_62D6 (kid.asm:6301–6303):
+        //   addi.w #2,d0
+        //   cmp.w  (Kid_hitbox_top).w,d0
+        //   blt.s  loc_630C            ; strict <, equal stays in collision
+        // After loc_61E2 (y_pre+4) the slot's y_plus_2 lands exactly on
+        // kid_hitbox_top, so the strict `blt` falls through to the next
+        // boundary instead of skipping. A `<=` mutation would skip and leave
+        // kid_collision_timer == None.
+        let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+            camera_x_px: 0,
+            camera_y_px: 0,
+            spawn_cooldown: 99,
+            free_falling_slots: 0,
+            falling_slots: [
+                // y_pre=94 → y_post=98, y_plus_2=100 == kid_hitbox_top.
+                FallingWeatherSlotSub61CA {
+                    y_px: 94,
+                    x_px: 50,
+                    animation_cooldown: 6,
+                    animation_frame: 0,
+                },
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+            ],
+            impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+            kid_hitbox_top_px: 100,
+            kid_hitbox_bottom_px: 120,
+            kid_hitbox_left_px: 40,
+            kid_hitbox_right_px: 70,
+            random_byte: 0,
+            collision_rows: empty_weather_collision_rows_sub_61_ca(),
+            starting_number_sprites: 0,
+        });
+
+        assert_eq!(
+            stepped.kid_collision_timer,
+            Some(0x0028),
+            "ASM loc_62D6: cmp.w (Kid_hitbox_top).w,d0; blt.s — strict <, so y_plus_2 == kid_hitbox_top stays in collision"
+        );
+    }
+
+    #[test]
+    fn loc_62d6_keeps_collision_when_slot_lands_exactly_on_kid_hitbox_bottom() {
+        // ASM loc_62D6 (kid.asm:6304–6306):
+        //   addi.w #$C,d0              ; d0 = y_plus_2 + $C
+        //   cmp.w  (Kid_hitbox_bottom).w,d0
+        //   bgt.s  loc_630C            ; strict >, equal stays in collision
+        // y_plus_2 + $C lands exactly on kid_hitbox_bottom, so the strict
+        // `bgt` falls through to the x checks. A `>=` mutation would skip.
+        let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+            camera_x_px: 0,
+            camera_y_px: 0,
+            spawn_cooldown: 99,
+            free_falling_slots: 0,
+            falling_slots: [
+                // y_pre=82 → y_post=86, y_plus_2=88, y_plus_2+$C=100 == bottom.
+                FallingWeatherSlotSub61CA {
+                    y_px: 82,
+                    x_px: 50,
+                    animation_cooldown: 6,
+                    animation_frame: 0,
+                },
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+            ],
+            impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+            kid_hitbox_top_px: 80,
+            kid_hitbox_bottom_px: 100,
+            kid_hitbox_left_px: 40,
+            kid_hitbox_right_px: 70,
+            random_byte: 0,
+            collision_rows: empty_weather_collision_rows_sub_61_ca(),
+            starting_number_sprites: 0,
+        });
+
+        assert_eq!(
+            stepped.kid_collision_timer,
+            Some(0x0028),
+            "ASM loc_62D6: cmp.w (Kid_hitbox_bottom).w,d0; bgt.s — strict >, so y_plus_2+$C == kid_hitbox_bottom stays in collision"
+        );
+    }
+
+    #[test]
+    fn loc_62d6_keeps_collision_when_slot_lands_exactly_on_kid_hitbox_right() {
+        // ASM loc_62D6 (kid.asm:6307–6310):
+        //   move.w 2(a0),d0
+        //   addi.w #2,d0               ; d0 = x_plus_2
+        //   cmp.w  (Kid_hitbox_right).w,d0
+        //   bgt.s  loc_630C            ; strict >, equal stays in collision
+        // x_plus_2 lands exactly on kid_hitbox_right, so the strict `bgt`
+        // falls through to the left-edge check. A `>=` mutation would skip.
+        let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+            camera_x_px: 0,
+            camera_y_px: 0,
+            spawn_cooldown: 99,
+            free_falling_slots: 0,
+            falling_slots: [
+                // x_pre=49 → x_post=48, x_plus_2=50 == kid_hitbox_right.
+                FallingWeatherSlotSub61CA {
+                    y_px: 96,
+                    x_px: 49,
+                    animation_cooldown: 6,
+                    animation_frame: 0,
+                },
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+            ],
+            impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+            kid_hitbox_top_px: 100,
+            kid_hitbox_bottom_px: 120,
+            kid_hitbox_left_px: 40,
+            kid_hitbox_right_px: 50,
+            random_byte: 0,
+            collision_rows: empty_weather_collision_rows_sub_61_ca(),
+            starting_number_sprites: 0,
+        });
+
+        assert_eq!(
+            stepped.kid_collision_timer,
+            Some(0x0028),
+            "ASM loc_62D6: cmp.w (Kid_hitbox_right).w,d0; bgt.s — strict >, so x_plus_2 == kid_hitbox_right stays in collision"
+        );
+    }
+
+    #[test]
+    fn loc_62d6_keeps_collision_when_slot_lands_exactly_on_kid_hitbox_left() {
+        // ASM loc_62D6 (kid.asm:6311–6313):
+        //   addi.w #$C,d0              ; d0 = x_plus_2 + $C
+        //   cmp.w  (Kid_hitbox_left).w,d0
+        //   blt.s  loc_630C            ; strict <, equal stays in collision
+        // x_plus_2 + $C lands exactly on kid_hitbox_left, so the strict
+        // `blt` falls through to the hit. A `<=` mutation would skip.
+        let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+            camera_x_px: 0,
+            camera_y_px: 0,
+            spawn_cooldown: 99,
+            free_falling_slots: 0,
+            falling_slots: [
+                // x_pre=47 → x_post=46, x_plus_2=48, x_plus_2+$C=60 == left.
+                FallingWeatherSlotSub61CA {
+                    y_px: 96,
+                    x_px: 47,
+                    animation_cooldown: 6,
+                    animation_frame: 0,
+                },
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+            ],
+            impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+            kid_hitbox_top_px: 100,
+            kid_hitbox_bottom_px: 120,
+            kid_hitbox_left_px: 60,
+            kid_hitbox_right_px: 70,
+            random_byte: 0,
+            collision_rows: empty_weather_collision_rows_sub_61_ca(),
+            starting_number_sprites: 0,
+        });
+
+        assert_eq!(
+            stepped.kid_collision_timer,
+            Some(0x0028),
+            "ASM loc_62D6: cmp.w (Kid_hitbox_left).w,d0; blt.s — strict <, so x_plus_2+$C == kid_hitbox_left stays in collision"
+        );
+    }
+
     // --- loc_6318 / loc_6348 / loc_6360: terrain collision → splash conversion ---
 
     #[test]
