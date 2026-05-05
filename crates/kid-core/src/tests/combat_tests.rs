@@ -13043,6 +13043,71 @@ mod chunk_05 {
         );
     }
 
+    #[test]
+    fn loc_6212_keeps_slot_active_when_post_movement_position_is_exactly_on_cull_boundary() {
+        // ASM loc_6212 (kid.asm:6214):
+        //   cmp.w (a0),d1   ; d1 = delete_bottom = camera_y + $E0
+        //   blt.s loc_6226  ; deactivate when d1 < slot.y_px (strict <)
+        //   cmp.w 2(a0),d0  ; d0 = delete_left  = camera_x - $10
+        //   bgt.s loc_6226  ; deactivate when d0 > slot.x_px (strict >)
+        // Both branches use strict (blt/bgt), not (ble/bge): a slot whose
+        // post-movement position lands exactly on `delete_bottom`/`delete_left`
+        // must stay active. Pre-movement values are chosen so that after the
+        // loc_61E2 `addi.w #4,(a0); subi.w #1,2(a0)` step the slot sits on the
+        // boundary.
+        let camera_x: i16 = 100;
+        let camera_y: i16 = 50;
+        let delete_bottom = camera_y.wrapping_add(0x00E0); // 274
+        let delete_left = camera_x.wrapping_sub(0x0010); // 84
+
+        let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+            camera_x_px: camera_x,
+            camera_y_px: camera_y,
+            spawn_cooldown: 99,
+            free_falling_slots: 0,
+            falling_slots: [
+                // Slot 0: y_pre=270 → y_post=274 == delete_bottom → stays active.
+                FallingWeatherSlotSub61CA {
+                    y_px: delete_bottom - 4,
+                    x_px: 200,
+                    animation_cooldown: 3,
+                    animation_frame: 1,
+                },
+                // Slot 1: x_pre=85 → x_post=84 == delete_left → stays active.
+                FallingWeatherSlotSub61CA {
+                    y_px: 100,
+                    x_px: delete_left + 1,
+                    animation_cooldown: 3,
+                    animation_frame: 2,
+                },
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+            ],
+            impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+            kid_hitbox_top_px: 9999,
+            kid_hitbox_bottom_px: 9999,
+            kid_hitbox_left_px: 9999,
+            kid_hitbox_right_px: 9999,
+            random_byte: 0,
+            collision_rows: empty_weather_collision_rows_sub_61_ca(),
+            starting_number_sprites: 0,
+        });
+
+        assert_eq!(
+            stepped.falling_slots[0].y_px, delete_bottom,
+            "ASM loc_6212: cmp.w (a0),d1; blt.s loc_6226 — strict <, so y_px == delete_bottom keeps the slot active"
+        );
+        assert_eq!(
+            stepped.falling_slots[1].x_px, delete_left,
+            "ASM loc_6212: cmp.w 2(a0),d0; bgt.s loc_6226 — strict >, so x_px == delete_left keeps the slot active"
+        );
+        assert_eq!(
+            stepped.free_falling_slots, 0,
+            "ASM loc_6212: neither boundary slot reaches loc_6226, so addi.b #1,($FFFFFB3D).w never runs"
+        );
+    }
+
     // --- loc_623A / loc_625E / loc_626C: spawn cooldown + inactive scan + spawn ---
 
     #[test]
