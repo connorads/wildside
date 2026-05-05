@@ -5995,4 +5995,49 @@ mod chunk_08_inactive_slot_constructors {
         assert_eq!(slot.animation_cooldown, 1);
         assert_eq!(slot.animation_frame, 0);
     }
+
+    #[test]
+    fn weather_impact_slot_loc_63c4_deactivates_both_position_words_after_final_frame() {
+        // ASM sub_61CA loc_63C4 (kid.asm:6405): once an impact slot advances
+        // past frame 1, `move.l #$FFFFFFFF,(a0)` clears both the y and x
+        // words before `move.w #$100,4(a0)` parks the inactive cooldown.
+        let inactive_falling = FallingWeatherSlotSub61CA::inactive(6, 0);
+        let inactive_impact = WeatherImpactSlotSub61CA::inactive(1, 0);
+        let mut impact_slots = [inactive_impact; 10];
+        impact_slots[0] = WeatherImpactSlotSub61CA {
+            y_px: 0x0040,
+            x_px: 0x0050,
+            animation_cooldown: 1,
+            animation_frame: 1,
+        };
+        let input = WeatherWorkerInputSub61CA {
+            camera_x_px: 0,
+            camera_y_px: 0,
+            spawn_cooldown: 0,
+            free_falling_slots: 0,
+            falling_slots: [inactive_falling; 5],
+            impact_slots,
+            kid_hitbox_top_px: 0x0100,
+            kid_hitbox_bottom_px: 0x0120,
+            kid_hitbox_left_px: 0x0100,
+            kid_hitbox_right_px: 0x0120,
+            random_byte: 0,
+            collision_rows: WeatherCollisionRowsSub61CA { rows: vec![] },
+            starting_number_sprites: 0,
+        };
+
+        let result = step_weather_worker_sub_61CA(input);
+
+        assert_eq!(
+            (result.impact_slots[0].y_px, result.impact_slots[0].x_px),
+            (-1, -1),
+            "ASM loc_63C4 should clear both contiguous position words with one longword write"
+        );
+        assert_eq!(result.impact_slots[0].animation_cooldown, 1);
+        assert_eq!(result.impact_slots[0].animation_frame, 0);
+        assert!(
+            result.sprites.is_empty(),
+            "ASM loc_63F6 branches to loc_6456 immediately after deactivation, so the expired impact slot emits no sprite"
+        );
+    }
 }
