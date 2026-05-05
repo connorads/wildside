@@ -536,6 +536,8 @@ fn build_intro_sequence_2_vdp(data: &IntroSub1B850Data) -> VdpState {
     }
     vdp.write_vram(0xFA60, &data.intro_text_letters_art);
     write_plane_a_40x28(&mut vdp, &data.intro_sequence_2_tilemap);
+    // ASM loc_1C50A (kid.asm:31247): `move.w (a0)+,(a1)+; dbf` inner copy
+    // loop of sub_1C4FE seeds 0x23 words from Pal_1C2F0 into Palette_Buffer_2.
     vdp.write_cram_words(0, &data.palette_segment_1);
 
     vdp
@@ -552,6 +554,9 @@ fn build_intro_sequence_4_vdp(data: &IntroSub1B850Data) -> VdpState {
         write_full_plane_rows(&mut vdp, 0xE000, &rows);
     }
     vdp.write_vram(0xFA60, &data.intro_text_letters_art);
+    // ASM loc_1C50A (kid.asm:31247): same `move.w (a0)+,(a1)+; dbf` inner
+    // copy loop as build_intro_sequence_2_vdp — sub_1C4FE seeds 0x23 words
+    // from Pal_1C2F0 into Palette_Buffer_2.
     vdp.write_cram_words(0, &data.palette_segment_1);
 
     vdp
