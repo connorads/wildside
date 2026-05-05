@@ -5914,6 +5914,42 @@ mod chunk_08_inactive_slot_constructors {
     use super::*;
 
     #[test]
+    fn weather_spawn_loc_626c_does_not_check_next_tile_when_footprint_stays_in_column() {
+        // ASM sub_61CA loc_626C..loc_62AA: `addi.w #$F,d6; lsr.w #4,d6`
+        // computes the ceil column, then `cmp.w d7,d6; beq.s loc_62AA`
+        // skips the second collision-word test when spawn_x..spawn_x+$F
+        // remains inside the same 16px column. A left shift here would make
+        // every nonzero spawn_x look like it crossed into the next column.
+        let inactive = FallingWeatherSlotSub61CA::inactive(6, 3);
+        let input = WeatherWorkerInputSub61CA {
+            camera_x_px: -0x18,
+            camera_y_px: 0,
+            spawn_cooldown: 1,
+            free_falling_slots: 1,
+            falling_slots: [inactive; 5],
+            impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+            kid_hitbox_top_px: 0x100,
+            kid_hitbox_bottom_px: 0x120,
+            kid_hitbox_left_px: 0x100,
+            kid_hitbox_right_px: 0x120,
+            random_byte: 0,
+            collision_rows: WeatherCollisionRowsSub61CA {
+                rows: vec![vec![0, 0, 0x00FF]],
+            },
+            starting_number_sprites: 0,
+        };
+
+        let result = step_weather_worker_sub_61CA(input);
+
+        assert_eq!(
+            result.falling_slots[0].x_px, 0x0010,
+            "ASM loc_62AA should spawn at x=$10 without consulting the blocked next tile because (($10+$0F)>>4) == ($10>>4)"
+        );
+        assert_eq!(result.falling_slots[0].y_px, 0);
+        assert_eq!(result.free_falling_slots, 0);
+    }
+
+    #[test]
     fn falling_weather_slot_inactive_writes_minus_one_to_both_y_and_x() {
         // ASM sub_61CA loc_6226 (kid.asm:6227), loc_636A (kid.asm:6363),
         // loc_6398 (kid.asm:6384), and loc_63C4 (kid.asm:6405) all clear a
