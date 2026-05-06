@@ -20754,7 +20754,7 @@ mod chunk_10 {
                 2,
             ),
             vec![0xA4B7, 0xC8D9, 0xE1F2],
-            "ASM loc_1440A should use each buffered byte as an index into the `$FFFF0280` palette table, shift the first lookup into the high byte, OR in the second lookup, and repeat exactly `d3+1` times"
+            "ASM loc_1440A should use each buffered byte as an index into the `$FFFF0280` palette table, shift the first lookup into the high byte, overwrite the low byte with the second lookup, and repeat exactly `d3+1` times"
         );
     }
 

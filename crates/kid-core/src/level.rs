@@ -2407,9 +2407,9 @@ pub(crate) fn decompress_to_ram_word_transfer_loc_1440A(
         .chunks_exact(2)
         .take(word_count)
         .map(|byte_pair| {
-            let high_byte = u16::from(permutation_table[usize::from(byte_pair[0])]);
-            let low_byte = u16::from(permutation_table[usize::from(byte_pair[1])]);
-            (high_byte << 8) | low_byte
+            let high_byte = permutation_table[usize::from(byte_pair[0])];
+            let low_byte = permutation_table[usize::from(byte_pair[1])];
+            u16::from_be_bytes([high_byte, low_byte])
         })
         .collect()
 }
