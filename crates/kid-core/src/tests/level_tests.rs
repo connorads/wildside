@@ -21684,6 +21684,14 @@ mod chunk_10 {
             },
             "ASM loc_1376A should hand `BYTE2-6` to the later `dbf d0,loc_13778` loop so a 9-byte request copies a 4-byte variable prefix before the fixed tail"
         );
+        assert_eq!(
+            crate::level::decompress_long_ref_extended_loc_1376A(0b0010_0000, 0x06),
+            crate::level::DecompressLongRefExtendedLoc1376A::VariableLength {
+                total_copy_len: 6,
+                dbf_counter: 0,
+            },
+            "ASM loc_1376A should enter the variable-length path when `BYTE2-6 == 0`; only negative results flush"
+        );
     }
 
     #[test]
