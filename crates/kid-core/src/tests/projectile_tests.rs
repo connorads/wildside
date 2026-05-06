@@ -6177,6 +6177,138 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Check_for_recent_damge Berzerker gate treats active charging contact
+    /// as enemy damage. Native's contact approximation keeps horizontal overlap
+    /// inclusive at PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.
+    #[test]
+    fn berzerker_charge_hits_at_horizontal_extent() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        let limit = PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            (0x0040 + limit as u32) << 16,
+            0x0040_0000,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM Berzerker_charging contact: enemy exactly at horizontal extent should be hit"
+        );
+    }
+
+    /// ASM Berzerker charging contact only fires when the contact boxes overlap;
+    /// native must reject enemies just outside horizontal range.
+    #[test]
+    fn berzerker_charge_misses_just_beyond_horizontal_extent() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        let miss_dx = PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            (0x0040 + miss_dx as u32) << 16,
+            0x0040_0000,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM Berzerker_charging contact: enemy one pixel beyond horizontal extent should miss"
+        );
+    }
+
+    /// ASM Berzerker charging contact is also bounded vertically by the enemy
+    /// contact half-height in native's rectangle approximation.
+    #[test]
+    fn berzerker_charge_misses_just_beyond_vertical_extent() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        let miss_dy = ENEMY_CONTACT_HALF_HEIGHT as i32 + 1;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            0x0040_0000,
+            (0x0040 + miss_dy as u32) << 16,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM Berzerker_charging contact: enemy one pixel beyond vertical extent should miss"
+        );
+    }
+
+    /// A charging Berzerker kill removes the enemy from both the live list and
+    /// the trace roster in the same native contact step.
+    #[test]
+    fn berzerker_charge_kill_refreshes_active_enemy_roster() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 0x0040_0000, 0x0040_0000, 1));
+        rt.active_enemy_roster = rt
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        rt.process_berzerker_charge_hits(&slice);
+
+        assert!(rt.active_enemies.is_empty());
+        assert!(
+            rt.active_enemy_roster.is_empty(),
+            "ASM Berzerker_charging contact: trace roster should drop killed enemy"
+        );
+    }
+
+    /// Without Berzerker contact, native should not manufacture a trace roster
+    /// refresh from the active enemy list.
+    #[test]
+    fn berzerker_charge_no_hit_does_not_refresh_empty_roster() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 0x0080_0000, 0x0040_0000, 2));
+
+        rt.process_berzerker_charge_hits(&slice);
+
+        assert!(
+            rt.active_enemy_roster.is_empty(),
+            "ASM Berzerker_charging contact: no hit should leave empty trace roster untouched"
+        );
+    }
+
     #[test]
     fn berzerker_charging_immune_to_contact_damage() {
         let mut rt = NativeRuntime::new(manifest());
