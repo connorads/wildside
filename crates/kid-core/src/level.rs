@@ -3343,8 +3343,12 @@ pub(crate) fn decompress_long_ref_header_loc_1384E(
     // the distance bits through `d4`, appending the next source byte, and
     // decoding the later `AA` copy-mode family: `00` => copy 3, `01` => copy
     // 4, `10` => copy 5, `11` => variable-length via `loc_13864`.
-    let shifted_word = (u16::from(bit_buffer) << 3) | u16::from(control_byte);
-    let source_back_distance = (shifted_word & long_ref_mask) | u16::from(long_ref_low_byte);
+    let shifted_high_byte = u8::try_from((u16::from(bit_buffer) << 3) >> 8)
+        .expect("shifted long-reference control high byte fits in u8");
+    let shifted_word = u16::from_be_bytes([shifted_high_byte, control_byte]);
+    let high_distance_byte = u8::try_from((shifted_word & long_ref_mask) >> 8)
+        .expect("masked long-reference distance high byte fits in u8");
+    let source_back_distance = u16::from_be_bytes([high_distance_byte, long_ref_low_byte]);
     let copy_mode = match (control_byte >> 6) & 0b11 {
         0b00 => DecompressLongRefCopyModeLoc13756::Copy3,
         0b01 => DecompressLongRefCopyModeLoc13756::Copy4,
