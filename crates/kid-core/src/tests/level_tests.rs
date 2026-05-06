@@ -21748,6 +21748,14 @@ mod chunk_10 {
             "ASM loc_138E2 should flush the buffer when `subq.w #6,d0` underflows for length bytes 1 through 5"
         );
         assert_eq!(
+            crate::level::decompress_long_ref_extended_loc_138E2(0b1000_0000, 0x06),
+            crate::level::DecompressLongRefExtendedLoc1376A::VariableLength {
+                total_copy_len: 6,
+                dbf_counter: 0,
+            },
+            "ASM loc_138E2 should enter the variable-length path when `BYTE2-6 == 0`; only negative results flush"
+        );
+        assert_eq!(
             crate::level::decompress_long_ref_extended_loc_138E2(0b1000_0000, 0x09),
             crate::level::DecompressLongRefExtendedLoc1376A::VariableLength {
                 total_copy_len: 9,
@@ -21773,6 +21781,14 @@ mod chunk_10 {
             crate::level::decompress_long_ref_extended_loc_139DE(0b1000_0000, 0x05),
             crate::level::DecompressLongRefExtendedLoc1376A::FlushBuffer,
             "ASM loc_139DE should flush the buffer when `subq.w #6,d0` underflows for length bytes 1 through 5"
+        );
+        assert_eq!(
+            crate::level::decompress_long_ref_extended_loc_139DE(0b1000_0000, 0x06),
+            crate::level::DecompressLongRefExtendedLoc1376A::VariableLength {
+                total_copy_len: 6,
+                dbf_counter: 0,
+            },
+            "ASM loc_139DE should enter the variable-length path when `BYTE2-6 == 0`; only negative results flush"
         );
         assert_eq!(
             crate::level::decompress_long_ref_extended_loc_139DE(0b1000_0000, 0x09),
