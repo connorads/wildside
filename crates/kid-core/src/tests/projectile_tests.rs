@@ -1847,6 +1847,21 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_76B0 only enters the sword allocation path after the C-button
+    /// gate. Red Stealth idling with no C press must leave the swing flag clear.
+    #[test]
+    fn red_stealth_loc_76b0_no_c_press_does_not_start_swing() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+
+        rt.step_red_stealth_sword(FrameInput::default());
+
+        assert_eq!(
+            rt.helmet.red_stealth_sword_timer, 0,
+            "ASM loc_76B0: no C press should not allocate sub_868E sword worker"
+        );
+    }
+
     #[test]
     fn red_stealth_swing_anchor_sub_868e_offsets_the_spawn_from_kid() {
         let mut slice = combat_slice();
