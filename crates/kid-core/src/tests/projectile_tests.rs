@@ -6216,6 +6216,29 @@ mod chunk_06 {
 
     // --- Berzerker charge tests ---
 
+    fn berzerker_charge_runtime(accum: u8, input: FrameInput) -> NativeRuntime {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.previous_input = input;
+        rt.helmet.berzerker_charging = true;
+        rt.helmet.berzerker_charge_accum = accum;
+        rt
+    }
+
+    fn berzerker_charge_slice(
+        x_velocity: i32,
+        facing: Direction,
+        on_ground: bool,
+        floor_terrain_type: TerrainType,
+    ) -> OpeningSliceState {
+        let mut slice = combat_slice();
+        slice.player.on_ground = on_ground;
+        slice.player.x_velocity = x_velocity;
+        slice.player.facing = facing;
+        slice.terrain.floor_terrain_type = floor_terrain_type;
+        slice
+    }
+
     #[test]
     fn berzerker_charge_builds_when_moving_fast() {
         let mut rt = NativeRuntime::new(manifest());
@@ -6238,6 +6261,126 @@ mod chunk_06 {
             rt.helmet.berzerker_charging,
             "should start charging after overflow"
         );
+    }
+
+    /// ASM loc_950A (kid.asm:10973): negative x_vel while facing right branches
+    /// to loc_957C and clears the Berzerker charge accumulator.
+    #[test]
+    fn berzerker_charge_clears_when_velocity_opposes_facing_loc_950a() {
+        let mut rt = berzerker_charge_runtime(
+            0xF0,
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+        );
+        let slice = berzerker_charge_slice(-0x2_0000, Direction::Right, true, TerrainType::Normal);
+
+        rt.step_berzerker_charge(&slice);
+
+        assert!(
+            !rt.helmet.berzerker_charging,
+            "ASM loc_950A: backward motion must branch to loc_957C, not accumulate"
+        );
+        assert_eq!(
+            rt.helmet.berzerker_charge_accum, 0,
+            "ASM loc_957C: rejected Berzerker charge frames clear $FFFFFA13"
+        );
+    }
+
+    /// ASM loc_9512 (kid.asm:10978): on ice, no held left/right input branches
+    /// to loc_957C even when Berzerker is otherwise moving fast enough.
+    #[test]
+    fn berzerker_charge_clears_on_ice_without_direction_loc_9512() {
+        let mut rt = berzerker_charge_runtime(0xF0, FrameInput::default());
+        let slice = berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Ice);
+
+        rt.step_berzerker_charge(&slice);
+
+        assert!(
+            !rt.helmet.berzerker_charging,
+            "ASM loc_9512: Ice with no directional input must clear charge state"
+        );
+        assert_eq!(rt.helmet.berzerker_charge_accum, 0);
+    }
+
+    /// ASM loc_9512: non-ice terrain skips the directional-input gate.
+    #[test]
+    fn berzerker_charge_non_ice_allows_no_direction_loc_9512() {
+        let mut rt = berzerker_charge_runtime(0xF0, FrameInput::default());
+        let slice = berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Normal);
+
+        rt.step_berzerker_charge(&slice);
+
+        assert!(
+            rt.helmet.berzerker_charging,
+            "ASM loc_9512: non-ice should continue to loc_9526 even without held direction"
+        );
+        assert_eq!(rt.helmet.berzerker_charge_accum, 0xFF);
+    }
+
+    /// ASM loc_9512: either held direction on ice continues to loc_9526.
+    #[test]
+    fn berzerker_charge_ice_allows_either_direction_loc_9512() {
+        for input in [
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+        ] {
+            let mut rt = berzerker_charge_runtime(0xF0, input);
+            let slice = berzerker_charge_slice(0x2_0000, Direction::Right, true, TerrainType::Ice);
+
+            rt.step_berzerker_charge(&slice);
+
+            assert!(
+                rt.helmet.berzerker_charging,
+                "ASM loc_9512: held direction on ice should continue to loc_9526"
+            );
+            assert_eq!(rt.helmet.berzerker_charge_accum, 0xFF);
+        }
+    }
+
+    /// ASM loc_9526 (kid.asm:10986): exactly $10000 is accepted; only lower
+    /// velocities branch to loc_957C.
+    #[test]
+    fn berzerker_charge_threshold_equality_builds_loc_9526() {
+        let mut rt = berzerker_charge_runtime(0xF0, FrameInput::default());
+        let slice = berzerker_charge_slice(0x1_0000, Direction::Right, true, TerrainType::Normal);
+
+        rt.step_berzerker_charge(&slice);
+
+        assert!(
+            rt.helmet.berzerker_charging,
+            "ASM loc_9526: velocity == $10000 should increment and overflow accumulator"
+        );
+        assert_eq!(rt.helmet.berzerker_charge_accum, 0xFF);
+    }
+
+    /// ASM loc_9526 path can continue in-air while a direction remains held;
+    /// native models that as the `(on_ground || left || right)` admission gate.
+    #[test]
+    fn berzerker_charge_airborne_with_direction_still_builds_loc_9526() {
+        let mut rt = berzerker_charge_runtime(
+            0xF0,
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+        );
+        let slice = berzerker_charge_slice(0x2_0000, Direction::Right, false, TerrainType::Normal);
+
+        rt.step_berzerker_charge(&slice);
+
+        assert!(
+            rt.helmet.berzerker_charging,
+            "ASM loc_9526: held direction should keep the charge path live while airborne"
+        );
+        assert_eq!(rt.helmet.berzerker_charge_accum, 0xFF);
     }
 
     #[test]
@@ -6456,6 +6599,40 @@ mod chunk_06 {
         );
     }
 
+    fn berzerker_wall_grid(
+        left_cell: terrain::Cell,
+        right_cell: terrain::Cell,
+    ) -> terrain::BlockGrid {
+        let w = 10u16;
+        let h = 6u16;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        for row in 2..=3 {
+            grid.set_cell_at(4, row, left_cell);
+            grid.set_cell_at(5, row, right_cell);
+        }
+        grid
+    }
+
+    fn berzerker_wall_slice(x_velocity: i32, facing: Direction) -> OpeningSliceState {
+        let bounds = LevelBounds {
+            width_pixels: 10 * 16,
+            height_pixels: 6 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        // x=75 gives left edge x=70 (col 4) and right edge x=80 (col 5).
+        slice.player.x_pos = 75 << 16;
+        slice.player.y_pos = (4 * 16) << 16;
+        slice.player.x_velocity = x_velocity;
+        slice.player.facing = facing;
+        slice.player.on_ground = true;
+        slice
+    }
+
+    fn cell_is_empty(cell: terrain::Cell) -> bool {
+        !cell.has_block && cell.collision == terrain::CollisionKind::Empty
+    }
+
     #[test]
     fn berzerker_charge_breaks_smash_block_wall() {
         let mut rt = NativeRuntime::new(manifest());
@@ -6500,6 +6677,123 @@ mod chunk_06 {
         assert!(
             !cell.has_block,
             "smash block should be broken by Berzerker charge"
+        );
+    }
+
+    /// ASM loc_92EC (kid.asm:10735): block dispatch uses the wall probe on the
+    /// side Berzerker is actually moving toward; zero x_vel falls back to facing.
+    #[test]
+    fn berzerker_charge_zero_velocity_facing_left_breaks_left_wall_loc_92ec() {
+        let smash = terrain::Cell::from_be_bytes(0xE0, 0x01);
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(berzerker_wall_grid(
+            smash,
+            terrain::Cell::from_be_bytes(0, 0),
+        ));
+
+        rt.berzerker_break_wall_block(&berzerker_wall_slice(0, Direction::Left));
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert!(
+            cell_is_empty(grid.cell_at(4, 3)),
+            "ASM loc_92EC: zero velocity + facing left should dispatch the left wall block"
+        );
+        assert_eq!(grid.cell_at(5, 3), terrain::Cell::from_be_bytes(0, 0));
+    }
+
+    /// ASM loc_92EC: nonzero x_vel chooses the probe direction over sprite facing.
+    #[test]
+    fn berzerker_charge_positive_velocity_breaks_right_wall_even_facing_left_loc_92ec() {
+        let smash = terrain::Cell::from_be_bytes(0xE0, 0x01);
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(berzerker_wall_grid(
+            terrain::Cell::from_be_bytes(0, 0),
+            smash,
+        ));
+
+        rt.berzerker_break_wall_block(&berzerker_wall_slice(0x2_0000, Direction::Left));
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert!(
+            cell_is_empty(grid.cell_at(5, 3)),
+            "ASM loc_92EC: positive velocity should dispatch the right wall block"
+        );
+    }
+
+    /// ASM loc_92EC: negative x_vel chooses the left probe even if the sprite is
+    /// still facing right.
+    #[test]
+    fn berzerker_charge_negative_velocity_breaks_left_wall_even_facing_right_loc_92ec() {
+        let smash = terrain::Cell::from_be_bytes(0xE0, 0x01);
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(berzerker_wall_grid(
+            smash,
+            terrain::Cell::from_be_bytes(0, 0),
+        ));
+
+        rt.berzerker_break_wall_block(&berzerker_wall_slice(-0x2_0000, Direction::Right));
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert!(
+            cell_is_empty(grid.cell_at(4, 3)),
+            "ASM loc_92EC: negative velocity should dispatch the left wall block"
+        );
+    }
+
+    /// ASM loc_92DE -> loc_92EC only dispatches actual block handlers; a solid
+    /// wall cell with `has_block` clear must not be deleted.
+    #[test]
+    fn berzerker_charge_solid_non_block_wall_is_not_deleted_loc_92de() {
+        let solid_non_block = terrain::Cell::from_be_bytes(0x60, 0x01);
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(berzerker_wall_grid(
+            terrain::Cell::from_be_bytes(0, 0),
+            solid_non_block,
+        ));
+
+        rt.berzerker_break_wall_block(&berzerker_wall_slice(0x2_0000, Direction::Right));
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert_eq!(
+            grid.cell_at(5, 3),
+            solid_non_block,
+            "ASM loc_92DE: solid terrain without the block flag must not dispatch off_933E"
+        );
+    }
+
+    /// ASM loc_92EC dispatches by block type. Native Berzerker charge currently
+    /// implements only Smash deletion, so other block types must be preserved.
+    #[test]
+    fn berzerker_charge_non_smash_block_is_not_deleted_loc_92ec() {
+        let prize = terrain::Cell::from_be_bytes(0xE1, 0x01);
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(berzerker_wall_grid(
+            terrain::Cell::from_be_bytes(0, 0),
+            prize,
+        ));
+
+        rt.berzerker_break_wall_block(&berzerker_wall_slice(0x2_0000, Direction::Right));
+
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("grid should remain installed");
+        assert_eq!(
+            grid.cell_at(5, 3),
+            prize,
+            "ASM loc_92EC: non-Smash block types are not handled by native Berzerker deletion"
         );
     }
 
