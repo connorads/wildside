@@ -2748,6 +2748,26 @@ mod chunk_06 {
     }
 
     #[test]
+    /// ASM loc_A7F8: `bclr #Button_C,(Ctrl_Pressed); beq.w loc_A8D6` — when C
+    /// is not newly pressed, Maniaxe skips the axe allocation path entirely.
+    fn maniaxe_no_c_press_does_not_throw_axe() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        let slice = combat_slice();
+
+        rt.step_maniaxe_axe(&slice, FrameInput::default());
+
+        assert!(
+            !rt.helmet.maniaxe_axe_active,
+            "ASM loc_A7F8: no C press should not set Maniaxe_throwing_axe"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM loc_A7F8: no C press should not allocate ManiaxeAxe_Init"
+        );
+    }
+
+    #[test]
     /// ASM loc_76E4: `tst.b (Maniaxe_throwing_axe) / bne.w loc_7772` — if the
     /// throwing flag is already set, a new C press is ignored (one axe at a time).
     fn maniaxe_no_double_throw() {
