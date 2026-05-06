@@ -271,6 +271,85 @@ mod chunk_03 {
         );
     }
 
+    /// ASM DiamondPower_Init_FiveWayShot (kid.asm:45461) seeds a short-lived
+    /// five-projectile spread. Native emits the spread on the first active
+    /// frame, bounded by the shared projectile cap.
+    #[test]
+    fn diamond_power_five_way_spawns_startup_spread_loc_400de() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::FiveWayShot;
+        runtime.progression.diamond_power_frames =
+            helmets::diamond_power_duration(helmets::DiamondPowerType::FiveWayShot);
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0050_0000;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        let expected_spreads = [
+            (0x4_0000, -0x2_0000),
+            (0x2_0000, -0x3_0000),
+            (0, -0x4_0000),
+            (-0x2_0000, -0x3_0000),
+            (-0x4_0000, -0x2_0000),
+        ];
+        assert_eq!(
+            runtime.projectiles.len(),
+            MAX_PROJECTILES.min(expected_spreads.len()),
+            "ASM DiamondPower_Init_FiveWayShot: native spread is capped by the projectile list"
+        );
+        for (projectile, (expected_xv, expected_yv)) in
+            runtime.projectiles.iter().zip(expected_spreads)
+        {
+            assert_eq!(projectile.x_pos, 0x0040_0000);
+            assert_eq!(projectile.y_pos, 0x0050_0000);
+            assert_eq!(projectile.x_velocity, expected_xv);
+            assert_eq!(projectile.y_velocity, expected_yv);
+            assert_eq!(projectile.lifetime, 60);
+            assert_eq!(projectile.gravity, 0x2000);
+            assert!(projectile.friendly);
+        }
+    }
+
+    /// ASM DiamondPower_Main_FiveWayShot only creates the spread once at the
+    /// start of the active timer.
+    #[test]
+    fn diamond_power_five_way_does_not_respawn_after_startup_loc_40140() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::FiveWayShot;
+        runtime.progression.diamond_power_frames =
+            helmets::diamond_power_duration(helmets::DiamondPowerType::FiveWayShot) - 1;
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM DiamondPower_Main_FiveWayShot: only the first active frame spawns the spread"
+        );
+    }
+
+    /// Native FiveWayShot uses the same projectile cap as the other Diamond
+    /// Power approximations.
+    #[test]
+    fn diamond_power_five_way_respects_projectile_cap_loc_400de() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::FiveWayShot;
+        runtime.progression.diamond_power_frames =
+            helmets::diamond_power_duration(helmets::DiamondPowerType::FiveWayShot);
+        runtime
+            .projectiles
+            .resize(MAX_PROJECTILES, EnemyProjectile::default());
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.projectiles.len(),
+            MAX_PROJECTILES,
+            "ASM DiamondPower_Init_FiveWayShot: native spread must not exceed projectile cap"
+        );
+    }
+
     // -----------------------------------------------------------------------
     // Rain tracking enemy scan (loc_3FEE2, loc_3FF16, loc_3FF1C)
     // -----------------------------------------------------------------------

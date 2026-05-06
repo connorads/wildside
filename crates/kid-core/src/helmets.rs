@@ -5368,9 +5368,6 @@ impl NativeRuntime {
                                     lifetime: 60,
                                     gravity: 0x2000,
                                     friendly: true,
-                                    homing_accel: 0,
-                                    speed_cap: 0,
-                                    wall_bounce: false,
                                     ..Default::default()
                                 });
                             }
