@@ -17196,6 +17196,81 @@ mod chunk_05 {
     }
 
     #[test]
+    fn iron_knight_loc_a2e2_right_wall_left_input_releases_climb() {
+        let mut rt = iron_knight_runtime_with_wall();
+        rt.helmet.iron_knight_climbing = true;
+        rt.helmet.iron_knight_climb_accel = 0x120;
+        rt.helmet.iron_knight_climb_pose_accum = 0x40;
+
+        let mut slice = airborne_slice();
+        slice.player.facing = Direction::Right;
+        slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
+
+        let result = rt.step_iron_knight_climb(
+            &mut slice,
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+        );
+
+        assert!(
+            matches!(result, IronKnightClimbStep::ExitHibernate),
+            "ASM loc_A2E2: holding away from a right wall should hibernate the release frame"
+        );
+        assert!(!rt.helmet.iron_knight_climbing);
+        assert_eq!(rt.helmet.iron_knight_climb_accel, 0);
+        assert_eq!(rt.helmet.iron_knight_climb_pose_accum, 0);
+        assert_eq!(slice.player.facing, Direction::Left);
+        assert_eq!(slice.player.y_velocity, IRON_KNIGHT_ATTACH_Y_VEL);
+    }
+
+    #[test]
+    fn iron_knight_loc_a2e2_left_wall_right_input_releases_climb() {
+        let mut rt = iron_knight_runtime_with_wall();
+        rt.helmet.iron_knight_climbing = true;
+
+        let mut slice = airborne_slice();
+        slice.player.facing = Direction::Left;
+
+        let result = rt.step_iron_knight_climb(
+            &mut slice,
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+        );
+
+        assert!(
+            matches!(result, IronKnightClimbStep::ExitHibernate),
+            "ASM kid.asm:12595-12607: holding away from a left wall should release"
+        );
+        assert!(!rt.helmet.iron_knight_climbing);
+        assert_eq!(slice.player.facing, Direction::Right);
+    }
+
+    #[test]
+    fn iron_knight_loc_a2e2_left_wall_without_right_input_keeps_climbing() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::IronKnight;
+        rt.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+        rt.helmet.iron_knight_climbing = true;
+
+        let mut slice = airborne_slice();
+        slice.player.facing = Direction::Left;
+        slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
+
+        let result = rt.step_iron_knight_climb(&mut slice, FrameInput::default());
+
+        assert!(
+            matches!(result, IronKnightClimbStep::ResumeClimb),
+            "ASM kid.asm:12595-12610: without away input, climb should continue into loc_A2F6"
+        );
+        assert!(rt.helmet.iron_knight_climbing);
+        assert_eq!(slice.player.facing, Direction::Left);
+    }
+
+    #[test]
     fn iron_knight_landing_stops_climb() {
         let mut rt = iron_knight_runtime_with_wall();
         rt.helmet.iron_knight_climbing = true;
