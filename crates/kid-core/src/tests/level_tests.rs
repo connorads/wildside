@@ -20963,6 +20963,13 @@ mod chunk_10 {
             },
             "ASM loc_1354E should treat `d2 = $F` as the terminator arm, skip `loc_13554`, and return through `loc_13570`, which rewinds `a0` and rounds it back to an even address"
         );
+        assert_eq!(
+            block_layout_decode_word_run_loc_1354E(&[0xAAAA], 0x000F, 0x0106, 0x0010),
+            BlockLayoutDecodeWordsLoc1354E::ReturnViaLoc13570 {
+                rewound_input_addr: 0x0104,
+            },
+            "ASM loc_13570 should rewind a second byte when `d6 == $10`; starting from an even `a0` makes that extra rewind observable after `loc_1357A` alignment"
+        );
     }
 
     #[test]
