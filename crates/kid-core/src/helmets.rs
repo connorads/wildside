@@ -5337,14 +5337,9 @@ impl NativeRuntime {
                         self.projectiles.push(EnemyProjectile {
                             x_pos: rain_x,
                             y_pos: rain_y,
-                            x_velocity: 0,
                             y_velocity: 0x3_0000, // fast downward
                             lifetime: 60,
-                            gravity: 0,
                             friendly: true, // damages enemies, not player
-                            homing_accel: 0,
-                            speed_cap: 0,
-                            wall_bounce: false,
                             ..Default::default()
                         });
                     }
