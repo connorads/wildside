@@ -18,6 +18,22 @@ fn micromax_runtime_with_ceiling() -> NativeRuntime {
     rt
 }
 
+fn micromax_runtime_with_right_wall() -> NativeRuntime {
+    let mut rt = NativeRuntime::new(manifest());
+    rt.progression.current_form = PlayerForm::Micromax;
+    rt.progression.number_hitpoints = PlayerForm::Micromax.max_hitpoints();
+    let width_cells = 6u16;
+    let height_cells = 6u16;
+    let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+    // Solid wall at col 3, row 2 only. With x=44, Micromax's right edge probes
+    // x=48 (col 3), while the inverted left-facing probe reads x=41 (col 2).
+    let offset = (usize::from(2u16) * usize::from(width_cells) + usize::from(3u16)) * 2;
+    data[offset] = 0x60;
+    let grid = terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells);
+    rt.set_block_grid(grid);
+    rt
+}
+
 // --- loc_779C–loc_7820: standing-still horizontal walk/turn gate ---
 
 /// Build an 8×6 grid with a solid wall column at `wall_col` (rows 1-3) and
@@ -455,6 +471,26 @@ mod chunk_06 {
         assert!(
             rt.helmet.micromax_stuck,
             "ASM loc_A5EA: neutral vertical speed should be eligible to stick"
+        );
+    }
+
+    /// ASM loc_A5EA uses the platform-grab side saved in `$FFFFFA72`; native's
+    /// terrain attach approximation mirrors that by probing the wall Kid faces.
+    #[test]
+    fn micromax_right_facing_attach_checks_right_wall_only() {
+        let mut rt = micromax_runtime_with_right_wall();
+        let mut slice = airborne_slice();
+        slice.player.x_pos = 44 << 16;
+        slice.player.y_pos = 55 << 16;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+
+        rt.step_micromax_stick(&mut slice, FrameInput::default());
+
+        assert!(
+            rt.helmet.micromax_stuck,
+            "ASM loc_A5EA: right-facing Micromax should attach to the right wall"
         );
     }
 
