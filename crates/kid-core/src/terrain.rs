@@ -505,7 +505,7 @@ pub enum PrizeContent {
 }
 
 impl PrizeContent {
-    fn from_id(id: u8) -> Self {
+    pub fn from_id(id: u8) -> Self {
         match id & 0x0F {
             0x00 | 0x0F => Self::Diamond,
             0x01 => Self::Points10000,

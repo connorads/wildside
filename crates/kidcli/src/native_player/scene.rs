@@ -1327,17 +1327,22 @@ fn build_game_scene_filtered(
             let fx = i32::from(x_px) - (trace.camera_x_pos >> 16) as i32;
             let fy = i32::from(y_px) - (trace.camera_y_pos >> 16) as i32;
             let alpha = u32::from(remaining).saturating_mul(8).min(255);
-            let base_colour = floating_item_colour(content_id);
+            let content = kid_core::terrain::PrizeContent::from_id(content_id);
+            let graphics_spec = floating_item_graphics_spec(content_id);
+            let base_colour = floating_item_colour(content, graphics_spec);
             let colour = [
                 (u32::from(base_colour[0]) * alpha / 255) as u8,
                 (u32::from(base_colour[1]) * alpha / 255) as u8,
                 (u32::from(base_colour[2]) * alpha / 255) as u8,
             ];
             // Draw content-type-specific pixel-art icon
-            // TODO(fidelity): load real floating item sprites from ROM art
-            match content_id {
+            // TODO(fidelity): load real floating item sprites from ROM art.
+            // ASM PrizeDiamond_Init/sub_10CB0 graphics metadata is already
+            // carried through `floating_item_graphics_spec`; only the pixel
+            // placeholder remains approximate.
+            match content {
                 // Diamond: rotated square (diamond shape)
-                0 => {
+                kid_core::terrain::PrizeContent::Diamond => {
                     commands.push(DrawCommand::Rect {
                         x: fx - 1,
                         y: fy - 4,
@@ -1361,7 +1366,7 @@ fn build_game_scene_filtered(
                     });
                 }
                 // Ankh: cross shape
-                1 => {
+                kid_core::terrain::PrizeContent::Ankh => {
                     commands.push(DrawCommand::Rect {
                         x: fx - 1,
                         y: fy - 4,
@@ -1378,7 +1383,7 @@ fn build_game_scene_filtered(
                     });
                 }
                 // Clock: square with dot centre
-                2 => {
+                kid_core::terrain::PrizeContent::Clock => {
                     commands.push(DrawCommand::Rect {
                         x: fx - 3,
                         y: fy - 3,
@@ -1871,23 +1876,44 @@ fn push_collision_box(
     });
 }
 
+pub(super) fn floating_item_graphics_spec(
+    content_id: u8,
+) -> Option<kid_core::FloatingPrizeGraphicsSpec> {
+    kid_core::floating_prize_graphics_spec(kid_core::terrain::PrizeContent::from_id(content_id))
+}
+
 /// Returns a distinct RGB colour for each prize content type.
-fn floating_item_colour(content_id: u8) -> [u8; 3] {
-    match content_id {
-        0x00 | 0x0E => [100, 200, 255], // Diamond / TenDiamonds — cyan
-        0x01 => [255, 255, 100],        // Points10000 — gold
-        0x02 => [200, 200, 255],        // Skycutter — light blue
-        0x03 => [180, 255, 180],        // Cyclone — green
-        0x04 => [255, 100, 100],        // RedStealth — red
-        0x05 => [255, 180, 50],         // Eyeclops — orange
-        0x06 => [160, 160, 160],        // Juggernaut — grey
-        0x07 => [220, 220, 255],        // IronKnight — silver-blue
-        0x08 => [255, 100, 50],         // Berzerker — red-orange
-        0x09 => [200, 150, 100],        // Maniaxe — brown
-        0x0A => [255, 200, 255],        // Micromax — pink
-        0x0B => [255, 255, 200],        // Ankh — pale gold
-        0x0C => [200, 255, 200],        // Clock — pale green
-        0x0D => [255, 255, 255],        // Continue — white
-        _ => [255, 255, 100],           // fallback — gold
+fn floating_item_colour(
+    content: kid_core::terrain::PrizeContent,
+    graphics_spec: Option<kid_core::FloatingPrizeGraphicsSpec>,
+) -> [u8; 3] {
+    match (content, graphics_spec) {
+        // ASM PrizeDiamond_Init: palette line 0, `stru_10D6E`.
+        (kid_core::terrain::PrizeContent::Diamond, Some(_)) => [100, 200, 255],
+        // ASM sub_10CB0: all helmet prizes use palette line 3; use the
+        // object metadata to keep placeholder helmets visually distinct until
+        // the real sprite art is wired.
+        (_, Some(spec)) if spec.palette_line == 3 => helmet_placeholder_colour(spec.object_meta),
+        (kid_core::terrain::PrizeContent::Points10000, _) => [255, 255, 100],
+        (kid_core::terrain::PrizeContent::Ankh, _) => [255, 255, 200],
+        (kid_core::terrain::PrizeContent::Clock, _) => [200, 255, 200],
+        (kid_core::terrain::PrizeContent::Continue, _) => [255, 255, 255],
+        (kid_core::terrain::PrizeContent::TenDiamonds, _) => [100, 200, 255],
+        _ => [255, 255, 100],
+    }
+}
+
+fn helmet_placeholder_colour(object_meta: u16) -> [u8; 3] {
+    match object_meta {
+        0x006C => [200, 200, 255], // Skycutter
+        0x0070 => [180, 255, 180], // Cyclone
+        0x0074 => [255, 100, 100], // RedStealth
+        0x0078 => [255, 180, 50],  // Eyeclops
+        0x007C => [160, 160, 160], // Juggernaut
+        0x0080 => [220, 220, 255], // IronKnight
+        0x0084 => [255, 100, 50],  // Berzerker
+        0x0088 => [200, 150, 100], // Maniaxe
+        0x008C => [255, 200, 255], // Micromax
+        _ => [220, 220, 255],
     }
 }

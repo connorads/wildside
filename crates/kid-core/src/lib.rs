@@ -32,6 +32,7 @@ pub use scenario::{
     run_script_with_warp,
 };
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
+pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};
 use std::collections::HashSet;
 use std::fs;
 #[cfg(test)]

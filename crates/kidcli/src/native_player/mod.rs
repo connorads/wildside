@@ -2426,6 +2426,30 @@ mod tests {
     }
 
     #[test]
+    fn floating_item_renderer_uses_asm_graphics_spec_for_diamonds_and_helmets() {
+        // ASM PrizeDiamond_Init selects `stru_10D6E`; ASM sub_10CB0 then
+        // gives every helmet palette line 3 before PrizeHelmet* picks
+        // `stru_106D0..stru_10700`.
+        assert_eq!(
+            floating_item_graphics_spec(0x00),
+            Some(kid_core::FloatingPrizeGraphicsSpec {
+                object_meta: 0x0064,
+                palette_line: 0,
+                animation_script_addr: 0x0001_0D6E,
+            })
+        );
+        assert_eq!(
+            floating_item_graphics_spec(0x02),
+            Some(kid_core::FloatingPrizeGraphicsSpec {
+                object_meta: 0x006C,
+                palette_line: 3,
+                animation_script_addr: 0x0001_06DC,
+            })
+        );
+        assert_eq!(floating_item_graphics_spec(0x0B), None);
+    }
+
+    #[test]
     fn build_game_scene_emits_background_tiles_instead_of_sky_rectangles() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
