@@ -20508,6 +20508,20 @@ mod chunk_10 {
             ],
             "ASM loc_1434A should reuse `(a3,d3.w)` as the shared high nibble and OR in each successive `(a3,d4.w)` low nibble until the inner loop has emitted all 16 packed permutation bytes for that row"
         );
+
+        let overlapping_permutation = [
+            0xB0, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
+            0x0E, 0x0F,
+        ];
+        assert_eq!(
+            crate::level::decompress_special_palette_row_bytes_loc_1434A(
+                &overlapping_permutation,
+                0x000B,
+                0,
+            ),
+            vec![0xB0],
+            "ASM loc_1434A uses `or.b (a3,d4.w),d5`, so overlapping set bits must remain set rather than toggle"
+        );
     }
 
     #[test]
