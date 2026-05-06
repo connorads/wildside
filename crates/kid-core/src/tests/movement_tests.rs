@@ -12854,6 +12854,28 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_A830 only reaches `st (Cyclone_flying)` from the jump-loop
+    /// C-press dispatch. Airborne movement without a fresh C edge falls
+    /// through the normal jump path and must not arm flight.
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_A830_cyclone_no_c_press_does_not_activate_flight_when_airborne() {
+        let mut rt = cyclone_runtime();
+        rt.previous_input = FrameInput::default();
+        let slice = airborne_slice();
+
+        rt.step_cyclone_activation(&slice, FrameInput::default());
+
+        assert!(
+            !rt.helmet.cyclone_flying,
+            "loc_A830: airborne without C press must not set Cyclone_flying"
+        );
+        assert_eq!(
+            rt.helmet.cyclone_y_accel, 0,
+            "loc_A830: rejected activation should not seed flight acceleration"
+        );
+    }
+
     /// ASM loc_A830: Cyclone flight is not activated when already flying
     /// (ASM sub_B168 consumes the C pressed bit via bclr).
     #[test]
