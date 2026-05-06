@@ -5170,7 +5170,7 @@ fn mutation_command(
     // time — `-j 4` previously OOM-killed the whole tmux session.
     let shard_arg = shard
         .filter(|shard| shard.total > 1)
-        .map(|shard| format!(" --shard {}", shard.label()))
+        .map(|shard| format!(" --shard {}/{}", shard.index, shard.total))
         .unwrap_or_default();
     format!(
         "KID_REPO_ROOT=$(pwd) cargo mutants -p {} -f {} -j 1 --gitignore=true{} --output {} -- --lib -- --skip demo_ --skip published_tas --skip snapshot",
@@ -14128,9 +14128,9 @@ mod tests {
         assert!(
             task.commands
                 .iter()
-                .any(|command| command.contains("--shard 1/4")
+                .any(|command| command.contains("--shard 0/4")
                     && command.contains("--output .cache/mutants/terrain/shard-1-of-4")),
-            "generated command should run the first bounded shard"
+            "generated command should pass cargo-mutants' zero-based shard index"
         );
     }
 
@@ -14163,6 +14163,14 @@ mod tests {
         assert_eq!(
             report.progress_fingerprint,
             "proactive-verification:mutation-testing:terrain:run:shard-2/2"
+        );
+        let task = report.selected_task.expect("selected task should exist");
+        assert!(
+            task.commands
+                .iter()
+                .any(|command| command.contains("--shard 1/2")
+                    && command.contains("--output .cache/mutants/terrain/shard-2-of-2")),
+            "human shard-2/2 should run cargo-mutants zero-based shard 1/2"
         );
     }
 
