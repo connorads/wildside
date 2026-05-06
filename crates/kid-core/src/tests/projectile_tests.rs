@@ -3534,6 +3534,34 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_8AF2 (kid.asm:9925): after ManiaxeAxe_CheckOutOfBounds or the
+    /// solid-block explosion path, the axe object is deleted. Native mirrors
+    /// this by clearing Maniaxe's active flag once only expired axe projectiles
+    /// remain.
+    #[test]
+    fn maniaxe_axe_active_clears_when_only_expired_projectile_remains_loc_8af2() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        rt.helmet.maniaxe_axe_active = true;
+        rt.helmet.maniaxe_turnaround = 5;
+        let slice = combat_slice();
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: slice.player.x_pos,
+            y_pos: slice.player.y_pos,
+            x_velocity: MANIAXE_BASE_SPEED << 16,
+            lifetime: 0,
+            friendly: true,
+            ..Default::default()
+        });
+
+        rt.step_maniaxe_axe(&slice, FrameInput::default());
+
+        assert!(
+            !rt.helmet.maniaxe_axe_active,
+            "ASM loc_8AF2: deleted/expired axe must clear Maniaxe_throwing_axe"
+        );
+    }
+
     /// ASM loc_8B32 (kid.asm:9954): `moveq #1,d7; rts` — true return of
     /// ManiaxeAxe_CheckOutOfBounds (sub_8AF6). Checks camera-relative bounds:
     /// x in [cam_x - $10, cam_x + $160], y in [cam_y - $10, cam_y + $100].
