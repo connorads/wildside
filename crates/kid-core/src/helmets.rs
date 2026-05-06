@@ -5400,13 +5400,8 @@ impl NativeRuntime {
                             x_pos: px,
                             y_pos: py,
                             x_velocity: xv,
-                            y_velocity: 0,
                             lifetime: 90,
-                            gravity: 0,
                             friendly: true,
-                            homing_accel: 0,
-                            speed_cap: 0,
-                            wall_bounce: false,
                             ..Default::default()
                         });
                     }

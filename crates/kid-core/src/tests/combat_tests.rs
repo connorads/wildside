@@ -350,6 +350,88 @@ mod chunk_03 {
         );
     }
 
+    /// ASM DiamondPower_Init_MiniSnake (loc_3F8EE) seeds speed `$300`;
+    /// native approximates the snake chain as a forward friendly projectile.
+    #[test]
+    fn diamond_power_mini_snake_spawns_forward_on_cadence_loc_3f8ee() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::MiniSnake;
+        // step_diamond_power decrements first: 17 -> 16, and 16 is the spawn cadence.
+        runtime.progression.diamond_power_frames = 17;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0060_0000;
+        slice.player.y_pos = 0x0070_0000;
+        slice.player.facing = Direction::Right;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(runtime.projectiles.len(), 1);
+        let projectile = &runtime.projectiles[0];
+        assert_eq!(projectile.x_pos, 0x0060_0000);
+        assert_eq!(projectile.y_pos, 0x0070_0000);
+        assert_eq!(
+            projectile.x_velocity, 0x3_0000,
+            "ASM loc_3F8EE: MiniSnake d5=$300, native scales to 16.16"
+        );
+        assert_eq!(projectile.y_velocity, 0);
+        assert_eq!(projectile.lifetime, 90);
+        assert_eq!(projectile.gravity, 0);
+        assert!(projectile.friendly);
+    }
+
+    /// ASM DiamondPower_Init_DeathSnake (loc_3F90C) seeds speed `$400`;
+    /// native keeps the sign tied to Kid's facing.
+    #[test]
+    fn diamond_power_death_snake_uses_left_facing_speed_loc_3f90c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::DeathSnake;
+        runtime.progression.diamond_power_frames = 17;
+        let mut slice = combat_slice();
+        slice.player.facing = Direction::Left;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(runtime.projectiles.len(), 1);
+        assert_eq!(
+            runtime.projectiles[0].x_velocity, -0x4_0000,
+            "ASM loc_3F90C: DeathSnake d5=$400 and native fires opposite when facing left"
+        );
+    }
+
+    /// ASM loc_3F92A allocates from a bounded object list. Native snake uses
+    /// the shared projectile cap and must also honour its 8-frame cadence.
+    #[test]
+    fn diamond_power_snake_respects_cap_and_cadence_loc_3f92a() {
+        let mut capped = NativeRuntime::new(manifest());
+        capped.progression.diamond_power_type = helmets::DiamondPowerType::MiniSnake;
+        capped.progression.diamond_power_frames = 17;
+        capped
+            .projectiles
+            .resize(MAX_PROJECTILES, EnemyProjectile::default());
+
+        capped.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            capped.projectiles.len(),
+            MAX_PROJECTILES,
+            "ASM loc_3F92A: native snake must not exceed the projectile list cap"
+        );
+
+        let mut off_cadence = NativeRuntime::new(manifest());
+        off_cadence.progression.diamond_power_type = helmets::DiamondPowerType::MiniSnake;
+        // 18 -> 17 after decrement; 17 is not a spawn cadence.
+        off_cadence.progression.diamond_power_frames = 18;
+
+        off_cadence.step_diamond_power(FrameInput::default());
+
+        assert!(
+            off_cadence.projectiles.is_empty(),
+            "ASM DiamondPower_Main_Snake: native snake should skip non-cadence frames"
+        );
+    }
+
     // -----------------------------------------------------------------------
     // Rain tracking enemy scan (loc_3FEE2, loc_3FF16, loc_3FF1C)
     // -----------------------------------------------------------------------
