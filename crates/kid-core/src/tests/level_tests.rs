@@ -21626,6 +21626,14 @@ mod chunk_10 {
             "ASM loc_13948 should preserve the carry bit from `add.w d1,d1`, append the later control byte from `(a0)+`, and treat control bits `00` as the three-byte tail at `loc_13978`"
         );
         assert_eq!(
+            crate::level::decompress_long_ref_header_loc_13948(0x00, 0b0000_0000, 0x0700, 0x34),
+            crate::level::DecompressLongRefHeaderLoc13756 {
+                source_back_distance: 0x0034,
+                copy_mode: crate::level::DecompressLongRefCopyModeLoc13756::Copy3,
+            },
+            "ASM loc_13948 should clear absent high distance bits through `and.w d4,d6` before appending the next source byte"
+        );
+        assert_eq!(
             crate::level::decompress_long_ref_header_loc_13948(0x80, 0b0001_0000, 0x0700, 0x56),
             crate::level::DecompressLongRefHeaderLoc13756 {
                 source_back_distance: 0x0456,
