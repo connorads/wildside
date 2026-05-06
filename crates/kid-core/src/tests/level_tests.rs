@@ -21129,6 +21129,14 @@ mod chunk_10 {
             },
             "ASM loc_135F0 should mask `d1` through the `return_13662[a5]` width table, add the accumulated base word from `d3`, then reload `d5` from the next two input bytes"
         );
+        assert_eq!(
+            crate::level::block_layout_finalize_word_loc_135F0(0x00BD, 0x1200, 0, 0x3456),
+            crate::level::BlockLayoutFinalizeWordLoc135F0 {
+                decoded_word: 0x1200,
+                bit_buffer: 0x3456,
+            },
+            "ASM loc_135F0 should use `return_13662[0] == 0`, so a zero-width suffix contributes no partial-word bits"
+        );
     }
 
     #[test]
