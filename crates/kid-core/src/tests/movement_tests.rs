@@ -1003,6 +1003,15 @@ mod chunk_11 {
             0x1234_5677,
             "ASM loc_14552 should OR the buffered rotated nibble into `d5` when the existing nibble is zero and the preceding `move.w d4,d3` / `andi.w #$F,d3` reloads `d3` from the scratch longword"
         );
+        assert_eq!(
+            crate::level::indoor_rubber_block_pack_selected_nibble_loc_14552(
+                0x1234_5678,
+                0x0000_000C,
+                0x0000_0007,
+            ),
+            0x1234_567C,
+            "ASM loc_14552 uses `or.w d3,d5`, so overlapping low-nibble bits must stay set rather than toggle"
+        );
     }
 
     #[test]
