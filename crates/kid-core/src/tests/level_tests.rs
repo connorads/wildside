@@ -21818,6 +21818,14 @@ mod chunk_10 {
             "ASM loc_13A5A should flush the buffer via `loc_13A86` when `subq.w #6,d0` underflows for length bytes 1 through 5"
         );
         assert_eq!(
+            crate::level::decompress_long_ref_extended_loc_13A5A(0x80, 0x06),
+            crate::level::DecompressLongRefExtendedLoc1376A::VariableLength {
+                total_copy_len: 6,
+                dbf_counter: 0,
+            },
+            "ASM loc_13A5A should enter the variable-length path when `BYTE2-6 == 0`; only negative results flush"
+        );
+        assert_eq!(
             crate::level::decompress_long_ref_extended_loc_13A5A(0x80, 0x09),
             crate::level::DecompressLongRefExtendedLoc1376A::VariableLength {
                 total_copy_len: 9,
