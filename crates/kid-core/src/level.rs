@@ -3244,7 +3244,9 @@ pub(crate) fn decompress_long_ref_header_loc_13756(
     // field, masks that field through `d4`, appends the next input byte, then
     // decodes `AA` into the 3/4/5/extended long-reference families.
     let shifted_word = u16::from(bit_buffer) << 3;
-    let source_back_distance = (shifted_word & long_ref_mask) | u16::from(long_ref_low_byte);
+    let high_distance_byte = u8::try_from((shifted_word & long_ref_mask) >> 8)
+        .expect("masked long-reference distance high byte fits in u8");
+    let source_back_distance = u16::from_be_bytes([high_distance_byte, long_ref_low_byte]);
     let copy_mode = match (shifted_word >> 6) & 0b11 {
         0b00 => DecompressLongRefCopyModeLoc13756::Copy3,
         0b01 => DecompressLongRefCopyModeLoc13756::Copy4,

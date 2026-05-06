@@ -21561,6 +21561,22 @@ mod chunk_10 {
             },
             "ASM loc_13756 should decode `AA=01` as the four-byte long-reference path after appending the next source byte"
         );
+        assert_eq!(
+            crate::level::decompress_long_ref_header_loc_13756(0b1000_0000, 0x0700, 0x56),
+            crate::level::DecompressLongRefHeaderLoc13756 {
+                source_back_distance: 0x0456,
+                copy_mode: crate::level::DecompressLongRefCopyModeLoc13756::Copy3,
+            },
+            "ASM loc_13756 should decode `AA=00` as the three-byte long-reference path at `loc_13782`"
+        );
+        assert_eq!(
+            crate::level::decompress_long_ref_header_loc_13756(0b1111_1000, 0x0700, 0x9A),
+            crate::level::DecompressLongRefHeaderLoc13756 {
+                source_back_distance: 0x079A,
+                copy_mode: crate::level::DecompressLongRefCopyModeLoc13756::VariableLength,
+            },
+            "ASM loc_13756 should decode `AA=11` as the variable-length long-reference path through `loc_1376A`"
+        );
     }
 
     #[test]
