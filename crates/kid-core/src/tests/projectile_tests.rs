@@ -361,6 +361,10 @@ mod chunk_06 {
             "upward kick"
         );
         assert_eq!(slice.player.facing, Direction::Left, "facing reversed");
+        assert_eq!(
+            slice.player.x_velocity, -MICROMAX_DETACH_X_SPEED,
+            "ASM loc_A6AE: right-facing detach reverses to a leftward kick"
+        );
     }
 
     #[test]
@@ -410,6 +414,47 @@ mod chunk_06 {
         assert!(
             !rt.helmet.micromax_stuck,
             "should peel off after enough gravity frames"
+        );
+    }
+
+    /// ASM loc_A606 keeps Micromax stuck while the accumulated grab gravity is
+    /// exactly at the peel threshold; native only peels when the fall speed is
+    /// greater than MICROMAX_STUCK_MAX_FALL.
+    #[test]
+    fn micromax_stuck_gravity_equal_to_max_fall_stays_stuck() {
+        let mut rt = micromax_runtime_with_ceiling();
+        rt.helmet.micromax_stuck = true;
+        let mut slice = airborne_slice();
+        slice.player.x_pos = (3 * 16 + 8) << 16;
+        slice.player.y_pos = 62 << 16;
+        slice.player.y_velocity = MICROMAX_STUCK_MAX_FALL - MICROMAX_STUCK_GRAVITY;
+
+        rt.step_micromax_stick(&mut slice, FrameInput::default());
+
+        assert!(
+            rt.helmet.micromax_stuck,
+            "ASM loc_A606: y_vel equal to the max fall threshold should not peel"
+        );
+        assert_eq!(slice.player.y_velocity, MICROMAX_STUCK_MAX_FALL);
+    }
+
+    /// ASM loc_A5EA is entered while falling or neutral; only upward motion
+    /// skips attach. Native mirrors that with `y_vel < 0`, so y_vel == 0 must
+    /// still allow a ceiling stick.
+    #[test]
+    fn micromax_neutral_y_velocity_can_attach_to_ceiling() {
+        let mut rt = micromax_runtime_with_ceiling();
+        let mut slice = airborne_slice();
+        slice.player.x_pos = (3 * 16 + 8) << 16;
+        slice.player.y_pos = 62 << 16;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = false;
+
+        rt.step_micromax_stick(&mut slice, FrameInput::default());
+
+        assert!(
+            rt.helmet.micromax_stuck,
+            "ASM loc_A5EA: neutral vertical speed should be eligible to stick"
         );
     }
 
