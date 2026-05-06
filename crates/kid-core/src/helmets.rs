@@ -5241,13 +5241,9 @@ impl NativeRuntime {
                     x_pos,
                     y_pos,
                     x_velocity,
-                    y_velocity: 0,
                     lifetime: JUGGERNAUT_SKULL_LIFETIME,
                     friendly: true,
                     gravity: JUGGERNAUT_SKULL_GRAVITY,
-                    homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
                     reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
                     ..Default::default()
                 });

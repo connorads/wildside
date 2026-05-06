@@ -4099,6 +4099,15 @@ mod chunk_06 {
             ((256 + JUGGERNAUT_SKULL_OFFSET_Y) as u32) << 16
         );
         assert_eq!(rt.projectiles[0].x_velocity, JUGGERNAUT_SKULL_X_SPEED);
+        assert_eq!(
+            rt.projectiles[0].lifetime, JUGGERNAUT_SKULL_LIFETIME,
+            "ASM sub_87B0: native skull projectile should carry the full worker lifetime"
+        );
+        assert_eq!(
+            rt.projectiles[0].reaim_countdown,
+            u16::from(JUGGERNAUT_SKULL_BOUNCES),
+            "ASM loc_897C/loc_899C: skull should start with the full rebound budget"
+        );
     }
 
     #[test]
@@ -4283,6 +4292,35 @@ mod chunk_06 {
         rt.prior_input = FrameInput::default();
         rt.step_juggernaut_skull(&slice, input);
         assert_eq!(rt.projectiles.len(), 8, "should cap at 8 skulls");
+    }
+
+    /// ASM loc_876A (kid.asm:9599): while the 3-frame skull worker is pending,
+    /// it decrements the counter and stays in that worker; another C press must
+    /// not re-arm the startup delay.
+    #[test]
+    fn juggernaut_skull_c_press_ignored_while_worker_pending_loc_876a() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        let slice = combat_slice();
+        let c_press = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
+
+        rt.step_juggernaut_skull(&slice, c_press);
+        assert_eq!(rt.helmet.juggernaut_skull_delay_frames, 3);
+
+        rt.prior_input = FrameInput::default();
+        rt.step_juggernaut_skull(&slice, c_press);
+
+        assert_eq!(
+            rt.helmet.juggernaut_skull_delay_frames, 2,
+            "ASM loc_876A: pending worker should tick 3->2, not re-arm to 3"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM loc_876A: pending worker must not spawn before the counter reaches zero"
+        );
     }
 
     #[test]
