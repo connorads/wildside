@@ -9787,6 +9787,11 @@ mod chunk_02 {
             0x0C18,
             "ASM loc_F86E should preserve packed X bits while keeping masked row bits"
         );
+        assert_eq!(
+            crate::level::animated_solid_block_row_queue_word_loc_F86E(0x0A40, 0x0240),
+            0x0A40 | 0x0240,
+            "ASM loc_F86E uses `or.w d0,d2`, so overlapping set bits must stay set rather than toggle"
+        );
     }
 
     /// ASM loc_F872 (kid.asm:20547): once a vertical animated-solid row is in
