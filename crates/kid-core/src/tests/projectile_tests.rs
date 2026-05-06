@@ -2744,7 +2744,38 @@ mod chunk_06 {
             "ASM loc_76E4: st (Maniaxe_throwing_axe) — C press must activate axe"
         );
         assert_eq!(rt.projectiles.len(), 1);
-        assert!(rt.projectiles[0].x_velocity > 0, "axe should move right");
+        let axe = &rt.projectiles[0];
+        assert_eq!(
+            axe.x_pos, slice.player.x_pos,
+            "ASM ManiaxeAxe_Init copies Kid's x_pos(a0) into the axe object"
+        );
+        assert_eq!(
+            axe.y_pos,
+            (slice.player.y_pos as i64 - (16 << 16)) as u32,
+            "ASM ManiaxeAxe_Init subtracts `$10` from Kid's y_pos(a0)"
+        );
+        assert_eq!(
+            axe.x_velocity,
+            MANIAXE_BASE_SPEED << 16,
+            "ASM loc_8A42: right-facing axe should move right at +5 px/frame in native"
+        );
+        assert_eq!(
+            axe.y_velocity, 0,
+            "Maniaxe axe has no vertical launch velocity"
+        );
+        assert_eq!(
+            axe.lifetime,
+            (MANIAXE_TRAVEL_FRAMES as u16) * 2 + MANIAXE_STARTUP_FRAMES as u16,
+            "native lifetime covers startup plus out-and-back travel"
+        );
+        assert!(axe.friendly, "Maniaxe axe should be player-friendly");
+        assert_eq!(axe.gravity, 0, "Maniaxe axe is not gravity-driven");
+        assert_eq!(axe.homing_accel, 0, "Maniaxe axe is not homing");
+        assert_eq!(axe.speed_cap, 0, "Maniaxe axe has no homing speed cap");
+        assert!(
+            !axe.wall_bounce,
+            "ASM loc_8ACC deletes the axe on solid contact rather than bouncing"
+        );
     }
 
     #[test]
