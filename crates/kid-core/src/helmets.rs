@@ -4954,7 +4954,7 @@ impl NativeRuntime {
             self.helmet.eyeclops_beam_hard = false;
         }
 
-        let fire_beam = |runtime: &mut NativeRuntime, direction: i32| {
+        let fire_beam = |runtime: &mut NativeRuntime, x_velocity: i32| {
             runtime.projectiles.push(EnemyProjectile {
                 // ASM sub_E49A latches the current x_direction in `$FFFFFABE`
                 // and grows the beam from Kid's live coordinates on each wake.
@@ -4963,21 +4963,16 @@ impl NativeRuntime {
                 // counter in `eyeclops_beam_counter`.
                 x_pos: slice.player.x_pos,
                 y_pos: (slice.player.y_pos as i64 - (8 << 16)) as u32,
-                x_velocity: EYECLOPS_BEAM_SPEED * direction,
-                y_velocity: 0,
+                x_velocity,
                 lifetime: EYECLOPS_BEAM_LIFETIME,
                 friendly: true,
-                gravity: 0,
-                homing_accel: 0,
-                speed_cap: 0,
-                wall_bounce: false,
                 ..Default::default()
             });
         };
-        let direction = if slice.player.facing == Direction::Right {
-            1
+        let beam_velocity = if slice.player.facing == Direction::Right {
+            EYECLOPS_BEAM_SPEED
         } else {
-            -1
+            -EYECLOPS_BEAM_SPEED
         };
         let hard_beam_requested = input.b && input.c;
         if hard_beam_requested
@@ -4990,7 +4985,7 @@ impl NativeRuntime {
             self.helmet.eyeclops_beam_active = true;
             self.helmet.eyeclops_beam_counter = 0x8001;
             self.helmet.eyeclops_beam_hard = true;
-            fire_beam(self, direction);
+            fire_beam(self, beam_velocity);
             return;
         }
 
@@ -5011,7 +5006,7 @@ impl NativeRuntime {
             self.helmet.eyeclops_beam_active = true;
             self.helmet.eyeclops_beam_counter = 1;
             self.helmet.eyeclops_beam_hard = false;
-            fire_beam(self, direction);
+            fire_beam(self, beam_velocity);
         } else if self.helmet.eyeclops_beam_active {
             self.helmet.eyeclops_beam_counter = self.helmet.eyeclops_beam_counter.wrapping_add(1);
         }
@@ -5084,23 +5079,17 @@ impl NativeRuntime {
         if c_pressed && !self.helmet.maniaxe_axe_active {
             self.helmet.maniaxe_axe_active = true;
             self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
-            let dir = if slice.player.facing == Direction::Right {
-                1
+            let x_velocity = if slice.player.facing == Direction::Right {
+                MANIAXE_BASE_SPEED << 16
             } else {
-                -1
+                -MANIAXE_BASE_SPEED << 16
             };
-            let speed = (MANIAXE_BASE_SPEED * dir) << 16;
             self.projectiles.push(EnemyProjectile {
                 x_pos: slice.player.x_pos,
                 y_pos: (slice.player.y_pos as i64 - (16 << 16)) as u32,
-                x_velocity: speed,
-                y_velocity: 0,
+                x_velocity,
                 lifetime: (MANIAXE_TRAVEL_FRAMES as u16) * 2 + MANIAXE_STARTUP_FRAMES as u16,
                 friendly: true,
-                gravity: 0,
-                homing_accel: 0,
-                speed_cap: 0,
-                wall_bounce: false,
                 ..Default::default()
             });
         }
