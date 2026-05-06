@@ -3227,6 +3227,212 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_8ABC is only reached by a live friendly projectile collision.
+    /// Native must ignore enemy overlap from unfriendly or expired projectiles.
+    #[test]
+    fn friendly_projectile_hits_ignore_nonfriendly_and_expired_projectiles_loc_8abc() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: false,
+            ..Default::default()
+        });
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 0,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Dragon, 100 << 16, 100 << 16, 2));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM loc_8ABC: non-friendly and expired projectiles should not set collision_type"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            2,
+            "ASM loc_8ABC: ignored projectiles should not be consumed"
+        );
+    }
+
+    /// ASM loc_8ABC consumes the projectile worker's collision result. Native's
+    /// rectangle approximation keeps horizontal overlap inclusive at
+    /// PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH.
+    #[test]
+    fn friendly_projectile_hits_at_horizontal_extent_loc_8abc() {
+        let mut rt = NativeRuntime::new(manifest());
+        let limit = PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32;
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Dragon,
+            ((100 + limit) as u32) << 16,
+            100 << 16,
+            2,
+        ));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_8ABC: enemy exactly at projectile horizontal extent should be hit"
+        );
+    }
+
+    /// ASM loc_8ABC only fires after projectile collision_type is non-zero;
+    /// native must reject enemies just outside horizontal overlap.
+    #[test]
+    fn friendly_projectile_misses_just_beyond_horizontal_extent_loc_8abc() {
+        let mut rt = NativeRuntime::new(manifest());
+        let miss_dx = PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Dragon,
+            ((100 + miss_dx) as u32) << 16,
+            100 << 16,
+            2,
+        ));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM loc_8ABC: enemy one pixel beyond projectile horizontal extent should miss"
+        );
+    }
+
+    /// ASM loc_8ABC consumes the projectile worker's collision result. Native's
+    /// rectangle approximation keeps vertical overlap inclusive at
+    /// PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT.
+    #[test]
+    fn friendly_projectile_hits_at_vertical_extent_loc_8abc() {
+        let mut rt = NativeRuntime::new(manifest());
+        let limit = PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32;
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Dragon,
+            100 << 16,
+            ((100 + limit) as u32) << 16,
+            2,
+        ));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_8ABC: enemy exactly at projectile vertical extent should be hit"
+        );
+    }
+
+    /// ASM loc_8ABC only fires after projectile collision_type is non-zero;
+    /// native must reject enemies just outside vertical overlap.
+    #[test]
+    fn friendly_projectile_misses_just_beyond_vertical_extent_loc_8abc() {
+        let mut rt = NativeRuntime::new(manifest());
+        let miss_dy = PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32 + 1;
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Dragon,
+            100 << 16,
+            ((100 + miss_dy) as u32) << 16,
+            2,
+        ));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM loc_8ABC: enemy one pixel beyond projectile vertical extent should miss"
+        );
+    }
+
+    /// ASM loc_8ABC consumes the projectile even when the enemy survives. Native
+    /// must still refresh the trace roster so HP and damage flash reflect the hit.
+    #[test]
+    fn friendly_projectile_surviving_hit_refreshes_active_enemy_roster_loc_8abc() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Dragon, 100 << 16, 100 << 16, 3));
+        rt.active_enemy_roster = rt
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(rt.active_enemies[0].hit_points, 2);
+        assert_eq!(
+            rt.active_enemy_roster[0].hit_points,
+            Some(2),
+            "ASM loc_8ABC: surviving projectile hit should refresh trace HP"
+        );
+        assert!(
+            rt.active_enemy_roster[0].damage_flash,
+            "ASM loc_8ABC: surviving projectile hit should refresh trace damage flash"
+        );
+    }
+
+    /// No ASM loc_8ABC collision means no projectile hit side effects; native
+    /// should not manufacture a trace roster refresh when nothing collided.
+    #[test]
+    fn friendly_projectile_no_hit_does_not_refresh_empty_roster_loc_8abc() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Dragon, 200 << 16, 100 << 16, 2));
+
+        rt.process_friendly_projectile_hits();
+
+        assert!(
+            rt.active_enemy_roster.is_empty(),
+            "ASM loc_8ABC: no collision should leave an empty trace roster untouched"
+        );
+    }
+
     /// ASM loc_8ACC (kid.asm:9913): axe hits solid block — `clr.w x_vel(a3);
     /// clr.b $12(a3); clr.b palette_line(a3)`, play sfx, animate stru_8BDE,
     /// delete. Native uses lifetime expiry instead.
