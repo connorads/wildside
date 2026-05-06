@@ -271,9 +271,9 @@ mod chunk_03 {
         );
     }
 
-    /// ASM DiamondPower_Init_FiveWayShot (kid.asm:45461) seeds a short-lived
-    /// five-projectile spread. Native emits the spread on the first active
-    /// frame, bounded by the shared projectile cap.
+    /// ASM DiamondPower_Init_FiveWayShot (kid.asm:45461) seeds five shot
+    /// vectors in word_40124. Native emits the capped four-projectile spread
+    /// on the first active frame.
     #[test]
     fn diamond_power_five_way_spawns_startup_spread_loc_400de() {
         let mut runtime = NativeRuntime::new(manifest());
@@ -292,11 +292,10 @@ mod chunk_03 {
             (0x2_0000, -0x3_0000),
             (0, -0x4_0000),
             (-0x2_0000, -0x3_0000),
-            (-0x4_0000, -0x2_0000),
         ];
         assert_eq!(
             runtime.projectiles.len(),
-            MAX_PROJECTILES.min(expected_spreads.len()),
+            expected_spreads.len(),
             "ASM DiamondPower_Init_FiveWayShot: native spread is capped by the projectile list"
         );
         for (projectile, (expected_xv, expected_yv)) in

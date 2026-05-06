@@ -5351,12 +5351,13 @@ impl NativeRuntime {
                     {
                         let slice = self.opening_slice.as_ref();
                         let (px, py) = slice.map_or((0, 0), |s| (s.player.x_pos, s.player.y_pos));
-                        let spreads: [(i32, i32); 5] = [
+                        // ASM word_40124 defines five shots, but native projectiles
+                        // are currently capped at four; keep only the emitted spread.
+                        let spreads: [(i32, i32); MAX_PROJECTILES] = [
                             (0x4_0000, -0x2_0000),  // far right, up
                             (0x2_0000, -0x3_0000),  // right, steep up
                             (0, -0x4_0000),         // straight up
                             (-0x2_0000, -0x3_0000), // left, steep up
-                            (-0x4_0000, -0x2_0000), // far left, up
                         ];
                         for (xv, yv) in spreads {
                             if self.projectiles.len() < MAX_PROJECTILES {
