@@ -3739,10 +3739,26 @@ mod chunk_06 {
         assert_eq!(rt.projectiles.len(), 1);
         let beam = &rt.projectiles[0];
         assert!(beam.friendly, "beam should be player-friendly");
+        assert_eq!(
+            beam.x_pos, slice.player.x_pos,
+            "ASM sub_E49A grows the Eyeclops beam from Kid's live X coordinate"
+        );
         assert_eq!(beam.x_velocity, EYECLOPS_BEAM_SPEED, "beam moves right");
         assert_eq!(beam.lifetime, EYECLOPS_BEAM_LIFETIME);
         assert_eq!(beam.y_velocity, 0, "beam has no vertical velocity");
         assert_eq!(beam.gravity, 0, "beam has no gravity");
+        assert_eq!(
+            beam.homing_accel, 0,
+            "ASM sub_E49A is a straight horizontal beam, not a homing projectile"
+        );
+        assert_eq!(
+            beam.speed_cap, 0,
+            "ASM sub_E49A does not apply homing speed caps to the beam"
+        );
+        assert!(
+            !beam.wall_bounce,
+            "ASM sub_E49A beam ends by lifetime/state, not wall-bounce logic"
+        );
         // Y offset: 8px above player
         assert_eq!(
             beam.y_pos,
@@ -3904,6 +3920,34 @@ mod chunk_06 {
         assert!(
             rt.projectiles.is_empty(),
             "held C (not rising edge) should not fire"
+        );
+    }
+
+    #[test]
+    fn eyeclops_b_without_c_does_not_fire_hard_beam() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Eyeclops;
+        rt.progression.diamond_count = 2;
+        let slice = combat_slice();
+        let input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
+
+        rt.step_eyeclops_beam(&slice, input);
+
+        assert!(
+            !rt.helmet.eyeclops_beam_active,
+            "ASM loc_7606 requires the full held-button mask before arming `$FFFFFAB8` with `$8001`"
+        );
+        assert!(!rt.helmet.eyeclops_beam_hard);
+        assert_eq!(
+            rt.progression.diamond_count, 2,
+            "hard beam must not spend diamonds unless both native gate buttons are held"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "B-only input must not spawn an Eyeclops hard beam"
         );
     }
 
