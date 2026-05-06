@@ -1977,6 +1977,112 @@ mod chunk_06 {
         );
     }
 
+    /// ASM loc_86EC consumes the sword worker's collision result. Native's
+    /// rectangle approximation keeps the horizontal overlap inclusive at
+    /// RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_WIDTH.
+    #[test]
+    fn red_stealth_sword_hits_at_horizontal_extent() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+        let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        let max_dx = RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_WIDTH as i32;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            sx + ((max_dx as u32) << 16),
+            sy,
+            2,
+        ));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_86EC: enemy exactly at the sword's horizontal extent should be hit"
+        );
+    }
+
+    /// ASM loc_86EC only fires after the sword object has collided; native must
+    /// reject enemies just outside the approximated horizontal overlap.
+    #[test]
+    fn red_stealth_sword_misses_just_beyond_horizontal_extent() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+        let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        let miss_dx = RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            sx + ((miss_dx as u32) << 16),
+            sy,
+            2,
+        ));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM loc_86EC: enemy one pixel beyond the horizontal extent should miss"
+        );
+    }
+
+    /// ASM loc_86EC consumes the sword worker's collision result. Native's
+    /// rectangle approximation keeps the vertical overlap inclusive at
+    /// RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_HEIGHT.
+    #[test]
+    fn red_stealth_sword_hits_at_vertical_extent() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+        let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        let max_dy = RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            sx,
+            sy + ((max_dy as u32) << 16),
+            2,
+        ));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_86EC: enemy exactly at the sword's vertical extent should be hit"
+        );
+    }
+
+    /// ASM loc_86EC only fires after the sword object has collided; native must
+    /// reject enemies just outside the approximated vertical overlap.
+    #[test]
+    fn red_stealth_sword_misses_just_beyond_vertical_extent() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+        let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        let miss_dy = RED_STEALTH_HIT_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32 + 1;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Goat,
+            sx,
+            sy + ((miss_dy as u32) << 16),
+            2,
+        ));
+
+        rt.process_sword_hits(&slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM loc_86EC: enemy one pixel beyond the vertical extent should miss"
+        );
+    }
+
     #[test]
     fn red_stealth_sword_kills_1hp_enemy() {
         let mut rt = NativeRuntime::new(manifest());
@@ -1990,6 +2096,32 @@ mod chunk_06 {
         rt.process_sword_hits(&slice);
 
         assert!(rt.active_enemies.is_empty(), "1HP enemy should be killed");
+    }
+
+    /// ASM loc_86EC deletes the sword object after a collision; native removes
+    /// killed enemies from both the live list and trace roster in the same hit.
+    #[test]
+    fn red_stealth_sword_kill_refreshes_active_enemy_roster() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
+        let slice = combat_slice();
+
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 0x009C_0000, 0x00F6_0000, 1));
+        rt.active_enemy_roster = rt
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        rt.process_sword_hits(&slice);
+
+        assert!(rt.active_enemies.is_empty(), "1HP enemy should be killed");
+        assert!(
+            rt.active_enemy_roster.is_empty(),
+            "ASM loc_86EC: native trace roster should drop enemies killed by the sword"
+        );
     }
 
     #[test]
