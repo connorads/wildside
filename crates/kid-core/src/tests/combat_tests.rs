@@ -16965,6 +16965,36 @@ mod chunk_05 {
         );
     }
 
+    #[test]
+    fn iron_knight_loc_7696_attach_uses_integer_foot_y_for_wall_scan() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::IronKnight;
+        rt.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
+        rt.block_grid = Some(grid_with_wall(5, 0, 20, 10));
+
+        let mut slice = airborne_slice();
+        // ASM loc_7696 passes the 16-bit `y_pos(a3)` word to sub_922C. Native
+        // must therefore decode the fixed-point position with `>> 16`; a bad
+        // left shift truncates this 80px foot position to row 0 and misses the
+        // wall rows near floor row 5.
+        slice.player.x_pos = 154 << 16;
+        slice.player.y_pos = 80 << 16;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = false;
+
+        let input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
+        rt.step_iron_knight_climb(&mut slice, input);
+
+        assert!(
+            rt.helmet.iron_knight_climbing,
+            "ASM loc_7696/sub_922C: wall attach should scan rows around the integer foot y"
+        );
+        assert_eq!(slice.player.y_velocity, IRON_KNIGHT_ATTACH_Y_VEL);
+    }
+
     /// ASM loc_7696: `add.w d6,d7 / bmi.w loc_7772` — if the probed x
     /// coordinate goes negative the routine skips the wall probe entirely.
     #[test]
