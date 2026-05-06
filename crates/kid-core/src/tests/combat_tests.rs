@@ -432,6 +432,119 @@ mod chunk_03 {
         );
     }
 
+    /// ASM DiamondPower_Run checks held Start+A before entering
+    /// DiamondPower_Check; either button alone must leave the power inactive.
+    #[test]
+    fn diamond_power_activation_requires_start_and_a_loc_3f691() {
+        for input in [
+            FrameInput {
+                start: true,
+                ..FrameInput::default()
+            },
+            FrameInput {
+                a: true,
+                ..FrameInput::default()
+            },
+        ] {
+            let mut runtime = NativeRuntime::new(manifest());
+            runtime.progression.current_form = PlayerForm::TheKid;
+            runtime.progression.diamond_count = 20;
+
+            runtime.step_diamond_power(input);
+
+            assert_eq!(
+                runtime.progression.diamond_power_frames, 0,
+                "ASM loc_3F691: Start and A must both be held"
+            );
+            assert_eq!(
+                runtime.progression.diamond_count, 20,
+                "ASM loc_3F691: failed input gate must not spend diamonds"
+            );
+        }
+    }
+
+    /// ASM DiamondPower_Check uses `cmpi.w #$14` / `blt`: exactly 20
+    /// diamonds is enough, 19 is not.
+    #[test]
+    fn diamond_power_activation_uses_exact_twenty_threshold_loc_3f6a1() {
+        let mut exact = NativeRuntime::new(manifest());
+        exact.progression.current_form = PlayerForm::TheKid;
+        exact.progression.diamond_count = 20;
+
+        exact.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            exact.progression.diamond_power_type,
+            helmets::DiamondPowerType::CircleOfDoom
+        );
+        assert_eq!(
+            exact.progression.diamond_power_frames,
+            helmets::diamond_power_duration(helmets::DiamondPowerType::CircleOfDoom)
+        );
+        assert_eq!(exact.progression.diamond_count, 0);
+
+        let mut below = NativeRuntime::new(manifest());
+        below.progression.current_form = PlayerForm::TheKid;
+        below.progression.diamond_count = 19;
+
+        below.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            below.progression.diamond_power_frames, 0,
+            "ASM loc_3F6A1: 19 diamonds must branch to DiamondPower_rts"
+        );
+        assert_eq!(below.progression.diamond_count, 19);
+    }
+
+    /// ASM DiamondPower_Main_CircleOfDoom damages ordinary enemies while
+    /// diamond pickups stay collectible. Native AoE keeps that filtering and
+    /// refreshes the authoritative active roster after a kill.
+    #[test]
+    fn diamond_power_aoe_skips_diamonds_and_refreshes_roster_loc_3f81a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::CircleOfDoom;
+        runtime.progression.diamond_power_frames = 2;
+        runtime.active_enemies = vec![
+            test_enemy(EnemyFamily::Dragon, 0x0100_0000, 0x0020_0000, 1),
+            test_enemy(EnemyFamily::Diamond, 0x0110_0000, 0x0020_0000, 1),
+            test_enemy(EnemyFamily::Robot, 0x0120_0000, 0x0020_0000, 2),
+        ];
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(runtime.active_enemies.len(), 2);
+        assert_eq!(
+            runtime.active_enemies[0].family,
+            EnemyFamily::Diamond,
+            "ASM DiamondPower_Main_CircleOfDoom: diamond pickup objects are not AoE targets"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 1);
+        assert_eq!(runtime.active_enemies[1].family, EnemyFamily::Robot);
+        assert_eq!(runtime.active_enemies[1].hit_points, 1);
+        assert_eq!(
+            runtime.active_enemies[1].damage_flash_frames,
+            ENEMY_DAMAGE_FLASH_FRAMES
+        );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            runtime.active_enemies.len(),
+            "native AoE kill path must refresh the trace roster after removing enemies"
+        );
+    }
+
     // -----------------------------------------------------------------------
     // Rain tracking enemy scan (loc_3FEE2, loc_3FF16, loc_3FF1C)
     // -----------------------------------------------------------------------
