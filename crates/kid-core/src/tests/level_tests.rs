@@ -9801,6 +9801,28 @@ mod chunk_02 {
 
         assert_eq!(
             crate::level::animated_solid_block_vertical_setup_loc_F83E(
+                0x0010, 0x002E, 0x0010, 0x0020, 0x0024, 0x002E,
+            ),
+            crate::level::AnimatedSolidBlockVerticalSetupLocF83E::Visible {
+                packed_cell_x_bits: 0x0040,
+                start_row: 0x002E,
+            },
+            "ASM loc_F83E should accept the inclusive left column and bottom row because it rejects only `blt`/`bgt`"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_setup_loc_F83E(
+                0x0024, 0x0021, 0x0010, 0x0020, 0x0024, 0x002E,
+            ),
+            crate::level::AnimatedSolidBlockVerticalSetupLocF83E::Visible {
+                packed_cell_x_bits: 0x0010,
+                start_row: 0x0021,
+            },
+            "ASM loc_F83E should accept the inclusive right column because `cmp.w d6,d0; bgt` only rejects greater columns"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_setup_loc_F83E(
                 0x0021, 0x0018, 0x0010, 0x0020, 0x0024, 0x002E,
             ),
             crate::level::AnimatedSolidBlockVerticalSetupLocF83E::CulledLayoutOnly,
@@ -9813,6 +9835,22 @@ mod chunk_02 {
             ),
             crate::level::AnimatedSolidBlockVerticalSetupLocF83E::CulledLayoutOnly,
             "ASM loc_F83E should branch to loc_F886 when the source column is right of the camera window"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_setup_loc_F83E(
+                0x000F, 0x0021, 0x0010, 0x0020, 0x0024, 0x002E,
+            ),
+            crate::level::AnimatedSolidBlockVerticalSetupLocF83E::CulledLayoutOnly,
+            "ASM loc_F83E should branch to loc_F886 when the source column is left of the camera window"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_setup_loc_F83E(
+                0x0021, 0x002F, 0x0010, 0x0020, 0x0024, 0x002E,
+            ),
+            crate::level::AnimatedSolidBlockVerticalSetupLocF83E::CulledLayoutOnly,
+            "ASM loc_F83E should branch to loc_F886 when the source row is below the camera window"
         );
     }
 
