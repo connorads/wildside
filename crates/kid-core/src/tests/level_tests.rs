@@ -19462,6 +19462,15 @@ mod chunk_10 {
             result.cell_addr, 0x00B0B0,
             "ASM loc_126F8: cell_addr = row_table[y] + 2*x = 0xB080 + 0x30 = 0xB0B0"
         );
+
+        let last_row_table: Vec<u16> = vec![0xB000, 0xB040, 0xB080, 0xB0C0, 0xB140];
+        let last_row =
+            crate::level::block_type_16_parse_coords_loc_126f8(&[0x0004], &last_row_table, 0x0003)
+                .expect("ASM loc_126F8: final valid row should parse");
+        assert_eq!(
+            last_row.cell_addr, 0x00B146,
+            "ASM loc_126F8: y_row*2 selects row 4, then adds 2*x"
+        );
     }
 
     #[test]
@@ -19484,6 +19493,11 @@ mod chunk_10 {
         assert!(
             row_by_row.is_row_by_row,
             "ASM loc_126FE: stride!=0 means row-by-row fill"
+        );
+        assert_eq!(
+            crate::level::block_type_16_read_count_stride_loc_126fe(&[3]),
+            None,
+            "ASM loc_126FE: count and stride flag words must both be present"
         );
     }
 
