@@ -8943,6 +8943,28 @@ mod chunk_02 {
             ),
             "ASM loc_F1DE should store `(low_byte-$2D)` in `$6(a3)`, then shift once before the loc_F224 right-neighbour check"
         );
+
+        assert_eq!(
+            crate::level::evanescent_shooter_cell_scan_loc_F1DE(
+                0xFFFF_A648,
+                4,
+                7,
+                0xEC2D,
+                0xFFFF_E7F4,
+            ),
+            crate::level::EvanescentShooterCellScanLocF1DE::QueueShooter(
+                crate::level::EvanescentShooterCandidateLocF1DE {
+                    allocated_slot_addr: 0xFFFF_E7F4,
+                    layout_word_addr: 0xFFFF_A648,
+                    block_col: 4,
+                    block_row: 7,
+                    direction_bits: 0x0000,
+                    direction_bits_after_up_shift: 0x0000,
+                    up_direction_set: false,
+                },
+            ),
+            "ASM loc_F1DE: low byte $2D stores zero direction bits, so the first carry is clear"
+        );
     }
 
     /// ASM loc_F224 (kid.asm:19800): shift the post-up-check direction word
