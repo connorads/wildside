@@ -18410,6 +18410,12 @@ mod chunk_10 {
             result2.priority, 0x8002,
             "ASM loc_124BE: priority 2 should get $8000 ORed",
         );
+
+        let result_high = crate::level::block_type_3_write_entry_loc_124be(0x8001);
+        assert_eq!(
+            result_high.priority, 0x8001,
+            "ASM loc_124BE should set bit 15 with OR, not toggle an already-set priority bit"
+        );
     }
 
     #[test]
@@ -18449,6 +18455,24 @@ mod chunk_10 {
         assert_eq!(result.y_row, 0x0008);
         assert_eq!(result.byte5, 0x03);
         assert_eq!(result.byte7, 0x00);
+
+        let mut pass_through_entry = entry;
+        pass_through_entry.priority = 3;
+        let pass_through =
+            crate::level::block_type_3_hidden_block_entry_loc_124e8(&pass_through_entry, 0xA060);
+        assert_eq!(
+            pass_through.priority, 3,
+            "ASM loc_124BE should pass priority 3 through to loc_124E8 without setting bit 15"
+        );
+
+        let mut high_entry = entry;
+        high_entry.priority = 0x8001;
+        let high_priority =
+            crate::level::block_type_3_hidden_block_entry_loc_124e8(&high_entry, 0xA060);
+        assert_eq!(
+            high_priority.priority, 0x8001,
+            "ASM loc_124BE/loc_124E8 should set bit 15 with OR, not toggle an already-set priority bit"
+        );
     }
 
     #[test]
