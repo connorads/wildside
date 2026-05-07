@@ -10079,6 +10079,22 @@ mod chunk_02 {
 
         assert_eq!(
             crate::level::animated_solid_block_horizontal_queue_gate_loc_F94E(
+                0x0020, 0x0030, 0x0008, 0x0010, 0x0020, 0x0030,
+            ),
+            Some(0x0000),
+            "ASM loc_F94E should accept the inclusive right column and bottom row because it rejects only `bgt`"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_gate_loc_F94E(
+                0x0008, 0x0012, 0x0008, 0x0010, 0x0020, 0x0030,
+            ),
+            Some(0x0020),
+            "ASM loc_F94E should accept the inclusive left column because it rejects only `blt`"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_gate_loc_F94E(
                 0x0021, 0x0012, 0x0008, 0x0010, 0x0020, 0x0030,
             ),
             None,
@@ -10108,13 +10124,20 @@ mod chunk_02 {
             Some(0x0040),
             "ASM loc_F94E should accept cells at top-7"
         );
+
+        assert_eq!(
+            crate::level::animated_solid_block_horizontal_queue_gate_loc_F94E(
+                0x0010, 0x0031, 0x0008, 0x0010, 0x0020, 0x0030,
+            ),
+            None,
+            "ASM loc_F94E should skip rows below the bottom bound"
+        );
     }
 
     /// ASM loc_F96A (kid.asm:20671): writes the layout word and queues a
     /// foreground entry only for rows inside `[top,bottom]`, with queue address
     /// formed from `$F00 |` pre-packed X bits.
     #[test]
-    #[ignore = "TODO(fidelity): loc_F96A not yet implemented"]
     #[allow(non_snake_case)]
     fn loc_F96A_writes_layout_and_queues_only_in_row_window() {
         let mut theme_mappings = vec![[0x1111_1111, 0x2222_2222]; 0x100];
@@ -10132,7 +10155,7 @@ mod chunk_02 {
             crate::level::AnimatedSolidBlockHorizontalQueueCellLocF90A {
                 layout_word: 0x005A,
                 custom_entry: Some(crate::level::FgUpdateQueueCustomEntrySub1596 {
-                    vram_word_address: 0x1228,
+                    vram_word_address: 0x0228,
                     first_longword: 0xDEAD_BEEF,
                     second_longword: 0xFACE_CAFE,
                 }),
