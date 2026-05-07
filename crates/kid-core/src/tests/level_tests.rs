@@ -1151,6 +1151,42 @@ mod chunk_02 {
     }
 
     #[test]
+    fn loc_3691e_ors_reload_state_bits_into_object_status_slot() {
+        let d4_eq_one = crate::level::manage_enemy_loading_spawn_object_loc_3691E(
+            0x0B,
+            0x0003_691E,
+            0x00C1,
+            0,
+            1,
+        );
+        assert_eq!(
+            d4_eq_one.object_status_slot, 0xC0,
+            "ASM loc_36956: d4==1 ORs $C0 into the base status byte"
+        );
+        assert_eq!(
+            d4_eq_one.enemy_status_word, None,
+            "ASM loc_36956 branches to loc_36962 without writing the loaded sentinel"
+        );
+
+        let d4_gt_one = crate::level::manage_enemy_loading_spawn_object_loc_3691E(
+            0x0B,
+            0x0003_691E,
+            0x0081,
+            0,
+            2,
+        );
+        assert_eq!(
+            d4_gt_one.object_status_slot, 0x80,
+            "ASM loc_3691E: d4>1 ORs $80 into the base status byte"
+        );
+        assert_eq!(
+            d4_gt_one.enemy_status_word,
+            Some(0xFFFF),
+            "ASM loc_3695E: d4>1 still writes the loaded sentinel"
+        );
+    }
+
+    #[test]
     fn loc_3204e_always_loads_the_enemy_art_palette_before_returning() {
         assert!(
             enemy_layout_finish_loc_3204E(),
