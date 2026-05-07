@@ -9500,7 +9500,10 @@ pub(crate) fn animated_solid_block_horizontal_rows_loc_F8CA(
     // consumed while each cell writes one layout restore byte.
     let mut remaining_count = source_cells_length_word.wrapping_add(start_col);
     let row_in_view = row >= camera_top_row && row <= camera_bottom_row;
-    let packed_row_bits = row_in_view.then_some((row << 8) & 0x0F00);
+    let span_can_queue = row_in_view
+        && start_col <= camera_right_col
+        && (start_col.wrapping_sub(camera_left_col) as i16) > -8;
+    let packed_row_bits = span_can_queue.then_some((row << 8) & 0x0F00);
     let mut source_index = source_cells_start.saturating_add(usize::from(start_col));
     let mut layout_addr = layout_queue_base_addr;
     let mut layout_writes = Vec::with_capacity(usize::from(remaining_count));
@@ -9509,10 +9512,7 @@ pub(crate) fn animated_solid_block_horizontal_rows_loc_F8CA(
 
     loop {
         let source_cell = source_cells.get(source_index).copied().unwrap_or(0);
-        let queue_cell = if row_in_view
-            && col <= camera_right_col
-            && (col.wrapping_sub(camera_left_col) as i16) > -8
-        {
+        let queue_cell = if span_can_queue && col <= camera_right_col {
             animated_solid_block_horizontal_queue_cell_loc_F90A(
                 source_cell,
                 col,

@@ -10868,7 +10868,6 @@ mod chunk_02 {
     /// FG queue entries only for the visible span after the `-8..+camera_right`
     /// cull check.
     #[test]
-    #[ignore = "TODO(fidelity): loc_F8CA not yet implemented"]
     #[allow(non_snake_case)]
     fn loc_F8CA_restores_layout_and_emits_visible_horizontal_queue_entries() {
         let source_cells = (0u8..48).collect::<Vec<_>>();
@@ -10893,7 +10892,7 @@ mod chunk_02 {
 
         assert_eq!(
             rows.layout_writes,
-            (8..20)
+            (8..=20)
                 .map(|col| {
                     let col = col as u16;
                     (0x0400 + (u32::from(col - 8) * 2), col)
@@ -10924,16 +10923,57 @@ mod chunk_02 {
         );
         assert_eq!(
             rows.final_layout_addr,
-            0x0400 + (u32::from((4u16 + 8) * 2)),
+            0x0400 + (u32::from((4u16 + 8 + 1) * 2)),
             "ASM loc_F934 should advance the layout queue pointer by one word per processed source byte"
         );
         assert_eq!(
-            rows.final_col, 20,
+            rows.final_col, 21,
             "ASM loc_F8CA should increment the source column each loop iteration"
         );
         assert_eq!(
             rows.remaining_count, 0xFFFF,
             "ASM loc_F934 should leave d3 at -1 after the terminal DBF decrement"
+        );
+
+        let row_above_window = crate::level::animated_solid_block_horizontal_rows_loc_F8CA(
+            &[0x0A],
+            0,
+            0,
+            0,
+            0x0009,
+            0x0500,
+            0,
+            0,
+            0x000A,
+            0x0015,
+            &theme_mappings,
+        );
+        assert_eq!(
+            row_above_window.layout_writes,
+            vec![(0x0500, 0x000A)],
+            "ASM loc_F93C should still restore layout bytes when loc_F8CA culls a row above the camera"
+        );
+        assert!(
+            row_above_window.custom_queue_entries.is_empty(),
+            "ASM loc_F8CA should branch to loc_F93C before loc_F90A when `cmp.w d5,d1; blt` rejects the row"
+        );
+
+        let start_at_left_minus_eight = crate::level::animated_solid_block_horizontal_rows_loc_F8CA(
+            &source_cells,
+            0,
+            10,
+            2,
+            0x0012,
+            0x0600,
+            10,
+            12,
+            0x000A,
+            0x0015,
+            &theme_mappings,
+        );
+        assert!(
+            start_at_left_minus_eight.custom_queue_entries.is_empty(),
+            "ASM loc_F8CA should branch to loc_F93C for the whole span when `start_col-camera_left <= -8`, even if later columns reach the camera"
         );
     }
 
