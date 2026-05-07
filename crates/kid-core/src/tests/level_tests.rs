@@ -18099,6 +18099,16 @@ mod chunk_10 {
             "ASM loc_12408: normal prize block with no flag should use $E102",
         );
 
+        let zero_type_result = crate::level::block_type_1_cell_value_loc_12408(
+            0xA000, // cell address
+            0x0000, // property word (no disguised flag)
+            0,      // zero is non-negative after `tst.w d0`
+        );
+        assert_eq!(
+            zero_type_result.cell_word, 0xE102,
+            "ASM loc_12408 should treat block_type zero as non-hidden because `bmi.s loc_12422` only branches on negative d0"
+        );
+
         let disguised_result = crate::level::block_type_1_cell_value_loc_12408(
             0xA000, 0x8000, // property word with disguised flag (bit 15 set)
             1,
