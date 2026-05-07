@@ -18878,6 +18878,16 @@ mod chunk_10 {
             result.tile_word, property_byte,
             "ASM loc_125E6: hidden blocks return property byte unchanged"
         );
+
+        let zero_type = crate::level::block_type_1012_tile_value_loc_125c8(property_byte, 0);
+        assert!(
+            !zero_type.is_hidden,
+            "ASM loc_125C8: bmi branches only for negative block_type, so zero remains visible"
+        );
+        assert_eq!(
+            zero_type.tile_word, 0xEAEA,
+            "ASM loc_125E0: visible non-12 type uses the type-10 tile adjustment"
+        );
     }
 
     #[test]
