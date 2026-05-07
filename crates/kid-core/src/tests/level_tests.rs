@@ -19217,6 +19217,46 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_201c_expands_right_until_first_solid_tile() {
+        // ASM loc_201C (kid.asm:3834-3847): abort if FAA6 is set, otherwise
+        // consume rightward tiles until Palette_to_VRAM0 returns non-zero and
+        // then rewind two words before seeding d1/d2 from sub_1F8E.
+        let result = crate::level::kid_hitbox_solid_scan_expand_right_loc_201C(
+            false,             // FAA6 clear
+            10,                // a1 after the initial loc_2010 hit
+            7,                 // sub_1F8E returns tile column 7
+            &[0x0000, 0x6000], // first right tile empty, second blocks
+        )
+        .expect("ASM loc_201C: first non-zero Palette_to_VRAM0 result should stop scan");
+        assert_eq!(
+            result.rewind_index, 10,
+            "ASM loc_201C: post-hit subq #4 rewinds two words from the blocking successor"
+        );
+        assert_eq!(result.tile_column, 7, "ASM loc_201C: sub_1F8E seeds d5");
+        assert_eq!(result.left_px, 0x0070, "ASM loc_201C: d1 = d5 << 4");
+        assert_eq!(
+            result.right_px, 0x007F,
+            "ASM loc_201C: d2 = (d5 << 4) + 0xF"
+        );
+
+        assert_eq!(
+            crate::level::kid_hitbox_solid_scan_expand_right_loc_201C(true, 10, 7, &[0x6000],),
+            None,
+            "ASM loc_201C: non-zero FAA6 bails to loc_2156"
+        );
+        assert_eq!(
+            crate::level::kid_hitbox_solid_scan_expand_right_loc_201C(
+                false,
+                10,
+                7,
+                &[0x0000, 0x0000],
+            ),
+            None,
+            "ASM loc_201C: scan continues while Palette_to_VRAM0 returns zero"
+        );
+    }
+
+    #[test]
     fn loc_12670_creates_hidden_block_entry_pair() {
         // ASM loc_12670 (kid.asm:24915-24932): create hidden block entries.
         // Creates TWO entries: one at cell_addr, one at cell_addr+2.
