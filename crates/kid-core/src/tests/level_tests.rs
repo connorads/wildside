@@ -19138,6 +19138,24 @@ mod chunk_10 {
             "ASM loc_1264C: cell_addr = row_start[2] + X*2 = 0x0100 + 32"
         );
         assert!(!result.is_hidden, "ASM loc_1264C: type 4 is visible");
+
+        let last_row_table: Vec<u16> = vec![0x0000, 0x0080, 0x0100, 0x0180, 0x0200];
+        let last_row = crate::level::block_type_4_parse_coords_loc_1264c(
+            &[0x0004],
+            &last_row_table,
+            0x0003,
+            0,
+        )
+        .expect("ASM loc_1264C: final valid row should parse");
+        assert_eq!(
+            last_row.cell_addr,
+            0x0200 + 3 * 2,
+            "ASM loc_1264C: y_row*2 selects row 4, then adds 2*x"
+        );
+        assert!(
+            !last_row.is_hidden,
+            "ASM loc_1264C: bmi branches only for negative block_type, so zero remains visible"
+        );
     }
 
     #[test]
