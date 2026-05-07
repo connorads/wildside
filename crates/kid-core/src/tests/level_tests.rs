@@ -10270,7 +10270,6 @@ mod chunk_02 {
     /// still writes one layout word per DBF row and advances source/layout by row
     /// strides until DBF wraps to -1.
     #[test]
-    #[ignore = "TODO(fidelity): loc_F9A6 not yet implemented"]
     #[allow(non_snake_case)]
     fn loc_F9A6_copies_culled_column_layout_words_and_advances_by_level_stride() {
         let source_cells = (0u8..16).collect::<Vec<_>>();
@@ -10284,9 +10283,14 @@ mod chunk_02 {
                 2,
             ),
             crate::level::AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
-                layout_writes: vec![(0x0100, 0x0002), (0x0102, 0x0006), (0x0104, 0x000A)],
-                final_source_cells_start: 14,
-                final_layout_addr: 0x0106,
+                layout_writes: vec![
+                    (0x0100, 0x0002),
+                    (0x0102, 0x0006),
+                    (0x0104, 0x000A),
+                    (0x0106, 0x000E),
+                ],
+                final_source_cells_start: 18,
+                final_layout_addr: 0x0108,
                 final_remaining_count: 0xFFFF,
                 continue_loop: false,
             },
