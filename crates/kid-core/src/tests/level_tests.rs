@@ -20202,6 +20202,20 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_122b8_reads_the_last_base_cell_but_rejects_the_first_out_of_table_type() {
+        assert_eq!(
+            crate::level::block_type_base_cell_loc_122B8(9),
+            0xE919,
+            "ASM loc_122B8 should read `word_122C6` entry 9 as the last in-table base cell"
+        );
+        assert_eq!(
+            crate::level::block_type_base_cell_loc_122B8(10),
+            0x0000,
+            "Native loc_122B8 should keep the safe fallback for the first block type beyond the ten-word `word_122C6` table"
+        );
+    }
+
+    #[test]
     fn loc_1337c_emits_dbf_count_plus_one_property_words_and_sets_bit_15_on_flagged_entries() {
         let property_words = [
             BlockLayoutPropertyWordLoc1337C {
