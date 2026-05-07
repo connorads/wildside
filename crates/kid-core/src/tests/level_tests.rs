@@ -18166,6 +18166,16 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_12332_advances_row_by_row_cell_address_by_one_level_width() {
+        let result = crate::level::block_place_row_by_row_advance_loc_12332(0xA000, 64);
+
+        assert_eq!(
+            result.next_cell_addr, 0xA080,
+            "ASM loc_12332 should add `Level_width_tiles` words to a4, so native byte addresses advance by `Level_width_tiles * 2`"
+        );
+    }
+
+    #[test]
     fn loc_12480_finalizes_row_by_row_and_advances() {
         // ASM loc_12480 (kid.asm:24668-24679): finalize row-by-row placement.
         // Updates block list and advances cell address for next row:
