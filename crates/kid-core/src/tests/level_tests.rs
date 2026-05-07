@@ -18029,6 +18029,23 @@ mod chunk_10 {
         assert_eq!(setup.count, 5, "count should be 5");
         assert!(!setup.stride, "stride should be false (horizontal)");
         assert_eq!(setup.words_consumed, 3, "should consume 3 words");
+
+        let later_row_table = vec![
+            0xA000, // row 0
+            0xA040, // row 1
+            0xA080, // row 2
+            0xA0C0, // row 3
+        ];
+        let later_row = crate::level::block_type_1_cell_coords_loc_123ec(
+            &[0x0003, 0x0002, 0x0000],
+            &later_row_table,
+            0x0012,
+        )
+        .expect("loc_123EC should calculate later-row setup for valid input");
+        assert_eq!(
+            later_row.cell_addr, 0xA0E4,
+            "ASM loc_123EC should double Y for the row-pointer byte offset and add X twice: row 3 $A0C0 + $12*2 = $A0E4"
+        );
     }
 
     #[test]
