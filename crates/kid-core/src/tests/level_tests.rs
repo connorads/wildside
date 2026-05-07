@@ -19860,6 +19860,19 @@ mod chunk_10 {
             "ASM loc_1288A: all 9 tiles of 3x3 in-bounds chunk should be copied"
         );
 
+        let short_source = crate::level::background_chunk_row_loop_loc_12884(
+            3,  // chunk width
+            10, // start_x
+            5,  // start_y
+            80, // background_width
+            28, // background_height
+            &[0x01, 0x02, 0x03, 0x04, 0x05],
+        );
+        assert_eq!(
+            short_source.tiles_copied, 5,
+            "ASM loc_128A0: source pointer advances once per attempted tile"
+        );
+
         // 2x2 chunk partially outside left/top of background
         let partial_left_top = crate::level::background_chunk_row_loop_loc_12884(
             2,  // chunk width
