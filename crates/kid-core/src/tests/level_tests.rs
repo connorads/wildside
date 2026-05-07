@@ -18128,6 +18128,23 @@ mod chunk_10 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_11CB6_rejects_prize_block_entries_once_the_fg_queue_boundary_is_reached() {
+        assert!(
+            crate::level::prize_block_list_guard_loc_11CB6(0, 9),
+            "ASM loc_11CB6 should skip the queue-boundary guard when `($FFFFF8D4).w` is zero"
+        );
+        assert!(
+            crate::level::prize_block_list_guard_loc_11CB6(0xFFFF_43B0, 1),
+            "ASM loc_11CB6 should continue while low(base + count*8) remains below `FGPlane_UpdateQueueCustom=$43BC`"
+        );
+        assert!(
+            !crate::level::prize_block_list_guard_loc_11CB6(0xFFFF_43B4, 1),
+            "ASM loc_11CB6 should branch to loc_11D0A when low(base + count*8) reaches `FGPlane_UpdateQueueCustom=$43BC`"
+        );
+    }
+
+    #[test]
     fn loc_12454_reads_property_word_for_row_by_row() {
         // ASM loc_12454 (kid.asm:24643-24651): row-by-row entry reads property word
         // and dispatches based on block_type and property flags:
