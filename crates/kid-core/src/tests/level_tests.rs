@@ -19178,6 +19178,45 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_1fb2_sets_up_kid_hitbox_solid_scan() {
+        // ASM loc_1FB2 (kid.asm:3790-3811): bail if FA64 is non-zero or Kid
+        // pointer is null, otherwise convert hitbox bounds to tile rows/columns.
+        let row_table: Vec<u16> = vec![0x0000, 0x0100, 0x0200, 0x0300];
+
+        let result = crate::level::kid_hitbox_solid_scan_setup_loc_1FB2(
+            false,  // FA64 clear
+            true,   // Kid object pointer present
+            0x0020, // top row 2
+            0x003F, // bottom row 3
+            0x0010, // left col 1
+            0x002F, // right col 2
+            &row_table,
+        )
+        .expect("ASM loc_1FB2: present Kid with scan enabled should set up scan");
+        assert_eq!(
+            result.row_start_addr, 0x0202,
+            "ASM loc_1FB2: row pointer[top] + 2*left column"
+        );
+        assert_eq!(result.row_count, 1, "ASM loc_1FB2: bottom_row - top_row");
+        assert_eq!(result.col_count, 1, "ASM loc_1FB2: right_col - left_col");
+
+        assert_eq!(
+            crate::level::kid_hitbox_solid_scan_setup_loc_1FB2(
+                true, true, 0x0020, 0x003F, 0x0010, 0x002F, &row_table,
+            ),
+            None,
+            "ASM loc_1FB2: non-zero FA64 bails to loc_200C"
+        );
+        assert_eq!(
+            crate::level::kid_hitbox_solid_scan_setup_loc_1FB2(
+                false, false, 0x0020, 0x003F, 0x0010, 0x002F, &row_table,
+            ),
+            None,
+            "ASM loc_1FB2: null Kid object pointer bails to loc_200C"
+        );
+    }
+
+    #[test]
     fn loc_12670_creates_hidden_block_entry_pair() {
         // ASM loc_12670 (kid.asm:24915-24932): create hidden block entries.
         // Creates TWO entries: one at cell_addr, one at cell_addr+2.
