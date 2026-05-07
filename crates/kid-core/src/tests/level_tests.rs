@@ -18181,6 +18181,23 @@ mod chunk_10 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_11CE0_rejects_custom_fg_queue_entries_at_ten_word_stride() {
+        assert!(
+            crate::level::fg_plane_custom_write_guard_loc_11CE0(0, 2),
+            "ASM loc_11CE0 should skip the queue-boundary guard when `($FFFFF8E0).w` is zero"
+        );
+        assert!(
+            crate::level::fg_plane_custom_write_guard_loc_11CE0(0xFFFF_43A8, 1),
+            "ASM loc_11CE0 should continue while low(base + count*10) remains below `FGPlane_UpdateQueueCustom=$43BC`"
+        );
+        assert!(
+            !crate::level::fg_plane_custom_write_guard_loc_11CE0(0xFFFF_43A8, 2),
+            "ASM loc_11CE0 should multiply the custom FG queue count by $A before comparing against $43BC"
+        );
+    }
+
+    #[test]
     fn loc_12454_reads_property_word_for_row_by_row() {
         // ASM loc_12454 (kid.asm:24643-24651): row-by-row entry reads property word
         // and dispatches based on block_type and property flags:
