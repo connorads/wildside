@@ -18605,6 +18605,17 @@ mod chunk_10 {
             result.bytes_consumed, 3,
             "ASM loc_12540: should consume 3 words"
         );
+
+        let incomplete = crate::level::block_type_8_parse_coords_loc_12540(
+            &[0x0001, 0x0003],
+            0x0010,
+            &row_table,
+            64,
+        );
+        assert_eq!(
+            incomplete, None,
+            "ASM loc_12540: y_row, height, and width flag words must all be present"
+        );
     }
 
     #[test]
