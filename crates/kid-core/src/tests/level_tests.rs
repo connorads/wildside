@@ -19339,6 +19339,23 @@ mod chunk_10 {
             !result.is_hidden,
             "ASM loc_126C0: positive block_type (11) is visible"
         );
+
+        let last_row_table: Vec<u16> = vec![0xB000, 0xB040, 0xB080, 0xB0C0, 0xB140];
+        let last_row = crate::level::block_type_11_parse_coords_loc_126c0(
+            &[0x0004],
+            &last_row_table,
+            0x0003,
+            0,
+        )
+        .expect("ASM loc_126C0: final valid row should parse");
+        assert_eq!(
+            last_row.cell_addr, 0x00B146,
+            "ASM loc_126C0: y_row*2 selects row 4, then adds 2*x"
+        );
+        assert!(
+            !last_row.is_hidden,
+            "ASM loc_126C0: bmi branches only for negative block_type, so zero remains visible"
+        );
     }
 
     #[test]
