@@ -18227,6 +18227,64 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_12098_and_loc_12110_mask_palette_frame_indices() {
+        let primary = crate::level::step_island_palette_cycle_primary_band_loc_12098(1, 5);
+        assert_eq!(
+            primary.uploaded_frame_index,
+            Some(1),
+            "ASM loc_12098: current d3 is masked with andi.w #3 before table lookup"
+        );
+        assert_eq!(
+            primary.next_phase, 2,
+            "ASM loc_12098: incremented d3 is also masked to the four-frame cycle"
+        );
+
+        let mid = crate::level::step_island_palette_cycle_mid_band_loc_12110(1, 6);
+        assert_eq!(
+            mid.uploaded_frame_index,
+            Some(2),
+            "ASM loc_12110: current d2 is masked with andi.w #3 before table lookup"
+        );
+        assert_eq!(
+            mid.next_phase, 3,
+            "ASM loc_12110: incremented d2 is also masked to the four-frame cycle"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_1223C_rotates_lava_water_palette_words() {
+        let mut palette = [0u16; 0x40];
+        palette[crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C] = 0x000E;
+        palette[crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C + 1] = 0x0010;
+        palette[crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C + 2] = 0x0012;
+        palette[crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C + 3] = 0x0014;
+
+        crate::level::rotate_palette_lava_water_loc_1223C(&mut palette);
+
+        assert_eq!(
+            palette[crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C],
+            0x0014,
+            "ASM loc_1223C: saved Palette_Buffer+$14 is restored to +$E"
+        );
+        assert_eq!(
+            palette[crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C + 1],
+            0x000E,
+            "ASM loc_1223C: Palette_Buffer+$E shifts to +$10"
+        );
+        assert_eq!(
+            palette[crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C + 2],
+            0x0010,
+            "ASM loc_1223C: Palette_Buffer+$10 shifts to +$12"
+        );
+        assert_eq!(
+            palette[crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C + 3],
+            0x0012,
+            "ASM loc_1223C: Palette_Buffer+$12 shifts to +$14"
+        );
+    }
+
+    #[test]
     fn loc_12454_reads_property_word_for_row_by_row() {
         // ASM loc_12454 (kid.asm:24643-24651): row-by-row entry reads property word
         // and dispatches based on block_type and property flags:
