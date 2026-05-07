@@ -18287,11 +18287,23 @@ mod chunk_10 {
         // ASM loc_124AA (kid.asm:24694-24698): reads x_pos, falls through to loc_124BE
         // if non-negative. Entry layout: x_pos(2) + y_row(2) + count(2) + stride(2) +
         // attr0(2) + priority(2) + attr2(2) + attr3(2) = 16 bytes = 8 words.
+        let incomplete = crate::level::block_type_3_read_entry_loc_124aa(&[
+            0x0014, 0x0008, 0x0003, 0x0000, 0x1234, 0x0001, 0xABCD,
+        ]);
+        assert!(
+            incomplete.entry.is_none(),
+            "ASM loc_124AA should not parse an entry until all eight words are available"
+        );
+        assert_eq!(
+            incomplete.words_consumed, 0,
+            "ASM loc_124AA should leave the stream unconsumed when a non-sentinel entry is incomplete"
+        );
+
         let entry = crate::level::block_type_3_read_entry_loc_124aa(&[
             0x0014, // x_pos = 20
             0x0008, // y_row = 8
-            0x0003, // count = 3
-            0x0000, // stride = 0 (horizontal)
+            0x1203, // count = 3 in low byte
+            0x4500, // stride low byte = 0 (horizontal)
             0x1234, // attr0
             0x0001, // priority = 1 (will get ORed with $8000)
             0xABCD, // attr2
@@ -18304,12 +18316,20 @@ mod chunk_10 {
         let e = entry.entry.unwrap();
         assert_eq!(e.x_pos, 0x0014);
         assert_eq!(e.y_row, 0x0008);
-        assert_eq!(e.count, 0x0003);
-        assert_eq!(e.stride, 0x0000);
+        assert_eq!(e.count, 0x1203);
+        assert_eq!(e.stride, 0x4500);
         assert_eq!(e.attr0, 0x1234);
         assert_eq!(e.priority, 0x0001);
         assert_eq!(e.attr2, 0xABCD);
         assert_eq!(e.attr3, 0xEF01);
+        assert_eq!(
+            e.byte5, 0x03,
+            "ASM loc_124E8 later writes byte 5 as the low byte of the count word"
+        );
+        assert_eq!(
+            e.byte7, 0x00,
+            "ASM loc_124E8 later writes byte 7 as the low byte of the stride word"
+        );
         assert_eq!(entry.words_consumed, 8);
     }
 
@@ -18336,6 +18356,26 @@ mod chunk_10 {
             "ASM loc_124BE: row_start[1] + 2*x_pos = 0xA040 + 0x20 = 0xA060",
         );
         assert_eq!(r.y_row, 0x0001);
+
+        let later_row_table = vec![
+            0xA000, // row 0
+            0xA040, // row 1
+            0xA080, // row 2
+            0xA0C0, // row 3
+        ];
+        let later_row =
+            crate::level::block_type_3_cell_addr_loc_124be(&later_row_table, 0x0012, 0x0003)
+                .expect("ASM loc_124BE should compute addresses for valid later rows");
+        assert_eq!(
+            later_row.cell_addr, 0xA0E4,
+            "ASM loc_124BE should double Y for the row-pointer byte offset and add X twice: row 3 $A0C0 + $12*2 = $A0E4"
+        );
+
+        assert_eq!(
+            crate::level::block_type_3_cell_addr_loc_124be(&later_row_table, 0x0012, 0x0004),
+            None,
+            "ASM loc_124BE cannot load a row pointer once the doubled Y offset is beyond the row table"
+        );
     }
 
     #[test]
