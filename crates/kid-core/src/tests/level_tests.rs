@@ -18796,6 +18796,28 @@ mod chunk_10 {
             result.bytes_consumed, 3,
             "ASM loc_125AC: should consume 3 words"
         );
+
+        let incomplete = crate::level::block_type_1012_parse_coords_loc_125ac(
+            &[0x0001, 0x0003],
+            &row_table,
+            0x0010,
+        );
+        assert_eq!(
+            incomplete, None,
+            "ASM loc_125AC: y_row, count, and stride flag words must all be present"
+        );
+
+        let last_row_table: Vec<u16> = vec![0xA000, 0xA040, 0xA080, 0xA0C0, 0xA140];
+        let last_row = crate::level::block_type_1012_parse_coords_loc_125ac(
+            &[0x0004, 0x0001, 0x0001],
+            &last_row_table,
+            0x0002,
+        )
+        .expect("ASM loc_125AC: final valid row should parse");
+        assert_eq!(
+            last_row.cell_addr, 0x00A144,
+            "ASM loc_125AC: y_row*2 selects row 4, then adds 2*x"
+        );
     }
 
     #[test]
