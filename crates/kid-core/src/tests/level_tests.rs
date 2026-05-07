@@ -9081,6 +9081,21 @@ mod chunk_02 {
         );
 
         assert_eq!(
+            crate::level::shooter_active_slot_scan_step_loc_F28C(
+                0xFFFF_E80E,
+                3,
+                0x0000,
+                0xFFFF_E81C,
+            ),
+            crate::level::ShooterActiveSlotScanStepLocF28C::ContinueScan {
+                current_slot_addr: 0xFFFF_E80E,
+                next_timer: 2,
+                next_slot_addr: 0xFFFF_E81C,
+            },
+            "ASM loc_F28C should treat `$6(a0) == 0` as non-negative, so `bmi.w loc_F410` must not fire"
+        );
+
+        assert_eq!(
             crate::level::shooter_active_slot_scan_step_loc_F28C(0xFFFF_E81C, 0, 0x000F, 0),
             crate::level::ShooterActiveSlotScanStepLocF28C::CommitFrame {
                 current_slot_addr: 0xFFFF_E81C,
