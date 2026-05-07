@@ -18203,6 +18203,30 @@ mod chunk_10 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn loc_11D46_copies_block_mappings_with_priority_or_mask() {
+        let mut source = vec![0x0000_0001; 0xA2];
+        source[0] = 0x8000_0001;
+        source[1] = 0x0000_8001;
+
+        let copied = crate::level::copy_block_mappings_loc_11D46(&source, 0x8000_8000);
+
+        assert_eq!(
+            copied.len(),
+            0xA2,
+            "ASM loc_11D42/loc_11D46 should copy exactly $A2 longwords"
+        );
+        assert_eq!(
+            copied[0], 0x8000_8001,
+            "ASM loc_11D46: or.l keeps an already-set high priority bit"
+        );
+        assert_eq!(
+            copied[1], 0x8000_8001,
+            "ASM loc_11D46: or.l keeps an already-set low priority bit"
+        );
+    }
+
+    #[test]
     fn loc_12454_reads_property_word_for_row_by_row() {
         // ASM loc_12454 (kid.asm:24643-24651): row-by-row entry reads property word
         // and dispatches based on block_type and property flags:
