@@ -1139,6 +1139,11 @@ mod chunk_02 {
     #[test]
     fn loc_32036_stores_the_negative_entry_sentinel_without_using_the_packing_table() {
         assert_eq!(
+            enemy_layout_status_word_with_negative_sentinel_loc_32036(0),
+            0,
+            "ASM loc_32036 should fall through for zero and let loc_3200A clear the status word",
+        );
+        assert_eq!(
             enemy_layout_status_word_with_negative_sentinel_loc_32036(0x80),
             0x8000,
             "ASM loc_32036 should write the fixed `$8000` sentinel when `1(a1)` is negative instead of reusing the `loc_3200A` packing path",
