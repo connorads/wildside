@@ -5191,6 +5191,18 @@ mod chunk_01 {
             },
             "ASM loc_3086A should wrap `d7 = d0 + $28` by `Background_width` when the row span crosses the edge, then wrap `(d2 & $3F) + $28` by `$40` when the tile phase crosses the 64-column boundary",
         );
+
+        assert_eq!(
+            background_scroll_piece_refresh_window_split_loc_3086A(0x0001, 0x0040, 0x0017),
+            BackgroundScrollPieceRefreshWindowSplitLoc3086A {
+                wrapped_row_window_end: 0x0029,
+                row_window_wraps: false,
+                tile_column_seed: 0x0017,
+                wrapped_tile_window_span: 0x003F,
+                tile_window_wraps: false,
+            },
+            "ASM loc_3086A uses `cmpi.w #$3F,d6; ble.s loc_30884`, so the exact `$3F` tile-window boundary is still in range and must not wrap",
+        );
     }
 
     #[test]
@@ -5744,6 +5756,32 @@ mod chunk_01 {
             ),
             Some(vec![0xAAAA_1000, 0xBBBB_0105, 0xCCCC_00FE, 0xDDDD_017F]),
             "ASM loc_3060A should sign-extend each ripple byte, add it to the cached base word from `d3`, write only the low word of the current `Horiz_Scroll_Buffer` longword, and advance by one longword per inclusive `dbf` step",
+        );
+
+        assert_eq!(
+            background_scroll_forest_water_ripple_loop_loc_3060A(
+                &horiz_scroll_buffer,
+                0x0003,
+                0x0001,
+                0x0100,
+                &ripple_data,
+                0x0000,
+            ),
+            None,
+            "ASM loc_3060A writes one longword per inclusive `dbf`; the native helper must reject a scanline span that would run past `Horiz_Scroll_Buffer` even when the ripple data span is valid",
+        );
+
+        assert_eq!(
+            background_scroll_forest_water_ripple_loop_loc_3060A(
+                &horiz_scroll_buffer,
+                0x0000,
+                0x0001,
+                0x0100,
+                &ripple_data,
+                0x0003,
+            ),
+            None,
+            "ASM loc_3060A reads one ripple byte per inclusive `dbf`; the native helper must reject a ripple span that would run past the table even when the scanline span is valid",
         );
     }
 
