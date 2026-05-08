@@ -10251,10 +10251,9 @@ mod chunk_02 {
     /// work, the ROM still restores every source layout byte and terminates via
     /// the same DBF end condition.
     #[test]
-    #[ignore = "TODO(fidelity): loc_F93C not yet implemented"]
     #[allow(non_snake_case)]
     fn loc_F93C_restores_layout_bytes_until_dbf_expires() {
-        let source_cells = vec![0x01, 0x5B, 0xA5, 0xE8];
+        let source_cells = vec![0x01, 0x5B, 0xA5, 0xE8, 0x7C];
 
         assert_eq!(
             crate::level::animated_solid_block_horizontal_queue_skip_rows_loc_F93C(
@@ -10264,8 +10263,13 @@ mod chunk_02 {
                 0x0003,
             ),
             crate::level::AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
-                layout_writes: vec![(0x0400, 0x005B), (0x0402, 0x00A5), (0x0404, 0x00E8)],
-                final_layout_addr: 0x0406,
+                layout_writes: vec![
+                    (0x0400, 0x005B),
+                    (0x0402, 0x00A5),
+                    (0x0404, 0x00E8),
+                    (0x0406, 0x007C),
+                ],
+                final_layout_addr: 0x0408,
                 final_remaining_count: 0xFFFF,
                 continue_loop: false,
             },
@@ -10569,6 +10573,33 @@ mod chunk_02 {
             crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot,
             "ASM loc_FA06 should advance without sprites when the clipped DBF counter goes negative"
         );
+
+        assert_eq!(
+            crate::level::animated_solid_block_negative_sprites_loc_F9CC(
+                crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                    vertical_layout_flag: false,
+                    descriptor_flags: 0,
+                    block_col: 0x000E,
+                    block_row: 0x0008,
+                    span_tiles: 3,
+                    camera_left_col: 0x0010,
+                    camera_top_row: 0x0006,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0,
+                },
+            ),
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                    screen_y: 0x00A0,
+                    sprite_link_word: 0x0001,
+                    tile_word: 0x024E,
+                    screen_x: 0x0080,
+                }],
+                next_sprite_link_word: 0x0001,
+            },
+            "ASM loc_FA06 should emit one sprite when left clipping leaves DBF counter exactly zero"
+        );
     }
 
     /// ASM loc_FA0C (kid.asm:20754): converts the selected block column/row to
@@ -10604,6 +10635,74 @@ mod chunk_02 {
                 next_sprite_link_word: 0x0021,
             },
             "ASM loc_FA0C should shift block coordinates to pixels, subtract camera words, and add the $80 sprite-table bias"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_negative_sprites_loc_F9CC(
+                crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                    vertical_layout_flag: false,
+                    descriptor_flags: 0,
+                    block_col: 0x0024,
+                    block_row: 0x0008,
+                    span_tiles: 1,
+                    camera_left_col: 0x0010,
+                    camera_top_row: 0x0006,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0x0030,
+                },
+            ),
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                    screen_y: 0x00A0,
+                    sprite_link_word: 0x0031,
+                    tile_word: 0x024E,
+                    screen_x: 0x01C0,
+                }],
+                next_sprite_link_word: 0x0031,
+            },
+            "ASM loc_F9CC should accept a strip starting exactly at camera_left+$14 because `subi.w #$14,d3; bgt` does not reject zero"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_negative_sprites_loc_F9CC(
+                crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                    vertical_layout_flag: false,
+                    descriptor_flags: 0,
+                    block_col: 0x0022,
+                    block_row: 0x0008,
+                    span_tiles: 5,
+                    camera_left_col: 0x0010,
+                    camera_top_row: 0x0006,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0x0040,
+                },
+            ),
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x00A0,
+                        sprite_link_word: 0x0041,
+                        tile_word: 0x024E,
+                        screen_x: 0x01A0,
+                    },
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x00A0,
+                        sprite_link_word: 0x0042,
+                        tile_word: 0x024E,
+                        screen_x: 0x01B0,
+                    },
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x00A0,
+                        sprite_link_word: 0x0043,
+                        tile_word: 0x024E,
+                        screen_x: 0x01C0,
+                    },
+                ],
+                next_sprite_link_word: 0x0043,
+            },
+            "ASM loc_F9CC should clamp a strip extending past camera_left+$14 by replacing d2 with the smaller visible counter"
         );
     }
 
