@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-05-07T00:00:00Z",
+  "updated_at": "2026-05-08T00:00:00Z",
   "scope": "source-port",
   "active_frontier": {
     "slug": "any-percent-published-tail-clean-through-end",
@@ -186,6 +186,10 @@
       {
         "name": "Level mutation shard 8/16 still has actionable survivors after cycle 200",
         "reason": "Rejected 2026-05-08. Commits `76ba60e3`, `4381436f`, `15fd98cb`, `5da9bd3c`, `d9b7e32c`, and `5bdc3ecd` killed the actionable shard-8 survivors around ASM `loc_F83E`, `loc_F8CA`, `loc_F9A6`, `loc_F94E`, `loc_F96A`, `loc_F93C`, `loc_F9CC`, and `loc_FA4C`. Six queue/strip mutants remain equivalent for the native helper contracts: `loc_F90A` and `loc_F96A` OR/XOR queue-address mutants combine disjoint row bits (`$0F00`) with column bits (`$007C`); the `loc_F9CC` and `loc_FA4C` `<` -> `<=` zero-delta clip mutants enter a branch that writes the same start column/row and DBF counter already in use; and their visible-counter equality mutants only assign the same value already stored in the DBF counter. The refreshed verification excluding exactly those equivalent mutants, `KID_REPO_ROOT=$(pwd) cargo mutants -p kid-core -f level.rs -j 1 --gitignore=true --shard 7/16 -E '9574:53: replace \\\\| with \\^ in animated_solid_block_horizontal_queue_cell_loc_F90A' -E '9703:49: replace \\\\| with \\^ in animated_solid_block_horizontal_queue_cell_loc_F96A' -E '9889:18: replace < with <= in animated_solid_block_negative_sprites_loc_F9CC' -E '9907:28: replace < with <= in animated_solid_block_negative_sprites_loc_F9CC' -E '9975:18: replace < with <= in animated_solid_block_vertical_sprites_loc_FA4C' -E '9994:28: replace < with <= in animated_solid_block_vertical_sprites_loc_FA4C' --output .cache/mutants/level/shard-8-of-16-excluding-equivalents -- --lib -- --skip demo_ --skip published_tas --skip snapshot`, completed with `197 mutants tested in 54m: 169 caught, 28 unviable` and no missed mutants. Treat shard 8/16 as exhausted unless these queue-address fields are widened to overlap or the zero-delta/equality branches gain distinct side effects."
+      },
+      {
+        "name": "Level mutation shard 9/16 still has actionable survivors after cycle 201",
+        "reason": "Rejected 2026-05-08. Commits `9d4fd0d2` and `13e2706b` killed the actionable shard-9 survivors around ASM `loc_EA3E`, `loc_EA5A`, `loc_EB48`, and `loc_EB4C`: `loc_EA3E` now tests the zero signed-byte boundary before evanescent removal, and `loc_EB48` now scans past a block-flagged non-`$A00` cell before accepting the real evanescent hit, matching the ROM's bit-15 plus block-type gate. One `loc_EA5A` OR/XOR erase-cell mutant remains equivalent for the native helper contract: `$2000` occupies the high byte while `erased_layout_cell_word & $00FF` preserves only the low byte, so the operands are disjoint and OR/XOR produce the same erased layout word. The refreshed verification excluding exactly that equivalent mutant, `KID_REPO_ROOT=$(pwd) cargo mutants -p kid-core -f level.rs -j 1 --gitignore=true --shard 8/16 -E '10256:40: replace \\\\| with \\^ in evanescent_block_erase_match_loc_EA5A' --output .cache/mutants/level/shard-9-of-16-excluding-equivalents -- --lib -- --skip demo_ --skip published_tas --skip snapshot`, completed with `198 mutants tested in 54m: 157 caught, 41 unviable` and no missed mutants. Treat shard 9/16 as exhausted unless `loc_EA5A` is deliberately widened to accept overlapping erased-cell high-byte bits."
       }
     ],
     "required_next_evidence": [
