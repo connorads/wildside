@@ -11474,6 +11474,10 @@ mod chunk_02 {
             "ASM loc_EA3E should branch away when `move.b (a1),d0` is non-negative"
         );
         assert!(
+            !crate::level::evanescent_block_removal_gate_loc_EA3E(1, 0x00).should_try_remove_block,
+            "ASM loc_EA3E should treat zero as non-negative, so `bpl.s loc_EAAA` must fire"
+        );
+        assert!(
             !crate::level::evanescent_block_removal_gate_loc_EA3E(1, 0x8D).should_try_remove_block,
             "ASM loc_EA3E should branch away when the low nibble is `$D` or higher"
         );
