@@ -1428,6 +1428,49 @@ mod chunk_02 {
     }
 
     #[test]
+    fn compile_block_debris_sprites_sub_2a4c_accepts_low_positive_lead_fragment_y() {
+        let mut queue = initialise_scratch_queue_sub_28FC();
+        spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0050, 2);
+
+        let render = compile_block_debris_sprites_sub_2A4C(&mut queue, 0, 0, 0);
+
+        assert_eq!(
+            render.sprites.len(),
+            5,
+            "ASM sub_2A4C loc_2A78/loc_2A80 should only reject lead-fragment y below `$FF9C` or at/above `$E0`, so relative y 79 remains visible",
+        );
+        assert_eq!(
+            queue.slots[0][SUB_292E_SLOT_ACTIVE_OFFSET], 0xFF,
+            "ASM loc_2B9C should not clear an active debris slot while the lead fragment remains inside the y and x visibility bounds",
+        );
+    }
+
+    #[test]
+    fn compile_block_debris_sprites_sub_2a4c_tail_fragment_x_threshold_clears_after_four_sprites() {
+        let mut queue = initialise_scratch_queue_sub_28FC();
+        spawn_block_debris_sub_292E(&mut queue, 0x0120, 0x0080, 2);
+        let tail_x_pos_fp_offset = 2 + 4 * 0x10 + 12;
+        queue.slots[0][tail_x_pos_fp_offset..tail_x_pos_fp_offset + 4]
+            .copy_from_slice(&0x01F2_0000_i32.to_be_bytes());
+
+        let render = compile_block_debris_sprites_sub_2A4C(&mut queue, 0, 0, 0);
+
+        assert_eq!(
+            render.sprites.len(),
+            4,
+            "ASM sub_2A4C tail fragment path should emit the first four sprites before killing the slot when the fifth fragment reaches relative x `$1EF`",
+        );
+        assert_eq!(
+            render.number_sprites, 4,
+            "ASM loc_2B9E should preserve the four already-emitted debris sprites when the tail fragment trips the off-screen kill",
+        );
+        assert_eq!(
+            queue.slots[0][SUB_292E_SLOT_ACTIVE_OFFSET], 0x00,
+            "ASM loc_2B9C should clear the active byte after the tail-only `$1EF` x check fails",
+        );
+    }
+
+    #[test]
     fn compile_block_debris_sprites_sub_2a4c_loc_2a56_skips_inactive_slots() {
         let mut queue = initialise_scratch_queue_sub_28FC();
         spawn_block_debris_sub_292E(&mut queue, 0x0100, 0x0080, 2);
