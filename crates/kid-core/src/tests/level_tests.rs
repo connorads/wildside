@@ -11874,9 +11874,16 @@ mod chunk_02 {
     #[allow(non_snake_case)]
     fn loc_EB48_resets_the_inner_scan_for_each_hitbox_row() {
         let mut data = vec![0; 4 * 3 * 2];
+        let flagged_non_evanescent_offset = 2usize;
+        data[flagged_non_evanescent_offset] = 0xE8;
         let evanescent_offset = ((4 + 1) * 2) as usize;
         data[evanescent_offset] = 0xEA;
         let grid = terrain::BlockGrid::from_level_layout(&data, 4, 3);
+        let first_cell = grid.cell_at(1, 0);
+        assert!(
+            first_cell.has_block && first_cell.block_type != terrain::BlockType::Evanescent,
+            "test fixture should put ASM loc_EB4C's block-flagged non-`$A00` cell before the real evanescent hit"
+        );
 
         assert_eq!(
             crate::level::evanescent_bullet_scan_rows_loc_EB48(&grid, 0, 1, 1, 1),
