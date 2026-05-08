@@ -10884,6 +10884,33 @@ mod chunk_02 {
             crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::AdvanceSlot,
             "ASM loc_FA7E should advance without sprites when the top-clipped DBF counter goes negative"
         );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_sprites_loc_FA4C(
+                crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                    vertical_layout_flag: true,
+                    descriptor_flags: 0,
+                    block_col: 0x0012,
+                    block_row: 0x0004,
+                    span_tiles: 3,
+                    camera_left_col: 0x0010,
+                    camera_top_row: 0x0006,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0,
+                },
+            ),
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                    screen_y: 0x0080,
+                    sprite_link_word: 0x0001,
+                    tile_word: 0x024E,
+                    screen_x: 0x00A0,
+                }],
+                next_sprite_link_word: 0x0001,
+            },
+            "ASM loc_FA7E should emit one sprite when top clipping leaves DBF counter exactly zero"
+        );
     }
 
     /// ASM loc_FA84 (kid.asm:20809): after the visible vertical span is chosen,
@@ -10920,6 +10947,74 @@ mod chunk_02 {
                 next_sprite_link_word: 0x0031,
             },
             "ASM loc_FA84 should apply the camera-relative $80 sprite bias before the vertical sprite writer stores the entry"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_sprites_loc_FA4C(
+                crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                    vertical_layout_flag: true,
+                    descriptor_flags: 0,
+                    block_col: 0x0012,
+                    block_row: 0x0014,
+                    span_tiles: 1,
+                    camera_left_col: 0x0010,
+                    camera_top_row: 0x0006,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0x0040,
+                },
+            ),
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                    screen_y: 0x0160,
+                    sprite_link_word: 0x0041,
+                    tile_word: 0x024E,
+                    screen_x: 0x00A0,
+                }],
+                next_sprite_link_word: 0x0041,
+            },
+            "ASM loc_FA4C should accept a strip starting exactly at camera_top+$E because `subi.w #$E,d3; bgt` does not reject zero"
+        );
+
+        assert_eq!(
+            crate::level::animated_solid_block_vertical_sprites_loc_FA4C(
+                crate::level::AnimatedSolidBlockNegativeSpritesInputLocF9CC {
+                    vertical_layout_flag: true,
+                    descriptor_flags: 0,
+                    block_col: 0x0012,
+                    block_row: 0x0012,
+                    span_tiles: 5,
+                    camera_left_col: 0x0010,
+                    camera_top_row: 0x0006,
+                    camera_x_word: 0x0100,
+                    camera_y_word: 0x0060,
+                    sprite_link_word: 0x0050,
+                },
+            ),
+            crate::level::AnimatedSolidBlockNegativeSpritesLocF9CC::Sprites {
+                sprites: vec![
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x0140,
+                        sprite_link_word: 0x0051,
+                        tile_word: 0x024E,
+                        screen_x: 0x00A0,
+                    },
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x0150,
+                        sprite_link_word: 0x0052,
+                        tile_word: 0x024E,
+                        screen_x: 0x00A0,
+                    },
+                    crate::level::AnimatedSolidBlockNegativeSpriteLocF9CC {
+                        screen_y: 0x0160,
+                        sprite_link_word: 0x0053,
+                        tile_word: 0x024E,
+                        screen_x: 0x00A0,
+                    },
+                ],
+                next_sprite_link_word: 0x0053,
+            },
+            "ASM loc_FA4C should clamp a vertical strip extending past camera_top+$E by replacing d2 with the smaller visible counter"
         );
     }
 
