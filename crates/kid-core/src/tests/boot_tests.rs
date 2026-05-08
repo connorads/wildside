@@ -2420,7 +2420,24 @@ mod chunk_01 {
                 },
                 finished: false,
             },
-            "ASM sub_C254 should encode `(row&$F)<<8 | (col&$1F)<<2`, select `unk_C2EA` for bit-15 block tiles, subtract 6 from `d7`, and advance to the next column",
+            "ASM sub_C254 should add `(row&$F)<<8` and `(col&$1F)<<2`, select `unk_C2EA` for bit-15 block tiles, subtract 6 from `d7`, and advance to the next column",
+        );
+
+        let exact_budget_step = flagpole_scoreboard_step_sub_C254(
+            &grid,
+            FlagpoleScoreboardCursorSubC254 {
+                col: 1,
+                row: 2,
+                remaining_cols_in_row: 3,
+                row_width: 3,
+                remaining_rows: 5,
+                row_start_col: 1,
+                budget: 6,
+            },
+        );
+        assert!(
+            !exact_budget_step.finished,
+            "ASM callers branch on the N flag after sub_C254; subtracting 6 to exactly zero must not finish the per-frame scoreboard loop",
         );
     }
 
@@ -5849,6 +5866,109 @@ mod chunk_01 {
             ),
             Some(vec![0xAAAA_1000, 0xBBBB_0105, 0xCCCC_00FE, 0xDDDD_017F]),
             "ASM loc_306F4 should sign-extend each heat-ripple byte, add it to the cached base word from `d3`, write only the low word of the current `Horiz_Scroll_Buffer` longword, and advance by one longword per inclusive `dbf` step",
+        );
+
+        assert_eq!(
+            background_scroll_desert_heat_ripple_loop_loc_306F4(
+                &horiz_scroll_buffer,
+                0x0003,
+                0x0001,
+                0x0100,
+                &ripple_data,
+                0x0000,
+            ),
+            None,
+            "ASM loc_306F4 writes one longword per inclusive `dbf`; the native helper must reject a scanline span that would run past `Horiz_Scroll_Buffer` even when the ripple data span is valid",
+        );
+
+        assert_eq!(
+            background_scroll_desert_heat_ripple_loop_loc_306F4(
+                &horiz_scroll_buffer,
+                0x0000,
+                0x0001,
+                0x0100,
+                &ripple_data,
+                0x0003,
+            ),
+            None,
+            "ASM loc_306F4 reads one heat-ripple byte per inclusive `dbf`; the native helper must reject a ripple span that would run past the table even when the scanline span is valid",
+        );
+    }
+
+    #[test]
+    fn background_scroll_stripe_vertical_pass_loc_301fe_packs_row_column_and_wrap_command_bits() {
+        assert_eq!(
+            background_scroll_stripe_vertical_pass_loc_301FE(0x0023, 0x0026, 0x0012, 0),
+            BackgroundScrollStripeVerticalPassLoc301FE {
+                vdp_command: 0x4198_0000,
+                saved_camera_tile_column: 0x0012,
+                second_pass_vdp_command: Some(0x4180_0000),
+            },
+            "ASM loc_301FE should pack `(d6 & $1F) << 7`, the doubled half-column bits, and `$4000` into the upper VDP command word, then clear only the column bits with `andi.l #$FF80FFFF` for the wraparound pass",
+        );
+
+        assert_eq!(
+            background_scroll_stripe_vertical_pass_loc_301FE(0x0023, 0x0026, 0x0012, -1)
+                .second_pass_vdp_command,
+            None,
+            "ASM loc_301FE should skip the wraparound command when the preceding `sub_3034A` leaves `d2` negative",
+        );
+    }
+
+    #[test]
+    fn background_scroll_stripe_horizontal_pass_loc_30296_packs_row_column_and_wrap_command_bits() {
+        assert_eq!(
+            background_scroll_stripe_horizontal_pass_loc_30296(0x001A, 0x0025, 0x0040, 0),
+            BackgroundScrollStripeHorizontalPassLoc30296 {
+                vdp_command: 0x4D4A_0000,
+                level_width_stride: 0x0040,
+                second_pass_vdp_command: Some(0x404A_0000),
+            },
+            "ASM loc_30296 should pack `(d5 & $1E) << 7`, `(d6 & $3F) << 1`, and `$4000` into the upper VDP command word, then clear only row bits with `andi.l #$F07EFFFF` for the wraparound pass",
+        );
+
+        assert_eq!(
+            background_scroll_stripe_horizontal_pass_loc_30296(0x001A, 0x0025, 0x0040, -1)
+                .second_pass_vdp_command,
+            None,
+            "ASM loc_30296 should skip the wraparound command when the preceding `sub_302F6` leaves `d2` negative",
+        );
+    }
+
+    #[test]
+    fn background_scroll_stripe_vertical_column_transfer_loc_3036a_forces_priority_bits_without_clearing_existing_bits()
+     {
+        assert_eq!(
+            background_scroll_stripe_vertical_column_transfer_loc_3036A(0x8000_0001),
+            0x8000_8001,
+            "ASM loc_3036A uses `or.l #$80008000,d0`, so already-set priority bits remain set while the paired tile word also gains bit 15",
+        );
+    }
+
+    #[test]
+    fn background_scroll_stripe_horizontal_row_transfer_loc_3031a_forces_priority_bits_without_clearing_existing_bits()
+     {
+        assert_eq!(
+            background_scroll_stripe_horizontal_row_transfer_loc_3031A([0x8001, 0x0002]),
+            BackgroundScrollStripeHorizontalRowTransferLoc3031A {
+                tile_words: [0x8001, 0x8002],
+            },
+            "ASM loc_3031A uses `or.w #$8000,d0` on both emitted tile words, so already-set priority bits remain set while the paired word also gains bit 15",
+        );
+    }
+
+    #[test]
+    fn fg_update_queue_cell_vram_word_loc_1614_packs_visible_cell_coordinates_into_vram_word() {
+        assert_eq!(
+            fg_update_queue_cell_vram_word_loc_1614(0x0023, 0x001A, 0x0200, 0x0100),
+            Some(0x4A0C),
+            "ASM loc_1614 should accept cells inside the inclusive camera tile window and pack `((d1 << 8) & $F00) + ((d0 << 2) & $7C) | $4000` before queuing the VDP word",
+        );
+
+        assert_eq!(
+            fg_update_queue_cell_vram_word_loc_1614(0x0040, 0x001A, 0x0200, 0x0100),
+            None,
+            "ASM loc_1614 should branch to loc_167A without a VDP write when the cell x coordinate is outside `Camera_X_pos>>4 ..= +$14`",
         );
     }
 

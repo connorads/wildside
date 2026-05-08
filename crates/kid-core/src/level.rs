@@ -14410,7 +14410,7 @@ pub(crate) fn flagpole_scoreboard_step_sub_C254(
     ];
     const BLOCK_LONGWORDS: [u32; 2] = [0x4417_4418, 0x4419_441A];
 
-    let vram_word_address = ((cursor.row & 0x000F) << 8) | ((cursor.col & 0x001F) << 2);
+    let vram_word_address = ((cursor.row & 0x000F) << 8).wrapping_add((cursor.col & 0x001F) << 2);
     let cell = grid.cell_at(cursor.col, cursor.row);
 
     // ASM: `move.w (a1),d3; bpl.s loc_C288` — bit 15 set means block tile,
