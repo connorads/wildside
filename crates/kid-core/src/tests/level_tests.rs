@@ -2362,6 +2362,45 @@ mod chunk_02 {
     }
 
     #[test]
+    fn sub_14c0_first_half_pending_mask_alone_enters_the_blend_path() {
+        let mut palette_buffer_2 = [0u16; 0x40];
+        let mut palette_buffer_3 = [0u16; 0x40];
+        let mut palette_buffer = [0x0EEE; 0x40];
+        palette_buffer_2[0] = 0x0ACE;
+        palette_buffer_3[0] = 0x0246;
+        palette_buffer_2[0x20] = 0x0246;
+        palette_buffer_3[0x20] = 0x0ACE;
+        let mut pending_palette_0_mask = 0x8000_0000;
+        let mut pending_palette_1_mask = 0;
+
+        apply_pending_palette_fade_sub_14C0(
+            0x0080,
+            &mut pending_palette_0_mask,
+            &mut pending_palette_1_mask,
+            &palette_buffer_2,
+            &palette_buffer_3,
+            &mut palette_buffer,
+        );
+
+        assert_eq!(
+            palette_buffer[0], 0x068A,
+            "ASM sub_14C0 should enter loc_14CE when `or.l d7,d6` sees only `$FFFFF888` non-zero"
+        );
+        assert_eq!(
+            palette_buffer[0x20], 0x0EEE,
+            "ASM loc_1518 should return without touching the second palette half when `$FFFFF88C` is zero"
+        );
+        assert_eq!(
+            pending_palette_0_mask, 0,
+            "ASM sub_14C0 should clear `$FFFFF888` after the first-half blend"
+        );
+        assert_eq!(
+            pending_palette_1_mask, 0,
+            "ASM loc_1518 should leave the already-clear second-half pending mask unchanged"
+        );
+    }
+
+    #[test]
     fn loc_1534_clears_the_second_half_pending_mask_before_the_blend_returns() {
         let mut palette_buffer_2 = [0u16; 0x40];
         let mut palette_buffer_3 = [0u16; 0x40];
