@@ -3405,6 +3405,20 @@ mod chunk_01 {
     }
 
     #[test]
+    fn step_palette_fade_out_loc_28c6_zero_after_subtract_is_still_non_negative() {
+        assert_eq!(
+            step_palette_fade_out_loc_28C6(0x0010, 0x1234_5678, 0x9ABC_DEF0),
+            PaletteFadeOutStepLoc28C6 {
+                fade_progress: 0x0000,
+                pending_palette_0_mask: u32::MAX,
+                pending_palette_1_mask: u32::MAX,
+                continue_fading: true,
+            },
+            "ASM loc_28C6 (kid.asm:4836) uses `bmi.s loc_28EA`, so a zero result after `subi.w #$10` must still fall through to loc_28DE and reseed both pending palette masks",
+        );
+    }
+
+    #[test]
     fn step_palette_fade_out_loc_28c6_preserves_pending_masks_when_it_branches_to_loc_28ea() {
         assert_eq!(
             step_palette_fade_out_loc_28C6(0x0000, 0x1234_5678, 0x9ABC_DEF0),
