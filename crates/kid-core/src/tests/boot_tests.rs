@@ -3285,6 +3285,13 @@ mod chunk_01 {
         let (x, _y, xv, _yv) = eol_extra_life_bounce_step_loc_C60C(-7, 0x40, -2, 4);
         assert_eq!(x, -9, "ASM loc_C60C: x went past -8");
         assert_eq!(xv, 2, "ASM loc_C60C+4: neg.w d2 when x < -8 and d2 < 0");
+
+        let (x, _y, xv, _yv) = eol_extra_life_bounce_step_loc_C60C(-6, 0x40, -2, 4);
+        assert_eq!(x, -8, "ASM loc_C60C: exact -8 boundary is in range");
+        assert_eq!(
+            xv, -2,
+            "ASM loc_C60C+4 uses `bge.s loc_C61E`, so x == -8 must not negate d2",
+        );
     }
 
     #[test]
@@ -3293,6 +3300,13 @@ mod chunk_01 {
         let (x, _y, xv, _yv) = eol_extra_life_bounce_step_loc_C60C(0xD0, 0x40, 2, 4);
         assert_eq!(x, 0xD2, "ASM loc_C61E: x went past $D0");
         assert_eq!(xv, -2, "ASM loc_C61E: neg.w d2 when x > $D0 and d2 > 0");
+
+        let (x, _y, xv, _yv) = eol_extra_life_bounce_step_loc_C60C(0xCE, 0x40, 2, 4);
+        assert_eq!(x, 0xD0, "ASM loc_C61E: exact $D0 boundary is in range");
+        assert_eq!(
+            xv, 2,
+            "ASM loc_C61E uses `ble.s loc_C62A`, so x == $D0 must not negate d2",
+        );
     }
 
     #[test]
@@ -3301,6 +3315,13 @@ mod chunk_01 {
         let (_x, y, _xv, yv) = eol_extra_life_bounce_step_loc_C60C(0x40, 9, 2, -4);
         assert_eq!(y, 5, "ASM loc_C62A: y went past 8");
         assert_eq!(yv, 4, "ASM loc_C62A: neg.w d3 when y < 8 and d3 < 0");
+
+        let (_x, y, _xv, yv) = eol_extra_life_bounce_step_loc_C60C(0x40, 12, 2, -4);
+        assert_eq!(y, 8, "ASM loc_C62A: exact 8 boundary is in range");
+        assert_eq!(
+            yv, -4,
+            "ASM loc_C62A uses `bge.s loc_C638`, so y == 8 must not negate d3",
+        );
     }
 
     #[test]
@@ -3309,6 +3330,13 @@ mod chunk_01 {
         let (_x, y, _xv, yv) = eol_extra_life_bounce_step_loc_C60C(0x40, 0xD8, 2, 4);
         assert_eq!(y, 0xDC, "ASM loc_C638: y went past $D8");
         assert_eq!(yv, -4, "ASM loc_C638: neg.w d3 when y > $D8 and d3 > 0");
+
+        let (_x, y, _xv, yv) = eol_extra_life_bounce_step_loc_C60C(0x40, 0xD4, 2, 4);
+        assert_eq!(y, 0xD8, "ASM loc_C638: exact $D8 boundary is in range");
+        assert_eq!(
+            yv, 4,
+            "ASM loc_C638 uses `ble.s loc_C644`, so y == $D8 must not negate d3",
+        );
     }
 
     /// ASM loc_C60C: velocity NOT negated when already moving away from boundary.
