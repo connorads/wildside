@@ -9444,7 +9444,12 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
     let mut row = input.start_row;
     let mut dbf_row_counter = input.dbf_row_counter;
 
-    loop {
+    // ASM loc_F85A: DBF-driven row loop. A u16 DBF counter is bounded by
+    // 65536 distinct values; the explicit cap guards against runaway Vec
+    // growth if the tail predicate is perturbed (e.g. under cargo-mutants).
+    const MAX_ITERS: usize = 65_536;
+    let mut terminated = false;
+    for _ in 0..MAX_ITERS {
         layout_writes.push((layout_addr, 0xE304));
         if (input.camera_top_row..=input.camera_bottom_row).contains(&row) {
             let row_hi_bits = animated_solid_block_row_hi_bits_loc_F866(row);
@@ -9467,9 +9472,14 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
         layout_addr = loop_tail.next_layout_addr;
         dbf_row_counter = loop_tail.next_dbf_row_counter;
         if !loop_tail.continue_loop {
+            terminated = true;
             break;
         }
     }
+    debug_assert!(
+        terminated,
+        "loc_F85A vertical-rows loop exceeded {MAX_ITERS} iterations",
+    );
 
     AnimatedSolidBlockVerticalRowsLocF85A {
         layout_writes,
@@ -9510,7 +9520,12 @@ pub(crate) fn animated_solid_block_horizontal_rows_loc_F8CA(
     let mut custom_queue_entries = Vec::new();
     let mut col = start_col;
 
-    loop {
+    // ASM loc_F8CA: DBF-driven column loop bounded by the u16 counter's
+    // 65536-value range. Explicit cap prevents runaway Vec growth under
+    // tail-predicate mutation.
+    const MAX_ITERS: usize = 65_536;
+    let mut terminated = false;
+    for _ in 0..MAX_ITERS {
         let source_cell = source_cells.get(source_index).copied().unwrap_or(0);
         let queue_cell = if span_can_queue && col <= camera_right_col {
             animated_solid_block_horizontal_queue_cell_loc_F90A(
@@ -9541,9 +9556,14 @@ pub(crate) fn animated_solid_block_horizontal_rows_loc_F8CA(
         col = queue_tail.next_col;
         remaining_count = queue_tail.next_remaining_count;
         if !queue_tail.continue_loop {
+            terminated = true;
             break;
         }
     }
+    debug_assert!(
+        terminated,
+        "loc_F8CA horizontal-rows loop exceeded {MAX_ITERS} iterations",
+    );
 
     AnimatedSolidBlockHorizontalRowsLocF8CA {
         layout_writes,
@@ -9627,7 +9647,12 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F
     let mut layout_addr = layout_queue_addr;
     let mut layout_writes = Vec::with_capacity(usize::from(remaining_count));
 
-    loop {
+    // u16 dbf_counter decremented by 1 per iter ⇒ at most 65536 iterations
+    // before underflow recurs. Cap prevents runaway Vec growth under
+    // mutation of the `== 0xFFFF` exit (e.g. `==` → `!=`).
+    const MAX_ITERS: usize = 65_536;
+    let mut terminated = false;
+    for _ in 0..MAX_ITERS {
         let source_cell = source_cells.get(source_cells_index).copied().unwrap_or(0);
         layout_writes.push((layout_addr, u16::from(source_cell)));
 
@@ -9636,9 +9661,14 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F
         dbf_counter = dbf_counter.wrapping_sub(1);
 
         if dbf_counter == 0xFFFF {
+            terminated = true;
             break;
         }
     }
+    debug_assert!(
+        terminated,
+        "loc_F9A6 culled-col loop exceeded {MAX_ITERS} iterations",
+    );
 
     AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
         layout_writes,
@@ -9762,7 +9792,12 @@ pub(crate) fn animated_solid_block_horizontal_queue_skip_rows_loc_F93C(
     let mut layout_addr = layout_queue_base_addr;
     let mut layout_writes = Vec::with_capacity(usize::from(remaining_count));
 
-    loop {
+    // u16 dbf_counter decremented by 1 per iter ⇒ at most 65536 iterations
+    // before underflow recurs. Cap prevents runaway Vec growth under
+    // mutation of the `== 0xFFFF` exit.
+    const MAX_ITERS: usize = 65_536;
+    let mut terminated = false;
+    for _ in 0..MAX_ITERS {
         let source_cell = source_cells.get(source_cells_index).copied().unwrap_or(0);
         layout_writes.push((
             layout_addr,
@@ -9774,9 +9809,14 @@ pub(crate) fn animated_solid_block_horizontal_queue_skip_rows_loc_F93C(
         dbf_counter = dbf_counter.wrapping_sub(1);
 
         if dbf_counter == 0xFFFF {
+            terminated = true;
             break;
         }
     }
+    debug_assert!(
+        terminated,
+        "loc_F93C skip-rows loop exceeded {MAX_ITERS} iterations",
+    );
 
     AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
         layout_writes,
@@ -15264,13 +15304,23 @@ pub(crate) fn eol_title_return_fade_loc_D734(initial_progress: u16) -> EolTitleR
     let mut progress = initial_progress;
     let mut hibernate_frames = 0;
 
-    loop {
+    // u16 progress stepped by -0x10 has period 4096; the explicit cap
+    // prevents a perturbed `== 0x0080` exit from spinning forever under
+    // mutation testing.
+    const MAX_ITERS: usize = 4096;
+    let mut terminated = false;
+    for _ in 0..MAX_ITERS {
         hibernate_frames += 1;
         progress = progress.wrapping_sub(0x0010);
         if progress == 0x0080 {
+            terminated = true;
             break;
         }
     }
+    debug_assert!(
+        terminated,
+        "loc_D734 title-return fade exceeded {MAX_ITERS} iterations",
+    );
 
     EolTitleReturnFadeLocD734 {
         hibernate_frames,
@@ -15740,9 +15790,18 @@ pub(crate) fn level_sprite_strip_middle_loop_loc_E6BC(
 ) -> LevelSpriteStripMiddleLoopLocE6BC {
     let mut middle_sprites = Vec::new();
 
-    loop {
+    // ASM loc_E6BC: subq.w #8,d3 ; bmi.s loc_E6D8. A 16-bit counter stepped
+    // by -8 visits at most 8192 distinct values before repeating, so any
+    // legal input terminates within that bound. The explicit cap is a
+    // guardrail — observable behaviour is unchanged for every reachable
+    // input, but a perturbed predicate (e.g. under cargo-mutants) can no
+    // longer grow `middle_sprites` without bound and OOM the host.
+    const MAX_ITERS: usize = 8192;
+    let mut terminated = false;
+    for _ in 0..MAX_ITERS {
         remaining_span_counter = remaining_span_counter.wrapping_sub(8);
         if (remaining_span_counter as i16) < 0 {
+            terminated = true;
             break;
         }
 
@@ -15756,6 +15815,10 @@ pub(crate) fn level_sprite_strip_middle_loop_loc_E6BC(
         });
         y_pos = y_pos.wrapping_add(0x0020);
     }
+    debug_assert!(
+        terminated,
+        "loc_E6BC middle loop exceeded {MAX_ITERS} iterations — predicate likely broken",
+    );
 
     LevelSpriteStripMiddleLoopLocE6BC {
         middle_sprites,
