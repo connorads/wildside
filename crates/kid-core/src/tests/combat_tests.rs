@@ -7950,6 +7950,16 @@ mod chunk_03 {
     }
 
     #[test]
+    fn load_end_sequence_credits_glyphs_sub_1d7a8_accepts_an_empty_script() {
+        let glyphs = load_end_sequence_credits_glyphs_sub_1D7A8(&[], [None; 6]);
+
+        assert_eq!(
+            glyphs, [None; 6],
+            "ASM loc_1D7B0 exits before materialising a glyph when the next X byte is the zero sentinel; native's bounded stream model should likewise leave all cached workers untouched when no bytes are available",
+        );
+    }
+
+    #[test]
     fn allocate_object_and_gfx_links_sub_e02_cross_links_the_new_slots() {
         let links = allocate_object_and_gfx_links_sub_E02(0x00FF_8000, 0x00FF_9000);
 
