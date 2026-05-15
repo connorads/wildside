@@ -6685,6 +6685,27 @@ mod chunk_02 {
             "ASM loc_D86C should keep fading while the post-subtract word is non-negative"
         );
 
+        let zero_boundary =
+            crate::level::end_credits_fade_step_loc_D86C(0x0001, 0x1234_5678, 0x9ABC_DEF0);
+        assert_eq!(
+            zero_boundary.fade_progress, 0x0000,
+            "ASM loc_D86C: `$0001 - 1` leaves Z set but N clear"
+        );
+        assert_eq!(
+            zero_boundary.pending_palette_0_mask,
+            u32::MAX,
+            "ASM loc_D86C uses `bmi.s loc_D882`, so a zero result still refreshes `$FFFFF888`"
+        );
+        assert_eq!(
+            zero_boundary.pending_palette_1_mask,
+            u32::MAX,
+            "ASM loc_D86C uses `bmi.s loc_D882`, so a zero result still refreshes `$FFFFF88C`"
+        );
+        assert!(
+            !zero_boundary.enter_end_sequence,
+            "ASM loc_D86C must not enter the end sequence until the post-subtract word is negative"
+        );
+
         let final_step =
             crate::level::end_credits_fade_step_loc_D86C(0x0000, 0x1234_5678, 0x9ABC_DEF0);
         assert_eq!(
@@ -7201,6 +7222,32 @@ mod chunk_02 {
             write.next_link, 7,
             "ASM loc_E6BC should increment d2 exactly once for the emitted middle sprite"
         );
+
+        let zero_boundary =
+            crate::level::level_sprite_strip_middle_loop_loc_E6BC(8, 0x0100, 3, 0x0130, 0x0800);
+        assert_eq!(
+            zero_boundary.middle_sprites,
+            vec![crate::level::LevelSpriteStripEntryLocE692 {
+                y_pos: 0x0100,
+                size: 0x0F,
+                link: 4,
+                tile_word: 0xEE7E,
+                x_pos: 0x0130,
+            }],
+            "ASM loc_E6BC uses `bmi.s loc_E6D8`, so d3 == 0 still emits a middle sprite"
+        );
+        assert_eq!(
+            zero_boundary.remainder_counter, 0xFFF8,
+            "ASM loc_E6BC loops once more after the zero boundary and leaves `$FFF8` for loc_E6D8"
+        );
+        assert_eq!(
+            zero_boundary.next_y, 0x0120,
+            "ASM loc_E6BC advances d1 by `$20` after the zero-boundary middle sprite"
+        );
+        assert_eq!(
+            zero_boundary.next_link, 4,
+            "ASM loc_E6BC increments d2 for the zero-boundary middle sprite"
+        );
     }
 
     /// ASM loc_E6D8 (kid.asm:18382): only a post-loop counter of `$FFF8`
@@ -7308,6 +7355,23 @@ mod chunk_02 {
         assert_eq!(
             setup.top_tile_row_lower_clamped, 0,
             "ASM loc_E70A should clamp a negative top tile row to zero before the top upper-bound check"
+        );
+
+        let positive_top = crate::level::level_sprite_strip_collision_column_loc_E70A(
+            crate::level::LevelSpriteStripCollisionColumnInputLocE70A {
+                addr_next_sprite_slot_offset: 0x0048,
+                number_sprites: 9,
+                map_probe_screen_x: 0x0150,
+                top_probe_screen_y: 0x00A0,
+                bottom_probe_screen_y: 0x00C0,
+                camera_x: 0x0020,
+                camera_y: 0,
+                level_width_blocks: 0x0040,
+            },
+        );
+        assert_eq!(
+            positive_top.top_tile_row_lower_clamped, 0x0002,
+            "ASM loc_E70A uses `asr.w #4,d5`, so top world y `$20` maps to tile row 2"
         );
 
         assert_eq!(
@@ -8030,6 +8094,13 @@ mod chunk_02 {
             "ASM loc_E9CA should apply the final table word offset `$0004` and size byte `$00`"
         );
 
+        assert!(
+            crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+                0x0127, 0x0012, 0x0008, 0x0100, 0x0040, 6,
+            )
+            .is_some(),
+            "ASM loc_E9CA subtracts `$127` then only rejects with `bmi.s`, so ID `$127` is visible"
+        );
         assert_eq!(
             crate::level::timed_block_visible_slot_sprite_loc_E9CA(
                 0x012D, 0x0012, 0x0008, 0x0100, 0x0040, 6,
@@ -8039,10 +8110,53 @@ mod chunk_02 {
         );
         assert_eq!(
             crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+                0x0126, 0x0012, 0x0008, 0x0100, 0x0040, 6,
+            ),
+            None,
+            "ASM loc_E9CA subtracts `$127` then uses `bmi.s`, so IDs below `$127` are rejected"
+        );
+
+        assert!(
+            crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+                0x0128, 0x000C, 0x0008, 0x0100, 0x0040, 6,
+            )
+            .is_some(),
+            "ASM loc_E9CA uses `blt.s` after the min-column compare, so the min column is visible"
+        );
+        assert!(
+            crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+                0x0128, 0x0028, 0x0008, 0x0100, 0x0040, 6,
+            )
+            .is_some(),
+            "ASM loc_E9CA uses `bgt.s` after the max-column compare, so the max column is visible"
+        );
+        assert_eq!(
+            crate::level::timed_block_visible_slot_sprite_loc_E9CA(
                 0x0128, 0x0029, 0x0008, 0x0100, 0x0040, 6,
             ),
             None,
             "ASM loc_E9CA should reject block columns beyond `(Camera_X_pos >> 4) - 4 + $1C`"
+        );
+        assert!(
+            crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+                0x0128, 0x0012, 0x0000, 0x0100, 0x0040, 6,
+            )
+            .is_some(),
+            "ASM loc_E9CA uses `blt.s` after the min-row compare, so the min row is visible"
+        );
+        assert!(
+            crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+                0x0128, 0x0012, 0x001C, 0x0100, 0x0040, 6,
+            )
+            .is_some(),
+            "ASM loc_E9CA uses `bgt.s` after the max-row compare, so the max row is visible"
+        );
+        assert_eq!(
+            crate::level::timed_block_visible_slot_sprite_loc_E9CA(
+                0x0128, 0x0012, 0x001D, 0x0100, 0x0040, 6,
+            ),
+            None,
+            "ASM loc_E9CA should reject block rows beyond `(Camera_Y_pos >> 4) - 4 + $1C`"
         );
     }
 
@@ -8274,6 +8388,46 @@ mod chunk_02 {
             crate::level::first_platform_ceiling_overlap_loc_DAE8(probe, &platform_slots),
             Some(2),
             "ASM loc_DAE8 should skip earlier horizontal/vertical misses, then accept inclusive edge contact"
+        );
+
+        assert_eq!(
+            crate::level::first_platform_ceiling_overlap_loc_DAE8(
+                probe,
+                &[Some(crate::level::PlatformBoundsLocDAE8 {
+                    left_px: 0x010B,
+                    top_px: 0x0041,
+                    width_px: 0x0010,
+                    height_px: 0x0008,
+                })],
+            ),
+            Some(0),
+            "ASM loc_DAE8 uses `blt.s` after `platform.left + width`, so right edge == probe left still overlaps"
+        );
+        assert_eq!(
+            crate::level::first_platform_ceiling_overlap_loc_DAE8(
+                probe,
+                &[Some(crate::level::PlatformBoundsLocDAE8 {
+                    left_px: 0x011B,
+                    top_px: 0x0060,
+                    width_px: 0x0008,
+                    height_px: 0,
+                })],
+            ),
+            Some(0),
+            "ASM loc_DAE8 uses `bgt.s` for platform top, so top edge == probe bottom still overlaps"
+        );
+        assert_eq!(
+            crate::level::first_platform_ceiling_overlap_loc_DAE8(
+                probe,
+                &[Some(crate::level::PlatformBoundsLocDAE8 {
+                    left_px: 0x011B,
+                    top_px: 0x0031,
+                    width_px: 0x0008,
+                    height_px: 0x0010,
+                })],
+            ),
+            Some(0),
+            "ASM loc_DAE8 uses `blt.s` after `platform.top + height`, so bottom edge == probe top still overlaps"
         );
 
         let terminated_slots = [
