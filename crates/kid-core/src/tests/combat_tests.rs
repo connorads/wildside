@@ -10191,6 +10191,35 @@ mod chunk_05 {
 
         runtime.current_level = LevelId(2);
         assert_eq!(runtime.next_level_id(), LevelId(3));
+
+        runtime.current_level = LevelId(3);
+        assert_eq!(
+            runtime.next_level_id(),
+            LevelId(0),
+            "last logical map-order entry should fall back to the first available level instead of indexing past the logical sequence",
+        );
+
+        let mut manifest = manifest_with_levels(4);
+        manifest.map_order = vec![0x4A, u8::MAX, 0x2D, 0x2E];
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.current_level = LevelId(0);
+        assert_eq!(
+            runtime.next_level_id(),
+            LevelId(2),
+            "logical map-order advancement should skip invalid entries instead of falling back to the next numeric level",
+        );
+
+        let mut manifest = manifest_with_levels(3);
+        manifest.map_order = Vec::new();
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.current_level = LevelId(0);
+        assert_eq!(
+            runtime.next_level_id(),
+            LevelId(1),
+            "empty map order should fall back to the next numeric level",
+        );
     }
 
     #[test]

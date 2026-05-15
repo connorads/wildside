@@ -4338,6 +4338,477 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level_skip_animation_path_matches_first_two_level_skip_routes() {
+        let runtime = NativeRuntime::new(manifest_with_levels(3));
+
+        let first_path = runtime.level_skip_animation_path(LevelId(1));
+        assert_eq!(
+            first_path,
+            LevelSkipAnimationPath {
+                initial_x_pos: 0x0160_0000,
+                initial_y_pos: 0x0014_0000,
+                x_step_fp: -0x0004_8000,
+                y_step_fp: 0x0001_5000,
+                first_animation_number_objects: 16,
+                first_animation_number_gfx_objects: 13,
+            },
+            "ASM loc_74E0 advances to level 1 through the level-skip mode-$0008 hand-off; native should animate the first route leftward from the right edge",
+        );
+
+        let second_path = runtime.level_skip_animation_path(LevelId(2));
+        assert_eq!(
+            second_path,
+            LevelSkipAnimationPath {
+                initial_x_pos: -0x0020_0000,
+                initial_y_pos: 0x00C8_0000,
+                x_step_fp: 0x0001_4000,
+                y_step_fp: -0x0002_2000,
+                first_animation_number_objects: 15,
+                first_animation_number_gfx_objects: 13,
+            },
+            "ASM loc_74E0 advances again through the same mode-$0008 hand-off; native should animate the second route from off-screen left and upward",
+        );
+    }
+
+    #[test]
+    fn level_skip_animation_path_rewinds_default_route_from_hold_pose() {
+        let runtime = NativeRuntime::new(manifest_with_levels(4));
+
+        let path = runtime.level_skip_animation_path(LevelId(3));
+
+        assert_eq!(
+            path,
+            LevelSkipAnimationPath {
+                initial_x_pos: 0x0873_0000,
+                initial_y_pos: 0x008C_0000,
+                x_step_fp: -0x0004_8000,
+                y_step_fp: 0x0001_5000,
+                first_animation_number_objects: 5,
+                first_animation_number_gfx_objects: 3,
+            },
+            "ASM loc_74E0 enters the level-skip mode-$0008 hand-off after incrementing Current_LevelID; native generic routes should start one 64-frame glide ahead of the header hold pose so the animation lands on the hold pose",
+        );
+    }
+
+    fn level_skip_test_player(x_pos: u32, y_pos: u32) -> PlayerState {
+        PlayerState {
+            x_pos,
+            y_pos,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: true,
+            on_spikes: false,
+            just_jumped: false,
+            jump_buffer_frames: 0,
+            right_wall_sticky: false,
+            left_wall_sticky: false,
+            ledge_snap_cooldown: 0,
+            wall_cling_direction: None,
+        }
+    }
+
+    fn level_skip_test_object() -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x1C },
+            x_pos: 0x5555_0000,
+            y_pos: 0x6666_0000,
+            layout_index: Some(2),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Left),
+            on_ground: Some(true),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: BTreeMap::new(),
+        }
+    }
+
+    fn install_level_skip_transition(runtime: &mut NativeRuntime, elapsed_frames: usize) {
+        runtime.level_skip_transition = Some(LevelSkipTransitionState {
+            elapsed_frames,
+            frozen_player: level_skip_test_player(0x1111_0000, 0x2222_0000),
+            frozen_camera: CameraState {
+                x_pos: 0x3333_0000,
+                y_pos: 0x4444_0000,
+            },
+            frozen_active_objects: vec![level_skip_test_object()],
+            frozen_number_objects: 7,
+            frozen_number_gfx_objects: 6,
+        });
+    }
+
+    #[test]
+    fn level_skip_player_state_switches_from_frozen_to_hidden_to_animation_on_exact_frames() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.current_level = LevelId(3);
+
+        install_level_skip_transition(&mut runtime, LEVEL_SKIP_FREEZE_VISIBLE_FRAMES - 1);
+        assert_eq!(
+            runtime.level_skip_player_state(),
+            Some(level_skip_test_player(0x1111_0000, 0x2222_0000)),
+            "ASM loc_74E0 level-skip hand-off should keep the frozen gameplay pose through the last visible freeze frame",
+        );
+
+        install_level_skip_transition(&mut runtime, LEVEL_SKIP_FREEZE_VISIBLE_FRAMES);
+        assert_eq!(
+            runtime.level_skip_player_state(),
+            None,
+            "ASM loc_74E0 level-skip hand-off should hide Kid immediately after the 21-frame frozen-pose window",
+        );
+
+        let animation_start = LEVEL_SKIP_FREEZE_VISIBLE_FRAMES
+            + LEVEL_SKIP_HIDE_PLAYER_FRAMES
+            + LEVEL_SKIP_BLANK_FRAMES
+            + LEVEL_SKIP_SMALL_PRELOAD_FRAMES
+            + LEVEL_SKIP_LARGE_PRELOAD_FRAMES;
+        install_level_skip_transition(&mut runtime, animation_start - 1);
+        assert_eq!(
+            runtime.level_skip_player_state(),
+            None,
+            "ASM loc_74E0 level-skip hand-off should keep Kid hidden through the final preload frame before the route animation starts",
+        );
+
+        install_level_skip_transition(&mut runtime, animation_start);
+        let animation_player = runtime
+            .level_skip_player_state()
+            .expect("animation start frame should expose Kid");
+        assert_eq!(animation_player.x_pos, 0x0873_0000);
+        assert_eq!(animation_player.y_pos, 0x008C_0000);
+        assert_eq!(animation_player.x_velocity, -0x0004_8000);
+        assert_eq!(animation_player.y_velocity, 0x0001_5000);
+
+        install_level_skip_transition(&mut runtime, animation_start + 2);
+        let later_animation_player = runtime
+            .level_skip_player_state()
+            .expect("later animation frame should expose Kid");
+        assert_eq!(
+            later_animation_player.x_pos, 0x086A_0000,
+            "level-skip route animation should add the signed per-frame x delta for each elapsed animation frame",
+        );
+        assert_eq!(
+            later_animation_player.y_pos, 0x008E_A000,
+            "level-skip route animation should add the signed per-frame y delta for each elapsed animation frame",
+        );
+    }
+
+    #[test]
+    fn level_skip_camera_state_switches_from_frozen_to_hold_pose_on_exact_frame() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.current_level = LevelId(3);
+
+        install_level_skip_transition(
+            &mut runtime,
+            LEVEL_SKIP_FREEZE_VISIBLE_FRAMES + LEVEL_SKIP_HIDE_PLAYER_FRAMES - 1,
+        );
+        assert_eq!(
+            runtime.level_skip_camera_state(),
+            CameraState {
+                x_pos: 0x3333_0000,
+                y_pos: 0x4444_0000,
+            },
+            "ASM loc_74E0 level-skip hand-off should keep the frozen camera through the hidden-player carry window",
+        );
+
+        install_level_skip_transition(
+            &mut runtime,
+            LEVEL_SKIP_FREEZE_VISIBLE_FRAMES + LEVEL_SKIP_HIDE_PLAYER_FRAMES,
+        );
+        assert_eq!(
+            runtime.level_skip_camera_state(),
+            CameraState { x_pos: 0, y_pos: 0 },
+            "ASM loc_74E0 level-skip hand-off should restore the destination hold camera immediately after the frozen-camera carry window",
+        );
+    }
+
+    #[test]
+    fn level_skip_active_objects_clear_after_frozen_carry_window() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.current_level = LevelId(3);
+
+        install_level_skip_transition(
+            &mut runtime,
+            LEVEL_SKIP_FREEZE_VISIBLE_FRAMES + LEVEL_SKIP_HIDE_PLAYER_FRAMES - 1,
+        );
+        assert_eq!(
+            runtime.level_skip_active_objects(),
+            vec![level_skip_test_object()],
+            "ASM loc_74E0 level-skip hand-off should preserve frozen gameplay objects through the hidden-player carry window",
+        );
+
+        install_level_skip_transition(
+            &mut runtime,
+            LEVEL_SKIP_FREEZE_VISIBLE_FRAMES + LEVEL_SKIP_HIDE_PLAYER_FRAMES,
+        );
+        assert!(
+            runtime.level_skip_active_objects().is_empty(),
+            "ASM loc_74E0 level-skip hand-off should clear frozen gameplay objects once the destination hold shell owns the transition",
+        );
+    }
+
+    #[test]
+    fn level_skip_object_counts_follow_preload_and_animation_boundaries() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.current_level = LevelId(3);
+
+        let blank_start = LEVEL_SKIP_FREEZE_VISIBLE_FRAMES + LEVEL_SKIP_HIDE_PLAYER_FRAMES;
+        let small_preload_start = blank_start + LEVEL_SKIP_BLANK_FRAMES;
+        let large_preload_start = small_preload_start + LEVEL_SKIP_SMALL_PRELOAD_FRAMES;
+        let animation_start = large_preload_start + LEVEL_SKIP_LARGE_PRELOAD_FRAMES;
+
+        let expected_counts = [
+            (blank_start - 1, (7, 6)),
+            (blank_start, (0, 0)),
+            (small_preload_start - 1, (0, 0)),
+            (small_preload_start, (2, 0)),
+            (large_preload_start - 1, (2, 0)),
+            (large_preload_start, (15, 0)),
+            (animation_start - 1, (15, 0)),
+            (animation_start, (5, 3)),
+            (animation_start + 1, (4, 4)),
+        ];
+
+        for (elapsed_frames, counts) in expected_counts {
+            install_level_skip_transition(&mut runtime, elapsed_frames);
+            assert_eq!(
+                runtime.level_skip_object_counts(),
+                counts,
+                "ASM loc_74E0 level-skip mode-$0008 hand-off should expose the expected object-count phase at elapsed frame {elapsed_frames}",
+            );
+        }
+    }
+
+    #[test]
+    fn level_skip_resume_player_state_replays_hold_and_level_one_entry_windows() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.current_level = LevelId(1);
+        runtime.level_skip_resume_hold = true;
+        runtime.level_start_frame = Some(0x100);
+        runtime.frame_index = 0x100;
+
+        assert_eq!(
+            runtime.level_skip_resume_player_state(),
+            Some(level_skip_test_player(0x0040_0000, 0x0068_0000)),
+            "ASM loc_74E0 level-skip resume should expose the destination hold pose while the resume shell is visible",
+        );
+
+        let visible_boundary =
+            runtime.level_skip_resume_player_state_at(LEVEL_SKIP_RESUME_VISIBLE_FRAMES);
+        assert_eq!(
+            visible_boundary, None,
+            "ASM loc_74E0 level-skip resume should hide Kid immediately after the visible hold window",
+        );
+
+        let entry_start = runtime.level_skip_resume_player_state_at(TITLE_TO_LEVEL_FRAMES);
+        let entry_player = entry_start.expect("level 1 resume entry should expose Kid");
+        assert_eq!(entry_player.x_pos, 0x0020_0000);
+        assert_eq!(
+            entry_player.y_pos,
+            LEVEL_ONE_SKIP_RESUME_ENTRY_PLAYER_Y_FP[0]
+        );
+        assert!(
+            !entry_player.on_ground,
+            "ASM loc_74E0 level-skip level-1 resume entry should begin airborne",
+        );
+
+        let final_airborne_elapsed = TITLE_TO_LEVEL_FRAMES + LEVEL_SKIP_RESUME_ENTRY_FRAMES - 4;
+        let final_airborne_player = runtime
+            .level_skip_resume_player_state_at(final_airborne_elapsed)
+            .expect("penultimate airborne level 1 resume entry frame should expose Kid");
+        assert!(
+            !final_airborne_player.on_ground,
+            "ASM loc_74E0 level-skip level-1 resume entry should keep Kid airborne until the final three entry frames",
+        );
+
+        let first_grounded_elapsed = TITLE_TO_LEVEL_FRAMES + LEVEL_SKIP_RESUME_ENTRY_FRAMES - 3;
+        let first_grounded_player = runtime
+            .level_skip_resume_player_state_at(first_grounded_elapsed)
+            .expect("first grounded level 1 resume entry frame should expose Kid");
+        assert!(
+            first_grounded_player.on_ground,
+            "ASM loc_74E0 level-skip level-1 resume entry should mark exactly the final three entry frames grounded",
+        );
+
+        let entry_landing_elapsed = TITLE_TO_LEVEL_FRAMES + LEVEL_SKIP_RESUME_ENTRY_FRAMES - 1;
+        let landing_player = runtime
+            .level_skip_resume_player_state_at(entry_landing_elapsed)
+            .expect("final level 1 resume entry frame should expose Kid");
+        assert_eq!(
+            landing_player.y_pos,
+            LEVEL_ONE_SKIP_RESUME_ENTRY_PLAYER_Y_FP[LEVEL_SKIP_RESUME_ENTRY_FRAMES - 1]
+        );
+        assert!(
+            landing_player.on_ground,
+            "ASM loc_74E0 level-skip level-1 resume entry should mark the final landing frames grounded",
+        );
+
+        assert_eq!(
+            runtime.level_skip_resume_player_state_at(
+                TITLE_TO_LEVEL_FRAMES + LEVEL_SKIP_RESUME_ENTRY_FRAMES
+            ),
+            None,
+            "ASM loc_74E0 level-skip resume should stop exposing the scripted entry player after the entry window",
+        );
+    }
+
+    #[test]
+    fn level_skip_resume_camera_state_replays_level_one_entry_and_guards_other_levels() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.current_level = LevelId(1);
+        runtime.level_skip_resume_hold = true;
+        runtime.level_start_frame = Some(0x200);
+        runtime.frame_index = 0x200 + 52;
+
+        assert_eq!(
+            runtime.level_skip_resume_camera_state(),
+            CameraState {
+                x_pos: 0,
+                y_pos: 0xFFA0_0000,
+            },
+            "ASM loc_74E0 level-skip resume keeps the level-1 camera on the pre-entry offset at elapsed frame 52",
+        );
+
+        assert_eq!(
+            runtime.level_skip_resume_camera_state_at(TITLE_TO_LEVEL_FRAMES + 10),
+            CameraState {
+                x_pos: 0,
+                y_pos: LEVEL_ONE_SKIP_RESUME_ENTRY_CAMERA_Y_FP[10],
+            },
+            "ASM loc_74E0 level-skip level-1 resume should replay the scripted entry camera path after the title hand-off",
+        );
+
+        assert_eq!(
+            runtime.level_skip_resume_camera_state_at(
+                TITLE_TO_LEVEL_FRAMES + LEVEL_SKIP_RESUME_ENTRY_FRAMES
+            ),
+            CameraState { x_pos: 0, y_pos: 0 },
+            "ASM loc_74E0 level-skip resume should leave the scripted entry camera path immediately after the entry window",
+        );
+
+        runtime.current_level = LevelId(2);
+        assert_eq!(
+            runtime.level_skip_resume_camera_state_at(TITLE_TO_LEVEL_FRAMES + 10),
+            CameraState { x_pos: 0, y_pos: 0 },
+            "ASM loc_74E0 level-skip resume should not use the level-1 entry camera path for later levels",
+        );
+    }
+
+    #[test]
+    fn level_skip_resume_active_objects_mirror_visible_resume_player() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.current_level = LevelId(1);
+        runtime.level_skip_resume_hold = true;
+        runtime.level_start_frame = Some(0x300);
+        runtime.frame_index = 0x300;
+
+        let hold_objects = runtime.level_skip_resume_active_objects();
+        assert_eq!(hold_objects.len(), 1);
+        assert_eq!(hold_objects[0].kind, NativeObjectKind::Player);
+        assert_eq!(hold_objects[0].x_pos, 0x0040_0000);
+        assert_eq!(hold_objects[0].y_pos, 0x0068_0000);
+
+        assert!(
+            runtime
+                .level_skip_resume_active_objects_at(LEVEL_SKIP_RESUME_VISIBLE_FRAMES)
+                .is_empty(),
+            "ASM loc_74E0 level-skip resume should not emit a player object while Kid is hidden",
+        );
+
+        let entry_objects = runtime.level_skip_resume_active_objects_at(TITLE_TO_LEVEL_FRAMES + 10);
+        assert_eq!(entry_objects.len(), 1);
+        assert_eq!(entry_objects[0].kind, NativeObjectKind::Player);
+        assert_eq!(entry_objects[0].x_pos, 0x0020_0000);
+        assert_eq!(
+            entry_objects[0].y_pos, LEVEL_ONE_SKIP_RESUME_ENTRY_PLAYER_Y_FP[10],
+            "ASM loc_74E0 level-skip resume active object should mirror the scripted level-1 entry player position",
+        );
+    }
+
+    #[test]
+    fn level_skip_resume_object_counts_follow_blank_preload_and_entry_boundaries() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.current_level = LevelId(1);
+        runtime.level_skip_resume_hold = true;
+        runtime.level_start_frame = Some(0x400);
+        runtime.frame_index = 0x400;
+
+        assert_eq!(
+            runtime.level_skip_resume_object_counts(),
+            (16, 15),
+            "ASM loc_74E0 level-skip resume should begin with the destination hold object counts",
+        );
+
+        let blank_start = LEVEL_SKIP_RESUME_VISIBLE_FRAMES + LEVEL_SKIP_RESUME_HIDE_PLAYER_FRAMES;
+        let preload_frame = TITLE_TO_LEVEL_FRAMES - 1;
+        let entry_start = TITLE_TO_LEVEL_FRAMES;
+        let first_grounded_entry = entry_start + LEVEL_SKIP_RESUME_ENTRY_FRAMES - 3;
+        let entry_end = entry_start + LEVEL_SKIP_RESUME_ENTRY_FRAMES;
+
+        let expected_counts = [
+            (blank_start - 1, (16, 15)),
+            (blank_start, (0, 0)),
+            (preload_frame - 1, (0, 0)),
+            (preload_frame, (4, 2)),
+            (entry_start, (5, 4)),
+            (entry_start + 1, (5, 6)),
+            (first_grounded_entry - 1, (5, 6)),
+            (first_grounded_entry, (4, 6)),
+            (entry_end - 1, (4, 6)),
+            (entry_end, (16, 15)),
+        ];
+
+        for (elapsed_frames, counts) in expected_counts {
+            assert_eq!(
+                runtime.level_skip_resume_object_counts_at(elapsed_frames),
+                counts,
+                "ASM loc_74E0 level-skip resume should expose the expected object-count phase at elapsed frame {elapsed_frames}",
+            );
+        }
+
+        runtime.current_level = LevelId(2);
+        assert_eq!(
+            runtime.level_skip_resume_object_counts_at(entry_start + 1),
+            (15, 14),
+            "ASM loc_74E0 level-skip resume should not use the level-1 entry count path for later levels",
+        );
+    }
+
+    #[test]
+    fn level_skip_resume_final_slice_uses_level_one_landing_pose_only_for_level_one() {
+        let runtime = NativeRuntime::new(manifest_with_levels(3));
+
+        let level_one_slice = runtime.level_skip_resume_final_slice(LevelId(1));
+        assert_eq!(level_one_slice.player.x_pos, 0x0020_0000);
+        assert_eq!(level_one_slice.player.y_pos, 0x00BF_0000);
+        assert_eq!(
+            level_one_slice.camera,
+            CameraState {
+                x_pos: 0,
+                y_pos: 0x0014_0000,
+            },
+            "ASM loc_74E0 level-skip resume should land level 1 on the scripted post-title camera pose",
+        );
+
+        let level_two_slice = runtime.level_skip_resume_final_slice(LevelId(2));
+        assert_ne!(
+            (
+                level_two_slice.player.x_pos,
+                level_two_slice.player.y_pos,
+                level_two_slice.camera.y_pos,
+            ),
+            (0x0020_0000, 0x00BF_0000, 0x0014_0000),
+            "ASM loc_74E0 level-skip resume should use the ordinary respawn slice for non-level-1 destinations",
+        );
+    }
+
+    #[test]
     #[ignore = "absolute boot/transition checkpoints need re-derivation after boot_title_start_level1 timing fix"]
     fn progress_two_transitions_skip_cheat_matches_early_transition_timeline() {
         // After entry animation removal (a33a4f0) the player starts grounded at
