@@ -1182,13 +1182,19 @@ pub fn probe_floor_span(
 ) -> FloorProbe {
     let start_x = left_x_px.min(right_x_px);
     let end_x = left_x_px.max(right_x_px);
+    let grid_max_x = grid.width_pixels().saturating_sub(1);
+    if grid.width_pixels() <= 0 || end_x < 0 || start_x > grid_max_x {
+        return probe_floor(grid, start_x, foot_y_px);
+    }
+    let scan_start_x = start_x.max(0);
+    let scan_end_x = end_x.min(grid_max_x);
     let select_higher_floor = |a: FloorProbe, b: FloorProbe| {
         if a.floor_y_px <= b.floor_y_px { a } else { b }
     };
     let mut best_on_ground: Option<FloorProbe> = None;
     let mut best_support: Option<FloorProbe> = None;
 
-    for x_px in start_x..=end_x {
+    for x_px in scan_start_x..=scan_end_x {
         let probe = probe_floor(grid, x_px, foot_y_px);
         if probe.on_ground {
             best_on_ground = Some(match best_on_ground {
@@ -3028,6 +3034,22 @@ mod tests {
         let wide = probe_floor_span(&grid, 0, 32, 47);
         assert_eq!(wide.cell.collision, CollisionKind::Solid);
         assert_eq!(wide.floor_y_px, 32);
+    }
+
+    #[test]
+    fn probe_floor_span_scans_only_in_bounds_pixels() {
+        let w = 4u16;
+        let h = 3u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(usize::from(2u16) * usize::from(w) + usize::from(1u16)) * 2] = 0x60;
+        let grid = BlockGrid::from_level_layout(&data, w, h);
+
+        let left_clipped = probe_floor_span(&grid, -512, 16, 31);
+        assert_eq!(left_clipped.cell.collision, CollisionKind::Solid);
+        assert_eq!(left_clipped.cell_x, 1);
+
+        let right_outside = probe_floor_span(&grid, 64, 512, 31);
+        assert_eq!(right_outside.cell.collision, CollisionKind::Empty);
     }
 
     // -----------------------------------------------------------------------

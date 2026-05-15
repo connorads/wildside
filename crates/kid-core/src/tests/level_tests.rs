@@ -3055,6 +3055,553 @@ mod chunk_02 {
     }
 
     #[test]
+    fn native_debug_prev_level_id_keeps_first_logical_level_and_steps_back_from_second() {
+        let mut runtime = cached_generated_runtime();
+        runtime.current_level = LevelId(0);
+
+        assert_eq!(
+            runtime.prev_level_id(),
+            LevelId(0),
+            "debug prev-level warp should leave the first logical level selected instead of underflowing the logical-level index",
+        );
+
+        runtime.current_level = runtime.next_level_id();
+        assert_eq!(
+            runtime.prev_level_id(),
+            LevelId(0),
+            "debug prev-level warp should step from the second logical level back to the first",
+        );
+    }
+
+    #[test]
+    fn native_debug_level_entry_from_ingame_starts_on_local_frame_zero() {
+        let mut runtime = cached_generated_runtime();
+        runtime.boot_state = BootState::InGame;
+        runtime.frame_index = runtime.title_screen_ready_frame;
+
+        runtime.begin_level_entry(LevelId(0));
+
+        assert!(
+            matches!(
+                runtime.boot_state,
+                BootState::StartingLevel {
+                    elapsed_frames: 0,
+                    uses_load_ingame_bootstrap: false,
+                    ..
+                }
+            ),
+            "debug level entry should only pre-advance the local mode-$0008 frame for ready title/intro hand-offs, not arbitrary title-ready runtime states",
+        );
+    }
+
+    #[test]
+    fn native_debug_level_entry_from_ingame_does_not_use_title_bootstrap() {
+        let mut runtime = cached_generated_runtime();
+        runtime.boot_state = BootState::InGame;
+        runtime.frame_index = runtime.title_screen_ready_frame.saturating_sub(1);
+
+        runtime.begin_level_entry(LevelId(0));
+
+        assert!(
+            matches!(
+                runtime.boot_state,
+                BootState::StartingLevel {
+                    start_latched: true,
+                    uses_load_ingame_bootstrap: false,
+                    ..
+                }
+            ),
+            "debug level entry should not take the title-screen Load_InGame bootstrap merely because a title-card level is entered before the title-ready frame",
+        );
+    }
+
+    #[test]
+    fn title_screen_level_entry_before_ready_uses_load_ingame_bootstrap() {
+        let mut runtime = cached_generated_runtime();
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.frame_index = runtime.title_screen_ready_frame.saturating_sub(1);
+
+        runtime.begin_level_entry(LevelId(0));
+
+        assert!(
+            matches!(
+                runtime.boot_state,
+                BootState::StartingLevel {
+                    start_latched: false,
+                    elapsed_frames: 0,
+                    uses_load_ingame_bootstrap: true,
+                    ..
+                }
+            ),
+            "title-card level entry from the title screen should use the Load_InGame bootstrap until the title shell reaches its ready frame",
+        );
+        assert!(
+            runtime.starting_level_title_rng.is_some(),
+            "early title-start bootstrap should preserve the title worker RNG while the hidden title-card shell remains active",
+        );
+    }
+
+    #[test]
+    fn title_screen_level_entry_after_ready_starts_on_first_mode_8_frame() {
+        let mut runtime = cached_generated_runtime();
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.frame_index = runtime.title_screen_ready_frame;
+
+        runtime.begin_level_entry(LevelId(0));
+
+        assert!(
+            matches!(
+                runtime.boot_state,
+                BootState::StartingLevel {
+                    start_latched: true,
+                    elapsed_frames: 1,
+                    uses_load_ingame_bootstrap: false,
+                    ..
+                }
+            ),
+            "ready title-screen level entry should skip the Load_InGame bootstrap and count the already-visible mode-$0008 hand-off frame as local frame 1",
+        );
+        assert!(
+            runtime.starting_level_title_rng.is_none(),
+            "ready title-screen hand-off should not preserve early-bootstrap title worker RNG",
+        );
+    }
+
+    #[test]
+    fn loc_b8ba_two_player_switch_from_p2_wraps_back_to_p1_slot() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(4));
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.two_player = true;
+        runtime.current_player_index = 1;
+        runtime.current_level = LevelId(1);
+        runtime.progression.number_lives = 2;
+        runtime.player_slots[0].lives = 3;
+        runtime.player_slots[0].level_id = LevelId(0);
+        runtime.player_slots[1].lives = 2;
+        runtime.player_slots[1].level_id = LevelId(1);
+
+        assert!(
+            runtime.try_switch_player(),
+            "ASM loc_B8BA `not.b Current_player` should switch from P2 back to P1 when P1 has lives remaining",
+        );
+        assert_eq!(
+            runtime.current_player_index, 0,
+            "ASM loc_B8BA should toggle the active two-player slot rather than indexing past P2",
+        );
+        assert_eq!(
+            runtime.current_level,
+            LevelId(0),
+            "ASM loc_B8BA should load P1's saved level after the P2-to-P1 switch",
+        );
+    }
+
+    #[test]
+    fn generated_level_reload_loads_extracted_block_list_for_level_0() {
+        let mut runtime = cached_generated_runtime();
+
+        runtime.reload_block_grid_for_level(LevelId(0));
+
+        let block_list = runtime
+            .block_list
+            .as_ref()
+            .expect("generated level 0 should load its extracted block-list asset");
+        assert!(
+            !block_list.prize_blocks.is_empty(),
+            "generated level 0 block-list should expose extracted prize block records",
+        );
+    }
+
+    #[test]
+    fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
+        let mut manifest = manifest_with_playable_spawn();
+        let header = manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("synthetic manifest should expose level header metadata");
+        header.player_start_x = 0x0040;
+        header.player_start_y = 0x0030;
+
+        let mut runtime = NativeRuntime::new(manifest);
+        let expected_pose = runtime.level_start_pose(LevelId(0), runtime.level_bounds(LevelId(0)));
+        let expected_x_px = (expected_pose.kid_x_pos >> 16) as i32;
+        let expected_y_px = (expected_pose.kid_y_pos >> 16) as i32;
+        let left_col = u16::try_from((expected_x_px - 16).div_euclid(16))
+            .expect("synthetic spawn left edge should fit in the grid");
+        let right_col = u16::try_from((expected_x_px + 16).div_euclid(16))
+            .expect("synthetic spawn right edge should fit in the grid");
+        let divided_left_col = u16::try_from((expected_x_px / 16).div_euclid(16))
+            .expect("synthetic divided left edge should fit in the grid");
+        let far_col = u16::try_from((expected_x_px * 16).div_euclid(16))
+            .expect("synthetic multiplied right edge should fit in the grid");
+        let w = far_col.saturating_add(2);
+        let foot_row = u16::try_from(expected_y_px.div_euclid(16))
+            .expect("synthetic spawn foot row should fit in the grid");
+        let support_row = foot_row.saturating_add(1);
+        let higher_row = foot_row;
+        let h = support_row.saturating_add(2);
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(usize::from(higher_row) * usize::from(w)) * 2] = 0x60;
+        data[(usize::from(higher_row) * usize::from(w) + usize::from(divided_left_col)) * 2] = 0x60;
+        data[(usize::from(support_row) * usize::from(w) + usize::from(left_col)) * 2] = 0x60;
+        data[(usize::from(support_row) * usize::from(w) + usize::from(right_col)) * 2] = 0x60;
+        data[(usize::from(higher_row) * usize::from(w) + usize::from(far_col)) * 2] = 0x60;
+        for col in 0..usize::from(w) {
+            data[(usize::from(support_row.saturating_add(1)) * usize::from(w) + col) * 2] = 0x70;
+        }
+        runtime.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+
+        let grid = runtime
+            .block_grid
+            .as_ref()
+            .expect("synthetic level should have a loaded block grid");
+
+        let inspection = runtime
+            .inspect_spawn_probes(LevelId(0))
+            .expect("synthetic level should inspect spawn probes against its loaded block grid");
+
+        assert_eq!(inspection.kid_x_pos, expected_pose.kid_x_pos);
+        assert_eq!(inspection.kid_y_pos, expected_pose.kid_y_pos);
+        assert_eq!(
+            inspection.hitbox_probe,
+            terrain::probe_floor_hitbox(grid, expected_x_px, expected_y_px, PLAYER_HALF_WIDTH),
+        );
+        assert_eq!(
+            inspection.span_probe,
+            terrain::probe_floor_span(grid, expected_x_px - 16, expected_x_px + 16, expected_y_px),
+        );
+        assert_eq!(
+            (
+                inspection.span_probe.floor_y_px,
+                inspection.span_probe.cell_x
+            ),
+            (i32::from(support_row) * 16, left_col),
+            "spawn span probe should include the asymmetric left edge of the synthetic support window",
+        );
+
+        let mut right_only_manifest = manifest_with_playable_spawn();
+        let header = right_only_manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("synthetic manifest should expose level header metadata");
+        header.player_start_x = 0x0040;
+        header.player_start_y = 0x0030;
+        let mut right_only_runtime = NativeRuntime::new(right_only_manifest);
+        let pose = right_only_runtime
+            .level_start_pose(LevelId(0), right_only_runtime.level_bounds(LevelId(0)));
+        let x_px = (pose.kid_x_pos >> 16) as i32;
+        let y_px = (pose.kid_y_pos >> 16) as i32;
+        let right_only_col = u16::try_from((x_px + 16).div_euclid(16))
+            .expect("synthetic right edge should fit in the grid");
+        let right_only_row = u16::try_from(y_px.div_euclid(16))
+            .expect("synthetic foot row should fit in the grid")
+            .saturating_add(1);
+        let w = right_only_col.saturating_add(2);
+        let h = right_only_row.saturating_add(2);
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(usize::from(right_only_row) * usize::from(w) + usize::from(right_only_col)) * 2] =
+            0x60;
+        right_only_runtime.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+
+        let inspection = right_only_runtime
+            .inspect_spawn_probes(LevelId(0))
+            .expect("synthetic right-edge level should inspect spawn probes");
+        assert_eq!(
+            (
+                inspection.span_probe.floor_y_px,
+                inspection.span_probe.cell_x
+            ),
+            (i32::from(right_only_row) * 16, right_only_col),
+            "spawn span probe should include support that exists only at the right edge",
+        );
+    }
+
+    #[test]
+    fn inspect_respawn_settle_records_one_based_step_indices() {
+        let runtime = cached_generated_runtime();
+
+        let frames = runtime.inspect_respawn_settle(LevelId(0), 2);
+
+        assert_eq!(
+            frames
+                .iter()
+                .map(|frame| frame.step_index)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2],
+            "respawn settle inspection should record the pre-step frame as 0 and frame-after-step indices as one-based values",
+        );
+    }
+
+    #[test]
+    fn inspect_respawn_settle_stops_after_stable_grounded_frames() {
+        let runtime = cached_generated_runtime();
+
+        let frames = runtime.inspect_respawn_settle(LevelId(0), 180);
+
+        let last_step = frames
+            .last()
+            .expect("respawn settle inspection should include at least the initial frame")
+            .step_index;
+        assert_eq!(
+            last_step, 34,
+            "respawn settle inspection for generated level 0 should require the full eight stable frames before stopping",
+        );
+    }
+
+    #[test]
+    fn respawn_camera_convergence_uses_level_height_minus_viewport_clamp() {
+        let max_y = 76i32;
+        let mut slice = OpeningSliceState::respawn_from_pose(
+            LevelBounds {
+                width_pixels: 320,
+                height_pixels: u16::try_from(max_y + physics::VIEWPORT_HEIGHT)
+                    .expect("synthetic level height should fit in u16"),
+            },
+            LevelStartPose {
+                kid_x_pos: 0x0020_0000,
+                kid_y_pos: u32::try_from(max_y + physics::CAMERA_PLAYER_OFFSET + 100)
+                    .expect("synthetic player y should fit in u32")
+                    << 16,
+                camera_x_pos: 0,
+                camera_y_pos: u32::try_from(max_y - 2)
+                    .expect("synthetic camera y should fit in u32")
+                    << 16,
+            },
+        );
+
+        NativeRuntime::finish_respawn_camera_convergence(&mut slice);
+
+        assert_eq!(
+            slice.camera.y_pos,
+            u32::try_from(max_y - 1).expect("synthetic converged camera y should fit in u32") << 16,
+            "respawn camera convergence should clamp the target with level height minus viewport before applying the final +2px settle beat",
+        );
+
+        let target_y = 40i32;
+        let mut unclamped_slice = OpeningSliceState::respawn_from_pose(
+            LevelBounds {
+                width_pixels: 320,
+                height_pixels: 800,
+            },
+            LevelStartPose {
+                kid_x_pos: 0x0020_0000,
+                kid_y_pos: u32::try_from(target_y + physics::CAMERA_PLAYER_OFFSET)
+                    .expect("synthetic player y should fit in u32")
+                    << 16,
+                camera_x_pos: 0,
+                camera_y_pos: u32::try_from(target_y - 2)
+                    .expect("synthetic camera y should fit in u32")
+                    << 16,
+            },
+        );
+
+        NativeRuntime::finish_respawn_camera_convergence(&mut unclamped_slice);
+
+        assert_eq!(
+            unclamped_slice.camera.y_pos,
+            u32::try_from(target_y - 1).expect("synthetic converged camera y should fit in u32")
+                << 16,
+            "respawn camera convergence should derive the unclamped target from player y minus the camera offset",
+        );
+
+        let mut airborne_slice = unclamped_slice;
+        airborne_slice.player.on_ground = false;
+        airborne_slice.camera.y_pos =
+            u32::try_from(target_y - 2).expect("synthetic camera y should fit in u32") << 16;
+
+        NativeRuntime::finish_respawn_camera_convergence(&mut airborne_slice);
+
+        assert_eq!(
+            airborne_slice.camera.y_pos,
+            u32::try_from(target_y - 2).expect("synthetic camera y should fit in u32") << 16,
+            "respawn camera convergence should not apply the final settle beat while the player is airborne",
+        );
+    }
+
+    #[test]
+    fn loc_75c0_spawn_wall_overlap_pushes_left_from_right_wall_edge() {
+        let grid = grid_with_wall(6, 0, 20, 10);
+        let bounds = LevelBounds {
+            width_pixels: 6 * 20 * 16,
+            height_pixels: 4 * 14 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.x_pos = 0x00A2_0000;
+        slice.player.y_pos = (6 * 16 - 1) << 16;
+
+        NativeRuntime::resolve_spawn_wall_overlap(&mut slice, &grid);
+
+        assert_eq!(
+            slice.player.x_pos, 0x009A_0000,
+            "ASM loc_75C0 native wall resolution should clear a right-wall overlap to wall_left - half_width - 1",
+        );
+    }
+
+    #[test]
+    fn loc_75c0_spawn_wall_overlap_pushes_right_from_left_wall_edge() {
+        let grid = grid_with_wall(6, 0, 20, 9);
+        let bounds = LevelBounds {
+            width_pixels: 6 * 20 * 16,
+            height_pixels: 4 * 14 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.x_pos = 0x00A0_0000;
+        slice.player.y_pos = (6 * 16 - 1) << 16;
+
+        NativeRuntime::resolve_spawn_wall_overlap(&mut slice, &grid);
+
+        assert_eq!(
+            slice.player.x_pos, 0x00A5_0000,
+            "ASM loc_75C0 native wall resolution should clear a left-wall overlap to wall_right + half_width",
+        );
+    }
+
+    #[test]
+    fn spawn_support_settle_uses_wide_left_span_beyond_normal_hitbox() {
+        let runtime = NativeRuntime::new(manifest());
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(usize::from(3u16) * usize::from(w) + usize::from(2u16)) * 2] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::respawn_from_pose(
+            LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            },
+            LevelStartPose {
+                kid_x_pos: 0x0035_0000,
+                kid_y_pos: 0x002F_0000,
+                camera_x_pos: 0,
+                camera_y_pos: 0,
+            },
+        );
+        slice.player.on_ground = false;
+
+        assert!(
+            runtime.try_settle_on_spawn_support(&mut slice, &grid),
+            "wide spawn support should scan the left x-16 edge beyond the normal hitbox during level-entry settling",
+        );
+        assert_eq!(slice.player.y_pos, 0x002F_0000);
+        assert!(slice.player.on_ground);
+    }
+
+    fn spawn_support_test_grid(w: u16, h: u16, cells: &[(u16, u16)]) -> terrain::BlockGrid {
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for &(col, row) in cells {
+            data[(usize::from(row) * usize::from(w) + usize::from(col)) * 2] = 0x60;
+        }
+        terrain::BlockGrid::from_level_layout(&data, w, h)
+    }
+
+    fn spawn_support_test_slice(x_px: u32, y_px: u32, w: u16, h: u16) -> OpeningSliceState {
+        let mut slice = OpeningSliceState::respawn_from_pose(
+            LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            },
+            LevelStartPose {
+                kid_x_pos: x_px << 16,
+                kid_y_pos: y_px << 16,
+                camera_x_pos: 0,
+                camera_y_pos: 0,
+            },
+        );
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0;
+        slice
+    }
+
+    #[test]
+    fn spawn_support_settle_rejects_support_outside_wide_left_span() {
+        let runtime = NativeRuntime::new(manifest());
+        let w = 7u16;
+        let h = 5u16;
+        let grid = spawn_support_test_grid(w, h, &[(1, 3)]);
+        let mut slice = spawn_support_test_slice(64, 0x2F, w, h);
+
+        assert!(
+            !runtime.try_settle_on_spawn_support(&mut slice, &grid),
+            "ASM sub_914A scans x-16..x+16 only; support further left must not settle the spawn"
+        );
+        assert!(!slice.player.on_ground);
+    }
+
+    #[test]
+    fn spawn_support_settle_rejects_support_outside_wide_right_span() {
+        let runtime = NativeRuntime::new(manifest());
+        let w = 7u16;
+        let h = 5u16;
+        let grid = spawn_support_test_grid(w, h, &[(4, 3)]);
+        let mut slice = spawn_support_test_slice(32, 0x2F, w, h);
+
+        assert!(
+            !runtime.try_settle_on_spawn_support(&mut slice, &grid),
+            "ASM sub_914A scans x-16..x+16 only; support further right must not settle the spawn"
+        );
+        assert!(!slice.player.on_ground);
+    }
+
+    #[test]
+    fn spawn_support_settle_rejects_upper_support_when_deeper_safe_floor_wins() {
+        let runtime = NativeRuntime::new(manifest());
+        let w = 7u16;
+        let h = 6u16;
+        let grid = spawn_support_test_grid(w, h, &[(4, 2), (3, 4)]);
+        let mut slice = spawn_support_test_slice(48, 0x2F, w, h);
+
+        assert!(
+            !runtime.try_settle_on_spawn_support(&mut slice, &grid),
+            "fallback floor below the spawn centre should beat a non-stair upper side support"
+        );
+        assert!(!slice.player.on_ground);
+    }
+
+    #[test]
+    fn spawn_support_stair_step_requires_outward_row_above_support() {
+        let runtime = NativeRuntime::new(manifest());
+        let w = 7u16;
+        let h = 6u16;
+        let grid = spawn_support_test_grid(w, h, &[(4, 2), (3, 4)]);
+        let mut slice = spawn_support_test_slice(48, 0x2F, w, h);
+
+        assert!(
+            !runtime.try_settle_on_spawn_support(&mut slice, &grid),
+            "ASM sub_914A stair-step exception requires a solid outward cell one row above the support"
+        );
+        assert!(!slice.player.on_ground);
+    }
+
+    #[test]
+    fn spawn_support_stair_step_ignores_support_in_centre_column() {
+        let runtime = NativeRuntime::new(manifest());
+        let w = 7u16;
+        let h = 6u16;
+        let grid = spawn_support_test_grid(w, h, &[(3, 2), (4, 1), (3, 4)]);
+        let mut slice = spawn_support_test_slice(48, 0x2F, w, h);
+
+        assert!(
+            !runtime.try_settle_on_spawn_support(&mut slice, &grid),
+            "centre-column support is the fallback column itself, not a side stair-step continuation"
+        );
+        assert!(!slice.player.on_ground);
+    }
+
+    #[test]
+    fn spawn_support_stair_step_rejects_top_row_side_support() {
+        let runtime = NativeRuntime::new(manifest());
+        let w = 7u16;
+        let h = 4u16;
+        let grid = spawn_support_test_grid(w, h, &[(4, 0), (5, 0), (3, 2)]);
+        let mut slice = spawn_support_test_slice(48, 0, w, h);
+
+        assert!(
+            !runtime.try_settle_on_spawn_support(&mut slice, &grid),
+            "top-row side support has no row above it, so it cannot form the sub_914A stair-step exception"
+        );
+        assert!(!slice.player.on_ground);
+    }
+
+    #[test]
     fn enter_level_playtest_starts_on_a_settled_ingame_frame() {
         let mut runtime = NativeRuntime::new(manifest());
         if runtime.block_grid().is_none() {

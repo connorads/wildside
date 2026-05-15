@@ -17459,7 +17459,7 @@ impl NativeRuntime {
         slice
     }
 
-    fn finish_respawn_camera_convergence(slice: &mut OpeningSliceState) {
+    pub(crate) fn finish_respawn_camera_convergence(slice: &mut OpeningSliceState) {
         let player_y_px = (slice.player.y_pos >> 16) as i32;
         let camera_y_px = (slice.camera.y_pos >> 16) as i32;
         let max_y = i32::from(slice.level_bounds.height_pixels) - physics::VIEWPORT_HEIGHT;
