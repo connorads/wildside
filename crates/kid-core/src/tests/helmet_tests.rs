@@ -5275,17 +5275,16 @@ mod chunk_08 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1AEE2 not yet implemented"]
     fn loc_1aee2_switches_intro_sequence_3_allocation_specs_from_descriptor_bit_0() {
-        let low_spec_descriptor = crate::movement::intro_sequence_3_descriptor_loc_1AEBA(0, 7)
-            .expect("first roster slot 7 should point at descriptor 10");
+        let low_spec_descriptor = crate::movement::intro_sequence_3_descriptor_loc_1AEBA(0, 5)
+            .expect("first roster slot 5 should point at descriptor 7");
         let high_spec_descriptor = crate::movement::intro_sequence_3_descriptor_loc_1AEBA(1, 2)
             .expect("second roster slot 2 should point at descriptor 6");
 
         assert_eq!(
             crate::movement::intro_sequence_3_allocation_spec_loc_1AEE2(low_spec_descriptor),
             0x01FF_0000,
-            "ASM loc_1AEE2 should stay on the earlier `$01FF0000` allocation when `btst #0,5(a0)` sees bit 0 clear in descriptor word `$1235`",
+            "ASM loc_1AEE2 should stay on the earlier `$01FF0000` allocation when `btst #0,5(a0)` sees bit 0 clear in descriptor word `$121C`",
         );
         assert_eq!(
             crate::movement::intro_sequence_3_allocation_spec_loc_1AEE2(high_spec_descriptor),
@@ -5298,6 +5297,8 @@ mod chunk_08 {
     fn loc_1aeec_copies_intro_sequence_3_descriptor_fields_into_the_gfx_object_tail() {
         let roster_descriptor = crate::movement::intro_sequence_3_descriptor_loc_1AEBA(1, 2)
             .expect("second roster slot 2 should point at descriptor 6");
+        let low_priority_descriptor = crate::movement::intro_sequence_3_descriptor_loc_1AEBA(0, 5)
+            .expect("first roster slot 5 should point at descriptor 7");
 
         assert_eq!(
             crate::movement::intro_sequence_3_gfx_object_loc_1AEEC(roster_descriptor),
@@ -5312,6 +5313,20 @@ mod chunk_08 {
                 addroffset_sprite: 0x1218,
             },
             "ASM loc_1AEEC should copy `$70,$CC`, set `$13(a1)`, palette line 1, VRAM tile `$01D6`, keep priority high from bit 0, and store descriptor word `$1219` back to `$22(a1)` with bits 0-1 cleared",
+        );
+        assert_eq!(
+            crate::movement::intro_sequence_3_gfx_object_loc_1AEEC(low_priority_descriptor),
+            crate::movement::IntroSequence3GfxObjectLoc1AEEC {
+                x_pos: 0x0098,
+                y_pos: 0x00C4,
+                display_enabled: true,
+                palette_line: 1,
+                vram_tile: 0x01D6,
+                priority: 0,
+                x_direction: 0,
+                addroffset_sprite: 0x121C,
+            },
+            "ASM loc_1AEEC should keep priority clear when descriptor word `$121C` leaves `bclr #0,d0` with the zero flag set",
         );
     }
 
