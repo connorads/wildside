@@ -7918,6 +7918,38 @@ mod chunk_03 {
     }
 
     #[test]
+    fn load_end_sequence_credits_glyphs_sub_1d7a8_stops_at_the_six_worker_cache() {
+        let glyphs = load_end_sequence_credits_glyphs_sub_1D7A8(
+            &[
+                0x10, 0xA0, 0x00, 0x11, 0xA1, 0x01, 0x12, 0xA2, 0x02, 0x13, 0xA3, 0x03, 0x14, 0xA4,
+                0x04, 0x15, 0xA5, 0x05, 0x16, 0xA6, 0x06, 0x00,
+            ],
+            [None; 6],
+        );
+
+        assert_eq!(
+            glyphs[5],
+            Some(EndSequenceCreditsGlyphPlacementSub1D7A8 {
+                x_pos: 0x0047,
+                y_pos: 0x0005,
+                addroffset_sprite: 0x110B,
+                display_enabled: true,
+            }),
+            "ASM loc_1D3CA/loc_1D3D0 caches six `sub_1D786` glyph workers, so native `sub_1D7A8` should ignore any seventh triple rather than stepping past the cached pointer table",
+        );
+    }
+
+    #[test]
+    fn load_end_sequence_credits_glyphs_sub_1d7a8_ignores_incomplete_triples() {
+        let glyphs = load_end_sequence_credits_glyphs_sub_1D7A8(&[0x10, 0xA0], [None; 6]);
+
+        assert_eq!(
+            glyphs, [None; 6],
+            "ASM loc_1D7B0 consumes full `(x,y,sprite)` triples from `a4`; native should not materialise a partial trailing glyph when the bounded byte stream ends before the sprite byte",
+        );
+    }
+
+    #[test]
     fn allocate_object_and_gfx_links_sub_e02_cross_links_the_new_slots() {
         let links = allocate_object_and_gfx_links_sub_E02(0x00FF_8000, 0x00FF_9000);
 
