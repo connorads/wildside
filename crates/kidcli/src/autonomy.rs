@@ -3306,6 +3306,7 @@ fn evaluate_proactive_verification_cycle(
     let frontier_state = load_source_port_frontier_state(repo_root).ok();
     let mut rejected_fingerprints = collect_rejected_fingerprints(frontier_state.as_ref());
     rejected_fingerprints.extend(extra_skip_fingerprints.iter().cloned());
+    let rejected_mutation_shards = collect_rejected_mutation_shards(frontier_state.as_ref());
 
     for strategy in &config.strategies {
         match strategy {
@@ -3379,6 +3380,7 @@ fn evaluate_proactive_verification_cycle(
                     rotation,
                     *max_candidates_per_cycle,
                     &rejected_fingerprints,
+                    &rejected_mutation_shards,
                 ) && !rejected_fingerprints.contains(&report.progress_fingerprint)
                 {
                     return Ok(report);
@@ -3432,6 +3434,39 @@ fn collect_rejected_fingerprints(state: Option<&SourcePortFrontierState>) -> BTr
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn collect_rejected_mutation_shards(state: Option<&SourcePortFrontierState>) -> BTreeSet<String> {
+    state
+        .map(|s| {
+            s.active_frontier
+                .rejected_hypotheses
+                .iter()
+                .filter_map(rejected_mutation_shard_key)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn rejected_mutation_shard_key(entry: &HypothesisSummary) -> Option<String> {
+    let name = entry.name.to_ascii_lowercase();
+    let reason = entry.reason.to_ascii_lowercase();
+    if !reason.contains("treat shard") || !reason.contains("as exhausted") {
+        return None;
+    }
+
+    let marker = " mutation shard ";
+    let marker_start = name.find(marker)?;
+    let module = name[..marker_start].split_whitespace().last()?;
+    let label_start = marker_start + marker.len();
+    let label = name[label_start..]
+        .split_whitespace()
+        .next()?
+        .trim_matches(|c: char| !c.is_ascii_digit() && c != '/');
+    if module.is_empty() || label.is_empty() {
+        return None;
+    }
+    Some(format!("{module}:{label}"))
 }
 
 fn source_port_records_proactive_exhaustion(frontier: &ActiveFrontierState) -> bool {
@@ -4012,6 +4047,7 @@ fn try_mutation_testing_strategy(
     rotation: &[String],
     max_candidates_per_cycle: Option<u32>,
     skip_fingerprints: &BTreeSet<String>,
+    skip_mutation_shards: &BTreeSet<String>,
 ) -> Option<CycleReport> {
     let ledger_path = repo_root.join(MUTATION_LEDGER_PATH);
     let mut ledger = load_mutation_ledger(&ledger_path);
@@ -4111,6 +4147,17 @@ fn try_mutation_testing_strategy(
                 &current_commit,
                 source_hash.as_deref(),
             );
+
+            if skip_mutation_shards.contains(&mutation_shard_skip_key(module_stem, shard)) {
+                mark_mutation_ledger_attempt(
+                    &mut ledger,
+                    target,
+                    shard,
+                    MutationLedgerStatus::DeferredRepeated,
+                );
+                let _ = write_mutation_ledger(&ledger_path, &ledger);
+                continue;
+            }
 
             let source_drifted =
                 mutation_source_drifted(previous_entry.as_ref(), source_hash.as_deref());
@@ -4631,6 +4678,10 @@ fn mutation_ledger_key(target: &MutationTarget, shard: MutationShard) -> String 
         shard.index + 1,
         shard.total
     )
+}
+
+fn mutation_shard_skip_key(module_stem: &str, shard: MutationShard) -> String {
+    format!("{module_stem}:{}", shard.label())
 }
 
 fn mutation_ledger_status(status: &MutationRunStatus) -> MutationLedgerStatus {
@@ -13932,6 +13983,7 @@ mod tests {
             &Vec::<String>::new(),
             None,
             &BTreeSet::new(),
+            &BTreeSet::new(),
         )
         .expect("mutation testing task should exist");
         let task = report.selected_task.expect("selected task should exist");
@@ -13977,6 +14029,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             None,
+            &BTreeSet::new(),
             &BTreeSet::new(),
         )
         .expect("rerun task should exist");
@@ -14033,6 +14086,7 @@ mod tests {
             &Vec::<String>::new(),
             None,
             &BTreeSet::new(),
+            &BTreeSet::new(),
         )
         .expect("triage task should exist");
         let task = report.selected_task.expect("selected task should exist");
@@ -14077,6 +14131,7 @@ mod tests {
             &Vec::<String>::new(),
             None,
             &BTreeSet::new(),
+            &BTreeSet::new(),
         )
         .expect("next module task should exist");
         let task = report.selected_task.expect("selected task should exist");
@@ -14116,6 +14171,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             Some(200),
+            &BTreeSet::new(),
             &BTreeSet::new(),
         )
         .expect("sharded mutation testing task should exist");
@@ -14157,6 +14213,7 @@ mod tests {
             &Vec::<String>::new(),
             Some(200),
             &BTreeSet::new(),
+            &BTreeSet::new(),
         )
         .expect("second shard task should exist");
 
@@ -14197,6 +14254,7 @@ mod tests {
             &Vec::<String>::new(),
             Some(200),
             &BTreeSet::new(),
+            &BTreeSet::new(),
         )
         .expect("first survivor task should exist");
         assert!(first.progress_fingerprint.contains("terrain:triage:"));
@@ -14208,6 +14266,7 @@ mod tests {
             &targets,
             &Vec::<String>::new(),
             Some(200),
+            &BTreeSet::new(),
             &BTreeSet::new(),
         )
         .expect("second shard task should exist after repeated survivor deferral");
@@ -14330,6 +14389,7 @@ mod tests {
             &Vec::<String>::new(),
             Some(200),
             &BTreeSet::new(),
+            &BTreeSet::new(),
         )
         .expect("rotation should advance to the next shard");
 
@@ -14379,6 +14439,7 @@ mod tests {
             &Vec::<String>::new(),
             Some(200),
             &BTreeSet::new(),
+            &BTreeSet::new(),
         )
         .expect("strategy should re-open the drifted shard");
 
@@ -14415,6 +14476,7 @@ mod tests {
             &Vec::<String>::new(),
             Some(200),
             &skip,
+            &BTreeSet::new(),
         )
         .expect("strategy should advance past the skipped shard");
 
@@ -14426,6 +14488,53 @@ mod tests {
             read_mutation_ledger_status(temp_dir.path(), "terrain.rs", "kid-core", 1, 2).as_deref(),
             Some("deferred_attempts"),
             "skipped shard must be marked deferred_attempts"
+        );
+    }
+
+    #[test]
+    fn rejected_mutation_shard_records_skip_whole_shard() {
+        let rejected = super::HypothesisSummary {
+            name: "Level mutation shard 3/16 still has actionable survivors".to_owned(),
+            reason: "Treat shard 3/16 as exhausted unless the helper is widened.".to_owned(),
+            fingerprint: None,
+        };
+
+        assert_eq!(
+            super::rejected_mutation_shard_key(&rejected).as_deref(),
+            Some("level:3/16"),
+            "frontier-state exhausted shard records should become stable mutation shard skip keys",
+        );
+    }
+
+    #[test]
+    fn mutation_testing_strategy_honours_rejected_mutation_shards() {
+        let temp_dir = source_port_repo();
+        write_mutation_run(temp_dir.path(), "terrain", 201, 0, "", "", "");
+        let targets = vec![mutation_target("terrain.rs", 1)];
+
+        let mut skipped_shards = BTreeSet::new();
+        skipped_shards.insert("terrain:1/2".to_owned());
+
+        let report = super::try_mutation_testing_strategy(
+            temp_dir.path(),
+            4,
+            ".cache/mutants",
+            &targets,
+            &Vec::<String>::new(),
+            Some(200),
+            &BTreeSet::new(),
+            &skipped_shards,
+        )
+        .expect("strategy should advance past the frontier-documented exhausted shard");
+
+        assert_eq!(
+            report.progress_fingerprint,
+            "proactive-verification:mutation-testing:terrain:run:shard-2/2"
+        );
+        assert_eq!(
+            read_mutation_ledger_status(temp_dir.path(), "terrain.rs", "kid-core", 1, 2).as_deref(),
+            Some("deferred_repeated"),
+            "frontier-documented exhausted shard should be marked deferred_repeated"
         );
     }
 
