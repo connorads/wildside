@@ -13847,6 +13847,52 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_A254 snaps only after sub_9386 has found the active slope surface.
+    /// Native's defensive row search must not treat a far neighbouring slope as
+    /// support: a candidate more than 16px from y_pos is outside the snap window.
+    #[test]
+    fn asm_faithful_sub_a254_rejects_far_slope_candidate_during_row_search() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_collision = |data: &mut Vec<u8>, col: u16, row: u16, hi: u8| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = hi;
+        };
+        set_collision(&mut data, 2, 2, 0x40);
+        set_collision(&mut data, 3, 4, 0x60);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 47 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.y_pos,
+            63 << 16,
+            "sub_A254 row search should reject the row-2 slope because y=63 is more than 16px from its y=32 surface",
+        );
+    }
+
     /// ASM loc_9D22 -> loc_9D2E stores canonical slope velocity before sub_B168:
     /// SlopeUp turns rightward x_vel into negative y_vel, while SlopeDown keeps
     /// the sign. Custom gravity keeps the trace at the exact pre-gravity value.
