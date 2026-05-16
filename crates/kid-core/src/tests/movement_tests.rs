@@ -14596,6 +14596,52 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_ABA4 -> loc_ABF0 (kid.asm:13422, 13449): the ROM consumes the
+    /// single-frame B press for pull-up. Native also accepts a buffered jump
+    /// edge, but the snap must still take the same floor probe path and clear
+    /// the buffer once the pull-up succeeds.
+    #[test]
+    fn loc_aba4_buffered_jump_can_snap_wall_sticky_ledge() {
+        let w = 8u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 4, 4);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 68 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.right_wall_sticky = true;
+        slice.player.jump_buffer_frames = 3;
+
+        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+
+        assert!(
+            snapped,
+            "loc_ABA4 native buffer path should treat a pending jump edge like the ROM B press",
+        );
+        assert_eq!(slice.player.x_pos, 68 << 16);
+        assert_eq!(
+            slice.player.y_pos,
+            63 << 16,
+            "loc_ABF0 should snap to one pixel above the solid ledge surface",
+        );
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.player.jump_buffer_frames, 0,
+            "successful native pull-up should consume the buffered jump edge",
+        );
+    }
+
     /// ASM loc_ABF0 (kid.asm:13449): floor scan loop in kid_flip pull-up.
     /// Walks down tile rows: `add.w (Level_width_tiles),a4; addi.w #$10,d6;
     /// check (a4)&$7000 ≥ $6000; blt.s loc_ABF0`. First solid tile → snap.
