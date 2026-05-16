@@ -383,6 +383,12 @@ mod chunk_01 {
         ];
 
         assert_eq!(
+            gfx_object_delete_special_predecessor_index_loc_111A(&next_indices, 2),
+            Some(1),
+            "ASM loc_1106 should walk through `4(a0)` until it sees `a3`, then enter loc_1114 with the predecessor still in `a0`",
+        );
+
+        assert_eq!(
             gfx_object_delete_special_predecessor_index_loc_111A(&next_indices, 3),
             None,
             "ASM loc_111A should return immediately when the `loc_1106` singleton-chain walk hits a null `4(a0)` link before seeing `a3`",
