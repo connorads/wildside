@@ -4123,7 +4123,7 @@ impl OpeningSliceState {
 
         let near_floor =
             self.player.y_pos.abs_diff(self.terrain.floor_y_pos) <= GROUND_SNAP_TOLERANCE_FP;
-        if !self.player.on_ground && jump_pressed && self.player.y_velocity >= 0 && near_floor {
+        if jump_pressed && self.player.y_velocity >= 0 && near_floor {
             return false;
         }
 

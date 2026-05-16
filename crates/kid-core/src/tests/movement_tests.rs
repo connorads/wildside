@@ -13923,6 +13923,44 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A (kid.asm:10437) owns the floor-contact check after a jump
+    /// edge. Native suppresses horizontal acceleration for an airborne
+    /// descending/neutral frame that is still within the floor snap tolerance,
+    /// leaving the vertical floor path to decide the landing.
+    #[test]
+    fn sub_902a_near_floor_jump_edge_suppresses_horizontal_update() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        slice.player.y_pos = 64 << 16;
+        slice.terrain.floor_y_pos = (64 << 16) + (GROUND_SNAP_TOLERANCE_FP / 2);
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                b: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            !stepped,
+            "sub_902A near-floor jump edge should suppress horizontal update before vertical floor resolution",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "right input must not accelerate during the near-floor jump suppression frame",
+        );
+    }
+
     /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
     /// non-jump continuation path. A fresh jump edge must keep Kid airborne even
     /// when the centre probe is within the native slope snap tolerance.
