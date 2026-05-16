@@ -13750,6 +13750,64 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_A912 -> loc_A99E -> loc_8BF0: a fresh airborne slope recontact
+    /// may enter the walking path immediately, but it is not a plain flat-floor
+    /// landing. If that same-frame slope step leaves the support scan empty,
+    /// loc_8E06 -> sub_B43A -> loc_B5F6 must hand off to airborne state.
+    #[test]
+    fn asm_faithful_fresh_slope_recontact_without_support_falls_after_same_frame_step() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x40;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.just_jumped = true;
+        slice.player.x_pos = 47 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.player.y_velocity = 0;
+        slice.player.facing = Direction::Right;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            !slice.player.on_ground,
+            "loc_B5F6: fresh slope recontact is not a plain landing; unsupported same-frame slope step must fall",
+        );
+        assert_eq!(
+            slice.grounded_slope_collision(Some(&grid)),
+            None,
+            "sub_B43A follow-up should see no centre slope support after the same-frame horizontal carry",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            69 << 16,
+            "loc_B5F6 adds 1px after the SlopeUp recontact snaps edge support to y=68",
+        );
+    }
+
     /// ASM loc_9D22 -> loc_9D2E stores canonical slope velocity before sub_B168:
     /// SlopeUp turns rightward x_vel into negative y_vel, while SlopeDown keeps
     /// the sign. Custom gravity keeps the trace at the exact pre-gravity value.
