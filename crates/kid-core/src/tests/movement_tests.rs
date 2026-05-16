@@ -13549,6 +13549,99 @@ mod chunk_12 {
         assert_eq!(trace.wall_snap_x, None);
     }
 
+    /// ASM sub_902A (kid.asm:10437): a descending floor contact clears y_vel,
+    /// snaps to the floor, and returns the positive contact path. Native
+    /// `finalise_trace` records that only when the frame transitions from
+    /// airborne to grounded; an already-grounded frame must not be reported as
+    /// a fresh floor hit.
+    #[test]
+    fn asm_faithful_finalise_trace_records_only_new_floor_landings() {
+        let mut floor_grid = grid_with_floor_at_row(4);
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut landing = OpeningSliceState::new(bounds);
+        landing.player.x_pos = 48 << 16;
+        landing.player.y_pos = 60 << 16;
+        landing.player.y_velocity = 0x0004_0000;
+        landing.player.on_ground = false;
+        landing.physics_trace = Some(PhysicsTrace::default());
+
+        landing.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut floor_grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let landing_trace = landing
+            .physics_trace
+            .expect("trace should remain available after landing step");
+        assert!(!landing_trace.on_ground_before);
+        assert!(landing_trace.on_ground_after);
+        assert_eq!(
+            landing_trace.final_pos,
+            (landing.player.x_pos, landing.player.y_pos)
+        );
+        assert_eq!(
+            landing_trace.final_vel,
+            (landing.player.x_velocity, landing.player.y_velocity),
+        );
+        assert!(
+            landing_trace.floor_hit,
+            "sub_902A positive contact should be recorded as a fresh landing",
+        );
+        assert_eq!(
+            landing_trace.floor_y_px,
+            Some((landing.terrain.floor_y_pos >> 16) as i32),
+            "finalise_trace should preserve the floor pixel coordinate from sub_902A",
+        );
+        assert_eq!(
+            landing_trace.landing_path,
+            Some(LandingPath::ZeroSubPixel),
+            "sub_902A landing path clears the low word of y_pos",
+        );
+
+        let mut grounded_grid = grid_with_floor_at_row(4);
+        let mut grounded = OpeningSliceState::new(bounds);
+        grounded.player.x_pos = 48 << 16;
+        grounded.player.y_pos = 63 << 16;
+        grounded.player.on_ground = true;
+        grounded.physics_trace = Some(PhysicsTrace::default());
+
+        grounded.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grounded_grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let grounded_trace = grounded
+            .physics_trace
+            .expect("trace should remain available after grounded step");
+        assert!(grounded_trace.on_ground_before);
+        assert!(grounded_trace.on_ground_after);
+        assert!(
+            !grounded_trace.floor_hit,
+            "finalise_trace must not report a fresh landing when Kid was already grounded",
+        );
+        assert_eq!(grounded_trace.floor_y_px, None);
+        assert_eq!(grounded_trace.landing_path, None);
+    }
+
     /// ASM loc_77E6 (kid.asm:7871): standing-still Left input probes the leading
     /// wall column; when blocked, Kid faces left and remains standing instead of
     /// entering the walking acceleration path.
