@@ -14775,6 +14775,138 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_AE0E (kid.asm:13644): sub_ADB8 probes the leading wall column
+    /// selected by $FA72. A right-wall cling with a solid tile at the leading
+    /// edge returns NE via loc_ADEC, represented by `ForwardWallBlocked`.
+    #[test]
+    fn loc_ae0e_sub_adb8_release_probe_reports_forward_wall_blocked() {
+        let w = 10u16;
+        let h = 10u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        for row in 2..=5 {
+            set_solid(&mut data, 5, row);
+        }
+        for col in 0..w {
+            set_solid(&mut data, col, 9);
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.x_pos = 74 << 16;
+        slice.player.y_pos = 80 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.wall_cling_direction = Some(Direction::Right);
+        slice.player.right_wall_sticky = true;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let probe = slice
+            .wall_cling_release_probe
+            .expect("loc_AE0E should record the descending wall probe");
+        assert_eq!(
+            probe.sub_adb8_gate,
+            KidWallClingReleaseGate::ForwardWallBlocked,
+            "loc_AE0E should keep clinging when the leading right wall column is solid",
+        );
+        assert!(
+            probe
+                .forward_wall_probe
+                .is_some_and(|wall_probe| wall_probe.hit),
+            "loc_AE0E should report a concrete right-wall probe hit",
+        );
+    }
+
+    /// ASM loc_AE0E (kid.asm:13644): after the body column is clear, sub_ADB8
+    /// checks the adjacent upper tile before allowing release. Native records
+    /// this as the top-edge probe blocking the release.
+    #[test]
+    fn loc_ae0e_sub_adb8_release_probe_reports_top_edge_blocked() {
+        let w = 10u16;
+        let h = 10u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 5, 2);
+        for col in 0..w {
+            set_solid(&mut data, col, 9);
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.x_pos = 74 << 16;
+        slice.player.y_pos = 78 << 16;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = false;
+        slice.player.wall_cling_direction = Some(Direction::Right);
+        slice.player.right_wall_sticky = true;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let probe = slice
+            .wall_cling_release_probe
+            .expect("loc_AE0E should record the top-edge wall probe");
+        assert_eq!(
+            probe.sub_adb8_gate,
+            KidWallClingReleaseGate::TopEdgeBlocked,
+            "loc_AE0E should keep clinging when only the upper adjacent right tile is solid",
+        );
+        assert!(
+            probe
+                .forward_wall_probe
+                .is_some_and(|wall_probe| !wall_probe.hit),
+            "body wall scan should be clear before the top-edge gate fires",
+        );
+        assert!(
+            probe.top_edge_probe.is_some_and(|wall_probe| wall_probe.hit
+                && wall_probe.cell_x == 5
+                && wall_probe.cell_y == 2),
+            "top-edge probe should hit the right-wall tile at col 5 row 2",
+        );
+    }
+
     /// ASM loc_AD98 (kid.asm:13590): wall-cling floor contact dispatch for d7≥2.
     /// `bne loc_ADAC` (d7>2 → helmets 3+). For d7==2 (Cyclone): `tst.b $FA6A;
     /// bne loc_AA9C` (on board → stay in wall-cling loop), else `bsr sub_BB54;
