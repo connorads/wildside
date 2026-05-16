@@ -14698,6 +14698,83 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_AA9C -> loc_AAC8 -> sub_ADB8 (kid.asm:13338-13353): the release
+    /// gate follows the active wall side from $FA72. A right-wall cling must use
+    /// the right sticky latch; unrelated left sticky state cannot keep it active.
+    #[test]
+    fn loc_aa9c_sub_adb8_release_probe_uses_active_side_sticky_latch() {
+        let grid = grid_with_floor_at_row(8);
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+
+        let mut sticky_right = OpeningSliceState::new(bounds);
+        sticky_right.player.x_pos = 0x0030_0000;
+        sticky_right.player.y_pos = 0x0040_0000;
+        sticky_right.player.y_velocity = 0x0001_0000;
+        sticky_right.player.on_ground = false;
+        sticky_right.player.wall_cling_direction = Some(Direction::Right);
+        sticky_right.player.right_wall_sticky = true;
+        sticky_right.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let active_probe = sticky_right
+            .wall_cling_release_probe
+            .expect("loc_AA9C should record the active right-wall probe");
+        assert_eq!(
+            active_probe.sub_adb8_gate,
+            KidWallClingReleaseGate::Ready,
+            "sub_ADB8 should be ready when the active right sticky latch is set",
+        );
+
+        let mut inactive_right = OpeningSliceState::new(bounds);
+        inactive_right.player.x_pos = 0x0030_0000;
+        inactive_right.player.y_pos = 0x0040_0000;
+        inactive_right.player.y_velocity = 0x0001_0000;
+        inactive_right.player.on_ground = false;
+        inactive_right.player.wall_cling_direction = Some(Direction::Right);
+        inactive_right.player.right_wall_sticky = false;
+        inactive_right.player.left_wall_sticky = true;
+        inactive_right.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let inactive_probe = inactive_right
+            .wall_cling_release_probe
+            .expect("loc_AA9C should record the inactive right-wall probe");
+        assert_eq!(
+            inactive_probe.sub_adb8_gate,
+            KidWallClingReleaseGate::StickyInactive,
+            "sub_ADB8 should reject when the active right sticky latch is clear",
+        );
+    }
+
     /// ASM loc_AD98 (kid.asm:13590): wall-cling floor contact dispatch for d7≥2.
     /// `bne loc_ADAC` (d7>2 → helmets 3+). For d7==2 (Cyclone): `tst.b $FA6A;
     /// bne loc_AA9C` (on board → stay in wall-cling loop), else `bsr sub_BB54;
