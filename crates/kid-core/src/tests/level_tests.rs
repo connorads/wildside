@@ -2876,6 +2876,11 @@ mod chunk_02 {
             .motion
             .clone()
             .expect("activation frame should seed the title-worker glide");
+        assert_eq!(
+            (seeded_motion.start_x_pos, seeded_motion.start_y_pos),
+            (0xFFE0_0000, 0x0070_0000),
+            "ASM loc_1ACB0 should mask the ROM RNG byte with `& 3`; the default stream's first selector is zero and enters from the left edge at random Y `$70`",
+        );
 
         runtime.maybe_seed_starting_level_title_workers(activation_frame);
         assert_eq!(
