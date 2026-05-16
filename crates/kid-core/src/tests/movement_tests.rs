@@ -14977,6 +14977,11 @@ mod chunk_12 {
             KidWallClingReleaseBranch::SubAdb8,
             "loc_AAC8 zero y_vel is not negative and should use sub_ADB8",
         );
+        assert_eq!(
+            neutral_probe.sub_adb8_gate,
+            KidWallClingReleaseGate::HeldDirectionMismatch,
+            "sub_ADB8 should not classify exact-zero y_vel as Rising",
+        );
 
         let mut rising = OpeningSliceState::new(bounds);
         rising.player.x_pos = 0x0030_0000;
@@ -15004,6 +15009,14 @@ mod chunk_12 {
                 .branch,
             KidWallClingReleaseBranch::SubAe6e,
             "loc_AAC8 negative y_vel should branch to loc_AB22/sub_AE6E",
+        );
+        assert_eq!(
+            rising
+                .wall_cling_release_probe
+                .expect("loc_AAC8 should retain rising gate")
+                .sub_adb8_gate,
+            KidWallClingReleaseGate::Rising,
+            "sub_ADB8 gate should classify strictly negative y_vel as Rising",
         );
     }
 
