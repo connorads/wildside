@@ -6110,11 +6110,11 @@ mod chunk_02 {
     fn ledge_snap_cooldown_loc_1062_hibernates_physics_while_animation_is_active() {
         let bounds = LevelBounds {
             width_pixels: 320,
-            height_pixels: 224,
+            height_pixels: 480,
         };
         let mut slice = OpeningSliceState::respawn(bounds);
         slice.player.x_pos = 96 << 16;
-        slice.player.y_pos = 144 << 16;
+        slice.player.y_pos = 300 << 16;
         slice.player.x_velocity = 0x0002_0000;
         slice.player.y_velocity = 0x0001_0000;
         slice.player.on_ground = false;
@@ -6124,6 +6124,7 @@ mod chunk_02 {
         let start_y_pos = slice.player.y_pos;
         let start_x_velocity = slice.player.x_velocity;
         let start_y_velocity = slice.player.y_velocity;
+        let start_camera_y_pos = slice.camera.y_pos;
 
         slice.step_with_order(
             FrameInput {
@@ -6161,6 +6162,44 @@ mod chunk_02 {
         assert_eq!(
             slice.player.y_velocity, start_y_velocity,
             "ASM loc_1062 should leave the stored vertical velocity untouched while the hibernate loop is still active",
+        );
+        assert_eq!(
+            slice.camera.y_pos, start_camera_y_pos,
+            "ASM loc_1062 should not run camera follow before the pull-up animation reports finished",
+        );
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                a: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::GravityFirst,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.ledge_snap_cooldown, 0,
+            "ASM loc_1062 should return to the caller once the pull-up animation reports finished",
+        );
+        assert_eq!(
+            slice.player.x_pos, start_x_pos,
+            "ASM loc_1062 final hibernate frame should still suppress horizontal motion",
+        );
+        assert_eq!(
+            slice.player.y_pos, start_y_pos,
+            "ASM loc_1062 final hibernate frame should still suppress vertical motion",
+        );
+        assert!(
+            slice.camera.y_pos > start_camera_y_pos,
+            "ASM loc_1062 final hibernate frame should let the main loop's camera follow catch up before physics resumes",
         );
     }
 
