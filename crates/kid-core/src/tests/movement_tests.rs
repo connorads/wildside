@@ -13868,6 +13868,183 @@ mod chunk_12 {
         assert!(trace.gravity_applied);
     }
 
+    /// ASM sub_B168 -> loc_B1D4/loc_B1E8: the low-gravity branch requires both
+    /// negative pre-gravity y_vel and B held. AsmFaithful trace records that
+    /// exact pre-sub_B168 predicate.
+    #[test]
+    fn asm_faithful_trace_sub_b168_records_ascending_b_hold_only_for_upward_motion() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let b_held = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
+
+        let mut ascending = OpeningSliceState::new(bounds);
+        ascending.player.on_ground = false;
+        ascending.player.y_pos = 0x0020_0000;
+        ascending.player.y_velocity = -0x0001_0000;
+        ascending.physics_trace = Some(PhysicsTrace::default());
+
+        ascending.step_with_order(
+            b_held,
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let ascending_trace = ascending
+            .physics_trace
+            .expect("trace should remain available after ascending step");
+        assert!(ascending_trace.ascending_and_b_held);
+        assert!(!ascending_trace.jump_initiated);
+
+        let mut descending = OpeningSliceState::new(bounds);
+        descending.player.on_ground = false;
+        descending.player.y_pos = 0x0020_0000;
+        descending.player.y_velocity = 0x0001_0000;
+        descending.physics_trace = Some(PhysicsTrace::default());
+
+        descending.step_with_order(
+            b_held,
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let descending_trace = descending
+            .physics_trace
+            .expect("trace should remain available after descending step");
+        assert!(!descending_trace.ascending_and_b_held);
+        assert!(!descending_trace.jump_initiated);
+
+        let mut zero_velocity = OpeningSliceState::new(bounds);
+        zero_velocity.player.on_ground = false;
+        zero_velocity.player.y_pos = 0x0020_0000;
+        zero_velocity.player.y_velocity = 0;
+        zero_velocity.physics_trace = Some(PhysicsTrace::default());
+
+        zero_velocity.step_with_order(
+            b_held,
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let zero_trace = zero_velocity
+            .physics_trace
+            .expect("trace should remain available after zero-velocity step");
+        assert!(!zero_trace.ascending_and_b_held);
+        assert!(!zero_trace.jump_initiated);
+    }
+
+    /// ASM loc_9F18 -> loc_B580 launches a jump only from a fresh grounded B
+    /// press. AsmFaithful trace records the non-negative-to-negative y_vel edge
+    /// that sub_B168 creates; already-ascending frames must not be reclassified.
+    #[test]
+    fn asm_faithful_trace_sub_b168_records_jump_initiation_only_on_launch_edge() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let b_held = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
+
+        let mut held_without_press = OpeningSliceState::new(bounds);
+        held_without_press.player.on_ground = true;
+        held_without_press.player.y_velocity = 0;
+        held_without_press.physics_trace = Some(PhysicsTrace::default());
+
+        held_without_press.step_with_order(
+            b_held,
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let held_trace = held_without_press
+            .physics_trace
+            .expect("trace should remain available after B-held non-jump step");
+        assert!(!held_trace.ascending_and_b_held);
+        assert!(!held_trace.jump_initiated);
+
+        let mut already_ascending = OpeningSliceState::new(bounds);
+        already_ascending.player.on_ground = false;
+        already_ascending.player.y_pos = 0x0020_0000;
+        already_ascending.player.y_velocity = -0x0001_0000;
+        already_ascending.physics_trace = Some(PhysicsTrace::default());
+
+        already_ascending.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let ascending_trace = already_ascending
+            .physics_trace
+            .expect("trace should remain available after already-ascending step");
+        assert!(!ascending_trace.jump_initiated);
+
+        let mut jump_launch = OpeningSliceState::new(bounds);
+        jump_launch.player.on_ground = true;
+        jump_launch.player.y_velocity = 0;
+        jump_launch.physics_trace = Some(PhysicsTrace::default());
+
+        jump_launch.step_with_order(
+            b_held,
+            true,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let launch_trace = jump_launch
+            .physics_trace
+            .expect("trace should remain available after grounded jump step");
+        assert!(launch_trace.jump_initiated);
+        assert_eq!(launch_trace.jump_y_vel, Some(jump_launch.player.y_velocity));
+    }
+
     /// ASM loc_AB4A (kid.asm:13394): ascending wall-cling overhang snap tail.
     /// Reached from loc_AB22 (y_vel < 0 path): after sub_AE6E probe clears,
     /// y_pos snaps to tile bottom (`andi #$FFF0 + $F`), sub-pixel zeroed,
