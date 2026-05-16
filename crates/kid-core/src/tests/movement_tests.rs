@@ -13694,6 +13694,180 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_8E06 -> sub_B43A -> loc_B5F6: the walking entry only treats a
+    /// slope edge as support after the floor probe says Kid has reached that
+    /// diagonal surface. Being in a slope tile above the surface still takes the
+    /// lost-floor hand-off (`addq.w #1,y_pos(a3)`).
+    #[test]
+    fn asm_faithful_sub_b43a_ignores_slope_edge_before_surface_contact() {
+        let w: u16 = 6;
+        let h: u16 = 6;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x40;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(!slice.player.on_ground);
+        assert_eq!(
+            slice.player.y_pos,
+            65 << 16,
+            "loc_B5F6: slope edge above its surface is not support, so walking falls by 1px",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            48 << 16,
+            "loc_B5F6 returns before sub_B084/sub_A4EE can advance x_pos",
+        );
+        let trace = slice
+            .physics_trace
+            .expect("trace should remain available after lost-floor step");
+        assert!(
+            !trace.horizontal_step_applied,
+            "loc_B5F6 lost-floor hand-off skips the horizontal sub-step",
+        );
+    }
+
+    /// ASM loc_9D22 -> loc_9D2E stores canonical slope velocity before sub_B168:
+    /// SlopeUp turns rightward x_vel into negative y_vel, while SlopeDown keeps
+    /// the sign. Custom gravity keeps the trace at the exact pre-gravity value.
+    #[test]
+    fn asm_faithful_loc_9d22_canonicalises_slope_y_velocity_from_x_velocity() {
+        fn run_on_slope(collision_hi: u8, x_px: i32, floor_y_px: i32) -> PhysicsTrace {
+            let w: u16 = 8;
+            let h: u16 = 8;
+            let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+            let slope_offset = (4usize * usize::from(w) + 2) * 2;
+            data[slope_offset] = collision_hi;
+            let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: w * 16,
+                height_pixels: h * 16,
+            });
+            slice.player.on_ground = true;
+            slice.player.x_pos = (x_px as u32) << 16;
+            slice.player.y_pos = (floor_y_px as u32) << 16;
+            slice.player.x_velocity = 0x0002_0000;
+            slice.physics_trace = Some(PhysicsTrace::default());
+
+            slice.step_with_order(
+                FrameInput::default(),
+                false,
+                PlayerForm::TheKid,
+                Some(&mut grid),
+                None,
+                true,
+                0,
+                PhysicsOrder::AsmFaithful,
+                true,
+                &[],
+            );
+
+            slice
+                .physics_trace
+                .expect("trace should remain available after slope step")
+        }
+
+        let slope_up = run_on_slope(0x40, 0x24, 64 + 15 - (0x24 & 0x0F));
+        assert_eq!(
+            slope_up.pre_gravity_y_vel, -slope_up.post_horizontal.1,
+            "loc_9D22: SlopeUp stores y_vel = -x_vel before sub_B168",
+        );
+
+        let slope_down = run_on_slope(0x50, 0x24, 64 + (0x24 & 0x0F));
+        assert_eq!(
+            slope_down.pre_gravity_y_vel, slope_down.post_horizontal.1,
+            "loc_9D22: SlopeDown stores y_vel = +x_vel before sub_B168",
+        );
+    }
+
+    /// ASM sub_B168 runs before position in the AsmFaithful order. Even when
+    /// custom gravity leaves y_vel unchanged, an airborne frame is still reported
+    /// as gravity-owned by the native trace predicate.
+    #[test]
+    fn asm_faithful_trace_sub_b168_marks_custom_gravity_airborne() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut floor_grid = grid_with_floor_at_row(4);
+        let mut grounded = OpeningSliceState::new(bounds);
+        grounded.player.on_ground = true;
+        grounded.player.x_pos = 32 << 16;
+        grounded.player.y_pos = 64 << 16;
+        grounded.player.y_velocity = 0;
+        grounded.physics_trace = Some(PhysicsTrace::default());
+
+        grounded.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut floor_grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let grounded_trace = grounded
+            .physics_trace
+            .expect("trace should remain available after grounded custom-gravity step");
+        assert_eq!(grounded_trace.pre_gravity_y_vel, 0);
+        assert_eq!(grounded_trace.post_gravity_y_vel, 0);
+        assert!(!grounded_trace.gravity_applied);
+
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_pos = 0x0020_0000;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let trace = slice
+            .physics_trace
+            .expect("trace should remain available after custom-gravity step");
+        assert_eq!(trace.pre_gravity_y_vel, 0x0001_0000);
+        assert_eq!(trace.post_gravity_y_vel, 0x0001_0000);
+        assert!(trace.gravity_applied);
+    }
+
     /// ASM loc_AB4A (kid.asm:13394): ascending wall-cling overhang snap tail.
     /// Reached from loc_AB22 (y_vel < 0 path): after sub_AE6E probe clears,
     /// y_pos snaps to tile bottom (`andi #$FFF0 + $F`), sub-pixel zeroed,
