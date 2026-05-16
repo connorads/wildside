@@ -13282,8 +13282,11 @@ mod chunk_12 {
             width_pixels: 120 * 16,
             height_pixels: 56 * 16,
         };
+        let mut floor_grid = grid_with_floor_at_row(4);
         let mut grounded = OpeningSliceState::new(bounds);
         grounded.player.on_ground = true;
+        grounded.player.x_pos = 32 << 16;
+        grounded.player.y_pos = 64 << 16;
         grounded.player.y_velocity = 0;
         grounded.physics_trace = Some(PhysicsTrace::default());
 
@@ -13291,7 +13294,7 @@ mod chunk_12 {
             FrameInput::default(),
             false,
             PlayerForm::TheKid,
-            None,
+            Some(&mut floor_grid),
             None,
             false,
             0,
@@ -13545,6 +13548,149 @@ mod chunk_12 {
         assert!(
             !slice.player.on_ground,
             "sub_902A upward slope snap must be gated off on the jump-pressed frame",
+        );
+    }
+
+    /// ASM sub_B168 runs after collision in the position-first experiment. The
+    /// trace must still distinguish custom-gravity frames from normal airborne
+    /// gravity, matching the same ROM branch contract.
+    #[test]
+    fn position_first_trace_sub_b168_distinguishes_custom_gravity_airborne() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+
+        let mut airborne_custom = OpeningSliceState::new(bounds);
+        airborne_custom.player.on_ground = false;
+        airborne_custom.player.y_pos = 0x0020_0000;
+        airborne_custom.player.y_velocity = 0x0001_0000;
+        airborne_custom.physics_trace = Some(PhysicsTrace::default());
+
+        airborne_custom.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            true,
+            0,
+            PhysicsOrder::PositionFirst,
+            true,
+            &[],
+        );
+
+        let airborne_trace = airborne_custom
+            .physics_trace
+            .expect("trace should remain available after position-first custom-gravity step");
+        assert!(!airborne_trace.gravity_applied);
+        assert_eq!(airborne_trace.pre_gravity_y_vel, 0x0001_0000);
+        assert_eq!(airborne_trace.post_gravity_y_vel, 0x0001_0000);
+    }
+
+    /// ASM sub_B168 -> loc_B1D4: the held-jump gravity branch requires negative
+    /// y_vel and B held. A zero pre-gravity y velocity remains default gravity,
+    /// even if B is held.
+    #[test]
+    fn position_first_trace_sub_b168_records_ascending_b_hold_only_for_negative_y_vel() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let b_held = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
+
+        let mut ascending = OpeningSliceState::new(bounds);
+        ascending.player.on_ground = false;
+        ascending.player.y_pos = 0x0020_0000;
+        ascending.player.y_velocity = -0x0001_0000;
+        ascending.physics_trace = Some(PhysicsTrace::default());
+
+        ascending.step_with_order(
+            b_held,
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::PositionFirst,
+            true,
+            &[],
+        );
+
+        let ascending_trace = ascending
+            .physics_trace
+            .expect("trace should remain available after position-first ascending step");
+        assert!(ascending_trace.gravity_applied);
+        assert!(ascending_trace.ascending_and_b_held);
+
+        let mut zero_velocity = OpeningSliceState::new(bounds);
+        zero_velocity.player.on_ground = false;
+        zero_velocity.player.y_pos = 0x0020_0000;
+        zero_velocity.player.y_velocity = 0;
+        zero_velocity.physics_trace = Some(PhysicsTrace::default());
+
+        zero_velocity.step_with_order(
+            b_held,
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::PositionFirst,
+            true,
+            &[],
+        );
+
+        let zero_trace = zero_velocity
+            .physics_trace
+            .expect("trace should remain available after position-first zero-velocity step");
+        assert!(zero_trace.gravity_applied);
+        assert!(!zero_trace.ascending_and_b_held);
+    }
+
+    /// ASM sub_902A slope recontact remains gated by the same jump-pressed edge
+    /// in the position-first ordering: collision runs before sub_B168 gravity, but
+    /// the fresh jump input must still block upward slope snap.
+    #[test]
+    fn position_first_trace_sub_902a_jump_pressed_blocks_upward_slope_snap() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x40;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 73 << 16;
+        slice.player.y_velocity = -0x0001_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            true,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::PositionFirst,
+            true,
+            &[],
+        );
+
+        assert!(
+            !slice.player.on_ground,
+            "position-first sub_902A upward slope snap must be gated off on the jump-pressed frame",
         );
     }
 
