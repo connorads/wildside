@@ -2922,6 +2922,28 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level_entry_slot_2_pose_appears_on_exact_activation_frame() {
+        let mut runtime = cached_generated_runtime();
+        runtime.begin_level_entry(LevelId(0));
+
+        let activation_frame = crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME;
+        runtime.maybe_seed_starting_level_title_workers(activation_frame);
+
+        assert!(
+            runtime
+                .starting_level_slot_2_pose(activation_frame.saturating_sub(1))
+                .is_none(),
+            "ASM loc_1AC70 hibernates before the title worker's activation frame, so traced slot 2 must stay hidden one frame before the local `$2B` wake",
+        );
+        assert!(
+            runtime
+                .starting_level_slot_2_pose(activation_frame)
+                .is_some(),
+            "ASM loc_1AC70 should expose traced slot 2 on the exact activation frame, not one frame later",
+        );
+    }
+
+    #[test]
     #[ignore = "TODO(fidelity): oracle slot-2 pose not yet implemented"]
     fn boot_title_start_level_1_matches_oracle_slot_2_pose_on_frame_520() {
         let mut runtime = cached_generated_runtime();
