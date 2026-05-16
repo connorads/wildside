@@ -14767,6 +14767,155 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_ABF0 (kid.asm:13449): after finding the pull-up floor, the ROM
+    /// compares the snapped `d6` row against `$F` and then writes `y_pos`.
+    /// Native keeps an explicit contact window; zero vertical velocity belongs
+    /// to the falling/neutral window and can still snap at the wider +18px edge.
+    #[test]
+    fn loc_abf0_zero_velocity_uses_falling_contact_window() {
+        let w = 8u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 4, 4);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 68 << 16;
+        slice.player.y_pos = 82 << 16;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = false;
+        slice.player.right_wall_sticky = true;
+        slice.player.jump_buffer_frames = 3;
+
+        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+
+        assert!(
+            snapped,
+            "loc_ABF0 native contact window should treat y_vel=0 as falling/neutral, allowing contact_y+18",
+        );
+        assert_eq!(slice.player.y_pos, 63 << 16);
+    }
+
+    /// ASM loc_ABF0 (kid.asm:13449): native pull-up still requires Kid to be
+    /// close to the contacted floor row. Positions just beyond the ascending
+    /// and falling upper windows must reject rather than OR-ing either bound.
+    #[test]
+    fn loc_abf0_contact_window_rejects_positions_above_upper_edge() {
+        let w = 8u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 4, 4);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+
+        let run_case = |y_pos_px: u32, y_velocity: i32| {
+            let mut slice = OpeningSliceState::new(bounds);
+            slice.player.x_pos = 68 << 16;
+            slice.player.y_pos = y_pos_px << 16;
+            slice.player.y_velocity = y_velocity;
+            slice.player.on_ground = false;
+            slice.player.right_wall_sticky = true;
+            slice.player.jump_buffer_frames = 3;
+            slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH)
+        };
+
+        assert!(
+            !run_case(80, -0x0001_0000),
+            "ascending loc_ABF0 contact window should reject contact_y+16",
+        );
+        assert!(
+            !run_case(83, 0x0001_0000),
+            "falling loc_ABF0 contact window should reject contact_y+19",
+        );
+    }
+
+    /// ASM loc_ABF0 snaps only after a valid floor contact is found. Native
+    /// accepts slope floor probes too, but ascending Kid must still be at or
+    /// below the computed contact Y; being inside the same slope cell is not
+    /// enough.
+    #[test]
+    fn loc_abf0_ascending_contact_window_rejects_below_slope_floor() {
+        let w = 8u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_slope_up = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x40;
+        };
+        set_slope_up(&mut data, 4, 4);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 68 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = -0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.right_wall_sticky = true;
+        slice.player.jump_buffer_frames = 3;
+
+        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+
+        assert!(
+            !snapped,
+            "loc_ABF0 native slope contact should reject ascending y below the computed slope floor",
+        );
+    }
+
+    /// ASM loc_ABF0 accepts collision nibbles `$6000` and above; `$7000`
+    /// therefore follows the same pull-up path but must preserve the native
+    /// hurt-floor state so downstream damage handling sees spikes.
+    #[test]
+    fn loc_abf0_spike_floor_sets_on_spikes_after_pullup() {
+        let w = 8u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_spikes = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x70;
+        };
+        set_spikes(&mut data, 4, 4);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 68 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.right_wall_sticky = true;
+        slice.player.jump_buffer_frames = 3;
+
+        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+
+        assert!(
+            snapped,
+            "loc_ABF0 should accept `$7000` spike floors for the pull-up contact",
+        );
+        assert!(
+            slice.player.on_spikes,
+            "native loc_ABF0 spike pull-up should retain hurt-floor state",
+        );
+    }
+
     /// ASM loc_ABF0 (kid.asm:13449): floor scan loop in kid_flip pull-up.
     /// Walks down tile rows: `add.w (Level_width_tiles),a4; addi.w #$10,d6;
     /// check (a4)&$7000 ≥ $6000; blt.s loc_ABF0`. First solid tile → snap.

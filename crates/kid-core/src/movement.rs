@@ -4058,7 +4058,8 @@ impl OpeningSliceState {
         self.player.x_pos = (snap_x_px.max(0) as u32) << 16;
         // Preserve sub-pixel from current position: ASM's ledge snap uses
         // move.w to set the pixel part, leaving the low word (sub-pixel) intact.
-        self.player.y_pos = (floor_y_fp & 0xFFFF_0000) | (self.player.y_pos & 0x0000_FFFF);
+        let y_subpixel = self.player.y_pos & 0x0000_FFFF;
+        self.player.y_pos = floor_y_fp.wrapping_add(y_subpixel);
         self.player.x_velocity = 0;
         self.player.y_velocity = 0;
         self.player.on_ground = true;
