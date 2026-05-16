@@ -13549,6 +13549,63 @@ mod chunk_12 {
         assert_eq!(trace.wall_snap_x, None);
     }
 
+    /// ASM loc_77E6 (kid.asm:7871): standing-still Left input probes the leading
+    /// wall column; when blocked, Kid faces left and remains standing instead of
+    /// entering the walking acceleration path.
+    #[test]
+    fn asm_faithful_loc_77e6_left_wall_probe_holds_standing_still() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        for row in 2..=3 {
+            set_solid(&mut data, 1, row);
+        }
+        for col in 0..w {
+            set_solid(&mut data, col, 4);
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 32 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0;
+
+        slice.step_with_order(
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.facing,
+            Direction::Left,
+            "loc_77E6 should face the blocked left input before returning to standing",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "loc_77E6 wall hit should keep standing still instead of applying left acceleration",
+        );
+    }
+
     /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
     /// non-jump continuation path. A fresh jump edge must keep Kid airborne even
     /// when the centre probe is within the native slope snap tolerance.
