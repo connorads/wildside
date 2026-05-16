@@ -15020,6 +15020,88 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_AE6E (kid.asm:13683): ascending wall-cling release first checks
+    /// sticky state, then requires negative y_vel, then compares upward
+    /// displacement against the distance to the next tile row.
+    #[test]
+    fn sub_ae6e_release_probe_gates_on_tile_crossing_distance() {
+        let grid = grid_with_floor_at_row(9);
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+
+        let run_case = |y_px: i32, y_velocity: i32, right_wall_sticky: bool| {
+            let mut slice = OpeningSliceState::new(bounds);
+            slice.player.x_pos = 0x0030_0000;
+            slice.player.y_pos = (y_px as u32) << 16;
+            slice.player.y_velocity = y_velocity;
+            slice.player.on_ground = false;
+            slice.player.wall_cling_direction = Some(Direction::Right);
+            slice.player.right_wall_sticky = right_wall_sticky;
+            slice.step_with_order(
+                FrameInput::default(),
+                false,
+                PlayerForm::TheKid,
+                Some(&mut grid.clone()),
+                None,
+                false,
+                0,
+                PhysicsOrder::AsmFaithful,
+                true,
+                &[],
+            );
+            slice
+                .wall_cling_release_probe
+                .expect("sub_AE6E gate probe should be recorded")
+        };
+
+        let sticky_inactive = run_case(88, -0x0001_4000, false);
+        assert_eq!(
+            sticky_inactive.sub_ae6e_gate,
+            KidWallClingReleaseGate::StickyInactive,
+            "sub_AE6E should reject before tile math when the active sticky latch is clear",
+        );
+
+        let not_ascending = run_case(88, -0x0000_4000, true);
+        assert_eq!(
+            not_ascending.y_velocity, 0,
+            "test setup should land exactly on the non-ascending zero boundary",
+        );
+        assert_eq!(
+            not_ascending.sub_ae6e_gate,
+            KidWallClingReleaseGate::NotAscending,
+            "sub_AE6E should reject exact-zero y_vel before tile crossing math",
+        );
+
+        let needs_crossing = run_case(88, -0x0001_4000, true);
+        assert_eq!(
+            (
+                needs_crossing.pre_vertical_y_px,
+                needs_crossing.post_vertical_y_px
+            ),
+            (88, 87),
+            "test setup should move upward one pixel but stay far from the next tile row",
+        );
+        assert_eq!(
+            needs_crossing.sub_ae6e_gate,
+            KidWallClingReleaseGate::NeedsTileCrossing,
+            "sub_AE6E should keep clinging when upward displacement has not crossed a tile row",
+        );
+
+        let ready = run_case(96, -0x0008_4000, true);
+        assert_eq!(
+            (ready.pre_vertical_y_px, ready.post_vertical_y_px),
+            (96, 88),
+            "test setup should cross the tile boundary by eight pixels at a non-symmetric offset",
+        );
+        assert_eq!(
+            ready.sub_ae6e_gate,
+            KidWallClingReleaseGate::Ready,
+            "sub_AE6E should be ready once upward displacement exceeds distance to tile",
+        );
+    }
+
     /// ASM loc_AD98 (kid.asm:13590): wall-cling floor contact dispatch for d7≥2.
     /// `bne loc_ADAC` (d7>2 → helmets 3+). For d7==2 (Cyclone): `tst.b $FA6A;
     /// bne loc_AA9C` (on board → stay in wall-cling loop), else `bsr sub_BB54;
