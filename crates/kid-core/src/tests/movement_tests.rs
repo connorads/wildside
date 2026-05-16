@@ -14907,6 +14907,106 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_AAC8 (kid.asm:13350): `tst.l y_vel(a3); bmi.w loc_AB22`.
+    /// Negative vertical velocity dispatches to sub_AE6E; zero and positive
+    /// vertical velocity fall through to sub_ADB8.
+    #[test]
+    fn loc_aac8_release_probe_branches_on_negative_y_velocity_only() {
+        let grid = grid_with_floor_at_row(8);
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+
+        let mut descending = OpeningSliceState::new(bounds);
+        descending.player.x_pos = 0x0030_0000;
+        descending.player.y_pos = 0x0040_0000;
+        descending.player.y_velocity = 0x0001_0000;
+        descending.player.on_ground = false;
+        descending.player.wall_cling_direction = Some(Direction::Right);
+        descending.player.right_wall_sticky = true;
+        descending.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+        assert_eq!(
+            descending
+                .wall_cling_release_probe
+                .expect("loc_AAC8 should record descending branch")
+                .branch,
+            KidWallClingReleaseBranch::SubAdb8,
+            "loc_AAC8 positive y_vel should fall through to sub_ADB8",
+        );
+
+        let mut neutral = OpeningSliceState::new(bounds);
+        neutral.player.x_pos = 0x0030_0000;
+        neutral.player.y_pos = 0x0040_0000;
+        neutral.player.y_velocity = -0x0000_4000;
+        neutral.player.on_ground = false;
+        neutral.player.wall_cling_direction = Some(Direction::Right);
+        neutral.player.right_wall_sticky = true;
+        neutral.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+        let neutral_probe = neutral
+            .wall_cling_release_probe
+            .expect("loc_AAC8 should record zero-velocity branch");
+        assert_eq!(
+            neutral_probe.y_velocity, 0,
+            "test setup should land exactly on loc_AAC8's zero y_vel boundary",
+        );
+        assert_eq!(
+            neutral_probe.branch,
+            KidWallClingReleaseBranch::SubAdb8,
+            "loc_AAC8 zero y_vel is not negative and should use sub_ADB8",
+        );
+
+        let mut rising = OpeningSliceState::new(bounds);
+        rising.player.x_pos = 0x0030_0000;
+        rising.player.y_pos = 0x0040_0000;
+        rising.player.y_velocity = -0x0000_8000;
+        rising.player.on_ground = false;
+        rising.player.wall_cling_direction = Some(Direction::Right);
+        rising.player.right_wall_sticky = true;
+        rising.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+        assert_eq!(
+            rising
+                .wall_cling_release_probe
+                .expect("loc_AAC8 should record rising branch")
+                .branch,
+            KidWallClingReleaseBranch::SubAe6e,
+            "loc_AAC8 negative y_vel should branch to loc_AB22/sub_AE6E",
+        );
+    }
+
     /// ASM loc_AD98 (kid.asm:13590): wall-cling floor contact dispatch for d7≥2.
     /// `bne loc_ADAC` (d7>2 → helmets 3+). For d7==2 (Cyclone): `tst.b $FA6A;
     /// bne loc_AA9C` (on board → stay in wall-cling loop), else `bsr sub_BB54;
