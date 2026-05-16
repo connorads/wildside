@@ -14645,6 +14645,59 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_AA9C -> loc_AAC8 -> sub_ADB8 (kid.asm:13338-13353): when wall
+    /// cling is active and no away input is held, the release probe uses $FA72
+    /// (the current cling side) rather than facing or held input.
+    #[test]
+    fn loc_aa9c_sub_adb8_release_probe_uses_wall_cling_direction() {
+        let grid = grid_with_floor_at_row(8);
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.x_pos = 0x0030_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.x_velocity = 0;
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Left;
+        slice.player.wall_cling_direction = Some(Direction::Right);
+        slice.player.right_wall_sticky = true;
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let probe = slice
+            .wall_cling_release_probe
+            .expect("loc_AA9C should record the wall-cling release probe");
+        assert_eq!(
+            probe.probe_direction,
+            Some(Direction::Right),
+            "sub_ADB8 should probe the active right-wall cling side, not facing left",
+        );
+        assert_eq!(
+            probe.probe_direction_source,
+            KidWallClingProbeDirectionSource::WallCling,
+            "loc_AA9C uses $FA72 while wall-cling state is active",
+        );
+        assert_eq!(
+            probe.branch,
+            KidWallClingReleaseBranch::SubAdb8,
+            "descending wall-cling with no away input should dispatch to sub_ADB8",
+        );
+    }
+
     /// ASM loc_AD98 (kid.asm:13590): wall-cling floor contact dispatch for d7≥2.
     /// `bne loc_ADAC` (d7>2 → helmets 3+). For d7==2 (Cyclone): `tst.b $FA6A;
     /// bne loc_AA9C` (on board → stay in wall-cling loop), else `bsr sub_BB54;
