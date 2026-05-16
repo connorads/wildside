@@ -13606,6 +13606,54 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_779C/loc_77E6 (kid.asm:7846): the blocked standing wall probes
+    /// belong to the standing-still path only. Airborne zero-x velocity must
+    /// continue into the air-control path instead of latching a wall-blocked
+    /// standing pose.
+    #[test]
+    fn asm_faithful_loc_779c_airborne_zero_velocity_skips_standing_wall_probe() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        for row in 1..=3 {
+            set_solid(&mut data, 2, row);
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Left;
+        slice.player.x_pos = 32 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&grid),
+        );
+
+        assert!(
+            stepped,
+            "airborne loc_779C precondition must not treat the standing wall probe as a blocked horizontal step",
+        );
+        assert!(
+            slice.player.x_velocity > 0,
+            "air-control should apply rightward velocity when airborne with zero x_vel",
+        );
+    }
+
     /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
     /// non-jump continuation path. A fresh jump edge must keep Kid airborne even
     /// when the centre probe is within the native slope snap tolerance.
