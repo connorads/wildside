@@ -13845,6 +13845,84 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_779C (kid.asm:7842) reads the ROM's single-frame
+    /// `Ctrl_1_Press` edge rather than a retained jump buffer. Native clears a
+    /// stale grounded jump buffer once B is released so horizontal walking can
+    /// resume on the same frame.
+    #[test]
+    fn loc_779c_released_grounded_jump_buffer_clears_and_allows_horizontal_update() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_velocity = 0;
+        slice.player.jump_buffer_frames = 2;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            stepped,
+            "loc_779C native buffer release should fall through to horizontal walking",
+        );
+        assert_eq!(
+            slice.player.jump_buffer_frames, 0,
+            "released grounded jump buffer should be consumed before walking",
+        );
+        assert!(
+            slice.player.x_velocity > 0,
+            "right input should accelerate once the stale buffer is cleared",
+        );
+    }
+
+    /// ASM loc_779C has no multi-frame jump buffer. Native keeps a held
+    /// grounded buffer only while B is still held, and that pending jump must
+    /// suppress the walking velocity update.
+    #[test]
+    fn loc_779c_held_grounded_jump_buffer_suppresses_horizontal_update() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_velocity = 0;
+        slice.player.jump_buffer_frames = 2;
+
+        let stepped = slice.update_horizontal_velocity_only(
+            FrameInput {
+                b: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            !stepped,
+            "held grounded jump buffer should suppress loc_779C walking update",
+        );
+        assert_eq!(
+            slice.player.jump_buffer_frames, 2,
+            "held grounded jump buffer should remain pending until the jump edge is consumed",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "right input must not accelerate while the pending grounded jump suppresses walking",
+        );
+    }
+
     /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
     /// non-jump continuation path. A fresh jump edge must keep Kid airborne even
     /// when the centre probe is within the native slope snap tolerance.

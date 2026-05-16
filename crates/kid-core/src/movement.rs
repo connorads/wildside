@@ -4091,7 +4091,7 @@ impl OpeningSliceState {
         if self.should_hold_standing_still(input, block_grid, form.half_width()) {
             return false;
         }
-        if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {
+        if self.player.on_ground && !input.b {
             self.player.jump_buffer_frames = 0;
         }
         let grounded_slope = self
