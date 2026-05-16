@@ -5973,7 +5973,7 @@ mod tests {
     use super::{
         level_entry_title_advance_x, level_entry_title_axis_step,
         level_entry_title_deferred_number_indices_loc_1ABF4,
-        level_entry_title_deferred_number_target_x_loc_1AD56,
+        level_entry_title_deferred_number_target_x_loc_1AD56, level_entry_title_random_y,
         level_entry_title_random_y_snap_loc_1acf8, level_entry_title_right_edge_x_loc_1ace0,
         level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
@@ -6098,6 +6098,19 @@ mod tests {
             level_entry_title_random_y_snap_loc_1acf8(0x07),
             0x04,
             "ASM loc_1ACF8 should apply the same 4px snap after the non-positive loc_1ACEA path adds `#$28`",
+        );
+    }
+
+    #[test]
+    fn level_entry_title_random_y_loc_1acea_biases_non_positive_rng_values() {
+        let mut rng = RomRandomState::default();
+        let _ = rng.next_byte();
+        let _ = rng.next_byte();
+
+        assert_eq!(
+            level_entry_title_random_y(&mut rng),
+            0x08,
+            "ASM loc_1ACEA subtracts `$20`, adds `$28` only when the signed result is non-positive, then loc_1ACF8 clears the low two bits",
         );
     }
 
