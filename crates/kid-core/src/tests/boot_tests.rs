@@ -344,6 +344,12 @@ mod chunk_01 {
     fn gfx_object_delete_loc_10c6_splices_the_target_into_the_free_list_and_routes_kind_2_to_kid_projectile()
      {
         assert_eq!(
+            gfx_object_delete_loc_10C6(Some(4), Some(7), 5, 1, 3).special_slot,
+            GfxObjectSpecialSlotLoc10C6::Kid,
+            "ASM loc_10C6 should clear `$FFFFF862` for object kind 1 after the first decrement reaches zero",
+        );
+
+        assert_eq!(
             gfx_object_delete_loc_10C6(Some(4), Some(7), 5, 2, 3),
             GfxObjectDeleteLoc10C6 {
                 predecessor_next_index: Some(4),
