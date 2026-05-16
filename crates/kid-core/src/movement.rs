@@ -3778,6 +3778,7 @@ impl OpeningSliceState {
             Direction::Left => self.player.x_pos = self.player.x_pos.wrapping_sub(0x0001_0000),
         }
         self.player.x_velocity = 0;
+        self.player.y_velocity = 0;
         self.player.wall_cling_direction = None;
         self.player.right_wall_sticky = false;
         self.player.left_wall_sticky = false;
@@ -3873,6 +3874,7 @@ impl OpeningSliceState {
             Direction::Left => self.player.x_pos = self.player.x_pos.wrapping_sub(0x0001_0000),
         }
         self.player.x_velocity = 0;
+        self.player.y_velocity = 0;
         self.player.wall_cling_direction = None;
         self.player.right_wall_sticky = false;
         self.player.left_wall_sticky = false;

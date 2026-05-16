@@ -15150,6 +15150,162 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_AE6E plus loc_AB22/loc_AB4A (kid.asm:13683, 13381):
+    /// ascending overhang release only runs for the active sticky wall side
+    /// while y_vel is negative. Once the tile row is crossed and the wall
+    /// column clears, the snap tail shimmies x_pos by one pixel and clears the
+    /// cling latches.
+    #[test]
+    fn loc_ab22_sub_ae6e_overhang_release_requires_sticky_ascending_crossing() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let data = [0u8; 8 * 8 * 2];
+        let grid = terrain::BlockGrid::from_level_layout(&data, 8, 8);
+
+        let run_case = |y_px: i32, y_velocity: i32, right_wall_sticky: bool| {
+            let mut slice = OpeningSliceState::new(bounds);
+            slice.player.x_pos = 64 << 16;
+            slice.player.y_pos = (y_px as u32) << 16;
+            slice.player.y_velocity = y_velocity;
+            slice.player.x_velocity = 0;
+            slice.player.on_ground = false;
+            slice.player.wall_cling_direction = Some(Direction::Right);
+            slice.player.right_wall_sticky = right_wall_sticky;
+            slice.step_with_order(
+                FrameInput::default(),
+                false,
+                PlayerForm::TheKid,
+                Some(&mut grid.clone()),
+                None,
+                false,
+                0,
+                PhysicsOrder::AsmFaithful,
+                true,
+                &[],
+            );
+            slice
+        };
+
+        let sticky_inactive = run_case(96, -0x0008_4000, false);
+        assert!(
+            sticky_inactive.player.wall_cling_direction.is_some(),
+            "sub_AE6E must not run when the active wall side is no longer sticky",
+        );
+
+        let not_ascending = run_case(88, -0x0000_4000, true);
+        assert!(
+            not_ascending.player.wall_cling_direction.is_some(),
+            "sub_AE6E is the ascending path and must reject exact-zero y_vel",
+        );
+
+        let release = run_case(96, -0x0008_4000, true);
+        assert!(
+            release.player.wall_cling_direction.is_none(),
+            "loc_AB22 should release once sub_AE6E sees a crossed tile row and clear wall column",
+        );
+        assert_eq!(
+            release.player.x_pos,
+            65 << 16,
+            "loc_AB4A should apply the one-pixel shimmy away from the right wall",
+        );
+        assert_eq!(
+            release.player.y_velocity, 0,
+            "loc_AB4A should clear y_vel after the overhang snap",
+        );
+        assert_eq!(release.player.wall_cling_direction, None);
+        assert!(!release.player.right_wall_sticky);
+    }
+
+    /// ASM loc_AB0A (kid.asm:13372): the descending wall-cling release tail is
+    /// the same shimmy-and-clear sequence as loc_AB4A. A clear wall column while
+    /// holding toward the cling side must release to the run path and zero both
+    /// velocity components.
+    #[test]
+    fn loc_ab0a_descending_wall_cling_release_clears_y_velocity() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let data = [0u8; 8 * 8 * 2];
+        let grid = terrain::BlockGrid::from_level_layout(&data, 8, 8);
+        let run_case = |y_velocity: i32, on_ground: bool, right_wall_sticky: bool| {
+            let mut slice = OpeningSliceState::new(bounds);
+            slice.player.x_pos = 64 << 16;
+            slice.player.y_pos = 88 << 16;
+            slice.player.y_velocity = y_velocity;
+            slice.player.x_velocity = 0;
+            slice.player.on_ground = on_ground;
+            slice.player.wall_cling_direction = Some(Direction::Right);
+            slice.player.right_wall_sticky = right_wall_sticky;
+
+            slice.step_with_order(
+                FrameInput {
+                    right: true,
+                    ..FrameInput::default()
+                },
+                false,
+                PlayerForm::TheKid,
+                Some(&mut grid.clone()),
+                None,
+                false,
+                0,
+                PhysicsOrder::AsmFaithful,
+                true,
+                &[],
+            );
+            slice
+        };
+
+        let sticky_inactive = run_case(0x0001_0000, false, false);
+        assert_eq!(
+            sticky_inactive.player.wall_cling_direction,
+            Some(Direction::Right),
+            "loc_AB0A must not run when the active sticky latch is clear",
+        );
+
+        let already_grounded = run_case(0x0001_0000, true, true);
+        assert_eq!(
+            already_grounded.player.wall_cling_direction,
+            Some(Direction::Right),
+            "loc_AB0A must not run from an already-grounded wall-cling state",
+        );
+
+        let still_ascending = run_case(-0x0001_4000, false, true);
+        assert_eq!(
+            still_ascending.player.wall_cling_direction,
+            Some(Direction::Right),
+            "loc_AB0A must reject negative y_vel after the sub_AE6E no-crossing path",
+        );
+
+        let exact_zero = run_case(-0x0000_4000, false, true);
+        assert_eq!(
+            exact_zero.player.wall_cling_direction, None,
+            "loc_AAC8 should fall through to sub_ADB8 when gravity brings y_vel to exact zero",
+        );
+
+        let slice = run_case(0x0001_0000, false, true);
+
+        assert_eq!(
+            slice.player.wall_cling_direction, None,
+            "loc_AB0A should release when descending toward a clear wall column",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            65 << 16,
+            "loc_AB0A should apply the one-pixel shimmy away from the right wall",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "loc_AB0A should clear x_vel after the descending release",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "loc_AB0A should clear y_vel after the descending release",
+        );
+    }
+
     /// ASM loc_AD98 (kid.asm:13590): wall-cling floor contact dispatch for d7≥2.
     /// `bne loc_ADAC` (d7>2 → helmets 3+). For d7==2 (Cyclone): `tst.b $FA6A;
     /// bne loc_AA9C` (on board → stay in wall-cling loop), else `bsr sub_BB54;
