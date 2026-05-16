@@ -554,6 +554,17 @@ mod chunk_01 {
     }
 
     #[test]
+    fn clear_owner_gfx_backref_loc_1078_accepts_the_first_wram_owner_address() {
+        let links = clear_owner_gfx_backref_loc_1078(0x00FF_0000, [0x10, 0x20, 0x30], 0x10);
+
+        assert_eq!(
+            links,
+            [0, 0x20, 0x30],
+            "ASM loc_1078 should accept masked owner address `$FF0000` because `cmpi.l #$FF0000,d0; blt.s loc_10B6` only rejects lower addresses",
+        );
+    }
+
+    #[test]
     fn clear_owner_gfx_backref_loc_1078_clears_only_the_first_matching_owner_slot() {
         let links = clear_owner_gfx_backref_loc_1078(
             0x01FF_8000,
