@@ -13642,6 +13642,104 @@ mod chunk_12 {
         assert_eq!(grounded_trace.landing_path, None);
     }
 
+    /// ASM loc_B9A2/loc_BA5A climb-resume chunks re-enter the jump-loop
+    /// collision passes with custom gravity already owned by Iron Knight's
+    /// climb state. Native `step_iron_knight_climb_resume` must still preserve
+    /// the pre-`sub_902A` y snapshot used by the wall-cling release probes.
+    #[test]
+    fn iron_knight_climb_resume_records_custom_gravity_pre_vertical_probe() {
+        let data = [0u8; 8 * 8 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 8);
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.x_pos = 64 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.player.y_velocity = -0x0008_0000;
+        slice.player.on_ground = false;
+        slice.player.wall_cling_direction = Some(Direction::Right);
+        slice.player.right_wall_sticky = true;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_iron_knight_climb_resume(
+            FrameInput::default(),
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            0,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.y_pos,
+            88 << 16,
+            "Iron Knight climb resume should apply the custom-gravity y step",
+        );
+        let trace = slice
+            .physics_trace
+            .expect("trace should remain available after Iron Knight resume");
+        assert_eq!(trace.pre_vertical, (96 << 16, -0x0008_0000));
+        assert_eq!(trace.post_vertical, (88 << 16, -0x0008_0000));
+        assert!(!trace.gravity_applied);
+        assert_eq!(
+            slice
+                .wall_cling_release_probe
+                .expect("Iron Knight resume should record wall-cling release probe")
+                .pre_vertical_y_px,
+            96,
+            "loc_AA8E/loc_AAC8-style probe state should keep the pre-sub_902A y pixel",
+        );
+    }
+
+    /// ASM sub_902A (kid.asm:10437): Iron Knight's dedicated climb-resume path
+    /// still uses the jump-loop floor probe. With no fresh jump edge, upward
+    /// slope recontact is allowed; `jump_pressed` must be inverted before
+    /// passing the `allow_upward_slope_snap` gate.
+    #[test]
+    fn iron_knight_climb_resume_allows_non_jump_upward_slope_recontact() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x40;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 73 << 16;
+        slice.player.y_velocity = -0x0001_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_iron_knight_climb_resume(
+            FrameInput::default(),
+            false,
+            PlayerForm::IronKnight,
+            Some(&mut grid),
+            None,
+            0,
+            true,
+            &[],
+        );
+
+        assert!(
+            slice.player.on_ground,
+            "Iron Knight climb resume should allow upward slope snap when no fresh jump is pressed",
+        );
+        let trace = slice
+            .physics_trace
+            .expect("trace should remain available after Iron Knight slope recontact");
+        assert!(trace.floor_hit);
+        assert_eq!(trace.landing_path, Some(LandingPath::ZeroSubPixel));
+    }
+
     /// ASM loc_77E6 (kid.asm:7871): standing-still Left input probes the leading
     /// wall column; when blocked, Kid faces left and remains standing instead of
     /// entering the walking acceleration path.
