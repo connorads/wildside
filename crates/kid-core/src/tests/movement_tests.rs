@@ -476,6 +476,12 @@ mod chunk_11 {
             "ASM loc_180E should restore `d0-d1` and continue when the sampled bottom-right corner has not crossed below the upslope diagonal",
         );
         assert!(
+            crate::movement::gfx_objects_collision_upslope_continue_loc_180E(
+                0x0033, 0x0045, 0x0030, 0x0040
+            ),
+            "ASM GfxObjects_Collision_UpSlope should compute `$E - y_within`, so x-within 3 is still above the diagonal when y-within is 5",
+        );
+        assert!(
             !crate::movement::gfx_objects_collision_upslope_continue_loc_180E(
                 0x003E, 0x0045, 0x0030, 0x0040
             ),
