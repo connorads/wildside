@@ -5973,9 +5973,9 @@ mod tests {
     use super::{
         level_entry_title_advance_x, level_entry_title_axis_step,
         level_entry_title_deferred_number_indices_loc_1ABF4,
-        level_entry_title_deferred_number_target_x_loc_1AD56, level_entry_title_random_y,
-        level_entry_title_random_y_snap_loc_1acf8, level_entry_title_right_edge_x_loc_1ace0,
-        level_entry_title_space_token_x_loc_1ABEA,
+        level_entry_title_deferred_number_target_x_loc_1AD56, level_entry_title_random_x,
+        level_entry_title_random_y, level_entry_title_random_y_snap_loc_1acf8,
+        level_entry_title_right_edge_x_loc_1ace0, level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
         level_entry_title_top_edge_y_loc_1ace6, level_entry_title_worker_axis_pos,
     };
@@ -6128,6 +6128,17 @@ mod tests {
         );
         assert_eq!(top_y, 0xFFE0_0000);
         assert_eq!(bottom_y, 0x0100_0000);
+    }
+
+    #[test]
+    fn level_entry_title_random_x_loc_1accc_uses_low_rng_byte_plus_3e() {
+        let mut rng = RomRandomState::default();
+
+        assert_eq!(
+            level_entry_title_random_x(&mut rng),
+            0xD0,
+            "ASM loc_1ACCC keeps the random word's low byte, adds `$3E`, then clears the low two bits before storing X in d5",
+        );
     }
 
     #[test]
