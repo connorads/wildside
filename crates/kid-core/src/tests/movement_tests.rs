@@ -14642,6 +14642,48 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_ABA4 mirrors the ledge probe offset when `$FA72` marks a left
+    /// wall. Native must probe at `x-half_width-1` and snap back to the right
+    /// edge of the support tile.
+    #[test]
+    fn loc_aba4_left_wall_buffered_snap_uses_mirrored_probe_column() {
+        let w = 8u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 4, 4);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 85 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.left_wall_sticky = true;
+        slice.player.jump_buffer_frames = 3;
+
+        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+
+        assert!(
+            snapped,
+            "left-wall loc_ABA4 mirror should find the ledge at x-half_width-1",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            75 << 16,
+            "left-wall snap should align Kid to the support tile's right edge",
+        );
+        assert_eq!(slice.player.y_pos, 63 << 16);
+        assert!(slice.player.on_ground);
+        assert_eq!(slice.player.jump_buffer_frames, 0);
+    }
+
     /// ASM loc_ABF0 (kid.asm:13449): floor scan loop in kid_flip pull-up.
     /// Walks down tile rows: `add.w (Level_width_tiles),a4; addi.w #$10,d6;
     /// check (a4)&$7000 ≥ $6000; blt.s loc_ABF0`. First solid tile → snap.
