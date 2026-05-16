@@ -13510,6 +13510,45 @@ mod chunk_12 {
         assert_eq!(trace.wall_snap_x, Some(slice.player.x_pos));
     }
 
+    /// ASM sub_8F26 (kid.asm:10325) returns EQ when horizontal movement does not
+    /// contact a wall. Native trace must leave `wall_hit` clear unless x_pos was
+    /// actually snapped by `apply_wall_collision`.
+    #[test]
+    fn asm_faithful_trace_sub_8f26_leaves_wall_hit_clear_without_x_snap() {
+        let mut grid = grid_with_floor_at_row(4);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 32 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let trace = slice
+            .physics_trace
+            .expect("trace should remain available after no-wall step");
+        assert!(
+            !trace.wall_hit,
+            "sub_8F26 EQ path should not report a wall hit when x_pos is unchanged by wall collision",
+        );
+        assert_eq!(trace.wall_snap_x, None);
+    }
+
     /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
     /// non-jump continuation path. A fresh jump edge must keep Kid airborne even
     /// when the centre probe is within the native slope snap tolerance.
