@@ -13304,6 +13304,7 @@ mod chunk_12 {
             .physics_trace
             .expect("trace should remain available after grounded step");
         assert!(!grounded_trace.gravity_applied);
+        assert!(!grounded_trace.jump_initiated);
 
         let mut airborne_custom = OpeningSliceState::new(bounds);
         airborne_custom.player.on_ground = false;
@@ -13330,6 +13331,7 @@ mod chunk_12 {
         assert_eq!(airborne_trace.pre_gravity_y_vel, 0x0001_0000);
         assert_eq!(airborne_trace.post_gravity_y_vel, 0x0001_0000);
         assert!(airborne_trace.gravity_applied);
+        assert!(!airborne_trace.jump_initiated);
     }
 
     /// ASM sub_B168 -> loc_B19C (kid.asm:14043): held-jump gravity is selected
@@ -13369,6 +13371,7 @@ mod chunk_12 {
             .physics_trace
             .expect("trace should remain available after ascending step");
         assert!(ascending_trace.ascending_and_b_held);
+        assert!(!ascending_trace.jump_initiated);
 
         let mut descending = OpeningSliceState::new(bounds);
         descending.player.on_ground = false;
@@ -13393,6 +13396,156 @@ mod chunk_12 {
             .physics_trace
             .expect("trace should remain available after descending step");
         assert!(!descending_trace.ascending_and_b_held);
+        assert!(!descending_trace.jump_initiated);
+    }
+
+    /// ASM loc_9F18 -> loc_B580 -> loc_A426 launches a grounded jump by changing
+    /// y_vel from non-negative to negative. Native trace records that edge; a
+    /// zero-velocity B hold without a jump edge must not be classified as launch.
+    #[test]
+    fn gravity_first_trace_sub_b168_records_jump_initiation_only_on_launch_edge() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let b_held = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
+
+        let mut held_without_press = OpeningSliceState::new(bounds);
+        held_without_press.player.on_ground = true;
+        held_without_press.player.y_velocity = 0;
+        held_without_press.physics_trace = Some(PhysicsTrace::default());
+
+        held_without_press.step_with_order(
+            b_held,
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::GravityFirst,
+            true,
+            &[],
+        );
+
+        let held_trace = held_without_press
+            .physics_trace
+            .expect("trace should remain available after B-held non-jump step");
+        assert!(!held_trace.ascending_and_b_held);
+        assert!(!held_trace.jump_initiated);
+
+        let mut jump_launch = OpeningSliceState::new(bounds);
+        jump_launch.player.on_ground = true;
+        jump_launch.player.y_velocity = 0;
+        jump_launch.physics_trace = Some(PhysicsTrace::default());
+
+        jump_launch.step_with_order(
+            b_held,
+            true,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::GravityFirst,
+            true,
+            &[],
+        );
+
+        let launch_trace = jump_launch
+            .physics_trace
+            .expect("trace should remain available after grounded jump step");
+        assert!(launch_trace.jump_initiated);
+        assert_eq!(launch_trace.jump_y_vel, Some(jump_launch.player.y_velocity));
+    }
+
+    /// ASM sub_8F26 (kid.asm:10325) reports a wall hit only when the collision
+    /// path snaps x_pos. Native trace mirrors that by comparing x before and
+    /// after `apply_wall_collision`.
+    #[test]
+    fn gravity_first_trace_sub_8f26_marks_wall_hit_when_x_snaps() {
+        let w: u16 = 10;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for row in 0u16..=5 {
+            let offset = (usize::from(row) * usize::from(w) + 2) * 2;
+            data[offset] = 0x60;
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 24 << 16;
+        slice.player.y_pos = 32 << 16;
+        slice.player.x_velocity = 0x0008_0000;
+        slice.player.just_jumped = true;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::GravityFirst,
+            true,
+            &[],
+        );
+
+        let trace = slice
+            .physics_trace
+            .expect("trace should remain available after wall-hit step");
+        assert!(trace.wall_hit);
+        assert_eq!(trace.wall_snap_x, Some(slice.player.x_pos));
+    }
+
+    /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
+    /// non-jump continuation path. A fresh jump edge must keep Kid airborne even
+    /// when the centre probe is within the native slope snap tolerance.
+    #[test]
+    fn gravity_first_trace_sub_902a_jump_pressed_blocks_upward_slope_snap() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x40;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 73 << 16;
+        slice.player.y_velocity = -0x0001_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            true,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::GravityFirst,
+            true,
+            &[],
+        );
+
+        assert!(
+            !slice.player.on_ground,
+            "sub_902A upward slope snap must be gated off on the jump-pressed frame",
+        );
     }
 
     /// ASM loc_AB4A (kid.asm:13394): ascending wall-cling overhang snap tail.
