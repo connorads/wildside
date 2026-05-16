@@ -13272,6 +13272,129 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_B168 (kid.asm:14013) gravity dispatch only advances y velocity
+    /// when Kid is airborne and normal gravity owns the frame. Native trace keeps
+    /// this visible: grounded frames report no gravity, while custom-gravity
+    /// airborne frames still record that normal physics left Kid airborne.
+    #[test]
+    fn gravity_first_trace_sub_b168_distinguishes_grounded_and_custom_gravity_airborne() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut grounded = OpeningSliceState::new(bounds);
+        grounded.player.on_ground = true;
+        grounded.player.y_velocity = 0;
+        grounded.physics_trace = Some(PhysicsTrace::default());
+
+        grounded.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::GravityFirst,
+            true,
+            &[],
+        );
+
+        let grounded_trace = grounded
+            .physics_trace
+            .expect("trace should remain available after grounded step");
+        assert!(!grounded_trace.gravity_applied);
+
+        let mut airborne_custom = OpeningSliceState::new(bounds);
+        airborne_custom.player.on_ground = false;
+        airborne_custom.player.y_pos = 0x0020_0000;
+        airborne_custom.player.y_velocity = 0x0001_0000;
+        airborne_custom.physics_trace = Some(PhysicsTrace::default());
+
+        airborne_custom.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            true,
+            0,
+            PhysicsOrder::GravityFirst,
+            true,
+            &[],
+        );
+
+        let airborne_trace = airborne_custom
+            .physics_trace
+            .expect("trace should remain available after custom-gravity step");
+        assert_eq!(airborne_trace.pre_gravity_y_vel, 0x0001_0000);
+        assert_eq!(airborne_trace.post_gravity_y_vel, 0x0001_0000);
+        assert!(airborne_trace.gravity_applied);
+    }
+
+    /// ASM sub_B168 -> loc_B19C (kid.asm:14043): held-jump gravity is selected
+    /// only while y_vel is negative and B is held. Holding B while descending
+    /// must stay on the default gravity branch.
+    #[test]
+    fn gravity_first_trace_sub_b168_records_ascending_b_hold_only_for_upward_motion() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let b_held = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
+
+        let mut ascending = OpeningSliceState::new(bounds);
+        ascending.player.on_ground = false;
+        ascending.player.y_pos = 0x0020_0000;
+        ascending.player.y_velocity = -0x0001_0000;
+        ascending.physics_trace = Some(PhysicsTrace::default());
+
+        ascending.step_with_order(
+            b_held,
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::GravityFirst,
+            true,
+            &[],
+        );
+
+        let ascending_trace = ascending
+            .physics_trace
+            .expect("trace should remain available after ascending step");
+        assert!(ascending_trace.ascending_and_b_held);
+
+        let mut descending = OpeningSliceState::new(bounds);
+        descending.player.on_ground = false;
+        descending.player.y_pos = 0x0020_0000;
+        descending.player.y_velocity = 0x0001_0000;
+        descending.physics_trace = Some(PhysicsTrace::default());
+
+        descending.step_with_order(
+            b_held,
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::GravityFirst,
+            true,
+            &[],
+        );
+
+        let descending_trace = descending
+            .physics_trace
+            .expect("trace should remain available after descending step");
+        assert!(!descending_trace.ascending_and_b_held);
+    }
+
     /// ASM loc_AB4A (kid.asm:13394): ascending wall-cling overhang snap tail.
     /// Reached from loc_AB22 (y_vel < 0 path): after sub_AE6E probe clears,
     /// y_pos snaps to tile bottom (`andi #$FFF0 + $F`), sub-pixel zeroed,
