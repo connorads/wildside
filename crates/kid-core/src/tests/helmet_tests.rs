@@ -5275,6 +5275,26 @@ mod chunk_08 {
     }
 
     #[test]
+    fn load_intro_sequence_3_pose_uses_all_four_rosters_and_word_positions_as_16_16() {
+        assert_eq!(
+            PlayerState::intro_sequence_3_roster_count(),
+            4,
+            "ASM Load_IntroSequence3 should rotate `$FFFFFC83` through four eight-byte `unk_1AF78` rosters via `lsl.w #3` then `andi.w #$18`",
+        );
+
+        let pose = PlayerState::intro_sequence_3_pose_for_roster(1);
+
+        assert_eq!(
+            pose.x_pos, 0x0070_0000,
+            "ASM loc_1AEEC copies descriptor word `$70` into gfx X; trace-visible Kid pose should expose that word as 16.16 fixed point",
+        );
+        assert_eq!(
+            pose.y_pos, 0x00CC_0000,
+            "ASM loc_1AEEC copies descriptor word `$CC` into gfx Y; trace-visible Kid pose should expose that word as 16.16 fixed point",
+        );
+    }
+
+    #[test]
     fn loc_1aee2_switches_intro_sequence_3_allocation_specs_from_descriptor_bit_0() {
         let low_spec_descriptor = crate::movement::intro_sequence_3_descriptor_loc_1AEBA(0, 5)
             .expect("first roster slot 5 should point at descriptor 7");
