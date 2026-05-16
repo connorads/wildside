@@ -2859,6 +2859,64 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level_entry_title_workers_seed_only_on_activation_frame_and_only_once() {
+        let mut runtime = cached_generated_runtime();
+        runtime.begin_level_entry(LevelId(0));
+        runtime.starting_level_title_workers.truncate(1);
+
+        let activation_frame = crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME;
+        runtime.maybe_seed_starting_level_title_workers(activation_frame - 1);
+        assert!(
+            runtime.starting_level_title_workers[0].motion.is_none(),
+            "ASM loc_1AC70 should not run the random entry-pose seed before the worker reaches its title-card activation frame",
+        );
+
+        runtime.maybe_seed_starting_level_title_workers(activation_frame);
+        let seeded_motion = runtime.starting_level_title_workers[0]
+            .motion
+            .clone()
+            .expect("activation frame should seed the title-worker glide");
+
+        runtime.maybe_seed_starting_level_title_workers(activation_frame);
+        assert_eq!(
+            runtime.starting_level_title_workers[0].motion,
+            Some(seeded_motion),
+            "ASM loc_1AC70 seeds each title worker once; already-active workers should not consume a second random entry pose on the same frame",
+        );
+    }
+
+    #[test]
+    fn early_start_title_workers_use_preserved_title_rng_after_bootstrap_starts() {
+        let mut runtime = cached_generated_runtime();
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.frame_index = runtime.title_screen_ready_frame.saturating_sub(1);
+        runtime.begin_level_entry(LevelId(0));
+        runtime.starting_level_title_workers.truncate(1);
+
+        let _ = runtime.rom_random.next_long();
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: false,
+            elapsed_frames: crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: true,
+        };
+
+        runtime.maybe_seed_starting_level_title_workers(
+            crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+        );
+        let motion = runtime.starting_level_title_workers[0]
+            .motion
+            .as_ref()
+            .expect("title worker should seed from the preserved early-start RNG");
+
+        assert_eq!(
+            (motion.start_x_pos, motion.start_y_pos),
+            (0xFFE0_0000, 0x0070_0000),
+            "ASM loc_1ACB0 should keep using the preserved Load_TitleCard RNG stream after loc_6E2 starts; the default stream's first selector enters from the left edge at random Y `$70`",
+        );
+    }
+
+    #[test]
     #[ignore = "TODO(fidelity): oracle slot-2 pose not yet implemented"]
     fn boot_title_start_level_1_matches_oracle_slot_2_pose_on_frame_520() {
         let mut runtime = cached_generated_runtime();
