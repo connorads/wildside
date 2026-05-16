@@ -14189,6 +14189,54 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_9386 (kid.asm:10809) derives `$FA24/$FA26` from the slope cell
+    /// before sub_A254 stores the y position. Native's defensive boundary
+    /// search checks the current row, then the prior row, then the following
+    /// row; when both neighbouring slope rows are plausible, the prior row
+    /// must win instead of letting the following row overwrite it.
+    #[test]
+    fn asm_faithful_sub_a254_prefers_prior_slope_row_at_boundary() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_collision = |data: &mut Vec<u8>, col: u16, row: u16, hi: u8| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = hi;
+        };
+        set_collision(&mut data, 2, 3, 0x50);
+        set_collision(&mut data, 2, 5, 0x40);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 47 << 16;
+        slice.player.y_pos = 65 << 16;
+        slice.player.x_velocity = 0;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            true,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.y_pos,
+            62 << 16,
+            "sub_A254 boundary search should choose the prior-row SlopeDown surface before the following-row SlopeUp surface",
+        );
+    }
+
     /// ASM loc_9D22 -> loc_9D2E stores canonical slope velocity before sub_B168:
     /// SlopeUp turns rightward x_vel into negative y_vel, while SlopeDown keeps
     /// the sign. Custom gravity keeps the trace at the exact pre-gravity value.
