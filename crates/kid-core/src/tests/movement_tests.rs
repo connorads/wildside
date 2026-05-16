@@ -14045,6 +14045,47 @@ mod chunk_12 {
         assert_eq!(launch_trace.jump_y_vel, Some(jump_launch.player.y_velocity));
     }
 
+    /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
+    /// non-jump continuation path. AsmFaithful calls sub_902A after sub_B168, but
+    /// the fresh jump edge still gates off the slope snap.
+    #[test]
+    fn asm_faithful_sub_902a_jump_pressed_blocks_upward_slope_snap() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let slope_offset = (4usize * usize::from(w) + 2) * 2;
+        data[slope_offset] = 0x40;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 73 << 16;
+        slice.player.y_velocity = -0x0001_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            true,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            !slice.player.on_ground,
+            "AsmFaithful sub_902A upward slope snap must be gated off on the jump-pressed frame",
+        );
+    }
+
     /// ASM loc_AB4A (kid.asm:13394): ascending wall-cling overhang snap tail.
     /// Reached from loc_AB22 (y_vel < 0 path): after sub_AE6E probe clears,
     /// y_pos snaps to tile bottom (`andi #$FFF0 + $F`), sub-pixel zeroed,
