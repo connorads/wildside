@@ -14684,6 +14684,89 @@ mod chunk_12 {
         assert_eq!(slice.player.jump_buffer_frames, 0);
     }
 
+    /// ASM loc_ABF0 (kid.asm:13449): when the immediate ledge probe is not a
+    /// floor, the native buffered pull-up path scans down from
+    /// `(y_pos-$14)&$FFF0`. The scan start matters: an older solid tile above
+    /// that row must not be reused as the pull-up floor.
+    #[test]
+    fn loc_abf0_buffered_pullup_scans_from_masked_y_minus_14_row() {
+        let w = 8u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 4, 3);
+        set_solid(&mut data, 4, 5);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 68 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.right_wall_sticky = true;
+        slice.player.jump_buffer_frames = 3;
+
+        let snapped = slice.try_snap_wall_sticky_ledge(false, &grid, PLAYER_HALF_WIDTH);
+
+        assert!(
+            snapped,
+            "loc_ABF0 should scan downward from the masked y-$14 row and find the lower floor",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            79 << 16,
+            "loc_ABF0 should ignore the older solid row above the masked scan start",
+        );
+        assert!(slice.player.on_ground);
+        assert_eq!(slice.player.jump_buffer_frames, 0);
+    }
+
+    /// ASM loc_ABF0 is only a buffered falling pull-up path in native. Without a
+    /// buffered jump edge, or while still ascending, an indirect floor scan must
+    /// not snap Kid onto the ledge.
+    #[test]
+    fn loc_abf0_indirect_pullup_requires_buffered_falling_state() {
+        let w = 8u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 4, 5);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+
+        let run_case = |y_velocity: i32, jump_buffer_frames: u8| {
+            let mut slice = OpeningSliceState::new(bounds);
+            slice.player.x_pos = 68 << 16;
+            slice.player.y_pos = 96 << 16;
+            slice.player.y_velocity = y_velocity;
+            slice.player.on_ground = false;
+            slice.player.right_wall_sticky = true;
+            slice.player.jump_buffer_frames = jump_buffer_frames;
+            slice.try_snap_wall_sticky_ledge(true, &grid, PLAYER_HALF_WIDTH)
+        };
+
+        assert!(
+            !run_case(-0x0001_0000, 3),
+            "loc_ABF0 native extension should reject indirect scans while Kid is ascending",
+        );
+        assert!(
+            !run_case(0x0001_0000, 0),
+            "loc_ABF0 native extension should reject indirect scans without a buffered jump edge",
+        );
+    }
+
     /// ASM loc_ABF0 (kid.asm:13449): floor scan loop in kid_flip pull-up.
     /// Walks down tile rows: `add.w (Level_width_tiles),a4; addi.w #$10,d6;
     /// check (a4)&$7000 ≥ $6000; blt.s loc_ABF0`. First solid tile → snap.
