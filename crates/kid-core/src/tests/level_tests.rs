@@ -2922,6 +2922,49 @@ mod chunk_02 {
     }
 
     #[test]
+    fn early_start_deferred_title_number_keeps_one_frame_activation_offset() {
+        let mut runtime = cached_generated_runtime();
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.frame_index = runtime.title_screen_ready_frame.saturating_sub(1);
+        runtime.begin_level_entry(LevelId(0));
+
+        let deferred_index = runtime
+            .starting_level_title_workers
+            .iter()
+            .position(|worker| {
+                worker.activation_frame
+                    == crate::movement::LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME
+            })
+            .expect("level-entry title should include a deferred loc_1AD48 number worker");
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: false,
+            elapsed_frames: crate::constants::EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+            uses_load_ingame_bootstrap: true,
+            load_ingame_bootstrap_started: false,
+        };
+
+        runtime.maybe_seed_starting_level_title_workers(
+            crate::constants::EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+        );
+        assert!(
+            runtime.starting_level_title_workers[deferred_index]
+                .motion
+                .is_none(),
+            "ASM loc_1AD48 allocates deferred title-number workers one frame after loc_1AB26 letter workers, so the early-start activation offset must not collapse to the first visible title frame",
+        );
+
+        runtime.maybe_seed_starting_level_title_workers(
+            crate::constants::EARLY_START_TITLE_FIRST_VISIBLE_TRACE_FRAME + 1,
+        );
+        assert!(
+            runtime.starting_level_title_workers[deferred_index]
+                .motion
+                .is_some(),
+            "ASM loc_1AD48's one-frame deferred number-worker offset should be preserved when loc_1AE2E enters the early Load_InGame bootstrap",
+        );
+    }
+
+    #[test]
     fn level_entry_slot_2_pose_appears_on_exact_activation_frame() {
         let mut runtime = cached_generated_runtime();
         runtime.begin_level_entry(LevelId(0));
