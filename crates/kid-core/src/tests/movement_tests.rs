@@ -14807,6 +14807,41 @@ mod chunk_12 {
         assert_eq!(probe.jump_buffer_frames_after, 1);
     }
 
+    /// ASM sub_B168 -> loc_B1D4 uses `bpl.s loc_B1E0`: exact zero y_vel is
+    /// non-negative, so B-held frames still use default `$4000` gravity rather
+    /// than the held-jump `$2000` gravity at loc_B1E8.
+    #[test]
+    fn sub_b168_zero_y_velocity_with_b_held_uses_default_gravity() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0;
+
+        slice.apply_jump_and_gravity_vel_only(
+            FrameInput {
+                b: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            false,
+        );
+
+        assert_eq!(
+            slice.player.y_velocity, 0x0000_4000,
+            "loc_B1D4 zero y_vel should branch to loc_B1E0 default gravity",
+        );
+        let probe = slice
+            .kid_jump_gravity_probe
+            .expect("zero-y B-held frame should record the sub_B168 gravity branch");
+        assert_eq!(probe.branch, KidJumpGravityBranch::AirborneDefaultGravity);
+        assert_eq!(probe.y_velocity_before, 0);
+        assert_eq!(probe.y_velocity_after, 0x0000_4000);
+    }
+
     /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
     /// non-jump continuation path. AsmFaithful calls sub_902A after sub_B168, but
     /// the fresh jump edge still gates off the slope snap.
