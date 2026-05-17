@@ -15104,6 +15104,187 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_A466/loc_A480 launches from a grounded jump edge, then loc_9F3A
+    /// applies the launch-adjusted x velocity into x_pos before vertical
+    /// collision work. PositionFirst uses that same jump-and-position half.
+    #[test]
+    fn loc_a466_position_first_grounded_jump_launches_and_steps_position() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        let start_x = 32 << 16;
+        let start_y = 64 << 16;
+        let start_x_vel = 0x0002_0000;
+        let (expected_x_vel, expected_y_vel) =
+            crate::physics::initiate_jump(start_x_vel, crate::physics::JUMP_HEIGHTS[0]);
+        slice.player.on_ground = true;
+        slice.player.x_pos = start_x;
+        slice.player.y_pos = start_y;
+        slice.player.x_velocity = start_x_vel;
+
+        slice.apply_vertical_position_only(FrameInput::default(), true, PlayerForm::TheKid);
+
+        assert!(!slice.player.on_ground);
+        assert_eq!(
+            slice.player.x_velocity, expected_x_vel,
+            "loc_A480 should reduce x velocity to three quarters during jump launch",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            (i64::from(start_x) + i64::from(expected_x_vel)) as u32,
+            "loc_9F3A should add launch-adjusted x_vel to x_pos in PositionFirst",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            (i64::from(start_y) + i64::from(expected_y_vel)) as u32,
+            "PositionFirst launch should still apply the first upward y step",
+        );
+    }
+
+    /// ASM loc_A426 only reaches sub_A432 launch work from a grounded jump
+    /// edge; an airborne fresh press is buffered and must not relaunch.
+    #[test]
+    fn loc_a466_position_first_airborne_jump_press_does_not_relaunch() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        let start_x = 32 << 16;
+        let start_y = 64 << 16;
+        let start_x_vel = 0x0002_0000;
+        let start_y_vel = -0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.x_pos = start_x;
+        slice.player.y_pos = start_y;
+        slice.player.x_velocity = start_x_vel;
+        slice.player.y_velocity = start_y_vel;
+
+        slice.apply_vertical_position_only(FrameInput::default(), true, PlayerForm::TheKid);
+
+        assert_eq!(slice.player.x_velocity, start_x_vel);
+        assert_eq!(
+            slice.player.x_pos, start_x,
+            "airborne jump presses must not take the grounded loc_A466 x-step path",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            (i64::from(start_y) + i64::from(start_y_vel)) as u32,
+            "airborne PositionFirst should only apply existing y velocity",
+        );
+        assert_eq!(
+            slice.player.jump_buffer_frames, JUMP_BUFFER_FRAMES,
+            "airborne fresh press should buffer the jump instead of relaunching",
+        );
+    }
+
+    /// ASM loc_9F18 -> loc_B580 -> loc_A426 launches a buffered grounded jump;
+    /// PositionFirst must consume the pending buffer and run the same
+    /// launch-and-position half as a fresh grounded edge.
+    #[test]
+    fn loc_9f18_position_first_buffered_grounded_jump_launches() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        let start_x = 32 << 16;
+        let start_y = 64 << 16;
+        let start_x_vel = 0x0002_0000;
+        let (expected_x_vel, expected_y_vel) =
+            crate::physics::initiate_jump(start_x_vel, crate::physics::JUMP_HEIGHTS[0]);
+        slice.player.on_ground = true;
+        slice.player.x_pos = start_x;
+        slice.player.y_pos = start_y;
+        slice.player.x_velocity = start_x_vel;
+        slice.player.jump_buffer_frames = 1;
+
+        slice.apply_vertical_position_only(FrameInput::default(), false, PlayerForm::TheKid);
+
+        assert!(!slice.player.on_ground);
+        assert_eq!(slice.player.jump_buffer_frames, 0);
+        assert_eq!(slice.player.x_velocity, expected_x_vel);
+        assert_eq!(
+            slice.player.x_pos,
+            (i64::from(start_x) + i64::from(expected_x_vel)) as u32,
+            "loc_9F3A should add launch-adjusted x_vel for buffered PositionFirst jumps",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            (i64::from(start_y) + i64::from(expected_y_vel)) as u32,
+            "buffered PositionFirst launch should apply the first upward y step",
+        );
+    }
+
+    /// ASM sub_B168 fallthrough ages pending airborne buffers; the buffered
+    /// launch branch requires ground contact and must not relaunch midair.
+    #[test]
+    fn sub_b168_position_first_airborne_pending_buffer_counts_down_without_relaunch() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        let start_x = 32 << 16;
+        let start_y = 64 << 16;
+        let start_x_vel = 0x0002_0000;
+        let start_y_vel = -0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.x_pos = start_x;
+        slice.player.y_pos = start_y;
+        slice.player.x_velocity = start_x_vel;
+        slice.player.y_velocity = start_y_vel;
+        slice.player.jump_buffer_frames = 1;
+
+        slice.apply_vertical_position_only(FrameInput::default(), false, PlayerForm::TheKid);
+
+        assert_eq!(slice.player.x_velocity, start_x_vel);
+        assert_eq!(
+            slice.player.x_pos, start_x,
+            "airborne pending buffer must not take the buffered launch x-step path",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            (i64::from(start_y) + i64::from(start_y_vel)) as u32,
+        );
+        assert_eq!(
+            slice.player.jump_buffer_frames, 0,
+            "airborne PositionFirst fallthrough should age the pending buffer",
+        );
+    }
+
+    /// ASM loc_9F18 only consumes an actual pending buffer; a grounded frame
+    /// with no fresh edge and zero buffer remains grounded in PositionFirst.
+    #[test]
+    fn loc_9f18_position_first_grounded_zero_buffer_does_not_launch() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        let start_x = 32 << 16;
+        let start_y = 64 << 16;
+        let start_x_vel = 0x0002_0000;
+        slice.player.on_ground = true;
+        slice.player.x_pos = start_x;
+        slice.player.y_pos = start_y;
+        slice.player.x_velocity = start_x_vel;
+        slice.player.jump_buffer_frames = 0;
+
+        slice.apply_vertical_position_only(FrameInput::default(), false, PlayerForm::TheKid);
+
+        assert!(slice.player.on_ground);
+        assert_eq!(slice.player.x_velocity, start_x_vel);
+        assert_eq!(slice.player.x_pos, start_x);
+        assert_eq!(slice.player.y_pos, start_y);
+        assert_eq!(
+            slice.player.jump_buffer_frames, 0,
+            "zero pending buffer should stay zero and not take the buffered launch branch",
+        );
+    }
+
     /// ASM sub_B168 -> loc_B1D4/loc_B1E8 selects held-jump gravity only when
     /// `y_vel` is negative and B is held; zero or descending velocity falls
     /// through loc_B1E0 to default gravity.
