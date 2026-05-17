@@ -14021,6 +14021,47 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_779C -> sub_B084 runs ordinary grounded walking when no jump edge
+    /// or native pending buffer is present. The full-motion path must therefore
+    /// accelerate and advance x_pos instead of taking either jump-buffer or
+    /// jump-pressed suppression branch.
+    #[test]
+    fn loc_779c_full_motion_grounded_no_buffer_allows_walking() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 32 << 16;
+        slice.player.x_velocity = 0;
+        slice.player.jump_buffer_frames = 0;
+
+        let stepped = slice.update_horizontal_motion(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            stepped,
+            "grounded loc_779C frame without a jump edge or buffer should run walking motion",
+        );
+        assert_eq!(slice.player.jump_buffer_frames, 0);
+        assert!(
+            slice.player.x_velocity > 0,
+            "sub_B084 should accelerate grounded right input when no jump suppression applies",
+        );
+        assert!(
+            slice.player.x_pos > 32 << 16,
+            "full grounded walking motion should advance x_pos",
+        );
+    }
+
     /// ASM sub_B084 uses `unk_A4B2`/`unk_A4C6` for airborne jump horizontal
     /// acceleration. Native's retained jump buffer must not suppress that
     /// airborne air-control path; only grounded pending buffers block walking.
