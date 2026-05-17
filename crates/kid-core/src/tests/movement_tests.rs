@@ -13845,6 +13845,58 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_AA9C -> loc_AD34 (kid.asm:13334, 13553): the wall-cling
+    /// follow-on probe should preserve stage state before and after pressing
+    /// away clears the cling direction. This debug state drove previous
+    /// frontier decisions, so defaulting it would hide the transition.
+    #[test]
+    fn loc_aa9c_follow_on_stages_record_press_away_detach_state() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.x_pos = 64 << 16;
+        slice.player.y_pos = 88 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.wall_cling_direction = Some(Direction::Right);
+        slice.player.right_wall_sticky = true;
+
+        slice.step_with_order(
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let stages = slice
+            .kid_flip_follow_on_stages
+            .expect("loc_AA9C follow-on path should record stage snapshots");
+        assert_eq!(
+            stages.entry.wall_cling_direction,
+            Some(Direction::Right),
+            "entry stage should record the original right-wall cling state",
+        );
+        assert_eq!(
+            stages.entry.x_velocity, 0x0001_0000,
+            "entry stage should preserve x_vel before loc_AD34 press-away detach",
+        );
+        assert_eq!(
+            stages.after_press_away.wall_cling_direction, None,
+            "loc_AD34 press-away detach should clear wall-cling in the next stage",
+        );
+    }
+
     /// ASM loc_779C (kid.asm:7842) reads the ROM's single-frame
     /// `Ctrl_1_Press` edge rather than a retained jump buffer. Native clears a
     /// stale grounded jump buffer once B is released so horizontal walking can
@@ -15979,6 +16031,105 @@ mod chunk_12 {
             slice.player.y_velocity, 0,
             "loc_AB0A should clear y_vel after the descending release",
         );
+    }
+
+    /// ASM loc_AE8C -> loc_AB4A (kid.asm:13699, 13400): after an ascending
+    /// tile-row crossing, the ROM probes the active wall side. If the leading
+    /// wall column is still solid, sub_AE6E returns NE and loc_AB4A must not run.
+    #[test]
+    fn loc_ae8c_ascending_overhang_release_stays_clinging_when_wall_blocked() {
+        let w = 10u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 5, 4);
+        set_solid(&mut data, 5, 5);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 74 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.player.y_velocity = -0x0008_4000;
+        slice.player.on_ground = false;
+        slice.player.wall_cling_direction = Some(Direction::Right);
+        slice.player.right_wall_sticky = true;
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            slice.player.wall_cling_direction.is_some(),
+            "loc_AE8C should keep wall-cling when the active right wall column is still solid",
+        );
+        assert_eq!(slice.player.wall_cling_direction, Some(Direction::Right));
+        assert!(slice.player.right_wall_sticky);
+    }
+
+    /// ASM sub_ADB8 -> loc_AE0E -> loc_AB0A (kid.asm:13609, 13644, 13372):
+    /// descending wall-cling release probes the active wall side before the
+    /// loc_AB0A shimmy tail. A still-solid wall column must keep the cling loop.
+    #[test]
+    fn loc_ae0e_descending_wall_cling_release_stays_clinging_when_wall_blocked() {
+        let w = 10u16;
+        let h = 8u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        set_solid(&mut data, 5, 4);
+        set_solid(&mut data, 5, 5);
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.x_pos = 74 << 16;
+        slice.player.y_pos = 88 << 16;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.on_ground = false;
+        slice.player.wall_cling_direction = Some(Direction::Right);
+        slice.player.right_wall_sticky = true;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            slice.player.wall_cling_direction.is_some(),
+            "loc_AE0E should keep descending wall-cling when the active right wall column is still solid",
+        );
+        assert_eq!(slice.player.wall_cling_direction, Some(Direction::Right));
+        assert!(slice.player.right_wall_sticky);
     }
 
     /// ASM loc_AD98 (kid.asm:13590): wall-cling floor contact dispatch for d7≥2.
