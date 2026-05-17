@@ -14427,6 +14427,67 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_B4A0/loc_B4B2 computes the sub_B43A support scan from
+    /// `(x_pos-half_width)>>4` through `(x_pos+half_width)>>4`. Decoy solid
+    /// tiles outside that range must not count as support; otherwise loc_B5F6
+    /// would fail to hand off to airborne state.
+    #[test]
+    fn asm_faithful_sub_b43a_uses_hitbox_columns_not_decoy_floor_columns() {
+        let w: u16 = 20;
+        let h: u16 = 6;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        // x=80, TheKid half-width=5 => real scan columns 4..=5 at row 4.
+        // Col 1 catches a left-column division mutant; col 19 catches a
+        // right-column shift-left mutant. Neither is in the ASM scan range.
+        set_solid(&mut data, 1, 4);
+        set_solid(&mut data, 19, 4);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 80 << 16;
+        slice.player.y_pos = 64 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(
+            !slice.player.on_ground,
+            "loc_B4A0/loc_B4B2 must ignore decoy solid tiles outside the real hitbox scan",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            65 << 16,
+            "loc_B5F6 should add 1px when the real support scan is empty",
+        );
+        let trace = slice
+            .physics_trace
+            .expect("trace should remain available after lost-floor step");
+        assert!(
+            !trace.horizontal_step_applied,
+            "empty real support scan should take loc_B5F6 before horizontal movement",
+        );
+    }
+
     /// ASM loc_A912 -> loc_A99E -> loc_8BF0: a fresh airborne slope recontact
     /// may enter the walking path immediately, but it is not a plain flat-floor
     /// landing. If that same-frame slope step leaves the support scan empty,
