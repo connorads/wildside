@@ -14190,6 +14190,49 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_779C has no retained jump buffer, so a stale native grounded
+    /// buffer must be cleared once B is released before the full sub_B084 +
+    /// sub_8F26 horizontal-motion path runs.
+    #[test]
+    fn loc_779c_full_motion_released_grounded_jump_buffer_allows_walking() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 32 << 16;
+        slice.player.x_velocity = 0;
+        slice.player.jump_buffer_frames = 2;
+
+        let stepped = slice.update_horizontal_motion(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            stepped,
+            "released grounded jump buffer should fall through to full loc_779C walking motion",
+        );
+        assert_eq!(
+            slice.player.jump_buffer_frames, 0,
+            "released grounded jump buffer should clear before full horizontal motion",
+        );
+        assert!(
+            slice.player.x_velocity > 0,
+            "sub_B084 should accelerate right input after the stale buffer clears",
+        );
+        assert!(
+            slice.player.x_pos > 32 << 16,
+            "sub_8F26 should advance x_pos after walking acceleration runs",
+        );
+    }
+
     /// ASM loc_779C -> sub_B084 runs ordinary grounded walking when no jump edge
     /// or native pending buffer is present. The full-motion path must therefore
     /// accelerate and advance x_pos instead of taking either jump-buffer or
