@@ -14972,6 +14972,138 @@ mod chunk_12 {
         assert_eq!(probe.branch, KidJumpGravityBranch::JumpBuffered);
     }
 
+    /// ASM loc_9F18 -> loc_B580 -> loc_A426 launches grounded jumps before
+    /// vertical position is applied. Native's buffered edge must take that same
+    /// launch-and-step path in the legacy vertical-motion helper.
+    #[test]
+    fn update_vertical_motion_buffered_grounded_jump_launches_and_moves_y() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        let start_x = 32 << 16;
+        let start_y = 64 << 16;
+        let start_x_vel = 0x0002_0000;
+        let (expected_x_vel, expected_y_vel) =
+            crate::physics::initiate_jump(start_x_vel, crate::physics::JUMP_HEIGHTS[0]);
+        slice.player.on_ground = true;
+        slice.player.x_pos = start_x;
+        slice.player.y_pos = start_y;
+        slice.player.x_velocity = start_x_vel;
+        slice.player.y_velocity = 0;
+        slice.player.jump_buffer_frames = 1;
+
+        slice.update_vertical_motion(FrameInput::default(), false, PlayerForm::TheKid, false);
+
+        assert!(!slice.player.on_ground);
+        assert!(
+            slice.player.y_velocity < 0,
+            "loc_9F18 buffered native edge should launch with upward y velocity",
+        );
+        assert_eq!(
+            slice.player.jump_buffer_frames, 0,
+            "buffered native vertical launch should consume the pending edge",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            (i64::from(start_x) + i64::from(expected_x_vel)) as u32,
+            "ASM loc_9F3A should add launch-adjusted x_vel to x_pos on buffered jumps",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            (i64::from(start_y) + i64::from(expected_y_vel)) as u32,
+            "legacy vertical-motion launch should add y_vel to y_pos immediately",
+        );
+    }
+
+    /// ASM sub_B168 fallthrough applies airborne gravity without a new jump edge;
+    /// the native input-buffer adapter must age the pending jump buffer on that path.
+    #[test]
+    fn sub_b168_update_vertical_motion_airborne_counts_down_jump_buffer() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = 0;
+        slice.player.jump_buffer_frames = 2;
+
+        slice.update_vertical_motion(FrameInput::default(), false, PlayerForm::TheKid, false);
+
+        assert_eq!(
+            slice.player.jump_buffer_frames, 1,
+            "airborne sub_B168 fallthrough should age an existing native jump buffer",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x4000,
+            "same fallthrough should still apply default gravity",
+        );
+    }
+
+    /// ASM sub_B168 -> loc_B1D4/loc_B1E8 uses held-jump gravity only while
+    /// ascending (`y_vel < 0`) and B remains held. The legacy helper must keep
+    /// that sign predicate exact.
+    #[test]
+    fn sub_b168_update_vertical_motion_held_gravity_only_while_ascending() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = -0x1_0000;
+
+        slice.update_vertical_motion(
+            FrameInput {
+                b: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            false,
+        );
+
+        assert_eq!(
+            slice.player.y_velocity,
+            -0x1_0000 + crate::physics::GRAVITY_JUMP_HELD,
+            "loc_B1E8 should apply held-jump gravity for negative y velocity with B held",
+        );
+    }
+
+    /// ASM sub_B168 -> loc_B1D4 uses `bpl.s loc_B1E0`; exact zero velocity is
+    /// non-negative and must use default gravity even when B is held.
+    #[test]
+    fn sub_b168_update_vertical_motion_zero_y_velocity_uses_default_gravity() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_pos = 64 << 16;
+        slice.player.y_velocity = 0;
+
+        slice.update_vertical_motion(
+            FrameInput {
+                b: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            false,
+        );
+
+        assert_eq!(
+            slice.player.y_velocity,
+            crate::physics::GRAVITY_NORMAL,
+            "loc_B1D4 bpl should send zero y velocity to default gravity, not held-jump gravity",
+        );
+    }
+
     /// ASM sub_B168 -> loc_B1D4/loc_B1E8 selects held-jump gravity only when
     /// `y_vel` is negative and B is held; zero or descending velocity falls
     /// through loc_B1E0 to default gravity.
