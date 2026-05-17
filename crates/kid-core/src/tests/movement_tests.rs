@@ -14773,6 +14773,40 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_B168 has no multi-frame jump buffer; native ages the buffered
+    /// input extension only on the airborne non-launch path that falls through
+    /// loc_B1D4. A frame without a fresh jump press must count the pending edge
+    /// down, not leave it armed or extend it.
+    #[test]
+    fn sub_b168_airborne_non_launch_counts_down_jump_buffer() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.y_velocity = 0x0001_0000;
+        slice.player.jump_buffer_frames = 2;
+
+        slice.apply_jump_and_gravity_vel_only(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            false,
+        );
+
+        assert_eq!(
+            slice.player.jump_buffer_frames, 1,
+            "native sub_B168-adjacent buffer extension should age one frame on airborne fallthrough",
+        );
+        let probe = slice
+            .kid_jump_gravity_probe
+            .expect("airborne non-launch frame should record the sub_B168 gravity branch");
+        assert_eq!(probe.branch, KidJumpGravityBranch::AirborneDefaultGravity);
+        assert_eq!(probe.jump_buffer_frames_before, 2);
+        assert_eq!(probe.jump_buffer_frames_after, 1);
+    }
+
     /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
     /// non-jump continuation path. AsmFaithful calls sub_902A after sub_B168, but
     /// the fresh jump edge still gates off the slope snap.
