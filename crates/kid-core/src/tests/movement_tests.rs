@@ -14021,6 +14021,49 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_B084 uses `unk_A4B2`/`unk_A4C6` for airborne jump horizontal
+    /// acceleration. Native's retained jump buffer must not suppress that
+    /// airborne air-control path; only grounded pending buffers block walking.
+    #[test]
+    fn sub_b084_airborne_jump_buffer_still_allows_air_control() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 32 << 16;
+        slice.player.x_velocity = 0;
+        slice.player.jump_buffer_frames = 2;
+
+        let stepped = slice.update_horizontal_motion(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            stepped,
+            "airborne pending jump buffer should not suppress sub_B084 air-control motion",
+        );
+        assert_eq!(
+            slice.player.jump_buffer_frames, 2,
+            "horizontal motion should leave airborne jump-buffer ageing to sub_B168",
+        );
+        assert!(
+            slice.player.x_velocity > 0,
+            "right input should accelerate airborne Kid through the jump horizontal table",
+        );
+        assert!(
+            slice.player.x_pos > 32 << 16,
+            "full horizontal motion should advance x_pos after airborne acceleration",
+        );
+    }
+
     /// ASM sub_902A (kid.asm:10437) owns the floor-contact check after a jump
     /// edge. Native suppresses horizontal acceleration for an airborne
     /// descending/neutral frame that is still within the floor snap tolerance,
