@@ -14143,6 +14143,50 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A owns floor contact after a jump edge. The full horizontal
+    /// motion path must use the same near-floor tolerance as the velocity-only
+    /// path so a descending/neutral jump edge near the floor waits for vertical
+    /// resolution instead of advancing x_pos first.
+    #[test]
+    fn sub_902a_full_motion_near_floor_jump_edge_suppresses_x_motion() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 32 << 16;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0;
+        slice.player.y_pos = 64 << 16;
+        slice.terrain.floor_y_pos = (64 << 16) + (GROUND_SNAP_TOLERANCE_FP / 2);
+
+        let stepped = slice.update_horizontal_motion(
+            FrameInput {
+                b: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            !stepped,
+            "sub_902A near-floor jump edge should suppress full horizontal motion",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "right input must not accelerate before near-floor vertical resolution",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            32 << 16,
+            "full horizontal motion must not advance x_pos during near-floor suppression",
+        );
+    }
+
     /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
     /// non-jump continuation path. A fresh jump edge must keep Kid airborne even
     /// when the centre probe is within the native slope snap tolerance.
