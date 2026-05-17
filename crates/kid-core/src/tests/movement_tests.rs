@@ -6355,6 +6355,42 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_922C loc_92BC/loc_9318: a wall cell must have bit 15 set and
+    /// block type Rubber (`cmpi.w #$18,d7`) before the special rubber return.
+    #[test]
+    fn sub_922c_non_rubber_block_wall_hit_does_not_queue_rubber_effect() {
+        let w: u16 = 5;
+        let h: u16 = 5;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        // Smash block wall at cell (1, row): has_block=1, collision=Solid(6),
+        // block_type=Smash(0), so sub_922C records a normal wall hit only.
+        for row in 1..=3 {
+            let offset = (row * w + 1) as usize * 2;
+            data[offset] = 0xE0;
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 24 << 16;
+        slice.player.x_velocity = -0x0001_0000;
+
+        slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert_eq!(
+            slice.rubber_block_hit, None,
+            "ASM sub_922C: non-Rubber block walls must not queue rubber_block_hit"
+        );
+        assert!(
+            slice.player.left_wall_sticky,
+            "ASM loc_8FAC: non-rubber block wall hit should remain a normal cling"
+        );
+    }
+
     /// ASM loc_8F98 (kid.asm:10368): rubber bounce velocity threshold.
     /// `cmpi.l #$8000,d6; blt.w loc_901E` — if incoming velocity magnitude
     /// is below $8000, skip the rebound (x_vel stays zero). At or above
@@ -6567,6 +6603,137 @@ mod chunk_11 {
             slice.player.x_velocity, vel_before,
             "ASM loc_9022: left-moving guard should leave x_vel unchanged"
         );
+    }
+
+    /// ASM loc_8FAC -> loc_9022: without an existing left-wall cling, a
+    /// left-moving frame whose displacement stays inside the tile-boundary
+    /// window must return clean even if a solid wall is nearby.
+    #[test]
+    fn loc_8fac_left_moving_without_sticky_respects_tile_boundary_guard() {
+        let bounds = LevelBounds {
+            width_pixels: 160,
+            height_pixels: 80,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        // old_px=45, new_px=44, left_edge=40, distance_to_tile=8.
+        // displacement=1 <= 8, so loc_8FAC must branch to loc_9022 before probing.
+        slice.player.x_pos = 44 << 16;
+        slice.player.y_pos = 40 << 16;
+        slice.player.x_velocity = -0x0001_0000;
+        slice.player.left_wall_sticky = false;
+
+        let w: u16 = 10;
+        let h: u16 = 5;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for row in 1..=3 {
+            let offset = (row * w + 2) as usize * 2;
+            data[offset] = 0x60;
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        let x_before = slice.player.x_pos;
+        let vel_before = slice.player.x_velocity;
+        slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert_eq!(
+            slice.player.x_pos, x_before,
+            "loc_9022 boundary guard should return before probing the nearby left wall",
+        );
+        assert_eq!(
+            slice.player.x_velocity, vel_before,
+            "loc_9022 boundary guard should leave x velocity unchanged",
+        );
+        assert!(!slice.player.left_wall_sticky);
+    }
+
+    /// ASM loc_8FAC is the left-moving sub_8F26 path; a leftward frame cannot
+    /// retain right-wall sticky state before probing the opposite side.
+    #[test]
+    fn loc_8fac_left_moving_frame_clears_right_wall_sticky_latch() {
+        let bounds = LevelBounds {
+            width_pixels: 160,
+            height_pixels: 80,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 44 << 16;
+        slice.player.y_pos = 40 << 16;
+        slice.player.x_velocity = -0x0001_0000;
+        slice.player.right_wall_sticky = true;
+        slice.player.left_wall_sticky = false;
+
+        let w: u16 = 10;
+        let h: u16 = 5;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert!(
+            !slice.player.right_wall_sticky,
+            "left-moving loc_8FAC path should clear stale right-wall sticky latch",
+        );
+    }
+
+    /// ASM sub_8F26 right-moving path probes the right side; it must clear a
+    /// stale left-wall sticky latch before using the opposite direction.
+    #[test]
+    fn sub_8f26_right_moving_frame_clears_left_wall_sticky_latch() {
+        let bounds = LevelBounds {
+            width_pixels: 160,
+            height_pixels: 80,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 44 << 16;
+        slice.player.y_pos = 40 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+        slice.player.right_wall_sticky = false;
+        slice.player.left_wall_sticky = true;
+
+        let w: u16 = 10;
+        let h: u16 = 5;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert!(
+            !slice.player.left_wall_sticky,
+            "right-moving sub_8F26 path should clear stale left-wall sticky latch",
+        );
+    }
+
+    /// ASM loc_8FAC sticky continuation re-probes the left top edge; if the wall
+    /// has ended, native mirrors the original release shimmy by moving 1px away.
+    #[test]
+    fn loc_8fac_left_sticky_top_edge_miss_releases_with_left_shimmy() {
+        let bounds = LevelBounds {
+            width_pixels: 160,
+            height_pixels: 80,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 44 << 16;
+        slice.player.y_pos = 40 << 16;
+        slice.player.x_velocity = -0x0001_0000;
+        slice.player.left_wall_sticky = true;
+
+        let w: u16 = 10;
+        let h: u16 = 5;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert_eq!(
+            slice.player.x_pos,
+            43 << 16,
+            "left sticky top-edge miss should release with a 1px left shimmy",
+        );
+        assert_eq!(slice.player.x_velocity, 0);
+        assert!(!slice.player.left_wall_sticky);
     }
 
     /// ASM loc_9022: `beq.w loc_9022` after sub_922C (kid.asm:10346) —
