@@ -13975,6 +13975,52 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_779C has no retained jump buffer. Native's full horizontal-motion
+    /// path mirrors the velocity-only path: a held grounded buffer is still
+    /// pending, so sub_B084 walking acceleration and x_pos movement stay
+    /// suppressed until the edge is released or consumed.
+    #[test]
+    fn loc_779c_full_motion_held_grounded_jump_buffer_suppresses_walking() {
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 8 * 16,
+            height_pixels: 8 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 32 << 16;
+        slice.player.x_velocity = 0;
+        slice.player.jump_buffer_frames = 2;
+
+        let stepped = slice.update_horizontal_motion(
+            FrameInput {
+                b: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            !stepped,
+            "held grounded jump buffer should suppress full loc_779C walking motion",
+        );
+        assert_eq!(
+            slice.player.jump_buffer_frames, 2,
+            "held grounded jump buffer should not be cleared while B remains held",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "sub_B084 walking acceleration must not run while the grounded buffer is pending",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            32 << 16,
+            "full horizontal motion must not advance x_pos while walking is suppressed",
+        );
+    }
+
     /// ASM sub_902A (kid.asm:10437) owns the floor-contact check after a jump
     /// edge. Native suppresses horizontal acceleration for an airborne
     /// descending/neutral frame that is still within the floor snap tolerance,
