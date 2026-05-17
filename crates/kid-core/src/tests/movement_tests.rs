@@ -6337,17 +6337,19 @@ mod chunk_11 {
         slice.player.y_pos = 24 << 16;
         slice.player.x_velocity = -0x0001_0000;
 
-        let x_before = slice.player.x_pos;
         slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
 
-        // Wall hit should zero velocity and snap x_pos.
+        // Wall hit should zero velocity and snap x_pos to the first non-colliding
+        // centre: ASM loc_8FAC adds the correction back to x_pos after probing the
+        // left wall cell's right edge, matching native `wall_x + half_width`.
         assert_eq!(
             slice.player.x_velocity, 0,
             "ASM loc_8FAC: left-moving wall hit should zero x_vel"
         );
-        assert_ne!(
-            slice.player.x_pos, x_before,
-            "ASM loc_8FAC: left-moving wall hit should snap x_pos"
+        assert_eq!(
+            slice.player.x_pos,
+            37 << 16,
+            "ASM loc_8FAC: left-moving wall hit should snap centre flush with wall"
         );
         assert!(
             slice.player.left_wall_sticky,
