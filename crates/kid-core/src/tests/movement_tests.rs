@@ -6508,6 +6508,69 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_8F26 wall hit returns NE for a side collision, but wall-cling
+    /// entry is an airborne Kid-flip behaviour (`loc_A8DE`). Grounded side hits
+    /// must zero x_vel without setting either sticky latch.
+    #[test]
+    fn sub_8f26_grounded_wall_hits_do_not_enter_wall_sticky() {
+        let w: u16 = 6;
+        let h: u16 = 5;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for row in 1..=3 {
+            let right_wall_offset = (row * w + 2) as usize * 2;
+            data[right_wall_offset] = 0x60;
+            let left_wall_offset = (row * w + 1) as usize * 2;
+            data[left_wall_offset] = 0x60;
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+
+        let mut right_hit = OpeningSliceState::new(bounds);
+        right_hit.player.on_ground = true;
+        right_hit.player.x_pos = 27 << 16;
+        right_hit.player.y_pos = 24 << 16;
+        right_hit.player.x_velocity = 0x0001_0000;
+
+        right_hit.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert_eq!(
+            right_hit.player.x_velocity, 0,
+            "ASM sub_8F26: grounded right wall hit should zero x_vel"
+        );
+        assert!(
+            !right_hit.player.right_wall_sticky,
+            "ASM loc_A8DE: grounded right wall hit must not enter wall sticky"
+        );
+        assert_eq!(
+            right_hit.player.wall_cling_direction, None,
+            "ASM loc_A8DE: grounded right wall hit must not enter wall-cling"
+        );
+
+        let mut left_hit = OpeningSliceState::new(bounds);
+        left_hit.player.on_ground = true;
+        left_hit.player.x_pos = 36 << 16;
+        left_hit.player.y_pos = 24 << 16;
+        left_hit.player.x_velocity = -0x0001_0000;
+
+        left_hit.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert_eq!(
+            left_hit.player.x_velocity, 0,
+            "ASM loc_8FAC: grounded left wall hit should zero x_vel"
+        );
+        assert!(
+            !left_hit.player.left_wall_sticky,
+            "ASM loc_A8DE: grounded left wall hit must not enter wall sticky"
+        );
+        assert_eq!(
+            left_hit.player.wall_cling_direction, None,
+            "ASM loc_A8DE: grounded left wall hit must not enter wall-cling"
+        );
+    }
+
     /// ASM loc_8FE (kid.asm:1015): sub_8E0 second half — Transfer_ScrollDataToVRAM,
     /// sub_1596 (custom FG queue drain), Make_SpriteAttr_HUD. Native models
     /// sub_1596 as drain_fg_update_queue_custom_sub_1596; VDP DMA and HUD
