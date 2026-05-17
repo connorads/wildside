@@ -14700,6 +14700,43 @@ mod chunk_12 {
         assert_eq!(launch_trace.jump_y_vel, Some(jump_launch.player.y_velocity));
     }
 
+    /// ASM loc_9F18 -> loc_B580 -> loc_A426 launches grounded jumps before
+    /// sub_B168 gravity. Native jump buffering is an input extension, but a
+    /// pending buffered edge must still consume the buffer and enter that same
+    /// launch state once Kid is grounded.
+    #[test]
+    fn sub_b168_buffered_grounded_jump_uses_loc_9f18_launch_path() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+        slice.player.jump_buffer_frames = 1;
+
+        slice.apply_jump_and_gravity_vel_only(
+            FrameInput::default(),
+            false,
+            PlayerForm::TheKid,
+            false,
+        );
+
+        assert!(!slice.player.on_ground);
+        assert!(
+            slice.player.y_velocity < 0,
+            "loc_9F18 buffered native edge should use the ROM jump launch y velocity",
+        );
+        assert_eq!(
+            slice.player.jump_buffer_frames, 0,
+            "buffered native jump edge should be consumed after launch",
+        );
+        let probe = slice
+            .kid_jump_gravity_probe
+            .expect("buffered grounded jump should record the sub_B168 launch branch");
+        assert_eq!(probe.branch, KidJumpGravityBranch::JumpBuffered);
+    }
+
     /// ASM sub_902A (kid.asm:10437) only allows upward slope recontact on the
     /// non-jump continuation path. AsmFaithful calls sub_902A after sub_B168, but
     /// the fresh jump edge still gates off the slope snap.
