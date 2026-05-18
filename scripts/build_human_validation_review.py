@@ -233,8 +233,18 @@ REVIEW_ITEMS = (
                 ),
                 "Scripted Level 2 death transition checkpoint",
             ),
+            ReviewImage(
+                repo_path(
+                    ".cache/recordings/issue-146-level2-stomp-long-probe/verify/native/"
+                    "009059_stomp_end.png"
+                ),
+                "Long Level 2 death probe recovery checkpoint",
+            ),
         ),
-        transcripts=(repo_path(".cache/recordings/issue-146-level2-death/transcript.txt"),),
+        transcripts=(
+            repo_path(".cache/recordings/issue-146-level2-death/transcript.txt"),
+            repo_path(".cache/recordings/issue-146-level2-stomp-long-probe/transcript.txt"),
+        ),
         note=(
             "Scripted route takes damage at frames 814 and 1272, enters "
             "LevelTransition at frame 1347, and the longer 9000-frame probe "

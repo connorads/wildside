@@ -120,7 +120,8 @@ for slug in \
   issue-139-rubber-block-window \
   issue-140-prize-block-window \
   issue-143-level27-ik-smash-probe-5 \
-  issue-146-level2-death
+  issue-146-level2-death \
+  issue-146-level2-stomp-long-probe
 do
   cargo run -q -p kidcli -- verify-recording --slug "$slug" --native-only
 done
