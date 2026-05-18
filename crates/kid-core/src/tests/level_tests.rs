@@ -5569,48 +5569,37 @@ mod chunk_02 {
     }
 
     #[test]
-    fn loc_b7ca_gravity_fall_uses_stronger_gravity_than_tumble() {
+    fn loc_b7ca_pit_death_uses_y_only_gravity_fall() {
         // ASM loc_B7CA (kid.asm:14729-14737): d7≠0 death path uses $4000
         // gravity and y-only movement, vs loc_B80C's $3000 gravity with x+y.
-        // Verify the constants are distinct in the ASM.
-        //
-        // loc_B7CA: addi.l #$4000,d0 — gravity for grounded fall
-        // loc_B80C: addi.l #$3000,d1 — gravity for tumble arc
-        //
-        // Native currently always uses the tumble arc ($3000).  This test
-        // documents the ASM difference and verifies the native tumble path
-        // uses the correct $3000 constant.
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(17));
         start_level(&mut runtime);
 
         if let Some(slice) = runtime.opening_slice.as_mut() {
             slice.player.on_ground = true;
-            slice.player.y_velocity = 0;
+            slice.player.y_velocity = 0x0001_0000;
             slice.camera.y_pos = 0x00BC_0000;
         }
-        runtime.progression.number_hitpoints = 0;
-        runtime.begin_death_windup();
+        runtime.begin_pit_death_windup();
 
-        // Collect y_velocity after two frames to measure effective gravity.
+        let before = runtime.opening_slice.expect("pre-windup slice").player;
         runtime.step_frame(FrameInput::default());
-        let v1 = runtime
-            .opening_slice
-            .expect("frame 1 slice")
-            .player
-            .y_velocity;
-        runtime.step_frame(FrameInput::default());
-        let v2 = runtime
-            .opening_slice
-            .expect("frame 2 slice")
-            .player
-            .y_velocity;
-        let gravity = v2 - v1;
-        // ASM loc_B80C: addi.l #$3000,d1 — tumble gravity is $3000
+        let after = runtime.opening_slice.expect("post-windup slice").player;
+
         assert_eq!(
-            gravity, 0x3000,
-            "ASM loc_B80C tumble gravity should be $3000 per frame, \
-             not loc_B7CA's $4000"
+            after.x_pos, before.x_pos,
+            "ASM loc_B7CA: pit-death fall should not apply loc_B7FA's x step"
+        );
+        assert_eq!(
+            after.y_pos,
+            before.y_pos.wrapping_add_signed(before.y_velocity),
+            "ASM loc_B7CA: add current d0/y_vel to y_pos before gravity"
+        );
+        assert_eq!(
+            after.y_velocity,
+            before.y_velocity + 0x4000,
+            "ASM loc_B7CA: addi.l #$4000,d0 after the y-only step"
         );
     }
 

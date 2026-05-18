@@ -8275,9 +8275,18 @@ impl NativeRuntime {
     }
 
     pub(crate) fn begin_death_windup(&mut self) {
+        self.begin_death_windup_path(DeathWindupPath::Tumble);
+    }
+
+    pub(crate) fn begin_pit_death_windup(&mut self) {
+        self.begin_death_windup_path(DeathWindupPath::PitFall);
+    }
+
+    fn begin_death_windup_path(&mut self, path: DeathWindupPath) {
         self.paused = false;
         self.pause_toggle_pending = false;
         self.progression.invulnerable_frames = 0;
+        self.death_windup_path = path;
         self.death_camera_lock = self.opening_slice.map(|slice| slice.camera);
         self.death_shell_snapshot = self
             .opening_slice
@@ -8659,30 +8668,42 @@ impl NativeRuntime {
         // Both paths loop via j_sub_8E0 until $19(a3) signals the sprite
         // is offscreen, then branch to `lose_life`.
         //
-        // Native always uses the loc_B7FA/loc_B80C tumble arc — the
-        // loc_B7CA gravity-fall path is not yet differentiated.
-        // TODO(fidelity): loc_B7CA gravity-fall uses $4000 per frame
-        // (not $3000) and moves y-only; pit-death should use this path.
         let mut frozen_player = slice.player;
-        // ASM loc_B7FA (kid.asm:14746): move.l #$FFFC0000,d1
-        let mut death_y_velocity = -0x0004_0000;
-
-        loop {
-            // ASM loc_B80C (kid.asm:14751): add.l d0,x_pos(a3)
-            frozen_player.x_pos = frozen_player.x_pos.wrapping_add(0x0000_8000);
-            frozen_player.y_pos = frozen_player.y_pos.wrapping_add_signed(death_y_velocity);
-            if !Self::death_sprite_still_visible(frozen_player, slice.camera) {
-                break;
+        match self.death_windup_path {
+            DeathWindupPath::PitFall => {
+                // ASM loc_B7CA (kid.asm:14729): `add.l d0,y_pos(a3);
+                // addi.l #$4000,d0` — y-only pit fall using current y_vel.
+                let mut death_y_velocity = frozen_player.y_velocity;
+                loop {
+                    frozen_player.y_pos = frozen_player.y_pos.wrapping_add_signed(death_y_velocity);
+                    death_y_velocity = death_y_velocity.saturating_add(0x0000_4000);
+                    if !Self::death_sprite_still_visible(frozen_player, slice.camera) {
+                        break;
+                    }
+                }
             }
-            // ASM loc_B80C: addi.l #$3000,d1 (tumble gravity)
-            death_y_velocity = death_y_velocity.saturating_add(0x0000_3000);
-        }
+            DeathWindupPath::Tumble => {
+                // ASM loc_B7FA (kid.asm:14746): move.l #$FFFC0000,d1
+                let mut death_y_velocity = -0x0004_0000;
 
-        // ASM Death loc_B80C exits after the hidden render pass, but the
-        // oracle-backed gameplay capture samples the latched shell pose one
-        // half-step earlier in X and one 4px carry-forward later in Y.
-        frozen_player.x_pos = frozen_player.x_pos.wrapping_sub(0x0000_8000);
-        frozen_player.y_pos = frozen_player.y_pos.wrapping_add(0x0004_0000);
+                loop {
+                    // ASM loc_B80C (kid.asm:14751): add.l d0,x_pos(a3)
+                    frozen_player.x_pos = frozen_player.x_pos.wrapping_add(0x0000_8000);
+                    frozen_player.y_pos = frozen_player.y_pos.wrapping_add_signed(death_y_velocity);
+                    if !Self::death_sprite_still_visible(frozen_player, slice.camera) {
+                        break;
+                    }
+                    // ASM loc_B80C: addi.l #$3000,d1 (tumble gravity)
+                    death_y_velocity = death_y_velocity.saturating_add(0x0000_3000);
+                }
+
+                // ASM Death loc_B80C exits after the hidden render pass, but the
+                // oracle-backed gameplay capture samples the latched shell pose one
+                // half-step earlier in X and one 4px carry-forward later in Y.
+                frozen_player.x_pos = frozen_player.x_pos.wrapping_sub(0x0000_8000);
+                frozen_player.y_pos = frozen_player.y_pos.wrapping_add(0x0004_0000);
+            }
+        }
 
         frozen_player.x_velocity = 0;
         frozen_player.y_velocity = 0;
@@ -8729,18 +8750,13 @@ impl NativeRuntime {
                 if remaining_frames == PLAYER_DEATH_WINDUP_FRAMES
         );
         if first_windup_frame {
-            // ASM loc_B7FA (kid.asm:14746): move.l #$8000,d0; move.l
-            // #$FFFC0000,d1 — tumble arc launch.  loc_B80C checks
-            // visibility, then increments d1 by $3000 before applying the
-            // step, so the first visible frame already moves by
-            // x += $00008000 and y += initial_d1 + $3000.
-            // NOTE: loc_B7CA (kid.asm:14729) is the alternate d7≠0 path
-            // that uses $4000 gravity and y-only; not yet differentiated.
             slice.player.on_ground = false;
-            // ASM loc_B7FA: move.l #$8000,d0
-            slice.player.x_velocity = 0x0000_8000;
-            // ASM loc_B7FA: move.l #$FFFC0000,d1
-            slice.player.y_velocity = -0x0004_0000;
+            if self.death_windup_path == DeathWindupPath::Tumble {
+                // ASM loc_B7FA (kid.asm:14746): move.l #$8000,d0; move.l
+                // #$FFFC0000,d1 — tumble arc launch.
+                slice.player.x_velocity = 0x0000_8000;
+                slice.player.y_velocity = -0x0004_0000;
+            }
         }
         if let Some(camera_lock) = self.death_camera_lock {
             // ASM loc_B80C: j_sub_8E0 tests the current pose before the
@@ -8752,12 +8768,22 @@ impl NativeRuntime {
             }
             slice.camera = camera_lock;
         }
-        // ASM loc_B80C increases d1 by $3000 before applying the tumble step.
-        slice.player.y_velocity = slice.player.y_velocity.saturating_add(0x0000_3000);
-        let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
-        let next_y = i64::from(slice.player.y_pos) + i64::from(slice.player.y_velocity);
-        slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
-        slice.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+        match self.death_windup_path {
+            DeathWindupPath::PitFall => {
+                // ASM loc_B7CA: add current d0/y_vel to y_pos, then add $4000.
+                let next_y = i64::from(slice.player.y_pos) + i64::from(slice.player.y_velocity);
+                slice.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+                slice.player.y_velocity = slice.player.y_velocity.saturating_add(0x0000_4000);
+            }
+            DeathWindupPath::Tumble => {
+                // ASM loc_B80C increases d1 by $3000 before applying the tumble step.
+                slice.player.y_velocity = slice.player.y_velocity.saturating_add(0x0000_3000);
+                let next_x = i64::from(slice.player.x_pos) + i64::from(slice.player.x_velocity);
+                let next_y = i64::from(slice.player.y_pos) + i64::from(slice.player.y_velocity);
+                slice.player.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
+                slice.player.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+            }
+        }
         slice.player.on_ground = false;
         self.opening_slice = Some(slice);
         false
@@ -9554,7 +9580,7 @@ impl NativeRuntime {
         if self.fell_below_level(slice) {
             self.opening_slice = Some(*slice);
             self.progression.number_hitpoints = 0;
-            self.begin_death_windup();
+            self.begin_pit_death_windup();
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::PitDeath;
             return true;
         }

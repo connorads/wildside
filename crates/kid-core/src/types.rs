@@ -1569,6 +1569,13 @@ pub(crate) enum PlayerLifecycle {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum DeathWindupPath {
+    #[default]
+    Tumble,
+    PitFall,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlayerState {
     pub(crate) x_pos: u32,
