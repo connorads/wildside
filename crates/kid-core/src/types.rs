@@ -1933,9 +1933,10 @@ pub(crate) enum EnemyProjectileKind {
     #[default]
     Generic,
     TankBullet,
+    ManiaxeAxe,
 }
 
-/// Projectile fired by an enemy (Archer arrow, Tank bullet, etc.).
+/// Projectile fired by enemies and player helmet attacks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct EnemyProjectile {
     pub(crate) x_pos: u32,
@@ -1965,8 +1966,9 @@ pub(crate) struct EnemyProjectile {
     /// Current angle index (0..27) for ±1 circular re-aim adjustment.
     /// ASM loc_34308/loc_34320: adjusts by ±1 per re-aim cycle toward target.
     pub(crate) current_angle: u8,
-    /// Destroy on terrain contact instead of timer expiry (Archer arrows).
-    /// ASM loc_342D6: `tst.b $19(a3)` / `tst.w collision_type(a3)`.
+    /// Destroy on terrain contact instead of timer expiry.
+    /// ASM loc_342D6: Archer arrows check `$19(a3)` / `collision_type(a3)`.
+    /// ASM loc_8ACC: Maniaxe axes branch to their terrain-hit delete path.
     pub(crate) terrain_kill: bool,
     /// Owning enemy identity for projectiles whose lifecycle feeds back into
     /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.

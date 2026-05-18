@@ -581,6 +581,29 @@ impl NativeRuntime {
                 }
             }
 
+            if p.kind == EnemyProjectileKind::ManiaxeAxe
+                && let Some(camera) = camera
+            {
+                let projectile_x = (p.x_pos >> 16) as i32;
+                let projectile_y = (p.y_pos >> 16) as i32;
+                let camera_x = (camera.x_pos >> 16) as i32;
+                let camera_y = (camera.y_pos >> 16) as i32;
+                let min_x = camera_x - 0x10;
+                let max_x = min_x + 0x160;
+                let min_y = camera_y - 0x10;
+                let max_y = min_y + 0x100;
+                // ASM ManiaxeAxe_CheckOutOfBounds (kid.asm:9933): x/y are
+                // compared against the camera-padded box before loc_8B32
+                // returns true and loc_8AF2 deletes the axe.
+                if projectile_x < min_x
+                    || projectile_x > max_x
+                    || projectile_y < min_y
+                    || projectile_y > max_y
+                {
+                    return false;
+                }
+            }
+
             // ASM Lion.asm sub_3E2CE: lion projectiles only survive while the
             // parent token matches and the object stays inside the camera box
             // x=[-0x40,0x180], y=[-0x40,0x120].

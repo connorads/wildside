@@ -2761,6 +2761,11 @@ mod chunk_06 {
             !axe.wall_bounce,
             "ASM loc_8ACC deletes the axe on solid contact rather than bouncing"
         );
+        assert_eq!(
+            axe.kind,
+            EnemyProjectileKind::ManiaxeAxe,
+            "ASM ManiaxeAxe_CheckOutOfBounds is axe-specific, so native needs a distinct projectile kind"
+        );
     }
 
     #[test]
@@ -3493,8 +3498,8 @@ mod chunk_06 {
     }
 
     /// ASM loc_8AF2 (kid.asm:9925): `jmp Delete_CurrentObject` — axe deletion
-    /// after solid-block explosion or out-of-bounds. Native: lifetime expiry
-    /// removes the projectile from the list.
+    /// after solid-block explosion or out-of-bounds. Native still removes
+    /// zero-lifetime projectiles through the shared projectile shell.
     #[test]
     fn maniaxe_axe_deleted_on_lifetime_expiry_loc_8af2() {
         let mut rt = NativeRuntime::new(manifest());
@@ -3545,10 +3550,8 @@ mod chunk_06 {
     }
 
     /// ASM loc_8B32 (kid.asm:9954): `moveq #1,d7; rts` — true return of
-    /// ManiaxeAxe_CheckOutOfBounds (sub_8AF6). Checks camera-relative bounds:
-    /// x in [cam_x - $10, cam_x + $160], y in [cam_y - $10, cam_y + $100].
-    /// Native uses lifetime counter instead. Verify the lifetime bounds give
-    /// finite axe range analogous to ASM camera bounds.
+    /// ManiaxeAxe_CheckOutOfBounds (sub_8AF6). Native still assigns a finite
+    /// fallback lifetime, but the primary delete path is the camera bound below.
     #[test]
     fn maniaxe_axe_bounded_lifetime_loc_8b32() {
         let mut rt = NativeRuntime::new(manifest());
@@ -3562,12 +3565,69 @@ mod chunk_06 {
         rt.step_maniaxe_axe(&slice, input);
         assert_eq!(rt.projectiles.len(), 1);
         let lifetime = rt.projectiles[0].lifetime;
-        // ASM uses camera bounds [$160 + $10 = $170 = 368px wide], but native uses
-        // a fixed lifetime. The lifetime must be finite (nonzero and bounded).
+        // This is a native safety fallback; ASM lifetime is governed by the
+        // camera-relative loc_8B32 checks below.
         assert!(
             lifetime > 0 && lifetime < 200,
-            "ASM loc_8B32: axe should have a finite bounded lifetime (got {lifetime}); \
-             ASM uses camera-relative bounds check instead"
+            "native Maniaxe axe fallback lifetime should stay finite (got {lifetime})"
+        );
+    }
+
+    /// ASM ManiaxeAxe_CheckOutOfBounds (kid.asm:9933): `blt`/`bgt` delete only
+    /// outside the padded box, so exact edges are retained.
+    #[test]
+    fn maniaxe_axe_retains_on_camera_bounds_edges_loc_8b32() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0x0020_0000;
+        slice.camera.y_pos = 0x0040_0000;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0170_0000,
+            y_pos: 0x0130_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: 20,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM loc_8B32: exact max X/Y camera edges should still retain the axe"
+        );
+    }
+
+    /// ASM ManiaxeAxe_CheckOutOfBounds (kid.asm:9933): after each frame the
+    /// axe survives only while x is within `[Camera_X_pos-$10, Camera_X_pos+$150]`
+    /// and y is within `[Camera_Y_pos-$10, Camera_Y_pos+$F0]`.
+    #[test]
+    fn maniaxe_axe_deletes_outside_camera_bounds_loc_8b32() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0151_0000,
+            y_pos: 0x0080_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: 20,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM loc_8B32: x > Camera_X_pos+$150 should delete the Maniaxe axe"
         );
     }
 

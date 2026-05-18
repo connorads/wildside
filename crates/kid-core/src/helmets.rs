@@ -5059,13 +5059,12 @@ impl NativeRuntime {
     ///
     /// ASM loc_8AF2 (kid.asm:9925): `jmp Delete_CurrentObject` — reached after
     ///   solid-block explosion animation (loc_8ACC) or out-of-bounds check
-    ///   (ManiaxeAxe_CheckOutOfBounds). Native: lifetime expiry.
+    ///   (ManiaxeAxe_CheckOutOfBounds). Native: shared projectile deletion.
     ///
     /// ASM loc_8B32 (kid.asm:9954): `moveq #1,d7; rts` — true return of
     ///   ManiaxeAxe_CheckOutOfBounds (sub_8AF6). Camera-relative bounds:
-    ///   x in [cam_x - $10, cam_x + $160], y in [cam_y - $10, cam_y + $100].
-    ///   Native: uses fixed lifetime instead of camera-relative bounds check.
-    /// TODO(fidelity): native lifetime differs from ASM camera-relative bounds.
+    ///   x in [cam_x - $10, cam_x + $150], y in [cam_y - $10, cam_y + $F0].
+    ///   Native: same camera-relative bounds in `step_projectiles`.
     pub(crate) fn step_maniaxe_axe(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Maniaxe {
             self.helmet.maniaxe_axe_active = false;
@@ -5095,6 +5094,7 @@ impl NativeRuntime {
                 // ASM loc_8ACC (kid.asm:9913): solid terrain routes the axe
                 // through its hit animation and then deletes it.
                 terrain_kill: true,
+                kind: EnemyProjectileKind::ManiaxeAxe,
                 ..Default::default()
             });
         }
