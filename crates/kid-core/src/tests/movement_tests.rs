@@ -7307,24 +7307,35 @@ mod chunk_11 {
     /// is above level top AND $FFFFFA6A (skycutter_on_board) is set:
     /// `move.b #1,($FFFFFA69)` (flipboard deploy trigger), snap y_pos,
     /// `move.l #$30000,y_vel` (push downward), return 0.
-    /// TODO(fidelity): native does not model the Skycutter ceiling bounce.
-    /// This test documents the expected ASM behaviour for future implementation.
+    /// TODO(fidelity): native does not yet model the `$FFFFFA69` flipboard
+    /// trigger side effect; this regression covers the movement-visible bounce.
     #[test]
-    fn loc_9114_skycutter_ceiling_bounce_documents_expected_asm_behaviour() {
-        // The ASM sets y_vel = $30000 = 196608 and triggers flipboard deploy.
-        // In native fixed-point, $30000 = 0x0003_0000 (3.0 pixels/frame downward).
-        let asm_bounce_velocity: i32 = 0x0003_0000;
-        assert_eq!(
-            asm_bounce_velocity, 0x0003_0000,
-            "ASM loc_9114: y_vel should be $30000 (3px/frame downward push)"
+    fn loc_9114_skycutter_ceiling_bounce_sets_downward_velocity() {
+        let w: u16 = 6;
+        let h: u16 = 4;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 10 << 16;
+        slice.player.y_velocity = -0x0005_0000;
+
+        slice.apply_ceiling_collision_skycutter_on_board(
+            Some(&mut grid),
+            None,
+            PlayerForm::Skycutter,
+            PLAYER_HALF_WIDTH,
+            &[],
         );
-        // $FFFFFA69 = 1 triggers the flipboard deploy/retract transient pose
-        // in sub_98F2. The toggle at midpoint ($11 = 17 frames) flips both
-        // $FFFFFA6A and x_direction(a3).
-        let flipboard_deploy_trigger: u8 = 1;
+
         assert_eq!(
-            flipboard_deploy_trigger, 1,
-            "ASM loc_9114: $FFFFFA69 should be set to 1 (flipboard deploy)"
+            slice.player.y_velocity, 0x0003_0000,
+            "ASM loc_9114: y_vel should be $30000 (3px/frame downward push)"
         );
     }
 

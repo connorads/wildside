@@ -2668,12 +2668,13 @@ impl OpeningSliceState {
                         // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
-                    self.apply_ceiling_collision(
+                    self.apply_ceiling_collision_for_physics_step(
                         Some(grid),
                         block_list,
                         form,
                         collision_hw,
                         deferred_prize_ceiling_cells,
+                        custom_gravity,
                     );
                     self.apply_floor_collision(
                         Some(grid),
@@ -2735,12 +2736,13 @@ impl OpeningSliceState {
                         // catch up, matching the oracle's one-frame camera lag.
                         return;
                     }
-                    self.apply_ceiling_collision(
+                    self.apply_ceiling_collision_for_physics_step(
                         Some(grid),
                         block_list,
                         form,
                         collision_hw,
                         deferred_prize_ceiling_cells,
+                        custom_gravity,
                     );
                     self.apply_floor_collision(
                         Some(grid),
@@ -3157,12 +3159,13 @@ impl OpeningSliceState {
                 }
 
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
-                    self.apply_ceiling_collision(
+                    self.apply_ceiling_collision_for_physics_step(
                         Some(grid),
                         block_list,
                         form,
                         collision_hw,
                         deferred_prize_ceiling_cells,
+                        custom_gravity,
                     );
                     self.apply_floor_collision(
                         Some(grid),
@@ -4850,6 +4853,71 @@ impl OpeningSliceState {
         collision_hw: i32,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
+        self.apply_ceiling_collision_inner(
+            block_grid,
+            block_list,
+            form,
+            collision_hw,
+            deferred_prize_ceiling_cells,
+            false,
+        );
+    }
+
+    pub(crate) fn apply_ceiling_collision_skycutter_on_board(
+        &mut self,
+        block_grid: Option<&mut terrain::BlockGrid>,
+        block_list: Option<&terrain::BlockList>,
+        form: PlayerForm,
+        collision_hw: i32,
+        deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
+    ) {
+        self.apply_ceiling_collision_inner(
+            block_grid,
+            block_list,
+            form,
+            collision_hw,
+            deferred_prize_ceiling_cells,
+            true,
+        );
+    }
+
+    fn apply_ceiling_collision_for_physics_step(
+        &mut self,
+        block_grid: Option<&mut terrain::BlockGrid>,
+        block_list: Option<&terrain::BlockList>,
+        form: PlayerForm,
+        collision_hw: i32,
+        deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
+        custom_gravity: bool,
+    ) {
+        if form == PlayerForm::Skycutter && custom_gravity {
+            self.apply_ceiling_collision_skycutter_on_board(
+                block_grid,
+                block_list,
+                form,
+                collision_hw,
+                deferred_prize_ceiling_cells,
+            );
+        } else {
+            self.apply_ceiling_collision(
+                block_grid,
+                block_list,
+                form,
+                collision_hw,
+                deferred_prize_ceiling_cells,
+            );
+        }
+    }
+
+    fn apply_ceiling_collision_inner(
+        &mut self,
+        block_grid: Option<&mut terrain::BlockGrid>,
+        block_list: Option<&terrain::BlockList>,
+        form: PlayerForm,
+        collision_hw: i32,
+        deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
+        skycutter_on_board: bool,
+    ) {
         let Some(grid) = block_grid else { return };
         if self.player.y_velocity >= 0 {
             return;
@@ -4890,10 +4958,10 @@ impl OpeningSliceState {
         // snap y_pos; clr.w $20; moveq #0,d7; rts` — normal stop.
         // If on board → loc_9114 (kid.asm:10524): `move.b #1,($FFFFFA69)`
         // (flipboard deploy trigger), snap y_pos, set y_vel=$30000
-        // (push downward), return 0. Native doesn't distinguish the
-        // Skycutter ceiling bounce; probe_ceiling returns no-hit for
-        // out-of-bounds rows and the path falls through to no-op.
+        // (push downward), return 0. Native models the downward velocity here;
+        // the `$FFFFFA69` flipboard trigger remains owned by helmet state.
         let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, collision_height);
+        let above_level_top = y_px - collision_height < 0;
 
         if probe.hit {
             let deferred_prize_ceiling_phase =
@@ -5080,7 +5148,11 @@ impl OpeningSliceState {
             // ASM loc_9130 (kid.asm:10534): `neg.l d6; move.l d6,y_vel(a3);
             // moveq #-1,d7; rts` — when sub_914A returns negative for a
             // Rubber ceiling, sub_902A reverses the saved incoming y_vel.
-            self.player.y_velocity = if probe.cell.block_type == terrain::BlockType::Rubber {
+            self.player.y_velocity = if skycutter_on_board && above_level_top {
+                // ASM loc_9114 (kid.asm:10524): mounted Skycutter top-boundary
+                // contact pushes downward at exactly 3 px/frame.
+                0x0003_0000
+            } else if probe.cell.block_type == terrain::BlockType::Rubber {
                 -incoming_y_velocity
             } else {
                 0
