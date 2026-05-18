@@ -7946,7 +7946,8 @@ impl NativeRuntime {
     #[allow(clippy::unused_self, reason = "semantically a method on game state")]
     pub(crate) fn fell_below_level(&self, slice: &OpeningSliceState) -> bool {
         let player_y_px = slice.player.y_pos >> 16;
-        player_y_px > u32::from(slice.level_bounds.height_pixels)
+        // ASM loc_9142 (kid.asm:10549): `cmp.w Level_height_pixels,d7; bge.w loc_9142`.
+        player_y_px >= u32::from(slice.level_bounds.height_pixels)
     }
 
     pub(crate) fn player_touches_flag(&self, slice: &OpeningSliceState) -> bool {
@@ -9545,9 +9546,6 @@ impl NativeRuntime {
         // — `cmp.w Level_height_pixels,d7; bge.w loc_9142`. When new foot
         // pixel y >= Level_height_pixels, `addq.w #4,sp` pops the sub_902A
         // return address and `moveq #1,d7; bra.w Death` kills the player.
-        // Native: fell_below_level uses `>` instead of `>=`; the difference
-        // is academic since Level_height_pixels is the row below the last
-        // tile row and landing exactly on it is unreachable in practice.
         if self.fell_below_level(slice) {
             self.opening_slice = Some(*slice);
             self.progression.number_hitpoints = 0;

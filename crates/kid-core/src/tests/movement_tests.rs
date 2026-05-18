@@ -7384,12 +7384,10 @@ mod chunk_11 {
     /// `cmp.w Level_height_pixels,d7; bge.w loc_9142` — when the new foot pixel
     /// y position >= Level_height_pixels, sub_902A pops its return address
     /// (`addq.w #4,sp`) and branches to Death with `moveq #1,d7`.
-    /// Native: `fell_below_level()` checks `player_y_px > level_height_pixels`
-    /// and triggers PitDeath in the main death-check cascade.
+    /// Native: `fell_below_level()` mirrors that `>=` boundary and triggers
+    /// PitDeath in the main death-check cascade.
     #[test]
     fn loc_9142_sub_902a_below_level_height_triggers_pit_death() {
-        // The ASM check is y_px >= Level_height_pixels, native uses y_px >.
-        // Both agree that a player positioned past the level bottom is dead.
         let w: u16 = 6;
         let h: u16 = 4;
         let bounds = LevelBounds {
@@ -7400,7 +7398,8 @@ mod chunk_11 {
         slice.player.on_ground = false;
         // Place player 1 pixel below level height (h*16 = 64).
         slice.player.y_pos = (u32::from(h) * 16 + 1) << 16;
-        let fell = slice.player.y_pos >> 16 > u32::from(bounds.height_pixels);
+        let runtime = NativeRuntime::new(manifest());
+        let fell = runtime.fell_below_level(&slice);
         assert!(
             fell,
             "ASM loc_9142: y_pos {} past level height {} should trigger pit death",
@@ -7411,10 +7410,8 @@ mod chunk_11 {
 
     /// ASM loc_9142 (kid.asm:10549): player exactly at Level_height_pixels.
     /// ASM uses `bge` (>=) so exactly equal triggers death.
-    /// Native uses `>` so exactly equal does NOT trigger death.
-    /// This documents the boundary discrepancy as TODO(fidelity).
     #[test]
-    fn loc_9142_sub_902a_exactly_at_level_height_boundary_discrepancy() {
+    fn loc_9142_sub_902a_exact_level_height_boundary_triggers_pit_death() {
         let w: u16 = 6;
         let h: u16 = 4;
         let bounds = LevelBounds {
@@ -7423,15 +7420,15 @@ mod chunk_11 {
         };
         let mut slice = OpeningSliceState::new(bounds);
         slice.player.on_ground = false;
-        // Exactly at level height boundary: ASM would kill, native does not.
+        // Exactly at level height boundary: ASM loc_9142 kills via `bge`.
         slice.player.y_pos = u32::from(h * 16) << 16;
-        let fell_native = slice.player.y_pos >> 16 > u32::from(bounds.height_pixels);
-        // TODO(fidelity): ASM loc_9142 uses bge (>=), native uses > (strictly greater).
-        // In practice this is unreachable because gravity always pushes past the
-        // boundary rather than landing exactly on it.
+        let runtime = NativeRuntime::new(manifest());
+        let fell_native = runtime.fell_below_level(&slice);
         assert!(
-            !fell_native,
-            "ASM loc_9142: native uses > not >=, so exactly at boundary does not trigger"
+            fell_native,
+            "ASM loc_9142: y_pos {} at level height {} should trigger pit death",
+            slice.player.y_pos >> 16,
+            bounds.height_pixels
         );
     }
 
