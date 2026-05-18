@@ -12318,6 +12318,207 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_9E94/loc_9EA4: a SlopeUp special-form step that lands exactly
+    /// on zero does not take `bmi`; the ROM forces d7 to -$1000.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_special_form_slope_up_zero_crossing_forces_negative_loc_9E94() {
+        let (vel, facing) = update_level_one_slope_ground_velocity(
+            0x0000_1000,
+            Direction::Right,
+            HorizontalInput {
+                left: false,
+                right: false,
+                run: false,
+            },
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::RedStealth,
+            TerrainType::Normal,
+        );
+
+        assert_eq!(
+            vel, -0x1000,
+            "ASM loc_9E94: d7=$1000-$1000=0, bmi not taken, force -$1000"
+        );
+        assert_eq!(
+            facing,
+            Direction::Left,
+            "ASM loc_9EA4: forced negative SlopeUp velocity stores x_direction=$FF"
+        );
+    }
+
+    /// ASM loc_9D58 and loc_9DC0: Micromax dispatches to `unk_9EE4`, whose
+    /// walk uphill acceleration is $0800 instead of Kid's shared-table $1000.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_micromax_walk_uphill_uses_small_table_accel_loc_9D58() {
+        let (vel, _) = update_level_one_slope_ground_velocity(
+            0x0000_3000,
+            Direction::Right,
+            HorizontalInput {
+                left: false,
+                right: true,
+                run: false,
+            },
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::Micromax,
+            TerrainType::Normal,
+        );
+
+        assert_eq!(
+            vel, 0x3800,
+            "ASM loc_9D58: Micromax selects unk_9EE4; loc_9DD4 adds walk uphill accel $0800"
+        );
+    }
+
+    /// ASM loc_9D86: A held advances the Micromax `unk_9EE4` sub-table to its
+    /// run row, whose uphill acceleration is $1000 instead of Kid's $2000.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_micromax_run_uphill_uses_small_table_accel_loc_9D86() {
+        let (vel, _) = update_level_one_slope_ground_velocity(
+            0x0000_6000,
+            Direction::Right,
+            HorizontalInput {
+                left: false,
+                right: true,
+                run: true,
+            },
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::Micromax,
+            TerrainType::Normal,
+        );
+
+        assert_eq!(
+            vel, 0x7000,
+            "ASM loc_9D86: Micromax run table adds $1000, not shared-table $2000"
+        );
+    }
+
+    /// ASM loc_9DC0: negative canonical uphill velocity gets two acceleration
+    /// steps, but exact zero uses the single-step capped branch at loc_9DD4.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_uphill_negative_and_zero_boundaries_match_loc_9DC0() {
+        let uphill = HorizontalInput {
+            left: false,
+            right: true,
+            run: false,
+        };
+
+        let (negative_vel, _) = update_level_one_slope_ground_velocity(
+            -0x0000_1000,
+            Direction::Left,
+            uphill,
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            negative_vel, 0x1000,
+            "ASM loc_9DC0: canonical -$1000 adds 2*$1000 before the shared slope tail"
+        );
+
+        let (zero_vel, _) = update_level_one_slope_ground_velocity(
+            0,
+            Direction::Right,
+            uphill,
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            zero_vel, 0x1000,
+            "ASM loc_9DC0: canonical 0 is not negative, so loc_9DD4 adds one $1000 step"
+        );
+    }
+
+    /// ASM loc_9DE4: over-cap uphill velocity brakes by 8(a0), then clamps back
+    /// to the table max if the braked value is still too high.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_uphill_over_max_brake_clamps_to_table_max_loc_9DE4() {
+        let (vel, _) = update_level_one_slope_ground_velocity(
+            0x0005_0000,
+            Direction::Right,
+            HorizontalInput {
+                left: false,
+                right: true,
+                run: false,
+            },
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+
+        assert_eq!(
+            vel, 0x0004_0000,
+            "ASM loc_9DE4: $50000-$4000 remains above max $40000, so clamp to $40000"
+        );
+    }
+
+    /// ASM loc_9E1E: downhill velocity below the table cap brakes toward the
+    /// negative max-speed floor and clamps there if still too negative.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_downhill_below_floor_brake_clamps_to_negative_max_loc_9E1E() {
+        let (vel, _) = update_level_one_slope_ground_velocity(
+            -0x0005_0000,
+            Direction::Left,
+            HorizontalInput {
+                left: true,
+                right: false,
+                run: false,
+            },
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+
+        assert_eq!(
+            vel, -0x0004_0000,
+            "ASM loc_9E1E: -$50000+$4000 remains below -$40000, so clamp to -$40000"
+        );
+    }
+
+    /// ASM loc_9E2E/loc_9E42: neutral deceleration clamps to `$10(a0)` from
+    /// either side rather than crossing past the slope table's neutral target.
+    #[test]
+    #[allow(non_snake_case)]
+    fn slope_neutral_target_clamps_from_both_sides_loc_9E2E_9E42() {
+        let neutral = HorizontalInput {
+            left: false,
+            right: false,
+            run: false,
+        };
+
+        let (below_target_vel, _) = update_level_one_slope_ground_velocity(
+            -0x0000_9000,
+            Direction::Left,
+            neutral,
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            below_target_vel, -0x0000_8000,
+            "ASM loc_9E2E: -$9000+$2000 crosses above target -$8000, clamp back"
+        );
+
+        let (above_target_vel, _) = update_level_one_slope_ground_velocity(
+            -0x0000_7000,
+            Direction::Left,
+            neutral,
+            terrain::CollisionKind::SlopeUp,
+            PlayerForm::TheKid,
+            TerrainType::Normal,
+        );
+        assert_eq!(
+            above_target_vel, -0x0000_8000,
+            "ASM loc_9E42: -$7000-$2000 crosses below target -$8000, clamp back"
+        );
+    }
+
     // --- loc_9F32: post-slope velocity negative clamp ---
 
     /// ASM loc_9F18–loc_9F3A (kid.asm:12223–12239): post-slope velocity cap.
