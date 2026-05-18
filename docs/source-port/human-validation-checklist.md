@@ -40,7 +40,7 @@ Open `.cache/human-validation/index.html` after generation.
 
 | Backlog row | Verify command | Inspect | Pass decision |
 |---|---|---|---|
-| #136 prize emergence | `cargo run -p kidcli -- verify-recording --slug issue-136-prize-emergence --native-only` | `.cache/recordings/issue-136-prize-emergence/verify/native/000150_post_first_jump.png`, `000270_post_second_jump.png`, `000359_scenario_end.png` | Diamond/helmet emergence uses the expected item graphics and does not show the old incorrect block/item art |
+| _none_ | | | |
 
 ## Playability Validation Rows
 

@@ -62,6 +62,13 @@ pub struct EnemyVisuals {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FloatingPrizeVisuals {
+    pub diamond: AnimatedSpriteVisual,
+    /// Helmet prize visuals keyed by prize content id (0x02..0x0A).
+    pub helmets: HashMap<u8, AnimatedSpriteVisual>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlatformVisuals {
     pub palette: Palette,
     pub horizontal: SpriteFrame,

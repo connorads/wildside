@@ -7,8 +7,8 @@ use crate::hud::{HudIcon, HudVisuals};
 use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
 use crate::palette::{Palette, PaletteSet};
 use crate::player::{
-    AnimatedSpriteVisual, EnemyVisuals, FlagVisuals, PlatformVisuals, PlayerFormVisuals,
-    PlayerTransformStep, PlayerVisuals, SpriteFrame,
+    AnimatedSpriteVisual, EnemyVisuals, FlagVisuals, FloatingPrizeVisuals, PlatformVisuals,
+    PlayerFormVisuals, PlayerTransformStep, PlayerVisuals, SpriteFrame,
 };
 use crate::tiles::{TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
@@ -25,6 +25,12 @@ const HUD_DIAMOND_BASE_TILE_INDEX: u16 = 0x06EA;
 const BLOCKS_ART_PATH: &str = "artcomp/Blocks.bin";
 const HUD_NUMBERS_ART_PATH: &str = "artcomp/HUD_numbers.bin";
 const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
+const FLOATING_DIAMOND_ART_PATHS: [&str; 4] = [
+    "artunc/diamond_1.bin",
+    "artunc/diamond_2.bin",
+    "artunc/diamond_3.bin",
+    "artunc/diamond_4.bin",
+];
 const FLAG_ART_PATH: &str = "artunc/End_of_level_Flag_(6_frames).bin";
 const FLAG_BOTTOM_ART_PATH: &str = "artunc/Flag_bottom.bin";
 // Enemy art/palette paths removed — now defined inline in ENEMY_FAMILIES table.
@@ -49,6 +55,15 @@ const MANIAXE_PALETTE_PATH: &str = "palette_kid/Maniaxe.bin";
 const MANIAXE_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Maniaxe_Transformation.bin";
 const MICROMAX_PALETTE_PATH: &str = "palette_kid/Micromax.bin";
 const MICROMAX_TRANSFORM_PALETTE_PATH: &str = "palette_kid/Micromax_Transformation.bin";
+const SKYCUTTER_HELMET_PALETTE_PATH: &str = "palette_kid/Skycutter_Helmet.bin";
+const CYCLONE_HELMET_PALETTE_PATH: &str = "palette_kid/Cyclone_Helmet.bin";
+const RED_STEALTH_HELMET_PALETTE_PATH: &str = "palette_kid/Red_Stealth_Helmet.bin";
+const EYECLOPS_HELMET_PALETTE_PATH: &str = "palette_kid/Eyeclops_Helmet.bin";
+const JUGGERNAUT_HELMET_PALETTE_PATH: &str = "palette_kid/Juggernaut_Helmet.bin";
+const IRON_KNIGHT_HELMET_PALETTE_PATH: &str = "palette_kid/Iron_Knight_Helmet.bin";
+const BERZERKER_HELMET_PALETTE_PATH: &str = "palette_kid/Berzerker_Helmet.bin";
+const MANIAXE_HELMET_PALETTE_PATH: &str = "palette_kid/Maniaxe_Helmet.bin";
+const MICROMAX_HELMET_PALETTE_PATH: &str = "palette_kid/Micromax_Helmet.bin";
 const BLOCK_MAPPING_PATH: &str = "block_mappings.bin";
 const PLAYER_FORM_THE_KID: u16 = 0;
 const PLAYER_FORM_SKYCUTTER: u16 = 1;
@@ -76,6 +91,7 @@ pub struct NativeLevelVisuals {
     pub hud: HudVisuals,
     pub player: PlayerVisuals,
     pub enemies: EnemyVisuals,
+    pub floating_prizes: FloatingPrizeVisuals,
     pub flag: FlagVisuals,
     pub platforms: PlatformVisuals,
 }
@@ -198,6 +214,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
 
     let player = load_player_visuals(manifest)?;
     let enemies = load_enemy_visuals(manifest);
+    let floating_prizes = load_floating_prize_visuals(manifest, &fg_palette, &hud_diamond_tiles)?;
     let flag = load_flag_visuals(manifest, &fg_palette)?;
     let platforms = load_platform_visuals(manifest, foreground_theme)?;
 
@@ -262,6 +279,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         },
         player,
         enemies,
+        floating_prizes,
         flag,
         platforms,
     })
@@ -560,6 +578,13 @@ struct EnemyFamilySpec {
     frames: &'static [SpriteFrameDescriptor],
 }
 
+struct FloatingPrizeHelmetSpec {
+    content_id: u8,
+    art: PlayerFrameDescriptor,
+    palette_path: &'static str,
+    palette_family: &'static str,
+}
+
 const fn fd(
     tile_base_index: u16,
     origin_x: i16,
@@ -575,6 +600,63 @@ const fn fd(
         tile_base_index,
     }
 }
+
+static FLOATING_PRIZE_HELMETS: &[FloatingPrizeHelmetSpec] = &[
+    FloatingPrizeHelmetSpec {
+        content_id: 0x02,
+        art: pfd("artunc_kid/skycutter_mask.bin", 0x08, -2, 0x11, 0x0E),
+        palette_path: SKYCUTTER_HELMET_PALETTE_PATH,
+        palette_family: "Skycutter helmet palette",
+    },
+    FloatingPrizeHelmetSpec {
+        content_id: 0x03,
+        art: pfd("artunc_kid/cyclone_mask.bin", 0x0B, -2, 0x17, 0x0F),
+        palette_path: CYCLONE_HELMET_PALETTE_PATH,
+        palette_family: "Cyclone helmet palette",
+    },
+    FloatingPrizeHelmetSpec {
+        content_id: 0x04,
+        art: pfd("artunc_kid/red_stealth_mask.bin", 0x0A, -2, 0x15, 0x11),
+        palette_path: RED_STEALTH_HELMET_PALETTE_PATH,
+        palette_family: "Red Stealth helmet palette",
+    },
+    FloatingPrizeHelmetSpec {
+        content_id: 0x05,
+        art: pfd("artunc_kid/eyeclops_mask.bin", 0x0A, -2, 0x15, 0x10),
+        palette_path: EYECLOPS_HELMET_PALETTE_PATH,
+        palette_family: "Eyeclops helmet palette",
+    },
+    FloatingPrizeHelmetSpec {
+        content_id: 0x06,
+        art: pfd("artunc_kid/juggernaut_mask.bin", 0x08, -2, 0x12, 0x14),
+        palette_path: JUGGERNAUT_HELMET_PALETTE_PATH,
+        palette_family: "Juggernaut helmet palette",
+    },
+    FloatingPrizeHelmetSpec {
+        content_id: 0x07,
+        art: pfd("artunc_kid/iron_knight_mask.bin", 0x09, -2, 0x16, 0x15),
+        palette_path: IRON_KNIGHT_HELMET_PALETTE_PATH,
+        palette_family: "Iron Knight helmet palette",
+    },
+    FloatingPrizeHelmetSpec {
+        content_id: 0x08,
+        art: pfd("artunc_kid/berzerker_mask.bin", 0x09, -2, 0x13, 0x14),
+        palette_path: BERZERKER_HELMET_PALETTE_PATH,
+        palette_family: "Berzerker helmet palette",
+    },
+    FloatingPrizeHelmetSpec {
+        content_id: 0x09,
+        art: pfd("artunc_kid/maniaxe_mask.bin", 0x08, -2, 0x10, 0x12),
+        palette_path: MANIAXE_HELMET_PALETTE_PATH,
+        palette_family: "Maniaxe helmet palette",
+    },
+    FloatingPrizeHelmetSpec {
+        content_id: 0x0A,
+        art: pfd("artunc_kid/micromax_mask.bin", 0x09, -2, 0x13, 0x12),
+        palette_path: MICROMAX_HELMET_PALETTE_PATH,
+        palette_family: "Micromax helmet palette",
+    },
+];
 
 static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
     EnemyFamilySpec {
@@ -2437,6 +2519,82 @@ fn load_enemy_visuals(manifest: &AssetManifest) -> EnemyVisuals {
         );
     }
     EnemyVisuals { families }
+}
+
+fn load_floating_prize_visuals(
+    manifest: &AssetManifest,
+    foreground_palette: &Palette,
+    hud_diamond_tiles: &TileSheet,
+) -> Result<FloatingPrizeVisuals> {
+    let diamond_frames = if FLOATING_DIAMOND_ART_PATHS
+        .iter()
+        .all(|path| find_ingame_asset(manifest, path).is_some())
+    {
+        FLOATING_DIAMOND_ART_PATHS
+            .iter()
+            .map(|path| {
+                Ok(SpriteFrame {
+                    // ASM PrizeDiamond_Init selects `stru_10D6E`, whose frames
+                    // point at `unk_E0E66: sprite_frame_vram $6F2,$06,$FE,$10,$0C`.
+                    // `sub_5D4A` DMAs diamond_1..4 to VRAM $DD40 (tile $6EA),
+                    // so $6F2 is tile offset 8 inside each animation art page.
+                    origin_x: 0x06,
+                    origin_y: -2,
+                    width_px: 0x10,
+                    height_px: 0x0C,
+                    tile_base_index: 0x06F2 - HUD_DIAMOND_BASE_TILE_INDEX,
+                    tile_sheet: load_uncompressed_tile_sheet(
+                        manifest,
+                        "ingame",
+                        find_ingame_asset(manifest, path)
+                            .ok_or_else(|| anyhow!("missing floating diamond art ingame/{path}"))?,
+                        &format!("floating diamond art {path}"),
+                    )?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        vec![SpriteFrame {
+            // Test fixtures may only include the first HUD diamond page. Keep
+            // the same ASM frame geometry while using that available page.
+            origin_x: 0x06,
+            origin_y: -2,
+            width_px: 0x10,
+            height_px: 0x0C,
+            tile_base_index: 0x06F2 - HUD_DIAMOND_BASE_TILE_INDEX,
+            tile_sheet: hud_diamond_tiles.clone(),
+        }]
+    };
+    let diamond = AnimatedSpriteVisual {
+        palette: foreground_palette.clone(),
+        extra_palettes: Vec::new(),
+        frames: diamond_frames,
+        frame_duration: 3,
+    };
+
+    let mut helmets = std::collections::HashMap::new();
+    for spec in FLOATING_PRIZE_HELMETS {
+        if find_ingame_asset(manifest, spec.art.relative_path).is_none()
+            || find_ingame_asset(manifest, spec.palette_path).is_none()
+        {
+            continue;
+        }
+        helmets.insert(
+            spec.content_id,
+            AnimatedSpriteVisual {
+                palette: load_ingame_palette_asset(
+                    manifest,
+                    spec.palette_path,
+                    spec.palette_family,
+                )?,
+                extra_palettes: Vec::new(),
+                frames: vec![load_player_frame(manifest, spec.art)?],
+                frame_duration: 1,
+            },
+        );
+    }
+
+    Ok(FloatingPrizeVisuals { diamond, helmets })
 }
 
 fn load_platform_visuals(

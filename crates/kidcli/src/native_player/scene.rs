@@ -1326,9 +1326,26 @@ fn build_game_scene_filtered(
         for &(x_px, y_px, remaining, content_id) in &trace.floating_items {
             let fx = i32::from(x_px) - (trace.camera_x_pos >> 16) as i32;
             let fy = i32::from(y_px) - (trace.camera_y_pos >> 16) as i32;
-            let alpha = u32::from(remaining).saturating_mul(8).min(255);
             let content = kid_core::terrain::PrizeContent::from_id(content_id);
             let graphics_spec = floating_item_graphics_spec(content_id);
+            if let Some(prize_visuals) = floating_prize_visuals(level_visuals, content_id) {
+                let frame_index = (trace.frame_index / prize_visuals.frame_duration.max(1))
+                    % prize_visuals.frames.len().max(1);
+                if let Some(frame) = prize_visuals.frames.get(frame_index) {
+                    let facing = Direction::Right;
+                    let (draw_x, draw_y) = sprite_draw_position(frame, fx, fy, facing);
+                    commands.push(DrawCommand::Sprite {
+                        x: draw_x,
+                        y: draw_y,
+                        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                        palette: Arc::new(prize_visuals.palette.clone()),
+                        tiles: build_sprite_tiles(frame, facing, 0),
+                    });
+                    continue;
+                }
+            }
+
+            let alpha = u32::from(remaining).saturating_mul(8).min(255);
             let base_colour = floating_item_colour(content, graphics_spec);
             let colour = [
                 (u32::from(base_colour[0]) * alpha / 255) as u8,
@@ -1336,10 +1353,7 @@ fn build_game_scene_filtered(
                 (u32::from(base_colour[2]) * alpha / 255) as u8,
             ];
             // Draw content-type-specific pixel-art icon
-            // TODO(fidelity): load real floating item sprites from ROM art.
-            // ASM PrizeDiamond_Init/sub_10CB0 graphics metadata is already
-            // carried through `floating_item_graphics_spec`; only the pixel
-            // placeholder remains approximate.
+            // TODO(fidelity): wire ROM art for non-diamond, non-helmet prize classes.
             match content {
                 // Diamond: rotated square (diamond shape)
                 kid_core::terrain::PrizeContent::Diamond => {
@@ -1880,6 +1894,20 @@ pub(super) fn floating_item_graphics_spec(
     content_id: u8,
 ) -> Option<kid_core::FloatingPrizeGraphicsSpec> {
     kid_core::floating_prize_graphics_spec(kid_core::terrain::PrizeContent::from_id(content_id))
+}
+
+fn floating_prize_visuals(
+    level_visuals: &NativeLevelVisuals,
+    content_id: u8,
+) -> Option<&kid_render::AnimatedSpriteVisual> {
+    match kid_core::terrain::PrizeContent::from_id(content_id) {
+        // ASM PrizeDiamond_Init: `stru_10D6E` selects `unk_E0E66`, a VRAM
+        // sprite frame over the HUD diamond tiles.
+        kid_core::terrain::PrizeContent::Diamond => Some(&level_visuals.floating_prizes.diamond),
+        // ASM sub_10CB0 followed by PrizeHelmet*_Init selects the mask frame
+        // and helmet palette for content ids 2..A.
+        _ => level_visuals.floating_prizes.helmets.get(&content_id),
+    }
 }
 
 /// Returns a distinct RGB colour for each prize content type.

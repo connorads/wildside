@@ -1879,6 +1879,42 @@ mod tests {
         EnemyVisuals { families }
     }
 
+    fn sample_floating_prize_visuals() -> kid_render::FloatingPrizeVisuals {
+        use std::collections::HashMap;
+        let diamond_palette = Palette {
+            colours: vec![colour(0, 0, 0), colour(100, 200, 255)],
+        };
+        let helmet_palette = Palette {
+            colours: vec![colour(0, 0, 0), colour(200, 200, 255)],
+        };
+        let mut helmets = HashMap::new();
+        helmets.insert(
+            0x02,
+            AnimatedSpriteVisual {
+                palette: helmet_palette,
+                extra_palettes: vec![],
+                frames: vec![sample_object_frame(91, 0x11, 0x0E)],
+                frame_duration: 1,
+            },
+        );
+        kid_render::FloatingPrizeVisuals {
+            diamond: AnimatedSpriteVisual {
+                palette: diamond_palette,
+                extra_palettes: vec![],
+                frames: vec![SpriteFrame {
+                    origin_x: 0x06,
+                    origin_y: -2,
+                    width_px: 0x10,
+                    height_px: 0x0C,
+                    tile_base_index: 8,
+                    tile_sheet: blank_tile_sheet(16),
+                }],
+                frame_duration: 3,
+            },
+            helmets,
+        }
+    }
+
     fn sample_platform_visuals() -> PlatformVisuals {
         PlatformVisuals {
             palette: Palette {
@@ -1973,6 +2009,7 @@ mod tests {
             },
             player: sample_player_visuals(),
             enemies: sample_enemy_visuals(),
+            floating_prizes: sample_floating_prize_visuals(),
             flag: sample_flag_visuals(),
             platforms: sample_platform_visuals(),
         }
@@ -2426,7 +2463,7 @@ mod tests {
     #[test]
     fn build_scene_clamps_floating_item_alpha_before_colour_scaling() {
         let mut trace = sample_trace(GameMode::InGame);
-        trace.floating_items = vec![(48, 64, u8::MAX, 0x00)];
+        trace.floating_items = vec![(48, 64, u8::MAX, 0x01)];
         let visuals = sample_level_visuals();
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -2434,9 +2471,68 @@ mod tests {
         assert!(scene.commands.iter().any(|command| {
             matches!(
                 command,
-                DrawCommand::Rect { colour, .. } if *colour == [100, 200, 255]
+                DrawCommand::Rect { colour, .. } if *colour == [255, 255, 100]
             )
         }));
+    }
+
+    #[test]
+    fn build_scene_draws_floating_diamond_with_rom_sprite_art() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.floating_items = vec![(48, 64, u8::MAX, 0x00)];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                        if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
+                            && tiles.iter().any(|tile| tile.tile.tile_index == 8)
+                )
+            }),
+            "ASM stru_10D6E/unk_E0E66 should render the floating prize from HUD diamond VRAM art"
+        );
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Rect { colour, .. } if *colour == [100, 200, 255]
+                )
+            }),
+            "floating diamond should not fall back to the old placeholder rects"
+        );
+    }
+
+    #[test]
+    fn build_scene_draws_floating_helmet_with_rom_mask_art() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.floating_items = vec![(48, 64, u8::MAX, 0x02)];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. }
+                        if tile_sheet.tiles.iter().any(|tile| tile.pixels == [91; 64])
+                )
+            }),
+            "ASM sub_10CB0/stru_106DC should render the Skycutter floating prize from mask art"
+        );
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Rect { colour, .. } if *colour == [200, 200, 255]
+                )
+            }),
+            "floating helmet should not fall back to the old placeholder square"
+        );
     }
 
     #[test]

@@ -20,8 +20,8 @@ pub use level::{
 };
 pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
-    AnimatedSpriteVisual, EnemyVisuals, FlagVisuals, PlatformVisuals, PlayerFormVisuals,
-    PlayerTransformStep, PlayerVisuals, SpriteFrame,
+    AnimatedSpriteVisual, EnemyVisuals, FlagVisuals, FloatingPrizeVisuals, PlatformVisuals,
+    PlayerFormVisuals, PlayerTransformStep, PlayerVisuals, SpriteFrame,
 };
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
