@@ -11723,6 +11723,86 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_sprite_dispatch_loc_244c_keeps_exact_zero_trailing_edges_visible() {
+        let exact_left_edge =
+            platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {
+                world_x_px: 0x00F0,
+                world_y_px: 0x0090,
+                camera_x_px: 0x0100,
+                camera_y_px: 0x0080,
+                width_px: 0x0010,
+                height_px: 0x001F,
+                mapping_addr_word: 0x1357,
+                render_flags: 0,
+            });
+        assert!(
+            exact_left_edge.is_some(),
+            "ASM loc_244C uses `bmi`, so `relative_x + width == 0` stays visible",
+        );
+
+        let exact_top_edge =
+            platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {
+                world_x_px: 0x0120,
+                world_y_px: 0x0070,
+                camera_x_px: 0x0100,
+                camera_y_px: 0x0080,
+                width_px: 0x002F,
+                height_px: 0x0010,
+                mapping_addr_word: 0x1357,
+                render_flags: 0,
+            });
+        assert!(
+            exact_top_edge.is_some(),
+            "ASM loc_244C uses `bmi`, so `relative_y + height == 0` stays visible",
+        );
+    }
+
+    #[test]
+    fn platform_sprite_dispatch_loc_244c_selects_every_off_24ac_arm() {
+        let expected_variants = [
+            PlatformSpriteVariantLoc244C::Loc24CC,
+            PlatformSpriteVariantLoc244C::Loc24F0,
+            PlatformSpriteVariantLoc244C::Loc251C,
+            PlatformSpriteVariantLoc244C::Loc24D4,
+            PlatformSpriteVariantLoc244C::Loc24C0,
+        ];
+
+        for (render_flags, expected_variant) in expected_variants.into_iter().enumerate() {
+            let result = platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {
+                world_x_px: 0x0120,
+                world_y_px: 0x0090,
+                camera_x_px: 0x0100,
+                camera_y_px: 0x0080,
+                width_px: 0x002F,
+                height_px: 0x001F,
+                mapping_addr_word: 0x2468,
+                render_flags: render_flags as u8,
+            })
+            .expect("visible platform should dispatch through off_24AC");
+
+            assert_eq!(
+                result.variant, expected_variant,
+                "ASM loc_244C should dispatch low-nibble render flag {render_flags} through off_24AC",
+            );
+        }
+
+        assert_eq!(
+            platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {
+                world_x_px: 0x0120,
+                world_y_px: 0x0090,
+                camera_x_px: 0x0100,
+                camera_y_px: 0x0080,
+                width_px: 0x002F,
+                height_px: 0x001F,
+                mapping_addr_word: 0x2468,
+                render_flags: 5,
+            }),
+            None,
+            "native keeps off_24AC bounded to the five entries present at ASM loc_244C",
+        );
+    }
+
+    #[test]
     fn platform_single_sprite_loc_24c0_emits_one_400_series_platform_sprite() {
         assert_eq!(
             platform_single_sprite_loc_24C0(
