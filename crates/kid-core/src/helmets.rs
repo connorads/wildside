@@ -4247,13 +4247,14 @@ impl NativeRuntime {
             //   flat $30000 board dive (no x_vel component, since wall-cling
             //   suppresses horizontal velocity → abs(0)/2 + $30000 = $30000).
             //
-            // TODO(fidelity): ASM sets y_vel positive (downward slam), native
-            // negates to upward kick. The ASM also gates on sub_B43A floor probe
-            // and y_pos-near-top check, which native omits.
+            // TODO(fidelity): ASM also gates on sub_B43A floor probe and
+            // y_pos-near-top check, which native omits.
             let b_pressed = input.b && !self.prior_input.b;
             if b_pressed {
-                let kick = -(slice.player.x_velocity.unsigned_abs() as i32 / 2 + 0x3_0000);
-                slice.player.y_velocity = kick;
+                // ASM loc_A7E8 (kid.asm:13113): `asr.l #1,d6; addi.l #$30000,d6;
+                // move.l d6,y_vel(a3)` writes a positive downward dive velocity.
+                let dive_velocity = slice.player.x_velocity.unsigned_abs() as i32 / 2 + 0x3_0000;
+                slice.player.y_velocity = dive_velocity;
             }
         }
 

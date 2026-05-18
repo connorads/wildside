@@ -16827,7 +16827,7 @@ mod chunk_05 {
     }
 
     #[test]
-    fn skycutter_b_press_kicks_upward() {
+    fn skycutter_b_press_dives_downward() {
         let mut rt = skycutter_runtime();
         rt.helmet.skycutter_on_board = true;
         rt.prior_input = FrameInput::default(); // B was not held last frame
@@ -16842,8 +16842,8 @@ mod chunk_05 {
         rt.step_skycutter_flipboard(&mut slice, b_input);
 
         assert!(
-            slice.player.y_velocity < 0,
-            "B press should kick player upward (negative y_velocity)"
+            slice.player.y_velocity > 0,
+            "ASM loc_A7E8: B press should dive downward with positive y_velocity"
         );
     }
 
@@ -16967,8 +16967,7 @@ mod chunk_05 {
     fn skycutter_b_press_kick_uses_half_x_velocity_loc_a7e8() {
         // ASM loc_A7E8 (kid.asm:13113): `move.l x_vel(a3),d6; bpl.w loc_A7E8;
         // neg.l d6` then `asr.l #1,d6; addi.l #$30000,d6; move.l d6,y_vel(a3)`
-        // — kick magnitude = `abs(x_vel) >> 1 + $30000`. Native negates so the
-        // kick points upward (positive y in ASM is downward).
+        // — dive velocity = `abs(x_vel) >> 1 + $30000`.
         //
         // The exact magnitude pins the divisor against cargo-mutants
         // mutations on `/`:
@@ -16989,11 +16988,10 @@ mod chunk_05 {
         };
         rt.step_skycutter_flipboard(&mut slice, b_input);
 
-        // Magnitude = $20000 / 2 + $30000 = $10000 + $30000 = $40000.
-        // Native negates → -$40000 (upward).
+        // Velocity = $20000 / 2 + $30000 = $10000 + $30000 = $40000.
         assert_eq!(
-            slice.player.y_velocity, -0x4_0000,
-            "ASM loc_A7E8: kick = -(abs(x_vel) / 2 + $30000); rejects /↔* and /↔%"
+            slice.player.y_velocity, 0x4_0000,
+            "ASM loc_A7E8: dive = abs(x_vel) / 2 + $30000; rejects /↔* and /↔%"
         );
     }
 

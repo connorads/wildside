@@ -13524,12 +13524,9 @@ mod chunk_12 {
     /// ASM loc_A7E8 (kid.asm:13113): `asr.l #1,d6; addi.l #$30000,d6;
     /// move.l d6,y_vel(a3)` — y_vel = abs(x_vel)/2 + $30000.
     ///
-    /// The ASM sets a POSITIVE y_vel (downward slam in ASM convention).
-    /// Native currently negates this to an upward kick — documented as
-    /// TODO(fidelity) in step_skycutter_flipboard.
-    ///
+    /// The ASM sets a POSITIVE y_vel (downward slam in native convention too).
     /// This test verifies the native formula structure (abs + shift + offset)
-    /// matches the ASM arithmetic, regardless of the sign inversion.
+    /// matches the ASM arithmetic.
     #[test]
     #[allow(non_snake_case)]
     fn loc_A7B4_skycutter_b_press_slam_velocity_formula() {
@@ -13542,13 +13539,9 @@ mod chunk_12 {
             "loc_A7E8: abs(0x40000)/2 + $30000 = $50000"
         );
 
-        // Native formula (from step_skycutter_flipboard):
-        let native_kick = -(x_vel.unsigned_abs() as i32 / 2 + 0x3_0000);
-        assert_eq!(
-            native_kick.unsigned_abs(),
-            asm_y_vel as u32,
-            "native magnitude should match ASM magnitude"
-        );
+        // Native formula (from step_skycutter_flipboard) should match ASM sign.
+        let native_dive = x_vel.unsigned_abs() as i32 / 2 + 0x3_0000;
+        assert_eq!(native_dive, asm_y_vel, "native velocity should match ASM");
 
         // Negative x_vel should produce the same magnitude (loc_A7DE neg.l path)
         let x_vel_neg: i32 = -0x4_0000;
@@ -17055,7 +17048,7 @@ mod chunk_12 {
     /// When on board + airborne, B rising edge triggers a board dive via
     /// loc_ACA4 (kid.asm:13505): `move.l #$30000,y_vel`. During wall-cling
     /// x_vel is 0, so native abs(x_vel)/2 + $30000 = $30000 — matching ASM.
-    /// Verify that the B-press kick with zero x_vel produces exactly $30000.
+    /// Verify that the B-press dive with zero x_vel produces exactly $30000.
     #[test]
     fn loc_ac88_wall_cling_board_dive_matches_flat_30000() {
         let mut rt = skycutter_runtime();
@@ -17072,13 +17065,11 @@ mod chunk_12 {
         };
         rt.step_skycutter_flipboard(&mut slice, b_input);
 
-        // Native: kick = -(abs(0)/2 + 0x30000) = -0x30000.
-        // ASM loc_ACA4: y_vel = $30000 (downward in ASM convention, but native
-        // uses negative = upward). The magnitude must match $30000.
-        let expected_magnitude: i32 = 0x3_0000;
+        // ASM loc_ACA4: y_vel = $30000 (downward).
+        let expected_velocity: i32 = 0x3_0000;
         assert_eq!(
-            slice.player.y_velocity, -expected_magnitude,
-            "loc_AC88/loc_ACA4: wall-cling B-press with zero x_vel should produce -$30000",
+            slice.player.y_velocity, expected_velocity,
+            "loc_AC88/loc_ACA4: wall-cling B-press with zero x_vel should produce $30000",
         );
     }
 
