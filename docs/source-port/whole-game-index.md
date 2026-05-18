@@ -41,9 +41,11 @@ Presence is not the same as full verification.
 - Fire Demon death-trail visuals
 - Remaining floating-item / block-state visual fidelity work
 - 2-player alternating-mode verification
-- Password-system investigation
 - Full native playtest evidence pipeline
 - Wider `1p-playable` gate beyond the current smoke contract
+
+Password-system investigation is no longer open: backlog #133 records the ASM audit and native
+options-menu alignment. The stock ROM title/options flow has no password entry path.
 
 ## Reading this file correctly
 

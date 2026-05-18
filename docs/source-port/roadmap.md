@@ -151,8 +151,10 @@ Exit criteria:
 These stay visible, but they do not block the 1P finish line:
 
 - 2-player alternating-mode verification
-- password-system investigation and implementation decision
 - richer narrated-playtest tooling
+
+Resolved and no longer open: password-system investigation. Backlog #133 records the ASM audit:
+the stock ROM exposes no password entry path, and native options now mirror the ROM menu.
 
 ## Gates
 
