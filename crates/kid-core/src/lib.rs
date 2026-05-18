@@ -190,6 +190,9 @@ pub struct NativeRuntime {
     /// Cold-boot intro-return title rebuild uses Obj_TitleMenu's hidden shell
     /// staging before the later title pose becomes ready.
     title_screen_uses_intro_return_hidden_shell: bool,
+    /// ASM `$FFFFFC82`: title/intro region selector. Load_IntroSequence5 calls
+    /// sub_1C278 before selecting its helmet art and palette overlay.
+    title_screen_region_byte: u8,
     /// First global boot frame where the title pose becomes visible in trace output.
     title_screen_ready_frame: usize,
     /// Last global boot frame of the initial title attract lock.
@@ -1121,6 +1124,7 @@ impl NativeRuntime {
             title_idle_frames: 0,
             title_screen_elapsed_frames: 0,
             title_screen_uses_intro_return_hidden_shell: false,
+            title_screen_region_byte: 0,
             title_screen_ready_frame: TITLE_SCREEN_READY_GLOBAL_FRAME,
             title_menu_arm_frame: 0,
             title_menu_active: false,
@@ -1266,10 +1270,15 @@ impl NativeRuntime {
                 .sega_screen_data
                 .as_ref()
                 .map(|data| vdp::build_sega_screen_vdp(data, *elapsed)),
-            BootState::IntroSequence { segment, .. } => self
-                .intro_sub_1b850_data
-                .as_ref()
-                .map(|data| vdp::build_intro_sequence_vdp(data, *segment)),
+            BootState::IntroSequence { segment, .. } => {
+                self.intro_sub_1b850_data.as_ref().map(|data| {
+                    vdp::build_intro_sequence_vdp_with_title_variant(
+                        data,
+                        *segment,
+                        self.title_screen_region_byte,
+                    )
+                })
+            }
             BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => self
                 .title_screen_data
                 .as_ref()

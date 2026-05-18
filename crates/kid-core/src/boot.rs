@@ -6460,6 +6460,15 @@ impl NativeRuntime {
                         self.timeout_restart_title_intro_sequence_4_return_pending = false;
                         self.timeout_restart_title_intro_sequence_5_return_pending = false;
                         self.timeout_restart_intro_sequence_4_pose_carry = false;
+                        if *segment == 3 {
+                            // ASM Load_IntroSequence5 starts with sub_1C278
+                            // (kid.asm:29324), advancing `$FFFFFC82` before
+                            // loc_1B100 chooses the helmet art source.
+                            self.title_screen_region_byte =
+                                kid_data::advance_title_screen_region_byte_sub_1C278(
+                                    self.title_screen_region_byte,
+                                );
+                        }
                         *segment += 1;
                         activate_intro_sequence_3_roster = *segment == 2;
                         *elapsed = 0;
@@ -6500,6 +6509,15 @@ impl NativeRuntime {
                         self.timeout_restart_intro_sequence_4_pose_carry =
                             carry_intro_sequence_3_pose_into_intro_sequence_4
                                 || carry_intro_sequence_4_camera_into_intro_sequence_5;
+                        if *segment == 3 {
+                            // ASM Load_IntroSequence5 starts with sub_1C278
+                            // (kid.asm:29324), advancing `$FFFFFC82` before
+                            // loc_1B100 chooses the helmet art source.
+                            self.title_screen_region_byte =
+                                kid_data::advance_title_screen_region_byte_sub_1C278(
+                                    self.title_screen_region_byte,
+                                );
+                        }
                         *segment += 1;
                         activate_intro_sequence_3_roster = *segment == 2;
                         *elapsed = 0;

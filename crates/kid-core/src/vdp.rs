@@ -262,8 +262,14 @@ pub(crate) struct IntroSub1B850Data {
     intro_sequence_4_hologram_tilemap: Vec<u16>,
     /// IntroSequence2 foreground tilemap (`unk_2E7C6`) decoded with base `$00BC`.
     intro_sequence_2_tilemap: Vec<u16>,
-    /// Load_IntroSequence5 art uploads in ROM order.
-    intro_sequence_5_art_chunks: [(usize, Vec<u8>); 4],
+    /// Load_IntroSequence5 common art uploads in ROM order.
+    intro_sequence_5_common_art_chunks: [(usize, Vec<u8>); 3],
+    /// Load_IntroSequence5 helmet art variants selected by `$FFFFFC82`.
+    intro_sequence_5_helmet_art_variants: [Vec<u8>; 3],
+    /// Pal_1C3C6 overlay applied by sub_1C512 when `$FFFFFC82 == 1`.
+    intro_sequence_5_palette_variant_1_overlay: Vec<u16>,
+    /// Pal_1C3D4 overlay applied by sub_1C512 when `$FFFFFC82 != 0 && != 1`.
+    intro_sequence_5_palette_variant_2_overlay: Vec<u16>,
     /// IntroSequence5 tilemap (`MapEni_2E154`) decoded with base `$00BC`.
     intro_sequence_5_tilemap: Vec<u16>,
 }
@@ -342,24 +348,41 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     let intro_sequence_2_tilemap = kid_data::decode_enigma(&intro_sequence_2_tilemap_raw, 0x00BC)
         .context("failed to decode intro sequence 2 tilemap")?;
 
-    let intro_sequence_5_art_files: [(u16, &str); 4] = [
+    let intro_sequence_5_common_art_files: [(u16, &str); 3] = [
         (0x1780, "artcomp/Dark_alley_from_intro.bin"),
         (0x4D80, "artcomp/P_block_from_intro.bin"),
         (0x6800, "artcomp/The_kid_from_intro.bin"),
-        // ASM Load_IntroSequence5 starts with sub_1C278, so the cold-boot
-        // region byte advances from 0 to 1 before loc_1B100 selects byte_219C1.
-        (0xBD60, "artcomp/Maniaxe_helmet_from_intro.bin"),
     ];
-    let mut intro_sequence_5_art_chunks = Vec::new();
-    for (vram_addr, filename) in &intro_sequence_5_art_files {
-        intro_sequence_5_art_chunks.push((
+    let mut intro_sequence_5_common_art_chunks = Vec::new();
+    for (vram_addr, filename) in &intro_sequence_5_common_art_files {
+        intro_sequence_5_common_art_chunks.push((
             *vram_addr as usize,
             load_saxman_art(&scenes.join(filename))?,
         ));
     }
-    let intro_sequence_5_art_chunks: [(usize, Vec<u8>); 4] = intro_sequence_5_art_chunks
+    let intro_sequence_5_common_art_chunks: [(usize, Vec<u8>); 3] =
+        intro_sequence_5_common_art_chunks
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("expected 3 intro sequence 5 common art chunks"))?;
+    let intro_sequence_5_helmet_art_files = [
+        // ASM loc_1B100: byte_213D9 when `$FFFFFC82 == 0`.
+        "artcomp/Red_Stealth_helmet_from_intro.bin",
+        // ASM loc_1B100: byte_219C1 when `$FFFFFC82 == 1`.
+        "artcomp/Maniaxe_helmet_from_intro.bin",
+        // ASM loc_1B100: byte_216B7 for every other non-zero value.
+        "artcomp/Juggernaut_helmet_from_intro.bin",
+    ];
+    let mut intro_sequence_5_helmet_art_variants = Vec::new();
+    for filename in intro_sequence_5_helmet_art_files {
+        intro_sequence_5_helmet_art_variants.push(load_saxman_art(&scenes.join(filename))?);
+    }
+    let intro_sequence_5_helmet_art_variants: [Vec<u8>; 3] = intro_sequence_5_helmet_art_variants
         .try_into()
-        .map_err(|_| anyhow::anyhow!("expected 4 intro sequence 5 art chunks"))?;
+        .map_err(|_| anyhow::anyhow!("expected 3 intro sequence 5 helmet art variants"))?;
+    let intro_sequence_5_palette_variant_1_overlay =
+        load_palette_words(&scenes.join("palette/title_maniaxe_mask.bin"))?;
+    let intro_sequence_5_palette_variant_2_overlay =
+        load_palette_words(&scenes.join("palette/title_juggernaut_mask.bin"))?;
     let intro_sequence_5_tilemap_raw = std::fs::read(scenes.join("mapeni/intro3_alley.bin"))
         .context("failed to read intro sequence 5 tilemap")?;
     let intro_sequence_5_tilemap = kid_data::decode_enigma(&intro_sequence_5_tilemap_raw, 0x00BC)
@@ -378,7 +401,10 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
         intro_sequence_2_hologram_tilemap,
         intro_sequence_4_hologram_tilemap,
         intro_sequence_2_tilemap,
-        intro_sequence_5_art_chunks,
+        intro_sequence_5_common_art_chunks,
+        intro_sequence_5_helmet_art_variants,
+        intro_sequence_5_palette_variant_1_overlay,
+        intro_sequence_5_palette_variant_2_overlay,
         intro_sequence_5_tilemap,
     })
 }
@@ -387,11 +413,20 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
 ///
 /// Segments 0 and 2 use sub_1B850 art/tilemaps with segment-specific palettes.
 /// Segments 1, 3, and 4 follow the separate Load_IntroSequence2/4/5 loaders.
-pub(crate) fn build_intro_sequence_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpState {
+#[cfg(test)]
+fn build_intro_sequence_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpState {
+    build_intro_sequence_vdp_with_title_variant(data, segment, 1)
+}
+
+pub(crate) fn build_intro_sequence_vdp_with_title_variant(
+    data: &IntroSub1B850Data,
+    segment: usize,
+    title_variant: u8,
+) -> VdpState {
     match segment {
         1 => build_intro_sequence_2_vdp(data),
         3 => build_intro_sequence_4_vdp(data),
-        4 => build_intro_sequence_5_vdp(data),
+        4 => build_intro_sequence_5_vdp(data, title_variant),
         _ => build_intro_sub_1b850_vdp(data, segment),
     }
 }
@@ -556,20 +591,38 @@ fn build_intro_sequence_4_vdp(data: &IntroSub1B850Data) -> VdpState {
     vdp
 }
 
-fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data) -> VdpState {
+fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> VdpState {
     let mut vdp = intro_sequence_base_vdp();
 
     // ASM Load_IntroSequence5 (kid.asm:29324-29364): use the Dark Alley/P
     // block/Kid/helmet art set and MapEni_2E154, not the shared sub_1B850
-    // Wild Side art path. Native follows the cold-boot post-sub_1C278
-    // region-byte-1 art for this cached non-gameplay VDP state.
-    for (vram_byte_addr, art_bytes) in &data.intro_sequence_5_art_chunks {
+    // Wild Side art path.
+    for (vram_byte_addr, art_bytes) in &data.intro_sequence_5_common_art_chunks {
         vdp.write_vram(*vram_byte_addr, art_bytes);
     }
+    // ASM loc_1B100 (kid.asm:29335-29351): `$FFFFFC82` selects byte_213D9,
+    // byte_219C1, or byte_216B7 before the decompression target `$BD60`.
+    let helmet_variant_index = match title_variant {
+        0 => 0,
+        1 => 1,
+        _ => 2,
+    };
+    vdp.write_vram(
+        0xBD60,
+        &data.intro_sequence_5_helmet_art_variants[helmet_variant_index],
+    );
     if let Some(rows) = sub_1cd88_rows(&data.intro_sequence_5_tilemap) {
         write_full_plane_rows(&mut vdp, 0xE000, &rows);
     }
     vdp.write_cram_words(0, &data.palette_segment_2);
+    // ASM sub_1C512 (kid.asm:31257-31278): non-zero `$FFFFFC82` overlays
+    // 14 words at Palette_Buffer_2+$62, using Pal_1C3C6 for 1 and Pal_1C3D4
+    // for every other non-zero variant.
+    match title_variant {
+        0 => {}
+        1 => vdp.write_cram_words(0x31, &data.intro_sequence_5_palette_variant_1_overlay),
+        _ => vdp.write_cram_words(0x31, &data.intro_sequence_5_palette_variant_2_overlay),
+    }
 
     vdp
 }
@@ -754,7 +807,10 @@ mod tests {
             intro_sequence_2_hologram_tilemap: vec![],
             intro_sequence_4_hologram_tilemap: vec![],
             intro_sequence_2_tilemap: vec![],
-            intro_sequence_5_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            intro_sequence_5_common_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![])],
+            intro_sequence_5_helmet_art_variants: [vec![], vec![], vec![]],
+            intro_sequence_5_palette_variant_1_overlay: vec![],
+            intro_sequence_5_palette_variant_2_overlay: vec![],
             intro_sequence_5_tilemap: vec![],
         }
     }
@@ -1195,12 +1251,12 @@ mod tests {
             intro_sequence_2_hologram_tilemap: intro2_hologram,
             intro_sequence_4_hologram_tilemap: vec![0x20BC; 40 * 28],
             intro_sequence_2_tilemap: vec![0x00BC; 40 * 28],
-            intro_sequence_5_art_chunks: [
+            intro_sequence_5_common_art_chunks: [
                 (0x1780, vec![0xD4]),
                 (0x4D80, vec![0xE5]),
                 (0x6800, vec![0xF6]),
-                (0xBD60, vec![0xA7]),
             ],
+            intro_sequence_5_helmet_art_variants: [vec![0xA0], vec![0xA7], vec![0xA2]],
             intro_sequence_5_tilemap: vec![0x0ABC; 40 * 28],
             ..empty_intro_data()
         };
@@ -1247,6 +1303,50 @@ mod tests {
             u16::from_be_bytes([intro5.vram[0xE000], intro5.vram[0xE001]]),
             0x0ABC,
             "ASM Load_IntroSequence5 should upload MapEni_2E154 through sub_1CD88",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_5_selects_art_and_palette_overlay_from_fc82() {
+        let data = IntroSub1B850Data {
+            palette_segment_2: vec![0x1000; 0x40],
+            intro_sequence_5_helmet_art_variants: [vec![0xD9], vec![0xC1], vec![0xB7]],
+            intro_sequence_5_palette_variant_1_overlay: vec![0x1C36; 0x0E],
+            intro_sequence_5_palette_variant_2_overlay: vec![0x1C34; 0x0E],
+            ..empty_intro_data()
+        };
+
+        let default_region = build_intro_sequence_vdp_with_title_variant(&data, 4, 0);
+        assert_eq!(
+            default_region.vram[0xBD60], 0xD9,
+            "ASM loc_1B100 keeps byte_213D9 when ($FFFFFC82).w is zero",
+        );
+        assert_eq!(
+            u16::from_be_bytes([default_region.cram[0x62], default_region.cram[0x63]]),
+            0x1000,
+            "ASM sub_1C512 should not overlay Palette_Buffer_2+$62 for FC82==0",
+        );
+
+        let variant_1 = build_intro_sequence_vdp_with_title_variant(&data, 4, 1);
+        assert_eq!(
+            variant_1.vram[0xBD60], 0xC1,
+            "ASM loc_1B100 selects byte_219C1 when ($FFFFFC82).w equals 1",
+        );
+        assert_eq!(
+            u16::from_be_bytes([variant_1.cram[0x62], variant_1.cram[0x63]]),
+            0x1C36,
+            "ASM sub_1C512 overlays Pal_1C3C6 at Palette_Buffer_2+$62 for FC82==1",
+        );
+
+        let variant_2 = build_intro_sequence_vdp_with_title_variant(&data, 4, 2);
+        assert_eq!(
+            variant_2.vram[0xBD60], 0xB7,
+            "ASM loc_1B100 selects byte_216B7 when ($FFFFFC82).w is non-zero and not 1",
+        );
+        assert_eq!(
+            u16::from_be_bytes([variant_2.cram[0x62], variant_2.cram[0x63]]),
+            0x1C34,
+            "ASM sub_1C512 overlays Pal_1C3D4 at Palette_Buffer_2+$62 for other non-zero FC82 values",
         );
     }
 
