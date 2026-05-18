@@ -3875,6 +3875,29 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_7A10 (kid.asm:8116): the right boundary check uses `x+$E`
+    /// before `cmp.w (Level_width_pixels).w,d7; bge.w loc_7A98`. A clear
+    /// right probe still snaps left when the crouch hitbox would touch or pass
+    /// the level edge.
+    #[test]
+    fn sub_7a10_right_level_edge_snaps_left_loc_7a98() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        let x_pos = 118u32 << 16; // x+$E = 132, beyond level width 128.
+        let y_pos = 32u32 << 16;
+
+        let result = movement::align_player_for_down_hold_sub_7A10(&grid, x_pos, y_pos, 128);
+
+        assert_eq!(
+            result.x_pos,
+            113u32 << 16,
+            "ASM loc_7A98: right edge overflow snaps x -= ((118+$E)&$F)+1 = 5"
+        );
+        assert!(
+            !result.blocked,
+            "ASM loc_7AC6: left-side re-probe after the boundary snap is clear"
+        );
+    }
+
     /// ASM loc_7A98 -> loc_7A90: if snapping left pushes the left side negative,
     /// restore the saved x_pos and return blocked.
     #[test]
