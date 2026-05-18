@@ -1188,8 +1188,13 @@ All simple projectile-based attacks are implemented.
 
 Follow-up (2026-03-28): the native player renderer now tags the existing Fire Demon death-trail
 projectiles and renders a dedicated six-phase flame footprint instead of the old generic enemy
-projectile dot. Exact ROM tile extraction for `Fire_Demon.asm` `stru_3A622` is still polish work,
-but live play now reads as a fire trail rather than a reused bullet marker.
+projectile dot. This made live play read as a fire trail rather than a reused bullet marker while
+leaving exact ROM tile extraction as later polish.
+
+Follow-up (2026-05-18): the native player now renders the tagged death-trail signature with the
+`Fire_Demon.asm` `stru_3A622` ROM frames (`unk_C7776..unk_C779E`, tile bases `$0B0..$0BA`) using
+the Fire Demon art bundle. The remaining fidelity gap is the core representation: native still uses
+projectile snapshots as the visual carrier rather than the original child-object lifecycle.
 
 ### 011 — Bricks half-broken (FIXED)
 Resolved by palette permutation fix (#004). Verified via capture-frames comparison —

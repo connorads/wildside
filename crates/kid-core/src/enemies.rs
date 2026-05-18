@@ -19121,10 +19121,9 @@ pub(crate) fn spawn_tar_monster_retaliation(
 
 /// Fire Demon death trail: spawn 3 fire fragments arcing outward from death position.
 pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile>, x: u32, y: u32) {
-    // TODO(fidelity): ASM Fire_Demon loc_3A63C uses a separate fire-trail
-    // object cycling `stru_3A622`'s ROM tiles. Native keeps the gameplay as
-    // three arcing projectiles and the player renderer tags this signature for
-    // a dedicated six-phase flame footprint until exact tile extraction lands.
+    // ASM Fire_Demon loc_3A63C uses a separate fire-trail object cycling
+    // `stru_3A622`'s ROM tiles. Native keeps this as three arcing projectile
+    // snapshots; the player renderer maps that signature to the ROM frames.
     let fragments: [(i32, i32); 3] = [
         (0x1_8000, -0x2_0000),  // right arc
         (-0x1_8000, -0x2_0000), // left arc

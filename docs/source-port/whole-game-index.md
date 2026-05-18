@@ -43,7 +43,6 @@ The current phase has no open blocker in `completion-audit.md`,
 `human-validation-checklist.md`, or the canonical backlog. Post-phase candidates
 remain:
 
-- Fire Demon death-trail exact ROM tile extraction polish
 - Wider `1p-playable` gate beyond the current smoke contract
 - Full-frame visual parity sweep and other broader verification hardening
 

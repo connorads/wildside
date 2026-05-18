@@ -110,7 +110,7 @@ themselves, prove `human-play-stable`.
 
 ### Visual fidelity — sprite extraction
 - **#033** [x] Transform animation visual sprites — original `Kid_Transform` art and timing are now wired for all forms. Juggernaut now composes the split head/base sprites into native player frames.
-- Fire Demon death trail visual sprites — live play now uses a dedicated six-phase flame footprint for the death trail (#025); exact ROM tile extraction from `Fire_Demon.asm` `stru_3A622` remains polish.
+- Fire Demon death trail visual sprites — live play now renders the `Fire_Demon.asm` `stru_3A622` ROM frames for the death-trail signature (#025). The core still carries this with native projectile snapshots rather than the original child-object lifecycle.
 - Floating item ROM sprites — some items use content-type-specific pixel-art icons, others placeholder rectangles (scene.rs). Needs ROM VRAM tile extraction.
 
 ### Visual fidelity — rendering accuracy (not yet investigated)

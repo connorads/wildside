@@ -1499,7 +1499,9 @@ mod tests {
     }
 
     #[test]
-    fn fire_demon_death_trail_uses_flame_footprint() {
+    fn fire_demon_death_trail_falls_back_to_flame_footprint_without_rom_visuals() {
+        let mut visuals = sample_level_visuals();
+        visuals.enemies.families.remove(&0x00);
         let mut trace = sample_trace(GameMode::InGame);
         trace.active_projectiles = vec![(0x0030_0000, 0x0020_0000, false)];
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
@@ -1510,7 +1512,7 @@ mod tests {
             kind: ActiveProjectileKind::FireDemonDeathTrail,
         }];
 
-        let scene = build_ingame_scene(&trace, false, None);
+        let scene = build_scene(&trace, false, Some(&visuals), None);
 
         assert!(has_rect(&scene, 31, 20, 2, 2, [255, 120, 32]));
         assert!(has_rect(&scene, 29, 22, 6, 3, [255, 120, 32]));
@@ -1518,6 +1520,35 @@ mod tests {
         assert!(
             !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
             "fire trail should render its flame footprint instead of the generic projectile dot",
+        );
+    }
+
+    #[test]
+    fn fire_demon_death_trail_uses_rom_sprite_frame_loc_3a63c_stru_3a622() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            friendly: false,
+            remaining_frames: 45,
+            kind: ActiveProjectileKind::FireDemonDeathTrail,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let trail_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { x, y, tiles, .. } if *x == 25 && *y == 16 => Some(tiles),
+            _ => None,
+        });
+        let tiles = trail_sprite.expect("ASM loc_3A63C should render the trail as a ROM sprite");
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x0B0,
+            "ASM stru_3A622 first frame uses `unk_C7776: sprite_frame_vram $0B0,$07,$00,$0E,$08`",
+        );
+        assert!(
+            !has_rect(&scene, 31, 20, 2, 2, [255, 120, 32]),
+            "the rectangle approximation should disappear once the ROM sprite frame is wired",
         );
     }
 
@@ -1796,6 +1827,30 @@ mod tests {
     fn sample_enemy_visuals() -> EnemyVisuals {
         use std::collections::HashMap;
         let mut families = HashMap::new();
+        families.insert(
+            0x00,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 120, 32)],
+                },
+                extra_palettes: vec![],
+                frames: vec![SpriteFrame {
+                    origin_x: 0x0E,
+                    origin_y: 0,
+                    width_px: 0x1A,
+                    height_px: 0x20,
+                    tile_base_index: 0,
+                    tile_sheet: TileSheet {
+                        tiles: (0..0xC0)
+                            .map(|index| Tile {
+                                pixels: [u8::try_from(index & 0xFF).expect("tile signature"); 64],
+                            })
+                            .collect(),
+                    },
+                }],
+                frame_duration: 6,
+            },
+        );
         families.insert(
             0x01,
             AnimatedSpriteVisual {

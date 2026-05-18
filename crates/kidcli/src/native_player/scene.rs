@@ -9,6 +9,34 @@ const FRIENDLY_PROJECTILE_COLOUR: [u8; 3] = [100, 255, 100];
 const ENEMY_PROJECTILE_COLOUR: [u8; 3] = [255, 80, 40];
 const FIRE_TRAIL_OUTER_COLOUR: [u8; 3] = [255, 120, 32];
 const FIRE_TRAIL_CORE_COLOUR: [u8; 3] = [255, 224, 128];
+const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
+const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
+
+const FIRE_DEMON_DEATH_TRAIL_FRAMES: [kid_render::SpriteFrame; 6] = [
+    fire_demon_trail_frame(0x0B0, 0x07, 0x00, 0x0E, 0x08),
+    fire_demon_trail_frame(0x0B2, 0x07, 0x00, 0x0D, 0x07),
+    fire_demon_trail_frame(0x0B4, 0x06, 0x00, 0x0C, 0x06),
+    fire_demon_trail_frame(0x0B6, 0x07, 0x00, 0x0E, 0x08),
+    fire_demon_trail_frame(0x0B8, 0x07, 0x00, 0x0D, 0x08),
+    fire_demon_trail_frame(0x0BA, 0x06, 0x00, 0x0C, 0x06),
+];
+
+const fn fire_demon_trail_frame(
+    tile_base_index: u16,
+    origin_x: i16,
+    origin_y: i16,
+    width_px: u16,
+    height_px: u16,
+) -> kid_render::SpriteFrame {
+    kid_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet: kid_render::TileSheet { tiles: Vec::new() },
+    }
+}
 
 /// Controls which layers are rendered. Used for layer-isolated diagnosis.
 #[derive(Debug, Clone, Copy)]
@@ -100,6 +128,35 @@ fn push_fire_demon_trail(commands: &mut Vec<DrawCommand>, sx: i32, sy: i32, rema
             colour: FIRE_TRAIL_CORE_COLOUR,
         });
     }
+}
+
+fn push_fire_demon_trail_sprite(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    sx: i32,
+    sy: i32,
+    remaining_frames: u16,
+) -> bool {
+    let Some(fire_demon_visuals) = level_visuals.enemies.families.get(&FIRE_DEMON_OBJECT_TYPE)
+    else {
+        return false;
+    };
+    let Some(source_frame) = fire_demon_visuals.frames.first() else {
+        return false;
+    };
+    let elapsed_frames =
+        FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME.saturating_sub(remaining_frames) as usize;
+    let descriptor =
+        &FIRE_DEMON_DEATH_TRAIL_FRAMES[elapsed_frames % FIRE_DEMON_DEATH_TRAIL_FRAMES.len()];
+    let frame = kid_render::SpriteFrame {
+        tile_sheet: source_frame.tile_sheet.clone(),
+        ..descriptor.clone()
+    };
+    // ASM Fire_Demon loc_3A63C copies the parent Fire Demon tile base/palette
+    // and initialises `stru_3A622`, whose frames are
+    // `unk_C7776..unk_C779E` (`sprite_frame_vram $0B0..$0BA`).
+    push_sprite_frame(commands, &frame, &fire_demon_visuals.palette, sx, sy);
+    true
 }
 
 pub(crate) fn build_scene(
@@ -1282,7 +1339,15 @@ fn build_game_scene_filtered(
                     },
                 }),
                 ActiveProjectileKind::FireDemonDeathTrail => {
-                    push_fire_demon_trail(&mut commands, sx, sy, projectile.remaining_frames);
+                    if !push_fire_demon_trail_sprite(
+                        &mut commands,
+                        level_visuals,
+                        sx,
+                        sy,
+                        projectile.remaining_frames,
+                    ) {
+                        push_fire_demon_trail(&mut commands, sx, sy, projectile.remaining_frames);
+                    }
                 }
             }
         }
