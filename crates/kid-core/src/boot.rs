@@ -6244,9 +6244,8 @@ impl NativeRuntime {
     ///
     /// Native maps `bclr #Button_Start` to the `start_pressed` rising-edge
     /// parameter.  The level-skip cheat path uses `input.a && input.c`
-    /// (A+C+Start).  The `btst #Button_A` pause suppression is implicit:
-    /// when A is held, the branch falls into either level-skip or Diamond
-    /// Power paths, never reaching the pause toggle.
+    /// (A+C+Start). ASM loc_74C8 then suppresses pause whenever A is held,
+    /// even when C is not held and Diamond Power is unavailable.
     pub(crate) fn handle_start_press(&mut self, input: FrameInput, start_pressed: bool) {
         if !start_pressed {
             return;
@@ -6263,12 +6262,8 @@ impl NativeRuntime {
                                 == Some(LEVEL_SKIP_RESUME_TOTAL_FRAMES - 1))
                     {
                         self.pending_level_skip = Some(self.next_level_id());
-                    } else if input.a
-                        && !input.c
-                        && self.progression.current_form != PlayerForm::Eyeclops
-                        && self.progression.diamond_count >= 20
-                    {
-                        // Diamond Power activation suppresses pause toggle
+                    } else if input.a {
+                        // ASM loc_74C8: `btst #Button_A,(Ctrl_Held); bne.s loc_7452`.
                     } else if self.paused {
                         // ASM loc_74B0 path: unpausing (Game_Paused already set)
                         self.paused = false;

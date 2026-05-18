@@ -10986,12 +10986,31 @@ mod chunk_05 {
 
     /// ASM loc_74B0 (kid.asm:7632–7636): `btst #Button_A,(Ctrl_Held);
     /// bne.s loc_7452` — holding A suppresses the pause toggle even when
-    /// Start is pressed.  In the ASM this is unconditional; in native the
-    /// A+Start path only suppresses pause when A+C (level skip) or Diamond
-    /// Power conditions are met.
-    // TODO(fidelity): ASM loc_74C8 unconditionally skips pause when A is
-    // held; native allows pause when A is held without C and Diamond Power
-    // conditions aren't met.
+    /// Start is pressed.  In the ASM this is unconditional.
+    #[test]
+    fn loc_74c8_a_plus_start_without_c_suppresses_pause() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
+        rt.player_lifecycle = PlayerLifecycle::Alive;
+        let input = FrameInput {
+            a: true,
+            start: true,
+            ..Default::default()
+        };
+        rt.handle_start_press(input, true);
+        assert!(
+            !rt.pause_toggle_pending,
+            "ASM loc_74C8: A held branches to loc_7452 before pause toggle"
+        );
+        assert!(
+            rt.pending_level_skip.is_none(),
+            "ASM loc_74E0: level skip still requires C plus A"
+        );
+    }
+
+    /// ASM loc_74B0 (kid.asm:7632–7636): `btst #Button_A,(Ctrl_Held);
+    /// bne.s loc_7452` — A+C+Start reaches loc_74E0 first and performs the
+    /// level skip, still without arming pause.
     #[test]
     fn loc_74b0_a_plus_c_triggers_level_skip_not_pause() {
         let mut rt = NativeRuntime::new(manifest());
