@@ -957,6 +957,15 @@ validation artefacts are saved even without F10/Esc:
 - `cargo run --release -p kidcli -- play-native --warp-level 00 --settled --record issue-140-prize-block --record-frames 1800`
 - `cargo run -p kidcli -- verify-recording --slug issue-140-prize-block --native-only`
 
+Narrowed evidence 2026-05-18: the interactive `play-native --record-frames` path did not produce a
+recording directory in this headless session, so the non-interactive scenario recorder was used to
+create `.cache/recordings/issue-139-rubber-block-window/`. Verification passed with
+`cargo run -q -p kidcli -- verify-recording --slug issue-139-rubber-block-window --native-only`.
+The `walk_end` frame (`000699_walk_end.png`) has Kid at `(1212,123)` and camera X `1042`, putting
+the column-80 rubber cells (world X `1280`) inside the captured viewport around screen X `238`.
+This is a bounded visual-inspection bundle for #139 only; it still needs a human to inspect the PNG
+before #139 can move from `[?]` to `[x]`, and it does not cover the #140 prize-block hit path.
+
 ### 142 — Level 1 dragon breath travels too far (FIXED)
 ASM audit 2026-04-05: `loc_3D02A` spawns breath as a stationary GfxObject (animation `stru_3CCC8`, 68 frames: 8+10+10+10+10+10+10) placed at ±28px (`DRAGON_WALKING_BREATH_OFFSET_PX`). Native incorrectly created a travelling projectile with `x_velocity=0x30000` and `lifetime=68`, covering 204px. Fix: zero velocity, keep lifetime=68 (matches animation duration). Also fixed flying dragon fire (`loc_34BAC`): added ±10px X offset and `terrain_kill` (ASM uses off-screen `$19(a3)` cull, not frame timer).
 
