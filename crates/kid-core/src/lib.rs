@@ -2058,7 +2058,11 @@ impl NativeRuntime {
         // ASM loc_7AD6 (kid.asm:8185): `cmpi.w #6,($FFFFFA56).w; beq.w loc_7B12`
         // — if Character_Movement == 6 (uphill-downhill/slope), skip the
         // sub_7B30 overlap check entirely and jump straight to Kid_Transform.
-        // TODO(fidelity): native always runs sub_7B30; slope bypass not modelled.
+        if self.slope_transform_bypass_loc_7ad6(slice) {
+            self.resolve_pending_form_change();
+            self.apply_form_width_overlap_fixup(slice);
+            return false;
+        }
         //
         // ASM loc_7B0A (kid.asm:8202): short-form helmets (Micromax=9,
         // Juggernaut=5) keep d6=$10; others get d6=$20 via `addi.w #$10,d6`.
@@ -2096,6 +2100,28 @@ impl NativeRuntime {
         self.opening_slice = Some(*slice);
         self.begin_death_windup();
         true
+    }
+
+    fn slope_transform_bypass_loc_7ad6(&self, slice: &OpeningSliceState) -> bool {
+        if !slice.player.on_ground || slice.player.x_velocity == 0 {
+            return false;
+        }
+        let Some(grid) = self.block_grid.as_ref() else {
+            return false;
+        };
+        let half_width = self.progression.current_form.half_width();
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let foot_y_px = (slice.player.y_pos >> 16) as i32;
+        [x_px - half_width, x_px, x_px + half_width]
+            .into_iter()
+            .map(|probe_x| terrain::probe_floor(grid, probe_x, foot_y_px))
+            .any(|probe| {
+                probe.on_ground
+                    && matches!(
+                        probe.cell.collision,
+                        terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
+                    )
+            })
     }
 
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {

@@ -5151,41 +5151,48 @@ mod chunk_03 {
     /// ASM loc_7AD6 (kid.asm:8185): `cmpi.w #6,($FFFFFA56).w; beq.w loc_7B12`
     /// — when Character_Movement == 6 (uphill-downhill), the overlap check
     /// (sub_7B30) is skipped entirely and the transform proceeds unconditionally.
-    /// Native does not yet model this slope bypass.
-    /// TODO(fidelity): native always runs sub_7B30; slope bypass not modelled.
     #[test]
-    fn loc_7ad6_slope_bypass_is_documented_as_todo_fidelity() {
-        // Verify that the native path still runs sub_7B30 even when the transform
-        // would be blocked — proving the slope bypass is not yet implemented.
-        // When the TODO(fidelity) is resolved, this test should be updated to
-        // show that slope state skips the overlap check.
+    fn loc_7ad6_slope_movement_skips_transform_overlap_check() {
         let mut runtime = NativeRuntime::new(manifest());
-        // Fully walled-in: both left and right columns blocked
+        // Fully walled-in at the transform probe rows, with a slope underfoot
+        // so native mirrors Character_Movement == 6.
         runtime.set_block_grid(grid_with_cells(
             8,
             8,
-            &[(0, 4, 0x60, 0x00), (1, 4, 0x60, 0x00), (2, 4, 0x60, 0x00)],
+            &[
+                (0, 4, 0x60, 0x00),
+                (1, 4, 0x60, 0x00),
+                (2, 4, 0x60, 0x00),
+                (1, 5, 0x40, 0x00),
+            ],
         ));
         runtime.progression.pending_form = Some(PlayerForm::IronKnight);
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 24 << 16;
-        slice.player.y_pos = 79 << 16;
+        slice.player.y_pos = 95 << 16;
+        slice.player.on_ground = true;
+        slice.player.x_velocity = 0x0001_0000;
+        let slope_probe = terrain::probe_floor(runtime.block_grid.as_ref().unwrap(), 24, 95);
+        assert!(
+            slope_probe.on_ground
+                && matches!(slope_probe.cell.collision, terrain::CollisionKind::SlopeUp),
+            "test setup should put Kid in native's Character_Movement == 6 slope equivalent"
+        );
 
         let entered_death = runtime.handle_pending_form_change_sub_7acc(&mut slice);
 
-        // Native: Kid form → cancel (loc_7B28 path), no death
         assert!(
             !entered_death,
-            "ASM loc_7AD6: native (no slope bypass) should cancel for TheKid, not die"
+            "ASM loc_7AD6: slope transform bypass should branch to Kid_Transform, not Death"
         );
         assert_eq!(
             runtime.progression.current_form,
-            PlayerForm::TheKid,
-            "ASM loc_7AD6: transform should be cancelled since sub_7B30 blocks"
+            PlayerForm::IronKnight,
+            "ASM loc_7AD6: Character_Movement == 6 skips sub_7B30 and transforms"
         );
         assert_eq!(
             runtime.progression.pending_form, None,
-            "ASM loc_7AD6: pending_form cleared after blocked transform"
+            "ASM loc_7AD6: pending_form is consumed by Kid_Transform"
         );
     }
 
