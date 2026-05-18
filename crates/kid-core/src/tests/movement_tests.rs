@@ -5075,6 +5075,62 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8616: the right edge is `x_pos + half_width`. The inclusive scan
+    /// must include the current right tile without widening to later solid tiles.
+    #[test]
+    fn loc_8616_sub_8600_right_edge_addition_sets_inclusive_end_column() {
+        // x=20, half=11 → scan pixels 9..31 → cols 0..1 only.
+        // cols 0..1: two solid tiles, one rubber => Rubber. If the right edge
+        // is computed with subtraction, col 1 is missed; if multiplied, cols
+        // 2..3 are pulled in and rubber no longer reaches the tie threshold.
+        let grid = grid_with_cells(
+            4,
+            4,
+            &[
+                (0, 2, 0x60, 0x00),
+                (1, 2, 0xE6, 0x00),
+                (2, 2, 0x60, 0x00),
+                (3, 2, 0x60, 0x00),
+            ],
+        );
+
+        let surface = grounded_surface_type_sub_8600(&grid, 20, 31, 11);
+
+        assert_eq!(
+            surface,
+            TerrainType::Rubber,
+            "ASM loc_8616/loc_8626: x+$B=31, so the inclusive scan is cols 0..1"
+        );
+    }
+
+    /// ASM loc_8626: `lsr.w #4,d0` converts a non-aligned left pixel edge to
+    /// the containing tile column, not modulo arithmetic or a widened column.
+    #[test]
+    fn loc_8626_sub_8600_left_edge_shift_uses_tile_column_not_remainder() {
+        // x=49, half=16 → min=33, max=65 → cols 2..4.
+        // cols 2..4 have two ice solid tiles and one normal solid tile, so Ice
+        // wins. If min_x is converted with `% 16`, col 1's rubber tile joins the
+        // scan, making ice no longer a strict majority.
+        let grid = grid_with_cells(
+            6,
+            4,
+            &[
+                (1, 2, 0xE6, 0x00),
+                (2, 2, 0xE2, 0x00),
+                (3, 2, 0xE2, 0x00),
+                (4, 2, 0x60, 0x00),
+            ],
+        );
+
+        let surface = grounded_surface_type_sub_8600(&grid, 49, 31, 16);
+
+        assert_eq!(
+            surface,
+            TerrainType::Ice,
+            "ASM loc_8626: min_x 33 >> 4 starts at col 2, excluding col 1 rubber"
+        );
+    }
+
     // sub_8600 tile scan loop + result — loc_864A, loc_8658, loc_866A, loc_8672, loc_8688
     // ---------------------------------------------------------------------------
 
