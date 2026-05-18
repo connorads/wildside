@@ -10458,9 +10458,9 @@ mod chunk_05 {
     /// derived from `Camera_X_pos` / `Camera_Y_pos`. The exact-value asserts
     /// below pin every initialisation in `NativeRuntime::step_weather`'s
     /// `EnemyProjectile { .. }` literal so cargo-mutants cannot delete a field
-    /// without breaking a test (`x_velocity`, `friendly`, `gravity`,
-    /// `homing_accel`, `speed_cap`, `wall_bounce` all default to zero/false
-    /// for hail, so the spawner relies on `..Default::default()`).
+    /// without breaking a test (`friendly`, `gravity`, `homing_accel`,
+    /// `speed_cap`, `wall_bounce` all default to zero/false for hail, so the
+    /// spawner relies on `..Default::default()`).
     #[test]
     fn hail_spawns_projectiles_after_35_seconds() {
         let mut runtime = NativeRuntime::new(manifest());
@@ -10510,8 +10510,8 @@ mod chunk_05 {
         // Default-derived fields: any future code that sets these to non-zero
         // for hail would silently break the storm scenario.
         assert_eq!(
-            p.x_velocity, 0,
-            "hail: no horizontal motion in current stub"
+            p.x_velocity, -0x0001_0000,
+            "ASM loc_61E2: subi.w #1,2(a0) drifts hail left by 1 px/frame"
         );
         assert!(!p.friendly, "hail damages Kid, not enemies");
         assert_eq!(p.gravity, 0, "hail: constant downward velocity, no gravity");
