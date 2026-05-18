@@ -3988,13 +3988,13 @@ mod chunk_06 {
     }
 
     #[test]
-    fn eyeclops_b_without_c_does_not_fire_hard_beam() {
+    fn eyeclops_start_without_a_does_not_fire_hard_beam() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Eyeclops;
         rt.progression.diamond_count = 2;
         let slice = combat_slice();
         let input = FrameInput {
-            b: true,
+            start: true,
             ..FrameInput::default()
         };
 
@@ -4007,11 +4007,43 @@ mod chunk_06 {
         assert!(!rt.helmet.eyeclops_beam_hard);
         assert_eq!(
             rt.progression.diamond_count, 2,
-            "hard beam must not spend diamonds unless both native gate buttons are held"
+            "ASM loc_7606: hard beam must not spend diamonds unless A+Start are held"
         );
         assert!(
             rt.projectiles.is_empty(),
-            "B-only input must not spawn an Eyeclops hard beam"
+            "Start-only input must not spawn an Eyeclops hard beam"
+        );
+    }
+
+    #[test]
+    fn eyeclops_b_plus_c_does_not_fire_hard_beam_loc_7606() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Eyeclops;
+        rt.progression.diamond_count = 2;
+        rt.prior_input = FrameInput {
+            c: true,
+            ..FrameInput::default()
+        };
+        let slice = combat_slice();
+        let input = FrameInput {
+            b: true,
+            c: true,
+            ..FrameInput::default()
+        };
+
+        rt.step_eyeclops_beam(&slice, input);
+
+        assert!(
+            !rt.helmet.eyeclops_beam_hard,
+            "ASM loc_7606: B+C is not the hard-beam held mask; A+Start is required"
+        );
+        assert_eq!(
+            rt.progression.diamond_count, 2,
+            "B+C must not spend hard-beam diamonds"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "held C suppresses the normal C rising-edge beam in this regression"
         );
     }
 
@@ -4022,8 +4054,8 @@ mod chunk_06 {
         rt.progression.diamond_count = 2;
         let slice = combat_slice();
         let input = FrameInput {
-            b: true,
-            c: true,
+            start: true,
+            a: true,
             ..FrameInput::default()
         };
 

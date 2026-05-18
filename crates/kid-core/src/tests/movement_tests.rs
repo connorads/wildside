@@ -5531,8 +5531,8 @@ mod chunk_11 {
     fn loc_8c26_walking_eyeclops_hard_beam_needs_two_diamonds() {
         let slice = combat_slice();
         let input = FrameInput {
-            b: true,
-            c: true,
+            start: true,
+            a: true,
             ..Default::default()
         };
 
@@ -5560,7 +5560,7 @@ mod chunk_11 {
             rt.step_eyeclops_beam(&slice, input);
             assert!(
                 rt.helmet.eyeclops_beam_hard,
-                "ASM loc_8C26: ≥2 diamonds + B+C held → move.w #$8001,($FFFFFAB8)"
+                "ASM loc_8C26: ≥2 diamonds + A+Start held → move.w #$8001,($FFFFFAB8)"
             );
             assert_eq!(
                 rt.helmet.eyeclops_beam_counter, 0x8001,
@@ -5577,8 +5577,8 @@ mod chunk_11 {
         rt.progression.diamond_count = 5;
         let slice = combat_slice();
         let input = FrameInput {
-            b: true,
-            c: true,
+            start: true,
+            a: true,
             ..Default::default()
         };
 

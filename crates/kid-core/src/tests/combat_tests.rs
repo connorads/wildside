@@ -11405,13 +11405,12 @@ mod chunk_05 {
     /// (no existing beam), and `Number_Diamonds >= 2`.  When all conditions
     /// are met, seeds `$FFFFFAB8 = $8001` and plays `sfx_Eyeclops_hard_lightbeam`.
     ///
-    /// TODO(fidelity): ASM gate is A+Start ($C0), native uses B+C.
     #[test]
     fn loc_7606_eyeclops_hard_beam_requires_two_diamonds_and_no_active_beam() {
         let slice = combat_slice();
         let input = FrameInput {
-            b: true,
-            c: true,
+            start: true,
+            a: true,
             ..FrameInput::default()
         };
 

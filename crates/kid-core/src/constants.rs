@@ -576,7 +576,7 @@ pub(crate) const MANIAXE_TRAVEL_FRAMES: u8 = 12;
 // === Eyeclops ===
 
 /// Eyeclops beam: C press fires a horizontal beam projectile.
-/// Normal beam (C button) has no diamond cost; hard beam (A+B held) costs 2.
+/// Normal beam (C button) has no diamond cost; hard beam (A+Start held) costs 2.
 pub(crate) const EYECLOPS_BEAM_SPEED: i32 = 0x8_0000; // 8 px/frame
 pub(crate) const EYECLOPS_BEAM_LIFETIME: u16 = 60;
 

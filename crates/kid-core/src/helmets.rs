@@ -4934,9 +4934,7 @@ impl NativeRuntime {
     /// (latch direction).  Native: same `step_eyeclops_beam` runs every
     /// frame regardless of standing/walking/platform state.
     ///
-    /// Native runs this check every frame (not just standing-still) and uses
-    /// B+C as the held-button gate rather than A+Start.
-    /// TODO(fidelity): ASM hard beam gate is A+Start ($C0), native uses B+C.
+    /// Native runs this check every frame (not just standing-still).
     pub(crate) fn step_eyeclops_beam(&mut self, slice: &OpeningSliceState, input: FrameInput) {
         if self.progression.current_form != PlayerForm::Eyeclops {
             self.helmet.eyeclops_beam_active = false;
@@ -4975,7 +4973,9 @@ impl NativeRuntime {
         } else {
             -EYECLOPS_BEAM_SPEED
         };
-        let hard_beam_requested = input.b && input.c;
+        // ASM loc_7606 / loc_8C26: `move.b (Ctrl_Held),d0; andi.b #$C0,d0;
+        // cmpi.b #$C0,d0` gates the hard beam on held A+Start.
+        let hard_beam_requested = input.a && input.start;
         if hard_beam_requested
             && !self.helmet.eyeclops_beam_active
             && self.progression.diamond_count >= 2
