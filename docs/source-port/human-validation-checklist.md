@@ -15,6 +15,15 @@ To verify every currently referenced bundle before review:
 mise run verify-human-validation
 ```
 
+To build a local HTML review page for the exact PNGs/transcripts in this
+checklist:
+
+```bash
+mise run human-validation-review
+```
+
+Open `.cache/human-validation/index.html` after generation.
+
 ## Visual Validation Rows
 
 | Backlog row | Verify command | Inspect | Pass decision |
