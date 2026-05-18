@@ -946,9 +946,11 @@ Regression coverage:
 - `cargo test -q -p kidcli block_types_share_tile_mapping_when_skin_matches -- --nocapture`
 
 Keep #139/#140 at `[?]` until a human-controlled gameplay recording validates a rubber-bearing level
-and an actual prize-block hit visually. Use bounded bundles so validation artefacts are saved even
-without F10/Esc:
-- `cargo run --release -p kidcli -- play-native --warp-level <rubber-level> --settled --record issue-139-rubber-block --record-frames 1800`
+and an actual prize-block hit visually. Level 00 is a valid #139 rubber-block target: the generated
+layout `.cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/level-layout/00.bin` contains
+`E60C` rubber cells at column 80 (rows 9-15) and column 97 (rows 10-15). Use bounded bundles so
+validation artefacts are saved even without F10/Esc:
+- `cargo run --release -p kidcli -- play-native --warp-level 00 --settled --record issue-139-rubber-block --record-frames 1800`
 - `cargo run -p kidcli -- verify-recording --slug issue-139-rubber-block --native-only`
 - `cargo run --release -p kidcli -- play-native --warp-level 00 --settled --record issue-140-prize-block --record-frames 1800`
 - `cargo run -p kidcli -- verify-recording --slug issue-140-prize-block --native-only`
