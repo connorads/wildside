@@ -4854,6 +4854,7 @@ impl OpeningSliceState {
         if self.player.y_velocity >= 0 {
             return;
         }
+        let incoming_y_velocity = self.player.y_velocity;
 
         // ASM loc_90C0 (kid.asm:10492): upward path tile-boundary guard.
         // `move.w d7,d0; andi.w #$F,d0; cmp.w d0,d4; ble.w loc_913A`
@@ -5076,12 +5077,14 @@ impl OpeningSliceState {
             // ASM loc_BB74 (kid.asm:15089): sub_BB54 cleanup also clears
             // y_vel — `movem.w (sp)+,d0-d3; clr.l y_vel(a3); rts`.
             //
-            // TODO(fidelity): ASM loc_9130 (kid.asm:10534): `neg.l d6;
-            // move.l d6,y_vel(a3); moveq #-1,d7; rts` — when sub_914A
-            // returns negative (rubber ceiling), sub_902A reverses y_vel
-            // instead of zeroing it. Native always zeroes here; rubber
-            // ceiling bounce is not implemented.
-            self.player.y_velocity = 0;
+            // ASM loc_9130 (kid.asm:10534): `neg.l d6; move.l d6,y_vel(a3);
+            // moveq #-1,d7; rts` — when sub_914A returns negative for a
+            // Rubber ceiling, sub_902A reverses the saved incoming y_vel.
+            self.player.y_velocity = if probe.cell.block_type == terrain::BlockType::Rubber {
+                -incoming_y_velocity
+            } else {
+                0
+            };
         }
     }
 

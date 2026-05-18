@@ -7333,10 +7333,8 @@ mod chunk_11 {
     /// returns negative d7 (rubber ceiling), sub_902A negates the saved incoming
     /// y_vel and stores it as a rebound, returning d7=-1.
     /// This is the upward mirror of loc_9082 (floor rubber bounce).
-    /// TODO(fidelity): native apply_ceiling_collision always zeroes y_vel;
-    /// the rubber ceiling bounce is not implemented.
     #[test]
-    fn loc_9130_ceiling_rubber_bounce_velocity_reversal_not_yet_native() {
+    fn loc_9130_ceiling_rubber_bounce_reverses_incoming_velocity() {
         // Rubber block at cell (3, 2): row 2 spans y=32..47.
         let w: u16 = 10;
         let h: u16 = 10;
@@ -7366,12 +7364,10 @@ mod chunk_11 {
             &[],
         );
 
-        // ASM loc_9130 would negate: y_vel = -(-$E0000) = +$E0000 (bounce down).
-        // Native zeroes y_vel instead (TODO(fidelity)).
+        // ASM loc_9130 negates: y_vel = -(-$E0000) = +$E0000 (bounce down).
         assert_eq!(
-            slice.player.y_velocity, 0,
-            "ASM loc_9130: native currently zeroes y_vel on rubber ceiling hit \
-             (TODO(fidelity): should negate to +incoming for bounce)"
+            slice.player.y_velocity, 0x000E_0000,
+            "ASM loc_9130: rubber ceiling hit should negate incoming y_vel"
         );
         // The rubber block hit should still be recorded for the jiggle effect
         assert!(

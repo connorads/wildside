@@ -1472,8 +1472,8 @@ mod chunk_06 {
         runtime.process_block_effects(&mut slice);
 
         assert_eq!(
-            slice.player.y_velocity, 0,
-            "ceiling hit should stop upward motion"
+            slice.player.y_velocity, 0x0011_0000,
+            "ASM loc_9130: rubber ceiling hit should reverse upward motion"
         );
         assert_eq!(
             runtime.block_bounces.len(),

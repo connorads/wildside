@@ -2321,15 +2321,15 @@ mod chunk_09 {
 
         assert_eq!(
             frame_1396,
-            Some((Some(0x010F_0000), 0x0073_0000, Some(0))),
-            "the transient prize-cell restore should still hold Kid on frame 1396"
+            Some((Some(0x02DF_0000), 0x0266_0000, Some(0))),
+            "ASM loc_9130 rubber-ceiling rebound changes the native demo trajectory before the old prize-cell latch frame"
         );
-        // After the death-windup timing fix, the ceiling latch clears one frame
-        // earlier — Kid begins ascending on frame 1397 instead of staying pinned.
+        // After ASM loc_9130 rubber-ceiling rebound, the native-only demo
+        // bootstrap path is already on the lower grounded trajectory here.
         assert_eq!(
             frame_1397,
-            Some((Some(0x010E_9600), 0x0072_0000, Some(-0x6A00))),
-            "by frame 1397 the ceiling latch has cleared and Kid begins the next arc"
+            Some((Some(0x02DF_0000), 0x0261_0000, Some(0))),
+            "the local regression should preserve the post-rebound grounded trajectory"
         );
     }
 
