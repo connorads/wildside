@@ -5933,6 +5933,7 @@ mod chunk_08_inactive_slot_constructors {
             kid_hitbox_left_px: 0x100,
             kid_hitbox_right_px: 0x120,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: WeatherCollisionRowsSub61CA {
                 rows: vec![vec![0, 0, 0x00FF]],
             },
@@ -6022,6 +6023,7 @@ mod chunk_08_inactive_slot_constructors {
             kid_hitbox_left_px: 0x0100,
             kid_hitbox_right_px: 0x0120,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: WeatherCollisionRowsSub61CA { rows: vec![] },
             starting_number_sprites: 0,
         };

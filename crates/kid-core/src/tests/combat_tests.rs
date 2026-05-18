@@ -13500,6 +13500,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 130,
             kid_hitbox_right_px: 160,
             random_byte: 0x00,
+            spawn_random_byte: 0x00,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -13567,6 +13568,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 200,
             kid_hitbox_right_px: 210,
             random_byte: 0x34,
+            spawn_random_byte: 0x34,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -13636,6 +13638,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -13699,6 +13702,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -13767,6 +13771,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -13837,6 +13842,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -13873,6 +13879,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0xFF,
+            spawn_random_byte: 0xFF,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -13907,6 +13914,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0xAB,
+            spawn_random_byte: 0xAB,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -13965,6 +13973,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0x00,
+            spawn_random_byte: 0x00,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -14017,7 +14026,8 @@ mod chunk_05 {
             kid_hitbox_bottom_px: 9999,
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
-            random_byte: 0x10, // spawn_x = 100 + 16 + 40 = 156, col = 9
+            random_byte: 0x10,
+            spawn_random_byte: 0x10, // spawn_x = 100 + 16 + 40 = 156, col = 9
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14085,6 +14095,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0x00,
+            spawn_random_byte: 0x00,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -14125,6 +14136,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0x30,
+            spawn_random_byte: 0x30,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14139,6 +14151,50 @@ mod chunk_05 {
         assert_eq!(
             stepped.free_falling_slots, 0,
             "ASM loc_62C2: subi.b #1,($FFFFFB3D).w"
+        );
+    }
+
+    #[test]
+    fn loc_623a_loc_626c_use_independent_random_draws_for_cooldown_and_spawn_x() {
+        // ASM loc_623A calls Get_RandomNumber_byte for cooldown jitter, then
+        // loc_626C calls it again for spawn X. The second draw must choose the
+        // spawn column even when the first draw reloads a different cooldown.
+        let mut collision_rows = empty_weather_collision_rows_sub_61_ca();
+        collision_rows.rows[4][20] = 0;
+        collision_rows.rows[4][21] = 0;
+
+        let stepped = step_weather_worker_sub_61CA(WeatherWorkerInputSub61CA {
+            camera_x_px: 200,
+            camera_y_px: 64,
+            spawn_cooldown: 1,
+            free_falling_slots: 1,
+            falling_slots: [
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+                FallingWeatherSlotSub61CA::inactive(6, 0),
+            ],
+            impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+            kid_hitbox_top_px: 9999,
+            kid_hitbox_bottom_px: 9999,
+            kid_hitbox_left_px: 9999,
+            kid_hitbox_right_px: 9999,
+            random_byte: 0x0F,
+            spawn_random_byte: 0x50,
+            collision_rows,
+            starting_number_sprites: 0,
+        });
+
+        assert_eq!(
+            stepped.spawn_cooldown,
+            0x25 - 0x0F,
+            "ASM loc_623A: first RNG byte supplies the cooldown jitter"
+        );
+        assert_eq!(
+            stepped.falling_slots[0].x_px,
+            200 + 0x50 + 0x28,
+            "ASM loc_626C: second RNG byte supplies spawn_x"
         );
     }
 
@@ -14169,6 +14225,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0x00,
+            spawn_random_byte: 0x00,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14213,6 +14270,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0x09,
+            spawn_random_byte: 0x09,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14256,6 +14314,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0x08,
+            spawn_random_byte: 0x08,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14307,6 +14366,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 40,
             kid_hitbox_right_px: 70,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14342,6 +14402,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 0,
             kid_hitbox_right_px: 999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14381,6 +14442,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 40,
             kid_hitbox_right_px: 70,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14420,6 +14482,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 40,
             kid_hitbox_right_px: 70,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14461,6 +14524,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 40,
             kid_hitbox_right_px: 70,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14501,6 +14565,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 40,
             kid_hitbox_right_px: 70,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14543,6 +14608,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 40,
             kid_hitbox_right_px: 70,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14588,6 +14654,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 40,
             kid_hitbox_right_px: 70,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -14631,6 +14698,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 40,
             kid_hitbox_right_px: 70,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -14675,6 +14743,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 40,
             kid_hitbox_right_px: 50,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -14718,6 +14787,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 60,
             kid_hitbox_right_px: 70,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -14754,6 +14824,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -14796,6 +14867,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -14845,6 +14917,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14899,6 +14972,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -14965,6 +15039,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -15017,6 +15092,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows,
             starting_number_sprites: 0,
         });
@@ -15072,6 +15148,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -15127,6 +15204,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -15177,6 +15255,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -15230,6 +15309,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -15293,6 +15373,7 @@ mod chunk_05 {
             kid_hitbox_left_px: 9999,
             kid_hitbox_right_px: 9999,
             random_byte: 0,
+            spawn_random_byte: 0,
             collision_rows: empty_weather_collision_rows_sub_61_ca(),
             starting_number_sprites: 0,
         });
@@ -15336,6 +15417,7 @@ mod chunk_05 {
                 kid_hitbox_left_px: 9999,
                 kid_hitbox_right_px: 9999,
                 random_byte: 0,
+                spawn_random_byte: 0,
                 collision_rows: empty_weather_collision_rows_sub_61_ca(),
                 starting_number_sprites: 0,
             });

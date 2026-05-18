@@ -707,6 +707,7 @@ pub(crate) struct WeatherWorkerInputSub61CA {
     pub(crate) kid_hitbox_left_px: i16,
     pub(crate) kid_hitbox_right_px: i16,
     pub(crate) random_byte: u8,
+    pub(crate) spawn_random_byte: u8,
     pub(crate) collision_rows: WeatherCollisionRowsSub61CA,
     pub(crate) starting_number_sprites: u8,
 }
@@ -776,11 +777,10 @@ pub(crate) fn step_weather_worker_sub_61CA(
     }
 
     // ASM loc_623A (kid.asm:6232): subq.b #1,($FFFFFB3C).w; bne.w loc_62CE
-    // Decrement spawn cooldown. When zero: reload to $25, subtract random 0–15
+    // Decrement spawn cooldown. When zero: reload to $25, subtract random 0-15
     // jitter, then check free_falling_slots before scanning for an inactive slot.
-    // TODO(fidelity): ASM calls j_Get_RandomNumber_byte here and again at
-    // loc_626C — two independent RNG draws. Native reuses one `random_byte` for
-    // both cooldown jitter and spawn X position.
+    // ASM loc_623A and loc_626C call j_Get_RandomNumber_byte separately: the
+    // first byte jitters cooldown, the second byte chooses spawn X.
     output.spawn_cooldown = output.spawn_cooldown.wrapping_sub(1);
     if output.spawn_cooldown == 0 {
         output.spawn_cooldown = 0x25u8.wrapping_sub(input.random_byte & 0x0F);
@@ -802,7 +802,7 @@ pub(crate) fn step_weather_worker_sub_61CA(
                 // loc_62C2: store spawn_y/spawn_x to slot, decrement free count.
                 let spawn_x_px = input
                     .camera_x_px
-                    .wrapping_add(i16::from(input.random_byte))
+                    .wrapping_add(i16::from(input.spawn_random_byte))
                     .wrapping_add(0x0028);
                 let spawn_y_px = input.camera_y_px;
                 let row_index = usize::from(
