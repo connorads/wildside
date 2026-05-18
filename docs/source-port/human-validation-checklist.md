@@ -9,6 +9,12 @@ the listed artefacts. If the human decision is "pass", update
 If the decision is "fail", keep the row open and add the observed mismatch or
 repro notes.
 
+To verify every currently referenced bundle before review:
+
+```bash
+mise run verify-human-validation
+```
+
 ## Visual Validation Rows
 
 | Backlog row | Verify command | Inspect | Pass decision |

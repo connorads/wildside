@@ -101,6 +101,24 @@ description = "Canonical 1P-accurate release gate: bootstrap, gameplay compares,
 run = "cargo run -q -p kidcli -- project-status"
 description = "Summarise repo health with 1P-playable first, 1P-accurate second, and TAS frontier status separate"
 
+[tasks.verify-human-validation]
+run = """
+scripts/strict-rust.sh sh -ec '
+for slug in \
+  issue-135-level1-background \
+  issue-136-prize-emergence \
+  issue-138-enemy-contact \
+  issue-139-rubber-block-window \
+  issue-140-prize-block-window \
+  issue-143-heavy-man-block-break \
+  issue-146-level2-death
+do
+  cargo run -q -p kidcli -- verify-recording --slug "$slug" --native-only
+done
+'
+"""
+description = "Replay all recording bundles that still require human validation/repro decisions"
+
 [tasks.verify-audio-driver]
 run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-audio-driver"
 
