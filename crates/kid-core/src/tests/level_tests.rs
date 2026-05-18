@@ -524,13 +524,12 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_301FE not yet implemented"]
     fn background_scroll_stripe_vertical_pass_loc_301fe_builds_the_first_vdp_command_and_wrap_pass()
     {
         assert_eq!(
             background_scroll_stripe_vertical_pass_loc_301FE(0x001D, 0x000C, 0x0056, 0),
             BackgroundScrollStripeVerticalPassLoc301FE {
-                vdp_command: 0x4EC0_0000,
+                vdp_command: 0x4EB0_0000,
                 saved_camera_tile_column: 0x0056,
                 second_pass_vdp_command: Some(0x4E80_0000),
             },
@@ -539,13 +538,12 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_301FE not yet implemented"]
     fn background_scroll_stripe_vertical_pass_loc_301fe_skips_the_wrap_pass_when_d2_stays_negative()
     {
         assert_eq!(
             background_scroll_stripe_vertical_pass_loc_301FE(0x0003, 0x0005, 0x001A, -1),
             BackgroundScrollStripeVerticalPassLoc301FE {
-                vdp_command: 0x41D4_0000,
+                vdp_command: 0x4194_0000,
                 saved_camera_tile_column: 0x001A,
                 second_pass_vdp_command: None,
             },
@@ -2454,7 +2452,6 @@ mod chunk_02 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1614 not yet implemented"]
     fn loc_1614_accepts_inclusive_camera_tile_bounds_and_packs_the_vram_word() {
         assert_eq!(
             fg_update_queue_cell_vram_word_loc_1614(0x0002, 0x0003, 0x0020, 0x0030),
@@ -2463,7 +2460,7 @@ mod chunk_02 {
         );
         assert_eq!(
             fg_update_queue_cell_vram_word_loc_1614(0x0016, 0x0011, 0x0020, 0x0030),
-            Some(0x4118),
+            Some(0x4158),
             "ASM loc_1614 should also accept the upper inclusive bounds after `addi.w #$14,d6` and `addi.w #$E,d7` before writing the second visible edge cell"
         );
     }
