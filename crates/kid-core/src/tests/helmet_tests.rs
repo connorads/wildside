@@ -3806,33 +3806,36 @@ mod chunk_08 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1223C not yet implemented"]
     fn loc_1223c_rotates_four_palette_entries_downward() {
         // ASM loc_1223C (kid.asm:24373): after the hibernate loop drains `d0`,
         // the routine rotates palette words $E,$10,$12,$14 downward by one position.
         // The word at $14 wraps around to $E.
         let mut palette_buffer = [0x0000u16; 0x40];
-        palette_buffer[0x0E] = 0x0EEE;
-        palette_buffer[0x10] = 0x0ACE;
-        palette_buffer[0x12] = 0x0246;
-        palette_buffer[0x14] = 0x0123;
+        let start = crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C;
+        palette_buffer[start] = 0x0EEE;
+        palette_buffer[start + 1] = 0x0ACE;
+        palette_buffer[start + 2] = 0x0246;
+        palette_buffer[start + 3] = 0x0123;
 
         crate::level::rotate_palette_lava_water_loc_1223C(&mut palette_buffer);
 
         assert_eq!(
-            palette_buffer[0x0E], 0x0123,
+            palette_buffer[start], 0x0123,
             "ASM loc_1223C should move the word from $14 to $E, completing the rotation"
         );
         assert_eq!(
-            palette_buffer[0x10], 0x0EEE,
+            palette_buffer[start + 1],
+            0x0EEE,
             "ASM loc_1223C should shift the word from $E down to $10"
         );
         assert_eq!(
-            palette_buffer[0x12], 0x0ACE,
+            palette_buffer[start + 2],
+            0x0ACE,
             "ASM loc_1223C should shift the word from $10 down to $12"
         );
         assert_eq!(
-            palette_buffer[0x14], 0x0246,
+            palette_buffer[start + 3],
+            0x0246,
             "ASM loc_1223C should shift the word from $12 down to $14"
         );
     }
@@ -3894,7 +3897,6 @@ mod chunk_08 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_11D92 not yet implemented"]
     fn loc_11d92_routes_deadly_skyscrapers_and_elsewhere_30_into_the_removed_palette_path() {
         assert_eq!(
             classify_foreground_palette_override_loc_11D8E(0x1C),
@@ -3908,8 +3910,8 @@ mod chunk_08 {
         );
         assert_eq!(
             classify_foreground_palette_override_loc_11D8E(0x1B),
-            ForegroundPaletteOverrideLoc11D8E::None,
-            "ASM loc_11D92 should leave neighbouring map IDs on the remaining palette-check path"
+            ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette,
+            "ASM loc_11D92 should leave Alien Twilight on the remaining `loc_11DA0` palette-check path"
         );
     }
 

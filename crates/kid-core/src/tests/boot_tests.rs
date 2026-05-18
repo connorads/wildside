@@ -5408,15 +5408,15 @@ mod chunk_01 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_303EA not yet implemented"]
     fn background_scroll_enigma_row_table_lookup_loc_303ea_biases_desert_rows_and_masks_tile_row_to_5_bits()
      {
-        let background_row_table = [0, 0x11, 0x22, 0x33, 0];
+        let mut background_row_table = [0u8; 36];
+        background_row_table[35] = 0x33;
 
         assert_eq!(
             background_scroll_enigma_row_table_lookup_loc_303EA(0x0021, 5, &background_row_table),
             Some(BackgroundScrollEnigmaRowTableLookupLoc303EA {
-                map_header_byte_offset: 3,
+                map_header_byte_offset: 35,
                 background_row_index: 0x33,
                 row_mapping_byte_offset: 0x0CC0,
                 vdp_control_word: 0x6080,
