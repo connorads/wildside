@@ -2456,7 +2456,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_36C82 not yet implemented"]
     fn vertical_collision_scan_down_loc_36c82_seeds_the_row_and_inclusive_span() {
         let data = vec![0u8; 5 * 4 * 2];
         let mut grid = BlockGrid::from_level_layout(&data, 5, 4);
@@ -2467,7 +2466,7 @@ mod tests {
             "ASM loc_36C82 (kid.asm:38523) should load row ((y-1)>>4)+1 and seed the inclusive span from `(x-half_width)>>4` through `(x+half_width-1)>>4`"
         );
         assert!(
-            !vertical_collision_scan_down_sub_36C6A(&grid, 40, 31, 16),
+            !vertical_collision_scan_down_sub_36C6A(&grid, 40, 16, 16),
             "ASM loc_36C82 should not use the row below until `subq #1; lsr #4; addq #1` advances the accepted row"
         );
     }

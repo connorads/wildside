@@ -2695,20 +2695,13 @@ pub(crate) fn title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(counter: u16
     // ASM loc_1BB36 (kid.asm:30414-30418) and loc_1BB44 (kid.asm:30420-30425):
     // The intro text sprite slides in from the left. Each frame:
     // - loc_1BB36: d0 = #$10C (268), d1 = counter from $44(a5)
-    // - If d1 == 0, skip decrement; otherwise subq.w #1,$44(a5)
+    // - If d1 != 0, decrement `$44(a5)` after copying the old value into d1
     // - loc_1BB44: d1 <<= 3 (multiply by 8), then d0 -= d1
     // - x_pos = 268 - (counter * 8)
     // Initial counter is $27 (39) set at loc_1B6AC line 29923.
     // First visible frame: x_pos = 268 - (39 * 8) = -44 (off-screen left).
     // Final frame (counter=0): x_pos = 268.
-    // ASM loading order matters: d0 is set first, then d1, so decrement happens
-    // before the calculation when counter > 0.
-    let effective_counter = if counter == 0 {
-        0
-    } else {
-        counter.saturating_sub(1)
-    };
-    0x010C_u16 as i16 - (effective_counter * 8) as i16
+    0x010C_u16 as i16 - (counter * 8) as i16
 }
 
 #[allow(non_snake_case)]
@@ -2901,7 +2894,7 @@ pub(crate) fn title_screen_lightning_sequence_loc_1B37C() -> TitleScreenLightnin
     // `sub_1B36C` thunder calls around a 45-step `(d1 & 3) + 1` flash loop.
     // ASM sub_1B41C (kid.asm:29642-29650): each flash uploads 32 longwords
     // from `ArtUnc_2A4D6 + (d0 << 7)` into VRAM word address `$17A0`.
-    let mut steps = Vec::with_capacity(55);
+    let mut steps = Vec::with_capacity(54);
     steps.extend([
         TitleScreenLightningFlashStepLoc1B37C {
             hibernate_frames: 3,
@@ -7524,32 +7517,31 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1BB36/loc_1BB44 not yet implemented"]
     fn loc_1bb36_and_loc_1bb44_slide_intro_text_from_left() {
         // ASM loc_1BB36 (kid.asm:30414-30418) and loc_1BB44 (kid.asm:30420-30425):
         // The slide loop calculates x_pos = 268 - (counter * 8).
         // Initial counter is $27 (39) from loc_1B6AC line 29923.
-        // The loop decrements counter first, then calculates position.
+        // The loop loads counter into d1, decrements the stored counter, then calculates position.
 
-        // First frame: counter starts at 39, becomes 38 after decrement
+        // First frame: d1 keeps the original counter 39, then the stored counter becomes 38.
         let first_frame = title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(39);
         assert_eq!(
             first_frame, -44,
-            "ASM loc_1BB44 should compute 268 - (38 * 8) = 268 - 304 = -44 for the first visible frame (counter decrements before calculation)",
+            "ASM loc_1BB44 should compute 268 - (39 * 8) = 268 - 312 = -44 for the first visible frame",
         );
 
-        // Mid-animation: counter at 20, becomes 19 after decrement
+        // Mid-animation: d1 keeps the original counter 20 for this frame.
         let mid_frame = title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(20);
         assert_eq!(
-            mid_frame, 116,
-            "ASM loc_1BB44 should compute 268 - (19 * 8) = 268 - 152 = 116 for mid-animation",
+            mid_frame, 108,
+            "ASM loc_1BB44 should compute 268 - (20 * 8) = 268 - 160 = 108 for mid-animation",
         );
 
-        // Late animation: counter at 1, becomes 0 after decrement
+        // Late animation: d1 keeps counter 1 for this frame, then the stored counter reaches 0.
         let last_moving_frame = title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(1);
         assert_eq!(
             last_moving_frame, 260,
-            "ASM loc_1BB44 should compute 268 - (0 * 8) = 268 for the last moving frame",
+            "ASM loc_1BB44 should compute 268 - (1 * 8) = 260 for the last moving frame",
         );
 
         // Final position: counter = 0, stays at 0 (beq.s skips decrement)
@@ -7561,25 +7553,24 @@ mod tests {
     }
 
     #[test]
-    fn loc_1bb36_decrements_counter_before_calculation() {
+    fn loc_1bb36_uses_pre_decrement_counter_for_current_x_position() {
         // ASM loc_1BB36: the counter decrement happens in two different code paths:
-        // 1. If counter != 0: subq.w #1,$44(a5) executes, then falls through to loc_1BB44
+        // 1. If counter != 0: `move.w $44(a5),d1` keeps the old value in d1,
+        //    then `subq.w #1,$44(a5)` updates the stored counter for the next frame.
         // 2. If counter == 0: beq.s skips the decrement, uses counter=0 directly
-        // This means the first frame with counter=39 produces x_pos using counter=38.
+        // This means the first frame with counter=39 produces x_pos using counter=39.
 
         for initial_counter in [39, 20, 5, 1] {
             let x_pos = title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(initial_counter);
-            let expected_counter = initial_counter - 1;
-            let expected_x = 0x010C_u16 as i16 - (expected_counter * 8) as i16;
+            let expected_x = 0x010C_u16 as i16 - (initial_counter * 8) as i16;
             assert_eq!(
                 x_pos, expected_x,
-                "ASM loc_1BB44 with counter={initial_counter} should use effective counter={expected_counter} for x_pos={expected_x}",
+                "ASM loc_1BB44 with counter={initial_counter} should use the pre-decrement d1 value for x_pos={expected_x}",
             );
         }
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1BB36/loc_1BB44 not yet implemented"]
     fn loc_1bb36_and_loc_1bb44_full_slide_trajectory() {
         // Verify the slide progresses from off-screen left to final position.
         // The intro text ("THIS IS THE STORY OF SOMEONE TOO TOUGH TO BEAT")
@@ -7694,8 +7685,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1B37C/sub_1B41C not yet implemented"]
-    fn loc_1b37c_runs_the_55_step_title_lightning_script_through_sub_1b41c() {
+    fn loc_1b37c_runs_the_54_step_title_lightning_script_through_sub_1b41c() {
         let sequence = title_screen_lightning_sequence_loc_1B37C();
 
         assert_eq!(sequence.flash_vram_word_addr, 0x17A0);
@@ -7706,7 +7696,7 @@ mod tests {
         );
         assert_eq!(
             sequence.steps.len(),
-            55,
+            54,
             "ASM loc_1B37C runs four opening flashes, a 45-iteration `dbf d1,loc_1B3BC` loop, then five closing flashes before deleting the worker",
         );
         assert_eq!(
@@ -7743,7 +7733,7 @@ mod tests {
             "ASM loc_1B3BC masks `d1` with 3 and adds 1, so the looped flashes should cycle `1,4,3,2` while `d1` counts down from `$2C`",
         );
         assert_eq!(
-            &sequence.steps[50..],
+            &sequence.steps[49..],
             &[
                 TitleScreenLightningFlashStepLoc1B37C {
                     hibernate_frames: 3,
