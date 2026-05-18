@@ -70,6 +70,8 @@ pub struct FloatingPrizeVisuals {
     pub diamond: AnimatedSpriteVisual,
     /// Helmet prize visuals keyed by prize content id (0x02..0x0A).
     pub helmets: HashMap<u8, AnimatedSpriteVisual>,
+    /// Simple icon prize visuals keyed by prize content id (0x0B..0x0D).
+    pub icons: HashMap<u8, AnimatedSpriteVisual>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

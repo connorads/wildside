@@ -193,6 +193,37 @@ mod tests {
     }
 
     #[test]
+    fn load_floating_prize_visuals_returns_rom_icon_frames() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        for (content_id, origin_x, origin_y, width_px, height_px, tile_count) in [
+            // ASM PrizeAnkh_Init -> stru_10C08 -> unk_E0FE6.
+            (0x0B, 0x06, -2, 0x10, 0x10, 12),
+            // ASM PrizeClock_Init -> stru_10C18 -> unk_E0FCE.
+            (0x0C, 0x07, -2, 0x10, 0x10, 12),
+            // ASM PrizeContinue_Init -> stru_10C28 -> unk_E0FD6.
+            (0x0D, 0x07, -2, 0x10, 0x10, 24),
+        ] {
+            let visual = visuals
+                .floating_prizes
+                .icons
+                .get(&content_id)
+                .expect("floating prize icon visual");
+            assert_eq!(visual.frame_duration, 1);
+            assert_eq!(visual.frames.len(), 1);
+            let frame = &visual.frames[0];
+            assert_eq!(frame.origin_x, origin_x);
+            assert_eq!(frame.origin_y, origin_y);
+            assert_eq!(frame.width_px, width_px);
+            assert_eq!(frame.height_px, height_px);
+            assert_eq!(frame.tile_base_index, 0);
+            assert_eq!(frame.tile_sheet.tiles.len(), tile_count);
+        }
+    }
+
+    #[test]
     fn load_enemy_and_platform_visuals_returns_visible_level1_families() {
         let fixture = TestBundle::new().expect("test bundle");
 
@@ -363,6 +394,21 @@ mod tests {
                 root.path(),
                 "ingame/artunc/diamond_1.bin",
                 &(0..512).map(|value| (value % 16) as u8).collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Life_icon_(3_frames).bin",
+                &vec![0x6B; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Clock_icon_(3_frames).bin",
+                &vec![0x6C; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Coin_continue_icon_(6_frames).bin",
+                &vec![0x6D; 32 * 24],
             )?;
             write_file(
                 root.path(),
@@ -664,6 +710,12 @@ mod tests {
                     asset_file(root.path(), "ingame/artcomp/Horizontal_platform.bin"),
                     asset_file(root.path(), "ingame/artcomp/Vertical_platform.bin"),
                     asset_file(root.path(), "ingame/artunc/diamond_1.bin"),
+                    asset_file(root.path(), "ingame/artunc/Life_icon_(3_frames).bin"),
+                    asset_file(root.path(), "ingame/artunc/Clock_icon_(3_frames).bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc/Coin_continue_icon_(6_frames).bin",
+                    ),
                     asset_file(root.path(), "ingame/palette_enemy/Crystal_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Dragon_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),

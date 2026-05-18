@@ -1985,6 +1985,20 @@ mod tests {
                 frame_duration: 1,
             },
         );
+        let mut icons = HashMap::new();
+        for (content_id, tile_pattern) in [(0x0B, 101), (0x0C, 102), (0x0D, 103)] {
+            icons.insert(
+                content_id,
+                AnimatedSpriteVisual {
+                    palette: Palette {
+                        colours: vec![colour(0, 0, 0), colour(255, 255, 255)],
+                    },
+                    extra_palettes: vec![],
+                    frames: vec![sample_object_frame(tile_pattern, 0x10, 0x10)],
+                    frame_duration: 1,
+                },
+            );
+        }
         kid_render::FloatingPrizeVisuals {
             diamond: AnimatedSpriteVisual {
                 palette: diamond_palette,
@@ -2000,6 +2014,7 @@ mod tests {
                 frame_duration: 3,
             },
             helmets,
+            icons,
         }
     }
 
@@ -2624,10 +2639,61 @@ mod tests {
     }
 
     #[test]
-    fn floating_item_renderer_uses_asm_graphics_spec_for_diamonds_and_helmets() {
-        // ASM PrizeDiamond_Init selects `stru_10D6E`; ASM sub_10CB0 then
-        // gives every helmet palette line 3 before PrizeHelmet* picks
-        // `stru_106D0..stru_10700`.
+    fn build_scene_draws_floating_special_icons_with_rom_art() {
+        for (content_id, tile_pattern, fallback_colour, asm_label) in [
+            (
+                0x0B,
+                101,
+                [255, 255, 200],
+                "PrizeAnkh_Init/stru_10C08/unk_E0FE6",
+            ),
+            (
+                0x0C,
+                102,
+                [200, 255, 200],
+                "PrizeClock_Init/stru_10C18/unk_E0FCE",
+            ),
+            (
+                0x0D,
+                103,
+                [255, 255, 255],
+                "PrizeContinue_Init/stru_10C28/unk_E0FD6",
+            ),
+        ] {
+            let mut trace = sample_trace(GameMode::InGame);
+            trace.floating_items = vec![(48, 64, u8::MAX, content_id)];
+            let visuals = sample_level_visuals();
+
+            let scene = build_scene(&trace, false, Some(&visuals), None);
+
+            assert!(
+                scene.commands.iter().any(|command| {
+                    matches!(
+                        command,
+                        DrawCommand::Sprite { tile_sheet, .. }
+                            if tile_sheet.tiles.iter().any(|tile| tile.pixels == [tile_pattern; 64])
+                    )
+                }),
+                "ASM {asm_label} should render floating prize content id {content_id:#04X} from ROM icon art"
+            );
+            assert!(
+                !scene.commands.iter().any(|command| {
+                    matches!(
+                        command,
+                        DrawCommand::Rect { colour, .. } if *colour == fallback_colour
+                    )
+                }),
+                "floating prize content id {content_id:#04X} should not fall back to placeholder rects"
+            );
+        }
+    }
+
+    #[test]
+    fn floating_item_renderer_uses_asm_graphics_spec_for_sprite_backed_prizes() {
+        // ASM PrizeDiamond_Init selects `stru_10D6E`; ASM sub_10CB0 gives
+        // every helmet palette line 3 before PrizeHelmet* picks
+        // `stru_106D0..stru_10700`; PrizeAnkh/Clock/Continue select
+        // `stru_10C08`, `stru_10C18`, and `stru_10C28`.
         assert_eq!(
             floating_item_graphics_spec(0x00),
             Some(kid_core::FloatingPrizeGraphicsSpec {
@@ -2644,7 +2710,30 @@ mod tests {
                 animation_script_addr: 0x0001_06DC,
             })
         );
-        assert_eq!(floating_item_graphics_spec(0x0B), None);
+        assert_eq!(
+            floating_item_graphics_spec(0x0B),
+            Some(kid_core::FloatingPrizeGraphicsSpec {
+                object_meta: 0x0090,
+                palette_line: 0,
+                animation_script_addr: 0x0001_0C08,
+            })
+        );
+        assert_eq!(
+            floating_item_graphics_spec(0x0C),
+            Some(kid_core::FloatingPrizeGraphicsSpec {
+                object_meta: 0x0094,
+                palette_line: 0,
+                animation_script_addr: 0x0001_0C18,
+            })
+        );
+        assert_eq!(
+            floating_item_graphics_spec(0x0D),
+            Some(kid_core::FloatingPrizeGraphicsSpec {
+                object_meta: 0x0098,
+                palette_line: 0,
+                animation_script_addr: 0x0001_0C28,
+            })
+        );
     }
 
     #[test]

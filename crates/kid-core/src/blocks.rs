@@ -55,10 +55,11 @@ pub struct FloatingPrizeGraphicsSpec {
 pub fn floating_prize_graphics_spec(
     content: terrain::PrizeContent,
 ) -> Option<FloatingPrizeGraphicsSpec> {
-    // ASM PrizeDiamond_Init (kid.asm:21604) uses palette line 0 and
-    // `stru_10D6E`; ASM sub_10CB0 (kid.asm:22600) gives every helmet
-    // palette line 3 before each PrizeHelmet* routine selects its own
-    // `stru_106D0..stru_10700` animation script.
+    // ASM PrizeDiamond_Init (kid.asm:21604), PrizeAnkh_Init (kid.asm:21958),
+    // PrizeClock_Init (kid.asm:21991), and PrizeContinue_Init (kid.asm:22038)
+    // use palette line 0 with content-specific sprite scripts. ASM sub_10CB0
+    // (kid.asm:22600) gives every helmet palette line 3 before each
+    // PrizeHelmet* routine selects its own `stru_106D0..stru_10700` script.
     let spec = match content {
         terrain::PrizeContent::Diamond => FloatingPrizeGraphicsSpec {
             object_meta: 0x0064,
@@ -110,11 +111,22 @@ pub fn floating_prize_graphics_spec(
             palette_line: 3,
             animation_script_addr: 0x0001_0700,
         },
-        terrain::PrizeContent::Points10000
-        | terrain::PrizeContent::Ankh
-        | terrain::PrizeContent::Clock
-        | terrain::PrizeContent::Continue
-        | terrain::PrizeContent::TenDiamonds => return None,
+        terrain::PrizeContent::Ankh => FloatingPrizeGraphicsSpec {
+            object_meta: 0x0090,
+            palette_line: 0,
+            animation_script_addr: 0x0001_0C08,
+        },
+        terrain::PrizeContent::Clock => FloatingPrizeGraphicsSpec {
+            object_meta: 0x0094,
+            palette_line: 0,
+            animation_script_addr: 0x0001_0C18,
+        },
+        terrain::PrizeContent::Continue => FloatingPrizeGraphicsSpec {
+            object_meta: 0x0098,
+            palette_line: 0,
+            animation_script_addr: 0x0001_0C28,
+        },
+        terrain::PrizeContent::Points10000 | terrain::PrizeContent::TenDiamonds => return None,
     };
     Some(spec)
 }
@@ -3829,10 +3841,34 @@ mod tests {
             assert_eq!(floating_prize_graphics_spec(content), Some(expected));
         }
 
-        assert_eq!(
-            floating_prize_graphics_spec(terrain::PrizeContent::Ankh),
-            None
-        );
+        for (content, expected) in [
+            (
+                terrain::PrizeContent::Ankh,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x0090,
+                    palette_line: 0,
+                    animation_script_addr: 0x0001_0C08,
+                },
+            ),
+            (
+                terrain::PrizeContent::Clock,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x0094,
+                    palette_line: 0,
+                    animation_script_addr: 0x0001_0C18,
+                },
+            ),
+            (
+                terrain::PrizeContent::Continue,
+                FloatingPrizeGraphicsSpec {
+                    object_meta: 0x0098,
+                    palette_line: 0,
+                    animation_script_addr: 0x0001_0C28,
+                },
+            ),
+        ] {
+            assert_eq!(floating_prize_graphics_spec(content), Some(expected));
+        }
         assert_eq!(
             floating_prize_graphics_spec(terrain::PrizeContent::TenDiamonds),
             None

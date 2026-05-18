@@ -1417,8 +1417,8 @@ fn build_game_scene_filtered(
                 (u32::from(base_colour[1]) * alpha / 255) as u8,
                 (u32::from(base_colour[2]) * alpha / 255) as u8,
             ];
-            // Draw content-type-specific pixel-art icon
-            // TODO(fidelity): wire ROM art for non-diamond, non-helmet prize classes.
+            // Draw content-type-specific pixel-art icon.
+            // TODO(fidelity): wire ROM effects for 10000-points and 10-diamonds prize classes.
             match content {
                 // Diamond: rotated square (diamond shape)
                 kid_core::terrain::PrizeContent::Diamond => {
@@ -1971,7 +1971,25 @@ fn floating_prize_visuals(
         kid_core::terrain::PrizeContent::Diamond => Some(&level_visuals.floating_prizes.diamond),
         // ASM sub_10CB0 followed by PrizeHelmet*_Init selects the mask frame
         // and helmet palette for content ids 2..A.
-        _ => level_visuals.floating_prizes.helmets.get(&content_id),
+        kid_core::terrain::PrizeContent::Skycutter
+        | kid_core::terrain::PrizeContent::Cyclone
+        | kid_core::terrain::PrizeContent::RedStealth
+        | kid_core::terrain::PrizeContent::Eyeclops
+        | kid_core::terrain::PrizeContent::Juggernaut
+        | kid_core::terrain::PrizeContent::IronKnight
+        | kid_core::terrain::PrizeContent::Berzerker
+        | kid_core::terrain::PrizeContent::Maniaxe
+        | kid_core::terrain::PrizeContent::Micromax => {
+            level_visuals.floating_prizes.helmets.get(&content_id)
+        }
+        // ASM PrizeAnkh_Init/PrizeClock_Init/PrizeContinue_Init select
+        // `stru_10C08`, `stru_10C18`, and `stru_10C28` over ROM icon tiles.
+        kid_core::terrain::PrizeContent::Ankh
+        | kid_core::terrain::PrizeContent::Clock
+        | kid_core::terrain::PrizeContent::Continue => {
+            level_visuals.floating_prizes.icons.get(&content_id)
+        }
+        _ => None,
     }
 }
 

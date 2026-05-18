@@ -587,6 +587,11 @@ struct FloatingPrizeHelmetSpec {
     palette_family: &'static str,
 }
 
+struct FloatingPrizeIconSpec {
+    content_id: u8,
+    art: PlayerFrameDescriptor,
+}
+
 const fn fd(
     tile_base_index: u16,
     origin_x: i16,
@@ -657,6 +662,33 @@ static FLOATING_PRIZE_HELMETS: &[FloatingPrizeHelmetSpec] = &[
         art: pfd("artunc_kid/micromax_mask.bin", 0x09, -2, 0x13, 0x12),
         palette_path: MICROMAX_HELMET_PALETTE_PATH,
         palette_family: "Micromax helmet palette",
+    },
+];
+
+static FLOATING_PRIZE_ICONS: &[FloatingPrizeIconSpec] = &[
+    FloatingPrizeIconSpec {
+        // ASM PrizeAnkh_Init -> stru_10C08 -> unk_E0FE6:
+        // sprite_frame_vram $231,$06,$FE,$10,$10.
+        content_id: 0x0B,
+        art: pfd("artunc/Life_icon_(3_frames).bin", 0x06, -2, 0x10, 0x10),
+    },
+    FloatingPrizeIconSpec {
+        // ASM PrizeClock_Init -> stru_10C18 -> unk_E0FCE:
+        // sprite_frame_vram $235,$07,$FE,$10,$10.
+        content_id: 0x0C,
+        art: pfd("artunc/Clock_icon_(3_frames).bin", 0x07, -2, 0x10, 0x10),
+    },
+    FloatingPrizeIconSpec {
+        // ASM PrizeContinue_Init -> stru_10C28 -> unk_E0FD6:
+        // sprite_frame_vram $239,$07,$FE,$10,$10.
+        content_id: 0x0D,
+        art: pfd(
+            "artunc/Coin_continue_icon_(6_frames).bin",
+            0x07,
+            -2,
+            0x10,
+            0x10,
+        ),
     },
 ];
 
@@ -2650,7 +2682,27 @@ fn load_floating_prize_visuals(
         );
     }
 
-    Ok(FloatingPrizeVisuals { diamond, helmets })
+    let mut icons = std::collections::HashMap::new();
+    for spec in FLOATING_PRIZE_ICONS {
+        if find_ingame_asset(manifest, spec.art.relative_path).is_none() {
+            continue;
+        }
+        icons.insert(
+            spec.content_id,
+            AnimatedSpriteVisual {
+                palette: foreground_palette.clone(),
+                extra_palettes: Vec::new(),
+                frames: vec![load_player_frame(manifest, spec.art)?],
+                frame_duration: 1,
+            },
+        );
+    }
+
+    Ok(FloatingPrizeVisuals {
+        diamond,
+        helmets,
+        icons,
+    })
 }
 
 fn load_platform_visuals(
