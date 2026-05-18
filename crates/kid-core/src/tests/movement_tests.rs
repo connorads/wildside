@@ -17081,6 +17081,7 @@ mod chunk_12 {
         rt.helmet.skycutter_on_board = true;
         rt.prior_input = FrameInput::default(); // B not held last frame
         let mut slice = airborne_slice();
+        slice.player.y_pos = 0x0020_0000; // ASM loc_AC88 near-top gate: y_pos - $21 < 0.
         // Wall-cling suppresses horizontal velocity.
         slice.player.x_velocity = 0;
         slice.player.y_velocity = 0;

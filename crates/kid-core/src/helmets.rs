@@ -4247,10 +4247,8 @@ impl NativeRuntime {
             //   flat $30000 board dive (no x_vel component, since wall-cling
             //   suppresses horizontal velocity → abs(0)/2 + $30000 = $30000).
             //
-            // TODO(fidelity): ASM also gates on sub_B43A floor probe and
-            // y_pos-near-top check, which native omits.
             let b_pressed = input.b && !self.prior_input.b;
-            if b_pressed {
+            if b_pressed && self.skycutter_board_dive_allowed_loc_a7b4(slice) {
                 // ASM loc_A7E8 (kid.asm:13113): `asr.l #1,d6; addi.l #$30000,d6;
                 // move.l d6,y_vel(a3)` writes a positive downward dive velocity.
                 let dive_velocity = slice.player.x_velocity.unsigned_abs() as i32 / 2 + 0x3_0000;
@@ -4264,6 +4262,40 @@ impl NativeRuntime {
             slice.player.on_ground = false;
             self.helmet.skycutter_flipboard = 1; // restart deploy animation
         }
+    }
+
+    fn skycutter_board_dive_allowed_loc_a7b4(&self, slice: &OpeningSliceState) -> bool {
+        // ASM loc_A7B4/loc_AC88: `moveq #-$21,d7; move.l d7,d6;
+        // add.w y_pos(a3),d6; bmi` lets the dive fire near the level top
+        // before checking floor support. `add.w` sets flags from the low word,
+        // so this is a signed 16-bit `(y_pos - $21) < 0` check.
+        let y_word = (slice.player.y_pos >> 16) as u16 as i16;
+        if y_word.wrapping_sub(0x21).is_negative() {
+            return true;
+        }
+
+        let Some(grid) = self.block_grid.as_ref() else {
+            return false;
+        };
+        let x_int = (slice.player.x_pos >> 16) as u16 as i16 as i32;
+        let y_int = y_word as i32;
+        let collision_hw = PlayerForm::Skycutter.half_width();
+        // ASM sub_B43A loc_B4A0/loc_B4B2: scan columns from
+        // `(x_pos - hw) >> 4` to `(x_pos + hw) >> 4`, clamped to the layout.
+        let left_col = ((x_int - collision_hw) >> 4).max(0) as u16;
+        let right_col = ((x_int + collision_hw) >> 4)
+            .max(0)
+            .min(grid.width_cells as i32 - 1) as u16;
+        // ASM loc_B4C0: `move.w y_pos(a3),d0; addq.w #1,d0; add.w d7,d0;
+        // lsr.w #4,d0`; these Skycutter callers pass d7=0.
+        let probe_row = ((y_int + 1) >> 4).max(0) as u16;
+
+        (left_col..=right_col).any(|col| {
+            matches!(
+                grid.cell_at(col, probe_row).collision,
+                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+            )
+        })
     }
 
     /// Step Cyclone vertical flight: acceleration-based with C-button thrust.

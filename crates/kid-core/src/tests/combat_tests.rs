@@ -16831,6 +16831,7 @@ mod chunk_05 {
         rt.helmet.skycutter_on_board = true;
         rt.prior_input = FrameInput::default(); // B was not held last frame
         let mut slice = airborne_slice();
+        slice.player.y_pos = 0x0020_0000; // ASM loc_A7B4 near-top gate: y_pos - $21 < 0.
         slice.player.x_velocity = 0x2_0000;
         slice.player.y_velocity = 0x1_0000; // falling
 
@@ -16843,6 +16844,49 @@ mod chunk_05 {
         assert!(
             slice.player.y_velocity > 0,
             "ASM loc_A7E8: B press should dive downward with positive y_velocity"
+        );
+    }
+
+    #[test]
+    fn loc_a7b4_skycutter_b_press_without_top_or_floor_skips_dive() {
+        let mut rt = skycutter_runtime();
+        rt.helmet.skycutter_on_board = true;
+        rt.prior_input = FrameInput::default();
+        let mut slice = airborne_slice();
+        slice.player.x_velocity = 0x2_0000;
+        slice.player.y_velocity = 0;
+
+        let b_input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
+        rt.step_skycutter_flipboard(&mut slice, b_input);
+
+        assert_eq!(
+            slice.player.y_velocity, SKYCUTTER_GRAVITY_B_HELD,
+            "ASM loc_A7B4: B rising edge away from top and without sub_B43A floor support skips loc_A7E8 dive"
+        );
+    }
+
+    #[test]
+    fn loc_a7b4_skycutter_b_press_with_floor_support_dives() {
+        let mut rt = skycutter_runtime();
+        rt.set_block_grid(grid_with_floor_at_row(16));
+        rt.helmet.skycutter_on_board = true;
+        rt.prior_input = FrameInput::default();
+        let mut slice = airborne_slice();
+        slice.player.x_velocity = 0x2_0000;
+        slice.player.y_velocity = 0;
+
+        let b_input = FrameInput {
+            b: true,
+            ..FrameInput::default()
+        };
+        rt.step_skycutter_flipboard(&mut slice, b_input);
+
+        assert_eq!(
+            slice.player.y_velocity, 0x4_0000,
+            "ASM loc_A7B4: sub_B43A floor support permits loc_A7E8 dive = abs(x_vel)/2 + $30000"
         );
     }
 
@@ -16978,6 +17022,7 @@ mod chunk_05 {
         rt.helmet.skycutter_on_board = true;
         rt.prior_input = FrameInput::default();
         let mut slice = airborne_slice();
+        slice.player.y_pos = 0x0020_0000; // ASM loc_A7B4 near-top gate: y_pos - $21 < 0.
         slice.player.x_velocity = 0x2_0000;
         slice.player.y_velocity = 0;
 
