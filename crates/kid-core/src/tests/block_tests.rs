@@ -3660,7 +3660,6 @@ mod chunk_04 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): enemy spawn hit-point family base not yet implemented"]
     fn spawn_hit_points_applies_family_base() {
         // Goat: enemy_level + 3
         assert_eq!(spawn_hit_points(EnemyFamily::Goat, 0), 3);
@@ -3670,9 +3669,9 @@ mod chunk_04 {
         assert_eq!(spawn_hit_points(EnemyFamily::Armadillo, 0), 1);
         assert_eq!(spawn_hit_points(EnemyFamily::Armadillo, 1), 2);
         assert_eq!(spawn_hit_points(EnemyFamily::Armadillo, 2), 3);
-        // Diamond: raw enemy_level, min 1
-        assert_eq!(spawn_hit_points(EnemyFamily::Diamond, 0), 1);
-        assert_eq!(spawn_hit_points(EnemyFamily::Diamond, 2), 2);
+        // Diamond.asm loc_3AD16: enemy_level + 2.
+        assert_eq!(spawn_hit_points(EnemyFamily::Diamond, 0), 2);
+        assert_eq!(spawn_hit_points(EnemyFamily::Diamond, 2), 4);
     }
 
     #[test]
