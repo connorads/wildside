@@ -7308,7 +7308,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1CBF2 options menu up-guard not yet implemented"]
     fn options_menu_loc_1cbf2_up_guard_skips_decrement_at_cursor_zero() {
         // ASM loc_1CBF2 (kid.asm:31721-31727): Branch target when Up is not pressed
         // or cursor is already at 0, skipping the decrement and sound effect.
@@ -7355,7 +7354,6 @@ mod chunk_06 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1CC0E options menu down-guard not yet implemented"]
     fn options_menu_loc_1cc0e_down_guard_skips_increment_at_cursor_three() {
         // ASM loc_1CC0E (kid.asm:31730-31736): Branch target when Down is not pressed
         // or cursor is already at 3, skipping the increment and sound effect.

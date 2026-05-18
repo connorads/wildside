@@ -6761,11 +6761,13 @@ impl NativeRuntime {
                 // ASM loc_1CBF2 (kid.asm:31727): branch target when Up not pressed
                 // or cursor already at 0; continues to check Down below.
                 if input.up && !self.prior_input.up && *cursor > 0 {
+                    play_navigate_jingle = true;
                     *cursor -= 1;
                 }
                 // ASM loc_1CC0E (kid.asm:31736): branch target when Down not pressed
                 // or cursor already at 3; continues to check Left/Right below.
                 if input.down && !self.prior_input.down && *cursor < 3 {
+                    play_navigate_jingle = true;
                     *cursor += 1;
                 }
 

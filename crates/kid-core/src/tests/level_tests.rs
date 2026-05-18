@@ -21047,7 +21047,6 @@ mod chunk_10 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_125C8 type-10 tile formula not yet implemented"]
     fn loc_125c8_computes_tile_value_for_type_10() {
         // ASM loc_125C8 (kid.asm:24823-24833): compute tile for block type 10.
         // For type 10 (not 12), the adjustment subtracts $15E4:
@@ -21059,10 +21058,10 @@ mod chunk_10 {
         // loc_125E0:
         //   addi.w #-$15E4,(a4)   ; subtract $15E4
         let property_byte: u16 = 0x00CE;
-        let result = crate::level::block_type_1012_tile_value_loc_125c8(property_byte, -1);
+        let result = crate::level::block_type_1012_tile_value_loc_125c8(property_byte, 10);
         assert!(
-            result.is_hidden,
-            "ASM loc_125C8: negative block_type indicates hidden block"
+            !result.is_hidden,
+            "ASM loc_125C8: type 10 is a visible block path"
         );
         assert_eq!(
             result.tile_word, 0xEAEA,
