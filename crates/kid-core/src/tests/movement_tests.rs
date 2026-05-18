@@ -17227,8 +17227,7 @@ mod chunk_12 {
     /// ($FA72=0). Reached from loc_AD34 when `tst.b ($FFFFFA72); beq loc_AD58`.
     /// `tst.b (Ctrl_Right_Held); beq loc_A76A; addq.w #1,x_pos(a3)` — if ALSO
     /// holding right (simultaneous L+R), shimmy +1px towards the wall before
-    /// continuing to loc_A76A. Native: pressing away clears wall_cling_direction
-    /// (the simultaneous L+R shimmy is omitted as a rare edge case).
+    /// continuing to loc_A76A.
     #[test]
     fn loc_ad58_press_away_clears_wall_cling_for_right_wall() {
         let grid = grid_with_floor_at_row(4);
@@ -17265,6 +17264,112 @@ mod chunk_12 {
         assert_eq!(
             slice.player.wall_cling_direction, None,
             "loc_AD58: pressing left (away from right wall) should clear wall_cling_direction",
+        );
+    }
+
+    /// ASM loc_AD34/loc_AD58 (kid.asm:13553-13568): press-away wall-cling
+    /// detach clears animation/combat latches, then applies a 1px shimmy
+    /// towards the wall if the towards-wall direction is also held. This
+    /// preserves the ROM's simultaneous-L+R edge case rather than treating
+    /// both branches as a plain detach.
+    #[test]
+    fn loc_ad34_loc_ad58_simultaneous_left_right_shimmies_towards_wall_on_detach() {
+        let grid = grid_with_floor_at_row(4);
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let make_right_wall = || {
+            let mut slice = OpeningSliceState::new(bounds);
+            slice.player.x_pos = 0x0030_0000;
+            slice.player.y_pos = 0x0020_0000;
+            slice.player.on_ground = false;
+            slice.player.y_velocity = 0x0001_0000;
+            slice.player.wall_cling_direction = Some(Direction::Right);
+            slice.player.right_wall_sticky = true;
+            slice
+        };
+        let make_left_wall = || {
+            let mut slice = OpeningSliceState::new(bounds);
+            slice.player.x_pos = 0x0030_0000;
+            slice.player.y_pos = 0x0020_0000;
+            slice.player.on_ground = false;
+            slice.player.y_velocity = 0x0001_0000;
+            slice.player.wall_cling_direction = Some(Direction::Left);
+            slice.player.left_wall_sticky = true;
+            slice
+        };
+
+        let mut right_wall_plain_detach = make_right_wall();
+        right_wall_plain_detach.step_with_order(
+            FrameInput {
+                left: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let mut right_wall = make_right_wall();
+        right_wall.step_with_order(
+            FrameInput {
+                left: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            right_wall.player.x_pos,
+            right_wall_plain_detach.player.x_pos + 0x0001_0000,
+            "loc_AD58: simultaneous L+R should shimmy +1px beyond plain right-wall detach",
+        );
+        assert_eq!(
+            right_wall.player.wall_cling_direction, None,
+            "loc_AD58: press-away detach should clear right-wall cling",
+        );
+
+        let mut left_wall = make_left_wall();
+        left_wall.step_with_order(
+            FrameInput {
+                left: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid.clone()),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            left_wall.player.x_pos, 0x002D_0000,
+            "loc_AD34: simultaneous L+R should apply the left-wall -1px shimmy before the remaining frame tail",
+        );
+        assert_eq!(
+            left_wall.player.wall_cling_direction, None,
+            "loc_AD34: press-away detach should clear left-wall cling",
         );
     }
 

@@ -2883,15 +2883,29 @@ impl OpeningSliceState {
                 // encodes $FA72 (Right = wall on right / $FA72=0, Left = wall
                 // on left / $FA72=$FF). "Pressing away" maps to the loc_AD34
                 // detach path; no held direction falls through to kid_flip.
-                // DEVIATION: native omits the ±1 simultaneous-L+R shimmy
-                // from loc_AD34/loc_AD58 (rare edge case, both directions
-                // held at once during wall-cling detach).
                 if let Some(dir) = self.player.wall_cling_direction {
                     let pressing_away = match dir {
                         Direction::Right => input.left,
                         Direction::Left => input.right,
                     };
                     if pressing_away {
+                        let holding_towards_wall = match dir {
+                            Direction::Right => input.right,
+                            Direction::Left => input.left,
+                        };
+                        if holding_towards_wall {
+                            // ASM loc_AD34/loc_AD58: after press-away detach,
+                            // simultaneous towards-wall input applies a 1px
+                            // shimmy before falling through to loc_A76A.
+                            match dir {
+                                Direction::Right => {
+                                    self.player.x_pos = self.player.x_pos.wrapping_add(0x0001_0000);
+                                }
+                                Direction::Left => {
+                                    self.player.x_pos = self.player.x_pos.wrapping_sub(0x0001_0000);
+                                }
+                            }
+                        }
                         self.player.wall_cling_direction = None;
                     }
                 }
