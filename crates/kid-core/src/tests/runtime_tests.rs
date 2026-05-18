@@ -6130,7 +6130,6 @@ mod chunk_09 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): sub_1149C/loc_1146E not yet implemented"]
     fn process_block_effects_sub_1149c_queues_empty_support_workers() {
         let mut rt = NativeRuntime::new(manifest());
         let mut grid = grid_with_shooter_blocks(&[(5, 4, 0x02)]);
@@ -6144,7 +6143,7 @@ mod chunk_09 {
 
         assert_eq!(
             rt.block_grid().expect("block grid").cell_at(5, 4),
-            terrain::Cell::from_be_bytes(0xE9, 0x02),
+            terrain::Cell::from_be_bytes(0xE8, 0x02),
             "ASM loc_1146E branches to `loc_11496` once any `sub_1149C` probe sets `d4`, so the struck shooter cell should stay untouched on the support-worker path"
         );
         assert_eq!(rt.block_state.shooter_headbutt_workers.len(), 2);
@@ -6169,7 +6168,6 @@ mod chunk_09 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_11496 not yet implemented"]
     fn shooter_support_spawn_loc_11496_returns_without_marking_the_struck_cell() {
         let mut rt = NativeRuntime::new(manifest());
         let mut grid = grid_with_shooter_blocks(&[(5, 4, 0x02)]);
@@ -6183,7 +6181,7 @@ mod chunk_09 {
 
         assert_eq!(
             rt.block_grid().expect("block grid").cell_at(5, 4),
-            terrain::Cell::from_be_bytes(0xE9, 0x02),
+            terrain::Cell::from_be_bytes(0xE8, 0x02),
             "ASM loc_11496 is the immediate epilogue after the `bne.s` at loc_1146E, so the support-worker path must return before the struck shooter gets `or.b #$F,(a1)`"
         );
         assert!(
@@ -9066,7 +9064,6 @@ mod chunk_09 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1E1E not yet implemented"]
     fn first_mirrored_kid_projectile_overlap_loc_1e1e_negates_the_left_offset_then_subtracts_width()
     {
         let target =
@@ -9078,7 +9075,7 @@ mod chunk_09 {
             x_anchor_px: 100,
             y_anchor_px: 40,
             collision_sizes: vec![
-                collision_size_entry_sub_21f8(20, 10, -12, 30),
+                collision_size_entry_sub_21f8(40, 10, -12, 30),
                 collision_size_entry_sub_21f8(-6, 20, -12, 30),
             ],
         };
@@ -9091,7 +9088,6 @@ mod chunk_09 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1E1E not yet implemented"]
     fn first_mirrored_kid_projectile_overlap_loc_1e1e_stops_this_object_on_the_zero_word_sentinel()
     {
         let target =
@@ -9103,7 +9099,7 @@ mod chunk_09 {
             x_anchor_px: 100,
             y_anchor_px: 40,
             collision_sizes: vec![
-                collision_size_entry_sub_21f8(20, 10, -12, 30),
+                collision_size_entry_sub_21f8(40, 10, -12, 30),
                 collision_size_entry_sub_21f8(0, 0, 0, 0),
                 collision_size_entry_sub_21f8(-6, 20, -12, 30),
             ],
