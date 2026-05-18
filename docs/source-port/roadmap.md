@@ -12,9 +12,10 @@ That does **not** mean the game is nearly finished.
 
 The current `1p-accurate` release gate is useful, but it is narrower than "the game
 works". Native play no longer has open agent-actionable P0/P1 playability rows in
-the canonical backlog, but human validation/repro items and visual-fidelity polish
-still block a completion claim. This roadmap treats those gaps as first-class work,
-not as noise beneath a mostly-complete port.
+the canonical backlog, and the 2026-05-18 completion audit found no remaining
+human-validation or repro blockers for this phase. Future work should still treat
+new native-play reports, visual-fidelity polish, and broader verification as
+first-class work rather than proof that the port is permanently done.
 
 ## Finish line for this phase
 
@@ -47,6 +48,11 @@ Exit criteria:
 - roadmap, research map, and whole-game index agree on current status
 - completion audit maps finish criteria to current command/backlog evidence
 - no active doc claims the project is effectively complete
+
+2026-05-18 status: achieved for the current 1P phase. `completion-audit.md`,
+`human-validation-checklist.md`, `backlog.md`, and `project-status` agree that
+there are no open phase blockers. This is a phase completion statement, not a
+claim that every post-1P fidelity or tooling idea is exhausted.
 
 ### 2. 1P playability closure
 

@@ -14,9 +14,13 @@ The live TAS frontier is currently closed:
 - `any-percent-published` is authoritative-clean through frame `37759`
 - `frontier-state.yaml` is the compact source of truth for reopening TAS work
 
-That is not the same thing as whole-game completion. The active programme now shifts
-from "close the next TAS window" to "make 1P actually work in native play while
-continuing to burn down fidelity debt". `cargo run -p kidcli -- autonomous-loop --goal source-port-frontier` remains the operator entrypoint: while TAS work exists it packages the live frontier, and once TAS is closed it auto-delegates to the next repo-local lane. The post-TAS delegation cascade is: `case-queue` → canonical backlog evidence capture → `gameplay-backlog` → `sweep-parity`. That means reduced cases and recording-backed issues come first, then open backlog items without canonical evidence, then ASM-driven fallback work, and only then sweep/release-gate hardening. The `gameplay-backlog` lane still reads `docs/source-port/asm-coverage.yaml`, but uncovered labels are now a supporting discovery signal rather than the primary truth about missing gameplay. See `docs/source-port/ralph-gameplay-loop.md` for the operator loop spec. `kidcli project-status` remains the top-level status surface for reading those signals together, with 1P-playable and visual risks ahead of TAS completion prose.
+That is not the same thing as whole-game completion. As of the 2026-05-18
+completion audit, the current 1P source-port phase has no open phase blockers:
+`project-status` reports `1p-playable` and `1p-accurate` green, the published TAS
+frontier is replay-matched through frame 37759, the canonical backlog has no open
+phase rows, and the human-validation checklist is empty. Future work should now
+come from fresh reports, post-phase fidelity debt, or broader verification lanes
+rather than reopening stale TAS/frontier prose. `cargo run -p kidcli -- autonomous-loop --goal source-port-frontier` remains the operator entrypoint: while TAS work exists it packages the live frontier, and once TAS is closed it auto-delegates to the next repo-local lane. The post-TAS delegation cascade is: `case-queue` → canonical backlog evidence capture → `gameplay-backlog` → `sweep-parity`. That means reduced cases and recording-backed issues come first, then open backlog items without canonical evidence, then ASM-driven fallback work, and only then sweep/release-gate hardening. The `gameplay-backlog` lane still reads `docs/source-port/asm-coverage.yaml`, but uncovered labels are now a supporting discovery signal rather than the primary truth about missing gameplay. See `docs/source-port/ralph-gameplay-loop.md` for the operator loop spec. `kidcli project-status` remains the top-level status surface for reading those signals together, with 1P-playable and visual risks ahead of TAS completion prose.
 For `rl`/Codex runs, use `mise run source-port-rl-run` rather than shell-history prompts. That launcher regenerates the live delegated package, records a cache-local run ledger, and pipes the generated prompt straight to `cxys`, so Codex consumes the real task package instead of re-reading the checked-in operator note. If tracked git changes already exist, the launcher keeps the run alive by turning that diff into the first recovery task instead of pretending the tree is clean. Use `mise run source-port-rl-prompt` only when you need to inspect the freshly generated package without launching Codex.
 
 Current post-TAS verification split as of 2026-04-22:
@@ -118,11 +122,14 @@ themselves, prove `human-play-stable`.
 - **Enemy death animations**: verify enemy death visual effects (explosion, fade, particle) match ASM per family. Stomp enemies, capture death frame, compare to oracle.
 - **Invulnerability flicker accuracy**: verify flicker pattern (which frames visible/invisible) matches ASM. Verify Diamond Power overlay colour. Take damage, capture flicker frames, compare to oracle frame sequence.
 
-### Gameplay fidelity (TAS recordings verified, native-play gaps still open)
+### Gameplay fidelity (current 1P phase complete; reopen only with fresh evidence)
 - **#037** [x] Floor-snap settling diffs — done. The final `0x24` / `0x51` 1px `camera_y` tail now uses the oracle-backed hidden init camera carry, while `0x29` and `0x52` stay locked down by their focused regression tests.
 - **#062** [x] HeadyMetal death wobble visual — covered by effects-only render regressions that use visible body/eye tiles and assert the full sprite footprints plus two-frame wobble phase flip at each ASM timer boundary.
 - **TAS recordings** [x] `kc_any_percent_2024` and `any-percent-published` are both authoritative-clean through their recorded endpoints (`4916` and `37759` frames respectively). Only reopen a TAS frontier when a fresh `verify-tas --bisect` run proves a new authoritative mismatch.
-- **Native playability** [?] recurring player-facing failures now live in `backlog.md` with canonical evidence. Remaining work is human validation of saved PNG/recording bundles plus the scripted Level 2 death/loading decision (#146), not another broad TAS/frontier lane.
+- **Native playability** [x] recurring player-facing failures now live in
+  `backlog.md` with canonical evidence, and the 2026-05-18 audit closed the
+  remaining human-validation and scripted Level 2 death/loading decisions. Reopen
+  this area only with a fresh recording, backlog row, or failing gate.
 
 ### Game flow verification
 - **#132** [x] 2-player alternating mode — strong native scenarios now cover game-over-before-swap, continue respawn for the same player, preservation of the other slot, and continue timeout returning to title.
@@ -149,10 +156,11 @@ Low impact: speed caps at high HP, Cloud lightning bolt attack, Dragon Flying fi
 - **Stateful property testing**: implement `proptest-state-machine` test for `PlayerLifecycle`. Model lifecycle as states with input-driven transitions. Generate random input sequences, assert invariants hold.
 - **1P playable gate**: add a separate native-playability smoke gate covering Level 1 completion, Level 2 entry, death/respawn, slopes, bounce surfaces, and common block interactions. The current `1p-accurate` gate remains valuable but too narrow to stand in for "game works".
 
-### Known deviations (5 DEVIATION annotations, intentional)
-- Tornado, Fireball (×2), Robot: RNG-dependent behaviours. ASM uses deterministic global RNG, native uses independent RNG per enemy. Behaviour is statistically equivalent but not frame-identical.
-- Mushroom bounce: ASM bounces via SoftPlatform objects, native bounces player inline.
-- Shifting block: ASM animates sprite with shared lift coroutine, native swaps grid instantly.
+### Known deviations
+- The old five parked `DEVIATION:` items were burned down by backlog #131:
+  each was removed, reclassified, or explicitly deferred with evidence. Treat
+  any new `DEVIATION:` marker as fresh fidelity debt that needs a backlog row or
+  an explicit out-of-scope decision.
 
 ## Recently completed
 

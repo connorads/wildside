@@ -24,22 +24,28 @@ Presence is not the same as full verification.
 - State sweep: current `1p-accurate` artefact reports the 69 requested levels passing
 - Determinism: repeated traces are stable on the covered scenarios
 
-## Systems still carrying meaningful risk
+## Systems still carrying meaningful post-phase risk
+
+These are not active blockers for the current 1P completion phase after the
+2026-05-18 audit. They are the places to look first when a new report, broader
+verification lane, or post-1P fidelity push opens fresh work:
 
 - Native 1P playability beyond the current smoke gate
-- Human validation of current visual/playability evidence bundles
-- Human validation for the scripted Level 2 death/loading report (#146)
 - Block lifecycle visuals and interaction correctness beyond the current bundles
-- Slopes, bounce surfaces, and other movement edge cases
+- Slopes, bounce surfaces, and other movement edge cases beyond current coverage
 - Visual fidelity not covered by existing frame checks
-- Enemy behaviour gaps recorded in `phase4-enemy-findings.md`
-- Known DEVIATIONs that are still parked rather than removed
+- Enemy behaviour polish recorded in `phase4-enemy-findings.md`
+- Known intentional approximations that remain post-phase fidelity debt
 
 ## Explicitly open areas
 
+The current phase has no open blocker in `completion-audit.md`,
+`human-validation-checklist.md`, or the canonical backlog. Post-phase candidates
+remain:
+
 - Fire Demon death-trail exact ROM tile extraction polish
-- Remaining floating-item / block-state visual fidelity work
 - Wider `1p-playable` gate beyond the current smoke contract
+- Full-frame visual parity sweep and other broader verification hardening
 
 Password-system investigation is no longer open: backlog #133 records the ASM audit and native
 options-menu alignment. The stock ROM title/options flow has no password entry path.
@@ -58,5 +64,6 @@ Use this file to answer:
 - "How strong is the current evidence?"
 - "Is this still an open risk area?"
 
-Do **not** use this file to conclude the game is "basically finished". The active
-finish-line definition is in `roadmap.md`, and the live queue is in `backlog.md`.
+Do **not** use this file alone to conclude the game is finished. The active
+finish-line definition is in `roadmap.md`, the live queue is in `backlog.md`,
+and the current phase completion decision is recorded in `completion-audit.md`.
