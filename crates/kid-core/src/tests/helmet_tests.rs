@@ -3016,7 +3016,6 @@ mod chunk_08 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_12332 not yet implemented"]
     fn loc_12332_advances_cell_addr_by_level_width_tiles() {
         // ASM loc_12332 (kid.asm:24479-24481): row-by-row stride continuation.
         // After placing (or skipping) a cell, advance to the next row:
@@ -3038,8 +3037,8 @@ mod chunk_08 {
         );
         assert_eq!(
             wrapped.next_cell_addr,
-            0x007F, // 0xFFFF + 64*2 = 0x1007F -> wraps to 0x007F
-            "ASM loc_12332 should use 16-bit wrapping arithmetic for cell address",
+            0x0001_007F, // ADDA.W sign-extends the row byte stride but does not wrap A4 to 16 bits.
+            "ASM loc_12332 should keep full address-register arithmetic for the next cell address",
         );
     }
 

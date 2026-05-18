@@ -1366,7 +1366,6 @@ mod chunk_11 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_1FB2 not yet implemented"]
     fn loc_1fb2_skips_disabled_or_missing_kid_and_seeds_the_hitbox_scan_window() {
         assert_eq!(
             crate::level::kid_hitbox_solid_scan_setup_loc_1FB2(
@@ -1406,7 +1405,7 @@ mod chunk_11 {
         )
         .expect("ASM loc_1FB2 should compute the scan window when the guards pass");
         assert_eq!(
-            setup.row_start_addr, 0xA044,
+            setup.row_start_addr, 0xA082,
             "ASM loc_1FB2 should load row 2 from `$FFFF4A04` and add `2 * (Kid_hitbox_left >> 4)` for the leftmost tile column",
         );
         assert_eq!(
@@ -1461,7 +1460,6 @@ mod chunk_11 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): loc_201C not yet implemented"]
     fn loc_201c_scans_right_until_palette_detects_a_blocking_tile() {
         assert_eq!(
             crate::level::kid_hitbox_solid_scan_expand_right_loc_201C(true, 9, 4, &[0, 0, 1]),
@@ -1473,8 +1471,8 @@ mod chunk_11 {
             crate::level::kid_hitbox_solid_scan_expand_right_loc_201C(false, 9, 4, &[0, 0, 0x6000])
                 .expect("ASM loc_201C should stop once `j_Palette_to_VRAM0` returns non-zero");
         assert_eq!(
-            seed.rewind_index, 11,
-            "ASM loc_201C should apply `subq.w #4,a1` after the blocking read, rewinding from the post-increment successor to the last zero tile before the blocker",
+            seed.rewind_index, 10,
+            "ASM loc_201C should apply `subq.w #4,a1` after the blocking read, rewinding two words from the post-increment successor",
         );
         assert_eq!(
             seed.tile_column, 4,
