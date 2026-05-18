@@ -3144,12 +3144,11 @@ fn load_flag_visuals(
     manifest: &AssetManifest,
     foreground_palette: &Palette,
 ) -> Result<FlagVisuals> {
-    let Some(flag_art) = find_ingame_asset(manifest, FLAG_ART_PATH) else {
-        return Ok(placeholder_flag_visuals(foreground_palette));
-    };
-    let Some(pole_art) = find_ingame_asset(manifest, FLAG_BOTTOM_ART_PATH) else {
-        return Ok(placeholder_flag_visuals(foreground_palette));
-    };
+    let flag_art = find_ingame_asset(manifest, FLAG_ART_PATH)
+        .ok_or_else(|| anyhow!("missing end-of-level flag art asset ingame/{FLAG_ART_PATH}"))?;
+    let pole_art = find_ingame_asset(manifest, FLAG_BOTTOM_ART_PATH).ok_or_else(|| {
+        anyhow!("missing flag pole bottom art asset ingame/{FLAG_BOTTOM_ART_PATH}")
+    })?;
     let flag_tile_sheet =
         load_uncompressed_tile_sheet(manifest, "ingame", flag_art, "end-of-level flag art")?;
     let pole_tile_sheet =
@@ -3179,36 +3178,6 @@ fn load_flag_visuals(
             .collect(),
         frame_duration: 6,
     })
-}
-
-fn placeholder_flag_visuals(foreground_palette: &Palette) -> FlagVisuals {
-    let blank = |count: usize| TileSheet {
-        tiles: vec![crate::Tile { pixels: [0; 64] }; count],
-    };
-    FlagVisuals {
-        palette: foreground_palette.clone(),
-        pole_bottom: SpriteFrame {
-            origin_x: FLAG_POLE_BOTTOM_FRAME.origin_x,
-            origin_y: FLAG_POLE_BOTTOM_FRAME.origin_y,
-            width_px: FLAG_POLE_BOTTOM_FRAME.width_px,
-            height_px: FLAG_POLE_BOTTOM_FRAME.height_px,
-            tile_base_index: 0,
-            tile_sheet: blank(4),
-        },
-        waving: FLAG_WAVING_FRAMES
-            .iter()
-            .copied()
-            .map(|descriptor| SpriteFrame {
-                origin_x: descriptor.origin_x,
-                origin_y: descriptor.origin_y,
-                width_px: descriptor.width_px,
-                height_px: descriptor.height_px,
-                tile_base_index: descriptor.tile_base_index,
-                tile_sheet: blank(120),
-            })
-            .collect(),
-        frame_duration: 6,
-    }
 }
 
 fn parse_background_chunk_id(relative_path: &str, prefix: &str) -> Option<u16> {

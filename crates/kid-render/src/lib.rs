@@ -224,6 +224,35 @@ mod tests {
     }
 
     #[test]
+    fn load_flag_visuals_returns_rom_flag_and_pole_frames() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(
+            visuals.flag.frame_duration, 6,
+            "ASM AniArt_Flag stores six-frame timing entries before each frame index"
+        );
+        assert_eq!(visuals.flag.waving.len(), 6);
+        assert_eq!(
+            visuals.flag.waving[0].tile_sheet.tiles.len(),
+            120,
+            "ASM AniArt_Flag uses six $280-byte frames from ArtUnc_4C92"
+        );
+        assert_eq!(visuals.flag.waving[0].tile_base_index, 0);
+        assert_eq!(visuals.flag.waving[5].tile_base_index, 100);
+        assert_eq!(visuals.flag.waving[0].origin_x, 0x06);
+        assert_eq!(visuals.flag.waving[0].width_px, 0x28);
+        assert_eq!(
+            visuals.flag.pole_bottom.tile_sheet.tiles.len(),
+            4,
+            "ASM Load_FlagBottomArt copies $20 longwords from ArtUnc_12BA4"
+        );
+        assert_eq!(visuals.flag.pole_bottom.origin_x, 0x08);
+        assert_eq!(visuals.flag.pole_bottom.height_px, 0x10);
+    }
+
+    #[test]
     fn load_enemy_and_platform_visuals_returns_visible_level1_families() {
         let fixture = TestBundle::new().expect("test bundle");
 
@@ -409,6 +438,16 @@ mod tests {
                 root.path(),
                 "ingame/artunc/Coin_continue_icon_(6_frames).bin",
                 &vec![0x6D; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/End_of_level_Flag_(6_frames).bin",
+                &vec![0x6E; 32 * 120],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Flag_bottom.bin",
+                &[0x6F; 32 * 4],
             )?;
             write_file(
                 root.path(),
@@ -716,6 +755,11 @@ mod tests {
                         root.path(),
                         "ingame/artunc/Coin_continue_icon_(6_frames).bin",
                     ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc/End_of_level_Flag_(6_frames).bin",
+                    ),
+                    asset_file(root.path(), "ingame/artunc/Flag_bottom.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Crystal_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Dragon_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
