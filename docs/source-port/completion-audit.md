@@ -38,7 +38,7 @@ These are the current blockers to a completion claim:
 | #138 | playability validation | Human confirms the ROM-faithful 66-frame enemy-contact re-hit window is acceptable in live play |
 | #139 | visual validation | Human validates rubber-block PNGs in `.cache/recordings/issue-139-rubber-block-window/verify/native/` |
 | #140 | visual validation | Human validates prize-block-hit PNGs in `.cache/recordings/issue-140-prize-block-window/verify/native/` |
-| #143 | playability validation | Human records a settled Heavy Man helmet/block-break route; current scripted bundle is only a negative baseline |
+| #143 | playability validation | Human accepts scripted `issue-143-level27-ik-smash-probe-5` Iron Knight/block-break artefacts as sufficient, or records a preferred live Heavy Man route |
 | #146 | playability validation | Human accepts the scripted Level 2 death transition as non-blocking or records a different route that still hangs |
 
 Use `human-validation-checklist.md` for the exact verifier commands, PNGs, and

@@ -45,18 +45,18 @@ Open `.cache/human-validation/index.html` after generation.
 | Backlog row | Verify command | Inspect | Pass decision |
 |---|---|---|---|
 | #138 enemy contact | `cargo run -p kidcli -- verify-recording --slug issue-138-enemy-contact --native-only` | `.cache/recordings/issue-138-enemy-contact/transcript.txt`, `verify/native/000300_frame_000300.png`, `verify/native/000360_frame_000360.png` | Two damage events 66 frames apart are accepted as ROM-faithful behaviour rather than a native double-damage bug |
-| #143 Heavy Man block break | `cargo run -p kidcli -- verify-recording --slug issue-143-heavy-man-block-break --native-only` | `.cache/recordings/issue-143-heavy-man-block-break/transcript.txt`, `verify/native/*.png` | Current bundle cannot pass: it is a negative baseline that does not reach Heavy Man, a helmet pickup, or block break |
+| #143 Heavy Man / Iron Knight block break | `cargo run -p kidcli -- verify-recording --slug issue-143-level27-ik-smash-probe-5 --native-only` | `.cache/recordings/issue-143-level27-ik-smash-probe-5/transcript.txt`, `.cache/recordings/issue-143-level27-ik-smash-probe-5/verify/native/*.png`, trace frames 171 and 655-666 | Scripted route collects Iron Knight, then destroys block cells at `(496,128)`, `(512,128)`, and `(528,128)` via ASM `sub_AF7A` high-velocity landing behaviour |
 
-For #143, record a new human-controlled route before closure:
+For #143, a positive deterministic route now exists:
 
 ```bash
-cargo run --release -p kidcli -- play-native --warp-level 00 --settled --record issue-143-heavy-man-block-break --record-frames 1800
-cargo run -p kidcli -- verify-recording --slug issue-143-heavy-man-block-break --native-only
+cargo run -p kidcli -- verify-recording --slug issue-143-level27-ik-smash-probe-5 --native-only
 ```
 
-The replacement bundle must show Heavy Man or Iron Knight block-breaking with
-helmet/form state active. A generic Level 00 damage/death recording is not
-evidence for this row.
+The route warps to Caves of Ice, hits the Iron Knight prize block, collects
+Iron Knight at frame 171, and destroys blocks from frame 655 onward. Keep this
+row open until a human accepts the saved route/PNGs as sufficient playability
+evidence, or records a preferred live Heavy Man route.
 
 The TAS-derived route is useful but still insufficient:
 

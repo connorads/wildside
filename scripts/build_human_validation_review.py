@@ -187,30 +187,30 @@ REVIEW_ITEMS = (
     ),
     ReviewItem(
         backlog_row="#143",
-        title="Heavy Man block break",
+        title="Heavy Man / Iron Knight block break",
         verifier=(
             "cargo run -p kidcli -- verify-recording "
-            "--slug issue-143-heavy-man-block-break --native-only"
+            "--slug issue-143-level27-ik-smash-probe-5 --native-only"
         ),
         decision=(
-            "Current bundle cannot close the row; replacement must show Heavy "
-            "Man or Iron Knight block-breaking with helmet/form state active."
+            "Accept the scripted Iron Knight route as sufficient playability "
+            "evidence, or record a preferred live Heavy Man route."
         ),
         images=(
             ReviewImage(
                 repo_path(
-                    ".cache/recordings/issue-143-heavy-man-block-break/verify/native/"
-                    "001859_stomp_end.png"
+                    ".cache/recordings/issue-143-level27-ik-smash-probe-5/verify/native/"
+                    "001100_smash_window.png"
                 ),
-                "Current negative baseline end frame",
+                "Iron Knight block-break route checkpoint",
             ),
         ),
         transcripts=(
-            repo_path(".cache/recordings/issue-143-heavy-man-block-break/transcript.txt"),
+            repo_path(".cache/recordings/issue-143-level27-ik-smash-probe-5/transcript.txt"),
         ),
         note=(
-            "This bundle is retained as a negative baseline. It does not reach "
-            "Heavy Man, a helmet pickup, or a block break."
+            "Trace evidence: Iron Knight is collected at frame 171 and block "
+            "destroy effects are emitted from frame 655 onward."
         ),
     ),
     ReviewItem(
