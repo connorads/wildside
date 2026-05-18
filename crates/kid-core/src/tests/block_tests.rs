@@ -7218,7 +7218,6 @@ mod chunk_04 {
     }
 
     #[test]
-    #[ignore = "TODO(fidelity): UFO beam fire not yet implemented"]
     fn ufo_beam_fires_when_player_below() {
         use enemies::{ActiveEnemy, EnemyFamily, step_ufo_beam};
 
@@ -7290,7 +7289,11 @@ mod chunk_04 {
         for _ in 0..24 {
             step_ufo_beam(&mut enemy, &mut projectiles, player_x, player_y);
         }
-        assert!(projectiles.len() >= 4, "should have spawned beam segments");
+        assert_eq!(
+            projectiles.len(),
+            3,
+            "ASM UFO.asm loc_34FD6 decrements `$48(a5)` before allocating; the `$48=4` start sequence clears shooting on the fourth interval instead of spawning a fourth beam"
+        );
         assert!(
             projectiles.iter().all(|p| p.y_velocity > 0),
             "beams go downward"
