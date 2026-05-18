@@ -46,7 +46,6 @@ Open `.cache/human-validation/index.html` after generation.
 
 | Backlog row | Verify command | Inspect | Pass decision |
 |---|---|---|---|
-| #138 enemy contact | `cargo run -p kidcli -- verify-recording --slug issue-138-enemy-contact --native-only` | `.cache/recordings/issue-138-enemy-contact/transcript.txt`, `verify/native/000300_frame_000300.png`, `verify/native/000360_frame_000360.png` | Two damage events 66 frames apart are accepted as ROM-faithful behaviour rather than a native double-damage bug |
 | #143 Heavy Man / Iron Knight block break | `cargo run -p kidcli -- verify-recording --slug issue-143-level27-ik-smash-probe-5 --native-only` | `.cache/recordings/issue-143-level27-ik-smash-probe-5/transcript.txt`, `.cache/recordings/issue-143-level27-ik-smash-probe-5/verify/native/*.png`, trace frames 171 and 655-666 | Scripted route collects Iron Knight, then destroys block cells at `(496,128)`, `(512,128)`, and `(528,128)` via ASM `sub_AF7A` high-velocity landing behaviour |
 
 For #143, a positive deterministic route now exists:
