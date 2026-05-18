@@ -820,31 +820,24 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             ensure_level_layouts(&rom_path, &manifest, &[level])?;
             let dynamic = build_record_scenario(scenario, level, walk_frames);
-            let trace = kid_core::run_script_with_warp(
-                manifest.clone(),
-                &dynamic.script,
-                dynamic.frame_count,
-                dynamic.warp_to_level,
-            );
+            let start = recording::RecordingStart {
+                warp_level: Some(level),
+                settled: true,
+                record_frames: None,
+            };
+            let trace = recording::run_recorded_trace(&manifest, start, &dynamic.script)?;
             let record_to = repo_root
                 .join(".cache/recordings")
                 .join(recording::validate_recording_slug(&slug)?);
-            let recording = recording::build_recording(
-                &manifest,
-                &slug,
-                recording::RecordingStart {
-                    warp_level: Some(level),
-                    settled: false,
-                    record_frames: None,
-                },
-                dynamic.script.clone(),
-                trace,
-            )?;
+            let recording =
+                recording::build_recording(&manifest, &slug, start, dynamic.script.clone(), trace)?;
             // Replace the auto-generated walk_right/idle scenario inside the
             // recording with the explicit warp-driven scenario, so verify-
             // recording replays the same script the agent just executed.
             let mut recording = recording;
             recording.manifest.scenario = dynamic;
+            recording.manifest.record_command =
+                record_scenario_command(&slug, scenario, level, walk_frames);
             recording::save_recording_with_artifacts(
                 &record_to,
                 &recording,
@@ -2104,6 +2097,30 @@ fn build_record_scenario(
     }
 }
 
+fn record_scenario_command(
+    slug: &str,
+    kind: RecordScenarioKind,
+    level: u8,
+    walk_frames: Option<usize>,
+) -> String {
+    use std::fmt::Write;
+
+    let scenario = match kind {
+        RecordScenarioKind::Idle => "idle",
+        RecordScenarioKind::WalkRight => "walk-right",
+        RecordScenarioKind::PrizeBlock => "prize-block",
+        RecordScenarioKind::StompEnemy => "stomp-enemy",
+        RecordScenarioKind::EnemySpawnAuditHeadyMetal => "enemy-spawn-audit-heady-metal",
+    };
+    let mut command = format!(
+        "cargo run --release -p kidcli -- record-scenario --slug {slug} --scenario {scenario} --level {level:02X}"
+    );
+    if let Some(frames) = walk_frames {
+        let _ = write!(command, " --walk-frames {frames}");
+    }
+    command
+}
+
 fn gameplay_move_right_script() -> Result<Vec<u8>> {
     build_controller_script(
         &[120, 200, 280, 360, 440],
@@ -2377,7 +2394,8 @@ mod tests {
         compare_native_gameplay_with, compare_native_states_against_oracle,
         ensure_gameplay_level_layouts_with, ensure_level_layouts_with, find_gameplay_live_drifts,
         gameplay_checkpoint_window, native_trace_to_oracle_state, parse_button_mask,
-        parse_input_spec, prepare_generated_assets_with, selected_reference_repos,
+        parse_input_spec, prepare_generated_assets_with, record_scenario_command,
+        selected_reference_repos,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -3673,5 +3691,20 @@ AddrTbl_LevelNames:
                 );
             }
         }
+    }
+
+    #[test]
+    fn record_scenario_command_preserves_scripted_provenance() {
+        let command = record_scenario_command(
+            "issue-136-prize-emergence",
+            RecordScenarioKind::PrizeBlock,
+            0x00,
+            Some(420),
+        );
+
+        assert_eq!(
+            command,
+            "cargo run --release -p kidcli -- record-scenario --slug issue-136-prize-emergence --scenario prize-block --level 00 --walk-frames 420"
+        );
     }
 }
