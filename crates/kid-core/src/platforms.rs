@@ -528,14 +528,12 @@ pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
     // ASM sub_2728 (kid.asm:4649): `lea (Addr_FirstPlatformSlot).w,a2`
     // seeds the active-list cursor, then `loc_272C` walks each live slot in
     // list order until `$20(a2)` matches the current PlatformLoader_Offset.
-    let mut slot_index = 0;
-    while slot_index < active_platforms.len() {
+    for (slot_index, active_platform) in active_platforms.iter().enumerate() {
         // ASM loc_272C (kid.asm:4652): load the current slot link, skip empty
         // entries, and loop until `cmp.w $20(a2),d5` finds the first match.
-        if active_platforms[slot_index].layout_offset_words == layout_offset_words {
+        if active_platform.layout_offset_words == layout_offset_words {
             return Some(slot_index);
         }
-        slot_index += 1;
     }
     find_active_platform_miss_loc_2740()
 }
@@ -578,8 +576,9 @@ pub(crate) fn load_player_hitbox_loc_2590(
 
 impl PlatformLoaderState {
     pub(crate) fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
-        while self.next_index < layout.placements.len() {
-            let placement = &layout.placements[self.next_index];
+        for (placement_index, placement) in
+            layout.placements.iter().enumerate().skip(self.next_index)
+        {
             let preload_limit = window
                 .x_max
                 .saturating_add(PLATFORM_PRELOAD_X_PADDING)
@@ -587,7 +586,7 @@ impl PlatformLoaderState {
             if u32::from(placement.x) > preload_limit {
                 break;
             }
-            self.next_index += 1;
+            self.next_index = placement_index + 1;
         }
     }
 
