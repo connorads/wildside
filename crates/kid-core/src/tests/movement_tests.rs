@@ -4039,6 +4039,99 @@ mod chunk_11 {
         // sub_81B4 is only called for non-Skycutter forms.
     }
 
+    /// ASM loc_81D8: if the left crawl wall probe is not solid, restore standing
+    /// half-width and snap `(x-$E)` to the containing tile's right edge.
+    #[test]
+    fn sub_81b4_left_escape_snaps_to_tile_right_edge_loc_81d8() {
+        let grid = grid_with_cells(8, 8, &[]);
+        let result = movement::crawl_wall_escape_sub_81B4(&grid, 40u32 << 16, 48u32 << 16, 14);
+
+        assert_eq!(
+            result.x_pos,
+            17u32 << 16,
+            "ASM loc_81D8: ((40-$E)&$FFF0)+$F-$E = 17"
+        );
+        assert!(
+            !result.blocked,
+            "ASM loc_81D8: non-solid left probe returns EQ / escaped"
+        );
+    }
+
+    /// ASM loc_81D8 calls sub_B41C before the final subtraction, so the snap
+    /// uses the restored standing half-width even though the probe used `$E`.
+    #[test]
+    fn sub_81b4_left_escape_uses_restored_half_width_after_probe_loc_81d8() {
+        let grid = grid_with_cells(8, 8, &[]);
+        let result = movement::crawl_wall_escape_sub_81B4(&grid, 40u32 << 16, 48u32 << 16, 5);
+
+        assert_eq!(
+            result.x_pos,
+            26u32 << 16,
+            "ASM loc_81D8: probe uses crawl $E, then sub_B41C restores half-width 5 before subtracting"
+        );
+        assert!(
+            !result.blocked,
+            "ASM loc_81D8: clear left crawl probe escapes after the restored-width snap"
+        );
+    }
+
+    /// ASM loc_81FA: if the left probe is solid but the right probe is not,
+    /// snap `(x+$E)` to the containing tile's left edge and add half-width.
+    #[test]
+    fn sub_81b4_right_escape_snaps_to_tile_left_edge_loc_81fa() {
+        // x=40, y=48, half_width=14. Probe row is y-$10 = 32 (row 2).
+        // Left probe x-$E=26 hits col 1 solid; right probe x+$E=54 is clear.
+        let grid = grid_with_cells(8, 8, &[(1, 2, 0x60, 0x00)]);
+        let result = movement::crawl_wall_escape_sub_81B4(&grid, 40u32 << 16, 48u32 << 16, 14);
+
+        assert_eq!(
+            result.x_pos,
+            62u32 << 16,
+            "ASM loc_81FA: ((40+$E)&$FFF0)+$E = 62"
+        );
+        assert!(
+            !result.blocked,
+            "ASM loc_81FA: solid left probe plus clear right probe returns EQ / escaped"
+        );
+    }
+
+    /// ASM loc_81FA also runs sub_B41C before adding the final half-width, while
+    /// the probes still use crawl width `$E`.
+    #[test]
+    fn sub_81b4_right_escape_uses_restored_half_width_after_probe_loc_81fa() {
+        // Left crawl probe x-$E=26 hits col 1 solid; right crawl probe is clear.
+        let grid = grid_with_cells(8, 8, &[(1, 2, 0x60, 0x00)]);
+        let result = movement::crawl_wall_escape_sub_81B4(&grid, 40u32 << 16, 48u32 << 16, 5);
+
+        assert_eq!(
+            result.x_pos,
+            53u32 << 16,
+            "ASM loc_81FA: probe uses crawl $E, then sub_B41C restores half-width 5 before adding"
+        );
+        assert!(
+            !result.blocked,
+            "ASM loc_81FA: solid left crawl probe plus clear right crawl probe escapes"
+        );
+    }
+
+    /// ASM sub_81B4: only when both side probes compare equal to `$6000` does
+    /// the routine return d7=1 without moving x_pos.
+    #[test]
+    fn sub_81b4_both_side_probes_solid_returns_blocked() {
+        let grid = grid_with_cells(8, 8, &[(1, 2, 0x60, 0x00), (3, 2, 0x60, 0x00)]);
+        let x_pos = 40u32 << 16;
+        let result = movement::crawl_wall_escape_sub_81B4(&grid, x_pos, 48u32 << 16, 14);
+
+        assert_eq!(
+            result.x_pos, x_pos,
+            "ASM sub_81B4: both probes solid returns before either snap path"
+        );
+        assert!(
+            result.blocked,
+            "ASM sub_81B4: left and right `$6000` probes set d7=1"
+        );
+    }
+
     /// ASM loc_8298 (kid.asm:9038): `bsr.w sub_B41C` — when sub_B43A finds
     /// floor during crawl stand-up, the ROM restores the standing half_width
     /// from unk_B408[Current_Helmet]. Verify that every form's standing

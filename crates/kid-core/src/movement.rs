@@ -5843,18 +5843,19 @@ pub(crate) fn crawl_wall_escape_sub_81B4(
     grid: &terrain::BlockGrid,
     x_pos: u32,
     y_pos: u32,
-    half_width: i32,
+    restored_half_width: i32,
 ) -> CrawlWallEscapeSub81B4 {
     // ASM loc_8270 (kid.asm:9025): called from the crawl stand-up path via
     // `bsr.w sub_81B4`. If sub_81B4 returns NE (blocked), stay crawling
     // (loc_82D8). If EQ (escaped), fall through to loc_8298 (`bsr.w
     // sub_B41C` half-width restore) then loc_829C (stand up dispatch).
     // ASM sub_81B4 (kid.asm:8952): probe one row 16px above the feet at
-    // `x_pos ± half_width`, take the first non-solid side, and snap the player
-    // flush to that tile boundary. Only return blocked when both side probes
-    // are solid (`$6000`).
+    // `x_pos ± $E`, take the first non-solid side, run sub_B41C to restore the
+    // normal half-width, then snap the player flush to that tile boundary.
+    // Only return blocked when both side probes are solid (`$6000`).
     let center_x_px = (x_pos >> 16) as i32;
     let foot_y_px = (y_pos >> 16) as i32;
+    let crawl_probe_half_width_px = 14;
     let sample_y_offset_px = -16;
     let original_x_pos = (center_x_px.max(0) as u32) << 16;
 
@@ -5862,14 +5863,15 @@ pub(crate) fn crawl_wall_escape_sub_81B4(
         grid,
         center_x_px,
         foot_y_px,
-        -half_width,
+        -crawl_probe_half_width_px,
         sample_y_offset_px,
     ) != terrain::CollisionKind::Solid
     {
         // ASM loc_81D8 (kid.asm:8967): left escape path restores the normal
-        // half-width, snaps `(x_pos - half_width)` to the containing tile's
-        // right edge, then subtracts half_width again before returning EQ.
-        let snapped_x_px = ((center_x_px - half_width) & !0xF) + 0xF - half_width;
+        // half-width, snaps `(x_pos - $E)` to the containing tile's right
+        // edge, then subtracts restored half-width before returning EQ.
+        let snapped_x_px =
+            ((center_x_px - crawl_probe_half_width_px) & !0xF) + 0xF - restored_half_width;
         return CrawlWallEscapeSub81B4 {
             x_pos: (snapped_x_px.max(0) as u32) << 16,
             blocked: false,
@@ -5880,14 +5882,14 @@ pub(crate) fn crawl_wall_escape_sub_81B4(
         grid,
         center_x_px,
         foot_y_px,
-        half_width,
+        crawl_probe_half_width_px,
         sample_y_offset_px,
     ) != terrain::CollisionKind::Solid
     {
         // ASM loc_81FA (kid.asm:8981): right escape path restores the normal
-        // half-width, snaps `(x_pos + half_width)` to the containing tile's
-        // left edge, then adds half_width before returning EQ.
-        let snapped_x_px = ((center_x_px + half_width) & !0xF) + half_width;
+        // half-width, snaps `(x_pos + $E)` to the containing tile's left edge,
+        // then adds restored half-width before returning EQ.
+        let snapped_x_px = ((center_x_px + crawl_probe_half_width_px) & !0xF) + restored_half_width;
         return CrawlWallEscapeSub81B4 {
             x_pos: (snapped_x_px.max(0) as u32) << 16,
             blocked: false,
