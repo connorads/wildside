@@ -496,13 +496,14 @@ impl NativeRuntime {
         let mut released_owners = Vec::new();
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
-            if !is_tank_bullet && p.lifetime == 0 {
+            let is_hail = p.kind == EnemyProjectileKind::Hail;
+            if !is_tank_bullet && !is_hail && p.lifetime == 0 {
                 if let Some(owner) = p.owner {
                     released_owners.push(owner);
                 }
                 return false;
             }
-            if !is_tank_bullet {
+            if !is_tank_bullet && !is_hail {
                 p.lifetime -= 1;
             }
             p.y_velocity += p.gravity;
@@ -564,6 +565,19 @@ impl NativeRuntime {
 
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+
+            if is_hail && let Some(camera) = camera {
+                let delete_bottom_px = (camera.y_pos >> 16) as i32 + 0x00E0;
+                let delete_left_px = (camera.x_pos >> 16) as i32 - 0x0010;
+                let projectile_y = (p.y_pos >> 16) as i32;
+                let projectile_x = (p.x_pos >> 16) as i32;
+                // ASM loc_6212/loc_6226: after `addi.w #4,(a0)` and
+                // `subi.w #1,2(a0)`, clear the hail slot when it falls below
+                // Camera_Y_pos+$E0 or drifts left of Camera_X_pos-$10.
+                if projectile_y > delete_bottom_px || projectile_x < delete_left_px {
+                    return false;
+                }
+            }
 
             if is_tank_bullet && let Some(camera) = camera {
                 // ASM Tank_Shooting.asm loc_3B7BA: tank shots do not use a DBF

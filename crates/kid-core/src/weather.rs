@@ -2389,14 +2389,12 @@ impl NativeRuntime {
         // wall_bounce, ...) all match `Default::default()` for hail and are
         // covered by the spread; listing them explicitly only invites
         // equivalent-mutant noise from cargo-mutants.
-        // TODO(fidelity): ROM uses an off-screen kill instead of a 120-frame
-        // lifetime; this simplified path uses a fixed lifetime as a stub.
         self.projectiles.push(EnemyProjectile {
             x_pos: spawn_x << 16,
             y_pos: spawn_y << 16,
             x_velocity: -0x0001_0000,
             y_velocity: 0x4_0000,
-            lifetime: 120,
+            kind: EnemyProjectileKind::Hail,
             ..Default::default()
         });
     }

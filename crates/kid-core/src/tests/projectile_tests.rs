@@ -6479,6 +6479,29 @@ mod chunk_06 {
         );
     }
 
+    #[test]
+    fn loc_6212_hail_projectile_deletes_below_camera_bottom() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut slice = airborne_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        runtime.opening_slice = Some(slice);
+
+        let mut hail = make_projectile(80, 223);
+        hail.kind = EnemyProjectileKind::Hail;
+        hail.x_velocity = -0x0001_0000;
+        hail.y_velocity = 0x0004_0000;
+        hail.lifetime = 0;
+        runtime.projectiles.push(hail);
+
+        runtime.step_projectiles();
+
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM loc_6212/loc_6226: hail below Camera_Y_pos+$E0 must clear the falling slot"
+        );
+    }
+
     // --- Berzerker charge tests ---
 
     fn berzerker_charge_runtime(accum: u8, input: FrameInput) -> NativeRuntime {

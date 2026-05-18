@@ -10504,9 +10504,15 @@ mod chunk_05 {
             p.y_velocity, 0x0004_0000,
             "ASM loc_61E2: y_velocity = 4 px/frame downward"
         );
-        // Stub lifetime — exact 120 frames until the off-screen kill from
-        // ASM loc_6212 is wired in.
-        assert_eq!(p.lifetime, 120, "step_weather lifetime stub: 120 frames");
+        assert_eq!(
+            p.kind,
+            EnemyProjectileKind::Hail,
+            "ASM sub_61CA hail slots use camera-bound deletion, not generic projectile lifetime"
+        );
+        assert_eq!(
+            p.lifetime, 0,
+            "hail lifetime is ignored; ASM loc_6212/loc_6226 deletes by camera bounds"
+        );
         // Default-derived fields: any future code that sets these to non-zero
         // for hail would silently break the storm scenario.
         assert_eq!(
