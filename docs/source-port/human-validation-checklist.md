@@ -15,6 +15,11 @@ To verify every currently referenced bundle before review:
 mise run verify-human-validation
 ```
 
+This gate is intentionally native-only. It proves the saved bundles still replay
+deterministically in the native engine, then leaves the remaining visual and
+playability calls to a human reviewer; it must not be used as oracle-parity
+evidence.
+
 To run the completion audit gate, which must fail until the rows below are
 closed or deliberately deferred:
 

@@ -360,6 +360,7 @@ def render_html(output_dir: Path) -> str:
 <body>
   <h1>Kid Chameleon Human Validation Review</h1>
   <p>Generated from tracked review definitions. Run <code>mise run verify-human-validation</code> before using this page so every linked bundle has a fresh native replay.</p>
+  <p>This page is for native replay determinism and human judgement only. It is not an oracle-parity report; settled-recording oracle bootstrap limitations make the remaining rows unsuitable for automatic closure.</p>
   <p>Output: <code>{html.escape(str(output_dir.relative_to(REPO_ROOT)))}/index.html</code></p>
   {items_html}
 </body>
