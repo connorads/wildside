@@ -2402,6 +2402,42 @@ mod tests {
     }
 
     #[test]
+    fn juggernaut_wall_scan_sub_96e8_left_facing_lower_edge_is_exact() {
+        let mut grid = make_empty_grid(6, 4);
+        grid.set_cell_at(1, 2, Cell::from_be_bytes(0x60, 0x01));
+
+        assert!(
+            juggernaut_wall_scan_sub_96E8(&grid, 35, 63, crate::physics::Direction::Left),
+            "ASM loc_971A uses left-facing lower edge `(x_pos-$04)>>4`, so x=35 must include column 1"
+        );
+
+        let mut outside_grid = make_empty_grid(32, 4);
+        outside_grid.set_cell_at(0, 2, Cell::from_be_bytes(0x60, 0x01));
+        outside_grid.set_cell_at(4, 2, Cell::from_be_bytes(0x60, 0x01));
+        assert!(
+            !juggernaut_wall_scan_sub_96E8(&outside_grid, 52, 63, crate::physics::Direction::Left),
+            "ASM loc_971A scans only columns `(x_pos-$04)>>4..(x_pos+$0B)>>4`; x=52 should exclude columns 0 and 4"
+        );
+    }
+
+    #[test]
+    fn juggernaut_wall_scan_sub_96e8_includes_zero_row_and_column_after_negative_edges() {
+        let mut row_grid = make_empty_grid(3, 2);
+        row_grid.set_cell_at(1, 0, Cell::from_be_bytes(0x60, 0x01));
+        assert!(
+            juggernaut_wall_scan_sub_96E8(&row_grid, 16, 16, crate::physics::Direction::Right),
+            "ASM loc_972E skips negative rows by address underflow in native but still includes row 0 when `(y_pos-$10)>>4` reaches zero"
+        );
+
+        let mut col_grid = make_empty_grid(2, 4);
+        col_grid.set_cell_at(0, 2, Cell::from_be_bytes(0x60, 0x01));
+        assert!(
+            juggernaut_wall_scan_sub_96E8(&col_grid, 11, 63, crate::physics::Direction::Right),
+            "ASM loc_9732 still scans column 0 after the negative leading column is skipped"
+        );
+    }
+
+    #[test]
     fn probe_floor_finds_solid_ground() {
         let grid = make_test_grid();
         // Floor is at row 2 (y=32px). Probing at y=32 should find it.
