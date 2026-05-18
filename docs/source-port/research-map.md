@@ -111,7 +111,7 @@ themselves, prove `human-play-stable`.
 ### Visual fidelity — sprite extraction
 - **#033** [x] Transform animation visual sprites — original `Kid_Transform` art and timing are now wired for all forms. Juggernaut now composes the split head/base sprites into native player frames.
 - Fire Demon death trail visual sprites — live play now renders the `Fire_Demon.asm` `stru_3A622` ROM frames for the death-trail signature (#025). The core still carries this with native projectile snapshots rather than the original child-object lifecycle.
-- Floating item ROM sprites — diamond, helmets, Ankh, Clock, and Continue now use ROM sprite assets. Remaining placeholders are effect-like rewards (`10000` points and `10 diamonds`), which need their worker/effect routines traced rather than simple icon extraction.
+- Floating item ROM sprites — diamond, helmets, Ankh, Clock, Continue, and the early `10000`/`10 diamonds` worker bursts now use ROM sprite assets. Remaining visual debt is late worker lifecycle parity for those effect-like rewards after the first burst window.
 
 ### Visual fidelity — rendering accuracy (not yet investigated)
 - **Palette cycling per theme**: some themes animate palette entries (water shimmer done). Lava, neon, and other themes may have CRAM cycling in the VBlank handler. Trace `kid.asm` VBlank for CRAM writes per theme ID. Extract cycle tables (which entries, rotation speed, colour sequence).

@@ -2580,6 +2580,77 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_draws_10000_points_worker_star_from_hud_rom_tiles() {
+        let mut trace = sample_trace(GameMode::InGame);
+        // ASM Prize10000Points_Init loc_10B00 spawns the first worker when
+        // d3=0; generic prize lifetime low byte is 0x20 on that first visible
+        // frame, so the renderer can recover the local effect age from it.
+        trace.floating_items = vec![(48, 64, 0x20, 0x01)];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                        if tile_sheet.tiles.len() == visuals.hud.digits.tiles.len()
+                            && tiles.iter().any(|tile| tile.tile.tile_index == 1)
+                )
+            }),
+            "ASM loc_10B00/loc_10B3A should draw the d3=0 10000-point worker with unk_E1056 over HUD number tile $6BB"
+        );
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Rect { colour, .. } if *colour == [255, 255, 100]
+                )
+            }),
+            "10000-point prize should not fall back to the placeholder square while its ROM workers are visible"
+        );
+    }
+
+    #[test]
+    fn build_scene_draws_ten_diamonds_workers_from_hud_diamond_rom_tiles() {
+        let mut trace = sample_trace(GameMode::InGame);
+        // ASM Prize10Diamonds_Init loc_108EE uses byte_108AC to spawn the
+        // first four diamond workers on local frames 0..3. Remaining low byte
+        // 0x1D corresponds to local age 3 from the generic 0x0320 lifetime.
+        trace.floating_items = vec![(48, 64, 0x1D, 0x0E)];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let diamond_worker_count = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                        if tile_sheet.tiles.len() == visuals.hud.diamond_tiles.tiles.len()
+                            && tiles.iter().any(|tile| tile.tile.tile_index == 3)
+                )
+            })
+            .count();
+        assert_eq!(
+            diamond_worker_count, 4,
+            "ASM byte_108AC frames 0..3 should draw four ten-diamond workers using unk_E1046 over HUD diamond tile $6ED"
+        );
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Rect { colour, .. } if *colour == [100, 200, 255]
+                )
+            }),
+            "10-diamond prize should not fall back to the placeholder square while its ROM workers are visible"
+        );
+    }
+
+    #[test]
     fn build_scene_draws_floating_diamond_with_rom_sprite_art() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.floating_items = vec![(48, 64, u8::MAX, 0x00)];

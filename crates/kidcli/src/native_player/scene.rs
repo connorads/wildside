@@ -11,6 +11,7 @@ const FIRE_TRAIL_OUTER_COLOUR: [u8; 3] = [255, 120, 32];
 const FIRE_TRAIL_CORE_COLOUR: [u8; 3] = [255, 224, 128];
 const FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME: u16 = 45;
 const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
+const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
 
 const FIRE_DEMON_DEATH_TRAIL_FRAMES: [kid_render::SpriteFrame; 6] = [
     fire_demon_trail_frame(0x0B0, 0x07, 0x00, 0x0E, 0x08),
@@ -1392,6 +1393,16 @@ fn build_game_scene_filtered(
             let fx = i32::from(x_px) - (trace.camera_x_pos >> 16) as i32;
             let fy = i32::from(y_px) - (trace.camera_y_pos >> 16) as i32;
             let content = kid_core::terrain::PrizeContent::from_id(content_id);
+            if render_floating_prize_worker_effect(
+                &mut commands,
+                level_visuals,
+                content,
+                fx,
+                fy,
+                remaining,
+            ) {
+                continue;
+            }
             let graphics_spec = floating_item_graphics_spec(content_id);
             if let Some(prize_visuals) = floating_prize_visuals(level_visuals, content_id) {
                 let frame_index = (trace.frame_index / prize_visuals.frame_duration.max(1))
@@ -1418,7 +1429,6 @@ fn build_game_scene_filtered(
                 (u32::from(base_colour[2]) * alpha / 255) as u8,
             ];
             // Draw content-type-specific pixel-art icon.
-            // TODO(fidelity): wire ROM effects for 10000-points and 10-diamonds prize classes.
             match content {
                 // Diamond: rotated square (diamond shape)
                 kid_core::terrain::PrizeContent::Diamond => {
@@ -1828,6 +1838,144 @@ fn build_game_scene_filtered(
         background,
         commands,
     }
+}
+
+fn render_floating_prize_worker_effect(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    content: kid_core::terrain::PrizeContent,
+    screen_x: i32,
+    screen_y: i32,
+    remaining_low_byte: u8,
+) -> bool {
+    if remaining_low_byte > PRIZE_GENERIC_LIFETIME_LOW_BYTE {
+        return false;
+    }
+    let effect_age = PRIZE_GENERIC_LIFETIME_LOW_BYTE.wrapping_sub(remaining_low_byte);
+    match content {
+        kid_core::terrain::PrizeContent::TenDiamonds => render_ten_diamonds_worker_effect(
+            commands,
+            level_visuals,
+            screen_x,
+            screen_y,
+            effect_age,
+        ),
+        kid_core::terrain::PrizeContent::Points10000 => render_10000_points_worker_effect(
+            commands,
+            level_visuals,
+            screen_x,
+            screen_y,
+            effect_age,
+        ),
+        _ => false,
+    }
+}
+
+fn render_ten_diamonds_worker_effect(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    screen_x: i32,
+    screen_y: i32,
+    effect_age: u8,
+) -> bool {
+    // ASM Prize10Diamonds_Init loc_108EE uses byte_108AC to spawn ten
+    // workers on frames 0..3 and 24..29. Each worker uses unk_E1046:
+    // sprite_frame_vram $6ED,$02,$FE,$08,$08 over the HUD diamond DMA page.
+    const SPAWNS: &[(u8, i32, i32)] = &[
+        (0, -20, -36),
+        (1, -20, -27),
+        (2, -20, -18),
+        (3, -20, -9),
+        (24, 6, -36),
+        (25, -4, -28),
+        (26, 16, -28),
+        (27, -4, -16),
+        (28, 16, -16),
+        (29, 6, -8),
+    ];
+
+    let frame = kid_render::SpriteFrame {
+        origin_x: 0x02,
+        origin_y: -2,
+        width_px: 0x08,
+        height_px: 0x08,
+        tile_base_index: 0x06ED - level_visuals.hud.diamond_base_tile_index,
+        tile_sheet: level_visuals.hud.diamond_tiles.clone(),
+    };
+    let mut drew_worker = false;
+    for &(spawn_frame, x_velocity_word, y_velocity_word) in SPAWNS {
+        if effect_age < spawn_frame {
+            continue;
+        }
+        let worker_age = i32::from(effect_age - spawn_frame);
+        let worker_x = screen_x + ((x_velocity_word * worker_age) >> 3);
+        let worker_y = screen_y + ((y_velocity_word * worker_age) >> 3);
+        push_worker_sprite(
+            commands,
+            &frame,
+            &level_visuals.palettes.foreground,
+            worker_x,
+            worker_y,
+        );
+        drew_worker = true;
+    }
+    drew_worker
+}
+
+fn render_10000_points_worker_effect(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    screen_x: i32,
+    screen_y: i32,
+    effect_age: u8,
+) -> bool {
+    // ASM Prize10000Points_Init loc_10B00 uses unk_10A7A to spawn five workers
+    // on frames 0,5,10,15,20. Frame 0 uses unk_E1056 (tile $6BB); later
+    // workers use unk_E104E (tile $6BA), both 8x8 over HUD number tiles.
+    const SPAWNS: &[u8] = &[0, 5, 10, 15, 20];
+    let mut drew_worker = false;
+    for &spawn_frame in SPAWNS {
+        if effect_age < spawn_frame {
+            continue;
+        }
+        let worker_age = i32::from(effect_age - spawn_frame);
+        let tile_base_index = if spawn_frame == 0 { 1 } else { 0 };
+        let frame = kid_render::SpriteFrame {
+            origin_x: 0x04,
+            origin_y: -4,
+            width_px: 0x08,
+            height_px: 0x08,
+            tile_base_index,
+            tile_sheet: level_visuals.hud.digits.clone(),
+        };
+        let worker_x = screen_x - 6 * worker_age.saturating_sub(0x58);
+        push_worker_sprite(
+            commands,
+            &frame,
+            &level_visuals.palettes.foreground,
+            worker_x,
+            screen_y,
+        );
+        drew_worker = true;
+    }
+    drew_worker
+}
+
+fn push_worker_sprite(
+    commands: &mut Vec<DrawCommand>,
+    frame: &kid_render::SpriteFrame,
+    palette: &Palette,
+    screen_x: i32,
+    screen_y: i32,
+) {
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, Direction::Right);
+    commands.push(DrawCommand::Sprite {
+        x: draw_x,
+        y: draw_y,
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(palette.clone()),
+        tiles: build_sprite_tiles(frame, Direction::Right, 0),
+    });
 }
 
 fn push_heady_metal_death_wobble(
