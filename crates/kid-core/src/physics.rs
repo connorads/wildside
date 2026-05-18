@@ -1034,6 +1034,51 @@ pub(crate) fn reverse_murder_wall_camera_push_loc_7396(camera_x: u32, wall_x: i6
     }
 }
 
+/// Forward murder-wall camera push (kid.asm:7470-7483, loc_7346).
+///
+/// After the forward wall advances rightward, compare camera to wall:
+///
+/// ```asm
+/// loc_7346:
+///   move.w  (Camera_X_pos).w,d0
+///   sub.w   (MurderWall_X_pos).w,d0   ; d0 = camera_px - wall_px
+///   ble.s   loc_7364                   ; wall caught camera -> snap camera
+///   cmp.w   d1,d0
+///   blt.w   loc_73C2                   ; gap below threshold -> no adjustment
+///   move.w  (Camera_X_pos).w,(MurderWall_X_pos).w
+///   sub.w   d1,(MurderWall_X_pos).w    ; clamp wall = camera - d1
+///
+/// loc_7364:
+///   move.w  (MurderWall_X_pos).w,(Camera_X_pos).w
+/// ```
+///
+/// Returns `(new_camera_x, new_wall_x)`. Both values are fixed-point 16.16;
+/// only the integer (high-word) portion is modified, matching the ROM's `.w`
+/// operations. `gap_threshold_px` is d1: $80 normally, $100 on Hills.
+pub(crate) fn forward_murder_wall_camera_push_loc_7346(
+    camera_x: u32,
+    wall_x: i64,
+    gap_threshold_px: i16,
+) -> (u32, i64) {
+    let camera_px = (camera_x >> 16) as i16;
+    let wall_px = (wall_x >> 16) as i16;
+    let d0 = camera_px.wrapping_sub(wall_px);
+
+    if d0 <= 0 {
+        // loc_7364: wall caught or passed camera; snap camera to wall.
+        let new_camera_x = (camera_x & 0xFFFF) + ((wall_px as u16 as u32) << 16);
+        (new_camera_x, wall_x)
+    } else if d0 < gap_threshold_px {
+        // loc_734E -> loc_73C2: wall is within the permitted gap.
+        (camera_x, wall_x)
+    } else {
+        // loc_7358: camera too far ahead; clamp wall to camera - d1.
+        let new_wall_high = camera_px.wrapping_sub(gap_threshold_px) as u16;
+        let new_wall_x = (wall_x & 0xFFFF) + (i64::from(new_wall_high) << 16);
+        (camera_x, new_wall_x)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

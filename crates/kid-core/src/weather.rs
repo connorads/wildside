@@ -2297,12 +2297,9 @@ impl NativeRuntime {
     ///
     /// **Reversed path** (kid.asm:7486–7514): mirrors with `sub.l`.
     ///
-    /// The forward camera-push logic (loc_7346–loc_7364) and the
-    /// Hills-of-the-Warrior threshold (`d1`) are not yet modelled.
-    // TODO(fidelity): loc_7346–loc_7364 forward camera push: when the forward
-    // wall overtakes the camera, the ROM snaps Camera_X_pos = MurderWall_X_pos.
-    // When the camera leads the forward wall by more than d1 ($80 or $100 for
-    // Hills), it snaps MurderWall_X_pos = Camera_X_pos - d1.
+    /// loc_7346–loc_7364 then keeps the forward wall within the ROM's
+    /// camera window: snap Camera_X_pos.w to the wall when overtaken, or clamp
+    /// MurderWall_X_pos.w to Camera_X_pos.w - d1 when the camera leads too far.
     pub(crate) fn step_murder_wall(&mut self, camera_x: &mut u32) {
         let Some(wall) = self.murder_wall.as_mut() else {
             return;
@@ -2326,6 +2323,20 @@ impl NativeRuntime {
         } else {
             // ASM loc_7334 (kid.asm:7464): `add.l d7,(MurderWall_X_pos).w`
             wall.x_pos += i64::from(wall.speed);
+            // ASM loc_7316/loc_7346: d1 is `$80` for normal forward walls and
+            // `$100` for Hills of the Warrior 1 (`L_Hills_of_the_Warrior_1`).
+            let gap_threshold_px = if self.current_level == LevelId(0x08) {
+                0x0100
+            } else {
+                0x0080
+            };
+            let (new_cam, new_wall) = physics::forward_murder_wall_camera_push_loc_7346(
+                *camera_x,
+                wall.x_pos,
+                gap_threshold_px,
+            );
+            *camera_x = new_cam;
+            wall.x_pos = new_wall;
         }
     }
 

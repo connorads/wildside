@@ -10862,6 +10862,106 @@ mod chunk_05 {
         );
     }
 
+    // --- loc_7346: forward murder wall camera push ---
+
+    /// ASM loc_7364 (kid.asm:7482): when the forward wall catches or passes
+    /// Camera_X_pos, snap Camera_X_pos.w to MurderWall_X_pos.w.
+    #[test]
+    fn loc_7364_forward_wall_overtakes_camera_snaps_camera_to_wall() {
+        let (new_cam, new_wall) =
+            physics::forward_murder_wall_camera_push_loc_7346(0x0100_4000, 0x0120_0000, 0x80);
+        assert_eq!(
+            new_cam >> 16,
+            0x0120,
+            "ASM loc_7364: Camera_X_pos.w <- MurderWall_X_pos.w"
+        );
+        assert_eq!(new_cam & 0xFFFF, 0x4000, "camera fractional part preserved");
+        assert_eq!(new_wall, 0x0120_0000, "wall unchanged by loc_7364");
+    }
+
+    /// ASM loc_734E/loc_73C2: when the camera leads the forward wall by less
+    /// than d1, leave camera and wall unchanged.
+    #[test]
+    fn loc_734e_forward_wall_small_gap_no_adjustment() {
+        let cam = 0x0120_0000u32;
+        let wall = 0x00F0_8000i64;
+        let (new_cam, new_wall) =
+            physics::forward_murder_wall_camera_push_loc_7346(cam, wall, 0x80);
+        assert_eq!(new_cam, cam, "ASM loc_734E -> loc_73C2: camera unchanged");
+        assert_eq!(new_wall, wall, "ASM loc_734E -> loc_73C2: wall unchanged");
+    }
+
+    /// ASM loc_7358 (kid.asm:7475): when the camera leads the forward wall by
+    /// at least d1, clamp MurderWall_X_pos.w to Camera_X_pos.w - d1.
+    #[test]
+    fn loc_7358_forward_wall_large_gap_clamps_wall_to_camera_minus_threshold() {
+        let cam = 0x0200_0000u32;
+        let wall = 0x0100_8000i64;
+        let (new_cam, new_wall) =
+            physics::forward_murder_wall_camera_push_loc_7346(cam, wall, 0x80);
+        assert_eq!(new_cam, cam, "camera unchanged by clamp path");
+        assert_eq!(
+            new_wall >> 16,
+            0x0180,
+            "ASM loc_7358: MurderWall_X_pos.w = Camera_X_pos.w - d1"
+        );
+        assert_eq!(new_wall & 0xFFFF, 0x8000, "wall fractional part preserved");
+    }
+
+    #[test]
+    fn loc_7364_step_forward_wall_overtakes_camera_snaps_camera_to_wall() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: 0x0120_0000,
+            speed: 0,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        });
+
+        let mut cam = 0x0100_4000u32;
+        runtime.step_murder_wall(&mut cam);
+        let wall = runtime.murder_wall.as_ref().unwrap();
+
+        assert_eq!(
+            cam >> 16,
+            0x0120,
+            "ASM loc_7364: forward wall caught camera, so Camera_X_pos.w follows MurderWall_X_pos.w"
+        );
+        assert_eq!(cam & 0xFFFF, 0x4000, "camera fractional part preserved");
+        assert_eq!(
+            wall.x_pos, 0x0120_0100,
+            "ASM loc_7334/loc_7364: wall keeps its accelerated fixed-point position"
+        );
+    }
+
+    #[test]
+    fn loc_7346_step_forward_wall_uses_hills_threshold() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.current_level = LevelId(0x08);
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: 0x0100_0000,
+            speed: 0,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        });
+
+        let mut cam = 0x0200_0000u32;
+        runtime.step_murder_wall(&mut cam);
+        let wall = runtime.murder_wall.as_ref().unwrap();
+
+        assert_eq!(cam, 0x0200_0000, "camera is unchanged on loc_7358 path");
+        assert_eq!(
+            wall.x_pos >> 16,
+            0x0100,
+            "ASM loc_7316: Hills of the Warrior 1 uses d1=$100, not the normal $80"
+        );
+        assert_eq!(
+            wall.x_pos & 0xFFFF,
+            0x0100,
+            "ASM loc_7334: fractional speed advance remains after high-word clamp"
+        );
+    }
+
     // --- loc_7464: input byte decode (shift chain) + left/right conflict ---
 
     /// ASM loc_7464 (kid.asm:7593–7609): `move.b (Ctrl_Held),d0` then 7×
