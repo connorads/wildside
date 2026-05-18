@@ -69,21 +69,3 @@ cargo run -p kidcli -- verify-recording --slug issue-143-tas-route --native-only
 That route reaches Knight's Isle Iron Knight (`helmet 0 -> 6` at frame 3170)
 and verifies as replayable, but it has no Iron Knight block-break candidate,
 block bounce, or block destroy effect before returning to the title screen.
-
-## Playability Validation Row
-
-| Backlog row | Current command | Current evidence | Required human action |
-|---|---|---|---|
-| #146 Level 2 death/loading hang | `cargo run -q -p kidcli -- verify-recording --slug issue-146-level2-death --native-only`; `cargo run -q -p kidcli -- verify-recording --slug issue-146-level2-stomp-long-probe --native-only` | Short scripted `stomp-enemy` Level 01 route takes damage at frames 814/1272 and enters `LevelTransition` at frame 1347; long 9000-frame probe recovers to `InGame` at frame 8589 | Decide whether the long death/loading interval is acceptable for the current 1P phase, or record a different Level 2 death route that still hangs |
-
-Recommended refresh command:
-
-```bash
-cargo run --release -p kidcli -- record-scenario --slug issue-146-level2-death --scenario stomp-enemy --level 01 --walk-frames 1800
-cargo run -q -p kidcli -- verify-recording --slug issue-146-level2-death --native-only
-cargo run -q -p kidcli -- verify-recording --slug issue-146-level2-stomp-long-probe --native-only
-```
-
-If a hang is reproduced on a different route, keep #146 open and add the first
-bad frame, transcript event window, and any relevant screenshots. If human review accepts
-the long scripted transition as non-blocking, close or defer the row only with the tested routes documented.
