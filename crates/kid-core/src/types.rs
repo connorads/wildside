@@ -1928,6 +1928,13 @@ pub(crate) struct EnemyProjectileOwner {
     pub(crate) token: u8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum EnemyProjectileKind {
+    #[default]
+    Generic,
+    TankBullet,
+}
+
 /// Projectile fired by an enemy (Archer arrow, Tank bullet, etc.).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct EnemyProjectile {
@@ -1964,6 +1971,7 @@ pub(crate) struct EnemyProjectile {
     /// Owning enemy identity for projectiles whose lifecycle feeds back into
     /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.
     pub(crate) owner: Option<EnemyProjectileOwner>,
+    pub(crate) kind: EnemyProjectileKind,
 }
 
 /// Murder wall: an advancing wall that kills the player on contact.

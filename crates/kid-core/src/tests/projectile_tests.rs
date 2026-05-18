@@ -4911,6 +4911,61 @@ mod chunk_06 {
     }
 
     #[test]
+    fn tank_bullet_loc_3b7ba_ignores_generic_lifetime_inside_camera_box() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0x0200_0000;
+        slice.camera.y_pos = 0x0100_0000;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0200_0000,
+            y_pos: 0x0120_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: 0,
+            kind: EnemyProjectileKind::TankBullet,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Tank_Shooting.asm loc_3B7BA loops while the tank shot remains inside the signed camera box; there is no generic lifetime expiry"
+        );
+        assert_eq!(
+            rt.projectiles[0].lifetime, 0,
+            "ASM Tank_Shooting.asm loc_3B7BA does not decrement a native lifetime fallback"
+        );
+    }
+
+    #[test]
+    fn tank_bullet_loc_3b7ba_deletes_after_leaving_camera_box() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0x0200_0000;
+        slice.camera.y_pos = 0x0100_0000;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x03C0_0000,
+            y_pos: 0x0120_0000,
+            x_velocity: 0x0001_0000,
+            y_velocity: 0,
+            lifetime: u16::MAX,
+            kind: EnemyProjectileKind::TankBullet,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Tank_Shooting.asm loc_3B7BA branches to loc_3B7EC once the signed relative x word exceeds `$01C0`"
+        );
+    }
+
+    #[test]
     #[allow(non_snake_case)]
     /// ASM sub_B55C (probed at loc_8852/loc_8916 with `cmpi.w #$6000,d5`):
     /// the skull's tile-boundary collision check only fires when the cell

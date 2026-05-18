@@ -1,7 +1,10 @@
 use super::*;
 #[cfg(test)]
 use crate::combat::CollisionSizeEntrySub21F8;
-use crate::enemies::{archer_angle_to_player, archer_reaim_loc_3432E};
+use crate::enemies::{
+    TankBulletLoopRouteLoc3B7BA, archer_angle_to_player, archer_reaim_loc_3432E,
+    tank_bullet_loop_route_loc_3b7ba,
+};
 
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -492,13 +495,16 @@ impl NativeRuntime {
         let grid = self.block_grid.as_ref();
         let mut released_owners = Vec::new();
         self.projectiles.retain_mut(|p| {
-            if p.lifetime == 0 {
+            let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
+            if !is_tank_bullet && p.lifetime == 0 {
                 if let Some(owner) = p.owner {
                     released_owners.push(owner);
                 }
                 return false;
             }
-            p.lifetime -= 1;
+            if !is_tank_bullet {
+                p.lifetime -= 1;
+            }
             p.y_velocity += p.gravity;
 
             // Arrow re-aiming: ASM loc_342D6 loop. Every `reaim_interval` frames,
@@ -558,6 +564,22 @@ impl NativeRuntime {
 
             p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+
+            if is_tank_bullet && let Some(camera) = camera {
+                // ASM Tank_Shooting.asm loc_3B7BA: tank shots do not use a DBF
+                // lifetime; after each hibernated frame they survive only while
+                // their signed camera-relative x/y words stay in [-$80, $1C0].
+                let route = tank_bullet_loop_route_loc_3b7ba(
+                    (p.x_pos >> 16) as u16,
+                    (p.y_pos >> 16) as u16,
+                    (camera.x_pos >> 16) as u16,
+                    (camera.y_pos >> 16) as u16,
+                    0,
+                );
+                if route == TankBulletLoopRouteLoc3B7BA::Delete {
+                    return false;
+                }
+            }
 
             // ASM Lion.asm sub_3E2CE: lion projectiles only survive while the
             // parent token matches and the object stays inside the camera box

@@ -5314,10 +5314,9 @@ pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
 
 /// Tank bullet speed in FP16.16 (3 px/frame → $30000).
 pub(crate) const TANK_BULLET_SPEED: i32 = 0x3_0000;
-/// Tank bullet lifetime in frames (enough to cross a screen width).
-/// TODO(fidelity): ASM Tank_Shooting.asm loc_3B7BA keeps the shot alive until
-/// camera bounds or collision delete it; native still uses this timer fallback.
-pub(crate) const TANK_BULLET_LIFETIME: u16 = 120;
+/// Tank bullets carry a sentinel lifetime because their native lifecycle is
+/// handled by ASM Tank_Shooting.asm loc_3B7BA's camera-relative bounds loop.
+pub(crate) const TANK_BULLET_LIFETIME: u16 = u16::MAX;
 /// ASM Tank_Shooting.asm `stru_3B4D8`: one shot every 116 frames at HP 4.
 pub(crate) const TANK_SHOOTING_FAST_CYCLE_FRAMES: u16 = 116;
 /// ASM Tank_Shooting.asm loc_3B682 / `stru_3B4F6`: one shot every 232
@@ -22463,6 +22462,7 @@ pub(crate) fn step_archer(
         current_angle: angle as u8,
         terrain_kill: true,
         owner: None,
+        kind: EnemyProjectileKind::Generic,
     });
 }
 
@@ -23073,6 +23073,7 @@ pub(crate) fn step_tank_shooting_fire(
         homing_accel: 0,
         speed_cap: 0,
         wall_bounce: false,
+        kind: EnemyProjectileKind::TankBullet,
         ..Default::default()
     });
 }
