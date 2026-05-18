@@ -23,9 +23,9 @@ true:
 | Oracle-backed accuracy stays green | `project-status` reports `1p-accurate: passed`, backed by release-gate/sweep evidence | 2026-05-18 audit: passed | Pass |
 | Published TAS frontier is closed | `project-status` reports `any-percent-published [complete]` through its end frame | 2026-05-18 audit: clean through frame 37759 | Pass |
 | Source-port frontier has no agent-actionable task | `cargo run -q -p kidcli -- autonomous-loop --goal source-port-frontier` reports no ready implementation task | 2026-05-18 audit: `status: stalled`; task summary says no new sweep refresh until new case/backlog/gate/proactive-verification work exists | Pass |
-| Canonical backlog has no unresolved phase blockers | `docs/source-port/backlog.md` has no open `[?]`, `[~]`, or `[b]` P1 rows blocking 1P playability or visual parity | Seven rows remain: #135, #136, #138, #139, #140, #143, #146 | Fail |
-| Human-only validation has been resolved | Saved recording/PNG evidence has been inspected by a human or deliberately deferred out of scope | #135, #136, #138, #139, #140, and #143 still require human validation | Fail |
-| Human-only repro blockers have been resolved | Blocked rows have a human repro bundle or an explicit out-of-scope decision | #146 still needs human Level 2 death/loading repro | Fail |
+| Canonical backlog has no unresolved phase blockers | `docs/source-port/backlog.md` has no open `[?]`, `[~]`, or `[b]` P1 rows blocking 1P playability or visual parity | Seven validation rows remain: #135, #136, #138, #139, #140, #143, #146 | Fail |
+| Human-only validation has been resolved | Saved recording/PNG evidence has been inspected by a human or deliberately deferred out of scope | #135, #136, #138, #139, #140, #143, and #146 still require human validation | Fail |
+| Human-only repro blockers have been resolved | Blocked rows have a human repro bundle or an explicit out-of-scope decision | #146 now has deterministic Level 2 death evidence; no `[b]` repro blocker remains | Pass |
 
 ## Open Blockers
 
@@ -39,7 +39,7 @@ These are the current blockers to a completion claim:
 | #139 | visual validation | Human validates rubber-block PNGs in `.cache/recordings/issue-139-rubber-block-window/verify/native/` |
 | #140 | visual validation | Human validates prize-block-hit PNGs in `.cache/recordings/issue-140-prize-block-window/verify/native/` |
 | #143 | playability validation | Human records a settled Heavy Man helmet/block-break route; current scripted bundle is only a negative baseline |
-| #146 | blocked repro | Human records a Level 2 death/loading repro or decides the report is out of scope |
+| #146 | playability validation | Human accepts the scripted Level 2 death transition as non-blocking or records a different route that still hangs |
 
 Use `human-validation-checklist.md` for the exact verifier commands, PNGs, and
 pass/fail decisions for these rows.
