@@ -1415,6 +1415,7 @@ mod tests {
             number_lives: 3,
             number_hitpoints: 2,
             current_helmet_id: 0,
+            red_stealth_sword_timer: 0,
             paused: false,
             kid_x_pos: Some(0x0020_0000),
             kid_y_pos: Some(0x010F_0000),
@@ -1778,6 +1779,8 @@ mod tests {
                 slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(8),
                 jump_fall: sample_player_frame(9),
+                slash_ground: Vec::new(),
+                slash_air: Vec::new(),
                 transform_palette: None,
                 transform_steps: Vec::new(),
             },
@@ -1801,6 +1804,8 @@ mod tests {
                 slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(17),
                 jump_fall: sample_player_frame(18),
+                slash_ground: Vec::new(),
+                slash_air: Vec::new(),
                 transform_palette: Some(Palette {
                     colours: vec![colour(0, 0, 0), colour(255, 230, 160)],
                 }),
@@ -1818,6 +1823,34 @@ mod tests {
                         frame: Some(sample_player_frame(20)),
                     },
                 ],
+            },
+        );
+        forms.insert(
+            PlayerForm::RedStealth.helmet_id(),
+            PlayerFormVisuals {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(255, 100, 100)],
+                },
+                idle: sample_player_frame(21),
+                walk: vec![sample_player_frame(22)],
+                slope_walk: Vec::new(),
+                slope_walk_left: Vec::new(),
+                jump_rise: sample_player_frame(23),
+                jump_fall: sample_player_frame(24),
+                slash_ground: vec![
+                    sample_player_frame(30),
+                    sample_player_frame(31),
+                    sample_player_frame(32),
+                    sample_player_frame(33),
+                ],
+                slash_air: vec![
+                    sample_player_frame(34),
+                    sample_player_frame(35),
+                    sample_player_frame(36),
+                    sample_player_frame(37),
+                ],
+                transform_palette: None,
+                transform_steps: Vec::new(),
             },
         );
 
@@ -3956,7 +3989,7 @@ mod tests {
     }
 
     fn is_player_test_signature(signature: u8) -> bool {
-        (1..=20).contains(&signature)
+        (1..=40).contains(&signature)
     }
 
     fn player_sprite_signature(scene: &Scene) -> Option<u8> {
@@ -4004,6 +4037,40 @@ mod tests {
                 }
             )
         }));
+    }
+
+    #[test]
+    fn red_stealth_sword_timer_selects_ground_slash_rom_frame_loc_76b0_stru_8b3c() {
+        let mut trace = trace_with_player(720, 0);
+        trace.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+        trace.red_stealth_sword_timer = 11;
+        trace.kid_on_ground = Some(true);
+        trace.kid_x_velocity = Some(0);
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            player_sprite_signature(&scene),
+            Some(30),
+            "ASM loc_76B0 initialises Red Stealth sword animation `stru_8B3C`, whose first rendered frame is `unk_B3520`",
+        );
+    }
+
+    #[test]
+    fn red_stealth_sword_timer_selects_air_slash_rom_frame_sub_b270() {
+        let mut trace = trace_with_player(720, 0);
+        trace.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+        trace.red_stealth_sword_timer = 8;
+        trace.kid_on_ground = Some(false);
+        trace.kid_y_velocity = Some(0x0002_0000);
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            player_sprite_signature(&scene),
+            Some(35),
+            "ASM sub_B270 buckets the Red Stealth airborne slash through `unk_B40DE..unk_B4870`",
+        );
     }
 
     fn sprite_position(scene: &Scene, signature: u8) -> Option<(i32, i32)> {

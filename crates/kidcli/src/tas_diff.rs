@@ -803,6 +803,7 @@ mod tests {
             number_continues: 0,
             number_hitpoints: 0,
             current_helmet_id: 0,
+            red_stealth_sword_timer: 0,
             paused: false,
             kid_x_pos: None,
             kid_y_pos: None,

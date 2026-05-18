@@ -520,6 +520,8 @@ struct PlayerFormSpec {
     slope_walk_left: &'static [PlayerFrameDescriptor],
     jump_rise: PlayerFrameDescriptor,
     jump_fall: PlayerFrameDescriptor,
+    slash_ground: &'static [PlayerFrameDescriptor],
+    slash_air: &'static [PlayerFrameDescriptor],
     transform_palette: Option<(&'static str, &'static str)>,
     transform_steps: &'static [PlayerTransformStepDescriptor],
 }
@@ -1655,6 +1657,42 @@ const RED_STEALTH_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/red_stealth_walk_5.bin", 0x0F, 0x01, 0x18, 0x24),
     pfd("artunc_kid/red_stealth_walk_6.bin", 0x0F, 0x01, 0x18, 0x22),
 ];
+const RED_STEALTH_SLASH_GROUND_FRAMES: [PlayerFrameDescriptor; 4] = [
+    pfd("artunc_kid/red_stealth_slash_1.bin", 0x0E, 0x01, 0x18, 0x26),
+    pfd("artunc_kid/red_stealth_slash_2.bin", 0x1A, 0x01, 0x25, 0x21),
+    pfd("artunc_kid/red_stealth_slash_3.bin", 0x19, 0x01, 0x23, 0x20),
+    pfd("artunc_kid/red_stealth_slash_4.bin", 0x0E, 0x01, 0x2E, 0x1F),
+];
+const RED_STEALTH_SLASH_AIR_FRAMES: [PlayerFrameDescriptor; 4] = [
+    pfd(
+        "artunc_kid/red_stealth_slash_air_1.bin",
+        0x0C,
+        0x01,
+        0x17,
+        0x28,
+    ),
+    pfd(
+        "artunc_kid/red_stealth_slash_air_2.bin",
+        0x0B,
+        0x01,
+        0x23,
+        0x27,
+    ),
+    pfd(
+        "artunc_kid/red_stealth_slash_air_3.bin",
+        0x0C,
+        0x04,
+        0x19,
+        0x28,
+    ),
+    pfd(
+        "artunc_kid/red_stealth_slash_air_4.bin",
+        0x0D,
+        0x06,
+        0x17,
+        0x2A,
+    ),
+];
 const RED_STEALTH_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 13] = [
     tfd(
         4,
@@ -2341,6 +2379,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &KID_SLOPE_WALK_LEFT_FRAMES,
         jump_rise: KID_JUMP_RISE_FRAME,
         jump_fall: KID_JUMP_FALL_FRAME,
+        slash_ground: &[],
+        slash_air: &[],
         transform_palette: None,
         transform_steps: &[],
     },
@@ -2354,6 +2394,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: SKYCUTTER_IDLE_FRAME,
         jump_fall: SKYCUTTER_IDLE_FRAME,
+        slash_ground: &[],
+        slash_air: &[],
         transform_palette: Some((
             SKYCUTTER_TRANSFORM_PALETTE_PATH,
             "Skycutter transform palette",
@@ -2370,6 +2412,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/cyclone_jumping_1.bin", 0x0D, 0x00, 0x17, 0x22),
         jump_fall: pfd("artunc_kid/cyclone_jumping_3.bin", 0x0C, 0x00, 0x16, 0x23),
+        slash_ground: &[],
+        slash_air: &[],
         transform_palette: Some((CYCLONE_TRANSFORM_PALETTE_PATH, "Cyclone transform palette")),
         transform_steps: &CYCLONE_TRANSFORM_STEPS,
     },
@@ -2395,6 +2439,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
             0x15,
             0x25,
         ),
+        slash_ground: &RED_STEALTH_SLASH_GROUND_FRAMES,
+        slash_air: &RED_STEALTH_SLASH_AIR_FRAMES,
         transform_palette: Some((
             RED_STEALTH_TRANSFORM_PALETTE_PATH,
             "Red Stealth transform palette",
@@ -2411,6 +2457,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/eyeclops_jumping_1.bin", 0x10, 0x00, 0x1C, 0x25),
         jump_fall: pfd("artunc_kid/eyeclops_jumping_2.bin", 0x0A, 0x00, 0x19, 0x21),
+        slash_ground: &[],
+        slash_air: &[],
         transform_palette: Some((
             EYECLOPS_TRANSFORM_PALETTE_PATH,
             "Eyeclops transform palette",
@@ -2428,6 +2476,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: IRON_KNIGHT_JUMP_RISE_FRAME,
         jump_fall: IRON_KNIGHT_JUMP_FALL_FRAME,
+        slash_ground: &[],
+        slash_air: &[],
         transform_palette: Some((
             IRON_KNIGHT_TRANSFORM_PALETTE_PATH,
             "Iron Knight transform palette",
@@ -2444,6 +2494,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/berzerker_jumping_1.bin", 0x11, 0x00, 0x20, 0x1F),
         jump_fall: pfd("artunc_kid/berzerker_jumping_3.bin", 0x11, 0x00, 0x1F, 0x21),
+        slash_ground: &[],
+        slash_air: &[],
         transform_palette: Some((
             BERZERKER_TRANSFORM_PALETTE_PATH,
             "Berzerker transform palette",
@@ -2460,6 +2512,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/maniaxe_jumping_1.bin", 0x0E, 0x02, 0x1C, 0x23),
         jump_fall: pfd("artunc_kid/maniaxe_jumping_2.bin", 0x0F, -0x02, 0x1C, 0x20),
+        slash_ground: &[],
+        slash_air: &[],
         transform_palette: Some((MANIAXE_TRANSFORM_PALETTE_PATH, "Maniaxe transform palette")),
         transform_steps: &MANIAXE_TRANSFORM_STEPS,
     },
@@ -2473,6 +2527,8 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk_left: &[],
         jump_rise: pfd("artunc_kid/micromax_jumping_1.bin", 0x09, 0x00, 0x10, 0x14),
         jump_fall: pfd("artunc_kid/micromax_jumping_3.bin", 0x09, 0x00, 0x10, 0x12),
+        slash_ground: &[],
+        slash_air: &[],
         transform_palette: Some((
             MICROMAX_TRANSFORM_PALETTE_PATH,
             "Micromax transform palette",
@@ -2721,6 +2777,8 @@ fn load_juggernaut_form_visuals_if_present(
                 ),
             ],
         )?,
+        slash_ground: Vec::new(),
+        slash_air: Vec::new(),
         transform_palette: Some(transform_palette),
         transform_steps: JUGGERNAUT_TRANSFORM_STEPS
             .iter()
@@ -2783,6 +2841,8 @@ fn load_player_form_visuals(
             .collect(),
         jump_rise: load_player_frame(manifest, spec.jump_rise)?,
         jump_fall: load_player_frame(manifest, spec.jump_fall)?,
+        slash_ground: load_player_frames(manifest, spec.slash_ground)?,
+        slash_air: load_player_frames(manifest, spec.slash_air)?,
         transform_palette,
         transform_steps: spec
             .transform_steps
@@ -2825,6 +2885,17 @@ fn load_player_frame(
         tile_base_index: 0,
         tile_sheet,
     })
+}
+
+fn load_player_frames(
+    manifest: &AssetManifest,
+    descriptors: &[PlayerFrameDescriptor],
+) -> Result<Vec<SpriteFrame>> {
+    descriptors
+        .iter()
+        .copied()
+        .map(|descriptor| load_player_frame(manifest, descriptor))
+        .collect()
 }
 
 fn load_composite_player_frame(

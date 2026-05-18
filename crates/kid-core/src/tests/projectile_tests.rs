@@ -1891,6 +1891,26 @@ mod chunk_06 {
         );
     }
 
+    #[test]
+    /// ASM loc_76B0 stores the Red Stealth sword flag in RAM; native trace exposes
+    /// that timer so the player renderer can select `stru_8B3C` slash art.
+    fn red_stealth_c_press_reports_sword_timer_in_trace() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.enter_level_playtest(LevelId(0));
+        rt.progression.current_form = PlayerForm::RedStealth;
+
+        rt.step_red_stealth_sword(FrameInput {
+            c: true,
+            ..FrameInput::default()
+        });
+        let trace = rt.trace_frame();
+
+        assert!(
+            trace.red_stealth_sword_timer > 0,
+            "ASM loc_76B0: Red_Stealth_sword_swing should be visible to native-player rendering",
+        );
+    }
+
     /// ASM loc_76B0 only enters the sword allocation path after the C-button
     /// gate. Red Stealth idling with no C press must leave the swing flag clear.
     #[test]

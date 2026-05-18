@@ -366,6 +366,21 @@ pub(super) fn select_player_frame<'a>(
     let x_velocity = trace.kid_x_velocity.unwrap_or(0);
     let y_velocity = trace.kid_y_velocity.unwrap_or(0);
 
+    if trace.red_stealth_sword_timer > 0 {
+        let slash_frames = if on_ground {
+            &player_visuals.slash_ground
+        } else {
+            &player_visuals.slash_air
+        };
+        if !slash_frames.is_empty() {
+            // ASM loc_76B0 initialises `stru_8B3C` for the grounded sword and
+            // sub_B270 indexes `unk_B40DE..unk_B4870` for the air slash.
+            let elapsed = usize::from(12u8.saturating_sub(trace.red_stealth_sword_timer));
+            let frame_index = (elapsed / 3).min(slash_frames.len() - 1);
+            return &slash_frames[frame_index];
+        }
+    }
+
     if on_ground {
         if x_velocity == 0 {
             &player_visuals.idle

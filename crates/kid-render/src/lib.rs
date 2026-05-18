@@ -146,6 +146,7 @@ mod tests {
 
         let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
         let kid = visuals.player.forms.get(&0).expect("Kid visuals");
+        let red_stealth = visuals.player.forms.get(&3).expect("Red Stealth visuals");
         let iron_knight = visuals.player.forms.get(&6).expect("Iron Knight visuals");
 
         assert_eq!(kid.palette.colours.len(), 15);
@@ -162,6 +163,12 @@ mod tests {
         assert_eq!(kid.jump_fall.origin_x, 0x09);
         assert_eq!(kid.jump_fall.width_px, 0x14);
         assert_eq!(kid.idle.tile_base_index, 0);
+        assert_eq!(red_stealth.slash_ground.len(), 4);
+        assert_eq!(red_stealth.slash_ground[0].origin_x, 0x0E);
+        assert_eq!(red_stealth.slash_ground[0].width_px, 0x18);
+        assert_eq!(red_stealth.slash_air.len(), 4);
+        assert_eq!(red_stealth.slash_air[0].origin_x, 0x0C);
+        assert_eq!(red_stealth.slash_air[0].height_px, 0x28);
 
         assert_eq!(iron_knight.palette.colours.len(), 15);
         assert_eq!(iron_knight.idle.origin_x, 0x13);
@@ -526,6 +533,45 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/palette_kid/Red_Stealth.bin",
+                &(0..15)
+                    .map(|value| 0x02C0_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Red_Stealth_Transformation.bin",
+                &(0..15)
+                    .map(|value| 0x0300_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            for (path, fill) in [
+                ("ingame/artunc_kid/red_stealth.bin", 0x51),
+                ("ingame/artunc_kid/red_stealth_walk_1.bin", 0x52),
+                ("ingame/artunc_kid/red_stealth_walk_2.bin", 0x53),
+                ("ingame/artunc_kid/red_stealth_walk_3.bin", 0x54),
+                ("ingame/artunc_kid/red_stealth_walk_4.bin", 0x55),
+                ("ingame/artunc_kid/red_stealth_walk_5.bin", 0x56),
+                ("ingame/artunc_kid/red_stealth_walk_6.bin", 0x57),
+                ("ingame/artunc_kid/red_stealth_jumping_1.bin", 0x58),
+                ("ingame/artunc_kid/red_stealth_jumping_2.bin", 0x59),
+                ("ingame/artunc_kid/red_stealth_transformation_1.bin", 0x5A),
+                ("ingame/artunc_kid/red_stealth_transformation_2.bin", 0x5B),
+                ("ingame/artunc_kid/red_stealth_slash_1.bin", 0x5C),
+                ("ingame/artunc_kid/red_stealth_slash_2.bin", 0x5D),
+                ("ingame/artunc_kid/red_stealth_slash_3.bin", 0x5E),
+                ("ingame/artunc_kid/red_stealth_slash_4.bin", 0x5F),
+                ("ingame/artunc_kid/red_stealth_slash_air_1.bin", 0x60),
+                ("ingame/artunc_kid/red_stealth_slash_air_2.bin", 0x61),
+                ("ingame/artunc_kid/red_stealth_slash_air_3.bin", 0x62),
+                ("ingame/artunc_kid/red_stealth_slash_air_4.bin", 0x63),
+            ] {
+                write_file(root.path(), path, &vec![fill; 32 * 48])?;
+            }
+            write_file(
+                root.path(),
                 "theme/palette_fg/cave.bin",
                 &(0..15)
                     .flat_map(|value| (value as u16).to_be_bytes())
@@ -627,6 +673,11 @@ mod tests {
                         root.path(),
                         "ingame/palette_kid/Iron_Knight_Transformation.bin",
                     ),
+                    asset_file(root.path(), "ingame/palette_kid/Red_Stealth.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/palette_kid/Red_Stealth_Transformation.bin",
+                    ),
                     asset_file(root.path(), "ingame/artunc_kid/kid.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_1.bin"),
                     asset_file(root.path(), "ingame/artunc_kid/kid_walk_2.bin"),
@@ -661,6 +712,31 @@ mod tests {
                         root.path(),
                         "ingame/artunc_kid/iron_knight_transformation_4.bin",
                     ),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_jumping_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_jumping_2.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/red_stealth_transformation_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/red_stealth_transformation_2.bin",
+                    ),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_air_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_air_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_air_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_air_4.bin"),
                 ],
                 decoded_levels: vec![DecodedLevelAssets {
                     contract_version: DECODED_LEVEL_ASSET_VERSION,

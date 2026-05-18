@@ -913,6 +913,11 @@ impl NativeRuntime {
             } else {
                 self.progression.current_form.helmet_id()
             },
+            red_stealth_sword_timer: if hidden_boot_progression {
+                0
+            } else {
+                self.helmet.red_stealth_sword_timer
+            },
             paused: self.paused,
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),

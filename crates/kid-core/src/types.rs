@@ -1036,6 +1036,9 @@ pub struct NativeTraceFrame {
     pub number_continues: u8,
     pub number_hitpoints: u16,
     pub current_helmet_id: u16,
+    /// ROM `Red_Stealth_sword_swing` mirror for native-player rendering.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub red_stealth_sword_timer: u8,
     pub paused: bool,
     pub kid_x_pos: Option<u32>,
     pub kid_y_pos: Option<u32>,
@@ -1139,6 +1142,7 @@ impl Default for NativeTraceFrame {
             number_continues: 0,
             number_hitpoints: 0,
             current_helmet_id: 0,
+            red_stealth_sword_timer: 0,
             paused: false,
             kid_x_pos: None,
             kid_y_pos: None,
@@ -1189,6 +1193,11 @@ impl Default for NativeTraceFrame {
             physics_trace: None,
         }
     }
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_zero_u8(value: &u8) -> bool {
+    *value == 0
 }
 
 impl NativeTraceFrame {
