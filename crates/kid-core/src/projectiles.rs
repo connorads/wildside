@@ -595,7 +595,8 @@ impl NativeRuntime {
                 }
             }
 
-            // Terrain-kill: Archer arrows die on level/object collision.
+            // Terrain-kill: projectiles such as Archer arrows and Maniaxe axes
+            // die on level/object collision.
             // ASM loc_342D6: `tst.b $19(a3)` (has_level_collision) / `tst.w collision_type(a3)`.
             // ASM Archer.asm loc_34336 then decrements Number_of_Arrows; native
             // projectile retention represents that count by shrinking the Vec.

@@ -5054,10 +5054,8 @@ impl NativeRuntime {
     ///
     /// ASM loc_8ACC (kid.asm:9913): axe hits solid block (`andi.w #$7000,d7;
     ///   cmpi.w #$6000,d7; beq loc_8ACC`) — clear x_vel, play sfx, animate
-    ///   stru_8BDE explosion, `jmp Delete_CurrentObject`. Native: lifetime
-    ///   expiry removes projectile; no per-frame solid-terrain check.
-    /// TODO(fidelity): native Maniaxe axe ignores solid terrain. ASM destroys
-    ///   the axe with an explosion animation on solid-block contact.
+    ///   stru_8BDE explosion, `jmp Delete_CurrentObject`. Native: uses the
+    ///   shared terrain-kill projectile path for solid-terrain deletion.
     ///
     /// ASM loc_8AF2 (kid.asm:9925): `jmp Delete_CurrentObject` — reached after
     ///   solid-block explosion animation (loc_8ACC) or out-of-bounds check
@@ -5094,6 +5092,9 @@ impl NativeRuntime {
                 x_velocity,
                 lifetime: (MANIAXE_TRAVEL_FRAMES as u16) * 2 + MANIAXE_STARTUP_FRAMES as u16,
                 friendly: true,
+                // ASM loc_8ACC (kid.asm:9913): solid terrain routes the axe
+                // through its hit animation and then deletes it.
+                terrain_kill: true,
                 ..Default::default()
             });
         }

@@ -3471,10 +3471,9 @@ mod chunk_06 {
 
     /// ASM loc_8ACC (kid.asm:9913): axe hits solid block — `clr.w x_vel(a3);
     /// clr.b $12(a3); clr.b palette_line(a3)`, play sfx, animate stru_8BDE,
-    /// delete. Native uses lifetime expiry instead.
-    /// TODO(fidelity): native Maniaxe axe ignores solid terrain contact.
+    /// delete.
     #[test]
-    fn maniaxe_axe_solid_terrain_not_modelled_loc_8acc() {
+    fn maniaxe_axe_solid_terrain_sets_terrain_kill_loc_8acc() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         let slice = combat_slice();
@@ -3486,12 +3485,10 @@ mod chunk_06 {
         rt.step_maniaxe_axe(&slice, input);
         assert_eq!(rt.projectiles.len(), 1);
         let axe = &rt.projectiles[0];
-        // The ASM axe checks `andi.w #$7000,d7; cmpi.w #$6000,d7` (Solid collision)
-        // each frame. Native axe has no terrain_kill flag — it relies on lifetime.
+        // The ASM axe checks `andi.w #$7000,d7; cmpi.w #$6000,d7` each frame.
         assert!(
-            !axe.terrain_kill,
-            "ASM loc_8ACC: TODO(fidelity) — native axe does not check solid terrain; \
-             ASM destroys axe with stru_8BDE explosion animation on solid-block contact"
+            axe.terrain_kill,
+            "ASM loc_8ACC: native should route Maniaxe axe through terrain-kill deletion"
         );
     }
 
