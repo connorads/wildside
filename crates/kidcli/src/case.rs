@@ -573,6 +573,9 @@ fn reduce_case_bundle(
         },
         &loaded.source,
     )?;
+    if let Some(blocked_reason) = initial.verify.blocked_reason.as_ref() {
+        bail!("case {} is blocked: {blocked_reason}", loaded.case_id);
+    }
     let signature = initial.verify.first_failure.clone().ok_or_else(|| {
         anyhow!(
             "case {} is already passing; nothing to reduce",
@@ -807,8 +810,21 @@ fn run_case_verification(
             )
         }
     };
-    let verify =
-        compare_semantic_states(verification.case_id.clone(), &native_states, &oracle_states)?;
+    let verify = if let Some(blocked_reason) =
+        recording_oracle_bootstrap_block_reason(source, &native_states, &oracle_states)?
+    {
+        CaseVerifyReport {
+            case_id: verification.case_id.clone(),
+            passed: false,
+            frame_count: native_states.len(),
+            first_failure: None,
+            matching_fields: Vec::new(),
+            likely_subsystems: vec![String::from("recording verification")],
+            blocked_reason: Some(blocked_reason),
+        }
+    } else {
+        compare_semantic_states(verification.case_id.clone(), &native_states, &oracle_states)?
+    };
     Ok(VerificationOutput {
         native_states,
         oracle_states,
@@ -837,7 +853,7 @@ fn recording_replay_drift_reason(
             ));
         }
     }
-    if recording.trace.len() != replay.len() {
+    if replay.len() > recording.trace.len() {
         return Some(format!(
             "source recording replay length drifted (recorded {}, replay {}); re-verify or re-record `{}` before treating this case as gameplay-authoritative",
             recording.trace.len(),
@@ -845,6 +861,48 @@ fn recording_replay_drift_reason(
             recording.manifest.slug
         ));
     }
+    None
+}
+
+fn recording_oracle_bootstrap_block_reason(
+    source: &CaseSource,
+    native_states: &[SemanticGameState],
+    oracle_states: &[SemanticGameState],
+) -> Result<Option<String>> {
+    let recording = match source {
+        CaseSource::Recording { .. } => recording_from_source(source)?,
+        CaseSource::ScenarioPath { .. } | CaseSource::GameplayScenario { .. } => return Ok(None),
+    };
+    if !recording.manifest.start.settled {
+        return Ok(None);
+    }
+
+    Ok(settled_recording_oracle_bootstrap_block_reason(
+        &recording,
+        native_states,
+        oracle_states,
+    ))
+}
+
+fn settled_recording_oracle_bootstrap_block_reason(
+    recording: &NativeRecording,
+    native_states: &[SemanticGameState],
+    oracle_states: &[SemanticGameState],
+) -> Option<String> {
+    let native = native_states.first()?;
+    let oracle = oracle_states.first()?;
+    let expected_level = recording.manifest.start.warp_level.map(u16::from);
+    if expected_level == Some(native.world.current_level_id)
+        && native.world.current_level_id != oracle.world.current_level_id
+        && oracle.world.current_level_id == 0
+        && oracle.world.paused
+    {
+        return Some(format!(
+            "settled recording oracle bootstrap stayed paused on Level 00 while native reached Level {:02X}; fix settled-recording oracle bootstrap before treating `{}` as gameplay-authoritative",
+            native.world.current_level_id, recording.manifest.slug
+        ));
+    }
+
     None
 }
 
@@ -2190,6 +2248,127 @@ mod tests {
 
         assert!(reason.contains("source recording replay drifted at frame 0"));
         assert!(reason.contains("level1-tree-break"));
+    }
+
+    #[test]
+    fn recording_replay_drift_reason_accepts_case_prefix() {
+        let recording = NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from("level1-tree-break"),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(0),
+                    settled: true,
+                    record_frames: None,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: None,
+                record_command: String::new(),
+                verify_command: String::new(),
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from("level1-tree-break"),
+                    script: vec![0, 0],
+                    frame_count: 2,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    warp_to_level: Some(0),
+                },
+            },
+            trace: vec![NativeTraceFrame::default(), NativeTraceFrame::default()],
+        };
+
+        let reason = recording_replay_drift_reason(&recording, &[NativeTraceFrame::default()]);
+
+        assert_eq!(reason, None);
+    }
+
+    #[test]
+    fn settled_recording_oracle_bootstrap_block_reason_catches_level_zero_pause() {
+        let recording = NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from("knights-isle-probe"),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(0x15),
+                    settled: true,
+                    record_frames: None,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: None,
+                record_command: String::new(),
+                verify_command: String::new(),
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from("knights-isle-probe"),
+                    script: vec![0],
+                    frame_count: 1,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    warp_to_level: Some(0x15),
+                },
+            },
+            trace: vec![NativeTraceFrame::default()],
+        };
+        let native = semantic_state_at_level(0x15, false);
+        let oracle = semantic_state_at_level(0x00, true);
+
+        let reason =
+            settled_recording_oracle_bootstrap_block_reason(&recording, &[native], &[oracle])
+                .expect("blocked reason");
+
+        assert!(reason.contains("stayed paused on Level 00"));
+        assert!(reason.contains("Level 15"));
+        assert!(reason.contains("knights-isle-probe"));
+    }
+
+    fn semantic_state_at_level(level: u16, paused: bool) -> SemanticGameState {
+        SemanticGameState {
+            frame_index: 0,
+            player: SemanticPlayerState {
+                x_pos: Some(0),
+                y_pos: Some(0),
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: None,
+                on_ground: None,
+                movement_state: Some(String::from("movement_0000")),
+                current_form: Some(0),
+                hitpoints: Some(2),
+                invulnerable_frames: Some(0),
+                collision_type: None,
+            },
+            camera: SemanticCameraState { x_pos: 0, y_pos: 0 },
+            world: SemanticWorldState {
+                game_mode: 0x000c,
+                current_level_id: level,
+                player_1_level_id: level,
+                current_player: 0,
+                score: Some(0),
+                number_lives: Some(3),
+                diamond_count: Some(0),
+                paused,
+                boot_phase: None,
+            },
+            entities: Vec::new(),
+            events: Vec::new(),
+        }
     }
 
     #[test]
